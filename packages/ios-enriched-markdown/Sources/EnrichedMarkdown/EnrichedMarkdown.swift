@@ -1,1 +1,3 @@
-public enum EnrichedMarkdown {}
+public enum EnrichedMarkdown {
+    // Namespace for the EnrichedMarkdown library.
+}
