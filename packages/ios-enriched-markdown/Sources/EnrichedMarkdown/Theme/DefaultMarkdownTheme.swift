@@ -45,6 +45,10 @@ enum DefaultMarkdownTheme {
                 .foregroundStyle(Semantic.secondary)
                 .marginBottom(8)
 
+            Link()
+                .foregroundStyle(Semantic.tint)
+                .underline()
+
             Strong()
             Emphasis()
         }

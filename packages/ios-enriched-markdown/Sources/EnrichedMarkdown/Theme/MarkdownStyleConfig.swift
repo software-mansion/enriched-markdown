@@ -7,6 +7,7 @@ public struct ElementStyle: Equatable, Sendable {
     public var marginBottom: CGFloat?
     public var lineHeight: CGFloat?
     public var textAlignment: NSTextAlignment?
+    public var underline: Bool?
 
     public init(
         font: UIFont? = nil,
@@ -14,7 +15,8 @@ public struct ElementStyle: Equatable, Sendable {
         marginTop: CGFloat? = nil,
         marginBottom: CGFloat? = nil,
         lineHeight: CGFloat? = nil,
-        textAlignment: NSTextAlignment? = nil
+        textAlignment: NSTextAlignment? = nil,
+        underline: Bool? = nil
     ) {
         self.font = font
         self.foregroundColor = foregroundColor
@@ -22,6 +24,7 @@ public struct ElementStyle: Equatable, Sendable {
         self.marginBottom = marginBottom
         self.lineHeight = lineHeight
         self.textAlignment = textAlignment
+        self.underline = underline
     }
 
     public mutating func merge(_ other: ElementStyle) {
@@ -31,6 +34,7 @@ public struct ElementStyle: Equatable, Sendable {
         if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
         if let lineHeight = other.lineHeight { self.lineHeight = lineHeight }
         if let textAlignment = other.textAlignment { self.textAlignment = textAlignment }
+        if let underline = other.underline { self.underline = underline }
     }
 }
 
@@ -42,6 +46,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var heading4: ElementStyle
     public var heading5: ElementStyle
     public var heading6: ElementStyle
+    public var link: ElementStyle
     public var strong: ElementStyle
     public var emphasis: ElementStyle
 
@@ -53,6 +58,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         heading4: ElementStyle = ElementStyle(),
         heading5: ElementStyle = ElementStyle(),
         heading6: ElementStyle = ElementStyle(),
+        link: ElementStyle = ElementStyle(),
         strong: ElementStyle = ElementStyle(),
         emphasis: ElementStyle = ElementStyle()
     ) {
@@ -63,6 +69,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.heading4 = heading4
         self.heading5 = heading5
         self.heading6 = heading6
+        self.link = link
         self.strong = strong
         self.emphasis = emphasis
     }
@@ -75,6 +82,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         heading4.merge(other.heading4)
         heading5.merge(other.heading5)
         heading6.merge(other.heading6)
+        link.merge(other.link)
         strong.merge(other.strong)
         emphasis.merge(other.emphasis)
     }
@@ -102,4 +110,3 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         default: heading1 = style
         }
     }
-}

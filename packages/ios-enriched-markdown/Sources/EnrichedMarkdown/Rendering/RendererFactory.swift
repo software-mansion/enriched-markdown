@@ -41,6 +41,8 @@ final class RendererFactory {
             return EmphasisRenderer(factory: self, config: config)
         case .heading:
             return HeadingRenderer(factory: self, config: config)
+        case .link:
+            return LinkRenderer(factory: self, config: config)
         default:
             return childrenOnlyRenderer
         }

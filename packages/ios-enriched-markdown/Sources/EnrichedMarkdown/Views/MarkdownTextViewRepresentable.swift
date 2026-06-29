@@ -3,13 +3,25 @@ import UIKit
 
 struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let attributedText: NSAttributedString
+    let onLinkPress: ((URL) -> Void)?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
 
     func makeUIView(context: Context) -> MarkdownTextView {
-        MarkdownTextView()
+        let textView = MarkdownTextView()
+        textView.delegate = context.coordinator
+        return textView
     }
 
     func updateUIView(_ textView: MarkdownTextView, context: Context) {
+        context.coordinator.onLinkPress = onLinkPress
         textView.setMarkdownAttributedText(attributedText)
+    }
+
+    static func dismantleUIView(_ uiView: MarkdownTextView, coordinator: Coordinator) {
+        uiView.delegate = nil
     }
 
     @available(iOS 16.0, *)
@@ -17,6 +29,23 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         let width = proposal.width ?? UIScreen.main.bounds.width
         let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: width, height: size.height)
+    }
+
+    final class Coordinator: NSObject, UITextViewDelegate {
+        var onLinkPress: ((URL) -> Void)?
+
+        func textView(
+            _ textView: UITextView,
+            shouldInteractWith URL: URL,
+            in characterRange: NSRange,
+            interaction: UITextItemInteraction
+        ) -> Bool {
+            if let onLinkPress {
+                onLinkPress(URL)
+                return false
+            }
+            return true
+        }
     }
 }
 
@@ -42,10 +71,13 @@ final class MarkdownTextView: UITextView {
 
     private func configure() {
         isEditable = false
+        isSelectable = true
         isScrollEnabled = false
         backgroundColor = .clear
         textContainerInset = .zero
         textContainer.lineFragmentPadding = 0
+        dataDetectorTypes = []
+        linkTextAttributes = [:]
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
 
