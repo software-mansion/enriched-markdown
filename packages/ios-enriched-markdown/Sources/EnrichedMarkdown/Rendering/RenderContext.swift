@@ -3,11 +3,13 @@ import UIKit
 enum BlockType {
     case none
     case paragraph
+    case heading
 }
 
 struct BlockStyle {
     var font: UIFont
     var color: UIColor
+    var headingLevel: Int
 }
 
 enum MarkdownAttribute {
@@ -15,17 +17,17 @@ enum MarkdownAttribute {
 }
 
 final class RenderContext {
-  private(set) var currentBlockType: BlockType = .none
-  private(set) var currentBlockStyle: BlockStyle?
+    private(set) var currentBlockType: BlockType = .none
+    private(set) var currentBlockStyle: BlockStyle?
 
     func reset() {
         currentBlockType = .none
         currentBlockStyle = nil
     }
 
-    func setBlockStyle(font: UIFont, color: UIColor) {
-        currentBlockType = .paragraph
-        currentBlockStyle = BlockStyle(font: font, color: color)
+    func setBlockStyle(font: UIFont, color: UIColor, blockType: BlockType = .paragraph, headingLevel: Int = 0) {
+        currentBlockType = blockType
+        currentBlockStyle = BlockStyle(font: font, color: color, headingLevel: headingLevel)
     }
 
     func clearBlockStyle() {

@@ -155,6 +155,60 @@ final class RendererTests: XCTestCase {
         XCTAssertNotNil(baselineOffset)
         XCTAssertGreaterThan(baselineOffset ?? 0, 0)
     }
+
+
+    func testHeadingUsesLargerFontThanBody() {
+        let result = MarkdownRenderer.render("# Heading", config: config)
+        XCTAssertTrue(result.string.contains("Heading"))
+
+        let bodyFont = config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)
+        var effectiveRange = NSRange()
+        let attributes = result.attributes(at: 0, effectiveRange: &effectiveRange)
+        let headingFont = attributes[.font] as? UIFont
+        XCTAssertNotNil(headingFont)
+        XCTAssertGreaterThan(headingFont!.pointSize, bodyFont.pointSize)
+    }
+
+
+    func testHeadingLevel2UsesConfiguredFont() {
+        let result = MarkdownRenderer.render("## Sub", config: config)
+        XCTAssertTrue(result.string.contains("Sub"))
+
+        let expectedFont = config.heading2.font ?? UIFont.systemFont(ofSize: 24, weight: .regular)
+        var effectiveRange = NSRange()
+        let attributes = result.attributes(at: 0, effectiveRange: &effectiveRange)
+        let font = attributes[.font] as? UIFont
+        XCTAssertEqual(font?.pointSize, expectedFont.pointSize)
+    }
+
+
+    func testHeadingUsesBoldWeightInDefaultTheme() {
+        let result = MarkdownRenderer.render("# Heading", config: config)
+
+        var effectiveRange = NSRange()
+        let attributes = result.attributes(at: 0, effectiveRange: &effectiveRange)
+        let font = attributes[.font] as? UIFont
+        XCTAssertNotNil(font)
+        XCTAssertTrue(font!.fontDescriptor.symbolicTraits.contains(.traitBold))
+    }
+
+
+    func testBoldInsideHeading() {
+        let result = MarkdownRenderer.render("# **bold** heading", config: config)
+
+        var boldFound = false
+        result.enumerateAttribute(.font, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            let substring = (result.string as NSString).substring(with: range)
+            if substring.contains("bold") {
+                XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+                let headingFont = config.heading1.font ?? UIFont.systemFont(ofSize: 30, weight: .regular)
+                XCTAssertGreaterThanOrEqual(font.pointSize, headingFont.pointSize)
+                boldFound = true
+            }
+        }
+        XCTAssertTrue(boldFound)
+    }
 }
 
 private extension String {

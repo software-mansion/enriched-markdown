@@ -39,6 +39,8 @@ final class RendererFactory {
             return StrongRenderer(factory: self, config: config)
         case .emphasis:
             return EmphasisRenderer(factory: self, config: config)
+        case .heading:
+            return HeadingRenderer(factory: self, config: config)
         default:
             return childrenOnlyRenderer
         }
