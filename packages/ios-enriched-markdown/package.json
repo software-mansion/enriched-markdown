@@ -5,6 +5,7 @@
   "description": "Standalone iOS native library for enriched-markdown",
   "scripts": {
     "build": "cd ../.. && swift build",
+    "test": "cd ../.. && swift test",
     "clean": "cd ../.. && swift package clean"
   }
 }

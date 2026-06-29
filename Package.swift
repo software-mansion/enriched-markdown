@@ -22,14 +22,25 @@ let package = Package(
             ]
         ),
         .target(
-            name: "EnrichedMarkdown",
+            name: "EnrichedMarkdownCppShim",
             dependencies: ["EnrichedMarkdownCore"],
-            path: "packages/ios-enriched-markdown/Sources/EnrichedMarkdown",
+            path: "packages/ios-enriched-markdown/cpp",
+            publicHeadersPath: ".",
             cxxSettings: [
-                .headerSearchPath("../../../core/cpp/md4c"),
-                .headerSearchPath("../../../core/cpp/parser"),
+                .headerSearchPath("../../core/cpp/md4c"),
+                .headerSearchPath("../../core/cpp/parser"),
                 .define("MD4C_USE_UTF8", to: "1"),
             ]
+        ),
+        .target(
+            name: "EnrichedMarkdown",
+            dependencies: ["EnrichedMarkdownCppShim"],
+            path: "packages/ios-enriched-markdown/Sources/EnrichedMarkdown"
+        ),
+        .testTarget(
+            name: "EnrichedMarkdownTests",
+            dependencies: ["EnrichedMarkdown"],
+            path: "packages/ios-enriched-markdown/Tests/EnrichedMarkdownTests"
         ),
     ]
 )
