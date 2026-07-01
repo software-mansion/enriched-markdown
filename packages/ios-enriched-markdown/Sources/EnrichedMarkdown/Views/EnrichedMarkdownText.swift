@@ -4,16 +4,39 @@ import UIKit
 public struct EnrichedMarkdownText: View {
     private let markdown: String
 
-    @Environment(\.markdownStyleConfig) private var styleConfig
+    @Environment(\.markdownThemeLayers) private var themeLayers
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String) {
         self.markdown = markdown
     }
 
+    private var styleConfig: MarkdownStyleConfig {
+        let traitCollection = ThemeResolver.traitCollection(
+            colorScheme: colorScheme,
+            dynamicTypeSize: dynamicTypeSize
+        )
+        return MarkdownStyleConfig.resolve(layers: themeLayers, traitCollection: traitCollection)
+    }
+
     public var body: some View {
         MarkdownTextViewRepresentable(
-            attributedText: MarkdownRenderer.render(markdown, config: styleConfig)
+            attributedText: renderStore.attributedText
         )
         .fixedSize(horizontal: false, vertical: true)
+        .onAppear {
+            renderStore.schedule(markdown: markdown, config: styleConfig)
+        }
+        .onChange(of: markdown) { newValue in
+            renderStore.schedule(markdown: newValue, config: styleConfig)
+        }
+        .onChange(of: styleConfig) { newValue in
+            renderStore.schedule(markdown: markdown, config: newValue)
+        }
+        .onDisappear {
+            renderStore.invalidate()
+        }
     }
 }
