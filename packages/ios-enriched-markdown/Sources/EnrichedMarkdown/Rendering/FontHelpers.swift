@@ -26,4 +26,19 @@ enum FontHelpers {
     static func cachedFont(from blockStyle: BlockStyle?) -> UIFont? {
         blockStyle?.font
     }
+
+    static func ensureMonospaced(_ font: UIFont?, configFont: UIFont?) -> UIFont? {
+        if let configFont {
+            return configFont
+        }
+        guard let font else {
+            return UIFont.monospacedSystemFont(
+                ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
+                weight: .regular
+            )
+        }
+
+        let weight: UIFont.Weight = font.fontDescriptor.symbolicTraits.contains(.traitBold) ? .bold : .regular
+        return UIFont.monospacedSystemFont(ofSize: font.pointSize, weight: weight)
+    }
 }

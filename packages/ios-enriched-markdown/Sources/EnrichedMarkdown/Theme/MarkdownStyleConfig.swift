@@ -3,6 +3,7 @@ import UIKit
 public struct ElementStyle: Equatable, Sendable {
     public var font: UIFont?
     public var foregroundColor: UIColor?
+    public var backgroundColor: UIColor?
     public var marginTop: CGFloat?
     public var marginBottom: CGFloat?
     public var lineHeight: CGFloat?
@@ -12,6 +13,7 @@ public struct ElementStyle: Equatable, Sendable {
     public init(
         font: UIFont? = nil,
         foregroundColor: UIColor? = nil,
+        backgroundColor: UIColor? = nil,
         marginTop: CGFloat? = nil,
         marginBottom: CGFloat? = nil,
         lineHeight: CGFloat? = nil,
@@ -20,6 +22,7 @@ public struct ElementStyle: Equatable, Sendable {
     ) {
         self.font = font
         self.foregroundColor = foregroundColor
+        self.backgroundColor = backgroundColor
         self.marginTop = marginTop
         self.marginBottom = marginBottom
         self.lineHeight = lineHeight
@@ -30,6 +33,7 @@ public struct ElementStyle: Equatable, Sendable {
     public mutating func merge(_ other: ElementStyle) {
         if let font = other.font { self.font = font }
         if let foregroundColor = other.foregroundColor { self.foregroundColor = foregroundColor }
+        if let backgroundColor = other.backgroundColor { self.backgroundColor = backgroundColor }
         if let marginTop = other.marginTop { self.marginTop = marginTop }
         if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
         if let lineHeight = other.lineHeight { self.lineHeight = lineHeight }
@@ -49,6 +53,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var link: ElementStyle
     public var strong: ElementStyle
     public var emphasis: ElementStyle
+    public var code: ElementStyle
 
     public init(
         paragraph: ElementStyle = ElementStyle(),
@@ -60,7 +65,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         heading6: ElementStyle = ElementStyle(),
         link: ElementStyle = ElementStyle(),
         strong: ElementStyle = ElementStyle(),
-        emphasis: ElementStyle = ElementStyle()
+        emphasis: ElementStyle = ElementStyle(),
+        code: ElementStyle = ElementStyle()
     ) {
         self.paragraph = paragraph
         self.heading1 = heading1
@@ -72,6 +78,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.link = link
         self.strong = strong
         self.emphasis = emphasis
+        self.code = code
     }
 
     public mutating func merge(_ other: MarkdownStyleConfig) {
@@ -85,6 +92,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         link.merge(other.link)
         strong.merge(other.strong)
         emphasis.merge(other.emphasis)
+        code.merge(other.code)
     }
 
     public func headingStyle(for level: Int) -> ElementStyle {
@@ -110,3 +118,5 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         default: heading1 = style
         }
     }
+
+}

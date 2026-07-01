@@ -51,6 +51,11 @@ enum DefaultMarkdownTheme {
 
             Strong()
             Emphasis()
+
+            Code()
+                .fontDesign(.monospaced)
+                .foregroundStyle(Semantic.secondary)
+                .background(Semantic.quaternary)
         }
     }
 }

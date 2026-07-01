@@ -315,6 +315,82 @@ final class RendererTests: XCTestCase {
         let attributes = result.attributes(at: separatorRange.location, effectiveRange: &effectiveRange)
         XCTAssertNotNil(attributes[.font] as? UIFont)
     }
+
+
+    func testInlineCodeUsesMonospacedFont() {
+        let result = MarkdownRenderer.render("Use `code` here", config: config)
+        XCTAssertTrue(result.string.contains("code"))
+
+        var foundMonospaced = false
+        result.enumerateAttribute(.font, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            if result.string[range] == "code" {
+                XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
+                foundMonospaced = true
+            }
+        }
+        XCTAssertTrue(foundMonospaced)
+    }
+
+
+    func testInlineCodeHasInlineCodeAttribute() {
+        let result = MarkdownRenderer.render("`code`", config: config)
+
+        var found = false
+        result.enumerateAttribute(MarkdownAttribute.inlineCode, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            if result.string[range] == "code", value as? Bool == true {
+                found = true
+            }
+        }
+        XCTAssertTrue(found)
+    }
+
+
+    func testInlineCodeAppliesBackgroundColor() {
+        let result = MarkdownRenderer.render("`code`", config: config)
+
+        var foundBackground = false
+        result.enumerateAttribute(.backgroundColor, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            if result.string[range] == "code", value != nil {
+                foundBackground = true
+            }
+        }
+        XCTAssertTrue(foundBackground)
+    }
+
+
+    func testInlineCodeThemeOverrideAppliesColor() {
+        var customConfig = config!
+        customConfig.code.foregroundColor = .systemPink
+
+        let result = MarkdownRenderer.render("`code`", config: customConfig)
+
+        var foundPink = false
+        result.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard let color = value as? UIColor else { return }
+            if result.string[range] == "code" {
+                XCTAssertEqual(color, UIColor.systemPink)
+                foundPink = true
+            }
+        }
+        XCTAssertTrue(foundPink)
+    }
+
+
+    func testBoldInlineCodePreservesBoldWeight() {
+        let result = MarkdownRenderer.render("**`code`**", config: config)
+
+        var foundBoldMonospaced = false
+        result.enumerateAttribute(.font, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            if result.string[range] == "code" {
+                XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
+                XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+                foundBoldMonospaced = true
+            }
+        }
+        XCTAssertTrue(foundBoldMonospaced)
+    }
 }
 
 private extension String {
