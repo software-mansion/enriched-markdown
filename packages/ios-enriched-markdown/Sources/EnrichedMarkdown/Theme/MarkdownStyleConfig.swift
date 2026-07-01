@@ -80,6 +80,32 @@ public struct InlineImageStyle: Equatable, Sendable {
     }
 }
 
+public struct ThematicBreakStyle: Equatable, Sendable {
+    public var color: UIColor?
+    public var height: CGFloat?
+    public var marginTop: CGFloat?
+    public var marginBottom: CGFloat?
+
+    public init(
+        color: UIColor? = nil,
+        height: CGFloat? = nil,
+        marginTop: CGFloat? = nil,
+        marginBottom: CGFloat? = nil
+    ) {
+        self.color = color
+        self.height = height
+        self.marginTop = marginTop
+        self.marginBottom = marginBottom
+    }
+
+    public mutating func merge(_ other: ThematicBreakStyle) {
+        if let color = other.color { self.color = color }
+        if let height = other.height { self.height = height }
+        if let marginTop = other.marginTop { self.marginTop = marginTop }
+        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
+    }
+}
+
 public struct MarkdownStyleConfig: Equatable, Sendable {
     public var paragraph: ElementStyle
     public var heading1: ElementStyle
@@ -94,6 +120,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var code: ElementStyle
     public var image: ImageStyle
     public var inlineImage: InlineImageStyle
+    public var thematicBreak: ThematicBreakStyle
 
     public init(
         paragraph: ElementStyle = ElementStyle(),
@@ -108,7 +135,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         emphasis: ElementStyle = ElementStyle(),
         code: ElementStyle = ElementStyle(),
         image: ImageStyle = ImageStyle(),
-        inlineImage: InlineImageStyle = InlineImageStyle()
+        inlineImage: InlineImageStyle = InlineImageStyle(),
+        thematicBreak: ThematicBreakStyle = ThematicBreakStyle()
     ) {
         self.paragraph = paragraph
         self.heading1 = heading1
@@ -123,6 +151,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.code = code
         self.image = image
         self.inlineImage = inlineImage
+        self.thematicBreak = thematicBreak
     }
 
     public mutating func merge(_ other: MarkdownStyleConfig) {
@@ -139,6 +168,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         code.merge(other.code)
         image.merge(other.image)
         inlineImage.merge(other.inlineImage)
+        thematicBreak.merge(other.thematicBreak)
     }
 
     public func headingStyle(for level: Int) -> ElementStyle {

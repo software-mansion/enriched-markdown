@@ -49,6 +49,8 @@ final class RendererFactory {
             return CodeRenderer(factory: self, config: config)
         case .image:
             return ImageRenderer(config: config)
+        case .thematicBreak:
+            return ThematicBreakRenderer(config: config)
         default:
             return childrenOnlyRenderer
         }

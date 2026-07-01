@@ -451,6 +451,35 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertFalse(hasAttachment)
     }
+
+
+    func testThematicBreakInsertsAttachment() {
+        let result = MarkdownRenderer.render("---", config: config!)
+
+        XCTAssertTrue(result.string.contains("\u{FFFC}"))
+
+        var foundAttachment = false
+        result.enumerateAttribute(.attachment, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            guard value is NSTextAttachment else { return }
+            foundAttachment = true
+        }
+        XCTAssertTrue(foundAttachment)
+    }
+
+
+    func testThematicBreakThemeOverride() {
+        var customConfig = config!
+        customConfig.thematicBreak.height = 3
+
+        let result = MarkdownRenderer.render("---", config: customConfig)
+        var found = false
+        result.enumerateAttribute(.attachment, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            guard let attachment = value as? ThematicBreakAttachment else { return }
+            XCTAssertEqual(attachment.lineHeight, 3)
+            found = true
+        }
+        XCTAssertTrue(found)
+    }
 }
 
 private extension String {

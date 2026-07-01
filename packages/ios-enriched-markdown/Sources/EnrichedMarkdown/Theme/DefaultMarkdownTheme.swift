@@ -64,6 +64,12 @@ enum DefaultMarkdownTheme {
 
             InlineImage()
                 .size(20)
+
+            ThematicBreak()
+                .foregroundStyle(Semantic.secondary)
+                .height(1)
+                .marginTop(24)
+                .marginBottom(24)
         }
     }
 }
