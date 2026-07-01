@@ -37,6 +37,10 @@ final class ParagraphRenderer: NodeRenderer {
             contentStart += offset
         }
 
+        if isBlockImage {
+            context.rendersBlockImage = true
+        }
+
         if isTopLevel {
             factory.renderChildren(of: node, into: output, context: context)
             context.clearBlockStyle()
@@ -46,6 +50,8 @@ final class ParagraphRenderer: NodeRenderer {
                 ParagraphStyleHelpers.ensureTrailingNewline(in: output)
             }
         }
+
+        context.rendersBlockImage = false
 
         guard output.length > start else { return }
 

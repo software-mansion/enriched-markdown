@@ -391,6 +391,66 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(foundBoldMonospaced)
     }
+
+
+    func testBlockImageInsertsAttachmentWithAltText() {
+        let result = MarkdownRenderer.render("![Mountain](https://example.com/img.png)", config: config)
+
+        var found = false
+        result.enumerateAttribute(.attachment, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            guard let attachment = value as? MarkdownImageAttachment else { return }
+            XCTAssertEqual(attachment.imageURL, "https://example.com/img.png")
+            XCTAssertFalse(attachment.isInline)
+            XCTAssertEqual(attachment.accessibilityLabel, "Mountain")
+            XCTAssertEqual(attachment.cachedHeight, 200)
+            found = true
+        }
+        XCTAssertTrue(found)
+    }
+
+
+    func testBlockImageAfterParagraphIsNotInline() {
+        let result = MarkdownRenderer.render(
+            "Hello world\n\n![Mountain](https://example.com/img.png)",
+            config: config
+        )
+
+        var foundBlockImage = false
+        result.enumerateAttribute(.attachment, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            guard let attachment = value as? MarkdownImageAttachment else { return }
+            XCTAssertFalse(attachment.isInline)
+            XCTAssertEqual(attachment.cachedHeight, 200)
+            foundBlockImage = true
+        }
+        XCTAssertTrue(foundBlockImage)
+    }
+
+
+    func testInlineImageUsesInlineSize() {
+        let result = MarkdownRenderer.render("Hello ![icon](https://example.com/icon.png) world", config: config)
+
+        var found = false
+        result.enumerateAttribute(.attachment, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            guard let attachment = value as? MarkdownImageAttachment else { return }
+            XCTAssertTrue(attachment.isInline)
+            XCTAssertEqual(attachment.cachedHeight, 20)
+            found = true
+        }
+        XCTAssertTrue(found)
+    }
+
+
+    func testImageWithEmptyURLIsSkipped() {
+        let result = MarkdownRenderer.render("![alt]()", config: config)
+
+        var hasAttachment = false
+        result.enumerateAttribute(.attachment, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            if value != nil {
+                hasAttachment = true
+            }
+        }
+        XCTAssertFalse(hasAttachment)
+    }
 }
 
 private extension String {

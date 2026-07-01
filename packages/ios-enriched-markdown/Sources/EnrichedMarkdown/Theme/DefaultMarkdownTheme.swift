@@ -56,6 +56,14 @@ enum DefaultMarkdownTheme {
                 .fontDesign(.monospaced)
                 .foregroundStyle(Semantic.secondary)
                 .background(Semantic.quaternary)
+
+            BlockImage()
+                .height(200)
+                .borderRadius(8)
+                .marginBottom(16)
+
+            InlineImage()
+                .size(20)
         }
     }
 }

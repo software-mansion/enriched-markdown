@@ -47,6 +47,8 @@ final class RendererFactory {
             return LineBreakRenderer()
         case .code:
             return CodeRenderer(factory: self, config: config)
+        case .image:
+            return ImageRenderer(config: config)
         default:
             return childrenOnlyRenderer
         }
