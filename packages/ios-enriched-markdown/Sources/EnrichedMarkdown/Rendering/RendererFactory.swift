@@ -43,6 +43,8 @@ final class RendererFactory {
             return HeadingRenderer(factory: self, config: config)
         case .link:
             return LinkRenderer(factory: self, config: config)
+        case .lineBreak:
+            return LineBreakRenderer()
         default:
             return childrenOnlyRenderer
         }

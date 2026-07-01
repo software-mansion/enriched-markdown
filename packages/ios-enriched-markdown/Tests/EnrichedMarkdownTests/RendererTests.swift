@@ -300,6 +300,21 @@ final class RendererTests: XCTestCase {
 
     A paragraph with a [link](https://example.com) and **bold** nearby.
     """
+
+
+    func testHardLineBreakUsesLineSeparator() {
+        let result = MarkdownRenderer.render("Line one  \nLine two", config: config)
+        XCTAssertTrue(result.string.contains("Line one"))
+        XCTAssertTrue(result.string.contains("Line two"))
+        XCTAssertTrue(result.string.contains("\u{2028}"))
+
+        let separatorRange = (result.string as NSString).range(of: "\u{2028}")
+        XCTAssertNotEqual(separatorRange.location, NSNotFound)
+
+        var effectiveRange = NSRange()
+        let attributes = result.attributes(at: separatorRange.location, effectiveRange: &effectiveRange)
+        XCTAssertNotNil(attributes[.font] as? UIFont)
+    }
 }
 
 private extension String {
