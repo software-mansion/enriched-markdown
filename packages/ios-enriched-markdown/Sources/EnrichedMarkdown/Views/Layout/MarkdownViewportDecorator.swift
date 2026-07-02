@@ -1,12 +1,19 @@
 import UIKit
 
+enum MarkdownDecorationPass {
+    case background
+    case foreground
+}
+
 @available(iOS 16.0, *)
 final class MarkdownViewportDecorator {
-    private let decorationView: MarkdownDecorationView
+    private weak var backgroundView: MarkdownDecorationView?
+    private weak var foregroundView: MarkdownDecorationView?
     private var config = BlockDecorationConfig(styleConfig: .baseline())
 
-    init(decorationView: MarkdownDecorationView) {
-        self.decorationView = decorationView
+    init(backgroundView: MarkdownDecorationView, foregroundView: MarkdownDecorationView) {
+        self.backgroundView = backgroundView
+        self.foregroundView = foregroundView
     }
 
     func updateStyleConfig(_ styleConfig: MarkdownStyleConfig) {
@@ -14,20 +21,25 @@ final class MarkdownViewportDecorator {
     }
 
     func setNeedsDisplay() {
-        decorationView.setNeedsDisplay()
+        backgroundView?.setNeedsDisplay()
+        foregroundView?.setNeedsDisplay()
     }
 
-    func draw(in context: CGContext, textView: UITextView) {
+    func draw(in context: CGContext, textView: UITextView, pass: MarkdownDecorationPass) {
         guard let textLayoutManager = textView.textLayoutManager,
               let textContentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
               let textStorage = textContentStorage.textStorage,
               textStorage.length > 0 else {
             return
         }
+
         let contentManager: NSTextContentManager = textContentStorage
         let containerWidth = textView.textContainer.size.width
         let origin = CGPoint(x: 0, y: -textView.contentOffset.y)
-        let visibleRange = visibleCharacterRange(textLayoutManager: textLayoutManager, contentManager: contentManager)
+        let visibleRange = visibleCharacterRange(
+            textLayoutManager: textLayoutManager,
+            contentManager: contentManager
+        )
         let drawContext = BlockDrawContext(
             context: context,
             textStorage: textStorage,
@@ -38,7 +50,14 @@ final class MarkdownViewportDecorator {
             visibleCharacterRange: visibleRange,
             decorationConfig: config
         )
-        CodeBlockBackgroundDrawer.draw(in: drawContext)
+
+        switch pass {
+        case .background:
+            CodeBlockBackgroundDrawer.draw(in: drawContext)
+            BlockquoteBorderDrawer.drawBackgrounds(in: drawContext)
+        case .foreground:
+            BlockquoteBorderDrawer.drawBorders(in: drawContext)
+        }
     }
 
     private func visibleCharacterRange(
@@ -72,6 +91,7 @@ final class MarkdownViewportDecorator {
 final class MarkdownDecorationView: UIView {
     weak var textView: UITextView?
     var viewportDecorator: MarkdownViewportDecorator?
+    var pass: MarkdownDecorationPass = .background
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -91,6 +111,6 @@ final class MarkdownDecorationView: UIView {
               let viewportDecorator else {
             return
         }
-        viewportDecorator.draw(in: context, textView: textView)
+        viewportDecorator.draw(in: context, textView: textView, pass: pass)
     }
 }

@@ -30,17 +30,23 @@ final class RendererFactory {
     }
 
     private func createRenderer(for type: NodeType) -> NodeRenderer {
+        if let renderer = createInlineRenderer(for: type) {
+            return renderer
+        }
+        if let renderer = createBlockRenderer(for: type) {
+            return renderer
+        }
+        return childrenOnlyRenderer
+    }
+
+    private func createInlineRenderer(for type: NodeType) -> NodeRenderer? {
         switch type {
         case .text:
             return TextRenderer()
-        case .paragraph:
-            return ParagraphRenderer(factory: self, config: config)
         case .strong:
             return StrongRenderer(factory: self, config: config)
         case .emphasis:
             return EmphasisRenderer(factory: self, config: config)
-        case .heading:
-            return HeadingRenderer(factory: self, config: config)
         case .link:
             return LinkRenderer(factory: self, config: config)
         case .lineBreak:
@@ -49,12 +55,25 @@ final class RendererFactory {
             return CodeRenderer(factory: self, config: config)
         case .image:
             return ImageRenderer(config: config)
+        default:
+            return nil
+        }
+    }
+
+    private func createBlockRenderer(for type: NodeType) -> NodeRenderer? {
+        switch type {
+        case .paragraph:
+            return ParagraphRenderer(factory: self, config: config)
+        case .heading:
+            return HeadingRenderer(factory: self, config: config)
         case .thematicBreak:
             return ThematicBreakRenderer(config: config)
         case .codeBlock:
             return CodeBlockRenderer(factory: self, config: config)
+        case .blockquote:
+            return BlockquoteRenderer(factory: self, config: config)
         default:
-            return childrenOnlyRenderer
+            return nil
         }
     }
 }

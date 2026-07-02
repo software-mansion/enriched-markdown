@@ -116,15 +116,27 @@ final class MarkdownTextView: UITextView {
 
 @available(iOS 16.0, *)
 private extension MarkdownTextView {
-    private static var decorationViewKey: UInt8 = 0
+    private static var backgroundDecorationViewKey: UInt8 = 0
+    private static var foregroundDecorationViewKey: UInt8 = 0
     private static var viewportDecoratorKey: UInt8 = 0
 
-    var decorationView: MarkdownDecorationView {
-        if let view = objc_getAssociatedObject(self, &Self.decorationViewKey) as? MarkdownDecorationView {
+    var backgroundDecorationView: MarkdownDecorationView {
+        if let view = objc_getAssociatedObject(self, &Self.backgroundDecorationViewKey) as? MarkdownDecorationView {
             return view
         }
         let view = MarkdownDecorationView()
-        objc_setAssociatedObject(self, &Self.decorationViewKey, view, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        view.pass = .background
+        objc_setAssociatedObject(self, &Self.backgroundDecorationViewKey, view, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return view
+    }
+
+    var foregroundDecorationView: MarkdownDecorationView {
+        if let view = objc_getAssociatedObject(self, &Self.foregroundDecorationViewKey) as? MarkdownDecorationView {
+            return view
+        }
+        let view = MarkdownDecorationView()
+        view.pass = .foreground
+        objc_setAssociatedObject(self, &Self.foregroundDecorationViewKey, view, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         return view
     }
 
@@ -132,28 +144,39 @@ private extension MarkdownTextView {
         if let decorator = objc_getAssociatedObject(self, &Self.viewportDecoratorKey) as? MarkdownViewportDecorator {
             return decorator
         }
-        let decorator = MarkdownViewportDecorator(decorationView: decorationView)
+        let decorator = MarkdownViewportDecorator(
+            backgroundView: backgroundDecorationView,
+            foregroundView: foregroundDecorationView
+        )
         objc_setAssociatedObject(self, &Self.viewportDecoratorKey, decorator, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         return decorator
     }
 
     func setupDecoration() {
-        decorationView.textView = self
-        decorationView.viewportDecorator = viewportDecorator
+        let backgroundView = backgroundDecorationView
+        let foregroundView = foregroundDecorationView
+        backgroundView.textView = self
+        foregroundView.textView = self
+        backgroundView.viewportDecorator = viewportDecorator
+        foregroundView.viewportDecorator = viewportDecorator
         viewportDecorator.updateStyleConfig(styleConfig)
-        insertSubview(decorationView, at: 0)
+        insertSubview(backgroundView, at: 0)
+        addSubview(foregroundView)
     }
 
     func layoutDecorationView() {
-        decorationView.frame = bounds
+        backgroundDecorationView.frame = bounds
+        foregroundDecorationView.frame = bounds
     }
 
     func updateDecorationStyleConfig() {
         viewportDecorator.updateStyleConfig(styleConfig)
-        decorationView.setNeedsDisplay()
+        backgroundDecorationView.setNeedsDisplay()
+        foregroundDecorationView.setNeedsDisplay()
     }
 
     func setDecorationNeedsDisplay() {
-        decorationView.setNeedsDisplay()
+        backgroundDecorationView.setNeedsDisplay()
+        foregroundDecorationView.setNeedsDisplay()
     }
 }

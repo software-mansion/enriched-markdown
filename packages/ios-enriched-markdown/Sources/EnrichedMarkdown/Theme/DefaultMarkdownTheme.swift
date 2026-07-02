@@ -78,6 +78,14 @@ enum DefaultMarkdownTheme {
                 .cornerRadius(8)
                 .padding(12)
                 .marginBottom(16)
+
+            Blockquote()
+                .font(.body)
+                .foregroundStyle(Semantic.secondary)
+                .borderColor(Semantic.tint)
+                .borderWidth(3)
+                .gapWidth(16)
+                .marginBottom(16)
         }
     }
 }
