@@ -72,6 +72,12 @@ final class RendererFactory {
             return CodeBlockRenderer(factory: self, config: config)
         case .blockquote:
             return BlockquoteRenderer(factory: self, config: config)
+        case .unorderedList:
+            return ListRenderer(factory: self, config: config, isOrdered: false)
+        case .orderedList:
+            return ListRenderer(factory: self, config: config, isOrdered: true)
+        case .listItem:
+            return ListItemRenderer(factory: self, config: config)
         default:
             return nil
         }

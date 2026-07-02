@@ -86,6 +86,15 @@ enum DefaultMarkdownTheme {
                 .borderWidth(3)
                 .gapWidth(16)
                 .marginBottom(16)
+
+            List()
+                .font(.body)
+                .foregroundStyle(Semantic.primary)
+                .bulletColor(Semantic.secondary)
+                .markerColor(Semantic.secondary)
+                .gapWidth(12)
+                .marginLeft(24)
+                .marginBottom(16)
         }
     }
 }

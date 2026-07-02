@@ -40,23 +40,44 @@ final class MarkdownViewportDecorator {
             textLayoutManager: textLayoutManager,
             contentManager: contentManager
         )
-        let drawContext = BlockDrawContext(
-            context: context,
-            textStorage: textStorage,
-            textLayoutManager: textLayoutManager,
-            contentManager: contentManager,
-            containerWidth: containerWidth,
-            origin: origin,
-            visibleCharacterRange: visibleRange,
-            decorationConfig: config
-        )
 
         switch pass {
         case .background:
+            let drawContext = BlockDrawContext(
+                context: context,
+                textStorage: textStorage,
+                textLayoutManager: textLayoutManager,
+                contentManager: contentManager,
+                containerWidth: containerWidth,
+                origin: origin,
+                visibleCharacterRange: visibleRange,
+                decorationConfig: config
+            )
             CodeBlockBackgroundDrawer.draw(in: drawContext)
             BlockquoteBorderDrawer.drawBackgrounds(in: drawContext)
         case .foreground:
+            let drawContext = BlockDrawContext(
+                context: context,
+                textStorage: textStorage,
+                textLayoutManager: textLayoutManager,
+                contentManager: contentManager,
+                containerWidth: containerWidth,
+                origin: origin,
+                visibleCharacterRange: visibleRange,
+                decorationConfig: config
+            )
             BlockquoteBorderDrawer.drawBorders(in: drawContext)
+            ListMarkerDrawer.draw(
+                in: ListDrawContext(
+                    context: context,
+                    textStorage: textStorage,
+                    textLayoutManager: textLayoutManager,
+                    contentManager: contentManager,
+                    origin: origin,
+                    visibleCharacterRange: visibleRange,
+                    decorationConfig: config
+                )
+            )
         }
     }
 

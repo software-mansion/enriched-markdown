@@ -608,6 +608,95 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(foundDepth)
     }
+
+
+    func testUnorderedListItemsHaveListAttributes() {
+        let result = MarkdownRenderer.render("- first\n- second", config: config)
+
+        var itemCount = 0
+        result.enumerateAttribute(MarkdownAttribute.listItemNumber, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            if value != nil { itemCount += 1 }
+        }
+        XCTAssertGreaterThanOrEqual(itemCount, 2)
+    }
+
+
+    func testOrderedListItemsHaveSequentialNumbers() {
+        let result = MarkdownRenderer.render("1. first\n2. second", config: config)
+
+        var numbers = Set<Int>()
+        result.enumerateAttribute(MarkdownAttribute.listItemNumber, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            if let number = value as? Int {
+                numbers.insert(number)
+            }
+        }
+        XCTAssertTrue(numbers.contains(1))
+        XCTAssertTrue(numbers.contains(2))
+    }
+
+
+    func testListFirstItemAfterLabelHasListAttributes() {
+        let result = MarkdownRenderer.render("Unordered:\n\n- Alpha\n- Beta", config: config)
+
+        guard let alphaRange = (result.string as NSString).range(of: "Alpha") as NSRange?,
+              alphaRange.location != NSNotFound else {
+            XCTFail("Missing Alpha list item")
+            return
+        }
+
+        let depth = MarkdownAttributeValue.intValue(
+            from: result.attribute(MarkdownAttribute.listDepth, at: alphaRange.location, effectiveRange: nil)
+        )
+        let number = MarkdownAttributeValue.intValue(
+            from: result.attribute(MarkdownAttribute.listItemNumber, at: alphaRange.location, effectiveRange: nil)
+        )
+        XCTAssertEqual(depth, 0)
+        XCTAssertEqual(number, 1)
+
+        let labelRange = (result.string as NSString).range(of: "Unordered:")
+        let labelParagraph = (result.string as NSString).paragraphRange(for: labelRange)
+        let alphaParagraph = (result.string as NSString).paragraphRange(for: alphaRange)
+        XCTAssertNotEqual(labelParagraph.location, alphaParagraph.location)
+    }
+
+
+    func testListItemWithBoldPreservesFormatting() {
+        let result = MarkdownRenderer.render("- **bold** item", config: config)
+
+        var foundBold = false
+        result.enumerateAttribute(.font, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            if result.string[range].contains("bold") {
+                XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+                foundBold = true
+            }
+        }
+        XCTAssertTrue(foundBold)
+    }
+
+
+    func testListFollowedByCodeBlockKeepsExternalMarginSpacer() {
+        let markdown = """
+        - Satellite monitoring
+
+        ```python
+        def detect():
+            pass
+        ```
+        """
+        let result = MarkdownRenderer.render(markdown, config: config)
+
+        let monitoringRange = (result.string as NSString).range(of: "Satellite monitoring")
+        XCTAssertNotEqual(monitoringRange.location, NSNotFound)
+
+        var codeBlockLocation = NSNotFound
+        result.enumerateAttribute(MarkdownAttribute.codeBlock, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard (value as? Bool) == true else { return }
+            codeBlockLocation = range.location
+        }
+        XCTAssertNotEqual(codeBlockLocation, NSNotFound)
+        XCTAssertGreaterThan(codeBlockLocation, NSMaxRange(monitoringRange))
+    }
 }
 
 private extension String {

@@ -12,9 +12,16 @@ struct BlockDecorationConfig {
     var blockquoteBorderColor: UIColor = UIColor(red: 0.82, green: 0.84, blue: 0.86, alpha: 1)
     var blockquoteBackgroundColor: UIColor = UIColor(red: 0.98, green: 0.98, blue: 0.99, alpha: 1)
 
+    var listGapWidth: CGFloat = 12
+    var listBulletSize: CGFloat = 6
+    var listBulletColor: UIColor = UIColor(red: 0.42, green: 0.45, blue: 0.50, alpha: 1)
+    var listMarkerColor: UIColor = UIColor(red: 0.42, green: 0.45, blue: 0.50, alpha: 1)
+    var listMarkerFont: UIFont = .systemFont(ofSize: 16, weight: .medium)
+
     init(styleConfig: MarkdownStyleConfig) {
         applyCodeBlockStyle(from: styleConfig.codeBlock)
         applyBlockquoteStyle(from: styleConfig.blockquote)
+        applyListStyle(from: styleConfig.list)
     }
 
     private mutating func applyCodeBlockStyle(from style: CodeBlockStyle) {
@@ -47,6 +54,24 @@ struct BlockDecorationConfig {
         }
         if let color = style.backgroundColor {
             blockquoteBackgroundColor = color
+        }
+    }
+
+    private mutating func applyListStyle(from style: ListStyle) {
+        if let gap = style.gapWidth {
+            listGapWidth = max(gap, 4)
+        }
+        if let size = style.bulletSize {
+            listBulletSize = size
+        }
+        if let color = style.bulletColor {
+            listBulletColor = color
+        }
+        if let color = style.markerColor {
+            listMarkerColor = color
+        }
+        if let font = style.font {
+            listMarkerFont = font
         }
     }
 }

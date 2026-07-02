@@ -202,6 +202,60 @@ public struct BlockquoteStyle: Equatable, Sendable {
     }
 }
 
+public struct ListStyle: Equatable, Sendable {
+    public var font: UIFont?
+    public var foregroundColor: UIColor?
+    public var marginTop: CGFloat?
+    public var marginBottom: CGFloat?
+    public var lineHeight: CGFloat?
+    public var marginLeft: CGFloat?
+    public var gapWidth: CGFloat?
+    public var bulletColor: UIColor?
+    public var bulletSize: CGFloat?
+    public var markerMinWidth: CGFloat?
+    public var markerColor: UIColor?
+
+    public init(
+        font: UIFont? = nil,
+        foregroundColor: UIColor? = nil,
+        marginTop: CGFloat? = nil,
+        marginBottom: CGFloat? = nil,
+        lineHeight: CGFloat? = nil,
+        marginLeft: CGFloat? = nil,
+        gapWidth: CGFloat? = nil,
+        bulletColor: UIColor? = nil,
+        bulletSize: CGFloat? = nil,
+        markerMinWidth: CGFloat? = nil,
+        markerColor: UIColor? = nil
+    ) {
+        self.font = font
+        self.foregroundColor = foregroundColor
+        self.marginTop = marginTop
+        self.marginBottom = marginBottom
+        self.lineHeight = lineHeight
+        self.marginLeft = marginLeft
+        self.gapWidth = gapWidth
+        self.bulletColor = bulletColor
+        self.bulletSize = bulletSize
+        self.markerMinWidth = markerMinWidth
+        self.markerColor = markerColor
+    }
+
+    public mutating func merge(_ other: ListStyle) {
+        if let font = other.font { self.font = font }
+        if let foregroundColor = other.foregroundColor { self.foregroundColor = foregroundColor }
+        if let marginTop = other.marginTop { self.marginTop = marginTop }
+        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
+        if let lineHeight = other.lineHeight { self.lineHeight = lineHeight }
+        if let marginLeft = other.marginLeft { self.marginLeft = marginLeft }
+        if let gapWidth = other.gapWidth { self.gapWidth = gapWidth }
+        if let bulletColor = other.bulletColor { self.bulletColor = bulletColor }
+        if let bulletSize = other.bulletSize { self.bulletSize = bulletSize }
+        if let markerMinWidth = other.markerMinWidth { self.markerMinWidth = markerMinWidth }
+        if let markerColor = other.markerColor { self.markerColor = markerColor }
+    }
+}
+
 public struct MarkdownStyleConfig: Equatable, Sendable {
     public var paragraph: ElementStyle
     public var heading1: ElementStyle
@@ -219,6 +273,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var thematicBreak: ThematicBreakStyle
     public var codeBlock: CodeBlockStyle
     public var blockquote: BlockquoteStyle
+    public var list: ListStyle
 
     public init(
         paragraph: ElementStyle = ElementStyle(),
@@ -236,7 +291,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         inlineImage: InlineImageStyle = InlineImageStyle(),
         thematicBreak: ThematicBreakStyle = ThematicBreakStyle(),
         codeBlock: CodeBlockStyle = CodeBlockStyle(),
-        blockquote: BlockquoteStyle = BlockquoteStyle()
+        blockquote: BlockquoteStyle = BlockquoteStyle(),
+        list: ListStyle = ListStyle()
     ) {
         self.paragraph = paragraph
         self.heading1 = heading1
@@ -254,6 +310,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.thematicBreak = thematicBreak
         self.codeBlock = codeBlock
         self.blockquote = blockquote
+        self.list = list
     }
 
     public mutating func merge(_ other: MarkdownStyleConfig) {
@@ -273,6 +330,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         thematicBreak.merge(other.thematicBreak)
         codeBlock.merge(other.codeBlock)
         blockquote.merge(other.blockquote)
+        list.merge(other.list)
     }
 
     public func headingStyle(for level: Int) -> ElementStyle {
