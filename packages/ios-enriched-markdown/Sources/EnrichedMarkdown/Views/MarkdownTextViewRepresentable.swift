@@ -3,6 +3,7 @@ import UIKit
 
 struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let attributedText: NSAttributedString
+    let styleConfig: MarkdownStyleConfig
     let onLinkPress: ((URL) -> Void)?
 
     func makeCoordinator() -> Coordinator {
@@ -12,11 +13,13 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> MarkdownTextView {
         let textView = MarkdownTextView()
         textView.delegate = context.coordinator
+        textView.styleConfig = styleConfig
         return textView
     }
 
     func updateUIView(_ textView: MarkdownTextView, context: Context) {
         context.coordinator.onLinkPress = onLinkPress
+        textView.styleConfig = styleConfig
         textView.setMarkdownAttributedText(attributedText)
     }
 
@@ -50,6 +53,14 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 }
 
 final class MarkdownTextView: UITextView {
+    var styleConfig: MarkdownStyleConfig = .baseline() {
+        didSet {
+            if #available(iOS 16.0, *) {
+                updateDecorationStyleConfig()
+            }
+        }
+    }
+
     override var intrinsicContentSize: CGSize {
         let width = bounds.width > 0 ? bounds.width : UIView.noIntrinsicMetric
         guard width != UIView.noIntrinsicMetric else {
@@ -79,11 +90,70 @@ final class MarkdownTextView: UITextView {
         dataDetectorTypes = []
         linkTextAttributes = [:]
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        if #available(iOS 16.0, *) {
+            setupDecoration()
+        }
     }
 
     func setMarkdownAttributedText(_ attributedText: NSAttributedString) {
         guard !(self.attributedText?.isEqual(to: attributedText) ?? false) else { return }
         self.attributedText = attributedText
         invalidateIntrinsicContentSize()
+        if #available(iOS 16.0, *) {
+            setDecorationNeedsDisplay()
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if #available(iOS 16.0, *) {
+            layoutDecorationView()
+            setDecorationNeedsDisplay()
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+private extension MarkdownTextView {
+    private static var decorationViewKey: UInt8 = 0
+    private static var viewportDecoratorKey: UInt8 = 0
+
+    var decorationView: MarkdownDecorationView {
+        if let view = objc_getAssociatedObject(self, &Self.decorationViewKey) as? MarkdownDecorationView {
+            return view
+        }
+        let view = MarkdownDecorationView()
+        objc_setAssociatedObject(self, &Self.decorationViewKey, view, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return view
+    }
+
+    var viewportDecorator: MarkdownViewportDecorator {
+        if let decorator = objc_getAssociatedObject(self, &Self.viewportDecoratorKey) as? MarkdownViewportDecorator {
+            return decorator
+        }
+        let decorator = MarkdownViewportDecorator(decorationView: decorationView)
+        objc_setAssociatedObject(self, &Self.viewportDecoratorKey, decorator, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return decorator
+    }
+
+    func setupDecoration() {
+        decorationView.textView = self
+        decorationView.viewportDecorator = viewportDecorator
+        viewportDecorator.updateStyleConfig(styleConfig)
+        insertSubview(decorationView, at: 0)
+    }
+
+    func layoutDecorationView() {
+        decorationView.frame = bounds
+    }
+
+    func updateDecorationStyleConfig() {
+        viewportDecorator.updateStyleConfig(styleConfig)
+        decorationView.setNeedsDisplay()
+    }
+
+    func setDecorationNeedsDisplay() {
+        decorationView.setNeedsDisplay()
     }
 }

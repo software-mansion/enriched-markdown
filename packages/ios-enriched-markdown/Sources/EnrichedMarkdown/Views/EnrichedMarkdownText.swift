@@ -7,6 +7,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownThemeLayers) private var themeLayers
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.markdownLinkPressHandler) private var onLinkPress
     @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String) {
@@ -23,7 +24,9 @@ public struct EnrichedMarkdownText: View {
 
     public var body: some View {
         MarkdownTextViewRepresentable(
-            attributedText: renderStore.attributedText
+            attributedText: renderStore.attributedText,
+            styleConfig: styleConfig,
+            onLinkPress: onLinkPress
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {

@@ -1,0 +1,80 @@
+import UIKit
+
+@available(iOS 16.0, *)
+final class MarkdownViewportDecorator {
+    private let decorationView: MarkdownDecorationView
+
+    init(decorationView: MarkdownDecorationView) {
+        self.decorationView = decorationView
+    }
+
+    func updateStyleConfig(_ styleConfig: MarkdownStyleConfig) {}
+
+    func setNeedsDisplay() {
+        decorationView.setNeedsDisplay()
+    }
+
+    func draw(in context: CGContext, textView: UITextView) {
+        guard let textLayoutManager = textView.textLayoutManager,
+              let textContentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
+              let textStorage = textContentStorage.textStorage,
+              textStorage.length > 0 else {
+            return
+        }
+        let contentManager: NSTextContentManager = textContentStorage
+        _ = visibleCharacterRange(textLayoutManager: textLayoutManager, contentManager: contentManager)
+    }
+
+    private func visibleCharacterRange(
+        textLayoutManager: NSTextLayoutManager,
+        contentManager: NSTextContentManager
+    ) -> NSRange {
+        var range = NSRange(location: 0, length: 0)
+        textLayoutManager.enumerateTextLayoutFragments(
+            from: textLayoutManager.documentRange.location,
+            options: []
+        ) { fragment in
+            guard let fragmentRange = TextLayoutHelpers.nsRange(fragment.rangeInElement, in: contentManager) else {
+                return true
+            }
+            if range.length == 0 {
+                range = fragmentRange
+            } else {
+                let end = max(NSMaxRange(range), NSMaxRange(fragmentRange))
+                range = NSRange(
+                    location: min(range.location, fragmentRange.location),
+                    length: end - min(range.location, fragmentRange.location)
+                )
+            }
+            return true
+        }
+        return range
+    }
+}
+
+@available(iOS 16.0, *)
+final class MarkdownDecorationView: UIView {
+    weak var textView: UITextView?
+    var viewportDecorator: MarkdownViewportDecorator?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+        contentMode = .redraw
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draw(_ rect: CGRect) {
+        guard let context = UIGraphicsGetCurrentContext(),
+              let textView,
+              let viewportDecorator else {
+            return
+        }
+        viewportDecorator.draw(in: context, textView: textView)
+    }
+}
