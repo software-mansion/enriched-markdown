@@ -3,12 +3,15 @@ import UIKit
 @available(iOS 16.0, *)
 final class MarkdownViewportDecorator {
     private let decorationView: MarkdownDecorationView
+    private var config = BlockDecorationConfig(styleConfig: .baseline())
 
     init(decorationView: MarkdownDecorationView) {
         self.decorationView = decorationView
     }
 
-    func updateStyleConfig(_ styleConfig: MarkdownStyleConfig) {}
+    func updateStyleConfig(_ styleConfig: MarkdownStyleConfig) {
+        config = BlockDecorationConfig(styleConfig: styleConfig)
+    }
 
     func setNeedsDisplay() {
         decorationView.setNeedsDisplay()
@@ -22,7 +25,20 @@ final class MarkdownViewportDecorator {
             return
         }
         let contentManager: NSTextContentManager = textContentStorage
-        _ = visibleCharacterRange(textLayoutManager: textLayoutManager, contentManager: contentManager)
+        let containerWidth = textView.textContainer.size.width
+        let origin = CGPoint(x: 0, y: -textView.contentOffset.y)
+        let visibleRange = visibleCharacterRange(textLayoutManager: textLayoutManager, contentManager: contentManager)
+        let drawContext = BlockDrawContext(
+            context: context,
+            textStorage: textStorage,
+            textLayoutManager: textLayoutManager,
+            contentManager: contentManager,
+            containerWidth: containerWidth,
+            origin: origin,
+            visibleCharacterRange: visibleRange,
+            decorationConfig: config
+        )
+        CodeBlockBackgroundDrawer.draw(in: drawContext)
     }
 
     private func visibleCharacterRange(

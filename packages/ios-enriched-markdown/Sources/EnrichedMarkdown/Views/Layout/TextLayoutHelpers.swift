@@ -1,5 +1,16 @@
 import UIKit
 
+struct BlockDrawContext {
+    let context: CGContext
+    let textStorage: NSTextStorage
+    let textLayoutManager: NSTextLayoutManager
+    let contentManager: NSTextContentManager
+    let containerWidth: CGFloat
+    let origin: CGPoint
+    let visibleCharacterRange: NSRange
+    let decorationConfig: BlockDecorationConfig
+}
+
 enum TextLayoutHelpers {
     static func nsRange(_ textRange: NSTextRange, in contentManager: NSTextContentManager) -> NSRange? {
         let start = contentManager.offset(

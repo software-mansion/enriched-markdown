@@ -70,6 +70,14 @@ enum DefaultMarkdownTheme {
                 .height(1)
                 .marginTop(24)
                 .marginBottom(24)
+
+            CodeBlock()
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(Semantic.primary)
+                .background(Semantic.quaternary)
+                .cornerRadius(8)
+                .padding(12)
+                .marginBottom(16)
         }
     }
 }

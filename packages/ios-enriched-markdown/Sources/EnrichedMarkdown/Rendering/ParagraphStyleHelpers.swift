@@ -193,19 +193,12 @@ enum ParagraphStyleHelpers {
         }
     }
 
-    static func applyTrailingVerticalPadding(
-        to output: NSMutableAttributedString,
-        range: NSRange,
-        padding: CGFloat
-    ) {
-        guard padding > 0, range.length > 0 else { return }
-
-        let string = output.string as NSString
-        let lastParagraphLocation = max(range.location, NSMaxRange(range) - 1)
-        let lastParagraph = string.paragraphRange(for: NSRange(location: lastParagraphLocation, length: 0))
-        let style = getOrCreateParagraphStyle(in: output, at: lastParagraph.location)
-        style.paragraphSpacing = padding
-        output.addAttribute(.paragraphStyle, value: style, range: lastParagraph)
+    static func spacerParagraphStyle(height: CGFloat, spacing: CGFloat = 0) -> NSMutableParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.minimumLineHeight = height
+        style.maximumLineHeight = height
+        style.paragraphSpacing = spacing
+        return style
     }
 
     static func ensureTrailingNewline(in output: NSMutableAttributedString) {

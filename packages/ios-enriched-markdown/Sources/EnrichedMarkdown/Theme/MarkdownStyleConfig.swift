@@ -106,6 +106,56 @@ public struct ThematicBreakStyle: Equatable, Sendable {
     }
 }
 
+public struct CodeBlockStyle: Equatable, Sendable {
+    public var font: UIFont?
+    public var foregroundColor: UIColor?
+    public var backgroundColor: UIColor?
+    public var marginTop: CGFloat?
+    public var marginBottom: CGFloat?
+    public var lineHeight: CGFloat?
+    public var padding: CGFloat?
+    public var borderColor: UIColor?
+    public var borderRadius: CGFloat?
+    public var borderWidth: CGFloat?
+
+    public init(
+        font: UIFont? = nil,
+        foregroundColor: UIColor? = nil,
+        backgroundColor: UIColor? = nil,
+        marginTop: CGFloat? = nil,
+        marginBottom: CGFloat? = nil,
+        lineHeight: CGFloat? = nil,
+        padding: CGFloat? = nil,
+        borderColor: UIColor? = nil,
+        borderRadius: CGFloat? = nil,
+        borderWidth: CGFloat? = nil
+    ) {
+        self.font = font
+        self.foregroundColor = foregroundColor
+        self.backgroundColor = backgroundColor
+        self.marginTop = marginTop
+        self.marginBottom = marginBottom
+        self.lineHeight = lineHeight
+        self.padding = padding
+        self.borderColor = borderColor
+        self.borderRadius = borderRadius
+        self.borderWidth = borderWidth
+    }
+
+    public mutating func merge(_ other: CodeBlockStyle) {
+        if let font = other.font { self.font = font }
+        if let foregroundColor = other.foregroundColor { self.foregroundColor = foregroundColor }
+        if let backgroundColor = other.backgroundColor { self.backgroundColor = backgroundColor }
+        if let marginTop = other.marginTop { self.marginTop = marginTop }
+        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
+        if let lineHeight = other.lineHeight { self.lineHeight = lineHeight }
+        if let padding = other.padding { self.padding = padding }
+        if let borderColor = other.borderColor { self.borderColor = borderColor }
+        if let borderRadius = other.borderRadius { self.borderRadius = borderRadius }
+        if let borderWidth = other.borderWidth { self.borderWidth = borderWidth }
+    }
+}
+
 public struct MarkdownStyleConfig: Equatable, Sendable {
     public var paragraph: ElementStyle
     public var heading1: ElementStyle
@@ -121,6 +171,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var image: ImageStyle
     public var inlineImage: InlineImageStyle
     public var thematicBreak: ThematicBreakStyle
+    public var codeBlock: CodeBlockStyle
 
     public init(
         paragraph: ElementStyle = ElementStyle(),
@@ -136,7 +187,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         code: ElementStyle = ElementStyle(),
         image: ImageStyle = ImageStyle(),
         inlineImage: InlineImageStyle = InlineImageStyle(),
-        thematicBreak: ThematicBreakStyle = ThematicBreakStyle()
+        thematicBreak: ThematicBreakStyle = ThematicBreakStyle(),
+        codeBlock: CodeBlockStyle = CodeBlockStyle()
     ) {
         self.paragraph = paragraph
         self.heading1 = heading1
@@ -152,6 +204,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.image = image
         self.inlineImage = inlineImage
         self.thematicBreak = thematicBreak
+        self.codeBlock = codeBlock
     }
 
     public mutating func merge(_ other: MarkdownStyleConfig) {
@@ -169,6 +222,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         image.merge(other.image)
         inlineImage.merge(other.inlineImage)
         thematicBreak.merge(other.thematicBreak)
+        codeBlock.merge(other.codeBlock)
     }
 
     public func headingStyle(for level: Int) -> ElementStyle {

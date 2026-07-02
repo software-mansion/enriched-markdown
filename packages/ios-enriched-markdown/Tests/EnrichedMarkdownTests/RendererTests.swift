@@ -480,6 +480,82 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(found)
     }
+
+
+    func testCodeBlockHasMonospacedFontAndAttribute() {
+        let result = MarkdownRenderer.render("```\ncode line\n```", config: config)
+
+        var foundCodeBlock = false
+        result.enumerateAttribute(MarkdownAttribute.codeBlock, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard (value as? Bool) == true else { return }
+            XCTAssertTrue(result.string[range].contains("code"))
+            foundCodeBlock = true
+        }
+        XCTAssertTrue(foundCodeBlock)
+
+        var foundMonospaced = false
+        result.enumerateAttribute(.font, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            if result.string[range].contains("code") {
+                XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
+                foundMonospaced = true
+            }
+        }
+        XCTAssertTrue(foundMonospaced)
+    }
+
+
+    func testCodeBlockThemeOverride() {
+        var customConfig = config!
+        customConfig.codeBlock.foregroundColor = .systemGreen
+
+        let result = MarkdownRenderer.render("```\ncode\n```", config: customConfig)
+        var foundGreen = false
+        result.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard let color = value as? UIColor else { return }
+            if result.string[range].contains("code") {
+                XCTAssertEqual(color, UIColor.systemGreen)
+                foundGreen = true
+            }
+        }
+        XCTAssertTrue(foundGreen)
+    }
+
+
+    func testCodeBlockDoesNotIncludePrecedingParagraphLabel() {
+        let result = MarkdownRenderer.render(
+            "Fenced block:\n\n```\ncode\n```",
+            config: config
+        )
+
+        var labelHasCodeBlock = false
+        result.enumerateAttribute(MarkdownAttribute.codeBlock, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard value != nil else { return }
+            if result.string[range].contains("Fenced block:") {
+                labelHasCodeBlock = true
+            }
+        }
+        XCTAssertFalse(labelHasCodeBlock)
+    }
+
+
+    func testCodeBlockBackgroundRangeIncludesPaddingSpacers() {
+        var customConfig = config!
+        customConfig.codeBlock.padding = 16
+        customConfig.codeBlock.marginBottom = 0
+        customConfig.codeBlock.marginTop = 0
+
+        let result = MarkdownRenderer.render("```\ncode line\n```", config: customConfig)
+
+        var codeBlockRange = NSRange(location: NSNotFound, length: 0)
+        result.enumerateAttribute(MarkdownAttribute.codeBlock, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard (value as? Bool) == true else { return }
+            codeBlockRange = range
+        }
+        XCTAssertNotEqual(codeBlockRange.location, NSNotFound)
+        XCTAssertGreaterThanOrEqual(result.string[codeBlockRange].filter { $0 == "\n" }.count, 2)
+        XCTAssertTrue(result.string[codeBlockRange].contains("code line"))
+    }
 }
 
 private extension String {
