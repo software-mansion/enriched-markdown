@@ -8,16 +8,50 @@
 
 /* Begin PBXBuildFile section */
 		A10000010000000000000001 /* EnrichedMarkdownExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000001 /* EnrichedMarkdownExampleApp.swift */; };
-		A10000010000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000002 /* ContentView.swift */; };
 		A10000010000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000003 /* Assets.xcassets */; };
 		A10000010000000000000004 /* EnrichedMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000001 /* EnrichedMarkdown */; };
+		A10000010000000000000010 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000010 /* AppShell.swift */; };
+		A10000010000000000000011 /* ExampleRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000011 /* ExampleRoute.swift */; };
+		A10000010000000000000012 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000012 /* HomeScreen.swift */; };
+		A10000010000000000000013 /* HomeScreenButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000013 /* HomeScreenButton.swift */; };
+		A10000010000000000000014 /* TextScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000014 /* TextScreen.swift */; };
+		A10000010000000000000015 /* PlaygroundScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000015 /* PlaygroundScreen.swift */; };
+		A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000016 /* ExampleMarkdownStyles.swift */; };
+		A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000017 /* ExampleFontRegistrar.swift */; };
+		A10000010000000000000020 /* sample_markdown.md in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000020 /* sample_markdown.md */; };
+		A10000010000000000000021 /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000021 /* logo.png */; };
+		A10000010000000000000022 /* logo_icon.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000022 /* logo_icon.png */; };
+		A10000010000000000000030 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000030 /* Montserrat-Regular.ttf */; };
+		A10000010000000000000031 /* Montserrat-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000031 /* Montserrat-Bold.ttf */; };
+		A10000010000000000000032 /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000032 /* Montserrat-SemiBold.ttf */; };
+		A10000010000000000000033 /* Montserrat-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000033 /* Montserrat-Medium.ttf */; };
+		A10000010000000000000034 /* Montserrat-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000034 /* Montserrat-Italic.ttf */; };
+		A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000036 /* Montserrat-BoldItalic.ttf */; };
+		A10000010000000000000035 /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000035 /* CourierPrime-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A10000020000000000000001 /* EnrichedMarkdownExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnrichedMarkdownExampleApp.swift; sourceTree = "<group>"; };
-		A10000020000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A10000020000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000020000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000020000000000000010 /* AppShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShell.swift; sourceTree = "<group>"; };
+		A10000020000000000000011 /* ExampleRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleRoute.swift; sourceTree = "<group>"; };
+		A10000020000000000000012 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000013 /* HomeScreenButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenButton.swift; sourceTree = "<group>"; };
+		A10000020000000000000014 /* TextScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000015 /* PlaygroundScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000016 /* ExampleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleMarkdownStyles.swift; sourceTree = "<group>"; };
+		A10000020000000000000017 /* ExampleFontRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleFontRegistrar.swift; sourceTree = "<group>"; };
+		A10000020000000000000020 /* sample_markdown.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = sample_markdown.md; sourceTree = "<group>"; };
+		A10000020000000000000021 /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
+		A10000020000000000000022 /* logo_icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo_icon.png; sourceTree = "<group>"; };
+		A10000020000000000000030 /* Montserrat-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Regular.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000031 /* Montserrat-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Bold.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000032 /* Montserrat-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-SemiBold.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000033 /* Montserrat-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Medium.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000034 /* Montserrat-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Italic.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000036 /* Montserrat-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-BoldItalic.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000035 /* CourierPrime-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-Regular.ttf"; sourceTree = "<group>"; };
 		A10000030000000000000001 /* EnrichedMarkdownExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnrichedMarkdownExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -45,7 +79,15 @@
 			isa = PBXGroup;
 			children = (
 				A10000020000000000000001 /* EnrichedMarkdownExampleApp.swift */,
-				A10000020000000000000002 /* ContentView.swift */,
+				A10000020000000000000010 /* AppShell.swift */,
+				A10000020000000000000011 /* ExampleRoute.swift */,
+				A10000020000000000000012 /* HomeScreen.swift */,
+				A10000020000000000000013 /* HomeScreenButton.swift */,
+				A10000020000000000000014 /* TextScreen.swift */,
+				A10000020000000000000015 /* PlaygroundScreen.swift */,
+				A10000020000000000000016 /* ExampleMarkdownStyles.swift */,
+				A10000020000000000000017 /* ExampleFontRegistrar.swift */,
+				A10000060000000000000004 /* Resources */,
 				A10000020000000000000003 /* Assets.xcassets */,
 				A10000020000000000000004 /* Info.plist */,
 			);
@@ -58,6 +100,31 @@
 				A10000030000000000000001 /* EnrichedMarkdownExample.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000004 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000060000000000000005 /* Fonts */,
+				A10000020000000000000020 /* sample_markdown.md */,
+				A10000020000000000000021 /* logo.png */,
+				A10000020000000000000022 /* logo_icon.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000005 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000030 /* Montserrat-Regular.ttf */,
+				A10000020000000000000031 /* Montserrat-Bold.ttf */,
+				A10000020000000000000032 /* Montserrat-SemiBold.ttf */,
+				A10000020000000000000033 /* Montserrat-Medium.ttf */,
+				A10000020000000000000034 /* Montserrat-Italic.ttf */,
+				A10000020000000000000036 /* Montserrat-BoldItalic.ttf */,
+				A10000020000000000000035 /* CourierPrime-Regular.ttf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -125,6 +192,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000010000000000000003 /* Assets.xcassets in Resources */,
+				A10000010000000000000020 /* sample_markdown.md in Resources */,
+				A10000010000000000000021 /* logo.png in Resources */,
+				A10000010000000000000022 /* logo_icon.png in Resources */,
+				A10000010000000000000030 /* Montserrat-Regular.ttf in Resources */,
+				A10000010000000000000031 /* Montserrat-Bold.ttf in Resources */,
+				A10000010000000000000032 /* Montserrat-SemiBold.ttf in Resources */,
+				A10000010000000000000033 /* Montserrat-Medium.ttf in Resources */,
+				A10000010000000000000034 /* Montserrat-Italic.ttf in Resources */,
+				A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */,
+				A10000010000000000000035 /* CourierPrime-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -136,7 +213,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000010000000000000001 /* EnrichedMarkdownExampleApp.swift in Sources */,
-				A10000010000000000000002 /* ContentView.swift in Sources */,
+				A10000010000000000000010 /* AppShell.swift in Sources */,
+				A10000010000000000000011 /* ExampleRoute.swift in Sources */,
+				A10000010000000000000012 /* HomeScreen.swift in Sources */,
+				A10000010000000000000013 /* HomeScreenButton.swift in Sources */,
+				A10000010000000000000014 /* TextScreen.swift in Sources */,
+				A10000010000000000000015 /* PlaygroundScreen.swift in Sources */,
+				A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */,
+				A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -161,7 +245,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -182,7 +266,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
