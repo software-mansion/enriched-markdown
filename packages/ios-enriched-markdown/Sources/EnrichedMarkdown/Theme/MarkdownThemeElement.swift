@@ -15,13 +15,36 @@ public protocol MarkdownThemeElement: MarkdownThemeContent {
 public extension MarkdownThemeElement {
     func font(_ font: Font) -> Self {
         var copy = self
-        copy.fontSpec = ThemeResolver.font(from: font, traitCollection: .current)
+        let resolved = ThemeResolver.resolveFont(from: font, traitCollection: .current)
+        copy.fontSpec = resolved.spec
+        if let design = resolved.design {
+            copy.fontDesign = design
+        }
+        return copy
+    }
+
+    func fontFamily(_ name: String, size: CGFloat) -> Self {
+        var copy = self
+        copy.fontSpec = .custom(name: name, size: size)
+        return copy
+    }
+
+    func fontSize(_ size: CGFloat, weight: Font.Weight = .regular) -> Self {
+        var copy = self
+        copy.fontSpec = .system(size: size, weight: .regular, design: .default)
+        copy.fontWeight = weight
         return copy
     }
 
     func bold() -> Self {
         var copy = self
         copy.fontWeight = .bold
+        return copy
+    }
+
+    func fontDesign(_ design: Font.Design) -> Self {
+        var copy = self
+        copy.fontDesign = design
         return copy
     }
 

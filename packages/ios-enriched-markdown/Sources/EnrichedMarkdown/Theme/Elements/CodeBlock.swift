@@ -28,6 +28,19 @@ public struct CodeBlock: MarkdownThemeContent {
         return copy
     }
 
+    public func fontFamily(_ name: String, size: CGFloat) -> Self {
+        var copy = self
+        copy.fontSpec = .custom(name: name, size: size)
+        return copy
+    }
+
+    public func fontSize(_ size: CGFloat, weight: Font.Weight = .regular) -> Self {
+        var copy = self
+        copy.fontSpec = .system(size: size, weight: .regular, design: .monospaced)
+        copy.fontWeight = weight
+        return copy
+    }
+
     public func foregroundStyle(_ color: Color) -> Self {
         var copy = self
         copy.foregroundColorSpec = ThemeColorModifiers.spec(from: color)

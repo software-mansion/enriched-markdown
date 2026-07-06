@@ -77,13 +77,79 @@ final class RendererTests: XCTestCase {
         result.enumerateAttribute(.font, in: NSRange(location: 0, length: result.length)) { value, range, _ in
             guard let font = value as? UIFont else { return }
             if result.string[range] == "both" {
-                let traits = font.fontDescriptor.symbolicTraits
-                XCTAssertTrue(traits.contains(.traitBold))
-                XCTAssertTrue(traits.contains(.traitItalic))
+                XCTAssertTrue(Self.fontHasBoldAndItalic(font))
                 foundBoth = true
             }
         }
         XCTAssertTrue(foundBoth)
+    }
+
+
+    private static func fontHasBoldAndItalic(_ font: UIFont) -> Bool {
+        FontHelpers.hasBoldTrait(font) && FontHelpers.hasItalicTrait(font)
+    }
+
+
+    private static var registeredMontserratFonts = false
+
+
+    private static func registerMontserratFontsIfNeeded() {
+        guard !registeredMontserratFonts else { return }
+        registeredMontserratFonts = true
+
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let fontsDir = repoRoot
+            .appendingPathComponent("apps/ios-example/EnrichedMarkdownExample/EnrichedMarkdownExample/Resources/Fonts")
+
+        for name in ["Montserrat-Regular", "Montserrat-Bold", "Montserrat-Italic", "Montserrat-BoldItalic"] {
+            let url = fontsDir.appendingPathComponent("\(name).ttf")
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
+    }
+
+
+    func testBoldAndItalicCombinedInCustomFontListItem() {
+        Self.registerMontserratFontsIfNeeded()
+
+        var themedConfig = config!
+        var theme = MarkdownTheme {
+            List().fontFamily("Montserrat-Regular", size: 16)
+            Strong().foregroundStyle(Color(red: 17 / 255, green: 24 / 255, blue: 39 / 255))
+            Emphasis().foregroundStyle(Color(red: 75 / 255, green: 85 / 255, blue: 99 / 255))
+        }
+        theme.apply(to: &themedConfig, traitCollection: .current)
+
+        let result = MarkdownRenderer.render(
+            "- Natural water filtration and ***flood prevention***",
+            config: themedConfig
+        )
+
+        var foundItalic = false
+        result.enumerateAttributes(in: NSRange(location: 0, length: result.length)) { attrs, range, _ in
+            let substring = (result.string as NSString).substring(with: range)
+            guard substring.contains("flood prevention") else { return }
+            guard let font = attrs[.font] as? UIFont else { return }
+
+            XCTAssertEqual(font.fontName, "Montserrat-BoldItalic")
+            foundItalic = true
+        }
+        XCTAssertTrue(foundItalic)
+    }
+
+
+    func testBoldAndItalicCombinedUsesItalicFaceForCustomBoldFont() {
+        Self.registerMontserratFontsIfNeeded()
+        guard let bold = UIFont(name: "Montserrat-Bold", size: 16) else {
+            XCTFail("Montserrat-Bold not available")
+            return
+        }
+
+        XCTAssertEqual(FontHelpers.ensureItalic(bold)?.fontName, "Montserrat-BoldItalic")
     }
 
 
@@ -190,6 +256,30 @@ final class RendererTests: XCTestCase {
         let font = attributes[.font] as? UIFont
         XCTAssertNotNil(font)
         XCTAssertTrue(font!.fontDescriptor.symbolicTraits.contains(.traitBold))
+    }
+
+
+    func testCustomThemeHeadingUsesBoldFontFamily() {
+        var themedConfig = config!
+        var theme = MarkdownTheme {
+            Heading(1).fontFamily("Helvetica-Bold", size: 30)
+            Heading(2).fontFamily("Helvetica-Bold", size: 24)
+        }
+        theme.apply(to: &themedConfig, traitCollection: .current)
+
+        let result = MarkdownRenderer.render("# Title\n\n## Subtitle", config: themedConfig)
+
+        var foundBoldHeading = false
+        result.enumerateAttribute(.font, in: NSRange(location: 0, length: result.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            let text = (result.string as NSString).substring(with: range)
+            guard text == "Title" || text == "Subtitle" else { return }
+            XCTAssertTrue(
+                font.fontDescriptor.symbolicTraits.contains(.traitBold) || font.fontName.localizedCaseInsensitiveContains("bold")
+            )
+            foundBoldHeading = true
+        }
+        XCTAssertTrue(foundBoldHeading)
     }
 
 
