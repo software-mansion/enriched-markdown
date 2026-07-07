@@ -1,0 +1,42 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - text
+  - thematic_break
+---
+# checks thematic breaks separating different block element types
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        A paragraph before a break.
+
+        ---
+
+        > A blockquote after a break.
+
+        ---
+
+        - List item one
+        - List item two
+
+        ---
+
+        ```
+        code block
+        ```
+
+        ---
+
+        ## Header after break
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'thematic_break_combo_display'

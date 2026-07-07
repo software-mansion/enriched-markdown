@@ -87,6 +87,8 @@ Remember to add Maestro E2E tests for your change when behavior is user-visible.
 yarn test:e2e:ios
 yarn test:e2e:android
 yarn test:e2e:mobile   # both platforms sequentially
+yarn test:e2e:ios-native      # native iOS example app (CommonMark only)
+yarn test:e2e:android-native  # native Android example app (CommonMark only)
 ```
 
 The test script names follow the pattern `test:e2e[:<config>]:<platform>[:update-screenshots]`:
@@ -174,6 +176,12 @@ The `package.json` file contains various scripts for common tasks:
 - `yarn test:e2e:ios:update-screenshots`: refresh iOS screenshot baselines.
 - `yarn test:e2e:android:update-screenshots`: refresh Android screenshot baselines.
 - `yarn test:e2e:mobile:update-screenshots`: refresh screenshot baselines for both platforms.
+- `yarn test:e2e:ios-native`: run CommonMark E2E tests on the native iOS example app.
+- `yarn test:e2e:ios-native:smoke`: smoke CommonMark tests on the native iOS example app.
+- `yarn test:e2e:ios-native:update-screenshots`: refresh native iOS example screenshot baselines.
+- `yarn test:e2e:android-native`: run CommonMark E2E tests on the native Android example app.
+- `yarn test:e2e:android-native:smoke`: smoke CommonMark tests on the native Android example app.
+- `yarn test:e2e:android-native:update-screenshots`: refresh native Android example screenshot baselines.
 
 ### Sending a pull request
 

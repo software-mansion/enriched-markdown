@@ -1,0 +1,4 @@
+flows:
+  - "iosExample/enrichedMarkdownText/flows/**"
+includeTags:
+  - smoke

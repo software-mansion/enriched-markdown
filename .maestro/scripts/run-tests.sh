@@ -8,7 +8,7 @@
 # Opts:
 #   --platform            Required. Target platform, either ios or android.
 #
-#   --app                 Which app to test: rn (default) or android-native.
+#   --app                 Which app to test: rn (default), android-native, or ios-native.
 #
 #   --config              Path to a Maestro config.yaml to use for tag filtering and
 #                           flow discovery. When set, defaults to the enrichedMarkdownText
@@ -88,6 +88,8 @@ if [ -z "$FLOWS" ]; then
     FLOWS="$MAESTRO_ROOT"
   elif [ "$APP" = "android-native" ]; then
     FLOWS="$MAESTRO_ROOT/androidExample/enrichedMarkdownText/flows"
+  elif [ "$APP" = "ios-native" ]; then
+    FLOWS="$MAESTRO_ROOT/iosExample/enrichedMarkdownText/flows"
   else
     FLOWS=$(find "$MAESTRO_ROOT/enrichedMarkdownText/flows" "$MAESTRO_ROOT/enrichedMarkdownInput/flows" -name "*.yaml" -exec dirname {} \; 2>/dev/null | sort -u | tr '\n' ' ')
   fi
@@ -104,8 +106,15 @@ case "$APP" in
       exit 1
     fi
     ;;
+  ios-native)
+    BUNDLE_ID="swmansion.enriched.markdown.ios.example"
+    if [ "$PLATFORM" != ios ]; then
+      echo "Error: --app ios-native requires --platform ios" >&2
+      exit 1
+    fi
+    ;;
   *)
-    echo "Error: unknown --app value '$APP'. Use rn or android-native." >&2
+    echo "Error: unknown --app value '$APP'. Use rn, android-native, or ios-native." >&2
     exit 1
     ;;
 esac
@@ -116,7 +125,9 @@ case "$PLATFORM" in
   *)        echo "Error: --platform is required. (--platform <ios|android>)" >&2; exit 1 ;;
 esac
 
-DEVICE_ID=$("$SETUP" | tee /dev/tty | grep "^DEVICE_ID=" | cut -d= -f2)
+SETUP_OUTPUT=$("$SETUP" 2>&1)
+echo "$SETUP_OUTPUT"
+DEVICE_ID=$(echo "$SETUP_OUTPUT" | grep "^DEVICE_ID=" | cut -d= -f2)
 
 shutdown_device() {
   if [ "$PLATFORM" = ios ]; then
@@ -141,6 +152,14 @@ if [ -n "$REBUILD" ] || ! app_installed; then
   if [ "$APP" = "android-native" ]; then
     ANDROID_SERIAL="$DEVICE_ID" yarn android-example build
     adb -s "$DEVICE_ID" install -r "$REPO_ROOT/apps/android-example/app/build/outputs/apk/debug/app-debug.apk"
+  elif [ "$APP" = "ios-native" ]; then
+    IOS_SIMULATOR_UDID="$DEVICE_ID" yarn ios-example build
+    IOS_APP=$(find "$REPO_ROOT/apps/ios-example/build" -name 'EnrichedMarkdownExample.app' -path '*Debug-iphonesimulator*' | head -1)
+    if [ -z "$IOS_APP" ]; then
+      echo "Error: EnrichedMarkdownExample.app not found after build" >&2
+      exit 1
+    fi
+    xcrun simctl install "$DEVICE_ID" "$IOS_APP"
   elif [ "$PLATFORM" = ios ]; then
     yarn react-native-example ios --udid "$DEVICE_ID"
   else

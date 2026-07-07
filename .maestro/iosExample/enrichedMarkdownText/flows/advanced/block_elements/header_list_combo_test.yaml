@@ -1,0 +1,34 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - header
+  - list
+  - text
+---
+# checks the combination of headers and lists (section headers followed by list items)
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        ## Ingredients
+
+        - Flour
+        - Eggs
+        - Butter
+
+        ## Steps
+
+        1. Mix dry ingredients
+        2. Add wet ingredients
+        3. Bake at 180C
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'header_list_combo_display'

@@ -1,0 +1,35 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - code_block
+  - header
+  - text
+---
+# checks the combination of headers and code blocks (section headers above code snippets)
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        ## Installation
+
+        ```
+        npm install
+        ```
+
+        ## Usage
+
+        ```js
+        import { run } from './app'
+        run()
+        ```
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'header_code_block_combo_display'
