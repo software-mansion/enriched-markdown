@@ -77,6 +77,9 @@ object LocalImageLoader {
           null
         }
       }
+    } catch (_: OutOfMemoryError) {
+      Log.e(TAG, "OOM loading local image: $source")
+      null
     } catch (e: Exception) {
       Log.w(TAG, "Failed to load local image: $source", e)
       null
