@@ -121,6 +121,11 @@ object ImageDownloader {
     }
   }
 
+  fun decodeBytesDownsampled(
+    context: Context,
+    bytes: ByteArray,
+  ): Bitmap? = decodeDownsampled(bytes, context.resources.displayMetrics.widthPixels)
+
   fun decodeFileDownsampled(
     context: Context,
     path: String,
