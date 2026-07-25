@@ -1,6 +1,7 @@
 #import "EnrichedMarkdownTextInput.h"
 #import "ContextMenuUtils.h"
 #import "ENRMAutoLinkDetector.h"
+#import "ENRMBlockEditCoordinator.h"
 #import "ENRMBlockHandler.h"
 #import "ENRMBlockStore.h"
 #import "ENRMDetectorPipeline.h"
@@ -113,6 +114,7 @@ using namespace facebook::react;
   ENRMAutoLinkDetector *_autoLinkDetector;
   ENRMDetectorPipeline *_detectorPipeline;
   ENRMEditPipeline *_editPipeline;
+  ENRMBlockEditCoordinator *_blockCoordinator;
 
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
@@ -183,6 +185,7 @@ using namespace facebook::react;
                                                             formatter:_formatter
                                                      detectorPipeline:_detectorPipeline
                                                                  host:self];
+    _blockCoordinator = [[ENRMBlockEditCoordinator alloc] initWithBlockStore:_blockStore];
   }
   return self;
 }
@@ -935,25 +938,19 @@ using namespace facebook::react;
   [self toggleBlockType:ENRMBlockTypeForHeadingLevel(level) level:level];
 }
 
-/// Block counterpart to toggleInlineStyle:: sets the block on the paragraph(s)
-/// the selection touches, or clears it back to a plain paragraph when already
-/// active. Syncs typing attributes so the toggled line renders immediately.
 - (void)toggleBlockType:(ENRMInputBlockType)type level:(NSInteger)level
 {
   NSString *text = ENRMGetPlainText(_textView);
-  NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
-
-  // Match by line start, not containment: an empty block line carries a
-  // zero-length anchor that a containment check would miss.
-  ENRMBlockRange *current = [_blockStore blockStartingAtLocation:paragraphRange.location];
-  BOOL alreadyActive = current != nil && current.type == type;
+  BOOL alreadyActive = [_blockCoordinator toggleBlockType:type
+                                                    level:level
+                                           selectionRange:_textView.selectedRange
+                                                   inText:text];
 
   if (alreadyActive) {
-    [_blockStore removeBlockInParagraphRange:paragraphRange inText:text];
     // Strip the stored block paragraph style directly: an empty item's line has no
     // stamped block-marker attribute (zero-length ranges are never stamped), so the
     // applyFormatting reset below — which is keyed off that marker — cannot reach it.
-    // The manual strip de-indents the line to a plain paragraph regardless.
+    NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
     NSTextStorage *storage = _textView.textStorage;
     NSRange clamped = NSIntersectionRange(paragraphRange, NSMakeRange(0, storage.length));
     if (clamped.length > 0) {
@@ -961,43 +958,12 @@ using namespace facebook::react;
       [storage removeAttribute:NSParagraphStyleAttributeName range:clamped];
       [storage endEditing];
     }
-  } else if (paragraphRange.length == 0) {
-    // Switching unordered <-> ordered keeps the item's nesting depth.
-    NSInteger resolvedLevel = level;
-    if (ENRMBlockTypeIsListItem(type) && current != nil && ENRMBlockTypeIsListItem(current.type)) {
-      resolvedLevel = current.level;
-    }
-    [_blockStore setBlockType:type level:resolvedLevel forParagraphRange:paragraphRange inText:text];
-  } else {
-    // Blocks are single-paragraph: set one range per paragraph the selection
-    // touches, not one range spanning them all — otherwise the next edit's
-    // line normalization would clip the block to its first line.
-    [text
-        enumerateSubstringsInRange:paragraphRange
-                           options:NSStringEnumerationByParagraphs | NSStringEnumerationSubstringNotRequired
-                        usingBlock:^(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
-                          // Switching unordered <-> ordered keeps each line's nesting depth.
-                          NSInteger paragraphLevel = level;
-                          if (ENRMBlockTypeIsListItem(type)) {
-                            ENRMBlockRange *existing = [self listBlockForParagraphAtPosition:substringRange.location];
-                            if (existing != nil) {
-                              paragraphLevel = existing.level;
-                            }
-                          }
-                          [self->_blockStore setBlockType:type
-                                                    level:paragraphLevel
-                                        forParagraphRange:substringRange
-                                                   inText:text];
-                        }];
   }
 
-  [_blockStore normalizeToLineBoundsInText:text];
   [self applyFormatting];
   [self syncTypingAttributesWithCursorBlock];
   [self updatePlaceholderVisibility];
   if (alreadyActive) {
-    // The just-cleared line is a plain paragraph now; drop any list indent the
-    // typing attributes carried so the next typed character isn't indented.
     [self clearListParagraphStyleFromTypingAttributes];
   }
   [self updateEmptyBulletMarker];
@@ -1024,61 +990,22 @@ using namespace facebook::react;
   [self changeListDepthBy:-1];
 }
 
-/// Adjusts the nesting depth of the cursor's list item by `delta`, clamped to
-/// [0, kENRMMaxListDepth] and preserving the item's list type. QoL on the
-/// boundaries: indent on a non-list paragraph starts a depth-0 bullet (ignored
-/// on headings), and outdent past depth 0 removes the marker.
 - (void)changeListDepthBy:(NSInteger)delta
 {
-  ENRMBlockRange *listBlock = [self listBlockForCursorParagraph];
-  if (listBlock == nil) {
-    if (delta > 0 && [self headingLevelForCursorParagraph] == 0) {
-      [self toggleUnorderedList];
-    }
-    return;
-  }
-
-  if (delta < 0 && listBlock.level == 0) {
-    [self toggleBlockType:listBlock.type level:0];
-    return;
-  }
-
   NSString *text = ENRMGetPlainText(_textView);
-  NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
-
-  // Adjust every selected paragraph that is a list item, each clamped from its
-  // own depth (mirrors Android's forEachSelectedLine and toggleBlockType's
-  // paragraph enumeration — one range per line, so normalize can't clip the
-  // block to the selection's first line).
-  if (paragraphRange.length == 0) {
-    NSInteger newDepth = MIN(MAX(listBlock.level + delta, (NSInteger)0), kENRMMaxListDepth);
-    [_blockStore setBlockType:listBlock.type level:newDepth forParagraphRange:paragraphRange inText:text];
-  } else {
-    [text
-        enumerateSubstringsInRange:paragraphRange
-                           options:NSStringEnumerationByParagraphs | NSStringEnumerationSubstringNotRequired
-                        usingBlock:^(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
-                          ENRMBlockRange *block = [self listBlockForParagraphAtPosition:substringRange.location];
-                          if (block == nil) {
-                            return;
-                          }
-                          NSInteger newDepth = MIN(MAX(block.level + delta, (NSInteger)0), kENRMMaxListDepth);
-                          [self->_blockStore setBlockType:block.type
-                                                    level:newDepth
-                                        forParagraphRange:substringRange
-                                                   inText:text];
-                        }];
+  ENRMDepthChangeResult result = [_blockCoordinator changeDepthBy:delta
+                                                   cursorPosition:_textView.selectedRange.location
+                                                   selectionRange:_textView.selectedRange
+                                                           inText:text];
+  if (result == ENRMDepthChangeResultNoOp) {
+    return;
   }
-
-  [_blockStore normalizeToLineBoundsInText:text];
   [self applyFormatting];
   [self syncTypingAttributesWithCursorBlock];
   [self updateEmptyBulletMarker];
   [self emitFormattingChanged];
 }
 
-/// The list block owning the caret's paragraph (matched by line start, so empty
-/// anchors and line-end carets register), or nil.
 - (nullable ENRMBlockRange *)listBlockForCursorParagraph
 {
   return [self listBlockForParagraphAtPosition:_textView.selectedRange.location];
@@ -1086,33 +1013,20 @@ using namespace facebook::react;
 
 - (nullable ENRMBlockRange *)listBlockForParagraphAtPosition:(NSUInteger)position
 {
-  ENRMBlockRange *block = [self blockForParagraphAtPosition:position];
-  return (block != nil && ENRMBlockTypeIsListItem(block.type)) ? block : nil;
+  return [_blockCoordinator listBlockAtPosition:position inText:_textView.textStorage.string];
 }
 
-/// The block (of any type) whose line starts at the paragraph containing
-/// `position`, or nil. Single choke point over the store's O(log n) lookup —
-/// callers that want only a list item or only a heading filter the result.
 - (nullable ENRMBlockRange *)blockForParagraphAtPosition:(NSUInteger)position
 {
-  NSString *text = _textView.textStorage.string;
-  if (position > text.length) {
-    return nil;
-  }
-  NSRange paragraph = [text paragraphRangeForRange:NSMakeRange(position, 0)];
-  return [_blockStore blockStartingAtLocation:paragraph.location];
+  return [_blockCoordinator blockAtPosition:position inText:_textView.textStorage.string];
 }
 
-/// Whether the caret's paragraph is a list item of `type`, writing its depth
-/// into `outDepth` when non-NULL. Mirrors headingLevelForCursorParagraph.
 - (BOOL)listStateOfType:(ENRMInputBlockType)type forCursorParagraphDepth:(nullable NSInteger *)outDepth
 {
-  ENRMBlockRange *block = [self listBlockForCursorParagraph];
-  BOOL match = block != nil && block.type == type;
-  if (outDepth) {
-    *outDepth = match ? block.level : 0;
-  }
-  return match;
+  return [_blockCoordinator listStateOfType:type
+                                 atPosition:_textView.selectedRange.location
+                                     inText:_textView.textStorage.string
+                                      depth:outDepth];
 }
 
 /// Records the block kind/level of the line being edited before the change, so a
@@ -1213,11 +1127,9 @@ using namespace facebook::react;
   return YES;
 }
 
-/// listBlockForCursorParagraph for an arbitrary position — the caret hasn't
-/// moved yet when a replacement is intercepted.
 - (BOOL)listStateForParagraphAtPosition:(NSUInteger)position depth:(NSInteger *)outDepth
 {
-  ENRMBlockRange *block = [self listBlockForParagraphAtPosition:position];
+  ENRMBlockRange *block = [_blockCoordinator listBlockAtPosition:position inText:_textView.textStorage.string];
   if (block != nil) {
     if (outDepth) {
       *outDepth = block.level;
@@ -1309,12 +1221,10 @@ using namespace facebook::react;
   }
 }
 
-/// Heading level (1-6, or 0) of the caret's paragraph, matched by line start so
-/// line-end carets and empty-line anchors register (mirrors inline isActive).
 - (NSInteger)headingLevelForCursorParagraph
 {
-  ENRMBlockRange *block = [self blockForParagraphAtPosition:_textView.selectedRange.location];
-  return block != nil ? ENRMHeadingLevelForBlockType(block.type) : 0;
+  return [_blockCoordinator headingLevelAtPosition:_textView.selectedRange.location
+                                            inText:_textView.textStorage.string];
 }
 
 /// Syncs typing attributes so text typed at the caret on a block-styled line

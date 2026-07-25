@@ -26,6 +26,7 @@ import com.swmansion.enriched.markdown.input.autolink.AutoLinkDetector
 import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
 import com.swmansion.enriched.markdown.input.detection.WordsUtils
+import com.swmansion.enriched.markdown.input.editing.BlockEditCoordinator
 import com.swmansion.enriched.markdown.input.editing.EditContext
 import com.swmansion.enriched.markdown.input.editing.EditPhase
 import com.swmansion.enriched.markdown.input.editing.EditPipeline
@@ -35,7 +36,6 @@ import com.swmansion.enriched.markdown.input.editing.InputConnectionWrapper
 import com.swmansion.enriched.markdown.input.editing.MarkdownEditableFactory
 import com.swmansion.enriched.markdown.input.editing.MarkdownTextWatcher
 import com.swmansion.enriched.markdown.input.editing.ZWSP
-import com.swmansion.enriched.markdown.input.editing.isLineBreak
 import com.swmansion.enriched.markdown.input.formatting.BlockStore
 import com.swmansion.enriched.markdown.input.formatting.FormattingStore
 import com.swmansion.enriched.markdown.input.formatting.InputFormatter
@@ -47,7 +47,6 @@ import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
-import com.swmansion.enriched.markdown.input.model.MAX_LIST_DEPTH
 import com.swmansion.enriched.markdown.input.model.StyleType
 import com.swmansion.enriched.markdown.input.toolbar.InputContextMenu
 import com.swmansion.enriched.markdown.utils.input.AutoCapitalizeUtils
@@ -65,6 +64,7 @@ class EnrichedMarkdownTextInputView(
   val pendingStyleRemovals = mutableSetOf<StyleType>()
 
   val editSession = EditSession()
+  val blockCoordinator = BlockEditCoordinator(blockStore)
 
   private var lastProcessedText: String = ""
   private var preEditSelectionStart = 0
@@ -238,11 +238,9 @@ class EnrichedMarkdownTextInputView(
       KeyEvent.KEYCODE_DEL -> {
         if (selectionStart == selectionEnd) {
           val editable = text ?: return false
-          val ls = lineStartOf(editable, selectionStart)
-          val le = lineEndOf(editable, selectionStart)
+          val ls = blockCoordinator.lineStartOf(editable, selectionStart)
+          val le = blockCoordinator.lineEndOf(editable, selectionStart)
           val content = editable.subSequence(ls, le).toString()
-          // At the item's start, or on an empty/ZWSP-anchored item (the caret sits
-          // after the anchor, not at the line start).
           if (selectionStart == ls || content.isEmpty() || content == ZWSP.toString()) {
             if (depth > 0) outdentList() else toggleListType(listBlock.type)
             return true
@@ -506,42 +504,23 @@ class EnrichedMarkdownTextInputView(
     }
   }
 
-  /** The list block owning the caret's paragraph, or null. */
-  private fun listBlockAtCursor(): BlockRange? = blockOnParagraphAt(selectionStart)?.takeIf { it.type in BlockType.LIST_ITEMS }
+  private fun listBlockAtCursor(): BlockRange? {
+    val editable = text ?: return null
+    return blockCoordinator.listBlockAtPosition(editable, selectionStart)
+  }
 
-  /**
-   * List state of the cursor's paragraph for [type]: whether it is such an item and,
-   * if so, its 0-based nesting depth. The orchestrator side of the
-   * `onChangeState.unorderedList` / `orderedList` payloads.
-   */
   fun listStateAtCursor(type: BlockType): Pair<Boolean, Int> {
-    val block = listBlockAtCursor() ?: return false to 0
-    return if (block.type == type) true to block.level else false to 0
+    val editable = text ?: return false to 0
+    return blockCoordinator.listStateAtPosition(editable, selectionStart, type)
   }
 
   fun toggleUnorderedList() = toggleListType(BlockType.UNORDERED_LIST_ITEM)
 
   fun toggleOrderedList() = toggleListType(BlockType.ORDERED_LIST_ITEM)
 
-  /**
-   * Toggles a list of [type] on the cursor's paragraph(s): turns the touched lines
-   * into depth-0 items (an item of the other list type is replaced keeping its
-   * depth), or clears them back to plain paragraphs when the cursor's line already
-   * carries [type].
-   */
   private fun toggleListType(type: BlockType) {
     val editable = text ?: return
-    val turningOff = listBlockAtCursor()?.type == type
-    if (turningOff) {
-      forEachSelectedLine { ls, le -> blockStore.removeBlock(ls, le, editable) }
-    } else {
-      forEachSelectedLine { ls, le ->
-        // Switching unordered <-> ordered keeps each line's nesting depth.
-        val existing = listBlockStartingAt(ls)
-        blockStore.setBlock(type, existing?.level ?: 0, ls, le, editable)
-      }
-    }
-    blockStore.normalizeToLineBounds(editable)
+    blockCoordinator.toggleList(editable, type, selectionStart, selectionStart, selectionEnd)
     applyFormattingAndEmit()
     syncEmptyListAnchor()
   }
@@ -553,42 +532,11 @@ class EnrichedMarkdownTextInputView(
   fun outdentList() = changeListDepthBy(-1)
 
   private fun changeListDepthBy(delta: Int) {
-    val cursorBlock = listBlockAtCursor()
-    if (cursorBlock == null) {
-      // Indent on a plain paragraph starts a bullet list; headings/outdent are ignored.
-      if (delta > 0 && blockOnParagraphAt(selectionStart) == null) toggleUnorderedList()
-      return
-    }
-    if (delta < 0 && cursorBlock.level == 0) {
-      toggleListType(cursorBlock.type)
-      return
-    }
     val editable = text ?: return
-    forEachSelectedLine { ls, le ->
-      val block = listBlockStartingAt(ls)
-      if (block != null) {
-        val newDepth = (block.level + delta).coerceIn(0, MAX_LIST_DEPTH)
-        blockStore.setBlock(block.type, newDepth, ls, le, editable)
-      }
-    }
-    blockStore.normalizeToLineBounds(editable)
+    val result = blockCoordinator.changeDepth(editable, selectionStart, selectionStart, selectionEnd, delta)
+    if (result == BlockEditCoordinator.DepthChangeResult.NO_OP) return
     applyFormattingAndEmit()
     syncEmptyListAnchor()
-  }
-
-  /** Runs [action] with the `[lineStart, lineEnd)` content bounds of each line the selection touches. */
-  private inline fun forEachSelectedLine(action: (lineStart: Int, lineEnd: Int) -> Unit) {
-    val editable = text ?: return
-    val selEnd = selectionEnd.coerceIn(0, editable.length)
-    var cursor = selectionStart.coerceIn(0, editable.length)
-    while (cursor > 0 && !editable[cursor - 1].isLineBreak()) cursor--
-    while (cursor <= editable.length) {
-      var le = cursor
-      while (le < editable.length && !editable[le].isLineBreak()) le++
-      action(cursor, le)
-      if (le >= selEnd) break
-      cursor = le + 1
-    }
   }
 
   /**
@@ -632,10 +580,10 @@ class EnrichedMarkdownTextInputView(
         var i = editable.length - 1
         while (i >= 0) {
           if (editable[i] == ZWSP) {
-            val ls = lineStartOf(editable, i)
-            val le = lineEndOf(editable, i)
+            val ls = blockCoordinator.lineStartOf(editable, i)
+            val le = blockCoordinator.lineEndOf(editable, i)
             val onlyZwsp = le - ls == 1 && editable[ls] == ZWSP
-            val isEmptyListLine = onlyZwsp && listBlockStartingAt(ls) != null
+            val isEmptyListLine = onlyZwsp && blockCoordinator.listBlockAtLineStart(ls) != null
             if (!isEmptyListLine) {
               runAsATransaction { editable.delete(i, i + 1) }
               blockStore.adjustForEdit(i, 1, 0)
@@ -649,12 +597,11 @@ class EnrichedMarkdownTextInputView(
         zwspAnchorCount = keptAnchors
       }
 
-      // Anchor the caret's line if it is an empty list item with no ZWSP yet.
       val caret = selectionStart
       if (selectionStart == selectionEnd) {
-        val ls = lineStartOf(editable, caret)
-        val le = lineEndOf(editable, caret)
-        val block = listBlockStartingAt(ls)
+        val ls = blockCoordinator.lineStartOf(editable, caret)
+        val le = blockCoordinator.lineEndOf(editable, caret)
+        val block = blockCoordinator.listBlockAtLineStart(ls)
         if (block != null && le == ls) {
           runAsATransaction { editable.insert(ls, ZWSP.toString()) }
           blockStore.adjustForEdit(ls, 0, 1)
@@ -694,24 +641,6 @@ class EnrichedMarkdownTextInputView(
   fun setUserHint(value: CharSequence?) {
     userHint = value
     syncHintVisibility()
-  }
-
-  private fun lineStartOf(
-    editable: CharSequence,
-    pos: Int,
-  ): Int {
-    var s = pos.coerceIn(0, editable.length)
-    while (s > 0 && !editable[s - 1].isLineBreak()) s--
-    return s
-  }
-
-  private fun lineEndOf(
-    editable: CharSequence,
-    pos: Int,
-  ): Int {
-    var e = pos.coerceIn(0, editable.length)
-    while (e < editable.length && !editable[e].isLineBreak()) e++
-    return e
   }
 
   // Copies the whole input as markdown without disturbing the current selection,
@@ -836,69 +765,28 @@ class EnrichedMarkdownTextInputView(
     toggleBlockType(blockType, level)
   }
 
-  /**
-   * Block counterpart to [toggleInlineStyle]: sets [type] on the paragraph(s) the
-   * selection touches, or clears it back to a plain paragraph when already active.
-   */
   private fun toggleBlockType(
     type: BlockType,
     level: Int,
   ) {
     val editable = text ?: return
-
     val selStart = selectionStart.coerceIn(0, editable.length)
     val selEnd = selectionEnd.coerceIn(selStart, editable.length)
-
-    val existing = blockOnParagraphAt(selStart)
-    val isActive = existing != null && existing.type == type && existing.level == level
-
-    if (isActive) {
-      blockStore.removeBlock(selStart, selEnd, editable)
-    } else {
-      // Blocks are single-paragraph: set one range per line the selection
-      // touches, not one range spanning them all — otherwise the next edit's
-      // line normalization would clip the block to its first line.
-      var lineStart = selStart
-      while (lineStart > 0 && !editable[lineStart - 1].isLineBreak()) lineStart--
-      while (lineStart <= selEnd) {
-        var lineEnd = lineStart
-        while (lineEnd < editable.length && !editable[lineEnd].isLineBreak()) lineEnd++
-        blockStore.setBlock(type, level, lineStart, lineEnd, editable)
-        lineStart = lineEnd + 1
-      }
-    }
-
-    blockStore.normalizeToLineBounds(editable)
+    blockCoordinator.toggleBlock(editable, type, level, selStart, selEnd)
     applyFormattingAndEmit()
     syncCursorSizeWithBlock()
   }
 
-  /**
-   * The block owning [pos]'s paragraph, or null. Matched by line start, not
-   * containment, so line-end carets and zero-length heading anchors register.
-   */
   private fun blockOnParagraphAt(pos: Int): BlockRange? {
     val editable = text ?: return null
-    val cursor = pos.coerceIn(0, editable.length)
-    var lineStart = cursor
-    while (lineStart > 0 && !editable[lineStart - 1].isLineBreak()) lineStart--
-    return blockStore.blockStartingAt(lineStart)
+    return blockCoordinator.blockAtPosition(editable, pos)
   }
 
-  /**
-   * The list-item block whose paragraph starts exactly at [lineStart], or null.
-   * Line-start counterpart to [listBlockAtCursor] for the per-line loops
-   * (toggle / indent / anchor sync) that already hold a resolved line start.
-   * Routes through [BlockStore.blockStartingAt]'s O(log n) lookup instead of the
-   * linear `allRanges.firstOrNull { it.start == ls }` scans these sites repeated.
-   */
-  private fun listBlockStartingAt(lineStart: Int): BlockRange? =
-    blockStore.blockStartingAt(lineStart)?.takeIf { it.type in BlockType.LIST_ITEMS }
+  private fun listBlockStartingAt(lineStart: Int): BlockRange? = blockCoordinator.listBlockAtLineStart(lineStart)
 
-  /** Heading level (1-6) of the cursor's paragraph, or 0 when it is a plain paragraph. */
   fun headingLevelAtCursor(): Int {
-    val block = blockOnParagraphAt(selectionStart) ?: return 0
-    return if (block.type in BlockType.HEADINGS) block.level else 0
+    val editable = text ?: return 0
+    return blockCoordinator.headingLevelAtPosition(editable, selectionStart)
   }
 
   /**
