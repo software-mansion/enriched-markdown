@@ -4,6 +4,7 @@
 #import "ENRMBlockHandler.h"
 #import "ENRMBlockStore.h"
 #import "ENRMDetectorPipeline.h"
+#import "ENRMEditPipeline.h"
 #import "ENRMFormattingRange.h"
 #import "ENRMFormattingStore.h"
 #import "ENRMInputFormatter.h"
@@ -42,9 +43,11 @@
 using namespace facebook::react;
 
 #if !TARGET_OS_OSX
-@interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, UITextViewDelegate>
+@interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, UITextViewDelegate,
+                                         ENRMEditPipelineHost>
 #else
-@interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, RCTBackedTextInputDelegate>
+@interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, RCTBackedTextInputDelegate,
+                                         ENRMEditPipelineHost>
 #endif
 - (void)setupTextView;
 - (void)applyFormatting;
@@ -110,6 +113,7 @@ using namespace facebook::react;
 
   ENRMAutoLinkDetector *_autoLinkDetector;
   ENRMDetectorPipeline *_detectorPipeline;
+  ENRMEditPipeline *_editPipeline;
 
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
@@ -172,6 +176,12 @@ using namespace facebook::react;
     [self setupTextView];
 
     [self setupDetectorPipeline];
+
+    _editPipeline = [[ENRMEditPipeline alloc] initWithFormattingStore:_formattingStore
+                                                           blockStore:_blockStore
+                                                            formatter:_formatter
+                                                     detectorPipeline:_detectorPipeline
+                                                                 host:self];
   }
   return self;
 }
@@ -610,6 +620,18 @@ using namespace facebook::react;
   }
 }
 #endif
+
+#pragma mark - ENRMEditPipelineHost
+
+- (NSString *)plainText
+{
+  return ENRMGetPlainText(_textView);
+}
+
+- (NSTextStorage *)textStorage
+{
+  return _textView.textStorage;
+}
 
 #pragma mark - Placeholder
 
@@ -1204,51 +1226,6 @@ using namespace facebook::react;
   return NO;
 }
 
-/// Reconciles blocks after Return: a non-empty item continues as a new item at
-/// the same depth, an empty item exits the list (both lines revert to plain
-/// paragraphs). Whether a type continues is the handler's continuesOnNewline.
-- (void)reconcileBlockContinuationAfterNewlineAt:(NSUInteger)newlineLocation previousItemWasEmpty:(BOOL)previousWasEmpty
-{
-  id<ENRMBlockHandler> handler = [_formatter handlerForBlockType:_preEditBlockType];
-  if (!handler || ![handler respondsToSelector:@selector(continuesOnNewline)] || !handler.continuesOnNewline) {
-    return;
-  }
-
-  NSString *text = ENRMGetPlainText(_textView);
-  NSUInteger newLineLocation = newlineLocation + 1;
-  if (newLineLocation > text.length) {
-    return;
-  }
-  NSRange originalParagraph = [text paragraphRangeForRange:NSMakeRange(newlineLocation, 0)];
-  NSRange newParagraph = [text paragraphRangeForRange:NSMakeRange(newLineLocation, 0)];
-
-  if (previousWasEmpty) {
-    // Exit: drop the block from both lines and strip their list paragraph style.
-    // These lines are empty, so they carry no stamped block-marker attribute for
-    // the applyFormatting reset to key off (and the exited line's paragraph style
-    // rode in on the newline's typing attributes) — the manual strip is the only
-    // thing that clears the leftover indent/spacing here.
-    [_blockStore removeBlockInParagraphRange:originalParagraph inText:text];
-    [_blockStore removeBlockInParagraphRange:newParagraph inText:text];
-
-    NSTextStorage *storage = _textView.textStorage;
-    [storage beginEditing];
-    for (NSRange paragraph : {originalParagraph, newParagraph}) {
-      NSRange clamped = NSIntersectionRange(paragraph, NSMakeRange(0, storage.length));
-      if (clamped.length > 0) {
-        [storage removeAttribute:NSParagraphStyleAttributeName range:clamped];
-      }
-    }
-    [storage endEditing];
-    return;
-  }
-
-  // Keep the source line its block at its level, and start the new line as a
-  // fresh block of the same type/level (e.g. a sibling bullet at the same depth).
-  [_blockStore setBlockType:_preEditBlockType level:_preEditBlockLevel forParagraphRange:originalParagraph inText:text];
-  [_blockStore setBlockType:_preEditBlockType level:_preEditBlockLevel forParagraphRange:newParagraph inText:text];
-}
-
 /// Drives the layout manager's empty-line bullet: an empty bullet line has no
 /// character to anchor the marker to, so the manager is told its location/depth
 /// explicitly; cleared when the caret isn't on an empty bullet line.
@@ -1391,12 +1368,9 @@ using namespace facebook::react;
                               deletedLength:(NSUInteger)deletedLength
                              insertedLength:(NSUInteger)insertedLength
 {
-  [_formattingStore adjustForEditAtLocation:editLocation deletedLength:deletedLength insertedLength:insertedLength];
-  [_blockStore adjustForEditAtLocation:editLocation deletedLength:deletedLength insertedLength:insertedLength];
-  [self pruneOrphanedBlockAnchors];
-  NSString *plainText = ENRMGetPlainText(_textView);
-  [_blockStore normalizeToLineBoundsInText:plainText];
-  return plainText;
+  return [_editPipeline adjustStoresForEditAtLocation:editLocation
+                                        deletedLength:deletedLength
+                                       insertedLength:insertedLength];
 }
 
 /// Drops any paragraph style from the caret's typing attributes so a list indent
@@ -1409,26 +1383,6 @@ using namespace facebook::react;
   NSMutableDictionary *attrs = [_textView.typingAttributes mutableCopy];
   [attrs removeObjectForKey:NSParagraphStyleAttributeName];
   _textView.typingAttributes = attrs;
-}
-
-/// Reverts to a plain paragraph any anchored block (heading, bullet item) no
-/// longer anchored at a line start (e.g. Backspace merged its line into the
-/// previous one). Must run BEFORE normalizeToLineBoundsInText: so a merged range
-/// is judged on its unsnapped anchor and can't grow over the line it merged
-/// into. Mirrors Android.
-- (void)pruneOrphanedBlockAnchors
-{
-  NSString *text = _textView.textStorage.string;
-  for (ENRMBlockRange *block in _blockStore.allRanges) {
-    if (!ENRMBlockTypePersistsWhenEmpty(block.type)) {
-      continue;
-    }
-    NSUInteger anchor = MIN(block.range.location, text.length);
-    BOOL atLineStart = [text paragraphRangeForRange:NSMakeRange(anchor, 0)].location == anchor;
-    if (!atLineStart) {
-      [_blockStore removeBlockInParagraphRange:NSMakeRange(anchor, 0) inText:text];
-    }
-  }
 }
 
 - (void)setLink:(NSString *)url
@@ -2157,56 +2111,23 @@ using namespace facebook::react;
     }
   }
 
-  NSString *plainText = [self adjustStoresForEditAtLocation:editLocation
-                                              deletedLength:deletedLength
-                                             insertedLength:insertedLength];
+  ENRMEditContext *context = [[ENRMEditContext alloc] initWithEditLocation:editLocation
+                                                             deletedLength:deletedLength
+                                                            insertedLength:insertedLength
+                                                    preEditReplacedNewline:_preEditReplacedNewline
+                                                          preEditBlockType:_preEditBlockType
+                                                         preEditBlockLevel:_preEditBlockLevel
+                                                  preEditParagraphWasEmpty:_preEditParagraphWasEmpty
+                                                             pendingStyles:[_pendingStyles copy]
+                                                      pendingStyleRemovals:[_pendingStyleRemovals copy]];
 
-  if (insertedLength > 0) {
-    NSRange insertedRange = NSMakeRange(editLocation, insertedLength);
-    NSUInteger insertedEnd = NSMaxRange(insertedRange);
-    BOOL insertedHasGlyphContent = NO;
-    if (insertedEnd <= plainText.length) {
-      NSCharacterSet *newlines = [NSCharacterSet newlineCharacterSet];
-      for (NSUInteger i = insertedRange.location; i < insertedEnd; i++) {
-        if (![newlines characterIsMember:[plainText characterAtIndex:i]]) {
-          insertedHasGlyphContent = YES;
-          break;
-        }
-      }
-    }
+  BOOL touchedNewline = [_editPipeline processTextChangeWithContext:context];
 
-    if (insertedHasGlyphContent) {
-      for (NSNumber *styleNum in _pendingStyles) {
-        ENRMFormattingRange *newRange = [ENRMFormattingRange rangeWithType:(ENRMInputStyleType)styleNum.integerValue
-                                                                     range:insertedRange];
-        [_formattingStore addRange:newRange];
-      }
-    }
-
-    // adjustForEditAtLocation may have expanded an existing range to cover
-    // the insertion — carve out the inserted portion for removed styles.
-    for (NSNumber *styleNum in _pendingStyleRemovals) {
-      [_formattingStore removeType:(ENRMInputStyleType)styleNum.integerValue inRange:insertedRange];
-    }
-
-    // A newline-only insertion is Return: ask the previous line's block handler
-    // whether to continue the block (e.g. a sibling bullet) or end it. (Pasted/
-    // typed glyph content keeps the block the store already grew; pasted markdown
-    // lists arrive via replaceTextInRange:.)
-    if (!insertedHasGlyphContent && insertedLength == 1) {
-      [self reconcileBlockContinuationAfterNewlineAt:editLocation previousItemWasEmpty:_preEditParagraphWasEmpty];
-      // Continuation re-seeds fresh block ranges whose ordinal defaults to 1;
-      // normalize again so the list-metadata pass renumbers the adjacent run.
-      [_blockStore normalizeToLineBoundsInText:plainText];
-    }
-    // Pre-edit block state is consumed once, by the newline continuation above.
-    // Clear it immediately so a later edit that reaches reconciliation without a
-    // fresh capture (e.g. a programmatic mutation) can never act on stale state
-    // from a previous edit — it falls back to "plain paragraph, no continuation".
-    _preEditBlockType = ENRMInputBlockTypeParagraph;
-    _preEditBlockLevel = 0;
-    _preEditParagraphWasEmpty = NO;
-  }
+  // Consumed: clear pre-edit state so stale values can't leak to the next edit.
+  _preEditBlockType = ENRMInputBlockTypeParagraph;
+  _preEditBlockLevel = 0;
+  _preEditParagraphWasEmpty = NO;
+  _preEditReplacedNewline = NO;
 
   _lastTextLength = newLength;
 
@@ -2220,55 +2141,23 @@ using namespace facebook::react;
   }
 #endif
 
-  // An edit that adds or removes lines can shift the depth clamp and ordered
-  // numbering of items far below the edited line; re-stamp the whole document
-  // in that case. Same-line typing keeps the scoped per-keystroke path. Like
-  // Android's editTouchedNewline, only the edited runs are scanned — O(edit
-  // size), not O(document): the inserted run in the post-edit text here, and
-  // the replaced run when the change was intercepted (the deleted characters
-  // are gone by now, so shouldChangeTextInRange captured that half).
-  BOOL touchedNewline = _preEditReplacedNewline;
-  _preEditReplacedNewline = NO;
-  if (!touchedNewline && insertedLength > 0) {
-    NSString *postEditText = ENRMGetPlainText(_textView);
-    NSUInteger insertedEnd = MIN(editLocation + insertedLength, postEditText.length);
-    if (editLocation < insertedEnd) {
-      NSRange insertedRun = NSMakeRange(editLocation, insertedEnd - editLocation);
-      touchedNewline = [postEditText rangeOfCharacterFromSet:[NSCharacterSet newlineCharacterSet]
-                                                     options:0
-                                                       range:insertedRun]
-                           .location != NSNotFound;
-    }
-  }
   if (touchedNewline) {
     [self applyFormatting];
   } else {
     [self applyFormattingScopedToEditAtLocation:editLocation insertedLength:insertedLength];
   }
 
-  // Sync typing attributes after every edit. The selection-change callback
-  // is either suppressed (_isTextChanging) or guarded by the grace period,
-  // so it won't reliably sync after Enter from a heading line. This call
-  // is idempotent and cheap — on same-line edits it's a no-op in practice.
   if (_textView.selectedRange.length == 0) {
     [self syncTypingAttributesWithCursorBlock];
   }
 
-  // Keep the caret's typing attributes aligned with a bullet line so the next
-  // character continues the marker (UIKit drops custom typing attributes after
-  // the first insertion, and a continued/empty item needs the list font+indent).
-  // A Return that EXITED the list leaves the prior list paragraph style lingering
-  // in the typing attributes, which would indent the new plain line — clear it.
   if ([self listBlockForCursorParagraph] != nil) {
     [self syncTypingAttributesWithCursorBlock];
   } else if (_textView.typingAttributes[NSParagraphStyleAttributeName] != nil) {
     [self clearListParagraphStyleFromTypingAttributes];
   }
 
-  NSUInteger clampedEditLocation = MIN(editLocation, newLength);
-  NSUInteger clampedInsertedLength = MIN(insertedLength, newLength - clampedEditLocation);
-  [_detectorPipeline processTextChange:ENRMGetPlainText(_textView)
-                     modificationRange:NSMakeRange(clampedEditLocation, clampedInsertedLength)];
+  [_editPipeline detectLinksAtLocation:editLocation insertedLength:insertedLength];
 
   [self updatePlaceholderVisibility];
   [self emitOnChangeText];

@@ -26,9 +26,14 @@ import com.swmansion.enriched.markdown.input.autolink.AutoLinkDetector
 import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
 import com.swmansion.enriched.markdown.input.detection.WordsUtils
+import com.swmansion.enriched.markdown.input.editing.EditContext
+import com.swmansion.enriched.markdown.input.editing.EditPipeline
+import com.swmansion.enriched.markdown.input.editing.EditPipelineHost
 import com.swmansion.enriched.markdown.input.editing.InputConnectionWrapper
 import com.swmansion.enriched.markdown.input.editing.MarkdownEditableFactory
 import com.swmansion.enriched.markdown.input.editing.MarkdownTextWatcher
+import com.swmansion.enriched.markdown.input.editing.ZWSP
+import com.swmansion.enriched.markdown.input.editing.isLineBreak
 import com.swmansion.enriched.markdown.input.formatting.BlockStore
 import com.swmansion.enriched.markdown.input.formatting.FormattingStore
 import com.swmansion.enriched.markdown.input.formatting.InputFormatter
@@ -45,13 +50,6 @@ import com.swmansion.enriched.markdown.input.model.StyleType
 import com.swmansion.enriched.markdown.input.toolbar.InputContextMenu
 import com.swmansion.enriched.markdown.utils.input.AutoCapitalizeUtils
 import kotlin.math.ceil
-
-// Zero-width space: anchors an empty bullet line so the marker draws and the caret
-// indents (Android won't apply a LeadingMarginSpan's indent to an empty paragraph).
-// Stripped during serialization, so it never reaches the Markdown output.
-private const val ZWSP = '\u200B'
-
-private fun Char.isLineBreak(): Boolean = this == '\n' || this == '\r' || this == '\u0085' || this == '\u2028' || this == '\u2029'
 
 class EnrichedMarkdownTextInputView(
   context: Context,
@@ -91,6 +89,34 @@ class EnrichedMarkdownTextInputView(
   val eventEmitter = InputEventEmitter(this)
   private val autoLinkDetector = AutoLinkDetector(formattingStore)
   private val detectorPipeline = DetectorPipeline()
+
+  private val editPipelineHost =
+    object : EditPipelineHost {
+      override val editable: Editable? get() = text
+      override val emitMarkdown: Boolean get() = this@EnrichedMarkdownTextInputView.emitMarkdown
+
+      override fun syncEmptyListAnchor(restamp: Boolean) = this@EnrichedMarkdownTextInputView.syncEmptyListAnchor(restamp)
+
+      override fun forceScrollToSelection() = this@EnrichedMarkdownTextInputView.forceScrollToSelection()
+
+      override fun syncCursorSizeWithBlock() = this@EnrichedMarkdownTextInputView.syncCursorSizeWithBlock()
+
+      override fun updateActiveMention() = this@EnrichedMarkdownTextInputView.updateActiveMention()
+
+      override fun runAsATransaction(block: () -> Unit) = this@EnrichedMarkdownTextInputView.runAsATransaction(block)
+
+      override fun setViewSelection(position: Int) = setSelection(position)
+    }
+
+  val editPipeline =
+    EditPipeline(
+      formattingStore = formattingStore,
+      blockStore = blockStore,
+      formatter = formatter,
+      detectorPipeline = detectorPipeline,
+      eventEmitter = eventEmitter,
+      host = editPipelineHost,
+    )
 
   private var textWatcher: MarkdownTextWatcher? = null
   private var inputMethodManager: InputMethodManager? = null
@@ -315,46 +341,20 @@ class EnrichedMarkdownTextInputView(
 
     isProcessingTextChange = true
     try {
-      formattingStore.adjustForEdit(editStart, deletedLength, insertedLength)
-      blockStore.adjustForEdit(editStart, deletedLength, insertedLength)
-      pruneOrphanedAnchors()
-      handleNewlineBlockContinuation(editStart, deletedLength, insertedLength)
-      text?.let { blockStore.normalizeToLineBounds(it) }
-      applyPendingStyles(editStart, insertedLength)
-      // Settle the empty-bullet ZWSP anchor (insert/strip the char and re-snap ranges)
-      // BEFORE stamping spans, so block formatting runs exactly once over the final
-      // text/ranges — otherwise a pre-ZWSP anchor span and the post-ZWSP span would
-      // both land on the empty line (the "double bullet" bug).
-      val anchorChanged = syncEmptyListAnchor(restamp = false)
-      // A newline insert/delete (list continuation/exit) or a ZWSP anchor change can
-      // move spans across lines, where a per-line scoped re-stamp would miss a stale
-      // bullet span. Re-stamp the whole document in those cases; scope to the edited
-      // line for ordinary typing to keep per-keystroke work bounded.
-      val touchedNewline =
-        anchorChanged ||
-          editTouchedNewline(editStart, deletedLength, insertedLength, currentText)
-      applyInlineFormatting()
-      if (touchedNewline) {
-        text?.let { formatter.applyBlockFormatting(it, blockStore.allRanges) }
-      } else {
-        applyBlockFormattingScopedToEdit(editStart, insertedLength)
-      }
-
-      val editable = text
-      if (editable != null) {
-        detectorPipeline.processTextChange(editable, currentText, editStart, insertedLength)
-      }
-
-      forceScrollToSelection()
-      syncCursorSizeWithBlock()
-      eventEmitter.emitChangeText()
-      if (emitMarkdown) eventEmitter.emitChangeMarkdown()
-      updateActiveMention()
-      eventEmitter.emitCaretRectChangeIfNeeded()
+      val context =
+        EditContext(
+          editStart = editStart,
+          deletedLength = deletedLength,
+          insertedLength = insertedLength,
+          preEditText = currentText,
+          preEditSelectionStart = preEditSelectionStart,
+          preEditSelectionEnd = preEditSelectionEnd,
+          pendingStyles = pendingStyles.toSet(),
+          pendingStyleRemovals = pendingStyleRemovals.toSet(),
+        )
+      editPipeline.processTextChange(context)
       isTextChanging = false
       didTextChangeRecently = true
-      // Record the post-pass text (block continuation / ZWSP sync may have mutated it),
-      // so the next change detects equality correctly and doesn't reprocess.
       lastProcessedText = text?.toString() ?: currentText
     } finally {
       isProcessingTextChange = false
@@ -395,103 +395,6 @@ class EnrichedMarkdownTextInputView(
     eventEmitter.emitCaretRectChangeIfNeeded()
   }
 
-  private fun applyPendingStyles(
-    editStart: Int,
-    insertedLength: Int,
-  ) {
-    if (insertedLength == 0) return
-    if (pendingStyles.isEmpty() && pendingStyleRemovals.isEmpty()) return
-
-    val rangeStart = if (preEditSelectionStart != preEditSelectionEnd) preEditSelectionStart else editStart
-    val rangeEnd = rangeStart + insertedLength
-
-    // Skip applying pending styles when the insertion is only line breaks —
-    // a phantom range over a bare newline corrupts isStyleActive() at the boundary.
-    val currentText = text
-    val insertedHasGlyphContent =
-      currentText != null &&
-        rangeEnd <= currentText.length &&
-        (rangeStart until rangeEnd).any { !currentText[it].isLineBreak() }
-
-    if (insertedHasGlyphContent) {
-      for (style in pendingStyles) {
-        formattingStore.addRange(FormattingRange(style, rangeStart, rangeEnd))
-      }
-    }
-
-    for (style in pendingStyleRemovals) {
-      formattingStore.removeType(style, rangeStart, rangeEnd)
-    }
-  }
-
-  /**
-   * Drops anchored blocks (headings, list items) no longer anchored at a line start
-   * (e.g. Backspace merged their line into the previous one). Must run BEFORE
-   * [BlockStore.normalizeToLineBounds] so a merged range is judged on its unsnapped
-   * anchor and can't grow over the line it merged into.
-   */
-  private fun pruneOrphanedAnchors() {
-    val editable = text ?: return
-    val orphans =
-      blockStore.allRanges.filter { range ->
-        range.type in BlockType.ANCHORED && !isAtLineStart(editable, range.start)
-      }
-    for (orphan in orphans) {
-      blockStore.removeBlock(orphan.start, orphan.start, editable)
-    }
-  }
-
-  /**
-   * After a newline insertion, continues a block whose handler reports
-   * [com.swmansion.enriched.markdown.input.styles.BlockHandler.continuesOnNewline]
-   * (a list item) onto the new line as a sibling at the same depth, or exits the
-   * block when the emptied item gets a second Enter.
-   */
-  private fun handleNewlineBlockContinuation(
-    editStart: Int,
-    deletedLength: Int,
-    insertedLength: Int,
-  ) {
-    val editable = text ?: return
-    if (deletedLength != 0 || insertedLength <= 0) return
-    val insertedEnd = (editStart + insertedLength).coerceAtMost(editable.length)
-    val insertedNewline = (editStart until insertedEnd).any { editable[it] == '\n' }
-    if (!insertedNewline) return
-
-    // The line the Enter was pressed on ends at the inserted newline.
-    val prevLineEnd = editStart
-    var prevLineStart = prevLineEnd
-    while (prevLineStart > 0 && editable[prevLineStart - 1] != '\n') prevLineStart--
-
-    val prevBlock = blockStore.blockStartingAt(prevLineStart) ?: return
-    val handler = formatter.handlerForBlock(prevBlock.type) ?: return
-    if (!handler.continuesOnNewline) return
-
-    val prevContentLength = (prevLineStart until prevLineEnd).count { editable[it] != ZWSP }
-    if (prevContentLength == 0) {
-      // Exit: clear the block AND delete the just-inserted newline so the empty
-      // item collapses in place instead of leaving an extra indented blank line.
-      blockStore.removeBlock(prevLineStart, prevLineEnd, editable)
-      val newlineEnd = (editStart + insertedLength).coerceAtMost(editable.length)
-      runAsATransaction { editable.delete(editStart, newlineEnd) }
-      blockStore.adjustForEdit(editStart, insertedLength, 0)
-      setSelection(prevLineStart.coerceAtMost(editable.length))
-      return
-    }
-
-    val newLineStart = (editStart + insertedLength).coerceAtMost(editable.length)
-    blockStore.setBlock(prevBlock.type, prevBlock.level, newLineStart, newLineStart, editable)
-  }
-
-  /** True when [pos] is the first character of a line (document start or just after a line break). */
-  private fun isAtLineStart(
-    editable: CharSequence,
-    pos: Int,
-  ): Boolean {
-    if (pos < 0 || pos > editable.length) return false
-    return pos == 0 || editable[pos - 1].isLineBreak()
-  }
-
   /**
    * Adjusts both [formattingStore] and [blockStore] for a text edit, then prunes
    * orphaned anchors and normalizes block ranges to line bounds. Every code path
@@ -505,7 +408,7 @@ class EnrichedMarkdownTextInputView(
   ) {
     formattingStore.adjustForEdit(editStart, deletedLength, insertedLength)
     blockStore.adjustForEdit(editStart, deletedLength, insertedLength)
-    pruneOrphanedAnchors()
+    editPipeline.pruneOrphanedAnchors()
     text?.let { blockStore.normalizeToLineBounds(it) }
   }
 
@@ -533,61 +436,6 @@ class EnrichedMarkdownTextInputView(
     val editable = text ?: return
     formatter.applyFormatting(editable, formattingStore.allRanges)
     formatter.applyBlockFormatting(editable, blockStore.allRanges)
-  }
-
-  /** Re-applies inline (character) formatting across the whole document. */
-  private fun applyInlineFormatting() {
-    val editable = text ?: return
-    formatter.applyFormatting(editable, formattingStore.allRanges)
-  }
-
-  /**
-   * Re-stamps block spans only on the paragraph(s) touched by an edit at
-   * `[editStart, editStart + insertedLength)`. A block span covers its whole line, so
-   * re-stamping only the edited line keeps per-keystroke work bounded instead of
-   * re-spanning the whole document. Safe only for edits that stay within a line; a
-   * newline-crossing edit must re-stamp the whole document (see [onAfterTextChanged]).
-   */
-  private fun applyBlockFormattingScopedToEdit(
-    editStart: Int,
-    insertedLength: Int,
-  ) {
-    val editable = text ?: return
-    val length = editable.length
-    val rawStart = editStart.coerceIn(0, length)
-    val rawEnd = (editStart + insertedLength).coerceIn(rawStart, length)
-
-    // Expand the edit span to whole-line bounds: a block span covers its line, so
-    // re-stamping must cover every line the edit touched, edge-to-edge.
-    var lineStart = rawStart
-    while (lineStart > 0 && editable[lineStart - 1] != '\n') lineStart--
-    var lineEnd = rawEnd
-    while (lineEnd < length && editable[lineEnd] != '\n') lineEnd++
-
-    formatter.applyBlockFormatting(editable, blockStore.allRanges, lineStart, lineEnd)
-  }
-
-  /**
-   * True when the edit inserted or deleted a line break (so block spans may need to
-   * move across lines). Checks the inserted run in the current text and the deleted run
-   * in the pre-edit text.
-   */
-  private fun editTouchedNewline(
-    editStart: Int,
-    deletedLength: Int,
-    insertedLength: Int,
-    preEditText: String,
-  ): Boolean {
-    val editable = text
-    if (editable != null && insertedLength > 0) {
-      val end = (editStart + insertedLength).coerceAtMost(editable.length)
-      if ((editStart until end).any { editable[it].isLineBreak() }) return true
-    }
-    if (deletedLength > 0) {
-      val end = (editStart + deletedLength).coerceAtMost(preEditText.length)
-      if ((editStart until end).any { preEditText[it].isLineBreak() }) return true
-    }
-    return false
   }
 
   private fun applyFormattingAndEmit() {
