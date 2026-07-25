@@ -27,8 +27,10 @@ import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
 import com.swmansion.enriched.markdown.input.detection.WordsUtils
 import com.swmansion.enriched.markdown.input.editing.EditContext
+import com.swmansion.enriched.markdown.input.editing.EditPhase
 import com.swmansion.enriched.markdown.input.editing.EditPipeline
 import com.swmansion.enriched.markdown.input.editing.EditPipelineHost
+import com.swmansion.enriched.markdown.input.editing.EditSession
 import com.swmansion.enriched.markdown.input.editing.InputConnectionWrapper
 import com.swmansion.enriched.markdown.input.editing.MarkdownEditableFactory
 import com.swmansion.enriched.markdown.input.editing.MarkdownTextWatcher
@@ -62,15 +64,8 @@ class EnrichedMarkdownTextInputView(
   val pendingStyles = mutableSetOf<StyleType>()
   val pendingStyleRemovals = mutableSetOf<StyleType>()
 
-  var isDuringTransaction = false
-    private set
+  val editSession = EditSession()
 
-  var blockEmitting = false
-
-  private var isTextChanging = false
-  var isProcessingTextChange = false
-    private set
-  private var didTextChangeRecently = false
   private var lastProcessedText: String = ""
   private var preEditSelectionStart = 0
   private var preEditSelectionEnd = 0
@@ -131,10 +126,6 @@ class EnrichedMarkdownTextInputView(
 
   private var headingOverrideBaseSizePx: Float? = null
   private var baseHintColor: Int? = null
-
-  // Guards re-entrancy while the empty-list-line ZWSP anchor is managed (its
-  // insert/delete + setSelection would otherwise loop back through the callbacks).
-  private var isManagingAnchor = false
 
   // Number of ZWSP empty-list anchors believed live in the buffer. Bumped on insert,
   // made exact on every strip scan (which recounts what it keeps), and reset when the
@@ -314,17 +305,16 @@ class EnrichedMarkdownTextInputView(
   }
 
   fun runAsATransaction(block: () -> Unit) {
-    try {
-      isDuringTransaction = true
+    if (editSession.phase != EditPhase.Idle) {
       block()
-    } finally {
-      isDuringTransaction = false
+    } else {
+      editSession.scoped(EditPhase.Processing) { block() }
     }
   }
 
   fun onBeforeTextChanged() {
-    if (isProcessingTextChange) return
-    isTextChanging = true
+    if (editSession.phase != EditPhase.Idle) return
+    editSession.isTextChanging = true
     preEditSelectionStart = selectionStart
     preEditSelectionEnd = selectionEnd
   }
@@ -334,12 +324,12 @@ class EnrichedMarkdownTextInputView(
     deletedLength: Int,
     insertedLength: Int,
   ) {
-    if (isProcessingTextChange) return
+    if (editSession.phase != EditPhase.Idle) return
 
     val currentText = text?.toString() ?: ""
     if (currentText == lastProcessedText) return
 
-    isProcessingTextChange = true
+    editSession.enter(EditPhase.Processing)
     try {
       val context =
         EditContext(
@@ -353,11 +343,11 @@ class EnrichedMarkdownTextInputView(
           pendingStyleRemovals = pendingStyleRemovals.toSet(),
         )
       editPipeline.processTextChange(context)
-      isTextChanging = false
-      didTextChangeRecently = true
+      editSession.isTextChanging = false
+      editSession.didTextChangeRecently = true
       lastProcessedText = text?.toString() ?: currentText
     } finally {
-      isProcessingTextChange = false
+      editSession.exit()
     }
   }
 
@@ -366,24 +356,22 @@ class EnrichedMarkdownTextInputView(
     selEnd: Int,
   ) {
     super.onSelectionChanged(selStart, selEnd)
-    if (!isComponentReady || isDuringTransaction) return
+    if (!isComponentReady || editSession.shouldSuppressTextWatcher) return
 
-    if (!isTextChanging) {
-      // Links (e.g. mentions) are atomic: snap a partial selection to the whole link, and a caret
-      // inside a link to its end. Returning lets the recursive onSelectionChanged emit for the result.
+    if (!editSession.isTextChanging) {
       formattingStore.selectionAdjustedForAtomicLinks(selStart, selEnd)?.let { (newStart, newEnd) ->
         setSelection(newStart, newEnd)
         return
       }
-      if (didTextChangeRecently) {
-        didTextChangeRecently = false
+      if (editSession.didTextChangeRecently) {
+        editSession.didTextChangeRecently = false
       } else {
         pendingStyles.clear()
         pendingStyleRemovals.clear()
       }
     }
 
-    if (!isTextChanging && !isProcessingTextChange) {
+    if (!editSession.isTextChanging && editSession.phase == EditPhase.Idle) {
       // The caret moving on/off an empty bullet line toggles the ZWSP anchor and the
       // placeholder visibility; skip during a text-change pass (handled there).
       syncEmptyListAnchor()
@@ -419,7 +407,7 @@ class EnrichedMarkdownTextInputView(
     postAdjust: (Editable) -> Unit = {},
   ) {
     val editable = text ?: return
-    isProcessingTextChange = true
+    editSession.enter(EditPhase.Processing)
     try {
       editable.replace(start, end, newText)
       adjustStoresForEdit(start, end - start, newText.length)
@@ -428,7 +416,7 @@ class EnrichedMarkdownTextInputView(
       applyFormattingAndEmit()
       eventEmitter.emitChangeText()
     } finally {
-      isProcessingTextChange = false
+      editSession.exit()
     }
   }
 
@@ -615,10 +603,10 @@ class EnrichedMarkdownTextInputView(
    * When called from `onAfterTextChanged` this mutates the [Editable] from inside
    * the text-change callback — normally an Android hazard around IME composition,
    * undo/redo, and accessibility. It is safe here, and deliberately synchronous,
-   * because: every buffer mutation is wrapped in [runAsATransaction] (which sets
-   * `isDuringTransaction`, so [MarkdownTextWatcher] early-returns and the edit does
-   * not re-enter this pass), the whole `onAfterTextChanged` body holds
-   * `isProcessingTextChange`, and [isManagingAnchor] blocks re-entry via the
+   * because: every buffer mutation is wrapped in [runAsATransaction] (which keeps
+   * [EditSession.phase] non-idle, so [MarkdownTextWatcher] early-returns and the edit
+   * does not re-enter this pass), the whole `onAfterTextChanged` body holds
+   * [EditPhase.Processing], and [EditPhase.ManagingAnchors] blocks re-entry via the
    * selection-change path. The mutation must stay synchronous: the single-stamp
    * ordering above, the caret placement past the anchor, and `lastProcessedText`
    * all depend on the buffer reaching its final state within this same callback —
@@ -626,9 +614,9 @@ class EnrichedMarkdownTextInputView(
    * and reintroduce the double-bullet and stale-caret bugs.
    */
   private fun syncEmptyListAnchor(restamp: Boolean = true): Boolean {
-    if (isManagingAnchor) return false
+    if (editSession.shouldSuppressAnchorSync) return false
     val editable = text ?: return false
-    isManagingAnchor = true
+    editSession.enter(EditPhase.ManagingAnchors)
     var anchorChanged = false
     try {
       // Strip every stale ZWSP first (a line that gained content or stopped being a
@@ -687,7 +675,7 @@ class EnrichedMarkdownTextInputView(
       syncHintVisibility()
       return anchorChanged
     } finally {
-      isManagingAnchor = false
+      editSession.exit()
     }
   }
 
@@ -1075,23 +1063,20 @@ class EnrichedMarkdownTextInputView(
 
   fun setValueFromJS(markdown: String) {
     val parsed = InputParser.parseToPlainTextAndRanges(markdown)
-    blockEmitting = true
+    editSession.enter(EditPhase.Importing)
     try {
-      runAsATransaction {
-        formattingStore.clearAll()
-        formattingStore.setRanges(parsed.formattingRanges)
-        blockStore.setRanges(parsed.blockRanges)
-        setText(parsed.plainText)
-        setSelection(text?.length ?: 0)
-      }
-      // Parsed markdown never contains the ZWSP anchor, so the fresh document has none.
+      formattingStore.clearAll()
+      formattingStore.setRanges(parsed.formattingRanges)
+      blockStore.setRanges(parsed.blockRanges)
+      setText(parsed.plainText)
+      setSelection(text?.length ?: 0)
       zwspAnchorCount = 0
       applyFormatting()
       forceScrollToSelection()
       layoutManager.invalidateLayout()
       lastProcessedText = text?.toString() ?: ""
     } finally {
-      blockEmitting = false
+      editSession.exit()
     }
   }
 

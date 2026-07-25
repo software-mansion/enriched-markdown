@@ -5,6 +5,7 @@
 #import "ENRMBlockStore.h"
 #import "ENRMDetectorPipeline.h"
 #import "ENRMEditPipeline.h"
+#import "ENRMEditSession.h"
 #import "ENRMFormattingRange.h"
 #import "ENRMFormattingStore.h"
 #import "ENRMInputFormatter.h"
@@ -67,10 +68,8 @@ using namespace facebook::react;
   ENRMBlockStore *_blockStore;
   NSMutableSet<NSNumber *> *_pendingStyles;
   NSMutableSet<NSNumber *> *_pendingStyleRemovals;
-  BOOL _isApplyingFormatting;
-  BOOL _isTextChanging;
   BOOL _emitMarkdown;
-  CFTimeInterval _lastTextChangeTime;
+  ENRMEditSession *_editSession;
 
   ENRMPlaceholderLabel *_placeholderLabel;
 
@@ -133,6 +132,8 @@ using namespace facebook::react;
   NSString *_formatMenuLinkLabel;
 }
 
+@synthesize editSession = _editSession;
+
 #pragma mark - Fabric lifecycle
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -152,7 +153,6 @@ using namespace facebook::react;
     _props = defaultProps;
 
     self.backgroundColor = [RCTUIColor clearColor];
-    _blockEmitting = NO;
     _heightUpdateCounter = 0;
     _formatter = [[ENRMInputFormatter alloc] init];
     _formatterStyle = [[ENRMInputFormatterStyle alloc] init];
@@ -174,6 +174,7 @@ using namespace facebook::react;
         .bold = YES, .italic = YES, .underline = YES, .strikethrough = YES, .spoiler = YES, .link = YES};
 
     [self setupTextView];
+    _editSession = [[ENRMEditSession alloc] initWithTextView:_textView];
 
     [self setupDetectorPipeline];
 
@@ -652,11 +653,11 @@ using namespace facebook::react;
   ENRMInputParser *parser = [[ENRMInputParser alloc] init];
   ENRMParseResult *parsed = [parser parseToPlainTextAndRanges:markdown];
 
-  _blockEmitting = YES;
+  [_editSession enterPhase:ENRMEditPhaseImporting];
 
-  _isApplyingFormatting = YES;
+  [_editSession enterPhase:ENRMEditPhaseFormatting];
   ENRMSetPlainText(_textView, parsed.plainText);
-  _isApplyingFormatting = NO;
+  [_editSession enterPhase:ENRMEditPhaseImporting];
 
   [_formattingStore setRanges:parsed.formattingRanges];
   [_blockStore setRanges:parsed.blockRanges];
@@ -665,7 +666,7 @@ using namespace facebook::react;
   [self applyFormatting];
   [self updatePlaceholderVisibility];
 
-  _blockEmitting = NO;
+  [_editSession exitPhase];
 }
 
 - (void)replaceTextInRange:(NSRange)selection
@@ -675,9 +676,9 @@ using namespace facebook::react;
 {
   NSUInteger editLocation = selection.location;
 
-  _isApplyingFormatting = YES;
+  [_editSession enterPhase:ENRMEditPhaseFormatting];
   ENRMReplaceTextInRange(_textView, text, selection);
-  _isApplyingFormatting = NO;
+  [_editSession exitPhase];
 
   NSString *plainText = [self adjustStoresForEditAtLocation:editLocation
                                               deletedLength:selection.length
@@ -765,13 +766,13 @@ using namespace facebook::react;
 
 - (void)applyFormattingScopedToRange:(NSRange)scope
 {
-  if (_isApplyingFormatting) {
+  if (_editSession.shouldSuppressFormatting) {
     return;
   }
-  if (ENRMHasMarkedText(_textView)) {
+  if (_editSession.isComposing) {
     return;
   }
-  _isApplyingFormatting = YES;
+  [_editSession enterPhase:ENRMEditPhaseFormatting];
 
   NSRange savedSelection = _textView.selectedRange;
 
@@ -788,7 +789,7 @@ using namespace facebook::react;
     _textView.selectedRange = savedSelection;
   }
 
-  _isApplyingFormatting = NO;
+  [_editSession exitPhase];
 }
 
 - (void)applyWritingDirection
@@ -1656,12 +1657,7 @@ using namespace facebook::react;
 
 - (void)resetPendingStylesForSelectionChange
 {
-  // Skip system-driven selection adjustments (e.g., predictive text) that fire
-  // immediately after a text edit (PR #406).
-  static const CFTimeInterval kPostEditGracePeriod = 0.1;
-  BOOL isPostEditAdjustment =
-      (_lastTextChangeTime > 0 && (CACurrentMediaTime() - _lastTextChangeTime) < kPostEditGracePeriod);
-  if (isPostEditAdjustment) {
+  if (_editSession.isPostEditGracePeriod) {
     return;
   }
   [_pendingStyles removeAllObjects];
@@ -1702,7 +1698,7 @@ using namespace facebook::react;
 
 - (std::shared_ptr<EnrichedMarkdownTextInputEventEmitter const>)getEventEmitter
 {
-  if (_eventEmitter == nullptr || _blockEmitting) {
+  if (_eventEmitter == nullptr || _editSession.shouldSuppressEvents) {
     return nullptr;
   }
   return std::static_pointer_cast<EnrichedMarkdownTextInputEventEmitter const>(_eventEmitter);
@@ -2081,7 +2077,7 @@ using namespace facebook::react;
 
 - (void)handleTextChanged
 {
-  if (ENRMHasMarkedText(_textView)) {
+  if (_editSession.isComposing) {
     return;
   }
 
@@ -2205,7 +2201,7 @@ using namespace facebook::react;
 {
   [self stripLinkTypingAttributes];
 
-  if (_textView.selectedRange.length == 0 && !_isTextChanging) {
+  if (_textView.selectedRange.length == 0 && _editSession.phase == ENRMEditPhaseIdle) {
     NSString *text = ENRMGetPlainText(_textView);
     if (text.length > 0) {
       NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
@@ -2237,19 +2233,19 @@ using namespace facebook::react;
   [self capturePreEditBlockForRange:range];
   _preEditParagraphWasEmpty = [self preEditParagraphWasEmpty:range];
   _preEditReplacedNewline = [self replacedRangeTouchesNewline:range];
-  _isTextChanging = YES;
+  [_editSession enterPhase:ENRMEditPhaseProcessing];
   [self stripLinkTypingAttributes];
   return YES;
 }
 
 - (void)textViewDidChange:(UITextView *)textView
 {
-  if (_isApplyingFormatting) {
+  if (_editSession.shouldSuppressFormatting) {
     return;
   }
   [self handleTextChanged];
-  _isTextChanging = NO;
-  _lastTextChangeTime = CACurrentMediaTime();
+  [_editSession exitPhase];
+  [_editSession recordTextChange];
   _lastSelectedRange = textView.selectedRange;
 }
 
@@ -2267,9 +2263,7 @@ using namespace facebook::react;
 - (void)textViewDidChangeSelection:(UITextView *)textView
 {
   NSRange newSelection = textView.selectedRange;
-  // Links (e.g. mentions) are atomic: snap a partial selection to the whole link, and a caret inside
-  // a link to its end. Returning hands the adjusted selection to the recursive change (no double emit).
-  if (!_isApplyingFormatting && !_isTextChanging && !ENRMHasMarkedText(_textView)) {
+  if (!_editSession.shouldSuppressSelectionSideEffects && !_editSession.isComposing) {
     NSRange adjusted = [_formattingStore selectionAdjustedForAtomicLinks:newSelection];
     if (!NSEqualRanges(adjusted, newSelection)) {
       _textView.selectedRange = adjusted;
@@ -2279,11 +2273,11 @@ using namespace facebook::react;
   NSRange previousSelection = _lastSelectedRange;
   _lastSelectedRange = newSelection;
 
-  if (_isApplyingFormatting || _isTextChanging) {
+  if (_editSession.shouldSuppressSelectionSideEffects) {
     return;
   }
 
-  if (ENRMHasMarkedText(_textView)) {
+  if (_editSession.isComposing) {
     return;
   }
 
@@ -2353,27 +2347,26 @@ using namespace facebook::react;
   [self capturePreEditBlockForRange:range];
   _preEditParagraphWasEmpty = [self preEditParagraphWasEmpty:range];
   _preEditReplacedNewline = [self replacedRangeTouchesNewline:range];
-  _isTextChanging = YES;
+  [_editSession enterPhase:ENRMEditPhaseProcessing];
   return text;
 }
 
 - (void)textInputDidChange
 {
-  if (_isApplyingFormatting) {
-    _isTextChanging = NO;
+  if (_editSession.shouldSuppressFormatting) {
+    [_editSession exitPhase];
     return;
   }
   [self handleTextChanged];
-  _isTextChanging = NO;
-  _lastTextChangeTime = CACurrentMediaTime();
+  [_editSession exitPhase];
+  [_editSession recordTextChange];
   _lastSelectedRange = _textView.selectedRange;
 }
 
 - (void)textInputDidChangeSelection
 {
   NSRange newSelection = _textView.selectedRange;
-  // Atomic link snapping — same logic as textViewDidChangeSelection: (iOS).
-  if (!_isApplyingFormatting && !_isTextChanging && !ENRMHasMarkedText(_textView)) {
+  if (!_editSession.shouldSuppressSelectionSideEffects && !_editSession.isComposing) {
     NSRange adjusted = [_formattingStore selectionAdjustedForAtomicLinks:newSelection];
     if (!NSEqualRanges(adjusted, newSelection)) {
       _textView.selectedRange = adjusted;
@@ -2383,11 +2376,11 @@ using namespace facebook::react;
   NSRange previousSelection = _lastSelectedRange;
   _lastSelectedRange = newSelection;
 
-  if (_isApplyingFormatting || _isTextChanging) {
+  if (_editSession.shouldSuppressSelectionSideEffects) {
     return;
   }
 
-  if (ENRMHasMarkedText(_textView)) {
+  if (_editSession.isComposing) {
     return;
   }
 

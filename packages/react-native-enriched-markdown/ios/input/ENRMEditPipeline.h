@@ -41,7 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// Orchestrates the data-model phases of the per-keystroke edit pipeline:
 /// store adjustment, orphan pruning, pending styles, and block continuation.
 ///
-/// Formatting (which needs `_textView`, `_formatterStyle`, `_isApplyingFormatting`)
+/// Formatting (which needs `_textView`, `_formatterStyle`, `ENRMEditPhaseFormatting`)
 /// and UI updates (typing attributes, placeholder, events, height) stay on the view.
 /// The pipeline tells the view whether the edit touched a newline so the view can
 /// pick full vs scoped formatting.

@@ -232,7 +232,7 @@ class InputEventEmitter(
   }
 
   private fun dispatch(event: Event<*>) {
-    if (view.blockEmitting) return
+    if (view.editSession.shouldSuppressEvents) return
     val reactContext = view.context as? ReactContext ?: return
     val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id)
     dispatcher?.dispatchEvent(event)
