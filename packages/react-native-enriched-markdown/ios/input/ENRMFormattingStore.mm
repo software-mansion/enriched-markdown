@@ -108,6 +108,59 @@
                                                                            containingPosition:position - 1] != nil;
 }
 
+- (BOOL)isStyleFullyActive:(ENRMInputStyleType)type inRange:(NSRange)range
+{
+  NSUInteger pos = range.location;
+  NSUInteger end = NSMaxRange(range);
+  while (pos < end) {
+    ENRMFormattingRange *match = [self rangeOfType:type containingPosition:pos];
+    if (match == nil) {
+      return NO;
+    }
+    pos = NSMaxRange(match.range);
+  }
+  return YES;
+}
+
+- (BOOL)toggleStyle:(ENRMInputStyleType)type
+              inRange:(NSRange)range
+    conflictingStyles:(NSSet<NSNumber *> *)conflictingStyles
+{
+  BOOL wasActive;
+  if (range.length > 0) {
+    wasActive = [self isStyleFullyActive:type inRange:range];
+    if (wasActive) {
+      [self removeType:type inRange:range];
+    } else {
+      for (NSNumber *conflict in conflictingStyles) {
+        [self removeType:(ENRMInputStyleType)conflict.integerValue inRange:range];
+      }
+      [self addRange:[ENRMFormattingRange rangeWithType:type range:range]];
+    }
+  } else {
+    wasActive = [self isStyleActive:type atPosition:range.location];
+  }
+  return wasActive;
+}
+
+- (BOOL)isToggleBlocked:(ENRMInputStyleType)type
+             atPosition:(NSUInteger)position
+         blockingStyles:(NSSet<NSNumber *> *)blockingStyles
+{
+  if (blockingStyles.count == 0) {
+    return NO;
+  }
+  if ([self isStyleActive:type atPosition:position]) {
+    return NO;
+  }
+  for (NSNumber *blocker in blockingStyles) {
+    if ([self isStyleActive:(ENRMInputStyleType)blocker.integerValue atPosition:position]) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
 - (void)addRange:(ENRMFormattingRange *)newRange
 {
   NSMutableIndexSet *mergeIndexes = [NSMutableIndexSet indexSet];

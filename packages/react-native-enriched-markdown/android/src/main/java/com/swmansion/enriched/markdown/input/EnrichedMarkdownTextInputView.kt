@@ -460,21 +460,12 @@ class EnrichedMarkdownTextInputView(
   fun toggleInlineStyle(styleType: StyleType) {
     val handler = formatter.handlers[styleType] ?: return
     val mergingConfig = handler.mergingConfig
-
     val selStart = selectionStart
     val selEnd = selectionEnd
 
-    // Check blocking rules: if any blocking style is active, refuse to toggle on.
-    if (mergingConfig.blockingStyles.isNotEmpty()) {
-      val isCurrentlyActive = formattingStore.isStyleActive(styleType, selStart)
-      if (!isCurrentlyActive) {
-        for (blocker in mergingConfig.blockingStyles) {
-          if (formattingStore.isStyleActive(blocker, selStart)) {
-            return
-          }
-        }
-      }
-    }
+    if (formattingStore.isToggleBlocked(styleType, selStart, mergingConfig.blockingStyles)) return
+
+    val result = formattingStore.toggleStyle(styleType, selStart, selEnd, mergingConfig.conflictingStyles)
 
     if (selStart == selEnd) {
       if (pendingStyleRemovals.contains(styleType)) {
@@ -483,23 +474,13 @@ class EnrichedMarkdownTextInputView(
       } else if (pendingStyles.contains(styleType)) {
         pendingStyles.remove(styleType)
         pendingStyleRemovals.add(styleType)
-      } else if (formattingStore.isStyleActive(styleType, selStart)) {
+      } else if (result == FormattingStore.ToggleResult.WAS_ACTIVE) {
         pendingStyleRemovals.add(styleType)
       } else {
         pendingStyles.add(styleType)
       }
       eventEmitter.emitState()
     } else {
-      val isActive = formattingStore.isStyleActive(styleType, selStart)
-      if (isActive) {
-        formattingStore.removeType(styleType, selStart, selEnd)
-      } else {
-        // Remove conflicting styles from the range before applying.
-        for (conflict in mergingConfig.conflictingStyles) {
-          formattingStore.removeType(conflict, selStart, selEnd)
-        }
-        formattingStore.addRange(FormattingRange(styleType, selStart, selEnd))
-      }
       applyFormattingAndEmit()
     }
   }
@@ -1066,15 +1047,7 @@ class EnrichedMarkdownTextInputView(
   ) {
     if (start >= end) return
     val handler = formatter.handlers[styleType] ?: return
-    val isActive = formattingStore.isStyleActive(styleType, start)
-    if (isActive) {
-      formattingStore.removeType(styleType, start, end)
-    } else {
-      for (conflict in handler.mergingConfig.conflictingStyles) {
-        formattingStore.removeType(conflict, start, end)
-      }
-      formattingStore.addRange(FormattingRange(styleType, start, end))
-    }
+    formattingStore.toggleStyle(styleType, start, end, handler.mergingConfig.conflictingStyles)
     applyFormattingAndEmit()
   }
 

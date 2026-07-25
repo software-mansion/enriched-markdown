@@ -872,53 +872,27 @@ using namespace facebook::react;
   ENRMStyleMergingConfig *mergingConfig = handler.mergingConfig;
 
   NSRange selection = _textView.selectedRange;
-  NSUInteger cursor = selection.location;
   NSNumber *key = @(styleType);
 
-  // Check blocking rules: if any blocking style is active, refuse to toggle on.
-  if (mergingConfig.blockingStyles.count > 0) {
-    BOOL isCurrentlyActive = [_formattingStore isStyleActive:styleType atPosition:cursor];
-    if (!isCurrentlyActive) {
-      for (NSNumber *blockerNum in mergingConfig.blockingStyles) {
-        if ([_formattingStore isStyleActive:(ENRMInputStyleType)blockerNum.integerValue atPosition:cursor]) {
-          return;
-        }
-      }
-    }
+  if ([_formattingStore isToggleBlocked:styleType
+                             atPosition:selection.location
+                         blockingStyles:mergingConfig.blockingStyles]) {
+    return;
   }
 
+  BOOL wasActive = [_formattingStore toggleStyle:styleType
+                                         inRange:selection
+                               conflictingStyles:mergingConfig.conflictingStyles];
+
   if (selection.length > 0) {
-    BOOL fullyStyled = YES;
-    NSUInteger pos = selection.location;
-    NSUInteger selEnd = NSMaxRange(selection);
-    while (pos < selEnd) {
-      ENRMFormattingRange *match = [_formattingStore rangeOfType:styleType containingPosition:pos];
-      if (match == nil) {
-        fullyStyled = NO;
-        break;
-      }
-      pos = NSMaxRange(match.range);
-    }
-    if (fullyStyled) {
-      [_formattingStore removeType:styleType inRange:selection];
-    } else {
-      // Remove conflicting styles from the range before applying.
-      for (NSNumber *conflictNum in mergingConfig.conflictingStyles) {
-        [_formattingStore removeType:(ENRMInputStyleType)conflictNum.integerValue inRange:selection];
-      }
-      ENRMFormattingRange *newRange = [ENRMFormattingRange rangeWithType:styleType range:selection];
-      [_formattingStore addRange:newRange];
-    }
     [_pendingStyles removeObject:key];
     [_pendingStyleRemovals removeObject:key];
   } else {
-    BOOL isInsideRange = [_formattingStore isStyleActive:styleType atPosition:cursor];
-
     if ([_pendingStyleRemovals containsObject:key]) {
       [_pendingStyleRemovals removeObject:key];
     } else if ([_pendingStyles containsObject:key]) {
       [_pendingStyles removeObject:key];
-    } else if (isInsideRange) {
+    } else if (wasActive) {
       [_pendingStyleRemovals addObject:key];
     } else {
       [_pendingStyles addObject:key];

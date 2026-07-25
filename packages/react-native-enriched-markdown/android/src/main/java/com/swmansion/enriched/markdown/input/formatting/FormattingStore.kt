@@ -53,6 +53,55 @@ class FormattingStore {
     return if (link != null && start > link.start && start < link.end) Pair(link.end, link.end) else null
   }
 
+  enum class ToggleResult {
+    /** The style was active and has been removed (or is active at the caret). */
+    WAS_ACTIVE,
+
+    /** The style was inactive and has been added (or is inactive at the caret). */
+    WAS_INACTIVE,
+  }
+
+  /**
+   * Toggles [type] on the range `[start, end)`. For a selection (`start < end`),
+   * removes the style when active at `start`, otherwise strips [conflictingStyles]
+   * and adds it. For a caret (`start == end`), reports the current state without
+   * mutating — the caller manages pending-style bookkeeping.
+   */
+  fun toggleStyle(
+    type: StyleType,
+    start: Int,
+    end: Int,
+    conflictingStyles: Set<StyleType>,
+  ): ToggleResult {
+    val isActive = isStyleActive(type, start)
+    if (start < end) {
+      if (isActive) {
+        removeType(type, start, end)
+      } else {
+        for (conflict in conflictingStyles) {
+          removeType(conflict, start, end)
+        }
+        addRange(FormattingRange(type, start, end))
+      }
+    }
+    return if (isActive) ToggleResult.WAS_ACTIVE else ToggleResult.WAS_INACTIVE
+  }
+
+  /**
+   * Returns true when toggling [type] ON at [position] should be refused
+   * because one of the [blockingStyles] is currently active there.
+   * Toggling OFF (the style is already active) is never blocked.
+   */
+  fun isToggleBlocked(
+    type: StyleType,
+    position: Int,
+    blockingStyles: Set<StyleType>,
+  ): Boolean {
+    if (blockingStyles.isEmpty()) return false
+    if (isStyleActive(type, position)) return false
+    return blockingStyles.any { isStyleActive(it, position) }
+  }
+
   fun addRange(newRange: FormattingRange) {
     var mergedStart = newRange.start
     var mergedEnd = newRange.end
