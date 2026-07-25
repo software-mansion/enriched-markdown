@@ -25,22 +25,24 @@ import com.facebook.react.views.text.ReactTypefaceUtils
 import com.swmansion.enriched.markdown.input.autolink.AutoLinkDetector
 import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
-import com.swmansion.enriched.markdown.input.detection.WordsUtils
 import com.swmansion.enriched.markdown.input.editing.BlockEditCoordinator
+import com.swmansion.enriched.markdown.input.editing.ClipboardCoordinator
 import com.swmansion.enriched.markdown.input.editing.EditContext
 import com.swmansion.enriched.markdown.input.editing.EditPhase
 import com.swmansion.enriched.markdown.input.editing.EditPipeline
 import com.swmansion.enriched.markdown.input.editing.EditPipelineHost
 import com.swmansion.enriched.markdown.input.editing.EditSession
 import com.swmansion.enriched.markdown.input.editing.InputConnectionWrapper
+import com.swmansion.enriched.markdown.input.editing.LinkCoordinator
 import com.swmansion.enriched.markdown.input.editing.MarkdownEditableFactory
 import com.swmansion.enriched.markdown.input.editing.MarkdownTextWatcher
+import com.swmansion.enriched.markdown.input.editing.MentionCoordinator
+import com.swmansion.enriched.markdown.input.editing.MentionEvent
 import com.swmansion.enriched.markdown.input.editing.ZWSP
 import com.swmansion.enriched.markdown.input.formatting.BlockStore
 import com.swmansion.enriched.markdown.input.formatting.FormattingStore
 import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.InputParser
-import com.swmansion.enriched.markdown.input.formatting.MarkdownSerializer
 import com.swmansion.enriched.markdown.input.layout.InputEventEmitter
 import com.swmansion.enriched.markdown.input.layout.InputLayoutManager
 import com.swmansion.enriched.markdown.input.model.BlockRange
@@ -84,6 +86,8 @@ class EnrichedMarkdownTextInputView(
   val eventEmitter = InputEventEmitter(this)
   private val autoLinkDetector = AutoLinkDetector(formattingStore)
   private val detectorPipeline = DetectorPipeline()
+  private val mentionCoordinator = MentionCoordinator(formattingStore)
+  private val linkCoordinator = LinkCoordinator(formattingStore, autoLinkDetector)
 
   private val editPipelineHost =
     object : EditPipelineHost {
@@ -96,7 +100,7 @@ class EnrichedMarkdownTextInputView(
 
       override fun syncCursorSizeWithBlock() = this@EnrichedMarkdownTextInputView.syncCursorSizeWithBlock()
 
-      override fun updateActiveMention() = this@EnrichedMarkdownTextInputView.updateActiveMention()
+      override fun updateActiveMention() = this@EnrichedMarkdownTextInputView.dispatchMentionUpdate()
 
       override fun runAsATransaction(block: () -> Unit) = this@EnrichedMarkdownTextInputView.runAsATransaction(block)
 
@@ -118,11 +122,7 @@ class EnrichedMarkdownTextInputView(
   private var detectScrollMovement = false
   var scrollEnabled: Boolean = true
 
-  private var mentionIndicators: LinkedHashSet<String> = linkedSetOf()
-  private var activeMentionIndicator: String? = null
-  private var activeMentionStart = -1
-  private var activeMentionEnd = -1
-  private var activeMentionText = ""
+  private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline, formatter)
 
   private var headingOverrideBaseSizePx: Float? = null
   private var baseHintColor: Int? = null
@@ -376,7 +376,7 @@ class EnrichedMarkdownTextInputView(
     }
 
     eventEmitter.emitSelection(selStart, selEnd)
-    updateActiveMention()
+    dispatchMentionUpdate()
     eventEmitter.emitState()
     eventEmitter.emitCaretRectChangeIfNeeded()
   }
@@ -631,14 +631,7 @@ class EnrichedMarkdownTextInputView(
     val content = text
     if (content.isNullOrEmpty()) return
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-    val markdown =
-      MarkdownSerializer.serialize(
-        content.toString(),
-        allFormattingRangesForSerialization(),
-        blockStore.allRanges,
-      ) { blockRange ->
-        formatter.handlerForBlock(blockRange.type)?.markdownLinePrefix(blockRange) ?: ""
-      }
+    val markdown = clipboardCoordinator.serializeFullDocument(content.toString(), content)
     clipboard.setPrimaryClip(MarkdownClipboard.newMarkdownClip(markdown, content.toString()))
   }
 
@@ -674,40 +667,9 @@ class EnrichedMarkdownTextInputView(
     return super.onTextContextMenuItem(id)
   }
 
-  /** Serializes the current selection (inline + block ranges) to markdown, or null if empty. */
   fun markdownForSelectedRange(): String? {
-    val selStart = selectionStart
-    val selEnd = selectionEnd
-    if (selStart >= selEnd) return null
-
     val fullText = text?.toString() ?: return null
-    val selectedText = fullText.substring(selStart, selEnd)
-
-    val clippedRanges = mutableListOf<FormattingRange>()
-    for (range in formattingStore.allRanges) {
-      if (range.end <= selStart || range.start >= selEnd) continue
-
-      val clippedStart = maxOf(range.start, selStart)
-      val clippedEnd = minOf(range.end, selEnd)
-      clippedRanges.add(
-        FormattingRange(range.type, clippedStart - selStart, clippedEnd - selStart, range.url),
-      )
-    }
-
-    val clippedBlockRanges = mutableListOf<BlockRange>()
-    for (blockRange in blockStore.allRanges) {
-      if (blockRange.end <= selStart || blockRange.start >= selEnd) continue
-
-      val clippedStart = maxOf(blockRange.start, selStart)
-      val clippedEnd = minOf(blockRange.end, selEnd)
-      clippedBlockRanges.add(
-        BlockRange(blockRange.type, clippedStart - selStart, clippedEnd - selStart, blockRange.level),
-      )
-    }
-
-    return MarkdownSerializer.serialize(selectedText, clippedRanges, clippedBlockRanges) { blockRange ->
-      formatter.handlerForBlock(blockRange.type)?.markdownLinePrefix(blockRange) ?: ""
-    }
+    return clipboardCoordinator.serializeSelectedRange(fullText, selectionStart, selectionEnd, text)
   }
 
   private fun plainTextFromClipboard(): String? {
@@ -803,12 +765,7 @@ class EnrichedMarkdownTextInputView(
     val selStart = selectionStart
     val selEnd = selectionEnd
     if (selStart == selEnd) return
-
-    val editable = text
-    if (editable != null) {
-      autoLinkDetector.clearAutoLinkInRange(editable, selStart, selEnd)
-    }
-    formattingStore.addRange(FormattingRange(StyleType.LINK, selStart, selEnd, url))
+    linkCoordinator.setLinkForRange(url, selStart, selEnd, text)
     applyFormattingAndEmit()
   }
 
@@ -821,8 +778,7 @@ class EnrichedMarkdownTextInputView(
     val linkEnd = selStart + displayText.length
 
     replaceTextInRange(selStart, selEnd, displayText) { editable ->
-      autoLinkDetector.clearAutoLinkInRange(editable, selStart, linkEnd)
-      formattingStore.addRange(FormattingRange(StyleType.LINK, selStart, linkEnd, sanitizeLinkUrl(url)))
+      linkCoordinator.addLink(url, selStart, linkEnd, editable)
       setSelection(linkEnd)
     }
   }
@@ -832,40 +788,36 @@ class EnrichedMarkdownTextInputView(
     url: String,
   ) {
     if (displayText.isEmpty()) return
-    val indicator = activeMentionIndicator ?: return
-    val start = activeMentionStart
-    val end = activeMentionEnd
+    val indicator = mentionCoordinator.currentIndicator ?: return
+    val start = mentionCoordinator.currentStart
+    val end = mentionCoordinator.currentEnd
     val editable = text ?: return
     if (start < 0 || end < start || end > editable.length) return
 
-    val sanitizedUrl = sanitizeLinkUrl(url)
     val shouldAppendSpace = end >= editable.length || !editable[end].isWhitespace()
     val replacement = if (shouldAppendSpace) "$displayText " else displayText
     val linkEnd = start + displayText.length
 
     replaceTextInRange(start, end, replacement) { ed ->
-      autoLinkDetector.clearAutoLinkInRange(ed, start, linkEnd)
-      formattingStore.addRange(FormattingRange(StyleType.LINK, start, linkEnd, sanitizedUrl))
-      clearActiveMention(emit = true, indicatorOverride = indicator)
+      linkCoordinator.addLink(url, start, linkEnd, ed)
+      dispatchMentionEvents(mentionCoordinator.clear(indicatorOverride = indicator))
       setSelection(start + replacement.length)
     }
   }
 
   fun startMention(indicator: String) {
-    if (indicator.isEmpty() || indicator !in mentionIndicators) return
+    if (indicator.isEmpty() || !mentionCoordinator.containsIndicator(indicator)) return
     val selStart = selectionStart
     val selEnd = selectionEnd
 
     replaceTextInRange(selStart, selEnd, indicator) {
       setSelection(selStart + indicator.length)
     }
-    updateActiveMention()
+    dispatchMentionUpdate()
   }
 
   fun removeLinkAtCursor() {
-    val pos = selectionStart
-    val linkRange = formattingStore.rangeOfType(StyleType.LINK, pos) ?: return
-    formattingStore.removeRange(linkRange)
+    if (!linkCoordinator.removeLink(selectionStart)) return
     applyFormattingAndEmit()
   }
 
@@ -875,29 +827,22 @@ class EnrichedMarkdownTextInputView(
     if (cursorStart != cursorEnd || cursorStart <= 0) return false
     if (text == null) return false
 
-    val linkRange = formattingStore.rangeOfType(StyleType.LINK, cursorStart - 1) ?: return false
+    val linkRange = linkCoordinator.linkRangeForDeletion(cursorStart) ?: return false
 
     replaceTextInRange(linkRange.start, linkRange.end, "") { editable ->
       setSelection(linkRange.start.coerceAtMost(editable.length))
     }
-    clearActiveMention()
+    dispatchMentionEvents(mentionCoordinator.clear())
     return true
   }
 
   fun setMentionIndicators(indicators: List<String>) {
-    val newIndicators = LinkedHashSet(indicators)
-    if (newIndicators == mentionIndicators) return
-    mentionIndicators = newIndicators
-    activeMentionIndicator?.let { indicator ->
-      if (indicator !in mentionIndicators) {
-        clearActiveMention(emit = true, indicatorOverride = indicator)
-      }
-    }
-    updateActiveMention()
+    dispatchMentionEvents(mentionCoordinator.setIndicators(indicators))
+    dispatchMentionUpdate()
   }
 
   fun dismissActiveMention() {
-    clearActiveMention(emit = false)
+    mentionCoordinator.clear(emit = false)
   }
 
   fun setContextMenuItems(items: List<String>) {
@@ -923,12 +868,7 @@ class EnrichedMarkdownTextInputView(
     return formatter.updateStyle(style)
   }
 
-  fun allFormattingRangesForSerialization(): List<FormattingRange> {
-    val editable = text ?: return formattingStore.allRanges
-    val transientRanges = detectorPipeline.allTransientFormattingRanges(editable)
-    if (transientRanges.isEmpty()) return formattingStore.allRanges
-    return formattingStore.allRanges + transientRanges
-  }
+  fun allFormattingRangesForSerialization(): List<FormattingRange> = clipboardCoordinator.allRangesForSerialization(text)
 
   fun setValueFromJS(markdown: String) {
     val parsed = InputParser.parseToPlainTextAndRanges(markdown)
@@ -1056,81 +996,21 @@ class EnrichedMarkdownTextInputView(
     start: Int,
     end: Int,
   ) {
-    if (start >= end) return
-    formattingStore.addRange(FormattingRange(StyleType.LINK, start, end, url))
+    linkCoordinator.addLinkDirect(url, start, end)
     applyFormattingAndEmit()
   }
 
-  private fun updateActiveMention() {
-    val plainText = text?.toString() ?: return
-    val cursor = selectionStart
-    if (selectionStart != selectionEnd || cursor < 0 || cursor > plainText.length) {
-      clearActiveMention()
-      return
-    }
-
-    val candidate = detectMentionAtCursor(plainText, cursor)
-    if (candidate == null) {
-      clearActiveMention()
-      return
-    }
-
-    if (activeMentionIndicator != candidate.indicator || activeMentionStart != candidate.start) {
-      activeMentionIndicator?.let { eventEmitter.emitEndMention(it) }
-      activeMentionIndicator = candidate.indicator
-      activeMentionStart = candidate.start
-      eventEmitter.emitStartMention(candidate.indicator)
-    }
-
-    activeMentionEnd = candidate.end
-    if (activeMentionText != candidate.text) {
-      activeMentionText = candidate.text
-      eventEmitter.emitChangeMention(candidate.indicator, candidate.text)
-    }
+  private fun dispatchMentionUpdate() {
+    dispatchMentionEvents(mentionCoordinator.update(text?.toString(), selectionStart, selectionEnd))
   }
 
-  private fun detectMentionAtCursor(
-    plainText: String,
-    cursor: Int,
-  ): MentionCandidate? {
-    if (mentionIndicators.isEmpty()) return null
-
-    val start = WordsUtils.tokenStart(plainText, cursor)
-    val token = plainText.substring(start, cursor)
-    val indicator = mentionIndicators.firstOrNull { token.startsWith(it) } ?: return null
-    if (formattingStore.rangeOfType(StyleType.LINK, start) != null) return null
-
-    return MentionCandidate(
-      indicator = indicator,
-      start = start,
-      end = cursor,
-      text = token.substring(indicator.length),
-    )
-  }
-
-  private fun clearActiveMention(
-    emit: Boolean = true,
-    indicatorOverride: String? = null,
-  ) {
-    val indicator = indicatorOverride ?: activeMentionIndicator
-    activeMentionIndicator = null
-    activeMentionStart = -1
-    activeMentionEnd = -1
-    activeMentionText = ""
-    if (emit && indicator != null) {
-      eventEmitter.emitEndMention(indicator)
+  private fun dispatchMentionEvents(events: List<MentionEvent>) {
+    for (event in events) {
+      when (event) {
+        is MentionEvent.Start -> eventEmitter.emitStartMention(event.indicator)
+        is MentionEvent.Change -> eventEmitter.emitChangeMention(event.indicator, event.text)
+        is MentionEvent.End -> eventEmitter.emitEndMention(event.indicator)
+      }
     }
   }
-
-  private fun sanitizeLinkUrl(url: String): String =
-    url
-      .replace("(", "%28")
-      .replace(")", "%29")
-
-  private data class MentionCandidate(
-    val indicator: String,
-    val start: Int,
-    val end: Int,
-    val text: String,
-  )
 }

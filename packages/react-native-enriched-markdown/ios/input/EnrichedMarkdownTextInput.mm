@@ -4,6 +4,7 @@
 #import "ENRMBlockEditCoordinator.h"
 #import "ENRMBlockHandler.h"
 #import "ENRMBlockStore.h"
+#import "ENRMClipboardCoordinator.h"
 #import "ENRMDetectorPipeline.h"
 #import "ENRMEditPipeline.h"
 #import "ENRMEditSession.h"
@@ -12,15 +13,14 @@
 #import "ENRMInputFormatter.h"
 #import "ENRMInputLayoutManager.h"
 #import "ENRMInputLinkPrompt.h"
-#import "ENRMInputMentionCandidate.h"
 #import "ENRMInputParser.h"
 #import "ENRMInputTextView.h"
+#import "ENRMLinkCoordinator.h"
 #import "ENRMLinkRegexConfig.h"
-#import "ENRMMarkdownSerializer.h"
+#import "ENRMMentionCoordinator.h"
 #import "ENRMStyleHandler.h"
 #import "ENRMStyleMergingConfig.h"
 #import "ENRMUIKit.h"
-#import "ENRMWordsUtils.h"
 #import "EnrichedMarkdownTextInput+Internal.h"
 #import "InputStylePropsUtils.h"
 #import "ParagraphStyleUtils.h"
@@ -106,15 +106,13 @@ using namespace facebook::react;
 
   NSArray<NSString *> *_contextMenuItemTexts;
   NSArray<NSString *> *_contextMenuItemIcons;
-  NSArray<NSString *> *_mentionIndicators;
-  NSString *_activeMentionIndicator;
-  NSRange _activeMentionRange;
-  NSString *_activeMentionText;
-
   ENRMAutoLinkDetector *_autoLinkDetector;
   ENRMDetectorPipeline *_detectorPipeline;
   ENRMEditPipeline *_editPipeline;
   ENRMBlockEditCoordinator *_blockCoordinator;
+  ENRMMentionCoordinator *_mentionCoordinator;
+  ENRMLinkCoordinator *_linkCoordinator;
+  ENRMClipboardCoordinator *_clipboardCoordinator;
 
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
@@ -164,9 +162,7 @@ using namespace facebook::react;
     _pendingStyleRemovals = [NSMutableSet set];
     _lastTextLength = 0;
     _lastSelectedRange = NSMakeRange(0, 0);
-    _mentionIndicators = @[];
-    _activeMentionRange = NSMakeRange(NSNotFound, 0);
-    _activeMentionText = @"";
+    _mentionCoordinator = [[ENRMMentionCoordinator alloc] initWithFormattingStore:_formattingStore];
 
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection =
@@ -186,6 +182,12 @@ using namespace facebook::react;
                                                      detectorPipeline:_detectorPipeline
                                                                  host:self];
     _blockCoordinator = [[ENRMBlockEditCoordinator alloc] initWithBlockStore:_blockStore];
+    _linkCoordinator = [[ENRMLinkCoordinator alloc] initWithFormattingStore:_formattingStore
+                                                           autoLinkDetector:_autoLinkDetector];
+    _clipboardCoordinator = [[ENRMClipboardCoordinator alloc] initWithFormattingStore:_formattingStore
+                                                                           blockStore:_blockStore
+                                                               transientRangeProvider:_detectorPipeline
+                                                                            formatter:_formatter];
   }
   return self;
 }
@@ -484,11 +486,8 @@ using namespace facebook::react;
         [indicators addObject:value];
       }
     }
-    _mentionIndicators = [indicators copy];
-    if (_activeMentionIndicator != nil && ![_mentionIndicators containsObject:_activeMentionIndicator]) {
-      [self clearActiveMention:_activeMentionIndicator];
-    }
-    [self updateActiveMention];
+    [self dispatchMentionEvents:[_mentionCoordinator setIndicators:indicators]];
+    [self dispatchMentionUpdate];
   }
 
   BOOL styleChanged = applyInputStyleProps(_formatterStyle, newViewProps, oldViewProps);
@@ -1273,21 +1272,9 @@ using namespace facebook::react;
 - (void)setLink:(NSString *)url
 {
   NSRange selection = _textView.selectedRange;
-  NSUInteger cursor = selection.location;
-
-  ENRMFormattingRange *activeLink = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:cursor];
-
-  if (activeLink != nil) {
-    activeLink.url = url;
-    [_autoLinkDetector clearAutoLinkInRange:activeLink.range];
-  } else if (selection.length > 0) {
-    ENRMFormattingRange *linkRange = [ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink range:selection url:url];
-    [_formattingStore addRange:linkRange];
-    [_autoLinkDetector clearAutoLinkInRange:selection];
-  } else {
+  if (![_linkCoordinator setLinkURL:url atCursor:selection.location selection:selection]) {
     return;
   }
-
   [self applyFormatting];
   [self emitFormattingChanged];
 }
@@ -1298,34 +1285,30 @@ using namespace facebook::react;
   NSRange linkRange = NSMakeRange(0, displayText.length);
   ENRMFormattingRange *range = [ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink
                                                             range:linkRange
-                                                              url:[self sanitizeLinkURL:url]];
+                                                              url:[_linkCoordinator sanitizeURL:url]];
   [self replaceSelectedTextWith:displayText formattingRanges:@[ range ]];
-}
-
-- (NSString *)sanitizeLinkURL:(NSString *)url
-{
-  NSString *result = [url stringByReplacingOccurrencesOfString:@"(" withString:@"%28"];
-  return [result stringByReplacingOccurrencesOfString:@")" withString:@"%29"];
 }
 
 - (void)startMention:(NSString *)indicator
 {
-  if (indicator.length == 0 || ![_mentionIndicators containsObject:indicator]) {
+  if (indicator.length == 0 || ![_mentionCoordinator containsIndicator:indicator]) {
     return;
   }
 
   [self replaceSelectedTextWith:indicator formattingRanges:@[]];
-  [self updateActiveMention];
+  [self dispatchMentionUpdate];
 }
 
 - (void)insertMention:(NSString *)displayText url:(NSString *)url
 {
-  if (displayText.length == 0 || _activeMentionIndicator == nil || _activeMentionRange.location == NSNotFound) {
+  if (displayText.length == 0 || !_mentionCoordinator.isActive ||
+      _mentionCoordinator.activeRange.location == NSNotFound) {
     return;
   }
 
   NSString *plainText = ENRMGetPlainText(_textView);
-  NSUInteger rangeEnd = NSMaxRange(_activeMentionRange);
+  NSRange activeRange = _mentionCoordinator.activeRange;
+  NSUInteger rangeEnd = NSMaxRange(activeRange);
   if (rangeEnd > plainText.length) {
     return;
   }
@@ -1335,33 +1318,27 @@ using namespace facebook::react;
   NSString *replacement = nextCharIsWhitespace ? displayText : [displayText stringByAppendingString:@" "];
   ENRMFormattingRange *linkRange = [ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink
                                                                 range:NSMakeRange(0, displayText.length)
-                                                                  url:[self sanitizeLinkURL:url]];
-  NSString *indicator = _activeMentionIndicator;
-  NSRange mentionRange = _activeMentionRange;
+                                                                  url:[_linkCoordinator sanitizeURL:url]];
+  NSString *indicator = _mentionCoordinator.activeIndicator;
 
-  [self clearActiveMention:indicator];
-  [self replaceTextInRange:mentionRange withText:replacement formattingRanges:@[ linkRange ]];
-  _textView.selectedRange = NSMakeRange(mentionRange.location + replacement.length, 0);
+  [self dispatchMentionEvents:[_mentionCoordinator clearWithIndicatorOverride:indicator]];
+  [self replaceTextInRange:activeRange withText:replacement formattingRanges:@[ linkRange ]];
+  _textView.selectedRange = NSMakeRange(activeRange.location + replacement.length, 0);
   [self emitOnChangeSelection];
 }
 
 - (void)removeLink
 {
-  NSUInteger cursor = _textView.selectedRange.location;
-  ENRMFormattingRange *activeLink = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:cursor];
-  if (activeLink == nil) {
+  if (![_linkCoordinator removeLinkAtPosition:_textView.selectedRange.location]) {
     return;
   }
-
-  [_formattingStore removeRange:activeLink];
   [self applyFormatting];
   [self emitFormattingChanged];
 }
 
 - (void)showLinkPrompt
 {
-  NSUInteger cursor = _textView.selectedRange.location;
-  ENRMFormattingRange *activeLink = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:cursor];
+  ENRMFormattingRange *activeLink = [_linkCoordinator linkAtPosition:_textView.selectedRange.location];
   NSString *existingURL = activeLink != nil ? activeLink.url : nil;
 
   __weak EnrichedMarkdownTextInput *weakSelf = self;
@@ -1376,62 +1353,12 @@ using namespace facebook::react;
                      ranges:(NSArray<ENRMFormattingRange *> *)ranges
                 blockRanges:(NSArray<ENRMBlockRange *> *)blockRanges
 {
-  // The provider runs synchronously inside the serializer call, so capturing
-  // the formatter directly is safe — no escaping closure, no retain cycle.
-  ENRMInputFormatter *formatter = _formatter;
-  return [ENRMMarkdownSerializer serializePlainText:text
-                                             ranges:ranges
-                                        blockRanges:blockRanges
-                                blockPrefixProvider:^NSString *(ENRMBlockRange *blockRange) {
-                                  id<ENRMBlockHandler> handler = [formatter handlerForBlockType:blockRange.type];
-                                  return [handler markdownLinePrefixForBlockRange:blockRange];
-                                }];
+  return [_clipboardCoordinator serializeText:text ranges:ranges blockRanges:blockRanges];
 }
 
 - (nullable NSString *)markdownForSelectedRange
 {
-  NSRange selection = _textView.selectedRange;
-  if (selection.length == 0) {
-    return nil;
-  }
-
-  NSString *fullText = ENRMGetPlainText(_textView);
-  NSString *selectedText = [fullText substringWithRange:selection];
-  NSUInteger selEnd = NSMaxRange(selection);
-
-  NSMutableArray<ENRMFormattingRange *> *clippedRanges = [NSMutableArray array];
-  for (ENRMFormattingRange *range in [self allRangesIncludingTransient]) {
-    NSUInteger rangeStart = range.range.location;
-    NSUInteger rangeEnd = NSMaxRange(range.range);
-
-    if (rangeEnd <= selection.location || rangeStart >= selEnd) {
-      continue;
-    }
-
-    NSUInteger clippedStart = MAX(rangeStart, selection.location);
-    NSUInteger clippedEnd = MIN(rangeEnd, selEnd);
-    NSRange shifted = NSMakeRange(clippedStart - selection.location, clippedEnd - clippedStart);
-
-    [clippedRanges addObject:[ENRMFormattingRange rangeWithType:range.type range:shifted url:range.url]];
-  }
-
-  NSMutableArray<ENRMBlockRange *> *clippedBlockRanges = [NSMutableArray array];
-  for (ENRMBlockRange *blockRange in _blockStore.allRanges) {
-    NSUInteger rangeStart = blockRange.range.location;
-    NSUInteger rangeEnd = NSMaxRange(blockRange.range);
-
-    if (rangeEnd <= selection.location || rangeStart >= selEnd) {
-      continue;
-    }
-
-    NSUInteger clippedStart = MAX(rangeStart, selection.location);
-    NSUInteger clippedEnd = MIN(rangeEnd, selEnd);
-    NSRange shifted = NSMakeRange(clippedStart - selection.location, clippedEnd - clippedStart);
-
-    [clippedBlockRanges addObject:[ENRMBlockRange rangeWithType:blockRange.type range:shifted level:blockRange.level]];
-  }
-
-  return [self serializeText:selectedText ranges:clippedRanges blockRanges:clippedBlockRanges];
+  return [_clipboardCoordinator serializeSelectedRange:_textView.selectedRange inText:ENRMGetPlainText(_textView)];
 }
 
 - (void)copyToClipboard
@@ -1440,9 +1367,7 @@ using namespace facebook::react;
   if (plainText.length == 0) {
     return;
   }
-  NSString *markdown = [self serializeText:plainText
-                                    ranges:[self allRangesIncludingTransient]
-                               blockRanges:_blockStore.allRanges];
+  NSString *markdown = [_clipboardCoordinator serializeFullDocument:plainText];
   NSMutableDictionary *items = [NSMutableDictionary dictionary];
   items[kUTIPlainText] = plainText;
   if (markdown.length > 0) {
@@ -1457,9 +1382,7 @@ using namespace facebook::react;
   if (emitter == nullptr) {
     return;
   }
-  NSString *markdown = [self serializeText:ENRMGetPlainText(_textView)
-                                    ranges:[self allRangesIncludingTransient]
-                               blockRanges:_blockStore.allRanges];
+  NSString *markdown = [_clipboardCoordinator serializeFullDocument:ENRMGetPlainText(_textView)];
   emitter->onRequestMarkdownResult({
       .requestId = static_cast<int>(requestId),
       .markdown = std::string([markdown UTF8String] ?: ""),
@@ -1590,89 +1513,39 @@ using namespace facebook::react;
 
 - (NSArray<ENRMFormattingRange *> *)allRangesIncludingTransient
 {
-  NSArray<ENRMFormattingRange *> *transient = [_detectorPipeline allTransientFormattingRanges];
-  if (transient.count == 0) {
-    return _formattingStore.allRanges;
-  }
-  NSMutableArray<ENRMFormattingRange *> *merged = [_formattingStore.allRanges mutableCopy];
-  [merged addObjectsFromArray:transient];
-  return merged;
-}
-
-- (void)clearActiveMention:(nullable NSString *)indicatorOverride
-{
-  NSString *indicator = indicatorOverride ?: _activeMentionIndicator;
-  _activeMentionIndicator = nil;
-  _activeMentionRange = NSMakeRange(NSNotFound, 0);
-  _activeMentionText = @"";
-
-  if (indicator.length > 0) {
-    [self emitOnEndMention:indicator];
-  }
-}
-
-- (nullable ENRMInputMentionCandidate *)mentionCandidateAtCursor
-{
-  NSRange selectedRange = _textView.selectedRange;
-  if (_mentionIndicators.count == 0 || selectedRange.length != 0) {
-    return nil;
-  }
-
-  NSString *plainText = ENRMGetPlainText(_textView);
-  NSUInteger cursor = selectedRange.location;
-  if (cursor > plainText.length) {
-    return nil;
-  }
-
-  NSUInteger start = [ENRMWordsUtils tokenStartInText:plainText beforePosition:cursor];
-  NSString *token = [plainText substringWithRange:NSMakeRange(start, cursor - start)];
-  NSString *matchedIndicator = nil;
-  for (NSString *indicator in _mentionIndicators) {
-    if ([token hasPrefix:indicator]) {
-      matchedIndicator = indicator;
-      break;
-    }
-  }
-  if (matchedIndicator == nil) {
-    return nil;
-  }
-
-  if ([_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:start] != nil) {
-    return nil;
-  }
-
-  return [ENRMInputMentionCandidate candidateWithIndicator:matchedIndicator
-                                                     start:start
-                                                       end:cursor
-                                                      text:[token substringFromIndex:matchedIndicator.length]];
+  return [_clipboardCoordinator allRangesIncludingTransient];
 }
 
 - (void)updateActiveMention
 {
-  ENRMInputMentionCandidate *candidate = [self mentionCandidateAtCursor];
-  if (candidate == nil) {
-    [self clearActiveMention:nil];
-    return;
-  }
+  [self dispatchMentionUpdate];
+}
 
-  NSString *indicator = candidate.indicator;
-  NSUInteger start = candidate.start;
-  NSUInteger end = candidate.end;
-  NSString *query = candidate.text;
+- (void)clearActiveMention:(nullable NSString *)indicatorOverride
+{
+  [self dispatchMentionEvents:[_mentionCoordinator clearWithIndicatorOverride:indicatorOverride]];
+}
 
-  if (_activeMentionIndicator == nil || ![_activeMentionIndicator isEqualToString:indicator] ||
-      _activeMentionRange.location != start) {
-    if (_activeMentionIndicator != nil) {
-      [self emitOnEndMention:_activeMentionIndicator];
+- (void)dispatchMentionUpdate
+{
+  NSString *plainText = ENRMGetPlainText(_textView);
+  [self dispatchMentionEvents:[_mentionCoordinator updateWithText:plainText selectedRange:_textView.selectedRange]];
+}
+
+- (void)dispatchMentionEvents:(NSArray<ENRMMentionEvent *> *)events
+{
+  for (ENRMMentionEvent *event in events) {
+    switch (event.type) {
+      case ENRMMentionEventStart:
+        [self emitOnStartMention:event.indicator];
+        break;
+      case ENRMMentionEventChange:
+        [self emitOnChangeMentionWithIndicator:event.indicator text:event.text];
+        break;
+      case ENRMMentionEventEnd:
+        [self emitOnEndMention:event.indicator];
+        break;
     }
-    _activeMentionIndicator = indicator;
-    [self emitOnStartMention:indicator];
-  }
-  _activeMentionRange = NSMakeRange(start, end - start);
-
-  if (![_activeMentionText isEqualToString:query]) {
-    _activeMentionText = query;
-    [self emitOnChangeMentionWithIndicator:indicator text:query];
   }
 }
 
@@ -1691,8 +1564,7 @@ using namespace facebook::react;
     return NO;
   }
 
-  ENRMFormattingRange *linkRange = [_formattingStore rangeOfType:ENRMInputStyleTypeLink
-                                              containingPosition:lookupPosition];
+  ENRMFormattingRange *linkRange = [_linkCoordinator linkAtPosition:lookupPosition];
   if (linkRange == nil) {
     return NO;
   }

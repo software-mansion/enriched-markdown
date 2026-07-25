@@ -1,5 +1,6 @@
 #pragma once
 
+#import "ENRMClipboardCoordinator.h"
 #import "ENRMFormattingRange.h"
 #import "ENRMTextDetector.h"
 #import <Foundation/Foundation.h>
@@ -8,7 +9,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Coordinates a set of ENRMTextDetector instances. The input view calls
 /// this pipeline instead of individual detectors.
-@interface ENRMDetectorPipeline : NSObject
+@interface ENRMDetectorPipeline : NSObject <ENRMTransientRangeProvider>
 
 - (void)addDetector:(id<ENRMTextDetector>)detector;
 
