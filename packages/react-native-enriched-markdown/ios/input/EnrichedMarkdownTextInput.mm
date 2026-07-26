@@ -13,6 +13,7 @@
 #import "ENRMInputFormatter.h"
 #import "ENRMInputLayoutManager.h"
 #import "ENRMInputLinkPrompt.h"
+#import "ENRMInputListMarkerDrawer.h"
 #import "ENRMInputParser.h"
 #import "ENRMInputTextView.h"
 #import "ENRMLinkCoordinator.h"
@@ -1155,14 +1156,15 @@ using namespace facebook::react;
     }
   }
 
-  _layoutManager.emptyBulletDepth = show ? depth : -1;
-  _layoutManager.emptyBulletOrdered = ordered;
-  _layoutManager.emptyBulletOrdinal = ordinal;
-  _layoutManager.emptyBulletLocation = location;
-  _layoutManager.emptyBulletFont = _formatterStyle.baseFont;
-  _layoutManager.emptyBulletColor = _formatterStyle.baseTextColor;
-  _layoutManager.emptyBulletRTL = [self emptyListLineIsRTL];
-  _layoutManager.listItemSpacing = _formatterStyle.listItemSpacing;
+  ENRMInputListMarkerDrawer *listDrawer = _layoutManager.listMarkerDrawer;
+  listDrawer.emptyBulletDepth = show ? depth : -1;
+  listDrawer.emptyBulletOrdered = ordered;
+  listDrawer.emptyBulletOrdinal = ordinal;
+  listDrawer.emptyBulletLocation = location;
+  listDrawer.emptyBulletFont = _formatterStyle.baseFont;
+  listDrawer.emptyBulletColor = _formatterStyle.baseTextColor;
+  listDrawer.emptyBulletRTL = [self emptyListLineIsRTL];
+  listDrawer.listItemSpacing = _formatterStyle.listItemSpacing;
 
   // An empty editor never runs the formatter (it early-returns at length 0), so
   // the trailing/extra line fragment the marker draws into isn't laid out yet —

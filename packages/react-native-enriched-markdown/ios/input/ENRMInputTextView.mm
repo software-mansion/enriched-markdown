@@ -115,11 +115,11 @@ NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.
 {
   [super drawRect:rect];
   // A wholly empty editor has no glyphs, so the layout manager's
-  // drawGlyphsForGlyphRange: never runs — draw the just-toggled list marker here.
+  // drawGlyphsForGlyphRange: never runs — draw decorations here instead.
   if (self.text.length == 0) {
     NSLayoutManager *layoutManager = self.layoutManager;
     if ([layoutManager isKindOfClass:[ENRMInputLayoutManager class]]) {
-      [(ENRMInputLayoutManager *)layoutManager drawEmptyEditorBulletWithInset:self.textContainerInset];
+      [(ENRMInputLayoutManager *)layoutManager drawEmptyEditorDecorationsWithInset:self.textContainerInset];
     }
   }
 }
