@@ -538,20 +538,23 @@ using namespace facebook::react;
     return;
   }
 
-  dispatch_async(dispatch_get_main_queue(), ^{
-    NSUInteger textLength = self->_textView.textStorage.length;
-    if (textLength == 0) {
-      return;
-    }
-    NSRange wholeRange = NSMakeRange(0, textLength);
-    NSRange actualRange = NSMakeRange(0, 0);
-    [self->_textView.layoutManager invalidateLayoutForCharacterRange:wholeRange actualCharacterRange:&actualRange];
-    [self->_textView.layoutManager ensureLayoutForCharacterRange:actualRange];
-    [self->_textView.layoutManager invalidateDisplayForCharacterRange:wholeRange];
+  NSUInteger textLength = _textView.textStorage.length;
+  if (textLength == 0) {
+    return;
+  }
 
-    CGSize measuredSize = [self measureSize:self->_textView.frame.size.width];
-    ENRMSetContentSize(self->_textView, measuredSize);
-  });
+  NSRange wholeRange = NSMakeRange(0, textLength);
+  [_textView.layoutManager invalidateLayoutForCharacterRange:wholeRange actualCharacterRange:NULL];
+  [_textView.layoutManager ensureLayoutForTextContainer:_textView.textContainer];
+  [_textView.layoutManager invalidateDisplayForCharacterRange:wholeRange];
+
+  CGSize measuredSize = [self measureSize:_textView.frame.size.width];
+  CGSize currentSize = _textView.contentSize;
+  BOOL sizeChanged =
+      fabs(currentSize.width - measuredSize.width) > 0.5 || fabs(currentSize.height - measuredSize.height) > 0.5;
+  if (sizeChanged) {
+    ENRMSetContentSize(_textView, measuredSize);
+  }
 }
 
 #pragma mark - Window attachment
@@ -1166,12 +1169,27 @@ using namespace facebook::react;
   listDrawer.emptyBulletRTL = [self emptyListLineIsRTL];
   listDrawer.listItemSpacing = _formatterStyle.listItemSpacing;
 
-  // An empty editor never runs the formatter (it early-returns at length 0), so
-  // the trailing/extra line fragment the marker draws into isn't laid out yet —
-  // force it so the bullet appears before the first keystroke.
-  if (show && text.length == 0) {
+  BOOL isTrailing = show && text.length > 0 && location >= text.length;
+
+  // Ensure the extra line fragment is laid out so we can read
+  // extraLineFragmentTextContainer / extraLineFragmentUsedRect.  The
+  // empty-editor case (length 0) has no glyphs at all; the trailing-line case
+  // (location >= length) has glyphs on preceding lines but the extra line
+  // fragment lives beyond them and isn't covered by ensureLayoutForCharRange:.
+  if (show && (text.length == 0 || location >= text.length)) {
     [_layoutManager ensureLayoutForTextContainer:_textView.textContainer];
   }
+
+#if !TARGET_OS_OSX
+  if (isTrailing && _layoutManager.extraLineFragmentTextContainer != nil) {
+    [listDrawer showTrailingBulletInTextView:_textView
+                               textContainer:_layoutManager.extraLineFragmentTextContainer
+                                    usedRect:_layoutManager.extraLineFragmentUsedRect];
+  } else {
+    [listDrawer hideTrailingBullet];
+  }
+#endif
+
   ENRMSetNeedsDisplay(_textView);
 
   // The empty-editor bullet would otherwise overlap the placeholder.

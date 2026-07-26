@@ -17,10 +17,42 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
   return origin.x + container.size.width - leadingOffset;
 }
 
+@interface ENRMInputListMarkerDrawer ()
+- (void)drawTrailingBulletMarkerInRect:(CGRect)bounds;
+@end
+
+#if !TARGET_OS_OSX
+
+#pragma mark - Trailing bullet overlay
+
+/// A lightweight overlay that draws the trailing empty line's list marker.
+/// drawGlyphsForGlyphRange: clips its context to the glyph area, which excludes
+/// the extra line fragment.  A subview is immune to that clipping.
+@interface ENRMTrailingBulletView : UIView
+@property (nonatomic, weak) ENRMInputListMarkerDrawer *drawer;
+@end
+
+@implementation ENRMTrailingBulletView
+
+- (void)drawRect:(CGRect)rect
+{
+  [_drawer drawTrailingBulletMarkerInRect:self.bounds];
+}
+
+@end
+
+#endif
+
 #pragma mark -
 
 @implementation ENRMInputListMarkerDrawer {
   NSMutableSet<NSNumber *> *_drawnParagraphLocations;
+#if !TARGET_OS_OSX
+  ENRMTrailingBulletView *_trailingBulletView;
+  __weak NSTextContainer *_trailingBulletTextContainer;
+  CGFloat _trailingBulletInsetLeft;
+  CGFloat _trailingBulletHeadIndent;
+#endif
 }
 
 - (instancetype)init
@@ -276,7 +308,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
                                                                    string:string];
                                           }];
 
-  // Trailing empty line has no glyph fragment — draw via extra line fragment.
+#if TARGET_OS_OSX
   if (self.emptyBulletDepth >= 0 && self.emptyBulletLocation >= storage.length &&
       layoutManager.extraLineFragmentTextContainer != nil) {
     UIFont *font = self.emptyBulletFont ?: ENRMFallbackFont();
@@ -294,6 +326,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
                            font:font
                           color:color];
   }
+#endif
 }
 
 - (void)drawEmptyEditorDecorationsWithInset:(UIEdgeInsets)inset layoutManager:(NSLayoutManager *)layoutManager
@@ -326,5 +359,68 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
                          font:font
                         color:color];
 }
+
+#if !TARGET_OS_OSX
+
+#pragma mark - Trailing Bullet Overlay
+
+- (void)drawTrailingBulletMarkerInRect:(CGRect)bounds
+{
+  if (self.emptyBulletDepth < 0 || !_trailingBulletTextContainer) {
+    return;
+  }
+
+  UIFont *font = self.emptyBulletFont ?: ENRMFallbackFont();
+  UIColor *color = self.emptyBulletColor ?: ENRMFallbackColor();
+
+  CGRect usedRect = CGRectMake(_trailingBulletHeadIndent, 0, 0, bounds.size.height);
+  CGPoint origin = CGPointMake(_trailingBulletInsetLeft, 0);
+
+  [self drawListMarkerOrdered:self.emptyBulletOrdered
+                        depth:self.emptyBulletDepth
+                      ordinal:self.emptyBulletOrdinal
+                          rtl:self.emptyBulletRTL
+                    baselineY:font.ascender
+                       origin:origin
+                     usedRect:usedRect
+                    container:_trailingBulletTextContainer
+                         font:font
+                        color:color];
+}
+
+- (void)showTrailingBulletInTextView:(UITextView *)textView
+                       textContainer:(NSTextContainer *)container
+                            usedRect:(CGRect)usedRect
+{
+  if (!_trailingBulletView) {
+    _trailingBulletView = [[ENRMTrailingBulletView alloc] init];
+    _trailingBulletView.backgroundColor = [UIColor clearColor];
+    _trailingBulletView.opaque = NO;
+    _trailingBulletView.userInteractionEnabled = NO;
+  }
+
+  if (_trailingBulletView.superview != textView) {
+    [_trailingBulletView removeFromSuperview];
+    [textView addSubview:_trailingBulletView];
+  }
+
+  UIEdgeInsets inset = textView.textContainerInset;
+  _trailingBulletView.frame =
+      CGRectMake(0, inset.top + usedRect.origin.y, textView.bounds.size.width, usedRect.size.height);
+  _trailingBulletView.drawer = self;
+  _trailingBulletTextContainer = container;
+  _trailingBulletInsetLeft = inset.left;
+  _trailingBulletHeadIndent = usedRect.origin.x;
+  _trailingBulletView.hidden = NO;
+  [textView bringSubviewToFront:_trailingBulletView];
+  [_trailingBulletView setNeedsDisplay];
+}
+
+- (void)hideTrailingBullet
+{
+  _trailingBulletView.hidden = YES;
+}
+
+#endif
 
 @end

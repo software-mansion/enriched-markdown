@@ -17,6 +17,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL emptyBulletRTL;
 @property (nonatomic, assign) CGFloat listItemSpacing;
 
+#if !TARGET_OS_OSX
+/// Shows or updates a subview overlay that draws the trailing empty line's
+/// bullet.  drawGlyphsForGlyphRange: clips to the glyph area, which excludes
+/// the extra line fragment -- a subview is immune to that clipping.
+- (void)showTrailingBulletInTextView:(UITextView *)textView
+                       textContainer:(NSTextContainer *)container
+                            usedRect:(CGRect)usedRect;
+- (void)hideTrailingBullet;
+#endif
+
 @end
 
 NS_ASSUME_NONNULL_END

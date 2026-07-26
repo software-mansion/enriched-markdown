@@ -8,7 +8,9 @@ NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.
 
 #if !TARGET_OS_OSX
 
-@implementation ENRMInputTextView
+@implementation ENRMInputTextView {
+  CGFloat _lastLayoutWidth;
+}
 
 - (void)copy:(id)sender
 {
@@ -74,7 +76,9 @@ NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.
 - (void)layoutSubviews
 {
   [super layoutSubviews];
-  if (self.markdownTextInput != nil) {
+  CGFloat currentWidth = self.bounds.size.width;
+  if (self.markdownTextInput != nil && fabs(currentWidth - _lastLayoutWidth) > 0.5) {
+    _lastLayoutWidth = currentWidth;
     [self.markdownTextInput scheduleRelayoutIfNeeded];
   }
 }
@@ -128,7 +132,9 @@ NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.
 
 #else // TARGET_OS_OSX
 
-@implementation ENRMInputTextView
+@implementation ENRMInputTextView {
+  CGFloat _lastLayoutWidth;
+}
 
 - (void)copy:(id)sender
 {
@@ -208,7 +214,9 @@ NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.
 - (void)layout
 {
   [super layout];
-  if (self.markdownTextInput != nil) {
+  CGFloat currentWidth = self.bounds.size.width;
+  if (self.markdownTextInput != nil && fabs(currentWidth - _lastLayoutWidth) > 0.5) {
+    _lastLayoutWidth = currentWidth;
     [self.markdownTextInput scheduleRelayoutIfNeeded];
   }
 }
