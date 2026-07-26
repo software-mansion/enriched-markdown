@@ -672,6 +672,10 @@ using namespace facebook::react;
   [self applyFormatting];
   [self updatePlaceholderVisibility];
 
+  if (parsed.plainText.length == 0) {
+    [self resetBaseTypingAttributes];
+  }
+
   [_editSession exitPhase];
 }
 
