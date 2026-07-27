@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
 } from 'react';
@@ -41,6 +42,7 @@ import type {
 import { normalizeMarkdownTextInputStyle } from './normalizeMarkdownTextInputStyle';
 import { normalizeMenuItem } from './normalizeMenuItem';
 import { toNativeRegexConfig } from './utils/regexParser';
+import { TextInputState } from './utils/textInputState';
 import type { RefObject } from 'react';
 
 type NativeRef = HostInstance;
@@ -354,6 +356,27 @@ export const EnrichedMarkdownTextInput = ({
     };
   }, []);
 
+  /**
+   * Mirrors the built-in TextInput's TextInputState integration so scroll
+   * containers' keyboardShouldPersistTaps logic and Keyboard.dismiss treat
+   * this input like a native TextInput. See utils/textInputState.ts for the
+   * full rationale. The unmount cleanup blurs through blurTextInput so both
+   * the registry entry and the native focus are released, matching the
+   * TextInput unmount path.
+   */
+  useLayoutEffect(() => {
+    const instance = nativeRef.current;
+    if (instance == null) return;
+
+    TextInputState.registerInput(instance);
+    return () => {
+      if (TextInputState.currentlyFocusedInput() === instance) {
+        TextInputState.blurTextInput(instance);
+      }
+      TextInputState.unregisterInput(instance);
+    };
+  }, []);
+
   const normalizedStyle = normalizeMarkdownTextInputStyle(markdownStyle);
 
   const normalizedSelectionMenuConfig = useMemo(() => {
@@ -503,10 +526,20 @@ export const EnrichedMarkdownTextInput = ({
   );
 
   const handleFocus = useCallback(() => {
+    TextInputState.focusInput(nativeRef.current);
+    console.log(
+      'registry focused?',
+      TextInputState.currentlyFocusedInput() != null
+    );
     onFocus?.();
   }, [onFocus]);
 
   const handleBlur = useCallback(() => {
+    TextInputState.blurInput(nativeRef.current);
+    console.log(
+      'registry blurred?',
+      TextInputState.currentlyFocusedInput() == null
+    );
     onBlur?.();
   }, [onBlur]);
 
