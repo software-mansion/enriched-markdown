@@ -201,13 +201,6 @@ export interface EnrichedMarkdownTextInputProps extends Omit<
   onChangeMarkdown?: (markdown: string) => void;
   onChangeSelection?: (selection: { start: number; end: number }) => void;
   onChangeState?: (state: StyleState) => void;
-  /**
-   * Called on every keystroke before it is applied to the input content,
-   * mirroring React Native TextInput's `onKeyPress`. `nativeEvent.key` is the
-   * pressed character, or `Backspace` / `Enter` / `Tab` (iOS also reports
-   * `Escape`). On Android soft keyboards may lag actual typing when
-   * autocomplete suggestions are involved.
-   */
   onKeyPress?: (e: NativeSyntheticEvent<OnKeyPressEvent>) => void;
   onCaretRectChange?: (rect: CaretRect) => void;
   onLinkDetected?: (event: OnLinkDetected) => void;
