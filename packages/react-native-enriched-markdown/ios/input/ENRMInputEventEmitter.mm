@@ -1,5 +1,4 @@
 #import "ENRMInputEventEmitter.h"
-#import "ENRMInputStyleStateBuilder.h"
 
 using namespace facebook::react;
 
