@@ -3,6 +3,9 @@
 #import "EnrichedMarkdownTextInput+Internal.h"
 #import "EnrichedMarkdownTextInput.h"
 #import "PasteboardUtils.h"
+#if TARGET_OS_OSX
+#import <objc/message.h>
+#endif
 
 NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.markdown";
 
@@ -211,6 +214,15 @@ NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.
   return menu;
 }
 
+- (void)setTypingAttributes:(NSDictionary *)typingAttributes
+{
+  // RCTUITextView's override discards the value and always resets to
+  // defaultTextAttributes.  We need the actual value (e.g. list paragraph
+  // indent) to reach NSTextView so the caret positions correctly.
+  struct objc_super superSuper = {self, [NSTextView class]};
+  ((void (*)(struct objc_super *, SEL, NSDictionary *))objc_msgSendSuper)(&superSuper, _cmd, typingAttributes);
+}
+
 - (void)layout
 {
   [super layout];
@@ -218,6 +230,19 @@ NSString *const kENRMMarkdownPasteboardType = @"com.swmansion.enriched-markdown.
   if (self.markdownTextInput != nil && fabs(currentWidth - _lastLayoutWidth) > 0.5) {
     _lastLayoutWidth = currentWidth;
     [self.markdownTextInput scheduleRelayoutIfNeeded];
+  }
+}
+
+- (void)drawRect:(NSRect)rect
+{
+  [super drawRect:rect];
+  if (self.string.length == 0) {
+    NSLayoutManager *lm = self.layoutManager;
+    if ([lm isKindOfClass:[ENRMInputLayoutManager class]]) {
+      NSEdgeInsets insets = self.textContainerInsets;
+      insets.left += self.textContainer.lineFragmentPadding;
+      [(ENRMInputLayoutManager *)lm drawEmptyEditorDecorationsWithInset:insets];
+    }
   }
 }
 

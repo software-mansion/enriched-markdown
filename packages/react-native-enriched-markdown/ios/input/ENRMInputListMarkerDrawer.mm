@@ -7,9 +7,9 @@ static UIFont *ENRMFallbackFont(void)
   return [UIFont systemFontOfSize:16];
 }
 
-static UIColor *ENRMFallbackColor(void)
+static RCTUIColor *ENRMFallbackColor(void)
 {
-  return [UIColor labelColor];
+  return [RCTUIColor labelColor];
 }
 
 static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, CGFloat leadingOffset)
@@ -70,7 +70,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
               centerY:(CGFloat)centerY
                 depth:(NSInteger)depth
                  font:(UIFont *)font
-                color:(UIColor *)color
+                color:(RCTUIColor *)color
 {
   CGContextRef ctx = UIGraphicsGetCurrentContext();
   if (!ctx || isnan(markerX) || isnan(centerY)) {
@@ -106,7 +106,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
                          baselineY:(CGFloat)baselineY
                            ordinal:(NSInteger)ordinal
                               font:(UIFont *)font
-                             color:(UIColor *)color
+                             color:(RCTUIColor *)color
 {
   NSString *label = [NSString stringWithFormat:@"%ld.", (long)MAX(ordinal, (NSInteger)1)];
   NSDictionary *attrs = @{NSFontAttributeName : font, NSForegroundColorAttributeName : color};
@@ -118,7 +118,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
                            baselineY:(CGFloat)baselineY
                              ordinal:(NSInteger)ordinal
                                 font:(UIFont *)font
-                               color:(UIColor *)color
+                               color:(RCTUIColor *)color
 {
   NSString *label = [NSString stringWithFormat:@".%ld", (long)MAX(ordinal, (NSInteger)1)];
   NSDictionary *attrs = @{NSFontAttributeName : font, NSForegroundColorAttributeName : color};
@@ -136,7 +136,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
                      usedRect:(CGRect)usedRect
                     container:(NSTextContainer *)container
                          font:(UIFont *)font
-                        color:(UIColor *)color
+                        color:(RCTUIColor *)color
 {
   CGFloat leadingOffset = container.lineFragmentPadding + (depth + 1) * kENRMListIndentPerDepth;
 
@@ -187,13 +187,13 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
 }
 
 - (void)resolveMarkerFont:(out UIFont **)outFont
-                    color:(out UIColor **)outColor
+                    color:(out RCTUIColor **)outColor
                   atIndex:(NSUInteger)charIndex
                   storage:(NSTextStorage *)storage
           isEmptyListLine:(BOOL)isEmptyListLine
 {
   UIFont *font = nil;
-  UIColor *color = nil;
+  RCTUIColor *color = nil;
 
   if (isEmptyListLine) {
     font = self.emptyBulletFont;
@@ -257,7 +257,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
   [_drawnParagraphLocations addObject:@(paraRange.location)];
 
   UIFont *font;
-  UIColor *color;
+  RCTUIColor *color;
   [self resolveMarkerFont:&font
                     color:&color
                   atIndex:charRange.location
@@ -312,7 +312,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
   if (self.emptyBulletDepth >= 0 && self.emptyBulletLocation >= storage.length &&
       layoutManager.extraLineFragmentTextContainer != nil) {
     UIFont *font = self.emptyBulletFont ?: ENRMFallbackFont();
-    UIColor *color = self.emptyBulletColor ?: ENRMFallbackColor();
+    RCTUIColor *color = self.emptyBulletColor ?: ENRMFallbackColor();
     CGRect used = layoutManager.extraLineFragmentUsedRect;
     CGFloat baselineY = origin.y + used.origin.y + font.ascender;
     [self drawListMarkerOrdered:self.emptyBulletOrdered
@@ -336,7 +336,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
   }
 
   UIFont *font = self.emptyBulletFont ?: ENRMFallbackFont();
-  UIColor *color = self.emptyBulletColor ?: ENRMFallbackColor();
+  RCTUIColor *color = self.emptyBulletColor ?: ENRMFallbackColor();
   NSTextContainer *container = layoutManager.textContainers.firstObject;
   BOOL isRTL = self.emptyBulletRTL && container != nil;
 
@@ -371,7 +371,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
   }
 
   UIFont *font = self.emptyBulletFont ?: ENRMFallbackFont();
-  UIColor *color = self.emptyBulletColor ?: ENRMFallbackColor();
+  RCTUIColor *color = self.emptyBulletColor ?: ENRMFallbackColor();
 
   CGRect usedRect = CGRectMake(_trailingBulletHeadIndent, 0, 0, bounds.size.height);
   CGPoint origin = CGPointMake(_trailingBulletInsetLeft, 0);
@@ -394,7 +394,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
 {
   if (!_trailingBulletView) {
     _trailingBulletView = [[ENRMTrailingBulletView alloc] init];
-    _trailingBulletView.backgroundColor = [UIColor clearColor];
+    _trailingBulletView.backgroundColor = [RCTUIColor clearColor];
     _trailingBulletView.opaque = NO;
     _trailingBulletView.userInteractionEnabled = NO;
   }

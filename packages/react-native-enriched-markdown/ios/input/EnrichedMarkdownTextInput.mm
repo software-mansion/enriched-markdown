@@ -221,6 +221,8 @@ using namespace facebook::react;
   ENRMInputTextView *inputTextView = [[ENRMInputTextView alloc] initWithFrame:CGRectZero textContainer:textContainer];
 #else
   ENRMInputTextView *inputTextView = [[ENRMInputTextView alloc] initWithFrame:CGRectZero];
+  _layoutManager = [[ENRMInputLayoutManager alloc] init];
+  [inputTextView.textContainer replaceLayoutManager:_layoutManager];
 #endif
   inputTextView.markdownTextInput = self;
   _textView = inputTextView;

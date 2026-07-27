@@ -1,7 +1,7 @@
 #pragma once
 
 #import "ENRMInputDecorationDrawer.h"
-#import <UIKit/UIKit.h>
+#import "ENRMUIKit.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) NSInteger emptyBulletOrdinal;
 @property (nonatomic, assign) NSUInteger emptyBulletLocation;
 @property (nonatomic, strong, nullable) UIFont *emptyBulletFont;
-@property (nonatomic, strong, nullable) UIColor *emptyBulletColor;
+@property (nonatomic, strong, nullable) RCTUIColor *emptyBulletColor;
 @property (nonatomic, assign) BOOL emptyBulletRTL;
 @property (nonatomic, assign) CGFloat listItemSpacing;
 
