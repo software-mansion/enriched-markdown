@@ -2,7 +2,8 @@
 
 #import "ENRMBlockRange.h"
 #import "ENRMEditSession.h"
-#import "ENRMInputFormatter.h"
+#import "ENRMInputFormatterStyle.h"
+#import "ENRMInputStyledRange.h"
 #import "ENRMInputTextView.h"
 #import <Foundation/Foundation.h>
 
