@@ -106,6 +106,8 @@ internal object DefaultStyles {
           borderWidth = parser.toPixelFromDIP(3f),
           gapWidth = parser.toPixelFromDIP(16f),
           backgroundColor = parser.color("#F9FAFB"),
+          borderRadius = parser.toPixelFromDIP(0f),
+          padding = parser.toPixelFromDIP(0f),
         ),
       listStyle =
         ListStyle(
