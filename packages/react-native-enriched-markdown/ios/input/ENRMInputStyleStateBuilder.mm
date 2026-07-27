@@ -2,8 +2,9 @@
 
 @implementation ENRMInputStyleStateBuilder
 
-+ (ENRMInputStyleSnapshot)snapshotAtCursor:(NSUInteger)cursor dataSource:(id<ENRMInputStyleStateDataSource>)dataSource
++ (ENRMInputStyleSnapshot)snapshotAtCurrentCursor:(id<ENRMInputStyleStateDataSource>)dataSource
 {
+  NSUInteger cursor = [dataSource selectedRange].location;
   ENRMInputStyleSnapshot snapshot = {};
   snapshot.bold = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeStrong atPosition:cursor];
   snapshot.italic = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeEmphasis atPosition:cursor];

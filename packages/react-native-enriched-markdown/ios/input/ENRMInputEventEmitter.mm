@@ -175,8 +175,7 @@ ENRMFabricContextMenuStyleState(ENRMInputStyleSnapshot s)
 {
   ENRM_GUARD_EMITTER(emitter);
 
-  NSUInteger cursor = [_dataSource selectedRange].location;
-  ENRMInputStyleSnapshot snapshot = [ENRMInputStyleStateBuilder snapshotAtCursor:cursor dataSource:_dataSource];
+  ENRMInputStyleSnapshot snapshot = [ENRMInputStyleStateBuilder snapshotAtCurrentCursor:_dataSource];
 
   if (_prevState.initialized && _prevState.bold == snapshot.bold && _prevState.italic == snapshot.italic &&
       _prevState.underline == snapshot.underline && _prevState.strikethrough == snapshot.strikethrough &&

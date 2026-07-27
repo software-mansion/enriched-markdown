@@ -21,6 +21,7 @@ typedef struct {
 
 @protocol ENRMInputStyleStateDataSource <NSObject>
 
+- (NSRange)selectedRange;
 - (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position;
 - (BOOL)isStyleActive:(ENRMInputStyleType)type inRange:(NSRange)range;
 - (NSInteger)headingLevelForCursorParagraph;
@@ -30,7 +31,7 @@ typedef struct {
 
 @interface ENRMInputStyleStateBuilder : NSObject
 
-+ (ENRMInputStyleSnapshot)snapshotAtCursor:(NSUInteger)cursor dataSource:(id<ENRMInputStyleStateDataSource>)dataSource;
++ (ENRMInputStyleSnapshot)snapshotAtCurrentCursor:(id<ENRMInputStyleStateDataSource>)dataSource;
 
 + (ENRMInputStyleSnapshot)snapshotForRange:(NSRange)range dataSource:(id<ENRMInputStyleStateDataSource>)dataSource;
 

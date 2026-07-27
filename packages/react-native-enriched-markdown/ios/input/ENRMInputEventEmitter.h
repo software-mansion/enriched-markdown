@@ -20,7 +20,6 @@ NS_ASSUME_NONNULL_BEGIN
 #endif
 
 - (NSString *)plainText;
-- (NSRange)selectedRange;
 - (NSString *)currentMarkdown;
 - (CGRect)computeCaretRect;
 
