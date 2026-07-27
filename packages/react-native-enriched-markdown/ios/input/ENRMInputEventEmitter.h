@@ -1,6 +1,7 @@
 #pragma once
 
 #import "ENRMBlockRange.h"
+#import "ENRMInputStyleStateBuilder.h"
 #import "ENRMInputStyledRange.h"
 #import "ENRMUIKit.h"
 #import <Foundation/Foundation.h>
@@ -12,7 +13,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol ENRMInputEventEmitterDataSource <NSObject>
+@protocol ENRMInputEventEmitterDataSource <ENRMInputStyleStateDataSource>
 
 #ifdef __cplusplus
 - (std::shared_ptr<facebook::react::EnrichedMarkdownTextInputEventEmitter const>)fabricEventEmitter;
@@ -20,10 +21,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSString *)plainText;
 - (NSRange)selectedRange;
-- (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position;
-- (BOOL)isStyleActive:(ENRMInputStyleType)type inRange:(NSRange)range;
-- (NSInteger)headingLevelForCursorParagraph;
-- (nullable ENRMBlockRange *)listBlockForCursorParagraph;
 - (NSString *)currentMarkdown;
 - (CGRect)computeCaretRect;
 

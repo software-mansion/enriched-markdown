@@ -1,6 +1,38 @@
 #import "ENRMInputEventEmitter.h"
+#import "ENRMInputStyleStateBuilder.h"
 
 using namespace facebook::react;
+
+static EnrichedMarkdownTextInputEventEmitter::OnChangeState ENRMFabricChangeState(ENRMInputStyleSnapshot s)
+{
+  return {
+      .bold = {.isActive = s.bold},
+      .italic = {.isActive = s.italic},
+      .underline = {.isActive = s.underline},
+      .strikethrough = {.isActive = s.strikethrough},
+      .spoiler = {.isActive = s.spoiler},
+      .link = {.isActive = s.link},
+      .heading = {.isActive = s.headingLevel > 0, .level = static_cast<int>(s.headingLevel)},
+      .unorderedList = {.isActive = s.unorderedList, .depth = static_cast<int>(s.unorderedList ? s.listDepth : 0)},
+      .orderedList = {.isActive = s.orderedList, .depth = static_cast<int>(s.orderedList ? s.listDepth : 0)},
+  };
+}
+
+static EnrichedMarkdownTextInputEventEmitter::OnContextMenuItemPressStyleState
+ENRMFabricContextMenuStyleState(ENRMInputStyleSnapshot s)
+{
+  return {
+      .bold = {.isActive = s.bold},
+      .italic = {.isActive = s.italic},
+      .underline = {.isActive = s.underline},
+      .strikethrough = {.isActive = s.strikethrough},
+      .spoiler = {.isActive = s.spoiler},
+      .link = {.isActive = s.link},
+      .heading = {.isActive = s.headingLevel > 0, .level = static_cast<int>(s.headingLevel)},
+      .unorderedList = {.isActive = s.unorderedList, .depth = static_cast<int>(s.unorderedList ? s.listDepth : 0)},
+      .orderedList = {.isActive = s.orderedList, .depth = static_cast<int>(s.orderedList ? s.listDepth : 0)},
+  };
+}
 
 #define ENRM_GUARD_EMITTER(name)                                                                                       \
   auto name = [self emitter];                                                                                          \
@@ -144,56 +176,31 @@ using namespace facebook::react;
   ENRM_GUARD_EMITTER(emitter);
 
   NSUInteger cursor = [_dataSource selectedRange].location;
-  BOOL boldActive = [_dataSource isEffectiveStyleActive:ENRMInputStyleTypeStrong atPosition:cursor];
-  BOOL italicActive = [_dataSource isEffectiveStyleActive:ENRMInputStyleTypeEmphasis atPosition:cursor];
-  BOOL underlineActive = [_dataSource isEffectiveStyleActive:ENRMInputStyleTypeUnderline atPosition:cursor];
-  BOOL strikethroughActive = [_dataSource isEffectiveStyleActive:ENRMInputStyleTypeStrikethrough atPosition:cursor];
-  BOOL spoilerActive = [_dataSource isEffectiveStyleActive:ENRMInputStyleTypeSpoiler atPosition:cursor];
-  BOOL linkActive = [_dataSource isEffectiveStyleActive:ENRMInputStyleTypeLink atPosition:cursor];
+  ENRMInputStyleSnapshot snapshot = [ENRMInputStyleStateBuilder snapshotAtCursor:cursor dataSource:_dataSource];
 
-  NSInteger headingLevel = [_dataSource headingLevelForCursorParagraph];
-
-  NSInteger listDepth = 0;
-  ENRMBlockRange *emitListBlock = [_dataSource listBlockForCursorParagraph];
-  BOOL unorderedListActive = emitListBlock != nil && emitListBlock.type == ENRMInputBlockTypeUnorderedListItem;
-  BOOL orderedListActive = emitListBlock != nil && emitListBlock.type == ENRMInputBlockTypeOrderedListItem;
-  if (emitListBlock != nil) {
-    listDepth = emitListBlock.level;
-  }
-
-  if (_prevState.initialized && _prevState.bold == boldActive && _prevState.italic == italicActive &&
-      _prevState.underline == underlineActive && _prevState.strikethrough == strikethroughActive &&
-      _prevState.spoiler == spoilerActive && _prevState.link == linkActive && _prevState.headingLevel == headingLevel &&
-      _prevState.unorderedList == unorderedListActive && _prevState.unorderedListDepth == listDepth &&
-      _prevState.orderedList == orderedListActive && _prevState.orderedListDepth == listDepth) {
+  if (_prevState.initialized && _prevState.bold == snapshot.bold && _prevState.italic == snapshot.italic &&
+      _prevState.underline == snapshot.underline && _prevState.strikethrough == snapshot.strikethrough &&
+      _prevState.spoiler == snapshot.spoiler && _prevState.link == snapshot.link &&
+      _prevState.headingLevel == snapshot.headingLevel && _prevState.unorderedList == snapshot.unorderedList &&
+      _prevState.unorderedListDepth == snapshot.listDepth && _prevState.orderedList == snapshot.orderedList &&
+      _prevState.orderedListDepth == snapshot.listDepth) {
     return;
   }
 
-  _prevState.bold = boldActive;
-  _prevState.italic = italicActive;
-  _prevState.underline = underlineActive;
-  _prevState.strikethrough = strikethroughActive;
-  _prevState.spoiler = spoilerActive;
-  _prevState.link = linkActive;
-  _prevState.headingLevel = headingLevel;
-  _prevState.unorderedList = unorderedListActive;
-  _prevState.unorderedListDepth = listDepth;
-  _prevState.orderedList = orderedListActive;
-  _prevState.orderedListDepth = listDepth;
+  _prevState.bold = snapshot.bold;
+  _prevState.italic = snapshot.italic;
+  _prevState.underline = snapshot.underline;
+  _prevState.strikethrough = snapshot.strikethrough;
+  _prevState.spoiler = snapshot.spoiler;
+  _prevState.link = snapshot.link;
+  _prevState.headingLevel = snapshot.headingLevel;
+  _prevState.unorderedList = snapshot.unorderedList;
+  _prevState.unorderedListDepth = snapshot.listDepth;
+  _prevState.orderedList = snapshot.orderedList;
+  _prevState.orderedListDepth = snapshot.listDepth;
   _prevState.initialized = YES;
 
-  emitter->onChangeState({
-      .bold = {.isActive = boldActive},
-      .italic = {.isActive = italicActive},
-      .underline = {.isActive = underlineActive},
-      .strikethrough = {.isActive = strikethroughActive},
-      .spoiler = {.isActive = spoilerActive},
-      .link = {.isActive = linkActive},
-      .heading = {.isActive = headingLevel > 0, .level = static_cast<int>(headingLevel)},
-      .unorderedList = {.isActive = unorderedListActive,
-                        .depth = static_cast<int>(unorderedListActive ? listDepth : 0)},
-      .orderedList = {.isActive = orderedListActive, .depth = static_cast<int>(orderedListActive ? listDepth : 0)},
-  });
+  emitter->onChangeState(ENRMFabricChangeState(snapshot));
 }
 
 - (void)emitCaretRectChangeIfNeeded
@@ -229,47 +236,14 @@ using namespace facebook::react;
   NSRange selectedRange = [_dataSource selectedRange];
   NSString *selectedText = selectedRange.length > 0 ? [[_dataSource plainText] substringWithRange:selectedRange] : @"";
 
-  auto isActive = [&](ENRMInputStyleType type) -> BOOL {
-    if (selectedRange.length > 0) {
-      return [_dataSource isStyleActive:type inRange:selectedRange];
-    }
-    return [_dataSource isEffectiveStyleActive:type atPosition:selectedRange.location];
-  };
-
-  BOOL boldActive = isActive(ENRMInputStyleTypeStrong);
-  BOOL italicActive = isActive(ENRMInputStyleTypeEmphasis);
-  BOOL underlineActive = isActive(ENRMInputStyleTypeUnderline);
-  BOOL strikethroughActive = isActive(ENRMInputStyleTypeStrikethrough);
-  BOOL spoilerActive = isActive(ENRMInputStyleTypeSpoiler);
-  BOOL linkActive = isActive(ENRMInputStyleTypeLink);
-  NSInteger headingLevel = [_dataSource headingLevelForCursorParagraph];
-  NSInteger listDepth = 0;
-  ENRMBlockRange *emitListBlock = [_dataSource listBlockForCursorParagraph];
-  BOOL unorderedListActive = emitListBlock != nil && emitListBlock.type == ENRMInputBlockTypeUnorderedListItem;
-  BOOL orderedListActive = emitListBlock != nil && emitListBlock.type == ENRMInputBlockTypeOrderedListItem;
-  if (emitListBlock != nil) {
-    listDepth = emitListBlock.level;
-  }
+  ENRMInputStyleSnapshot snapshot = [ENRMInputStyleStateBuilder snapshotForRange:selectedRange dataSource:_dataSource];
 
   eventEmitter->onContextMenuItemPress({
       .itemText = std::string(itemText.UTF8String),
       .selectedText = std::string(selectedText.UTF8String),
       .selectionStart = static_cast<int>(selectedRange.location),
       .selectionEnd = static_cast<int>(NSMaxRange(selectedRange)),
-      .styleState =
-          {
-              .bold = {.isActive = boldActive},
-              .italic = {.isActive = italicActive},
-              .underline = {.isActive = underlineActive},
-              .strikethrough = {.isActive = strikethroughActive},
-              .spoiler = {.isActive = spoilerActive},
-              .link = {.isActive = linkActive},
-              .heading = {.isActive = headingLevel > 0, .level = static_cast<int>(headingLevel)},
-              .unorderedList = {.isActive = unorderedListActive,
-                                .depth = static_cast<int>(unorderedListActive ? listDepth : 0)},
-              .orderedList = {.isActive = orderedListActive,
-                              .depth = static_cast<int>(orderedListActive ? listDepth : 0)},
-          },
+      .styleState = ENRMFabricContextMenuStyleState(snapshot),
   });
 }
 
