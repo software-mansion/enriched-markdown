@@ -728,6 +728,8 @@ Fires when the input loses focus.
 | -------------- | ------------- | -------- |
 | `() => void`   | -             | Both     |
 
+The input participates in React Native's text-input focus tracking (`TextInput.State`), so blur also happens through the platform's standard keyboard-dismiss paths: taps outside the input inside a `ScrollView` (per its `keyboardShouldPersistTaps` setting) and `Keyboard.dismiss()`. See [Keyboard Dismissal](INPUT.md#keyboard-dismissal).
+
 ### `onStartMention`
 
 Fires when a new mention flow starts. See [Mentions](MENTIONS.md#events).

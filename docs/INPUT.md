@@ -220,6 +220,16 @@ You can find some examples in the [usage section](#usage) or in the example app.
 - [onChangeSelection](API_REFERENCE.md#onchangeselection) - returns `{ start, end }` of the current selection, useful for working with [links](#links).
 - [onKeyPress](API_REFERENCE.md#onkeypress) - returns `{ nativeEvent: { key } }` for every keystroke before it is applied to the content, mirroring React Native TextInput's `onKeyPress`.
 
+## Keyboard Dismissal
+
+`EnrichedMarkdownTextInput` registers with React Native's text-input focus tracking (`TextInput.State`), so scroll containers treat it exactly like the built-in `TextInput`. No props on the input are involved — the behavior is controlled by the surrounding `ScrollView` / `FlatList`:
+
+- With the soft keyboard open, tapping outside the focused input blurs it and dismisses the keyboard, following the scroll container's [`keyboardShouldPersistTaps`](https://reactnative.dev/docs/scrollview#keyboardshouldpersisttaps) setting. In the default `'never'` mode the dismissing tap is consumed (the classic first-tap-dismisses, second-tap-presses behavior); `'handled'` dismisses only on taps no child handles; `'always'` never auto-dismisses.
+- Scrolling does not dismiss the keyboard unless the container sets [`keyboardDismissMode`](https://reactnative.dev/docs/scrollview#keyboarddismissmode).
+- [`Keyboard.dismiss()`](https://reactnative.dev/docs/keyboard#dismiss) blurs the input when it is the focused field.
+
+Matching `TextInput`, none of this applies while a hardware keyboard is in use (for example the iOS Simulator with **Connect Hardware Keyboard** enabled): with no soft keyboard on screen there is nothing to dismiss, so outside taps intentionally leave the input focused.
+
 ## RTL Support
 
 `EnrichedMarkdownTextInput` resolves writing direction **per paragraph**, matching the read-only [`EnrichedMarkdownText`](RTL.md) renderer. Arabic, Hebrew, and Persian content right-aligns automatically as the user types — even mixed with English paragraphs in the same input.
