@@ -81,7 +81,7 @@ static CGFloat ENRMTrailingMarkerX(CGPoint origin, NSTextContainer *container, C
   CGRect bulletRect = CGRectMake(markerX - size / 2.0, centerY - size / 2.0, size, size);
 
   CGContextSaveGState(ctx);
-  NSInteger style = ((depth % 3) + 3) % 3;
+  NSInteger style = depth >= 2 ? 2 : depth;
   switch (style) {
     case 0:
       [color setFill];

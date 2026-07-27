@@ -9,7 +9,7 @@ import com.swmansion.enriched.markdown.input.formatting.MarkdownSpan
 
 /**
  * Bullet list item span: reserves a per-depth leading margin and draws the marker
- * glyph (dot / ring / square, cycling by `depth % 3`) on the item's first line.
+ * glyph (dot / ring / square, capped at square for depth 2+) on the item's first line.
  * Mirrors the readonly renderer's bullet. Tagged [MarkdownSpan] for formatter
  * cleanup.
  */
@@ -51,7 +51,7 @@ class InputBulletSpan(
 
     val originalStyle = paint.style
     val originalStrokeWidth = paint.strokeWidth
-    when (depth % 3) {
+    when (if (depth >= 2) 2 else depth) {
       0 -> {
         paint.style = Paint.Style.FILL
         canvas.drawCircle(centerX, centerY, radius, paint)
