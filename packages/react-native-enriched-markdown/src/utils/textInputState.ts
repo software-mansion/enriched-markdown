@@ -37,7 +37,15 @@ interface TextInputStateModule {
   currentlyFocusedInput(): HostInstance | null;
 }
 
-export const TextInputState =
+/**
+ * The internal module's export shape has changed across RN versions: newer
+ * versions use `export default` (surfacing as `.default` after Metro's CJS
+ * transform) while older ones assigned `module.exports` directly. A raw
+ * require bypasses Babel's import interop, so both shapes are handled here.
+ */
+const TextInputStateModuleImpl =
   // eslint-disable-next-line @react-native/no-deep-imports
-  require('react-native/Libraries/Components/TextInput/TextInputState')
-    .default as TextInputStateModule;
+  require('react-native/Libraries/Components/TextInput/TextInputState');
+
+export const TextInputState = (TextInputStateModuleImpl.default ??
+  TextInputStateModuleImpl) as TextInputStateModule;
