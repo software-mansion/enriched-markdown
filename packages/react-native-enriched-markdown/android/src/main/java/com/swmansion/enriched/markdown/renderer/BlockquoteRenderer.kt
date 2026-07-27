@@ -1,9 +1,13 @@
 package com.swmansion.enriched.markdown.renderer
 
+import android.graphics.Paint
 import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.LineHeightSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_CONTAINER_BACKGROUND
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
@@ -63,10 +67,57 @@ class BlockquoteRenderer(
     // block images so their expanded line metrics aren't re-clamped
     applyLineHeightExcludingNested(builder, nestedRanges, start, end, style.lineHeight)
 
+    // Vertical padding applies at every nesting level so nested quotes pad
+    // their own box (matching web CSS padding); the spans stack at shared
+    // boundary lines just like nested element paddings do on web.
+    if (style.padding > 0) {
+      builder.setSpan(
+        BlockquoteBoundaryPaddingSpan(style.padding.toInt()),
+        start,
+        end,
+        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+      )
+    }
+
     // Margins are only applied by the outermost (root) quote
     if (depth == 0) {
       applyMarginTop(builder, start, style.marginTop)
       applyMarginBottom(builder, style.marginBottom)
+    }
+  }
+
+  /**
+   * Internal span to handle top/bottom padding by modifying font metrics.
+   * Same approach as the code block boundary padding span.
+   */
+  private class BlockquoteBoundaryPaddingSpan(
+    private val padding: Int,
+  ) : LineHeightSpan {
+    override fun chooseHeight(
+      text: CharSequence,
+      startLine: Int,
+      endLine: Int,
+      spanstartv: Int,
+      v: Int,
+      fm: Paint.FontMetricsInt,
+    ) {
+      if (text !is Spanned) return
+
+      val spanStart = text.getSpanStart(this)
+      val spanEnd = text.getSpanEnd(this)
+
+      // Adjust ascent/top for the first line to create internal top padding
+      if (startLine == spanStart) {
+        fm.ascent -= padding
+        fm.top -= padding
+      }
+
+      // Adjust descent/bottom for the last line (handling trailing newlines)
+      val isLastLine = endLine == spanEnd || (spanEnd <= endLine && text[spanEnd - 1] == '\n')
+      if (isLastLine) {
+        fm.descent += padding
+        fm.bottom += padding
+      }
     }
   }
 

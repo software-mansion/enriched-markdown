@@ -5,6 +5,8 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.Spanned
@@ -12,6 +14,7 @@ import android.text.TextPaint
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
 import android.text.style.MetricAffectingSpan
+import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
@@ -37,7 +40,17 @@ class BlockquoteSpan(
 
   // Cache for shouldSkipDrawing to avoid repeated getSpans() calls during draw passes
   private var cachedText: CharSequence? = null
-  private var cachedMaxDepthByPosition = mutableMapOf<Int, Int>()
+  private var cachedSpansByPosition = mutableMapOf<Int, Array<BlockquoteSpan>>()
+
+  // Horizontal box bounds captured during the background pass; Layout draws all
+  // line backgrounds before any leading margins, so the values are ready when
+  // the border stripes need clipping to the rounded box shape.
+  private var boxLeft = 0f
+  private var boxRight = 0f
+
+  private val path = Path()
+  private val rect = RectF()
+  private val radiiArray = FloatArray(8)
 
   override fun updateMeasureState(tp: TextPaint) = applyTextStyle(tp)
 
@@ -63,13 +76,48 @@ class BlockquoteSpan(
     if (shouldSkipDrawing(text, start)) return
 
     val borderPaint = configureBorderPaint()
-    val borderTop = top.toFloat()
-    val borderBottom = bottom.toFloat()
+    val radius = blockquoteStyle.borderRadius
+    val spanned = text as? Spanned
+
+    if (radius <= 0f || spanned == null || boxRight <= boxLeft) {
+      drawBorders(c, x, dir, top, bottom, borderPaint)
+      return
+    }
+
+    // Each level's stripe is clipped to its own quote's rounded box (mirroring
+    // per-element CSS border-radius on web); level 0 additionally rounds
+    // against the outermost box that also carries the background.
+    val rootSpan = spanAtMinDepth(spanned, start)
+    val rootBoundary = rootSpan != null && isBoundaryLine(spanned, start, end, rootSpan)
 
     for (level in 0..depth) {
       val borderX = x + (levelSpacing * level * dir)
       val borderRight = borderX + (blockquoteStyle.borderWidth * dir)
-      c.drawRect(minOf(borderX, borderRight), borderTop, maxOf(borderX, borderRight), borderBottom, borderPaint)
+      val stripeLeft = minOf(borderX, borderRight)
+      val stripeRight = maxOf(borderX, borderRight)
+
+      val levelSpan = if (level == 0) rootSpan else spanAtDepth(spanned, start, level)
+      val ownBoundary =
+        level > 0 && levelSpan != null && isBoundaryLine(spanned, start, end, levelSpan)
+
+      if (!rootBoundary && !ownBoundary) {
+        c.drawRect(stripeLeft, top.toFloat(), stripeRight, bottom.toFloat(), borderPaint)
+        continue
+      }
+
+      c.withSave {
+        if (rootBoundary) {
+          buildBoundaryPath(spanned, start, end, rootSpan!!, boxLeft, top.toFloat(), boxRight, bottom.toFloat())
+          clipPath(path)
+        }
+        if (ownBoundary) {
+          val clipLeft = if (dir >= 0) stripeLeft else boxLeft
+          val clipRight = if (dir >= 0) boxRight else stripeRight
+          buildBoundaryPath(spanned, start, end, levelSpan!!, clipLeft, top.toFloat(), clipRight, bottom.toFloat())
+          clipPath(path)
+        }
+        drawRect(stripeLeft, top.toFloat(), stripeRight, bottom.toFloat(), borderPaint)
+      }
     }
   }
 
@@ -87,7 +135,40 @@ class BlockquoteSpan(
     lineNum: Int,
   ) {
     if (shouldSkipDrawing(text, start)) return
-    drawBackground(canvas, left, top, bottom, right)
+
+    boxLeft = left.toFloat()
+    boxRight = right.toFloat()
+
+    val bgColor = blockquoteStyle.backgroundColor?.takeIf { it != Color.TRANSPARENT } ?: return
+    val backgroundPaint = configureBackgroundPaint(bgColor)
+    val radius = blockquoteStyle.borderRadius
+    val rootSpan = (text as? Spanned)?.let { spanAtMinDepth(it, start) }
+
+    if (radius <= 0f || rootSpan == null) {
+      canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), backgroundPaint)
+      return
+    }
+
+    buildBoundaryPath(text as Spanned, start, end, rootSpan, left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
+    canvas.drawPath(path, backgroundPaint)
+  }
+
+  private fun drawBorders(
+    c: Canvas,
+    x: Int,
+    dir: Int,
+    top: Int,
+    bottom: Int,
+    borderPaint: Paint,
+  ) {
+    val borderTop = top.toFloat()
+    val borderBottom = bottom.toFloat()
+
+    for (level in 0..depth) {
+      val borderX = x + (levelSpacing * level * dir)
+      val borderRight = borderX + (blockquoteStyle.borderWidth * dir)
+      c.drawRect(minOf(borderX, borderRight), borderTop, maxOf(borderX, borderRight), borderBottom, borderPaint)
+    }
   }
 
   @SuppressLint("WrongConstant") // Result of mask is always valid: 0, 1, 2, or 3
@@ -118,35 +199,89 @@ class BlockquoteSpan(
       color = bgColor
     }
 
+  private fun spansAt(
+    text: Spanned,
+    start: Int,
+  ): Array<BlockquoteSpan> {
+    if (cachedText !== text) {
+      cachedText = text
+      cachedSpansByPosition.clear()
+    }
+    return cachedSpansByPosition.getOrPut(start) {
+      text.getSpans(start, start + 1, BlockquoteSpan::class.java)
+    }
+  }
+
   private fun shouldSkipDrawing(
     text: CharSequence?,
     start: Int,
   ): Boolean {
     if (text !is Spanned) return false
-
-    if (cachedText !== text) {
-      cachedText = text
-      cachedMaxDepthByPosition.clear()
-    }
-
-    val maxDepth =
-      cachedMaxDepthByPosition.getOrPut(start) {
-        val spans = text.getSpans(start, start + 1, BlockquoteSpan::class.java)
-        spans.maxOfOrNull { it.depth } ?: -1
-      }
-
+    val maxDepth = spansAt(text, start).maxOfOrNull { it.depth } ?: -1
     return maxDepth > depth
   }
 
-  private fun drawBackground(
-    c: Canvas,
-    left: Int,
-    top: Int,
-    bottom: Int,
-    right: Int,
+  // The outermost box (background + outer rounding) is the min-depth span at
+  // this position; each nested level's own box is the span with that depth.
+  private fun spanAtMinDepth(
+    text: Spanned,
+    start: Int,
+  ): BlockquoteSpan? = spansAt(text, start).minByOrNull { it.depth }
+
+  private fun spanAtDepth(
+    text: Spanned,
+    start: Int,
+    level: Int,
+  ): BlockquoteSpan? = spansAt(text, start).firstOrNull { it.depth == level }
+
+  private fun isBoundaryLine(
+    text: Spanned,
+    lineStart: Int,
+    lineEnd: Int,
+    box: BlockquoteSpan,
+  ): Boolean {
+    val boxStart = text.getSpanStart(box)
+    val boxEnd = text.getSpanEnd(box)
+    if (boxStart !in 0 until boxEnd) return false
+    return lineStart == boxStart ||
+      lineEnd == boxEnd ||
+      (boxEnd <= lineEnd && (boxEnd == text.length || text[boxEnd - 1] == '\n'))
+  }
+
+  private fun buildBoundaryPath(
+    text: Spanned,
+    lineStart: Int,
+    lineEnd: Int,
+    box: BlockquoteSpan,
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float,
   ) {
-    val bgColor = blockquoteStyle.backgroundColor?.takeIf { it != Color.TRANSPARENT } ?: return
-    val backgroundPaint = configureBackgroundPaint(bgColor)
-    c.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), backgroundPaint)
+    val boxStart = text.getSpanStart(box)
+    val boxEnd = text.getSpanEnd(box)
+
+    val isFirstLine = lineStart == boxStart
+    val isLastLine =
+      lineEnd == boxEnd || (boxEnd <= lineEnd && (boxEnd == text.length || text[boxEnd - 1] == '\n'))
+
+    val radius = blockquoteStyle.borderRadius
+    radiiArray.fill(0f)
+    if (isFirstLine) {
+      radiiArray[0] = radius
+      radiiArray[1] = radius // Top-Left
+      radiiArray[2] = radius
+      radiiArray[3] = radius // Top-Right
+    }
+    if (isLastLine) {
+      radiiArray[4] = radius
+      radiiArray[5] = radius // Bottom-Right
+      radiiArray[6] = radius
+      radiiArray[7] = radius // Bottom-Left
+    }
+
+    rect.set(left, top, right, bottom)
+    path.reset()
+    path.addRoundRect(rect, radiiArray, Path.Direction.CW)
   }
 }
