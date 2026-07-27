@@ -1,5 +1,6 @@
 #pragma once
 
+#import "ENRMInputEventEmitter.h"
 #import "ENRMInputStyledRange.h"
 #import "EnrichedMarkdownTextInput.h"
 
@@ -31,6 +32,8 @@ typedef struct {
 
 @interface EnrichedMarkdownTextInput (Internal)
 
+@property (nonatomic, readonly) ENRMInputEventEmitter *inputEventEmitter;
+
 - (void)toggleBold;
 - (void)toggleItalic;
 - (void)toggleUnderline;
@@ -47,7 +50,6 @@ typedef struct {
 
 - (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position;
 
-- (void)emitContextMenuItemPress:(NSString *)itemText;
 - (NSArray<NSString *> *)contextMenuItemTexts;
 - (NSArray<NSString *> *)contextMenuItemIcons;
 - (ENRMInputSelectionMenuConfig)inputSelectionMenuConfig;

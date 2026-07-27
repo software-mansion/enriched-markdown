@@ -10,6 +10,7 @@
 #import "ENRMEditSession.h"
 #import "ENRMFormattingRange.h"
 #import "ENRMFormattingStore.h"
+#import "ENRMInputEventEmitter.h"
 #import "ENRMInputFormatter.h"
 #import "ENRMInputLayoutManager.h"
 #import "ENRMInputLinkPrompt.h"
@@ -47,10 +48,10 @@ using namespace facebook::react;
 
 #if !TARGET_OS_OSX
 @interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, UITextViewDelegate,
-                                         ENRMEditPipelineHost>
+                                         ENRMEditPipelineHost, ENRMInputEventEmitterDataSource>
 #else
 @interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, RCTBackedTextInputDelegate,
-                                         ENRMEditPipelineHost>
+                                         ENRMEditPipelineHost, ENRMInputEventEmitterDataSource>
 #endif
 - (void)setupTextView;
 - (void)applyFormatting;
@@ -70,7 +71,7 @@ using namespace facebook::react;
   ENRMBlockStore *_blockStore;
   NSMutableSet<NSNumber *> *_pendingStyles;
   NSMutableSet<NSNumber *> *_pendingStyleRemovals;
-  BOOL _emitMarkdown;
+  ENRMInputEventEmitter *_inputEventEmitter;
   ENRMEditSession *_editSession;
 
   ENRMPlaceholderLabel *_placeholderLabel;
@@ -78,15 +79,6 @@ using namespace facebook::react;
   NSUInteger _lastTextLength;
   NSRange _lastSelectedRange;
   NSRange _preEditSelectedRange;
-
-  struct {
-    BOOL bold, italic, underline, strikethrough, spoiler, link, initialized;
-    NSInteger headingLevel;
-    BOOL unorderedList;
-    NSInteger unorderedListDepth;
-    BOOL orderedList;
-    NSInteger orderedListDepth;
-  } _prevState;
 
   // Block type/level of the line being edited, captured before a text change so
   // a Return that continues a list (or an autocorrect/paste that replaces the
@@ -98,8 +90,6 @@ using namespace facebook::react;
   // applies (the deleted characters are gone afterwards). Drives the full-vs-
   // scoped reformat decision in handleTextChanged.
   BOOL _preEditReplacedNewline;
-
-  std::optional<CGRect> _prevCaretRect;
 
 #if TARGET_OS_OSX
   NSScrollView *_scrollView;
@@ -174,6 +164,7 @@ using namespace facebook::react;
 
     [self setupTextView];
     _editSession = [[ENRMEditSession alloc] initWithTextView:_textView];
+    _inputEventEmitter = [[ENRMInputEventEmitter alloc] initWithDataSource:self];
 
     [self setupDetectorPipeline];
 
@@ -201,7 +192,11 @@ using namespace facebook::react;
 
   __weak EnrichedMarkdownTextInput *weakSelf = self;
   _autoLinkDetector.onLinkDetected = ^(NSString *text, NSString *url, NSRange range) {
-    [weakSelf emitOnLinkDetectedWithText:text url:url range:range];
+    EnrichedMarkdownTextInput *strongSelf = weakSelf;
+    if (strongSelf == nil) {
+      return;
+    }
+    [strongSelf->_inputEventEmitter emitOnLinkDetectedWithText:text url:url range:range];
   };
 
   _detectorPipeline = [[ENRMDetectorPipeline alloc] init];
@@ -419,7 +414,7 @@ using namespace facebook::react;
     ENRMApplySelectionColor(_textView, newViewProps.selectionColor);
   }
 
-  _emitMarkdown = newViewProps.isOnChangeMarkdownSet;
+  _inputEventEmitter.emitMarkdown = newViewProps.isOnChangeMarkdownSet;
 
   {
     auto configFromProp = [](const auto &prop) {
@@ -712,9 +707,9 @@ using namespace facebook::react;
   [_detectorPipeline processTextChange:plainText modificationRange:NSMakeRange(editLocation, text.length)];
 
   [self updatePlaceholderVisibility];
-  [self emitOnChangeText];
-  [self emitOnChangeSelection];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitOnChangeText];
+  [_inputEventEmitter emitOnChangeSelection];
+  [_inputEventEmitter emitFormattingChanged];
   [self requestHeightUpdate];
   [self scheduleRelayoutIfNeeded];
 }
@@ -829,9 +824,9 @@ using namespace facebook::react;
 {
   [self importMarkdown:markdown];
   _lastSelectedRange = _textView.selectedRange;
-  [self emitOnChangeText];
-  [self emitOnChangeSelection];
-  [self emitOnChangeState];
+  [_inputEventEmitter emitOnChangeText];
+  [_inputEventEmitter emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeState];
   [self requestHeightUpdate];
 }
 
@@ -841,8 +836,8 @@ using namespace facebook::react;
   NSInteger clampedStart = MIN(MAX(start, 0), textLen);
   NSInteger clampedEnd = MIN(MAX(end, clampedStart), textLen);
   _textView.selectedRange = NSMakeRange((NSUInteger)clampedStart, (NSUInteger)(clampedEnd - clampedStart));
-  [self emitOnChangeSelection];
-  [self emitOnChangeState];
+  [_inputEventEmitter emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeState];
 }
 
 - (void)toggleBold
@@ -908,7 +903,7 @@ using namespace facebook::react;
 
   [self applyFormatting];
   [self syncTypingAttributesWithPendingStyles];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
 - (void)toggleHeading:(NSInteger)level
@@ -948,7 +943,7 @@ using namespace facebook::react;
     [self clearListParagraphStyleFromTypingAttributes];
   }
   [self updateEmptyBulletMarker];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
 - (void)toggleUnorderedList
@@ -984,7 +979,7 @@ using namespace facebook::react;
   [self applyFormatting];
   [self syncTypingAttributesWithCursorBlock];
   [self updateEmptyBulletMarker];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
 - (nullable ENRMBlockRange *)listBlockForCursorParagraph
@@ -1300,7 +1295,7 @@ using namespace facebook::react;
     return;
   }
   [self applyFormatting];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
 - (void)insertLink:(NSString *)text url:(NSString *)url
@@ -1348,7 +1343,7 @@ using namespace facebook::react;
   [self dispatchMentionEvents:[_mentionCoordinator clearWithIndicatorOverride:indicator]];
   [self replaceTextInRange:activeRange withText:replacement formattingRanges:@[ linkRange ]];
   _textView.selectedRange = NSMakeRange(activeRange.location + replacement.length, 0);
-  [self emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeSelection];
 }
 
 - (void)removeLink
@@ -1357,7 +1352,7 @@ using namespace facebook::react;
     return;
   }
   [self applyFormatting];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
 - (void)showLinkPrompt
@@ -1402,15 +1397,7 @@ using namespace facebook::react;
 
 - (void)requestMarkdown:(NSInteger)requestId
 {
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSString *markdown = [_clipboardCoordinator serializeFullDocument:ENRMGetPlainText(_textView)];
-  emitter->onRequestMarkdownResult({
-      .requestId = static_cast<int>(requestId),
-      .markdown = std::string([markdown UTF8String] ?: ""),
-  });
+  [_inputEventEmitter requestMarkdown:requestId];
 }
 
 - (CGRect)computeCaretRect
@@ -1436,19 +1423,7 @@ using namespace facebook::react;
 
 - (void)requestCaretRect:(NSInteger)requestId
 {
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-
-  CGRect caretRect = [self computeCaretRect];
-  emitter->onRequestCaretRectResult({
-      .requestId = static_cast<int>(requestId),
-      .x = caretRect.origin.x,
-      .y = caretRect.origin.y,
-      .width = caretRect.size.width,
-      .height = caretRect.size.height,
-  });
+  [_inputEventEmitter requestCaretRect:requestId];
 }
 
 - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
@@ -1517,22 +1492,31 @@ using namespace facebook::react;
   }
 }
 
-#pragma mark - Event emitters
+#pragma mark - ENRMInputEventEmitterDataSource
 
-- (void)emitFormattingChanged
-{
-  [self emitOnChangeState];
-  if (_emitMarkdown) {
-    [self emitOnChangeMarkdown];
-  }
-}
-
-- (std::shared_ptr<EnrichedMarkdownTextInputEventEmitter const>)getEventEmitter
+- (std::shared_ptr<EnrichedMarkdownTextInputEventEmitter const>)fabricEventEmitter
 {
   if (_eventEmitter == nullptr || _editSession.shouldSuppressEvents) {
     return nullptr;
   }
   return std::static_pointer_cast<EnrichedMarkdownTextInputEventEmitter const>(_eventEmitter);
+}
+
+- (NSRange)selectedRange
+{
+  return _textView.selectedRange;
+}
+
+- (BOOL)isStyleActive:(ENRMInputStyleType)type inRange:(NSRange)range
+{
+  return [_formattingStore isStyleActive:type inRange:range];
+}
+
+- (NSString *)currentMarkdown
+{
+  return [self serializeText:ENRMGetPlainText(_textView)
+                      ranges:[self allRangesIncludingTransient]
+                 blockRanges:_blockStore.allRanges];
 }
 
 - (NSArray<ENRMFormattingRange *> *)allRangesIncludingTransient
@@ -1561,13 +1545,13 @@ using namespace facebook::react;
   for (ENRMMentionEvent *event in events) {
     switch (event.type) {
       case ENRMMentionEventStart:
-        [self emitOnStartMention:event.indicator];
+        [_inputEventEmitter emitOnStartMention:event.indicator];
         break;
       case ENRMMentionEventChange:
-        [self emitOnChangeMentionWithIndicator:event.indicator text:event.text];
+        [_inputEventEmitter emitOnChangeMentionWithIndicator:event.indicator text:event.text];
         break;
       case ENRMMentionEventEnd:
-        [self emitOnEndMention:event.indicator];
+        [_inputEventEmitter emitOnEndMention:event.indicator];
         break;
     }
   }
@@ -1598,155 +1582,6 @@ using namespace facebook::react;
   return YES;
 }
 
-- (void)emitOnChangeText
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSString *plainText = ENRMGetPlainText(_textView);
-  emitter->onChangeText({.value = std::string([plainText UTF8String] ?: "")});
-}
-
-/// Maps the replacement text of a pending edit to RN TextInput's
-/// `onKeyPress` key names: empty text means deletion ("Backspace"), and
-/// leading \n, \t and ESC map to "Enter", "Tab" and "Escape".
-- (void)emitOnKeyPress:(NSString *)text
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSString *key;
-  if (text.length == 0) {
-    key = @"Backspace";
-  } else {
-    switch ([text characterAtIndex:0]) {
-      case '\n':
-        key = @"Enter";
-        break;
-      case '\t':
-        key = @"Tab";
-        break;
-      case 0x1B:
-        key = @"Escape";
-        break;
-      default:
-        key = text;
-        break;
-    }
-  }
-  emitter->onInputKeyPress({.key = std::string([key UTF8String] ?: "")});
-}
-
-- (void)emitOnChangeMarkdown
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSString *markdown = [self serializeText:ENRMGetPlainText(_textView)
-                                    ranges:[self allRangesIncludingTransient]
-                               blockRanges:_blockStore.allRanges];
-  emitter->onChangeMarkdown({.value = std::string([markdown UTF8String] ?: "")});
-}
-
-- (void)emitOnChangeSelection
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSRange selection = _textView.selectedRange;
-  emitter->onChangeSelection({
-      .start = static_cast<int>(selection.location),
-      .end = static_cast<int>(NSMaxRange(selection)),
-  });
-}
-
-- (void)emitOnChangeState
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-
-  NSUInteger cursor = _textView.selectedRange.location;
-  BOOL boldActive = [self isEffectiveStyleActive:ENRMInputStyleTypeStrong atPosition:cursor];
-  BOOL italicActive = [self isEffectiveStyleActive:ENRMInputStyleTypeEmphasis atPosition:cursor];
-  BOOL underlineActive = [self isEffectiveStyleActive:ENRMInputStyleTypeUnderline atPosition:cursor];
-  BOOL strikethroughActive = [self isEffectiveStyleActive:ENRMInputStyleTypeStrikethrough atPosition:cursor];
-  BOOL spoilerActive = [self isEffectiveStyleActive:ENRMInputStyleTypeSpoiler atPosition:cursor];
-  BOOL linkActive = [self isEffectiveStyleActive:ENRMInputStyleTypeLink atPosition:cursor];
-
-  NSInteger headingLevel = [self headingLevelForCursorParagraph];
-
-  NSInteger listDepth = 0;
-  ENRMBlockRange *emitListBlock = [self listBlockForCursorParagraph];
-  BOOL unorderedListActive = emitListBlock != nil && emitListBlock.type == ENRMInputBlockTypeUnorderedListItem;
-  BOOL orderedListActive = emitListBlock != nil && emitListBlock.type == ENRMInputBlockTypeOrderedListItem;
-  if (emitListBlock != nil) {
-    listDepth = emitListBlock.level;
-  }
-
-  if (_prevState.initialized && _prevState.bold == boldActive && _prevState.italic == italicActive &&
-      _prevState.underline == underlineActive && _prevState.strikethrough == strikethroughActive &&
-      _prevState.spoiler == spoilerActive && _prevState.link == linkActive && _prevState.headingLevel == headingLevel &&
-      _prevState.unorderedList == unorderedListActive && _prevState.unorderedListDepth == listDepth &&
-      _prevState.orderedList == orderedListActive && _prevState.orderedListDepth == listDepth) {
-    return;
-  }
-
-  _prevState.bold = boldActive;
-  _prevState.italic = italicActive;
-  _prevState.underline = underlineActive;
-  _prevState.strikethrough = strikethroughActive;
-  _prevState.spoiler = spoilerActive;
-  _prevState.link = linkActive;
-  _prevState.headingLevel = headingLevel;
-  _prevState.unorderedList = unorderedListActive;
-  _prevState.unorderedListDepth = listDepth;
-  _prevState.orderedList = orderedListActive;
-  _prevState.orderedListDepth = listDepth;
-  _prevState.initialized = YES;
-
-  emitter->onChangeState({
-      .bold = {.isActive = boldActive},
-      .italic = {.isActive = italicActive},
-      .underline = {.isActive = underlineActive},
-      .strikethrough = {.isActive = strikethroughActive},
-      .spoiler = {.isActive = spoilerActive},
-      .link = {.isActive = linkActive},
-      .heading = {.isActive = headingLevel > 0, .level = static_cast<int>(headingLevel)},
-      .unorderedList = {.isActive = unorderedListActive,
-                        .depth = static_cast<int>(unorderedListActive ? listDepth : 0)},
-      .orderedList = {.isActive = orderedListActive, .depth = static_cast<int>(orderedListActive ? listDepth : 0)},
-  });
-}
-
-- (void)emitCaretRectChangeIfNeeded
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-
-  CGRect caretRect = [self computeCaretRect];
-
-  if (_prevCaretRect.has_value() && CGRectEqualToRect(_prevCaretRect.value(), caretRect)) {
-    return;
-  }
-
-  _prevCaretRect = caretRect;
-
-  emitter->onCaretRectChange({
-      .x = caretRect.origin.x,
-      .y = caretRect.origin.y,
-      .width = caretRect.size.width,
-      .height = caretRect.size.height,
-  });
-}
-
 - (NSArray<NSString *> *)contextMenuItemTexts
 {
   return _contextMenuItemTexts ?: @[];
@@ -1767,121 +1602,9 @@ using namespace facebook::react;
   return _formatMenuConfig;
 }
 
-- (void)emitContextMenuItemPress:(NSString *)itemText
+- (ENRMInputEventEmitter *)inputEventEmitter
 {
-  auto eventEmitter = [self getEventEmitter];
-  if (eventEmitter == nullptr) {
-    return;
-  }
-
-  NSRange selectedRange = _textView.selectedRange;
-  NSString *selectedText =
-      selectedRange.length > 0 ? [_textView.textStorage.string substringWithRange:selectedRange] : @"";
-
-  auto isActive = [&](ENRMInputStyleType type) -> BOOL {
-    if (selectedRange.length > 0) {
-      return [_formattingStore isStyleActive:type inRange:selectedRange];
-    }
-    return [self isEffectiveStyleActive:type atPosition:selectedRange.location];
-  };
-
-  BOOL boldActive = isActive(ENRMInputStyleTypeStrong);
-  BOOL italicActive = isActive(ENRMInputStyleTypeEmphasis);
-  BOOL underlineActive = isActive(ENRMInputStyleTypeUnderline);
-  BOOL strikethroughActive = isActive(ENRMInputStyleTypeStrikethrough);
-  BOOL spoilerActive = isActive(ENRMInputStyleTypeSpoiler);
-  BOOL linkActive = isActive(ENRMInputStyleTypeLink);
-  NSInteger headingLevel = [self headingLevelForCursorParagraph];
-  NSInteger listDepth = 0;
-  ENRMBlockRange *emitListBlock = [self listBlockForCursorParagraph];
-  BOOL unorderedListActive = emitListBlock != nil && emitListBlock.type == ENRMInputBlockTypeUnorderedListItem;
-  BOOL orderedListActive = emitListBlock != nil && emitListBlock.type == ENRMInputBlockTypeOrderedListItem;
-  if (emitListBlock != nil) {
-    listDepth = emitListBlock.level;
-  }
-
-  eventEmitter->onContextMenuItemPress({
-      .itemText = std::string(itemText.UTF8String),
-      .selectedText = std::string(selectedText.UTF8String),
-      .selectionStart = static_cast<int>(selectedRange.location),
-      .selectionEnd = static_cast<int>(NSMaxRange(selectedRange)),
-      .styleState =
-          {
-              .bold = {.isActive = boldActive},
-              .italic = {.isActive = italicActive},
-              .underline = {.isActive = underlineActive},
-              .strikethrough = {.isActive = strikethroughActive},
-              .spoiler = {.isActive = spoilerActive},
-              .link = {.isActive = linkActive},
-              .heading = {.isActive = headingLevel > 0, .level = static_cast<int>(headingLevel)},
-              .unorderedList = {.isActive = unorderedListActive,
-                                .depth = static_cast<int>(unorderedListActive ? listDepth : 0)},
-              .orderedList = {.isActive = orderedListActive,
-                              .depth = static_cast<int>(orderedListActive ? listDepth : 0)},
-          },
-  });
-}
-
-- (void)emitOnFocus
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onInputFocus({});
-}
-
-- (void)emitOnBlur
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onInputBlur({});
-}
-
-- (void)emitOnLinkDetectedWithText:(NSString *)text url:(NSString *)url range:(NSRange)range
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onLinkDetected({
-      .text = std::string([text UTF8String] ?: ""),
-      .url = std::string([url UTF8String] ?: ""),
-      .start = static_cast<int>(range.location),
-      .end = static_cast<int>(range.location + range.length),
-  });
-}
-
-- (void)emitOnStartMention:(NSString *)indicator
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onStartMention({.indicator = std::string([indicator UTF8String] ?: "")});
-}
-
-- (void)emitOnChangeMentionWithIndicator:(NSString *)indicator text:(NSString *)text
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onChangeMention({
-      .indicator = std::string([indicator UTF8String] ?: ""),
-      .text = std::string([text UTF8String] ?: ""),
-  });
-}
-
-- (void)emitOnEndMention:(NSString *)indicator
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onEndMention({.indicator = std::string([indicator UTF8String] ?: "")});
+  return _inputEventEmitter;
 }
 
 #pragma mark - Text edit tracking
@@ -1967,11 +1690,11 @@ using namespace facebook::react;
   [_editPipeline detectLinksAtLocation:editLocation insertedLength:insertedLength];
 
   [self updatePlaceholderVisibility];
-  [self emitOnChangeText];
-  [self emitOnChangeSelection];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitOnChangeText];
+  [_inputEventEmitter emitOnChangeSelection];
+  [_inputEventEmitter emitFormattingChanged];
   [self updateActiveMention];
-  [self emitCaretRectChangeIfNeeded];
+  [_inputEventEmitter emitCaretRectChangeIfNeeded];
   [self requestHeightUpdate];
   [self scheduleRelayoutIfNeeded];
   [self updateEmptyBulletMarker];
@@ -2034,7 +1757,7 @@ using namespace facebook::react;
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text
 {
-  [self emitOnKeyPress:text];
+  [_inputEventEmitter emitOnKeyPress:text];
   if ([self deleteLinkForReplacementRange:range replacementText:text]) {
     return NO;
   }
@@ -2063,13 +1786,13 @@ using namespace facebook::react;
 
 - (void)textViewDidBeginEditing:(UITextView *)textView
 {
-  [self emitOnFocus];
+  [_inputEventEmitter emitOnFocus];
 }
 
 - (void)textViewDidEndEditing:(UITextView *)textView
 {
   [self clearActiveMention:nil];
-  [self emitOnBlur];
+  [_inputEventEmitter emitOnBlur];
 }
 
 - (void)textViewDidChangeSelection:(UITextView *)textView
@@ -2102,10 +1825,10 @@ using namespace facebook::react;
 
   [self manageSelectionBasedChanges];
 
-  [self emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeSelection];
   [self updateActiveMention];
-  [self emitOnChangeState];
-  [self emitCaretRectChangeIfNeeded];
+  [_inputEventEmitter emitOnChangeState];
+  [_inputEventEmitter emitCaretRectChangeIfNeeded];
   [self updateEmptyBulletMarker];
 }
 
@@ -2120,7 +1843,7 @@ using namespace facebook::react;
 
 - (void)textInputDidBeginEditing
 {
-  [self emitOnFocus];
+  [_inputEventEmitter emitOnFocus];
 }
 
 - (BOOL)textInputShouldEndEditing
@@ -2131,7 +1854,7 @@ using namespace facebook::react;
 - (void)textInputDidEndEditing
 {
   [self clearActiveMention:nil];
-  [self emitOnBlur];
+  [_inputEventEmitter emitOnBlur];
 }
 
 - (BOOL)textInputShouldReturn
@@ -2150,7 +1873,7 @@ using namespace facebook::react;
 
 - (nullable NSString *)textInputShouldChangeText:(NSString *)text inRange:(NSRange)range
 {
-  [self emitOnKeyPress:text];
+  [_inputEventEmitter emitOnKeyPress:text];
   if ([self deleteLinkForReplacementRange:range replacementText:text]) {
     return nil;
   }
@@ -2204,10 +1927,10 @@ using namespace facebook::react;
     [self resetPendingStylesForSelectionChange];
   }
 
-  [self emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeSelection];
   [self updateActiveMention];
-  [self emitOnChangeState];
-  [self emitCaretRectChangeIfNeeded];
+  [_inputEventEmitter emitOnChangeState];
+  [_inputEventEmitter emitCaretRectChangeIfNeeded];
 }
 
 // @required stubs for RCTBackedTextInputDelegate — RCTUITextView's internal adapter

@@ -78,11 +78,11 @@
   [customItemTexts enumerateObjectsUsingBlock:^(NSString *itemText, NSUInteger index, BOOL *_) {
     NSString *iconName = index < customItemIcons.count ? customItemIcons[index] : nil;
     UIImage *image = iconName.length > 0 ? [UIImage systemImageNamed:iconName] : nil;
-    UIAction *customAction =
-        [UIAction actionWithTitle:itemText
-                            image:image
-                       identifier:nil
-                          handler:^(__kindof UIAction *_) { [weakSelf emitContextMenuItemPress:itemText]; }];
+    UIAction *customAction = [UIAction
+        actionWithTitle:itemText
+                  image:image
+             identifier:nil
+                handler:^(__kindof UIAction *_) { [weakSelf.inputEventEmitter emitContextMenuItemPress:itemText]; }];
     [allActions addObject:customAction];
   }];
 
@@ -118,7 +118,7 @@
   NSArray<NSMenuItem *> *customItems =
       ENRMBuildContextMenuItems([self contextMenuItemTexts], [self contextMenuItemIcons], textView,
                                 ^(NSString *itemText, NSString *_, NSUInteger __, NSUInteger ___) {
-                                  [weakSelf emitContextMenuItemPress:itemText];
+                                  [weakSelf.inputEventEmitter emitContextMenuItemPress:itemText];
                                 });
   ENRMPrependMenuItems(menu, customItems);
 
