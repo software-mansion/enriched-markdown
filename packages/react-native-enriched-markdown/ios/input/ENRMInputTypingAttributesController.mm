@@ -124,7 +124,9 @@
     [attrs removeObjectForKey:NSParagraphStyleAttributeName];
   }
 
-  _textView.typingAttributes = attrs;
+  if (![attrs isEqualToDictionary:_textView.typingAttributes]) {
+    _textView.typingAttributes = attrs;
+  }
 }
 
 - (void)syncWithPendingStyles
@@ -150,7 +152,13 @@
   [_pendingStyles removeAllObjects];
   [_pendingStyleRemovals removeAllObjects];
   [self rebuildFromContext];
-  [self syncWithCursorBlock];
+  // Typing attributes only matter at a caret. With a non-empty selection UIKit
+  // derives replacement attributes from the first selected character;
+  // overwriting them here would strip e.g. bold from text typed over a
+  // selection and churn attributes on every frame of a selection-handle drag.
+  if ([_dataSource selectedRange].length == 0) {
+    [self syncWithCursorBlock];
+  }
 }
 
 - (void)clearListParagraphStyle
@@ -167,15 +175,30 @@
 
 - (void)rebuildFromContext
 {
-  NSRange selection = [_dataSource selectedRange];
-  if (selection.length > 0 || selection.location == 0) {
-    return;
-  }
-
   static const ENRMInputStyleType inlineStyles[] = {
       ENRMInputStyleTypeStrong,        ENRMInputStyleTypeEmphasis, ENRMInputStyleTypeUnderline,
       ENRMInputStyleTypeStrikethrough, ENRMInputStyleTypeSpoiler,
   };
+
+  NSRange selection = [_dataSource selectedRange];
+
+  // Non-empty selection: text typed over it inherits the styles of the first
+  // selected character (UIKit replacement semantics). Seed pending styles from
+  // there so the whole typed run stays styled — the post-edit grace period
+  // skips reseeding between keystrokes, so this is the only chance.
+  if (selection.length > 0) {
+    for (NSUInteger i = 0; i < sizeof(inlineStyles) / sizeof(inlineStyles[0]); i++) {
+      ENRMInputStyleType type = inlineStyles[i];
+      if ([_dataSource isStyleActive:type atPosition:selection.location]) {
+        [_pendingStyles addObject:@(type)];
+      }
+    }
+    return;
+  }
+
+  if (selection.location == 0) {
+    return;
+  }
 
   for (NSUInteger i = 0; i < sizeof(inlineStyles) / sizeof(inlineStyles[0]); i++) {
     ENRMInputStyleType type = inlineStyles[i];

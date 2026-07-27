@@ -157,7 +157,11 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
       continue;
     }
 
-    ENRMAdjustedRange adjusted = ENRMAdjustRangeForEdit(blockRange.range, editLocation, deletedLength, insertedLength);
+    // Blocks inherit replacements at their start: replacing a list item's
+    // leading text keeps the range anchored at the line start, so the
+    // orphan-anchor prune doesn't mistake it for a dead block.
+    ENRMAdjustedRange adjusted =
+        ENRMAdjustRangeForEdit(blockRange.range, editLocation, deletedLength, insertedLength, YES);
     if (adjusted.shouldRemove) {
       // A persisting block deleted exactly to its end collapses to a zero-length
       // anchor (the line's newline survived, so the line stays the block); a

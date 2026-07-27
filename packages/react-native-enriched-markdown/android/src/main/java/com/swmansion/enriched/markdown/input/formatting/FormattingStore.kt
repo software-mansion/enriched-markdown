@@ -168,7 +168,12 @@ class FormattingStore {
     deletedLength: Int,
     insertedLength: Int,
   ) {
-    RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength)
+    // Replacement text inherits inline styles that start at the replaced
+    // selection's start, but never link membership — typing over a selected
+    // link/mention replaces it, not extends it.
+    RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength) {
+      it.type != StyleType.LINK
+    }
     coalesceAdjacentSameTypeRanges()
   }
 

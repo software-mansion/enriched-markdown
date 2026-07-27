@@ -29,12 +29,20 @@ internal object RangeEditAdjustment {
    * range — the typed characters stay outside it. Whether boundary text joins
    * the range is decided elsewhere: pending styles for inline ranges, line
    * re-normalization for block ranges.
+   *
+   * [inheritsReplacementAtStart] controls replacements (delete + insert) whose
+   * deletion starts exactly at a range's start: when it returns true, the
+   * inserted text joins the range (replacement text inherits the attributes of
+   * the first replaced character — bold, list membership); when false, the old
+   * clip/remove behavior applies (links: typing over a selected link should
+   * not extend it).
    */
-  fun adjustForEdit(
-    ranges: MutableList<out MutableRangeBounds>,
+  fun <T : MutableRangeBounds> adjustForEdit(
+    ranges: MutableList<T>,
     editLocation: Int,
     deletedLength: Int,
     insertedLength: Int,
+    inheritsReplacementAtStart: (T) -> Boolean = { false },
   ) {
     if (deletedLength == 0 && insertedLength == 0) return
 
@@ -43,6 +51,8 @@ internal object RangeEditAdjustment {
 
     for ((idx, range) in ranges.withIndex()) {
       if (deletedLength > 0) {
+        val inheritsReplacement =
+          insertedLength > 0 && range.start == editLocation && inheritsReplacementAtStart(range)
         when (classifyOverlap(range.start, range.end, editLocation, deleteEnd)) {
           EditOverlap.BEFORE_EDIT -> { /* no change */ }
 
@@ -52,7 +62,12 @@ internal object RangeEditAdjustment {
           }
 
           EditOverlap.FULLY_DELETED -> {
-            indexesToRemove.add(idx)
+            if (inheritsReplacement) {
+              range.start = editLocation
+              range.end = editLocation + insertedLength
+            } else {
+              indexesToRemove.add(idx)
+            }
           }
 
           EditOverlap.DELETED_INSIDE -> {
@@ -68,11 +83,15 @@ internal object RangeEditAdjustment {
 
           EditOverlap.CLIPPED_START -> {
             val charsClipped = deleteEnd - range.start
-            val newStart = editLocation + insertedLength
-            val oldLength = range.end - range.start
-            range.start = newStart
-            range.end = newStart + oldLength - charsClipped
-            if (range.end - range.start == 0) indexesToRemove.add(idx)
+            val survivingLength = range.end - range.start - charsClipped
+            if (inheritsReplacement) {
+              range.start = editLocation
+              range.end = editLocation + insertedLength + survivingLength
+            } else {
+              range.start = editLocation + insertedLength
+              range.end = range.start + survivingLength
+              if (survivingLength == 0) indexesToRemove.add(idx)
+            }
           }
         }
       } else {
