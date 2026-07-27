@@ -7,7 +7,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef NS_ENUM(NSInteger, ENRMSegmentKind) { ENRMSegmentKindText, ENRMSegmentKindTable, ENRMSegmentKindMath };
+typedef NS_ENUM(NSInteger, ENRMSegmentKind) {
+  ENRMSegmentKindText,
+  ENRMSegmentKindTable,
+  ENRMSegmentKindMath,
+  ENRMSegmentKindCodeBlock
+};
 
 @interface ENRMTextSegment : NSObject
 @property (nonatomic, strong) NSArray<MarkdownASTNode *> *nodes;
@@ -24,15 +29,22 @@ typedef NS_ENUM(NSInteger, ENRMSegmentKind) { ENRMSegmentKindText, ENRMSegmentKi
 + (instancetype)segmentWithLatex:(NSString *)latex;
 @end
 
+@interface ENRMCodeBlockSegment : NSObject
+@property (nonatomic, strong) MarkdownASTNode *codeBlockNode;
++ (instancetype)segmentWithCodeBlockNode:(MarkdownASTNode *)node;
+@end
+
 @interface ENRMRenderedSegment : NSObject
 @property (nonatomic, assign) ENRMSegmentKind kind;
 @property (nonatomic, assign) uint64_t signature;
 @property (nonatomic, strong, nullable) ENRMRenderResult *textResult;
 @property (nonatomic, strong, nullable) ENRMTableSegment *tableSegment;
 @property (nonatomic, strong, nullable) ENRMMathSegment *mathSegment;
+@property (nonatomic, strong, nullable) ENRMCodeBlockSegment *codeBlockSegment;
 + (instancetype)textSegmentWithResult:(ENRMRenderResult *)result signature:(uint64_t)signature;
 + (instancetype)tableSegmentWithSegment:(ENRMTableSegment *)segment signature:(uint64_t)signature;
 + (instancetype)mathSegmentWithSegment:(ENRMMathSegment *)segment signature:(uint64_t)signature;
++ (instancetype)codeBlockSegmentWithSegment:(ENRMCodeBlockSegment *)segment signature:(uint64_t)signature;
 @end
 
 #ifdef __cplusplus

@@ -30,6 +30,7 @@ import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.views.BlockSegmentView
+import com.swmansion.enriched.markdown.views.CodeBlockContainerView
 import com.swmansion.enriched.markdown.views.TableContainerView
 import java.util.EnumSet
 import java.util.concurrent.ExecutorService
@@ -267,6 +268,11 @@ class EnrichedMarkdown
             view.copyAsMarkdownLabel = copyAsMarkdownLabel
           }
 
+          view is CodeBlockContainerView -> {
+            view.copyLabel = copyLabel
+            view.copyAsMarkdownLabel = copyAsMarkdownLabel
+          }
+
           isMathContainerView(view) -> {
             runCatching {
               view.javaClass.getMethod("setCopyLabel", String::class.java).invoke(view, copyLabel)
@@ -420,6 +426,7 @@ class EnrichedMarkdown
         is RenderedSegment.Text -> view is EnrichedMarkdownInternalText
         is RenderedSegment.Table -> view is TableContainerView
         is RenderedSegment.Math -> isMathContainerView(view)
+        is RenderedSegment.CodeBlock -> view is CodeBlockContainerView
       }
 
     private fun isMathContainerView(view: View): Boolean = mathContainerClass?.isInstance(view) == true
@@ -432,6 +439,7 @@ class EnrichedMarkdown
         is RenderedSegment.Text -> createTextView(segment)
         is RenderedSegment.Table -> createTableView(segment, style)
         is RenderedSegment.Math -> createMathView(segment, style)
+        is RenderedSegment.CodeBlock -> createCodeBlockView(segment, style)
       }
 
     private fun updateSegmentView(
@@ -462,6 +470,10 @@ class EnrichedMarkdown
             ?.getMethod("applyLatex", String::class.java)
             ?.invoke(view, segment.latex)
         }
+
+        is RenderedSegment.CodeBlock -> {
+          (view as CodeBlockContainerView).applyCodeBlockNode(segment.node)
+        }
       }
     }
 
@@ -472,7 +484,7 @@ class EnrichedMarkdown
       if (!streamingAnimation) return
       when (segment) {
         is RenderedSegment.Text -> animateTextViewTail(view as EnrichedMarkdownInternalText, 0)
-        is RenderedSegment.Table, is RenderedSegment.Math -> animateBlockViewFadeIn(view)
+        is RenderedSegment.Table, is RenderedSegment.Math, is RenderedSegment.CodeBlock -> animateBlockViewFadeIn(view)
       }
     }
 
@@ -536,6 +548,15 @@ class EnrichedMarkdown
       copyLabel = this@EnrichedMarkdown.selectionMenuConfig.copyLabel
       copyAsMarkdownLabel = this@EnrichedMarkdown.selectionMenuConfig.copyAsMarkdownLabel
       applyTableNode(segment.node)
+    }
+
+    private fun createCodeBlockView(
+      segment: RenderedSegment.CodeBlock,
+      style: StyleConfig,
+    ) = CodeBlockContainerView(context, style).apply {
+      copyLabel = this@EnrichedMarkdown.selectionMenuConfig.copyLabel
+      copyAsMarkdownLabel = this@EnrichedMarkdown.selectionMenuConfig.copyAsMarkdownLabel
+      applyCodeBlockNode(segment.node)
     }
 
     private fun createMathView(
