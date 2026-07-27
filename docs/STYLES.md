@@ -149,6 +149,8 @@ The library provides sensible default styles for all Markdown elements out of th
       borderColor: '#007AFF',
       borderWidth: 3,
       backgroundColor: '#F0F8FF',
+      borderRadius: 8,
+      padding: 12,
       marginBottom: 12,
     },
     list: {
@@ -292,6 +294,8 @@ function App() {
 | `borderWidth` | `number` | Left border width |
 | `gapWidth` | `number` | Gap between border and text |
 | `backgroundColor` | `string` | Background color |
+| `borderRadius` | `number` | Corner radius of the background box; accent borders are clipped to the rounded shape, nested quotes rounding against their own box (default: `0`) |
+| `padding` | `number` | Inner top/bottom padding between the background edges and content, applied at every nesting level — also applies to the trailing edge on iOS and web (default: `0`) |
 
 ### List-specific
 
