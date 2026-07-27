@@ -17,6 +17,7 @@
 #import "ENRMInputListMarkerDrawer.h"
 #import "ENRMInputParser.h"
 #import "ENRMInputTextView.h"
+#import "ENRMInputTypingAttributesController.h"
 #import "ENRMLinkCoordinator.h"
 #import "ENRMLinkRegexConfig.h"
 #import "ENRMMentionCoordinator.h"
@@ -48,10 +49,12 @@ using namespace facebook::react;
 
 #if !TARGET_OS_OSX
 @interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, UITextViewDelegate,
-                                         ENRMEditPipelineHost, ENRMInputEventEmitterDataSource>
+                                         ENRMEditPipelineHost, ENRMInputEventEmitterDataSource,
+                                         ENRMInputTypingAttributesDataSource>
 #else
 @interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, RCTBackedTextInputDelegate,
-                                         ENRMEditPipelineHost, ENRMInputEventEmitterDataSource>
+                                         ENRMEditPipelineHost, ENRMInputEventEmitterDataSource,
+                                         ENRMInputTypingAttributesDataSource>
 #endif
 - (void)setupTextView;
 - (void)applyFormatting;
@@ -69,8 +72,7 @@ using namespace facebook::react;
   ENRMInputFormatterStyle *_formatterStyle;
   ENRMFormattingStore *_formattingStore;
   ENRMBlockStore *_blockStore;
-  NSMutableSet<NSNumber *> *_pendingStyles;
-  NSMutableSet<NSNumber *> *_pendingStyleRemovals;
+  ENRMInputTypingAttributesController *_typingController;
   ENRMInputEventEmitter *_inputEventEmitter;
   ENRMEditSession *_editSession;
 
@@ -149,8 +151,6 @@ using namespace facebook::react;
     _formatterStyle = [[ENRMInputFormatterStyle alloc] init];
     _formattingStore = [[ENRMFormattingStore alloc] init];
     _blockStore = [[ENRMBlockStore alloc] init];
-    _pendingStyles = [NSMutableSet set];
-    _pendingStyleRemovals = [NSMutableSet set];
     _lastTextLength = 0;
     _lastSelectedRange = NSMakeRange(0, 0);
     _mentionCoordinator = [[ENRMMentionCoordinator alloc] initWithFormattingStore:_formattingStore];
@@ -164,6 +164,10 @@ using namespace facebook::react;
 
     [self setupTextView];
     _editSession = [[ENRMEditSession alloc] initWithTextView:_textView];
+    _typingController = [[ENRMInputTypingAttributesController alloc] initWithTextView:_textView
+                                                                       formatterStyle:_formatterStyle
+                                                                           dataSource:self
+                                                                          editSession:_editSession];
     _inputEventEmitter = [[ENRMInputEventEmitter alloc] initWithDataSource:self];
 
     [self setupDetectorPipeline];
@@ -874,7 +878,6 @@ using namespace facebook::react;
   ENRMStyleMergingConfig *mergingConfig = handler.mergingConfig;
 
   NSRange selection = _textView.selectedRange;
-  NSNumber *key = @(styleType);
 
   if ([_formattingStore isToggleBlocked:styleType
                              atPosition:selection.location
@@ -886,23 +889,10 @@ using namespace facebook::react;
                                          inRange:selection
                                conflictingStyles:mergingConfig.conflictingStyles];
 
-  if (selection.length > 0) {
-    [_pendingStyles removeObject:key];
-    [_pendingStyleRemovals removeObject:key];
-  } else {
-    if ([_pendingStyleRemovals containsObject:key]) {
-      [_pendingStyleRemovals removeObject:key];
-    } else if ([_pendingStyles containsObject:key]) {
-      [_pendingStyles removeObject:key];
-    } else if (wasActive) {
-      [_pendingStyleRemovals addObject:key];
-    } else {
-      [_pendingStyles addObject:key];
-    }
-  }
+  [_typingController togglePendingStyle:styleType wasActive:wasActive hasSelection:(selection.length > 0)];
 
   [self applyFormatting];
-  [self syncTypingAttributesWithPendingStyles];
+  [_typingController syncWithPendingStyles];
   [_inputEventEmitter emitFormattingChanged];
 }
 
@@ -937,10 +927,10 @@ using namespace facebook::react;
   }
 
   [self applyFormatting];
-  [self syncTypingAttributesWithCursorBlock];
+  [_typingController syncWithCursorBlock];
   [self updatePlaceholderVisibility];
   if (alreadyActive) {
-    [self clearListParagraphStyleFromTypingAttributes];
+    [_typingController clearListParagraphStyle];
   }
   [self updateEmptyBulletMarker];
   [_inputEventEmitter emitFormattingChanged];
@@ -977,7 +967,7 @@ using namespace facebook::react;
     return;
   }
   [self applyFormatting];
-  [self syncTypingAttributesWithCursorBlock];
+  [_typingController syncWithCursorBlock];
   [self updateEmptyBulletMarker];
   [_inputEventEmitter emitFormattingChanged];
 }
@@ -1219,54 +1209,6 @@ using namespace facebook::react;
                                             inText:_textView.textStorage.string];
 }
 
-/// Syncs typing attributes so text typed at the caret on a block-styled line
-/// (e.g. a heading) adopts that block's font rather than the base font. Inline
-/// pending traits (bold/italic) are unioned on top, matching the inline pass.
-- (void)syncTypingAttributesWithCursorBlock
-{
-  UIFontDescriptorSymbolicTraits traits = 0;
-  if ([_pendingStyles containsObject:@(ENRMInputStyleTypeStrong)]) {
-    traits |= UIFontDescriptorTraitBold;
-  }
-  if ([_pendingStyles containsObject:@(ENRMInputStyleTypeEmphasis)]) {
-    traits |= UIFontDescriptorTraitItalic;
-  }
-
-  NSInteger headingLevel = [self headingLevelForCursorParagraph];
-
-  UIFont *font;
-  if (headingLevel >= 1 && headingLevel <= 6) {
-    UIFont *headingFont = [_formatterStyle headingFontForLevel:headingLevel];
-    UIFontDescriptorSymbolicTraits merged = headingFont.fontDescriptor.symbolicTraits | traits;
-    UIFontDescriptor *descriptor = [headingFont.fontDescriptor fontDescriptorWithSymbolicTraits:merged];
-    font = descriptor ? [UIFont fontWithDescriptor:descriptor size:0] : headingFont;
-  } else {
-    font = [_formatterStyle fontForTraits:traits];
-  }
-
-  NSMutableDictionary *attrs = [_textView.typingAttributes mutableCopy];
-  attrs[NSFontAttributeName] = font;
-  RCTUIColor *headingColor = headingLevel >= 1 ? [_formatterStyle headingColorForLevel:headingLevel] : nil;
-  attrs[NSForegroundColorAttributeName] = headingColor ?: _formatterStyle.baseTextColor;
-
-  // On a bullet line, carry the list paragraph style in the typing attributes so
-  // the caret sits at the marker indent and the bullet draws before the first
-  // keystroke. Headings need no paragraph style here, so clear it.
-  ENRMBlockRange *typingListBlock = [self listBlockForCursorParagraph];
-  if (typingListBlock != nil) {
-    NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
-    CGFloat indent = (typingListBlock.level + 1) * kENRMListIndentPerDepth;
-    paragraph.firstLineHeadIndent = indent;
-    paragraph.headIndent = indent;
-    paragraph.paragraphSpacingBefore = _formatterStyle.listItemSpacing;
-    attrs[NSParagraphStyleAttributeName] = paragraph;
-  } else {
-    [attrs removeObjectForKey:NSParagraphStyleAttributeName];
-  }
-
-  _textView.typingAttributes = attrs;
-}
-
 - (NSString *)adjustStoresForEditAtLocation:(NSUInteger)editLocation
                               deletedLength:(NSUInteger)deletedLength
                              insertedLength:(NSUInteger)insertedLength
@@ -1274,18 +1216,6 @@ using namespace facebook::react;
   return [_editPipeline adjustStoresForEditAtLocation:editLocation
                                         deletedLength:deletedLength
                                        insertedLength:insertedLength];
-}
-
-/// Drops any paragraph style from the caret's typing attributes so a list indent
-/// left over from a just-exited bullet doesn't indent the next typed character.
-- (void)clearListParagraphStyleFromTypingAttributes
-{
-  if (_textView.typingAttributes[NSParagraphStyleAttributeName] == nil) {
-    return;
-  }
-  NSMutableDictionary *attrs = [_textView.typingAttributes mutableCopy];
-  [attrs removeObjectForKey:NSParagraphStyleAttributeName];
-  _textView.typingAttributes = attrs;
 }
 
 - (void)setLink:(NSString *)url
@@ -1431,67 +1361,6 @@ using namespace facebook::react;
   RCTEnrichedMarkdownTextInputHandleCommand(self, commandName, args);
 }
 
-#pragma mark - Style state query
-
-- (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
-{
-  BOOL inRange = [_formattingStore isStyleActive:type atPosition:position];
-  NSNumber *key = @(type);
-  if ([_pendingStyleRemovals containsObject:key]) {
-    return NO;
-  }
-  if ([_pendingStyles containsObject:key]) {
-    return YES;
-  }
-  return inRange;
-}
-
-- (void)syncTypingAttributesWithPendingStyles
-{
-  UIFontDescriptorSymbolicTraits traits = 0;
-  if ([_pendingStyles containsObject:@(ENRMInputStyleTypeStrong)]) {
-    traits |= UIFontDescriptorTraitBold;
-  }
-  if ([_pendingStyles containsObject:@(ENRMInputStyleTypeEmphasis)]) {
-    traits |= UIFontDescriptorTraitItalic;
-  }
-
-  NSMutableDictionary *attrs = [_textView.typingAttributes mutableCopy];
-  attrs[NSFontAttributeName] = [_formatterStyle fontForTraits:traits];
-  _textView.typingAttributes = attrs;
-}
-
-- (void)resetPendingStylesForSelectionChange
-{
-  if (_editSession.isPostEditGracePeriod) {
-    return;
-  }
-  [_pendingStyles removeAllObjects];
-  [_pendingStyleRemovals removeAllObjects];
-  [self rebuildPendingStylesFromContext];
-  [self syncTypingAttributesWithCursorBlock];
-}
-
-- (void)rebuildPendingStylesFromContext
-{
-  NSUInteger cursor = _textView.selectedRange.location;
-  if (_textView.selectedRange.length > 0 || cursor == 0) {
-    return;
-  }
-
-  static const ENRMInputStyleType inlineStyles[] = {
-      ENRMInputStyleTypeStrong,        ENRMInputStyleTypeEmphasis, ENRMInputStyleTypeUnderline,
-      ENRMInputStyleTypeStrikethrough, ENRMInputStyleTypeSpoiler,
-  };
-
-  for (NSUInteger i = 0; i < sizeof(inlineStyles) / sizeof(inlineStyles[0]); i++) {
-    ENRMInputStyleType type = inlineStyles[i];
-    if ([_formattingStore isStyleAdjacentBefore:type position:cursor]) {
-      [_pendingStyles addObject:@(type)];
-    }
-  }
-}
-
 #pragma mark - ENRMInputEventEmitterDataSource
 
 - (std::shared_ptr<EnrichedMarkdownTextInputEventEmitter const>)fabricEventEmitter
@@ -1510,6 +1379,23 @@ using namespace facebook::react;
 - (BOOL)isStyleActive:(ENRMInputStyleType)type inRange:(NSRange)range
 {
   return [_formattingStore isStyleActive:type inRange:range];
+}
+
+- (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
+{
+  return [_typingController isEffectiveStyleActive:type atPosition:position];
+}
+
+#pragma mark - ENRMInputTypingAttributesDataSource
+
+- (BOOL)isStyleAdjacentBefore:(ENRMInputStyleType)type position:(NSUInteger)position
+{
+  return [_formattingStore isStyleAdjacentBefore:type position:position];
+}
+
+- (BOOL)isStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
+{
+  return [_formattingStore isStyleActive:type atPosition:position];
 }
 
 - (NSString *)currentMarkdown
@@ -1607,6 +1493,11 @@ using namespace facebook::react;
   return _inputEventEmitter;
 }
 
+- (ENRMInputTypingAttributesController *)typingController
+{
+  return _typingController;
+}
+
 #pragma mark - Text edit tracking
 
 - (void)handleTextChanged
@@ -1648,8 +1539,8 @@ using namespace facebook::react;
                                                           preEditBlockType:_preEditBlockType
                                                          preEditBlockLevel:_preEditBlockLevel
                                                   preEditParagraphWasEmpty:_preEditParagraphWasEmpty
-                                                             pendingStyles:[_pendingStyles copy]
-                                                      pendingStyleRemovals:[_pendingStyleRemovals copy]];
+                                                             pendingStyles:_typingController.pendingStyles
+                                                      pendingStyleRemovals:_typingController.pendingStyleRemovals];
 
   BOOL touchedNewline = [_editPipeline processTextChangeWithContext:context];
 
@@ -1664,7 +1555,7 @@ using namespace facebook::react;
 #if !TARGET_OS_OSX
   if (newLength == 0) {
     if ([self headingLevelForCursorParagraph] > 0 || [self listBlockForCursorParagraph] != nil) {
-      [self syncTypingAttributesWithCursorBlock];
+      [_typingController syncWithCursorBlock];
     } else {
       [self resetBaseTypingAttributes];
     }
@@ -1678,13 +1569,13 @@ using namespace facebook::react;
   }
 
   if (_textView.selectedRange.length == 0) {
-    [self syncTypingAttributesWithCursorBlock];
+    [_typingController syncWithCursorBlock];
   }
 
   if ([self listBlockForCursorParagraph] != nil) {
-    [self syncTypingAttributesWithCursorBlock];
+    [_typingController syncWithCursorBlock];
   } else if (_textView.typingAttributes[NSParagraphStyleAttributeName] != nil) {
-    [self clearListParagraphStyleFromTypingAttributes];
+    [_typingController clearListParagraphStyle];
   }
 
   [_editPipeline detectLinksAtLocation:editLocation insertedLength:insertedLength];
@@ -1743,7 +1634,7 @@ using namespace facebook::react;
       BOOL isEmpty = paragraphText.length == 0 || [paragraphText isEqualToString:@"\n"];
       if (isEmpty) {
         if ([self headingLevelForCursorParagraph] > 0 || [self listBlockForCursorParagraph] != nil) {
-          [self syncTypingAttributesWithCursorBlock];
+          [_typingController syncWithCursorBlock];
         } else {
           NSMutableDictionary *attrs = [NSMutableDictionary dictionary];
           attrs[NSFontAttributeName] = _formatterStyle.baseFont;
@@ -1820,7 +1711,7 @@ using namespace facebook::react;
       newSelection.location != previousSelection.location || newSelection.length != previousSelection.length;
 
   if (selectionMoved) {
-    [self resetPendingStylesForSelectionChange];
+    [_typingController resetForSelectionChange];
   }
 
   [self manageSelectionBasedChanges];
@@ -1924,7 +1815,7 @@ using namespace facebook::react;
       newSelection.location != previousSelection.location || newSelection.length != previousSelection.length;
 
   if (selectionMoved) {
-    [self resetPendingStylesForSelectionChange];
+    [_typingController resetForSelectionChange];
   }
 
   [_inputEventEmitter emitOnChangeSelection];
