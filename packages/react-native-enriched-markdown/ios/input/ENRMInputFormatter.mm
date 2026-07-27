@@ -115,8 +115,22 @@
   }
 
   NSString *weightString = _headingFontWeights[level];
-  UIFont *font = weightString.length > 0 ? [UIFont systemFontOfSize:size weight:ENRMFontWeightFromString(weightString)]
-                                         : [_baseFont fontWithSize:size];
+  UIFont *font;
+  if (weightString.length > 0 && ENRMFontWeightFromString(weightString) >= UIFontWeightBold) {
+    // Derive the bold face of the base (content) font — matching Android's
+    // InputHeadingSpan, which folds heading weight into the current typeface —
+    // so a custom editor font keeps its family in headings. Fall back to the
+    // system font only when the family has no bold face.
+    UIFont *sized = [_baseFont fontWithSize:size];
+    UIFontDescriptor *descriptor = [sized.fontDescriptor
+        fontDescriptorWithSymbolicTraits:sized.fontDescriptor.symbolicTraits | UIFontDescriptorTraitBold];
+    font = descriptor ? [UIFont fontWithDescriptor:descriptor size:size]
+                      : [UIFont systemFontOfSize:size weight:UIFontWeightBold];
+  } else if (weightString.length > 0) {
+    font = [UIFont systemFontOfSize:size weight:ENRMFontWeightFromString(weightString)];
+  } else {
+    font = [_baseFont fontWithSize:size];
+  }
   _headingFontCache[level] = font;
   return font;
 }
