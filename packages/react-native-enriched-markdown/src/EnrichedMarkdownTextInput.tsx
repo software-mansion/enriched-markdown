@@ -527,19 +527,11 @@ export const EnrichedMarkdownTextInput = ({
 
   const handleFocus = useCallback(() => {
     TextInputState.focusInput(nativeRef.current);
-    console.log(
-      'registry focused?',
-      TextInputState.currentlyFocusedInput() != null
-    );
     onFocus?.();
   }, [onFocus]);
 
   const handleBlur = useCallback(() => {
     TextInputState.blurInput(nativeRef.current);
-    console.log(
-      'registry blurred?',
-      TextInputState.currentlyFocusedInput() == null
-    );
     onBlur?.();
   }, [onBlur]);
 
