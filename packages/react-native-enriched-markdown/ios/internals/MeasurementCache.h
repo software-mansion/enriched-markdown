@@ -113,7 +113,7 @@ template <typename StyleStruct> inline size_t computeStyleFingerprint(const Styl
   hashFields(s.h6.textAlign);
 
   hashTextLayout(s.blockquote);
-  hashFields(s.blockquote.borderWidth, s.blockquote.gapWidth);
+  hashFields(s.blockquote.borderWidth, s.blockquote.gapWidth, s.blockquote.padding, s.blockquote.borderRadius);
 
   hashTextLayout(s.list);
   hashFields(s.list.bulletSize, s.list.markerMinWidth, s.list.markerFontWeight, s.list.gapWidth, s.list.marginLeft,
