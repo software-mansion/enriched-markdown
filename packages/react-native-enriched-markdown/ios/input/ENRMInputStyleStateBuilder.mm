@@ -6,6 +6,9 @@
 {
   NSUInteger cursor = [dataSource selectedRange].location;
   ENRMInputStyleSnapshot snapshot = {};
+  if (cursor == NSNotFound) {
+    return snapshot;
+  }
   snapshot.bold = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeStrong atPosition:cursor];
   snapshot.italic = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeEmphasis atPosition:cursor];
   snapshot.underline = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeUnderline atPosition:cursor];
@@ -25,6 +28,9 @@
 + (ENRMInputStyleSnapshot)snapshotForRange:(NSRange)range dataSource:(id<ENRMInputStyleStateDataSource>)dataSource
 {
   ENRMInputStyleSnapshot snapshot = {};
+  if (range.location == NSNotFound) {
+    return snapshot;
+  }
   if (range.length > 0) {
     snapshot.bold = [dataSource isStyleActive:ENRMInputStyleTypeStrong inRange:range];
     snapshot.italic = [dataSource isStyleActive:ENRMInputStyleTypeEmphasis inRange:range];
