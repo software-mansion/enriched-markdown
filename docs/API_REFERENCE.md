@@ -243,7 +243,7 @@ Markdown flavor. Set to `'github'` to enable GitHub Flavored Markdown features: 
 > - **`'commonmark'`**: All Markdown content is rendered as a single TextView. Selecting text will select all content in the view.
 > - **`'github'`**: The Markdown AST is split into segments. Consecutive text blocks (paragraphs, headings, lists, etc.) are grouped into separate TextView segments, while tables, fenced code blocks, and math blocks are rendered as separate block views. This allows for granular text selection within each segment and enables interactive block features (horizontal table scrolling, context menus, the code block header). Text selection cannot span across segments.
 >
-> With `'github'`, a fenced code block renders as a dedicated component: a header bar with the language display name (` ```python ` shows "Python") and a copy-code button, a divider, and the code below. Long-pressing the block opens the Copy / Copy as Markdown menu. With `'commonmark'`, code blocks stay inside the single TextView, styled via spans.
+> With `'github'`, a fenced code block renders as a dedicated component: a header bar with the language display name (` ```python ` shows "Python") and a copy-code button, a divider, and the code below. Long lines do not wrap — the code pane scrolls horizontally while the header stays fixed. Long-pressing the block opens the Copy / Copy as Markdown menu. With `'commonmark'`, code blocks stay inside the single TextView, styled via spans, and long lines wrap.
 
 ### `streamingAnimation`
 

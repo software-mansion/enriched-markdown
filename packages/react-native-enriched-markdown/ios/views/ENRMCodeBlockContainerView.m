@@ -12,22 +12,83 @@
 //
 // The block consists of a header bar (language display name on the left, a
 // copy-code button on the right) and the code text below it. Background,
-// border, header label, and code are drawn in a single drawRect: pass,
-// mirroring the approach of ENRMTableIOSGridView; only the copy button is a
-// real subview so it can receive taps. Long lines wrap, matching the previous
-// attribute-based rendering; horizontal scrolling can be added later as a
-// style option. Syntax coloring is delegated to the shared C++ highlighting
-// seam through the ENRMCodeBlockHighlighter adapter; when the highlighting
-// module is compiled out the code is drawn uncolored.
+// border, header label, and divider are drawn by the container's drawRect:;
+// the code itself lives in a scroll view so long lines never wrap and the
+// code pane scrolls horizontally, the same way TableContainerView handles
+// wide tables, while the header stays fixed. Syntax coloring is delegated to
+// the shared C++ highlighting seam through the ENRMCodeBlockHighlighter
+// adapter; when the highlighting module is compiled out the code is drawn
+// uncolored.
 //
-// Measurement parity: measureHeight: computes the bounding rect of the same
-// attributed string drawRect: draws and derives the header height from the
-// same label font metrics, so the height reported during segment layout
-// matches the drawn height.
+// Measurement parity: measureHeight: uses the unconstrained bounding rect of
+// the same attributed string the content view draws and derives the header
+// height from the same label font metrics, so the height reported during
+// segment layout matches the drawn height. Because lines never wrap, the
+// measured height is independent of the available width.
 
 static const CGFloat kENRMHeaderLabelScale = 0.85;
 static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
 static const CGFloat kENRMHeaderDividerAlpha = 0.2;
+
+// Used only to pick the scroll indicator style for the code pane, so the
+// indicator stays visible on dark code block backgrounds without affecting
+// any other scroll view.
+static BOOL ENRMColorIsDark(RCTUIColor *color)
+{
+  if (!color) {
+    return NO;
+  }
+  CGFloat r = 0, g = 0, b = 0, a = 0;
+#if !TARGET_OS_OSX
+  if (![color getRed:&r green:&g blue:&b alpha:&a]) {
+    CGFloat white = 0;
+    if (![color getWhite:&white alpha:&a]) {
+      return NO;
+    }
+    r = g = b = white;
+  }
+#else
+  NSColor *rgb = [color colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+  if (!rgb) {
+    return NO;
+  }
+  [rgb getRed:&r green:&g blue:&b alpha:&a];
+#endif
+  return (0.299 * r + 0.587 * g + 0.114 * b) < 0.5;
+}
+
+// Scrollable code pane content. Draws the attributed code unwrapped at a
+// fixed origin; the hosting ENRMCodeBlockContainerView draws everything else.
+@interface ENRMCodeBlockContentView : RCTUIView
+@property (nonatomic, strong, nullable) NSAttributedString *attributedCode;
+@property (nonatomic, assign) CGPoint textOrigin;
+#if TARGET_OS_OSX
+@property (nonatomic, copy, nullable) NSMenu * (^menuProvider)(void);
+#endif
+@end
+
+@implementation ENRMCodeBlockContentView
+
+#if TARGET_OS_OSX
+- (BOOL)isFlipped
+{
+  return YES;
+}
+
+- (NSMenu *)menuForEvent:(NSEvent *)event
+{
+  return self.menuProvider ? self.menuProvider() : [super menuForEvent:event];
+}
+#endif
+
+- (void)drawRect:(CGRect)rect
+{
+  if (self.attributedCode.length > 0) {
+    [self.attributedCode drawAtPoint:self.textOrigin];
+  }
+}
+
+@end
 
 #if !TARGET_OS_OSX
 @interface ENRMCodeBlockContainerView () <UIContextMenuInteractionDelegate>
@@ -40,6 +101,9 @@ static const CGFloat kENRMHeaderDividerAlpha = 0.2;
   NSString *_cachedLanguage;
   NSString *_displayLanguage;
   NSString *_fenceChar;
+  RCTUIScrollView *_scrollView;
+  ENRMCodeBlockContentView *_codeContentView;
+  CGSize _codeSize;
 #if !TARGET_OS_OSX
   UIButton *_copyButton;
 #else
@@ -64,6 +128,7 @@ static const CGFloat kENRMHeaderDividerAlpha = 0.2;
     _cachedCode = @"";
     _fenceChar = @"`";
     self.backgroundColor = [RCTUIColor clearColor];
+    [self setupScrollView];
 
 #if !TARGET_OS_OSX
     self.contentMode = UIViewContentModeRedraw;
@@ -90,6 +155,54 @@ static const CGFloat kENRMHeaderDividerAlpha = 0.2;
 #endif
   }
   return self;
+}
+
+- (void)setupScrollView
+{
+  _scrollView = [[RCTUIScrollView alloc] init];
+  _scrollView.showsVerticalScrollIndicator = NO;
+  _scrollView.showsHorizontalScrollIndicator = YES;
+  _codeContentView = [[ENRMCodeBlockContentView alloc] initWithFrame:CGRectZero];
+  BOOL darkBackground = ENRMColorIsDark([_config codeBlockBackgroundColor]);
+#if !TARGET_OS_OSX
+  _scrollView.bounces = YES;
+  _scrollView.alwaysBounceHorizontal = NO;
+  _scrollView.backgroundColor = [UIColor clearColor];
+  _scrollView.isAccessibilityElement = NO;
+  _scrollView.accessibilityElementsHidden = YES;
+  _scrollView.indicatorStyle = darkBackground ? UIScrollViewIndicatorStyleWhite : UIScrollViewIndicatorStyleDefault;
+  _codeContentView.backgroundColor = [UIColor clearColor];
+  _codeContentView.contentMode = UIViewContentModeRedraw;
+  [_scrollView addSubview:_codeContentView];
+  [_codeContentView addInteraction:[[UIContextMenuInteraction alloc] initWithDelegate:self]];
+#else
+  ((NSScrollView *)_scrollView).drawsBackground = NO;
+  ((NSScrollView *)_scrollView).scrollerKnobStyle =
+      darkBackground ? NSScrollerKnobStyleLight : NSScrollerKnobStyleDefault;
+  __weak ENRMCodeBlockContainerView *weakSelf = self;
+  _codeContentView.menuProvider = ^NSMenu * { return [weakSelf buildContextMenu]; };
+  [(NSScrollView *)_scrollView setDocumentView:_codeContentView];
+#endif
+  [self addSubview:_scrollView];
+}
+
+- (void)layoutScrollArea
+{
+  CGFloat borderW = ceil([_config codeBlockBorderWidth]);
+  CGFloat headerH = [self headerHeight];
+  CGFloat inset = [self contentInset];
+  CGRect frame = CGRectMake(borderW, headerH, MAX(self.bounds.size.width - borderW * 2, 0),
+                            MAX(self.bounds.size.height - headerH - borderW, 0));
+  _scrollView.frame = frame;
+
+  CGFloat horizontalPad = MAX(inset - borderW, 0);
+  CGFloat contentWidth = MAX(_codeSize.width + horizontalPad * 2, frame.size.width);
+  _codeContentView.textOrigin = CGPointMake(horizontalPad, inset);
+  _codeContentView.frame = CGRectMake(0, 0, contentWidth, frame.size.height);
+#if !TARGET_OS_OSX
+  _scrollView.contentSize = CGSizeMake(contentWidth, frame.size.height);
+  _scrollView.scrollEnabled = contentWidth > frame.size.width;
+#endif
 }
 
 #if !TARGET_OS_OSX
@@ -140,12 +253,14 @@ static const CGFloat kENRMHeaderDividerAlpha = 0.2;
 {
   [super layoutSubviews];
   [self layoutHeaderButton];
+  [self layoutScrollArea];
 }
 #else
 - (void)layout
 {
   [super layout];
   [self layoutHeaderButton];
+  [self layoutScrollArea];
 }
 #endif
 
@@ -264,10 +379,24 @@ static NSString *ENRMDisplayLanguageName(NSString *language)
   NSAttributedString *highlighted = ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage);
   _attributedCode = highlighted ?: plainCode;
 
+  if (_attributedCode.length > 0) {
+    CGRect codeBounds = [_attributedCode boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)
+                                                      options:NSStringDrawingUsesLineFragmentOrigin
+                                                      context:nil];
+    _codeSize = CGSizeMake(ceil(codeBounds.size.width), ceil(codeBounds.size.height));
+  } else {
+    _codeSize = CGSizeZero;
+  }
+  _codeContentView.attributedCode = _attributedCode;
+
 #if !TARGET_OS_OSX
+  [self setNeedsLayout];
   [self setNeedsDisplay];
+  [_codeContentView setNeedsDisplay];
 #else
+  self.needsLayout = YES;
   [self setNeedsDisplay:YES];
+  [_codeContentView setNeedsDisplay:YES];
 #endif
 }
 
@@ -310,11 +439,7 @@ static NSString *ENRMDisplayLanguageName(NSString *language)
   if (_attributedCode.length == 0) {
     return headerH + inset * 2;
   }
-  CGFloat available = MAX(maxWidth - inset * 2, 1);
-  CGRect bounds = [_attributedCode boundingRectWithSize:CGSizeMake(available, CGFLOAT_MAX)
-                                                options:NSStringDrawingUsesLineFragmentOrigin
-                                                context:nil];
-  return ceil(bounds.size.height) + inset * 2 + headerH;
+  return _codeSize.height + inset * 2 + headerH;
 }
 
 - (void)drawRect:(CGRect)rect
@@ -369,13 +494,6 @@ static NSString *ENRMDisplayLanguageName(NSString *language)
     CGSize labelSize = [_displayLanguage sizeWithAttributes:labelAttributes];
     [_displayLanguage drawAtPoint:CGPointMake(inset, headerH - labelSize.height) withAttributes:labelAttributes];
   }
-
-  if (_attributedCode.length > 0) {
-    CGRect textRect = CGRectInset(self.bounds, inset, inset);
-    textRect.origin.y += headerH;
-    textRect.size.height = MAX(textRect.size.height - headerH, 0);
-    [_attributedCode drawWithRect:textRect options:NSStringDrawingUsesLineFragmentOrigin context:nil];
-  }
 }
 
 - (NSString *)fencedMarkdown
@@ -420,12 +538,17 @@ static NSString *ENRMDisplayLanguageName(NSString *language)
 #endif
 
 #if TARGET_OS_OSX
-- (NSMenu *)menuForEvent:(NSEvent *)event
+- (NSMenu *)buildContextMenu
 {
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
   [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyCodeToPasteboard]; })];
   [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
   return menu;
+}
+
+- (NSMenu *)menuForEvent:(NSEvent *)event
+{
+  return [self buildContextMenu];
 }
 #endif
 

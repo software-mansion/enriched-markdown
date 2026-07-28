@@ -11,6 +11,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.text.Layout
 import android.text.SpannableString
 import android.text.StaticLayout
@@ -19,6 +20,7 @@ import android.text.TextUtils
 import android.util.TypedValue
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
@@ -38,18 +40,20 @@ import kotlin.math.ceil
  *
  * The block consists of a header bar (language display name on the left, a
  * copy-code button on the right) and the code text below it, all inside the
- * code block background, border, and padding. Long lines wrap, matching the
- * previous span-based rendering (horizontal scrolling can be added later as a
- * style option). Syntax coloring is delegated to the shared C++ highlighting
- * seam through the CodeBlockHighlighter adapter; when the highlighting module
- * is compiled out the code is drawn uncolored.
+ * code block background, border, and padding. Long lines do not wrap: the
+ * code pane scrolls horizontally inside a HorizontalScrollView, the same way
+ * TableContainerView handles wide tables, while the header stays fixed.
+ * Syntax coloring is delegated to the shared C++ highlighting seam through
+ * the CodeBlockHighlighter adapter; when the highlighting module is compiled
+ * out the code is drawn uncolored.
  *
  * Measurement parity: measureCodeBlockNodeHeight builds the same styled text
  * and paint as the view and derives the header height from the same label
  * font metrics, so the height reported to Yoga at shadow-node measure time
- * matches the height the view lays out with. The text view disables font
- * padding and uses the simple break strategy so its internal layout matches
- * the StaticLayout used for measurement.
+ * matches the height the view lays out with. Because lines never wrap, the
+ * measured height is independent of the available width. The text view
+ * disables font padding so its internal layout matches the StaticLayout used
+ * for measurement.
  */
 class CodeBlockContainerView(
   context: Context,
@@ -84,11 +88,26 @@ class CodeBlockContainerView(
       typeface = createCodePaint(codeBlockStyle, context).typeface
       setTextColor(codeBlockStyle.color)
       val inset = contentInset(codeBlockStyle)
-      setPadding(inset, inset, inset, inset)
+      val horizontalPad = (inset - borderPx(codeBlockStyle)).coerceAtLeast(0)
+      setPadding(horizontalPad, inset, horizontalPad, inset)
       setOnLongClickListener { view ->
         showContextMenu(view)
         true
       }
+    }
+
+  private val scrollView =
+    HorizontalScrollView(context).apply {
+      isHorizontalScrollBarEnabled = true
+      overScrollMode = View.OVER_SCROLL_NEVER
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        horizontalScrollbarThumbDrawable =
+          GradientDrawable().apply {
+            setColor(secondaryColor(codeBlockStyle.color))
+            cornerRadius = context.resources.displayMetrics.density * 2
+          }
+      }
+      addView(textView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
     }
 
   private val languageView =
@@ -137,7 +156,7 @@ class CodeBlockContainerView(
       showContextMenu(view)
       true
     }
-    addView(textView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+    addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     addView(languageView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
     addView(copyButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
   }
@@ -160,8 +179,9 @@ class CodeBlockContainerView(
     val measuredWidth = MeasureSpec.getSize(widthSpec)
     val headerH = headerHeight(codeBlockStyle)
     val inset = contentInset(codeBlockStyle)
-    textView.measure(
-      MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
+    val borderW = borderPx(codeBlockStyle)
+    scrollView.measure(
+      MeasureSpec.makeMeasureSpec((measuredWidth - borderW * 2).coerceAtLeast(0), MeasureSpec.EXACTLY),
       MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
     )
     copyButton.measure(
@@ -173,7 +193,7 @@ class CodeBlockContainerView(
       MeasureSpec.makeMeasureSpec(labelMaxWidth, MeasureSpec.AT_MOST),
       MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
     )
-    setMeasuredDimension(measuredWidth, headerH + textView.measuredHeight)
+    setMeasuredDimension(measuredWidth, headerH + scrollView.measuredHeight)
   }
 
   override fun onLayout(
@@ -206,7 +226,8 @@ class CodeBlockContainerView(
       buttonTop + copyButton.measuredHeight,
     )
 
-    textView.layout(0, headerH, width, bottom - top)
+    val borderW = borderPx(codeBlockStyle)
+    scrollView.layout(borderW, headerH, width - borderW, bottom - top)
   }
 
   // Divider between the header and the code, centered in the gap the code
@@ -338,6 +359,8 @@ class CodeBlockContainerView(
 
     private fun contentInset(style: CodeBlockStyle): Int = ceil(style.padding + style.borderWidth).toInt()
 
+    private fun borderPx(style: CodeBlockStyle): Int = ceil(style.borderWidth).toInt()
+
     // Header is the top content inset plus one label line; the code text
     // view's own top inset then forms the single gap below the label.
     private fun headerHeight(style: CodeBlockStyle): Int {
@@ -388,21 +411,25 @@ class CodeBlockContainerView(
         }
       }
 
+    // Lines never wrap (the code pane scrolls horizontally), so the layout is
+    // built at the text's desired width and the result is independent of the
+    // available width.
     fun measureCodeBlockNodeHeight(
       node: MarkdownASTNode,
       config: StyleConfig,
       context: Context,
-      width: Float,
+      @Suppress("unused") width: Float,
     ): Float {
       val style = config.codeBlockStyle
       val inset = contentInset(style)
       val headerH = headerHeight(style)
       val text = buildCodeText(extractCode(node), style)
       if (text.isEmpty()) return headerH + inset * 2f
-      val contentWidth = (ceil(width).toInt() - inset * 2).coerceAtLeast(1)
+      val paint = createCodePaint(style, context)
+      val contentWidth = ceil(Layout.getDesiredWidth(text, paint)).toInt().coerceAtLeast(1)
       val layout =
         StaticLayout.Builder
-          .obtain(text, 0, text.length, createCodePaint(style, context), contentWidth)
+          .obtain(text, 0, text.length, paint, contentWidth)
           .setIncludePad(false)
           .setLineSpacing(0f, 1f)
           .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
