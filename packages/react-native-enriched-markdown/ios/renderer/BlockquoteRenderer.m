@@ -159,6 +159,33 @@ static NSString *const kNestedInfoRangeKey = @"range";
                         [output addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:nonListRange];
                         applyLineHeight(output, nonListRange, lineHeight);
                       }];
+
+  if (padding > 0) {
+    [self applyTailIndent:-padding toListRangesIn:output range:innerRange];
+  }
+}
+
+- (void)applyTailIndent:(CGFloat)tailIndent toListRangesIn:(NSMutableAttributedString *)output range:(NSRange)range
+{
+  [output enumerateAttribute:ListDepthAttribute
+                     inRange:range
+                     options:0
+                  usingBlock:^(id value, NSRange listRange, BOOL *stop) {
+                    if (!value) {
+                      return;
+                    }
+                    [output enumerateAttribute:NSParagraphStyleAttributeName
+                                       inRange:listRange
+                                       options:0
+                                    usingBlock:^(NSParagraphStyle *style, NSRange styleRange, BOOL *innerStop) {
+                                      NSMutableParagraphStyle *mutableStyle =
+                                          style ? [style mutableCopy] : [[NSMutableParagraphStyle alloc] init];
+                                      mutableStyle.tailIndent = tailIndent;
+                                      [output addAttribute:NSParagraphStyleAttributeName
+                                                     value:mutableStyle
+                                                     range:styleRange];
+                                    }];
+                  }];
 }
 
 - (void)reapplyNestedStyles:(NSMutableAttributedString *)output
