@@ -25,35 +25,26 @@ import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.spans.LineHeightSpan
 import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.CodeBlockHighlighter
-import com.swmansion.enriched.markdown.utils.text.extensions.applyBlockStyleFont
+import com.swmansion.enriched.markdown.utils.common.CodeBlockNode
+import com.swmansion.enriched.markdown.utils.text.extensions.applyCodeBlockTextStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import kotlin.math.ceil
 
 /**
- * Block segment view for fenced code blocks, rendered as a sibling view next
- * to text segments the same way TableContainerView is (see splitASTIntoSegments).
+ * Block segment view for fenced code blocks (see splitASTIntoSegments):
+ * a fixed header bar (language name, copy button) above a horizontally
+ * scrolling, non-wrapping code pane. Syntax coloring comes from the
+ * CodeBlockHighlighter seam and falls back to plain text. The box visuals
+ * must stay in sync with the commonmark flavor's CodeBlockSpan.
  *
- * The block consists of a header bar (language display name on the left, a
- * copy-code button on the right) and the code text below it, all inside the
- * code block background, border, and padding. Long lines do not wrap: the
- * code pane scrolls horizontally inside a HorizontalScrollView, the same way
- * TableContainerView handles wide tables, while the header stays fixed.
- * Syntax coloring is delegated to the shared C++ highlighting seam through
- * the CodeBlockHighlighter adapter; when the highlighting module is compiled
- * out the code is drawn uncolored.
- *
- * Measurement parity: measureCodeBlockNodeHeight builds the same styled text
- * and paint as the view and derives the header height from the same label
- * font metrics, so the height reported to Yoga at shadow-node measure time
- * matches the height the view lays out with. Because lines never wrap, the
- * measured height is independent of the available width. The text view
- * disables font padding so its internal layout matches the StaticLayout used
- * for measurement.
+ * measureCodeBlockNodeHeight must stay in sync with the view: it builds the
+ * same styled text, paint, and header metrics, so the height reported to
+ * Yoga matches the laid-out height. Since lines never wrap, the height is
+ * independent of the available width.
  */
 class CodeBlockContainerView(
   context: Context,
@@ -162,11 +153,11 @@ class CodeBlockContainerView(
   }
 
   fun applyCodeBlockNode(node: MarkdownASTNode) {
-    code = extractCode(node)
-    language = node.getAttribute("language")?.takeIf { it.isNotEmpty() }
-    fenceChar = node.getAttribute("fenceChar")?.takeIf { it.isNotEmpty() } ?: "`"
+    code = CodeBlockNode.extractCode(node)
+    language = CodeBlockNode.language(node)
+    fenceChar = CodeBlockNode.fenceChar(node)
 
-    languageView.text = displayLanguageName(language)
+    languageView.text = CodeBlockNode.displayLanguageName(language)
 
     val plainCode = buildCodeText(code, codeBlockStyle)
     textView.text = CodeBlockHighlighter.highlight(plainCode, code, language) ?: plainCode
@@ -249,15 +240,12 @@ class CodeBlockContainerView(
       }
       item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) {
         if (code.isNotEmpty()) {
-          clipboard.setPrimaryClip(ClipData.newPlainText("Code", buildFencedMarkdown()))
+          clipboard.setPrimaryClip(
+            ClipData.newPlainText("Code", CodeBlockNode.fencedMarkdown(code, language, fenceChar)),
+          )
         }
       }
     }
-  }
-
-  private fun buildFencedMarkdown(): String {
-    val fence = fenceChar.repeat(3)
-    return "$fence${language.orEmpty()}\n$code\n$fence"
   }
 
   private class CopyIconDrawable(
@@ -300,59 +288,6 @@ class CodeBlockContainerView(
 
     private val headerTypeface: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 
-    private val languageNames =
-      mapOf(
-        "bash" to "Bash",
-        "c" to "C",
-        "cc" to "C++",
-        "cpp" to "C++",
-        "cs" to "C#",
-        "csharp" to "C#",
-        "css" to "CSS",
-        "cxx" to "C++",
-        "dockerfile" to "Dockerfile",
-        "go" to "Go",
-        "golang" to "Go",
-        "graphql" to "GraphQL",
-        "html" to "HTML",
-        "java" to "Java",
-        "javascript" to "JavaScript",
-        "js" to "JavaScript",
-        "json" to "JSON",
-        "jsx" to "JSX",
-        "kotlin" to "Kotlin",
-        "kt" to "Kotlin",
-        "markdown" to "Markdown",
-        "md" to "Markdown",
-        "objc" to "Objective-C",
-        "objectivec" to "Objective-C",
-        "php" to "PHP",
-        "py" to "Python",
-        "python" to "Python",
-        "rb" to "Ruby",
-        "ruby" to "Ruby",
-        "rs" to "Rust",
-        "rust" to "Rust",
-        "scss" to "SCSS",
-        "sh" to "Shell",
-        "shell" to "Shell",
-        "sql" to "SQL",
-        "swift" to "Swift",
-        "toml" to "TOML",
-        "ts" to "TypeScript",
-        "tsx" to "TSX",
-        "typescript" to "TypeScript",
-        "xml" to "XML",
-        "yaml" to "YAML",
-        "yml" to "YAML",
-        "zsh" to "Zsh",
-      )
-
-    private fun displayLanguageName(language: String?): String {
-      val lang = language?.lowercase() ?: return ""
-      return languageNames[lang] ?: lang.replaceFirstChar { it.uppercase() }
-    }
-
     private fun secondaryColor(color: Int): Int = (color and 0x00FFFFFF) or (0x99 shl 24)
 
     private fun dividerColor(color: Int): Int = (color and 0x00FFFFFF) or (0x33 shl 24)
@@ -373,32 +308,12 @@ class CodeBlockContainerView(
       return contentInset(style) + ceil(metrics.descent - metrics.ascent).toInt()
     }
 
-    private fun extractCode(node: MarkdownASTNode): String {
-      val builder = StringBuilder()
-
-      fun append(current: MarkdownASTNode) {
-        builder.append(current.content)
-        current.children.forEach { append(it) }
-      }
-      append(node)
-      return builder.toString().trimEnd('\n')
-    }
-
     private fun createCodePaint(
       style: CodeBlockStyle,
       context: Context,
     ): TextPaint =
       TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = style.fontSize
-        applyBlockStyleFont(
-          BlockStyle(
-            fontSize = style.fontSize,
-            fontFamily = style.fontFamily,
-            fontWeight = style.fontWeight,
-            color = style.color,
-          ),
-          context,
-        )
+        applyCodeBlockTextStyle(style, context)
       }
 
     private fun buildCodeText(
@@ -423,7 +338,7 @@ class CodeBlockContainerView(
       val style = config.codeBlockStyle
       val inset = contentInset(style)
       val headerH = headerHeight(style)
-      val text = buildCodeText(extractCode(node), style)
+      val text = buildCodeText(CodeBlockNode.extractCode(node), style)
       if (text.isEmpty()) return headerH + inset * 2f
       val paint = createCodePaint(style, context)
       val contentWidth = ceil(Layout.getDesiredWidth(text, paint)).toInt().coerceAtLeast(1)

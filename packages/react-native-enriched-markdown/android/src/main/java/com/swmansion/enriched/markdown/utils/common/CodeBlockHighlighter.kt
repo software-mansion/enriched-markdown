@@ -65,7 +65,6 @@ object CodeBlockHighlighter {
       } catch (e: UnsatisfiedLinkError) {
         null
       } ?: return null
-    if (tokens.size < 3) return null
 
     var applied = false
     var i = 0

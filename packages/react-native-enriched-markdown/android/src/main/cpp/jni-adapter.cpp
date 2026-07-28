@@ -1,4 +1,5 @@
 #include "CodeBlockHighlighter.hpp"
+#include "CodeBlockLanguages.hpp"
 #include "MD4CParser.hpp"
 #include <android/log.h>
 #include <jni.h>
@@ -263,6 +264,20 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
     LOGE("Unknown exception during parsing");
     return nullptr;
   }
+}
+
+JNIEXPORT jstring JNICALL Java_com_swmansion_enriched_markdown_utils_common_CodeBlockNode_nativeDisplayLanguageName(
+    JNIEnv *env, jobject /* this */, jstring language) {
+  if (!language) {
+    return nullptr;
+  }
+  const char *languageStr = env->GetStringUTFChars(language, nullptr);
+  if (!languageStr) {
+    return nullptr;
+  }
+  std::string display = displayNameForLanguage(languageStr);
+  env->ReleaseStringUTFChars(language, languageStr);
+  return env->NewStringUTF(display.c_str());
 }
 
 // Returns highlight tokens as (start, end, type) int triplets with UTF-16

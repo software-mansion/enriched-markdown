@@ -31,6 +31,12 @@
 // tree-sitter runtime plus a vendored set of language grammars and their
 // highlight queries, compiled only when ENRICHED_MARKDOWN_CODE_HIGHLIGHT is
 // defined by the gradle property / podspec option.
+//
+// TODO: only the github flavor calls this seam; the commonmark flavor renders
+// code blocks uncolored. To hook it up, the commonmark code block renderers
+// (CodeBlockRenderer.kt / CodeBlockRenderer.m) would call highlightCode with
+// the shared node helpers (CodeBlockNode.kt / ENRMCodeBlockContent.h) and
+// apply the tokens to their content range through the platform adapters.
 
 namespace Markdown {
 

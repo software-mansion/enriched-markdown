@@ -1,30 +1,24 @@
 #import "ENRMCodeBlockContainerView.h"
+#import "ENRMCodeBlockContent.h"
 #import "ENRMCodeBlockHighlighter.h"
 #import "MarkdownASTNode.h"
-#import "ParagraphStyleUtils.h"
 #import "PasteboardUtils.h"
 #if TARGET_OS_OSX
 #import "ENRMMenuAction.h"
 #endif
 
-// Block segment view for fenced code blocks, rendered as a sibling view next
-// to text segments the same way TableContainerView is (see SegmentRenderer.m).
+// Block segment view for fenced code blocks (see SegmentRenderer.m):
+// a fixed header bar (language name, copy button) above a horizontally
+// scrolling, non-wrapping code pane. The container's drawRect: draws
+// background, border, label, and divider; only the copy button and the
+// scroll view are subviews. Syntax coloring comes from the
+// ENRMCodeBlockHighlighter seam and falls back to plain text. The box
+// visuals must stay in sync with the commonmark flavor's CodeBlockBackground.
 //
-// The block consists of a header bar (language display name on the left, a
-// copy-code button on the right) and the code text below it. Background,
-// border, header label, and divider are drawn by the container's drawRect:;
-// the code itself lives in a scroll view so long lines never wrap and the
-// code pane scrolls horizontally, the same way TableContainerView handles
-// wide tables, while the header stays fixed. Syntax coloring is delegated to
-// the shared C++ highlighting seam through the ENRMCodeBlockHighlighter
-// adapter; when the highlighting module is compiled out the code is drawn
-// uncolored.
-//
-// Measurement parity: measureHeight: uses the unconstrained bounding rect of
-// the same attributed string the content view draws and derives the header
-// height from the same label font metrics, so the height reported during
-// segment layout matches the drawn height. Because lines never wrap, the
-// measured height is independent of the available width.
+// measureHeight: must stay in sync with the drawn content: it uses the
+// unconstrained bounding rect of the same attributed string and the same
+// header metrics, so the reported height matches the drawn height. Since
+// lines never wrap, the height is independent of the available width.
 
 static const CGFloat kENRMHeaderLabelScale = 0.85;
 static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
@@ -277,103 +271,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 }
 #endif
 
-static void ENRMAppendNodeContent(MarkdownASTNode *node, NSMutableString *output)
-{
-  if (node.content.length > 0) {
-    [output appendString:node.content];
-  }
-  for (MarkdownASTNode *child in node.children) {
-    ENRMAppendNodeContent(child, output);
-  }
-}
-
-static NSString *ENRMExtractCode(MarkdownASTNode *node)
-{
-  NSMutableString *code = [NSMutableString string];
-  ENRMAppendNodeContent(node, code);
-  NSUInteger end = code.length;
-  while (end > 0 && [code characterAtIndex:end - 1] == '\n') {
-    end--;
-  }
-  return [code substringToIndex:end];
-}
-
-// Keep the entries in sync with languageNames in the Android
-// CodeBlockContainerView so both platforms label fences identically.
-static NSString *ENRMDisplayLanguageName(NSString *language)
-{
-  if (language.length == 0) {
-    return @"";
-  }
-
-  static NSDictionary<NSString *, NSString *> *names;
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    names = @{
-      @"bash" : @"Bash",
-      @"c" : @"C",
-      @"cc" : @"C++",
-      @"cpp" : @"C++",
-      @"cs" : @"C#",
-      @"csharp" : @"C#",
-      @"css" : @"CSS",
-      @"cxx" : @"C++",
-      @"dockerfile" : @"Dockerfile",
-      @"go" : @"Go",
-      @"golang" : @"Go",
-      @"graphql" : @"GraphQL",
-      @"html" : @"HTML",
-      @"java" : @"Java",
-      @"javascript" : @"JavaScript",
-      @"js" : @"JavaScript",
-      @"json" : @"JSON",
-      @"jsx" : @"JSX",
-      @"kotlin" : @"Kotlin",
-      @"kt" : @"Kotlin",
-      @"markdown" : @"Markdown",
-      @"md" : @"Markdown",
-      @"objc" : @"Objective-C",
-      @"objectivec" : @"Objective-C",
-      @"php" : @"PHP",
-      @"py" : @"Python",
-      @"python" : @"Python",
-      @"rb" : @"Ruby",
-      @"ruby" : @"Ruby",
-      @"rs" : @"Rust",
-      @"rust" : @"Rust",
-      @"scss" : @"SCSS",
-      @"sh" : @"Shell",
-      @"shell" : @"Shell",
-      @"sql" : @"SQL",
-      @"swift" : @"Swift",
-      @"toml" : @"TOML",
-      @"ts" : @"TypeScript",
-      @"tsx" : @"TSX",
-      @"typescript" : @"TypeScript",
-      @"xml" : @"XML",
-      @"yaml" : @"YAML",
-      @"yml" : @"YAML",
-      @"zsh" : @"Zsh",
-    };
-  });
-
-  NSString *lower = language.lowercaseString;
-  NSString *mapped = names[lower];
-  if (mapped) {
-    return mapped;
-  }
-  return [[[lower substringToIndex:1] uppercaseString] stringByAppendingString:[lower substringFromIndex:1]];
-}
-
 - (void)applyCodeBlockNode:(MarkdownASTNode *)node
 {
-  _cachedCode = ENRMExtractCode(node);
-
-  NSString *language = node.attributes[@"language"];
-  _cachedLanguage = language.length > 0 ? language : nil;
-  _displayLanguage = ENRMDisplayLanguageName(_cachedLanguage);
-  NSString *fenceChar = node.attributes[@"fenceChar"];
-  _fenceChar = fenceChar.length > 0 ? fenceChar : @"`";
+  _cachedCode = ENRMCodeBlockExtractCode(node);
+  _cachedLanguage = ENRMCodeBlockLanguage(node);
+  _displayLanguage = ENRMCodeBlockDisplayLanguageName(_cachedLanguage);
+  _fenceChar = ENRMCodeBlockFenceChar(node);
 
   NSAttributedString *plainCode = [self plainAttributedCode];
   NSAttributedString *highlighted = ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage);
@@ -406,24 +309,8 @@ static NSString *ENRMDisplayLanguageName(NSString *language)
     return [[NSAttributedString alloc] initWithString:@""];
   }
 
-  NSMutableParagraphStyle *paragraphStyle = [[NSMutableParagraphStyle alloc] init];
-  paragraphStyle.baseWritingDirection = NSWritingDirectionLeftToRight;
-  paragraphStyle.alignment = NSTextAlignmentLeft;
-
-  NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
-  attributes[NSFontAttributeName] = [_config codeBlockFont];
-  attributes[NSParagraphStyleAttributeName] = paragraphStyle;
-  RCTUIColor *color = [_config codeBlockColor];
-  if (color) {
-    attributes[NSForegroundColorAttributeName] = color;
-  }
-
-  NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:_cachedCode
-                                                                                 attributes:attributes];
-  CGFloat lineHeight = [_config codeBlockLineHeight];
-  if (lineHeight > 0) {
-    applyLineHeight(attributed, NSMakeRange(0, attributed.length), lineHeight);
-  }
+  NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:_cachedCode];
+  ENRMApplyCodeBlockTextAttributes(attributed, NSMakeRange(0, attributed.length), _config);
   return attributed;
 }
 
@@ -498,8 +385,7 @@ static NSString *ENRMDisplayLanguageName(NSString *language)
 
 - (NSString *)fencedMarkdown
 {
-  NSString *fence = [@"" stringByPaddingToLength:3 withString:_fenceChar startingAtIndex:0];
-  return [NSString stringWithFormat:@"%@%@\n%@\n%@", fence, _cachedLanguage ?: @"", _cachedCode, fence];
+  return ENRMCodeBlockFencedMarkdown(_cachedCode, _cachedLanguage, _fenceChar);
 }
 
 - (void)copyCodeToPasteboard
