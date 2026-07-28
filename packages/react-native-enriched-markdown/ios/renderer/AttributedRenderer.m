@@ -111,10 +111,6 @@
   // 2. Trim trailing characters
   NSUInteger logicalEnd = NSMaxRange(lastContent);
   BOOL isCodeBlock = isLastBlockACodeBlock(output);
-  // A padded blockquote tail needs the same trailing-newline treatment as a
-  // code block: its bottom padding spacer must stay an interior line fragment
-  // (followed by a 1pt tail newline outside the blockquote range) or iOS
-  // excludes its fixed-height line from measurement and the box gets cut off.
   BOOL isPaddedBlockquote = !isCodeBlock && [_config blockquotePadding] > 0 &&
                             [output attribute:BlockquoteDepthAttributeName
                                        atIndex:lastContent.location
@@ -131,8 +127,6 @@
     }
     logicalEnd = codeEnd + 1;
   } else if (isPaddedBlockquote) {
-    // The depth attribute runs may alternate values for nested quotes; scan to
-    // the end of the contiguous attributed region (which includes the spacer).
     NSUInteger blockquoteEnd = NSMaxRange(lastContent);
     while (blockquoteEnd < output.length && [output attribute:BlockquoteDepthAttributeName
                                                        atIndex:blockquoteEnd

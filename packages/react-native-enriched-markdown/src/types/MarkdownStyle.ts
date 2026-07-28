@@ -25,21 +25,7 @@ interface BlockquoteStyle extends BaseBlockStyle {
   borderWidth?: number;
   gapWidth?: number;
   backgroundColor?: string;
-  /**
-   * Corner radius of the blockquote background box. The accent stripe is
-   * clipped to the rounded shape; each nested quote's stripe is rounded
-   * against its own box, matching per-element border-radius on web.
-   * @default 0
-   */
   borderRadius?: number;
-  /**
-   * Inner spacing between the background box edges and the quote content,
-   * applied to the top and bottom (and the trailing edge on iOS and web).
-   * Each nesting level pads its own box, so nested quotes stack paddings
-   * at shared boundaries just like nested elements on web.
-   * Leading-edge spacing is still controlled by `borderWidth` + `gapWidth`.
-   * @default 0
-   */
   padding?: number;
 }
 

@@ -59,11 +59,7 @@ static NSString *const kNestedInfoRangeKey = @"range";
     contentStart += applyBlockSpacingBefore(output, start, [_config blockquoteMarginTop]);
   }
 
-  // Vertical padding: spacer lines inside the background area, applied at every
-  // nesting level so nested quotes pad their own box (matching web CSS padding).
-  // Mirrors CodeBlockRenderer's approach so measurement accounts for the padding.
-  // Spacers carry BlockquoteSpacerAttributeName so ancestor quotes skip them
-  // when stamping paragraph styles (their fixed height must survive).
+  // nested quotes pad their own box (matching web CSS padding)
   CGFloat padding = [_config blockquotePadding];
   NSUInteger topPadLength = 0;
   NSUInteger bottomPadLength = 0;
@@ -83,9 +79,6 @@ static NSString *const kNestedInfoRangeKey = @"range";
     bottomPadLength = 1;
   }
 
-  // The box range includes the padding spacers so the background covers them;
-  // paragraph stamping is restricted to the inner range so the spacers keep
-  // their fixed height instead of being clamped to the blockquote line height.
   NSRange blockquoteRange = NSMakeRange(contentStart, (end - start) + topPadLength + bottomPadLength);
   NSRange innerRange = NSMakeRange(contentStart + topPadLength, end - start);
   CGFloat levelSpacing = [_config blockquoteBorderWidth] + [_config blockquoteGapWidth];

@@ -39,11 +39,6 @@ NSString *const BlockquoteSpacerAttributeName = @"BlockquoteSpacer";
 
   NSRange charRange = [layoutManager characterRangeForGlyphRange:glyphsToShow actualGlyphRange:NULL];
 
-  // Enumerate over the full storage range so each blockquote's full rect is
-  // drawn; restricting to charRange would produce partial rects per draw pass
-  // and stacked corner shapes when the border radius is large. The graphics
-  // context clip ensures only the visible portion is painted. Attribute runs
-  // split at nesting depth changes are merged back into contiguous regions.
   NSMutableArray<NSValue *> *regions = [NSMutableArray array];
   __block NSRange currentRegion = NSMakeRange(NSNotFound, 0);
   [textStorage enumerateAttribute:BlockquoteDepthAttributeName
@@ -132,15 +127,11 @@ static void collectNestedBoxes(NSArray<NSValue *> *runRanges, NSArray<NSNumber *
   blockRect.origin.y += origin.y;
   blockRect.size.width = containerWidth;
 
-  // A trailing padding spacer at the very end of the storage lays out as the
-  // extra line fragment, which boundingRectForGlyphRange excludes; extend the
-  // rect manually so the bottom padding stays covered.
   BOOL isLastBlockquote = (NSMaxRange(region) == textStorage.length);
   if (isLastBlockquote) {
     blockRect.size.height += c.blockquotePadding;
   }
 
-  // Nested boxes only matter when their stripes need rounded clipping.
   NSMutableArray<NSValue *> *boxRanges = [NSMutableArray array];
   NSMutableArray<NSNumber *> *boxLevels = [NSMutableArray array];
   NSMutableArray<UIBezierPath *> *boxStripePaths = [NSMutableArray array];
@@ -186,19 +177,16 @@ static void collectNestedBoxes(NSArray<NSValue *> *runRanges, NSArray<NSNumber *
         enumerateLineFragmentsForGlyphRange:glyphRange
                                  usingBlock:^(CGRect rect, CGRect usedRect, NSTextContainer *container,
                                               NSRange lineGlyphRange, BOOL *stop) {
-                                   // Map the glyph range back to character indices to retrieve attributes
                                    NSRange lineCharRange = [layoutManager characterRangeForGlyphRange:lineGlyphRange
                                                                                      actualGlyphRange:NULL];
                                    if (lineCharRange.location == NSNotFound || lineCharRange.length == 0) {
                                      return;
                                    }
 
-                                   // Perform a single attribute lookup for the current line fragment
                                    NSDictionary *attrs = [textStorage attributesAtIndex:lineCharRange.location
                                                                          effectiveRange:NULL];
                                    NSNumber *depthNum = attrs[BlockquoteDepthAttributeName];
 
-                                   // If no depth is found, this fragment is not part of a blockquote
                                    if (!depthNum) {
                                      return;
                                    }
