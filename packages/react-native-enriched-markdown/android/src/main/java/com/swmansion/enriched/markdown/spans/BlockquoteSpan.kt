@@ -41,10 +41,6 @@ class BlockquoteSpan(
   // Cache for shouldSkipDrawing to avoid repeated getSpans() calls during draw passes
   private var cachedText: CharSequence? = null
   private var cachedSpansByPosition = mutableMapOf<Int, Array<BlockquoteSpan>>()
-
-  // Horizontal box bounds captured during the background pass; Layout draws all
-  // line backgrounds before any leading margins, so the values are ready when
-  // the border stripes need clipping to the rounded box shape.
   private var boxLeft = 0f
   private var boxRight = 0f
 
@@ -84,17 +80,10 @@ class BlockquoteSpan(
       return
     }
 
-    // Each level's stripe is clipped to its own quote's rounded box (mirroring
-    // per-element CSS border-radius on web); level 0 additionally rounds
-    // against the outermost box that also carries the background.
     val rootSpan = spanAtMinDepth(spanned, start)
     val clipToRoot =
       radius > 0f && boxRight > boxLeft && rootSpan != null && isBoundaryLine(spanned, start, end, rootSpan)
 
-    // Boundary paddings of every box starting/ending on this line stack into
-    // the same font metrics (outermost zone outermost). A level's stripe must
-    // stop at its own box edge, so inset it by the paddings of the shallower
-    // boxes whose zones lie beyond it on this line.
     val padding = blockquoteStyle.padding
     var topInset = 0f
     var bottomInset = 0f
@@ -236,8 +225,6 @@ class BlockquoteSpan(
     return maxDepth > depth
   }
 
-  // The outermost box (background + outer rounding) is the min-depth span at
-  // this position; each nested level's own box is the span with that depth.
   private fun spanAtMinDepth(
     text: Spanned,
     start: Int,

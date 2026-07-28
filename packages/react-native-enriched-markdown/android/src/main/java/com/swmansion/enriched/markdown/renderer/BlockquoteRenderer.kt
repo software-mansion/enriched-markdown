@@ -67,9 +67,7 @@ class BlockquoteRenderer(
     // block images so their expanded line metrics aren't re-clamped
     applyLineHeightExcludingNested(builder, nestedRanges, start, end, style.lineHeight)
 
-    // Vertical padding applies at every nesting level so nested quotes pad
-    // their own box (matching web CSS padding); the spans stack at shared
-    // boundary lines just like nested element paddings do on web.
+    // Nested quotes pad their own box to match web CSS
     if (style.padding > 0) {
       builder.setSpan(
         BlockquoteBoundaryPaddingSpan(style.padding.toInt()),
@@ -106,13 +104,11 @@ class BlockquoteRenderer(
       val spanStart = text.getSpanStart(this)
       val spanEnd = text.getSpanEnd(this)
 
-      // Adjust ascent/top for the first line to create internal top padding
       if (startLine == spanStart) {
         fm.ascent -= padding
         fm.top -= padding
       }
 
-      // Adjust descent/bottom for the last line (handling trailing newlines)
       val isLastLine = endLine == spanEnd || (spanEnd <= endLine && text[spanEnd - 1] == '\n')
       if (isLastLine) {
         fm.descent += padding
