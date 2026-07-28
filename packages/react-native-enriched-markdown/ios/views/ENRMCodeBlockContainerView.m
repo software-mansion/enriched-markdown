@@ -174,7 +174,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   ((NSScrollView *)_scrollView).scrollerKnobStyle =
       darkBackground ? NSScrollerKnobStyleLight : NSScrollerKnobStyleDefault;
   __weak ENRMCodeBlockContainerView *weakSelf = self;
-  _codeContentView.menuProvider = ^NSMenu * { return [weakSelf buildContextMenu]; };
+  NSMenu * (^menuProvider)(void) = ^{ return [weakSelf buildContextMenu]; };
+  _codeContentView.menuProvider = menuProvider;
   [(NSScrollView *)_scrollView setDocumentView:_codeContentView];
 #endif
   [self addSubview:_scrollView];

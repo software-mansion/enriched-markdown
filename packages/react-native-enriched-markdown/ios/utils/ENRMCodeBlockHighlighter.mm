@@ -37,7 +37,8 @@ static RCTUIColor *ENRMColorForToken(Markdown::HighlightTokenType type)
   }
 }
 
-NSAttributedString *ENRMHighlightedAttributedCode(NSAttributedString *plainCode, NSString *code, NSString *language)
+NSAttributedString *ENRMHighlightedAttributedCode(NSAttributedString *plainCode, NSString *code,
+                                                  NSString *_Nullable language)
 {
   if (code.length == 0) {
     return nil;
