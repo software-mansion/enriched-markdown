@@ -26,6 +26,10 @@ NSString *const BlockquoteSpacerAttributeName = @"BlockquoteSpacer";
  * When a border radius is set, each nested quote's stripes are additionally
  * clipped to that quote's own rounded box, mirroring per-element CSS
  * border-radius on web.
+ * Regions are discovered by scanning only the drawn character range; regions
+ * touching its edges are extended run-by-run to their true boundaries, so the
+ * cost scales with the visible text plus the intersecting quotes rather than
+ * the whole document.
  */
 - (void)drawBordersForGlyphRange:(NSRange)glyphsToShow
                    layoutManager:(NSLayoutManager *)layoutManager
@@ -38,11 +42,14 @@ NSString *const BlockquoteSpacerAttributeName = @"BlockquoteSpacer";
   }
 
   NSRange charRange = [layoutManager characterRangeForGlyphRange:glyphsToShow actualGlyphRange:NULL];
+  if (charRange.location == NSNotFound || charRange.length == 0) {
+    return;
+  }
 
   NSMutableArray<NSValue *> *regions = [NSMutableArray array];
   __block NSRange currentRegion = NSMakeRange(NSNotFound, 0);
   [textStorage enumerateAttribute:BlockquoteDepthAttributeName
-                          inRange:NSMakeRange(0, textStorage.length)
+                          inRange:charRange
                           options:0
                        usingBlock:^(id value, NSRange range, BOOL *stop) {
                          if (!value) {
@@ -59,12 +66,40 @@ NSString *const BlockquoteSpacerAttributeName = @"BlockquoteSpacer";
     [regions addObject:[NSValue valueWithRange:currentRegion]];
   }
 
-  for (NSValue *value in regions) {
-    NSRange region = value.rangeValue;
-    if (NSIntersectionRange(region, charRange).length == 0) {
-      continue;
+  if (regions.count == 0) {
+    return;
+  }
+
+  NSRange firstRegion = regions.firstObject.rangeValue;
+  if (firstRegion.location == charRange.location) {
+    while (firstRegion.location > 0) {
+      NSRange runRange;
+      if (![textStorage attribute:BlockquoteDepthAttributeName
+                          atIndex:firstRegion.location - 1
+                   effectiveRange:&runRange]) {
+        break;
+      }
+      firstRegion = NSUnionRange(firstRegion, runRange);
     }
-    [self drawBlockquoteRegion:region layoutManager:layoutManager textContainer:textContainer atPoint:origin];
+    regions[0] = [NSValue valueWithRange:firstRegion];
+  }
+
+  NSRange lastRegion = regions.lastObject.rangeValue;
+  if (NSMaxRange(lastRegion) == NSMaxRange(charRange)) {
+    while (NSMaxRange(lastRegion) < textStorage.length) {
+      NSRange runRange;
+      if (![textStorage attribute:BlockquoteDepthAttributeName
+                          atIndex:NSMaxRange(lastRegion)
+                   effectiveRange:&runRange]) {
+        break;
+      }
+      lastRegion = NSUnionRange(lastRegion, runRange);
+    }
+    regions[regions.count - 1] = [NSValue valueWithRange:lastRegion];
+  }
+
+  for (NSValue *value in regions) {
+    [self drawBlockquoteRegion:value.rangeValue layoutManager:layoutManager textContainer:textContainer atPoint:origin];
   }
 }
 
