@@ -319,6 +319,9 @@ function App() {
 > [!NOTE]
 > Inside list items, code blocks (background included) indent to the item's content column.
 
+> [!NOTE]
+> With `flavor="github"`, code blocks render as a block component with a header bar (language name on the left, copy-code button on the right) and a divider above the code. The header derives its appearance from the code block style: the label uses the system font at 0.85 x `fontSize`, and the label, button, and divider use `color` at reduced opacity. Dedicated header style properties may be added later.
+
 ### Inline Code-specific
 
 | Property | Type | Description |

@@ -93,8 +93,9 @@ Notes:
   plural category (`zero`, `one`, `two`, `few`, `many`, `other`). Only `other` is
   required; any category left `undefined` falls back to it. The `{count}` token
   is replaced by the number of selected images.
-- The labels apply to the main text selection menu as well as the table and math
-  block copy menus.
+- The labels apply to the main text selection menu as well as the table, math,
+  and code block copy menus. The code block header's copy button also uses the
+  copy label as its accessibility label.
 - OS-provided actions (Look Up, Translate…) and the system **Cut / Paste /
   Select All** items are localized by the platform and are not affected by this
   config.
