@@ -27,6 +27,7 @@
 
 static const CGFloat kENRMHeaderLabelScale = 0.85;
 static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
+static const CGFloat kENRMHeaderDividerAlpha = 0.2;
 
 #if !TARGET_OS_OSX
 @interface ENRMCodeBlockContainerView () <UIContextMenuInteractionDelegate>
@@ -103,15 +104,21 @@ static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
 }
 #endif
 
-- (CGFloat)headerHeight
+- (CGFloat)headerLabelLineHeight
 {
 #if !TARGET_OS_OSX
-  CGFloat lineHeight = [self headerFont].lineHeight;
+  return ceil([self headerFont].lineHeight);
 #else
   NSFont *font = [self headerFont];
-  CGFloat lineHeight = ceil(font.ascender - font.descender);
+  return ceil(font.ascender - font.descender);
 #endif
-  return ceil(lineHeight) + [_config codeBlockPadding] * 2;
+}
+
+// Header is the top content inset plus one label line; the code text's own
+// top inset then forms the single gap below the label.
+- (CGFloat)headerHeight
+{
+  return [self contentInset] + [self headerLabelLineHeight];
 }
 
 - (void)layoutHeaderButton
@@ -123,7 +130,9 @@ static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
   }
   CGFloat iconSlack = (headerH - iconWidth) / 2;
   CGFloat buttonLeft = MAX(self.bounds.size.width - [self contentInset] - headerH + iconSlack, 0);
-  _copyButton.frame = CGRectMake(buttonLeft, 0, headerH, headerH);
+  CGFloat labelCenterY = headerH - [self headerLabelLineHeight] / 2;
+  CGFloat buttonTop = MAX(labelCenterY - headerH / 2, 0);
+  _copyButton.frame = CGRectMake(buttonLeft, buttonTop, headerH, headerH);
 }
 
 #if !TARGET_OS_OSX
@@ -337,6 +346,19 @@ static NSString *ENRMDisplayLanguageName(NSString *language)
   CGFloat inset = [self contentInset];
   CGFloat headerH = [self headerHeight];
 
+  // Divider between the header and the code, centered in the gap the code
+  // text's top inset creates, so it adds no height of its own.
+  RCTUIColor *dividerColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderDividerAlpha];
+  if (dividerColor) {
+    CGRect dividerRect = CGRectMake(borderWidth, headerH + inset / 2, self.bounds.size.width - borderWidth * 2, 1);
+    [dividerColor setFill];
+#if !TARGET_OS_OSX
+    [[UIBezierPath bezierPathWithRect:dividerRect] fill];
+#else
+    [[NSBezierPath bezierPathWithRect:dividerRect] fill];
+#endif
+  }
+
   if (_displayLanguage.length > 0) {
     NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
     labelAttributes[NSFontAttributeName] = [self headerFont];
@@ -345,7 +367,7 @@ static NSString *ENRMDisplayLanguageName(NSString *language)
       labelAttributes[NSForegroundColorAttributeName] = labelColor;
     }
     CGSize labelSize = [_displayLanguage sizeWithAttributes:labelAttributes];
-    [_displayLanguage drawAtPoint:CGPointMake(inset, (headerH - labelSize.height) / 2) withAttributes:labelAttributes];
+    [_displayLanguage drawAtPoint:CGPointMake(inset, headerH - labelSize.height) withAttributes:labelAttributes];
   }
 
   if (_attributedCode.length > 0) {

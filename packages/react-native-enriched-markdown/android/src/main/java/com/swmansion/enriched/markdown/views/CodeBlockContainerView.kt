@@ -116,7 +116,14 @@ class CodeBlockContainerView(
       }
     }
 
+  private val dividerPaint =
+    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = dividerColor(codeBlockStyle.color)
+      strokeWidth = context.resources.displayMetrics.density
+    }
+
   init {
+    setWillNotDraw(false)
     background =
       GradientDrawable().apply {
         setColor(codeBlockStyle.backgroundColor)
@@ -180,7 +187,7 @@ class CodeBlockContainerView(
     val headerH = headerHeight(codeBlockStyle)
     val inset = contentInset(codeBlockStyle)
 
-    val labelTop = (headerH - languageView.measuredHeight) / 2
+    val labelTop = headerH - languageView.measuredHeight
     languageView.layout(
       inset,
       labelTop,
@@ -191,9 +198,24 @@ class CodeBlockContainerView(
     val iconWidth = copyButton.drawable?.intrinsicWidth ?: copyButton.measuredWidth
     val iconSlack = ((copyButton.measuredWidth - iconWidth) / 2).coerceAtLeast(0)
     val buttonLeft = (width - inset - copyButton.measuredWidth + iconSlack).coerceAtLeast(0)
-    copyButton.layout(buttonLeft, 0, buttonLeft + copyButton.measuredWidth, copyButton.measuredHeight)
+    val buttonTop = (headerH - languageView.measuredHeight / 2 - copyButton.measuredHeight / 2).coerceAtLeast(0)
+    copyButton.layout(
+      buttonLeft,
+      buttonTop,
+      buttonLeft + copyButton.measuredWidth,
+      buttonTop + copyButton.measuredHeight,
+    )
 
     textView.layout(0, headerH, width, bottom - top)
+  }
+
+  // Divider between the header and the code, centered in the gap the code
+  // text's top inset creates, so it adds no height of its own.
+  override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    val borderWidth = ceil(codeBlockStyle.borderWidth)
+    val y = headerHeight(codeBlockStyle) + contentInset(codeBlockStyle) / 2f
+    canvas.drawLine(borderWidth, y, width - borderWidth, y, dividerPaint)
   }
 
   private fun showContextMenu(anchor: View) {
@@ -312,8 +334,12 @@ class CodeBlockContainerView(
 
     private fun secondaryColor(color: Int): Int = (color and 0x00FFFFFF) or (0x99 shl 24)
 
+    private fun dividerColor(color: Int): Int = (color and 0x00FFFFFF) or (0x33 shl 24)
+
     private fun contentInset(style: CodeBlockStyle): Int = ceil(style.padding + style.borderWidth).toInt()
 
+    // Header is the top content inset plus one label line; the code text
+    // view's own top inset then forms the single gap below the label.
     private fun headerHeight(style: CodeBlockStyle): Int {
       val paint =
         TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -321,7 +347,7 @@ class CodeBlockContainerView(
           typeface = headerTypeface
         }
       val metrics = paint.fontMetrics
-      return ceil(metrics.descent - metrics.ascent).toInt() + ceil(style.padding).toInt() * 2
+      return contentInset(style) + ceil(metrics.descent - metrics.ascent).toInt()
     }
 
     private fun extractCode(node: MarkdownASTNode): String {
