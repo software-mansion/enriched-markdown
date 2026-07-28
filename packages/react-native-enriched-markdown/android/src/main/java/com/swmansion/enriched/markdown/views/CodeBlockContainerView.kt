@@ -17,7 +17,7 @@ import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.spans.LineHeightSpan
 import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
-import com.swmansion.enriched.markdown.utils.common.CodeBlockHighlighting
+import com.swmansion.enriched.markdown.utils.common.CodeBlockHighlighter
 import com.swmansion.enriched.markdown.utils.text.extensions.applyBlockStyleFont
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import kotlin.math.ceil
@@ -29,10 +29,10 @@ import kotlin.math.ceil
  * The view draws the code as a single non-editable text run with the code
  * block background, border, and padding. Long lines wrap, matching the
  * previous span-based rendering (horizontal scrolling can be added later as a
- * style option). Syntax coloring is delegated to the optional highlighter
- * seam (CodeBlockHighlighting); when no highlighter is installed the code is
- * drawn uncolored, which keeps the block visually equivalent to the old
- * CodeBlockSpan path.
+ * style option). Syntax coloring is delegated to the shared C++ highlighting
+ * seam through the CodeBlockHighlighter adapter; when the highlighting module
+ * is compiled out the code is drawn uncolored, which keeps the block visually
+ * equivalent to the old CodeBlockSpan path.
  *
  * Measurement parity: measureCodeBlockNodeHeight builds the same styled text
  * and paint as the view, so the height reported to Yoga at shadow-node
@@ -93,8 +93,8 @@ class CodeBlockContainerView(
     language = node.getAttribute("language")?.takeIf { it.isNotEmpty() }
     fenceChar = node.getAttribute("fenceChar")?.takeIf { it.isNotEmpty() } ?: "`"
 
-    val highlighted = CodeBlockHighlighting.highlighter?.highlight(code, language, codeBlockStyle)
-    textView.text = highlighted ?: buildCodeText(code, codeBlockStyle)
+    val plainCode = buildCodeText(code, codeBlockStyle)
+    textView.text = CodeBlockHighlighter.highlight(plainCode, code, language) ?: plainCode
   }
 
   override fun onMeasure(

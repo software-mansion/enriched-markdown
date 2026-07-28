@@ -14,9 +14,9 @@
 // drawRect: pass, mirroring the approach of ENRMTableIOSGridView. Long lines
 // wrap, matching the previous attribute-based rendering; horizontal scrolling
 // can be added later as a style option. Syntax coloring is delegated to the
-// optional highlighter seam (ENRMCodeBlockHighlighter); without a highlighter
-// the code is drawn uncolored, visually equivalent to the old
-// CodeBlockAttributeName path.
+// shared C++ highlighting seam through the ENRMCodeBlockHighlighter adapter;
+// when the highlighting module is compiled out the code is drawn uncolored,
+// visually equivalent to the old CodeBlockAttributeName path.
 //
 // Measurement parity: measureHeight: computes the bounding rect of the same
 // attributed string drawRect: draws, so the height reported during segment
@@ -100,9 +100,9 @@ static NSString *ENRMExtractCode(MarkdownASTNode *node)
   NSString *fenceChar = node.attributes[@"fenceChar"];
   _fenceChar = fenceChar.length > 0 ? fenceChar : @"`";
 
-  id<ENRMCodeBlockHighlighting> highlighter = ENRMResolveCodeBlockHighlighter();
-  NSAttributedString *highlighted = [highlighter highlightCode:_cachedCode language:_cachedLanguage config:_config];
-  _attributedCode = highlighted ?: [self plainAttributedCode];
+  NSAttributedString *plainCode = [self plainAttributedCode];
+  NSAttributedString *highlighted = ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage);
+  _attributedCode = highlighted ?: plainCode;
 
 #if !TARGET_OS_OSX
   [self setNeedsDisplay];

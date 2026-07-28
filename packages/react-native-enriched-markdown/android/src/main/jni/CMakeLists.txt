@@ -27,6 +27,7 @@ set(ANDROID_CPP_DIR "${LIB_ANDROID_DIR}/src/main/cpp")
 
 file(GLOB MD4C_SOURCES "${CPP_ROOT}/md4c/*.c")
 file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
+file(GLOB HIGHLIGHT_SOURCES "${CPP_ROOT}/highlight/*.cpp")
 
 # md4c is C code, build as separate static library with C flags
 add_library(md4c_lib STATIC ${MD4C_SOURCES})
@@ -46,6 +47,7 @@ add_library(
   ${LIB_CODEGEN_SRCS}
   ${LIB_CUSTOM_JNI_SRCS}
   ${PARSER_SOURCES}
+  ${HIGHLIGHT_SOURCES}
   ${ANDROID_CPP_DIR}/jni-adapter.cpp
 )
 
@@ -58,6 +60,7 @@ target_include_directories(
   ${LIB_ANDROID_GENERATED_COMPONENTS_DIR}
   ${CPP_ROOT}/md4c
   ${CPP_ROOT}/parser
+  ${CPP_ROOT}/highlight
 )
 
 target_compile_definitions(${LIB_TARGET_NAME} PRIVATE MD4C_USE_UTF8=1)
