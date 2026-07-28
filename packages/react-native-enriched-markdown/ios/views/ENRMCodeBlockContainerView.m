@@ -10,17 +10,23 @@
 // Block segment view for fenced code blocks, rendered as a sibling view next
 // to text segments the same way TableContainerView is (see SegmentRenderer.m).
 //
-// The whole block (background, border, code text) is drawn in a single
-// drawRect: pass, mirroring the approach of ENRMTableIOSGridView. Long lines
-// wrap, matching the previous attribute-based rendering; horizontal scrolling
-// can be added later as a style option. Syntax coloring is delegated to the
-// shared C++ highlighting seam through the ENRMCodeBlockHighlighter adapter;
-// when the highlighting module is compiled out the code is drawn uncolored,
-// visually equivalent to the old CodeBlockAttributeName path.
+// The block consists of a header bar (language display name on the left, a
+// copy-code button on the right) and the code text below it. Background,
+// border, header label, and code are drawn in a single drawRect: pass,
+// mirroring the approach of ENRMTableIOSGridView; only the copy button is a
+// real subview so it can receive taps. Long lines wrap, matching the previous
+// attribute-based rendering; horizontal scrolling can be added later as a
+// style option. Syntax coloring is delegated to the shared C++ highlighting
+// seam through the ENRMCodeBlockHighlighter adapter; when the highlighting
+// module is compiled out the code is drawn uncolored.
 //
 // Measurement parity: measureHeight: computes the bounding rect of the same
-// attributed string drawRect: draws, so the height reported during segment
-// layout matches the drawn height.
+// attributed string drawRect: draws and derives the header height from the
+// same label font metrics, so the height reported during segment layout
+// matches the drawn height.
+
+static const CGFloat kENRMHeaderLabelScale = 0.85;
+static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
 
 #if !TARGET_OS_OSX
 @interface ENRMCodeBlockContainerView () <UIContextMenuInteractionDelegate>
@@ -31,11 +37,23 @@
   NSAttributedString *_attributedCode;
   NSString *_cachedCode;
   NSString *_cachedLanguage;
+  NSString *_displayLanguage;
   NSString *_fenceChar;
+#if !TARGET_OS_OSX
+  UIButton *_copyButton;
+#else
+  NSButton *_copyButton;
+#endif
 }
 
 @synthesize copyLabel = _copyLabel;
 @synthesize copyAsMarkdownLabel = _copyAsMarkdownLabel;
+
+- (void)setCopyLabel:(NSString *)copyLabel
+{
+  _copyLabel = [copyLabel copy];
+  _copyButton.accessibilityLabel = _copyLabel;
+}
 
 - (instancetype)initWithConfig:(StyleConfig *)config
 {
@@ -52,10 +70,75 @@
 
     UIContextMenuInteraction *contextMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
     [self addInteraction:contextMenu];
+
+    _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    UIImageSymbolConfiguration *symbolConfig =
+        [UIImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale
+                                                        weight:UIImageSymbolWeightMedium];
+    [_copyButton setImage:[UIImage systemImageNamed:@"doc.on.doc" withConfiguration:symbolConfig]
+                 forState:UIControlStateNormal];
+    _copyButton.tintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
+    [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:_copyButton];
+#else
+    NSImage *copyImage = [NSImage imageWithSystemSymbolName:@"doc.on.doc" accessibilityDescription:nil];
+    _copyButton = [NSButton buttonWithImage:copyImage target:self action:@selector(copyCodeToPasteboard)];
+    _copyButton.bordered = NO;
+    _copyButton.contentTintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
+    [self addSubview:_copyButton];
 #endif
   }
   return self;
 }
+
+#if !TARGET_OS_OSX
+- (UIFont *)headerFont
+{
+  return [UIFont systemFontOfSize:[_config codeBlockFont].pointSize * kENRMHeaderLabelScale weight:UIFontWeightMedium];
+}
+#else
+- (NSFont *)headerFont
+{
+  return [NSFont systemFontOfSize:[_config codeBlockFont].pointSize * kENRMHeaderLabelScale weight:NSFontWeightMedium];
+}
+#endif
+
+- (CGFloat)headerHeight
+{
+#if !TARGET_OS_OSX
+  CGFloat lineHeight = [self headerFont].lineHeight;
+#else
+  NSFont *font = [self headerFont];
+  CGFloat lineHeight = ceil(font.ascender - font.descender);
+#endif
+  return ceil(lineHeight) + [_config codeBlockPadding] * 2;
+}
+
+- (void)layoutHeaderButton
+{
+  CGFloat headerH = [self headerHeight];
+  CGFloat iconWidth = _copyButton.intrinsicContentSize.width;
+  if (iconWidth <= 0 || iconWidth > headerH) {
+    iconWidth = headerH;
+  }
+  CGFloat iconSlack = (headerH - iconWidth) / 2;
+  CGFloat buttonLeft = MAX(self.bounds.size.width - [self contentInset] - headerH + iconSlack, 0);
+  _copyButton.frame = CGRectMake(buttonLeft, 0, headerH, headerH);
+}
+
+#if !TARGET_OS_OSX
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  [self layoutHeaderButton];
+}
+#else
+- (void)layout
+{
+  [super layout];
+  [self layoutHeaderButton];
+}
+#endif
 
 #if TARGET_OS_OSX
 - (BOOL)isFlipped
@@ -91,12 +174,80 @@ static NSString *ENRMExtractCode(MarkdownASTNode *node)
   return [code substringToIndex:end];
 }
 
+// Keep the entries in sync with languageNames in the Android
+// CodeBlockContainerView so both platforms label fences identically.
+static NSString *ENRMDisplayLanguageName(NSString *language)
+{
+  if (language.length == 0) {
+    return @"";
+  }
+
+  static NSDictionary<NSString *, NSString *> *names;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    names = @{
+      @"bash" : @"Bash",
+      @"c" : @"C",
+      @"cc" : @"C++",
+      @"cpp" : @"C++",
+      @"cs" : @"C#",
+      @"csharp" : @"C#",
+      @"css" : @"CSS",
+      @"cxx" : @"C++",
+      @"dockerfile" : @"Dockerfile",
+      @"go" : @"Go",
+      @"golang" : @"Go",
+      @"graphql" : @"GraphQL",
+      @"html" : @"HTML",
+      @"java" : @"Java",
+      @"javascript" : @"JavaScript",
+      @"js" : @"JavaScript",
+      @"json" : @"JSON",
+      @"jsx" : @"JSX",
+      @"kotlin" : @"Kotlin",
+      @"kt" : @"Kotlin",
+      @"markdown" : @"Markdown",
+      @"md" : @"Markdown",
+      @"objc" : @"Objective-C",
+      @"objectivec" : @"Objective-C",
+      @"php" : @"PHP",
+      @"py" : @"Python",
+      @"python" : @"Python",
+      @"rb" : @"Ruby",
+      @"ruby" : @"Ruby",
+      @"rs" : @"Rust",
+      @"rust" : @"Rust",
+      @"scss" : @"SCSS",
+      @"sh" : @"Shell",
+      @"shell" : @"Shell",
+      @"sql" : @"SQL",
+      @"swift" : @"Swift",
+      @"toml" : @"TOML",
+      @"ts" : @"TypeScript",
+      @"tsx" : @"TSX",
+      @"typescript" : @"TypeScript",
+      @"xml" : @"XML",
+      @"yaml" : @"YAML",
+      @"yml" : @"YAML",
+      @"zsh" : @"Zsh",
+    };
+  });
+
+  NSString *lower = language.lowercaseString;
+  NSString *mapped = names[lower];
+  if (mapped) {
+    return mapped;
+  }
+  return [[[lower substringToIndex:1] uppercaseString] stringByAppendingString:[lower substringFromIndex:1]];
+}
+
 - (void)applyCodeBlockNode:(MarkdownASTNode *)node
 {
   _cachedCode = ENRMExtractCode(node);
 
   NSString *language = node.attributes[@"language"];
   _cachedLanguage = language.length > 0 ? language : nil;
+  _displayLanguage = ENRMDisplayLanguageName(_cachedLanguage);
   NSString *fenceChar = node.attributes[@"fenceChar"];
   _fenceChar = fenceChar.length > 0 ? fenceChar : @"`";
 
@@ -146,14 +297,15 @@ static NSString *ENRMExtractCode(MarkdownASTNode *node)
 - (CGFloat)measureHeight:(CGFloat)maxWidth
 {
   CGFloat inset = [self contentInset];
+  CGFloat headerH = [self headerHeight];
   if (_attributedCode.length == 0) {
-    return inset * 2;
+    return headerH + inset * 2;
   }
   CGFloat available = MAX(maxWidth - inset * 2, 1);
   CGRect bounds = [_attributedCode boundingRectWithSize:CGSizeMake(available, CGFLOAT_MAX)
                                                 options:NSStringDrawingUsesLineFragmentOrigin
                                                 context:nil];
-  return ceil(bounds.size.height) + inset * 2;
+  return ceil(bounds.size.height) + inset * 2 + headerH;
 }
 
 - (void)drawRect:(CGRect)rect
@@ -182,9 +334,24 @@ static NSString *ENRMExtractCode(MarkdownASTNode *node)
     }
   }
 
+  CGFloat inset = [self contentInset];
+  CGFloat headerH = [self headerHeight];
+
+  if (_displayLanguage.length > 0) {
+    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
+    labelAttributes[NSFontAttributeName] = [self headerFont];
+    RCTUIColor *labelColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
+    if (labelColor) {
+      labelAttributes[NSForegroundColorAttributeName] = labelColor;
+    }
+    CGSize labelSize = [_displayLanguage sizeWithAttributes:labelAttributes];
+    [_displayLanguage drawAtPoint:CGPointMake(inset, (headerH - labelSize.height) / 2) withAttributes:labelAttributes];
+  }
+
   if (_attributedCode.length > 0) {
-    CGFloat inset = [self contentInset];
     CGRect textRect = CGRectInset(self.bounds, inset, inset);
+    textRect.origin.y += headerH;
+    textRect.size.height = MAX(textRect.size.height - headerH, 0);
     [_attributedCode drawWithRect:textRect options:NSStringDrawingUsesLineFragmentOrigin context:nil];
   }
 }
@@ -249,6 +416,26 @@ static NSString *ENRMExtractCode(MarkdownASTNode *node)
 - (UIAccessibilityTraits)accessibilityTraits
 {
   return UIAccessibilityTraitStaticText;
+}
+
+// The container is a single accessibility element, which hides the copy
+// button subview from VoiceOver; expose the copy action explicitly instead.
+- (NSArray<UIAccessibilityCustomAction *> *)accessibilityCustomActions
+{
+  if (self.copyLabel.length == 0) {
+    return @[];
+  }
+  UIAccessibilityCustomAction *copyAction =
+      [[UIAccessibilityCustomAction alloc] initWithName:self.copyLabel
+                                                 target:self
+                                               selector:@selector(performCopyAccessibilityAction:)];
+  return @[ copyAction ];
+}
+
+- (BOOL)performCopyAccessibilityAction:(UIAccessibilityCustomAction *)action
+{
+  [self copyCodeToPasteboard];
+  return YES;
 }
 #endif
 
