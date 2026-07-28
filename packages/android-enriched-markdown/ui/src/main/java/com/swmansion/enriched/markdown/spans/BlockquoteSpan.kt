@@ -79,7 +79,7 @@ class BlockquoteSpan(
     val radius = blockquoteStyle.borderRadius
     val spanned = text as? Spanned
 
-    if (radius <= 0f || spanned == null || boxRight <= boxLeft) {
+    if (spanned == null) {
       drawBorders(c, x, dir, top, bottom, borderPaint)
       return
     }
@@ -88,35 +88,50 @@ class BlockquoteSpan(
     // per-element CSS border-radius on web); level 0 additionally rounds
     // against the outermost box that also carries the background.
     val rootSpan = spanAtMinDepth(spanned, start)
-    val rootBoundary = rootSpan != null && isBoundaryLine(spanned, start, end, rootSpan)
+    val clipToRoot =
+      radius > 0f && boxRight > boxLeft && rootSpan != null && isBoundaryLine(spanned, start, end, rootSpan)
+
+    // Boundary paddings of every box starting/ending on this line stack into
+    // the same font metrics (outermost zone outermost). A level's stripe must
+    // stop at its own box edge, so inset it by the paddings of the shallower
+    // boxes whose zones lie beyond it on this line.
+    val padding = blockquoteStyle.padding
+    var topInset = 0f
+    var bottomInset = 0f
 
     for (level in 0..depth) {
       val borderX = x + (levelSpacing * level * dir)
       val borderRight = borderX + (blockquoteStyle.borderWidth * dir)
       val stripeLeft = minOf(borderX, borderRight)
       val stripeRight = maxOf(borderX, borderRight)
+      val stripeTop = top.toFloat() + topInset
+      val stripeBottom = bottom.toFloat() - bottomInset
 
       val levelSpan = if (level == 0) rootSpan else spanAtDepth(spanned, start, level)
-      val ownBoundary =
-        level > 0 && levelSpan != null && isBoundaryLine(spanned, start, end, levelSpan)
+      val clipToOwn =
+        radius > 0f && level > 0 && levelSpan != null && isBoundaryLine(spanned, start, end, levelSpan)
 
-      if (!rootBoundary && !ownBoundary) {
-        c.drawRect(stripeLeft, top.toFloat(), stripeRight, bottom.toFloat(), borderPaint)
-        continue
+      if (!clipToRoot && !clipToOwn) {
+        c.drawRect(stripeLeft, stripeTop, stripeRight, stripeBottom, borderPaint)
+      } else {
+        c.withSave {
+          if (clipToRoot) {
+            buildBoundaryPath(spanned, start, end, rootSpan!!, boxLeft, top.toFloat(), boxRight, bottom.toFloat())
+            clipPath(path)
+          }
+          if (clipToOwn) {
+            val clipLeft = if (dir >= 0) stripeLeft else boxLeft
+            val clipRight = if (dir >= 0) boxRight else stripeRight
+            buildBoundaryPath(spanned, start, end, levelSpan!!, clipLeft, stripeTop, clipRight, stripeBottom)
+            clipPath(path)
+          }
+          drawRect(stripeLeft, stripeTop, stripeRight, stripeBottom, borderPaint)
+        }
       }
 
-      c.withSave {
-        if (rootBoundary) {
-          buildBoundaryPath(spanned, start, end, rootSpan!!, boxLeft, top.toFloat(), boxRight, bottom.toFloat())
-          clipPath(path)
-        }
-        if (ownBoundary) {
-          val clipLeft = if (dir >= 0) stripeLeft else boxLeft
-          val clipRight = if (dir >= 0) boxRight else stripeRight
-          buildBoundaryPath(spanned, start, end, levelSpan!!, clipLeft, top.toFloat(), clipRight, bottom.toFloat())
-          clipPath(path)
-        }
-        drawRect(stripeLeft, top.toFloat(), stripeRight, bottom.toFloat(), borderPaint)
+      if (padding > 0 && levelSpan != null) {
+        if (start == spanned.getSpanStart(levelSpan)) topInset += padding
+        if (isLastLineOf(spanned, end, levelSpan)) bottomInset += padding
       }
     }
   }
@@ -234,6 +249,15 @@ class BlockquoteSpan(
     level: Int,
   ): BlockquoteSpan? = spansAt(text, start).firstOrNull { it.depth == level }
 
+  private fun isLastLineOf(
+    text: Spanned,
+    lineEnd: Int,
+    box: BlockquoteSpan,
+  ): Boolean {
+    val boxEnd = text.getSpanEnd(box)
+    return lineEnd == boxEnd || (boxEnd <= lineEnd && (boxEnd == text.length || text[boxEnd - 1] == '\n'))
+  }
+
   private fun isBoundaryLine(
     text: Spanned,
     lineStart: Int,
@@ -243,9 +267,7 @@ class BlockquoteSpan(
     val boxStart = text.getSpanStart(box)
     val boxEnd = text.getSpanEnd(box)
     if (boxStart !in 0 until boxEnd) return false
-    return lineStart == boxStart ||
-      lineEnd == boxEnd ||
-      (boxEnd <= lineEnd && (boxEnd == text.length || text[boxEnd - 1] == '\n'))
+    return lineStart == boxStart || isLastLineOf(text, lineEnd, box)
   }
 
   private fun buildBoundaryPath(
@@ -259,11 +281,9 @@ class BlockquoteSpan(
     bottom: Float,
   ) {
     val boxStart = text.getSpanStart(box)
-    val boxEnd = text.getSpanEnd(box)
 
     val isFirstLine = lineStart == boxStart
-    val isLastLine =
-      lineEnd == boxEnd || (boxEnd <= lineEnd && (boxEnd == text.length || text[boxEnd - 1] == '\n'))
+    val isLastLine = isLastLineOf(text, lineEnd, box)
 
     val radius = blockquoteStyle.borderRadius
     radiiArray.fill(0f)
