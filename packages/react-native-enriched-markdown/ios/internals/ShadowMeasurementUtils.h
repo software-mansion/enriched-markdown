@@ -3,8 +3,11 @@
 #include "MeasurementCache.h"
 #import <Foundation/Foundation.h>
 #import <React/RCTUtils.h>
+#include <TargetConditionals.h>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <mutex>
 #include <react/renderer/core/LayoutConstraints.h>
 #include <react/utils/ManagedObjectWrapper.h>
 
@@ -15,22 +18,40 @@ namespace facebook::react {
 // synchronously joins the layout queue from main. A synchronous
 // layout flush from main would deadlock.
 
-static inline CGFloat ENRMFontScaleForMeasurement(bool allowFontScaling)
+inline CGFloat ENRMFontScaleForMeasurement(bool allowFontScaling)
 {
   if (!allowFontScaling) {
     return 1.0;
   }
 
-  __block CGFloat fontScale = 1.0;
-  void (^readFontScale)(void) = ^{ fontScale = RCTFontSizeMultiplier(); };
+  static std::atomic<double> cachedScale{0.0};
+  static std::once_flag flag;
 
-  if ([NSThread isMainThread]) {
-    readFontScale();
-  } else {
-    dispatch_sync(dispatch_get_main_queue(), readFontScale);
-  }
+  std::call_once(flag, [] {
+    __block CGFloat scale = 1.0;
+    void (^readScale)(void) = ^{ scale = RCTFontSizeMultiplier(); };
 
-  return fontScale;
+    if ([NSThread isMainThread]) {
+      readScale();
+    } else {
+      dispatch_sync(dispatch_get_main_queue(), readScale);
+    }
+    cachedScale.store(scale, std::memory_order_relaxed);
+
+#if !TARGET_OS_OSX
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [[NSNotificationCenter defaultCenter]
+          addObserverForName:UIContentSizeCategoryDidChangeNotification
+                      object:nil
+                       queue:[NSOperationQueue mainQueue]
+                  usingBlock:^(NSNotification *) {
+                    cachedScale.store(RCTFontSizeMultiplier(), std::memory_order_relaxed);
+                  }];
+    });
+#endif
+  });
+
+  return cachedScale.load(std::memory_order_relaxed);
 }
 
 static inline Size ENRMClampMeasuredSize(CGSize size, const LayoutConstraints &layoutConstraints)
