@@ -114,6 +114,14 @@ static inline StyleConfig *ENRMStyleConfigFromProps(const PropsT &typedProps, CG
  * (`ENRMFinalizeMeasuredTextSize`). Returns CGSizeZero for empty text — the
  * same result the view path produces, and a guard against TextKit's
  * empty-string layout freeze (see RCTTextLayoutManager).
+ *
+ * `usesFontLeading` must be NO: a raw NSLayoutManager defaults to YES and
+ * adds the used fonts' leading on top of the paragraph style's line-height
+ * clamp, while the UITextView the visible view renders with does not. Fonts
+ * pulled in by glyph fallback make this observable — Geeza Pro (Arabic)
+ * carries nonzero leading, so with YES every Arabic-script line measures
+ * taller than it renders and the surplus pools as phantom bottom space.
+ * RCTTextLayoutManager disables it for the same view-parity reason.
  */
 static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text, CGFloat maxWidth, StyleConfig *config,
                                                        BOOL allowTrailingMargin, CGFloat lastElementMarginBottom,
@@ -127,6 +135,7 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
   textContainer.lineFragmentPadding = 0;
   NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
   layoutManager.allowsNonContiguousLayout = NO;
+  layoutManager.usesFontLeading = NO;
   [layoutManager addTextContainer:textContainer];
   NSTextStorage *textStorage = [[NSTextStorage alloc] initWithAttributedString:text];
   [textStorage addLayoutManager:layoutManager];
