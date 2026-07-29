@@ -98,9 +98,14 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   RCTUIScrollView *_scrollView;
   ENRMCodeBlockContentView *_codeContentView;
   CGSize _codeSize;
+  CGFloat _headerLabelLineHeight;
+  NSAttributedString *_languageLabel;
+  CGSize _languageLabelSize;
 #if !TARGET_OS_OSX
+  UIFont *_headerFont;
   UIButton *_copyButton;
 #else
+  NSFont *_headerFont;
   NSButton *_copyButton;
 #endif
 }
@@ -121,6 +126,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _config = config;
     _cachedCode = @"";
     _fenceChar = @"`";
+#if !TARGET_OS_OSX
+    _headerFont = [UIFont systemFontOfSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale
+                                    weight:UIFontWeightMedium];
+    _headerLabelLineHeight = ceil(_headerFont.lineHeight);
+#else
+    _headerFont = [NSFont systemFontOfSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale
+                                    weight:NSFontWeightMedium];
+    _headerLabelLineHeight = ceil(_headerFont.ascender - _headerFont.descender);
+#endif
     self.backgroundColor = [RCTUIColor clearColor];
     [self setupScrollView];
 
@@ -200,33 +214,11 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #endif
 }
 
-#if !TARGET_OS_OSX
-- (UIFont *)headerFont
-{
-  return [UIFont systemFontOfSize:[_config codeBlockFont].pointSize * kENRMHeaderLabelScale weight:UIFontWeightMedium];
-}
-#else
-- (NSFont *)headerFont
-{
-  return [NSFont systemFontOfSize:[_config codeBlockFont].pointSize * kENRMHeaderLabelScale weight:NSFontWeightMedium];
-}
-#endif
-
-- (CGFloat)headerLabelLineHeight
-{
-#if !TARGET_OS_OSX
-  return ceil([self headerFont].lineHeight);
-#else
-  NSFont *font = [self headerFont];
-  return ceil(font.ascender - font.descender);
-#endif
-}
-
 // Header is the top content inset plus one label line; the code text's own
 // top inset then forms the single gap below the label.
 - (CGFloat)headerHeight
 {
-  return [self contentInset] + [self headerLabelLineHeight];
+  return [self contentInset] + _headerLabelLineHeight;
 }
 
 - (void)layoutHeaderButton
@@ -238,7 +230,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
   CGFloat iconSlack = (headerH - iconWidth) / 2;
   CGFloat buttonLeft = MAX(self.bounds.size.width - [self contentInset] - headerH + iconSlack, 0);
-  CGFloat labelCenterY = headerH - [self headerLabelLineHeight] / 2;
+  CGFloat labelCenterY = headerH - _headerLabelLineHeight / 2;
   CGFloat buttonTop = MAX(labelCenterY - headerH / 2, 0);
   _copyButton.frame = CGRectMake(buttonLeft, buttonTop, headerH, headerH);
 }
@@ -275,9 +267,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 - (void)applyCodeBlockNode:(MarkdownASTNode *)node
 {
   _cachedCode = ENRMCodeBlockExtractCode(node);
-  _cachedLanguage = ENRMCodeBlockLanguage(node);
-  _displayLanguage = ENRMCodeBlockDisplayLanguageName(_cachedLanguage);
   _fenceChar = ENRMCodeBlockFenceChar(node);
+
+  NSString *newLanguage = ENRMCodeBlockLanguage(node);
+  BOOL languageChanged = newLanguage != _cachedLanguage && ![newLanguage isEqualToString:_cachedLanguage];
+  if (languageChanged) {
+    _cachedLanguage = newLanguage;
+    _displayLanguage = ENRMCodeBlockDisplayLanguageName(newLanguage);
+    [self rebuildLanguageLabel];
+  }
 
   NSAttributedString *plainCode = [self plainAttributedCode];
   NSAttributedString *highlighted = ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage);
@@ -302,6 +300,23 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   [self setNeedsDisplay:YES];
   [_codeContentView setNeedsDisplay:YES];
 #endif
+}
+
+- (void)rebuildLanguageLabel
+{
+  if (_displayLanguage.length == 0) {
+    _languageLabel = nil;
+    _languageLabelSize = CGSizeZero;
+    return;
+  }
+  NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
+  labelAttributes[NSFontAttributeName] = _headerFont;
+  RCTUIColor *labelColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
+  if (labelColor) {
+    labelAttributes[NSForegroundColorAttributeName] = labelColor;
+  }
+  _languageLabel = [[NSAttributedString alloc] initWithString:_displayLanguage attributes:labelAttributes];
+  _languageLabelSize = _languageLabel.size;
 }
 
 - (NSAttributedString *)plainAttributedCode
@@ -372,15 +387,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #endif
   }
 
-  if (_displayLanguage.length > 0) {
-    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
-    labelAttributes[NSFontAttributeName] = [self headerFont];
-    RCTUIColor *labelColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
-    if (labelColor) {
-      labelAttributes[NSForegroundColorAttributeName] = labelColor;
-    }
-    CGSize labelSize = [_displayLanguage sizeWithAttributes:labelAttributes];
-    [_displayLanguage drawAtPoint:CGPointMake(inset, headerH - labelSize.height) withAttributes:labelAttributes];
+  if (_languageLabel.length > 0) {
+    [_languageLabel drawAtPoint:CGPointMake(inset, headerH - _languageLabelSize.height)];
   }
 }
 

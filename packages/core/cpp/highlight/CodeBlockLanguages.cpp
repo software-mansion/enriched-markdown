@@ -1,7 +1,9 @@
 #include "CodeBlockLanguages.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstring>
 
 namespace Markdown {
 
@@ -12,6 +14,7 @@ struct LanguageName {
   const char *name;
 };
 
+// Sorted by key; displayNameForLanguage binary-searches this table.
 constexpr std::array<LanguageName, 44> kLanguageNames{{
     {"bash", "Bash"},
     {"c", "C"},
@@ -71,10 +74,11 @@ std::string displayNameForLanguage(const std::string &language) {
     c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   }
 
-  for (const auto &entry : kLanguageNames) {
-    if (lower == entry.key) {
-      return entry.name;
-    }
+  auto it =
+      std::lower_bound(kLanguageNames.begin(), kLanguageNames.end(), lower.c_str(),
+                       [](const LanguageName &entry, const char *key) { return std::strcmp(entry.key, key) < 0; });
+  if (it != kLanguageNames.end() && lower == it->key) {
+    return it->name;
   }
 
   lower[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(lower[0])));

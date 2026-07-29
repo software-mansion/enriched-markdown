@@ -53,6 +53,10 @@ class CodeBlockContainerView(
   BlockSegmentView {
   private val codeBlockStyle: CodeBlockStyle = styleConfig.codeBlockStyle
 
+  private val inset = contentInset(codeBlockStyle)
+  private val borderW = borderPx(codeBlockStyle)
+  private val headerH = headerHeight(codeBlockStyle)
+
   override val segmentMarginTop: Int get() = codeBlockStyle.marginTop.toInt()
   override val segmentMarginBottom: Int get() = codeBlockStyle.marginBottom.toInt()
 
@@ -78,8 +82,7 @@ class CodeBlockContainerView(
       setTextSize(TypedValue.COMPLEX_UNIT_PX, codeBlockStyle.fontSize)
       typeface = createCodePaint(codeBlockStyle, context).typeface
       setTextColor(codeBlockStyle.color)
-      val inset = contentInset(codeBlockStyle)
-      val horizontalPad = (inset - borderPx(codeBlockStyle)).coerceAtLeast(0)
+      val horizontalPad = (inset - borderW).coerceAtLeast(0)
       setPadding(horizontalPad, inset, horizontalPad, inset)
       setOnLongClickListener { view ->
         showContextMenu(view)
@@ -118,12 +121,7 @@ class CodeBlockContainerView(
       setImageDrawable(
         CopyIconDrawable(secondaryColor(codeBlockStyle.color), ceil(codeBlockStyle.fontSize).toInt()),
       )
-      setOnClickListener {
-        if (code.isNotEmpty()) {
-          val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-          clipboard.setPrimaryClip(ClipData.newPlainText("Code", code))
-        }
-      }
+      setOnClickListener { copyCode() }
     }
 
   private val dividerPaint =
@@ -154,13 +152,17 @@ class CodeBlockContainerView(
 
   fun applyCodeBlockNode(node: MarkdownASTNode) {
     code = CodeBlockNode.extractCode(node)
-    language = CodeBlockNode.language(node)
     fenceChar = CodeBlockNode.fenceChar(node)
 
-    languageView.text = CodeBlockNode.displayLanguageName(language)
+    val newLanguage = CodeBlockNode.language(node)
+    if (newLanguage != language) {
+      language = newLanguage
+      languageView.text = CodeBlockNode.displayLanguageName(newLanguage)
+    }
 
     val plainCode = buildCodeText(code, codeBlockStyle)
-    textView.text = CodeBlockHighlighter.highlight(plainCode, code, language) ?: plainCode
+    CodeBlockHighlighter.highlight(plainCode, code, language)
+    textView.text = plainCode
   }
 
   override fun onMeasure(
@@ -168,9 +170,6 @@ class CodeBlockContainerView(
     heightSpec: Int,
   ) {
     val measuredWidth = MeasureSpec.getSize(widthSpec)
-    val headerH = headerHeight(codeBlockStyle)
-    val inset = contentInset(codeBlockStyle)
-    val borderW = borderPx(codeBlockStyle)
     scrollView.measure(
       MeasureSpec.makeMeasureSpec((measuredWidth - borderW * 2).coerceAtLeast(0), MeasureSpec.EXACTLY),
       MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
@@ -195,9 +194,6 @@ class CodeBlockContainerView(
     bottom: Int,
   ) {
     val width = right - left
-    val headerH = headerHeight(codeBlockStyle)
-    val inset = contentInset(codeBlockStyle)
-
     val labelTop = headerH - languageView.measuredHeight
     languageView.layout(
       inset,
@@ -217,35 +213,38 @@ class CodeBlockContainerView(
       buttonTop + copyButton.measuredHeight,
     )
 
-    val borderW = borderPx(codeBlockStyle)
-    scrollView.layout(borderW, headerH, width - borderW, bottom - top)
+    scrollView.layout(borderW, headerH, width - borderW, bottom - top - borderW)
   }
 
   // Divider between the header and the code, centered in the gap the code
   // text's top inset creates, so it adds no height of its own.
   override fun onDraw(canvas: Canvas) {
     super.onDraw(canvas)
-    val borderWidth = ceil(codeBlockStyle.borderWidth)
-    val y = headerHeight(codeBlockStyle) + contentInset(codeBlockStyle) / 2f
+    val borderWidth = borderW.toFloat()
+    val y = headerH + inset / 2f
     canvas.drawLine(borderWidth, y, width - borderWidth, y, dividerPaint)
   }
 
   private fun showContextMenu(anchor: View) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, copyLabel) {
-        if (code.isNotEmpty()) {
-          clipboard.setPrimaryClip(ClipData.newPlainText("Code", code))
-        }
-      }
-      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) {
-        if (code.isNotEmpty()) {
-          clipboard.setPrimaryClip(
-            ClipData.newPlainText("Code", CodeBlockNode.fencedMarkdown(code, language, fenceChar)),
-          )
-        }
-      }
+      item(ContextMenuPopup.Icon.COPY, copyLabel) { copyCode() }
+      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) { copyFencedMarkdown() }
     }
+  }
+
+  private fun copyCode() {
+    if (code.isEmpty()) return
+    copyToClipboard(code)
+  }
+
+  private fun copyFencedMarkdown() {
+    if (code.isEmpty()) return
+    copyToClipboard(CodeBlockNode.fencedMarkdown(code, language, fenceChar))
+  }
+
+  private fun copyToClipboard(text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("Code", text))
   }
 
   private class CopyIconDrawable(

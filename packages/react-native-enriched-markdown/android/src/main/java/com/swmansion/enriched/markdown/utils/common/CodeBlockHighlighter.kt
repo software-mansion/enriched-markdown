@@ -2,7 +2,6 @@ package com.swmansion.enriched.markdown.utils.common
 
 import android.graphics.Color
 import android.text.Spannable
-import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.util.Log
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
@@ -36,9 +35,10 @@ enum class HighlightTokenType {
  * The native call returns semantic tokens as (start, end, type) int triplets
  * with UTF-16 offsets into the code string, or null when highlighting is
  * unavailable (module compiled out, unknown language, parse failure). The
- * adapter applies token colors as ForegroundColorSpans onto the plain styled
- * code, so highlighting can never change text metrics and the measured block
- * height stays valid. A null return means callers keep the plain text.
+ * adapter applies token colors in place as ForegroundColorSpans onto the
+ * plain styled code, so highlighting can never change text metrics and the
+ * measured block height stays valid. When highlighting is unavailable the
+ * spannable is left untouched and renders as plain text.
  */
 object CodeBlockHighlighter {
   init {
@@ -58,15 +58,14 @@ object CodeBlockHighlighter {
     plainCode: Spannable,
     code: String,
     language: String?,
-  ): Spanned? {
+  ) {
     val tokens =
       try {
         nativeHighlightCode(code, language.orEmpty())
       } catch (e: UnsatisfiedLinkError) {
         null
-      } ?: return null
+      } ?: return
 
-    var applied = false
     var i = 0
     while (i + 2 < tokens.size) {
       val start = tokens[i]
@@ -74,11 +73,9 @@ object CodeBlockHighlighter {
       val color = HighlightTokenType.entries.getOrNull(tokens[i + 2])?.let(::colorForToken)
       if (color != null && start >= 0 && end > start && end <= plainCode.length) {
         plainCode.setSpan(ForegroundColorSpan(color), start, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
-        applied = true
       }
       i += 3
     }
-    return if (applied) plainCode else null
   }
 
   // TODO: provisional palette (GitHub light scheme); replace with themable
