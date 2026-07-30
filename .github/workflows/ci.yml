@@ -67,6 +67,9 @@ jobs:
       - name: Typecheck files
         run: yarn typecheck
 
+      - name: Run unit tests
+        run: yarn test
+
   rn-build-library:
     needs: changes
     if: needs.changes.outputs.react-native == 'true'

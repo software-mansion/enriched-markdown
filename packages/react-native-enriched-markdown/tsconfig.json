@@ -23,7 +23,7 @@
     "noUnusedParameters": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["node"],
+    "types": ["node", "jest"],
     "strict": true,
     "target": "ESNext",
     "verbatimModuleSyntax": true

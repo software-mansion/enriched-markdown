@@ -66,6 +66,7 @@ We can help you build your next dream product –
   - [Other Events](docs/INPUT.md#other-events)
   - [Customizing Styles](docs/INPUT.md#customizing-enrichedmarkdowntextinput--styles)
 - [API Reference](#api-reference)
+- [Testing with Jest](docs/TESTING.md)
 - [Web Support](docs/WEB.md)
 - [macOS Support](docs/MACOS.md)
 - [Compatibility Table](#compatibility-table)

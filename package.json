@@ -34,6 +34,7 @@
     "test:e2e:android:update-screenshots": ".maestro/scripts/run-tests.sh --platform android --update-screenshots",
     "test:e2e:ios:update-screenshots": ".maestro/scripts/run-tests.sh --platform ios --update-screenshots",
     "typecheck": "yarn workspace react-native-enriched-markdown typecheck",
+    "test": "yarn workspace react-native-enriched-markdown test",
     "lint": "eslint \"**/*.{js,ts,tsx}\" --no-warn-ignored",
     "lint-clang:ios": "yarn workspace react-native-enriched-markdown lint-clang:ios",
     "lint-clang:ios:fix": "yarn workspace react-native-enriched-markdown lint-clang:ios:fix",
