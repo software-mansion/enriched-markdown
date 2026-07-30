@@ -691,24 +691,37 @@ class EnrichedMarkdownTextInputView(
   /**
    * Replaces the selection with parsed markdown, importing its inline formatting
    * and block ranges (headings etc.) into the stores — mirrors iOS pasteMarkdown.
+   *
+   * Insertion is literal: the string's characters land at the cursor exactly as
+   * given. Markdown parsing consumes leading and trailing newlines as block
+   * structure, so they are split off before the parse and re-attached verbatim;
+   * without this, insertText("\n- item\n") mid-paragraph would merge the list
+   * line with the surrounding text. Callers decide separation by including (or
+   * omitting) newlines in the string.
    */
   fun pasteMarkdown(markdown: String) {
     val editable = text ?: return
-    val parsed = InputParser.parseToPlainTextAndRanges(markdown)
+    val prefix = markdown.takeWhile { it == '\n' }
+    val suffix = if (markdown.length > prefix.length) markdown.takeLastWhile { it == '\n' } else ""
+    val core = markdown.substring(prefix.length, markdown.length - suffix.length)
+    val parsed = InputParser.parseToPlainTextAndRanges(core)
     val selStart = selectionStart.coerceIn(0, editable.length)
     val selEnd = selectionEnd.coerceIn(selStart, editable.length)
 
-    replaceTextInRange(selStart, selEnd, parsed.plainText) { editable ->
+    val plainText = prefix + parsed.plainText + suffix
+    val contentStart = selStart + prefix.length
+
+    replaceTextInRange(selStart, selEnd, plainText) { editable ->
       for (range in parsed.formattingRanges) {
         formattingStore.addRange(
-          FormattingRange(range.type, range.start + selStart, range.end + selStart, range.url),
+          FormattingRange(range.type, range.start + contentStart, range.end + contentStart, range.url),
         )
       }
       for (block in parsed.blockRanges) {
-        blockStore.setBlock(block.type, block.level, block.start + selStart, block.end + selStart, editable)
+        blockStore.setBlock(block.type, block.level, block.start + contentStart, block.end + contentStart, editable)
       }
-      setSelection(selStart + parsed.plainText.length)
-      detectorPipeline.processTextChange(editable, editable.toString(), selStart, parsed.plainText.length)
+      setSelection(selStart + plainText.length)
+      detectorPipeline.processTextChange(editable, editable.toString(), selStart, plainText.length)
     }
   }
 
@@ -777,6 +790,12 @@ class EnrichedMarkdownTextInputView(
     if (selStart == selEnd) return
     linkCoordinator.setLinkForRange(url, selStart, selEnd, text)
     applyFormattingAndEmit()
+  }
+
+  /** Parses the given markdown and inserts it at the cursor, replacing any selection. */
+  fun insertTextAtCursor(markdown: String) {
+    if (markdown.isEmpty()) return
+    pasteMarkdown(markdown)
   }
 
   fun insertLinkAtCursor(

@@ -1000,6 +1000,10 @@ Inserts a link with the given text and URL at the current cursor position. Usefu
 
 Removes the link from the current selection.
 
+### `insertText(text: string)`
+
+Parses the given string as Markdown and inserts it literally at the current cursor position, replacing the selection if there is one. Leading and trailing newlines are preserved, so wrap block content (lists, headings) in newlines to keep it on its own lines when inserting mid-paragraph — `insertText('\n- item\n')` in the middle of `test` yields `te`, a `- item` bullet, and `st` on separate lines. Calling it with an empty string is a no-op.
+
 ### `copyToClipboard()`
 
 Copies the input's full content to the system clipboard, matching the result of selecting all text and pressing the context menu's copy action. The selection is left unchanged, and calling it on an empty input is a no-op.

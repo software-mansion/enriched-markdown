@@ -337,6 +337,7 @@ interface NativeCommands {
     text: string,
     url: string
   ) => void;
+  insertText: (viewRef: React.ElementRef<ComponentType>, text: string) => void;
   insertMention: (
     viewRef: React.ElementRef<ComponentType>,
     displayText: string,
@@ -376,6 +377,7 @@ export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
     'outdentList',
     'setLink',
     'insertLink',
+    'insertText',
     'insertMention',
     'startMention',
     'removeLink',

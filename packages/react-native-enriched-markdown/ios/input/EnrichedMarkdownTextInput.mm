@@ -732,14 +732,54 @@ using namespace facebook::react;
   [self replaceTextInRange:_textView.selectedRange withText:text formattingRanges:ranges];
 }
 
+/// Insertion is literal: the string's characters land at the cursor exactly as
+/// given. Markdown parsing consumes leading and trailing newlines as block
+/// structure, so they are split off before the parse and re-attached verbatim;
+/// without this, inserting "\n- item\n" mid-paragraph would merge the list line
+/// with the surrounding text. Callers decide separation by including (or
+/// omitting) newlines in the string.
 - (void)pasteMarkdown:(NSString *)markdown
 {
+  NSUInteger lead = 0;
+  while (lead < markdown.length && [markdown characterAtIndex:lead] == '\n') {
+    lead++;
+  }
+  NSUInteger trail = 0;
+  while (lead + trail < markdown.length && [markdown characterAtIndex:markdown.length - 1 - trail] == '\n') {
+    trail++;
+  }
+  NSString *core = [markdown substringWithRange:NSMakeRange(lead, markdown.length - lead - trail)];
+
   ENRMInputParser *parser = [[ENRMInputParser alloc] init];
-  ENRMParseResult *parsed = [parser parseToPlainTextAndRanges:markdown];
+  ENRMParseResult *parsed = [parser parseToPlainTextAndRanges:core];
+
+  if (lead == 0 && trail == 0) {
+    [self replaceTextInRange:_textView.selectedRange
+                    withText:parsed.plainText
+            formattingRanges:parsed.formattingRanges
+                 blockRanges:parsed.blockRanges];
+    return;
+  }
+
+  NSString *prefix = [@"" stringByPaddingToLength:lead withString:@"\n" startingAtIndex:0];
+  NSString *suffix = [@"" stringByPaddingToLength:trail withString:@"\n" startingAtIndex:0];
+  NSString *plainText = [NSString stringWithFormat:@"%@%@%@", prefix, parsed.plainText, suffix];
+
+  NSMutableArray<ENRMFormattingRange *> *formattingRanges =
+      [NSMutableArray arrayWithCapacity:parsed.formattingRanges.count];
+  for (ENRMFormattingRange *range in parsed.formattingRanges) {
+    NSRange shifted = NSMakeRange(range.range.location + lead, range.range.length);
+    [formattingRanges addObject:[ENRMFormattingRange rangeWithType:range.type range:shifted url:range.url]];
+  }
+  NSMutableArray<ENRMBlockRange *> *blockRanges = [NSMutableArray arrayWithCapacity:parsed.blockRanges.count];
+  for (ENRMBlockRange *block in parsed.blockRanges) {
+    NSRange shifted = NSMakeRange(block.range.location + lead, block.range.length);
+    [blockRanges addObject:[ENRMBlockRange rangeWithType:block.type range:shifted level:block.level]];
+  }
   [self replaceTextInRange:_textView.selectedRange
-                  withText:parsed.plainText
-          formattingRanges:parsed.formattingRanges
-               blockRanges:parsed.blockRanges];
+                  withText:plainText
+          formattingRanges:formattingRanges
+               blockRanges:blockRanges];
 }
 
 #pragma mark - Formatting
@@ -1238,6 +1278,14 @@ using namespace facebook::react;
                                                             range:linkRange
                                                               url:[_linkCoordinator sanitizeURL:url]];
   [self replaceSelectedTextWith:displayText formattingRanges:@[ range ]];
+}
+
+- (void)insertText:(NSString *)text
+{
+  if (text.length == 0) {
+    return;
+  }
+  [self pasteMarkdown:text];
 }
 
 - (void)startMention:(NSString *)indicator
