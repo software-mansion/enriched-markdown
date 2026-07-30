@@ -30,12 +30,9 @@ internal object RangeEditAdjustment {
    * the range is decided elsewhere: pending styles for inline ranges, line
    * re-normalization for block ranges.
    *
-   * [inheritsReplacementAtStart] controls replacements (delete + insert) whose
-   * deletion starts exactly at a range's start: when it returns true, the
-   * inserted text joins the range (replacement text inherits the attributes of
-   * the first replaced character — bold, list membership); when false, the old
-   * clip/remove behavior applies (links: typing over a selected link should
-   * not extend it).
+   * [inheritsReplacementAtStart]: when it returns true for a range whose start
+   * is the edit location, replacement text joins the range (UIKit attribute
+   * inheritance); when false, the old clip/remove behavior applies.
    */
   fun <T : MutableRangeBounds> adjustForEdit(
     ranges: MutableList<T>,

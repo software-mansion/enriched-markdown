@@ -116,9 +116,7 @@ class BlockStore {
         it.type in BlockType.ANCHORED && it.start >= editLocation && it.end == deleteEnd
       }
 
-    // Blocks inherit replacements at their start: replacing a list item's
-    // leading text keeps the range anchored at the line start, so the
-    // orphan-anchor prune doesn't mistake it for a dead block.
+    // Blocks always inherit at their start so an edited list item stays anchored.
     RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength) { true }
 
     for (anchor in anchors) {
@@ -137,9 +135,8 @@ class BlockStore {
       ranges.add(sortedInsertionIndex(ranges, anchor.start), anchor)
     }
 
-    // Only restore the collapsed block if the adjustment actually removed it —
-    // a replacement starting at the block's start keeps it alive via
-    // inheritance, so restoring would duplicate the range.
+    // Skip restoring when inheritance kept the block alive (still in ranges);
+    // restoring would duplicate it.
     if (collapsed != null && collapsed !in ranges) {
       ranges.add(
         sortedInsertionIndex(ranges, editLocation),

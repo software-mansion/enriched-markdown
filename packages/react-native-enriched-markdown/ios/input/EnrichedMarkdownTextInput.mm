@@ -63,6 +63,10 @@ using namespace facebook::react;
 - (void)resetBaseTypingAttributes;
 @end
 
+// Delay before re-applying the atomic-link snap after a selection gesture ends;
+// UIKit may not re-fire the selection delegate at touch-up, so the snap polls.
+static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
+
 @implementation EnrichedMarkdownTextInput {
   ENRMPlatformTextView *_textView;
   ENRMInputLayoutManager *_layoutManager;
@@ -1110,7 +1114,10 @@ using namespace facebook::react;
 
 /// Drives the layout manager's empty-line bullet: an empty bullet line has no
 /// character to anchor the marker to, so the manager is told its location/depth
-/// explicitly; cleared when the caret isn't on an empty bullet line.
+/// explicitly; cleared when the caret isn't on an empty bullet line. Runs on
+/// every selection-change fire, so it early-returns when there is nothing to
+/// draw or clear and only touches storage when the paragraph style differs,
+/// avoiding layout churn that jitters the edit menu.
 - (void)updateEmptyBulletMarker
 {
   NSString *text = ENRMGetPlainText(_textView);
@@ -1123,10 +1130,6 @@ using namespace facebook::react;
   NSInteger ordinal = 1;
   ENRMBlockRange *cursorListBlock = selection.length == 0 ? [self listBlockForCursorParagraph] : nil;
 
-  // No marker to show and none currently shown: skip the forced layout +
-  // full-view redraw below. This runs on every selection-change delegate fire —
-  // dozens per second during a selection-handle drag — and the redundant
-  // layoutIfNeeded/setNeedsDisplay churn makes the edit menu jitter.
   ENRMInputListMarkerDrawer *listDrawer = _layoutManager.listMarkerDrawer;
   BOOL wasShown = listDrawer.emptyBulletDepth >= 0;
   if (cursorListBlock == nil && !wasShown) {
@@ -1154,8 +1157,6 @@ using namespace facebook::react;
         NSParagraphStyle *existing = [storage attribute:NSParagraphStyleAttributeName
                                                 atIndex:paragraphRange.location
                                          effectiveRange:NULL];
-        // Only edit the storage when the style is actually missing: an edit
-        // here invalidates layout, and this runs per selection-change fire.
         if (existing == nil || existing.firstLineHeadIndent != indent || existing.headIndent != indent ||
             existing.paragraphSpacingBefore != _formatterStyle.listItemSpacing) {
           NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
@@ -1170,8 +1171,6 @@ using namespace facebook::react;
     }
   }
 
-  // Caret on a non-empty list line resolves to "no marker" too — nothing to
-  // draw or clear, so skip the redraw below.
   if (!show && !wasShown) {
     return;
   }
@@ -1713,10 +1712,8 @@ using namespace facebook::react;
   [_inputEventEmitter emitOnBlur];
 }
 
-/// Clamps the atomic-link-snapped selection to the current text: a stale link
-/// range extending past the text end would otherwise make the snap reach beyond
-/// the document, UIKit clamp the write, and the delegate re-fire in an
-/// unbounded snap/clamp loop.
+/// Atomic-link snap clamped to the current text length, so a stale link range
+/// past the text end can't drive an unbounded snap/clamp loop.
 - (NSRange)clampedAtomicSelectionForSelection:(NSRange)selection
 {
   NSRange adjusted = [_formattingStore selectionAdjustedForAtomicLinks:selection];
@@ -1731,10 +1728,8 @@ using namespace facebook::react;
 }
 
 /// YES while a UIKit selection gesture (handle drag, long-press loupe) is
-/// mid-flight. Writing selectedRange during the gesture fights UIKit's
-/// per-frame updates: each programmatic write dismisses and re-presents the
-/// edit menu while the gesture immediately reasserts the finger-derived range —
-/// visible as the menu jumping up and down. Snap once the gesture settles.
+/// mid-flight; snapping selectedRange then fights the gesture and flickers the
+/// edit menu, so callers defer the snap until it settles.
 - (BOOL)selectionGestureIsActive
 {
   for (UIGestureRecognizer *recognizer in _textView.gestureRecognizers) {
@@ -1745,9 +1740,8 @@ using namespace facebook::react;
   return NO;
 }
 
-/// Re-applies the atomic-link snap once the live selection gesture ends. Polls
-/// on the main queue (one pending block at a time) because UIKit does not
-/// necessarily fire the selection delegate again at touch-up.
+/// Re-applies the atomic-link snap once the selection gesture ends, polling the
+/// main queue because UIKit may not re-fire the selection delegate at touch-up.
 - (void)schedulePostGestureAtomicSnap
 {
   if (_atomicSnapScheduled) {
@@ -1755,22 +1749,27 @@ using namespace facebook::react;
   }
   _atomicSnapScheduled = YES;
   __weak __typeof(self) weakSelf = self;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    __typeof(self) strongSelf = weakSelf;
-    if (strongSelf == nil) {
-      return;
-    }
-    strongSelf->_atomicSnapScheduled = NO;
-    if ([strongSelf selectionGestureIsActive]) {
-      [strongSelf schedulePostGestureAtomicSnap];
-      return;
-    }
-    NSRange selection = strongSelf->_textView.selectedRange;
-    NSRange adjusted = [strongSelf clampedAtomicSelectionForSelection:selection];
-    if (!NSEqualRanges(adjusted, selection)) {
-      strongSelf->_textView.selectedRange = adjusted;
-    }
-  });
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kENRMAtomicSnapPollInterval * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   __typeof(self) strongSelf = weakSelf;
+                   if (strongSelf == nil) {
+                     return;
+                   }
+                   strongSelf->_atomicSnapScheduled = NO;
+                   if (strongSelf->_editSession.shouldSuppressSelectionSideEffects ||
+                       strongSelf->_editSession.isComposing) {
+                     return;
+                   }
+                   if ([strongSelf selectionGestureIsActive]) {
+                     [strongSelf schedulePostGestureAtomicSnap];
+                     return;
+                   }
+                   NSRange selection = strongSelf->_textView.selectedRange;
+                   NSRange adjusted = [strongSelf clampedAtomicSelectionForSelection:selection];
+                   if (!NSEqualRanges(adjusted, selection)) {
+                     strongSelf->_textView.selectedRange = adjusted;
+                   }
+                 });
 }
 
 - (void)textViewDidChangeSelection:(UITextView *)textView
@@ -1778,7 +1777,6 @@ using namespace facebook::react;
   NSRange newSelection = textView.selectedRange;
   if (!_editSession.shouldSuppressSelectionSideEffects && !_editSession.isComposing) {
     if ([self selectionGestureIsActive]) {
-      // Defer the snap; mid-gesture writes make the edit menu flicker.
       [self schedulePostGestureAtomicSnap];
     } else {
       NSRange adjusted = [self clampedAtomicSelectionForSelection:newSelection];

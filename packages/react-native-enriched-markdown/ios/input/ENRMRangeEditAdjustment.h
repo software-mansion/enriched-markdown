@@ -20,11 +20,9 @@ typedef struct {
 /// is decided elsewhere: pending styles for inline ranges, line
 /// re-normalization for block ranges.
 ///
-/// `inheritsReplacementAtStart` controls replacements (delete + insert) whose
-/// deletion starts exactly at the range start: when YES, the inserted text
-/// joins the range (UIKit gives replacement text the attributes of the first
-/// replaced character — bold, list membership); when NO, the old clip/remove
-/// behavior applies (links: typing over a selected link should not extend it).
+/// `inheritsReplacementAtStart`: when YES, a replacement whose deletion starts
+/// at the range start lets the inserted text join the range (UIKit attribute
+/// inheritance); when NO, the old clip/remove behavior applies.
 ENRMAdjustedRange ENRMAdjustRangeForEdit(NSRange range, NSUInteger editLocation, NSUInteger deletedLength,
                                          NSUInteger insertedLength, BOOL inheritsReplacementAtStart);
 

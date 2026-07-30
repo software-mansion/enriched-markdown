@@ -152,10 +152,8 @@
   [_pendingStyles removeAllObjects];
   [_pendingStyleRemovals removeAllObjects];
   [self rebuildFromContext];
-  // Typing attributes only matter at a caret. With a non-empty selection UIKit
-  // derives replacement attributes from the first selected character;
-  // overwriting them here would strip e.g. bold from text typed over a
-  // selection and churn attributes on every frame of a selection-handle drag.
+  // Typing attributes only matter at a caret; syncing them under a non-empty
+  // selection would strip styles from text typed over it and churn per frame.
   if ([_dataSource selectedRange].length == 0) {
     [self syncWithCursorBlock];
   }
@@ -182,10 +180,8 @@
 
   NSRange selection = [_dataSource selectedRange];
 
-  // Non-empty selection: text typed over it inherits the styles of the first
-  // selected character (UIKit replacement semantics). Seed pending styles from
-  // there so the whole typed run stays styled — the post-edit grace period
-  // skips reseeding between keystrokes, so this is the only chance.
+  // Non-empty selection: seed pending styles from the first selected character
+  // (UIKit replacement semantics) so the whole typed-over run stays styled.
   if (selection.length > 0) {
     for (NSUInteger i = 0; i < sizeof(inlineStyles) / sizeof(inlineStyles[0]); i++) {
       ENRMInputStyleType type = inlineStyles[i];

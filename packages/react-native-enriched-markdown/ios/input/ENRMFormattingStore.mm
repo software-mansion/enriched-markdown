@@ -252,9 +252,8 @@
 
   for (NSUInteger idx = 0; idx < _ranges.count; idx++) {
     ENRMFormattingRange *formattingRange = _ranges[idx];
-    // Replacement text inherits inline styles that start at the replaced
-    // selection's start (UIKit typing semantics), but never link membership —
-    // typing over a selected link/mention replaces it, not extends it.
+    // Inline styles inherit replacement at their start, but links don't; typing
+    // over a selected link replaces it.
     BOOL inheritsReplacement = formattingRange.type != ENRMInputStyleTypeLink;
     ENRMAdjustedRange adjusted =
         ENRMAdjustRangeForEdit(formattingRange.range, editLocation, deletedLength, insertedLength, inheritsReplacement);
