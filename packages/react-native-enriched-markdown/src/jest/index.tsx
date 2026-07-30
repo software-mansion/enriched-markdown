@@ -1,33 +1,21 @@
 /**
- * Jest mock for `react-native-enriched-markdown`.
+ * Jest mock for `react-native-enriched-markdown`, wired up via
+ * `jest.mock('react-native-enriched-markdown', () => require('react-native-enriched-markdown/jest'))`.
+ * See docs/TESTING.md for setup and the behavior it mirrors.
  *
- * `EnrichedMarkdownTextInput` and `EnrichedMarkdownText` are Fabric/codegen
- * native components. Under Jest there is no native view manager, so rendering
- * them or invoking any imperative ref method (which dispatches a native
- * command) throws. This module provides drop-in replacements that render plain
- * React Native primitives and expose every imperative method as a spy, so
- * consumer screens that embed the input can be rendered and asserted with React
- * Native Testing Library.
+ * The two components are Fabric/codegen native views: under Jest there is no
+ * native view manager, so rendering them or calling any imperative ref method
+ * (each dispatches a native command) throws. These replacements render plain RN
+ * primitives and expose every imperative method as a spy.
  *
- * Wire it up once, in your jest setup file:
+ * Behavior mirrored from the native component: typing fires `onChangeText` and,
+ * when set, `onChangeMarkdown` (the raw text stands in for parsed markdown);
+ * `setValue()` updates the rendered text but emits no change events, matching
+ * the native suppression of emits for programmatic updates.
  *
- *   jest.mock('react-native-enriched-markdown', () =>
- *     require('react-native-enriched-markdown/jest'),
- *   );
- *
- * The mock is authored against the library's real public types
- * (`EnrichedMarkdownTextInputProps`, `EnrichedMarkdownTextInputInstance`,
- * `EnrichedMarkdownTextProps`), so `yarn typecheck` fails if the API gains a
- * prop or ref method the mock does not cover. That is the anti-drift guarantee:
- * the mock cannot silently fall behind the real component.
- *
- * Semantics that mirror the native component:
- * - Typing in the rendered `TextInput` fires `onChangeText` and, when a handler
- *   is provided, `onChangeMarkdown`. The mock cannot parse markdown, so it
- *   forwards the raw text to `onChangeMarkdown` as a stand-in.
- * - `setValue()` updates the rendered text (so the programmatic value is
- *   observable) but emits no change events, matching the native side's
- *   suppression of emits for programmatic updates (`blockEmitting`).
+ * The mock is typed against the real public types, so `yarn typecheck` fails if
+ * the API gains a prop or ref method the mock does not cover -- it cannot
+ * silently drift from the real component.
  */
 import { useImperativeHandle, useRef, useState } from 'react';
 import type { ComponentRef } from 'react';
@@ -44,14 +32,9 @@ export {
   resolveAccessibilityLabels,
 } from '../accessibilityLabelDefaults';
 
-// The `jest` global is always present when this module is loaded (it only runs
-// inside `jest.mock(...)`). We declare a minimal shape rather than depend on
-// `@types/jest` so the package typecheck stays free of test-runner types.
 type AnyFn = (...args: any[]) => any;
 declare const jest: { fn: <T extends AnyFn>(impl?: T) => T };
 
-// Returns a Jest spy wrapping `impl` so tests can assert calls while the spy
-// still performs the mock's real behavior (e.g. `setValue` updating text).
 const spy = <T extends AnyFn>(impl?: T): T => jest.fn(impl);
 
 const EMPTY_CARET_RECT: CaretRect = { x: 0, y: 0, width: 0, height: 0 };
@@ -77,8 +60,6 @@ export const EnrichedMarkdownTextInput = ({
   accessibilityRole,
   accessibilityState,
   nativeID,
-  // Enriched-only props with no plain-TextInput equivalent are intentionally
-  // dropped so they are not forwarded onto the underlying RN TextInput.
   markdownStyle: _markdownStyle,
   cursorColor: _cursorColor,
   selectionColor: _selectionColor,
@@ -99,8 +80,6 @@ export const EnrichedMarkdownTextInput = ({
   writingDirection: _writingDirection,
 }: EnrichedMarkdownTextInputProps) => {
   const [text, setText] = useState(defaultValue ?? '');
-  // Kept in sync with `text` so `getMarkdown()` resolves the latest value
-  // without a stale closure.
   const textRef = useRef(text);
   const inputRef = useRef<ComponentRef<typeof TextInput> | null>(null);
 
@@ -115,10 +94,6 @@ export const EnrichedMarkdownTextInput = ({
     onChangeMarkdown?.(next);
   };
 
-  // Build the instance (and its spies) once and reuse it across renders. State
-  // setters and refs are stable, so the closures stay valid, and the spy
-  // identities persist so tests can assert call counts even after a `setValue`
-  // triggers a re-render.
   const instanceRef = useRef<EnrichedMarkdownTextInputInstance | null>(null);
   if (instanceRef.current === null) {
     instanceRef.current = {
@@ -189,8 +164,6 @@ export const EnrichedMarkdownText = ({
   accessibilityRole,
   accessibilityState,
   nativeID,
-  // Consumer callbacks and rendering options have no effect in the mock; they
-  // are dropped so they are not forwarded onto the underlying RN Text.
   markdownStyle: _markdownStyle,
   onLinkPress: _onLinkPress,
   onLinkLongPress: _onLinkLongPress,
