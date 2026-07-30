@@ -46,12 +46,12 @@ export const EnrichedMarkdownTextInput = ({
   onChangeMarkdown,
   onFocus,
   onBlur,
-  editable,
+  editable = true,
   placeholder,
   placeholderTextColor,
-  autoFocus,
-  multiline,
-  scrollEnabled,
+  autoFocus = false,
+  multiline = true,
+  scrollEnabled = true,
   style,
   testID,
   accessible,
@@ -203,5 +203,3 @@ export const EnrichedMarkdownText = ({
     </Text>
   );
 };
-
-export default EnrichedMarkdownTextInput;
