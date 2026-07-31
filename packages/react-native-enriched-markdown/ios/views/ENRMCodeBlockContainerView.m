@@ -324,7 +324,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
 
   NSAttributedString *plainCode = [self plainAttributedCode];
-  NSAttributedString *highlighted = ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage);
+  NSAttributedString *highlighted = ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage, _config);
   _attributedCode = highlighted ?: plainCode;
 
   _codeSize = ENRMCodeBlockCodeSize(_attributedCode);

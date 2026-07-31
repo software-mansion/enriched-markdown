@@ -10,6 +10,7 @@
  * mapping once and instantiate it for each type.
  */
 
+#import "CodeBlockHighlighter.hpp"
 #import "ParagraphStyleUtils.h"
 #import "StyleConfig.h"
 #import <React/RCTConversions.h>
@@ -885,6 +886,30 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
     [config setCodeBlockPadding:newStyle.codeBlock.padding];
     changed = YES;
   }
+
+  // Syntax highlight colors: one diff+set per token type. Token ordinals come
+  // from HighlightTokenType so they can't drift out of sync with the seam.
+#define ENRM_SET_SYNTAX_COLOR(field, token)                                                                            \
+  if (newStyle.codeBlock.syntaxColors.field != oldStyle.codeBlock.syntaxColors.field) {                                \
+    [config setCodeBlockSyntaxColor:RCTUIColorFromSharedColor(newStyle.codeBlock.syntaxColors.field)                   \
+                           forToken:(NSInteger)Markdown::HighlightTokenType::token];                                   \
+    changed = YES;                                                                                                     \
+  }
+  ENRM_SET_SYNTAX_COLOR(keyword, Keyword)
+  ENRM_SET_SYNTAX_COLOR(operatorColor, Operator)
+  ENRM_SET_SYNTAX_COLOR(punctuation, Punctuation)
+  ENRM_SET_SYNTAX_COLOR(string, String)
+  ENRM_SET_SYNTAX_COLOR(number, Number)
+  ENRM_SET_SYNTAX_COLOR(constant, Constant)
+  ENRM_SET_SYNTAX_COLOR(comment, Comment)
+  ENRM_SET_SYNTAX_COLOR(function, Function)
+  ENRM_SET_SYNTAX_COLOR(type, Type)
+  ENRM_SET_SYNTAX_COLOR(variable, Variable)
+  ENRM_SET_SYNTAX_COLOR(property, Property)
+  ENRM_SET_SYNTAX_COLOR(tag, Tag)
+  ENRM_SET_SYNTAX_COLOR(attribute, Attribute)
+  ENRM_SET_SYNTAX_COLOR(embedded, Embedded)
+#undef ENRM_SET_SYNTAX_COLOR
 
   // ── Thematic Break ─────────────────────────────────────────────────────────
 

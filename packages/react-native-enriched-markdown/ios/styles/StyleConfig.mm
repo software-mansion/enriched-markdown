@@ -4,6 +4,10 @@
 #import <React/RCTFont.h>
 #import <React/RCTUtils.h>
 
+// Number of syntax highlight token types; mirrors HighlightTokenType in
+// cpp/highlight/CodeBlockHighlighter.hpp.
+static const NSInteger kENRMCodeBlockSyntaxColorCount = 14;
+
 static inline NSString *normalizedFontWeight(NSString *fontWeight)
 {
   // If nil or empty string, return nil to let RCTFont use fontFamily as-is
@@ -189,6 +193,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   CGFloat _codeBlockBorderRadius;
   CGFloat _codeBlockBorderWidth;
   CGFloat _codeBlockPadding;
+  RCTUIColor *_codeBlockSyntaxColors[kENRMCodeBlockSyntaxColorCount];
   ENRMFontSlot *_codeBlockFont;
   // Thematic break properties
   RCTUIColor *_thematicBreakColor;
@@ -463,6 +468,9 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_codeBlockBorderRadius = _codeBlockBorderRadius;
   copy->_codeBlockBorderWidth = _codeBlockBorderWidth;
   copy->_codeBlockPadding = _codeBlockPadding;
+  for (NSInteger i = 0; i < kENRMCodeBlockSyntaxColorCount; i++) {
+    copy->_codeBlockSyntaxColors[i] = [_codeBlockSyntaxColors[i] copy];
+  }
   copy->_thematicBreakColor = [_thematicBreakColor copy];
   copy->_thematicBreakHeight = _thematicBreakHeight;
   copy->_thematicBreakMarginTop = _thematicBreakMarginTop;
@@ -2108,6 +2116,22 @@ static const CGFloat kDefaultMinGap = 4.0;
     _codeBlockFont.needsRecreation = NO;
   }
   return _codeBlockFont.cachedFont;
+}
+
+- (RCTUIColor *)codeBlockSyntaxColorForToken:(NSInteger)tokenType
+{
+  if (tokenType < 0 || tokenType >= kENRMCodeBlockSyntaxColorCount) {
+    return nil;
+  }
+  return _codeBlockSyntaxColors[tokenType];
+}
+
+- (void)setCodeBlockSyntaxColor:(RCTUIColor *)newValue forToken:(NSInteger)tokenType
+{
+  if (tokenType < 0 || tokenType >= kENRMCodeBlockSyntaxColorCount) {
+    return;
+  }
+  _codeBlockSyntaxColors[tokenType] = newValue;
 }
 
 // Thematic break properties
