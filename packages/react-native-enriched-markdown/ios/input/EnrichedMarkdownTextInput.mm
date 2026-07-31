@@ -670,14 +670,14 @@ using namespace facebook::react;
   [_blockStore setRanges:parsed.blockRanges];
   _lastTextLength = parsed.plainText.length;
   _lastSelectedRange = _textView.selectedRange;
+
+  [_editSession exitPhase];
   [self applyFormatting];
   [self updatePlaceholderVisibility];
 
   if (parsed.plainText.length == 0) {
     [self resetBaseTypingAttributes];
   }
-
-  [_editSession exitPhase];
 }
 
 - (void)replaceTextInRange:(NSRange)selection
