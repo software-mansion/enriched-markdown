@@ -125,6 +125,24 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,
+    // Syntax highlighting is not applied on web yet — defaults kept for type
+    // compatibility and future parity. The four inheriting tokens use the base color.
+    syntaxColors: {
+      keyword: '#CF222E',
+      operatorColor: '#F3F4F6',
+      punctuation: '#F3F4F6',
+      string: '#0A3069',
+      number: '#0550AE',
+      constant: '#0550AE',
+      comment: '#6E7781',
+      function: '#8250DF',
+      type: '#953800',
+      variable: '#F3F4F6',
+      property: '#0550AE',
+      tag: '#116329',
+      attribute: '#0550AE',
+      embedded: '#F3F4F6',
+    },
   },
   link: {
     fontFamily: '',

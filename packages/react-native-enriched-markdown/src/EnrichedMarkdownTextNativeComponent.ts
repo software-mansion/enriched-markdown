@@ -44,12 +44,30 @@ interface ListStyleInternal extends BaseBlockStyleInternal {
   itemSpacing: CodegenTypes.Float;
 }
 
+interface CodeBlockSyntaxColorsInternal {
+  keyword: ColorValue;
+  operatorColor: ColorValue;
+  punctuation: ColorValue;
+  string: ColorValue;
+  number: ColorValue;
+  constant: ColorValue;
+  comment: ColorValue;
+  function: ColorValue;
+  type: ColorValue;
+  variable: ColorValue;
+  property: ColorValue;
+  tag: ColorValue;
+  attribute: ColorValue;
+  embedded: ColorValue;
+}
+
 interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
   backgroundColor: ColorValue;
   borderColor: ColorValue;
   borderRadius: CodegenTypes.Float;
   borderWidth: CodegenTypes.Float;
   padding: CodegenTypes.Float;
+  syntaxColors: CodeBlockSyntaxColorsInternal;
 }
 
 interface LinkStyleInternal {

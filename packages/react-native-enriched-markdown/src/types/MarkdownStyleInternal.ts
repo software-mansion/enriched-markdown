@@ -57,12 +57,33 @@ interface ListStyleInternal extends BaseBlockStyleInternal {
   itemSpacing: number;
 }
 
+// Resolved once by normalizeMarkdownStyle: every token has a concrete color
+// (the 4 "inherit" tokens are resolved to the code block base color), so native
+// applies colors by ordinal lookup with no fallback logic.
+export interface CodeBlockSyntaxColorsInternal {
+  keyword: string;
+  operatorColor: string;
+  punctuation: string;
+  string: string;
+  number: string;
+  constant: string;
+  comment: string;
+  function: string;
+  type: string;
+  variable: string;
+  property: string;
+  tag: string;
+  attribute: string;
+  embedded: string;
+}
+
 interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
   backgroundColor: string;
   borderColor: string;
   borderRadius: number;
   borderWidth: number;
   padding: number;
+  syntaxColors: CodeBlockSyntaxColorsInternal;
 }
 
 interface LinkStyleInternal {

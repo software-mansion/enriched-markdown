@@ -31,6 +31,30 @@ const getMonospaceFont = (): string =>
 
 const defaultTextColor = normalizeColor('#1F2937')!;
 
+// Base text color for code blocks; also the fallback for the syntax token types
+// that "inherit" (operator, punctuation, variable, embedded).
+const codeBlockTextColor = normalizeColor('#F3F4F6')!;
+
+// Provisional GitHub-light syntax palette. It is the single source of truth for
+// per-token code colors: native reads these resolved values and holds no default
+// of its own. The four inheriting tokens resolve to the code block base color.
+const DEFAULT_CODE_BLOCK_SYNTAX_COLORS = {
+  keyword: normalizeColor('#CF222E')!,
+  operatorColor: codeBlockTextColor,
+  punctuation: codeBlockTextColor,
+  string: normalizeColor('#0A3069')!,
+  number: normalizeColor('#0550AE')!,
+  constant: normalizeColor('#0550AE')!,
+  comment: normalizeColor('#6E7781')!,
+  function: normalizeColor('#8250DF')!,
+  type: normalizeColor('#953800')!,
+  variable: codeBlockTextColor,
+  property: normalizeColor('#0550AE')!,
+  tag: normalizeColor('#116329')!,
+  attribute: normalizeColor('#0550AE')!,
+  embedded: codeBlockTextColor,
+};
+
 // Explicit type annotation needed: Object.freeze breaks contextual typing, so
 // TypeScript widens literal 'auto' to `string` instead of `BlockTextAlign`.
 const baseHeader: {
@@ -130,7 +154,7 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
     fontSize: 14,
     fontFamily: getMonospaceFont(),
     fontWeight: '',
-    color: normalizeColor('#F3F4F6')!,
+    color: codeBlockTextColor,
     lineHeight: Platform.select({ ios: 20, android: 22, default: 22 })!,
     marginTop: 0,
     marginBottom: 16,
@@ -139,6 +163,7 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,
+    syntaxColors: { ...DEFAULT_CODE_BLOCK_SYNTAX_COLORS },
   },
   link: {
     fontFamily: '',
@@ -321,6 +346,26 @@ export const normalizeMarkdownStyle = (
     ).color;
     (result.highlight as MarkdownStyleInternal['highlight']).color =
       paragraphColor;
+  }
+
+  // mergeSubStyle deep-merges the nested syntaxColors object but only normalizes
+  // top-level color strings, so a user's nested override (e.g. '#ff0000') would
+  // reach native un-processColor'd. Normalize any string value here; the resolved
+  // defaults are already ColorValue and are skipped. Invalid values fall back to
+  // the default palette entry for that token.
+  if (style.codeBlock?.syntaxColors) {
+    const syntaxColors = (
+      result.codeBlock as MarkdownStyleInternal['codeBlock']
+    ).syntaxColors as unknown as Record<string, unknown>;
+    for (const token in syntaxColors) {
+      if (typeof syntaxColors[token] === 'string') {
+        syntaxColors[token] =
+          normalizeColor(syntaxColors[token] as string) ??
+          DEFAULT_CODE_BLOCK_SYNTAX_COLORS[
+            token as keyof typeof DEFAULT_CODE_BLOCK_SYNTAX_COLORS
+          ];
+      }
+    }
   }
 
   const finalResult = Object.freeze(result) as unknown as MarkdownStyleInternal;
