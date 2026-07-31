@@ -161,7 +161,7 @@ class CodeBlockContainerView(
     }
 
     val plainCode = buildCodeText(code, codeBlockStyle)
-    CodeBlockHighlighter.highlight(plainCode, code, language)
+    CodeBlockHighlighter.highlight(plainCode, code, language, codeBlockStyle)
     textView.text = plainCode
   }
 

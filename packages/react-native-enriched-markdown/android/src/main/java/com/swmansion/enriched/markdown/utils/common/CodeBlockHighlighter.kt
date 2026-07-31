@@ -1,9 +1,9 @@
 package com.swmansion.enriched.markdown.utils.common
 
-import android.graphics.Color
 import android.text.Spannable
 import android.text.style.ForegroundColorSpan
 import android.util.Log
+import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 
 /**
@@ -54,10 +54,19 @@ object CodeBlockHighlighter {
     language: String,
   ): IntArray?
 
+  /**
+   * Applies token colors onto [target]. Token offsets are relative to [code];
+   * [offset] is where that code begins in [target] (0 for the github container
+   * view which highlights the code string itself, contentStart for the
+   * commonmark flavor which renders code inline). A no-op when highlighting is
+   * unavailable, so the plain rendering is preserved.
+   */
   fun highlight(
-    plainCode: Spannable,
+    target: Spannable,
     code: String,
     language: String?,
+    style: CodeBlockStyle,
+    offset: Int = 0,
   ) {
     val tokens =
       try {
@@ -66,32 +75,16 @@ object CodeBlockHighlighter {
         null
       } ?: return
 
+    val colors = style.syntaxColors
     var i = 0
     while (i + 2 < tokens.size) {
-      val start = tokens[i]
-      val end = tokens[i + 1]
-      val color = HighlightTokenType.entries.getOrNull(tokens[i + 2])?.let(::colorForToken)
-      if (color != null && start >= 0 && end > start && end <= plainCode.length) {
-        plainCode.setSpan(ForegroundColorSpan(color), start, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+      val start = offset + tokens[i]
+      val end = offset + tokens[i + 1]
+      val type = HighlightTokenType.entries.getOrNull(tokens[i + 2])
+      if (type != null && type.ordinal < colors.size && tokens[i] >= 0 && end > start && end <= target.length) {
+        target.setSpan(ForegroundColorSpan(colors[type.ordinal]), start, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
       }
       i += 3
     }
   }
-
-  // TODO: provisional palette (GitHub light scheme); replace with themable
-  // per-token colors on CodeBlockStyle when the highlighting module lands.
-  private fun colorForToken(type: HighlightTokenType): Int? =
-    when (type) {
-      HighlightTokenType.Keyword -> Color.parseColor("#CF222E")
-      HighlightTokenType.String -> Color.parseColor("#0A3069")
-      HighlightTokenType.Number -> Color.parseColor("#0550AE")
-      HighlightTokenType.Constant -> Color.parseColor("#0550AE")
-      HighlightTokenType.Comment -> Color.parseColor("#6E7781")
-      HighlightTokenType.Function -> Color.parseColor("#8250DF")
-      HighlightTokenType.Type -> Color.parseColor("#953800")
-      HighlightTokenType.Property -> Color.parseColor("#0550AE")
-      HighlightTokenType.Tag -> Color.parseColor("#116329")
-      HighlightTokenType.Attribute -> Color.parseColor("#0550AE")
-      else -> null
-    }
 }
