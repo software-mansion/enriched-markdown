@@ -43,3 +43,62 @@ public struct EnrichedMarkdownText: View {
         }
     }
 }
+
+#if DEBUG
+private let previewMarkdown = """
+# Enriched Markdown
+
+Paragraphs support **bold**, *italic*, `inline code`, and [links](https://swmansion.com).
+
+## Lists
+
+- First item
+- Second item
+  1. Nested ordered item
+  2. Another one
+
+> Blockquotes render with a border and background.
+
+```swift
+let answer = 42
+```
+
+---
+
+Final paragraph after a thematic break.
+"""
+
+#Preview("Default theme") {
+    ScrollView {
+        EnrichedMarkdownText(previewMarkdown)
+            .padding()
+    }
+}
+
+#Preview("Default theme, dark") {
+    ScrollView {
+        EnrichedMarkdownText(previewMarkdown)
+            .padding()
+    }
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Custom theme") {
+    ScrollView {
+        EnrichedMarkdownText(previewMarkdown)
+            .padding()
+    }
+    .markdownTheme(
+        MarkdownTheme {
+            Heading(1)
+                .foregroundStyle(.purple)
+            Link()
+                .foregroundStyle(.teal)
+                .underline(true)
+            Blockquote()
+                .borderColor(.orange)
+                .borderWidth(4)
+        }
+    )
+}
+#endif

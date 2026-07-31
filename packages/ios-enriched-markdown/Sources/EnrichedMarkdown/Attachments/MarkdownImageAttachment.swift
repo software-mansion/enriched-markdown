@@ -15,6 +15,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
     let isInline: Bool
     let cachedHeight: CGFloat
     let cachedBorderRadius: CGFloat
+    private let downloader: ImageDownloading
 
     private var originalImage: UIImage?
     private var loadedImage: UIImage?
@@ -25,7 +26,8 @@ final class MarkdownImageAttachment: NSTextAttachment {
         for url: String,
         config: MarkdownStyleConfig,
         isInline: Bool,
-        altText: String
+        altText: String,
+        downloader: ImageDownloading = ImageDownloader.shared
     ) -> MarkdownImageAttachment {
         let key = "\(url)_\(isInline)" as NSString
         if let existing = registry.object(forKey: key), existing.loadedImage != nil {
@@ -36,15 +38,23 @@ final class MarkdownImageAttachment: NSTextAttachment {
             url: url,
             config: config,
             isInline: isInline,
-            altText: altText
+            altText: altText,
+            downloader: downloader
         )
         registry.setObject(attachment, forKey: key)
         return attachment
     }
 
-    private init(url: String, config: MarkdownStyleConfig, isInline: Bool, altText: String) {
+    private init(
+        url: String,
+        config: MarkdownStyleConfig,
+        isInline: Bool,
+        altText: String,
+        downloader: ImageDownloading
+    ) {
         imageURL = url
         self.isInline = isInline
+        self.downloader = downloader
         cachedHeight = isInline
             ? (config.inlineImage.size ?? 20)
             : (config.image.height ?? 200)
@@ -116,7 +126,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
     private func startDownloadingImage() {
         guard !imageURL.isEmpty else { return }
-        ImageDownloader.shared.download(url: imageURL) { [weak self] image in
+        downloader.download(url: imageURL) { [weak self] image in
             self?.handleLoadedImage(image)
         }
     }

@@ -1,6 +1,12 @@
 import UIKit
 
-final class ImageDownloader {
+/// Abstraction over image fetching so consumers of attachments can inject
+/// a stub in tests and previews instead of hitting the network.
+protocol ImageDownloading: AnyObject {
+    func download(url: String, completion: @escaping (UIImage?) -> Void)
+}
+
+final class ImageDownloader: ImageDownloading {
     static let shared = ImageDownloader()
 
     private let session: URLSession

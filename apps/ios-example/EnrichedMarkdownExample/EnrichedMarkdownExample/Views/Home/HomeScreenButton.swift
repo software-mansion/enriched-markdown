@@ -1,11 +1,15 @@
 import SwiftUI
 
 struct HomeScreenButton: View {
+    // MARK: - Properties
+
     let label: String
     let subtext: String
     let color: Color
     let accessibilityId: String
     let action: () -> Void
+
+    // MARK: - Views
 
     var body: some View {
         Button(action: action) {
@@ -31,4 +35,16 @@ struct HomeScreenButton: View {
         .padding(.vertical, 10)
         .accessibilityIdentifier(accessibilityId)
     }
+}
+
+// MARK: -
+
+#Preview {
+    HomeScreenButton(
+        label: "Playground",
+        subtext: "live editor with preview",
+        color: .tileBlue,
+        accessibilityId: "home-block-playground"
+    ) {}
+    .padding()
 }

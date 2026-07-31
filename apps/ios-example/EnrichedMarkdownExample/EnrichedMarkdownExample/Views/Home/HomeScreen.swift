@@ -13,41 +13,45 @@ private let menuItems: [HomeMenuItem] = [
         route: .playground,
         label: "Playground",
         subtext: "live editor with preview",
-        color: Color(red: 0 / 255, green: 122 / 255, blue: 255 / 255),
+        color: .tileBlue,
         accessibilityId: "home-block-playground"
     ),
     HomeMenuItem(
         route: .text,
         label: "Text",
         subtext: "static markdown rendering",
-        color: Color(red: 52 / 255, green: 199 / 255, blue: 89 / 255),
+        color: .tileGreen,
         accessibilityId: "home-block-text"
     ),
     HomeMenuItem(
         route: .input,
         label: "Input",
         subtext: "chat-style rich text input",
-        color: Color(red: 255 / 255, green: 149 / 255, blue: 0 / 255),
+        color: .tileOrange,
         accessibilityId: "home-block-input"
     ),
     HomeMenuItem(
         route: .stream,
         label: "Stream",
         subtext: "streaming markdown with tables",
-        color: Color(red: 175 / 255, green: 82 / 255, blue: 222 / 255),
+        color: .tilePurple,
         accessibilityId: "home-block-stream"
     ),
     HomeMenuItem(
         route: .storybook,
         label: "Storybook",
         subtext: "component stories",
-        color: Color(red: 255 / 255, green: 45 / 255, blue: 85 / 255),
+        color: .tilePink,
         accessibilityId: "home-block-storybook"
     ),
 ]
 
 struct HomeScreen: View {
+    // MARK: - Properties
+
     let onNavigate: (ExampleRoute) -> Void
+
+    // MARK: - Views
 
     var body: some View {
         ScrollView {
@@ -59,7 +63,7 @@ struct HomeScreen: View {
 
                 Text("Explore different markdown rendering and input capabilities")
                     .font(.system(size: 16))
-                    .foregroundStyle(Color(red: 102 / 255, green: 102 / 255, blue: 102 / 255))
+                    .foregroundStyle(Color.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, 40)
 
@@ -82,7 +86,13 @@ struct HomeScreen: View {
             .padding(20)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(red: 245 / 255, green: 245 / 255, blue: 245 / 255))
+        .background(Color.homeBackground)
         .accessibilityIdentifier("home-screen")
     }
+}
+
+// MARK: -
+
+#Preview {
+    HomeScreen(onNavigate: { _ in })
 }
