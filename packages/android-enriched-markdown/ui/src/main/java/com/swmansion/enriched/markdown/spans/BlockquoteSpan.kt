@@ -242,8 +242,14 @@ class BlockquoteSpan(
     lineEnd: Int,
     box: BlockquoteSpan,
   ): Boolean {
-    val boxEnd = text.getSpanEnd(box)
-    return lineEnd == boxEnd || (boxEnd <= lineEnd && (boxEnd == text.length || text[boxEnd - 1] == '\n'))
+    // The span range can include trailing '\n'(s) that form no visible line
+    // (e.g. a paragraph break closing the quote), so the last drawn line ends
+    // before getSpanEnd. Compare against the end of visible content instead.
+    var boxEnd = text.getSpanEnd(box)
+    while (boxEnd > 0 && text[boxEnd - 1] == '\n') {
+      boxEnd--
+    }
+    return lineEnd >= boxEnd
   }
 
   private fun isBoundaryLine(

@@ -39,19 +39,40 @@ class BlockquoteRenderer(
     }
 
     if (builder.length == start) return
-    val end = builder.length
+    var end = builder.length
+    val padding = style.padding.toInt()
+
+    // Top padding uses a dedicated spacer line instead of growing the first content
+    // line's ascent. StaticLayout reuses one FontMetricsInt across the soft-wrapped
+    // lines of a paragraph, so inflating the first line's metrics corrupts its
+    // wrapped continuation lines (they inherit the padded metrics and the line-height
+    // clamp then skews them into overlap). A spacer sits in its own paragraph, so
+    // content-line metrics stay untouched. Bottom padding is applied to the last
+    // line's descent, which is safe because no later line inherits its metrics.
+    var contentStart = start
+    if (padding > 0) {
+      builder.insert(start, "\n")
+      builder.setSpan(
+        BlockquotePaddingSpacerSpan(padding),
+        start,
+        start + 1,
+        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+      )
+      contentStart = start + 1
+      end += 1
+    }
 
     // Find immediately nested quotes to exclude them from this level's line-height/margins
     val nestedRanges =
       builder
-        .getSpans(start, end, BlockquoteSpan::class.java)
+        .getSpans(contentStart, end, BlockquoteSpan::class.java)
         .filter { it.depth == depth + 1 }
         .map { builder.getSpanStart(it) to builder.getSpanEnd(it) }
         .sortedBy { it.first }
 
-    // The accent bar span covers the full range for visual continuity.
-    // SPAN_FLAGS_CONTAINER_BACKGROUND keeps the blockquote fill under any
-    // inline chip/pill backgrounds on the same line.
+    // The accent bar / background span covers the full box (incl. the top spacer)
+    // for visual continuity. SPAN_FLAGS_CONTAINER_BACKGROUND keeps the blockquote
+    // fill under any inline chip/pill backgrounds on the same line.
     builder.setSpan(
       BlockquoteSpan(style, depth, factory.context, factory.styleCache),
       start,
@@ -59,13 +80,14 @@ class BlockquoteRenderer(
       SPAN_FLAGS_CONTAINER_BACKGROUND,
     )
 
-    // Apply styling only to segments that are NOT nested quotes
-    applySpansExcludingNested(builder, nestedRanges, start, end, createLineHeightSpan(style.lineHeight))
+    // Apply styling only to content segments that are NOT nested quotes or the spacer
+    applySpansExcludingNested(builder, nestedRanges, contentStart, end, createLineHeightSpan(style.lineHeight))
 
-    if (style.padding > 0) {
+    // Bottom padding grows the last content line's descent to match web CSS
+    if (padding > 0) {
       builder.setSpan(
-        BlockquoteBoundaryPaddingSpan(style.padding.toInt()),
-        start,
+        BlockquoteBoundaryPaddingSpan(padding),
+        contentStart,
         end,
         SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
       )
@@ -78,6 +100,33 @@ class BlockquoteRenderer(
     }
   }
 
+  /**
+   * Spacer line occupying exactly [padding] px, used for a blockquote's top padding.
+   * Sets absolute metrics (independent of the surrounding font) so it stays fixed
+   * regardless of StaticLayout's cross-line FontMetricsInt reuse.
+   */
+  private class BlockquotePaddingSpacerSpan(
+    private val padding: Int,
+  ) : LineHeightSpan {
+    override fun chooseHeight(
+      text: CharSequence,
+      startLine: Int,
+      endLine: Int,
+      spanstartv: Int,
+      v: Int,
+      fm: Paint.FontMetricsInt,
+    ) {
+      fm.top = 0
+      fm.ascent = 0
+      fm.descent = padding
+      fm.bottom = padding
+    }
+  }
+
+  /**
+   * Grows the last content line's descent to create a blockquote's bottom padding.
+   * Top padding is handled separately by [BlockquotePaddingSpacerSpan].
+   */
   private class BlockquoteBoundaryPaddingSpan(
     private val padding: Int,
   ) : LineHeightSpan {
@@ -91,16 +140,13 @@ class BlockquoteRenderer(
     ) {
       if (text !is Spanned) return
 
-      val spanStart = text.getSpanStart(this)
-      val spanEnd = text.getSpanEnd(this)
-
-      if (startLine == spanStart) {
-        fm.ascent -= padding
-        fm.top -= padding
+      // The span can include trailing '\n'(s) that form no visible line, so the
+      // last drawn line ends before spanEnd; compare against visible content end.
+      var contentEnd = text.getSpanEnd(this)
+      while (contentEnd > 0 && text[contentEnd - 1] == '\n') {
+        contentEnd--
       }
-
-      val isLastLine = endLine == spanEnd || (spanEnd <= endLine && text[spanEnd - 1] == '\n')
-      if (isLastLine) {
+      if (endLine >= contentEnd) {
         fm.descent += padding
         fm.bottom += padding
       }
