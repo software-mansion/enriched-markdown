@@ -237,14 +237,16 @@ class BlockquoteSpan(
     level: Int,
   ): BlockquoteSpan? = spansAt(text, start).firstOrNull { it.depth == level }
 
+  /**
+   * The span range can include trailing '\n'(s) that form no visible line (e.g. a
+   * paragraph break closing the quote), so the last drawn line ends before getSpanEnd;
+   * this compares against the end of visible content instead.
+   */
   private fun isLastLineOf(
     text: Spanned,
     lineEnd: Int,
     box: BlockquoteSpan,
   ): Boolean {
-    // The span range can include trailing '\n'(s) that form no visible line
-    // (e.g. a paragraph break closing the quote), so the last drawn line ends
-    // before getSpanEnd. Compare against the end of visible content instead.
     var boxEnd = text.getSpanEnd(box)
     while (boxEnd > 0 && text[boxEnd - 1] == '\n') {
       boxEnd--

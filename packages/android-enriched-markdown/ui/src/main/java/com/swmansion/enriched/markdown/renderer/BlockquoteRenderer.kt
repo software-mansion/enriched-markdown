@@ -42,13 +42,6 @@ class BlockquoteRenderer(
     var end = builder.length
     val padding = style.padding.toInt()
 
-    // Top padding uses a dedicated spacer line instead of growing the first content
-    // line's ascent. StaticLayout reuses one FontMetricsInt across the soft-wrapped
-    // lines of a paragraph, so inflating the first line's metrics corrupts its
-    // wrapped continuation lines (they inherit the padded metrics and the line-height
-    // clamp then skews them into overlap). A spacer sits in its own paragraph, so
-    // content-line metrics stay untouched. Bottom padding is applied to the last
-    // line's descent, which is safe because no later line inherits its metrics.
     var contentStart = start
     if (padding > 0) {
       builder.insert(start, "\n")
@@ -70,9 +63,7 @@ class BlockquoteRenderer(
         .map { builder.getSpanStart(it) to builder.getSpanEnd(it) }
         .sortedBy { it.first }
 
-    // The accent bar / background span covers the full box (incl. the top spacer)
-    // for visual continuity. SPAN_FLAGS_CONTAINER_BACKGROUND keeps the blockquote
-    // fill under any inline chip/pill backgrounds on the same line.
+    // The accent bar / background span covers the full box, incl. the top spacer.
     builder.setSpan(
       BlockquoteSpan(style, depth, factory.context, factory.styleCache),
       start,
@@ -80,10 +71,8 @@ class BlockquoteRenderer(
       SPAN_FLAGS_CONTAINER_BACKGROUND,
     )
 
-    // Apply styling only to content segments that are NOT nested quotes or the spacer
     applySpansExcludingNested(builder, nestedRanges, contentStart, end, createLineHeightSpan(style.lineHeight))
 
-    // Bottom padding grows the last content line's descent to match web CSS
     if (padding > 0) {
       builder.setSpan(
         BlockquoteBoundaryPaddingSpan(padding),
@@ -101,9 +90,15 @@ class BlockquoteRenderer(
   }
 
   /**
-   * Spacer line occupying exactly [padding] px, used for a blockquote's top padding.
-   * Sets absolute metrics (independent of the surrounding font) so it stays fixed
-   * regardless of StaticLayout's cross-line FontMetricsInt reuse.
+   * A blockquote's top padding, rendered as a standalone spacer line of exactly
+   * [padding] px.
+   *
+   * Top padding cannot be added by growing the first content line's ascent:
+   * StaticLayout reuses one FontMetricsInt across a paragraph's soft-wrapped lines,
+   * so the inflated first-line metrics leak into the wrapped continuation line, where
+   * the line-height clamp then skews them into overlapping baselines. A spacer sits in
+   * its own paragraph, and setting absolute metrics keeps it fixed regardless of that
+   * reuse.
    */
   private class BlockquotePaddingSpacerSpan(
     private val padding: Int,
@@ -124,8 +119,12 @@ class BlockquoteRenderer(
   }
 
   /**
-   * Grows the last content line's descent to create a blockquote's bottom padding.
-   * Top padding is handled separately by [BlockquotePaddingSpacerSpan].
+   * A blockquote's bottom padding, grown onto the last content line's descent (safe
+   * because no later line inherits its metrics; top padding uses
+   * [BlockquotePaddingSpacerSpan]).
+   *
+   * The span range can include trailing '\n'(s) that form no visible line, so the last
+   * drawn line ends before getSpanEnd; the comparison uses the visible content end.
    */
   private class BlockquoteBoundaryPaddingSpan(
     private val padding: Int,
@@ -140,8 +139,6 @@ class BlockquoteRenderer(
     ) {
       if (text !is Spanned) return
 
-      // The span can include trailing '\n'(s) that form no visible line, so the
-      // last drawn line ends before spanEnd; compare against visible content end.
       var contentEnd = text.getSpanEnd(this)
       while (contentEnd > 0 && text[contentEnd - 1] == '\n') {
         contentEnd--
