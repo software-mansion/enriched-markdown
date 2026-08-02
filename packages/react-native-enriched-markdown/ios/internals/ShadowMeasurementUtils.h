@@ -6,31 +6,43 @@
 #include <algorithm>
 #include <cmath>
 #include <react/renderer/core/LayoutConstraints.h>
+#include <react/renderer/core/LayoutContext.h>
 #include <react/utils/ManagedObjectWrapper.h>
 
 namespace facebook::react {
 
-// measureContent runs on Yoga's background layout thread and uses
-// dispatch_sync to main for UIKit reads. Safe because RN never
-// synchronously joins the layout queue from main. A synchronous
-// layout flush from main would deadlock.
+// Threading contract (issue #550): measureContent may run on any thread while
+// RN holds commit locks that main-thread committers (e.g. Reanimated) also
+// acquire — with `preventShadowTreeCommitExhaustion`, the JS thread re-runs
+// layout under `revisionMutexRecursive_` after 3 failed optimistic commits.
+// Any dispatch_sync to main from this path can therefore deadlock: JS waits
+// for main, main waits for the mutex JS holds (watchdog kill 0x8BADF00D).
+// Nothing in the measurement path may wait on the main thread.
+// EnrichedMarkdownText and EnrichedMarkdown both measure view-free
+// (ENRMViewFreeMeasurement.h) and comply fully. The one known remaining
+// violation is the text input's own measureContent
+// (EnrichedMarkdownTextInputShadowNode.mm), which measures live editable
+// UITextView state and needs its own strategy.
 
-static inline CGFloat ENRMFontScaleForMeasurement(bool allowFontScaling)
+/**
+ * Font scale (Dynamic Type multiplier) for measurement, without touching the
+ * main thread.
+ *
+ * Reads `LayoutContext::fontSizeMultiplier` instead of calling
+ * `RCTFontSizeMultiplier()` (a UIKit read that previously forced a
+ * dispatch_sync to main on every measure — a deadlock window under the locked
+ * commit fallback, see the contract above). RN maintains the multiplier for
+ * us: `RCTFabricSurface::_updateLayoutContext` sets it on main from
+ * `RCTFontSizeMultiplier()` and re-runs `constraintLayout` whenever
+ * `UIContentSizeCategoryDidChangeNotification` fires, so every Dynamic Type
+ * change re-measures with the fresh value. This is the same source
+ * `ParagraphShadowNode` uses for core text. A measure racing a Dynamic Type
+ * change at worst caches under the outgoing scale, which is never read again
+ * once the re-layout lands.
+ */
+static inline CGFloat ENRMFontScaleForMeasurement(bool allowFontScaling, const LayoutContext &layoutContext)
 {
-  if (!allowFontScaling) {
-    return 1.0;
-  }
-
-  __block CGFloat fontScale = 1.0;
-  void (^readFontScale)(void) = ^{ fontScale = RCTFontSizeMultiplier(); };
-
-  if ([NSThread isMainThread]) {
-    readFontScale();
-  } else {
-    dispatch_sync(dispatch_get_main_queue(), readFontScale);
-  }
-
-  return fontScale;
+  return allowFontScaling ? layoutContext.fontSizeMultiplier : 1.0;
 }
 
 static inline Size ENRMClampMeasuredSize(CGSize size, const LayoutConstraints &layoutConstraints)
@@ -58,11 +70,25 @@ static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps
          computeStyleFingerprint(oldProps.markdownStyle) != computeStyleFingerprint(newProps.markdownStyle);
 }
 
+/**
+ * Shared measureContent implementation for the markdown component views.
+ *
+ * Owns the thread-safe layers — the streaming fast path (lock-free
+ * `ENRMAtomicSize` mailbox published by `updateLayoutMetrics:`), the
+ * LRU measurement cache, and the `layoutContext`-sourced font scale — then
+ * delegates cache misses to `measureUncached`, through which both components
+ * plug their view-free pipeline (`ENRMMeasureMarkdownViewFree` /
+ * `ENRMMeasureSegmentedMarkdownViewFree`); the resolved view is still handed
+ * to the block for strategies that can use it. `fontScale` handed to the
+ * block is the real multiplier even when streaming skips the cache —
+ * rendering must always use it.
+ */
 template <typename PropsT, typename ViewT>
-static inline Size ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void> &componentViewRef,
-                                              int receivedCounter, int &lastExactMeasurementCounter,
-                                              MarkdownFlavor flavor, const LayoutConstraints &layoutConstraints,
-                                              ViewT * (^createMockView)(CGFloat width))
+static inline Size
+ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void> &componentViewRef, int receivedCounter,
+                           int &lastExactMeasurementCounter, MarkdownFlavor flavor, const LayoutContext &layoutContext,
+                           const LayoutConstraints &layoutConstraints,
+                           CGSize (^measureUncached)(ViewT *view, CGFloat maxWidth, CGFloat fontScale))
 {
   CGFloat maxWidth = layoutConstraints.maximumSize.width;
 
@@ -70,26 +96,14 @@ static inline Size ENRMMeasureMarkdownContent(const PropsT &typedProps, const st
   ViewT *view = weakWrapper ? (ViewT *)weakWrapper.object : nil;
 
   if (typedProps.streamingAnimation && view && receivedCounter <= lastExactMeasurementCounter) {
-    __block CGSize currentSize = CGSizeZero;
-    void (^readCurrentSize)(void) = ^{
-      if (view.bounds.size.width > 0 && view.bounds.size.height > 0) {
-        currentSize = view.bounds.size;
-      }
-    };
-
-    if ([NSThread isMainThread]) {
-      readCurrentSize();
-    } else {
-      dispatch_sync(dispatch_get_main_queue(), readCurrentSize);
-    }
-
-    if (currentSize.height > 0) {
+    CGSize currentSize = [view lastCommittedLayoutSize];
+    if (currentSize.width > 0 && currentSize.height > 0) {
       return ENRMClampMeasuredSize(currentSize, layoutConstraints);
     }
   }
 
   const bool shouldUseMeasurementCache = !typedProps.streamingAnimation;
-  CGFloat fontScale = shouldUseMeasurementCache ? ENRMFontScaleForMeasurement(typedProps.allowFontScaling) : 1.0;
+  CGFloat fontScale = ENRMFontScaleForMeasurement(typedProps.allowFontScaling, layoutContext);
 
   if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {
     auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor);
@@ -99,26 +113,7 @@ static inline Size ENRMMeasureMarkdownContent(const PropsT &typedProps, const st
     }
   }
 
-  __block CGSize size;
-  NSString *currentMarkdown = typedProps.markdown.empty() ? nil : @(typedProps.markdown.c_str());
-  size_t styleFingerprint =
-      computeStyleFingerprint(typedProps.markdownStyle) ^ std::hash<bool>{}(typedProps.allowTrailingMargin);
-
-  void (^measureBlock)(void) = ^{
-    if (view && (typedProps.streamingAnimation || ([view hasRenderedMarkdown:currentMarkdown] &&
-                                                   [view hasRenderedWithStyleFingerprint:styleFingerprint]))) {
-      size = [view measureSize:maxWidth];
-    } else {
-      ViewT *mockView = createMockView(maxWidth);
-      size = [mockView measureSize:maxWidth];
-    }
-  };
-
-  if ([NSThread isMainThread]) {
-    measureBlock();
-  } else {
-    dispatch_sync(dispatch_get_main_queue(), measureBlock);
-  }
+  CGSize size = measureUncached(view, maxWidth, fontScale);
 
   if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {
     auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor);

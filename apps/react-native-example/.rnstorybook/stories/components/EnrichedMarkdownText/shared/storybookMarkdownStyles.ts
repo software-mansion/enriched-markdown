@@ -71,6 +71,8 @@ export type BlockquoteStyleControls = {
   borderWidth: number;
   gapWidth: number;
   backgroundColor: string;
+  borderRadius: number;
+  padding: number;
 };
 
 export const blockquoteStyledDefaults: BlockquoteStyleControls = {
@@ -85,6 +87,8 @@ export const blockquoteStyledDefaults: BlockquoteStyleControls = {
   borderWidth: 4,
   gapWidth: 16,
   backgroundColor: '#eef2ff',
+  borderRadius: 0,
+  padding: 0,
 };
 
 export type CodeBlockStyleControls = {

@@ -149,6 +149,8 @@ The library provides sensible default styles for all Markdown elements out of th
       borderColor: '#007AFF',
       borderWidth: 3,
       backgroundColor: '#F0F8FF',
+      borderRadius: 8,
+      padding: 12,
       marginBottom: 12,
     },
     list: {
@@ -292,6 +294,8 @@ function App() {
 | `borderWidth` | `number` | Left border width |
 | `gapWidth` | `number` | Gap between border and text |
 | `backgroundColor` | `string` | Background color |
+| `borderRadius` | `number` | Corner radius of the background box; accent borders are clipped to the rounded shape, nested quotes rounding against their own box (default: `0`) |
+| `padding` | `number` | Inner top/bottom padding between the background edges and content, applied at every nesting level — also applies to the trailing edge on iOS and web (default: `0`) |
 
 ### List-specific
 
@@ -318,6 +322,9 @@ function App() {
 
 > [!NOTE]
 > Inside list items, code blocks (background included) indent to the item's content column.
+
+> [!NOTE]
+> With `flavor="github"`, code blocks render as a block component with a header bar (language name on the left, copy-code button on the right) and a divider above the code. The header derives its appearance from the code block style: the label uses the system font at 0.85 x `fontSize`, and the label, button, and divider use `color` at reduced opacity. Dedicated header style properties may be added later.
 
 ### Inline Code-specific
 

@@ -15,6 +15,10 @@ sealed interface MarkdownSegment {
     val latex: String,
     val node: MarkdownASTNode,
   ) : MarkdownSegment
+
+  data class CodeBlock(
+    val node: MarkdownASTNode,
+  ) : MarkdownSegment
 }
 
 fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
@@ -44,6 +48,11 @@ fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
             child.content
           }
         segments.add(MarkdownSegment.Math(latex, child))
+      }
+
+      MarkdownASTNode.NodeType.CodeBlock -> {
+        flushTextNodes()
+        segments.add(MarkdownSegment.CodeBlock(child))
       }
 
       else -> {

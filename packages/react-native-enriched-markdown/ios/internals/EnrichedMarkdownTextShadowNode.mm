@@ -1,4 +1,5 @@
 #import "EnrichedMarkdownTextShadowNode.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdownText.h"
 #import "ShadowMeasurementUtils.h"
 #import <yoga/Yoga.h>
@@ -43,32 +44,24 @@ void EnrichedMarkdownTextShadowNode::dirtyLayoutIfNeeded()
   }
 }
 
-id EnrichedMarkdownTextShadowNode::setupMockEnrichedMarkdownText_(CGFloat width) const
-{
-  EnrichedMarkdownText *mockView = [[EnrichedMarkdownText alloc] initWithFrame:CGRectMake(20000, 20000, width, 1000)];
-
-  const auto props = this->getProps();
-  [mockView updateProps:props oldProps:nullptr];
-
-  const auto &typedProps = *std::static_pointer_cast<const EnrichedMarkdownTextProps>(props);
-  if (!typedProps.markdown.empty()) {
-    NSString *markdown = [NSString stringWithUTF8String:typedProps.markdown.c_str()];
-    [mockView renderMarkdownSynchronously:markdown];
-  }
-
-  return mockView;
-}
-
 Size EnrichedMarkdownTextShadowNode::measureContent(const LayoutContext &layoutContext,
                                                     const LayoutConstraints &layoutConstraints) const
 {
-  const auto &typedProps = *std::static_pointer_cast<const EnrichedMarkdownTextProps>(this->getProps());
+  const auto propsHandle = std::static_pointer_cast<const EnrichedMarkdownTextProps>(this->getProps());
+  const auto &typedProps = *propsHandle;
   const int receivedCounter = getStateData().getHeightRecalculationCounter();
+  const EnrichedMarkdownTextProps *props = propsHandle.get();
+  CGFloat pointScaleFactor = layoutContext.pointScaleFactor;
+  NSWritingDirection resolvedLayoutDirection = layoutConstraints.layoutDirection == LayoutDirection::RightToLeft
+                                                   ? NSWritingDirectionRightToLeft
+                                                   : NSWritingDirectionLeftToRight;
 
   return ENRMMeasureMarkdownContent<EnrichedMarkdownTextProps, EnrichedMarkdownText>(
       typedProps, getStateData().getComponentViewRef(), receivedCounter, lastExactMeasurementCounter_,
-      MarkdownFlavor::CommonMark, layoutConstraints,
-      ^(CGFloat width) { return (EnrichedMarkdownText *)setupMockEnrichedMarkdownText_(width); });
+      MarkdownFlavor::CommonMark, layoutContext, layoutConstraints,
+      ^(EnrichedMarkdownText *view, CGFloat maxWidth, CGFloat fontScale) {
+        return ENRMMeasureMarkdownViewFree(*props, maxWidth, fontScale, pointScaleFactor, resolvedLayoutDirection);
+      });
 }
 
 } // namespace facebook::react

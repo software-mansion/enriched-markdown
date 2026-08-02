@@ -3,6 +3,11 @@
 #import "LastElementUtils.h"
 #import "StyleConfig.h"
 
+// Draws the commonmark-flavor code block box behind the text view's glyph
+// runs. The visual conventions (half-stroke border inset, corner radius
+// handling) must stay in sync with the whole-rect box the github flavor
+// draws in ENRMCodeBlockContainerView's drawRect:.
+
 @implementation CodeBlockBackground {
   StyleConfig *_config;
 }

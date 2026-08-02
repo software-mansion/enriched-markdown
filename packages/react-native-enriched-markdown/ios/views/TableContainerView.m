@@ -28,6 +28,184 @@
 @implementation TableCellData
 @end
 
+// Cell rendering and layout are view-free statics so the instance path
+// (applyTableNode:/computeLayout) and the shadow-measurement class method
+// (+measureHeightForTableNode:...) share one implementation and cannot drift
+// (issue #550).
+
+static NSTextAlignment ENRMTableTextAlignmentFromString(NSString *align)
+{
+  if ([align isEqualToString:@"center"])
+    return NSTextAlignmentCenter;
+  if ([align isEqualToString:@"right"])
+    return NSTextAlignmentRight;
+  return NSTextAlignmentLeft;
+}
+
+static NSString *ENRMTablePlainTextFromNode(MarkdownASTNode *node)
+{
+  if (!node)
+    return @"";
+  NSMutableString *buffer = [node.content mutableCopy] ?: [NSMutableString string];
+  for (MarkdownASTNode *child in node.children) {
+    [buffer appendString:ENRMTablePlainTextFromNode(child)];
+  }
+  return [buffer copy];
+}
+
+static StyleConfig *ENRMTableCellConfig(StyleConfig *config, BOOL isHeader)
+{
+  StyleConfig *cellConfig = [config copy];
+
+  [cellConfig setParagraphFontSize:config.tableFontSize];
+  NSString *headerFamily =
+      config.tableHeaderFontFamily.length > 0 ? config.tableHeaderFontFamily : config.tableFontFamily;
+  [cellConfig setParagraphFontFamily:isHeader ? headerFamily : config.tableFontFamily];
+  [cellConfig setParagraphFontWeight:isHeader ? @"bold" : config.tableFontWeight];
+  [cellConfig setParagraphColor:isHeader ? config.tableHeaderTextColor : config.tableColor];
+  [cellConfig setParagraphLineHeight:config.tableLineHeight];
+
+  [cellConfig setParagraphMarginTop:0];
+  [cellConfig setParagraphMarginBottom:0];
+
+  return cellConfig;
+}
+
+static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellNode, StyleConfig *cellConfig,
+                                                          NSTextAlignment alignment, BOOL allowFontScaling,
+                                                          CGFloat maxFontSizeMultiplier,
+                                                          ENRMWritingDirectionMode writingDirectionMode,
+                                                          NSWritingDirection resolvedLayoutDirection)
+{
+  MarkdownASTNode *temporaryRoot = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
+  for (MarkdownASTNode *child in cellNode.children) {
+    [temporaryRoot addChild:child];
+  }
+
+  AttributedRenderer *renderer = [[AttributedRenderer alloc] initWithConfig:cellConfig];
+  RenderContext *context = [RenderContext new];
+  context.allowFontScaling = allowFontScaling;
+  context.maxFontSizeMultiplier = maxFontSizeMultiplier;
+
+  NSMutableAttributedString *attributedText = [renderer renderRoot:temporaryRoot context:context];
+
+  [context applyLinkAttributesToString:attributedText];
+
+  ENRMApplyWritingDirectionMode(attributedText, writingDirectionMode, resolvedLayoutDirection);
+
+  if (alignment != NSTextAlignmentLeft && attributedText.length > 0) {
+    NSRange fullRange = NSMakeRange(0, attributedText.length);
+    [attributedText
+        enumerateAttribute:NSParagraphStyleAttributeName
+                   inRange:fullRange
+                   options:0
+                usingBlock:^(NSParagraphStyle *paragraphStyle, NSRange range, BOOL *stop) {
+                  NSMutableParagraphStyle *mutableStyle =
+                      paragraphStyle ? [paragraphStyle mutableCopy] : [[NSMutableParagraphStyle alloc] init];
+                  mutableStyle.alignment = alignment;
+                  [attributedText addAttribute:NSParagraphStyleAttributeName value:mutableStyle range:range];
+                }];
+  }
+
+  return attributedText;
+}
+
+static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *tableNode, StyleConfig *config,
+                                                               BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
+                                                               ENRMWritingDirectionMode writingDirectionMode,
+                                                               NSWritingDirection resolvedLayoutDirection,
+                                                               NSUInteger *outColCount)
+{
+  StyleConfig *headerCellConfig = ENRMTableCellConfig(config, YES);
+  StyleConfig *bodyCellConfig = ENRMTableCellConfig(config, NO);
+
+  NSMutableArray *allRows = [NSMutableArray array];
+  NSUInteger colCount = 0;
+
+  for (MarkdownASTNode *section in tableNode.children) {
+    BOOL isSectionHead = (section.type == MarkdownNodeTypeTableHead);
+
+    for (MarkdownASTNode *rowNode in section.children) {
+      if (rowNode.type != MarkdownNodeTypeTableRow)
+        continue;
+
+      NSMutableArray<TableCellData *> *rowCells = [NSMutableArray array];
+      for (MarkdownASTNode *cellNode in rowNode.children) {
+        TableCellData *cell = [[TableCellData alloc] init];
+        cell.isHeader = isSectionHead || (cellNode.type == MarkdownNodeTypeTableHeaderCell);
+        cell.alignment = ENRMTableTextAlignmentFromString(cellNode.attributes[@"align"]);
+        cell.plainText = ENRMTablePlainTextFromNode(cellNode);
+        cell.markdownText = markdownFromASTNodeChildren(cellNode);
+
+        StyleConfig *cellConfig = cell.isHeader ? headerCellConfig : bodyCellConfig;
+        cell.attributedText =
+            ENRMTableRenderCellNode(cellNode, cellConfig, cell.alignment, allowFontScaling, maxFontSizeMultiplier,
+                                    writingDirectionMode, resolvedLayoutDirection);
+        [rowCells addObject:cell];
+      }
+      colCount = MAX(colCount, rowCells.count);
+      [allRows addObject:rowCells];
+    }
+  }
+
+  if (outColCount != NULL) {
+    *outColCount = colCount;
+  }
+  return [allRows copy];
+}
+
+static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NSUInteger colCount, StyleConfig *config,
+                                   CGFloat borderWidth, NSMutableArray<NSNumber *> *_Nullable *_Nullable outColWidths,
+                                   NSMutableArray<NSNumber *> *_Nullable *_Nullable outRowHeights,
+                                   CGFloat *_Nullable outTotalWidth, CGFloat *_Nullable outTotalHeight)
+{
+  // TODO: Consider making minColumnWidth / maxColumnWidth configurable via style props
+  const CGFloat minimumColumnWidth = 60.0;
+  const CGFloat maximumColumnWidth = 300.0;
+  const CGFloat horizontalPadding = config.tableCellPaddingHorizontal * 2;
+  const CGFloat verticalPadding = config.tableCellPaddingVertical * 2;
+
+  NSMutableArray<NSNumber *> *colWidths = [NSMutableArray arrayWithCapacity:colCount];
+  for (NSUInteger i = 0; i < colCount; i++)
+    [colWidths addObject:@0];
+
+  for (NSArray<TableCellData *> *row in rows) {
+    for (NSUInteger column = 0; column < row.count; column++) {
+      CGRect boundingRect = [row[column].attributedText
+          boundingRectWithSize:CGSizeMake(maximumColumnWidth, CGFLOAT_MAX)
+                       options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                       context:nil];
+      CGFloat width = MIN(MAX(ceil(boundingRect.size.width) + horizontalPadding, minimumColumnWidth),
+                          maximumColumnWidth + horizontalPadding);
+      if (width > [colWidths[column] doubleValue])
+        colWidths[column] = @(width);
+    }
+  }
+
+  NSMutableArray<NSNumber *> *rowHeights = [NSMutableArray arrayWithCapacity:rows.count];
+  for (NSArray<TableCellData *> *row in rows) {
+    CGFloat maxHeight = 0;
+    for (NSUInteger column = 0; column < row.count; column++) {
+      CGFloat availableWidth = [colWidths[column] doubleValue] - horizontalPadding;
+      CGRect boundingRect = [row[column].attributedText
+          boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
+                       options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                       context:nil];
+      maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
+    }
+    [rowHeights addObject:@(maxHeight)];
+  }
+
+  if (outColWidths != NULL)
+    *outColWidths = colWidths;
+  if (outRowHeights != NULL)
+    *outRowHeights = rowHeights;
+  if (outTotalWidth != NULL)
+    *outTotalWidth = [[colWidths valueForKeyPath:@"@sum.self"] doubleValue] + borderWidth;
+  if (outTotalHeight != NULL)
+    *outTotalHeight = [[rowHeights valueForKeyPath:@"@sum.self"] doubleValue] + borderWidth;
+}
+
 #if !TARGET_OS_OSX
 @interface TableContainerView () <UIContextMenuInteractionDelegate>
 @end
@@ -46,7 +224,6 @@
   NSMutableArray<NSNumber *> *_rowHeights;
   CGFloat _totalTableWidth;
   CGFloat _totalTableHeight;
-  CGFloat _borderWidth;
 
   NSString *_cachedMarkdown;
 
@@ -58,7 +235,6 @@
   self = [super initWithFrame:CGRectZero];
   if (self) {
     _config = config;
-    _borderWidth = config.tableBorderWidth;
     _allowFontScaling = YES;
     _maxFontSizeMultiplier = 0;
     _enableLinkPreview = YES;
@@ -119,74 +295,6 @@
 #endif
 }
 
-- (StyleConfig *)cellConfigForHeader:(BOOL)isHeader
-{
-  StyleConfig *cellConfig = [self.config copy];
-
-  [cellConfig setParagraphFontSize:self.config.tableFontSize];
-  NSString *headerFamily =
-      self.config.tableHeaderFontFamily.length > 0 ? self.config.tableHeaderFontFamily : self.config.tableFontFamily;
-  [cellConfig setParagraphFontFamily:isHeader ? headerFamily : self.config.tableFontFamily];
-  [cellConfig setParagraphFontWeight:isHeader ? @"bold" : self.config.tableFontWeight];
-  [cellConfig setParagraphColor:isHeader ? self.config.tableHeaderTextColor : self.config.tableColor];
-  [cellConfig setParagraphLineHeight:self.config.tableLineHeight];
-
-  [cellConfig setParagraphMarginTop:0];
-  [cellConfig setParagraphMarginBottom:0];
-
-  return cellConfig;
-}
-
-- (NSMutableAttributedString *)renderCellNode:(MarkdownASTNode *)cellNode
-                                     isHeader:(BOOL)isHeader
-                                   cellConfig:(StyleConfig *)cellConfig
-                                    alignment:(NSTextAlignment)alignment
-{
-
-  MarkdownASTNode *temporaryRoot = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
-  for (MarkdownASTNode *child in cellNode.children) {
-    [temporaryRoot addChild:child];
-  }
-
-  AttributedRenderer *renderer = [[AttributedRenderer alloc] initWithConfig:cellConfig];
-  RenderContext *context = [RenderContext new];
-  context.allowFontScaling = self.allowFontScaling;
-  context.maxFontSizeMultiplier = self.maxFontSizeMultiplier;
-
-  NSMutableAttributedString *attributedText = [renderer renderRoot:temporaryRoot context:context];
-
-  [context applyLinkAttributesToString:attributedText];
-
-  ENRMApplyWritingDirectionMode(attributedText, _writingDirectionMode, _resolvedLayoutDirection);
-
-  if (alignment != NSTextAlignmentLeft && attributedText.length > 0) {
-    NSRange fullRange = NSMakeRange(0, attributedText.length);
-    [attributedText
-        enumerateAttribute:NSParagraphStyleAttributeName
-                   inRange:fullRange
-                   options:0
-                usingBlock:^(NSParagraphStyle *paragraphStyle, NSRange range, BOOL *stop) {
-                  NSMutableParagraphStyle *mutableStyle =
-                      paragraphStyle ? [paragraphStyle mutableCopy] : [[NSMutableParagraphStyle alloc] init];
-                  mutableStyle.alignment = alignment;
-                  [attributedText addAttribute:NSParagraphStyleAttributeName value:mutableStyle range:range];
-                }];
-  }
-
-  return attributedText;
-}
-
-- (NSString *)extractPlainTextFromNode:(MarkdownASTNode *)node
-{
-  if (!node)
-    return @"";
-  NSMutableString *buffer = [node.content mutableCopy] ?: [NSMutableString string];
-  for (MarkdownASTNode *child in node.children) {
-    [buffer appendString:[self extractPlainTextFromNode:child]];
-  }
-  return [buffer copy];
-}
-
 - (NSUInteger)rowCount
 {
   return _rows.count;
@@ -211,96 +319,47 @@
 {
   [[_gridContainer subviews] makeObjectsPerformSelector:@selector(removeFromSuperview)];
 
-  StyleConfig *headerCellConfig = [self cellConfigForHeader:YES];
-  StyleConfig *bodyCellConfig = [self cellConfigForHeader:NO];
-
-  NSMutableArray *allRows = [NSMutableArray array];
-  _colCount = 0;
-
-  for (MarkdownASTNode *section in tableNode.children) {
-    BOOL isSectionHead = (section.type == MarkdownNodeTypeTableHead);
-
-    for (MarkdownASTNode *rowNode in section.children) {
-      if (rowNode.type != MarkdownNodeTypeTableRow)
-        continue;
-
-      NSMutableArray<TableCellData *> *rowCells = [NSMutableArray array];
-      for (MarkdownASTNode *cellNode in rowNode.children) {
-        TableCellData *cell = [[TableCellData alloc] init];
-        cell.isHeader = isSectionHead || (cellNode.type == MarkdownNodeTypeTableHeaderCell);
-        cell.alignment = [self textAlignmentFromString:cellNode.attributes[@"align"]];
-        cell.plainText = [self extractPlainTextFromNode:cellNode];
-        cell.markdownText = markdownFromASTNodeChildren(cellNode);
-
-        StyleConfig *cellConfig = cell.isHeader ? headerCellConfig : bodyCellConfig;
-        cell.attributedText = [self renderCellNode:cellNode
-                                          isHeader:cell.isHeader
-                                        cellConfig:cellConfig
-                                         alignment:cell.alignment];
-        [rowCells addObject:cell];
-      }
-      _colCount = MAX(_colCount, rowCells.count);
-      [allRows addObject:rowCells];
-    }
-  }
-
-  _rows = [allRows copy];
+  NSUInteger colCount = 0;
+  _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
+                             _writingDirectionMode, _resolvedLayoutDirection, &colCount);
+  _colCount = colCount;
   _cachedMarkdown = [self buildMarkdownFromRows];
   _cachedAccessibilityElements = nil;
   [self computeLayout];
   [self renderGrid];
 }
 
-- (NSTextAlignment)textAlignmentFromString:(NSString *)align
-{
-  if ([align isEqualToString:@"center"])
-    return NSTextAlignmentCenter;
-  if ([align isEqualToString:@"right"])
-    return NSTextAlignmentRight;
-  return NSTextAlignmentLeft;
-}
-
 - (void)computeLayout
 {
-  // TODO: Consider making minColumnWidth / maxColumnWidth configurable via style props
-  const CGFloat minimumColumnWidth = 60.0;
-  const CGFloat maximumColumnWidth = 300.0;
-  const CGFloat horizontalPadding = self.config.tableCellPaddingHorizontal * 2;
-  const CGFloat verticalPadding = self.config.tableCellPaddingVertical * 2;
+  NSMutableArray<NSNumber *> *colWidths = nil;
+  NSMutableArray<NSNumber *> *rowHeights = nil;
+  CGFloat totalWidth = 0;
+  CGFloat totalHeight = 0;
+  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, &colWidths, &rowHeights,
+                         &totalWidth, &totalHeight);
+  _colWidths = colWidths;
+  _rowHeights = rowHeights;
+  _totalTableWidth = totalWidth;
+  _totalTableHeight = totalHeight;
+}
 
-  _colWidths = [NSMutableArray arrayWithCapacity:_colCount];
-  for (NSUInteger i = 0; i < _colCount; i++)
-    [_colWidths addObject:@0];
++ (CGFloat)measureHeightForTableNode:(MarkdownASTNode *)tableNode
+                              config:(StyleConfig *)config
+                    allowFontScaling:(BOOL)allowFontScaling
+               maxFontSizeMultiplier:(CGFloat)maxFontSizeMultiplier
+                writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
+             resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
+{
+  NSUInteger colCount = 0;
+  NSArray<NSArray<TableCellData *> *> *rows =
+      ENRMTableBuildRows(tableNode, config, allowFontScaling, maxFontSizeMultiplier, writingDirectionMode,
+                         resolvedLayoutDirection, &colCount);
+  if (rows.count == 0)
+    return 0;
 
-  for (NSArray<TableCellData *> *row in _rows) {
-    for (NSUInteger column = 0; column < row.count; column++) {
-      CGRect boundingRect = [row[column].attributedText
-          boundingRectWithSize:CGSizeMake(maximumColumnWidth, CGFLOAT_MAX)
-                       options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-                       context:nil];
-      CGFloat width = MIN(MAX(ceil(boundingRect.size.width) + horizontalPadding, minimumColumnWidth),
-                          maximumColumnWidth + horizontalPadding);
-      if (width > [_colWidths[column] doubleValue])
-        _colWidths[column] = @(width);
-    }
-  }
-
-  _rowHeights = [NSMutableArray arrayWithCapacity:_rows.count];
-  for (NSArray<TableCellData *> *row in _rows) {
-    CGFloat maxHeight = 0;
-    for (NSUInteger column = 0; column < row.count; column++) {
-      CGFloat availableWidth = [_colWidths[column] doubleValue] - horizontalPadding;
-      CGRect boundingRect = [row[column].attributedText
-          boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
-                       options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-                       context:nil];
-      maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
-    }
-    [_rowHeights addObject:@(maxHeight)];
-  }
-
-  _totalTableWidth = [[_colWidths valueForKeyPath:@"@sum.self"] doubleValue] + _borderWidth;
-  _totalTableHeight = [[_rowHeights valueForKeyPath:@"@sum.self"] doubleValue] + _borderWidth;
+  CGFloat totalHeight = 0;
+  ENRMTableComputeLayout(rows, colCount, config, config.tableBorderWidth, NULL, NULL, NULL, &totalHeight);
+  return totalHeight;
 }
 
 - (void)renderGrid
@@ -356,7 +415,7 @@
                columnWidths:_colWidths
                  rowHeights:_rowHeights
                 borderColor:self.config.tableBorderColor
-                borderWidth:_borderWidth
+                borderWidth:self.config.tableBorderWidth
       horizontalCellPadding:self.config.tableCellPaddingHorizontal
         verticalCellPadding:self.config.tableCellPaddingVertical
                cornerRadius:self.config.tableBorderRadius];
@@ -391,7 +450,7 @@
                columnWidths:_colWidths
                  rowHeights:_rowHeights
                 borderColor:self.config.tableBorderColor
-                borderWidth:_borderWidth
+                borderWidth:self.config.tableBorderWidth
       horizontalCellPadding:self.config.tableCellPaddingHorizontal
         verticalCellPadding:self.config.tableCellPaddingVertical
                cornerRadius:self.config.tableBorderRadius];

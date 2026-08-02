@@ -29,6 +29,8 @@ interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   borderWidth: CodegenTypes.Float;
   gapWidth: CodegenTypes.Float;
   backgroundColor: ColorValue;
+  borderRadius: CodegenTypes.Float;
+  padding: CodegenTypes.Float;
 }
 
 interface ListStyleInternal extends BaseBlockStyleInternal {

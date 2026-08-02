@@ -249,6 +249,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setBlockquoteGapWidth:(CGFloat)newValue;
 - (RCTUIColor *)blockquoteBackgroundColor;
 - (void)setBlockquoteBackgroundColor:(RCTUIColor *)newValue;
+- (CGFloat)blockquoteBorderRadius;
+- (void)setBlockquoteBorderRadius:(CGFloat)newValue;
+- (CGFloat)blockquotePadding;
+- (void)setBlockquotePadding:(CGFloat)newValue;
 // List style properties (combined for both ordered and unordered lists)
 - (CGFloat)listStyleFontSize;
 - (void)setListStyleFontSize:(CGFloat)newValue;

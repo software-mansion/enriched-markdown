@@ -31,6 +31,7 @@ import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.splitASTIntoSegments
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.views.CodeBlockContainerView
 import com.swmansion.enriched.markdown.views.TableContainerView
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
@@ -463,6 +464,15 @@ object MeasurementStore {
             maxContentWidthPx = width
             if (includeBottomMargin) {
               totalHeightPx += style.mathStyle.marginBottom
+            }
+          }
+
+          is RenderedSegment.CodeBlock -> {
+            totalHeightPx += style.codeBlockStyle.marginTop
+            totalHeightPx += CodeBlockContainerView.measureCodeBlockNodeHeight(segment.node, style, context, width)
+            maxContentWidthPx = width
+            if (includeBottomMargin) {
+              totalHeightPx += style.codeBlockStyle.marginBottom
             }
           }
         }

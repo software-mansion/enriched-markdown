@@ -22,7 +22,7 @@ Pod::Spec.new do |s|
     s.dependency "EnrichedMarkdownCore"
   else
     s.private_header_files = "ios/**/*.h", "cpp/**/*.{h,hpp}"
-    s.source_files = "ios/**/*.{h,m,mm,cpp,swift}", "cpp/md4c/*.{c,h}", "cpp/parser/*.{hpp,cpp}"
+    s.source_files = "ios/**/*.{h,m,mm,cpp,swift}", "cpp/md4c/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"
   end
 
   # To disable LaTeX math rendering (RaTeX, iOS only), add ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0' to your Podfile.
@@ -55,7 +55,7 @@ Pod::Spec.new do |s|
   end
 
   pod_xcconfig = {
-    'HEADER_SEARCH_PATHS' => "\"#{cpp_root}/md4c\" \"#{cpp_root}/parser\" \"$(PODS_TARGET_SRCROOT)/ios/internals\" \"$(PODS_TARGET_SRCROOT)/ios/input/internals\"",
+    'HEADER_SEARCH_PATHS' => "\"#{cpp_root}/md4c\" \"#{cpp_root}/parser\" \"#{cpp_root}/highlight\" \"$(PODS_TARGET_SRCROOT)/ios/internals\" \"$(PODS_TARGET_SRCROOT)/ios/input/internals\"",
     'GCC_PREPROCESSOR_DEFINITIONS' => preprocessor_defs,
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
     'DEFINES_MODULE' => 'YES'

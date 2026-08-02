@@ -31,6 +31,16 @@
 }
 @end
 
+@implementation ENRMCodeBlockSegment
++ (instancetype)segmentWithCodeBlockNode:(MarkdownASTNode *)node
+{
+  NSParameterAssert(node != nil);
+  ENRMCodeBlockSegment *segment = [[ENRMCodeBlockSegment alloc] init];
+  segment.codeBlockNode = node;
+  return segment;
+}
+@end
+
 @implementation ENRMRenderedSegment
 + (instancetype)textSegmentWithResult:(ENRMRenderResult *)result signature:(uint64_t)signature
 {
@@ -58,6 +68,16 @@
   ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
   segment.kind = ENRMSegmentKindMath;
   segment.mathSegment = mathSegment;
+  segment.signature = signature;
+  return segment;
+}
+
++ (instancetype)codeBlockSegmentWithSegment:(ENRMCodeBlockSegment *)codeBlockSegment signature:(uint64_t)signature
+{
+  NSParameterAssert(codeBlockSegment != nil);
+  ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
+  segment.kind = ENRMSegmentKindCodeBlock;
+  segment.codeBlockSegment = codeBlockSegment;
   segment.signature = signature;
   return segment;
 }

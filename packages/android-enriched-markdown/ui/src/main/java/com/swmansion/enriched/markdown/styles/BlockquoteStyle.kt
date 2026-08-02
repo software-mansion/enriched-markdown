@@ -12,4 +12,6 @@ data class BlockquoteStyle(
   val borderWidth: Float,
   val gapWidth: Float,
   val backgroundColor: Int?,
+  val borderRadius: Float = 0f,
+  val padding: Float = 0f,
 ) : BaseBlockStyle

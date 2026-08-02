@@ -126,7 +126,11 @@ function blockquoteStyle(style: MarkdownStyleInternal): CSSProperties {
     marginInlineStart: 0, // reset UA default (40px in LTR, auto in RTL)
     marginInlineEnd: 0,
     paddingInlineStart: blockquote.gapWidth,
+    paddingInlineEnd: blockquote.padding,
+    paddingTop: blockquote.padding,
+    paddingBottom: blockquote.padding,
     borderInlineStart: `${blockquote.borderWidth}px solid ${blockquote.borderColor}`,
+    borderRadius: blockquote.borderRadius,
     backgroundColor: blockquote.backgroundColor,
   };
 }

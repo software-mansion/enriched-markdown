@@ -106,6 +106,8 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
     borderWidth: 3,
     gapWidth: 16,
     backgroundColor: normalizeColor('#F9FAFB')!,
+    borderRadius: 0,
+    padding: 0,
   },
   list: {
     fontSize: 16,

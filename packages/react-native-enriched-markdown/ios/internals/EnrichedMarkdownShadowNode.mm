@@ -1,4 +1,5 @@
 #import "EnrichedMarkdownShadowNode.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdown.h"
 #import "ShadowMeasurementUtils.h"
 #import <yoga/Yoga.h>
@@ -42,32 +43,25 @@ void EnrichedMarkdownShadowNode::dirtyLayoutIfNeeded()
   }
 }
 
-id EnrichedMarkdownShadowNode::setupMockEnrichedMarkdown_(CGFloat width) const
-{
-  EnrichedMarkdown *mockView = [[EnrichedMarkdown alloc] initWithFrame:CGRectMake(20000, 20000, width, 1000)];
-
-  const auto props = this->getProps();
-  [mockView updateProps:props oldProps:nullptr];
-
-  const auto &typedProps = *std::static_pointer_cast<const EnrichedMarkdownProps>(props);
-  if (!typedProps.markdown.empty()) {
-    NSString *markdown = [NSString stringWithUTF8String:typedProps.markdown.c_str()];
-    [mockView renderMarkdownSynchronously:markdown];
-  }
-
-  return mockView;
-}
-
 Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutContext,
                                                 const LayoutConstraints &layoutConstraints) const
 {
-  const auto &typedProps = *std::static_pointer_cast<const EnrichedMarkdownProps>(this->getProps());
+  const auto propsHandle = std::static_pointer_cast<const EnrichedMarkdownProps>(this->getProps());
+  const auto &typedProps = *propsHandle;
   const int receivedCounter = getStateData().getHeightRecalculationCounter();
+  const EnrichedMarkdownProps *props = propsHandle.get();
+  CGFloat pointScaleFactor = layoutContext.pointScaleFactor;
+  NSWritingDirection resolvedLayoutDirection = layoutConstraints.layoutDirection == LayoutDirection::RightToLeft
+                                                   ? NSWritingDirectionRightToLeft
+                                                   : NSWritingDirectionLeftToRight;
 
   return ENRMMeasureMarkdownContent<EnrichedMarkdownProps, EnrichedMarkdown>(
       typedProps, getStateData().getComponentViewRef(), receivedCounter, lastExactMeasurementCounter_,
-      MarkdownFlavor::GitHub, layoutConstraints,
-      ^(CGFloat width) { return (EnrichedMarkdown *)setupMockEnrichedMarkdown_(width); });
+      MarkdownFlavor::GitHub, layoutContext, layoutConstraints,
+      ^(EnrichedMarkdown *view, CGFloat maxWidth, CGFloat fontScale) {
+        return ENRMMeasureSegmentedMarkdownViewFree(*props, maxWidth, fontScale, pointScaleFactor,
+                                                    resolvedLayoutDirection);
+      });
 }
 
 } // namespace facebook::react

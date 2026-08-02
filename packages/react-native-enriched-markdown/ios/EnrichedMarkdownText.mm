@@ -3,6 +3,7 @@
 #import "ContextMenuUtils.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMAsyncRenderCoordinator.h"
+#import "ENRMAtomicSize.h"
 #import "ENRMContextMenuTextView+macOS.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMMarkdownParser.h"
@@ -112,6 +113,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   NSWritingDirection _resolvedLayoutDirection;
 
   ENRMDirtyFlags _dirtyFlags;
+
+  ENRMAtomicSize _lastCommittedSize;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -142,6 +145,11 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   return size;
 }
 
+- (CGSize)lastCommittedLayoutSize
+{
+  return _lastCommittedSize.load();
+}
+
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown
 {
   return _renderedMarkdown != nil && [_renderedMarkdown isEqualToString:markdown];
@@ -169,6 +177,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+
+  _lastCommittedSize.store(CGSizeMake(layoutMetrics.frame.size.width, layoutMetrics.frame.size.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {

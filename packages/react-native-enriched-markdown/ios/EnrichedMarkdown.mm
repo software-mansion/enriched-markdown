@@ -2,6 +2,7 @@
 #import "ContextMenuUtils.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMAsyncRenderCoordinator.h"
+#import "ENRMAtomicSize.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTailFadeInAnimator.h"
@@ -17,6 +18,7 @@
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathContainerView.h"
 #endif
+#import "ENRMCodeBlockContainerView.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -66,7 +68,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 };
 
 static char kENRMSegmentFadeAnimatorKey;
-
 
 @interface EnrichedMarkdown () <RCTEnrichedMarkdownViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver>
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props;
@@ -119,6 +120,8 @@ static char kENRMSegmentFadeAnimatorKey;
 
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
+
+  ENRMAtomicSize _lastCommittedSize;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -254,6 +257,26 @@ static char kENRMSegmentFadeAnimatorKey;
                           }]];
 #endif
 
+  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindCodeBlock
+                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            return [view isKindOfClass:[ENRMCodeBlockContainerView class]];
+                          }
+                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
+                            EnrichedMarkdown *strongSelf = weakSelf;
+                            if (!strongSelf) {
+                              return [[RCTUIView alloc] init];
+                            }
+
+                            ENRMCodeBlockContainerView *view =
+                                [strongSelf createCodeBlockViewForSegment:segment.codeBlockSegment];
+                            [strongSelf animateBlockViewIfNeeded:view];
+                            return view;
+                          }
+                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            [(ENRMCodeBlockContainerView *)view
+                                applyCodeBlockNode:segment.codeBlockSegment.codeBlockNode];
+                          }]];
+
   _segmentViewRegistry = [[ENRMSegmentViewRegistry alloc] initWithHandlers:handlers];
 }
 
@@ -315,6 +338,11 @@ static char kENRMSegmentFadeAnimatorKey;
       maxContentWidth = width;
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      yOffset += _config.codeBlockMarginTop;
+      segmentHeight = [(ENRMCodeBlockContainerView *)segment measureHeight:width];
+      maxContentWidth = width;
+    }
 
     if (applyFrames) {
       CGFloat segmentX = 0;
@@ -349,6 +377,9 @@ static char kENRMSegmentFadeAnimatorKey;
       yOffset += _config.mathMarginBottom;
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
+      yOffset += _config.codeBlockMarginBottom;
+    }
   }];
 
   return CGSizeMake(maxContentWidth, yOffset);
@@ -365,6 +396,11 @@ static char kENRMSegmentFadeAnimatorKey;
   CGFloat measuredWidth = MIN(ceil(contentSize.width * scale) / scale, maxWidth);
   CGFloat measuredHeight = ceil(contentSize.height * scale) / scale;
   return CGSizeMake(measuredWidth, measuredHeight);
+}
+
+- (CGSize)lastCommittedLayoutSize
+{
+  return _lastCommittedSize.load();
 }
 
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown
@@ -409,6 +445,8 @@ static char kENRMSegmentFadeAnimatorKey;
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+
+  _lastCommittedSize.store(CGSizeMake(layoutMetrics.frame.size.width, layoutMetrics.frame.size.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -472,6 +510,11 @@ static char kENRMSegmentFadeAnimatorKey;
       mathView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ENRMCodeBlockContainerView *codeBlockView = (ENRMCodeBlockContainerView *)segment;
+      codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
+      codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+    }
   }
 }
 
@@ -752,6 +795,15 @@ static char kENRMSegmentFadeAnimatorKey;
   return mathView;
 }
 #endif
+
+- (ENRMCodeBlockContainerView *)createCodeBlockViewForSegment:(ENRMCodeBlockSegment *)codeBlockSegment
+{
+  ENRMCodeBlockContainerView *codeBlockView = [[ENRMCodeBlockContainerView alloc] initWithConfig:_config];
+  codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
+  codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+  [codeBlockView applyCodeBlockNode:codeBlockSegment.codeBlockNode];
+  return codeBlockView;
+}
 
 - (void)animateBlockViewIfNeeded:(RCTUIView *)view
 {

@@ -1,5 +1,6 @@
 #import "CodeBlockRenderer.h"
 #import "CodeBlockBackground.h"
+#import "ENRMCodeBlockContent.h"
 #import "LastElementUtils.h"
 #import "MarkdownASTNode.h"
 #import "ParagraphStyleUtils.h"
@@ -28,7 +29,6 @@
 
   CGFloat listIndent = context.accumulatedIndent;
   CGFloat padding = [_config codeBlockPadding];
-  CGFloat lineHeight = [_config codeBlockLineHeight];
   CGFloat marginTop = [_config codeBlockMarginTop];
   CGFloat marginBottom = [_config codeBlockMarginBottom];
 
@@ -53,23 +53,11 @@
 
   NSRange contentRange = NSMakeRange(contentStart, contentEnd - contentStart);
 
-  UIFont *codeFont = [_config codeBlockFont];
-  RCTUIColor *codeColor = [_config codeBlockColor];
-  if (codeColor) {
-    [output addAttributes:@{NSFontAttributeName : codeFont, NSForegroundColorAttributeName : codeColor}
-                    range:contentRange];
-  } else {
-    [output addAttribute:NSFontAttributeName value:codeFont range:contentRange];
-  }
+  ENRMApplyCodeBlockTextAttributes(output, contentRange, _config);
 
-  if (lineHeight > 0) {
-    applyLineHeight(output, contentRange, lineHeight);
-  }
-
-  // Code is always LTR regardless of app writing direction
+  // Horizontal padding is paragraph indentation in this flavor; the shared
+  // helper already forced the LTR left-aligned base style.
   NSMutableParagraphStyle *baseStyle = [getOrCreateParagraphStyle(output, contentStart) mutableCopy];
-  baseStyle.baseWritingDirection = NSWritingDirectionLeftToRight;
-  baseStyle.alignment = NSTextAlignmentLeft;
   baseStyle.firstLineHeadIndent = padding + listIndent;
   baseStyle.headIndent = padding + listIndent;
   baseStyle.tailIndent = -padding;

@@ -676,18 +676,13 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   _lastTextLength = parsed.plainText.length;
   _lastSelectedRange = _textView.selectedRange;
 
+  [_editSession exitPhase];
+  [self applyFormatting];
+  [self updatePlaceholderVisibility];
+
   if (parsed.plainText.length == 0) {
     [self resetBaseTypingAttributes];
   }
-
-  [_editSession exitPhase];
-
-  // Apply outside the Importing phase: applyFormattingScopedToRange no-ops
-  // while shouldSuppressFormatting is YES (Importing suppresses it), which
-  // left imported text unstyled until the first edit re-applied formatting.
-  // It manages its own Formatting phase for the storage mutation.
-  [self applyFormatting];
-  [self updatePlaceholderVisibility];
 }
 
 - (void)replaceTextInRange:(NSRange)selection

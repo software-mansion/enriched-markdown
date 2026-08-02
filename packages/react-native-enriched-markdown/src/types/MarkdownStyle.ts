@@ -25,6 +25,8 @@ interface BlockquoteStyle extends BaseBlockStyle {
   borderWidth?: number;
   gapWidth?: number;
   backgroundColor?: string;
+  borderRadius?: number;
+  padding?: number;
 }
 
 interface ListStyle extends BaseBlockStyle {

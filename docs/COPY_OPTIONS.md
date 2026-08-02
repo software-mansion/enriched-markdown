@@ -93,8 +93,11 @@ Notes:
   plural category (`zero`, `one`, `two`, `few`, `many`, `other`). Only `other` is
   required; any category left `undefined` falls back to it. The `{count}` token
   is replaced by the number of selected images.
-- The labels apply to the main text selection menu as well as the table and math
-  block copy menus.
+- The labels apply to the main text selection menu as well as the table, math,
+  and code block copy menus. The code block header's copy button also reuses
+  the copy label for assistive technologies: it is the button's
+  contentDescription on Android, and on iOS it names the VoiceOver custom
+  action that triggers the copy.
 - OS-provided actions (Look Up, Translate…) and the system **Cut / Paste /
   Select All** items are localized by the platform and are not affected by this
   config.

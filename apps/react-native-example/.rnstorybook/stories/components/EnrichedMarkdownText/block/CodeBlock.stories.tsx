@@ -5,6 +5,7 @@ import {
   codeBlockStyledDefaults,
   fontFamilyControl,
   fontWeightControl,
+  githubFlavorArgTypes,
   type CodeBlockStyleControls,
   numberControl,
 } from '../shared/storybookMarkdownStyles';
@@ -14,7 +15,7 @@ import {
 } from '../shared/storybookStyleBuilders';
 import type { TextStory } from '../shared/storyTypes';
 
-const MARKDOWN = `\`\`\`
+const MARKDOWN = `\`\`\`python
 sum = 0
 for i in range(20):
   print(i % 3)
@@ -24,6 +25,9 @@ print(sum)
 \`\`\``;
 
 const argTypes = {
+  ...githubFlavorArgTypes(
+    'commonmark — code block rendered as spans inside the single TextView. github — code block rendered as a separate block component.'
+  ),
   fontSize: numberControl('markdownStyle.codeBlock.fontSize', {
     min: 10,
     max: 20,
@@ -80,6 +84,7 @@ export default storyMeta('Block', 'Code Block');
 export const Default: TextStory<CodeBlockStyleControls> = {
   args: {
     markdown: MARKDOWN,
+    flavor: 'github',
     ...codeBlockStyledDefaults,
   },
   argTypes,
@@ -91,7 +96,7 @@ export const Default: TextStory<CodeBlockStyleControls> = {
     return (
       <EnrichedMarkdownTextStory
         title="Code Block"
-        description="Fenced code blocks with triple backticks. Use the controls to tune markdownStyle.codeBlock."
+        description="Fenced code blocks with triple backticks. Use the flavor control to switch between the span-based (commonmark) and block-component (github) renderers, and the other controls to tune markdownStyle.codeBlock."
         {...rest}
         style={{ codeBlock: toCodeBlockStyle(controls) }}
       />
