@@ -81,6 +81,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   CGFloat _lastElementMarginBottom;
   BOOL _allowTrailingMargin;
   BOOL _enableLinkPreview;
+  BOOL _enableTaskListItemToggle;
   BOOL _streamingAnimation;
   BOOL _forceHeightUpdateOnNextRender;
 
@@ -223,6 +224,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _maxFontSizeMultiplier = 0;
     _allowTrailingMargin = NO;
     _enableLinkPreview = YES;
+    _enableTaskListItemToggle = YES;
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
@@ -549,6 +551,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 
   _enableLinkPreview = newViewProps.enableLinkPreview;
+  _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
 
   if (ENRMContextMenuItemsChanged(oldViewProps.contextMenuItems, newViewProps.contextMenuItems)) {
     _contextMenuItemTexts = ENRMContextMenuTextsFromItems(newViewProps.contextMenuItems);
@@ -742,7 +745,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
 
-  if (handleTaskListTapWithSharedLogic(
+  if (_enableTaskListItemToggle &&
+      handleTaskListTapWithSharedLogic(
           textView, recognizer, &self->_cachedMarkdown, self->_config,
           ^(NSInteger index, BOOL checked, NSString *itemText) {
             [self emitTaskListItemPress:index checked:checked text:itemText];

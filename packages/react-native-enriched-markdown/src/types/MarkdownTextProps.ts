@@ -150,6 +150,19 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   onTaskListItemPress?: (event: TaskListItemPressEvent) => void;
   /**
+   * Controls whether tapping a task list checkbox toggles its checked state.
+   *
+   * When `true` (default), tapping the checkbox toggles it and fires
+   * `onTaskListItemPress`. When `false`, the checkbox renders its markdown
+   * state read-only: the tap is fully inert — no visual toggle and no
+   * `onTaskListItemPress` emission. Text selection and links in the same row
+   * are unaffected.
+   *
+   * @default true
+   * @platform ios, android, web
+   */
+  enableTaskListItemToggle?: boolean;
+  /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *
    * When `true`, long-pressing a link shows the native iOS link preview.

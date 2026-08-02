@@ -21,6 +21,7 @@ export const EnrichedMarkdownText = ({
   onLinkPress,
   onLinkLongPress,
   onTaskListItemPress,
+  enableTaskListItemToggle = true,
   allowTrailingMargin = false,
   containerStyle,
   selectable = true,
@@ -92,7 +93,10 @@ export const EnrichedMarkdownText = ({
     [onLinkPress, onLinkLongPress, onTaskListItemPress]
   );
 
-  const capabilities = useMemo<RenderCapabilities>(() => ({ katex }), [katex]);
+  const capabilities = useMemo<RenderCapabilities>(
+    () => ({ katex, enableTaskListItemToggle }),
+    [katex, enableTaskListItemToggle]
+  );
 
   const lastChildStyle = useMemo(
     () =>

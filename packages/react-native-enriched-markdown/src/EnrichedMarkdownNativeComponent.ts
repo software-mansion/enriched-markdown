@@ -354,6 +354,15 @@ export interface NativeProps extends ViewProps {
    */
   onTaskListItemPress?: CodegenTypes.BubblingEventHandler<TaskListItemPressEvent>;
   /**
+   * Controls whether tapping a task list checkbox toggles its checked state.
+   *
+   * When `false`, the tap is fully inert: no visual toggle and no
+   * `onTaskListItemPress` emission. Text selection and links are unaffected.
+   *
+   * @default true
+   */
+  enableTaskListItemToggle?: CodegenTypes.WithDefault<boolean, true>;
+  /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *
    * When `true` (default), long-pressing a link shows the native iOS link preview.

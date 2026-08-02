@@ -76,6 +76,8 @@ export interface RendererCallbacks {
 
 export interface RenderCapabilities {
   katex: KaTeXInstance | null;
+  /** When false, task list checkboxes render read-only and ignore clicks. */
+  enableTaskListItemToggle: boolean;
 }
 
 export interface RendererProps {

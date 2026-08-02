@@ -77,6 +77,29 @@ Callback when a task list checkbox is tapped. Receives `index` (0-based), `check
 | ----------------------------------------------- | ------------- | -------- |
 | `(event: TaskListItemPressEvent) => void`      | -             | Both     |
 
+### `enableTaskListItemToggle`
+
+Controls whether tapping a task list checkbox toggles its checked state.
+
+When `false`, the checkbox renders its markdown state read-only and the tap is **fully inert** — there is no visual toggle and `onTaskListItemPress` does not fire. Text selection and links in the same row are unaffected.
+
+| Type      | Default Value | Platform          |
+| --------- | ------------- | ----------------- |
+| `boolean` | `true`        | Both, Web         |
+
+**Example:**
+
+```tsx
+// Render checkboxes that reflect the markdown but cannot be toggled by the user
+<EnrichedMarkdownText
+  markdown={content}
+  flavor="github"
+  enableTaskListItemToggle={false}
+/>
+```
+
+> **Note:** On web the checkbox keeps its normal appearance and is marked `readOnly` / `aria-disabled` rather than `disabled`, so it stays visually consistent with iOS and Android.
+
 ### `enableLinkPreview`
 
 Controls the native link preview on long press (iOS only). Automatically set to `false` when `onLinkLongPress` is provided.

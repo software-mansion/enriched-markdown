@@ -346,6 +346,10 @@ class EnrichedMarkdownText
       checkboxTouchHelper.onCheckboxTap = callback
     }
 
+    fun setEnableTaskListItemToggle(enabled: Boolean) {
+      checkboxTouchHelper.isEnabled = enabled
+    }
+
     override fun onAttachedToWindow() {
       super.onAttachedToWindow()
       pendingStyledText?.let {

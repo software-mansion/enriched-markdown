@@ -108,6 +108,14 @@ class EnrichedMarkdown
           it.spoilerOverlay = value
         }
       }
+    var enableTaskListItemToggle: Boolean = true
+      set(value) {
+        if (field == value) return
+        field = value
+        segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+          it.enableTaskListItemToggle = value
+        }
+      }
 
     fun setMarkdownContent(markdown: String) {
       if (currentMarkdown == markdown) return
@@ -500,6 +508,7 @@ class EnrichedMarkdown
     private fun createTextView(segment: RenderedSegment.Text) =
       EnrichedMarkdownInternalText(context).apply {
         spoilerOverlay = this@EnrichedMarkdown.spoilerOverlay
+        enableTaskListItemToggle = this@EnrichedMarkdown.enableTaskListItemToggle
         selectionMenuConfig = this@EnrichedMarkdown.selectionMenuConfig
         accessibilityLabels = this@EnrichedMarkdown.accessibilityLabels
         setIsSelectable(selectable)

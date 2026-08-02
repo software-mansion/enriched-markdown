@@ -101,6 +101,7 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _allowTrailingMargin;
   BOOL _selectable;
   BOOL _enableLinkPreview;
+  BOOL _enableTaskListItemToggle;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
 
@@ -158,6 +159,7 @@ static char kENRMSegmentFadeAnimatorKey;
     _allowTrailingMargin = NO;
     _selectable = YES;
     _enableLinkPreview = YES;
+    _enableTaskListItemToggle = YES;
     _streamingAnimation = NO;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
@@ -867,6 +869,7 @@ static char kENRMSegmentFadeAnimatorKey;
   }
 
   _enableLinkPreview = newViewProps.enableLinkPreview;
+  _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
 
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
     _streamingAnimation = newViewProps.streamingAnimation;
@@ -1148,7 +1151,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
 
-  if (handleTaskListTapWithSharedLogic(
+  if (_enableTaskListItemToggle &&
+      handleTaskListTapWithSharedLogic(
           textView, recognizer, &self->_cachedMarkdown, self->_config,
           ^(NSInteger index, BOOL checked, NSString *itemText) {
             [self emitTaskListItemPress:index checked:checked text:itemText];

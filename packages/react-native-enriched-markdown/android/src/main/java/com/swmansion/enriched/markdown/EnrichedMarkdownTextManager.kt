@@ -168,6 +168,14 @@ class EnrichedMarkdownTextManager :
     // No-op on Android — only used on iOS
   }
 
+  @ReactProp(name = "enableTaskListItemToggle", defaultBoolean = true)
+  override fun setEnableTaskListItemToggle(
+    view: EnrichedMarkdownText?,
+    enableTaskListItemToggle: Boolean,
+  ) {
+    view?.setEnableTaskListItemToggle(enableTaskListItemToggle)
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdownText?,
