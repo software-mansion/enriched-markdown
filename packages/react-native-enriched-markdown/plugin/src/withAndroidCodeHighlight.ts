@@ -7,10 +7,9 @@ export const withAndroidCodeHighlight: ConfigPlugin<CodeHighlightOptions> = (
   { enabled = true, languages } = {}
 ) => {
   const hasLanguages = Array.isArray(languages) && languages.length > 0;
-  // Default (enabled, curated set) needs no gradle property.
-  if (enabled && !hasLanguages) {
-    return config;
-  }
+  // Always run the mod so switching back to defaults strips previously-injected
+  // properties; the default (enabled, curated set) simply drops the keys and adds
+  // nothing, since an absent property already means enabled with the curated set.
   return withGradleProperties(config, (gradleConfig) => {
     const drop = new Set([
       'enrichedMarkdown.enableCodeHighlight',
@@ -20,11 +19,15 @@ export const withAndroidCodeHighlight: ConfigPlugin<CodeHighlightOptions> = (
       (prop) => prop.type !== 'property' || !drop.has(prop.key)
     );
 
-    gradleConfig.modResults.push({
-      type: 'property',
-      key: 'enrichedMarkdown.enableCodeHighlight',
-      value: String(enabled),
-    });
+    // Only write overrides that differ from the native defaults (absent => enabled
+    // with the curated language set), matching withIosCodeHighlight.
+    if (!enabled) {
+      gradleConfig.modResults.push({
+        type: 'property',
+        key: 'enrichedMarkdown.enableCodeHighlight',
+        value: 'false',
+      });
+    }
     if (hasLanguages) {
       gradleConfig.modResults.push({
         type: 'property',
