@@ -15,10 +15,10 @@ case "$mode" in
       exit 1
     fi
 
-    # Grammar sources are gitignored (see .gitignore); restore them from the
-    # grammar devDependencies so the published tarball ships the full vendored
-    # set. No-op when already up to date (stamp guard).
-    node "$REPO_ROOT/vendor/vendor-grammars.mjs" --grammars-only
+    # The whole vendor tree (runtime, grammar sources, default registry) is
+    # gitignored (see .gitignore); restore it so the published tarball ships the
+    # full vendored set. No-op when already up to date (stamp guards).
+    node "$REPO_ROOT/vendor/vendor-grammars.mjs"
 
     cd "$RN_PKG"
     rm -rf cpp
@@ -27,7 +27,7 @@ case "$mode" in
 
     # Ship the registry codegen + manifest alongside the vendored grammars so a
     # published consumer can compile a custom language set (the default set uses
-    # the committed cpp/highlight/vendor/generated registry and needs neither).
+    # the restored cpp/highlight/vendor/generated registry and needs neither).
     cp "$REPO_ROOT/vendor/gen-registry.mjs" cpp/highlight/gen-registry.mjs
     cp "$REPO_ROOT/vendor/grammar-versions.json" cpp/highlight/grammar-versions.json
 

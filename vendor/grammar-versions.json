@@ -1,9 +1,11 @@
 {
   "$comment": "Pins the tree-sitter runtime and every supported grammar for vendor-grammars.mjs. Grammars marked default:true form the curated set compiled unless a consumer overrides the language list. Each grammar package is a devDependency of react-native-enriched-markdown and is never shipped; only the copied .c/.h/.scm files are vendored. Versions must generate an ABI in [13,15] to match the runtime. Re-pin and re-run vendor-grammars.mjs to upgrade.",
   "runtime": {
-    "$comment": "tree-sitter runtime C amalgamation. Vendored from the tree-sitter repo lib/ tree; WASM is compiled out by leaving TREE_SITTER_FEATURE_WASM undefined (never strip wasm_store.c, it provides the no-op stubs parser.c/language.c call).",
+    "$comment": "tree-sitter runtime C amalgamation. Fetched at install/prepack from the pinned GitHub release tarball (lib/src + lib/include) into the gitignored vendor/tree-sitter/; WASM is compiled out by leaving TREE_SITTER_FEATURE_WASM undefined (never strip wasm_store.c, it provides the no-op stubs parser.c/language.c call). To re-pin: bump ref, run `node vendor/vendor-grammars.mjs --force`, and paste the sha256 it prints on mismatch. tarball is optional; when absent it is derived from ref.",
     "package": "tree-sitter",
     "ref": "v0.26.3",
+    "tarball": "https://github.com/tree-sitter/tree-sitter/archive/refs/tags/v0.26.3.tar.gz",
+    "sha256": "7f4a7cf0a2cd217444063fe2a4d800bc9d21ed609badc2ac20c0841d67166550",
     "abi": { "version": 15, "minCompatible": 13 }
   },
   "grammars": {

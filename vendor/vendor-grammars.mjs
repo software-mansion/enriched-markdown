@@ -1,30 +1,36 @@
 #!/usr/bin/env node
-// Copies the tree-sitter runtime and each supported grammar's minimal source set
-// into packages/core/cpp/highlight/vendor/. Two modes:
+// Restores the tree-sitter runtime, each supported grammar's minimal source set,
+// and the default-language registry into packages/core/cpp/highlight/vendor/.
+// The whole vendor/ tree (runtime, grammars, generated registry) is GITIGNORED
+// and reproduced on demand from the pins in grammar-versions.json, so nothing
+// generated lives in git. This one command is wired into the package `prepare`
+// hook (a plain `yarn install` self-heals the working tree) and into `prepack`
+// (so the published npm tarball still ships the full set).
 //
-//   node vendor/vendor-grammars.mjs                 (maintainer, on re-pin)
-//     Refreshes the runtime, every grammar, and the committed default registry.
-//     The runtime (tree-sitter/) and registry (generated/) are TRACKED in git;
-//     commit them after a re-pin. Requires the tree-sitter runtime source (see
-//     --runtime-src / TREE_SITTER_SRC).
+//   node vendor/vendor-grammars.mjs
+//     Ensures the runtime (fetched from the pinned GitHub release tarball), every
+//     grammar (copied from the grammar devDependencies), and the default registry
+//     are present and up to date. Idempotent: .stamp fingerprints on the runtime
+//     ref+sha and on the pinned grammar versions make repeated installs a no-op,
+//     so a plain `yarn install` never re-fetches or rewrites an up-to-date tree.
 //
-//   node vendor/vendor-grammars.mjs --grammars-only  (install + prepack, wired
-//     into `prepare` and prepare-npm-publish.sh)
-//     Restores ONLY grammars/ (34 MB, gitignored) from the grammar
-//     devDependencies; leaves the committed runtime + registry untouched. A
-//     .stamp fingerprint makes it a no-op when the vendored set already matches
-//     the pinned versions, so repeated `yarn install`s do not rewrite it. Pass
-//     --force to rebuild regardless.
-//
-// Flags: [--only json,css] [--runtime-src <lib dir>] [--grammars-only] [--force]
+// Flags:
+//   --only json,css   Restore just these grammars (dev/testing). Skips the
+//                     default-registry refresh and the stamp, so it never
+//                     clobbers the full vendored set.
+//   --force           Re-fetch the runtime and rewrite every grammar regardless
+//                     of the stamps.
+//   --runtime-src <lib dir>  Use a local tree-sitter lib/ checkout instead of
+//                     fetching the tarball (offline / maintainer override).
 //
 // Only parser.c, scanner.c (when present), tree_sitter/*.h, highlights.scm and
-// LICENSE are copied; nothing else from the grammar packages ships. WASM is left
-// out of the runtime by never defining TREE_SITTER_FEATURE_WASM at build time,
-// so the full lib/src tree (including wasm_store.c and its no-op stubs) is
-// vendored verbatim and only lib.c is compiled.
+// LICENSE are copied per grammar; nothing else from the grammar packages ships.
+// WASM is left out of the runtime by never defining TREE_SITTER_FEATURE_WASM at
+// build time, so the full lib/src tree (including wasm_store.c and its no-op
+// stubs) is vendored verbatim and only lib.c is compiled.
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -43,12 +49,14 @@ const pkgRequire = createRequire(
 );
 
 function parseArgs(argv) {
-  const args = { only: null, runtimeSrc: null, grammarsOnly: false, force: false };
+  const args = { only: null, runtimeSrc: null, force: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--only') args.only = argv[++i].split(',').map((s) => s.trim());
     else if (argv[i] === '--runtime-src') args.runtimeSrc = argv[++i];
-    else if (argv[i] === '--grammars-only') args.grammarsOnly = true;
     else if (argv[i] === '--force') args.force = true;
+    // --grammars-only is accepted for backward compatibility; the single restore
+    // flow already covers grammars, so it is a no-op.
+    else if (argv[i] === '--grammars-only') continue;
   }
   return args;
 }
@@ -77,23 +85,9 @@ function firstExisting(candidates) {
   return candidates.find((p) => p && fs.existsSync(p)) ?? null;
 }
 
-function resolveRuntimeSrc(runtimeSrcArg) {
-  const candidates = [
-    runtimeSrcArg,
-    process.env.TREE_SITTER_SRC,
-    path.join(repoRoot, 'node_modules/tree-sitter/vendor/tree-sitter/lib'),
-  ].filter(Boolean);
-  const libDir = firstExisting(candidates);
-  if (!libDir) {
-    fail(
-      'tree-sitter runtime source not found. Pass --runtime-src <path to tree-sitter/lib> ' +
-        'or set TREE_SITTER_SRC. Expected a directory containing src/lib.c and include/tree_sitter/api.h.'
-    );
-  }
-  return libDir;
-}
-
-function vendorRuntime(libDir) {
+// Copies lib/src + lib/include/tree_sitter/api.h from a tree-sitter `lib`
+// checkout into the vendor tree. Shared by the tarball and --runtime-src paths.
+function copyRuntimeFromLib(libDir) {
   const srcDir = path.join(libDir, 'src');
   const apiHeader = path.join(libDir, 'include/tree_sitter/api.h');
   if (!fs.existsSync(path.join(srcDir, 'lib.c')) || !fs.existsSync(apiHeader)) {
@@ -103,7 +97,79 @@ function vendorRuntime(libDir) {
   fs.rmSync(outSrc, { recursive: true, force: true });
   copyDir(srcDir, outSrc);
   copyFile(apiHeader, path.join(vendorOut, 'tree-sitter/include/tree_sitter/api.h'));
-  console.log(`[vendor-grammars] runtime -> ${path.relative(repoRoot, outSrc)}`);
+}
+
+function runtimeTarballUrl(runtime) {
+  return runtime.tarball ?? `https://github.com/tree-sitter/tree-sitter/archive/refs/tags/${runtime.ref}.tar.gz`;
+}
+
+// Downloads the pinned runtime tarball, verifies its sha256 against the manifest,
+// extracts it to a temp dir with the system `tar`, and returns the `lib/` path.
+// A sha mismatch is fatal and prints the computed digest to paste back into the
+// manifest on a deliberate re-pin.
+async function fetchRuntimeLib(runtime) {
+  const url = runtimeTarballUrl(runtime);
+  if (!runtime.sha256) {
+    fail(`runtime.sha256 missing in grammar-versions.json; cannot verify ${url}`);
+  }
+  console.log(`[vendor-grammars] fetching runtime ${runtime.ref} from ${url}`);
+  let buf;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) fail(`runtime download failed: ${res.status} ${res.statusText} for ${url}`);
+    buf = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    fail(`runtime download failed for ${url}: ${err.message}. Pass --runtime-src to vendor from a local checkout offline.`);
+  }
+  const digest = crypto.createHash('sha256').update(buf).digest('hex');
+  if (digest !== runtime.sha256) {
+    fail(
+      `runtime tarball sha256 mismatch for ${url}\n  expected ${runtime.sha256}\n  got      ${digest}\n` +
+        'If this is a deliberate re-pin, update runtime.sha256 in grammar-versions.json to the "got" value.'
+    );
+  }
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-runtime-'));
+  const tgz = path.join(tmp, 'runtime.tar.gz');
+  fs.writeFileSync(tgz, buf);
+  const untar = spawnSync('tar', ['-xzf', tgz, '-C', tmp], { stdio: 'inherit' });
+  if (untar.status !== 0) fail(`tar failed to extract ${tgz} (status ${untar.status})`);
+  const top = fs
+    .readdirSync(tmp, { withFileTypes: true })
+    .find((e) => e.isDirectory() && e.name.startsWith('tree-sitter-'));
+  if (!top) fail(`extracted runtime tarball has no tree-sitter-* directory in ${tmp}`);
+  return { libDir: path.join(tmp, top.name, 'lib'), tmp };
+}
+
+// Fingerprint of the pinned runtime: ref + sha (+ 'local' when sourced from a
+// checkout). A re-pin invalidates it; matching stamp + present lib.c is a no-op.
+function runtimeStampKey(runtime, fromLocal) {
+  return `${runtime.ref}|${runtime.sha256 ?? 'nosha'}|${fromLocal ? 'local' : 'tarball'}`;
+}
+
+async function ensureRuntime(manifest, args) {
+  const runtime = manifest.runtime ?? {};
+  const localLib = firstExisting([args.runtimeSrc, process.env.TREE_SITTER_SRC].filter(Boolean));
+  const stampFile = path.join(vendorOut, 'tree-sitter/.stamp');
+  const stampKey = runtimeStampKey(runtime, !!localLib);
+  const present = fs.existsSync(path.join(vendorOut, 'tree-sitter/src/lib.c'));
+
+  if (!args.force && present && readStamp(stampFile) === stampKey) {
+    console.log('[vendor-grammars] runtime already up to date; skipping.');
+    return;
+  }
+
+  if (localLib) {
+    copyRuntimeFromLib(localLib);
+  } else {
+    const { libDir, tmp } = await fetchRuntimeLib(runtime);
+    try {
+      copyRuntimeFromLib(libDir);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+  fs.writeFileSync(stampFile, stampKey + '\n');
+  console.log(`[vendor-grammars] runtime -> ${path.relative(repoRoot, path.join(vendorOut, 'tree-sitter/src'))}`);
 }
 
 function packageRoot(pkgName) {
@@ -242,7 +308,11 @@ function vendorableIds(manifest, ids) {
   return out;
 }
 
-function main() {
+function registryPresent() {
+  return fs.existsSync(path.join(vendorOut, 'generated/generated_registry.cpp'));
+}
+
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const requested = args.only ?? Object.keys(manifest.grammars);
@@ -251,31 +321,30 @@ function main() {
   // Only a full-set run may trust or write the stamp; a partial --only run must not.
   const stampKey = args.only ? null : grammarStampKey(manifest, ids);
 
-  if (args.grammarsOnly) {
-    // Install/prepack path: the runtime and default registry are committed, so
-    // only restore the gitignored grammar sources from the devDependencies. Skip
-    // entirely when the vendored set already matches the pinned versions, so a
-    // plain `yarn install` does not rewrite 34 MB on every run.
-    if (!args.force && stampKey && everyGrammarPresent(ids) && readStamp(stampFile) === stampKey) {
-      console.log('[vendor-grammars] grammar sources already up to date; skipping.');
-      return;
-    }
+  // Runtime: fetched from the pinned tarball (gitignored, idempotent via stamp).
+  await ensureRuntime(manifest, args);
+
+  // Grammars: restored from the grammar devDependencies. Skip when the vendored
+  // set already matches the pinned versions so a plain `yarn install` does not
+  // rewrite 34 MB on every run.
+  let grammarsRebuilt = false;
+  if (!args.force && stampKey && everyGrammarPresent(ids) && readStamp(stampFile) === stampKey) {
+    console.log('[vendor-grammars] grammar sources already up to date; skipping.');
+  } else {
     for (const id of ids) vendorGrammar(id, requireSpec(manifest, id));
     if (stampKey) fs.writeFileSync(stampFile, stampKey + '\n');
+    grammarsRebuilt = true;
     console.log('[vendor-grammars] grammar sources ready.');
-    return;
   }
 
-  // Maintainer full run (re-pin in grammar-versions.json): refresh the runtime,
-  // every grammar, and the committed default registry.
-  vendorRuntime(resolveRuntimeSrc(args.runtimeSrc));
-  for (const id of ids) vendorGrammar(id, requireSpec(manifest, id));
-  regenerateDefaultRegistry(manifest);
-  if (stampKey) fs.writeFileSync(stampFile, stampKey + '\n');
-  console.log(
-    '[vendor-grammars] done. Commit the runtime + generated registry under ' +
-      'packages/core/cpp/highlight/vendor/ (grammars/ is gitignored).'
-  );
+  // Default registry: regenerated from the vendored grammars. A partial --only
+  // run must not touch it (the default set may not all be vendored). Otherwise
+  // refresh it whenever the grammars changed or it is missing.
+  if (!args.only && (args.force || grammarsRebuilt || !registryPresent())) {
+    regenerateDefaultRegistry(manifest);
+  }
+
+  console.log('[vendor-grammars] done.');
 }
 
-main();
+main().catch((err) => fail(err && err.stack ? err.stack : String(err)));

@@ -111,20 +111,24 @@ the set later, run `npx expo prebuild --clean` and rebuild.
 ## How it works
 
 Grammars are **vendored** into `packages/core/cpp/highlight/vendor/` (only each grammar's
-`parser.c`/`scanner.c` + `highlights.scm`, never whole npm packages), so builds are fully offline and
-deterministic. The stable tree-sitter runtime is vendored the same way and compiled with WebAssembly
-support left out. A build-time codegen emits a registry for exactly the selected languages, so the
-binary and link step only ever reference compiled grammars.
+`parser.c`/`scanner.c` + `highlights.scm`, never whole npm packages), so the native build itself is
+fully offline and deterministic. The stable tree-sitter runtime is vendored the same way and compiled
+with WebAssembly support left out. A build-time codegen emits a registry for exactly the selected
+languages, so the binary and link step only ever reference compiled grammars.
 
-The ~34 MB of generated grammar `parser.c` tables (`vendor/grammars/`) are **gitignored** to keep the
-repo and PRs small. They are regenerated from the pinned grammar devDependencies by
-`vendor/vendor-grammars.mjs --grammars-only`, which is wired into the package `prepare` script (so a
-plain `yarn install` restores them, with a `.stamp` guard making repeats a no-op) and into `prepack`
-(so the published npm tarball still ships the full set). The small tree-sitter runtime
-(`vendor/tree-sitter/`) and the committed default registry (`vendor/generated/`) stay tracked in git.
+The entire `vendor/` tree is **gitignored** to keep the repo and PRs small — nothing generated lives
+in git. `vendor/vendor-grammars.mjs` restores all of it from the pins in `vendor/grammar-versions.json`:
+the tree-sitter runtime (`vendor/tree-sitter/`) is fetched and sha256-verified from the pinned GitHub
+release tarball, the ~178 MB of grammar `parser.c` tables (`vendor/grammars/`) are copied from the
+pinned grammar devDependencies, and the default registry (`vendor/generated/`) is codegen'd from them.
+It is wired into the package `prepare` script (so a plain `yarn install` restores everything, with
+`.stamp` guards making repeats a no-op) and into `prepack` (so the published npm tarball still ships
+the full set — consumers install it prebaked and never fetch anything).
 
 Highlighting runs synchronously when a code block is applied and is cached per block, with a size cap
-(~50 KB / ~2000 lines) that falls back to plain rendering for pathological inputs. Maintainers
-re-pin, refresh the runtime, and regenerate the committed registry with a full
-`node vendor/vendor-grammars.mjs` run (requires the tree-sitter runtime source via `--runtime-src` or
-`TREE_SITTER_SRC`) after editing `vendor/grammar-versions.json`, then commit the runtime + registry.
+(~50 KB / ~2000 lines) that falls back to plain rendering for pathological inputs. Maintainers re-pin
+by editing `vendor/grammar-versions.json` (for a runtime bump, also update `runtime.sha256` — a full
+`node vendor/vendor-grammars.mjs --force` run prints the correct digest on mismatch) and re-running
+the script; there is nothing generated to commit. To vendor the runtime from a local tree-sitter
+checkout instead of the network, pass `--runtime-src <path to tree-sitter/lib>` (or set
+`TREE_SITTER_SRC`).
