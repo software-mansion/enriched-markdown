@@ -25,6 +25,14 @@ endif()
 
 set(ANDROID_CPP_DIR "${LIB_ANDROID_DIR}/src/main/cpp")
 
+# Optional tree-sitter code highlighting. build.gradle writes this config during
+# configuration (enable flag, selected languages, generated registry dir); absent
+# on a bare CMake invocation, in which case highlighting stays compiled out.
+set(HIGHLIGHT_CONFIG "${LIB_ANDROID_DIR}/build/generated/highlight/highlight-config.cmake")
+if(EXISTS "${HIGHLIGHT_CONFIG}")
+  include("${HIGHLIGHT_CONFIG}")
+endif()
+
 file(GLOB MD4C_SOURCES "${CPP_ROOT}/md4c/*.c")
 file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
 file(GLOB HIGHLIGHT_SOURCES "${CPP_ROOT}/highlight/*.cpp")
@@ -85,3 +93,45 @@ target_include_directories(
 )
 
 target_compile_reactnative_options(${LIB_TARGET_NAME} PRIVATE)
+
+# --- Code-block syntax highlighting (tree-sitter) ---
+# CodeBlockHighlighter.cpp / CodeBlockLanguages.cpp are already in the target via
+# HIGHLIGHT_SOURCES; without the define below CodeBlockHighlighter.cpp is the stub.
+# When enabled we add the runtime, the generated registry, and one OBJECT lib per
+# selected grammar (each isolated to its own dir so grammar parser.h files never
+# collide), then define ENRICHED_MARKDOWN_CODE_HIGHLIGHT so the real seam compiles.
+if(ENRICHED_MARKDOWN_CODE_HIGHLIGHT)
+  set(TS_VENDOR "${CPP_ROOT}/highlight/vendor")
+
+  add_library(tree_sitter_runtime STATIC "${TS_VENDOR}/tree-sitter/src/lib.c")
+  target_include_directories(tree_sitter_runtime
+    PRIVATE "${TS_VENDOR}/tree-sitter/src"
+    PUBLIC "${TS_VENDOR}/tree-sitter/include")
+  set_target_properties(tree_sitter_runtime PROPERTIES
+    C_STANDARD 11 C_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE ON)
+  target_compile_options(tree_sitter_runtime PRIVATE -fvisibility=hidden)
+
+  set(GRAMMAR_OBJECTS "")
+  foreach(lang IN LISTS ENRICHED_MARKDOWN_HIGHLIGHT_LANGUAGES)
+    set(gdir "${TS_VENDOR}/grammars/${lang}")
+    set(gsrcs "${gdir}/parser.c")
+    if(EXISTS "${gdir}/scanner.c")
+      list(APPEND gsrcs "${gdir}/scanner.c")
+    endif()
+    add_library(ts_grammar_${lang} OBJECT ${gsrcs})
+    target_include_directories(ts_grammar_${lang} PRIVATE "${gdir}")
+    set_target_properties(ts_grammar_${lang} PROPERTIES
+      C_STANDARD 11 C_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE ON)
+    target_compile_options(ts_grammar_${lang} PRIVATE -fvisibility=hidden)
+    list(APPEND GRAMMAR_OBJECTS $<TARGET_OBJECTS:ts_grammar_${lang}>)
+  endforeach()
+
+  target_sources(${LIB_TARGET_NAME} PRIVATE
+    "${ENRICHED_MARKDOWN_HIGHLIGHT_GENERATED_DIR}/generated_registry.cpp"
+    ${GRAMMAR_OBJECTS})
+  target_include_directories(${LIB_TARGET_NAME} PRIVATE
+    "${TS_VENDOR}/tree-sitter/include"
+    "${ENRICHED_MARKDOWN_HIGHLIGHT_GENERATED_DIR}")
+  target_compile_definitions(${LIB_TARGET_NAME} PRIVATE ENRICHED_MARKDOWN_CODE_HIGHLIGHT=1)
+  target_link_libraries(${LIB_TARGET_NAME} tree_sitter_runtime)
+endif()
