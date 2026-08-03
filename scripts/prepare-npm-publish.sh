@@ -20,6 +20,12 @@ case "$mode" in
     mkdir -p cpp
     cp -R "$CORE_CPP/." cpp/
 
+    # Ship the registry codegen + manifest alongside the vendored grammars so a
+    # published consumer can compile a custom language set (the default set uses
+    # the committed cpp/highlight/vendor/generated registry and needs neither).
+    cp "$REPO_ROOT/vendor/gen-registry.mjs" cpp/highlight/gen-registry.mjs
+    cp "$REPO_ROOT/vendor/grammar-versions.json" cpp/highlight/grammar-versions.json
+
     cp "$REPO_ROOT/README.md" README.md
     cp "$REPO_ROOT/LICENSE" LICENSE
     cp -R "$REPO_ROOT/docs" docs
