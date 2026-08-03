@@ -15,4 +15,12 @@ namespace Markdown {
 // returns an empty string.
 std::string displayNameForLanguage(const std::string& language);
 
+// Maps a fence info string to the canonical tree-sitter grammar id that can
+// highlight it (for example "js" and "jsx" both map to "javascript"). Returns
+// an empty string when no grammar covers the language. The id is the vendored
+// grammar directory name; whether that grammar is actually compiled into the
+// build is a separate question answered by findGrammar in the highlighting
+// module. Always compiled, independent of ENRICHED_MARKDOWN_CODE_HIGHLIGHT.
+std::string canonicalGrammarId(const std::string& language);
+
 } // namespace Markdown
