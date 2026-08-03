@@ -33,21 +33,57 @@ const MARKDOWN = [
   '```',
 ].join('\n');
 
+// Two blocks that together exercise every token type except embedded (which
+// needs language injection, unsupported by the single-grammar highlighter). The
+// Rust block covers comment, attribute (#[derive]), keyword, type, function,
+// property (fields), variable, number, string, constant, operator and
+// punctuation; the HTML block adds tag and attribute (plus doctype -> constant).
+const MARKDOWN_ALL_TOKENS = [
+  '```rust',
+  '// distance between two points',
+  '#[derive(Debug, Clone)]',
+  'struct Point {',
+  '    x: f64,',
+  '    y: f64,',
+  '}',
+  '',
+  'impl Point {',
+  '    fn dist(&self, other: &Point) -> f64 {',
+  '        let dx = self.x - other.x;',
+  '        (dx * dx).sqrt()',
+  '    }',
+  '}',
+  '',
+  'fn main() {',
+  '    const SCALE: u32 = 2;',
+  '    let p = Point { x: 1.5, y: 3.0 };',
+  '    println!("dist = {}", p.dist(&p) * SCALE as f64);',
+  '}',
+  '```',
+  '',
+  '```html',
+  '<!doctype html>',
+  '<!-- a labelled link -->',
+  '<a href="/x" class="link" data-id="7">go</a>',
+  '```',
+].join('\n');
+
+// GitHub-dark palette; the four "inherit" tokens use the code block base color.
 const BASE_TEXT_COLOR = '#f3f4f6';
 const syntaxColorDefaults = {
-  keyword: '#cf222e',
+  keyword: '#ff7b72',
   operator: BASE_TEXT_COLOR,
   punctuation: BASE_TEXT_COLOR,
-  string: '#0a3069',
-  number: '#0550ae',
-  constant: '#0550ae',
-  comment: '#6e7781',
-  function: '#8250df',
-  type: '#953800',
+  string: '#a5d6ff',
+  number: '#79c0ff',
+  constant: '#79c0ff',
+  comment: '#8b949e',
+  function: '#d2a8ff',
+  type: '#ffa657',
   variable: BASE_TEXT_COLOR,
-  property: '#0550ae',
-  tag: '#116329',
-  attribute: '#0550ae',
+  property: '#79c0ff',
+  tag: '#7ee787',
+  attribute: '#79c0ff',
   embedded: BASE_TEXT_COLOR,
 };
 
@@ -93,6 +129,26 @@ export const Default: TextStory<SyntaxColorControls> = {
       <EnrichedMarkdownTextStory
         title="Code Highlight"
         description="Per-token syntax colors via markdownStyle.codeBlock.syntaxColors. Colors render only when the optional highlighting module is compiled in; otherwise code blocks stay plain. Retheme any token with the color controls, and switch flavor to compare the block and inline renderers."
+        {...rest}
+        style={{ codeBlock: { syntaxColors: controls } }}
+      />
+    );
+  },
+};
+
+export const AllTokens: TextStory<SyntaxColorControls> = {
+  args: {
+    markdown: MARKDOWN_ALL_TOKENS,
+    flavor: 'github',
+    ...syntaxColorDefaults,
+  },
+  argTypes,
+  render: (args) => {
+    const { controls, rest } = splitStyleControls(args, syntaxColorDefaults);
+    return (
+      <EnrichedMarkdownTextStory
+        title="Code Highlight — All Tokens"
+        description="A Rust block plus an HTML block that together exercise every syntax token type except embedded (which needs language injection), each rethemable with its own color control below. Colors render only when the optional highlighting module is compiled in with the rust and html grammars; otherwise the code blocks stay plain."
         {...rest}
         style={{ codeBlock: { syntaxColors: controls } }}
       />
