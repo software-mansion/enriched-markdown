@@ -47,8 +47,6 @@ class CodeBlockRenderer(
 
     val end = builder.length
 
-    // Foreground-only syntax highlighting over the rendered code; a no-op when
-    // the module is compiled out, so the plain rendering is preserved.
     CodeBlockHighlighter.highlight(
       builder,
       CodeBlockNode.extractCode(node),

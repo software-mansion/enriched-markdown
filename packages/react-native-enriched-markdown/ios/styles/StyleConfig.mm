@@ -1,12 +1,12 @@
 #import "StyleConfig.h"
+#include "CodeBlockHighlighter.hpp"
 #import "ENRMFontSlot.h"
 #import "FontUtils.h"
 #import <React/RCTFont.h>
 #import <React/RCTUtils.h>
 
-// Number of syntax highlight token types; mirrors HighlightTokenType in
-// cpp/highlight/CodeBlockHighlighter.hpp.
-static const NSInteger kENRMCodeBlockSyntaxColorCount = 14;
+static const NSInteger kENRMCodeBlockSyntaxColorCount =
+    static_cast<NSInteger>(Markdown::HighlightTokenType::Embedded) + 1;
 
 static inline NSString *normalizedFontWeight(NSString *fontWeight)
 {

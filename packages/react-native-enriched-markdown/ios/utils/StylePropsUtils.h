@@ -887,8 +887,6 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
     changed = YES;
   }
 
-  // Syntax highlight colors: one diff+set per token type. Token ordinals come
-  // from HighlightTokenType so they can't drift out of sync with the seam.
 #define ENRM_SET_SYNTAX_COLOR(field, token)                                                                            \
   if (newStyle.codeBlock.syntaxColors.field != oldStyle.codeBlock.syntaxColors.field) {                                \
     [config setCodeBlockSyntaxColor:RCTUIColorFromSharedColor(newStyle.codeBlock.syntaxColors.field)                   \

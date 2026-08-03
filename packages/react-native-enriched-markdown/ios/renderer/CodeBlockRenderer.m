@@ -56,8 +56,6 @@
 
   ENRMApplyCodeBlockTextAttributes(output, contentRange, _config);
 
-  // Foreground-only syntax highlighting; a no-op when the module is compiled
-  // out, so the plain rendering is preserved.
   ENRMApplyHighlightTokens(output, contentRange, ENRMCodeBlockExtractCode(node), ENRMCodeBlockLanguage(node), _config);
 
   // Horizontal padding is paragraph indentation in this flavor; the shared

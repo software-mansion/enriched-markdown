@@ -20,8 +20,6 @@ BOOL ENRMApplyHighlightTokens(NSMutableAttributedString *output, NSRange range, 
     return NO;
   }
 
-  // Token offsets are relative to the code string; range.location is where that
-  // code begins in `output`. Never color past the content range or the string.
   NSUInteger cap = MIN(NSMaxRange(range), output.length);
   BOOL applied = NO;
   for (const auto &token : tokens) {

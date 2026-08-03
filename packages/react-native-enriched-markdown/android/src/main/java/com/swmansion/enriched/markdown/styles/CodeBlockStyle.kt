@@ -15,11 +15,9 @@ data class CodeBlockStyle(
   val borderRadius: Float,
   val borderWidth: Float,
   val padding: Float,
-  // Syntax highlight colors resolved once, indexed by HighlightTokenType ordinal.
   val syntaxColors: List<Int>,
 ) : BaseBlockStyle {
   companion object {
-    // Order must match HighlightTokenType in cpp/highlight/CodeBlockHighlighter.hpp.
     private val SYNTAX_COLOR_KEYS =
       listOf(
         "keyword",
@@ -56,8 +54,6 @@ data class CodeBlockStyle(
       val borderWidth = parser.toPixelFromDIP(map.getDouble("borderWidth").toFloat())
       val padding = parser.toPixelFromDIP(map.getDouble("padding").toFloat())
 
-      // JS resolves all token colors; fall back to the base text color for any
-      // key that is somehow absent so the token still renders (as "inherit").
       val syntaxMap = map.getMap("syntaxColors")
       val syntaxColors =
         SYNTAX_COLOR_KEYS.map { key ->

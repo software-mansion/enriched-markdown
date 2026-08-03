@@ -5,8 +5,6 @@ import { githubFlavorArgTypes } from '../shared/storybookMarkdownStyles';
 import { splitStyleControls } from '../shared/storybookStyleBuilders';
 import type { TextStory } from '../shared/storyTypes';
 
-// One document exercising every default-supported grammar at once, so a single
-// story is the manual QA surface for syntax highlighting across languages.
 const MARKDOWN = [
   '```javascript',
   'const greet = (name) => `hi ${name}`; // arrow fn',
@@ -65,7 +63,6 @@ const MARKDOWN = [
   '```',
 ].join('\n');
 
-// GitHub-light palette; the four "inherit" tokens use the code block base color.
 const BASE_TEXT_COLOR = '#f3f4f6';
 const syntaxColorDefaults = {
   keyword: '#cf222e',

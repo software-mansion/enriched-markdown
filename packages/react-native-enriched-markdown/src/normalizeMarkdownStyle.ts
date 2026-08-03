@@ -31,13 +31,8 @@ const getMonospaceFont = (): string =>
 
 const defaultTextColor = normalizeColor('#1F2937')!;
 
-// Base text color for code blocks; also the fallback for the syntax token types
-// that "inherit" (operator, punctuation, variable, embedded).
 const codeBlockTextColor = normalizeColor('#F3F4F6')!;
 
-// Provisional GitHub-light syntax palette. It is the single source of truth for
-// per-token code colors: native reads these resolved values and holds no default
-// of its own. The four inheriting tokens resolve to the code block base color.
 const DEFAULT_CODE_BLOCK_SYNTAX_COLORS = {
   keyword: normalizeColor('#CF222E')!,
   operatorColor: codeBlockTextColor,
@@ -54,6 +49,13 @@ const DEFAULT_CODE_BLOCK_SYNTAX_COLORS = {
   attribute: normalizeColor('#0550AE')!,
   embedded: codeBlockTextColor,
 };
+
+const INHERIT_SYNTAX_TOKENS = new Set([
+  'operatorColor',
+  'punctuation',
+  'variable',
+  'embedded',
+]);
 
 // Explicit type annotation needed: Object.freeze breaks contextual typing, so
 // TypeScript widens literal 'auto' to `string` instead of `BlockTextAlign`.
@@ -348,25 +350,30 @@ export const normalizeMarkdownStyle = (
       paragraphColor;
   }
 
-  // mergeSubStyle deep-merges the nested syntaxColors object but only normalizes
-  // top-level color strings, so a user's nested override (e.g. '#ff0000') would
-  // reach native un-processColor'd. Normalize any string value here; the resolved
-  // defaults are already ColorValue and are skipped. Invalid values fall back to
-  // the default palette entry for that token.
-  if (style.codeBlock?.syntaxColors) {
-    const syntaxColors = (
-      result.codeBlock as MarkdownStyleInternal['codeBlock']
-    ).syntaxColors as unknown as Record<string, unknown>;
-    for (const token in syntaxColors) {
-      if (typeof syntaxColors[token] === 'string') {
-        syntaxColors[token] =
-          normalizeColor(syntaxColors[token] as string) ??
-          DEFAULT_CODE_BLOCK_SYNTAX_COLORS[
-            token as keyof typeof DEFAULT_CODE_BLOCK_SYNTAX_COLORS
-          ];
-      }
+  const codeBlock = result.codeBlock as MarkdownStyleInternal['codeBlock'];
+  const userSyntaxColors = style.codeBlock?.syntaxColors as
+    | Record<string, unknown>
+    | undefined;
+  const resolvedSyntaxColors: Record<string, unknown> = {};
+  for (const token in DEFAULT_CODE_BLOCK_SYNTAX_COLORS) {
+    const userValue = userSyntaxColors?.[token];
+    if (typeof userValue === 'string') {
+      resolvedSyntaxColors[token] =
+        normalizeColor(userValue) ??
+        DEFAULT_CODE_BLOCK_SYNTAX_COLORS[
+          token as keyof typeof DEFAULT_CODE_BLOCK_SYNTAX_COLORS
+        ];
+    } else if (INHERIT_SYNTAX_TOKENS.has(token)) {
+      resolvedSyntaxColors[token] = codeBlock.color;
+    } else {
+      resolvedSyntaxColors[token] =
+        DEFAULT_CODE_BLOCK_SYNTAX_COLORS[
+          token as keyof typeof DEFAULT_CODE_BLOCK_SYNTAX_COLORS
+        ];
     }
   }
+  (codeBlock as unknown as Record<string, unknown>).syntaxColors =
+    resolvedSyntaxColors;
 
   const finalResult = Object.freeze(result) as unknown as MarkdownStyleInternal;
   refCache.set(style, finalResult);

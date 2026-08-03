@@ -125,8 +125,6 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,
-    // Syntax highlighting is not applied on web yet — defaults kept for type
-    // compatibility and future parity. The four inheriting tokens use the base color.
     syntaxColors: {
       keyword: '#CF222E',
       operatorColor: '#F3F4F6',
