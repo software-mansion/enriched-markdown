@@ -1,3 +1,9 @@
 *.pbxproj -text
 # specific for windows script files
 *.bat text eol=crlf
+
+# Vendored tree-sitter runtime + grammars (parser.c files are machine-generated
+# parse tables). Mark generated so GitHub collapses them in PR diffs and excludes
+# them from language stats, and -diff so `git diff` skips their contents.
+packages/core/cpp/highlight/vendor/** linguist-generated=true
+packages/core/cpp/highlight/vendor/** -diff
