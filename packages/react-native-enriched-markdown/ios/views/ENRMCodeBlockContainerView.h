@@ -14,6 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (CGFloat)measureHeight:(CGFloat)maxWidth;
 
+// View-free height for the shadow-node measurement pass: the same height an
+// instance's measureHeight: reports for the node, without building a view.
++ (CGFloat)measureHeightForCodeBlockNode:(MarkdownASTNode *)node config:(StyleConfig *)config;
+
 @property (nonatomic, strong) StyleConfig *config;
 
 // Renamed getters avoid the Cocoa `copy` method family (which signals +1

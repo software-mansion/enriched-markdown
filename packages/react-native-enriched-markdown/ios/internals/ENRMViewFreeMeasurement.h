@@ -1,5 +1,6 @@
 #pragma once
 
+#import "ENRMCodeBlockContainerView.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTextRenderer.h"
@@ -289,6 +290,14 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
         maxContentWidth = maxWidth;
         if (shouldAddBottomMargin) {
           yOffset += config.tableMarginBottom;
+        }
+      } else if (segment.kind == ENRMSegmentKindCodeBlock && segment.codeBlockSegment) {
+        yOffset += config.codeBlockMarginTop;
+        yOffset += [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:segment.codeBlockSegment.codeBlockNode
+                                                                      config:config];
+        maxContentWidth = maxWidth;
+        if (shouldAddBottomMargin) {
+          yOffset += config.codeBlockMarginBottom;
         }
       }
 #if ENRICHED_MARKDOWN_MATH

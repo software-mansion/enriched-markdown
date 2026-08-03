@@ -24,6 +24,59 @@ static const CGFloat kENRMHeaderLabelScale = 0.85;
 static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
 static const CGFloat kENRMHeaderDividerAlpha = 0.2;
 
+// Height geometry and code-run construction shared by the instance layout path
+// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
+
+static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
+{
+  return [config codeBlockPadding] + [config codeBlockBorderWidth];
+}
+
+#if !TARGET_OS_OSX
+static UIFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
+{
+  return [UIFont systemFontOfSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale weight:UIFontWeightMedium];
+}
+
+static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
+{
+  return ceil(headerFont.lineHeight);
+}
+#else
+static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
+{
+  return [NSFont systemFontOfSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale weight:NSFontWeightMedium];
+}
+
+static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
+{
+  return ceil(headerFont.ascender - headerFont.descender);
+}
+#endif
+
+static NSAttributedString *ENRMCodeBlockPlainAttributedCode(NSString *code, StyleConfig *config)
+{
+  if (code.length == 0) {
+    return [[NSAttributedString alloc] initWithString:@""];
+  }
+  NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:code];
+  ENRMApplyCodeBlockTextAttributes(attributed, NSMakeRange(0, attributed.length), config);
+  return attributed;
+}
+
+// Unwrapped code extent: width feeds the horizontal scroll, height the box
+// measurement. Width-independent since lines never wrap.
+static CGSize ENRMCodeBlockCodeSize(NSAttributedString *attributedCode)
+{
+  if (attributedCode.length == 0) {
+    return CGSizeZero;
+  }
+  CGRect bounds = [attributedCode boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)
+                                               options:NSStringDrawingUsesLineFragmentOrigin
+                                               context:nil];
+  return CGSizeMake(ceil(bounds.size.width), ceil(bounds.size.height));
+}
+
 // Used only to pick the scroll indicator style for the code pane, so the
 // indicator stays visible on dark code block backgrounds without affecting
 // any other scroll view.
@@ -126,15 +179,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _config = config;
     _cachedCode = @"";
     _fenceChar = @"`";
-#if !TARGET_OS_OSX
-    _headerFont = [UIFont systemFontOfSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale
-                                    weight:UIFontWeightMedium];
-    _headerLabelLineHeight = ceil(_headerFont.lineHeight);
-#else
-    _headerFont = [NSFont systemFontOfSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale
-                                    weight:NSFontWeightMedium];
-    _headerLabelLineHeight = ceil(_headerFont.ascender - _headerFont.descender);
-#endif
+    _headerFont = ENRMCodeBlockHeaderFont(config);
+    _headerLabelLineHeight = ENRMCodeBlockHeaderLabelLineHeight(_headerFont);
     self.backgroundColor = [RCTUIColor clearColor];
     [self setupScrollView];
 
@@ -281,14 +327,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   NSAttributedString *highlighted = ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage);
   _attributedCode = highlighted ?: plainCode;
 
-  if (_attributedCode.length > 0) {
-    CGRect codeBounds = [_attributedCode boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)
-                                                      options:NSStringDrawingUsesLineFragmentOrigin
-                                                      context:nil];
-    _codeSize = CGSizeMake(ceil(codeBounds.size.width), ceil(codeBounds.size.height));
-  } else {
-    _codeSize = CGSizeZero;
-  }
+  _codeSize = ENRMCodeBlockCodeSize(_attributedCode);
   _codeContentView.attributedCode = _attributedCode;
 
 #if !TARGET_OS_OSX
@@ -321,28 +360,26 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
 - (NSAttributedString *)plainAttributedCode
 {
-  if (_cachedCode.length == 0) {
-    return [[NSAttributedString alloc] initWithString:@""];
-  }
-
-  NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:_cachedCode];
-  ENRMApplyCodeBlockTextAttributes(attributed, NSMakeRange(0, attributed.length), _config);
-  return attributed;
+  return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
 }
 
 - (CGFloat)contentInset
 {
-  return [_config codeBlockPadding] + [_config codeBlockBorderWidth];
+  return ENRMCodeBlockContentInset(_config);
 }
 
 - (CGFloat)measureHeight:(CGFloat)maxWidth
 {
   CGFloat inset = [self contentInset];
-  CGFloat headerH = [self headerHeight];
-  if (_attributedCode.length == 0) {
-    return headerH + inset * 2;
-  }
-  return _codeSize.height + inset * 2 + headerH;
+  return _codeSize.height + inset * 2 + [self headerHeight];
+}
+
++ (CGFloat)measureHeightForCodeBlockNode:(MarkdownASTNode *)node config:(StyleConfig *)config
+{
+  CGFloat inset = ENRMCodeBlockContentInset(config);
+  CGFloat headerH = inset + ENRMCodeBlockHeaderLabelLineHeight(ENRMCodeBlockHeaderFont(config));
+  NSAttributedString *code = ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config);
+  return ENRMCodeBlockCodeSize(code).height + inset * 2 + headerH;
 }
 
 - (void)drawRect:(CGRect)rect
