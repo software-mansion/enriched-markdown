@@ -428,6 +428,21 @@ export function checkedTaskTextStyle(
   };
 }
 
+/**
+ * Checkbox style used when `enableTaskListItemToggle` is `false`. Pointer-inert
+ * so the browser paints no hover/active state on a checkbox that cannot be
+ * toggled; appearance is otherwise identical to the enabled checkbox.
+ */
+function taskCheckboxDisabledStyle(
+  style: MarkdownStyleInternal
+): CSSProperties {
+  return {
+    ...taskCheckboxStyle(style),
+    pointerEvents: 'none',
+    cursor: 'default',
+  };
+}
+
 function taskCheckboxStyle(style: MarkdownStyleInternal): CSSProperties {
   const taskList = style.taskList;
   return {
@@ -544,6 +559,7 @@ export interface Styles {
   tableHeaderCell: Record<ColumnAlign, CSSProperties>;
   tableCell: Record<ColumnAlign, CSSProperties>;
   taskCheckbox: CSSProperties;
+  taskCheckboxDisabled: CSSProperties;
 }
 
 type ColumnAlign = 'left' | 'center' | 'right' | 'default';
@@ -605,6 +621,7 @@ export function buildStyles(style: MarkdownStyleInternal): Styles {
       default: tableCellStyle(style, 'default'),
     },
     taskCheckbox: taskCheckboxStyle(style),
+    taskCheckboxDisabled: taskCheckboxDisabledStyle(style),
   };
 
   stylesStore.set(style, result);

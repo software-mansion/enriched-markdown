@@ -100,7 +100,11 @@ function ListItemRenderer({
             aria-disabled={
               capabilities.enableTaskListItemToggle ? undefined : true
             }
-            style={styles.taskCheckbox}
+            style={
+              capabilities.enableTaskListItemToggle
+                ? styles.taskCheckbox
+                : styles.taskCheckboxDisabled
+            }
             aria-label={`Task: ${taskText}`}
           />
         )}

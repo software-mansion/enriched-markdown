@@ -98,7 +98,7 @@ When `false`, the checkbox renders its markdown state read-only and the tap is *
 />
 ```
 
-> **Note:** On web the checkbox keeps its normal appearance and is marked `readOnly` / `aria-disabled` rather than `disabled`, so it stays visually consistent with iOS and Android.
+> **Note:** On web the checkbox keeps its normal appearance and is marked `readOnly` / `aria-disabled` rather than `disabled`, so it stays visually consistent with iOS and Android. It is also made pointer-inert (`pointer-events: none`), so the browser paints no hover or active state on a checkbox that cannot be toggled.
 
 ### `enableLinkPreview`
 

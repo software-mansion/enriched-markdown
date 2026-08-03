@@ -69,7 +69,9 @@ export interface EnrichedMarkdownTextProps extends Omit<
    *
    * On web the checkbox keeps its normal appearance and is marked
    * `readOnly` / `aria-disabled` rather than `disabled`, so it stays visually
-   * consistent with iOS and Android.
+   * consistent with iOS and Android. It is also made pointer-inert
+   * (`pointer-events: none`) so the browser cannot paint hover or active
+   * states on a checkbox that cannot be toggled.
    *
    * @default true
    * @platform ios, android, web
