@@ -33,20 +33,24 @@ const defaultTextColor = normalizeColor('#1F2937')!;
 
 const codeBlockTextColor = normalizeColor('#F3F4F6')!;
 
+// GitHub-dark syntax palette (Primer prettylights), tuned for the dark code
+// block background (#1F2937). It is the single source of truth for per-token
+// code colors: native reads these resolved values and holds no default of its
+// own. The four inheriting tokens resolve to the code block base color.
 const DEFAULT_CODE_BLOCK_SYNTAX_COLORS = {
-  keyword: normalizeColor('#CF222E')!,
+  keyword: normalizeColor('#FF7B72')!,
   operatorColor: codeBlockTextColor,
   punctuation: codeBlockTextColor,
-  string: normalizeColor('#0A3069')!,
-  number: normalizeColor('#0550AE')!,
-  constant: normalizeColor('#0550AE')!,
-  comment: normalizeColor('#6E7781')!,
-  function: normalizeColor('#8250DF')!,
-  type: normalizeColor('#953800')!,
+  string: normalizeColor('#A5D6FF')!,
+  number: normalizeColor('#79C0FF')!,
+  constant: normalizeColor('#79C0FF')!,
+  comment: normalizeColor('#8B949E')!,
+  function: normalizeColor('#D2A8FF')!,
+  type: normalizeColor('#FFA657')!,
   variable: codeBlockTextColor,
-  property: normalizeColor('#0550AE')!,
-  tag: normalizeColor('#116329')!,
-  attribute: normalizeColor('#0550AE')!,
+  property: normalizeColor('#79C0FF')!,
+  tag: normalizeColor('#7EE787')!,
+  attribute: normalizeColor('#79C0FF')!,
   embedded: codeBlockTextColor,
 };
 
