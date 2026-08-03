@@ -15,6 +15,11 @@ case "$mode" in
       exit 1
     fi
 
+    # Grammar sources are gitignored (see .gitignore); restore them from the
+    # grammar devDependencies so the published tarball ships the full vendored
+    # set. No-op when already up to date (stamp guard).
+    node "$REPO_ROOT/vendor/vendor-grammars.mjs" --grammars-only
+
     cd "$RN_PKG"
     rm -rf cpp
     mkdir -p cpp

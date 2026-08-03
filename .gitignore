@@ -92,6 +92,13 @@ web-build/
 **/ios/generated
 **/android/generated
 
+# Vendored tree-sitter grammar sources (34 MB of machine-generated parse tables).
+# Regenerated from the grammar devDependencies by vendor/vendor-grammars.mjs on
+# `yarn install` (prepare) and baked into the npm tarball on prepack. The small
+# runtime (tree-sitter/) and the committed default registry (generated/) stay
+# tracked. See docs and vendor/grammar-versions.json.
+packages/core/cpp/highlight/vendor/grammars/
+
 # React Native Nitro Modules
 nitrogen/
 

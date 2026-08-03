@@ -40,10 +40,11 @@
     "clean": "del-cli android/build lib plugin/build",
     "sync-md4c": "bash ../../scripts/fetch-md4c.sh",
     "vendor-grammars": "node ../../vendor/vendor-grammars.mjs",
+    "vendor-grammars:install": "node ../../vendor/vendor-grammars.mjs --grammars-only",
     "prepack": "bash ../../scripts/prepare-npm-publish.sh prepack",
     "postpack": "bash ../../scripts/prepare-npm-publish.sh postpack",
     "build:plugin": "tsc -p plugin/tsconfig.build.json",
-    "prepare": "bob build && yarn build:plugin"
+    "prepare": "yarn vendor-grammars:install && bob build && yarn build:plugin"
   },
   "keywords": [
     "react-native",

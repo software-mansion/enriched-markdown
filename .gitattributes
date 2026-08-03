@@ -2,8 +2,11 @@
 # specific for windows script files
 *.bat text eol=crlf
 
-# Vendored tree-sitter runtime + grammars (parser.c files are machine-generated
-# parse tables). Mark generated so GitHub collapses them in PR diffs and excludes
-# them from language stats, and -diff so `git diff` skips their contents.
-packages/core/cpp/highlight/vendor/** linguist-generated=true
-packages/core/cpp/highlight/vendor/** -diff
+# Vendored tree-sitter runtime + generated registry (machine-generated C). The
+# 34 MB grammar sources are gitignored and regenerated on install; only these
+# small tracked pieces remain. Mark generated so GitHub collapses them in PR
+# diffs and excludes them from language stats, and -diff so `git diff` skips them.
+packages/core/cpp/highlight/vendor/tree-sitter/** linguist-generated=true
+packages/core/cpp/highlight/vendor/tree-sitter/** -diff
+packages/core/cpp/highlight/vendor/generated/** linguist-generated=true
+packages/core/cpp/highlight/vendor/generated/** -diff

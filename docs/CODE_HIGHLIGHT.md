@@ -110,13 +110,21 @@ the set later, run `npx expo prebuild --clean` and rebuild.
 
 ## How it works
 
-Grammars are **vendored** into the repository (only each grammar's `parser.c`/`scanner.c` +
-`highlights.scm`, never whole npm packages), so builds are fully offline and deterministic. The
-stable tree-sitter runtime is vendored the same way and compiled with WebAssembly support left out.
-A build-time codegen emits a registry for exactly the selected languages, so the binary and link
-step only ever reference compiled grammars.
+Grammars are **vendored** into `packages/core/cpp/highlight/vendor/` (only each grammar's
+`parser.c`/`scanner.c` + `highlights.scm`, never whole npm packages), so builds are fully offline and
+deterministic. The stable tree-sitter runtime is vendored the same way and compiled with WebAssembly
+support left out. A build-time codegen emits a registry for exactly the selected languages, so the
+binary and link step only ever reference compiled grammars.
+
+The ~34 MB of generated grammar `parser.c` tables (`vendor/grammars/`) are **gitignored** to keep the
+repo and PRs small. They are regenerated from the pinned grammar devDependencies by
+`vendor/vendor-grammars.mjs --grammars-only`, which is wired into the package `prepare` script (so a
+plain `yarn install` restores them, with a `.stamp` guard making repeats a no-op) and into `prepack`
+(so the published npm tarball still ships the full set). The small tree-sitter runtime
+(`vendor/tree-sitter/`) and the committed default registry (`vendor/generated/`) stay tracked in git.
 
 Highlighting runs synchronously when a code block is applied and is cached per block, with a size cap
 (~50 KB / ~2000 lines) that falls back to plain rendering for pathological inputs. Maintainers
-refresh or add grammars with `node vendor/vendor-grammars.mjs` after editing
-`vendor/grammar-versions.json`.
+re-pin, refresh the runtime, and regenerate the committed registry with a full
+`node vendor/vendor-grammars.mjs` run (requires the tree-sitter runtime source via `--runtime-src` or
+`TREE_SITTER_SRC`) after editing `vendor/grammar-versions.json`, then commit the runtime + registry.
