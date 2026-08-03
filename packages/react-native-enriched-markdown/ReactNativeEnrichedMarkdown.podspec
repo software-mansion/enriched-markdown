@@ -5,6 +5,11 @@ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 monorepo = File.exist?(File.expand_path("../core/EnrichedMarkdownCore.podspec", __dir__))
 cpp_root = monorepo ? "$(PODS_TARGET_SRCROOT)/../core/cpp" : "$(PODS_TARGET_SRCROOT)/cpp"
 
+require File.join(__dir__, "cpp/highlight/code_highlight_podspec.rb")
+# In the monorepo the C++ (including tree-sitter highlighting) compiles in the
+# EnrichedMarkdownCore pod; only the published, core-less build compiles it here.
+code_highlight = monorepo ? EnrichedMarkdownCodeHighlight.disabled : EnrichedMarkdownCodeHighlight.config(__dir__)
+
 Pod::Spec.new do |s|
   s.name         = "ReactNativeEnrichedMarkdown"
   s.version      = package["version"]
@@ -22,7 +27,8 @@ Pod::Spec.new do |s|
     s.dependency "EnrichedMarkdownCore"
   else
     s.private_header_files = "ios/**/*.h", "cpp/**/*.{h,hpp}"
-    s.source_files = "ios/**/*.{h,m,mm,cpp,swift}", "cpp/md4c/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"
+    s.source_files = ["ios/**/*.{h,m,mm,cpp,swift}", "cpp/md4c/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"] + code_highlight[:source_files]
+    s.preserve_paths = "cpp/highlight/vendor/**/*" if code_highlight[:enabled]
   end
 
   # To disable LaTeX math rendering (RaTeX, iOS only), add ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0' to your Podfile.
@@ -44,7 +50,7 @@ Pod::Spec.new do |s|
     s.exclude_files = "ios/math/**/*.swift"
   end
 
-  preprocessor_defs = '$(inherited) MD4C_USE_UTF8=1'
+  preprocessor_defs = "$(inherited) MD4C_USE_UTF8=1#{code_highlight[:defines]}"
   if enable_math
     preprocessor_defs += ' ENRICHED_MARKDOWN_MATH=1'
     spm_dependency(s,
@@ -55,7 +61,10 @@ Pod::Spec.new do |s|
   end
 
   pod_xcconfig = {
-    'HEADER_SEARCH_PATHS' => "\"#{cpp_root}/md4c\" \"#{cpp_root}/parser\" \"#{cpp_root}/highlight\" \"$(PODS_TARGET_SRCROOT)/ios/internals\" \"$(PODS_TARGET_SRCROOT)/ios/input/internals\"",
+    'HEADER_SEARCH_PATHS' => ([
+      "\"#{cpp_root}/md4c\"", "\"#{cpp_root}/parser\"", "\"#{cpp_root}/highlight\"",
+      "\"$(PODS_TARGET_SRCROOT)/ios/internals\"", "\"$(PODS_TARGET_SRCROOT)/ios/input/internals\""
+    ] + code_highlight[:header_paths].map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }).join(" "),
     'GCC_PREPROCESSOR_DEFINITIONS' => preprocessor_defs,
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
     'DEFINES_MODULE' => 'YES'
