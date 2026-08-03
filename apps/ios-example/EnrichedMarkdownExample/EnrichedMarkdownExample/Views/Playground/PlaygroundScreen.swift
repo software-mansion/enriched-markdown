@@ -4,9 +4,10 @@ import SwiftUI
 struct PlaygroundScreen: View {
     // MARK: - Properties
 
-    @State private var markdown = ""
-    @State private var setMarkdownSheetVisible = false
-    @State private var rawInput = ""
+    @State private var markdown: String = ""
+    @State private var underlineEnabled: Bool = true
+    @State private var setMarkdownSheetVisible: Bool = false
+    @State private var rawInput: String = ""
     @State private var blockImageURI: String?
     @State private var inlineImageURI: String?
 
@@ -17,7 +18,13 @@ struct PlaygroundScreen: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     PlaygroundButton(label: "Blur", accessibilityId: "blur-button") {}
-                    PlaygroundButton(label: "Underline", accessibilityId: "underline-button") {}
+                    PlaygroundButton(
+                        label: "Underline",
+                        accessibilityId: "underline-button",
+                        isActive: underlineEnabled
+                    ) {
+                        underlineEnabled.toggle()
+                    }
                 }
 
                 HStack(spacing: 8) {
@@ -74,7 +81,7 @@ struct PlaygroundScreen: View {
                         .padding(14)
                         .accessibilityIdentifier("preview-empty")
                 } else {
-                    EnrichedMarkdownText(markdown)
+                    EnrichedMarkdownText(markdown, flags: Md4cFlags(underline: underlineEnabled))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .accessibilityIdentifier("preview-text")

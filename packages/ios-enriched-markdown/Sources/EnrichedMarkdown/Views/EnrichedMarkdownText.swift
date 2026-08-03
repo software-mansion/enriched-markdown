@@ -3,6 +3,7 @@ import UIKit
 
 public struct EnrichedMarkdownText: View {
     private let markdown: String
+    private let flags: Md4cFlags
 
     @Environment(\.markdownThemeLayers) private var themeLayers
     @Environment(\.colorScheme) private var colorScheme
@@ -10,8 +11,9 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownLinkPressHandler) private var onLinkPress
     @StateObject private var renderStore = MarkdownRenderStore()
 
-    public init(_ markdown: String) {
+    public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
         self.markdown = markdown
+        self.flags = flags
     }
 
     private var styleConfig: MarkdownStyleConfig {
@@ -30,13 +32,16 @@ public struct EnrichedMarkdownText: View {
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
-            renderStore.schedule(markdown: markdown, config: styleConfig)
+            renderStore.schedule(markdown: markdown, config: styleConfig, flags: flags)
         }
         .onChange(of: markdown) { newValue in
-            renderStore.schedule(markdown: newValue, config: styleConfig)
+            renderStore.schedule(markdown: newValue, config: styleConfig, flags: flags)
         }
         .onChange(of: styleConfig) { newValue in
-            renderStore.schedule(markdown: markdown, config: newValue)
+            renderStore.schedule(markdown: markdown, config: newValue, flags: flags)
+        }
+        .onChange(of: flags) { newValue in
+            renderStore.schedule(markdown: markdown, config: styleConfig, flags: newValue)
         }
         .onDisappear {
             renderStore.invalidate()

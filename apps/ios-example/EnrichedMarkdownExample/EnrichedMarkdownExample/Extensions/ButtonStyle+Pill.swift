@@ -25,4 +25,8 @@ extension ButtonStyle where Self == PillButtonStyle {
     static var pillSecondary: PillButtonStyle {
         PillButtonStyle(foreground: .gray700, background: .gray200, fontSize: 13)
     }
+
+    static var pillSecondaryActive: PillButtonStyle {
+        PillButtonStyle(foreground: .brandNavy, background: .brandMint, fontSize: 13)
+    }
 }
