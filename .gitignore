@@ -96,8 +96,8 @@ web-build/
 # is tracked: the runtime is fetched from the pinned GitHub release tarball, the
 # grammar parse tables come from the grammar devDependencies, and the default
 # registry is codegen'd from them. All three are restored by
-# vendor/vendor-grammars.mjs on `yarn install` (prepare) and baked into the npm
-# tarball on prepack. See docs and vendor/grammar-versions.json.
+# vendor/vendor-grammars.mjs via the `prepare` hook (`yarn prepare`) and baked
+# into the npm tarball on prepack. See docs and vendor/grammar-versions.json.
 packages/core/cpp/highlight/vendor/tree-sitter/
 packages/core/cpp/highlight/vendor/grammars/
 packages/core/cpp/highlight/vendor/generated/

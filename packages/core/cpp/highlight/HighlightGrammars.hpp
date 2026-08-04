@@ -1,9 +1,9 @@
 #pragma once
 
 // Registry of the tree-sitter grammars compiled into this build. The table and
-// the findGrammar definition live in the generated generated_registry.cpp,
-// emitted by vendor/gen-registry.mjs for exactly the selected language subset,
-// so this header never references symbols for grammars that were not compiled.
+// the findGrammar definition live in generated_registry.cpp, emitted by
+// vendor/gen-registry.mjs for exactly the selected language subset, so this
+// header never references symbols for grammars that were not compiled.
 //
 // Only meaningful when ENRICHED_MARKDOWN_CODE_HIGHLIGHT is defined; without the
 // flag neither this header nor generated_registry.cpp is compiled.

@@ -13,8 +13,7 @@ export const withIosCodeHighlight: ConfigPlugin<CodeHighlightOptions> = (
 ) => {
   const hasLanguages = Array.isArray(languages) && languages.length > 0;
   // Always run the mod so switching back to defaults strips previously-injected
-  // ENV lines; the default (enabled, curated set) simply injects nothing, since
-  // an absent ENV var already means enabled with the curated language set.
+  // ENV lines; an absent ENV var already means enabled with the curated set.
   return withDangerousMod(config, [
     'ios',
     async (modConfig) => {

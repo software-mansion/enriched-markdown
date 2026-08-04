@@ -26,17 +26,11 @@
 // Token types follow tree-sitter's standard highlight capture names,
 // flattened to one level. Values are explicit because they cross the JNI
 // boundary as plain integers.
-
-// TODO: phase 2 adds the real implementation next to this file: the
-// tree-sitter runtime plus a vendored set of language grammars and their
-// highlight queries, compiled only when ENRICHED_MARKDOWN_CODE_HIGHLIGHT is
-// defined by the gradle property / podspec option.
 //
-// TODO: only the github flavor calls this seam; the commonmark flavor renders
-// code blocks uncolored. To hook it up, the commonmark code block renderers
-// (CodeBlockRenderer.kt / CodeBlockRenderer.m) would call highlightCode with
-// the shared node helpers (CodeBlockNode.kt / ENRMCodeBlockContent.h) and
-// apply the tokens to their content range through the platform adapters.
+// Both markdown flavors call this seam: the github flavor highlights the code
+// string in its container view, and the commonmark renderers
+// (CodeBlockRenderer.kt / CodeBlockRenderer.m) apply the tokens to their
+// content range through the platform adapters.
 
 namespace Markdown {
 
