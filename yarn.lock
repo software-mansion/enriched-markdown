@@ -7173,23 +7173,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tree-sitter-grammars/tree-sitter-kotlin@npm:1.1.0":
-  version: 1.1.0
-  resolution: "@tree-sitter-grammars/tree-sitter-kotlin@npm:1.1.0"
-  dependencies:
-    node-addon-api: "npm:^8.3.0"
-    node-gyp: "npm:latest"
-    node-gyp-build: "npm:^4.8.4"
-    npm-check-updates: "npm:^17.1.13"
-  peerDependencies:
-    tree-sitter: ^0.22.4
-  peerDependenciesMeta:
-    tree-sitter:
-      optional: true
-  checksum: 10c0/56119a65e602a3c280b5d1816b70218365c4261b907a0c324f41af152e0727b3a854e401cb1a5163c54cf1f5ee95de7a7b2422df20b808412fe2c1b389a557ff
-  languageName: node
-  linkType: hard
-
 "@tree-sitter-grammars/tree-sitter-markdown@npm:0.3.2":
   version: 0.3.2
   resolution: "@tree-sitter-grammars/tree-sitter-markdown@npm:0.3.2"
@@ -14800,16 +14783,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"npm-check-updates@npm:^17.1.13":
-  version: 17.1.18
-  resolution: "npm-check-updates@npm:17.1.18"
-  bin:
-    ncu: build/cli.js
-    npm-check-updates: build/cli.js
-  checksum: 10c0/9142bf3b7ded3b175b4de19893ae3d0829fa0e928b1d7fa1aeb585626c5948e81fc0da3e80f77cbdf122a8fd3870fcaaee18289f541dbde656cc7f1f3211a019
-  languageName: node
-  linkType: hard
-
 "npm-package-arg@npm:^11.0.0":
   version: 11.0.3
   resolution: "npm-package-arg@npm:11.0.3"
@@ -16096,7 +16069,6 @@ __metadata:
   dependencies:
     "@expo/config-plugins": "npm:^55.0.6"
     "@react-native/babel-preset": "npm:0.85.0"
-    "@tree-sitter-grammars/tree-sitter-kotlin": "npm:1.1.0"
     "@tree-sitter-grammars/tree-sitter-markdown": "npm:0.3.2"
     "@tree-sitter-grammars/tree-sitter-yaml": "npm:0.7.1"
     "@types/node": "npm:^22.0.0"

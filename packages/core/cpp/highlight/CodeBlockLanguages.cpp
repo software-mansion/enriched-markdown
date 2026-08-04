@@ -18,7 +18,7 @@ struct LanguageName {
 };
 
 // Sorted by key; both lookups below binary-search this table.
-constexpr std::array<LanguageName, 44> kLanguageNames{{
+constexpr std::array<LanguageName, 42> kLanguageNames{{
     {"bash", "Bash", "bash"},
     {"c", "C", "c"},
     {"cc", "C++", "cpp"},
@@ -37,8 +37,6 @@ constexpr std::array<LanguageName, 44> kLanguageNames{{
     {"js", "JavaScript", "javascript"},
     {"json", "JSON", "json"},
     {"jsx", "JSX", "javascript"},
-    {"kotlin", "Kotlin", "kotlin"},
-    {"kt", "Kotlin", "kotlin"},
     {"markdown", "Markdown", "markdown"},
     {"md", "Markdown", "markdown"},
     {"objc", "Objective-C", ""},
@@ -47,8 +45,8 @@ constexpr std::array<LanguageName, 44> kLanguageNames{{
     {"py", "Python", "python"},
     {"python", "Python", "python"},
     {"rb", "Ruby", "ruby"},
-    {"ruby", "Ruby", "ruby"},
     {"rs", "Rust", "rust"},
+    {"ruby", "Ruby", "ruby"},
     {"rust", "Rust", "rust"},
     {"scss", "SCSS", ""},
     {"sh", "Shell", "bash"},
@@ -64,6 +62,34 @@ constexpr std::array<LanguageName, 44> kLanguageNames{{
     {"yml", "YAML", "yaml"},
     {"zsh", "Zsh", "bash"},
 }};
+
+// findLanguage binary-searches kLanguageNames, so the table must be strictly
+// ascending by key under C strcmp order. Enforce it at compile time: a
+// misordered entry (e.g. "ruby" before "rs") would otherwise silently fail the
+// lookup and leave that language unhighlighted.
+constexpr bool keyLess(const char *a, const char *b) {
+  for (std::size_t i = 0;; ++i) {
+    unsigned char ca = static_cast<unsigned char>(a[i]);
+    unsigned char cb = static_cast<unsigned char>(b[i]);
+    if (ca != cb) {
+      return ca < cb;
+    }
+    if (ca == '\0') {
+      return false;
+    }
+  }
+}
+
+constexpr bool languageTableIsSorted() {
+  for (std::size_t i = 1; i < kLanguageNames.size(); ++i) {
+    if (!keyLess(kLanguageNames[i - 1].key, kLanguageNames[i].key)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static_assert(languageTableIsSorted(), "kLanguageNames must be sorted by key for binary search");
 
 // Lowercases language and binary-searches the table. Returns nullptr on miss.
 const LanguageName *findLanguage(const std::string &language, std::string &lowerOut) {

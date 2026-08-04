@@ -86,7 +86,6 @@
   "devDependencies": {
     "@expo/config-plugins": "^55.0.6",
     "@react-native/babel-preset": "0.85.0",
-    "@tree-sitter-grammars/tree-sitter-kotlin": "1.1.0",
     "@tree-sitter-grammars/tree-sitter-markdown": "0.3.2",
     "@tree-sitter-grammars/tree-sitter-yaml": "0.7.1",
     "@types/node": "^22.0.0",

@@ -42,15 +42,27 @@ code color.
 ## Supported languages
 
 Fence info strings map to a grammar (for example `js`, `jsx` -> JavaScript). The **curated default
-set** is compiled in unless you override it:
+set** is compiled in unless you override it. It is defined by `default:true` in
+`vendor/grammar-versions.json` (the single source of truth the iOS podspec and Android build both
+derive from), so the table below tracks that manifest:
 
 | Default (on) | Opt-in (heavier) |
 |---|---|
-| json, html, css, markdown, yaml, go, java, javascript, python, c, rust, bash | typescript, tsx, cpp, swift, kotlin, php, ruby, c-sharp |
+| json, html, css, markdown, yaml, go, java, javascript, python, c, rust, bash, typescript, tsx | cpp, swift, php, ruby, c-sharp |
 
 The default set is the smaller-footprint tier (~32 MB of grammar C source across the whole set).
 The opt-in grammars are larger (17-29 MB each) and are only compiled when you list them explicitly.
 A block whose language is not compiled in simply renders as plain (uncolored) code.
+
+### TODO: Kotlin
+
+Kotlin is not currently supported. The `@tree-sitter-grammars/tree-sitter-kotlin` package
+ships a parser but no `queries/highlights.scm`, so there is nothing to highlight with, and a
+grammar without a highlights query cannot be compiled into the registry. Kotlin was therefore
+removed from the manifest, the fence alias table, and this list; `kotlin` fences render as plain
+code. To add support, vendor a compatible `highlights.scm` (for example an MIT-licensed one from
+nvim-treesitter, matched to the grammar version), drop it alongside the grammar, and re-add the
+`kotlin` entry to `vendor/grammar-versions.json` and the `CodeBlockLanguages.cpp` alias table.
 
 ## Choosing languages / reducing binary size
 

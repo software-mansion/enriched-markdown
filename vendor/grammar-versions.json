@@ -35,8 +35,9 @@
       "version": "0.23.2",
       "subPath": "typescript",
       "scanner": true,
+      "sharedSrc": ["../../common/scanner.h"],
       "inherits": ["javascript"],
-      "default": false,
+      "default": true,
       "size": "17 MB"
     },
     "tsx": {
@@ -44,18 +45,19 @@
       "version": "0.23.2",
       "subPath": "tsx",
       "scanner": true,
+      "sharedSrc": ["../../common/scanner.h"],
       "inherits": ["javascript"],
-      "default": false,
+      "default": true,
       "size": "17 MB"
     },
     "cpp": { "package": "tree-sitter-cpp", "version": "0.23.4", "scanner": true, "inherits": ["c"], "default": false, "size": "17 MB" },
     "swift": { "package": "tree-sitter-swift", "version": "0.7.0", "scanner": true, "default": false, "size": "18 MB" },
-    "kotlin": { "package": "@tree-sitter-grammars/tree-sitter-kotlin", "version": "1.1.0", "scanner": true, "default": false, "size": "23 MB" },
     "php": {
       "package": "tree-sitter-php",
       "version": "0.24.2",
       "subPath": "php",
       "scanner": true,
+      "sharedSrc": ["../../common/scanner.h"],
       "default": false,
       "size": "14 MB"
     },

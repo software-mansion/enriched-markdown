@@ -5,11 +5,25 @@ import { githubFlavorArgTypes } from '../shared/storybookMarkdownStyles';
 import { splitStyleControls } from '../shared/storybookStyleBuilders';
 import type { TextStory } from '../shared/storyTypes';
 
-// A compact multi-language sample that still exercises every token type, kept
-// short so the story fits the preview like the other block stories.
+// A per-language sample split into two labelled sections so a tester can verify
+// language coverage at a glance (see docs/TESTING_CODE_HIGHLIGHT_VENDORING.md,
+// step 4): the "Defaults" section lists every language in the default registry,
+// which highlights out of the box; the "Extended List" section lists the
+// non-default grammars, which stay plain unless a build opts them in via the
+// language-subset override (steps 4a/5a). One short block per language.
 const MARKDOWN = [
+  '## Defaults',
+  '',
   '```javascript',
   'const sum = (a, b) => a + b; // add two numbers',
+  '```',
+  '',
+  '```typescript',
+  'const id: number = 7; type Name = string;',
+  '```',
+  '',
+  '```tsx',
+  'const El = () => <View title="x" id={7} />;',
   '```',
   '',
   '```python',
@@ -18,6 +32,27 @@ const MARKDOWN = [
   '',
   '```json',
   '{ "id": 7, "tags": ["a"], "active": true }',
+  '```',
+  '',
+  '```yaml',
+  'name: demo',
+  'port: 8080  # comment',
+  '```',
+  '',
+  '```bash',
+  'echo "hi $USER"  # greet',
+  '```',
+  '',
+  '```go',
+  'func main() { x := 3; _ = x }',
+  '```',
+  '',
+  '```java',
+  'class A { int x = 3; }',
+  '```',
+  '',
+  '```c',
+  'int main(void) { return 0; }',
   '```',
   '',
   '```rust',
@@ -30,6 +65,32 @@ const MARKDOWN = [
   '',
   '```css',
   '.title { color: #cf222e; }',
+  '```',
+  '',
+  '```markdown',
+  '# Heading with **bold** and _em_ [link](/x)',
+  '```',
+  '',
+  '## Extended List',
+  '',
+  '```cpp',
+  'int main() { auto x = 3; return x; }',
+  '```',
+  '',
+  '```swift',
+  'let x: Int = 3; print(x)',
+  '```',
+  '',
+  '```php',
+  '<?php echo "hi $name"; ?>',
+  '```',
+  '',
+  '```ruby',
+  'def greet(name) = "hi #{name}"',
+  '```',
+  '',
+  '```csharp',
+  'class A { int X = 3; }',
   '```',
 ].join('\n');
 
@@ -128,7 +189,7 @@ export const Default: TextStory<SyntaxColorControls> = {
     return (
       <EnrichedMarkdownTextStory
         title="Code Highlight"
-        description="Per-token syntax colors via markdownStyle.codeBlock.syntaxColors. Colors render only when the optional highlighting module is compiled in; otherwise code blocks stay plain. Retheme any token with the color controls, and switch flavor to compare the block and inline renderers."
+        description="Per-token syntax colors via markdownStyle.codeBlock.syntaxColors. The Defaults section lists every language in the default registry (highlighted out of the box); the Extended List section lists non-default grammars that stay plain unless a build opts them in via the language-subset override. Colors render only when the optional highlighting module is compiled in; otherwise code blocks stay plain. Retheme any token with the color controls, and switch flavor to compare the block and inline renderers."
         {...rest}
         style={{ codeBlock: { syntaxColors: controls } }}
       />

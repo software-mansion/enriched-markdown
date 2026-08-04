@@ -4,15 +4,17 @@
 // The whole vendor/ tree (runtime, grammars, generated registry) is GITIGNORED
 // and reproduced on demand from the pins in grammar-versions.json, so nothing
 // generated lives in git. This one command is wired into the package `prepare`
-// hook (a plain `yarn install` self-heals the working tree) and into `prepack`
-// (so the published npm tarball still ships the full set).
+// hook (run `yarn prepare` to self-heal the working tree; note this repo is Yarn 4
+// (Berry), where a plain `yarn install` does NOT run the workspace `prepare`
+// script) and into `prepack` (so the published npm tarball still ships the full
+// set).
 //
 //   node vendor/vendor-grammars.mjs
 //     Ensures the runtime (fetched from the pinned GitHub release tarball), every
 //     grammar (copied from the grammar devDependencies), and the default registry
 //     are present and up to date. Idempotent: .stamp fingerprints on the runtime
-//     ref+sha and on the pinned grammar versions make repeated installs a no-op,
-//     so a plain `yarn install` never re-fetches or rewrites an up-to-date tree.
+//     ref+sha and on the pinned grammar versions make repeated runs a no-op, so
+//     re-running `prepare` never re-fetches or rewrites an up-to-date tree.
 //
 // Flags:
 //   --only json,css   Restore just these grammars (dev/testing). Skips the
@@ -235,6 +237,27 @@ function vendorGrammar(id, spec) {
   ]);
   if (license) copyFile(license, path.join(outDir, 'LICENSE'));
 
+  // Localize any header a source file includes from outside its own src/ dir.
+  // tree-sitter-typescript's typescript and tsx grammars both text-include
+  // "../../common/scanner.h", a header shared at the package root that the
+  // per-grammar copy above (which only walks src/) leaves behind. Copy each into
+  // the grammar dir under its basename and rewrite the escaping include to that
+  // basename, so it resolves through the grammar's own quoted includes -- its
+  // tree_sitter/parser.h is vendored alongside -- with no shared search path.
+  for (const rel of spec.sharedSrc ?? []) {
+    const from = path.join(srcDir, rel);
+    if (!fs.existsSync(from)) fail(`${id}: sharedSrc '${rel}' not found at ${from}`);
+    const base = path.basename(rel);
+    copyFile(from, path.join(outDir, base));
+    for (const entry of fs.readdirSync(outDir, { withFileTypes: true })) {
+      if (!entry.isFile() || !/\.(c|h)$/.test(entry.name)) continue;
+      const filePath = path.join(outDir, entry.name);
+      const text = fs.readFileSync(filePath, 'utf8');
+      const rewritten = text.split(`"${rel}"`).join(`"${base}"`);
+      if (rewritten !== text) fs.writeFileSync(filePath, rewritten);
+    }
+  }
+
   console.log(`[vendor-grammars] ${id} -> ${path.relative(repoRoot, outDir)}`);
 }
 
@@ -276,7 +299,7 @@ function grammarStampKey(manifest, ids) {
     } catch {
       /* resolved lazily during copy; a miss just forces a rebuild */
     }
-    return `${id}|${spec.package}@${version}|scanner:${!!spec.scanner}|sub:${spec.subPath ?? ''}`;
+    return `${id}|${spec.package}@${version}|scanner:${!!spec.scanner}|sub:${spec.subPath ?? ''}|shared:${(spec.sharedSrc ?? []).join('+')}`;
   });
   return crypto.createHash('sha256').update(JSON.stringify(parts)).digest('hex');
 }
@@ -325,7 +348,7 @@ async function main() {
   await ensureRuntime(manifest, args);
 
   // Grammars: restored from the grammar devDependencies. Skip when the vendored
-  // set already matches the pinned versions so a plain `yarn install` does not
+  // set already matches the pinned versions so a repeat `prepare` does not
   // rewrite 34 MB on every run.
   let grammarsRebuilt = false;
   if (!args.force && stampKey && everyGrammarPresent(ids) && readStamp(stampFile) === stampKey) {

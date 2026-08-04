@@ -101,6 +101,9 @@ web-build/
 packages/core/cpp/highlight/vendor/tree-sitter/
 packages/core/cpp/highlight/vendor/grammars/
 packages/core/cpp/highlight/vendor/generated/
+# Registry for a custom ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES set (iOS); kept
+# out of the committed generated/ dir so a custom build never clobbers the default.
+packages/core/cpp/highlight/vendor/generated-custom/
 
 # React Native Nitro Modules
 nitrogen/
