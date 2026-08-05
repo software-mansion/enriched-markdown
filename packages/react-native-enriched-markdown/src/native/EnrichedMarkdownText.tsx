@@ -21,6 +21,7 @@ import type {
   LinkPressEvent,
   LinkLongPressEvent,
   TaskListItemPressEvent,
+  CopyPressEvent,
   OnContextMenuItemPressEvent,
 } from '../types/events';
 
@@ -32,7 +33,12 @@ export type {
   SelectionMenuConfig,
   SelectionMenuPluralLabels,
 };
-export type { LinkPressEvent, LinkLongPressEvent, TaskListItemPressEvent };
+export type {
+  LinkPressEvent,
+  LinkLongPressEvent,
+  TaskListItemPressEvent,
+  CopyPressEvent,
+};
 
 // Default English labels for the built-in selection menu actions. Defaults are
 // resolved here (JS-side) so the native code always receives a concrete string.
@@ -111,6 +117,7 @@ export const EnrichedMarkdownText = ({
   onLinkPress,
   onLinkLongPress,
   onTaskListItemPress,
+  onCopyPress,
   enableLinkPreview,
   selectable = true,
   md4cFlags = defaultMd4cFlags,
@@ -222,6 +229,14 @@ export const EnrichedMarkdownText = ({
     [onTaskListItemPress]
   );
 
+  const handleCopyPress = useCallback(
+    (e: NativeSyntheticEvent<CopyPressEvent>) => {
+      const { code, language } = e.nativeEvent;
+      onCopyPress?.({ code, language });
+    },
+    [onCopyPress]
+  );
+
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const normalizedStreamingConfig = useMemo(() => ({ tableMode }), [tableMode]);
   const normalizedSelectionMenuConfig = useMemo(() => {
@@ -282,6 +297,7 @@ export const EnrichedMarkdownText = ({
     onLinkPress: handleLinkPress,
     onLinkLongPress: handleLinkLongPress,
     onTaskListItemPress: handleTaskListItemPress,
+    onCopyPress: handleCopyPress,
     enableLinkPreview: onLinkLongPress == null && (enableLinkPreview ?? true),
     selectable,
     md4cFlags: normalizedMd4cFlags,

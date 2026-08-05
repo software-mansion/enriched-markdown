@@ -248,6 +248,11 @@ export interface TaskListItemPressEvent {
   text: string;
 }
 
+export interface CopyPressEvent {
+  code: string;
+  language: string;
+}
+
 export interface ContextMenuItemConfig {
   text: string;
   icon?: string;
@@ -378,6 +383,12 @@ export interface NativeProps extends ViewProps {
    * Receives the 0-based task index, current checked state, and the item's plain text.
    */
   onTaskListItemPress?: CodegenTypes.BubblingEventHandler<TaskListItemPressEvent>;
+  /**
+   * Callback fired when code is copied from a fenced code block's header copy
+   * button, its long-press context-menu "Copy" action, or the VoiceOver copy
+   * action. Receives the copied code and its language.
+   */
+  onCopyPress?: CodegenTypes.BubblingEventHandler<CopyPressEvent>;
   /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *

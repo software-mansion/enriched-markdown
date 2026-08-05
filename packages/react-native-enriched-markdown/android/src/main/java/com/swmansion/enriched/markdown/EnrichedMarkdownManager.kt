@@ -16,6 +16,7 @@ import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
+import com.swmansion.enriched.markdown.utils.common.emitCopyPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
@@ -57,6 +58,10 @@ class EnrichedMarkdownManager :
       view.setMarkdownContent(updatedMarkdown)
       view.commitProps()
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
+    }
+
+    view.setOnCopyPressCallback { code, language ->
+      emitCopyPress(view, code, language)
     }
 
     return view

@@ -66,6 +66,8 @@ class CodeBlockContainerView(
     }
   var copyAsMarkdownLabel: String = ""
 
+  var onCopyPress: ((code: String, language: String) -> Unit)? = null
+
   private var code: String = ""
   private var language: String? = null
   private var fenceChar: String = "`"
@@ -237,6 +239,7 @@ class CodeBlockContainerView(
   private fun copyCode() {
     if (code.isEmpty()) return
     copyToClipboard(code)
+    onCopyPress?.invoke(code, language ?: "")
   }
 
   private fun copyFencedMarkdown() {

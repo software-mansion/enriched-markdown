@@ -6,6 +6,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+typedef void (^ENRMCodeBlockCopyBlock)(NSString *code, NSString *language);
+
 @interface ENRMCodeBlockContainerView : RCTUIView
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
@@ -24,6 +26,11 @@ NS_ASSUME_NONNULL_BEGIN
 // retained returns). Property names are unchanged so call sites stay the same.
 @property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
 @property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
+
+// Fired when the code is copied (header button, context-menu Copy, or the
+// VoiceOver copy action); set by the host to bridge up to the JS onCopyPress
+// event. Not fired for "Copy as Markdown".
+@property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
 
 @end
 

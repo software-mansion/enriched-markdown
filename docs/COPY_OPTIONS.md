@@ -97,7 +97,8 @@ Notes:
   and code block copy menus. The code block header's copy button also reuses
   the copy label for assistive technologies: it is the button's
   contentDescription on Android, and on iOS it names the VoiceOver custom
-  action that triggers the copy.
+  action that triggers the copy. To be notified when code is copied from a code
+  block, use the [`onCopyPress`](./API_REFERENCE.md#oncopypress) callback.
 - OS-provided actions (Look Up, Translate…) and the system **Cut / Paste /
   Select All** items are localized by the platform and are not affected by this
   config.

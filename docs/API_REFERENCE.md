@@ -77,6 +77,28 @@ Callback when a task list checkbox is tapped. Receives `index` (0-based), `check
 | ----------------------------------------------- | ------------- | -------- |
 | `(event: TaskListItemPressEvent) => void`      | -             | Both     |
 
+### `onCopyPress`
+
+Callback when code is copied from a fenced code block, via the header copy button, the long-press context-menu **Copy** action, or the VoiceOver copy action. Receives `code` (the copied code) and `language` (the fence language, or `""` if none). Does not fire for **Copy as Markdown**.
+
+Only fires when `flavor="github"` — the copy button is part of the GitHub flavor's code block renderer.
+
+| Type                                  | Default Value | Platform         |
+| ------------------------------------- | ------------- | ---------------- |
+| `(event: CopyPressEvent) => void`     | -             | Both, macOS      |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  flavor="github"
+  markdown={"```ts\nconst x = 1;\n```"}
+  onCopyPress={({ code, language }) => {
+    console.log(`Copied ${language} code:`, code);
+  }}
+/>
+```
+
 ### `enableLinkPreview`
 
 Controls the native link preview on long press (iOS only). Automatically set to `false` when `onLinkLongPress` is provided.

@@ -444,6 +444,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 - (void)copyCodeToPasteboard
 {
   copyStringToPasteboard(_cachedCode);
+  if (self.onCopyPress) {
+    self.onCopyPress(_cachedCode ?: @"", _cachedLanguage ?: @"");
+  }
 }
 
 - (void)copyMarkdownToPasteboard

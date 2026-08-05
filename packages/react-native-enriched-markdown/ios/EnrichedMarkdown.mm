@@ -74,6 +74,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
+- (void)emitCopyPress:(NSString *)code language:(NSString *)language;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
@@ -802,6 +803,14 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMCodeBlockContainerView *codeBlockView = [[ENRMCodeBlockContainerView alloc] initWithConfig:_config];
   codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
   codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+
+  __weak EnrichedMarkdown *weakSelf = self;
+  codeBlockView.onCopyPress = ^(NSString *code, NSString *language) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (strongSelf)
+      [strongSelf emitCopyPress:code language:language];
+  };
+
   [codeBlockView applyCodeBlockNode:codeBlockSegment.codeBlockNode];
   return codeBlockView;
 }
@@ -1181,6 +1190,14 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onTaskListItemPress({.index = (int)index, .checked = checked, .text = std::string(text.UTF8String ?: "")});
+}
+
+- (void)emitCopyPress:(NSString *)code language:(NSString *)language
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onCopyPress(
+        {.code = std::string(code.UTF8String ?: ""), .language = std::string(language.UTF8String ?: "")});
 }
 
 - (void)emitContextMenuItemPress:(NSString *)itemText

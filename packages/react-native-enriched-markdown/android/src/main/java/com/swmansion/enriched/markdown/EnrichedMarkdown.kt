@@ -99,6 +99,7 @@ class EnrichedMarkdown
     private var onLinkPressCallback: ((String) -> Unit)? = null
     private var onLinkLongPressCallback: ((String) -> Unit)? = null
     private var onTaskListItemPressCallback: ((Int, Boolean, String) -> Unit)? = null
+    private var onCopyPressCallback: ((String, String) -> Unit)? = null
     private var contextMenuItemTexts: List<String> = emptyList()
     var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
@@ -239,6 +240,10 @@ class EnrichedMarkdown
 
     fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {
       onTaskListItemPressCallback = callback
+    }
+
+    fun setOnCopyPressCallback(callback: ((code: String, language: String) -> Unit)?) {
+      onCopyPressCallback = callback
     }
 
     fun setContextMenuItems(items: List<String>) {
@@ -557,6 +562,9 @@ class EnrichedMarkdown
     ) = CodeBlockContainerView(context, style).apply {
       copyLabel = this@EnrichedMarkdown.selectionMenuConfig.copyLabel
       copyAsMarkdownLabel = this@EnrichedMarkdown.selectionMenuConfig.copyAsMarkdownLabel
+      onCopyPress = { code, language ->
+        this@EnrichedMarkdown.onCopyPressCallback?.invoke(code, language)
+      }
       applyCodeBlockNode(segment.node)
     }
 

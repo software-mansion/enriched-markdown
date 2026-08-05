@@ -5,6 +5,7 @@ import type {
   LinkPressEvent,
   LinkLongPressEvent,
   TaskListItemPressEvent,
+  CopyPressEvent,
 } from './events';
 
 /**
@@ -149,6 +150,17 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, web
    */
   onTaskListItemPress?: (event: TaskListItemPressEvent) => void;
+  /**
+   * Callback fired when code is copied from a fenced code block, via the header
+   * copy button, the long-press context-menu "Copy" action, or the VoiceOver
+   * copy action. Receives the copied code and its language. Does not fire for
+   * "Copy as Markdown".
+   *
+   * Only fires when `flavor="github"` (the copy button is part of the GitHub
+   * flavor's container-based code block renderer).
+   * @platform ios, android, macos
+   */
+  onCopyPress?: (event: CopyPressEvent) => void;
   /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *
