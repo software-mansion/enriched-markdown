@@ -82,6 +82,7 @@ class EnrichedMarkdownManager :
     MeasurementStore.release(view.id)
     MeasurementStore.clearStreamingTableMode(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
+    MeasurementStore.clearFontScalingSettings(view.id)
   }
 
   override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any> = markdownEventTypeConstants()
