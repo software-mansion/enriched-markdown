@@ -103,3 +103,29 @@ export const Default: TextStory<CodeBlockStyleControls> = {
     );
   },
 };
+
+export const CopyEvent: TextStory<CodeBlockStyleControls> = {
+  args: {
+    markdown: MARKDOWN,
+    flavor: 'github',
+    ...codeBlockStyledDefaults,
+  },
+  argTypes: {
+    ...argTypes,
+    onCopyPress: { action: 'onCopyPress' },
+  },
+  render: (args) => {
+    const { controls, rest } = splitStyleControls(
+      args,
+      codeBlockStyledDefaults
+    );
+    return (
+      <EnrichedMarkdownTextStory
+        title="Code Block — onCopyPress"
+        description="Tap the header copy button (or long-press → Copy) to fire onCopyPress with the code and language (Actions panel). Requires flavor=github."
+        {...rest}
+        style={{ codeBlock: toCodeBlockStyle(controls) }}
+      />
+    );
+  },
+};
