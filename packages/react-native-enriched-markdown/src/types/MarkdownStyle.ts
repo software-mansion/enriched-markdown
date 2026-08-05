@@ -364,4 +364,11 @@ export interface Md4cFlags {
    * @default false
    */
   highlight?: boolean;
+  /**
+   * Treat soft breaks (single newlines) as hard breaks (visible line breaks).
+   * When enabled, a single newline in the source renders as a line break
+   * instead of being collapsed to a space (CommonMark default).
+   * @default false
+   */
+  hardSoftBreaks?: boolean;
 }

@@ -11,7 +11,7 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline)
 - All `markdownStyle` customisation options
 - `onLinkPress`, `onLinkLongPress` (mapped to `contextmenu` event), `onTaskListItemPress` callbacks
-- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`)
+- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`)
 - RTL support via the `dir` prop (CSS logical properties automatically flip blockquote borders, list indentation, etc.)
 
 ### Accessibility

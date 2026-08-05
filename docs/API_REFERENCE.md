@@ -127,7 +127,7 @@ Configuration for md4c parser extension flags.
 
 | Type          | Default Value            | Platform |
 | ------------- | ------------------------ | -------- |
-| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true }` | Both |
+| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false }` | Both |
 
 **Properties:**
 
@@ -136,6 +136,7 @@ Configuration for md4c parser extension flags.
 - **`subscript`**: When `true`, parses `~text~` as subscript. When disabled, single and double tildes remain strikethrough markers. Visual appearance can be tuned with the `subscript` style prop — see [Subscript-specific](./STYLES.md#subscript-specific).
 - **`highlight`**: When `true`, parses `==text==` as highlighted spans. When disabled, double equals signs are treated as plain text. Visual appearance can be tuned with the `highlight` style prop — see [Highlight-specific](./STYLES.md#highlight-specific).
 - **`latexMath`**: When `true`, parses `$...$` and `$$...$$` as LaTeX math spans.
+- **`hardSoftBreaks`**: When `true`, treats single newlines (soft breaks) as hard breaks, rendering them as visible line breaks instead of collapsing them to spaces. Useful when displaying content authored in `EnrichedMarkdownTextInput`, where pressing Enter produces a single newline. See [Line Breaks](./ELEMENTS_STRUCTURE.md#line-breaks) for details.
 
 **Example:**
 
@@ -149,6 +150,12 @@ Configuration for md4c parser extension flags.
 <EnrichedMarkdownText
   markdown="This is _underlined_ and *italic* text"
   md4cFlags={{ underline: true }}
+/>
+
+// Preserve single newlines as visible line breaks
+<EnrichedMarkdownText
+  markdown={markdownFromInput}
+  md4cFlags={{ hardSoftBreaks: true }}
 />
 ```
 

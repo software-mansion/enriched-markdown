@@ -112,7 +112,7 @@ Inline elements modify text within blocks and apply additional styling on top of
 
 ## Line Breaks
 
-Newlines follow standard CommonMark semantics:
+Newlines follow standard CommonMark semantics by default:
 
 - **Blank line**: Starts a new paragraph.
 - **Single newline (soft break)**: Renders as a space — consecutive lines flow together into one wrapped paragraph, matching how GitHub and other CommonMark renderers display Markdown.
@@ -128,6 +128,19 @@ Two trailing spaces
 or a trailing backslash\
 force a line break within the paragraph.
 ```
+
+### Preserving single newlines
+
+When displaying content authored in `EnrichedMarkdownTextInput`, pressing Enter produces a single newline in the serialized markdown. By default, `EnrichedMarkdownText` collapses these to spaces (per CommonMark). To preserve them as visible line breaks, enable the `hardSoftBreaks` flag:
+
+```tsx
+<EnrichedMarkdownText
+  markdown={markdownFromInput}
+  md4cFlags={{ hardSoftBreaks: true }}
+/>
+```
+
+This forces the parser to treat every soft break as a hard break, so single newlines render as line breaks on all platforms.
 
 ## Images: Block vs Inline
 

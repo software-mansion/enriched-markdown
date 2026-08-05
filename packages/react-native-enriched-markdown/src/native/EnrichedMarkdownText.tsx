@@ -101,6 +101,7 @@ const defaultMd4cFlags: Md4cFlags = {
   subscript: false,
   latexMath: true,
   highlight: false,
+  hardSoftBreaks: false,
 };
 
 export const EnrichedMarkdownText = ({
@@ -147,6 +148,7 @@ export const EnrichedMarkdownText = ({
       subscript: md4cFlags.subscript ?? false,
       latexMath: md4cFlags.latexMath ?? true,
       highlight: md4cFlags.highlight ?? false,
+      hardSoftBreaks: md4cFlags.hardSoftBreaks ?? false,
     }),
     [md4cFlags]
   );

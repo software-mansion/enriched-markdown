@@ -8,6 +8,7 @@
 @property (nonatomic, assign) BOOL superscript;
 @property (nonatomic, assign) BOOL subscript;
 @property (nonatomic, assign) BOOL highlight;
+@property (nonatomic, assign) BOOL hardSoftBreaks;
 
 + (instancetype)defaultFlags;
 

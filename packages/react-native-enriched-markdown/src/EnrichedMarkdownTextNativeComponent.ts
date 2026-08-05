@@ -322,6 +322,11 @@ export interface Md4cFlagsInternal {
    * @default false
    */
   highlight: boolean;
+  /**
+   * Treat soft breaks (single newlines) as hard breaks (visible line breaks).
+   * @default false
+   */
+  hardSoftBreaks: boolean;
 }
 
 interface StreamingConfigInternal {

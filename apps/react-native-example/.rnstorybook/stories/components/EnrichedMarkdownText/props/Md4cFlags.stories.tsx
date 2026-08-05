@@ -13,6 +13,7 @@ type Md4cFlagsStoryExtra = {
   subscript: boolean;
   highlight: boolean;
   latexMath: boolean;
+  hardSoftBreaks: boolean;
   flavor: MarkdownFlavor;
 };
 
@@ -24,7 +25,11 @@ text~subscript~
 
 ==highlight==
 
-$E = mc^2$`;
+$E = mc^2$
+
+Line one
+Line two
+Line three`;
 
 const argTypes = {
   underline: {
@@ -49,6 +54,11 @@ const argTypes = {
     control: 'boolean',
     description: 'md4cFlags.latexMath — $...$ and $$...$$ math parsing.',
   },
+  hardSoftBreaks: {
+    control: 'boolean',
+    description:
+      'md4cFlags.hardSoftBreaks — treat single newlines as hard line breaks.',
+  },
   ...githubFlavorArgTypes('LaTeX math requires flavor="github".'),
 };
 
@@ -63,6 +73,7 @@ export const Default: TextStory<Md4cFlagsStoryExtra> = {
     subscript: true,
     highlight: true,
     latexMath: true,
+    hardSoftBreaks: false,
     flavor: 'github',
   },
   argTypes,
@@ -72,13 +83,21 @@ export const Default: TextStory<Md4cFlagsStoryExtra> = {
     subscript,
     highlight,
     latexMath,
+    hardSoftBreaks,
     ...args
   }) => (
     <EnrichedMarkdownTextStory
       title="Md4c-Flags"
       description="Cross-cutting md4cFlags demo. Individual inline/block stories also expose the minimum flag each syntax needs."
       {...args}
-      md4cFlags={{ underline, superscript, subscript, highlight, latexMath }}
+      md4cFlags={{
+        underline,
+        superscript,
+        subscript,
+        highlight,
+        latexMath,
+        hardSoftBreaks,
+      }}
     />
   ),
 };

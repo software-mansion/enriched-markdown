@@ -43,6 +43,7 @@ export const EnrichedMarkdownText = ({
     superscript = false,
     subscript = false,
     highlight = false,
+    hardSoftBreaks = false,
   } = md4cFlags;
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export const EnrichedMarkdownText = ({
         superscript,
         subscript,
         highlight,
+        hardSoftBreaks,
       }),
       katexPromise,
     ])
@@ -85,7 +87,15 @@ export const EnrichedMarkdownText = ({
     return () => {
       cancelled = true;
     };
-  }, [markdown, underline, latexMath, superscript, subscript, highlight]);
+  }, [
+    markdown,
+    underline,
+    latexMath,
+    superscript,
+    subscript,
+    highlight,
+    hardSoftBreaks,
+  ]);
 
   const callbacks = useMemo<RendererCallbacks>(
     () => ({ onLinkPress, onLinkLongPress, onTaskListItemPress }),

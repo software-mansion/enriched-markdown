@@ -40,6 +40,7 @@ struct MeasurementCacheKey {
   bool md4cFlagsSubscript;
   bool md4cFlagsHighlight;
   bool md4cFlagsLatexMath;
+  bool md4cFlagsHardSoftBreaks;
   size_t styleFingerprint;
   CGFloat fontScale;
   MarkdownFlavor flavor;
@@ -50,12 +51,13 @@ struct MeasurementCacheKey {
   {
     return std::tie(markdown, maxWidth, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
                     md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsHighlight,
-                    md4cFlagsLatexMath, styleFingerprint, fontScale, flavor, lineBreakStrategyIOS, writingDirection) ==
+                    md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, styleFingerprint, fontScale, flavor,
+                    lineBreakStrategyIOS, writingDirection) ==
            std::tie(other.markdown, other.maxWidth, other.allowTrailingMargin, other.allowFontScaling,
                     other.maxFontSizeMultiplier, other.md4cFlagsUnderline, other.md4cFlagsSuperscript,
                     other.md4cFlagsSubscript, other.md4cFlagsHighlight, other.md4cFlagsLatexMath,
-                    other.styleFingerprint, other.fontScale, other.flavor, other.lineBreakStrategyIOS,
-                    other.writingDirection);
+                    other.md4cFlagsHardSoftBreaks, other.styleFingerprint, other.fontScale, other.flavor,
+                    other.lineBreakStrategyIOS, other.writingDirection);
   }
 };
 
@@ -73,6 +75,7 @@ struct MeasurementCacheKeyHash {
     HashUtils::hash_one(h, key.md4cFlagsSubscript);
     HashUtils::hash_one(h, key.md4cFlagsHighlight);
     HashUtils::hash_one(h, key.md4cFlagsLatexMath);
+    HashUtils::hash_one(h, key.md4cFlagsHardSoftBreaks);
     HashUtils::hash_one(h, key.styleFingerprint);
     HashUtils::hash_one(h, key.fontScale);
     HashUtils::hash_one(h, static_cast<uint8_t>(key.flavor));
@@ -157,6 +160,7 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .md4cFlagsSubscript = props.md4cFlags.subscript,
       .md4cFlagsHighlight = props.md4cFlags.highlight,
       .md4cFlagsLatexMath = props.md4cFlags.latexMath,
+      .md4cFlagsHardSoftBreaks = props.md4cFlags.hardSoftBreaks,
       .styleFingerprint = computeStyleFingerprint(props.markdownStyle),
       .fontScale = fontScale,
       .flavor = flavor,
