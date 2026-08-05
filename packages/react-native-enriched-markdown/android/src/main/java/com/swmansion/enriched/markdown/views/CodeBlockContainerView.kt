@@ -262,8 +262,10 @@ class CodeBlockContainerView(
         this.color = color
       }
 
+    private val glyph = CopyGlyph()
+
     override fun draw(canvas: Canvas) {
-      CopyGlyph.draw(canvas, bounds.width().toFloat(), paint)
+      glyph.draw(canvas, bounds.width().toFloat(), paint)
     }
 
     override fun getIntrinsicWidth() = size

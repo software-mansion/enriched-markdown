@@ -183,12 +183,14 @@ object ContextMenuPopup {
           color = Color.parseColor("#333333")
         }
 
+      private val copyGlyph = CopyGlyph()
+
       // COPY mirrors SF Symbol doc.on.doc, DOCUMENT mirrors doc.text; the copy
       // glyph is shared with the header button in CodeBlockContainerView.
       override fun draw(canvas: Canvas) {
         val u = bounds.width() / 24f
         if (icon == Icon.COPY) {
-          CopyGlyph.draw(canvas, bounds.width().toFloat(), paint)
+          copyGlyph.draw(canvas, bounds.width().toFloat(), paint)
         } else {
           canvas.drawRoundRect(RectF(5 * u, 3 * u, 19 * u, 21 * u), 2.5f * u, 2.5f * u, paint)
           canvas.drawLine(8.5f * u, 9 * u, 15.5f * u, 9 * u, paint)

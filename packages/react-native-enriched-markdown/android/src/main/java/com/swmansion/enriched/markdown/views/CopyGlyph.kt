@@ -17,11 +17,27 @@ import android.graphics.PorterDuffXfermode
  * offscreen layer so the punched region reveals whatever background the drawable
  * sits on, without the glyph needing to know that color.
  *
- * All coordinates use a 24-unit grid scaled to the drawable width, matching the
- * grid the iOS symbol is authored on.
+ * One instance is held per drawable rather than shared: the paths and clear
+ * paint are reused across draws to keep draw() allocation-free, and two drawables
+ * of different sizes must not share those buffers. All coordinates use a 24-unit
+ * grid scaled to the drawable width, matching the grid the iOS symbol is authored
+ * on.
  */
-internal object CopyGlyph {
-  private val clearXfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+internal class CopyGlyph {
+  private val back = Path()
+  private val front = Path()
+  private val backFold = Path()
+  private val frontFold = Path()
+
+  // Color and colorFilter are irrelevant under PorterDuff.CLEAR; only the
+  // widened stroke (set per draw) matters, so this is configured once.
+  private val clearPaint =
+    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      style = Paint.Style.FILL_AND_STROKE
+      strokeJoin = Paint.Join.ROUND
+      strokeCap = Paint.Cap.ROUND
+      xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+    }
 
   fun draw(
     canvas: Canvas,
@@ -32,57 +48,54 @@ internal object CopyGlyph {
     val fold = 4f * u
     val corner = 2f * u
 
-    val back = pagePath(9 * u, 1 * u, 20 * u, 17 * u, fold, corner)
-    val front = pagePath(3 * u, 7 * u, 14 * u, 23 * u, fold, corner)
-
-    val clear =
-      Paint(stroke).apply {
-        style = Paint.Style.FILL_AND_STROKE
-        strokeWidth = stroke.strokeWidth * 3f
-        colorFilter = null
-        xfermode = clearXfermode
-      }
+    buildPage(back, 9 * u, 1 * u, 20 * u, 17 * u, fold, corner)
+    buildPage(front, 3 * u, 7 * u, 14 * u, 23 * u, fold, corner)
+    buildFold(backFold, 20 * u, 1 * u, fold)
+    buildFold(frontFold, 14 * u, 7 * u, fold)
+    clearPaint.strokeWidth = stroke.strokeWidth * 3f
 
     val saved = canvas.saveLayer(0f, 0f, width, width, null)
     canvas.drawPath(back, stroke)
-    canvas.drawPath(foldPath(20 * u, 1 * u, fold), stroke)
-    canvas.drawPath(front, clear)
+    canvas.drawPath(backFold, stroke)
+    canvas.drawPath(front, clearPaint)
     canvas.drawPath(front, stroke)
-    canvas.drawPath(foldPath(14 * u, 7 * u, fold), stroke)
+    canvas.drawPath(frontFold, stroke)
     canvas.restoreToCount(saved)
   }
 
   // A page outline whose top-right corner is cut back by fold, with the other
   // three corners rounded by corner.
-  private fun pagePath(
+  private fun buildPage(
+    path: Path,
     l: Float,
     t: Float,
     r: Float,
     b: Float,
     fold: Float,
     corner: Float,
-  ): Path =
-    Path().apply {
-      moveTo(l, t + corner)
-      quadTo(l, t, l + corner, t)
-      lineTo(r - fold, t)
-      lineTo(r, t + fold)
-      lineTo(r, b - corner)
-      quadTo(r, b, r - corner, b)
-      lineTo(l + corner, b)
-      quadTo(l, b, l, b - corner)
-      close()
-    }
+  ) {
+    path.rewind()
+    path.moveTo(l, t + corner)
+    path.quadTo(l, t, l + corner, t)
+    path.lineTo(r - fold, t)
+    path.lineTo(r, t + fold)
+    path.lineTo(r, b - corner)
+    path.quadTo(r, b, r - corner, b)
+    path.lineTo(l + corner, b)
+    path.quadTo(l, b, l, b - corner)
+    path.close()
+  }
 
   // The two inner edges of the folded-over corner, at the page's top-right.
-  private fun foldPath(
+  private fun buildFold(
+    path: Path,
     r: Float,
     t: Float,
     fold: Float,
-  ): Path =
-    Path().apply {
-      moveTo(r - fold, t)
-      lineTo(r - fold, t + fold)
-      lineTo(r, t + fold)
-    }
+  ) {
+    path.rewind()
+    path.moveTo(r - fold, t)
+    path.lineTo(r - fold, t + fold)
+    path.lineTo(r, t + fold)
+  }
 }
