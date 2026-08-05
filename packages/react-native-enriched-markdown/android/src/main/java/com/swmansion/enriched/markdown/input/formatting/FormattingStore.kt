@@ -168,8 +168,6 @@ class FormattingStore {
     deletedLength: Int,
     insertedLength: Int,
   ) {
-    // Inline styles inherit replacement at their start, but links don't; typing
-    // over a selected link replaces it.
     RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength) {
       it.type != StyleType.LINK
     }

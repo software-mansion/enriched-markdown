@@ -157,7 +157,6 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
       continue;
     }
 
-    // Blocks always inherit at their start so an edited list item stays anchored.
     ENRMAdjustedRange adjusted =
         ENRMAdjustRangeForEdit(blockRange.range, editLocation, deletedLength, insertedLength, YES);
     if (adjusted.shouldRemove) {

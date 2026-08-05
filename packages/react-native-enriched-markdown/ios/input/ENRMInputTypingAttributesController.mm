@@ -152,8 +152,6 @@
   [_pendingStyles removeAllObjects];
   [_pendingStyleRemovals removeAllObjects];
   [self rebuildFromContext];
-  // Typing attributes only matter at a caret; syncing them under a non-empty
-  // selection would strip styles from text typed over it and churn per frame.
   if ([_dataSource selectedRange].length == 0) {
     [self syncWithCursorBlock];
   }
@@ -180,8 +178,6 @@
 
   NSRange selection = [_dataSource selectedRange];
 
-  // Non-empty selection: seed pending styles from the first selected character
-  // (UIKit replacement semantics) so the whole typed-over run stays styled.
   if (selection.length > 0) {
     for (NSUInteger i = 0; i < sizeof(inlineStyles) / sizeof(inlineStyles[0]); i++) {
       ENRMInputStyleType type = inlineStyles[i];

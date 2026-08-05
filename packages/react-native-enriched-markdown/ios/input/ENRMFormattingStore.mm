@@ -252,8 +252,6 @@
 
   for (NSUInteger idx = 0; idx < _ranges.count; idx++) {
     ENRMFormattingRange *formattingRange = _ranges[idx];
-    // Inline styles inherit replacement at their start, but links don't; typing
-    // over a selected link replaces it.
     BOOL inheritsReplacement = formattingRange.type != ENRMInputStyleTypeLink;
     ENRMAdjustedRange adjusted =
         ENRMAdjustRangeForEdit(formattingRange.range, editLocation, deletedLength, insertedLength, inheritsReplacement);

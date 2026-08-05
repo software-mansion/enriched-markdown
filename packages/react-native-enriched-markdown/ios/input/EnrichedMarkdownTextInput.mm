@@ -63,8 +63,6 @@ using namespace facebook::react;
 - (void)resetBaseTypingAttributes;
 @end
 
-// Delay before re-applying the atomic-link snap after a selection gesture ends;
-// UIKit may not re-fire the selection delegate at touch-up, so the snap polls.
 static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 @implementation EnrichedMarkdownTextInput {

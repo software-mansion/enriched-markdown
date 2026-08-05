@@ -116,7 +116,6 @@ class BlockStore {
         it.type in BlockType.ANCHORED && it.start >= editLocation && it.end == deleteEnd
       }
 
-    // Blocks always inherit at their start so an edited list item stays anchored.
     RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength) { true }
 
     for (anchor in anchors) {
@@ -135,8 +134,6 @@ class BlockStore {
       ranges.add(sortedInsertionIndex(ranges, anchor.start), anchor)
     }
 
-    // Skip restoring when inheritance kept the block alive (still in ranges);
-    // restoring would duplicate it.
     if (collapsed != null && collapsed !in ranges) {
       ranges.add(
         sortedInsertionIndex(ranges, editLocation),

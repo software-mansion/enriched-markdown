@@ -514,9 +514,6 @@ class EnrichedMarkdownTextInputView(
       eventEmitter.emitState()
     } else {
       applyFormattingAndEmit()
-      // The toggle changed what's active at the selection start without moving
-      // the selection, so onSelectionChanged won't re-run — refresh the seeded
-      // pending styles so typing over the selection matches the new state.
       pendingStyles.clear()
       pendingStyleRemovals.clear()
       seedPendingStylesFromSelection(selStart, selEnd)
