@@ -7,7 +7,6 @@ import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.PixelFormat
-import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -257,18 +256,14 @@ class CodeBlockContainerView(
     private val paint =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = size / 13f
+        strokeWidth = size / 20f
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
         this.color = color
       }
 
-    // Two overlapping portrait documents, matching the SF Symbol doc.on.doc
-    // used on iOS (front doc lower-left, back doc upper-right).
     override fun draw(canvas: Canvas) {
-      val u = bounds.width() / 24f
-      canvas.drawRoundRect(RectF(9 * u, 2 * u, 21 * u, 17 * u), 2.5f * u, 2.5f * u, paint)
-      canvas.drawRoundRect(RectF(3 * u, 7 * u, 15 * u, 22 * u), 2.5f * u, 2.5f * u, paint)
+      CopyGlyph.draw(canvas, bounds.width().toFloat(), paint)
     }
 
     override fun getIntrinsicWidth() = size
@@ -290,9 +285,11 @@ class CodeBlockContainerView(
   companion object {
     private const val HEADER_LABEL_SCALE = 0.85f
 
-    // The copy glyph reads cleaner a touch smaller than the language label;
-    // mirrors kENRMHeaderIconScale on iOS so the two platforms match.
-    private const val HEADER_ICON_SCALE = 0.72f
+    // Drawable box for the copy glyph, as a multiple of the code font size.
+    // iOS sizes the SF Symbol by point size (kENRMHeaderIconScale = 0.72) but
+    // the symbol renders roughly half again as tall as its point size; this box
+    // is scaled up to land the drawn glyph at the same on-screen size.
+    private const val HEADER_ICON_SCALE = 1.08f
 
     private val headerTypeface: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 
