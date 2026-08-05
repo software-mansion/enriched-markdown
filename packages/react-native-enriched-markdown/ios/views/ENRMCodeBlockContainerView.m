@@ -21,6 +21,9 @@
 // lines never wrap, the height is independent of the available width.
 
 static const CGFloat kENRMHeaderLabelScale = 0.85;
+// The copy glyph reads cleaner a touch smaller than the language label and at a
+// regular (not medium) weight; sized independently so the two never couple.
+static const CGFloat kENRMHeaderIconScale = 0.72;
 static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
 static const CGFloat kENRMHeaderDividerAlpha = 0.2;
 
@@ -193,15 +196,19 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
     _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
     UIImageSymbolConfiguration *symbolConfig =
-        [UIImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale
-                                                        weight:UIImageSymbolWeightMedium];
+        [UIImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
+                                                        weight:UIImageSymbolWeightRegular];
     [_copyButton setImage:[UIImage systemImageNamed:@"doc.on.doc" withConfiguration:symbolConfig]
                  forState:UIControlStateNormal];
     _copyButton.tintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
     [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:_copyButton];
 #else
-    NSImage *copyImage = [NSImage imageWithSystemSymbolName:@"doc.on.doc" accessibilityDescription:nil];
+    NSImageSymbolConfiguration *symbolConfig =
+        [NSImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
+                                                        weight:NSFontWeightRegular];
+    NSImage *copyImage = [[NSImage imageWithSystemSymbolName:@"doc.on.doc"
+                                    accessibilityDescription:nil] imageWithSymbolConfiguration:symbolConfig];
     _copyButton = [NSButton buttonWithImage:copyImage target:self action:@selector(copyCodeToPasteboard)];
     _copyButton.bordered = NO;
     _copyButton.contentTintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];

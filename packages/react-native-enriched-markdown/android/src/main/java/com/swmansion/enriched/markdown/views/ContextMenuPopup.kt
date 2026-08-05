@@ -183,16 +183,18 @@ object ContextMenuPopup {
           color = Color.parseColor("#333333")
         }
 
+      // COPY mirrors SF Symbol doc.on.doc, DOCUMENT mirrors doc.text; kept in
+      // sync with the header copy glyph in CodeBlockContainerView.
       override fun draw(canvas: Canvas) {
         val u = bounds.width() / 24f
         if (icon == Icon.COPY) {
-          canvas.drawRoundRect(RectF(8 * u, 2 * u, 22 * u, 16 * u), 2 * u, 2 * u, paint)
-          canvas.drawRoundRect(RectF(2 * u, 8 * u, 16 * u, 22 * u), 2 * u, 2 * u, paint)
+          canvas.drawRoundRect(RectF(9 * u, 2 * u, 21 * u, 17 * u), 2.5f * u, 2.5f * u, paint)
+          canvas.drawRoundRect(RectF(3 * u, 7 * u, 15 * u, 22 * u), 2.5f * u, 2.5f * u, paint)
         } else {
-          canvas.drawRoundRect(RectF(4 * u, 2 * u, 20 * u, 22 * u), 2 * u, 2 * u, paint)
-          canvas.drawLine(8 * u, 8 * u, 16 * u, 8 * u, paint)
-          canvas.drawLine(8 * u, 12 * u, 16 * u, 12 * u, paint)
-          canvas.drawLine(8 * u, 16 * u, 13 * u, 16 * u, paint)
+          canvas.drawRoundRect(RectF(5 * u, 3 * u, 19 * u, 21 * u), 2.5f * u, 2.5f * u, paint)
+          canvas.drawLine(8.5f * u, 9 * u, 15.5f * u, 9 * u, paint)
+          canvas.drawLine(8.5f * u, 12.5f * u, 15.5f * u, 12.5f * u, paint)
+          canvas.drawLine(8.5f * u, 16 * u, 13 * u, 16 * u, paint)
         }
       }
 

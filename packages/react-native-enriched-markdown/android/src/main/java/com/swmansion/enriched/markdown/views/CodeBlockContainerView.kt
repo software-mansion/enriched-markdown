@@ -119,7 +119,10 @@ class CodeBlockContainerView(
       background = null
       scaleType = ImageView.ScaleType.CENTER
       setImageDrawable(
-        CopyIconDrawable(secondaryColor(codeBlockStyle.color), ceil(codeBlockStyle.fontSize).toInt()),
+        CopyIconDrawable(
+          secondaryColor(codeBlockStyle.color),
+          ceil(codeBlockStyle.fontSize * HEADER_ICON_SCALE).toInt(),
+        ),
       )
       setOnClickListener { copyCode() }
     }
@@ -254,16 +257,18 @@ class CodeBlockContainerView(
     private val paint =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = size / 12f
+        strokeWidth = size / 13f
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
         this.color = color
       }
 
+    // Two overlapping portrait documents, matching the SF Symbol doc.on.doc
+    // used on iOS (front doc lower-left, back doc upper-right).
     override fun draw(canvas: Canvas) {
       val u = bounds.width() / 24f
-      canvas.drawRoundRect(RectF(8 * u, 2 * u, 22 * u, 16 * u), 2 * u, 2 * u, paint)
-      canvas.drawRoundRect(RectF(2 * u, 8 * u, 16 * u, 22 * u), 2 * u, 2 * u, paint)
+      canvas.drawRoundRect(RectF(9 * u, 2 * u, 21 * u, 17 * u), 2.5f * u, 2.5f * u, paint)
+      canvas.drawRoundRect(RectF(3 * u, 7 * u, 15 * u, 22 * u), 2.5f * u, 2.5f * u, paint)
     }
 
     override fun getIntrinsicWidth() = size
@@ -284,6 +289,10 @@ class CodeBlockContainerView(
 
   companion object {
     private const val HEADER_LABEL_SCALE = 0.85f
+
+    // The copy glyph reads cleaner a touch smaller than the language label;
+    // mirrors kENRMHeaderIconScale on iOS so the two platforms match.
+    private const val HEADER_ICON_SCALE = 0.72f
 
     private val headerTypeface: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 
