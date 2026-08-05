@@ -44,6 +44,10 @@ const repoRoot = path.resolve(here, '..');
 const vendorOut = path.join(repoRoot, 'packages/core/cpp/highlight/vendor');
 const manifestPath = path.join(here, 'grammar-versions.json');
 
+const LOG_PREFIX = '[react-native-enriched-markdown]';
+const log = (message) => console.log(`${LOG_PREFIX} ${message}`);
+const warn = (message) => console.warn(`${LOG_PREFIX} ${message}`);
+
 // Grammar packages are devDependencies of react-native-enriched-markdown, so
 // resolve them from that workspace regardless of hoisting.
 const pkgRequire = createRequire(
@@ -64,7 +68,7 @@ function parseArgs(argv) {
 }
 
 function fail(message) {
-  console.error(`[vendor-grammars] ${message}`);
+  console.error(`${LOG_PREFIX} ${message}`);
   process.exit(1);
 }
 
@@ -114,7 +118,7 @@ async function fetchRuntimeLib(runtime) {
   if (!runtime.sha256) {
     fail(`runtime.sha256 missing in grammar-versions.json; cannot verify ${url}`);
   }
-  console.log(`[vendor-grammars] fetching runtime ${runtime.ref} from ${url}`);
+  log(`fetching runtime ${runtime.ref} from ${url}`);
   let buf;
   try {
     const res = await fetch(url);
@@ -156,7 +160,7 @@ async function ensureRuntime(manifest, args) {
   const present = fs.existsSync(path.join(vendorOut, 'tree-sitter/src/lib.c'));
 
   if (!args.force && present && readStamp(stampFile) === stampKey) {
-    console.log('[vendor-grammars] runtime already up to date; skipping.');
+    log('runtime already up to date; skipping.');
     return;
   }
 
@@ -171,7 +175,7 @@ async function ensureRuntime(manifest, args) {
     }
   }
   fs.writeFileSync(stampFile, stampKey + '\n');
-  console.log(`[vendor-grammars] runtime -> ${path.relative(repoRoot, path.join(vendorOut, 'tree-sitter/src'))}`);
+  log(`runtime -> ${path.relative(repoRoot, path.join(vendorOut, 'tree-sitter/src'))}`);
 }
 
 function packageRoot(pkgName) {
@@ -258,7 +262,7 @@ function vendorGrammar(id, spec) {
     }
   }
 
-  console.log(`[vendor-grammars] ${id} -> ${path.relative(repoRoot, outDir)}`);
+  log(`${id} -> ${path.relative(repoRoot, outDir)}`);
 }
 
 function regenerateDefaultRegistry(manifest) {
@@ -325,7 +329,7 @@ function vendorableIds(manifest, ids) {
       fail(`${id} is in the default set but its package ships no queries/highlights.scm`);
     } else {
       fs.rmSync(path.join(vendorOut, 'grammars', id), { recursive: true, force: true });
-      console.warn(`[vendor-grammars] ${id}: package ships no highlights.scm; skipping (non-default, not compilable).`);
+      warn(`${id}: package ships no highlights.scm; skipping (non-default, not compilable).`);
     }
   }
   return out;
@@ -352,12 +356,12 @@ async function main() {
   // rewrite 34 MB on every run.
   let grammarsRebuilt = false;
   if (!args.force && stampKey && everyGrammarPresent(ids) && readStamp(stampFile) === stampKey) {
-    console.log('[vendor-grammars] grammar sources already up to date; skipping.');
+    log('grammar sources already up to date; skipping.');
   } else {
     for (const id of ids) vendorGrammar(id, requireSpec(manifest, id));
     if (stampKey) fs.writeFileSync(stampFile, stampKey + '\n');
     grammarsRebuilt = true;
-    console.log('[vendor-grammars] grammar sources ready.');
+    log('grammar sources ready.');
   }
 
   // Default registry: regenerated from the vendored grammars. A partial --only
@@ -367,7 +371,7 @@ async function main() {
     regenerateDefaultRegistry(manifest);
   }
 
-  console.log('[vendor-grammars] done.');
+  log('done.');
 }
 
 main().catch((err) => fail(err && err.stack ? err.stack : String(err)));

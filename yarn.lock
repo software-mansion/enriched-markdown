@@ -16042,6 +16042,45 @@ __metadata:
     release-it: "npm:^19.2.4"
     turbo: "npm:^2.8.21"
     typescript: "npm:^6.0.2"
+  dependenciesMeta:
+    "@tree-sitter-grammars/tree-sitter-markdown":
+      built: false
+    "@tree-sitter-grammars/tree-sitter-yaml":
+      built: false
+    tree-sitter-bash:
+      built: false
+    tree-sitter-c:
+      built: false
+    tree-sitter-c-sharp:
+      built: false
+    tree-sitter-cli:
+      built: false
+    tree-sitter-cpp:
+      built: false
+    tree-sitter-css:
+      built: false
+    tree-sitter-go:
+      built: false
+    tree-sitter-html:
+      built: false
+    tree-sitter-java:
+      built: false
+    tree-sitter-javascript:
+      built: false
+    tree-sitter-json:
+      built: false
+    tree-sitter-php:
+      built: false
+    tree-sitter-python:
+      built: false
+    tree-sitter-ruby:
+      built: false
+    tree-sitter-rust:
+      built: false
+    tree-sitter-swift:
+      built: false
+    tree-sitter-typescript:
+      built: false
   languageName: unknown
   linkType: soft
 

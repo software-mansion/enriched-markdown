@@ -11,7 +11,7 @@ mode="${1:-}"
 case "$mode" in
   prepack)
     if [[ ! -d "$CORE_CPP" ]]; then
-      echo "error: core cpp directory not found at $CORE_CPP" >&2
+      echo "[react-native-enriched-markdown] error: core cpp directory not found at $CORE_CPP" >&2
       exit 1
     fi
 
@@ -44,7 +44,7 @@ case "$mode" in
     rm -rf docs
     ;;
   *)
-    echo "usage: $0 prepack|postpack" >&2
+    echo "[react-native-enriched-markdown] usage: $0 prepack|postpack" >&2
     exit 1
     ;;
 esac

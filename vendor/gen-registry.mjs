@@ -17,6 +17,14 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+const LOG_PREFIX = '[react-native-enriched-markdown]';
+const log = (message) => console.log(`${LOG_PREFIX} ${message}`);
+const warn = (message) => console.warn(`${LOG_PREFIX} ${message}`);
+const fail = (message) => {
+  console.error(`${LOG_PREFIX} ${message}`);
+  process.exit(1);
+};
+
 function parseArgs(argv) {
   const args = { vendorDir: null, languages: [], out: null, manifest: path.join(here, 'grammar-versions.json') };
   for (let i = 0; i < argv.length; i++) {
@@ -27,8 +35,7 @@ function parseArgs(argv) {
     else if (a === '--manifest') args.manifest = argv[++i];
   }
   if (!args.vendorDir || !args.out) {
-    console.error('[gen-registry] usage: --vendor-dir <dir> --languages a,b --out <dir>');
-    process.exit(1);
+    fail('usage: --vendor-dir <dir> --languages a,b --out <dir>');
   }
   return args;
 }
@@ -53,8 +60,7 @@ const INHERITS_RE = /^[ \t]*;+[ \t]*inherits[ \t]*:[ \t]*([^\n]+)$/m;
 function resolveHighlights(vendorDir, id, seen = new Set()) {
   const file = highlightsPath(vendorDir, id);
   if (!fs.existsSync(file)) {
-    console.error(`[gen-registry] missing vendored highlights for '${id}': ${file}`);
-    process.exit(1);
+    fail(`missing vendored highlights for '${id}': ${file}`);
   }
   if (seen.has(id)) return '';
   seen.add(id);
@@ -67,7 +73,7 @@ function resolveHighlights(vendorDir, id, seen = new Set()) {
       if (fs.existsSync(highlightsPath(vendorDir, parent))) {
         inherited += resolveHighlights(vendorDir, parent, seen) + '\n';
       } else {
-        console.warn(`[gen-registry] ${id} inherits '${parent}' which is not vendored; skipping inheritance`);
+        warn(`${id} inherits '${parent}' which is not vendored; skipping inheritance`);
       }
     }
   }
@@ -143,7 +149,7 @@ function main() {
 
   fs.writeFileSync(path.join(args.out, 'generated_queries.h'), queriesHeader);
   fs.writeFileSync(path.join(args.out, 'generated_registry.cpp'), registryCpp);
-  console.log(`[gen-registry] wrote ${entries.length} grammar(s) to ${args.out}`);
+  log(`wrote ${entries.length} grammar(s) to ${args.out}`);
 }
 
 main();
