@@ -137,6 +137,7 @@ class EnrichedMarkdown
 
     fun commitProps() {
       MeasurementStore.updateStreamingTableMode(id, tableStreamingMode)
+      MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
       if (renderPending) {
         renderPending = false
         scheduleRenderIfNeeded()
