@@ -9,6 +9,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.markdownLinkPressHandler) private var onLinkPress
+    @Environment(\.markdownSelectionMenu) private var selectionMenuConfig
     @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
@@ -29,7 +30,8 @@ public struct EnrichedMarkdownText: View {
             attributedText: renderStore.attributedText,
             sourceMarkdown: renderStore.sourceMarkdown,
             styleConfig: styleConfig,
-            onLinkPress: onLinkPress
+            onLinkPress: onLinkPress,
+            selectionMenuConfig: selectionMenuConfig
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {

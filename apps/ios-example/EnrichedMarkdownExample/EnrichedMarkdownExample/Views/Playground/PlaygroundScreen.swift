@@ -44,6 +44,7 @@ struct PlaygroundScreen: View {
         .background(Color.gray50)
         .accessibilityIdentifier("playground-screen")
         .markdownTheme(PlaygroundMarkdownTheme)
+        .markdownSelectionMenu(MarkdownSelectionMenuConfig())
         .onAppear(perform: loadBundledImages)
         .sheet(isPresented: $setMarkdownSheetVisible) {
             SetMarkdownSheet(
