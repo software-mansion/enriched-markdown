@@ -125,18 +125,27 @@ case "$PLATFORM" in
   *)        echo "Error: --platform is required. (--platform <ios|android>)" >&2; exit 1 ;;
 esac
 
+# Suppress the RN example's LogBox for this run so warning overlays never corrupt
+# the exact-match (100%) screenshot assertions. The flag file is a bundled source
+# input, so the build/Metro picks it up; it is restored on exit.
+E2E_FLAG_FILE="$REPO_ROOT/apps/react-native-example/e2e-config.json"
+printf '{\n  "disableLogBox": true\n}\n' > "$E2E_FLAG_FILE"
+
+cleanup() {
+  printf '{\n  "disableLogBox": false\n}\n' > "$E2E_FLAG_FILE"
+  if [ -n "${DEVICE_ID:-}" ]; then
+    if [ "$PLATFORM" = ios ]; then
+      xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null || true
+    else
+      adb -s "$DEVICE_ID" emu kill 2>/dev/null || true
+    fi
+  fi
+}
+trap cleanup EXIT
+
 SETUP_OUTPUT=$("$SETUP" 2>&1)
 echo "$SETUP_OUTPUT"
 DEVICE_ID=$(echo "$SETUP_OUTPUT" | grep "^DEVICE_ID=" | cut -d= -f2)
-
-shutdown_device() {
-  if [ "$PLATFORM" = ios ]; then
-    xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null || true
-  else
-    adb -s "$DEVICE_ID" emu kill 2>/dev/null || true
-  fi
-}
-trap shutdown_device EXIT
 
 app_installed() {
   if [ "$PLATFORM" = ios ]; then
