@@ -406,6 +406,19 @@ final class RendererTests: XCTestCase {
         XCTAssertNotNil(attributes[.font] as? UIFont)
     }
 
+    func testSoftLineBreakRendersAsSpace() {
+        let result = MarkdownRenderer.render("alpha\nbeta", config: config)
+        XCTAssertTrue(result.string.contains("alpha beta"))
+        XCTAssertFalse(result.string.contains("\u{2028}"))
+
+        let spaceRange = (result.string as NSString).range(of: " ")
+        XCTAssertNotEqual(spaceRange.location, NSNotFound)
+
+        var effectiveRange = NSRange()
+        let attributes = result.attributes(at: spaceRange.location, effectiveRange: &effectiveRange)
+        XCTAssertNotNil(attributes[.font] as? UIFont)
+    }
+
 
     func testInlineCodeUsesMonospacedFont() {
         let result = MarkdownRenderer.render("Use `code` here", config: config)

@@ -6,7 +6,7 @@
 #include <new>
 #include <string>
 
-static_assert(static_cast<int>(Markdown::NodeType::Highlight) == 29,
+static_assert(static_cast<int>(Markdown::NodeType::SoftBreak) == 30,
               "NodeType enum must stay in sync with Swift NodeType");
 
 struct EMCParseResult {
