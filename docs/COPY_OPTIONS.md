@@ -94,8 +94,9 @@ Notes:
   required; any category left `undefined` falls back to it. The `{count}` token
   is replaced by the number of selected images.
 - The labels apply to the main text selection menu as well as the table, math,
-  and code block copy menus. The code block header's copy button also reuses
-  the copy label for assistive technologies: it is the button's
+  and code block copy menus. With `flavor="github"`, the code block header's copy
+  button also reuses the copy label for assistive technologies (the CommonMark
+  flavor renders code inline with no header button): it is the button's
   contentDescription on Android, and on iOS it names the VoiceOver custom
   action that triggers the copy. To be notified when code is copied from a code
   block, use the [`onCopyPress`](./API_REFERENCE.md#oncopypress) callback.
