@@ -127,12 +127,20 @@ esac
 
 # Suppress the RN example's LogBox for this run so warning overlays never corrupt
 # the exact-match (100%) screenshot assertions. The flag file is a bundled source
-# input, so the build/Metro picks it up; it is restored on exit.
+# input, so the build/Metro picks it up. Only the RN app uses it, so leave the
+# native-example apps untouched; the original file bytes are restored on exit.
 E2E_FLAG_FILE="$REPO_ROOT/apps/react-native-example/e2e-config.json"
-printf '{\n  "disableLogBox": true\n}\n' > "$E2E_FLAG_FILE"
+E2E_FLAG_BACKUP=""
+if [ "$APP" = "rn" ]; then
+  E2E_FLAG_BACKUP="$(mktemp)"
+  cp "$E2E_FLAG_FILE" "$E2E_FLAG_BACKUP"
+  node -e 'const f=process.argv[1],fs=require("fs");const c=JSON.parse(fs.readFileSync(f,"utf8"));c.disableLogBox=true;fs.writeFileSync(f,JSON.stringify(c,null,2)+"\n");' "$E2E_FLAG_FILE"
+fi
 
 cleanup() {
-  printf '{\n  "disableLogBox": false\n}\n' > "$E2E_FLAG_FILE"
+  if [ -n "$E2E_FLAG_BACKUP" ] && [ -f "$E2E_FLAG_BACKUP" ]; then
+    mv "$E2E_FLAG_BACKUP" "$E2E_FLAG_FILE"
+  fi
   if [ -n "${DEVICE_ID:-}" ]; then
     if [ "$PLATFORM" = ios ]; then
       xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null || true
