@@ -1,0 +1,23 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - text
+  - interaction
+---
+- launchApp
+
+- runFlow:
+    file: '../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        **Bold text** rendered in preview
+
+# Preview renders without markdown markers…
+- assertVisible: 'Bold text rendered in preview'
+
+# …while the editor holds the raw markdown. Dot-all partial match: the typed
+# value keeps its trailing newline and Maestro regexes are full-match.
+- assertVisible: '(?s)\*\*Bold text\*\* rendered in preview.*'

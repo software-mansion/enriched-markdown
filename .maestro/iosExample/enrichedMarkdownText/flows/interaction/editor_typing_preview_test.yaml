@@ -1,0 +1,25 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - text
+  - interaction
+---
+- launchApp
+
+- runFlow:
+    file: '../../../subflows/move_to_playground.yaml'
+
+# Empty editor shows its placeholder.
+- assertVisible: 'Type markdown here...'
+
+- tapOn:
+    id: 'focus-button'
+
+- inputText: 'Typing updates the preview live'
+
+- tapOn:
+    id: 'blur-button'
+
+- assertVisible: 'Typing updates the preview live'
+
+- assertNotVisible: 'Type markdown here...'

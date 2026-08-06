@@ -40,7 +40,8 @@ let package = Package(
         .testTarget(
             name: "EnrichedMarkdownTests",
             dependencies: ["EnrichedMarkdown"],
-            path: "packages/ios-enriched-markdown/Tests/EnrichedMarkdownTests"
+            path: "packages/ios-enriched-markdown/Tests/EnrichedMarkdownTests",
+            exclude: ["Snapshots/__Snapshots__"]
         ),
     ]
 )

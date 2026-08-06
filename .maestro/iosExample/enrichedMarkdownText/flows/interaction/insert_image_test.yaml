@@ -1,0 +1,22 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - text
+  - interaction
+---
+- launchApp
+
+- runFlow:
+    file: '../../../subflows/move_to_playground.yaml'
+
+- tapOn:
+    id: 'insert-image-button'
+
+# The editor receives the raw image markdown (preview image rendering itself is
+# covered by the package snapshot tests).
+- assertVisible: '(?s).*!\[logo\]\(file://.*'
+
+- tapOn:
+    id: 'insert-inline-image-button'
+
+- assertVisible: 'Enriched Markdown is a library for .* React Native.'

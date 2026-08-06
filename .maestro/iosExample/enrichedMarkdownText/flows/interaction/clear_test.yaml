@@ -1,0 +1,26 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - text
+  - interaction
+---
+- launchApp
+
+- runFlow:
+    file: '../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        Content that will be cleared
+
+- assertVisible: 'Content that will be cleared'
+
+- tapOn:
+    id: 'clear-button'
+
+- assertNotVisible: 'Content that will be cleared'
+
+# Cleared editor shows its placeholder again.
+- assertVisible: 'Type markdown here...'

@@ -1,0 +1,27 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - text
+  - interaction
+---
+- launchApp
+
+- runFlow:
+    file: '../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        Toggling the underline flag re-renders
+
+# Toggle the md4c underline flag off and back on; the preview re-renders both times.
+- tapOn:
+    id: 'underline-button'
+
+- assertVisible: 'Toggling the underline flag re-renders'
+
+- tapOn:
+    id: 'underline-button'
+
+- assertVisible: 'Toggling the underline flag re-renders'
