@@ -199,6 +199,36 @@ function grammarHighlights(spec) {
   ]);
 }
 
+// tree-sitter grammars that build on another grammar's queries usually say so
+// with a leading `; inherits:` comment, which gen-registry.mjs reads to inline
+// the parent's captures. Some packages (notably tree-sitter-typescript) instead
+// list the base query in their package's `queries` array and ship a
+// highlights.scm with no such comment, so a verbatim copy drops every inherited
+// capture -- for TypeScript that means strings, comments, and all base
+// JavaScript keywords/functions, leaving only the TS-only supplement colored.
+// Materialize the manifest's `inherits` as that comment here so the existing
+// gen-registry inlining restores full highlighting. Idempotent: parents already
+// named by an upstream `; inherits:` line are merged, not duplicated.
+const INHERITS_RE = /^[ \t]*;+[ \t]*inherits[ \t]*:[ \t]*([^\n]+)$/m;
+
+function writeHighlights(srcFile, destFile, spec) {
+  const raw = fs.readFileSync(srcFile, 'utf8');
+  const existing = raw.match(INHERITS_RE);
+  const parents = existing
+    ? existing[1].split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  for (const parent of spec.inherits ?? []) {
+    if (!parents.includes(parent)) parents.push(parent);
+  }
+  if (parents.length === 0) {
+    copyFile(srcFile, destFile);
+    return;
+  }
+  const body = raw.replace(INHERITS_RE, '').replace(/^\n+/, '');
+  fs.mkdirSync(path.dirname(destFile), { recursive: true });
+  fs.writeFileSync(destFile, `; inherits: ${parents.join(',')}\n${body}`);
+}
+
 function vendorGrammar(id, spec) {
   const pkgRoot = packageRoot(spec.package);
   const base = spec.subPath ? path.join(pkgRoot, spec.subPath) : pkgRoot;
@@ -232,7 +262,7 @@ function vendorGrammar(id, spec) {
   const headerDir = path.join(srcDir, 'tree_sitter');
   if (fs.existsSync(headerDir)) copyDir(headerDir, path.join(outDir, 'tree_sitter'));
 
-  copyFile(highlights, path.join(outDir, 'highlights.scm'));
+  writeHighlights(highlights, path.join(outDir, 'highlights.scm'), spec);
 
   const license = firstExisting([
     path.join(pkgRoot, 'LICENSE'),
