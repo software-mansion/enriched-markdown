@@ -180,6 +180,40 @@ final class SelectionMenuItemsTests: XCTestCase {
         XCTAssertTrue((result[2] as? UIMenu)?.identifier == .lookup)
     }
 
+    // MARK: - Select All fallback
+
+    func testContainsSelectAllDetectsCommandNestedInStandardEditMenu() throws {
+        guard #available(iOS 16.0, *) else { throw XCTSkip("Requires iOS 16") }
+
+        let selectAll = UICommand(title: "Select All", action: #selector(UIResponder.selectAll(_:)))
+        let copy = UICommand(title: "Copy", action: #selector(UIResponder.copy(_:)))
+        let standardEdit = UIMenu(title: "", identifier: .standardEdit, children: [copy, selectAll])
+
+        XCTAssertTrue(MarkdownTextViewRepresentable.Coordinator.containsSelectAll([standardEdit]))
+        XCTAssertFalse(MarkdownTextViewRepresentable.Coordinator.containsSelectAll([
+            UIMenu(title: "", identifier: .standardEdit, children: [copy]),
+        ]))
+    }
+
+    func testMakeSelectAllActionAttributes() throws {
+        guard #available(iOS 16.0, *) else { throw XCTSkip("Requires iOS 16") }
+
+        let action = MarkdownTextViewRepresentable.Coordinator.makeSelectAllAction(for: UITextView())
+
+        XCTAssertEqual(action.title, "Select All")
+        XCTAssertEqual(action.identifier.rawValue, "com.swmansion.enriched.markdown.selectAll")
+    }
+
+    func testSelectEntireDocumentSelectsFullRange() {
+        let textView = UITextView()
+        textView.attributedText = render("Hello **world** out there")
+        textView.selectedRange = NSRange(location: 0, length: 5)
+
+        MarkdownTextViewRepresentable.Coordinator.selectEntireDocument(in: textView)
+
+        XCTAssertEqual(textView.selectedRange, NSRange(location: 0, length: textView.attributedText.length))
+    }
+
     func testSplicePrependsWhenStandardEditMenuAbsent() throws {
         guard #available(iOS 16.0, *) else { throw XCTSkip("Requires iOS 16") }
 

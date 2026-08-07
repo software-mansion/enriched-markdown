@@ -68,9 +68,24 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
                 attributedText: textView.attributedText ?? NSAttributedString(),
                 sourceMarkdown: sourceMarkdown
             )
-            guard !specs.isEmpty else { return UIMenu(children: suggestedActions) }
+            var actions = specs.map(Self.makeAction(for:))
 
-            let actions = specs.map(Self.makeAction(for:))
+            // Recent iOS versions stop suggesting Select All for non-editable text
+            // views, leaving no way to grow a long-press selection to the whole
+            // document; provide it ourselves when the system didn't (Android's
+            // selection menu always has it).
+            // The system shows its own item only when the command is suggested AND
+            // canPerformAction allows it; recent iOS returns false there for
+            // non-editable text views, hiding Select All even though the command
+            // is present in suggestedActions.
+            let textLength = textView.attributedText?.length ?? 0
+            let systemShowsSelectAll = Self.containsSelectAll(suggestedActions)
+                && textView.canPerformAction(#selector(UIResponder.selectAll(_:)), withSender: nil)
+            if range.length < textLength, !systemShowsSelectAll {
+                actions.append(Self.makeSelectAllAction(for: textView))
+            }
+
+            guard !actions.isEmpty else { return UIMenu(children: suggestedActions) }
             return UIMenu(children: Self.splice(actions, into: suggestedActions))
         }
 
@@ -82,6 +97,35 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
                 identifier: UIAction.Identifier(spec.identifier)
             ) { _ in
                 UIPasteboard.general.string = spec.pasteboardString
+            }
+        }
+
+        @available(iOS 16.0, *)
+        static func makeSelectAllAction(for textView: UITextView) -> UIAction {
+            UIAction(
+                title: "Select All",
+                image: UIImage(systemName: "text.badge.checkmark"),
+                identifier: UIAction.Identifier("com.swmansion.enriched.markdown.selectAll")
+            ) { [weak textView] _ in
+                guard let textView else { return }
+                Self.selectEntireDocument(in: textView)
+            }
+        }
+
+        static func selectEntireDocument(in textView: UITextView) {
+            textView.selectedRange = NSRange(location: 0, length: textView.attributedText?.length ?? 0)
+        }
+
+        @available(iOS 16.0, *)
+        static func containsSelectAll(_ elements: [UIMenuElement]) -> Bool {
+            elements.contains { element in
+                if let command = element as? UICommand, command.action == #selector(UIResponder.selectAll(_:)) {
+                    return true
+                }
+                if let menu = element as? UIMenu {
+                    return containsSelectAll(menu.children)
+                }
+                return false
             }
         }
 
