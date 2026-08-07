@@ -25,14 +25,22 @@ internal object RangeEditAdjustment {
    * characters at [editLocation] with [insertedLength] characters. Ranges
    * deleted outright or clipped to zero length are removed.
    *
-   * Insert-only edits at exactly `range.start` or `range.end` do NOT grow the
-   * range — the typed characters stay outside it. Whether boundary text joins
-   * the range is decided elsewhere: pending styles for inline ranges, line
-   * re-normalization for block ranges.
+   * Insert-only edits at exactly `range.end` do NOT grow the range — the typed
+   * characters stay outside it. An insert at exactly `range.start` grows the
+   * range only when [growsAtStartOnInsert] returns true; otherwise the range
+   * shifts and the typed characters stay outside it. Whether boundary text
+   * otherwise joins the range is decided elsewhere: pending styles for inline
+   * ranges, line re-normalization for block ranges.
    *
    * [inheritsReplacementAtStart]: when it returns true for a range whose start
    * is the edit location, replacement text joins the range (UIKit attribute
    * inheritance); when false, the old clip/remove behavior applies.
+   *
+   * [growsAtStartOnInsert]: when it returns true, a pure insert at `range.start`
+   * grows the range to cover the inserted text instead of shifting the range
+   * past it. Block ranges own their whole line, so a character typed at the line
+   * start must keep the line's block; inline styles must NOT set this (a
+   * character typed before a bold run must not become bold).
    */
   fun <T : MutableRangeBounds> adjustForEdit(
     ranges: MutableList<T>,
@@ -40,6 +48,7 @@ internal object RangeEditAdjustment {
     deletedLength: Int,
     insertedLength: Int,
     inheritsReplacementAtStart: (T) -> Boolean = { false },
+    growsAtStartOnInsert: (T) -> Boolean = { false },
   ) {
     if (deletedLength == 0 && insertedLength == 0) return
 
@@ -93,6 +102,10 @@ internal object RangeEditAdjustment {
         }
       } else {
         when {
+          range.start == editLocation && growsAtStartOnInsert(range) -> {
+            range.end += insertedLength
+          }
+
           range.start >= editLocation -> {
             range.start += insertedLength
             range.end += insertedLength

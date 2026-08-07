@@ -26,7 +26,8 @@ static EditOverlap classifyOverlap(NSUInteger rangeStart, NSUInteger rangeEnd, N
 }
 
 ENRMAdjustedRange ENRMAdjustRangeForEdit(NSRange range, NSUInteger editLocation, NSUInteger deletedLength,
-                                         NSUInteger insertedLength, BOOL inheritsReplacementAtStart)
+                                         NSUInteger insertedLength, BOOL inheritsReplacementAtStart,
+                                         BOOL growsAtStartOnInsert)
 {
   ENRMAdjustedRange result = {range, NO};
   NSUInteger rangeStart = range.location;
@@ -77,7 +78,9 @@ ENRMAdjustedRange ENRMAdjustRangeForEdit(NSRange range, NSUInteger editLocation,
       }
     }
   } else if (insertedLength > 0) {
-    if (rangeStart >= editLocation) {
+    if (rangeStart == editLocation && growsAtStartOnInsert) {
+      result.range = NSMakeRange(rangeStart, range.length + insertedLength);
+    } else if (rangeStart >= editLocation) {
       result.range = NSMakeRange(rangeStart + insertedLength, range.length);
     } else if (editLocation < rangeEnd) {
       result.range = NSMakeRange(rangeStart, range.length + insertedLength);

@@ -116,7 +116,14 @@ class BlockStore {
         it.type in BlockType.ANCHORED && it.start >= editLocation && it.end == deleteEnd
       }
 
-    RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength) { true }
+    RangeEditAdjustment.adjustForEdit(
+      ranges,
+      editLocation,
+      deletedLength,
+      insertedLength,
+      inheritsReplacementAtStart = { true },
+      growsAtStartOnInsert = { true },
+    )
 
     for (anchor in anchors) {
       when {
