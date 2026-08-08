@@ -162,7 +162,11 @@ object MeasurementStore {
     allowFontScaling: Boolean,
     maxFontSizeMultiplier: Float,
   ) {
+    val previous = fontScalingSettings[viewId]
     fontScalingSettings[viewId] = FontScalingSettings(allowFontScaling, maxFontSizeMultiplier)
+    if (previous != null && (previous.allowFontScaling != allowFontScaling || previous.maxFontSizeMultiplier != maxFontSizeMultiplier)) {
+      data.remove(viewId)
+    }
   }
 
   fun clearFontScalingSettings(viewId: Int) {
@@ -312,6 +316,7 @@ object MeasurementStore {
     val propsHash = computePropsHash(props, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
     // 2. Render & Measure
+    measurePaint.textSize = fontSize
     val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
     val spannable =
       tryRenderMarkdown(markdown, styleMap, context, md4cFlags, allowFontScaling, maxFontSizeMultiplier, imageRequestHeaders)

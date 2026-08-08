@@ -166,6 +166,7 @@ class EnrichedMarkdown
     fun setAllowFontScaling(allow: Boolean) {
       if (allowFontScaling == allow) return
       allowFontScaling = allow
+      MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
       recreateStyleConfig()
       dirtyFlags += DirtyFlag.RECREATE_SEGMENTS
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
@@ -175,6 +176,7 @@ class EnrichedMarkdown
     fun setMaxFontSizeMultiplier(multiplier: Float) {
       if (maxFontSizeMultiplier == multiplier) return
       maxFontSizeMultiplier = multiplier
+      MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
       recreateStyleConfig()
       dirtyFlags += DirtyFlag.RECREATE_SEGMENTS
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
@@ -516,6 +518,7 @@ class EnrichedMarkdown
         selectionMenuConfig = this@EnrichedMarkdown.selectionMenuConfig
         accessibilityLabels = this@EnrichedMarkdown.accessibilityLabels
         setIsSelectable(selectable)
+        markdownStyle?.paragraphStyle?.fontSize?.let { setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, it) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
           breakStrategy = BreakStrategyUtils.resolveBreakStrategy(textBreakStrategy)
         }

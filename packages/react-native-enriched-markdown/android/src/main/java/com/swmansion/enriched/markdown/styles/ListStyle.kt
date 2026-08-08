@@ -35,7 +35,7 @@ data class ListStyle(
       val lineHeightRaw = map.getDouble("lineHeight").toFloat()
       val lineHeight = parser.toPixelFromSP(lineHeightRaw)
       val bulletColor = parser.parseColor(map, "bulletColor")
-      val bulletSize = parser.toPixelFromDIP(map.getDouble("bulletSize").toFloat())
+      val bulletSize = parser.toPixelFromSP(map.getDouble("bulletSize").toFloat())
       val markerMinWidth = parser.toPixelFromDIP(map.getDouble("markerMinWidth").toFloat().coerceAtLeast(0f))
       val markerColor = parser.parseColor(map, "markerColor")
       val markerFontWeight = parser.parseString(map, "markerFontWeight", "normal")
