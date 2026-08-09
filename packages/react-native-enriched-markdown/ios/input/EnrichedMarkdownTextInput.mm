@@ -666,6 +666,10 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   [_editSession enterPhase:ENRMEditPhaseImporting];
 
   [_editSession enterPhase:ENRMEditPhaseFormatting];
+  // UITextView stamps typingAttributes (including list headIndent from the
+  // previous cursor) onto all text set via .text. Reset before import so
+  // setValue does not indent non-list lines with the old list depth.
+  [self resetBaseTypingAttributes];
   ENRMSetPlainText(_textView, parsed.plainText);
   [_editSession enterPhase:ENRMEditPhaseImporting];
 
