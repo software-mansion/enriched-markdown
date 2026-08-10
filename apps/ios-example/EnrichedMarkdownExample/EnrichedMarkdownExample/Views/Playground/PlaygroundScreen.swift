@@ -6,6 +6,7 @@ struct PlaygroundScreen: View {
 
     @State private var markdown: String = ""
     @State private var underlineEnabled: Bool = true
+    @State private var selectableEnabled: Bool = true
     @State private var setMarkdownSheetVisible: Bool = false
     @State private var rawInput: String = ""
     @State private var blockImageURI: String?
@@ -24,6 +25,13 @@ struct PlaygroundScreen: View {
                         isActive: underlineEnabled
                     ) {
                         underlineEnabled.toggle()
+                    }
+                    PlaygroundButton(
+                        label: "Selectable",
+                        accessibilityId: "selectable-button",
+                        isActive: selectableEnabled
+                    ) {
+                        selectableEnabled.toggle()
                     }
                 }
 
@@ -45,6 +53,8 @@ struct PlaygroundScreen: View {
         .accessibilityIdentifier("playground-screen")
         .markdownTheme(PlaygroundMarkdownTheme)
         .markdownSelectionMenu(MarkdownSelectionMenuConfig())
+        .markdownSelectable(selectableEnabled)
+        .markdownSelectionColor(.orange)
         .onAppear(perform: loadBundledImages)
         .sheet(isPresented: $setMarkdownSheetVisible) {
             SetMarkdownSheet(

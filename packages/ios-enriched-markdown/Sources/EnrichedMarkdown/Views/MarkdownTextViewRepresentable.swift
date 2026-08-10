@@ -7,6 +7,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let styleConfig: MarkdownStyleConfig
     let onLinkPress: ((URL) -> Void)?
     let selectionMenuConfig: MarkdownSelectionMenuConfig
+    let isSelectionEnabled: Bool
+    let selectionColor: Color?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -24,6 +26,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         context.coordinator.sourceMarkdown = sourceMarkdown
         context.coordinator.selectionMenuConfig = selectionMenuConfig
         textView.styleConfig = styleConfig
+        textView.isSelectionEnabled = isSelectionEnabled
+        textView.tintColor = selectionColor.map { UIColor($0) }
         textView.setMarkdownAttributedText(attributedText)
     }
 
@@ -162,6 +166,25 @@ final class MarkdownTextView: UITextView {
                 updateDecorationStyleConfig()
             }
         }
+    }
+
+    /// Gates the selection UI while keeping `isSelectable` on, so link taps
+    /// keep working when selection is disabled. Selection requires first
+    /// responder; link interaction does not.
+    var isSelectionEnabled: Bool = true {
+        didSet {
+            guard isSelectionEnabled != oldValue else { return }
+            if !isSelectionEnabled {
+                selectedTextRange = nil
+                if isFirstResponder {
+                    resignFirstResponder()
+                }
+            }
+        }
+    }
+
+    override var canBecomeFirstResponder: Bool {
+        isSelectionEnabled && super.canBecomeFirstResponder
     }
 
     override var intrinsicContentSize: CGSize {

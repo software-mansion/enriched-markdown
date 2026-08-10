@@ -10,6 +10,8 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.markdownLinkPressHandler) private var onLinkPress
     @Environment(\.markdownSelectionMenu) private var selectionMenuConfig
+    @Environment(\.markdownSelectable) private var isSelectionEnabled
+    @Environment(\.markdownSelectionColor) private var selectionColor
     @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
@@ -31,7 +33,9 @@ public struct EnrichedMarkdownText: View {
             sourceMarkdown: renderStore.sourceMarkdown,
             styleConfig: styleConfig,
             onLinkPress: onLinkPress,
-            selectionMenuConfig: selectionMenuConfig
+            selectionMenuConfig: selectionMenuConfig,
+            isSelectionEnabled: isSelectionEnabled,
+            selectionColor: selectionColor
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
