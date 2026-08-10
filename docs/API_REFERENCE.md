@@ -288,7 +288,7 @@ Configuration for streaming behavior. Controls how incomplete tables and fenced 
 
 | Type                                        | Default Value                                          | Platform |
 | ------------------------------------------- | ------------------------------------------------------ | -------- |
-| `{ tableMode: string, codeBlockMode: string }` | `{ tableMode: 'progressive', codeBlockMode: 'progressive' }` | Both     |
+| `{ tableMode?: string, codeBlockMode?: string }` | `{ tableMode: 'progressive', codeBlockMode: 'progressive' }` | Both     |
 
 #### `tableMode`
 
