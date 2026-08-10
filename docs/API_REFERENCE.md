@@ -284,11 +284,11 @@ When `true`, newly appended content fades in during streaming updates. Only the 
 
 ### `streamingConfig`
 
-Configuration for streaming behavior. Currently controls how incomplete tables are handled during streaming with `flavor="github"`.
+Configuration for streaming behavior. Controls how incomplete tables and fenced code blocks are handled during streaming with `flavor="github"`.
 
-| Type                    | Default Value            | Platform |
-| ----------------------- | ------------------------ | -------- |
-| `{ tableMode: string }` | `{ tableMode: 'progressive' }` | Both     |
+| Type                                        | Default Value                                          | Platform |
+| ------------------------------------------- | ------------------------------------------------------ | -------- |
+| `{ tableMode: string, codeBlockMode: string }` | `{ tableMode: 'progressive', codeBlockMode: 'progressive' }` | Both     |
 
 #### `tableMode`
 
@@ -305,6 +305,15 @@ Controls how incomplete (still-streaming) tables are rendered:
   streamingConfig={{ tableMode: 'hidden' }}
 />
 ```
+
+#### `codeBlockMode`
+
+Controls how a fenced code block whose closing fence has not arrived yet is rendered:
+
+- **`'progressive'`** (default): The code streams in line-by-line with its header (language label + copy button) visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred until the closing fence arrives, so it applies once instead of flickering on every token.
+- **`'hidden'`**: The entire code block is hidden until its closing fence arrives, then it appears complete (the same all-or-nothing behavior block math uses).
+
+Both modes only take effect when `streamingAnimation` is `true`.
 
 ### `spoilerOverlay`
 
