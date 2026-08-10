@@ -705,6 +705,15 @@ static char kENRMSegmentFadeAnimatorKey;
   _segmentViews = result.views;
   _segmentSignatures = result.signatures;
 
+  // A just-closed block has unchanged content, so the reconciler reuses it
+  // without an update; sync pending here to trigger its deferred highlight.
+  [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
+    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)segment).pending =
+          self->_pendingCodeBlockSegment != nil && i == self->_segmentViews.count - 1;
+    }
+  }];
+
   if (self.bounds.size.width > 0) {
     [self setNeedsLayout];
 

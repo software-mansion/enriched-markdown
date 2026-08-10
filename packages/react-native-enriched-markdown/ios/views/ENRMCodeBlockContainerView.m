@@ -183,10 +183,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   _pending = pending;
   // Header stays visible while streaming; only copying is held back.
   _copyButton.enabled = !pending;
+  // The reconciler can reuse an unchanged block without re-applying the node, so
+  // re-derive here to pick up highlighting once the block closes.
+  [self rebuildAttributedCode];
 #if !TARGET_OS_OSX
+  [self setNeedsLayout];
   [self setNeedsDisplay];
+  [_codeContentView setNeedsDisplay];
 #else
+  self.needsLayout = YES;
   [self setNeedsDisplay:YES];
+  [_codeContentView setNeedsDisplay:YES];
 #endif
 }
 
@@ -332,6 +339,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 }
 #endif
 
+// Highlighting is deferred while pending, applied once the block closes.
+- (void)rebuildAttributedCode
+{
+  NSAttributedString *plainCode = [self plainAttributedCode];
+  NSAttributedString *highlighted =
+      _pending ? nil : ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage, _config);
+  _attributedCode = highlighted ?: plainCode;
+  _codeSize = ENRMCodeBlockCodeSize(_attributedCode);
+  _codeContentView.attributedCode = _attributedCode;
+}
+
 - (void)applyCodeBlockNode:(MarkdownASTNode *)node
 {
   _cachedCode = ENRMCodeBlockExtractCode(node);
@@ -345,13 +363,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     [self rebuildLanguageLabel];
   }
 
-  NSAttributedString *plainCode = [self plainAttributedCode];
-  NSAttributedString *highlighted =
-      _pending ? nil : ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage, _config);
-  _attributedCode = highlighted ?: plainCode;
-
-  _codeSize = ENRMCodeBlockCodeSize(_attributedCode);
-  _codeContentView.attributedCode = _attributedCode;
+  [self rebuildAttributedCode];
 
 #if !TARGET_OS_OSX
   [self setNeedsLayout];

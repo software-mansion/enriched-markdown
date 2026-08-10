@@ -79,6 +79,9 @@ class CodeBlockContainerView(
       if (field == value) return
       field = value
       copyButton.isEnabled = !value
+      // The reconciler can reuse an unchanged block without re-applying the
+      // node, so re-derive here to pick up highlighting once the block closes.
+      rebuildCodeText()
     }
 
   private val textView =
@@ -173,6 +176,11 @@ class CodeBlockContainerView(
       languageView.text = CodeBlockNode.displayLanguageName(newLanguage)
     }
 
+    rebuildCodeText()
+  }
+
+  // Highlighting is deferred while pending, applied once the block closes.
+  private fun rebuildCodeText() {
     val plainCode = buildCodeText(code, codeBlockStyle)
     if (!pending) {
       CodeBlockHighlighter.highlight(plainCode, code, language, codeBlockStyle)

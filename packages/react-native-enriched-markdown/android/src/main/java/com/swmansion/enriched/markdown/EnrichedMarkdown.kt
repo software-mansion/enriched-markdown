@@ -423,6 +423,14 @@ class EnrichedMarkdown
       segmentSignatures.clear()
       segmentSignatures.addAll(result.signatures)
 
+      // A just-closed block has unchanged content, so the reconciler reuses it
+      // without an update; sync pending here to trigger its deferred highlight.
+      segmentViews.forEachIndexed { index, view ->
+        if (view is CodeBlockContainerView) {
+          view.pending = pendingCodeBlockSegment != null && index == segmentViews.size - 1
+        }
+      }
+
       val topologyChanged = result.viewsToAttach.isNotEmpty() || result.viewsToRemove.isNotEmpty()
 
       if (width > 0) {
