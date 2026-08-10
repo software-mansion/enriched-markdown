@@ -181,8 +181,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     return;
   }
   _pending = pending;
-  // The header (language label + copy button) stays visible while streaming;
-  // only copying is held back until the closing fence arrives.
+  // Header stays visible while streaming; only copying is held back.
   _copyButton.enabled = !pending;
 #if !TARGET_OS_OSX
   [self setNeedsDisplay];

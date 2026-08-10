@@ -106,8 +106,7 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
-  // The trailing code block whose closing fence has not streamed in yet, if
-  // any; its view defers highlighting and header chrome until the block closes.
+  // Trailing code block whose closing fence hasn't streamed in yet, if any.
   ENRMCodeBlockSegment *_pendingCodeBlockSegment;
 
   size_t _renderedStyleFingerprint;

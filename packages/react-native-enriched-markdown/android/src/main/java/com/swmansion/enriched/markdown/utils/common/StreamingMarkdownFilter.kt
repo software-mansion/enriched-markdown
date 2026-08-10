@@ -11,20 +11,11 @@ enum class CodeBlockStreamingMode {
 }
 
 /**
- * Pre-parse filter that hides incomplete trailing tables, block math and
- * fenced code blocks during streaming. A table is considered complete only
- * after a blank separator line follows it; a block math (`$$`) is complete
- * only when a closing `$$` exists; a fenced code block is complete only when
- * a matching closing fence exists.
- *
- * A still-open fenced code block is handled first because its content may
- * contain lines that look like `$$` delimiters or `|` table rows; those must
- * not be treated as pending math/table blocks. In HIDDEN mode the open block
- * is truncated (like math); in PROGRESSIVE mode it is kept verbatim and only
- * the region before it is passed through the math/table filters.
- * endsInsideOpenCodeFence reports whether the (already filtered) markdown ends
- * inside such a block, so the renderer can defer highlighting and header
- * chrome on that trailing block until its closing fence arrives.
+ * Pre-parse filter that hides incomplete trailing tables, block math and code
+ * blocks while streaming. An open fenced code block is handled first so its
+ * body (which may hold `$$` or `|` lines) is not mistaken for a pending
+ * math/table block: HIDDEN truncates it, PROGRESSIVE keeps it and only filters
+ * the region before it. endsInsideOpenCodeFence flags that trailing open block.
  */
 object StreamingMarkdownFilter {
   fun renderableMarkdownForStreaming(

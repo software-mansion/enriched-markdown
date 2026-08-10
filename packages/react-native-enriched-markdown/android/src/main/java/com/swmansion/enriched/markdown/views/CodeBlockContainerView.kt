@@ -72,9 +72,8 @@ class CodeBlockContainerView(
   private var language: String? = null
   private var fenceChar: String = "`"
 
-  // True while this block's closing fence has not streamed in yet: syntax
-  // highlighting is deferred and the header stays visible but non-interactive
-  // (copy disabled) until the block completes.
+  // True until the closing fence arrives: highlighting is deferred and copying
+  // is disabled, while the header stays visible.
   var pending: Boolean = false
     set(value) {
       if (field == value) return

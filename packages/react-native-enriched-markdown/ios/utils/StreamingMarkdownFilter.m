@@ -164,8 +164,7 @@ static NSString *ENRMRemovePendingTablesAndMath(NSString *markdown, ENRMTableStr
   return ENRMRemovePendingStreamingTableBlock(afterMath, linesForTable, tableMode);
 }
 
-// A fenced code block marker: fence character (`` ` `` or `~`), run length and
-// the info string after the run. Returns NO for a line that is not a marker.
+// Parses a fence marker into char/length/info; NO if the line isn't one.
 static BOOL ENRMParseFenceMarker(NSString *line, unichar *outChar, NSUInteger *outLength, NSString **outInfo)
 {
   NSUInteger i = 0;

@@ -21,8 +21,7 @@ extern "C" {
 NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStreamingMode tableMode,
                                              ENRMCodeBlockStreamingMode codeBlockMode);
 
-// Whether the markdown ends inside a still-open fenced code block, so the
-// renderer can defer highlighting and header chrome on the trailing block.
+// Whether the markdown ends inside a still-open fenced code block.
 BOOL ENRMMarkdownEndsInsideOpenCodeFence(NSString *markdown);
 
 #ifdef __cplusplus

@@ -97,14 +97,10 @@ ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void>
   RCTInternalGenericWeakWrapper *weakWrapper = (RCTInternalGenericWeakWrapper *)unwrapManagedObject(componentViewRef);
   ViewT *view = weakWrapper ? (ViewT *)weakWrapper.object : nil;
 
-  // Streaming fast path: skip re-measuring when no new height update was
-  // requested (receivedCounter <= lastExactMeasurementCounter). Yoga calls
-  // measureContent several times per layout pass; the first call does the exact
-  // measure and bumps lastExactMeasurementCounter, so later calls in the *same*
-  // pass land here. Return the size that exact measure just produced, not the
-  // view's committed size — the frame isn't committed until Yoga finishes, so
-  // the mailbox is still one generation stale and would clobber the fresh
-  // measurement (freezing the height while streaming).
+  // Streaming fast path. Yoga re-measures several times per pass; the first call
+  // bumps lastExactMeasurementCounter, the rest land here. Return the freshly
+  // measured size, not the view's mailbox — mid-pass the frame isn't committed,
+  // so the mailbox is a generation stale and would freeze the height.
   if (typedProps.streamingAnimation && view && receivedCounter <= lastExactMeasurementCounter) {
     if (lastExactMeasurementSize.width > 0 && lastExactMeasurementSize.height > 0) {
       return ENRMClampMeasuredSize(lastExactMeasurementSize, layoutConstraints);

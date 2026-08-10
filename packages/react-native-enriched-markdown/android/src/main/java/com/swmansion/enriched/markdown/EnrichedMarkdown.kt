@@ -385,8 +385,7 @@ class EnrichedMarkdown
       }
     }
 
-    // The trailing code block whose closing fence has not streamed in yet, if
-    // any; its view defers syntax highlighting and header chrome until close.
+    // Trailing code block whose closing fence hasn't streamed in yet, if any.
     private var pendingCodeBlockSegment: RenderedSegment.CodeBlock? = null
 
     private fun applyRenderedSegments(
