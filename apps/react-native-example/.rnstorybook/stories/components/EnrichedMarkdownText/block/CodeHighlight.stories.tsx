@@ -66,7 +66,7 @@ const MARKDOWN = [
 const BASE_TEXT_COLOR = '#f3f4f6';
 const syntaxColorDefaults = {
   keyword: '#cf222e',
-  operatorColor: BASE_TEXT_COLOR,
+  operator: BASE_TEXT_COLOR,
   punctuation: BASE_TEXT_COLOR,
   string: '#0a3069',
   number: '#0550ae',
@@ -93,7 +93,7 @@ const argTypes = {
     'commonmark — highlighted spans inside the single TextView. github — highlighted block component.'
   ),
   keyword: colorControl('keyword'),
-  operatorColor: colorControl('operatorColor'),
+  operator: colorControl('operator'),
   punctuation: colorControl('punctuation'),
   string: colorControl('string'),
   number: colorControl('number'),

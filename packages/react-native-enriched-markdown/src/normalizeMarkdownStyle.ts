@@ -57,6 +57,13 @@ const INHERIT_SYNTAX_TOKENS = new Set([
   'embedded',
 ]);
 
+// The public API exposes `operator`, but the internal/native token is named
+// `operatorColor` because `operator` is a reserved word in the generated C++
+// struct. Map the public key onto the internal token when reading user input.
+const PUBLIC_SYNTAX_TOKEN_KEYS: Record<string, string> = {
+  operatorColor: 'operator',
+};
+
 // Explicit type annotation needed: Object.freeze breaks contextual typing, so
 // TypeScript widens literal 'auto' to `string` instead of `BlockTextAlign`.
 const baseHeader: {
@@ -356,7 +363,8 @@ export const normalizeMarkdownStyle = (
     | undefined;
   const resolvedSyntaxColors: Record<string, unknown> = {};
   for (const token in DEFAULT_CODE_BLOCK_SYNTAX_COLORS) {
-    const userValue = userSyntaxColors?.[token];
+    const publicKey = PUBLIC_SYNTAX_TOKEN_KEYS[token] ?? token;
+    const userValue = userSyntaxColors?.[publicKey];
     if (typeof userValue === 'string') {
       resolvedSyntaxColors[token] =
         normalizeColor(userValue) ??

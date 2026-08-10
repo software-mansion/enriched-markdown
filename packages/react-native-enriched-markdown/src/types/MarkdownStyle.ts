@@ -59,11 +59,8 @@ interface ListStyle extends BaseBlockStyle {
  */
 interface CodeBlockSyntaxColors {
   keyword?: string;
-  /**
-   * Color for operator tokens. Named `operatorColor` (not `operator`) because
-   * `operator` is a reserved word in the generated native (C++) struct.
-   */
-  operatorColor?: string;
+  /** Color for operator tokens (e.g. `+`, `=>`). */
+  operator?: string;
   punctuation?: string;
   string?: string;
   number?: string;

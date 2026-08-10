@@ -310,6 +310,16 @@ export const normalizeMarkdownStyle = (
       paragraphColor;
   }
 
+  // The public API exposes `operator`, but the internal token is `operatorColor`
+  // (`operator` is reserved in the generated C++ struct). Remap it after merge.
+  const syntaxColors = (
+    result.codeBlock as { syntaxColors?: Record<string, unknown> }
+  ).syntaxColors;
+  if (syntaxColors && 'operator' in syntaxColors) {
+    syntaxColors.operatorColor = syntaxColors.operator;
+    delete syntaxColors.operator;
+  }
+
   const finalResult = Object.freeze(result) as unknown as MarkdownStyleInternal;
   refCache.set(style, finalResult);
   structuralCache.unshift({ style, result: finalResult });

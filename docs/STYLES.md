@@ -323,12 +323,12 @@ function App() {
 
 #### `syntaxColors`
 
-Per-token foreground colors for syntax highlighting, keyed on the highlight token type. Any key you omit falls back to the default GitHub-light palette; `operatorColor`, `punctuation`, `variable`, and `embedded` default to the code block's base `color` (i.e. no visible recolor). Colors only take visible effect when the optional syntax highlighting module is compiled in; otherwise code blocks render uncolored.
+Per-token foreground colors for syntax highlighting, keyed on the highlight token type. Any key you omit falls back to the default GitHub-light palette; `operator`, `punctuation`, `variable`, and `embedded` default to the code block's base `color` (i.e. no visible recolor). Colors only take visible effect when the optional syntax highlighting module is compiled in; otherwise code blocks render uncolored.
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `keyword` | `string` | Keywords (e.g. `if`, `return`) |
-| `operatorColor` | `string` | Operators (e.g. `+`, `=>`). Named `operatorColor` because `operator` is reserved in the native layer |
+| `operator` | `string` | Operators (e.g. `+`, `=>`) |
 | `punctuation` | `string` | Brackets, delimiters, punctuation |
 | `string` | `string` | String and character literals |
 | `number` | `string` | Numeric literals |
