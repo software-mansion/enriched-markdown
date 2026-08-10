@@ -465,6 +465,15 @@ class EnrichedMarkdownTextInputManager :
     }
   }
 
+  override fun insertText(
+    view: EnrichedMarkdownTextInputView?,
+    text: String?,
+  ) {
+    if (text != null) {
+      view?.insertTextAtCursor(text)
+    }
+  }
+
   override fun insertMention(
     view: EnrichedMarkdownTextInputView?,
     displayText: String?,

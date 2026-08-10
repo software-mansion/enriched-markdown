@@ -124,7 +124,9 @@
     [attrs removeObjectForKey:NSParagraphStyleAttributeName];
   }
 
-  _textView.typingAttributes = attrs;
+  if (![attrs isEqualToDictionary:_textView.typingAttributes]) {
+    _textView.typingAttributes = attrs;
+  }
 }
 
 - (void)syncWithPendingStyles
@@ -150,7 +152,9 @@
   [_pendingStyles removeAllObjects];
   [_pendingStyleRemovals removeAllObjects];
   [self rebuildFromContext];
-  [self syncWithCursorBlock];
+  if ([_dataSource selectedRange].length == 0) {
+    [self syncWithCursorBlock];
+  }
 }
 
 - (void)clearListParagraphStyle
@@ -167,15 +171,26 @@
 
 - (void)rebuildFromContext
 {
-  NSRange selection = [_dataSource selectedRange];
-  if (selection.length > 0 || selection.location == 0) {
-    return;
-  }
-
   static const ENRMInputStyleType inlineStyles[] = {
       ENRMInputStyleTypeStrong,        ENRMInputStyleTypeEmphasis, ENRMInputStyleTypeUnderline,
       ENRMInputStyleTypeStrikethrough, ENRMInputStyleTypeSpoiler,
   };
+
+  NSRange selection = [_dataSource selectedRange];
+
+  if (selection.length > 0) {
+    for (NSUInteger i = 0; i < sizeof(inlineStyles) / sizeof(inlineStyles[0]); i++) {
+      ENRMInputStyleType type = inlineStyles[i];
+      if ([_dataSource isStyleActive:type atPosition:selection.location]) {
+        [_pendingStyles addObject:@(type)];
+      }
+    }
+    return;
+  }
+
+  if (selection.location == 0) {
+    return;
+  }
 
   for (NSUInteger i = 0; i < sizeof(inlineStyles) / sizeof(inlineStyles[0]); i++) {
     ENRMInputStyleType type = inlineStyles[i];

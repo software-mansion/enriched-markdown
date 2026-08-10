@@ -24,6 +24,9 @@ struct BlockStyle {
 enum MarkdownAttribute {
     static let inlineCode = NSAttributedString.Key("EnrichedMarkdownInlineCode")
     static let codeBlock = NSAttributedString.Key("EnrichedMarkdownCodeBlock")
+    static let headingLevel = NSAttributedString.Key("EnrichedMarkdownHeadingLevel")
+    static let strong = NSAttributedString.Key("EnrichedMarkdownStrong")
+    static let emphasis = NSAttributedString.Key("EnrichedMarkdownEmphasis")
     static let blockquoteDepth = NSAttributedString.Key("EnrichedMarkdownBlockquoteDepth")
     static let blockquoteBackgroundColor = NSAttributedString.Key("EnrichedMarkdownBlockquoteBackgroundColor")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")

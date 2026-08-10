@@ -16,6 +16,7 @@ import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
+import com.swmansion.enriched.markdown.utils.common.emitCopyPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
@@ -59,6 +60,10 @@ class EnrichedMarkdownManager :
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
     }
 
+    view.setOnCopyPressCallback { code, language ->
+      emitCopyPress(view, code, language)
+    }
+
     return view
   }
 
@@ -82,6 +87,7 @@ class EnrichedMarkdownManager :
     MeasurementStore.release(view.id)
     MeasurementStore.clearStreamingTableMode(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
+    MeasurementStore.clearFontScalingSettings(view.id)
   }
 
   override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any> = markdownEventTypeConstants()

@@ -118,6 +118,7 @@ export const EnrichedMarkdownTextInput = ({
       outdentList: spy(() => {}),
       setLink: spy((_url: string) => {}),
       insertLink: spy((_text: string, _url: string) => {}),
+      insertText: spy((_text: string) => {}),
       insertMention: spy((_displayText: string, _url: string) => {}),
       startMention: spy((_indicator: string) => {}),
       removeLink: spy(() => {}),

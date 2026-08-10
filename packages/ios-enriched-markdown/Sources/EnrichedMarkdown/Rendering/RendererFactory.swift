@@ -47,10 +47,16 @@ final class RendererFactory {
             return StrongRenderer(factory: self, config: config)
         case .emphasis:
             return EmphasisRenderer(factory: self, config: config)
+        case .strikethrough:
+            return StrikethroughRenderer(factory: self, config: config)
+        case .underline:
+            return UnderlineRenderer(factory: self, config: config)
         case .link:
             return LinkRenderer(factory: self, config: config)
         case .lineBreak:
             return LineBreakRenderer()
+        case .softBreak:
+            return SoftBreakRenderer()
         case .code:
             return CodeRenderer(factory: self, config: config)
         case .image:

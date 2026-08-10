@@ -5,6 +5,10 @@ ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 # ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0'
 ENV['USE_FRAMEWORKS'] = 'dynamic' if ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] != '0'
 
+# Keep project default to full list of languages
+ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES'] = 'json,html,css,markdown,yaml,go,java,javascript,python,c,rust,bash,typescript,tsx,cpp,swift,php,ruby,c-sharp'
+# ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT'] = '0'
+
 # Resolve react_native_pods.rb with node to allow for hoisting
 require Pod::Executable.execute_command('node', ['-p',
   'require.resolve(

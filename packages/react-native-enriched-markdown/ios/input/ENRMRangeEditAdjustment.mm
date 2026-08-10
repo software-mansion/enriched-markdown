@@ -26,7 +26,7 @@ static EditOverlap classifyOverlap(NSUInteger rangeStart, NSUInteger rangeEnd, N
 }
 
 ENRMAdjustedRange ENRMAdjustRangeForEdit(NSRange range, NSUInteger editLocation, NSUInteger deletedLength,
-                                         NSUInteger insertedLength)
+                                         NSUInteger insertedLength, BOOL inheritsReplacementAtStart)
 {
   ENRMAdjustedRange result = {range, NO};
   NSUInteger rangeStart = range.location;
@@ -34,6 +34,7 @@ ENRMAdjustedRange ENRMAdjustRangeForEdit(NSRange range, NSUInteger editLocation,
 
   if (deletedLength > 0) {
     NSUInteger deleteEnd = editLocation + deletedLength;
+    BOOL inheritsReplacement = inheritsReplacementAtStart && insertedLength > 0 && rangeStart == editLocation;
 
     switch (classifyOverlap(rangeStart, rangeEnd, editLocation, deleteEnd)) {
       case EditOverlapBeforeEdit:
@@ -44,7 +45,11 @@ ENRMAdjustedRange ENRMAdjustRangeForEdit(NSRange range, NSUInteger editLocation,
         break;
 
       case EditOverlapFullyDeleted:
-        result.shouldRemove = YES;
+        if (inheritsReplacement) {
+          result.range = NSMakeRange(editLocation, insertedLength);
+        } else {
+          result.shouldRemove = YES;
+        }
         break;
 
       case EditOverlapDeletedInside:
@@ -61,10 +66,13 @@ ENRMAdjustedRange ENRMAdjustRangeForEdit(NSRange range, NSUInteger editLocation,
 
       case EditOverlapClippedStart: {
         NSUInteger charsClipped = deleteEnd - rangeStart;
-        NSUInteger newStart = editLocation + insertedLength;
-        NSUInteger newLength = range.length - charsClipped;
-        result.range = NSMakeRange(newStart, newLength);
-        result.shouldRemove = (newLength == 0);
+        NSUInteger survivingLength = range.length - charsClipped;
+        if (inheritsReplacement) {
+          result.range = NSMakeRange(editLocation, insertedLength + survivingLength);
+        } else {
+          result.range = NSMakeRange(editLocation + insertedLength, survivingLength);
+          result.shouldRemove = (survivingLength == 0);
+        }
         break;
       }
     }

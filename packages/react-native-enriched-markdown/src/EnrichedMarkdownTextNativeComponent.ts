@@ -29,6 +29,8 @@ interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   borderWidth: CodegenTypes.Float;
   gapWidth: CodegenTypes.Float;
   backgroundColor: ColorValue;
+  borderRadius: CodegenTypes.Float;
+  padding: CodegenTypes.Float;
 }
 
 interface ListStyleInternal extends BaseBlockStyleInternal {
@@ -42,12 +44,30 @@ interface ListStyleInternal extends BaseBlockStyleInternal {
   itemSpacing: CodegenTypes.Float;
 }
 
+interface CodeBlockSyntaxColorsInternal {
+  keyword: ColorValue;
+  operatorColor: ColorValue;
+  punctuation: ColorValue;
+  string: ColorValue;
+  number: ColorValue;
+  constant: ColorValue;
+  comment: ColorValue;
+  function: ColorValue;
+  type: ColorValue;
+  variable: ColorValue;
+  property: ColorValue;
+  tag: ColorValue;
+  attribute: ColorValue;
+  embedded: ColorValue;
+}
+
 interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
   backgroundColor: ColorValue;
   borderColor: ColorValue;
   borderRadius: CodegenTypes.Float;
   borderWidth: CodegenTypes.Float;
   padding: CodegenTypes.Float;
+  syntaxColors: CodeBlockSyntaxColorsInternal;
 }
 
 interface LinkStyleInternal {
@@ -229,6 +249,11 @@ export interface TaskListItemPressEvent {
   text: string;
 }
 
+export interface CopyPressEvent {
+  code: string;
+  language: string;
+}
+
 export interface ContextMenuItemConfig {
   text: string;
   icon?: string;
@@ -320,6 +345,11 @@ export interface Md4cFlagsInternal {
    * @default false
    */
   highlight: boolean;
+  /**
+   * Treat soft breaks (single newlines) as hard breaks (visible line breaks).
+   * @default false
+   */
+  hardSoftBreaks: boolean;
 }
 
 interface StreamingConfigInternal {
@@ -354,6 +384,12 @@ export interface NativeProps extends ViewProps {
    * Receives the 0-based task index, current checked state, and the item's plain text.
    */
   onTaskListItemPress?: CodegenTypes.BubblingEventHandler<TaskListItemPressEvent>;
+  /**
+   * Callback fired when code is copied from a fenced code block's header copy
+   * button, its long-press context-menu "Copy" action, or the VoiceOver copy
+   * action. Receives the copied code and its language.
+   */
+  onCopyPress?: CodegenTypes.BubblingEventHandler<CopyPressEvent>;
   /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *

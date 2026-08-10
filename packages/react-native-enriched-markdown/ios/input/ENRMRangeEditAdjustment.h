@@ -19,7 +19,11 @@ typedef struct {
 /// the typed characters stay outside it. Whether boundary text joins the range
 /// is decided elsewhere: pending styles for inline ranges, line
 /// re-normalization for block ranges.
+///
+/// `inheritsReplacementAtStart`: when YES, a replacement whose deletion starts
+/// at the range start lets the inserted text join the range (UIKit attribute
+/// inheritance); when NO, the old clip/remove behavior applies.
 ENRMAdjustedRange ENRMAdjustRangeForEdit(NSRange range, NSUInteger editLocation, NSUInteger deletedLength,
-                                         NSUInteger insertedLength);
+                                         NSUInteger insertedLength, BOOL inheritsReplacementAtStart);
 
 NS_ASSUME_NONNULL_END

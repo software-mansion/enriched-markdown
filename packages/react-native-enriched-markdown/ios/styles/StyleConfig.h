@@ -249,6 +249,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setBlockquoteGapWidth:(CGFloat)newValue;
 - (RCTUIColor *)blockquoteBackgroundColor;
 - (void)setBlockquoteBackgroundColor:(RCTUIColor *)newValue;
+- (CGFloat)blockquoteBorderRadius;
+- (void)setBlockquoteBorderRadius:(CGFloat)newValue;
+- (CGFloat)blockquotePadding;
+- (void)setBlockquotePadding:(CGFloat)newValue;
 // List style properties (combined for both ordered and unordered lists)
 - (CGFloat)listStyleFontSize;
 - (void)setListStyleFontSize:(CGFloat)newValue;
@@ -312,6 +316,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (CGFloat)codeBlockPadding;
 - (void)setCodeBlockPadding:(CGFloat)newValue;
 - (UIFont *)codeBlockFont;
+// Syntax highlight colors, indexed by HighlightTokenType ordinal. Resolved on
+// the JS side; the getter returns a cached color with no allocation.
+- (RCTUIColor *_Nullable)codeBlockSyntaxColorForToken:(NSInteger)tokenType;
+- (void)setCodeBlockSyntaxColor:(RCTUIColor *)newValue forToken:(NSInteger)tokenType;
 // Thematic break properties
 - (RCTUIColor *)thematicBreakColor;
 - (void)setThematicBreakColor:(RCTUIColor *)newValue;

@@ -15,6 +15,7 @@ enum MarkdownParserBridge {
                 flags.superscript ? 1 : 0,
                 flags.subscript ? 1 : 0,
                 flags.highlight ? 1 : 0,
+                flags.hardSoftBreaks ? 1 : 0,
                 flags.permissiveAutolinks ? 1 : 0
             ) else {
                 return MarkdownASTNode(type: .document)

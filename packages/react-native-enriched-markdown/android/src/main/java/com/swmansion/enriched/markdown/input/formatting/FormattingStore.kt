@@ -168,7 +168,9 @@ class FormattingStore {
     deletedLength: Int,
     insertedLength: Int,
   ) {
-    RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength)
+    RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength) {
+      it.type != StyleType.LINK
+    }
     coalesceAdjacentSameTypeRanges()
   }
 

@@ -149,6 +149,8 @@ The library provides sensible default styles for all Markdown elements out of th
       borderColor: '#007AFF',
       borderWidth: 3,
       backgroundColor: '#F0F8FF',
+      borderRadius: 8,
+      padding: 12,
       marginBottom: 12,
     },
     list: {
@@ -292,6 +294,8 @@ function App() {
 | `borderWidth` | `number` | Left border width |
 | `gapWidth` | `number` | Gap between border and text |
 | `backgroundColor` | `string` | Background color |
+| `borderRadius` | `number` | Corner radius of the background box; accent borders are clipped to the rounded shape, nested quotes rounding against their own box (default: `0`) |
+| `padding` | `number` | Inner top/bottom padding between the background edges and content, applied at every nesting level — also applies to the trailing edge on iOS and web (default: `0`) |
 
 ### List-specific
 
@@ -315,9 +319,34 @@ function App() {
 | `borderRadius` | `number` | Corner radius |
 | `borderWidth` | `number` | Border width |
 | `padding` | `number` | Inner padding |
+| `syntaxColors` | `object` | Per-token syntax highlight colors (see below) |
+
+#### `syntaxColors`
+
+Per-token foreground colors for syntax highlighting, keyed on the highlight token type. Any key you omit falls back to the default GitHub-light palette; `operator`, `punctuation`, `variable`, and `embedded` default to the code block's base `color` (i.e. no visible recolor). Colors only take visible effect when the optional syntax highlighting module is compiled in; otherwise code blocks render uncolored.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `keyword` | `string` | Keywords (e.g. `if`, `return`) |
+| `operator` | `string` | Operators (e.g. `+`, `=>`) |
+| `punctuation` | `string` | Brackets, delimiters, punctuation |
+| `string` | `string` | String and character literals |
+| `number` | `string` | Numeric literals |
+| `constant` | `string` | Constants and booleans |
+| `comment` | `string` | Comments |
+| `function` | `string` | Function and method names |
+| `type` | `string` | Types and classes |
+| `variable` | `string` | Variables and parameters |
+| `property` | `string` | Object properties and fields |
+| `tag` | `string` | Markup tags |
+| `attribute` | `string` | Markup attributes |
+| `embedded` | `string` | Embedded/injected language regions |
 
 > [!NOTE]
 > Inside list items, code blocks (background included) indent to the item's content column.
+
+> [!NOTE]
+> With `flavor="github"`, code blocks render as a block component with a header bar (language name on the left, copy-code button on the right) and a divider above the code. The header derives its appearance from the code block style: the label uses the system font at 0.85 x `fontSize`, and the label, button, and divider use `color` at reduced opacity. Dedicated header style properties may be added later.
 
 ### Inline Code-specific
 

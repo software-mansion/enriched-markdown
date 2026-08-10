@@ -18,6 +18,20 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 
 - (CGFloat)measureHeight:(CGFloat)maxWidth;
 
+/// View-free table height for shadow-node measurement (issue #550): renders
+/// the cells' attributed strings and runs the same column/row layout the view
+/// runs in `applyTableNode:`/`computeLayout` — shared statics, so measured and
+/// rendered heights cannot drift — without creating any view. Safe on any
+/// thread; the iOS counterpart of Android's
+/// `TableContainerView.measureTableNodeHeight`. Table height is intrinsic
+/// (content-sized columns, horizontal scroll), so no maxWidth parameter.
++ (CGFloat)measureHeightForTableNode:(MarkdownASTNode *)tableNode
+                              config:(StyleConfig *)config
+                    allowFontScaling:(BOOL)allowFontScaling
+               maxFontSizeMultiplier:(CGFloat)maxFontSizeMultiplier
+                writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
+             resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection;
+
 @property (nonatomic, strong) StyleConfig *config;
 
 @property (nonatomic, assign) BOOL allowFontScaling;

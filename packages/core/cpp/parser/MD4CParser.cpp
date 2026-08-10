@@ -608,6 +608,9 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   if (md4cFlags.highlight) {
     flags |= MD_FLAG_HIGHLIGHT;
   }
+  if (md4cFlags.hardSoftBreaks) {
+    flags |= MD_FLAG_HARD_SOFT_BREAKS;
+  }
 
   // Configure MD4C parser with callbacks
   MD_PARSER parser = {

@@ -104,6 +104,8 @@ export function toBlockquoteStyle(
     borderWidth: controls.borderWidth,
     gapWidth: controls.gapWidth,
     backgroundColor: controls.backgroundColor,
+    borderRadius: controls.borderRadius,
+    padding: controls.padding,
   };
 }
 

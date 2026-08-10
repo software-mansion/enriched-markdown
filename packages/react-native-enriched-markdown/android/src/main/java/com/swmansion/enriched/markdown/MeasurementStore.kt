@@ -31,6 +31,7 @@ import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.splitASTIntoSegments
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.views.CodeBlockContainerView
 import com.swmansion.enriched.markdown.views.TableContainerView
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
@@ -304,6 +305,7 @@ object MeasurementStore {
         superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
         subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
+        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
       )
 
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -386,6 +388,7 @@ object MeasurementStore {
         superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
         subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
+        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
       )
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -463,6 +466,15 @@ object MeasurementStore {
             maxContentWidthPx = width
             if (includeBottomMargin) {
               totalHeightPx += style.mathStyle.marginBottom
+            }
+          }
+
+          is RenderedSegment.CodeBlock -> {
+            totalHeightPx += style.codeBlockStyle.marginTop
+            totalHeightPx += CodeBlockContainerView.measureCodeBlockNodeHeight(segment.node, style, context, width)
+            maxContentWidthPx = width
+            if (includeBottomMargin) {
+              totalHeightPx += style.codeBlockStyle.marginBottom
             }
           }
         }

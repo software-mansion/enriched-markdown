@@ -2,7 +2,11 @@ import EnrichedMarkdown
 import SwiftUI
 
 struct TextScreen: View {
+    // MARK: - Properties
+
     let markdown: String
+
+    // MARK: - Views
 
     var body: some View {
         ScrollView {
@@ -17,4 +21,10 @@ struct TextScreen: View {
         }
         .background(Color.white)
     }
+}
+
+// MARK: -
+
+#Preview {
+    TextScreen(markdown: Bundle.main.sampleMarkdown)
 }

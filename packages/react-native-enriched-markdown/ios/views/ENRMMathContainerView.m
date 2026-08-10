@@ -183,6 +183,29 @@
   return [self mathViewIntrinsicSize].height + padding * 2;
 }
 
++ (CGFloat)measureHeightForLatex:(NSString *)latex config:(StyleConfig *)config maxWidth:(CGFloat)maxWidth
+{
+  CGFloat padding = config.mathPadding;
+
+  ENRMRaTeXRenderResult *result = [ENRMRaTeXBridge parse:latex
+                                             displayMode:YES
+                                                fontSize:config.mathFontSize
+                                                   color:config.mathColor];
+  if (result) {
+    return ceil(result.totalHeight) + padding * 2;
+  }
+
+  NSAttributedString *fallbackSource = ENRMMathFallbackString(latex, @"$$", config.mathFontSize, config.mathColor);
+  if (!fallbackSource) {
+    return 0;
+  }
+  CGFloat available = MAX(maxWidth - padding * 2, 1);
+  CGRect bounds = [fallbackSource boundingRectWithSize:CGSizeMake(available, CGFLOAT_MAX)
+                                               options:NSStringDrawingUsesLineFragmentOrigin
+                                               context:nil];
+  return ceil(bounds.size.height) + padding * 2;
+}
+
 - (CGFloat)alignedOriginXForWidth:(CGFloat)formulaWidth inBounds:(CGFloat)boundsWidth padding:(CGFloat)padding
 {
   CGFloat available = boundsWidth - padding * 2;

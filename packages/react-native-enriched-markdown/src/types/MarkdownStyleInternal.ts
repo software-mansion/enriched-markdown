@@ -42,6 +42,8 @@ interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   borderWidth: number;
   gapWidth: number;
   backgroundColor: string;
+  borderRadius: number;
+  padding: number;
 }
 
 interface ListStyleInternal extends BaseBlockStyleInternal {
@@ -55,12 +57,30 @@ interface ListStyleInternal extends BaseBlockStyleInternal {
   itemSpacing: number;
 }
 
+export interface CodeBlockSyntaxColorsInternal {
+  keyword: string;
+  operatorColor: string;
+  punctuation: string;
+  string: string;
+  number: string;
+  constant: string;
+  comment: string;
+  function: string;
+  type: string;
+  variable: string;
+  property: string;
+  tag: string;
+  attribute: string;
+  embedded: string;
+}
+
 interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
   backgroundColor: string;
   borderColor: string;
   borderRadius: number;
   borderWidth: number;
   padding: number;
+  syntaxColors: CodeBlockSyntaxColorsInternal;
 }
 
 interface LinkStyleInternal {

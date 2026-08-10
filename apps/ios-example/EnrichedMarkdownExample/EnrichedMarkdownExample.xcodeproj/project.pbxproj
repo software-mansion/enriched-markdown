@@ -18,6 +18,12 @@
 		A10000010000000000000015 /* PlaygroundScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000015 /* PlaygroundScreen.swift */; };
 		A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000016 /* ExampleMarkdownStyles.swift */; };
 		A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000017 /* ExampleFontRegistrar.swift */; };
+		A10000010000000000000040 /* Color+Named.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000040 /* Color+Named.swift */; };
+		A10000010000000000000041 /* Bundle+Resources.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000041 /* Bundle+Resources.swift */; };
+		A10000010000000000000044 /* ButtonStyle+Pill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000044 /* ButtonStyle+Pill.swift */; };
+		A10000010000000000000045 /* View+BrandedNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000045 /* View+BrandedNavigationBar.swift */; };
+		A10000010000000000000042 /* PlaygroundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000042 /* PlaygroundButton.swift */; };
+		A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000043 /* SetMarkdownSheet.swift */; };
 		A10000010000000000000020 /* sample_markdown.md in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000020 /* sample_markdown.md */; };
 		A10000010000000000000021 /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000021 /* logo.png */; };
 		A10000010000000000000022 /* logo_icon.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000022 /* logo_icon.png */; };
@@ -42,6 +48,12 @@
 		A10000020000000000000015 /* PlaygroundScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000016 /* ExampleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleMarkdownStyles.swift; sourceTree = "<group>"; };
 		A10000020000000000000017 /* ExampleFontRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleFontRegistrar.swift; sourceTree = "<group>"; };
+		A10000020000000000000040 /* Color+Named.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Named.swift"; sourceTree = "<group>"; };
+		A10000020000000000000041 /* Bundle+Resources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bundle+Resources.swift"; sourceTree = "<group>"; };
+		A10000020000000000000044 /* ButtonStyle+Pill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ButtonStyle+Pill.swift"; sourceTree = "<group>"; };
+		A10000020000000000000045 /* View+BrandedNavigationBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+BrandedNavigationBar.swift"; sourceTree = "<group>"; };
+		A10000020000000000000042 /* PlaygroundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundButton.swift; sourceTree = "<group>"; };
+		A10000020000000000000043 /* SetMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetMarkdownSheet.swift; sourceTree = "<group>"; };
 		A10000020000000000000020 /* sample_markdown.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = sample_markdown.md; sourceTree = "<group>"; };
 		A10000020000000000000021 /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
 		A10000020000000000000022 /* logo_icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo_icon.png; sourceTree = "<group>"; };
@@ -79,19 +91,89 @@
 			isa = PBXGroup;
 			children = (
 				A10000020000000000000001 /* EnrichedMarkdownExampleApp.swift */,
-				A10000020000000000000010 /* AppShell.swift */,
-				A10000020000000000000011 /* ExampleRoute.swift */,
-				A10000020000000000000012 /* HomeScreen.swift */,
-				A10000020000000000000013 /* HomeScreenButton.swift */,
-				A10000020000000000000014 /* TextScreen.swift */,
-				A10000020000000000000015 /* PlaygroundScreen.swift */,
-				A10000020000000000000016 /* ExampleMarkdownStyles.swift */,
-				A10000020000000000000017 /* ExampleFontRegistrar.swift */,
+				A10000060000000000000006 /* Extensions */,
+				A10000060000000000000007 /* Models */,
+				A10000060000000000000008 /* Theme */,
+				A10000060000000000000009 /* Utilities */,
+				A1000006000000000000000A /* Views */,
 				A10000060000000000000004 /* Resources */,
 				A10000020000000000000003 /* Assets.xcassets */,
 				A10000020000000000000004 /* Info.plist */,
 			);
 			path = EnrichedMarkdownExample;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000006 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000041 /* Bundle+Resources.swift */,
+				A10000020000000000000044 /* ButtonStyle+Pill.swift */,
+				A10000020000000000000040 /* Color+Named.swift */,
+				A10000020000000000000045 /* View+BrandedNavigationBar.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000007 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000011 /* ExampleRoute.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000008 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000016 /* ExampleMarkdownStyles.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000009 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000017 /* ExampleFontRegistrar.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		A1000006000000000000000A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000010 /* AppShell.swift */,
+				A1000006000000000000000B /* Home */,
+				A1000006000000000000000C /* Playground */,
+				A1000006000000000000000D /* Text */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A1000006000000000000000B /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000012 /* HomeScreen.swift */,
+				A10000020000000000000013 /* HomeScreenButton.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		A1000006000000000000000C /* Playground */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000042 /* PlaygroundButton.swift */,
+				A10000020000000000000015 /* PlaygroundScreen.swift */,
+				A10000020000000000000043 /* SetMarkdownSheet.swift */,
+			);
+			path = Playground;
+			sourceTree = "<group>";
+		};
+		A1000006000000000000000D /* Text */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000014 /* TextScreen.swift */,
+			);
+			path = Text;
 			sourceTree = "<group>";
 		};
 		A10000060000000000000003 /* Products */ = {
@@ -221,6 +303,12 @@
 				A10000010000000000000015 /* PlaygroundScreen.swift in Sources */,
 				A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */,
 				A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */,
+				A10000010000000000000040 /* Color+Named.swift in Sources */,
+				A10000010000000000000041 /* Bundle+Resources.swift in Sources */,
+				A10000010000000000000044 /* ButtonStyle+Pill.swift in Sources */,
+				A10000010000000000000045 /* View+BrandedNavigationBar.swift in Sources */,
+				A10000010000000000000042 /* PlaygroundButton.swift in Sources */,
+				A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -3,8 +3,10 @@ import UIKit
 
 struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let attributedText: NSAttributedString
+    let sourceMarkdown: String?
     let styleConfig: MarkdownStyleConfig
     let onLinkPress: ((URL) -> Void)?
+    let selectionMenuConfig: MarkdownSelectionMenuConfig
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -19,6 +21,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 
     func updateUIView(_ textView: MarkdownTextView, context: Context) {
         context.coordinator.onLinkPress = onLinkPress
+        context.coordinator.sourceMarkdown = sourceMarkdown
+        context.coordinator.selectionMenuConfig = selectionMenuConfig
         textView.styleConfig = styleConfig
         textView.setMarkdownAttributedText(attributedText)
     }
@@ -36,6 +40,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var onLinkPress: ((URL) -> Void)?
+        var sourceMarkdown: String?
+        var selectionMenuConfig = MarkdownSelectionMenuConfig()
 
         func textView(
             _ textView: UITextView,
@@ -48,6 +54,103 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
                 return false
             }
             return true
+        }
+
+        @available(iOS 16.0, *)
+        func textView(
+            _ textView: UITextView,
+            editMenuForTextIn range: NSRange,
+            suggestedActions: [UIMenuElement]
+        ) -> UIMenu? {
+            let specs = SelectionMenuItems.build(
+                config: selectionMenuConfig,
+                selectedRange: range,
+                attributedText: textView.attributedText ?? NSAttributedString(),
+                sourceMarkdown: sourceMarkdown
+            )
+            var actions = specs.map(Self.makeAction(for:))
+
+            // Recent iOS versions stop suggesting Select All for non-editable text
+            // views, leaving no way to grow a long-press selection to the whole
+            // document; provide it ourselves when the system didn't (Android's
+            // selection menu always has it).
+            // The system shows its own item only when the command is suggested AND
+            // canPerformAction allows it; recent iOS returns false there for
+            // non-editable text views, hiding Select All even though the command
+            // is present in suggestedActions.
+            let textLength = textView.attributedText?.length ?? 0
+            let systemShowsSelectAll = Self.containsSelectAll(suggestedActions)
+                && textView.canPerformAction(#selector(UIResponder.selectAll(_:)), withSender: nil)
+            if range.length < textLength, !systemShowsSelectAll {
+                actions.append(Self.makeSelectAllAction(for: textView))
+            }
+
+            guard !actions.isEmpty else { return UIMenu(children: suggestedActions) }
+            return UIMenu(children: Self.splice(actions, into: suggestedActions))
+        }
+
+        @available(iOS 16.0, *)
+        static func makeAction(for spec: MenuItemSpec) -> UIAction {
+            UIAction(
+                title: spec.title,
+                image: UIImage(systemName: spec.systemImageName),
+                identifier: UIAction.Identifier(spec.identifier)
+            ) { _ in
+                UIPasteboard.general.string = spec.pasteboardString
+            }
+        }
+
+        @available(iOS 16.0, *)
+        static func makeSelectAllAction(for textView: UITextView) -> UIAction {
+            UIAction(
+                title: "Select All",
+                image: UIImage(systemName: "text.badge.checkmark"),
+                identifier: UIAction.Identifier("com.swmansion.enriched.markdown.selectAll")
+            ) { [weak textView] _ in
+                guard let textView else { return }
+                Self.selectEntireDocument(in: textView)
+            }
+        }
+
+        static func selectEntireDocument(in textView: UITextView) {
+            textView.selectedRange = NSRange(location: 0, length: textView.attributedText?.length ?? 0)
+        }
+
+        @available(iOS 16.0, *)
+        static func containsSelectAll(_ elements: [UIMenuElement]) -> Bool {
+            elements.contains { element in
+                if let command = element as? UICommand, command.action == #selector(UIResponder.selectAll(_:)) {
+                    return true
+                }
+                if let menu = element as? UIMenu {
+                    return containsSelectAll(menu.children)
+                }
+                return false
+            }
+        }
+
+        /// Inserts `actions` right after the system standard-edit submenu,
+        /// keeping every system item (dropping them would remove Select All,
+        /// which is the only way to grow a selection from the long-press menu
+        /// of a non-editable text view). Falls back to prepending when the
+        /// submenu is absent.
+        @available(iOS 16.0, *)
+        static func splice(_ actions: [UIMenuElement], into suggestedActions: [UIMenuElement]) -> [UIMenuElement] {
+            var result: [UIMenuElement] = []
+            var foundStandardEdit = false
+
+            for element in suggestedActions {
+                result.append(element)
+                if !foundStandardEdit, let menu = element as? UIMenu, menu.identifier == .standardEdit {
+                    result.append(contentsOf: actions)
+                    foundStandardEdit = true
+                }
+            }
+
+            if !foundStandardEdit {
+                result.insert(contentsOf: actions, at: 0)
+            }
+            return result
         }
     }
 }

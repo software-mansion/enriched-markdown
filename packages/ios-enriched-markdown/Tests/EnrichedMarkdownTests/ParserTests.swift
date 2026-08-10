@@ -105,7 +105,26 @@ final class ParserTests: XCTestCase {
     }
 
     func testNodeTypeEnumCountMatches() {
-        XCTAssertEqual(NodeType.allCases.count, 30)
+        XCTAssertEqual(NodeType.allCases.count, 31)
+    }
+
+    func testParsesSoftBreak() {
+        let ast = parser.parseMarkdown("line one\nline two")
+
+        let paragraph = ast.child(ofType: .paragraph)
+        XCTAssertNotNil(paragraph?.child(ofType: .softBreak))
+        XCTAssertNil(paragraph?.child(ofType: .lineBreak))
+    }
+
+    func testParsesSoftBreakAsLineBreakWithHardSoftBreaksFlag() {
+        let ast = parser.parseMarkdown(
+            "line one\nline two",
+            flags: Md4cFlags(hardSoftBreaks: true)
+        )
+
+        let paragraph = ast.child(ofType: .paragraph)
+        XCTAssertNotNil(paragraph?.child(ofType: .lineBreak))
+        XCTAssertNil(paragraph?.child(ofType: .softBreak))
     }
 
     func testParsesDeeplyNestedBlockquotes() {

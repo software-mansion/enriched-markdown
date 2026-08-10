@@ -252,8 +252,9 @@
 
   for (NSUInteger idx = 0; idx < _ranges.count; idx++) {
     ENRMFormattingRange *formattingRange = _ranges[idx];
+    BOOL inheritsReplacement = formattingRange.type != ENRMInputStyleTypeLink;
     ENRMAdjustedRange adjusted =
-        ENRMAdjustRangeForEdit(formattingRange.range, editLocation, deletedLength, insertedLength);
+        ENRMAdjustRangeForEdit(formattingRange.range, editLocation, deletedLength, insertedLength, inheritsReplacement);
     formattingRange.range = adjusted.range;
     if (adjusted.shouldRemove) {
       [indexesToRemove addIndex:idx];
