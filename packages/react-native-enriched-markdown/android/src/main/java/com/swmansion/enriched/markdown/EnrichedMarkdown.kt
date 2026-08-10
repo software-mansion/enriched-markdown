@@ -347,14 +347,14 @@ class EnrichedMarkdown
 
       executor.execute {
         try {
-          val renderableMarkdown =
+          val filtered =
             if (isStreaming) {
               StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, tableMode, codeBlockMode)
             } else {
-              markdown
+              null
             }
-
-          val hasPendingCodeBlock = isStreaming && StreamingMarkdownFilter.endsInsideOpenCodeFence(renderableMarkdown)
+          val renderableMarkdown = filtered?.markdown ?: markdown
+          val hasPendingCodeBlock = filtered?.endsInsideOpenCodeFence ?: false
 
           if (renderableMarkdown.isEmpty()) {
             postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }

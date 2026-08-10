@@ -11,6 +11,15 @@ enum class CodeBlockStreamingMode {
 }
 
 /**
+ * Filtered markdown plus whether it ends inside a still-open fenced code block
+ * (the trailing block whose highlighting/copy chrome the renderer defers).
+ */
+data class StreamingFilterResult(
+  val markdown: String,
+  val endsInsideOpenCodeFence: Boolean,
+)
+
+/**
  * Pre-parse filter that hides incomplete trailing tables, block math and code
  * blocks while streaming. An open fenced code block is handled first so its
  * body (which may hold `$$` or `|` lines) is not mistaken for a pending
@@ -22,30 +31,28 @@ object StreamingMarkdownFilter {
     markdown: String,
     tableMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE,
     codeBlockMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE,
-  ): String {
+  ): StreamingFilterResult {
     val lines = markdown.split("\n")
     val openFenceIndex = findOpenCodeFenceLineIndex(lines)
 
     if (openFenceIndex == -1) {
-      return removePendingTablesAndMath(markdown, tableMode)
+      return StreamingFilterResult(removePendingTablesAndMath(markdown, tableMode, lines), false)
     }
 
     val fenceOffset = buildLineOffsets(lines)[openFenceIndex]
     val head = markdown.substring(0, fenceOffset)
     if (codeBlockMode == CodeBlockStreamingMode.HIDDEN) {
-      return removePendingTablesAndMath(head, tableMode)
+      return StreamingFilterResult(removePendingTablesAndMath(head, tableMode), false)
     }
     val tail = markdown.substring(fenceOffset)
-    return removePendingTablesAndMath(head, tableMode) + tail
+    return StreamingFilterResult(removePendingTablesAndMath(head, tableMode) + tail, true)
   }
-
-  fun endsInsideOpenCodeFence(markdown: String): Boolean = findOpenCodeFenceLineIndex(markdown.split("\n")) != -1
 
   private fun removePendingTablesAndMath(
     markdown: String,
     tableMode: TableStreamingMode,
+    lines: List<String> = markdown.split("\n"),
   ): String {
-    val lines = markdown.split("\n")
     val afterMath = removePendingStreamingMathBlock(markdown, lines)
     val linesForTable = if (afterMath.length == markdown.length) lines else afterMath.split("\n")
     return removePendingStreamingTableBlock(afterMath, linesForTable, tableMode)

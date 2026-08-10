@@ -155,9 +155,12 @@ static NSString *ENRMRemovePendingStreamingTableBlock(NSString *markdown, NSArra
   return result;
 }
 
-static NSString *ENRMRemovePendingTablesAndMath(NSString *markdown, ENRMTableStreamingMode tableMode)
+static NSString *ENRMRemovePendingTablesAndMath(NSString *markdown, ENRMTableStreamingMode tableMode,
+                                                NSArray<NSString *> *lines)
 {
-  NSArray<NSString *> *lines = [markdown componentsSeparatedByString:@"\n"];
+  if (!lines) {
+    lines = [markdown componentsSeparatedByString:@"\n"];
+  }
   NSString *afterMath = ENRMRemovePendingStreamingMathBlock(markdown, lines);
   NSArray<NSString *> *linesForTable =
       (afterMath.length == markdown.length) ? lines : [afterMath componentsSeparatedByString:@"\n"];
@@ -226,19 +229,17 @@ static NSInteger ENRMFindOpenCodeFenceLineIndex(NSArray<NSString *> *lines)
   return openIndex;
 }
 
-BOOL ENRMMarkdownEndsInsideOpenCodeFence(NSString *markdown)
-{
-  return ENRMFindOpenCodeFenceLineIndex([markdown componentsSeparatedByString:@"\n"]) != -1;
-}
-
 NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStreamingMode tableMode,
-                                             ENRMCodeBlockStreamingMode codeBlockMode)
+                                             ENRMCodeBlockStreamingMode codeBlockMode, BOOL *outEndsInsideOpenCodeFence)
 {
   NSArray<NSString *> *lines = [markdown componentsSeparatedByString:@"\n"];
   NSInteger openFenceIndex = ENRMFindOpenCodeFenceLineIndex(lines);
 
   if (openFenceIndex == -1) {
-    return ENRMRemovePendingTablesAndMath(markdown, tableMode);
+    if (outEndsInsideOpenCodeFence) {
+      *outEndsInsideOpenCodeFence = NO;
+    }
+    return ENRMRemovePendingTablesAndMath(markdown, tableMode, lines);
   }
 
   NSUInteger *offsets = ENRMBuildLineOffsets(lines, lines.count);
@@ -247,8 +248,14 @@ NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStream
 
   NSString *head = [markdown substringToIndex:fenceOffset];
   if (codeBlockMode == ENRMCodeBlockStreamingModeHidden) {
-    return ENRMRemovePendingTablesAndMath(head, tableMode);
+    if (outEndsInsideOpenCodeFence) {
+      *outEndsInsideOpenCodeFence = NO;
+    }
+    return ENRMRemovePendingTablesAndMath(head, tableMode, nil);
+  }
+  if (outEndsInsideOpenCodeFence) {
+    *outEndsInsideOpenCodeFence = YES;
   }
   NSString *tail = [markdown substringFromIndex:fenceOffset];
-  return [ENRMRemovePendingTablesAndMath(head, tableMode) stringByAppendingString:tail];
+  return [ENRMRemovePendingTablesAndMath(head, tableMode, nil) stringByAppendingString:tail];
 }

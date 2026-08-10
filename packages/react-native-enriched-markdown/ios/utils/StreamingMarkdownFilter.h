@@ -18,11 +18,12 @@ typedef NS_ENUM(NSInteger, ENRMCodeBlockStreamingMode) {
 extern "C" {
 #endif
 
+// Filtered markdown for the current streaming tick. When non-NULL,
+// outEndsInsideOpenCodeFence reports whether the result ends inside a still-open
+// fenced code block (the trailing block whose chrome the renderer defers).
 NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStreamingMode tableMode,
-                                             ENRMCodeBlockStreamingMode codeBlockMode);
-
-// Whether the markdown ends inside a still-open fenced code block.
-BOOL ENRMMarkdownEndsInsideOpenCodeFence(NSString *markdown);
+                                             ENRMCodeBlockStreamingMode codeBlockMode,
+                                             BOOL *_Nullable outEndsInsideOpenCodeFence);
 
 #ifdef __cplusplus
 }

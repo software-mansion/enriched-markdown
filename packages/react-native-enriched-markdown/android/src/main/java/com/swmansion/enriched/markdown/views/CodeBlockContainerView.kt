@@ -97,10 +97,7 @@ class CodeBlockContainerView(
       setTextColor(codeBlockStyle.color)
       val horizontalPad = (inset - borderW).coerceAtLeast(0)
       setPadding(horizontalPad, inset, horizontalPad, inset)
-      setOnLongClickListener { view ->
-        showContextMenu(view)
-        true
-      }
+      setOnLongClickListener { view -> showContextMenu(view) }
     }
 
   private val scrollView =
@@ -157,10 +154,7 @@ class CodeBlockContainerView(
         }
       }
     isLongClickable = true
-    setOnLongClickListener { view ->
-      showContextMenu(view)
-      true
-    }
+    setOnLongClickListener { view -> showContextMenu(view) }
     addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     addView(languageView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
     addView(copyButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
@@ -248,12 +242,15 @@ class CodeBlockContainerView(
     canvas.drawLine(borderWidth, y, width - borderWidth, y, dividerPaint)
   }
 
-  private fun showContextMenu(anchor: View) {
-    if (pending) return
+  // Returns whether a menu was shown, so the long-press listener only consumes
+  // the event when there is one (a pending block has no menu yet).
+  private fun showContextMenu(anchor: View): Boolean {
+    if (pending) return false
     ContextMenuPopup.show(anchor, this) {
       item(ContextMenuPopup.Icon.COPY, copyLabel) { copyCode() }
       item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) { copyFencedMarkdown() }
     }
+    return true
   }
 
   private fun copyCode() {

@@ -574,12 +574,14 @@ static char kENRMSegmentFadeAnimatorKey;
 
   __block NSArray<ENRMRenderedSegment *> *renderedSegments = nil;
   __block NSString *renderableMarkdown = nil;
+  __block BOOL endsInsideOpenCodeFence = NO;
 
   [_renderCoordinator
       scheduleRender:^BOOL {
-        renderableMarkdown = streamingAnimation ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode,
-                                                                                     codeBlockStreamingMode)
-                                                : markdownString;
+        renderableMarkdown = streamingAnimation
+                                 ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode,
+                                                                      codeBlockStreamingMode, &endsInsideOpenCodeFence)
+                                 : markdownString;
 
         if (renderableMarkdown.length == 0) {
           renderedSegments = @[];
@@ -602,7 +604,9 @@ static char kENRMSegmentFadeAnimatorKey;
       }
       apply:^{
         self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
-        [self applyRenderedSegments:renderedSegments renderedMarkdown:renderableMarkdown];
+        [self applyRenderedSegments:renderedSegments
+                   renderedMarkdown:renderableMarkdown
+            endsInsideOpenCodeFence:endsInsideOpenCodeFence];
       }];
 }
 
@@ -639,10 +643,11 @@ static char kENRMSegmentFadeAnimatorKey;
 
   _renderCoordinator.blockAsyncRender = YES;
   _cachedMarkdown = [markdownString copy];
+  BOOL endsInsideOpenCodeFence = NO;
   NSString *renderableMarkdown =
-      _streamingAnimation
-          ? ENRMRenderableMarkdownForStreaming(markdownString, _tableStreamingMode, _codeBlockStreamingMode)
-          : markdownString;
+      _streamingAnimation ? ENRMRenderableMarkdownForStreaming(markdownString, _tableStreamingMode,
+                                                               _codeBlockStreamingMode, &endsInsideOpenCodeFence)
+                          : markdownString;
   _renderedMarkdown = [renderableMarkdown copy];
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 
@@ -655,7 +660,7 @@ static char kENRMSegmentFadeAnimatorKey;
     return;
   }
 
-  [self updatePendingCodeBlockSegmentForMarkdown:renderableMarkdown segments:renderedSegments];
+  [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
 
   for (ENRMRenderedSegment *segment in renderedSegments) {
     RCTUIView *view = [_segmentViewRegistry createViewForSegment:segment];
@@ -665,11 +670,10 @@ static char kENRMSegmentFadeAnimatorKey;
   }
 }
 
-- (void)updatePendingCodeBlockSegmentForMarkdown:(NSString *)renderedMarkdown
-                                        segments:(NSArray<ENRMRenderedSegment *> *)segments
+- (void)updatePendingCodeBlockSegment:(BOOL)endsInsideOpenCodeFence segments:(NSArray<ENRMRenderedSegment *> *)segments
 {
   _pendingCodeBlockSegment = nil;
-  if (!_streamingAnimation || !ENRMMarkdownEndsInsideOpenCodeFence(renderedMarkdown)) {
+  if (!_streamingAnimation || !endsInsideOpenCodeFence) {
     return;
   }
   ENRMRenderedSegment *last = segments.lastObject;
@@ -678,10 +682,12 @@ static char kENRMSegmentFadeAnimatorKey;
   }
 }
 
-- (void)applyRenderedSegments:(NSArray *)renderedSegments renderedMarkdown:(NSString *)renderedMarkdown
+- (void)applyRenderedSegments:(NSArray *)renderedSegments
+             renderedMarkdown:(NSString *)renderedMarkdown
+      endsInsideOpenCodeFence:(BOOL)endsInsideOpenCodeFence
 {
   _renderedMarkdown = [renderedMarkdown copy];
-  [self updatePendingCodeBlockSegmentForMarkdown:renderedMarkdown segments:renderedSegments];
+  [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
   BOOL segmentTopologyChanged = _streamingAnimation && [self renderedSegmentsChangeTopology:renderedSegments];
 
   ENRMSegmentReconciliationResult *result = [ENRMSegmentReconciler reconcileCurrentViews:_segmentViews

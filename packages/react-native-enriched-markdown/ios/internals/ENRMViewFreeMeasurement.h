@@ -237,7 +237,7 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
       ENRMCodeBlockStreamingMode codeBlockStreamingMode = [codeBlockModeStr isEqualToString:@"hidden"]
                                                               ? ENRMCodeBlockStreamingModeHidden
                                                               : ENRMCodeBlockStreamingModeProgressive;
-      markdown = ENRMRenderableMarkdownForStreaming(markdown, tableStreamingMode, codeBlockStreamingMode);
+      markdown = ENRMRenderableMarkdownForStreaming(markdown, tableStreamingMode, codeBlockStreamingMode, NULL);
       if (markdown.length == 0) {
         return fallback;
       }

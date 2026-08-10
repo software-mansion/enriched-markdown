@@ -384,7 +384,7 @@ object MeasurementStore {
       }
     val markdown =
       if (isStreaming) {
-        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode, codeBlockMode)
+        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode, codeBlockMode).markdown
       } else {
         rawMarkdown
       }
