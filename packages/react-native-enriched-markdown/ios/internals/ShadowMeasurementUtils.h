@@ -88,8 +88,8 @@ static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps
 template <typename PropsT, typename ViewT>
 static inline Size
 ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void> &componentViewRef, int receivedCounter,
-                           int &lastExactMeasurementCounter, MarkdownFlavor flavor, const LayoutContext &layoutContext,
-                           const LayoutConstraints &layoutConstraints,
+                           int &lastExactMeasurementCounter, CGSize &lastExactMeasurementSize, MarkdownFlavor flavor,
+                           const LayoutContext &layoutContext, const LayoutConstraints &layoutConstraints,
                            CGSize (^measureUncached)(ViewT *view, CGFloat maxWidth, CGFloat fontScale))
 {
   CGFloat maxWidth = layoutConstraints.maximumSize.width;
@@ -97,7 +97,18 @@ ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void>
   RCTInternalGenericWeakWrapper *weakWrapper = (RCTInternalGenericWeakWrapper *)unwrapManagedObject(componentViewRef);
   ViewT *view = weakWrapper ? (ViewT *)weakWrapper.object : nil;
 
+  // Streaming fast path: skip re-measuring when no new height update was
+  // requested (receivedCounter <= lastExactMeasurementCounter). Yoga calls
+  // measureContent several times per layout pass; the first call does the exact
+  // measure and bumps lastExactMeasurementCounter, so later calls in the *same*
+  // pass land here. Return the size that exact measure just produced, not the
+  // view's committed size — the frame isn't committed until Yoga finishes, so
+  // the mailbox is still one generation stale and would clobber the fresh
+  // measurement (freezing the height while streaming).
   if (typedProps.streamingAnimation && view && receivedCounter <= lastExactMeasurementCounter) {
+    if (lastExactMeasurementSize.width > 0 && lastExactMeasurementSize.height > 0) {
+      return ENRMClampMeasuredSize(lastExactMeasurementSize, layoutConstraints);
+    }
     CGSize currentSize = [view lastCommittedLayoutSize];
     if (currentSize.width > 0 && currentSize.height > 0) {
       return ENRMClampMeasuredSize(currentSize, layoutConstraints);
@@ -124,6 +135,7 @@ ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void>
 
   if (typedProps.streamingAnimation) {
     lastExactMeasurementCounter = receivedCounter;
+    lastExactMeasurementSize = size;
   }
 
   return ENRMClampMeasuredSize(size, layoutConstraints);

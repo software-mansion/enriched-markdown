@@ -354,6 +354,7 @@ export interface Md4cFlagsInternal {
 
 interface StreamingConfigInternal {
   tableMode: string;
+  codeBlockMode: string;
 }
 
 export interface NativeProps extends ViewProps {

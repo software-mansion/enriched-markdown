@@ -21,7 +21,9 @@ EnrichedMarkdownTextShadowNode::EnrichedMarkdownTextShadowNode(const ShadowNode 
       localHeightRecalculationCounter_(
           static_cast<const EnrichedMarkdownTextShadowNode &>(sourceShadowNode).localHeightRecalculationCounter_),
       lastExactMeasurementCounter_(
-          static_cast<const EnrichedMarkdownTextShadowNode &>(sourceShadowNode).lastExactMeasurementCounter_)
+          static_cast<const EnrichedMarkdownTextShadowNode &>(sourceShadowNode).lastExactMeasurementCounter_),
+      lastExactMeasurementSize_(
+          static_cast<const EnrichedMarkdownTextShadowNode &>(sourceShadowNode).lastExactMeasurementSize_)
 {
   const auto &oldProps = *std::static_pointer_cast<const EnrichedMarkdownTextProps>(sourceShadowNode.getProps());
   const auto &newProps = *std::static_pointer_cast<const EnrichedMarkdownTextProps>(this->getProps());
@@ -58,7 +60,7 @@ Size EnrichedMarkdownTextShadowNode::measureContent(const LayoutContext &layoutC
 
   return ENRMMeasureMarkdownContent<EnrichedMarkdownTextProps, EnrichedMarkdownText>(
       typedProps, getStateData().getComponentViewRef(), receivedCounter, lastExactMeasurementCounter_,
-      MarkdownFlavor::CommonMark, layoutContext, layoutConstraints,
+      lastExactMeasurementSize_, MarkdownFlavor::CommonMark, layoutContext, layoutConstraints,
       ^(EnrichedMarkdownText *view, CGFloat maxWidth, CGFloat fontScale) {
         return ENRMMeasureMarkdownViewFree(*props, maxWidth, fontScale, pointScaleFactor, resolvedLayoutDirection);
       });

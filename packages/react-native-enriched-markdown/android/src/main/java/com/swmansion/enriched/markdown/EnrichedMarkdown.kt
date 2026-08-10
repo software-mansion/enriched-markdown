@@ -18,6 +18,7 @@ import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.utils.common.RenderedSegment
@@ -72,6 +73,7 @@ class EnrichedMarkdown
     private var forceHeightRecalculationCounter = 0
 
     var tableStreamingMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE
+    var codeBlockStreamingMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
     private var renderPending: Boolean = false
 
     var currentMarkdown: String = ""
@@ -138,6 +140,7 @@ class EnrichedMarkdown
 
     fun commitProps() {
       MeasurementStore.updateStreamingTableMode(id, tableStreamingMode)
+      MeasurementStore.updateStreamingCodeBlockMode(id, codeBlockStreamingMode)
       MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
       if (renderPending) {
         renderPending = false
@@ -338,6 +341,7 @@ class EnrichedMarkdown
       val markdown = currentMarkdown.takeIf { it.isNotEmpty() } ?: return
       val isStreaming = streamingAnimation
       val tableMode = tableStreamingMode
+      val codeBlockMode = codeBlockStreamingMode
 
       val renderId = ++currentRenderId
 
@@ -345,19 +349,21 @@ class EnrichedMarkdown
         try {
           val renderableMarkdown =
             if (isStreaming) {
-              StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, tableMode)
+              StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, tableMode, codeBlockMode)
             } else {
               markdown
             }
 
+          val hasPendingCodeBlock = isStreaming && StreamingMarkdownFilter.endsInsideOpenCodeFence(renderableMarkdown)
+
           if (renderableMarkdown.isEmpty()) {
-            postToMain(renderId) { applyRenderedSegments(emptyList(), style) }
+            postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
             return@execute
           }
 
           val ast =
             parser.parseMarkdown(renderableMarkdown, md4cFlags) ?: run {
-              postToMain(renderId) { applyRenderedSegments(emptyList(), style) }
+              postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
               return@execute
             }
 
@@ -371,18 +377,26 @@ class EnrichedMarkdown
               onLinkLongPressCallback,
             )
 
-          postToMain(renderId) { applyRenderedSegments(renderedSegments, style) }
+          postToMain(renderId) { applyRenderedSegments(renderedSegments, style, hasPendingCodeBlock) }
         } catch (e: Exception) {
           Log.e(TAG, "Render failed", e)
-          postToMain(renderId) { applyRenderedSegments(emptyList(), style) }
+          postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
         }
       }
     }
 
+    // The trailing code block whose closing fence has not streamed in yet, if
+    // any; its view defers syntax highlighting and header chrome until close.
+    private var pendingCodeBlockSegment: RenderedSegment.CodeBlock? = null
+
     private fun applyRenderedSegments(
       renderedSegments: List<RenderedSegment>,
       style: StyleConfig,
+      hasPendingCodeBlock: Boolean,
     ) {
+      pendingCodeBlockSegment =
+        if (hasPendingCodeBlock) renderedSegments.lastOrNull() as? RenderedSegment.CodeBlock else null
+
       val reset = DirtyFlag.RECREATE_SEGMENTS in dirtyFlags
       val forceHeight = DirtyFlag.FORCE_HEIGHT in dirtyFlags
       dirtyFlags.clear()
@@ -478,7 +492,10 @@ class EnrichedMarkdown
         }
 
         is RenderedSegment.CodeBlock -> {
-          (view as CodeBlockContainerView).applyCodeBlockNode(segment.node)
+          (view as CodeBlockContainerView).apply {
+            pending = segment === pendingCodeBlockSegment
+            applyCodeBlockNode(segment.node)
+          }
         }
       }
     }
@@ -565,6 +582,7 @@ class EnrichedMarkdown
       onCopyPress = { code, language ->
         this@EnrichedMarkdown.onCopyPressCallback?.invoke(code, language)
       }
+      pending = segment === pendingCodeBlockSegment
       applyCodeBlockNode(segment.node)
     }
 

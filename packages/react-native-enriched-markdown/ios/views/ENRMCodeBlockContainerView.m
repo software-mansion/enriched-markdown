@@ -175,6 +175,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   _copyButton.accessibilityLabel = _copyLabel;
 }
 
+- (void)setPending:(BOOL)pending
+{
+  if (_pending == pending) {
+    return;
+  }
+  _pending = pending;
+  // The header (language label + copy button) stays visible while streaming;
+  // only copying is held back until the closing fence arrives.
+  _copyButton.enabled = !pending;
+#if !TARGET_OS_OSX
+  [self setNeedsDisplay];
+#else
+  [self setNeedsDisplay:YES];
+#endif
+}
+
 - (instancetype)initWithConfig:(StyleConfig *)config
 {
   self = [super initWithFrame:CGRectZero];
@@ -331,7 +347,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
 
   NSAttributedString *plainCode = [self plainAttributedCode];
-  NSAttributedString *highlighted = ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage, _config);
+  NSAttributedString *highlighted =
+      _pending ? nil : ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage, _config);
   _attributedCode = highlighted ?: plainCode;
 
   _codeSize = ENRMCodeBlockCodeSize(_attributedCode);
@@ -458,6 +475,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
+  if (_pending) {
+    return nil;
+  }
   return [UIContextMenuConfiguration
       configurationWithIdentifier:nil
                   previewProvider:nil
@@ -482,6 +502,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if TARGET_OS_OSX
 - (NSMenu *)buildContextMenu
 {
+  if (_pending) {
+    return nil;
+  }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
   [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyCodeToPasteboard]; })];
   [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
@@ -509,7 +532,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 // button subview from VoiceOver; expose the copy action explicitly instead.
 - (NSArray<UIAccessibilityCustomAction *> *)accessibilityCustomActions
 {
-  if (self.copyLabel.length == 0) {
+  if (_pending || self.copyLabel.length == 0) {
     return @[];
   }
   UIAccessibilityCustomAction *copyAction =

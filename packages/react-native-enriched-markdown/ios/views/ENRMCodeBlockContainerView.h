@@ -22,6 +22,11 @@ typedef void (^ENRMCodeBlockCopyBlock)(NSString *code, NSString *language);
 
 @property (nonatomic, strong) StyleConfig *config;
 
+// True while this block's closing fence has not streamed in yet: syntax
+// highlighting and the header chrome (language label, copy button) are held
+// back so they appear once atomically when the block completes.
+@property (nonatomic, assign) BOOL pending;
+
 // Renamed getters avoid the Cocoa `copy` method family (which signals +1
 // retained returns). Property names are unchanged so call sites stay the same.
 @property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;

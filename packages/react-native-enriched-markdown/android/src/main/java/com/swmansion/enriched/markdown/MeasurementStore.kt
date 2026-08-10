@@ -19,6 +19,7 @@ import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.utils.common.RenderedSegment
@@ -69,6 +70,8 @@ object MeasurementStore {
   private val breakStrategies = ConcurrentHashMap<Int, String>()
 
   private val streamingTableModes = ConcurrentHashMap<Int, TableStreamingMode>()
+
+  private val streamingCodeBlockModes = ConcurrentHashMap<Int, CodeBlockStreamingMode>()
 
   private fun resolveFontScalingSettings(
     viewId: Int?,
@@ -191,6 +194,17 @@ object MeasurementStore {
 
   fun clearStreamingTableMode(viewId: Int) {
     streamingTableModes.remove(viewId)
+  }
+
+  fun updateStreamingCodeBlockMode(
+    viewId: Int,
+    mode: CodeBlockStreamingMode,
+  ) {
+    streamingCodeBlockModes[viewId] = mode
+  }
+
+  fun clearStreamingCodeBlockMode(viewId: Int) {
+    streamingCodeBlockModes.remove(viewId)
   }
 
   private fun getMeasureByIdInternal(
@@ -360,9 +374,17 @@ object MeasurementStore {
       } else {
         TableStreamingMode.PROGRESSIVE
       }
+    val codeBlockMode =
+      if (isStreaming) {
+        id?.let {
+          streamingCodeBlockModes[it]
+        } ?: CodeBlockStreamingMode.PROGRESSIVE
+      } else {
+        CodeBlockStreamingMode.PROGRESSIVE
+      }
     val markdown =
       if (isStreaming) {
-        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode)
+        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode, codeBlockMode)
       } else {
         rawMarkdown
       }

@@ -99,6 +99,18 @@ export interface StreamingConfig {
    * @platform ios, android
    */
   tableMode?: 'hidden' | 'progressive';
+  /**
+   * Controls how a fenced code block whose closing fence has not arrived yet
+   * is handled during streaming.
+   * - `'hidden'`: hide the entire code block until its closing fence arrives.
+   * - `'progressive'` (default): show the code as it streams in with its header
+   *   visible but non-interactive (copying is disabled); syntax highlighting is
+   *   deferred until the closing fence arrives, so it appears once atomically.
+   * Only effective when `streamingAnimation` is `true`.
+   * @default 'progressive'
+   * @platform ios, android
+   */
+  codeBlockMode?: 'hidden' | 'progressive';
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {

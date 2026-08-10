@@ -72,6 +72,16 @@ class CodeBlockContainerView(
   private var language: String? = null
   private var fenceChar: String = "`"
 
+  // True while this block's closing fence has not streamed in yet: syntax
+  // highlighting is deferred and the header stays visible but non-interactive
+  // (copy disabled) until the block completes.
+  var pending: Boolean = false
+    set(value) {
+      if (field == value) return
+      field = value
+      copyButton.isEnabled = !value
+    }
+
   private val textView =
     AppCompatTextView(context).apply {
       includeFontPadding = false
@@ -165,7 +175,9 @@ class CodeBlockContainerView(
     }
 
     val plainCode = buildCodeText(code, codeBlockStyle)
-    CodeBlockHighlighter.highlight(plainCode, code, language, codeBlockStyle)
+    if (!pending) {
+      CodeBlockHighlighter.highlight(plainCode, code, language, codeBlockStyle)
+    }
     textView.text = plainCode
   }
 
@@ -230,6 +242,7 @@ class CodeBlockContainerView(
   }
 
   private fun showContextMenu(anchor: View) {
+    if (pending) return
     ContextMenuPopup.show(anchor, this) {
       item(ContextMenuPopup.Icon.COPY, copyLabel) { copyCode() }
       item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) { copyFencedMarkdown() }
@@ -237,7 +250,7 @@ class CodeBlockContainerView(
   }
 
   private fun copyCode() {
-    if (code.isEmpty()) return
+    if (pending || code.isEmpty()) return
     copyToClipboard(code)
     onCopyPress?.invoke(code, language ?: "")
   }

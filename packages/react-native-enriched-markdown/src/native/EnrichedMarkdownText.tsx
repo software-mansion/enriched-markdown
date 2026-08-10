@@ -238,7 +238,11 @@ export const EnrichedMarkdownText = ({
   );
 
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
-  const normalizedStreamingConfig = useMemo(() => ({ tableMode }), [tableMode]);
+  const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
+  const normalizedStreamingConfig = useMemo(
+    () => ({ tableMode, codeBlockMode }),
+    [tableMode, codeBlockMode]
+  );
   const normalizedSelectionMenuConfig = useMemo(() => {
     // The boolean acceptance is confined to this wrapper boundary via a single
     // `as unknown` cast; the public type only exposes the object shape.

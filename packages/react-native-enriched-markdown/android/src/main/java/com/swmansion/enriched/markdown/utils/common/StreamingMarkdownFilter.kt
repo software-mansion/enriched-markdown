@@ -5,21 +5,101 @@ enum class TableStreamingMode {
   PROGRESSIVE,
 }
 
+enum class CodeBlockStreamingMode {
+  HIDDEN,
+  PROGRESSIVE,
+}
+
 /**
- * Pre-parse filter that hides incomplete trailing tables and block math
- * during streaming. A table is considered complete only after a blank
- * separator line follows it; a block math (`$$`) is complete only when
- * a closing `$$` exists.
+ * Pre-parse filter that hides incomplete trailing tables, block math and
+ * fenced code blocks during streaming. A table is considered complete only
+ * after a blank separator line follows it; a block math (`$$`) is complete
+ * only when a closing `$$` exists; a fenced code block is complete only when
+ * a matching closing fence exists.
+ *
+ * A still-open fenced code block is handled first because its content may
+ * contain lines that look like `$$` delimiters or `|` table rows; those must
+ * not be treated as pending math/table blocks. In HIDDEN mode the open block
+ * is truncated (like math); in PROGRESSIVE mode it is kept verbatim and only
+ * the region before it is passed through the math/table filters.
+ * endsInsideOpenCodeFence reports whether the (already filtered) markdown ends
+ * inside such a block, so the renderer can defer highlighting and header
+ * chrome on that trailing block until its closing fence arrives.
  */
 object StreamingMarkdownFilter {
   fun renderableMarkdownForStreaming(
     markdown: String,
     tableMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE,
+    codeBlockMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE,
+  ): String {
+    val lines = markdown.split("\n")
+    val openFenceIndex = findOpenCodeFenceLineIndex(lines)
+
+    if (openFenceIndex == -1) {
+      return removePendingTablesAndMath(markdown, tableMode)
+    }
+
+    val fenceOffset = buildLineOffsets(lines)[openFenceIndex]
+    val head = markdown.substring(0, fenceOffset)
+    if (codeBlockMode == CodeBlockStreamingMode.HIDDEN) {
+      return removePendingTablesAndMath(head, tableMode)
+    }
+    val tail = markdown.substring(fenceOffset)
+    return removePendingTablesAndMath(head, tableMode) + tail
+  }
+
+  fun endsInsideOpenCodeFence(markdown: String): Boolean = findOpenCodeFenceLineIndex(markdown.split("\n")) != -1
+
+  private fun removePendingTablesAndMath(
+    markdown: String,
+    tableMode: TableStreamingMode,
   ): String {
     val lines = markdown.split("\n")
     val afterMath = removePendingStreamingMathBlock(markdown, lines)
     val linesForTable = if (afterMath.length == markdown.length) lines else afterMath.split("\n")
     return removePendingStreamingTableBlock(afterMath, linesForTable, tableMode)
+  }
+
+  private class FenceMarker(
+    val char: Char,
+    val length: Int,
+    val info: String,
+  )
+
+  private fun parseFenceMarker(line: String): FenceMarker? {
+    var i = 0
+    while (i < line.length && line[i] == ' ' && i < 3) i++
+    if (i >= line.length) return null
+    val ch = line[i]
+    if (ch != '`' && ch != '~') return null
+    var runLength = 0
+    while (i < line.length && line[i] == ch) {
+      i++
+      runLength++
+    }
+    if (runLength < 3) return null
+    val info = line.substring(i)
+    if (ch == '`' && info.contains('`')) return null
+    return FenceMarker(ch, runLength, info)
+  }
+
+  private fun findOpenCodeFenceLineIndex(lines: List<String>): Int {
+    var openIndex = -1
+    var openChar = ' '
+    var openLength = 0
+    for (i in lines.indices) {
+      val marker = parseFenceMarker(lines[i])
+      if (openIndex == -1) {
+        if (marker != null) {
+          openIndex = i
+          openChar = marker.char
+          openLength = marker.length
+        }
+      } else if (marker != null && marker.char == openChar && marker.length >= openLength && marker.info.isBlank()) {
+        openIndex = -1
+      }
+    }
+    return openIndex
   }
 
   private fun removePendingStreamingMathBlock(
