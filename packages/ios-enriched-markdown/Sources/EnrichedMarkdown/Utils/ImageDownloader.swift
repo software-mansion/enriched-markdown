@@ -3,7 +3,7 @@ import UIKit
 /// Abstraction over image fetching so consumers of attachments can inject
 /// a stub in tests and previews instead of hitting the network.
 protocol ImageDownloading: AnyObject {
-    func download(url: String, completion: @escaping (UIImage?) -> Void)
+    func download(url: String, headers: [String: String], completion: @escaping (UIImage?) -> Void)
 }
 
 final class ImageDownloader: ImageDownloading {
@@ -25,48 +25,54 @@ final class ImageDownloader: ImageDownloading {
         session = URLSession(configuration: configuration)
     }
 
-    func download(url: String, completion: @escaping (UIImage?) -> Void) {
+    func download(url: String, headers: [String: String], completion: @escaping (UIImage?) -> Void) {
         guard !url.isEmpty else {
             completion(nil)
             return
         }
 
-        if let cached = MarkdownImageAttachment.originalImageCache.object(forKey: url as NSString) {
+        let requestKey = ImageCacheKey.requestKey(url: url, headers: headers)
+        if let cached = MarkdownImageAttachment.originalImageCache.object(forKey: requestKey as NSString) {
             completion(cached)
             return
         }
 
         lock.lock()
-        if var existing = inFlightRequests[url] {
+        if var existing = inFlightRequests[requestKey] {
             existing.append(completion)
-            inFlightRequests[url] = existing
+            inFlightRequests[requestKey] = existing
             lock.unlock()
             return
         }
-        inFlightRequests[url] = [completion]
+        inFlightRequests[requestKey] = [completion]
         lock.unlock()
 
         guard let requestURL = URL(string: url) else {
-            dispatchCallbacks(for: url, image: nil)
+            dispatchCallbacks(for: requestKey, image: nil)
             return
         }
 
-        session.dataTask(with: requestURL) { [weak self] data, _, error in
+        var request = URLRequest(url: requestURL)
+        for (field, value) in headers {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+
+        session.dataTask(with: request) { [weak self] data, _, error in
             let image = (data != nil && error == nil) ? UIImage(data: data!) : nil
             if let image {
                 MarkdownImageAttachment.originalImageCache.setObject(
                     image,
-                    forKey: url as NSString,
+                    forKey: requestKey as NSString,
                     cost: Self.byteCost(for: image)
                 )
             }
-            self?.dispatchCallbacks(for: url, image: image)
+            self?.dispatchCallbacks(for: requestKey, image: image)
         }.resume()
     }
 
-    private func dispatchCallbacks(for url: String, image: UIImage?) {
+    private func dispatchCallbacks(for requestKey: String, image: UIImage?) {
         lock.lock()
-        let callbacks = inFlightRequests.removeValue(forKey: url) ?? []
+        let callbacks = inFlightRequests.removeValue(forKey: requestKey) ?? []
         lock.unlock()
         DispatchQueue.main.async {
             callbacks.forEach { $0(image) }

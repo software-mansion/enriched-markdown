@@ -4,9 +4,9 @@ final class AttributedRenderer {
     private let config: MarkdownStyleConfig
     private let factory: RendererFactory
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfig, imageRequestHeaders: [String: String] = [:]) {
         self.config = config
-        self.factory = RendererFactory(config: config)
+        self.factory = RendererFactory(config: config, imageRequestHeaders: imageRequestHeaders)
     }
 
     func renderRoot(_ root: MarkdownASTNode) -> NSMutableAttributedString {

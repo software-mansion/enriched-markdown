@@ -2,9 +2,11 @@ import UIKit
 
 final class ImageRenderer: NodeRenderer {
     private let config: MarkdownStyleConfig
+    private let requestHeaders: [String: String]
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfig, requestHeaders: [String: String] = [:]) {
         self.config = config
+        self.requestHeaders = requestHeaders
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
@@ -16,7 +18,8 @@ final class ImageRenderer: NodeRenderer {
             for: url,
             config: config,
             isInline: isInline,
-            altText: altText
+            altText: altText,
+            requestHeaders: requestHeaders
         )
 
         let imageString = NSAttributedString(attachment: attachment)

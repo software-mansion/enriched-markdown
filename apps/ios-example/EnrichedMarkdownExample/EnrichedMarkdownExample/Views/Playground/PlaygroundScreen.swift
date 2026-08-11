@@ -13,6 +13,7 @@ struct PlaygroundScreen: View {
     @State private var inlineImageURI: String?
     @State private var longPressedLink: String = ""
     @State private var linkAlertVisible: Bool = false
+    @State private var acceptImageType: String = "image/png"
 
     // MARK: - Views
 
@@ -46,6 +47,19 @@ struct PlaygroundScreen: View {
                     }
                 }
 
+                HStack(spacing: 8) {
+                    PlaygroundButton(label: "Insert Header Image", accessibilityId: "insert-header-image-button") {
+                        insertHeaderImage()
+                    }
+                    PlaygroundButton(
+                        label: "Accept: \(acceptImageType == "image/png" ? "PNG" : "JPEG")",
+                        accessibilityId: "accept-header-button",
+                        isActive: acceptImageType == "image/png"
+                    ) {
+                        acceptImageType = acceptImageType == "image/png" ? "image/jpeg" : "image/png"
+                    }
+                }
+
                 setMarkdownButton
                 preview
             }
@@ -57,6 +71,7 @@ struct PlaygroundScreen: View {
         .markdownSelectionMenu(MarkdownSelectionMenuConfig())
         .markdownSelectable(selectableEnabled)
         .markdownSelectionColor(.orange)
+        .markdownImageRequestHeaders(["Accept": acceptImageType])
         .onLinkLongPress { url in
             longPressedLink = url.absoluteString
             linkAlertVisible = true
@@ -138,6 +153,19 @@ struct PlaygroundScreen: View {
     private func insertInlineImage() {
         guard let uri = inlineImageURI else { return }
         markdown = "Enriched Markdown is a library for ![icon](\(uri)) React Native."
+    }
+
+    // httpbingo.org negotiates the response image from the Accept header (and
+    // rejects requests without one), so this image only renders because
+    // markdownImageRequestHeaders reaches the wire — and toggling the header
+    // shows a different image for the same URL via the header-aware cache.
+    private func insertHeaderImage() {
+        let imageMarkdown = "![header image](https://httpbingo.org/image)"
+        if markdown.isEmpty {
+            markdown = imageMarkdown
+        } else {
+            markdown += "\n\n\(imageMarkdown)"
+        }
     }
 }
 
