@@ -1,6 +1,19 @@
+import SwiftUI
 import UIKit
 
 extension MarkdownStyleConfig {
+    static func resolve(
+        layers: [MarkdownTheme],
+        colorScheme: ColorScheme,
+        dynamicTypeSize: DynamicTypeSize
+    ) -> MarkdownStyleConfig {
+        let traitCollection = ThemeResolver.traitCollection(
+            colorScheme: colorScheme,
+            dynamicTypeSize: dynamicTypeSize
+        )
+        return resolve(layers: layers, traitCollection: traitCollection)
+    }
+
     public static func resolve(
         layers: [MarkdownTheme],
         traitCollection: UITraitCollection

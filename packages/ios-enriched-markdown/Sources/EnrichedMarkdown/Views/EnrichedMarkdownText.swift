@@ -18,11 +18,11 @@ public struct EnrichedMarkdownText: View {
     }
 
     private var styleConfig: MarkdownStyleConfig {
-        let traitCollection = ThemeResolver.traitCollection(
+        MarkdownStyleConfig.resolve(
+            layers: themeLayers,
             colorScheme: colorScheme,
             dynamicTypeSize: dynamicTypeSize
         )
-        return MarkdownStyleConfig.resolve(layers: themeLayers, traitCollection: traitCollection)
     }
 
     public var body: some View {
