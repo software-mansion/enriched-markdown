@@ -152,6 +152,7 @@ export interface EnrichedMarkdownTextInputInstance {
   outdentList: () => void;
   setLink: (url: string) => void;
   insertLink: (text: string, url: string) => void;
+  insertText: (text: string) => void;
   insertMention: (displayText: string, url: string) => void;
   startMention: (indicator: string) => void;
   removeLink: () => void;
@@ -611,6 +612,7 @@ export const EnrichedMarkdownTextInput = ({
       outdentList: () => Commands.outdentList(commandRef),
       setLink: (url) => Commands.setLink(commandRef, url),
       insertLink: (text, url) => Commands.insertLink(commandRef, text, url),
+      insertText: (text) => Commands.insertText(commandRef, text),
       insertMention: (displayText, url) =>
         Commands.insertMention(commandRef, displayText, url),
       startMention: (indicator) => Commands.startMention(commandRef, indicator),

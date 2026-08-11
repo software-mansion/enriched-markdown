@@ -16,6 +16,8 @@ final class StrongRenderer: NodeRenderer {
         let range = RenderContext.rangeForRenderedContent(in: output, start: start)
         guard range.length > 0 else { return }
 
+        output.addAttribute(MarkdownAttribute.strong, value: true, range: range)
+
         let blockStyle = context.getBlockStyle()
         let blockColor = blockStyle?.color ?? UIColor.label
         let strongColor = RenderContext.calculateStrongColor(

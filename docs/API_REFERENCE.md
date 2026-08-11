@@ -100,6 +100,28 @@ When `false`, the checkbox renders its markdown state read-only and the tap is *
 
 > **Note:** On web the checkbox keeps its normal appearance and is marked `readOnly` / `aria-disabled` rather than `disabled`, so it stays visually consistent with iOS and Android. It is also made pointer-inert (`pointer-events: none`), so the browser paints no hover or active state on a checkbox that cannot be toggled.
 
+### `onCopyPress`
+
+Callback when code is copied from a fenced code block, via the header copy button, the long-press context-menu **Copy** action, or the VoiceOver copy action. Receives `code` (the copied code) and `language` (the fence language, or `""` if none). Does not fire for **Copy as Markdown**.
+
+Only fires when `flavor="github"` — the copy button is part of the GitHub flavor's code block renderer.
+
+| Type                                  | Default Value | Platform         |
+| ------------------------------------- | ------------- | ---------------- |
+| `(event: CopyPressEvent) => void`     | -             | Both, macOS      |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  flavor="github"
+  markdown={"```ts\nconst x = 1;\n```"}
+  onCopyPress={({ code, language }) => {
+    console.log(`Copied ${language} code:`, code);
+  }}
+/>
+```
+
 ### `enableLinkPreview`
 
 Controls the native link preview on long press (iOS only). Automatically set to `false` when `onLinkLongPress` is provided.
@@ -150,7 +172,7 @@ Configuration for md4c parser extension flags.
 
 | Type          | Default Value            | Platform |
 | ------------- | ------------------------ | -------- |
-| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true }` | Both |
+| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false }` | Both |
 
 **Properties:**
 
@@ -159,6 +181,7 @@ Configuration for md4c parser extension flags.
 - **`subscript`**: When `true`, parses `~text~` as subscript. When disabled, single and double tildes remain strikethrough markers. Visual appearance can be tuned with the `subscript` style prop — see [Subscript-specific](./STYLES.md#subscript-specific).
 - **`highlight`**: When `true`, parses `==text==` as highlighted spans. When disabled, double equals signs are treated as plain text. Visual appearance can be tuned with the `highlight` style prop — see [Highlight-specific](./STYLES.md#highlight-specific).
 - **`latexMath`**: When `true`, parses `$...$` and `$$...$$` as LaTeX math spans.
+- **`hardSoftBreaks`**: When `true`, treats single newlines (soft breaks) as hard breaks, rendering them as visible line breaks instead of collapsing them to spaces. Useful when displaying content authored in `EnrichedMarkdownTextInput`, where pressing Enter produces a single newline. See [Line Breaks](./ELEMENTS_STRUCTURE.md#line-breaks) for details.
 
 **Example:**
 
@@ -172,6 +195,12 @@ Configuration for md4c parser extension flags.
 <EnrichedMarkdownText
   markdown="This is _underlined_ and *italic* text"
   md4cFlags={{ underline: true }}
+/>
+
+// Preserve single newlines as visible line breaks
+<EnrichedMarkdownText
+  markdown={markdownFromInput}
+  md4cFlags={{ hardSoftBreaks: true }}
 />
 ```
 
@@ -256,7 +285,7 @@ Code blocks are always rendered left-to-right regardless of this prop. Per-parag
 
 ### `flavor`
 
-Markdown flavor. Set to `'github'` to enable GitHub Flavored Markdown table support.
+Markdown flavor. Set to `'github'` to enable GitHub Flavored Markdown features: tables and block-style code blocks.
 
 | Type                              | Default Value   | Platform |
 | --------------------------------- | --------------- | -------- |
@@ -264,7 +293,9 @@ Markdown flavor. Set to `'github'` to enable GitHub Flavored Markdown table supp
 
 > **Note:** 
 > - **`'commonmark'`**: All Markdown content is rendered as a single TextView. Selecting text will select all content in the view.
-> - **`'github'`**: The Markdown AST is split into segments. Consecutive text blocks (paragraphs, headings, lists, etc.) are grouped into separate TextView segments, while tables are rendered as separate table views. This allows for granular text selection within each segment and enables interactive table features (horizontal scrolling, context menus). Text selection cannot span across segments.
+> - **`'github'`**: The Markdown AST is split into segments. Consecutive text blocks (paragraphs, headings, lists, etc.) are grouped into separate TextView segments, while tables, fenced code blocks, and math blocks are rendered as separate block views. This allows for granular text selection within each segment and enables interactive block features (horizontal table scrolling, context menus, the code block header). Text selection cannot span across segments.
+>
+> With `'github'`, a fenced code block renders as a dedicated component: a header bar with the language display name (` ```python ` shows "Python") and a copy-code button, a divider, and the code below. Long lines do not wrap — the code pane scrolls horizontally while the header stays fixed. Long-pressing the block opens the Copy / Copy as Markdown menu. With `'commonmark'`, code blocks stay inside the single TextView, styled via spans, and long lines wrap.
 
 ### `streamingAnimation`
 
@@ -276,11 +307,11 @@ When `true`, newly appended content fades in during streaming updates. Only the 
 
 ### `streamingConfig`
 
-Configuration for streaming behavior. Currently controls how incomplete tables are handled during streaming with `flavor="github"`.
+Configuration for streaming behavior. Controls how incomplete tables and fenced code blocks are handled during streaming with `flavor="github"`.
 
-| Type                    | Default Value            | Platform |
-| ----------------------- | ------------------------ | -------- |
-| `{ tableMode: string }` | `{ tableMode: 'progressive' }` | Both     |
+| Type                                        | Default Value                                          | Platform |
+| ------------------------------------------- | ------------------------------------------------------ | -------- |
+| `{ tableMode?: string, codeBlockMode?: string }` | `{ tableMode: 'progressive', codeBlockMode: 'progressive' }` | Both     |
 
 #### `tableMode`
 
@@ -297,6 +328,15 @@ Controls how incomplete (still-streaming) tables are rendered:
   streamingConfig={{ tableMode: 'hidden' }}
 />
 ```
+
+#### `codeBlockMode`
+
+Controls how a fenced code block whose closing fence has not arrived yet is rendered:
+
+- **`'progressive'`** (default): The code streams in line-by-line with its header (language label + copy button) visible but non-interactive — copying is disabled until the block completes. Syntax highlighting is deferred until the closing fence arrives, so it applies once instead of flickering on every token.
+- **`'hidden'`**: The entire code block is hidden until its closing fence arrives, then it appears complete (the same all-or-nothing behavior block math uses).
+
+Both modes only take effect when `streamingAnimation` is `true`.
 
 ### `spoilerOverlay`
 
@@ -1022,6 +1062,10 @@ Inserts a link with the given text and URL at the current cursor position. Usefu
 ### `removeLink()`
 
 Removes the link from the current selection.
+
+### `insertText(text: string)`
+
+Parses the given string as Markdown and inserts it literally at the current cursor position, replacing the selection if there is one. Leading and trailing newlines are preserved, so wrap block content (lists, headings) in newlines to keep it on its own lines when inserting mid-paragraph — `insertText('\n- item\n')` in the middle of `test` yields `te`, a `- item` bullet, and `st` on separate lines. Calling it with an empty string is a no-op.
 
 ### `copyToClipboard()`
 

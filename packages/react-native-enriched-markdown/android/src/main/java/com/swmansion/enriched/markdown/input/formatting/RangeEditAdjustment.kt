@@ -25,16 +25,30 @@ internal object RangeEditAdjustment {
    * characters at [editLocation] with [insertedLength] characters. Ranges
    * deleted outright or clipped to zero length are removed.
    *
-   * Insert-only edits at exactly `range.start` or `range.end` do NOT grow the
-   * range — the typed characters stay outside it. Whether boundary text joins
-   * the range is decided elsewhere: pending styles for inline ranges, line
-   * re-normalization for block ranges.
+   * Insert-only edits at exactly `range.end` do NOT grow the range — the typed
+   * characters stay outside it. An insert at exactly `range.start` grows the
+   * range only when [growsAtStartOnInsert] returns true; otherwise the range
+   * shifts and the typed characters stay outside it. Whether boundary text
+   * otherwise joins the range is decided elsewhere: pending styles for inline
+   * ranges, line re-normalization for block ranges.
+   *
+   * [inheritsReplacementAtStart]: when it returns true for a range whose start
+   * is the edit location, replacement text joins the range (UIKit attribute
+   * inheritance); when false, the old clip/remove behavior applies.
+   *
+   * [growsAtStartOnInsert]: when it returns true, a pure insert at `range.start`
+   * grows the range to cover the inserted text instead of shifting the range
+   * past it. Block ranges own their whole line, so a character typed at the line
+   * start must keep the line's block; inline styles must NOT set this (a
+   * character typed before a bold run must not become bold).
    */
-  fun adjustForEdit(
-    ranges: MutableList<out MutableRangeBounds>,
+  fun <T : MutableRangeBounds> adjustForEdit(
+    ranges: MutableList<T>,
     editLocation: Int,
     deletedLength: Int,
     insertedLength: Int,
+    inheritsReplacementAtStart: (T) -> Boolean = { false },
+    growsAtStartOnInsert: (T) -> Boolean = { false },
   ) {
     if (deletedLength == 0 && insertedLength == 0) return
 
@@ -43,6 +57,8 @@ internal object RangeEditAdjustment {
 
     for ((idx, range) in ranges.withIndex()) {
       if (deletedLength > 0) {
+        val inheritsReplacement =
+          insertedLength > 0 && range.start == editLocation && inheritsReplacementAtStart(range)
         when (classifyOverlap(range.start, range.end, editLocation, deleteEnd)) {
           EditOverlap.BEFORE_EDIT -> { /* no change */ }
 
@@ -52,7 +68,12 @@ internal object RangeEditAdjustment {
           }
 
           EditOverlap.FULLY_DELETED -> {
-            indexesToRemove.add(idx)
+            if (inheritsReplacement) {
+              range.start = editLocation
+              range.end = editLocation + insertedLength
+            } else {
+              indexesToRemove.add(idx)
+            }
           }
 
           EditOverlap.DELETED_INSIDE -> {
@@ -68,15 +89,23 @@ internal object RangeEditAdjustment {
 
           EditOverlap.CLIPPED_START -> {
             val charsClipped = deleteEnd - range.start
-            val newStart = editLocation + insertedLength
-            val oldLength = range.end - range.start
-            range.start = newStart
-            range.end = newStart + oldLength - charsClipped
-            if (range.end - range.start == 0) indexesToRemove.add(idx)
+            val survivingLength = range.end - range.start - charsClipped
+            if (inheritsReplacement) {
+              range.start = editLocation
+              range.end = editLocation + insertedLength + survivingLength
+            } else {
+              range.start = editLocation + insertedLength
+              range.end = range.start + survivingLength
+              if (survivingLength == 0) indexesToRemove.add(idx)
+            }
           }
         }
       } else {
         when {
+          range.start == editLocation && growsAtStartOnInsert(range) -> {
+            range.end += insertedLength
+          }
+
           range.start >= editLocation -> {
             range.start += insertedLength
             range.end += insertedLength

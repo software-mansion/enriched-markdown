@@ -9,7 +9,7 @@ extern "C" {
 typedef struct EMCParseResult EMCParseResult;
 
 EMCParseResult *em_parse_markdown(const char *markdown, int underline, int latexMath, int superscript, int subscript,
-                                  int highlight, int permissiveAutolinks);
+                                  int highlight, int hardSoftBreaks, int permissiveAutolinks);
 
 void em_parse_result_release(EMCParseResult *result);
 

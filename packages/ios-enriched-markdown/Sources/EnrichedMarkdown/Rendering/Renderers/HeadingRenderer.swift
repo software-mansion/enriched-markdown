@@ -35,6 +35,12 @@ final class HeadingRenderer: NodeRenderer {
 
         guard output.length > start else { return }
 
+        output.addAttribute(
+            MarkdownAttribute.headingLevel,
+            value: level,
+            range: NSRange(location: contentStart, length: output.length - contentStart)
+        )
+
         let range = NSRange(location: start, length: output.length - start)
 
         if let lineHeight = headingStyle.lineHeight {

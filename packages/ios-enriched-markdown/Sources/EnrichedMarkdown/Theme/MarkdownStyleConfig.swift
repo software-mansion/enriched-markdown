@@ -267,6 +267,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var link: ElementStyle
     public var strong: ElementStyle
     public var emphasis: ElementStyle
+    public var strikethrough: ElementStyle
+    public var underline: ElementStyle
     public var code: ElementStyle
     public var image: ImageStyle
     public var inlineImage: InlineImageStyle
@@ -286,6 +288,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         link: ElementStyle = ElementStyle(),
         strong: ElementStyle = ElementStyle(),
         emphasis: ElementStyle = ElementStyle(),
+        strikethrough: ElementStyle = ElementStyle(),
+        underline: ElementStyle = ElementStyle(),
         code: ElementStyle = ElementStyle(),
         image: ImageStyle = ImageStyle(),
         inlineImage: InlineImageStyle = InlineImageStyle(),
@@ -304,6 +308,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.link = link
         self.strong = strong
         self.emphasis = emphasis
+        self.strikethrough = strikethrough
+        self.underline = underline
         self.code = code
         self.image = image
         self.inlineImage = inlineImage
@@ -324,6 +330,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         link.merge(other.link)
         strong.merge(other.strong)
         emphasis.merge(other.emphasis)
+        strikethrough.merge(other.strikethrough)
+        underline.merge(other.underline)
         code.merge(other.code)
         image.merge(other.image)
         inlineImage.merge(other.inlineImage)

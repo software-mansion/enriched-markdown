@@ -4,6 +4,9 @@ import UIKit
 @MainActor
 final class MarkdownRenderStore: ObservableObject {
     @Published private(set) var attributedText = NSAttributedString()
+    // Published together with `attributedText` so consumers never pair a new
+    // markdown string with a stale render result.
+    @Published private(set) var sourceMarkdown: String?
 
     private let coordinator = AsyncRenderCoordinator()
 
@@ -14,6 +17,7 @@ final class MarkdownRenderStore: ObservableObject {
     ) {
         if isBlank(markdown) {
             attributedText = NSAttributedString()
+            sourceMarkdown = nil
             return
         }
 
@@ -21,6 +25,7 @@ final class MarkdownRenderStore: ObservableObject {
             MarkdownRenderer.render(markdown, config: config, flags: flags)
         } apply: { [weak self] result in
             self?.attributedText = result
+            self?.sourceMarkdown = markdown
         }
     }
 

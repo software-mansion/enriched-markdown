@@ -155,11 +155,107 @@ static NSString *ENRMRemovePendingStreamingTableBlock(NSString *markdown, NSArra
   return result;
 }
 
-NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStreamingMode tableMode)
+static NSString *ENRMRemovePendingTablesAndMath(NSString *markdown, ENRMTableStreamingMode tableMode,
+                                                NSArray<NSString *> *lines)
 {
-  NSArray<NSString *> *lines = [markdown componentsSeparatedByString:@"\n"];
+  if (!lines) {
+    lines = [markdown componentsSeparatedByString:@"\n"];
+  }
   NSString *afterMath = ENRMRemovePendingStreamingMathBlock(markdown, lines);
   NSArray<NSString *> *linesForTable =
       (afterMath.length == markdown.length) ? lines : [afterMath componentsSeparatedByString:@"\n"];
   return ENRMRemovePendingStreamingTableBlock(afterMath, linesForTable, tableMode);
+}
+
+// Parses a fence marker into char/length/info; NO if the line isn't one.
+static BOOL ENRMParseFenceMarker(NSString *line, unichar *outChar, NSUInteger *outLength, NSString **outInfo)
+{
+  NSUInteger i = 0;
+  while (i < line.length && [line characterAtIndex:i] == ' ' && i < 3) {
+    i++;
+  }
+  if (i >= line.length) {
+    return NO;
+  }
+  unichar ch = [line characterAtIndex:i];
+  if (ch != '`' && ch != '~') {
+    return NO;
+  }
+  NSUInteger runLength = 0;
+  while (i < line.length && [line characterAtIndex:i] == ch) {
+    i++;
+    runLength++;
+  }
+  if (runLength < 3) {
+    return NO;
+  }
+  NSString *info = [line substringFromIndex:i];
+  if (ch == '`' && [info rangeOfString:@"`"].location != NSNotFound) {
+    return NO;
+  }
+  if (outChar) {
+    *outChar = ch;
+  }
+  if (outLength) {
+    *outLength = runLength;
+  }
+  if (outInfo) {
+    *outInfo = info;
+  }
+  return YES;
+}
+
+static NSInteger ENRMFindOpenCodeFenceLineIndex(NSArray<NSString *> *lines)
+{
+  NSInteger openIndex = -1;
+  unichar openChar = 0;
+  NSUInteger openLength = 0;
+  for (NSUInteger i = 0; i < lines.count; i++) {
+    unichar ch = 0;
+    NSUInteger length = 0;
+    NSString *info = nil;
+    BOOL isMarker = ENRMParseFenceMarker(lines[i], &ch, &length, &info);
+    if (openIndex == -1) {
+      if (isMarker) {
+        openIndex = (NSInteger)i;
+        openChar = ch;
+        openLength = length;
+      }
+    } else if (isMarker && ch == openChar && length >= openLength &&
+               [info stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]].length == 0) {
+      openIndex = -1;
+    }
+  }
+  return openIndex;
+}
+
+NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStreamingMode tableMode,
+                                             ENRMCodeBlockStreamingMode codeBlockMode, BOOL *outEndsInsideOpenCodeFence)
+{
+  NSArray<NSString *> *lines = [markdown componentsSeparatedByString:@"\n"];
+  NSInteger openFenceIndex = ENRMFindOpenCodeFenceLineIndex(lines);
+
+  if (openFenceIndex == -1) {
+    if (outEndsInsideOpenCodeFence) {
+      *outEndsInsideOpenCodeFence = NO;
+    }
+    return ENRMRemovePendingTablesAndMath(markdown, tableMode, lines);
+  }
+
+  NSUInteger *offsets = ENRMBuildLineOffsets(lines, lines.count);
+  NSUInteger fenceOffset = offsets[(NSUInteger)openFenceIndex];
+  free(offsets);
+
+  NSString *head = [markdown substringToIndex:fenceOffset];
+  if (codeBlockMode == ENRMCodeBlockStreamingModeHidden) {
+    if (outEndsInsideOpenCodeFence) {
+      *outEndsInsideOpenCodeFence = NO;
+    }
+    return ENRMRemovePendingTablesAndMath(head, tableMode, nil);
+  }
+  if (outEndsInsideOpenCodeFence) {
+    *outEndsInsideOpenCodeFence = YES;
+  }
+  NSString *tail = [markdown substringFromIndex:fenceOffset];
+  return [ENRMRemovePendingTablesAndMath(head, tableMode, nil) stringByAppendingString:tail];
 }

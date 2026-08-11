@@ -12,6 +12,7 @@ export type {
   LinkPressEvent,
   LinkLongPressEvent,
   TaskListItemPressEvent,
+  CopyPressEvent,
 } from './types/events';
 export type {
   AccessibilityLabels,

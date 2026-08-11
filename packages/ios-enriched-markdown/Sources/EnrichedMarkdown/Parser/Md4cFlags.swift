@@ -4,6 +4,7 @@ public struct Md4cFlags: Sendable, Equatable {
     public var superscript: Bool
     public var `subscript`: Bool
     public var highlight: Bool
+    public var hardSoftBreaks: Bool
     public var permissiveAutolinks: Bool
 
     public init(
@@ -12,6 +13,7 @@ public struct Md4cFlags: Sendable, Equatable {
         superscript: Bool = false,
         subscript subscriptEnabled: Bool = false,
         highlight: Bool = false,
+        hardSoftBreaks: Bool = false,
         permissiveAutolinks: Bool = true
     ) {
         self.underline = underline
@@ -19,6 +21,7 @@ public struct Md4cFlags: Sendable, Equatable {
         self.superscript = superscript
         self.subscript = subscriptEnabled
         self.highlight = highlight
+        self.hardSoftBreaks = hardSoftBreaks
         self.permissiveAutolinks = permissiveAutolinks
     }
 

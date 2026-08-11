@@ -116,7 +116,14 @@ class BlockStore {
         it.type in BlockType.ANCHORED && it.start >= editLocation && it.end == deleteEnd
       }
 
-    RangeEditAdjustment.adjustForEdit(ranges, editLocation, deletedLength, insertedLength)
+    RangeEditAdjustment.adjustForEdit(
+      ranges,
+      editLocation,
+      deletedLength,
+      insertedLength,
+      inheritsReplacementAtStart = { true },
+      growsAtStartOnInsert = { true },
+    )
 
     for (anchor in anchors) {
       when {
@@ -134,7 +141,7 @@ class BlockStore {
       ranges.add(sortedInsertionIndex(ranges, anchor.start), anchor)
     }
 
-    if (collapsed != null) {
+    if (collapsed != null && collapsed !in ranges) {
       ranges.add(
         sortedInsertionIndex(ranges, editLocation),
         BlockRange(collapsed.type, editLocation, editLocation, collapsed.level),

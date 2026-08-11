@@ -67,6 +67,16 @@ const argTypes = {
     control: 'color',
     description: 'markdownStyle.blockquote.backgroundColor',
   },
+  borderRadius: numberControl('markdownStyle.blockquote.borderRadius', {
+    min: 0,
+    max: 16,
+    step: 1,
+  }),
+  padding: numberControl('markdownStyle.blockquote.padding', {
+    min: 0,
+    max: 32,
+    step: 2,
+  }),
 };
 
 function renderBlockquote(

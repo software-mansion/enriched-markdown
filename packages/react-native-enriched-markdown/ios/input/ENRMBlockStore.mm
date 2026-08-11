@@ -157,7 +157,9 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
       continue;
     }
 
-    ENRMAdjustedRange adjusted = ENRMAdjustRangeForEdit(blockRange.range, editLocation, deletedLength, insertedLength);
+    ENRMAdjustedRange adjusted = ENRMAdjustRangeForEdit(blockRange.range, editLocation, deletedLength, insertedLength,
+                                                        /* inheritsReplacementAtStart */ YES,
+                                                        /* growsAtStartOnInsert */ YES);
     if (adjusted.shouldRemove) {
       // A persisting block deleted exactly to its end collapses to a zero-length
       // anchor (the line's newline survived, so the line stays the block); a

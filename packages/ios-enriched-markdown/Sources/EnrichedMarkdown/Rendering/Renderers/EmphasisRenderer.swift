@@ -16,6 +16,8 @@ final class EmphasisRenderer: NodeRenderer {
         let range = RenderContext.rangeForRenderedContent(in: output, start: start)
         guard range.length > 0 else { return }
 
+        output.addAttribute(MarkdownAttribute.emphasis, value: true, range: range)
+
         let blockStyle = context.getBlockStyle()
         let blockColor = blockStyle?.color ?? UIColor.label
         let emphasisColor = config.emphasis.foregroundColor

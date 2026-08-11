@@ -25,6 +25,25 @@ def getExtOrIntegerDefault(name) {
 
 def enableMath = (rootProject.findProperty("enrichedMarkdown.enableMath") ?: findProperty("enrichedMarkdown.enableMath") ?: "true").toString().toBoolean()
 
+// Default grammar set derived from the single source of truth,
+// vendor/grammar-versions.json (every grammar with default:true), so the compiled
+// grammars always match the registry gen-registry generates from the same
+// manifest. Resolved in both layouts like gen-registry.mjs below:
+// "../../../vendor" in the monorepo, "../cpp/highlight" when published.
+def grammarManifest = [
+  new File(projectDir, "../../../vendor/grammar-versions.json"),
+  new File(projectDir, "../cpp/highlight/grammar-versions.json"),
+].find { it.exists() }
+if (grammarManifest == null) {
+  throw new GradleException("[code-highlight] grammar-versions.json not found; cannot resolve the default language set. Build from the monorepo or a published tarball.")
+}
+def defaultCodeHighlightLanguages = new groovy.json.JsonSlurper().parse(grammarManifest)
+  .grammars.findAll { id, spec -> spec['default'] }.collect { id, spec -> id }
+def enableCodeHighlight = (rootProject.findProperty("enrichedMarkdown.enableCodeHighlight") ?: findProperty("enrichedMarkdown.enableCodeHighlight") ?: "true").toString().toBoolean()
+def codeHighlightLanguagesProp = rootProject.findProperty("enrichedMarkdown.codeHighlightLanguages") ?: findProperty("enrichedMarkdown.codeHighlightLanguages")
+def codeHighlightLanguages = codeHighlightLanguagesProp ? codeHighlightLanguagesProp.toString().split(",").collect { it.trim() }.findAll { it } : defaultCodeHighlightLanguages
+def codeHighlightActive = enableCodeHighlight && !codeHighlightLanguages.isEmpty()
+
 android {
   namespace "com.swmansion.enriched.markdown"
 
@@ -35,6 +54,7 @@ android {
     targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
     consumerProguardFiles "consumer-rules.pro"
     buildConfigField "boolean", "ENABLE_MATH", "${enableMath}"
+    buildConfigField "boolean", "ENABLE_CODE_HIGHLIGHT", "${codeHighlightActive}"
   }
 
   buildFeatures {
@@ -67,6 +87,54 @@ android {
       }
     }
   }
+}
+
+// Code-block syntax highlighting (tree-sitter) native wiring. This module owns
+// no externalNativeBuild block: RN autolinking compiles src/main/jni/CMakeLists.txt
+// as part of the consumer app's native build, so the app -- not this library --
+// owns the CMake arguments. The enable flag + selected grammars therefore reach
+// CMake through a config file written here during configuration (before any
+// native build task runs) and include()d by CMakeLists.txt.
+def highlightConfigDir = new File(projectDir, "build/generated/highlight")
+highlightConfigDir.mkdirs()
+def highlightConfigFile = new File(highlightConfigDir, "highlight-config.cmake")
+if (codeHighlightActive) {
+  def vendorDir = new File(projectDir, "../cpp/highlight/vendor").canonicalPath
+  def committedGenerated = new File(vendorDir, "generated")
+  def generatedDir
+  if (codeHighlightLanguages.toSorted() == defaultCodeHighlightLanguages.toSorted() && committedGenerated.exists()) {
+    // Common case: the committed default-set registry ships in-tree, no codegen.
+    generatedDir = committedGenerated
+  } else {
+    // Custom language set: regenerate the registry from the vendored .scm files.
+    generatedDir = new File(highlightConfigDir, "generated")
+    generatedDir.mkdirs()
+    def genScript = [
+      new File(projectDir, "../../../vendor/gen-registry.mjs"),
+      new File(projectDir, "../cpp/highlight/gen-registry.mjs"),
+    ].find { it.exists() }
+    if (genScript == null) {
+      throw new GradleException("enrichedMarkdown.codeHighlightLanguages is customized but vendor/gen-registry.mjs was not found. Use the default language set or build from the monorepo.")
+    }
+    // Run node directly via ProcessBuilder rather than Project.exec {}, which was
+    // removed in Gradle 9. Runs at configuration time (before the native build),
+    // and surfaces gen-registry's own stderr on failure.
+    def genCmd = ["node", genScript.canonicalPath, "--vendor-dir", vendorDir,
+                  "--languages", codeHighlightLanguages.join(","), "--out", generatedDir.canonicalPath]
+    def genProc = new ProcessBuilder(genCmd).redirectErrorStream(true).start()
+    def genOut = genProc.inputStream.text
+    def genExit = genProc.waitFor()
+    if (genExit != 0) {
+      throw new GradleException("[code-highlight] gen-registry.mjs failed (exit ${genExit}):\n${genOut}")
+    }
+  }
+  highlightConfigFile.text = """\
+set(ENRICHED_MARKDOWN_CODE_HIGHLIGHT ON)
+set(ENRICHED_MARKDOWN_HIGHLIGHT_LANGUAGES "${codeHighlightLanguages.join(';')}")
+set(ENRICHED_MARKDOWN_HIGHLIGHT_GENERATED_DIR "${generatedDir.canonicalPath}")
+"""
+} else {
+  highlightConfigFile.text = "set(ENRICHED_MARKDOWN_CODE_HIGHLIGHT OFF)\n"
 }
 
 repositories {

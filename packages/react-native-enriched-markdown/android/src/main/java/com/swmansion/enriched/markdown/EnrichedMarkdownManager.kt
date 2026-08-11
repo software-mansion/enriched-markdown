@@ -14,8 +14,10 @@ import com.facebook.react.viewmanagers.EnrichedMarkdownManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerInterface
 import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
+import com.swmansion.enriched.markdown.utils.common.emitCopyPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
@@ -59,6 +61,10 @@ class EnrichedMarkdownManager :
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
     }
 
+    view.setOnCopyPressCallback { code, language ->
+      emitCopyPress(view, code, language)
+    }
+
     return view
   }
 
@@ -81,7 +87,9 @@ class EnrichedMarkdownManager :
     view.cleanup()
     MeasurementStore.release(view.id)
     MeasurementStore.clearStreamingTableMode(view.id)
+    MeasurementStore.clearStreamingCodeBlockMode(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
+    MeasurementStore.clearFontScalingSettings(view.id)
   }
 
   override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any> = markdownEventTypeConstants()
@@ -208,6 +216,11 @@ class EnrichedMarkdownManager :
         else -> TableStreamingMode.PROGRESSIVE
       }
     view.tableStreamingMode = tableMode
+    view.codeBlockStreamingMode =
+      when (config?.getString("codeBlockMode")) {
+        "hidden" -> CodeBlockStreamingMode.HIDDEN
+        else -> CodeBlockStreamingMode.PROGRESSIVE
+      }
   }
 
   @ReactProp(name = "spoilerOverlay")

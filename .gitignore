@@ -92,6 +92,19 @@ web-build/
 **/ios/generated
 **/android/generated
 
+# Vendored tree-sitter sources (machine-generated C, ~178 MB total). Nothing here
+# is tracked: the runtime is fetched from the pinned GitHub release tarball, the
+# grammar parse tables come from the grammar devDependencies, and the default
+# registry is codegen'd from them. All three are restored by
+# vendor/vendor-grammars.mjs via the `prepare` hook (`yarn prepare`) and baked
+# into the npm tarball on prepack. See docs and vendor/grammar-versions.json.
+packages/core/cpp/highlight/vendor/tree-sitter/
+packages/core/cpp/highlight/vendor/grammars/
+packages/core/cpp/highlight/vendor/generated/
+# Registry for a custom ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES set (iOS); kept
+# out of the committed generated/ dir so a custom build never clobbers the default.
+packages/core/cpp/highlight/vendor/generated-custom/
+
 # React Native Nitro Modules
 nitrogen/
 

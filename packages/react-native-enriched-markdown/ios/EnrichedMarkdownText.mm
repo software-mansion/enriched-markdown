@@ -3,6 +3,7 @@
 #import "ContextMenuUtils.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMAsyncRenderCoordinator.h"
+#import "ENRMAtomicSize.h"
 #import "ENRMContextMenuTextView+macOS.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMMarkdownParser.h"
@@ -113,6 +114,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   NSWritingDirection _resolvedLayoutDirection;
 
   ENRMDirtyFlags _dirtyFlags;
+
+  ENRMAtomicSize _lastCommittedSize;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -128,6 +131,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   flags.subscript = props.subscript;
   flags.latexMath = props.latexMath;
   flags.highlight = props.highlight;
+  flags.hardSoftBreaks = props.hardSoftBreaks;
   return flags;
 }
 
@@ -141,6 +145,11 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     return CGSizeMake(maxWidth, defaultHeight);
   }
   return size;
+}
+
+- (CGSize)lastCommittedLayoutSize
+{
+  return _lastCommittedSize.load();
 }
 
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown
@@ -170,6 +179,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+
+  _lastCommittedSize.store(CGSizeMake(layoutMetrics.frame.size.width, layoutMetrics.frame.size.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -544,7 +555,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       newViewProps.md4cFlags.superscript != oldViewProps.md4cFlags.superscript ||
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
-      newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight) {
+      newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
+      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks) {
     _md4cFlags = [EnrichedMarkdownText flagsFromProps:newViewProps.md4cFlags];
     _forceHeightUpdateOnNextRender = YES;
     _dirtyFlags |= ENRMDirtyRender;

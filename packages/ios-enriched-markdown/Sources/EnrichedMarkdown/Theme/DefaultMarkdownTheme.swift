@@ -51,6 +51,8 @@ enum DefaultMarkdownTheme {
 
             Strong()
             Emphasis()
+            Strikethrough()
+            Underline()
 
             Code()
                 .fontDesign(.monospaced)

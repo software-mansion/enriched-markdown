@@ -12,12 +12,17 @@ import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
 import android.text.style.MetricAffectingSpan
 import androidx.core.graphics.withSave
-import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
 import com.swmansion.enriched.markdown.styles.CodeBlockStyle
-import com.swmansion.enriched.markdown.utils.text.extensions.applyBlockStyleFont
+import com.swmansion.enriched.markdown.utils.text.extensions.applyCodeBlockTextStyle
 import com.swmansion.enriched.markdown.utils.text.extensions.applyColorPreserving
 
+/**
+ * Draws the commonmark-flavor code block box as per-line strips. The visual
+ * conventions (half-stroke border inset, radius reduced by that inset) must
+ * stay in sync with the whole-rect box the github flavor draws in
+ * CodeBlockContainerView.
+ */
 class CodeBlockSpan(
   private val codeBlockStyle: CodeBlockStyle,
   private val context: Context,
@@ -26,14 +31,6 @@ class CodeBlockSpan(
 ) : MetricAffectingSpan(),
   LineBackgroundSpan,
   LeadingMarginSpan {
-  private val blockStyle =
-    BlockStyle(
-      fontSize = codeBlockStyle.fontSize,
-      fontFamily = codeBlockStyle.fontFamily,
-      fontWeight = codeBlockStyle.fontWeight,
-      color = codeBlockStyle.color,
-    )
-
   private val path = Path()
   private val rect = RectF()
   private val arcRect = RectF()
@@ -189,10 +186,8 @@ class CodeBlockSpan(
   }
 
   private fun applyTextStyle(tp: TextPaint) {
-    tp.textSize = blockStyle.fontSize
+    tp.applyCodeBlockTextStyle(codeBlockStyle, context)
 
-    tp.applyBlockStyleFont(blockStyle, context)
-
-    tp.applyColorPreserving(blockStyle.color, *styleCache.colorsToPreserve)
+    tp.applyColorPreserving(codeBlockStyle.color, *styleCache.colorsToPreserve)
   }
 }

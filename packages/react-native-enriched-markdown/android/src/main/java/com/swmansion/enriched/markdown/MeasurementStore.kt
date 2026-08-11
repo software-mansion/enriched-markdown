@@ -19,6 +19,7 @@ import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.utils.common.RenderedSegment
@@ -31,6 +32,7 @@ import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.splitASTIntoSegments
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.views.CodeBlockContainerView
 import com.swmansion.enriched.markdown.views.TableContainerView
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
@@ -68,6 +70,8 @@ object MeasurementStore {
   private val breakStrategies = ConcurrentHashMap<Int, String>()
 
   private val streamingTableModes = ConcurrentHashMap<Int, TableStreamingMode>()
+
+  private val streamingCodeBlockModes = ConcurrentHashMap<Int, CodeBlockStreamingMode>()
 
   private fun resolveFontScalingSettings(
     viewId: Int?,
@@ -192,6 +196,17 @@ object MeasurementStore {
     streamingTableModes.remove(viewId)
   }
 
+  fun updateStreamingCodeBlockMode(
+    viewId: Int,
+    mode: CodeBlockStreamingMode,
+  ) {
+    streamingCodeBlockModes[viewId] = mode
+  }
+
+  fun clearStreamingCodeBlockMode(viewId: Int) {
+    streamingCodeBlockModes.remove(viewId)
+  }
+
   private fun getMeasureByIdInternal(
     context: Context,
     id: Int?,
@@ -304,6 +319,7 @@ object MeasurementStore {
         superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
         subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
+        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
       )
 
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -358,9 +374,17 @@ object MeasurementStore {
       } else {
         TableStreamingMode.PROGRESSIVE
       }
+    val codeBlockMode =
+      if (isStreaming) {
+        id?.let {
+          streamingCodeBlockModes[it]
+        } ?: CodeBlockStreamingMode.PROGRESSIVE
+      } else {
+        CodeBlockStreamingMode.PROGRESSIVE
+      }
     val markdown =
       if (isStreaming) {
-        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode)
+        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode, codeBlockMode).markdown
       } else {
         rawMarkdown
       }
@@ -386,6 +410,7 @@ object MeasurementStore {
         superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
         subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
+        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
       )
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -463,6 +488,15 @@ object MeasurementStore {
             maxContentWidthPx = width
             if (includeBottomMargin) {
               totalHeightPx += style.mathStyle.marginBottom
+            }
+          }
+
+          is RenderedSegment.CodeBlock -> {
+            totalHeightPx += style.codeBlockStyle.marginTop
+            totalHeightPx += CodeBlockContainerView.measureCodeBlockNodeHeight(segment.node, style, context, width)
+            maxContentWidthPx = width
+            if (includeBottomMargin) {
+              totalHeightPx += style.codeBlockStyle.marginBottom
             }
           }
         }

@@ -35,9 +35,7 @@ public:
 private:
   int localHeightRecalculationCounter_{0};
   mutable int lastExactMeasurementCounter_{0};
-
-  // Creates mock view off-screen for initial measurement when real view doesn't exist
-  id setupMockEnrichedMarkdown_(CGFloat width) const;
+  mutable CGSize lastExactMeasurementSize_{0, 0};
 };
 
 } // namespace facebook::react
