@@ -11,7 +11,7 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline)
 - All `markdownStyle` customisation options
 - `onLinkPress`, `onLinkLongPress` (mapped to `contextmenu` event), `onTaskListItemPress` callbacks
-- `enableTaskListItemToggle` — set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance and is marked `readOnly` / `aria-disabled` rather than `disabled`, matching iOS and Android. It is also made pointer-inert (`pointer-events: none`), so the browser paints no hover or active state on a checkbox that cannot be toggled
+- `enableTaskListItemToggle` — set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and pointer-inert rather than `disabled`, matching iOS and Android
 - `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`)
 - RTL support via the `dir` prop (CSS logical properties automatically flip blockquote borders, list indentation, etc.)
 
