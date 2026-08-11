@@ -58,6 +58,9 @@ struct PlaygroundScreen: View {
                     ) {
                         acceptImageType = acceptImageType == "image/png" ? "image/jpeg" : "image/png"
                     }
+                    PlaygroundButton(label: "Insert Data URI Image", accessibilityId: "insert-data-uri-image-button") {
+                        insertDataURIImage()
+                    }
                 }
 
                 setMarkdownButton
@@ -153,6 +156,19 @@ struct PlaygroundScreen: View {
     private func insertInlineImage() {
         guard let uri = inlineImageURI else { return }
         markdown = "Enriched Markdown is a library for ![icon](\(uri)) React Native."
+    }
+
+    private func insertDataURIImage() {
+        guard
+            let url = Bundle.main.url(forResource: "logo_icon", withExtension: "png"),
+            let data = try? Data(contentsOf: url)
+        else { return }
+        let imageMarkdown = "Rendered from a data URI: ![data uri icon](data:image/png;base64,\(data.base64EncodedString()))"
+        if markdown.isEmpty {
+            markdown = imageMarkdown
+        } else {
+            markdown += "\n\n\(imageMarkdown)"
+        }
     }
 
     // httpbingo.org negotiates the response image from the Accept header (and

@@ -47,6 +47,15 @@ final class ImageDownloader: ImageDownloading {
         inFlightRequests[requestKey] = [completion]
         lock.unlock()
 
+        let scheme = URLComponents(string: url)?.scheme?.lowercased()
+        guard scheme == "http" || scheme == "https" else {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let image = LocalImageLoader.load(url)
+                self?.cacheAndDispatch(image, for: requestKey)
+            }
+            return
+        }
+
         guard let requestURL = URL(string: url) else {
             dispatchCallbacks(for: requestKey, image: nil)
             return
@@ -58,16 +67,20 @@ final class ImageDownloader: ImageDownloading {
         }
 
         session.dataTask(with: request) { [weak self] data, _, error in
-            let image = (data != nil && error == nil) ? UIImage(data: data!) : nil
-            if let image {
-                MarkdownImageAttachment.originalImageCache.setObject(
-                    image,
-                    forKey: requestKey as NSString,
-                    cost: Self.byteCost(for: image)
-                )
-            }
-            self?.dispatchCallbacks(for: requestKey, image: image)
+            let image = (data != nil && error == nil) ? data.flatMap { ImageDecoder.decodeDownsampled($0) } : nil
+            self?.cacheAndDispatch(image, for: requestKey)
         }.resume()
+    }
+
+    private func cacheAndDispatch(_ image: UIImage?, for requestKey: String) {
+        if let image {
+            MarkdownImageAttachment.originalImageCache.setObject(
+                image,
+                forKey: requestKey as NSString,
+                cost: Self.byteCost(for: image)
+            )
+        }
+        dispatchCallbacks(for: requestKey, image: image)
     }
 
     private func dispatchCallbacks(for requestKey: String, image: UIImage?) {
