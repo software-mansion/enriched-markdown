@@ -11,6 +11,8 @@ struct PlaygroundScreen: View {
     @State private var rawInput: String = ""
     @State private var blockImageURI: String?
     @State private var inlineImageURI: String?
+    @State private var longPressedLink: String = ""
+    @State private var linkAlertVisible: Bool = false
 
     // MARK: - Views
 
@@ -55,6 +57,15 @@ struct PlaygroundScreen: View {
         .markdownSelectionMenu(MarkdownSelectionMenuConfig())
         .markdownSelectable(selectableEnabled)
         .markdownSelectionColor(.orange)
+        .onLinkLongPress { url in
+            longPressedLink = url.absoluteString
+            linkAlertVisible = true
+        }
+        .alert("Link long-pressed", isPresented: $linkAlertVisible) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(longPressedLink)
+        }
         .onAppear(perform: loadBundledImages)
         .sheet(isPresented: $setMarkdownSheetVisible) {
             SetMarkdownSheet(

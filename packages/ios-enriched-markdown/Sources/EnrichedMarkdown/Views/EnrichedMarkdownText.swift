@@ -9,6 +9,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.markdownLinkPressHandler) private var onLinkPress
+    @Environment(\.markdownLinkLongPressHandler) private var onLinkLongPress
     @Environment(\.markdownSelectionMenu) private var selectionMenuConfig
     @Environment(\.markdownSelectable) private var isSelectionEnabled
     @Environment(\.markdownSelectionColor) private var selectionColor
@@ -33,6 +34,7 @@ public struct EnrichedMarkdownText: View {
             sourceMarkdown: renderStore.sourceMarkdown,
             styleConfig: styleConfig,
             onLinkPress: onLinkPress,
+            onLinkLongPress: onLinkLongPress,
             selectionMenuConfig: selectionMenuConfig,
             isSelectionEnabled: isSelectionEnabled,
             selectionColor: selectionColor

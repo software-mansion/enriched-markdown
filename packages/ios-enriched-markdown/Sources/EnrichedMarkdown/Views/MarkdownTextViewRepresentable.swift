@@ -6,6 +6,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let sourceMarkdown: String?
     let styleConfig: MarkdownStyleConfig
     let onLinkPress: ((URL) -> Void)?
+    let onLinkLongPress: ((URL) -> Void)?
     let selectionMenuConfig: MarkdownSelectionMenuConfig
     let isSelectionEnabled: Bool
     let selectionColor: Color?
@@ -23,6 +24,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 
     func updateUIView(_ textView: MarkdownTextView, context: Context) {
         context.coordinator.onLinkPress = onLinkPress
+        context.coordinator.onLinkLongPress = onLinkLongPress
         context.coordinator.sourceMarkdown = sourceMarkdown
         context.coordinator.selectionMenuConfig = selectionMenuConfig
         textView.styleConfig = styleConfig
@@ -44,20 +46,70 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var onLinkPress: ((URL) -> Void)?
+        var onLinkLongPress: ((URL) -> Void)?
         var sourceMarkdown: String?
         var selectionMenuConfig = MarkdownSelectionMenuConfig()
 
+        /// Routes a link tap; returns true when a handler consumed it.
+        func handleLinkPress(_ url: URL) -> Bool {
+            guard let onLinkPress else { return false }
+            onLinkPress(url)
+            return true
+        }
+
+        /// Routes a link long-press; returns true when a handler consumed it.
+        /// Without a long-press handler, a press handler consumes every link
+        /// interaction (pre-existing behavior: suppresses the system
+        /// menu/preview and fires the press).
+        func handleLinkLongPress(_ url: URL) -> Bool {
+            if let onLinkLongPress {
+                onLinkLongPress(url)
+                return true
+            }
+            return handleLinkPress(url)
+        }
+
+        // iOS 15–16 (and 17+ fallback when the UITextItem methods are
+        // unavailable): tap arrives as .invokeDefaultAction, long-press as
+        // .presentActions or .preview.
         func textView(
             _ textView: UITextView,
             shouldInteractWith URL: URL,
             in characterRange: NSRange,
             interaction: UITextItemInteraction
         ) -> Bool {
-            if let onLinkPress {
-                onLinkPress(URL)
-                return false
+            switch interaction {
+            case .invokeDefaultAction:
+                return !handleLinkPress(URL)
+            case .presentActions, .preview:
+                return !handleLinkLongPress(URL)
+            @unknown default:
+                return true
             }
-            return true
+        }
+
+        @available(iOS 17.0, *)
+        func textView(
+            _ textView: UITextView,
+            primaryActionFor textItem: UITextItem,
+            defaultAction: UIAction
+        ) -> UIAction? {
+            guard case .link(let url) = textItem.content, let onLinkPress else {
+                return defaultAction
+            }
+            return UIAction { _ in onLinkPress(url) }
+        }
+
+        @available(iOS 17.0, *)
+        func textView(
+            _ textView: UITextView,
+            menuConfigurationFor textItem: UITextItem,
+            defaultMenu: UIMenu
+        ) -> UITextItem.MenuConfiguration? {
+            guard case .link(let url) = textItem.content else {
+                return UITextItem.MenuConfiguration(menu: defaultMenu)
+            }
+            return handleLinkLongPress(url) ? nil : UITextItem.MenuConfiguration(menu: defaultMenu)
         }
 
         @available(iOS 16.0, *)
