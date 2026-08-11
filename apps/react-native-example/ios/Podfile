@@ -1,9 +1,9 @@
 ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 
 # LaTeX math rendering (RaTeX). Set to '0' to disable and remove the dependency.
-# When enabled, dynamic frameworks are required for SPM interop.
+# RaTeX is a vendored prebuilt static XCFramework, so math works under CocoaPods
+# default static linkage -- no `use_frameworks! :linkage => :dynamic` required.
 # ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0'
-ENV['USE_FRAMEWORKS'] = 'dynamic' if ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] != '0'
 
 # Keep project default to full list of languages
 ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES'] = 'json,html,css,markdown,yaml,go,java,javascript,python,c,rust,bash,typescript,tsx,cpp,swift,php,ruby,c-sharp'

@@ -24,7 +24,12 @@ Pod::Spec.new do |s|
   header_paths = ['"$(PODS_TARGET_SRCROOT)/cpp/md4c"', '"$(PODS_TARGET_SRCROOT)/cpp/parser"', '"$(PODS_TARGET_SRCROOT)/cpp/highlight"']
   header_paths += code_highlight[:header_paths].map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }
 
+  # Define a clang module so the Swift-containing ReactNativeEnrichedMarkdown pod can
+  # depend on this pod under CocoaPods default static linkage without the consumer
+  # setting use_modular_headers!. (This dependency exists only in the monorepo; the
+  # published pod compiles this C++ in-tree, so real consumers never hit it.)
   s.pod_target_xcconfig = {
+    "DEFINES_MODULE" => "YES",
     "HEADER_SEARCH_PATHS" => header_paths.join(" "),
     "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) MD4C_USE_UTF8=1#{code_highlight[:defines]}",
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"

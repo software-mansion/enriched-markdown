@@ -105,6 +105,11 @@ packages/core/cpp/highlight/vendor/generated/
 # out of the committed generated/ dir so a custom build never clobbers the default.
 packages/core/cpp/highlight/vendor/generated-custom/
 
+# RaTeX (iOS LaTeX math): the prebuilt static XCFramework, RaTeX's four core Swift
+# sources, and the KaTeX fonts are restored from the pins in vendor/ratex-version.json
+# by vendor/vendor-ratex.mjs (via `prepare`) and baked into the npm tarball on prepack.
+packages/react-native-enriched-markdown/ios/vendor/
+
 # React Native Nitro Modules
 nitrogen/
 

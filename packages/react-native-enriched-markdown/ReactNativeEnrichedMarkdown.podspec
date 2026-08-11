@@ -32,32 +32,30 @@ Pod::Spec.new do |s|
   end
 
   # To disable LaTeX math rendering (RaTeX, iOS only), add ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0' to your Podfile.
-  # When math is enabled, consumers must use `use_frameworks! :linkage => :dynamic` (required for SPM interop).
+  # RaTeX ships as a prebuilt static XCFramework vendored under ios/vendor (restored by
+  # vendor/vendor-ratex.mjs); it links under CocoaPods default static linkage and needs
+  # neither `use_frameworks!` nor SPM interop.
   enable_math = ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] != '0'
 
-  # RaTeX is wired in through React Native's `spm_dependency` helper (SPM interop).
-  # On React Native versions that don't provide it, disable math entirely so the
-  # RaTeX-importing sources under ios/math are excluded from the build. Otherwise
-  # the failure would just move from `pod install` to a build-time
-  # "missing module 'RaTeX'" error.
-  if enable_math && !defined?(spm_dependency)
-    Pod::UI.warn '[ReactNativeEnrichedMarkdown] `spm_dependency` is unavailable in this ' \
-      'React Native version; disabling LaTeX math (RaTeX). Upgrade React Native to enable it.'
-    enable_math = false
-  end
-
-  unless enable_math
-    s.exclude_files = "ios/math/**/*.swift"
-  end
+  # The RaTeX XCFramework bundles its own module.modulemap and headers; never let the
+  # broad ios/**/*.h and ios/**/*.swift globs treat its internals as pod sources.
+  exclude = ["ios/vendor/RaTeX.xcframework/**/*"]
+  # ios/math holds the RaTeX bridge; ios/vendor/*.swift are RaTeX's vendored core Swift
+  # sources. Both compile into this pod's module only when math is enabled.
+  exclude += ["ios/math/**/*.swift", "ios/vendor/*.swift"] unless enable_math
+  s.exclude_files = exclude
 
   preprocessor_defs = "$(inherited) MD4C_USE_UTF8=1#{code_highlight[:defines]}"
   if enable_math
     preprocessor_defs += ' ENRICHED_MARKDOWN_MATH=1'
-    spm_dependency(s,
-      url: 'https://github.com/erweixin/RaTeX.git',
-      requirement: {kind: 'upToNextMajorVersion', minimumVersion: '0.1.12'},
-      products: ['RaTeX']
-    )
+    # Prebuilt static XCFramework (device + simulator[arm64,x86_64] + macOS). Vendored
+    # rather than pulled via spm_dependency, which compiled RaTeX's Swift wrapper per
+    # requested arch (breaking universal simulator builds, #527) and double-collected
+    # its XCFramework signature during archive assembly (#491).
+    s.vendored_frameworks = 'ios/vendor/RaTeX.xcframework'
+    # RaTeXFontLoader.loadFromCocoaPodsBundle() resolves "RaTeXCoreFonts.bundle" by name,
+    # so this resource-bundle name is load-bearing -- keep it exactly RaTeXCoreFonts.
+    s.resource_bundles = { 'RaTeXCoreFonts' => ['ios/vendor/Fonts/*.ttf'] }
   end
 
   pod_xcconfig = {
@@ -70,58 +68,13 @@ Pod::Spec.new do |s|
     'DEFINES_MODULE' => 'YES'
   }
 
-  # Detect Apple Silicon on the host running `pod install`. `sysctl hw.optional.arm64`
-  # reports the real hardware even under a Rosetta-translated Ruby, unlike `uname -m`.
-  apple_silicon = `sysctl -n hw.optional.arm64 2>/dev/null`.strip == '1'
-
-  if enable_math && apple_silicon
-    # RaTeX's Swift wrapper is compiled from SPM source, so its RaTeX.swiftmodule
-    # is emitted only for the arch(es) the build requests. Under ONLY_ACTIVE_ARCH
-    # on Apple Silicon that is arm64 only, but universal simulator builds (archive,
-    # "Any iOS Simulator Device", Release) also compile this pod for x86_64 and then
-    # fail with "could not find module 'RaTeX' for target 'x86_64-apple-ios-simulator'".
-    # Excluding x86_64 for the simulator keeps the pod and the app target arch sets in
-    # sync. Guarded to Apple Silicon so Intel Macs (which build x86_64 simulator slices)
-    # are unaffected; `$(inherited)` preserves exclusions from the user project / other pods.
-    pod_xcconfig['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = '$(inherited) x86_64'
-    s.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => '$(inherited) x86_64' }
-  end
-
+  # No EXCLUDED_ARCHS dance: the vendored simulator slice (ios-arm64_x86_64-simulator)
+  # already contains x86_64, so universal simulator builds resolve on both arches.
   s.pod_target_xcconfig = pod_xcconfig
 
-  if enable_math
-    # React Native's spm_dependency generates a module.modulemap at
-    # ${BUILT_PRODUCTS_DIR}/include/ that re-declares RaTeXFFI, but the RaTeX
-    # XCFramework already ships its own definition. Strip the duplicate to
-    # prevent "redefinition of module 'RaTeXFFI'" during compilation.
-    s.script_phases = [
-      {
-        name: 'Fix RaTeXFFI Module Redefinition',
-        script: <<~'SCRIPT',
-          # The shared module.modulemap lives in the platform build-products dir,
-          # one level above the per-target BUILT_PRODUCTS_DIR that CocoaPods sets.
-          MODULEMAP="${BUILT_PRODUCTS_DIR}/../include/module.modulemap"
-          [ -f "$MODULEMAP" ] || exit 0
-          sed -i '' -E '/^(framework )?module RaTeXFFI /,/^\}/d' "$MODULEMAP"
-        SCRIPT
-        execution_position: :before_compile
-      },
-      {
-        name: 'Dedupe RaTeX XCFramework Signature',
-        script: <<~'SCRIPT',
-          # Xcode 26 generates a .signature file for each signed XCFramework.
-          # When the RaTeX XCFramework is consumed via spm_dependency inside a
-          # CocoaPods target, both the SPM product and the pod target produce a
-          # copy. During archive assembly Xcode copies all signatures into a flat
-          # Signatures/ directory, and the second copy collides with the first.
-          # Removing the pod-target copy prevents the collision. This is a no-op
-          # on older Xcode versions or simulator builds where the file is absent.
-          rm -f "${CONFIGURATION_BUILD_DIR}/RaTeX.xcframework-ios.signature"
-        SCRIPT
-        execution_position: :after_compile
-      }
-    ]
-  end
+  # No script phases: vendoring a single prebuilt XCFramework means there is no
+  # spm_dependency-generated duplicate RaTeXFFI modulemap to strip, and only one
+  # signature is collected during archive assembly, so nothing collides.
 
   install_modules_dependencies(s)
 end

@@ -20,6 +20,11 @@ case "$mode" in
     # full vendored set. No-op when already up to date (stamp guards).
     node "$REPO_ROOT/vendor/vendor-grammars.mjs"
 
+    # Likewise restore the gitignored RaTeX vendor tree (prebuilt static XCFramework,
+    # core Swift sources, KaTeX fonts) so iOS math ships in the tarball. It lives under
+    # ios/vendor/, already inside the package, so it needs no extra copy step.
+    node "$REPO_ROOT/vendor/vendor-ratex.mjs"
+
     cd "$RN_PKG"
     rm -rf cpp
     mkdir -p cpp

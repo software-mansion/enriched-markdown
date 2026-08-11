@@ -91,14 +91,25 @@ ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0'
 This excludes **RaTeX** from the build. Rebuild the app after running `pod install`.
 
 > [!NOTE]
-> When math is **enabled** (the default), your Podfile must use dynamic frameworks:
-> ```ruby
-> use_frameworks! :linkage => :dynamic
-> ```
-> This is required for CocoaPods to resolve the RaTeX Swift Package dependency.
+> When math is **enabled** (the default), no special Podfile configuration is required.
+> RaTeX ships as a prebuilt static XCFramework vendored into the pod, so it links under
+> CocoaPods default static linkage — you do **not** need `use_frameworks!`. (Earlier
+> versions required `use_frameworks! :linkage => :dynamic` to resolve RaTeX as a Swift
+> Package; that is no longer the case.)
+
+> [!IMPORTANT]
+> **Upgrading from a version that used `use_frameworks! :linkage => :dynamic` for math?**
+> The pod changed from a dynamic framework to a static library. After `pod install`,
+> do a one-time clean build (Xcode: Product → Clean Build Folder, or delete the app's
+> DerivedData) — a stale build folder otherwise fails with
+> `ReactNativeEnrichedMarkdown.framework/Modules/module.modulemap not found`. Fresh
+> installs are unaffected.
 
 > [!NOTE]
-> **macOS**: LaTeX math is currently not supported on macOS because `react-native-macos` does not support `use_frameworks!` ([microsoft/react-native-macos#1969](https://github.com/microsoft/react-native-macos/issues/1969)). Math is automatically disabled in the macOS example app.
+> **macOS**: LaTeX math is not yet enabled on macOS and remains off in the macOS example
+> app. The previous blocker (`use_frameworks!` was required for the RaTeX Swift Package)
+> no longer applies now that RaTeX is a vendored XCFramework with a macOS slice, so macOS
+> support is a possible future follow-up.
 
 ### 3. Remove the native Android dependency
 
