@@ -27,6 +27,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         context.coordinator.onLinkLongPress = onLinkLongPress
         context.coordinator.sourceMarkdown = sourceMarkdown
         context.coordinator.selectionMenuConfig = selectionMenuConfig
+        textView.onLinkPress = onLinkPress
         textView.styleConfig = styleConfig
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
@@ -220,6 +221,25 @@ final class MarkdownTextView: UITextView {
         }
     }
 
+    /// Mirrored from the representable so VoiceOver link elements can invoke
+    /// the press handler via accessibilityActivate.
+    var onLinkPress: ((URL) -> Void)?
+
+    /// VoiceOver elements built from the attributed string; frames resolve
+    /// lazily against TextKit 2 layout. Empty (default UITextView behavior)
+    /// below iOS 16, where the decoration/text-layout stack is unavailable.
+    private var markdownAccessibilityElements: [UIAccessibilityElement] = []
+
+    override var accessibilityElements: [Any]? {
+        get { markdownAccessibilityElements.isEmpty ? super.accessibilityElements : markdownAccessibilityElements }
+        set { super.accessibilityElements = newValue }
+    }
+
+    override var isAccessibilityElement: Bool {
+        get { markdownAccessibilityElements.isEmpty ? super.isAccessibilityElement : false }
+        set { super.isAccessibilityElement = newValue }
+    }
+
     /// Gates the selection UI while keeping `isSelectable` on, so link taps
     /// keep working when selection is disabled. Selection requires first
     /// responder; link interaction does not.
@@ -280,7 +300,42 @@ final class MarkdownTextView: UITextView {
         invalidateIntrinsicContentSize()
         if #available(iOS 16.0, *) {
             setDecorationNeedsDisplay()
+            rebuildAccessibilityElements()
         }
+    }
+
+    @available(iOS 16.0, *)
+    private func rebuildAccessibilityElements() {
+        let specs = MarkdownAccessibilityElementBuilder.specs(for: attributedText ?? NSAttributedString())
+        markdownAccessibilityElements = specs.map { spec in
+            if case .link(let url) = spec.kind {
+                return MarkdownLinkAccessibilityElement(textView: self, spec: spec, url: url)
+            }
+            return MarkdownAccessibilityElement(textView: self, spec: spec)
+        }
+    }
+
+    /// Screen-coordinate frame for a character range, unioned over its
+    /// TextKit 2 layout fragments.
+    @available(iOS 16.0, *)
+    func accessibilityScreenFrame(for range: NSRange) -> CGRect {
+        guard let textLayoutManager,
+              let contentManager = textLayoutManager.textContentManager,
+              let textRange = TextLayoutHelpers.textRange(range, in: contentManager) else {
+            return .zero
+        }
+
+        textLayoutManager.ensureLayout(for: textRange)
+        var union = CGRect.null
+        textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { _, frame, _, _ in
+            union = union.union(frame)
+            return true
+        }
+        guard !union.isNull else { return .zero }
+
+        union.origin.x += textContainerInset.left
+        union.origin.y += textContainerInset.top
+        return UIAccessibility.convertToScreenCoordinates(union, in: self)
     }
 
     override func layoutSubviews() {
