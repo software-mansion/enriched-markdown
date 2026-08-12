@@ -27,10 +27,8 @@ public extension View {
         environment(\.markdownSelectable, isSelectable)
     }
 
-    /// Tint for the selection highlight, handles, and caret. UIKit derives
-    /// all three from a single tint, so this covers both Android's
-    /// `selectionColor` and `selectionHandleColor`. `nil` keeps the
-    /// system tint.
+    /// Tint for the selection highlight, handles, and caret — UIKit derives
+    /// all three from a single tint. `nil` keeps the system tint.
     func markdownSelectionColor(_ color: Color?) -> some View {
         environment(\.markdownSelectionColor, color)
     }

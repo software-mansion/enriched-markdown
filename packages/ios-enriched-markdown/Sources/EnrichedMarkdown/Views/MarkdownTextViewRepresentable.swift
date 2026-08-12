@@ -129,8 +129,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 
             // Recent iOS versions stop suggesting Select All for non-editable text
             // views, leaving no way to grow a long-press selection to the whole
-            // document; provide it ourselves when the system didn't (Android's
-            // selection menu always has it).
+            // document; provide it ourselves when the system didn't.
             // The system shows its own item only when the command is suggested AND
             // canPerformAction allows it; recent iOS returns false there for
             // non-editable text views, hiding Select All even though the command

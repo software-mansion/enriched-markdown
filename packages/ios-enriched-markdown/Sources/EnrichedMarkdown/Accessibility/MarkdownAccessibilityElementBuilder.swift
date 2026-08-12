@@ -15,15 +15,13 @@ struct MarkdownAccessibilityElementSpec: Equatable {
     let label: String
     /// Trimmed character range used for frame calculation.
     let range: NSRange
-    /// Spoken list context ("bullet point", "list item 2", "nested …"),
-    /// matching the Android package's TalkBack announcements.
+    /// Spoken list context ("bullet point", "list item 2", "nested …").
     let listAnnouncement: String?
 }
 
-/// Segments the rendered attributed string into VoiceOver elements the way
-/// Android's `MarkdownAccessibilityHelper` segments its Spanned: split into
-/// paragraphs, drop spacer-only paragraphs, and carve heading/link/image
-/// runs into their own elements with plain text between them.
+/// Segments the rendered attributed string into VoiceOver elements: split
+/// into paragraphs, drop spacer-only paragraphs, and carve heading/link/
+/// image runs into their own elements with plain text between them.
 enum MarkdownAccessibilityElementBuilder {
     /// Zero-width space (list marker anchors) and line separator join plain
     /// whitespace as "invisible" for trimming; U+FFFC attachment characters
@@ -143,8 +141,7 @@ enum MarkdownAccessibilityElementBuilder {
         case .link:
             guard let visible = trimmedRange(of: run.range, in: text) else { return }
             label = (text.string as NSString).substring(with: visible)
-            // Links announce their list context even mid-item (Android:
-            // requireStart is false for links).
+            // Links announce their list context even mid-item.
             announcement = listAnnouncement(in: text, at: run.range.location, requireStart: false)
         case .text:
             return
@@ -210,9 +207,9 @@ enum MarkdownAccessibilityElementBuilder {
         )
 
         if requireStart {
-            // Only the first segment of a list item announces its position
-            // (Android's requireStart rule): the item's first visible
-            // character must be at, or just before, this position. The item's
+            // Only the first segment of a list item announces its position:
+            // the item's first visible character must be at, or just before,
+            // this position. The item's
             // extent is where BOTH number and depth are constant — number
             // alone merges across nesting levels (outer item 1 / inner item
             // 1 are adjacent equal values), depth alone merges siblings.

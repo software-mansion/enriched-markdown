@@ -80,7 +80,7 @@ final class HeadingRenderer: NodeRenderer {
         UIFont.systemFont(ofSize: Self.defaultPointSize(for: level), weight: .regular)
     }
 
-    /// Matches Android `DefaultStyles` heading sizes and regular (400) weight.
+    /// Default heading sizes with regular (400) weight, consistent across platforms.
     private static func defaultPointSize(for level: Int) -> CGFloat {
         switch level {
         case 1: return 30

@@ -227,7 +227,7 @@ enum ParagraphStyleHelpers {
         output.append(spacer)
     }
 
-    /// Matches Android `LineHeightSpan` natural height: `(-ascent) + descent`.
+    /// Natural line height: `(-ascent) + descent`, consistent across platforms.
     private static func typographicLineHeight(for font: UIFont) -> CGFloat {
         let ctFont = font as CTFont
         return CTFontGetAscent(ctFont) + CTFontGetDescent(ctFont)

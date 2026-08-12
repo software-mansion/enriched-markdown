@@ -65,7 +65,7 @@ final class LocalImageLoaderTests: XCTestCase {
         XCTAssertNil(LocalImageLoader.load(""))
     }
 
-    func testResourceNameNormalizationMatchesAndroid() {
+    func testResourceNameNormalization() {
         XCTAssertEqual(LocalImageLoader.normalizedResourceName("My-Logo"), "my_logo")
         XCTAssertEqual(LocalImageLoader.normalizedResourceName("SRC-Assets-Logo"), "src_assets_logo")
         XCTAssertEqual(LocalImageLoader.normalizedResourceName("already_normal"), "already_normal")

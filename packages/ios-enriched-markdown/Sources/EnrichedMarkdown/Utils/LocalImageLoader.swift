@@ -1,19 +1,18 @@
 import UIKit
 import os.log
 
-/// Loads markdown images from non-network sources, mirroring the Android
-/// package's `LocalImageLoader`:
+/// Loads markdown images from non-network sources:
 /// - `file://` URIs (including percent-encoded paths)
 /// - absolute file paths
 /// - `data:` URIs (base64 payloads)
-/// - bare names resolved as bundled image resources, with Android's name
-///   normalization (lowercase, `-` → `_`) applied as a fallback so
-///   cross-platform markdown resolves on both OSes
+/// - bare names resolved as bundled image resources, with a normalized
+///   fallback (lowercase, `-` → `_`) so the same markdown resolves across
+///   platforms
 ///
-/// Android-only sources (`content://`, `asset://`, `res://`) have no iOS
-/// equivalent and return nil. All decodes are downsampled to screen width
-/// like the network path; asset-catalog images are the exception (no file
-/// URL to decode from) and load through `UIImage(named:)` as-is.
+/// Sources with no iOS equivalent (`content://`, `asset://`, `res://`) log
+/// and return nil. All decodes are downsampled to screen width like the
+/// network path; asset-catalog images are the exception (no file URL to
+/// decode from) and load through `UIImage(named:)` as-is.
 enum LocalImageLoader {
     private static let base64Marker = "base64,"
     private static let resourceExtensions = ["png", "jpg", "jpeg", "gif", "heic"]
@@ -39,8 +38,8 @@ enum LocalImageLoader {
         }
     }
 
-    /// Android resource-name normalization (`ResourceDrawableIdHelper`):
-    /// lowercase with `-` replaced by `_`.
+    /// Resource-name normalization: lowercase with `-` replaced by `_`, so
+    /// the same markdown resolves across platforms.
     static func normalizedResourceName(_ name: String) -> String {
         name.lowercased().replacingOccurrences(of: "-", with: "_")
     }

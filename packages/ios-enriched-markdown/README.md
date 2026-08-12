@@ -163,15 +163,34 @@ Element-specific modifiers include:
 
 ```swift
 public struct EnrichedMarkdownText: View {
-  public init(_ markdown: String)
+  public init(_ markdown: String, flags: Md4cFlags = .commonMark)
 }
 ```
 
 | Parameter | Description |
 |-----------|-------------|
 | `markdown` | Markdown source string |
+| `flags` | Optional parser extensions (see `Md4cFlags`) |
 
-Style and link handling come from the environment (`.markdownTheme`, `.onLinkPress`), not from initializer parameters.
+Style and interaction handling come from the environment (`.markdownTheme`, `.onLinkPress`, and the other modifiers below), not from initializer parameters.
+
+### `Md4cFlags`
+
+```swift
+public struct Md4cFlags: Equatable, Sendable {
+  public var underline: Bool            // __text__ renders underlined instead of bold
+  public var hardSoftBreaks: Bool       // single newlines become visible line breaks
+  public var permissiveAutolinks: Bool  // bare URLs become links (default true)
+  public var latexMath: Bool
+  public var superscript: Bool
+  public var subscript: Bool
+  public var highlight: Bool
+
+  public static let commonMark: Md4cFlags
+}
+```
+
+`underline`, `hardSoftBreaks`, and `permissiveAutolinks` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text.
 
 ### `.markdownTheme`
 
@@ -193,15 +212,59 @@ public struct MarkdownTheme: Sendable {
 }
 ```
 
-### `.onLinkPress`
+### `.onLinkPress` / `.onLinkLongPress`
 
 ```swift
 extension View {
   func onLinkPress(_ action: @escaping (URL) -> Void) -> some View
+  func onLinkLongPress(_ action: @escaping (URL) -> Void) -> some View
 }
 ```
 
-Called when a link inside `EnrichedMarkdownText` is tapped. Scope it to a single view or a larger subtree.
+`onLinkPress` is called when a link is tapped. `onLinkLongPress` is called when a link is long-pressed, replacing the system link menu; without it, a long-press behaves like a press when `onLinkPress` is set. Scope either to a single view or a larger subtree.
+
+### `.markdownSelectable` / `.markdownSelectionColor`
+
+```swift
+extension View {
+  func markdownSelectable(_ isSelectable: Bool) -> some View   // default true
+  func markdownSelectionColor(_ color: Color?) -> some View    // default nil = system tint
+}
+```
+
+`markdownSelectable(false)` disables text selection while links stay tappable. `markdownSelectionColor` tints the selection highlight, handles, and caret (UIKit derives all three from one tint).
+
+### `.markdownSelectionMenu`
+
+```swift
+public struct MarkdownSelectionMenuConfig: Equatable, Sendable {
+  public init(
+    copyAsMarkdown: Bool = true,
+    copyImageUrl: Bool = true,
+    copyAsMarkdownLabel: String = "Copy as Markdown"
+  )
+}
+
+extension View {
+  func markdownSelectionMenu(_ config: MarkdownSelectionMenuConfig) -> some View
+}
+```
+
+Configures the custom items added to the text-selection edit menu (iOS 16+; earlier versions keep the stock menu):
+
+- **Copy as Markdown** puts the selection on the clipboard as markdown. A selection covering the whole document returns the original source verbatim; partial selections are reconstructed from the rendered text.
+- **Copy Image URL** / **Copy N Image URLs** appears when the selection contains images with http(s) URLs.
+- **Select All** is provided when the system omits it for non-editable text views.
+
+### `.markdownImageRequestHeaders`
+
+```swift
+extension View {
+  func markdownImageRequestHeaders(_ headers: [String: String]) -> some View
+}
+```
+
+Custom HTTP headers sent with every markdown image request, e.g. for authenticated CDNs. The same URL fetched with different headers is cached separately.
 
 ### `rememberMarkdownTheme`
 
@@ -216,11 +279,56 @@ public func rememberMarkdownTheme(
 
 Re-creates a theme when `colorScheme` or `dynamicTypeSize` changes. Call from `View.body` after reading those environment values.
 
+## Copy & clipboard
+
+System **Copy** puts two flavors of the selection on the pasteboard: plain text and styled HTML (`public.html`), so pasting into rich-text targets keeps headings, inline styles, lists, blockquotes, code blocks, links, and images. Plain-text targets receive plain text as usual.
+
+The selection menu additionally offers **Copy as Markdown** and **Copy Image URL(s)** — see `.markdownSelectionMenu` above.
+
+## Image sources
+
+Images load from these sources:
+
+| Source | Example |
+|--------|---------|
+| `http(s)://` | `![alt](https://example.com/pic.png)` — with `.markdownImageRequestHeaders` applied |
+| `file://` | `![alt](file:///path/to/pic.png)` — percent-encoded paths supported |
+| Absolute path | `![alt](/path/to/pic.png)` |
+| `data:` | `![alt](data:image/png;base64,…)` |
+| Bundle resource name | `![alt](logo.png)` — looked up in `Bundle.main` (loose files and asset catalogs), with a normalized fallback (lowercase, `-` → `_`) |
+
+All decodes are downsampled to the screen's pixel width, so large images never decode at full size. Downloads are cached (memory + disk) and deduplicated in flight.
+
+## Accessibility
+
+VoiceOver walks the rendered markdown as individual elements rather than one text blob (iOS 16+):
+
+- Headings announce "heading, level N"
+- Links are activatable elements that invoke `.onLinkPress`
+- Images read their alt text ("Image" when absent)
+- List items announce their position ("bullet point", "list item N", with a "nested" prefix)
+
+Dynamic Type is supported throughout via text styles in the default theme.
+
+## iOS version notes
+
+The package supports iOS 15+, but some features require iOS 16:
+
+| Feature | Minimum iOS |
+|---------|-------------|
+| Text rendering, themes, links, selection, images | 15 |
+| Copy with HTML flavor, `.onLinkLongPress`, `.markdownSelectable`, `.markdownSelectionColor`, `.markdownImageRequestHeaders` | 15 |
+| Block decorations (code-block backgrounds, blockquote bars, list markers) | 16 |
+| Custom selection-menu items (`.markdownSelectionMenu`) | 16 |
+| VoiceOver element tree | 16 |
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
 - Paragraphs, line breaks
 - **Bold**, *italic*, `inline code`
+- ~~Strikethrough~~ (`~~text~~`)
+- Underline (`__text__` with `Md4cFlags(underline: true)`)
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists

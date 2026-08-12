@@ -17,9 +17,9 @@ final class ImageCacheKeyTests: XCTestCase {
         XCTAssertTrue(digest.allSatisfy(\.isHexDigit))
     }
 
-    func testMatchesAndroidDigestFormat() {
-        // SHA-256 of "Authorization:Bearer token" — pinned so the key stays
-        // byte-identical to Android's ImageCache.requestKey.
+    func testDigestFormatIsPinned() {
+        // SHA-256 of "Authorization:Bearer token" — pinned so the key format
+        // shared across platforms never drifts.
         XCTAssertEqual(
             ImageCacheKey.requestKey(url: url, headers: ["Authorization": "Bearer token"]),
             url + "|06a97d81903f645b2b8286be8e5251b3ed323a07533a0609bbb87e66d7a40821"

@@ -3,8 +3,8 @@ import UIKit
 
 enum ImageDecoder {
     /// Decodes image data downsampled so its longer side is at most
-    /// `maxPixelSize` (screen pixel width by default), mirroring the Android
-    /// package's decode-time `inSampleSize` downsampling. Never upscales.
+    /// `maxPixelSize` (screen pixel width by default), so large images never
+    /// decode at full size. Never upscales.
     /// The result carries the screen scale so point-size math downstream is
     /// unchanged, and EXIF orientation is baked in.
     static func decodeDownsampled(
