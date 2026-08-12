@@ -294,6 +294,39 @@ final class MarkdownTextView: UITextView {
         }
     }
 
+    /// Injectable so tests avoid UIPasteboard.general, which a headless test
+    /// process is not authorized to access.
+    var pasteboard: UIPasteboard = .general
+
+    /// System Copy puts plain text plus a styled HTML flavor on the
+    /// pasteboard, so rich-text targets keep the formatting.
+    override func copy(_ sender: Any?) {
+        guard let attributedText,
+              attributedText.length > 0,
+              selectedRange.length > 0,
+              selectedRange.location != NSNotFound,
+              selectedRange.location < attributedText.length
+        else {
+            super.copy(sender)
+            return
+        }
+
+        let clamped = NSRange(
+            location: selectedRange.location,
+            length: min(selectedRange.length, attributedText.length - selectedRange.location)
+        )
+        let plain = (attributedText.string as NSString).substring(with: clamped)
+        let html = MarkdownHTMLGenerator.generateHTML(
+            from: attributedText,
+            in: clamped,
+            config: styleConfig
+        )
+        pasteboard.items = [[
+            "public.utf8-plain-text": plain,
+            "public.html": html,
+        ]]
+    }
+
     func setMarkdownAttributedText(_ attributedText: NSAttributedString) {
         guard !(self.attributedText?.isEqual(to: attributedText) ?? false) else { return }
         self.attributedText = attributedText
