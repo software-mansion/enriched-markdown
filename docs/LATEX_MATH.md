@@ -97,6 +97,13 @@ This excludes **RaTeX** from the build. Rebuild the app after running `pod insta
 > versions required `use_frameworks! :linkage => :dynamic` to resolve RaTeX as a Swift
 > Package; that is no longer the case.)
 
+> [!NOTE]
+> The RaTeX XCFramework is **not** bundled in the npm tarball — it is downloaded at install time by
+> a `postinstall` script (see [Native assets](./NATIVE_ASSETS.md)). If `pod install` fails with a
+> missing `ios/vendor/RaTeX.xcframework`, the download did not run (offline, `--ignore-scripts`, or
+> pnpm); restore it with `node node_modules/react-native-enriched-markdown/postinstall.mjs`, or
+> disable math as shown below.
+
 > [!IMPORTANT]
 > **Upgrading from a version that used `use_frameworks! :linkage => :dynamic` for math?**
 > The pod changed from a dynamic framework to a static library. After `pod install`,

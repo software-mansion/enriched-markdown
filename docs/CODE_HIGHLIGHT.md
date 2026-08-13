@@ -134,8 +134,13 @@ the tree-sitter runtime (`vendor/tree-sitter/`) is fetched and sha256-verified f
 release tarball, the ~178 MB of grammar `parser.c` tables (`vendor/grammars/`) are copied from the
 pinned grammar devDependencies, and the default registry (`vendor/generated/`) is codegen'd from them.
 It is wired into the package `prepare` script (so a plain `yarn install` restores everything, with
-`.stamp` guards making repeats a no-op) and into `prepack` (so the published npm tarball still ships
-the full set — consumers install it prebaked and never fetch anything).
+`.stamp` guards making repeats a no-op).
+
+The published npm tarball ships only the small default registry, **not** the heavy grammar/runtime
+source — that would bloat every install to ~230 MB. Instead a `postinstall` script downloads the
+grammar sources (from the npm registry) and the tree-sitter runtime (from the pinned GitHub release)
+into the installed package, sha256-verified and idempotent. See [Native assets](./NATIVE_ASSETS.md)
+for the install-time behavior, network requirements, and how to recover an offline/pnpm install.
 
 Highlighting runs synchronously when a code block is applied and is cached per block, with a size cap
 (~50 KB / ~2000 lines) that falls back to plain rendering for pathological inputs. Maintainers re-pin

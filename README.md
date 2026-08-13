@@ -46,6 +46,7 @@ We can help you build your next dream product –
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+- [Native assets (install-time download)](docs/NATIVE_ASSETS.md)
 - [EnrichedMarkdownText](#enrichedmarkdowntext-1)
   - [Usage](docs/TEXT.md#usage)
   - [Supported Markdown Elements](docs/TEXT.md#supported-markdown-elements)
@@ -120,6 +121,13 @@ yarn add react-native-enriched-markdown
 >
 > Nightly versions are published to npm automatically and may contain breaking changes.
 
+> [!NOTE]
+> On install, a `postinstall` script downloads the large native assets used by code highlighting
+> and iOS LaTeX math (kept out of the npm tarball to keep it ~1 MB). This needs network access to
+> `registry.npmjs.org` and `github.com`. If you install offline, with `--ignore-scripts`, or with
+> **pnpm** (which blocks dependency scripts by default), see
+> [Native assets](docs/NATIVE_ASSETS.md) for how to restore them.
+
 #### 2. Install iOS / macOS dependencies
 
 The library includes native code so you will need to re-build the native app.
@@ -150,6 +158,10 @@ npx expo prebuild
 
 > [!NOTE]
 > The library won't work in Expo Go as it needs native changes.
+
+> [!NOTE]
+> `npx expo install` runs the same `postinstall` asset download described under
+> [Native assets](docs/NATIVE_ASSETS.md); it needs network access and does not work with Yarn PnP.
 
 > [!IMPORTANT]
 > **iOS: Save to Camera Roll**
