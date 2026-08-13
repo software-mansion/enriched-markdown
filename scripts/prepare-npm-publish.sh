@@ -42,8 +42,8 @@ case "$mode" in
     rm -rf cpp/highlight/vendor/grammars
     rm -rf cpp/highlight/vendor/tree-sitter
 
-    # Remove RaTeX vendor tree (also downloaded by postinstall).
-    rm -rf ios/vendor
+    # RaTeX vendor tree (ios/vendor) is excluded from the tarball by the
+    # "!ios/vendor" entry in package.json's "files" array — no need to delete it.
 
     # Ship the RaTeX manifest so postinstall.mjs can fetch it.
     cp "$REPO_ROOT/vendor/ratex-version.json" ratex-version.json
@@ -63,9 +63,6 @@ case "$mode" in
 
     rm -f README.md LICENSE ratex-version.json vendor-grammars.mjs vendor-ratex.mjs
     rm -rf docs
-
-    # Restore the RaTeX vendor tree that prepack removed for the tarball.
-    node "$REPO_ROOT/vendor/vendor-ratex.mjs"
     ;;
   *)
     echo "[react-native-enriched-markdown] usage: $0 prepack|postpack" >&2
