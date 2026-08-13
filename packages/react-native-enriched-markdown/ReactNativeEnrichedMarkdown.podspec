@@ -54,9 +54,10 @@ Pod::Spec.new do |s|
     # error. Fail early with an actionable message instead.
     unless File.directory?(File.join(__dir__, 'ios/vendor/RaTeX.xcframework'))
       raise '[ReactNativeEnrichedMarkdown] LaTeX math is enabled but the vendored RaTeX ' \
-        'XCFramework is missing at ios/vendor/RaTeX.xcframework. Run `yarn prepare` (or ' \
-        '`node vendor/vendor-ratex.mjs`) to restore it, or disable math by setting ' \
-        "ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0' in your Podfile. See docs/LATEX_MATH.md."
+        'XCFramework is missing at ios/vendor/RaTeX.xcframework. ' \
+        'For published installs, re-run: node node_modules/react-native-enriched-markdown/postinstall.mjs ' \
+        'For monorepo development, run `yarn prepare` (or `node vendor/vendor-ratex.mjs`). ' \
+        "To disable math, set ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0' in your Podfile. See docs/LATEX_MATH.md."
     end
     # Prebuilt static XCFramework (device + simulator[arm64,x86_64] + macOS). Vendored
     # rather than pulled via spm_dependency, which compiled RaTeX's Swift wrapper per

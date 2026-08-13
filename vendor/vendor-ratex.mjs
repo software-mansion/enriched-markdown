@@ -30,21 +30,19 @@ import { spawnSync } from 'node:child_process';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..');
-const manifestPath = path.join(here, 'ratex-version.json');
-const outDir = path.join(repoRoot, 'packages/react-native-enriched-markdown/ios/vendor');
-const xcframeworkDir = path.join(outDir, 'RaTeX.xcframework');
-const fontsOut = path.join(outDir, 'Fonts');
-const stampFile = path.join(outDir, '.stamp');
+let manifestPath = path.join(here, 'ratex-version.json');
+let outDir = path.join(repoRoot, 'packages/react-native-enriched-markdown/ios/vendor');
 
 const LOG_PREFIX = '[react-native-enriched-markdown]';
 const log = (m) => console.log(`${LOG_PREFIX} ${m}`);
 const fail = (m) => { console.error(`${LOG_PREFIX} ${m}`); process.exit(1); };
 
 function parseArgs(argv) {
-  const args = { force: false };
-  for (const a of argv) {
-    if (a === '--force') args.force = true;
-    else fail(`unknown arg: ${a}`);
+  const args = { force: false, manifest: null, output: null };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--force') args.force = true;
+    else if (argv[i] === '--manifest') args.manifest = argv[++i];
+    else if (argv[i] === '--output') args.output = argv[++i];
   }
   return args;
 }
@@ -96,27 +94,32 @@ function stampKey(m) {
   return `${m.tag}|${m.xcframework.sha256}|${m.source.sha256}`;
 }
 
-function present(m) {
-  if (!fs.existsSync(path.join(xcframeworkDir, 'Info.plist'))) return false;
+function present(m, dir) {
+  if (!fs.existsSync(path.join(dir, 'RaTeX.xcframework/Info.plist'))) return false;
   for (const rel of m.source.swiftSources) {
-    if (!fs.existsSync(path.join(outDir, path.basename(rel)))) return false;
+    if (!fs.existsSync(path.join(dir, path.basename(rel)))) return false;
   }
-  return fs.existsSync(fontsOut);
+  return fs.existsSync(path.join(dir, 'Fonts'));
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.manifest) manifestPath = path.resolve(args.manifest);
+  if (args.output) outDir = path.resolve(args.output);
+
+  const xcframeworkDir = path.join(outDir, 'RaTeX.xcframework');
+  const fontsOut = path.join(outDir, 'Fonts');
+  const stampFile = path.join(outDir, '.stamp');
+
   const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const key = stampKey(m);
 
-  if (!args.force && present(m) &&
+  if (!args.force && present(m, outDir) &&
       (fs.existsSync(stampFile) ? fs.readFileSync(stampFile, 'utf8').trim() : null) === key) {
     log('RaTeX vendor tree already up to date; skipping.');
     return;
   }
 
-  // Full rebuild: the whole outDir is generated, so clear it (keeps the tree honest
-  // when the swift/font set changes between pins) and repopulate.
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(outDir, { recursive: true });
 
@@ -125,7 +128,7 @@ async function main() {
   {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ratex-xcf-'));
     try {
-      extractTo(xcBuf, '.zip', ['-d', outDir], tmp); // yields outDir/RaTeX.xcframework
+      extractTo(xcBuf, '.zip', ['-d', outDir], tmp);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -163,7 +166,7 @@ async function main() {
   }
 
   fs.writeFileSync(stampFile, key + '\n');
-  log(`RaTeX ${m.tag} -> ${path.relative(repoRoot, outDir)}`);
+  log(`RaTeX ${m.tag} -> ${outDir}`);
   log('done.');
 }
 

@@ -24,6 +24,12 @@
 //                     of the stamps.
 //   --runtime-src <lib dir>  Use a local tree-sitter lib/ checkout instead of
 //                     fetching the tarball (offline / maintainer override).
+//   --from-npm        Download grammar sources from the npm registry instead of
+//                     copying from devDependency node_modules. Used by the
+//                     postinstall script in published packages where the grammar
+//                     devDependencies are not installed.
+//   --vendor-dir <dir>  Override the default vendor output directory.
+//   --manifest <path>   Override the default grammar-versions.json path.
 //
 // Only parser.c, scanner.c (when present), tree_sitter/*.h, highlights.scm and
 // LICENSE are copied per grammar; nothing else from the grammar packages ships.
@@ -41,8 +47,8 @@ import { createRequire } from 'node:module';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..');
-const vendorOut = path.join(repoRoot, 'packages/core/cpp/highlight/vendor');
-const manifestPath = path.join(here, 'grammar-versions.json');
+let vendorOut = path.join(repoRoot, 'packages/core/cpp/highlight/vendor');
+let manifestPath = path.join(here, 'grammar-versions.json');
 
 const LOG_PREFIX = '[react-native-enriched-markdown]';
 const log = (message) => console.log(`${LOG_PREFIX} ${message}`);
@@ -55,11 +61,14 @@ const pkgRequire = createRequire(
 );
 
 function parseArgs(argv) {
-  const args = { only: null, runtimeSrc: null, force: false };
+  const args = { only: null, runtimeSrc: null, force: false, fromNpm: false, vendorDir: null, manifest: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--only') args.only = argv[++i].split(',').map((s) => s.trim());
     else if (argv[i] === '--runtime-src') args.runtimeSrc = argv[++i];
     else if (argv[i] === '--force') args.force = true;
+    else if (argv[i] === '--from-npm') args.fromNpm = true;
+    else if (argv[i] === '--vendor-dir') args.vendorDir = argv[++i];
+    else if (argv[i] === '--manifest') args.manifest = argv[++i];
     // --grammars-only is accepted for backward compatibility; the single restore
     // flow already covers grammars, so it is a no-op.
     else if (argv[i] === '--grammars-only') continue;
@@ -190,8 +199,8 @@ function packageRoot(pkgName) {
 // Resolves a grammar's highlights.scm from its package (null if it ships none).
 // A grammar with no highlights query cannot be compiled into the registry, so
 // callers skip it. Kept separate so main() can pre-filter without side effects.
-function grammarHighlights(spec) {
-  const pkgRoot = packageRoot(spec.package);
+function grammarHighlights(spec, pkgRootOverride) {
+  const pkgRoot = pkgRootOverride ?? packageRoot(spec.package);
   const base = spec.subPath ? path.join(pkgRoot, spec.subPath) : pkgRoot;
   return firstExisting([
     path.join(base, 'queries/highlights.scm'),
@@ -229,8 +238,8 @@ function writeHighlights(srcFile, destFile, spec) {
   fs.writeFileSync(destFile, `; inherits: ${parents.join(',')}\n${body}`);
 }
 
-function vendorGrammar(id, spec) {
-  const pkgRoot = packageRoot(spec.package);
+function vendorGrammar(id, spec, pkgRootOverride) {
+  const pkgRoot = pkgRootOverride ?? packageRoot(spec.package);
   const base = spec.subPath ? path.join(pkgRoot, spec.subPath) : pkgRoot;
   const srcDir = path.join(base, 'src');
   const outDir = path.join(vendorOut, 'grammars', id);
@@ -244,7 +253,7 @@ function vendorGrammar(id, spec) {
 
   // Resolve highlights before writing anything so a highlights-less grammar
   // never leaves a partial output dir (main() filters these out up front).
-  const highlights = grammarHighlights(spec);
+  const highlights = grammarHighlights(spec, pkgRootOverride);
   if (!highlights) fail(`${id}: queries/highlights.scm not found under ${base} or ${pkgRoot}`);
 
   fs.rmSync(outDir, { recursive: true, force: true });
@@ -369,36 +378,131 @@ function registryPresent() {
   return fs.existsSync(path.join(vendorOut, 'generated/generated_registry.cpp'));
 }
 
+// ---------------------------------------------------------------------------
+// --from-npm: download grammar packages from the npm registry instead of
+// copying from devDependency node_modules. Used by the postinstall script
+// in published packages where the grammar devDependencies are not installed.
+// ---------------------------------------------------------------------------
+
+function npmTarballUrl(pkg, version) {
+  if (pkg.startsWith('@')) {
+    const bare = pkg.split('/')[1];
+    return `https://registry.npmjs.org/${pkg}/-/${bare}-${version}.tgz`;
+  }
+  return `https://registry.npmjs.org/${pkg}/-/${pkg}-${version}.tgz`;
+}
+
+async function downloadNpmTarballs(grammars, ids) {
+  const byPkg = new Map();
+  for (const id of ids) {
+    const spec = grammars[id];
+    const key = `${spec.package}@${spec.version}`;
+    if (!byPkg.has(key)) byPkg.set(key, { spec, ids: [] });
+    byPkg.get(key).ids.push(id);
+  }
+
+  const extracted = new Map();
+  await Promise.all(
+    [...byPkg.entries()].map(async ([key, { spec }]) => {
+      const url = npmTarballUrl(spec.package, spec.version);
+      log(`downloading ${key} ...`);
+      let buf;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) fail(`${key}: HTTP ${res.status} for ${url}`);
+        buf = Buffer.from(await res.arrayBuffer());
+      } catch (err) {
+        fail(`${key}: download failed: ${err.message}`);
+      }
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-npm-'));
+      const tgz = path.join(tmp, 'pkg.tar.gz');
+      fs.writeFileSync(tgz, buf);
+      const untar = spawnSync('tar', ['-xzf', tgz, '-C', tmp], { stdio: 'pipe' });
+      if (untar.status !== 0) fail(`tar extract failed for ${key}`);
+      let root = path.join(tmp, 'package');
+      if (!fs.existsSync(root)) {
+        const fallback = fs.readdirSync(tmp, { withFileTypes: true })
+          .find((e) => e.isDirectory());
+        if (fallback) root = path.join(tmp, fallback.name);
+        else fail(`extracted npm tarball for ${key} has no package/ directory`);
+      }
+      extracted.set(key, { root, tmp });
+    })
+  );
+  return extracted;
+}
+
+function npmGrammarStampKey(manifest, ids) {
+  const parts = ids.map((id) => {
+    const spec = manifest.grammars[id];
+    return `${id}|${spec.package}@${spec.version}|scanner:${!!spec.scanner}|sub:${spec.subPath ?? ''}|shared:${(spec.sharedSrc ?? []).join('+')}`;
+  });
+  return crypto.createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.vendorDir) vendorOut = path.resolve(args.vendorDir);
+  if (args.manifest) manifestPath = path.resolve(args.manifest);
+
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const requested = args.only ?? Object.keys(manifest.grammars);
-  const ids = vendorableIds(manifest, requested);
-  const stampFile = path.join(vendorOut, 'grammars', '.stamp');
-  // Only a full-set run may trust or write the stamp; a partial --only run must not.
-  const stampKey = args.only ? null : grammarStampKey(manifest, ids);
 
   // Runtime: fetched from the pinned tarball (gitignored, idempotent via stamp).
   await ensureRuntime(manifest, args);
 
-  // Grammars: restored from the grammar devDependencies. Skip when the vendored
-  // set already matches the pinned versions so a repeat `prepare` does not
-  // rewrite 34 MB on every run.
-  let grammarsRebuilt = false;
-  if (!args.force && stampKey && everyGrammarPresent(ids) && readStamp(stampFile) === stampKey) {
-    log('grammar sources already up to date; skipping.');
-  } else {
-    for (const id of ids) vendorGrammar(id, requireSpec(manifest, id));
-    if (stampKey) fs.writeFileSync(stampFile, stampKey + '\n');
-    grammarsRebuilt = true;
-    log('grammar sources ready.');
-  }
+  if (args.fromNpm) {
+    // Consumer mode: download grammar sources from the npm registry.
+    // The pre-built registry is already shipped in the tarball, so no
+    // registry regeneration is needed.
+    const ids = requested;
+    const stampFile = path.join(vendorOut, 'grammars', '.stamp');
+    const stampKey = args.only ? null : npmGrammarStampKey(manifest, ids);
 
-  // Default registry: regenerated from the vendored grammars. A partial --only
-  // run must not touch it (the default set may not all be vendored). Otherwise
-  // refresh it whenever the grammars changed or it is missing.
-  if (!args.only && (args.force || grammarsRebuilt || !registryPresent())) {
-    regenerateDefaultRegistry(manifest);
+    if (!args.force && stampKey && everyGrammarPresent(ids) && readStamp(stampFile) === stampKey) {
+      log('grammar sources already up to date; skipping.');
+    } else {
+      const tarballs = await downloadNpmTarballs(manifest.grammars, ids);
+      try {
+        for (const id of ids) {
+          const spec = requireSpec(manifest, id);
+          const key = `${spec.package}@${spec.version}`;
+          const { root } = tarballs.get(key);
+          vendorGrammar(id, spec, root);
+        }
+      } finally {
+        for (const { tmp } of tarballs.values()) {
+          fs.rmSync(tmp, { recursive: true, force: true });
+        }
+      }
+      if (stampKey) {
+        fs.mkdirSync(path.dirname(stampFile), { recursive: true });
+        fs.writeFileSync(stampFile, stampKey + '\n');
+      }
+      log('grammar sources ready.');
+    }
+  } else {
+    // Monorepo mode: copy grammar sources from devDependency node_modules.
+    const ids = vendorableIds(manifest, requested);
+    const stampFile = path.join(vendorOut, 'grammars', '.stamp');
+    const stampKey = args.only ? null : grammarStampKey(manifest, ids);
+
+    let grammarsRebuilt = false;
+    if (!args.force && stampKey && everyGrammarPresent(ids) && readStamp(stampFile) === stampKey) {
+      log('grammar sources already up to date; skipping.');
+    } else {
+      for (const id of ids) vendorGrammar(id, requireSpec(manifest, id));
+      if (stampKey) fs.writeFileSync(stampFile, stampKey + '\n');
+      grammarsRebuilt = true;
+      log('grammar sources ready.');
+    }
+
+    // Default registry: regenerated from the vendored grammars. A partial --only
+    // run must not touch it (the default set may not all be vendored). Otherwise
+    // refresh it whenever the grammars changed or it is missing.
+    if (!args.only && (args.force || grammarsRebuilt || !registryPresent())) {
+      regenerateDefaultRegistry(manifest);
+    }
   }
 
   log('done.');

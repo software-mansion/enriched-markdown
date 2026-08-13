@@ -16,7 +16,12 @@
     "jest.js",
     "jest.d.ts",
     "react-native.config.js",
+    "postinstall.mjs",
+    "vendor-grammars.mjs",
+    "vendor-ratex.mjs",
+    "ratex-version.json",
     "!ios/build",
+    "!ios/vendor",
     "!android/build",
     "!android/gradle",
     "!android/gradlew",
@@ -31,6 +36,7 @@
     "docs"
   ],
   "scripts": {
+    "postinstall": "node postinstall.mjs",
     "build:wasm": "bash ../core/cpp/wasm/build.sh",
     "typecheck": "tsc",
     "test": "jest",

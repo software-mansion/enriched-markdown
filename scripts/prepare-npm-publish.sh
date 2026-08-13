@@ -15,14 +15,14 @@ case "$mode" in
       exit 1
     fi
 
-    # The whole vendor tree (runtime, grammar sources, default registry) is
-    # gitignored (see .gitignore); restore it so the published tarball ships the
-    # full vendored set. No-op when already up to date (stamp guards).
+    # Restore the full vendor tree so the generated registry (which inlines
+    # highlight queries) is up to date. The registry is small and ships in the
+    # tarball; the heavy grammar sources and runtime are excluded (downloaded
+    # by postinstall.mjs on the consumer's machine).
     node "$REPO_ROOT/vendor/vendor-grammars.mjs"
 
-    # Likewise restore the gitignored RaTeX vendor tree (prebuilt static XCFramework,
-    # core Swift sources, KaTeX fonts) so iOS math ships in the tarball. It lives under
-    # ios/vendor/, already inside the package, so it needs no extra copy step.
+    # Restore RaTeX so we can verify the vendor tree is healthy, but its
+    # contents are excluded from the tarball (downloaded by postinstall.mjs).
     node "$REPO_ROOT/vendor/vendor-ratex.mjs"
 
     cd "$RN_PKG"
@@ -36,6 +36,22 @@ case "$mode" in
     cp "$REPO_ROOT/vendor/gen-registry.mjs" cpp/highlight/gen-registry.mjs
     cp "$REPO_ROOT/vendor/grammar-versions.json" cpp/highlight/grammar-versions.json
 
+    # Remove the heavy vendored content from the copy — these are downloaded by
+    # the postinstall script on the consumer's machine from the npm registry.
+    # Keep vendor/generated/ and vendor/generated-custom/ (small, pre-built registries).
+    rm -rf cpp/highlight/vendor/grammars
+    rm -rf cpp/highlight/vendor/tree-sitter
+
+    # Remove RaTeX vendor tree (also downloaded by postinstall).
+    rm -rf ios/vendor
+
+    # Ship the RaTeX manifest so postinstall.mjs can fetch it.
+    cp "$REPO_ROOT/vendor/ratex-version.json" ratex-version.json
+
+    # Ship the vendor scripts so postinstall.mjs can invoke them in consumer mode.
+    cp "$REPO_ROOT/vendor/vendor-grammars.mjs" vendor-grammars.mjs
+    cp "$REPO_ROOT/vendor/vendor-ratex.mjs" vendor-ratex.mjs
+
     cp "$REPO_ROOT/README.md" README.md
     cp "$REPO_ROOT/LICENSE" LICENSE
     cp -R "$REPO_ROOT/docs" docs
@@ -45,8 +61,11 @@ case "$mode" in
     rm -rf cpp
     ln -s ../core/cpp cpp
 
-    rm -f README.md LICENSE
+    rm -f README.md LICENSE ratex-version.json vendor-grammars.mjs vendor-ratex.mjs
     rm -rf docs
+
+    # Restore the RaTeX vendor tree that prepack removed for the tarball.
+    node "$REPO_ROOT/vendor/vendor-ratex.mjs"
     ;;
   *)
     echo "[react-native-enriched-markdown] usage: $0 prepack|postpack" >&2
