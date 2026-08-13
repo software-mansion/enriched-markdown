@@ -42,6 +42,12 @@ module EnrichedMarkdownCodeHighlight
   def self.config(podspec_dir)
     return disabled if ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT'] == '0'
 
+    # Code highlighting compiles the vendored tree-sitter runtime + grammar sources,
+    # downloaded at postinstall. If the consumer opted out (`enriched-markdown`.
+    # enableCodeHighlight = false skips that download), the runtime is absent -- fall
+    # back to the no-op stub instead of feeding missing files to clang.
+    return disabled unless File.exist?(File.join(podspec_dir, 'cpp/highlight/vendor/tree-sitter/src/lib.c'))
+
     defaults = default_languages(podspec_dir)
     langs = (ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES'] || '')
             .split(',').map(&:strip).reject(&:empty?)

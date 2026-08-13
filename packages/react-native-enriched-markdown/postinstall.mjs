@@ -21,6 +21,41 @@ if (!fs.existsSync(grammarManifest)) {
   process.exit(0);
 }
 
+// Consumer opt-out. npm/yarn/pnpm set INIT_CWD to the project root running the
+// install, so the consumer declares which heavy native assets to skip downloading
+// via an `enriched-markdown` block in their own package.json:
+//
+//   { "enriched-markdown": { "enableCodeHighlight": false, "enableMath": false } }
+//
+// Both features default to enabled (opt-out, not opt-in). Any resolution failure
+// (INIT_CWD unset, unreadable/malformed JSON, absent key) falls back to downloading
+// everything -- a skipped download is far cheaper to recover from than a silently
+// missing feature. The native build mirrors this by keying off asset presence on
+// disk (see the podspecs and android/build.gradle), so a package.json opt-out alone
+// yields a clean build with no Podfile/gradle edits.
+function resolveConsumerConfig() {
+  const initCwd = process.env.INIT_CWD;
+  if (!initCwd) {
+    return {};
+  }
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(initCwd, 'package.json'), 'utf8'));
+    const config = pkg['enriched-markdown'];
+    return config && typeof config === 'object' ? config : {};
+  } catch {
+    return {};
+  }
+}
+
+const consumerConfig = resolveConsumerConfig();
+const enableCodeHighlight = consumerConfig.enableCodeHighlight !== false;
+const enableMath = consumerConfig.enableMath !== false;
+
+if (!enableCodeHighlight && !enableMath) {
+  console.log(`${LOG} both code highlighting and math are disabled via package.json ("enriched-markdown"); skipping postinstall.`);
+  process.exit(0);
+}
+
 console.log(`${LOG} restoring vendored native assets ...`);
 
 const vendorGrammars = path.join(PKG_ROOT, 'vendor-grammars.mjs');
@@ -32,19 +67,25 @@ const iosVendor = path.join(PKG_ROOT, 'ios/vendor');
 let failed = false;
 
 // Tree-sitter runtime + grammar C sources
-const r1 = spawnSync(process.execPath, [
-  vendorGrammars,
-  '--from-npm',
-  '--vendor-dir', vendorDir,
-  '--manifest', grammarManifest,
-], { stdio: 'inherit' });
-if (r1.status !== 0) {
-  console.warn(`${LOG} WARNING: vendor-grammars failed. Code highlighting may not work.`);
-  failed = true;
+if (enableCodeHighlight) {
+  const r1 = spawnSync(process.execPath, [
+    vendorGrammars,
+    '--from-npm',
+    '--vendor-dir', vendorDir,
+    '--manifest', grammarManifest,
+  ], { stdio: 'inherit' });
+  if (r1.status !== 0) {
+    console.warn(`${LOG} WARNING: vendor-grammars failed. Code highlighting may not work.`);
+    failed = true;
+  }
+} else {
+  console.log(`${LOG} code highlighting disabled via package.json ("enriched-markdown".enableCodeHighlight = false); skipping tree-sitter grammars.`);
 }
 
 // RaTeX XCFramework + Swift sources + fonts (iOS math)
-if (fs.existsSync(ratexManifest) && fs.existsSync(vendorRatex)) {
+if (!enableMath) {
+  console.log(`${LOG} math disabled via package.json ("enriched-markdown".enableMath = false); skipping RaTeX.`);
+} else if (fs.existsSync(ratexManifest) && fs.existsSync(vendorRatex)) {
   const r2 = spawnSync(process.execPath, [
     vendorRatex,
     '--manifest', ratexManifest,

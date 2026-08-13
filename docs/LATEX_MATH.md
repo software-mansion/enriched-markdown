@@ -90,6 +90,12 @@ ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0'
 
 This excludes **RaTeX** from the build. Rebuild the app after running `pod install`.
 
+> [!TIP]
+> To also skip the install-time RaTeX download (not just the build-time linking), set
+> `"enriched-markdown": { "enableMath": false }` in your app's `package.json`. Because the iOS build
+> auto-disables math when the framework is absent, this opt-out needs no Podfile edit. See
+> [Skipping the download](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
+
 > [!NOTE]
 > When math is **enabled** (the default), no special Podfile configuration is required.
 > RaTeX ships as a prebuilt static XCFramework vendored into the pod, so it links under
@@ -99,10 +105,12 @@ This excludes **RaTeX** from the build. Rebuild the app after running `pod insta
 
 > [!NOTE]
 > The RaTeX XCFramework is **not** bundled in the npm tarball — it is downloaded at install time by
-> a `postinstall` script (see [Native assets](./NATIVE_ASSETS.md)). If `pod install` fails with a
-> missing `ios/vendor/RaTeX.xcframework`, the download did not run (offline, `--ignore-scripts`, or
-> pnpm); restore it with `node node_modules/react-native-enriched-markdown/postinstall.mjs`, or
-> disable math as shown below.
+> a `postinstall` script (see [Native assets](./NATIVE_ASSETS.md)). If `ios/vendor/RaTeX.xcframework`
+> is missing (offline install, `--ignore-scripts`, pnpm, or a `package.json` opt-out), `pod install`
+> auto-disables math and prints a warning instead of failing. To restore math, run
+> `node node_modules/react-native-enriched-markdown/postinstall.mjs` and re-run `pod install`, or
+> force it with `ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '1'` (which turns the missing framework back
+> into a hard error).
 
 > [!IMPORTANT]
 > **Upgrading from a version that used `use_frameworks! :linkage => :dynamic` for math?**

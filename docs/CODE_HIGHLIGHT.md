@@ -69,6 +69,12 @@ A block whose language is not compiled in simply renders as plain (uncolored) co
 Only the grammars you compile end up in your binary, so trimming the list is the main size lever.
 The seam degrades to plain code whenever a grammar is absent, so nothing breaks when you remove one.
 
+> [!TIP]
+> To also skip the install-time grammar download (not just the build-time linking), set
+> `"enriched-markdown": { "enableCodeHighlight": false }` in your app's `package.json`. This
+> auto-disables highlighting at build time too, so it's an alternative to the build flags below.
+> See [Skipping the download](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
+
 ### iOS
 
 Add to your `Podfile` and re-run `pod install`:

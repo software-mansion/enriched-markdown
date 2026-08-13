@@ -34,9 +34,11 @@ them.
   Windows, but RaTeX is iOS-only so this only affects Windows dev machines and is non-fatal.
 
 The postinstall step **never fails the install**: if a download does not complete it prints a warning
-and exits successfully. The missing assets only surface later, as a clear error when the native build
-runs (the iOS podspec, for example, raises an actionable message if `ios/vendor/RaTeX.xcframework` is
-absent while math is enabled).
+and exits successfully. When an asset is missing the native build treats the corresponding feature as
+disabled (code highlighting compiles a no-op stub; iOS math is skipped with a CocoaPods warning), so
+the build stays green. To turn a feature back on after fixing the download, re-run the recovery command
+below, or force it via its build flag (`ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '1'` /
+`enrichedMarkdown.enableCodeHighlight=true`), which restores the actionable missing-asset error.
 
 ## Re-running or recovering
 
@@ -67,10 +69,33 @@ Then re-run `pod install` (iOS) or rebuild (Android).
   (`nodeLinker: node-modules`), which is the norm for React Native projects anyway.
 - **`--ignore-scripts`**: the assets will not download. Run the recovery command above afterward.
 
-## Disabling the features
+## Skipping the download (opt out)
 
-If you don't use a feature you can turn it off so its assets are never compiled/linked (a failed or
-skipped download then never matters):
+If you don't use a feature, opt out in **your app's `package.json`** so the postinstall never
+downloads its assets. Add an `enriched-markdown` block (both fields default to `true`):
+
+```json
+{
+  "enriched-markdown": {
+    "enableCodeHighlight": false,
+    "enableMath": false
+  }
+}
+```
+
+`enableCodeHighlight: false` skips the tree-sitter runtime + grammar download (iOS and Android);
+`enableMath: false` skips the RaTeX download (iOS; Android math uses a Maven dependency and is
+unaffected). Because the native build keys off whether the assets are present on disk, a
+`package.json` opt-out **also disables the feature at build time** — no Podfile or `gradle.properties`
+edit needed. Re-run the install (or the recovery command above) after changing these values.
+
+This is read from the consumer project only (via `INIT_CWD`); it has no effect inside this repo's own
+monorepo development.
+
+## Disabling the features at build time
+
+You can also disable a feature purely at build time (assets stay downloaded but are never
+compiled/linked):
 
 - Code highlighting: see [Choosing languages / reducing binary size](./CODE_HIGHLIGHT.md#choosing-languages--reducing-binary-size).
 - LaTeX math: see [Disabling LaTeX Math](./LATEX_MATH.md#disabling-latex-math-reducing-bundle-size).

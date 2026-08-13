@@ -126,7 +126,9 @@ yarn add react-native-enriched-markdown
 > and iOS LaTeX math (kept out of the npm tarball to keep it ~1 MB). This needs network access to
 > `registry.npmjs.org` and `github.com`. If you install offline, with `--ignore-scripts`, or with
 > **pnpm** (which blocks dependency scripts by default), see
-> [Native assets](docs/NATIVE_ASSETS.md) for how to restore them.
+> [Native assets](docs/NATIVE_ASSETS.md) for how to restore them. If you don't use a feature, skip
+> its download with an `"enriched-markdown": { "enableCodeHighlight": false, "enableMath": false }`
+> block in your app's `package.json` — see [Skipping the download](docs/NATIVE_ASSETS.md#skipping-the-download-opt-out).
 
 #### 2. Install iOS / macOS dependencies
 

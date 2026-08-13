@@ -39,7 +39,14 @@ if (grammarManifest == null) {
 }
 def defaultCodeHighlightLanguages = new groovy.json.JsonSlurper().parse(grammarManifest)
   .grammars.findAll { id, spec -> spec['default'] }.collect { id, spec -> id }
-def enableCodeHighlight = (rootProject.findProperty("enrichedMarkdown.enableCodeHighlight") ?: findProperty("enrichedMarkdown.enableCodeHighlight") ?: "true").toString().toBoolean()
+// The enrichedMarkdown.enableCodeHighlight gradle property forces the choice. Otherwise
+// code highlighting tracks whether the vendored tree-sitter runtime + grammars were
+// downloaded at postinstall, so a package.json opt-out (`enriched-markdown`.
+// enableCodeHighlight = false skips that download) auto-disables here instead of feeding
+// missing sources to CMake -- no gradle.properties edit required.
+def codeHighlightProp = rootProject.findProperty("enrichedMarkdown.enableCodeHighlight") ?: findProperty("enrichedMarkdown.enableCodeHighlight")
+def codeHighlightRuntime = new File(projectDir, "../cpp/highlight/vendor/tree-sitter/src/lib.c")
+def enableCodeHighlight = codeHighlightProp != null ? codeHighlightProp.toString().toBoolean() : codeHighlightRuntime.exists()
 def codeHighlightLanguagesProp = rootProject.findProperty("enrichedMarkdown.codeHighlightLanguages") ?: findProperty("enrichedMarkdown.codeHighlightLanguages")
 def codeHighlightLanguages = codeHighlightLanguagesProp ? codeHighlightLanguagesProp.toString().split(",").collect { it.trim() }.findAll { it } : defaultCodeHighlightLanguages
 def codeHighlightActive = enableCodeHighlight && !codeHighlightLanguages.isEmpty()
