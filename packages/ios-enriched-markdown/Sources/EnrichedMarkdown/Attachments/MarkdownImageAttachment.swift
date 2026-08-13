@@ -9,12 +9,13 @@ final class MarkdownImageAttachment: NSTextAttachment {
     }()
 
     private static let processedImageCache = NSCache<NSString, UIImage>()
-    private static let registry = NSMapTable<NSString, MarkdownImageAttachment>.strongToWeakObjects()
 
     let imageURL: String
+    let requestHeaders: [String: String]
     let isInline: Bool
     let cachedHeight: CGFloat
     let cachedBorderRadius: CGFloat
+    private let requestKey: String
     private let downloader: ImageDownloading
 
     private var originalImage: UIImage?
@@ -22,27 +23,28 @@ final class MarkdownImageAttachment: NSTextAttachment {
     private weak var textContainer: NSTextContainer?
     private var lastProcessedKey: String?
 
+    /// Always returns a fresh attachment: an NSTextAttachment carries
+    /// per-position layout state (bounds, text container, refresh range), so
+    /// instances must never be shared between string positions or views.
+    /// Re-renders stay flicker-free through the original/processed image
+    /// caches, which hit synchronously.
     static func attachment(
         for url: String,
         config: MarkdownStyleConfig,
         isInline: Bool,
         altText: String,
+        requestHeaders: [String: String] = [:],
         downloader: ImageDownloading = ImageDownloader.shared
     ) -> MarkdownImageAttachment {
-        let key = "\(url)_\(isInline)" as NSString
-        if let existing = registry.object(forKey: key), existing.loadedImage != nil {
-            return existing
-        }
-
-        let attachment = MarkdownImageAttachment(
+        MarkdownImageAttachment(
             url: url,
             config: config,
             isInline: isInline,
             altText: altText,
+            requestHeaders: requestHeaders,
+            requestKey: ImageCacheKey.requestKey(url: url, headers: requestHeaders),
             downloader: downloader
         )
-        registry.setObject(attachment, forKey: key)
-        return attachment
     }
 
     private init(
@@ -50,9 +52,13 @@ final class MarkdownImageAttachment: NSTextAttachment {
         config: MarkdownStyleConfig,
         isInline: Bool,
         altText: String,
+        requestHeaders: [String: String],
+        requestKey: String,
         downloader: ImageDownloading
     ) {
         imageURL = url
+        self.requestHeaders = requestHeaders
+        self.requestKey = requestKey
         self.isInline = isInline
         self.downloader = downloader
         cachedHeight = isInline
@@ -126,7 +132,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
     private func startDownloadingImage() {
         guard !imageURL.isEmpty else { return }
-        downloader.download(url: imageURL) { [weak self] image in
+        downloader.download(url: imageURL, headers: requestHeaders) { [weak self] image in
             self?.handleLoadedImage(image)
         }
     }
@@ -144,7 +150,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
     private func processAndApplyImage(_ image: UIImage, targetWidth: CGFloat) {
         guard targetWidth > 0 else { return }
 
-        let processedKey = "\(imageURL)_w\(targetWidth)_h\(cachedHeight)_r\(cachedBorderRadius)"
+        let processedKey = "\(requestKey)_w\(targetWidth)_h\(cachedHeight)_r\(cachedBorderRadius)"
         if processedKey == lastProcessedKey { return }
         lastProcessedKey = processedKey
 

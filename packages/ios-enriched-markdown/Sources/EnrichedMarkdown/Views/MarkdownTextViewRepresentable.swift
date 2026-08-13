@@ -6,7 +6,10 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let sourceMarkdown: String?
     let styleConfig: MarkdownStyleConfig
     let onLinkPress: ((URL) -> Void)?
+    let onLinkLongPress: ((URL) -> Void)?
     let selectionMenuConfig: MarkdownSelectionMenuConfig
+    let isSelectionEnabled: Bool
+    let selectionColor: Color?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -21,9 +24,13 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 
     func updateUIView(_ textView: MarkdownTextView, context: Context) {
         context.coordinator.onLinkPress = onLinkPress
+        context.coordinator.onLinkLongPress = onLinkLongPress
         context.coordinator.sourceMarkdown = sourceMarkdown
         context.coordinator.selectionMenuConfig = selectionMenuConfig
+        textView.onLinkPress = onLinkPress
         textView.styleConfig = styleConfig
+        textView.isSelectionEnabled = isSelectionEnabled
+        textView.tintColor = selectionColor.map { UIColor($0) }
         textView.setMarkdownAttributedText(attributedText)
     }
 
@@ -40,20 +47,70 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var onLinkPress: ((URL) -> Void)?
+        var onLinkLongPress: ((URL) -> Void)?
         var sourceMarkdown: String?
         var selectionMenuConfig = MarkdownSelectionMenuConfig()
 
+        /// Routes a link tap; returns true when a handler consumed it.
+        func handleLinkPress(_ url: URL) -> Bool {
+            guard let onLinkPress else { return false }
+            onLinkPress(url)
+            return true
+        }
+
+        /// Routes a link long-press; returns true when a handler consumed it.
+        /// Without a long-press handler, a press handler consumes every link
+        /// interaction (pre-existing behavior: suppresses the system
+        /// menu/preview and fires the press).
+        func handleLinkLongPress(_ url: URL) -> Bool {
+            if let onLinkLongPress {
+                onLinkLongPress(url)
+                return true
+            }
+            return handleLinkPress(url)
+        }
+
+        // iOS 15–16 (and 17+ fallback when the UITextItem methods are
+        // unavailable): tap arrives as .invokeDefaultAction, long-press as
+        // .presentActions or .preview.
         func textView(
             _ textView: UITextView,
             shouldInteractWith URL: URL,
             in characterRange: NSRange,
             interaction: UITextItemInteraction
         ) -> Bool {
-            if let onLinkPress {
-                onLinkPress(URL)
-                return false
+            switch interaction {
+            case .invokeDefaultAction:
+                return !handleLinkPress(URL)
+            case .presentActions, .preview:
+                return !handleLinkLongPress(URL)
+            @unknown default:
+                return true
             }
-            return true
+        }
+
+        @available(iOS 17.0, *)
+        func textView(
+            _ textView: UITextView,
+            primaryActionFor textItem: UITextItem,
+            defaultAction: UIAction
+        ) -> UIAction? {
+            guard case .link(let url) = textItem.content, let onLinkPress else {
+                return defaultAction
+            }
+            return UIAction { _ in onLinkPress(url) }
+        }
+
+        @available(iOS 17.0, *)
+        func textView(
+            _ textView: UITextView,
+            menuConfigurationFor textItem: UITextItem,
+            defaultMenu: UIMenu
+        ) -> UITextItem.MenuConfiguration? {
+            guard case .link(let url) = textItem.content else {
+                return UITextItem.MenuConfiguration(menu: defaultMenu)
+            }
+            return handleLinkLongPress(url) ? nil : UITextItem.MenuConfiguration(menu: defaultMenu)
         }
 
         @available(iOS 16.0, *)
@@ -164,6 +221,44 @@ final class MarkdownTextView: UITextView {
         }
     }
 
+    /// Mirrored from the representable so VoiceOver link elements can invoke
+    /// the press handler via accessibilityActivate.
+    var onLinkPress: ((URL) -> Void)?
+
+    /// VoiceOver elements built from the attributed string; frames resolve
+    /// lazily against TextKit 2 layout. Empty (default UITextView behavior)
+    /// below iOS 16, where the decoration/text-layout stack is unavailable.
+    private var markdownAccessibilityElements: [UIAccessibilityElement] = []
+
+    override var accessibilityElements: [Any]? {
+        get { markdownAccessibilityElements.isEmpty ? super.accessibilityElements : markdownAccessibilityElements }
+        set { super.accessibilityElements = newValue }
+    }
+
+    override var isAccessibilityElement: Bool {
+        get { markdownAccessibilityElements.isEmpty ? super.isAccessibilityElement : false }
+        set { super.isAccessibilityElement = newValue }
+    }
+
+    /// Gates the selection UI while keeping `isSelectable` on, so link taps
+    /// keep working when selection is disabled. Selection requires first
+    /// responder; link interaction does not.
+    var isSelectionEnabled: Bool = true {
+        didSet {
+            guard isSelectionEnabled != oldValue else { return }
+            if !isSelectionEnabled {
+                selectedTextRange = nil
+                if isFirstResponder {
+                    resignFirstResponder()
+                }
+            }
+        }
+    }
+
+    override var canBecomeFirstResponder: Bool {
+        isSelectionEnabled && super.canBecomeFirstResponder
+    }
+
     override var intrinsicContentSize: CGSize {
         let width = bounds.width > 0 ? bounds.width : UIView.noIntrinsicMetric
         guard width != UIView.noIntrinsicMetric else {
@@ -205,7 +300,42 @@ final class MarkdownTextView: UITextView {
         invalidateIntrinsicContentSize()
         if #available(iOS 16.0, *) {
             setDecorationNeedsDisplay()
+            rebuildAccessibilityElements()
         }
+    }
+
+    @available(iOS 16.0, *)
+    private func rebuildAccessibilityElements() {
+        let specs = MarkdownAccessibilityElementBuilder.specs(for: attributedText ?? NSAttributedString())
+        markdownAccessibilityElements = specs.map { spec in
+            if case .link(let url) = spec.kind {
+                return MarkdownLinkAccessibilityElement(textView: self, spec: spec, url: url)
+            }
+            return MarkdownAccessibilityElement(textView: self, spec: spec)
+        }
+    }
+
+    /// Screen-coordinate frame for a character range, unioned over its
+    /// TextKit 2 layout fragments.
+    @available(iOS 16.0, *)
+    func accessibilityScreenFrame(for range: NSRange) -> CGRect {
+        guard let textLayoutManager,
+              let contentManager = textLayoutManager.textContentManager,
+              let textRange = TextLayoutHelpers.textRange(range, in: contentManager) else {
+            return .zero
+        }
+
+        textLayoutManager.ensureLayout(for: textRange)
+        var union = CGRect.null
+        textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { _, frame, _, _ in
+            union = union.union(frame)
+            return true
+        }
+        guard !union.isNull else { return .zero }
+
+        union.origin.x += textContainerInset.left
+        union.origin.y += textContainerInset.top
+        return UIAccessibility.convertToScreenCoordinates(union, in: self)
     }
 
     override func layoutSubviews() {

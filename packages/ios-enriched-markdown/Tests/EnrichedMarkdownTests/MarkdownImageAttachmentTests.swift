@@ -4,10 +4,12 @@ import XCTest
 
 private final class MockImageDownloader: ImageDownloading {
     var requestedURLs: [String] = []
+    var requestedHeaders: [[String: String]] = []
     var stubbedImage: UIImage?
 
-    func download(url: String, completion: @escaping (UIImage?) -> Void) {
+    func download(url: String, headers: [String: String], completion: @escaping (UIImage?) -> Void) {
         requestedURLs.append(url)
+        requestedHeaders.append(headers)
         completion(stubbedImage)
     }
 }
@@ -79,6 +81,64 @@ final class MarkdownImageAttachmentTests: XCTestCase {
         )
 
         XCTAssertEqual(attachment.accessibilityLabel, "A red square")
+    }
+
+    func testRequestHeadersReachDownloader() {
+        let downloader = MockImageDownloader()
+        let url = "https://example.com/\(#function).png"
+        let headers = ["Authorization": "Bearer token"]
+
+        _ = MarkdownImageAttachment.attachment(
+            for: url,
+            config: makeConfig(),
+            isInline: false,
+            altText: "",
+            requestHeaders: headers,
+            downloader: downloader
+        )
+
+        XCTAssertEqual(downloader.requestedHeaders, [headers])
+    }
+
+    func testEveryCallYieldsFreshAttachmentInstance() {
+        // Attachments carry per-position layout state, so instances must
+        // never be shared — even for identical URL + headers.
+        let downloader = MockImageDownloader()
+        downloader.stubbedImage = makeImage()
+        let url = "https://example.com/\(#function).png"
+
+        func attachment() -> MarkdownImageAttachment {
+            MarkdownImageAttachment.attachment(
+                for: url,
+                config: makeConfig(),
+                isInline: true,
+                altText: "",
+                requestHeaders: ["Authorization": "Bearer a"],
+                downloader: downloader
+            )
+        }
+
+        XCTAssertFalse(attachment() === attachment())
+    }
+
+    func testDuplicateImageURLsRenderAsIndependentAttachments() {
+        // Regression: with a shared instance, only the first occurrence of a
+        // repeated image URL would draw and refresh.
+        let url = "https://example.invalid/repeated.png"
+        let result = MarkdownRenderer.render(
+            "![a](\(url))\n\n![a](\(url))",
+            config: makeConfig()
+        )
+
+        var attachments: [MarkdownImageAttachment] = []
+        result.enumerateAttribute(.attachment, in: NSRange(location: 0, length: result.length)) { value, _, _ in
+            if let attachment = value as? MarkdownImageAttachment {
+                attachments.append(attachment)
+            }
+        }
+
+        XCTAssertEqual(attachments.count, 2)
+        XCTAssertFalse(attachments[0] === attachments[1])
     }
 
     func testEmptyURLDoesNotHitDownloader() {

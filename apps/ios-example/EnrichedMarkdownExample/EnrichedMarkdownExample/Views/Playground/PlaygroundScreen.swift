@@ -6,10 +6,14 @@ struct PlaygroundScreen: View {
 
     @State private var markdown: String = ""
     @State private var underlineEnabled: Bool = true
+    @State private var selectableEnabled: Bool = true
     @State private var setMarkdownSheetVisible: Bool = false
     @State private var rawInput: String = ""
     @State private var blockImageURI: String?
     @State private var inlineImageURI: String?
+    @State private var longPressedLink: String = ""
+    @State private var linkAlertVisible: Bool = false
+    @State private var acceptImageType: String = "image/png"
 
     // MARK: - Views
 
@@ -25,6 +29,13 @@ struct PlaygroundScreen: View {
                     ) {
                         underlineEnabled.toggle()
                     }
+                    PlaygroundButton(
+                        label: "Selectable",
+                        accessibilityId: "selectable-button",
+                        isActive: selectableEnabled
+                    ) {
+                        selectableEnabled.toggle()
+                    }
                 }
 
                 HStack(spacing: 8) {
@@ -33,6 +44,22 @@ struct PlaygroundScreen: View {
                     }
                     PlaygroundButton(label: "Insert Inline Image", accessibilityId: "insert-inline-image-button") {
                         insertInlineImage()
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    PlaygroundButton(label: "Insert Header Image", accessibilityId: "insert-header-image-button") {
+                        insertHeaderImage()
+                    }
+                    PlaygroundButton(
+                        label: "Accept: \(acceptImageType == "image/png" ? "PNG" : "JPEG")",
+                        accessibilityId: "accept-header-button",
+                        isActive: acceptImageType == "image/png"
+                    ) {
+                        acceptImageType = acceptImageType == "image/png" ? "image/jpeg" : "image/png"
+                    }
+                    PlaygroundButton(label: "Insert Data URI Image", accessibilityId: "insert-data-uri-image-button") {
+                        insertDataURIImage()
                     }
                 }
 
@@ -45,6 +72,18 @@ struct PlaygroundScreen: View {
         .accessibilityIdentifier("playground-screen")
         .markdownTheme(PlaygroundMarkdownTheme)
         .markdownSelectionMenu(MarkdownSelectionMenuConfig())
+        .markdownSelectable(selectableEnabled)
+        .markdownSelectionColor(.orange)
+        .markdownImageRequestHeaders(["Accept": acceptImageType])
+        .onLinkLongPress { url in
+            longPressedLink = url.absoluteString
+            linkAlertVisible = true
+        }
+        .alert("Link long-pressed", isPresented: $linkAlertVisible) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(longPressedLink)
+        }
         .onAppear(perform: loadBundledImages)
         .sheet(isPresented: $setMarkdownSheetVisible) {
             SetMarkdownSheet(
@@ -117,6 +156,32 @@ struct PlaygroundScreen: View {
     private func insertInlineImage() {
         guard let uri = inlineImageURI else { return }
         markdown = "Enriched Markdown is a library for ![icon](\(uri)) React Native."
+    }
+
+    private func insertDataURIImage() {
+        guard
+            let url = Bundle.main.url(forResource: "logo_icon", withExtension: "png"),
+            let data = try? Data(contentsOf: url)
+        else { return }
+        let imageMarkdown = "Rendered from a data URI: ![data uri icon](data:image/png;base64,\(data.base64EncodedString()))"
+        if markdown.isEmpty {
+            markdown = imageMarkdown
+        } else {
+            markdown += "\n\n\(imageMarkdown)"
+        }
+    }
+
+    // httpbingo.org negotiates the response image from the Accept header (and
+    // rejects requests without one), so this image only renders because
+    // markdownImageRequestHeaders reaches the wire — and toggling the header
+    // shows a different image for the same URL via the header-aware cache.
+    private func insertHeaderImage() {
+        let imageMarkdown = "![header image](https://httpbingo.org/image)"
+        if markdown.isEmpty {
+            markdown = imageMarkdown
+        } else {
+            markdown += "\n\n\(imageMarkdown)"
+        }
     }
 }
 

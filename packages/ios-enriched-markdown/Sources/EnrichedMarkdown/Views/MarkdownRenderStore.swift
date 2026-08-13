@@ -13,7 +13,8 @@ final class MarkdownRenderStore: ObservableObject {
     func schedule(
         markdown: String,
         config: MarkdownStyleConfig,
-        flags: Md4cFlags = .commonMark
+        flags: Md4cFlags = .commonMark,
+        imageRequestHeaders: [String: String] = [:]
     ) {
         if isBlank(markdown) {
             attributedText = NSAttributedString()
@@ -22,7 +23,12 @@ final class MarkdownRenderStore: ObservableObject {
         }
 
         coordinator.scheduleRender {
-            MarkdownRenderer.render(markdown, config: config, flags: flags)
+            MarkdownRenderer.render(
+                markdown,
+                config: config,
+                flags: flags,
+                imageRequestHeaders: imageRequestHeaders
+            )
         } apply: { [weak self] result in
             self?.attributedText = result
             self?.sourceMarkdown = markdown

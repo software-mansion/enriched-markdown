@@ -2,11 +2,13 @@ import UIKit
 
 final class RendererFactory {
     private let config: MarkdownStyleConfig
+    private let imageRequestHeaders: [String: String]
     private var cache: [NodeType: NodeRenderer] = [:]
     private lazy var childrenOnlyRenderer = ChildrenOnlyRenderer(factory: self)
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfig, imageRequestHeaders: [String: String] = [:]) {
         self.config = config
+        self.imageRequestHeaders = imageRequestHeaders
     }
 
     func renderer(for type: NodeType) -> NodeRenderer {
@@ -60,7 +62,7 @@ final class RendererFactory {
         case .code:
             return CodeRenderer(factory: self, config: config)
         case .image:
-            return ImageRenderer(config: config)
+            return ImageRenderer(config: config, requestHeaders: imageRequestHeaders)
         default:
             return nil
         }

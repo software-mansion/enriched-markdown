@@ -9,7 +9,11 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.markdownLinkPressHandler) private var onLinkPress
+    @Environment(\.markdownLinkLongPressHandler) private var onLinkLongPress
     @Environment(\.markdownSelectionMenu) private var selectionMenuConfig
+    @Environment(\.markdownSelectable) private var isSelectionEnabled
+    @Environment(\.markdownSelectionColor) private var selectionColor
+    @Environment(\.markdownImageRequestHeaders) private var imageRequestHeaders
     @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
@@ -31,20 +35,54 @@ public struct EnrichedMarkdownText: View {
             sourceMarkdown: renderStore.sourceMarkdown,
             styleConfig: styleConfig,
             onLinkPress: onLinkPress,
-            selectionMenuConfig: selectionMenuConfig
+            onLinkLongPress: onLinkLongPress,
+            selectionMenuConfig: selectionMenuConfig,
+            isSelectionEnabled: isSelectionEnabled,
+            selectionColor: selectionColor
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
-            renderStore.schedule(markdown: markdown, config: styleConfig, flags: flags)
+            renderStore.schedule(
+                markdown: markdown,
+                config: styleConfig,
+                flags: flags,
+                imageRequestHeaders: imageRequestHeaders
+            )
         }
+        // The onChange closures run against the previous view value, so the
+        // changed value must come from the closure parameter — reading the
+        // view property would render one update behind.
         .onChange(of: markdown) { newValue in
-            renderStore.schedule(markdown: newValue, config: styleConfig, flags: flags)
+            renderStore.schedule(
+                markdown: newValue,
+                config: styleConfig,
+                flags: flags,
+                imageRequestHeaders: imageRequestHeaders
+            )
         }
         .onChange(of: styleConfig) { newValue in
-            renderStore.schedule(markdown: markdown, config: newValue, flags: flags)
+            renderStore.schedule(
+                markdown: markdown,
+                config: newValue,
+                flags: flags,
+                imageRequestHeaders: imageRequestHeaders
+            )
         }
         .onChange(of: flags) { newValue in
-            renderStore.schedule(markdown: markdown, config: styleConfig, flags: newValue)
+            renderStore.schedule(
+                markdown: markdown,
+                config: styleConfig,
+                flags: newValue,
+                imageRequestHeaders: imageRequestHeaders
+            )
+        }
+        .onChange(of: imageRequestHeaders) { newValue in
+            renderStore.schedule(
+                markdown: markdown,
+                config: styleConfig,
+                flags: flags,
+                imageRequestHeaders: newValue
+            )
         }
         .onDisappear {
             renderStore.invalidate()
