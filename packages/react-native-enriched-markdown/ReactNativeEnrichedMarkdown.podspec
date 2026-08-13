@@ -63,9 +63,10 @@ Pod::Spec.new do |s|
   if enable_math
     preprocessor_defs += ' ENRICHED_MARKDOWN_MATH=1'
     # Reachable only when math is force-enabled (ENRICHED_MARKDOWN_ENABLE_MATH='1') but the
-    # vendored tree is missing; the unforced path already auto-disables above. Published
-    # tarballs bundle ios/vendor, and postinstall/`yarn prepare` restore it otherwise, so
-    # fail early with an actionable message instead of a confusing missing-file error.
+    # vendored tree is missing; the unforced path already auto-disables above. ios/vendor is
+    # kept out of the npm tarball and restored on the consumer's machine by postinstall (or
+    # by `yarn prepare` in the monorepo), so fail early with an actionable message instead of
+    # a confusing missing-file error.
     unless ratex_present
       raise '[ReactNativeEnrichedMarkdown] LaTeX math is enabled but the vendored RaTeX ' \
         'XCFramework is missing at ios/vendor/RaTeX.xcframework. ' \

@@ -43,10 +43,11 @@ module EnrichedMarkdownCodeHighlight
     return disabled if ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT'] == '0'
 
     # Code highlighting compiles the vendored tree-sitter runtime + grammar sources,
-    # downloaded at postinstall. If the consumer opted out (`enriched-markdown`.
-    # enableCodeHighlight = false skips that download), the runtime is absent -- fall
-    # back to the no-op stub instead of feeding missing files to clang.
-    return disabled unless File.exist?(File.join(podspec_dir, 'cpp/highlight/vendor/tree-sitter/src/lib.c'))
+    # downloaded at postinstall. The grammars/.stamp marker is written only after every
+    # grammar source is fully vendored, so gating on it (rather than the runtime lib.c,
+    # which is fetched first) also falls back to the no-op stub on a partial/failed
+    # download -- not just a `enriched-markdown`.enableCodeHighlight = false opt-out.
+    return disabled unless File.exist?(File.join(podspec_dir, 'cpp/highlight/vendor/grammars/.stamp'))
 
     defaults = default_languages(podspec_dir)
     langs = (ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES'] || '')
