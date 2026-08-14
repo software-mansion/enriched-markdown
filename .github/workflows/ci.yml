@@ -20,6 +20,7 @@ jobs:
     outputs:
       react-native: ${{ steps.filter.outputs.react-native }}
       android: ${{ steps.filter.outputs.android }}
+      ios: ${{ steps.filter.outputs.ios }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -44,6 +45,16 @@ jobs:
               - 'packages/android-enriched-markdown/**'
               - 'packages/core/**'
               - 'apps/android-example/**'
+              - 'package.json'
+              - 'yarn.lock'
+              - '.nvmrc'
+              - '.yarnrc.yml'
+              - '.github/**'
+            ios:
+              - 'packages/ios-enriched-markdown/**'
+              - 'packages/core/**'
+              - 'apps/ios-example/**'
+              - 'Package.swift'
               - 'package.json'
               - 'yarn.lock'
               - '.nvmrc'
@@ -338,6 +349,116 @@ jobs:
       - name: Run Kotlin lint
         run: yarn turbo run lint:android-native --filter=@enriched-markdown/android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
+  ios-build:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-latest-xlarge
+    env:
+      TURBO_CACHE_DIR: .turbo/ios-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Cache turborepo for iOS native build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.TURBO_CACHE_DIR }}
+          key: ${{ runner.os }}-turborepo-ios-native-build-${{ hashFiles('yarn.lock', 'Package.swift', 'packages/ios-enriched-markdown/**', 'apps/ios-example/**', 'packages/core/cpp/**') }}
+          restore-keys: |
+            ${{ runner.os }}-turborepo-ios-native-build-
+
+      - name: Check turborepo cache for iOS native build
+        run: |
+          TURBO_CACHE_STATUS=$(yarn turbo run build:ios-native \
+            --filter=enriched-markdown-ios-example \
+            --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
+            --dry=json | jq -r '.tasks[0].cache.status')
+
+          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
+            echo "turbo_cache_hit=1" >> $GITHUB_ENV
+          fi
+
+      - name: Set up Xcode
+        if: env.turbo_cache_hit != 1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      - name: Select iOS simulator
+        if: env.turbo_cache_hit != 1
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[] | .[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
+
+          if [[ -z "$UDID" || "$UDID" == "null" ]]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices
+            exit 1
+          fi
+
+          echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+
+      - name: Build iOS example
+        run: yarn turbo run build:ios-native --filter=enriched-markdown-ios-example --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+
+  ios-unit-tests:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-latest-xlarge
+    env:
+      TURBO_CACHE_DIR: .turbo/ios-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Cache turborepo for iOS native tests
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.TURBO_CACHE_DIR }}
+          key: ${{ runner.os }}-turborepo-ios-native-test-${{ hashFiles('yarn.lock', 'Package.swift', 'packages/ios-enriched-markdown/**', 'packages/core/cpp/**') }}
+          restore-keys: |
+            ${{ runner.os }}-turborepo-ios-native-test-
+
+      - name: Check turborepo cache for iOS native tests
+        run: |
+          TURBO_CACHE_STATUS=$(yarn turbo run test:ios-native \
+            --filter=@enriched-markdown/ios \
+            --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
+            --dry=json | jq -r '.tasks[0].cache.status')
+
+          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
+            echo "turbo_cache_hit=1" >> $GITHUB_ENV
+          fi
+
+      - name: Set up Xcode
+        if: env.turbo_cache_hit != 1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      - name: Select iOS simulator
+        if: env.turbo_cache_hit != 1
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[] | .[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
+
+          if [[ -z "$UDID" || "$UDID" == "null" ]]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices
+            exit 1
+          fi
+
+          echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+
+      - name: Run iOS unit tests
+        run: yarn turbo run test:ios-native --filter=@enriched-markdown/ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+
   ci-success:
     needs:
       - changes
@@ -348,6 +469,8 @@ jobs:
       - android-build
       - android-unit-tests
       - android-kotlin-lint
+      - ios-build
+      - ios-unit-tests
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -355,6 +478,7 @@ jobs:
         env:
           REACT_NATIVE: ${{ needs.changes.outputs.react-native }}
           ANDROID: ${{ needs.changes.outputs.android }}
+          IOS: ${{ needs.changes.outputs.ios }}
           RN_LINT: ${{ needs.rn-lint.result }}
           RN_BUILD_LIBRARY: ${{ needs.rn-build-library.result }}
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
@@ -362,6 +486,8 @@ jobs:
           ANDROID_BUILD: ${{ needs.android-build.result }}
           ANDROID_UNIT_TESTS: ${{ needs.android-unit-tests.result }}
           ANDROID_KOTLIN_LINT: ${{ needs.android-kotlin-lint.result }}
+          IOS_BUILD: ${{ needs.ios-build.result }}
+          IOS_UNIT_TESTS: ${{ needs.ios-unit-tests.result }}
           CHANGES: ${{ needs.changes.result }}
         run: |
           if [[ "$CHANGES" != "success" ]]; then
@@ -380,7 +506,7 @@ jobs:
             fi
           }
 
-          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" ]]; then
+          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" ]]; then
             echo "No relevant changes detected - CI passed"
             exit 0
           fi
@@ -392,5 +518,7 @@ jobs:
           check_required "$ANDROID" "$ANDROID_BUILD" "android-build"
           check_required "$ANDROID" "$ANDROID_UNIT_TESTS" "android-unit-tests"
           check_required "$ANDROID" "$ANDROID_KOTLIN_LINT" "android-kotlin-lint"
+          check_required "$IOS" "$IOS_BUILD" "ios-build"
+          check_required "$IOS" "$IOS_UNIT_TESTS" "ios-unit-tests"
 
           echo "All required checks passed"

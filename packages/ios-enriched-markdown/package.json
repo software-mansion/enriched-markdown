@@ -6,6 +6,7 @@
   "scripts": {
     "build": "cd ../.. && swift build",
     "test": "cd ../.. && swift test",
+    "test:ios-native": "cd ../.. && xcodebuild test -scheme EnrichedMarkdown -destination \"platform=iOS Simulator,id=${IOS_SIMULATOR_UDID:-booted}\"",
     "clean": "cd ../.. && swift package clean"
   }
 }

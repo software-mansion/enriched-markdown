@@ -74,6 +74,29 @@
         "gradle/**"
       ],
       "outputs": []
+    },
+    "build:ios-native": {
+      "passThroughEnv": ["IOS_SIMULATOR_UDID"],
+      "inputs": [
+        "package.json",
+        "EnrichedMarkdownExample/**",
+        "$TURBO_ROOT$/Package.swift",
+        "$TURBO_ROOT$/packages/ios-enriched-markdown/**",
+        "$TURBO_ROOT$/packages/core/cpp/**"
+      ],
+      "outputs": []
+    },
+    "test:ios-native": {
+      "passThroughEnv": ["IOS_SIMULATOR_UDID"],
+      "inputs": [
+        "package.json",
+        "Sources/**",
+        "Tests/**",
+        "cpp/**",
+        "$TURBO_ROOT$/Package.swift",
+        "$TURBO_ROOT$/packages/core/cpp/**"
+      ],
+      "outputs": []
     }
   }
 }
