@@ -1,0 +1,17 @@
+# Size/complexity metrics are left to review; renderer dispatch code
+# (element switches, HTML generation) legitimately exceeds the defaults.
+disabled_rules:
+  - cyclomatic_complexity
+  - file_length
+  - function_body_length
+  - function_parameter_count
+  - trailing_comma
+  - type_body_length
+
+identifier_name:
+  excluded:
+    - r
+    - g
+    - b
+
+line_length: 150

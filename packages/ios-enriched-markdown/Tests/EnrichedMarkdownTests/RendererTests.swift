@@ -12,7 +12,6 @@ final class RendererTests: XCTestCase {
         config = MarkdownStyleConfig.baseline()
     }
 
-
     func testPlainTextUsesParagraphFont() {
         // marginBottom appends a spacer newline for UITextView layout; this test checks font only.
         var fontTestConfig = config!
@@ -37,7 +36,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundParagraphFont)
     }
 
-
     func testBoldTextHasBoldTrait() {
         let result = MarkdownRenderer.render("**bold**", config: config)
         XCTAssertTrue(result.string.contains("bold"))
@@ -52,7 +50,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(foundBold)
     }
-
 
     func testItalicTextHasItalicTrait() {
         let result = MarkdownRenderer.render("*italic*", config: config)
@@ -69,7 +66,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundItalic)
     }
 
-
     func testBoldAndItalicCombined() {
         let result = MarkdownRenderer.render("***both***", config: config)
 
@@ -84,14 +80,11 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundBoth)
     }
 
-
     private static func fontHasBoldAndItalic(_ font: UIFont) -> Bool {
         FontHelpers.hasBoldTrait(font) && FontHelpers.hasItalicTrait(font)
     }
 
-
     private static var registeredMontserratFonts = false
-
 
     private static func registerMontserratFontsIfNeeded() {
         guard !registeredMontserratFonts else { return }
@@ -111,7 +104,6 @@ final class RendererTests: XCTestCase {
             CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
         }
     }
-
 
     func testBoldAndItalicCombinedInCustomFontListItem() {
         Self.registerMontserratFontsIfNeeded()
@@ -141,7 +133,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundItalic)
     }
 
-
     func testBoldAndItalicCombinedUsesItalicFaceForCustomBoldFont() {
         Self.registerMontserratFontsIfNeeded()
         guard let bold = UIFont(name: "Montserrat-Bold", size: 16) else {
@@ -151,7 +142,6 @@ final class RendererTests: XCTestCase {
 
         XCTAssertEqual(FontHelpers.ensureItalic(bold)?.fontName, "Montserrat-BoldItalic")
     }
-
 
     func testThemeOverrideAppliesStrongColor() {
         var customConfig = config!
@@ -170,14 +160,12 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundRed)
     }
 
-
     func testMultipleParagraphsPreserveStructure() {
         let result = MarkdownRenderer.render("First\n\nSecond", config: config)
         XCTAssertTrue(result.string.contains("First"))
         XCTAssertTrue(result.string.contains("Second"))
         XCTAssertTrue(result.string.contains("\n"))
     }
-
 
     func testNestedBoldWithItalicInside() {
         let result = MarkdownRenderer.render("**bold *italic* bold**", config: config)
@@ -195,7 +183,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(italicFound)
     }
 
-
     func testTopLevelParagraphMarginBottomUsesParagraphSpacing() {
         var customConfig = config!
         customConfig.paragraph.marginBottom = 80
@@ -209,7 +196,6 @@ final class RendererTests: XCTestCase {
         XCTAssertEqual(style?.paragraphSpacing, 80)
     }
 
-
     func testParagraphUsesConfiguredLineHeight() {
         let result = MarkdownRenderer.render("Hello world", config: config)
 
@@ -221,7 +207,6 @@ final class RendererTests: XCTestCase {
         XCTAssertNotNil(baselineOffset)
         XCTAssertGreaterThan(baselineOffset ?? 0, 0)
     }
-
 
     func testHeadingUsesLargerFontThanBody() {
         let result = MarkdownRenderer.render("# Heading", config: config)
@@ -235,7 +220,6 @@ final class RendererTests: XCTestCase {
         XCTAssertGreaterThan(headingFont!.pointSize, bodyFont.pointSize)
     }
 
-
     func testHeadingLevel2UsesConfiguredFont() {
         let result = MarkdownRenderer.render("## Sub", config: config)
         XCTAssertTrue(result.string.contains("Sub"))
@@ -247,7 +231,6 @@ final class RendererTests: XCTestCase {
         XCTAssertEqual(font?.pointSize, expectedFont.pointSize)
     }
 
-
     func testHeadingUsesBoldWeightInDefaultTheme() {
         let result = MarkdownRenderer.render("# Heading", config: config)
 
@@ -257,7 +240,6 @@ final class RendererTests: XCTestCase {
         XCTAssertNotNil(font)
         XCTAssertTrue(font!.fontDescriptor.symbolicTraits.contains(.traitBold))
     }
-
 
     func testCustomThemeHeadingUsesBoldFontFamily() {
         var themedConfig = config!
@@ -282,7 +264,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundBoldHeading)
     }
 
-
     func testBoldInsideHeading() {
         let result = MarkdownRenderer.render("# **bold** heading", config: config)
 
@@ -299,7 +280,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(boldFound)
     }
-
 
     func testLinkHasURLAttribute() {
         let result = MarkdownRenderer.render("[text](https://example.com)", config: config)
@@ -323,7 +303,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundLink)
     }
 
-
     func testLinkThemeOverrideAppliesColor() {
         var customConfig = config!
         customConfig.link.foregroundColor = .systemBlue
@@ -341,7 +320,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundBlue)
     }
 
-
     func testLinkInsideParagraphWithInlineStyles() {
         let result = MarkdownRenderer.render("**bold** and [link](https://example.com) and *italic*", config: config)
         XCTAssertTrue(result.string.contains("link"))
@@ -355,7 +333,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(linkFound)
     }
-
 
     func testAllAttributeRangesWithinBounds() {
         let samples = [
@@ -391,7 +368,6 @@ final class RendererTests: XCTestCase {
     A paragraph with a [link](https://example.com) and **bold** nearby.
     """
 
-
     func testHardLineBreakUsesLineSeparator() {
         let result = MarkdownRenderer.render("Line one  \nLine two", config: config)
         XCTAssertTrue(result.string.contains("Line one"))
@@ -419,7 +395,6 @@ final class RendererTests: XCTestCase {
         XCTAssertNotNil(attributes[.font] as? UIFont)
     }
 
-
     func testInlineCodeUsesMonospacedFont() {
         let result = MarkdownRenderer.render("Use `code` here", config: config)
         XCTAssertTrue(result.string.contains("code"))
@@ -435,7 +410,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundMonospaced)
     }
 
-
     func testInlineCodeHasInlineCodeAttribute() {
         let result = MarkdownRenderer.render("`code`", config: config)
 
@@ -448,7 +422,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(found)
     }
 
-
     func testInlineCodeAppliesBackgroundColor() {
         let result = MarkdownRenderer.render("`code`", config: config)
 
@@ -460,7 +433,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(foundBackground)
     }
-
 
     func testInlineCodeThemeOverrideAppliesColor() {
         var customConfig = config!
@@ -479,7 +451,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundPink)
     }
 
-
     func testBoldInlineCodePreservesBoldWeight() {
         let result = MarkdownRenderer.render("**`code`**", config: config)
 
@@ -495,7 +466,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundBoldMonospaced)
     }
 
-
     func testBlockImageInsertsAttachmentWithAltText() {
         let result = MarkdownRenderer.render("![Mountain](https://example.com/img.png)", config: config)
 
@@ -510,7 +480,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(found)
     }
-
 
     func testBlockImageAfterParagraphIsNotInline() {
         let result = MarkdownRenderer.render(
@@ -528,7 +497,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundBlockImage)
     }
 
-
     func testInlineImageUsesInlineSize() {
         let result = MarkdownRenderer.render("Hello ![icon](https://example.com/icon.png) world", config: config)
 
@@ -542,7 +510,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(found)
     }
 
-
     func testImageWithEmptyURLIsSkipped() {
         let result = MarkdownRenderer.render("![alt]()", config: config)
 
@@ -554,7 +521,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertFalse(hasAttachment)
     }
-
 
     func testThematicBreakInsertsAttachment() {
         let result = MarkdownRenderer.render("---", config: config!)
@@ -569,7 +535,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundAttachment)
     }
 
-
     func testThematicBreakThemeOverride() {
         var customConfig = config!
         customConfig.thematicBreak.height = 3
@@ -583,7 +548,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(found)
     }
-
 
     func testCodeBlockHasMonospacedFontAndAttribute() {
         let result = MarkdownRenderer.render("```\ncode line\n```", config: config)
@@ -607,7 +571,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundMonospaced)
     }
 
-
     func testCodeBlockThemeOverride() {
         var customConfig = config!
         customConfig.codeBlock.foregroundColor = .systemGreen
@@ -624,7 +587,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundGreen)
     }
 
-
     func testCodeBlockDoesNotIncludePrecedingParagraphLabel() {
         let result = MarkdownRenderer.render(
             "Fenced block:\n\n```\ncode\n```",
@@ -640,7 +602,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertFalse(labelHasCodeBlock)
     }
-
 
     func testCodeBlockBackgroundRangeIncludesPaddingSpacers() {
         var customConfig = config!
@@ -660,7 +621,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(result.string[codeBlockRange].contains("code line"))
     }
 
-
     func testBlockquoteHasDepthAndIndent() {
         let result = MarkdownRenderer.render("> quote text", config: config)
 
@@ -676,7 +636,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundDepth)
     }
 
-
     func testNestedBlockquoteIncreasesDepth() {
         let result = MarkdownRenderer.render("> outer\n> > inner", config: config)
 
@@ -690,7 +649,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(depths.contains(1))
     }
 
-
     func testNestedBlockquoteRendersOnSeparateLines() {
         let result = MarkdownRenderer.render("> Outer quote\n> > Nested quote", config: config)
         let outerRange = (result.string as NSString).range(of: "Outer quote")
@@ -699,7 +657,6 @@ final class RendererTests: XCTestCase {
         XCTAssertNotEqual(nestedRange.location, NSNotFound)
         XCTAssertLessThan(outerRange.location, nestedRange.location)
     }
-
 
     func testBlockquoteDepthAttributeIsReadableAsInteger() {
         let result = MarkdownRenderer.render("> quote", config: config)
@@ -712,7 +669,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(foundDepth)
     }
 
-
     func testUnorderedListItemsHaveListAttributes() {
         let result = MarkdownRenderer.render("- first\n- second", config: config)
 
@@ -722,7 +678,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertGreaterThanOrEqual(itemCount, 2)
     }
-
 
     func testOrderedListItemsHaveSequentialNumbers() {
         let result = MarkdownRenderer.render("1. first\n2. second", config: config)
@@ -736,7 +691,6 @@ final class RendererTests: XCTestCase {
         XCTAssertTrue(numbers.contains(1))
         XCTAssertTrue(numbers.contains(2))
     }
-
 
     func testListFirstItemAfterLabelHasListAttributes() {
         let result = MarkdownRenderer.render("Unordered:\n\n- Alpha\n- Beta", config: config)
@@ -762,7 +716,6 @@ final class RendererTests: XCTestCase {
         XCTAssertNotEqual(labelParagraph.location, alphaParagraph.location)
     }
 
-
     func testListItemWithBoldPreservesFormatting() {
         let result = MarkdownRenderer.render("- **bold** item", config: config)
 
@@ -776,7 +729,6 @@ final class RendererTests: XCTestCase {
         }
         XCTAssertTrue(foundBold)
     }
-
 
     func testListFollowedByCodeBlockKeepsExternalMarginSpacer() {
         let markdown = """

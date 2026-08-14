@@ -86,6 +86,15 @@
       ],
       "outputs": []
     },
+    "lint:ios-native": {
+      "env": ["SWIFTLINT_VERSION"],
+      "inputs": [
+        "package.json",
+        ".swiftlint.yml",
+        "**/*.swift"
+      ],
+      "outputs": []
+    },
     "test:ios-native": {
       "passThroughEnv": ["IOS_SIMULATOR_UDID"],
       "inputs": [
