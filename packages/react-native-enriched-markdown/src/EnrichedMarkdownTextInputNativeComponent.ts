@@ -82,7 +82,7 @@ export interface OnChangeStateEvent {
   underline: { isActive: boolean };
   strikethrough: { isActive: boolean };
   spoiler: { isActive: boolean };
-  link: { isActive: boolean };
+  link: { isActive: boolean; destination: string };
   heading: { isActive: boolean; level: CodegenTypes.Int32 };
   unorderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
   orderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
@@ -180,7 +180,7 @@ export interface OnContextMenuItemPressEvent {
     underline: { isActive: boolean };
     strikethrough: { isActive: boolean };
     spoiler: { isActive: boolean };
-    link: { isActive: boolean };
+    link: { isActive: boolean; destination: string };
     heading: { isActive: boolean; level: CodegenTypes.Int32 };
     unorderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
     orderedList: { isActive: boolean; depth: CodegenTypes.Int32 };

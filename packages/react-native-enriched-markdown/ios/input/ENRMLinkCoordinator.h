@@ -18,11 +18,18 @@ NS_ASSUME_NONNULL_BEGIN
                        autoLinkDetector:(id<ENRMAutoLinkDetecting>)autoLinkDetector;
 
 - (NSString *)sanitizeURL:(NSString *)url;
-- (nullable ENRMFormattingRange *)linkAtPosition:(NSUInteger)position;
 
-/// Sets a link on the selection range, or updates an existing link's URL at the cursor.
-/// Returns YES if a mutation occurred.
-- (BOOL)setLinkURL:(NSString *)url atCursor:(NSUInteger)cursor selection:(NSRange)selection;
+/// The link a caret or selection refers to, shared by everything that acts on
+/// "the current link" (style state, the link prompt, setting and removing a
+/// link) so they always agree. For a selection it is the link containing the
+/// first selected character. For a collapsed caret it is the link the caret is
+/// inside or right after: ranges are half-open, and the caret often lands at
+/// NSMaxRange(link) after tapping a link.
+- (nullable ENRMFormattingRange *)linkForSelection:(NSRange)selection;
+
+/// Updates the URL of the link at the selection, or adds a link over a
+/// non-empty selection. Returns YES if a mutation occurred.
+- (BOOL)setLinkURL:(NSString *)url forSelection:(NSRange)selection;
 
 /// Adds a new link range (sanitizes the URL, clears auto-links).
 - (void)addLinkWithURL:(NSString *)url start:(NSUInteger)start end:(NSUInteger)end;
@@ -30,8 +37,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// Adds a link range with an already-sanitized URL (no auto-link clearing).
 - (void)addLinkDirectWithURL:(NSString *)url start:(NSUInteger)start end:(NSUInteger)end;
 
-/// Removes the link at the given position. Returns YES if a link was found and removed.
-- (BOOL)removeLinkAtPosition:(NSUInteger)position;
+/// Removes the link at the selection. Returns YES if a link was found and removed.
+- (BOOL)removeLinkForSelection:(NSRange)selection;
 
 /// Returns the link range containing `position - 1`, for atomic link deletion.
 - (nullable ENRMFormattingRange *)linkRangeForDeletionAtPosition:(NSUInteger)position;
