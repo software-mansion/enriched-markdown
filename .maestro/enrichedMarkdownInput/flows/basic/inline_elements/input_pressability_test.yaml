@@ -1,0 +1,21 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - input
+  - smoke
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- assertVisible: 'Parent presses: 0'
+
+- tapOn:
+    id: editor-container
+
+- assertVisible: 'Parent presses: 0'
+
+- tapOn:
+    id: parent-press-count
+
+- assertVisible: 'Parent presses: 1'

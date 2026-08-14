@@ -11,6 +11,7 @@ import {
   Image,
   TextInput,
   Keyboard,
+  Pressable,
 } from 'react-native';
 import { useHeaderHeight } from '@react-navigation/elements';
 import {
@@ -70,6 +71,8 @@ export default function PlaygroundScreen() {
   const [underlineEnabled, setUnderlineEnabled] = useState(true);
   const [setMarkdownModalVisible, setSetMarkdownModalVisible] = useState(false);
   const [rawInput, setRawInput] = useState('');
+  const [parentPressCount, setParentPressCount] = useState(0);
+  const [selectionRange, setSelectionRange] = useState({ start: 0, end: 0 });
   const handleGetMarkdown = useCallback(async () => {
     const md = await inputRef.current?.getMarkdown();
     Alert.alert('Markdown', md ?? '(empty)', [{ text: 'OK' }]);
@@ -182,29 +185,47 @@ export default function PlaygroundScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.editorContainer} testID="editor-container">
-          <EnrichedMarkdownTextInput
-            markdownShortcuts
-            ref={inputRef}
-            placeholder="Type markdown here..."
-            placeholderTextColor="#9CA3AF"
-            style={
-              sizeMode === 'max'
-                ? { ...styles.input, ...styles.inputMax }
-                : styles.input
-            }
-            markdownStyle={MARKDOWN_STYLE}
-            onChangeState={setState}
-            onChangeMarkdown={setMarkdown}
-            onChangeSelection={(sel) => setHasSelection(sel.start !== sel.end)}
-          />
-          <FormattingToolbar
-            state={state}
-            inputRef={inputRef}
-            hasSelection={hasSelection}
-            testID="formatting-toolbar"
-          />
-        </View>
+        <Pressable
+          onPress={() => setParentPressCount((count) => count + 1)}
+          style={styles.editorPressableWrapper}
+          testID="editor-parent-pressable"
+        >
+          <View style={styles.editorStatusRow}>
+            <Text style={styles.parentPressLabel} testID="parent-press-count">
+              Parent presses: {parentPressCount}
+            </Text>
+            <Text style={styles.parentPressLabel} testID="selection-range">
+              Selection: {selectionRange.start}-{selectionRange.end}
+            </Text>
+          </View>
+          <View style={styles.editorContainer} testID="editor-container">
+            <EnrichedMarkdownTextInput
+              markdownShortcuts
+              testID="playground-input"
+              ref={inputRef}
+              placeholder="Type markdown here..."
+              placeholderTextColor="#9CA3AF"
+              style={
+                sizeMode === 'max'
+                  ? { ...styles.input, ...styles.inputMax }
+                  : styles.input
+              }
+              markdownStyle={MARKDOWN_STYLE}
+              onChangeState={setState}
+              onChangeMarkdown={setMarkdown}
+              onChangeSelection={(sel) => {
+                setHasSelection(sel.start !== sel.end);
+                setSelectionRange({ start: sel.start, end: sel.end });
+              }}
+            />
+            <FormattingToolbar
+              state={state}
+              inputRef={inputRef}
+              hasSelection={hasSelection}
+              testID="formatting-toolbar"
+            />
+          </View>
+        </Pressable>
 
         <TouchableOpacity
           style={styles.getMarkdownButton}
@@ -355,6 +376,17 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
+  },
+  editorPressableWrapper: {
+    gap: 6,
+  },
+  editorStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  parentPressLabel: {
+    fontSize: 13,
+    color: '#6B7280',
   },
   input: {
     minHeight: 120,
