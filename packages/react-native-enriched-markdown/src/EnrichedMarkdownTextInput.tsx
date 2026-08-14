@@ -32,13 +32,16 @@ export type {
   OnEndMentionEvent,
 } from './EnrichedMarkdownTextInputNativeComponent';
 import type {
+  GestureResponderEvent,
   HostInstance,
   NativeSyntheticEvent,
+  TextInputProps,
   ViewProps,
   ViewStyle,
   TextStyle,
   ColorValue,
 } from 'react-native';
+import { Platform, usePressability } from 'react-native';
 import { normalizeMarkdownShortcuts } from './normalizeMarkdownShortcuts';
 import { normalizeMarkdownTextInputStyle } from './normalizeMarkdownTextInputStyle';
 import { normalizeMenuItem } from './normalizeMenuItem';
@@ -212,10 +215,14 @@ export interface MarkdownShortcutsConfig {
   orderedList?: boolean;
 }
 
-export interface EnrichedMarkdownTextInputProps extends Omit<
-  ViewProps,
-  'style' | 'children'
-> {
+export interface EnrichedMarkdownTextInputProps
+  extends
+    Omit<ViewProps, 'style' | 'children'>,
+    // Same press props as React Native TextInput; `hitSlop` comes from ViewProps.
+    Pick<
+      TextInputProps,
+      'onPress' | 'onPressIn' | 'onPressOut' | 'rejectResponderTermination'
+    > {
   ref?: RefObject<EnrichedMarkdownTextInputInstance | null>;
   defaultValue?: string;
   placeholder?: string;
@@ -332,6 +339,11 @@ export const EnrichedMarkdownTextInput = ({
   onEndMention,
   onFocus,
   onBlur,
+  onPress,
+  onPressIn,
+  onPressOut,
+  hitSlop,
+  rejectResponderTermination = true,
   contextMenuItems,
   selectionMenuConfig,
   formatMenuConfig,
@@ -567,6 +579,60 @@ export const EnrichedMarkdownTextInput = ({
     onBlur?.();
   }, [onBlur]);
 
+  /**
+   * React Native TextInput attaches usePressability to the native host so taps
+   * claim the JS touch responder and ancestor Pressable handlers do not also
+   * run. Without this, tapping to focus the field also fires a parent
+   * Pressable's onPress.
+   * https://github.com/react/react-native/blob/v0.86.2/packages/react-native/Libraries/Components/TextInput/TextInput.js#L595-L629
+   */
+  const pressabilityConfig = useMemo(
+    () => ({
+      cancelable:
+        Platform.OS === 'ios' ? !rejectResponderTermination : undefined,
+      hitSlop,
+      disabled: editable === false,
+      onPress: (event: GestureResponderEvent) => {
+        onPress?.(event);
+        // Same call as TextInput's host focus(). A tap on the text view
+        // focuses it natively, which makes this a no-op; it matters when the
+        // press lands outside the native view, e.g. in the hitSlop area.
+        if (editable !== false) {
+          TextInputState.focusTextInput(nativeRef.current);
+        }
+      },
+      onPressIn,
+      onPressOut,
+    }),
+    [
+      editable,
+      hitSlop,
+      onPress,
+      onPressIn,
+      onPressOut,
+      rejectResponderTermination,
+    ]
+  );
+
+  // Pressability also returns onFocus/onBlur View handlers, which forward
+  // keyboard (TV/desktop) focus to its config. React Native TextInput drops
+  // them because the native input's own focus events already drive focus
+  // (TextInputState and the user's onFocus/onBlur), and spreading them onto
+  // the host would add a second, competing set of focus handlers:
+  // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/Libraries/Components/TextInput/TextInput.js#L627-L629
+  const pressabilityEventHandlers = usePressability(pressabilityConfig);
+  let pressabilityHandlers = null;
+  if (pressabilityEventHandlers != null) {
+    /* eslint-disable @typescript-eslint/no-unused-vars -- omitted like RN TextInput */
+    const {
+      onBlur: _pressBlur,
+      onFocus: _pressFocus,
+      ...handlers
+    } = pressabilityEventHandlers;
+    /* eslint-enable @typescript-eslint/no-unused-vars */
+    pressabilityHandlers = handlers;
+  }
+
   const handleRequestMarkdownResult = useCallback(
     (e: NativeSyntheticEvent<OnRequestMarkdownResultEvent>) => {
       const { requestId, markdown } = e.nativeEvent;
@@ -715,6 +781,7 @@ export const EnrichedMarkdownTextInput = ({
       onStartMention={handleStartMention as NativeProps['onStartMention']}
       onChangeMention={handleChangeMention as NativeProps['onChangeMention']}
       onEndMention={handleEndMention as NativeProps['onEndMention']}
+      {...pressabilityHandlers}
       {...rest}
     />
   );

@@ -60,6 +60,8 @@ class EnrichedMarkdownTextInputView(
   context: Context,
 ) : AppCompatEditText(context) {
   private var isComponentReady = false
+  private var lastEmittedSelectionStart = -1
+  private var lastEmittedSelectionEnd = -1
 
   val formattingStore = FormattingStore()
   val blockStore = BlockStore()
@@ -387,6 +389,7 @@ class EnrichedMarkdownTextInputView(
     } finally {
       editSession.exit()
     }
+    emitSelectionIfChanged()
   }
 
   override fun onSelectionChanged(
@@ -416,10 +419,26 @@ class EnrichedMarkdownTextInputView(
       syncEmptyListAnchor()
     }
 
-    eventEmitter.emitSelection(selStart, selEnd)
+    emitSelectionIfChanged()
     dispatchMentionUpdate()
     eventEmitter.emitState()
     eventEmitter.emitCaretRectChangeIfNeeded()
+  }
+
+  /**
+   * [onSelectionChanged] ignores selection changes made during an edit phase
+   * (setValue, programmatic inserts, anchor management), so every path that
+   * moves the caret inside a phase calls this after the phase ends. Reads the
+   * current selection, since anchor sync can move it after the callback fired.
+   */
+  private fun emitSelectionIfChanged() {
+    if (!isComponentReady) return
+    val start = selectionStart
+    val end = selectionEnd
+    if (start == lastEmittedSelectionStart && end == lastEmittedSelectionEnd) return
+    lastEmittedSelectionStart = start
+    lastEmittedSelectionEnd = end
+    eventEmitter.emitSelection(start, end)
   }
 
   /**
@@ -478,6 +497,7 @@ class EnrichedMarkdownTextInputView(
     } finally {
       editSession.exit()
     }
+    emitSelectionIfChanged()
   }
 
   fun applyFormatting() {
@@ -971,6 +991,7 @@ class EnrichedMarkdownTextInputView(
     } finally {
       editSession.exit()
     }
+    emitSelectionIfChanged()
   }
 
   override fun setBackgroundColor(color: Int) {
@@ -1036,10 +1057,22 @@ class EnrichedMarkdownTextInputView(
     AutoCapitalizeUtils.apply(this, flagName)
   }
 
-  fun requestFocusProgrammatically() {
-    requestFocus()
-    inputMethodManager?.showSoftInput(this, 0)
-    setSelection(selectionStart.coerceAtLeast(0))
+  /**
+   * Programmatic focus for ref.focus() and for the focus command that the JS
+   * pressability onPress sends on finger-up (including after a long-press word
+   * select).
+   *
+   * Matches ReactEditText.requestFocusProgrammatically: request focus and show
+   * the keyboard without touching the selection, so a long-press word selection
+   * isn't collapsed:
+   * https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L396-L402
+   */
+  fun requestFocusProgrammatically(): Boolean {
+    val focused = super.requestFocus(FOCUS_DOWN, null)
+    if (isInTouchMode && showSoftInputOnFocus) {
+      inputMethodManager?.showSoftInput(this, 0)
+    }
+    return focused
   }
 
   private fun showAutoFocusKeyboardIfPending() {
