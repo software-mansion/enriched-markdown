@@ -206,6 +206,10 @@ export default function PlaygroundScreen() {
           />
         </View>
 
+        <Text style={styles.styleStateJson} testID="style-state-json">
+          {JSON.stringify(state)}
+        </Text>
+
         <TouchableOpacity
           style={styles.getMarkdownButton}
           onPress={() => {
@@ -366,6 +370,11 @@ const styles = StyleSheet.create({
   },
   inputMax: {
     maxHeight: 400,
+  },
+  styleStateJson: {
+    fontSize: 12,
+    color: '#374151',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   getMarkdownButton: {
     paddingVertical: 10,
