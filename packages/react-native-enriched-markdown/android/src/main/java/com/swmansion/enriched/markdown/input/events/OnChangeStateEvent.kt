@@ -12,7 +12,7 @@ class OnChangeStateEvent(
   private val isUnderline: Boolean,
   private val isStrikethrough: Boolean,
   private val isSpoiler: Boolean,
-  private val isLink: Boolean,
+  private val linkDestination: String,
   private val headingLevel: Int,
   private val isUnorderedList: Boolean,
   private val unorderedListDepth: Int,
@@ -45,7 +45,10 @@ class OnChangeStateEvent(
       )
       putMap(
         "link",
-        Arguments.createMap().apply { putBoolean("isActive", isLink) },
+        Arguments.createMap().apply {
+          putBoolean("isActive", linkDestination.isNotEmpty())
+          putString("destination", linkDestination)
+        },
       )
       putMap(
         "heading",

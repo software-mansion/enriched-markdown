@@ -835,6 +835,11 @@ class EnrichedMarkdownTextInputView(
     return blockCoordinator.headingLevelAtPosition(editable, selectionStart)
   }
 
+  fun linkDestinationForSelection(
+    start: Int,
+    end: Int,
+  ): String? = linkCoordinator.linkForSelection(start, end)?.url
+
   /**
    * On empty text with a heading block, overrides text size to the heading's
    * font size so the cursor matches heading height. Hides the hint while
@@ -865,10 +870,7 @@ class EnrichedMarkdownTextInputView(
   }
 
   fun setLinkForSelection(url: String) {
-    val selStart = selectionStart
-    val selEnd = selectionEnd
-    if (selStart == selEnd) return
-    linkCoordinator.setLinkForRange(url, selStart, selEnd, text)
+    if (!linkCoordinator.setLinkUrl(url, selectionStart, selectionEnd, text)) return
     applyFormattingAndEmit()
   }
 
@@ -926,7 +928,7 @@ class EnrichedMarkdownTextInputView(
   }
 
   fun removeLinkAtCursor() {
-    if (!linkCoordinator.removeLink(selectionStart)) return
+    if (!linkCoordinator.removeLink(selectionStart, selectionEnd)) return
     applyFormattingAndEmit()
   }
 

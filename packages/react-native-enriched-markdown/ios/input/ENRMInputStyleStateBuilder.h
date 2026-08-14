@@ -3,6 +3,7 @@
 #import "ENRMBlockRange.h"
 #import "ENRMInputStyledRange.h"
 #import <Foundation/Foundation.h>
+#include <string>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -12,7 +13,8 @@ typedef struct {
   BOOL underline;
   BOOL strikethrough;
   BOOL spoiler;
-  BOOL link;
+  /// URL of the link at the selection; empty when there is none.
+  std::string linkDestination;
   NSInteger headingLevel;
   BOOL unorderedList;
   BOOL orderedList;
@@ -26,6 +28,7 @@ typedef struct {
 - (BOOL)isStyleActive:(ENRMInputStyleType)type inRange:(NSRange)range;
 - (NSInteger)headingLevelForCursorParagraph;
 - (nullable ENRMBlockRange *)listBlockForCursorParagraph;
+- (nullable NSString *)linkURLForSelection:(NSRange)selection;
 
 @end
 

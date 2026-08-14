@@ -113,11 +113,20 @@ export interface StyleState {
   underline: { isActive: boolean };
   strikethrough: { isActive: boolean };
   spoiler: { isActive: boolean };
-  link: { isActive: boolean };
+  /**
+   * The link at the selection: the one containing the first selected
+   * character, or, for a collapsed caret, the one the caret is inside or right
+   * after. `setLink` and `removeLink` act on this same link.
+   */
+  link: StyleStateLink;
   heading: { isActive: boolean; level: HeadingLevel };
   unorderedList: { isActive: boolean; depth: number };
   orderedList: { isActive: boolean; depth: number };
 }
+
+export type StyleStateLink =
+  | { isActive: false }
+  | { isActive: true; destination: string };
 
 export interface ContextMenuItem {
   text: string;
@@ -532,7 +541,9 @@ export const EnrichedMarkdownTextInput = ({
         underline,
         strikethrough,
         spoiler,
-        link,
+        link: link.isActive
+          ? { isActive: true, destination: link.destination }
+          : { isActive: false },
         heading: { ...heading, level: toHeadingLevel(heading.level) },
         unorderedList,
         orderedList,
@@ -664,6 +675,9 @@ export const EnrichedMarkdownTextInput = ({
         selection: { start: selectionStart, end: selectionEnd },
         styleState: {
           ...styleState,
+          link: styleState.link.isActive
+            ? { isActive: true, destination: styleState.link.destination }
+            : { isActive: false },
           heading: {
             ...styleState.heading,
             level: toHeadingLevel(styleState.heading.level),

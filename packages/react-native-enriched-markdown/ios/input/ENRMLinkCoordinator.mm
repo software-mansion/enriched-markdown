@@ -21,14 +21,19 @@
   return [result stringByReplacingOccurrencesOfString:@")" withString:@"%29"];
 }
 
-- (nullable ENRMFormattingRange *)linkAtPosition:(NSUInteger)position
+- (nullable ENRMFormattingRange *)linkForSelection:(NSRange)selection
 {
-  return [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:position];
+  ENRMFormattingRange *link = [_formattingStore rangeOfType:ENRMInputStyleTypeLink
+                                         containingPosition:selection.location];
+  if (link == nil && selection.length == 0 && selection.location > 0) {
+    link = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:selection.location - 1];
+  }
+  return link;
 }
 
-- (BOOL)setLinkURL:(NSString *)url atCursor:(NSUInteger)cursor selection:(NSRange)selection
+- (BOOL)setLinkURL:(NSString *)url forSelection:(NSRange)selection
 {
-  ENRMFormattingRange *activeLink = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:cursor];
+  ENRMFormattingRange *activeLink = [self linkForSelection:selection];
 
   if (activeLink != nil) {
     activeLink.url = url;
@@ -68,9 +73,9 @@
                                                             url:url]];
 }
 
-- (BOOL)removeLinkAtPosition:(NSUInteger)position
+- (BOOL)removeLinkForSelection:(NSRange)selection
 {
-  ENRMFormattingRange *activeLink = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:position];
+  ENRMFormattingRange *activeLink = [self linkForSelection:selection];
   if (activeLink == nil) {
     return NO;
   }
