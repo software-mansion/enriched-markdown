@@ -19,9 +19,9 @@ See the [feature comparison table](https://enriched.swmansion.com/markdown) for 
 
 | Platform | Package | Documentation |
 |----------|---------|---------------|
-| React Native | [![npm](https://img.shields.io/npm/v/react-native-enriched-markdown)](https://www.npmjs.com/package/react-native-enriched-markdown) | [React Native SDK](https://enriched.swmansion.com/markdown) |
-| Android | [![Maven Central](https://img.shields.io/maven-central/v/com.swmansion.enriched.markdown/ui)](https://central.sonatype.com/artifact/com.swmansion.enriched.markdown/ui) | [Android SDK](https://enriched.swmansion.com/markdown) |
-| iOS | *Coming soon* | [iOS SDK](https://enriched.swmansion.com/markdown) |
+| React Native | [![npm](https://img.shields.io/npm/v/react-native-enriched-markdown)](https://www.npmjs.com/package/react-native-enriched-markdown) | [React Native](https://enriched.swmansion.com/markdown) |
+| Android | [![Maven Central](https://img.shields.io/maven-central/v/com.swmansion.enriched.markdown/ui)](https://central.sonatype.com/artifact/com.swmansion.enriched.markdown/ui) | [Android](https://enriched.swmansion.com/markdown) |
+| iOS | *Coming soon* | [iOS](https://enriched.swmansion.com/markdown) |
 
 Full documentation is available at the [documentation site](https://enriched.swmansion.com/markdown).
 
@@ -35,9 +35,11 @@ yarn add react-native-enriched-markdown
 
 ```tsx
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
+import { Linking } from 'react-native';
 
 <EnrichedMarkdownText
-  markdown={"# Hello\n\nThis is **enriched** markdown."}
+  markdown={"# Hello\n\nThis is **enriched** [markdown](https://commonmark.org)."}
+  onLinkPress={({ url }) => Linking.openURL(url)}
 />
 ```
 
@@ -55,7 +57,7 @@ import com.swmansion.enriched.markdown.compose.MarkdownTheme
 
 MarkdownTheme {
   EnrichedMarkdownText(
-    markdown = "# Hello\n\nThis is **enriched** markdown.",
+    markdown = "# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).",
     onLinkPress = { url -> /* open url */ },
   )
 }
@@ -67,7 +69,7 @@ See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the 
 
 ## License
 
-Enriched Markdown library is licensed under [The MIT License](./LICENSE).
+Enriched Markdown is licensed under [The MIT License](./LICENSE).
 
 ---
 
