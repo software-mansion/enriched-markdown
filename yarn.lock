@@ -10304,6 +10304,71 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"enriched-markdown-monorepo@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "enriched-markdown-monorepo@workspace:."
+  dependencies:
+    "@commitlint/config-conventional": "npm:^20.5.0"
+    "@eslint/compat": "npm:^2.0.3"
+    "@eslint/eslintrc": "npm:^3.3.5"
+    "@eslint/js": "npm:^10.0.1"
+    "@react-native-community/cli": "npm:20.1.0"
+    "@react-native/babel-preset": "npm:0.85.0"
+    "@react-native/eslint-config": "npm:0.85.0"
+    "@release-it/conventional-changelog": "npm:^10.0.6"
+    commitlint: "npm:^20.5.0"
+    eslint: "npm:^9.39.4"
+    eslint-config-prettier: "npm:^10.1.8"
+    eslint-plugin-ft-flow: "npm:^3.0.11"
+    eslint-plugin-prettier: "npm:^5.5.5"
+    lefthook: "npm:^2.1.4"
+    prettier: "npm:^3.8.1"
+    react-native-builder-bob: "npm:^0.41.0"
+    release-it: "npm:^19.2.4"
+    turbo: "npm:^2.8.21"
+    typescript: "npm:^6.0.2"
+  dependenciesMeta:
+    "@tree-sitter-grammars/tree-sitter-markdown":
+      built: false
+    "@tree-sitter-grammars/tree-sitter-yaml":
+      built: false
+    tree-sitter-bash:
+      built: false
+    tree-sitter-c:
+      built: false
+    tree-sitter-c-sharp:
+      built: false
+    tree-sitter-cli:
+      built: false
+    tree-sitter-cpp:
+      built: false
+    tree-sitter-css:
+      built: false
+    tree-sitter-go:
+      built: false
+    tree-sitter-html:
+      built: false
+    tree-sitter-java:
+      built: false
+    tree-sitter-javascript:
+      built: false
+    tree-sitter-json:
+      built: false
+    tree-sitter-php:
+      built: false
+    tree-sitter-python:
+      built: false
+    tree-sitter-ruby:
+      built: false
+    tree-sitter-rust:
+      built: false
+    tree-sitter-swift:
+      built: false
+    tree-sitter-typescript:
+      built: false
+  languageName: unknown
+  linkType: soft
+
 "entities@npm:^4.2.0, entities@npm:^4.4.0":
   version: 4.5.0
   resolution: "entities@npm:4.5.0"
@@ -16715,71 +16780,6 @@ __metadata:
     react-native-builder-bob: "npm:^0.41.0"
     react-native-enriched-markdown: "npm:*"
     react-native-macos: "npm:0.81.4"
-  languageName: unknown
-  linkType: soft
-
-"react-native-enriched-markdown-monorepo@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "react-native-enriched-markdown-monorepo@workspace:."
-  dependencies:
-    "@commitlint/config-conventional": "npm:^20.5.0"
-    "@eslint/compat": "npm:^2.0.3"
-    "@eslint/eslintrc": "npm:^3.3.5"
-    "@eslint/js": "npm:^10.0.1"
-    "@react-native-community/cli": "npm:20.1.0"
-    "@react-native/babel-preset": "npm:0.85.0"
-    "@react-native/eslint-config": "npm:0.85.0"
-    "@release-it/conventional-changelog": "npm:^10.0.6"
-    commitlint: "npm:^20.5.0"
-    eslint: "npm:^9.39.4"
-    eslint-config-prettier: "npm:^10.1.8"
-    eslint-plugin-ft-flow: "npm:^3.0.11"
-    eslint-plugin-prettier: "npm:^5.5.5"
-    lefthook: "npm:^2.1.4"
-    prettier: "npm:^3.8.1"
-    react-native-builder-bob: "npm:^0.41.0"
-    release-it: "npm:^19.2.4"
-    turbo: "npm:^2.8.21"
-    typescript: "npm:^6.0.2"
-  dependenciesMeta:
-    "@tree-sitter-grammars/tree-sitter-markdown":
-      built: false
-    "@tree-sitter-grammars/tree-sitter-yaml":
-      built: false
-    tree-sitter-bash:
-      built: false
-    tree-sitter-c:
-      built: false
-    tree-sitter-c-sharp:
-      built: false
-    tree-sitter-cli:
-      built: false
-    tree-sitter-cpp:
-      built: false
-    tree-sitter-css:
-      built: false
-    tree-sitter-go:
-      built: false
-    tree-sitter-html:
-      built: false
-    tree-sitter-java:
-      built: false
-    tree-sitter-javascript:
-      built: false
-    tree-sitter-json:
-      built: false
-    tree-sitter-php:
-      built: false
-    tree-sitter-python:
-      built: false
-    tree-sitter-ruby:
-      built: false
-    tree-sitter-rust:
-      built: false
-    tree-sitter-swift:
-      built: false
-    tree-sitter-typescript:
-      built: false
   languageName: unknown
   linkType: soft
 

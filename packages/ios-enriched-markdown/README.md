@@ -13,7 +13,7 @@ Add the package via [Swift Package Manager](https://www.swift.org/documentation/
 ```swift
 dependencies: [
   .package(
-    url: "https://github.com/software-mansion/react-native-enriched-markdown.git",
+    url: "https://github.com/software-mansion/enriched-markdown.git",
     branch: "main"
   ),
 ],

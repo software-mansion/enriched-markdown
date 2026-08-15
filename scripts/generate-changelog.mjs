@@ -3,7 +3,7 @@
 // Usage: ./scripts/generate-changelog.mjs <from-tag> [to-ref] | pbcopy
 import { execFileSync } from 'node:child_process';
 
-const REPO = 'software-mansion/react-native-enriched-markdown';
+const REPO = 'software-mansion/enriched-markdown';
 const [OWNER, NAME] = REPO.split('/');
 
 const SECTIONS = [

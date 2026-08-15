@@ -19,7 +19,7 @@ import kotlin.math.abs
  * Must never mutate the buffer's Selection spans — the platform Editor
  * manages them during long-press gestures, and removing or overwriting
  * them mid-gesture crashes on some OEM skins.
- * See: https://github.com/software-mansion/react-native-enriched-markdown/issues/580
+ * See: https://github.com/software-mansion/enriched-markdown/issues/580
  */
 class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private val handler = Handler(Looper.getMainLooper())

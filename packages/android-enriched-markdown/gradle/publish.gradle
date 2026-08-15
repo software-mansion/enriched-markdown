@@ -53,12 +53,12 @@ afterEvaluate {
         pom {
           name = mavenArtifactName
           description = mavenArtifactDescription
-          url = "https://github.com/software-mansion/react-native-enriched-markdown"
+          url = "https://github.com/software-mansion/enriched-markdown"
 
           licenses {
             license {
               name = "MIT License"
-              url = "https://github.com/software-mansion/react-native-enriched-markdown/blob/main/LICENSE"
+              url = "https://github.com/software-mansion/enriched-markdown/blob/main/LICENSE"
             }
           }
 
@@ -71,9 +71,9 @@ afterEvaluate {
           }
 
           scm {
-            connection = "scm:git:https://github.com/software-mansion/react-native-enriched-markdown.git"
-            developerConnection = "scm:git:https://github.com/software-mansion/react-native-enriched-markdown.git"
-            url = "https://github.com/software-mansion/react-native-enriched-markdown"
+            connection = "scm:git:https://github.com/software-mansion/enriched-markdown.git"
+            developerConnection = "scm:git:https://github.com/software-mansion/enriched-markdown.git"
+            url = "https://github.com/software-mansion/enriched-markdown"
           }
         }
       }

@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.platforms    = { :ios => min_ios_version_supported, :osx => '14.0' }
-  s.source       = { :git => "https://github.com/software-mansion/react-native-enriched-markdown.git", :tag => "#{s.version}" }
+  s.source       = { :git => "https://github.com/software-mansion/enriched-markdown.git", :tag => "#{s.version}" }
 
   if monorepo
     s.private_header_files = "ios/**/*.h"

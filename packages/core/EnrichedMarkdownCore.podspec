@@ -8,10 +8,10 @@ Pod::Spec.new do |s|
   s.name         = "EnrichedMarkdownCore"
   s.version      = package["version"]
   s.summary      = package["description"]
-  s.homepage     = "https://github.com/software-mansion/react-native-enriched-markdown"
+  s.homepage     = "https://github.com/software-mansion/enriched-markdown"
   s.license      = { :type => "MIT" }
   s.authors      = "Software Mansion"
-  s.source       = { :git => "https://github.com/software-mansion/react-native-enriched-markdown.git" }
+  s.source       = { :git => "https://github.com/software-mansion/enriched-markdown.git" }
 
   s.platforms    = { :ios => min_ios_version_supported, :osx => "14.0" }
 
