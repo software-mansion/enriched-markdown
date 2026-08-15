@@ -52,7 +52,6 @@ case "$mode" in
     cp "$REPO_ROOT/vendor/vendor-grammars.mjs" vendor-grammars.mjs
     cp "$REPO_ROOT/vendor/vendor-ratex.mjs" vendor-ratex.mjs
 
-    cp "$REPO_ROOT/README.md" README.md
     cp "$REPO_ROOT/LICENSE" LICENSE
     cp -R "$REPO_ROOT/docs" docs
     ;;
@@ -61,7 +60,7 @@ case "$mode" in
     rm -rf cpp
     ln -s ../core/cpp cpp
 
-    rm -f README.md LICENSE ratex-version.json vendor-grammars.mjs vendor-ratex.mjs
+    rm -f LICENSE ratex-version.json vendor-grammars.mjs vendor-ratex.mjs
     rm -rf docs
     ;;
   *)
