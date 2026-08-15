@@ -1,4 +1,4 @@
-<img src="https://github.com/user-attachments/assets/83cb462c-17df-4809-8b8a-fa4abb258cb3" alt="Enriched Markdown by Software Mansion" />
+<img src="https://github.com/user-attachments/assets/b4ac86b1-ad98-4faa-9349-9f69510c6152" alt="Enriched Markdown by Software Mansion" />
 
 A multi-platform SDK for rendering Markdown as native text and editing rich text with Markdown output. Ships as a React Native library with iOS, Android, macOS, and Web support, plus standalone native SDKs for iOS (Swift) and Android (Kotlin).
 
