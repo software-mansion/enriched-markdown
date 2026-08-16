@@ -16,6 +16,16 @@
 
 require 'json'
 
+module EnrichedMarkdownConfig
+  @warnings_emitted = {}
+
+  def self.warn_once(key, message)
+    return if @warnings_emitted[key]
+    @warnings_emitted[key] = true
+    Pod::UI.warn message
+  end
+end
+
 module EnrichedMarkdownCodeHighlight
   # Locate grammar-versions.json in both layouts, mirroring how gen-registry.mjs
   # is resolved below: "<podspec_dir>/../../vendor" in the monorepo, and the copy
@@ -40,18 +50,39 @@ module EnrichedMarkdownCodeHighlight
   # podspec_dir is the directory of the including podspec; cpp is reached at
   # "<podspec_dir>/cpp" (a symlink in the monorepo, real files when published).
   def self.config(podspec_dir)
-    return disabled if ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT'] == '0'
+    # Postinstall config is the source of truth; ENV is a deprecated fallback.
+    config_path = File.join(podspec_dir, '.enriched-markdown-config.json')
+    postinstall_config = File.exist?(config_path) ? JSON.parse(File.read(config_path)) : nil
+    if postinstall_config
+      if ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT']
+        EnrichedMarkdownConfig.warn_once(:code_highlight_env, '[ReactNativeEnrichedMarkdown] DEPRECATED: ENV[\'ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT\'] ' \
+          'is ignored when .enriched-markdown-config.json is present. ' \
+          'Configure via "enriched-markdown".enableCodeHighlight in your package.json instead.')
+      end
+      return disabled if postinstall_config['enableCodeHighlight'] == false
+    elsif ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT']
+      EnrichedMarkdownConfig.warn_once(:code_highlight_env, '[ReactNativeEnrichedMarkdown] DEPRECATED: ENV[\'ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT\'] ' \
+        'will be removed in a future version. Configure via "enriched-markdown".enableCodeHighlight in your package.json instead.')
+      return disabled if ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT'] == '0'
+    end
 
-    # Code highlighting compiles the vendored tree-sitter runtime + grammar sources,
-    # downloaded at postinstall. The grammars/.stamp marker is written only after every
-    # grammar source is fully vendored, so gating on it (rather than the runtime lib.c,
-    # which is fetched first) also falls back to the no-op stub on a partial/failed
-    # download -- not just a `enriched-markdown`.enableCodeHighlight = false opt-out.
+    # Asset presence gate (handles partial/failed downloads regardless of config source).
     return disabled unless File.exist?(File.join(podspec_dir, 'cpp/highlight/vendor/grammars/.stamp'))
 
     defaults = default_languages(podspec_dir)
-    langs = (ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES'] || '')
-            .split(',').map(&:strip).reject(&:empty?)
+    # Languages: postinstall config > ENV (deprecated) > defaults from manifest.
+    if postinstall_config && postinstall_config['codeHighlightLanguages'].is_a?(Array)
+      langs = postinstall_config['codeHighlightLanguages'].map(&:to_s).reject(&:empty?)
+    else
+      env_langs = ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES']
+      if env_langs && !env_langs.empty?
+        EnrichedMarkdownConfig.warn_once(:code_highlight_languages_env, '[ReactNativeEnrichedMarkdown] DEPRECATED: ENV[\'ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES\'] ' \
+          'will be removed in a future version. Configure via "enriched-markdown".codeHighlightLanguages in your package.json instead.')
+        langs = env_langs.split(',').map(&:strip).reject(&:empty?)
+      else
+        langs = []
+      end
+    end
     langs = defaults.dup if langs.empty?
     return disabled if langs.empty?
 

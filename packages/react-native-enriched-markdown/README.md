@@ -130,9 +130,33 @@ yarn add react-native-enriched-markdown
 > and iOS LaTeX math (kept out of the npm tarball to keep it ~1 MB). This needs network access to
 > `registry.npmjs.org` and `github.com`. If you install offline, with `--ignore-scripts`, or with
 > **pnpm** (which blocks dependency scripts by default), see
-> [Native assets](../../docs/NATIVE_ASSETS.md) for how to restore them. If you don't use a feature, skip
-> its download with an `"enriched-markdown": { "enableCodeHighlight": false, "enableMath": false }`
-> block in your app's `package.json` — see [Skipping the download](../../docs/NATIVE_ASSETS.md#skipping-the-download-opt-out).
+> [Native assets](../../docs/NATIVE_ASSETS.md) for how to restore them.
+
+#### Configuration
+
+Add an `"enriched-markdown"` block to your app's `package.json` to configure which features are enabled:
+
+```json
+{
+  "enriched-markdown": {
+    "enableCodeHighlight": true,
+    "enableMath": true,
+    "codeHighlightLanguages": ["javascript", "typescript", "python", "swift", "kotlin"]
+  }
+}
+```
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enableCodeHighlight` | `boolean` | `true` | Download and compile tree-sitter grammars for syntax highlighting |
+| `enableMath` | `boolean` | `true` | Download RaTeX for LaTeX math rendering (iOS) and include the Maven dependency (Android) |
+| `codeHighlightLanguages` | `string[]` | all default grammars | Subset of languages to compile (reduces binary size) |
+
+This is the single source of truth — `postinstall` writes a config file that both iOS (podspec) and Android (build.gradle) read at build time. No Podfile ENV vars or `gradle.properties` edits needed.
+
+> [!TIP]
+> If you don't use a feature, disabling it skips the download **and** excludes it from the native build.
+> See [Skipping the download](../../docs/NATIVE_ASSETS.md#skipping-the-download-opt-out) for details.
 
 #### 2. Install iOS / macOS dependencies
 

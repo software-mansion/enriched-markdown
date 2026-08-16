@@ -23,7 +23,29 @@ def getExtOrIntegerDefault(name) {
   return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties["EnrichedMarkdown_" + name]).toInteger()
 }
 
-def enableMath = (rootProject.findProperty("enrichedMarkdown.enableMath") ?: findProperty("enrichedMarkdown.enableMath") ?: "true").toString().toBoolean()
+// Postinstall config is the source of truth; gradle properties are a deprecated fallback.
+def postinstallConfigFile = new File(projectDir, "../.enriched-markdown-config.json")
+def postinstallConfig = postinstallConfigFile.exists()
+    ? new groovy.json.JsonSlurper().parse(postinstallConfigFile)
+    : null
+
+// Math: postinstall config > gradle property (deprecated) > default true
+def mathProp = rootProject.findProperty("enrichedMarkdown.enableMath") ?: findProperty("enrichedMarkdown.enableMath")
+def enableMath
+if (postinstallConfig != null) {
+    enableMath = postinstallConfig.enableMath != false
+    if (mathProp != null) {
+        logger.warn("[ReactNativeEnrichedMarkdown] DEPRECATED: enrichedMarkdown.enableMath gradle property " +
+            "is deprecated and ignored when .enriched-markdown-config.json is present. " +
+            "Configure via \"enriched-markdown\".enableMath in your package.json instead.")
+    }
+} else if (mathProp != null) {
+    logger.warn("[ReactNativeEnrichedMarkdown] DEPRECATED: enrichedMarkdown.enableMath gradle property " +
+        "will be removed in a future version. Configure via \"enriched-markdown\".enableMath in your package.json instead.")
+    enableMath = mathProp.toString().toBoolean()
+} else {
+    enableMath = true
+}
 
 // Default grammar set derived from the single source of truth,
 // vendor/grammar-versions.json (every grammar with default:true), so the compiled
@@ -39,16 +61,42 @@ if (grammarManifest == null) {
 }
 def defaultCodeHighlightLanguages = new groovy.json.JsonSlurper().parse(grammarManifest)
   .grammars.findAll { id, spec -> spec['default'] }.collect { id, spec -> id }
-// The enrichedMarkdown.enableCodeHighlight gradle property forces the choice. Otherwise
-// code highlighting tracks the vendored grammars/.stamp marker, which postinstall writes
-// only after every grammar source is fully vendored. Gating on the stamp (rather than the
-// runtime lib.c, fetched first) auto-disables here -- feeding no missing sources to CMake --
-// on a `enriched-markdown`.enableCodeHighlight = false opt-out or a partial/failed download.
+// Code highlight: postinstall config > gradle property (deprecated) > .stamp presence
 def codeHighlightProp = rootProject.findProperty("enrichedMarkdown.enableCodeHighlight") ?: findProperty("enrichedMarkdown.enableCodeHighlight")
 def codeHighlightStamp = new File(projectDir, "../cpp/highlight/vendor/grammars/.stamp")
-def enableCodeHighlight = codeHighlightProp != null ? codeHighlightProp.toString().toBoolean() : codeHighlightStamp.exists()
+def enableCodeHighlight
+if (postinstallConfig != null) {
+    enableCodeHighlight = postinstallConfig.enableCodeHighlight != false
+    if (codeHighlightProp != null) {
+        logger.warn("[ReactNativeEnrichedMarkdown] DEPRECATED: enrichedMarkdown.enableCodeHighlight gradle property " +
+            "is deprecated and ignored when .enriched-markdown-config.json is present. " +
+            "Configure via \"enriched-markdown\".enableCodeHighlight in your package.json instead.")
+    }
+} else if (codeHighlightProp != null) {
+    logger.warn("[ReactNativeEnrichedMarkdown] DEPRECATED: enrichedMarkdown.enableCodeHighlight gradle property " +
+        "will be removed in a future version. Configure via \"enriched-markdown\".enableCodeHighlight in your package.json instead.")
+    enableCodeHighlight = codeHighlightProp.toString().toBoolean()
+} else {
+    enableCodeHighlight = codeHighlightStamp.exists()
+}
 def codeHighlightLanguagesProp = rootProject.findProperty("enrichedMarkdown.codeHighlightLanguages") ?: findProperty("enrichedMarkdown.codeHighlightLanguages")
-def codeHighlightLanguages = codeHighlightLanguagesProp ? codeHighlightLanguagesProp.toString().split(",").collect { it.trim() }.findAll { it } : defaultCodeHighlightLanguages
+def codeHighlightLanguages
+if (postinstallConfig != null && postinstallConfig.codeHighlightLanguages instanceof List) {
+    codeHighlightLanguages = postinstallConfig.codeHighlightLanguages.collect { it.toString().trim() }.findAll { it }
+    if (codeHighlightLanguagesProp != null) {
+        logger.warn("[ReactNativeEnrichedMarkdown] DEPRECATED: enrichedMarkdown.codeHighlightLanguages gradle property " +
+            "is deprecated and ignored when .enriched-markdown-config.json is present. " +
+            "Configure via \"enriched-markdown\".codeHighlightLanguages in your package.json instead.")
+    }
+} else if (codeHighlightLanguagesProp) {
+    if (postinstallConfig != null) {
+        logger.warn("[ReactNativeEnrichedMarkdown] DEPRECATED: enrichedMarkdown.codeHighlightLanguages gradle property " +
+            "will be removed in a future version. Configure via \"enriched-markdown\".codeHighlightLanguages in your package.json instead.")
+    }
+    codeHighlightLanguages = codeHighlightLanguagesProp.toString().split(",").collect { it.trim() }.findAll { it }
+} else {
+    codeHighlightLanguages = defaultCodeHighlightLanguages
+}
 def codeHighlightActive = enableCodeHighlight && !codeHighlightLanguages.isEmpty()
 
 android {

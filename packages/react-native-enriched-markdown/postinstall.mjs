@@ -48,8 +48,35 @@ function resolveConsumerConfig() {
 }
 
 const consumerConfig = resolveConsumerConfig();
-const enableCodeHighlight = consumerConfig.enableCodeHighlight !== false;
-const enableMath = consumerConfig.enableMath !== false;
+
+// ENV vars are a deprecated fallback — honored only when package.json has no explicit config.
+let enableCodeHighlight = consumerConfig.enableCodeHighlight;
+let enableMath = consumerConfig.enableMath;
+let codeHighlightLanguages = consumerConfig.codeHighlightLanguages;
+
+if (enableCodeHighlight === undefined && process.env.ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT) {
+  console.warn(`${LOG} DEPRECATED: ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT env var will be removed in a future version. Configure via "enriched-markdown".enableCodeHighlight in your package.json instead.`);
+  enableCodeHighlight = process.env.ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT !== '0';
+}
+if (enableMath === undefined && process.env.ENRICHED_MARKDOWN_ENABLE_MATH) {
+  console.warn(`${LOG} DEPRECATED: ENRICHED_MARKDOWN_ENABLE_MATH env var will be removed in a future version. Configure via "enriched-markdown".enableMath in your package.json instead.`);
+  enableMath = process.env.ENRICHED_MARKDOWN_ENABLE_MATH !== '0';
+}
+if (codeHighlightLanguages === undefined && process.env.ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES) {
+  console.warn(`${LOG} DEPRECATED: ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES env var will be removed in a future version. Configure via "enriched-markdown".codeHighlightLanguages in your package.json instead.`);
+  codeHighlightLanguages = process.env.ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+enableCodeHighlight = enableCodeHighlight !== false;
+enableMath = enableMath !== false;
+
+// Write resolved config for native builds (podspec + build.gradle).
+const configPath = path.join(PKG_ROOT, '.enriched-markdown-config.json');
+const config = { enableCodeHighlight, enableMath };
+if (Array.isArray(codeHighlightLanguages) && codeHighlightLanguages.length > 0) {
+  config.codeHighlightLanguages = codeHighlightLanguages;
+}
+fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
 if (!enableCodeHighlight && !enableMath) {
   console.log(`${LOG} both code highlighting and math are disabled via package.json ("enriched-markdown"); skipping postinstall.`);
