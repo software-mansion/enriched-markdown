@@ -526,7 +526,7 @@ enum MarkdownHTMLGenerator {
 
             let headings = [
                 config.heading1, config.heading2, config.heading3,
-                config.heading4, config.heading5, config.heading6,
+                config.heading4, config.heading5, config.heading6
             ]
             headingFontSizes = headings.map { $0.font.map { Int($0.pointSize) } ?? bodySize }
             headingFontWeights = headings.map { heading in

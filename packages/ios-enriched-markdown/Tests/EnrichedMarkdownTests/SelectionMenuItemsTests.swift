@@ -191,7 +191,7 @@ final class SelectionMenuItemsTests: XCTestCase {
 
         XCTAssertTrue(MarkdownTextViewRepresentable.Coordinator.containsSelectAll([standardEdit]))
         XCTAssertFalse(MarkdownTextViewRepresentable.Coordinator.containsSelectAll([
-            UIMenu(title: "", identifier: .standardEdit, children: [copy]),
+            UIMenu(title: "", identifier: .standardEdit, children: [copy])
         ]))
     }
 

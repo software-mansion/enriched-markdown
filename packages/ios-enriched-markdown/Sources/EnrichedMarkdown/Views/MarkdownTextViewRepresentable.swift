@@ -322,7 +322,7 @@ final class MarkdownTextView: UITextView {
         )
         pasteboard.items = [[
             "public.utf8-plain-text": plain,
-            "public.html": html,
+            "public.html": html
         ]]
     }
 
