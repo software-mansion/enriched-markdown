@@ -548,14 +548,14 @@ enum MarkdownHTMLGenerator {
         var alpha: CGFloat = 0
         guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return "inherit" }
 
-        let r = Int(round(min(max(red, 0), 1) * 255))
-        let g = Int(round(min(max(green, 0), 1) * 255))
-        let b = Int(round(min(max(blue, 0), 1) * 255))
+        let redByte = Int(round(min(max(red, 0), 1) * 255))
+        let greenByte = Int(round(min(max(green, 0), 1) * 255))
+        let blueByte = Int(round(min(max(blue, 0), 1) * 255))
         if alpha < 1 {
             let alphaString = String(format: "%.2f", alpha)
-            return "rgba(\(r), \(g), \(b), \(alphaString))"
+            return "rgba(\(redByte), \(greenByte), \(blueByte), \(alphaString))"
         }
-        return String(format: "#%02X%02X%02X", r, g, b)
+        return String(format: "#%02X%02X%02X", redByte, greenByte, blueByte)
     }
 
     private static func escapeHTML(_ text: String) -> String {

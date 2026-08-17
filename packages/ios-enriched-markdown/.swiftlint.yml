@@ -8,10 +8,4 @@ disabled_rules:
   - trailing_comma
   - type_body_length
 
-identifier_name:
-  excluded:
-    - r
-    - g
-    - b
-
 line_length: 150
