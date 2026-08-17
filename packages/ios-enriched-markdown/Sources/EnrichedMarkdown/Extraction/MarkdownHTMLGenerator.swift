@@ -393,6 +393,22 @@ enum MarkdownHTMLGenerator {
         styles: CachedStyles,
         isCodeBlock: Bool
     ) {
+        let tags = inlineTags(attrs: attrs, styles: styles, isCodeBlock: isCodeBlock)
+        for tag in tags {
+            html += tag.open
+        }
+        html += escapeHTML(content).replacingOccurrences(of: "\u{2028}", with: "<br>")
+        for tag in tags.reversed() {
+            html += tag.close
+        }
+    }
+
+    /// Open/close tag pairs for the run's inline traits, outermost first.
+    private static func inlineTags(
+        attrs: [NSAttributedString.Key: Any],
+        styles: CachedStyles,
+        isCodeBlock: Bool
+    ) -> [(open: String, close: String)] {
         let isStrong = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.strong])
         let isEmphasis = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.emphasis])
         let isStrikethrough = (MarkdownAttributeValue.intValue(from: attrs[.strikethroughStyle]) ?? 0) != 0
@@ -406,39 +422,34 @@ enum MarkdownHTMLGenerator {
         default: linkURL = nil
         }
 
+        var tags: [(open: String, close: String)] = []
         if let linkURL {
-            html += "<a href=\"\(escapeHTML(linkURL))\" style=\"color: \(styles.linkColor); "
+            let open = "<a href=\"\(escapeHTML(linkURL))\" style=\"color: \(styles.linkColor); "
                 + "text-decoration: \(styles.linkUnderline ? "underline" : "none");\">"
+            tags.append((open: open, close: "</a>"))
         }
         if isCode {
-            html += "<code style=\"background-color: \(styles.codeBgColor); "
+            let open = "<code style=\"background-color: \(styles.codeBgColor); "
                 + "color: \(styles.codeColor); "
                 + "padding: \(Fixed.codePadding); "
                 + "border-radius: \(Fixed.codeBorderRadius); "
                 + "font-size: \(Fixed.codeFontSize); "
                 + "font-family: \(Fixed.monospaceFamily);\">"
+            tags.append((open: open, close: "</code>"))
         }
         if isStrong {
-            html += styles.strongColor.map { "<strong style=\"color: \($0);\">" } ?? "<strong>"
+            tags.append((open: styles.strongColor.map { "<strong style=\"color: \($0);\">" } ?? "<strong>", close: "</strong>"))
         }
         if isEmphasis {
-            html += styles.emphasisColor.map { "<em style=\"color: \($0);\">" } ?? "<em>"
+            tags.append((open: styles.emphasisColor.map { "<em style=\"color: \($0);\">" } ?? "<em>", close: "</em>"))
         }
         if isUnderline, linkURL == nil {
-            html += "<u>"
+            tags.append((open: "<u>", close: "</u>"))
         }
         if isStrikethrough {
-            html += "<s>"
+            tags.append((open: "<s>", close: "</s>"))
         }
-
-        html += escapeHTML(content).replacingOccurrences(of: "\u{2028}", with: "<br>")
-
-        if isStrikethrough { html += "</s>" }
-        if isUnderline, linkURL == nil { html += "</u>" }
-        if isEmphasis { html += "</em>" }
-        if isStrong { html += "</strong>" }
-        if isCode { html += "</code>" }
-        if linkURL != nil { html += "</a>" }
+        return tags
     }
 
     // MARK: - Styles

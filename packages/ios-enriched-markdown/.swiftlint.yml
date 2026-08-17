@@ -1,15 +1,15 @@
 # Size thresholds are raised above the defaults where renderer dispatch code
 # (element switches, HTML generation) legitimately exceeds them; the test tree
 # relaxes size rules further in Tests/.swiftlint.yml.
-disabled_rules:
-  - cyclomatic_complexity # MarkdownExtractor.extract is at 27 even with ignores_case_statements
+cyclomatic_complexity:
+  ignores_case_statements: true
 
 file_length:
   warning: 600
 
 function_body_length:
-  warning: 150
-  error: 200
+  warning: 100
+  error: 150
 
 function_parameter_count:
   warning: 6

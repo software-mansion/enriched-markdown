@@ -31,14 +31,14 @@ public struct ElementStyle: Equatable, Sendable {
     }
 
     public mutating func merge(_ other: ElementStyle) {
-        if let font = other.font { self.font = font }
-        if let foregroundColor = other.foregroundColor { self.foregroundColor = foregroundColor }
-        if let backgroundColor = other.backgroundColor { self.backgroundColor = backgroundColor }
-        if let marginTop = other.marginTop { self.marginTop = marginTop }
-        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
-        if let lineHeight = other.lineHeight { self.lineHeight = lineHeight }
-        if let textAlignment = other.textAlignment { self.textAlignment = textAlignment }
-        if let underline = other.underline { self.underline = underline }
+        font = other.font ?? font
+        foregroundColor = other.foregroundColor ?? foregroundColor
+        backgroundColor = other.backgroundColor ?? backgroundColor
+        marginTop = other.marginTop ?? marginTop
+        marginBottom = other.marginBottom ?? marginBottom
+        lineHeight = other.lineHeight ?? lineHeight
+        textAlignment = other.textAlignment ?? textAlignment
+        underline = other.underline ?? underline
     }
 }
 
@@ -61,10 +61,10 @@ public struct ImageStyle: Equatable, Sendable {
     }
 
     public mutating func merge(_ other: ImageStyle) {
-        if let height = other.height { self.height = height }
-        if let borderRadius = other.borderRadius { self.borderRadius = borderRadius }
-        if let marginTop = other.marginTop { self.marginTop = marginTop }
-        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
+        height = other.height ?? height
+        borderRadius = other.borderRadius ?? borderRadius
+        marginTop = other.marginTop ?? marginTop
+        marginBottom = other.marginBottom ?? marginBottom
     }
 }
 
@@ -76,7 +76,7 @@ public struct InlineImageStyle: Equatable, Sendable {
     }
 
     public mutating func merge(_ other: InlineImageStyle) {
-        if let size = other.size { self.size = size }
+        size = other.size ?? size
     }
 }
 
@@ -99,10 +99,10 @@ public struct ThematicBreakStyle: Equatable, Sendable {
     }
 
     public mutating func merge(_ other: ThematicBreakStyle) {
-        if let color = other.color { self.color = color }
-        if let height = other.height { self.height = height }
-        if let marginTop = other.marginTop { self.marginTop = marginTop }
-        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
+        color = other.color ?? color
+        height = other.height ?? height
+        marginTop = other.marginTop ?? marginTop
+        marginBottom = other.marginBottom ?? marginBottom
     }
 }
 
@@ -143,16 +143,16 @@ public struct CodeBlockStyle: Equatable, Sendable {
     }
 
     public mutating func merge(_ other: CodeBlockStyle) {
-        if let font = other.font { self.font = font }
-        if let foregroundColor = other.foregroundColor { self.foregroundColor = foregroundColor }
-        if let backgroundColor = other.backgroundColor { self.backgroundColor = backgroundColor }
-        if let marginTop = other.marginTop { self.marginTop = marginTop }
-        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
-        if let lineHeight = other.lineHeight { self.lineHeight = lineHeight }
-        if let padding = other.padding { self.padding = padding }
-        if let borderColor = other.borderColor { self.borderColor = borderColor }
-        if let borderRadius = other.borderRadius { self.borderRadius = borderRadius }
-        if let borderWidth = other.borderWidth { self.borderWidth = borderWidth }
+        font = other.font ?? font
+        foregroundColor = other.foregroundColor ?? foregroundColor
+        backgroundColor = other.backgroundColor ?? backgroundColor
+        marginTop = other.marginTop ?? marginTop
+        marginBottom = other.marginBottom ?? marginBottom
+        lineHeight = other.lineHeight ?? lineHeight
+        padding = other.padding ?? padding
+        borderColor = other.borderColor ?? borderColor
+        borderRadius = other.borderRadius ?? borderRadius
+        borderWidth = other.borderWidth ?? borderWidth
     }
 }
 
@@ -190,15 +190,15 @@ public struct BlockquoteStyle: Equatable, Sendable {
     }
 
     public mutating func merge(_ other: BlockquoteStyle) {
-        if let font = other.font { self.font = font }
-        if let foregroundColor = other.foregroundColor { self.foregroundColor = foregroundColor }
-        if let backgroundColor = other.backgroundColor { self.backgroundColor = backgroundColor }
-        if let marginTop = other.marginTop { self.marginTop = marginTop }
-        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
-        if let lineHeight = other.lineHeight { self.lineHeight = lineHeight }
-        if let borderColor = other.borderColor { self.borderColor = borderColor }
-        if let borderWidth = other.borderWidth { self.borderWidth = borderWidth }
-        if let gapWidth = other.gapWidth { self.gapWidth = gapWidth }
+        font = other.font ?? font
+        foregroundColor = other.foregroundColor ?? foregroundColor
+        backgroundColor = other.backgroundColor ?? backgroundColor
+        marginTop = other.marginTop ?? marginTop
+        marginBottom = other.marginBottom ?? marginBottom
+        lineHeight = other.lineHeight ?? lineHeight
+        borderColor = other.borderColor ?? borderColor
+        borderWidth = other.borderWidth ?? borderWidth
+        gapWidth = other.gapWidth ?? gapWidth
     }
 }
 
@@ -242,17 +242,17 @@ public struct ListStyle: Equatable, Sendable {
     }
 
     public mutating func merge(_ other: ListStyle) {
-        if let font = other.font { self.font = font }
-        if let foregroundColor = other.foregroundColor { self.foregroundColor = foregroundColor }
-        if let marginTop = other.marginTop { self.marginTop = marginTop }
-        if let marginBottom = other.marginBottom { self.marginBottom = marginBottom }
-        if let lineHeight = other.lineHeight { self.lineHeight = lineHeight }
-        if let marginLeft = other.marginLeft { self.marginLeft = marginLeft }
-        if let gapWidth = other.gapWidth { self.gapWidth = gapWidth }
-        if let bulletColor = other.bulletColor { self.bulletColor = bulletColor }
-        if let bulletSize = other.bulletSize { self.bulletSize = bulletSize }
-        if let markerMinWidth = other.markerMinWidth { self.markerMinWidth = markerMinWidth }
-        if let markerColor = other.markerColor { self.markerColor = markerColor }
+        font = other.font ?? font
+        foregroundColor = other.foregroundColor ?? foregroundColor
+        marginTop = other.marginTop ?? marginTop
+        marginBottom = other.marginBottom ?? marginBottom
+        lineHeight = other.lineHeight ?? lineHeight
+        marginLeft = other.marginLeft ?? marginLeft
+        gapWidth = other.gapWidth ?? gapWidth
+        bulletColor = other.bulletColor ?? bulletColor
+        bulletSize = other.bulletSize ?? bulletSize
+        markerMinWidth = other.markerMinWidth ?? markerMinWidth
+        markerColor = other.markerColor ?? markerColor
     }
 }
 

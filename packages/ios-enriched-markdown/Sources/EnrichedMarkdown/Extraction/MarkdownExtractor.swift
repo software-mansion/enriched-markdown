@@ -34,182 +34,13 @@ enum MarkdownExtractor {
         var result = ""
         var state = ExtractionState()
 
-        // Headings may span multiple attribute runs.
-        var currentHeadingLevel: Int?
-        var headingContent = ""
-
-        func flushHeading() {
-            guard let level = currentHeadingLevel, !headingContent.isEmpty else {
-                currentHeadingLevel = nil
-                headingContent = ""
-                return
-            }
-            ensureBlankLine(&result)
-            result += String(repeating: "#", count: level) + " " + headingContent + "\n"
-            currentHeadingLevel = nil
-            headingContent = ""
-            state.needsBlankLine = true
-        }
-
         attributedText.enumerateAttributes(in: clamped, options: []) { attrs, attrRange, _ in
             let text = (attributedText.string as NSString).substring(with: attrRange)
             guard !text.isEmpty else { return }
-
-            // Images and thematic breaks
-            if let attachment = attrs[.attachment] as? MarkdownImageAttachment {
-                guard !attachment.imageURL.isEmpty else { return }
-                if attachment.isInline {
-                    result += "![image](\(attachment.imageURL))"
-                } else {
-                    ensureBlankLine(&result)
-                    result += "![image](\(attachment.imageURL))\n"
-                    state.needsBlankLine = true
-                    state.blockquoteDepth = -1
-                    state.listDepth = -1
-                }
-                return
-            }
-
-            if attrs[.attachment] is ThematicBreakAttachment {
-                ensureBlankLine(&result)
-                result += "---\n"
-                state.needsBlankLine = true
-                state.blockquoteDepth = -1
-                state.listDepth = -1
-                return
-            }
-
-            if text == "\u{FFFC}" {
-                return
-            }
-
-            // Newline runs (paragraph breaks and margin/padding spacers).
-            // Checked before the code-block branch so code-block padding
-            // spacers never open or close fences.
-            if text.allSatisfy({ $0 == "\n" }) {
-                let inBlockquote = MarkdownAttributeValue.intValue(
-                    from: attrs[MarkdownAttribute.blockquoteDepth]
-                ) != nil
-                let inList = MarkdownAttributeValue.intValue(
-                    from: attrs[MarkdownAttribute.listDepth]
-                ) != nil
-
-                if !inBlockquote, state.blockquoteDepth >= 0 {
-                    ensureBlankLine(&result)
-                    state.blockquoteDepth = -1
-                    return
-                }
-
-                if !inList, state.listDepth >= 0 {
-                    ensureBlankLine(&result)
-                    state.listDepth = -1
-                    return
-                }
-
-                if inBlockquote || inList {
-                    if !result.hasSuffix("\n") {
-                        result += "\n"
-                    }
-                    return
-                }
-
-                ensureBlankLine(&result)
-                return
-            }
-
-            // Headings
-            if let level = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.headingLevel]) {
-                if level != currentHeadingLevel {
-                    flushHeading()
-                    currentHeadingLevel = level
-                }
-                headingContent += text.trimmingCharacters(in: .newlines)
-                return
-            } else if currentHeadingLevel != nil {
-                flushHeading()
-            }
-
-            // Code blocks
-            if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) {
-                if state.needsBlankLine {
-                    ensureBlankLine(&result)
-                    state.needsBlankLine = false
-                }
-
-                if result.isEmpty || result.hasSuffix("\n\n") {
-                    result += "```\n"
-                }
-
-                result += text
-
-                if text.hasSuffix("\n") {
-                    result += "```\n"
-                    state.needsBlankLine = true
-                }
-                return
-            }
-
-            // Blockquotes
-            let currentBlockquoteDepth = MarkdownAttributeValue.intValue(
-                from: attrs[MarkdownAttribute.blockquoteDepth]
-            ) ?? -1
-            var blockquotePrefix: String?
-
-            if currentBlockquoteDepth >= 0 {
-                blockquotePrefix = Self.blockquotePrefix(depth: currentBlockquoteDepth)
-                state.blockquoteDepth = currentBlockquoteDepth
-            } else if state.blockquoteDepth >= 0 {
-                ensureBlankLine(&result)
-                state.blockquoteDepth = -1
-            }
-
-            // Lists
-            let currentListDepth = MarkdownAttributeValue.intValue(
-                from: attrs[MarkdownAttribute.listDepth]
-            )
-
-            if let currentListDepth {
-                state.listDepth = currentListDepth
-            } else if state.listDepth >= 0 {
-                ensureBlankLine(&result)
-                state.listDepth = -1
-            }
-
-            // Inline formatting. Hard line breaks render as U+2028; map them
-            // back to newlines before wrapping.
-            let segmentText = text.replacingOccurrences(of: "\u{2028}", with: "\n")
-            var segment = applyInlineFormatting(segmentText, traits: InlineTraits(attrs: attrs))
-
-            // Block prefixes at line start
-            if isAtLineStart(result) {
-                var prefix = ""
-
-                if let currentListDepth, !text.hasPrefix("\n") {
-                    let isOrdered = MarkdownAttributeValue.intValue(
-                        from: attrs[MarkdownAttribute.listType]
-                    ) == ListType.ordered.rawValue
-                    let itemNumber = MarkdownAttributeValue.intValue(
-                        from: attrs[MarkdownAttribute.listItemNumber]
-                    ) ?? 1
-                    prefix += listPrefix(depth: currentListDepth, isOrdered: isOrdered, itemNumber: itemNumber)
-                }
-
-                if let blockquotePrefix {
-                    prefix = blockquotePrefix + prefix
-                }
-
-                segment = prefix + segment
-            }
-
-            if state.needsBlankLine, !result.isEmpty {
-                ensureBlankLine(&result)
-                state.needsBlankLine = false
-            }
-
-            result += segment
+            appendRun(text, attrs: attrs, to: &result, state: &state)
         }
 
-        flushHeading()
+        flushHeading(&result, state: &state)
 
         return result.isEmpty ? nil : result
     }
@@ -236,6 +67,221 @@ private extension MarkdownExtractor {
         var blockquoteDepth = -1
         var listDepth = -1
         var needsBlankLine = false
+        // Headings may span multiple attribute runs.
+        var headingLevel: Int?
+        var headingContent = ""
+    }
+
+    /// Appends one attribute run, dispatching on the run's block kind.
+    static func appendRun(
+        _ text: String,
+        attrs: [NSAttributedString.Key: Any],
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
+        if let attachment = attrs[.attachment] as? MarkdownImageAttachment {
+            appendImage(attachment, to: &result, state: &state)
+            return
+        }
+
+        if attrs[.attachment] is ThematicBreakAttachment {
+            appendThematicBreak(to: &result, state: &state)
+            return
+        }
+
+        if text == "\u{FFFC}" {
+            return
+        }
+
+        // Newline runs are checked before the code-block branch so code-block
+        // padding spacers never open or close fences.
+        if text.allSatisfy({ $0 == "\n" }) {
+            appendNewlineRun(attrs: attrs, to: &result, state: &state)
+            return
+        }
+
+        if let level = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.headingLevel]) {
+            accumulateHeading(text, level: level, to: &result, state: &state)
+            return
+        }
+        flushHeading(&result, state: &state)
+
+        if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) {
+            appendCodeBlockRun(text, to: &result, state: &state)
+            return
+        }
+
+        appendInlineRun(text, attrs: attrs, to: &result, state: &state)
+    }
+
+    static func appendImage(
+        _ attachment: MarkdownImageAttachment,
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
+        guard !attachment.imageURL.isEmpty else { return }
+        if attachment.isInline {
+            result += "![image](\(attachment.imageURL))"
+        } else {
+            ensureBlankLine(&result)
+            result += "![image](\(attachment.imageURL))\n"
+            state.needsBlankLine = true
+            state.blockquoteDepth = -1
+            state.listDepth = -1
+        }
+    }
+
+    static func appendThematicBreak(to result: inout String, state: inout ExtractionState) {
+        ensureBlankLine(&result)
+        result += "---\n"
+        state.needsBlankLine = true
+        state.blockquoteDepth = -1
+        state.listDepth = -1
+    }
+
+    /// Paragraph breaks and margin/padding spacers.
+    static func appendNewlineRun(
+        attrs: [NSAttributedString.Key: Any],
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
+        let inBlockquote = MarkdownAttributeValue.intValue(
+            from: attrs[MarkdownAttribute.blockquoteDepth]
+        ) != nil
+        let inList = MarkdownAttributeValue.intValue(
+            from: attrs[MarkdownAttribute.listDepth]
+        ) != nil
+
+        if !inBlockquote, state.blockquoteDepth >= 0 {
+            ensureBlankLine(&result)
+            state.blockquoteDepth = -1
+            return
+        }
+
+        if !inList, state.listDepth >= 0 {
+            ensureBlankLine(&result)
+            state.listDepth = -1
+            return
+        }
+
+        if inBlockquote || inList {
+            if !result.hasSuffix("\n") {
+                result += "\n"
+            }
+            return
+        }
+
+        ensureBlankLine(&result)
+    }
+
+    static func accumulateHeading(
+        _ text: String,
+        level: Int,
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
+        if level != state.headingLevel {
+            flushHeading(&result, state: &state)
+            state.headingLevel = level
+        }
+        state.headingContent += text.trimmingCharacters(in: .newlines)
+    }
+
+    static func flushHeading(_ result: inout String, state: inout ExtractionState) {
+        defer {
+            state.headingLevel = nil
+            state.headingContent = ""
+        }
+        guard let level = state.headingLevel, !state.headingContent.isEmpty else { return }
+        ensureBlankLine(&result)
+        result += String(repeating: "#", count: level) + " " + state.headingContent + "\n"
+        state.needsBlankLine = true
+    }
+
+    static func appendCodeBlockRun(_ text: String, to result: inout String, state: inout ExtractionState) {
+        if state.needsBlankLine {
+            ensureBlankLine(&result)
+            state.needsBlankLine = false
+        }
+
+        if result.isEmpty || result.hasSuffix("\n\n") {
+            result += "```\n"
+        }
+
+        result += text
+
+        if text.hasSuffix("\n") {
+            result += "```\n"
+            state.needsBlankLine = true
+        }
+    }
+
+    static func appendInlineRun(
+        _ text: String,
+        attrs: [NSAttributedString.Key: Any],
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
+        let blockquoteDepth = MarkdownAttributeValue.intValue(
+            from: attrs[MarkdownAttribute.blockquoteDepth]
+        ) ?? -1
+        if blockquoteDepth >= 0 {
+            state.blockquoteDepth = blockquoteDepth
+        } else if state.blockquoteDepth >= 0 {
+            ensureBlankLine(&result)
+            state.blockquoteDepth = -1
+        }
+
+        let listDepth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth])
+        if let listDepth {
+            state.listDepth = listDepth
+        } else if state.listDepth >= 0 {
+            ensureBlankLine(&result)
+            state.listDepth = -1
+        }
+
+        // Hard line breaks render as U+2028; map them back to newlines
+        // before wrapping.
+        let segmentText = text.replacingOccurrences(of: "\u{2028}", with: "\n")
+        var segment = applyInlineFormatting(segmentText, traits: InlineTraits(attrs: attrs))
+
+        if isAtLineStart(result) {
+            segment = linePrefix(for: text, attrs: attrs, blockquoteDepth: blockquoteDepth, listDepth: listDepth)
+                + segment
+        }
+
+        if state.needsBlankLine, !result.isEmpty {
+            ensureBlankLine(&result)
+            state.needsBlankLine = false
+        }
+
+        result += segment
+    }
+
+    /// Block prefixes (list marker, blockquote bars) at the start of a line.
+    static func linePrefix(
+        for text: String,
+        attrs: [NSAttributedString.Key: Any],
+        blockquoteDepth: Int,
+        listDepth: Int?
+    ) -> String {
+        var prefix = ""
+
+        if let listDepth, !text.hasPrefix("\n") {
+            let isOrdered = MarkdownAttributeValue.intValue(
+                from: attrs[MarkdownAttribute.listType]
+            ) == ListType.ordered.rawValue
+            let itemNumber = MarkdownAttributeValue.intValue(
+                from: attrs[MarkdownAttribute.listItemNumber]
+            ) ?? 1
+            prefix += listPrefix(depth: listDepth, isOrdered: isOrdered, itemNumber: itemNumber)
+        }
+
+        if blockquoteDepth >= 0 {
+            prefix = blockquotePrefix(depth: blockquoteDepth) + prefix
+        }
+
+        return prefix
     }
 
     struct InlineTraits {
