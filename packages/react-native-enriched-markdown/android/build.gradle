@@ -89,10 +89,8 @@ if (postinstallConfig != null && postinstallConfig.codeHighlightLanguages instan
             "Configure via \"enriched-markdown\".codeHighlightLanguages in your package.json instead.")
     }
 } else if (codeHighlightLanguagesProp) {
-    if (postinstallConfig != null) {
-        logger.warn("[ReactNativeEnrichedMarkdown] DEPRECATED: enrichedMarkdown.codeHighlightLanguages gradle property " +
-            "will be removed in a future version. Configure via \"enriched-markdown\".codeHighlightLanguages in your package.json instead.")
-    }
+    logger.warn("[ReactNativeEnrichedMarkdown] DEPRECATED: enrichedMarkdown.codeHighlightLanguages gradle property " +
+        "will be removed in a future version. Configure via \"enriched-markdown\".codeHighlightLanguages in your package.json instead.")
     codeHighlightLanguages = codeHighlightLanguagesProp.toString().split(",").collect { it.trim() }.findAll { it }
 } else {
     codeHighlightLanguages = defaultCodeHighlightLanguages
