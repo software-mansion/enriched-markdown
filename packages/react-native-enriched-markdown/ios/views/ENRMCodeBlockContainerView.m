@@ -67,17 +67,32 @@ static NSAttributedString *ENRMCodeBlockPlainAttributedCode(NSString *code, Styl
   return attributed;
 }
 
-// Unwrapped code extent: width feeds the horizontal scroll, height the box
-// measurement. Width-independent since lines never wrap.
-static CGSize ENRMCodeBlockCodeSize(NSAttributedString *attributedCode)
+// Per-line height applied to the code text (see ENRMApplyCodeBlockTextAttributes):
+// when a code block line height is configured every line fragment is exactly that
+// tall; otherwise the font's natural line height is used.
+static CGFloat ENRMCodeBlockPerLineHeight(StyleConfig *config)
 {
-  if (attributedCode.length == 0) {
-    return CGSizeZero;
+  CGFloat lineHeight = [config codeBlockLineHeight];
+  return lineHeight > 0 ? lineHeight : ceil([config codeBlockFont].lineHeight);
+}
+
+// Analytic code height: lines never wrap and each fragment is a fixed height, so
+// the laid-out height is simply lineCount * perLineHeight. No text layout needed,
+// which is what boundingRectWithSize used to do on the whole block.
+static CGFloat ENRMCodeBlockCodeHeight(NSString *code, StyleConfig *config)
+{
+  if (code.length == 0) {
+    return 0;
   }
-  CGRect bounds = [attributedCode boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)
-                                               options:NSStringDrawingUsesLineFragmentOrigin
-                                               context:nil];
-  return CGSizeMake(ceil(bounds.size.width), ceil(bounds.size.height));
+  __block NSUInteger lineCount = 0;
+  [code enumerateSubstringsInRange:NSMakeRange(0, code.length)
+                           options:NSStringEnumerationByLines | NSStringEnumerationSubstringNotRequired
+                        usingBlock:^(NSString *_Nullable substring, NSRange substringRange, NSRange enclosingRange,
+                                     BOOL *stop) { lineCount++; }];
+  if (lineCount == 0) {
+    lineCount = 1;
+  }
+  return ceil(lineCount * ENRMCodeBlockPerLineHeight(config));
 }
 
 // Used only to pick the scroll indicator style for the code pane, so the
@@ -109,15 +124,30 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
 // Scrollable code pane content. Draws the attributed code unwrapped at a
 // fixed origin; the hosting ENRMCodeBlockContainerView draws everything else.
+//
+// The TextKit stack (storage/layout manager/container) is built and laid out
+// once, when attributedCode is set, then cached: drawRect: only paints the
+// already-computed glyphs, so scrolling and redraws never re-lay-out. This is
+// the same rendering path drawAtPoint used internally, so output is identical,
+// but the layout is no longer thrown away on every draw. The container is
+// unbounded (lines never wrap) with zero line-fragment padding and font leading
+// disabled, matching the NSStringDrawing origin the block used before.
 @interface ENRMCodeBlockContentView : RCTUIView
 @property (nonatomic, strong, nullable) NSAttributedString *attributedCode;
 @property (nonatomic, assign) CGPoint textOrigin;
+// Laid-out content width, for the horizontal scroll extent. Free once the
+// cached stack exists; no separate measurement pass.
+@property (nonatomic, readonly) CGFloat usedWidth;
 #if TARGET_OS_OSX
 @property (nonatomic, copy, nullable) NSMenu * (^menuProvider)(void);
 #endif
 @end
 
-@implementation ENRMCodeBlockContentView
+@implementation ENRMCodeBlockContentView {
+  NSTextStorage *_textStorage;
+  NSLayoutManager *_layoutManager;
+  NSTextContainer *_textContainer;
+}
 
 #if TARGET_OS_OSX
 - (BOOL)isFlipped
@@ -131,11 +161,44 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 }
 #endif
 
+- (void)setAttributedCode:(nullable NSAttributedString *)attributedCode
+{
+  _attributedCode = attributedCode;
+  if (attributedCode.length == 0) {
+    _textStorage = nil;
+    _layoutManager = nil;
+    _textContainer = nil;
+    return;
+  }
+  _textStorage = [[NSTextStorage alloc] initWithAttributedString:attributedCode];
+  _layoutManager = [[NSLayoutManager alloc] init];
+  _layoutManager.usesFontLeading = NO;
+  _textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)];
+  _textContainer.lineFragmentPadding = 0;
+  _textContainer.maximumNumberOfLines = 0;
+  [_layoutManager addTextContainer:_textContainer];
+  [_textStorage addLayoutManager:_layoutManager];
+  [_layoutManager ensureLayoutForTextContainer:_textContainer];
+}
+
+- (CGFloat)usedWidth
+{
+  if (!_layoutManager) {
+    return 0;
+  }
+  return ceil([_layoutManager usedRectForTextContainer:_textContainer].size.width);
+}
+
 - (void)drawRect:(CGRect)rect
 {
-  if (self.attributedCode.length > 0) {
-    [self.attributedCode drawAtPoint:self.textOrigin];
+  if (!_layoutManager) {
+    return;
   }
+  // Only paint the glyphs intersecting the dirty rect; tall blocks skip their
+  // off-screen lines. The rect is in view space, the layout in container space.
+  CGRect boundingRect = CGRectOffset(rect, -self.textOrigin.x, -self.textOrigin.y);
+  NSRange glyphRange = [_layoutManager glyphRangeForBoundingRect:boundingRect inTextContainer:_textContainer];
+  [_layoutManager drawGlyphsForGlyphRange:glyphRange atPoint:self.textOrigin];
 }
 
 @end
@@ -346,8 +409,10 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   NSAttributedString *highlighted =
       _pending ? nil : ENRMHighlightedAttributedCode(plainCode, _cachedCode, _cachedLanguage, _config);
   _attributedCode = highlighted ?: plainCode;
-  _codeSize = ENRMCodeBlockCodeSize(_attributedCode);
+  // Setting attributedCode builds and lays out the cached TextKit stack once;
+  // width then reads out of that layout, and height stays analytic.
   _codeContentView.attributedCode = _attributedCode;
+  _codeSize = CGSizeMake(_codeContentView.usedWidth, ENRMCodeBlockCodeHeight(_cachedCode, _config));
 }
 
 - (void)applyCodeBlockNode:(MarkdownASTNode *)node
@@ -413,8 +478,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 {
   CGFloat inset = ENRMCodeBlockContentInset(config);
   CGFloat headerH = inset + ENRMCodeBlockHeaderLabelLineHeight(ENRMCodeBlockHeaderFont(config));
-  NSAttributedString *code = ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config);
-  return ENRMCodeBlockCodeSize(code).height + inset * 2 + headerH;
+  CGFloat codeHeight = ENRMCodeBlockCodeHeight(ENRMCodeBlockExtractCode(node), config);
+  return codeHeight + inset * 2 + headerH;
 }
 
 - (void)drawRect:(CGRect)rect
