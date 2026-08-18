@@ -33,20 +33,37 @@ module EnrichedMarkdownConfig
   # root. Per-app config therefore works; the download side (postinstall) is a
   # separate, install-time decision. ENV vars remain a deprecated fallback.
   #
-  # Memoized: both this file (code highlighting) and the main podspec (math) read it.
+  # A cheap accessor over the memoized package.json (see consumer_package_json), so both
+  # this file (code highlighting) and the main podspec (math) can read it without re-parsing.
   def self.consumer_config
-    return @consumer_config if defined?(@consumer_config)
-    @consumer_config = load_consumer_config
+    config = consumer_package_json['enriched-markdown']
+    config.is_a?(Hash) ? config : {}
   end
 
-  def self.load_consumer_config
+  # A filesystem-safe identifier for the app being built, derived from its package.json
+  # "name" (falling back to the app directory name). It keys the per-app generated
+  # code-highlight registry (generated-<slug>) so that, in a hoisted monorepo, two apps
+  # with different custom language sets each get their own registry instead of clobbering
+  # a single shared one.
+  def self.consumer_app_slug
+    name = consumer_package_json['name'].to_s
+    name = File.basename(File.dirname(Pod::Config.instance.installation_root.to_s)) if name.empty?
+    slug = name.gsub(%r{[^A-Za-z0-9._-]+}, '-').gsub(/\A-+|-+\z/, '')
+    slug.empty? ? 'app' : slug
+  end
+
+  def self.consumer_package_json
+    return @consumer_package_json if defined?(@consumer_package_json)
+    @consumer_package_json = load_consumer_package_json
+  end
+
+  def self.load_consumer_package_json
     path = File.join(Pod::Config.instance.installation_root.to_s, '..', 'package.json')
     return {} unless File.exist?(path)
-    config = JSON.parse(File.read(path))['enriched-markdown']
-    config.is_a?(Hash) ? config : {}
+    JSON.parse(File.read(path))
   rescue StandardError => e
-    Pod::UI.warn "[ReactNativeEnrichedMarkdown] could not read \"enriched-markdown\" config " \
-      "from the app package.json (#{e.message}); using defaults."
+    Pod::UI.warn "[ReactNativeEnrichedMarkdown] could not read the app package.json " \
+      "(#{e.message}); using defaults."
     {}
   end
 end
@@ -132,13 +149,13 @@ module EnrichedMarkdownCodeHighlight
     return disabled if langs.empty?
 
     vendor = File.join(podspec_dir, 'cpp/highlight/vendor')
-    # A custom language set regenerates its registry into a SEPARATE dir so it never
-    # clobbers the committed default-set registry in vendor/generated. That committed
-    # dir is the shared source of truth other default builds -- and the Android build
-    # -- rely on staying the default set; overwriting it in place with a custom set
-    # leaves the next default build linking a mismatched grammar list.
+    # A custom language set regenerates its registry into a per-app dir
+    # (generated-<app-slug>), never the committed default-set registry in vendor/generated.
+    # Keying by app (not by "generated-custom") means two apps in a hoisted monorepo with
+    # different custom sets each get their own registry instead of clobbering a single
+    # shared one -- which would leave the other app linking a mismatched grammar list.
     custom = langs.sort != defaults.sort
-    generated_rel = custom ? 'cpp/highlight/vendor/generated-custom' : 'cpp/highlight/vendor/generated'
+    generated_rel = custom ? "cpp/highlight/vendor/generated-#{EnrichedMarkdownConfig.consumer_app_slug}" : 'cpp/highlight/vendor/generated'
     generated = File.join(podspec_dir, generated_rel)
     ensure_registry(podspec_dir, vendor, generated, langs, custom)
 

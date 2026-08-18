@@ -30,13 +30,26 @@ def getExtOrIntegerDefault(name) {
 // Per-app config therefore works; the download side (postinstall) is a separate,
 // install-time decision. Gradle properties remain a deprecated fallback.
 def consumerConfig = [:]
+def consumerAppName = null
 def consumerPackageJson = new File(rootProject.projectDir, "../package.json")
 if (consumerPackageJson.exists()) {
     def parsed = new groovy.json.JsonSlurper().parse(consumerPackageJson)
-    if (parsed instanceof Map && parsed["enriched-markdown"] instanceof Map) {
-        consumerConfig = parsed["enriched-markdown"]
+    if (parsed instanceof Map) {
+        if (parsed["enriched-markdown"] instanceof Map) {
+            consumerConfig = parsed["enriched-markdown"]
+        }
+        consumerAppName = parsed["name"]
     }
 }
+
+// Filesystem-safe per-app slug: package.json "name", else the app directory name -- the
+// same source and fallback the iOS podspec uses (installation root's parent), so both
+// platforms derive an identical slug for the same app. It keys the per-app generated
+// code-highlight registry (generated-<slug>) below so the artifact layout matches iOS and
+// two monorepo apps with different custom language sets never share one dir.
+def consumerAppSlug = (consumerAppName ?: rootProject.projectDir.parentFile?.name ?: "app").toString()
+    .replaceAll('[^A-Za-z0-9._-]+', '-').replaceAll('^-+|-+$', '')
+if (!consumerAppSlug) consumerAppSlug = "app"
 
 // Math: package.json > gradle property (deprecated) > default true. Android math is a
 // Maven dependency (no downloaded asset), so the flag simply includes or excludes it --
@@ -195,8 +208,12 @@ if (codeHighlightActive) {
     // Common case: the committed default-set registry ships in-tree, no codegen.
     generatedDir = committedGenerated
   } else {
-    // Custom language set: regenerate the registry from the vendored .scm files.
-    generatedDir = new File(highlightConfigDir, "generated")
+    // Custom language set: regenerate the registry from the vendored .scm files into a
+    // per-app dir (generated-<slug>), mirroring iOS. Android rewrites this on every
+    // gradle configure so it never had iOS's persistent clash, but keying per app keeps
+    // the two platforms' artifact layout identical. (highlight-config.cmake itself stays
+    // at the CMakeLists-fixed shared path and is rewritten each configure.)
+    generatedDir = new File(highlightConfigDir, "generated-${consumerAppSlug}")
     generatedDir.mkdirs()
     def genScript = [
       new File(projectDir, "../../../vendor/gen-registry.mjs"),

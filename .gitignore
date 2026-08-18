@@ -101,9 +101,10 @@ web-build/
 packages/core/cpp/highlight/vendor/tree-sitter/
 packages/core/cpp/highlight/vendor/grammars/
 packages/core/cpp/highlight/vendor/generated/
-# Registry for a custom ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES set (iOS); kept
-# out of the committed generated/ dir so a custom build never clobbers the default.
-packages/core/cpp/highlight/vendor/generated-custom/
+# Per-app registry for a custom code-highlight language set (iOS, generated-<app-slug>);
+# kept out of the committed generated/ dir so a custom build never clobbers the default,
+# and keyed per app so monorepo apps with different sets never clobber each other.
+packages/core/cpp/highlight/vendor/generated-*/
 
 # RaTeX (iOS LaTeX math): the prebuilt static XCFramework, RaTeX's four core Swift
 # sources, and the KaTeX fonts are restored from the pins in vendor/ratex-version.json
