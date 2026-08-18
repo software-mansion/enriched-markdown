@@ -36,36 +36,49 @@ Pod::Spec.new do |s|
   # links under CocoaPods default static linkage and needs neither `use_frameworks!` nor
   # SPM interop.
   #
-  # Postinstall config is the source of truth; ENV is a deprecated fallback.
-  config_path = File.join(__dir__, '.enriched-markdown-config.json')
-  postinstall_config = File.exist?(config_path) ? JSON.parse(File.read(config_path)) : nil
-
+  # The app package.json "enriched-markdown" block is the source of truth; ENV is a
+  # deprecated fallback. `math_explicit` tracks an active opt-in (vs the implicit
+  # default), which decides the missing-framework behavior below.
+  config = EnrichedMarkdownConfig.consumer_config
   ratex_present = File.directory?(File.join(__dir__, 'ios/vendor/RaTeX.xcframework'))
   math_flag = ENV['ENRICHED_MARKDOWN_ENABLE_MATH']
-  if postinstall_config
-    enable_math = postinstall_config['enableMath'] != false
+
+  if config.key?('enableMath')
+    math_requested = config['enableMath'] != false
+    math_explicit = math_requested
     if math_flag
       EnrichedMarkdownConfig.warn_once(:math_env, '[ReactNativeEnrichedMarkdown] DEPRECATED: ENV[\'ENRICHED_MARKDOWN_ENABLE_MATH\'] ' \
-        'is ignored when .enriched-markdown-config.json is present. ' \
-        'Configure via "enriched-markdown".enableMath in your package.json instead.')
+        'is ignored when "enriched-markdown".enableMath is set in your package.json.')
     end
   elsif math_flag
     EnrichedMarkdownConfig.warn_once(:math_env, '[ReactNativeEnrichedMarkdown] DEPRECATED: ENV[\'ENRICHED_MARKDOWN_ENABLE_MATH\'] ' \
       'will be removed in a future version. Configure via "enriched-markdown".enableMath in your package.json instead.')
-    enable_math = math_flag == '1'
+    math_requested = math_flag == '1'
+    math_explicit = math_requested
   else
-    enable_math = ratex_present
+    math_requested = true
+    math_explicit = false
   end
 
-  if !enable_math
-    if postinstall_config && postinstall_config['enableMath'] == false
-      EnrichedMarkdownConfig.warn_once(:math_disabled, '[ReactNativeEnrichedMarkdown] LaTeX math disabled via package.json ' \
-        '("enriched-markdown".enableMath = false).')
-    elsif !ratex_present
-      EnrichedMarkdownConfig.warn_once(:math_disabled, '[ReactNativeEnrichedMarkdown] LaTeX math disabled: the vendored RaTeX ' \
-        'XCFramework was not found at ios/vendor/RaTeX.xcframework. If this is unintended, re-run ' \
-        '`node node_modules/react-native-enriched-markdown/postinstall.mjs`.')
+  # RaTeX is downloaded at postinstall and kept out of the tarball. Reconcile the
+  # request with the vendored framework: an explicit opt-in with the framework missing
+  # fails loud; on by default but missing (a partial/failed download, or a monorepo root
+  # opt-out) falls back to a clean build without math.
+  enable_math = math_requested && ratex_present
+  if !math_requested
+    EnrichedMarkdownConfig.warn_once(:math_disabled, '[ReactNativeEnrichedMarkdown] LaTeX math disabled via ' \
+      '"enriched-markdown".enableMath = false in your app package.json.')
+  elsif !ratex_present
+    if math_explicit
+      raise '[ReactNativeEnrichedMarkdown] LaTeX math is enabled but the vendored RaTeX ' \
+        'XCFramework is missing at ios/vendor/RaTeX.xcframework. Reinstall to fetch it: ' \
+        '`npm rebuild react-native-enriched-markdown`. ' \
+        'To disable math, set "enriched-markdown".enableMath = false in your app package.json. ' \
+        'Troubleshooting: https://github.com/software-mansion/enriched-markdown/blob/main/docs/NATIVE_ASSETS.md'
     end
+    EnrichedMarkdownConfig.warn_once(:math_disabled, '[ReactNativeEnrichedMarkdown] LaTeX math disabled: the vendored RaTeX ' \
+      'XCFramework was not found at ios/vendor/RaTeX.xcframework. If this is unintended, re-run ' \
+      '`node node_modules/react-native-enriched-markdown/postinstall.mjs`.')
   end
 
   # The RaTeX XCFramework bundles its own module.modulemap and headers; never let the
@@ -79,18 +92,9 @@ Pod::Spec.new do |s|
   preprocessor_defs = "$(inherited) MD4C_USE_UTF8=1#{code_highlight[:defines]}"
   if enable_math
     preprocessor_defs += ' ENRICHED_MARKDOWN_MATH=1'
-    # Reachable only when math is force-enabled (ENRICHED_MARKDOWN_ENABLE_MATH='1') but the
-    # vendored tree is missing; the unforced path already auto-disables above. ios/vendor is
-    # kept out of the npm tarball and restored on the consumer's machine by postinstall (or
-    # by `yarn prepare` in the monorepo), so fail early with an actionable message instead of
-    # a confusing missing-file error.
-    unless ratex_present
-      raise '[ReactNativeEnrichedMarkdown] LaTeX math is enabled but the vendored RaTeX ' \
-        'XCFramework is missing at ios/vendor/RaTeX.xcframework. ' \
-        'For published installs, re-run: node node_modules/react-native-enriched-markdown/postinstall.mjs ' \
-        'For monorepo development, run `yarn prepare` (or `node vendor/vendor-ratex.mjs`). ' \
-        "To disable math, set ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0' in your Podfile. See docs/LATEX_MATH.md."
-    end
+    # enable_math already implies ratex_present (the reconciliation above raises on an
+    # explicit opt-in with a missing framework and disables the default-on path), so the
+    # vendored references below always resolve.
     # Prebuilt static XCFramework (device + simulator[arm64,x86_64] + macOS). Vendored
     # rather than pulled via spm_dependency, which compiled RaTeX's Swift wrapper per
     # requested arch (breaking universal simulator builds, #527) and double-collected

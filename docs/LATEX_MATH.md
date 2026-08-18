@@ -80,21 +80,27 @@ Set `latexMath: false` in `md4cFlags` so the parser treats `$` as plain text:
 
 This alone prevents math rendering without any native changes. The steps below go further by removing the native math libraries from your binary entirely.
 
-### 2. Remove the native iOS dependency
+### 2. Remove the native dependency
 
-Add the following to your Podfile and re-run `pod install`:
+Set `enableMath` to `false` in the `enriched-markdown` block of your app's `package.json`:
 
-```ruby
-ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0'
+```json
+{
+  "enriched-markdown": {
+    "enableMath": false
+  }
+}
 ```
 
-This excludes **RaTeX** from the build. Rebuild the app after running `pod install`.
+This is the single source of truth for both platforms: `postinstall` skips the install-time RaTeX
+download, and the native build reads the same block directly to exclude **RaTeX** from the binary — no
+Podfile or `gradle.properties` edit needed. Re-run `pod install` (iOS) / rebuild (Android) after
+changing it. See [Skipping the download](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
 
-> [!TIP]
-> To also skip the install-time RaTeX download (not just the build-time linking), set
-> `"enriched-markdown": { "enableMath": false }` in your app's `package.json`. Because the iOS build
-> auto-disables math when the framework is absent, this opt-out needs no Podfile edit. See
-> [Skipping the download](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
+> [!NOTE]
+> **Deprecated:** the `ENV['ENRICHED_MARKDOWN_ENABLE_MATH']` Podfile variable and the
+> `enrichedMarkdown.enableMath` gradle property still work as a fallback but are deprecated and print a
+> warning; they are ignored when the `package.json` block sets `enableMath`.
 
 > [!NOTE]
 > When math is **enabled** (the default), no special Podfile configuration is required.
@@ -106,16 +112,15 @@ This excludes **RaTeX** from the build. Rebuild the app after running `pod insta
 > [!NOTE]
 > The RaTeX XCFramework is **not** bundled in the npm tarball — it is downloaded at install time by
 > a `postinstall` script (see [Native assets](./NATIVE_ASSETS.md)). If `ios/vendor/RaTeX.xcframework`
-> is missing (offline install, `--ignore-scripts`, pnpm, or a `package.json` opt-out), `pod install`
-> auto-disables math and prints a warning instead of failing. To restore math, run
-> `node node_modules/react-native-enriched-markdown/postinstall.mjs` and re-run `pod install`, or
-> force it with `ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '1'` (which turns the missing framework back
-> into a hard error).
+> is missing (offline install, `--ignore-scripts`, pnpm, or a `package.json` opt-out) and math is only
+> on by default, `pod install` auto-disables math and prints a warning instead of failing. If you
+> **explicitly** set `"enableMath": true`, a missing framework is a hard error instead. Either way, run
+> `node node_modules/react-native-enriched-markdown/postinstall.mjs` and re-run `pod install` to restore it.
 
 > [!IMPORTANT]
 > **Upgrading from a version that used `use_frameworks! :linkage => :dynamic` for math?**
 > The pod changed from a dynamic framework to a static library. After `pod install`,
-> do a one-time clean build (Xcode: Product → Clean Build Folder, or delete the app's
+> do a one-time clean build (Xcode: Product > Clean Build Folder, or delete the app's
 > DerivedData) — a stale build folder otherwise fails with
 > `ReactNativeEnrichedMarkdown.framework/Modules/module.modulemap not found`. Fresh
 > installs are unaffected.
@@ -126,37 +131,14 @@ This excludes **RaTeX** from the build. Rebuild the app after running `pod insta
 > no longer applies now that RaTeX is a vendored XCFramework with a macOS slice, so macOS
 > support is a possible future follow-up.
 
-### 3. Remove the native Android dependency
+### 3. Expo
 
-Add the following to your project's `gradle.properties`:
+The `package.json` block above works with Expo too — `node_modules` (and the resolved config) survive
+`npx expo prebuild`, so no config plugin is needed. Set `"enriched-markdown": { "enableMath": false }` in
+your app's `package.json` and rebuild.
 
-```properties
-enrichedMarkdown.enableMath=false
-```
-
-This excludes **RaTeX** from the Android build. Rebuild the app after changing this property.
-
-### 4. Expo config plugin
-
-If you are using Expo, you can use the built-in config plugin to disable LaTeX math rendering on both platforms at once.
-
-Add the following to your `app.json` or `app.config.js`:
-
-```json
-{
-  "expo": {
-    "plugins": [
-      [
-        "react-native-enriched-markdown",
-        {
-          "enableMath": false
-        }
-      ]
-    ]
-  }
-}
-```
-
-This will automatically apply both the [iOS](#2-remove-the-native-ios-dependency) and [Android](#3-remove-the-native-android-dependency) native changes listed above during `npx expo prebuild`.
-
-If you later re-enable math (e.g. remove the plugin or set `enableMath: true`), run `npx expo prebuild --clean` so native projects are regenerated without the disable flags, then rebuild.
+> [!NOTE]
+> Because `enableMath` is a compile/link-time decision, it only applies in builds you compile yourself
+> (a custom dev client or `expo prebuild`). It **cannot** be changed in **Expo Go**, which ships a fixed
+> prebuilt binary. A dedicated config plugin was removed in favor of the `package.json` block — see
+> [Breaking changes](./BREAKING_CHANGES.md).

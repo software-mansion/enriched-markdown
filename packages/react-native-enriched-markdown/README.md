@@ -150,13 +150,35 @@ Add an `"enriched-markdown"` block to your app's `package.json` to configure whi
 |---|---|---|---|
 | `enableCodeHighlight` | `boolean` | `true` | Download and compile tree-sitter grammars for syntax highlighting |
 | `enableMath` | `boolean` | `true` | Download RaTeX for LaTeX math rendering (iOS) and include the Maven dependency (Android) |
-| `codeHighlightLanguages` | `string[]` | all default grammars | Subset of languages to compile (reduces binary size) |
+| `codeHighlightLanguages` | `string[]` | all default grammars | Subset of languages to compile (reduces binary size). Ignored when `enableCodeHighlight` is `false`; an empty array `[]` compiles none (same as disabling). |
 
-This is the single source of truth — `postinstall` writes a config file that both iOS (podspec) and Android (build.gradle) read at build time. No Podfile ENV vars or `gradle.properties` edits needed.
+Your app's `package.json` is the single source of truth. `postinstall` reads it to decide
+what to **download** into `node_modules`, and the native build (iOS podspec / Android
+`build.gradle`) reads it directly to decide what to **compile and link** — no Podfile ENV
+vars or `gradle.properties` edits needed. Changing a value takes effect on your next
+`pod install` / native rebuild; **enabling** a feature that was off also needs a reinstall
+(`npm install` / `npm rebuild react-native-enriched-markdown`) so its assets get downloaded.
+
+> [!IMPORTANT]
+> **iOS applies config at `pod install`, not at build time.** After editing the `enriched-markdown`
+> block, run `pod install` (a plain `run-ios` reuses the previously resolved pod). When **disabling** a
+> feature that was already compiled in — or narrowing `codeHighlightLanguages` — also do a clean build
+> (`Product > Clean Build Folder`), since Xcode's incremental build can link a stale pod library.
+> Android reconfigures on every build and needs neither step.
 
 > [!TIP]
 > If you don't use a feature, disabling it skips the download **and** excludes it from the native build.
 > See [Skipping the download](../../docs/NATIVE_ASSETS.md#skipping-the-download-opt-out) for details.
+
+> [!NOTE]
+> **Monorepos:** the native build reads the **app's** `package.json` (the one next to
+> `ios/`/`android/`), so each app can enable/disable features independently. The download
+> opt-out is resolved where you run the install — usually the workspace root — so to skip a
+> download entirely, put the opt-out in the **root** `package.json`.
+
+> [!NOTE]
+> Migrating from the Expo config plugin or the `ENV` / `gradle.properties` build flags? See
+> [Breaking changes](../../docs/BREAKING_CHANGES.md).
 
 #### 2. Install iOS / macOS dependencies
 

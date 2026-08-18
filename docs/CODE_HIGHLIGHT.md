@@ -51,7 +51,7 @@ The copy label shown to assistive technologies is configurable via
 
 ## Supported languages
 
-Fence info strings map to a grammar (for example `js`, `jsx` -> JavaScript). The **curated default
+Fence info strings map to a grammar (for example `js` and `jsx` both select JavaScript). The **curated default
 set** is compiled in unless you override it. It is defined by `default:true` in
 `vendor/grammar-versions.json` (the single source of truth the iOS podspec and Android build both
 derive from), so the table below tracks that manifest:
@@ -69,62 +69,38 @@ A block whose language is not compiled in simply renders as plain (uncolored) co
 Only the grammars you compile end up in your binary, so trimming the list is the main size lever.
 The seam degrades to plain code whenever a grammar is absent, so nothing breaks when you remove one.
 
-> [!TIP]
-> To also skip the install-time grammar download (not just the build-time linking), set
-> `"enriched-markdown": { "enableCodeHighlight": false }` in your app's `package.json`. This
-> auto-disables highlighting at build time too, so it's an alternative to the build flags below.
-> See [Skipping the download](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
-
-### iOS
-
-Add to your `Podfile` and re-run `pod install`:
-
-```ruby
-# Compile a custom set (comma-separated; adds tsx to the trimmed set below):
-ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES'] = 'javascript,tsx,json,bash'
-
-# ...or disable highlighting entirely (no tree-sitter code linked):
-ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT'] = '0'
-```
-
-### Android
-
-Add to your project's `gradle.properties`:
-
-```properties
-# Compile a custom set:
-enrichedMarkdown.codeHighlightLanguages=javascript,tsx,json,bash
-
-# ...or disable highlighting entirely:
-enrichedMarkdown.enableCodeHighlight=false
-```
-
-Rebuild the app after changing either value.
-
-### Expo config plugin
-
-Configure both platforms at once in `app.json` / `app.config.js`:
+Configure everything through the `enriched-markdown` block of your app's `package.json` — it is the
+single source of truth for both platforms and both the install-time download and the build:
 
 ```json
 {
-  "expo": {
-    "plugins": [
-      [
-        "react-native-enriched-markdown",
-        {
-          "codeHighlight": {
-            "enabled": true,
-            "languages": ["javascript", "tsx", "json", "bash"]
-          }
-        }
-      ]
-    ]
+  "enriched-markdown": {
+    "enableCodeHighlight": true,
+    "codeHighlightLanguages": ["javascript", "tsx", "json", "bash"]
   }
 }
 ```
 
-Set `"enabled": false` to disable it. Changes are applied during `npx expo prebuild`; if you change
-the set later, run `npx expo prebuild --clean` and rebuild.
+How the two keys interact:
+
+- **`enableCodeHighlight`** (default `true`) is the master switch. When `false`, the grammar download is
+  skipped **and** the tree-sitter runtime is excluded from the native build. In that state
+  **`codeHighlightLanguages` is ignored — it is a no-op**, because there is no highlighter compiled in for
+  languages to feed.
+- **`codeHighlightLanguages`** selects which grammars to compile *when highlighting is enabled*. Omit it
+  for the curated default set, or pass a subset to shrink the binary. An empty array (`[]`) compiles no
+  grammars, which disables highlighting entirely — equivalent to `enableCodeHighlight: false`.
+
+Re-run `pod install` (iOS) / rebuild (Android) after changing these. The same block works with Expo —
+`node_modules` survives `npx expo prebuild`, so no config plugin is needed (highlighting is compiled in,
+so it can't be changed in **Expo Go**; use a dev client or `expo prebuild`). See
+[Skipping the download](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
+
+> [!NOTE]
+> **Deprecated:** the `ENV['ENRICHED_MARKDOWN_*']` Podfile variables and the `enrichedMarkdown.*` gradle
+> properties still work as a fallback but are deprecated and print a warning; they are ignored when the
+> corresponding `package.json` key is set. The Expo config plugin was removed — see
+> [Breaking changes](./BREAKING_CHANGES.md). Prefer the `package.json` block above.
 
 ## How it works
 

@@ -30,9 +30,14 @@ if (!fs.existsSync(grammarManifest)) {
 // Both features default to enabled (opt-out, not opt-in). Any resolution failure
 // (INIT_CWD unset, unreadable/malformed JSON, absent key) falls back to downloading
 // everything -- a skipped download is far cheaper to recover from than a silently
-// missing feature. The native build mirrors this by keying off asset presence on
-// disk (see the podspecs and android/build.gradle), so a package.json opt-out alone
-// yields a clean build with no Podfile/gradle edits.
+// missing feature. In a monorepo INIT_CWD is the workspace root where the install
+// ran, so the download opt-out lives in the root package.json (one shared node_modules).
+//
+// The native build reads the *app* package.json directly (via the podspec's
+// installation root / gradle's build root -- see the podspecs and android/build.gradle),
+// which is a separate per-app decision. It reconciles that flag with asset presence on
+// disk: an explicit opt-in with the asset missing fails loud, a default-on with it
+// missing degrades to a clean build.
 function resolveConsumerConfig() {
   const initCwd = process.env.INIT_CWD;
   if (!initCwd) {
@@ -49,10 +54,14 @@ function resolveConsumerConfig() {
 
 const consumerConfig = resolveConsumerConfig();
 
-// ENV vars are a deprecated fallback — honored only when package.json has no explicit config.
+// This script only decides what to DOWNLOAD into node_modules. The native build
+// (podspec + build.gradle) reads the app package.json directly to decide what to
+// compile/link, so nothing is written here for it to consume. The `codeHighlightLanguages`
+// subset is a build-time concern (a language subset is selected from the full downloaded
+// grammar set), so it is intentionally not read here. ENV vars are a deprecated fallback,
+// honored only when package.json has no explicit value.
 let enableCodeHighlight = consumerConfig.enableCodeHighlight;
 let enableMath = consumerConfig.enableMath;
-let codeHighlightLanguages = consumerConfig.codeHighlightLanguages;
 
 if (enableCodeHighlight === undefined && process.env.ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT) {
   console.warn(`${LOG} DEPRECATED: ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT env var will be removed in a future version. Configure via "enriched-markdown".enableCodeHighlight in your package.json instead.`);
@@ -62,21 +71,9 @@ if (enableMath === undefined && process.env.ENRICHED_MARKDOWN_ENABLE_MATH) {
   console.warn(`${LOG} DEPRECATED: ENRICHED_MARKDOWN_ENABLE_MATH env var will be removed in a future version. Configure via "enriched-markdown".enableMath in your package.json instead.`);
   enableMath = process.env.ENRICHED_MARKDOWN_ENABLE_MATH !== '0';
 }
-if (codeHighlightLanguages === undefined && process.env.ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES) {
-  console.warn(`${LOG} DEPRECATED: ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES env var will be removed in a future version. Configure via "enriched-markdown".codeHighlightLanguages in your package.json instead.`);
-  codeHighlightLanguages = process.env.ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES.split(',').map(s => s.trim()).filter(Boolean);
-}
 
 enableCodeHighlight = enableCodeHighlight !== false;
 enableMath = enableMath !== false;
-
-// Write resolved config for native builds (podspec + build.gradle).
-const configPath = path.join(PKG_ROOT, '.enriched-markdown-config.json');
-const config = { enableCodeHighlight, enableMath };
-if (Array.isArray(codeHighlightLanguages) && codeHighlightLanguages.length > 0) {
-  config.codeHighlightLanguages = codeHighlightLanguages;
-}
-fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
 if (!enableCodeHighlight && !enableMath) {
   console.log(`${LOG} both code highlighting and math are disabled via package.json ("enriched-markdown"); skipping postinstall.`);

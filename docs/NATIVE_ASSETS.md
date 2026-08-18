@@ -34,16 +34,29 @@ them.
   Windows, but RaTeX is iOS-only so this only affects Windows dev machines and is non-fatal.
 
 The postinstall step **never fails the install**: if a download does not complete it prints a warning
-and exits successfully. When an asset is missing the native build treats the corresponding feature as
-disabled (code highlighting compiles a no-op stub; iOS math is skipped with a CocoaPods warning), so
-the build stays green. To turn a feature back on after fixing the download, re-run the recovery command
-below, or force it via its build flag (`ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '1'` /
-`enrichedMarkdown.enableCodeHighlight=true`), which restores the actionable missing-asset error.
+and exits successfully. What the native build does when an asset is missing depends on whether you
+**explicitly enabled** the feature in your app `package.json`:
+
+- **On by default** (no `enriched-markdown` entry for it): the build treats the feature as disabled —
+  code highlighting compiles a no-op stub, iOS math is skipped with a CocoaPods warning — so the build
+  stays green.
+- **Explicitly enabled** (`"enableMath": true` / `"enableCodeHighlight": true`): the build **fails with
+  an actionable error** telling you to re-run postinstall, because you asked for a feature whose assets
+  are not present.
+
+To fix a missing download, re-run the recovery command below.
 
 ## Re-running or recovering
 
-If installs happened offline, behind a firewall, or with scripts disabled, restore the assets by
-re-running the script from your project root:
+If a download didn't complete (offline, behind a firewall, or with scripts disabled), reinstall the
+package to re-fetch the assets:
+
+```sh
+npm rebuild react-native-enriched-markdown
+```
+
+If your package manager blocks or skips that (pnpm, Yarn PnP, `--ignore-scripts`), run the vendor script
+directly from your project root as a fallback:
 
 ```sh
 node node_modules/react-native-enriched-markdown/postinstall.mjs
@@ -85,12 +98,25 @@ downloads its assets. Add an `enriched-markdown` block (both fields default to `
 
 `enableCodeHighlight: false` skips the tree-sitter runtime + grammar download (iOS and Android);
 `enableMath: false` skips the RaTeX download (iOS; Android math uses a Maven dependency and is
-unaffected). Because the native build keys off whether the assets are present on disk, a
-`package.json` opt-out **also disables the feature at build time** — no Podfile or `gradle.properties`
-edit needed. Re-run the install (or the recovery command above) after changing these values.
+unaffected). The native build reads the same `enriched-markdown` block directly (iOS podspec /
+Android `build.gradle`), so a `package.json` opt-out **also disables the feature at build time** — no
+Podfile or `gradle.properties` edit needed. Disabling takes effect on the next `pod install` / native
+rebuild; re-enabling also needs a reinstall so the assets download again.
 
-This is read from the consumer project only (via `INIT_CWD`); it has no effect inside this repo's own
-monorepo development.
+> [!IMPORTANT]
+> **Applying a change on iOS.** The podspec reads `package.json` at `pod install` time, not at build
+> time, so a plain rebuild (`run-ios` / Xcode build) reuses the previously resolved pod — you must run
+> `pod install` after editing the `enriched-markdown` block. And when you **change a feature that was
+> already compiled in** (disabling it, or narrowing `codeHighlightLanguages`), also do a **clean build**
+> (`Product > Clean Build Folder`, or delete the app's DerivedData): Xcode's incremental build does not
+> reliably rebuild the pod's static library when only its source list changes, so it can otherwise link a
+> stale copy that still contains the old code. Android reconfigures on every build and needs neither step.
+
+**Which `package.json`?** The *download* opt-out is read from wherever the install runs (via `INIT_CWD`)
+— in a monorepo that is the workspace root, and there is one shared `node_modules`, so the download
+opt-out is global. The *build* flag is read from the **app's** `package.json` (the one beside `ios/` /
+`android/`), so each app in a monorepo enables or disables features independently. Neither has any
+effect inside this repo's own monorepo development.
 
 ## Disabling the features at build time
 
