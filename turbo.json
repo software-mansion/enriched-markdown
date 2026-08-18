@@ -90,7 +90,7 @@
       "env": ["SWIFTLINT_VERSION"],
       "inputs": [
         "package.json",
-        ".swiftlint.yml",
+        "**/.swiftlint.yml",
         "**/*.swift"
       ],
       "outputs": []
