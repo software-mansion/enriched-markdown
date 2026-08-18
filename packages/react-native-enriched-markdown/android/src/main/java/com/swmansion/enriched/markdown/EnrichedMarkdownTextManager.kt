@@ -72,6 +72,11 @@ class EnrichedMarkdownTextManager :
     return view
   }
 
+  override fun onAfterUpdateTransaction(view: EnrichedMarkdownText) {
+    super.onAfterUpdateTransaction(view)
+    view.commitProps()
+  }
+
   override fun updateState(
     view: EnrichedMarkdownText,
     props: ReactStylesDiffMap?,

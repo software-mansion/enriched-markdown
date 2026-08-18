@@ -12,6 +12,8 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownTextProps &props) {
   serializedProps["markdown"] = props.markdown;
   serializedProps["markdownStyle"] = toDynamic(props.markdownStyle);
   serializedProps["md4cFlags"] = toDynamic(props.md4cFlags);
+  serializedProps["allowFontScaling"] = props.allowFontScaling;
+  serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streamingAnimation"] = props.streamingAnimation;
 
@@ -29,6 +31,8 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
   serializedProps["markdown"] = props.markdown;
   serializedProps["markdownStyle"] = toDynamic(props.markdownStyle);
   serializedProps["md4cFlags"] = toDynamic(props.md4cFlags);
+  serializedProps["allowFontScaling"] = props.allowFontScaling;
+  serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streamingAnimation"] = props.streamingAnimation;
 
