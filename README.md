@@ -17,7 +17,7 @@ A multi-platform SDK for rendering Markdown as native text and editing rich text
 - **Code syntax highlighting** — Native syntax highlighting powered by [tree-sitter](https://tree-sitter.github.io/tree-sitter/)
 - **Accessibility** — VoiceOver on iOS, TalkBack on Android, semantic HTML on web
 
-See the [feature comparison table](https://enriched.swmansion.com/markdown) for a detailed breakdown of supported features per platform.
+See the [feature comparison table](https://enriched.swmansion.com/markdown/#compatibility) for a detailed breakdown of supported features per platform.
 
 ## Packages
 
