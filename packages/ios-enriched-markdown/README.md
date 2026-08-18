@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/734bd3a3-aed1-4c33-836e-4e26e48afd19">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/a6fee18f-fb50-422e-83e6-73e18ea79b2a">
+  <img alt="Enriched Markdown by Software Mansion" src="https://github.com/user-attachments/assets/734bd3a3-aed1-4c33-836e-4e26e48afd19">
+</picture>
+
 # Enriched Markdown iOS
 
 Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package (`EnrichedMarkdown`).
@@ -5,6 +11,7 @@ Standalone SwiftUI library for rendering enriched Markdown on iOS. This package 
 ## Installation
 
 Add the package via [Swift Package Manager](https://www.swift.org/documentation/package-manager/). The `Package.swift` lives at the repository root.
+![Uploading GH Markdown - 6.png…]()
 
 **Xcode:** File → Add Package Dependencies… → enter the repository URL, then select the `EnrichedMarkdown` product.
 
