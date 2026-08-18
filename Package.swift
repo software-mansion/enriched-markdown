@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "EnrichedMarkdown",
-    platforms: [.iOS(.v15), .macOS(.v14)],
+    platforms: [.iOS(.v16)],
     products: [
         .library(name: "EnrichedMarkdown", targets: ["EnrichedMarkdown"]),
     ],

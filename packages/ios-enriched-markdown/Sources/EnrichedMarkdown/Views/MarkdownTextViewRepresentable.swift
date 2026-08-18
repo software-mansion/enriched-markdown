@@ -38,7 +38,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         uiView.delegate = nil
     }
 
-    @available(iOS 16.0, *)
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {
         let width = proposal.width ?? UIScreen.main.bounds.width
         let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
@@ -70,7 +69,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
             return handleLinkPress(url)
         }
 
-        // iOS 15–16 (and 17+ fallback when the UITextItem methods are
+        // iOS 16 (and 17+ fallback when the UITextItem methods are
         // unavailable): tap arrives as .invokeDefaultAction, long-press as
         // .presentActions or .preview.
         func textView(
@@ -113,7 +112,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
             return handleLinkLongPress(url) ? nil : UITextItem.MenuConfiguration(menu: defaultMenu)
         }
 
-        @available(iOS 16.0, *)
         func textView(
             _ textView: UITextView,
             editMenuForTextIn range: NSRange,
@@ -145,7 +143,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
             return UIMenu(children: Self.splice(actions, into: suggestedActions))
         }
 
-        @available(iOS 16.0, *)
         static func makeAction(for spec: MenuItemSpec) -> UIAction {
             UIAction(
                 title: spec.title,
@@ -156,7 +153,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
             }
         }
 
-        @available(iOS 16.0, *)
         static func makeSelectAllAction(for textView: UITextView) -> UIAction {
             UIAction(
                 title: "Select All",
@@ -172,7 +168,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
             textView.selectedRange = NSRange(location: 0, length: textView.attributedText?.length ?? 0)
         }
 
-        @available(iOS 16.0, *)
         static func containsSelectAll(_ elements: [UIMenuElement]) -> Bool {
             elements.contains { element in
                 if let command = element as? UICommand, command.action == #selector(UIResponder.selectAll(_:)) {
@@ -190,7 +185,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         /// which is the only way to grow a selection from the long-press menu
         /// of a non-editable text view). Falls back to prepending when the
         /// submenu is absent.
-        @available(iOS 16.0, *)
         static func splice(_ actions: [UIMenuElement], into suggestedActions: [UIMenuElement]) -> [UIMenuElement] {
             var result: [UIMenuElement] = []
             var foundStandardEdit = false
@@ -214,9 +208,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 final class MarkdownTextView: UITextView {
     var styleConfig: MarkdownStyleConfig = .baseline() {
         didSet {
-            if #available(iOS 16.0, *) {
-                updateDecorationStyleConfig()
-            }
+            updateDecorationStyleConfig()
         }
     }
 
@@ -225,8 +217,7 @@ final class MarkdownTextView: UITextView {
     var onLinkPress: ((URL) -> Void)?
 
     /// VoiceOver elements built from the attributed string; frames resolve
-    /// lazily against TextKit 2 layout. Empty (default UITextView behavior)
-    /// below iOS 16, where the decoration/text-layout stack is unavailable.
+    /// lazily against TextKit 2 layout.
     private var markdownAccessibilityElements: [UIAccessibilityElement] = []
 
     override var accessibilityElements: [Any]? {
@@ -288,9 +279,7 @@ final class MarkdownTextView: UITextView {
         linkTextAttributes = [:]
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        if #available(iOS 16.0, *) {
-            setupDecoration()
-        }
+        setupDecoration()
     }
 
     /// Injectable so tests avoid UIPasteboard.general, which a headless test
@@ -330,13 +319,10 @@ final class MarkdownTextView: UITextView {
         guard !(self.attributedText?.isEqual(to: attributedText) ?? false) else { return }
         self.attributedText = attributedText
         invalidateIntrinsicContentSize()
-        if #available(iOS 16.0, *) {
-            setDecorationNeedsDisplay()
-            rebuildAccessibilityElements()
-        }
+        setDecorationNeedsDisplay()
+        rebuildAccessibilityElements()
     }
 
-    @available(iOS 16.0, *)
     private func rebuildAccessibilityElements() {
         let specs = MarkdownAccessibilityElementBuilder.specs(for: attributedText ?? NSAttributedString())
         markdownAccessibilityElements = specs.map { spec in
@@ -349,7 +335,6 @@ final class MarkdownTextView: UITextView {
 
     /// Screen-coordinate frame for a character range, unioned over its
     /// TextKit 2 layout fragments.
-    @available(iOS 16.0, *)
     func accessibilityScreenFrame(for range: NSRange) -> CGRect {
         guard let textLayoutManager,
               let contentManager = textLayoutManager.textContentManager,
@@ -372,14 +357,11 @@ final class MarkdownTextView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        if #available(iOS 16.0, *) {
-            layoutDecorationView()
-            setDecorationNeedsDisplay()
-        }
+        layoutDecorationView()
+        setDecorationNeedsDisplay()
     }
 }
 
-@available(iOS 16.0, *)
 private extension MarkdownTextView {
     private static var backgroundDecorationViewKey: UInt8 = 0
     private static var foregroundDecorationViewKey: UInt8 = 0

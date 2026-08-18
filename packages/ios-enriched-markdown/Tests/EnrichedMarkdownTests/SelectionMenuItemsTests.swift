@@ -162,9 +162,7 @@ final class SelectionMenuItemsTests: XCTestCase {
 
     // MARK: - Menu splicing
 
-    func testSpliceInsertsAfterStandardEditMenu() throws {
-        guard #available(iOS 16.0, *) else { throw XCTSkip("Requires iOS 16") }
-
+    func testSpliceInsertsAfterStandardEditMenu() {
         let standardEdit = UIMenu(title: "", identifier: .standardEdit, children: [])
         let lookUp = UIMenu(title: "", identifier: .lookup, children: [])
         let custom = UIAction(title: "Copy as Markdown") { _ in }
@@ -182,9 +180,7 @@ final class SelectionMenuItemsTests: XCTestCase {
 
     // MARK: - Select All fallback
 
-    func testContainsSelectAllDetectsCommandNestedInStandardEditMenu() throws {
-        guard #available(iOS 16.0, *) else { throw XCTSkip("Requires iOS 16") }
-
+    func testContainsSelectAllDetectsCommandNestedInStandardEditMenu() {
         let selectAll = UICommand(title: "Select All", action: #selector(UIResponder.selectAll(_:)))
         let copy = UICommand(title: "Copy", action: #selector(UIResponder.copy(_:)))
         let standardEdit = UIMenu(title: "", identifier: .standardEdit, children: [copy, selectAll])
@@ -195,9 +191,7 @@ final class SelectionMenuItemsTests: XCTestCase {
         ]))
     }
 
-    func testMakeSelectAllActionAttributes() throws {
-        guard #available(iOS 16.0, *) else { throw XCTSkip("Requires iOS 16") }
-
+    func testMakeSelectAllActionAttributes() {
         let action = MarkdownTextViewRepresentable.Coordinator.makeSelectAllAction(for: UITextView())
 
         XCTAssertEqual(action.title, "Select All")
@@ -214,9 +208,7 @@ final class SelectionMenuItemsTests: XCTestCase {
         XCTAssertEqual(textView.selectedRange, NSRange(location: 0, length: textView.attributedText.length))
     }
 
-    func testSplicePrependsWhenStandardEditMenuAbsent() throws {
-        guard #available(iOS 16.0, *) else { throw XCTSkip("Requires iOS 16") }
-
+    func testSplicePrependsWhenStandardEditMenuAbsent() {
         let lookUp = UIMenu(title: "", identifier: .lookup, children: [])
         let custom = UIAction(title: "Copy as Markdown") { _ in }
 

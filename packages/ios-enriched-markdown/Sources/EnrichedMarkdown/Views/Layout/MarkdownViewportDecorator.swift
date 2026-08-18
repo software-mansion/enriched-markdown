@@ -5,7 +5,6 @@ enum MarkdownDecorationPass {
     case foreground
 }
 
-@available(iOS 16.0, *)
 final class MarkdownViewportDecorator {
     private weak var backgroundView: MarkdownDecorationView?
     private weak var foregroundView: MarkdownDecorationView?
@@ -108,7 +107,6 @@ final class MarkdownViewportDecorator {
     }
 }
 
-@available(iOS 16.0, *)
 final class MarkdownDecorationView: UIView {
     weak var textView: UITextView?
     var viewportDecorator: MarkdownViewportDecorator?

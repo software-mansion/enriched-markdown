@@ -114,7 +114,6 @@ final class AccessibilityElementBuilderTests: XCTestCase {
     }
 }
 
-@available(iOS 16.0, *)
 final class MarkdownTextViewAccessibilityTests: XCTestCase {
     private var config: MarkdownStyleConfig!
 

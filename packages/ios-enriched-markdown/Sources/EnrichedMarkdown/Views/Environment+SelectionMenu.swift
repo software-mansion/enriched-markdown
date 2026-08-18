@@ -30,8 +30,7 @@ public extension EnvironmentValues {
 
 public extension View {
     /// Configures the custom edit-menu items ("Copy as Markdown",
-    /// "Copy Image URL") shown when text is selected. Requires iOS 16;
-    /// earlier versions keep the stock menu.
+    /// "Copy Image URL") shown when text is selected.
     func markdownSelectionMenu(_ config: MarkdownSelectionMenuConfig) -> some View {
         environment(\.markdownSelectionMenu, config)
     }

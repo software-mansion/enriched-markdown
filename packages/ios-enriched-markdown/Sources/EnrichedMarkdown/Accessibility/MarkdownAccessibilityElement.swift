@@ -3,7 +3,6 @@ import UIKit
 /// VoiceOver element for one segment of the rendered markdown. The frame is
 /// resolved lazily from TextKit 2 layout on every query, so scrolling and
 /// Dynamic Type changes never leave stale bounds.
-@available(iOS 16.0, *)
 class MarkdownAccessibilityElement: UIAccessibilityElement {
     private(set) weak var textView: MarkdownTextView?
     let range: NSRange
@@ -38,7 +37,6 @@ class MarkdownAccessibilityElement: UIAccessibilityElement {
     }
 }
 
-@available(iOS 16.0, *)
 final class MarkdownLinkAccessibilityElement: MarkdownAccessibilityElement {
     let url: URL
 

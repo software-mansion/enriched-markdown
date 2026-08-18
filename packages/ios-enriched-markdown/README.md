@@ -40,7 +40,7 @@ For local development, add a path dependency instead (as in [`apps/ios-example`]
 .package(path: "../react-native-enriched-markdown")
 ```
 
-Requirements: **iOS 15+**, SwiftUI.
+Requirements: **iOS 16+**, SwiftUI.
 
 ## Quick start
 
@@ -257,7 +257,7 @@ extension View {
 }
 ```
 
-Configures the custom items added to the text-selection edit menu (iOS 16+; earlier versions keep the stock menu):
+Configures the custom items added to the text-selection edit menu:
 
 - **Copy as Markdown** puts the selection on the clipboard as markdown. A selection covering the whole document returns the original source verbatim; partial selections are reconstructed from the rendered text.
 - **Copy Image URL** / **Copy N Image URLs** appears when the selection contains images with http(s) URLs.
@@ -308,7 +308,7 @@ All decodes are downsampled to the screen's pixel width, so large images never d
 
 ## Accessibility
 
-VoiceOver walks the rendered markdown as individual elements rather than one text blob (iOS 16+):
+VoiceOver walks the rendered markdown as individual elements rather than one text blob:
 
 - Headings announce "heading, level N"
 - Links are activatable elements that invoke `.onLinkPress`
@@ -316,18 +316,6 @@ VoiceOver walks the rendered markdown as individual elements rather than one tex
 - List items announce their position ("bullet point", "list item N", with a "nested" prefix)
 
 Dynamic Type is supported throughout via text styles in the default theme.
-
-## iOS version notes
-
-The package supports iOS 15+, but some features require iOS 16:
-
-| Feature | Minimum iOS |
-|---------|-------------|
-| Text rendering, themes, links, selection, images | 15 |
-| Copy with HTML flavor, `.onLinkLongPress`, `.markdownSelectable`, `.markdownSelectionColor`, `.markdownImageRequestHeaders` | 15 |
-| Block decorations (code-block backgrounds, blockquote bars, list markers) | 16 |
-| Custom selection-menu items (`.markdownSelectionMenu`) | 16 |
-| VoiceOver element tree | 16 |
 
 ## Supported Markdown
 
