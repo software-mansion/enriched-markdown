@@ -3783,27 +3783,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/config-plugins@npm:^55.0.6":
-  version: 55.0.6
-  resolution: "@expo/config-plugins@npm:55.0.6"
-  dependencies:
-    "@expo/config-types": "npm:^55.0.5"
-    "@expo/json-file": "npm:~10.0.12"
-    "@expo/plist": "npm:^0.5.2"
-    "@expo/sdk-runtime-versions": "npm:^1.0.0"
-    chalk: "npm:^4.1.2"
-    debug: "npm:^4.3.5"
-    getenv: "npm:^2.0.0"
-    glob: "npm:^13.0.0"
-    resolve-from: "npm:^5.0.0"
-    semver: "npm:^7.5.4"
-    slugify: "npm:^1.6.6"
-    xcode: "npm:^3.0.1"
-    xml2js: "npm:0.6.0"
-  checksum: 10c0/1292600b50f28ba42b4a3b43238eb99a2ae3703fb86c1ebeb8235c1f0db2738bac79a0ff6107acf9dc448baefc5f6209517369614056f5b13f927345e86fcc2b
-  languageName: node
-  linkType: hard
-
 "@expo/config-plugins@npm:~55.0.7":
   version: 55.0.7
   resolution: "@expo/config-plugins@npm:55.0.7"
@@ -16806,7 +16785,6 @@ __metadata:
   resolution: "react-native-enriched-markdown@workspace:packages/react-native-enriched-markdown"
   dependencies:
     "@babel/core": "npm:^7.25.0"
-    "@expo/config-plugins": "npm:^55.0.6"
     "@react-native/babel-preset": "npm:0.85.0"
     "@react-native/jest-preset": "npm:0.85.0"
     "@tree-sitter-grammars/tree-sitter-markdown": "npm:0.3.2"
@@ -16840,13 +16818,10 @@ __metadata:
     tree-sitter-typescript: "npm:0.23.2"
     typescript: "npm:^6.0.2"
   peerDependencies:
-    "@expo/config-plugins": ">=50.0.0"
     katex: ">=0.16.0"
     react: "*"
     react-native: "*"
   peerDependenciesMeta:
-    "@expo/config-plugins":
-      optional: true
     katex:
       optional: true
   languageName: unknown
