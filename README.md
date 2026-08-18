@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/38c4b0b7-4e2c-453a-bdd5-38d37dd6da46">
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/b4ac86b1-ad98-4faa-9349-9f69510c6152">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/8793fe2a-b1a8-4bce-b2c3-26756899bd45">
   <img alt="Enriched Markdown by Software Mansion" src="https://github.com/user-attachments/assets/38c4b0b7-4e2c-453a-bdd5-38d37dd6da46">
 </picture>
 
