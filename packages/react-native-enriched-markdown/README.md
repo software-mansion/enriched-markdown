@@ -1,4 +1,8 @@
-<img src="https://github.com/user-attachments/assets/83cb462c-17df-4809-8b8a-fa4abb258cb3" alt="react-native-enriched-markdown by Software Mansion" width="100%">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/b1efabc5-37df-4ddc-8fbb-6f587fdcb5e6">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/eb844f3b-4b63-4327-bf5e-569e4573dedc">
+  <img alt="Enriched Markdown by Software Mansion" src="https://github.com/user-attachments/assets/b1efabc5-37df-4ddc-8fbb-6f587fdcb5e6">
+</picture>
 <a href="https://swm-delivery.com/www/delivery/ck-slug.php?zoneid=zone-gh-react-native-enriched-1&n=1"><img src="https://swm-delivery.com/www/images/zone-gh-react-native-enriched-1?n=1" /></a>
 <a href="https://swm-delivery.com/www/delivery/ck-slug.php?zoneid=zone-gh-react-native-enriched-2&n=1"><img src="https://swm-delivery.com/www/images/zone-gh-react-native-enriched-2?n=1" /></a>
 <a href="https://swm-delivery.com/www/delivery/ck-slug.php?zoneid=zone-gh-react-native-enriched-3&n=1"><img src="https://swm-delivery.com/www/images/zone-gh-react-native-enriched-3?n=1" /></a>
