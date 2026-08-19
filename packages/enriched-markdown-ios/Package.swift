@@ -5,7 +5,7 @@ let package = Package(
     name: "EnrichedMarkdown",
     platforms: [.iOS(.v16)],
     products: [
-        .library(name: "EnrichedMarkdown", targets: ["EnrichedMarkdown"]),
+        .library(name: "EnrichedMarkdown", targets: ["EnrichedMarkdown"])
     ],
     targets: [
         .target(
@@ -14,11 +14,11 @@ let package = Package(
             sources: ["md4c", "parser"],
             publicHeadersPath: "parser",
             cSettings: [
-                .define("MD4C_USE_UTF8", to: "1"),
+                .define("MD4C_USE_UTF8", to: "1")
             ],
             cxxSettings: [
                 .headerSearchPath("md4c"),
-                .headerSearchPath("parser"),
+                .headerSearchPath("parser")
             ]
         ),
         .target(
@@ -29,7 +29,7 @@ let package = Package(
             cxxSettings: [
                 .headerSearchPath("../core/md4c"),
                 .headerSearchPath("../core/parser"),
-                .define("MD4C_USE_UTF8", to: "1"),
+                .define("MD4C_USE_UTF8", to: "1")
             ]
         ),
         .target(
@@ -41,6 +41,6 @@ let package = Package(
             name: "EnrichedMarkdownTests",
             dependencies: ["EnrichedMarkdown"],
             path: "Tests/EnrichedMarkdownTests"
-        ),
+        )
     ]
 )
