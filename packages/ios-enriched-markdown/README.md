@@ -11,33 +11,32 @@ Standalone SwiftUI library for rendering enriched Markdown on iOS. This package 
 ## Installation
 
 Add the package via [Swift Package Manager](https://www.swift.org/documentation/package-manager/). The `Package.swift` lives at the repository root.
-![Uploading GH Markdown - 6.png…]()
 
-**Xcode:** File → Add Package Dependencies… → enter the repository URL, then select the `EnrichedMarkdown` product.
+**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product.
 
 **Package.swift:**
 
 ```swift
 dependencies: [
   .package(
-    url: "https://github.com/software-mansion/enriched-markdown.git",
-    branch: "main"
+    url: "https://github.com/software-mansion-labs/enriched-markdown-ios.git",
+    from: "0.1.0"
   ),
 ],
 targets: [
   .target(
     name: "YourApp",
     dependencies: [
-      .product(name: "EnrichedMarkdown", package: "EnrichedMarkdown"),
+      .product(name: "EnrichedMarkdown", package: "enriched-markdown-ios"),
     ]
   ),
 ]
 ```
 
-For local development, add a path dependency instead (as in [`apps/ios-example`](../../apps/ios-example)):
+For local development, add a path dependency to a local checkout instead:
 
 ```swift
-.package(path: "../react-native-enriched-markdown")
+.package(path: "../enriched-markdown-ios")
 ```
 
 Requirements: **iOS 16+**, SwiftUI.
@@ -60,7 +59,7 @@ struct ContentView: View {
 }
 ```
 
-See the full example in [`apps/ios-example`](../../apps/ios-example).
+See the full example in [`apps/ios-example`](https://github.com/software-mansion/enriched-markdown/tree/main/apps/ios-example).
 
 ## Styling
 
