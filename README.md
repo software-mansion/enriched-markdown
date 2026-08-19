@@ -25,7 +25,7 @@ See the [feature comparison table](https://enriched.swmansion.com/markdown/#comp
 |----------|---------|--------|
 | React Native | [![npm](https://img.shields.io/npm/v/react-native-enriched-markdown)](https://www.npmjs.com/package/react-native-enriched-markdown) | [React Native](./packages/react-native-enriched-markdown/README.md) |
 | Android | [![Maven Central](https://img.shields.io/maven-central/v/com.swmansion.enriched.markdown/ui)](https://central.sonatype.com/artifact/com.swmansion.enriched.markdown/ui) | [Android](./packages/android-enriched-markdown/README.md) |
-| iOS | *Coming soon* | [iOS](./packages/enriched-markdown-ios/README.md) |
+| iOS | [![swift package](https://img.shields.io/github/v/tag/software-mansion-labs/enriched-markdown-ios?label=swift%20package)](https://github.com/software-mansion-labs/enriched-markdown-ios) | [iOS](./packages/enriched-markdown-ios/README.md) |
 
 
 ## Quick start
@@ -64,6 +64,27 @@ MarkdownTheme {
     onLinkPress = { url -> /* open url */ },
   )
 }
+```
+
+### iOS
+
+```swift
+dependencies: [
+  .package(
+    url: "https://github.com/software-mansion-labs/enriched-markdown-ios.git",
+    from: "0.1.0"
+  ),
+]
+```
+
+```swift
+import EnrichedMarkdown
+import SwiftUI
+
+EnrichedMarkdownText("# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).")
+  .onLinkPress { url in
+    UIApplication.shared.open(url)
+  }
 ```
 
 ## Contributing
