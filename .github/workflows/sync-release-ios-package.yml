@@ -1,0 +1,84 @@
+name: Sync and release iOS package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/enriched-markdown-ios/**'
+      - 'packages/core/cpp/md4c/**'
+      - 'packages/core/cpp/parser/**'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to create in the standalone repo after syncing (e.g. 0.1.0). Leave empty to sync only.'
+        type: string
+        required: false
+        default: ''
+
+jobs:
+  sync:
+    if: github.repository == 'software-mansion/enriched-markdown'
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: sync-ios-package
+      cancel-in-progress: false
+
+    steps:
+      - name: Validate tag
+        if: inputs.tag != ''
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag '$TAG' — expected semver like 0.1.0"
+            exit 1
+          fi
+
+      - name: Check out monorepo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Check out enriched-markdown-ios
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: software-mansion-labs/enriched-markdown-ios
+          ssh-key: ${{ secrets.IOS_SYNC_DEPLOY_KEY }}
+          path: target
+
+      # --copy-links dereferences the core/ symlinks so real files land in
+      # the standalone repo; .gitignore and LICENSE come from the monorepo
+      # root, so they are copied in after the sync.
+      - name: Sync package files
+        run: |
+          rsync -a --copy-links --delete --exclude=.git packages/enriched-markdown-ios/ target/
+          cp .gitignore LICENSE target/
+
+      - name: Commit and push
+        working-directory: target
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "sync files"
+            git push
+          else
+            echo "Already in sync"
+          fi
+
+      - name: Create release tag
+        if: inputs.tag != ''
+        working-directory: target
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null 2>&1; then
+            echo "Tag '$TAG' already exists in the standalone repo"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
