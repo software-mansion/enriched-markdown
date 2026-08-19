@@ -138,7 +138,7 @@ if (codeHighlightActive) {
   highlightConfigFile.text = """\
 set(ENRICHED_MARKDOWN_CODE_HIGHLIGHT ON)
 set(ENRICHED_MARKDOWN_HIGHLIGHT_LANGUAGES "${codeHighlightLanguages.join(';')}")
-set(ENRICHED_MARKDOWN_HIGHLIGHT_GENERATED_DIR "${generatedDir.canonicalPath}")
+set(ENRICHED_MARKDOWN_HIGHLIGHT_GENERATED_DIR "${generatedDir.canonicalPath.replace('\\', '/')}")
 """
 } else {
   highlightConfigFile.text = "set(ENRICHED_MARKDOWN_CODE_HIGHLIGHT OFF)\n"
