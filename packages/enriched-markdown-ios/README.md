@@ -337,4 +337,4 @@ yarn workspace @enriched-markdown/ios test
 yarn workspace @enriched-markdown/ios clean
 ```
 
-These scripts run `swift build` / `swift test` / `swift package clean` from the repository root.
+These scripts run `swift build` / `swift test` / `swift package clean` from the package root.

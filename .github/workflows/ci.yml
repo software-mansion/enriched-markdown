@@ -51,10 +51,9 @@ jobs:
               - '.yarnrc.yml'
               - '.github/**'
             ios:
-              - 'packages/ios-enriched-markdown/**'
+              - 'packages/enriched-markdown-ios/**'
               - 'packages/core/**'
               - 'apps/ios-example/**'
-              - 'Package.swift'
               - 'package.json'
               - 'yarn.lock'
               - '.nvmrc'
@@ -366,7 +365,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-ios-native-build-${{ hashFiles('yarn.lock', 'Package.swift', 'packages/ios-enriched-markdown/**', 'apps/ios-example/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-ios-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'apps/ios-example/**', 'packages/core/cpp/**') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-ios-native-build-
 
@@ -417,11 +416,16 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Check vendored core sources are in sync
+        run: |
+          diff -r packages/core/cpp/md4c packages/enriched-markdown-ios/core/md4c
+          diff -r packages/core/cpp/parser packages/enriched-markdown-ios/core/parser
+
       - name: Cache turborepo for iOS native tests
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-ios-native-test-${{ hashFiles('yarn.lock', 'Package.swift', 'packages/ios-enriched-markdown/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-ios-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'packages/core/cpp/**') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-ios-native-test-
 
@@ -477,7 +481,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-ios-native-lint-${{ hashFiles('yarn.lock', 'packages/ios-enriched-markdown/**') }}
+          key: ${{ runner.os }}-turborepo-ios-native-lint-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-ios-native-lint-
 

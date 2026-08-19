@@ -25,7 +25,7 @@ See the [feature comparison table](https://enriched.swmansion.com/markdown/#comp
 |----------|---------|--------|
 | React Native | [![npm](https://img.shields.io/npm/v/react-native-enriched-markdown)](https://www.npmjs.com/package/react-native-enriched-markdown) | [React Native](./packages/react-native-enriched-markdown/README.md) |
 | Android | [![Maven Central](https://img.shields.io/maven-central/v/com.swmansion.enriched.markdown/ui)](https://central.sonatype.com/artifact/com.swmansion.enriched.markdown/ui) | [Android](./packages/android-enriched-markdown/README.md) |
-| iOS | *Coming soon* | [iOS](./packages/ios-enriched-markdown/README.md) |
+| iOS | *Coming soon* | [iOS](./packages/enriched-markdown-ios/README.md) |
 
 
 ## Quick start

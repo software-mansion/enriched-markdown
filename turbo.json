@@ -80,8 +80,7 @@
       "inputs": [
         "package.json",
         "EnrichedMarkdownExample/**",
-        "$TURBO_ROOT$/Package.swift",
-        "$TURBO_ROOT$/packages/ios-enriched-markdown/**",
+        "$TURBO_ROOT$/packages/enriched-markdown-ios/**",
         "$TURBO_ROOT$/packages/core/cpp/**"
       ],
       "outputs": []
@@ -102,7 +101,8 @@
         "Sources/**",
         "Tests/**",
         "cpp/**",
-        "$TURBO_ROOT$/Package.swift",
+        "core/**",
+        "Package.swift",
         "$TURBO_ROOT$/packages/core/cpp/**"
       ],
       "outputs": []

@@ -257,7 +257,7 @@
 			);
 			mainGroup = A10000060000000000000001;
 			packageReferences = (
-				A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../" */,
+				A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */,
 			);
 			productRefGroup = A10000060000000000000003 /* Products */;
 			projectDirPath = "";
@@ -434,16 +434,16 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../" */ = {
+		A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../;
+			relativePath = ../../../packages/enriched-markdown-ios;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		A10000050000000000000001 /* EnrichedMarkdown */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../" */;
+			package = A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */;
 			productName = EnrichedMarkdown;
 		};
 /* End XCSwiftPackageProductDependency section */

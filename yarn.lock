@@ -3362,9 +3362,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@enriched-markdown/ios@workspace:packages/ios-enriched-markdown":
+"@enriched-markdown/ios@workspace:packages/enriched-markdown-ios":
   version: 0.0.0-use.local
-  resolution: "@enriched-markdown/ios@workspace:packages/ios-enriched-markdown"
+  resolution: "@enriched-markdown/ios@workspace:packages/enriched-markdown-ios"
   languageName: unknown
   linkType: soft
 
