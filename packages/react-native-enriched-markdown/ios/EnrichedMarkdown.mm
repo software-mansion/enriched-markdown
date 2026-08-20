@@ -144,6 +144,7 @@ static char kENRMSegmentFadeAnimatorKey;
   flags.latexMath = props.latexMath;
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;
+  flags.admonitions = props.admonitions;
   return flags;
 }
 
@@ -1029,7 +1030,8 @@ static char kENRMSegmentFadeAnimatorKey;
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
-      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks) {
+      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||
+      newViewProps.md4cFlags.admonitions != oldViewProps.md4cFlags.admonitions) {
     _md4cFlags = [EnrichedMarkdown flagsFromProps:newViewProps.md4cFlags];
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }

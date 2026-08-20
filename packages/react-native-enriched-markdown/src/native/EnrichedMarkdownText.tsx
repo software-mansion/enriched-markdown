@@ -108,6 +108,7 @@ const defaultMd4cFlags: Md4cFlags = {
   latexMath: true,
   highlight: false,
   hardSoftBreaks: false,
+  admonitions: true,
 };
 
 export const EnrichedMarkdownText = ({
@@ -157,8 +158,12 @@ export const EnrichedMarkdownText = ({
       latexMath: md4cFlags.latexMath ?? true,
       highlight: md4cFlags.highlight ?? false,
       hardSoftBreaks: md4cFlags.hardSoftBreaks ?? false,
+      // Admonitions are a GitHub-flavor feature; force them off in commonmark so
+      // `> [!NOTE]` renders as a plain blockquote.
+      admonitions:
+        flavor === 'github' ? (md4cFlags.admonitions ?? true) : false,
     }),
-    [md4cFlags]
+    [md4cFlags, flavor]
   );
 
   const contextMenuCallbacksRef = useRef<

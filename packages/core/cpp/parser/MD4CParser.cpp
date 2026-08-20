@@ -20,6 +20,7 @@ public:
   static const std::string ATTR_IS_TASK;
   static const std::string ATTR_TASK_CHECKED;
   static const std::string ATTR_START;
+  static const std::string ATTR_ADMONITION_TYPE;
 
   void reset(size_t estimatedDepth) {
     root = std::make_shared<MarkdownASTNode>(NodeType::Document);
@@ -106,6 +107,19 @@ public:
 
       case MD_BLOCK_QUOTE: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Blockquote));
+        break;
+      }
+
+      case MD_BLOCK_ADMONITION: {
+        auto node = std::make_shared<MarkdownASTNode>(NodeType::Admonition);
+        if (detail) {
+          auto *adm = static_cast<MD_BLOCK_ADMONITION_DETAIL *>(detail);
+          std::string admonitionType = impl->getAttributeText(&adm->type);
+          if (!admonitionType.empty()) {
+            node->setAttribute(ATTR_ADMONITION_TYPE, admonitionType);
+          }
+        }
+        impl->pushNode(node);
         break;
       }
 
@@ -486,6 +500,7 @@ bool isBlockNode(const MarkdownASTNode &node) {
     case NodeType::Paragraph:
     case NodeType::Heading:
     case NodeType::Blockquote:
+    case NodeType::Admonition:
     case NodeType::UnorderedList:
     case NodeType::OrderedList:
     case NodeType::ListItem:
@@ -611,6 +626,9 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   if (md4cFlags.hardSoftBreaks) {
     flags |= MD_FLAG_HARD_SOFT_BREAKS;
   }
+  if (md4cFlags.admonitions) {
+    flags |= MD_FLAG_ADMONITIONS;
+  }
 
   // Configure MD4C parser with callbacks
   MD_PARSER parser = {
@@ -647,5 +665,6 @@ const std::string MD4CParser::Impl::ATTR_LANGUAGE = "language";
 const std::string MD4CParser::Impl::ATTR_IS_TASK = "isTask";
 const std::string MD4CParser::Impl::ATTR_TASK_CHECKED = "taskChecked";
 const std::string MD4CParser::Impl::ATTR_START = "start";
+const std::string MD4CParser::Impl::ATTR_ADMONITION_TYPE = "admonitionType";
 
 } // namespace Markdown

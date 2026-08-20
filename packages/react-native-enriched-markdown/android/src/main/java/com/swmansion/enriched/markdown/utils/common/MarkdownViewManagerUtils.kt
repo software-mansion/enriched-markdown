@@ -104,6 +104,7 @@ fun parseMd4cFlags(flags: ReadableMap?): Md4cFlags =
     subscript = flags?.getBoolean("subscript") ?: false,
     highlight = flags?.getBoolean("highlight") ?: false,
     hardSoftBreaks = flags?.getBoolean("hardSoftBreaks") ?: false,
+    admonitions = flags?.getBoolean("admonitions") ?: true,
   )
 
 fun parseContextMenuItems(value: ReadableArray?): List<String> =

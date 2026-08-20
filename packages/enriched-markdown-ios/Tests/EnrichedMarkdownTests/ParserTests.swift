@@ -105,7 +105,7 @@ final class ParserTests: XCTestCase {
     }
 
     func testNodeTypeEnumCountMatches() {
-        XCTAssertEqual(NodeType.allCases.count, 31)
+        XCTAssertEqual(NodeType.allCases.count, 32)
     }
 
     func testParsesSoftBreak() {

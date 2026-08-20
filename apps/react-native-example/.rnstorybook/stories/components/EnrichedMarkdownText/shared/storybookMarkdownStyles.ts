@@ -91,6 +91,35 @@ export const blockquoteStyledDefaults: BlockquoteStyleControls = {
   padding: 0,
 };
 
+// Admonitions inherit the blockquote geometry controls and add a per-type color
+// pair. An empty background renders transparent (no fill).
+export type AdmonitionStyleControls = BlockquoteStyleControls & {
+  noteColor: string;
+  noteBackgroundColor: string;
+  tipColor: string;
+  tipBackgroundColor: string;
+  importantColor: string;
+  importantBackgroundColor: string;
+  warningColor: string;
+  warningBackgroundColor: string;
+  cautionColor: string;
+  cautionBackgroundColor: string;
+};
+
+export const admonitionStyledDefaults: AdmonitionStyleControls = {
+  ...blockquoteStyledDefaults,
+  noteColor: '#0969da',
+  noteBackgroundColor: '',
+  tipColor: '#1a7f37',
+  tipBackgroundColor: '',
+  importantColor: '#8250df',
+  importantBackgroundColor: '',
+  warningColor: '#9a6700',
+  warningBackgroundColor: '',
+  cautionColor: '#cf222e',
+  cautionBackgroundColor: '',
+};
+
 export type CodeBlockStyleControls = {
   fontSize: number;
   fontFamily: string;

@@ -7,6 +7,7 @@ import type {
 } from './types/MarkdownStyleInternal';
 import { isStyleEqual, mergeSubStyle } from './styleUtils';
 import { normalizeLinkVariantEntries } from './linkVariantUtils';
+import { resolveAdmonitionColors } from './admonitionDefaults';
 import {
   DEFAULT_HEADING_FONT_WEIGHT,
   HEADING_DEFAULTS,
@@ -94,6 +95,7 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     backgroundColor: '#F9FAFB',
     borderRadius: 0,
     padding: 0,
+    admonitions: resolveAdmonitionColors(undefined),
   },
   list: {
     fontSize: 16,
@@ -309,6 +311,13 @@ export const normalizeMarkdownStyle = (
     (result.highlight as MarkdownStyleInternal['highlight']).color =
       paragraphColor;
   }
+
+  // Admonition colors are nested two levels deep (blockquote.admonitions.<type>),
+  // deeper than mergeSubStyle merges, so resolve the full per-type palette here.
+  (result.blockquote as MarkdownStyleInternal['blockquote']).admonitions =
+    resolveAdmonitionColors(
+      style.blockquote?.admonitions
+    ) as MarkdownStyleInternal['blockquote']['admonitions'];
 
   // The public API exposes `operator`, but the internal token is `operatorColor`
   // (`operator` is reserved in the generated C++ struct). Remap it after merge.

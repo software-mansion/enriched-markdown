@@ -87,6 +87,9 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.Paragraph, ParagraphRenderer(config))
       put(MarkdownASTNode.NodeType.Heading, HeadingRenderer(config))
       put(MarkdownASTNode.NodeType.Blockquote, BlockquoteRenderer(config))
+      // A list-nested admonition falls back to the inline blockquote renderer
+      // (no themed header); top-level admonitions use the segment container path.
+      put(MarkdownASTNode.NodeType.Admonition, BlockquoteRenderer(config))
       put(MarkdownASTNode.NodeType.CodeBlock, CodeBlockRenderer(config))
       put(MarkdownASTNode.NodeType.UnorderedList, ListRenderer(config, isOrdered = false))
       put(MarkdownASTNode.NodeType.OrderedList, ListRenderer(config, isOrdered = true))

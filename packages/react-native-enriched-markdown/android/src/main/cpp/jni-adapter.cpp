@@ -77,6 +77,8 @@ static jint nodeTypeToJavaOrdinal(NodeType type) {
       return 29;
     case NodeType::SoftBreak:
       return 30;
+    case NodeType::Admonition:
+      return 31;
     default:
       return 0;
   }
@@ -236,6 +238,10 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
         jfieldID hardSoftBreaksField = env->GetFieldID(flagsClass, "hardSoftBreaks", "Z");
         if (hardSoftBreaksField) {
           md4cFlags.hardSoftBreaks = env->GetBooleanField(flags, hardSoftBreaksField) == JNI_TRUE;
+        }
+        jfieldID admonitionsField = env->GetFieldID(flagsClass, "admonitions", "Z");
+        if (admonitionsField) {
+          md4cFlags.admonitions = env->GetBooleanField(flags, admonitionsField) == JNI_TRUE;
         }
         env->DeleteLocalRef(flagsClass);
       }

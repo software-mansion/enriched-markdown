@@ -38,7 +38,8 @@ export type NodeType =
   | 'TableHeaderCell'
   | 'TableCell'
   | 'LatexMathInline'
-  | 'LatexMathDisplay';
+  | 'LatexMathDisplay'
+  | 'Admonition';
 
 export interface NodeAttributes {
   level?: string;
@@ -55,6 +56,8 @@ export interface NodeAttributes {
   colCount?: string;
   headRowCount?: string;
   bodyRowCount?: string;
+  /** "note"/"tip"/"important"/"warning"/"caution" for a MD_BLOCK_ADMONITION. */
+  admonitionType?: string;
   align?: 'left' | 'center' | 'right' | 'default';
 }
 
