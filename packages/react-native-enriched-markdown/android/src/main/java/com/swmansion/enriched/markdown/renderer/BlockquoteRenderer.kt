@@ -8,6 +8,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_CONTAINER_BACKGROUND
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_LINE_HEIGHT_PRIORITY
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
@@ -164,12 +165,12 @@ class BlockquoteRenderer(
     var currentPos = start
     for ((nestedStart, nestedEnd) in nestedRanges) {
       if (currentPos < nestedStart) {
-        applyLineHeightSkippingImages(builder, currentPos, nestedStart, lineHeight)
+        applyLineHeightSkippingImages(builder, currentPos, nestedStart, lineHeight, SPAN_FLAGS_LINE_HEIGHT_PRIORITY)
       }
       currentPos = nestedEnd
     }
     if (currentPos < end) {
-      applyLineHeightSkippingImages(builder, currentPos, end, lineHeight)
+      applyLineHeightSkippingImages(builder, currentPos, end, lineHeight, SPAN_FLAGS_LINE_HEIGHT_PRIORITY)
     }
   }
 }

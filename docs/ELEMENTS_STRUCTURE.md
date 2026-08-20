@@ -12,7 +12,7 @@ Markdown elements in `react-native-enriched-markdown` are organized into block a
 |---------|--------|----------------|-------------|
 | Headings | `# H1` to `###### H6` | `h1` - `h6` | Six levels of headings |
 | Paragraphs | Plain text | `paragraph` | Default text container |
-| Blockquotes | `> Quote` | `blockquote` | Quoted content with accent bar, unlimited nesting |
+| Blockquotes | `> Quote` | `blockquote` | Quoted content with accent bar, unlimited nesting; with `flavor="github"` rendered as a recursive block container (own padding/background box, and quoted code blocks/tables become real nested block components) |
 | Code Blocks | ` ``` code ``` ` | `codeBlock` | Multi-line code containers; with `flavor="github"` rendered as a block component with a language header and copy-code button |
 | Unordered Lists | `- Item`, `* Item`, or `+ Item` | `list` | Bullet lists with unlimited nesting |
 | Ordered Lists | `1. Item` | `list` | Numbered lists with unlimited nesting |

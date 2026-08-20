@@ -1,5 +1,6 @@
 #pragma once
 
+#import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMMarkdownParser.h"
@@ -259,7 +260,7 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
 
     NSArray<ENRMRenderedSegment *> *segments =
         ENRMRenderSegmentsFromAST(ast, config, typedProps.allowTrailingMargin, typedProps.allowFontScaling,
-                                  typedProps.maxFontSizeMultiplier, lineBreakStrategy);
+                                  typedProps.maxFontSizeMultiplier, lineBreakStrategy, /*blockquoteContent*/ NO);
     for (ENRMRenderedSegment *segment in segments) {
       if (segment.kind == ENRMSegmentKindText && segment.textResult) {
         ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);
@@ -304,6 +305,16 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
         maxContentWidth = maxWidth;
         if (shouldAddBottomMargin) {
           yOffset += config.codeBlockMarginBottom;
+        }
+      } else if (segment.kind == ENRMSegmentKindBlockquote && segment.blockquoteSegment) {
+        yOffset += config.blockquoteMarginTop;
+        yOffset += [ENRMBlockquoteContainerView measureHeightForBlockquoteNode:segment.blockquoteSegment.blockquoteNode
+                                                                        config:config
+                                                                      maxWidth:maxWidth
+                                                              pointScaleFactor:pointScaleFactor];
+        maxContentWidth = maxWidth;
+        if (shouldAddBottomMargin) {
+          yOffset += config.blockquoteMarginBottom;
         }
       }
 #if ENRICHED_MARKDOWN_MATH

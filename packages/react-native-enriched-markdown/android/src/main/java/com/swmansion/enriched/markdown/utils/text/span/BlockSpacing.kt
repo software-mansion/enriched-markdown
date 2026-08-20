@@ -21,6 +21,7 @@ fun applyLineHeightSkippingImages(
   start: Int,
   end: Int,
   lineHeight: Float,
+  spanFlags: Int = SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
 ) {
   val blockImageRanges =
     builder
@@ -42,7 +43,7 @@ fun applyLineHeightSkippingImages(
         createLineHeightSpan(lineHeight),
         pos,
         exStart,
-        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+        spanFlags,
       )
     }
     val skipEnd = if (exEnd < end && builder[exEnd] == '\n') exEnd + 1 else exEnd
@@ -53,7 +54,7 @@ fun applyLineHeightSkippingImages(
       createLineHeightSpan(lineHeight),
       pos,
       end,
-      SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+      spanFlags,
     )
   }
 }

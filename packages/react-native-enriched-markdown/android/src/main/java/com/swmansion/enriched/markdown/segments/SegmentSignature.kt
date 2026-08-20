@@ -1,4 +1,4 @@
-package com.swmansion.enriched.markdown.utils.common
+package com.swmansion.enriched.markdown.segments
 
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 
@@ -12,6 +12,7 @@ object SegmentSignature {
   internal const val TABLE_KIND_SALT = 0x7461626C00000000L // "tabl"
   internal const val MATH_KIND_SALT = 0x6D61746800000000L // "math"
   internal const val CODE_BLOCK_KIND_SALT = 0x63626C6B00000000L // "cblk"
+  internal const val BLOCKQUOTE_KIND_SALT = 0x6271746500000000L // "bqte"
 
   private fun fnvMixByte(
     hash: Long,

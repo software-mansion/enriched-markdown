@@ -103,8 +103,6 @@ class BlockStyleContext {
 
   fun setCodeBlockStyle(style: CodeBlockStyle) = pushBlockStyle(BlockType.CODE_BLOCK, style)
 
-  fun isInsideBlockElement(): Boolean = blockquoteDepth > 0 || listDepth > 0
-
   fun incrementListItemNumber() {
     listItemNumber++
   }

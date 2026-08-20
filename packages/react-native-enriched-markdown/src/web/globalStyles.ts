@@ -8,6 +8,14 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
     'enrm-selection-style',
     `.${ENRM_TEXT_CLASS} ::selection { background-color: var(${ENRM_SELECTION_BG_VAR}); }`,
   ],
+  // Trim the trailing margin of a quote's last block so it doesn't add space
+  // above the box's bottom padding, mirroring native. !important overrides the
+  // per-element inline margin; the quote is a flex-item BFC so the margin can't
+  // collapse out on its own.
+  [
+    'enrm-blockquote-trailing-margin',
+    `.${ENRM_TEXT_CLASS} blockquote > *:last-child { margin-bottom: 0 !important; }`,
+  ],
 ];
 
 for (const [id, css] of RULES) {

@@ -5,6 +5,7 @@ import {
   blockquoteStyledDefaults,
   fontFamilyControl,
   fontWeightControl,
+  githubFlavorArgTypes,
   type BlockquoteStyleControls,
   numberControl,
 } from '../shared/storybookMarkdownStyles';
@@ -21,6 +22,32 @@ const MARKDOWN = `> this is a text inside a blockquote
 const NESTED_MARKDOWN = `> top-level blockquote
 >> nested blockquote inside the first
 >>> deeply nested blockquote`;
+
+const BLOCK_ELEMENTS_MARKDOWN = `> Blockquote containing several block elements:
+>
+> ## A heading inside the quote
+>
+> A paragraph with **bold**, _italic_ and a [link](https://swmansion.com).
+>
+> - first bullet
+> - second bullet
+>
+> 1. ordered one
+> 2. ordered two
+>
+> \`\`\`ts
+> const answer = 42;
+> \`\`\`
+>
+> | Column A | Column B |
+> | -------- | -------- |
+> | 1        | 2        |
+>
+> $$E = mc^2$$
+>
+> > a nested blockquote inside
+>
+> and a trailing paragraph.`;
 
 const argTypes = {
   fontSize: numberControl('markdownStyle.blockquote.fontSize', {
@@ -95,9 +122,13 @@ function renderBlockquote(
   );
 }
 
+const flavorArgTypes = githubFlavorArgTypes(
+  'commonmark renders quotes inline via spans; github renders each quote as a recursive container view (its own padding/background, nested code blocks become real code-block containers).'
+);
+
 const blockquoteStoryBase = {
-  argTypes,
-  args: blockquoteStyledDefaults,
+  argTypes: { ...argTypes, ...flavorArgTypes },
+  args: { ...blockquoteStyledDefaults, flavor: 'github' as const },
 };
 
 export default storyMeta('Block', 'Blockquote');
@@ -111,7 +142,7 @@ export const Default: TextStory<BlockquoteStyleControls> = {
   render: (args) =>
     renderBlockquote(
       'Blockquote',
-      'Lines prefixed with >. Use the controls to tune markdownStyle.blockquote.',
+      'Lines prefixed with >. Flip the flavor control between commonmark and github to compare the inline (span) and container renderers. Use the controls to tune markdownStyle.blockquote.',
       args
     ),
 };
@@ -125,7 +156,21 @@ export const Nested: TextStory<BlockquoteStyleControls> = {
   render: (args) =>
     renderBlockquote(
       'Nested Blockquote',
-      'Nest blockquotes with multiple > markers. Use the controls to tune markdownStyle.blockquote.',
+      'Nest blockquotes with multiple > markers. Flip flavor to compare commonmark (inline spans) with github (one recursive container box per level). Use the controls to tune markdownStyle.blockquote.',
+      args
+    ),
+};
+
+export const WithBlockElements: TextStory<BlockquoteStyleControls> = {
+  ...blockquoteStoryBase,
+  args: {
+    ...blockquoteStoryBase.args,
+    markdown: BLOCK_ELEMENTS_MARKDOWN,
+  },
+  render: (args) =>
+    renderBlockquote(
+      'Blockquote with Block Elements',
+      'A blockquote holding many block elements - heading, lists, a fenced code block, a table, display math and a nested quote. With flavor="github" each becomes its own segment view (code block, table, math and nested quote as real containers) nested in the quote; with flavor="commonmark" they render inline. Use the controls to tune markdownStyle.blockquote.',
       args
     ),
 };

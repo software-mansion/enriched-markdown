@@ -14,6 +14,12 @@ import com.facebook.yoga.YogaMeasureOutput
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.segments.BlockquoteContainerView
+import com.swmansion.enriched.markdown.segments.CodeBlockContainerView
+import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
+import com.swmansion.enriched.markdown.segments.RenderedSegment
+import com.swmansion.enriched.markdown.segments.TableContainerView
+import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
@@ -21,8 +27,6 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
-import com.swmansion.enriched.markdown.utils.common.MarkdownSegmentRenderer
-import com.swmansion.enriched.markdown.utils.common.RenderedSegment
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.getArrayOrNull
@@ -30,10 +34,7 @@ import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.getMapOrNull
 import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
-import com.swmansion.enriched.markdown.utils.common.splitASTIntoSegments
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
-import com.swmansion.enriched.markdown.views.CodeBlockContainerView
-import com.swmansion.enriched.markdown.views.TableContainerView
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
 
@@ -502,6 +503,15 @@ object MeasurementStore {
             maxContentWidthPx = width
             if (includeBottomMargin) {
               totalHeightPx += style.codeBlockStyle.marginBottom
+            }
+          }
+
+          is RenderedSegment.Blockquote -> {
+            totalHeightPx += style.blockquoteStyle.marginTop
+            totalHeightPx += BlockquoteContainerView.measureBlockquoteNodeHeight(segment.node, style, context, width)
+            maxContentWidthPx = width
+            if (includeBottomMargin) {
+              totalHeightPx += style.blockquoteStyle.marginBottom
             }
           }
         }
