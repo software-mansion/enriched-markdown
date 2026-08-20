@@ -5,6 +5,8 @@ This file tracks breaking changes and how to migrate for each. Entries are newes
 
 ## Unreleased
 
+## v1.0.2
+
 ### The Expo config plugin was removed
 
 The built-in Expo config plugin (`app.plugin.js` and the `plugin/` folder) has been removed. Feature
@@ -12,7 +14,7 @@ configuration now lives entirely in your app's `package.json`, read directly by 
 `postinstall` — the same approach `react-native-worklets` uses for its static feature flags.
 
 Why: the plugin only wrote the (now deprecated) Podfile `ENV` / `gradle.properties` channels, it could
-never influence the install-time asset download (it runs during `expo prebuild`, *after* `npm install`),
+never influence the install-time asset download (it runs during `expo prebuild`, _after_ `npm install`),
 and its option shape diverged from the `package.json` block. The `package.json` block supersedes it for
 both the download and the build, and it survives `expo prebuild`.
 
@@ -25,10 +27,16 @@ Before (`app.json`):
 {
   "expo": {
     "plugins": [
-      ["react-native-enriched-markdown", {
-        "enableMath": false,
-        "codeHighlight": { "enabled": true, "languages": ["javascript", "tsx"] }
-      }]
+      [
+        "react-native-enriched-markdown",
+        {
+          "enableMath": false,
+          "codeHighlight": {
+            "enabled": true,
+            "languages": ["javascript", "tsx"]
+          }
+        }
+      ]
     ]
   }
 }
@@ -60,14 +68,14 @@ The `enriched-markdown` block in your app's `package.json` is now the single sou
 reads it directly at `pod install` / Gradle configuration time. The previous build flags still work as a
 fallback but are deprecated, print a warning, and are ignored when the matching `package.json` key is set:
 
-| Deprecated flag | Replaced by (`package.json` `enriched-markdown`) |
-|---|---|
-| Podfile `ENV['ENRICHED_MARKDOWN_ENABLE_MATH']` / gradle `enrichedMarkdown.enableMath` | `enableMath` |
-| Podfile `ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT']` / gradle `enrichedMarkdown.enableCodeHighlight` | `enableCodeHighlight` |
-| Podfile `ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES']` / gradle `enrichedMarkdown.codeHighlightLanguages` | `codeHighlightLanguages` |
+| Deprecated flag                                                                                                | Replaced by (`package.json` `enriched-markdown`) |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Podfile `ENV['ENRICHED_MARKDOWN_ENABLE_MATH']` / gradle `enrichedMarkdown.enableMath`                          | `enableMath`                                     |
+| Podfile `ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT']` / gradle `enrichedMarkdown.enableCodeHighlight`       | `enableCodeHighlight`                            |
+| Podfile `ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES']` / gradle `enrichedMarkdown.codeHighlightLanguages` | `codeHighlightLanguages`                         |
 
-In a monorepo the *build* flag is read from the app's `package.json` (the one beside `ios/`/`android/`),
-so each app configures independently. The *download* opt-out is read where the install runs — usually the
+In a monorepo the _build_ flag is read from the app's `package.json` (the one beside `ios/`/`android/`),
+so each app configures independently. The _download_ opt-out is read where the install runs — usually the
 workspace root — so put it in the root `package.json` to skip a download for the whole repo. See
 [Native assets](./NATIVE_ASSETS.md).
 
