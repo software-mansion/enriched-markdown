@@ -117,6 +117,15 @@ let CustomMarkdownTheme = MarkdownTheme {
         .height(1)
         .marginTop(24)
         .marginBottom(24)
+
+    TaskList()
+        .checkedColor(Color.linkBlue)
+        .borderColor(Color.gray400)
+        .checkboxSize(18)
+        .checkboxBorderRadius(4)
+        .checkmarkColor(Color.white)
+        .checkedTextColor(Color.gray400)
+        .checkedStrikethrough(true)
 }
 
 /// Mirrors Android PlaygroundMarkdownStyle.
