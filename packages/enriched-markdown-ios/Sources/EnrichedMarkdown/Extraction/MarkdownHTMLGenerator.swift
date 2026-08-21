@@ -75,7 +75,14 @@ enum MarkdownHTMLGenerator {
         case heading(Int)
         case codeBlock
         case blockquote(depth: Int)
-        case list(depth: Int, ordered: Bool)
+        case list(ListParagraph)
+    }
+
+    private struct ListParagraph: Equatable {
+        let depth: Int
+        let ordered: Bool
+        /// Non-nil for the paragraph anchoring a task-list item.
+        let taskChecked: Bool?
     }
 
     private struct Paragraph {
@@ -126,7 +133,10 @@ enum MarkdownHTMLGenerator {
             let ordered = MarkdownAttributeValue.intValue(
                 from: attrs[MarkdownAttribute.listType]
             ) == ListType.ordered.rawValue
-            return .list(depth: depth, ordered: ordered)
+            let taskChecked = attrs[MarkdownAttribute.taskListItem].map {
+                MarkdownAttributeValue.boolValue(from: $0)
+            }
+            return .list(ListParagraph(depth: depth, ordered: ordered, taskChecked: taskChecked))
         }
         return .normal
     }
@@ -162,8 +172,8 @@ enum MarkdownHTMLGenerator {
             collectCodeBlockLine(inline, state: &state)
         case .blockquote(let depth):
             emitBlockquote(inline, depth: depth, into: &html, styles: styles, state: &state)
-        case .list(let depth, let ordered):
-            emitList(inline, depth: depth, ordered: ordered, into: &html, styles: styles, state: &state)
+        case .list(let list):
+            emitList(inline, list: list, into: &html, styles: styles, state: &state)
         case .heading(let level):
             emitHeading(inline, level: level, into: &html, styles: styles, state: &state)
         case .normal:
@@ -256,12 +266,13 @@ enum MarkdownHTMLGenerator {
 
     private static func emitList(
         _ content: String,
-        depth: Int,
-        ordered: Bool,
+        list: ListParagraph,
         into html: inout String,
         styles: CachedStyles,
         state: inout State
     ) {
+        let depth = list.depth
+        let ordered = list.ordered
         closeCodeBlockIfOpen(&html, state: &state, styles: styles)
         closeAllBlockquotes(&html, state: &state)
 
@@ -291,9 +302,16 @@ enum MarkdownHTMLGenerator {
             }
         }
 
+        // Task items hide the list marker and lead with a disabled checkbox,
+        // matching GitHub's task-list markup.
+        let taskListStyle = list.taskChecked != nil ? " list-style-type: none;" : ""
+        let checkboxPrefix = list.taskChecked.map { checked in
+            "<input type=\"checkbox\" disabled\(checked ? " checked" : "") "
+                + "style=\"margin: 0 0.4em 0.1em -1.3em; vertical-align: middle;\">"
+        } ?? ""
         html += "<li style=\"margin-bottom: \(styles.listMarginBottom)px; "
             + "color: \(styles.listColor); "
-            + "font-size: \(styles.listFontSize)px;\">\(content)</li>"
+            + "font-size: \(styles.listFontSize)px;\(taskListStyle)\">\(checkboxPrefix)\(content)</li>"
         state.previousWasBlockquote = false
     }
 

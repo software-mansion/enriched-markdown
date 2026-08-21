@@ -155,6 +155,23 @@ final class HTMLGeneratorTests: XCTestCase {
         XCTAssertTrue(result.contains("</ol>"))
     }
 
+    func testTaskListItemsEmitDisabledCheckboxes() {
+        let result = html(for: "- [x] done\n- [ ] todo")
+
+        XCTAssertTrue(result.contains("<input type=\"checkbox\" disabled checked "))
+        XCTAssertTrue(result.contains("<input type=\"checkbox\" disabled style"))
+        XCTAssertTrue(result.contains("list-style-type: none;"))
+        XCTAssertTrue(result.contains("done</li>"))
+        XCTAssertTrue(result.contains("todo</li>"))
+    }
+
+    func testRegularListItemsEmitNoCheckbox() {
+        let result = html(for: "- plain")
+
+        XCTAssertFalse(result.contains("checkbox"))
+        XCTAssertFalse(result.contains("list-style-type: none"))
+    }
+
     func testNestedListsOpenSecondContainer() {
         let result = html(for: "- outer\n  - inner")
 

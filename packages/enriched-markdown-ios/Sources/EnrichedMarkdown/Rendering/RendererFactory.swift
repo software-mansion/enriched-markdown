@@ -38,6 +38,9 @@ final class RendererFactory {
         if let renderer = createBlockRenderer(for: type) {
             return renderer
         }
+        #if DEBUG
+        print("[EnrichedMarkdown] No renderer for node type '\(type)'; rendering its children only.")
+        #endif
         return childrenOnlyRenderer
     }
 

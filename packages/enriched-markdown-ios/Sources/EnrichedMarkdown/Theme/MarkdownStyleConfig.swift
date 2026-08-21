@@ -256,6 +256,44 @@ public struct ListStyle: Equatable, Sendable {
     }
 }
 
+public struct TaskListStyle: Equatable, Sendable {
+    public var checkedColor: UIColor?
+    public var borderColor: UIColor?
+    public var checkboxSize: CGFloat?
+    public var checkboxBorderRadius: CGFloat?
+    public var checkmarkColor: UIColor?
+    public var checkedTextColor: UIColor?
+    public var checkedStrikethrough: Bool?
+
+    public init(
+        checkedColor: UIColor? = nil,
+        borderColor: UIColor? = nil,
+        checkboxSize: CGFloat? = nil,
+        checkboxBorderRadius: CGFloat? = nil,
+        checkmarkColor: UIColor? = nil,
+        checkedTextColor: UIColor? = nil,
+        checkedStrikethrough: Bool? = nil
+    ) {
+        self.checkedColor = checkedColor
+        self.borderColor = borderColor
+        self.checkboxSize = checkboxSize
+        self.checkboxBorderRadius = checkboxBorderRadius
+        self.checkmarkColor = checkmarkColor
+        self.checkedTextColor = checkedTextColor
+        self.checkedStrikethrough = checkedStrikethrough
+    }
+
+    public mutating func merge(_ other: TaskListStyle) {
+        checkedColor = other.checkedColor ?? checkedColor
+        borderColor = other.borderColor ?? borderColor
+        checkboxSize = other.checkboxSize ?? checkboxSize
+        checkboxBorderRadius = other.checkboxBorderRadius ?? checkboxBorderRadius
+        checkmarkColor = other.checkmarkColor ?? checkmarkColor
+        checkedTextColor = other.checkedTextColor ?? checkedTextColor
+        checkedStrikethrough = other.checkedStrikethrough ?? checkedStrikethrough
+    }
+}
+
 public struct MarkdownStyleConfig: Equatable, Sendable {
     public var paragraph: ElementStyle
     public var heading1: ElementStyle
@@ -276,6 +314,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var codeBlock: CodeBlockStyle
     public var blockquote: BlockquoteStyle
     public var list: ListStyle
+    public var taskList: TaskListStyle
 
     public init(
         paragraph: ElementStyle = ElementStyle(),
@@ -296,7 +335,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         thematicBreak: ThematicBreakStyle = ThematicBreakStyle(),
         codeBlock: CodeBlockStyle = CodeBlockStyle(),
         blockquote: BlockquoteStyle = BlockquoteStyle(),
-        list: ListStyle = ListStyle()
+        list: ListStyle = ListStyle(),
+        taskList: TaskListStyle = TaskListStyle()
     ) {
         self.paragraph = paragraph
         self.heading1 = heading1
@@ -317,6 +357,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.codeBlock = codeBlock
         self.blockquote = blockquote
         self.list = list
+        self.taskList = taskList
     }
 
     public mutating func merge(_ other: MarkdownStyleConfig) {
@@ -339,6 +380,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         codeBlock.merge(other.codeBlock)
         blockquote.merge(other.blockquote)
         list.merge(other.list)
+        taskList.merge(other.taskList)
     }
 
     public func headingStyle(for level: Int) -> ElementStyle {

@@ -42,7 +42,22 @@ enum ListMarkerDrawer {
                 )
             )
 
-            if MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listType]) == ListType.unordered.rawValue {
+            if let taskValue = attrs[MarkdownAttribute.taskListItem] {
+                let font = (attrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
+                let rect = checkboxRect(
+                    markerX: layoutInfo.markerX,
+                    baselineY: layoutInfo.visualBaselineY,
+                    font: font,
+                    isRTL: isRTL,
+                    config: config
+                )
+                drawCheckbox(
+                    in: rect,
+                    isChecked: MarkdownAttributeValue.boolValue(from: taskValue),
+                    config: config,
+                    context: drawContext.context
+                )
+            } else if MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listType]) == ListType.unordered.rawValue {
                 let depth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]) ?? 0
                 let font = (attrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
                 let bulletY = bulletCenterY(visualBaselineY: layoutInfo.visualBaselineY, font: font)
@@ -169,6 +184,65 @@ enum ListMarkerDrawer {
             at: CGPoint(x: drawX, y: baselineY - config.listMarkerFont.ascender),
             withAttributes: attributes
         )
+    }
+
+    /// Checkbox trailing edge sits at the marker boundary (like ordered
+    /// markers), vertically centered on the cap height so the box brackets
+    /// the first line's text.
+    private static func checkboxRect(
+        markerX: CGFloat,
+        baselineY: CGFloat,
+        font: UIFont,
+        isRTL: Bool,
+        config: BlockDecorationConfig
+    ) -> CGRect {
+        let size = config.taskCheckboxSize
+        let originX = isRTL ? markerX : markerX - size
+        let centerY = baselineY - font.capHeight / 2
+        return CGRect(x: originX, y: centerY - size / 2, width: size, height: size)
+    }
+
+    /// Geometry mirrors the React Native package's ListMarkerDrawer so both
+    /// renderers produce the same checkbox at the same style values.
+    private static func drawCheckbox(
+        in rect: CGRect,
+        isChecked: Bool,
+        config: BlockDecorationConfig,
+        context: CGContext
+    ) {
+        let size = rect.width
+        let cornerRadius = min(config.taskCheckboxBorderRadius, size / 2)
+
+        context.saveGState()
+        defer { context.restoreGState() }
+
+        if isChecked {
+            let path = UIBezierPath(roundedRect: rect, cornerRadius: cornerRadius)
+            context.setFillColor(config.taskCheckedColor.cgColor)
+            context.addPath(path.cgPath)
+            context.fillPath()
+
+            let inset = size * 0.22
+            let midOffset = size * 0.05
+            let checkmark = CGMutablePath()
+            checkmark.move(to: CGPoint(x: rect.minX + inset, y: rect.midY))
+            checkmark.addLine(to: CGPoint(x: rect.midX - midOffset, y: rect.maxY - inset))
+            checkmark.addLine(to: CGPoint(x: rect.maxX - inset, y: rect.minY + inset))
+            context.setStrokeColor(config.taskCheckmarkColor.cgColor)
+            context.setLineWidth(max(1.5, size * 0.12))
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+            context.addPath(checkmark)
+            context.strokePath()
+        } else {
+            let lineWidth = max(1.0, size * 0.09)
+            let insetRect = rect.insetBy(dx: lineWidth / 2, dy: lineWidth / 2)
+            let path = UIBezierPath(roundedRect: insetRect, cornerRadius: cornerRadius)
+            context.setStrokeColor(config.taskBorderColor.cgColor)
+            context.setLineWidth(lineWidth)
+            context.addPath(path.cgPath)
+            context.strokePath()
+        }
     }
 
     private static func paragraphIsRTL(_ style: NSParagraphStyle?) -> Bool {

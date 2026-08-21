@@ -221,6 +221,10 @@ enum MarkdownAccessibilityElementBuilder {
         }
 
         let prefix = depth > 0 ? "nested " : ""
+        if let taskValue = text.attribute(MarkdownAttribute.taskListItem, at: position, effectiveRange: nil) {
+            let state = MarkdownAttributeValue.boolValue(from: taskValue) ? "checked" : "not checked"
+            return "\(prefix)task, \(state)"
+        }
         if type == ListType.ordered.rawValue {
             return "\(prefix)list item \(number)"
         }

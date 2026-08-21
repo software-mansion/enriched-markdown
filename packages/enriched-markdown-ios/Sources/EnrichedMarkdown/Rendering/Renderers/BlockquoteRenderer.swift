@@ -96,13 +96,7 @@ final class BlockquoteRenderer: NodeRenderer {
         depth: Int,
         levelSpacing: CGFloat
     ) {
-        let paragraphStyle = ParagraphStyleHelpers.getOrCreateParagraphStyle(in: output, at: range.location)
-        let totalIndent = CGFloat(depth + 1) * levelSpacing
-        paragraphStyle.firstLineHeadIndent = totalIndent
-        paragraphStyle.headIndent = totalIndent
-
         var attributes: [NSAttributedString.Key: Any] = [
-            .paragraphStyle: paragraphStyle,
             MarkdownAttribute.blockquoteDepth: depth
         ]
 
@@ -111,9 +105,41 @@ final class BlockquoteRenderer: NodeRenderer {
         }
 
         output.addAttributes(attributes, range: range)
+        applyIndentSkippingListItems(to: output, range: range, indent: CGFloat(depth + 1) * levelSpacing)
 
         if let lineHeight = config.blockquote.lineHeight {
             ParagraphStyleHelpers.applyBlockLineHeight(to: output, range: range, lineHeight: lineHeight)
+        }
+    }
+
+    /// List items position themselves inside blockquotes (their indent
+    /// already includes the quote offset, and it must not be overwritten or
+    /// their marker column collapses onto the quote border), so the quote
+    /// indent is applied per paragraph, skipping list-item paragraphs.
+    private func applyIndentSkippingListItems(
+        to output: NSMutableAttributedString,
+        range: NSRange,
+        indent: CGFloat
+    ) {
+        let string = output.string as NSString
+        var location = range.location
+        let end = NSMaxRange(range)
+
+        while location < end {
+            let paragraphRange = string.paragraphRange(for: NSRange(location: location, length: 0))
+            let applyRange = NSIntersectionRange(paragraphRange, range)
+            guard applyRange.length > 0 else { break }
+            location = NSMaxRange(applyRange)
+
+            if output.attribute(MarkdownAttribute.listDepth, at: applyRange.location, effectiveRange: nil) != nil {
+                continue
+            }
+
+            let style = ParagraphStyleHelpers.getOrCreateParagraphStyle(in: output, at: applyRange.location)
+            style.firstLineHeadIndent = indent
+            style.headIndent = indent
+            style.tailIndent = 0
+            output.addAttribute(.paragraphStyle, value: style, range: applyRange)
         }
     }
 
@@ -123,18 +149,11 @@ final class BlockquoteRenderer: NodeRenderer {
         levelSpacing: CGFloat
     ) {
         for info in nestedInfo {
-            let style = ParagraphStyleHelpers.getOrCreateParagraphStyle(in: output, at: info.range.location)
-            let indent = CGFloat(info.depth + 1) * levelSpacing
-            style.firstLineHeadIndent = indent
-            style.headIndent = indent
-            style.tailIndent = 0
-
-            output.addAttributes(
-                [
-                    .paragraphStyle: style,
-                    MarkdownAttribute.blockquoteDepth: info.depth
-                ],
-                range: info.range
+            output.addAttributes([MarkdownAttribute.blockquoteDepth: info.depth], range: info.range)
+            applyIndentSkippingListItems(
+                to: output,
+                range: info.range,
+                indent: CGFloat(info.depth + 1) * levelSpacing
             )
         }
     }

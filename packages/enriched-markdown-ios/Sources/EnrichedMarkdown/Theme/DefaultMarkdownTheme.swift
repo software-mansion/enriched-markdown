@@ -97,6 +97,13 @@ enum DefaultMarkdownTheme {
                 .gapWidth(12)
                 .marginLeft(24)
                 .marginBottom(16)
+
+            TaskList()
+                .checkedColor(Semantic.tint)
+                .borderColor(Semantic.secondary)
+                .checkmarkColor(.white)
+                .checkboxSize(14)
+                .checkboxBorderRadius(3)
         }
     }
 }

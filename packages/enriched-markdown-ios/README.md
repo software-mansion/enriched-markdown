@@ -141,10 +141,13 @@ The `MarkdownTheme` builder supports these elements:
 | `Link()` | Links |
 | `Strong()` | Bold text |
 | `Emphasis()` | Italic text |
+| `Strikethrough()` | Struck-through text |
+| `Underline()` | Underlined text (`Md4cFlags(underline: true)`) |
 | `Code()` | Inline code |
 | `CodeBlock()` | Fenced code blocks |
 | `Blockquote()` | Block quotes |
 | `List()` | Ordered and unordered lists |
+| `TaskList()` | Task-list checkboxes (`- [x]`) |
 | `BlockImage()` | Block images |
 | `InlineImage()` | Inline images |
 | `ThematicBreak()` | Horizontal rules |
@@ -159,6 +162,7 @@ Element-specific modifiers include:
 - **Code / CodeBlock / Blockquote:** `.background` / `.backgroundStyle`
 - **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
+- **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
 - **BlockImage:** `.height`, `.borderRadius`
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.color` / `.foregroundStyle`, `.height`
@@ -326,7 +330,9 @@ Dynamic Type is supported throughout via text styles in the default theme.
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists
+- Task lists (`- [x]` / `- [ ]`, display-only checkboxes)
 - Links and images (block and inline)
+- Autolinked bare URLs, `www.` links, and emails (`permissiveAutolinks`, on by default)
 - Thematic breaks (`---`)
 
 ## Development

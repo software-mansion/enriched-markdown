@@ -32,6 +32,9 @@ enum MarkdownAttribute {
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")
     static let listType = NSAttributedString.Key("EnrichedMarkdownListType")
     static let listItemNumber = NSAttributedString.Key("EnrichedMarkdownListItemNumber")
+    /// Present on the first paragraph of a GFM task-list item; the value is
+    /// the checked state as a boolean.
+    static let taskListItem = NSAttributedString.Key("EnrichedMarkdownTaskListItem")
 }
 
 final class RenderContext {
