@@ -6,7 +6,7 @@ struct AppShell: View {
 
     @State private var path: [ExampleRoute] = []
     @State private var unavailableRouteName: String?
-    @State private var sampleMarkdown = ""
+    @State private var sampleMarkdown: String = Bundle.main.sampleMarkdown
 
     // MARK: - Views
 
@@ -20,11 +20,6 @@ struct AppShell: View {
                 }
         }
         .tint(Color.brandNavy)
-        .onAppear {
-            if sampleMarkdown.isEmpty {
-                sampleMarkdown = Bundle.main.sampleMarkdown
-            }
-        }
         .alert(
             unavailableRouteName.map { "\($0) is not available on iOS yet" } ?? "",
             isPresented: Binding(
