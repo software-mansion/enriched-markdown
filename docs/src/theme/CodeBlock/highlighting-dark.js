@@ -66,7 +66,7 @@ module.exports = {
     {
       types: ['function', 'function-variable'],
       style: {
-        color: 'var(--swm-purple-light-80)',
+        color: 'var(--swm-green-light-80)',
       },
     },
     {

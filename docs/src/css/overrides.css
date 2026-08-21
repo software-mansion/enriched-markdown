@@ -139,3 +139,35 @@ nav[class*='navbarLanding'] {
   z-index: var(--ifm-z-index-fixed);
   background-color: var(--ifm-navbar-background-color);
 }
+
+/* --- Navbar platform selector (mounted into the html slot .rnem-platform-navbar-slot) --- */
+
+/* Show the dropdown menu on desktop hover OR when tapped open (rnem-open). */
+.rnem-platform-navbar-slot .dropdown__menu {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--ifm-transition-fast) ease,
+    visibility var(--ifm-transition-fast) ease;
+}
+.rnem-platform-navbar-slot .dropdown:hover > .dropdown__menu,
+.rnem-platform-navbar-slot .dropdown.rnem-open > .dropdown__menu {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Infima hides every .navbar__item below 996px (items move into the hamburger).
+   Keep the platform selector visible in the top bar instead — override both the
+   t-rex html wrapper (parent of the slot) and our inner dropdown item. */
+@media (max-width: 996px) {
+  .navbar__items--right .navbar__item:has(.rnem-platform-navbar-slot),
+  .rnem-platform-navbar-slot .navbar__item {
+    display: flex !important;
+  }
+}
+
+/* Belt-and-suspenders: never show the drawer copy of the selector (the client
+   module also hides it in JS). The top bar holds the single interactive one. */
+.navbar-sidebar .rnem-platform-navbar-slot {
+  display: none !important;
+}
