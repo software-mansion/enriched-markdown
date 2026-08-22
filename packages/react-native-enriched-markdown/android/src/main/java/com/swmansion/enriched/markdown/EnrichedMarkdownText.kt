@@ -359,6 +359,15 @@ class EnrichedMarkdownText
       checkboxTouchHelper.isEnabled = enabled
     }
 
+    fun cleanup() {
+      currentRenderId++
+      executor.shutdownNow()
+      mainHandler.removeCallbacksAndMessages(null)
+      pendingStyledText = null
+      fadeAnimator?.cancelAll()
+      fadeAnimator = null
+    }
+
     override fun onAttachedToWindow() {
       super.onAttachedToWindow()
       pendingStyledText?.let {
