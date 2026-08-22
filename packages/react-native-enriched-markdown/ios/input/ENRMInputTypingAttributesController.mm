@@ -112,6 +112,7 @@
   RCTUIColor *headingColor = headingLevel >= 1 ? [_formatterStyle headingColorForLevel:headingLevel] : nil;
   attrs[NSForegroundColorAttributeName] = headingColor ?: _formatterStyle.baseTextColor;
 
+  CGFloat baseLineHeight = _formatterStyle.baseLineHeight;
   ENRMBlockRange *typingListBlock = [_dataSource listBlockForCursorParagraph];
   if (typingListBlock != nil) {
     NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
@@ -119,6 +120,14 @@
     paragraph.firstLineHeadIndent = indent;
     paragraph.headIndent = indent;
     paragraph.paragraphSpacingBefore = _formatterStyle.listItemSpacing;
+    if (baseLineHeight > 0) {
+      [_formatterStyle applyLineHeightToParagraphStyle:paragraph allowClamp:YES];
+    }
+    attrs[NSParagraphStyleAttributeName] = paragraph;
+  } else if (baseLineHeight > 0) {
+    NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
+    // A caret inside a heading must not clamp — the larger glyphs would clip.
+    [_formatterStyle applyLineHeightToParagraphStyle:paragraph allowClamp:(headingLevel < 1)];
     attrs[NSParagraphStyleAttributeName] = paragraph;
   } else {
     [attrs removeObjectForKey:NSParagraphStyleAttributeName];
@@ -159,6 +168,17 @@
 
 - (void)clearListParagraphStyle
 {
+  // Leaving a list drops the indent/spacing paragraph style, but a configured
+  // editor-wide line height must survive, so fall back to a base paragraph style
+  // carrying only the line height rather than removing the attribute outright.
+  if (_formatterStyle.baseLineHeight > 0) {
+    NSMutableDictionary *attrs = [_textView.typingAttributes mutableCopy];
+    NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
+    [_formatterStyle applyLineHeightToParagraphStyle:paragraph allowClamp:YES];
+    attrs[NSParagraphStyleAttributeName] = paragraph;
+    _textView.typingAttributes = attrs;
+    return;
+  }
   if (_textView.typingAttributes[NSParagraphStyleAttributeName] == nil) {
     return;
   }

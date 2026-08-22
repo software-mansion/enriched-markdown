@@ -516,7 +516,10 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
     [self resetBaseTypingAttributes];
 
-    if (_formattingStore.allRanges.count > 0) {
+    // Re-apply base typography (font, color, line height) to all existing text,
+    // not just text that carries inline markdown ranges — a plain paragraph still
+    // needs the new fontSize/lineHeight.
+    if (_textView.textStorage.length > 0) {
       [self applyFormatting];
     }
 
@@ -789,10 +792,16 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)resetBaseTypingAttributes
 {
-  ENRMSetDefaultTypingAttributes(_textView, @{
+  NSMutableDictionary<NSAttributedStringKey, id> *attributes = [@{
     NSFontAttributeName : _formatterStyle.baseFont,
     NSForegroundColorAttributeName : _formatterStyle.baseTextColor,
-  });
+  } mutableCopy];
+  if (_formatterStyle.baseLineHeight > 0) {
+    NSMutableParagraphStyle *paragraphStyle = [[NSMutableParagraphStyle alloc] init];
+    [_formatterStyle applyLineHeightToParagraphStyle:paragraphStyle allowClamp:YES];
+    attributes[NSParagraphStyleAttributeName] = paragraphStyle;
+  }
+  ENRMSetDefaultTypingAttributes(_textView, attributes);
 }
 
 - (void)applyFormatting
@@ -835,6 +844,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                               style:_formatterStyle
                       scopedToRange:scope];
   [_formatter applyBlockRanges:_blockStore.allRanges toTextView:_textView style:_formatterStyle scopedToRange:scope];
+  [_formatter applyBaseLineHeightToTextView:_textView style:_formatterStyle scopedToRange:scope];
   [_detectorPipeline refreshAllStyling];
   [self applyWritingDirection];
 

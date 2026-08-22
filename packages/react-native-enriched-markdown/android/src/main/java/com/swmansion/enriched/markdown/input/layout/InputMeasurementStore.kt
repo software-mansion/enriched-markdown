@@ -23,6 +23,8 @@ object InputMeasurementStore {
     val cachedSize: Long,
     val text: CharSequence?,
     val paintParams: PaintParams,
+    val spacingExtra: Float,
+    val spacingMult: Float,
   )
 
   private val data = ConcurrentHashMap<Int, MeasurementParams>()
@@ -31,14 +33,16 @@ object InputMeasurementStore {
     id: Int,
     text: CharSequence?,
     paint: TextPaint,
+    spacingExtra: Float,
+    spacingMult: Float,
   ): Boolean {
     val cachedWidth = data[id]?.cachedWidth ?: 0f
     val cachedSize = data[id]?.cachedSize ?: 0L
 
-    val size = measure(cachedWidth, text, paint)
+    val size = measure(cachedWidth, text, paint, spacingExtra, spacingMult)
     val paintParams = PaintParams(paint.typeface, paint.textSize)
 
-    data[id] = MeasurementParams(cachedWidth, size, text, paintParams)
+    data[id] = MeasurementParams(cachedWidth, size, text, paintParams, spacingExtra, spacingMult)
     return size != cachedSize
   }
 
@@ -84,8 +88,8 @@ object InputMeasurementStore {
         textSize = value.paintParams.fontSize
       }
 
-    val size = measure(width, value.text, paint)
-    data[id] = MeasurementParams(width, size, value.text, value.paintParams)
+    val size = measure(width, value.text, paint, value.spacingExtra, value.spacingMult)
+    data[id] = MeasurementParams(width, size, value.text, value.paintParams, value.spacingExtra, value.spacingMult)
     return size
   }
 
@@ -110,13 +114,18 @@ object InputMeasurementStore {
         isAntiAlias = true
       }
 
-    return measure(width, text, paint)
+    val lineHeight = props?.getDouble("lineHeight")?.toFloat() ?: 0f
+    val spacingExtra = if (lineHeight > 0f) PixelUtil.toPixelFromDIP(lineHeight) - spSize else 0f
+
+    return measure(width, text, paint, spacingExtra, 1f)
   }
 
   private fun measure(
     maxWidth: Float,
     text: CharSequence?,
     paint: TextPaint,
+    spacingExtra: Float,
+    spacingMult: Float,
   ): Long {
     val content = text ?: ""
     val widthPx = maxWidth.toInt().coerceAtLeast(0)
@@ -125,7 +134,7 @@ object InputMeasurementStore {
       StaticLayout.Builder
         .obtain(content, 0, content.length, paint, widthPx)
         .setIncludePad(true)
-        .setLineSpacing(0f, 1f)
+        .setLineSpacing(spacingExtra, spacingMult)
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       builder.setBreakStrategy(android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY)
