@@ -124,8 +124,15 @@
 
   /* Tabs */
   --swm-tab: var(--swm-navy-light-20);
-  --swm-tab-hover: var(--swm-blue-light-80);
-  --swm-tab-active: var(--swm-blue-light-100);
+  --swm-tab-hover: var(--swm-green-light-80);
+  --swm-tab-active: var(--swm-green-light-100);
+
+  /* Links */
+  --ifm-link-color: var(--swm-green-light-100);
+  --ifm-link-hover-color: var(--swm-green-dark-120);
+
+  /* Sidebar active item */
+  --ifm-menu-color-active: var(--swm-green-light-100);
 
   /* Table of Contents */
   --ifm-toc-border-color: transparent;
@@ -335,8 +342,15 @@
 
   /* Tabs */
   --swm-tab: var(--swm-navy-light-60);
-  --swm-tab-hover: var(--swm-blue-dark-60);
-  --swm-tab-active: var(--swm-blue-light-80);
+  --swm-tab-hover: var(--swm-green-dark-60);
+  --swm-tab-active: var(--swm-green-dark-80);
+
+  /* Links */
+  --ifm-link-color: var(--swm-green-dark-80);
+  --ifm-link-hover-color: var(--swm-green-dark-60);
+
+  /* Sidebar active item */
+  --ifm-menu-color-active: var(--swm-green-dark-80);
 
   /* Table of Contents */
   --ifm-toc-border-color: transparent;
