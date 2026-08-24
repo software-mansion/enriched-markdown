@@ -18,6 +18,7 @@ For the exact React Native versions we support, see [Compatibility](/misc/compat
 
 Install the package with your package manager of choice:
 
+
 <Tabs groupId="package-managers">
   <TabItem value="npm" label="npm">
 
@@ -42,7 +43,28 @@ pnpm add react-native-enriched-markdown
   </TabItem>
 </Tabs>
 
-{/* TODO: note autolinking + `pod install` for the iOS side of the RN package. */}
+The library contains native code, so rebuild your app after installing. On iOS install the pods first:
+```bash
+cd ios && pod install
+```
+
+## Expo
+
+Install with the Expo CLI so the correct version is picked for your SDK:
+
+```bash
+npx expo install react-native-enriched-markdown
+```
+
+Then regenerate the native projects:
+
+```bash
+npx expo prebuild
+```
+
+:::note
+The library needs native code, so it won't run in Expo Go. Use a [development build](https://docs.expo.dev/develop/development-builds/introduction/) instead.
+:::
 
 ## Nightly builds
 

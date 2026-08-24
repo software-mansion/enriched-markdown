@@ -5,17 +5,17 @@ sidebar_position: 2
 
 # Core concepts
 
-Enriched Markdown is built around one idea: **Markdown is the shared format** between the two components. `EnrichedMarkdownTextInput` *produces* Markdown as the user types, and `EnrichedMarkdownText` *consumes* Markdown to render it. If you understand the Markdown syntax below, you understand what both components can express.
+In Enriched Markdown **Markdown is the shared format** between the two components. `EnrichedMarkdownTextInput` _produces_ Markdown as the user types, and `EnrichedMarkdownText` _consumes_ Markdown to render it. If you understand the Markdown syntax below, you understand what both components can express.
 
-This page is a primer on that syntax and the flavor that decides which parts of it are available. It's platform-neutral — the same Markdown drives iOS, Android, and React Native.
+This page is a primer on that syntax and the flavor that decides which parts of it are available. It's platform-neutral - the same Markdown drives iOS, Android, and React Native.
 
 ## What is Markdown?
 
-Markdown is a lightweight plain-text formatting syntax. You write ordinary text and add a few punctuation markers to convey structure — `**` around a word for **bold**, a leading `#` for a heading — and a parser turns that into styled, structured content.
+Markdown is a lightweight plain-text formatting syntax. You write ordinary text and add a few punctuation markers to convey structure — `**` around a word for **bold**, a leading `#` for a heading - and a parser turns that into styled, structured content.
 
 It's the format behind README files, GitHub comments, chat apps, and note-taking tools. Its appeal is that the source stays readable as plain text: `**bold**` reads as "bold" even before it's rendered.
 
-In this library the Markdown string is the thing you store, send over the wire, and feed back into a renderer — the styled output is derived from it.
+In this library the Markdown string is the thing you store, send over the wire, and feed back into a renderer - the styled output is derived from it.
 
 ## Markdown syntax
 
@@ -23,21 +23,21 @@ The examples below show the **raw Markdown** you write on the left, and describe
 
 ### Inline formatting
 
-Inline formatting applies to a span of characters *inside* a paragraph.
+Inline formatting applies to a span of characters _inside_ a paragraph.
 
 ```md
-**bold** and __also bold__
-*italic* and _also italic_
+**bold** and **also bold**
+_italic_ and _also italic_
 ~~strikethrough~~
 `inline code`
 ```
 
 - `**text**` or `__text__` → **bold**
-- `*text*` or `_text_` → *italic*
+- `*text*` or `_text_` → _italic_
 - `~~text~~` → ~~strikethrough~~
 - `` `text` `` → `inline code`, rendered in a monospace font
 
-You can combine them — for example `***bold italic***` applies bold and italic together.
+You can combine them - for example `***bold italic***` applies bold and italic together.
 
 ### Headings
 
@@ -45,7 +45,9 @@ A heading is a whole line prefixed with one to six `#` characters. More hashes m
 
 ```md
 # Heading 1
+
 ## Heading 2
+
 ### Heading 3
 ```
 
@@ -59,7 +61,9 @@ A link is link text in square brackets followed by a URL in parentheses.
 [React Native](https://reactnative.dev)
 ```
 
-In `EnrichedMarkdownText`, links are interactive — taps surface through the `onLinkPress` callback so you decide how to open them.
+:::note
+In `EnrichedMarkdownText`, links are interactive - taps surface through the `onLinkPress` callback so you decide how to open them.
+:::
 
 ### Lists
 
@@ -96,7 +100,9 @@ const answer = 42;
 ```
 ````
 
+:::important
 See [Code-block highlighting](/rich-text-formatting/code-highlighting) for the highlighting details.
+:::
 
 ### Horizontal rules
 
@@ -111,33 +117,24 @@ Three or more `-`, `*`, or `_` on their own line render a divider.
 Markdown elements fall into two families, and the distinction matters when you customize or combine them:
 
 - **Block elements** occupy whole lines and stack vertically: headings, paragraphs, lists, blockquotes, code blocks, tables. They establish structure.
-- **Inline elements** live *within* a block and style a run of text: bold, italic, strikethrough, inline code, links.
+- **Inline elements** live _within_ a block and style a run of text: bold, italic, strikethrough, inline code, links.
 
-Inline elements inherit typography from the block that contains them — bold text inside a heading takes the heading's size. For the full breakdown of which elements exist, how they nest, and how inheritance works, see the per-platform **Element structure** reference.
+Inline elements inherit typography from the block that contains them - bold text inside a heading takes the heading's size. For the full breakdown of which elements exist, how they nest, and how inheritance works, see the per-platform **Element structure** reference.
 
 ## Markdown flavors
 
 There is a small CommonMark core that every Markdown parser agrees on (everything above), plus optional extensions layered on top. Enriched Markdown exposes this through the `flavor` prop:
 
 - **CommonMark** (default) — the standard core syntax.
-- **GitHub Flavored Markdown (GFM)** — CommonMark plus **tables**, **task lists**, and **strikethrough**. Opt in with `flavor="github"`.
+- **GitHub Flavored Markdown (GFM)** — CommonMark plus **tables**, **task lists**, **strikethrough** and much more. Opt in with `flavor="github"`.
 
 ```tsx
 <EnrichedMarkdownText flavor="github" markdown={markdown} />
 ```
 
-With GFM enabled you can additionally use:
-
-```md
-| Column A | Column B |
-| -------- | -------- |
-| cell     | cell     |
-
-- [x] Completed task
-- [ ] Incomplete task
-```
-
 Tables render with column alignment, rich text in cells, and header styling; task lists become interactive checkboxes you can respond to. See the per-platform `EnrichedMarkdownText` reference for the props that surface these.
+
+For an in-depth look at why flavors exist, everything GFM adds, and how extensions are enabled, see [Markdown flavors](/rich-text-formatting/markdown-flavors) in Rich text formatting.
 
 ## How the components use Markdown
 
