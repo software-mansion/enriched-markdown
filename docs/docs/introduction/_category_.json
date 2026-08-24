@@ -1,6 +1,6 @@
 {
-  "label": "Misc",
-  "position": 60,
+  "label": "Introduction",
+  "position": 10,
   "link": {
     "type": "generated-index"
   }

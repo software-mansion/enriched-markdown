@@ -3,22 +3,6 @@
 
 import { topbarBannerReservationScript } from '@swmansion/t-rex-ui/topbar-banner';
 import { TOP_BAR_BANNER } from './src/components/topbarBanner.config.ts';
-import { PLATFORMS, DEFAULT_PLATFORM } from './src/platform/config.ts';
-
-// Static placeholder for the navbar platform selector, matching the collapsed
-// look of <PlatformNavbarItem> for the default platform. Rendered at SSR so the
-// slot is correct on first paint; src/clientModules/platformNavbar.tsx then
-// hydrates the interactive widget into it with identical markup (no flash).
-const defaultPlatform =
-  PLATFORMS.find(p => p.id === DEFAULT_PLATFORM) ?? PLATFORMS[0];
-const platformNavbarSlot =
-  '<div class="rnem-platform-navbar-slot">' +
-  '<div class="navbar__item dropdown dropdown--hoverable dropdown--right">' +
-  '<a class="navbar__link" href="#" aria-haspopup="true">' +
-  defaultPlatform.label +
-  '<span style="opacity:0.6;margin-left:6px">v' +
-  defaultPlatform.version +
-  '</span></a></div></div>';
 
 const lightCodeTheme = require('./src/theme/CodeBlock/highlighting-light.js');
 const darkCodeTheme = require('./src/theme/CodeBlock/highlighting-dark.js');
@@ -79,7 +63,22 @@ const config = {
           routeBasePath: '/',
           breadcrumbs: false,
           sidebarPath: require.resolve('./sidebars.js'),
+          // Categories are non-collapsible by default; the per-platform
+          // sections opt back in via `collapsible: true` in their
+          // `_category_.json` so they render as collapsible ("burger") groups.
           sidebarCollapsible: false,
+          // iOS and Android are not released yet, so their docs are excluded
+          // from the build by default. Set SHOW_UNRELEASED_PLATFORMS=1 to
+          // include them (e.g. to preview locally or at launch).
+          exclude: [
+            '**/_*.{js,jsx,ts,tsx,md,mdx}',
+            '**/_*/**',
+            '**/*.test.{js,jsx,ts,tsx}',
+            '**/__tests__/**',
+            ...(process.env.SHOW_UNRELEASED_PLATFORMS === '1'
+              ? []
+              : ['ios/**', 'android/**']),
+          ],
           editUrl:
             'https://github.com/software-mansion/enriched-markdown/edit/main/docs/',
           lastVersion: 'current',
@@ -95,7 +94,6 @@ const config = {
 
   clientModules: [
     require.resolve('./src/clientModules/topbarBannerRefresh.ts'),
-    require.resolve('./src/clientModules/platformNavbar.tsx'),
   ],
 
   plugins: [
@@ -130,15 +128,6 @@ const config = {
             to: '/getting-started',
             label: 'Docs',
             position: 'right',
-          },
-          {
-            // Prototype: mount node for the global platform selector, replacing
-            // the version dropdown. The React widget is hydrated into this node
-            // by src/clientModules/platformNavbar.tsx (t-rex-ui's navbar does
-            // not honor custom navbar item types, so we use an `html` slot).
-            type: 'html',
-            position: 'right',
-            value: platformNavbarSlot,
           },
           {
             href: 'https://github.com/software-mansion/enriched-markdown/',
