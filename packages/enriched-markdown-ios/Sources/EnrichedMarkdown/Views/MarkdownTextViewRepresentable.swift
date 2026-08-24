@@ -40,6 +40,15 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {
         let width = proposal.width ?? UIScreen.main.bounds.width
+        // TextKit 2 measures trailing spacer fragments against the current
+        // container layout, so a view whose layout hasn't settled at the
+        // target width over-reports height. Give the view its target width
+        // and flush layout before measuring so the answer is the same no
+        // matter when in the layout cycle SwiftUI asks.
+        if uiView.bounds.width != width {
+            uiView.frame.size.width = width
+        }
+        uiView.layoutIfNeeded()
         let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: width, height: size.height)
     }

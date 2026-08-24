@@ -11,9 +11,9 @@ final class AsyncRenderCoordinator {
         queue = DispatchQueue(label: queueLabel)
     }
 
-    func scheduleRender(
-        _ render: @escaping () -> NSAttributedString?,
-        apply: @escaping (NSAttributedString) -> Void
+    func scheduleRender<Result>(
+        _ render: @escaping () -> Result?,
+        apply: @escaping (Result) -> Void
     ) {
         if blockAsyncRender {
             return

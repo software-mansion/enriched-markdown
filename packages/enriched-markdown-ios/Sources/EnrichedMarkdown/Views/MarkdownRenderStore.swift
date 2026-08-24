@@ -3,8 +3,8 @@ import UIKit
 
 @MainActor
 final class MarkdownRenderStore: ObservableObject {
-    @Published private(set) var attributedText = NSAttributedString()
-    // Published together with `attributedText` so consumers never pair a new
+    @Published private(set) var segments = MarkdownSegmentRenderer.empty
+    // Published together with `segments` so consumers never pair a new
     // markdown string with a stale render result.
     @Published private(set) var sourceMarkdown: String?
 
@@ -17,20 +17,20 @@ final class MarkdownRenderStore: ObservableObject {
         imageRequestHeaders: [String: String] = [:]
     ) {
         if isBlank(markdown) {
-            attributedText = NSAttributedString()
+            segments = MarkdownSegmentRenderer.empty
             sourceMarkdown = nil
             return
         }
 
         coordinator.scheduleRender {
-            MarkdownRenderer.render(
+            MarkdownSegmentRenderer.renderSegments(
                 markdown,
                 config: config,
                 flags: flags,
                 imageRequestHeaders: imageRequestHeaders
             )
         } apply: { [weak self] result in
-            self?.attributedText = result
+            self?.segments = result
             self?.sourceMarkdown = markdown
         }
     }

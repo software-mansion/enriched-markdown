@@ -30,16 +30,17 @@ public struct EnrichedMarkdownText: View {
     }
 
     public var body: some View {
-        MarkdownTextViewRepresentable(
-            attributedText: renderStore.attributedText,
-            sourceMarkdown: renderStore.sourceMarkdown,
-            styleConfig: styleConfig,
-            onLinkPress: onLinkPress,
-            onLinkLongPress: onLinkLongPress,
-            selectionMenuConfig: selectionMenuConfig,
-            isSelectionEnabled: isSelectionEnabled,
-            selectionColor: selectionColor
-        )
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(renderStore.segments) { segment in
+                segmentView(for: segment)
+            }
+        }
+        // On the stack, not per segment: as the outermost layout modifier it
+        // receives the parent's real width proposal and forwards it to every
+        // segment, so heights are measured at the width the segments are
+        // actually laid out with. Per-segment fixedSize let an ideal-size
+        // probe at a different width supply the final height (25pt of
+        // phantom bottom space in containers like ScrollView + padding).
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             renderStore.schedule(
@@ -86,6 +87,23 @@ public struct EnrichedMarkdownText: View {
         }
         .onDisappear {
             renderStore.invalidate()
+        }
+    }
+
+    @ViewBuilder
+    private func segmentView(for segment: RenderedMarkdownSegment) -> some View {
+        switch segment.content {
+        case .text(let attributedText):
+            MarkdownTextViewRepresentable(
+                attributedText: attributedText,
+                sourceMarkdown: renderStore.sourceMarkdown,
+                styleConfig: styleConfig,
+                onLinkPress: onLinkPress,
+                onLinkLongPress: onLinkLongPress,
+                selectionMenuConfig: selectionMenuConfig,
+                isSelectionEnabled: isSelectionEnabled,
+                selectionColor: selectionColor
+            )
         }
     }
 }

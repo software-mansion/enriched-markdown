@@ -78,7 +78,7 @@ final class AsyncRenderCoordinatorTests: XCTestCase {
         let applyExpectation = expectation(description: "apply")
         applyExpectation.isInverted = true
 
-        coordinator.scheduleRender({
+        coordinator.scheduleRender({ () -> NSAttributedString? in
             nil
         }, apply: { _ in
             applyExpectation.fulfill()
