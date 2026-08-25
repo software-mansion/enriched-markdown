@@ -43,9 +43,9 @@ Available by default, no configuration required.
 Enabled with `flavor="github"` on native. See [Markdown flavors](/rich-text-formatting/markdown-flavors).
 
 :::note
-The web renderer has no `flavor` prop - tables, task lists and strikethrough are
-always enabled. The exception is bare-URL autolinking, which the web WASM entry
-point does not expose, so it cannot be turned on there.
+The web renderer has no `flavor` prop - tables, task lists, strikethrough and
+bare-URL autolinking are always enabled (the web WASM build compiles them in
+unconditionally).
 :::
 
 | Feature         | iOS | Android | React Native | Web |
@@ -53,15 +53,17 @@ point does not expose, so it cannot be turned on there.
 | Tables          | Yes |   Yes   |     Yes      | Yes |
 | Task lists      | Yes |   Yes   |     Yes      | Yes |
 | Strikethrough   | Yes |   Yes   |     Yes      | Yes |
-| Autolinked URLs | Yes |   Yes   |     Yes      | No  |
+| Autolinked URLs | Yes |   Yes   |     Yes      | Yes |
 
 ### Inline extensions
 
-Toggled independently through the `md4cFlags` prop, not the flavor.
+Toggled independently through the `md4cFlags` prop (each off by default), not
+the flavor. The one exception is **strikethrough color**, which is not an
+`md4cFlags` flag but a `markdownStyle.strikethrough.color` style property.
 
 | Feature                | iOS | Android |  React Native  | Web  |
 | ---------------------- | :-: | :-----: | :------------: | :--: |
-| Underline (`_text_`)   | Yes |   No    | Yes (iOS only) | Yes  |
+| Underline (`_text_`)   | Yes |   Yes   |      Yes       | Yes  |
 | Strikethrough color    | Yes |   No    | Yes (iOS only) | Yes  |
 | Superscript (`^text^`) | Yes |   Yes   |      Yes       | Yes  |
 | Subscript (`~text~`)   | Yes |   Yes   |      Yes       | Yes  |
