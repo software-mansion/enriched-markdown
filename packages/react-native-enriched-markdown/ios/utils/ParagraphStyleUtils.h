@@ -45,6 +45,11 @@ NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger
 void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
 void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight);
 void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
+
+/// True when the range contains a block (non-inline) image attachment. Lines holding
+/// such attachments must not be clamped by maximumLineHeight or the image box
+/// overflows the line and paints over surrounding content.
+BOOL ENRMRangeContainsBlockImage(NSAttributedString *output, NSRange range);
 void applyTextAlignment(NSMutableAttributedString *output, NSRange range, NSTextAlignment textAlign);
 NSTextAlignment textAlignmentFromString(NSString *textAlign);
 

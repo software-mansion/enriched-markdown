@@ -1,7 +1,10 @@
 import Foundation
 import CoreGraphics
 import CoreText
-import RaTeX
+// RaTeX's core Swift sources (RaTeXEngine/RaTeXRenderer/RaTeXFontLoader/DisplayList) are
+// vendored into this pod's own module (ios/vendor), so there is no external RaTeX module
+// to import; they resolve as same-module symbols. The vendored files import the RaTeXFFI
+// binary module from the XCFramework themselves.
 
 #if canImport(UIKit)
 import UIKit

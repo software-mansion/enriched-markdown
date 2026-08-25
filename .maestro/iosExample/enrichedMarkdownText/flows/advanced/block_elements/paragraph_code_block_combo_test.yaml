@@ -1,0 +1,31 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - code_block
+  - paragraph
+  - text
+---
+# checks the combination of paragraphs and code blocks (prose around code)
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        Call the function like this:
+
+        ```
+        result = add(1, 2)
+        print(result)
+        ```
+
+        Then check the output above.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'paragraph_code_block_combo_display'

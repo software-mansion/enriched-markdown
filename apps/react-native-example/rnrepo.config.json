@@ -1,0 +1,6 @@
+{
+    "denyList": {
+        "android": ["react-native-enriched-markdown"],
+        "ios": ["react-native-enriched-markdown"]
+    }
+}

@@ -1,0 +1,26 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - block
+  - list
+  - text
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        1. Preheat oven to 180C
+        2. Mix flour, sugar, and butter
+        3. Add eggs and vanilla extract
+        4. Pour into a greased tin
+        5. Bake for 30 minutes
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'ordered_list_display'

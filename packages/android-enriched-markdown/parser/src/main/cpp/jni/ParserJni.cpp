@@ -20,6 +20,8 @@ namespace {
 
 static_assert(static_cast<int>(NodeType::Highlight) == 29,
               "NodeType enum must stay in sync with Kotlin MarkdownASTNode.NodeType");
+static_assert(static_cast<int>(NodeType::SoftBreak) == 30,
+              "NodeType enum must stay in sync with Kotlin MarkdownASTNode.NodeType");
 
 local_ref<JMarkdownASTNode> createJavaNode(const std::shared_ptr<MarkdownASTNode> &node) {
   if (!node) {
@@ -66,6 +68,7 @@ Md4cFlags JMd4cFlags::toCppFlags() const {
   static const auto subscriptField = javaClassStatic()->getField<jboolean>("subscript");
   static const auto highlightField = javaClassStatic()->getField<jboolean>("highlight");
   static const auto permissiveAutolinksField = javaClassStatic()->getField<jboolean>("permissiveAutolinks");
+  static const auto hardSoftBreaksField = javaClassStatic()->getField<jboolean>("hardSoftBreaks");
 
   Md4cFlags flags;
   flags.underline = getFieldValue(underlineField) == JNI_TRUE;
@@ -74,6 +77,7 @@ Md4cFlags JMd4cFlags::toCppFlags() const {
   flags.subscript = getFieldValue(subscriptField) == JNI_TRUE;
   flags.highlight = getFieldValue(highlightField) == JNI_TRUE;
   flags.permissiveAutolinks = getFieldValue(permissiveAutolinksField) == JNI_TRUE;
+  flags.hardSoftBreaks = getFieldValue(hardSoftBreaksField) == JNI_TRUE;
   return flags;
 }
 

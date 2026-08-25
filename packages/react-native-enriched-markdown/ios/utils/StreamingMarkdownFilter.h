@@ -9,11 +9,21 @@ typedef NS_ENUM(NSInteger, ENRMTableStreamingMode) {
   ENRMTableStreamingModeProgressive,
 };
 
+typedef NS_ENUM(NSInteger, ENRMCodeBlockStreamingMode) {
+  ENRMCodeBlockStreamingModeHidden = 0,
+  ENRMCodeBlockStreamingModeProgressive,
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStreamingMode tableMode);
+// Filtered markdown for the current streaming tick. When non-NULL,
+// outEndsInsideOpenCodeFence reports whether the result ends inside a still-open
+// fenced code block (the trailing block whose chrome the renderer defers).
+NSString *ENRMRenderableMarkdownForStreaming(NSString *markdown, ENRMTableStreamingMode tableMode,
+                                             ENRMCodeBlockStreamingMode codeBlockMode,
+                                             BOOL *_Nullable outEndsInsideOpenCodeFence);
 
 #ifdef __cplusplus
 }

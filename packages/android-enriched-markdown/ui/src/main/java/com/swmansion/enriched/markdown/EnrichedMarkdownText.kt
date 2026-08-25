@@ -47,6 +47,7 @@ class EnrichedMarkdownText
       private set
 
     private var pendingStyledText: CharSequence? = null
+    private var imageRequestHeaders: Map<String, String> = emptyMap()
     private var selectionColor: Int? = null
     private var selectionHandleColor: Int? = null
     private var isSelectable = true
@@ -73,6 +74,18 @@ class EnrichedMarkdownText
       if (markdownStyle == style) return
       markdownStyle = style
       updateJustificationMode(style)
+      scheduleRenderIfNeeded()
+    }
+
+    /**
+     * Sets HTTP headers attached to remote image requests, e.g. a `Referer`
+     * required by CDN hotlink protection or an `Authorization` token.
+     * Headers participate in image cache identity, so the same URL requested
+     * with different headers is fetched and cached separately.
+     */
+    fun setImageRequestHeaders(headers: Map<String, String>) {
+      if (imageRequestHeaders == headers) return
+      imageRequestHeaders = headers
       scheduleRenderIfNeeded()
     }
 
@@ -185,7 +198,7 @@ class EnrichedMarkdownText
 
           if (renderId != currentRenderId) return@submit
 
-          renderer.configure(style, context)
+          renderer.configure(style, context, imageRequestHeaders)
           val styledText =
             renderer.renderDocument(
               ast,

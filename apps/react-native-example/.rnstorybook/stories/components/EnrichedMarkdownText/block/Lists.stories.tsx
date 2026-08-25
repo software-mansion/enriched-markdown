@@ -108,6 +108,11 @@ const argTypes = {
     max: 48,
     step: 4,
   }),
+  itemSpacing: numberControl('markdownStyle.list.itemSpacing', {
+    min: 0,
+    max: 32,
+    step: 2,
+  }),
 };
 
 function renderList(

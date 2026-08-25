@@ -25,15 +25,24 @@ import com.facebook.react.views.text.ReactTypefaceUtils
 import com.swmansion.enriched.markdown.input.autolink.AutoLinkDetector
 import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
-import com.swmansion.enriched.markdown.input.detection.WordsUtils
+import com.swmansion.enriched.markdown.input.editing.BlockEditCoordinator
+import com.swmansion.enriched.markdown.input.editing.ClipboardCoordinator
+import com.swmansion.enriched.markdown.input.editing.EditContext
+import com.swmansion.enriched.markdown.input.editing.EditPhase
+import com.swmansion.enriched.markdown.input.editing.EditPipeline
+import com.swmansion.enriched.markdown.input.editing.EditPipelineHost
+import com.swmansion.enriched.markdown.input.editing.EditSession
 import com.swmansion.enriched.markdown.input.editing.InputConnectionWrapper
+import com.swmansion.enriched.markdown.input.editing.LinkCoordinator
 import com.swmansion.enriched.markdown.input.editing.MarkdownEditableFactory
 import com.swmansion.enriched.markdown.input.editing.MarkdownTextWatcher
+import com.swmansion.enriched.markdown.input.editing.MentionCoordinator
+import com.swmansion.enriched.markdown.input.editing.MentionEvent
+import com.swmansion.enriched.markdown.input.editing.ZWSP
 import com.swmansion.enriched.markdown.input.formatting.BlockStore
 import com.swmansion.enriched.markdown.input.formatting.FormattingStore
 import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.InputParser
-import com.swmansion.enriched.markdown.input.formatting.MarkdownSerializer
 import com.swmansion.enriched.markdown.input.layout.InputEventEmitter
 import com.swmansion.enriched.markdown.input.layout.InputLayoutManager
 import com.swmansion.enriched.markdown.input.model.BlockRange
@@ -45,8 +54,6 @@ import com.swmansion.enriched.markdown.input.toolbar.InputContextMenu
 import com.swmansion.enriched.markdown.utils.input.AutoCapitalizeUtils
 import kotlin.math.ceil
 
-private fun Char.isLineBreak(): Boolean = this == '\n' || this == '\r' || this == '\u0085' || this == '\u2028' || this == '\u2029'
-
 class EnrichedMarkdownTextInputView(
   context: Context,
 ) : AppCompatEditText(context) {
@@ -54,19 +61,13 @@ class EnrichedMarkdownTextInputView(
 
   val formattingStore = FormattingStore()
   val blockStore = BlockStore()
-  val formatter = InputFormatter()
+  val formatter = InputFormatter(resources.displayMetrics.density)
   val pendingStyles = mutableSetOf<StyleType>()
   val pendingStyleRemovals = mutableSetOf<StyleType>()
 
-  var isDuringTransaction = false
-    private set
+  val editSession = EditSession()
+  val blockCoordinator = BlockEditCoordinator(blockStore)
 
-  var blockEmitting = false
-
-  private var isTextChanging = false
-  var isProcessingTextChange = false
-    private set
-  private var didTextChangeRecently = false
   private var lastProcessedText: String = ""
   private var preEditSelectionStart = 0
   private var preEditSelectionEnd = 0
@@ -85,20 +86,57 @@ class EnrichedMarkdownTextInputView(
   val eventEmitter = InputEventEmitter(this)
   private val autoLinkDetector = AutoLinkDetector(formattingStore)
   private val detectorPipeline = DetectorPipeline()
+  private val mentionCoordinator = MentionCoordinator(formattingStore)
+  private val linkCoordinator = LinkCoordinator(formattingStore, autoLinkDetector)
+
+  private val editPipelineHost =
+    object : EditPipelineHost {
+      override val editable: Editable? get() = text
+      override val emitMarkdown: Boolean get() = this@EnrichedMarkdownTextInputView.emitMarkdown
+
+      override fun syncEmptyListAnchor(restamp: Boolean) = this@EnrichedMarkdownTextInputView.syncEmptyListAnchor(restamp)
+
+      override fun forceScrollToSelection() = this@EnrichedMarkdownTextInputView.forceScrollToSelection()
+
+      override fun syncCursorSizeWithBlock() = this@EnrichedMarkdownTextInputView.syncCursorSizeWithBlock()
+
+      override fun updateActiveMention() = this@EnrichedMarkdownTextInputView.dispatchMentionUpdate()
+
+      override fun runAsATransaction(block: () -> Unit) = this@EnrichedMarkdownTextInputView.runAsATransaction(block)
+
+      override fun setViewSelection(position: Int) = setSelection(position)
+    }
+
+  val editPipeline =
+    EditPipeline(
+      formattingStore = formattingStore,
+      blockStore = blockStore,
+      formatter = formatter,
+      detectorPipeline = detectorPipeline,
+      eventEmitter = eventEmitter,
+      host = editPipelineHost,
+    )
 
   private var textWatcher: MarkdownTextWatcher? = null
   private var inputMethodManager: InputMethodManager? = null
   private var detectScrollMovement = false
   var scrollEnabled: Boolean = true
 
-  private var mentionIndicators: LinkedHashSet<String> = linkedSetOf()
-  private var activeMentionIndicator: String? = null
-  private var activeMentionStart = -1
-  private var activeMentionEnd = -1
-  private var activeMentionText = ""
+  private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline, formatter)
 
   private var headingOverrideBaseSizePx: Float? = null
   private var baseHintColor: Int? = null
+
+  // Number of ZWSP empty-list anchors believed live in the buffer. Bumped on insert,
+  // made exact on every strip scan (which recounts what it keeps), and reset when the
+  // buffer is replaced. Incoming markdown is scrubbed of U+200B at parse time, so in
+  // practice only syncEmptyListAnchor's own inserts raise it. When it is 0 there is
+  // nothing to strip, letting syncEmptyListAnchor skip its O(document) backward scan
+  // on every caret move.
+  private var zwspAnchorCount = 0
+
+  // The consumer-set placeholder, hidden while a bullet is drawn on an empty editor.
+  private var userHint: CharSequence? = null
 
   init {
     setupDetectorPipeline()
@@ -167,14 +205,60 @@ class EnrichedMarkdownTextInputView(
     return InputConnectionWrapper(base, this)
   }
 
+  // Plain Tab is consumed before the platform's focus navigation so it inserts
+  // a tab character and emits onKeyPress, matching iOS. Shift/Ctrl+Tab still
+  // navigate focus.
   override fun onKeyDown(
     keyCode: Int,
     event: KeyEvent?,
   ): Boolean {
+    if (keyCode == KeyEvent.KEYCODE_TAB && event?.hasNoModifiers() != false) {
+      eventEmitter.emitKeyPress("Tab")
+      val start = minOf(selectionStart, selectionEnd).coerceAtLeast(0)
+      val end = maxOf(selectionStart, selectionEnd).coerceAtLeast(0)
+      text?.replace(start, end, "\t")
+      return true
+    }
     if (keyCode == KeyEvent.KEYCODE_DEL && deleteLinkBeforeCursor()) {
       return true
     }
+    if (handleListKey(keyCode, event)) {
+      return true
+    }
     return super.onKeyDown(keyCode, event)
+  }
+
+  /**
+   * Hardware-keyboard list editing: Tab indents the current item, Shift+Tab outdents,
+   * and Backspace at the start of an item (or on an empty/ZWSP-anchored item) outdents,
+   * then un-lists at depth 0. Only fires on a list line; returns true when handled.
+   */
+  private fun handleListKey(
+    keyCode: Int,
+    event: KeyEvent?,
+  ): Boolean {
+    val listBlock = listBlockAtCursor() ?: return false
+    val depth = listBlock.level
+    when (keyCode) {
+      KeyEvent.KEYCODE_TAB -> {
+        if (event?.isShiftPressed == true) outdentList() else indentList()
+        return true
+      }
+
+      KeyEvent.KEYCODE_DEL -> {
+        if (selectionStart == selectionEnd) {
+          val editable = text ?: return false
+          val ls = blockCoordinator.lineStartOf(editable, selectionStart)
+          val le = blockCoordinator.lineEndOf(editable, selectionStart)
+          val content = editable.subSequence(ls, le).toString()
+          if (selectionStart == ls || content.isEmpty() || content == ZWSP.toString()) {
+            if (depth > 0) outdentList() else toggleListType(listBlock.type)
+            return true
+          }
+        }
+      }
+    }
+    return false
   }
 
   // Prevents TextView from deferring its internal layout when a Fabric
@@ -229,17 +313,16 @@ class EnrichedMarkdownTextInputView(
   }
 
   fun runAsATransaction(block: () -> Unit) {
-    try {
-      isDuringTransaction = true
+    if (editSession.phase != EditPhase.Idle) {
       block()
-    } finally {
-      isDuringTransaction = false
+    } else {
+      editSession.scoped(EditPhase.Processing) { block() }
     }
   }
 
   fun onBeforeTextChanged() {
-    if (isProcessingTextChange) return
-    isTextChanging = true
+    if (editSession.phase != EditPhase.Idle) return
+    editSession.isTextChanging = true
     preEditSelectionStart = selectionStart
     preEditSelectionEnd = selectionEnd
   }
@@ -249,33 +332,30 @@ class EnrichedMarkdownTextInputView(
     deletedLength: Int,
     insertedLength: Int,
   ) {
-    if (isProcessingTextChange) return
+    if (editSession.phase != EditPhase.Idle) return
 
     val currentText = text?.toString() ?: ""
     if (currentText == lastProcessedText) return
 
-    isProcessingTextChange = true
+    editSession.enter(EditPhase.Processing)
     try {
-      adjustStoresForEdit(editStart, deletedLength, insertedLength)
-      applyPendingStyles(editStart, insertedLength)
-      applyFormattingScopedToEdit(editStart, insertedLength)
-
-      val editable = text
-      if (editable != null) {
-        detectorPipeline.processTextChange(editable, currentText, editStart, insertedLength)
-      }
-
-      forceScrollToSelection()
-      syncCursorSizeWithBlock()
-      eventEmitter.emitChangeText()
-      if (emitMarkdown) eventEmitter.emitChangeMarkdown()
-      updateActiveMention()
-      eventEmitter.emitCaretRectChangeIfNeeded()
-      isTextChanging = false
-      didTextChangeRecently = true
-      lastProcessedText = currentText
+      val context =
+        EditContext(
+          editStart = editStart,
+          deletedLength = deletedLength,
+          insertedLength = insertedLength,
+          preEditText = currentText,
+          preEditSelectionStart = preEditSelectionStart,
+          preEditSelectionEnd = preEditSelectionEnd,
+          pendingStyles = pendingStyles.toSet(),
+          pendingStyleRemovals = pendingStyleRemovals.toSet(),
+        )
+      editPipeline.processTextChange(context)
+      editSession.isTextChanging = false
+      editSession.didTextChangeRecently = true
+      lastProcessedText = text?.toString() ?: currentText
     } finally {
-      isProcessingTextChange = false
+      editSession.exit()
     }
   }
 
@@ -284,89 +364,60 @@ class EnrichedMarkdownTextInputView(
     selEnd: Int,
   ) {
     super.onSelectionChanged(selStart, selEnd)
-    if (!isComponentReady || isDuringTransaction) return
+    if (!isComponentReady || editSession.shouldSuppressTextWatcher) return
 
-    if (!isTextChanging) {
-      // Links (e.g. mentions) are atomic: snap a partial selection to the whole link, and a caret
-      // inside a link to its end. Returning lets the recursive onSelectionChanged emit for the result.
+    if (!editSession.isTextChanging) {
       formattingStore.selectionAdjustedForAtomicLinks(selStart, selEnd)?.let { (newStart, newEnd) ->
         setSelection(newStart, newEnd)
         return
       }
-      if (didTextChangeRecently) {
-        didTextChangeRecently = false
+      if (editSession.didTextChangeRecently) {
+        editSession.didTextChangeRecently = false
       } else {
         pendingStyles.clear()
         pendingStyleRemovals.clear()
+        seedPendingStylesFromSelection(selStart, selEnd)
       }
     }
 
+    if (!editSession.isTextChanging && editSession.phase == EditPhase.Idle) {
+      // The caret moving on/off an empty bullet line toggles the ZWSP anchor and the
+      // placeholder visibility; skip during a text-change pass (handled there).
+      syncEmptyListAnchor()
+    }
+
     eventEmitter.emitSelection(selStart, selEnd)
-    updateActiveMention()
+    dispatchMentionUpdate()
     eventEmitter.emitState()
     eventEmitter.emitCaretRectChangeIfNeeded()
   }
 
-  private fun applyPendingStyles(
-    editStart: Int,
-    insertedLength: Int,
-  ) {
-    if (insertedLength == 0) return
-    if (pendingStyles.isEmpty() && pendingStyleRemovals.isEmpty()) return
-
-    val rangeStart = if (preEditSelectionStart != preEditSelectionEnd) preEditSelectionStart else editStart
-    val rangeEnd = rangeStart + insertedLength
-
-    // Skip applying pending styles when the insertion is only line breaks —
-    // a phantom range over a bare newline corrupts isStyleActive() at the boundary.
-    val currentText = text
-    val insertedHasGlyphContent =
-      currentText != null &&
-        rangeEnd <= currentText.length &&
-        (rangeStart until rangeEnd).any { !currentText[it].isLineBreak() }
-
-    if (insertedHasGlyphContent) {
-      for (style in pendingStyles) {
-        formattingStore.addRange(FormattingRange(style, rangeStart, rangeEnd))
-      }
-    }
-
-    for (style in pendingStyleRemovals) {
-      formattingStore.removeType(style, rangeStart, rangeEnd)
-    }
-  }
-
   /**
-   * Drops heading ranges no longer anchored at a line start (e.g. Backspace merged
-   * their line into the previous one). Must run BEFORE [BlockStore.normalizeToLineBounds]
-   * so a merged range is judged on its unsnapped anchor and can't grow over the line
-   * it merged into.
+   * Text typed over a non-empty selection inherits the inline styles of the first
+   * selected character (mirrors iOS rebuildFromContext and the range-inheritance
+   * rule in [com.swmansion.enriched.markdown.input.formatting.RangeEditAdjustment]).
+   * Seeding here is the only chance to carry the style through the whole typed
+   * run: the post-edit grace period above skips reseeding between keystrokes.
+   * LINK is excluded — typing over a selected link replaces it, not extends it.
    */
-  private fun pruneOrphanedHeadingAnchors() {
-    val editable = text ?: return
-    val orphans =
-      blockStore.allRanges.filter { range ->
-        range.type in BlockType.HEADINGS && !isAtLineStart(editable, range.start)
+  private fun seedPendingStylesFromSelection(
+    selStart: Int,
+    selEnd: Int,
+  ) {
+    if (selStart == selEnd) return
+    for (style in StyleType.entries) {
+      if (style == StyleType.LINK) continue
+      if (formattingStore.isStyleActive(style, selStart)) {
+        pendingStyles.add(style)
       }
-    for (orphan in orphans) {
-      blockStore.removeBlock(orphan.start, orphan.start, editable)
     }
-  }
-
-  /** True when [pos] is the first character of a line (document start or just after a line break). */
-  private fun isAtLineStart(
-    editable: CharSequence,
-    pos: Int,
-  ): Boolean {
-    if (pos < 0 || pos > editable.length) return false
-    return pos == 0 || editable[pos - 1].isLineBreak()
   }
 
   /**
    * Adjusts both [formattingStore] and [blockStore] for a text edit, then prunes
-   * orphaned heading anchors and normalizes block ranges to line bounds. Every
-   * code path that mutates the text buffer must call this so block ranges stay in
-   * sync — mirrors iOS's `replaceTextInRange:withText:formattingRanges:blockRanges:`.
+   * orphaned anchors and normalizes block ranges to line bounds. Every code path
+   * that mutates the text buffer must call this so block ranges stay in sync —
+   * mirrors iOS's `replaceTextInRange:withText:formattingRanges:blockRanges:`.
    */
   private fun adjustStoresForEdit(
     editStart: Int,
@@ -375,7 +426,7 @@ class EnrichedMarkdownTextInputView(
   ) {
     formattingStore.adjustForEdit(editStart, deletedLength, insertedLength)
     blockStore.adjustForEdit(editStart, deletedLength, insertedLength)
-    pruneOrphanedHeadingAnchors()
+    editPipeline.pruneOrphanedAnchors()
     text?.let { blockStore.normalizeToLineBounds(it) }
   }
 
@@ -386,7 +437,7 @@ class EnrichedMarkdownTextInputView(
     postAdjust: (Editable) -> Unit = {},
   ) {
     val editable = text ?: return
-    isProcessingTextChange = true
+    editSession.enter(EditPhase.Processing)
     try {
       editable.replace(start, end, newText)
       adjustStoresForEdit(start, end - start, newText.length)
@@ -395,7 +446,7 @@ class EnrichedMarkdownTextInputView(
       applyFormattingAndEmit()
       eventEmitter.emitChangeText()
     } finally {
-      isProcessingTextChange = false
+      editSession.exit()
     }
   }
 
@@ -403,33 +454,6 @@ class EnrichedMarkdownTextInputView(
     val editable = text ?: return
     formatter.applyFormatting(editable, formattingStore.allRanges)
     formatter.applyBlockFormatting(editable, blockStore.allRanges)
-  }
-
-  /**
-   * Re-applies inline formatting across the document, but re-normalizes block spans
-   * only on the paragraph(s) touched by an edit at `[editStart, editStart + insertedLength)`.
-   * Heading sizing is paragraph-scoped, so re-stamping only the edited line keeps
-   * per-keystroke work bounded instead of re-spanning the whole document.
-   */
-  private fun applyFormattingScopedToEdit(
-    editStart: Int,
-    insertedLength: Int,
-  ) {
-    val editable = text ?: return
-    formatter.applyFormatting(editable, formattingStore.allRanges)
-
-    val length = editable.length
-    val rawStart = editStart.coerceIn(0, length)
-    val rawEnd = (editStart + insertedLength).coerceIn(rawStart, length)
-
-    // Expand the edit span to whole-line bounds: a heading span covers its line, so
-    // re-stamping must cover every line the edit touched, edge-to-edge.
-    var lineStart = rawStart
-    while (lineStart > 0 && editable[lineStart - 1] != '\n') lineStart--
-    var lineEnd = rawEnd
-    while (lineEnd < length && editable[lineEnd] != '\n') lineEnd++
-
-    formatter.applyBlockFormatting(editable, blockStore.allRanges, lineStart, lineEnd)
   }
 
   private fun applyFormattingAndEmit() {
@@ -468,21 +492,12 @@ class EnrichedMarkdownTextInputView(
   fun toggleInlineStyle(styleType: StyleType) {
     val handler = formatter.handlers[styleType] ?: return
     val mergingConfig = handler.mergingConfig
-
     val selStart = selectionStart
     val selEnd = selectionEnd
 
-    // Check blocking rules: if any blocking style is active, refuse to toggle on.
-    if (mergingConfig.blockingStyles.isNotEmpty()) {
-      val isCurrentlyActive = formattingStore.isStyleActive(styleType, selStart)
-      if (!isCurrentlyActive) {
-        for (blocker in mergingConfig.blockingStyles) {
-          if (formattingStore.isStyleActive(blocker, selStart)) {
-            return
-          }
-        }
-      }
-    }
+    if (formattingStore.isToggleBlocked(styleType, selStart, mergingConfig.blockingStyles)) return
+
+    val result = formattingStore.toggleStyle(styleType, selStart, selEnd, mergingConfig.conflictingStyles)
 
     if (selStart == selEnd) {
       if (pendingStyleRemovals.contains(styleType)) {
@@ -491,25 +506,157 @@ class EnrichedMarkdownTextInputView(
       } else if (pendingStyles.contains(styleType)) {
         pendingStyles.remove(styleType)
         pendingStyleRemovals.add(styleType)
-      } else if (formattingStore.isStyleActive(styleType, selStart)) {
+      } else if (result == FormattingStore.ToggleResult.WAS_ACTIVE) {
         pendingStyleRemovals.add(styleType)
       } else {
         pendingStyles.add(styleType)
       }
       eventEmitter.emitState()
     } else {
-      val isActive = formattingStore.isStyleActive(styleType, selStart)
-      if (isActive) {
-        formattingStore.removeType(styleType, selStart, selEnd)
-      } else {
-        // Remove conflicting styles from the range before applying.
-        for (conflict in mergingConfig.conflictingStyles) {
-          formattingStore.removeType(conflict, selStart, selEnd)
-        }
-        formattingStore.addRange(FormattingRange(styleType, selStart, selEnd))
-      }
       applyFormattingAndEmit()
+      pendingStyles.clear()
+      pendingStyleRemovals.clear()
+      seedPendingStylesFromSelection(selStart, selEnd)
     }
+  }
+
+  private fun listBlockAtCursor(): BlockRange? {
+    val editable = text ?: return null
+    return blockCoordinator.listBlockAtPosition(editable, selectionStart)
+  }
+
+  fun listStateAtCursor(type: BlockType): Pair<Boolean, Int> {
+    val editable = text ?: return false to 0
+    return blockCoordinator.listStateAtPosition(editable, selectionStart, type)
+  }
+
+  fun toggleUnorderedList() = toggleListType(BlockType.UNORDERED_LIST_ITEM)
+
+  fun toggleOrderedList() = toggleListType(BlockType.ORDERED_LIST_ITEM)
+
+  private fun toggleListType(type: BlockType) {
+    val editable = text ?: return
+    blockCoordinator.toggleList(editable, type, selectionStart, selectionStart, selectionEnd)
+    applyFormattingAndEmit()
+    syncEmptyListAnchor()
+  }
+
+  /** Increases the nesting depth of the selected list item(s). QoL: indenting a plain paragraph starts a list. */
+  fun indentList() = changeListDepthBy(1)
+
+  /** Decreases the nesting depth; outdenting at depth 0 removes the list marker. */
+  fun outdentList() = changeListDepthBy(-1)
+
+  private fun changeListDepthBy(delta: Int) {
+    val editable = text ?: return
+    val result = blockCoordinator.changeDepth(editable, selectionStart, selectionStart, selectionEnd, delta)
+    if (result == BlockEditCoordinator.DepthChangeResult.NO_OP) return
+    applyFormattingAndEmit()
+    syncEmptyListAnchor()
+  }
+
+  /**
+   * Keeps an empty bullet line anchored by a ZWSP so its marker draws and the caret
+   * indents (a [android.text.style.LeadingMarginSpan] doesn't indent an empty
+   * paragraph). Inserts the ZWSP on the caret's empty list line, strips stale ones.
+   *
+   * @param restamp re-apply block formatting here (selection/command paths); the
+   *   text-change pass passes false and stamps once afterwards.
+   * @return true if an anchor was inserted or stripped (text/ranges mutated).
+   *
+   * When called from `onAfterTextChanged` this mutates the [Editable] from inside
+   * the text-change callback — normally an Android hazard around IME composition,
+   * undo/redo, and accessibility. It is safe here, and deliberately synchronous,
+   * because: every buffer mutation is wrapped in [runAsATransaction] (which keeps
+   * [EditSession.phase] non-idle, so [MarkdownTextWatcher] early-returns and the edit
+   * does not re-enter this pass), the whole `onAfterTextChanged` body holds
+   * [EditPhase.Processing], and [EditPhase.ManagingAnchors] blocks re-entry via the
+   * selection-change path. The mutation must stay synchronous: the single-stamp
+   * ordering above, the caret placement past the anchor, and `lastProcessedText`
+   * all depend on the buffer reaching its final state within this same callback —
+   * deferring the insert/delete (e.g. via `post`) would run it outside every guard
+   * and reintroduce the double-bullet and stale-caret bugs.
+   */
+  private fun syncEmptyListAnchor(restamp: Boolean = true): Boolean {
+    if (editSession.shouldSuppressAnchorSync) return false
+    val editable = text ?: return false
+    editSession.enter(EditPhase.ManagingAnchors)
+    var anchorChanged = false
+    try {
+      // Strip every stale ZWSP first (a line that gained content or stopped being a
+      // list). Skip the full-document scan when we've inserted no anchors — there is
+      // nothing to strip, so a caret move in a document with no empty list lines is
+      // O(1) instead of O(document length). When the scan does run it recounts the
+      // anchors it keeps, so the count is exact afterwards — a prior overcount (an
+      // anchor the user deleted directly) or an undercount (a foreign ZWSP that stole
+      // a decrement) self-heals rather than disabling the fast path or leaking a
+      // stale anchor.
+      if (zwspAnchorCount > 0) {
+        var keptAnchors = 0
+        var i = editable.length - 1
+        while (i >= 0) {
+          if (editable[i] == ZWSP) {
+            val ls = blockCoordinator.lineStartOf(editable, i)
+            val le = blockCoordinator.lineEndOf(editable, i)
+            val onlyZwsp = le - ls == 1 && editable[ls] == ZWSP
+            val isEmptyListLine = onlyZwsp && blockCoordinator.listBlockAtLineStart(ls) != null
+            if (!isEmptyListLine) {
+              runAsATransaction { editable.delete(i, i + 1) }
+              blockStore.adjustForEdit(i, 1, 0)
+              anchorChanged = true
+            } else {
+              keptAnchors++
+            }
+          }
+          i--
+        }
+        zwspAnchorCount = keptAnchors
+      }
+
+      val caret = selectionStart
+      if (selectionStart == selectionEnd) {
+        val ls = blockCoordinator.lineStartOf(editable, caret)
+        val le = blockCoordinator.lineEndOf(editable, caret)
+        val block = blockCoordinator.listBlockAtLineStart(ls)
+        if (block != null && le == ls) {
+          runAsATransaction { editable.insert(ls, ZWSP.toString()) }
+          blockStore.adjustForEdit(ls, 0, 1)
+          blockStore.normalizeToLineBounds(editable)
+          setSelection(ls + 1)
+          zwspAnchorCount++
+          anchorChanged = true
+        }
+      }
+
+      if (anchorChanged) {
+        // Re-snap any range left zero-length by a strip so the next stamp is exact.
+        blockStore.normalizeToLineBounds(editable)
+        if (restamp) applyFormatting()
+        lastProcessedText = editable.toString()
+        if (emitMarkdown) eventEmitter.emitChangeMarkdown()
+      }
+      syncHintVisibility()
+      return anchorChanged
+    } finally {
+      editSession.exit()
+    }
+  }
+
+  /**
+   * The hint shows only on a truly empty editor with no block range — a bullet's
+   * ZWSP anchor counts as content, so the hint never overlaps a marker. Mirrors iOS.
+   */
+  private fun syncHintVisibility() {
+    val content = text
+    val hasRealText = content != null && content.any { it != ZWSP }
+    val hasBlock = blockStore.allRanges.isNotEmpty()
+    val target: CharSequence? = if (hasRealText || hasBlock) "" else userHint
+    if (hint != target) super.setHint(target)
+  }
+
+  fun setUserHint(value: CharSequence?) {
+    userHint = value
+    syncHintVisibility()
   }
 
   // Copies the whole input as markdown without disturbing the current selection,
@@ -519,14 +666,7 @@ class EnrichedMarkdownTextInputView(
     val content = text
     if (content.isNullOrEmpty()) return
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-    val markdown =
-      MarkdownSerializer.serialize(
-        content.toString(),
-        allFormattingRangesForSerialization(),
-        blockStore.allRanges,
-      ) { blockRange ->
-        formatter.handlerForBlock(blockRange.type)?.markdownLinePrefix(blockRange) ?: ""
-      }
+    val markdown = clipboardCoordinator.serializeFullDocument(content.toString(), content)
     clipboard.setPrimaryClip(MarkdownClipboard.newMarkdownClip(markdown, content.toString()))
   }
 
@@ -537,6 +677,13 @@ class EnrichedMarkdownTextInputView(
     if (id == android.R.id.paste) {
       MarkdownClipboard.markdownFromClipboard(context)?.let { markdown ->
         pasteMarkdown(markdown)
+        return true
+      }
+      // External plain text is treated as markdown so pasted syntax ("- ", "#",
+      // "**") formats instead of landing literal; syntax-free text is unchanged.
+      // "Paste as plain text" (pasteAsPlainText) keeps the literal default.
+      plainTextFromClipboard()?.let { plainText ->
+        pasteMarkdown(plainText)
         return true
       }
     }
@@ -555,63 +702,51 @@ class EnrichedMarkdownTextInputView(
     return super.onTextContextMenuItem(id)
   }
 
-  /** Serializes the current selection (inline + block ranges) to markdown, or null if empty. */
   fun markdownForSelectedRange(): String? {
-    val selStart = selectionStart
-    val selEnd = selectionEnd
-    if (selStart >= selEnd) return null
-
     val fullText = text?.toString() ?: return null
-    val selectedText = fullText.substring(selStart, selEnd)
+    return clipboardCoordinator.serializeSelectedRange(fullText, selectionStart, selectionEnd, text)
+  }
 
-    val clippedRanges = mutableListOf<FormattingRange>()
-    for (range in formattingStore.allRanges) {
-      if (range.end <= selStart || range.start >= selEnd) continue
-
-      val clippedStart = maxOf(range.start, selStart)
-      val clippedEnd = minOf(range.end, selEnd)
-      clippedRanges.add(
-        FormattingRange(range.type, clippedStart - selStart, clippedEnd - selStart, range.url),
-      )
-    }
-
-    val clippedBlockRanges = mutableListOf<BlockRange>()
-    for (blockRange in blockStore.allRanges) {
-      if (blockRange.end <= selStart || blockRange.start >= selEnd) continue
-
-      val clippedStart = maxOf(blockRange.start, selStart)
-      val clippedEnd = minOf(blockRange.end, selEnd)
-      clippedBlockRanges.add(
-        BlockRange(blockRange.type, clippedStart - selStart, clippedEnd - selStart, blockRange.level),
-      )
-    }
-
-    return MarkdownSerializer.serialize(selectedText, clippedRanges, clippedBlockRanges) { blockRange ->
-      formatter.handlerForBlock(blockRange.type)?.markdownLinePrefix(blockRange) ?: ""
-    }
+  private fun plainTextFromClipboard(): String? {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null
+    val item = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0) ?: return null
+    return item.coerceToText(context)?.toString()?.takeIf { it.isNotEmpty() }
   }
 
   /**
    * Replaces the selection with parsed markdown, importing its inline formatting
    * and block ranges (headings etc.) into the stores — mirrors iOS pasteMarkdown.
+   *
+   * Insertion is literal: the string's characters land at the cursor exactly as
+   * given. Markdown parsing consumes leading and trailing newlines as block
+   * structure, so they are split off before the parse and re-attached verbatim;
+   * without this, insertText("\n- item\n") mid-paragraph would merge the list
+   * line with the surrounding text. Callers decide separation by including (or
+   * omitting) newlines in the string.
    */
   fun pasteMarkdown(markdown: String) {
     val editable = text ?: return
-    val parsed = InputParser.parseToPlainTextAndRanges(markdown)
+    val prefix = markdown.takeWhile { it == '\n' }
+    val suffix = if (markdown.length > prefix.length) markdown.takeLastWhile { it == '\n' } else ""
+    val core = markdown.substring(prefix.length, markdown.length - suffix.length)
+    val parsed = InputParser.parseToPlainTextAndRanges(core)
     val selStart = selectionStart.coerceIn(0, editable.length)
     val selEnd = selectionEnd.coerceIn(selStart, editable.length)
 
-    replaceTextInRange(selStart, selEnd, parsed.plainText) { editable ->
+    val plainText = prefix + parsed.plainText + suffix
+    val contentStart = selStart + prefix.length
+
+    replaceTextInRange(selStart, selEnd, plainText) { editable ->
       for (range in parsed.formattingRanges) {
         formattingStore.addRange(
-          FormattingRange(range.type, range.start + selStart, range.end + selStart, range.url),
+          FormattingRange(range.type, range.start + contentStart, range.end + contentStart, range.url),
         )
       }
       for (block in parsed.blockRanges) {
-        blockStore.setBlock(block.type, block.level, block.start + selStart, block.end + selStart, editable)
+        blockStore.setBlock(block.type, block.level, block.start + contentStart, block.end + contentStart, editable)
       }
-      setSelection(selStart + parsed.plainText.length)
-      detectorPipeline.processTextChange(editable, editable.toString(), selStart, parsed.plainText.length)
+      setSelection(selStart + plainText.length)
+      detectorPipeline.processTextChange(editable, editable.toString(), selStart, plainText.length)
     }
   }
 
@@ -621,58 +756,28 @@ class EnrichedMarkdownTextInputView(
     toggleBlockType(blockType, level)
   }
 
-  /**
-   * Block counterpart to [toggleInlineStyle]: sets [type] on the paragraph(s) the
-   * selection touches, or clears it back to a plain paragraph when already active.
-   */
   private fun toggleBlockType(
     type: BlockType,
     level: Int,
   ) {
     val editable = text ?: return
-
     val selStart = selectionStart.coerceIn(0, editable.length)
     val selEnd = selectionEnd.coerceIn(selStart, editable.length)
-
-    val existing = blockOnParagraphAt(selStart)
-    val isActive = existing != null && existing.type == type && existing.level == level
-
-    if (isActive) {
-      blockStore.removeBlock(selStart, selEnd, editable)
-    } else {
-      // Blocks are single-paragraph: set one range per line the selection
-      // touches, not one range spanning them all — otherwise the next edit's
-      // line normalization would clip the block to its first line.
-      var lineStart = selStart
-      while (lineStart > 0 && !editable[lineStart - 1].isLineBreak()) lineStart--
-      while (lineStart <= selEnd) {
-        var lineEnd = lineStart
-        while (lineEnd < editable.length && !editable[lineEnd].isLineBreak()) lineEnd++
-        blockStore.setBlock(type, level, lineStart, lineEnd, editable)
-        lineStart = lineEnd + 1
-      }
-    }
-
+    blockCoordinator.toggleBlock(editable, type, level, selStart, selEnd)
     applyFormattingAndEmit()
     syncCursorSizeWithBlock()
   }
 
-  /**
-   * The block owning [pos]'s paragraph, or null. Matched by line start, not
-   * containment, so line-end carets and zero-length heading anchors register.
-   */
   private fun blockOnParagraphAt(pos: Int): BlockRange? {
     val editable = text ?: return null
-    val cursor = pos.coerceIn(0, editable.length)
-    var lineStart = cursor
-    while (lineStart > 0 && !editable[lineStart - 1].isLineBreak()) lineStart--
-    return blockStore.allRanges.firstOrNull { it.start == lineStart }
+    return blockCoordinator.blockAtPosition(editable, pos)
   }
 
-  /** Heading level (1-6) of the cursor's paragraph, or 0 when it is a plain paragraph. */
+  private fun listBlockStartingAt(lineStart: Int): BlockRange? = blockCoordinator.listBlockAtLineStart(lineStart)
+
   fun headingLevelAtCursor(): Int {
-    val block = blockOnParagraphAt(selectionStart) ?: return 0
-    return if (block.type in BlockType.HEADINGS) block.level else 0
+    val editable = text ?: return 0
+    return blockCoordinator.headingLevelAtPosition(editable, selectionStart)
   }
 
   /**
@@ -708,13 +813,14 @@ class EnrichedMarkdownTextInputView(
     val selStart = selectionStart
     val selEnd = selectionEnd
     if (selStart == selEnd) return
-
-    val editable = text
-    if (editable != null) {
-      autoLinkDetector.clearAutoLinkInRange(editable, selStart, selEnd)
-    }
-    formattingStore.addRange(FormattingRange(StyleType.LINK, selStart, selEnd, url))
+    linkCoordinator.setLinkForRange(url, selStart, selEnd, text)
     applyFormattingAndEmit()
+  }
+
+  /** Parses the given markdown and inserts it at the cursor, replacing any selection. */
+  fun insertTextAtCursor(markdown: String) {
+    if (markdown.isEmpty()) return
+    pasteMarkdown(markdown)
   }
 
   fun insertLinkAtCursor(
@@ -726,8 +832,7 @@ class EnrichedMarkdownTextInputView(
     val linkEnd = selStart + displayText.length
 
     replaceTextInRange(selStart, selEnd, displayText) { editable ->
-      autoLinkDetector.clearAutoLinkInRange(editable, selStart, linkEnd)
-      formattingStore.addRange(FormattingRange(StyleType.LINK, selStart, linkEnd, sanitizeLinkUrl(url)))
+      linkCoordinator.addLink(url, selStart, linkEnd, editable)
       setSelection(linkEnd)
     }
   }
@@ -737,40 +842,36 @@ class EnrichedMarkdownTextInputView(
     url: String,
   ) {
     if (displayText.isEmpty()) return
-    val indicator = activeMentionIndicator ?: return
-    val start = activeMentionStart
-    val end = activeMentionEnd
+    val indicator = mentionCoordinator.currentIndicator ?: return
+    val start = mentionCoordinator.currentStart
+    val end = mentionCoordinator.currentEnd
     val editable = text ?: return
     if (start < 0 || end < start || end > editable.length) return
 
-    val sanitizedUrl = sanitizeLinkUrl(url)
     val shouldAppendSpace = end >= editable.length || !editable[end].isWhitespace()
     val replacement = if (shouldAppendSpace) "$displayText " else displayText
     val linkEnd = start + displayText.length
 
     replaceTextInRange(start, end, replacement) { ed ->
-      autoLinkDetector.clearAutoLinkInRange(ed, start, linkEnd)
-      formattingStore.addRange(FormattingRange(StyleType.LINK, start, linkEnd, sanitizedUrl))
-      clearActiveMention(emit = true, indicatorOverride = indicator)
+      linkCoordinator.addLink(url, start, linkEnd, ed)
+      dispatchMentionEvents(mentionCoordinator.clear(indicatorOverride = indicator))
       setSelection(start + replacement.length)
     }
   }
 
   fun startMention(indicator: String) {
-    if (indicator.isEmpty() || indicator !in mentionIndicators) return
+    if (indicator.isEmpty() || !mentionCoordinator.containsIndicator(indicator)) return
     val selStart = selectionStart
     val selEnd = selectionEnd
 
     replaceTextInRange(selStart, selEnd, indicator) {
       setSelection(selStart + indicator.length)
     }
-    updateActiveMention()
+    dispatchMentionUpdate()
   }
 
   fun removeLinkAtCursor() {
-    val pos = selectionStart
-    val linkRange = formattingStore.rangeOfType(StyleType.LINK, pos) ?: return
-    formattingStore.removeRange(linkRange)
+    if (!linkCoordinator.removeLink(selectionStart)) return
     applyFormattingAndEmit()
   }
 
@@ -780,29 +881,22 @@ class EnrichedMarkdownTextInputView(
     if (cursorStart != cursorEnd || cursorStart <= 0) return false
     if (text == null) return false
 
-    val linkRange = formattingStore.rangeOfType(StyleType.LINK, cursorStart - 1) ?: return false
+    val linkRange = linkCoordinator.linkRangeForDeletion(cursorStart) ?: return false
 
     replaceTextInRange(linkRange.start, linkRange.end, "") { editable ->
       setSelection(linkRange.start.coerceAtMost(editable.length))
     }
-    clearActiveMention()
+    dispatchMentionEvents(mentionCoordinator.clear())
     return true
   }
 
   fun setMentionIndicators(indicators: List<String>) {
-    val newIndicators = LinkedHashSet(indicators)
-    if (newIndicators == mentionIndicators) return
-    mentionIndicators = newIndicators
-    activeMentionIndicator?.let { indicator ->
-      if (indicator !in mentionIndicators) {
-        clearActiveMention(emit = true, indicatorOverride = indicator)
-      }
-    }
-    updateActiveMention()
+    dispatchMentionEvents(mentionCoordinator.setIndicators(indicators))
+    dispatchMentionUpdate()
   }
 
   fun dismissActiveMention() {
-    clearActiveMention(emit = false)
+    mentionCoordinator.clear(emit = false)
   }
 
   fun setContextMenuItems(items: List<String>) {
@@ -817,30 +911,35 @@ class EnrichedMarkdownTextInputView(
     autoLinkDetector.style = style
   }
 
-  fun allFormattingRangesForSerialization(): List<FormattingRange> {
-    val editable = text ?: return formattingStore.allRanges
-    val transientRanges = detectorPipeline.allTransientFormattingRanges(editable)
-    if (transientRanges.isEmpty()) return formattingStore.allRanges
-    return formattingStore.allRanges + transientRanges
+  /**
+   * Applies the parsed `markdownStyle` (which now carries `list.itemSpacing`).
+   * Display density is folded in at [InputFormatter] construction, so the style is
+   * handed to the formatter as-is. Returns true if the effective style changed
+   * (caller re-applies formatting).
+   */
+  fun setMarkdownStyleFromProps(style: InputFormatterStyle): Boolean {
+    setAutoLinkStyle(style)
+    return formatter.updateStyle(style)
   }
+
+  fun allFormattingRangesForSerialization(): List<FormattingRange> = clipboardCoordinator.allRangesForSerialization(text)
 
   fun setValueFromJS(markdown: String) {
     val parsed = InputParser.parseToPlainTextAndRanges(markdown)
-    blockEmitting = true
+    editSession.enter(EditPhase.Importing)
     try {
-      runAsATransaction {
-        formattingStore.clearAll()
-        formattingStore.setRanges(parsed.formattingRanges)
-        blockStore.setRanges(parsed.blockRanges)
-        setText(parsed.plainText)
-        setSelection(text?.length ?: 0)
-      }
+      formattingStore.clearAll()
+      formattingStore.setRanges(parsed.formattingRanges)
+      blockStore.setRanges(parsed.blockRanges)
+      setText(parsed.plainText)
+      setSelection(text?.length ?: 0)
+      zwspAnchorCount = 0
       applyFormatting()
       forceScrollToSelection()
       layoutManager.invalidateLayout()
       lastProcessedText = text?.toString() ?: ""
     } finally {
-      blockEmitting = false
+      editSession.exit()
     }
   }
 
@@ -942,15 +1041,7 @@ class EnrichedMarkdownTextInputView(
   ) {
     if (start >= end) return
     val handler = formatter.handlers[styleType] ?: return
-    val isActive = formattingStore.isStyleActive(styleType, start)
-    if (isActive) {
-      formattingStore.removeType(styleType, start, end)
-    } else {
-      for (conflict in handler.mergingConfig.conflictingStyles) {
-        formattingStore.removeType(conflict, start, end)
-      }
-      formattingStore.addRange(FormattingRange(styleType, start, end))
-    }
+    formattingStore.toggleStyle(styleType, start, end, handler.mergingConfig.conflictingStyles)
     applyFormattingAndEmit()
   }
 
@@ -959,81 +1050,21 @@ class EnrichedMarkdownTextInputView(
     start: Int,
     end: Int,
   ) {
-    if (start >= end) return
-    formattingStore.addRange(FormattingRange(StyleType.LINK, start, end, url))
+    linkCoordinator.addLinkDirect(url, start, end)
     applyFormattingAndEmit()
   }
 
-  private fun updateActiveMention() {
-    val plainText = text?.toString() ?: return
-    val cursor = selectionStart
-    if (selectionStart != selectionEnd || cursor < 0 || cursor > plainText.length) {
-      clearActiveMention()
-      return
-    }
-
-    val candidate = detectMentionAtCursor(plainText, cursor)
-    if (candidate == null) {
-      clearActiveMention()
-      return
-    }
-
-    if (activeMentionIndicator != candidate.indicator || activeMentionStart != candidate.start) {
-      activeMentionIndicator?.let { eventEmitter.emitEndMention(it) }
-      activeMentionIndicator = candidate.indicator
-      activeMentionStart = candidate.start
-      eventEmitter.emitStartMention(candidate.indicator)
-    }
-
-    activeMentionEnd = candidate.end
-    if (activeMentionText != candidate.text) {
-      activeMentionText = candidate.text
-      eventEmitter.emitChangeMention(candidate.indicator, candidate.text)
-    }
+  private fun dispatchMentionUpdate() {
+    dispatchMentionEvents(mentionCoordinator.update(text?.toString(), selectionStart, selectionEnd))
   }
 
-  private fun detectMentionAtCursor(
-    plainText: String,
-    cursor: Int,
-  ): MentionCandidate? {
-    if (mentionIndicators.isEmpty()) return null
-
-    val start = WordsUtils.tokenStart(plainText, cursor)
-    val token = plainText.substring(start, cursor)
-    val indicator = mentionIndicators.firstOrNull { token.startsWith(it) } ?: return null
-    if (formattingStore.rangeOfType(StyleType.LINK, start) != null) return null
-
-    return MentionCandidate(
-      indicator = indicator,
-      start = start,
-      end = cursor,
-      text = token.substring(indicator.length),
-    )
-  }
-
-  private fun clearActiveMention(
-    emit: Boolean = true,
-    indicatorOverride: String? = null,
-  ) {
-    val indicator = indicatorOverride ?: activeMentionIndicator
-    activeMentionIndicator = null
-    activeMentionStart = -1
-    activeMentionEnd = -1
-    activeMentionText = ""
-    if (emit && indicator != null) {
-      eventEmitter.emitEndMention(indicator)
+  private fun dispatchMentionEvents(events: List<MentionEvent>) {
+    for (event in events) {
+      when (event) {
+        is MentionEvent.Start -> eventEmitter.emitStartMention(event.indicator)
+        is MentionEvent.Change -> eventEmitter.emitChangeMention(event.indicator, event.text)
+        is MentionEvent.End -> eventEmitter.emitEndMention(event.indicator)
+      }
     }
   }
-
-  private fun sanitizeLinkUrl(url: String): String =
-    url
-      .replace("(", "%28")
-      .replace(")", "%29")
-
-  private data class MentionCandidate(
-    val indicator: String,
-    val start: Int,
-    val end: Int,
-    val text: String,
-  )
 }

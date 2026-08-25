@@ -7,6 +7,8 @@ import android.text.style.LineHeightSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
+import com.swmansion.enriched.markdown.utils.common.CodeBlockHighlighter
+import com.swmansion.enriched.markdown.utils.common.CodeBlockNode
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
 
@@ -44,6 +46,15 @@ class CodeBlockRenderer(
     if (builder.length == contentStart) return
 
     val end = builder.length
+
+    CodeBlockHighlighter.highlight(
+      builder,
+      CodeBlockNode.extractCode(node),
+      CodeBlockNode.language(node),
+      style,
+      contentStart,
+    )
+
     val padding = style.padding.toInt()
 
     // Apply background, borders, and horizontal padding to content only

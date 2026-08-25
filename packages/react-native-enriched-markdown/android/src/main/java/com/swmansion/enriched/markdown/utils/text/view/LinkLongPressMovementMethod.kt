@@ -2,9 +2,8 @@ package com.swmansion.enriched.markdown.utils.text.view
 
 import android.os.Handler
 import android.os.Looper
-import android.text.Selection
 import android.text.Spannable
-import android.text.method.LinkMovementMethod
+import android.text.method.ArrowKeyMovementMethod
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.widget.TextView
@@ -13,15 +12,26 @@ import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import kotlin.math.abs
 
-class LinkLongPressMovementMethod : LinkMovementMethod() {
+/**
+ * Movement method that adds link tap / long-press and spoiler tap handling on
+ * top of [ArrowKeyMovementMethod], the method [setTextIsSelectable] installs.
+ *
+ * Must never mutate the buffer's Selection spans — the platform Editor
+ * manages them during long-press gestures, and removing or overwriting
+ * them mid-gesture crashes on some OEM skins.
+ * See: https://github.com/software-mansion/enriched-markdown/issues/580
+ */
+class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private val handler = Handler(Looper.getMainLooper())
   private var longPressRunnable: Runnable? = null
 
   private var startX = 0f
   private var startY = 0f
+  private var pressedLink: LinkSpan? = null
 
   var isLinkTouchActive: Boolean = false
     private set
+  private var isTouchWithinTextBounds: Boolean = true
 
   override fun onTouchEvent(
     widget: TextView,
@@ -33,9 +43,10 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
         startX = event.x
         startY = event.y
 
-        val span = findLinkSpan(widget, buffer, event)
-        isLinkTouchActive = span != null
-        span?.let { scheduleLongPress(widget, it) }
+        pressedLink = findLinkSpan(widget, buffer, event)
+        isLinkTouchActive = pressedLink != null
+        isTouchWithinTextBounds = charOffsetAt(widget, event) != null
+        pressedLink?.let { scheduleLongPress(widget, it) }
       }
 
       MotionEvent.ACTION_MOVE -> {
@@ -45,17 +56,25 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
         ) {
           cancelLongPress()
           isLinkTouchActive = false
+          pressedLink = null
         }
       }
 
       MotionEvent.ACTION_UP -> {
         cancelLongPress()
+        val tappedLink = pressedLink
         isLinkTouchActive = false
-        if (widget.hasSelection()) {
-          Selection.removeSelection(buffer)
-        }
+        pressedLink = null
+
         if (handleSpoilerTap(widget, buffer, event)) {
-          Selection.removeSelection(buffer)
+          return true
+        }
+
+        // LinkSpan.onClick itself swallows the click that follows a completed
+        // long-press (and resets its internal flag), so it is always invoked
+        // for a tap that started and ended on the same link.
+        if (tappedLink != null && findLinkSpan(widget, buffer, event) === tappedLink) {
+          tappedLink.onClick(widget)
           return true
         }
       }
@@ -63,22 +82,19 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
       MotionEvent.ACTION_CANCEL -> {
         cancelLongPress()
         isLinkTouchActive = false
-        if (widget.hasSelection()) {
-          Selection.removeSelection(buffer)
-        }
+        pressedLink = null
       }
     }
 
-    val result = super.onTouchEvent(widget, buffer, event)
-
-    // LinkMovementMethod sets a Selection highlight around the link on ACTION_DOWN,
-    // which causes a visible selection color on the link text while pressed.
-    // We remove that selection immediately so the user never sees it.
-    if (event.action == MotionEvent.ACTION_DOWN) {
-      Selection.removeSelection(buffer)
+    // getOffsetForHorizontal snaps to the nearest character, so without this
+    // guard taps in empty space past the end of a line would still be treated
+    // as text touches. Let them fall through to the parent (e.g. RNGH
+    // Pressable) instead.
+    if (!isTouchWithinTextBounds) {
+      return false
     }
 
-    return result
+    return super.onTouchEvent(widget, buffer, event)
   }
 
   private fun scheduleLongPress(
@@ -89,9 +105,6 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
 
     longPressRunnable =
       Runnable {
-        if (widget.hasSelection()) {
-          Selection.removeSelection(widget.text as Spannable)
-        }
         // Execute the long click logic on the span
         if (span.onLongClick(widget)) {
           // If consumed, cancel the system's own long-press logic (like context menus)
@@ -112,10 +125,28 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
     widget: TextView,
     event: MotionEvent,
   ): Int? {
-    val x = event.x.toInt() - widget.totalPaddingLeft + widget.scrollX
-    val y = event.y.toInt() - widget.totalPaddingTop + widget.scrollY
+    val x = event.x - widget.totalPaddingLeft + widget.scrollX
+    val y = event.y - widget.totalPaddingTop + widget.scrollY
     val layout = widget.layout ?: return null
-    return layout.getOffsetForHorizontal(layout.getLineForVertical(y), x.toFloat())
+
+    // getLineForVertical clamps to the first/last line for out-of-range
+    // values, so taps in vertical padding would silently map to a real
+    // line. Reject them before proceeding.
+    if (y < 0f || y > layout.height) {
+      return null
+    }
+
+    val line = layout.getLineForVertical(y.toInt())
+
+    // getOffsetForHorizontal snaps to the nearest character even when the
+    // tap is outside the actual text content (e.g. empty space after the
+    // last word on a line). Guard against that by checking the tap falls
+    // within the line's text bounds.
+    if (x < layout.getLineLeft(line) || x > layout.getLineRight(line)) {
+      return null
+    }
+
+    return layout.getOffsetForHorizontal(line, x)
   }
 
   private fun findLinkSpan(

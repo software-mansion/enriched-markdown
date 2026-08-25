@@ -92,6 +92,8 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     borderWidth: 3,
     gapWidth: 16,
     backgroundColor: '#F9FAFB',
+    borderRadius: 0,
+    padding: 0,
   },
   list: {
     fontSize: 16,
@@ -108,6 +110,7 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     markerFontWeight: '500',
     gapWidth: 12,
     marginLeft: 24,
+    itemSpacing: 0,
   },
   codeBlock: {
     fontSize: 14,
@@ -122,6 +125,22 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,
+    syntaxColors: {
+      keyword: '#FF7B72',
+      operatorColor: '#F3F4F6',
+      punctuation: '#F3F4F6',
+      string: '#A5D6FF',
+      number: '#79C0FF',
+      constant: '#79C0FF',
+      comment: '#8B949E',
+      function: '#D2A8FF',
+      type: '#FFA657',
+      variable: '#F3F4F6',
+      property: '#79C0FF',
+      tag: '#7EE787',
+      attribute: '#79C0FF',
+      embedded: '#F3F4F6',
+    },
   },
   link: {
     fontFamily: '',
@@ -145,7 +164,15 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     backgroundColor: '#FDF2F4',
     borderColor: '#F8D7DA',
   },
-  image: { height: 200, borderRadius: 8, marginTop: 0, marginBottom: 16 },
+  image: {
+    height: 200,
+    maxHeight: 0,
+    aspectRatio: 0,
+    resizeMode: '' as const,
+    borderRadius: 8,
+    marginTop: 0,
+    marginBottom: 16,
+  },
   inlineImage: { size: 20 },
   thematicBreak: {
     color: '#E5E7EB',
@@ -171,6 +198,8 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     borderRadius: 6,
     cellPaddingHorizontal: 12,
     cellPaddingVertical: 8,
+    horizontalOverflow: 0,
+    align: '' as const,
   },
   math: {
     fontSize: 20,
@@ -267,12 +296,28 @@ export const normalizeMarkdownStyle = (
     );
   }
 
+  // maxHeight/aspectRatio sizing is resize-mode driven; default to 'cover'.
+  const image = result.image as MarkdownStyleInternal['image'];
+  if (!image.resizeMode && (image.maxHeight > 0 || image.aspectRatio > 0)) {
+    (result.image as { resizeMode: string }).resizeMode = 'cover';
+  }
+
   if (!style.highlight?.color) {
     const paragraphColor = (
       result.paragraph as MarkdownStyleInternal['paragraph']
     ).color;
     (result.highlight as MarkdownStyleInternal['highlight']).color =
       paragraphColor;
+  }
+
+  // The public API exposes `operator`, but the internal token is `operatorColor`
+  // (`operator` is reserved in the generated C++ struct). Remap it after merge.
+  const syntaxColors = (
+    result.codeBlock as { syntaxColors?: Record<string, unknown> }
+  ).syntaxColors;
+  if (syntaxColors && 'operator' in syntaxColors) {
+    syntaxColors.operatorColor = syntaxColors.operator;
+    delete syntaxColors.operator;
   }
 
   const finalResult = Object.freeze(result) as unknown as MarkdownStyleInternal;

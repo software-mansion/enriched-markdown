@@ -31,6 +31,7 @@ fun EnrichedMarkdownText(
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
   selectable: Boolean = true,
+  imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkPress: ((String) -> Unit)? = null,
   onLinkLongPress: ((String) -> Unit)? = null,
 ) {
@@ -63,6 +64,7 @@ fun EnrichedMarkdownText(
         setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
         setMarkdownStyle(styleConfig)
         setIsSelectable(selectable)
+        setImageRequestHeaders(imageRequestHeaders)
         setMarkdownContent(markdown)
       }
     },
@@ -71,6 +73,7 @@ fun EnrichedMarkdownText(
       view.setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
       view.setMarkdownStyle(styleConfig)
       view.setIsSelectable(selectable)
+      view.setImageRequestHeaders(imageRequestHeaders)
       view.setMarkdownContent(markdown)
     },
     onReset = { view -> view.prepareForViewReuse() },

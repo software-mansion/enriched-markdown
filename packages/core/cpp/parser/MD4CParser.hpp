@@ -13,6 +13,7 @@ struct Md4cFlags {
     bool subscript = false;
     bool highlight = false;
     bool permissiveAutolinks = true;
+    bool hardSoftBreaks = false;
 };
 
 class MD4CParser {

@@ -12,13 +12,16 @@ package com.swmansion.enriched.markdown.input.model
  * @property start inclusive start offset, in plain-text characters.
  * @property end exclusive end offset, in plain-text characters.
  * @property level generic integer payload, 0 by default. Headings use it for the
- *   H-level (1-6); list items will use it for nesting depth.
+ *   H-level (1-6); list items use it for nesting depth.
+ * @property ordinal 1-based position of an ordered list item among its adjacent
+ *   siblings at the same depth; recomputed by the store's list-metadata pass.
  */
 class BlockRange(
   val type: BlockType,
   override var start: Int,
   override var end: Int,
   var level: Int = 0,
+  var ordinal: Int = 1,
 ) : MutableRangeBounds {
   val length: Int get() = end - start
 }

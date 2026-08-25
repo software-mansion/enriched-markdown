@@ -20,7 +20,8 @@ class StyleConfig(
   maxFontSizeMultiplier: Float,
 ) {
   private val styleParser = StyleParser(context, allowFontScaling, maxFontSizeMultiplier)
-  private val assets: AssetManager = context.assets
+  internal val assetManager: AssetManager = context.assets
+  private val assets: AssetManager get() = assetManager
 
   private var paragraphStyleOverride: ParagraphStyle? = null
 
@@ -89,8 +90,12 @@ class StyleConfig(
         val fontWeight = parseFontWeight(headingStyle?.fontWeight)
 
         if (fontFamily != null) {
-          // Use applyStyles with null base typeface to load from assets via ReactFontManager
-          applyStyles(null, ReactConstants.UNSET, fontWeight, fontFamily, assets)
+          // Load the base font at NORMAL so the assets/fonts file resolves, then apply the
+          // weight on the real typeface. Requesting the weight up front makes ReactFontManager
+          // look for a `_bold` asset variant that single-file custom fonts lack and silently
+          // fall back to a default system face. See SpanStyleCache.getTypeface.
+          val base = applyStyles(null, ReactConstants.UNSET, ReactConstants.UNSET, fontFamily, assets)
+          applyStyles(base, ReactConstants.UNSET, fontWeight, null, assets)
         } else {
           null
         }
@@ -160,6 +165,8 @@ class StyleConfig(
       }
     ImageStyle.fromReadableMap(map, styleParser)
   }
+
+  var imageRequestHeaders: Map<String, String> = emptyMap()
 
   val inlineImageStyle: InlineImageStyle by lazy {
     val map =
@@ -332,7 +339,8 @@ class StyleConfig(
       spoilerStyle == other.spoilerStyle &&
       superscriptStyle == other.superscriptStyle &&
       subscriptStyle == other.subscriptStyle &&
-      highlightStyle == other.highlightStyle
+      highlightStyle == other.highlightStyle &&
+      imageRequestHeaders == other.imageRequestHeaders
   }
 
   override fun hashCode(): Int {
@@ -359,6 +367,7 @@ class StyleConfig(
     result = 31 * result + superscriptStyle.hashCode()
     result = 31 * result + subscriptStyle.hashCode()
     result = 31 * result + highlightStyle.hashCode()
+    result = 31 * result + imageRequestHeaders.hashCode()
     return result
   }
 }

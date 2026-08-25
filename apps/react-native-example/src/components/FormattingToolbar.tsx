@@ -151,6 +151,40 @@ export function FormattingToolbar({
         <TouchableOpacity
           style={[
             styles.toolbarButton,
+            state?.unorderedList.isActive && styles.toolbarButtonActive,
+          ]}
+          onPress={() => inputRef.current?.toggleUnorderedList()}
+          testID="toolbar-unordered-list"
+        >
+          <Text style={styles.headingButtonText}>•</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.toolbarButton,
+            state?.orderedList.isActive && styles.toolbarButtonActive,
+          ]}
+          onPress={() => inputRef.current?.toggleOrderedList()}
+          testID="toolbar-ordered-list"
+        >
+          <Text style={styles.headingButtonText}>1.</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={() => inputRef.current?.outdentList()}
+          testID="toolbar-outdent"
+        >
+          <Text style={styles.headingButtonText}>⇤</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={() => inputRef.current?.indentList()}
+          testID="toolbar-indent"
+        >
+          <Text style={styles.headingButtonText}>⇥</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.toolbarButton,
             state?.link.isActive && styles.toolbarButtonActive,
           ]}
           onPress={handleLinkButtonPress}

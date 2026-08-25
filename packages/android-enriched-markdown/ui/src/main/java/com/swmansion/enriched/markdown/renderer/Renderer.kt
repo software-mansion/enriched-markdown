@@ -12,6 +12,7 @@ class Renderer {
   private var cachedFactory: RendererFactory? = null
   private var cachedStyle: StyleConfig? = null
   private var cachedContext: Context? = null
+  private var cachedImageRequestHeaders: Map<String, String> = emptyMap()
 
   private val collectedImageSpans = mutableListOf<ImageSpan>()
   private var lastElementMarginBottom: Float = 0f
@@ -19,14 +20,16 @@ class Renderer {
   fun configure(
     style: StyleConfig,
     context: Context,
+    imageRequestHeaders: Map<String, String> = emptyMap(),
   ) {
-    if (cachedStyle === style && cachedContext === context) return
+    if (cachedStyle === style && cachedContext === context && cachedImageRequestHeaders == imageRequestHeaders) return
 
     cachedStyle = style
     cachedContext = context
+    cachedImageRequestHeaders = imageRequestHeaders
     cachedFactory =
       RendererFactory(
-        RendererConfig(style),
+        RendererConfig(style, imageRequestHeaders),
         context,
       ) { span -> reportImageSpan(span) }
   }

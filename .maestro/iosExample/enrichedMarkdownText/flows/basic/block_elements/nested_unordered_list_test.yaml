@@ -1,0 +1,27 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - block
+  - list
+  - text
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        - Item
+          - Nested
+            - Deep nested
+            - Deep nested
+          - Nested
+        - Item
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'nested_unordered_list_display'

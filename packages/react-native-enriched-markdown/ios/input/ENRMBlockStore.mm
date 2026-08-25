@@ -32,6 +32,24 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
   return [_ranges copy];
 }
 
+- (nullable ENRMBlockRange *)blockStartingAtLocation:(NSUInteger)location
+{
+  NSInteger lo = 0;
+  NSInteger hi = (NSInteger)_ranges.count - 1;
+  while (lo <= hi) {
+    NSInteger mid = (lo + hi) / 2;
+    NSUInteger start = _ranges[(NSUInteger)mid].range.location;
+    if (start < location) {
+      lo = mid + 1;
+    } else if (start > location) {
+      hi = mid - 1;
+    } else {
+      return _ranges[(NSUInteger)mid];
+    }
+  }
+  return nil;
+}
+
 // Incoming ranges are trusted to be non-overlapping and line-scoped — the
 // parser owns that invariant (md4c block structure never overlaps at the same
 // nesting level, and nested containers are not yet mapped). Revisit enforcement
@@ -45,6 +63,7 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
       return NSOrderedDescending;
     return NSOrderedSame;
   }] mutableCopy];
+  [self recomputeListMetadata];
 }
 
 - (void)clearAll
@@ -94,7 +113,7 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
 
   paragraphRange = ENRMTrimLineTerminators(paragraphRange, text);
 
-  if (paragraphRange.length == 0 && ENRMHeadingLevelForBlockType(type) == 0) {
+  if (paragraphRange.length == 0 && !ENRMBlockTypePersistsWhenEmpty(type)) {
     return;
   }
 
@@ -122,13 +141,13 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
 
   for (NSUInteger idx = 0; idx < _ranges.count; idx++) {
     ENRMBlockRange *blockRange = _ranges[idx];
-    BOOL isHeading = ENRMHeadingLevelForBlockType(blockRange.type) > 0;
+    BOOL persists = ENRMBlockTypePersistsWhenEmpty(blockRange.type);
 
-    // Zero-length heading anchors don't follow the shared adjustment: one at
-    // the edit location stays put (normalize grows it over the typed text),
-    // one past the edit shifts with it, one inside the deletion is dropped.
+    // Zero-length anchors don't follow the shared adjustment: one at the edit
+    // location stays put (normalize grows it over the typed text), one past
+    // the edit shifts with it, one inside the deletion is dropped.
     if (blockRange.range.length == 0) {
-      if (!isHeading) {
+      if (!persists) {
         [indexesToRemove addIndex:idx];
       } else if (blockRange.range.location >= deleteEnd && blockRange.range.location > editLocation) {
         blockRange.range = NSMakeRange(blockRange.range.location - deletedLength + insertedLength, 0);
@@ -138,12 +157,14 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
       continue;
     }
 
-    ENRMAdjustedRange adjusted = ENRMAdjustRangeForEdit(blockRange.range, editLocation, deletedLength, insertedLength);
+    ENRMAdjustedRange adjusted = ENRMAdjustRangeForEdit(blockRange.range, editLocation, deletedLength, insertedLength,
+                                                        /* inheritsReplacementAtStart */ YES,
+                                                        /* growsAtStartOnInsert */ YES);
     if (adjusted.shouldRemove) {
-      // A heading deleted exactly to its end collapses to a zero-length anchor
-      // (the line's newline survived, so the line stays a heading); a deletion
-      // running past its end removed the line, so drop the heading with it.
-      if (isHeading && NSMaxRange(blockRange.range) == deleteEnd && blockRange.range.location >= editLocation) {
+      // A persisting block deleted exactly to its end collapses to a zero-length
+      // anchor (the line's newline survived, so the line stays the block); a
+      // deletion running past its end removed the line, so drop the block with it.
+      if (persists && NSMaxRange(blockRange.range) == deleteEnd && blockRange.range.location >= editLocation) {
         blockRange.range = NSMakeRange(editLocation, 0);
       } else {
         [indexesToRemove addIndex:idx];
@@ -155,10 +176,12 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
 
   ENRMRemoveIndexesInReverse(_ranges, indexesToRemove);
 
+  // Prune zero-length ranges, but keep zero-length persisting blocks: they anchor
+  // an emptied-but-still-present heading/bullet line (see the collapse rule above).
   NSMutableIndexSet *emptyIndexes = [NSMutableIndexSet indexSet];
   for (NSUInteger idx = 0; idx < _ranges.count; idx++) {
     ENRMBlockRange *range = _ranges[idx];
-    if (range.range.length == 0 && ENRMHeadingLevelForBlockType(range.type) == 0) {
+    if (range.range.length == 0 && !ENRMBlockTypePersistsWhenEmpty(range.type)) {
       [emptyIndexes addIndex:idx];
     }
   }
@@ -182,8 +205,14 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
 
     lineRange = ENRMTrimLineTerminators(lineRange, text);
 
-    BOOL isHeading = ENRMHeadingLevelForBlockType(blockRange.type) > 0;
-    if ((lineRange.length == 0 && !isHeading) || (NSInteger)lineRange.location <= previousEnd) {
+    BOOL emptyLine = lineRange.length == 0;
+    if ((emptyLine && !ENRMBlockTypePersistsWhenEmpty(blockRange.type)) ||
+        (NSInteger)lineRange.location <= previousEnd) {
+      // Dedup: drop a range that resolves to an already-claimed paragraph. This is a
+      // legitimate self-heal path (a heading anchor and the block it merges into can
+      // briefly share a start after a line-join), so it is deliberately silent — it
+      // cannot distinguish that benign case from genuine corruption, so it does not
+      // assert here.
       [indexesToRemove addIndex:idx];
       continue;
     }
@@ -193,6 +222,54 @@ static NSRange paragraphBoundsForRange(NSRange range, NSString *text)
   }
 
   ENRMRemoveIndexesInReverse(_ranges, indexesToRemove);
+  [self recomputeListMetadata];
+}
+
+/// Clamps list depths to valid ancestry (an item nests at most one level under
+/// the previous adjacent list item — CommonMark cannot represent orphan nesting)
+/// and renumbers ordered items among their adjacent same-depth, same-type run.
+- (void)recomputeListMetadata
+{
+  NSInteger prevEnd = -2;
+  NSInteger prevDepth = -1;
+  NSInteger counters[kENRMMaxListDepth + 2];
+  ENRMInputBlockType counterTypes[kENRMMaxListDepth + 2];
+  memset(counters, 0, sizeof(counters));
+  memset(counterTypes, 0, sizeof(counterTypes));
+
+  for (ENRMBlockRange *blockRange in _ranges) {
+    if (!ENRMBlockTypeIsListItem(blockRange.type)) {
+      prevDepth = -1;
+      continue;
+    }
+    BOOL adjacent = prevDepth >= 0 && (NSInteger)blockRange.range.location == prevEnd + 1;
+    if (!adjacent) {
+      memset(counters, 0, sizeof(counters));
+      memset(counterTypes, 0, sizeof(counterTypes));
+    }
+    // Coerce into [0, kENRMMaxListDepth] before ancestry-clamping: parser and
+    // indent commands cap their depths, but this pass indexes the counter
+    // arrays by depth, so an out-of-bounds level must never survive it.
+    NSInteger maxDepth = MIN(adjacent ? prevDepth + 1 : 0, kENRMMaxListDepth);
+    if (blockRange.level > maxDepth) {
+      blockRange.level = maxDepth;
+    } else if (blockRange.level < 0) {
+      blockRange.level = 0;
+    }
+    NSInteger depth = blockRange.level;
+    for (NSInteger i = depth + 1; i <= kENRMMaxListDepth + 1; i++) {
+      counters[i] = 0;
+      counterTypes[i] = (ENRMInputBlockType)0;
+    }
+    if (counterTypes[depth] != blockRange.type) {
+      counters[depth] = 0;
+      counterTypes[depth] = blockRange.type;
+    }
+    counters[depth]++;
+    blockRange.ordinal = counters[depth];
+    prevEnd = (NSInteger)NSMaxRange(blockRange.range);
+    prevDepth = blockRange.level;
+  }
 }
 
 @end

@@ -52,6 +52,8 @@
   for (MarkdownASTNode *child in node.children) {
     if (child.content.length > 0) {
       [buffer appendString:child.content];
+    } else if (child.type == MarkdownNodeTypeSoftBreak || child.type == MarkdownNodeTypeLineBreak) {
+      [buffer appendString:@" "];
     }
   }
   return buffer;

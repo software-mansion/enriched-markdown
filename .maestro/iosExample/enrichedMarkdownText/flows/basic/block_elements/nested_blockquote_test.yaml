@@ -1,0 +1,29 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - block
+  - blockquote
+  - text
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        > top-level blockquote
+        >> nested blockquote inside the first
+        >>> deeply nested blockquote
+
+        > outer
+        >> nested
+        >
+        > outer
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'nested_blockquote_display'

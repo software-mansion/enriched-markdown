@@ -1,0 +1,25 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - inline
+  - bold
+  - text
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- tapOn:
+    id: underline-button
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        **Bold text** and normal text and __more bold__.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'bold_display'

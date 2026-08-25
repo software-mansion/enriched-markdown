@@ -11,6 +11,12 @@ data class InputFormatterStyle(
   val spoilerBackgroundColor: Int,
   /** Per-level heading styling, indexed 0..5 for H1..H6. Always length 6. */
   val headings: List<InputHeadingStyle>,
+  /**
+   * Extra vertical spacing (dp) above each list item, from `markdownStyle.list.itemSpacing`.
+   * Kept in dp (not px) so this stays a pure style value; the list block handlers convert
+   * to px with the display density they hold.
+   */
+  val listItemSpacing: Float = 0f,
 ) {
   /**
    * Resolves the heading style for an H-level (1-6), clamping out-of-range levels

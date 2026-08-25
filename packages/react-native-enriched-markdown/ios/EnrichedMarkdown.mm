@@ -2,6 +2,7 @@
 #import "ContextMenuUtils.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMAsyncRenderCoordinator.h"
+#import "ENRMAtomicSize.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTailFadeInAnimator.h"
@@ -10,12 +11,14 @@
 #import "ENRMTextViewSetup.h"
 #import "ENRMUIKit.h"
 #import "EditMenuUtils.h"
+#import "ImageRequestHeaderUtils.h"
 
 #import "ENRMFeatureFlags.h"
 
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathContainerView.h"
 #endif
+#import "ENRMCodeBlockContainerView.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -66,10 +69,12 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 static char kENRMSegmentFadeAnimatorKey;
 
-@interface EnrichedMarkdown () <RCTEnrichedMarkdownViewProtocol, UITextViewDelegate>
+@interface EnrichedMarkdown () <RCTEnrichedMarkdownViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver>
++ (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
+- (void)emitCopyPress:(NSString *)code language:(NSString *)language;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
@@ -98,8 +103,12 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _allowTrailingMargin;
   BOOL _selectable;
   BOOL _enableLinkPreview;
+  BOOL _enableTaskListItemToggle;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
+  ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
+  // Trailing code block whose closing fence hasn't streamed in yet, if any.
+  ENRMCodeBlockSegment *_pendingCodeBlockSegment;
 
   size_t _renderedStyleFingerprint;
   size_t _pendingStyleFingerprint;
@@ -116,11 +125,25 @@ static char kENRMSegmentFadeAnimatorKey;
 
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
+
+  ENRMAtomicSize _lastCommittedSize;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
 {
   return concreteComponentDescriptorProvider<EnrichedMarkdownComponentDescriptor>();
+}
+
++ (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props
+{
+  ENRMMd4cFlags *flags = [ENRMMd4cFlags defaultFlags];
+  flags.underline = props.underline;
+  flags.superscript = props.superscript;
+  flags.subscript = props.subscript;
+  flags.latexMath = props.latexMath;
+  flags.highlight = props.highlight;
+  flags.hardSoftBreaks = props.hardSoftBreaks;
+  return flags;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -131,7 +154,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
     self.backgroundColor = [RCTUIColor clearColor];
     _parser = [[ENRMMarkdownParser alloc] init];
-    _md4cFlags = [ENRMMd4cFlags defaultFlags];
+    _md4cFlags = [EnrichedMarkdown flagsFromProps:defaultProps->md4cFlags];
     _segmentViews = [NSMutableArray array];
     _segmentSignatures = [NSMutableArray array];
     _dirtyFlags = ENRMDirtyNone;
@@ -144,8 +167,10 @@ static char kENRMSegmentFadeAnimatorKey;
     _allowTrailingMargin = NO;
     _selectable = YES;
     _enableLinkPreview = YES;
+    _enableTaskListItemToggle = YES;
     _streamingAnimation = NO;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
+    _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
@@ -240,6 +265,29 @@ static char kENRMSegmentFadeAnimatorKey;
                           }]];
 #endif
 
+  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindCodeBlock
+                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            return [view isKindOfClass:[ENRMCodeBlockContainerView class]];
+                          }
+                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
+                            EnrichedMarkdown *strongSelf = weakSelf;
+                            if (!strongSelf) {
+                              return [[RCTUIView alloc] init];
+                            }
+
+                            ENRMCodeBlockContainerView *view =
+                                [strongSelf createCodeBlockViewForSegment:segment.codeBlockSegment];
+                            [strongSelf animateBlockViewIfNeeded:view];
+                            return view;
+                          }
+                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            EnrichedMarkdown *strongSelf = weakSelf;
+                            ENRMCodeBlockContainerView *codeBlockView = (ENRMCodeBlockContainerView *)view;
+                            codeBlockView.pending =
+                                strongSelf && segment.codeBlockSegment == strongSelf->_pendingCodeBlockSegment;
+                            [codeBlockView applyCodeBlockNode:segment.codeBlockSegment.codeBlockNode];
+                          }]];
+
   _segmentViewRegistry = [[ENRMSegmentViewRegistry alloc] initWithHandlers:handlers];
 }
 
@@ -247,6 +295,29 @@ static char kENRMSegmentFadeAnimatorKey;
 {
   if (_segmentViews.count == 0)
     return CGSizeZero;
+
+  if (applyFrames) {
+    CGFloat overhang = MAX(_config.tableHorizontalOverflow, 0);
+    BOOL needsOverhang = NO;
+    if (overhang > 0) {
+      for (RCTUIView *seg in _segmentViews) {
+        if ([seg isKindOfClass:[TableContainerView class]]) {
+          needsOverhang = YES;
+          break;
+        }
+      }
+    }
+#if TARGET_OS_OSX
+    BOOL isClipping = self.layer.masksToBounds;
+    if (isClipping && needsOverhang)
+      self.layer.masksToBounds = NO;
+    else if (!isClipping && !needsOverhang)
+      self.layer.masksToBounds = YES;
+#else
+    if (self.clipsToBounds != !needsOverhang)
+      self.clipsToBounds = !needsOverhang;
+#endif
+  }
 
   __block CGFloat yOffset = 0.0;
   __block CGFloat maxContentWidth = 0.0;
@@ -257,6 +328,7 @@ static char kENRMSegmentFadeAnimatorKey;
     const BOOL shouldAddBottomMargin = (!isLast || _allowTrailingMargin);
 
     CGFloat segmentHeight = 0;
+    const BOOL isTable = [segment isKindOfClass:[TableContainerView class]];
 
     if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
       EnrichedMarkdownInternalText *textView = (EnrichedMarkdownInternalText *)segment;
@@ -265,7 +337,7 @@ static char kENRMSegmentFadeAnimatorKey;
       segmentHeight = textSize.height;
       maxContentWidth = MAX(maxContentWidth, textSize.width);
 
-    } else if ([segment isKindOfClass:[TableContainerView class]]) {
+    } else if (isTable) {
       yOffset += _config.tableMarginTop;
       segmentHeight = [(TableContainerView *)segment measureHeight:width];
       maxContentWidth = width;
@@ -277,9 +349,23 @@ static char kENRMSegmentFadeAnimatorKey;
       maxContentWidth = width;
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      yOffset += _config.codeBlockMarginTop;
+      segmentHeight = [(ENRMCodeBlockContainerView *)segment measureHeight:width];
+      maxContentWidth = width;
+    }
 
     if (applyFrames) {
-      CGRect segmentFrame = CGRectMake(0, yOffset, width, segmentHeight);
+      CGFloat segmentX = 0;
+      CGFloat segmentWidth = width;
+      if (isTable) {
+        CGFloat overhang = MAX(_config.tableHorizontalOverflow, 0);
+        if (overhang > 0) {
+          segmentX = -overhang;
+          segmentWidth = width + overhang * 2;
+        }
+      }
+      CGRect segmentFrame = CGRectMake(segmentX, yOffset, segmentWidth, segmentHeight);
       segment.frame = segmentFrame;
 #if TARGET_OS_OSX
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
@@ -302,6 +388,9 @@ static char kENRMSegmentFadeAnimatorKey;
       yOffset += _config.mathMarginBottom;
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
+      yOffset += _config.codeBlockMarginBottom;
+    }
   }];
 
   return CGSizeMake(maxContentWidth, yOffset);
@@ -318,6 +407,11 @@ static char kENRMSegmentFadeAnimatorKey;
   CGFloat measuredWidth = MIN(ceil(contentSize.width * scale) / scale, maxWidth);
   CGFloat measuredHeight = ceil(contentSize.height * scale) / scale;
   return CGSizeMake(measuredWidth, measuredHeight);
+}
+
+- (CGSize)lastCommittedLayoutSize
+{
+  return _lastCommittedSize.load();
 }
 
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown
@@ -362,6 +456,8 @@ static char kENRMSegmentFadeAnimatorKey;
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+
+  _lastCommittedSize.store(CGSizeMake(layoutMetrics.frame.size.width, layoutMetrics.frame.size.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -425,12 +521,36 @@ static char kENRMSegmentFadeAnimatorKey;
       mathView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ENRMCodeBlockContainerView *codeBlockView = (ENRMCodeBlockContainerView *)segment;
+      codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
+      codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+    }
   }
 }
 
 - (void)requestHeightUpdate
 {
   ENRMRequestHeightUpdate<EnrichedMarkdownState>(_state, _heightUpdateCounter, self);
+}
+
+// A block image in one of the text segments resolved its box height after
+// loading (maxHeight/aspectRatio sizing). The shadow node measured — and
+// cached — this markdown with the pre-load fallback height, so drop those
+// entries, re-stack segments, and re-measure.
+- (void)imageAttachmentDidResolveLayout
+{
+  if (_renderedMarkdown.length > 0) {
+    MeasurementCache::shared().removeMatchingMarkdown(std::string(_renderedMarkdown.UTF8String));
+  }
+
+  if (self.bounds.size.width > 0) {
+    [self setNeedsLayout];
+    CGSize measured = [self measureSize:self.bounds.size.width];
+    if (needsHeightUpdate(measured, self.bounds)) {
+      [self requestHeightUpdate];
+    }
+  }
 }
 
 - (void)renderMarkdownContent:(NSString *)markdownString
@@ -449,17 +569,21 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL allowTrailingMargin = _allowTrailingMargin;
   BOOL streamingAnimation = _streamingAnimation;
   ENRMTableStreamingMode tableStreamingMode = _tableStreamingMode;
+  ENRMCodeBlockStreamingMode codeBlockStreamingMode = _codeBlockStreamingMode;
   NSLineBreakStrategy lineBreakStrategy = _lineBreakStrategy;
   ENRMWritingDirectionMode writingDirectionMode = _writingDirectionMode;
   NSWritingDirection resolvedLayoutDirection = _resolvedLayoutDirection;
 
   __block NSArray<ENRMRenderedSegment *> *renderedSegments = nil;
   __block NSString *renderableMarkdown = nil;
+  __block BOOL endsInsideOpenCodeFence = NO;
 
   [_renderCoordinator
       scheduleRender:^BOOL {
-        renderableMarkdown = streamingAnimation ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode)
-                                                : markdownString;
+        renderableMarkdown = streamingAnimation
+                                 ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode,
+                                                                      codeBlockStreamingMode, &endsInsideOpenCodeFence)
+                                 : markdownString;
 
         if (renderableMarkdown.length == 0) {
           renderedSegments = @[];
@@ -482,7 +606,9 @@ static char kENRMSegmentFadeAnimatorKey;
       }
       apply:^{
         self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
-        [self applyRenderedSegments:renderedSegments renderedMarkdown:renderableMarkdown];
+        [self applyRenderedSegments:renderedSegments
+                   renderedMarkdown:renderableMarkdown
+            endsInsideOpenCodeFence:endsInsideOpenCodeFence];
       }];
 }
 
@@ -519,8 +645,11 @@ static char kENRMSegmentFadeAnimatorKey;
 
   _renderCoordinator.blockAsyncRender = YES;
   _cachedMarkdown = [markdownString copy];
+  BOOL endsInsideOpenCodeFence = NO;
   NSString *renderableMarkdown =
-      _streamingAnimation ? ENRMRenderableMarkdownForStreaming(markdownString, _tableStreamingMode) : markdownString;
+      _streamingAnimation ? ENRMRenderableMarkdownForStreaming(markdownString, _tableStreamingMode,
+                                                               _codeBlockStreamingMode, &endsInsideOpenCodeFence)
+                          : markdownString;
   _renderedMarkdown = [renderableMarkdown copy];
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 
@@ -533,6 +662,8 @@ static char kENRMSegmentFadeAnimatorKey;
     return;
   }
 
+  [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
+
   for (ENRMRenderedSegment *segment in renderedSegments) {
     RCTUIView *view = [_segmentViewRegistry createViewForSegment:segment];
     [_segmentViews addObject:view];
@@ -541,9 +672,24 @@ static char kENRMSegmentFadeAnimatorKey;
   }
 }
 
-- (void)applyRenderedSegments:(NSArray *)renderedSegments renderedMarkdown:(NSString *)renderedMarkdown
+- (void)updatePendingCodeBlockSegment:(BOOL)endsInsideOpenCodeFence segments:(NSArray<ENRMRenderedSegment *> *)segments
+{
+  _pendingCodeBlockSegment = nil;
+  if (!_streamingAnimation || !endsInsideOpenCodeFence) {
+    return;
+  }
+  ENRMRenderedSegment *last = segments.lastObject;
+  if (last.kind == ENRMSegmentKindCodeBlock) {
+    _pendingCodeBlockSegment = last.codeBlockSegment;
+  }
+}
+
+- (void)applyRenderedSegments:(NSArray *)renderedSegments
+             renderedMarkdown:(NSString *)renderedMarkdown
+      endsInsideOpenCodeFence:(BOOL)endsInsideOpenCodeFence
 {
   _renderedMarkdown = [renderedMarkdown copy];
+  [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
   BOOL segmentTopologyChanged = _streamingAnimation && [self renderedSegmentsChangeTopology:renderedSegments];
 
   ENRMSegmentReconciliationResult *result = [ENRMSegmentReconciler reconcileCurrentViews:_segmentViews
@@ -566,6 +712,15 @@ static char kENRMSegmentFadeAnimatorKey;
 
   _segmentViews = result.views;
   _segmentSignatures = result.signatures;
+
+  // A just-closed block has unchanged content, so the reconciler reuses it
+  // without an update; sync pending here to trigger its deferred highlight.
+  [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
+    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)segment).pending =
+          self->_pendingCodeBlockSegment != nil && i == self->_segmentViews.count - 1;
+    }
+  }];
 
   if (self.bounds.size.width > 0) {
     [self setNeedsLayout];
@@ -687,6 +842,24 @@ static char kENRMSegmentFadeAnimatorKey;
 }
 #endif
 
+- (ENRMCodeBlockContainerView *)createCodeBlockViewForSegment:(ENRMCodeBlockSegment *)codeBlockSegment
+{
+  ENRMCodeBlockContainerView *codeBlockView = [[ENRMCodeBlockContainerView alloc] initWithConfig:_config];
+  codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
+  codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+
+  __weak EnrichedMarkdown *weakSelf = self;
+  codeBlockView.onCopyPress = ^(NSString *code, NSString *language) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (strongSelf)
+      [strongSelf emitCopyPress:code language:language];
+  };
+
+  codeBlockView.pending = codeBlockSegment == _pendingCodeBlockSegment;
+  [codeBlockView applyCodeBlockNode:codeBlockSegment.codeBlockNode];
+  return codeBlockView;
+}
+
 - (void)animateBlockViewIfNeeded:(RCTUIView *)view
 {
   if (!_streamingAnimation)
@@ -751,6 +924,14 @@ static char kENRMSegmentFadeAnimatorKey;
     }
   }
 
+  if (ENRMImageRequestHeadersChanged(oldViewProps.imageRequestHeaders, newViewProps.imageRequestHeaders)) {
+    [_config setImageRequestHeaders:ENRMImageRequestHeadersFromProps(newViewProps.imageRequestHeaders)];
+    _dirtyFlags |= ENRMDirtyRender;
+    if (!markdownChanged) {
+      _dirtyFlags |= ENRMDirtyRecreateSegments;
+    }
+  }
+
   _selectable = newViewProps.selectable;
 
   for (RCTUIView *segment in _segmentViews) {
@@ -783,28 +964,18 @@ static char kENRMSegmentFadeAnimatorKey;
     _dirtyFlags |= ENRMDirtyRecreateSegments | ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 
-  if (newViewProps.md4cFlags.underline != oldViewProps.md4cFlags.underline) {
-    _md4cFlags.underline = newViewProps.md4cFlags.underline;
-    _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
-  }
-  if (newViewProps.md4cFlags.superscript != oldViewProps.md4cFlags.superscript) {
-    _md4cFlags.superscript = newViewProps.md4cFlags.superscript;
-    _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
-  }
-  if (newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript) {
-    _md4cFlags.subscript = newViewProps.md4cFlags.subscript;
-    _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
-  }
-  if (newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath) {
-    _md4cFlags.latexMath = newViewProps.md4cFlags.latexMath;
-    _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
-  }
-  if (newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight) {
-    _md4cFlags.highlight = newViewProps.md4cFlags.highlight;
+  if (newViewProps.md4cFlags.underline != oldViewProps.md4cFlags.underline ||
+      newViewProps.md4cFlags.superscript != oldViewProps.md4cFlags.superscript ||
+      newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
+      newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
+      newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
+      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks) {
+    _md4cFlags = [EnrichedMarkdown flagsFromProps:newViewProps.md4cFlags];
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 
   _enableLinkPreview = newViewProps.enableLinkPreview;
+  _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
 
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
     _streamingAnimation = newViewProps.streamingAnimation;
@@ -826,6 +997,14 @@ static char kENRMSegmentFadeAnimatorKey;
     NSString *tableModeStr = [[NSString alloc] initWithUTF8String:newViewProps.streamingConfig.tableMode.c_str()];
     _tableStreamingMode =
         [tableModeStr isEqualToString:@"hidden"] ? ENRMTableStreamingModeHidden : ENRMTableStreamingModeProgressive;
+    _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
+  }
+
+  if (newViewProps.streamingConfig.codeBlockMode != oldViewProps.streamingConfig.codeBlockMode) {
+    NSString *codeBlockModeStr =
+        [[NSString alloc] initWithUTF8String:newViewProps.streamingConfig.codeBlockMode.c_str()];
+    _codeBlockStreamingMode = [codeBlockModeStr isEqualToString:@"hidden"] ? ENRMCodeBlockStreamingModeHidden
+                                                                           : ENRMCodeBlockStreamingModeProgressive;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 
@@ -931,7 +1110,8 @@ static char kENRMSegmentFadeAnimatorKey;
 
 - (void)prepareForRecycle
 {
-  _props = std::make_shared<const EnrichedMarkdownProps>();
+  const auto resetProps = std::make_shared<const EnrichedMarkdownProps>();
+  _props = resetProps;
   [_renderCoordinator invalidate];
 
   for (RCTUIView *segment in _segmentViews) {
@@ -949,8 +1129,24 @@ static char kENRMSegmentFadeAnimatorKey;
 
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;
+  _config = nil;
+  _md4cFlags = [EnrichedMarkdown flagsFromProps:resetProps->md4cFlags];
+  _maxFontSizeMultiplier = 0;
+  _allowTrailingMargin = NO;
   _streamingAnimation = NO;
   _tableStreamingMode = ENRMTableStreamingModeProgressive;
+  _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
+  _pendingCodeBlockSegment = nil;
+  _lineBreakStrategy = NSLineBreakStrategyNone;
+  _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
+  _renderedStyleFingerprint = 0;
+  _pendingStyleFingerprint = 0;
+  _contextMenuItemTexts = nil;
+  _contextMenuItemIcons = nil;
+  _fontScaleObserver.allowFontScaling = resetProps->allowFontScaling;
+  _accessibilityLabels = nil;
+  _spoilerOverlay =
+      ENRMSpoilerOverlayFromString([[NSString alloc] initWithUTF8String:resetProps->spoilerOverlay.c_str()]);
   _dirtyFlags = ENRMDirtyNone;
 
   [super prepareForRecycle];
@@ -1052,6 +1248,14 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     emitter->onTaskListItemPress({.index = (int)index, .checked = checked, .text = std::string(text.UTF8String ?: "")});
 }
 
+- (void)emitCopyPress:(NSString *)code language:(NSString *)language
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onCopyPress(
+        {.code = std::string(code.UTF8String ?: ""), .language = std::string(language.UTF8String ?: "")});
+}
+
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
@@ -1071,7 +1275,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
 
-  if (handleTaskListTapWithSharedLogic(
+  if (_enableTaskListItemToggle &&
+      handleTaskListTapWithSharedLogic(
           textView, recognizer, &self->_cachedMarkdown, self->_config,
           ^(NSInteger index, BOOL checked, NSString *itemText) {
             [self emitTaskListItemPress:index checked:checked text:itemText];

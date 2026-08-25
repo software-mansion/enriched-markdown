@@ -12,6 +12,16 @@ void MarkdownTextShadowNode::setMeasurementsManager(
   measurementsManager_ = measurementsManager;
 }
 
+void MarkdownTextShadowNode::dirtyLayoutIfNeeded() {
+  const auto state = this->getStateData();
+  const auto counter = state.getForceHeightRecalculationCounter();
+
+  if (forceHeightRecalculationCounter_ != counter) {
+    forceHeightRecalculationCounter_ = counter;
+    dirtyLayout();
+  }
+}
+
 Size MarkdownTextShadowNode::measureContent(const LayoutContext &layoutContext,
                                             const LayoutConstraints &layoutConstraints) const {
   return measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps(), layoutConstraints);

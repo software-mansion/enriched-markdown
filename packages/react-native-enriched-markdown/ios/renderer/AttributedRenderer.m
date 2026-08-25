@@ -1,4 +1,5 @@
 #import "AttributedRenderer.h"
+#import "BlockquoteBorder.h"
 #import "CodeBlockBackground.h"
 #import "LastElementUtils.h"
 #import "MarkdownASTNode.h"
@@ -110,6 +111,10 @@
   // 2. Trim trailing characters
   NSUInteger logicalEnd = NSMaxRange(lastContent);
   BOOL isCodeBlock = isLastBlockACodeBlock(output);
+  BOOL isPaddedBlockquote = !isCodeBlock && [_config blockquotePadding] > 0 &&
+                            [output attribute:BlockquoteDepthAttributeName
+                                       atIndex:lastContent.location
+                                effectiveRange:NULL] != nil;
   NSRange codeRange = NSMakeRange(0, 0);
   if (isCodeBlock) {
     [output attribute:CodeBlockAttributeName
@@ -121,15 +126,28 @@
       [output appendAttributedString:kNewlineAttributedString];
     }
     logicalEnd = codeEnd + 1;
+  } else if (isPaddedBlockquote) {
+    NSUInteger blockquoteEnd = NSMaxRange(lastContent);
+    while (blockquoteEnd < output.length && [output attribute:BlockquoteDepthAttributeName
+                                                       atIndex:blockquoteEnd
+                                                effectiveRange:NULL] != nil) {
+      blockquoteEnd++;
+    }
+    if (blockquoteEnd >= output.length) {
+      [output appendAttributedString:kNewlineAttributedString];
+    }
+    logicalEnd = blockquoteEnd + 1;
   }
 
   if (logicalEnd < output.length) {
     [output deleteCharactersInRange:NSMakeRange(logicalEnd, output.length - logicalEnd)];
   }
 
-  if (isCodeBlock && NSMaxRange(codeRange) < output.length) {
-    NSUInteger tailIdx = NSMaxRange(codeRange);
+  if ((isCodeBlock && NSMaxRange(codeRange) < output.length) || isPaddedBlockquote) {
+    NSUInteger tailIdx = isCodeBlock ? NSMaxRange(codeRange) : logicalEnd - 1;
     [output removeAttribute:CodeBlockAttributeName range:NSMakeRange(tailIdx, 1)];
+    [output removeAttribute:BlockquoteDepthAttributeName range:NSMakeRange(tailIdx, 1)];
+    [output removeAttribute:BlockquoteBackgroundColorAttributeName range:NSMakeRange(tailIdx, 1)];
     NSParagraphStyle *style = [output attribute:NSParagraphStyleAttributeName atIndex:tailIdx effectiveRange:NULL];
     NSMutableParagraphStyle *mutableStyle = style ? [style mutableCopy] : [[NSMutableParagraphStyle alloc] init];
     mutableStyle.paragraphSpacing = 0;

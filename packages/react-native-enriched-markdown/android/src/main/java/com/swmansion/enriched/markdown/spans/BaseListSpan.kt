@@ -28,6 +28,14 @@ abstract class BaseListSpan(
   private var cachedText: CharSequence? = null
   private var cachedHasDeeperSpanByPosition = mutableMapOf<Int, Boolean>()
 
+  val markerFontMetrics: Paint.FontMetrics by lazy {
+    TextPaint()
+      .apply {
+        applyBlockStyleFont(blockStyle, context)
+        textSize = blockStyle.fontSize
+      }.fontMetrics
+  }
+
   protected abstract fun getMarkerWidth(): Float
 
   override fun updateMeasureState(textPaint: TextPaint) = applyTextStyle(textPaint)

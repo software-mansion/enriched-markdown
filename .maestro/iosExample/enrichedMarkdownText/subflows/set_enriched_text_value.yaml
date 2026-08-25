@@ -1,0 +1,13 @@
+appId: swmansion.enriched.markdown.ios.example
+---
+
+- tapOn:
+    id: set-markdown-button
+
+- tapOn:
+    id: set-markdown-input
+
+- inputText: ${VALUE}
+
+- tapOn:
+    id: set-markdown-confirm

@@ -1,6 +1,9 @@
 package com.swmansion.enriched.markdown.renderer
 
+import android.content.res.AssetManager
 import android.graphics.Typeface
+import com.facebook.react.common.ReactConstants
+import com.facebook.react.views.text.ReactTypefaceUtils.applyStyles
 import com.swmansion.enriched.markdown.styles.LinkVariantEntry
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
@@ -8,6 +11,8 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 class SpanStyleCache(
   style: StyleConfig,
 ) {
+  private val assetManager: AssetManager = style.assetManager
+
   // Colors to preserve when applying inline styles (links, code, strong, emphasis)
   val colorsToPreserve: IntArray = buildColorsToPreserve(style)
 
@@ -95,35 +100,33 @@ class SpanStyleCache(
     return compiledVariantPatterns.firstOrNull { (regex, _) -> regex.containsMatchIn(url) }?.second
   }
 
+  /**
+   * Cached typeface for font family + style (BOLD, ITALIC, BOLD_ITALIC).
+   *
+   * Loads the base custom font at its NORMAL weight (via applyStyles/ReactFontManager)
+   * so the bundled assets/fonts file resolves, then synthesizes bold/italic on that real
+   * typeface. Requesting bold/italic directly makes ReactFontManager look for `_bold`/
+   * `_italic` asset variants that single-file custom fonts don't have — and it then falls
+   * back to a default system face, dropping the custom font entirely.
+   */
+  fun getTypeface(
+    fontFamily: String,
+    style: Int,
+  ): Typeface =
+    typefaceCache.getOrPut("family|$fontFamily|$style") {
+      val base =
+        applyStyles(
+          null,
+          ReactConstants.UNSET,
+          ReactConstants.UNSET,
+          fontFamily.takeIf { it.isNotEmpty() },
+          assetManager,
+        )
+      if (style == Typeface.NORMAL) base else Typeface.create(base, style)
+    }
+
   companion object {
     private val typefaceCache = mutableMapOf<String, Typeface>()
-
-    /** Cached typeface for font family + style (BOLD, ITALIC, BOLD_ITALIC) */
-    fun getTypeface(
-      fontFamily: String,
-      style: Int,
-    ): Typeface =
-      typefaceCache.getOrPut("$fontFamily|$style") {
-        val base =
-          fontFamily
-            .takeIf { it.isNotEmpty() }
-            ?.let { Typeface.create(it, Typeface.NORMAL) }
-            ?: Typeface.DEFAULT
-        Typeface.create(base, style)
-      }
-
-    /** Cached typeface using weight string (e.g., "bold", "700") */
-    fun getTypefaceWithWeight(
-      fontFamily: String,
-      fontWeight: String,
-    ): Typeface {
-      val style =
-        when (fontWeight.lowercase()) {
-          "bold", "700", "800", "900" -> Typeface.BOLD
-          else -> Typeface.NORMAL
-        }
-      return getTypeface(fontFamily, style)
-    }
 
     /** Cached monospace typeface preserving bold/italic */
     fun getMonospaceTypeface(currentStyle: Int): Typeface =

@@ -59,6 +59,25 @@ export interface EnrichedMarkdownTextProps extends Omit<
    */
   onTaskListItemPress?: (event: TaskListItemPressEvent) => void;
   /**
+   * Controls whether tapping a task list checkbox toggles its checked state.
+   *
+   * When `true` (default), tapping the checkbox toggles it and fires
+   * `onTaskListItemPress`. When `false`, the checkbox renders its markdown
+   * state read-only: the tap is fully inert — no visual toggle and no
+   * `onTaskListItemPress` emission. Text selection and links in the same row
+   * are unaffected.
+   *
+   * On web the checkbox keeps its normal appearance and is marked
+   * `readOnly` / `aria-disabled` rather than `disabled`, so it stays visually
+   * consistent with iOS and Android. It is also made pointer-inert
+   * (`pointer-events: none`) so the browser cannot paint hover or active
+   * states on a checkbox that cannot be toggled.
+   *
+   * @default true
+   * @platform ios, android, web
+   */
+  enableTaskListItemToggle?: boolean;
+  /**
    * Controls text selection.
    * - iOS: Controls text selection and link previews on long press.
    * - Android: Controls text selection.

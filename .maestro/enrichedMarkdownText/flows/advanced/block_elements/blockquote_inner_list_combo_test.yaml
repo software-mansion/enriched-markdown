@@ -1,0 +1,34 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - block
+  - advanced
+  - blockquote
+  - list
+  - text
+---
+# checks a bold intro line followed by a list nested inside a blockquote:
+# list markers/text must stay indented from the border bar (blockquote indent + list indent),
+# not collapse onto the bar
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        > **Tips**
+        > - First item stays indented from the border bar
+        > - Second item marker sits at blockquote indent plus list indent
+        > - Third item
+
+        > Steps:
+        > 1. Prep
+        > 2. Cook
+        > 3. Serve
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'blockquote_inner_list_combo_display'

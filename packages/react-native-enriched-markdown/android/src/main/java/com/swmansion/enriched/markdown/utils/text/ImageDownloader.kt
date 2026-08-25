@@ -50,23 +50,31 @@ object ImageDownloader {
   fun download(
     context: Context,
     url: String,
+    headers: Map<String, String> = emptyMap(),
     callback: (Bitmap?) -> Unit,
   ) {
-    ImageCache.getOriginal(url)?.let {
+    val requestKey = ImageCache.requestKey(url, headers)
+
+    ImageCache.getOriginal(requestKey)?.let {
       callback(it)
       return
     }
 
     synchronized(inFlight) {
-      val existing = inFlight[url]
+      val existing = inFlight[requestKey]
       if (existing != null) {
         existing.add(callback)
         return
       }
-      inFlight[url] = mutableListOf(callback)
+      inFlight[requestKey] = mutableListOf(callback)
     }
 
-    val request = Request.Builder().url(url).build()
+    val request =
+      Request
+        .Builder()
+        .url(url)
+        .apply { headers.forEach { (name, value) -> addHeader(name, value) } }
+        .build()
     getClient(context).newCall(request).enqueue(
       object : Callback {
         override fun onResponse(
@@ -87,8 +95,8 @@ object ImageDownloader {
               }
             }
 
-          bitmap?.let { ImageCache.putOriginal(url, it) }
-          dispatchCallbacks(url, bitmap)
+          bitmap?.let { ImageCache.putOriginal(requestKey, it) }
+          dispatchCallbacks(requestKey, bitmap)
         }
 
         override fun onFailure(
@@ -96,7 +104,7 @@ object ImageDownloader {
           e: IOException,
         ) {
           Log.e(TAG, "Failed to download image: $url", e)
-          dispatchCallbacks(url, null)
+          dispatchCallbacks(requestKey, null)
         }
       },
     )
@@ -112,6 +120,11 @@ object ImageDownloader {
       BitmapFactory.decodeByteArray(bytes, 0, bytes.size, it)
     }
   }
+
+  fun decodeBytesDownsampled(
+    context: Context,
+    bytes: ByteArray,
+  ): Bitmap? = decodeDownsampled(bytes, context.resources.displayMetrics.widthPixels)
 
   fun decodeFileDownsampled(
     context: Context,
@@ -145,10 +158,10 @@ object ImageDownloader {
   }
 
   private fun dispatchCallbacks(
-    url: String,
+    requestKey: String,
     bitmap: Bitmap?,
   ) {
-    val callbacks = synchronized(inFlight) { inFlight.remove(url) } ?: return
+    val callbacks = synchronized(inFlight) { inFlight.remove(requestKey) } ?: return
     mainHandler.post {
       callbacks.forEach { it(bitmap) }
     }

@@ -48,6 +48,9 @@ interface MarkdownTextInputStyleInternal {
   h4: HeadingStyleInternal;
   h5: HeadingStyleInternal;
   h6: HeadingStyleInternal;
+  list: {
+    itemSpacing: number;
+  };
 }
 
 const DEFAULT_LINK_COLOR = '#2563EB';
@@ -89,6 +92,9 @@ const defaultInternal: MarkdownTextInputStyleInternal = Object.freeze({
   h4: defaultHeadingInternal('h4'),
   h5: defaultHeadingInternal('h5'),
   h6: defaultHeadingInternal('h6'),
+  list: {
+    itemSpacing: 0,
+  },
 });
 
 const normalizeHeadingStyle = (
@@ -161,6 +167,9 @@ export const normalizeMarkdownTextInputStyle = (
     h4: normalizeHeadingStyle('h4', style.h4),
     h5: normalizeHeadingStyle('h5', style.h5),
     h6: normalizeHeadingStyle('h6', style.h6),
+    list: {
+      itemSpacing: style.list?.itemSpacing ?? defaultInternal.list.itemSpacing,
+    },
   };
 
   cachedInput = style;

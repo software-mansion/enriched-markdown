@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig",
-  "exclude": ["apps", "lib", "plugin"]
+  "exclude": ["apps", "lib", "plugin", "__tests__", "jest.config.js"]
 }

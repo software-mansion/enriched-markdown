@@ -1,0 +1,29 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - smoke
+  - block
+  - paragraph
+  - text
+---
+# A trailing backslash is a CommonMark hard break: it forces a line break while
+# staying inside one paragraph, so the two lines are separated by line height
+# only. The blank line then starts a second paragraph that carries paragraph
+# margins — the screenshot pins the spacing difference between the two.
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        This line ends with a backslash\
+        so this text continues inside the same paragraph.
+
+        A blank line starts a new paragraph with its own spacing.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'hard_break_display'

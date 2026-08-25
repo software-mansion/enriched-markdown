@@ -47,6 +47,12 @@ interface MarkdownTextInputStyleInternal {
   h4: HeadingStyleInternal;
   h5: HeadingStyleInternal;
   h6: HeadingStyleInternal;
+  list: {
+    // Vertical spacing (points) added above each list item. iOS applies it via
+    // paragraphSpacingBefore; Android via a LineHeightSpan. Float for parity with
+    // every other spacing value in the library.
+    itemSpacing: CodegenTypes.Float;
+  };
 }
 
 interface TargetedEvent {
@@ -59,6 +65,10 @@ export interface OnChangeTextEvent {
 
 export interface OnChangeMarkdownEvent {
   value: string;
+}
+
+export interface OnKeyPressEvent {
+  key: string;
 }
 
 export interface OnChangeSelectionEvent {
@@ -74,6 +84,8 @@ export interface OnChangeStateEvent {
   spoiler: { isActive: boolean };
   link: { isActive: boolean };
   heading: { isActive: boolean; level: CodegenTypes.Int32 };
+  unorderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
+  orderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
 }
 
 export interface OnRequestMarkdownResultEvent {
@@ -164,6 +176,8 @@ export interface OnContextMenuItemPressEvent {
     spoiler: { isActive: boolean };
     link: { isActive: boolean };
     heading: { isActive: boolean; level: CodegenTypes.Int32 };
+    unorderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
+    orderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
   };
 }
 
@@ -276,6 +290,7 @@ export interface NativeProps extends ViewProps {
   onChangeText?: CodegenTypes.DirectEventHandler<OnChangeTextEvent>;
   onChangeMarkdown?: CodegenTypes.DirectEventHandler<OnChangeMarkdownEvent>;
   onChangeSelection?: CodegenTypes.DirectEventHandler<OnChangeSelectionEvent>;
+  onInputKeyPress?: CodegenTypes.DirectEventHandler<OnKeyPressEvent>;
   onChangeState?: CodegenTypes.DirectEventHandler<OnChangeStateEvent>;
   onInputFocus?: CodegenTypes.DirectEventHandler<TargetedEvent>;
   onInputBlur?: CodegenTypes.DirectEventHandler<TargetedEvent>;
@@ -312,12 +327,17 @@ interface NativeCommands {
     viewRef: React.ElementRef<ComponentType>,
     level: CodegenTypes.Int32
   ) => void;
+  toggleUnorderedList: (viewRef: React.ElementRef<ComponentType>) => void;
+  toggleOrderedList: (viewRef: React.ElementRef<ComponentType>) => void;
+  indentList: (viewRef: React.ElementRef<ComponentType>) => void;
+  outdentList: (viewRef: React.ElementRef<ComponentType>) => void;
   setLink: (viewRef: React.ElementRef<ComponentType>, url: string) => void;
   insertLink: (
     viewRef: React.ElementRef<ComponentType>,
     text: string,
     url: string
   ) => void;
+  insertText: (viewRef: React.ElementRef<ComponentType>, text: string) => void;
   insertMention: (
     viewRef: React.ElementRef<ComponentType>,
     displayText: string,
@@ -351,8 +371,13 @@ export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
     'toggleStrikethrough',
     'toggleSpoiler',
     'toggleHeading',
+    'toggleUnorderedList',
+    'toggleOrderedList',
+    'indentList',
+    'outdentList',
     'setLink',
     'insertLink',
+    'insertText',
     'insertMention',
     'startMention',
     'removeLink',

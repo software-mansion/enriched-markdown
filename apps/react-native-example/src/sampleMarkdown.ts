@@ -142,6 +142,26 @@ Scientific prefixes: 6.022 × 10^23^ (Avogadro's number), the universe is approx
 
 ---
 
+## Display Math Examples
+
+Standalone display math renders as a centered block:
+
+$$
+E = mc^2
+$$
+
+Display math surrounded by text on both sides (no blank lines) should still render as a block, with the text flowing above and below it:
+
+Energy released by fusion follows
+$$
+E = \\Delta m \\cdot c^2
+$$
+and this is why the sun shines.
+
+Inline math like $a^2 + b^2 = c^2$ and genuine mid-line display math ($$x = y$$ inside a sentence) both stay in the text flow.
+
+---
+
 ## Fascinating Forest Facts
 
 Did you know that trees communicate through an underground network? Scientists call this the \`Wood Wide Web\` — a fungal network connecting tree roots across entire forests.
