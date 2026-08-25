@@ -1,6 +1,6 @@
 import { adjustRangesForEdit } from './RangeEditAdjustment';
 import { sortedInsertionIndex } from './rangeStoreUtils';
-import type { FormattingRange, InputStyleType } from './types';
+import type { FormattingRange, InputStyleType, RangeBounds } from './types';
 
 // Invariants: ranges sorted by `start`; edit paths keep same-type ranges from
 // overlapping or touching, except links with different urls, which may touch
@@ -135,6 +135,84 @@ export class FormattingStore {
     for (const remainder of remainders) {
       this.insertSorted(remainder);
     }
+  }
+
+  // Toggles `type` on [start, end). Active means the WHOLE selection is
+  // covered; a partially covered selection gets the style applied everywhere.
+  // A caret (start == end) only reports state — pending styles mutate later.
+  // Returns whether the style was active.
+  toggleStyle(
+    type: InputStyleType,
+    start: number,
+    end: number,
+    conflictingStyles: ReadonlySet<InputStyleType> = new Set()
+  ): boolean {
+    if (start < end) {
+      const wasActive = this.isStyleFullyActive(type, start, end);
+      if (wasActive) {
+        this.removeType(type, start, end);
+      } else {
+        for (const conflict of conflictingStyles) {
+          this.removeType(conflict, start, end);
+        }
+        this.addRange({ type, start, end });
+      }
+      return wasActive;
+    }
+    return this.isStyleActive(type, start);
+  }
+
+  // True when toggling `type` ON at `position` should be refused because a
+  // blocking style is active there; toggling OFF is never blocked.
+  isToggleBlocked(
+    type: InputStyleType,
+    position: number,
+    blockingStyles: ReadonlySet<InputStyleType>
+  ): boolean {
+    if (blockingStyles.size === 0) {
+      return false;
+    }
+    if (this.isStyleActive(type, position)) {
+      return false;
+    }
+    for (const blocker of blockingStyles) {
+      if (this.isStyleActive(blocker, position)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Links are atomic: a selection partially overlapping a link expands to
+  // cover it whole, and a caret strictly inside a link moves to its end.
+  // Returns null when no adjustment is needed.
+  selectionAdjustedForAtomicLinks(
+    start: number,
+    end: number
+  ): RangeBounds | null {
+    if (start !== end) {
+      let newStart = start;
+      let newEnd = end;
+      const startLink = this.rangeOfType('link', newStart);
+      if (startLink !== null) {
+        newStart = Math.min(newStart, startLink.start);
+      }
+      if (newEnd > 0) {
+        const endLink = this.rangeOfType('link', newEnd - 1);
+        if (endLink !== null) {
+          newEnd = Math.max(newEnd, endLink.end);
+        }
+      }
+      if (newStart !== start || newEnd !== end) {
+        return { start: newStart, end: newEnd };
+      }
+      return null;
+    }
+    const link = this.rangeOfType('link', start);
+    if (link !== null && start > link.start && start < link.end) {
+      return { start: link.end, end: link.end };
+    }
+    return null;
   }
 
   // Shifts/clips ranges to follow a text edit; styles inherit replacement
