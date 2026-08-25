@@ -2,6 +2,7 @@ import MDXComponents from '@theme-original/MDXComponents';
 import Details from '@site/src/theme/MDXComponents/Details';
 import CollapsibleCode from '@site/src/components/CollapsibleCode';
 import InteractiveExample from '@site/src/components/InteractiveExample';
+import LivePreview from '@site/src/components/LivePreview';
 import PlatformCompatibility from '@site/src/components/PlatformCompatibility';
 import ExampleVideo from '@site/src/components/ExampleVideo';
 import ThemedVideo from '@site/src/components/ThemedVideo';
@@ -19,6 +20,7 @@ export default {
   details: Details,
   CollapsibleCode,
   InteractiveExample,
+  LivePreview,
   PlatformCompatibility,
   ExampleVideo,
   ThemedVideo,

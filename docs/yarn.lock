@@ -2985,7 +2985,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jridgewell/gen-mapping@npm:^0.3.12, @jridgewell/gen-mapping@npm:^0.3.5":
+"@jridgewell/gen-mapping@npm:^0.3.12, @jridgewell/gen-mapping@npm:^0.3.2, @jridgewell/gen-mapping@npm:^0.3.5":
   version: 0.3.13
   resolution: "@jridgewell/gen-mapping@npm:0.3.13"
   dependencies:
@@ -5123,6 +5123,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"any-promise@npm:^1.0.0":
+  version: 1.3.0
+  resolution: "any-promise@npm:1.3.0"
+  checksum: 10c0/60f0298ed34c74fef50daab88e8dab786036ed5a7fad02e012ab57e376e0a0b4b29e83b95ea9b5e7d89df762f5f25119b83e00706ecaccb22cfbacee98d74889
+  languageName: node
+  linkType: hard
+
 "anymatch@npm:~3.1.2":
   version: 3.1.3
   resolution: "anymatch@npm:3.1.3"
@@ -5848,6 +5855,13 @@ __metadata:
   version: 2.20.3
   resolution: "commander@npm:2.20.3"
   checksum: 10c0/74c781a5248c2402a0a3e966a0a2bba3c054aad144f5c023364be83265e796b20565aa9feff624132ff629aa64e16999fa40a743c10c12f7c61e96a794b99288
+  languageName: node
+  linkType: hard
+
+"commander@npm:^4.0.0":
+  version: 4.1.1
+  resolution: "commander@npm:4.1.1"
+  checksum: 10c0/84a76c08fe6cc08c9c93f62ac573d2907d8e79138999312c92d4155bc2325d487d64d13f669b2000c9f8caf70493c1be2dac74fec3c51d5a04f8bc3ae1830bab
   languageName: node
   linkType: hard
 
@@ -7018,6 +7032,7 @@ __metadata:
     raw-loader: "npm:^4.0.2"
     react: "npm:19.1.1"
     react-dom: "npm:19.1.1"
+    react-live: "npm:^4.1.8"
     react-native-web: "npm:~0.21.0"
   languageName: unknown
   linkType: soft
@@ -10385,6 +10400,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mz@npm:^2.7.0":
+  version: 2.7.0
+  resolution: "mz@npm:2.7.0"
+  dependencies:
+    any-promise: "npm:^1.0.0"
+    object-assign: "npm:^4.0.1"
+    thenify-all: "npm:^1.0.0"
+  checksum: 10c0/103114e93f87362f0b56ab5b2e7245051ad0276b646e3902c98397d18bb8f4a77f2ea4a2c9d3ad516034ea3a56553b60d3f5f78220001ca4c404bd711bd0af39
+  languageName: node
+  linkType: hard
+
 "nanoid@npm:^3.3.12":
   version: 3.3.15
   resolution: "nanoid@npm:3.3.15"
@@ -10547,7 +10573,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"object-assign@npm:^4.1.0, object-assign@npm:^4.1.1":
+"object-assign@npm:^4.0.1, object-assign@npm:^4.1.0, object-assign@npm:^4.1.1":
   version: 4.1.1
   resolution: "object-assign@npm:4.1.1"
   checksum: 10c0/1f4df9945120325d041ccf7b86f31e8bcc14e73d29171e37a7903050e96b81323784ec59f93f102ec635bcf6fa8034ba3ea0a8c7e69fa202b87ae3b6cec5a414
@@ -10908,6 +10934,13 @@ __metadata:
   version: 4.0.5
   resolution: "picomatch@npm:4.0.5"
   checksum: 10c0/947bc6b6e1ff1e6c5aaf95b107a0839d12802f4f7b867663f67d47accba939ca1cb582cf99dfc30438efa1c4648ac5990967e783e8929c36b03e8440704ef1bd
+  languageName: node
+  linkType: hard
+
+"pirates@npm:^4.0.1":
+  version: 4.0.7
+  resolution: "pirates@npm:4.0.7"
+  checksum: 10c0/a51f108dd811beb779d58a76864bbd49e239fa40c7984cd11596c75a121a8cc789f1c8971d8bb15f0dbf9d48b76c05bb62fcbce840f89b688c0fa64b37e8478a
   languageName: node
   linkType: hard
 
@@ -11802,7 +11835,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prism-react-renderer@npm:^2.1.0, prism-react-renderer@npm:^2.3.0":
+"prism-react-renderer@npm:^2.1.0, prism-react-renderer@npm:^2.3.0, prism-react-renderer@npm:^2.4.0":
   version: 2.4.1
   resolution: "prism-react-renderer@npm:2.4.1"
   dependencies:
@@ -12067,6 +12100,20 @@ __metadata:
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
   checksum: 10c0/8ecaa23d2fddea03f84892ca96577c5416d60a59ed2cad01dff648a60d25b799dac75dea1771e2b9b639ad026ce1efa7b44e6e636bf497b1d6ea0bac5962b96d
+  languageName: node
+  linkType: hard
+
+"react-live@npm:^4.1.8":
+  version: 4.1.8
+  resolution: "react-live@npm:4.1.8"
+  dependencies:
+    prism-react-renderer: "npm:^2.4.0"
+    sucrase: "npm:^3.35.0"
+    use-editable: "npm:^2.3.3"
+  peerDependencies:
+    react: ">=18.0.0"
+    react-dom: ">=18.0.0"
+  checksum: 10c0/fa96ca176bc9074e4892d6a079b94488ba74e95907ea187678afb17e4a23cc7760c3774ef17f4429d2ba562f1fda852a822e18a161ef386676371c56a7585970
   languageName: node
   linkType: hard
 
@@ -13296,6 +13343,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"sucrase@npm:^3.35.0":
+  version: 3.35.1
+  resolution: "sucrase@npm:3.35.1"
+  dependencies:
+    "@jridgewell/gen-mapping": "npm:^0.3.2"
+    commander: "npm:^4.0.0"
+    lines-and-columns: "npm:^1.1.6"
+    mz: "npm:^2.7.0"
+    pirates: "npm:^4.0.1"
+    tinyglobby: "npm:^0.2.11"
+    ts-interface-checker: "npm:^0.1.9"
+  bin:
+    sucrase: bin/sucrase
+    sucrase-node: bin/sucrase-node
+  checksum: 10c0/6fa22329c261371feb9560630d961ad0d0b9c87dce21ea74557c5f3ffbe5c1ee970ea8bcce9962ae9c90c3c47165ffa7dd41865c7414f5d8ea7a40755d612c5c
+  languageName: node
+  linkType: hard
+
 "supports-color@npm:^7.1.0":
   version: 7.2.0
   resolution: "supports-color@npm:7.2.0"
@@ -13418,6 +13483,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"thenify-all@npm:^1.0.0":
+  version: 1.6.0
+  resolution: "thenify-all@npm:1.6.0"
+  dependencies:
+    thenify: "npm:>= 3.1.0 < 4"
+  checksum: 10c0/9b896a22735e8122754fe70f1d65f7ee691c1d70b1f116fda04fea103d0f9b356e3676cb789506e3909ae0486a79a476e4914b0f92472c2e093d206aed4b7d6b
+  languageName: node
+  linkType: hard
+
+"thenify@npm:>= 3.1.0 < 4":
+  version: 3.3.1
+  resolution: "thenify@npm:3.3.1"
+  dependencies:
+    any-promise: "npm:^1.0.0"
+  checksum: 10c0/f375aeb2b05c100a456a30bc3ed07ef03a39cbdefe02e0403fb714b8c7e57eeaad1a2f5c4ecfb9ce554ce3db9c2b024eba144843cd9e344566d9fcee73b04767
+  languageName: node
+  linkType: hard
+
 "thingies@npm:^2.5.0":
   version: 2.6.0
   resolution: "thingies@npm:2.6.0"
@@ -13455,7 +13538,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tinyglobby@npm:^0.2.12":
+"tinyglobby@npm:^0.2.11, tinyglobby@npm:^0.2.12":
   version: 0.2.17
   resolution: "tinyglobby@npm:0.2.17"
   dependencies:
@@ -13529,6 +13612,13 @@ __metadata:
   version: 2.3.0
   resolution: "ts-dedent@npm:2.3.0"
   checksum: 10c0/bfc3331e0740191c0134fb526e7f01e16657e50955c9395de14703c6ef17119c91651fa044cf558dc9c1dbb0fe1b2a74e303aeebcbd5e3b31acd14f72f545a54
+  languageName: node
+  linkType: hard
+
+"ts-interface-checker@npm:^0.1.9":
+  version: 0.1.13
+  resolution: "ts-interface-checker@npm:0.1.13"
+  checksum: 10c0/232509f1b84192d07b81d1e9b9677088e590ac1303436da1e92b296e9be8e31ea042e3e1fd3d29b1742ad2c959e95afe30f63117b8f1bc3a3850070a5142fea7
   languageName: node
   linkType: hard
 
@@ -13810,6 +13900,15 @@ __metadata:
     file-loader:
       optional: true
   checksum: 10c0/71b6300e02ce26c70625eae1a2297c0737635038c62691bb3007ac33e85c0130efc74bfb444baf5c6b3bad5953491159d31d66498967d1417865d0c7e7cd1a64
+  languageName: node
+  linkType: hard
+
+"use-editable@npm:^2.3.3":
+  version: 2.3.3
+  resolution: "use-editable@npm:2.3.3"
+  peerDependencies:
+    react: ">= 16.8.0"
+  checksum: 10c0/6e8ae63ed0b9ad9a79d1f88992c6a594da0ad3dd1c67da7c12b73722b2a41f787c611dbe9e640f9cee5738168028219ca3c7b4cf739f096cee8069e82968a7b9
   languageName: node
   linkType: hard
 

@@ -66,6 +66,12 @@
 
 .preview {
   padding: 1.5em;
+  /* The library's web build forces a dark default text color (#1F2937) and the
+     shared example markdownStyle is tuned for a light surface, so pin the
+     preview canvas to the light off-white in both themes to guarantee contrast
+     (avoids dark-on-dark in dark mode). The surrounding chrome stays
+     theme-aware. */
+  background-color: var(--swm-off-white);
 }
 
 .loading {

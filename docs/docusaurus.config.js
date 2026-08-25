@@ -5,6 +5,7 @@ import { topbarBannerReservationScript } from '@swmansion/t-rex-ui/topbar-banner
 import { TOP_BAR_BANNER } from './src/components/topbarBanner.config.ts';
 
 const path = require('path');
+const webpack = require('webpack');
 
 // Interactive examples import the library's web build directly from the
 // monorepo (this docs folder is a standalone yarn project that does not
@@ -119,8 +120,16 @@ const config = {
     function enrichedMarkdownAliasPlugin() {
       return {
         name: 'enriched-markdown-web-alias',
-        configureWebpack() {
+        configureWebpack(config) {
           return {
+            plugins: [
+              // React Native code (reached through the library's web build)
+              // references the `__DEV__` global that Metro/babel injects but
+              // webpack does not, so define it here to match the bundle mode.
+              new webpack.DefinePlugin({
+                __DEV__: JSON.stringify(config.mode !== 'production'),
+              }),
+            ],
             resolve: {
               alias: {
                 // The library's web build reaches into react-native
@@ -140,6 +149,16 @@ const config = {
                   // the non-fully-specified request.
                   test: /\.m?js$/,
                   resolve: { fullySpecified: false },
+                },
+                {
+                  // The emscripten glue (md4c.js) is a UMD/CommonJS file, but it
+                  // ships inside the library's ESM build (lib/module,
+                  // "type": "module"). Parsed as ESM its `module.exports`
+                  // factory is dropped, so `import('./wasm/md4c').default` is
+                  // undefined and parsing silently falls back to raw text.
+                  // Force CJS interop so the factory resolves as `.default`.
+                  test: /md4c\.js$/,
+                  type: 'javascript/auto',
                 },
               ],
             },

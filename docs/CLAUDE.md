@@ -47,7 +47,8 @@ react-native-reanimated docs:
 `PlatformCompatibility`, `CollapsibleCode`, `InteractiveExample`, `Optional`,
 `Required`, `Yes`, `No`, `Version`, `Spacer`, `EnrichedCompatibility` (RN
 support matrix, used on `misc/compatibility.mdx`), `Row`, `Grid`, `Indent`,
-`ExampleVideo`, `ThemedVideo`, `Badges` (t-rex-ui), plus restyled admonitions,
+`ExampleVideo`, `ThemedVideo`, `Badges` (t-rex-ui), `InteractiveExample` /
+`LivePreview` (static vs editable example demos), plus restyled admonitions,
 `<details>`, Tabs, diff and highlighted code blocks, and Mermaid diagrams.
 
 ### Interactive examples
@@ -67,8 +68,17 @@ import BasicTextSrc from '!!raw-loader!@site/src/examples/BasicText';
 
 `component` runs live in the Preview tab (with a Reset button that remounts it);
 `src` (the raw file text via `raw-loader`) shows in the Code tab. Author new
-examples as `export default function App()` components in `src/examples/`;
-`markdownStyle.ts` is a shared style tuned to the docs palette.
+examples as `export default function App()` components in `src/examples/`.
+
+For an **editable** playground use `LivePreview` instead
+(`src/components/LivePreview`, powered by `react-live`): it takes only `src`,
+shows the code in an editor, and re-renders the preview as the reader types.
+Because the editor is live, keep each example **self-contained** - inline the
+markdown text and `markdownStyle` in the example file rather than importing
+shared helpers, so everything the reader might tweak is visible and editable.
+`LivePreview` strips the example's `import`s and injects React hooks,
+react-native-web primitives, and `EnrichedMarkdownText` as scope; anything an
+example treats as editable content must be inline, not scope-injected.
 
 The examples render the library's **web build** in the browser -
 `docusaurus.config.js` aliases the bare `react-native-enriched-markdown`
@@ -77,9 +87,21 @@ folder is a standalone yarn project and does not otherwise depend on the
 workspace package), aliases `react-native` to `react-native-web` (the web
 build reaches into `Platform`/`processColor`), relaxes `fullySpecified` for
 the parser's `import('./wasm/md4c')`, and stubs `katex` to `false` (the web
-build optionally requires it and skips math when absent). The example is run
-inside `BrowserOnly` because the web build injects a `<style>` at module eval,
-which would crash SSR during `yarn build`.
+build optionally requires it and skips math when absent). Two more webpack
+rules keep the web build runnable: `md4c.js` is forced to `type:
+'javascript/auto'` (it is a UMD/CommonJS emscripten file shipped inside the ESM
+`lib/module`, so ESM parsing would drop its `module.exports` factory and
+parsing would silently fall back to raw text), and a `DefinePlugin` defines the
+`__DEV__` global that React Native code references but webpack does not inject.
+The example is run inside `BrowserOnly` because the web build injects a
+`<style>` at module eval, which would crash SSR during `yarn build`.
+
+The alias target (`packages/react-native-enriched-markdown/lib/module/`) is a
+build artifact, not committed - it must be produced first via `yarn prepare`
+(or `bob build`) in the library package, otherwise any page that imports an
+example fails to resolve `react-native-enriched-markdown`. `react-live` and
+`react-native-web`/`raw-loader` are docs devDependencies that must be
+installed (`yarn`) for the interactive examples to build.
 
 The editable input (`EnrichedMarkdownTextInput`) is not web-ready yet. For
 input examples, import only the source via `raw-loader` and pass `comingSoon`

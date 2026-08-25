@@ -3,6 +3,11 @@ sidebar_label: Your first markdown view and editor
 sidebar_position: 2
 ---
 
+import InteractiveExample from '@site/src/components/InteractiveExample';
+import LivePreview from '@site/src/components/LivePreview';
+import BasicTextSrc from '!!raw-loader!@site/src/examples/BasicText';
+import BasicInputSrc from '!!raw-loader!@site/src/examples/BasicInput';
+
 # Your first markdown view and editor
 
 :::caution
@@ -15,31 +20,7 @@ With the package [installed](/react-native/basics/installation), let's put both 
 
 `EnrichedMarkdownText` is a read-only component. You give it a Markdown string through the `markdown` prop and it renders fully native text - no WebView involved.
 
-```tsx
-import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
-import { Linking } from 'react-native';
-
-const markdown = `
-# Welcome to Markdown!
-
-I can render a paragraph with **bold**, *italic*, and [links](https://reactnative.dev).
-
-- List item one
-- List item two
-  - Nested item
-`;
-
-export default function App() {
-  return (
-    <EnrichedMarkdownText
-      markdown={markdown}
-      onLinkPress={({ url }) => Linking.openURL(url)}
-    />
-  );
-}
-```
-
-// Todo Obrazek z efektem
+<LivePreview src={BasicTextSrc} />
 
 That's the whole setup for a display. The `onLinkPress` callback fires when the reader taps a link - here we hand the URL off to React Native's `Linking` so it opens in the browser.
 
@@ -53,52 +34,7 @@ You can restyle every element through the `markdownStyle` prop - see the [`Enric
 
 Here's a minimal editor with a single toolbar button that toggles **bold** and reflects whether bold is currently active:
 
-```tsx
-import { useRef, useState } from 'react';
-import { View, Button, StyleSheet } from 'react-native';
-import {
-  EnrichedMarkdownTextInput,
-  type EnrichedMarkdownTextInputInstance,
-  type StyleState,
-} from 'react-native-enriched-markdown';
-
-export default function App() {
-  const ref = useRef<EnrichedMarkdownTextInputInstance>(null);
-  const [state, setState] = useState<StyleState | null>(null);
-
-  return (
-    <View style={styles.container}>
-      <EnrichedMarkdownTextInput
-        ref={ref}
-        placeholder="Type here..."
-        onChangeState={setState}
-        style={styles.input}
-      />
-      <View style={styles.toolbar}>
-        <Button
-          title={state?.bold.isActive ? 'Unbold' : 'Bold'}
-          color={state?.bold.isActive ? 'green' : 'gray'}
-          onPress={() => ref.current?.toggleBold()}
-        />
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  input: {
-    width: '100%',
-    fontSize: 20,
-    padding: 10,
-    maxHeight: 200,
-    backgroundColor: 'lightgray',
-  },
-  toolbar: { flexDirection: 'row', gap: 8, marginTop: 8 },
-});
-```
-
-//todo result
+<InteractiveExample src={BasicInputSrc} comingSoon />
 
 Two things are worth calling out, because every editor feature follows the same two patterns:
 
