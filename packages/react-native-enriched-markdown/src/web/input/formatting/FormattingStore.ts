@@ -1,6 +1,7 @@
 import { adjustRangesForEdit } from './RangeEditAdjustment';
 import { sortedInsertionIndex } from './rangeStoreUtils';
-import type { FormattingRange, InputStyleType, RangeBounds } from './types';
+import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
+import type { RangeBounds } from '../model/rangeBounds';
 
 // Invariants: ranges sorted by `start`; edit paths keep same-type ranges from
 // overlapping or touching, except links with different urls, which may touch

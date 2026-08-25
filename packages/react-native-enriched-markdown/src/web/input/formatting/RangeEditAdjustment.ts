@@ -1,4 +1,4 @@
-import type { RangeBounds } from './types';
+import type { RangeBounds } from '../model/rangeBounds';
 
 type EditOverlap =
   | 'before-edit'
