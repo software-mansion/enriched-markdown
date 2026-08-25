@@ -1,5 +1,5 @@
 import { adjustRangesForEdit } from '../RangeEditAdjustment';
-import type { RangeBounds } from '../types';
+import type { RangeBounds } from '../../model/rangeBounds';
 
 // Running example: "The world is big" with a styled range on "world" (4-9).
 //   T  h  e  _  w  o  r  l  d  _  i  s  _  b  i  g
