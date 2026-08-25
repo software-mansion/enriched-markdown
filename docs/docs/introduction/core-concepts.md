@@ -11,7 +11,7 @@ This page is a primer on that syntax and the flavor that decides which parts of 
 
 ## What is Markdown?
 
-Markdown is a lightweight plain-text formatting syntax. You write ordinary text and add a few punctuation markers to convey structure — `**` around a word for **bold**, a leading `#` for a heading - and a parser turns that into styled, structured content.
+Markdown is a lightweight plain-text formatting syntax. You write ordinary text and add a few punctuation markers to convey structure - `**` around a word for **bold**, a leading `#` for a heading - and a parser turns that into styled, structured content.
 
 It's the format behind README files, GitHub comments, chat apps, and note-taking tools. Its appeal is that the source stays readable as plain text: `**bold**` reads as "bold" even before it's rendered.
 
@@ -20,6 +20,10 @@ In this library the Markdown string is the thing you store, send over the wire, 
 ## Markdown syntax
 
 The examples below show the **raw Markdown** you write on the left, and describe what it renders to. This is the CommonMark core that every platform supports.
+
+:::tip
+This page is a practical primer, not an exhaustive reference. For the complete, authoritative rules of the core syntax, see the [CommonMark specification](https://spec.commonmark.org/).
+:::
 
 ### Inline formatting
 
@@ -125,8 +129,8 @@ Inline elements inherit typography from the block that contains them - bold text
 
 There is a small CommonMark core that every Markdown parser agrees on (everything above), plus optional extensions layered on top. Enriched Markdown exposes this through the `flavor` prop:
 
-- **CommonMark** (default) — the standard core syntax.
-- **GitHub Flavored Markdown (GFM)** — CommonMark plus **tables**, **task lists**, **strikethrough** and much more. Opt in with `flavor="github"`.
+- **CommonMark** (default) - the standard core syntax.
+- **GitHub Flavored Markdown (GFM)** - CommonMark plus **tables**, **task lists**, **strikethrough** and much more. Opt in with `flavor="github"`.
 
 ```tsx
 <EnrichedMarkdownText flavor="github" markdown={markdown} />
@@ -134,7 +138,7 @@ There is a small CommonMark core that every Markdown parser agrees on (everythin
 
 Tables render with column alignment, rich text in cells, and header styling; task lists become interactive checkboxes you can respond to. See the per-platform `EnrichedMarkdownText` reference for the props that surface these.
 
-For an in-depth look at why flavors exist, everything GFM adds, and how extensions are enabled, see [Markdown flavors](/rich-text-formatting/markdown-flavors) in Rich text formatting.
+For an in-depth look at why flavors exist, everything GFM adds, and how extensions are enabled, see [Markdown flavors](/rich-text-formatting/markdown-flavors) in Rich text formatting. The extensions themselves are defined by the [GitHub Flavored Markdown spec](https://github.github.com/gfm/).
 
 ## How the components use Markdown
 
@@ -143,6 +147,6 @@ Bringing it back to the two components:
 - **`EnrichedMarkdownTextInput`** turns the user's edits into a Markdown string. Toggling bold on a selection wraps it in `**…**`; making a line a heading prepends `#`. You read the result through `onChangeMarkdown`.
 - **`EnrichedMarkdownText`** does the reverse: it parses a Markdown string from the `markdown` prop and renders native, styled text.
 
-Because both speak the same format, a string produced by the editor renders identically in the display. That round-trip — edit, serialize to Markdown, store, render — is the core workflow the rest of these docs build on.
+Because both speak the same format, a string produced by the editor renders identically in the display. That round-trip - edit, serialize to Markdown, store, render - is the core workflow the rest of these docs build on.
 
-Next: see which elements each platform supports in [Supported features](/introduction/supported-features).
+Next: see what's available and how to enable it in the [Feature support](/introduction/supported-features) overview.

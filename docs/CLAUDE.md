@@ -32,19 +32,59 @@ Deployed to `https://docs.swmansion.com/react-native-enriched-markdown/` via Git
 - Sections: Fundamentals, Rich text formatting, Guides, API reference
   (`EnrichedMarkdownText`, `EnrichedMarkdownTextInput`, Style properties,
   Element structure), Misc (macOS support, RTL, Accessibility, Breaking
-  changes). Web docs were dropped (web is
-  becoming a separate package). Most pages are stubs whose content is ported
-  from the flat `docs/*.md` files on the `main` branch (each stub's TODO names
-  its source).
+  changes). Web is (becoming) its own package - a separate library the same way
+  the native Android package is separate today - not dropped. It ships web
+  support for `EnrichedMarkdownText` (react-native-web + md4c-wasm), documented
+  in `react-native/guides/web-support.md` (ported from `docs-md/WEB.md`); the
+  editor stays native-only. Most pages are stubs whose content is ported from
+  the flat `docs/*.md` files on the `main` branch (each stub's TODO names its
+  source).
 
 ## MDX components
 
 Registered in `src/theme/MDXComponents.js`, same conventions as the
-react-native-reanimated docs (without interactive examples):
-`PlatformCompatibility`, `CollapsibleCode`, `Optional`, `Yes`, `No`,
-`Version`, `Spacer`, `Row`, `Grid`, `Indent`, `ExampleVideo`, `ThemedVideo`,
-`Badges` (t-rex-ui), plus restyled admonitions, `<details>`, Tabs, diff and
-highlighted code blocks, and Mermaid diagrams.
+react-native-reanimated docs:
+`PlatformCompatibility`, `CollapsibleCode`, `InteractiveExample`, `Optional`,
+`Required`, `Yes`, `No`, `Version`, `Spacer`, `EnrichedCompatibility` (RN
+support matrix, used on `misc/compatibility.mdx`), `Row`, `Grid`, `Indent`,
+`ExampleVideo`, `ThemedVideo`, `Badges` (t-rex-ui), plus restyled admonitions,
+`<details>`, Tabs, diff and highlighted code blocks, and Mermaid diagrams.
+
+### Interactive examples
+
+`InteractiveExample` renders a Preview/Code demo, following the same model as
+the react-native-enriched-html docs: **one `.tsx` file in `src/examples/` is
+the single source of truth** - shown as code and run live. A doc page imports
+that file twice and passes both to the component:
+
+```mdx
+import InteractiveExample from '@site/src/components/InteractiveExample';
+import BasicText from '@site/src/examples/BasicText';
+import BasicTextSrc from '!!raw-loader!@site/src/examples/BasicText';
+
+<InteractiveExample src={BasicTextSrc} component={BasicText} />
+```
+
+`component` runs live in the Preview tab (with a Reset button that remounts it);
+`src` (the raw file text via `raw-loader`) shows in the Code tab. Author new
+examples as `export default function App()` components in `src/examples/`;
+`markdownStyle.ts` is a shared style tuned to the docs palette.
+
+The examples render the library's **web build** in the browser -
+`docusaurus.config.js` aliases the bare `react-native-enriched-markdown`
+specifier to the monorepo's prebuilt `lib/module/index.web.js` (this docs
+folder is a standalone yarn project and does not otherwise depend on the
+workspace package), aliases `react-native` to `react-native-web` (the web
+build reaches into `Platform`/`processColor`), relaxes `fullySpecified` for
+the parser's `import('./wasm/md4c')`, and stubs `katex` to `false` (the web
+build optionally requires it and skips math when absent). The example is run
+inside `BrowserOnly` because the web build injects a `<style>` at module eval,
+which would crash SSR during `yarn build`.
+
+The editable input (`EnrichedMarkdownTextInput`) is not web-ready yet. For
+input examples, import only the source via `raw-loader` and pass `comingSoon`
+so the Code tab still shows the code while the Preview shows a "coming soon"
+banner: `<InteractiveExample src={BasicInputSrc} comingSoon />`.
 
 ## Site configuration (`docusaurus.config.js`)
 
