@@ -1,18 +1,10 @@
 import { FormattingStore } from '../FormattingStore';
-import type { FormattingRange } from '../types';
+import { createFormattingRange as range } from '../../model/inlineStyles';
 
-const strong = (start: number, end: number): FormattingRange => ({
-  type: 'strong',
-  start,
-  end,
-});
+const strong = (start: number, end: number) => range('strong', start, end);
 
-const link = (start: number, end: number, url: string): FormattingRange => ({
-  type: 'link',
-  start,
-  end,
-  url,
-});
+const link = (start: number, end: number, url: string) =>
+  range('link', start, end, url);
 
 describe('FormattingStore', () => {
   let store: FormattingStore;
@@ -35,12 +27,9 @@ describe('FormattingStore', () => {
     store.addRange(strong(4, 9));
     store.addRange(strong(7, 12));
     store.addRange(strong(12, 15));
-    store.addRange({ type: 'em', start: 5, end: 8 });
+    store.addRange(range('em', 5, 8));
 
-    expect(store.allRanges).toEqual([
-      strong(4, 15),
-      { type: 'em', start: 5, end: 8 },
-    ]);
+    expect(store.allRanges).toEqual([strong(4, 15), range('em', 5, 8)]);
   });
 
   it('keeps ranges sorted by start on add and on setRanges', () => {
@@ -119,13 +108,10 @@ describe('FormattingStore', () => {
   });
 
   it('adjustForEdit moves every range affected by the edit', () => {
-    store.setRanges([strong(0, 3), { type: 'em', start: 5, end: 8 }]);
+    store.setRanges([strong(0, 3), range('em', 5, 8)]);
     store.adjustForEdit(4, 0, 2);
 
-    expect(store.allRanges).toEqual([
-      strong(0, 3),
-      { type: 'em', start: 7, end: 10 },
-    ]);
+    expect(store.allRanges).toEqual([strong(0, 3), range('em', 7, 10)]);
   });
 
   it('removeType splits a covering range, preserving url on remainders', () => {
@@ -164,12 +150,12 @@ describe('FormattingStore', () => {
   });
 
   it('toggleStyle strips conflicting styles before adding', () => {
-    store.setRanges([{ type: 'spoiler', start: 2, end: 8 }]);
+    store.setRanges([range('spoiler', 2, 8)]);
     store.toggleStyle('link', 0, 6, new Set(['spoiler']));
 
     expect(store.allRanges).toEqual([
-      { type: 'link', start: 0, end: 6 },
-      { type: 'spoiler', start: 6, end: 8 },
+      range('link', 0, 6),
+      range('spoiler', 6, 8),
     ]);
   });
 
@@ -182,7 +168,7 @@ describe('FormattingStore', () => {
   });
 
   it('isToggleBlocked refuses toggling ON under a blocker, never OFF', () => {
-    store.setRanges([{ type: 'spoiler', start: 0, end: 5 }, strong(0, 5)]);
+    store.setRanges([range('spoiler', 0, 5), strong(0, 5)]);
 
     expect(store.isToggleBlocked('link', 2, new Set(['spoiler']))).toBe(true);
     // Toggling OFF an active style is never blocked.
@@ -220,16 +206,12 @@ describe('FormattingStore', () => {
   });
 
   it('removeType leaves other types and boundary-touching ranges untouched', () => {
-    store.setRanges([
-      strong(0, 4),
-      strong(6, 10),
-      { type: 'em', start: 0, end: 10 },
-    ]);
+    store.setRanges([strong(0, 4), strong(6, 10), range('em', 0, 10)]);
     store.removeType('strong', 4, 6);
 
     expect(store.allRanges).toEqual([
       strong(0, 4),
-      { type: 'em', start: 0, end: 10 },
+      range('em', 0, 10),
       strong(6, 10),
     ]);
   });

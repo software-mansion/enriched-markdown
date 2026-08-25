@@ -1,4 +1,4 @@
-import type { RangeBounds } from './types';
+import type { RangeBounds } from '../model/rangeBounds';
 
 // Index at which `location` keeps `ranges` sorted by start; equal starts
 // insert after existing entries.
