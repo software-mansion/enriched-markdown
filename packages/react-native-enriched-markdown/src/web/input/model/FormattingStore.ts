@@ -1,3 +1,4 @@
+import { adjustRangesForEdit } from './RangeEditAdjustment';
 import { sortedInsertionIndex } from './rangeStoreUtils';
 import type { FormattingRange, InputStyleType } from './types';
 
@@ -136,10 +137,52 @@ export class FormattingStore {
     }
   }
 
+  // Shifts/clips ranges to follow a text edit; styles inherit replacement
+  // text (autocorrect keeps them), links never do.
+  adjustForEdit(
+    editLocation: number,
+    deletedLength: number,
+    insertedLength: number
+  ): void {
+    this.ranges = adjustRangesForEdit(
+      this.ranges,
+      editLocation,
+      deletedLength,
+      insertedLength,
+      (range) => range.type !== 'link'
+    );
+    this.coalesceAdjacentSameTypeRanges();
+  }
+
   removeRange(range: FormattingRange): void {
     const index = this.ranges.indexOf(range);
     if (index !== -1) {
       this.ranges.splice(index, 1);
+    }
+  }
+
+  // Merge same-type (and same-url) ranges left adjacent or overlapping by an
+  // edit — e.g. deleting the space in "**foo** **bar**" leaves two touching
+  // bold ranges that would serialize as "**foo****bar**". `addRange` keeps
+  // this invariant on insert; the edit path must too.
+  private coalesceAdjacentSameTypeRanges(): void {
+    let idx = 0;
+    while (idx < this.ranges.length) {
+      const current = this.ranges[idx]!;
+      let next = idx + 1;
+      while (
+        next < this.ranges.length &&
+        this.ranges[next]!.start <= current.end
+      ) {
+        const candidate = this.ranges[next]!;
+        if (candidate.type === current.type && candidate.url === current.url) {
+          current.end = Math.max(current.end, candidate.end);
+          this.ranges.splice(next, 1);
+        } else {
+          next++;
+        }
+      }
+      idx++;
     }
   }
 

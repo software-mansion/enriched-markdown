@@ -87,6 +87,47 @@ describe('FormattingStore', () => {
     expect(store.isStyleFullyActive('strong', 3, 3)).toBe(true);
   });
 
+  it('adjustForEdit coalesces bold runs joined by a deletion', () => {
+    // "**foo** **bar**" — deleting the space leaves two touching bolds.
+    store.setRanges([strong(0, 3), strong(4, 7)]);
+    store.adjustForEdit(3, 1, 0);
+
+    expect(store.allRanges).toEqual([strong(0, 6)]);
+  });
+
+  it('adjustForEdit keeps touching links with different urls separate', () => {
+    store.setRanges([
+      link(0, 3, 'https://a.example'),
+      link(4, 7, 'https://b.example'),
+    ]);
+    store.adjustForEdit(3, 1, 0);
+
+    expect(store.allRanges).toEqual([
+      link(0, 3, 'https://a.example'),
+      link(3, 6, 'https://b.example'),
+    ]);
+  });
+
+  it('adjustForEdit lets styles inherit a replacement but drops links', () => {
+    store.setRanges([strong(4, 9)]);
+    store.adjustForEdit(4, 5, 6);
+    expect(store.allRanges).toEqual([strong(4, 10)]);
+
+    store.setRanges([link(4, 9, 'https://a.example')]);
+    store.adjustForEdit(4, 5, 6);
+    expect(store.allRanges).toEqual([]);
+  });
+
+  it('adjustForEdit moves every range affected by the edit', () => {
+    store.setRanges([strong(0, 3), { type: 'em', start: 5, end: 8 }]);
+    store.adjustForEdit(4, 0, 2);
+
+    expect(store.allRanges).toEqual([
+      strong(0, 3),
+      { type: 'em', start: 7, end: 10 },
+    ]);
+  });
+
   it('removeType splits a covering range, preserving url on remainders', () => {
     store.addRange(link(0, 10, 'https://a.example'));
     store.removeType('link', 4, 6);
