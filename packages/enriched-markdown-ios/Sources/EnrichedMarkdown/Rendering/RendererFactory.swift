@@ -89,6 +89,8 @@ final class RendererFactory {
             return ListRenderer(factory: self, config: config, isOrdered: true)
         case .listItem:
             return ListItemRenderer(factory: self, config: config)
+        case .table:
+            return TableRenderer(factory: self, config: config)
         default:
             return nil
         }
