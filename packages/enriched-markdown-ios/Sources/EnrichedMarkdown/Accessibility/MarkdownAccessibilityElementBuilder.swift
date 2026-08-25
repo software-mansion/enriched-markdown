@@ -9,6 +9,7 @@ struct MarkdownAccessibilityElementSpec: Equatable {
         case heading(level: Int)
         case link(URL)
         case image
+        case tableRow(offset: CGFloat, height: CGFloat, isHeader: Bool)
     }
 
     let kind: Kind
@@ -58,6 +59,7 @@ enum MarkdownAccessibilityElementBuilder {
         let range: NSRange
         let kind: MarkdownAccessibilityElementSpec.Kind
         let imageLabel: String?
+        var table: TableAttachment?
     }
 
     private static func appendSpecs(
@@ -114,9 +116,12 @@ enum MarkdownAccessibilityElementBuilder {
             runs.append(SemanticRun(range: runRange, kind: .link(url), imageLabel: nil))
         }
         text.enumerateAttribute(.attachment, in: range) { value, runRange, _ in
-            guard let attachment = value as? MarkdownImageAttachment else { return }
-            let label = attachment.accessibilityLabel.flatMap { $0.isEmpty ? nil : $0 } ?? "Image"
-            runs.append(SemanticRun(range: runRange, kind: .image, imageLabel: label))
+            if let attachment = value as? MarkdownImageAttachment {
+                let label = attachment.accessibilityLabel.flatMap { $0.isEmpty ? nil : $0 } ?? "Image"
+                runs.append(SemanticRun(range: runRange, kind: .image, imageLabel: label))
+            } else if let table = value as? TableAttachment {
+                runs.append(SemanticRun(range: runRange, kind: .text, imageLabel: nil, table: table))
+            }
         }
 
         return runs.sorted { $0.range.location < $1.range.location }
@@ -127,6 +132,11 @@ enum MarkdownAccessibilityElementBuilder {
         in text: NSAttributedString,
         to specs: inout [MarkdownAccessibilityElementSpec]
     ) {
+        if let table = run.table {
+            appendTableRowSpecs(for: table, range: run.range, to: &specs)
+            return
+        }
+
         let label: String
         let announcement: String?
 
@@ -143,7 +153,7 @@ enum MarkdownAccessibilityElementBuilder {
             label = (text.string as NSString).substring(with: visible)
             // Links announce their list context even mid-item.
             announcement = listAnnouncement(in: text, at: run.range.location, requireStart: false)
-        case .text:
+        case .text, .tableRow:
             return
         }
 
@@ -153,6 +163,28 @@ enum MarkdownAccessibilityElementBuilder {
             range: trimmedRange(of: run.range, in: text) ?? run.range,
             listAnnouncement: announcement
         ))
+    }
+
+    /// One element per table row, RN-style: "Row {n}: {cells}", the header
+    /// row carrying the header trait. Frames are the attachment's frame
+    /// sliced by the precomputed row offsets.
+    private static func appendTableRowSpecs(
+        for table: TableAttachment,
+        range: NSRange,
+        to specs: inout [MarkdownAccessibilityElementSpec]
+    ) {
+        var offset: CGFloat = 0
+        for (index, row) in table.model.rows.enumerated() {
+            let height = table.layout.rowHeights[index]
+            let content = row.map(\.plainText).joined(separator: ", ")
+            specs.append(MarkdownAccessibilityElementSpec(
+                kind: .tableRow(offset: offset, height: height, isHeader: row.first?.isHeader ?? false),
+                label: "Row \(index + 1): \(content)",
+                range: range,
+                listAnnouncement: nil
+            ))
+            offset += height
+        }
     }
 
     private static func appendTextSpec(

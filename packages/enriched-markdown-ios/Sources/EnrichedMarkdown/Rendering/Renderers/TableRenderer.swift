@@ -12,11 +12,18 @@ final class TableRenderer: NodeRenderer {
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
-        let style = TableAttachmentStyle.default
+        let style = TableAttachmentStyle(config: config)
         let model = buildModel(from: node, style: style)
         guard !model.rows.isEmpty, model.columnCount > 0 else { return }
 
         ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
+        if style.marginTop > 0 {
+            _ = ParagraphStyleHelpers.applyBlockSpacingBefore(
+                to: output,
+                at: output.length,
+                marginTop: style.marginTop
+            )
+        }
         let attachment = TableAttachment(model: model, style: style)
         output.append(NSAttributedString(attachment: attachment))
         output.append(NSAttributedString(string: "\n"))
@@ -26,6 +33,7 @@ final class TableRenderer: NodeRenderer {
     private func buildModel(from node: MarkdownASTNode, style: TableAttachmentStyle) -> TableModel {
         var rows: [[TableCellModel]] = []
         var columnCount = 0
+        var columnAlignments: [String?] = []
 
         for section in node.children where section.type == .tableHead || section.type == .tableBody {
             let sectionIsHead = section.type == .tableHead
@@ -34,17 +42,26 @@ final class TableRenderer: NodeRenderer {
                 for cellNode in rowNode.children
                 where cellNode.type == .tableHeaderCell || cellNode.type == .tableCell {
                     let isHeader = sectionIsHead || cellNode.type == .tableHeaderCell
+                    let rendered = renderCell(cellNode, isHeader: isHeader, style: style)
                     cells.append(TableCellModel(
-                        attributedText: renderCell(cellNode, isHeader: isHeader, style: style),
+                        attributedText: rendered,
+                        plainText: rendered.string,
+                        markdownText: MarkdownExtractor.inlineMarkdown(for: rendered),
                         isHeader: isHeader
                     ))
+                    if sectionIsHead, columnAlignments.count < cells.count {
+                        columnAlignments.append(cellNode.attribute("align"))
+                    }
                 }
                 columnCount = max(columnCount, cells.count)
                 rows.append(cells)
             }
         }
 
-        return TableModel(rows: rows, columnCount: columnCount)
+        while columnAlignments.count < columnCount {
+            columnAlignments.append(nil)
+        }
+        return TableModel(rows: rows, columnCount: columnCount, columnAlignments: columnAlignments)
     }
 
     private func renderCell(
@@ -59,36 +76,45 @@ final class TableRenderer: NodeRenderer {
             color: isHeader ? style.headerTextColor : style.textColor
         )
         factory.renderChildren(of: cellNode, into: cellOutput, context: cellContext)
-        trimTrailingNewlines(in: cellOutput)
-        applyAlignment(cellNode.attribute("align"), to: cellOutput)
+        trimTrailingWhitespace(in: cellOutput)
+        applyParagraphStyle(align: cellNode.attribute("align"), style: style, to: cellOutput)
         return cellOutput
     }
 
     private func cellFont(isHeader: Bool, style: TableAttachmentStyle) -> UIFont {
-        let base = (config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body))
-            .withSize(style.fontSize)
+        let base = style.font
+            ?? (config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)).withSize(style.fontSize)
         guard isHeader else { return base }
         guard let boldDescriptor = base.fontDescriptor.withSymbolicTraits(.traitBold) else {
             return base
         }
-        return UIFont(descriptor: boldDescriptor, size: style.fontSize)
+        return UIFont(descriptor: boldDescriptor, size: base.pointSize)
     }
 
-    private func applyAlignment(_ align: String?, to cellOutput: NSMutableAttributedString) {
-        let alignment: NSTextAlignment
-        switch align {
-        case "center": alignment = .center
-        case "right": alignment = .right
-        default: return
-        }
-
-        let range = NSRange(location: 0, length: cellOutput.length)
+    private func applyParagraphStyle(
+        align: String?,
+        style: TableAttachmentStyle,
+        to cellOutput: NSMutableAttributedString
+    ) {
+        guard cellOutput.length > 0 else { return }
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = alignment
-        cellOutput.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
+        if style.lineHeight > 0 {
+            paragraphStyle.minimumLineHeight = style.lineHeight
+            paragraphStyle.maximumLineHeight = style.lineHeight
+        }
+        switch align {
+        case "center": paragraphStyle.alignment = .center
+        case "right": paragraphStyle.alignment = .right
+        default: break
+        }
+        cellOutput.addAttribute(
+            .paragraphStyle,
+            value: paragraphStyle,
+            range: NSRange(location: 0, length: cellOutput.length)
+        )
     }
 
-    private func trimTrailingNewlines(in cellOutput: NSMutableAttributedString) {
+    private func trimTrailingWhitespace(in cellOutput: NSMutableAttributedString) {
         while cellOutput.length > 0,
               let scalar = Unicode.Scalar((cellOutput.string as NSString).character(at: cellOutput.length - 1)),
               CharacterSet.whitespacesAndNewlines.contains(scalar) {

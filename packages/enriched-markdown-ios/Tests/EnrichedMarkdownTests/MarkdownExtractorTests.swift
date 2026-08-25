@@ -42,6 +42,86 @@ final class MarkdownExtractorTests: XCTestCase {
         )
     }
 
+    // MARK: - Tables
+
+    func testTableOnlySelectionRebuildsPipeTable() {
+        let rendered = render("| A | B |\n|:--|--:|\n| one | two |")
+        let range = (rendered.string as NSString).range(of: "\u{FFFC}")
+        XCTAssertNotEqual(range.location, NSNotFound)
+
+        let markdown = MarkdownExtractor.extractMarkdown(from: rendered, in: range)
+
+        XCTAssertEqual(markdown, "| A | B |\n| :--- | ---: |\n| one | two |\n")
+    }
+
+    func testSelectionSpanningTableKeepsSurroundingText() {
+        let rendered = render("before\n\n| A | B |\n|---|---|\n| one | two |\n\nafter")
+        let markdown = MarkdownExtractor.extractMarkdown(
+            from: rendered,
+            in: NSRange(location: 0, length: rendered.length)
+        )
+
+        XCTAssertNotNil(markdown)
+        XCTAssertTrue(markdown?.contains("before") == true)
+        XCTAssertTrue(markdown?.contains("| A | B |") == true)
+        XCTAssertTrue(markdown?.contains("| one | two |") == true)
+        XCTAssertTrue(markdown?.contains("after") == true)
+        XCTAssertFalse(markdown?.contains("\u{FFFC}") == true)
+    }
+
+    /// Drag-selecting "everything" can start after a leading margin spacer;
+    /// the excluded head is invisible, so the original source comes back
+    /// verbatim (exact separator dashes included).
+    func testSelectionAfterLeadingSpacerReturnsSourceVerbatim() {
+        var spacedConfig = MarkdownStyleConfig.baseline()
+        spacedConfig.paragraph.marginTop = 12
+        let source = "intro\n\n| A | B |\n|:--------|------:|\n| one | two |\n\nafter"
+        let rendered = MarkdownRenderer.render(source, config: spacedConfig)
+
+        let introLocation = (rendered.string as NSString).range(of: "intro").location
+        XCTAssertGreaterThan(introLocation, 0, "expected a leading margin spacer")
+
+        let markdown = MarkdownExtractor.markdown(
+            for: NSRange(location: introLocation, length: rendered.length - introLocation),
+            in: rendered,
+            sourceMarkdown: source
+        )
+
+        XCTAssertEqual(markdown, source)
+    }
+
+    /// A selection that excludes real text must not take the verbatim
+    /// shortcut.
+    func testPartialSelectionDoesNotReturnFullSource() {
+        let source = "first paragraph\n\nsecond paragraph"
+        let rendered = render(source)
+        let firstRange = (rendered.string as NSString).range(of: "first paragraph")
+
+        let markdown = MarkdownExtractor.markdown(
+            for: firstRange,
+            in: rendered,
+            sourceMarkdown: source
+        )
+
+        XCTAssertEqual(markdown, "first paragraph")
+    }
+
+    func testSelectionMenuOffersCopyMarkdownForTableSelection() {
+        let rendered = render("| A | B |\n|---|---|\n| one | two |")
+        let range = (rendered.string as NSString).range(of: "\u{FFFC}")
+
+        let specs = SelectionMenuItems.build(
+            config: MarkdownSelectionMenuConfig(),
+            selectedRange: range,
+            attributedText: rendered,
+            sourceMarkdown: nil
+        )
+
+        let copyMarkdown = specs.first { $0.kind == .copyMarkdown }
+        XCTAssertNotNil(copyMarkdown)
+        XCTAssertTrue(copyMarkdown?.pasteboardString.contains("| one | two |") == true)
+    }
+
     // MARK: - Invalid input
 
     func testReturnsNilForEmptyRange() {
