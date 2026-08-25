@@ -14,11 +14,13 @@ import com.swmansion.enriched.markdown.input.events.OnContextMenuItemPressEvent
 import com.swmansion.enriched.markdown.input.events.OnEndMentionEvent
 import com.swmansion.enriched.markdown.input.events.OnInputBlurEvent
 import com.swmansion.enriched.markdown.input.events.OnInputFocusEvent
+import com.swmansion.enriched.markdown.input.events.OnInputKeyPressEvent
 import com.swmansion.enriched.markdown.input.events.OnLinkDetectedEvent
 import com.swmansion.enriched.markdown.input.events.OnRequestCaretRectResultEvent
 import com.swmansion.enriched.markdown.input.events.OnRequestMarkdownResultEvent
 import com.swmansion.enriched.markdown.input.events.OnStartMentionEvent
 import com.swmansion.enriched.markdown.input.formatting.MarkdownSerializer
+import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.CaretRect
 import com.swmansion.enriched.markdown.input.model.StyleType
 
@@ -27,10 +29,15 @@ class InputEventEmitter(
 ) {
   private var prevState: Map<StyleType, Boolean> = emptyMap()
   private var prevHeadingLevel: Int = 0
+  private var prevUnorderedList: Pair<Boolean, Int> = false to 0
+  private var prevOrderedList: Pair<Boolean, Int> = false to 0
   private var prevCaretRect: CaretRect? = null
 
   fun emitChangeText() {
-    val plainText = view.text?.toString() ?: ""
+    // The empty-list-line ZWSP anchor is an internal editing detail — never leak
+    // it to JS. Both output paths (plain text here, markdown) funnel through the
+    // same MarkdownSerializer.stripZwsp choke point.
+    val plainText = MarkdownSerializer.stripZwsp(view.text?.toString() ?: "")
     dispatch(OnChangeTextEvent(surfaceId(), view.id, plainText))
   }
 
@@ -52,10 +59,18 @@ class InputEventEmitter(
         isStyleEffectivelyActive(style, pos)
       }
     val headingLevel = view.headingLevelAtCursor()
+    val unorderedList = view.listStateAtCursor(BlockType.UNORDERED_LIST_ITEM)
+    val orderedList = view.listStateAtCursor(BlockType.ORDERED_LIST_ITEM)
 
-    if (current == prevState && headingLevel == prevHeadingLevel) return
+    if (current == prevState && headingLevel == prevHeadingLevel && unorderedList == prevUnorderedList &&
+      orderedList == prevOrderedList
+    ) {
+      return
+    }
     prevState = current
     prevHeadingLevel = headingLevel
+    prevUnorderedList = unorderedList
+    prevOrderedList = orderedList
 
     dispatch(
       OnChangeStateEvent(
@@ -68,8 +83,16 @@ class InputEventEmitter(
         current[StyleType.SPOILER] ?: false,
         current[StyleType.LINK] ?: false,
         headingLevel,
+        unorderedList.first,
+        unorderedList.second,
+        orderedList.first,
+        orderedList.second,
       ),
     )
+  }
+
+  fun emitKeyPress(key: String) {
+    dispatch(OnInputKeyPressEvent(surfaceId(), view.id, key))
   }
 
   fun emitFocus() {
@@ -159,6 +182,8 @@ class InputEventEmitter(
         isStyleEffectivelyActive(type, selectionStart)
       }
 
+    val contextMenuListState = view.listStateAtCursor(BlockType.UNORDERED_LIST_ITEM)
+    val contextMenuOrderedState = view.listStateAtCursor(BlockType.ORDERED_LIST_ITEM)
     dispatch(
       OnContextMenuItemPressEvent(
         surfaceId(),
@@ -174,6 +199,10 @@ class InputEventEmitter(
         isSpoiler = isActive(StyleType.SPOILER),
         isLink = isActive(StyleType.LINK),
         headingLevel = view.headingLevelAtCursor(),
+        isUnorderedList = contextMenuListState.first,
+        unorderedListDepth = contextMenuListState.second,
+        isOrderedList = contextMenuOrderedState.first,
+        orderedListDepth = contextMenuOrderedState.second,
       ),
     )
   }
@@ -190,6 +219,9 @@ class InputEventEmitter(
 
   private fun serializeToMarkdown(): String {
     val plainText = view.text?.toString() ?: ""
+    // Each block resolves its markdown line prefix through its registered handler.
+    // With no block handlers registered the provider returns "" for every block
+    // and output equals the inline-only serialization.
     return MarkdownSerializer.serialize(
       plainText,
       view.allFormattingRangesForSerialization(),
@@ -205,7 +237,7 @@ class InputEventEmitter(
   }
 
   private fun dispatch(event: Event<*>) {
-    if (view.blockEmitting) return
+    if (view.editSession.shouldSuppressEvents) return
     val reactContext = view.context as? ReactContext ?: return
     val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id)
     dispatcher?.dispatchEvent(event)

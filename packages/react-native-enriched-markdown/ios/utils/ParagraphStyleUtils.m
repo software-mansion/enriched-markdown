@@ -1,5 +1,6 @@
 #import "ParagraphStyleUtils.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMImageAttachment.h"
 #import "LastElementUtils.h"
 #import <React/RCTI18nUtil.h>
 
@@ -246,6 +247,21 @@ void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBot
   [output addAttribute:NSParagraphStyleAttributeName value:spacerStyle range:NSMakeRange(spacerLocation, 1)];
 }
 
+BOOL ENRMRangeContainsBlockImage(NSAttributedString *output, NSRange range)
+{
+  __block BOOL found = NO;
+  [output enumerateAttribute:NSAttachmentAttributeName
+                     inRange:range
+                     options:0
+                  usingBlock:^(id value, __unused NSRange attrRange, BOOL *stop) {
+                    if ([value isKindOfClass:[ENRMImageAttachment class]] && !((ENRMImageAttachment *)value).isInline) {
+                      found = YES;
+                      *stop = YES;
+                    }
+                  }];
+  return found;
+}
+
 void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight)
 {
   if (lineHeight <= 0) {
@@ -266,10 +282,12 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
                   }];
 #endif
 
+  BOOL hasBlockImage = ENRMRangeContainsBlockImage(output, range);
+
   NSMutableParagraphStyle *style = getOrCreateParagraphStyle(output, range.location);
 
   style.minimumLineHeight = lineHeight;
-  style.maximumLineHeight = hasMath ? 0 : lineHeight;
+  style.maximumLineHeight = (hasMath || hasBlockImage) ? 0 : lineHeight;
 
   [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
 }
@@ -354,7 +372,18 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                     if (existingOffset != nil) {
                       return;
                     }
-                    [output addAttribute:NSBaselineOffsetAttributeName value:@(baseLineOffset) range:subrange];
+                    [output enumerateAttribute:NSAttachmentAttributeName
+                                       inRange:subrange
+                                       options:0
+                                    usingBlock:^(id attachment, NSRange attachmentRange, BOOL *innerStop) {
+                                      if ([attachment isKindOfClass:[ENRMImageAttachment class]] &&
+                                          !((ENRMImageAttachment *)attachment).isInline) {
+                                        return;
+                                      }
+                                      [output addAttribute:NSBaselineOffsetAttributeName
+                                                     value:@(baseLineOffset)
+                                                     range:attachmentRange];
+                                    }];
                   }];
 }
 

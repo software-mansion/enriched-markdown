@@ -12,6 +12,8 @@ End-to-end UI tests for the example app, exercising both the display component (
 │   ├── subflows/            ← suite-local helpers
 │   └── screenshots/         ← golden images, per platform
 ├── enrichedMarkdownInput/   ← editor suite (same shape)
+├── androidExample/        ← native Android example app (CommonMark flows)
+├── iosExample/            ← native iOS example app (CommonMark flows)
 ├── subflows/                ← cross-suite helpers
 └── scripts/                 ← runner shell scripts + setup
 ```
@@ -34,6 +36,12 @@ All scripts wrap `.maestro/scripts/run-tests.sh` (single platform) or `.maestro/
 | `yarn test:e2e:mobile:update-screenshots` | Refresh golden screenshots for both platforms instead of asserting. |
 | `yarn test:e2e:ios:update-screenshots` | Refresh golden screenshots for iOS only. |
 | `yarn test:e2e:android:update-screenshots` | Refresh golden screenshots for Android only. |
+| `yarn test:e2e:ios-native` | CommonMark E2E tests on the native iOS example app. |
+| `yarn test:e2e:ios-native:smoke` | Smoke CommonMark tests on the native iOS example app. |
+| `yarn test:e2e:ios-native:update-screenshots` | Refresh golden screenshots for the native iOS example app. |
+| `yarn test:e2e:android-native` | CommonMark E2E tests on the native Android example app. |
+| `yarn test:e2e:android-native:smoke` | Smoke CommonMark tests on the native Android example app. |
+| `yarn test:e2e:android-native:update-screenshots` | Refresh golden screenshots for the native Android example app. |
 
 ### When to use which
 

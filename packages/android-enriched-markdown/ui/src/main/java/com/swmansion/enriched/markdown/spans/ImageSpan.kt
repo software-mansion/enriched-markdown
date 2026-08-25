@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
 import android.text.Spannable
 import android.text.Spanned
@@ -20,6 +21,7 @@ import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
+import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 import android.text.style.ImageSpan as AndroidImageSpan
@@ -52,7 +54,8 @@ class ImageSpan(
   }
 
   private fun loadImage() {
-    if (imageUrl.startsWith("http")) {
+    val scheme = Uri.parse(imageUrl).scheme?.lowercase()
+    if (scheme == "http" || scheme == "https") {
       ImageDownloader.download(context, imageUrl, requestHeaders) { bitmap ->
         if (bitmap != null) {
           sourceDrawable = bitmap.toDrawable(context.resources)
@@ -60,17 +63,12 @@ class ImageSpan(
         }
       }
     } else {
-      val path = imageUrl.removePrefix("file://")
-      try {
-        val cached = ImageCache.getOriginal(imageUrl)
-        val bitmap = cached ?: ImageDownloader.decodeFileDownsampled(context, path)
-        if (bitmap != null) {
-          if (cached == null) ImageCache.putOriginal(imageUrl, bitmap)
-          sourceDrawable = bitmap.toDrawable(context.resources)
-          wrapAndAssignDrawable()
-        }
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to load local image: $path", e)
+      val cached = ImageCache.getOriginal(imageUrl)
+      val bitmap = cached ?: LocalImageLoader.load(context, imageUrl)
+      if (bitmap != null) {
+        if (cached == null) ImageCache.putOriginal(imageUrl, bitmap)
+        sourceDrawable = bitmap.toDrawable(context.resources)
+        wrapAndAssignDrawable()
       }
     }
   }
@@ -330,7 +328,6 @@ class ImageSpan(
   }
 
   companion object {
-    private const val TAG = "ImageSpan"
     private val transparentDrawable by lazy { Color.TRANSPARENT.toDrawable() }
     private val cacheExecutor = Executors.newSingleThreadExecutor()
   }

@@ -18,6 +18,7 @@ import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.utils.common.RenderedSegment
@@ -30,6 +31,7 @@ import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.views.BlockSegmentView
+import com.swmansion.enriched.markdown.views.CodeBlockContainerView
 import com.swmansion.enriched.markdown.views.TableContainerView
 import java.util.EnumSet
 import java.util.concurrent.ExecutorService
@@ -71,6 +73,7 @@ class EnrichedMarkdown
     private var forceHeightRecalculationCounter = 0
 
     var tableStreamingMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE
+    var codeBlockStreamingMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
     private var renderPending: Boolean = false
 
     var currentMarkdown: String = ""
@@ -98,6 +101,7 @@ class EnrichedMarkdown
     private var onLinkPressCallback: ((String) -> Unit)? = null
     private var onLinkLongPressCallback: ((String) -> Unit)? = null
     private var onTaskListItemPressCallback: ((Int, Boolean, String) -> Unit)? = null
+    private var onCopyPressCallback: ((String, String) -> Unit)? = null
     private var contextMenuItemTexts: List<String> = emptyList()
     var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
@@ -106,6 +110,14 @@ class EnrichedMarkdown
         field = value
         segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
           it.spoilerOverlay = value
+        }
+      }
+    var enableTaskListItemToggle: Boolean = true
+      set(value) {
+        if (field == value) return
+        field = value
+        segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+          it.enableTaskListItemToggle = value
         }
       }
 
@@ -136,6 +148,8 @@ class EnrichedMarkdown
 
     fun commitProps() {
       MeasurementStore.updateStreamingTableMode(id, tableStreamingMode)
+      MeasurementStore.updateStreamingCodeBlockMode(id, codeBlockStreamingMode)
+      MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
       if (renderPending) {
         renderPending = false
         scheduleRenderIfNeeded()
@@ -164,6 +178,7 @@ class EnrichedMarkdown
     fun setAllowFontScaling(allow: Boolean) {
       if (allowFontScaling == allow) return
       allowFontScaling = allow
+      MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
       recreateStyleConfig()
       dirtyFlags += DirtyFlag.RECREATE_SEGMENTS
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
@@ -173,6 +188,7 @@ class EnrichedMarkdown
     fun setMaxFontSizeMultiplier(multiplier: Float) {
       if (maxFontSizeMultiplier == multiplier) return
       maxFontSizeMultiplier = multiplier
+      MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
       recreateStyleConfig()
       dirtyFlags += DirtyFlag.RECREATE_SEGMENTS
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
@@ -239,6 +255,10 @@ class EnrichedMarkdown
       onTaskListItemPressCallback = callback
     }
 
+    fun setOnCopyPressCallback(callback: ((code: String, language: String) -> Unit)?) {
+      onCopyPressCallback = callback
+    }
+
     fun setContextMenuItems(items: List<String>) {
       contextMenuItemTexts = items
       segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
@@ -263,6 +283,11 @@ class EnrichedMarkdown
       segmentViews.forEach { view ->
         when {
           view is TableContainerView -> {
+            view.copyLabel = copyLabel
+            view.copyAsMarkdownLabel = copyAsMarkdownLabel
+          }
+
+          view is CodeBlockContainerView -> {
             view.copyLabel = copyLabel
             view.copyAsMarkdownLabel = copyAsMarkdownLabel
           }
@@ -326,26 +351,29 @@ class EnrichedMarkdown
       val markdown = currentMarkdown.takeIf { it.isNotEmpty() } ?: return
       val isStreaming = streamingAnimation
       val tableMode = tableStreamingMode
+      val codeBlockMode = codeBlockStreamingMode
 
       val renderId = ++currentRenderId
 
       executor.execute {
         try {
-          val renderableMarkdown =
+          val filtered =
             if (isStreaming) {
-              StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, tableMode)
+              StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, tableMode, codeBlockMode)
             } else {
-              markdown
+              null
             }
+          val renderableMarkdown = filtered?.markdown ?: markdown
+          val hasPendingCodeBlock = filtered?.endsInsideOpenCodeFence ?: false
 
           if (renderableMarkdown.isEmpty()) {
-            postToMain(renderId) { applyRenderedSegments(emptyList(), style) }
+            postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
             return@execute
           }
 
           val ast =
             parser.parseMarkdown(renderableMarkdown, md4cFlags) ?: run {
-              postToMain(renderId) { applyRenderedSegments(emptyList(), style) }
+              postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
               return@execute
             }
 
@@ -359,18 +387,25 @@ class EnrichedMarkdown
               onLinkLongPressCallback,
             )
 
-          postToMain(renderId) { applyRenderedSegments(renderedSegments, style) }
+          postToMain(renderId) { applyRenderedSegments(renderedSegments, style, hasPendingCodeBlock) }
         } catch (e: Exception) {
           Log.e(TAG, "Render failed", e)
-          postToMain(renderId) { applyRenderedSegments(emptyList(), style) }
+          postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
         }
       }
     }
 
+    // Trailing code block whose closing fence hasn't streamed in yet, if any.
+    private var pendingCodeBlockSegment: RenderedSegment.CodeBlock? = null
+
     private fun applyRenderedSegments(
       renderedSegments: List<RenderedSegment>,
       style: StyleConfig,
+      hasPendingCodeBlock: Boolean,
     ) {
+      pendingCodeBlockSegment =
+        if (hasPendingCodeBlock) renderedSegments.lastOrNull() as? RenderedSegment.CodeBlock else null
+
       val reset = DirtyFlag.RECREATE_SEGMENTS in dirtyFlags
       val forceHeight = DirtyFlag.FORCE_HEIGHT in dirtyFlags
       dirtyFlags.clear()
@@ -398,6 +433,14 @@ class EnrichedMarkdown
       segmentSignatures.clear()
       segmentSignatures.addAll(result.signatures)
 
+      // A just-closed block has unchanged content, so the reconciler reuses it
+      // without an update; sync pending here to trigger its deferred highlight.
+      segmentViews.forEachIndexed { index, view ->
+        if (view is CodeBlockContainerView) {
+          view.pending = pendingCodeBlockSegment != null && index == segmentViews.size - 1
+        }
+      }
+
       val topologyChanged = result.viewsToAttach.isNotEmpty() || result.viewsToRemove.isNotEmpty()
 
       if (width > 0) {
@@ -420,6 +463,7 @@ class EnrichedMarkdown
         is RenderedSegment.Text -> view is EnrichedMarkdownInternalText
         is RenderedSegment.Table -> view is TableContainerView
         is RenderedSegment.Math -> isMathContainerView(view)
+        is RenderedSegment.CodeBlock -> view is CodeBlockContainerView
       }
 
     private fun isMathContainerView(view: View): Boolean = mathContainerClass?.isInstance(view) == true
@@ -432,6 +476,7 @@ class EnrichedMarkdown
         is RenderedSegment.Text -> createTextView(segment)
         is RenderedSegment.Table -> createTableView(segment, style)
         is RenderedSegment.Math -> createMathView(segment, style)
+        is RenderedSegment.CodeBlock -> createCodeBlockView(segment, style)
       }
 
     private fun updateSegmentView(
@@ -462,6 +507,13 @@ class EnrichedMarkdown
             ?.getMethod("applyLatex", String::class.java)
             ?.invoke(view, segment.latex)
         }
+
+        is RenderedSegment.CodeBlock -> {
+          (view as CodeBlockContainerView).apply {
+            pending = segment === pendingCodeBlockSegment
+            applyCodeBlockNode(segment.node)
+          }
+        }
       }
     }
 
@@ -472,7 +524,7 @@ class EnrichedMarkdown
       if (!streamingAnimation) return
       when (segment) {
         is RenderedSegment.Text -> animateTextViewTail(view as EnrichedMarkdownInternalText, 0)
-        is RenderedSegment.Table, is RenderedSegment.Math -> animateBlockViewFadeIn(view)
+        is RenderedSegment.Table, is RenderedSegment.Math, is RenderedSegment.CodeBlock -> animateBlockViewFadeIn(view)
       }
     }
 
@@ -500,9 +552,11 @@ class EnrichedMarkdown
     private fun createTextView(segment: RenderedSegment.Text) =
       EnrichedMarkdownInternalText(context).apply {
         spoilerOverlay = this@EnrichedMarkdown.spoilerOverlay
+        enableTaskListItemToggle = this@EnrichedMarkdown.enableTaskListItemToggle
         selectionMenuConfig = this@EnrichedMarkdown.selectionMenuConfig
         accessibilityLabels = this@EnrichedMarkdown.accessibilityLabels
         setIsSelectable(selectable)
+        markdownStyle?.paragraphStyle?.fontSize?.let { setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, it) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
           breakStrategy = BreakStrategyUtils.resolveBreakStrategy(textBreakStrategy)
         }
@@ -536,6 +590,19 @@ class EnrichedMarkdown
       copyLabel = this@EnrichedMarkdown.selectionMenuConfig.copyLabel
       copyAsMarkdownLabel = this@EnrichedMarkdown.selectionMenuConfig.copyAsMarkdownLabel
       applyTableNode(segment.node)
+    }
+
+    private fun createCodeBlockView(
+      segment: RenderedSegment.CodeBlock,
+      style: StyleConfig,
+    ) = CodeBlockContainerView(context, style).apply {
+      copyLabel = this@EnrichedMarkdown.selectionMenuConfig.copyLabel
+      copyAsMarkdownLabel = this@EnrichedMarkdown.selectionMenuConfig.copyAsMarkdownLabel
+      onCopyPress = { code, language ->
+        this@EnrichedMarkdown.onCopyPressCallback?.invoke(code, language)
+      }
+      pending = segment === pendingCodeBlockSegment
+      applyCodeBlockNode(segment.node)
     }
 
     private fun createMathView(

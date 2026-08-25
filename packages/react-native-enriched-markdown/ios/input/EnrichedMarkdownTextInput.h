@@ -4,10 +4,12 @@
 #ifndef EnrichedMarkdownTextInput_h
 #define EnrichedMarkdownTextInput_h
 
+@class ENRMEditSession;
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface EnrichedMarkdownTextInput : RCTViewComponentView
-@property (nonatomic, assign) BOOL blockEmitting;
+@property (nonatomic, readonly) ENRMEditSession *editSession;
 - (CGSize)measureSize:(CGFloat)maxWidth;
 - (nullable NSString *)markdownForSelectedRange;
 - (void)copyToClipboard;

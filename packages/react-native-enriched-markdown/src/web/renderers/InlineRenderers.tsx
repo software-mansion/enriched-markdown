@@ -12,6 +12,10 @@ function LineBreakRenderer(_props: RendererProps) {
   return <br />;
 }
 
+function SoftBreakRenderer(_props: RendererProps) {
+  return <> </>;
+}
+
 function StrongRenderer({ node, styles, renderChildren }: RendererProps) {
   return <strong style={styles.strong}>{renderChildren(node)}</strong>;
 }
@@ -108,6 +112,7 @@ function LatexMathInlineRenderer({
 export const inlineRenderers: RendererMap = {
   Text: TextRenderer,
   LineBreak: LineBreakRenderer,
+  SoftBreak: SoftBreakRenderer,
   Strong: StrongRenderer,
   Emphasis: EmphasisRenderer,
   Strikethrough: StrikethroughRenderer,

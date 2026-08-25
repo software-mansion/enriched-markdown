@@ -6,6 +6,7 @@ export type InputStoryCategory = 'Inline' | 'Props' | 'Methods';
 export const inputActionArgTypes = {
   onChangeMarkdown: { action: 'onChangeMarkdown' },
   onChangeText: { action: 'onChangeText' },
+  onKeyPress: { action: 'onKeyPress' },
   onFocus: { action: 'onFocus' },
   onBlur: { action: 'onBlur' },
   onLinkDetected: { action: 'onLinkDetected' },

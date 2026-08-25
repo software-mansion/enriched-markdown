@@ -2,6 +2,30 @@
 
 Images in Markdown content are loaded, cached, and reused automatically — no configuration required.
 
+## Supported Image Sources
+
+Markdown image URLs are strings, so bundled assets must be resolved to a URI before being interpolated into the markdown:
+
+```tsx
+import { Image } from 'react-native';
+
+const logoUri = Image.resolveAssetSource(require('./assets/logo.png')).uri;
+const markdown = `![Logo](${logoUri})`;
+```
+
+This works in every environment: in dev the URI is a Metro dev-server URL, while in a release build it resolves to a drawable resource name on Android and a bundle `file://` URL on iOS — all of which are supported. URIs from `expo-asset` (`asset.uri` / `asset.localUri`) work the same way.
+
+| Source | Android | iOS / macOS |
+|---|---|---|
+| `http://`, `https://` | Yes | Yes |
+| `file://` (including percent-encoded paths) | Yes | Yes |
+| Bare asset name (release builds, expo-asset `localUri`) | Yes (drawable/raw resource) | Yes (bundle resource) |
+| `file:///android_res/…`, `file:///android_asset/…` | Yes | No |
+| `asset://`, `res://`, `content://` | Yes | No |
+| `data:` (base64) | Yes | Yes |
+
+Local sources skip the HTTP layers below (disk cache, request headers, deduplication) but still use both memory cache tiers.
+
 ## Cache Layers
 
 The library uses a three-tier caching strategy on both platforms:

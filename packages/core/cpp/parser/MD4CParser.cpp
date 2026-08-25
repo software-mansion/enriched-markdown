@@ -354,10 +354,13 @@ public:
       return 0;
     auto *impl = static_cast<Impl *>(userdata);
 
-    // Handle soft/hard line breaks
-    if (type == MD_TEXT_SOFTBR || type == MD_TEXT_BR) {
-      auto brNode = std::make_shared<MarkdownASTNode>(NodeType::LineBreak);
-      impl->addInlineNode(brNode);
+    if (type == MD_TEXT_SOFTBR) {
+      impl->addInlineNode(std::make_shared<MarkdownASTNode>(NodeType::SoftBreak));
+      return 0;
+    }
+
+    if (type == MD_TEXT_BR) {
+      impl->addInlineNode(std::make_shared<MarkdownASTNode>(NodeType::LineBreak));
       return 0;
     }
 
@@ -379,7 +382,7 @@ bool isDisplayMathNode(const MarkdownASTNode &node) {
 }
 
 bool isSeparatorNode(const MarkdownASTNode &node) {
-  return node.type == NodeType::LineBreak ||
+  return node.type == NodeType::LineBreak || node.type == NodeType::SoftBreak ||
          (node.type == NodeType::Text && node.content.find_first_not_of(" \t\n\r") == std::string::npos);
 }
 
@@ -604,6 +607,9 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   }
   if (md4cFlags.highlight) {
     flags |= MD_FLAG_HIGHLIGHT;
+  }
+  if (md4cFlags.hardSoftBreaks) {
+    flags |= MD_FLAG_HARD_SOFT_BREAKS;
   }
 
   // Configure MD4C parser with callbacks

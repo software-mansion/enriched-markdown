@@ -72,6 +72,11 @@ class EnrichedMarkdownTextManager :
     return view
   }
 
+  override fun onAfterUpdateTransaction(view: EnrichedMarkdownText) {
+    super.onAfterUpdateTransaction(view)
+    view.commitProps()
+  }
+
   override fun updateState(
     view: EnrichedMarkdownText,
     props: ReactStylesDiffMap?,
@@ -83,6 +88,7 @@ class EnrichedMarkdownTextManager :
 
   override fun onDropViewInstance(view: EnrichedMarkdownText) {
     super.onDropViewInstance(view)
+    view.cleanup()
     MeasurementStore.clearFontScalingSettings(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
     view.layoutManager.releaseMeasurementStore()
@@ -166,6 +172,14 @@ class EnrichedMarkdownTextManager :
     enableLinkPreview: Boolean,
   ) {
     // No-op on Android — only used on iOS
+  }
+
+  @ReactProp(name = "enableTaskListItemToggle", defaultBoolean = true)
+  override fun setEnableTaskListItemToggle(
+    view: EnrichedMarkdownText?,
+    enableTaskListItemToggle: Boolean,
+  ) {
+    view?.setEnableTaskListItemToggle(enableTaskListItemToggle)
   }
 
   @ReactProp(name = "lineBreakStrategyIOS")

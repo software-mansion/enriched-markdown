@@ -13,6 +13,7 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
     _superscript = NO;
     _subscript = NO;
     _highlight = NO;
+    _hardSoftBreaks = NO;
   }
   return self;
 }
@@ -30,6 +31,7 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
   copy.superscript = self.superscript;
   copy.subscript = self.subscript;
   copy.highlight = self.highlight;
+  copy.hardSoftBreaks = self.hardSoftBreaks;
   return copy;
 }
 

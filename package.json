@@ -1,5 +1,5 @@
 {
-  "name": "react-native-enriched-markdown-monorepo",
+  "name": "enriched-markdown-monorepo",
   "version": "0.0.0",
   "private": true,
   "workspaces": [
@@ -11,6 +11,7 @@
     "react-native-macos-example": "yarn workspace react-native-enriched-markdown-macos-example",
     "react-native-web-example": "yarn workspace react-native-enriched-markdown-web-example",
     "android-example": "yarn workspace enriched-markdown-android-example start",
+    "ios-example": "yarn workspace enriched-markdown-ios-example start",
     "build:wasm": "yarn workspace react-native-enriched-markdown build:wasm",
     "android:build:release": "cd apps/react-native-example && npx react-native build-android --mode=release",
     "android:test:release": "cd apps/react-native-example && yarn android --mode release",
@@ -18,6 +19,9 @@
     "test:e2e:android-native": ".maestro/scripts/run-tests.sh --platform android --app android-native --config .maestro/androidExample/config-commonmark.yaml",
     "test:e2e:android-native:smoke": ".maestro/scripts/run-tests.sh --platform android --app android-native --config .maestro/androidExample/config-commonmark-smoke.yaml",
     "test:e2e:android-native:update-screenshots": ".maestro/scripts/run-tests.sh --platform android --app android-native --config .maestro/androidExample/config-commonmark.yaml --update-screenshots",
+    "test:e2e:ios-native": ".maestro/scripts/run-tests.sh --platform ios --app ios-native --config .maestro/iosExample/config-commonmark.yaml",
+    "test:e2e:ios-native:smoke": ".maestro/scripts/run-tests.sh --platform ios --app ios-native --config .maestro/iosExample/config-commonmark-smoke.yaml",
+    "test:e2e:ios-native:update-screenshots": ".maestro/scripts/run-tests.sh --platform ios --app ios-native --config .maestro/iosExample/config-commonmark.yaml --update-screenshots",
     "test:e2e:android": ".maestro/scripts/run-tests.sh --platform android",
     "test:e2e:ios": ".maestro/scripts/run-tests.sh --platform ios",
     "test:e2e:smoke:mobile": ".maestro/scripts/run-all-tests.sh --config .maestro/config-smoke.yaml",
@@ -30,6 +34,7 @@
     "test:e2e:android:update-screenshots": ".maestro/scripts/run-tests.sh --platform android --update-screenshots",
     "test:e2e:ios:update-screenshots": ".maestro/scripts/run-tests.sh --platform ios --update-screenshots",
     "typecheck": "yarn workspace react-native-enriched-markdown typecheck",
+    "test": "yarn workspace react-native-enriched-markdown test",
     "lint": "eslint \"**/*.{js,ts,tsx}\" --no-warn-ignored",
     "lint-clang:ios": "yarn workspace react-native-enriched-markdown lint-clang:ios",
     "lint-clang:ios:fix": "yarn workspace react-native-enriched-markdown lint-clang:ios:fix",
@@ -66,6 +71,65 @@
     "typescript": "^6.0.2"
   },
   "packageManager": "yarn@4.11.0",
+  "dependenciesMeta": {
+    "@tree-sitter-grammars/tree-sitter-markdown": {
+      "built": false
+    },
+    "@tree-sitter-grammars/tree-sitter-yaml": {
+      "built": false
+    },
+    "tree-sitter-bash": {
+      "built": false
+    },
+    "tree-sitter-c": {
+      "built": false
+    },
+    "tree-sitter-c-sharp": {
+      "built": false
+    },
+    "tree-sitter-cli": {
+      "built": false
+    },
+    "tree-sitter-cpp": {
+      "built": false
+    },
+    "tree-sitter-css": {
+      "built": false
+    },
+    "tree-sitter-go": {
+      "built": false
+    },
+    "tree-sitter-html": {
+      "built": false
+    },
+    "tree-sitter-java": {
+      "built": false
+    },
+    "tree-sitter-javascript": {
+      "built": false
+    },
+    "tree-sitter-json": {
+      "built": false
+    },
+    "tree-sitter-php": {
+      "built": false
+    },
+    "tree-sitter-python": {
+      "built": false
+    },
+    "tree-sitter-ruby": {
+      "built": false
+    },
+    "tree-sitter-rust": {
+      "built": false
+    },
+    "tree-sitter-swift": {
+      "built": false
+    },
+    "tree-sitter-typescript": {
+      "built": false
+    }
+  },
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"

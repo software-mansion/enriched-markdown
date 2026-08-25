@@ -1,0 +1,452 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000000000001 /* EnrichedMarkdownExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000001 /* EnrichedMarkdownExampleApp.swift */; };
+		A10000010000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000003 /* Assets.xcassets */; };
+		A10000010000000000000004 /* EnrichedMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000001 /* EnrichedMarkdown */; };
+		A10000010000000000000010 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000010 /* AppShell.swift */; };
+		A10000010000000000000011 /* ExampleRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000011 /* ExampleRoute.swift */; };
+		A10000010000000000000012 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000012 /* HomeScreen.swift */; };
+		A10000010000000000000013 /* HomeScreenButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000013 /* HomeScreenButton.swift */; };
+		A10000010000000000000014 /* TextScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000014 /* TextScreen.swift */; };
+		A10000010000000000000015 /* PlaygroundScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000015 /* PlaygroundScreen.swift */; };
+		A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000016 /* ExampleMarkdownStyles.swift */; };
+		A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000017 /* ExampleFontRegistrar.swift */; };
+		A10000010000000000000040 /* Color+Named.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000040 /* Color+Named.swift */; };
+		A10000010000000000000041 /* Bundle+Resources.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000041 /* Bundle+Resources.swift */; };
+		A10000010000000000000044 /* ButtonStyle+Pill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000044 /* ButtonStyle+Pill.swift */; };
+		A10000010000000000000045 /* View+BrandedNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000045 /* View+BrandedNavigationBar.swift */; };
+		A10000010000000000000042 /* PlaygroundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000042 /* PlaygroundButton.swift */; };
+		A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000043 /* SetMarkdownSheet.swift */; };
+		A10000010000000000000020 /* sample_markdown.md in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000020 /* sample_markdown.md */; };
+		A10000010000000000000021 /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000021 /* logo.png */; };
+		A10000010000000000000022 /* logo_icon.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000022 /* logo_icon.png */; };
+		A10000010000000000000030 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000030 /* Montserrat-Regular.ttf */; };
+		A10000010000000000000031 /* Montserrat-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000031 /* Montserrat-Bold.ttf */; };
+		A10000010000000000000032 /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000032 /* Montserrat-SemiBold.ttf */; };
+		A10000010000000000000033 /* Montserrat-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000033 /* Montserrat-Medium.ttf */; };
+		A10000010000000000000034 /* Montserrat-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000034 /* Montserrat-Italic.ttf */; };
+		A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000036 /* Montserrat-BoldItalic.ttf */; };
+		A10000010000000000000035 /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000035 /* CourierPrime-Regular.ttf */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000020000000000000001 /* EnrichedMarkdownExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnrichedMarkdownExampleApp.swift; sourceTree = "<group>"; };
+		A10000020000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10000020000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000020000000000000010 /* AppShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShell.swift; sourceTree = "<group>"; };
+		A10000020000000000000011 /* ExampleRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleRoute.swift; sourceTree = "<group>"; };
+		A10000020000000000000012 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000013 /* HomeScreenButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenButton.swift; sourceTree = "<group>"; };
+		A10000020000000000000014 /* TextScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000015 /* PlaygroundScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000016 /* ExampleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleMarkdownStyles.swift; sourceTree = "<group>"; };
+		A10000020000000000000017 /* ExampleFontRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleFontRegistrar.swift; sourceTree = "<group>"; };
+		A10000020000000000000040 /* Color+Named.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Named.swift"; sourceTree = "<group>"; };
+		A10000020000000000000041 /* Bundle+Resources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bundle+Resources.swift"; sourceTree = "<group>"; };
+		A10000020000000000000044 /* ButtonStyle+Pill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ButtonStyle+Pill.swift"; sourceTree = "<group>"; };
+		A10000020000000000000045 /* View+BrandedNavigationBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+BrandedNavigationBar.swift"; sourceTree = "<group>"; };
+		A10000020000000000000042 /* PlaygroundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundButton.swift; sourceTree = "<group>"; };
+		A10000020000000000000043 /* SetMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetMarkdownSheet.swift; sourceTree = "<group>"; };
+		A10000020000000000000020 /* sample_markdown.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = sample_markdown.md; sourceTree = "<group>"; };
+		A10000020000000000000021 /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
+		A10000020000000000000022 /* logo_icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo_icon.png; sourceTree = "<group>"; };
+		A10000020000000000000030 /* Montserrat-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Regular.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000031 /* Montserrat-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Bold.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000032 /* Montserrat-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-SemiBold.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000033 /* Montserrat-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Medium.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000034 /* Montserrat-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Italic.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000036 /* Montserrat-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-BoldItalic.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000035 /* CourierPrime-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-Regular.ttf"; sourceTree = "<group>"; };
+		A10000030000000000000001 /* EnrichedMarkdownExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnrichedMarkdownExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000040000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000004 /* EnrichedMarkdown in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000060000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A10000060000000000000002 /* EnrichedMarkdownExample */,
+				A10000060000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000060000000000000002 /* EnrichedMarkdownExample */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000001 /* EnrichedMarkdownExampleApp.swift */,
+				A10000060000000000000006 /* Extensions */,
+				A10000060000000000000007 /* Models */,
+				A10000060000000000000008 /* Theme */,
+				A10000060000000000000009 /* Utilities */,
+				A1000006000000000000000A /* Views */,
+				A10000060000000000000004 /* Resources */,
+				A10000020000000000000003 /* Assets.xcassets */,
+				A10000020000000000000004 /* Info.plist */,
+			);
+			path = EnrichedMarkdownExample;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000006 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000041 /* Bundle+Resources.swift */,
+				A10000020000000000000044 /* ButtonStyle+Pill.swift */,
+				A10000020000000000000040 /* Color+Named.swift */,
+				A10000020000000000000045 /* View+BrandedNavigationBar.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000007 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000011 /* ExampleRoute.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000008 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000016 /* ExampleMarkdownStyles.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000009 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000017 /* ExampleFontRegistrar.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		A1000006000000000000000A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000010 /* AppShell.swift */,
+				A1000006000000000000000B /* Home */,
+				A1000006000000000000000C /* Playground */,
+				A1000006000000000000000D /* Text */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A1000006000000000000000B /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000012 /* HomeScreen.swift */,
+				A10000020000000000000013 /* HomeScreenButton.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		A1000006000000000000000C /* Playground */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000042 /* PlaygroundButton.swift */,
+				A10000020000000000000015 /* PlaygroundScreen.swift */,
+				A10000020000000000000043 /* SetMarkdownSheet.swift */,
+			);
+			path = Playground;
+			sourceTree = "<group>";
+		};
+		A1000006000000000000000D /* Text */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000014 /* TextScreen.swift */,
+			);
+			path = Text;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000030000000000000001 /* EnrichedMarkdownExample.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000004 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000060000000000000005 /* Fonts */,
+				A10000020000000000000020 /* sample_markdown.md */,
+				A10000020000000000000021 /* logo.png */,
+				A10000020000000000000022 /* logo_icon.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000005 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000030 /* Montserrat-Regular.ttf */,
+				A10000020000000000000031 /* Montserrat-Bold.ttf */,
+				A10000020000000000000032 /* Montserrat-SemiBold.ttf */,
+				A10000020000000000000033 /* Montserrat-Medium.ttf */,
+				A10000020000000000000034 /* Montserrat-Italic.ttf */,
+				A10000020000000000000036 /* Montserrat-BoldItalic.ttf */,
+				A10000020000000000000035 /* CourierPrime-Regular.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000070000000000000001 /* EnrichedMarkdownExample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000080000000000000001 /* Build configuration list for PBXNativeTarget "EnrichedMarkdownExample" */;
+			buildPhases = (
+				A10000090000000000000001 /* Sources */,
+				A10000040000000000000001 /* Frameworks */,
+				A100000A0000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = EnrichedMarkdownExample;
+			packageProductDependencies = (
+				A10000050000000000000001 /* EnrichedMarkdown */,
+			);
+			productName = EnrichedMarkdownExample;
+			productReference = A10000030000000000000001 /* EnrichedMarkdownExample.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A100000B0000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A10000070000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = A100000C0000000000000001 /* Build configuration list for PBXProject "EnrichedMarkdownExample" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000060000000000000001;
+			packageReferences = (
+				A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */,
+			);
+			productRefGroup = A10000060000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000070000000000000001 /* EnrichedMarkdownExample */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A100000A0000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000003 /* Assets.xcassets in Resources */,
+				A10000010000000000000020 /* sample_markdown.md in Resources */,
+				A10000010000000000000021 /* logo.png in Resources */,
+				A10000010000000000000022 /* logo_icon.png in Resources */,
+				A10000010000000000000030 /* Montserrat-Regular.ttf in Resources */,
+				A10000010000000000000031 /* Montserrat-Bold.ttf in Resources */,
+				A10000010000000000000032 /* Montserrat-SemiBold.ttf in Resources */,
+				A10000010000000000000033 /* Montserrat-Medium.ttf in Resources */,
+				A10000010000000000000034 /* Montserrat-Italic.ttf in Resources */,
+				A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */,
+				A10000010000000000000035 /* CourierPrime-Regular.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000090000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000001 /* EnrichedMarkdownExampleApp.swift in Sources */,
+				A10000010000000000000010 /* AppShell.swift in Sources */,
+				A10000010000000000000011 /* ExampleRoute.swift in Sources */,
+				A10000010000000000000012 /* HomeScreen.swift in Sources */,
+				A10000010000000000000013 /* HomeScreenButton.swift in Sources */,
+				A10000010000000000000014 /* TextScreen.swift in Sources */,
+				A10000010000000000000015 /* PlaygroundScreen.swift in Sources */,
+				A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */,
+				A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */,
+				A10000010000000000000040 /* Color+Named.swift in Sources */,
+				A10000010000000000000041 /* Bundle+Resources.swift in Sources */,
+				A10000010000000000000044 /* ButtonStyle+Pill.swift in Sources */,
+				A10000010000000000000045 /* View+BrandedNavigationBar.swift in Sources */,
+				A10000010000000000000042 /* PlaygroundButton.swift in Sources */,
+				A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A100000E0000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A100000E0000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A100000F0000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EnrichedMarkdownExample/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = swmansion.enriched.markdown.ios.example;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A100000F0000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EnrichedMarkdownExample/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = swmansion.enriched.markdown.ios.example;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000080000000000000001 /* Build configuration list for PBXNativeTarget "EnrichedMarkdownExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000F0000000000000001 /* Debug */,
+				A100000F0000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A100000C0000000000000001 /* Build configuration list for PBXProject "EnrichedMarkdownExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000E0000000000000001 /* Debug */,
+				A100000E0000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../../packages/enriched-markdown-ios;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000050000000000000001 /* EnrichedMarkdown */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */;
+			productName = EnrichedMarkdown;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A100000B0000000000000001 /* Project object */;
+}

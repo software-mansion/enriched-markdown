@@ -4,10 +4,12 @@
 #import "ENRMHeadingBlockHandler.h"
 #import "ENRMItalicStyleHandler.h"
 #import "ENRMLinkStyleHandler.h"
+#import "ENRMOrderedListBlockHandler.h"
 #import "ENRMSpoilerStyleHandler.h"
 #import "ENRMStrikethroughStyleHandler.h"
 #import "ENRMStyleHandler.h"
 #import "ENRMUnderlineStyleHandler.h"
+#import "ENRMUnorderedListBlockHandler.h"
 #import "FontUtils.h"
 
 @implementation ENRMInputLinkVariantStyle
@@ -205,6 +207,8 @@
     for (NSInteger level = 1; level <= 6; level++) {
       blockMap[@(ENRMBlockTypeForHeadingLevel(level))] = headingHandler;
     }
+    blockMap[@(ENRMInputBlockTypeUnorderedListItem)] = [[ENRMUnorderedListBlockHandler alloc] init];
+    blockMap[@(ENRMInputBlockTypeOrderedListItem)] = [[ENRMOrderedListBlockHandler alloc] init];
     _blockHandlers = [blockMap copy];
   }
   return self;
@@ -377,6 +381,7 @@
     NSRange range = rangeValue.rangeValue;
     [textStorage removeAttribute:ENRMBlockTypeAttributeName range:range];
     [textStorage removeAttribute:ENRMBlockLevelAttributeName range:range];
+    [textStorage removeAttribute:ENRMBlockOrdinalAttributeName range:range];
     [textStorage removeAttribute:NSParagraphStyleAttributeName range:range];
   }
 
@@ -423,6 +428,7 @@
     attributes[NSParagraphStyleAttributeName] = paragraphStyle;
     attributes[ENRMBlockTypeAttributeName] = @(blockRange.type);
     attributes[ENRMBlockLevelAttributeName] = @(blockRange.level);
+    attributes[ENRMBlockOrdinalAttributeName] = @(blockRange.ordinal);
 
     // For a zero-length heading anchor on an empty line, stamp onto the line
     // terminator so the paragraph style (heading font size) takes effect.

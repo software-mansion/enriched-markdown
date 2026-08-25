@@ -6,6 +6,45 @@
 #import "RendererFactory.h"
 #import "StyleConfig.h"
 
+// Inserts the configured vertical gap between consecutive list items (including
+// nested ones) by raising paragraphSpacing on the paragraph preceding each item
+// start. The first item of the root list gets no spacing above it.
+static void applyListItemSpacing(NSMutableAttributedString *output, RenderContext *context, NSUInteger listStart,
+                                 CGFloat itemSpacing)
+{
+  if (itemSpacing <= 0)
+    return;
+
+  NSMutableIndexSet *itemStarts = [NSMutableIndexSet indexSet];
+  for (NSValue *value in context.listItemRanges) {
+    NSUInteger location = [value rangeValue].location;
+    if (location >= listStart && location < output.length) {
+      [itemStarts addIndex:location];
+    }
+  }
+  if (itemStarts.count < 2)
+    return;
+
+  NSString *string = output.string;
+  const NSUInteger firstStart = itemStarts.firstIndex;
+  [itemStarts enumerateIndexesUsingBlock:^(NSUInteger itemStart, BOOL *stop) {
+    if (itemStart == firstStart)
+      return;
+    NSRange prevParagraph = [string paragraphRangeForRange:NSMakeRange(itemStart - 1, 0)];
+    [output enumerateAttribute:NSParagraphStyleAttributeName
+                       inRange:prevParagraph
+                       options:0
+                    usingBlock:^(NSParagraphStyle *style, NSRange range, BOOL *innerStop) {
+                      if (style.paragraphSpacing >= itemSpacing)
+                        return;
+                      NSMutableParagraphStyle *updated =
+                          style ? [style mutableCopy] : [[NSMutableParagraphStyle alloc] init];
+                      updated.paragraphSpacing = itemSpacing;
+                      [output addAttribute:NSParagraphStyleAttributeName value:updated range:range];
+                    }];
+  }];
+}
+
 @implementation ListRenderer {
   BOOL _isOrdered;
 }
@@ -60,6 +99,7 @@
   [_rendererFactory renderChildrenOfNode:node into:output context:context];
 
   if (prevDepth == 0) {
+    applyListItemSpacing(output, context, startLocation, [_config listStyleItemSpacing]);
     // Apply bottom margin for root-level list
     applyBlockSpacingAfter(output, _config.listStyleMarginBottom);
   }

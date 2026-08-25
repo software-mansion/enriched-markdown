@@ -7,6 +7,7 @@ import com.facebook.react.common.ReactConstants
 import com.facebook.react.views.text.ReactTypefaceUtils.applyStyles
 import com.facebook.react.views.text.ReactTypefaceUtils.parseFontWeight
 import com.swmansion.enriched.markdown.renderer.BlockStyle
+import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 
 fun TextPaint.applyColorPreserving(
   color: Int,
@@ -50,4 +51,26 @@ fun TextPaint.applyBlockStyleFont(
 
   typefaceCache[cacheKey] = newTypeface
   this.typeface = newTypeface
+}
+
+/**
+ * Code block text sizing and font, shared by both flavors (CodeBlockSpan for
+ * commonmark, CodeBlockContainerView for github) so the code always renders
+ * and measures with the same paint. Color is applied by the callers: the span
+ * needs color preserving, the view colors via the text view.
+ */
+fun TextPaint.applyCodeBlockTextStyle(
+  style: CodeBlockStyle,
+  context: Context,
+) {
+  textSize = style.fontSize
+  applyBlockStyleFont(
+    BlockStyle(
+      fontSize = style.fontSize,
+      fontFamily = style.fontFamily,
+      fontWeight = style.fontWeight,
+      color = style.color,
+    ),
+    context,
+  )
 }

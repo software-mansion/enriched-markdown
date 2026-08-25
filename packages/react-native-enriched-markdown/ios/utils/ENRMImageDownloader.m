@@ -1,5 +1,6 @@
 #import "ENRMImageDownloader.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLocalImageLoader.h"
 #import <CommonCrypto/CommonDigest.h>
 #include <TargetConditionals.h>
 
@@ -74,11 +75,21 @@ NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> 
     return;
   }
 
-  NSString *cacheKey = ENRMImageCacheKey(url, headers);
+  BOOL isLocal = ENRMIsLocalImageURL(url);
+  NSString *cacheKey = isLocal ? url : ENRMImageCacheKey(url, headers);
 
   RCTUIImage *cached = [[ENRMImageAttachment originalImageCache] objectForKey:cacheKey];
   if (cached) {
     completion(cached);
+    return;
+  }
+
+  if (isLocal) {
+    RCTUIImage *local = ENRMLoadLocalImage(url);
+    if (local) {
+      [[ENRMImageAttachment originalImageCache] setObject:local forKey:cacheKey cost:ENRMImageByteCost(local)];
+    }
+    completion(local);
     return;
   }
 

@@ -15,8 +15,27 @@ data class CodeBlockStyle(
   val borderRadius: Float,
   val borderWidth: Float,
   val padding: Float,
+  val syntaxColors: List<Int>,
 ) : BaseBlockStyle {
   companion object {
+    private val SYNTAX_COLOR_KEYS =
+      listOf(
+        "keyword",
+        "operatorColor",
+        "punctuation",
+        "string",
+        "number",
+        "constant",
+        "comment",
+        "function",
+        "type",
+        "variable",
+        "property",
+        "tag",
+        "attribute",
+        "embedded",
+      )
+
     fun fromReadableMap(
       map: ReadableMap,
       parser: StyleParser,
@@ -35,6 +54,12 @@ data class CodeBlockStyle(
       val borderWidth = parser.toPixelFromDIP(map.getDouble("borderWidth").toFloat())
       val padding = parser.toPixelFromDIP(map.getDouble("padding").toFloat())
 
+      val syntaxMap = map.getMap("syntaxColors")
+      val syntaxColors =
+        SYNTAX_COLOR_KEYS.map { key ->
+          syntaxMap?.let { parser.parseOptionalColor(it, key) } ?: color
+        }
+
       return CodeBlockStyle(
         fontSize,
         fontFamily,
@@ -48,6 +73,7 @@ data class CodeBlockStyle(
         borderRadius,
         borderWidth,
         padding,
+        syntaxColors,
       )
     }
   }

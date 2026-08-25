@@ -30,26 +30,32 @@ static inline void ENRMDetachLayoutManager(ENRMPlatformTextView *textView)
   }
 }
 
-static inline CGSize ENRMMeasureMarkdownText(ENRMPlatformTextView *textView, CGFloat maxWidth, StyleConfig *config,
-                                             BOOL allowTrailingMargin, CGFloat lastElementMarginBottom)
+/// Turns a raw TextKit layout pass into the final measured size. Shared by
+/// the view-backed path (`ENRMMeasureMarkdownText`) and the view-free path
+/// (`ENRMMeasureMarkdownViewFree`) so both measure with one algorithm.
+///
+/// Steps, in order:
+/// - Multiline pin: if the first line fragment doesn't span all glyphs the
+///   text wrapped, and returning the tight usedRect width would let flexShrink
+///   narrow the view below maxWidth, re-wrapping at the narrower width and
+///   mismatching the measured height — so multiline content reports maxWidth,
+///   while single-line content keeps its tight width for shrink-to-fit.
+/// - Subtract the extra line fragment (iOS counts a trailing newline's empty
+///   line fragment into usedRect).
+/// - Add code-block padding when the last element is a code block, and the
+///   trailing margin when enabled.
+/// - Round up to the pixel grid of `scale` (pass `RCTScreenScale()` on main;
+///   off-main callers must pass `LayoutContext::pointScaleFactor` instead —
+///   `RCTScreenScale()` dispatch_syncs to main on first use, which the
+///   measure path must never do, see issue #550).
+static inline CGSize ENRMFinalizeMeasuredTextSize(ENRMTextLayoutResult layout, NSLayoutManager *layoutManager,
+                                                  NSAttributedString *text, CGFloat maxWidth, StyleConfig *config,
+                                                  BOOL allowTrailingMargin, CGFloat lastElementMarginBottom,
+                                                  CGFloat scale)
 {
-  NSAttributedString *text = ENRMGetAttributedText(textView);
-  if (text.length == 0) {
-    return CGSizeZero;
-  }
-
-  ENRMTextLayoutResult layout = ENRMMeasureTextLayout(textView, maxWidth);
-
   CGFloat measuredWidth = layout.usedRect.size.width;
   CGFloat measuredHeight = layout.usedRect.size.height;
 
-  // Detect multiline content by checking if the layout produced more than one
-  // line fragment. When text wraps, returning the tight usedRect width lets
-  // flexShrink narrow the view below maxWidth, causing re-wrap at the narrower
-  // width and a height mismatch. Pin to maxWidth for multiline content so Yoga
-  // assigns the width the text was actually measured at. Single-line content
-  // keeps its tight width for shrink-to-fit behavior.
-  NSLayoutManager *layoutManager = textView.layoutManager;
   NSUInteger glyphCount = [layoutManager numberOfGlyphs];
   if (glyphCount > 0) {
     NSRange firstLineRange;
@@ -71,8 +77,20 @@ static inline CGSize ENRMMeasureMarkdownText(ENRMPlatformTextView *textView, CGF
     measuredHeight += lastElementMarginBottom;
   }
 
-  CGFloat scale = RCTScreenScale();
   return CGSizeMake(ceil(measuredWidth * scale) / scale, ceil(measuredHeight * scale) / scale);
+}
+
+static inline CGSize ENRMMeasureMarkdownText(ENRMPlatformTextView *textView, CGFloat maxWidth, StyleConfig *config,
+                                             BOOL allowTrailingMargin, CGFloat lastElementMarginBottom)
+{
+  NSAttributedString *text = ENRMGetAttributedText(textView);
+  if (text.length == 0) {
+    return CGSizeZero;
+  }
+
+  ENRMTextLayoutResult layout = ENRMMeasureTextLayout(textView, maxWidth);
+  return ENRMFinalizeMeasuredTextSize(layout, textView.layoutManager, text, maxWidth, config, allowTrailingMargin,
+                                      lastElementMarginBottom, RCTScreenScale());
 }
 
 NS_ASSUME_NONNULL_END

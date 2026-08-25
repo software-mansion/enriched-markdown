@@ -33,7 +33,13 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
 #endif
     }
 #endif
-    else {
+    else if (child.type == MarkdownNodeTypeCodeBlock) {
+      if (currentTextNodes.count > 0) {
+        [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
+        [currentTextNodes removeAllObjects];
+      }
+      [segments addObject:[ENRMCodeBlockSegment segmentWithCodeBlockNode:child]];
+    } else {
       [currentTextNodes addObject:child];
     }
   }
@@ -53,9 +59,10 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
   NSArray *segments = ENRMSplitASTIntoSegments(ast);
   NSMutableArray<ENRMRenderedSegment *> *renderedSegments = [NSMutableArray array];
 
-  static const uint64_t kTextKindSalt = 0x7465787400000000ULL;  // "text"
-  static const uint64_t kTableKindSalt = 0x7461626C00000000ULL; // "tabl"
-  static const uint64_t kMathKindSalt = 0x6D61746800000000ULL;  // "math"
+  static const uint64_t kTextKindSalt = 0x7465787400000000ULL;      // "text"
+  static const uint64_t kTableKindSalt = 0x7461626C00000000ULL;     // "tabl"
+  static const uint64_t kMathKindSalt = 0x6D61746800000000ULL;      // "math"
+  static const uint64_t kCodeBlockKindSalt = 0x63626C6B00000000ULL; // "cblk"
 
   for (id segment in segments) {
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
@@ -82,6 +89,12 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
       [renderedSegments addObject:[ENRMRenderedSegment mathSegmentWithSegment:mathSegment signature:signature]];
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMCodeBlockSegment class]]) {
+      ENRMCodeBlockSegment *codeBlockSegment = (ENRMCodeBlockSegment *)segment;
+      uint64_t signature = ENRMSignatureForNode(codeBlockSegment.codeBlockNode) ^ kCodeBlockKindSalt;
+      [renderedSegments addObject:[ENRMRenderedSegment codeBlockSegmentWithSegment:codeBlockSegment
+                                                                         signature:signature]];
+    }
   }
 
   return renderedSegments;

@@ -18,6 +18,8 @@ static const char *nodeTypeToString(NodeType type) {
       return "Heading";
     case NodeType::LineBreak:
       return "LineBreak";
+    case NodeType::SoftBreak:
+      return "SoftBreak";
     case NodeType::Strong:
       return "Strong";
     case NodeType::Emphasis:

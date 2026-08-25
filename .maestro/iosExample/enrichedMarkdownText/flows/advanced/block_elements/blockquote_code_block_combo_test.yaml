@@ -1,0 +1,34 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - blockquote
+  - code_block
+  - text
+---
+# checks the combination of blockquotes and code blocks (quoted context around code)
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        > From the docs:
+
+        ```
+        npm install my-package
+        ```
+
+        > Then import it:
+
+        ```js
+        import pkg from 'my-package'
+        ```
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'blockquote_code_block_combo_display'

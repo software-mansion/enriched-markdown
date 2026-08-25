@@ -28,6 +28,10 @@ object MarkdownASTSerializer {
       }
 
       NodeType.LineBreak -> {
+        buffer.append("\\\n")
+      }
+
+      NodeType.SoftBreak -> {
         buffer.append("\n")
       }
 

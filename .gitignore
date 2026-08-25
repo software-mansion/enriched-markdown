@@ -12,6 +12,8 @@ jsconfig.json
 # Xcode
 #
 build/
+.build/
+.spm-build/
 *.pbxuser
 !default.pbxuser
 *.mode1v3
@@ -89,6 +91,25 @@ web-build/
 # React Native Codegen
 **/ios/generated
 **/android/generated
+
+# Vendored tree-sitter sources (machine-generated C, ~178 MB total). Nothing here
+# is tracked: the runtime is fetched from the pinned GitHub release tarball, the
+# grammar parse tables come from the grammar devDependencies, and the default
+# registry is codegen'd from them. All three are restored by
+# vendor/vendor-grammars.mjs via the `prepare` hook (`yarn prepare`) and baked
+# into the npm tarball on prepack. See docs and vendor/grammar-versions.json.
+packages/core/cpp/highlight/vendor/tree-sitter/
+packages/core/cpp/highlight/vendor/grammars/
+packages/core/cpp/highlight/vendor/generated/
+# Per-app registry for a custom code-highlight language set (iOS, generated-<app-slug>);
+# kept out of the committed generated/ dir so a custom build never clobbers the default,
+# and keyed per app so monorepo apps with different sets never clobber each other.
+packages/core/cpp/highlight/vendor/generated-*/
+
+# RaTeX (iOS LaTeX math): the prebuilt static XCFramework, RaTeX's four core Swift
+# sources, and the KaTeX fonts are restored from the pins in vendor/ratex-version.json
+# by vendor/vendor-ratex.mjs (via `prepare`) and baked into the npm tarball on prepack.
+packages/react-native-enriched-markdown/ios/vendor/
 
 # React Native Nitro Modules
 nitrogen/

@@ -34,6 +34,7 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 @property (nonatomic, weak) ENRMPlatformTextView *textView;
 @property (nonatomic, strong) RCTUIImage *originalImage;
 @property (nonatomic, strong) RCTUIImage *loadedImage;
+@property (nonatomic, strong) RCTUIImage *placeholderImage;
 @property (nonatomic, copy) NSString *lastProcessedKey;
 
 @end
@@ -177,7 +178,7 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
     [self processAndApplyImage:self.originalImage withTargetWidth:imageBounds.size.width];
   }
 
-  return self.loadedImage ?: self.image;
+  return self.loadedImage ?: self.placeholderImage;
 }
 
 - (void)handleLoadedImage:(RCTUIImage *)image
@@ -185,7 +186,15 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
   if (!image)
     return;
 
+  // The downloader completes synchronously on cache hits, which can happen on the render queue
+  if (!NSThread.isMainThread) {
+    dispatch_async(dispatch_get_main_queue(), ^{ [self handleLoadedImage:image]; });
+    return;
+  }
+
   self.originalImage = image;
+  // UIKit reads the plain image property for save/drag/copy — it must hold the original
+  self.image = image;
   CGFloat targetWidth = self.isInline ? self.cachedHeight : self.bounds.size.width;
 
   // Defer processing if we don't have valid bounds yet (common for non-inline block images)
@@ -214,8 +223,6 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 
   if (cachedProcessed) {
     self.loadedImage = cachedProcessed;
-    if (self.isInline)
-      self.image = cachedProcessed;
     [self refreshDisplay];
     return;
   }
@@ -240,10 +247,7 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
     dispatch_async(dispatch_get_main_queue(), ^{
       strongSelf.loadedImage = processedImage;
       if (strongSelf.isInline) {
-        strongSelf.image = processedImage;
         strongSelf.bounds = CGRectMake(0, 0, strongSelf.cachedHeight, strongSelf.cachedHeight);
-      } else {
-        strongSelf.image = image; // Keep original for layout references
       }
       [strongSelf refreshDisplay];
     });
@@ -383,7 +387,7 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
   CGFloat size = self.cachedHeight;
   self.bounds = CGRectMake(0, 0, size, size);
   RCTUIGraphicsImageRenderer *renderer = [[RCTUIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(1, 1)];
-  self.image = [renderer imageWithActions:^(RCTUIGraphicsImageRendererContext *ctx){}];
+  self.placeholderImage = [renderer imageWithActions:^(RCTUIGraphicsImageRendererContext *ctx){}];
 }
 
 - (NSRange)findAttachmentRangeInText:(NSAttributedString *)attributedString

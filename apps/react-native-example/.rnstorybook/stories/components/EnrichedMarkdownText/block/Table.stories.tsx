@@ -5,6 +5,7 @@ import {
   fontFamilyControl,
   fontWeightControl,
   githubFlavorArgTypes,
+  tableAlignControl,
   tableStyledDefaults,
   type TableStyleControls,
   numberControl,
@@ -26,6 +27,11 @@ const WIDE_MARKDOWN = `| Product | Category | Q1 Revenue | Q2 Revenue | Q3 Reven
 | Widget Pro | Hardware | $12,400 | $15,200 | $14,800 | $18,100 | $60,500 |
 | Cloud Suite | Software | $8,900 | $9,300 | $11,700 | $12,000 | $41,900 |
 | Support Plan | Services | $4,200 | $4,500 | $4,800 | $5,100 | $18,600 |`;
+
+const NARROW_MARKDOWN = `| Item | Qty |
+| --- | --- |
+| Apples | 3 |
+| Pears | 7 |`;
 
 const argTypes = {
   ...githubFlavorArgTypes('Tables require flavor="github" (GFM).'),
@@ -99,6 +105,9 @@ const argTypes = {
     max: 48,
     step: 2,
   }),
+  align: tableAlignControl(
+    "markdownStyle.table.align ('' = unset, legacy full-width table on web)"
+  ),
 };
 
 export default storyMeta('Block', 'Table');
@@ -116,6 +125,27 @@ export const Default: TextStory<TableStyleControls> = {
       <EnrichedMarkdownTextStory
         title="Table"
         description="GFM tables. Use the controls to tune markdownStyle.table."
+        {...rest}
+        style={{ table: toTableStyle(controls) }}
+      />
+    );
+  },
+};
+
+export const Centered: TextStory<TableStyleControls> = {
+  args: {
+    markdown: NARROW_MARKDOWN,
+    flavor: 'github',
+    ...tableStyledDefaults,
+    align: 'center',
+  },
+  argTypes,
+  render: (args) => {
+    const { controls, rest } = splitStyleControls(args, tableStyledDefaults);
+    return (
+      <EnrichedMarkdownTextStory
+        title="Table Alignment"
+        description="markdownStyle.table.align positions tables that are narrower than the container. Tables that overflow and scroll ignore it and start at the table's beginning."
         {...rest}
         style={{ table: toTableStyle(controls) }}
       />

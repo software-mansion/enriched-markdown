@@ -76,6 +76,8 @@ class ListItemRenderer(
 
     if (builder.length == start || builder.substring(start).isBlank()) return
 
+    styleContext.listItemStarts.add(start)
+
     if (builder.last() != '\n') {
       builder.append("\n")
     }

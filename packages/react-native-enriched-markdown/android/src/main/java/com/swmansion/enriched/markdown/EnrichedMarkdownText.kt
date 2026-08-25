@@ -9,6 +9,7 @@ import android.os.Looper
 import android.text.Layout
 import android.util.AttributeSet
 import android.util.Log
+import android.util.TypedValue
 import android.view.MotionEvent
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.StateWrapper
@@ -190,6 +191,10 @@ class EnrichedMarkdownText
       }
     }
 
+    fun commitProps() {
+      updateMeasurementStoreFontScaling()
+    }
+
     private fun updateMeasurementStoreFontScaling() {
       MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     }
@@ -257,6 +262,10 @@ class EnrichedMarkdownText
 
     private fun applyRenderedText(styledText: CharSequence) {
       val tailStart = previousTextLength
+
+      markdownStyle?.paragraphStyle?.fontSize?.let {
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, it)
+      }
 
       text = styledText
 
@@ -344,6 +353,19 @@ class EnrichedMarkdownText
 
     fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {
       checkboxTouchHelper.onCheckboxTap = callback
+    }
+
+    fun setEnableTaskListItemToggle(enabled: Boolean) {
+      checkboxTouchHelper.isEnabled = enabled
+    }
+
+    fun cleanup() {
+      currentRenderId++
+      executor.shutdownNow()
+      mainHandler.removeCallbacksAndMessages(null)
+      pendingStyledText = null
+      fadeAnimator?.cancelAll()
+      fadeAnimator = null
     }
 
     override fun onAttachedToWindow() {

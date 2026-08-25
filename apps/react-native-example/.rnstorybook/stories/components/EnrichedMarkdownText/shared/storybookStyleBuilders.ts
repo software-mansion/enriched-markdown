@@ -104,6 +104,8 @@ export function toBlockquoteStyle(
     borderWidth: controls.borderWidth,
     gapWidth: controls.gapWidth,
     backgroundColor: controls.backgroundColor,
+    borderRadius: controls.borderRadius,
+    padding: controls.padding,
   };
 }
 
@@ -177,6 +179,7 @@ export function toTableStyle(
     cellPaddingHorizontal: controls.cellPaddingHorizontal,
     cellPaddingVertical: controls.cellPaddingVertical,
     horizontalOverflow: controls.horizontalOverflow,
+    ...(controls.align ? { align: controls.align } : {}),
   };
 }
 
@@ -228,6 +231,7 @@ export function toListStyle(
       : {}),
     gapWidth: controls.gapWidth,
     marginLeft: controls.marginLeft,
+    itemSpacing: controls.itemSpacing,
   };
 }
 

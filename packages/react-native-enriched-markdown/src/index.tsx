@@ -12,6 +12,7 @@ export type {
   LinkPressEvent,
   LinkLongPressEvent,
   TaskListItemPressEvent,
+  CopyPressEvent,
 } from './types/events';
 export type {
   AccessibilityLabels,
@@ -31,6 +32,7 @@ export type {
   ContextMenuItem,
   InputSelectionMenuConfig,
   FormatMenuConfig,
+  OnKeyPressEvent,
   OnLinkDetected,
   OnStartMentionEvent,
   OnChangeMentionEvent,

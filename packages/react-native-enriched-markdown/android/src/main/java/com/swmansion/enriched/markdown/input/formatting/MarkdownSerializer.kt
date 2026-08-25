@@ -2,20 +2,41 @@ package com.swmansion.enriched.markdown.input.formatting
 
 import android.util.Log
 import com.swmansion.enriched.markdown.input.model.BlockRange
+import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
 import com.swmansion.enriched.markdown.input.model.StyleType
 
 object MarkdownSerializer {
   private const val TAG = "MarkdownSerializer"
 
+  // Zero-width space used by the editor to anchor an empty bullet line; it is an
+  // internal editing aid and must never appear in serialized markdown.
+  private const val ZWSP = "\u200B"
+
+  /**
+   * Single choke point for scrubbing the empty-line ZWSP anchor out of anything
+   * bound for JS (serialized markdown here, plain text in `InputEventEmitter`).
+   * Route new output paths through this rather than scattering `replace(ZWSP, "")`
+   * calls, so the anchor can never leak because one path forgot to strip.
+   */
+  fun stripZwsp(text: String): String = text.replace(ZWSP, "")
+
   /**
    * Block-aware serialization: serializes inline styles exactly as the inline-only
    * overload, then prepends each line's block prefix. [blockPrefixProvider] is
    * asked, per block range, for the markdown line marker (e.g. `"# "`, `"- "`);
    * returning `""` leaves the line unprefixed. With empty [blockRanges] the output
-   * is identical to the inline-only overload.
+   * is identical to the inline-only overload. Any ZWSP empty-line anchor is stripped
+   * so an empty bullet still serializes to a bare `"- "` rather than `"- ​"`.
    */
   fun serialize(
+    text: String,
+    ranges: List<FormattingRange>,
+    blockRanges: List<BlockRange>,
+    blockPrefixProvider: (BlockRange) -> String,
+  ): String = stripZwsp(serializeWithAnchors(text, ranges, blockRanges, blockPrefixProvider))
+
+  private fun serializeWithAnchors(
     text: String,
     ranges: List<FormattingRange>,
     blockRanges: List<BlockRange>,
@@ -40,11 +61,12 @@ object MarkdownSerializer {
       return inlineMarkdown
     }
 
+    // Plain-text character offset at the start of each line.
     val lineStartOffsets = IntArray(plainLines.size)
     var runningOffset = 0
     for (i in plainLines.indices) {
       lineStartOffsets[i] = runningOffset
-      runningOffset += plainLines[i].length + 1
+      runningOffset += plainLines[i].length + 1 // +1 for the '\n' separator
     }
 
     for (blockRange in blockRanges) {
@@ -52,11 +74,16 @@ object MarkdownSerializer {
       if (prefix.isEmpty()) continue
 
       val isZeroLength = blockRange.length == 0
+      val isListItem = blockRange.type in BlockType.LIST_ITEMS
       for (lineIndex in plainLines.indices) {
         val lineStart = lineStartOffsets[lineIndex]
         val lineEnd = lineStart + plainLines[lineIndex].length
         val overlaps = if (isZeroLength) lineStart == blockRange.start else lineEnd >= blockRange.start && lineStart < blockRange.end
         if (overlaps) {
+          // A marker-only list line ("- " with no content) re-parses as a setext
+          // underline for the previous line; emit an empty list line bare. An
+          // empty "# " heading is valid ATX and keeps its prefix.
+          if (isListItem && stripZwsp(plainLines[lineIndex]).isEmpty()) continue
           markdownLines[lineIndex] = prefix + markdownLines[lineIndex]
         }
       }

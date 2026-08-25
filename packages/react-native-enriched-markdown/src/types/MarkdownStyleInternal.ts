@@ -6,6 +6,9 @@ export type BlockTextAlign = 'auto' | 'left' | 'right' | 'center' | 'justify';
 // Mirrors the public fontStyle values; empty string means "inherit / no override".
 export type EmphasisFontStyle = 'normal' | 'italic' | 'oblique' | '';
 
+// empty string means "no table alignment set" (legacy start-aligned placement).
+export type TableAlign = 'left' | 'center' | 'right' | '';
+
 // empty string means "legacy sizing" (fill width, no resize-mode handling).
 // resolves to 'cover' when maxHeight/aspectRatio is present.
 export type ImageResizeMode =
@@ -39,6 +42,8 @@ interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   borderWidth: number;
   gapWidth: number;
   backgroundColor: string;
+  borderRadius: number;
+  padding: number;
 }
 
 interface ListStyleInternal extends BaseBlockStyleInternal {
@@ -49,6 +54,24 @@ interface ListStyleInternal extends BaseBlockStyleInternal {
   markerFontWeight: string;
   gapWidth: number;
   marginLeft: number;
+  itemSpacing: number;
+}
+
+export interface CodeBlockSyntaxColorsInternal {
+  keyword: string;
+  operatorColor: string;
+  punctuation: string;
+  string: string;
+  number: string;
+  constant: string;
+  comment: string;
+  function: string;
+  type: string;
+  variable: string;
+  property: string;
+  tag: string;
+  attribute: string;
+  embedded: string;
 }
 
 interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
@@ -57,6 +80,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
   borderRadius: number;
   borderWidth: number;
   padding: number;
+  syntaxColors: CodeBlockSyntaxColorsInternal;
 }
 
 interface LinkStyleInternal {
@@ -134,6 +158,7 @@ interface TableStyleInternal extends BaseBlockStyleInternal {
   cellPaddingHorizontal: number;
   cellPaddingVertical: number;
   horizontalOverflow: number;
+  align: TableAlign;
 }
 
 interface TaskListStyleInternal {

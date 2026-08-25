@@ -132,7 +132,7 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
     style.headIndent = totalIndent;
     if (lineHeightConfig > 0) {
       style.minimumLineHeight = lineHeightConfig;
-      style.maximumLineHeight = lineHeightConfig;
+      style.maximumLineHeight = ENRMRangeContainsBlockImage(output, range) ? 0 : lineHeightConfig;
     }
     NSMutableDictionary *attributesToApply = [metadata mutableCopy];
     attributesToApply[NSParagraphStyleAttributeName] = style;

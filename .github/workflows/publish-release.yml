@@ -27,7 +27,7 @@ on:
 
 jobs:
   npm-build:
-    if: github.repository == 'software-mansion/react-native-enriched-markdown'
+    if: github.repository == 'software-mansion/enriched-markdown'
     runs-on: ubuntu-latest
 
     permissions:

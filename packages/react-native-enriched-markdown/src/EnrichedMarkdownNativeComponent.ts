@@ -29,6 +29,8 @@ interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   borderWidth: CodegenTypes.Float;
   gapWidth: CodegenTypes.Float;
   backgroundColor: ColorValue;
+  borderRadius: CodegenTypes.Float;
+  padding: CodegenTypes.Float;
 }
 
 interface ListStyleInternal extends BaseBlockStyleInternal {
@@ -39,6 +41,24 @@ interface ListStyleInternal extends BaseBlockStyleInternal {
   markerFontWeight: string;
   gapWidth: CodegenTypes.Float;
   marginLeft: CodegenTypes.Float;
+  itemSpacing: CodegenTypes.Float;
+}
+
+interface CodeBlockSyntaxColorsInternal {
+  keyword: ColorValue;
+  operatorColor: ColorValue;
+  punctuation: ColorValue;
+  string: ColorValue;
+  number: ColorValue;
+  constant: ColorValue;
+  comment: ColorValue;
+  function: ColorValue;
+  type: ColorValue;
+  variable: ColorValue;
+  property: ColorValue;
+  tag: ColorValue;
+  attribute: ColorValue;
+  embedded: ColorValue;
 }
 
 interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
@@ -47,6 +67,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
   borderRadius: CodegenTypes.Float;
   borderWidth: CodegenTypes.Float;
   padding: CodegenTypes.Float;
+  syntaxColors: CodeBlockSyntaxColorsInternal;
 }
 
 interface LinkStyleInternal {
@@ -125,6 +146,7 @@ interface TableStyleInternal extends BaseBlockStyleInternal {
   cellPaddingHorizontal: CodegenTypes.Float;
   cellPaddingVertical: CodegenTypes.Float;
   horizontalOverflow: CodegenTypes.Float;
+  align: string;
 }
 
 interface TaskListStyleInternal {
@@ -226,6 +248,11 @@ export interface TaskListItemPressEvent {
   text: string;
 }
 
+export interface CopyPressEvent {
+  code: string;
+  language: string;
+}
+
 export interface ContextMenuItemConfig {
   text: string;
   icon?: string;
@@ -317,10 +344,16 @@ export interface Md4cFlagsInternal {
    * @default false
    */
   highlight: boolean;
+  /**
+   * Treat soft breaks (single newlines) as hard breaks (visible line breaks).
+   * @default false
+   */
+  hardSoftBreaks: boolean;
 }
 
 interface StreamingConfigInternal {
   tableMode: string;
+  codeBlockMode: string;
 }
 
 export interface NativeProps extends ViewProps {
@@ -351,6 +384,21 @@ export interface NativeProps extends ViewProps {
    * Receives the 0-based task index, current checked state, and the item's plain text.
    */
   onTaskListItemPress?: CodegenTypes.BubblingEventHandler<TaskListItemPressEvent>;
+  /**
+   * Controls whether tapping a task list checkbox toggles its checked state.
+   *
+   * When `false`, the tap is fully inert: no visual toggle and no
+   * `onTaskListItemPress` emission. Text selection and links are unaffected.
+   *
+   * @default true
+   */
+  enableTaskListItemToggle?: CodegenTypes.WithDefault<boolean, true>;
+  /**
+   * Callback fired when code is copied from a fenced code block's header copy
+   * button, its long-press context-menu "Copy" action, or the VoiceOver copy
+   * action. Receives the copied code and its language.
+   */
+  onCopyPress?: CodegenTypes.BubblingEventHandler<CopyPressEvent>;
   /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *

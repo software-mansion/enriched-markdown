@@ -2,9 +2,8 @@ package com.swmansion.enriched.markdown.utils.text.view
 
 import android.os.Handler
 import android.os.Looper
-import android.text.Selection
 import android.text.Spannable
-import android.text.method.LinkMovementMethod
+import android.text.method.ArrowKeyMovementMethod
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.widget.TextView
@@ -13,12 +12,22 @@ import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import kotlin.math.abs
 
-class LinkLongPressMovementMethod : LinkMovementMethod() {
+/**
+ * Movement method that adds link tap / long-press and spoiler tap handling on
+ * top of [ArrowKeyMovementMethod], the method [setTextIsSelectable] installs.
+ *
+ * Must never mutate the buffer's Selection spans — the platform Editor
+ * manages them during long-press gestures, and removing or overwriting
+ * them mid-gesture crashes on some OEM skins.
+ * See: https://github.com/software-mansion/enriched-markdown/issues/580
+ */
+class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private val handler = Handler(Looper.getMainLooper())
   private var longPressRunnable: Runnable? = null
 
   private var startX = 0f
   private var startY = 0f
+  private var pressedLink: LinkSpan? = null
 
   var isLinkTouchActive: Boolean = false
     private set
@@ -34,10 +43,10 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
         startX = event.x
         startY = event.y
 
-        val span = findLinkSpan(widget, buffer, event)
-        isLinkTouchActive = span != null
+        pressedLink = findLinkSpan(widget, buffer, event)
+        isLinkTouchActive = pressedLink != null
         isTouchWithinTextBounds = charOffsetAt(widget, event) != null
-        span?.let { scheduleLongPress(widget, it) }
+        pressedLink?.let { scheduleLongPress(widget, it) }
       }
 
       MotionEvent.ACTION_MOVE -> {
@@ -47,17 +56,25 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
         ) {
           cancelLongPress()
           isLinkTouchActive = false
+          pressedLink = null
         }
       }
 
       MotionEvent.ACTION_UP -> {
         cancelLongPress()
+        val tappedLink = pressedLink
         isLinkTouchActive = false
-        if (widget.hasSelection()) {
-          Selection.removeSelection(buffer)
-        }
+        pressedLink = null
+
         if (handleSpoilerTap(widget, buffer, event)) {
-          Selection.removeSelection(buffer)
+          return true
+        }
+
+        // LinkSpan.onClick itself swallows the click that follows a completed
+        // long-press (and resets its internal flag), so it is always invoked
+        // for a tap that started and ended on the same link.
+        if (tappedLink != null && findLinkSpan(widget, buffer, event) === tappedLink) {
+          tappedLink.onClick(widget)
           return true
         }
       }
@@ -65,31 +82,19 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
       MotionEvent.ACTION_CANCEL -> {
         cancelLongPress()
         isLinkTouchActive = false
-        if (widget.hasSelection()) {
-          Selection.removeSelection(buffer)
-        }
+        pressedLink = null
       }
     }
 
-    // LinkMovementMethod.onTouchEvent does its own getOffsetForHorizontal
-    // without bounds checking, so it would click the nearest link even for
-    // taps in empty space past the end of a line. Skip the super call when
-    // the ACTION_DOWN landed outside actual text content so the touch falls
-    // through to the parent (e.g. RNGH Pressable).
+    // getOffsetForHorizontal snaps to the nearest character, so without this
+    // guard taps in empty space past the end of a line would still be treated
+    // as text touches. Let them fall through to the parent (e.g. RNGH
+    // Pressable) instead.
     if (!isTouchWithinTextBounds) {
       return false
     }
 
-    val result = super.onTouchEvent(widget, buffer, event)
-
-    // LinkMovementMethod sets a Selection highlight around the link on ACTION_DOWN,
-    // which causes a visible selection color on the link text while pressed.
-    // We remove that selection immediately so the user never sees it.
-    if (event.action == MotionEvent.ACTION_DOWN) {
-      Selection.removeSelection(buffer)
-    }
-
-    return result
+    return super.onTouchEvent(widget, buffer, event)
   }
 
   private fun scheduleLongPress(
@@ -100,9 +105,6 @@ class LinkLongPressMovementMethod : LinkMovementMethod() {
 
     longPressRunnable =
       Runnable {
-        if (widget.hasSelection()) {
-          Selection.removeSelection(widget.text as Spannable)
-        }
         // Execute the long click logic on the span
         if (span.onLongClick(widget)) {
           // If consumed, cancel the system's own long-press logic (like context menus)

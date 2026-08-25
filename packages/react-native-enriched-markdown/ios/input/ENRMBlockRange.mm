@@ -13,6 +13,7 @@
   blockRange.type = type;
   blockRange.range = range;
   blockRange.level = level;
+  blockRange.ordinal = 1;
   return blockRange;
 }
 
@@ -22,6 +23,7 @@
   copy.type = _type;
   copy.range = _range;
   copy.level = _level;
+  copy.ordinal = _ordinal;
   return copy;
 }
 

@@ -22,6 +22,10 @@ static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer)
       break;
 
     case MarkdownNodeTypeLineBreak:
+      [buffer appendString:@"\\\n"];
+      break;
+
+    case MarkdownNodeTypeSoftBreak:
       [buffer appendString:@"\n"];
       break;
 

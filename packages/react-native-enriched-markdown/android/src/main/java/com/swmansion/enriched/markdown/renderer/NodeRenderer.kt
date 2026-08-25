@@ -80,6 +80,7 @@ class RendererFactory(
 
   private val textRenderer = TextRenderer()
   private val lineBreakRenderer = LineBreakRenderer()
+  private val softBreakRenderer = SoftBreakRenderer()
 
   private val renderers: Map<MarkdownASTNode.NodeType, NodeRenderer> by lazy {
     buildMap {
@@ -103,6 +104,7 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.Code, CodeRenderer(config))
       put(MarkdownASTNode.NodeType.Image, ImageRenderer())
       put(MarkdownASTNode.NodeType.LineBreak, lineBreakRenderer)
+      put(MarkdownASTNode.NodeType.SoftBreak, softBreakRenderer)
       put(MarkdownASTNode.NodeType.ThematicBreak, ThematicBreakRenderer(config))
       put(MarkdownASTNode.NodeType.Spoiler, SpoilerRenderer())
       if (FeatureFlags.IS_MATH_ENABLED) {

@@ -338,6 +338,21 @@ class TableContainerView(
 
     scrollView.layout(0, 0, viewWidth, bottom - top)
 
+    gridContainer.translationX =
+      if (tableStyle.align.isNotEmpty() && !tableOverflows) {
+        val freeSpace = max(contentWidth - totalTableWidth, 0f)
+        val desiredLeft =
+          overhang +
+            when (tableStyle.align) {
+              "center" -> freeSpace / 2f
+              "right" -> freeSpace
+              else -> 0f
+            }
+        desiredLeft - gridContainer.left
+      } else {
+        0f
+      }
+
     if (isRtl) {
       val effectiveWidth = if (tableOverflows) contentWidth.toFloat() else viewWidth.toFloat()
       if (totalTableWidth > effectiveWidth) {

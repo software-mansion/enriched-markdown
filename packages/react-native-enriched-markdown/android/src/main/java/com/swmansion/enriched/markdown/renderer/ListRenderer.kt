@@ -2,7 +2,9 @@ package com.swmansion.enriched.markdown.renderer
 
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.spans.ListItemSpacingSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
+import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
@@ -52,7 +54,7 @@ class ListRenderer(
     }
 
     if (builder.length > contentStart) {
-      applyListSpacing(builder, contentStart, entryState.previousDepth, listStyle)
+      applyListSpacing(builder, contentStart, entryState.previousDepth, listStyle, factory.blockStyleContext)
     }
   }
 
@@ -60,20 +62,50 @@ class ListRenderer(
     builder: SpannableStringBuilder,
     start: Int,
     depth: Int,
-    style: com.swmansion.enriched.markdown.styles.BaseBlockStyle,
+    style: ListStyle,
+    styleContext: BlockStyleContext,
   ) {
     // TODO: LineHeightSpan may also clip superscript/subscript glyphs that extend
     // outside the normal line bounds. A similar "skip" strategy as for images may
     // be needed here once super/subscript usage in practice is better understood.
     applyLineHeightSkippingImages(builder, start, builder.length, style.lineHeight)
 
-    // External bottom margin is only handled by the root-level list
+    // Item spacing and external bottom margin are only handled by the root-level list
     if (depth == 0) {
+      applyItemSpacing(builder, start, style.itemSpacing, styleContext)
+
       builder.append("\n")
       builder.setSpan(
         MarginBottomSpan(style.marginBottom),
         builder.length - 1,
         builder.length,
+        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+      )
+    }
+  }
+
+  // Inserts the vertical gap between consecutive items (including nested ones)
+  // by spanning the newline that precedes each item start. The first item of
+  // the root list gets no spacing above it.
+  private fun applyItemSpacing(
+    builder: SpannableStringBuilder,
+    start: Int,
+    itemSpacing: Float,
+    styleContext: BlockStyleContext,
+  ) {
+    if (itemSpacing <= 0f) return
+
+    val itemStarts =
+      styleContext.listItemStarts
+        .filter { it in start until builder.length }
+        .distinct()
+        .sorted()
+
+    for (itemStart in itemStarts.drop(1)) {
+      builder.setSpan(
+        ListItemSpacingSpan(itemSpacing),
+        itemStart - 1,
+        itemStart,
         SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
       )
     }

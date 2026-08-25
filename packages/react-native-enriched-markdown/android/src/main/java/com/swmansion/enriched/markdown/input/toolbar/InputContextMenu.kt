@@ -11,6 +11,7 @@ import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import com.swmansion.enriched.markdown.input.EnrichedMarkdownTextInputView
 import com.swmansion.enriched.markdown.input.MarkdownClipboard
+import com.swmansion.enriched.markdown.input.formatting.MarkdownSerializer
 import com.swmansion.enriched.markdown.input.model.StyleType
 
 data class InputSelectionMenuConfig(
@@ -111,7 +112,9 @@ class InputContextMenu(
           if (customIndex in customItemTexts.indices) {
             val start = view.selectionStart
             val end = view.selectionEnd
-            val selectedText = if (start < end) view.text?.substring(start, end) ?: "" else ""
+            // Strip the internal ZWSP anchor so it never reaches JS (a selection can
+            // span an empty anchored list line).
+            val selectedText = if (start < end) MarkdownSerializer.stripZwsp(view.text?.substring(start, end) ?: "") else ""
             view.eventEmitter.emitContextMenuItemPress(customItemTexts[customIndex], selectedText, start, end)
             mode.finish()
             return true

@@ -44,7 +44,9 @@ function ListItemRenderer({
   node,
   style,
   styles,
+  index,
   callbacks,
+  capabilities,
   renderChildren,
 }: RendererProps) {
   const isTask = node.attributes?.isTask === 'true';
@@ -57,6 +59,8 @@ function ListItemRenderer({
   }, [initialChecked]);
 
   const handleChange = () => {
+    if (!capabilities.enableTaskListItemToggle) return;
+
     const taskIndex = node.attributes?.taskIndex;
     if (taskIndex === undefined) return;
 
@@ -85,14 +89,22 @@ function ListItemRenderer({
     : null;
 
   return (
-    <li style={listItemStyle(isTask)}>
+    <li style={listItemStyle(style, isTask, (index ?? 0) === 0)}>
       <span style={checkedStyle}>
         {isTask && (
           <input
             type="checkbox"
             checked={isChecked}
             onChange={handleChange}
-            style={styles.taskCheckbox}
+            readOnly={!capabilities.enableTaskListItemToggle}
+            aria-disabled={
+              capabilities.enableTaskListItemToggle ? undefined : true
+            }
+            style={
+              capabilities.enableTaskListItemToggle
+                ? styles.taskCheckbox
+                : styles.taskCheckboxDisabled
+            }
             aria-label={`Task: ${taskText}`}
           />
         )}

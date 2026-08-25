@@ -29,8 +29,20 @@ const NESTED_MARKDOWN = `- [x] Buy groceries
   - [ ] Serve
 - [x] Wash dishes`;
 
+type TaskListDemoControls = TaskListStyleControls & { itemSpacing: number };
+
+const taskListDemoDefaults: TaskListDemoControls = {
+  ...taskListStyledDefaults,
+  itemSpacing: 0,
+};
+
 const argTypes = {
   ...githubFlavorArgTypes('Task lists require flavor="github" (GFM).'),
+  itemSpacing: numberControl('markdownStyle.list.itemSpacing', {
+    min: 0,
+    max: 32,
+    step: 2,
+  }),
   checkedColor: {
     control: 'color',
     description: 'markdownStyle.taskList.checkedColor',
@@ -66,15 +78,19 @@ const argTypes = {
 function renderTaskList(
   title: string,
   description: string,
-  args: StoryArgs<TaskListStyleControls>
+  args: StoryArgs<TaskListDemoControls>
 ) {
-  const { controls, rest } = splitStyleControls(args, taskListStyledDefaults);
+  const { controls, rest } = splitStyleControls(args, taskListDemoDefaults);
+  const { itemSpacing, ...taskListControls } = controls;
   return (
     <EnrichedMarkdownTextStory
       title={title}
       description={description}
       {...rest}
-      style={{ taskList: toTaskListStyle(controls) }}
+      style={{
+        taskList: toTaskListStyle(taskListControls),
+        list: { itemSpacing },
+      }}
     />
   );
 }
@@ -83,13 +99,13 @@ const taskListStoryBase = {
   argTypes,
   args: {
     flavor: 'github' as const,
-    ...taskListStyledDefaults,
+    ...taskListDemoDefaults,
   },
 };
 
 export default storyMeta('Block', 'Task List');
 
-export const Default: TextStory<TaskListStyleControls> = {
+export const Default: TextStory<TaskListDemoControls> = {
   ...taskListStoryBase,
   args: {
     ...taskListStoryBase.args,
@@ -103,7 +119,7 @@ export const Default: TextStory<TaskListStyleControls> = {
     ),
 };
 
-export const Nested: TextStory<TaskListStyleControls> = {
+export const Nested: TextStory<TaskListDemoControls> = {
   ...taskListStoryBase,
   args: {
     ...taskListStoryBase.args,

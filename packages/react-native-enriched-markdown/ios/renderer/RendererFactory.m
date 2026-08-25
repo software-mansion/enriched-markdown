@@ -143,6 +143,12 @@
       [output appendAttributedString:lineBreak];
       continue;
     }
+    if (child.type == MarkdownNodeTypeSoftBreak) {
+      NSAttributedString *softBreak = [[NSAttributedString alloc] initWithString:@" "
+                                                                      attributes:[context getTextAttributes]];
+      [output appendAttributedString:softBreak];
+      continue;
+    }
     id<NodeRenderer> renderer = [self rendererForNodeType:child.type];
     if (renderer) {
       [renderer renderNode:child into:output context:context];

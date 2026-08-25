@@ -1,0 +1,13 @@
+{
+  "name": "@enriched-markdown/ios",
+  "version": "0.1.0",
+  "private": true,
+  "description": "iOS native code for enriched-markdown",
+  "scripts": {
+    "build": "swift build",
+    "test": "swift test",
+    "test:ios-native": "xcodebuild test -scheme EnrichedMarkdown -destination \"platform=iOS Simulator,id=${IOS_SIMULATOR_UDID:-booted}\"",
+    "lint:ios-native": "swiftlint lint --strict",
+    "clean": "swift package clean"
+  }
+}

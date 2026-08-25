@@ -1,0 +1,102 @@
+import UIKit
+
+struct BlockDecorationConfig {
+    var codeBlockBackgroundColor: UIColor = UIColor(red: 0.12, green: 0.16, blue: 0.22, alpha: 1)
+    var codeBlockBorderColor: UIColor = UIColor(red: 0.22, green: 0.25, blue: 0.29, alpha: 1)
+    var codeBlockBorderWidth: CGFloat = 1
+    var codeBlockBorderRadius: CGFloat = 8
+    var codeBlockPadding: CGFloat = 16
+
+    var blockquoteBorderWidth: CGFloat = 3
+    var blockquoteGapWidth: CGFloat = 16
+    var blockquoteBorderColor: UIColor = UIColor(red: 0.82, green: 0.84, blue: 0.86, alpha: 1)
+    var blockquoteBackgroundColor: UIColor = UIColor(red: 0.98, green: 0.98, blue: 0.99, alpha: 1)
+
+    var listGapWidth: CGFloat = 12
+    var listBulletSize: CGFloat = 6
+    var listBulletColor: UIColor = UIColor(red: 0.42, green: 0.45, blue: 0.50, alpha: 1)
+    var listMarkerColor: UIColor = UIColor(red: 0.42, green: 0.45, blue: 0.50, alpha: 1)
+    var listMarkerFont: UIFont = .systemFont(ofSize: 16, weight: .medium)
+
+    var taskCheckboxSize: CGFloat = 14
+    var taskCheckboxBorderRadius: CGFloat = 3
+    var taskCheckedColor: UIColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1)
+    var taskBorderColor: UIColor = UIColor(red: 0.62, green: 0.62, blue: 0.62, alpha: 1)
+    var taskCheckmarkColor: UIColor = .white
+
+    init(styleConfig: MarkdownStyleConfig) {
+        applyCodeBlockStyle(from: styleConfig.codeBlock)
+        applyBlockquoteStyle(from: styleConfig.blockquote)
+        applyListStyle(from: styleConfig.list)
+        applyTaskListStyle(from: styleConfig.taskList)
+    }
+
+    private mutating func applyCodeBlockStyle(from style: CodeBlockStyle) {
+        if let color = style.backgroundColor {
+            codeBlockBackgroundColor = color
+        }
+        if let color = style.borderColor {
+            codeBlockBorderColor = color
+        }
+        if let width = style.borderWidth {
+            codeBlockBorderWidth = width
+        }
+        if let radius = style.borderRadius {
+            codeBlockBorderRadius = radius
+        }
+        if let padding = style.padding {
+            codeBlockPadding = padding
+        }
+    }
+
+    private mutating func applyBlockquoteStyle(from style: BlockquoteStyle) {
+        if let width = style.borderWidth {
+            blockquoteBorderWidth = width
+        }
+        if let gap = style.gapWidth {
+            blockquoteGapWidth = gap
+        }
+        if let color = style.borderColor {
+            blockquoteBorderColor = color
+        }
+        if let color = style.backgroundColor {
+            blockquoteBackgroundColor = color
+        }
+    }
+
+    private mutating func applyListStyle(from style: ListStyle) {
+        if let gap = style.gapWidth {
+            listGapWidth = max(gap, 4)
+        }
+        if let size = style.bulletSize {
+            listBulletSize = size
+        }
+        if let color = style.bulletColor {
+            listBulletColor = color
+        }
+        if let color = style.markerColor {
+            listMarkerColor = color
+        }
+        if let font = style.font {
+            listMarkerFont = font
+        }
+    }
+
+    private mutating func applyTaskListStyle(from style: TaskListStyle) {
+        if let size = style.checkboxSize {
+            taskCheckboxSize = size
+        }
+        if let radius = style.checkboxBorderRadius {
+            taskCheckboxBorderRadius = radius
+        }
+        if let color = style.checkedColor {
+            taskCheckedColor = color
+        }
+        if let color = style.borderColor {
+            taskBorderColor = color
+        }
+        if let color = style.checkmarkColor {
+            taskCheckmarkColor = color
+        }
+    }
+}

@@ -21,6 +21,7 @@ import type {
   LinkPressEvent,
   LinkLongPressEvent,
   TaskListItemPressEvent,
+  CopyPressEvent,
   OnContextMenuItemPressEvent,
 } from '../types/events';
 
@@ -32,7 +33,12 @@ export type {
   SelectionMenuConfig,
   SelectionMenuPluralLabels,
 };
-export type { LinkPressEvent, LinkLongPressEvent, TaskListItemPressEvent };
+export type {
+  LinkPressEvent,
+  LinkLongPressEvent,
+  TaskListItemPressEvent,
+  CopyPressEvent,
+};
 
 // Default English labels for the built-in selection menu actions. Defaults are
 // resolved here (JS-side) so the native code always receives a concrete string.
@@ -101,6 +107,7 @@ const defaultMd4cFlags: Md4cFlags = {
   subscript: false,
   latexMath: true,
   highlight: false,
+  hardSoftBreaks: false,
 };
 
 export const EnrichedMarkdownText = ({
@@ -110,6 +117,8 @@ export const EnrichedMarkdownText = ({
   onLinkPress,
   onLinkLongPress,
   onTaskListItemPress,
+  enableTaskListItemToggle = true,
+  onCopyPress,
   enableLinkPreview,
   selectable = true,
   md4cFlags = defaultMd4cFlags,
@@ -147,6 +156,7 @@ export const EnrichedMarkdownText = ({
       subscript: md4cFlags.subscript ?? false,
       latexMath: md4cFlags.latexMath ?? true,
       highlight: md4cFlags.highlight ?? false,
+      hardSoftBreaks: md4cFlags.hardSoftBreaks ?? false,
     }),
     [md4cFlags]
   );
@@ -220,8 +230,20 @@ export const EnrichedMarkdownText = ({
     [onTaskListItemPress]
   );
 
+  const handleCopyPress = useCallback(
+    (e: NativeSyntheticEvent<CopyPressEvent>) => {
+      const { code, language } = e.nativeEvent;
+      onCopyPress?.({ code, language });
+    },
+    [onCopyPress]
+  );
+
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
-  const normalizedStreamingConfig = useMemo(() => ({ tableMode }), [tableMode]);
+  const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
+  const normalizedStreamingConfig = useMemo(
+    () => ({ tableMode, codeBlockMode }),
+    [tableMode, codeBlockMode]
+  );
   const normalizedSelectionMenuConfig = useMemo(() => {
     // The boolean acceptance is confined to this wrapper boundary via a single
     // `as unknown` cast; the public type only exposes the object shape.
@@ -280,6 +302,8 @@ export const EnrichedMarkdownText = ({
     onLinkPress: handleLinkPress,
     onLinkLongPress: handleLinkLongPress,
     onTaskListItemPress: handleTaskListItemPress,
+    enableTaskListItemToggle,
+    onCopyPress: handleCopyPress,
     enableLinkPreview: onLinkLongPress == null && (enableLinkPreview ?? true),
     selectable,
     md4cFlags: normalizedMd4cFlags,

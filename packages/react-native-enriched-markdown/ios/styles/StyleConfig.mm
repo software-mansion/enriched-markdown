@@ -1,8 +1,12 @@
 #import "StyleConfig.h"
+#include "CodeBlockHighlighter.hpp"
 #import "ENRMFontSlot.h"
 #import "FontUtils.h"
 #import <React/RCTFont.h>
 #import <React/RCTUtils.h>
+
+static const NSInteger kENRMCodeBlockSyntaxColorCount =
+    static_cast<NSInteger>(Markdown::HighlightTokenType::Embedded) + 1;
 
 static inline NSString *normalizedFontWeight(NSString *fontWeight)
 {
@@ -155,6 +159,8 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   CGFloat _blockquoteBorderWidth;
   CGFloat _blockquoteGapWidth;
   RCTUIColor *_blockquoteBackgroundColor;
+  CGFloat _blockquoteBorderRadius;
+  CGFloat _blockquotePadding;
   ENRMFontSlot *_blockquoteFont;
   // List style properties (combined for both ordered and unordered lists)
   CGFloat _listStyleFontSize;
@@ -171,6 +177,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   NSString *_listStyleMarkerFontWeight;
   CGFloat _listStyleGapWidth;
   CGFloat _listStyleMarginLeft;
+  CGFloat _listStyleItemSpacing;
   ENRMFontSlot *_listMarkerFont;
   ENRMFontSlot *_listStyleFont;
   // Code block properties
@@ -186,6 +193,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   CGFloat _codeBlockBorderRadius;
   CGFloat _codeBlockBorderWidth;
   CGFloat _codeBlockPadding;
+  RCTUIColor *_codeBlockSyntaxColors[kENRMCodeBlockSyntaxColorCount];
   ENRMFontSlot *_codeBlockFont;
   // Thematic break properties
   RCTUIColor *_thematicBreakColor;
@@ -213,6 +221,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   CGFloat _tableCellPaddingHorizontal;
   CGFloat _tableCellPaddingVertical;
   CGFloat _tableHorizontalOverflow;
+  NSString *_tableAlign;
   // Task list checkbox
   RCTUIColor *_taskListCheckedColor;
   RCTUIColor *_taskListBorderColor;
@@ -430,6 +439,8 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_blockquoteBorderWidth = _blockquoteBorderWidth;
   copy->_blockquoteGapWidth = _blockquoteGapWidth;
   copy->_blockquoteBackgroundColor = [_blockquoteBackgroundColor copy];
+  copy->_blockquoteBorderRadius = _blockquoteBorderRadius;
+  copy->_blockquotePadding = _blockquotePadding;
   copy->_listStyleFontSize = _listStyleFontSize;
   copy->_listStyleFontFamily = [_listStyleFontFamily copy];
   copy->_listStyleFontWeight = [_listStyleFontWeight copy];
@@ -444,6 +455,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_listStyleMarkerFontWeight = [_listStyleMarkerFontWeight copy];
   copy->_listStyleGapWidth = _listStyleGapWidth;
   copy->_listStyleMarginLeft = _listStyleMarginLeft;
+  copy->_listStyleItemSpacing = _listStyleItemSpacing;
   copy->_codeBlockFontSize = _codeBlockFontSize;
   copy->_codeBlockFontFamily = [_codeBlockFontFamily copy];
   copy->_codeBlockFontWeight = [_codeBlockFontWeight copy];
@@ -456,6 +468,9 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_codeBlockBorderRadius = _codeBlockBorderRadius;
   copy->_codeBlockBorderWidth = _codeBlockBorderWidth;
   copy->_codeBlockPadding = _codeBlockPadding;
+  for (NSInteger i = 0; i < kENRMCodeBlockSyntaxColorCount; i++) {
+    copy->_codeBlockSyntaxColors[i] = [_codeBlockSyntaxColors[i] copy];
+  }
   copy->_thematicBreakColor = [_thematicBreakColor copy];
   copy->_thematicBreakHeight = _thematicBreakHeight;
   copy->_thematicBreakMarginTop = _thematicBreakMarginTop;
@@ -478,6 +493,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_tableCellPaddingHorizontal = _tableCellPaddingHorizontal;
   copy->_tableCellPaddingVertical = _tableCellPaddingVertical;
   copy->_tableHorizontalOverflow = _tableHorizontalOverflow;
+  copy->_tableAlign = [_tableAlign copy];
   copy->_taskListCheckedColor = [_taskListCheckedColor copy];
   copy->_taskListBorderColor = [_taskListBorderColor copy];
   copy->_taskListCheckboxSize = _taskListCheckboxSize;
@@ -1725,6 +1741,26 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   _blockquoteBackgroundColor = newValue;
 }
 
+- (CGFloat)blockquoteBorderRadius
+{
+  return _blockquoteBorderRadius;
+}
+
+- (void)setBlockquoteBorderRadius:(CGFloat)newValue
+{
+  _blockquoteBorderRadius = newValue;
+}
+
+- (CGFloat)blockquotePadding
+{
+  return _blockquotePadding;
+}
+
+- (void)setBlockquotePadding:(CGFloat)newValue
+{
+  _blockquotePadding = newValue;
+}
+
 // List style properties (combined for both ordered and unordered lists)
 - (CGFloat)listStyleFontSize
 {
@@ -1873,6 +1909,16 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (void)setListStyleMarginLeft:(CGFloat)newValue
 {
   _listStyleMarginLeft = newValue;
+}
+
+- (CGFloat)listStyleItemSpacing
+{
+  return _listStyleItemSpacing;
+}
+
+- (void)setListStyleItemSpacing:(CGFloat)newValue
+{
+  _listStyleItemSpacing = newValue;
 }
 
 - (UIFont *)listMarkerFont
@@ -2070,6 +2116,22 @@ static const CGFloat kDefaultMinGap = 4.0;
     _codeBlockFont.needsRecreation = NO;
   }
   return _codeBlockFont.cachedFont;
+}
+
+- (RCTUIColor *)codeBlockSyntaxColorForToken:(NSInteger)tokenType
+{
+  if (tokenType < 0 || tokenType >= kENRMCodeBlockSyntaxColorCount) {
+    return nil;
+  }
+  return _codeBlockSyntaxColors[tokenType];
+}
+
+- (void)setCodeBlockSyntaxColor:(RCTUIColor *)newValue forToken:(NSInteger)tokenType
+{
+  if (tokenType < 0 || tokenType >= kENRMCodeBlockSyntaxColorCount) {
+    return;
+  }
+  _codeBlockSyntaxColors[tokenType] = newValue;
 }
 
 // Thematic break properties
@@ -2332,6 +2394,16 @@ static const CGFloat kDefaultMinGap = 4.0;
 - (void)setTableHorizontalOverflow:(CGFloat)newValue
 {
   _tableHorizontalOverflow = newValue;
+}
+
+- (NSString *)tableAlign
+{
+  return _tableAlign ?: @"";
+}
+
+- (void)setTableAlign:(NSString *)newValue
+{
+  _tableAlign = newValue;
 }
 
 // Task list

@@ -41,7 +41,12 @@ class MathInlineRenderer(
   }
 
   private fun extractLatex(node: MarkdownASTNode): String {
-    if (!node.content.isNullOrEmpty()) return node.content!!
-    return node.children.mapNotNull { it.content }.joinToString("")
+    if (node.content.isNotEmpty()) return node.content
+    return node.children.joinToString("") { child ->
+      when (child.type) {
+        MarkdownASTNode.NodeType.SoftBreak, MarkdownASTNode.NodeType.LineBreak -> " "
+        else -> child.content
+      }
+    }
   }
 }
