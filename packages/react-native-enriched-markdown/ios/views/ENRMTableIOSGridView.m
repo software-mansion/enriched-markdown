@@ -1,12 +1,17 @@
 #import "ENRMTableIOSGridView.h"
+#import "ENRMImageAttachment.h"
 
 #if !TARGET_OS_OSX
 
 @implementation ENRMTableIOSRowData
 @end
 
+@interface ENRMTableIOSGridView () <ENRMImageDisplayObserver>
+@end
+
 @implementation ENRMTableIOSGridView {
   NSArray<ENRMTableIOSRowData *> *_tableRows;
+  NSArray<ENRMImageAttachment *> *_observedImageAttachments;
   NSArray<NSNumber *> *_columnWidths;
   NSArray<NSNumber *> *_rowHeights;
   UIColor *_borderColor;
@@ -36,6 +41,43 @@
 
 #pragma mark - Data
 
+- (NSArray<ENRMImageAttachment *> *)uniqueImageAttachmentsInRows:(NSArray<ENRMTableIOSRowData *> *)rows
+{
+  NSHashTable<ENRMImageAttachment *> *uniqueAttachments =
+      [NSHashTable hashTableWithOptions:NSPointerFunctionsStrongMemory | NSPointerFunctionsObjectPointerPersonality];
+
+  for (ENRMTableIOSRowData *row in rows) {
+    for (NSAttributedString *cellText in row.cellTexts) {
+      if (cellText.length == 0)
+        continue;
+
+      [cellText enumerateAttribute:NSAttachmentAttributeName
+                           inRange:NSMakeRange(0, cellText.length)
+                           options:0
+                        usingBlock:^(id value, NSRange range, BOOL *stop) {
+                          if ([value isKindOfClass:[ENRMImageAttachment class]]) {
+                            [uniqueAttachments addObject:(ENRMImageAttachment *)value];
+                          }
+                        }];
+    }
+  }
+
+  return uniqueAttachments.allObjects;
+}
+
+- (void)replaceObservedImageAttachments:(NSArray<ENRMImageAttachment *> *)attachments
+{
+  for (ENRMImageAttachment *attachment in _observedImageAttachments) {
+    [attachment removeDisplayObserver:self];
+  }
+
+  _observedImageAttachments = [attachments copy];
+
+  for (ENRMImageAttachment *attachment in _observedImageAttachments) {
+    [attachment addDisplayObserver:self];
+  }
+}
+
 - (void)updateWithRows:(NSArray<ENRMTableIOSRowData *> *)rows
              columnWidths:(NSArray<NSNumber *> *)columnWidths
                rowHeights:(NSArray<NSNumber *> *)rowHeights
@@ -45,6 +87,8 @@
       verticalCellPadding:(CGFloat)verticalCellPadding
              cornerRadius:(CGFloat)cornerRadius
 {
+  NSArray<ENRMImageAttachment *> *imageAttachments = [self uniqueImageAttachmentsInRows:rows];
+  [self replaceObservedImageAttachments:imageAttachments];
   _tableRows = [rows copy];
   _columnWidths = [columnWidths copy];
   _rowHeights = [rowHeights copy];
@@ -52,6 +96,18 @@
   _borderWidth = borderWidth;
   _horizontalCellPadding = horizontalCellPadding;
   _verticalCellPadding = verticalCellPadding;
+  [self setNeedsDisplay];
+}
+
+- (void)dealloc
+{
+  for (ENRMImageAttachment *attachment in _observedImageAttachments) {
+    [attachment removeDisplayObserver:self];
+  }
+}
+
+- (void)imageAttachmentDidUpdateDisplay:(ENRMImageAttachment *)attachment
+{
   [self setNeedsDisplay];
 }
 

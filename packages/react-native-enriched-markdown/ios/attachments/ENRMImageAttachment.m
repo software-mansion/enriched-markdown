@@ -36,6 +36,7 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 @property (nonatomic, strong) RCTUIImage *loadedImage;
 @property (nonatomic, strong) RCTUIImage *placeholderImage;
 @property (nonatomic, copy) NSString *lastProcessedKey;
+@property (nonatomic, strong) NSHashTable<id<ENRMImageDisplayObserver>> *displayObservers;
 
 @end
 
@@ -102,6 +103,8 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
     _cachedAspectRatio = [config imageAspectRatio];
     _cachedResizeMode = [config imageResizeMode];
     _cachedBorderRadius = [config imageBorderRadius];
+    _displayObservers =
+        [NSHashTable hashTableWithOptions:NSPointerFunctionsWeakMemory | NSPointerFunctionsObjectPointerPersonality];
 
     [self setupPlaceholder];
     [self startDownloadingImage];
@@ -335,6 +338,18 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 
 - (void)refreshDisplay
 {
+  if (!NSThread.isMainThread) {
+    dispatch_async(dispatch_get_main_queue(), ^{ [self refreshDisplay]; });
+    return;
+  }
+
+  if (self.loadedImage) {
+    NSArray<id<ENRMImageDisplayObserver>> *observers = self.displayObservers.allObjects;
+    for (id<ENRMImageDisplayObserver> observer in observers) {
+      [observer imageAttachmentDidUpdateDisplay:self];
+    }
+  }
+
   UITextView *textView = [self fetchAssociatedTextView];
   if (!textView)
     return;
@@ -347,6 +362,42 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
       [self notifyImageLayoutObserver:textView];
     }
   }
+}
+
+- (void)addDisplayObserver:(id<ENRMImageDisplayObserver>)observer
+{
+  if (!NSThread.isMainThread) {
+    __weak typeof(self) weakSelf = self;
+    __weak id<ENRMImageDisplayObserver> weakObserver = observer;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      __strong typeof(weakSelf) strongSelf = weakSelf;
+      id<ENRMImageDisplayObserver> strongObserver = weakObserver;
+      if (strongSelf && strongObserver) {
+        [strongSelf.displayObservers addObject:strongObserver];
+      }
+    });
+    return;
+  }
+
+  [self.displayObservers addObject:observer];
+}
+
+- (void)removeDisplayObserver:(id<ENRMImageDisplayObserver>)observer
+{
+  if (!NSThread.isMainThread) {
+    __weak typeof(self) weakSelf = self;
+    __weak id<ENRMImageDisplayObserver> weakObserver = observer;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      __strong typeof(weakSelf) strongSelf = weakSelf;
+      id<ENRMImageDisplayObserver> strongObserver = weakObserver;
+      if (strongSelf && strongObserver) {
+        [strongSelf.displayObservers removeObject:strongObserver];
+      }
+    });
+    return;
+  }
+
+  [self.displayObservers removeObject:observer];
 }
 
 // With maxHeight/aspectRatio sizing the box height can settle after the image
