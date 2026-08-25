@@ -1,9 +1,13 @@
 ---
 sidebar_label: EnrichedMarkdownText
-sidebar_position: 3
+sidebar_position: 1
 ---
 
 # EnrichedMarkdownText
+
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
 
 `EnrichedMarkdownText` renders Markdown content as fully native text — no WebView required.
 
@@ -90,7 +94,7 @@ Links in Markdown are interactive and can be handled with the `onLinkPress` and 
 
 ## Supported Markdown elements
 
-`EnrichedMarkdownText` supports a comprehensive set of Markdown elements. See [Element structure](/react-native/element-structure) for a detailed overview of all supported elements, their syntax, block vs. inline categorization, nesting behavior, and how elements inherit typography from their parent blocks.
+`EnrichedMarkdownText` supports a comprehensive set of Markdown elements. See [Element structure](/react-native/api-reference/element-structure) for a detailed overview of all supported elements, their syntax, block vs. inline categorization, nesting behavior, and how elements inherit typography from their parent blocks.
 
 ## Copy options
 
@@ -106,8 +110,8 @@ The component fully supports right-to-left (RTL) languages such as Arabic, Hebre
 
 ## Customizing styles
 
-You can customize the styles of all Markdown elements using the `markdownStyle` prop. See the [Style properties reference](/react-native/style-properties) for a detailed overview of all available style properties.
+You can customize the styles of all Markdown elements using the `markdownStyle` prop. See the [Style properties reference](/react-native/api-reference/style-properties) for a detailed overview of all available style properties.
 
 ### Dark mode
 
-The library uses light-mode defaults. To support dark mode, pass a dark `markdownStyle` object — your values always take priority over the defaults. See the [Dark mode](/react-native/style-properties#dark-mode) section in the Style properties reference for a ready-to-use example with `useColorScheme()`.
+The library uses light-mode defaults. To support dark mode, pass a dark `markdownStyle` object — your values always take priority over the defaults. See the [Dark mode](/react-native/api-reference/style-properties#dark-mode) section in the Style properties reference for a ready-to-use example with `useColorScheme()`.

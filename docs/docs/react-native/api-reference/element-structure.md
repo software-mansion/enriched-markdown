@@ -1,9 +1,13 @@
 ---
 sidebar_label: Element structure
-sidebar_position: 6
+sidebar_position: 4
 ---
 
 # Element structure
+
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
 
 Markdown elements in `react-native-enriched-markdown` are organized into block and inline categories, each with distinct rendering behaviors.
 

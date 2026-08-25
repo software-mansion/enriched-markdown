@@ -1,9 +1,13 @@
 ---
 sidebar_label: Style properties
-sidebar_position: 5
+sidebar_position: 3
 ---
 
 # Style properties reference
+
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
 
 This page provides a comprehensive reference for all style properties available in `react-native-enriched-markdown`, passed through the `markdownStyle` prop.
 

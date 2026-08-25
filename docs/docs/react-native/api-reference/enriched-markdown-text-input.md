@@ -1,9 +1,13 @@
 ---
 sidebar_label: EnrichedMarkdownTextInput
-sidebar_position: 4
+sidebar_position: 2
 ---
 
 # EnrichedMarkdownTextInput
+
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
 
 `EnrichedMarkdownTextInput` is a rich text input component that outputs Markdown. It is an uncontrolled input — it doesn't use any state or props to store its value, but instead directly interacts with the underlying platform-specific components. Thanks to this, the component is really performant and simple to use.
 
@@ -199,7 +203,7 @@ All of the above styles can be detected with the use of the `onChangeState` call
 
 ## RTL support
 
-`EnrichedMarkdownTextInput` resolves writing direction **per paragraph**, matching the read-only [`EnrichedMarkdownText`](/react-native/enriched-markdown-text) renderer. Arabic, Hebrew, and Persian content right-aligns automatically as the user types — even mixed with English paragraphs in the same input.
+`EnrichedMarkdownTextInput` resolves writing direction **per paragraph**, matching the read-only [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) renderer. Arabic, Hebrew, and Persian content right-aligns automatically as the user types — even mixed with English paragraphs in the same input.
 
 ### Platform setup
 
@@ -225,7 +229,7 @@ No setup is required. Both platforms autodetect direction per paragraph out of t
 
 - **Placeholder** follows the host view's layout direction, not the prop. If you need an RTL placeholder, wrap the input in `<View style={{ direction: 'rtl' }}>` or set `I18nManager.forceRTL(true)`.
 - **Mixed paragraphs while typing** — newly inserted characters in an empty paragraph briefly inherit the previous paragraph's direction; the first-strong pass corrects this on the next input event.
-- **Code blocks, tables, blockquotes, lists** are not supported in the input (it's a flat inline-formatting surface). For those, use [`EnrichedMarkdownText`](/react-native/enriched-markdown-text).
+- **Code blocks, tables, blockquotes, lists** are not supported in the input (it's a flat inline-formatting surface). For those, use [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text).
 
 See [RTL support](/misc/rtl) for the full per-element behavior on the rendered output side.
 

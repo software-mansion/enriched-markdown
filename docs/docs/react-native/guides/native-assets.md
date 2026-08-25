@@ -5,6 +5,10 @@ sidebar_position: 3
 
 # Native assets
 
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
+
 Guidance for bundling and referencing native image and font assets from Markdown content.
 
 :::info

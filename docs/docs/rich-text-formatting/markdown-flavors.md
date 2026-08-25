@@ -5,6 +5,10 @@ sidebar_position: 0
 
 # Markdown flavors
 
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
+
 This section covers the rich text features layered on top of the CommonMark core introduced in [Core concepts](/introduction/core-concepts) — tables and task lists, LaTeX math, code-block highlighting, mentions, and streaming. Most of them are gated behind a **Markdown flavor**, so this page explains what flavors are and how to turn them on before you dive into the individual features.
 
 ## Why there are flavors
@@ -30,13 +34,13 @@ Setting `flavor="github"` unlocks:
 
 | Feature | Syntax | Learn more |
 |---|---|---|
-| **Tables** | `\| col \| col \|` | [Element structure](/react-native/element-structure) |
-| **Task lists** | `- [x] done`, `- [ ] todo` | [Element structure](/react-native/element-structure) |
-| **Strikethrough** | `~~text~~` | [Element structure](/react-native/element-structure) |
+| **Tables** | `\| col \| col \|` | [Element structure](/react-native/api-reference/element-structure) |
+| **Task lists** | `- [x] done`, `- [ ] todo` | [Element structure](/react-native/api-reference/element-structure) |
+| **Strikethrough** | `~~text~~` | [Element structure](/react-native/api-reference/element-structure) |
 | **Autolinked URLs** | bare `https://…` becomes a link | — |
 | **Block & inline math** | `$$…$$`, `$…$` | [LaTeX math](/rich-text-formatting/latex-math) |
 
-Tables render with column alignment, rich text in cells, and header styling; task lists become interactive checkboxes you can respond to. See the per-platform [`EnrichedMarkdownText`](/react-native/enriched-markdown-text) reference for the props that surface these.
+Tables render with column alignment, rich text in cells, and header styling; task lists become interactive checkboxes you can respond to. See the per-platform [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) reference for the props that surface these.
 
 ## Beyond flavors: individual parser extensions
 
@@ -49,7 +53,7 @@ Some inline extensions are toggled independently of the flavor, through the `md4
 />
 ```
 
-See [Element structure](/react-native/element-structure) for the full list of what each flag enables and how it interacts with the base syntax.
+See [Element structure](/react-native/api-reference/element-structure) for the full list of what each flag enables and how it interacts with the base syntax.
 
 <!-- TODO: expand this into a full explanation of the parsing model — how the
 flavor selects a base dialect, how md4cFlags layer extra inline extensions on

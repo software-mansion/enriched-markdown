@@ -5,6 +5,10 @@ sidebar_position: 1
 
 # Installation
 
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
+
 Add the pod to your **`Podfile`**:
 
 ```ruby
