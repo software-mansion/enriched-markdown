@@ -5,6 +5,10 @@ sidebar_position: 1
 
 # Web support
 
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
+
 `EnrichedMarkdownText` runs on web using [`react-native-web`](https://necolas.github.io/react-native-web/)
 for the React Native primitives and [md4c](https://github.com/mity/md4c)
 compiled to WebAssembly for parsing. The WASM binary is bundled in the npm

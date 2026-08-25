@@ -9,6 +9,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) CGFloat fontSize;
 @property (nonatomic, strong, nullable) RCTUIColor *mathTextColor;
 
+@property (nonatomic, readonly) CGFloat boxHeight;
+
 #if TARGET_OS_OSX
 /// Pre-renders the formula into self.image and sets self.bounds.
 /// Must be called after latex/fontSize/mathTextColor are set, before the

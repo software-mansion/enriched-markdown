@@ -108,6 +108,59 @@
                                                                            containingPosition:position - 1] != nil;
 }
 
+- (BOOL)isStyleFullyActive:(ENRMInputStyleType)type inRange:(NSRange)range
+{
+  NSUInteger pos = range.location;
+  NSUInteger end = NSMaxRange(range);
+  while (pos < end) {
+    ENRMFormattingRange *match = [self rangeOfType:type containingPosition:pos];
+    if (match == nil) {
+      return NO;
+    }
+    pos = NSMaxRange(match.range);
+  }
+  return YES;
+}
+
+- (BOOL)toggleStyle:(ENRMInputStyleType)type
+              inRange:(NSRange)range
+    conflictingStyles:(NSSet<NSNumber *> *)conflictingStyles
+{
+  BOOL wasActive;
+  if (range.length > 0) {
+    wasActive = [self isStyleFullyActive:type inRange:range];
+    if (wasActive) {
+      [self removeType:type inRange:range];
+    } else {
+      for (NSNumber *conflict in conflictingStyles) {
+        [self removeType:(ENRMInputStyleType)conflict.integerValue inRange:range];
+      }
+      [self addRange:[ENRMFormattingRange rangeWithType:type range:range]];
+    }
+  } else {
+    wasActive = [self isStyleActive:type atPosition:range.location];
+  }
+  return wasActive;
+}
+
+- (BOOL)isToggleBlocked:(ENRMInputStyleType)type
+             atPosition:(NSUInteger)position
+         blockingStyles:(NSSet<NSNumber *> *)blockingStyles
+{
+  if (blockingStyles.count == 0) {
+    return NO;
+  }
+  if ([self isStyleActive:type atPosition:position]) {
+    return NO;
+  }
+  for (NSNumber *blocker in blockingStyles) {
+    if ([self isStyleActive:(ENRMInputStyleType)blocker.integerValue atPosition:position]) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
 - (void)addRange:(ENRMFormattingRange *)newRange
 {
   NSMutableIndexSet *mergeIndexes = [NSMutableIndexSet indexSet];
@@ -199,8 +252,9 @@
 
   for (NSUInteger idx = 0; idx < _ranges.count; idx++) {
     ENRMFormattingRange *formattingRange = _ranges[idx];
-    ENRMAdjustedRange adjusted =
-        ENRMAdjustRangeForEdit(formattingRange.range, editLocation, deletedLength, insertedLength);
+    BOOL inheritsReplacement = formattingRange.type != ENRMInputStyleTypeLink;
+    ENRMAdjustedRange adjusted = ENRMAdjustRangeForEdit(formattingRange.range, editLocation, deletedLength,
+                                                        insertedLength, inheritsReplacement, NO);
     formattingRange.range = adjusted.range;
     if (adjusted.shouldRemove) {
       [indexesToRemove addIndex:idx];
@@ -217,6 +271,31 @@
   }
   if (emptyIndexes.count > 0) {
     ENRMRemoveIndexesInReverse(_ranges, emptyIndexes);
+  }
+
+  [self coalesceAdjacentSameTypeRanges];
+}
+
+/// Merge same-type (and same-url) ranges left adjacent or overlapping by an
+/// edit — e.g. deleting the space in "**foo** **bar**" leaves two touching
+/// bold ranges that would serialize as "**foo****bar**". `addRange:` keeps
+/// this invariant on insert; the edit path must too.
+- (void)coalesceAdjacentSameTypeRanges
+{
+  for (NSUInteger idx = 0; idx < _ranges.count; idx++) {
+    ENRMFormattingRange *current = _ranges[idx];
+    NSUInteger next = idx + 1;
+    while (next < _ranges.count && _ranges[next].range.location <= NSMaxRange(current.range)) {
+      ENRMFormattingRange *candidate = _ranges[next];
+      BOOL sameUrl = (current.url == candidate.url) || [current.url isEqualToString:candidate.url];
+      if (candidate.type == current.type && sameUrl) {
+        NSUInteger mergedEnd = MAX(NSMaxRange(current.range), NSMaxRange(candidate.range));
+        current.range = NSMakeRange(current.range.location, mergedEnd - current.range.location);
+        [_ranges removeObjectAtIndex:next];
+      } else {
+        next++;
+      }
+    }
   }
 }
 

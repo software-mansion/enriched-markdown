@@ -1,0 +1,30 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - input
+  - inline
+  - link
+---
+# Regression for #516: typing a markdown link must NOT get auto-linked and
+# double-wrapped into a corrupted destination like
+# "[[Testing](http://example.com)](https://[Testing](http://example.com))".
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- tapOn:
+    id: focus-button
+
+- inputText: '[Testing](http://example.com)'
+
+- tapOn:
+    id: get-markdown-button
+
+# The serialized markdown is shown in the "Markdown" alert.
+- assertVisible: '\[Testing\]\(http://example\.com\)'
+# The over-capture bug prepended "https://" to the whole token, producing a
+# destination like "https://[Testing](http://example.com)". The correct output
+# uses the original "http://" scheme and never introduces "https://", so its
+# absence proves the token was left untouched by the auto-link detector.
+- assertNotVisible: 'https://'

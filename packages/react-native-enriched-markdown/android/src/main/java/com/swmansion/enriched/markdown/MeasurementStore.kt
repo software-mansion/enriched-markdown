@@ -19,16 +19,20 @@ import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.utils.common.RenderedSegment
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
+import com.swmansion.enriched.markdown.utils.common.getArrayOrNull
 import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
 import com.swmansion.enriched.markdown.utils.common.getMapOrNull
 import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
+import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.splitASTIntoSegments
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.views.CodeBlockContainerView
 import com.swmansion.enriched.markdown.views.TableContainerView
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
@@ -67,6 +71,8 @@ object MeasurementStore {
 
   private val streamingTableModes = ConcurrentHashMap<Int, TableStreamingMode>()
 
+  private val streamingCodeBlockModes = ConcurrentHashMap<Int, CodeBlockStreamingMode>()
+
   private fun resolveFontScalingSettings(
     viewId: Int?,
     props: ReadableMap?,
@@ -95,6 +101,7 @@ object MeasurementStore {
     id: Int,
     spannable: CharSequence?,
     paint: TextPaint,
+    trailingMarginBottomPx: Float = 0f,
   ): Boolean {
     val cached = data[id]
     val width = cached?.cachedWidth ?: 0f
@@ -102,7 +109,14 @@ object MeasurementStore {
     val existingHash = cached?.markdownHash ?: 0
     val paintParams = PaintParams(paint.typeface ?: Typeface.DEFAULT, paint.textSize)
 
-    val newSize = measure(width, spannable, paint, id)
+    var newSize = measure(width, spannable, paint, id)
+    if (trailingMarginBottomPx > 0f) {
+      newSize =
+        YogaMeasureOutput.make(
+          YogaMeasureOutput.getWidth(newSize),
+          YogaMeasureOutput.getHeight(newSize) + PixelUtil.toDIPFromPixel(trailingMarginBottomPx),
+        )
+    }
     data[id] = MeasurementParams(width, newSize, spannable, paintParams, existingHash)
     return oldSize != newSize
   }
@@ -151,7 +165,11 @@ object MeasurementStore {
     allowFontScaling: Boolean,
     maxFontSizeMultiplier: Float,
   ) {
+    val previous = fontScalingSettings[viewId]
     fontScalingSettings[viewId] = FontScalingSettings(allowFontScaling, maxFontSizeMultiplier)
+    if (previous != null && (previous.allowFontScaling != allowFontScaling || previous.maxFontSizeMultiplier != maxFontSizeMultiplier)) {
+      data.remove(viewId)
+    }
   }
 
   fun clearFontScalingSettings(viewId: Int) {
@@ -180,6 +198,17 @@ object MeasurementStore {
 
   fun clearStreamingTableMode(viewId: Int) {
     streamingTableModes.remove(viewId)
+  }
+
+  fun updateStreamingCodeBlockMode(
+    viewId: Int,
+    mode: CodeBlockStreamingMode,
+  ) {
+    streamingCodeBlockModes[viewId] = mode
+  }
+
+  fun clearStreamingCodeBlockMode(viewId: Int) {
+    streamingCodeBlockModes.remove(viewId)
   }
 
   private fun getMeasureByIdInternal(
@@ -237,6 +266,7 @@ object MeasurementStore {
     val styleMap = props.getMapOrNull("markdownStyle")
     val md4cFlagsMap = props.getMapOrNull("md4cFlags")
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
+    val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
     var result = markdown.hashCode()
     result = 31 * result + (styleMap?.hashCode() ?: 0)
     result = 31 * result + (md4cFlagsMap?.hashCode() ?: 0)
@@ -244,6 +274,7 @@ object MeasurementStore {
     result = 31 * result + allowFontScaling.hashCode()
     result = 31 * result + maxFontSizeMultiplier.toBits()
     result = 31 * result + allowTrailingMargin.hashCode()
+    result = 31 * result + imageRequestHeaders.hashCode()
     return result
   }
 
@@ -292,13 +323,17 @@ object MeasurementStore {
         superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
         subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
+        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
       )
 
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
     val propsHash = computePropsHash(props, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
     // 2. Render & Measure
-    val spannable = tryRenderMarkdown(markdown, styleMap, context, md4cFlags, allowFontScaling, maxFontSizeMultiplier)
+    measurePaint.textSize = fontSize
+    val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
+    val spannable =
+      tryRenderMarkdown(markdown, styleMap, context, md4cFlags, allowFontScaling, maxFontSizeMultiplier, imageRequestHeaders)
     spannable?.replaceMathSpansWithPlaceholders(context)
     val textToMeasure = spannable ?: markdown
     val (size, _) = measureWithLayout(width, textToMeasure, measurePaint, id)
@@ -344,9 +379,17 @@ object MeasurementStore {
       } else {
         TableStreamingMode.PROGRESSIVE
       }
+    val codeBlockMode =
+      if (isStreaming) {
+        id?.let {
+          streamingCodeBlockModes[it]
+        } ?: CodeBlockStreamingMode.PROGRESSIVE
+      } else {
+        CodeBlockStreamingMode.PROGRESSIVE
+      }
     val markdown =
       if (isStreaming) {
-        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode)
+        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode, codeBlockMode).markdown
       } else {
         rawMarkdown
       }
@@ -372,6 +415,7 @@ object MeasurementStore {
         superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
         subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
+        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
       )
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -382,6 +426,7 @@ object MeasurementStore {
           ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
+      style.imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
       val segments = splitASTIntoSegments(ast)
       val renderedSegments = MarkdownSegmentRenderer.render(segments, style, context, null, null)
 
@@ -450,6 +495,15 @@ object MeasurementStore {
               totalHeightPx += style.mathStyle.marginBottom
             }
           }
+
+          is RenderedSegment.CodeBlock -> {
+            totalHeightPx += style.codeBlockStyle.marginTop
+            totalHeightPx += CodeBlockContainerView.measureCodeBlockNodeHeight(segment.node, style, context, width)
+            maxContentWidthPx = width
+            if (includeBottomMargin) {
+              totalHeightPx += style.codeBlockStyle.marginBottom
+            }
+          }
         }
       }
 
@@ -467,6 +521,18 @@ object MeasurementStore {
     }
   }
 
+  private fun prepareImageSpansForMeasurement(
+    text: CharSequence?,
+    widthPx: Int,
+  ) {
+    // widthPx == 1 is the coerceAtLeast(1) fallback for a not-yet-measured view
+    if (widthPx <= 1) return
+    val spanned = text as? android.text.Spanned ?: return
+    spanned
+      .getSpans(0, spanned.length, com.swmansion.enriched.markdown.spans.ImageSpan::class.java)
+      .forEach { it.prepareForMeasurement(spanned, widthPx) }
+  }
+
   private fun createStaticLayout(
     text: CharSequence,
     fontSize: Float,
@@ -474,6 +540,7 @@ object MeasurementStore {
     viewId: Int?,
   ): StaticLayout {
     measurePaint.textSize = fontSize
+    prepareImageSpansForMeasurement(text, widthPx)
     return StaticLayout.Builder
       .obtain(text, 0, text.length, measurePaint, widthPx)
       .setIncludePad(false)
@@ -496,12 +563,14 @@ object MeasurementStore {
     md4cFlags: Md4cFlags,
     allowFontScaling: Boolean,
     maxFontSizeMultiplier: Float,
+    imageRequestHeaders: Map<String, String> = emptyMap(),
   ): SpannableString? {
     if (styleMap == null) return null
 
     return try {
       val ast = Parser.shared.parseMarkdown(markdown, md4cFlags) ?: return null
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
+      style.imageRequestHeaders = imageRequestHeaders
       measureRenderer.configure(style, context)
       measureRenderer.renderDocument(ast, null)
     } catch (e: Exception) {
@@ -553,6 +622,7 @@ object MeasurementStore {
   ): Long {
     val content = text ?: ""
     val safeWidth = ceil(maxWidth).toInt().coerceAtLeast(1)
+    prepareImageSpansForMeasurement(content, safeWidth)
 
     val builder =
       StaticLayout.Builder
@@ -592,6 +662,7 @@ object MeasurementStore {
   ): Pair<Long, StaticLayout> {
     val content = text ?: ""
     val widthPx = ceil(maxWidth).toInt().coerceAtLeast(1)
+    prepareImageSpansForMeasurement(content, widthPx)
 
     val layout =
       StaticLayout.Builder

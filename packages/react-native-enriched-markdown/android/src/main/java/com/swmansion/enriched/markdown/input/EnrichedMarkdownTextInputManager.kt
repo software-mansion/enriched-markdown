@@ -25,6 +25,7 @@ import com.swmansion.enriched.markdown.input.events.OnContextMenuItemPressEvent
 import com.swmansion.enriched.markdown.input.events.OnEndMentionEvent
 import com.swmansion.enriched.markdown.input.events.OnInputBlurEvent
 import com.swmansion.enriched.markdown.input.events.OnInputFocusEvent
+import com.swmansion.enriched.markdown.input.events.OnInputKeyPressEvent
 import com.swmansion.enriched.markdown.input.events.OnLinkDetectedEvent
 import com.swmansion.enriched.markdown.input.events.OnRequestCaretRectResultEvent
 import com.swmansion.enriched.markdown.input.events.OnRequestMarkdownResultEvent
@@ -91,6 +92,7 @@ class EnrichedMarkdownTextInputManager :
       OnChangeMarkdownEvent.EVENT_NAME,
       OnChangeSelectionEvent.EVENT_NAME,
       OnChangeStateEvent.EVENT_NAME,
+      OnInputKeyPressEvent.EVENT_NAME,
       OnRequestMarkdownResultEvent.EVENT_NAME,
       OnRequestCaretRectResultEvent.EVENT_NAME,
       OnCaretRectChangeEvent.EVENT_NAME,
@@ -120,7 +122,7 @@ class EnrichedMarkdownTextInputManager :
     view: EnrichedMarkdownTextInputView?,
     value: String?,
   ) {
-    view?.hint = value
+    view?.setUserHint(value)
   }
 
   @ReactProp(name = "placeholderTextColor", customType = "Color")
@@ -198,8 +200,7 @@ class EnrichedMarkdownTextInputManager :
     if (view == null || value == null) return
 
     val style = MarkdownStyleParser.parse(value)
-    view.setAutoLinkStyle(style)
-    val changed = view.formatter.updateStyle(style)
+    val changed = view.setMarkdownStyleFromProps(style)
     if (changed) {
       view.applyFormatting()
     }
@@ -429,6 +430,22 @@ class EnrichedMarkdownTextInputManager :
     view?.toggleHeading(level)
   }
 
+  override fun toggleUnorderedList(view: EnrichedMarkdownTextInputView?) {
+    view?.toggleUnorderedList()
+  }
+
+  override fun toggleOrderedList(view: EnrichedMarkdownTextInputView?) {
+    view?.toggleOrderedList()
+  }
+
+  override fun indentList(view: EnrichedMarkdownTextInputView?) {
+    view?.indentList()
+  }
+
+  override fun outdentList(view: EnrichedMarkdownTextInputView?) {
+    view?.outdentList()
+  }
+
   override fun setLink(
     view: EnrichedMarkdownTextInputView?,
     url: String?,
@@ -445,6 +462,15 @@ class EnrichedMarkdownTextInputManager :
   ) {
     if (url != null) {
       view?.insertLinkAtCursor(text ?: url, url)
+    }
+  }
+
+  override fun insertText(
+    view: EnrichedMarkdownTextInputView?,
+    text: String?,
+  ) {
+    if (text != null) {
+      view?.insertTextAtCursor(text)
     }
   }
 

@@ -4,7 +4,9 @@ import android.content.Context
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.uimanager.ReactStylesDiffMap
 import com.facebook.react.uimanager.SimpleViewManager
+import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewManagerDelegate
 import com.facebook.react.uimanager.annotations.ReactProp
@@ -19,6 +21,7 @@ import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
 import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
+import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListTapUtils
@@ -67,6 +70,20 @@ class EnrichedMarkdownTextManager :
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
     }
     return view
+  }
+
+  override fun onAfterUpdateTransaction(view: EnrichedMarkdownText) {
+    super.onAfterUpdateTransaction(view)
+    view.commitProps()
+  }
+
+  override fun updateState(
+    view: EnrichedMarkdownText,
+    props: ReactStylesDiffMap?,
+    stateWrapper: StateWrapper?,
+  ): Any? {
+    view.stateWrapper = stateWrapper
+    return super.updateState(view, props, stateWrapper)
   }
 
   override fun onDropViewInstance(view: EnrichedMarkdownText) {
@@ -156,6 +173,14 @@ class EnrichedMarkdownTextManager :
     // No-op on Android — only used on iOS
   }
 
+  @ReactProp(name = "enableTaskListItemToggle", defaultBoolean = true)
+  override fun setEnableTaskListItemToggle(
+    view: EnrichedMarkdownText?,
+    enableTaskListItemToggle: Boolean,
+  ) {
+    view?.setEnableTaskListItemToggle(enableTaskListItemToggle)
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdownText?,
@@ -211,6 +236,15 @@ class EnrichedMarkdownTextManager :
   ) {
     if (view == null) return
     view.setContextMenuItems(parseContextMenuItems(value))
+  }
+
+  @ReactProp(name = "imageRequestHeaders")
+  override fun setImageRequestHeaders(
+    view: EnrichedMarkdownText?,
+    value: ReadableArray?,
+  ) {
+    if (view == null) return
+    view.setImageRequestHeaders(parseImageRequestHeaders(value))
   }
 
   @ReactProp(name = "selectionMenuConfig")

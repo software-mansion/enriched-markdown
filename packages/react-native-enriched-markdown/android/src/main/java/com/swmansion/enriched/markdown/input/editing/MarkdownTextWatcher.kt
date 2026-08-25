@@ -17,7 +17,7 @@ class MarkdownTextWatcher(
     count: Int,
     after: Int,
   ) {
-    if (view.isDuringTransaction || view.isProcessingTextChange) return
+    if (view.editSession.shouldSuppressTextWatcher) return
     editStart = start
     deletedLength = count
     insertedLength = after
@@ -30,12 +30,12 @@ class MarkdownTextWatcher(
     before: Int,
     count: Int,
   ) {
-    if (view.isDuringTransaction || view.isProcessingTextChange) return
+    if (view.editSession.shouldSuppressTextWatcher) return
     view.layoutManager.invalidateLayout()
   }
 
   override fun afterTextChanged(editable: Editable) {
-    if (view.isDuringTransaction || view.isProcessingTextChange) return
+    if (view.editSession.shouldSuppressTextWatcher) return
     view.onAfterTextChanged(editStart, deletedLength, insertedLength)
   }
 }

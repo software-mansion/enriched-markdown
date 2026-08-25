@@ -5,14 +5,6 @@ sidebar_position: 3
 
 # Feature support
 
-:::caution
-THIS PAGE IS WORK IN PROGRESS
-
-scaffold - the support cells below (especially the entire
-`enrichedmarkdowntextinput` section) are provisional and need verifying against
-each library's actual capabilities before launch.
-:::
-
 Which features are implemented in each **library** - native iOS, native
 Android, and React Native - organized by component and by how the feature is
 enabled. The React Native column is tracked separately because a feature can
@@ -70,7 +62,7 @@ Toggled independently through the `md4cFlags` prop, not the flavor.
 | Feature                | iOS | Android |  React Native  | Web  |
 | ---------------------- | :-: | :-----: | :------------: | :--: |
 | Underline (`_text_`)   | Yes |   No    | Yes (iOS only) | Yes  |
-| Strikethrough color    | Yes |   No    | Yes (iOS only) | TODO |
+| Strikethrough color    | Yes |   No    | Yes (iOS only) | Yes  |
 | Superscript (`^text^`) | Yes |   Yes   |      Yes       | Yes  |
 | Subscript (`~text~`)   | Yes |   Yes   |      Yes       | Yes  |
 | Highlight (`==text==`) | Yes |   Yes   |      Yes       | Yes  |
@@ -82,8 +74,8 @@ Each has its own page under **Rich text formatting**.
 | Feature                 | iOS | Android | React Native | Web  | Learn more                                                         |
 | ----------------------- | :-: | :-----: | :----------: | :--: | ------------------------------------------------------------------ |
 | LaTeX math              | Yes |   Yes   |     Yes      | Yes  | [LaTeX math](/rich-text-formatting/latex-math)                     |
-| Mentions                | Yes |   Yes   |     Yes      | TODO | [Mentions](/rich-text-formatting/mentions)                         |
-| Code-block highlighting | Yes |   Yes   |     Yes      | TODO | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
+| Mentions                | Yes |   Yes   |     Yes      | Yes  | [Mentions](/rich-text-formatting/mentions)                         |
+| Code-block highlighting | Yes |   Yes   |     Yes      |  No  | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
 | Markdown streaming      | Yes |   Yes   |     Yes      |  No  | [Markdown streaming](/rich-text-formatting/markdown-streaming)     |
 
 ## EnrichedMarkdownTextInput
@@ -91,36 +83,51 @@ Each has its own page under **Rich text formatting**.
 The editor - produces a Markdown string as the user types. **Native-only**: not
 available on web.
 
+The editor is a **flat inline-formatting surface**: it supports inline styles
+plus block-level headings, but not the container blocks the renderer handles.
+Code blocks, tables, blockquotes, and lists are intentionally unsupported in the
+input - for those, render with [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text).
+iOS, Android, and the React Native wrapper are at parity across the editor's
+whole feature set.
+
 ### CommonMark
 
-| Feature                     | iOS  | Android | React Native |
-| --------------------------- | :--: | :-----: | :----------: |
-| Headings                    | TODO |  TODO   |     TODO     |
-| Bold / italic               | TODO |  TODO   |     TODO     |
-| Inline code                 | TODO |  TODO   |     TODO     |
-| Links                       | TODO |  TODO   |     TODO     |
-| Lists (ordered / unordered) | TODO |  TODO   |     TODO     |
-| Blockquotes                 | TODO |  TODO   |     TODO     |
-| Code blocks                 | TODO |  TODO   |     TODO     |
+| Feature                     | iOS | Android | React Native |
+| --------------------------- | :-: | :-----: | :----------: |
+| Headings                    | Yes |   Yes   |     Yes      |
+| Bold / italic               | Yes |   Yes   |     Yes      |
+| Links                       | Yes |   Yes   |     Yes      |
+| Inline code                 | No  |   No    |      No      |
+| Lists (ordered / unordered) | No  |   No    |      No      |
+| Blockquotes                 | No  |   No    |      No      |
+| Code blocks                 | No  |   No    |      No      |
 
 ### GitHub Flavored Markdown
 
-| Feature       | iOS  | Android | React Native |
-| ------------- | :--: | :-----: | :----------: |
-| Tables        | TODO |  TODO   |     TODO     |
-| Task lists    | TODO |  TODO   |     TODO     |
-| Strikethrough | TODO |  TODO   |     TODO     |
+| Feature       | iOS | Android | React Native |
+| ------------- | :-: | :-----: | :----------: |
+| Strikethrough | Yes |   Yes   |     Yes      |
+| Tables        | No  |   No    |      No      |
+| Task lists    | No  |   No    |      No      |
 
 ### Inline extensions
 
-| Feature                 | iOS  | Android | React Native |
-| ----------------------- | :--: | :-----: | :----------: |
-| Underline               | TODO |  TODO   |     TODO     |
-| Superscript / subscript | TODO |  TODO   |     TODO     |
-| Highlight               | TODO |  TODO   |     TODO     |
+Toggled through the editor's `toggle*` ref methods. `Spoiler` (`||text||`) is an
+editor-exclusive inline style with no counterpart in the read-only renderer's
+table above.
+
+| Feature                 | iOS | Android | React Native |
+| ----------------------- | :-: | :-----: | :----------: |
+| Underline               | Yes |   Yes   |     Yes      |
+| Spoiler (`\|\|text\|\|`)  | Yes |   Yes   |     Yes      |
+| Superscript / subscript | No  |   No    |      No      |
+| Highlight               | No  |   No    |      No      |
 
 ### Advanced features
 
-| Feature  | iOS  | Android | React Native | Learn more                                 |
-| -------- | :--: | :-----: | :----------: | ------------------------------------------ |
-| Mentions | TODO |  TODO   |     TODO     | [Mentions](/rich-text-formatting/mentions) |
+| Feature  | iOS | Android | React Native | Learn more                                 |
+| -------- | :-: | :-----: | :----------: | ------------------------------------------ |
+| Mentions | Yes |   Yes   |     Yes      | [Mentions](/rich-text-formatting/mentions) |
+
+Mentions are inserted as ordinary Markdown links (`[display](url)`) and styled
+per URL pattern via `linkVariants` - there is no dedicated mention token.

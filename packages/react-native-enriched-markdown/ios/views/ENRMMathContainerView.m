@@ -4,6 +4,7 @@
 #include <TargetConditionals.h>
 
 #if ENRICHED_MARKDOWN_MATH
+#import "ENRMMathFallback.h"
 #import "PasteboardUtils.h"
 #if __has_include("ReactNativeEnrichedMarkdown-Swift.h")
 #import "ReactNativeEnrichedMarkdown-Swift.h"
@@ -19,14 +20,21 @@
 
 @interface ENRMRaTeXCanvasView : RCTUIView
 @property (nonatomic, strong, nullable) ENRMRaTeXRenderResult *renderResult;
+// Visible-source fallback when RaTeX cannot parse the block, drawn wrapped;
+// see ENRMMathFallback.h.
+@property (nonatomic, strong, nullable) NSAttributedString *fallbackSource;
 @end
 
 @implementation ENRMRaTeXCanvasView
 
 - (void)drawRect:(CGRect)rect
 {
-  if (!_renderResult)
+  if (!_renderResult) {
+    if (_fallbackSource) {
+      [_fallbackSource drawWithRect:self.bounds options:NSStringDrawingUsesLineFragmentOrigin context:nil];
+    }
     return;
+  }
   CGContextRef ctx = UIGraphicsGetCurrentContext();
   if (!ctx)
     return;
@@ -96,6 +104,7 @@
                                                 fontSize:config.mathFontSize
                                                    color:config.mathColor];
   _mathView.renderResult = result;
+  _mathView.fallbackSource = result ? nil : ENRMMathFallbackString(latex, @"$$", config.mathFontSize, config.mathColor);
 
   CGFloat padding = config.mathPadding;
   _mathView.frame = CGRectMake(padding, padding, ceil(result.width), ceil(result.totalHeight));
@@ -164,7 +173,37 @@
 - (CGFloat)measureHeight:(CGFloat)maxWidth
 {
   CGFloat padding = self.config.mathPadding;
+  if (!_mathView.renderResult && _mathView.fallbackSource) {
+    CGFloat available = MAX(maxWidth - padding * 2, 1);
+    CGRect bounds = [_mathView.fallbackSource boundingRectWithSize:CGSizeMake(available, CGFLOAT_MAX)
+                                                           options:NSStringDrawingUsesLineFragmentOrigin
+                                                           context:nil];
+    return ceil(bounds.size.height) + padding * 2;
+  }
   return [self mathViewIntrinsicSize].height + padding * 2;
+}
+
++ (CGFloat)measureHeightForLatex:(NSString *)latex config:(StyleConfig *)config maxWidth:(CGFloat)maxWidth
+{
+  CGFloat padding = config.mathPadding;
+
+  ENRMRaTeXRenderResult *result = [ENRMRaTeXBridge parse:latex
+                                             displayMode:YES
+                                                fontSize:config.mathFontSize
+                                                   color:config.mathColor];
+  if (result) {
+    return ceil(result.totalHeight) + padding * 2;
+  }
+
+  NSAttributedString *fallbackSource = ENRMMathFallbackString(latex, @"$$", config.mathFontSize, config.mathColor);
+  if (!fallbackSource) {
+    return 0;
+  }
+  CGFloat available = MAX(maxWidth - padding * 2, 1);
+  CGRect bounds = [fallbackSource boundingRectWithSize:CGSizeMake(available, CGFLOAT_MAX)
+                                               options:NSStringDrawingUsesLineFragmentOrigin
+                                               context:nil];
+  return ceil(bounds.size.height) + padding * 2;
 }
 
 - (CGFloat)alignedOriginXForWidth:(CGFloat)formulaWidth inBounds:(CGFloat)boundsWidth padding:(CGFloat)padding
@@ -186,6 +225,25 @@
   [super layoutSubviews];
 
   CGFloat padding = self.config.mathPadding;
+
+  if (!_mathView.renderResult && _mathView.fallbackSource) {
+    // Fallback source fills the available width and wraps; no horizontal scroll.
+#if !TARGET_OS_OSX
+    _scrollView.frame = self.bounds;
+    _scrollView.contentSize = self.bounds.size;
+    _scrollView.contentOffset = CGPointZero;
+    _scrollView.scrollEnabled = NO;
+#endif
+    _mathView.frame = CGRectMake(padding, padding, MAX(self.bounds.size.width - padding * 2, 1),
+                                 MAX(self.bounds.size.height - padding * 2, 1));
+#if !TARGET_OS_OSX
+    [_mathView setNeedsDisplay];
+#else
+    [_mathView setNeedsDisplay:YES];
+#endif
+    return;
+  }
+
   CGSize intrinsicSize = [self mathViewIntrinsicSize];
   CGFloat contentWidth = intrinsicSize.width + padding * 2;
   CGFloat contentHeight = self.bounds.size.height;

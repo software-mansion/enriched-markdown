@@ -1,0 +1,26 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - block
+  - blockquote
+  - text
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        > this is a text inside a blockquote
+
+         >this is also a text inside a blockquote
+
+        .>this isn't
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'blockquote_display'

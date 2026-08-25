@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
 import android.text.Spannable
 import android.text.Spanned
@@ -20,6 +21,7 @@ import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
+import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 import android.text.style.ImageSpan as AndroidImageSpan
@@ -31,6 +33,7 @@ class ImageSpan(
   styleConfig: StyleConfig,
   val isInline: Boolean = false,
   val altText: String = "",
+  private val requestHeaders: Map<String, String> = emptyMap(),
 ) : AndroidImageSpan(
     Color.TRANSPARENT.toDrawable(),
     imageUrl,
@@ -40,6 +43,7 @@ class ImageSpan(
   private var loadedDrawable: Drawable? = null
   private val height: Int = if (isInline) styleConfig.inlineImageStyle.size.toInt() else styleConfig.imageStyle.height.toInt()
   private val borderRadiusPx: Int = (styleConfig.imageStyle.borderRadius * context.resources.displayMetrics.density).toInt()
+  private val requestKey: String = ImageCache.requestKey(imageUrl, requestHeaders)
 
   private var cachedWidth: Int = 0
   private var viewRef: WeakReference<TextView>? = null
@@ -50,25 +54,21 @@ class ImageSpan(
   }
 
   private fun loadImage() {
-    if (imageUrl.startsWith("http")) {
-      ImageDownloader.download(context, imageUrl) { bitmap ->
+    val scheme = Uri.parse(imageUrl).scheme?.lowercase()
+    if (scheme == "http" || scheme == "https") {
+      ImageDownloader.download(context, imageUrl, requestHeaders) { bitmap ->
         if (bitmap != null) {
           sourceDrawable = bitmap.toDrawable(context.resources)
           wrapAndAssignDrawable()
         }
       }
     } else {
-      val path = imageUrl.removePrefix("file://")
-      try {
-        val cached = ImageCache.getOriginal(imageUrl)
-        val bitmap = cached ?: ImageDownloader.decodeFileDownsampled(context, path)
-        if (bitmap != null) {
-          if (cached == null) ImageCache.putOriginal(imageUrl, bitmap)
-          sourceDrawable = bitmap.toDrawable(context.resources)
-          wrapAndAssignDrawable()
-        }
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to load local image: $path", e)
+      val cached = ImageCache.getOriginal(imageUrl)
+      val bitmap = cached ?: LocalImageLoader.load(context, imageUrl)
+      if (bitmap != null) {
+        if (cached == null) ImageCache.putOriginal(imageUrl, bitmap)
+        sourceDrawable = bitmap.toDrawable(context.resources)
+        wrapAndAssignDrawable()
       }
     }
   }
@@ -83,7 +83,7 @@ class ImageSpan(
         available.coerceAtLeast(0)
       }
 
-    val cachedBitmap = ImageCache.getProcessed(imageUrl, targetWidth, height, borderRadiusPx)
+    val cachedBitmap = ImageCache.getProcessed(requestKey, targetWidth, height, borderRadiusPx)
     if (cachedBitmap != null) {
       loadedDrawable =
         cachedBitmap.toDrawable(context.resources).apply {
@@ -97,7 +97,7 @@ class ImageSpan(
           targetHeight = height,
           borderRadius = borderRadiusPx,
           isBlockImage = !isInline,
-          cacheKey = CacheKey(imageUrl, targetWidth, height, borderRadiusPx),
+          cacheKey = CacheKey(requestKey, targetWidth, height, borderRadiusPx),
         )
     }
     requestReflow()
@@ -328,7 +328,6 @@ class ImageSpan(
   }
 
   companion object {
-    private const val TAG = "ImageSpan"
     private val transparentDrawable by lazy { Color.TRANSPARENT.toDrawable() }
     private val cacheExecutor = Executors.newSingleThreadExecutor()
   }

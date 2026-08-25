@@ -112,6 +112,14 @@
 #if ENRICHED_MARKDOWN_MATH
     case MarkdownNodeTypeLatexMathInline:
       return [[ENRMMathInlineRenderer alloc] initWithRendererFactory:self config:_config];
+    case MarkdownNodeTypeLatexMathDisplay:
+      // Display math INSIDE a paragraph (mid-paragraph / softbreak-adjacent
+      // `$$…$$`) previously fell through to the nil-renderer child dump —
+      // the body leaked as plain text with its delimiters silently dropped.
+      // Typeset it as an inline attachment instead; block-level display math
+      // is unaffected (SegmentRenderer intercepts root-level display nodes
+      // before this factory is consulted).
+      return [[ENRMMathInlineRenderer alloc] initWithRendererFactory:self config:_config];
 #endif
     case MarkdownNodeTypeSpoiler:
       return [[ENRMSpoilerRenderer alloc] initWithRendererFactory:self config:_config];
@@ -133,6 +141,12 @@
       NSAttributedString *lineBreak = [[NSAttributedString alloc] initWithString:@"\u2028"
                                                                       attributes:[context getTextAttributes]];
       [output appendAttributedString:lineBreak];
+      continue;
+    }
+    if (child.type == MarkdownNodeTypeSoftBreak) {
+      NSAttributedString *softBreak = [[NSAttributedString alloc] initWithString:@" "
+                                                                      attributes:[context getTextAttributes]];
+      [output appendAttributedString:softBreak];
       continue;
     }
     id<NodeRenderer> renderer = [self rendererForNodeType:child.type];

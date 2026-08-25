@@ -18,12 +18,23 @@ enum class BlockType {
   HEADING_4,
   HEADING_5,
   HEADING_6,
+  UNORDERED_LIST_ITEM,
+  ORDERED_LIST_ITEM,
   ;
 
   companion object {
     /** The six heading block types, indexable by level via [forHeadingLevel]. */
     val HEADINGS: List<BlockType> =
       listOf(HEADING_1, HEADING_2, HEADING_3, HEADING_4, HEADING_5, HEADING_6)
+
+    /** List-item block types; nesting depth rides in the range's level payload. */
+    val LIST_ITEMS: Set<BlockType> = setOf(UNORDERED_LIST_ITEM, ORDERED_LIST_ITEM)
+
+    /**
+     * Block types whose emptied line persists as a zero-length anchor (an emptied
+     * heading stays a heading, an emptied list item keeps its marker) until toggled off.
+     */
+    val ANCHORED: Set<BlockType> = HEADINGS.toSet() + LIST_ITEMS
 
     /**
      * Maps an H-level (1-6) to its [BlockType], or null when out of range. Used by
@@ -32,3 +43,6 @@ enum class BlockType {
     fun forHeadingLevel(level: Int): BlockType? = HEADINGS.getOrNull(level - 1)
   }
 }
+
+/** Maximum bullet-list nesting depth (0-based), so indent can't run away unbounded. */
+const val MAX_LIST_DEPTH = 5

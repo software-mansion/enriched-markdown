@@ -1,0 +1,44 @@
+name: Publish Android library to Maven Central
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Whether to publish to Maven Local instead of Maven Central.
+        type: boolean
+        default: true
+
+jobs:
+  publish-android-maven:
+    if: github.repository == 'software-mansion/enriched-markdown'
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: publish-android-maven-${{ github.ref }}
+      cancel-in-progress: false
+
+    defaults:
+      run:
+        working-directory: packages/android-enriched-markdown
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Android
+        uses: ./.github/actions/setup-android
+        with:
+          gradle-wrapper-properties: packages/android-enriched-markdown/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Publish to Maven Local (dry run)
+        if: ${{ inputs.dry-run }}
+        run: ./gradlew publishToMavenLocal --no-daemon --console=plain
+
+      - name: Publish to Maven Central
+        if: ${{ !inputs.dry-run }}
+        run: ./gradlew publishAggregationToCentralPortal --no-daemon --console=plain
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}

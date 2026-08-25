@@ -41,6 +41,12 @@ class EnrichedMarkdownInternalText
         checkboxTouchHelper.onCheckboxTap = value
       }
 
+    var enableTaskListItemToggle: Boolean
+      get() = checkboxTouchHelper.isEnabled
+      set(value) {
+        checkboxTouchHelper.isEnabled = value
+      }
+
     override val segmentMarginBottom: Int get() = lastElementMarginBottom.toInt()
 
     override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null

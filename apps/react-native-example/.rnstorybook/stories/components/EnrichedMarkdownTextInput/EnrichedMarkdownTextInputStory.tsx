@@ -65,6 +65,74 @@ export function EnrichedMarkdownTextInputStory({
   );
 }
 
+const MAX_RECENT_KEYS = 12;
+
+export function KeyPressStory({
+  title,
+  description,
+  onKeyPress,
+}: {
+  title: string;
+  description: string;
+  onKeyPress?: EnrichedMarkdownTextInputProps['onKeyPress'];
+}) {
+  const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
+  const [state, setState] = useState<StyleState | null>(null);
+  const [hasSelection, setHasSelection] = useState(false);
+  const [recentKeys, setRecentKeys] = useState<string[]>([]);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.description}>{description}</Text>
+
+      <View style={styles.block}>
+        <Text style={styles.label}>Input</Text>
+        <View style={styles.editorContainer}>
+          <EnrichedMarkdownTextInput
+            ref={inputRef}
+            placeholder="Type to see key presses…"
+            placeholderTextColor="#9CA3AF"
+            style={styles.input}
+            onChangeState={setState}
+            onChangeSelection={(sel) => setHasSelection(sel.start !== sel.end)}
+            onKeyPress={(e) => {
+              const { key } = e.nativeEvent;
+              setRecentKeys((prev) => [key, ...prev].slice(0, MAX_RECENT_KEYS));
+              onKeyPress?.(e);
+            }}
+          />
+          <FormattingToolbar
+            state={state}
+            inputRef={inputRef}
+            hasSelection={hasSelection}
+          />
+        </View>
+      </View>
+
+      <View style={styles.block}>
+        <Text style={styles.label}>Last keys (newest first)</Text>
+        {recentKeys.length === 0 ? (
+          <Text style={styles.description}>No keys pressed yet</Text>
+        ) : (
+          <View style={styles.keyRow}>
+            {recentKeys.map((key, index) => (
+              <View
+                key={`${index}-${key}`}
+                style={[styles.keyChip, index === 0 && styles.keyChipLatest]}
+              >
+                <Text style={styles.keyChipText}>
+                  {key === ' ' ? 'Space' : key}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
 export const DEFAULT_MENTION_USERS = [
   { id: 'u_1', name: 'Alice', url: 'user://u_1' },
   { id: 'u_2', name: 'Bob', url: 'user://u_2' },
@@ -265,6 +333,28 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     fontSize: 14,
+    color: '#111827',
+  },
+  keyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  keyChip: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  keyChipLatest: {
+    borderColor: '#2563EB',
+    backgroundColor: '#DBEAFE',
+  },
+  keyChipText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#111827',
   },
 });

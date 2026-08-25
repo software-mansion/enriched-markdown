@@ -1,0 +1,30 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - blockquote
+  - paragraph
+  - text
+---
+# checks the combination of paragraphs and blockquotes (interleaved flow)
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        A paragraph before a quote.
+
+        > This is a blockquote.
+
+        A paragraph after the quote.
+
+        > Another blockquote at the end.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'paragraph_blockquote_combo_display'

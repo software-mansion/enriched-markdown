@@ -2,6 +2,7 @@ import type { ASTNode } from './types';
 
 /** Recursively collects plain text content from an AST node's subtree. */
 export function extractNodeText(node: ASTNode): string {
+  if (node.type === 'SoftBreak' || node.type === 'LineBreak') return ' ';
   if (node.content !== undefined) return node.content;
   return node.children?.map(extractNodeText).join('') ?? '';
 }

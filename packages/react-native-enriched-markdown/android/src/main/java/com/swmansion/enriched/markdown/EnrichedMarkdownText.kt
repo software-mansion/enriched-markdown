@@ -9,8 +9,10 @@ import android.os.Looper
 import android.text.Layout
 import android.util.AttributeSet
 import android.util.Log
+import android.util.TypedValue
 import android.view.MotionEvent
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.uimanager.StateWrapper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.parser.Md4cFlags
@@ -60,6 +62,9 @@ class EnrichedMarkdownText
 
     val layoutManager = EnrichedMarkdownTextLayoutManager(this)
 
+    // used to force a Yoga re-measure when a block image resolves its box height
+    var stateWrapper: StateWrapper? = null
+
     private var contextMenuItemTexts: List<String> = emptyList()
     var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
 
@@ -78,6 +83,7 @@ class EnrichedMarkdownText
     private var allowFontScaling: Boolean = true
     private var maxFontSizeMultiplier: Float = 0f
     private var allowTrailingMargin: Boolean = false
+    private var imageRequestHeaders: Map<String, String> = emptyMap()
 
     private var streamingAnimation: Boolean = false
     private var previousTextLength: Int = 0
@@ -116,10 +122,18 @@ class EnrichedMarkdownText
       // Register font scaling settings when style is set (view should have ID by now)
       updateMeasurementStoreFontScaling()
       val newStyle = style?.let { StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier) }
+      newStyle?.imageRequestHeaders = imageRequestHeaders
       if (markdownStyle == newStyle) return
       markdownStyle = newStyle
       updateJustificationMode(newStyle)
       scheduleRender()
+    }
+
+    fun setImageRequestHeaders(headers: Map<String, String>) {
+      if (imageRequestHeaders == headers) return
+      imageRequestHeaders = headers
+      markdownStyle?.imageRequestHeaders = headers
+      scheduleRenderIfNeeded()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -177,6 +191,10 @@ class EnrichedMarkdownText
       }
     }
 
+    fun commitProps() {
+      updateMeasurementStoreFontScaling()
+    }
+
     private fun updateMeasurementStoreFontScaling() {
       MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     }
@@ -189,7 +207,10 @@ class EnrichedMarkdownText
 
     private fun recreateStyleConfig() {
       markdownStyleMap?.let { styleMap ->
-        markdownStyle = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
+        markdownStyle =
+          StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier).also {
+            it.imageRequestHeaders = imageRequestHeaders
+          }
         updateJustificationMode(markdownStyle)
       }
     }
@@ -242,6 +263,10 @@ class EnrichedMarkdownText
     private fun applyRenderedText(styledText: CharSequence) {
       val tailStart = previousTextLength
 
+      markdownStyle?.paragraphStyle?.fontSize?.let {
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, it)
+      }
+
       text = styledText
 
       if (movementMethod !is LinkLongPressMovementMethod) {
@@ -267,6 +292,10 @@ class EnrichedMarkdownText
 
       applySelectionColors(selectionColor, selectionHandleColor)
     }
+
+    // Trailing bottom margin included in the shadow-node measurement — must be
+    // mirrored when re-storing the measurement from the display text.
+    fun trailingMarginBottomPx(): Float = if (allowTrailingMargin) renderer.getLastElementMarginBottom() else 0f
 
     fun setContextMenuItems(items: List<String>) {
       contextMenuItemTexts = items
@@ -324,6 +353,10 @@ class EnrichedMarkdownText
 
     fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {
       checkboxTouchHelper.onCheckboxTap = callback
+    }
+
+    fun setEnableTaskListItemToggle(enabled: Boolean) {
+      checkboxTouchHelper.isEnabled = enabled
     }
 
     override fun onAttachedToWindow() {

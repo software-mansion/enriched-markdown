@@ -235,56 +235,6 @@ export default function PlaygroundScreen() {
           </TouchableOpacity>
         </View>
 
-        <Modal
-          visible={setMarkdownModalVisible}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setSetMarkdownModalVisible(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalOverlay}
-          >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Set Raw Markdown</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={rawInput}
-                onChangeText={setRawInput}
-                multiline
-                autoFocus
-                placeholder="Paste or type markdown..."
-                placeholderTextColor="#9CA3AF"
-                autoCorrect={false}
-                autoCapitalize="none"
-                testID="set-markdown-input"
-              />
-              <View style={styles.modalButtonRow}>
-                <TouchableOpacity
-                  style={[styles.button, styles.modalCancelButton]}
-                  onPress={() => setSetMarkdownModalVisible(false)}
-                  testID="set-markdown-cancel"
-                >
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, styles.buttonActive]}
-                  onPress={() => {
-                    inputRef.current?.setValue(rawInput);
-                    setMarkdown(rawInput);
-                    setSetMarkdownModalVisible(false);
-                  }}
-                  testID="set-markdown-confirm"
-                >
-                  <Text style={[styles.buttonText, styles.buttonTextActive]}>
-                    Set
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-
         <View style={styles.divider} />
 
         <Text style={styles.previewLabel}>Preview</Text>

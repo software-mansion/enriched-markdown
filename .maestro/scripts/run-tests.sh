@@ -8,7 +8,7 @@
 # Opts:
 #   --platform            Required. Target platform, either ios or android.
 #
-#   --app                 Which app to test: rn (default) or android-native.
+#   --app                 Which app to test: rn (default), android-native, or ios-native.
 #
 #   --config              Path to a Maestro config.yaml to use for tag filtering and
 #                           flow discovery. When set, defaults to the enrichedMarkdownText
@@ -88,6 +88,8 @@ if [ -z "$FLOWS" ]; then
     FLOWS="$MAESTRO_ROOT"
   elif [ "$APP" = "android-native" ]; then
     FLOWS="$MAESTRO_ROOT/androidExample/enrichedMarkdownText/flows"
+  elif [ "$APP" = "ios-native" ]; then
+    FLOWS="$MAESTRO_ROOT/iosExample/enrichedMarkdownText/flows"
   else
     FLOWS=$(find "$MAESTRO_ROOT/enrichedMarkdownText/flows" "$MAESTRO_ROOT/enrichedMarkdownInput/flows" -name "*.yaml" -exec dirname {} \; 2>/dev/null | sort -u | tr '\n' ' ')
   fi
@@ -104,8 +106,15 @@ case "$APP" in
       exit 1
     fi
     ;;
+  ios-native)
+    BUNDLE_ID="swmansion.enriched.markdown.ios.example"
+    if [ "$PLATFORM" != ios ]; then
+      echo "Error: --app ios-native requires --platform ios" >&2
+      exit 1
+    fi
+    ;;
   *)
-    echo "Error: unknown --app value '$APP'. Use rn or android-native." >&2
+    echo "Error: unknown --app value '$APP'. Use rn, android-native, or ios-native." >&2
     exit 1
     ;;
 esac
@@ -116,16 +125,35 @@ case "$PLATFORM" in
   *)        echo "Error: --platform is required. (--platform <ios|android>)" >&2; exit 1 ;;
 esac
 
-DEVICE_ID=$("$SETUP" | tee /dev/tty | grep "^DEVICE_ID=" | cut -d= -f2)
+# Suppress the RN example's LogBox for this run so warning overlays never corrupt
+# the exact-match (100%) screenshot assertions. The flag file is a bundled source
+# input, so the build/Metro picks it up. Only the RN app uses it, so leave the
+# native-example apps untouched; the original file bytes are restored on exit.
+E2E_FLAG_FILE="$REPO_ROOT/apps/react-native-example/e2e-config.json"
+E2E_FLAG_BACKUP=""
+if [ "$APP" = "rn" ]; then
+  E2E_FLAG_BACKUP="$(mktemp)"
+  cp "$E2E_FLAG_FILE" "$E2E_FLAG_BACKUP"
+  node -e 'const f=process.argv[1],fs=require("fs");const c=JSON.parse(fs.readFileSync(f,"utf8"));c.disableLogBox=true;fs.writeFileSync(f,JSON.stringify(c,null,2)+"\n");' "$E2E_FLAG_FILE"
+fi
 
-shutdown_device() {
-  if [ "$PLATFORM" = ios ]; then
-    xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null || true
-  else
-    adb -s "$DEVICE_ID" emu kill 2>/dev/null || true
+cleanup() {
+  if [ -n "$E2E_FLAG_BACKUP" ] && [ -f "$E2E_FLAG_BACKUP" ]; then
+    mv "$E2E_FLAG_BACKUP" "$E2E_FLAG_FILE"
+  fi
+  if [ -n "${DEVICE_ID:-}" ]; then
+    if [ "$PLATFORM" = ios ]; then
+      xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null || true
+    else
+      adb -s "$DEVICE_ID" emu kill 2>/dev/null || true
+    fi
   fi
 }
-trap shutdown_device EXIT
+trap cleanup EXIT
+
+SETUP_OUTPUT=$("$SETUP" 2>&1)
+echo "$SETUP_OUTPUT"
+DEVICE_ID=$(echo "$SETUP_OUTPUT" | grep "^DEVICE_ID=" | cut -d= -f2)
 
 app_installed() {
   if [ "$PLATFORM" = ios ]; then
@@ -141,6 +169,14 @@ if [ -n "$REBUILD" ] || ! app_installed; then
   if [ "$APP" = "android-native" ]; then
     ANDROID_SERIAL="$DEVICE_ID" yarn android-example build
     adb -s "$DEVICE_ID" install -r "$REPO_ROOT/apps/android-example/app/build/outputs/apk/debug/app-debug.apk"
+  elif [ "$APP" = "ios-native" ]; then
+    IOS_SIMULATOR_UDID="$DEVICE_ID" yarn ios-example build
+    IOS_APP=$(find "$REPO_ROOT/apps/ios-example/build" -name 'EnrichedMarkdownExample.app' -path '*Debug-iphonesimulator*' | head -1)
+    if [ -z "$IOS_APP" ]; then
+      echo "Error: EnrichedMarkdownExample.app not found after build" >&2
+      exit 1
+    fi
+    xcrun simctl install "$DEVICE_ID" "$IOS_APP"
   elif [ "$PLATFORM" = ios ]; then
     yarn react-native-example ios --udid "$DEVICE_ID"
   else

@@ -35,6 +35,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// no prefix. Owning the marker here replaces a central serializer switch.
 - (NSString *)markdownLinePrefixForBlockRange:(ENRMBlockRange *)blockRange;
 
+@optional
+
+/// Whether Return continues the block onto the next line (a list item) rather
+/// than ending it (a heading). Defaults to NO when unimplemented.
+@property (nonatomic, readonly) BOOL continuesOnNewline;
+
 @end
 
 NS_ASSUME_NONNULL_END

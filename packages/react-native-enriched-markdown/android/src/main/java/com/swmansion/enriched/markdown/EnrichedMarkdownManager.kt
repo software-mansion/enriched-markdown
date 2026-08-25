@@ -4,7 +4,9 @@ import android.content.Context
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.uimanager.ReactStylesDiffMap
 import com.facebook.react.uimanager.SimpleViewManager
+import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewManagerDelegate
 import com.facebook.react.uimanager.annotations.ReactProp
@@ -12,14 +14,17 @@ import com.facebook.react.viewmanagers.EnrichedMarkdownManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerInterface
 import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
+import com.swmansion.enriched.markdown.utils.common.emitCopyPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
 import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
+import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListToggleUtils
@@ -56,6 +61,10 @@ class EnrichedMarkdownManager :
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
     }
 
+    view.setOnCopyPressCallback { code, language ->
+      emitCopyPress(view, code, language)
+    }
+
     return view
   }
 
@@ -64,12 +73,23 @@ class EnrichedMarkdownManager :
     view.commitProps()
   }
 
+  override fun updateState(
+    view: EnrichedMarkdown,
+    props: ReactStylesDiffMap?,
+    stateWrapper: StateWrapper?,
+  ): Any? {
+    view.stateWrapper = stateWrapper
+    return super.updateState(view, props, stateWrapper)
+  }
+
   override fun onDropViewInstance(view: EnrichedMarkdown) {
     super.onDropViewInstance(view)
     view.cleanup()
     MeasurementStore.release(view.id)
     MeasurementStore.clearStreamingTableMode(view.id)
+    MeasurementStore.clearStreamingCodeBlockMode(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
+    MeasurementStore.clearFontScalingSettings(view.id)
   }
 
   override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any> = markdownEventTypeConstants()
@@ -152,6 +172,14 @@ class EnrichedMarkdownManager :
     // No-op on Android — only used on iOS
   }
 
+  @ReactProp(name = "enableTaskListItemToggle", defaultBoolean = true)
+  override fun setEnableTaskListItemToggle(
+    view: EnrichedMarkdown?,
+    enableTaskListItemToggle: Boolean,
+  ) {
+    view?.enableTaskListItemToggle = enableTaskListItemToggle
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdown?,
@@ -188,6 +216,11 @@ class EnrichedMarkdownManager :
         else -> TableStreamingMode.PROGRESSIVE
       }
     view.tableStreamingMode = tableMode
+    view.codeBlockStreamingMode =
+      when (config?.getString("codeBlockMode")) {
+        "hidden" -> CodeBlockStreamingMode.HIDDEN
+        else -> CodeBlockStreamingMode.PROGRESSIVE
+      }
   }
 
   @ReactProp(name = "spoilerOverlay")
@@ -213,6 +246,15 @@ class EnrichedMarkdownManager :
   ) {
     if (view == null) return
     view.setContextMenuItems(parseContextMenuItems(value))
+  }
+
+  @ReactProp(name = "imageRequestHeaders")
+  override fun setImageRequestHeaders(
+    view: EnrichedMarkdown?,
+    value: ReadableArray?,
+  ) {
+    if (view == null) return
+    view.setImageRequestHeaders(parseImageRequestHeaders(value))
   }
 
   @ReactProp(name = "selectionMenuConfig")

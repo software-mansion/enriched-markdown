@@ -24,7 +24,7 @@ class CodeSpan(
     val preservedStyle = (paint.typeface?.style ?: 0) and (Typeface.BOLD or Typeface.ITALIC)
     paint.typeface =
       if (styleCache.codeFontFamily.isNotEmpty()) {
-        SpanStyleCache.getTypeface(styleCache.codeFontFamily, preservedStyle)
+        styleCache.getTypeface(styleCache.codeFontFamily, preservedStyle)
       } else {
         SpanStyleCache.getMonospaceTypeface(preservedStyle)
       }

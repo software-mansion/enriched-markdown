@@ -164,9 +164,21 @@ Tables expose one focusable element per row (header included), labeled with the 
 
 Each math block exposes a single focusable element labeled `"Math: <latex>"`. The library does **not** convert LaTeX to natural language — the screen reader reads the raw LaTeX source. If you need spoken math, plug in a LaTeX→speech library on the consumer side and translate the labels accordingly.
 
+## Text input (`EnrichedMarkdownTextInput`)
+
+The editor's accessibility model is intentionally simpler than the renderer's. The input is built on a custom TextKit stack, so its inner `UITextView` is not surfaced to VoiceOver directly — instead the component is presented as a **single accessibility element** that reads its whole content as one paragraph.
+
+**iOS (VoiceOver):**
+- The field is one element whose spoken value is the full plain text (delimiters stripped). When the field is empty, the placeholder is announced instead.
+- `accessibilityLabel` / `accessibilityHint` set on the component are forwarded and announced.
+- Double-tapping activates the field: it becomes first responder and the keyboard opens for editing.
+
+**Android (TalkBack):** the input is a native `EditText`, announced and edited as a standard editable text field.
+
 ## Known Limitations
 
 - **Inline formatting** (bold / italic / underline / strikethrough / inline code / spoiler) is not split into separate accessibility elements — the entire paragraph is read as one element, exactly as the surrounding text. Screen readers don't apply visual emphasis to bold/italic by default.
 - **macOS** screen-reader support is still pending — `MarkdownAccessibilityElementBuilder.m` ships a no-op stub for macOS. Tracked as a TODO; iOS implementation can serve as a reference.
 - **Android** has no rotor concept — `accessibilityLabels.rotor.*` is silently ignored on that platform.
 - **iOS** blockquote backgrounds may break at link boundaries instead of spanning the full line. Visual only; doesn't affect accessibility.
+- **Text input** (`EnrichedMarkdownTextInput`, iOS) is exposed as a single VoiceOver element reading its full plain text as one paragraph. It is **not** announced with the native "text field" role, has no in-field cursor navigation or per-character echo (editing happens via the keyboard after a double-tap activation), and its spoken value refreshes on re-focus rather than live. Exposing the inner `UITextView` for these would be unreliable under the custom TextKit stack (duplicate/flaky announcements). Inline formatting and headings are read as plain text.

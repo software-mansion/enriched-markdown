@@ -47,6 +47,8 @@ static const unichar kZeroWidthSpace = 0x200B;
 {
   if (node.content.length > 0) {
     [buffer appendString:node.content];
+  } else if (node.type == MarkdownNodeTypeSoftBreak || node.type == MarkdownNodeTypeLineBreak) {
+    [buffer appendString:@" "];
   }
 
   for (MarkdownASTNode *child in node.children) {

@@ -5,6 +5,10 @@ sidebar_position: 2
 
 # Image caching
 
+:::caution
+THIS PAGE IS WORK IN PROGRESS
+:::
+
 Images in Markdown content are loaded, cached, and reused automatically — no configuration required.
 
 ## Cache layers

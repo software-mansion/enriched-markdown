@@ -71,8 +71,7 @@ class TaskListSpan(
     layout: Layout?,
     start: Int,
   ) {
-    val fontMetrics = paint.fontMetrics
-    val capHeight = -fontMetrics.ascent * CAP_HEIGHT_RATIO
+    val capHeight = -markerFontMetrics.ascent * CAP_HEIGHT_RATIO
     val centerY = baseline - capHeight / HALF_DIVISOR
     // Right-align the checkbox inside the reserved marker column so it hugs
     // the gap before the text. At the default (markerColumnWidth ==

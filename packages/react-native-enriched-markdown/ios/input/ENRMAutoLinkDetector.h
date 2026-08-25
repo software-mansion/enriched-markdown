@@ -1,6 +1,7 @@
 #pragma once
 
 #import "ENRMFormattingStore.h"
+#import "ENRMLinkCoordinator.h"
 #import "ENRMLinkRegexConfig.h"
 #import "ENRMTextDetector.h"
 #import <Foundation/Foundation.h>
@@ -11,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef void (^ENRMAutoLinkCallback)(NSString *text, NSString *url, NSRange range);
 
-@interface ENRMAutoLinkDetector : NSObject <ENRMTextDetector>
+@interface ENRMAutoLinkDetector : NSObject <ENRMTextDetector, ENRMAutoLinkDetecting>
 
 - (instancetype)initWithTextStorage:(NSTextStorage *)textStorage
                     formattingStore:(ENRMFormattingStore *)store

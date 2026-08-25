@@ -1,0 +1,31 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - header
+  - paragraph
+  - text
+---
+# checks the combination of headers and paragraphs (spacing, visual separation)
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        # Section One
+        Short intro paragraph.
+
+        ## Subsection
+        Another short paragraph.
+
+        ### Deep section
+        Final paragraph.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'header_paragraph_combo_display'

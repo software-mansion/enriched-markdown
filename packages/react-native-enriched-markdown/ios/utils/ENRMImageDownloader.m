@@ -1,5 +1,7 @@
 #import "ENRMImageDownloader.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLocalImageLoader.h"
+#import <CommonCrypto/CommonDigest.h>
 #include <TargetConditionals.h>
 
 static const NSUInteger kDiskCacheMemoryCapacity = 10 * 1024 * 1024;
@@ -11,6 +13,27 @@ static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
   if (!cgImage)
     return 0;
   return CGImageGetBytesPerRow(cgImage) * CGImageGetHeight(cgImage);
+}
+
+NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> *headers)
+{
+  if (headers.count == 0) {
+    return url;
+  }
+  NSArray<NSString *> *names = [headers.allKeys sortedArrayUsingSelector:@selector(compare:)];
+  NSMutableArray<NSString *> *pairs = [NSMutableArray arrayWithCapacity:names.count];
+  for (NSString *name in names) {
+    [pairs addObject:[NSString stringWithFormat:@"%@:%@", name, headers[name]]];
+  }
+  NSString *joined = [pairs componentsJoinedByString:@"\n"];
+  NSData *data = [joined dataUsingEncoding:NSUTF8StringEncoding];
+  unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+  CC_SHA256(data.bytes, (CC_LONG)data.length, digest);
+  NSMutableString *hash = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+  for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) {
+    [hash appendFormat:@"%02x", digest[i]];
+  }
+  return [NSString stringWithFormat:@"%@|%@", url, hash];
 }
 
 @implementation ENRMImageDownloader {
@@ -43,56 +66,77 @@ static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
   return self;
 }
 
-- (void)downloadURL:(NSString *)url completion:(ENRMImageDownloadCompletion)completion
+- (void)downloadURL:(NSString *)url
+            headers:(NSDictionary<NSString *, NSString *> *)headers
+         completion:(ENRMImageDownloadCompletion)completion
 {
   if (url.length == 0) {
     completion(nil);
     return;
   }
 
-  RCTUIImage *cached = [[ENRMImageAttachment originalImageCache] objectForKey:url];
+  BOOL isLocal = ENRMIsLocalImageURL(url);
+  NSString *cacheKey = isLocal ? url : ENRMImageCacheKey(url, headers);
+
+  RCTUIImage *cached = [[ENRMImageAttachment originalImageCache] objectForKey:cacheKey];
   if (cached) {
     completion(cached);
     return;
   }
 
+  if (isLocal) {
+    RCTUIImage *local = ENRMLoadLocalImage(url);
+    if (local) {
+      [[ENRMImageAttachment originalImageCache] setObject:local forKey:cacheKey cost:ENRMImageByteCost(local)];
+    }
+    completion(local);
+    return;
+  }
+
   @synchronized(_inFlightRequests) {
-    NSMutableArray *existing = _inFlightRequests[url];
+    NSMutableArray *existing = _inFlightRequests[cacheKey];
     if (existing) {
       [existing addObject:completion];
       return;
     }
-    _inFlightRequests[url] = [NSMutableArray arrayWithObject:completion];
+    _inFlightRequests[cacheKey] = [NSMutableArray arrayWithObject:completion];
   }
 
   NSURL *nsURL = [NSURL URLWithString:url];
   if (!nsURL) {
-    [self dispatchCallbacksForURL:url image:nil];
+    [self dispatchCallbacksForKey:cacheKey image:nil];
     return;
   }
 
-  [[_session dataTaskWithURL:nsURL
-           completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+  NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:nsURL];
+  [headers enumerateKeysAndObjectsUsingBlock:^(NSString *name, NSString *value, BOOL *stop) {
+    [request setValue:value forHTTPHeaderField:name];
+  }];
+
+  [[_session dataTaskWithRequest:request
+               completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
 #if !TARGET_OS_OSX
-             RCTUIImage *image = (data && !error) ? [RCTUIImage imageWithData:data] : nil;
+                 RCTUIImage *image = (data && !error) ? [RCTUIImage imageWithData:data] : nil;
 #else
         RCTUIImage *image = (data && !error) ? [[RCTUIImage alloc] initWithData:data] : nil;
 #endif
 
-             if (image) {
-               [[ENRMImageAttachment originalImageCache] setObject:image forKey:url cost:ENRMImageByteCost(image)];
-             }
+                 if (image) {
+                   [[ENRMImageAttachment originalImageCache] setObject:image
+                                                                forKey:cacheKey
+                                                                  cost:ENRMImageByteCost(image)];
+                 }
 
-             [self dispatchCallbacksForURL:url image:image];
-           }] resume];
+                 [self dispatchCallbacksForKey:cacheKey image:image];
+               }] resume];
 }
 
-- (void)dispatchCallbacksForURL:(NSString *)url image:(RCTUIImage *_Nullable)image
+- (void)dispatchCallbacksForKey:(NSString *)cacheKey image:(RCTUIImage *_Nullable)image
 {
   NSArray<ENRMImageDownloadCompletion> *callbacks;
   @synchronized(_inFlightRequests) {
-    callbacks = [_inFlightRequests[url] copy];
-    [_inFlightRequests removeObjectForKey:url];
+    callbacks = [_inFlightRequests[cacheKey] copy];
+    [_inFlightRequests removeObjectForKey:cacheKey];
   }
 
   if (!callbacks)

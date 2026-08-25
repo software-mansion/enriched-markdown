@@ -207,7 +207,12 @@ export default function InputScreen() {
         </ScrollView>
 
         {/* Formatting toolbar */}
-        <View style={styles.toolbar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.toolbarScroll}
+          contentContainerStyle={styles.toolbar}
+        >
           {(
             [
               { label: 'B', style: 'bold', action: 'toggleBold' },
@@ -263,7 +268,80 @@ export default function InputScreen() {
               Link
             </Text>
           </Pressable>
-        </View>
+
+          <View style={styles.toolbarSeparator} />
+
+          {([1, 2, 3, 4, 5, 6] as const).map((level) => (
+            <Pressable
+              key={`h${level}`}
+              style={[
+                styles.toolbarButton,
+                state?.heading.isActive &&
+                  state.heading.level === level &&
+                  styles.toolbarButtonActive,
+              ]}
+              onPress={() => inputRef.current?.toggleHeading(level)}
+            >
+              <Text
+                style={[
+                  styles.toolbarButtonText,
+                  state?.heading.isActive &&
+                    state.heading.level === level &&
+                    styles.toolbarButtonTextActive,
+                ]}
+              >
+                {`H${level}`}
+              </Text>
+            </Pressable>
+          ))}
+
+          <View style={styles.toolbarSeparator} />
+
+          <Pressable
+            style={[
+              styles.toolbarButton,
+              state?.unorderedList.isActive && styles.toolbarButtonActive,
+            ]}
+            onPress={() => inputRef.current?.toggleUnorderedList()}
+          >
+            <Text
+              style={[
+                styles.toolbarButtonText,
+                state?.unorderedList.isActive && styles.toolbarButtonTextActive,
+              ]}
+            >
+              •
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.toolbarButton,
+              state?.orderedList.isActive && styles.toolbarButtonActive,
+            ]}
+            onPress={() => inputRef.current?.toggleOrderedList()}
+          >
+            <Text
+              style={[
+                styles.toolbarButtonText,
+                state?.orderedList.isActive && styles.toolbarButtonTextActive,
+              ]}
+            >
+              1.
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => inputRef.current?.outdentList()}
+          >
+            <Text style={styles.toolbarButtonText}>⇤</Text>
+          </Pressable>
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => inputRef.current?.indentList()}
+          >
+            <Text style={styles.toolbarButtonText}>⇥</Text>
+          </Pressable>
+        </ScrollView>
 
         {/* Input row */}
         <View style={styles.inputRow}>
@@ -420,22 +498,32 @@ const styles = StyleSheet.create({
   bubbleTimeOther: {
     color: '#9CA3AF',
   },
-  toolbar: {
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 4,
+  toolbarScroll: {
+    flexGrow: 0,
     backgroundColor: '#F9FAFB',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E5E7EB',
   },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  toolbarSeparator: {
+    width: StyleSheet.hairlineWidth,
+    height: 18,
+    backgroundColor: '#D1D5DB',
+    marginHorizontal: 4,
+  },
   toolbarButton: {
-    width: 30,
+    minWidth: 30,
     height: 26,
     borderRadius: 5,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 4,
   },
   toolbarButtonActive: {
     backgroundColor: '#DBEAFE',

@@ -1,4 +1,5 @@
 #import "EnrichedMarkdownTextInputShadowNode.h"
+#import "ENRMEditSession.h"
 #import "EnrichedMarkdownTextInput.h"
 #import <react/utils/ManagedObjectWrapper.h>
 #import <yoga/Yoga.h>
@@ -37,7 +38,7 @@ id EnrichedMarkdownTextInputShadowNode::setupMockInputView_(CGFloat width) const
   EnrichedMarkdownTextInput *mockView =
       [[EnrichedMarkdownTextInput alloc] initWithFrame:CGRectMake(20000, 20000, width, 1000)];
 
-  mockView.blockEmitting = YES;
+  [mockView.editSession enterPhase:ENRMEditPhaseImporting];
 
   const auto props = this->getProps();
   [mockView updateProps:props oldProps:nullptr];

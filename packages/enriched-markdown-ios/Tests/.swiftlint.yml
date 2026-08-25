@@ -1,0 +1,4 @@
+# Test suites are one class per subject under test and naturally grow long.
+disabled_rules:
+  - file_length
+  - type_body_length

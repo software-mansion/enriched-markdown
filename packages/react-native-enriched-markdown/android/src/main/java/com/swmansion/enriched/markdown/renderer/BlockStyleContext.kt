@@ -44,6 +44,8 @@ class BlockStyleContext {
   var taskItemCount = 0
   var accumulatedIndent = 0
 
+  val listItemStarts = mutableListOf<Int>()
+
   private val orderedListItemNumbers = ArrayDeque<Int>()
 
   enum class ListType { UNORDERED, ORDERED }
@@ -107,8 +109,10 @@ class BlockStyleContext {
     listItemNumber++
   }
 
-  fun resetListItemNumber() {
-    listItemNumber = 0
+  fun resetListItemNumber(startNumber: Int = 1) {
+    // ListItemRenderer pre-increments, so the counter starts one below the
+    // first rendered number.
+    listItemNumber = startNumber - 1
   }
 
   fun pushOrderedListItemNumber() {
@@ -149,6 +153,7 @@ class BlockStyleContext {
     listItemNumber = 0
     taskItemCount = 0
     accumulatedIndent = 0
+    listItemStarts.clear()
     orderedListItemNumbers.clear()
   }
 }

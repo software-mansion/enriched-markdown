@@ -1,0 +1,31 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - block
+  - advanced
+  - math
+  - paragraph
+  - text
+---
+# Regression: display math with text on adjacent lines (no blank line) is parsed
+# by md4c as an inline span nested inside a Paragraph. The parser promotes such
+# isolated display math to a top-level block, so this must render as a centered
+# block with the text flowing above and below it.
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        Energy released by fusion follows
+        $$
+        E = \Delta m \cdot c^2
+        $$
+        and this is why the sun shines.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'in_paragraph_display_math_interior_display'
