@@ -145,6 +145,80 @@ describe('FormattingStore', () => {
     expect(store.allRanges).toEqual([strong(0, 6), strong(20, 30)]);
   });
 
+  it('toggleStyle adds the style to a clean or partially covered selection', () => {
+    // "The world": bold only "The", then toggle over "The wo" — everything
+    // in the selection ends up bold (partial coverage means inactive).
+    store.setRanges([strong(0, 3)]);
+    const wasActive = store.toggleStyle('strong', 0, 6);
+
+    expect(wasActive).toBe(false);
+    expect(store.allRanges).toEqual([strong(0, 6)]);
+  });
+
+  it('toggleStyle removes the style from a fully covered selection', () => {
+    store.setRanges([strong(0, 10)]);
+    const wasActive = store.toggleStyle('strong', 2, 6);
+
+    expect(wasActive).toBe(true);
+    expect(store.allRanges).toEqual([strong(0, 2), strong(6, 10)]);
+  });
+
+  it('toggleStyle strips conflicting styles before adding', () => {
+    store.setRanges([{ type: 'spoiler', start: 2, end: 8 }]);
+    store.toggleStyle('link', 0, 6, new Set(['spoiler']));
+
+    expect(store.allRanges).toEqual([
+      { type: 'link', start: 0, end: 6 },
+      { type: 'spoiler', start: 6, end: 8 },
+    ]);
+  });
+
+  it('toggleStyle at a caret reports state without mutating', () => {
+    store.setRanges([strong(4, 9)]);
+
+    expect(store.toggleStyle('strong', 5, 5)).toBe(true);
+    expect(store.toggleStyle('strong', 2, 2)).toBe(false);
+    expect(store.allRanges).toEqual([strong(4, 9)]);
+  });
+
+  it('isToggleBlocked refuses toggling ON under a blocker, never OFF', () => {
+    store.setRanges([{ type: 'spoiler', start: 0, end: 5 }, strong(0, 5)]);
+
+    expect(store.isToggleBlocked('link', 2, new Set(['spoiler']))).toBe(true);
+    // Toggling OFF an active style is never blocked.
+    expect(store.isToggleBlocked('strong', 2, new Set(['spoiler']))).toBe(
+      false
+    );
+    expect(store.isToggleBlocked('link', 8, new Set(['spoiler']))).toBe(false);
+  });
+
+  it('selectionAdjustedForAtomicLinks expands over partially selected links', () => {
+    store.setRanges([
+      link(0, 6, 'https://a.example'),
+      link(6, 15, 'https://b.example'),
+    ]);
+
+    // Dragging from inside link A to inside link B swallows both whole.
+    expect(store.selectionAdjustedForAtomicLinks(3, 10)).toEqual({
+      start: 0,
+      end: 15,
+    });
+    // A selection already aligned with link bounds needs no adjustment.
+    expect(store.selectionAdjustedForAtomicLinks(0, 6)).toBeNull();
+  });
+
+  it('selectionAdjustedForAtomicLinks moves a caret out of a link', () => {
+    store.setRanges([link(4, 9, 'https://a.example')]);
+
+    expect(store.selectionAdjustedForAtomicLinks(6, 6)).toEqual({
+      start: 9,
+      end: 9,
+    });
+    // Caret at the link boundary stays put.
+    expect(store.selectionAdjustedForAtomicLinks(4, 4)).toBeNull();
+    expect(store.selectionAdjustedForAtomicLinks(9, 9)).toBeNull();
+  });
+
   it('removeType leaves other types and boundary-touching ranges untouched', () => {
     store.setRanges([
       strong(0, 4),
