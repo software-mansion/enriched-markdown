@@ -31,17 +31,33 @@ UIFontWeight ENRMFontWeightFromString(NSString *weightString)
   if (weightString.length == 0) {
     return UIFontWeightRegular;
   }
-  if ([weightString isEqualToString:@"bold"] || [weightString isEqualToString:@"700"]) {
-    return UIFontWeightBold;
+  if ([weightString isEqualToString:@"ultralight"] || [weightString isEqualToString:@"100"]) {
+    return UIFontWeightUltraLight;
   }
-  if ([weightString isEqualToString:@"semibold"] || [weightString isEqualToString:@"600"]) {
-    return UIFontWeightSemibold;
+  if ([weightString isEqualToString:@"thin"] || [weightString isEqualToString:@"200"]) {
+    return UIFontWeightThin;
+  }
+  if ([weightString isEqualToString:@"light"] || [weightString isEqualToString:@"300"]) {
+    return UIFontWeightLight;
+  }
+  if ([weightString isEqualToString:@"normal"] || [weightString isEqualToString:@"regular"] ||
+      [weightString isEqualToString:@"400"]) {
+    return UIFontWeightRegular;
   }
   if ([weightString isEqualToString:@"medium"] || [weightString isEqualToString:@"500"]) {
     return UIFontWeightMedium;
   }
-  if ([weightString isEqualToString:@"light"] || [weightString isEqualToString:@"300"]) {
-    return UIFontWeightLight;
+  if ([weightString isEqualToString:@"semibold"] || [weightString isEqualToString:@"600"]) {
+    return UIFontWeightSemibold;
+  }
+  if ([weightString isEqualToString:@"bold"] || [weightString isEqualToString:@"700"]) {
+    return UIFontWeightBold;
+  }
+  if ([weightString isEqualToString:@"heavy"] || [weightString isEqualToString:@"800"]) {
+    return UIFontWeightHeavy;
+  }
+  if ([weightString isEqualToString:@"black"] || [weightString isEqualToString:@"900"]) {
+    return UIFontWeightBlack;
   }
   return UIFontWeightRegular;
 }
