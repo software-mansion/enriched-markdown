@@ -4,6 +4,7 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
 } from 'react-native-enriched-markdown';
 import { sampleMarkdown } from './sampleMarkdown';
@@ -96,7 +97,7 @@ console.log(greet("العالم"));
 `.trim();
 
 interface EventLog {
-  kind: 'link' | 'linkLong' | 'task';
+  kind: 'link' | 'linkLong' | 'image' | 'task';
   label: string;
   detail: string;
 }
@@ -104,6 +105,7 @@ interface EventLog {
 const KIND_COLOR: Record<EventLog['kind'], string> = {
   link: '#2563EB',
   linkLong: '#7C3AED',
+  image: '#DB2777',
   task: '#059669',
 };
 
@@ -117,6 +119,14 @@ export default function App() {
 
   const onLinkLongPress = useCallback(({ url }: LinkLongPressEvent) => {
     setLastEvent({ kind: 'linkLong', label: 'onLinkLongPress', detail: url });
+  }, []);
+
+  const onImagePress = useCallback(({ url, altText }: ImagePressEvent) => {
+    setLastEvent({
+      kind: 'image',
+      label: 'onImagePress',
+      detail: `${altText || 'Image'} — ${url}`,
+    });
   }, []);
 
   const onTaskListItemPress = useCallback(
@@ -152,6 +162,7 @@ export default function App() {
           markdown={sampleMarkdown}
           onLinkPress={onLinkPress}
           onLinkLongPress={onLinkLongPress}
+          onImagePress={onImagePress}
           onTaskListItemPress={onTaskListItemPress}
           selectionColor="#DCDDFE"
           md4cFlags={{

@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Platform, Alert, Linking } from 'react-native';
 import {
   EnrichedMarkdownText,
   type LinkPressEvent,
+  type ImagePressEvent,
 } from 'react-native-enriched-markdown';
 import { sampleMarkdown } from '../../sampleMarkdown';
 import { customMarkdownStyle } from '../../markdownStyles';
@@ -50,6 +51,13 @@ export default function TextScreen() {
     ]);
   };
 
+  const handleImagePress = (event: ImagePressEvent) => {
+    const { url, altText } = event;
+    Alert.alert('Image Pressed!', `${altText || 'Image'}\n${url}`, [
+      { text: 'Dismiss', style: 'cancel' },
+    ]);
+  };
+
   return (
     <ScrollView
       style={styles.scrollView}
@@ -60,6 +68,7 @@ export default function TextScreen() {
         flavor="github"
         markdown={sampleMarkdown}
         onLinkPress={handleLinkPress}
+        onImagePress={handleImagePress}
         markdownStyle={markdownStyle}
         contextMenuItems={contextMenuItems}
         selectionColor={Platform.OS === 'ios' ? '#5A52FA' : '#DCDDFE'}

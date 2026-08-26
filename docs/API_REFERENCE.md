@@ -69,6 +69,27 @@ Callback when a link is long pressed. Access URL via `event.url`. On iOS, automa
 />
 ```
 
+### `onImagePress`
+
+Callback when a rendered image is tapped or clicked. Access the image URL via `event.url` and its Markdown alt text via `event.altText` (`""` when the image has no alt text). Use it to open a lightbox or full-screen viewer.
+
+Fires for block and inline images, including images inside headings, lists, and blockquotes. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both. Not fired for images inside GFM tables.
+
+Setting this callback makes images interactive on the native side; leaving it unset keeps the existing tap, text-selection, and long-press menu behavior unchanged. On web the image becomes focusable, exposes a button role for screen readers, and can be activated with Enter/Space, while the browser's right-click menu is preserved.
+
+| Type                                  | Default Value | Platform         |
+| ------------------------------------- | ------------- | ---------------- |
+| `(event: ImagePressEvent) => void`    | -             | Both, macOS, Web |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  markdown="![A cat](https://example.com/cat.png)"
+  onImagePress={({ url, altText }) => openLightbox({ url, altText })}
+/>
+```
+
 ### `onTaskListItemPress`
 
 Callback when a task list checkbox is tapped. Receives `index` (0-based), `checked` (new state after toggling), and `text` (item text).
