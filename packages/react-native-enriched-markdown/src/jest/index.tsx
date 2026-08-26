@@ -268,11 +268,11 @@ function buildChildren(
   let children: Segment[] = [String(markdown ?? '')];
 
   const transforms: TransformFn[] = [
-    opts.onLinkPress || opts.onLinkLongPress
-      ? createLinkTransform(opts.onLinkPress, opts.onLinkLongPress)
-      : undefined,
     opts.onTaskListItemPress
       ? createTaskListTransform(opts.onTaskListItemPress)
+      : undefined,
+    opts.onLinkPress || opts.onLinkLongPress
+      ? createLinkTransform(opts.onLinkPress, opts.onLinkLongPress)
       : undefined,
   ].filter((t): t is TransformFn => t != null);
 

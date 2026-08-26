@@ -236,6 +236,7 @@ describe('EnrichedMarkdownText mock', () => {
     const { root } = renderMock(
       <EnrichedMarkdownText
         testID="display"
+        flavor="github"
         markdown={'- [ ] Buy milk\n- [x] Write code'}
         onTaskListItemPress={onTaskListItemPress}
       />
@@ -253,6 +254,7 @@ describe('EnrichedMarkdownText mock', () => {
     const { root } = renderMock(
       <EnrichedMarkdownText
         testID="display"
+        flavor="github"
         markdown={'- [ ] First task\n- [x] Second task'}
         onTaskListItemPress={onTaskListItemPress}
       />
