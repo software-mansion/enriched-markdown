@@ -4,6 +4,7 @@ import type { AccessibilityLabels } from './AccessibilityLabels';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
 } from './events';
@@ -151,6 +152,22 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, web
    */
   onLinkLongPress?: (event: LinkLongPressEvent) => void;
+  /**
+   * Callback fired when a rendered image is tapped or clicked.
+   *
+   * Receives the image URL and its alt text (empty string when the image has
+   * no alt text). Fires for block and inline images, including images inside
+   * headings, lists, and blockquotes.
+   *
+   * Images that are also links keep link behavior: they fire `onLinkPress`
+   * instead, so a single tap never fires both. Setting this prop makes images
+   * interactive on the native side; leaving it unset keeps the current tap,
+   * text-selection, and long-press menu behavior unchanged.
+   *
+   * Not fired for images inside GFM tables yet.
+   * @platform ios, android, macos, web
+   */
+  onImagePress?: (event: ImagePressEvent) => void;
   /**
    * Callback fired when a task list checkbox is tapped.
    *

@@ -20,6 +20,7 @@ import type {
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   OnContextMenuItemPressEvent,
@@ -36,6 +37,7 @@ export type {
 export type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
 };
@@ -116,6 +118,7 @@ export const EnrichedMarkdownText = ({
   containerStyle,
   onLinkPress,
   onLinkLongPress,
+  onImagePress,
   onTaskListItemPress,
   enableTaskListItemToggle = true,
   onCopyPress,
@@ -222,6 +225,14 @@ export const EnrichedMarkdownText = ({
     [onLinkLongPress]
   );
 
+  const handleImagePress = useCallback(
+    (e: NativeSyntheticEvent<ImagePressEvent>) => {
+      const { url, altText } = e.nativeEvent;
+      onImagePress?.({ url, altText });
+    },
+    [onImagePress]
+  );
+
   const handleTaskListItemPress = useCallback(
     (e: NativeSyntheticEvent<TaskListItemPressEvent>) => {
       const { index, checked, text } = e.nativeEvent;
@@ -301,6 +312,8 @@ export const EnrichedMarkdownText = ({
     markdownStyle: normalizedStyle,
     onLinkPress: handleLinkPress,
     onLinkLongPress: handleLinkLongPress,
+    onImagePress: handleImagePress,
+    enableImagePress: onImagePress != null,
     onTaskListItemPress: handleTaskListItemPress,
     enableTaskListItemToggle,
     onCopyPress: handleCopyPress,

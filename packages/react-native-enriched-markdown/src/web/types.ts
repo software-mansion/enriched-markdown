@@ -4,6 +4,7 @@ import type { Styles } from './styles';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
 } from '../types/events';
 import type { KaTeXInstance } from './katex';
@@ -71,6 +72,7 @@ export interface ASTNode {
 export interface RendererCallbacks {
   onLinkPress?: (event: LinkPressEvent) => void;
   onLinkLongPress?: (event: LinkLongPressEvent) => void;
+  onImagePress?: (event: ImagePressEvent) => void;
   onTaskListItemPress?: (event: TaskListItemPressEvent) => void;
 }
 

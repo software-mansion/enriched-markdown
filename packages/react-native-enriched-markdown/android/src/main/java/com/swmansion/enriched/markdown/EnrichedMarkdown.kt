@@ -28,8 +28,10 @@ import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import com.swmansion.enriched.markdown.utils.common.splitASTIntoSegments
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
+import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
+import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.views.BlockSegmentView
 import com.swmansion.enriched.markdown.views.CodeBlockContainerView
 import com.swmansion.enriched.markdown.views.TableContainerView
@@ -45,7 +47,8 @@ class EnrichedMarkdown
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-  ) : FrameLayout(context, attrs, defStyleAttr) {
+  ) : FrameLayout(context, attrs, defStyleAttr),
+    ImagePressHost {
     private enum class DirtyFlag {
       RECREATE_SEGMENTS,
       FORCE_HEIGHT,
@@ -249,6 +252,20 @@ class EnrichedMarkdown
 
     fun setOnLinkLongPressCallback(callback: (String) -> Unit) {
       onLinkLongPressCallback = callback
+    }
+
+    override var imagePressEnabled: Boolean = false
+      private set
+
+    override fun emitOnImagePress(
+      url: String,
+      altText: String,
+    ) {
+      emitImagePressEvent(url, altText)
+    }
+
+    fun setEnableImagePress(enabled: Boolean) {
+      imagePressEnabled = enabled
     }
 
     fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {

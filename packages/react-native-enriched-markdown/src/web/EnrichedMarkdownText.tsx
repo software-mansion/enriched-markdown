@@ -20,6 +20,7 @@ export const EnrichedMarkdownText = ({
   md4cFlags = {},
   onLinkPress,
   onLinkLongPress,
+  onImagePress,
   onTaskListItemPress,
   enableTaskListItemToggle = true,
   allowTrailingMargin = false,
@@ -99,8 +100,8 @@ export const EnrichedMarkdownText = ({
   ]);
 
   const callbacks = useMemo<RendererCallbacks>(
-    () => ({ onLinkPress, onLinkLongPress, onTaskListItemPress }),
-    [onLinkPress, onLinkLongPress, onTaskListItemPress]
+    () => ({ onLinkPress, onLinkLongPress, onImagePress, onTaskListItemPress }),
+    [onLinkPress, onLinkLongPress, onImagePress, onTaskListItemPress]
   );
 
   const capabilities = useMemo<RenderCapabilities>(

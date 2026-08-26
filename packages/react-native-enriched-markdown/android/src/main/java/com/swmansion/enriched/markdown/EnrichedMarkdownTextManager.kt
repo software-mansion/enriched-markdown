@@ -182,6 +182,14 @@ class EnrichedMarkdownTextManager :
     view?.setEnableTaskListItemToggle(enableTaskListItemToggle)
   }
 
+  @ReactProp(name = "enableImagePress", defaultBoolean = false)
+  override fun setEnableImagePress(
+    view: EnrichedMarkdownText?,
+    enableImagePress: Boolean,
+  ) {
+    view?.setEnableImagePress(enableImagePress)
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdownText?,

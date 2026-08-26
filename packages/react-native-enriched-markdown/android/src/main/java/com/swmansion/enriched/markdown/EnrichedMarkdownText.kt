@@ -25,6 +25,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
+import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectableState
@@ -32,6 +33,7 @@ import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForCheckboxTap
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForLinkTap
 import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionModeCallback
+import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
@@ -49,7 +51,8 @@ class EnrichedMarkdownText
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
   ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
-    SpoilerCapable {
+    SpoilerCapable,
+    ImagePressHost {
     private val parser = Parser.shared
     private val renderer = Renderer()
     private var onLinkPressCallback: ((String) -> Unit)? = null
@@ -341,6 +344,20 @@ class EnrichedMarkdownText
 
     fun emitOnLinkLongPress(url: String) {
       emitLinkLongPressEvent(url)
+    }
+
+    override var imagePressEnabled: Boolean = false
+      private set
+
+    override fun emitOnImagePress(
+      url: String,
+      altText: String,
+    ) {
+      emitImagePressEvent(url, altText)
+    }
+
+    fun setEnableImagePress(enabled: Boolean) {
+      imagePressEnabled = enabled
     }
 
     fun setOnLinkPressCallback(callback: (String) -> Unit) {
