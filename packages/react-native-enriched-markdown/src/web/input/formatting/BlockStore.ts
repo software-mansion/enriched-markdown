@@ -4,6 +4,7 @@ import {
   type BlockRange,
   type BlockType,
 } from '../model/blocks';
+import { adjustRangesForEdit } from './RangeEditAdjustment';
 import { sortedInsertionIndex } from './rangeStoreUtils';
 import type { RangeBounds } from '../model/rangeBounds';
 
@@ -69,11 +70,8 @@ export class BlockStore {
     if (end < start || (end === start && !ANCHORED_BLOCK_TYPES.has(type))) {
       return;
     }
-    this.ranges.splice(
-      sortedInsertionIndex(this.ranges, start),
-      0,
-      createBlockRange(type, start, end, level)
-    );
+    const block = createBlockRange(type, start, end, level);
+    this.ranges.splice(sortedInsertionIndex(this.ranges, start), 0, block);
   }
 
   // Clears any block on the paragraphs the given range touches, reverting
@@ -100,6 +98,71 @@ export class BlockStore {
             block.start <= end)
         )
     );
+  }
+
+  // Shifts/clips block ranges to follow a text edit, with anchored-block
+  // persistence layered on top: a block deleted exactly to its end collapses
+  // to a zero-length anchor at the edit location (its line survives), and
+  // existing anchors shift/keep/drop with their line.
+  adjustForEdit(
+    editLocation: number,
+    deletedLength: number,
+    insertedLength: number
+  ): void {
+    if (deletedLength === 0 && insertedLength === 0) {
+      return;
+    }
+
+    const deleteEnd = editLocation + deletedLength;
+    const delta = insertedLength - deletedLength;
+
+    const anchors = this.ranges.filter(
+      (b) => b.end === b.start && ANCHORED_BLOCK_TYPES.has(b.type)
+    );
+    let ranges = this.ranges.filter((b) => b.end !== b.start);
+
+    // At most one range can end exactly at deleteEnd (blocks never overlap),
+    // so this restores at most one collapsed block.
+    const collapsed =
+      ranges.find(
+        (b) =>
+          ANCHORED_BLOCK_TYPES.has(b.type) &&
+          b.start >= editLocation &&
+          b.end === deleteEnd
+      ) ?? null;
+
+    ranges = adjustRangesForEdit(
+      ranges,
+      editLocation,
+      deletedLength,
+      insertedLength,
+      () => true,
+      () => true
+    );
+
+    for (const anchor of anchors) {
+      if (anchor.start <= editLocation) {
+        // Keeps its position.
+      } else if (anchor.start >= deleteEnd) {
+        anchor.start += delta;
+        anchor.end = anchor.start;
+      } else {
+        continue; // The anchor's line was deleted.
+      }
+      ranges.splice(sortedInsertionIndex(ranges, anchor.start), 0, anchor);
+    }
+
+    if (collapsed !== null && !ranges.includes(collapsed)) {
+      const anchor = createBlockRange(
+        collapsed.type,
+        editLocation,
+        editLocation,
+        collapsed.level
+      );
+      ranges.splice(sortedInsertionIndex(ranges, editLocation), 0, anchor);
+    }
+
+    this.ranges = ranges;
   }
 
   // Starts are unique (one block per paragraph), so a binary search finds the
