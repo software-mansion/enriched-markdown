@@ -50,3 +50,12 @@ export interface BlockRange extends RangeBounds {
   level: number;
   ordinal: number;
 }
+
+export function createBlockRange(
+  type: BlockType,
+  start: number,
+  end: number,
+  level = 0
+): BlockRange {
+  return { type, start, end, level, ordinal: 1 };
+}
