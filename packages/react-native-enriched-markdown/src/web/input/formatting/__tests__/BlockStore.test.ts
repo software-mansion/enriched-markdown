@@ -162,6 +162,41 @@ describe('BlockStore', () => {
     ]);
   });
 
+  it('normalizeToLineBounds snaps ranges to their full lines', () => {
+    // Math left the heading covering only part of line 1 and leaking a char.
+    store.setRanges([{ ...block('h2', 1, 5), level: 2 }]);
+
+    store.normalizeToLineBounds(text);
+
+    expect(store.allRanges).toEqual([{ ...block('h2', 0, 9), level: 2 }]);
+  });
+
+  it('normalizeToLineBounds clips a block split by a newline to its first line', () => {
+    // An Enter typed inside the heading stretched its range across two lines.
+    store.setRanges([block('h1', 0, 14)]);
+
+    store.normalizeToLineBounds(text);
+
+    expect(store.allRanges).toEqual([block('h1', 0, 9)]);
+  });
+
+  it('normalizeToLineBounds drops the duplicate after a line join', () => {
+    // Backspace joined two heading lines: both ranges resolve to line 1.
+    store.setRanges([block('h1', 0, 4), block('h2', 5, 9)]);
+
+    store.normalizeToLineBounds(text);
+
+    expect(store.allRanges).toEqual([block('h1', 0, 9)]);
+  });
+
+  it('normalizeToLineBounds keeps anchored empties and drops the rest', () => {
+    store.setRanges([block('h1', 17, 17), block('paragraph', 17, 17)]);
+
+    store.normalizeToLineBounds(text);
+
+    expect(store.allRanges).toEqual([block('h1', 17, 17)]);
+  });
+
   it('numbers adjacent ordered items and restarts after a gap', () => {
     // Lines are adjacent when the next start is prevEnd + 1 (the newline).
     store.setRanges([

@@ -87,6 +87,39 @@ export class BlockStore {
     this.removeBlocksOverlapping(start, end);
   }
 
+  // Snaps every stored range to the line bounds of its start position.
+  // Absorbs edge-typed chars, clips split ranges to their first line, drops
+  // duplicates. On an empty line an anchored block persists as a zero-length
+  // anchor; any other collapsed range is dropped. Call after adjustForEdit
+  // once `text` is final. Idempotent.
+  normalizeToLineBounds(text: string): void {
+    if (this.ranges.length === 0) {
+      return;
+    }
+
+    let previousEnd = -1;
+    this.ranges = this.ranges.filter((range) => {
+      const line = paragraphBounds(range.start, range.start, text);
+      const isEmptyLine = line.end === line.start;
+      if (
+        (isEmptyLine && !ANCHORED_BLOCK_TYPES.has(range.type)) ||
+        line.start <= previousEnd
+      ) {
+        // Dedup: drop a range that resolves to an already-claimed paragraph.
+        // This is a legitimate self-heal path (a heading anchor and the block
+        // it merges into can briefly share a start after a line-join), so it
+        // is deliberately silent.
+        return false;
+      }
+      range.start = line.start;
+      range.end = line.end;
+      previousEnd = line.end;
+      return true;
+    });
+
+    this.recomputeListMetadata();
+  }
+
   // Clamps list depths to valid ancestry (an item nests at most one level
   // under the previous adjacent list item — CommonMark cannot represent
   // orphan nesting) and renumbers ordered items among their adjacent
