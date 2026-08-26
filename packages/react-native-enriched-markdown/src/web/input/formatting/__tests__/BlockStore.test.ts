@@ -105,6 +105,63 @@ describe('BlockStore', () => {
     expect(store.allRanges).toEqual([block('h1', 0, 9)]);
   });
 
+  it('adjustForEdit grows the edited block and shifts the following ones', () => {
+    store.setRanges([block('h2', 0, 6), block('ordered-list-item', 7, 12)]);
+
+    // Two chars typed inside the heading.
+    store.adjustForEdit(3, 0, 2);
+
+    expect(store.allRanges).toEqual([
+      block('h2', 0, 8),
+      block('ordered-list-item', 9, 14),
+    ]);
+  });
+
+  it('adjustForEdit absorbs a char typed at the line start into its block', () => {
+    store.setRanges([block('h2', 0, 6)]);
+
+    store.adjustForEdit(0, 0, 1);
+
+    expect(store.allRanges).toEqual([block('h2', 0, 7)]);
+  });
+
+  it('adjustForEdit keeps the block through a replacement of its content', () => {
+    // Autocorrect swaps the whole heading text for a same-length word.
+    store.setRanges([block('h2', 0, 6)]);
+
+    store.adjustForEdit(0, 6, 6);
+
+    expect(store.allRanges).toEqual([block('h2', 0, 6)]);
+  });
+
+  it('adjustForEdit collapses a block emptied exactly to its end into an anchor', () => {
+    store.setRanges([block('h2', 0, 6), block('ordered-list-item', 7, 12)]);
+
+    // The whole list item content deleted; its line (the newline) survives.
+    store.adjustForEdit(7, 5, 0);
+
+    expect(store.allRanges).toEqual([
+      block('h2', 0, 6),
+      block('ordered-list-item', 7, 7),
+    ]);
+  });
+
+  it('adjustForEdit keeps, shifts or drops anchors around the edit', () => {
+    store.setRanges([
+      block('h1', 0, 0),
+      block('unordered-list-item', 10, 10),
+      block('ordered-list-item', 20, 20),
+    ]);
+
+    // Replace chars 8-15 with two chars (delta -5).
+    store.adjustForEdit(8, 7, 2);
+
+    expect(store.allRanges).toEqual([
+      block('h1', 0, 0),
+      block('ordered-list-item', 15, 15),
+    ]);
+  });
+
   it('setRanges sorts incoming blocks by start', () => {
     store.setRanges([block('paragraph', 6, 11), block('h1', 0, 5)]);
 
