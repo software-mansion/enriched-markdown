@@ -3,6 +3,10 @@ sidebar_label: Style properties
 sidebar_position: 3
 ---
 
+import InteractiveExample from '@site/src/components/InteractiveExample';
+import FirstText from '@site/src/examples/react-native/basics/your-first-project/FirstText';
+import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
+
 # Style properties reference
 
 :::caution
@@ -441,3 +445,9 @@ Styles for subscript text (`~text~`). Requires `md4cFlags={{ subscript: true }}`
 :::note
 Android uses a slightly smaller default `fontScale` (`0.65`) compared to iOS (`0.75`) because Roboto has a larger x-height than San Francisco, making identically-scaled text appear visually larger on Android.
 :::
+
+## Try it yourself
+
+The example below sets a custom `markdownStyle`. Switch to the Code tab and tweak the values to see how each property changes the rendered output.
+
+<InteractiveExample src={FirstTextSrc} component={FirstText} />

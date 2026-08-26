@@ -1,7 +1,9 @@
 import React from 'react';
-import clsx from 'clsx';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import CodeBlock from '@theme/CodeBlock';
+import ExampleControls, {
+  type ExampleTab,
+} from '@site/src/components/ExampleControls';
 import styles from './styles.module.css';
 
 // One example .tsx file is the single source of truth: the doc page imports it
@@ -23,11 +25,6 @@ interface Props {
   comingSoon?: boolean;
 }
 
-enum Tab {
-  PREVIEW,
-  CODE,
-}
-
 function ComingSoon() {
   return (
     <div className={styles.comingSoon}>
@@ -45,42 +42,21 @@ export default function InteractiveExample({
   component: Component,
   comingSoon = false,
 }: Props) {
-  const [tab, setTab] = React.useState<Tab>(Tab.PREVIEW);
+  const [tab, setTab] = React.useState<ExampleTab>('preview');
   const [resetKey, setResetKey] = React.useState(0);
 
   const isLive = !comingSoon && Component != null;
 
   return (
     <div className={styles.container}>
-      <div className={styles.toolbar}>
-        <div className={styles.tabs}>
-          <button
-            type="button"
-            className={clsx(styles.tab, tab === Tab.PREVIEW && styles.tabActive)}
-            onClick={() => setTab(Tab.PREVIEW)}
-          >
-            Preview
-          </button>
-          <button
-            type="button"
-            className={clsx(styles.tab, tab === Tab.CODE && styles.tabActive)}
-            onClick={() => setTab(Tab.CODE)}
-          >
-            Code
-          </button>
-        </div>
-        {isLive && tab === Tab.PREVIEW && (
-          <button
-            type="button"
-            className={styles.reset}
-            onClick={() => setResetKey((key) => key + 1)}
-          >
-            Reset
-          </button>
-        )}
-      </div>
+      <ExampleControls
+        tab={tab}
+        onTabChange={setTab}
+        getCopyText={() => src.trim()}
+        onReset={isLive ? () => setResetKey((key) => key + 1) : undefined}
+      />
 
-      {tab === Tab.PREVIEW ? (
+      {tab === 'preview' ? (
         <div className={styles.preview}>
           {isLive ? (
             <BrowserOnly

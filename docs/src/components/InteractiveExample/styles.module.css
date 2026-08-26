@@ -1,7 +1,5 @@
 .container {
-  display: flex;
-  flex-direction: column;
-  contain: content;
+  position: relative;
   background-color: var(--swm-off-background);
   border: 1px solid var(--swm-border);
   border-radius: var(--ifm-global-radius);
@@ -9,69 +7,17 @@
   overflow: hidden;
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5em 1.25em;
-  border-bottom: 1px solid var(--swm-border);
-}
-
-.tabs {
-  display: flex;
-  gap: 1.5em;
-}
-
-.tab {
-  padding: 0 0 2px 0;
-  border: none;
-  border-bottom: 1px solid transparent;
-  background-color: transparent;
-  color: var(--swm-interactive-button-color);
-  cursor: pointer;
-  font-family: var(--swm-body-font);
-  font-weight: 500;
-  font-size: 16px;
-}
-
-.tab:hover {
-  color: var(--swm-tab-hover);
-}
-
-.tabActive {
-  color: var(--swm-tab-active);
-  border-bottom-color: var(--swm-tab-active);
-}
-
-.tabActive:hover {
-  color: var(--swm-tab-active);
-}
-
-.reset {
-  padding: 2px 12px;
-  border: 1px solid var(--swm-border);
-  border-radius: 20px;
-  background-color: transparent;
-  color: var(--swm-interactive-button-color);
-  cursor: pointer;
-  font-family: var(--swm-body-font);
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.reset:hover {
-  color: var(--swm-tab-active);
-  border-color: var(--swm-tab-active);
-}
-
+/* The example switches its own text colors on color scheme (react-native
+   useColorScheme, synced to the site theme in Root.js), so the canvas follows
+   the theme too: light off-white in light mode, a lifted off-navy card in dark
+   mode. */
 .preview {
   padding: 1.5em;
-  /* The library's web build forces a dark default text color (#1F2937) and the
-     shared example markdownStyle is tuned for a light surface, so pin the
-     preview canvas to the light off-white in both themes to guarantee contrast
-     (avoids dark-on-dark in dark mode). The surrounding chrome stays
-     theme-aware. */
   background-color: var(--swm-off-white);
+}
+
+:global([data-theme='dark']) .preview {
+  background-color: var(--swm-light-off-navy);
 }
 
 .loading {

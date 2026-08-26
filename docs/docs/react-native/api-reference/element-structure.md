@@ -3,6 +3,10 @@ sidebar_label: Element structure
 sidebar_position: 4
 ---
 
+import InteractiveExample from '@site/src/components/InteractiveExample';
+import FirstText from '@site/src/examples/react-native/basics/your-first-project/FirstText';
+import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
+
 # Element structure
 
 :::caution
@@ -138,3 +142,7 @@ Some elements support unlimited nesting depth with automatic indentation:
 - **Blockquotes** — each level adds a new accent bar.
 - **Unordered lists** — each level indents with `marginLeft`.
 - **Ordered lists** — each level indents and maintains separate numbering.
+
+## Try it yourself
+
+<InteractiveExample src={FirstTextSrc} component={FirstText} />

@@ -3,6 +3,10 @@ sidebar_label: EnrichedMarkdownText
 sidebar_position: 1
 ---
 
+import InteractiveExample from '@site/src/components/InteractiveExample';
+import FirstText from '@site/src/examples/react-native/basics/your-first-project/FirstText';
+import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
+
 # EnrichedMarkdownText
 
 :::caution
@@ -115,3 +119,7 @@ You can customize the styles of all Markdown elements using the `markdownStyle` 
 ### Dark mode
 
 The library uses light-mode defaults. To support dark mode, pass a dark `markdownStyle` object — your values always take priority over the defaults. See the [Dark mode](/react-native/api-reference/style-properties#dark-mode) section in the Style properties reference for a ready-to-use example with `useColorScheme()`.
+
+## Try it yourself
+
+<InteractiveExample src={FirstTextSrc} component={FirstText} />

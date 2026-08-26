@@ -54,21 +54,27 @@ support matrix, used on `misc/compatibility.mdx`), `Row`, `Grid`, `Indent`,
 ### Interactive examples
 
 `InteractiveExample` renders a Preview/Code demo, following the same model as
-the react-native-enriched-html docs: **one `.tsx` file in `src/examples/` is
-the single source of truth** - shown as code and run live. A doc page imports
-that file twice and passes both to the component:
+the react-native-enriched-html docs: **one `.tsx` file under `src/examples/` is
+the single source of truth** - shown as code and run live. Example files mirror
+the `docs/` tree of the page that introduces them (e.g. the "Your first ..."
+page at `docs/react-native/basics/your-first-project.mdx` owns
+`src/examples/react-native/basics/your-first-project/FirstText.tsx` and `.../FirstEditor.tsx`), so
+the folder stays navigable as examples multiply across sections and platforms.
+A doc page imports that file twice and passes both to the component:
 
 ```mdx
 import InteractiveExample from '@site/src/components/InteractiveExample';
-import BasicText from '@site/src/examples/BasicText';
-import BasicTextSrc from '!!raw-loader!@site/src/examples/BasicText';
+import FirstText from '@site/src/examples/react-native/basics/your-first-project/FirstText';
+import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
 
-<InteractiveExample src={BasicTextSrc} component={BasicText} />
+<InteractiveExample src={FirstTextSrc} component={FirstText} />
 ```
 
 `component` runs live in the Preview tab (with a Reset button that remounts it);
 `src` (the raw file text via `raw-loader`) shows in the Code tab. Author new
-examples as `export default function App()` components in `src/examples/`.
+examples as `export default function App()` components under the mirrored
+`src/examples/` path, named for what they show (`FirstText`, `FirstEditor`) - not
+generic (`BasicText`).
 
 For an **editable** playground use `LivePreview` instead
 (`src/components/LivePreview`, powered by `react-live`): it takes only `src`,
@@ -106,7 +112,7 @@ installed (`yarn`) for the interactive examples to build.
 The editable input (`EnrichedMarkdownTextInput`) is not web-ready yet. For
 input examples, import only the source via `raw-loader` and pass `comingSoon`
 so the Code tab still shows the code while the Preview shows a "coming soon"
-banner: `<InteractiveExample src={BasicInputSrc} comingSoon />`.
+banner: `<InteractiveExample src={FirstEditorSrc} comingSoon />`.
 
 ## Site configuration (`docusaurus.config.js`)
 

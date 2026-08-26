@@ -3,6 +3,9 @@ sidebar_label: EnrichedMarkdownTextInput
 sidebar_position: 2
 ---
 
+import InteractiveExample from '@site/src/components/InteractiveExample';
+import FirstEditorSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstEditor';
+
 # EnrichedMarkdownTextInput
 
 :::caution
@@ -257,3 +260,7 @@ Available style properties:
 - `spoiler.color` — text color for spoiler text.
 - `spoiler.backgroundColor` — background color for spoiler text.
 - `h1`–`h6` — per-level heading styling, each accepting `fontSize`, `fontWeight`, and `color`. Defaults match the read-only `EnrichedMarkdownText` renderer (sizes `30/24/20/18/16/14`, bold) so headings look the same in the editor and a rendered preview. Omitted levels (or fields) fall back to those defaults.
+
+## Try it yourself
+
+<InteractiveExample src={FirstEditorSrc} comingSoon />

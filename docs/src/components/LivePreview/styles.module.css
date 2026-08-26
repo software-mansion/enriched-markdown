@@ -1,7 +1,5 @@
 .container {
-  display: flex;
-  flex-direction: column;
-  contain: content;
+  position: relative;
   background-color: var(--swm-off-background);
   border: 1px solid var(--swm-border);
   border-radius: var(--ifm-global-radius);
@@ -9,74 +7,32 @@
   overflow: hidden;
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5em 1.25em;
-  border-bottom: 1px solid var(--swm-border);
-}
-
-.label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  color: var(--swm-interactive-button-color);
-  font-family: var(--swm-body-font);
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.liveDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--swm-green-light-100, #57b495);
-}
-
-.reset {
-  padding: 2px 12px;
-  border: 1px solid var(--swm-border);
-  border-radius: 20px;
-  background-color: transparent;
-  color: var(--swm-interactive-button-color);
-  cursor: pointer;
-  font-family: var(--swm-body-font);
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.reset:hover {
-  color: var(--swm-tab-active);
-  border-color: var(--swm-tab-active);
-}
-
-/* The library's web build forces a dark default text color and the shared
-   example markdownStyle is tuned for a light surface, so pin the preview canvas
-   to the light off-white in both themes to guarantee contrast. */
+/* The example switches its own text colors on color scheme (react-native
+   useColorScheme, synced to the site theme in Root.js), so the canvas follows
+   the theme too: light off-white in light mode, a lifted off-navy card in dark
+   mode. */
 .preview {
   padding: 1.5em;
   background-color: var(--swm-off-white);
 }
 
-.editorLabel {
-  padding: 0.4em 1.25em;
-  border-top: 1px solid var(--swm-border);
-  border-bottom: 1px solid var(--swm-border);
-  background-color: var(--swm-off-background);
-  color: var(--swm-interactive-button-color);
-  font-family: var(--swm-body-font);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+:global([data-theme='dark']) .preview {
+  background-color: var(--swm-light-off-navy);
 }
 
+.hidden {
+  display: none;
+}
+
+/* Match the read-only CodeBlock surface (site theme + off-background) rather
+   than react-live's default dark VS Code look. Colors come from the prism
+   theme passed to LiveProvider; the background/border are set here. */
 .editor {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 13.5px;
+  font-size: var(--ifm-code-font-size);
   overflow: auto;
   max-height: 420px;
+  background-color: var(--swm-off-background);
 }
 
 /* react-live wraps the textarea + highlighted pre; keep them aligned and let

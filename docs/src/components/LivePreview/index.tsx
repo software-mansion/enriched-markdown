@@ -1,5 +1,13 @@
 import React from 'react';
+import clsx from 'clsx';
 import BrowserOnly from '@docusaurus/BrowserOnly';
+import { useColorMode } from '@docusaurus/theme-common';
+import ExampleControls, {
+  EditableBadge,
+  type ExampleTab,
+} from '@site/src/components/ExampleControls';
+import lightCodeTheme from '@site/src/theme/CodeBlock/highlighting-light.js';
+import darkCodeTheme from '@site/src/theme/CodeBlock/highlighting-dark.js';
 import styles from './styles.module.css';
 
 // A live, editable playground: the code is shown in an editor and the Preview
@@ -23,6 +31,34 @@ interface Props {
   scope?: Record<string, unknown>;
 }
 
+// The floating control cluster lives inside <LiveProvider>, so it can read the
+// reader's current (edited) code from react-live's context for the copy button.
+// `liveContext` is passed in because react-live is required lazily (SSR-safe).
+// react-live keeps the `code` prop static and exposes the latest transpiled
+// source as `newCode`, so copy prefers `newCode` to grab the reader's edits.
+function LiveControls({
+  liveContext,
+  tab,
+  onTabChange,
+  onReset,
+}: {
+  liveContext: React.Context<{ code: string; newCode?: string }>;
+  tab: ExampleTab;
+  onTabChange: (tab: ExampleTab) => void;
+  onReset: () => void;
+}) {
+  const { code, newCode } = React.useContext(liveContext);
+  return (
+    <ExampleControls
+      tab={tab}
+      onTabChange={onTabChange}
+      getCopyText={() => newCode ?? code}
+      onReset={onReset}
+      badge={tab === 'code' ? <EditableBadge /> : undefined}
+    />
+  );
+}
+
 // Turn an example module ("import ...; export default function App() {...}")
 // into something react-live can run in `noInline` mode: strip imports (their
 // bindings come from `scope`) and render <App />.
@@ -39,85 +75,120 @@ function toRenderable(code: string): string {
   );
 }
 
-export default function LivePreview({ src, scope }: Props) {
-  const [resetKey, setResetKey] = React.useState(0);
+// The react-live tree lives in its own component (rendered inside BrowserOnly)
+// so `scope` can be memoized. react-live re-runs its transpile effect whenever
+// the `scope` identity changes; an unmemoized scope rebuilt every render would
+// re-transpile the original `src` on each keystroke and revert the reader's
+// edits, so the memo is what makes live editing actually update the preview.
+function Playground({
+  src,
+  scope,
+  codeTheme,
+  tab,
+  onTabChange,
+  resetKey,
+  onReset,
+}: {
+  src: string;
+  scope?: Record<string, unknown>;
+  codeTheme: unknown;
+  tab: ExampleTab;
+  onTabChange: (tab: ExampleTab) => void;
+  resetKey: number;
+  onReset: () => void;
+}) {
+  // Required lazily so nothing here is evaluated during server-side rendering.
+  const {
+    LiveProvider,
+    LiveEditor,
+    LivePreview: LivePreviewPane,
+    LiveError,
+    LiveContext,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+  } = require('react-live');
+  const RN = require('react-native');
+  const {
+    EnrichedMarkdownText,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+  } = require('react-native-enriched-markdown');
+
+  const fullScope = React.useMemo(
+    () => ({
+      React,
+      useState: React.useState,
+      useRef: React.useRef,
+      useEffect: React.useEffect,
+      useMemo: React.useMemo,
+      useCallback: React.useCallback,
+      useColorScheme: RN.useColorScheme,
+      View: RN.View,
+      Text: RN.Text,
+      Button: RN.Button,
+      Pressable: RN.Pressable,
+      StyleSheet: RN.StyleSheet,
+      Linking: RN.Linking,
+      EnrichedMarkdownText,
+      ...scope,
+    }),
+    // Module requires are stable; only the caller-supplied `scope` can change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scope]
+  );
 
   return (
-    <BrowserOnly
-      fallback={<div className={styles.container}>Loading…</div>}
+    <LiveProvider
+      key={resetKey}
+      code={src.trim()}
+      transformCode={toRenderable}
+      scope={fullScope}
+      theme={codeTheme}
+      noInline
     >
-      {() => {
-        // Required lazily inside BrowserOnly so nothing here is evaluated
-        // during server-side rendering.
-        const {
-          LiveProvider,
-          LiveEditor,
-          LivePreview: LivePreviewPane,
-          LiveError,
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-        } = require('react-live');
-        const { themes } = require('prism-react-renderer');
-        const RN = require('react-native');
-        const {
-          EnrichedMarkdownText,
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-        } = require('react-native-enriched-markdown');
+      <div className={styles.container}>
+        <LiveControls
+          liveContext={LiveContext}
+          tab={tab}
+          onTabChange={onTabChange}
+          onReset={onReset}
+        />
 
-        const fullScope = {
-          React,
-          useState: React.useState,
-          useRef: React.useRef,
-          useEffect: React.useEffect,
-          useMemo: React.useMemo,
-          useCallback: React.useCallback,
-          View: RN.View,
-          Text: RN.Text,
-          Button: RN.Button,
-          Pressable: RN.Pressable,
-          StyleSheet: RN.StyleSheet,
-          Linking: RN.Linking,
-          EnrichedMarkdownText,
-          ...scope,
-        };
+        {/* Both panes stay mounted and the inactive one is hidden, so the
+            editor keeps the reader's edits: react-live re-seeds a remounted
+            LiveEditor from the static `code` prop, losing typed changes. */}
+        <div
+          className={clsx(styles.preview, tab !== 'preview' && styles.hidden)}
+        >
+          <LivePreviewPane />
+        </div>
+        <div className={clsx(styles.editor, tab !== 'code' && styles.hidden)}>
+          <LiveEditor />
+        </div>
 
-        return (
-          <LiveProvider
-            key={resetKey}
-            code={src.trim()}
-            transformCode={toRenderable}
-            scope={fullScope}
-            theme={themes.vsDark}
-            noInline
-          >
-            <div className={styles.container}>
-              <div className={styles.toolbar}>
-                <span className={styles.label}>
-                  <span className={styles.liveDot} />
-                  Live example — edit the code
-                </span>
-                <button
-                  type="button"
-                  className={styles.reset}
-                  onClick={() => setResetKey((key) => key + 1)}
-                >
-                  Reset
-                </button>
-              </div>
+        <LiveError className={styles.error} />
+      </div>
+    </LiveProvider>
+  );
+}
 
-              <div className={styles.preview}>
-                <LivePreviewPane />
-              </div>
+export default function LivePreview({ src, scope }: Props) {
+  const [tab, setTab] = React.useState<ExampleTab>('preview');
+  const [resetKey, setResetKey] = React.useState(0);
+  const { colorMode } = useColorMode();
+  const codeTheme = colorMode === 'dark' ? darkCodeTheme : lightCodeTheme;
 
-              <div className={styles.editorLabel}>Code (editable)</div>
-              <div className={styles.editor}>
-                <LiveEditor />
-              </div>
-
-              <LiveError className={styles.error} />
-            </div>
-          </LiveProvider>
-        );
-      }}
+  return (
+    <BrowserOnly fallback={<div className={styles.container}>Loading…</div>}>
+      {() => (
+        <Playground
+          src={src}
+          scope={scope}
+          codeTheme={codeTheme}
+          tab={tab}
+          onTabChange={setTab}
+          resetKey={resetKey}
+          onReset={() => setResetKey((key) => key + 1)}
+        />
+      )}
     </BrowserOnly>
   );
 }

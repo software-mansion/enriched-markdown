@@ -5,14 +5,10 @@ sidebar_position: 2
 
 import InteractiveExample from '@site/src/components/InteractiveExample';
 import LivePreview from '@site/src/components/LivePreview';
-import BasicTextSrc from '!!raw-loader!@site/src/examples/BasicText';
-import BasicInputSrc from '!!raw-loader!@site/src/examples/BasicInput';
+import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
+import FirstEditorSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstEditor';
 
 # Your first markdown view and editor
-
-:::caution
-THIS PAGE IS WORK IN PROGRESS
-:::
 
 With the package [installed](/react-native/basics/installation), let's put both components on the screen: `EnrichedMarkdownText` to **display rich text** and `EnrichedMarkdownTextInput` to **edit it**. By the end of this page you'll have rendered your first Markdown and built a minimal editor with a working toolbar button.
 
@@ -20,13 +16,11 @@ With the package [installed](/react-native/basics/installation), let's put both 
 
 `EnrichedMarkdownText` is a read-only component. You give it a Markdown string through the `markdown` prop and it renders fully native text - no WebView involved.
 
-<LivePreview src={BasicTextSrc} />
+<LivePreview src={FirstTextSrc} />
 
 That's the whole setup for a display. The `onLinkPress` callback fires when the reader taps a link - here we hand the URL off to React Native's `Linking` so it opens in the browser.
 
-You can restyle every element through the `markdownStyle` prop - see the [`EnrichedMarkdownText` reference](/react-native/api-reference/enriched-markdown-text) for the full list.
-
-//todo ping dokładnej sekcji w linku
+You can restyle every element through the `markdownStyle` prop - see the [Style properties reference](/react-native/api-reference/style-properties) for the full list.
 
 ## Building an editor
 
@@ -34,14 +28,14 @@ You can restyle every element through the `markdownStyle` prop - see the [`Enric
 
 Here's a minimal editor with a single toolbar button that toggles **bold** and reflects whether bold is currently active:
 
-<InteractiveExample src={BasicInputSrc} comingSoon />
+<InteractiveExample src={FirstEditorSrc} comingSoon />
 
 Two things are worth calling out, because every editor feature follows the same two patterns:
 
-1. **You apply formatting by calling methods on the ref.** The ref is typed as `EnrichedMarkdownTextInputInstance`. Pressing the button calls `ref.current?.toggleBold()`, which toggles bold across the current selection — or arms it for the next characters you type when there's no selection.
+1. **You apply formatting by calling methods on the ref.** The ref is typed as `EnrichedMarkdownTextInputInstance`. Pressing the button calls `ref.current?.toggleBold()`, which toggles bold across the current selection - or arms it for the next characters you type when there's no selection.
 2. **You read formatting from the `onChangeState` callback.** Its payload has one entry per style (`bold`, `italic`, and so on), each with an `isActive` flag. That's what lets the button know whether to say "Bold" or "Unbold" and change color.
 
-The same `toggle` / `onChangeState` pair drives italic, underline, strikethrough, spoiler, and headings — so extending the toolbar is mostly repeating this shape. The input also ships a native format bar on selection out of the box, so basic formatting works even before you build any UI. See the [`EnrichedMarkdownTextInput` reference](/react-native/api-reference/enriched-markdown-text-input) for the full set of methods and events.
+The same `toggle` / `onChangeState` pair drives italic, underline, strikethrough, spoiler, and headings - so extending the toolbar is mostly repeating this shape. The input also ships a native format bar on selection out of the box, so basic formatting works even before you build any UI. See the [`EnrichedMarkdownTextInput` reference](/react-native/api-reference/enriched-markdown-text-input) for the full set of methods and events.
 
 ## How the two fit together
 
