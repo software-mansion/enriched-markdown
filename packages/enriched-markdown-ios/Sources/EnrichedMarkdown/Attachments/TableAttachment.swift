@@ -24,6 +24,7 @@ struct TableAttachmentStyle: Equatable {
     static let `default` = TableAttachmentStyle()
 
     var font: UIFont?
+    var headerFont: UIFont?
     var fontSize: CGFloat = 14
     var lineHeight: CGFloat = 20
     var textColor = UIColor.label
@@ -64,6 +65,7 @@ struct TableAttachmentStyle: Equatable {
             font = value
             fontSize = value.pointSize
         }
+        if let value = table.headerFont { headerFont = value }
         if let value = table.lineHeight { lineHeight = value }
         if let value = table.borderWidth { borderWidth = value }
         if let value = table.borderRadius { cornerRadius = value }

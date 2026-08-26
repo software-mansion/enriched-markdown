@@ -304,6 +304,7 @@ public struct TableStyle: Equatable, Sendable {
     public var font: UIFont?
     public var foregroundColor: UIColor?
     public var lineHeight: CGFloat?
+    public var headerFont: UIFont?
     public var headerTextColor: UIColor?
     public var headerBackgroundColor: UIColor?
     public var rowEvenBackgroundColor: UIColor?
@@ -321,6 +322,7 @@ public struct TableStyle: Equatable, Sendable {
         font: UIFont? = nil,
         foregroundColor: UIColor? = nil,
         lineHeight: CGFloat? = nil,
+        headerFont: UIFont? = nil,
         headerTextColor: UIColor? = nil,
         headerBackgroundColor: UIColor? = nil,
         rowEvenBackgroundColor: UIColor? = nil,
@@ -337,6 +339,7 @@ public struct TableStyle: Equatable, Sendable {
         self.font = font
         self.foregroundColor = foregroundColor
         self.lineHeight = lineHeight
+        self.headerFont = headerFont
         self.headerTextColor = headerTextColor
         self.headerBackgroundColor = headerBackgroundColor
         self.rowEvenBackgroundColor = rowEvenBackgroundColor
@@ -355,6 +358,7 @@ public struct TableStyle: Equatable, Sendable {
         font = other.font ?? font
         foregroundColor = other.foregroundColor ?? foregroundColor
         lineHeight = other.lineHeight ?? lineHeight
+        headerFont = other.headerFont ?? headerFont
         headerTextColor = other.headerTextColor ?? headerTextColor
         headerBackgroundColor = other.headerBackgroundColor ?? headerBackgroundColor
         rowEvenBackgroundColor = other.rowEvenBackgroundColor ?? rowEvenBackgroundColor

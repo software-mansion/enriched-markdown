@@ -4,6 +4,7 @@ public struct Table: MarkdownThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
+    public var headerFontSpec: ThemeFontSpec?
     public var foregroundColorSpec: ThemeColorSpec?
     public var headerTextColorSpec: ThemeColorSpec?
     public var headerBackgroundColorSpec: ThemeColorSpec?
@@ -21,6 +22,12 @@ public struct Table: MarkdownThemeElement {
     public var align: TableAlignment?
 
     public init() {}
+
+    public func headerFontFamily(_ name: String, size: CGFloat) -> Self {
+        var copy = self
+        copy.headerFontSpec = .custom(name: name, size: size)
+        return copy
+    }
 
     public func headerTextColor(_ color: Color) -> Self {
         var copy = self
@@ -149,6 +156,15 @@ public struct Table: MarkdownThemeElement {
                 weight: fontWeight,
                 design: fontDesign,
                 to: config.table.font,
+                traitCollection: traitCollection
+            )
+        }
+        if headerFontSpec != nil {
+            config.table.headerFont = ThemeResolver.applyFont(
+                spec: headerFontSpec,
+                weight: nil,
+                design: nil,
+                to: config.table.headerFont,
                 traitCollection: traitCollection
             )
         }

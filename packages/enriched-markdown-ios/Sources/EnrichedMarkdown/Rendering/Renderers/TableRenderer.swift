@@ -85,10 +85,11 @@ final class TableRenderer: NodeRenderer {
         let base = style.font
             ?? (config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)).withSize(style.fontSize)
         guard isHeader else { return base }
-        guard let boldDescriptor = base.fontDescriptor.withSymbolicTraits(.traitBold) else {
-            return base
+        let headerBase = style.headerFont ?? base
+        guard let boldDescriptor = headerBase.fontDescriptor.withSymbolicTraits(.traitBold) else {
+            return headerBase
         }
-        return UIFont(descriptor: boldDescriptor, size: base.pointSize)
+        return UIFont(descriptor: boldDescriptor, size: headerBase.pointSize)
     }
 
     private func applyParagraphStyle(

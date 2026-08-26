@@ -105,6 +105,27 @@ final class TableThemingTests: XCTestCase {
         XCTAssertEqual(centerStyle?.maximumLineHeight, 20)
     }
 
+    func testHeaderFontFamilyOverridesHeaderCellsOnly() {
+        var config = MarkdownStyleConfig.baseline()
+        Table()
+            .headerFontFamily("Helvetica", size: 13)
+            .apply(to: &config, traitCollection: .current)
+        XCTAssertEqual(config.table.headerFont?.familyName, "Helvetica")
+        XCTAssertEqual(config.table.headerFont?.pointSize, 13)
+
+        guard let table = attachment(for: tableMarkdown, config: config) else {
+            return XCTFail("no table")
+        }
+        let headerFont = table.model.rows[0][0].attributedText
+            .attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+        let bodyFont = table.model.rows[1][0].attributedText
+            .attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+
+        XCTAssertEqual(headerFont?.familyName, "Helvetica")
+        XCTAssertEqual(headerFont?.fontDescriptor.symbolicTraits.contains(.traitBold), true)
+        XCTAssertNotEqual(bodyFont?.familyName, "Helvetica")
+    }
+
     func testHeaderCellsUseBoldFont() {
         guard let table = attachment(for: tableMarkdown) else { return XCTFail("no table") }
 
