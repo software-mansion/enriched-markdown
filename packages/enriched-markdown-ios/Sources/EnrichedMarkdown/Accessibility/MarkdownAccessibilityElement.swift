@@ -6,10 +6,17 @@ import UIKit
 class MarkdownAccessibilityElement: UIAccessibilityElement {
     private(set) weak var textView: MarkdownTextView?
     let range: NSRange
+    /// For table rows: vertical slice of the attachment frame.
+    private let rowSlice: (offset: CGFloat, height: CGFloat)?
 
     init(textView: MarkdownTextView, spec: MarkdownAccessibilityElementSpec) {
         self.textView = textView
         self.range = spec.range
+        if case .tableRow(let offset, let height, _) = spec.kind {
+            self.rowSlice = (offset, height)
+        } else {
+            self.rowSlice = nil
+        }
         super.init(accessibilityContainer: textView)
 
         accessibilityLabel = spec.label
@@ -28,11 +35,22 @@ class MarkdownAccessibilityElement: UIAccessibilityElement {
             accessibilityTraits = .link
         case .image:
             accessibilityTraits = .image
+        case .tableRow(_, _, let isHeader):
+            accessibilityTraits = isHeader ? [.staticText, .header] : .staticText
         }
     }
 
     override var accessibilityFrame: CGRect {
-        get { textView?.accessibilityScreenFrame(for: range) ?? .zero }
+        get {
+            guard var frame = textView?.accessibilityScreenFrame(for: range), frame != .zero else {
+                return .zero
+            }
+            if let rowSlice {
+                frame.origin.y += rowSlice.offset
+                frame.size.height = rowSlice.height
+            }
+            return frame
+        }
         set { super.accessibilityFrame = newValue }
     }
 }

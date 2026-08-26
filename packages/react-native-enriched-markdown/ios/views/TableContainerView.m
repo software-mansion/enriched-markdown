@@ -238,6 +238,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     _allowFontScaling = YES;
     _maxFontSizeMultiplier = 0;
     _enableLinkPreview = YES;
+    _enableBlockContextMenu = YES;
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection = NSWritingDirectionLeftToRight;
     [self setupScrollView];
@@ -266,7 +267,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   __weak TableContainerView *weakSelf = self;
   gridView.menuProvider = ^NSMenu * {
     TableContainerView *strongSelf = weakSelf;
-    if (!strongSelf)
+    if (!strongSelf || !strongSelf.enableBlockContextMenu)
       return nil;
     NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
     [menu addItem:ENRMCreateMenuItem(strongSelf.copyLabel, ^{ [strongSelf copyTableToPasteboard]; })];
@@ -461,6 +462,9 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
+  if (!self.enableBlockContextMenu) {
+    return nil;
+  }
   return [UIContextMenuConfiguration
       configurationWithIdentifier:nil
                   previewProvider:nil

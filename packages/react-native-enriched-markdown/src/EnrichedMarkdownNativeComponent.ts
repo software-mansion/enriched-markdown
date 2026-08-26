@@ -421,6 +421,11 @@ export interface NativeProps extends ViewProps {
    */
   onCopyPress?: CodegenTypes.BubblingEventHandler<CopyPressEvent>;
   /**
+   * Controls the long-press copy menu on code blocks, tables, and block math.
+   * @default true
+   */
+  enableBlockContextMenu?: CodegenTypes.WithDefault<boolean, true>;
+  /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *
    * When `true` (default), long-pressing a link shows the native iOS link preview.

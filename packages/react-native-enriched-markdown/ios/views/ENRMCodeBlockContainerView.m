@@ -204,6 +204,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _config = config;
     _cachedCode = @"";
     _fenceChar = @"`";
+    _enableBlockContextMenu = YES;
     _headerFont = ENRMCodeBlockHeaderFont(config);
     _headerLabelLineHeight = ENRMCodeBlockHeaderLabelLineHeight(_headerFont);
     self.backgroundColor = [RCTUIColor clearColor];
@@ -486,7 +487,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  if (_pending) {
+  if (!_enableBlockContextMenu || _pending) {
     return nil;
   }
   return [UIContextMenuConfiguration
@@ -513,7 +514,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if TARGET_OS_OSX
 - (NSMenu *)buildContextMenu
 {
-  if (_pending) {
+  if (!_enableBlockContextMenu || _pending) {
     return nil;
   }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];

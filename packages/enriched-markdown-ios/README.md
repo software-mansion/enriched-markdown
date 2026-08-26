@@ -148,6 +148,7 @@ The `MarkdownTheme` builder supports these elements:
 | `Blockquote()` | Block quotes |
 | `List()` | Ordered and unordered lists |
 | `TaskList()` | Task-list checkboxes (`- [x]`) |
+| `Table()` | GFM tables |
 | `BlockImage()` | Block images |
 | `InlineImage()` | Inline images |
 | `ThematicBreak()` | Horizontal rules |
@@ -163,6 +164,7 @@ Element-specific modifiers include:
 - **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
+- **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius` / `.borderRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.align`
 - **BlockImage:** `.height`, `.borderRadius`
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.color` / `.foregroundStyle`, `.height`
@@ -200,7 +202,7 @@ public struct Md4cFlags: Equatable, Sendable {
 }
 ```
 
-`underline`, `hardSoftBreaks`, and `permissiveAutolinks` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text.
+`underline`, `hardSoftBreaks`, and `permissiveAutolinks` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
 
 ### `.markdownTheme`
 
@@ -320,6 +322,24 @@ VoiceOver walks the rendered markdown as individual elements rather than one tex
 
 Dynamic Type is supported throughout via text styles in the default theme.
 
+## Tables
+
+GFM tables render as live views inside the text: columns size to their
+content (wrapping long cells), and a table wider than the view scrolls
+horizontally in place. Cells support inline styling — bold, italic, code,
+strikethrough, and tappable links.
+
+Long-pressing a table offers **Copy** (tab-separated text) and **Copy as
+Markdown** (the pipe table rebuilt with alignment separators and inline
+markers). Text selection treats a table as a single character; copying a
+selection that spans one produces the table as tab-separated text, a
+semantic `<table>` in the HTML flavor, and the pipe table in
+markdown-based copies. VoiceOver reads one element per row.
+
+Styling comes from the `Table()` theme element (header colors, row
+striping, borders, cell padding, alignment); the defaults adapt to light
+and dark mode.
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
@@ -331,6 +351,7 @@ Dynamic Type is supported throughout via text styles in the default theme.
 - Block quotes
 - Ordered and unordered lists
 - Task lists (`- [x]` / `- [ ]`, display-only checkboxes)
+- Tables (GFM: column alignment, per-cell wrapping, horizontal scrolling)
 - Links and images (block and inline)
 - Autolinked bare URLs, `www.` links, and emails (`permissiveAutolinks`, on by default)
 - Thematic breaks (`---`)

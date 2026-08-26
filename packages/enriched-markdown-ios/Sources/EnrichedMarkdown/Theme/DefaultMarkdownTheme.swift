@@ -104,6 +104,19 @@ enum DefaultMarkdownTheme {
                 .checkmarkColor(.white)
                 .checkboxSize(14)
                 .checkboxBorderRadius(3)
+
+            Table()
+                .lineHeight(20)
+                .foregroundStyle(Semantic.primary)
+                .headerTextColor(Semantic.primary)
+                .headerBackground(Color(UIColor.tertiarySystemFill))
+                .rowOddBackground(Color(UIColor.quaternarySystemFill))
+                .borderColor(Color(UIColor.separator))
+                .borderWidth(1)
+                .cornerRadius(6)
+                .cellPaddingHorizontal(12)
+                .cellPaddingVertical(8)
+                .marginBottom(16)
         }
     }
 }

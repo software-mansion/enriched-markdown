@@ -123,6 +123,12 @@ class EnrichedMarkdown
           it.enableTaskListItemToggle = value
         }
       }
+    var enableBlockContextMenu: Boolean = true
+      set(value) {
+        if (field == value) return
+        field = value
+        pushBlockContextMenuToSegments()
+      }
 
     fun setMarkdownContent(markdown: String) {
       if (currentMarkdown == markdown) return
@@ -315,6 +321,28 @@ class EnrichedMarkdown
               view.javaClass
                 .getMethod("setCopyAsMarkdownLabel", String::class.java)
                 .invoke(view, copyAsMarkdownLabel)
+            }
+          }
+        }
+      }
+    }
+
+    private fun pushBlockContextMenuToSegments() {
+      segmentViews.forEach { view ->
+        when {
+          view is TableContainerView -> {
+            view.enableBlockContextMenu = enableBlockContextMenu
+          }
+
+          view is CodeBlockContainerView -> {
+            view.enableBlockContextMenu = enableBlockContextMenu
+          }
+
+          isMathContainerView(view) -> {
+            runCatching {
+              view.javaClass
+                .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
+                .invoke(view, enableBlockContextMenu)
             }
           }
         }
@@ -599,6 +627,7 @@ class EnrichedMarkdown
       segment: RenderedSegment.Table,
       style: StyleConfig,
     ) = TableContainerView(context, style).apply {
+      enableBlockContextMenu = this@EnrichedMarkdown.enableBlockContextMenu
       allowFontScaling = this@EnrichedMarkdown.allowFontScaling
       maxFontSizeMultiplier = this@EnrichedMarkdown.maxFontSizeMultiplier
       accessibilityLabels = this@EnrichedMarkdown.accessibilityLabels
@@ -613,6 +642,7 @@ class EnrichedMarkdown
       segment: RenderedSegment.CodeBlock,
       style: StyleConfig,
     ) = CodeBlockContainerView(context, style).apply {
+      enableBlockContextMenu = this@EnrichedMarkdown.enableBlockContextMenu
       copyLabel = this@EnrichedMarkdown.selectionMenuConfig.copyLabel
       copyAsMarkdownLabel = this@EnrichedMarkdown.selectionMenuConfig.copyAsMarkdownLabel
       onCopyPress = { code, language ->
@@ -638,6 +668,9 @@ class EnrichedMarkdown
             .getMethod("setAccessibilityLabels", AccessibilityLabels::class.java)
             .invoke(view, accessibilityLabels)
         }
+        resolvedClass
+          .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
+          .invoke(view, enableBlockContextMenu)
         resolvedClass
           .getMethod("setCopyLabel", String::class.java)
           .invoke(view, selectionMenuConfig.copyLabel)

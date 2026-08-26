@@ -37,12 +37,18 @@ Use `selectionMenuConfig` to hide built-in selection menu actions while keeping 
 ```tsx
 <EnrichedMarkdownText
   markdown={content}
+  enableBlockContextMenu={false}
   selectionMenuConfig={{
     copyAsMarkdown: { enabled: false },
     copyImageUrl: { enabled: false },
   }}
 />
 ```
+
+On iOS, Android, and macOS, `enableBlockContextMenu={false}` disables the
+long-press popup on code blocks, tables, and block math. It leaves the
+code-block header copy button, accessibility copy action, and system
+text-selection menu unchanged.
 
 `EnrichedMarkdownTextInput` supports the same `{ enabled, label }` shape. In addition to `copyAsMarkdown`, the input's `selectionMenuConfig` exposes the built-in **Format** submenu, and `formatMenuConfig` controls the items inside it:
 

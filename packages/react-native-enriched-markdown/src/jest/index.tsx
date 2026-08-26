@@ -18,7 +18,7 @@
  * silently drift from the real component.
  */
 import { useImperativeHandle, useRef, useState } from 'react';
-import type { ComponentRef } from 'react';
+import type { ComponentRef, ReactNode } from 'react';
 import { Text, TextInput } from 'react-native';
 import type {
   CaretRect,
@@ -26,6 +26,11 @@ import type {
   EnrichedMarkdownTextInputProps,
 } from '../EnrichedMarkdownTextInput';
 import type { EnrichedMarkdownTextProps } from '../native/EnrichedMarkdownText';
+import type {
+  LinkPressEvent,
+  LinkLongPressEvent,
+  TaskListItemPressEvent,
+} from '../types/events';
 
 export {
   DEFAULT_ACCESSIBILITY_LABELS,
@@ -155,6 +160,129 @@ export const EnrichedMarkdownTextInput = ({
   );
 };
 
+// Composable transforms: split raw-string segments into React children.
+// To add a feature, write a transform and append it to `buildChildren`.
+type Segment = string | ReactNode;
+type TransformFn = (text: string) => Segment[];
+
+type BuildChildrenOptions = Pick<
+  EnrichedMarkdownTextProps,
+  'onLinkPress' | 'onLinkLongPress' | 'onTaskListItemPress'
+>;
+
+const INLINE_FMT_RE = /\*{1,2}|_{1,2}/g;
+const LINK_RE = /\[([^\]]+)\]\(([^)]+)\)/g;
+const TASK_ITEM_RE = /^- \[([ xX])\] (.+)$/gm;
+
+function stripInlineFormatting(text: string): string {
+  return text.replace(INLINE_FMT_RE, '');
+}
+
+function splitByPattern(
+  segment: string,
+  regex: RegExp,
+  renderMatch: (match: RegExpExecArray) => Segment
+): Segment[] {
+  const parts: Segment[] = [];
+  let lastIndex = 0;
+  regex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(segment)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(segment.slice(lastIndex, match.index));
+    }
+    parts.push(renderMatch(match));
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < segment.length) {
+    parts.push(segment.slice(lastIndex));
+  }
+  return parts.length > 0 ? parts : [segment];
+}
+
+function applyTransform(
+  children: Segment[],
+  transformFn: TransformFn
+): Segment[] {
+  return children.flatMap((child) =>
+    typeof child === 'string' ? transformFn(child) : child
+  );
+}
+
+function createLinkTransform(
+  onLinkPress?: (event: LinkPressEvent) => void,
+  onLinkLongPress?: (event: LinkLongPressEvent) => void
+): TransformFn {
+  let keyCounter = 0;
+  return (segment) =>
+    splitByPattern(segment, LINK_RE, (match) => {
+      const linkText = stripInlineFormatting(match[1]!);
+      const url = match[2]!;
+      return (
+        <Text
+          key={`link-${keyCounter++}`}
+          accessibilityRole="link"
+          onPress={() => onLinkPress?.({ url })}
+          onLongPress={
+            onLinkLongPress ? () => onLinkLongPress({ url }) : undefined
+          }
+        >
+          {linkText}
+        </Text>
+      );
+    });
+}
+
+function createTaskListTransform(
+  onTaskListItemPress?: (event: TaskListItemPressEvent) => void
+): TransformFn {
+  let itemIndex = 0;
+  return (segment) =>
+    splitByPattern(segment, TASK_ITEM_RE, (match) => {
+      const checked = match[1] !== ' ';
+      const text = match[2]!;
+      const currentIndex = itemIndex++;
+      return (
+        <Text
+          key={`task-${currentIndex}`}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked }}
+          onPress={() =>
+            onTaskListItemPress?.({
+              index: currentIndex,
+              checked: !checked,
+              text,
+            })
+          }
+        >
+          {`${checked ? '☑' : '☐'} ${text}`}
+        </Text>
+      );
+    });
+}
+
+function buildChildren(
+  markdown: string | undefined,
+  opts: BuildChildrenOptions
+): Segment[] {
+  let children: Segment[] = [String(markdown ?? '')];
+
+  const transforms: TransformFn[] = [
+    opts.onTaskListItemPress
+      ? createTaskListTransform(opts.onTaskListItemPress)
+      : undefined,
+    opts.onLinkPress || opts.onLinkLongPress
+      ? createLinkTransform(opts.onLinkPress, opts.onLinkLongPress)
+      : undefined,
+  ].filter((t): t is TransformFn => t != null);
+
+  for (const transform of transforms) {
+    children = applyTransform(children, transform);
+  }
+
+  return children;
+}
+
 export const EnrichedMarkdownText = ({
   markdown,
   containerStyle,
@@ -166,9 +294,9 @@ export const EnrichedMarkdownText = ({
   accessibilityState,
   nativeID,
   markdownStyle: _markdownStyle,
-  onLinkPress: _onLinkPress,
-  onLinkLongPress: _onLinkLongPress,
-  onTaskListItemPress: _onTaskListItemPress,
+  onLinkPress,
+  onLinkLongPress,
+  onTaskListItemPress,
   enableLinkPreview: _enableLinkPreview,
   selectable: _selectable,
   md4cFlags: _md4cFlags,
@@ -200,7 +328,11 @@ export const EnrichedMarkdownText = ({
       accessibilityState={accessibilityState}
       nativeID={nativeID}
     >
-      {markdown}
+      {buildChildren(markdown, {
+        onLinkPress,
+        onLinkLongPress,
+        onTaskListItemPress,
+      })}
     </Text>
   );
 };

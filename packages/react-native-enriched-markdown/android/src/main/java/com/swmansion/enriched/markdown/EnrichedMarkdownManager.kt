@@ -186,6 +186,13 @@ class EnrichedMarkdownManager :
     enableImagePress: Boolean,
   ) {
     view?.setEnableImagePress(enableImagePress)
+
+  @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
+  override fun setEnableBlockContextMenu(
+    view: EnrichedMarkdown?,
+    enableBlockContextMenu: Boolean,
+  ) {
+    view?.enableBlockContextMenu = enableBlockContextMenu
   }
 
   @ReactProp(name = "lineBreakStrategyIOS")

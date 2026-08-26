@@ -68,6 +68,7 @@
   if (self) {
     _config = config;
     _cachedLatex = @"";
+    _enableBlockContextMenu = YES;
 
     _mathView = [[ENRMRaTeXCanvasView alloc] initWithFrame:CGRectZero];
     _mathView.backgroundColor = [RCTUIColor clearColor];
@@ -124,6 +125,9 @@
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
+  if (!self.enableBlockContextMenu) {
+    return nil;
+  }
   return [UIContextMenuConfiguration
       configurationWithIdentifier:nil
                   previewProvider:nil
@@ -148,6 +152,9 @@
 #if TARGET_OS_OSX
 - (NSMenu *)menuForEvent:(NSEvent *)event
 {
+  if (!self.enableBlockContextMenu) {
+    return nil;
+  }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
   [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyLatexToPasteboard]; })];
   [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];

@@ -204,6 +204,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   onCopyPress?: (event: CopyPressEvent) => void;
   /**
+   * Controls the long-press context menu on block views (code blocks, tables,
+   * and block math). When false, long-pressing a block does not open the copy
+   * popup. Does not affect the code-block header copy button, the
+   * VoiceOver/TalkBack copy action, or the system text-selection menu.
+   * @default true
+   * @platform ios, android, macos
+   */
+  enableBlockContextMenu?: boolean;
+  /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *
    * When `true`, long-pressing a link shows the native iOS link preview.

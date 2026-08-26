@@ -63,6 +63,7 @@ class TableContainerView(
 
   var copyLabel: String = ""
   var copyAsMarkdownLabel: String = ""
+  var enableBlockContextMenu: Boolean = true
 
   private val scrollView =
     HorizontalScrollView(context).apply {
@@ -207,10 +208,7 @@ class TableContainerView(
         val cellBg =
           CellBackgroundView(context).apply {
             configure(rowBg, tableStyle.borderColor, tableStyle.borderWidth)
-            setOnLongClickListener { view ->
-              showContextMenu(view)
-              true
-            }
+            setOnLongClickListener { view -> showContextMenu(view) }
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
           }
 
@@ -288,10 +286,7 @@ class TableContainerView(
             Layout.Alignment.ALIGN_OPPOSITE -> Gravity.END
             else -> Gravity.START
           }
-        setOnLongClickListener { view ->
-          showContextMenu(view)
-          true
-        }
+        setOnLongClickListener { view -> showContextMenu(view) }
       }
     val horizontalPadding = tableStyle.cellPaddingHorizontal
     val verticalPadding = tableStyle.cellPaddingVertical
@@ -361,7 +356,8 @@ class TableContainerView(
     }
   }
 
-  private fun showContextMenu(anchor: View) {
+  private fun showContextMenu(anchor: View): Boolean {
+    if (!enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
       item(ContextMenuPopup.Icon.COPY, copyLabel) {
@@ -380,6 +376,7 @@ class TableContainerView(
         if (tableMarkdown.isNotEmpty()) clipboard.setPrimaryClip(ClipData.newPlainText("Table", tableMarkdown))
       }
     }
+    return true
   }
 
   private fun buildMarkdownFromRows(): String =

@@ -40,6 +40,7 @@ class MathContainerView(
   // Set reflectively by EnrichedMarkdown (math is an optional module).
   var copyLabel: String = ""
   var copyAsMarkdownLabel: String = ""
+  var enableBlockContextMenu: Boolean = true
 
   override val segmentMarginTop: Int get() = mathStyle.marginTop.toInt()
   override val segmentMarginBottom: Int get() = mathStyle.marginBottom.toInt()
@@ -86,14 +87,8 @@ class MathContainerView(
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
     updateAccessibilityLabel()
 
-    setOnLongClickListener { view ->
-      showContextMenu(view)
-      true
-    }
-    mathView.setOnLongClickListener { view ->
-      showContextMenu(view)
-      true
-    }
+    setOnLongClickListener { view -> showContextMenu(view) }
+    mathView.setOnLongClickListener { view -> showContextMenu(view) }
   }
 
   fun applyLatex(latex: String) {
@@ -114,7 +109,8 @@ class MathContainerView(
     contentDescription = accessibilityLabels.mathEquation.replace("{latex}", cachedLatex)
   }
 
-  private fun showContextMenu(anchor: View) {
+  private fun showContextMenu(anchor: View): Boolean {
+    if (!enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
       item(ContextMenuPopup.Icon.COPY, copyLabel) {
@@ -124,6 +120,7 @@ class MathContainerView(
         clipboard.setPrimaryClip(ClipData.newPlainText("Math", "$$\n$cachedLatex\n$$"))
       }
     }
+    return true
   }
 
   private class RaTeXCanvasView(

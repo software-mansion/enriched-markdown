@@ -188,6 +188,13 @@ class EnrichedMarkdownTextManager :
     enableImagePress: Boolean,
   ) {
     view?.setEnableImagePress(enableImagePress)
+
+  @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
+  override fun setEnableBlockContextMenu(
+    view: EnrichedMarkdownText?,
+    enableBlockContextMenu: Boolean,
+  ) {
+    // No-op: block context menus are rendered by the container component.
   }
 
   @ReactProp(name = "lineBreakStrategyIOS")
