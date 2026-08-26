@@ -12,6 +12,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readonly) NSArray<ENRMBlockRange *> *allRanges;
 
+/// Returns the block whose paragraph starts exactly at `location`, or nil.
+/// Ranges are kept sorted by start, so this is an O(log n) binary search — the
+/// single lookup callers use instead of linearly scanning `allRanges`. Relies on
+/// the one-block-per-paragraph invariant (paragraph starts are unique).
+- (nullable ENRMBlockRange *)blockStartingAtLocation:(NSUInteger)location;
+
 - (void)setRanges:(NSArray<ENRMBlockRange *> *)ranges;
 - (void)clearAll;
 
@@ -39,8 +45,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// Snaps every stored range to the line bounds of its start position.
 /// Absorbs edge-typed chars, clips split ranges to first line, drops
 /// duplicates. On an empty line a heading persists as a zero-length anchor;
-/// any other collapsed range is dropped. Call after adjustForEditAtLocation:
-/// once text is final. Idempotent.
+/// any other collapsed range is dropped. List depths are clamped so an item
+/// nests at most one level under the previous adjacent item (CommonMark cannot
+/// represent orphan nesting). Call after adjustForEditAtLocation: once text is
+/// final. Idempotent.
 - (void)normalizeToLineBoundsInText:(NSString *)text;
 
 @end

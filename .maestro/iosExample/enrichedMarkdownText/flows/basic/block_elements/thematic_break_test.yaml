@@ -1,0 +1,30 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - block
+  - text
+  - thematic_break
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        Above the first break
+
+        ---
+
+        Between the breaks
+
+        ***
+
+        Below the last break
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'thematic_break_display'

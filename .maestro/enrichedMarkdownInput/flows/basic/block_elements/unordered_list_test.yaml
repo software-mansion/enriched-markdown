@@ -1,0 +1,55 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - input
+  - smoke
+  - unordered-list
+  - block
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+# Start a bullet list, then type two items separated by Return. Return on a
+# non-empty item must continue the list (new bullet at the same depth); the
+# second item is then indented one level via the toolbar.
+- tapOn:
+    id: focus-button
+- waitForAnimationToEnd
+
+# The list buttons sit past H1-H6 in the horizontally scrolling toolbar and are
+# offscreen on phone-width viewports; swipe the toolbar left to reveal them.
+- swipe:
+    from:
+      id: toolbar-bold
+    direction: LEFT
+- swipe:
+    from:
+      id: toolbar-h2
+    direction: LEFT
+- waitForAnimationToEnd
+
+- tapOn:
+    id: toolbar-unordered-list
+- waitForAnimationToEnd
+
+- inputText: 'First item'
+- waitForAnimationToEnd
+
+- pressKey: Enter
+- waitForAnimationToEnd
+
+- inputText: 'Second item'
+- waitForAnimationToEnd
+
+- tapOn:
+    id: toolbar-indent
+- waitForAnimationToEnd
+
+- tapOn:
+    id: blur-button
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'unordered_list_input'

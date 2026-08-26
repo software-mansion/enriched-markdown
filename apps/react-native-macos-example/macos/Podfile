@@ -1,7 +1,8 @@
 ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 
-# LaTeX math rendering is disabled on macOS because react-native-macos does not
-# support use_frameworks! (needed for SPM/RaTeX). See microsoft/react-native-macos#1969.
+# LaTeX math rendering is not yet enabled on macOS. RaTeX is now a vendored XCFramework
+# (with a macOS slice), so the old use_frameworks!/SPM blocker no longer applies, but
+# macOS math is not validated yet -- kept disabled here as a future follow-up.
 ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0'
 
 require 'pathname'

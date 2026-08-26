@@ -15,6 +15,7 @@ export type NodeType =
   | 'Link'
   | 'Heading'
   | 'LineBreak'
+  | 'SoftBreak'
   | 'Strong'
   | 'Emphasis'
   | 'Strikethrough'
@@ -63,7 +64,7 @@ export interface ASTNode {
   content?: string;
   /** Present on nodes that carry structural metadata (Heading, Link, etc.). */
   attributes?: NodeAttributes;
-  /** Child nodes; absent on leaf nodes (Text, LineBreak, ThematicBreak). */
+  /** Child nodes; absent on leaf nodes (Text, LineBreak, SoftBreak, ThematicBreak). */
   children?: ASTNode[];
 }
 
@@ -75,6 +76,8 @@ export interface RendererCallbacks {
 
 export interface RenderCapabilities {
   katex: KaTeXInstance | null;
+  /** When false, task list checkboxes render read-only and ignore clicks. */
+  enableTaskListItemToggle: boolean;
 }
 
 export interface RendererProps {
@@ -82,6 +85,8 @@ export interface RendererProps {
   style: MarkdownStyleInternal;
   styles: Styles;
   parentType?: NodeType;
+  /** Position among the parent node's children. */
+  index?: number;
   callbacks: RendererCallbacks;
   capabilities: RenderCapabilities;
   renderChildren: (node: ASTNode) => ReactNode;

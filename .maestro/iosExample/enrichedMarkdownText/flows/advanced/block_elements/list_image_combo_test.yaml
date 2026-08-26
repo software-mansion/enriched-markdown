@@ -1,0 +1,32 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - image
+  - list
+  - text
+---
+# checks the combination of a list followed by a block image
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        - Item one
+        - Item two
+        - Item three
+
+- tapOn:
+    id: insert-image-button
+
+- tapOn:
+    id: blur-button
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'list_image_combo_display'

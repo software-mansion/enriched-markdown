@@ -2,7 +2,7 @@
 set -euo pipefail
 
 DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-17"
-IOS_VERSION="26.3"
+IOS_VERSION="26.5"
 RUNTIME="com.apple.CoreSimulator.SimRuntime.iOS-$(echo "$IOS_VERSION" | tr '.' '-')"
 RUNTIME_LABEL="iOS $IOS_VERSION"
 DEVICE_NAME="iPhone17-iOS${IOS_VERSION}-Enriched-Markdown"

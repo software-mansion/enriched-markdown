@@ -34,9 +34,19 @@ static NSAttributedStringKey const ENRMAutomaticLinkAttributeName = @"ENRMAutoma
 
 - (void)processWord:(ENRMWordResult *)wordResult
 {
-  NSString *detectedUrl = [self detectNewLinkAtRange:wordResult.range inText:wordResult.word];
+  NSRange matchedRange = NSMakeRange(NSNotFound, 0);
+  NSString *detectedUrl = [self detectNewLinkAtRange:wordResult.range
+                                              inText:wordResult.word
+                                        matchedRange:&matchedRange];
   if (detectedUrl != nil && _onLinkDetected != nil) {
-    _onLinkDetected(wordResult.word, detectedUrl, wordResult.range);
+    // Emit the actual linked slice, not the whole whitespace token — surrounding
+    // punctuation is not part of the link.
+    BOOL hasSlice = matchedRange.location != NSNotFound;
+    NSString *matchedText = hasSlice ? [wordResult.word substringWithRange:matchedRange] : wordResult.word;
+    NSRange absoluteRange = hasSlice
+                                ? NSMakeRange(wordResult.range.location + matchedRange.location, matchedRange.length)
+                                : wordResult.range;
+    _onLinkDetected(matchedText, detectedUrl, absoluteRange);
   }
 }
 
@@ -92,8 +102,14 @@ static NSAttributedStringKey const ENRMAutomaticLinkAttributeName = @"ENRMAutoma
 
 #pragma mark - Link matching
 
-- (nullable NSString *)detectNewLinkAtRange:(NSRange)wordRange inText:(NSString *)word
+- (nullable NSString *)detectNewLinkAtRange:(NSRange)wordRange
+                                     inText:(NSString *)word
+                               matchedRange:(NSRange *)outMatchedRange
 {
+  if (outMatchedRange != NULL) {
+    *outMatchedRange = NSMakeRange(NSNotFound, 0);
+  }
+
   if (_regexConfig != nil && _regexConfig.isDisabled) {
     return nil;
   }
@@ -107,61 +123,83 @@ static NSAttributedStringKey const ENRMAutomaticLinkAttributeName = @"ENRMAutoma
     return nil;
   }
 
+  // Tokens carrying markdown link syntax (e.g. "[label](url)") belong to the
+  // parser, not the auto-linker. Auto-linking them re-wraps the destination and
+  // yields a corrupted URL like "https://[label](url)" on serialize.
+  if ([word hasPrefix:@"["] || [word rangeOfString:@"]("].location != NSNotFound) {
+    [self clearAutoLinkInRange:wordRange];
+    return nil;
+  }
+
+  NSRange localMatch = NSMakeRange(NSNotFound, 0);
+  NSString *matchedUrl = [self tryMatchWord:word matchedRange:&localMatch];
+
+  if (matchedUrl == nil || localMatch.location == NSNotFound) {
+    [self clearAutoLinkInRange:wordRange];
+    return nil;
+  }
+
+  NSRange matchRange = NSMakeRange(wordRange.location + localMatch.location, localMatch.length);
+
+  // A manual link overlapping the matched slice takes precedence — test the
+  // whole slice, not just its first character.
   ENRMFormattingStore *store = _formattingStore;
-  if (store != nil) {
-    ENRMFormattingRange *manualLink = [store rangeOfType:ENRMInputStyleTypeLink containingPosition:wordRange.location];
-    if (manualLink != nil) {
-      return nil;
-    }
+  if (store != nil && [store isStyleActive:ENRMInputStyleTypeLink inRange:matchRange]) {
+    [self clearAutoLinkInRange:wordRange];
+    return nil;
   }
 
-  NSString *matchedUrl = [self tryMatchWord:word];
+  NSRange effectiveRange;
+  id existing = [textStorage attribute:ENRMAutomaticLinkAttributeName
+                               atIndex:matchRange.location
+                        effectiveRange:&effectiveRange];
+  BOOL alreadyApplied = [matchedUrl isEqual:existing] && NSEqualRanges(effectiveRange, matchRange);
 
-  if (matchedUrl != nil) {
-    NSRange effectiveRange;
-    id existing = [textStorage attribute:ENRMAutomaticLinkAttributeName
-                                 atIndex:wordRange.location
-                          effectiveRange:&effectiveRange];
-    BOOL alreadyApplied = [matchedUrl isEqual:existing] && NSEqualRanges(effectiveRange, wordRange);
-
-    if (!alreadyApplied) {
-      [textStorage beginEditing];
-      [textStorage addAttribute:ENRMAutomaticLinkAttributeName value:matchedUrl range:wordRange];
-      [self applyVisualStylingToRange:wordRange];
-      [textStorage endEditing];
-    }
-  } else {
-    id existing = [textStorage attribute:ENRMAutomaticLinkAttributeName atIndex:wordRange.location effectiveRange:nil];
-    if (existing != nil) {
-      [textStorage beginEditing];
-      [textStorage removeAttribute:ENRMAutomaticLinkAttributeName range:wordRange];
-      [textStorage endEditing];
-    }
+  if (!alreadyApplied) {
+    [textStorage beginEditing];
+    [textStorage removeAttribute:ENRMAutomaticLinkAttributeName range:wordRange];
+    [textStorage addAttribute:ENRMAutomaticLinkAttributeName value:matchedUrl range:matchRange];
+    [self applyVisualStylingToRange:matchRange];
+    [textStorage endEditing];
   }
 
+  if (outMatchedRange != NULL) {
+    *outMatchedRange = localMatch;
+  }
   return matchedUrl;
 }
 
-- (nullable NSString *)tryMatchWord:(NSString *)word
+- (nullable NSString *)tryMatchWord:(NSString *)word matchedRange:(NSRange *)outRange
 {
+  if (outRange != NULL) {
+    *outRange = NSMakeRange(NSNotFound, 0);
+  }
+
   if (word.length == 0) {
     return nil;
   }
 
-  NSRange matchRange = NSMakeRange(0, word.length);
+  NSRange fullRange = NSMakeRange(0, word.length);
 
-  if (_regexConfig != nil && !_regexConfig.isDefault && _regexConfig.parsedRegex != nil) {
-    if ([_regexConfig.parsedRegex numberOfMatchesInString:word options:0 range:matchRange]) {
-      return [ENRMAutoLinkDetector normalizeUrl:word];
-    }
+  // A custom regex describes the whole-token contract, so keep whole-word
+  // semantics for it. The default detector extracts just the matched URL slice
+  // so surrounding punctuation isn't swallowed into the link.
+  BOOL customExact = _regexConfig != nil && !_regexConfig.isDefault && _regexConfig.parsedRegex != nil;
+  NSRegularExpression *regex = customExact ? _regexConfig.parsedRegex : [ENRMAutoLinkDetector defaultRegex];
+  if (regex == nil) {
     return nil;
   }
 
-  if ([[ENRMAutoLinkDetector defaultRegex] numberOfMatchesInString:word options:0 range:matchRange]) {
-    return [ENRMAutoLinkDetector normalizeUrl:word];
+  NSTextCheckingResult *match = [regex firstMatchInString:word options:0 range:fullRange];
+  if (match == nil || match.range.location == NSNotFound) {
+    return nil;
   }
 
-  return nil;
+  NSRange matchRange = customExact ? fullRange : match.range;
+  if (outRange != NULL) {
+    *outRange = matchRange;
+  }
+  return [ENRMAutoLinkDetector normalizeUrl:[word substringWithRange:matchRange]];
 }
 
 + (NSString *)normalizeUrl:(NSString *)url

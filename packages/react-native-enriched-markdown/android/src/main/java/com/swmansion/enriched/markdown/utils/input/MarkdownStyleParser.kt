@@ -14,6 +14,7 @@ object MarkdownStyleParser {
     val emMap = map.getMap("em")
     val linkMap = map.getMap("link")
     val spoilerMap = map.getMap("spoiler")
+    val listMap = map.getMap("list")
 
     return InputFormatterStyle(
       boldColor = if (strongMap?.hasKey("color") == true) strongMap.getInt("color") else null,
@@ -25,6 +26,8 @@ object MarkdownStyleParser {
       spoilerColor = spoilerMap!!.getInt("color"),
       spoilerBackgroundColor = spoilerMap.getInt("backgroundColor"),
       headings = parseHeadings(map),
+      listItemSpacing =
+        if (listMap?.hasKey("itemSpacing") == true) listMap.getDouble("itemSpacing").toFloat() else 0f,
     )
   }
 

@@ -29,6 +29,9 @@ export default defineConfig([
       'packages/react-native-enriched-markdown/lib/',
       // Emscripten-generated WASM glue — not human-authored
       'packages/react-native-enriched-markdown/src/web/wasm/md4c.js',
+      // Standalone ESM postinstall script — not part of the library source
+      'packages/react-native-enriched-markdown/postinstall.mjs',
+      // Docusaurus site is a standalone yarn project with its own linting
       'docs/',
     ],
   },

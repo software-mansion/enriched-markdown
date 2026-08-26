@@ -1,23 +1,29 @@
 #import "EnrichedMarkdownTextInput.h"
 #import "ContextMenuUtils.h"
 #import "ENRMAutoLinkDetector.h"
+#import "ENRMBlockEditCoordinator.h"
 #import "ENRMBlockHandler.h"
 #import "ENRMBlockStore.h"
+#import "ENRMClipboardCoordinator.h"
 #import "ENRMDetectorPipeline.h"
+#import "ENRMEditPipeline.h"
+#import "ENRMEditSession.h"
 #import "ENRMFormattingRange.h"
 #import "ENRMFormattingStore.h"
+#import "ENRMInputEventEmitter.h"
 #import "ENRMInputFormatter.h"
 #import "ENRMInputLayoutManager.h"
 #import "ENRMInputLinkPrompt.h"
-#import "ENRMInputMentionCandidate.h"
+#import "ENRMInputListMarkerDrawer.h"
 #import "ENRMInputParser.h"
 #import "ENRMInputTextView.h"
+#import "ENRMInputTypingAttributesController.h"
+#import "ENRMLinkCoordinator.h"
 #import "ENRMLinkRegexConfig.h"
-#import "ENRMMarkdownSerializer.h"
+#import "ENRMMentionCoordinator.h"
 #import "ENRMStyleHandler.h"
 #import "ENRMStyleMergingConfig.h"
 #import "ENRMUIKit.h"
-#import "ENRMWordsUtils.h"
 #import "EnrichedMarkdownTextInput+Internal.h"
 #import "InputStylePropsUtils.h"
 #import "ParagraphStyleUtils.h"
@@ -42,9 +48,13 @@
 using namespace facebook::react;
 
 #if !TARGET_OS_OSX
-@interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, UITextViewDelegate>
+@interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, UITextViewDelegate,
+                                         ENRMEditPipelineHost, ENRMInputEventEmitterDataSource,
+                                         ENRMInputTypingAttributesDataSource>
 #else
-@interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, RCTBackedTextInputDelegate>
+@interface EnrichedMarkdownTextInput () <RCTEnrichedMarkdownTextInputViewProtocol, RCTBackedTextInputDelegate,
+                                         ENRMEditPipelineHost, ENRMInputEventEmitterDataSource,
+                                         ENRMInputTypingAttributesDataSource>
 #endif
 - (void)setupTextView;
 - (void)applyFormatting;
@@ -52,6 +62,8 @@ using namespace facebook::react;
 - (void)toggleInlineStyle:(ENRMInputStyleType)styleType;
 - (void)resetBaseTypingAttributes;
 @end
+
+static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 @implementation EnrichedMarkdownTextInput {
   ENRMPlatformTextView *_textView;
@@ -62,25 +74,27 @@ using namespace facebook::react;
   ENRMInputFormatterStyle *_formatterStyle;
   ENRMFormattingStore *_formattingStore;
   ENRMBlockStore *_blockStore;
-  NSMutableSet<NSNumber *> *_pendingStyles;
-  NSMutableSet<NSNumber *> *_pendingStyleRemovals;
-  BOOL _isApplyingFormatting;
-  BOOL _isTextChanging;
-  BOOL _emitMarkdown;
-  CFTimeInterval _lastTextChangeTime;
+  ENRMInputTypingAttributesController *_typingController;
+  ENRMInputEventEmitter *_inputEventEmitter;
+  ENRMEditSession *_editSession;
 
   ENRMPlaceholderLabel *_placeholderLabel;
 
   NSUInteger _lastTextLength;
   NSRange _lastSelectedRange;
   NSRange _preEditSelectedRange;
+  BOOL _atomicSnapScheduled;
 
-  struct {
-    BOOL bold, italic, underline, strikethrough, spoiler, link, initialized;
-    NSInteger headingLevel;
-  } _prevState;
-
-  std::optional<CGRect> _prevCaretRect;
+  // Block type/level of the line being edited, captured before a text change so
+  // a Return that continues a list (or an autocorrect/paste that replaces the
+  // line) can restore the right block on the resulting line(s).
+  ENRMInputBlockType _preEditBlockType;
+  NSInteger _preEditBlockLevel;
+  BOOL _preEditParagraphWasEmpty;
+  // Whether the replaced range contained a line break, captured before the edit
+  // applies (the deleted characters are gone afterwards). Drives the full-vs-
+  // scoped reformat decision in handleTextChanged.
+  BOOL _preEditReplacedNewline;
 
 #if TARGET_OS_OSX
   NSScrollView *_scrollView;
@@ -88,13 +102,13 @@ using namespace facebook::react;
 
   NSArray<NSString *> *_contextMenuItemTexts;
   NSArray<NSString *> *_contextMenuItemIcons;
-  NSArray<NSString *> *_mentionIndicators;
-  NSString *_activeMentionIndicator;
-  NSRange _activeMentionRange;
-  NSString *_activeMentionText;
-
   ENRMAutoLinkDetector *_autoLinkDetector;
   ENRMDetectorPipeline *_detectorPipeline;
+  ENRMEditPipeline *_editPipeline;
+  ENRMBlockEditCoordinator *_blockCoordinator;
+  ENRMMentionCoordinator *_mentionCoordinator;
+  ENRMLinkCoordinator *_linkCoordinator;
+  ENRMClipboardCoordinator *_clipboardCoordinator;
 
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
@@ -113,6 +127,8 @@ using namespace facebook::react;
   NSString *_formatMenuSpoilerLabel;
   NSString *_formatMenuLinkLabel;
 }
+
+@synthesize editSession = _editSession;
 
 #pragma mark - Fabric lifecycle
 
@@ -133,19 +149,14 @@ using namespace facebook::react;
     _props = defaultProps;
 
     self.backgroundColor = [RCTUIColor clearColor];
-    _blockEmitting = NO;
     _heightUpdateCounter = 0;
     _formatter = [[ENRMInputFormatter alloc] init];
     _formatterStyle = [[ENRMInputFormatterStyle alloc] init];
     _formattingStore = [[ENRMFormattingStore alloc] init];
     _blockStore = [[ENRMBlockStore alloc] init];
-    _pendingStyles = [NSMutableSet set];
-    _pendingStyleRemovals = [NSMutableSet set];
     _lastTextLength = 0;
     _lastSelectedRange = NSMakeRange(0, 0);
-    _mentionIndicators = @[];
-    _activeMentionRange = NSMakeRange(NSNotFound, 0);
-    _activeMentionText = @"";
+    _mentionCoordinator = [[ENRMMentionCoordinator alloc] initWithFormattingStore:_formattingStore];
 
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection =
@@ -155,8 +166,27 @@ using namespace facebook::react;
         .bold = YES, .italic = YES, .underline = YES, .strikethrough = YES, .spoiler = YES, .link = YES};
 
     [self setupTextView];
+    _editSession = [[ENRMEditSession alloc] initWithTextView:_textView];
+    _typingController = [[ENRMInputTypingAttributesController alloc] initWithTextView:_textView
+                                                                       formatterStyle:_formatterStyle
+                                                                           dataSource:self
+                                                                          editSession:_editSession];
+    _inputEventEmitter = [[ENRMInputEventEmitter alloc] initWithDataSource:self];
 
     [self setupDetectorPipeline];
+
+    _editPipeline = [[ENRMEditPipeline alloc] initWithFormattingStore:_formattingStore
+                                                           blockStore:_blockStore
+                                                            formatter:_formatter
+                                                     detectorPipeline:_detectorPipeline
+                                                                 host:self];
+    _blockCoordinator = [[ENRMBlockEditCoordinator alloc] initWithBlockStore:_blockStore];
+    _linkCoordinator = [[ENRMLinkCoordinator alloc] initWithFormattingStore:_formattingStore
+                                                           autoLinkDetector:_autoLinkDetector];
+    _clipboardCoordinator = [[ENRMClipboardCoordinator alloc] initWithFormattingStore:_formattingStore
+                                                                           blockStore:_blockStore
+                                                               transientRangeProvider:_detectorPipeline
+                                                                            formatter:_formatter];
   }
   return self;
 }
@@ -169,7 +199,11 @@ using namespace facebook::react;
 
   __weak EnrichedMarkdownTextInput *weakSelf = self;
   _autoLinkDetector.onLinkDetected = ^(NSString *text, NSString *url, NSRange range) {
-    [weakSelf emitOnLinkDetectedWithText:text url:url range:range];
+    EnrichedMarkdownTextInput *strongSelf = weakSelf;
+    if (strongSelf == nil) {
+      return;
+    }
+    [strongSelf->_inputEventEmitter emitOnLinkDetectedWithText:text url:url range:range];
   };
 
   _detectorPipeline = [[ENRMDetectorPipeline alloc] init];
@@ -190,6 +224,8 @@ using namespace facebook::react;
   ENRMInputTextView *inputTextView = [[ENRMInputTextView alloc] initWithFrame:CGRectZero textContainer:textContainer];
 #else
   ENRMInputTextView *inputTextView = [[ENRMInputTextView alloc] initWithFrame:CGRectZero];
+  _layoutManager = [[ENRMInputLayoutManager alloc] init];
+  [inputTextView.textContainer replaceLayoutManager:_layoutManager];
 #endif
   inputTextView.markdownTextInput = self;
   _textView = inputTextView;
@@ -226,10 +262,42 @@ using namespace facebook::react;
   _placeholderLabel = ENRMCreatePlaceholderLabel(_textView, _formatterStyle.baseFont);
 #if !TARGET_OS_OSX
   _placeholderLabel.adjustsFontForContentSizeCategory = YES;
+  _placeholderLabel.accessibilityElementsHidden = YES;
+  _placeholderLabel.isAccessibilityElement = NO;
 #endif
 
   [self resetBaseTypingAttributes];
 }
+
+#if !TARGET_OS_OSX
+#pragma mark - Accessibility
+
+// The custom TextKit 1 stack leaves the inner UITextView invisible to VoiceOver, so
+// the host vends the content itself as one readable element.
+- (BOOL)isAccessibilityElement
+{
+  return YES;
+}
+
+- (NSString *)accessibilityValue
+{
+  NSString *text = ENRMGetPlainText(_textView);
+  if (text.length > 0) {
+    return text;
+  }
+  if (_placeholderLabel.text.length > 0) {
+    return _placeholderLabel.text;
+  }
+  return [super accessibilityValue];
+}
+
+- (BOOL)accessibilityActivate
+{
+  ENRMFocusTextView(_textView);
+  [super accessibilityActivate];
+  return YES;
+}
+#endif
 
 #pragma mark - State
 
@@ -355,7 +423,7 @@ using namespace facebook::react;
     ENRMApplySelectionColor(_textView, newViewProps.selectionColor);
   }
 
-  _emitMarkdown = newViewProps.isOnChangeMarkdownSet;
+  _inputEventEmitter.emitMarkdown = newViewProps.isOnChangeMarkdownSet;
 
   {
     auto configFromProp = [](const auto &prop) {
@@ -423,11 +491,8 @@ using namespace facebook::react;
         [indicators addObject:value];
       }
     }
-    _mentionIndicators = [indicators copy];
-    if (_activeMentionIndicator != nil && ![_mentionIndicators containsObject:_activeMentionIndicator]) {
-      [self clearActiveMention:_activeMentionIndicator];
-    }
-    [self updateActiveMention];
+    [self dispatchMentionEvents:[_mentionCoordinator setIndicators:indicators]];
+    [self dispatchMentionUpdate];
   }
 
   BOOL styleChanged = applyInputStyleProps(_formatterStyle, newViewProps, oldViewProps);
@@ -477,20 +542,23 @@ using namespace facebook::react;
     return;
   }
 
-  dispatch_async(dispatch_get_main_queue(), ^{
-    NSUInteger textLength = self->_textView.textStorage.length;
-    if (textLength == 0) {
-      return;
-    }
-    NSRange wholeRange = NSMakeRange(0, textLength);
-    NSRange actualRange = NSMakeRange(0, 0);
-    [self->_textView.layoutManager invalidateLayoutForCharacterRange:wholeRange actualCharacterRange:&actualRange];
-    [self->_textView.layoutManager ensureLayoutForCharacterRange:actualRange];
-    [self->_textView.layoutManager invalidateDisplayForCharacterRange:wholeRange];
+  NSUInteger textLength = _textView.textStorage.length;
+  if (textLength == 0) {
+    return;
+  }
 
-    CGSize measuredSize = [self measureSize:self->_textView.frame.size.width];
-    ENRMSetContentSize(self->_textView, measuredSize);
-  });
+  NSRange wholeRange = NSMakeRange(0, textLength);
+  [_textView.layoutManager invalidateLayoutForCharacterRange:wholeRange actualCharacterRange:NULL];
+  [_textView.layoutManager ensureLayoutForTextContainer:_textView.textContainer];
+  [_textView.layoutManager invalidateDisplayForCharacterRange:wholeRange];
+
+  CGSize measuredSize = [self measureSize:_textView.frame.size.width];
+  CGSize currentSize = _textView.contentSize;
+  BOOL sizeChanged =
+      fabs(currentSize.width - measuredSize.width) > 0.5 || fabs(currentSize.height - measuredSize.height) > 0.5;
+  if (sizeChanged) {
+    ENRMSetContentSize(_textView, measuredSize);
+  }
 }
 
 #pragma mark - Window attachment
@@ -564,13 +632,28 @@ using namespace facebook::react;
 }
 #endif
 
+#pragma mark - ENRMEditPipelineHost
+
+- (NSString *)plainText
+{
+  return ENRMGetPlainText(_textView);
+}
+
+- (NSTextStorage *)textStorage
+{
+  return _textView.textStorage;
+}
+
 #pragma mark - Placeholder
 
 - (void)updatePlaceholderVisibility
 {
+  // Hide the placeholder once there's any content OR any block has been started
+  // (e.g. an empty bullet/heading line with only a zero-length anchor): the block
+  // marker or indent would otherwise overlap the placeholder text.
   BOOL hasText = ENRMGetPlainText(_textView).length > 0;
-  BOOL headingActive = [self headingLevelForCursorParagraph] > 0;
-  _placeholderLabel.hidden = hasText || headingActive;
+  BOOL hasBlock = _blockStore.allRanges.count > 0;
+  _placeholderLabel.hidden = hasText || hasBlock;
 }
 
 #pragma mark - Markdown import
@@ -580,20 +663,24 @@ using namespace facebook::react;
   ENRMInputParser *parser = [[ENRMInputParser alloc] init];
   ENRMParseResult *parsed = [parser parseToPlainTextAndRanges:markdown];
 
-  _blockEmitting = YES;
+  [_editSession enterPhase:ENRMEditPhaseImporting];
 
-  _isApplyingFormatting = YES;
+  [_editSession enterPhase:ENRMEditPhaseFormatting];
   ENRMSetPlainText(_textView, parsed.plainText);
-  _isApplyingFormatting = NO;
+  [_editSession enterPhase:ENRMEditPhaseImporting];
 
   [_formattingStore setRanges:parsed.formattingRanges];
   [_blockStore setRanges:parsed.blockRanges];
   _lastTextLength = parsed.plainText.length;
   _lastSelectedRange = _textView.selectedRange;
+
+  [_editSession exitPhase];
   [self applyFormatting];
   [self updatePlaceholderVisibility];
 
-  _blockEmitting = NO;
+  if (parsed.plainText.length == 0) {
+    [self resetBaseTypingAttributes];
+  }
 }
 
 - (void)replaceTextInRange:(NSRange)selection
@@ -603,9 +690,9 @@ using namespace facebook::react;
 {
   NSUInteger editLocation = selection.location;
 
-  _isApplyingFormatting = YES;
+  [_editSession enterPhase:ENRMEditPhaseFormatting];
   ENRMReplaceTextInRange(_textView, text, selection);
-  _isApplyingFormatting = NO;
+  [_editSession exitPhase];
 
   NSString *plainText = [self adjustStoresForEditAtLocation:editLocation
                                               deletedLength:selection.length
@@ -629,9 +716,9 @@ using namespace facebook::react;
   [_detectorPipeline processTextChange:plainText modificationRange:NSMakeRange(editLocation, text.length)];
 
   [self updatePlaceholderVisibility];
-  [self emitOnChangeText];
-  [self emitOnChangeSelection];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitOnChangeText];
+  [_inputEventEmitter emitOnChangeSelection];
+  [_inputEventEmitter emitFormattingChanged];
   [self requestHeightUpdate];
   [self scheduleRelayoutIfNeeded];
 }
@@ -648,14 +735,54 @@ using namespace facebook::react;
   [self replaceTextInRange:_textView.selectedRange withText:text formattingRanges:ranges];
 }
 
+/// Insertion is literal: the string's characters land at the cursor exactly as
+/// given. Markdown parsing consumes leading and trailing newlines as block
+/// structure, so they are split off before the parse and re-attached verbatim;
+/// without this, inserting "\n- item\n" mid-paragraph would merge the list line
+/// with the surrounding text. Callers decide separation by including (or
+/// omitting) newlines in the string.
 - (void)pasteMarkdown:(NSString *)markdown
 {
+  NSUInteger lead = 0;
+  while (lead < markdown.length && [markdown characterAtIndex:lead] == '\n') {
+    lead++;
+  }
+  NSUInteger trail = 0;
+  while (lead + trail < markdown.length && [markdown characterAtIndex:markdown.length - 1 - trail] == '\n') {
+    trail++;
+  }
+  NSString *core = [markdown substringWithRange:NSMakeRange(lead, markdown.length - lead - trail)];
+
   ENRMInputParser *parser = [[ENRMInputParser alloc] init];
-  ENRMParseResult *parsed = [parser parseToPlainTextAndRanges:markdown];
+  ENRMParseResult *parsed = [parser parseToPlainTextAndRanges:core];
+
+  if (lead == 0 && trail == 0) {
+    [self replaceTextInRange:_textView.selectedRange
+                    withText:parsed.plainText
+            formattingRanges:parsed.formattingRanges
+                 blockRanges:parsed.blockRanges];
+    return;
+  }
+
+  NSString *prefix = [@"" stringByPaddingToLength:lead withString:@"\n" startingAtIndex:0];
+  NSString *suffix = [@"" stringByPaddingToLength:trail withString:@"\n" startingAtIndex:0];
+  NSString *plainText = [NSString stringWithFormat:@"%@%@%@", prefix, parsed.plainText, suffix];
+
+  NSMutableArray<ENRMFormattingRange *> *formattingRanges =
+      [NSMutableArray arrayWithCapacity:parsed.formattingRanges.count];
+  for (ENRMFormattingRange *range in parsed.formattingRanges) {
+    NSRange shifted = NSMakeRange(range.range.location + lead, range.range.length);
+    [formattingRanges addObject:[ENRMFormattingRange rangeWithType:range.type range:shifted url:range.url]];
+  }
+  NSMutableArray<ENRMBlockRange *> *blockRanges = [NSMutableArray arrayWithCapacity:parsed.blockRanges.count];
+  for (ENRMBlockRange *block in parsed.blockRanges) {
+    NSRange shifted = NSMakeRange(block.range.location + lead, block.range.length);
+    [blockRanges addObject:[ENRMBlockRange rangeWithType:block.type range:shifted level:block.level]];
+  }
   [self replaceTextInRange:_textView.selectedRange
-                  withText:parsed.plainText
-          formattingRanges:parsed.formattingRanges
-               blockRanges:parsed.blockRanges];
+                  withText:plainText
+          formattingRanges:formattingRanges
+               blockRanges:blockRanges];
 }
 
 #pragma mark - Formatting
@@ -693,13 +820,13 @@ using namespace facebook::react;
 
 - (void)applyFormattingScopedToRange:(NSRange)scope
 {
-  if (_isApplyingFormatting) {
+  if (_editSession.shouldSuppressFormatting) {
     return;
   }
-  if (ENRMHasMarkedText(_textView)) {
+  if (_editSession.isComposing) {
     return;
   }
-  _isApplyingFormatting = YES;
+  [_editSession enterPhase:ENRMEditPhaseFormatting];
 
   NSRange savedSelection = _textView.selectedRange;
 
@@ -716,7 +843,7 @@ using namespace facebook::react;
     _textView.selectedRange = savedSelection;
   }
 
-  _isApplyingFormatting = NO;
+  [_editSession exitPhase];
 }
 
 - (void)applyWritingDirection
@@ -746,9 +873,9 @@ using namespace facebook::react;
 {
   [self importMarkdown:markdown];
   _lastSelectedRange = _textView.selectedRange;
-  [self emitOnChangeText];
-  [self emitOnChangeSelection];
-  [self emitOnChangeState];
+  [_inputEventEmitter emitOnChangeText];
+  [_inputEventEmitter emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeState];
   [self requestHeightUpdate];
 }
 
@@ -758,8 +885,8 @@ using namespace facebook::react;
   NSInteger clampedStart = MIN(MAX(start, 0), textLen);
   NSInteger clampedEnd = MIN(MAX(end, clampedStart), textLen);
   _textView.selectedRange = NSMakeRange((NSUInteger)clampedStart, (NSUInteger)(clampedEnd - clampedStart));
-  [self emitOnChangeSelection];
-  [self emitOnChangeState];
+  [_inputEventEmitter emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeState];
 }
 
 - (void)toggleBold
@@ -796,62 +923,22 @@ using namespace facebook::react;
   ENRMStyleMergingConfig *mergingConfig = handler.mergingConfig;
 
   NSRange selection = _textView.selectedRange;
-  NSUInteger cursor = selection.location;
-  NSNumber *key = @(styleType);
 
-  // Check blocking rules: if any blocking style is active, refuse to toggle on.
-  if (mergingConfig.blockingStyles.count > 0) {
-    BOOL isCurrentlyActive = [_formattingStore isStyleActive:styleType atPosition:cursor];
-    if (!isCurrentlyActive) {
-      for (NSNumber *blockerNum in mergingConfig.blockingStyles) {
-        if ([_formattingStore isStyleActive:(ENRMInputStyleType)blockerNum.integerValue atPosition:cursor]) {
-          return;
-        }
-      }
-    }
+  if ([_formattingStore isToggleBlocked:styleType
+                             atPosition:selection.location
+                         blockingStyles:mergingConfig.blockingStyles]) {
+    return;
   }
 
-  if (selection.length > 0) {
-    BOOL fullyStyled = YES;
-    NSUInteger pos = selection.location;
-    NSUInteger selEnd = NSMaxRange(selection);
-    while (pos < selEnd) {
-      ENRMFormattingRange *match = [_formattingStore rangeOfType:styleType containingPosition:pos];
-      if (match == nil) {
-        fullyStyled = NO;
-        break;
-      }
-      pos = NSMaxRange(match.range);
-    }
-    if (fullyStyled) {
-      [_formattingStore removeType:styleType inRange:selection];
-    } else {
-      // Remove conflicting styles from the range before applying.
-      for (NSNumber *conflictNum in mergingConfig.conflictingStyles) {
-        [_formattingStore removeType:(ENRMInputStyleType)conflictNum.integerValue inRange:selection];
-      }
-      ENRMFormattingRange *newRange = [ENRMFormattingRange rangeWithType:styleType range:selection];
-      [_formattingStore addRange:newRange];
-    }
-    [_pendingStyles removeObject:key];
-    [_pendingStyleRemovals removeObject:key];
-  } else {
-    BOOL isInsideRange = [_formattingStore isStyleActive:styleType atPosition:cursor];
+  BOOL wasActive = [_formattingStore toggleStyle:styleType
+                                         inRange:selection
+                               conflictingStyles:mergingConfig.conflictingStyles];
 
-    if ([_pendingStyleRemovals containsObject:key]) {
-      [_pendingStyleRemovals removeObject:key];
-    } else if ([_pendingStyles containsObject:key]) {
-      [_pendingStyles removeObject:key];
-    } else if (isInsideRange) {
-      [_pendingStyleRemovals addObject:key];
-    } else {
-      [_pendingStyles addObject:key];
-    }
-  }
+  [_typingController togglePendingStyle:styleType wasActive:wasActive hasSelection:(selection.length > 0)];
 
   [self applyFormatting];
-  [self syncTypingAttributesWithPendingStyles];
-  [self emitFormattingChanged];
+  [_typingController syncWithPendingStyles];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
 - (void)toggleHeading:(NSInteger)level
@@ -862,148 +949,347 @@ using namespace facebook::react;
   [self toggleBlockType:ENRMBlockTypeForHeadingLevel(level) level:level];
 }
 
-/// Block counterpart to toggleInlineStyle:: sets the block on the paragraph(s)
-/// the selection touches, or clears it back to a plain paragraph when already
-/// active. Syncs typing attributes so the toggled line renders immediately.
 - (void)toggleBlockType:(ENRMInputBlockType)type level:(NSInteger)level
 {
   NSString *text = ENRMGetPlainText(_textView);
-  NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
-
-  // Match by line start, not containment: an empty heading line carries a
-  // zero-length anchor that a containment check would miss.
-  ENRMBlockRange *current = nil;
-  for (ENRMBlockRange *blockRange in _blockStore.allRanges) {
-    if (blockRange.range.location == paragraphRange.location) {
-      current = blockRange;
-      break;
-    }
-  }
-  BOOL alreadyActive = current != nil && current.type == type;
+  BOOL alreadyActive = [_blockCoordinator toggleBlockType:type
+                                                    level:level
+                                           selectionRange:_textView.selectedRange
+                                                   inText:text];
 
   if (alreadyActive) {
-    [_blockStore removeBlockInParagraphRange:paragraphRange inText:text];
-  } else if (paragraphRange.length == 0) {
-    [_blockStore setBlockType:type level:level forParagraphRange:paragraphRange inText:text];
-  } else {
-    // Blocks are single-paragraph: set one range per paragraph the selection
-    // touches, not one range spanning them all — otherwise the next edit's
-    // line normalization would clip the block to its first line.
-    [text
-        enumerateSubstringsInRange:paragraphRange
-                           options:NSStringEnumerationByParagraphs | NSStringEnumerationSubstringNotRequired
-                        usingBlock:^(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
-                          [self->_blockStore setBlockType:type
-                                                    level:level
-                                        forParagraphRange:substringRange
-                                                   inText:text];
-                        }];
+    // Strip the stored block paragraph style directly: an empty item's line has no
+    // stamped block-marker attribute (zero-length ranges are never stamped), so the
+    // applyFormatting reset below — which is keyed off that marker — cannot reach it.
+    NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
+    NSTextStorage *storage = _textView.textStorage;
+    NSRange clamped = NSIntersectionRange(paragraphRange, NSMakeRange(0, storage.length));
+    if (clamped.length > 0) {
+      [storage beginEditing];
+      [storage removeAttribute:NSParagraphStyleAttributeName range:clamped];
+      [storage endEditing];
+    }
   }
 
   [self applyFormatting];
-  [self syncTypingAttributesWithCursorBlock];
+  [_typingController syncWithCursorBlock];
   [self updatePlaceholderVisibility];
-  [self emitFormattingChanged];
+  if (alreadyActive) {
+    [_typingController clearListParagraphStyle];
+  }
+  [self updateEmptyBulletMarker];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
-/// Heading level (1-6, or 0) of the caret's paragraph, matched by line start so
-/// line-end carets and empty-line anchors register (mirrors inline isActive).
-- (NSInteger)headingLevelForCursorParagraph
+- (void)toggleUnorderedList
+{
+  [self toggleBlockType:ENRMInputBlockTypeUnorderedListItem level:0];
+}
+
+- (void)toggleOrderedList
+{
+  [self toggleBlockType:ENRMInputBlockTypeOrderedListItem level:0];
+}
+
+- (void)indentList
+{
+  [self changeListDepthBy:1];
+}
+
+- (void)outdentList
+{
+  [self changeListDepthBy:-1];
+}
+
+- (void)changeListDepthBy:(NSInteger)delta
+{
+  NSString *text = ENRMGetPlainText(_textView);
+  ENRMDepthChangeResult result = [_blockCoordinator changeDepthBy:delta
+                                                   cursorPosition:_textView.selectedRange.location
+                                                   selectionRange:_textView.selectedRange
+                                                           inText:text];
+  if (result == ENRMDepthChangeResultNoOp) {
+    return;
+  }
+  [self applyFormatting];
+  [_typingController syncWithCursorBlock];
+  [self updateEmptyBulletMarker];
+  [_inputEventEmitter emitFormattingChanged];
+}
+
+- (nullable ENRMBlockRange *)listBlockForCursorParagraph
+{
+  return [self listBlockForParagraphAtPosition:_textView.selectedRange.location];
+}
+
+- (nullable ENRMBlockRange *)listBlockForParagraphAtPosition:(NSUInteger)position
+{
+  return [_blockCoordinator listBlockAtPosition:position inText:_textView.textStorage.string];
+}
+
+- (nullable ENRMBlockRange *)blockForParagraphAtPosition:(NSUInteger)position
+{
+  return [_blockCoordinator blockAtPosition:position inText:_textView.textStorage.string];
+}
+
+- (BOOL)listStateOfType:(ENRMInputBlockType)type forCursorParagraphDepth:(nullable NSInteger *)outDepth
+{
+  return [_blockCoordinator listStateOfType:type
+                                 atPosition:_textView.selectedRange.location
+                                     inText:_textView.textStorage.string
+                                      depth:outDepth];
+}
+
+/// Records the block kind/level of the line being edited before the change, so a
+/// Return that continues a list can recover the previous item's depth and an
+/// in-line replacement (autocorrect/paste) that wipes the line can heal it.
+- (void)capturePreEditBlockForRange:(NSRange)range
+{
+  ENRMBlockRange *block = [self blockForParagraphAtPosition:range.location];
+  _preEditBlockType = block != nil ? block.type : ENRMInputBlockTypeParagraph;
+  _preEditBlockLevel = block != nil ? block.level : 0;
+}
+
+/// Whether `range` of the current (pre-edit) text contains a line break. Scans
+/// only the replaced run, mirroring Android's editTouchedNewline.
+- (BOOL)replacedRangeTouchesNewline:(NSRange)range
 {
   NSString *text = _textView.textStorage.string;
-  NSRange paragraph = [text paragraphRangeForRange:_textView.selectedRange];
-  for (ENRMBlockRange *block in _blockStore.allRanges) {
-    NSInteger level = ENRMHeadingLevelForBlockType(block.type);
-    if (level > 0 && block.range.location == paragraph.location) {
-      return level;
-    }
+  if (range.length == 0 || range.location >= text.length) {
+    return NO;
   }
-  return 0;
+  NSRange clamped = NSMakeRange(range.location, MIN(range.length, text.length - range.location));
+  return [text rangeOfCharacterFromSet:[NSCharacterSet newlineCharacterSet] options:0 range:clamped].location !=
+         NSNotFound;
 }
 
-/// Syncs typing attributes so text typed at the caret on a block-styled line
-/// (e.g. a heading) adopts that block's font rather than the base font. Inline
-/// pending traits (bold/italic) are unioned on top, matching the inline pass.
-- (void)syncTypingAttributesWithCursorBlock
+/// Whether the caret's paragraph had no glyph content at the start of the edit
+/// (an empty line). Used to decide whether Return continues or exits the list.
+- (BOOL)preEditParagraphWasEmpty:(NSRange)range
 {
-  UIFontDescriptorSymbolicTraits traits = 0;
-  if ([_pendingStyles containsObject:@(ENRMInputStyleTypeStrong)]) {
-    traits |= UIFontDescriptorTraitBold;
+  NSString *text = _textView.textStorage.string;
+  if (text.length == 0) {
+    return YES;
   }
-  if ([_pendingStyles containsObject:@(ENRMInputStyleTypeEmphasis)]) {
-    traits |= UIFontDescriptorTraitItalic;
+  NSRange paragraph = [text paragraphRangeForRange:range];
+  if (paragraph.length == 0) {
+    return YES;
+  }
+  return [[text substringWithRange:paragraph] isEqualToString:@"\n"];
+}
+
+/// Intercepts Tab (indent) and Backspace at a bullet item's start (outdent, then
+/// un-list at depth 0). Returns YES when handled, suppressing the default edit.
+/// Keyed off the caret's own paragraph (NSMaxRange(range)), not range.location —
+/// a backspace at a line start targets the previous line's newline, and using the
+/// caret's line lets the next Backspace after un-listing fall through to a merge.
+- (BOOL)handleListKeyForReplacementRange:(NSRange)range replacementText:(NSString *)text
+{
+  NSUInteger caret = NSMaxRange(range);
+  NSInteger depth;
+  if (![self listStateForParagraphAtPosition:caret depth:&depth]) {
+    return NO;
   }
 
-  NSInteger headingLevel = [self headingLevelForCursorParagraph];
+  // Tab indents the current item.
+  if ([text isEqualToString:@"\t"]) {
+    [self indentList];
+    return YES;
+  }
 
-  UIFont *font;
-  if (headingLevel >= 1 && headingLevel <= 6) {
-    UIFont *headingFont = [_formatterStyle headingFontForLevel:headingLevel];
-    UIFontDescriptorSymbolicTraits merged = headingFont.fontDescriptor.symbolicTraits | traits;
-    UIFontDescriptor *descriptor = [headingFont.fontDescriptor fontDescriptorWithSymbolicTraits:merged];
-    font = descriptor ? [UIFont fontWithDescriptor:descriptor size:0] : headingFont;
+  // Backspace at the very start of the caret's own item: outdent, or remove the
+  // marker entirely once at depth 0 (de-indenting the line to a plain paragraph).
+  if (text.length == 0 && range.length == 1) {
+    NSString *plainText = ENRMGetPlainText(_textView);
+    NSRange paragraphRange = [plainText paragraphRangeForRange:NSMakeRange(caret, 0)];
+    BOOL atItemStart = caret == paragraphRange.location;
+    if (atItemStart) {
+      if (depth > 0) {
+        [self outdentList];
+      } else {
+        ENRMBlockRange *listBlock = [self listBlockForParagraphAtPosition:caret];
+        [self toggleBlockType:listBlock != nil ? listBlock.type : ENRMInputBlockTypeUnorderedListItem level:0];
+      }
+      return YES;
+    }
+  }
+
+  return NO;
+}
+
+/// Backspace at the document start (caret at 0) never fires the text-change
+/// delegate — nothing precedes the caret — so the first line's bullet has to be
+/// outdented/removed here. Returns YES when handled.
+- (BOOL)handleBackspaceAtDocumentStart
+{
+  NSRange selection = _textView.selectedRange;
+  if (selection.location != 0 || selection.length != 0) {
+    return NO;
+  }
+  ENRMBlockRange *listBlock = [self listBlockForCursorParagraph];
+  if (listBlock == nil) {
+    return NO;
+  }
+  if (listBlock.level > 0) {
+    [self outdentList];
   } else {
-    font = [_formatterStyle fontForTraits:traits];
+    [self toggleBlockType:listBlock.type level:0];
+  }
+  return YES;
+}
+
+- (BOOL)listStateForParagraphAtPosition:(NSUInteger)position depth:(NSInteger *)outDepth
+{
+  ENRMBlockRange *block = [_blockCoordinator listBlockAtPosition:position inText:_textView.textStorage.string];
+  if (block != nil) {
+    if (outDepth) {
+      *outDepth = block.level;
+    }
+    return YES;
+  }
+  return NO;
+}
+
+/// Drives the layout manager's empty-line bullet: an empty bullet line has no
+/// character to anchor the marker to, so the manager is told its location/depth
+/// explicitly; cleared when the caret isn't on an empty bullet line. Runs on
+/// every selection-change fire, so it early-returns when there is nothing to
+/// draw or clear and only touches storage when the paragraph style differs,
+/// avoiding layout churn that jitters the edit menu.
+- (void)updateEmptyBulletMarker
+{
+  NSString *text = ENRMGetPlainText(_textView);
+  NSRange selection = _textView.selectedRange;
+  BOOL show = NO;
+  NSUInteger location = 0;
+  NSInteger depth = 0;
+
+  BOOL ordered = NO;
+  NSInteger ordinal = 1;
+  ENRMBlockRange *cursorListBlock = selection.length == 0 ? [self listBlockForCursorParagraph] : nil;
+
+  ENRMInputListMarkerDrawer *listDrawer = _layoutManager.listMarkerDrawer;
+  BOOL wasShown = listDrawer.emptyBulletDepth >= 0;
+  if (cursorListBlock == nil && !wasShown) {
+    return;
   }
 
-  NSMutableDictionary *attrs = [_textView.typingAttributes mutableCopy];
-  attrs[NSFontAttributeName] = font;
-  RCTUIColor *headingColor = headingLevel >= 1 ? [_formatterStyle headingColorForLevel:headingLevel] : nil;
-  attrs[NSForegroundColorAttributeName] = headingColor ?: _formatterStyle.baseTextColor;
-  _textView.typingAttributes = attrs;
+  if (cursorListBlock != nil) {
+    NSInteger cursorDepth = cursorListBlock.level;
+    ordered = cursorListBlock.type == ENRMInputBlockTypeOrderedListItem;
+    ordinal = cursorListBlock.ordinal;
+    NSRange paragraphRange = text.length == 0 ? NSMakeRange(0, 0) : [text paragraphRangeForRange:selection];
+    NSString *paragraphText = text.length == 0 ? @"" : [text substringWithRange:paragraphRange];
+    BOOL empty = paragraphText.length == 0 || [paragraphText isEqualToString:@"\n"];
+    if (empty) {
+      show = YES;
+      location = paragraphRange.location;
+      depth = cursorDepth;
+
+      // A mid-document empty bullet line has no paragraph style and lays out
+      // flush left; stamp the list style so caret and marker indent immediately.
+      // (A trailing empty line uses the extra line fragment instead.)
+      if (paragraphRange.length > 0) {
+        CGFloat indent = (depth + 1) * kENRMListIndentPerDepth;
+        NSTextStorage *storage = _textView.textStorage;
+        NSParagraphStyle *existing = [storage attribute:NSParagraphStyleAttributeName
+                                                atIndex:paragraphRange.location
+                                         effectiveRange:NULL];
+        if (existing == nil || existing.firstLineHeadIndent != indent || existing.headIndent != indent ||
+            existing.paragraphSpacingBefore != _formatterStyle.listItemSpacing) {
+          NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
+          paragraph.firstLineHeadIndent = indent;
+          paragraph.headIndent = indent;
+          paragraph.paragraphSpacingBefore = _formatterStyle.listItemSpacing;
+          [storage beginEditing];
+          [storage addAttribute:NSParagraphStyleAttributeName value:paragraph range:paragraphRange];
+          [storage endEditing];
+        }
+      }
+    }
+  }
+
+  if (!show && !wasShown) {
+    return;
+  }
+
+  listDrawer.emptyBulletDepth = show ? depth : -1;
+  listDrawer.emptyBulletOrdered = ordered;
+  listDrawer.emptyBulletOrdinal = ordinal;
+  listDrawer.emptyBulletLocation = location;
+  listDrawer.emptyBulletFont = _formatterStyle.baseFont;
+  listDrawer.emptyBulletColor = _formatterStyle.baseTextColor;
+  listDrawer.emptyBulletRTL = [self emptyListLineIsRTL];
+  listDrawer.listItemSpacing = _formatterStyle.listItemSpacing;
+
+  BOOL isTrailing = show && text.length > 0 && location >= text.length;
+
+  // Ensure the extra line fragment is laid out so we can read
+  // extraLineFragmentTextContainer / extraLineFragmentUsedRect.  The
+  // empty-editor case (length 0) has no glyphs at all; the trailing-line case
+  // (location >= length) has glyphs on preceding lines but the extra line
+  // fragment lives beyond them and isn't covered by ensureLayoutForCharRange:.
+  if (show && (text.length == 0 || location >= text.length)) {
+    [_layoutManager ensureLayoutForTextContainer:_textView.textContainer];
+  }
+
+#if !TARGET_OS_OSX
+  if (isTrailing && _layoutManager.extraLineFragmentTextContainer != nil) {
+    [listDrawer showTrailingBulletInTextView:_textView
+                               textContainer:_layoutManager.extraLineFragmentTextContainer
+                                    usedRect:_layoutManager.extraLineFragmentUsedRect];
+  } else {
+    [listDrawer hideTrailingBullet];
+  }
+#endif
+
+  ENRMSetNeedsDisplay(_textView);
+
+  // The empty-editor bullet would otherwise overlap the placeholder.
+  [self updatePlaceholderVisibility];
+}
+
+/// Writing direction the empty list line resolves to, for mirroring its marker.
+/// An empty line has no strong character, so Auto and FirstStrong fall back the
+/// same way the formatter's direction pass would.
+- (BOOL)emptyListLineIsRTL
+{
+  switch (_writingDirectionMode) {
+    case ENRMWritingDirectionModeLTR:
+      return NO;
+    case ENRMWritingDirectionModeRTL:
+      return YES;
+    case ENRMWritingDirectionModeFirstStrong:
+      return _resolvedLayoutDirection == NSWritingDirectionRightToLeft;
+    case ENRMWritingDirectionModeAuto:
+    default:
+      return ENRMParagraphIsRTL(nil);
+  }
+}
+
+- (NSInteger)headingLevelForCursorParagraph
+{
+  return [_blockCoordinator headingLevelAtPosition:_textView.selectedRange.location
+                                            inText:_textView.textStorage.string];
 }
 
 - (NSString *)adjustStoresForEditAtLocation:(NSUInteger)editLocation
                               deletedLength:(NSUInteger)deletedLength
                              insertedLength:(NSUInteger)insertedLength
 {
-  [_formattingStore adjustForEditAtLocation:editLocation deletedLength:deletedLength insertedLength:insertedLength];
-  [_blockStore adjustForEditAtLocation:editLocation deletedLength:deletedLength insertedLength:insertedLength];
-  [self pruneOrphanedHeadingBlocks];
-  NSString *plainText = ENRMGetPlainText(_textView);
-  [_blockStore normalizeToLineBoundsInText:plainText];
-  return plainText;
-}
-
-/// Reverts to a plain paragraph any heading no longer anchored at a line start
-/// (e.g. Backspace merged its line into the previous one). Must run BEFORE
-/// normalizeToLineBoundsInText: so a merged range is judged on its unsnapped
-/// anchor and can't grow over the line it merged into. Mirrors Android.
-- (void)pruneOrphanedHeadingBlocks
-{
-  NSString *text = _textView.textStorage.string;
-  for (ENRMBlockRange *block in _blockStore.allRanges) {
-    if (ENRMHeadingLevelForBlockType(block.type) == 0) {
-      continue;
-    }
-    NSUInteger anchor = MIN(block.range.location, text.length);
-    BOOL atLineStart = [text paragraphRangeForRange:NSMakeRange(anchor, 0)].location == anchor;
-    if (!atLineStart) {
-      [_blockStore removeBlockInParagraphRange:NSMakeRange(anchor, 0) inText:text];
-    }
-  }
+  return [_editPipeline adjustStoresForEditAtLocation:editLocation
+                                        deletedLength:deletedLength
+                                       insertedLength:insertedLength];
 }
 
 - (void)setLink:(NSString *)url
 {
   NSRange selection = _textView.selectedRange;
-  NSUInteger cursor = selection.location;
-
-  ENRMFormattingRange *activeLink = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:cursor];
-
-  if (activeLink != nil) {
-    activeLink.url = url;
-    [_autoLinkDetector clearAutoLinkInRange:activeLink.range];
-  } else if (selection.length > 0) {
-    ENRMFormattingRange *linkRange = [ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink range:selection url:url];
-    [_formattingStore addRange:linkRange];
-    [_autoLinkDetector clearAutoLinkInRange:selection];
-  } else {
+  if (![_linkCoordinator setLinkURL:url atCursor:selection.location selection:selection]) {
     return;
   }
-
   [self applyFormatting];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
 - (void)insertLink:(NSString *)text url:(NSString *)url
@@ -1012,34 +1298,38 @@ using namespace facebook::react;
   NSRange linkRange = NSMakeRange(0, displayText.length);
   ENRMFormattingRange *range = [ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink
                                                             range:linkRange
-                                                              url:[self sanitizeLinkURL:url]];
+                                                              url:[_linkCoordinator sanitizeURL:url]];
   [self replaceSelectedTextWith:displayText formattingRanges:@[ range ]];
 }
 
-- (NSString *)sanitizeLinkURL:(NSString *)url
+- (void)insertText:(NSString *)text
 {
-  NSString *result = [url stringByReplacingOccurrencesOfString:@"(" withString:@"%28"];
-  return [result stringByReplacingOccurrencesOfString:@")" withString:@"%29"];
+  if (text.length == 0) {
+    return;
+  }
+  [self pasteMarkdown:text];
 }
 
 - (void)startMention:(NSString *)indicator
 {
-  if (indicator.length == 0 || ![_mentionIndicators containsObject:indicator]) {
+  if (indicator.length == 0 || ![_mentionCoordinator containsIndicator:indicator]) {
     return;
   }
 
   [self replaceSelectedTextWith:indicator formattingRanges:@[]];
-  [self updateActiveMention];
+  [self dispatchMentionUpdate];
 }
 
 - (void)insertMention:(NSString *)displayText url:(NSString *)url
 {
-  if (displayText.length == 0 || _activeMentionIndicator == nil || _activeMentionRange.location == NSNotFound) {
+  if (displayText.length == 0 || !_mentionCoordinator.isActive ||
+      _mentionCoordinator.activeRange.location == NSNotFound) {
     return;
   }
 
   NSString *plainText = ENRMGetPlainText(_textView);
-  NSUInteger rangeEnd = NSMaxRange(_activeMentionRange);
+  NSRange activeRange = _mentionCoordinator.activeRange;
+  NSUInteger rangeEnd = NSMaxRange(activeRange);
   if (rangeEnd > plainText.length) {
     return;
   }
@@ -1049,33 +1339,27 @@ using namespace facebook::react;
   NSString *replacement = nextCharIsWhitespace ? displayText : [displayText stringByAppendingString:@" "];
   ENRMFormattingRange *linkRange = [ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink
                                                                 range:NSMakeRange(0, displayText.length)
-                                                                  url:[self sanitizeLinkURL:url]];
-  NSString *indicator = _activeMentionIndicator;
-  NSRange mentionRange = _activeMentionRange;
+                                                                  url:[_linkCoordinator sanitizeURL:url]];
+  NSString *indicator = _mentionCoordinator.activeIndicator;
 
-  [self clearActiveMention:indicator];
-  [self replaceTextInRange:mentionRange withText:replacement formattingRanges:@[ linkRange ]];
-  _textView.selectedRange = NSMakeRange(mentionRange.location + replacement.length, 0);
-  [self emitOnChangeSelection];
+  [self dispatchMentionEvents:[_mentionCoordinator clearWithIndicatorOverride:indicator]];
+  [self replaceTextInRange:activeRange withText:replacement formattingRanges:@[ linkRange ]];
+  _textView.selectedRange = NSMakeRange(activeRange.location + replacement.length, 0);
+  [_inputEventEmitter emitOnChangeSelection];
 }
 
 - (void)removeLink
 {
-  NSUInteger cursor = _textView.selectedRange.location;
-  ENRMFormattingRange *activeLink = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:cursor];
-  if (activeLink == nil) {
+  if (![_linkCoordinator removeLinkAtPosition:_textView.selectedRange.location]) {
     return;
   }
-
-  [_formattingStore removeRange:activeLink];
   [self applyFormatting];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitFormattingChanged];
 }
 
 - (void)showLinkPrompt
 {
-  NSUInteger cursor = _textView.selectedRange.location;
-  ENRMFormattingRange *activeLink = [_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:cursor];
+  ENRMFormattingRange *activeLink = [_linkCoordinator linkAtPosition:_textView.selectedRange.location];
   NSString *existingURL = activeLink != nil ? activeLink.url : nil;
 
   __weak EnrichedMarkdownTextInput *weakSelf = self;
@@ -1090,60 +1374,12 @@ using namespace facebook::react;
                      ranges:(NSArray<ENRMFormattingRange *> *)ranges
                 blockRanges:(NSArray<ENRMBlockRange *> *)blockRanges
 {
-  ENRMInputFormatter *formatter = _formatter;
-  return [ENRMMarkdownSerializer serializePlainText:text
-                                             ranges:ranges
-                                        blockRanges:blockRanges
-                                blockPrefixProvider:^NSString *(ENRMBlockRange *blockRange) {
-                                  id<ENRMBlockHandler> handler = [formatter handlerForBlockType:blockRange.type];
-                                  return [handler markdownLinePrefixForBlockRange:blockRange];
-                                }];
+  return [_clipboardCoordinator serializeText:text ranges:ranges blockRanges:blockRanges];
 }
 
 - (nullable NSString *)markdownForSelectedRange
 {
-  NSRange selection = _textView.selectedRange;
-  if (selection.length == 0) {
-    return nil;
-  }
-
-  NSString *fullText = ENRMGetPlainText(_textView);
-  NSString *selectedText = [fullText substringWithRange:selection];
-  NSUInteger selEnd = NSMaxRange(selection);
-
-  NSMutableArray<ENRMFormattingRange *> *clippedRanges = [NSMutableArray array];
-  for (ENRMFormattingRange *range in [self allRangesIncludingTransient]) {
-    NSUInteger rangeStart = range.range.location;
-    NSUInteger rangeEnd = NSMaxRange(range.range);
-
-    if (rangeEnd <= selection.location || rangeStart >= selEnd) {
-      continue;
-    }
-
-    NSUInteger clippedStart = MAX(rangeStart, selection.location);
-    NSUInteger clippedEnd = MIN(rangeEnd, selEnd);
-    NSRange shifted = NSMakeRange(clippedStart - selection.location, clippedEnd - clippedStart);
-
-    [clippedRanges addObject:[ENRMFormattingRange rangeWithType:range.type range:shifted url:range.url]];
-  }
-
-  NSMutableArray<ENRMBlockRange *> *clippedBlockRanges = [NSMutableArray array];
-  for (ENRMBlockRange *blockRange in _blockStore.allRanges) {
-    NSUInteger rangeStart = blockRange.range.location;
-    NSUInteger rangeEnd = NSMaxRange(blockRange.range);
-
-    if (rangeEnd <= selection.location || rangeStart >= selEnd) {
-      continue;
-    }
-
-    NSUInteger clippedStart = MAX(rangeStart, selection.location);
-    NSUInteger clippedEnd = MIN(rangeEnd, selEnd);
-    NSRange shifted = NSMakeRange(clippedStart - selection.location, clippedEnd - clippedStart);
-
-    [clippedBlockRanges addObject:[ENRMBlockRange rangeWithType:blockRange.type range:shifted level:blockRange.level]];
-  }
-
-  return [self serializeText:selectedText ranges:clippedRanges blockRanges:clippedBlockRanges];
+  return [_clipboardCoordinator serializeSelectedRange:_textView.selectedRange inText:ENRMGetPlainText(_textView)];
 }
 
 - (void)copyToClipboard
@@ -1152,9 +1388,7 @@ using namespace facebook::react;
   if (plainText.length == 0) {
     return;
   }
-  NSString *markdown = [self serializeText:plainText
-                                    ranges:[self allRangesIncludingTransient]
-                               blockRanges:_blockStore.allRanges];
+  NSString *markdown = [_clipboardCoordinator serializeFullDocument:plainText];
   NSMutableDictionary *items = [NSMutableDictionary dictionary];
   items[kUTIPlainText] = plainText;
   if (markdown.length > 0) {
@@ -1165,17 +1399,7 @@ using namespace facebook::react;
 
 - (void)requestMarkdown:(NSInteger)requestId
 {
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSString *markdown = [self serializeText:ENRMGetPlainText(_textView)
-                                    ranges:[self allRangesIncludingTransient]
-                               blockRanges:_blockStore.allRanges];
-  emitter->onRequestMarkdownResult({
-      .requestId = static_cast<int>(requestId),
-      .markdown = std::string([markdown UTF8String] ?: ""),
-  });
+  [_inputEventEmitter requestMarkdown:requestId];
 }
 
 - (CGRect)computeCaretRect
@@ -1201,19 +1425,7 @@ using namespace facebook::react;
 
 - (void)requestCaretRect:(NSInteger)requestId
 {
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-
-  CGRect caretRect = [self computeCaretRect];
-  emitter->onRequestCaretRectResult({
-      .requestId = static_cast<int>(requestId),
-      .x = caretRect.origin.x,
-      .y = caretRect.origin.y,
-      .width = caretRect.size.width,
-      .height = caretRect.size.height,
-  });
+  [_inputEventEmitter requestCaretRect:requestId];
 }
 
 - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
@@ -1221,175 +1433,85 @@ using namespace facebook::react;
   RCTEnrichedMarkdownTextInputHandleCommand(self, commandName, args);
 }
 
-#pragma mark - Style state query
+#pragma mark - ENRMInputEventEmitterDataSource
 
-- (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
+- (std::shared_ptr<EnrichedMarkdownTextInputEventEmitter const>)fabricEventEmitter
 {
-  BOOL inRange = [_formattingStore isStyleActive:type atPosition:position];
-  NSNumber *key = @(type);
-  if ([_pendingStyleRemovals containsObject:key]) {
-    return NO;
-  }
-  if ([_pendingStyles containsObject:key]) {
-    return YES;
-  }
-  return inRange;
-}
-
-- (void)syncTypingAttributesWithPendingStyles
-{
-  UIFontDescriptorSymbolicTraits traits = 0;
-  if ([_pendingStyles containsObject:@(ENRMInputStyleTypeStrong)]) {
-    traits |= UIFontDescriptorTraitBold;
-  }
-  if ([_pendingStyles containsObject:@(ENRMInputStyleTypeEmphasis)]) {
-    traits |= UIFontDescriptorTraitItalic;
-  }
-
-  NSMutableDictionary *attrs = [_textView.typingAttributes mutableCopy];
-  attrs[NSFontAttributeName] = [_formatterStyle fontForTraits:traits];
-  _textView.typingAttributes = attrs;
-}
-
-- (void)resetPendingStylesForSelectionChange
-{
-  // Skip system-driven selection adjustments (e.g., predictive text) that fire
-  // immediately after a text edit (PR #406).
-  static const CFTimeInterval kPostEditGracePeriod = 0.1;
-  BOOL isPostEditAdjustment =
-      (_lastTextChangeTime > 0 && (CACurrentMediaTime() - _lastTextChangeTime) < kPostEditGracePeriod);
-  if (isPostEditAdjustment) {
-    return;
-  }
-  [_pendingStyles removeAllObjects];
-  [_pendingStyleRemovals removeAllObjects];
-  [self rebuildPendingStylesFromContext];
-  [self syncTypingAttributesWithCursorBlock];
-}
-
-- (void)rebuildPendingStylesFromContext
-{
-  NSUInteger cursor = _textView.selectedRange.location;
-  if (_textView.selectedRange.length > 0 || cursor == 0) {
-    return;
-  }
-
-  static const ENRMInputStyleType inlineStyles[] = {
-      ENRMInputStyleTypeStrong,        ENRMInputStyleTypeEmphasis, ENRMInputStyleTypeUnderline,
-      ENRMInputStyleTypeStrikethrough, ENRMInputStyleTypeSpoiler,
-  };
-
-  for (NSUInteger i = 0; i < sizeof(inlineStyles) / sizeof(inlineStyles[0]); i++) {
-    ENRMInputStyleType type = inlineStyles[i];
-    if ([_formattingStore isStyleAdjacentBefore:type position:cursor]) {
-      [_pendingStyles addObject:@(type)];
-    }
-  }
-}
-
-#pragma mark - Event emitters
-
-- (void)emitFormattingChanged
-{
-  [self emitOnChangeState];
-  if (_emitMarkdown) {
-    [self emitOnChangeMarkdown];
-  }
-}
-
-- (std::shared_ptr<EnrichedMarkdownTextInputEventEmitter const>)getEventEmitter
-{
-  if (_eventEmitter == nullptr || _blockEmitting) {
+  if (_eventEmitter == nullptr || _editSession.shouldSuppressEvents) {
     return nullptr;
   }
   return std::static_pointer_cast<EnrichedMarkdownTextInputEventEmitter const>(_eventEmitter);
 }
 
+- (NSRange)selectedRange
+{
+  return _textView.selectedRange;
+}
+
+- (BOOL)isStyleActive:(ENRMInputStyleType)type inRange:(NSRange)range
+{
+  return [_formattingStore isStyleActive:type inRange:range];
+}
+
+- (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
+{
+  return [_typingController isEffectiveStyleActive:type atPosition:position];
+}
+
+#pragma mark - ENRMInputTypingAttributesDataSource
+
+- (BOOL)isStyleAdjacentBefore:(ENRMInputStyleType)type position:(NSUInteger)position
+{
+  return [_formattingStore isStyleAdjacentBefore:type position:position];
+}
+
+- (BOOL)isStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position
+{
+  return [_formattingStore isStyleActive:type atPosition:position];
+}
+
+- (NSString *)currentMarkdown
+{
+  return [self serializeText:ENRMGetPlainText(_textView)
+                      ranges:[self allRangesIncludingTransient]
+                 blockRanges:_blockStore.allRanges];
+}
+
 - (NSArray<ENRMFormattingRange *> *)allRangesIncludingTransient
 {
-  NSArray<ENRMFormattingRange *> *transient = [_detectorPipeline allTransientFormattingRanges];
-  if (transient.count == 0) {
-    return _formattingStore.allRanges;
-  }
-  NSMutableArray<ENRMFormattingRange *> *merged = [_formattingStore.allRanges mutableCopy];
-  [merged addObjectsFromArray:transient];
-  return merged;
-}
-
-- (void)clearActiveMention:(nullable NSString *)indicatorOverride
-{
-  NSString *indicator = indicatorOverride ?: _activeMentionIndicator;
-  _activeMentionIndicator = nil;
-  _activeMentionRange = NSMakeRange(NSNotFound, 0);
-  _activeMentionText = @"";
-
-  if (indicator.length > 0) {
-    [self emitOnEndMention:indicator];
-  }
-}
-
-- (nullable ENRMInputMentionCandidate *)mentionCandidateAtCursor
-{
-  NSRange selectedRange = _textView.selectedRange;
-  if (_mentionIndicators.count == 0 || selectedRange.length != 0) {
-    return nil;
-  }
-
-  NSString *plainText = ENRMGetPlainText(_textView);
-  NSUInteger cursor = selectedRange.location;
-  if (cursor > plainText.length) {
-    return nil;
-  }
-
-  NSUInteger start = [ENRMWordsUtils tokenStartInText:plainText beforePosition:cursor];
-  NSString *token = [plainText substringWithRange:NSMakeRange(start, cursor - start)];
-  NSString *matchedIndicator = nil;
-  for (NSString *indicator in _mentionIndicators) {
-    if ([token hasPrefix:indicator]) {
-      matchedIndicator = indicator;
-      break;
-    }
-  }
-  if (matchedIndicator == nil) {
-    return nil;
-  }
-
-  if ([_formattingStore rangeOfType:ENRMInputStyleTypeLink containingPosition:start] != nil) {
-    return nil;
-  }
-
-  return [ENRMInputMentionCandidate candidateWithIndicator:matchedIndicator
-                                                     start:start
-                                                       end:cursor
-                                                      text:[token substringFromIndex:matchedIndicator.length]];
+  return [_clipboardCoordinator allRangesIncludingTransient];
 }
 
 - (void)updateActiveMention
 {
-  ENRMInputMentionCandidate *candidate = [self mentionCandidateAtCursor];
-  if (candidate == nil) {
-    [self clearActiveMention:nil];
-    return;
-  }
+  [self dispatchMentionUpdate];
+}
 
-  NSString *indicator = candidate.indicator;
-  NSUInteger start = candidate.start;
-  NSUInteger end = candidate.end;
-  NSString *query = candidate.text;
+- (void)clearActiveMention:(nullable NSString *)indicatorOverride
+{
+  [self dispatchMentionEvents:[_mentionCoordinator clearWithIndicatorOverride:indicatorOverride]];
+}
 
-  if (_activeMentionIndicator == nil || ![_activeMentionIndicator isEqualToString:indicator] ||
-      _activeMentionRange.location != start) {
-    if (_activeMentionIndicator != nil) {
-      [self emitOnEndMention:_activeMentionIndicator];
+- (void)dispatchMentionUpdate
+{
+  NSString *plainText = ENRMGetPlainText(_textView);
+  [self dispatchMentionEvents:[_mentionCoordinator updateWithText:plainText selectedRange:_textView.selectedRange]];
+}
+
+- (void)dispatchMentionEvents:(NSArray<ENRMMentionEvent *> *)events
+{
+  for (ENRMMentionEvent *event in events) {
+    switch (event.type) {
+      case ENRMMentionEventStart:
+        [_inputEventEmitter emitOnStartMention:event.indicator];
+        break;
+      case ENRMMentionEventChange:
+        [_inputEventEmitter emitOnChangeMentionWithIndicator:event.indicator text:event.text];
+        break;
+      case ENRMMentionEventEnd:
+        [_inputEventEmitter emitOnEndMention:event.indicator];
+        break;
     }
-    _activeMentionIndicator = indicator;
-    [self emitOnStartMention:indicator];
-  }
-  _activeMentionRange = NSMakeRange(start, end - start);
-
-  if (![_activeMentionText isEqualToString:query]) {
-    _activeMentionText = query;
-    [self emitOnChangeMentionWithIndicator:indicator text:query];
   }
 }
 
@@ -1408,8 +1530,7 @@ using namespace facebook::react;
     return NO;
   }
 
-  ENRMFormattingRange *linkRange = [_formattingStore rangeOfType:ENRMInputStyleTypeLink
-                                              containingPosition:lookupPosition];
+  ENRMFormattingRange *linkRange = [_linkCoordinator linkAtPosition:lookupPosition];
   if (linkRange == nil) {
     return NO;
   }
@@ -1417,107 +1538,6 @@ using namespace facebook::react;
   [self replaceTextInRange:linkRange.range withText:@"" formattingRanges:@[]];
   [self clearActiveMention:nil];
   return YES;
-}
-
-- (void)emitOnChangeText
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSString *plainText = ENRMGetPlainText(_textView);
-  emitter->onChangeText({.value = std::string([plainText UTF8String] ?: "")});
-}
-
-- (void)emitOnChangeMarkdown
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSString *markdown = [self serializeText:ENRMGetPlainText(_textView)
-                                    ranges:[self allRangesIncludingTransient]
-                               blockRanges:_blockStore.allRanges];
-  emitter->onChangeMarkdown({.value = std::string([markdown UTF8String] ?: "")});
-}
-
-- (void)emitOnChangeSelection
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  NSRange selection = _textView.selectedRange;
-  emitter->onChangeSelection({
-      .start = static_cast<int>(selection.location),
-      .end = static_cast<int>(NSMaxRange(selection)),
-  });
-}
-
-- (void)emitOnChangeState
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-
-  NSUInteger cursor = _textView.selectedRange.location;
-  BOOL boldActive = [self isEffectiveStyleActive:ENRMInputStyleTypeStrong atPosition:cursor];
-  BOOL italicActive = [self isEffectiveStyleActive:ENRMInputStyleTypeEmphasis atPosition:cursor];
-  BOOL underlineActive = [self isEffectiveStyleActive:ENRMInputStyleTypeUnderline atPosition:cursor];
-  BOOL strikethroughActive = [self isEffectiveStyleActive:ENRMInputStyleTypeStrikethrough atPosition:cursor];
-  BOOL spoilerActive = [self isEffectiveStyleActive:ENRMInputStyleTypeSpoiler atPosition:cursor];
-  BOOL linkActive = [self isEffectiveStyleActive:ENRMInputStyleTypeLink atPosition:cursor];
-
-  NSInteger headingLevel = [self headingLevelForCursorParagraph];
-
-  if (_prevState.initialized && _prevState.bold == boldActive && _prevState.italic == italicActive &&
-      _prevState.underline == underlineActive && _prevState.strikethrough == strikethroughActive &&
-      _prevState.spoiler == spoilerActive && _prevState.link == linkActive && _prevState.headingLevel == headingLevel) {
-    return;
-  }
-
-  _prevState.bold = boldActive;
-  _prevState.italic = italicActive;
-  _prevState.underline = underlineActive;
-  _prevState.strikethrough = strikethroughActive;
-  _prevState.spoiler = spoilerActive;
-  _prevState.link = linkActive;
-  _prevState.headingLevel = headingLevel;
-  _prevState.initialized = YES;
-
-  emitter->onChangeState({
-      .bold = {.isActive = boldActive},
-      .italic = {.isActive = italicActive},
-      .underline = {.isActive = underlineActive},
-      .strikethrough = {.isActive = strikethroughActive},
-      .spoiler = {.isActive = spoilerActive},
-      .link = {.isActive = linkActive},
-      .heading = {.isActive = headingLevel > 0, .level = static_cast<int>(headingLevel)},
-  });
-}
-
-- (void)emitCaretRectChangeIfNeeded
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-
-  CGRect caretRect = [self computeCaretRect];
-
-  if (_prevCaretRect.has_value() && CGRectEqualToRect(_prevCaretRect.value(), caretRect)) {
-    return;
-  }
-
-  _prevCaretRect = caretRect;
-
-  emitter->onCaretRectChange({
-      .x = caretRect.origin.x,
-      .y = caretRect.origin.y,
-      .width = caretRect.size.width,
-      .height = caretRect.size.height,
-  });
 }
 
 - (NSArray<NSString *> *)contextMenuItemTexts
@@ -1540,117 +1560,21 @@ using namespace facebook::react;
   return _formatMenuConfig;
 }
 
-- (void)emitContextMenuItemPress:(NSString *)itemText
+- (ENRMInputEventEmitter *)inputEventEmitter
 {
-  auto eventEmitter = [self getEventEmitter];
-  if (eventEmitter == nullptr) {
-    return;
-  }
-
-  NSRange selectedRange = _textView.selectedRange;
-  NSString *selectedText =
-      selectedRange.length > 0 ? [_textView.textStorage.string substringWithRange:selectedRange] : @"";
-
-  auto isActive = [&](ENRMInputStyleType type) -> BOOL {
-    if (selectedRange.length > 0) {
-      return [_formattingStore isStyleActive:type inRange:selectedRange];
-    }
-    return [self isEffectiveStyleActive:type atPosition:selectedRange.location];
-  };
-
-  BOOL boldActive = isActive(ENRMInputStyleTypeStrong);
-  BOOL italicActive = isActive(ENRMInputStyleTypeEmphasis);
-  BOOL underlineActive = isActive(ENRMInputStyleTypeUnderline);
-  BOOL strikethroughActive = isActive(ENRMInputStyleTypeStrikethrough);
-  BOOL spoilerActive = isActive(ENRMInputStyleTypeSpoiler);
-  BOOL linkActive = isActive(ENRMInputStyleTypeLink);
-  NSInteger headingLevel = [self headingLevelForCursorParagraph];
-
-  eventEmitter->onContextMenuItemPress({
-      .itemText = std::string(itemText.UTF8String),
-      .selectedText = std::string(selectedText.UTF8String),
-      .selectionStart = static_cast<int>(selectedRange.location),
-      .selectionEnd = static_cast<int>(NSMaxRange(selectedRange)),
-      .styleState =
-          {
-              .bold = {.isActive = boldActive},
-              .italic = {.isActive = italicActive},
-              .underline = {.isActive = underlineActive},
-              .strikethrough = {.isActive = strikethroughActive},
-              .spoiler = {.isActive = spoilerActive},
-              .link = {.isActive = linkActive},
-              .heading = {.isActive = headingLevel > 0, .level = static_cast<int>(headingLevel)},
-          },
-  });
+  return _inputEventEmitter;
 }
 
-- (void)emitOnFocus
+- (ENRMInputTypingAttributesController *)typingController
 {
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onInputFocus({});
-}
-
-- (void)emitOnBlur
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onInputBlur({});
-}
-
-- (void)emitOnLinkDetectedWithText:(NSString *)text url:(NSString *)url range:(NSRange)range
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onLinkDetected({
-      .text = std::string([text UTF8String] ?: ""),
-      .url = std::string([url UTF8String] ?: ""),
-      .start = static_cast<int>(range.location),
-      .end = static_cast<int>(range.location + range.length),
-  });
-}
-
-- (void)emitOnStartMention:(NSString *)indicator
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onStartMention({.indicator = std::string([indicator UTF8String] ?: "")});
-}
-
-- (void)emitOnChangeMentionWithIndicator:(NSString *)indicator text:(NSString *)text
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onChangeMention({
-      .indicator = std::string([indicator UTF8String] ?: ""),
-      .text = std::string([text UTF8String] ?: ""),
-  });
-}
-
-- (void)emitOnEndMention:(NSString *)indicator
-{
-  auto emitter = [self getEventEmitter];
-  if (emitter == nullptr) {
-    return;
-  }
-  emitter->onEndMention({.indicator = std::string([indicator UTF8String] ?: "")});
+  return _typingController;
 }
 
 #pragma mark - Text edit tracking
 
 - (void)handleTextChanged
 {
-  if (ENRMHasMarkedText(_textView)) {
+  if (_editSession.isComposing) {
     return;
   }
 
@@ -1680,74 +1604,63 @@ using namespace facebook::react;
     }
   }
 
-  NSString *plainText = [self adjustStoresForEditAtLocation:editLocation
-                                              deletedLength:deletedLength
-                                             insertedLength:insertedLength];
+  ENRMEditContext *context = [[ENRMEditContext alloc] initWithEditLocation:editLocation
+                                                             deletedLength:deletedLength
+                                                            insertedLength:insertedLength
+                                                    preEditReplacedNewline:_preEditReplacedNewline
+                                                          preEditBlockType:_preEditBlockType
+                                                         preEditBlockLevel:_preEditBlockLevel
+                                                  preEditParagraphWasEmpty:_preEditParagraphWasEmpty
+                                                             pendingStyles:_typingController.pendingStyles
+                                                      pendingStyleRemovals:_typingController.pendingStyleRemovals];
 
-  if (insertedLength > 0) {
-    NSRange insertedRange = NSMakeRange(editLocation, insertedLength);
-    NSUInteger insertedEnd = NSMaxRange(insertedRange);
-    BOOL insertedHasGlyphContent = NO;
-    if (insertedEnd <= plainText.length) {
-      NSCharacterSet *newlines = [NSCharacterSet newlineCharacterSet];
-      for (NSUInteger i = insertedRange.location; i < insertedEnd; i++) {
-        if (![newlines characterIsMember:[plainText characterAtIndex:i]]) {
-          insertedHasGlyphContent = YES;
-          break;
-        }
-      }
-    }
+  BOOL touchedNewline = [_editPipeline processTextChangeWithContext:context];
 
-    if (insertedHasGlyphContent) {
-      for (NSNumber *styleNum in _pendingStyles) {
-        ENRMFormattingRange *newRange = [ENRMFormattingRange rangeWithType:(ENRMInputStyleType)styleNum.integerValue
-                                                                     range:insertedRange];
-        [_formattingStore addRange:newRange];
-      }
-    }
-
-    // adjustForEditAtLocation may have expanded an existing range to cover
-    // the insertion — carve out the inserted portion for removed styles.
-    for (NSNumber *styleNum in _pendingStyleRemovals) {
-      [_formattingStore removeType:(ENRMInputStyleType)styleNum.integerValue inRange:insertedRange];
-    }
-  }
+  // Consumed: clear pre-edit state so stale values can't leak to the next edit.
+  _preEditBlockType = ENRMInputBlockTypeParagraph;
+  _preEditBlockLevel = 0;
+  _preEditParagraphWasEmpty = NO;
+  _preEditReplacedNewline = NO;
 
   _lastTextLength = newLength;
 
 #if !TARGET_OS_OSX
   if (newLength == 0) {
-    if ([self headingLevelForCursorParagraph] > 0) {
-      [self syncTypingAttributesWithCursorBlock];
+    if ([self headingLevelForCursorParagraph] > 0 || [self listBlockForCursorParagraph] != nil) {
+      [_typingController syncWithCursorBlock];
     } else {
       [self resetBaseTypingAttributes];
     }
   }
 #endif
 
-  [self applyFormattingScopedToEditAtLocation:editLocation insertedLength:insertedLength];
-
-  // Sync typing attributes after every edit. The selection-change callback
-  // is either suppressed (_isTextChanging) or guarded by the grace period,
-  // so it won't reliably sync after Enter from a heading line. This call
-  // is idempotent and cheap — on same-line edits it's a no-op in practice.
-  if (_textView.selectedRange.length == 0) {
-    [self syncTypingAttributesWithCursorBlock];
+  if (touchedNewline) {
+    [self applyFormatting];
+  } else {
+    [self applyFormattingScopedToEditAtLocation:editLocation insertedLength:insertedLength];
   }
 
-  NSUInteger clampedEditLocation = MIN(editLocation, newLength);
-  NSUInteger clampedInsertedLength = MIN(insertedLength, newLength - clampedEditLocation);
-  [_detectorPipeline processTextChange:ENRMGetPlainText(_textView)
-                     modificationRange:NSMakeRange(clampedEditLocation, clampedInsertedLength)];
+  if (_textView.selectedRange.length == 0) {
+    [_typingController syncWithCursorBlock];
+  }
+
+  if ([self listBlockForCursorParagraph] != nil) {
+    [_typingController syncWithCursorBlock];
+  } else if (_textView.typingAttributes[NSParagraphStyleAttributeName] != nil) {
+    [_typingController clearListParagraphStyle];
+  }
+
+  [_editPipeline detectLinksAtLocation:editLocation insertedLength:insertedLength];
 
   [self updatePlaceholderVisibility];
-  [self emitOnChangeText];
-  [self emitOnChangeSelection];
-  [self emitFormattingChanged];
+  [_inputEventEmitter emitOnChangeText];
+  [_inputEventEmitter emitOnChangeSelection];
+  [_inputEventEmitter emitFormattingChanged];
   [self updateActiveMention];
-  [self emitCaretRectChangeIfNeeded];
+  [_inputEventEmitter emitCaretRectChangeIfNeeded];
   [self requestHeightUpdate];
   [self scheduleRelayoutIfNeeded];
+  [self updateEmptyBulletMarker];
 }
 
 #pragma mark - Text view delegate
@@ -1785,15 +1698,15 @@ using namespace facebook::react;
 {
   [self stripLinkTypingAttributes];
 
-  if (_textView.selectedRange.length == 0 && !_isTextChanging) {
+  if (_textView.selectedRange.length == 0 && _editSession.phase == ENRMEditPhaseIdle) {
     NSString *text = ENRMGetPlainText(_textView);
     if (text.length > 0) {
       NSRange paragraphRange = [text paragraphRangeForRange:_textView.selectedRange];
       NSString *paragraphText = [text substringWithRange:paragraphRange];
       BOOL isEmpty = paragraphText.length == 0 || [paragraphText isEqualToString:@"\n"];
       if (isEmpty) {
-        if ([self headingLevelForCursorParagraph] > 0) {
-          [self syncTypingAttributesWithCursorBlock];
+        if ([self headingLevelForCursorParagraph] > 0 || [self listBlockForCursorParagraph] != nil) {
+          [_typingController syncWithCursorBlock];
         } else {
           NSMutableDictionary *attrs = [NSMutableDictionary dictionary];
           attrs[NSFontAttributeName] = _formatterStyle.baseFont;
@@ -1807,57 +1720,126 @@ using namespace facebook::react;
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text
 {
+  [_inputEventEmitter emitOnKeyPress:text];
   if ([self deleteLinkForReplacementRange:range replacementText:text]) {
     return NO;
   }
+  if ([self handleListKeyForReplacementRange:range replacementText:text]) {
+    return NO;
+  }
   _preEditSelectedRange = _lastSelectedRange;
-  _isTextChanging = YES;
+  [self capturePreEditBlockForRange:range];
+  _preEditParagraphWasEmpty = [self preEditParagraphWasEmpty:range];
+  _preEditReplacedNewline = [self replacedRangeTouchesNewline:range];
+  [_editSession enterPhase:ENRMEditPhaseProcessing];
   [self stripLinkTypingAttributes];
   return YES;
 }
 
 - (void)textViewDidChange:(UITextView *)textView
 {
-  if (_isApplyingFormatting) {
+  if (_editSession.shouldSuppressFormatting) {
     return;
   }
   [self handleTextChanged];
-  _isTextChanging = NO;
-  _lastTextChangeTime = CACurrentMediaTime();
+  [_editSession exitPhase];
+  [_editSession recordTextChange];
   _lastSelectedRange = textView.selectedRange;
 }
 
 - (void)textViewDidBeginEditing:(UITextView *)textView
 {
-  [self emitOnFocus];
+  [_inputEventEmitter emitOnFocus];
 }
 
 - (void)textViewDidEndEditing:(UITextView *)textView
 {
   [self clearActiveMention:nil];
-  [self emitOnBlur];
+  [_inputEventEmitter emitOnBlur];
+}
+
+/// Atomic-link snap clamped to the current text length, so a stale link range
+/// past the text end can't drive an unbounded snap/clamp loop.
+- (NSRange)clampedAtomicSelectionForSelection:(NSRange)selection
+{
+  NSRange adjusted = [_formattingStore selectionAdjustedForAtomicLinks:selection];
+  NSUInteger textLength = _textView.textStorage.length;
+  if (adjusted.location > textLength) {
+    return NSMakeRange(textLength, 0);
+  }
+  if (NSMaxRange(adjusted) > textLength) {
+    adjusted.length = textLength - adjusted.location;
+  }
+  return adjusted;
+}
+
+/// YES while a UIKit selection gesture (handle drag, long-press loupe) is
+/// mid-flight; snapping selectedRange then fights the gesture and flickers the
+/// edit menu, so callers defer the snap until it settles.
+- (BOOL)selectionGestureIsActive
+{
+  for (UIGestureRecognizer *recognizer in _textView.gestureRecognizers) {
+    if (recognizer.state == UIGestureRecognizerStateBegan || recognizer.state == UIGestureRecognizerStateChanged) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
+/// Re-applies the atomic-link snap once the selection gesture ends, polling the
+/// main queue because UIKit may not re-fire the selection delegate at touch-up.
+- (void)schedulePostGestureAtomicSnap
+{
+  if (_atomicSnapScheduled) {
+    return;
+  }
+  _atomicSnapScheduled = YES;
+  __weak __typeof(self) weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kENRMAtomicSnapPollInterval * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   __typeof(self) strongSelf = weakSelf;
+                   if (strongSelf == nil) {
+                     return;
+                   }
+                   strongSelf->_atomicSnapScheduled = NO;
+                   if (strongSelf->_editSession.shouldSuppressSelectionSideEffects ||
+                       strongSelf->_editSession.isComposing) {
+                     return;
+                   }
+                   if ([strongSelf selectionGestureIsActive]) {
+                     [strongSelf schedulePostGestureAtomicSnap];
+                     return;
+                   }
+                   NSRange selection = strongSelf->_textView.selectedRange;
+                   NSRange adjusted = [strongSelf clampedAtomicSelectionForSelection:selection];
+                   if (!NSEqualRanges(adjusted, selection)) {
+                     strongSelf->_textView.selectedRange = adjusted;
+                   }
+                 });
 }
 
 - (void)textViewDidChangeSelection:(UITextView *)textView
 {
   NSRange newSelection = textView.selectedRange;
-  // Links (e.g. mentions) are atomic: snap a partial selection to the whole link, and a caret inside
-  // a link to its end. Returning hands the adjusted selection to the recursive change (no double emit).
-  if (!_isApplyingFormatting && !_isTextChanging && !ENRMHasMarkedText(_textView)) {
-    NSRange adjusted = [_formattingStore selectionAdjustedForAtomicLinks:newSelection];
-    if (!NSEqualRanges(adjusted, newSelection)) {
-      _textView.selectedRange = adjusted;
-      return;
+  if (!_editSession.shouldSuppressSelectionSideEffects && !_editSession.isComposing) {
+    if ([self selectionGestureIsActive]) {
+      [self schedulePostGestureAtomicSnap];
+    } else {
+      NSRange adjusted = [self clampedAtomicSelectionForSelection:newSelection];
+      if (!NSEqualRanges(adjusted, newSelection)) {
+        _textView.selectedRange = adjusted;
+        return;
+      }
     }
   }
   NSRange previousSelection = _lastSelectedRange;
   _lastSelectedRange = newSelection;
 
-  if (_isApplyingFormatting || _isTextChanging) {
+  if (_editSession.shouldSuppressSelectionSideEffects) {
     return;
   }
 
-  if (ENRMHasMarkedText(_textView)) {
+  if (_editSession.isComposing) {
     return;
   }
 
@@ -1865,15 +1847,16 @@ using namespace facebook::react;
       newSelection.location != previousSelection.location || newSelection.length != previousSelection.length;
 
   if (selectionMoved) {
-    [self resetPendingStylesForSelectionChange];
+    [_typingController resetForSelectionChange];
   }
 
   [self manageSelectionBasedChanges];
 
-  [self emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeSelection];
   [self updateActiveMention];
-  [self emitOnChangeState];
-  [self emitCaretRectChangeIfNeeded];
+  [_inputEventEmitter emitOnChangeState];
+  [_inputEventEmitter emitCaretRectChangeIfNeeded];
+  [self updateEmptyBulletMarker];
 }
 
 #else
@@ -1887,7 +1870,7 @@ using namespace facebook::react;
 
 - (void)textInputDidBeginEditing
 {
-  [self emitOnFocus];
+  [_inputEventEmitter emitOnFocus];
 }
 
 - (BOOL)textInputShouldEndEditing
@@ -1898,7 +1881,7 @@ using namespace facebook::react;
 - (void)textInputDidEndEditing
 {
   [self clearActiveMention:nil];
-  [self emitOnBlur];
+  [_inputEventEmitter emitOnBlur];
 }
 
 - (BOOL)textInputShouldReturn
@@ -1917,31 +1900,36 @@ using namespace facebook::react;
 
 - (nullable NSString *)textInputShouldChangeText:(NSString *)text inRange:(NSRange)range
 {
+  [_inputEventEmitter emitOnKeyPress:text];
   if ([self deleteLinkForReplacementRange:range replacementText:text]) {
     return nil;
   }
   _preEditSelectedRange = _lastSelectedRange;
-  _isTextChanging = YES;
+  // Capture the same pre-edit block state the iOS path does — otherwise these
+  // ivars carry stale values from a previous edit into reconcileBlockContinuation.
+  [self capturePreEditBlockForRange:range];
+  _preEditParagraphWasEmpty = [self preEditParagraphWasEmpty:range];
+  _preEditReplacedNewline = [self replacedRangeTouchesNewline:range];
+  [_editSession enterPhase:ENRMEditPhaseProcessing];
   return text;
 }
 
 - (void)textInputDidChange
 {
-  if (_isApplyingFormatting) {
-    _isTextChanging = NO;
+  if (_editSession.shouldSuppressFormatting) {
+    [_editSession exitPhase];
     return;
   }
   [self handleTextChanged];
-  _isTextChanging = NO;
-  _lastTextChangeTime = CACurrentMediaTime();
+  [_editSession exitPhase];
+  [_editSession recordTextChange];
   _lastSelectedRange = _textView.selectedRange;
 }
 
 - (void)textInputDidChangeSelection
 {
   NSRange newSelection = _textView.selectedRange;
-  // Atomic link snapping — same logic as textViewDidChangeSelection: (iOS).
-  if (!_isApplyingFormatting && !_isTextChanging && !ENRMHasMarkedText(_textView)) {
+  if (!_editSession.shouldSuppressSelectionSideEffects && !_editSession.isComposing) {
     NSRange adjusted = [_formattingStore selectionAdjustedForAtomicLinks:newSelection];
     if (!NSEqualRanges(adjusted, newSelection)) {
       _textView.selectedRange = adjusted;
@@ -1951,11 +1939,11 @@ using namespace facebook::react;
   NSRange previousSelection = _lastSelectedRange;
   _lastSelectedRange = newSelection;
 
-  if (_isApplyingFormatting || _isTextChanging) {
+  if (_editSession.shouldSuppressSelectionSideEffects) {
     return;
   }
 
-  if (ENRMHasMarkedText(_textView)) {
+  if (_editSession.isComposing) {
     return;
   }
 
@@ -1963,13 +1951,13 @@ using namespace facebook::react;
       newSelection.location != previousSelection.location || newSelection.length != previousSelection.length;
 
   if (selectionMoved) {
-    [self resetPendingStylesForSelectionChange];
+    [_typingController resetForSelectionChange];
   }
 
-  [self emitOnChangeSelection];
+  [_inputEventEmitter emitOnChangeSelection];
   [self updateActiveMention];
-  [self emitOnChangeState];
-  [self emitCaretRectChangeIfNeeded];
+  [_inputEventEmitter emitOnChangeState];
+  [_inputEventEmitter emitCaretRectChangeIfNeeded];
 }
 
 // @required stubs for RCTBackedTextInputDelegate — RCTUITextView's internal adapter

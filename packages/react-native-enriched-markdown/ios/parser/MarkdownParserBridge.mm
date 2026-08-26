@@ -104,6 +104,9 @@ static MarkdownASTNode *convertCppASTToObjC(std::shared_ptr<Markdown::MarkdownAS
     case Markdown::NodeType::Highlight:
       objcType = MarkdownNodeTypeHighlight;
       break;
+    case Markdown::NodeType::SoftBreak:
+      objcType = MarkdownNodeTypeSoftBreak;
+      break;
   }
 
   MarkdownASTNode *objcNode = [[MarkdownASTNode alloc] initWithType:objcType];
@@ -152,6 +155,7 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
   cppFlags.superscript = flags.superscript;
   cppFlags.subscript = flags.subscript;
   cppFlags.highlight = flags.highlight;
+  cppFlags.hardSoftBreaks = flags.hardSoftBreaks;
 
   Markdown::MD4CParser parser;
   auto cppAST = parser.parse(cppMarkdown, cppFlags);

@@ -1,6 +1,8 @@
 #pragma once
 
+#import "ENRMInputEventEmitter.h"
 #import "ENRMInputStyledRange.h"
+#import "ENRMInputTypingAttributesController.h"
 #import "EnrichedMarkdownTextInput.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -31,6 +33,9 @@ typedef struct {
 
 @interface EnrichedMarkdownTextInput (Internal)
 
+@property (nonatomic, readonly) ENRMInputEventEmitter *inputEventEmitter;
+@property (nonatomic, readonly) ENRMInputTypingAttributesController *typingController;
+
 - (void)toggleBold;
 - (void)toggleItalic;
 - (void)toggleUnderline;
@@ -38,11 +43,13 @@ typedef struct {
 - (void)toggleSpoiler;
 - (void)toggleInlineStyle:(ENRMInputStyleType)type;
 - (void)toggleHeading:(NSInteger)level;
+- (void)toggleUnorderedList;
+- (void)toggleOrderedList;
+- (void)indentList;
+- (void)outdentList;
+- (BOOL)handleBackspaceAtDocumentStart;
 - (void)showLinkPrompt;
 
-- (BOOL)isEffectiveStyleActive:(ENRMInputStyleType)type atPosition:(NSUInteger)position;
-
-- (void)emitContextMenuItemPress:(NSString *)itemText;
 - (NSArray<NSString *> *)contextMenuItemTexts;
 - (NSArray<NSString *> *)contextMenuItemIcons;
 - (ENRMInputSelectionMenuConfig)inputSelectionMenuConfig;

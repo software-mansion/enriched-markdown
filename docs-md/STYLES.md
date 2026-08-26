@@ -149,6 +149,8 @@ The library provides sensible default styles for all Markdown elements out of th
       borderColor: '#007AFF',
       borderWidth: 3,
       backgroundColor: '#F0F8FF',
+      borderRadius: 8,
+      padding: 12,
       marginBottom: 12,
     },
     list: {
@@ -292,6 +294,8 @@ function App() {
 | `borderWidth` | `number` | Left border width |
 | `gapWidth` | `number` | Gap between border and text |
 | `backgroundColor` | `string` | Background color |
+| `borderRadius` | `number` | Corner radius of the background box; accent borders are clipped to the rounded shape, nested quotes rounding against their own box (default: `0`) |
+| `padding` | `number` | Inner top/bottom padding between the background edges and content, applied at every nesting level — also applies to the trailing edge on iOS and web (default: `0`) |
 
 ### List-specific
 
@@ -304,6 +308,7 @@ function App() {
 | `markerFontWeight` | `string` | Number marker font weight |
 | `gapWidth` | `number` | Gap between marker and text |
 | `marginLeft` | `number` | Left margin for nesting |
+| `itemSpacing` | `number` | Vertical spacing between consecutive items, including nested ones (default: `0`) |
 
 ### Code Block-specific
 
@@ -314,9 +319,34 @@ function App() {
 | `borderRadius` | `number` | Corner radius |
 | `borderWidth` | `number` | Border width |
 | `padding` | `number` | Inner padding |
+| `syntaxColors` | `object` | Per-token syntax highlight colors (see below) |
+
+#### `syntaxColors`
+
+Per-token foreground colors for syntax highlighting, keyed on the highlight token type. Any key you omit falls back to the default GitHub-light palette; `operator`, `punctuation`, `variable`, and `embedded` default to the code block's base `color` (i.e. no visible recolor). Colors only take visible effect when the optional syntax highlighting module is compiled in; otherwise code blocks render uncolored.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `keyword` | `string` | Keywords (e.g. `if`, `return`) |
+| `operator` | `string` | Operators (e.g. `+`, `=>`) |
+| `punctuation` | `string` | Brackets, delimiters, punctuation |
+| `string` | `string` | String and character literals |
+| `number` | `string` | Numeric literals |
+| `constant` | `string` | Constants and booleans |
+| `comment` | `string` | Comments |
+| `function` | `string` | Function and method names |
+| `type` | `string` | Types and classes |
+| `variable` | `string` | Variables and parameters |
+| `property` | `string` | Object properties and fields |
+| `tag` | `string` | Markup tags |
+| `attribute` | `string` | Markup attributes |
+| `embedded` | `string` | Embedded/injected language regions |
 
 > [!NOTE]
 > Inside list items, code blocks (background included) indent to the item's content column.
+
+> [!NOTE]
+> With `flavor="github"`, code blocks render as a block component with a header bar (language name on the left, copy-code button on the right) and a divider above the code. The header derives its appearance from the code block style: the label uses the system font at 0.85 x `fontSize`, and the label, button, and divider use `color` at reduced opacity. Dedicated header style properties may be added later.
 
 ### Inline Code-specific
 
@@ -392,10 +422,15 @@ Styles for highlighted text (`==text==`). Requires `md4cFlags={{ highlight: true
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `height` | `number` | Image height |
+| `height` | `number` | Fixed image height (default sizing knob). |
+| `maxHeight` | `number` | Maximum height the image is fitted into, preserving aspect ratio. Replaces `height` when set. |
+| `aspectRatio` | `number` | Width / height ratio (e.g. `16 / 9`). Fills available width; height derived from the ratio. Ignores `height`/`maxHeight`. |
+| `resizeMode` | `'contain' \| 'cover' \| 'stretch' \| 'center' \| 'none'` | How the image fills its box (like RN `resizeMode` / CSS `object-fit`). Applies whenever set explicitly, including with a fixed `height` box. When omitted, defaults to `'cover'` if `maxHeight` or `aspectRatio` is set; otherwise block images keep the legacy fill-width behavior. |
 | `borderRadius` | `number` | Corner radius |
 | `marginTop` | `number` | Top margin |
 | `marginBottom` | `number` | Bottom margin |
+
+> Sizing precedence: `aspectRatio` > `maxHeight` > `height`. `resizeMode` applies independently on top. When no new knob is set (`resizeMode`, `maxHeight`, or `aspectRatio`), block images keep the exact legacy fixed-`height` behavior.
 
 ### Inline Image-specific
 
@@ -428,6 +463,8 @@ Table styles only apply when `flavor="github"` is set. Tables inherit the base b
 | `borderRadius` | `number` | Corner radius of the table container |
 | `cellPaddingHorizontal` | `number` | Horizontal padding inside cells |
 | `cellPaddingVertical` | `number` | Vertical padding inside cells |
+| `horizontalOverflow` | `number` | When set, scrollable tables extend beyond the markdown container by this amount on each side (edge-to-edge / "bleed" layout). Set to the parent's horizontal padding to make wide tables reach the screen edges. Has no effect on tables that fit within the container width. iOS, Android, and macOS only. Default: `0` |
+| `align` | `'left' \| 'center' \| 'right'` | Horizontal alignment of the whole table when it is narrower than the container. Tables that overflow and scroll ignore it — scrolling always starts at the table's beginning. On web, setting any value (including `'left'`) also makes the table shrink to fit its content instead of filling the container width. Default: unset — legacy start-aligned placement (full-width table on web) |
 
 ### Task List-specific
 

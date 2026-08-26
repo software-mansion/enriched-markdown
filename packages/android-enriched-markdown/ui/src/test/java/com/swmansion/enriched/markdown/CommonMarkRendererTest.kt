@@ -23,10 +23,12 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.emphasis
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
 import com.swmansion.enriched.markdown.test.TestAstFactory.image
+import com.swmansion.enriched.markdown.test.TestAstFactory.lineBreak
 import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
+import com.swmansion.enriched.markdown.test.TestAstFactory.softBreak
 import com.swmansion.enriched.markdown.test.TestAstFactory.strong
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.thematicBreak
@@ -45,6 +47,38 @@ class CommonMarkRendererTest {
     val rendered = render(document(paragraph(text("Hello CommonMark"))))
 
     rendered.assertContains("Hello CommonMark")
+  }
+
+  @Test
+  fun rendersSoftBreakAsSpace() {
+    val rendered =
+      render(
+        document(
+          paragraph(
+            text("tracking your"),
+            softBreak(),
+            text("blood sugar"),
+          ),
+        ),
+      )
+
+    rendered.assertContains("tracking your blood sugar")
+  }
+
+  @Test
+  fun rendersHardBreakAsNewline() {
+    val rendered =
+      render(
+        document(
+          paragraph(
+            text("line one"),
+            lineBreak(),
+            text("line two"),
+          ),
+        ),
+      )
+
+    rendered.assertContains("line one\nline two")
   }
 
   @Test

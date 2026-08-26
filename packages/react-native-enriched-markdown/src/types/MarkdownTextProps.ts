@@ -5,6 +5,7 @@ import type {
   LinkPressEvent,
   LinkLongPressEvent,
   TaskListItemPressEvent,
+  CopyPressEvent,
 } from './events';
 
 /**
@@ -98,6 +99,18 @@ export interface StreamingConfig {
    * @platform ios, android
    */
   tableMode?: 'hidden' | 'progressive';
+  /**
+   * Controls how a fenced code block whose closing fence has not arrived yet
+   * is handled during streaming.
+   * - `'hidden'`: hide the entire code block until its closing fence arrives.
+   * - `'progressive'` (default): show the code as it streams in with its header
+   *   visible but non-interactive (copying is disabled); syntax highlighting is
+   *   deferred until the closing fence arrives, so it appears once atomically.
+   * Only effective when `streamingAnimation` is `true`.
+   * @default 'progressive'
+   * @platform ios, android
+   */
+  codeBlockMode?: 'hidden' | 'progressive';
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
@@ -149,6 +162,30 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, web
    */
   onTaskListItemPress?: (event: TaskListItemPressEvent) => void;
+  /**
+   * Controls whether tapping a task list checkbox toggles its checked state.
+   *
+   * When `true` (default), tapping the checkbox toggles it and fires
+   * `onTaskListItemPress`. When `false`, the checkbox renders its markdown
+   * state read-only: the tap is fully inert — no visual toggle and no
+   * `onTaskListItemPress` emission. Text selection and links in the same row
+   * are unaffected.
+   *
+   * @default true
+   * @platform ios, android, web
+   */
+  enableTaskListItemToggle?: boolean;
+  /**
+   * Callback fired when code is copied from a fenced code block, via the header
+   * copy button, the long-press context-menu "Copy" action, or the VoiceOver
+   * copy action. Receives the copied code and its language. Does not fire for
+   * "Copy as Markdown".
+   *
+   * Only fires when `flavor="github"` (the copy button is part of the GitHub
+   * flavor's container-based code block renderer).
+   * @platform ios, android, macos
+   */
+  onCopyPress?: (event: CopyPressEvent) => void;
   /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *
@@ -254,6 +291,18 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android
    */
   contextMenuItems?: ContextMenuItem[];
+  /**
+   * HTTP headers to attach to remote image requests, e.g. a `Referer`
+   * required by CDN hotlink protection or an `Authorization` token.
+   *
+   * Headers participate in image cache identity, so the same URL requested
+   * with different headers is fetched and cached separately.
+   *
+   * Not supported on web — browsers don't allow custom headers on `<img>`
+   * requests.
+   * @platform ios, android
+   */
+  imageRequestHeaders?: Record<string, string>;
   /**
    * Controls the built-in items added to the native text selection menu and
    * lets you localize their labels. Custom app-provided actions are controlled

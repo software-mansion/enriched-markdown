@@ -167,8 +167,14 @@ code {
 .markdown a {
   font-weight: 500;
   text-decoration: none;
+  color: var(--ifm-link-color);
 
-  border-bottom: 1px solid var(--ifm-font-color-base);
+  border-bottom: 1px solid var(--ifm-link-color);
+}
+
+.markdown a:hover {
+  color: var(--ifm-link-hover-color);
+  border-bottom-color: var(--ifm-link-hover-color);
 }
 
 /* Sidebar */

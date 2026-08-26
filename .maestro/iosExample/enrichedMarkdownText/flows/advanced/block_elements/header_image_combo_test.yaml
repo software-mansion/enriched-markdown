@@ -1,0 +1,30 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - image
+  - header
+  - text
+---
+# checks the combination of a header followed by a block image
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        ## Logo
+
+- tapOn:
+    id: insert-image-button
+
+- tapOn:
+    id: blur-button
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'header_image_combo_display'

@@ -31,7 +31,7 @@ class StrongSpan(
     tp.typeface =
       if (styleCache.strongFontFamily.isNotEmpty()) {
         val resolvedStyle = if (styleCache.strongFontWeight == "normal") Typeface.NORMAL else style
-        SpanStyleCache.getTypeface(styleCache.strongFontFamily, resolvedStyle)
+        styleCache.getTypeface(styleCache.strongFontFamily, resolvedStyle)
       } else {
         Typeface.create(currentTypeface, style)
       }

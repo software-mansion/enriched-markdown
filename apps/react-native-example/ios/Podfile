@@ -1,9 +1,13 @@
 ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 
 # LaTeX math rendering (RaTeX). Set to '0' to disable and remove the dependency.
-# When enabled, dynamic frameworks are required for SPM interop.
+# RaTeX is a vendored prebuilt static XCFramework, so math works under CocoaPods
+# default static linkage -- no `use_frameworks! :linkage => :dynamic` required.
 # ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] = '0'
-ENV['USE_FRAMEWORKS'] = 'dynamic' if ENV['ENRICHED_MARKDOWN_ENABLE_MATH'] != '0'
+
+# Keep project default to full list of languages
+ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES'] = 'json,html,css,markdown,yaml,go,java,javascript,python,c,rust,bash,typescript,tsx,cpp,swift,php,ruby,c-sharp'
+# ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT'] = '0'
 
 # Resolve react_native_pods.rb with node to allow for hoisting
 require Pod::Executable.execute_command('node', ['-p',
@@ -11,6 +15,24 @@ require Pod::Executable.execute_command('node', ['-p',
     "react-native/scripts/react_native_pods.rb",
     {paths: [process.argv[1]]},
   )', __dir__]).strip
+
+def is_ci_enabled?
+  %w[1 true].include?(ENV['CI'].to_s.downcase)
+end
+
+# ENV['DISABLE_RNREPO'] = "1" # Uncomment to disable RNRepo even in CI
+def is_rnrepo_enabled?
+  ENV['DISABLE_RNREPO'].nil?
+end
+
+# Use RNRepo in CI builds. Set DISABLE_RNREPO to any value to disable RNRepo.
+if is_ci_enabled? && is_rnrepo_enabled?
+  require Pod::Executable.execute_command('node', ['-p',
+    'require.resolve(
+      "@rnrepo/build-tools/cocoapods-plugin/lib/plugin.rb",
+      {paths: [process.argv[1]]},
+    )', __dir__]).strip
+end
 
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
@@ -31,6 +53,9 @@ target 'EnrichedMarkdownExample' do
   )
 
   post_install do |installer|
+    if is_ci_enabled? && is_rnrepo_enabled?
+      rnrepo_post_install(installer)
+    end
     react_native_post_install(
       installer,
       config[:reactNativePath],

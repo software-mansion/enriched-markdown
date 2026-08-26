@@ -1,0 +1,61 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - input
+  - smoke
+  - unordered-list
+  - ordered-list
+  - block
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+# Toggling one list type on an item carrying the other must replace the marker
+# while keeping the item's nesting depth: build a two-item bullet list with the
+# second item indented, then toggle the indented item to an ordered list.
+- tapOn:
+    id: focus-button
+- waitForAnimationToEnd
+
+# The list buttons sit past H1-H6 in the horizontally scrolling toolbar and are
+# offscreen on phone-width viewports; swipe the toolbar left to reveal them.
+- swipe:
+    from:
+      id: toolbar-bold
+    direction: LEFT
+- swipe:
+    from:
+      id: toolbar-h2
+    direction: LEFT
+- waitForAnimationToEnd
+
+- tapOn:
+    id: toolbar-unordered-list
+- waitForAnimationToEnd
+
+- inputText: 'Bullet item'
+- waitForAnimationToEnd
+
+- pressKey: Enter
+- waitForAnimationToEnd
+
+- inputText: 'Nested item'
+- waitForAnimationToEnd
+
+- tapOn:
+    id: toolbar-indent
+- waitForAnimationToEnd
+
+# Switch the nested bullet to a numbered item — the depth must be preserved.
+- tapOn:
+    id: toolbar-ordered-list
+- waitForAnimationToEnd
+
+- tapOn:
+    id: blur-button
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'list_toggle_input'

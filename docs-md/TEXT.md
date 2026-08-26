@@ -76,6 +76,16 @@ Task lists with interactive checkboxes are available when `flavor="github"` is s
 />
 ```
 
+To render checkboxes that display their markdown state but cannot be toggled by the user, set [`enableTaskListItemToggle`](API_REFERENCE.md#enabletasklistitemtoggle) to `false`. The tap becomes fully inert — no visual toggle and no `onTaskListItemPress` — while text selection and links in the same row keep working.
+
+```tsx
+<EnrichedMarkdownText
+  flavor="github"
+  markdown={content}
+  enableTaskListItemToggle={false}
+/>
+```
+
 ### Link Handling
 
 Links in Markdown are interactive and can be handled with the `onLinkPress` and `onLinkLongPress` callbacks:

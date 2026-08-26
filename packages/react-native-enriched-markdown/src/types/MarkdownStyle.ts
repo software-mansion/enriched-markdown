@@ -1,5 +1,7 @@
 type TextAlign = 'auto' | 'left' | 'right' | 'center' | 'justify';
 
+type ImageResizeMode = 'contain' | 'cover' | 'stretch' | 'center' | 'none';
+
 interface BaseBlockStyle {
   fontSize?: number;
   fontFamily?: string;
@@ -23,6 +25,8 @@ interface BlockquoteStyle extends BaseBlockStyle {
   borderWidth?: number;
   gapWidth?: number;
   backgroundColor?: string;
+  borderRadius?: number;
+  padding?: number;
 }
 
 interface ListStyle extends BaseBlockStyle {
@@ -37,6 +41,38 @@ interface ListStyle extends BaseBlockStyle {
   markerFontWeight?: string;
   gapWidth?: number;
   marginLeft?: number;
+  /**
+   * Vertical spacing between consecutive list items, including nested ones.
+   * Adds no space above the first item or below the last one — the outer
+   * edges are still controlled by `marginTop`/`marginBottom`.
+   * @default 0
+   */
+  itemSpacing?: number;
+}
+
+/**
+ * Per-token syntax highlight colors for fenced code blocks, keyed on the
+ * tree-sitter highlight token types. Any key omitted falls back to the default
+ * palette (Operator/Punctuation/Variable/Embedded inherit the code block's
+ * base `color`). Colors only take visible effect when the optional syntax
+ * highlighting module is compiled in; otherwise code blocks render uncolored.
+ */
+interface CodeBlockSyntaxColors {
+  keyword?: string;
+  /** Color for operator tokens (e.g. `+`, `=>`). */
+  operator?: string;
+  punctuation?: string;
+  string?: string;
+  number?: string;
+  constant?: string;
+  comment?: string;
+  function?: string;
+  type?: string;
+  variable?: string;
+  property?: string;
+  tag?: string;
+  attribute?: string;
+  embedded?: string;
 }
 
 interface CodeBlockStyle extends BaseBlockStyle {
@@ -45,6 +81,7 @@ interface CodeBlockStyle extends BaseBlockStyle {
   borderRadius?: number;
   borderWidth?: number;
   padding?: number;
+  syntaxColors?: CodeBlockSyntaxColors;
 }
 
 export interface LinkStyle {
@@ -108,6 +145,26 @@ interface CodeStyle {
 
 interface ImageStyle {
   height?: number;
+  /**
+   * Maximum height the image is fitted into, preserving aspect ratio. When set,
+   * this replaces `height` as the primary sizing knob. Ignored when `aspectRatio`
+   * is set. Sizing precedence: `aspectRatio` > `maxHeight` > `height`.
+   */
+  maxHeight?: number;
+  /**
+   * Width / height ratio (e.g. `16 / 9`). The image fills the available width and
+   * its height is derived from this ratio, ignoring `height`/`maxHeight`.
+   * Sizing precedence: `aspectRatio` > `maxHeight` > `height`.
+   */
+  aspectRatio?: number;
+  /**
+   * How the image fills its box, analogous to React Native `resizeMode` / CSS
+   * `object-fit`. Applies whenever set explicitly, including with a fixed
+   * `height` box. When omitted, block images keep the legacy fill-width
+   * behavior, unless `maxHeight` or `aspectRatio` is set — then it defaults
+   * to `'cover'`.
+   */
+  resizeMode?: ImageResizeMode;
   borderRadius?: number;
   marginTop?: number;
   marginBottom?: number;
@@ -135,6 +192,16 @@ interface TableStyle extends BaseBlockStyle {
   borderRadius?: number;
   cellPaddingHorizontal?: number;
   cellPaddingVertical?: number;
+  horizontalOverflow?: number;
+  /**
+   * Horizontal alignment of the whole table within the container. Only applies
+   * when the table is narrower than the container; tables that overflow and
+   * scroll always start at the table's beginning. When unset, tables keep the
+   * legacy start-aligned placement. On web, setting any value (including
+   * 'left') also makes the table shrink to fit its content instead of filling
+   * the container width.
+   */
+  align?: 'left' | 'center' | 'right';
 }
 
 interface TaskListStyle {
@@ -323,4 +390,11 @@ export interface Md4cFlags {
    * @default false
    */
   highlight?: boolean;
+  /**
+   * Treat soft breaks (single newlines) as hard breaks (visible line breaks).
+   * When enabled, a single newline in the source renders as a line break
+   * instead of being collapsed to a space (CommonMark default).
+   * @default false
+   */
+  hardSoftBreaks?: boolean;
 }

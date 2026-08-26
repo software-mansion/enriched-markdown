@@ -6,6 +6,7 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.UIManagerHelper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.events.ContextMenuItemPressEvent
+import com.swmansion.enriched.markdown.events.CopyPressEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
@@ -19,6 +20,8 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
     mapOf("registrationName" to LinkLongPressEvent.EVENT_NAME)
   map[TaskListItemPressEvent.EVENT_NAME] =
     mapOf("registrationName" to TaskListItemPressEvent.EVENT_NAME)
+  map[CopyPressEvent.EVENT_NAME] =
+    mapOf("registrationName" to CopyPressEvent.EVENT_NAME)
   map[ContextMenuItemPressEvent.EVENT_NAME] =
     mapOf("registrationName" to ContextMenuItemPressEvent.EVENT_NAME)
   return map
@@ -58,6 +61,19 @@ fun emitTaskListItemPress(
   )
 }
 
+fun emitCopyPress(
+  view: View,
+  code: String,
+  language: String,
+) {
+  val context = view.context as com.facebook.react.bridge.ReactContext
+  val surfaceId = UIManagerHelper.getSurfaceId(context)
+  val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
+  eventDispatcher?.dispatchEvent(
+    CopyPressEvent(surfaceId, view.id, code, language),
+  )
+}
+
 fun emitContextMenuItemPress(
   view: View,
   itemText: String,
@@ -87,10 +103,20 @@ fun parseMd4cFlags(flags: ReadableMap?): Md4cFlags =
     superscript = flags?.getBoolean("superscript") ?: false,
     subscript = flags?.getBoolean("subscript") ?: false,
     highlight = flags?.getBoolean("highlight") ?: false,
+    hardSoftBreaks = flags?.getBoolean("hardSoftBreaks") ?: false,
   )
 
 fun parseContextMenuItems(value: ReadableArray?): List<String> =
   (0 until (value?.size() ?: 0)).mapNotNull { value?.getMap(it)?.getString("text") }
+
+fun parseImageRequestHeaders(value: ReadableArray?): Map<String, String> =
+  (0 until (value?.size() ?: 0))
+    .mapNotNull { index ->
+      val header = value?.getMap(index) ?: return@mapNotNull null
+      val name = header.getString("name") ?: return@mapNotNull null
+      val headerValue = header.getString("value") ?: return@mapNotNull null
+      name to headerValue
+    }.toMap()
 
 fun parseSelectionMenuConfig(value: ReadableMap?): SelectionMenuConfig {
   if (value == null) return SelectionMenuConfig()

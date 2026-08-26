@@ -43,7 +43,7 @@ class TableContainerView(
   private val styleConfig: StyleConfig,
 ) : FrameLayout(context),
   BlockSegmentView {
-  private val tableStyle: TableStyle = styleConfig.tableStyle
+  internal val tableStyle: TableStyle = styleConfig.tableStyle
 
   override val segmentMarginTop: Int get() = tableStyle.marginTop.toInt()
   override val segmentMarginBottom: Int get() = tableStyle.marginBottom.toInt()
@@ -327,12 +327,37 @@ class TableContainerView(
     right: Int,
     bottom: Int,
   ) {
-    scrollView.layout(0, 0, right - left, bottom - top)
     val viewWidth = right - left
-    scrollView.isHorizontalScrollBarEnabled = totalTableWidth > viewWidth
+    val overhang = max(ceil(tableStyle.horizontalOverflow.toDouble()).toInt(), 0)
+    val contentWidth = viewWidth - overhang * 2
+    val tableOverflows = totalTableWidth > contentWidth
 
-    if (isRtl && totalTableWidth > viewWidth) {
-      scrollView.scrollTo((totalTableWidth - viewWidth).toInt(), 0)
+    scrollView.setPadding(overhang, 0, overhang, 0)
+    scrollView.clipToPadding = !tableOverflows
+    scrollView.isHorizontalScrollBarEnabled = tableOverflows
+
+    scrollView.layout(0, 0, viewWidth, bottom - top)
+
+    gridContainer.translationX =
+      if (tableStyle.align.isNotEmpty() && !tableOverflows) {
+        val freeSpace = max(contentWidth - totalTableWidth, 0f)
+        val desiredLeft =
+          overhang +
+            when (tableStyle.align) {
+              "center" -> freeSpace / 2f
+              "right" -> freeSpace
+              else -> 0f
+            }
+        desiredLeft - gridContainer.left
+      } else {
+        0f
+      }
+
+    if (isRtl) {
+      val effectiveWidth = if (tableOverflows) contentWidth.toFloat() else viewWidth.toFloat()
+      if (totalTableWidth > effectiveWidth) {
+        scrollView.scrollTo((totalTableWidth - effectiveWidth).toInt(), 0)
+      }
     }
   }
 

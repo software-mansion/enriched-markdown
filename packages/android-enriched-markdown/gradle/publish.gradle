@@ -1,0 +1,107 @@
+apply plugin: "maven-publish"
+apply plugin: "signing"
+apply plugin: "com.gradleup.nmcp"
+
+def publishGroup = findProperty("GROUP") ?: "com.swmansion.enriched.markdown"
+def publishVersion = findProperty("VERSION_NAME") ?: "0.0.0"
+
+def artifactMetadata = [
+  parser: [
+    name: "Enriched Markdown Parser",
+    description: "Native Markdown parser for the Enriched Markdown Android",
+  ],
+  ui: [
+    name: "Enriched Markdown UI",
+    description: "View-based Markdown rendering for the Enriched Markdown Android",
+  ],
+  compose: [
+    name: "Enriched Markdown Compose",
+    description: "Jetpack Compose Markdown rendering for the Enriched Markdown Android",
+  ],
+]
+
+def metadata = artifactMetadata[project.name]
+if (metadata == null) {
+  throw new GradleException("No Maven metadata configured for project ':${project.name}'")
+}
+
+ext.mavenArtifactId = project.name
+ext.mavenArtifactName = metadata.name
+ext.mavenArtifactDescription = metadata.description
+
+group = publishGroup
+version = publishVersion
+
+android {
+  publishing {
+    singleVariant("release") {
+      withSourcesJar()
+    }
+  }
+}
+
+afterEvaluate {
+  publishing {
+    publications {
+      release(MavenPublication) {
+        from components.release
+
+        groupId = publishGroup
+        artifactId = mavenArtifactId
+        version = publishVersion
+
+        pom {
+          name = mavenArtifactName
+          description = mavenArtifactDescription
+          url = "https://github.com/software-mansion/enriched-markdown"
+
+          licenses {
+            license {
+              name = "MIT License"
+              url = "https://github.com/software-mansion/enriched-markdown/blob/main/LICENSE"
+            }
+          }
+
+          developers {
+            developer {
+              id = "software-mansion"
+              name = "Software Mansion"
+              email = "project@swmansion.com"
+            }
+          }
+
+          scm {
+            connection = "scm:git:https://github.com/software-mansion/enriched-markdown.git"
+            developerConnection = "scm:git:https://github.com/software-mansion/enriched-markdown.git"
+            url = "https://github.com/software-mansion/enriched-markdown"
+          }
+        }
+      }
+    }
+  }
+
+  def gpgPrivateKey = System.getenv("GPG_PRIVATE_KEY")?.with { key ->
+    if (key.contains("BEGIN PGP PRIVATE KEY BLOCK")) {
+      return key
+    }
+
+    try {
+      def decoded = new String(Base64.decoder.decode(key))
+      if (decoded.contains("BEGIN PGP PRIVATE KEY BLOCK")) {
+        return decoded
+      }
+    } catch (Exception ignored) {
+      // Fall through to raw key value.
+    }
+
+    return key
+  }
+  def gpgPassphrase = System.getenv("GPG_PASSPHRASE")
+
+  if (gpgPrivateKey && gpgPassphrase) {
+    signing {
+      useInMemoryPgpKeys(gpgPrivateKey, gpgPassphrase)
+      sign publishing.publications.release
+    }
+  }
+}

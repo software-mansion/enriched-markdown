@@ -57,4 +57,8 @@ object TestAstFactory {
     )
 
   fun thematicBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.ThematicBreak)
+
+  fun softBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.SoftBreak)
+
+  fun lineBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.LineBreak)
 }

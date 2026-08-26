@@ -1,0 +1,97 @@
+.topControls {
+  position: absolute;
+  top: 8px;
+  right: 18px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  /* Opaque surface so the cluster stays legible over BOTH the light preview
+     canvas (--swm-off-white) and the dark code view, in light and dark mode. */
+  background-color: var(--swm-off-background);
+  border: 1px solid var(--swm-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.tabs {
+  display: flex;
+  gap: 1em;
+}
+
+.tab {
+  padding: 0 0 2px 0;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background-color: transparent;
+  color: var(--swm-interactive-button-color);
+  cursor: pointer;
+  font-family: var(--swm-body-font);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.tab:hover {
+  color: var(--swm-tab-hover);
+}
+
+.tabActive {
+  color: var(--swm-tab-active);
+  border-bottom-color: var(--swm-tab-active);
+}
+
+.tabActive:hover {
+  color: var(--swm-tab-active);
+}
+
+.iconButton,
+.resetButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  color: var(--swm-markdown-copy-button-color);
+  cursor: pointer;
+}
+
+.iconButton:hover,
+.resetButton:hover {
+  color: var(--swm-tab-active);
+}
+
+.iconButtonActive,
+.iconButtonActive:hover {
+  color: var(--swm-tab-active);
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.resetButton {
+  position: absolute;
+  bottom: 14px;
+  right: 18px;
+  z-index: 2;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--swm-interactive-button-color);
+  font-family: var(--swm-body-font);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.badgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--swm-green-light-100, #57b495);
+}

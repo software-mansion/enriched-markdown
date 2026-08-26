@@ -20,6 +20,8 @@ data class TableStyle(
   val borderRadius: Float,
   val cellPaddingHorizontal: Float,
   val cellPaddingVertical: Float,
+  val horizontalOverflow: Float,
+  val align: String,
 ) : BaseBlockStyle {
   companion object {
     fun fromReadableMap(
@@ -44,6 +46,8 @@ data class TableStyle(
       val borderRadius = parser.toPixelFromDIP(map.getDouble("borderRadius").toFloat())
       val cellPaddingHorizontal = parser.toPixelFromDIP(map.getDouble("cellPaddingHorizontal").toFloat())
       val cellPaddingVertical = parser.toPixelFromDIP(map.getDouble("cellPaddingVertical").toFloat())
+      val horizontalOverflow = parser.toPixelFromDIP(map.getDouble("horizontalOverflow").toFloat())
+      val align = parser.parseString(map, "align")
 
       return TableStyle(
         fontSize = fontSize,
@@ -63,6 +67,8 @@ data class TableStyle(
         borderRadius = borderRadius,
         cellPaddingHorizontal = cellPaddingHorizontal,
         cellPaddingVertical = cellPaddingVertical,
+        horizontalOverflow = horizontalOverflow,
+        align = align,
       )
     }
   }

@@ -4,9 +4,22 @@
 import { topbarBannerReservationScript } from '@swmansion/t-rex-ui/topbar-banner';
 import { TOP_BAR_BANNER } from './src/components/topbarBanner.config.ts';
 
+const path = require('path');
+const webpack = require('webpack');
+
+// Interactive examples import the library's web build directly from the
+// monorepo (this docs folder is a standalone yarn project that does not
+// depend on the workspace package). Alias the bare specifier to the
+// prebuilt web bundle so `EnrichedMarkdownText` renders live in the browser,
+// and stub out KaTeX - `loadKaTeX` optionally requires it and skips math
+// rendering when absent, so the docs build needs no katex dependency.
+const enrichedMarkdownWebEntry = path.resolve(
+  __dirname,
+  '../packages/react-native-enriched-markdown/lib/module/index.web.js',
+);
+
 const lightCodeTheme = require('./src/theme/CodeBlock/highlighting-light.js');
 const darkCodeTheme = require('./src/theme/CodeBlock/highlighting-dark.js');
-
 
 const firstBannerZone = TOP_BAR_BANNER.zones[0];
 const bannerReservationHeadTags = firstBannerZone
@@ -23,18 +36,17 @@ const bannerReservationHeadTags = firstBannerZone
     ]
   : [];
 
-
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'React Native Enriched Markdown',
+  title: 'Enriched Markdown',
   favicon: 'img/favicon.png',
 
   url: 'https://docs.swmansion.com',
 
-  baseUrl: '/react-native-enriched-markdown/',
+  baseUrl: '/enriched-markdown/',
 
   organizationName: 'software-mansion',
-  projectName: 'react-native-enriched-markdown',
+  projectName: 'enriched-markdown',
 
   // TODO: remove once the site is ready for public traffic. Until then,
   // keep the deploy hidden from search engines.
@@ -65,16 +77,25 @@ const config = {
           routeBasePath: '/',
           breadcrumbs: false,
           sidebarPath: require.resolve('./sidebars.js'),
+          // Categories are non-collapsible by default; the per-platform
+          // sections opt back in via `collapsible: true` in their
+          // `_category_.json` so they render as collapsible ("burger") groups.
           sidebarCollapsible: false,
+          // iOS and Android are not released yet, so their docs are excluded
+          // from the build by default. Set SHOW_UNRELEASED_PLATFORMS=1 to
+          // include them (e.g. to preview locally or at launch).
+          exclude: [
+            '**/_*.{js,jsx,ts,tsx,md,mdx}',
+            '**/_*/**',
+            '**/*.test.{js,jsx,ts,tsx}',
+            '**/__tests__/**',
+            ...(process.env.SHOW_UNRELEASED_PLATFORMS === '1'
+              ? []
+              : ['ios/**', 'android/**']),
+          ],
           editUrl:
-            'https://github.com/software-mansion/react-native-enriched-markdown/edit/main/docs/',
+            'https://github.com/software-mansion/enriched-markdown/edit/main/docs/',
           lastVersion: 'current',
-          versions: {
-            current: {
-              label: '0.x',
-              banner: 'none',
-            },
-          },
         },
         theme: {
           customCss: require.resolve('./src/css/index.css'),
@@ -85,7 +106,9 @@ const config = {
 
   headTags: bannerReservationHeadTags,
 
-  clientModules: [require.resolve('./src/clientModules/topbarBannerRefresh.ts')],
+  clientModules: [
+    require.resolve('./src/clientModules/topbarBannerRefresh.ts'),
+  ],
 
   plugins: [
     process.env.NODE_ENV === 'production' && [
@@ -94,6 +117,55 @@ const config = {
         containerId: 'GTM-N5QK8TMT',
       },
     ],
+    function enrichedMarkdownAliasPlugin() {
+      return {
+        name: 'enriched-markdown-web-alias',
+        configureWebpack(config) {
+          return {
+            plugins: [
+              // React Native code (reached through the library's web build)
+              // references the `__DEV__` global that Metro/babel injects but
+              // webpack does not, so define it here to match the bundle mode.
+              new webpack.DefinePlugin({
+                __DEV__: JSON.stringify(config.mode !== 'production'),
+              }),
+            ],
+            resolve: {
+              alias: {
+                // The library's web build reaches into react-native
+                // (Platform/processColor via styleUtils), so it needs the
+                // standard react-native-web alias to bundle for the browser.
+                'react-native$': 'react-native-web',
+                'react-native-enriched-markdown': enrichedMarkdownWebEntry,
+                katex: false,
+              },
+            },
+            module: {
+              rules: [
+                {
+                  // The web build's markdown parser does a dynamic
+                  // `import('./wasm/md4c')` without a file extension; the lib
+                  // is ESM ("type": "module"), so webpack otherwise rejects
+                  // the non-fully-specified request.
+                  test: /\.m?js$/,
+                  resolve: { fullySpecified: false },
+                },
+                {
+                  // The emscripten glue (md4c.js) is a UMD/CommonJS file, but it
+                  // ships inside the library's ESM build (lib/module,
+                  // "type": "module"). Parsed as ESM its `module.exports`
+                  // factory is dropped, so `import('./wasm/md4c').default` is
+                  // undefined and parsing silently falls back to raw text.
+                  // Force CJS interop so the factory resolves as `.default`.
+                  test: /md4c\.js$/,
+                  type: 'javascript/auto',
+                },
+              ],
+            },
+          };
+        },
+      };
+    },
   ].filter(Boolean),
 
   themeConfig:
@@ -110,23 +182,18 @@ const config = {
       navbar: {
         hideOnScroll: false,
         logo: {
-          alt: 'React Native Enriched Markdown logo',
+          alt: 'Enriched Markdown logo',
           src: 'img/logo.svg',
           srcDark: 'img/logo-dark.svg',
         },
         items: [
           {
-            to: 'fundamentals/getting-started',
+            to: '/getting-started',
             label: 'Docs',
             position: 'right',
           },
           {
-            type: 'docsVersionDropdown',
-            position: 'right',
-            dropdownActiveClassDisabled: true,
-          },
-          {
-            href: 'https://github.com/software-mansion/react-native-enriched-markdown/',
+            href: 'https://github.com/software-mansion/enriched-markdown/',
             position: 'right',
             className: 'header-github',
             'aria-label': 'GitHub repository',

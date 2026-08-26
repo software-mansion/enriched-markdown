@@ -11,7 +11,22 @@ buildscript {
 plugins {
   id "com.android.library" apply false
   id "org.jetbrains.kotlin.plugin.compose" apply false
+  id "com.gradleup.nmcp.aggregation" version "1.4.4"
   id "org.jlleitschuh.gradle.ktlint" version "14.1.0" apply false
+}
+
+nmcpAggregation {
+  centralPortal {
+    username = System.getenv("MAVEN_USERNAME") ?: ""
+    password = System.getenv("MAVEN_PASSWORD") ?: ""
+    publishingType = "USER_MANAGED"
+  }
+}
+
+dependencies {
+  nmcpAggregation project(":parser")
+  nmcpAggregation project(":ui")
+  nmcpAggregation project(":compose")
 }
 
 ext {
@@ -29,6 +44,7 @@ subprojects { subproject ->
 
   subproject.plugins.withId("com.android.library") {
     subproject.apply plugin: "org.jlleitschuh.gradle.ktlint"
+    subproject.apply from: "${rootProject.projectDir}/gradle/publish.gradle"
     subproject.ktlint {
       version = "1.8.0"
       debug = false

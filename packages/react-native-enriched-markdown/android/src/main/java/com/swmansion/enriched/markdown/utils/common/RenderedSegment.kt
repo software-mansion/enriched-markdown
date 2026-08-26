@@ -27,6 +27,11 @@ sealed interface RenderedSegment {
     val latex: String,
     override val signature: Long,
   ) : RenderedSegment
+
+  data class CodeBlock(
+    val node: MarkdownASTNode,
+    override val signature: Long,
+  ) : RenderedSegment
 }
 
 object MarkdownSegmentRenderer {
@@ -52,6 +57,11 @@ object MarkdownSegmentRenderer {
           var signature = SegmentSignature.signatureForNode(null) xor SegmentSignature.MATH_KIND_SALT
           signature = SegmentSignature.fnvMixString(signature, segment.latex)
           RenderedSegment.Math(segment.latex, signature)
+        }
+
+        is MarkdownSegment.CodeBlock -> {
+          val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.CODE_BLOCK_KIND_SALT
+          RenderedSegment.CodeBlock(segment.node, signature)
         }
       }
     }

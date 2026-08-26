@@ -1,5 +1,6 @@
 #import "ParagraphStyleUtils.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMImageAttachment.h"
 #import "LastElementUtils.h"
 #import <React/RCTI18nUtil.h>
 
@@ -246,6 +247,21 @@ void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBot
   [output addAttribute:NSParagraphStyleAttributeName value:spacerStyle range:NSMakeRange(spacerLocation, 1)];
 }
 
+BOOL ENRMRangeContainsBlockImage(NSAttributedString *output, NSRange range)
+{
+  __block BOOL found = NO;
+  [output enumerateAttribute:NSAttachmentAttributeName
+                     inRange:range
+                     options:0
+                  usingBlock:^(id value, __unused NSRange attrRange, BOOL *stop) {
+                    if ([value isKindOfClass:[ENRMImageAttachment class]] && !((ENRMImageAttachment *)value).isInline) {
+                      found = YES;
+                      *stop = YES;
+                    }
+                  }];
+  return found;
+}
+
 void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight)
 {
   if (lineHeight <= 0) {
@@ -266,10 +282,12 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
                   }];
 #endif
 
+  BOOL hasBlockImage = ENRMRangeContainsBlockImage(output, range);
+
   NSMutableParagraphStyle *style = getOrCreateParagraphStyle(output, range.location);
 
   style.minimumLineHeight = lineHeight;
-  style.maximumLineHeight = hasMath ? 0 : lineHeight;
+  style.maximumLineHeight = (hasMath || hasBlockImage) ? 0 : lineHeight;
 
   [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
 }
@@ -284,7 +302,8 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
     return;
   }
 
-  __block CGFloat maximumLineHeight = 0;
+  // Math paragraphs leave maximumLineHeight at 0, so fall back to minimumLineHeight.
+  __block CGFloat targetLineHeight = 0;
   [output enumerateAttribute:NSParagraphStyleAttributeName
                      inRange:range
                      options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
@@ -292,29 +311,59 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                     if (!paragraphStyle) {
                       return;
                     }
-                    maximumLineHeight = MAX(paragraphStyle.maximumLineHeight, maximumLineHeight);
+                    CGFloat clamp = MAX(paragraphStyle.maximumLineHeight, paragraphStyle.minimumLineHeight);
+                    targetLineHeight = MAX(clamp, targetLineHeight);
                   }];
 
-  if (maximumLineHeight <= 0) {
+  if (targetLineHeight <= 0) {
     return;
   }
 
-  __block CGFloat maximumFontLineHeight = 0;
-  [output enumerateAttribute:NSFontAttributeName
-                     inRange:range
-                     options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
-                  usingBlock:^(UIFont *font, __unused NSRange subrange, __unused BOOL *stop) {
-                    if (!font) {
-                      return;
-                    }
-                    maximumFontLineHeight = MAX(UIFontLineHeight(font), maximumFontLineHeight);
-                  }];
+  // Center on real text; on a math-only line center the math box instead of its font.
+  __block CGFloat textLineHeight = 0;
+#if ENRICHED_MARKDOWN_MATH
+  __block BOOL hasMath = NO;
+#endif
+  [output enumerateAttributesInRange:range
+                             options:0
+                          usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attrs, __unused NSRange subrange,
+                                       __unused BOOL *stop) {
+#if ENRICHED_MARKDOWN_MATH
+                            if ([attrs[NSAttachmentAttributeName] isKindOfClass:[ENRMMathInlineAttachment class]]) {
+                              hasMath = YES;
+                              return;
+                            }
+#endif
+                            UIFont *font = attrs[NSFontAttributeName];
+                            if (font) {
+                              textLineHeight = MAX(UIFontLineHeight(font), textLineHeight);
+                            }
+                          }];
 
-  if (maximumFontLineHeight <= 0 || maximumLineHeight < maximumFontLineHeight) {
+  CGFloat contentLineHeight = textLineHeight;
+
+#if ENRICHED_MARKDOWN_MATH
+  // Math only grows the content height, so measure it (parsing LaTeX) only when text
+  // alone wouldn't already fill the line.
+  if (hasMath && targetLineHeight > textLineHeight) {
+    __block CGFloat mathBoxHeight = 0;
+    [output enumerateAttribute:NSAttachmentAttributeName
+                       inRange:range
+                       options:0
+                    usingBlock:^(id value, __unused NSRange subrange, __unused BOOL *stop) {
+                      if ([value isKindOfClass:[ENRMMathInlineAttachment class]]) {
+                        mathBoxHeight = MAX(((ENRMMathInlineAttachment *)value).boxHeight, mathBoxHeight);
+                      }
+                    }];
+    contentLineHeight = MAX(textLineHeight, mathBoxHeight);
+  }
+#endif
+
+  if (contentLineHeight <= 0 || targetLineHeight <= contentLineHeight) {
     return;
   }
 
-  CGFloat baseLineOffset = (maximumLineHeight - maximumFontLineHeight) / 2.0;
+  CGFloat baseLineOffset = (targetLineHeight - contentLineHeight) / 2.0;
 
   [output enumerateAttribute:NSBaselineOffsetAttributeName
                      inRange:range
@@ -323,7 +372,18 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                     if (existingOffset != nil) {
                       return;
                     }
-                    [output addAttribute:NSBaselineOffsetAttributeName value:@(baseLineOffset) range:subrange];
+                    [output enumerateAttribute:NSAttachmentAttributeName
+                                       inRange:subrange
+                                       options:0
+                                    usingBlock:^(id attachment, NSRange attachmentRange, BOOL *innerStop) {
+                                      if ([attachment isKindOfClass:[ENRMImageAttachment class]] &&
+                                          !((ENRMImageAttachment *)attachment).isInline) {
+                                        return;
+                                      }
+                                      [output addAttribute:NSBaselineOffsetAttributeName
+                                                     value:@(baseLineOffset)
+                                                     range:attachmentRange];
+                                    }];
                   }];
 }
 

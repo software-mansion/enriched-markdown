@@ -1,0 +1,25 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - smoke
+  - inline
+  - italic
+  - text
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- tapOn:
+    id: underline-button
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        *Italic text* and normal text and _also italic_.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'italic_display'

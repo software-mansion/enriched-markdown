@@ -19,6 +19,7 @@ public:
   static const std::string ATTR_LANGUAGE;
   static const std::string ATTR_IS_TASK;
   static const std::string ATTR_TASK_CHECKED;
+  static const std::string ATTR_START;
 
   void reset(size_t estimatedDepth) {
     root = std::make_shared<MarkdownASTNode>(NodeType::Document);
@@ -114,7 +115,14 @@ public:
       }
 
       case MD_BLOCK_OL: {
-        impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::OrderedList));
+        auto node = std::make_shared<MarkdownASTNode>(NodeType::OrderedList);
+        if (detail) {
+          auto *ol = static_cast<MD_BLOCK_OL_DETAIL *>(detail);
+          if (ol->start != 1) {
+            node->setAttribute(ATTR_START, std::to_string(ol->start));
+          }
+        }
+        impl->pushNode(node);
         break;
       }
 
@@ -346,10 +354,13 @@ public:
       return 0;
     auto *impl = static_cast<Impl *>(userdata);
 
-    // Handle soft/hard line breaks
-    if (type == MD_TEXT_SOFTBR || type == MD_TEXT_BR) {
-      auto brNode = std::make_shared<MarkdownASTNode>(NodeType::LineBreak);
-      impl->addInlineNode(brNode);
+    if (type == MD_TEXT_SOFTBR) {
+      impl->addInlineNode(std::make_shared<MarkdownASTNode>(NodeType::SoftBreak));
+      return 0;
+    }
+
+    if (type == MD_TEXT_BR) {
+      impl->addInlineNode(std::make_shared<MarkdownASTNode>(NodeType::LineBreak));
       return 0;
     }
 
@@ -364,63 +375,89 @@ public:
 
 namespace {
 
+using NodeList = std::vector<std::shared_ptr<MarkdownASTNode>>;
+
 bool isDisplayMathNode(const MarkdownASTNode &node) {
   return node.type == NodeType::LatexMathDisplay;
 }
 
 bool isSeparatorNode(const MarkdownASTNode &node) {
-  return node.type == NodeType::LineBreak ||
+  return node.type == NodeType::LineBreak || node.type == NodeType::SoftBreak ||
          (node.type == NodeType::Text && node.content.find_first_not_of(" \t\n\r") == std::string::npos);
 }
 
-// md4c treats $$...$$ as an inline span, so when display math appears on a line
-// directly after text (no blank line), md4c merges them into a single Paragraph.
-// This function finds the trailing run of LatexMathDisplay nodes (possibly
-// interspersed with LineBreak / whitespace separators) at the end of a paragraph's
-// children. Returns the index where the trailing run starts, or children.size()
-// if there is nothing to promote.
-size_t findTrailingDisplayMathRun(const std::vector<std::shared_ptr<MarkdownASTNode>> &children) {
-  size_t trailingRunStart = children.size();
-  bool hasDisplayMath = false;
+// A display-math node is "isolated" — i.e. block-level — when at least one of its
+// neighbours is a boundary: the paragraph edge, or a separator (LineBreak / blank
+// text). Display math flanked by real text on BOTH sides (e.g. `a $$x$$ b`) is
+// genuinely inline and is left in place.
+bool isIsolatedDisplayMath(const std::vector<std::shared_ptr<MarkdownASTNode>> &children, size_t i) {
+  if (!isDisplayMathNode(*children[i]))
+    return false;
+  bool leftBoundary = (i == 0) || isSeparatorNode(*children[i - 1]);
+  bool rightBoundary = (i + 1 >= children.size()) || isSeparatorNode(*children[i + 1]);
+  return leftBoundary || rightBoundary;
+}
 
-  for (size_t j = children.size(); j > 0; --j) {
-    auto &node = children[j - 1];
-    if (isDisplayMathNode(*node)) {
-      trailingRunStart = j - 1;
-      hasDisplayMath = true;
-    } else if (isSeparatorNode(*node) && hasDisplayMath) {
-      trailingRunStart = j - 1;
-    } else {
+// md4c parses $$...$$ as an inline span, so display math always lands nested inside a
+// Paragraph — even when it sits on its own line, and even in the middle of a paragraph
+// (text on lines before and after it, with no blank separator).
+//
+// This rebuilds such a paragraph into a sequence of top-level siblings so the rendering
+// layer sees isolated display math as a block: each run of inline content becomes its own
+// Paragraph, and each isolated display-math node becomes a bare LatexMathDisplay sibling.
+// Separators bordering a promoted node are dropped. Returns an empty vector when the
+// paragraph has no promotable display math, signalling the caller to leave it untouched.
+//
+// This subsumes the earlier trailing-only behaviour: pure (`$$x$$`), trailing
+// (`text\n$$x$$`) and leading (`$$x$$\ntext`) are all just special cases of the general
+// interior split.
+std::vector<std::shared_ptr<MarkdownASTNode>>
+splitParagraphAroundDisplayMath(const std::vector<std::shared_ptr<MarkdownASTNode>> &children) {
+  bool anyPromotion = false;
+  for (size_t i = 0; i < children.size(); ++i) {
+    if (isIsolatedDisplayMath(children, i)) {
+      anyPromotion = true;
       break;
     }
   }
+  if (!anyPromotion)
+    return {};
 
-  return hasDisplayMath ? trailingRunStart : children.size();
-}
-
-// Collect only the LatexMathDisplay nodes from a range, skipping separators.
-std::vector<std::shared_ptr<MarkdownASTNode>>
-collectDisplayMathNodes(const std::vector<std::shared_ptr<MarkdownASTNode>> &children, size_t from) {
   std::vector<std::shared_ptr<MarkdownASTNode>> result;
-  for (size_t j = from; j < children.size(); ++j) {
-    if (isDisplayMathNode(*children[j]))
-      result.push_back(children[j]);
+  std::vector<std::shared_ptr<MarkdownASTNode>> inlineRun;
+
+  auto flushInlineRun = [&]() {
+    // Trim separators left dangling against the promoted math on either side.
+    size_t start = 0;
+    size_t end = inlineRun.size();
+    while (start < end && isSeparatorNode(*inlineRun[start]))
+      ++start;
+    while (end > start && isSeparatorNode(*inlineRun[end - 1]))
+      --end;
+    if (start < end) {
+      auto paragraph = std::make_shared<MarkdownASTNode>(NodeType::Paragraph);
+      paragraph->children.assign(inlineRun.begin() + static_cast<NodeList::difference_type>(start),
+                                 inlineRun.begin() + static_cast<NodeList::difference_type>(end));
+      result.push_back(std::move(paragraph));
+    }
+    inlineRun.clear();
+  };
+
+  for (size_t i = 0; i < children.size(); ++i) {
+    if (isIsolatedDisplayMath(children, i)) {
+      flushInlineRun();
+      result.push_back(children[i]);
+    } else {
+      inlineRun.push_back(children[i]);
+    }
   }
+  flushInlineRun();
+
   return result;
 }
 
-// md4c wraps $$...$$ (display math) as inline spans inside a Paragraph. When they
-// appear on consecutive lines without a blank separator, md4c merges them — along
-// with any preceding text — into a single Paragraph with LineBreak nodes between them.
-//
-// This post-processing step walks the document's top-level children and promotes
-// trailing LatexMathDisplay nodes out of their parent Paragraph so that the
-// rendering layer sees them as top-level block elements.
-//
-// Two cases:
-//  (a) Pure: every child is display math or a separator → replace paragraph entirely.
-//  (b) Mixed: leading text followed by display math → keep text in the paragraph,
-//      splice the display math nodes as siblings after it.
+// Walk the document's top-level children and promote isolated display math out of its
+// parent Paragraph so the rendering layer sees it as a top-level block element.
 void promoteDisplayMathFromParagraphs(MarkdownASTNode &root) {
   auto &children = root.children;
 
@@ -431,30 +468,15 @@ void promoteDisplayMathFromParagraphs(MarkdownASTNode &root) {
       continue;
     }
 
-    auto &paragraphChildren = paragraph->children;
-    size_t trailingRunStart = findTrailingDisplayMathRun(paragraphChildren);
-
-    if (trailingRunStart >= paragraphChildren.size()) {
+    auto replacement = splitParagraphAroundDisplayMath(paragraph->children);
+    if (replacement.empty()) {
       ++i;
       continue;
     }
 
-    auto promoted = collectDisplayMathNodes(paragraphChildren, trailingRunStart);
-
-    if (trailingRunStart == 0) {
-      auto position = children.erase(children.begin() + static_cast<ptrdiff_t>(i));
-      children.insert(position, promoted.begin(), promoted.end());
-      i += promoted.size();
-    } else {
-      paragraphChildren.erase(paragraphChildren.begin() + static_cast<ptrdiff_t>(trailingRunStart),
-                              paragraphChildren.end());
-      while (!paragraphChildren.empty() && isSeparatorNode(*paragraphChildren.back())) {
-        paragraphChildren.pop_back();
-      }
-      auto position = children.begin() + static_cast<ptrdiff_t>(i) + 1;
-      children.insert(position, promoted.begin(), promoted.end());
-      i += 1 + promoted.size();
-    }
+    auto position = children.erase(children.begin() + static_cast<NodeList::difference_type>(i));
+    children.insert(position, replacement.begin(), replacement.end());
+    i += replacement.size();
   }
 }
 
@@ -586,6 +608,9 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   if (md4cFlags.highlight) {
     flags |= MD_FLAG_HIGHLIGHT;
   }
+  if (md4cFlags.hardSoftBreaks) {
+    flags |= MD_FLAG_HARD_SOFT_BREAKS;
+  }
 
   // Configure MD4C parser with callbacks
   MD_PARSER parser = {
@@ -621,5 +646,6 @@ const std::string MD4CParser::Impl::ATTR_FENCE_CHAR = "fenceChar";
 const std::string MD4CParser::Impl::ATTR_LANGUAGE = "language";
 const std::string MD4CParser::Impl::ATTR_IS_TASK = "isTask";
 const std::string MD4CParser::Impl::ATTR_TASK_CHECKED = "taskChecked";
+const std::string MD4CParser::Impl::ATTR_START = "start";
 
 } // namespace Markdown

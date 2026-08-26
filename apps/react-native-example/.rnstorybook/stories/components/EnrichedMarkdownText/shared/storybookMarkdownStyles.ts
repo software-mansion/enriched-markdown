@@ -1,5 +1,6 @@
 type TextAlign = 'auto' | 'left' | 'right' | 'center' | 'justify';
 type MathTextAlign = 'left' | 'center' | 'right';
+type TableAlign = 'left' | 'center' | 'right';
 
 export type ParagraphStyleControls = {
   fontSize: number;
@@ -70,6 +71,8 @@ export type BlockquoteStyleControls = {
   borderWidth: number;
   gapWidth: number;
   backgroundColor: string;
+  borderRadius: number;
+  padding: number;
 };
 
 export const blockquoteStyledDefaults: BlockquoteStyleControls = {
@@ -84,6 +87,8 @@ export const blockquoteStyledDefaults: BlockquoteStyleControls = {
   borderWidth: 4,
   gapWidth: 16,
   backgroundColor: '#eef2ff',
+  borderRadius: 0,
+  padding: 0,
 };
 
 export type CodeBlockStyleControls = {
@@ -130,8 +135,20 @@ export const thematicBreakStyledDefaults: ThematicBreakStyleControls = {
   marginBottom: 24,
 };
 
+// '' = don't forward resizeMode, demoing the legacy sizing path.
+export type ImageResizeMode =
+  | ''
+  | 'contain'
+  | 'cover'
+  | 'stretch'
+  | 'center'
+  | 'none';
+
 export type ImageStyleControls = {
   height: number;
+  maxHeight: number;
+  aspectRatio: number;
+  resizeMode: ImageResizeMode;
   borderRadius: number;
   marginTop: number;
   marginBottom: number;
@@ -139,6 +156,9 @@ export type ImageStyleControls = {
 
 export const imageStyledDefaults: ImageStyleControls = {
   height: 200,
+  maxHeight: 0,
+  aspectRatio: 0,
+  resizeMode: '',
   borderRadius: 12,
   marginTop: 8,
   marginBottom: 16,
@@ -162,6 +182,8 @@ export type TableStyleControls = {
   borderRadius: number;
   cellPaddingHorizontal: number;
   cellPaddingVertical: number;
+  horizontalOverflow: number;
+  align: TableAlign | '';
 };
 
 export const tableStyledDefaults: TableStyleControls = {
@@ -182,6 +204,8 @@ export const tableStyledDefaults: TableStyleControls = {
   borderRadius: 8,
   cellPaddingHorizontal: 12,
   cellPaddingVertical: 8,
+  horizontalOverflow: 0,
+  align: '',
 };
 
 export type TaskListStyleControls = {
@@ -241,6 +265,7 @@ export type ListStyleControls = {
   markerFontWeight: string;
   gapWidth: number;
   marginLeft: number;
+  itemSpacing: number;
 };
 
 export const listStyledDefaults: ListStyleControls = {
@@ -258,6 +283,7 @@ export const listStyledDefaults: ListStyleControls = {
   markerFontWeight: '',
   gapWidth: 8,
   marginLeft: 24,
+  itemSpacing: 0,
 };
 
 export type StrongStyleControls = {
@@ -529,6 +555,21 @@ export function textAlignControl(description: string) {
 export function mathTextAlignControl(description: string) {
   return {
     options: [...MATH_TEXT_ALIGN_OPTIONS],
+    control: { type: 'select' as const },
+    description,
+  };
+}
+
+const TABLE_ALIGN_OPTIONS = [
+  '',
+  'left',
+  'center',
+  'right',
+] as const satisfies readonly (TableAlign | '')[];
+
+export function tableAlignControl(description: string) {
+  return {
+    options: [...TABLE_ALIGN_OPTIONS],
     control: { type: 'select' as const },
     description,
   };

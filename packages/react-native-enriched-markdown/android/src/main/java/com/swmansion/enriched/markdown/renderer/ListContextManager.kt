@@ -36,6 +36,7 @@ class ListContextManager(
   fun enterList(
     listType: BlockStyleContext.ListType,
     style: ListStyle,
+    startNumber: Int = 1,
   ): ListEntryState {
     val previousDepth = context.listDepth
     val isNested = previousDepth > 0
@@ -58,7 +59,7 @@ class ListContextManager(
         context.setUnorderedListStyle(style)
       }
     }
-    context.resetListItemNumber()
+    context.resetListItemNumber(startNumber)
 
     return ListEntryState(
       previousDepth = previousDepth,

@@ -35,6 +35,7 @@ export interface RenderNodeProps {
   callbacks: RendererCallbacks;
   capabilities: RenderCapabilities;
   parentType?: NodeType;
+  index?: number;
 }
 
 export function RenderNode({
@@ -44,20 +45,22 @@ export function RenderNode({
   callbacks,
   capabilities,
   parentType,
+  index,
 }: RenderNodeProps): ReactNode {
   const Renderer = RENDERERS[node.type];
   if (!Renderer) return null;
 
   const renderChildren = (childNode: ASTNode): ReactNode =>
-    childNode.children?.map((child, index) => (
+    childNode.children?.map((child, childIndex) => (
       <RenderNode
-        key={nodeKey(child, index)}
+        key={nodeKey(child, childIndex)}
         node={child}
         style={style}
         styles={styles}
         callbacks={callbacks}
         capabilities={capabilities}
         parentType={childNode.type}
+        index={childIndex}
       />
     )) ?? null;
 
@@ -67,6 +70,7 @@ export function RenderNode({
       style={style}
       styles={styles}
       parentType={parentType}
+      index={index}
       callbacks={callbacks}
       capabilities={capabilities}
       renderChildren={renderChildren}

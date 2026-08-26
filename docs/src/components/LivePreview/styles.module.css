@@ -1,0 +1,59 @@
+.container {
+  position: relative;
+  background-color: var(--swm-off-background);
+  border: 1px solid var(--swm-border);
+  border-radius: var(--ifm-global-radius);
+  margin-bottom: var(--ifm-leading);
+  overflow: hidden;
+}
+
+/* The example switches its own text colors on color scheme (react-native
+   useColorScheme, synced to the site theme in Root.js), so the canvas follows
+   the theme too: light off-white in light mode, a lifted off-navy card in dark
+   mode. */
+.preview {
+  padding: 1.5em;
+  background-color: var(--swm-off-white);
+}
+
+:global([data-theme='dark']) .preview {
+  background-color: var(--swm-light-off-navy);
+}
+
+.hidden {
+  display: none;
+}
+
+/* Match the read-only CodeBlock surface (site theme + off-background) rather
+   than react-live's default dark VS Code look. Colors come from the prism
+   theme passed to LiveProvider; the background/border are set here. */
+.editor {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--ifm-code-font-size);
+  overflow: auto;
+  max-height: 420px;
+  background-color: var(--swm-off-background);
+}
+
+/* react-live wraps the textarea + highlighted pre; keep them aligned and let
+   the whole area scroll. */
+.editor textarea,
+.editor pre {
+  outline: none;
+  font-family: var(--ifm-font-family-monospace) !important;
+}
+
+.error {
+  margin: 0;
+  padding: 1em 1.25em;
+  background-color: #2d0b0b;
+  color: #ff9c9c;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.loading {
+  padding: 1.5em;
+  color: var(--swm-interactive-button-color);
+}

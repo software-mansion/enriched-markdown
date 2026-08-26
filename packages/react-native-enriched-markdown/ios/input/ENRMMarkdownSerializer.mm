@@ -254,7 +254,7 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
   NSUInteger runningOffset = 0;
   for (NSString *line in plainLines) {
     [lineStartOffsets addObject:@(runningOffset)];
-    runningOffset += line.length + 1;
+    runningOffset += line.length + 1; // +1 for the '\n' separator
   }
 
   for (ENRMBlockRange *blockRange in blockRanges) {
@@ -266,12 +266,19 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
     NSUInteger blockStart = blockRange.range.location;
     NSUInteger blockEnd = NSMaxRange(blockRange.range);
     BOOL isZeroLength = blockRange.range.length == 0;
+    BOOL isListItem = ENRMBlockTypeIsListItem(blockRange.type);
 
     for (NSUInteger lineIndex = 0; lineIndex < plainLines.count; lineIndex++) {
       NSUInteger lineStart = lineStartOffsets[lineIndex].unsignedIntegerValue;
       NSUInteger lineEnd = lineStart + plainLines[lineIndex].length;
       BOOL overlaps = isZeroLength ? (lineStart == blockStart) : (lineEnd >= blockStart && lineStart < blockEnd);
       if (overlaps) {
+        // A marker-only list line ("- " with no content) re-parses as a setext
+        // underline for the previous line; emit an empty list line bare. An
+        // empty "# " heading is valid ATX and keeps its prefix.
+        if (isListItem && plainLines[lineIndex].length == 0) {
+          continue;
+        }
         markdownLines[lineIndex] = [prefix stringByAppendingString:markdownLines[lineIndex]];
       }
     }

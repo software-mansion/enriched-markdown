@@ -51,6 +51,7 @@ emcc \
   -s INITIAL_MEMORY=16MB \
   -s MAXIMUM_MEMORY=512MB \
   -s ALLOW_MEMORY_GROWTH=1 \
+  -s GROWABLE_ARRAYBUFFERS=0 \
   -o "$OUT_DIR/md4c.js"
 
 rm "$OUT_DIR/md4c.o"

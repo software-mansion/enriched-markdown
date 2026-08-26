@@ -14,6 +14,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (CGFloat)measureHeight:(CGFloat)maxWidth;
 
+/// View-free math-block height for shadow-node measurement (issue #550):
+/// parses the LaTeX through the same RaTeX bridge `applyLatex:` uses and
+/// applies the same padding math as `measureHeight:` — including the wrapped
+/// source-fallback path when RaTeX cannot parse — without creating any view.
+/// Runs on the calling thread. Like every member of this class, only
+/// implemented when ENRICHED_MARKDOWN_MATH is on — guard call sites.
++ (CGFloat)measureHeightForLatex:(NSString *)latex config:(StyleConfig *)config maxWidth:(CGFloat)maxWidth;
+
 @property (nonatomic, strong) StyleConfig *config;
 @property (nonatomic, copy, readonly) NSString *cachedLatex;
 @property (nonatomic, strong, nullable) ENRMAccessibilityLabels *accessibilityLabels;

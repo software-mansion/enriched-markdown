@@ -1,0 +1,36 @@
+appId: swmansion.enriched.markdown.ios.example
+tags:
+  - block
+  - advanced
+  - list
+  - paragraph
+  - text
+---
+# checks the combination of paragraphs and lists (unordered and ordered adjacent to prose)
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        Pick a fruit:
+
+        - Apple
+        - Banana
+        - Mango
+
+        Then pick a number:
+
+        1. One
+        2. Two
+        3. Three
+
+        Done.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'paragraph_list_combo_display'

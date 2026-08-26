@@ -1,0 +1,63 @@
+appId: swmansion.enriched.markdown.example
+# ios-only until an Android golden is captured on the CI AVD (Pixel9-API36):
+# run `yarn test:e2e:android:update-screenshots` for this flow and drop the tag.
+# (The Set Raw Markdown modal isn't visible to Maestro on non-CI emulators.)
+tags:
+  - input
+  - bold
+  - unordered-list
+  - block
+  - ios-only
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+# Regression test: typing over a selected bold run at the start of a list item
+# must keep the bold style for the whole typed word AND keep the bullet marker
+# drawing. The serialized markdown alone can stay correct while the visual
+# application regresses, so this test asserts a screenshot of the editor.
+- tapOn:
+    id: set-markdown-button
+- waitForAnimationToEnd
+
+- tapOn:
+    id: set-markdown-input
+- inputText: '- **boldword** rest'
+- tapOn:
+    id: set-markdown-confirm
+- waitForAnimationToEnd
+
+- tapOn:
+    id: focus-button
+- waitForAnimationToEnd
+
+# Double-tap the leading bold word to select it, then type over the selection.
+# Point coordinates target the first word of the editor's first line, which
+# sits at a slightly different screen position per platform.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - doubleTapOn:
+          point: '20%,28%'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - doubleTapOn:
+          point: '23%,23%'
+- waitForAnimationToEnd
+
+- inputText: 'typed'
+- waitForAnimationToEnd
+
+- tapOn:
+    id: blur-button
+- waitForAnimationToEnd
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'list_bold_replace_selection_input'
