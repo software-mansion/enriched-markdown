@@ -33,9 +33,6 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private var pressedLink: LinkSpan? = null
   private var pressedImage: ImageSpan? = null
 
-  // True while a link OR image tap is in progress. Named for links historically;
-  // images reuse it so the parent-intercept plumbing (cancelJSTouchForLinkTap /
-  // reallowParentInterceptIfLinkReleased) stops a parent Pressable for both.
   var isLinkTouchActive: Boolean = false
     private set
   private var isTouchWithinTextBounds: Boolean = true
@@ -51,8 +48,6 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         startY = event.y
 
         pressedLink = findLinkSpan(widget, buffer, event)
-        // A linked image keeps link behavior, so only treat the tap as an image
-        // when no link covers it (Option 1).
         pressedImage =
           if (pressedLink == null && imagePressHost(widget)?.imagePressEnabled == true) {
             findImageSpan(widget, buffer, event)
@@ -191,8 +186,6 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     return buffer.getSpans(offset, offset, ImageSpan::class.java).firstOrNull()
   }
 
-  // The tapped TextView is the React host in CommonMark, or an internal GFM
-  // segment whose nearest host ancestor owns the React tag events dispatch on.
   private fun imagePressHost(widget: View): ImagePressHost? {
     if (widget is ImagePressHost) return widget
     var parent: ViewParent? = widget.parent

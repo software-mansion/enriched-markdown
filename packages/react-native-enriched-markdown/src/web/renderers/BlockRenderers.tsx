@@ -56,23 +56,24 @@ function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
   if (!url) return null;
 
   const title = node.attributes?.title;
-  // The payload carries the trimmed markdown alt text (or "") so it matches the
-  // native platforms; the `alt` attribute keeps its richer display fallback.
   const markdownAlt = extractNodeText(node).trim();
   const alt = markdownAlt || title || filenameFromUrl(url) || 'Image';
   const imgStyle = node.attributes?.isInline
     ? styles.inlineImage
     : styles.image;
 
-  // Option 1: a linked image stays a link. The wrapping <a> (LinkRenderer)
-  // owns the press via onLinkPress, so the image itself stays inert here.
-  const interactive = callbacks.onImagePress != null && parentType !== 'Link';
+  const interactive =
+    callbacks.onImagePress != null &&
+    parentType !== 'Link' &&
+    parentType !== 'TableCell' &&
+    parentType !== 'TableHeaderCell';
   if (!interactive) {
     return <img src={url} alt={alt} title={title} style={imgStyle} />;
   }
 
   const press = () => callbacks.onImagePress?.({ url, altText: markdownAlt });
   const handleKeyDown = (event: KeyboardEvent<HTMLImageElement>) => {
+    if (event.repeat) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       press();

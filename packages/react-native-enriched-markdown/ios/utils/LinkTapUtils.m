@@ -29,7 +29,6 @@ NSDictionary<NSString *, NSString *> *_Nullable imageAtTapLocation(ENRMPlatformT
     return nil;
 
   NSAttributedString *attrText = ENRMGetAttributedText(textView);
-  // A linked image keeps link behavior, so let the link win (Option 1).
   if ([attrText attribute:@"linkURL" atIndex:characterIndex effectiveRange:NULL] != nil)
     return nil;
 
