@@ -1,3 +1,8 @@
+// Kotlin's coerceIn: clamps `value` into [min, max].
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
 // Leftmost index whose value reaches `target`, or `size` when none does, over
 // a collection whose values rise with the index. The stores keep their ranges
 // sorted, so every lookup into them is one of these rather than a scan.

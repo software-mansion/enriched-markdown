@@ -8,6 +8,7 @@ import {
 } from '../model/blocks';
 import { adjustRangesForEdit } from './RangeEditAdjustment';
 import { sortedInsertionIndex } from './rangeStoreUtils';
+import { clamp } from '../utils';
 import type { RangeBounds } from '../model/rangeBounds';
 
 // Expands a selection to cover whole lines (line-scoped block boundaries).
@@ -20,8 +21,8 @@ export function paragraphBounds(
     return { start: 0, end: 0 };
   }
 
-  const clampedStart = Math.min(Math.max(rangeStart, 0), text.length);
-  const clampedEnd = Math.min(Math.max(rangeEnd, clampedStart), text.length);
+  const clampedStart = clamp(rangeStart, 0, text.length);
+  const clampedEnd = clamp(rangeEnd, clampedStart, text.length);
 
   let start = clampedStart;
   while (start > 0 && text[start - 1] !== '\n') {
