@@ -1,6 +1,8 @@
 import {
   ANCHORED_BLOCK_TYPES,
   createBlockRange,
+  LIST_ITEM_BLOCK_TYPES,
+  MAX_LIST_DEPTH,
   type BlockRange,
   type BlockType,
 } from '../model/blocks';
@@ -46,7 +48,7 @@ export class BlockStore {
   // parser owns that invariant.
   setRanges(newRanges: BlockRange[]): void {
     this.ranges = [...newRanges].sort((a, b) => a.start - b.start);
-    // TODO: recomputeListMetadata() once ported.
+    this.recomputeListMetadata();
   }
 
   clearAll(): void {
@@ -83,6 +85,53 @@ export class BlockStore {
   ): void {
     const { start, end } = paragraphBounds(paragraphStart, paragraphEnd, text);
     this.removeBlocksOverlapping(start, end);
+  }
+
+  // Clamps list depths to valid ancestry (an item nests at most one level
+  // under the previous adjacent list item — CommonMark cannot represent
+  // orphan nesting) and renumbers ordered items among their adjacent
+  // same-depth, same-type run.
+  private recomputeListMetadata(): void {
+    let prevEnd = -2;
+    let prevDepth = -1;
+    const counters = new Array<number>(MAX_LIST_DEPTH + 2).fill(0);
+    const counterTypes = new Array<BlockType | null>(MAX_LIST_DEPTH + 2).fill(
+      null
+    );
+
+    for (const range of this.ranges) {
+      if (!LIST_ITEM_BLOCK_TYPES.has(range.type)) {
+        prevDepth = -1;
+        continue;
+      }
+      const adjacent = prevDepth >= 0 && range.start === prevEnd + 1;
+      if (!adjacent) {
+        counters.fill(0);
+        counterTypes.fill(null);
+      }
+      // Coerce into [0, MAX_LIST_DEPTH] before ancestry-clamping: this pass
+      // indexes the counter arrays by depth, so an out-of-bounds level must
+      // never survive it.
+      const maxDepth = Math.min(adjacent ? prevDepth + 1 : 0, MAX_LIST_DEPTH);
+      if (range.level > maxDepth) {
+        range.level = maxDepth;
+      } else if (range.level < 0) {
+        range.level = 0;
+      }
+      const depth = range.level;
+      for (let i = depth + 1; i <= MAX_LIST_DEPTH + 1; i++) {
+        counters[i] = 0;
+        counterTypes[i] = null;
+      }
+      if (counterTypes[depth] !== range.type) {
+        counters[depth] = 0;
+        counterTypes[depth] = range.type;
+      }
+      counters[depth] = counters[depth]! + 1;
+      range.ordinal = counters[depth]!;
+      prevEnd = range.end;
+      prevDepth = range.level;
+    }
   }
 
   // Blocks never partially overlap, so a touched block is removed wholesale; a

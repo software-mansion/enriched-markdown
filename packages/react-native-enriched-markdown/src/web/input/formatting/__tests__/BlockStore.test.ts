@@ -162,6 +162,57 @@ describe('BlockStore', () => {
     ]);
   });
 
+  it('numbers adjacent ordered items and restarts after a gap', () => {
+    // Lines are adjacent when the next start is prevEnd + 1 (the newline).
+    store.setRanges([
+      block('ordered-list-item', 0, 5),
+      block('ordered-list-item', 6, 11),
+      block('ordered-list-item', 13, 18), // gap: not adjacent
+    ]);
+
+    expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2, 1]);
+  });
+
+  it('clamps depths to one level below the previous adjacent item', () => {
+    store.setRanges([
+      { ...block('ordered-list-item', 0, 5), level: 3 },
+      { ...block('ordered-list-item', 6, 11), level: 2 },
+      { ...block('ordered-list-item', 12, 17), level: 1 },
+    ]);
+
+    expect(store.allRanges.map((r) => r.level)).toEqual([0, 1, 1]);
+    expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 1, 2]);
+  });
+
+  it('restarts numbering on list-type change and after a non-list block', () => {
+    store.setRanges([
+      block('ordered-list-item', 0, 5),
+      block('unordered-list-item', 6, 11),
+      block('unordered-list-item', 12, 17),
+      block('ordered-list-item', 18, 23),
+    ]);
+    expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 1, 2, 1]);
+
+    store.setRanges([
+      block('ordered-list-item', 0, 5),
+      block('h1', 6, 11),
+      block('ordered-list-item', 12, 17),
+    ]);
+    expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 1, 1]);
+  });
+
+  it('resets deeper counters when the list returns to a shallower depth', () => {
+    store.setRanges([
+      { ...block('ordered-list-item', 0, 5), level: 0 },
+      { ...block('ordered-list-item', 6, 11), level: 1 },
+      { ...block('ordered-list-item', 12, 17), level: 0 },
+      { ...block('ordered-list-item', 18, 23), level: 1 },
+    ]);
+
+    // The second depth-1 run starts over at 1.
+    expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 1, 2, 1]);
+  });
+
   it('setRanges sorts incoming blocks by start', () => {
     store.setRanges([block('paragraph', 6, 11), block('h1', 0, 5)]);
 
