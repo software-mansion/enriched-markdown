@@ -202,10 +202,6 @@ final class TaskListInteractionTests: XCTestCase {
         XCTAssertTrue(environment.markdownTaskListItemToggleEnabled)
     }
 
-    func testTextViewToggleEnabledByDefault() {
-        XCTAssertTrue(MarkdownTextView().isTaskListToggleEnabled)
-    }
-
     // MARK: - Helpers
 
     private func taskIndex(in attributedText: NSAttributedString, at location: Int) -> Int? {

@@ -105,7 +105,7 @@ enum TaskListInteraction {
                 )
             }
             if checked {
-                applyCheckedDecoration(
+                TaskListDecoration.apply(
                     to: result,
                     range: range,
                     textColor: checkedTextColor,
@@ -113,64 +113,22 @@ enum TaskListInteraction {
                     baseColor: baseColor
                 )
             } else {
-                removeCheckedDecoration(from: result, range: range, baseColor: baseColor)
+                TaskListDecoration.remove(from: result, range: range, baseColor: baseColor)
             }
         }
         return result
     }
 
-    /// Checked-item decoration shared with ListItemRenderer, so a toggle
-    /// produces exactly what a fresh render of the toggled source would.
-    static func applyCheckedDecoration(
-        to output: NSMutableAttributedString,
-        range: NSRange,
-        textColor: UIColor?,
-        strikethrough: Bool,
-        baseColor: UIColor
-    ) {
-        guard textColor != nil || strikethrough else { return }
-        let strikethroughColor = textColor ?? baseColor
-        output.enumerateAttributes(in: range, options: []) { attrs, runRange, _ in
-            guard attrs[.attachment] == nil else { return }
-            if strikethrough {
-                output.addAttribute(
-                    .strikethroughStyle,
-                    value: NSUnderlineStyle.single.rawValue,
-                    range: runRange
-                )
-                output.addAttribute(.strikethroughColor, value: strikethroughColor, range: runRange)
-            }
-            if let textColor, !RenderContext.shouldPreserveColors(attrs) {
-                output.addAttribute(.foregroundColor, value: textColor, range: runRange)
-            }
-        }
-    }
+    /// The marker pattern matches the React Native package's, so source
+    /// indices line up with the renderer's document-order task indices.
+    private static let taskMarkerRegex = try? NSRegularExpression(
+        pattern: "^([ \\t]*[-*+][ \\t]+)\\[[ xX]\\]",
+        options: [.anchorsMatchLines]
+    )
 
-    static func removeCheckedDecoration(
-        from output: NSMutableAttributedString,
-        range: NSRange,
-        baseColor: UIColor
-    ) {
-        output.enumerateAttributes(in: range, options: []) { attrs, runRange, _ in
-            guard attrs[.attachment] == nil else { return }
-            output.removeAttribute(.strikethroughStyle, range: runRange)
-            output.removeAttribute(.strikethroughColor, range: runRange)
-            if !RenderContext.shouldPreserveColors(attrs) {
-                output.addAttribute(.foregroundColor, value: baseColor, range: runRange)
-            }
-        }
-    }
-
-    /// Rewrites the `index`-th task marker in the markdown source. The marker
-    /// pattern matches the React Native package's, so source indices line up
-    /// with the renderer's document-order task indices.
+    /// Rewrites the `index`-th task marker in the markdown source.
     static func togglingSource(_ markdown: String, index: Int, checked: Bool) -> String {
-        guard index >= 0,
-              let regex = try? NSRegularExpression(
-                  pattern: "^([ \\t]*[-*+][ \\t]+)\\[[ xX]\\]",
-                  options: [.anchorsMatchLines]
-              )
-        else { return markdown }
+        guard index >= 0, let regex = taskMarkerRegex else { return markdown }
 
         let nsMarkdown = markdown as NSString
         let matches = regex.matches(in: markdown, range: NSRange(location: 0, length: nsMarkdown.length))

@@ -125,7 +125,7 @@ final class ListItemRenderer: NodeRenderer {
                 )
             }
 
-            TaskListInteraction.applyCheckedDecoration(
+            TaskListDecoration.apply(
                 to: output,
                 range: applyRange,
                 textColor: checkedTextColor,

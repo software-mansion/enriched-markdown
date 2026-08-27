@@ -41,14 +41,13 @@ public struct EnrichedMarkdownText: View {
             selectionMenuConfig: selectionMenuConfig,
             isSelectionEnabled: isSelectionEnabled,
             selectionColor: selectionColor,
-            isTaskListToggleEnabled: isTaskListToggleEnabled,
-            onTaskListItemTap: { hit in
+            onTaskListItemTap: isTaskListToggleEnabled ? { hit in
                 let checked = !hit.checked
                 renderStore.applyTaskListToggle(index: hit.index, checked: checked, config: styleConfig)
                 onTaskListItemPress?(
                     TaskListItemPressEvent(index: hit.index, checked: checked, text: hit.itemText)
                 )
-            }
+            } : nil
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {

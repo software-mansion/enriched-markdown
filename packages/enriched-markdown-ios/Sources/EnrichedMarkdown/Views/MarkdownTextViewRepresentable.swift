@@ -10,7 +10,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let selectionMenuConfig: MarkdownSelectionMenuConfig
     let isSelectionEnabled: Bool
     let selectionColor: Color?
-    let isTaskListToggleEnabled: Bool
     let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
 
     func makeCoordinator() -> Coordinator {
@@ -33,7 +32,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.styleConfig = styleConfig
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
-        textView.isTaskListToggleEnabled = isTaskListToggleEnabled
         textView.onTaskListItemTap = onTaskListItemTap
         textView.setMarkdownAttributedText(attributedText)
     }
@@ -221,12 +219,9 @@ final class MarkdownTextView: UITextView {
     /// the press handler via accessibilityActivate.
     var onLinkPress: ((URL) -> Void)?
 
-    /// Mirrors `enableTaskListItemToggle` in the React Native package: when
-    /// `false` checkbox taps are fully inert.
-    var isTaskListToggleEnabled = true
-
     /// Fired with the pre-toggle state when a tap lands in a task item's
-    /// checkbox margin.
+    /// checkbox margin. Nil makes checkbox taps fully inert (the
+    /// `markdownTaskListItemToggleEnabled(false)` case).
     var onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
 
     /// Our tap recognizer must not steal touches from the text view's own
@@ -332,7 +327,6 @@ final class MarkdownTextView: UITextView {
 
     @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
         guard recognizer.state == .ended,
-              isTaskListToggleEnabled,
               let onTaskListItemTap,
               let hit = taskListHit(at: recognizer.location(in: self))
         else { return }
