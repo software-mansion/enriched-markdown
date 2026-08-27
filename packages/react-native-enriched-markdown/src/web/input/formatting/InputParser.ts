@@ -30,8 +30,7 @@ function countNewlines(text: string): number {
   return text.split('\n').length - 1;
 }
 
-// The input dialect: `_x_` is underline (not emphasis), bare URLs stay plain
-// text until the autolink layer claims them.
+// Bare URLs stay plain text until the autolink layer claims them.
 const INPUT_PARSE_FLAGS = {
   underline: true,
   latexMath: false,
