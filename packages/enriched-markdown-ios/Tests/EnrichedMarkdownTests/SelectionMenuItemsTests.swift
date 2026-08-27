@@ -28,7 +28,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(),
             selectedRange: range,
             attributedText: rendered,
-            sourceMarkdown: "Forests cover **31%** of land."
+            source: RenderedSource(markdown: "Forests cover **31%** of land.", flags: .commonMark)
         )
 
         XCTAssertEqual(specs.count, 1)
@@ -47,7 +47,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            sourceMarkdown: source
+            source: RenderedSource(markdown: source, flags: .commonMark)
         )
 
         XCTAssertEqual(specs.first?.pasteboardString, source)
@@ -60,7 +60,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(copyAsMarkdown: false),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            sourceMarkdown: "Hello world"
+            source: RenderedSource(markdown: "Hello world", flags: .commonMark)
         )
 
         XCTAssertTrue(specs.isEmpty)
@@ -73,7 +73,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(copyAsMarkdownLabel: "Kopiuj jako Markdown"),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            sourceMarkdown: "Hello world"
+            source: RenderedSource(markdown: "Hello world", flags: .commonMark)
         )
 
         XCTAssertEqual(specs.first?.title, "Kopiuj jako Markdown")
@@ -86,7 +86,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(),
             selectedRange: NSRange(location: 0, length: 0),
             attributedText: rendered,
-            sourceMarkdown: "Hello world"
+            source: RenderedSource(markdown: "Hello world", flags: .commonMark)
         )
 
         XCTAssertTrue(specs.isEmpty)
@@ -101,7 +101,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            sourceMarkdown: "No images here."
+            source: RenderedSource(markdown: "No images here.", flags: .commonMark)
         )
 
         XCTAssertEqual(specs.map(\.kind), [.copyMarkdown])
@@ -115,7 +115,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            sourceMarkdown: source
+            source: RenderedSource(markdown: source, flags: .commonMark)
         )
 
         let imageSpec = specs.first { $0.kind == .copyImageURLs }
@@ -133,7 +133,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            sourceMarkdown: source
+            source: RenderedSource(markdown: source, flags: .commonMark)
         )
 
         let imageSpec = specs.first { $0.kind == .copyImageURLs }
@@ -149,7 +149,7 @@ final class SelectionMenuItemsTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(copyImageUrl: false),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            sourceMarkdown: source
+            source: RenderedSource(markdown: source, flags: .commonMark)
         )
 
         XCTAssertFalse(specs.contains { $0.kind == .copyImageURLs })

@@ -355,6 +355,9 @@ enum MarkdownHTMLGenerator {
 
     // MARK: - Inline emission
 
+    /// Block-separator newlines only; U+2028 hard breaks are content and must survive.
+    private static let blockSeparators = CharacterSet(charactersIn: "\n\r")
+
     private static func inlineHTML(
         in text: NSAttributedString,
         range: NSRange,
@@ -381,11 +384,9 @@ enum MarkdownHTMLGenerator {
                 return
             }
 
-            // U+2028 hard breaks must survive even as standalone runs, so
-            // trim only block-separator newlines, not `.newlines`.
             let cleaned = content
                 .replacingOccurrences(of: "\u{200B}", with: "")
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\n\r"))
+                .trimmingCharacters(in: Self.blockSeparators)
             guard !cleaned.isEmpty else { return }
 
             appendStyledSegment(cleaned, attrs: attrs, into: &html, styles: styles, isCodeBlock: isCodeBlock)

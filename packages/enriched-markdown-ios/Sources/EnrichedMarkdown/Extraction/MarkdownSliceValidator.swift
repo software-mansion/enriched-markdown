@@ -74,10 +74,10 @@ private extension MarkdownSliceValidator {
         }
     }
 
+    static let strippable = MarkdownExtractor.invisibleCharacters
+        .union(CharacterSet(charactersIn: "\u{FFFC}"))
+
     static func canonical(_ text: String) -> String {
-        String(String.UnicodeScalarView(text.unicodeScalars.filter {
-            !CharacterSet.whitespacesAndNewlines.contains($0)
-                && $0 != "\u{200B}" && $0 != "\u{FFFC}"
-        }))
+        String(String.UnicodeScalarView(text.unicodeScalars.filter { !strippable.contains($0) }))
     }
 }

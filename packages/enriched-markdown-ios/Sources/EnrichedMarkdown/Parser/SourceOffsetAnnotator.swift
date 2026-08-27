@@ -39,6 +39,14 @@ enum SourceOffsetAnnotator {
         }
     }
 
+    /// Adds the node's range to a run's attributes under
+    /// `MarkdownAttribute.sourceRange`, when annotated.
+    static func tagSourceRange(in attributes: inout [NSAttributedString.Key: Any], of node: MarkdownASTNode) {
+        if let value = sourceRangeValue(of: node) {
+            attributes[MarkdownAttribute.sourceRange] = value
+        }
+    }
+
     // MARK: - Internals
 
     private struct Scanner {
@@ -53,8 +61,7 @@ enum SourceOffsetAnnotator {
 
             var index = cursor
             while index < source.count {
-                if isCandidate(at: index, first: needle[0]),
-                   let end = matchFlexible(needle, at: index) {
+                if let end = matchFlexible(needle, at: index) {
                     cursor = end
                     return (index, end)
                 }
@@ -88,12 +95,6 @@ enum SourceOffsetAnnotator {
                 lineStart = lineEnd + 1
             }
             return nil
-        }
-
-        private func isCandidate(at index: Int, first: UInt8) -> Bool {
-            source[index] == first
-                || source[index] == UInt8(ascii: "\\")
-                || source[index] == UInt8(ascii: "&")
         }
 
         /// Matches `needle` at `index`, letting a source backslash escape
@@ -221,8 +222,11 @@ enum SourceOffsetAnnotator {
             let result = annotateNode(child, scanner: &scanner)
             children.append(result.node)
             guard let range = result.range else { continue }
-            start = start.map { min($0, range.start) } ?? range.start
-            end = end.map { max($0, range.end) } ?? range.end
+            // The scanner only moves forward, so child ranges are ordered.
+            if start == nil {
+                start = range.start
+            }
+            end = range.end
         }
 
         guard let start, let end else {

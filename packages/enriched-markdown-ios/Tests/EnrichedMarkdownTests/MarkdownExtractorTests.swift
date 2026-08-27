@@ -114,7 +114,7 @@ final class MarkdownExtractorTests: XCTestCase {
             config: MarkdownSelectionMenuConfig(),
             selectedRange: range,
             attributedText: rendered,
-            sourceMarkdown: nil
+            source: nil
         )
 
         let copyMarkdown = specs.first { $0.kind == .copyMarkdown }

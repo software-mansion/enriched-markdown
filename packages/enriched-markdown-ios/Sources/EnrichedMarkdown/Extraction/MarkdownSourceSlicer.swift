@@ -147,10 +147,8 @@ private extension MarkdownSourceSlicer {
         return failed || runs.isEmpty ? nil : runs
     }
 
-    static let invisibleScalars = CharacterSet(charactersIn: " \t\n\r\u{200B}\u{2028}")
-
     static func isInvisible(_ text: String) -> Bool {
-        text.unicodeScalars.allSatisfy { invisibleScalars.contains($0) }
+        text.unicodeScalars.allSatisfy { MarkdownExtractor.invisibleCharacters.contains($0) }
     }
 
     // MARK: - Inline marker snapping
@@ -162,6 +160,7 @@ private extension MarkdownSourceSlicer {
         case emphasis
         case strong
         case link
+        case image
 
         var key: NSAttributedString.Key {
             switch self {
@@ -171,39 +170,65 @@ private extension MarkdownSourceSlicer {
             case .emphasis: return MarkdownAttribute.emphasis
             case .strong: return MarkdownAttribute.strong
             case .link: return .link
+            case .image: return .attachment
             }
         }
 
-        func isActive(in attrs: [NSAttributedString.Key: Any]) -> Bool {
+        /// A trait whose markers must be consumed or the slice aborted — a
+        /// plain slice would silently drop the element (a link's destination,
+        /// an image's syntax).
+        var requiresMatch: Bool {
+            self == .link || self == .image
+        }
+
+        func isActive(_ traits: MarkdownExtractor.InlineTraits, attrs: [NSAttributedString.Key: Any]) -> Bool {
+            switch self {
+            case .inlineCode: return traits.isInlineCode && traits.linkURL == nil
+            case .strikethrough: return traits.isStrikethrough
+            case .underline: return traits.isUnderline && traits.linkURL == nil
+            case .emphasis: return traits.isEmphasis
+            case .strong: return traits.isStrong
+            case .link: return traits.linkURL != nil
+            case .image: return attrs[.attachment] is MarkdownImageAttachment
+            }
+        }
+
+        func consumeOpening(in bytes: [UInt8], before index: Int) -> Int? {
             switch self {
             case .inlineCode:
-                return MarkdownAttributeValue.boolValue(from: attrs[key]) && attrs[.link] == nil
+                return MarkdownSourceSlicer.consumeBackticksBackward(in: bytes, before: index)
             case .strikethrough:
-                return (MarkdownAttributeValue.intValue(from: attrs[key]) ?? 0) != 0
+                return MarkdownSourceSlicer.matchBackward("~~", in: bytes, before: index)
             case .underline:
-                return (MarkdownAttributeValue.intValue(from: attrs[key]) ?? 0) != 0 && attrs[.link] == nil
+                return MarkdownSourceSlicer.matchBackward("<u>", in: bytes, before: index)
             case .emphasis, .strong:
-                return MarkdownAttributeValue.boolValue(from: attrs[key])
+                let markers = self == .strong ? ["**", "__"] : ["*", "_"]
+                return markers
+                    .compactMap { MarkdownSourceSlicer.matchBackward($0, in: bytes, before: index) }
+                    .first
             case .link:
-                return attrs[key] != nil
+                return MarkdownSourceSlicer.matchBackward("[", in: bytes, before: index)
+            case .image:
+                // The mapped range covers only the alt text.
+                return MarkdownSourceSlicer.matchBackward("![", in: bytes, before: index)
             }
         }
 
-        var openingMarkers: [String] {
+        func consumeClosing(in bytes: [UInt8], from index: Int) -> Int? {
             switch self {
-            case .strong: return ["**", "__"]
-            case .emphasis: return ["*", "_"]
-            case .strikethrough: return ["~~"]
-            case .underline: return ["<u>"]
-            case .inlineCode, .link: return []
-            }
-        }
-
-        var closingMarkers: [String] {
-            switch self {
-            case .underline: return ["</u>"]
-            case .inlineCode, .link: return []
-            default: return openingMarkers
+            case .inlineCode:
+                return MarkdownSourceSlicer.consumeBackticksForward(in: bytes, from: index)
+            case .strikethrough:
+                return MarkdownSourceSlicer.matchForward("~~", in: bytes, at: index)
+            case .underline:
+                return MarkdownSourceSlicer.matchForward("</u>", in: bytes, at: index)
+            case .emphasis, .strong:
+                let markers = self == .strong ? ["**", "__"] : ["*", "_"]
+                return markers
+                    .compactMap { MarkdownSourceSlicer.matchForward($0, in: bytes, at: index) }
+                    .first
+            case .link, .image:
+                return MarkdownSourceSlicer.consumeLinkSuffix(in: bytes, from: index)
             }
         }
     }
@@ -214,25 +239,24 @@ private extension MarkdownSourceSlicer {
     /// balanced.
     static func coveredTraits(
         of run: MappedRun,
-        at location: Int,
         selection: NSRange,
         in attributedText: NSAttributedString
     ) -> [EdgeTrait] {
+        let inlineTraits = MarkdownExtractor.InlineTraits(attrs: run.attrs)
         let fullRange = NSRange(location: 0, length: attributedText.length)
         return EdgeTrait.allCases.filter { trait in
-            guard trait.isActive(in: run.attrs) else { return false }
+            guard trait.isActive(inlineTraits, attrs: run.attrs) else { return false }
             var span = NSRange()
             guard attributedText.attribute(
-                trait.key, at: location, longestEffectiveRange: &span, in: fullRange
+                trait.key, at: run.runRange.location, longestEffectiveRange: &span, in: fullRange
             ) != nil else { return false }
             return NSIntersectionRange(span, selection) == span
         }
     }
 
     /// Expands `start` backward over the opening markers of fully-selected
-    /// spans. Returns nil when a covered link's `[` is missing (reference
-    /// links, autolinks) — a plain slice would silently drop the link, so
-    /// the caller must fall back.
+    /// spans; nil when a `requiresMatch` trait's markers are missing
+    /// (reference links, autolinks) and the caller must fall back.
     static func snapStart(
         _ start: Int,
         run: MappedRun,
@@ -241,48 +265,18 @@ private extension MarkdownSourceSlicer {
         bytes: [UInt8]
     ) -> Int? {
         guard start == run.nodeByteRange.lowerBound else { return start }
-        if run.attrs[.attachment] is MarkdownImageAttachment {
-            // The mapped range covers only the alt text; a missing "![" (an
-            // unmatchable image form) must abort so the image is not lost.
-            return matchBackward("![", in: bytes, before: start)
-        }
-        if run.attrs[.attachment] != nil {
+        if run.attrs[.attachment] != nil, !(run.attrs[.attachment] is MarkdownImageAttachment) {
             return start
         }
-
-        var result = start
-        var remaining = coveredTraits(of: run, at: run.runRange.location, selection: selection, in: attributedText)
-        var progressed = true
-        while progressed {
-            progressed = false
-            for (index, trait) in remaining.enumerated() {
-                let consumedTo: Int?
-                switch trait {
-                case .link:
-                    consumedTo = matchBackward("[", in: bytes, before: result)
-                case .inlineCode:
-                    consumedTo = consumeBackticksBackward(in: bytes, before: result)
-                default:
-                    consumedTo = trait.openingMarkers
-                        .compactMap { matchBackward($0, in: bytes, before: result) }
-                        .first
-                }
-                if let consumedTo {
-                    result = consumedTo
-                    remaining.remove(at: index)
-                    progressed = true
-                    break
-                }
-                if trait == .link {
-                    return nil
-                }
-            }
+        return consumeTraits(
+            coveredTraits(of: run, selection: selection, in: attributedText),
+            from: start
+        ) { trait, position in
+            trait.consumeOpening(in: bytes, before: position)
         }
-        return result
     }
 
-    /// Forward counterpart of `snapStart`; a covered link consumes its
-    /// `](destination)` bytes or aborts.
+    /// Forward counterpart of `snapStart`.
     static func snapEnd(
         _ end: Int,
         run: MappedRun,
@@ -291,37 +285,38 @@ private extension MarkdownSourceSlicer {
         bytes: [UInt8]
     ) -> Int? {
         guard end == run.nodeByteRange.upperBound else { return end }
-        if run.attrs[.attachment] is MarkdownImageAttachment {
-            return consumeLinkSuffix(in: bytes, from: end)
-        }
-        if run.attrs[.attachment] != nil {
+        if run.attrs[.attachment] != nil, !(run.attrs[.attachment] is MarkdownImageAttachment) {
             return end
         }
+        return consumeTraits(
+            coveredTraits(of: run, selection: selection, in: attributedText),
+            from: end
+        ) { trait, position in
+            trait.consumeClosing(in: bytes, from: position)
+        }
+    }
 
-        var result = end
-        var remaining = coveredTraits(of: run, at: run.runRange.location, selection: selection, in: attributedText)
+    /// Consumes each trait's markers at most once, retrying until no trait
+    /// progresses (nesting means markers unlock each other in any order);
+    /// nil when a `requiresMatch` trait cannot consume.
+    static func consumeTraits(
+        _ traits: [EdgeTrait],
+        from position: Int,
+        consume: (EdgeTrait, Int) -> Int?
+    ) -> Int? {
+        var result = position
+        var remaining = traits
         var progressed = true
         while progressed {
             progressed = false
             for (index, trait) in remaining.enumerated() {
-                let consumedTo: Int?
-                switch trait {
-                case .link:
-                    consumedTo = consumeLinkSuffix(in: bytes, from: result)
-                case .inlineCode:
-                    consumedTo = consumeBackticksForward(in: bytes, from: result)
-                default:
-                    consumedTo = trait.closingMarkers
-                        .compactMap { matchForward($0, in: bytes, at: result) }
-                        .first
-                }
-                if let consumedTo {
-                    result = consumedTo
+                if let next = consume(trait, result) {
+                    result = next
                     remaining.remove(at: index)
                     progressed = true
                     break
                 }
-                if trait == .link {
+                if trait.requiresMatch {
                     return nil
                 }
             }
@@ -330,16 +325,14 @@ private extension MarkdownSourceSlicer {
     }
 
     static func matchBackward(_ marker: String, in bytes: [UInt8], before index: Int) -> Int? {
-        let markerBytes = Array(marker.utf8)
-        let start = index - markerBytes.count
-        guard start >= 0, Array(bytes[start..<index]) == markerBytes else { return nil }
+        let start = index - marker.utf8.count
+        guard start >= 0, bytes[start..<index].elementsEqual(marker.utf8) else { return nil }
         return start
     }
 
     static func matchForward(_ marker: String, in bytes: [UInt8], at index: Int) -> Int? {
-        let markerBytes = Array(marker.utf8)
-        let end = index + markerBytes.count
-        guard end <= bytes.count, Array(bytes[index..<end]) == markerBytes else { return nil }
+        let end = index + marker.utf8.count
+        guard end <= bytes.count, bytes[index..<end].elementsEqual(marker.utf8) else { return nil }
         return end
     }
 
@@ -385,17 +378,30 @@ private extension MarkdownSourceSlicer {
 
     // MARK: - Block expansion
 
+    static func lineStart(before index: Int, in bytes: [UInt8]) -> Int {
+        var start = index
+        while start > 0, bytes[start - 1] != UInt8(ascii: "\n") {
+            start -= 1
+        }
+        return start
+    }
+
+    static func lineEnd(from index: Int, in bytes: [UInt8]) -> Int {
+        var end = index
+        while end < bytes.count, bytes[end] != UInt8(ascii: "\n") {
+            end += 1
+        }
+        return end
+    }
+
     /// Extends `start` to the start of its line when every byte in between
     /// is block-prefix syntax (indentation, blockquote bars, a list marker
     /// with optional task box, heading hashes) — the selection then starts
     /// the line's text, so its markers are visually included.
     static func expandBlockPrefix(from start: Int, bytes: [UInt8]) -> Int {
-        var lineStart = start
-        while lineStart > 0, bytes[lineStart - 1] != UInt8(ascii: "\n") {
-            lineStart -= 1
-        }
-        guard lineStart < start, isBlockPrefix(bytes[lineStart..<start]) else { return start }
-        return lineStart
+        let line = lineStart(before: start, in: bytes)
+        guard line < start, isBlockPrefix(bytes[line..<start]) else { return start }
+        return line
     }
 
     static func isBlockPrefix(_ slice: ArraySlice<UInt8>) -> Bool {
@@ -423,25 +429,18 @@ private extension MarkdownSourceSlicer {
               bytes[start - 1] == UInt8(ascii: "\n") else {
             return start
         }
-        let lineEnd = start - 1
-        var lineStart = lineEnd
-        while lineStart > 0, bytes[lineStart - 1] != UInt8(ascii: "\n") {
-            lineStart -= 1
-        }
-        guard isFenceLine(bytes[lineStart..<lineEnd], requireBare: false) else { return start }
-        return lineStart
+        let fenceLine = lineStart(before: start - 1, in: bytes)
+        guard isFenceLine(bytes[fenceLine..<(start - 1)], requireBare: false) else { return start }
+        return fenceLine
     }
 
     /// Code content includes its trailing newline, so a fully-selected block
     /// ends where the closing fence's line begins.
     static func expandClosingFence(from end: Int, run: MappedRun, bytes: [UInt8]) -> Int {
         guard isCodeBlockRun(run), end == run.nodeByteRange.upperBound else { return end }
-        var lineEnd = end
-        while lineEnd < bytes.count, bytes[lineEnd] != UInt8(ascii: "\n") {
-            lineEnd += 1
-        }
-        guard isFenceLine(bytes[end..<lineEnd], requireBare: true) else { return end }
-        return lineEnd
+        let fenceEnd = lineEnd(from: end, in: bytes)
+        guard isFenceLine(bytes[end..<fenceEnd], requireBare: true) else { return end }
+        return fenceEnd
     }
 
     // MARK: - Tables and setext headings
@@ -449,21 +448,11 @@ private extension MarkdownSourceSlicer {
     /// A table's aggregated range starts at the first header cell's text and
     /// ends at the last cell's text; the row pipes live on the same lines.
     static func expandTableStart(from start: Int, run: MappedRun, bytes: [UInt8]) -> Int {
-        guard run.attrs[.attachment] is TableAttachment else { return start }
-        var lineStart = start
-        while lineStart > 0, bytes[lineStart - 1] != UInt8(ascii: "\n") {
-            lineStart -= 1
-        }
-        return lineStart
+        run.attrs[.attachment] is TableAttachment ? lineStart(before: start, in: bytes) : start
     }
 
     static func expandTableEnd(from end: Int, run: MappedRun, bytes: [UInt8]) -> Int {
-        guard run.attrs[.attachment] is TableAttachment else { return end }
-        var lineEnd = end
-        while lineEnd < bytes.count, bytes[lineEnd] != UInt8(ascii: "\n") {
-            lineEnd += 1
-        }
-        return lineEnd
+        run.attrs[.attachment] is TableAttachment ? lineEnd(from: end, in: bytes) : end
     }
 
     /// A `---`/`===` underline directly after a fully-selected heading whose
@@ -476,25 +465,14 @@ private extension MarkdownSourceSlicer {
             return end
         }
 
-        var headingLineStart = run.nodeByteRange.lowerBound
-        while headingLineStart > 0, bytes[headingLineStart - 1] != UInt8(ascii: "\n") {
-            headingLineStart -= 1
-        }
-        var significant = headingLineStart
-        while significant < bytes.count,
-              bytes[significant] == UInt8(ascii: " ") || bytes[significant] == UInt8(ascii: "\t")
-                || bytes[significant] == UInt8(ascii: ">") {
-            significant += 1
-        }
-        guard significant < bytes.count, bytes[significant] != UInt8(ascii: "#") else { return end }
+        let headingLine = lineStart(before: run.nodeByteRange.lowerBound, in: bytes)
+        var scanner = MarkdownBlockPrefixScanner(slice: bytes[headingLine...])
+        scanner.consumeIndentAndBars()
+        guard scanner.peek() != UInt8(ascii: "#") else { return end }
 
-        let lineStart = end + 1
-        var lineEnd = lineStart
-        while lineEnd < bytes.count, bytes[lineEnd] != UInt8(ascii: "\n") {
-            lineEnd += 1
-        }
-        guard isSetextUnderline(bytes[lineStart..<lineEnd]) else { return end }
-        return lineEnd
+        let underlineEnd = lineEnd(from: end + 1, in: bytes)
+        guard isSetextUnderline(bytes[(end + 1)..<underlineEnd]) else { return end }
+        return underlineEnd
     }
 
     static func isSetextUnderline(_ line: ArraySlice<UInt8>) -> Bool {

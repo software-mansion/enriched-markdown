@@ -88,6 +88,49 @@ enum MarkdownExtractor {
     }
 }
 
+extension MarkdownExtractor {
+    /// Whitespace plus the zero-width space and line separator the renderers
+    /// use for marker anchors and hard breaks. Shared with the slicer and
+    /// validator so "invisible" means the same thing everywhere.
+    static let invisibleCharacters: CharacterSet = {
+        var set = CharacterSet.whitespacesAndNewlines
+        set.insert(charactersIn: "\u{200B}\u{2028}")
+        return set
+    }()
+
+    /// The inline formatting a run carries, decoded once from its
+    /// attributes. Shared with the slicer's edge-marker logic.
+    struct InlineTraits {
+        let isInlineCode: Bool
+        let isStrong: Bool
+        let isEmphasis: Bool
+        let isStrikethrough: Bool
+        let isUnderline: Bool
+        let isSuperscript: Bool
+        let isSubscript: Bool
+        let linkURL: String?
+
+        init(attrs: [NSAttributedString.Key: Any]) {
+            isInlineCode = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.inlineCode])
+            isStrong = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.strong])
+            isEmphasis = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.emphasis])
+            isStrikethrough = (MarkdownAttributeValue.intValue(from: attrs[.strikethroughStyle]) ?? 0) != 0
+            isUnderline = (MarkdownAttributeValue.intValue(from: attrs[.underlineStyle]) ?? 0) != 0
+            isSuperscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.superscript])
+            isSubscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.subscript])
+
+            switch attrs[.link] {
+            case let url as URL:
+                linkURL = url.absoluteString
+            case let string as String:
+                linkURL = string
+            default:
+                linkURL = nil
+            }
+        }
+    }
+}
+
 private extension MarkdownExtractor {
     struct ExtractionState {
         var blockquoteDepth = -1
@@ -328,36 +371,6 @@ private extension MarkdownExtractor {
         return prefix
     }
 
-    struct InlineTraits {
-        let isInlineCode: Bool
-        let isStrong: Bool
-        let isEmphasis: Bool
-        let isStrikethrough: Bool
-        let isUnderline: Bool
-        let isSuperscript: Bool
-        let isSubscript: Bool
-        let linkURL: String?
-
-        init(attrs: [NSAttributedString.Key: Any]) {
-            isInlineCode = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.inlineCode])
-            isStrong = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.strong])
-            isEmphasis = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.emphasis])
-            isStrikethrough = (MarkdownAttributeValue.intValue(from: attrs[.strikethroughStyle]) ?? 0) != 0
-            isUnderline = (MarkdownAttributeValue.intValue(from: attrs[.underlineStyle]) ?? 0) != 0
-            isSuperscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.superscript])
-            isSubscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.subscript])
-
-            switch attrs[.link] {
-            case let url as URL:
-                linkURL = url.absoluteString
-            case let string as String:
-                linkURL = string
-            default:
-                linkURL = nil
-            }
-        }
-    }
-
     static func clampedRange(_ range: NSRange, in attributedText: NSAttributedString) -> NSRange? {
         guard range.location != NSNotFound,
               range.location >= 0,
@@ -383,14 +396,6 @@ private extension MarkdownExtractor {
         return head.components(separatedBy: invisibleCharacters).joined().isEmpty
             && tail.components(separatedBy: invisibleCharacters).joined().isEmpty
     }
-
-    /// Whitespace plus the zero-width space and line separator the renderers
-    /// use for marker anchors and hard breaks.
-    private static let invisibleCharacters: CharacterSet = {
-        var set = CharacterSet.whitespacesAndNewlines
-        set.insert(charactersIn: "\u{200B}\u{2028}")
-        return set
-    }()
 
     static func ensureBlankLine(_ result: inout String) {
         guard !result.isEmpty, !result.hasSuffix("\n\n") else { return }

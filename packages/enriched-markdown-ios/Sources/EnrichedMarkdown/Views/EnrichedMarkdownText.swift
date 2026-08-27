@@ -34,8 +34,7 @@ public struct EnrichedMarkdownText: View {
     public var body: some View {
         MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,
-            sourceMarkdown: renderStore.sourceMarkdown,
-            sourceFlags: renderStore.sourceFlags,
+            source: renderStore.source,
             styleConfig: styleConfig,
             onLinkPress: onLinkPress,
             onLinkLongPress: onLinkLongPress,

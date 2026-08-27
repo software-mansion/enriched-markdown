@@ -25,15 +25,9 @@ final class TableRenderer: NodeRenderer {
             )
         }
         let attachment = TableAttachment(model: model, style: style)
-        let tableString = NSMutableAttributedString(attachment: attachment)
-        if let sourceRange = SourceOffsetAnnotator.sourceRangeValue(of: node) {
-            tableString.addAttribute(
-                MarkdownAttribute.sourceRange,
-                value: sourceRange,
-                range: NSRange(location: 0, length: tableString.length)
-            )
-        }
-        output.append(tableString)
+        var attributes: [NSAttributedString.Key: Any] = [.attachment: attachment]
+        SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
+        output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
         output.append(NSAttributedString(string: "\n"))
         ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: style.marginBottom)
     }

@@ -22,15 +22,9 @@ final class ImageRenderer: NodeRenderer {
             requestHeaders: requestHeaders
         )
 
-        let imageString = NSMutableAttributedString(attachment: attachment)
-        if let sourceRange = SourceOffsetAnnotator.sourceRangeValue(of: node) {
-            imageString.addAttribute(
-                MarkdownAttribute.sourceRange,
-                value: sourceRange,
-                range: NSRange(location: 0, length: imageString.length)
-            )
-        }
-        output.append(imageString)
+        var attributes: [NSAttributedString.Key: Any] = [.attachment: attachment]
+        SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
+        output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
     }
 
     private func isInlineImage(in output: NSAttributedString) -> Bool {
