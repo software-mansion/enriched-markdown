@@ -4,6 +4,9 @@ import styles from './styles.module.css';
 interface Props {
   /** The prop's TypeScript type, shown verbatim in the Type column. */
   type: string;
+  /** Optional URL. When set, the type is rendered as a link (e.g. a React
+   *  Native type like `ColorValue` pointing at reactnative.dev). */
+  typeHref?: string;
   /** The default value. Omit for props with no default. */
   default?: string;
   /** Marks the prop as required - renders "Required" in the Default column. */
@@ -15,6 +18,7 @@ interface Props {
 // lines up down the page. Props with no default show a muted dash.
 export default function PropInfo({
   type,
+  typeHref,
   default: defaultValue,
   required = false,
 }: Props) {
@@ -28,7 +32,7 @@ export default function PropInfo({
       </thead>
       <tbody>
         <tr>
-          <td>{type}</td>
+          <td>{typeHref ? <a href={typeHref}>{type}</a> : type}</td>
           <td>
             {required ? (
               <span className={styles.required}>Required</span>

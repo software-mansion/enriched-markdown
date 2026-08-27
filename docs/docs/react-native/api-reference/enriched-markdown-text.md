@@ -48,7 +48,7 @@ import DirSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/e
 THIS PAGE IS WORK IN PROGRESS
 :::
 
-`EnrichedMarkdownText` renders Markdown content as fully native text — no WebView required. It parses Markdown with [md4c](https://github.com/mity/md4c) and paints it with the platform's native text stack (`TextKit` on iOS, `TextView` on Android), so selection, accessibility, and font scaling all behave like first-class native text.
+`EnrichedMarkdownText` renders Markdown content as fully native text - no WebView required. It parses Markdown with [md4c](https://github.com/mity/md4c) and paints it with the platform's native text stack (`TextKit` on iOS, `TextView` on Android), so selection, accessibility, and font scaling all behave like first-class native text.
 
 ```tsx
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
@@ -68,17 +68,15 @@ export default function App() {
 
 ## Props
 
-`EnrichedMarkdownText` accepts every prop below. It also forwards the standard React Native [`View`](https://reactnative.dev/docs/view#props) props — such as `testID`, `onLayout`, `pointerEvents`, `hitSlop`, and the `accessibility*` props — to the underlying native view.
+`EnrichedMarkdownText` accepts every prop below. It also forwards the standard React Native [`View`](https://reactnative.dev/docs/view#props) props - such as `testID`, `onLayout`, `pointerEvents`, `hitSlop`, and the `accessibility*` props - to the underlying native view. The one exception is `style`: use [`containerStyle`](#containerstyle) instead, which is applied as the view's `style`.
 
 :::note
-The one exception is `style`: use `containerStyle` instead, which is applied as the view's `style`.
+Each prop has a live playground below - edit the code and try it. Props marked with a <IosBadge />, <AndroidBadge />, or <WebBadge /> badge only take effect on that platform.
 :::
-
-Each prop has a live playground: edit the code and play around. Props marked with a <IosBadge />, <AndroidBadge />, or <WebBadge /> badge only take effect on that platform.
 
 ### `markdown`
 
-The Markdown content to render. Depending on the [flavor](/react-native/api-reference/enriched-markdown-text#flavor), [md4c flags](/react-native/api-reference/enriched-markdown-text#md4cflags) etc. this supports different syntax elements. To learn more go to [Feature support page](/introduction/supported-features).
+The Markdown content to render. Depending on the [flavor](/react-native/api-reference/enriched-markdown-text#flavor), [md4c flags](/react-native/api-reference/enriched-markdown-text#md4cflags), etc., this supports different syntax elements. To learn more, go to the [Feature support page](/introduction/supported-features).
 
 <PropInfo type="string" required />
 
@@ -97,7 +95,7 @@ Style configuration for Markdown elements. See the [Style properties reference](
 Style for the view that wraps the rendered Markdown. `ViewStyle` and `TextStyle` are React Native's own style types: in practice you use the [`ViewStyle`](https://reactnative.dev/docs/view-style-props) layout and appearance properties here: `padding`, `margin`, `backgroundColor`, `borderRadius`, `borderWidth`, and the [flexbox](https://reactnative.dev/docs/flexbox) props. [`TextStyle`](https://reactnative.dev/docs/text-style-props) is accepted for parity, but to style the text itself (headings, links, code, and other elements) use [`markdownStyle`](#markdownstyle) instead.
 
 :::note
-This is React Native's regular `style` prop under a different name. `containerStyle` is handed straight to the wrapper `<View>`, so every value behaves exactly as it does on any React Native view. It is renamed only because the plain `style` prop is reserved (see the [note above](#props)).
+This is React Native's regular `style` prop under a different name. `containerStyle` is handed straight to the wrapper `<View>`, so every value behaves exactly as it does on any React Native view. It is renamed only because the plain `style` prop is reserved (see [above](#props)).
 :::
 
 <PropInfo type="ViewStyle | TextStyle" />
@@ -138,7 +136,7 @@ When `true`, parses `^text^` as superscript.
 
 #### `subscript`
 
-When `true`, parses `~text~` as subscript. When disabled, single and double tildes stay strikethrough markers instead.
+When `true`, parses `~text~` as subscript. When disabled, single and double tildes stay as strikethrough markers instead.
 
 <PropInfo type="boolean" default="false" />
 
@@ -168,50 +166,6 @@ When `true`, treats single newlines (soft breaks) as hard breaks, rendering them
 
 <LivePreview src={Md4cHardSoftBreaksSrc} />
 
-### `onLinkPress`
-
-Callback fired when a link is tapped.
-
-<PropInfo type="(event: LinkPressEvent) => void" />
-
-```ts
-interface LinkPressEvent {
-  url: string; // the tapped link's URL
-}
-```
-
-<LivePreview src={OnLinkPressSrc} />
-
-### `onLinkLongPress`
-
-Callback fired when a link is long-pressed. On iOS, providing this handler automatically disables the system link preview (see [`enableLinkPreview`](#enablelinkpreview)). On web, it maps to the `contextmenu` (right-click) event.
-
-<PropInfo type="(event: LinkLongPressEvent) => void" />
-
-```ts
-interface LinkLongPressEvent {
-  url: string; // the long-pressed link's URL
-}
-```
-
-<LivePreview src={OnLinkLongPressSrc} />
-
-### `onTaskListItemPress`
-
-Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.
-
-<PropInfo type="(event: TaskListItemPressEvent) => void" />
-
-```ts
-interface TaskListItemPressEvent {
-  index: number; // 0-based item index
-  checked: boolean; // checked state after toggling
-  text: string; // the item's text
-}
-```
-
-<LivePreview src={OnTaskListItemPressSrc} />
-
 ### `enableTaskListItemToggle`
 
 Controls whether tapping a task list checkbox toggles its checked state. When `false`, the checkbox renders its Markdown state read-only and the tap is **fully inert**; no visual toggle and `onTaskListItemPress` does not fire. Text selection and links in the same row are unaffected.
@@ -219,21 +173,6 @@ Controls whether tapping a task list checkbox toggles its checked state. When `f
 <PropInfo type="boolean" default="true" />
 
 <LivePreview src={EnableTaskListItemToggleSrc} />
-
-### `onCopyPress`
-
-Callback fired when code is copied from a fenced code block - via the header copy button, the long-press **Copy** action, or the VoiceOver copy action. Does not fire for **Copy as Markdown**. Only fires when `flavor="github"`.
-
-<PropInfo type="(event: CopyPressEvent) => void" />
-
-```ts
-interface CopyPressEvent {
-  code: string; // the copied code
-  language: string; // fence language ("" if none)
-}
-```
-
-<LivePreview src={OnCopyPressSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - copying from a code block is a native interaction, and the web build renders code blocks without a copy affordance.</>} />
 
 ### `enableLinkPreview` <IosBadge /> {#enablelinkpreview}
 
@@ -255,7 +194,7 @@ Whether text can be selected. For example on web, `false` applies `user-select: 
 
 Color of the text selection highlight. On iOS this also tints the caret and selection handles (they share one tint). On macOS, only the selection background is affected. On Android, use [`selectionHandleColor`](#selectionhandlecolor) to override the handle color independently.
 
-<PropInfo type="ColorValue" />
+<PropInfo type="ColorValue" typeHref="https://reactnative.dev/docs/colors" />
 
 <LivePreview src={SelectionColorSrc} />
 
@@ -263,7 +202,7 @@ Color of the text selection highlight. On iOS this also tints the caret and sele
 
 Color of the selection handles (drag anchors). No-op on Android API levels below 29.
 
-<PropInfo type="ColorValue" />
+<PropInfo type="ColorValue" typeHref="https://reactnative.dev/docs/colors" />
 
 <LivePreview src={SelectionHandleColorSrc} unavailable unavailableReason={<>Android only - selection handles are an Android control.</>} />
 
@@ -430,6 +369,69 @@ Sets the text direction on the root container on web. The web renderers use CSS 
 <PropInfo type="'ltr' | 'rtl' | 'auto'" />
 
 <LivePreview src={DirSrc} />
+
+## Events
+
+Callback props fired in response to native interactions. Each has a live playground like the props above.
+
+### `onLinkPress`
+
+Callback fired when a link is tapped.
+
+<PropInfo type="(event: LinkPressEvent) => void" />
+
+```ts
+interface LinkPressEvent {
+  url: string; // the tapped link's URL
+}
+```
+
+<LivePreview src={OnLinkPressSrc} />
+
+### `onLinkLongPress`
+
+Callback fired when a link is long-pressed. On iOS, providing this handler automatically disables the system link preview (see [`enableLinkPreview`](#enablelinkpreview)). On web, it maps to the `contextmenu` (right-click) event.
+
+<PropInfo type="(event: LinkLongPressEvent) => void" />
+
+```ts
+interface LinkLongPressEvent {
+  url: string; // the long-pressed link's URL
+}
+```
+
+<LivePreview src={OnLinkLongPressSrc} />
+
+### `onTaskListItemPress`
+
+Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.
+
+<PropInfo type="(event: TaskListItemPressEvent) => void" />
+
+```ts
+interface TaskListItemPressEvent {
+  index: number; // 0-based item index
+  checked: boolean; // checked state after toggling
+  text: string; // the item's text
+}
+```
+
+<LivePreview src={OnTaskListItemPressSrc} />
+
+### `onCopyPress`
+
+Callback fired when code is copied from a fenced code block - via the header copy button, the long-press **Copy** action, or the VoiceOver copy action. Does not fire for **Copy as Markdown**. Only fires when `flavor="github"`.
+
+<PropInfo type="(event: CopyPressEvent) => void" />
+
+```ts
+interface CopyPressEvent {
+  code: string; // the copied code
+  language: string; // fence language ("" if none)
+}
+```
+
+<LivePreview src={OnCopyPressSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - copying from a code block is a native interaction, and the web build renders code blocks without a copy affordance.</>} />
 
 ## Try it yourself
 
