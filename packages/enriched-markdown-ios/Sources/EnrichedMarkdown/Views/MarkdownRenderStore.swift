@@ -8,10 +8,9 @@ final class MarkdownRenderStore: ObservableObject {
     // markdown string with a stale render result.
     @Published private(set) var sourceMarkdown: String?
 
-    /// The caller's markdown as last scheduled, before any checkbox toggle.
-    /// A schedule for the same base re-renders `currentMarkdown` instead, so
-    /// toggles survive style/flag re-renders and re-appearing views; a new
-    /// base always wins.
+    /// The caller's markdown as last scheduled. A schedule for the same base
+    /// re-renders `currentMarkdown` instead — toggles survive style/flag
+    /// re-renders — while a new base always wins.
     private var baseMarkdown: String?
 
     /// `baseMarkdown` plus any checkbox toggles applied since, tracked

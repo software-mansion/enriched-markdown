@@ -16,8 +16,7 @@ final class ListItemRenderer: NodeRenderer {
         let nestingLevel = currentDepth - 1
         let isTask = node.attribute("isTask") == "true"
         let isChecked = isTask && node.attribute("taskChecked") == "true"
-        // Claimed before rendering children so nested task items get higher
-        // indices, matching source (document) order.
+        // Claimed before rendering children so indices follow document order.
         let taskIndex = context.taskItemIndex
         if isTask {
             context.taskItemIndex += 1

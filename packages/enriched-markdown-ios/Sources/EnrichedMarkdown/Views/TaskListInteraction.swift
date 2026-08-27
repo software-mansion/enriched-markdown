@@ -1,9 +1,8 @@
 import UIKit
 
 /// Hit-testing, in-place toggling, and source rewriting for GFM task-list
-/// checkboxes. Tap semantics mirror the React Native package's
-/// TaskListTapUtils: the whole leading margin of the item's checkbox
-/// paragraph is tappable, and indices are 0-based in document order.
+/// checkboxes, mirroring the React Native package's TaskListTapUtils:
+/// the whole leading margin of the checkbox paragraph is tappable.
 enum TaskListInteraction {
     struct Hit {
         let index: Int
