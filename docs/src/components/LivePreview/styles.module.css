@@ -57,3 +57,61 @@
   padding: 1.5em;
   color: var(--swm-interactive-button-color);
 }
+
+/* Static code surface used when a prop can't run on web (the `unavailable`
+   mode). Mirrors the read-only CodeBlock look inside the box. */
+.code [class*='codeBlockContainer'] {
+  box-shadow: none;
+  margin-bottom: 0;
+  border-radius: 0;
+}
+
+/* The floating ExampleControls cluster already provides a copy button, so hide
+   the CodeBlock's own button group (copy / word-wrap) - it overlaps ours. */
+.code [class*='buttonGroup'] {
+  display: none;
+}
+
+/* "Not available on web" banner shown in the Preview tab for native-only props.
+   Amber-toned to read as an informational limitation, distinct from the green
+   "coming soon" banner used for the input. */
+.unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75em;
+  padding: 1.25em;
+  border: 1px dashed #d9a441;
+  border-radius: var(--ifm-global-radius);
+  background-color: #fdf6e9;
+}
+
+:global([data-theme='dark']) .unavailable {
+  border-color: #b8862f;
+  background-color: #2e2717;
+}
+
+.unavailableBadge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4rem;
+  background-color: #d9a441;
+  color: #3a2c08;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.unavailableText {
+  margin: 0;
+  color: #7a5a12;
+}
+
+:global([data-theme='dark']) .unavailableText {
+  color: #e6c987;
+}
+
+.unavailableText code {
+  color: inherit;
+}

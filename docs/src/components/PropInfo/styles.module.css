@@ -1,0 +1,60 @@
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--swm-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: var(--ifm-leading);
+  /* Fixed layout + explicit column widths so every prop's table shares the
+     same column boundary and reads as one consistent grid down the page. */
+  table-layout: fixed;
+}
+
+.table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ifm-color-emphasis-600);
+  background-color: var(--swm-off-background);
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--swm-border);
+}
+
+.table td {
+  padding: 10px 14px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 13.5px;
+  color: var(--ifm-font-color-base);
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.table th + th,
+.table td + td {
+  border-left: 1px solid var(--swm-border);
+}
+
+/* Shared column boundary across every table on the page. */
+.typeCol {
+  width: 62%;
+}
+
+.defaultCol {
+  width: 38%;
+}
+
+.required {
+  font-family: var(--ifm-font-family-base);
+  font-weight: 600;
+  color: var(--swm-green-light-100);
+}
+
+:global([data-theme='dark']) .required {
+  color: var(--swm-green-dark-80);
+}
+
+/* Muted dash for props that have no default value. */
+.empty {
+  color: var(--ifm-color-emphasis-500);
+}

@@ -11,6 +11,12 @@ import Required from '@site/src/components/Required';
 import Indent from '@site/src/components/Indent';
 import Row from '@site/src/components/Row';
 import Grid from '@site/src/components/Grid';
+import {
+  AndroidBadge,
+  IosBadge,
+  WebBadge,
+} from '@site/src/components/PlatformBadge';
+import PropInfo from '@site/src/components/PropInfo';
 import { Yes, No, Version, Spacer } from '@site/src/components/Compatibility';
 import EnrichedCompatibility from '@site/src/components/Compatibility/EnrichedCompatibility';
 import { Badges } from '@swmansion/t-rex-ui';
@@ -29,6 +35,10 @@ export default {
   Indent,
   Row,
   Grid,
+  AndroidBadge,
+  IosBadge,
+  WebBadge,
+  PropInfo,
   Yes,
   No,
   Version,

@@ -30,6 +30,12 @@
   border-radius: 0;
 }
 
+/* The floating ExampleControls cluster already provides a copy button, so hide
+   the CodeBlock's own button group (copy / word-wrap) - it overlaps ours. */
+.code [class*='buttonGroup'] {
+  display: none;
+}
+
 .comingSoon {
   display: flex;
   flex-direction: column;

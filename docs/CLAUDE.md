@@ -48,8 +48,10 @@ react-native-reanimated docs:
 `Required`, `Yes`, `No`, `Version`, `Spacer`, `EnrichedCompatibility` (RN
 support matrix, used on `misc/compatibility.mdx`), `Row`, `Grid`, `Indent`,
 `ExampleVideo`, `ThemedVideo`, `Badges` (t-rex-ui), `InteractiveExample` /
-`LivePreview` (static vs editable example demos), plus restyled admonitions,
-`<details>`, Tabs, diff and highlighted code blocks, and Mermaid diagrams.
+`LivePreview` (static vs editable example demos), `AndroidBadge` / `IosBadge` /
+`WebBadge` (platform-specific prop flags), `PropInfo` (per-prop Type/Default
+table), plus restyled admonitions, `<details>`, Tabs, diff and highlighted code
+blocks, and Mermaid diagrams.
 
 ### Interactive examples
 
@@ -80,20 +82,48 @@ For an **editable** playground use `LivePreview` instead
 (`src/components/LivePreview`, powered by `react-live`): it takes only `src`,
 shows the code in an editor, and re-renders the preview as the reader types.
 Because the editor is live, keep each example **self-contained** - inline the
-markdown text and `markdownStyle` in the example file rather than importing
-shared helpers, so everything the reader might tweak is visible and editable.
-`LivePreview` strips the example's `import`s and injects React hooks,
-react-native-web primitives, and `EnrichedMarkdownText` as scope; anything an
-example treats as editable content must be inline, not scope-injected.
+markdown text and the parts of `markdownStyle` you want the reader to tweak in
+the example file, so what matters is visible and editable. `LivePreview` strips
+the example's `import`s and injects React hooks, react-native-web primitives,
+and `EnrichedMarkdownText` as scope; anything an example treats as editable
+content should be inline, not scope-injected.
+
+The one deliberate exception is the **shared default palette**: examples import
+`defaultMarkdownStyle(isDark)` and spread it into `markdownStyle`, so each one
+starts from a full dark-mode-aware theme in a single line and overrides only the
+elements it demonstrates (`{ ...defaultMarkdownStyle(isDark), h1: { color } }`).
+The palette lives once in `src/examples/_shared/markdownTheme.ts` (its keys must
+stay valid against the `MarkdownStyle` type); each page that uses it has a
+colocated `theme.ts` that re-exports from there, so examples can write the clean
+`import { defaultMarkdownStyle } from './theme'`. That helper is also injected
+into `LivePreview`'s scope (alongside `EnrichedMarkdownText`) so the stripped
+import resolves at runtime, while `InteractiveExample` (which does not strip
+imports) resolves it through the real `theme.ts` file. The base palette is
+intentionally out of the editor - readers tweak the overrides, not the defaults.
+
+`LivePreview` also supports an `unavailable` mode
+(`<LivePreview src={...} unavailable unavailableReason={<>...</>} />`): for props
+with no effect on the web build it shows a "Not available on web" banner in the
+Preview tab and the read-only source in the Code tab. Use it for native-only
+props; the `unavailableReason` should name the platform(s) the prop applies to.
+
+The API-reference pages also use a few small MDX components registered in
+`src/theme/MDXComponents.js`: `AndroidBadge` / `IosBadge` / `WebBadge`
+(`src/components/PlatformBadge`) flag platform-specific props in a heading, and
+`PropInfo` (`src/components/PropInfo`) renders each prop's Type/Default as a
+compact fixed-width table (`<PropInfo type="boolean" default="true" />`, or
+`required`) instead of a Markdown table.
 
 The examples render the library's **web build** in the browser -
 `docusaurus.config.js` aliases the bare `react-native-enriched-markdown`
 specifier to the monorepo's prebuilt `lib/module/index.web.js` (this docs
 folder is a standalone yarn project and does not otherwise depend on the
 workspace package), aliases `react-native` to `react-native-web` (the web
-build reaches into `Platform`/`processColor`), relaxes `fullySpecified` for
-the parser's `import('./wasm/md4c')`, and stubs `katex` to `false` (the web
-build optionally requires it and skips math when absent). Two more webpack
+build reaches into `Platform`/`processColor`), and relaxes `fullySpecified` for
+the parser's `import('./wasm/md4c')`. `katex` is a real docs dependency (the web
+build's `loadKaTeX` requires it at runtime for the `latexMath` playground); its
+stylesheet loads via the `src/clientModules/katexStyles.ts` client module. Two
+more webpack
 rules keep the web build runnable: `md4c.js` is forced to `type:
 'javascript/auto'` (it is a UMD/CommonJS emscripten file shipped inside the ESM
 `lib/module`, so ESM parsing would drop its `module.exports` factory and
