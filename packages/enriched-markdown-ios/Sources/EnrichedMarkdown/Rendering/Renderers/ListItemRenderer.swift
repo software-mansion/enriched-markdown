@@ -16,6 +16,12 @@ final class ListItemRenderer: NodeRenderer {
         let nestingLevel = currentDepth - 1
         let isTask = node.attribute("isTask") == "true"
         let isChecked = isTask && node.attribute("taskChecked") == "true"
+        // Claimed before rendering children so nested task items get higher
+        // indices, matching source (document) order.
+        let taskIndex = context.taskItemIndex
+        if isTask {
+            context.taskItemIndex += 1
+        }
 
         let startLocation = output.length
         factory.renderChildren(of: node, into: output, context: context)
@@ -53,7 +59,8 @@ final class ListItemRenderer: NodeRenderer {
                 to: output,
                 itemRange: itemRange,
                 nestingLevel: nestingLevel,
-                isChecked: isChecked
+                isChecked: isChecked,
+                taskIndex: taskIndex
             )
         }
     }
@@ -79,13 +86,15 @@ final class ListItemRenderer: NodeRenderer {
     }
 
     /// Marks the item's own paragraphs (not nested children) with the task
-    /// attribute — the first one anchors the checkbox — and applies the
-    /// checked-item text decoration when configured.
+    /// attributes — the first one anchors the checkbox, every one carries the
+    /// item index — and applies the checked-item text decoration when
+    /// configured.
     private func applyTaskItemStyling(
         to output: NSMutableAttributedString,
         itemRange: NSRange,
         nestingLevel: Int,
-        isChecked: Bool
+        isChecked: Bool,
+        taskIndex: Int
     ) {
         let checkedTextColor = isChecked ? config.taskList.checkedTextColor : nil
         let checkedStrikethrough = isChecked && (config.taskList.checkedStrikethrough ?? false)
@@ -105,6 +114,8 @@ final class ListItemRenderer: NodeRenderer {
                 continue
             }
 
+            output.addAttribute(MarkdownAttribute.taskListIndex, value: taskIndex, range: applyRange)
+
             if !markedCheckboxAnchor {
                 markedCheckboxAnchor = true
                 output.addAttribute(
@@ -114,38 +125,13 @@ final class ListItemRenderer: NodeRenderer {
                 )
             }
 
-            guard checkedTextColor != nil || checkedStrikethrough else {
-                break
-            }
-            applyCheckedDecoration(
+            TaskListInteraction.applyCheckedDecoration(
                 to: output,
                 range: applyRange,
                 textColor: checkedTextColor,
-                strikethrough: checkedStrikethrough
+                strikethrough: checkedStrikethrough,
+                baseColor: config.list.foregroundColor ?? UIColor.label
             )
-        }
-    }
-
-    private func applyCheckedDecoration(
-        to output: NSMutableAttributedString,
-        range: NSRange,
-        textColor: UIColor?,
-        strikethrough: Bool
-    ) {
-        let strikethroughColor = textColor ?? config.list.foregroundColor ?? UIColor.label
-        output.enumerateAttributes(in: range, options: []) { attrs, runRange, _ in
-            guard attrs[.attachment] == nil else { return }
-            if strikethrough {
-                output.addAttribute(
-                    .strikethroughStyle,
-                    value: NSUnderlineStyle.single.rawValue,
-                    range: runRange
-                )
-                output.addAttribute(.strikethroughColor, value: strikethroughColor, range: runRange)
-            }
-            if let textColor, !RenderContext.shouldPreserveColors(attrs) {
-                output.addAttribute(.foregroundColor, value: textColor, range: runRange)
-            }
         }
     }
 

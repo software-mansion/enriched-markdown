@@ -10,6 +10,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let selectionMenuConfig: MarkdownSelectionMenuConfig
     let isSelectionEnabled: Bool
     let selectionColor: Color?
+    let isTaskListToggleEnabled: Bool
+    let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -31,11 +33,14 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.styleConfig = styleConfig
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
+        textView.isTaskListToggleEnabled = isTaskListToggleEnabled
+        textView.onTaskListItemTap = onTaskListItemTap
         textView.setMarkdownAttributedText(attributedText)
     }
 
     static func dismantleUIView(_ uiView: MarkdownTextView, coordinator: Coordinator) {
         uiView.delegate = nil
+        uiView.onTaskListItemTap = nil
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {
@@ -216,6 +221,29 @@ final class MarkdownTextView: UITextView {
     /// the press handler via accessibilityActivate.
     var onLinkPress: ((URL) -> Void)?
 
+    /// Mirrors `enableTaskListItemToggle` in the React Native package: when
+    /// `false` checkbox taps are fully inert.
+    var isTaskListToggleEnabled = true
+
+    /// Fired with the pre-toggle state when a tap lands in a task item's
+    /// checkbox margin.
+    var onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
+
+    /// Our tap recognizer must not steal touches from the text view's own
+    /// recognizers (selection, links), so it observes simultaneously.
+    /// UITextView is the delegate of its internal recognizers — a separate
+    /// object keeps ours out of that plumbing.
+    private final class SimultaneousGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            true
+        }
+    }
+
+    private let tapGestureDelegate = SimultaneousGestureDelegate()
+
     /// VoiceOver elements built from the attributed string; frames resolve
     /// lazily against TextKit 2 layout.
     private var markdownAccessibilityElements: [UIAccessibilityElement] = []
@@ -279,7 +307,36 @@ final class MarkdownTextView: UITextView {
         linkTextAttributes = [:]
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
+        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        tapRecognizer.cancelsTouchesInView = false
+        tapRecognizer.delegate = tapGestureDelegate
+        addGestureRecognizer(tapRecognizer)
+
         setupDecoration()
+    }
+
+    /// The task item whose checkbox margin contains `point` (view
+    /// coordinates), or nil.
+    func taskListHit(at point: CGPoint) -> TaskListInteraction.Hit? {
+        let containerPoint = CGPoint(
+            x: point.x - textContainerInset.left,
+            y: point.y - textContainerInset.top
+        )
+        return TaskListInteraction.hitTest(
+            point: containerPoint,
+            attributedText: attributedText ?? NSAttributedString(),
+            textLayoutManager: textLayoutManager,
+            containerWidth: bounds.width - textContainerInset.left - textContainerInset.right
+        )
+    }
+
+    @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
+        guard recognizer.state == .ended,
+              isTaskListToggleEnabled,
+              let onTaskListItemTap,
+              let hit = taskListHit(at: recognizer.location(in: self))
+        else { return }
+        onTaskListItemTap(hit)
     }
 
     /// Injectable so tests avoid UIPasteboard.general, which a headless test
