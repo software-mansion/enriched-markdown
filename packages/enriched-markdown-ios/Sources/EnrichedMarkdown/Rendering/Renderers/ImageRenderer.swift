@@ -22,7 +22,14 @@ final class ImageRenderer: NodeRenderer {
             requestHeaders: requestHeaders
         )
 
-        let imageString = NSAttributedString(attachment: attachment)
+        let imageString = NSMutableAttributedString(attachment: attachment)
+        if let sourceRange = SourceOffsetAnnotator.sourceRangeValue(of: node) {
+            imageString.addAttribute(
+                MarkdownAttribute.sourceRange,
+                value: sourceRange,
+                range: NSRange(location: 0, length: imageString.length)
+            )
+        }
         output.append(imageString)
     }
 

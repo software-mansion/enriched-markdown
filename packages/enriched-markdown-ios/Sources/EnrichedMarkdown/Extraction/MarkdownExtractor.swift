@@ -12,17 +12,30 @@ import UIKit
 /// come back as spaces and heading text loses inline markers. A selection that
 /// covers the whole document therefore returns the original source verbatim.
 enum MarkdownExtractor {
-    /// Markdown for `range`, using `sourceMarkdown` verbatim when the range
-    /// covers the entire rendered document.
+    /// Markdown for `range`: the full `sourceMarkdown` when the range covers
+    /// the entire rendered document, a verbatim source slice when the
+    /// selection maps cleanly onto source offsets, and reconstruction
+    /// otherwise.
     static func markdown(
         for range: NSRange,
         in attributedText: NSAttributedString,
-        sourceMarkdown: String?
+        sourceMarkdown: String?,
+        flags: Md4cFlags = .commonMark
     ) -> String? {
         guard let clamped = clampedRange(range, in: attributedText) else { return nil }
 
-        if let sourceMarkdown, isFullSelection(clamped, in: attributedText) {
-            return sourceMarkdown
+        if let sourceMarkdown {
+            if isFullSelection(clamped, in: attributedText) {
+                return sourceMarkdown
+            }
+            if let slice = MarkdownSourceSlicer.slice(
+                for: clamped,
+                in: attributedText,
+                source: sourceMarkdown,
+                flags: flags
+            ) {
+                return slice
+            }
         }
         return extractMarkdown(from: attributedText, in: clamped)
     }

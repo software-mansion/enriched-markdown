@@ -381,9 +381,11 @@ enum MarkdownHTMLGenerator {
                 return
             }
 
+            // U+2028 hard breaks must survive even as standalone runs, so
+            // trim only block-separator newlines, not `.newlines`.
             let cleaned = content
                 .replacingOccurrences(of: "\u{200B}", with: "")
-                .trimmingCharacters(in: .newlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\n\r"))
             guard !cleaned.isEmpty else { return }
 
             appendStyledSegment(cleaned, attrs: attrs, into: &html, styles: styles, isCodeBlock: isCodeBlock)

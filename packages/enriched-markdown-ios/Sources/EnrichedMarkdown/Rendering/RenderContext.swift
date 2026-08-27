@@ -40,6 +40,10 @@ enum MarkdownAttribute {
     /// Present on every own paragraph of a GFM task-list item; the value is
     /// the item's 0-based index in document order.
     static let taskListIndex = NSAttributedString.Key("EnrichedMarkdownTaskListIndex")
+    /// UTF-8 byte range into the original markdown source that produced this
+    /// run (`NSValue`-wrapped `NSRange`; not a range into the rendered
+    /// string). Absent when the run's text is not contiguous in the source.
+    static let sourceRange = NSAttributedString.Key("EnrichedMarkdownSourceRange")
 }
 
 final class RenderContext {

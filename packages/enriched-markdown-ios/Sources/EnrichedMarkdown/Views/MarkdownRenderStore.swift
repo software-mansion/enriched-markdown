@@ -7,6 +7,7 @@ final class MarkdownRenderStore: ObservableObject {
     // Published together with `attributedText` so consumers never pair a new
     // markdown string with a stale render result.
     @Published private(set) var sourceMarkdown: String?
+    @Published private(set) var sourceFlags: Md4cFlags = .commonMark
 
     /// The caller's markdown as last scheduled. A schedule for the same base
     /// re-renders `currentMarkdown` instead — toggles survive style/flag
@@ -46,6 +47,7 @@ final class MarkdownRenderStore: ObservableObject {
         } apply: { [weak self] result in
             self?.attributedText = result
             self?.sourceMarkdown = resolved
+            self?.sourceFlags = flags
         }
     }
 

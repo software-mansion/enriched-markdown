@@ -23,7 +23,8 @@ enum SelectionMenuItems {
         config: MarkdownSelectionMenuConfig,
         selectedRange: NSRange,
         attributedText: NSAttributedString,
-        sourceMarkdown: String?
+        sourceMarkdown: String?,
+        sourceFlags: Md4cFlags = .commonMark
     ) -> [MenuItemSpec] {
         var specs: [MenuItemSpec] = []
 
@@ -31,7 +32,8 @@ enum SelectionMenuItems {
            let markdown = MarkdownExtractor.markdown(
                for: selectedRange,
                in: attributedText,
-               sourceMarkdown: sourceMarkdown
+               sourceMarkdown: sourceMarkdown,
+               flags: sourceFlags
            ),
            !markdown.isEmpty {
             specs.append(

@@ -19,10 +19,13 @@ final class ThematicBreakRenderer: NodeRenderer {
         attachment.marginTop = style.marginTop ?? 0
         attachment.marginBottom = style.marginBottom ?? 0
 
-        let attributes: [NSAttributedString.Key: Any] = [
+        var attributes: [NSAttributedString.Key: Any] = [
             .attachment: attachment,
             .paragraphStyle: NSParagraphStyle.default
         ]
+        if let sourceRange = SourceOffsetAnnotator.sourceRangeValue(of: node) {
+            attributes[MarkdownAttribute.sourceRange] = sourceRange
+        }
 
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
         output.append(ParagraphStyleHelpers.newline)
