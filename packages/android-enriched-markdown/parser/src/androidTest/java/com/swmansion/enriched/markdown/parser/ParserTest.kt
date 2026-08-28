@@ -127,7 +127,20 @@ class ParserTest {
 
   @Test
   fun nodeTypeEnumCountMatches() {
-    assertEquals(30, MarkdownASTNode.NodeType.entries.size)
+    assertEquals(32, MarkdownASTNode.NodeType.entries.size)
+  }
+
+  @Test
+  fun respectsPreserveBlankLinesFlag() {
+    val collapsed = requireNotNull(parser.parseMarkdown("one\n\n\n\ntwo"))
+    assertNull(collapsed.firstOfType(MarkdownASTNode.NodeType.BlankLine))
+
+    val preserved =
+      requireNotNull(
+        parser.parseMarkdown("one\n\n\n\ntwo", Md4cFlags(preserveBlankLines = true)),
+      )
+    val blankLine = requireNotNull(preserved.firstOfType(MarkdownASTNode.NodeType.BlankLine))
+    assertEquals("3", blankLine.getAttribute("count"))
   }
 
   @Test
