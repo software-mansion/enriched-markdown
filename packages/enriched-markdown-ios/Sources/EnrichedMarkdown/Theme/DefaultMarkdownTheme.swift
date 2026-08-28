@@ -53,9 +53,8 @@ enum DefaultMarkdownTheme {
             Emphasis()
             Strikethrough()
             Underline()
-
-            Superscript().fontScale(0.75).baselineOffsetScale(0.35)
-            Subscript().fontScale(0.75).baselineOffsetScale(0.20)
+            Superscript()
+            Subscript()
 
             Code()
                 .fontDesign(.monospaced)

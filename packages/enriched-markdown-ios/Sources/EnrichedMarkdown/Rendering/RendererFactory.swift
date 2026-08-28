@@ -57,9 +57,9 @@ final class RendererFactory {
         case .underline:
             return UnderlineRenderer(factory: self, config: config)
         case .superscript:
-            return BaselineShiftRenderer(factory: self, kind: .superscript)
+            return BaselineShiftRenderer(factory: self, attributeKey: MarkdownAttribute.superscript)
         case .subscript:
-            return BaselineShiftRenderer(factory: self, kind: .subscript)
+            return BaselineShiftRenderer(factory: self, attributeKey: MarkdownAttribute.subscript)
         case .link:
             return LinkRenderer(factory: self, config: config)
         case .lineBreak:

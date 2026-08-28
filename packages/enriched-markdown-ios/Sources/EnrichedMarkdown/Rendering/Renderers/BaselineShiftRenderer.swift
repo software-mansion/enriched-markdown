@@ -9,11 +9,6 @@ import UIKit
 /// that `ParagraphStyleHelpers` gives the surrounding text (that pass skips
 /// runs which already carry a baseline offset).
 final class BaselineShiftRenderer: NodeRenderer {
-    enum Kind {
-        case superscript
-        case `subscript`
-    }
-
     static let defaultFontScale: CGFloat = 0.75
     static let defaultSuperscriptBaselineOffsetScale: CGFloat = 0.35
     static let defaultSubscriptBaselineOffsetScale: CGFloat = 0.20
@@ -21,9 +16,9 @@ final class BaselineShiftRenderer: NodeRenderer {
     private let factory: RendererFactory
     private let attributeKey: NSAttributedString.Key
 
-    init(factory: RendererFactory, kind: Kind) {
+    init(factory: RendererFactory, attributeKey: NSAttributedString.Key) {
         self.factory = factory
-        attributeKey = kind == .superscript ? MarkdownAttribute.superscript : MarkdownAttribute.subscript
+        self.attributeKey = attributeKey
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
@@ -62,21 +57,19 @@ final class BaselineShiftRenderer: NodeRenderer {
         baselineOffsetScale: CGFloat
     ) {
         let fullRange = NSRange(location: 0, length: output.length)
-        output.enumerateAttribute(key, in: fullRange, options: []) { value, range, _ in
-            guard MarkdownAttributeValue.boolValue(from: value) else { return }
+        output.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
+            guard MarkdownAttributeValue.boolValue(from: attributes[key]),
+                  let font = attributes[.font] as? UIFont
+            else { return }
 
-            output.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
-                guard let font = attributes[.font] as? UIFont else { return }
+            output.addAttribute(.font, value: font.withSize(font.pointSize * fontScale), range: range)
 
-                output.addAttribute(.font, value: font.withSize(font.pointSize * fontScale), range: subrange)
-
-                let currentOffset = (attributes[.baselineOffset] as? NSNumber)?.doubleValue ?? 0
-                output.addAttribute(
-                    .baselineOffset,
-                    value: currentOffset + font.pointSize * baselineOffsetScale,
-                    range: subrange
-                )
-            }
+            let currentOffset = (attributes[.baselineOffset] as? NSNumber)?.doubleValue ?? 0
+            output.addAttribute(
+                .baselineOffset,
+                value: currentOffset + font.pointSize * baselineOffsetScale,
+                range: range
+            )
         }
     }
 }
