@@ -1,11 +1,17 @@
 import UIKit
 
 // Renders a run of consecutive blank lines emitted when preserveBlankLines is
-// enabled. Each blank line in the source is drawn as one empty line, so the
-// rendered text keeps the exact line count that was typed (e.g. in a text
-// editor). Any extra vertical spacing comes from the surrounding paragraph style
-// and is left to the caller to configure.
+// enabled. Each blank line in the source is drawn as one empty line, using the
+// paragraph font, line height and alignment so its vertical rhythm matches the
+// surrounding paragraphs. Any extra block spacing is left to the caller to
+// configure.
 final class BlankLineRenderer: NodeRenderer {
+    private let config: MarkdownStyleConfig
+
+    init(config: MarkdownStyleConfig) {
+        self.config = config
+    }
+
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
         let count = Int(node.attribute("count") ?? "0") ?? 0
         guard count > 0 else { return }
@@ -14,7 +20,18 @@ final class BlankLineRenderer: NodeRenderer {
             output.append(ParagraphStyleHelpers.newline)
         }
 
-        let blanks = String(repeating: "\n", count: count)
-        output.append(NSAttributedString(string: blanks, attributes: context.getTextAttributes()))
+        let paragraph = config.paragraph
+        let font = paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)
+
+        let start = output.length
+        output.append(NSAttributedString(string: String(repeating: "\n", count: count), attributes: [.font: font]))
+        let range = NSRange(location: start, length: output.length - start)
+
+        if let lineHeight = paragraph.lineHeight {
+            ParagraphStyleHelpers.applyBlockLineHeight(to: output, range: range, lineHeight: lineHeight)
+        }
+        if let alignment = paragraph.textAlignment {
+            ParagraphStyleHelpers.applyTextAlignment(to: output, range: range, alignment: alignment)
+        }
     }
 }

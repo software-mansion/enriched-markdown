@@ -51,19 +51,19 @@ function ThematicBreakRenderer({ styles }: RendererProps) {
   return <hr style={styles.thematicBreak} />;
 }
 
-// Each blank line in the source is rendered as one empty line so the output
-// keeps the exact line count that was typed. Any extra vertical spacing comes
-// from the surrounding paragraph style and is left to the caller to configure.
-function BlankLineRenderer({ node }: RendererProps) {
+// Each blank line in the source becomes one empty line. Rendered as a spacer
+// sized to the paragraph line height (rather than a run of <br>, whose height
+// would follow the container line height) so the vertical rhythm matches the
+// surrounding paragraphs. Any extra block spacing is left to the caller.
+function BlankLineRenderer({ node, style }: RendererProps) {
   const count = Number.parseInt(node.attributes?.count ?? '0', 10);
   const lines = Number.isFinite(count) ? Math.max(0, count) : 0;
   if (lines === 0) return null;
   return (
-    <>
-      {Array.from({ length: lines }, (_, i) => (
-        <br key={i} />
-      ))}
-    </>
+    <div
+      aria-hidden="true"
+      style={{ height: lines * style.paragraph.lineHeight }}
+    />
   );
 }
 

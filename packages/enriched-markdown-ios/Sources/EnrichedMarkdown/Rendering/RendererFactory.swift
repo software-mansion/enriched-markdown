@@ -80,7 +80,7 @@ final class RendererFactory {
         case .thematicBreak:
             return ThematicBreakRenderer(config: config)
         case .blankLine:
-            return BlankLineRenderer()
+            return BlankLineRenderer(config: config)
         case .codeBlock:
             return CodeBlockRenderer(factory: self, config: config)
         case .blockquote:

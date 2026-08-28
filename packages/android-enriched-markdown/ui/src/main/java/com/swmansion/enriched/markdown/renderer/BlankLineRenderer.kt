@@ -2,13 +2,16 @@ package com.swmansion.enriched.markdown.renderer
 
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 
 // Renders a run of consecutive blank lines emitted when preserveBlankLines is
-// enabled. Each blank line in the source is drawn as one empty line, so the
-// rendered text keeps the exact line count that was typed (e.g. in
-// EnrichedMarkdownTextInput). Any extra vertical spacing comes from the
-// surrounding paragraph style and is left to the caller to configure.
-class BlankLineRenderer : NodeRenderer {
+// enabled. Each blank line in the source is drawn as one empty line, using the
+// paragraph line height so its vertical rhythm matches the surrounding
+// paragraphs. Any extra block spacing comes from the paragraph style and is left
+// to the caller to configure.
+class BlankLineRenderer(
+  private val config: RendererConfig,
+) : NodeRenderer {
   override fun render(
     node: MarkdownASTNode,
     builder: SpannableStringBuilder,
@@ -22,7 +25,9 @@ class BlankLineRenderer : NodeRenderer {
     }
 
     builder.ensureNewline()
+    val start = builder.length
     builder.append("\n".repeat(count))
+    applyLineHeightSkippingImages(builder, start, builder.length, config.style.paragraphStyle.lineHeight)
   }
 
   private fun SpannableStringBuilder.ensureNewline() {
