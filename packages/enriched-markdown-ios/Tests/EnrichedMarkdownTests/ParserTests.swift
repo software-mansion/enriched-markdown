@@ -127,6 +127,47 @@ final class ParserTests: XCTestCase {
         XCTAssertNil(paragraph?.child(ofType: .softBreak))
     }
 
+    func testParsesHtmlBreakTagsAsLineBreaks() {
+        for tag in ["<br>", "<br/>", "<br />", "<BR>"] {
+            let ast = parser.parseMarkdown("line one\(tag)line two")
+            let paragraph = ast.child(ofType: .paragraph)
+
+            XCTAssertEqual(
+                paragraph?.children.map(\.type),
+                [.text, .lineBreak, .text],
+                "failed for \(tag)"
+            )
+            XCTAssertEqual(paragraph?.children.first?.content, "line one")
+            XCTAssertEqual(paragraph?.children.last?.content, "line two")
+        }
+    }
+
+    func testPreservesOtherInlineHtmlAsText() {
+        let markdown = "before<span>inside</span><br class=\"ignored\">after"
+        let ast = parser.parseMarkdown(markdown)
+        let paragraph = ast.child(ofType: .paragraph)
+
+        XCTAssertEqual(paragraph?.children.map(\.type), [.text])
+        XCTAssertEqual(paragraph?.children.first?.content, markdown)
+    }
+
+    func testPreservesHtmlBreakInsideCodeSpan() {
+        let ast = parser.parseMarkdown("`<br>`")
+        let code = ast.first(ofType: .code)
+
+        XCTAssertEqual(code?.children.map(\.type), [.text])
+        XCTAssertEqual(code?.children.first?.content, "<br>")
+    }
+
+    func testParsesHtmlBreakInsideTableCell() {
+        let ast = parser.parseMarkdown("| Header |\n| --- |\n| line one<br>line two |")
+        let cell = ast.first(ofType: .tableCell)
+
+        XCTAssertEqual(cell?.children.map(\.type), [.text, .lineBreak, .text])
+        XCTAssertEqual(cell?.children.first?.content, "line one")
+        XCTAssertEqual(cell?.children.last?.content, "line two")
+    }
+
     func testParsesDeeplyNestedBlockquotes() {
         let depth = 500
         let markdown = String(repeating: "> ", count: depth) + "deep"

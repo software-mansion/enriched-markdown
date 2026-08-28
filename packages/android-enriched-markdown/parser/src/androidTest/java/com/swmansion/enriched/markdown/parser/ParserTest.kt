@@ -131,6 +131,62 @@ class ParserTest {
   }
 
   @Test
+  fun parsesHtmlBreakTagsAsLineBreaks() {
+    for (tag in listOf("<br>", "<br/>", "<br />", "<BR>")) {
+      val ast = requireNotNull(parser.parseMarkdown("line one${tag}line two"))
+      val paragraph = ast.assertHasChildType(MarkdownASTNode.NodeType.Paragraph)
+
+      assertEquals(
+        "failed for $tag",
+        listOf(
+          MarkdownASTNode.NodeType.Text,
+          MarkdownASTNode.NodeType.LineBreak,
+          MarkdownASTNode.NodeType.Text,
+        ),
+        paragraph.children.map { it.type },
+      )
+      assertEquals("line one", paragraph.children.first().content)
+      assertEquals("line two", paragraph.children.last().content)
+    }
+  }
+
+  @Test
+  fun preservesOtherInlineHtmlAsText() {
+    val markdown = "before<span>inside</span><br class=\"ignored\">after"
+    val ast = requireNotNull(parser.parseMarkdown(markdown))
+    val paragraph = ast.assertHasChildType(MarkdownASTNode.NodeType.Paragraph)
+
+    assertEquals(listOf(MarkdownASTNode.NodeType.Text), paragraph.children.map { it.type })
+    assertEquals(markdown, paragraph.children.first().content)
+  }
+
+  @Test
+  fun preservesHtmlBreakInsideCodeSpan() {
+    val ast = requireNotNull(parser.parseMarkdown("`<br>`"))
+    val code = requireNotNull(ast.firstOfType(MarkdownASTNode.NodeType.Code))
+
+    assertEquals(listOf(MarkdownASTNode.NodeType.Text), code.children.map { it.type })
+    assertEquals("<br>", code.children.first().content)
+  }
+
+  @Test
+  fun parsesHtmlBreakInsideTableCell() {
+    val ast = requireNotNull(parser.parseMarkdown("| Header |\n| --- |\n| line one<br>line two |"))
+    val cell = requireNotNull(ast.firstOfType(MarkdownASTNode.NodeType.TableCell))
+
+    assertEquals(
+      listOf(
+        MarkdownASTNode.NodeType.Text,
+        MarkdownASTNode.NodeType.LineBreak,
+        MarkdownASTNode.NodeType.Text,
+      ),
+      cell.children.map { it.type },
+    )
+    assertEquals("line one", cell.children.first().content)
+    assertEquals("line two", cell.children.last().content)
+  }
+
+  @Test
   fun parsesDeeplyNestedBlockquotes() {
     val depth = 500
     val markdown = "> ".repeat(depth) + "deep"

@@ -1,5 +1,6 @@
 #include "MD4CParser.hpp"
 #include "../md4c/md4c.h"
+#include <cctype>
 #include <cstring>
 #include <vector>
 
@@ -71,6 +72,36 @@ public:
     // Use string constructor directly - let SSO handle small strings efficiently
     // Empty return {} avoids allocating empty string object
     return std::string(attr->text, attr->size);
+  }
+
+  static bool isHtmlLineBreak(const MD_CHAR *text, MD_SIZE size) {
+    if (size < 4 || text[0] != '<') {
+      return false;
+    }
+
+    auto lowerAscii = [](MD_CHAR character) {
+      if (character >= 'A' && character <= 'Z') {
+        return static_cast<MD_CHAR>(character + ('a' - 'A'));
+      }
+      return character;
+    };
+
+    size_t offset = 1;
+    if (lowerAscii(text[offset++]) != 'b' || lowerAscii(text[offset++]) != 'r') {
+      return false;
+    }
+
+    while (offset < size && std::isspace(static_cast<unsigned char>(text[offset]))) {
+      offset++;
+    }
+    if (offset < size && text[offset] == '/') {
+      offset++;
+      while (offset < size && std::isspace(static_cast<unsigned char>(text[offset]))) {
+        offset++;
+      }
+    }
+
+    return offset + 1 == size && text[offset] == '>';
   }
 
   static int enterBlock(MD_BLOCKTYPE type, void *detail, void *userdata) {
@@ -364,6 +395,16 @@ public:
       return 0;
     }
 
+    if (type == MD_TEXT_HTML) {
+      if (isHtmlLineBreak(text, size)) {
+        impl->addInlineNode(std::make_shared<MarkdownASTNode>(NodeType::LineBreak));
+      } else {
+        // Inline HTML remains visible as literal text. Only <br> is interpreted.
+        impl->currentText.append(text, size);
+      }
+      return 0;
+    }
+
     // Handle text content (normal text, code text, LaTeX math, etc.)
     if (type == MD_TEXT_NORMAL || type == MD_TEXT_CODE || type == MD_TEXT_LATEXMATH) {
       impl->currentText.append(text, size);
@@ -589,7 +630,7 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   impl_->reset(estimatedDepth);
   impl_->inputText = markdown.c_str();
 
-  unsigned flags = MD_FLAG_NOHTML | MD_FLAG_STRIKETHROUGH | MD_FLAG_TABLES | MD_FLAG_TASKLISTS | MD_FLAG_SPOILERS;
+  unsigned flags = MD_FLAG_NOHTMLBLOCKS | MD_FLAG_STRIKETHROUGH | MD_FLAG_TABLES | MD_FLAG_TASKLISTS | MD_FLAG_SPOILERS;
   if (md4cFlags.permissiveAutolinks) {
     flags |= MD_FLAG_PERMISSIVEAUTOLINKS;
   }
