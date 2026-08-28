@@ -8,7 +8,8 @@ type ParseFn = (
   superscript: number,
   subscript: number,
   highlight: number,
-  hardSoftBreaks: number
+  hardSoftBreaks: number,
+  preserveBlankLines: number
 ) => string;
 
 // Caching the Promise (not the resolved value) means concurrent callers share
@@ -24,6 +25,7 @@ function initializeParser(): Promise<ParseFn> {
       .then((wasmModule) =>
         wasmModule.cwrap('parseMarkdown', 'string', [
           'string',
+          'number',
           'number',
           'number',
           'number',
@@ -58,6 +60,7 @@ export async function parseMarkdown(
     subscript = false,
     highlight = false,
     hardSoftBreaks = false,
+    preserveBlankLines = false,
   }: Md4cFlags = {}
 ): Promise<ASTNode> {
   const parse = await initializeParser();
@@ -70,7 +73,8 @@ export async function parseMarkdown(
       superscript ? 1 : 0,
       subscript ? 1 : 0,
       highlight ? 1 : 0,
-      hardSoftBreaks ? 1 : 0
+      hardSoftBreaks ? 1 : 0,
+      preserveBlankLines ? 1 : 0
     )
   );
 

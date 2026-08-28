@@ -51,6 +51,22 @@ function ThematicBreakRenderer({ styles }: RendererProps) {
   return <hr style={styles.thematicBreak} />;
 }
 
+// Each blank line in the source is rendered as one empty line so the output
+// keeps the exact line count that was typed. Any extra vertical spacing comes
+// from the surrounding paragraph style and is left to the caller to configure.
+function BlankLineRenderer({ node }: RendererProps) {
+  const count = Number.parseInt(node.attributes?.count ?? '0', 10);
+  const lines = Number.isFinite(count) ? Math.max(0, count) : 0;
+  if (lines === 0) return null;
+  return (
+    <>
+      {Array.from({ length: lines }, (_, i) => (
+        <br key={i} />
+      ))}
+    </>
+  );
+}
+
 function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
   const url = node.attributes?.url;
   if (!url) return null;
@@ -118,6 +134,7 @@ export const blockRenderers: RendererMap = {
   Blockquote: BlockquoteRenderer,
   CodeBlock: CodeBlockRenderer,
   ThematicBreak: ThematicBreakRenderer,
+  BlankLine: BlankLineRenderer,
   Image: ImageRenderer,
   LatexMathDisplay: LatexMathDisplayRenderer,
 };
