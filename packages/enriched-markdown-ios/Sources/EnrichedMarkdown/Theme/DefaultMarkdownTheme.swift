@@ -54,6 +54,9 @@ enum DefaultMarkdownTheme {
             Strikethrough()
             Underline()
 
+            Superscript().fontScale(0.75).baselineOffsetScale(0.35)
+            Subscript().fontScale(0.75).baselineOffsetScale(0.20)
+
             Code()
                 .fontDesign(.monospaced)
                 .foregroundStyle(Semantic.secondary)

@@ -42,6 +42,24 @@ public struct ElementStyle: Equatable, Sendable {
     }
 }
 
+public struct BaselineShiftStyle: Equatable, Sendable {
+    public var fontScale: CGFloat?
+    public var baselineOffsetScale: CGFloat?
+
+    public init(
+        fontScale: CGFloat? = nil,
+        baselineOffsetScale: CGFloat? = nil
+    ) {
+        self.fontScale = fontScale
+        self.baselineOffsetScale = baselineOffsetScale
+    }
+
+    public mutating func merge(_ other: BaselineShiftStyle) {
+        fontScale = other.fontScale ?? fontScale
+        baselineOffsetScale = other.baselineOffsetScale ?? baselineOffsetScale
+    }
+}
+
 public struct ImageStyle: Equatable, Sendable {
     public var height: CGFloat?
     public var borderRadius: CGFloat?
@@ -387,6 +405,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var emphasis: ElementStyle
     public var strikethrough: ElementStyle
     public var underline: ElementStyle
+    public var superscript: BaselineShiftStyle
+    public var `subscript`: BaselineShiftStyle
     public var code: ElementStyle
     public var image: ImageStyle
     public var inlineImage: InlineImageStyle
@@ -410,6 +430,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         emphasis: ElementStyle = ElementStyle(),
         strikethrough: ElementStyle = ElementStyle(),
         underline: ElementStyle = ElementStyle(),
+        superscript: BaselineShiftStyle = BaselineShiftStyle(),
+        subscript subscriptStyle: BaselineShiftStyle = BaselineShiftStyle(),
         code: ElementStyle = ElementStyle(),
         image: ImageStyle = ImageStyle(),
         inlineImage: InlineImageStyle = InlineImageStyle(),
@@ -432,6 +454,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.emphasis = emphasis
         self.strikethrough = strikethrough
         self.underline = underline
+        self.superscript = superscript
+        self.subscript = subscriptStyle
         self.code = code
         self.image = image
         self.inlineImage = inlineImage
@@ -456,6 +480,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         emphasis.merge(other.emphasis)
         strikethrough.merge(other.strikethrough)
         underline.merge(other.underline)
+        superscript.merge(other.superscript)
+        self.subscript.merge(other.subscript)
         code.merge(other.code)
         image.merge(other.image)
         inlineImage.merge(other.inlineImage)

@@ -56,6 +56,10 @@ final class RendererFactory {
             return StrikethroughRenderer(factory: self, config: config)
         case .underline:
             return UnderlineRenderer(factory: self, config: config)
+        case .superscript:
+            return BaselineShiftRenderer(factory: self, kind: .superscript)
+        case .subscript:
+            return BaselineShiftRenderer(factory: self, kind: .subscript)
         case .link:
             return LinkRenderer(factory: self, config: config)
         case .lineBreak:

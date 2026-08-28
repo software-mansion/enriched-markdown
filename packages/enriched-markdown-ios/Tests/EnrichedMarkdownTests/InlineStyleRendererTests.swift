@@ -83,7 +83,102 @@ final class InlineStyleRendererTests: XCTestCase {
         XCTAssertNotNil(withoutFlag.first(ofType: .emphasis))
     }
 
+    // MARK: - Superscript / subscript
+
+    func testCaretAndTildeRenderLiterallyWithoutFlags() {
+        let result = MarkdownRenderer.render("x^2^ H~2~O", config: config)
+        XCTAssertTrue(result.string.contains("x^2^"))
+        XCTAssertTrue(result.string.contains("H~2~O"))
+    }
+
+    func testParserEmitsSuperscriptAndSubscriptNodesOnlyWithFlags() {
+        let withFlags = Parser.shared.parseMarkdown(
+            "x^2^ H~2~O",
+            flags: Md4cFlags(superscript: true, subscript: true)
+        )
+        XCTAssertNotNil(withFlags.first(ofType: .superscript))
+        XCTAssertNotNil(withFlags.first(ofType: .subscript))
+
+        let withoutFlags = Parser.shared.parseMarkdown("x^2^ H~2~O")
+        XCTAssertNil(withoutFlags.first(ofType: .superscript))
+        XCTAssertNil(withoutFlags.first(ofType: .subscript))
+    }
+
+    // Baseline offsets are asserted relative to the surrounding text because
+    // line-height centering may give every run a shared base offset.
+    func testSuperscriptShrinksFontAndRaisesBaseline() {
+        let result = MarkdownRenderer.render("x^2^", config: config, flags: Md4cFlags(superscript: true))
+        XCTAssertFalse(result.string.contains("^"))
+
+        let baseSize = fontSize(onWord: "x", in: result)
+        XCTAssertEqual(fontSize(onWord: "2", in: result), baseSize * 0.75, accuracy: 0.001)
+
+        let relativeOffset = baselineOffset(onWord: "2", in: result) - baselineOffset(onWord: "x", in: result)
+        XCTAssertEqual(relativeOffset, baseSize * 0.35, accuracy: 0.001)
+    }
+
+    func testSubscriptShrinksFontAndLowersBaseline() {
+        let result = MarkdownRenderer.render("H~2~O", config: config, flags: Md4cFlags(subscript: true))
+        XCTAssertFalse(result.string.contains("~"))
+
+        let baseSize = fontSize(onWord: "H", in: result)
+        XCTAssertEqual(fontSize(onWord: "2", in: result), baseSize * 0.75, accuracy: 0.001)
+
+        let relativeOffset = baselineOffset(onWord: "2", in: result) - baselineOffset(onWord: "H", in: result)
+        XCTAssertEqual(relativeOffset, -baseSize * 0.20, accuracy: 0.001)
+    }
+
+    func testSuperscriptPreservesBoldTrait() {
+        let result = MarkdownRenderer.render(
+            "x^**2**^",
+            config: config,
+            flags: Md4cFlags(superscript: true)
+        )
+
+        let range = rangeOfWord("2", in: result)
+        let font = result.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont
+        XCTAssertTrue(font?.fontDescriptor.symbolicTraits.contains(.traitBold) == true)
+        XCTAssertEqual(font?.pointSize ?? 0, fontSize(onWord: "x", in: result) * 0.75, accuracy: 0.001)
+    }
+
+    func testSuperscriptAndSubscriptStyleOverrides() {
+        var scaledConfig = config!
+        scaledConfig.superscript.fontScale = 0.5
+        scaledConfig.superscript.baselineOffsetScale = 0.6
+        scaledConfig.subscript.fontScale = 0.4
+        scaledConfig.subscript.baselineOffsetScale = 0.3
+
+        let flags = Md4cFlags(superscript: true, subscript: true)
+        let result = MarkdownRenderer.render("a^s^ b~t~", config: scaledConfig, flags: flags)
+
+        let baseSize = fontSize(onWord: "a", in: result)
+        let baseOffset = baselineOffset(onWord: "a", in: result)
+
+        XCTAssertEqual(fontSize(onWord: "s", in: result), baseSize * 0.5, accuracy: 0.001)
+        XCTAssertEqual(baselineOffset(onWord: "s", in: result) - baseOffset, baseSize * 0.6, accuracy: 0.001)
+
+        XCTAssertEqual(fontSize(onWord: "t", in: result), baseSize * 0.4, accuracy: 0.001)
+        XCTAssertEqual(baselineOffset(onWord: "t", in: result) - baseOffset, -baseSize * 0.3, accuracy: 0.001)
+    }
+
     // MARK: - Theme resolution
+
+    func testSuperscriptAndSubscriptThemeElementsResolve() {
+        let theme = MarkdownTheme {
+            Superscript()
+                .fontScale(0.6)
+                .baselineOffsetScale(0.4)
+            Subscript()
+                .fontScale(0.55)
+                .baselineOffsetScale(0.25)
+        }
+        let resolved = MarkdownStyleConfig.resolve(layers: [theme], traitCollection: .current)
+
+        XCTAssertEqual(resolved.superscript.fontScale, 0.6)
+        XCTAssertEqual(resolved.superscript.baselineOffsetScale, 0.4)
+        XCTAssertEqual(resolved.subscript.fontScale, 0.55)
+        XCTAssertEqual(resolved.subscript.baselineOffsetScale, 0.25)
+    }
 
     func testStrikethroughAndUnderlineThemeElementsResolve() {
         let theme = MarkdownTheme {
@@ -99,6 +194,19 @@ final class InlineStyleRendererTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    private func fontSize(onWord word: String, in attributed: NSAttributedString) -> CGFloat {
+        let range = rangeOfWord(word, in: attributed)
+        let font = attributed.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont
+        XCTAssertNotNil(font, "expected a font on '\(word)'")
+        return font?.pointSize ?? 0
+    }
+
+    private func baselineOffset(onWord word: String, in attributed: NSAttributedString) -> CGFloat {
+        let range = rangeOfWord(word, in: attributed)
+        let offset = attributed.attribute(.baselineOffset, at: range.location, effectiveRange: nil) as? NSNumber
+        return CGFloat(offset?.doubleValue ?? 0)
+    }
 
     private func rangeOfWord(_ word: String, in attributed: NSAttributedString) -> NSRange {
         let range = (attributed.string as NSString).range(of: word)
