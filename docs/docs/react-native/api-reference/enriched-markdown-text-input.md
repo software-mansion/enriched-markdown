@@ -59,10 +59,6 @@ export const soon = (
 <>The editable input is not yet available on web - the code is shown for reference.</>
 );
 
-:::caution
-THIS PAGE IS WORK IN PROGRESS
-:::
-
 `EnrichedMarkdownTextInput` is a native rich text editor whose content is Markdown: seed it with a Markdown string and read the edited content back as Markdown whenever you need it. Markdown is the source of truth on both sides of the edit, so content round-trips cleanly in and out. It renders with the platform's native text stack (`UITextView` on iOS, `EditText` on Android), and is an **uncontrolled** input - it does not hold its value in React state or props, but talks directly to the underlying native component, which keeps it fast and simple.
 
 ```tsx
@@ -220,7 +216,7 @@ Style for the input view. Accepts both [`ViewStyle`](https://reactnative.dev/doc
 <PropInfo type="ViewStyle | TextStyle" />
 
 :::note
-Unlike [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) - which reserves `style` and exposes `containerStyle` instead - the input uses the regular `style` prop directly, just like a native `TextInput`. To restyle the formatted elements (bold, links, headings, ...), use [`markdownStyle`](#markdownstyle).
+The input uses the regular `style` prop directly, just like a native `TextInput`: here `TextStyle` values (`fontSize`, `color`, ...) really do set the base text appearance, so the name is honest. The read-only [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) renames its equivalent to `containerStyle` instead, because there `style` would only affect the wrapper box, not the rendered text. To restyle the formatted elements (bold, links, headings, ...), use [`markdownStyle`](#markdownstyle).
 :::
 
 <LivePreview src={StyleSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />

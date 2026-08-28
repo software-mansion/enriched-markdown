@@ -44,10 +44,6 @@ import DirSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/e
 
 # EnrichedMarkdownText
 
-:::caution
-THIS PAGE IS WORK IN PROGRESS
-:::
-
 `EnrichedMarkdownText` renders Markdown content as fully native text - no WebView required. It parses Markdown with [md4c](https://github.com/mity/md4c) and paints it with the platform's native text stack (`TextKit` on iOS, `TextView` on Android), so selection, accessibility, and font scaling all behave like first-class native text.
 
 ```tsx
@@ -68,7 +64,7 @@ export default function App() {
 
 ## Props
 
-`EnrichedMarkdownText` accepts every prop below. It also forwards the standard React Native [`View`](https://reactnative.dev/docs/view#props) props - such as `testID`, `onLayout`, `pointerEvents`, `hitSlop`, and the `accessibility*` props - to the underlying native view. The one exception is `style`: use [`containerStyle`](#containerstyle) instead, which is applied as the view's `style`.
+`EnrichedMarkdownText` accepts every prop below. It also forwards the standard React Native [`View`](https://reactnative.dev/docs/view#props) props - such as `testID`, `onLayout`, `pointerEvents`, `hitSlop`, and the `accessibility*` props - to the underlying native view. The one exception is `style`: use [`containerStyle`](#containerstyle) instead. It maps to the wrapper view's `style`, and is renamed so it is not mistaken for styling the Markdown text - that is [`markdownStyle`](#markdownstyle).
 
 :::note
 Each prop has a live playground below - edit the code and try it. Props marked with a <IosBadge />, <AndroidBadge />, or <WebBadge /> badge only take effect on that platform.
@@ -95,7 +91,7 @@ Style configuration for Markdown elements. See the [Style properties reference](
 Style for the view that wraps the rendered Markdown. `ViewStyle` and `TextStyle` are React Native's own style types: in practice you use the [`ViewStyle`](https://reactnative.dev/docs/view-style-props) layout and appearance properties here: `padding`, `margin`, `backgroundColor`, `borderRadius`, `borderWidth`, and the [flexbox](https://reactnative.dev/docs/flexbox) props. [`TextStyle`](https://reactnative.dev/docs/text-style-props) is accepted for parity, but to style the text itself (headings, links, code, and other elements) use [`markdownStyle`](#markdownstyle) instead.
 
 :::note
-This is React Native's regular `style` prop under a different name. `containerStyle` is handed straight to the wrapper `<View>`, so every value behaves exactly as it does on any React Native view. It is renamed only because the plain `style` prop is reserved (see [above](#props)).
+`containerStyle` is React Native's regular `style` prop, renamed. It is handed straight to the wrapper `<View>`, so `ViewStyle` values (`padding`, `margin`, `backgroundColor`, the flexbox props) behave exactly as on any React Native view. It is renamed because the renderer is text-like: a prop called `style` would imply it styles the Markdown text, but the text is styled per element through [`markdownStyle`](#markdownstyle). `containerStyle` styles only the box around it.
 :::
 
 <PropInfo type="ViewStyle | TextStyle" />
@@ -303,6 +299,29 @@ Controls the built-in actions in the native text selection menu (and the table/m
 
 <PropInfo type="SelectionMenuConfig" default="{}" />
 
+```ts
+interface SelectionMenuConfig {
+  copy?: { label?: string }; // system Copy: relabel only, cannot be hidden
+  copyAsMarkdown?: { enabled?: boolean; label?: string };
+  copyImageUrl?: { // shown when the selection contains images
+    enabled?: boolean;
+    label?: string; // single image
+    pluralLabels?: SelectionMenuPluralLabels; // multiple images
+  };
+}
+
+interface SelectionMenuPluralLabels {
+  other: string; // required; every other category falls back to this
+  zero?: string;
+  one?: string;
+  two?: string;
+  few?: string;
+  many?: string;
+}
+```
+
+In each plural form, the `{count}` token is replaced with the number of selected images.
+
 <LivePreview src={SelectionMenuConfigSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - it customizes the native selection menu.</>} />
 
 :::note
@@ -314,6 +333,34 @@ With `flavor="github"`, `selection.start` / `selection.end` in menu callbacks ar
 Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{latex}`) are substituted natively at speak time and must be preserved in translations. See the [Accessibility guide](/misc/accessibility) for the full defaults table.
 
 <PropInfo type="AccessibilityLabels" />
+
+```ts
+interface AccessibilityLabels {
+  list?: {
+    bulletPoint?: string;
+    nestedBulletPoint?: string;
+    orderedItem?: string; // {n} is the 1-based item number
+    nestedOrderedItem?: string; // {n} is the 1-based item number
+  };
+  blockquote?: {
+    quote?: string;
+    nestedQuote?: string;
+  };
+  table?: {
+    row?: string; // {n} is the row index, {content} the joined cell text
+  };
+  math?: {
+    equation?: string; // {latex} is the equation source
+  };
+  rotor?: { // iOS only, Android has no rotor
+    headings?: string;
+    links?: string;
+    images?: string;
+  };
+}
+```
+
+Every field is optional; see the [Accessibility guide](/misc/accessibility) for each field's English default.
 
 <LivePreview src={AccessibilityLabelsSrc} unavailable unavailableReason={<>iOS and Android only - it translates VoiceOver / TalkBack announcements.</>} />
 

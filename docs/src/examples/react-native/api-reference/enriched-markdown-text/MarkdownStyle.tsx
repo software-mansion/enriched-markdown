@@ -15,8 +15,7 @@ A paragraph with **bold**, *italic*, and \`inline code\`.
 export default function App() {
   const isDark = useColorScheme() === 'dark';
 
-  // Start from the shared default palette, then override just the elements you
-  // want. Each key you set replaces that element's style object.
+  // Start from the shared default palette, then override just the elements you want.
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
     h1: { fontSize: 26, color: '#57b495' },
