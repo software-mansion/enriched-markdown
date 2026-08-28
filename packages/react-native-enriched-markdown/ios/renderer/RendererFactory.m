@@ -1,4 +1,5 @@
 #import "RendererFactory.h"
+#import "BlankLineRenderer.h"
 #import "BlockquoteRenderer.h"
 #import "CodeBlockRenderer.h"
 #import "CodeRenderer.h"
@@ -109,6 +110,8 @@
       return [[CodeBlockRenderer alloc] initWithRendererFactory:self config:_config];
     case MarkdownNodeTypeThematicBreak:
       return [[ThematicBreakRenderer alloc] initWithRendererFactory:self config:_config];
+    case MarkdownNodeTypeBlankLine:
+      return [[BlankLineRenderer alloc] initWithRendererFactory:self config:_config];
 #if ENRICHED_MARKDOWN_MATH
     case MarkdownNodeTypeLatexMathInline:
       return [[ENRMMathInlineRenderer alloc] initWithRendererFactory:self config:_config];
