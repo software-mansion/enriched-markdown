@@ -121,7 +121,10 @@ struct PlaygroundScreen: View {
                         .padding(14)
                         .accessibilityIdentifier("preview-empty")
                 } else {
-                    EnrichedMarkdownText(markdown, flags: Md4cFlags(underline: underlineEnabled))
+                    EnrichedMarkdownText(
+                        markdown,
+                        flags: Md4cFlags(underline: underlineEnabled, superscript: true, subscript: true)
+                    )
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .accessibilityIdentifier("preview-text")
