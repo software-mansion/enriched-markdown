@@ -20,6 +20,7 @@ public:
   static const std::string ATTR_IS_TASK;
   static const std::string ATTR_TASK_CHECKED;
   static const std::string ATTR_START;
+  static const std::string ATTR_BLANK_LINE_COUNT;
 
   void reset(size_t estimatedDepth) {
     root = std::make_shared<MarkdownASTNode>(NodeType::Document);
@@ -160,6 +161,16 @@ public:
 
       case MD_BLOCK_HR: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::ThematicBreak));
+        break;
+      }
+
+      case MD_BLOCK_BLANK: {
+        auto node = std::make_shared<MarkdownASTNode>(NodeType::BlankLine);
+        if (detail) {
+          auto *blankDetail = static_cast<MD_BLOCK_BLANK_DETAIL *>(detail);
+          node->setAttribute(ATTR_BLANK_LINE_COUNT, std::to_string(blankDetail->line_count));
+        }
+        impl->pushNode(node);
         break;
       }
 
@@ -491,6 +502,7 @@ bool isBlockNode(const MarkdownASTNode &node) {
     case NodeType::ListItem:
     case NodeType::CodeBlock:
     case NodeType::ThematicBreak:
+    case NodeType::BlankLine:
     case NodeType::LatexMathDisplay:
     case NodeType::Table:
     case NodeType::TableHead:
@@ -611,6 +623,9 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   if (md4cFlags.hardSoftBreaks) {
     flags |= MD_FLAG_HARD_SOFT_BREAKS;
   }
+  if (md4cFlags.preserveBlankLines) {
+    flags |= MD_FLAG_PRESERVEBLANKLINES;
+  }
 
   // Configure MD4C parser with callbacks
   MD_PARSER parser = {
@@ -647,5 +662,6 @@ const std::string MD4CParser::Impl::ATTR_LANGUAGE = "language";
 const std::string MD4CParser::Impl::ATTR_IS_TASK = "isTask";
 const std::string MD4CParser::Impl::ATTR_TASK_CHECKED = "taskChecked";
 const std::string MD4CParser::Impl::ATTR_START = "start";
+const std::string MD4CParser::Impl::ATTR_BLANK_LINE_COUNT = "count";
 
 } // namespace Markdown

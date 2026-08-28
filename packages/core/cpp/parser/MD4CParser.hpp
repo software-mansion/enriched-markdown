@@ -14,6 +14,7 @@ struct Md4cFlags {
     bool highlight = false;
     bool permissiveAutolinks = true;
     bool hardSoftBreaks = false;
+    bool preserveBlankLines = false;
 };
 
 class MD4CParser {

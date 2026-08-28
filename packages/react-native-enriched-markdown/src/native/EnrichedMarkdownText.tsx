@@ -110,6 +110,7 @@ const defaultMd4cFlags: Md4cFlags = {
   latexMath: true,
   highlight: false,
   hardSoftBreaks: false,
+  preserveBlankLines: false,
 };
 
 export const EnrichedMarkdownText = ({
@@ -161,6 +162,7 @@ export const EnrichedMarkdownText = ({
       latexMath: md4cFlags.latexMath ?? true,
       highlight: md4cFlags.highlight ?? false,
       hardSoftBreaks: md4cFlags.hardSoftBreaks ?? false,
+      preserveBlankLines: md4cFlags.preserveBlankLines ?? false,
     }),
     [md4cFlags]
   );

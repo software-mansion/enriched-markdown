@@ -354,6 +354,11 @@ export interface Md4cFlagsInternal {
    * @default false
    */
   hardSoftBreaks: boolean;
+  /**
+   * Preserve runs of consecutive blank lines as extra empty lines.
+   * @default false
+   */
+  preserveBlankLines: boolean;
 }
 
 interface StreamingConfigInternal {
