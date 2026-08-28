@@ -72,11 +72,22 @@
   height: 16px;
 }
 
+/* Reset floats over the preview content, so give it the same opaque bordered
+   box as the top-right cluster to stay visible over any example. */
 .resetButton {
   position: absolute;
   bottom: 14px;
   right: 18px;
   z-index: 2;
+  padding: 5px;
+  border: 1px solid var(--swm-border);
+  border-radius: 8px;
+  background-color: var(--swm-off-background);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.resetButton:hover {
+  border-color: var(--swm-tab-active);
 }
 
 .badge {

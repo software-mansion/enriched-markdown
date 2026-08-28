@@ -15,6 +15,10 @@ THIS PAGE IS WORK IN PROGRESS
 
 This page provides a comprehensive reference for all style properties available in `react-native-enriched-markdown`, passed through the `markdownStyle` prop.
 
+:::note
+Unless noted otherwise, this reference covers the read-only [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) renderer and its `MarkdownStyle`. The editable [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input) styles a smaller subset - see [Editor styles](#editor-styles).
+:::
+
 ## Platform defaults
 
 The library provides sensible defaults optimized for each platform:
@@ -445,6 +449,25 @@ Styles for subscript text (`~text~`). Requires `md4cFlags={{ subscript: true }}`
 :::note
 Android uses a slightly smaller default `fontScale` (`0.65`) compared to iOS (`0.75`) because Roboto has a larger x-height than San Francisco, making identically-scaled text appear visually larger on Android.
 :::
+
+## Editor styles (`EnrichedMarkdownTextInput`) {#editor-styles}
+
+The editable [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input) takes its own `markdownStyle` of type `MarkdownTextInputStyle`. It is a **subset** of the renderer's `MarkdownStyle` documented above: the editor supports inline formatting, links, spoilers, and headings, so only those elements are styleable - there is no `paragraph`, `code`, `blockquote`, `table`, and so on. Every field is optional and falls back to a default that matches the renderer, so content looks the same while editing and once rendered.
+
+The base text appearance (font size, family, color) comes from the input's [`style`](/react-native/api-reference/enriched-markdown-text-input#style) prop, not from `markdownStyle`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `strong.color` | `string` | Bold text color. Defaults to the input's text color |
+| `em.color` | `string` | Italic text color. Defaults to the input's text color |
+| `link.color` | `string` | Link text color. Default: `#2563EB` |
+| `link.underline` | `boolean` | Whether links are underlined. Default: `true` |
+| `link.backgroundColor` | `string` | Link background color. Default: `transparent` |
+| `linkVariants` | `Record<string, LinkStyle>` | Per-URL-pattern style overrides. Each key is a regex tested against the link URL; see [Mentions - Link variants](/rich-text-formatting/mentions) |
+| `spoiler.color` | `string` | Spoiler text color |
+| `spoiler.backgroundColor` | `string` | Spoiler background color |
+| `h1`–`h6` | `{ fontSize?, fontWeight?, color? }` | Per-level heading styling. Defaults match the renderer (sizes `30/24/20/18/16/14`, bold); omitted levels or fields fall back to those defaults |
+| `list.itemSpacing` | `number` | Vertical spacing (points) added above each list item (bullet and numbered alike) so items read as separate rows. Default: `0` |
 
 ## Try it yourself
 

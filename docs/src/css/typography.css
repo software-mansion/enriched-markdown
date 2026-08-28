@@ -177,6 +177,16 @@ code {
   border-bottom-color: var(--ifm-link-hover-color);
 }
 
+/* Links rendered inside a live EnrichedMarkdownText preview are real <a> tags
+   styled by the library itself (color + text-decoration underline). Suppress
+   the docs theme's own border-bottom underline so they don't get a second,
+   lower line. */
+.markdown .enrm-text a,
+.markdown .enrm-text a:hover {
+  border-bottom: none;
+  font-weight: inherit;
+}
+
 /* Sidebar */
 [class*='menu__list-item-collapsible'] a {
   font-family: var(--swm-title-font);

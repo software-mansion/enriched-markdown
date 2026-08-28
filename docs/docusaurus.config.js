@@ -10,9 +10,10 @@ const webpack = require('webpack');
 // Interactive examples import the library's web build directly from the
 // monorepo (this docs folder is a standalone yarn project that does not
 // depend on the workspace package). Alias the bare specifier to the
-// prebuilt web bundle so `EnrichedMarkdownText` renders live in the browser,
-// and stub out KaTeX - `loadKaTeX` optionally requires it and skips math
-// rendering when absent, so the docs build needs no katex dependency.
+// prebuilt web bundle so `EnrichedMarkdownText` renders live in the browser.
+// KaTeX is a real docs dependency (`loadKaTeX` requires it at runtime) so the
+// `latexMath` playground renders math; its stylesheet is loaded via a client
+// module (`src/clientModules/katexStyles.ts`).
 const enrichedMarkdownWebEntry = path.resolve(
   __dirname,
   '../packages/react-native-enriched-markdown/lib/module/index.web.js',
@@ -108,6 +109,7 @@ const config = {
 
   clientModules: [
     require.resolve('./src/clientModules/topbarBannerRefresh.ts'),
+    require.resolve('./src/clientModules/katexStyles.ts'),
   ],
 
   plugins: [
@@ -137,7 +139,11 @@ const config = {
                 // standard react-native-web alias to bundle for the browser.
                 'react-native$': 'react-native-web',
                 'react-native-enriched-markdown': enrichedMarkdownWebEntry,
-                katex: false,
+                // The web build's `require('katex')` lives under packages/, so
+                // webpack would resolve it from there and miss the copy
+                // installed in this docs project. Alias it to the docs katex so
+                // the resolution succeeds wherever the require sits.
+                katex: path.dirname(require.resolve('katex/package.json')),
               },
             },
             module: {
@@ -158,6 +164,18 @@ const config = {
                   // undefined and parsing silently falls back to raw text.
                   // Force CJS interop so the factory resolves as `.default`.
                   test: /md4c\.js$/,
+                  type: 'javascript/auto',
+                },
+                {
+                  // The web build loads KaTeX with a CommonJS `require('katex')`
+                  // inside `lib/module/web/katex.js`. Because lib/module is
+                  // strict ESM ("type": "module"), webpack leaves that `require`
+                  // untransformed - at runtime `require` is undefined, the
+                  // throw is swallowed, and math silently falls back to raw
+                  // text. Forcing this file to `javascript/auto` lets webpack
+                  // process the `require` (resolved via the `katex` alias above)
+                  // while its `export` still works.
+                  test: /lib[/\\]module[/\\]web[/\\]katex\.js$/,
                   type: 'javascript/auto',
                 },
               ],

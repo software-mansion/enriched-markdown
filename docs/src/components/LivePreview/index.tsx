@@ -1,6 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import BrowserOnly from '@docusaurus/BrowserOnly';
+import CodeBlock from '@theme/CodeBlock';
 import { useColorMode } from '@docusaurus/theme-common';
 import ExampleControls, {
   EditableBadge,
@@ -8,6 +9,7 @@ import ExampleControls, {
 } from '@site/src/components/ExampleControls';
 import lightCodeTheme from '@site/src/theme/CodeBlock/highlighting-light.js';
 import darkCodeTheme from '@site/src/theme/CodeBlock/highlighting-dark.js';
+import { defaultMarkdownStyle } from '@site/src/examples/_shared/markdownTheme';
 import styles from './styles.module.css';
 
 // A live, editable playground: the code is shown in an editor and the Preview
@@ -29,6 +31,78 @@ interface Props {
    * the reader can play with it in the editor.
    */
   scope?: Record<string, unknown>;
+  /**
+   * When true, the prop being demonstrated has no effect on the web build, so
+   * the example can't run live. The Preview tab shows a "not available on web"
+   * banner and the Code tab shows the (non-editable) source for reference.
+   */
+  unavailable?: boolean;
+  /**
+   * Overrides the default banner copy shown in `unavailable` mode - name the
+   * platform(s) the prop applies to, e.g. "iOS only" or "iOS and Android only".
+   */
+  unavailableReason?: React.ReactNode;
+  /**
+   * Overrides the banner's short badge label (default "Not available on web").
+   * Use for docs-only limitations, e.g. "Needs KaTeX" for math examples.
+   */
+  unavailableLabel?: string;
+}
+
+function Unavailable({
+  reason,
+  label = 'Not available on web',
+}: {
+  reason?: React.ReactNode;
+  label?: string;
+}) {
+  return (
+    <div className={styles.unavailable}>
+      <span className={styles.unavailableBadge}>{label}</span>
+      <p className={styles.unavailableText}>
+        {reason ?? (
+          <>
+            This prop has no effect on the web build, so it can't be previewed
+            here - the code is shown for reference.
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+// Static (non-live) variant for props that don't run on web: no react-live,
+// just the tab chrome with a "not available" banner in Preview and a read-only
+// CodeBlock in Code. Defaults to the Code tab since the preview is only a
+// banner.
+function UnavailableExample({
+  src,
+  reason,
+  label,
+}: {
+  src: string;
+  reason?: React.ReactNode;
+  label?: string;
+}) {
+  const [tab, setTab] = React.useState<ExampleTab>('code');
+  return (
+    <div className={styles.container}>
+      <ExampleControls
+        tab={tab}
+        onTabChange={setTab}
+        getCopyText={() => src.trim()}
+      />
+      {tab === 'preview' ? (
+        <div className={styles.preview}>
+          <Unavailable reason={reason} label={label} />
+        </div>
+      ) : (
+        <div className={styles.code}>
+          <CodeBlock language="tsx">{src.trim()}</CodeBlock>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // The floating control cluster lives inside <LiveProvider>, so it can read the
@@ -128,6 +202,9 @@ function Playground({
       StyleSheet: RN.StyleSheet,
       Linking: RN.Linking,
       EnrichedMarkdownText,
+      // Shared default palette used by the API-reference examples so each one
+      // can start from a full theme in a single line and override via spread.
+      defaultMarkdownStyle,
       ...scope,
     }),
     // Module requires are stable; only the caller-supplied `scope` can change.
@@ -170,11 +247,27 @@ function Playground({
   );
 }
 
-export default function LivePreview({ src, scope }: Props) {
+export default function LivePreview({
+  src,
+  scope,
+  unavailable = false,
+  unavailableReason,
+  unavailableLabel,
+}: Props) {
   const [tab, setTab] = React.useState<ExampleTab>('preview');
   const [resetKey, setResetKey] = React.useState(0);
   const { colorMode } = useColorMode();
   const codeTheme = colorMode === 'dark' ? darkCodeTheme : lightCodeTheme;
+
+  if (unavailable) {
+    return (
+      <UnavailableExample
+        src={src}
+        reason={unavailableReason}
+        label={unavailableLabel}
+      />
+    );
+  }
 
   return (
     <BrowserOnly fallback={<div className={styles.container}>Loading…</div>}>

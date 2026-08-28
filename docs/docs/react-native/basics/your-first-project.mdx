@@ -39,10 +39,12 @@ The same `toggle` / `onChangeState` pair drives italic, underline, strikethrough
 
 ## How the two fit together
 
-The mental model to carry into the rest of the docs: **Markdown is the shared format between the two components.**
+The mental model to carry into the rest of the docs: **Markdown is the shared source of truth between the two components.**
 
-- `EnrichedMarkdownTextInput` **produces** Markdown. Its `onChangeMarkdown` callback hands you the current content as a Markdown string.
-- `EnrichedMarkdownText` **consumes** Markdown through its `markdown` prop.
+- `EnrichedMarkdownTextInput` **edits** Markdown. Seed it with a Markdown string (`defaultValue`) and read the edited content back as Markdown at any time (`onChangeMarkdown`, or `getMarkdown()` on the ref).
+- `EnrichedMarkdownText` **renders** Markdown through its `markdown` prop.
+
+Because both sides speak the same format, content flows between them without conversion - edit in one, store the Markdown, render it in the other.
 
 :::note
 `onChangeMarkdown` serializes on every change, which isn't free. If you don't need the Markdown string, leave the callback off and the input skips serialization entirely.
