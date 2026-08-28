@@ -8,6 +8,8 @@
 
 static_assert(static_cast<int>(Markdown::NodeType::SoftBreak) == 30,
               "NodeType enum must stay in sync with Swift NodeType");
+static_assert(static_cast<int>(Markdown::NodeType::BlankLine) == 31,
+              "NodeType enum must stay in sync with Swift NodeType");
 
 struct EMCParseResult {
   std::shared_ptr<Markdown::MarkdownASTNode> root;
@@ -29,7 +31,7 @@ const Markdown::MarkdownASTNode *asNode(const void *node) {
 extern "C" {
 
 EMCParseResult *em_parse_markdown(const char *markdown, int underline, int latexMath, int superscript, int subscript,
-                                  int highlight, int hardSoftBreaks, int permissiveAutolinks) {
+                                  int highlight, int hardSoftBreaks, int permissiveAutolinks, int preserveBlankLines) {
   auto *result = new (std::nothrow) EMCParseResult();
   if (!result) {
     return nullptr;
@@ -43,6 +45,7 @@ EMCParseResult *em_parse_markdown(const char *markdown, int underline, int latex
   flags.highlight = highlight != 0;
   flags.hardSoftBreaks = hardSoftBreaks != 0;
   flags.permissiveAutolinks = permissiveAutolinks != 0;
+  flags.preserveBlankLines = preserveBlankLines != 0;
 
   Markdown::MD4CParser parser;
   result->root = parser.parse(markdown ? std::string(markdown) : "", flags);

@@ -192,6 +192,7 @@ Style and interaction handling come from the environment (`.markdownTheme`, `.on
 public struct Md4cFlags: Equatable, Sendable {
   public var underline: Bool            // __text__ renders underlined instead of bold
   public var hardSoftBreaks: Bool       // single newlines become visible line breaks
+  public var preserveBlankLines: Bool   // consecutive blank lines render as extra empty lines
   public var permissiveAutolinks: Bool  // bare URLs become links (default true)
   public var latexMath: Bool
   public var superscript: Bool
@@ -202,7 +203,7 @@ public struct Md4cFlags: Equatable, Sendable {
 }
 ```
 
-`underline`, `hardSoftBreaks`, and `permissiveAutolinks` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, and `permissiveAutolinks` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
 
 ### `.markdownTheme`
 
