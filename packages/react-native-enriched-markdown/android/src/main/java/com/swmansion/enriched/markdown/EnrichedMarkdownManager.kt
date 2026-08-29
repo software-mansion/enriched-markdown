@@ -180,6 +180,22 @@ class EnrichedMarkdownManager :
     view?.enableTaskListItemToggle = enableTaskListItemToggle
   }
 
+  @ReactProp(name = "enableImagePress", defaultBoolean = false)
+  override fun setEnableImagePress(
+    view: EnrichedMarkdown?,
+    enableImagePress: Boolean,
+  ) {
+    view?.setEnableImagePress(enableImagePress)
+  }
+
+  @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
+  override fun setEnableBlockContextMenu(
+    view: EnrichedMarkdown?,
+    enableBlockContextMenu: Boolean,
+  ) {
+    view?.enableBlockContextMenu = enableBlockContextMenu
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdown?,

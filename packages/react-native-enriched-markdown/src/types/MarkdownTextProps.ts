@@ -4,6 +4,7 @@ import type { AccessibilityLabels } from './AccessibilityLabels';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
 } from './events';
@@ -152,6 +153,22 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   onLinkLongPress?: (event: LinkLongPressEvent) => void;
   /**
+   * Callback fired when a rendered image is tapped or clicked.
+   *
+   * Receives the image URL and its alt text (empty string when the image has
+   * no alt text). Fires for block and inline images, including images inside
+   * headings, lists, and blockquotes.
+   *
+   * Images that are also links keep link behavior: they fire `onLinkPress`
+   * instead, so a single tap never fires both. Setting this prop makes images
+   * interactive on the native side; leaving it unset keeps the current tap,
+   * text-selection, and long-press menu behavior unchanged.
+   *
+   * Not fired for images inside GFM tables yet.
+   * @platform ios, android, macos, web
+   */
+  onImagePress?: (event: ImagePressEvent) => void;
+  /**
    * Callback fired when a task list checkbox is tapped.
    *
    * The checkbox is toggled on the native side automatically.
@@ -186,6 +203,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos
    */
   onCopyPress?: (event: CopyPressEvent) => void;
+  /**
+   * Controls the long-press context menu on block views (code blocks, tables,
+   * and block math). When false, long-pressing a block does not open the copy
+   * popup. Does not affect the code-block header copy button, the
+   * VoiceOver/TalkBack copy action, or the system text-selection menu.
+   * @default true
+   * @platform ios, android, macos
+   */
+  enableBlockContextMenu?: boolean;
   /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *

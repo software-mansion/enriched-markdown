@@ -105,7 +105,7 @@ final class ParserTests: XCTestCase {
     }
 
     func testNodeTypeEnumCountMatches() {
-        XCTAssertEqual(NodeType.allCases.count, 31)
+        XCTAssertEqual(NodeType.allCases.count, 32)
     }
 
     func testParsesSoftBreak() {
@@ -125,6 +125,23 @@ final class ParserTests: XCTestCase {
         let paragraph = ast.child(ofType: .paragraph)
         XCTAssertNotNil(paragraph?.child(ofType: .lineBreak))
         XCTAssertNil(paragraph?.child(ofType: .softBreak))
+    }
+
+    func testCollapsesBlankLinesByDefault() {
+        let ast = parser.parseMarkdown("one\n\n\n\ntwo")
+        XCTAssertNil(ast.child(ofType: .blankLine))
+    }
+
+    func testPreservesBlankLinesWithFlag() {
+        let ast = parser.parseMarkdown(
+            "one\n\n\n\ntwo",
+            flags: Md4cFlags(preserveBlankLines: true)
+        )
+
+        let blankLine = ast.child(ofType: .blankLine)
+        XCTAssertNotNil(blankLine)
+        // "one" + three blank lines + "two" -> a run of 3 blank lines.
+        XCTAssertEqual(blankLine?.attribute("count"), "3")
     }
 
     func testParsesDeeplyNestedBlockquotes() {

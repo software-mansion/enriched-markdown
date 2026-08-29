@@ -4,6 +4,7 @@ export type { MarkdownStyle, Md4cFlags } from './types/MarkdownStyle';
 export type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
 } from './types/events';

@@ -397,4 +397,13 @@ export interface Md4cFlags {
    * @default false
    */
   hardSoftBreaks?: boolean;
+  /**
+   * Preserve runs of consecutive blank lines from the source instead of
+   * collapsing them into a single paragraph break. Each blank line renders as
+   * one empty line, so the output keeps the exact line count that was typed.
+   * Extra block spacing still comes from the paragraph style - set the paragraph
+   * margins to 0 in markdownStyle for spacing driven purely by blank lines.
+   * @default false
+   */
+  preserveBlankLines?: boolean;
 }

@@ -5,8 +5,11 @@ import android.os.Looper
 import android.text.Spannable
 import android.text.method.ArrowKeyMovementMethod
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewParent
 import android.widget.TextView
+import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
@@ -28,6 +31,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private var startX = 0f
   private var startY = 0f
   private var pressedLink: LinkSpan? = null
+  private var pressedImage: ImageSpan? = null
 
   var isLinkTouchActive: Boolean = false
     private set
@@ -44,7 +48,13 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         startY = event.y
 
         pressedLink = findLinkSpan(widget, buffer, event)
-        isLinkTouchActive = pressedLink != null
+        pressedImage =
+          if (pressedLink == null && imagePressHost(widget)?.imagePressEnabled == true) {
+            findImageSpan(widget, buffer, event)
+          } else {
+            null
+          }
+        isLinkTouchActive = pressedLink != null || pressedImage != null
         isTouchWithinTextBounds = charOffsetAt(widget, event) != null
         pressedLink?.let { scheduleLongPress(widget, it) }
       }
@@ -57,14 +67,17 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           cancelLongPress()
           isLinkTouchActive = false
           pressedLink = null
+          pressedImage = null
         }
       }
 
       MotionEvent.ACTION_UP -> {
         cancelLongPress()
         val tappedLink = pressedLink
+        val tappedImage = pressedImage
         isLinkTouchActive = false
         pressedLink = null
+        pressedImage = null
 
         if (handleSpoilerTap(widget, buffer, event)) {
           return true
@@ -77,12 +90,18 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           tappedLink.onClick(widget)
           return true
         }
+
+        if (tappedImage != null && findImageSpan(widget, buffer, event) === tappedImage) {
+          imagePressHost(widget)?.emitOnImagePress(tappedImage.imageUrl, tappedImage.altText)
+          return true
+        }
       }
 
       MotionEvent.ACTION_CANCEL -> {
         cancelLongPress()
         isLinkTouchActive = false
         pressedLink = null
+        pressedImage = null
       }
     }
 
@@ -156,6 +175,24 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   ): LinkSpan? {
     val offset = charOffsetAt(widget, event) ?: return null
     return buffer.getSpans(offset, offset, LinkSpan::class.java).firstOrNull()
+  }
+
+  private fun findImageSpan(
+    widget: TextView,
+    buffer: Spannable,
+    event: MotionEvent,
+  ): ImageSpan? {
+    val offset = charOffsetAt(widget, event) ?: return null
+    return buffer.getSpans(offset, offset, ImageSpan::class.java).firstOrNull()
+  }
+
+  private fun imagePressHost(widget: View): ImagePressHost? {
+    if (widget is ImagePressHost) return widget
+    var parent: ViewParent? = widget.parent
+    while (parent != null && parent !is ImagePressHost) {
+      parent = parent.parent
+    }
+    return parent as? ImagePressHost
   }
 
   private fun handleSpoilerTap(

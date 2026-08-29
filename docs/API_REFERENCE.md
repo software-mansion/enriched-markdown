@@ -69,6 +69,27 @@ Callback when a link is long pressed. Access URL via `event.url`. On iOS, automa
 />
 ```
 
+### `onImagePress`
+
+Callback when a rendered image is tapped or clicked. Access the image URL via `event.url` and its Markdown alt text via `event.altText` (`""` when the image has no alt text). Use it to open a lightbox or full-screen viewer.
+
+Fires for block and inline images, including images inside headings, lists, and blockquotes. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both. Not fired for images inside GFM tables.
+
+Setting this callback makes images interactive on the native side; leaving it unset keeps the existing tap, text-selection, and long-press menu behavior unchanged. On web the image becomes focusable, exposes a button role for screen readers, and can be activated with Enter/Space, while the browser's right-click menu is preserved.
+
+| Type                                  | Default Value | Platform         |
+| ------------------------------------- | ------------- | ---------------- |
+| `(event: ImagePressEvent) => void`    | -             | Both, macOS, Web |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  markdown="![A cat](https://example.com/cat.png)"
+  onImagePress={({ url, altText }) => openLightbox({ url, altText })}
+/>
+```
+
 ### `onTaskListItemPress`
 
 Callback when a task list checkbox is tapped. Receives `index` (0-based), `checked` (new state after toggling), and `text` (item text).
@@ -122,6 +143,24 @@ Only fires when `flavor="github"` — the copy button is part of the GitHub flav
 />
 ```
 
+### `enableBlockContextMenu`
+
+Controls the long-press copy popup on code blocks, tables, and block math.
+Setting it to `false` leaves the code-block header copy button, accessibility
+copy action, and system text-selection menu unchanged.
+
+| Type      | Default Value | Platform            |
+| --------- | ------------- | ------------------- |
+| `boolean` | `true`        | iOS, Android, macOS |
+
+```tsx
+<EnrichedMarkdownText
+  flavor="github"
+  markdown={content}
+  enableBlockContextMenu={false}
+/>
+```
+
 ### `enableLinkPreview`
 
 Controls the native link preview on long press (iOS only). Automatically set to `false` when `onLinkLongPress` is provided.
@@ -172,7 +211,7 @@ Configuration for md4c parser extension flags.
 
 | Type          | Default Value            | Platform |
 | ------------- | ------------------------ | -------- |
-| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false }` | Both |
+| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false }` | Both |
 
 **Properties:**
 
@@ -182,6 +221,7 @@ Configuration for md4c parser extension flags.
 - **`highlight`**: When `true`, parses `==text==` as highlighted spans. When disabled, double equals signs are treated as plain text. Visual appearance can be tuned with the `highlight` style prop — see [Highlight-specific](./STYLES.md#highlight-specific).
 - **`latexMath`**: When `true`, parses `$...$` and `$$...$$` as LaTeX math spans.
 - **`hardSoftBreaks`**: When `true`, treats single newlines (soft breaks) as hard breaks, rendering them as visible line breaks instead of collapsing them to spaces. Useful when displaying content authored in `EnrichedMarkdownTextInput`, where pressing Enter produces a single newline. See [Line Breaks](./ELEMENTS_STRUCTURE.md#line-breaks) for details.
+- **`preserveBlankLines`**: When `true`, preserves runs of consecutive blank lines from the source instead of collapsing them into a single paragraph break (per CommonMark). Each blank line renders as one empty line, so the output keeps the exact line count that was typed. See [Blank Lines](./ELEMENTS_STRUCTURE.md#blank-lines) for details.
 
 **Example:**
 

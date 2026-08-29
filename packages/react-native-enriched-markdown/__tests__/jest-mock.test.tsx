@@ -141,4 +141,146 @@ describe('EnrichedMarkdownText mock', () => {
     );
     expect(byTestId('display').children).toContain('# Title');
   });
+
+  it('renders links as pressable elements with role "link"', () => {
+    const { root } = renderMock(
+      <EnrichedMarkdownText
+        testID="display"
+        markdown="Click [here](https://example.com) for info"
+        onLinkPress={jest.fn()}
+      />
+    );
+    const link = root.container.queryAll(
+      (i) => i.props.accessibilityRole === 'link'
+    )[0];
+    expect(link).toBeDefined();
+    expect(link!.children).toContain('here');
+  });
+
+  it('calls onLinkPress with the url when a link is pressed', () => {
+    const onLinkPress = jest.fn();
+    const { root } = renderMock(
+      <EnrichedMarkdownText
+        testID="display"
+        markdown="See [docs](https://docs.example.com/path)"
+        onLinkPress={onLinkPress}
+      />
+    );
+    const link = root.container.queryAll(
+      (i) => i.props.accessibilityRole === 'link'
+    )[0]!;
+
+    act(() => {
+      link.props.onPress();
+    });
+
+    expect(onLinkPress).toHaveBeenCalledWith({
+      url: 'https://docs.example.com/path',
+    });
+  });
+
+  it('calls onLinkLongPress with the url when a link is long-pressed', () => {
+    const onLinkLongPress = jest.fn();
+    const { root } = renderMock(
+      <EnrichedMarkdownText
+        testID="display"
+        markdown="[link](https://example.com)"
+        onLinkLongPress={onLinkLongPress}
+      />
+    );
+    const link = root.container.queryAll(
+      (i) => i.props.accessibilityRole === 'link'
+    )[0]!;
+
+    act(() => {
+      link.props.onLongPress();
+    });
+
+    expect(onLinkLongPress).toHaveBeenCalledWith({
+      url: 'https://example.com',
+    });
+  });
+
+  it('strips inline formatting from link text', () => {
+    const { root } = renderMock(
+      <EnrichedMarkdownText
+        testID="display"
+        markdown="[**bold link**](https://example.com)"
+        onLinkPress={jest.fn()}
+      />
+    );
+    const link = root.container.queryAll(
+      (i) => i.props.accessibilityRole === 'link'
+    )[0]!;
+    expect(link.children).toContain('bold link');
+  });
+
+  it('renders plain text when no onLinkPress is provided (no transform)', () => {
+    const { byTestId } = renderMock(
+      <EnrichedMarkdownText
+        testID="display"
+        markdown="See [docs](https://example.com)"
+      />
+    );
+    const links = byTestId('display').queryAll(
+      (i) => i.props.accessibilityRole === 'link'
+    );
+    expect(links).toHaveLength(0);
+    expect(byTestId('display').children).toContain(
+      'See [docs](https://example.com)'
+    );
+  });
+
+  it('renders task list items as pressable checkboxes', () => {
+    const onTaskListItemPress = jest.fn();
+    const { root } = renderMock(
+      <EnrichedMarkdownText
+        testID="display"
+        flavor="github"
+        markdown={'- [ ] Buy milk\n- [x] Write code'}
+        onTaskListItemPress={onTaskListItemPress}
+      />
+    );
+    const checkboxes = root.container.queryAll(
+      (i) => i.props.accessibilityRole === 'checkbox'
+    );
+    expect(checkboxes).toHaveLength(2);
+    expect(checkboxes[0]!.props.accessibilityState).toEqual({ checked: false });
+    expect(checkboxes[1]!.props.accessibilityState).toEqual({ checked: true });
+  });
+
+  it('calls onTaskListItemPress with toggled state on checkbox press', () => {
+    const onTaskListItemPress = jest.fn();
+    const { root } = renderMock(
+      <EnrichedMarkdownText
+        testID="display"
+        flavor="github"
+        markdown={'- [ ] First task\n- [x] Second task'}
+        onTaskListItemPress={onTaskListItemPress}
+      />
+    );
+    const checkboxes = root.container.queryAll(
+      (i) => i.props.accessibilityRole === 'checkbox'
+    );
+
+    act(() => {
+      checkboxes[0]!.props.onPress();
+    });
+
+    expect(onTaskListItemPress).toHaveBeenCalledWith({
+      index: 0,
+      checked: true,
+      text: 'First task',
+    });
+
+    act(() => {
+      checkboxes[1]!.props.onPress();
+    });
+
+    expect(onTaskListItemPress).toHaveBeenCalledWith({
+      index: 1,
+      checked: false,
+      text: 'Second task',
+    });
+  });
 });

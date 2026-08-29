@@ -117,7 +117,12 @@ typedef enum MD_BLOCKTYPE {
   /* Adminition extension.
      * Detail MD_BLOCK_ADMONITION_DETAIL.
      * Note: Recognized only when MD_FLAG_ADMONITIONS is enabled. */
-  MD_BLOCK_ADMONITION
+  MD_BLOCK_ADMONITION,
+
+  /* A run of blank lines separating two blocks. Has no contents.
+     * Detail: Structure MD_BLOCK_BLANK_DETAIL.
+     * Note: Emitted only when MD_FLAG_PRESERVEBLANKLINES is enabled. */
+  MD_BLOCK_BLANK
 } MD_BLOCKTYPE;
 
 /* Span represents an in-line piece of a document which should be rendered with
@@ -144,6 +149,11 @@ typedef enum MD_SPANTYPE {
 
   /* <code>...</code> */
   MD_SPAN_CODE,
+
+  /* <ins>...</ins>
+     * Syntax: ++insert++
+     * Note: Recognized only when MD_FLAG_INSERT is enabled. */
+  MD_SPAN_INS,
 
   /* <del>...</del>
      * Note: Recognized only when MD_FLAG_STRIKETHROUGH is enabled.
@@ -359,6 +369,11 @@ typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
   MD_ATTRIBUTE label;     /* Raw label text */
 } MD_BLOCK_FOOTNOTE_DEF_DETAIL;
 
+/* Detailed info for MD_BLOCK_BLANK. */
+typedef struct MD_BLOCK_BLANK_DETAIL {
+  unsigned line_count; /* Count of blank lines forming the block separation */
+} MD_BLOCK_BLANK_DETAIL;
+
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
  * By default (when MD_PARSER::flags == 0), we follow CommonMark specification.
@@ -376,16 +391,18 @@ typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
 #define MD_FLAG_PERMISSIVEWWWAUTOLINKS                                                                                 \
   0x400                         /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
 #define MD_FLAG_TASKLISTS 0x800 /* Enable task list extension. */
-#define MD_FLAG_LATEXMATHSPANS 0x1000   /* Enable $ and $$ containing LaTeX equations. */
-#define MD_FLAG_WIKILINKS 0x2000        /* Enable wiki links extension. */
-#define MD_FLAG_UNDERLINE 0x4000        /* Enable underline extension (and disables '_' for normal emphasis). */
-#define MD_FLAG_HARD_SOFT_BREAKS 0x8000 /* Force all soft breaks to act as hard breaks. */
-#define MD_FLAG_SPOILERS 0x10000        /* Enable ||hidden text|| spoiler spans. */
-#define MD_FLAG_SUPERSCRIPTS 0x20000    /* Enable ^superscript^ spans. */
-#define MD_FLAG_SUBSCRIPTS 0x40000      /* Enable ~subscript~ spans. */
-#define MD_FLAG_ADMONITIONS 0x80000     /* Enable admonitions extension. */
-#define MD_FLAG_FOOTNOTES 0x100000      /* Enable [^label] footnote references. */
-#define MD_FLAG_HIGHLIGHT 0x200000      /* Enable ==highlight== spans. */
+#define MD_FLAG_LATEXMATHSPANS 0x1000       /* Enable $ and $$ containing LaTeX equations. */
+#define MD_FLAG_WIKILINKS 0x2000            /* Enable wiki links extension. */
+#define MD_FLAG_UNDERLINE 0x4000            /* Enable underline extension (and disables '_' for normal emphasis). */
+#define MD_FLAG_HARD_SOFT_BREAKS 0x8000     /* Force all soft breaks to act as hard breaks. */
+#define MD_FLAG_SPOILERS 0x10000            /* Enable ||hidden text|| spoiler spans. */
+#define MD_FLAG_SUPERSCRIPTS 0x20000        /* Enable ^superscript^ spans. */
+#define MD_FLAG_SUBSCRIPTS 0x40000          /* Enable ~subscript~ spans. */
+#define MD_FLAG_ADMONITIONS 0x80000         /* Enable admonitions extension. */
+#define MD_FLAG_FOOTNOTES 0x100000          /* Enable [^label] footnote references. */
+#define MD_FLAG_HIGHLIGHT 0x200000          /* Enable ==highlight== spans. */
+#define MD_FLAG_PRESERVEBLANKLINES 0x400000 /* Report blank line runs as MD_BLOCK_BLANK. */
+#define MD_FLAG_INSERT 0x800000             /* Enable insert extension. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS                                                                                    \
   (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)

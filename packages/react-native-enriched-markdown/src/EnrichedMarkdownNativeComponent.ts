@@ -242,6 +242,11 @@ export interface LinkLongPressEvent {
   url: string;
 }
 
+export interface ImagePressEvent {
+  url: string;
+  altText: string;
+}
+
 export interface TaskListItemPressEvent {
   index: CodegenTypes.Int32;
   checked: boolean;
@@ -349,6 +354,11 @@ export interface Md4cFlagsInternal {
    * @default false
    */
   hardSoftBreaks: boolean;
+  /**
+   * Preserve runs of consecutive blank lines as extra empty lines.
+   * @default false
+   */
+  preserveBlankLines: boolean;
 }
 
 interface StreamingConfigInternal {
@@ -380,6 +390,22 @@ export interface NativeProps extends ViewProps {
    */
   onLinkLongPress?: CodegenTypes.BubblingEventHandler<LinkLongPressEvent>;
   /**
+   * Callback fired when a rendered image is tapped.
+   * Receives the image URL and its alt text (empty string when the image has
+   * no alt text). Images that are also links keep link behavior and emit
+   * `onLinkPress` instead, so a single tap never fires both.
+   */
+  onImagePress?: CodegenTypes.BubblingEventHandler<ImagePressEvent>;
+  /**
+   * Gates native image tap handling. Set automatically to `true` by the JS
+   * wrapper when `onImagePress` is provided. When `false` (default), images are
+   * inert: taps fall through to text selection and the iOS Copy/Save menu
+   * exactly as before, and no image span becomes interactive on Android.
+   *
+   * @default false
+   */
+  enableImagePress?: CodegenTypes.WithDefault<boolean, false>;
+  /**
    * Callback fired when a task list checkbox is tapped.
    * Receives the 0-based task index, current checked state, and the item's plain text.
    */
@@ -399,6 +425,11 @@ export interface NativeProps extends ViewProps {
    * action. Receives the copied code and its language.
    */
   onCopyPress?: CodegenTypes.BubblingEventHandler<CopyPressEvent>;
+  /**
+   * Controls the long-press copy menu on code blocks, tables, and block math.
+   * @default true
+   */
+  enableBlockContextMenu?: CodegenTypes.WithDefault<boolean, true>;
   /**
    * Controls whether the system link preview is shown on long press (iOS only).
    *

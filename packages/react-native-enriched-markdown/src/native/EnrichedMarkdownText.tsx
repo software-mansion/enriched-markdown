@@ -20,6 +20,7 @@ import type {
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   OnContextMenuItemPressEvent,
@@ -36,6 +37,7 @@ export type {
 export type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
 };
@@ -108,6 +110,7 @@ const defaultMd4cFlags: Md4cFlags = {
   latexMath: true,
   highlight: false,
   hardSoftBreaks: false,
+  preserveBlankLines: false,
 };
 
 export const EnrichedMarkdownText = ({
@@ -116,9 +119,11 @@ export const EnrichedMarkdownText = ({
   containerStyle,
   onLinkPress,
   onLinkLongPress,
+  onImagePress,
   onTaskListItemPress,
   enableTaskListItemToggle = true,
   onCopyPress,
+  enableBlockContextMenu = true,
   enableLinkPreview,
   selectable = true,
   md4cFlags = defaultMd4cFlags,
@@ -157,6 +162,7 @@ export const EnrichedMarkdownText = ({
       latexMath: md4cFlags.latexMath ?? true,
       highlight: md4cFlags.highlight ?? false,
       hardSoftBreaks: md4cFlags.hardSoftBreaks ?? false,
+      preserveBlankLines: md4cFlags.preserveBlankLines ?? false,
     }),
     [md4cFlags]
   );
@@ -220,6 +226,14 @@ export const EnrichedMarkdownText = ({
       onLinkLongPress?.({ url });
     },
     [onLinkLongPress]
+  );
+
+  const handleImagePress = useCallback(
+    (e: NativeSyntheticEvent<ImagePressEvent>) => {
+      const { url, altText } = e.nativeEvent;
+      onImagePress?.({ url, altText });
+    },
+    [onImagePress]
   );
 
   const handleTaskListItemPress = useCallback(
@@ -301,9 +315,12 @@ export const EnrichedMarkdownText = ({
     markdownStyle: normalizedStyle,
     onLinkPress: handleLinkPress,
     onLinkLongPress: handleLinkLongPress,
+    onImagePress: handleImagePress,
+    enableImagePress: onImagePress != null,
     onTaskListItemPress: handleTaskListItemPress,
     enableTaskListItemToggle,
     onCopyPress: handleCopyPress,
+    enableBlockContextMenu,
     enableLinkPreview: onLinkLongPress == null && (enableLinkPreview ?? true),
     selectable,
     md4cFlags: normalizedMd4cFlags,

@@ -31,7 +31,8 @@ typedef NS_ENUM(NSInteger, MarkdownNodeType) {
   MarkdownNodeTypeSuperscript,
   MarkdownNodeTypeSubscript,
   MarkdownNodeTypeHighlight,
-  MarkdownNodeTypeSoftBreak
+  MarkdownNodeTypeSoftBreak,
+  MarkdownNodeTypeBlankLine
 };
 
 @interface MarkdownASTNode : NSObject

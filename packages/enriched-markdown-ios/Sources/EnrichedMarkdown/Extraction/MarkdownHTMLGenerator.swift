@@ -372,6 +372,11 @@ enum MarkdownHTMLGenerator {
                 appendImage(attachment, into: &html, styles: styles)
                 return
             }
+
+            if let table = attrs[.attachment] as? TableAttachment {
+                appendTable(table, into: &html)
+                return
+            }
             if attrs[.attachment] != nil || content == "\u{FFFC}" {
                 return
             }
@@ -587,13 +592,4 @@ enum MarkdownHTMLGenerator {
         return String(format: "#%02X%02X%02X", redByte, greenByte, blueByte)
     }
 
-    private static func escapeHTML(_ text: String) -> String {
-        guard text.contains(where: { "&<>\"'".contains($0) }) else { return text }
-        return text
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-            .replacingOccurrences(of: "'", with: "&#39;")
-    }
 }

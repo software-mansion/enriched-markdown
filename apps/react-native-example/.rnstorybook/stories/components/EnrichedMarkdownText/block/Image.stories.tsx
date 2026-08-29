@@ -23,6 +23,12 @@ const LOCAL_ASSET_URI = Image.resolveAssetSource(
 const DATA_URI =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAeklEQVR42u3asQnAIBQE0D9JILhDyFwZyUW1E4uki5jgg19e4auOAyPtx68vAABeBEQu7c7tur0+MysPADAK8LWHPuUBAAAAAMYANDEAAACAPaCJAQAAAOwBTQwAAABgD2hiAAAAAHtAEwMAAADYA5oYYCWAn7sACwIqZZCNkUg0NTIAAAAASUVORK5CYII=';
 
+const PRESS_MARKDOWN = `![Misty forest at sunrise](https://images.unsplash.com/photo-1448375240586-882707db888b?w=800)
+
+A linked image keeps link behavior and fires onLinkPress instead:
+
+[![Sunlight through forest canopy](https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=800)](https://reactnative.dev)`;
+
 const argTypes = {
   height: numberControl('markdownStyle.image.height', {
     min: 80,
@@ -113,6 +119,29 @@ export const DataUri: TextStory<ImageStyleControls> = {
       <EnrichedMarkdownTextStory
         title="Data URI image"
         description="A base64 data: URI. On Android this exercises the local image loader in every build mode (dev included); on iOS data: URLs are served natively by NSURLSession."
+        {...rest}
+        style={{ image: toImageStyle(controls) }}
+      />
+    );
+  },
+};
+
+export const PressEvent: TextStory<ImageStyleControls> = {
+  args: {
+    markdown: PRESS_MARKDOWN,
+    ...imageStyledDefaults,
+  },
+  argTypes: {
+    ...argTypes,
+    onImagePress: { action: 'onImagePress' },
+    onLinkPress: { action: 'onLinkPress' },
+  },
+  render: (args) => {
+    const { controls, rest } = splitStyleControls(args, imageStyledDefaults);
+    return (
+      <EnrichedMarkdownTextStory
+        title="Image — onImagePress"
+        description="Tap the first image to fire onImagePress with its url and altText (Actions panel). Setting onImagePress makes images interactive; without it they stay inert. The second image is wrapped in a link, so it keeps link behavior and fires onLinkPress instead — a single tap never fires both."
         {...rest}
         style={{ image: toImageStyle(controls) }}
       />

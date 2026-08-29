@@ -182,6 +182,22 @@ class EnrichedMarkdownTextManager :
     view?.setEnableTaskListItemToggle(enableTaskListItemToggle)
   }
 
+  @ReactProp(name = "enableImagePress", defaultBoolean = false)
+  override fun setEnableImagePress(
+    view: EnrichedMarkdownText?,
+    enableImagePress: Boolean,
+  ) {
+    view?.setEnableImagePress(enableImagePress)
+  }
+
+  @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
+  override fun setEnableBlockContextMenu(
+    view: EnrichedMarkdownText?,
+    enableBlockContextMenu: Boolean,
+  ) {
+    // No-op: block context menus are rendered by the container component.
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdownText?,

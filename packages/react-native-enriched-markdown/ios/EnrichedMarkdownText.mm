@@ -56,6 +56,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 - (void)setupLayoutManager;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
+- (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
@@ -83,6 +84,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL _allowTrailingMargin;
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
+  BOOL _enableImagePress;
   BOOL _streamingAnimation;
   BOOL _forceHeightUpdateOnNextRender;
 
@@ -132,6 +134,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   flags.latexMath = props.latexMath;
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;
+  flags.preserveBlankLines = props.preserveBlankLines;
   return flags;
 }
 
@@ -236,6 +239,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _allowTrailingMargin = NO;
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
+    _enableImagePress = NO;
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
@@ -556,7 +560,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
-      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks) {
+      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||
+      newViewProps.md4cFlags.preserveBlankLines != oldViewProps.md4cFlags.preserveBlankLines) {
     _md4cFlags = [EnrichedMarkdownText flagsFromProps:newViewProps.md4cFlags];
     _forceHeightUpdateOnNextRender = YES;
     _dirtyFlags |= ENRMDirtyRender;
@@ -564,6 +569,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
+  _enableImagePress = newViewProps.enableImagePress;
 
   if (ENRMContextMenuItemsChanged(oldViewProps.contextMenuItems, newViewProps.contextMenuItems)) {
     _contextMenuItemTexts = ENRMContextMenuTextsFromItems(newViewProps.contextMenuItems);
@@ -709,7 +715,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 {
   if (_textView) {
     CGPoint textViewPoint = [self convertPoint:point toView:_textView];
-    if (isPointOnInteractiveElement(_textView, textViewPoint)) {
+    if (isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress)) {
       return nil;
     }
   }
@@ -729,6 +735,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onLinkLongPress({.url = std::string(url.UTF8String)});
+}
+
+- (void)emitImagePress:(NSString *)url altText:(NSString *)altText
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onImagePress({.url = std::string(url.UTF8String ?: ""), .altText = std::string(altText.UTF8String ?: "")});
 }
 
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text
@@ -771,7 +784,16 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     return;
   }
 
-  ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) { [self emitLinkPress:url]; });
+  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) { [self emitLinkPress:url]; })) {
+    return;
+  }
+
+  if (_enableImagePress) {
+    NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
+    if (image) {
+      [self emitImagePress:image[@"url"] altText:image[@"altText"]];
+    }
+  }
 }
 
 #pragma mark - UITextViewDelegate (Link Interaction)

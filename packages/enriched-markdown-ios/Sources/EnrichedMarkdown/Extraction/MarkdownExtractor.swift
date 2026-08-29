@@ -45,6 +45,19 @@ enum MarkdownExtractor {
         return result.isEmpty ? nil : result
     }
 
+    /// Inline markdown for a single-paragraph attributed string (table
+    /// cells): reapplies the inline markers the renderers stripped, without
+    /// any block handling.
+    static func inlineMarkdown(for text: NSAttributedString) -> String {
+        var result = ""
+        text.enumerateAttributes(in: NSRange(location: 0, length: text.length), options: []) { attrs, range, _ in
+            let run = (text.string as NSString).substring(with: range)
+                .replacingOccurrences(of: "\u{2028}", with: " ")
+            result += applyInlineFormatting(run, traits: InlineTraits(attrs: attrs))
+        }
+        return result
+    }
+
     /// http(s) URLs of image attachments within `range`, in document order.
     static func imageURLs(in attributedText: NSAttributedString, range: NSRange) -> [String] {
         guard let clamped = clampedRange(range, in: attributedText) else { return [] }
@@ -86,6 +99,11 @@ private extension MarkdownExtractor {
 
         if attrs[.attachment] is ThematicBreakAttachment {
             appendThematicBreak(to: &result, state: &state)
+            return
+        }
+
+        if let table = attrs[.attachment] as? TableAttachment {
+            appendTable(table, to: &result, state: &state)
             return
         }
 
@@ -134,6 +152,19 @@ private extension MarkdownExtractor {
     static func appendThematicBreak(to result: inout String, state: inout ExtractionState) {
         ensureBlankLine(&result)
         result += "---\n"
+        state.needsBlankLine = true
+        state.blockquoteDepth = -1
+        state.listDepth = -1
+    }
+
+    static func appendTable(
+        _ table: TableAttachment,
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
+        flushHeading(&result, state: &state)
+        ensureBlankLine(&result)
+        result += table.markdownText() + "\n"
         state.needsBlankLine = true
         state.blockquoteDepth = -1
         state.listDepth = -1
@@ -324,14 +355,25 @@ private extension MarkdownExtractor {
         )
     }
 
-    /// A selection is "full" when it starts at the beginning and any excluded
-    /// tail is whitespace-only (themes append 1–2 trailing margin spacers that
-    /// Select All may skip).
+    /// A selection is "full" when everything it excludes — leading or
+    /// trailing — is invisible (margin spacers, zero-width marker anchors),
+    /// so drag-selecting the whole document qualifies even though it starts
+    /// after the leading spacer.
     static func isFullSelection(_ range: NSRange, in attributedText: NSAttributedString) -> Bool {
-        guard range.location == 0 else { return false }
-        let tail = (attributedText.string as NSString).substring(from: NSMaxRange(range))
-        return tail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let string = attributedText.string as NSString
+        let head = string.substring(to: range.location)
+        let tail = string.substring(from: NSMaxRange(range))
+        return head.components(separatedBy: invisibleCharacters).joined().isEmpty
+            && tail.components(separatedBy: invisibleCharacters).joined().isEmpty
     }
+
+    /// Whitespace plus the zero-width space and line separator the renderers
+    /// use for marker anchors and hard breaks.
+    private static let invisibleCharacters: CharacterSet = {
+        var set = CharacterSet.whitespacesAndNewlines
+        set.insert(charactersIn: "\u{200B}\u{2028}")
+        return set
+    }()
 
     static func ensureBlankLine(_ result: inout String) {
         guard !result.isEmpty, !result.hasSuffix("\n\n") else { return }

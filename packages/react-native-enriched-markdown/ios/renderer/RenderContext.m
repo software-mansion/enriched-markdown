@@ -138,6 +138,18 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
   }
 }
 
+- (void)applyImageAttributesToString:(NSMutableAttributedString *)attributedString
+{
+  NSUInteger length = attributedString.length;
+  for (NSUInteger i = 0; i < self.imageRanges.count; i++) {
+    NSRange range = [self.imageRanges[i] rangeValue];
+    if (NSMaxRange(range) > length)
+      continue;
+    [attributedString addAttribute:@"imageURL" value:self.imageURLs[i] range:range];
+    [attributedString addAttribute:@"imageAltText" value:self.imageAltTexts[i] range:range];
+  }
+}
+
 - (void)registerHeadingRange:(NSRange)range level:(NSInteger)level text:(NSString *)text
 {
   if (range.length == 0)

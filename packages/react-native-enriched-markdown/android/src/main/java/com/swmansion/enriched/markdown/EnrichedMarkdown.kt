@@ -28,8 +28,10 @@ import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import com.swmansion.enriched.markdown.utils.common.splitASTIntoSegments
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
+import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
+import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.views.BlockSegmentView
 import com.swmansion.enriched.markdown.views.CodeBlockContainerView
 import com.swmansion.enriched.markdown.views.TableContainerView
@@ -45,7 +47,8 @@ class EnrichedMarkdown
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-  ) : FrameLayout(context, attrs, defStyleAttr) {
+  ) : FrameLayout(context, attrs, defStyleAttr),
+    ImagePressHost {
     private enum class DirtyFlag {
       RECREATE_SEGMENTS,
       FORCE_HEIGHT,
@@ -119,6 +122,12 @@ class EnrichedMarkdown
         segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
           it.enableTaskListItemToggle = value
         }
+      }
+    var enableBlockContextMenu: Boolean = true
+      set(value) {
+        if (field == value) return
+        field = value
+        pushBlockContextMenuToSegments()
       }
 
     fun setMarkdownContent(markdown: String) {
@@ -251,6 +260,20 @@ class EnrichedMarkdown
       onLinkLongPressCallback = callback
     }
 
+    override var imagePressEnabled: Boolean = false
+      private set
+
+    override fun emitOnImagePress(
+      url: String,
+      altText: String,
+    ) {
+      emitImagePressEvent(url, altText)
+    }
+
+    fun setEnableImagePress(enabled: Boolean) {
+      imagePressEnabled = enabled
+    }
+
     fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {
       onTaskListItemPressCallback = callback
     }
@@ -298,6 +321,28 @@ class EnrichedMarkdown
               view.javaClass
                 .getMethod("setCopyAsMarkdownLabel", String::class.java)
                 .invoke(view, copyAsMarkdownLabel)
+            }
+          }
+        }
+      }
+    }
+
+    private fun pushBlockContextMenuToSegments() {
+      segmentViews.forEach { view ->
+        when {
+          view is TableContainerView -> {
+            view.enableBlockContextMenu = enableBlockContextMenu
+          }
+
+          view is CodeBlockContainerView -> {
+            view.enableBlockContextMenu = enableBlockContextMenu
+          }
+
+          isMathContainerView(view) -> {
+            runCatching {
+              view.javaClass
+                .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
+                .invoke(view, enableBlockContextMenu)
             }
           }
         }
@@ -582,6 +627,7 @@ class EnrichedMarkdown
       segment: RenderedSegment.Table,
       style: StyleConfig,
     ) = TableContainerView(context, style).apply {
+      enableBlockContextMenu = this@EnrichedMarkdown.enableBlockContextMenu
       allowFontScaling = this@EnrichedMarkdown.allowFontScaling
       maxFontSizeMultiplier = this@EnrichedMarkdown.maxFontSizeMultiplier
       accessibilityLabels = this@EnrichedMarkdown.accessibilityLabels
@@ -596,6 +642,7 @@ class EnrichedMarkdown
       segment: RenderedSegment.CodeBlock,
       style: StyleConfig,
     ) = CodeBlockContainerView(context, style).apply {
+      enableBlockContextMenu = this@EnrichedMarkdown.enableBlockContextMenu
       copyLabel = this@EnrichedMarkdown.selectionMenuConfig.copyLabel
       copyAsMarkdownLabel = this@EnrichedMarkdown.selectionMenuConfig.copyAsMarkdownLabel
       onCopyPress = { code, language ->
@@ -621,6 +668,9 @@ class EnrichedMarkdown
             .getMethod("setAccessibilityLabels", AccessibilityLabels::class.java)
             .invoke(view, accessibilityLabels)
         }
+        resolvedClass
+          .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
+          .invoke(view, enableBlockContextMenu)
         resolvedClass
           .getMethod("setCopyLabel", String::class.java)
           .invoke(view, selectionMenuConfig.copyLabel)

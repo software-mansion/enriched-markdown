@@ -38,7 +38,8 @@ enum class NodeType {
     Superscript,
     Subscript,
     Highlight,
-    SoftBreak
+    SoftBreak,
+    BlankLine
 };
 
 struct MarkdownASTNode {

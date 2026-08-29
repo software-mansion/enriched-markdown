@@ -155,6 +155,16 @@ final class HTMLGeneratorTests: XCTestCase {
         XCTAssertTrue(result.contains("</ol>"))
     }
 
+    func testTableEmitsSemanticTableMarkup() {
+        let result = html(for: "| A | B |\n|---|---|\n| one | two |")
+
+        XCTAssertTrue(result.contains("<table"))
+        XCTAssertTrue(result.contains("<th"))
+        XCTAssertTrue(result.contains(">A</th>"))
+        XCTAssertTrue(result.contains(">one</td>"))
+        XCTAssertFalse(result.contains("\u{FFFC}"))
+    }
+
     func testTaskListItemsEmitDisabledCheckboxes() {
         let result = html(for: "- [x] done\n- [ ] todo")
 

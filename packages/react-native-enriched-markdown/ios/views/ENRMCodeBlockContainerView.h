@@ -25,6 +25,7 @@ typedef void (^ENRMCodeBlockCopyBlock)(NSString *code, NSString *language);
 // True until the closing fence arrives: highlighting is deferred and copying is
 // disabled, while the header stays visible.
 @property (nonatomic, assign) BOOL pending;
+@property (nonatomic, assign) BOOL enableBlockContextMenu;
 
 // Renamed getters avoid the Cocoa `copy` method family (which signals +1
 // retained returns). Property names are unchanged so call sites stay the same.

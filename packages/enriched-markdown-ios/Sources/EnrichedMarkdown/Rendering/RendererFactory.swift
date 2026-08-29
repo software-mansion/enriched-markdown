@@ -79,6 +79,8 @@ final class RendererFactory {
             return HeadingRenderer(factory: self, config: config)
         case .thematicBreak:
             return ThematicBreakRenderer(config: config)
+        case .blankLine:
+            return BlankLineRenderer(config: config)
         case .codeBlock:
             return CodeBlockRenderer(factory: self, config: config)
         case .blockquote:
@@ -89,6 +91,8 @@ final class RendererFactory {
             return ListRenderer(factory: self, config: config, isOrdered: true)
         case .listItem:
             return ListItemRenderer(factory: self, config: config)
+        case .table:
+            return TableRenderer(factory: self, config: config)
         default:
             return nil
         }

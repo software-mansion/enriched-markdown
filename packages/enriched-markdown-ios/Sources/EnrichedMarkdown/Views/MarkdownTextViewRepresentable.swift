@@ -303,7 +303,7 @@ final class MarkdownTextView: UITextView {
             location: selectedRange.location,
             length: min(selectedRange.length, attributedText.length - selectedRange.location)
         )
-        let plain = (attributedText.string as NSString).substring(with: clamped)
+        let plain = Self.plainText(of: attributedText, in: clamped)
         let html = MarkdownHTMLGenerator.generateHTML(
             from: attributedText,
             in: clamped,
@@ -313,6 +313,20 @@ final class MarkdownTextView: UITextView {
             "public.utf8-plain-text": plain,
             "public.html": html
         ]]
+    }
+
+    /// Plain text for the pasteboard, with table attachment characters
+    /// replaced by the table's tab-separated content.
+    static func plainText(of attributedText: NSAttributedString, in range: NSRange) -> String {
+        var plain = ""
+        attributedText.enumerateAttribute(.attachment, in: range) { value, runRange, _ in
+            if let table = value as? TableAttachment {
+                plain += table.plainText()
+            } else {
+                plain += (attributedText.string as NSString).substring(with: runRange)
+            }
+        }
+        return plain
     }
 
     func setMarkdownAttributedText(_ attributedText: NSAttributedString) {
