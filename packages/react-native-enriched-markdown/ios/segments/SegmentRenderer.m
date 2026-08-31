@@ -39,6 +39,12 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
         [currentTextNodes removeAllObjects];
       }
       [segments addObject:[ENRMCodeBlockSegment segmentWithCodeBlockNode:child]];
+    } else if (child.type == MarkdownNodeTypeBlockquote) {
+      if (currentTextNodes.count > 0) {
+        [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
+        [currentTextNodes removeAllObjects];
+      }
+      [segments addObject:[ENRMBlockquoteSegment segmentWithBlockquoteNode:child]];
     } else {
       [currentTextNodes addObject:child];
     }
@@ -54,21 +60,25 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
 NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, StyleConfig *config,
                                                           BOOL allowTrailingMargin, BOOL allowFontScaling,
                                                           CGFloat maxFontSizeMultiplier,
-                                                          NSLineBreakStrategy lineBreakStrategy)
+                                                          NSLineBreakStrategy lineBreakStrategy, BOOL blockquoteContent)
 {
   NSArray *segments = ENRMSplitASTIntoSegments(ast);
   NSMutableArray<ENRMRenderedSegment *> *renderedSegments = [NSMutableArray array];
 
-  static const uint64_t kTextKindSalt = 0x7465787400000000ULL;      // "text"
-  static const uint64_t kTableKindSalt = 0x7461626C00000000ULL;     // "tabl"
-  static const uint64_t kMathKindSalt = 0x6D61746800000000ULL;      // "math"
-  static const uint64_t kCodeBlockKindSalt = 0x63626C6B00000000ULL; // "cblk"
+  static const uint64_t kTextKindSalt = 0x7465787400000000ULL;       // "text"
+  static const uint64_t kTableKindSalt = 0x7461626C00000000ULL;      // "tabl"
+  static const uint64_t kMathKindSalt = 0x6D61746800000000ULL;       // "math"
+  static const uint64_t kCodeBlockKindSalt = 0x63626C6B00000000ULL;  // "cblk"
+  static const uint64_t kBlockquoteKindSalt = 0x6271746500000000ULL; // "bqte"
 
   for (id segment in segments) {
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
       ENRMTextSegment *textSegment = (ENRMTextSegment *)segment;
-      ENRMRenderResult *rendered = ENRMRenderASTNodes(textSegment.nodes, config, allowTrailingMargin, allowFontScaling,
-                                                      maxFontSizeMultiplier, lineBreakStrategy);
+      ENRMRenderResult *rendered = blockquoteContent
+                                       ? ENRMRenderBlockquoteContentNodes(textSegment.nodes, config, allowFontScaling,
+                                                                          maxFontSizeMultiplier, lineBreakStrategy)
+                                       : ENRMRenderASTNodes(textSegment.nodes, config, allowTrailingMargin,
+                                                            allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy);
       uint64_t signature = ENRMSignatureForNodes(textSegment.nodes) ^ kTextKindSalt;
       [renderedSegments addObject:[ENRMRenderedSegment textSegmentWithResult:rendered signature:signature]];
     } else if ([segment isKindOfClass:[ENRMTableSegment class]]) {
@@ -94,6 +104,11 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
       uint64_t signature = ENRMSignatureForNode(codeBlockSegment.codeBlockNode) ^ kCodeBlockKindSalt;
       [renderedSegments addObject:[ENRMRenderedSegment codeBlockSegmentWithSegment:codeBlockSegment
                                                                          signature:signature]];
+    } else if ([segment isKindOfClass:[ENRMBlockquoteSegment class]]) {
+      ENRMBlockquoteSegment *blockquoteSegment = (ENRMBlockquoteSegment *)segment;
+      uint64_t signature = ENRMSignatureForNode(blockquoteSegment.blockquoteNode) ^ kBlockquoteKindSalt;
+      [renderedSegments addObject:[ENRMRenderedSegment blockquoteSegmentWithSegment:blockquoteSegment
+                                                                          signature:signature]];
     }
   }
 

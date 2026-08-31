@@ -1,4 +1,4 @@
-package com.swmansion.enriched.markdown.views
+package com.swmansion.enriched.markdown.segments
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -31,6 +31,8 @@ import com.swmansion.enriched.markdown.utils.common.CodeBlockHighlighter
 import com.swmansion.enriched.markdown.utils.common.CodeBlockNode
 import com.swmansion.enriched.markdown.utils.text.extensions.applyCodeBlockTextStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.views.ContextMenuPopup
+import com.swmansion.enriched.markdown.views.CopyGlyph
 import kotlin.math.ceil
 
 /**

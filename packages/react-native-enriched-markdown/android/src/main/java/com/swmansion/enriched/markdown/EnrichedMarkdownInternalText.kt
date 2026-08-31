@@ -8,6 +8,7 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
+import com.swmansion.enriched.markdown.segments.BlockSegmentView
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
@@ -20,7 +21,6 @@ import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForLinkTap
 import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionModeCallback
 import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
-import com.swmansion.enriched.markdown.views.BlockSegmentView
 
 class EnrichedMarkdownInternalText
   @JvmOverloads

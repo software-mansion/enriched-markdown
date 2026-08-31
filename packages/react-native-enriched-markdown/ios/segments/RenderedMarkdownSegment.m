@@ -41,6 +41,16 @@
 }
 @end
 
+@implementation ENRMBlockquoteSegment
++ (instancetype)segmentWithBlockquoteNode:(MarkdownASTNode *)node
+{
+  NSParameterAssert(node != nil);
+  ENRMBlockquoteSegment *segment = [[ENRMBlockquoteSegment alloc] init];
+  segment.blockquoteNode = node;
+  return segment;
+}
+@end
+
 @implementation ENRMRenderedSegment
 + (instancetype)textSegmentWithResult:(ENRMRenderResult *)result signature:(uint64_t)signature
 {
@@ -78,6 +88,16 @@
   ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
   segment.kind = ENRMSegmentKindCodeBlock;
   segment.codeBlockSegment = codeBlockSegment;
+  segment.signature = signature;
+  return segment;
+}
+
++ (instancetype)blockquoteSegmentWithSegment:(ENRMBlockquoteSegment *)blockquoteSegment signature:(uint64_t)signature
+{
+  NSParameterAssert(blockquoteSegment != nil);
+  ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
+  segment.kind = ENRMSegmentKindBlockquote;
+  segment.blockquoteSegment = blockquoteSegment;
   segment.signature = signature;
   return segment;
 }

@@ -22,8 +22,8 @@ class ParagraphRenderer(
   ) {
     val context = factory.blockStyleContext
 
-    // If nested (e.g., inside a list or blockquote), render content simply with a newline
-    if (context.isInsideBlockElement()) {
+    // Inside a list, render tight with a single newline - lists own their item spacing.
+    if (context.listDepth > 0) {
       factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
       builder.append("\n")
       return
@@ -31,6 +31,21 @@ class ParagraphRenderer(
 
     val start = builder.length
     val style = config.style.paragraphStyle
+
+    // Inside a blockquote, keep the quote's block style (font/color) and line height
+    // - applied by BlockquoteTextRenderer.postProcess - but still emit block margins so
+    // spacing between blocks matches the top-level document (a heading defaults to
+    // marginTop 0, so the gap before it comes from the preceding paragraph's marginBottom).
+    if (context.blockquoteDepth > 0) {
+      factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
+      if (builder.length > start) {
+        val marginTop = if (node.containsBlockImage()) config.style.imageStyle.marginTop else style.marginTop
+        applyMarginTop(builder, start, marginTop)
+        val marginBottom = if (node.containsBlockImage()) config.style.imageStyle.marginBottom else style.marginBottom
+        applyMarginBottom(builder, marginBottom)
+      }
+      return
+    }
 
     context.setParagraphStyle(style)
     try {

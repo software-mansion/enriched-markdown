@@ -1,4 +1,4 @@
-package com.swmansion.enriched.markdown.views
+package com.swmansion.enriched.markdown.segments
 
 /**
  * Interface for block-level segment views that declare their own margins

@@ -103,7 +103,12 @@ function paragraphStyle(style: MarkdownStyleInternal): CSSProperties {
 function paragraphInBlockquoteStyle(
   style: MarkdownStyleInternal
 ): CSSProperties {
-  return { ...baseBlock(style.paragraph), marginTop: 0, marginBottom: 0 };
+  // Keep the paragraph's block margins so spacing between blocks inside a quote
+  // matches the top-level document (e.g. the gap before a heading). The last
+  // child's trailing margin is zeroed by a global blockquote :last-child rule
+  // (see globalStyles), mirroring native's trailing-margin trim - the quote is a
+  // flex-item BFC, so that margin would otherwise not collapse out of the box.
+  return baseBlock(style.paragraph);
 }
 
 function headingStyle(
@@ -125,7 +130,7 @@ function blockquoteStyle(style: MarkdownStyleInternal): CSSProperties {
     marginBottom: blockquote.marginBottom,
     marginInlineStart: 0, // reset UA default (40px in LTR, auto in RTL)
     marginInlineEnd: 0,
-    paddingInlineStart: blockquote.gapWidth,
+    paddingInlineStart: blockquote.gapWidth + blockquote.padding,
     paddingInlineEnd: blockquote.padding,
     paddingTop: blockquote.padding,
     paddingBottom: blockquote.padding,

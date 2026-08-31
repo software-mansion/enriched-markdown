@@ -1,4 +1,4 @@
-package com.swmansion.enriched.markdown.views
+package com.swmansion.enriched.markdown.segments
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -153,11 +153,11 @@ class TableContainerView(
     isHeader: Boolean,
     alignment: Layout.Alignment,
   ): SpannableString {
-    val root = MarkdownASTNode(NodeType.Document, children = listOf(MarkdownASTNode(NodeType.Paragraph, children = node.children)))
+    val paragraph = MarkdownASTNode(NodeType.Paragraph, children = node.children)
     val cellParagraphStyle = styleConfig.tableCellParagraphStyle(tableStyle, isHeader)
     return styleConfig
       .withParagraphOverride(cellParagraphStyle) {
-        Renderer().apply { configure(styleConfig, context) }.renderDocument(root, onLinkPress, onLinkLongPress)
+        Renderer().apply { configure(styleConfig, context) }.renderContent(listOf(paragraph), onLinkPress, onLinkLongPress)
       }.apply {
         if (isNotEmpty()) {
           if (isHeader) setSpan(HeaderTypefaceSpan(styleConfig.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD), 0, length, 33)
@@ -476,7 +476,7 @@ class TableContainerView(
                 config.withParagraphOverride(cellParagraphStyle) {
                   Renderer()
                     .apply { configure(config, context) }
-                    .renderDocument(MarkdownASTNode(NodeType.Document, children = listOf(paragraph)), null, null)
+                    .renderContent(listOf(paragraph), null, null)
                 }
               styledText.replaceMathSpansWithPlaceholders(context)
               if (isHeader && styledText.isNotEmpty()) {

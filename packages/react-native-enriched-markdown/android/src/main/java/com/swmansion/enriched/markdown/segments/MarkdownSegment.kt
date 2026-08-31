@@ -1,4 +1,4 @@
-package com.swmansion.enriched.markdown.utils.common
+package com.swmansion.enriched.markdown.segments
 
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 
@@ -17,6 +17,10 @@ sealed interface MarkdownSegment {
   ) : MarkdownSegment
 
   data class CodeBlock(
+    val node: MarkdownASTNode,
+  ) : MarkdownSegment
+
+  data class Blockquote(
     val node: MarkdownASTNode,
   ) : MarkdownSegment
 }
@@ -53,6 +57,11 @@ fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
       MarkdownASTNode.NodeType.CodeBlock -> {
         flushTextNodes()
         segments.add(MarkdownSegment.CodeBlock(child))
+      }
+
+      MarkdownASTNode.NodeType.Blockquote -> {
+        flushTextNodes()
+        segments.add(MarkdownSegment.Blockquote(child))
       }
 
       else -> {

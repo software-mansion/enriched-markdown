@@ -77,17 +77,12 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
                                                           ENRMWritingDirectionMode writingDirectionMode,
                                                           NSWritingDirection resolvedLayoutDirection)
 {
-  MarkdownASTNode *temporaryRoot = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
-  for (MarkdownASTNode *child in cellNode.children) {
-    [temporaryRoot addChild:child];
-  }
-
   AttributedRenderer *renderer = [[AttributedRenderer alloc] initWithConfig:cellConfig];
   RenderContext *context = [RenderContext new];
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
 
-  NSMutableAttributedString *attributedText = [renderer renderRoot:temporaryRoot context:context];
+  NSMutableAttributedString *attributedText = [renderer renderNodes:cellNode.children context:context block:nil];
 
   [context applyLinkAttributesToString:attributedText];
 

@@ -1,0 +1,41 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - block
+  - advanced
+  - blockquote
+  - code_block
+  - text
+---
+# checks a fenced code block nested INSIDE a blockquote, and inside a nested quote -
+# the GFM recursive-container behavior from #608 where a quoted code block becomes a
+# real code-block container laid out within the quote's box (not inline text).
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        > Install the package:
+        >
+        > ```bash
+        > npm install my-package
+        > ```
+        >
+        > then import it.
+
+        > Outer quote
+        > > Nested quote with a code block:
+        > >
+        > > ```js
+        > > import pkg from 'my-package'
+        > > ```
+        > >
+        > > done.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'blockquote_nested_code_block_combo_display'
