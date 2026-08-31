@@ -27,6 +27,8 @@ enum MarkdownAttribute {
     static let headingLevel = NSAttributedString.Key("EnrichedMarkdownHeadingLevel")
     static let strong = NSAttributedString.Key("EnrichedMarkdownStrong")
     static let emphasis = NSAttributedString.Key("EnrichedMarkdownEmphasis")
+    static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
+    static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
     static let blockquoteDepth = NSAttributedString.Key("EnrichedMarkdownBlockquoteDepth")
     static let blockquoteBackgroundColor = NSAttributedString.Key("EnrichedMarkdownBlockquoteBackgroundColor")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")

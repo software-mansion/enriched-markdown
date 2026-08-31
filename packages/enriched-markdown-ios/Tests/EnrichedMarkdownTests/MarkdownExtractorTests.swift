@@ -234,6 +234,20 @@ final class MarkdownExtractorTests: XCTestCase {
         )
     }
 
+    func testExtractsSuperscript() {
+        XCTAssertEqual(
+            extractSelecting("2", in: "x^2^ equals four", flags: Md4cFlags(superscript: true)),
+            "^2^"
+        )
+    }
+
+    func testExtractsSubscript() {
+        XCTAssertEqual(
+            extractSelecting("2", in: "Water is H~2~O", flags: Md4cFlags(subscript: true)),
+            "~2~"
+        )
+    }
+
     func testLinkIsNotWrappedInUnderline() {
         XCTAssertEqual(
             extractSelecting("swmansion", in: "Visit [swmansion](https://swmansion.com) now."),

@@ -10,9 +10,10 @@ final class TableThemingTests: XCTestCase {
 
     private func attachment(
         for markdown: String,
-        config: MarkdownStyleConfig = .baseline()
+        config: MarkdownStyleConfig = .baseline(),
+        flags: Md4cFlags = .commonMark
     ) -> TableAttachment? {
-        let rendered = MarkdownRenderer.render(markdown, config: config)
+        let rendered = MarkdownRenderer.render(markdown, config: config, flags: flags)
         var found: TableAttachment?
         rendered.enumerateAttribute(.attachment, in: NSRange(location: 0, length: rendered.length)) { value, _, _ in
             if let table = value as? TableAttachment { found = table }
@@ -103,6 +104,43 @@ final class TableThemingTests: XCTestCase {
         XCTAssertEqual(rightStyle?.alignment, .right)
         XCTAssertEqual(centerStyle?.minimumLineHeight, 20)
         XCTAssertEqual(centerStyle?.maximumLineHeight, 20)
+    }
+
+    // Cells are assembled separately from the document string, so the
+    // baseline-shift pass has to run for them explicitly.
+    func testSuperscriptAndSubscriptShiftInsideCells() {
+        guard let table = attachment(
+            for: "| A | B |\n|---|---|\n| x^2^ | H~2~O |",
+            flags: Md4cFlags(superscript: true, subscript: true)
+        ) else { return XCTFail("no table") }
+
+        let supCell = table.model.rows[1][0].attributedText
+        let subCell = table.model.rows[1][1].attributedText
+        XCTAssertEqual(supCell.string, "x2")
+        XCTAssertEqual(subCell.string, "H2O")
+
+        let baseSize = fontSize(in: supCell, at: 0)
+        XCTAssertEqual(fontSize(in: supCell, at: 1), baseSize * 0.75, accuracy: 0.001)
+        XCTAssertEqual(fontSize(in: subCell, at: 1), baseSize * 0.75, accuracy: 0.001)
+
+        XCTAssertEqual(
+            baselineOffset(in: supCell, at: 1) - baselineOffset(in: supCell, at: 0),
+            baseSize * 0.35,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            baselineOffset(in: subCell, at: 1) - baselineOffset(in: subCell, at: 0),
+            -baseSize * 0.20,
+            accuracy: 0.001
+        )
+    }
+
+    private func fontSize(in cell: NSAttributedString, at index: Int) -> CGFloat {
+        (cell.attribute(.font, at: index, effectiveRange: nil) as? UIFont)?.pointSize ?? 0
+    }
+
+    private func baselineOffset(in cell: NSAttributedString, at index: Int) -> CGFloat {
+        CGFloat((cell.attribute(.baselineOffset, at: index, effectiveRange: nil) as? NSNumber)?.doubleValue ?? 0)
     }
 
     func testHeaderFontFamilyOverridesHeaderCellsOnly() {

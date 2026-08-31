@@ -143,6 +143,8 @@ The `MarkdownTheme` builder supports these elements:
 | `Emphasis()` | Italic text |
 | `Strikethrough()` | Struck-through text |
 | `Underline()` | Underlined text (`Md4cFlags(underline: true)`) |
+| `Superscript()` | Superscript text (`Md4cFlags(superscript: true)`) |
+| `Subscript()` | Subscript text (`Md4cFlags(subscript: true)`) |
 | `Code()` | Inline code |
 | `CodeBlock()` | Fenced code blocks |
 | `Blockquote()` | Block quotes |
@@ -164,6 +166,7 @@ Element-specific modifiers include:
 - **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
+- **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
 - **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius` / `.borderRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.align`
 - **BlockImage:** `.height`, `.borderRadius`
 - **InlineImage:** `.size`
@@ -194,16 +197,16 @@ public struct Md4cFlags: Equatable, Sendable {
   public var hardSoftBreaks: Bool       // single newlines become visible line breaks
   public var preserveBlankLines: Bool   // consecutive blank lines render as extra empty lines
   public var permissiveAutolinks: Bool  // bare URLs become links (default true)
+  public var superscript: Bool          // ^text^ renders as superscript
+  public var subscript: Bool            // ~text~ renders as subscript
   public var latexMath: Bool
-  public var superscript: Bool
-  public var subscript: Bool
   public var highlight: Bool
 
   public static let commonMark: Md4cFlags
 }
 ```
 
-`underline`, `hardSoftBreaks`, `preserveBlankLines`, and `permissiveAutolinks` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, and `subscript` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
 
 ### `.markdownTheme`
 
@@ -365,6 +368,8 @@ and dark mode.
 - **Bold**, *italic*, `inline code`
 - ~~Strikethrough~~ (`~~text~~`)
 - Underline (`__text__` with `Md4cFlags(underline: true)`)
+- Superscript (`^text^` with `Md4cFlags(superscript: true)`)
+- Subscript (`~text~` with `Md4cFlags(subscript: true)`)
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists

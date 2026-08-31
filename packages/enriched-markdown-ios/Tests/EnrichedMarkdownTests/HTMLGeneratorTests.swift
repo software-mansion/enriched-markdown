@@ -74,6 +74,18 @@ final class HTMLGeneratorTests: XCTestCase {
         XCTAssertTrue(result.contains("<u>under</u>"))
     }
 
+    func testSuperscriptEmitsSup() {
+        let result = html(for: "x^2^", flags: Md4cFlags(superscript: true))
+
+        XCTAssertTrue(result.contains("<sup>2</sup>"))
+    }
+
+    func testSubscriptEmitsSub() {
+        let result = html(for: "H~2~O", flags: Md4cFlags(subscript: true))
+
+        XCTAssertTrue(result.contains("<sub>2</sub>"))
+    }
+
     func testLinkCarriesHrefAndStyle() {
         let result = html(for: "[press](https://swmansion.com)")
 
