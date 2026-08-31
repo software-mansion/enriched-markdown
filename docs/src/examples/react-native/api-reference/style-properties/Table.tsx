@@ -12,7 +12,8 @@ export default function App() {
   const isDark = useColorScheme() === 'dark';
 
   // Tables need flavor="github". The header and alternating rows each tint
-  // separately; borderRadius rounds the whole grid.
+  // separately; borderRadius rounds the whole grid. align shrinks the table to
+  // its content width and centers it instead of filling the container.
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
     table: {
@@ -23,6 +24,7 @@ export default function App() {
       rowOddBackgroundColor: isDark ? '#2a2540' : '#f5f3ff',
       borderColor: isDark ? '#6d28d9' : '#c4b5fd',
       borderRadius: 10,
+      align: 'center' as const,
     },
   };
 

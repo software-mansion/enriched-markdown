@@ -10,7 +10,9 @@ export default function App() {
   const isDark = useColorScheme() === 'dark';
 
   // borderWidth and gapWidth set the accent bar; backgroundColor tints the
-  // whole quote. An amber callout that holds up in both schemes.
+  // whole quote. padding insets the text from the box edges and borderRadius
+  // rounds the corners, turning the bar into a filled card. An amber callout
+  // that holds up in both schemes.
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
     blockquote: {
@@ -19,6 +21,8 @@ export default function App() {
       backgroundColor: isDark ? '#3a2f14' : '#fef3c7',
       borderWidth: 5,
       gapWidth: 14,
+      padding: 12,
+      borderRadius: 10,
     },
   };
 

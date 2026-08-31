@@ -2,19 +2,15 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { defaultMarkdownStyle } from './theme';
 
-const markdown =
-  'Mix **bold**, *italic*, a [link](https://docs.swmansion.com), and `inline code` in one line.';
+const markdown = 'Call `useMemo()` to memoize the `markdownStyle` prop.';
 
 export default function App() {
   const isDark = useColorScheme() === 'dark';
 
-  // Inline elements inherit the block typography, then layer their own color
-  // (and, for links, an underline) on top.
+  // Inline code renders as a chip: color, backgroundColor, and borderColor tint
+  // it; fontSize overrides the inherited block size when set.
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
-    strong: { color: isDark ? '#fca5a5' : '#dc2626' },
-    em: { color: isDark ? '#c4b5fd' : '#7c3aed' },
-    link: { color: isDark ? '#7dd3fc' : '#0284c7', underline: true },
     code: {
       color: isDark ? '#fbcfe8' : '#be185d',
       backgroundColor: isDark ? '#3b1f2e' : '#fce7f3',

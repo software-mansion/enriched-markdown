@@ -11,7 +11,6 @@ import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/yo
 import CustomThemeSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/CustomTheme';
 import InheritanceSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Inheritance';
 import HeadingsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Headings';
-import InlineStylesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/InlineStyles';
 import CodeBlockSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/CodeBlock';
 import BlockquoteSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Blockquote';
 import ListSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/List';
@@ -19,6 +18,22 @@ import TaskListSrc from '!!raw-loader!@site/src/examples/react-native/api-refere
 import TableSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Table';
 import HighlightSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Highlight';
 import ThematicBreakSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/ThematicBreak';
+import DarkModeSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/DarkMode';
+import SyntaxColorsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/SyntaxColors';
+import BaseBlockSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/BaseBlock';
+import InlineCodeSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/InlineCode';
+import LinkSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Link';
+import StrongSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Strong';
+import EmphasisSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Emphasis';
+import StrikethroughSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Strikethrough';
+import UnderlineSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Underline';
+import ImageSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Image';
+import InlineImageSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/InlineImage';
+import MathBlockSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/MathBlock';
+import InlineMathSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/InlineMath';
+import SuperscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Superscript';
+import SubscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Subscript';
+import SpoilerSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Spoiler';
 
 # Style properties reference
 
@@ -40,7 +55,7 @@ You do not need to set anything to get a polished result. Every element ships wi
 - **Spacing.** Line height and block margins follow each platform's text conventions, so paragraphs, headings, and lists sit at a natural rhythm out of the box.
 - **Colors.** Text, links, code, blockquotes, and tables start from light-mode color defaults. See [Dark mode](#dark-mode) to switch palettes with the system color scheme.
 
-Override any of these through `markdownStyle`: you set only the properties you want to change, and everything else keeps its default.
+Override any of these through `markdownStyle` prop. You set only the properties you want to change, and everything else keeps its default.
 
 ## Style inheritance
 
@@ -60,7 +75,7 @@ Each block type extends this base style with its own specific properties (e.g. `
 
 Inline styles (strong, emphasis, links, inline code, etc.) automatically inherit the base typography properties from their containing block. This means inline elements use the block's `fontSize`, `fontFamily`, `fontWeight`, and `color` as their foundation, then apply their own additional styling on top.
 
-In the playground below, only the two blocks set a size and color: the heading uses `fontSize: 24` with a blue `color`, the list uses `fontSize: 16` with a gray `color`. Every inline element leaves both unset, so each inherits from its block and adds only its own emphasis: **bold** and *italic* take the block size and color and add weight or slant, the link takes the size and adds its own color plus an underline, and `inline code` takes the size and color and adds only a background chip. Change a block's `color` and every inline element inside it follows.
+In the playground below, only the two blocks set a size and color: the heading uses `fontSize: 24` with a blue `color`, the list uses `fontSize: 16` with a gray `color`. Every inline element leaves both unset, so each inherits from its block and adds only its own emphasis: **bold** and _italic_ take the block size and color and add weight or slant, the link takes the size and adds its own color plus an underline, and `inline code` takes the size and color and adds only a background chip. Change a block's `color` and every inline element inside it follows.
 
 <LivePreview src={InheritanceSrc} />
 
@@ -104,17 +119,21 @@ The library provides sensible default styles for all Markdown elements out of th
 
 <LivePreview src={CustomThemeSrc} />
 
-:::note
-**Performance:** Memoize the `markdownStyle` prop with `useMemo` to avoid unnecessary re-renders:
+:::tip
+Memoize the `markdownStyle` prop with `useMemo` to avoid unnecessary re-renders:
 
 ```tsx
 import type { MarkdownStyle } from 'react-native-enriched-markdown';
 
-const markdownStyle: MarkdownStyle = useMemo(() => ({
-  paragraph: { fontSize: 16 },
-  h1: { fontSize: 32 },
-}), []);
+const markdownStyle: MarkdownStyle = useMemo(
+  () => ({
+    paragraph: { fontSize: 16 },
+    h1: { fontSize: 32 },
+  }),
+  [],
+);
 ```
+
 :::
 
 ## Dark mode
@@ -123,70 +142,33 @@ The library ships with light-mode color defaults. It does not include a `colorSc
 
 To support dark mode, create `MarkdownStyle` objects for each color scheme and switch between them using `useColorScheme()`. Your values always win over the defaults - you only need to specify the colors you want to change:
 
-```tsx
-import { useColorScheme } from 'react-native';
-import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
-import type { MarkdownStyle } from 'react-native-enriched-markdown';
+<LivePreview src={DarkModeSrc} />
 
-const lightMarkdownStyle: MarkdownStyle = {
-  blockquote: { backgroundColor: '#F9FAFB', borderColor: '#D1D5DB' },
-  code: { color: '#E01E5A', backgroundColor: '#FDF2F4' },
-  table: {
-    headerBackgroundColor: '#F3F4F6',
-    rowEvenBackgroundColor: '#FFFFFF',
-    rowOddBackgroundColor: '#F9FAFB',
-  },
-  // ... override any other colors for light mode
-};
-
-const darkMarkdownStyle: MarkdownStyle = {
-  paragraph: { color: '#E5E7EB' },
-  blockquote: { backgroundColor: '#1F2937', borderColor: '#4B5563' },
-  code: { color: '#F87171', backgroundColor: '#1F2937' },
-  table: {
-    headerBackgroundColor: '#1F2937',
-    rowEvenBackgroundColor: '#111827',
-    rowOddBackgroundColor: '#1A1A2E',
-    borderColor: '#374151',
-  },
-  // ... override any other colors for dark mode
-};
-
-function App() {
-  const colorScheme = useColorScheme();
-
-  return (
-    <EnrichedMarkdownText
-      markdown={content}
-      markdownStyle={colorScheme === 'dark' ? darkMarkdownStyle : lightMarkdownStyle}
-    />
-  );
-}
-```
-
-:::note
-**Performance:** Define style objects outside the component (as shown above) or wrap them in `useMemo` so the same object reference is reused across renders.
-:::
+As you may have noticed in the other examples throughout this documentation, every interactive playground already follows the same color scheme as this page: each one derives an `isDark` flag from `useColorScheme()` and picks its palette from it, so toggling the site between light and dark re-themes the preview live. The example above does the same with two hand-authored palettes; edit either object in the Code tab and flip the site theme to see the switch happen.
 
 ## Property reference
 
-### Block styles (paragraph, h1–h6, blockquote, list, codeBlock)
+### Block styles (paragraph, h1-h6, blockquote, list, codeBlock)
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fontSize` | `number` | Font size in points |
-| `fontFamily` | `string` | Font family name |
-| `fontWeight` | `string` | Font weight |
-| `color` | `string` | Text color |
-| `marginTop` | `number` | Top margin |
-| `marginBottom` | `number` | Bottom margin |
-| `lineHeight` | `number` | Line height |
+| Property       | Type     | Default              | Description         |
+| -------------- | -------- | -------------------- | ------------------- |
+| `fontSize`     | `number` | `16`                 | Font size in points |
+| `fontFamily`   | `string` | System font          | Font family name    |
+| `fontWeight`   | `string` | `normal`             | Font weight         |
+| `color`        | `string` | `#1F2937`            | Text color          |
+| `marginTop`    | `number` | `0`                  | Top margin          |
+| `marginBottom` | `number` | `16`                 | Bottom margin       |
+| `lineHeight`   | `number` | `24` iOS / `26` Android | Line height      |
 
-### Paragraph and heading-specific (paragraph, h1–h6)
+These properties are shared by every block element - set any of them on a `paragraph`, `h1`-`h6`, `blockquote`, `list`, or `codeBlock` key. The defaults above are the `paragraph` (body) values; other block types override several of them - headings use sizes `30/24/20/18/16/14` at weight `bold` with an `8` bottom margin, `codeBlock` uses the monospace font and `table` the system font both at size `14`, and `blockquote` uses color `#4B5563`. The playground below sets these on a heading and a paragraph; the element-specific sections that follow layer their own properties on top.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `textAlign` | `'auto' \| 'left' \| 'right' \| 'center' \| 'justify'` | Text alignment (default: `'left'`) |
+<LivePreview src={BaseBlockSrc} />
+
+### Paragraph and heading-specific (paragraph, h1-h6)
+
+| Property    | Type                                                   | Default  | Description    |
+| ----------- | ------------------------------------------------------ | -------- | -------------- |
+| `textAlign` | `'auto' \| 'left' \| 'right' \| 'center' \| 'justify'` | `'auto'` | Text alignment |
 
 Each heading level (`h1`–`h6`) and `paragraph` is styled by its own key. Give each level its own size and color.
 
@@ -194,38 +176,46 @@ Each heading level (`h1`–`h6`) and `paragraph` is styled by its own key. Give 
 
 ### Blockquote-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `borderColor` | `string` | Left border color |
-| `borderWidth` | `number` | Left border width |
-| `gapWidth` | `number` | Gap between border and text |
-| `backgroundColor` | `string` | Background color |
+| Property          | Type     | Default     | Description                               |
+| ----------------- | -------- | ----------- | ----------------------------------------- |
+| `borderColor`     | `string` | `#D1D5DB`   | Left border color                         |
+| `borderWidth`     | `number` | `3`         | Left border width                         |
+| `gapWidth`        | `number` | `16`        | Gap between border and text               |
+| `backgroundColor` | `string` | `#F9FAFB`   | Background color                          |
+| `borderRadius`    | `number` | `0`         | Corner radius of the blockquote box       |
+| `padding`         | `number` | `0`         | Inner padding around the blockquote text  |
 
 <LivePreview src={BlockquoteSrc} />
 
 ### List-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `bulletColor` | `string` | Bullet point color |
-| `bulletSize` | `number` | Bullet point size |
-| `markerMinWidth` | `number` | Minimum reserved marker column width (floors the natural width of every list type) |
-| `markerColor` | `string` | Number marker color |
-| `markerFontWeight` | `string` | Number marker font weight |
-| `gapWidth` | `number` | Gap between marker and text |
-| `marginLeft` | `number` | Left margin for nesting |
+| Property           | Type     | Default   | Description                                                                        |
+| ------------------ | -------- | --------- | ---------------------------------------------------------------------------------- |
+| `bulletColor`      | `string` | `#6B7280` | Bullet point color                                                                 |
+| `bulletSize`       | `number` | `6`       | Bullet point size                                                                  |
+| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type) |
+| `markerColor`      | `string` | `#6B7280` | Number marker color                                                                |
+| `markerFontWeight` | `string` | `'500'`   | Number marker font weight                                                          |
+| `gapWidth`         | `number` | `12`      | Gap between marker and text                                                        |
+| `marginLeft`       | `number` | `24`      | Left margin for nesting                                                            |
+| `itemSpacing`      | `number` | `0`       | Vertical spacing added between consecutive list items (including nested ones). Adds no space above the first item or below the last |
+
+:::note
+On web, lists render with the browser's native bullets and numbers, so the marker styling props - `bulletColor`, `bulletSize`, `markerColor`, `markerFontWeight`, `markerMinWidth`, and `gapWidth` - have no effect there. `marginLeft` and `itemSpacing` still apply on all platforms.
+:::
 
 <LivePreview src={ListSrc} />
 
 ### Code block-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `backgroundColor` | `string` | Background color |
-| `borderColor` | `string` | Border color |
-| `borderRadius` | `number` | Corner radius |
-| `borderWidth` | `number` | Border width |
-| `padding` | `number` | Inner padding |
+| Property          | Type                    | Default             | Description                                                                            |
+| ----------------- | ----------------------- | ------------------- | ------------------------------------------------------------------------------------- |
+| `backgroundColor` | `string`                | `#1F2937`           | Background color                                                                       |
+| `borderColor`     | `string`                | `#374151`           | Border color                                                                          |
+| `borderRadius`    | `number`                | `8`                 | Corner radius                                                                         |
+| `borderWidth`     | `number`                | `1`                 | Border width                                                                          |
+| `padding`         | `number`                | `16`                | Inner padding                                                                         |
+| `syntaxColors`    | `CodeBlockSyntaxColors` | GitHub-dark palette | Per-token syntax highlight colors. To learn more, see [Syntax colors](#syntax-colors) |
 
 :::note
 Inside list items, code blocks (background included) indent to the item's content column.
@@ -233,176 +223,251 @@ Inside list items, code blocks (background included) indent to the item's conten
 
 <LivePreview src={CodeBlockSrc} />
 
+#### Syntax colors
+
+The `syntaxColors` key sets a color per syntax token type for fenced code blocks, keyed on the [tree-sitter](https://tree-sitter.github.io/tree-sitter/) highlight token names. Pass only the tokens you want to recolor; any key you omit falls back to the default palette. Four tokens - `operator`, `punctuation`, `variable`, and `embedded` - inherit the code block's base `color` by default rather than a fixed palette value.
+
+To learn more about how code highlighting works, see the [Code highlighting](/rich-text-formatting/code-highlighting) guide.
+
+| Token         | Default      | Description                                                        |
+| ------------- | ------------ | ----------------------------------------------------------------- |
+| `keyword`     | `#FF7B72`    | Language keywords (e.g. `if`, `return`, `const`)                  |
+| `operator`    | Base `color` | Operators (e.g. `+`, `=>`). Inherits the base `color` when omitted |
+| `punctuation` | Base `color` | Punctuation such as braces, commas, and semicolons. Inherits the base `color` when omitted |
+| `string`      | `#A5D6FF`    | String literals                                                   |
+| `number`      | `#79C0FF`    | Numeric literals                                                  |
+| `constant`    | `#79C0FF`    | Constants (e.g. `true`, `null`)                                   |
+| `comment`     | `#8B949E`    | Comments                                                          |
+| `function`    | `#D2A8FF`    | Function names                                                    |
+| `type`        | `#FFA657`    | Type names                                                        |
+| `variable`    | Base `color` | Variables. Inherits the base `color` when omitted                |
+| `property`    | `#79C0FF`    | Object properties and fields                                      |
+| `tag`         | `#7EE787`    | Markup tags (e.g. HTML or JSX element names)                      |
+| `attribute`   | `#79C0FF`    | Markup attributes                                                 |
+| `embedded`    | Base `color` | Embedded content such as interpolations. Inherits the base `color` when omitted |
+
+:::note
+Syntax colors only take visible effect when the optional syntax-highlighting module is compiled in; otherwise code blocks render uncolored. The module is native-only, so `syntaxColors` has no effect on the web build.
+:::
+
+<LivePreview src={SyntaxColorsSrc} unavailable unavailableLabel="Needs native highlighter" unavailableReason={<>iOS and Android only, and only with the syntax-highlighting module compiled in - the web build does not highlight code, so <code>syntaxColors</code> has no visible effect here. The source is shown for reference.</>} />
+
 ### Inline code-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fontFamily` | `string` | Font family for inline code. Uses the exact font face as-is. When not set, uses the platform's system monospace font (SF Mono on iOS, monospace on Android) |
-| `fontSize` | `number` | Font size in points. Defaults to the parent block's font size (1em). Set to customize the monospaced font size independently |
-| `color` | `string` | Text color |
-| `backgroundColor` | `string` | Background color |
-| `borderColor` | `string` | Border color |
+| Property          | Type     | Default            | Description                                                                                                                                                 |
+| ----------------- | -------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fontFamily`      | `string` | System monospace   | Font family for inline code. Uses the exact font face as-is. When not set, uses the platform's system monospace font (SF Mono on iOS, monospace on Android) |
+| `fontSize`        | `number` | Parent block size (1em) | Font size in points. Set to customize the monospaced font size independently                                |
+| `color`           | `string` | `#E01E5A`          | Text color                                                                                                                                                  |
+| `backgroundColor` | `string` | `#FDF2F4`          | Background color                                                                                                                                            |
+| `borderColor`     | `string` | `#F8D7DA`          | Border color                                                                                                                                                |
+
+<LivePreview src={InlineCodeSrc} />
 
 ### Link-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fontFamily` | `string` | Font family for links. Overrides the parent block's font family when set |
-| `color` | `string` | Link text color |
-| `underline` | `boolean` | Show underline |
+| Property          | Type      | Default         | Description                                                              |
+| ----------------- | --------- | --------------- | ------------------------------------------------------------------------ |
+| `fontFamily`      | `string`  | Inherits block  | Font family for links. Overrides the parent block's font family when set |
+| `color`           | `string`  | `#2563EB`       | Link text color                                                          |
+| `underline`       | `boolean` | `true`          | Show underline                                                          |
+| `backgroundColor` | `string`  | `transparent`   | Link background color                                                    |
+
+You can also style links per URL pattern through the top-level `linkVariants` key (a `Record<string, LinkStyle>` whose keys are regexes tested against the link URL). See [Mentions - Link variants](/rich-text-formatting/mentions).
+
+<LivePreview src={LinkSrc} />
 
 ### Strong-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fontFamily` | `string` | Font family for bold text. When not set, adds the bold trait to the parent block's font |
-| `fontWeight` | `'bold' \| 'normal'` | Controls whether bold is applied on top of the custom `fontFamily`. Defaults to `'bold'`. Set to `'normal'` to use the font face as-is. Only relevant when `fontFamily` is set |
-| `color` | `string` | Bold text color |
+| Property     | Type                 | Default          | Description                                                                                                                                               |
+| ------------ | -------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fontFamily` | `string`             | Inherits block   | Font family for bold text. When not set, adds the bold trait to the parent block's font                                                                   |
+| `fontWeight` | `'bold' \| 'normal'` | `'bold'`         | Controls whether bold is applied on top of the custom `fontFamily`. Set to `'normal'` to use the font face as-is. Only relevant when `fontFamily` is set |
+| `color`      | `string`             | Inherits block   | Bold text color                                                                                                                                           |
+
+<LivePreview src={StrongSrc} />
 
 ### Emphasis-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fontFamily` | `string` | Font family for italic text. When not set, adds the italic trait to the parent block's font |
-| `fontStyle` | `'italic' \| 'normal'` | Controls whether italic is applied on top of the custom `fontFamily`. Defaults to `'italic'`. Set to `'normal'` to use the font face as-is. Only relevant when `fontFamily` is set |
-| `color` | `string` | Italic text color |
+| Property     | Type                   | Default          | Description                                                                                                                                                   |
+| ------------ | ---------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fontFamily` | `string`               | Inherits block   | Font family for italic text. When not set, adds the italic trait to the parent block's font                                                                   |
+| `fontStyle`  | `'italic' \| 'normal'` | `'italic'`       | Controls whether italic is applied on top of the custom `fontFamily`. Set to `'normal'` to use the font face as-is. Only relevant when `fontFamily` is set |
+| `color`      | `string`               | Inherits block   | Italic text color                                                                                                                                             |
 
-The inline elements (`strong`, `em`, `link`, `code`) inherit the surrounding block's typography and add their own color on top. The playground restyles all four at once.
+The inline elements (`strong`, `em`, `link`, `code`) inherit the surrounding block's typography and add their own color on top.
 
-<LivePreview src={InlineStylesSrc} />
+<LivePreview src={EmphasisSrc} />
 
 ### Strikethrough-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `color` | `string` | Strikethrough line color (iOS only) |
+| Property | Type     | Default   | Description                                       |
+| -------- | -------- | --------- | ------------------------------------------------- |
+| `color`  | `string` | `#9CA3AF` | Strikethrough line color (iOS and web; on Android the strike uses the text color) |
+
+<LivePreview src={StrikethroughSrc} />
 
 ### Underline-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `color` | `string` | Underline color (iOS only) |
+Requires [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline), which makes `_text_` render as underline instead of emphasis.
+
+| Property | Type     | Default   | Description                              |
+| -------- | -------- | --------- | ---------------------------------------- |
+| `color`  | `string` | `#1F2937` | Underline color (iOS and web; on Android the underline uses the text color) |
+
+<LivePreview src={UnderlineSrc} />
 
 ### Highlight-specific
 
-Styles for highlighted text (`==text==`). Requires `md4cFlags={{ highlight: true }}` to enable the parser. Font size, family, and weight inherit from the surrounding block; only `color` and `backgroundColor` are overridden.
+Styles for highlighted text (`==text==`). Requires [`md4cFlags={{ highlight: true }}`](/react-native/api-reference/enriched-markdown-text#highlight) to enable the parser. Font size, family, and weight inherit from the surrounding block; only `color` and `backgroundColor` are overridden.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `color` | `string` | Text color inside the highlight. Inherits the block color when omitted |
-| `backgroundColor` | `string` | Background color of the highlight span. Default: `#FEF08A` |
+| Property          | Type     | Default          | Description                                                            |
+| ----------------- | -------- | ---------------- | ---------------------------------------------------------------------- |
+| `color`           | `string` | Inherits block   | Text color inside the highlight. Inherits the block color when omitted |
+| `backgroundColor` | `string` | `#FEF08A`        | Background color of the highlight span                                 |
 
 <LivePreview src={HighlightSrc} />
 
 ### Image-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `height` | `number` | Image height |
-| `borderRadius` | `number` | Corner radius |
-| `marginTop` | `number` | Top margin |
-| `marginBottom` | `number` | Bottom margin |
+| Property       | Type                                                     | Default             | Description                                                                                                              |
+| -------------- | -------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `height`       | `number`                                                 | `200`               | Fixed image height                                                                                                    |
+| `maxHeight`    | `number`                                                 | unset               | Maximum height the image is fitted into, preserving aspect ratio. Replaces `height` as the primary sizing knob when set |
+| `aspectRatio`  | `number`                                                 | unset               | Width / height ratio (e.g. `16 / 9`). The image fills the available width and derives its height from this ratio        |
+| `resizeMode`   | `'contain' \| 'cover' \| 'stretch' \| 'center' \| 'none'` | unset (`'cover'` when `maxHeight`/`aspectRatio` is set) | How the image fills its box (analogous to React Native `resizeMode`) |
+| `borderRadius` | `number`                                                 | `8`                 | Corner radius                                                                                                         |
+| `marginTop`    | `number`                                                 | `0`                 | Top margin                                                                                                            |
+| `marginBottom` | `number`                                                 | `16`                | Bottom margin                                                                                                         |
+
+Sizing precedence is `aspectRatio` > `maxHeight` > `height`: the first one set wins and the lower-priority knobs are ignored.
+
+<LivePreview src={ImageSrc} />
 
 ### Inline image-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `size` | `number` | Image size (square) |
+| Property | Type     | Default | Description         |
+| -------- | -------- | ------- | ------------------- |
+| `size`   | `number` | `20`    | Image size (square) |
+
+<LivePreview src={InlineImageSrc} />
 
 ### Thematic break (horizontal rule)-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `color` | `string` | Line color |
-| `height` | `number` | Line thickness |
-| `marginTop` | `number` | Top margin |
-| `marginBottom` | `number` | Bottom margin |
+| Property       | Type     | Default   | Description    |
+| -------------- | -------- | --------- | -------------- |
+| `color`        | `string` | `#E5E7EB` | Line color     |
+| `height`       | `number` | `1`       | Line thickness |
+| `marginTop`    | `number` | `24`      | Top margin     |
+| `marginBottom` | `number` | `24`      | Bottom margin  |
 
 <LivePreview src={ThematicBreakSrc} />
 
 ### Table-specific
 
-Table styles only apply when `flavor="github"` is set. Tables inherit the base block styles (`fontSize`, `fontFamily`, `fontWeight`, `color`, `marginTop`, `marginBottom`, `lineHeight`) and add the following:
+Table styles only apply when [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) is set. Tables inherit the base block styles (`fontSize`, `fontFamily`, `fontWeight`, `color`, `marginTop`, `marginBottom`, `lineHeight`) and add the following:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `headerFontFamily` | `string` | Font family for header cells (falls back to `fontFamily` if not set) |
-| `headerBackgroundColor` | `string` | Background color for the header row |
-| `headerTextColor` | `string` | Text color for the header row |
-| `rowEvenBackgroundColor` | `string` | Background color for even data rows |
-| `rowOddBackgroundColor` | `string` | Background color for odd data rows |
-| `borderColor` | `string` | Color of the table grid lines |
-| `borderWidth` | `number` | Width of the table grid lines |
-| `borderRadius` | `number` | Corner radius of the table container |
-| `cellPaddingHorizontal` | `number` | Horizontal padding inside cells |
-| `cellPaddingVertical` | `number` | Vertical padding inside cells |
+| Property                 | Type                            | Default               | Description                                                                                                    |
+| ------------------------ | ------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `headerFontFamily`       | `string`                        | Inherits `fontFamily` | Font family for header cells (falls back to `fontFamily` if not set)                                          |
+| `headerBackgroundColor`  | `string`                        | `#F3F4F6`             | Background color for the header row                                                                           |
+| `headerTextColor`        | `string`                        | `#111827`             | Text color for the header row                                                                                 |
+| `rowEvenBackgroundColor` | `string`                        | `#FFFFFF`             | Background color for even data rows                                                                           |
+| `rowOddBackgroundColor`  | `string`                        | `#F9FAFB`             | Background color for odd data rows                                                                            |
+| `borderColor`            | `string`                        | `#E5E7EB`             | Color of the table grid lines                                                                                |
+| `borderWidth`            | `number`                        | `1`                   | Width of the table grid lines                                                                                 |
+| `borderRadius`           | `number`                        | `6`                   | Corner radius of the table container                                                                         |
+| `cellPaddingHorizontal`  | `number`                        | `12`                  | Horizontal padding inside cells                                                                              |
+| `cellPaddingVertical`    | `number`                        | `8`                   | Vertical padding inside cells                                                                                |
+| `horizontalOverflow`     | `number`                        | `0`                   | Extra width (points) a table may extend beyond the container edges, letting a wide table bleed into the surrounding padding as it scrolls. No effect on web |
+| `align`                  | `'left' \| 'center' \| 'right'` | unset                 | Horizontal alignment of the whole table within the container. Only applies when the table is narrower than the container; overflowing tables always start at their beginning |
 
 <LivePreview src={TableSrc} />
 
 ### Task list-specific
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `checkedColor` | `string` | Background color of checked checkbox |
-| `borderColor` | `string` | Border color of unchecked checkbox |
-| `checkmarkColor` | `string` | Color of the checkmark inside checked checkbox |
-| `checkboxSize` | `number` | Size of the checkbox (defaults to 90% of list font size) |
-| `checkboxBorderRadius` | `number` | Corner radius of the checkbox |
-| `checkedTextColor` | `string` | Text color for checked items |
-| `checkedStrikethrough` | `boolean` | Whether to apply strikethrough to checked items |
+| Property               | Type      | Default                          | Description                                          |
+| ---------------------- | --------- | -------------------------------- | --------------------------------------------------- |
+| `checkedColor`         | `string`  | `#007AFF` iOS / `#2196F3` Android | Background color of checked checkbox                 |
+| `borderColor`          | `string`  | `#9E9E9E`                        | Border color of unchecked checkbox. No effect on web |
+| `checkmarkColor`       | `string`  | `#FFFFFF`                        | Color of the checkmark inside checked checkbox. No effect on web |
+| `checkboxSize`         | `number`  | 90% of list font size            | Size of the checkbox                                 |
+| `checkboxBorderRadius` | `number`  | `3`                              | Corner radius of the checkbox                        |
+| `checkedTextColor`     | `string`  | `#000000`                        | Text color for checked items                         |
+| `checkedStrikethrough` | `boolean` | `false`                          | Whether to apply strikethrough to checked items      |
+
+:::note
+On web, the checkbox is the browser's native `<input type="checkbox">` tinted via `accentColor` (`checkedColor`). Its `borderColor` and `checkmarkColor` are drawn by the browser and cannot be overridden.
+:::
 
 <LivePreview src={TaskListSrc} />
 
 ### Math block-specific
 
-Styles for block-level LaTeX math (`$$...$$`). Block math is rendered as a standalone display element and only applies when `flavor="github"` is set.
+Styles for block-level LaTeX math (`$$...$$`). Block math is rendered as a standalone display element and only applies when [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) is set. Rendering also requires [`md4cFlags={{ latexMath: true }}`](/react-native/api-reference/enriched-markdown-text#latexmath), which is on by default.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fontSize` | `number` | Font size used when rendering the equation |
-| `color` | `string` | Equation text color |
-| `backgroundColor` | `string` | Background color of the math block container |
-| `padding` | `number` | Inner padding around the equation |
-| `marginTop` | `number` | Top margin |
-| `marginBottom` | `number` | Bottom margin |
-| `textAlign` | `'left' \| 'center' \| 'right'` | Horizontal alignment of the equation (default: `'center'`) |
+| Property          | Type                            | Default      | Description                                  |
+| ----------------- | ------------------------------- | ------------ | -------------------------------------------- |
+| `fontSize`        | `number`                        | `20`         | Font size used when rendering the equation   |
+| `color`           | `string`                        | `#1F2937`    | Equation text color                          |
+| `backgroundColor` | `string`                        | `#F3F4F6`    | Background color of the math block container |
+| `padding`         | `number`                        | `12`         | Inner padding around the equation            |
+| `marginTop`       | `number`                        | `0`          | Top margin                                   |
+| `marginBottom`    | `number`                        | `16`         | Bottom margin                                |
+| `textAlign`       | `'left' \| 'center' \| 'right'` | `'center'`   | Horizontal alignment of the equation         |
+
+<LivePreview src={MathBlockSrc} />
 
 ### Inline math-specific
 
 Styles for inline LaTeX math (`$...$`). Inline math is rendered within the surrounding text flow.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `color` | `string` | Equation text color |
+| Property | Type     | Default   | Description         |
+| -------- | -------- | --------- | ------------------- |
+| `color`  | `string` | `#1F2937` | Equation text color |
+
+<LivePreview src={InlineMathSrc} />
 
 ### Spoiler-specific
 
-Styles for spoiler text (`||hidden text||`). Spoiler text is concealed behind an overlay (controlled by the `spoilerOverlay` prop) until the user taps to reveal it.
+Styles for spoiler text (`||hidden text||`). The text is concealed behind an overlay until the user taps to reveal it.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `color` | `string` | Color used by all presets for the spoiler overlay |
-| `particles.density` | `number` | Density of the particle field (higher = more particles). Default: `8` |
-| `particles.speed` | `number` | Speed of particle movement. Default: `20` |
-| `solid.borderRadius` | `number` | Corner radius of the solid spoiler overlay rectangles. Default: `4` |
+Which overlay preset is used - `'particles'` or `'solid'` - is not a style property; it is chosen with the [`spoilerOverlay`](/react-native/api-reference/enriched-markdown-text#spoileroverlay) prop on the component. The keys below only tune appearance: `color` applies to both presets, while `particles.*` and `solid.*` each affect only their matching preset.
+
+:::note
+The spoiler overlay is iOS and Android only - the web build does not render it, so none of the spoiler style properties below have any effect on web.
+:::
+
+| Property             | Type     | Default   | Description                                             |
+| -------------------- | -------- | --------- | ------------------------------------------------------ |
+| `color`              | `string` | `#374151` | Color used by all presets for the spoiler overlay      |
+| `particles.density`  | `number` | `8`       | Density of the particle field (higher = more particles) |
+| `particles.speed`    | `number` | `20`      | Speed of particle movement                             |
+| `solid.borderRadius` | `number` | `4`       | Corner radius of the solid spoiler overlay rectangles  |
+
+<LivePreview src={SpoilerSrc} unavailable unavailableReason={<>iOS and Android only - the web build does not render the spoiler overlay, so these properties have no visible effect here. The source is shown for reference.</>} />
 
 ### Superscript-specific
 
-Styles for superscript text (`^text^`). Requires `md4cFlags={{ superscript: true }}` to enable the parser.
+Styles for superscript text (`^text^`). Requires [`md4cFlags={{ superscript: true }}`](/react-native/api-reference/enriched-markdown-text#superscript) to enable the parser.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fontScale` | `number` | Font size as a fraction of the surrounding text size. Default: `0.75` (iOS/macOS/web), `0.65` (Android) |
-| `baselineOffsetScale` | `number` | Vertical shift upward as a fraction of the surrounding text size. Default: `0.35` |
+| Property              | Type     | Default                                | Description                                                       |
+| --------------------- | -------- | -------------------------------------- | ---------------------------------------------------------------- |
+| `fontScale`           | `number` | `0.75` (iOS/macOS/web), `0.65` (Android) | Font size as a fraction of the surrounding text size             |
+| `baselineOffsetScale` | `number` | `0.35`                                 | Vertical shift upward as a fraction of the surrounding text size |
+
+<LivePreview src={SuperscriptSrc} />
 
 ### Subscript-specific
 
-Styles for subscript text (`~text~`). Requires `md4cFlags={{ subscript: true }}` to enable the parser. Note: enabling subscript changes the behavior of single tildes - `~text~` becomes subscript instead of strikethrough.
+Styles for subscript text (`~text~`). Requires [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to enable the parser. Note: enabling subscript changes the behavior of single tildes - `~text~` becomes subscript instead of strikethrough.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fontScale` | `number` | Font size as a fraction of the surrounding text size. Default: `0.75` (iOS/macOS/web), `0.65` (Android) |
-| `baselineOffsetScale` | `number` | Vertical shift downward as a fraction of the surrounding text size. Default: `0.20` |
+| Property              | Type     | Default                                | Description                                                         |
+| --------------------- | -------- | -------------------------------------- | ------------------------------------------------------------------ |
+| `fontScale`           | `number` | `0.75` (iOS/macOS/web), `0.65` (Android) | Font size as a fraction of the surrounding text size               |
+| `baselineOffsetScale` | `number` | `0.20`                                 | Vertical shift downward as a fraction of the surrounding text size |
+
+<LivePreview src={SubscriptSrc} />
 
 :::note
 Android uses a slightly smaller default `fontScale` (`0.65`) compared to iOS (`0.75`) because Roboto has a larger x-height than San Francisco, making identically-scaled text appear visually larger on Android.
@@ -414,18 +479,18 @@ The editable [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-
 
 The base text appearance (font size, family, color) comes from the input's [`style`](/react-native/api-reference/enriched-markdown-text-input#style) prop, not from `markdownStyle`.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `strong.color` | `string` | Bold text color. Defaults to the input's text color |
-| `em.color` | `string` | Italic text color. Defaults to the input's text color |
-| `link.color` | `string` | Link text color. Default: `#2563EB` |
-| `link.underline` | `boolean` | Whether links are underlined. Default: `true` |
-| `link.backgroundColor` | `string` | Link background color. Default: `transparent` |
-| `linkVariants` | `Record<string, LinkStyle>` | Per-URL-pattern style overrides. Each key is a regex tested against the link URL; see [Mentions - Link variants](/rich-text-formatting/mentions) |
-| `spoiler.color` | `string` | Spoiler text color |
-| `spoiler.backgroundColor` | `string` | Spoiler background color |
-| `h1`–`h6` | `{ fontSize?, fontWeight?, color? }` | Per-level heading styling. Defaults match the renderer (sizes `30/24/20/18/16/14`, bold); omitted levels or fields fall back to those defaults |
-| `list.itemSpacing` | `number` | Vertical spacing (points) added above each list item (bullet and numbered alike) so items read as separate rows. Default: `0` |
+| Property                  | Type                                 | Default              | Description                                                                                                                    |
+| ------------------------- | ------------------------------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `strong.color`            | `string`                             | Input text color     | Bold text color                                                                                                               |
+| `em.color`                | `string`                             | Input text color     | Italic text color                                                                                                            |
+| `link.color`              | `string`                             | `#2563EB`            | Link text color                                                                                                             |
+| `link.underline`          | `boolean`                            | `true`               | Whether links are underlined                                                                                                  |
+| `link.backgroundColor`    | `string`                             | `transparent`        | Link background color                                                                                                         |
+| `linkVariants`            | `Record<string, LinkStyle>`          | none                 | Per-URL-pattern style overrides. Each key is a regex tested against the link URL; see [Mentions - Link variants](/rich-text-formatting/mentions) |
+| `spoiler.color`           | `string`                             | `#374151`            | Spoiler text color                                                                                                          |
+| `spoiler.backgroundColor` | `string`                             | `#E5E7EB`            | Spoiler background color                                                                                                    |
+| `h1`–`h6`                 | `{ fontSize?, fontWeight?, color? }` | Match the renderer   | Per-level heading styling. Defaults match the renderer (sizes `30/24/20/18/16/14`, bold); omitted levels or fields fall back to those defaults |
+| `list.itemSpacing`        | `number`                             | `0`                  | Vertical spacing (points) added above each list item (bullet and numbered alike) so items read as separate rows              |
 
 ## Try it yourself
 

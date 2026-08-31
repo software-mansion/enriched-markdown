@@ -2,28 +2,20 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { defaultMarkdownStyle } from './theme';
 
-const markdown = `- First bullet
-- Second bullet
-  - Nested bullet
-1. Ordered one
-2. Ordered two`;
+const src =
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjIiIGZpbGw9IiM3YzNhZWQiLz48L3N2Zz4=';
+
+const markdown = `An inline icon ![icon](${src}) sits in the text flow.`;
 
 export default function App() {
   const isDark = useColorScheme() === 'dark';
-  const accent = isDark ? '#5eead4' : '#0d9488';
 
-  // Bullets and number markers tint independently; bulletSize and gapWidth
-  // control the marker column. itemSpacing adds breathing room between
-  // consecutive items (nested ones included) without touching the outer margins.
+  // An inline image sits within a line of text. Its only style is size, which
+  // renders it as a square scaled to the surrounding text.
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
-    list: {
-      color: isDark ? '#e7eaf6' : '#232736',
-      bulletColor: accent,
-      markerColor: accent,
-      bulletSize: 8,
-      gapWidth: 12,
-      itemSpacing: 8,
+    inlineImage: {
+      size: 24,
     },
   };
 

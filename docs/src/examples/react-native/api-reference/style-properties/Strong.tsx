@@ -2,28 +2,17 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { defaultMarkdownStyle } from './theme';
 
-const markdown = `- First bullet
-- Second bullet
-  - Nested bullet
-1. Ordered one
-2. Ordered two`;
+const markdown = 'Make it **bold and clear** when it matters.';
 
 export default function App() {
   const isDark = useColorScheme() === 'dark';
-  const accent = isDark ? '#5eead4' : '#0d9488';
 
-  // Bullets and number markers tint independently; bulletSize and gapWidth
-  // control the marker column. itemSpacing adds breathing room between
-  // consecutive items (nested ones included) without touching the outer margins.
+  // Strong adds the bold trait to the inherited block font and takes its own
+  // color. Set fontFamily to swap the face; fontWeight: 'normal' uses it as-is.
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
-    list: {
-      color: isDark ? '#e7eaf6' : '#232736',
-      bulletColor: accent,
-      markerColor: accent,
-      bulletSize: 8,
-      gapWidth: 12,
-      itemSpacing: 8,
+    strong: {
+      color: isDark ? '#fca5a5' : '#dc2626',
     },
   };
 
