@@ -7,6 +7,8 @@
 
 extern NSString *const ListItemMarkerStartAttribute;
 
+static NSString *const kAppleColorEmojiFontName = @"AppleColorEmoji";
+
 @implementation ListMarkerDrawer {
   StyleConfig *_config;
 }
@@ -57,7 +59,29 @@ extern NSString *const ListItemMarkerStartAttribute;
 
                                  CGPoint glyphLoc = [layoutManager locationForGlyphAtIndex:glyphRange.location];
                                  CGFloat baselineY = origin.y + rect.origin.y + glyphLoc.y;
-                                 UIFont *font = attrs[NSFontAttributeName] ?: [self defaultFont];
+
+                                 // When the anchor character is an emoji, NSFontAttributeName
+                                 // returns AppleColorEmoji whose metrics (xHeight, capHeight)
+                                 // differ widely from the text font and would misplace the
+                                 // marker. Look past the first composed character sequence
+                                 // to find the actual text font used on the line.
+                                 UIFont *font = attrs[NSFontAttributeName];
+                                 if (charRange.length > 1) {
+                                   NSRange firstGrapheme =
+                                       [storage.string rangeOfComposedCharacterSequenceAtIndex:charRange.location];
+                                   NSUInteger afterFirst = NSMaxRange(firstGrapheme);
+                                   if (afterFirst < NSMaxRange(charRange)) {
+                                     UIFont *textFont = [storage attribute:NSFontAttributeName
+                                                                   atIndex:afterFirst
+                                                            effectiveRange:NULL];
+                                     if (textFont) {
+                                       font = textFont;
+                                     }
+                                   }
+                                 }
+                                 if (!font || [font.fontName isEqualToString:kAppleColorEmojiFontName]) {
+                                   font = [self defaultFont];
+                                 }
 
                                  for (ENRMListMarkerDescriptor *marker in markers) {
                                    CGFloat markerX = isRTL ? origin.x + container.size.width - marker.indent + gap
