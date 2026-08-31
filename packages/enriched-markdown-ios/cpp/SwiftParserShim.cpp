@@ -48,6 +48,7 @@ EMCParseResult *em_parse_markdown(const char *markdown, int underline, int latex
   flags.preserveBlankLines = preserveBlankLines != 0;
 
   Markdown::MD4CParser parser;
+  // TODO: when implementing flavor support, pass isGFM based on the flavor instead of the default.
   result->root = parser.parse(markdown ? std::string(markdown) : "", flags);
   return result;
 }

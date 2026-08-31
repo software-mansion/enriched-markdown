@@ -71,6 +71,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   NSString *_renderedMarkdown;
   StyleConfig *_config;
   ENRMMd4cFlags *_md4cFlags;
+  BOOL _isGFM;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
 
@@ -231,6 +232,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     self.backgroundColor = [RCTUIColor clearColor];
     _parser = [[ENRMMarkdownParser alloc] init];
     _md4cFlags = [EnrichedMarkdownText flagsFromProps:defaultProps->md4cFlags];
+    _isGFM = defaultProps->isGFM;
 
     _renderCoordinator =
         [[ENRMAsyncRenderCoordinator alloc] initWithQueueLabel:"com.swmansion.enriched.markdown.render"];
@@ -342,6 +344,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   StyleConfig *config = [_config copy];
   ENRMMarkdownParser *parser = _parser;
   ENRMMd4cFlags *md4cFlags = [_md4cFlags copy];
+  BOOL isGFM = _isGFM;
 
   BOOL allowFontScaling = _fontScaleObserver.allowFontScaling;
   CGFloat maxFontSizeMultiplier = _maxFontSizeMultiplier;
@@ -354,7 +357,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   [_renderCoordinator
       scheduleRender:^BOOL {
-        MarkdownASTNode *ast = [parser parseMarkdown:markdownString flags:md4cFlags];
+        MarkdownASTNode *ast = [parser parseMarkdown:markdownString flags:md4cFlags isGFM:isGFM];
         if (!ast)
           return NO;
 
@@ -373,7 +376,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (NSMutableAttributedString *)parseAndRenderMarkdown:(NSString *)markdownString
 {
-  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags];
+  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags isGFM:_isGFM];
   if (!ast) {
     return nil;
   }
@@ -567,6 +570,12 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _dirtyFlags |= ENRMDirtyRender;
   }
 
+  if (newViewProps.isGFM != oldViewProps.isGFM) {
+    _isGFM = newViewProps.isGFM;
+    _forceHeightUpdateOnNextRender = YES;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
@@ -682,6 +691,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _renderedMarkdown = nil;
   _config = nil;
   _md4cFlags = [EnrichedMarkdownText flagsFromProps:resetProps->md4cFlags];
+  _isGFM = resetProps->isGFM;
   _maxFontSizeMultiplier = 0;
   _lastElementMarginBottom = 0;
   _allowTrailingMargin = NO;

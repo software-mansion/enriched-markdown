@@ -49,3 +49,27 @@ it('forwards md4cFlags.preserveBlankLines to native when enabled', () => {
 
   expect(nativeView.props.md4cFlags.preserveBlankLines).toBe(true);
 });
+
+it('disables GFM extensions for the commonmark flavor', () => {
+  const nativeView = renderNative(
+    <EnrichedMarkdownText
+      markdown={'| Model | Speed |\n|---|---|\n| Claude | Fast |'}
+      flavor="commonmark"
+    />
+  );
+
+  expect(nativeView.props.isGFM).toBe(false);
+  expect(nativeView.props.md4cFlags).not.toHaveProperty('tables');
+});
+
+it('enables GFM extensions for the github flavor', () => {
+  const nativeView = renderNative(
+    <EnrichedMarkdownText
+      markdown={'| Model | Speed |\n|---|---|\n| Claude | Fast |'}
+      flavor="github"
+    />
+  );
+
+  expect(nativeView.props.isGFM).toBe(true);
+  expect(nativeView.props.md4cFlags).not.toHaveProperty('tables');
+});

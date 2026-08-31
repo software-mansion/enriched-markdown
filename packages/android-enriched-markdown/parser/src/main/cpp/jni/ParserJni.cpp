@@ -97,6 +97,7 @@ local_ref<JMarkdownASTNode> JParser::nativeParseMarkdown(alias_ref<JClass> /* cl
     Md4cFlags md4cFlags = flags ? flags->toCppFlags() : Md4cFlags{};
 
     MD4CParser parser;
+    // TODO: when implementing flavor support, pass isGFM based on the flavor instead of the default.
     auto ast = parser.parse(markdownStr, md4cFlags);
 
     if (!ast) {

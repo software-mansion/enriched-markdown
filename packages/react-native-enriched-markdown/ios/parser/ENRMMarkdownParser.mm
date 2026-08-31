@@ -1,7 +1,7 @@
 #import "ENRMMarkdownParser.h"
 #import "MarkdownASTNode.h"
 
-extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags);
+extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM);
 
 @implementation ENRMMd4cFlags
 
@@ -48,7 +48,12 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
 
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags
 {
-  return parseMarkdownWithCppParser(markdown, flags);
+  return [self parseMarkdown:markdown flags:flags isGFM:YES];
+}
+
+- (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags isGFM:(BOOL)isGFM
+{
+  return parseMarkdownWithCppParser(markdown, flags, isGFM);
 }
 
 @end

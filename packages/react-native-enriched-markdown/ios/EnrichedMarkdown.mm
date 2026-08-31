@@ -87,6 +87,7 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMMarkdownParser *_parser;
   StyleConfig *_config;
   ENRMMd4cFlags *_md4cFlags;
+  BOOL _isGFM;
   NSString *_cachedMarkdown;
   NSString *_renderedMarkdown;
   NSMutableArray<RCTUIView *> *_segmentViews;
@@ -160,6 +161,7 @@ static char kENRMSegmentFadeAnimatorKey;
     self.backgroundColor = [RCTUIColor clearColor];
     _parser = [[ENRMMarkdownParser alloc] init];
     _md4cFlags = [EnrichedMarkdown flagsFromProps:defaultProps->md4cFlags];
+    _isGFM = defaultProps->isGFM;
     _segmentViews = [NSMutableArray array];
     _segmentSignatures = [NSMutableArray array];
     _dirtyFlags = ENRMDirtyNone;
@@ -587,6 +589,7 @@ static char kENRMSegmentFadeAnimatorKey;
   StyleConfig *config = [_config copy];
   ENRMMarkdownParser *parser = _parser;
   ENRMMd4cFlags *md4cFlags = [_md4cFlags copy];
+  BOOL isGFM = _isGFM;
 
   BOOL allowFontScaling = _fontScaleObserver.allowFontScaling;
   CGFloat maxFontSizeMultiplier = _maxFontSizeMultiplier;
@@ -614,7 +617,7 @@ static char kENRMSegmentFadeAnimatorKey;
           return YES;
         }
 
-        MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown flags:md4cFlags];
+        MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown flags:md4cFlags isGFM:isGFM];
         if (!ast)
           return NO;
 
@@ -638,7 +641,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
 - (NSArray *)parseAndRenderSegments:(NSString *)markdownString
 {
-  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags];
+  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags isGFM:_isGFM];
   if (!ast) {
     return nil;
   }
@@ -1002,6 +1005,11 @@ static char kENRMSegmentFadeAnimatorKey;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 
+  if (newViewProps.isGFM != oldViewProps.isGFM) {
+    _isGFM = newViewProps.isGFM;
+    _dirtyFlags |= ENRMDirtyRecreateSegments | ENRMDirtyForceHeight | ENRMDirtyRender;
+  }
+
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
@@ -1165,6 +1173,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _renderedMarkdown = nil;
   _config = nil;
   _md4cFlags = [EnrichedMarkdown flagsFromProps:resetProps->md4cFlags];
+  _isGFM = resetProps->isGFM;
   _maxFontSizeMultiplier = 0;
   _allowTrailingMargin = NO;
   _streamingAnimation = NO;

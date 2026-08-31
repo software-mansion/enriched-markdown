@@ -79,6 +79,7 @@ class EnrichedMarkdownText
 
     var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
       private set
+    private var isGFM: Boolean = false
 
     private var lastKnownFontScale: Float = context.resources.configuration.fontScale
     private var markdownStyleMap: ReadableMap? = null
@@ -157,6 +158,12 @@ class EnrichedMarkdownText
     fun setMd4cFlags(flags: Md4cFlags) {
       if (md4cFlags == flags) return
       md4cFlags = flags
+      scheduleRenderIfNeeded()
+    }
+
+    fun setIsGFM(value: Boolean) {
+      if (isGFM == value) return
+      isGFM = value
       scheduleRenderIfNeeded()
     }
 
@@ -239,7 +246,7 @@ class EnrichedMarkdownText
       executor.execute {
         try {
           val ast =
-            parser.parseMarkdown(markdown, md4cFlags) ?: run {
+            parser.parseMarkdown(markdown, md4cFlags, isGFM) ?: run {
               mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
               return@execute
             }

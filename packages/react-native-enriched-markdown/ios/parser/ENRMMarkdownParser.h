@@ -19,5 +19,6 @@
 
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown;
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags;
+- (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags isGFM:(BOOL)isGFM;
 
 @end

@@ -90,6 +90,7 @@ class EnrichedMarkdown
 
     var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
       private set
+    private var isGFM: Boolean = true
     private var allowFontScaling: Boolean = true
     private var maxFontSizeMultiplier: Float = 0f
     private var allowTrailingMargin: Boolean = false
@@ -181,6 +182,12 @@ class EnrichedMarkdown
     fun setMd4cFlags(flags: Md4cFlags) {
       if (md4cFlags == flags) return
       md4cFlags = flags
+      renderPending = true
+    }
+
+    fun setIsGFM(value: Boolean) {
+      if (isGFM == value) return
+      isGFM = value
       renderPending = true
     }
 
@@ -417,7 +424,7 @@ class EnrichedMarkdown
           }
 
           val ast =
-            parser.parseMarkdown(renderableMarkdown, md4cFlags) ?: run {
+            parser.parseMarkdown(renderableMarkdown, md4cFlags, isGFM) ?: run {
               postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
               return@execute
             }

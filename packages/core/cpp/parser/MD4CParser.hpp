@@ -23,7 +23,10 @@ public:
     ~MD4CParser();
 
     // Parse markdown string and return AST root node
-    std::shared_ptr<MarkdownASTNode> parse(const std::string& markdown, const Md4cFlags& flags = Md4cFlags{});
+    std::shared_ptr<MarkdownASTNode> parse(
+        const std::string& markdown,
+        const Md4cFlags& flags = Md4cFlags{},
+        bool isGFM = true);
 
 private:
     class Impl;
@@ -31,4 +34,3 @@ private:
 };
 
 } // namespace Markdown
-

@@ -140,6 +140,14 @@ class EnrichedMarkdownManager :
     view?.setMd4cFlags(parseMd4cFlags(flags))
   }
 
+  @ReactProp(name = "isGFM", defaultBoolean = true)
+  override fun setIsGFM(
+    view: EnrichedMarkdown?,
+    isGFM: Boolean,
+  ) {
+    view?.setIsGFM(isGFM)
+  }
+
   @ReactProp(name = "allowFontScaling", defaultBoolean = true)
   override fun setAllowFontScaling(
     view: EnrichedMarkdown?,

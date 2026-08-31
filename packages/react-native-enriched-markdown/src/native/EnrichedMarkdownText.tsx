@@ -324,6 +324,7 @@ export const EnrichedMarkdownText = ({
     enableLinkPreview: onLinkLongPress == null && (enableLinkPreview ?? true),
     selectable,
     md4cFlags: normalizedMd4cFlags,
+    isGFM: flavor === 'github',
     allowFontScaling,
     maxFontSizeMultiplier,
     allowTrailingMargin,
