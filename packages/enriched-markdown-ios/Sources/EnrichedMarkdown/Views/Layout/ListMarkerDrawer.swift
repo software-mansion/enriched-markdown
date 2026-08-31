@@ -29,7 +29,7 @@ enum ListMarkerDrawer {
                 continue
             }
 
-            let isRTL = paragraphIsRTL(attrs[.paragraphStyle] as? NSParagraphStyle)
+            let isRTL = TextLayoutHelpers.paragraphIsRTL(attrs[.paragraphStyle] as? NSParagraphStyle)
             let layoutInfo = layoutInfo(
                 ParagraphLayoutRequest(
                     paragraphRange: paragraphRange,
@@ -243,19 +243,5 @@ enum ListMarkerDrawer {
             context.addPath(path.cgPath)
             context.strokePath()
         }
-    }
-
-    private static func paragraphIsRTL(_ style: NSParagraphStyle?) -> Bool {
-        guard let style else {
-            return UIView.userInterfaceLayoutDirection(
-                for: UIView.appearance().semanticContentAttribute
-            ) == .rightToLeft
-        }
-        if style.baseWritingDirection != .natural {
-            return style.baseWritingDirection == .rightToLeft
-        }
-        return UIView.userInterfaceLayoutDirection(
-            for: UIView.appearance().semanticContentAttribute
-        ) == .rightToLeft
     }
 }

@@ -236,6 +236,23 @@ extension View {
 
 `onLinkPress` is called when a link is tapped. `onLinkLongPress` is called when a link is long-pressed, replacing the system link menu; without it, a long-press behaves like a press when `onLinkPress` is set. Scope either to a single view or a larger subtree.
 
+### `.onTaskListItemPress` / `.markdownTaskListItemToggleEnabled`
+
+```swift
+public struct TaskListItemPressEvent: Equatable, Sendable {
+  public let index: Int      // 0-based, in document order
+  public let checked: Bool   // state after the toggle
+  public let text: String    // first line of the item's plain text
+}
+
+extension View {
+  func onTaskListItemPress(_ action: @escaping (TaskListItemPressEvent) -> Void) -> some View
+  func markdownTaskListItemToggleEnabled(_ enabled: Bool) -> some View   // default true
+}
+```
+
+Tapping a task-list checkbox toggles its checked state in place (including the checked-item text decoration) and calls `onTaskListItemPress` with the new state. The toggle is visual — the view never mutates your `markdown` string, so persist the change from the handler if you need it back. `markdownTaskListItemToggleEnabled(false)` makes checkbox taps fully inert: no visual toggle and no `onTaskListItemPress`. Text selection and links are unaffected either way.
+
 ### `.markdownSelectable` / `.markdownSelectionColor`
 
 ```swift
@@ -351,7 +368,7 @@ and dark mode.
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists
-- Task lists (`- [x]` / `- [ ]`, display-only checkboxes)
+- Task lists (`- [x]` / `- [ ]`, tap to toggle — see `.onTaskListItemPress`)
 - Tables (GFM: column alignment, per-cell wrapping, horizontal scrolling)
 - Links and images (block and inline)
 - Autolinked bare URLs, `www.` links, and emails (`permissiveAutolinks`, on by default)

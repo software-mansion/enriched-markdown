@@ -14,6 +14,8 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownSelectable) private var isSelectionEnabled
     @Environment(\.markdownSelectionColor) private var selectionColor
     @Environment(\.markdownImageRequestHeaders) private var imageRequestHeaders
+    @Environment(\.markdownTaskListItemPressHandler) private var onTaskListItemPress
+    @Environment(\.markdownTaskListItemToggleEnabled) private var isTaskListToggleEnabled
     @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
@@ -38,7 +40,14 @@ public struct EnrichedMarkdownText: View {
             onLinkLongPress: onLinkLongPress,
             selectionMenuConfig: selectionMenuConfig,
             isSelectionEnabled: isSelectionEnabled,
-            selectionColor: selectionColor
+            selectionColor: selectionColor,
+            onTaskListItemTap: isTaskListToggleEnabled ? { hit in
+                let checked = !hit.checked
+                renderStore.applyTaskListToggle(index: hit.index, checked: checked, config: styleConfig)
+                onTaskListItemPress?(
+                    TaskListItemPressEvent(index: hit.index, checked: checked, text: hit.itemText)
+                )
+            } : nil
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
