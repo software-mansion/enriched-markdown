@@ -47,6 +47,7 @@ export const EnrichedMarkdownText = ({
     highlight = false,
     hardSoftBreaks = false,
     preserveBlankLines = false,
+    admonitions = true,
   } = md4cFlags;
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export const EnrichedMarkdownText = ({
         highlight,
         hardSoftBreaks,
         preserveBlankLines,
+        admonitions,
       }),
       katexPromise,
     ])
@@ -100,6 +102,7 @@ export const EnrichedMarkdownText = ({
     highlight,
     hardSoftBreaks,
     preserveBlankLines,
+    admonitions,
   ]);
 
   const callbacks = useMemo<RendererCallbacks>(

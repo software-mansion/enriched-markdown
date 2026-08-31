@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Typeface
 import android.view.View
 import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
@@ -14,6 +15,8 @@ import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 /**
  * A GFM blockquote rendered as a recursive container: it splits its own AST
@@ -46,6 +49,22 @@ class BlockquoteContainerView(
   private val verticalInset: Int = ceil(paddingPx).toInt()
   private val rightInset: Int = ceil(paddingPx).toInt()
 
+  // Set from the applied node: null for a plain quote, the admonition type
+  // ("note"/"tip"/…) otherwise. Drives the header + per-type theming.
+  private var admonitionType: String? = null
+
+  private val iconSizePx: Int = ceil(blockquoteStyle.fontSize).toInt()
+
+  private val titlePaint =
+    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      typeface = Typeface.DEFAULT_BOLD
+      textSize = blockquoteStyle.fontSize
+    }
+  private val iconPaint =
+    Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+
+  private fun reservedHeaderHeight(): Int = if (admonitionType != null) ceil(admonitionHeaderReservedHeight(blockquoteStyle)).toInt() else 0
+
   // Only the outermost quote carries vertical margins; a quote nested directly
   // inside another quote is separated by the parent's padding alone (matches the
   // commonmark BlockquoteRenderer, which applies margins only at depth 0).
@@ -73,6 +92,15 @@ class BlockquoteContainerView(
   }
 
   fun applyBlockquoteNode(node: MarkdownASTNode) {
+    admonitionType =
+      if (node.type == MarkdownASTNode.NodeType.Admonition) {
+        node.getAttribute("admonitionType")?.takeIf { it.isNotEmpty() } ?: "note"
+      } else {
+        null
+      }
+    // Reserve the header band above the body by enlarging the top padding.
+    setPadding(leftInset, verticalInset + reservedHeaderHeight(), rightInset, verticalInset)
+
     val segments = splitASTIntoSegments(node)
     val rendered =
       MarkdownSegmentRenderer.render(
@@ -109,8 +137,24 @@ class BlockquoteContainerView(
   override fun onDraw(canvas: Canvas) {
     super.onDraw(canvas)
     val radius = blockquoteStyle.borderRadius
-    val bgColor = blockquoteStyle.backgroundColor?.takeIf { it != Color.TRANSPARENT }
     val hasRadius = radius > 0f
+
+    // Admonitions theme the box with their per-type color; a plain quote keeps
+    // the base blockquote colors.
+    val type = admonitionType
+    val tint =
+      if (type != null) {
+        blockquoteStyle.admonitions[type]?.color ?: blockquoteStyle.borderColor
+      } else {
+        blockquoteStyle.borderColor
+      }
+    val bgColor =
+      if (type != null) {
+        blockquoteStyle.admonitions[type]?.backgroundColor?.takeIf { it != Color.TRANSPARENT }
+      } else {
+        blockquoteStyle.backgroundColor?.takeIf { it != Color.TRANSPARENT }
+      }
+    borderPaint.color = tint
 
     if (hasRadius) {
       rect.set(0f, 0f, width.toFloat(), height.toFloat())
@@ -138,6 +182,40 @@ class BlockquoteContainerView(
     } else {
       canvas.drawRect(0f, 0f, borderWidthPx, height.toFloat(), borderPaint)
     }
+
+    if (type != null) {
+      drawAdmonitionHeader(canvas, type, tint)
+    }
+  }
+
+  // Draws the admonition header (tinted octicon + capitalized title) in the band
+  // reserved at the top of the view by the enlarged top padding.
+  private fun drawAdmonitionHeader(
+    canvas: Canvas,
+    type: String,
+    tint: Int,
+  ) {
+    val headerTop = verticalInset.toFloat()
+    val headerHeight = admonitionHeaderContentHeight(blockquoteStyle)
+    var titleX = leftInset.toFloat()
+
+    val iconPath = AdmonitionIcons.path(type)
+    if (iconPath != null) {
+      val scale = iconSizePx / AdmonitionIcons.VIEWBOX
+      val iconY = headerTop + (headerHeight - iconSizePx) / 2f
+      iconPaint.color = tint
+      canvas.withSave {
+        translate(leftInset.toFloat(), iconY)
+        scale(scale, scale)
+        drawPath(iconPath, iconPaint)
+      }
+      titleX = (leftInset + iconSizePx + (iconSizePx * 0.4f).roundToInt()).toFloat()
+    }
+
+    titlePaint.color = tint
+    val fm = titlePaint.fontMetrics
+    val baseline = headerTop + headerHeight / 2f - (fm.ascent + fm.descent) / 2f
+    canvas.drawText(AdmonitionIcons.title(type), titleX, baseline, titlePaint)
   }
 
   /**
@@ -202,6 +280,14 @@ class BlockquoteContainerView(
   }
 
   companion object {
+    // Height of the header band (icon + title row). Shared by the instance draw
+    // path and the view-free measurement so both reserve identical space.
+    fun admonitionHeaderContentHeight(style: BlockquoteStyle): Float = ceil(max(ceil(style.fontSize), style.fontSize * 1.35f))
+
+    // Vertical space the header adds above the body (band + gap).
+    fun admonitionHeaderReservedHeight(style: BlockquoteStyle): Float =
+      admonitionHeaderContentHeight(style) + (style.fontSize * 0.4f).roundToInt()
+
     /**
      * View-free height of a blockquote node at the given outer content width.
      * The children are summed at the reduced inner width (outer minus horizontal
@@ -226,6 +312,12 @@ class BlockquoteContainerView(
       val leftInset = ceil(style.borderWidth + style.gapWidth + style.padding).toInt()
       val rightInset = ceil(style.padding).toInt()
       val verticalInset = ceil(style.padding).toInt()
+      val headerReserved =
+        if (node.type == MarkdownASTNode.NodeType.Admonition) {
+          ceil(admonitionHeaderReservedHeight(style))
+        } else {
+          0f
+        }
       val innerWidth = (width - leftInset - rightInset).coerceAtLeast(1f)
 
       val segments = splitASTIntoSegments(node)
@@ -246,7 +338,7 @@ class BlockquoteContainerView(
           mathHeightForIndex = { estimateMathHeight(config) },
         )
 
-      return childrenHeight + verticalInset * 2f
+      return childrenHeight + verticalInset * 2f + headerReserved
     }
 
     private fun estimateMathHeight(config: StyleConfig): Float {

@@ -253,6 +253,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setBlockquoteBorderRadius:(CGFloat)newValue;
 - (CGFloat)blockquotePadding;
 - (void)setBlockquotePadding:(CGFloat)newValue;
+// Per-admonition-type colors (keyed by "note"/"tip"/"important"/"warning"/"caution").
+- (void)setAdmonitionColors:(NSDictionary<NSString *, RCTUIColor *> *)colors
+           backgroundColors:(NSDictionary<NSString *, RCTUIColor *> *)backgroundColors;
+- (RCTUIColor *)admonitionColorForType:(NSString *)type;
+- (RCTUIColor *)admonitionBackgroundColorForType:(NSString *)type;
 // List style properties (combined for both ordered and unordered lists)
 - (CGFloat)listStyleFontSize;
 - (void)setListStyleFontSize:(CGFloat)newValue;

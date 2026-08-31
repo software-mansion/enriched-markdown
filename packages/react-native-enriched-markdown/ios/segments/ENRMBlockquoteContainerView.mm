@@ -1,4 +1,5 @@
 #import "ENRMBlockquoteContainerView.h"
+#import "ENRMAdmonitionIcons.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMSegmentHeightMeasurer.h"
@@ -25,14 +26,75 @@ static NSArray<ENRMRenderedSegment *> *ENRMRenderBlockquoteChildren(MarkdownASTN
                                    config.maxFontSizeMultiplier, lineBreakStrategy, /*blockquoteContent*/ YES);
 }
 
-static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
+// The admonition type ("note"/"tip"/…) for a node, or nil for a plain quote.
+static NSString *ENRMAdmonitionTypeForNode(MarkdownASTNode *node)
+{
+  if (node.type != MarkdownNodeTypeAdmonition) {
+    return nil;
+  }
+  NSString *type = node.attributes[@"admonitionType"];
+  return type.length > 0 ? type : @"note";
+}
+
+static CGFloat ENRMAdmonitionIconSize(StyleConfig *config)
+{
+  return ceil(config.blockquoteFontSize);
+}
+
+// Bold variant of the blockquote font for the header title, respecting the
+// configured family where the platform supports trait derivation.
+static UIFont *ENRMAdmonitionTitleFont(StyleConfig *config)
+{
+  UIFont *base = config.blockquoteFont;
+#if !TARGET_OS_OSX
+  UIFontDescriptor *descriptor = [base.fontDescriptor
+      fontDescriptorWithSymbolicTraits:(base.fontDescriptor.symbolicTraits | UIFontDescriptorTraitBold)];
+  UIFont *bold = descriptor ? [UIFont fontWithDescriptor:descriptor size:base.pointSize] : nil;
+  return bold ?: [UIFont boldSystemFontOfSize:base.pointSize];
+#else
+  return [NSFont boldSystemFontOfSize:base.pointSize];
+#endif
+}
+
+// Height of the header band (icon + title row); body sits a gap below it.
+static CGFloat ENRMAdmonitionHeaderContentHeight(StyleConfig *config)
+{
+  return ceil(MAX(ENRMAdmonitionIconSize(config), config.blockquoteFontSize * 1.35));
+}
+
+static CGFloat ENRMAdmonitionHeaderToBodyGap(StyleConfig *config)
+{
+  return round(config.blockquoteFontSize * 0.4);
+}
+
+// Vertical space reserved above the body for the header (0 for a plain quote).
+static CGFloat ENRMAdmonitionHeaderReservedHeight(StyleConfig *config, BOOL isAdmonition)
+{
+  if (!isAdmonition) {
+    return 0;
+  }
+  return ENRMAdmonitionHeaderContentHeight(config) + ENRMAdmonitionHeaderToBodyGap(config);
+}
+
+static UIEdgeInsets ENRMBlockquoteContentInsetsForNode(StyleConfig *config, BOOL isAdmonition)
 {
   CGFloat padding = config.blockquotePadding;
   CGFloat left = ceil(config.blockquoteBorderWidth + config.blockquoteGapWidth + padding);
+  CGFloat top = ceil(padding + ENRMAdmonitionHeaderReservedHeight(config, isAdmonition));
   CGFloat vertical = ceil(padding);
   CGFloat right = ceil(padding);
-  return UIEdgeInsetsMake(vertical, left, vertical, right);
+  return UIEdgeInsetsMake(top, left, vertical, right);
 }
+
+static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
+{
+  return ENRMBlockquoteContentInsetsForNode(config, NO);
+}
+
+@interface ENRMBlockquoteContainerView ()
+// nil for a plain blockquote; the admonition type string otherwise.
+@property (nonatomic, copy, nullable) NSString *admonitionType;
+@end
 
 @implementation ENRMBlockquoteContainerView
 
@@ -56,9 +118,16 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 
 - (void)applyBlockquoteNode:(MarkdownASTNode *)node
 {
+  self.admonitionType = ENRMAdmonitionTypeForNode(node);
+  self.contentInsets = ENRMBlockquoteContentInsetsForNode(self.config, self.admonitionType != nil);
   NSArray<ENRMRenderedSegment *> *rendered =
       ENRMRenderBlockquoteChildren(node, self.config, self.allowFontScaling, self.lineBreakStrategy);
   [self applySegments:rendered reset:NO];
+#if !TARGET_OS_OSX
+  [self setNeedsDisplay];
+#else
+  self.needsDisplay = YES;
+#endif
 }
 
 - (void)pushCopyLabelsToChildren
@@ -255,7 +324,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                          allowFontScaling:(BOOL)allowFontScaling
                         lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
 {
-  UIEdgeInsets insets = ENRMBlockquoteContentInsets(config);
+  UIEdgeInsets insets = ENRMBlockquoteContentInsetsForNode(config, ENRMAdmonitionTypeForNode(node) != nil);
   CGFloat innerWidth = MAX(maxWidth - insets.left - insets.right, 1);
 
   NSArray<ENRMRenderedSegment *> *rendered =
@@ -284,14 +353,19 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                                      : [NSBezierPath bezierPathWithRect:bounds];
 #endif
 
-  RCTUIColor *backgroundColor = config.blockquoteBackgroundColor;
+  // Admonitions theme the box with their per-type color; a plain quote keeps the
+  // base blockquote colors.
+  NSString *admonitionType = self.admonitionType;
+  RCTUIColor *backgroundColor =
+      admonitionType ? [config admonitionBackgroundColorForType:admonitionType] : config.blockquoteBackgroundColor;
   if (backgroundColor && backgroundColor != [RCTUIColor clearColor]) {
     [backgroundColor setFill];
     [boxPath fill];
   }
 
   if (borderWidth > 0) {
-    RCTUIColor *borderColor = config.blockquoteBorderColor;
+    RCTUIColor *borderColor =
+        admonitionType ? [config admonitionColorForType:admonitionType] : config.blockquoteBorderColor;
     if (borderColor) {
       CGRect barRect = CGRectMake(0, 0, borderWidth, bounds.size.height);
       [borderColor setFill];
@@ -309,6 +383,55 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 #endif
     }
   }
+
+  if (admonitionType) {
+    [self drawAdmonitionHeaderForType:admonitionType config:config];
+  }
+}
+
+// Draws the admonition header (tinted octicon + capitalized title) in the band
+// reserved at the top by the enlarged content inset. The view is flipped on
+// macOS, so the y-down icon path and text draw identically on both platforms.
+- (void)drawAdmonitionHeaderForType:(NSString *)type config:(StyleConfig *)config
+{
+  RCTUIColor *tint = [config admonitionColorForType:type];
+  CGFloat padding = config.blockquotePadding;
+  CGFloat leftInset = ceil(config.blockquoteBorderWidth + config.blockquoteGapWidth + padding);
+  CGFloat iconSize = ENRMAdmonitionIconSize(config);
+  CGFloat headerHeight = ENRMAdmonitionHeaderContentHeight(config);
+  CGFloat headerTop = ceil(padding);
+  CGFloat titleX = leftInset;
+
+  CGPathRef iconPath = ENRMAdmonitionIconPath(type);
+  if (iconPath) {
+#if !TARGET_OS_OSX
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+#else
+    CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
+#endif
+    if (ctx) {
+      CGFloat scale = iconSize / ENRMAdmonitionIconViewBox;
+      CGFloat iconY = headerTop + (headerHeight - iconSize) / 2.0;
+      CGContextSaveGState(ctx);
+      CGContextTranslateCTM(ctx, leftInset, iconY);
+      CGContextScaleCTM(ctx, scale, scale);
+      CGContextAddPath(ctx, iconPath);
+      [tint setFill];
+      CGContextFillPath(ctx);
+      CGContextRestoreGState(ctx);
+    }
+    CGPathRelease(iconPath);
+    titleX = leftInset + iconSize + round(iconSize * 0.4);
+  }
+
+  NSString *title = ENRMAdmonitionTitle(type);
+  UIFont *titleFont = ENRMAdmonitionTitleFont(config);
+  NSDictionary<NSAttributedStringKey, id> *attributes =
+      @{NSFontAttributeName : titleFont, NSForegroundColorAttributeName : tint};
+  NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:title attributes:attributes];
+  CGSize titleSize = [attributed size];
+  CGFloat titleY = headerTop + (headerHeight - titleSize.height) / 2.0;
+  [attributed drawAtPoint:CGPointMake(titleX, titleY)];
 }
 
 @end

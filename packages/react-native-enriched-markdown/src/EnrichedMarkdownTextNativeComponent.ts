@@ -24,6 +24,19 @@ interface HeadingStyleInternal extends BaseBlockStyleInternal {
   textAlign: string;
 }
 
+interface AdmonitionColorsInternal {
+  color: ColorValue;
+  backgroundColor: ColorValue;
+}
+
+interface AdmonitionsStyleInternal {
+  note: AdmonitionColorsInternal;
+  tip: AdmonitionColorsInternal;
+  important: AdmonitionColorsInternal;
+  warning: AdmonitionColorsInternal;
+  caution: AdmonitionColorsInternal;
+}
+
 interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   borderColor: ColorValue;
   borderWidth: CodegenTypes.Float;
@@ -31,6 +44,7 @@ interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   backgroundColor: ColorValue;
   borderRadius: CodegenTypes.Float;
   padding: CodegenTypes.Float;
+  admonitions: AdmonitionsStyleInternal;
 }
 
 interface ListStyleInternal extends BaseBlockStyleInternal {
@@ -360,6 +374,12 @@ export interface Md4cFlagsInternal {
    * @default false
    */
   preserveBlankLines: boolean;
+  /**
+   * Enable GitHub-style admonitions/alerts extension.
+   * Forced off for `flavor="commonmark"`.
+   * @default true
+   */
+  admonitions: boolean;
 }
 
 interface StreamingConfigInternal {

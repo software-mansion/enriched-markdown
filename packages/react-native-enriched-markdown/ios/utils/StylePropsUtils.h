@@ -491,6 +491,36 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
     changed = YES;
   }
 
+  const auto &newAdm = newStyle.blockquote.admonitions;
+  const auto &oldAdm = oldStyle.blockquote.admonitions;
+  BOOL admonitionsChanged =
+      newAdm.note.color != oldAdm.note.color || newAdm.note.backgroundColor != oldAdm.note.backgroundColor ||
+      newAdm.tip.color != oldAdm.tip.color || newAdm.tip.backgroundColor != oldAdm.tip.backgroundColor ||
+      newAdm.important.color != oldAdm.important.color ||
+      newAdm.important.backgroundColor != oldAdm.important.backgroundColor ||
+      newAdm.warning.color != oldAdm.warning.color ||
+      newAdm.warning.backgroundColor != oldAdm.warning.backgroundColor ||
+      newAdm.caution.color != oldAdm.caution.color || newAdm.caution.backgroundColor != oldAdm.caution.backgroundColor;
+  if (admonitionsChanged) {
+    RCTUIColor *clear = [RCTUIColor clearColor];
+    NSDictionary<NSString *, RCTUIColor *> *admonitionColors = @{
+      @"note" : RCTUIColorFromSharedColor(newAdm.note.color) ?: clear,
+      @"tip" : RCTUIColorFromSharedColor(newAdm.tip.color) ?: clear,
+      @"important" : RCTUIColorFromSharedColor(newAdm.important.color) ?: clear,
+      @"warning" : RCTUIColorFromSharedColor(newAdm.warning.color) ?: clear,
+      @"caution" : RCTUIColorFromSharedColor(newAdm.caution.color) ?: clear,
+    };
+    NSDictionary<NSString *, RCTUIColor *> *admonitionBackgroundColors = @{
+      @"note" : RCTUIColorFromSharedColor(newAdm.note.backgroundColor) ?: clear,
+      @"tip" : RCTUIColorFromSharedColor(newAdm.tip.backgroundColor) ?: clear,
+      @"important" : RCTUIColorFromSharedColor(newAdm.important.backgroundColor) ?: clear,
+      @"warning" : RCTUIColorFromSharedColor(newAdm.warning.backgroundColor) ?: clear,
+      @"caution" : RCTUIColorFromSharedColor(newAdm.caution.backgroundColor) ?: clear,
+    };
+    [config setAdmonitionColors:admonitionColors backgroundColors:admonitionBackgroundColors];
+    changed = YES;
+  }
+
   // ── Link ───────────────────────────────────────────────────────────────────
 
   if (newStyle.link.fontFamily != oldStyle.link.fontFamily) {

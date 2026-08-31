@@ -39,7 +39,7 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
         [currentTextNodes removeAllObjects];
       }
       [segments addObject:[ENRMCodeBlockSegment segmentWithCodeBlockNode:child]];
-    } else if (child.type == MarkdownNodeTypeBlockquote) {
+    } else if (child.type == MarkdownNodeTypeBlockquote || child.type == MarkdownNodeTypeAdmonition) {
       if (currentTextNodes.count > 0) {
         [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
         [currentTextNodes removeAllObjects];

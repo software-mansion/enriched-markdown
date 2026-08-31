@@ -31,6 +31,7 @@ public enum NodeType: Int, CaseIterable, Sendable {
     case highlight
     case softBreak
     case blankLine
+    case admonition
 }
 
 public struct MarkdownASTNode: Sendable, Equatable {
