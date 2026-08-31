@@ -33,7 +33,7 @@ const baseHeader: {
   textAlign: 'auto',
 };
 
-const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
+export const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
   paragraph: {
     fontSize: 16,
     fontFamily: SYSTEM_FONT,
