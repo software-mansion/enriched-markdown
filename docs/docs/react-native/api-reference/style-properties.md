@@ -4,8 +4,21 @@ sidebar_position: 3
 ---
 
 import InteractiveExample from '@site/src/components/InteractiveExample';
+import LivePreview from '@site/src/components/LivePreview';
 import FirstText from '@site/src/examples/react-native/basics/your-first-project/FirstText';
 import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
+
+import CustomThemeSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/CustomTheme';
+import InheritanceSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Inheritance';
+import HeadingsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Headings';
+import InlineStylesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/InlineStyles';
+import CodeBlockSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/CodeBlock';
+import BlockquoteSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Blockquote';
+import ListSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/List';
+import TaskListSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/TaskList';
+import TableSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Table';
+import HighlightSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/Highlight';
+import ThematicBreakSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/style-properties/ThematicBreak';
 
 # Style properties reference
 
@@ -15,31 +28,31 @@ THIS PAGE IS WORK IN PROGRESS
 
 This page provides a comprehensive reference for all style properties available in `react-native-enriched-markdown`, passed through the `markdownStyle` prop.
 
-:::note
+:::important
 Unless noted otherwise, this reference covers the read-only [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) renderer and its `MarkdownStyle`. The editable [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input) styles a smaller subset - see [Editor styles](#editor-styles).
 :::
 
 ## Platform defaults
 
-The library provides sensible defaults optimized for each platform:
+You do not need to set anything to get a polished result. Every element ships with defaults tuned to the platform it renders on, so a document looks at home on each without configuration:
 
-| Property | iOS | Android |
-|----------|-----|---------|
-| System font | SF Pro | Roboto |
-| Monospace font | Menlo | monospace |
-| Line height | Tighter (0.75x multiplier) | Standard |
+- **Fonts.** Text uses the platform system font (San Francisco on iOS, Roboto on Android). Inline code and code blocks use the platform monospace font (SF Mono on iOS, monospace on Android).
+- **Spacing.** Line height and block margins follow each platform's text conventions, so paragraphs, headings, and lists sit at a natural rhythm out of the box.
+- **Colors.** Text, links, code, blockquotes, and tables start from light-mode color defaults. See [Dark mode](#dark-mode) to switch palettes with the system color scheme.
+
+Override any of these through `markdownStyle`: you set only the properties you want to change, and everything else keeps its default.
 
 ## Style inheritance
 
 `react-native-enriched-markdown` uses a base block style architecture where all block elements (paragraphs, headings, lists, blockquotes, code blocks) share a common set of typography properties. This base block style includes:
 
-- `fontSize` — font size in points
-- `fontFamily` — font family name
-- `fontWeight` — font weight
-- `color` — text color
-- `marginTop` — top margin
-- `marginBottom` — bottom margin
-- `lineHeight` — line height
+- `fontSize` - font size in points
+- `fontFamily` - font family name
+- `fontWeight` - font weight
+- `color` - text color
+- `marginTop` - top margin
+- `marginBottom` - bottom margin
+- `lineHeight` - line height
 
 Each block type extends this base style with its own specific properties (e.g. `textAlign` for paragraphs and headings, `borderColor` for blockquotes, `bulletColor` for lists).
 
@@ -47,17 +60,9 @@ Each block type extends this base style with its own specific properties (e.g. `
 
 Inline styles (strong, emphasis, links, inline code, etc.) automatically inherit the base typography properties from their containing block. This means inline elements use the block's `fontSize`, `fontFamily`, `fontWeight`, and `color` as their foundation, then apply their own additional styling on top.
 
-**Example:**
+In the playground below, only the two blocks set a size and color: the heading uses `fontSize: 24` with a blue `color`, the list uses `fontSize: 16` with a gray `color`. Every inline element leaves both unset, so each inherits from its block and adds only its own emphasis: **bold** and *italic* take the block size and color and add weight or slant, the link takes the size and adds its own color plus an underline, and `inline code` takes the size and color and adds only a background chip. Change a block's `color` and every inline element inside it follows.
 
-```
-Heading (h2: fontSize 24, color blue)
-└── Strong text inherits → fontSize 24, color blue + bold weight
-└── Link inherits → fontSize 24 + link color + underline
-
-List item (list: fontSize 16, color gray)
-└── Emphasis inherits → fontSize 16, color gray + italic style
-└── Inline code inherits → fontSize 16 + code background
-```
+<LivePreview src={InheritanceSrc} />
 
 This inheritance model ensures consistent typography throughout your Markdown content while allowing inline elements to add their own visual emphasis.
 
@@ -67,9 +72,9 @@ Strong, emphasis, and inline code support an optional `fontFamily` property that
 
 **Default behavior (no `fontFamily` set):**
 
-- **Strong** — adds the bold trait to the current block font
-- **Emphasis** — adds the italic trait to the current block font
-- **Inline code** — uses the platform's system monospace font (SF Mono on iOS, monospace on Android)
+- **Strong** - adds the bold trait to the current block font
+- **Emphasis** - adds the italic trait to the current block font
+- **Inline code** - uses the platform's system monospace font (SF Mono on iOS, monospace on Android)
 
 **With `fontFamily` set:**
 
@@ -95,78 +100,9 @@ markdownStyle={{
 
 ## Customizing styles
 
-The library provides sensible default styles for all Markdown elements out of the box. You can override any of these defaults using the `markdownStyle` prop — only specify the properties you want to change:
+The library provides sensible default styles for all Markdown elements out of the box. You override any of them through the `markdownStyle` prop - only the properties you name change, everything else keeps its default. The playground below starts from the shared palette and restyles a heading, links, and the blockquote accent; edit it to see how each key maps to the rendered output.
 
-```tsx
-<EnrichedMarkdownText
-  markdown={content}
-  markdownStyle={{
-    paragraph: {
-      fontSize: 16,
-      color: '#333',
-      lineHeight: 24,
-    },
-    h1: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      color: '#000',
-      marginBottom: 16,
-      textAlign: 'center',
-    },
-    strong: {
-      fontFamily: 'Montserrat-Bold',
-      color: '#000',
-    },
-    em: {
-      fontFamily: 'Montserrat-Italic',
-      color: '#666',
-    },
-    link: {
-      fontFamily: 'System-Bold',
-      color: '#007AFF',
-      underline: true,
-    },
-    code: {
-      fontFamily: 'CutiveMono-Regular',
-      fontSize: 16,
-      color: '#E91E63',
-      backgroundColor: '#F5F5F5',
-      borderColor: '#E0E0E0',
-    },
-    codeBlock: {
-      fontSize: 14,
-      fontFamily: 'monospace',
-      backgroundColor: '#1E1E1E',
-      color: '#D4D4D4',
-      padding: 16,
-      borderRadius: 8,
-      marginBottom: 16,
-    },
-    blockquote: {
-      borderColor: '#007AFF',
-      borderWidth: 3,
-      backgroundColor: '#F0F8FF',
-      marginBottom: 12,
-    },
-    list: {
-      fontSize: 16,
-      bulletColor: '#007AFF',
-      bulletSize: 6,
-      markerColor: '#007AFF',
-      gapWidth: 8,
-      marginLeft: 20,
-    },
-    table: {
-      fontSize: 14,
-      borderColor: '#E5E7EB',
-      borderRadius: 8,
-      headerBackgroundColor: '#F3F4F6',
-      cellPaddingHorizontal: 12,
-      cellPaddingVertical: 8,
-    },
-  }}
-/>
-```
+<LivePreview src={CustomThemeSrc} />
 
 :::note
 **Performance:** Memoize the `markdownStyle` prop with `useMemo` to avoid unnecessary re-renders:
@@ -183,9 +119,9 @@ const markdownStyle: MarkdownStyle = useMemo(() => ({
 
 ## Dark mode
 
-The library ships with light-mode color defaults. It does not include a `colorScheme` prop — just like React Native's `Text`, theming is left to the consumer.
+The library ships with light-mode color defaults. It does not include a `colorScheme` prop - just like React Native's `Text`, theming is left to the consumer.
 
-To support dark mode, create `MarkdownStyle` objects for each color scheme and switch between them using `useColorScheme()`. Your values always win over the defaults — you only need to specify the colors you want to change:
+To support dark mode, create `MarkdownStyle` objects for each color scheme and switch between them using `useColorScheme()`. Your values always win over the defaults - you only need to specify the colors you want to change:
 
 ```tsx
 import { useColorScheme } from 'react-native';
@@ -252,6 +188,10 @@ function App() {
 |----------|------|-------------|
 | `textAlign` | `'auto' \| 'left' \| 'right' \| 'center' \| 'justify'` | Text alignment (default: `'left'`) |
 
+Each heading level (`h1`–`h6`) and `paragraph` is styled by its own key. Give each level its own size and color.
+
+<LivePreview src={HeadingsSrc} />
+
 ### Blockquote-specific
 
 | Property | Type | Description |
@@ -260,6 +200,8 @@ function App() {
 | `borderWidth` | `number` | Left border width |
 | `gapWidth` | `number` | Gap between border and text |
 | `backgroundColor` | `string` | Background color |
+
+<LivePreview src={BlockquoteSrc} />
 
 ### List-specific
 
@@ -272,6 +214,8 @@ function App() {
 | `markerFontWeight` | `string` | Number marker font weight |
 | `gapWidth` | `number` | Gap between marker and text |
 | `marginLeft` | `number` | Left margin for nesting |
+
+<LivePreview src={ListSrc} />
 
 ### Code block-specific
 
@@ -286,6 +230,8 @@ function App() {
 :::note
 Inside list items, code blocks (background included) indent to the item's content column.
 :::
+
+<LivePreview src={CodeBlockSrc} />
 
 ### Inline code-specific
 
@@ -321,6 +267,10 @@ Inside list items, code blocks (background included) indent to the item's conten
 | `fontStyle` | `'italic' \| 'normal'` | Controls whether italic is applied on top of the custom `fontFamily`. Defaults to `'italic'`. Set to `'normal'` to use the font face as-is. Only relevant when `fontFamily` is set |
 | `color` | `string` | Italic text color |
 
+The inline elements (`strong`, `em`, `link`, `code`) inherit the surrounding block's typography and add their own color on top. The playground restyles all four at once.
+
+<LivePreview src={InlineStylesSrc} />
+
 ### Strikethrough-specific
 
 | Property | Type | Description |
@@ -341,6 +291,8 @@ Styles for highlighted text (`==text==`). Requires `md4cFlags={{ highlight: true
 |----------|------|-------------|
 | `color` | `string` | Text color inside the highlight. Inherits the block color when omitted |
 | `backgroundColor` | `string` | Background color of the highlight span. Default: `#FEF08A` |
+
+<LivePreview src={HighlightSrc} />
 
 ### Image-specific
 
@@ -366,6 +318,8 @@ Styles for highlighted text (`==text==`). Requires `md4cFlags={{ highlight: true
 | `marginTop` | `number` | Top margin |
 | `marginBottom` | `number` | Bottom margin |
 
+<LivePreview src={ThematicBreakSrc} />
+
 ### Table-specific
 
 Table styles only apply when `flavor="github"` is set. Tables inherit the base block styles (`fontSize`, `fontFamily`, `fontWeight`, `color`, `marginTop`, `marginBottom`, `lineHeight`) and add the following:
@@ -383,6 +337,8 @@ Table styles only apply when `flavor="github"` is set. Tables inherit the base b
 | `cellPaddingHorizontal` | `number` | Horizontal padding inside cells |
 | `cellPaddingVertical` | `number` | Vertical padding inside cells |
 
+<LivePreview src={TableSrc} />
+
 ### Task list-specific
 
 | Property | Type | Description |
@@ -394,6 +350,8 @@ Table styles only apply when `flavor="github"` is set. Tables inherit the base b
 | `checkboxBorderRadius` | `number` | Corner radius of the checkbox |
 | `checkedTextColor` | `string` | Text color for checked items |
 | `checkedStrikethrough` | `boolean` | Whether to apply strikethrough to checked items |
+
+<LivePreview src={TaskListSrc} />
 
 ### Math block-specific
 
@@ -439,7 +397,7 @@ Styles for superscript text (`^text^`). Requires `md4cFlags={{ superscript: true
 
 ### Subscript-specific
 
-Styles for subscript text (`~text~`). Requires `md4cFlags={{ subscript: true }}` to enable the parser. Note: enabling subscript changes the behavior of single tildes — `~text~` becomes subscript instead of strikethrough.
+Styles for subscript text (`~text~`). Requires `md4cFlags={{ subscript: true }}` to enable the parser. Note: enabling subscript changes the behavior of single tildes - `~text~` becomes subscript instead of strikethrough.
 
 | Property | Type | Description |
 |----------|------|-------------|
