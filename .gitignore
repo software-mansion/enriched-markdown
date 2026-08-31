@@ -120,3 +120,6 @@ storybook-static
 # Maestro assertScreenshot diff artifacts
 .maestro/**/*_diff.png
 *.tgz
+
+# Claude Code local config
+.claude/
