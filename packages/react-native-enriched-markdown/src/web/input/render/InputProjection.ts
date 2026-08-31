@@ -1,3 +1,4 @@
+import type { BlockRange, BlockType } from '../model/blocks';
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
 import type { RangeBounds } from '../model/rangeBounds';
 import { clamp } from '../utils';
@@ -124,4 +125,74 @@ export function computeStyleRuns(
   emitRunUpTo(end);
 
   return runs;
+}
+
+// One buffer line with its block metadata and style runs.
+export interface ParagraphProjection extends RangeBounds {
+  blockType: BlockType;
+  level: number;
+  ordinal: number;
+  runs: StyleRun[];
+}
+
+// An emptied heading or list item keeps its block as a zero-length range
+// pinned to the line start.
+function isEmptyAnchor(block: BlockRange): boolean {
+  return block.start === block.end;
+}
+
+function blockEndsBeforeLine(block: BlockRange, lineStart: number): boolean {
+  return isEmptyAnchor(block)
+    ? block.start < lineStart
+    : block.end <= lineStart;
+}
+
+function blockCoversLine(
+  block: BlockRange,
+  lineStart: number,
+  lineEnd: number
+): boolean {
+  return isEmptyAnchor(block)
+    ? block.start === lineStart
+    : lineEnd >= block.start && lineStart < block.end;
+}
+
+// Splits the buffer into per-line paragraphs. Expects block ranges sorted
+// and line-normalized, as the store keeps them.
+export function projectParagraphs(
+  text: string,
+  formattingRanges: readonly FormattingRange[],
+  blockRanges: readonly BlockRange[]
+): ParagraphProjection[] {
+  const paragraphs: ParagraphProjection[] = [];
+  let blockIndex = 0;
+  let lineStart = 0;
+  for (const line of text.split('\n')) {
+    const lineEnd = lineStart + line.length;
+
+    // Both advance left to right, so one pointer suffices.
+    while (
+      blockIndex < blockRanges.length &&
+      blockEndsBeforeLine(blockRanges[blockIndex]!, lineStart)
+    ) {
+      blockIndex++;
+    }
+
+    const candidate = blockRanges[blockIndex];
+    const block =
+      candidate && blockCoversLine(candidate, lineStart, lineEnd)
+        ? candidate
+        : undefined;
+
+    paragraphs.push({
+      start: lineStart,
+      end: lineEnd,
+      blockType: block?.type ?? 'paragraph',
+      level: block?.level ?? 0,
+      ordinal: block?.ordinal ?? 1,
+      runs: computeStyleRuns(formattingRanges, lineStart, lineEnd),
+    });
+    lineStart = lineEnd + 1;
+  }
+  return paragraphs;
 }
