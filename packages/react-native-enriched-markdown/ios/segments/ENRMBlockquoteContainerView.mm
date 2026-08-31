@@ -52,7 +52,9 @@ static UIFont *ENRMAdmonitionTitleFont(StyleConfig *config)
   UIFont *bold = descriptor ? [UIFont fontWithDescriptor:descriptor size:base.pointSize] : nil;
   return bold ?: [UIFont boldSystemFontOfSize:base.pointSize];
 #else
-  return [NSFont boldSystemFontOfSize:base.pointSize];
+  NSFontDescriptor *descriptor = [base.fontDescriptor fontDescriptorWithSymbolicTraits:NSFontDescriptorTraitBold];
+  NSFont *bold = descriptor ? [NSFont fontWithDescriptor:descriptor size:base.pointSize] : nil;
+  return bold ?: [NSFont boldSystemFontOfSize:base.pointSize];
 #endif
 }
 
@@ -420,7 +422,6 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
       CGContextFillPath(ctx);
       CGContextRestoreGState(ctx);
     }
-    CGPathRelease(iconPath);
     titleX = leftInset + iconSize + round(iconSize * 0.4);
   }
 

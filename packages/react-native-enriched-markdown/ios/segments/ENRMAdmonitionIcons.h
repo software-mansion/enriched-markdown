@@ -18,8 +18,8 @@ extern const CGFloat ENRMAdmonitionIconViewBox;
 
 // CGPath for the octicon of the given admonition type ("note", "tip",
 // "important", "warning", "caution"), in the 16x16 icon space. NULL for unknown
-// types. Caller owns the returned path (CGPathRelease).
-CGPathRef _Nullable ENRMAdmonitionIconPath(NSString *type) CF_RETURNS_RETAINED;
+// types. The returned path is cached and owned by the module; do not release.
+CGPathRef _Nullable ENRMAdmonitionIconPath(NSString *type);
 
 // Capitalized header title for the type (e.g. "note" -> "Note").
 NSString *ENRMAdmonitionTitle(NSString *type);

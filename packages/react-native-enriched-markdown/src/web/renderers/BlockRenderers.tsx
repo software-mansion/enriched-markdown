@@ -9,6 +9,7 @@ import {
   ADMONITION_TITLES,
 } from './admonitionIcons';
 import type { AdmonitionType } from '../../admonitionDefaults';
+import { ENRM_ADMONITION_CLASS } from '../globalStyles';
 
 function ParagraphRenderer({
   node,
@@ -70,7 +71,7 @@ function AdmonitionRenderer({
     lineHeight: 1.2,
   };
   return (
-    <div style={boxStyle}>
+    <div className={ENRM_ADMONITION_CLASS} style={boxStyle}>
       <div style={headerStyle}>
         <svg
           width={iconSize}

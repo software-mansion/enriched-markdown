@@ -1,6 +1,7 @@
 import { injectStyleOnce } from './injectStyle';
 
 export const ENRM_TEXT_CLASS = 'enrm-text';
+export const ENRM_ADMONITION_CLASS = 'enrm-admonition';
 export const ENRM_SELECTION_BG_VAR = '--enrm-selection-bg';
 
 const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
@@ -14,7 +15,8 @@ const RULES: ReadonlyArray<readonly [id: string, css: string]> = [
   // collapse out on its own.
   [
     'enrm-blockquote-trailing-margin',
-    `.${ENRM_TEXT_CLASS} blockquote > *:last-child { margin-bottom: 0 !important; }`,
+    `.${ENRM_TEXT_CLASS} blockquote > *:last-child, ` +
+      `.${ENRM_TEXT_CLASS} .${ENRM_ADMONITION_CLASS} > *:last-child { margin-bottom: 0 !important; }`,
   ],
 ];
 

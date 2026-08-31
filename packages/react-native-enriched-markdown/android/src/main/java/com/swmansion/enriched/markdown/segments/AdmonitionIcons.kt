@@ -50,8 +50,12 @@ object AdmonitionIcons {
   /** The supported admonition types, in the order md4c reports them. */
   val TYPES: Set<String> = PATH_DATA.keys
 
-  /** Parses the octicon path for [type] into a Path in the 16x16 icon space. */
-  fun path(type: String): Path? = PATH_DATA[type]?.let { PathParser.createPathFromPathData(it) }
+  private val PATHS: Map<String, Path> by lazy {
+    PATH_DATA.mapValues { (_, data) -> PathParser.createPathFromPathData(data) }
+  }
+
+  /** The octicon path for [type] in the 16x16 icon space. */
+  fun path(type: String): Path? = PATHS[type]
 
   /** Capitalized header title for [type] (e.g. "note" -> "Note"). */
   fun title(type: String): String = TITLES[type] ?: type.replaceFirstChar { it.uppercase() }

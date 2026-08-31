@@ -9,6 +9,8 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.View
 import androidx.core.graphics.withSave
+import com.facebook.react.common.ReactConstants
+import com.facebook.react.views.text.ReactTypefaceUtils.applyStyles
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
@@ -57,7 +59,17 @@ class BlockquoteContainerView(
 
   private val titlePaint =
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
-      typeface = Typeface.DEFAULT_BOLD
+      typeface =
+        Typeface.create(
+          applyStyles(
+            null,
+            ReactConstants.UNSET,
+            ReactConstants.UNSET,
+            blockquoteStyle.fontFamily.takeIf { it.isNotEmpty() },
+            context.assets,
+          ),
+          Typeface.BOLD,
+        )
       textSize = blockquoteStyle.fontSize
     }
   private val iconPaint =

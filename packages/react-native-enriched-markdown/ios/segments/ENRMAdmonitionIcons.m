@@ -52,13 +52,27 @@ static NSDictionary<NSString *, NSString *> *ENRMAdmonitionIconPathData(void)
   return data;
 }
 
+static NSDictionary<NSString *, id> *ENRMAdmonitionIconPaths(void)
+{
+  static NSDictionary<NSString *, id> *paths;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    NSDictionary<NSString *, NSString *> *data = ENRMAdmonitionIconPathData();
+    NSMutableDictionary<NSString *, id> *parsed = [NSMutableDictionary dictionaryWithCapacity:data.count];
+    for (NSString *key in data) {
+      CGPathRef path = ENRMCreateCGPathFromSVGPath(data[key]);
+      if (path) {
+        parsed[key] = (__bridge_transfer id)path;
+      }
+    }
+    paths = parsed;
+  });
+  return paths;
+}
+
 CGPathRef ENRMAdmonitionIconPath(NSString *type)
 {
-  NSString *pathData = ENRMAdmonitionIconPathData()[type];
-  if (!pathData) {
-    return NULL;
-  }
-  return ENRMCreateCGPathFromSVGPath(pathData);
+  return (__bridge CGPathRef)ENRMAdmonitionIconPaths()[type];
 }
 
 NSString *ENRMAdmonitionTitle(NSString *type)
