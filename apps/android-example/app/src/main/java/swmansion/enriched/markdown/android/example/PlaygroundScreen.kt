@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.parser.Md4cFlags
 import java.io.File
 
 private fun assetImageUri(
@@ -54,6 +55,7 @@ private fun assetImageUri(
 fun PlaygroundScreen(modifier: Modifier = Modifier) {
   val context = androidx.compose.ui.platform.LocalContext.current
   var markdown by remember { mutableStateOf("") }
+  var underlineEnabled by remember { mutableStateOf(true) }
   var setMarkdownModalVisible by remember { mutableStateOf(false) }
   var rawInput by remember { mutableStateOf("") }
   var blockImageUri by remember { mutableStateOf<String?>(null) }
@@ -86,8 +88,9 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
       )
       PlaygroundButton(
         label = "Underline",
-        onClick = { /* no-op for Maestro parity */ },
+        onClick = { underlineEnabled = !underlineEnabled },
         testTag = "underline-button",
+        isActive = underlineEnabled,
       )
     }
 
@@ -177,6 +180,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               .padding(14.dp)
               .testTag("preview-text"),
           style = PlaygroundMarkdownStyle,
+          flags = Md4cFlags(underline = underlineEnabled),
         )
       }
     }
@@ -246,15 +250,23 @@ private fun RowScope.PlaygroundButton(
   label: String,
   onClick: () -> Unit,
   testTag: String,
+  isActive: Boolean = false,
 ) {
   Button(
     onClick = onClick,
     modifier = Modifier.weight(1f).testTag(testTag),
     colors =
-      ButtonDefaults.buttonColors(
-        containerColor = Color(0xFFE5E7EB),
-        contentColor = Color(0xFF374151),
-      ),
+      if (isActive) {
+        ButtonDefaults.buttonColors(
+          containerColor = Color(0xFFBEEBD0),
+          contentColor = Color(0xFF001A72),
+        )
+      } else {
+        ButtonDefaults.buttonColors(
+          containerColor = Color(0xFFE5E7EB),
+          contentColor = Color(0xFF374151),
+        )
+      },
     shape = RoundedCornerShape(8.dp),
   ) {
     Text(
