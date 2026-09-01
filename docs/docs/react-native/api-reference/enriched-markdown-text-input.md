@@ -660,10 +660,6 @@ Replaces the active mention token with a formatted link, serialized as `[display
 
 <LivePreview src={MentionsSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
-## Try it yourself
-
-<InteractiveExample src={FirstEditorSrc} comingSoon />
-
 ## See also
 
 - [Mentions](/rich-text-formatting/mentions) - trigger indicators, suggestion events, and per-pattern link styling.

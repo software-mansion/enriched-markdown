@@ -14,6 +14,12 @@ This section walks you through adding `react-native-enriched-markdown` to your a
 
 The library works only with the [React Native New Architecture (Fabric)](https://reactnative.dev/architecture/landing-page). It's enabled by default on recent React Native versions; if your app still runs the old architecture you'd need to switch before installing.
 
+It also needs these minimum platform versions:
+
+- **Android** - `minSdk 24` (Android 7.0).
+- **iOS** - React Native's own minimum deployment target; a few features additionally require iOS 16+ (for example [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems)). The standalone iOS SDK requires iOS 16+.
+- **macOS** (via [react-native-macos](https://github.com/microsoft/react-native-macos)) - 14.0.
+
 For the exact React Native versions we support, see [Compatibility](/misc/compatibility).
 
 ## Install the package

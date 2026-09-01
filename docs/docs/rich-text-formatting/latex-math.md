@@ -3,6 +3,8 @@ sidebar_label: LaTeX math
 sidebar_position: 2
 ---
 
+import MathSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-formatting/latex-math/Math';
+
 # LaTeX math
 
 `EnrichedMarkdownText` renders LaTeX math natively, both inline and as block equations:
@@ -17,28 +19,7 @@ Math parsing is **on by default**. You can turn it off so `$` is treated as plai
 <CodeTabs groupId="platform">
 <Tab label="React Native">
 
-```tsx
-<EnrichedMarkdownText
-  flavor="github"
-  markdown={String.raw`
-The quadratic formula:
-
-$$x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}$$
-
-Einstein's mass-energy equivalence $E = mc^2$ is famous.
-`}
-  markdownStyle={{
-    math: {
-      fontSize: 20,
-      color: '#1F2937',
-      backgroundColor: '#F3F4F6',
-      padding: 12,
-      textAlign: 'center',
-    },
-    inlineMath: { color: '#1F2937' },
-  }}
-/>
-```
+<LivePreview src={MathSrc} />
 
 </Tab>
 <Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
@@ -79,7 +60,7 @@ LaTeX math is not yet enabled on macOS.
 <Tab label="React Native">
 
 - [`md4cFlags.latexMath`](/react-native/api-reference/enriched-markdown-text#latexmath) - toggle math parsing (on by default).
-- [`markdownStyle.math`](/react-native/api-reference/style-properties) and `inlineMath` - display and inline equation styling.
+- [`markdownStyle.math`](/react-native/api-reference/style-properties#math-block-specific) and [`inlineMath`](/react-native/api-reference/style-properties#inline-math-specific) - display and inline equation styling.
 - **Reduce app size** - set `md4cFlags={{ latexMath: false }}` to stop parsing (also skips KaTeX on web), or `"enableMath": false` in the `enriched-markdown` block of your `package.json` to exclude RaTeX from the native build. See [Native assets](/react-native/guides/native-assets#reducing-binary-size) for the full opt-out.
 
 </Tab>

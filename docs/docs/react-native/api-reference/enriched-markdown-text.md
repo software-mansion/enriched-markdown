@@ -509,10 +509,6 @@ interface CopyPressEvent {
 
 <LivePreview src={OnCopyPressSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - copying from a code block is a native interaction, and the web build renders code blocks without a copy affordance.</>} />
 
-## Try it yourself
-
-<InteractiveExample src={FirstTextSrc} component={FirstText} />
-
 ## See also
 
 - [Element structure](/react-native/api-reference/element-structure) - every supported element, its syntax, block vs. inline categorization, and nesting behavior.

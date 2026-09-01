@@ -87,7 +87,7 @@ Grammars and the tree-sitter runtime are vendored and compiled into the native b
 
 **Styling and callbacks**
 
-- [`codeBlock.syntaxColors`](/react-native/api-reference/style-properties) - the 14 token colors.
+- [`codeBlock.syntaxColors`](/react-native/api-reference/style-properties#syntax-colors) - the 14 token colors.
 - [`onCopyPress`](/react-native/api-reference/enriched-markdown-text#oncopypress) - fires when code is copied.
 - [`selectionMenuConfig`](/react-native/api-reference/enriched-markdown-text#selectionmenuconfig) - relabel or toggle the copy actions.
 

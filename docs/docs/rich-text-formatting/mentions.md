@@ -3,6 +3,8 @@ sidebar_label: Mentions
 sidebar_position: 1
 ---
 
+import DisplayMentionsSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-formatting/mentions/DisplayMentions';
+
 # Mentions
 
 A mention is just a Markdown link with a custom URL scheme - `[@Alice](user://alice)`. There is no dedicated mention token, which means mentions work with **both** components: `EnrichedMarkdownText` displays them as styled, tappable links, and `EnrichedMarkdownTextInput` additionally lets users author them interactively as they type.
@@ -34,26 +36,14 @@ Rendering content that already contains mentions needs nothing special: pass the
 <CodeTabs groupId="platform">
 <Tab label="React Native">
 
-```tsx
-<EnrichedMarkdownText
-  markdown={'Hey [@Alice](user://alice), check [#general](channel://general).'}
-  markdownStyle={{
-    linkVariants: {
-      '^user:': { color: '#1264A3', underline: false },
-      '^channel:': { color: '#065F46', underline: false },
-    },
-  }}
-  onLinkPress={({ url }) => {
-    if (url.startsWith('user://')) openProfile(url);
-    else if (url.startsWith('channel://')) openChannel(url);
-  }}
-/>
-```
+<LivePreview src={DisplayMentionsSrc} />
 
 </Tab>
 <Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
 <Tab label="Android"><ComingSoon platform="Android" /></Tab>
 </CodeTabs>
+
+To make a mention tappable, add `onLinkPress` and route by scheme (`url.startsWith('user://')`).
 
 That is the whole story for read-only surfaces - message lists, comment threads, previews. The rest of this page is about letting users _write_ mentions in the editor.
 

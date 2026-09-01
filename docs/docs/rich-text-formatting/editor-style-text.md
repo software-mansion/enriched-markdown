@@ -3,6 +3,8 @@ sidebar_label: Editor-style text
 sidebar_position: 5
 ---
 
+import EditorTextSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-formatting/editor-style-text/EditorText';
+
 # Editor-style text
 
 The display component normalizes whitespace the way CommonMark does: single newlines collapse into spaces, and runs of blank lines collapse into a single paragraph break. That is the right default for prose, but it means the rendered output does not match the raw line layout the user typed.
@@ -20,13 +22,7 @@ Combine both flags with zeroed paragraph margins to reproduce editor content lin
 <CodeTabs groupId="platform">
 <Tab label="React Native">
 
-```tsx
-<EnrichedMarkdownText
-  markdown={markdownFromInput}
-  markdownStyle={{ paragraph: { marginTop: 0, marginBottom: 0 } }}
-  md4cFlags={{ hardSoftBreaks: true, preserveBlankLines: true }}
-/>
-```
+<LivePreview src={EditorTextSrc} />
 
 </Tab>
 <Tab label="iOS"><ComingSoon platform="iOS" /></Tab>

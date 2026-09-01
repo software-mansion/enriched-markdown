@@ -2,22 +2,14 @@ import React from 'react';
 import { No, Version, Yes } from './index';
 
 // Support matrix for react-native-enriched-markdown against React Native
-// versions. SCAFFOLD DATA - replace REACT_NATIVE_VERSIONS / LIBRARY_VERSIONS
-// with the real supported ranges before relying on this table.
-const REACT_NATIVE_VERSIONS = [
-  '0.80',
-  '0.81',
-  '0.82',
-  '0.83',
-  '0.84',
-  '0.85',
-  '0.86',
-  '0.87',
-];
+// versions. Mirrors the Compatibility Table in the package README.
+const REACT_NATIVE_VERSIONS = ['0.82', '0.83', '0.84', '0.85', '0.86', '0.87'];
 
 const LIBRARY_VERSIONS = [
-  { version: 'nightly', supportedFrom: '0.80', supportedTo: '0.87' },
-  { version: '0.7.x', supportedFrom: '0.80', supportedTo: '0.86' },
+  { version: 'nightly', supportedFrom: '0.83', supportedTo: '0.87' },
+  { version: '1.0.0', supportedFrom: '0.83', supportedTo: '0.87' },
+  { version: '0.7.0', supportedFrom: '0.83', supportedTo: '0.87' },
+  { version: '0.6.0', supportedFrom: '0.83', supportedTo: '0.85' },
 ] as const;
 
 function isSupported(

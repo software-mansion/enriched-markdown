@@ -488,8 +488,3 @@ The base text appearance (font size, family, color) comes from the input's [`sty
 | `h1`–`h6`                 | `{ fontSize?, fontWeight?, color? }` | Match the renderer | Per-level heading styling. Defaults match the renderer (sizes `30/24/20/18/16/14`, bold); omitted levels or fields fall back to those defaults   |
 | `list.itemSpacing`        | `number`                             | `0`                | Vertical spacing (points) added above each list item (bullet and numbered alike) so items read as separate rows                                  |
 
-## Try it yourself
-
-The example below sets a custom `markdownStyle`. Switch to the Code tab and tweak the values to see how each property changes the rendered output.
-
-<InteractiveExample src={FirstTextSrc} component={FirstText} />

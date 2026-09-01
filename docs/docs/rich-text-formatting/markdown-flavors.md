@@ -3,6 +3,8 @@ sidebar_label: Markdown flavors
 sidebar_position: 0
 ---
 
+import FlagsSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-formatting/markdown-flavors/Flags';
+
 # Markdown flavors
 
 This section covers the rich text features layered on top of the CommonMark core introduced in [Core concepts](/introduction/core-concepts) - tables and task lists, LaTeX math, code-block highlighting, mentions, and streaming. Some are gated behind a **Markdown flavor**, others are toggled through `md4cFlags`, and a few are always on - so this page explains flavors first (the main switch) before you dive into the individual features.
@@ -69,12 +71,7 @@ A second set of inline extensions is toggled independently of the flavor, throug
 <CodeTabs groupId="platform">
 <Tab label="React Native">
 
-```tsx
-<EnrichedMarkdownText
-  markdown="E = mc^2^ and ==highlighted=="
-  md4cFlags={{ superscript: true, highlight: true }}
-/>
-```
+<LivePreview src={FlagsSrc} />
 
 </Tab>
 <Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
