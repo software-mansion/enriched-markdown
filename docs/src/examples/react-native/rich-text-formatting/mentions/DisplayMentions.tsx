@@ -2,24 +2,21 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { View, StyleSheet, useColorScheme } from 'react-native';
 import { defaultMarkdownStyle } from './theme';
 
-const markdown = `# Styled heading
-
-A paragraph with **bold**, *italic*, and \`inline code\`.
-
-> A blockquote to show the border and background [with link](https://docs.swmansion.com/react-native-reanimated).
-
-- First item
-- Second item
-`;
+// Mentions are just links with a custom URL scheme. Style each scheme with
+// linkVariants - edit the colors below to see them update.
+const markdown =
+  'Hey [@Alice](user://alice), check out [#general](channel://general).';
 
 export default function App() {
   const isDark = useColorScheme() === 'dark';
+  const base = defaultMarkdownStyle(isDark);
 
-  // Start from the shared default palette, then override just the elements you want.
   const markdownStyle = {
-    ...defaultMarkdownStyle(isDark),
-    h1: { fontSize: 26, color: isDark ? '#57b495' : '#3f9e82' },
-    link: { color: '#e0699f' },
+    ...base,
+    linkVariants: {
+      '^user:': { color: '#1264A3', underline: false },
+      '^channel:': { color: '#0f8a5f', underline: false },
+    },
   };
 
   return (

@@ -18,8 +18,10 @@ import Md4cSubscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-r
 import Md4cHighlightSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHighlight';
 import Md4cLatexMathSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cLatexMath';
 import Md4cHardSoftBreaksSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHardSoftBreaks';
+import Md4cPreserveBlankLinesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cPreserveBlankLines';
 import OnLinkPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkPress';
 import OnLinkLongPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkLongPress';
+import OnImagePressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnImagePress';
 import OnTaskListItemPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnTaskListItemPress';
 import EnableTaskListItemToggleSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableTaskListItemToggle';
 import OnCopyPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCopyPress';
@@ -112,7 +114,7 @@ For exactly which syntax each flavor parses and renders, and which elements are 
 
 Toggles for md4c's parser extensions; each opts a piece of extra inline syntax in or out. Pass only the flags you want to change; the rest keep their defaults below. Where a flag enables a new inline element, tune its appearance through the matching [style property](/react-native/api-reference/style-properties).
 
-<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false }" />
+<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false }" />
 
 #### `underline`
 
@@ -148,7 +150,7 @@ When `true`, parses `==text==` as highlighted spans. When disabled, double equal
 
 #### `latexMath`
 
-When `true`, parses `$...$` as inline math and `$$...$$` as display math. Rendering uses KaTeX.
+When `true`, parses `$...$` as inline math and `$$...$$` as display math. Rendering uses KaTeX. Unlike the other flags on this page, `latexMath` is enabled by default - set it to `false` to treat dollar signs as plain text.
 
 <PropInfo type="boolean" default="true" />
 
@@ -156,11 +158,19 @@ When `true`, parses `$...$` as inline math and `$$...$$` as display math. Render
 
 #### `hardSoftBreaks`
 
-When `true`, treats single newlines (soft breaks) as hard breaks, rendering them as visible line breaks instead of collapsing them into spaces. See [Line breaks](/react-native/api-reference/element-structure) for details.
+When `true`, treats single newlines (soft breaks) as hard breaks, rendering them as visible line breaks instead of collapsing them into spaces. See [Line breaks](/react-native/api-reference/element-structure#line-breaks) for details.
 
 <PropInfo type="boolean" default="false" />
 
 <LivePreview src={Md4cHardSoftBreaksSrc} />
+
+#### `preserveBlankLines`
+
+When `true`, preserves runs of consecutive blank lines from the source instead of collapsing them into a single paragraph break (per CommonMark). Each blank line renders as one empty line, so the output keeps the exact line count that was typed. Pair it with `hardSoftBreaks` and zeroed paragraph margins to reproduce content authored in `EnrichedMarkdownTextInput` line for line - see the [Editor-style text](/rich-text-formatting/editor-style-text) guide, or [Blank lines](/react-native/api-reference/element-structure#blank-lines) for the element detail.
+
+<PropInfo type="boolean" default="false" />
+
+<LivePreview src={Md4cPreserveBlankLinesSrc} />
 
 ### `enableTaskListItemToggle`
 
@@ -262,7 +272,7 @@ Controls how spoiler text (`||hidden text||`) is displayed before being revealed
 
 ### `imageRequestHeaders`
 
-HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN hotlink protection or an `Authorization` token. Headers participate in image cache identity, so the same URL requested with different headers is fetched and cached separately.
+HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN hotlink protection or an `Authorization` token. Headers participate in image cache identity, so the same URL requested with different headers is fetched and cached separately - see [Image caching](/react-native/guides/image-caching#request-headers) for the details and the disk-cache caveat.
 
 <PropInfo type="Record<string, string>" />
 
@@ -449,6 +459,25 @@ interface LinkLongPressEvent {
 
 <LivePreview src={OnLinkLongPressSrc} />
 
+### `onImagePress`
+
+Callback fired when a rendered image is tapped or clicked. Read the image URL from `event.url` and its Markdown alt text from `event.altText` (`""` when the image has no alt text) - use it to open a lightbox or full-screen viewer.
+
+Fires for block and inline images, including images inside headings, lists, and blockquotes. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both. Not fired for images inside GFM tables.
+
+Setting this callback makes images interactive; leaving it unset keeps the default tap, text-selection, and long-press behavior unchanged. On web the image becomes focusable, exposes a button role for screen readers, and can be activated with Enter/Space, while the browser's right-click menu is preserved.
+
+<PropInfo type="(event: ImagePressEvent) => void" />
+
+```ts
+interface ImagePressEvent {
+  url: string; // the pressed image's URL
+  altText: string; // the image's Markdown alt text ("" if none)
+}
+```
+
+<LivePreview src={OnImagePressSrc} />
+
 ### `onTaskListItemPress`
 
 Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.
@@ -480,14 +509,11 @@ interface CopyPressEvent {
 
 <LivePreview src={OnCopyPressSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - copying from a code block is a native interaction, and the web build renders code blocks without a copy affordance.</>} />
 
-## Try it yourself
-
-<InteractiveExample src={FirstTextSrc} component={FirstText} />
-
 ## See also
 
 - [Element structure](/react-native/api-reference/element-structure) - every supported element, its syntax, block vs. inline categorization, and nesting behavior.
 - [Style properties](/react-native/api-reference/style-properties) - all styleable properties, including a [Dark mode](/react-native/api-reference/style-properties#dark-mode) recipe with `useColorScheme()`.
 - [Copy options](/misc/copy-options) - smart copy, copy as Markdown, and copy image URL.
 - [Accessibility](/misc/accessibility) - VoiceOver and TalkBack support, custom rotors, and semantic traits.
+- [Testing with Jest](/react-native/guides/testing) - the shipped Jest mock for rendering and asserting on the components in tests.
 - [RTL support](/misc/rtl) - right-to-left languages and per-element RTL behavior.
