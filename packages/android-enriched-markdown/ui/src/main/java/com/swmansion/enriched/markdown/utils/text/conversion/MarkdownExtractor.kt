@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.utils.text.conversion
 
 import android.text.Spannable
+import android.text.style.StrikethroughSpan
 import android.text.style.UnderlineSpan
 import android.widget.TextView
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
@@ -283,6 +284,7 @@ object MarkdownExtractor {
     val hasEmphasis = spannable.getSpans(start, end, EmphasisSpan::class.java).isNotEmpty()
     val hasCode = spannable.getSpans(start, end, CodeSpan::class.java).isNotEmpty()
     val hasUnderline = spannable.getSpans(start, end, UnderlineSpan::class.java).isNotEmpty()
+    val hasStrikethrough = spannable.getSpans(start, end, StrikethroughSpan::class.java).isNotEmpty()
     val baselineShiftSpans = spannable.getSpans(start, end, BaselineShiftSpan::class.java)
     val hasSuperscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUPERSCRIPT }
     val hasSubscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUBSCRIPT }
@@ -298,6 +300,9 @@ object MarkdownExtractor {
     }
     if (hasSuperscript) {
       result = "^$result^"
+    }
+    if (hasStrikethrough) {
+      result = "~~$result~~"
     }
     if (hasUnderline && linkSpans.isEmpty()) {
       result = "<u>$result</u>"

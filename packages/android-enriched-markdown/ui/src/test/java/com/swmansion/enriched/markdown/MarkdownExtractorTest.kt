@@ -20,9 +20,11 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
+import com.swmansion.enriched.markdown.test.TestAstFactory.strikethrough
 import com.swmansion.enriched.markdown.test.TestAstFactory.strong
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.thematicBreak
+import com.swmansion.enriched.markdown.test.TestAstFactory.underline
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
 import org.junit.Assert.assertEquals
@@ -82,6 +84,40 @@ class MarkdownExtractorTest {
           paragraph(
             text("Forests cover "),
             strong(text("31%")),
+            text(" of land."),
+          ),
+        ),
+        "31%",
+      ),
+    )
+  }
+
+  @Test
+  fun extractsStrikethroughText() {
+    assertEquals(
+      "~~31%~~",
+      extractSelectingText(
+        document(
+          paragraph(
+            text("Forests cover "),
+            strikethrough(text("31%")),
+            text(" of land."),
+          ),
+        ),
+        "31%",
+      ),
+    )
+  }
+
+  @Test
+  fun extractsUnderlinedTextAsHtmlTag() {
+    assertEquals(
+      "<u>31%</u>",
+      extractSelectingText(
+        document(
+          paragraph(
+            text("Forests cover "),
+            underline(text("31%")),
             text(" of land."),
           ),
         ),

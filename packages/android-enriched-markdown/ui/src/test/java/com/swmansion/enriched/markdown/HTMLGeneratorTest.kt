@@ -20,8 +20,10 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
+import com.swmansion.enriched.markdown.test.TestAstFactory.strikethrough
 import com.swmansion.enriched.markdown.test.TestAstFactory.strong
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
+import com.swmansion.enriched.markdown.test.TestAstFactory.underline
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -59,6 +61,40 @@ class HTMLGeneratorTest {
       )
 
     html.assertContainsHtmlInOrder("<strong", "31%", "</strong>")
+  }
+
+  @Test
+  fun generatesStrikethroughText() {
+    val html =
+      generateHTMLSelectingText(
+        document(
+          paragraph(
+            text("Forests cover "),
+            strikethrough(text("31%")),
+            text(" of land."),
+          ),
+        ),
+        "31%",
+      )
+
+    html.assertContainsHtmlInOrder("<s", "31%", "</s>")
+  }
+
+  @Test
+  fun generatesUnderlinedText() {
+    val html =
+      generateHTMLSelectingText(
+        document(
+          paragraph(
+            text("Forests cover "),
+            underline(text("31%")),
+            text(" of land."),
+          ),
+        ),
+        "31%",
+      )
+
+    html.assertContainsHtmlInOrder("<u", "31%", "</u>")
   }
 
   @Test
