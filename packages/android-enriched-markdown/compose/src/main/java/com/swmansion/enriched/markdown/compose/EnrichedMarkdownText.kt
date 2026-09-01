@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.viewinterop.AndroidView
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
+import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,6 +24,9 @@ import com.swmansion.enriched.markdown.EnrichedMarkdownText as NativeMarkdownTex
  * Style defaults come from the nearest [MarkdownTheme]. Override per instance via the [style]
  * parameter, or nest [MarkdownTheme] to scope styles to a subtree.
  *
+ * [flags] selects the optional md4c syntax extensions. Notably `Md4cFlags(underline = true)`
+ * makes `_text_` and `__text__` render as underline instead of emphasis and strong.
+ *
  * **Previews:** This component renders nothing in `@Preview` because it relies on [AndroidView].
  */
 @Composable
@@ -30,6 +34,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
+  flags: Md4cFlags = Md4cFlags.DEFAULT,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkPress: ((String) -> Unit)? = null,
@@ -63,6 +68,7 @@ fun EnrichedMarkdownText(
         setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
         setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
         setMarkdownStyle(styleConfig)
+        setMd4cFlags(flags)
         setIsSelectable(selectable)
         setImageRequestHeaders(imageRequestHeaders)
         setMarkdownContent(markdown)
@@ -72,6 +78,7 @@ fun EnrichedMarkdownText(
       view.setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
       view.setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
       view.setMarkdownStyle(styleConfig)
+      view.setMd4cFlags(flags)
       view.setIsSelectable(selectable)
       view.setImageRequestHeaders(imageRequestHeaders)
       view.setMarkdownContent(markdown)
