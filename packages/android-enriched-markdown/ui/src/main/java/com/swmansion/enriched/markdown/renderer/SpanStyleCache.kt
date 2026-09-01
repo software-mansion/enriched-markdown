@@ -18,6 +18,8 @@ class SpanStyleCache(
   val emphasisFontFamily: String = style.emphasisStyle.fontFamily
   val emphasisFontStyle: String = style.emphasisStyle.fontStyle
   val emphasisColor: Int? = style.emphasisStyle.color
+  val strikethroughColor: Int? = style.strikethroughStyle.color
+  val underlineColor: Int? = style.underlineStyle.color
   val linkFontFamily: String = style.linkStyle.fontFamily
   val linkColor: Int = style.linkStyle.color
   val linkUnderline: Boolean = style.linkStyle.underline
@@ -33,6 +35,12 @@ class SpanStyleCache(
         ?.takeIf { it != 0 }
         ?.let { add(it) }
       style.emphasisStyle.color
+        ?.takeIf { it != 0 }
+        ?.let { add(it) }
+      style.strikethroughStyle.color
+        ?.takeIf { it != 0 }
+        ?.let { add(it) }
+      style.underlineStyle.color
         ?.takeIf { it != 0 }
         ?.let { add(it) }
       style.linkStyle.color
