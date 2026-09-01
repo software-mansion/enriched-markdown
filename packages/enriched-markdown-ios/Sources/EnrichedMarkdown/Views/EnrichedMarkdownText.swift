@@ -14,6 +14,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownSelectable) private var isSelectionEnabled
     @Environment(\.markdownSelectionColor) private var selectionColor
     @Environment(\.markdownImageRequestHeaders) private var imageRequestHeaders
+    @Environment(\.markdownRenderPlugins) private var renderPlugins
     @Environment(\.markdownTaskListItemPressHandler) private var onTaskListItemPress
     @Environment(\.markdownTaskListItemToggleEnabled) private var isTaskListToggleEnabled
     @StateObject private var renderStore = MarkdownRenderStore()
@@ -55,7 +56,8 @@ public struct EnrichedMarkdownText: View {
                 markdown: markdown,
                 config: styleConfig,
                 flags: flags,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: renderPlugins
             )
         }
         // The onChange closures run against the previous view value, so the
@@ -66,7 +68,8 @@ public struct EnrichedMarkdownText: View {
                 markdown: newValue,
                 config: styleConfig,
                 flags: flags,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: renderPlugins
             )
         }
         .onChange(of: styleConfig) { newValue in
@@ -74,7 +77,8 @@ public struct EnrichedMarkdownText: View {
                 markdown: markdown,
                 config: newValue,
                 flags: flags,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: renderPlugins
             )
         }
         .onChange(of: flags) { newValue in
@@ -82,7 +86,8 @@ public struct EnrichedMarkdownText: View {
                 markdown: markdown,
                 config: styleConfig,
                 flags: newValue,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: renderPlugins
             )
         }
         .onChange(of: imageRequestHeaders) { newValue in
@@ -90,7 +95,8 @@ public struct EnrichedMarkdownText: View {
                 markdown: markdown,
                 config: styleConfig,
                 flags: flags,
-                imageRequestHeaders: newValue
+                imageRequestHeaders: newValue,
+                plugins: renderPlugins
             )
         }
         .onDisappear {

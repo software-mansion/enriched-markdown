@@ -163,6 +163,11 @@ private extension MarkdownExtractor {
             return
         }
 
+        if let attachment = attrs[.attachment] as? any MarkdownPluginAttachment {
+            appendPluginAttachment(attachment, attrs: attrs, to: &result, state: &state)
+            return
+        }
+
         if text == "\u{FFFC}" {
             return
         }
@@ -224,6 +229,35 @@ private extension MarkdownExtractor {
         state.needsBlankLine = true
         state.blockquoteDepth = -1
         state.listDepth = -1
+    }
+
+    static func appendPluginAttachment(
+        _ attachment: any MarkdownPluginAttachment,
+        attrs: [NSAttributedString.Key: Any],
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
+        if attachment.isBlock {
+            flushHeading(&result, state: &state)
+            ensureBlankLine(&result)
+            result += attachment.markdownText() + "\n"
+            state.needsBlankLine = true
+            state.blockquoteDepth = -1
+            state.listDepth = -1
+            return
+        }
+
+        if let level = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.headingLevel]) {
+            accumulateHeading(attachment.markdownText(), level: level, to: &result, state: &state)
+            return
+        }
+        flushHeading(&result, state: &state)
+
+        if state.needsBlankLine, !result.isEmpty {
+            ensureBlankLine(&result)
+            state.needsBlankLine = false
+        }
+        result += attachment.markdownText()
     }
 
     /// Paragraph breaks and margin/padding spacers.

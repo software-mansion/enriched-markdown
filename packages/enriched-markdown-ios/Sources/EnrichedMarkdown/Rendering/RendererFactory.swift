@@ -3,12 +3,18 @@ import UIKit
 final class RendererFactory {
     private let config: MarkdownStyleConfig
     private let imageRequestHeaders: [String: String]
+    private let plugins: [any MarkdownRenderPlugin]
     private var cache: [NodeType: NodeRenderer] = [:]
     private lazy var childrenOnlyRenderer = ChildrenOnlyRenderer(factory: self)
 
-    init(config: MarkdownStyleConfig, imageRequestHeaders: [String: String] = [:]) {
+    init(
+        config: MarkdownStyleConfig,
+        imageRequestHeaders: [String: String] = [:],
+        plugins: [any MarkdownRenderPlugin] = []
+    ) {
         self.config = config
         self.imageRequestHeaders = imageRequestHeaders
+        self.plugins = plugins
     }
 
     func renderer(for type: NodeType) -> NodeRenderer {
@@ -32,6 +38,11 @@ final class RendererFactory {
     }
 
     private func createRenderer(for type: NodeType) -> NodeRenderer {
+        for plugin in plugins {
+            if let renderer = plugin.renderer(for: type, config: config) {
+                return renderer
+            }
+        }
         if let renderer = createInlineRenderer(for: type) {
             return renderer
         }
