@@ -18,6 +18,7 @@ import Md4cSubscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-r
 import Md4cHighlightSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHighlight';
 import Md4cLatexMathSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cLatexMath';
 import Md4cHardSoftBreaksSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHardSoftBreaks';
+import Md4cPreserveBlankLinesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cPreserveBlankLines';
 import OnLinkPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkPress';
 import OnLinkLongPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkLongPress';
 import OnTaskListItemPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnTaskListItemPress';
@@ -112,7 +113,7 @@ For exactly which syntax each flavor parses and renders, and which elements are 
 
 Toggles for md4c's parser extensions; each opts a piece of extra inline syntax in or out. Pass only the flags you want to change; the rest keep their defaults below. Where a flag enables a new inline element, tune its appearance through the matching [style property](/react-native/api-reference/style-properties).
 
-<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false }" />
+<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false }" />
 
 #### `underline`
 
@@ -148,7 +149,7 @@ When `true`, parses `==text==` as highlighted spans. When disabled, double equal
 
 #### `latexMath`
 
-When `true`, parses `$...$` as inline math and `$$...$$` as display math. Rendering uses KaTeX.
+When `true`, parses `$...$` as inline math and `$$...$$` as display math. Rendering uses KaTeX. Unlike the other flags on this page, `latexMath` is enabled by default - set it to `false` to treat dollar signs as plain text.
 
 <PropInfo type="boolean" default="true" />
 
@@ -156,11 +157,19 @@ When `true`, parses `$...$` as inline math and `$$...$$` as display math. Render
 
 #### `hardSoftBreaks`
 
-When `true`, treats single newlines (soft breaks) as hard breaks, rendering them as visible line breaks instead of collapsing them into spaces. See [Line breaks](/react-native/api-reference/element-structure) for details.
+When `true`, treats single newlines (soft breaks) as hard breaks, rendering them as visible line breaks instead of collapsing them into spaces. See [Line breaks](/react-native/api-reference/element-structure#line-breaks) for details.
 
 <PropInfo type="boolean" default="false" />
 
 <LivePreview src={Md4cHardSoftBreaksSrc} />
+
+#### `preserveBlankLines`
+
+When `true`, preserves runs of consecutive blank lines from the source instead of collapsing them into a single paragraph break (per CommonMark). Each blank line renders as one empty line, so the output keeps the exact line count that was typed. Pair it with `hardSoftBreaks` and zeroed paragraph margins to reproduce content authored in `EnrichedMarkdownTextInput` line for line - see the [Editor-style text](/rich-text-formatting/editor-style-text) guide, or [Blank lines](/react-native/api-reference/element-structure#blank-lines) for the element detail.
+
+<PropInfo type="boolean" default="false" />
+
+<LivePreview src={Md4cPreserveBlankLinesSrc} />
 
 ### `enableTaskListItemToggle`
 

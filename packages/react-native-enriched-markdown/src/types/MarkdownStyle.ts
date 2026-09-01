@@ -355,7 +355,7 @@ export interface MarkdownStyle {
  */
 export interface Md4cFlags {
   /**
-   * Enable underline syntax support (__text__).
+   * Enable underline syntax support (_text_).
    * When enabled, underscores are treated as underline markers.
    * When disabled, underscores are treated as emphasis markers (same as asterisks).
    * @default false
