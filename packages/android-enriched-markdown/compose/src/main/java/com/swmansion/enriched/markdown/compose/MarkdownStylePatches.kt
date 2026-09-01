@@ -22,9 +22,11 @@ import com.swmansion.enriched.markdown.styles.InlineImageStyle
 import com.swmansion.enriched.markdown.styles.LinkStyle
 import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
+import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
 import com.swmansion.enriched.markdown.styles.TextAlignment
 import com.swmansion.enriched.markdown.styles.ThematicBreakStyle
+import com.swmansion.enriched.markdown.styles.UnderlineStyle
 
 @Immutable
 internal data class TextStylePatch(
@@ -266,6 +268,72 @@ class EmphasisStyleScope {
           if (existing != null) {
             fontFamily = existing.fontFamily
             fontStyle = existing.fontStyle
+            color = existing.color
+          }
+        }
+      scope.apply(block)
+      return scope.toPatch()
+    }
+  }
+}
+
+@Immutable
+internal data class StrikethroughStylePatch(
+  val color: Color? = null,
+) {
+  fun apply(
+    base: StrikethroughStyle,
+    units: StyleUnits,
+  ): StrikethroughStyle = base.copy(color = color?.let(units::color) ?: base.color)
+}
+
+@MarkdownStyleDsl
+class StrikethroughStyleScope {
+  var color: Color? = null
+
+  internal fun toPatch(): StrikethroughStylePatch = StrikethroughStylePatch(color = color)
+
+  internal companion object {
+    fun merge(
+      existing: StrikethroughStylePatch?,
+      block: StrikethroughStyleScope.() -> Unit,
+    ): StrikethroughStylePatch {
+      val scope =
+        StrikethroughStyleScope().apply {
+          if (existing != null) {
+            color = existing.color
+          }
+        }
+      scope.apply(block)
+      return scope.toPatch()
+    }
+  }
+}
+
+@Immutable
+internal data class UnderlineStylePatch(
+  val color: Color? = null,
+) {
+  fun apply(
+    base: UnderlineStyle,
+    units: StyleUnits,
+  ): UnderlineStyle = base.copy(color = color?.let(units::color) ?: base.color)
+}
+
+@MarkdownStyleDsl
+class UnderlineStyleScope {
+  var color: Color? = null
+
+  internal fun toPatch(): UnderlineStylePatch = UnderlineStylePatch(color = color)
+
+  internal companion object {
+    fun merge(
+      existing: UnderlineStylePatch?,
+      block: UnderlineStyleScope.() -> Unit,
+    ): UnderlineStylePatch {
+      val scope =
+        UnderlineStyleScope().apply {
+          if (existing != null) {
             color = existing.color
           }
         }
