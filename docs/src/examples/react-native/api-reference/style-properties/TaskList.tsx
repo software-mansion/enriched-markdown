@@ -15,9 +15,9 @@ export default function App() {
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
     taskList: {
-      checkedColor: isDark ? '#34d399' : '#059669',
+      checkedColor: isDark ? '#57b495' : '#3f9e82',
       checkmarkColor: '#ffffff',
-      borderColor: isDark ? '#6ee7b7' : '#10b981',
+      borderColor: isDark ? '#57b495' : '#3f9e82',
       checkedTextColor: isDark ? '#6b7280' : '#9ca3af',
       checkedStrikethrough: true,
       checkboxBorderRadius: 6,

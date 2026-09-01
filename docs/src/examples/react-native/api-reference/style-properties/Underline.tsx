@@ -12,7 +12,7 @@ export default function App() {
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
     underline: {
-      color: isDark ? '#5eead4' : '#0d9488',
+      color: isDark ? '#57b495' : '#3f9e82',
     },
   };
 

@@ -17,6 +17,8 @@ import {
   WebBadge,
 } from '@site/src/components/PlatformBadge';
 import PropInfo from '@site/src/components/PropInfo';
+import CodeTabs, { Tab } from '@site/src/components/CodeTabs';
+import ComingSoon from '@site/src/components/ComingSoon';
 import { Yes, No, Version, Spacer } from '@site/src/components/Compatibility';
 import EnrichedCompatibility from '@site/src/components/Compatibility/EnrichedCompatibility';
 import { Badges } from '@swmansion/t-rex-ui';
@@ -39,6 +41,9 @@ export default {
   IosBadge,
   WebBadge,
   PropInfo,
+  CodeTabs,
+  Tab,
+  ComingSoon,
   Yes,
   No,
   Version,

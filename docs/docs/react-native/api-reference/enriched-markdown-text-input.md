@@ -59,7 +59,7 @@ export const soon = (
 <>The editable input is not yet available on web - the code is shown for reference.</>
 );
 
-`EnrichedMarkdownTextInput` is a native rich text editor whose content is Markdown: seed it with a Markdown string and read the edited content back as Markdown whenever you need it. Markdown is the source of truth on both sides of the edit, so content round-trips cleanly in and out. It renders with the platform's native text stack (`UITextView` on iOS, `EditText` on Android), and is an **uncontrolled** input - it does not hold its value in React state or props, but talks directly to the underlying native component, which keeps it fast and simple.
+`EnrichedMarkdownTextInput` is a native, [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) rich text editor whose content is Markdown: the user sees formatted text as they type - bold looks bold, not `**bold**` - while the value is stored as Markdown. Seed it with a Markdown string and read the edited content back as Markdown whenever you need it. Markdown is the source of truth on both sides of the edit, so content round-trips cleanly in and out. It renders with the platform's native text stack (`UITextView` on iOS, `EditText` on Android), and is an **uncontrolled** input - it does not hold its value in React state or props, but talks directly to the underlying native component, which keeps it fast and simple.
 
 ```tsx
 import { useRef, useState } from 'react';
@@ -669,4 +669,5 @@ Replaces the active mention token with a formatted link, serialized as `[display
 - [Mentions](/rich-text-formatting/mentions) - trigger indicators, suggestion events, and per-pattern link styling.
 - [EnrichedMarkdownText](/react-native/api-reference/enriched-markdown-text) - the read-only renderer that pairs with this input.
 - [Style properties](/react-native/api-reference/style-properties) - all styleable properties, including a dark-mode recipe.
+- [Testing with Jest](/react-native/guides/testing) - the shipped Jest mock for asserting on input, ref methods, and emitted Markdown.
 - [RTL support](/misc/rtl) - right-to-left languages and per-element RTL behavior.

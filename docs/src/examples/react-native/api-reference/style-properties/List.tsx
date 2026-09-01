@@ -10,7 +10,7 @@ const markdown = `- First bullet
 
 export default function App() {
   const isDark = useColorScheme() === 'dark';
-  const accent = isDark ? '#5eead4' : '#0d9488';
+  const accent = isDark ? '#57b495' : '#3f9e82';
 
   // Bullets and number markers tint independently; bulletSize and gapWidth
   // control the marker column. itemSpacing adds breathing room between

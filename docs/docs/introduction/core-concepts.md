@@ -144,7 +144,7 @@ For an in-depth look at why flavors exist, everything GFM adds, and how extensio
 
 Bringing it back to the two components:
 
-- **`EnrichedMarkdownTextInput`** turns the user's edits into a Markdown string. Toggling bold on a selection wraps it in `**…**`; making a line a heading prepends `#`. You read the result through `onChangeMarkdown`.
+- **`EnrichedMarkdownTextInput`** is a [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) editor - the user sees formatted text, not raw markup - that turns their edits into a Markdown string. Toggling bold on a selection wraps it in `**…**`; making a line a heading prepends `#`. You read the result through `onChangeMarkdown`.
 - **`EnrichedMarkdownText`** does the reverse: it parses a Markdown string from the `markdown` prop and renders native, styled text.
 
 Because both speak the same format, a string produced by the editor renders identically in the display. That round-trip - edit, serialize to Markdown, store, render - is the core workflow the rest of these docs build on.

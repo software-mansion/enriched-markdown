@@ -14,7 +14,9 @@ import type { MarkdownStyle } from 'react-native-enriched-markdown';
 export function defaultMarkdownStyle(isDark: boolean): MarkdownStyle {
   const text = isDark ? '#e7eaf6' : '#232736';
   const muted = isDark ? '#aeb6d4' : '#5b6479';
-  const accent = '#57b495';
+  // Links, blockquote bar, and task accent. A touch darker in light mode so the
+  // teal reads clearly on a light background; the lighter tone stays for dark.
+  const accent = isDark ? '#57b495' : '#3f9e82';
   const codeText = isDark ? '#79d6c6' : '#0e7c6f';
   const codeBg = isDark ? '#1d322e' : '#e2f2ef';
   const codeBorder = isDark ? '#315049' : '#bfe3db';

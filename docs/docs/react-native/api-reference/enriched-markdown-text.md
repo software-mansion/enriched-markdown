@@ -21,6 +21,7 @@ import Md4cHardSoftBreaksSrc from '!!raw-loader!@site/src/examples/react-native/
 import Md4cPreserveBlankLinesSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cPreserveBlankLines';
 import OnLinkPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkPress';
 import OnLinkLongPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkLongPress';
+import OnImagePressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnImagePress';
 import OnTaskListItemPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnTaskListItemPress';
 import EnableTaskListItemToggleSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableTaskListItemToggle';
 import OnCopyPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCopyPress';
@@ -271,7 +272,7 @@ Controls how spoiler text (`||hidden text||`) is displayed before being revealed
 
 ### `imageRequestHeaders`
 
-HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN hotlink protection or an `Authorization` token. Headers participate in image cache identity, so the same URL requested with different headers is fetched and cached separately.
+HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN hotlink protection or an `Authorization` token. Headers participate in image cache identity, so the same URL requested with different headers is fetched and cached separately - see [Image caching](/react-native/guides/image-caching#request-headers) for the details and the disk-cache caveat.
 
 <PropInfo type="Record<string, string>" />
 
@@ -458,6 +459,25 @@ interface LinkLongPressEvent {
 
 <LivePreview src={OnLinkLongPressSrc} />
 
+### `onImagePress`
+
+Callback fired when a rendered image is tapped or clicked. Read the image URL from `event.url` and its Markdown alt text from `event.altText` (`""` when the image has no alt text) - use it to open a lightbox or full-screen viewer.
+
+Fires for block and inline images, including images inside headings, lists, and blockquotes. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both. Not fired for images inside GFM tables.
+
+Setting this callback makes images interactive; leaving it unset keeps the default tap, text-selection, and long-press behavior unchanged. On web the image becomes focusable, exposes a button role for screen readers, and can be activated with Enter/Space, while the browser's right-click menu is preserved.
+
+<PropInfo type="(event: ImagePressEvent) => void" />
+
+```ts
+interface ImagePressEvent {
+  url: string; // the pressed image's URL
+  altText: string; // the image's Markdown alt text ("" if none)
+}
+```
+
+<LivePreview src={OnImagePressSrc} />
+
 ### `onTaskListItemPress`
 
 Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.
@@ -499,4 +519,5 @@ interface CopyPressEvent {
 - [Style properties](/react-native/api-reference/style-properties) - all styleable properties, including a [Dark mode](/react-native/api-reference/style-properties#dark-mode) recipe with `useColorScheme()`.
 - [Copy options](/misc/copy-options) - smart copy, copy as Markdown, and copy image URL.
 - [Accessibility](/misc/accessibility) - VoiceOver and TalkBack support, custom rotors, and semantic traits.
+- [Testing with Jest](/react-native/guides/testing) - the shipped Jest mock for rendering and asserting on the components in tests.
 - [RTL support](/misc/rtl) - right-to-left languages and per-element RTL behavior.

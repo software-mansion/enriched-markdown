@@ -21,7 +21,7 @@ export default function App() {
   // tweak a value and watch the preview update.
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
-    link: { color: '#57b495' },
+    link: { color: isDark ? '#57b495' : '#3f9e82' },
   };
 
   return (

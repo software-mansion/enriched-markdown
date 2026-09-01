@@ -18,7 +18,7 @@ export default function App() {
   // Start from the shared default palette, then override just the elements you want.
   const markdownStyle = {
     ...defaultMarkdownStyle(isDark),
-    h1: { fontSize: 26, color: '#57b495' },
+    h1: { fontSize: 26, color: isDark ? '#57b495' : '#3f9e82' },
     link: { color: '#e0699f' },
   };
 

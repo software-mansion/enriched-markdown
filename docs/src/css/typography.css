@@ -187,6 +187,15 @@ code {
   font-weight: inherit;
 }
 
+/* The library scopes `.enrm-text ::selection` to a CSS var that is only set
+   when a `selectionColor` prop is passed. The example previews don't set one,
+   so the browser default selection (a harsh blue) shows on the teal card.
+   Give the previews a soft teal-tinted selection that reads in light and dark.
+   The `.markdown` prefix outranks the library's rule regardless of order. */
+.markdown .enrm-text ::selection {
+  background-color: rgba(87, 180, 149, 0.32);
+}
+
 /* Sidebar */
 [class*='menu__list-item-collapsible'] a {
   font-family: var(--swm-title-font);
