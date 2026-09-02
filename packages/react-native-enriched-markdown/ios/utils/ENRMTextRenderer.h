@@ -23,6 +23,14 @@ ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleCon
                                      BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
                                      NSLineBreakStrategy lineBreakStrategy);
 
+// Renders a blockquote's own text content: like ENRMRenderASTNodes but with a blockquote baseline
+// (tight paragraphs, quote font/color) and the quote's line height applied over the result. Draws
+// no box - the ENRMBlockquoteContainerView draws the border/background/padding. Mirrors Android's
+// BlockquoteTextRenderer.
+ENRMRenderResult *ENRMRenderBlockquoteContentNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
+                                                   BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
+                                                   NSLineBreakStrategy lineBreakStrategy);
+
 #ifdef __cplusplus
 }
 #endif

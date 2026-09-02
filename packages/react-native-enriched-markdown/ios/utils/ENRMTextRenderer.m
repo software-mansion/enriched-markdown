@@ -1,7 +1,7 @@
 #import "ENRMTextRenderer.h"
 #import "AccessibilityInfo.h"
 #import "AttributedRenderer.h"
-#import "MarkdownASTNode.h"
+#import "ENRMBlockquoteTextRenderer.h"
 #import "ParagraphStyleUtils.h"
 #import "RenderContext.h"
 #import "StyleConfig.h"
@@ -9,15 +9,11 @@
 @implementation ENRMRenderResult
 @end
 
-ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config, BOOL allowTrailingMargin,
-                                     BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
-                                     NSLineBreakStrategy lineBreakStrategy)
+static ENRMRenderResult *ENRMRenderASTNodesCore(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
+                                                BOOL allowTrailingMargin, BOOL allowFontScaling,
+                                                CGFloat maxFontSizeMultiplier, NSLineBreakStrategy lineBreakStrategy,
+                                                ENRMBlockquoteTextRenderer *block)
 {
-  MarkdownASTNode *root = [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
-  for (MarkdownASTNode *node in nodes) {
-    [root addChild:node];
-  }
-
   AttributedRenderer *renderer = [[AttributedRenderer alloc] initWithConfig:config];
   [renderer setAllowTrailingMargin:allowTrailingMargin];
 
@@ -25,7 +21,8 @@ ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleCon
   context.allowFontScaling = allowFontScaling;
   context.maxFontSizeMultiplier = maxFontSizeMultiplier;
 
-  NSMutableAttributedString *attributedText = [renderer renderRoot:root context:context];
+  NSMutableAttributedString *attributedText = [renderer renderNodes:nodes context:context block:block];
+
   [context applyLinkAttributesToString:attributedText];
   [context applyImageAttributesToString:attributedText];
   ENRMApplyLineBreakStrategyToParagraphStyles(attributedText, lineBreakStrategy);
@@ -36,4 +33,21 @@ ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleCon
   result.accessibilityInfo = [AccessibilityInfo infoFromContext:context];
   result.lastElementMarginBottom = [renderer getLastElementMarginBottom];
   return result;
+}
+
+ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config, BOOL allowTrailingMargin,
+                                     BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
+                                     NSLineBreakStrategy lineBreakStrategy)
+{
+  return ENRMRenderASTNodesCore(nodes, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                                lineBreakStrategy, /*block*/ nil);
+}
+
+ENRMRenderResult *ENRMRenderBlockquoteContentNodes(NSArray<MarkdownASTNode *> *nodes, StyleConfig *config,
+                                                   BOOL allowFontScaling, CGFloat maxFontSizeMultiplier,
+                                                   NSLineBreakStrategy lineBreakStrategy)
+{
+  ENRMBlockquoteTextRenderer *block = [[ENRMBlockquoteTextRenderer alloc] initWithConfig:config];
+  return ENRMRenderASTNodesCore(nodes, config, /*allowTrailingMargin*/ NO, allowFontScaling, maxFontSizeMultiplier,
+                                lineBreakStrategy, block);
 }

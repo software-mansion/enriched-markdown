@@ -84,7 +84,6 @@ class RendererFactory(
 
   private val renderers: Map<MarkdownASTNode.NodeType, NodeRenderer> by lazy {
     buildMap {
-      put(MarkdownASTNode.NodeType.Document, DocumentRenderer())
       put(MarkdownASTNode.NodeType.Paragraph, ParagraphRenderer(config))
       put(MarkdownASTNode.NodeType.Heading, HeadingRenderer(config))
       put(MarkdownASTNode.NodeType.Blockquote, BlockquoteRenderer(config))
@@ -145,8 +144,23 @@ class RendererFactory(
     onLinkPress: ((String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
   ) {
-    node.children.forEach { child ->
-      getRenderer(child).render(child, builder, onLinkPress, onLinkLongPress, this)
+    renderNodes(node.children, builder, onLinkPress, onLinkLongPress)
+  }
+
+  /**
+   * Renders a flat list of sibling nodes in order, dispatching each to its
+   * NodeRenderer. Renders a block's own child content directly - e.g. a GFM
+   * blockquote's content once its nested block segments have been split out -
+   * without wrapping it in a synthetic root node.
+   */
+  fun renderNodes(
+    nodes: List<MarkdownASTNode>,
+    builder: SpannableStringBuilder,
+    onLinkPress: ((String) -> Unit)?,
+    onLinkLongPress: ((String) -> Unit)?,
+  ) {
+    nodes.forEach { node ->
+      getRenderer(node).render(node, builder, onLinkPress, onLinkLongPress, this)
     }
   }
 
