@@ -26,8 +26,7 @@ typealias Md4cFlags = Md4cFlagsInternal
  * Style defaults come from the nearest [MarkdownTheme]. Override per instance via the [style]
  * parameter, or nest [MarkdownTheme] to scope styles to a subtree.
  *
- * [flags] selects the optional md4c syntax extensions. Notably `Md4cFlags(underline = true)`
- * makes `_text_` and `__text__` render as underline instead of emphasis and strong.
+ * [flags] selects the optional md4c syntax extensions.
  *
  * **Previews:** This component renders nothing in `@Preview` because it relies on [AndroidView].
  */
