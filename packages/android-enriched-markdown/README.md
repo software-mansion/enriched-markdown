@@ -119,6 +119,8 @@ The `markdownStyle` builder supports these blocks:
 | `link` | Links |
 | `strong` | Bold text |
 | `emphasis` | Italic text |
+| `strikethrough` | Struck-through text |
+| `underline` | Underlined text (requires `Md4cFlags(underline = true)`) |
 | `code` | Inline code |
 | `codeBlock` | Fenced code blocks |
 | `blockquote` | Block quotes |
@@ -139,6 +141,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
+  flags: Md4cFlags = Md4cFlags.DEFAULT,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkPress: ((String) -> Unit)? = null,
@@ -150,6 +153,7 @@ fun EnrichedMarkdownText(
 |-----------|-------------|
 | `markdown` | Markdown source string |
 | `style` | Per-instance style override |
+| `flags` | Optional parser extensions (see `Md4cFlags`) |
 | `selectable` | Enable text selection |
 | `imageRequestHeaders` | HTTP headers attached to remote image requests (e.g. `Referer`) |
 | `onLinkPress` | Called when a link is tapped |
@@ -158,6 +162,31 @@ fun EnrichedMarkdownText(
 Style defaults come from the nearest `MarkdownTheme`.
 
 > **Note:** Renders nothing in `@Preview` because it relies on `AndroidView`.
+
+### `Md4cFlags`
+
+```kotlin
+data class Md4cFlags(
+  val underline: Boolean = false,  // _text_ and __text__ render underlined instead of italic and bold
+  // … further md4c extensions
+) {
+  companion object {
+    val DEFAULT: Md4cFlags
+  }
+}
+```
+
+
+Pass flags per instance:
+
+```kotlin
+import com.swmansion.enriched.markdown.parser.Md4cFlags
+
+EnrichedMarkdownText(
+  markdown = "_underlined_",
+  flags = Md4cFlags(underline = true),
+)
+```
 
 ### `MarkdownTheme`
 
