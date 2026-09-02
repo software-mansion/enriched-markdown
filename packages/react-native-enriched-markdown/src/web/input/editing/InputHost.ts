@@ -1,10 +1,11 @@
-import { BlockStore } from '../formatting/BlockStore';
+import { BlockStore, paragraphBounds } from '../formatting/BlockStore';
 import { FormattingStore } from '../formatting/FormattingStore';
 import { parseToPlainTextAndRanges } from '../formatting/InputParser';
 import type { RangeBounds } from '../model/rangeBounds';
 import { DomRenderer } from '../render/DomRenderer';
 import { projectParagraphs } from '../render/InputProjection';
 import { ENRM_INPUT_CLASS, injectInputStyles } from '../render/inputStyles';
+import { LIST_ITEM_BLOCK_TYPES } from '../model/blocks';
 import { EditPipeline } from './EditPipeline';
 import { EditSession } from './EditSession';
 import { SelectionMapper } from './SelectionMapper';
@@ -100,6 +101,10 @@ export class InputHost {
       case 'insertText':
         this.replaceSelection(event.data ?? '');
         break;
+      case 'insertParagraph':
+      case 'insertLineBreak':
+        this.insertNewline();
+        break;
       case 'deleteContentBackward':
         this.deleteBackward();
         break;
@@ -154,6 +159,31 @@ export class InputHost {
     this.selection = mapped;
     this.callbacks.onChangeSelection?.(mapped);
   };
+
+  private insertNewline(): void {
+    const { start, end } = this.selection;
+    if (start === end && this.unlistEmptyListItem(start)) {
+      return;
+    }
+    this.replaceSelection('\n');
+  }
+
+  private unlistEmptyListItem(caret: number): boolean {
+    const line = paragraphBounds(caret, caret, this.text);
+    if (line.start !== line.end) {
+      return false;
+    }
+    const block = this.blockStore.blockStartingAt(line.start);
+    if (block === null || !LIST_ITEM_BLOCK_TYPES.has(block.type)) {
+      return false;
+    }
+    this.session.scoped('processing', () => {
+      this.blockStore.removeBlock(line.start, line.start, this.text);
+      this.blockStore.normalizeToLineBounds(this.text);
+    });
+    this.render();
+    return true;
+  }
 
   private replaceSelection(insertedText: string): void {
     const { start, end } = this.selection;
