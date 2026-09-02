@@ -204,7 +204,7 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 
 - Headings (`#`–`######`)
 - Paragraphs, line breaks
-- **Bold**, *italic*, `inline code`
+- **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists
