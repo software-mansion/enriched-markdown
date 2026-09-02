@@ -96,6 +96,13 @@ val CustomMarkdownStyle: MarkdownStyle =
       marginLeft = 24.dp
       marginBottom = 16.dp
     }
+    taskList {
+      checkedColor = Color(0xFF2196F3)
+      borderColor = Color(0xFF9E9E9E)
+      checkmarkColor = Color(0xFFFFFFFF)
+      checkboxSize = 14.dp
+      checkboxBorderRadius = 3.dp
+    }
     codeBlock {
       fontFamily = CourierPrimeRegular
       fontSize = 14.sp

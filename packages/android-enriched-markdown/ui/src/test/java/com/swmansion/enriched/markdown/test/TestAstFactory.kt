@@ -46,6 +46,17 @@ object TestAstFactory {
 
   fun listItem(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.ListItem, children = children.toList())
 
+  /** A GFM task-list item — what md4c produces for `- [ ]` / `- [x]`. */
+  fun taskListItem(
+    checked: Boolean,
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.ListItem,
+      attributes = mapOf("isTask" to "true", "taskChecked" to checked.toString()),
+      children = children.toList(),
+    )
+
   fun image(
     url: String,
     alt: String = "",

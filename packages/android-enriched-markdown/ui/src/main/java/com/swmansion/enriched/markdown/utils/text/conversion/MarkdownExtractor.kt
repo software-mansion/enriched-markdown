@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
+import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.ThematicBreakSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
 
@@ -184,7 +185,8 @@ object MarkdownExtractor {
     val inBlockquote = spannable.getSpans(start, end, BlockquoteSpan::class.java).isNotEmpty()
     val inList =
       spannable.getSpans(start, end, OrderedListSpan::class.java).isNotEmpty() ||
-        spannable.getSpans(start, end, UnorderedListSpan::class.java).isNotEmpty()
+        spannable.getSpans(start, end, UnorderedListSpan::class.java).isNotEmpty() ||
+        spannable.getSpans(start, end, TaskListSpan::class.java).isNotEmpty()
 
     when {
       !inBlockquote && state.blockquoteDepth >= 0 -> {
@@ -254,15 +256,20 @@ object MarkdownExtractor {
   ): String? {
     val orderedSpans = spannable.getSpans(start, end, OrderedListSpan::class.java)
     val unorderedSpans = spannable.getSpans(start, end, UnorderedListSpan::class.java)
+    val taskSpans = spannable.getSpans(start, end, TaskListSpan::class.java)
 
     val orderedDepth = orderedSpans.maxOfOrNull { it.depth } ?: -1
     val unorderedDepth = unorderedSpans.maxOfOrNull { it.depth } ?: -1
-    val depth = maxOf(orderedDepth, unorderedDepth)
+    val taskDepth = taskSpans.maxOfOrNull { it.depth } ?: -1
+    val depth = maxOf(orderedDepth, unorderedDepth, taskDepth)
 
     return if (depth >= 0) {
       state.listDepth = depth
       val indent = "  ".repeat(depth)
-      if (orderedSpans.isNotEmpty()) {
+      if (taskSpans.isNotEmpty()) {
+        val checkbox = if (taskSpans[0].isChecked) "[x]" else "[ ]"
+        "$indent- $checkbox "
+      } else if (orderedSpans.isNotEmpty()) {
         "$indent${orderedSpans[0].itemNumber}. "
       } else {
         "$indent- "

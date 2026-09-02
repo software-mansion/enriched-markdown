@@ -13,12 +13,14 @@ import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
+import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
 /** Generates semantic HTML with inline styles from Spannable text. */
 object HTMLGenerator {
   private const val OBJECT_REPLACEMENT_CHAR = '\uFFFC'
+  private const val CHECKMARK_FONT_SIZE_INSET = 2
 
   /** Pre-computed styles to avoid repeated StyleConfig method calls. */
   private class CachedStyles(
@@ -62,6 +64,13 @@ object HTMLGenerator {
     val listFontSize: Int
     val listMarginBottom: Int
     val listMarginLeft: Int
+
+    // Task list checkbox
+    val taskCheckedColor: String
+    val taskBorderColor: String
+    val taskCheckmarkColor: String
+    val taskCheckboxSize: Int
+    val taskCheckboxBorderRadius: Int
 
     // Link
     val linkFontFamily: String
@@ -130,6 +139,14 @@ object HTMLGenerator {
       listFontSize = fontPx(lStyle.fontSize)
       listMarginBottom = dimPx(lStyle.marginBottom)
       listMarginLeft = dimPx(lStyle.marginLeft)
+
+      // Task list checkbox
+      val tlStyle = style.taskListStyle
+      taskCheckedColor = colorToCSS(tlStyle.checkedColor)
+      taskBorderColor = colorToCSS(tlStyle.borderColor)
+      taskCheckmarkColor = colorToCSS(tlStyle.checkmarkColor)
+      taskCheckboxSize = dimPx(tlStyle.checkboxSize)
+      taskCheckboxBorderRadius = dimPx(tlStyle.checkboxBorderRadius)
 
       // Link
       linkFontFamily = style.linkStyle.fontFamily
@@ -210,12 +227,14 @@ object HTMLGenerator {
   private const val TYPE_BLOCKQUOTE = 8
   private const val TYPE_ORDERED_LIST = 9
   private const val TYPE_UNORDERED_LIST = 10
+  private const val TYPE_TASK_LIST = 11
 
   private data class ParagraphInfo(
     val start: Int,
     val end: Int,
     val type: Int,
     val depth: Int = 0,
+    val isTaskChecked: Boolean = false,
   )
 
   fun generateHTML(
@@ -281,7 +300,7 @@ object HTMLGenerator {
     when (para.type) {
       TYPE_CODE_BLOCK -> handleCodeBlock(inlineContent, state)
       TYPE_BLOCKQUOTE -> handleBlockquote(html, inlineContent, para, styles, state)
-      TYPE_ORDERED_LIST, TYPE_UNORDERED_LIST -> handleList(html, inlineContent, para, styles, state)
+      TYPE_ORDERED_LIST, TYPE_UNORDERED_LIST, TYPE_TASK_LIST -> handleList(html, inlineContent, para, styles, state)
       in TYPE_H1..TYPE_H6 -> handleHeading(html, inlineContent, para.type, styles, state)
       else -> handleNormalParagraph(html, inlineContent, styles, state)
     }
@@ -414,6 +433,7 @@ object HTMLGenerator {
 
     val depth = para.depth
     val isOrdered = para.type == TYPE_ORDERED_LIST
+    val isTask = para.type == TYPE_TASK_LIST
 
     // Close lists to shallower depth
     while (state.listDepth > depth) {
@@ -455,7 +475,9 @@ object HTMLGenerator {
           .append(marginStyle)
           .append("padding-inline-start: ")
           .append(styles.listMarginLeft)
-          .append("px; list-style-type: disc;\">")
+          .append("px; list-style-type: ")
+          .append(if (isTask) "none" else "disc")
+          .append(";\">")
         state.openListTypes.add(false)
       }
     }
@@ -469,12 +491,52 @@ object HTMLGenerator {
       .append(styles.listFontSize)
       .append("px;\">")
 
+    if (isTask) {
+      appendCheckbox(html, para.isTaskChecked, styles)
+    }
+
     html
       .append(content)
       .append("</li>")
 
     state.previousWasBlockquote = false
     state.previousWasCodeBlock = false
+  }
+
+  private fun appendCheckbox(
+    html: StringBuilder,
+    isChecked: Boolean,
+    styles: CachedStyles,
+  ) {
+    val size = styles.taskCheckboxSize
+    val radius = styles.taskCheckboxBorderRadius
+
+    html
+      .append("<span style=\"display: inline-block; width: ")
+      .append(size)
+      .append("px; height: ")
+      .append(size)
+      .append("px; border-radius: ")
+      .append(radius)
+      .append("px; ")
+
+    if (isChecked) {
+      html
+        .append("background-color: ")
+        .append(styles.taskCheckedColor)
+        .append("; color: ")
+        .append(styles.taskCheckmarkColor)
+        .append("; font-size: ")
+        .append(size - CHECKMARK_FONT_SIZE_INSET)
+        .append("px; line-height: ")
+        .append(size)
+        .append("px; text-align: center; vertical-align: middle; margin-inline-end: 4px;\">&#10003;</span> ")
+    } else {
+      html
+        .append("border: 1.5px solid ")
+        .append(styles.taskBorderColor)
+        .append("; vertical-align: middle; margin-inline-end: 4px;\"></span> ")
+    }
   }
 
   private fun handleHeading(
@@ -766,8 +828,14 @@ object HTMLGenerator {
 
       val type = getParagraphType(text, currentIndex)
       val depth = getDepthForType(text, currentIndex, type)
+      val isTaskChecked =
+        type == TYPE_TASK_LIST &&
+          text
+            .getSpans(currentIndex, minOf(currentIndex + 1, text.length), TaskListSpan::class.java)
+            .firstOrNull()
+            ?.isChecked == true
 
-      paragraphs.add(ParagraphInfo(currentIndex, lineEnd, type, depth))
+      paragraphs.add(ParagraphInfo(currentIndex, lineEnd, type, depth, isTaskChecked))
       currentIndex = lineEnd
     }
 
@@ -786,6 +854,7 @@ object HTMLGenerator {
     if (headingSpans.isNotEmpty()) return headingSpans[0].level.coerceIn(1, 6)
 
     if (text.getSpans(start, end, BlockquoteSpan::class.java).isNotEmpty()) return TYPE_BLOCKQUOTE
+    if (text.getSpans(start, end, TaskListSpan::class.java).isNotEmpty()) return TYPE_TASK_LIST
     if (text.getSpans(start, end, OrderedListSpan::class.java).isNotEmpty()) return TYPE_ORDERED_LIST
     if (text.getSpans(start, end, UnorderedListSpan::class.java).isNotEmpty()) return TYPE_UNORDERED_LIST
 
@@ -802,6 +871,7 @@ object HTMLGenerator {
       TYPE_BLOCKQUOTE -> text.getSpans(start, end, BlockquoteSpan::class.java).maxOfOrNull { it.depth } ?: 0
       TYPE_ORDERED_LIST -> text.getSpans(start, end, OrderedListSpan::class.java).maxOfOrNull { it.depth } ?: 0
       TYPE_UNORDERED_LIST -> text.getSpans(start, end, UnorderedListSpan::class.java).maxOfOrNull { it.depth } ?: 0
+      TYPE_TASK_LIST -> text.getSpans(start, end, TaskListSpan::class.java).maxOfOrNull { it.depth } ?: 0
       else -> 0
     }
   }

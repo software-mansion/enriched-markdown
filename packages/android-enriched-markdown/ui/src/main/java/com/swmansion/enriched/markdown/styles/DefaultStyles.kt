@@ -126,6 +126,16 @@ internal object DefaultStyles {
           gapWidth = parser.toPixelFromDIP(12f),
           marginLeft = parser.toPixelFromDIP(24f),
         ),
+      taskListStyle =
+        TaskListStyle(
+          checkedColor = parser.color("#2196F3"),
+          borderColor = parser.color("#9E9E9E"),
+          checkboxSize = parser.toPixelFromDIP(14f),
+          checkboxBorderRadius = parser.toPixelFromDIP(3f),
+          checkmarkColor = parser.color("#FFFFFF"),
+          checkedTextColor = 0,
+          checkedStrikethrough = false,
+        ),
       codeBlockStyle =
         CodeBlockStyle(
           fontSize = parser.toPixelFromSP(14f),

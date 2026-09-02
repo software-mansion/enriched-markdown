@@ -75,6 +75,31 @@ class ParserTest {
   }
 
   @Test
+  fun parsesTaskListItems() {
+    val markdown =
+      """
+      - [x] done
+      - [ ] open
+      - plain
+      """.trimIndent()
+
+    val ast = requireNotNull(parser.parseMarkdown(markdown))
+
+    val listItems = ast.allOfType(MarkdownASTNode.NodeType.ListItem)
+    assertEquals(3, listItems.size)
+
+    assertEquals("true", listItems[0].getAttribute("isTask"))
+    assertEquals("true", listItems[0].getAttribute("taskChecked"))
+    assertEquals("true", listItems[1].getAttribute("isTask"))
+    assertEquals("false", listItems[1].getAttribute("taskChecked"))
+    assertNull(listItems[2].getAttribute("isTask"))
+
+    // The `[x]` / `[ ]` marker is consumed by the parser, not left in the text.
+    assertEquals("done", listItems[0].firstOfType(MarkdownASTNode.NodeType.Text)?.content)
+    assertEquals("open", listItems[1].firstOfType(MarkdownASTNode.NodeType.Text)?.content)
+  }
+
+  @Test
   fun parsesCodeBlock() {
     val ast = requireNotNull(parser.parseMarkdown("```\nval x = 1\n```"))
 
