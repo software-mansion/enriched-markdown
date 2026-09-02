@@ -99,6 +99,9 @@
     case MarkdownNodeTypeImage:
       return [[ENRMImageRenderer alloc] initWithRendererFactory:self config:_config];
     case MarkdownNodeTypeBlockquote:
+    // A list-nested admonition falls back to the inline blockquote renderer
+    // (no themed header); top-level admonitions use the segment container path.
+    case MarkdownNodeTypeAdmonition:
       return [[BlockquoteRenderer alloc] initWithRendererFactory:self config:_config];
     case MarkdownNodeTypeListItem:
       return [[ListItemRenderer alloc] initWithRendererFactory:self config:_config];

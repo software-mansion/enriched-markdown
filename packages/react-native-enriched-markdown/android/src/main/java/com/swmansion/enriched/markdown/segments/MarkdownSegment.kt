@@ -59,7 +59,9 @@ fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
         segments.add(MarkdownSegment.CodeBlock(child))
       }
 
-      MarkdownASTNode.NodeType.Blockquote -> {
+      MarkdownASTNode.NodeType.Blockquote,
+      MarkdownASTNode.NodeType.Admonition,
+      -> {
         flushTextNodes()
         segments.add(MarkdownSegment.Blockquote(child))
       }

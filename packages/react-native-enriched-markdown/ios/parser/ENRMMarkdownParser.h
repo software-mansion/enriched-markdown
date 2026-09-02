@@ -10,6 +10,7 @@
 @property (nonatomic, assign) BOOL highlight;
 @property (nonatomic, assign) BOOL hardSoftBreaks;
 @property (nonatomic, assign) BOOL preserveBlankLines;
+@property (nonatomic, assign) BOOL admonitions;
 
 + (instancetype)defaultFlags;
 

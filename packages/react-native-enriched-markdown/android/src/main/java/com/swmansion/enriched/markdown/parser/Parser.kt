@@ -12,6 +12,7 @@ data class Md4cFlags(
   val permissiveAutolinks: Boolean = true,
   val hardSoftBreaks: Boolean = false,
   val preserveBlankLines: Boolean = false,
+  val admonitions: Boolean = true,
 ) {
   companion object {
     val DEFAULT = Md4cFlags()

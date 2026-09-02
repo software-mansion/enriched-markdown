@@ -39,6 +39,7 @@ data class MarkdownASTNode(
     Highlight,
     SoftBreak,
     BlankLine,
+    Admonition,
   }
 
   fun getAttribute(key: String): String? = attributes[key]
@@ -50,6 +51,7 @@ internal fun MarkdownASTNode.NodeType.isTopLevelBlock(): Boolean =
     MarkdownASTNode.NodeType.Paragraph,
     MarkdownASTNode.NodeType.Heading,
     MarkdownASTNode.NodeType.Blockquote,
+    MarkdownASTNode.NodeType.Admonition,
     MarkdownASTNode.NodeType.UnorderedList,
     MarkdownASTNode.NodeType.OrderedList,
     MarkdownASTNode.NodeType.CodeBlock,

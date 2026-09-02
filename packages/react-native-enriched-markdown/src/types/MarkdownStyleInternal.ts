@@ -37,6 +37,19 @@ interface HeadingStyleInternal extends BaseBlockStyleInternal {
   textAlign: BlockTextAlign;
 }
 
+export interface AdmonitionColorsInternal {
+  color: string;
+  backgroundColor: string;
+}
+
+export interface AdmonitionsStyleInternal {
+  note: AdmonitionColorsInternal;
+  tip: AdmonitionColorsInternal;
+  important: AdmonitionColorsInternal;
+  warning: AdmonitionColorsInternal;
+  caution: AdmonitionColorsInternal;
+}
+
 interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   borderColor: string;
   borderWidth: number;
@@ -44,6 +57,7 @@ interface BlockquoteStyleInternal extends BaseBlockStyleInternal {
   backgroundColor: string;
   borderRadius: number;
   padding: number;
+  admonitions: AdmonitionsStyleInternal;
 }
 
 interface ListStyleInternal extends BaseBlockStyleInternal {

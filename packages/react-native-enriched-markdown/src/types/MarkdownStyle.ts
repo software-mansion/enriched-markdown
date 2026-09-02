@@ -20,6 +20,36 @@ interface HeadingStyle extends BaseBlockStyle {
   textAlign?: TextAlign;
 }
 
+/**
+ * Per-type color overrides for a GitHub admonition/alert.
+ */
+export interface AdmonitionColors {
+  /**
+   * Tints the left accent bar, the title label and the icon for this type.
+   * Defaults to the GitHub palette (note=blue, tip=green, important=purple,
+   * warning=amber, caution=red).
+   */
+  color?: string;
+  /**
+   * Fills the callout background. Omitted or empty means transparent (no fill).
+   */
+  backgroundColor?: string;
+}
+
+/**
+ * Color theming for GitHub admonitions/alerts, keyed by type. Nested under
+ * `blockquote` because admonitions inherit the blockquote geometry (borderWidth,
+ * gapWidth, padding, borderRadius, font, spacing) and only override colors.
+ * Requires `flavor="github"` and `md4cFlags.admonitions` enabled (both default on).
+ */
+export interface AdmonitionsStyle {
+  note?: AdmonitionColors;
+  tip?: AdmonitionColors;
+  important?: AdmonitionColors;
+  warning?: AdmonitionColors;
+  caution?: AdmonitionColors;
+}
+
 interface BlockquoteStyle extends BaseBlockStyle {
   borderColor?: string;
   borderWidth?: number;
@@ -27,6 +57,7 @@ interface BlockquoteStyle extends BaseBlockStyle {
   backgroundColor?: string;
   borderRadius?: number;
   padding?: number;
+  admonitions?: AdmonitionsStyle;
 }
 
 interface ListStyle extends BaseBlockStyle {
@@ -406,4 +437,14 @@ export interface Md4cFlags {
    * @default false
    */
   preserveBlankLines?: boolean;
+  /**
+   * Enable GitHub-style admonitions/alerts (`> [!NOTE]`, `> [!TIP]`,
+   * `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`).
+   * When enabled, such blockquotes render as themed callouts with an icon +
+   * title header (see `markdownStyle.blockquote.admonitions`).
+   * Only takes effect with `flavor="github"`; forced off for `flavor="commonmark"`,
+   * where the syntax renders as a plain blockquote.
+   * @default true
+   */
+  admonitions?: boolean;
 }

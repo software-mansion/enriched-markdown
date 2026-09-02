@@ -110,6 +110,9 @@ static MarkdownASTNode *convertCppASTToObjC(std::shared_ptr<Markdown::MarkdownAS
     case Markdown::NodeType::BlankLine:
       objcType = MarkdownNodeTypeBlankLine;
       break;
+    case Markdown::NodeType::Admonition:
+      objcType = MarkdownNodeTypeAdmonition;
+      break;
   }
 
   MarkdownASTNode *objcNode = [[MarkdownASTNode alloc] initWithType:objcType];
@@ -160,6 +163,7 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
   cppFlags.highlight = flags.highlight;
   cppFlags.hardSoftBreaks = flags.hardSoftBreaks;
   cppFlags.preserveBlankLines = flags.preserveBlankLines;
+  cppFlags.admonitions = flags.admonitions;
 
   Markdown::MD4CParser parser;
   auto cppAST = parser.parse(cppMarkdown, cppFlags, isGFM);
