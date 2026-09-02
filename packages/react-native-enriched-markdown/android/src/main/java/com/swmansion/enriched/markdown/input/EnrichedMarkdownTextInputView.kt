@@ -17,6 +17,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.widget.AppCompatEditText
+import com.facebook.react.bridge.ReactSoftExceptionLogger
 import com.facebook.react.common.ReactConstants
 import com.facebook.react.uimanager.BackgroundStyleApplicator
 import com.facebook.react.uimanager.PixelUtil
@@ -291,12 +292,14 @@ class EnrichedMarkdownTextInputView(
   override fun performClick(): Boolean = super.performClick()
 
   // Framework bug (issue #728): Editor.performLongClick can call getInsertionController().show()
-  // on a null controller when our editable's span callbacks disable it mid-call. Absorb that NPE;
+  // on a null controller when our editable's span callbacks disable it mid-call. Absorb that NPE
+  // and log it as a soft exception (mirroring ReactEditText's known-framework-crash handling);
   // the long-press just skips the insertion UI instead of crashing.
   override fun performLongClick(): Boolean =
     try {
       super.performLongClick()
     } catch (e: NullPointerException) {
+      ReactSoftExceptionLogger.logSoftException(ReactConstants.TAG, e)
       false
     }
 
