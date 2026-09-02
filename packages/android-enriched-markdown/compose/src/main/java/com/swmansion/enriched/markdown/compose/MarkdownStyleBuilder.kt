@@ -7,6 +7,8 @@ class MarkdownStyleBuilder internal constructor() {
   private var link: LinkStylePatch? = null
   private var strong: StrongStylePatch? = null
   private var emphasis: EmphasisStylePatch? = null
+  private var superscript: SuperscriptStylePatch? = null
+  private var subscript: SubscriptStylePatch? = null
   private var code: CodeStylePatch? = null
   private var codeBlock: CodeBlockStylePatch? = null
   private var blockquote: BlockquoteStylePatch? = null
@@ -41,6 +43,14 @@ class MarkdownStyleBuilder internal constructor() {
 
   fun emphasis(block: EmphasisStyleScope.() -> Unit) {
     emphasis = EmphasisStyleScope.merge(emphasis, block)
+  }
+
+  fun superscript(block: SuperscriptStyleScope.() -> Unit) {
+    superscript = SuperscriptStyleScope.merge(superscript, block)
+  }
+
+  fun subscript(block: SubscriptStyleScope.() -> Unit) {
+    subscript = SubscriptStyleScope.merge(subscript, block)
   }
 
   fun code(block: CodeStyleScope.() -> Unit) {
@@ -78,6 +88,8 @@ class MarkdownStyleBuilder internal constructor() {
       link = link,
       strong = strong,
       emphasis = emphasis,
+      superscript = superscript,
+      subscript = subscript,
       code = code,
       codeBlock = codeBlock,
       blockquote = blockquote,

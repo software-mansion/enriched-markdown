@@ -10,6 +10,8 @@ class StyleConfig(
   val linkStyle: LinkStyle,
   val strongStyle: StrongStyle,
   val emphasisStyle: EmphasisStyle,
+  val superscriptStyle: SuperscriptStyle,
+  val subscriptStyle: SubscriptStyle,
   val codeStyle: CodeStyle,
   val imageStyle: ImageStyle,
   val inlineImageStyle: InlineImageStyle,
@@ -49,6 +51,8 @@ class StyleConfig(
       linkStyle == other.linkStyle &&
       strongStyle == other.strongStyle &&
       emphasisStyle == other.emphasisStyle &&
+      superscriptStyle == other.superscriptStyle &&
+      subscriptStyle == other.subscriptStyle &&
       codeStyle == other.codeStyle &&
       imageStyle == other.imageStyle &&
       inlineImageStyle == other.inlineImageStyle &&
@@ -64,6 +68,8 @@ class StyleConfig(
     result = 31 * result + linkStyle.hashCode()
     result = 31 * result + strongStyle.hashCode()
     result = 31 * result + emphasisStyle.hashCode()
+    result = 31 * result + superscriptStyle.hashCode()
+    result = 31 * result + subscriptStyle.hashCode()
     result = 31 * result + codeStyle.hashCode()
     result = 31 * result + imageStyle.hashCode()
     result = 31 * result + inlineImageStyle.hashCode()

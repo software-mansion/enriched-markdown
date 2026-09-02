@@ -41,4 +41,33 @@ class MarkdownStyleBuilderTest {
     assertEquals(with(ComposeStyleTestSupport.testDensity) { 16.sp.toPx() }, paragraph.fontSize, 0.01f)
     assertEquals(0xFF112233.toInt(), paragraph.color)
   }
+
+  @Test
+  fun resolvesSuperscriptAndSubscriptStyleOverrides() {
+    var resolveContext: com.swmansion.enriched.markdown.compose.style.StyleResolveContext? = null
+
+    composeRule.setContent {
+      resolveContext = ComposeStyleTestSupport.rememberResolveContext()
+    }
+    composeRule.waitForIdle()
+
+    val style =
+      markdownStyle {
+        superscript {
+          fontScale = 0.5f
+          baselineOffsetScale = 0.3f
+        }
+        subscript {
+          fontScale = 0.6f
+          baselineOffsetScale = 0.1f
+        }
+      }
+
+    val resolved = style.resolve(requireNotNull(resolveContext))
+
+    assertEquals(0.5f, resolved.superscriptStyle.fontScale, 0.001f)
+    assertEquals(0.3f, resolved.superscriptStyle.baselineOffsetScale, 0.001f)
+    assertEquals(0.6f, resolved.subscriptStyle.fontScale, 0.001f)
+    assertEquals(0.1f, resolved.subscriptStyle.baselineOffsetScale, 0.001f)
+  }
 }

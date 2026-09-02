@@ -12,6 +12,8 @@ import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.styles.SubscriptStyle
+import com.swmansion.enriched.markdown.styles.SuperscriptStyle
 import com.swmansion.enriched.markdown.styles.ThematicBreakStyle
 import com.swmansion.enriched.markdown.utils.text.TypefaceUtils
 
@@ -21,6 +23,8 @@ internal data class StylePatch(
   val linkStyle: LinkStyle? = null,
   val strongStyle: StrongStyle? = null,
   val emphasisStyle: EmphasisStyle? = null,
+  val superscriptStyle: SuperscriptStyle? = null,
+  val subscriptStyle: SubscriptStyle? = null,
   val codeStyle: CodeStyle? = null,
   val codeBlockStyle: CodeBlockStyle? = null,
   val blockquoteStyle: BlockquoteStyle? = null,
@@ -57,6 +61,8 @@ internal object StyleConfigMerger {
       linkStyle = patch.linkStyle ?: base.linkStyle,
       strongStyle = patch.strongStyle ?: base.strongStyle,
       emphasisStyle = patch.emphasisStyle ?: base.emphasisStyle,
+      superscriptStyle = patch.superscriptStyle ?: base.superscriptStyle,
+      subscriptStyle = patch.subscriptStyle ?: base.subscriptStyle,
       codeStyle = patch.codeStyle ?: base.codeStyle,
       imageStyle = patch.imageStyle ?: base.imageStyle,
       inlineImageStyle = patch.inlineImageStyle ?: base.inlineImageStyle,
