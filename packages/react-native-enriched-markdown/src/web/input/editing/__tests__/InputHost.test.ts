@@ -122,13 +122,7 @@ describe('InputHost', () => {
     const { root, host } = mount();
     typeText(root, 'ab');
 
-    for (const inputType of [
-      'insertParagraph',
-      'insertLineBreak',
-      'formatBold',
-      'historyUndo',
-      'insertFromDrop',
-    ]) {
+    for (const inputType of ['formatBold', 'historyUndo', 'insertFromDrop']) {
       const event = new InputEvent('beforeinput', {
         inputType,
         bubbles: true,

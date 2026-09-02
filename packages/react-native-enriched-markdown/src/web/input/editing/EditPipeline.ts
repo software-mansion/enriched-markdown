@@ -1,5 +1,6 @@
-import type { BlockStore } from '../formatting/BlockStore';
+import { paragraphBounds, type BlockStore } from '../formatting/BlockStore';
 import type { FormattingStore } from '../formatting/FormattingStore';
+import { LIST_ITEM_BLOCK_TYPES } from '../model/blocks';
 import {
   createFormattingRange,
   type PendingStyleType,
@@ -54,11 +55,34 @@ export class EditPipeline {
     if (deletedText.length > 0) {
       this.blockStore.pruneOrphanedAnchors(text);
     }
+    // Continuation must follow the prune and precede normalization: the fresh
+    // anchors sit on line starts, so the prune leaves them alone, while the
+    // adjacent line chain keeps the depth clamp from flattening nested items
+    // that follow the fresh empty line.
+    if (insertedText === '\n') {
+      this.continueBlockOnNewline(text, editStart);
+    }
     this.blockStore.normalizeToLineBounds(text);
 
     if (insertedText.length > 0) {
       this.applyPendingStyles(context);
     }
+  }
+
+  // Enter inside a list item continues the list on the new line; other
+  // blocks do not continue.
+  private continueBlockOnNewline(text: string, newlinePosition: number): void {
+    // The inserted newline closes the line before it; take that line's block.
+    const closedLine = paragraphBounds(newlinePosition, newlinePosition, text);
+    const closedBlock = this.blockStore.blockStartingAt(closedLine.start);
+    if (closedBlock === null || !LIST_ITEM_BLOCK_TYPES.has(closedBlock.type)) {
+      return;
+    }
+    const { type, level } = closedBlock;
+    const lineStart = closedLine.start;
+    const freshLineStart = newlinePosition + 1;
+    this.blockStore.setBlock(type, level, lineStart, lineStart, text);
+    this.blockStore.setBlock(type, level, freshLineStart, freshLineStart, text);
   }
 
   private applyPendingStyles(context: EditContext): void {
