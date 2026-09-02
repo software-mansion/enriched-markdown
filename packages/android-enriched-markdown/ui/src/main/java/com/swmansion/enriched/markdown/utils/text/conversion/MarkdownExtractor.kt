@@ -301,11 +301,11 @@ object MarkdownExtractor {
     if (hasSuperscript) {
       result = "^$result^"
     }
-    if (hasStrikethrough) {
-      result = "~~$result~~"
-    }
     if (hasUnderline && linkSpans.isEmpty()) {
       result = "<u>$result</u>"
+    }
+    if (hasStrikethrough) {
+      result = "~~$result~~"
     }
     if (hasEmphasis) {
       result = "*$result*"

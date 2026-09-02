@@ -127,6 +127,23 @@ class MarkdownExtractorTest {
   }
 
   @Test
+  fun extractsStrikethroughAndUnderlinedTextWithUnderlineInnermost() {
+    assertEquals(
+      "~~<u>31%</u>~~",
+      extractSelectingText(
+        document(
+          paragraph(
+            text("Forests cover "),
+            strikethrough(underline(text("31%"))),
+            text(" of land."),
+          ),
+        ),
+        "31%",
+      ),
+    )
+  }
+
+  @Test
   fun extractsItalicText() {
     assertEquals(
       "*300 million years*",
