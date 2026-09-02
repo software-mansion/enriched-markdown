@@ -164,7 +164,7 @@ final class TaskListInteractionTests: XCTestCase {
 
         store.applyTaskListToggle(index: 0, checked: true, config: config)
 
-        XCTAssertEqual(store.sourceMarkdown, "- [x] todo")
+        XCTAssertEqual(store.source?.markdown, "- [x] todo")
         let location = (store.attributedText.string as NSString).range(of: "todo").location
         XCTAssertTrue(MarkdownAttributeValue.boolValue(
             from: store.attributedText.attribute(MarkdownAttribute.taskListItem, at: location, effectiveRange: nil)
@@ -179,7 +179,7 @@ final class TaskListInteractionTests: XCTestCase {
 
         renderSynchronously(store, markdown: "- [ ] todo")
 
-        XCTAssertEqual(store.sourceMarkdown, "- [x] todo")
+        XCTAssertEqual(store.source?.markdown, "- [x] todo")
     }
 
     @MainActor
@@ -190,7 +190,7 @@ final class TaskListInteractionTests: XCTestCase {
 
         renderSynchronously(store, markdown: "- [ ] rewritten")
 
-        XCTAssertEqual(store.sourceMarkdown, "- [ ] rewritten")
+        XCTAssertEqual(store.source?.markdown, "- [ ] rewritten")
     }
 
     // MARK: - Defaults
@@ -225,7 +225,7 @@ final class TaskListInteractionTests: XCTestCase {
     private func renderSynchronously(_ store: MarkdownRenderStore, markdown: String) {
         store.schedule(markdown: markdown, config: config)
         let rendered = expectation(description: "render applied for \(markdown)")
-        let cancellable = store.$sourceMarkdown
+        let cancellable = store.$source
             .dropFirst()
             .sink { _ in rendered.fulfill() }
         wait(for: [rendered], timeout: 2)

@@ -1,12 +1,20 @@
 import SwiftUI
 import UIKit
 
+/// A rendered document's original markdown paired with the parse flags it
+/// was rendered with — one value, so consumers can never pair a source with
+/// the wrong flags.
+struct RenderedSource: Equatable {
+    let markdown: String
+    let flags: Md4cFlags
+}
+
 @MainActor
 final class MarkdownRenderStore: ObservableObject {
     @Published private(set) var attributedText = NSAttributedString()
     // Published together with `attributedText` so consumers never pair a new
-    // markdown string with a stale render result.
-    @Published private(set) var sourceMarkdown: String?
+    // source with a stale render result.
+    @Published private(set) var source: RenderedSource?
 
     /// The caller's markdown as last scheduled. A schedule for the same base
     /// re-renders `currentMarkdown` instead — toggles survive style/flag
@@ -14,7 +22,7 @@ final class MarkdownRenderStore: ObservableObject {
     private var baseMarkdown: String?
 
     /// `baseMarkdown` plus any checkbox toggles applied since, tracked
-    /// synchronously (unlike `sourceMarkdown`, which waits for the render).
+    /// synchronously (unlike `source`, which waits for the render).
     private var currentMarkdown: String?
 
     private let coordinator = AsyncRenderCoordinator()
@@ -27,7 +35,7 @@ final class MarkdownRenderStore: ObservableObject {
     ) {
         if isBlank(markdown) {
             attributedText = NSAttributedString()
-            sourceMarkdown = nil
+            source = nil
             baseMarkdown = nil
             currentMarkdown = nil
             return
@@ -45,7 +53,7 @@ final class MarkdownRenderStore: ObservableObject {
             )
         } apply: { [weak self] result in
             self?.attributedText = result
-            self?.sourceMarkdown = resolved
+            self?.source = RenderedSource(markdown: resolved, flags: flags)
         }
     }
 
@@ -62,11 +70,11 @@ final class MarkdownRenderStore: ObservableObject {
 
         coordinator.invalidate()
         attributedText = toggled
-        if let source = currentMarkdown {
-            let updatedSource = TaskListInteraction.togglingSource(source, index: index, checked: checked)
+        if let markdown = currentMarkdown {
+            let updatedSource = TaskListInteraction.togglingSource(markdown, index: index, checked: checked)
             currentMarkdown = updatedSource
-            if sourceMarkdown != nil {
-                sourceMarkdown = updatedSource
+            if let flags = source?.flags {
+                source = RenderedSource(markdown: updatedSource, flags: flags)
             }
         }
     }

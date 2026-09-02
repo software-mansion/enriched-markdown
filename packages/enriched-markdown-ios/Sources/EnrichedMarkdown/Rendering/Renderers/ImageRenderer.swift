@@ -22,8 +22,9 @@ final class ImageRenderer: NodeRenderer {
             requestHeaders: requestHeaders
         )
 
-        let imageString = NSAttributedString(attachment: attachment)
-        output.append(imageString)
+        var attributes: [NSAttributedString.Key: Any] = [.attachment: attachment]
+        SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
+        output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
     }
 
     private func isInlineImage(in output: NSAttributedString) -> Bool {

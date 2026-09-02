@@ -3,7 +3,7 @@ import UIKit
 
 struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let attributedText: NSAttributedString
-    let sourceMarkdown: String?
+    let source: RenderedSource?
     let styleConfig: MarkdownStyleConfig
     let onLinkPress: ((URL) -> Void)?
     let onLinkLongPress: ((URL) -> Void)?
@@ -26,7 +26,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     func updateUIView(_ textView: MarkdownTextView, context: Context) {
         context.coordinator.onLinkPress = onLinkPress
         context.coordinator.onLinkLongPress = onLinkLongPress
-        context.coordinator.sourceMarkdown = sourceMarkdown
+        context.coordinator.source = source
         context.coordinator.selectionMenuConfig = selectionMenuConfig
         textView.onLinkPress = onLinkPress
         textView.styleConfig = styleConfig
@@ -50,7 +50,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var onLinkPress: ((URL) -> Void)?
         var onLinkLongPress: ((URL) -> Void)?
-        var sourceMarkdown: String?
+        var source: RenderedSource?
         var selectionMenuConfig = MarkdownSelectionMenuConfig()
 
         /// Routes a link tap; returns true when a handler consumed it.
@@ -124,7 +124,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
                 config: selectionMenuConfig,
                 selectedRange: range,
                 attributedText: textView.attributedText ?? NSAttributedString(),
-                sourceMarkdown: sourceMarkdown
+                source: source
             )
             var actions = specs.map(Self.makeAction(for:))
 
