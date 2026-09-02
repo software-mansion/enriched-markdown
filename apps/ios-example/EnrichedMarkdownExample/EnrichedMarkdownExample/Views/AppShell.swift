@@ -38,6 +38,8 @@ struct AppShell: View {
             PlaygroundScreen()
         case .text:
             TextScreen(markdown: sampleMarkdown)
+        case .math:
+            MathScreen()
         case .home, .input, .stream, .storybook:
             EmptyView()
         }
@@ -47,7 +49,7 @@ struct AppShell: View {
 
     private func handleNavigate(_ target: ExampleRoute) {
         switch target {
-        case .playground, .text:
+        case .playground, .text, .math:
             path.append(target)
         case .input, .stream, .storybook:
             unavailableRouteName = target.title
