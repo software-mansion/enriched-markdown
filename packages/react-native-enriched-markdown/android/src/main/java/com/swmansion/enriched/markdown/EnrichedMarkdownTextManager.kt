@@ -88,6 +88,7 @@ class EnrichedMarkdownTextManager :
 
   override fun onDropViewInstance(view: EnrichedMarkdownText) {
     super.onDropViewInstance(view)
+    view.cleanup()
     MeasurementStore.clearFontScalingSettings(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
     view.layoutManager.releaseMeasurementStore()
@@ -141,6 +142,14 @@ class EnrichedMarkdownTextManager :
     view?.setMd4cFlags(parseMd4cFlags(flags))
   }
 
+  @ReactProp(name = "isGFM", defaultBoolean = false)
+  override fun setIsGFM(
+    view: EnrichedMarkdownText?,
+    isGFM: Boolean,
+  ) {
+    view?.setIsGFM(isGFM)
+  }
+
   @ReactProp(name = "allowFontScaling", defaultBoolean = true)
   override fun setAllowFontScaling(
     view: EnrichedMarkdownText?,
@@ -179,6 +188,22 @@ class EnrichedMarkdownTextManager :
     enableTaskListItemToggle: Boolean,
   ) {
     view?.setEnableTaskListItemToggle(enableTaskListItemToggle)
+  }
+
+  @ReactProp(name = "enableImagePress", defaultBoolean = false)
+  override fun setEnableImagePress(
+    view: EnrichedMarkdownText?,
+    enableImagePress: Boolean,
+  ) {
+    view?.setEnableImagePress(enableImagePress)
+  }
+
+  @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
+  override fun setEnableBlockContextMenu(
+    view: EnrichedMarkdownText?,
+    enableBlockContextMenu: Boolean,
+  ) {
+    // No-op: block context menus are rendered by the container component.
   }
 
   @ReactProp(name = "lineBreakStrategyIOS")

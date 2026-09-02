@@ -53,6 +53,8 @@ enum DefaultMarkdownTheme {
             Emphasis()
             Strikethrough()
             Underline()
+            Superscript()
+            Subscript()
 
             Code()
                 .fontDesign(.monospaced)
@@ -96,6 +98,26 @@ enum DefaultMarkdownTheme {
                 .markerColor(Semantic.secondary)
                 .gapWidth(12)
                 .marginLeft(24)
+                .marginBottom(16)
+
+            TaskList()
+                .checkedColor(Semantic.tint)
+                .borderColor(Semantic.secondary)
+                .checkmarkColor(.white)
+                .checkboxSize(14)
+                .checkboxBorderRadius(3)
+
+            Table()
+                .lineHeight(20)
+                .foregroundStyle(Semantic.primary)
+                .headerTextColor(Semantic.primary)
+                .headerBackground(Color(UIColor.tertiarySystemFill))
+                .rowOddBackground(Color(UIColor.quaternarySystemFill))
+                .borderColor(Color(UIColor.separator))
+                .borderWidth(1)
+                .cornerRadius(6)
+                .cellPaddingHorizontal(12)
+                .cellPaddingVertical(8)
                 .marginBottom(16)
         }
     }

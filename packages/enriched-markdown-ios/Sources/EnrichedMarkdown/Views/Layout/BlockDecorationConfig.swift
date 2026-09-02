@@ -18,10 +18,17 @@ struct BlockDecorationConfig {
     var listMarkerColor: UIColor = UIColor(red: 0.42, green: 0.45, blue: 0.50, alpha: 1)
     var listMarkerFont: UIFont = .systemFont(ofSize: 16, weight: .medium)
 
+    var taskCheckboxSize: CGFloat = 14
+    var taskCheckboxBorderRadius: CGFloat = 3
+    var taskCheckedColor: UIColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1)
+    var taskBorderColor: UIColor = UIColor(red: 0.62, green: 0.62, blue: 0.62, alpha: 1)
+    var taskCheckmarkColor: UIColor = .white
+
     init(styleConfig: MarkdownStyleConfig) {
         applyCodeBlockStyle(from: styleConfig.codeBlock)
         applyBlockquoteStyle(from: styleConfig.blockquote)
         applyListStyle(from: styleConfig.list)
+        applyTaskListStyle(from: styleConfig.taskList)
     }
 
     private mutating func applyCodeBlockStyle(from style: CodeBlockStyle) {
@@ -72,6 +79,24 @@ struct BlockDecorationConfig {
         }
         if let font = style.font {
             listMarkerFont = font
+        }
+    }
+
+    private mutating func applyTaskListStyle(from style: TaskListStyle) {
+        if let size = style.checkboxSize {
+            taskCheckboxSize = size
+        }
+        if let radius = style.checkboxBorderRadius {
+            taskCheckboxBorderRadius = radius
+        }
+        if let color = style.checkedColor {
+            taskCheckedColor = color
+        }
+        if let color = style.borderColor {
+            taskBorderColor = color
+        }
+        if let color = style.checkmarkColor {
+            taskCheckmarkColor = color
         }
     }
 }

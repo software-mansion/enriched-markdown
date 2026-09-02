@@ -103,8 +103,15 @@
   }
 
   NSString *weightString = _headingFontWeights[level];
-  UIFont *font = weightString.length > 0 ? [UIFont systemFontOfSize:size weight:ENRMFontWeightFromString(weightString)]
-                                         : [_baseFont fontWithSize:size];
+  UIFont *font;
+  if (weightString.length > 0) {
+    UIFontWeight weight = ENRMFontWeightFromString(weightString);
+    UIFontDescriptor *descriptor = [_baseFont.fontDescriptor
+        fontDescriptorByAddingAttributes:@{UIFontDescriptorTraitsAttribute : @{UIFontWeightTrait : @(weight)}}];
+    font = descriptor ? [UIFont fontWithDescriptor:descriptor size:size] : [UIFont systemFontOfSize:size weight:weight];
+  } else {
+    font = [_baseFont fontWithSize:size];
+  }
   _headingFontCache[level] = font;
   return font;
 }

@@ -22,6 +22,8 @@ static_assert(static_cast<int>(NodeType::Highlight) == 29,
               "NodeType enum must stay in sync with Kotlin MarkdownASTNode.NodeType");
 static_assert(static_cast<int>(NodeType::SoftBreak) == 30,
               "NodeType enum must stay in sync with Kotlin MarkdownASTNode.NodeType");
+static_assert(static_cast<int>(NodeType::BlankLine) == 31,
+              "NodeType enum must stay in sync with Kotlin MarkdownASTNode.NodeType");
 
 local_ref<JMarkdownASTNode> createJavaNode(const std::shared_ptr<MarkdownASTNode> &node) {
   if (!node) {
@@ -69,6 +71,7 @@ Md4cFlags JMd4cFlags::toCppFlags() const {
   static const auto highlightField = javaClassStatic()->getField<jboolean>("highlight");
   static const auto permissiveAutolinksField = javaClassStatic()->getField<jboolean>("permissiveAutolinks");
   static const auto hardSoftBreaksField = javaClassStatic()->getField<jboolean>("hardSoftBreaks");
+  static const auto preserveBlankLinesField = javaClassStatic()->getField<jboolean>("preserveBlankLines");
 
   Md4cFlags flags;
   flags.underline = getFieldValue(underlineField) == JNI_TRUE;
@@ -78,6 +81,7 @@ Md4cFlags JMd4cFlags::toCppFlags() const {
   flags.highlight = getFieldValue(highlightField) == JNI_TRUE;
   flags.permissiveAutolinks = getFieldValue(permissiveAutolinksField) == JNI_TRUE;
   flags.hardSoftBreaks = getFieldValue(hardSoftBreaksField) == JNI_TRUE;
+  flags.preserveBlankLines = getFieldValue(preserveBlankLinesField) == JNI_TRUE;
   return flags;
 }
 
@@ -93,6 +97,7 @@ local_ref<JMarkdownASTNode> JParser::nativeParseMarkdown(alias_ref<JClass> /* cl
     Md4cFlags md4cFlags = flags ? flags->toCppFlags() : Md4cFlags{};
 
     MD4CParser parser;
+    // TODO: when implementing flavor support, pass isGFM based on the flavor instead of the default.
     auto ast = parser.parse(markdownStr, md4cFlags);
 
     if (!ast) {

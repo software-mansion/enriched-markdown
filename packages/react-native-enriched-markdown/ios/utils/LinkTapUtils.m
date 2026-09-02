@@ -21,12 +21,34 @@ NSString *_Nullable linkURLAtRange(ENRMPlatformTextView *textView, NSRange chara
   return [attrText attribute:@"linkURL" atIndex:characterRange.location effectiveRange:NULL];
 }
 
-BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point)
+NSDictionary<NSString *, NSString *> *_Nullable imageAtTapLocation(ENRMPlatformTextView *textView,
+                                                                   ENRMTapRecognizer *recognizer)
+{
+  NSUInteger characterIndex = ENRMCharacterIndexForTap(textView, recognizer);
+  if (characterIndex == NSNotFound)
+    return nil;
+
+  NSAttributedString *attrText = ENRMGetAttributedText(textView);
+  if ([attrText attribute:@"linkURL" atIndex:characterIndex effectiveRange:NULL] != nil)
+    return nil;
+
+  NSString *url = [attrText attribute:@"imageURL" atIndex:characterIndex effectiveRange:NULL];
+  if (!url)
+    return nil;
+
+  NSString *altText = [attrText attribute:@"imageAltText" atIndex:characterIndex effectiveRange:NULL];
+  return @{@"url" : url, @"altText" : altText ?: @""};
+}
+
+BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point, BOOL includeImages)
 {
   NSUInteger charIndex = ENRMCharacterIndexAtPoint(textView, point);
   if (charIndex == NSNotFound)
     return NO;
 
   NSDictionary *attrs = [ENRMGetAttributedText(textView) attributesAtIndex:charIndex effectiveRange:NULL];
-  return attrs[@"linkURL"] != nil || [attrs[@"TaskItem"] boolValue] || attrs[SpoilerAttributeName] != nil;
+  if (attrs[@"linkURL"] != nil || [attrs[@"TaskItem"] boolValue] || attrs[SpoilerAttributeName] != nil)
+    return YES;
+
+  return includeImages && attrs[@"imageURL"] != nil;
 }

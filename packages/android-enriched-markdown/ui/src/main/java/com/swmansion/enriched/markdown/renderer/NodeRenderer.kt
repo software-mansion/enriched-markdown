@@ -95,6 +95,7 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.LineBreak, lineBreakRenderer)
       put(MarkdownASTNode.NodeType.SoftBreak, softBreakRenderer)
       put(MarkdownASTNode.NodeType.ThematicBreak, ThematicBreakRenderer(config))
+      put(MarkdownASTNode.NodeType.BlankLine, BlankLineRenderer(config))
     }
   }
 

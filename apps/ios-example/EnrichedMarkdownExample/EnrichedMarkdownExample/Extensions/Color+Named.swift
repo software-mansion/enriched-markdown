@@ -36,6 +36,7 @@ extension Color {
     // MARK: - Markdown accents (Tailwind blue/violet)
 
     static var linkBlue: Color { Color(red: 37 / 255, green: 99 / 255, blue: 235 / 255) }
+    static var selectionPurple: Color { Color(red: 90 / 255, green: 82 / 255, blue: 250 / 255) }
     static var codeViolet: Color { Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255) }
     static var codeVioletBackground: Color { Color(red: 245 / 255, green: 243 / 255, blue: 255 / 255) }
 }

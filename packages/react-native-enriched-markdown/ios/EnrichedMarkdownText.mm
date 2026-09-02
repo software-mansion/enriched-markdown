@@ -56,6 +56,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 - (void)setupLayoutManager;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
+- (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
@@ -70,6 +71,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   NSString *_renderedMarkdown;
   StyleConfig *_config;
   ENRMMd4cFlags *_md4cFlags;
+  BOOL _isGFM;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
 
@@ -83,6 +85,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL _allowTrailingMargin;
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
+  BOOL _enableImagePress;
   BOOL _streamingAnimation;
   BOOL _forceHeightUpdateOnNextRender;
 
@@ -132,6 +135,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   flags.latexMath = props.latexMath;
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;
+  flags.preserveBlankLines = props.preserveBlankLines;
   return flags;
 }
 
@@ -228,6 +232,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     self.backgroundColor = [RCTUIColor clearColor];
     _parser = [[ENRMMarkdownParser alloc] init];
     _md4cFlags = [EnrichedMarkdownText flagsFromProps:defaultProps->md4cFlags];
+    _isGFM = defaultProps->isGFM;
 
     _renderCoordinator =
         [[ENRMAsyncRenderCoordinator alloc] initWithQueueLabel:"com.swmansion.enriched.markdown.render"];
@@ -236,6 +241,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _allowTrailingMargin = NO;
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
+    _enableImagePress = NO;
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
@@ -338,6 +344,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   StyleConfig *config = [_config copy];
   ENRMMarkdownParser *parser = _parser;
   ENRMMd4cFlags *md4cFlags = [_md4cFlags copy];
+  BOOL isGFM = _isGFM;
 
   BOOL allowFontScaling = _fontScaleObserver.allowFontScaling;
   CGFloat maxFontSizeMultiplier = _maxFontSizeMultiplier;
@@ -350,7 +357,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   [_renderCoordinator
       scheduleRender:^BOOL {
-        MarkdownASTNode *ast = [parser parseMarkdown:markdownString flags:md4cFlags];
+        MarkdownASTNode *ast = [parser parseMarkdown:markdownString flags:md4cFlags isGFM:isGFM];
         if (!ast)
           return NO;
 
@@ -369,7 +376,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (NSMutableAttributedString *)parseAndRenderMarkdown:(NSString *)markdownString
 {
-  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags];
+  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags isGFM:_isGFM];
   if (!ast) {
     return nil;
   }
@@ -556,14 +563,22 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
-      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks) {
+      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||
+      newViewProps.md4cFlags.preserveBlankLines != oldViewProps.md4cFlags.preserveBlankLines) {
     _md4cFlags = [EnrichedMarkdownText flagsFromProps:newViewProps.md4cFlags];
+    _forceHeightUpdateOnNextRender = YES;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  if (newViewProps.isGFM != oldViewProps.isGFM) {
+    _isGFM = newViewProps.isGFM;
     _forceHeightUpdateOnNextRender = YES;
     _dirtyFlags |= ENRMDirtyRender;
   }
 
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
+  _enableImagePress = newViewProps.enableImagePress;
 
   if (ENRMContextMenuItemsChanged(oldViewProps.contextMenuItems, newViewProps.contextMenuItems)) {
     _contextMenuItemTexts = ENRMContextMenuTextsFromItems(newViewProps.contextMenuItems);
@@ -676,6 +691,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _renderedMarkdown = nil;
   _config = nil;
   _md4cFlags = [EnrichedMarkdownText flagsFromProps:resetProps->md4cFlags];
+  _isGFM = resetProps->isGFM;
   _maxFontSizeMultiplier = 0;
   _lastElementMarginBottom = 0;
   _allowTrailingMargin = NO;
@@ -709,7 +725,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 {
   if (_textView) {
     CGPoint textViewPoint = [self convertPoint:point toView:_textView];
-    if (isPointOnInteractiveElement(_textView, textViewPoint)) {
+    if (isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress)) {
       return nil;
     }
   }
@@ -729,6 +745,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onLinkLongPress({.url = std::string(url.UTF8String)});
+}
+
+- (void)emitImagePress:(NSString *)url altText:(NSString *)altText
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onImagePress({.url = std::string(url.UTF8String ?: ""), .altText = std::string(altText.UTF8String ?: "")});
 }
 
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text
@@ -771,7 +794,16 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     return;
   }
 
-  ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) { [self emitLinkPress:url]; });
+  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) { [self emitLinkPress:url]; })) {
+    return;
+  }
+
+  if (_enableImagePress) {
+    NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
+    if (image) {
+      [self emitImagePress:image[@"url"] altText:image[@"altText"]];
+    }
+  }
 }
 
 #pragma mark - UITextViewDelegate (Link Interaction)

@@ -41,6 +41,7 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 @property (nonatomic, copy, nullable) TableLinkPressBlock onLinkLongPress;
 
 @property (nonatomic, assign) BOOL enableLinkPreview;
+@property (nonatomic, assign) BOOL enableBlockContextMenu;
 
 @property (nonatomic, assign) ENRMWritingDirectionMode writingDirectionMode;
 @property (nonatomic, assign) NSWritingDirection resolvedLayoutDirection;

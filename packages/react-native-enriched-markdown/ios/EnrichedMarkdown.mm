@@ -73,18 +73,21 @@ static char kENRMSegmentFadeAnimatorKey;
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
+- (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitCopyPress:(NSString *)code language:(NSString *)language;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
+- (void)pushBlockContextMenuToSegments;
 @end
 
 @implementation EnrichedMarkdown {
   ENRMMarkdownParser *_parser;
   StyleConfig *_config;
   ENRMMd4cFlags *_md4cFlags;
+  BOOL _isGFM;
   NSString *_cachedMarkdown;
   NSString *_renderedMarkdown;
   NSMutableArray<RCTUIView *> *_segmentViews;
@@ -104,6 +107,8 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _selectable;
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
+  BOOL _enableImagePress;
+  BOOL _enableBlockContextMenu;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
@@ -143,6 +148,7 @@ static char kENRMSegmentFadeAnimatorKey;
   flags.latexMath = props.latexMath;
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;
+  flags.preserveBlankLines = props.preserveBlankLines;
   return flags;
 }
 
@@ -155,6 +161,7 @@ static char kENRMSegmentFadeAnimatorKey;
     self.backgroundColor = [RCTUIColor clearColor];
     _parser = [[ENRMMarkdownParser alloc] init];
     _md4cFlags = [EnrichedMarkdown flagsFromProps:defaultProps->md4cFlags];
+    _isGFM = defaultProps->isGFM;
     _segmentViews = [NSMutableArray array];
     _segmentSignatures = [NSMutableArray array];
     _dirtyFlags = ENRMDirtyNone;
@@ -168,6 +175,8 @@ static char kENRMSegmentFadeAnimatorKey;
     _selectable = YES;
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
+    _enableImagePress = NO;
+    _enableBlockContextMenu = YES;
     _streamingAnimation = NO;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
@@ -529,6 +538,23 @@ static char kENRMSegmentFadeAnimatorKey;
   }
 }
 
+- (void)pushBlockContextMenuToSegments
+{
+  for (RCTUIView *segment in _segmentViews) {
+    if ([segment isKindOfClass:[TableContainerView class]]) {
+      ((TableContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
+    }
+#if ENRICHED_MARKDOWN_MATH
+    else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
+      ((ENRMMathContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
+    }
+#endif
+    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
+    }
+  }
+}
+
 - (void)requestHeightUpdate
 {
   ENRMRequestHeightUpdate<EnrichedMarkdownState>(_state, _heightUpdateCounter, self);
@@ -563,6 +589,7 @@ static char kENRMSegmentFadeAnimatorKey;
   StyleConfig *config = [_config copy];
   ENRMMarkdownParser *parser = _parser;
   ENRMMd4cFlags *md4cFlags = [_md4cFlags copy];
+  BOOL isGFM = _isGFM;
 
   BOOL allowFontScaling = _fontScaleObserver.allowFontScaling;
   CGFloat maxFontSizeMultiplier = _maxFontSizeMultiplier;
@@ -590,7 +617,7 @@ static char kENRMSegmentFadeAnimatorKey;
           return YES;
         }
 
-        MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown flags:md4cFlags];
+        MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown flags:md4cFlags isGFM:isGFM];
         if (!ast)
           return NO;
 
@@ -614,7 +641,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
 - (NSArray *)parseAndRenderSegments:(NSString *)markdownString
 {
-  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags];
+  MarkdownASTNode *ast = [_parser parseMarkdown:markdownString flags:_md4cFlags isGFM:_isGFM];
   if (!ast) {
     return nil;
   }
@@ -793,6 +820,7 @@ static char kENRMSegmentFadeAnimatorKey;
   tableView.allowFontScaling = _fontScaleObserver.allowFontScaling;
   tableView.maxFontSizeMultiplier = _maxFontSizeMultiplier;
   tableView.enableLinkPreview = _enableLinkPreview;
+  tableView.enableBlockContextMenu = _enableBlockContextMenu;
   tableView.writingDirectionMode = _writingDirectionMode;
   tableView.resolvedLayoutDirection = _resolvedLayoutDirection;
   tableView.accessibilityLabels = _accessibilityLabels;
@@ -834,6 +862,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (ENRMMathContainerView *)createMathViewForSegment:(ENRMMathSegment *)mathSegment
 {
   ENRMMathContainerView *mathView = [[ENRMMathContainerView alloc] initWithConfig:_config];
+  mathView.enableBlockContextMenu = _enableBlockContextMenu;
   mathView.accessibilityLabels = _accessibilityLabels;
   mathView.copyLabel = _selectionMenuLabels.copyLabel;
   mathView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
@@ -845,6 +874,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (ENRMCodeBlockContainerView *)createCodeBlockViewForSegment:(ENRMCodeBlockSegment *)codeBlockSegment
 {
   ENRMCodeBlockContainerView *codeBlockView = [[ENRMCodeBlockContainerView alloc] initWithConfig:_config];
+  codeBlockView.enableBlockContextMenu = _enableBlockContextMenu;
   codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
   codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
 
@@ -969,13 +999,25 @@ static char kENRMSegmentFadeAnimatorKey;
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
-      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks) {
+      newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||
+      newViewProps.md4cFlags.preserveBlankLines != oldViewProps.md4cFlags.preserveBlankLines) {
     _md4cFlags = [EnrichedMarkdown flagsFromProps:newViewProps.md4cFlags];
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 
+  if (newViewProps.isGFM != oldViewProps.isGFM) {
+    _isGFM = newViewProps.isGFM;
+    _dirtyFlags |= ENRMDirtyRecreateSegments | ENRMDirtyForceHeight | ENRMDirtyRender;
+  }
+
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
+  _enableImagePress = newViewProps.enableImagePress;
+
+  if (_enableBlockContextMenu != newViewProps.enableBlockContextMenu) {
+    _enableBlockContextMenu = newViewProps.enableBlockContextMenu;
+    [self pushBlockContextMenuToSegments];
+  }
 
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
     _streamingAnimation = newViewProps.streamingAnimation;
@@ -1131,6 +1173,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _renderedMarkdown = nil;
   _config = nil;
   _md4cFlags = [EnrichedMarkdown flagsFromProps:resetProps->md4cFlags];
+  _isGFM = resetProps->isGFM;
   _maxFontSizeMultiplier = 0;
   _allowTrailingMargin = NO;
   _streamingAnimation = NO;
@@ -1201,7 +1244,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     BOOL isInsideView = CGRectContainsPoint(textSegment.textView.bounds, segmentPoint);
 #endif
     if (isInsideView) {
-      if (isPointOnInteractiveElement(textSegment.textView, segmentPoint)) {
+      if (isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress)) {
         return nil;
       }
       break;
@@ -1232,6 +1275,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onLinkPress({.url = std::string(url.UTF8String)});
+}
+
+- (void)emitImagePress:(NSString *)url altText:(NSString *)altText
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onImagePress({.url = std::string(url.UTF8String ?: ""), .altText = std::string(altText.UTF8String ?: "")});
 }
 
 - (void)emitLinkLongPress:(NSString *)url
@@ -1296,7 +1346,16 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     }
   }
 
-  ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) { [self emitLinkPress:url]; });
+  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) { [self emitLinkPress:url]; })) {
+    return;
+  }
+
+  if (_enableImagePress) {
+    NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
+    if (image) {
+      [self emitImagePress:image[@"url"] altText:image[@"altText"]];
+    }
+  }
 }
 
 // TODO: Remove API_AVAILABLE(ios(16.0)) guard when the minimum iOS deployment target in RN is bumped to 16.

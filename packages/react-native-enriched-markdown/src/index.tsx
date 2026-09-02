@@ -11,6 +11,7 @@ export type {
 export type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
 } from './types/events';

@@ -42,6 +42,24 @@ public struct ElementStyle: Equatable, Sendable {
     }
 }
 
+public struct BaselineShiftStyle: Equatable, Sendable {
+    public var fontScale: CGFloat?
+    public var baselineOffsetScale: CGFloat?
+
+    public init(
+        fontScale: CGFloat? = nil,
+        baselineOffsetScale: CGFloat? = nil
+    ) {
+        self.fontScale = fontScale
+        self.baselineOffsetScale = baselineOffsetScale
+    }
+
+    public mutating func merge(_ other: BaselineShiftStyle) {
+        fontScale = other.fontScale ?? fontScale
+        baselineOffsetScale = other.baselineOffsetScale ?? baselineOffsetScale
+    }
+}
+
 public struct ImageStyle: Equatable, Sendable {
     public var height: CGFloat?
     public var borderRadius: CGFloat?
@@ -256,6 +274,124 @@ public struct ListStyle: Equatable, Sendable {
     }
 }
 
+public struct TaskListStyle: Equatable, Sendable {
+    public var checkedColor: UIColor?
+    public var borderColor: UIColor?
+    public var checkboxSize: CGFloat?
+    public var checkboxBorderRadius: CGFloat?
+    public var checkmarkColor: UIColor?
+    public var checkedTextColor: UIColor?
+    public var checkedStrikethrough: Bool?
+
+    public init(
+        checkedColor: UIColor? = nil,
+        borderColor: UIColor? = nil,
+        checkboxSize: CGFloat? = nil,
+        checkboxBorderRadius: CGFloat? = nil,
+        checkmarkColor: UIColor? = nil,
+        checkedTextColor: UIColor? = nil,
+        checkedStrikethrough: Bool? = nil
+    ) {
+        self.checkedColor = checkedColor
+        self.borderColor = borderColor
+        self.checkboxSize = checkboxSize
+        self.checkboxBorderRadius = checkboxBorderRadius
+        self.checkmarkColor = checkmarkColor
+        self.checkedTextColor = checkedTextColor
+        self.checkedStrikethrough = checkedStrikethrough
+    }
+
+    public mutating func merge(_ other: TaskListStyle) {
+        checkedColor = other.checkedColor ?? checkedColor
+        borderColor = other.borderColor ?? borderColor
+        checkboxSize = other.checkboxSize ?? checkboxSize
+        checkboxBorderRadius = other.checkboxBorderRadius ?? checkboxBorderRadius
+        checkmarkColor = other.checkmarkColor ?? checkmarkColor
+        checkedTextColor = other.checkedTextColor ?? checkedTextColor
+        checkedStrikethrough = other.checkedStrikethrough ?? checkedStrikethrough
+    }
+}
+
+public enum TableAlignment: String, Equatable, Sendable {
+    case leading
+    case center
+    case trailing
+}
+
+public struct TableStyle: Equatable, Sendable {
+    public var font: UIFont?
+    public var foregroundColor: UIColor?
+    public var lineHeight: CGFloat?
+    public var headerFont: UIFont?
+    public var headerTextColor: UIColor?
+    public var headerBackgroundColor: UIColor?
+    public var rowEvenBackgroundColor: UIColor?
+    public var rowOddBackgroundColor: UIColor?
+    public var borderColor: UIColor?
+    public var borderWidth: CGFloat?
+    public var borderRadius: CGFloat?
+    public var cellPaddingHorizontal: CGFloat?
+    public var cellPaddingVertical: CGFloat?
+    public var marginTop: CGFloat?
+    public var marginBottom: CGFloat?
+    public var align: TableAlignment?
+
+    public init(
+        font: UIFont? = nil,
+        foregroundColor: UIColor? = nil,
+        lineHeight: CGFloat? = nil,
+        headerFont: UIFont? = nil,
+        headerTextColor: UIColor? = nil,
+        headerBackgroundColor: UIColor? = nil,
+        rowEvenBackgroundColor: UIColor? = nil,
+        rowOddBackgroundColor: UIColor? = nil,
+        borderColor: UIColor? = nil,
+        borderWidth: CGFloat? = nil,
+        borderRadius: CGFloat? = nil,
+        cellPaddingHorizontal: CGFloat? = nil,
+        cellPaddingVertical: CGFloat? = nil,
+        marginTop: CGFloat? = nil,
+        marginBottom: CGFloat? = nil,
+        align: TableAlignment? = nil
+    ) {
+        self.font = font
+        self.foregroundColor = foregroundColor
+        self.lineHeight = lineHeight
+        self.headerFont = headerFont
+        self.headerTextColor = headerTextColor
+        self.headerBackgroundColor = headerBackgroundColor
+        self.rowEvenBackgroundColor = rowEvenBackgroundColor
+        self.rowOddBackgroundColor = rowOddBackgroundColor
+        self.borderColor = borderColor
+        self.borderWidth = borderWidth
+        self.borderRadius = borderRadius
+        self.cellPaddingHorizontal = cellPaddingHorizontal
+        self.cellPaddingVertical = cellPaddingVertical
+        self.marginTop = marginTop
+        self.marginBottom = marginBottom
+        self.align = align
+    }
+
+    public mutating func merge(_ other: TableStyle) {
+        font = other.font ?? font
+        foregroundColor = other.foregroundColor ?? foregroundColor
+        lineHeight = other.lineHeight ?? lineHeight
+        headerFont = other.headerFont ?? headerFont
+        headerTextColor = other.headerTextColor ?? headerTextColor
+        headerBackgroundColor = other.headerBackgroundColor ?? headerBackgroundColor
+        rowEvenBackgroundColor = other.rowEvenBackgroundColor ?? rowEvenBackgroundColor
+        rowOddBackgroundColor = other.rowOddBackgroundColor ?? rowOddBackgroundColor
+        borderColor = other.borderColor ?? borderColor
+        borderWidth = other.borderWidth ?? borderWidth
+        borderRadius = other.borderRadius ?? borderRadius
+        cellPaddingHorizontal = other.cellPaddingHorizontal ?? cellPaddingHorizontal
+        cellPaddingVertical = other.cellPaddingVertical ?? cellPaddingVertical
+        marginTop = other.marginTop ?? marginTop
+        marginBottom = other.marginBottom ?? marginBottom
+        align = other.align ?? align
+    }
+}
+
 public struct MarkdownStyleConfig: Equatable, Sendable {
     public var paragraph: ElementStyle
     public var heading1: ElementStyle
@@ -269,6 +405,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var emphasis: ElementStyle
     public var strikethrough: ElementStyle
     public var underline: ElementStyle
+    public var superscript: BaselineShiftStyle
+    public var `subscript`: BaselineShiftStyle
     public var code: ElementStyle
     public var image: ImageStyle
     public var inlineImage: InlineImageStyle
@@ -276,6 +414,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var codeBlock: CodeBlockStyle
     public var blockquote: BlockquoteStyle
     public var list: ListStyle
+    public var taskList: TaskListStyle
+    public var table: TableStyle
 
     public init(
         paragraph: ElementStyle = ElementStyle(),
@@ -290,13 +430,17 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         emphasis: ElementStyle = ElementStyle(),
         strikethrough: ElementStyle = ElementStyle(),
         underline: ElementStyle = ElementStyle(),
+        superscript: BaselineShiftStyle = BaselineShiftStyle(),
+        subscript subscriptStyle: BaselineShiftStyle = BaselineShiftStyle(),
         code: ElementStyle = ElementStyle(),
         image: ImageStyle = ImageStyle(),
         inlineImage: InlineImageStyle = InlineImageStyle(),
         thematicBreak: ThematicBreakStyle = ThematicBreakStyle(),
         codeBlock: CodeBlockStyle = CodeBlockStyle(),
         blockquote: BlockquoteStyle = BlockquoteStyle(),
-        list: ListStyle = ListStyle()
+        list: ListStyle = ListStyle(),
+        taskList: TaskListStyle = TaskListStyle(),
+        table: TableStyle = TableStyle()
     ) {
         self.paragraph = paragraph
         self.heading1 = heading1
@@ -310,6 +454,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.emphasis = emphasis
         self.strikethrough = strikethrough
         self.underline = underline
+        self.superscript = superscript
+        self.subscript = subscriptStyle
         self.code = code
         self.image = image
         self.inlineImage = inlineImage
@@ -317,6 +463,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.codeBlock = codeBlock
         self.blockquote = blockquote
         self.list = list
+        self.taskList = taskList
+        self.table = table
     }
 
     public mutating func merge(_ other: MarkdownStyleConfig) {
@@ -332,6 +480,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         emphasis.merge(other.emphasis)
         strikethrough.merge(other.strikethrough)
         underline.merge(other.underline)
+        superscript.merge(other.superscript)
+        self.subscript.merge(other.subscript)
         code.merge(other.code)
         image.merge(other.image)
         inlineImage.merge(other.inlineImage)
@@ -339,6 +489,8 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         codeBlock.merge(other.codeBlock)
         blockquote.merge(other.blockquote)
         list.merge(other.list)
+        taskList.merge(other.taskList)
+        table.merge(other.table)
     }
 
     public func headingStyle(for level: Int) -> ElementStyle {

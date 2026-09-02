@@ -30,6 +30,7 @@ public enum NodeType: Int, CaseIterable, Sendable {
     case `subscript`
     case highlight
     case softBreak
+    case blankLine
 }
 
 public struct MarkdownASTNode: Sendable, Equatable {

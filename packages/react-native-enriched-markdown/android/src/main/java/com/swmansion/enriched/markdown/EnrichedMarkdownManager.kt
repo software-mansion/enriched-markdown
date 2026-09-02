@@ -140,6 +140,14 @@ class EnrichedMarkdownManager :
     view?.setMd4cFlags(parseMd4cFlags(flags))
   }
 
+  @ReactProp(name = "isGFM", defaultBoolean = true)
+  override fun setIsGFM(
+    view: EnrichedMarkdown?,
+    isGFM: Boolean,
+  ) {
+    view?.setIsGFM(isGFM)
+  }
+
   @ReactProp(name = "allowFontScaling", defaultBoolean = true)
   override fun setAllowFontScaling(
     view: EnrichedMarkdown?,
@@ -178,6 +186,22 @@ class EnrichedMarkdownManager :
     enableTaskListItemToggle: Boolean,
   ) {
     view?.enableTaskListItemToggle = enableTaskListItemToggle
+  }
+
+  @ReactProp(name = "enableImagePress", defaultBoolean = false)
+  override fun setEnableImagePress(
+    view: EnrichedMarkdown?,
+    enableImagePress: Boolean,
+  ) {
+    view?.setEnableImagePress(enableImagePress)
+  }
+
+  @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
+  override fun setEnableBlockContextMenu(
+    view: EnrichedMarkdown?,
+    enableBlockContextMenu: Boolean,
+  ) {
+    view?.enableBlockContextMenu = enableBlockContextMenu
   }
 
   @ReactProp(name = "lineBreakStrategyIOS")

@@ -30,4 +30,14 @@ abstract class AccessibleMarkdownTextView
       super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
       accessibilityHelper.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
     }
+
+    override fun onDetachedFromWindow() {
+      // Before super, and here rather than in a ViewManager's
+      // onDropViewInstance: getViewTreeObserver() returns the WINDOW's observer
+      // only while the view is attached. Once detached it hands back the view's
+      // own floating observer, so a removal then would target the wrong
+      // observer and leave the listener on the window.
+      accessibilityHelper.cleanup()
+      super.onDetachedFromWindow()
+    }
   }

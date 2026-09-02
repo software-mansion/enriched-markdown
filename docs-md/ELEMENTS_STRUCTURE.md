@@ -142,6 +142,23 @@ When displaying content authored in `EnrichedMarkdownTextInput`, pressing Enter 
 
 This forces the parser to treat every soft break as a hard break, so single newlines render as line breaks on all platforms.
 
+### Blank Lines
+
+By default, CommonMark collapses any run of consecutive blank lines between two blocks into a single paragraph break, so pressing Enter several times renders the same as pressing it once. To keep the extra spacing, enable the `preserveBlankLines` flag:
+
+```tsx
+<EnrichedMarkdownText
+  markdown={markdownFromInput}
+  markdownStyle={{ paragraph: { marginTop: 0, marginBottom: 0 } }}
+  md4cFlags={{ preserveBlankLines: true }}
+/>
+```
+
+Each blank line in the source renders as one empty line, so the output keeps the exact number of blank lines that were typed - four blank lines between two paragraphs render as four empty lines. This makes `EnrichedMarkdownText` reproduce content authored in `EnrichedMarkdownTextInput` line for line, which is useful for chat-style apps.
+
+> [!NOTE]
+> Paragraph margins stack on top of the blank-line spacing. Set `paragraph.marginTop` and `paragraph.marginBottom` to `0` in `markdownStyle` so that spacing is driven purely by blank lines; otherwise even a standard single-blank-line paragraph break will render with extra height.
+
 ## Images: Block vs Inline
 
 Images are automatically detected as block or inline based on context:

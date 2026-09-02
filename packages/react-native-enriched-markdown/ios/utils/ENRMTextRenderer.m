@@ -27,6 +27,7 @@ ENRMRenderResult *ENRMRenderASTNodes(NSArray<MarkdownASTNode *> *nodes, StyleCon
 
   NSMutableAttributedString *attributedText = [renderer renderRoot:root context:context];
   [context applyLinkAttributesToString:attributedText];
+  [context applyImageAttributesToString:attributedText];
   ENRMApplyLineBreakStrategyToParagraphStyles(attributedText, lineBreakStrategy);
 
   ENRMRenderResult *result = [[ENRMRenderResult alloc] init];

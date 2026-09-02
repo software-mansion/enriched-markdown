@@ -25,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) StyleConfig *config;
 @property (nonatomic, copy, readonly) NSString *cachedLatex;
 @property (nonatomic, strong, nullable) ENRMAccessibilityLabels *accessibilityLabels;
+@property (nonatomic, assign) BOOL enableBlockContextMenu;
 
 // Renamed getters avoid the Cocoa `copy` method family (which signals +1
 // retained returns). Property names are unchanged so call sites stay the same.

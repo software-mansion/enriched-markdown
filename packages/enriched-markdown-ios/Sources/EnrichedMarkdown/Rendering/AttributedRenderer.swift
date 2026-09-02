@@ -22,6 +22,7 @@ final class AttributedRenderer {
         }
 
         context.clearBlockStyle()
+        BaselineShiftRenderer.applyShifts(to: output, config: config)
         return output
     }
 }

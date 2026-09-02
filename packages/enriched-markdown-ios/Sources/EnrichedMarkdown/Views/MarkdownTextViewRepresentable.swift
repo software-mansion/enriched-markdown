@@ -10,6 +10,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let selectionMenuConfig: MarkdownSelectionMenuConfig
     let isSelectionEnabled: Bool
     let selectionColor: Color?
+    let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -31,11 +32,13 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.styleConfig = styleConfig
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
+        textView.onTaskListItemTap = onTaskListItemTap
         textView.setMarkdownAttributedText(attributedText)
     }
 
     static func dismantleUIView(_ uiView: MarkdownTextView, coordinator: Coordinator) {
         uiView.delegate = nil
+        uiView.onTaskListItemTap = nil
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {
@@ -216,6 +219,26 @@ final class MarkdownTextView: UITextView {
     /// the press handler via accessibilityActivate.
     var onLinkPress: ((URL) -> Void)?
 
+    /// Fired with the pre-toggle state when a tap lands in a task item's
+    /// checkbox margin. Nil makes checkbox taps fully inert (the
+    /// `markdownTaskListItemToggleEnabled(false)` case).
+    var onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
+
+    /// Our tap recognizer must not steal touches from the text view's own
+    /// recognizers (selection, links), so it observes simultaneously.
+    /// UITextView is the delegate of its internal recognizers — a separate
+    /// object keeps ours out of that plumbing.
+    private final class SimultaneousGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            true
+        }
+    }
+
+    private let tapGestureDelegate = SimultaneousGestureDelegate()
+
     /// VoiceOver elements built from the attributed string; frames resolve
     /// lazily against TextKit 2 layout.
     private var markdownAccessibilityElements: [UIAccessibilityElement] = []
@@ -279,7 +302,35 @@ final class MarkdownTextView: UITextView {
         linkTextAttributes = [:]
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
+        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        tapRecognizer.cancelsTouchesInView = false
+        tapRecognizer.delegate = tapGestureDelegate
+        addGestureRecognizer(tapRecognizer)
+
         setupDecoration()
+    }
+
+    /// The task item whose checkbox margin contains `point` (view
+    /// coordinates), or nil.
+    func taskListHit(at point: CGPoint) -> TaskListInteraction.Hit? {
+        let containerPoint = CGPoint(
+            x: point.x - textContainerInset.left,
+            y: point.y - textContainerInset.top
+        )
+        return TaskListInteraction.hitTest(
+            point: containerPoint,
+            attributedText: attributedText ?? NSAttributedString(),
+            textLayoutManager: textLayoutManager,
+            containerWidth: bounds.width - textContainerInset.left - textContainerInset.right
+        )
+    }
+
+    @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
+        guard recognizer.state == .ended,
+              let onTaskListItemTap,
+              let hit = taskListHit(at: recognizer.location(in: self))
+        else { return }
+        onTaskListItemTap(hit)
     }
 
     /// Injectable so tests avoid UIPasteboard.general, which a headless test
@@ -303,7 +354,7 @@ final class MarkdownTextView: UITextView {
             location: selectedRange.location,
             length: min(selectedRange.length, attributedText.length - selectedRange.location)
         )
-        let plain = (attributedText.string as NSString).substring(with: clamped)
+        let plain = Self.plainText(of: attributedText, in: clamped)
         let html = MarkdownHTMLGenerator.generateHTML(
             from: attributedText,
             in: clamped,
@@ -313,6 +364,20 @@ final class MarkdownTextView: UITextView {
             "public.utf8-plain-text": plain,
             "public.html": html
         ]]
+    }
+
+    /// Plain text for the pasteboard, with table attachment characters
+    /// replaced by the table's tab-separated content.
+    static func plainText(of attributedText: NSAttributedString, in range: NSRange) -> String {
+        var plain = ""
+        attributedText.enumerateAttribute(.attachment, in: range) { value, runRange, _ in
+            if let table = value as? TableAttachment {
+                plain += table.plainText()
+            } else {
+                plain += (attributedText.string as NSString).substring(with: runRange)
+            }
+        }
+        return plain
     }
 
     func setMarkdownAttributedText(_ attributedText: NSAttributedString) {

@@ -10,6 +10,7 @@ import {
 import {
   EnrichedMarkdownText,
   type LinkPressEvent,
+  type ImagePressEvent,
 } from 'react-native-enriched-markdown';
 import { useMemo, useState } from 'react';
 import { sampleMarkdown } from './sampleMarkdown';
@@ -52,6 +53,12 @@ export default function App() {
     Linking.openURL(event.url);
   };
 
+  const handleImagePress = (event: ImagePressEvent) => {
+    Alert.alert('Image Pressed', `${event.altText || 'Image'}\n${event.url}`, [
+      { text: 'Dismiss', style: 'cancel' },
+    ]);
+  };
+
   return (
     <View style={styles.root}>
       <View style={styles.tabs}>
@@ -82,6 +89,7 @@ export default function App() {
               flavor="github"
               markdown={sampleMarkdown}
               onLinkPress={handleLinkPress}
+              onImagePress={handleImagePress}
               markdownStyle={markdownStyle}
               contextMenuItems={contextMenuItems}
               selectionColor="#DCDDFE"

@@ -83,6 +83,17 @@ class MarkdownAccessibilityHelper(
     observer.addOnGlobalLayoutListener(listener)
   }
 
+  /**
+   * Drops the pending global-layout listener, if any is still registered.
+   *
+   * Must run while the view is attached: `textView.viewTreeObserver` returns
+   * the window's observer only until detach, and the listener was merged into
+   * it from the view's floating observer when the view attached.
+   */
+  fun cleanup() {
+    removePendingLayoutListener()
+  }
+
   private fun removePendingLayoutListener() {
     val listener = pendingLayoutListener ?: return
     pendingLayoutListener = null

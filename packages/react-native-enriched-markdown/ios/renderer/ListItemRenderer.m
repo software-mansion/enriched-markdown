@@ -173,10 +173,16 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
     }
   }
 
+  // Cover the whole grapheme cluster: anchoring on a single UTF-16 code unit
+  // splits multi-unit graphemes (emoji surrogate pairs, ZWJ sequences) across
+  // two attribute runs, which drops the glyph and hides the marker for every
+  // item but the last.
+  const NSRange anchorRange = [string rangeOfComposedCharacterSequenceAtIndex:anchorLocation];
+
   NSArray *existingMarkers = [output attribute:ListItemMarkerStartAttribute atIndex:anchorLocation effectiveRange:NULL];
   NSArray *markers =
       [existingMarkers isKindOfClass:[NSArray class]] ? [existingMarkers arrayByAddingObject:marker] : @[ marker ];
-  [output addAttribute:ListItemMarkerStartAttribute value:markers range:NSMakeRange(anchorLocation, 1)];
+  [output addAttribute:ListItemMarkerStartAttribute value:markers range:anchorRange];
 
   if (isTask && isChecked) {
     [self applyCheckedDecorationsTo:output range:itemRange nestingLevel:nestingLevel];

@@ -11,6 +11,7 @@ data class Md4cFlags(
   val highlight: Boolean = false,
   val permissiveAutolinks: Boolean = true,
   val hardSoftBreaks: Boolean = false,
+  val preserveBlankLines: Boolean = false,
 ) {
   companion object {
     val DEFAULT = Md4cFlags()
@@ -35,6 +36,7 @@ class Parser {
     private external fun nativeParseMarkdown(
       markdown: String,
       flags: Md4cFlags,
+      isGFM: Boolean,
     ): MarkdownASTNode?
 
     /**
@@ -47,13 +49,14 @@ class Parser {
   fun parseMarkdown(
     markdown: String,
     flags: Md4cFlags = Md4cFlags.DEFAULT,
+    isGFM: Boolean = true,
   ): MarkdownASTNode? {
     if (markdown.isBlank()) {
       return null
     }
 
     try {
-      val ast = nativeParseMarkdown(markdown, flags)
+      val ast = nativeParseMarkdown(markdown, flags, isGFM)
 
       if (ast != null) {
         return ast

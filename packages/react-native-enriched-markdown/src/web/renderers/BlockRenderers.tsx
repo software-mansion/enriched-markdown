@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import { extractNodeText, filenameFromUrl } from '../utils';
 import type { RendererProps, RendererMap } from '../types';
 import { toHeadingLevel } from '../styles';
@@ -50,16 +51,64 @@ function ThematicBreakRenderer({ styles }: RendererProps) {
   return <hr style={styles.thematicBreak} />;
 }
 
-function ImageRenderer({ node, styles }: RendererProps) {
+// Each blank line in the source becomes one empty line. Rendered as a spacer
+// sized to the paragraph line height (rather than a run of <br>, whose height
+// would follow the container line height) so the vertical rhythm matches the
+// surrounding paragraphs. Any extra block spacing is left to the caller.
+function BlankLineRenderer({ node, style }: RendererProps) {
+  const count = Number.parseInt(node.attributes?.count ?? '0', 10);
+  const lines = Number.isFinite(count) ? Math.max(0, count) : 0;
+  if (lines === 0) return null;
+  return (
+    <div
+      aria-hidden="true"
+      style={{ height: lines * style.paragraph.lineHeight }}
+    />
+  );
+}
+
+function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
   const url = node.attributes?.url;
   if (!url) return null;
 
   const title = node.attributes?.title;
-  const alt = extractNodeText(node) || title || filenameFromUrl(url) || 'Image';
+  const markdownAlt = extractNodeText(node).trim();
+  const alt = markdownAlt || title || filenameFromUrl(url) || 'Image';
   const imgStyle = node.attributes?.isInline
     ? styles.inlineImage
     : styles.image;
-  return <img src={url} alt={alt} title={title} style={imgStyle} />;
+
+  const interactive =
+    callbacks.onImagePress != null &&
+    parentType !== 'Link' &&
+    parentType !== 'TableCell' &&
+    parentType !== 'TableHeaderCell';
+  if (!interactive) {
+    return <img src={url} alt={alt} title={title} style={imgStyle} />;
+  }
+
+  const press = () => callbacks.onImagePress?.({ url, altText: markdownAlt });
+  const handleKeyDown = (event: KeyboardEvent<HTMLImageElement>) => {
+    if (event.repeat) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      press();
+    }
+  };
+
+  return (
+    <img
+      src={url}
+      alt={alt}
+      title={title}
+      style={imgStyle}
+      role="button"
+      tabIndex={0}
+      aria-label={alt}
+      onClick={press}
+      onKeyDown={handleKeyDown}
+    />
+  );
 }
 
 function LatexMathDisplayRenderer({
@@ -85,6 +134,7 @@ export const blockRenderers: RendererMap = {
   Blockquote: BlockquoteRenderer,
   CodeBlock: CodeBlockRenderer,
   ThematicBreak: ThematicBreakRenderer,
+  BlankLine: BlankLineRenderer,
   Image: ImageRenderer,
   LatexMathDisplay: LatexMathDisplayRenderer,
 };

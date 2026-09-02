@@ -1,14 +1,6 @@
 name: Sync and release iOS package
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'packages/enriched-markdown-ios/**'
-      - 'packages/core/cpp/md4c/**'
-      - 'packages/core/cpp/parser/**'
-      - '.gitignore'
-      - 'LICENSE'
   workflow_dispatch:
     inputs:
       tag:

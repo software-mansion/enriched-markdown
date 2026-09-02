@@ -107,6 +107,9 @@ static MarkdownASTNode *convertCppASTToObjC(std::shared_ptr<Markdown::MarkdownAS
     case Markdown::NodeType::SoftBreak:
       objcType = MarkdownNodeTypeSoftBreak;
       break;
+    case Markdown::NodeType::BlankLine:
+      objcType = MarkdownNodeTypeBlankLine;
+      break;
   }
 
   MarkdownASTNode *objcNode = [[MarkdownASTNode alloc] initWithType:objcType];
@@ -133,7 +136,7 @@ static MarkdownASTNode *convertCppASTToObjC(std::shared_ptr<Markdown::MarkdownAS
 }
 
 // Public function to parse markdown using C++ parser and convert to Objective-C AST
-MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags)
+MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM)
 {
   if (markdown.length == 0) {
     return [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
@@ -156,9 +159,10 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
   cppFlags.subscript = flags.subscript;
   cppFlags.highlight = flags.highlight;
   cppFlags.hardSoftBreaks = flags.hardSoftBreaks;
+  cppFlags.preserveBlankLines = flags.preserveBlankLines;
 
   Markdown::MD4CParser parser;
-  auto cppAST = parser.parse(cppMarkdown, cppFlags);
+  auto cppAST = parser.parse(cppMarkdown, cppFlags, isGFM);
 
   // Convert C++ AST to Objective-C AST
   return convertCppASTToObjC(cppAST);

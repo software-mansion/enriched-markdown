@@ -69,6 +69,8 @@ static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps
          oldProps.md4cFlags.latexMath != newProps.md4cFlags.latexMath ||
          oldProps.md4cFlags.highlight != newProps.md4cFlags.highlight ||
          oldProps.md4cFlags.hardSoftBreaks != newProps.md4cFlags.hardSoftBreaks ||
+         oldProps.md4cFlags.preserveBlankLines != newProps.md4cFlags.preserveBlankLines ||
+         oldProps.isGFM != newProps.isGFM ||
          computeStyleFingerprint(oldProps.markdownStyle) != computeStyleFingerprint(newProps.markdownStyle);
 }
 

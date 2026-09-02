@@ -55,6 +55,7 @@ typedef NS_ENUM(NSInteger, ListType) { ListTypeUnordered, ListTypeOrdered };
 - (void)registerLinkRange:(NSRange)range url:(NSString *)url;
 
 - (void)applyLinkAttributesToString:(NSMutableAttributedString *)attributedString;
+- (void)applyImageAttributesToString:(NSMutableAttributedString *)attributedString;
 - (void)registerHeadingRange:(NSRange)range level:(NSInteger)level text:(NSString *)text;
 - (void)registerImageRange:(NSRange)range altText:(NSString *)altText url:(NSString *)url;
 - (void)registerListItemRange:(NSRange)range

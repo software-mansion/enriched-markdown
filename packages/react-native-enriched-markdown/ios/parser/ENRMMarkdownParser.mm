@@ -1,7 +1,7 @@
 #import "ENRMMarkdownParser.h"
 #import "MarkdownASTNode.h"
 
-extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags);
+extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM);
 
 @implementation ENRMMd4cFlags
 
@@ -14,6 +14,7 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
     _subscript = NO;
     _highlight = NO;
     _hardSoftBreaks = NO;
+    _preserveBlankLines = NO;
   }
   return self;
 }
@@ -32,6 +33,7 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
   copy.subscript = self.subscript;
   copy.highlight = self.highlight;
   copy.hardSoftBreaks = self.hardSoftBreaks;
+  copy.preserveBlankLines = self.preserveBlankLines;
   return copy;
 }
 
@@ -46,7 +48,12 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
 
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags
 {
-  return parseMarkdownWithCppParser(markdown, flags);
+  return [self parseMarkdown:markdown flags:flags isGFM:YES];
+}
+
+- (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags isGFM:(BOOL)isGFM
+{
+  return parseMarkdownWithCppParser(markdown, flags, isGFM);
 }
 
 @end

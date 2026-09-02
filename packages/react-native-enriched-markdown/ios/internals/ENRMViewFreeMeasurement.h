@@ -87,6 +87,7 @@ template <typename Md4cFlagsT> static inline ENRMMd4cFlags *ENRMMd4cFlagsFromPro
   flags.latexMath = props.latexMath;
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;
+  flags.preserveBlankLines = props.preserveBlankLines;
   return flags;
 }
 
@@ -173,7 +174,7 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
 
     ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(typedProps.md4cFlags);
     ENRMMarkdownParser *parser = [[ENRMMarkdownParser alloc] init];
-    MarkdownASTNode *ast = [parser parseMarkdown:markdown flags:flags];
+    MarkdownASTNode *ast = [parser parseMarkdown:markdown flags:flags isGFM:typedProps.isGFM];
     if (!ast) {
       return fallback;
     }
@@ -247,7 +248,7 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
 
     ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(typedProps.md4cFlags);
     ENRMMarkdownParser *parser = [[ENRMMarkdownParser alloc] init];
-    MarkdownASTNode *ast = [parser parseMarkdown:markdown flags:flags];
+    MarkdownASTNode *ast = [parser parseMarkdown:markdown flags:flags isGFM:typedProps.isGFM];
     if (!ast) {
       return fallback;
     }

@@ -20,6 +20,7 @@ export const EnrichedMarkdownText = ({
   md4cFlags = {},
   onLinkPress,
   onLinkLongPress,
+  onImagePress,
   onTaskListItemPress,
   enableTaskListItemToggle = true,
   allowTrailingMargin = false,
@@ -45,6 +46,7 @@ export const EnrichedMarkdownText = ({
     subscript = false,
     highlight = false,
     hardSoftBreaks = false,
+    preserveBlankLines = false,
   } = md4cFlags;
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export const EnrichedMarkdownText = ({
         subscript,
         highlight,
         hardSoftBreaks,
+        preserveBlankLines,
       }),
       katexPromise,
     ])
@@ -96,11 +99,12 @@ export const EnrichedMarkdownText = ({
     subscript,
     highlight,
     hardSoftBreaks,
+    preserveBlankLines,
   ]);
 
   const callbacks = useMemo<RendererCallbacks>(
-    () => ({ onLinkPress, onLinkLongPress, onTaskListItemPress }),
-    [onLinkPress, onLinkLongPress, onTaskListItemPress]
+    () => ({ onLinkPress, onLinkLongPress, onImagePress, onTaskListItemPress }),
+    [onLinkPress, onLinkLongPress, onImagePress, onTaskListItemPress]
   );
 
   const capabilities = useMemo<RenderCapabilities>(

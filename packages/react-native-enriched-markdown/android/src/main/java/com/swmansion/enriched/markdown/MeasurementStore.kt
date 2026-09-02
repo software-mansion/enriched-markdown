@@ -324,7 +324,9 @@ object MeasurementStore {
         subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
         hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
+        preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
       )
+    val isGFM = props.getBooleanOrDefault("isGFM", false)
 
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
     val propsHash = computePropsHash(props, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -333,7 +335,16 @@ object MeasurementStore {
     measurePaint.textSize = fontSize
     val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
     val spannable =
-      tryRenderMarkdown(markdown, styleMap, context, md4cFlags, allowFontScaling, maxFontSizeMultiplier, imageRequestHeaders)
+      tryRenderMarkdown(
+        markdown,
+        styleMap,
+        context,
+        md4cFlags,
+        isGFM,
+        allowFontScaling,
+        maxFontSizeMultiplier,
+        imageRequestHeaders,
+      )
     spannable?.replaceMathSpansWithPlaceholders(context)
     val textToMeasure = spannable ?: markdown
     val (size, _) = measureWithLayout(width, textToMeasure, measurePaint, id)
@@ -416,13 +427,15 @@ object MeasurementStore {
         subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
         hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
+        preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
       )
+    val isGFM = props.getBooleanOrDefault("isGFM", true)
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
     return try {
       val ast =
-        Parser.shared.parseMarkdown(markdown, md4cFlags)
+        Parser.shared.parseMarkdown(markdown, md4cFlags, isGFM)
           ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
@@ -561,6 +574,7 @@ object MeasurementStore {
     styleMap: ReadableMap?,
     context: Context,
     md4cFlags: Md4cFlags,
+    isGFM: Boolean,
     allowFontScaling: Boolean,
     maxFontSizeMultiplier: Float,
     imageRequestHeaders: Map<String, String> = emptyMap(),
@@ -568,7 +582,7 @@ object MeasurementStore {
     if (styleMap == null) return null
 
     return try {
-      val ast = Parser.shared.parseMarkdown(markdown, md4cFlags) ?: return null
+      val ast = Parser.shared.parseMarkdown(markdown, md4cFlags, isGFM) ?: return null
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
       style.imageRequestHeaders = imageRequestHeaders
       measureRenderer.configure(style, context)

@@ -156,7 +156,7 @@ class TreeNetwork {
 
   connectTrees(tree1, tree2) {
     // Trees share nutrients through mycorrhizal networks
-    this.fungalConnections.set(`\${tree1.id}-\${tree2.id}`, {
+    this.fungalConnections.set(`${tree1.id}-${tree2.id}`, {
       nutrientFlow: 'bidirectional',
       signalTransmission: true
     });

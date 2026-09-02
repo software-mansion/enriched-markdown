@@ -91,6 +91,21 @@ final class AccessibilityElementBuilderTests: XCTestCase {
         XCTAssertEqual(result[1].listAnnouncement, "nested bullet point")
     }
 
+    func testTaskListItemsAnnounceCheckedState() {
+        let result = specs(for: "- [x] done\n- [ ] todo")
+
+        XCTAssertEqual(result.count, 2)
+        XCTAssertEqual(result[0].listAnnouncement, "task, checked")
+        XCTAssertEqual(result[1].listAnnouncement, "task, not checked")
+    }
+
+    func testNestedTaskItemsAnnounceNesting() {
+        let result = specs(for: "- outer\n  - [ ] inner task")
+
+        XCTAssertEqual(result.count, 2)
+        XCTAssertEqual(result[1].listAnnouncement, "nested task, not checked")
+    }
+
     func testLinkInsideListItemCarriesListContext() {
         let result = specs(for: "- see [docs](https://d.example) here")
 

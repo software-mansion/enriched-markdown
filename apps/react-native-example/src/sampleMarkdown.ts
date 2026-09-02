@@ -35,6 +35,42 @@ Forests contribute over **$1.3 trillion** to the global economy annually. They p
 
 ---
 
+## Emoji & Grapheme List Rendering
+
+**Top categories:** (the exact case from the issue)
+
+- 🛒 Groceries: $320
+- 🚗 Transport: $110
+- 🍔 Dining out: $215
+- 🎬 Entertainment: $85
+- 💊 Health & pharmacy: $60
+- plain ascii control item (no leading glyph)
+
+Harder graphemes — these are multiple UTF-16 code units, so they stress the anchor more than a single emoji:
+
+- 👨‍👩‍👧‍👦 ZWJ family sequence
+- 🇵🇱 regional-indicator flag pair
+- 🅰️ base letter plus variation selector
+- ❤️ heart plus variation selector
+
+Ordered list with leading emoji:
+
+1. 🎬 ordered item, emoji-first
+2. 🍿 second ordered item
+
+Nested list with an emoji-first child:
+
+- 🌲 top-level item, emoji-first
+  - 🌱 nested item, emoji-first
+  - plain nested control
+
+Task list with emoji-first items:
+
+- [ ] 💊 unchecked task, emoji-first
+- [x] ✅ checked task, emoji-first
+
+---
+
 ## The Layers of a Forest
 
 A healthy forest consists of several distinct layers, each supporting unique wildlife:

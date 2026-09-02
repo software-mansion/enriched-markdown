@@ -68,6 +68,8 @@ static const char *nodeTypeToString(NodeType type) {
       return "Subscript";
     case NodeType::Highlight:
       return "Highlight";
+    case NodeType::BlankLine:
+      return "BlankLine";
     default:
       assert(false && "unhandled NodeType in nodeTypeToString");
       return "";

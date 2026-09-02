@@ -74,6 +74,18 @@ final class HTMLGeneratorTests: XCTestCase {
         XCTAssertTrue(result.contains("<u>under</u>"))
     }
 
+    func testSuperscriptEmitsSup() {
+        let result = html(for: "x^2^", flags: Md4cFlags(superscript: true))
+
+        XCTAssertTrue(result.contains("<sup>2</sup>"))
+    }
+
+    func testSubscriptEmitsSub() {
+        let result = html(for: "H~2~O", flags: Md4cFlags(subscript: true))
+
+        XCTAssertTrue(result.contains("<sub>2</sub>"))
+    }
+
     func testLinkCarriesHrefAndStyle() {
         let result = html(for: "[press](https://swmansion.com)")
 
@@ -153,6 +165,33 @@ final class HTMLGeneratorTests: XCTestCase {
         XCTAssertTrue(result.contains("first</li>"))
         XCTAssertTrue(result.contains("second</li>"))
         XCTAssertTrue(result.contains("</ol>"))
+    }
+
+    func testTableEmitsSemanticTableMarkup() {
+        let result = html(for: "| A | B |\n|---|---|\n| one | two |")
+
+        XCTAssertTrue(result.contains("<table"))
+        XCTAssertTrue(result.contains("<th"))
+        XCTAssertTrue(result.contains(">A</th>"))
+        XCTAssertTrue(result.contains(">one</td>"))
+        XCTAssertFalse(result.contains("\u{FFFC}"))
+    }
+
+    func testTaskListItemsEmitDisabledCheckboxes() {
+        let result = html(for: "- [x] done\n- [ ] todo")
+
+        XCTAssertTrue(result.contains("<input type=\"checkbox\" disabled checked "))
+        XCTAssertTrue(result.contains("<input type=\"checkbox\" disabled style"))
+        XCTAssertTrue(result.contains("list-style-type: none;"))
+        XCTAssertTrue(result.contains("done</li>"))
+        XCTAssertTrue(result.contains("todo</li>"))
+    }
+
+    func testRegularListItemsEmitNoCheckbox() {
+        let result = html(for: "- plain")
+
+        XCTAssertFalse(result.contains("checkbox"))
+        XCTAssertFalse(result.contains("list-style-type: none"))
     }
 
     func testNestedListsOpenSecondContainer() {

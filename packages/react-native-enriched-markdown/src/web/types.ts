@@ -4,6 +4,7 @@ import type { Styles } from './styles';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
 } from '../types/events';
 import type { KaTeXInstance } from './katex';
@@ -38,7 +39,8 @@ export type NodeType =
   | 'TableHeaderCell'
   | 'TableCell'
   | 'LatexMathInline'
-  | 'LatexMathDisplay';
+  | 'LatexMathDisplay'
+  | 'BlankLine';
 
 export interface NodeAttributes {
   level?: string;
@@ -56,6 +58,8 @@ export interface NodeAttributes {
   headRowCount?: string;
   bodyRowCount?: string;
   align?: 'left' | 'center' | 'right' | 'default';
+  /** Present on BlankLine nodes — count of blank lines in the source run. */
+  count?: string;
 }
 
 export interface ASTNode {
@@ -71,6 +75,7 @@ export interface ASTNode {
 export interface RendererCallbacks {
   onLinkPress?: (event: LinkPressEvent) => void;
   onLinkLongPress?: (event: LinkLongPressEvent) => void;
+  onImagePress?: (event: ImagePressEvent) => void;
   onTaskListItemPress?: (event: TaskListItemPressEvent) => void;
 }
 

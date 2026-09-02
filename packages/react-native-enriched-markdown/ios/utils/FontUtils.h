@@ -19,7 +19,8 @@ extern UIFont *cachedFontFromBlockStyle(BlockStyle *blockStyle, RenderContext *c
 extern CGFloat RCTFontSizeMultiplierWithMax(CGFloat maxFontSizeMultiplier);
 
 /** Converts a CSS-style font weight string to a UIFontWeight constant.
- *  Supports: "bold"/"700", "semibold"/"600", "medium"/"500", "light"/"300".
+ *  Mirrors React Native's RCTFont table: "100"/"ultralight" through
+ *  "900"/"black", plus the "normal"/"regular"/"bold"/etc. aliases.
  *  Returns UIFontWeightRegular for unrecognised or nil input. */
 extern UIFontWeight ENRMFontWeightFromString(NSString *_Nullable weightString);
 
