@@ -290,6 +290,16 @@ class EnrichedMarkdownTextInputView(
 
   override fun performClick(): Boolean = super.performClick()
 
+  // Framework bug (issue #728): Editor.performLongClick can call getInsertionController().show()
+  // on a null controller when our editable's span callbacks disable it mid-call. Absorb that NPE;
+  // the long-press just skips the insertion UI instead of crashing.
+  override fun performLongClick(): Boolean =
+    try {
+      super.performLongClick()
+    } catch (e: NullPointerException) {
+      false
+    }
+
   // In auto-grow mode (scrollEnabled=false) TextView's internal bringPointIntoView
   // scrolls content before Fabric has resized the view, causing a visible flicker.
   override fun scrollTo(
