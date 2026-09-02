@@ -1,0 +1,53 @@
+import MDXComponents from '@theme-original/MDXComponents';
+import Details from '@site/src/theme/MDXComponents/Details';
+import CollapsibleCode from '@site/src/components/CollapsibleCode';
+import InteractiveExample from '@site/src/components/InteractiveExample';
+import LivePreview from '@site/src/components/LivePreview';
+import PlatformCompatibility from '@site/src/components/PlatformCompatibility';
+import ExampleVideo from '@site/src/components/ExampleVideo';
+import ThemedVideo from '@site/src/components/ThemedVideo';
+import Optional from '@site/src/components/Optional';
+import Required from '@site/src/components/Required';
+import Indent from '@site/src/components/Indent';
+import Row from '@site/src/components/Row';
+import Grid from '@site/src/components/Grid';
+import {
+  AndroidBadge,
+  IosBadge,
+  WebBadge,
+} from '@site/src/components/PlatformBadge';
+import PropInfo from '@site/src/components/PropInfo';
+import CodeTabs, { Tab } from '@site/src/components/CodeTabs';
+import ComingSoon from '@site/src/components/ComingSoon';
+import { Yes, No, Version, Spacer } from '@site/src/components/Compatibility';
+import EnrichedCompatibility from '@site/src/components/Compatibility/EnrichedCompatibility';
+import { Badges } from '@swmansion/t-rex-ui';
+
+export default {
+  ...MDXComponents,
+  details: Details,
+  CollapsibleCode,
+  InteractiveExample,
+  LivePreview,
+  PlatformCompatibility,
+  ExampleVideo,
+  ThemedVideo,
+  Optional,
+  Required,
+  Indent,
+  Row,
+  Grid,
+  AndroidBadge,
+  IosBadge,
+  WebBadge,
+  PropInfo,
+  CodeTabs,
+  Tab,
+  ComingSoon,
+  Yes,
+  No,
+  Version,
+  Spacer,
+  EnrichedCompatibility,
+  Badges,
+};

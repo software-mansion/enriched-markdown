@@ -1,0 +1,69 @@
+.container {
+  position: relative;
+  background-color: var(--swm-off-background);
+  border: 1px solid var(--swm-border);
+  border-radius: var(--ifm-global-radius);
+  margin-bottom: var(--ifm-leading);
+  overflow: hidden;
+}
+
+/* The example switches its own text colors on color scheme (react-native
+   useColorScheme, synced to the site theme in Root.js), so the canvas follows
+   the theme too: light off-white in light mode, a lifted off-navy card in dark
+   mode. */
+.preview {
+  padding: 1.5em;
+  background-color: var(--swm-off-white);
+}
+
+:global([data-theme='dark']) .preview {
+  background-color: var(--swm-light-off-navy);
+}
+
+.loading {
+  color: var(--swm-interactive-button-color);
+}
+
+.code [class*='codeBlockContainer'] {
+  box-shadow: none;
+  margin-bottom: 0;
+  border-radius: 0;
+}
+
+/* The floating ExampleControls cluster already provides a copy button, so hide
+   the CodeBlock's own button group (copy / word-wrap) - it overlaps ours. */
+.code [class*='buttonGroup'] {
+  display: none;
+}
+
+.comingSoon {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75em;
+  padding: 1.25em;
+  border: 1px dashed var(--swm-green-light-100);
+  border-radius: var(--ifm-global-radius);
+  background-color: var(--swm-green-light-20);
+}
+
+.comingSoonBadge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4rem;
+  background-color: var(--swm-green-light-100);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.comingSoonText {
+  margin: 0;
+  color: var(--swm-green-dark-120);
+}
+
+.comingSoonText code {
+  color: var(--swm-green-dark-120);
+}

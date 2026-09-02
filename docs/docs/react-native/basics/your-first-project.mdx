@@ -1,0 +1,58 @@
+---
+sidebar_label: Your first markdown view and editor
+sidebar_position: 2
+---
+
+import InteractiveExample from '@site/src/components/InteractiveExample';
+import LivePreview from '@site/src/components/LivePreview';
+import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
+import FirstEditorSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstEditor';
+
+# Your first markdown view and editor
+
+With the package [installed](/react-native/basics/installation), let's put both components on the screen: `EnrichedMarkdownText` to **display rich text** and `EnrichedMarkdownTextInput` to **edit it**. By the end of this page you'll have rendered your first Markdown and built a minimal editor with a working toolbar button.
+
+## Rendering Markdown
+
+`EnrichedMarkdownText` is a read-only component. You give it a Markdown string through the `markdown` prop and it renders fully native text - no WebView involved.
+
+<LivePreview src={FirstTextSrc} />
+
+That's the whole setup for a display. The `onLinkPress` callback fires when the reader taps a link - here we hand the URL off to React Native's `Linking` so it opens in the browser.
+
+You can restyle every element through the `markdownStyle` prop - see the [Style properties reference](/react-native/api-reference/style-properties) for the full list.
+
+## Building an editor
+
+`EnrichedMarkdownTextInput` is the writing side. It's an **uncontrolled** input. It doesn't hold its value in React state or props, but talks to the native text view directly. That keeps it fast, but it means you drive formatting **imperatively** through a `ref` rather than by passing a value down.
+
+Here's a minimal editor with a single toolbar button that toggles **bold** and reflects whether bold is currently active:
+
+<InteractiveExample src={FirstEditorSrc} comingSoon />
+
+Two things are worth calling out, because every editor feature follows the same two patterns:
+
+1. **You apply formatting by calling methods on the ref.** The ref is typed as `EnrichedMarkdownTextInputInstance`. Pressing the button calls `ref.current?.toggleBold()`, which toggles bold across the current selection - or arms it for the next characters you type when there's no selection.
+2. **You read formatting from the `onChangeState` callback.** Its payload has one entry per style (`bold`, `italic`, and so on), each with an `isActive` flag. That's what lets the button know whether to say "Bold" or "Unbold" and change color.
+
+The same `toggle` / `onChangeState` pair drives italic, underline, strikethrough, spoiler, and headings - so extending the toolbar is mostly repeating this shape. The input also ships a native format bar on selection out of the box, so basic formatting works even before you build any UI. See the [`EnrichedMarkdownTextInput` reference](/react-native/api-reference/enriched-markdown-text-input) for the full set of methods and events.
+
+## How the two fit together
+
+The mental model to carry into the rest of the docs: **Markdown is the shared source of truth between the two components.**
+
+- `EnrichedMarkdownTextInput` **edits** Markdown. Seed it with a Markdown string (`defaultValue`) and read the edited content back as Markdown at any time (`onChangeMarkdown`, or `getMarkdown()` on the ref).
+- `EnrichedMarkdownText` **renders** Markdown through its `markdown` prop.
+
+Because both sides speak the same format, content flows between them without conversion - edit in one, store the Markdown, render it in the other.
+
+:::note
+`onChangeMarkdown` serializes on every change, which isn't free. If you don't need the Markdown string, leave the callback off and the input skips serialization entirely.
+:::
+
+## Next steps
+
+You now have a working display and editor and the model that ties them together. From here:
+
+- [Core concepts](/introduction/core-concepts) — the ideas behind the two components.
+- [Feature support](/introduction/supported-features) — what's supported and how to enable it.

@@ -1,0 +1,117 @@
+.container {
+  position: relative;
+  background-color: var(--swm-off-background);
+  border: 1px solid var(--swm-border);
+  border-radius: var(--ifm-global-radius);
+  margin-bottom: var(--ifm-leading);
+  overflow: hidden;
+}
+
+/* The example switches its own text colors on color scheme (react-native
+   useColorScheme, synced to the site theme in Root.js), so the canvas follows
+   the theme too: light off-white in light mode, a lifted off-navy card in dark
+   mode. */
+.preview {
+  padding: 1.5em;
+  background-color: var(--swm-off-white);
+}
+
+:global([data-theme='dark']) .preview {
+  background-color: var(--swm-light-off-navy);
+}
+
+.hidden {
+  display: none;
+}
+
+/* Match the read-only CodeBlock surface (site theme + off-background) rather
+   than react-live's default dark VS Code look. Colors come from the prism
+   theme passed to LiveProvider; the background/border are set here. */
+.editor {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--ifm-code-font-size);
+  overflow: auto;
+  max-height: 420px;
+  background-color: var(--swm-off-background);
+}
+
+/* react-live wraps the textarea + highlighted pre; keep them aligned and let
+   the whole area scroll. */
+.editor textarea,
+.editor pre {
+  outline: none;
+  font-family: var(--ifm-font-family-monospace) !important;
+}
+
+.error {
+  margin: 0;
+  padding: 1em 1.25em;
+  background-color: #2d0b0b;
+  color: #ff9c9c;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.loading {
+  padding: 1.5em;
+  color: var(--swm-interactive-button-color);
+}
+
+/* Static code surface used when a prop can't run on web (the `unavailable`
+   mode). Mirrors the read-only CodeBlock look inside the box. */
+.code [class*='codeBlockContainer'] {
+  box-shadow: none;
+  margin-bottom: 0;
+  border-radius: 0;
+}
+
+/* The floating ExampleControls cluster already provides a copy button, so hide
+   the CodeBlock's own button group (copy / word-wrap) - it overlaps ours. */
+.code [class*='buttonGroup'] {
+  display: none;
+}
+
+/* "Not available on web" banner shown in the Preview tab for native-only props.
+   Amber-toned to read as an informational limitation, distinct from the green
+   "coming soon" banner used for the input. */
+.unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75em;
+  padding: 1.25em;
+  border: 1px dashed #d9a441;
+  border-radius: var(--ifm-global-radius);
+  background-color: #fdf6e9;
+}
+
+:global([data-theme='dark']) .unavailable {
+  border-color: #b8862f;
+  background-color: #2e2717;
+}
+
+.unavailableBadge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4rem;
+  background-color: #d9a441;
+  color: #3a2c08;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.unavailableText {
+  margin: 0;
+  color: #7a5a12;
+}
+
+:global([data-theme='dark']) .unavailableText {
+  color: #e6c987;
+}
+
+.unavailableText code {
+  color: inherit;
+}
