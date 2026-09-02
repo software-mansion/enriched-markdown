@@ -180,7 +180,7 @@ data class Md4cFlags(
 Pass flags per instance:
 
 ```kotlin
-import com.swmansion.enriched.markdown.parser.Md4cFlags
+import com.swmansion.enriched.markdown.compose.Md4cFlags
 
 EnrichedMarkdownText(
   markdown = "_underlined_",

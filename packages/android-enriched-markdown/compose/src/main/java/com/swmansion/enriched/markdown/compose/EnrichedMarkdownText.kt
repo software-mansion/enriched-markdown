@@ -12,11 +12,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.viewinterop.AndroidView
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
-import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdownText as NativeMarkdownTextView
+import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
+
+typealias Md4cFlags = Md4cFlagsInternal
 
 /**
  * Renders [markdown] using the native markdown TextView inside Compose.

@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.parser.Md4cFlags
+import com.swmansion.enriched.markdown.compose.Md4cFlags
 import java.io.File
 
 private fun assetImageUri(
