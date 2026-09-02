@@ -24,6 +24,7 @@ import OnLinkLongPressSrc from '!!raw-loader!@site/src/examples/react-native/api
 import OnImagePressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnImagePress';
 import OnTaskListItemPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnTaskListItemPress';
 import EnableTaskListItemToggleSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableTaskListItemToggle';
+import EnableBlockContextMenuSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableBlockContextMenu';
 import OnCopyPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnCopyPress';
 import EnableLinkPreviewSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableLinkPreview';
 import SelectableSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Selectable';
@@ -179,6 +180,14 @@ Controls whether tapping a task list checkbox toggles its checked state. When `f
 <PropInfo type="boolean" default="true" />
 
 <LivePreview src={EnableTaskListItemToggleSrc} />
+
+### `enableBlockContextMenu`
+
+Controls the long-press context menu on block views - fenced code blocks, tables, and block math. When `false`, long-pressing a block no longer opens the copy popup. It does not affect the code-block header copy button, the VoiceOver / TalkBack copy action, or the system text-selection menu. To hide individual built-in actions while keeping the menu, use [`selectionMenuConfig`](#selectionmenuconfig) instead - see [Copy options](/misc/copy-options#controlling-the-built-in-menu).
+
+<PropInfo type="boolean" default="true" />
+
+<LivePreview src={EnableBlockContextMenuSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the block context menu is a native interaction, and the web build renders blocks without one.</>} />
 
 ### `enableLinkPreview` <IosBadge /> {#enablelinkpreview}
 
