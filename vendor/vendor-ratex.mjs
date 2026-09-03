@@ -107,8 +107,6 @@ async function main() {
   if (args.manifest) manifestPath = path.resolve(args.manifest);
   if (args.output) outDir = path.resolve(args.output);
 
-  const xcframeworkDir = path.join(outDir, 'RaTeX.xcframework');
-  const fontsOut = path.join(outDir, 'Fonts');
   const stampFile = path.join(outDir, '.stamp');
 
   const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -120,19 +118,39 @@ async function main() {
     return;
   }
 
-  fs.rmSync(outDir, { recursive: true, force: true });
-  fs.mkdirSync(outDir, { recursive: true });
+  // Assemble the whole tree in a sibling staging dir and swap it into place only
+  // after every asset (XCFramework, the four Swift sources, the fonts, the stamp)
+  // has landed. A failure partway -- most commonly the source tarball fetch after
+  // the XCFramework already extracted -- must never leave a half-written tree: the
+  // podspec would read the lone XCFramework as "math ready" and compile the RaTeX
+  // bridge against Swift sources that are not there (#745). Staging plus a final
+  // swap makes a failed vendor indistinguishable from an absent one, which the
+  // podspec's default-on path degrades cleanly. The staging dir is a sibling of
+  // outDir so it shares its filesystem and the closing rename never crosses
+  // devices (EXDEV), and a --force that fails leaves the previous good tree intact.
+  const staging = outDir + '.staging';
+  // fail() exits the process directly rather than throwing, so cleanup cannot live
+  // in a catch alone; an exit hook removes the staging dir on every failure path.
+  // After a successful swap the dir no longer exists, so this becomes a no-op.
+  process.on('exit', () => {
+    try { fs.rmSync(staging, { recursive: true, force: true }); } catch { /* best effort */ }
+  });
+  fs.rmSync(staging, { recursive: true, force: true });
+  fs.mkdirSync(staging, { recursive: true });
+
+  const xcframeworkDir = path.join(staging, 'RaTeX.xcframework');
+  const fontsOut = path.join(staging, 'Fonts');
 
   // 1. Prebuilt static XCFramework (device + simulator[arm64,x86_64] + macOS slices).
   const xcBuf = await fetchAndVerify(m.xcframework.url, m.xcframework.sha256, 'xcframework');
   {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ratex-xcf-'));
     try {
-      extractTo(xcBuf, '.zip', ['-d', outDir], tmp);
+      extractTo(xcBuf, '.zip', ['-d', staging], tmp);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
-    if (!fs.existsSync(xcframeworkDir)) fail(`extracted zip has no RaTeX.xcframework in ${outDir}`);
+    if (!fs.existsSync(xcframeworkDir)) fail(`extracted zip has no RaTeX.xcframework in ${staging}`);
   }
 
   // 2. Core Swift sources + KaTeX fonts + LICENSE from the pinned source tag.
@@ -147,7 +165,7 @@ async function main() {
       for (const rel of m.source.swiftSources) {
         const from = path.join(root, rel);
         if (!fs.existsSync(from)) fail(`source tarball missing ${rel}`);
-        copyFile(from, path.join(outDir, path.basename(rel)));
+        copyFile(from, path.join(staging, path.basename(rel)));
       }
 
       const fontsSrc = path.join(root, m.source.fontsDir);
@@ -159,13 +177,19 @@ async function main() {
       if (n === 0) fail(`no .ttf fonts found under ${m.source.fontsDir}`);
 
       const licenseFrom = path.join(root, m.source.license);
-      if (fs.existsSync(licenseFrom)) copyFile(licenseFrom, path.join(outDir, 'LICENSE'));
+      if (fs.existsSync(licenseFrom)) copyFile(licenseFrom, path.join(staging, 'LICENSE'));
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
   }
 
-  fs.writeFileSync(stampFile, key + '\n');
+  fs.writeFileSync(path.join(staging, '.stamp'), key + '\n');
+
+  // Publish atomically: drop the previous tree (a good one, or a partial left by an
+  // older interrupted run) and move the fully-staged replacement into its place.
+  fs.rmSync(outDir, { recursive: true, force: true });
+  fs.renameSync(staging, outDir);
+
   log(`RaTeX ${m.tag} -> ${outDir}`);
   log('done.');
 }

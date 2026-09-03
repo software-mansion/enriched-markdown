@@ -119,6 +119,13 @@ if (!enableMath) {
     console.warn(`${LOG} WARNING: vendor-ratex failed. iOS math rendering may not work.`);
     failed = true;
   }
+} else {
+  // Math is on (explicitly or by default) but the vendor script or its manifest is
+  // absent, so nothing was downloaded. Never fall through silently -- the iOS build
+  // would otherwise just quietly ship without math. Warn like any other failure.
+  console.warn(`${LOG} WARNING: math is enabled but the RaTeX vendor script or manifest is missing ` +
+    `(${vendorRatex}, ${ratexManifest}); iOS math rendering will be unavailable.`);
+  failed = true;
 }
 
 if (failed) {
