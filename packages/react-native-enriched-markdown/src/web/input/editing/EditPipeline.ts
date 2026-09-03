@@ -1,6 +1,6 @@
-import { paragraphBounds, type BlockStore } from '../formatting/BlockStore';
+import { lineAtPosition, type BlockStore } from '../formatting/BlockStore';
 import type { FormattingStore } from '../formatting/FormattingStore';
-import { LIST_ITEM_BLOCK_TYPES } from '../model/blocks';
+import { isListItem } from '../model/blocks';
 import {
   createFormattingRange,
   type InputStyleType,
@@ -57,9 +57,9 @@ export class EditPipeline {
   // blocks do not continue.
   private continueBlockOnNewline(text: string, newlinePosition: number): void {
     // The inserted newline closes the line before it; take that line's block.
-    const closedLine = paragraphBounds(newlinePosition, newlinePosition, text);
+    const closedLine = lineAtPosition(newlinePosition, text);
     const closedBlock = this.blockStore.blockStartingAt(closedLine.start);
-    if (closedBlock === null || !LIST_ITEM_BLOCK_TYPES.has(closedBlock.type)) {
+    if (!isListItem(closedBlock)) {
       return;
     }
     const { type, level } = closedBlock;
