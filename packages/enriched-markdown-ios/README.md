@@ -199,7 +199,6 @@ public struct Md4cFlags: Equatable, Sendable {
   public var permissiveAutolinks: Bool  // bare URLs become links (default true)
   public var superscript: Bool          // ^text^ renders as superscript
   public var subscript: Bool            // ~text~ renders as subscript
-  public var latexMath: Bool
   public var highlight: Bool
 
   public static let commonMark: Md4cFlags

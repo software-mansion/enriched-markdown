@@ -31,7 +31,8 @@ final class MarkdownRenderStore: ObservableObject {
         markdown: String,
         config: MarkdownStyleConfig,
         flags: Md4cFlags = .commonMark,
-        imageRequestHeaders: [String: String] = [:]
+        imageRequestHeaders: [String: String] = [:],
+        plugins: [any MarkdownRenderPlugin] = []
     ) {
         if isBlank(markdown) {
             attributedText = NSAttributedString()
@@ -49,7 +50,8 @@ final class MarkdownRenderStore: ObservableObject {
                 resolved,
                 config: config,
                 flags: flags,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: plugins
             )
         } apply: { [weak self] result in
             self?.attributedText = result
