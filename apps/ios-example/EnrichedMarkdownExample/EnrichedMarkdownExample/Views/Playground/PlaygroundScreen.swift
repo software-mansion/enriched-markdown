@@ -1,4 +1,5 @@
 import EnrichedMarkdown
+import EnrichedMarkdownLaTeX
 import SwiftUI
 
 struct PlaygroundScreen: View {
@@ -63,6 +64,12 @@ struct PlaygroundScreen: View {
                     }
                 }
 
+                HStack(spacing: 8) {
+                    PlaygroundButton(label: "Insert Math", accessibilityId: "insert-math-button") {
+                        insertMath()
+                    }
+                }
+
                 setMarkdownButton
                 preview
             }
@@ -75,6 +82,7 @@ struct PlaygroundScreen: View {
         .markdownSelectable(selectableEnabled)
         .markdownSelectionColor(.orange)
         .markdownImageRequestHeaders(["Accept": acceptImageType])
+        .markdownLaTeX()
         .onLinkLongPress { url in
             longPressedLink = url.absoluteString
             linkAlertVisible = true
@@ -171,6 +179,21 @@ struct PlaygroundScreen: View {
             markdown = imageMarkdown
         } else {
             markdown += "\n\n\(imageMarkdown)"
+        }
+    }
+
+    private func insertMath() {
+        let mathMarkdown = """
+        Inline math like $E = mc^2$ flows with the text, and display math stands alone:
+
+        $$
+        \\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
+        $$
+        """
+        if markdown.isEmpty {
+            markdown = mathMarkdown
+        } else {
+            markdown += "\n\n\(mathMarkdown)"
         }
     }
 
