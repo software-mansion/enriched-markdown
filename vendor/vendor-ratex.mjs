@@ -185,10 +185,25 @@ async function main() {
 
   fs.writeFileSync(path.join(staging, '.stamp'), key + '\n');
 
-  // Publish atomically: drop the previous tree (a good one, or a partial left by an
-  // older interrupted run) and move the fully-staged replacement into its place.
-  fs.rmSync(outDir, { recursive: true, force: true });
-  fs.renameSync(staging, outDir);
+  // Publish by swapping directories, never deleting the previous tree before the new
+  // one is in place. rm-then-rename has a window where a failed rename leaves the
+  // vendor dir empty and wipes a previously-good tree. Instead: move any existing tree
+  // aside (a rename, atomic on one filesystem), then move the staged tree in; if that
+  // second move fails, restore the one set aside so a failed install can never empty
+  // the vendor dir. Only once the new tree is live is the old one removed -- a failure
+  // there is harmless, leaving a .backup the next run clears. A previously-good tree
+  // therefore survives any single failure in this sequence.
+  const backup = outDir + '.backup';
+  fs.rmSync(backup, { recursive: true, force: true });
+  const hadPrevious = fs.existsSync(outDir);
+  if (hadPrevious) fs.renameSync(outDir, backup);
+  try {
+    fs.renameSync(staging, outDir);
+  } catch (err) {
+    if (hadPrevious) fs.renameSync(backup, outDir);
+    throw err;
+  }
+  fs.rmSync(backup, { recursive: true, force: true });
 
   log(`RaTeX ${m.tag} -> ${outDir}`);
   log('done.');
