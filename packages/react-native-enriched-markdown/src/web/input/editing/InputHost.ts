@@ -1,11 +1,12 @@
-import { BlockStore, paragraphBounds } from '../formatting/BlockStore';
+import { BlockStore, lineAtPosition } from '../formatting/BlockStore';
 import { FormattingStore } from '../formatting/FormattingStore';
 import { parseToPlainTextAndRanges } from '../formatting/InputParser';
 import type { RangeBounds } from '../model/rangeBounds';
 import { DomRenderer } from '../render/DomRenderer';
 import { projectParagraphs } from '../render/InputProjection';
 import { ENRM_INPUT_CLASS, injectInputStyles } from '../render/inputStyles';
-import { LIST_ITEM_BLOCK_TYPES } from '../model/blocks';
+import { isListItem, type BlockType } from '../model/blocks';
+import { BlockEditCoordinator } from './BlockEditCoordinator';
 import { EditPipeline } from './EditPipeline';
 import { EditSession } from './EditSession';
 import { SelectionMapper } from './SelectionMapper';
@@ -23,6 +24,7 @@ export class InputHost {
   private readonly blockStore = new BlockStore();
   private readonly session = new EditSession();
   private readonly pipeline: EditPipeline;
+  private readonly blockCoordinator: BlockEditCoordinator;
   private readonly renderer: DomRenderer;
   private readonly mapper: SelectionMapper;
 
@@ -33,6 +35,7 @@ export class InputHost {
     this.root = root;
     this.callbacks = callbacks;
     this.pipeline = new EditPipeline(this.formattingStore, this.blockStore);
+    this.blockCoordinator = new BlockEditCoordinator(this.blockStore);
     this.renderer = new DomRenderer(root);
     this.mapper = new SelectionMapper(root, () => this.renderer.paragraphs);
 
@@ -46,6 +49,7 @@ export class InputHost {
     root.setAttribute('translate', 'no');
 
     root.addEventListener('beforeinput', this.handleBeforeInput);
+    root.addEventListener('keydown', this.handleKeyDown);
     root.addEventListener('compositionstart', this.handleCompositionStart);
     root.addEventListener('compositionend', this.handleCompositionEnd);
     root.ownerDocument.addEventListener(
@@ -58,6 +62,7 @@ export class InputHost {
 
   destroy(): void {
     this.root.removeEventListener('beforeinput', this.handleBeforeInput);
+    this.root.removeEventListener('keydown', this.handleKeyDown);
     this.root.removeEventListener(
       'compositionstart',
       this.handleCompositionStart
@@ -85,6 +90,22 @@ export class InputHost {
     });
     this.render();
     this.emitChanges();
+  }
+
+  indentList(): void {
+    this.changeListDepthBy(1);
+  }
+
+  outdentList(): void {
+    this.changeListDepthBy(-1);
+  }
+
+  toggleUnorderedList(): void {
+    this.toggleListType('unordered-list-item');
+  }
+
+  toggleOrderedList(): void {
+    this.toggleListType('ordered-list-item');
   }
 
   private readonly handleBeforeInput = (event: InputEvent): void => {
@@ -126,6 +147,21 @@ export class InputHost {
       this.selection = mapped;
     }
   }
+
+  // Tab never reaches beforeinput (the browser moves focus), so it is the
+  // one key handled here.
+  private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Tab' || this.session.isComposing) {
+      return;
+    }
+    event.preventDefault();
+    this.syncSelectionFromDom();
+    if (event.shiftKey) {
+      this.outdentList();
+    } else {
+      this.indentList();
+    }
+  };
 
   private readonly handleCompositionStart = (): void => {
     this.session.isComposing = true;
@@ -169,20 +205,43 @@ export class InputHost {
   }
 
   private unlistEmptyListItem(caret: number): boolean {
-    const line = paragraphBounds(caret, caret, this.text);
-    if (line.start !== line.end) {
+    const line = lineAtPosition(caret, this.text);
+    const block = this.blockStore.blockAt(caret, this.text);
+    if (line.start !== line.end || !isListItem(block)) {
       return false;
     }
-    const block = this.blockStore.blockStartingAt(line.start);
-    if (block === null || !LIST_ITEM_BLOCK_TYPES.has(block.type)) {
-      return false;
-    }
-    this.session.scoped('processing', () => {
-      this.blockStore.removeBlock(line.start, line.start, this.text);
-      this.blockStore.normalizeToLineBounds(this.text);
-    });
-    this.render();
+    this.toggleListType(block.type);
     return true;
+  }
+
+  // Backspace at the start of a list item outdents it, or un-lists it at
+  // depth 0, instead of merging with the line above.
+  private outdentListAtLineStart(caret: number): boolean {
+    const line = lineAtPosition(caret, this.text);
+    if (
+      caret !== line.start ||
+      !isListItem(this.blockStore.blockAt(caret, this.text))
+    ) {
+      return false;
+    }
+    this.outdentList();
+    return true;
+  }
+
+  private changeListDepthBy(delta: number): void {
+    const changed = this.session.scoped('processing', () =>
+      this.blockCoordinator.changeListDepthBy(delta, this.selection, this.text)
+    );
+    if (changed) {
+      this.render();
+    }
+  }
+
+  private toggleListType(type: BlockType): void {
+    this.session.scoped('processing', () =>
+      this.blockCoordinator.toggleListType(type, this.selection, this.text)
+    );
+    this.render();
   }
 
   private replaceSelection(insertedText: string): void {
@@ -196,7 +255,7 @@ export class InputHost {
       this.replaceSelection('');
       return;
     }
-    if (start === 0) {
+    if (this.outdentListAtLineStart(start) || start === 0) {
       return;
     }
     const deleteFrom = start - charLengthBefore(this.text, start);
