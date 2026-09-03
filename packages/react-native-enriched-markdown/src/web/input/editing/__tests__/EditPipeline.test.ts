@@ -73,3 +73,52 @@ describe('EditPipeline', () => {
     expect(styles.allRanges).toEqual([]);
   });
 });
+
+describe('EditPipeline on enter', () => {
+  it('keeps nested items nested when a list continues above them', () => {
+    // "- stack\n   - review": press Enter at the end of "stack".
+    const blocks = new BlockStore();
+    blocks.setRanges([
+      block('unordered-list-item', 0, 5, 0),
+      block('unordered-list-item', 6, 12, 1),
+    ]);
+    const pipeline = new EditPipeline(new FormattingStore(), blocks);
+
+    pipeline.processTextChange(
+      'stack\n\nreview',
+      context({ editStart: 5, insertedText: '\n' })
+    );
+
+    // The fresh empty line continues the outer list and "review" below it
+    // stays at depth 1: continuation must precede normalization, or the
+    // depth clamp sees a gap and flattens it.
+    expect(blocks.allRanges.map((b) => [b.start, b.level])).toEqual([
+      [0, 0],
+      [6, 0],
+      [7, 1],
+    ]);
+  });
+
+  it('keeps both halves in the list when an item is split mid-word', () => {
+    // "- stack\n   - review": press Enter inside "review".
+    const blocks = new BlockStore();
+    blocks.setRanges([
+      block('unordered-list-item', 0, 5, 0),
+      block('unordered-list-item', 6, 12, 1),
+    ]);
+    const pipeline = new EditPipeline(new FormattingStore(), blocks);
+
+    pipeline.processTextChange(
+      'stack\nre\nview',
+      context({ editStart: 8, insertedText: '\n' })
+    );
+
+    // The adjusted item spans the newline until it is snapped back; without
+    // that the fresh anchor removes it and "re" drops out of the list.
+    expect(blocks.allRanges.map((b) => [b.start, b.end, b.level])).toEqual([
+      [0, 5, 0],
+      [6, 8, 1],
+      [9, 13, 1],
+    ]);
+  });
+});
