@@ -204,7 +204,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 @end
 
 #if !TARGET_OS_OSX
-@interface ENRMCodeBlockContainerView () <UIContextMenuInteractionDelegate>
+@interface ENRMCodeBlockContainerView () <UIContextMenuInteractionDelegate, UIGestureRecognizerDelegate>
 @end
 #endif
 
@@ -223,6 +223,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if !TARGET_OS_OSX
   UIFont *_headerFont;
   UIButton *_copyButton;
+  UITapGestureRecognizer *_tapRecognizer;
 #else
   NSFont *_headerFont;
   NSButton *_copyButton;
@@ -236,6 +237,14 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 {
   _copyLabel = [copyLabel copy];
   _copyButton.accessibilityLabel = _copyLabel;
+}
+
+- (void)setEnableCodeBlockPress:(BOOL)enableCodeBlockPress
+{
+  _enableCodeBlockPress = enableCodeBlockPress;
+#if !TARGET_OS_OSX
+  _tapRecognizer.enabled = enableCodeBlockPress;
+#endif
 }
 
 - (void)setPending:(BOOL)pending
@@ -289,6 +298,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _copyButton.tintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
     [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:_copyButton];
+
+    // A single tap anywhere in the block fires onCodeBlockPress. Attached to the
+    // container so it also catches taps landing on the scrolling code pane; the
+    // copy button is excluded in gestureRecognizer:shouldReceiveTouch:. Disabled
+    // until enableCodeBlockPress arms it, so the block stays inert by default and
+    // scrolling/long-press keep working.
+    _tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleCodeBlockTap:)];
+    _tapRecognizer.delegate = self;
+    _tapRecognizer.enabled = NO;
+    [self addGestureRecognizer:_tapRecognizer];
 #else
     NSImageSymbolConfiguration *symbolConfig =
         [NSImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
@@ -547,6 +566,31 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 {
   copyStringToPasteboard([self fencedMarkdown]);
 }
+
+#if !TARGET_OS_OSX
+- (void)handleCodeBlockTap:(UITapGestureRecognizer *)recognizer
+{
+  // Never fires for a pending (unclosed) block, matching the copy button.
+  if (_pending) {
+    return;
+  }
+  if (self.onCodeBlockPress) {
+    self.onCodeBlockPress(_cachedCode ?: @"", _cachedLanguage ?: @"");
+  }
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
+{
+  // Let the copy button handle its own tap so onCodeBlockPress and onCopyPress
+  // never both fire from one press on the button.
+  for (UIView *hit = touch.view; hit != nil; hit = hit.superview) {
+    if (hit == _copyButton) {
+      return NO;
+    }
+  }
+  return YES;
+}
+#endif
 
 #if !TARGET_OS_OSX
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction

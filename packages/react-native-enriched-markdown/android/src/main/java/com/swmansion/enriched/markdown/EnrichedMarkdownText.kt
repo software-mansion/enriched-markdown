@@ -23,8 +23,10 @@ import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
+import com.swmansion.enriched.markdown.utils.text.view.CodeBlockPressHost
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
@@ -52,7 +54,8 @@ class EnrichedMarkdownText
     defStyleAttr: Int = 0,
   ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
     SpoilerCapable,
-    ImagePressHost {
+    ImagePressHost,
+    CodeBlockPressHost {
     private val parser = Parser.shared
     private val renderer = Renderer()
     private var onLinkPressCallback: ((String) -> Unit)? = null
@@ -365,6 +368,20 @@ class EnrichedMarkdownText
 
     fun setEnableImagePress(enabled: Boolean) {
       imagePressEnabled = enabled
+    }
+
+    override var codeBlockPressEnabled: Boolean = false
+      private set
+
+    override fun emitOnCodeBlockPress(
+      code: String,
+      language: String,
+    ) {
+      emitCodeBlockPress(this, code, language)
+    }
+
+    fun setEnableCodeBlockPress(enabled: Boolean) {
+      codeBlockPressEnabled = enabled
     }
 
     fun setOnLinkPressCallback(callback: (String) -> Unit) {

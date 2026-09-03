@@ -16,6 +16,7 @@ import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
+import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
 import com.swmansion.enriched.markdown.utils.common.emitCopyPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
@@ -63,6 +64,10 @@ class EnrichedMarkdownManager :
 
     view.setOnCopyPressCallback { code, language ->
       emitCopyPress(view, code, language)
+    }
+
+    view.setOnCodeBlockPressCallback { code, language ->
+      emitCodeBlockPress(view, code, language)
     }
 
     return view
@@ -202,6 +207,14 @@ class EnrichedMarkdownManager :
     enableBlockContextMenu: Boolean,
   ) {
     view?.enableBlockContextMenu = enableBlockContextMenu
+  }
+
+  @ReactProp(name = "enableCodeBlockPress", defaultBoolean = false)
+  override fun setEnableCodeBlockPress(
+    view: EnrichedMarkdown?,
+    enableCodeBlockPress: Boolean,
+  ) {
+    view?.enableCodeBlockPress = enableCodeBlockPress
   }
 
   @ReactProp(name = "lineBreakStrategyIOS")

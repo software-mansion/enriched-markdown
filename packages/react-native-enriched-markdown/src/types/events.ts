@@ -22,6 +22,11 @@ export interface CopyPressEvent {
   language: string;
 }
 
+export interface CodeBlockPressEvent {
+  code: string;
+  language: string;
+}
+
 /**
  * Native-level context menu item config sent to the native component.
  * Does not include the `onPress` callback — callbacks are managed on the JS side.

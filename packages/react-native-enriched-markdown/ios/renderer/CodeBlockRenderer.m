@@ -85,6 +85,15 @@
     [output addAttribute:CodeBlockIndentAttributeName value:@(listIndent) range:backgroundRange];
   }
 
+  // Carried on the range so a tap can recover the block's source and language
+  // for onCodeBlockPress (the AST node is discarded after rendering).
+  NSString *codeBlockText = ENRMCodeBlockExtractCode(node) ?: @"";
+  [output addAttribute:@"codeBlockText" value:codeBlockText range:backgroundRange];
+  NSString *codeBlockLanguage = ENRMCodeBlockLanguage(node);
+  if (codeBlockLanguage) {
+    [output addAttribute:@"codeBlockLanguage" value:codeBlockLanguage range:backgroundRange];
+  }
+
   // External Margin: Applied outside the background range
   if (marginBottom > 0) {
     applyBlockSpacingAfter(output, marginBottom);

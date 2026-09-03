@@ -77,9 +77,18 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 @property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
 
+// Tap-to-press gate and callback propagated to code block children inside the
+// quote, recursing into nested quotes. Mirrors onCopyPress propagation.
+@property (nonatomic, assign) BOOL enableCodeBlockPress;
+@property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
+
 // Re-applies the current copy labels and onCopyPress to already-created
 // children when the labels change without a remount.
 - (void)pushCopyLabelsToChildren;
+
+// Re-applies the code block tap gate to already-created code block children
+// (recursing into nested quotes) when enableCodeBlockPress toggles at runtime.
+- (void)pushCodeBlockPressEnabledToChildren:(BOOL)enabled;
 
 @end
 

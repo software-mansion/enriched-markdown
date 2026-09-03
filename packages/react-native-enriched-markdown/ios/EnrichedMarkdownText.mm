@@ -57,6 +57,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
+- (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
@@ -86,6 +87,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
+  BOOL _enableCodeBlockPress;
   BOOL _streamingAnimation;
   BOOL _forceHeightUpdateOnNextRender;
 
@@ -243,6 +245,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
+    _enableCodeBlockPress = NO;
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
@@ -581,6 +584,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
+  _enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
   if (ENRMContextMenuItemsChanged(oldViewProps.contextMenuItems, newViewProps.contextMenuItems)) {
     _contextMenuItemTexts = ENRMContextMenuTextsFromItems(newViewProps.contextMenuItems);
@@ -727,7 +731,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 {
   if (_textView) {
     CGPoint textViewPoint = [self convertPoint:point toView:_textView];
-    if (isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress)) {
+    if (isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress, _enableCodeBlockPress)) {
       return nil;
     }
   }
@@ -754,6 +758,14 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onImagePress({.url = std::string(url.UTF8String ?: ""), .altText = std::string(altText.UTF8String ?: "")});
+}
+
+- (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onCodeBlockPress(
+        {.code = std::string(code.UTF8String ?: ""), .language = std::string(language.UTF8String ?: "")});
 }
 
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text
@@ -804,6 +816,15 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
     if (image) {
       [self emitImagePress:image[@"url"] altText:image[@"altText"]];
+      return;
+    }
+  }
+
+  if (_enableCodeBlockPress) {
+    NSDictionary<NSString *, NSString *> *codeBlock = codeBlockAtTapLocation(textView, recognizer);
+    if (codeBlock) {
+      [self emitCodeBlockPress:codeBlock[@"code"] language:codeBlock[@"language"]];
+      return;
     }
   }
 }

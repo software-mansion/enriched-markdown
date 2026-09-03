@@ -77,6 +77,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitCopyPress:(NSString *)code language:(NSString *)language;
+- (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
@@ -110,6 +111,7 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
   BOOL _enableBlockContextMenu;
+  BOOL _enableCodeBlockPress;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
@@ -179,6 +181,7 @@ static char kENRMSegmentFadeAnimatorKey;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
     _enableBlockContextMenu = YES;
+    _enableCodeBlockPress = NO;
     _streamingAnimation = NO;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
@@ -330,11 +333,18 @@ static char kENRMSegmentFadeAnimatorKey;
   view.copyLabel = _selectionMenuLabels.copyLabel;
   view.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
 
+  view.enableCodeBlockPress = _enableCodeBlockPress;
+
   __weak EnrichedMarkdown *weakSelf = self;
   view.onCopyPress = ^(NSString *code, NSString *language) {
     EnrichedMarkdown *strongSelf = weakSelf;
     if (strongSelf)
       [strongSelf emitCopyPress:code language:language];
+  };
+  view.onCodeBlockPress = ^(NSString *code, NSString *language) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (strongSelf)
+      [strongSelf emitCodeBlockPress:code language:language];
   };
   view.onLinkPress = ^(NSString *url) {
     EnrichedMarkdown *strongSelf = weakSelf;
@@ -613,6 +623,17 @@ static char kENRMSegmentFadeAnimatorKey;
 #endif
     else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
       ((ENRMCodeBlockContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
+    }
+  }
+}
+
+- (void)pushCodeBlockPressToSegments
+{
+  for (RCTUIView *segment in _segmentViews) {
+    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)segment).enableCodeBlockPress = _enableCodeBlockPress;
+    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      [(ENRMBlockquoteContainerView *)segment pushCodeBlockPressEnabledToChildren:_enableCodeBlockPress];
     }
   }
 }
@@ -938,6 +959,7 @@ static char kENRMSegmentFadeAnimatorKey;
 {
   ENRMCodeBlockContainerView *codeBlockView = [[ENRMCodeBlockContainerView alloc] initWithConfig:_config];
   codeBlockView.enableBlockContextMenu = _enableBlockContextMenu;
+  codeBlockView.enableCodeBlockPress = _enableCodeBlockPress;
   codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
   codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
 
@@ -946,6 +968,11 @@ static char kENRMSegmentFadeAnimatorKey;
     EnrichedMarkdown *strongSelf = weakSelf;
     if (strongSelf)
       [strongSelf emitCopyPress:code language:language];
+  };
+  codeBlockView.onCodeBlockPress = ^(NSString *code, NSString *language) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (strongSelf)
+      [strongSelf emitCodeBlockPress:code language:language];
   };
 
   codeBlockView.pending = codeBlockSegment == _pendingCodeBlockSegment;
@@ -1081,6 +1108,11 @@ static char kENRMSegmentFadeAnimatorKey;
   if (_enableBlockContextMenu != newViewProps.enableBlockContextMenu) {
     _enableBlockContextMenu = newViewProps.enableBlockContextMenu;
     [self pushBlockContextMenuToSegments];
+  }
+
+  if (_enableCodeBlockPress != newViewProps.enableCodeBlockPress) {
+    _enableCodeBlockPress = newViewProps.enableCodeBlockPress;
+    [self pushCodeBlockPressToSegments];
   }
 
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
@@ -1308,7 +1340,9 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     BOOL isInsideView = CGRectContainsPoint(textSegment.textView.bounds, segmentPoint);
 #endif
     if (isInsideView) {
-      if (isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress)) {
+      // GFM code blocks are separate container views, not inline spans in a text
+      // segment, so this text-segment hit test never needs to consider them.
+      if (isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
         return nil;
       }
       break;
@@ -1367,6 +1401,14 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onCopyPress(
+        {.code = std::string(code.UTF8String ?: ""), .language = std::string(language.UTF8String ?: "")});
+}
+
+- (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onCodeBlockPress(
         {.code = std::string(code.UTF8String ?: ""), .language = std::string(language.UTF8String ?: "")});
 }
 

@@ -206,6 +206,14 @@ class EnrichedMarkdownTextManager :
     // No-op: block context menus are rendered by the container component.
   }
 
+  @ReactProp(name = "enableCodeBlockPress", defaultBoolean = false)
+  override fun setEnableCodeBlockPress(
+    view: EnrichedMarkdownText?,
+    enableCodeBlockPress: Boolean,
+  ) {
+    view?.setEnableCodeBlockPress(enableCodeBlockPress)
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdownText?,

@@ -28,6 +28,10 @@ class CodeBlockSpan(
   private val context: Context,
   private val styleCache: SpanStyleCache,
   private val leadingIndent: Int = 0,
+  // Carried so a tap landing on this span can recover the block's source and
+  // language for onCodeBlockPress; unused by the drawing code.
+  val code: String = "",
+  val language: String = "",
 ) : MetricAffectingSpan(),
   LineBackgroundSpan,
   LeadingMarginSpan {

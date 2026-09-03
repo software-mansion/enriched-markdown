@@ -20,10 +20,18 @@ NSString *_Nullable linkURLAtRange(ENRMPlatformTextView *textView, NSRange chara
 NSDictionary<NSString *, NSString *> *_Nullable imageAtTapLocation(ENRMPlatformTextView *textView,
                                                                    ENRMTapRecognizer *recognizer);
 
+/// Returns the tapped code block as @{@"code": ..., @"language": ...}, or nil if
+/// the tap did not land on a commonmark code block. `language` is "" when the
+/// fence had no info string.
+NSDictionary<NSString *, NSString *> *_Nullable codeBlockAtTapLocation(ENRMPlatformTextView *textView,
+                                                                       ENRMTapRecognizer *recognizer);
+
 /// Returns YES if the point (in textView coordinates) is on a link or task list
 /// checkbox. When `includeImages` is YES, images also count as interactive
-/// (used to stop a parent press handler once `onImagePress` is enabled).
-BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point, BOOL includeImages);
+/// (used to stop a parent press handler once `onImagePress` is enabled), and
+/// likewise `includeCodeBlock` for `onCodeBlockPress`.
+BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point, BOOL includeImages,
+                                 BOOL includeCodeBlock);
 
 #ifdef __cplusplus
 }

@@ -22,6 +22,7 @@ export const EnrichedMarkdownText = ({
   onLinkLongPress,
   onImagePress,
   onTaskListItemPress,
+  onCodeBlockPress,
   enableTaskListItemToggle = true,
   allowTrailingMargin = false,
   containerStyle,
@@ -106,8 +107,20 @@ export const EnrichedMarkdownText = ({
   ]);
 
   const callbacks = useMemo<RendererCallbacks>(
-    () => ({ onLinkPress, onLinkLongPress, onImagePress, onTaskListItemPress }),
-    [onLinkPress, onLinkLongPress, onImagePress, onTaskListItemPress]
+    () => ({
+      onLinkPress,
+      onLinkLongPress,
+      onImagePress,
+      onTaskListItemPress,
+      onCodeBlockPress,
+    }),
+    [
+      onLinkPress,
+      onLinkLongPress,
+      onImagePress,
+      onTaskListItemPress,
+      onCodeBlockPress,
+    ]
   );
 
   const capabilities = useMemo<RenderCapabilities>(

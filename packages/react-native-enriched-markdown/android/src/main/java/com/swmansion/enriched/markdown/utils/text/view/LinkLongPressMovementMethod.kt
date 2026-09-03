@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewParent
 import android.widget.TextView
+import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
@@ -32,6 +33,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private var startY = 0f
   private var pressedLink: LinkSpan? = null
   private var pressedImage: ImageSpan? = null
+  private var pressedCodeBlock: CodeBlockSpan? = null
 
   var isLinkTouchActive: Boolean = false
     private set
@@ -54,8 +56,20 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           } else {
             null
           }
-        isLinkTouchActive = pressedLink != null || pressedImage != null
-        isTouchWithinTextBounds = charOffsetAt(widget, event) != null
+        pressedCodeBlock =
+          if (pressedLink == null &&
+            pressedImage == null &&
+            codeBlockPressHost(widget)?.codeBlockPressEnabled == true
+          ) {
+            findCodeBlockSpan(widget, buffer, event)
+          } else {
+            null
+          }
+        isLinkTouchActive = pressedLink != null || pressedImage != null || pressedCodeBlock != null
+        // A code block tap can land in the box padding where charOffsetAt is null;
+        // keep the touch tracked so ACTION_UP still fires the press instead of
+        // falling through to the parent.
+        isTouchWithinTextBounds = charOffsetAt(widget, event) != null || pressedCodeBlock != null
         pressedLink?.let { scheduleLongPress(widget, it) }
       }
 
@@ -68,6 +82,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           isLinkTouchActive = false
           pressedLink = null
           pressedImage = null
+          pressedCodeBlock = null
         }
       }
 
@@ -75,9 +90,11 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         cancelLongPress()
         val tappedLink = pressedLink
         val tappedImage = pressedImage
+        val tappedCodeBlock = pressedCodeBlock
         isLinkTouchActive = false
         pressedLink = null
         pressedImage = null
+        pressedCodeBlock = null
 
         if (handleSpoilerTap(widget, buffer, event)) {
           return true
@@ -95,6 +112,11 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           imagePressHost(widget)?.emitOnImagePress(tappedImage.imageUrl, tappedImage.altText)
           return true
         }
+
+        if (tappedCodeBlock != null && findCodeBlockSpan(widget, buffer, event) === tappedCodeBlock) {
+          codeBlockPressHost(widget)?.emitOnCodeBlockPress(tappedCodeBlock.code, tappedCodeBlock.language)
+          return true
+        }
       }
 
       MotionEvent.ACTION_CANCEL -> {
@@ -102,6 +124,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         isLinkTouchActive = false
         pressedLink = null
         pressedImage = null
+        pressedCodeBlock = null
       }
     }
 
@@ -193,6 +216,34 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
       parent = parent.parent
     }
     return parent as? ImagePressHost
+  }
+
+  // Unlike links/images, a code block is a whole-line box: a tap anywhere on one
+  // of its lines counts, including the horizontal padding and the empty space
+  // past short lines. So this maps the tap to a line (ignoring x) and checks that
+  // line's range for a CodeBlockSpan, rather than requiring an exact character
+  // offset the way charOffsetAt does.
+  private fun findCodeBlockSpan(
+    widget: TextView,
+    buffer: Spannable,
+    event: MotionEvent,
+  ): CodeBlockSpan? {
+    val layout = widget.layout ?: return null
+    val y = event.y - widget.totalPaddingTop + widget.scrollY
+    if (y < 0f || y > layout.height) return null
+    val line = layout.getLineForVertical(y.toInt())
+    val lineStart = layout.getLineStart(line)
+    val lineEnd = layout.getLineEnd(line)
+    return buffer.getSpans(lineStart, lineEnd, CodeBlockSpan::class.java).firstOrNull()
+  }
+
+  private fun codeBlockPressHost(widget: View): CodeBlockPressHost? {
+    if (widget is CodeBlockPressHost) return widget
+    var parent: ViewParent? = widget.parent
+    while (parent != null && parent !is CodeBlockPressHost) {
+      parent = parent.parent
+    }
+    return parent as? CodeBlockPressHost
   }
 
   private fun handleSpoilerTap(
