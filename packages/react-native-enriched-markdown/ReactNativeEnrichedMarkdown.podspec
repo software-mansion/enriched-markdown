@@ -49,8 +49,10 @@ Pod::Spec.new do |s|
   # there, failing several hundred lines into the pod build with an opaque Swift
   # "cannot find type 'RaTeXRenderer' in scope" (#745).
   ratex_dir = File.join(__dir__, 'ios/vendor')
+  # File.file? (not File.exist?) so a stray .stamp/ directory can't pass the check and
+  # reintroduce the #745 failure mode; the vendor script only ever writes it as a file.
   ratex_present = File.directory?(File.join(ratex_dir, 'RaTeX.xcframework')) &&
-    File.exist?(File.join(ratex_dir, '.stamp'))
+    File.file?(File.join(ratex_dir, '.stamp'))
   math_flag = ENV['ENRICHED_MARKDOWN_ENABLE_MATH']
 
   if config.key?('enableMath')
