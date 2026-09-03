@@ -45,6 +45,7 @@ final class MathRenderer: NodeRenderer {
         )
         var attributes = context.getTextAttributes()
         attributes[.attachment] = attachment
+        SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
     }
 

@@ -200,7 +200,10 @@ private extension MarkdownSourceSlicer {
             case .strikethrough:
                 return MarkdownSourceSlicer.matchBackward("~~", in: bytes, before: index)
             case .underline:
-                return MarkdownSourceSlicer.matchBackward("<u>", in: bytes, before: index)
+                // `<u>` tags, or `__`/`_` under the md4c underline flag.
+                return ["<u>", "__", "_"]
+                    .compactMap { MarkdownSourceSlicer.matchBackward($0, in: bytes, before: index) }
+                    .first
             case .emphasis, .strong:
                 let markers = self == .strong ? ["**", "__"] : ["*", "_"]
                 return markers
@@ -221,7 +224,9 @@ private extension MarkdownSourceSlicer {
             case .strikethrough:
                 return MarkdownSourceSlicer.matchForward("~~", in: bytes, at: index)
             case .underline:
-                return MarkdownSourceSlicer.matchForward("</u>", in: bytes, at: index)
+                return ["</u>", "__", "_"]
+                    .compactMap { MarkdownSourceSlicer.matchForward($0, in: bytes, at: index) }
+                    .first
             case .emphasis, .strong:
                 let markers = self == .strong ? ["**", "__"] : ["*", "_"]
                 return markers
@@ -265,12 +270,18 @@ private extension MarkdownSourceSlicer {
         bytes: [UInt8]
     ) -> Int? {
         guard start == run.nodeByteRange.lowerBound else { return start }
-        if run.attrs[.attachment] != nil, !(run.attrs[.attachment] is MarkdownImageAttachment) {
+        var position = start
+        if let plugin = run.attrs[.attachment] as? any MarkdownPluginAttachment {
+            guard let opened = consumeDelimiterBackward(
+                plugin.sourceDelimiters?.opening, in: bytes, before: start
+            ) else { return nil }
+            position = opened
+        } else if run.attrs[.attachment] != nil, !(run.attrs[.attachment] is MarkdownImageAttachment) {
             return start
         }
         return consumeTraits(
             coveredTraits(of: run, selection: selection, in: attributedText),
-            from: start
+            from: position
         ) { trait, position in
             trait.consumeOpening(in: bytes, before: position)
         }
@@ -285,12 +296,18 @@ private extension MarkdownSourceSlicer {
         bytes: [UInt8]
     ) -> Int? {
         guard end == run.nodeByteRange.upperBound else { return end }
-        if run.attrs[.attachment] != nil, !(run.attrs[.attachment] is MarkdownImageAttachment) {
+        var position = end
+        if let plugin = run.attrs[.attachment] as? any MarkdownPluginAttachment {
+            guard let closed = consumeDelimiterForward(
+                plugin.sourceDelimiters?.closing, in: bytes, from: end
+            ) else { return nil }
+            position = closed
+        } else if run.attrs[.attachment] != nil, !(run.attrs[.attachment] is MarkdownImageAttachment) {
             return end
         }
         return consumeTraits(
             coveredTraits(of: run, selection: selection, in: attributedText),
-            from: end
+            from: position
         ) { trait, position in
             trait.consumeClosing(in: bytes, from: position)
         }
@@ -322,6 +339,34 @@ private extension MarkdownSourceSlicer {
             }
         }
         return result
+    }
+
+    // MARK: - Plugin attachment delimiters
+
+    /// A plugin attachment's mapped range covers its literal content; its
+    /// delimiters sit outside, possibly across the newline a block delimiter
+    /// occupies. Nil when a declared delimiter is missing — the slice would
+    /// silently lose the element.
+    static func consumeDelimiterBackward(_ delimiter: String?, in bytes: [UInt8], before index: Int) -> Int? {
+        guard let delimiter else { return index }
+        var cursor = index
+        while cursor > 0, isWhitespace(bytes[cursor - 1]) {
+            cursor -= 1
+        }
+        return matchBackward(delimiter, in: bytes, before: cursor)
+    }
+
+    static func consumeDelimiterForward(_ delimiter: String?, in bytes: [UInt8], from index: Int) -> Int? {
+        guard let delimiter else { return index }
+        var cursor = index
+        while cursor < bytes.count, isWhitespace(bytes[cursor]) {
+            cursor += 1
+        }
+        return matchForward(delimiter, in: bytes, at: cursor)
+    }
+
+    static func isWhitespace(_ byte: UInt8) -> Bool {
+        byte == UInt8(ascii: " ") || byte == UInt8(ascii: "\t") || byte == UInt8(ascii: "\n") || byte == UInt8(ascii: "\r")
     }
 
     static func matchBackward(_ marker: String, in bytes: [UInt8], before index: Int) -> Int? {

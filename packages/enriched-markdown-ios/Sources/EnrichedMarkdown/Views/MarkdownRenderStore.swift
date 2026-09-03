@@ -44,18 +44,19 @@ final class MarkdownRenderStore: ObservableObject {
         let resolved = markdown == baseMarkdown ? (currentMarkdown ?? markdown) : markdown
         baseMarkdown = markdown
         currentMarkdown = resolved
+        let effectiveFlags = MarkdownRenderer.effectiveFlags(flags, plugins: plugins)
 
         coordinator.scheduleRender {
             MarkdownRenderer.render(
                 resolved,
                 config: config,
-                flags: flags,
+                flags: effectiveFlags,
                 imageRequestHeaders: imageRequestHeaders,
                 plugins: plugins
             )
         } apply: { [weak self] result in
             self?.attributedText = result
-            self?.source = RenderedSource(markdown: resolved, flags: flags)
+            self?.source = RenderedSource(markdown: resolved, flags: effectiveFlags)
         }
     }
 

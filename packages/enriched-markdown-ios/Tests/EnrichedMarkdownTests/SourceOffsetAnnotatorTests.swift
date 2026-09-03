@@ -113,6 +113,17 @@ final class SourceOffsetAnnotatorTests: XCTestCase {
         XCTAssertEqual(range(of: text)?.end, 11)
     }
 
+    /// The core keeps the text around a dropped entity in one node, so the
+    /// node's range must span the reference it no longer contains.
+    func testDroppedEntityInsideTextNodeStillAnnotates() {
+        let ast = annotate("an entity &copy; 2026.")
+
+        let text = ast.all(ofType: .text).first { $0.content == "an entity  2026." }
+        XCTAssertNotNil(text)
+        XCTAssertEqual(range(of: text)?.start, 0)
+        XCTAssertEqual(range(of: text)?.end, 22)
+    }
+
     func testThematicBreakIsAnnotatedStructurally() {
         let ast = annotate("a\n\n---\n\nb")
 

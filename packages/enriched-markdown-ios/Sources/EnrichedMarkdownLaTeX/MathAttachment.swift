@@ -53,7 +53,17 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment {
     }
 
     func markdownText() -> String {
-        isDisplay ? "$$\(latex)$$" : "$\(latex)$"
+        delimiter + latex + delimiter
+    }
+
+    var literalText: String { latex }
+
+    var sourceDelimiters: (opening: String, closing: String)? {
+        (delimiter, delimiter)
+    }
+
+    private var delimiter: String {
+        isDisplay ? "$$" : "$"
     }
 
     override func attachmentBounds(

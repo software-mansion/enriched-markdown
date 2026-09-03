@@ -14,7 +14,7 @@ import Foundation
 /// content still cannot be matched is left unannotated (cursor unmoved).
 /// The attribute contract matches what a parser-side implementation would
 /// emit, so downstream code is provenance-agnostic.
-enum SourceOffsetAnnotator {
+package enum SourceOffsetAnnotator {
     static let sourceStartKey = "srcStart"
     static let sourceEndKey = "srcEnd"
 
@@ -41,7 +41,7 @@ enum SourceOffsetAnnotator {
 
     /// Adds the node's range to a run's attributes under
     /// `MarkdownAttribute.sourceRange`, when annotated.
-    static func tagSourceRange(in attributes: inout [NSAttributedString.Key: Any], of node: MarkdownASTNode) {
+    package static func tagSourceRange(in attributes: inout [NSAttributedString.Key: Any], of node: MarkdownASTNode) {
         if let value = sourceRangeValue(of: node) {
             attributes[MarkdownAttribute.sourceRange] = value
         }
@@ -98,15 +98,29 @@ enum SourceOffsetAnnotator {
         }
 
         /// Matches `needle` at `index`, letting a source backslash escape
-        /// match its bare character and an entity reference match one scalar
-        /// of the needle.
+        /// match its bare character, a line break plus its indentation match
+        /// the single space the parser flattens them to inside spans (math
+        /// bodies), and an entity reference match either nothing (the shared
+        /// core drops entity text) or one decoded scalar of the needle.
         private func matchFlexible(_ needle: [UInt8], at index: Int) -> Int? {
-            var sourceIndex = index
-            var needleIndex = 0
+            matchRemainder(of: needle, from: 0, sourceIndex: index)
+        }
+
+        private func matchRemainder(of needle: [UInt8], from needleStart: Int, sourceIndex start: Int) -> Int? {
+            var sourceIndex = start
+            var needleIndex = needleStart
             while needleIndex < needle.count {
                 guard sourceIndex < source.count else { return nil }
                 if source[sourceIndex] == needle[needleIndex] {
                     sourceIndex += 1
+                    needleIndex += 1
+                    continue
+                }
+                if needle[needleIndex] == UInt8(ascii: " "), isLineBreak(source[sourceIndex]) {
+                    sourceIndex += 1
+                    while sourceIndex < source.count, isIndentation(source[sourceIndex]) {
+                        sourceIndex += 1
+                    }
                     needleIndex += 1
                     continue
                 }
@@ -118,15 +132,31 @@ enum SourceOffsetAnnotator {
                     needleIndex += 1
                     continue
                 }
-                if let entityEnd = entityEnd(startingAt: sourceIndex),
-                   let scalarLength = scalarLength(of: needle, at: needleIndex) {
-                    sourceIndex = entityEnd
-                    needleIndex += scalarLength
-                    continue
+                if let entityEnd = entityEnd(startingAt: sourceIndex) {
+                    // A dropped entity is bridged only inside a match; a match
+                    // never starts on one, so the forward scan anchors the text
+                    // after a leading entity precisely. Entities are rare, so
+                    // trying both readings stays cheap.
+                    if needleIndex > 0,
+                       let end = matchRemainder(of: needle, from: needleIndex, sourceIndex: entityEnd) {
+                        return end
+                    }
+                    if let scalarLength = scalarLength(of: needle, at: needleIndex),
+                       let end = matchRemainder(of: needle, from: needleIndex + scalarLength, sourceIndex: entityEnd) {
+                        return end
+                    }
                 }
                 return nil
             }
             return sourceIndex
+        }
+
+        private func isLineBreak(_ byte: UInt8) -> Bool {
+            byte == UInt8(ascii: "\n") || byte == UInt8(ascii: "\r")
+        }
+
+        private func isIndentation(_ byte: UInt8) -> Bool {
+            byte == UInt8(ascii: " ") || byte == UInt8(ascii: "\t")
         }
 
         /// One past a `&name;` / `&#123;` reference, or nil.

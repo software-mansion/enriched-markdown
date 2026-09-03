@@ -33,8 +33,17 @@ package protocol MarkdownPluginAttachment: NSTextAttachment {
     /// True exempts paragraphs containing the attachment from fixed
     /// line-height caps, so taller-than-text content is not clipped.
     var preservesNaturalLineHeight: Bool { get }
+    /// The text the parser's text nodes carry for the attachment's source
+    /// range, so a verbatim copy slice can be validated against it.
+    var literalText: String { get }
+    /// Syntax immediately outside the tagged source range (a block delimiter
+    /// may sit on its own line), consumed when a copy slice ends on the
+    /// attachment; nil when there is none.
+    var sourceDelimiters: (opening: String, closing: String)? { get }
 }
 
 package extension MarkdownPluginAttachment {
     var preservesNaturalLineHeight: Bool { true }
+
+    var sourceDelimiters: (opening: String, closing: String)? { nil }
 }

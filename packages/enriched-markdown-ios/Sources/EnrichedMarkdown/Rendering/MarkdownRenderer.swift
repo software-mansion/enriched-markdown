@@ -23,11 +23,7 @@ public enum MarkdownRenderer {
         imageRequestHeaders: [String: String],
         plugins: [any MarkdownRenderPlugin]
     ) -> NSAttributedString {
-        var effectiveFlags = flags
-        for plugin in plugins {
-            plugin.adjustFlags(&effectiveFlags)
-        }
-        let ast = Parser.shared.parseMarkdown(markdown, flags: effectiveFlags)
+        let ast = Parser.shared.parseMarkdown(markdown, flags: effectiveFlags(flags, plugins: plugins))
         let annotated = SourceOffsetAnnotator.annotate(ast, source: markdown)
         let renderer = AttributedRenderer(
             config: config,
@@ -35,5 +31,18 @@ public enum MarkdownRenderer {
             plugins: plugins
         )
         return renderer.renderRoot(annotated)
+    }
+
+    /// `flags` after every plugin's adjustments — what the document is
+    /// parsed with, and what a copied slice must be re-parsed with.
+    package static func effectiveFlags(
+        _ flags: Md4cFlags,
+        plugins: [any MarkdownRenderPlugin]
+    ) -> Md4cFlags {
+        var adjusted = flags
+        for plugin in plugins {
+            plugin.adjustFlags(&adjusted)
+        }
+        return adjusted
     }
 }

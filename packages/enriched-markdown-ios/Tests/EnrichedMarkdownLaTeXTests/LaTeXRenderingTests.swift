@@ -181,6 +181,88 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertTrue(rendered.string.contains("$x^2$"))
     }
 
+    // MARK: - Copy as Markdown integration
+
+    func testMathAttachmentRunCarriesSourceRange() {
+        let source = "before $x^2$ after"
+        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
+
+        let attachmentIndex = (rendered.string as NSString).range(of: "\u{FFFC}").location
+        XCTAssertNotEqual(attachmentIndex, NSNotFound)
+
+        let value = rendered.attribute(
+            MarkdownAttribute.sourceRange,
+            at: attachmentIndex,
+            effectiveRange: nil
+        ) as? NSValue
+        XCTAssertNotNil(value)
+        guard let byteRange = value?.rangeValue else { return }
+
+        let bytes = Array(source.utf8)[byteRange.location..<byteRange.location + byteRange.length]
+        XCTAssertEqual(Array(bytes), Array("x^2".utf8))
+    }
+
+    func testFullSelectionCopyReturnsVerbatimSource() {
+        let source = "before\n\n$$\na + b\nc + d\n$$\n\nafter"
+        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
+
+        let copied = MarkdownExtractor.markdown(
+            for: NSRange(location: 0, length: rendered.length),
+            in: rendered,
+            sourceMarkdown: source,
+            flags: .commonMark
+        )
+        XCTAssertEqual(copied, source)
+    }
+
+    private var effectiveFlags: Md4cFlags {
+        MarkdownRenderer.effectiveFlags(.commonMark, plugins: [LaTeXRenderPlugin()])
+    }
+
+    func testPartialSelectionWithInlineMathCopiesVerbatim() {
+        let source = "before $x^2$ and more text after"
+        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
+
+        let partial = (rendered.string as NSString).range(of: "before \u{FFFC} and")
+        XCTAssertNotEqual(partial.location, NSNotFound)
+
+        let copied = MarkdownExtractor.markdown(
+            for: partial,
+            in: rendered,
+            sourceMarkdown: source,
+            flags: effectiveFlags
+        )
+        XCTAssertEqual(copied, "before $x^2$ and")
+    }
+
+    func testPartialSelectionKeepsMultiLineDisplayMathVerbatim() {
+        let source = "before\n\n$$\na + b\nc + d\n$$\n\nafter"
+        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
+
+        let afterLocation = (rendered.string as NSString).range(of: "after").location
+        let copied = MarkdownExtractor.markdown(
+            for: NSRange(location: 0, length: afterLocation),
+            in: rendered,
+            sourceMarkdown: source,
+            flags: effectiveFlags
+        )
+        XCTAssertEqual(copied, "before\n\n$$\na + b\nc + d\n$$")
+    }
+
+    func testMathAtSelectionEdgeInsideEmphasisKeepsMarkers() {
+        let source = "**$x^2$** after"
+        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
+
+        let formula = (rendered.string as NSString).range(of: "\u{FFFC}")
+        let copied = MarkdownExtractor.markdown(
+            for: formula,
+            in: rendered,
+            sourceMarkdown: source,
+            flags: effectiveFlags
+        )
+        XCTAssertEqual(copied, "**$x^2$**")
+    }
+
     // The core flattens breaks inside math spans to spaces, which TeX treats
     // the same as newlines; both lines must reach the typesetter.
     func testMultiLineDisplayMathKeepsAllContent() {
