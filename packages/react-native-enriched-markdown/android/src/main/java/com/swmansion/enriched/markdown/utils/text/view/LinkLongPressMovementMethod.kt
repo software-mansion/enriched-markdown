@@ -59,6 +59,9 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         pressedCodeBlock =
           if (pressedLink == null &&
             pressedImage == null &&
+            // Skip while text is selected so the tap clears the selection
+            // instead of firing the press (matches the web guard).
+            !widget.hasSelection() &&
             codeBlockPressHost(widget)?.codeBlockPressEnabled == true
           ) {
             findCodeBlockSpan(widget, buffer, event)

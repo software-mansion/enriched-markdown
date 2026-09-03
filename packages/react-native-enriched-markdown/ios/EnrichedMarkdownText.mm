@@ -820,7 +820,9 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     }
   }
 
-  if (_enableCodeBlockPress) {
+  // Skip while text is selected so the tap clears the selection instead of
+  // firing the press (matches the web guard).
+  if (_enableCodeBlockPress && textView.selectedRange.length == 0) {
     NSDictionary<NSString *, NSString *> *codeBlock = codeBlockAtTapLocation(textView, recognizer);
     if (codeBlock) {
       [self emitCodeBlockPress:codeBlock[@"code"] language:codeBlock[@"language"]];
