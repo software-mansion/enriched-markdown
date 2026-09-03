@@ -44,6 +44,8 @@ final class MarkdownRenderStore: ObservableObject {
         let resolved = markdown == baseMarkdown ? (currentMarkdown ?? markdown) : markdown
         baseMarkdown = markdown
         currentMarkdown = resolved
+        // render adjusts the flags itself; the source keeps the adjusted ones for copying.
+        let effectiveFlags = MarkdownRenderer.effectiveFlags(flags, plugins: plugins)
 
         coordinator.scheduleRender {
             MarkdownRenderer.render(
@@ -55,7 +57,7 @@ final class MarkdownRenderStore: ObservableObject {
             )
         } apply: { [weak self] result in
             self?.attributedText = result
-            self?.source = RenderedSource(markdown: resolved, flags: flags)
+            self?.source = RenderedSource(markdown: resolved, flags: effectiveFlags)
         }
     }
 

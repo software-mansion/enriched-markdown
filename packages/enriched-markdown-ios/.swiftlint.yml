@@ -1,3 +1,10 @@
+# SwiftLint lints everything under the working directory; exclude RaTeX's
+# upstream sources (vendored byte-identical for diffable re-pins) and the
+# SwiftPM-generated code in .build (e.g. resource-bundle accessors).
+excluded:
+  - Sources/EnrichedMarkdownLaTeX/Vendor
+  - .build
+
 # Size thresholds are raised above the defaults where renderer dispatch code
 # (element switches, HTML generation) legitimately exceeds them; the test tree
 # relaxes size rules further in Tests/.swiftlint.yml.

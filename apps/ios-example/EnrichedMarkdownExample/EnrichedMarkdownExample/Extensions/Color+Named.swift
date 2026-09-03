@@ -17,6 +17,7 @@ extension Color {
     static var tileBlue: Color { Color(red: 0 / 255, green: 122 / 255, blue: 255 / 255) }
     static var tileGreen: Color { Color(red: 52 / 255, green: 199 / 255, blue: 89 / 255) }
     static var tileOrange: Color { Color(red: 255 / 255, green: 149 / 255, blue: 0 / 255) }
+    static var tileTeal: Color { Color(red: 48 / 255, green: 176 / 255, blue: 199 / 255) }
     static var tilePurple: Color { Color(red: 175 / 255, green: 82 / 255, blue: 222 / 255) }
     static var tilePink: Color { Color(red: 255 / 255, green: 45 / 255, blue: 85 / 255) }
 

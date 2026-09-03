@@ -1,4 +1,5 @@
 import EnrichedMarkdown
+import EnrichedMarkdownLaTeX
 import SwiftUI
 
 struct PlaygroundScreen: View {
@@ -63,6 +64,10 @@ struct PlaygroundScreen: View {
                     }
                 }
 
+                PlaygroundButton(label: "Insert Math", accessibilityId: "insert-math-button") {
+                    insertMath()
+                }
+
                 setMarkdownButton
                 preview
             }
@@ -75,6 +80,7 @@ struct PlaygroundScreen: View {
         .markdownSelectable(selectableEnabled)
         .markdownSelectionColor(.orange)
         .markdownImageRequestHeaders(["Accept": acceptImageType])
+        .markdownLaTeX()
         .onLinkLongPress { url in
             longPressedLink = url.absoluteString
             linkAlertVisible = true
@@ -149,11 +155,7 @@ struct PlaygroundScreen: View {
     private func insertBlockImage() {
         guard let uri = blockImageURI else { return }
         let imageMarkdown = "![logo](\(uri))"
-        if markdown.isEmpty {
-            markdown = imageMarkdown
-        } else {
-            markdown += "\n\n\(imageMarkdown)"
-        }
+        appendBlock(imageMarkdown)
     }
 
     private func insertInlineImage() {
@@ -167,11 +169,22 @@ struct PlaygroundScreen: View {
             let data = try? Data(contentsOf: url)
         else { return }
         let imageMarkdown = "Rendered from a data URI: ![data uri icon](data:image/png;base64,\(data.base64EncodedString()))"
-        if markdown.isEmpty {
-            markdown = imageMarkdown
-        } else {
-            markdown += "\n\n\(imageMarkdown)"
-        }
+        appendBlock(imageMarkdown)
+    }
+
+    private func insertMath() {
+        let mathMarkdown = """
+        Inline math like $E = mc^2$ flows with the text, and display math stands alone:
+
+        $$
+        \\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
+        $$
+        """
+        appendBlock(mathMarkdown)
+    }
+
+    private func appendBlock(_ block: String) {
+        markdown = markdown.isEmpty ? block : markdown + "\n\n" + block
     }
 
     // httpbingo.org negotiates the response image from the Accept header (and
@@ -180,11 +193,7 @@ struct PlaygroundScreen: View {
     // shows a different image for the same URL via the header-aware cache.
     private func insertHeaderImage() {
         let imageMarkdown = "![header image](https://httpbingo.org/image)"
-        if markdown.isEmpty {
-            markdown = imageMarkdown
-        } else {
-            markdown += "\n\n\(imageMarkdown)"
-        }
+        appendBlock(imageMarkdown)
     }
 }
 
