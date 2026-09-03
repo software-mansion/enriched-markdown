@@ -99,8 +99,8 @@ package enum SourceOffsetAnnotator {
 
         /// Matches `needle` at `index`, letting a source backslash escape
         /// match its bare character, a line break plus its indentation match
-        /// the single space the parser flattens them to inside spans (math
-        /// bodies), and an entity reference match either nothing (the shared
+        /// the single space the parser flattens them to inside spans, and an
+        /// entity reference match either nothing (the shared
         /// core drops entity text) or one decoded scalar of the needle.
         private func matchFlexible(_ needle: [UInt8], at index: Int) -> Int? {
             matchRemainder(of: needle, from: 0, sourceIndex: index)

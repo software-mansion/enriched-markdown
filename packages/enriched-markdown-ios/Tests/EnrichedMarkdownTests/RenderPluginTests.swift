@@ -33,15 +33,11 @@ private final class StubAttachmentRenderer: NodeRenderer {
         attributes[.attachment] = StubAttachment(
             markdown: "$stub$",
             isBlock: context.rendersPluginBlock,
-            literalText: literalText(of: node),
+            literalText: node.flattenedText(),
             delimiter: node.type == .latexMathDisplay ? "$$" : "$"
         )
         SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
-    }
-
-    private func literalText(of node: MarkdownASTNode) -> String {
-        node.content + node.children.map(literalText(of:)).joined()
     }
 }
 
@@ -89,6 +85,21 @@ final class RenderPluginTests: XCTestCase {
             imageRequestHeaders: [:],
             plugins: plugins
         )
+    }
+
+    /// Copy as Markdown for the rendered selection matching `substring`.
+    private func copyMarkdown(
+        selecting substring: String,
+        in source: String,
+        plugins: [any MarkdownRenderPlugin],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> String? {
+        let rendered = render(source, plugins: plugins)
+        let range = (rendered.string as NSString).range(of: substring)
+        XCTAssertNotEqual(range.location, NSNotFound, "'\(substring)' not rendered", file: file, line: line)
+        guard range.location != NSNotFound else { return nil }
+        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, flags: effectiveFlags)
     }
 
     private func stubAttachments(in rendered: NSAttributedString) -> [StubAttachment] {
@@ -166,19 +177,10 @@ final class RenderPluginTests: XCTestCase {
     }
 
     func testPartialSelectionWithPluginAttachmentCopiesVerbatim() {
-        let source = "a $x$ b and more"
-        let rendered = render(source, plugins: [mathStubPlugin])
-
-        let partial = (rendered.string as NSString).range(of: "a \u{FFFC} b")
-        XCTAssertNotEqual(partial.location, NSNotFound)
-
-        let copied = MarkdownExtractor.markdown(
-            for: partial,
-            in: rendered,
-            sourceMarkdown: source,
-            flags: effectiveFlags
+        XCTAssertEqual(
+            copyMarkdown(selecting: "a \u{FFFC} b", in: "a $x$ b and more", plugins: [mathStubPlugin]),
+            "a $x$ b"
         )
-        XCTAssertEqual(copied, "a $x$ b")
     }
 
     func testPartialSelectionWithBlockPluginAttachmentKeepsDelimiterLines() {
@@ -215,16 +217,16 @@ final class RenderPluginTests: XCTestCase {
         // A stub attachment claiming `$` delimiters on a node whose source
         // has none must not produce a slice when it bounds the selection.
         let plugin = StubPlugin(claimed: [.code], makeRenderer: { StubAttachmentRenderer() })
-        let source = "a `x` b"
-        let rendered = render(source, plugins: [plugin])
+        XCTAssertEqual(copyMarkdown(selecting: "\u{FFFC}", in: "a `x` b", plugins: [plugin]), "$stub$")
+    }
 
-        let copied = MarkdownExtractor.markdown(
-            for: (rendered.string as NSString).range(of: "\u{FFFC}"),
-            in: rendered,
-            sourceMarkdown: source,
-            flags: effectiveFlags
+    func testInlinePluginReconstructionKeepsListPrefixAndMarkers() {
+        let rendered = render("- **$x$** item", plugins: [mathStubPlugin])
+        let extracted = MarkdownExtractor.extractMarkdown(
+            from: rendered,
+            in: NSRange(location: 0, length: rendered.length)
         )
-        XCTAssertEqual(copied, "$stub$")
+        XCTAssertEqual(extracted?.trimmingCharacters(in: .whitespacesAndNewlines), "- **$stub$** item")
     }
 
     @MainActor
@@ -253,6 +255,13 @@ final class RenderPluginTests: XCTestCase {
         XCTAssertEqual(paragraphStyle(in: plain)?.maximumLineHeight, 20)
         XCTAssertEqual(paragraphStyle(in: withAttachment)?.maximumLineHeight, 0)
         XCTAssertEqual(paragraphStyle(in: withAttachment)?.minimumLineHeight, 20)
+
+        // Blocks that re-apply their own line height keep the exemption.
+        config.blockquote.lineHeight = 20
+        let quoted = render("> with $x$ math", plugins: [mathStubPlugin])
+        let formula = (quoted.string as NSString).range(of: "\u{FFFC}").location
+        let quotedStyle = quoted.attribute(.paragraphStyle, at: formula, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertEqual(quotedStyle?.maximumLineHeight, 0)
     }
 
     private func paragraphStyle(in rendered: NSAttributedString) -> NSParagraphStyle? {

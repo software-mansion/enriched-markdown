@@ -30,9 +30,6 @@ package protocol MarkdownPluginAttachment: NSTextAttachment {
     func markdownText() -> String
     /// Standalone block; wrapped in blank lines by Copy as Markdown.
     var isBlock: Bool { get }
-    /// True exempts paragraphs containing the attachment from fixed
-    /// line-height caps, so taller-than-text content is not clipped.
-    var preservesNaturalLineHeight: Bool { get }
     /// The text the parser's text nodes carry for the attachment's source
     /// range, so a verbatim copy slice can be validated against it.
     var literalText: String { get }
@@ -43,7 +40,5 @@ package protocol MarkdownPluginAttachment: NSTextAttachment {
 }
 
 package extension MarkdownPluginAttachment {
-    var preservesNaturalLineHeight: Bool { true }
-
     var sourceDelimiters: (opening: String, closing: String)? { nil }
 }

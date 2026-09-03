@@ -3,27 +3,11 @@ import UIKit
 
 /// Metrics and drawing for one typeset formula, in points. The closure
 /// receives a top-left-origin context; the baseline sits at `y == ascent`.
-final class MathTypesetResult {
+struct MathTypesetResult {
     let width: CGFloat
     let ascent: CGFloat
     let descent: CGFloat
     let draw: (CGContext) -> Void
-
-    var size: CGSize {
-        CGSize(width: width, height: ascent + descent)
-    }
-
-    init(
-        width: CGFloat,
-        ascent: CGFloat,
-        descent: CGFloat,
-        draw: @escaping (CGContext) -> Void
-    ) {
-        self.width = width
-        self.ascent = ascent
-        self.descent = descent
-        self.draw = draw
-    }
 }
 
 /// A typeset formula embedded in the text: the negative bounds origin sits
@@ -37,6 +21,10 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment {
 
     private let result: MathTypesetResult
     private var cachedImage: UIImage?
+
+    static func delimiter(isDisplay: Bool) -> String {
+        isDisplay ? "$$" : "$"
+    }
 
     init(latex: String, isDisplay: Bool, isBlock: Bool, result: MathTypesetResult) {
         self.latex = latex
@@ -63,7 +51,7 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment {
     }
 
     private var delimiter: String {
-        isDisplay ? "$$" : "$"
+        Self.delimiter(isDisplay: isDisplay)
     }
 
     override func attachmentBounds(

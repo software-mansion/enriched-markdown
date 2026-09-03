@@ -5,12 +5,21 @@ import UIKit
 /// Enables `$…$`/`$$…$$` parsing and claims the math node types with
 /// RaTeX-backed rendering.
 package struct LaTeXRenderPlugin: MarkdownRenderPlugin {
-    package init() {}
+    private let typeset: MathRenderer.Typeset
+
+    package init() {
+        self.init(typeset: MathRenderer.raTeXTypeset)
+    }
+
+    /// Tests inject a deterministic typesetter.
+    init(typeset: @escaping MathRenderer.Typeset) {
+        self.typeset = typeset
+    }
 
     package func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer? {
         switch type {
         case .latexMathInline, .latexMathDisplay:
-            return MathRenderer(config: config)
+            return MathRenderer(typeset: typeset)
         default:
             return nil
         }

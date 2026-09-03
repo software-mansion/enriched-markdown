@@ -64,10 +64,8 @@ struct PlaygroundScreen: View {
                     }
                 }
 
-                HStack(spacing: 8) {
-                    PlaygroundButton(label: "Insert Math", accessibilityId: "insert-math-button") {
-                        insertMath()
-                    }
+                PlaygroundButton(label: "Insert Math", accessibilityId: "insert-math-button") {
+                    insertMath()
                 }
 
                 setMarkdownButton
@@ -157,11 +155,7 @@ struct PlaygroundScreen: View {
     private func insertBlockImage() {
         guard let uri = blockImageURI else { return }
         let imageMarkdown = "![logo](\(uri))"
-        if markdown.isEmpty {
-            markdown = imageMarkdown
-        } else {
-            markdown += "\n\n\(imageMarkdown)"
-        }
+        appendBlock(imageMarkdown)
     }
 
     private func insertInlineImage() {
@@ -175,11 +169,7 @@ struct PlaygroundScreen: View {
             let data = try? Data(contentsOf: url)
         else { return }
         let imageMarkdown = "Rendered from a data URI: ![data uri icon](data:image/png;base64,\(data.base64EncodedString()))"
-        if markdown.isEmpty {
-            markdown = imageMarkdown
-        } else {
-            markdown += "\n\n\(imageMarkdown)"
-        }
+        appendBlock(imageMarkdown)
     }
 
     private func insertMath() {
@@ -190,11 +180,11 @@ struct PlaygroundScreen: View {
         \\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
         $$
         """
-        if markdown.isEmpty {
-            markdown = mathMarkdown
-        } else {
-            markdown += "\n\n\(mathMarkdown)"
-        }
+        appendBlock(mathMarkdown)
+    }
+
+    private func appendBlock(_ block: String) {
+        markdown = markdown.isEmpty ? block : markdown + "\n\n" + block
     }
 
     // httpbingo.org negotiates the response image from the Accept header (and
@@ -203,11 +193,7 @@ struct PlaygroundScreen: View {
     // shows a different image for the same URL via the header-aware cache.
     private func insertHeaderImage() {
         let imageMarkdown = "![header image](https://httpbingo.org/image)"
-        if markdown.isEmpty {
-            markdown = imageMarkdown
-        } else {
-            markdown += "\n\n\(imageMarkdown)"
-        }
+        appendBlock(imageMarkdown)
     }
 }
 

@@ -159,13 +159,18 @@ private extension MarkdownExtractor {
         }
 
         if let table = attrs[.attachment] as? TableAttachment {
-            appendTable(table, to: &result, state: &state)
+            appendBlockElement(table.markdownText(), to: &result, state: &state)
             return
         }
 
+        var text = text
         if let attachment = attrs[.attachment] as? any MarkdownPluginAttachment {
-            appendPluginAttachment(attachment, attrs: attrs, to: &result, state: &state)
-            return
+            if attachment.isBlock {
+                appendBlockElement(attachment.markdownText(), to: &result, state: &state)
+                return
+            }
+            // Inline plugin attachments reconstruct like any other inline run.
+            text = attachment.markdownText()
         }
 
         if text == "\u{FFFC}" {
@@ -218,46 +223,18 @@ private extension MarkdownExtractor {
         state.listDepth = -1
     }
 
-    static func appendTable(
-        _ table: TableAttachment,
+    /// Emits a standalone block, leaving any heading, list, or blockquote context.
+    static func appendBlockElement(
+        _ markdown: String,
         to result: inout String,
         state: inout ExtractionState
     ) {
         flushHeading(&result, state: &state)
         ensureBlankLine(&result)
-        result += table.markdownText() + "\n"
+        result += markdown + "\n"
         state.needsBlankLine = true
         state.blockquoteDepth = -1
         state.listDepth = -1
-    }
-
-    static func appendPluginAttachment(
-        _ attachment: any MarkdownPluginAttachment,
-        attrs: [NSAttributedString.Key: Any],
-        to result: inout String,
-        state: inout ExtractionState
-    ) {
-        if attachment.isBlock {
-            flushHeading(&result, state: &state)
-            ensureBlankLine(&result)
-            result += attachment.markdownText() + "\n"
-            state.needsBlankLine = true
-            state.blockquoteDepth = -1
-            state.listDepth = -1
-            return
-        }
-
-        if let level = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.headingLevel]) {
-            accumulateHeading(attachment.markdownText(), level: level, to: &result, state: &state)
-            return
-        }
-        flushHeading(&result, state: &state)
-
-        if state.needsBlankLine, !result.isEmpty {
-            ensureBlankLine(&result)
-            state.needsBlankLine = false
-        }
-        result += attachment.markdownText()
     }
 
     /// Paragraph breaks and margin/padding spacers.

@@ -201,14 +201,10 @@ private extension MarkdownSourceSlicer {
                 return MarkdownSourceSlicer.matchBackward("~~", in: bytes, before: index)
             case .underline:
                 // `<u>` tags, or `__`/`_` under the md4c underline flag.
-                return ["<u>", "__", "_"]
-                    .compactMap { MarkdownSourceSlicer.matchBackward($0, in: bytes, before: index) }
-                    .first
+                return MarkdownSourceSlicer.matchAnyBackward(["<u>", "__", "_"], in: bytes, before: index)
             case .emphasis, .strong:
                 let markers = self == .strong ? ["**", "__"] : ["*", "_"]
-                return markers
-                    .compactMap { MarkdownSourceSlicer.matchBackward($0, in: bytes, before: index) }
-                    .first
+                return MarkdownSourceSlicer.matchAnyBackward(markers, in: bytes, before: index)
             case .link:
                 return MarkdownSourceSlicer.matchBackward("[", in: bytes, before: index)
             case .image:
@@ -224,14 +220,10 @@ private extension MarkdownSourceSlicer {
             case .strikethrough:
                 return MarkdownSourceSlicer.matchForward("~~", in: bytes, at: index)
             case .underline:
-                return ["</u>", "__", "_"]
-                    .compactMap { MarkdownSourceSlicer.matchForward($0, in: bytes, at: index) }
-                    .first
+                return MarkdownSourceSlicer.matchAnyForward(["</u>", "__", "_"], in: bytes, at: index)
             case .emphasis, .strong:
                 let markers = self == .strong ? ["**", "__"] : ["*", "_"]
-                return markers
-                    .compactMap { MarkdownSourceSlicer.matchForward($0, in: bytes, at: index) }
-                    .first
+                return MarkdownSourceSlicer.matchAnyForward(markers, in: bytes, at: index)
             case .link, .image:
                 return MarkdownSourceSlicer.consumeLinkSuffix(in: bytes, from: index)
             }
@@ -379,6 +371,14 @@ private extension MarkdownSourceSlicer {
         let end = index + marker.utf8.count
         guard end <= bytes.count, bytes[index..<end].elementsEqual(marker.utf8) else { return nil }
         return end
+    }
+
+    static func matchAnyBackward(_ markers: [String], in bytes: [UInt8], before index: Int) -> Int? {
+        markers.lazy.compactMap { matchBackward($0, in: bytes, before: index) }.first
+    }
+
+    static func matchAnyForward(_ markers: [String], in bytes: [UInt8], at index: Int) -> Int? {
+        markers.lazy.compactMap { matchForward($0, in: bytes, at: index) }.first
     }
 
     static func consumeBackticksBackward(in bytes: [UInt8], before index: Int) -> Int? {

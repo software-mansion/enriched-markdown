@@ -12,56 +12,48 @@ final class MathRenderer: NodeRenderer {
         _ color: UIColor
     ) -> MathTypesetResult?
 
-    private let config: MarkdownStyleConfig
     private let typeset: Typeset
-    private let fallback = MathSourceFallbackRenderer()
 
-    init(config: MarkdownStyleConfig, typeset: @escaping Typeset = MathRenderer.raTeXTypeset) {
-        self.config = config
+    init(typeset: @escaping Typeset) {
         self.typeset = typeset
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
-        let latex = node.latexSourceText()
+        let latex = node.flattenedText()
         guard !latex.isEmpty else { return }
 
         let isDisplay = node.type == .latexMathDisplay
-        let blockStyle = context.getBlockStyle()
-        let font = blockStyle?.font
-            ?? config.paragraph.font
-            ?? UIFont.preferredFont(forTextStyle: .body)
-        let color = blockStyle?.color ?? config.paragraph.foregroundColor ?? UIColor.label
+        var attributes = context.getTextAttributes()
+        let font = attributes[.font] as? UIFont ?? UIFont.preferredFont(forTextStyle: .body)
+        let color = attributes[.foregroundColor] as? UIColor ?? UIColor.label
 
         guard let result = typeset(latex, isDisplay, font.pointSize, color) else {
-            fallback.render(node: node, into: output, context: context)
+            let delimiter = MathAttachment.delimiter(isDisplay: isDisplay)
+            output.append(NSAttributedString(string: delimiter + latex + delimiter, attributes: attributes))
             return
         }
 
-        let attachment = MathAttachment(
+        attributes[.attachment] = MathAttachment(
             latex: latex,
             isDisplay: isDisplay,
             isBlock: context.rendersPluginBlock,
             result: result
         )
-        var attributes = context.getTextAttributes()
-        attributes[.attachment] = attachment
         SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
     }
 
-    /// Synchronous and thread-safe, so it can run on the render queue.
+    /// Synchronous and thread-safe, so it runs on the render queue; layouts are
+    /// cached because every re-render (each streamed token) would repeat the FFI parse.
     static func raTeXTypeset(
         _ latex: String,
         displayMode: Bool,
         fontSize: CGFloat,
         color: UIColor
     ) -> MathTypesetResult? {
+        // One-time font registration, kept off the main thread's first draw.
         _ = RaTeXFontLoader.ensureLoaded()
-        guard let displayList = try? RaTeXEngine.shared.parse(
-            latex,
-            displayMode: displayMode,
-            color: color
-        ) else {
+        guard let displayList = displayList(for: latex, displayMode: displayMode, color: color) else {
             return nil
         }
 
@@ -73,5 +65,35 @@ final class MathRenderer: NodeRenderer {
         ) { context in
             renderer.draw(in: context)
         }
+    }
+
+    private static let displayListCache: NSCache<NSString, DisplayListBox> = {
+        let cache = NSCache<NSString, DisplayListBox>()
+        cache.countLimit = 200
+        return cache
+    }()
+
+    /// The layout is font-size independent (em units) but bakes in the
+    /// color, so the color joins the key.
+    private static func displayList(for latex: String, displayMode: Bool, color: UIColor) -> DisplayList? {
+        let colorKey = color.cgColor.components?.map { "\($0)" }.joined(separator: ",") ?? "?"
+        let key = "\(displayMode)|\(colorKey)|\(latex)" as NSString
+        if let cached = displayListCache.object(forKey: key) {
+            return cached.displayList
+        }
+
+        guard let displayList = try? RaTeXEngine.shared.parse(latex, displayMode: displayMode, color: color) else {
+            return nil
+        }
+        displayListCache.setObject(DisplayListBox(displayList), forKey: key)
+        return displayList
+    }
+}
+
+private final class DisplayListBox {
+    let displayList: DisplayList
+
+    init(_ displayList: DisplayList) {
+        self.displayList = displayList
     }
 }

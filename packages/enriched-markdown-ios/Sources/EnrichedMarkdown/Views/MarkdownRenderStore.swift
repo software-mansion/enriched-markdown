@@ -44,13 +44,14 @@ final class MarkdownRenderStore: ObservableObject {
         let resolved = markdown == baseMarkdown ? (currentMarkdown ?? markdown) : markdown
         baseMarkdown = markdown
         currentMarkdown = resolved
+        // render adjusts the flags itself; the source keeps the adjusted ones for copying.
         let effectiveFlags = MarkdownRenderer.effectiveFlags(flags, plugins: plugins)
 
         coordinator.scheduleRender {
             MarkdownRenderer.render(
                 resolved,
                 config: config,
-                flags: effectiveFlags,
+                flags: flags,
                 imageRequestHeaders: imageRequestHeaders,
                 plugins: plugins
             )

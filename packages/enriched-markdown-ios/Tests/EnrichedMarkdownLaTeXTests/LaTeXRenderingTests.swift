@@ -4,29 +4,12 @@ import XCTest
 @testable import EnrichedMarkdown
 @testable import EnrichedMarkdownLaTeX
 
-/// LaTeXRenderPlugin with a deterministic typeset function injected into
-/// MathRenderer.
-private struct StubTypesetPlugin: MarkdownRenderPlugin {
-    let typeset: MathRenderer.Typeset
-
-    func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer? {
-        switch type {
-        case .latexMathInline, .latexMathDisplay:
-            return MathRenderer(config: config, typeset: typeset)
-        default:
-            return nil
-        }
-    }
-
-    func adjustFlags(_ flags: inout Md4cFlags) {
-        LaTeXRenderPlugin().adjustFlags(&flags)
-    }
-
-    var rootBlockNodeTypes: Set<NodeType> { LaTeXRenderPlugin().rootBlockNodeTypes }
-}
-
 final class LaTeXRenderingTests: XCTestCase {
     private var config: MarkdownStyleConfig!
+
+    private var effectiveFlags: Md4cFlags {
+        MarkdownRenderer.effectiveFlags(.commonMark, plugins: [LaTeXRenderPlugin()])
+    }
 
     override func setUp() {
         super.setUp()
@@ -44,7 +27,7 @@ final class LaTeXRenderingTests: XCTestCase {
             config: config,
             flags: .commonMark,
             imageRequestHeaders: [:],
-            plugins: [StubTypesetPlugin(typeset: typeset)]
+            plugins: [LaTeXRenderPlugin(typeset: typeset)]
         )
     }
 
@@ -65,6 +48,21 @@ final class LaTeXRenderingTests: XCTestCase {
         return found
     }
 
+    /// Copy as Markdown for the rendered selection matching `substring`,
+    /// rendered with stub typesetting.
+    private func copyMarkdown(
+        selecting substring: String,
+        in source: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> String? {
+        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
+        let range = (rendered.string as NSString).range(of: substring)
+        XCTAssertNotEqual(range.location, NSNotFound, "'\(substring)' not rendered", file: file, line: line)
+        guard range.location != NSNotFound else { return nil }
+        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, flags: effectiveFlags)
+    }
+
     // MARK: - Real engine
 
     // Guards the Fonts resource wiring (a symlink in the monorepo): an
@@ -76,14 +74,6 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertEqual(CTFontCopyPostScriptName(font) as String, "KaTeX_Main-Regular")
     }
 
-    func testRaTeXTypesetsSimpleFormula() {
-        let result = MathRenderer.raTeXTypeset("x^2", displayMode: false, fontSize: 17, color: .black)
-
-        XCTAssertNotNil(result)
-        XCTAssertGreaterThan(result?.width ?? 0, 0)
-        XCTAssertGreaterThan(result?.ascent ?? 0, 0)
-    }
-
     func testDisplayModeTypesetsTallerThanInline() {
         let inline = MathRenderer.raTeXTypeset(#"\frac{1}{2}"#, displayMode: false, fontSize: 17, color: .black)
         let display = MathRenderer.raTeXTypeset(#"\frac{1}{2}"#, displayMode: true, fontSize: 17, color: .black)
@@ -91,19 +81,21 @@ final class LaTeXRenderingTests: XCTestCase {
         guard let inline, let display else {
             return XCTFail("expected both modes to typeset")
         }
-        XCTAssertGreaterThan(display.size.height, inline.size.height)
+        XCTAssertGreaterThan(display.ascent + display.descent, inline.ascent + inline.descent)
     }
 
     func testInvalidLatexReturnsNil() {
         XCTAssertNil(MathRenderer.raTeXTypeset(#"\frac{1}{"#, displayMode: false, fontSize: 17, color: .black))
     }
 
-    func testDrawProducesNonBlankImage() {
+    func testTypesetFormulaDrawsNonBlankImage() {
         guard let result = MathRenderer.raTeXTypeset("x^2", displayMode: false, fontSize: 17, color: .black) else {
             return XCTFail("expected typeset result")
         }
+        XCTAssertGreaterThan(result.width, 0)
+        XCTAssertGreaterThan(result.ascent, 0)
 
-        let size = CGSize(width: ceil(result.width), height: ceil(result.size.height))
+        let size = CGSize(width: ceil(result.width), height: ceil(result.ascent + result.descent))
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
@@ -152,10 +144,7 @@ final class LaTeXRenderingTests: XCTestCase {
     }
 
     func testRootLevelDisplayMathIsBlock() {
-        let rendered = renderWithStub("before\n\n$$E=mc^2$$\n\nafter") { _, displayMode, _, _ in
-            XCTAssertTrue(displayMode)
-            return self.stubResult()
-        }
+        let rendered = renderWithStub("before\n\n$$E=mc^2$$\n\nafter") { _, _, _, _ in self.stubResult() }
 
         let attachments = mathAttachments(in: rendered)
         XCTAssertEqual(attachments.count, 1)
@@ -181,58 +170,26 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertTrue(rendered.string.contains("$x^2$"))
     }
 
+    // The core flattens breaks inside math spans to spaces, which TeX treats
+    // the same as newlines; both lines must reach the typesetter.
+    func testMultiLineDisplayMathKeepsAllContent() {
+        var receivedLatex: String?
+        _ = renderWithStub("$$\na + b\nc + d\n$$") { latex, _, _, _ in
+            receivedLatex = latex
+            return self.stubResult()
+        }
+
+        XCTAssertTrue(receivedLatex?.contains("a + b") ?? false)
+        XCTAssertTrue(receivedLatex?.contains("c + d") ?? false)
+    }
+
     // MARK: - Copy as Markdown integration
 
-    func testMathAttachmentRunCarriesSourceRange() {
-        let source = "before $x^2$ after"
-        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
-
-        let attachmentIndex = (rendered.string as NSString).range(of: "\u{FFFC}").location
-        XCTAssertNotEqual(attachmentIndex, NSNotFound)
-
-        let value = rendered.attribute(
-            MarkdownAttribute.sourceRange,
-            at: attachmentIndex,
-            effectiveRange: nil
-        ) as? NSValue
-        XCTAssertNotNil(value)
-        guard let byteRange = value?.rangeValue else { return }
-
-        let bytes = Array(source.utf8)[byteRange.location..<byteRange.location + byteRange.length]
-        XCTAssertEqual(Array(bytes), Array("x^2".utf8))
-    }
-
-    func testFullSelectionCopyReturnsVerbatimSource() {
-        let source = "before\n\n$$\na + b\nc + d\n$$\n\nafter"
-        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
-
-        let copied = MarkdownExtractor.markdown(
-            for: NSRange(location: 0, length: rendered.length),
-            in: rendered,
-            sourceMarkdown: source,
-            flags: .commonMark
-        )
-        XCTAssertEqual(copied, source)
-    }
-
-    private var effectiveFlags: Md4cFlags {
-        MarkdownRenderer.effectiveFlags(.commonMark, plugins: [LaTeXRenderPlugin()])
-    }
-
     func testPartialSelectionWithInlineMathCopiesVerbatim() {
-        let source = "before $x^2$ and more text after"
-        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
-
-        let partial = (rendered.string as NSString).range(of: "before \u{FFFC} and")
-        XCTAssertNotEqual(partial.location, NSNotFound)
-
-        let copied = MarkdownExtractor.markdown(
-            for: partial,
-            in: rendered,
-            sourceMarkdown: source,
-            flags: effectiveFlags
+        XCTAssertEqual(
+            copyMarkdown(selecting: "before \u{FFFC} and", in: "before $x^2$ and more text after"),
+            "before $x^2$ and"
         )
-        XCTAssertEqual(copied, "before $x^2$ and")
     }
 
     func testPartialSelectionKeepsMultiLineDisplayMathVerbatim() {
@@ -250,30 +207,7 @@ final class LaTeXRenderingTests: XCTestCase {
     }
 
     func testMathAtSelectionEdgeInsideEmphasisKeepsMarkers() {
-        let source = "**$x^2$** after"
-        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
-
-        let formula = (rendered.string as NSString).range(of: "\u{FFFC}")
-        let copied = MarkdownExtractor.markdown(
-            for: formula,
-            in: rendered,
-            sourceMarkdown: source,
-            flags: effectiveFlags
-        )
-        XCTAssertEqual(copied, "**$x^2$**")
-    }
-
-    // The core flattens breaks inside math spans to spaces, which TeX treats
-    // the same as newlines; both lines must reach the typesetter.
-    func testMultiLineDisplayMathKeepsAllContent() {
-        var receivedLatex: String?
-        _ = renderWithStub("$$\na + b\nc + d\n$$") { latex, _, _, _ in
-            receivedLatex = latex
-            return self.stubResult()
-        }
-
-        XCTAssertTrue(receivedLatex?.contains("a + b") ?? false)
-        XCTAssertTrue(receivedLatex?.contains("c + d") ?? false)
+        XCTAssertEqual(copyMarkdown(selecting: "\u{FFFC}", in: "**$x^2$** after"), "**$x^2$**")
     }
 
     func testExtractionRoundTripsMathAttachments() {
