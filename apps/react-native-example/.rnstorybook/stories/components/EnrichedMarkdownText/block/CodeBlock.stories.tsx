@@ -148,9 +148,7 @@ export const Events: TextStory<CodeBlockStyleControls> = {
       args,
       codeBlockStyledDefaults
     );
-    // Wire onCodeBlockPress directly instead of via `{ action }`: alert loudly if
-    // the payload ever arrives as an array (the shape anomaly under
-    // investigation), otherwise forward the plain object to the Actions panel.
+    // Alert if the payload is ever an array, else forward the object to Actions.
     const logCodeBlockPress = action('onCodeBlockPress');
     return (
       <EnrichedMarkdownTextStory

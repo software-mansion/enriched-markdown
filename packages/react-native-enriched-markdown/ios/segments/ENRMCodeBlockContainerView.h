@@ -28,8 +28,7 @@ typedef void (^ENRMCodeBlockPressBlock)(NSString *code, NSString *language);
 @property (nonatomic, assign) BOOL pending;
 @property (nonatomic, assign) BOOL enableBlockContextMenu;
 
-// Arms the whole block for taps. NO by default so text selection, the copy
-// button, and the long-press context menu behave exactly as before.
+// Arms the block for taps; NO by default (selection / copy button / long-press unchanged).
 @property (nonatomic, assign) BOOL enableCodeBlockPress;
 
 // Renamed getters avoid the Cocoa `copy` method family (which signals +1
@@ -42,9 +41,7 @@ typedef void (^ENRMCodeBlockPressBlock)(NSString *code, NSString *language);
 // event. Not fired for "Copy as Markdown".
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
 
-// Fired when the block is tapped anywhere in its body (not the copy button); set
-// by the host to bridge up to the JS onCodeBlockPress event. Only delivered when
-// enableCodeBlockPress is YES and the block is not pending.
+// Bridges a whole-block tap (not the copy button) up to the JS onCodeBlockPress event.
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
 
 @end

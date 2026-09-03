@@ -205,18 +205,10 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   onCopyPress?: (event: CopyPressEvent) => void;
   /**
-   * Callback fired when a fenced code block is tapped anywhere in its body.
-   * Receives the block's code and its language. Useful for building custom
-   * actions like copy-to-clipboard or opening the code in a viewer.
-   *
-   * Setting this prop arms the code block for taps; leaving it unset keeps the
-   * block inert (text selection, the header copy button, and the long-press
-   * context menu are unaffected). A tap never fires while text is being
-   * selected - selection still happens via long-press.
-   *
-   * Works in both `flavor="commonmark"` (tap on the inline code-block region) and
-   * `flavor="github"` (tap on the container-based renderer). On web the code
-   * block is a clickable element.
+   * Callback fired when a fenced code block is tapped/clicked anywhere in its
+   * body. Receives the block's `code` and `language`. Setting it arms the block
+   * for taps; text selection, the header copy button, and the long-press menu
+   * stay unchanged. Works in both flavors and on web.
    * @platform ios, android, web
    */
   onCodeBlockPress?: (event: CodeBlockPressEvent) => void;

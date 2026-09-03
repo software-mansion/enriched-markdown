@@ -451,15 +451,11 @@ export interface NativeProps extends ViewProps {
    * action. Receives the copied code and its language.
    */
   onCopyPress?: CodegenTypes.BubblingEventHandler<CopyPressEvent>;
-  /**
-   * Callback fired when a fenced code block is tapped anywhere in its body.
-   * Receives the block's code and its language. Works in both flavors.
-   */
+  /** Fired when a fenced code block is tapped. Receives its code and language. */
   onCodeBlockPress?: CodegenTypes.BubblingEventHandler<CodeBlockPressEvent>;
   /**
-   * Gates native code block tap handling. Set automatically to `true` by the JS
-   * wrapper when `onCodeBlockPress` is provided.
-   *
+   * Gates native code block tap handling; set to `true` by the JS wrapper when
+   * `onCodeBlockPress` is provided.
    * @default false
    */
   enableCodeBlockPress?: CodegenTypes.WithDefault<boolean, false>;

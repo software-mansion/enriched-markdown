@@ -1340,8 +1340,6 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     BOOL isInsideView = CGRectContainsPoint(textSegment.textView.bounds, segmentPoint);
 #endif
     if (isInsideView) {
-      // GFM code blocks are separate container views, not inline spans in a text
-      // segment, so this text-segment hit test never needs to consider them.
       if (isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
         return nil;
       }

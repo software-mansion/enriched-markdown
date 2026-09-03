@@ -85,8 +85,7 @@
     [output addAttribute:CodeBlockIndentAttributeName value:@(listIndent) range:backgroundRange];
   }
 
-  // Carried on the range so a tap can recover the block's source and language
-  // for onCodeBlockPress (the AST node is discarded after rendering).
+  // Recovered by a tap for onCodeBlockPress (the AST node is gone after render).
   NSString *codeBlockText = ENRMCodeBlockExtractCode(node) ?: @"";
   [output addAttribute:@"codeBlockText" value:codeBlockText range:backgroundRange];
   NSString *codeBlockLanguage = ENRMCodeBlockLanguage(node);

@@ -108,13 +108,11 @@ function CodeBlockRenderer({
 
   const press = () =>
     callbacks.onCodeBlockPress?.({
-      // Trim trailing newlines to match the native payload.
       code: extractNodeText(node).replace(/\n+$/, ''),
       language: language ?? '',
     });
 
-  // Don't fire while the user is selecting code text; selection stays separate
-  // from the tap, matching native.
+  // Don't fire while code text is selected - selection stays separate from the tap.
   const handleClick = () => {
     const selection =
       typeof window !== 'undefined' ? window.getSelection() : null;

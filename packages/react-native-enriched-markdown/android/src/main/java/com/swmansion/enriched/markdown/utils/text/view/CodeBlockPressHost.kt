@@ -1,13 +1,9 @@
 package com.swmansion.enriched.markdown.utils.text.view
 
 /**
- * Implemented by the commonmark host view (EnrichedMarkdownText) so
- * [LinkLongPressMovementMethod] can gate and dispatch taps that land on a
- * commonmark code block span without knowing the flavor.
- *
- * Only the commonmark flavor renders code blocks as spans inside the text view;
- * the GFM flavor uses a separate CodeBlockContainerView with its own tap
- * handling, so its host walk resolves to no CodeBlockPressHost.
+ * Implemented by the commonmark host view so [LinkLongPressMovementMethod] can
+ * gate and dispatch taps landing on a code block span. GFM uses a separate
+ * CodeBlockContainerView, so its host walk resolves to none.
  */
 interface CodeBlockPressHost {
   val codeBlockPressEnabled: Boolean

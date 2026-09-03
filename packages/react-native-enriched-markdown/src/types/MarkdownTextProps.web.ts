@@ -74,9 +74,8 @@ export interface EnrichedMarkdownTextProps extends Omit<
   onTaskListItemPress?: (event: TaskListItemPressEvent) => void;
   /**
    * Callback fired when a fenced code block is clicked. Receives the block's
-   * `code` and `language`. The code block becomes focusable and exposes a button
-   * role for screen readers (Enter/Space activate it); clicking while text is
-   * selected does not fire, so selecting code stays separate from the tap.
+   * `code` and `language`. The block is focusable and keyboard-activatable
+   * (Enter/Space); clicking while text is selected does not fire.
    * @platform ios, android, web
    */
   onCodeBlockPress?: (event: CodeBlockPressEvent) => void;

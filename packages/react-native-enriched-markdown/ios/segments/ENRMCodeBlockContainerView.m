@@ -299,11 +299,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:_copyButton];
 
-    // A single tap anywhere in the block fires onCodeBlockPress. Attached to the
-    // container so it also catches taps landing on the scrolling code pane; the
-    // copy button is excluded in gestureRecognizer:shouldReceiveTouch:. Disabled
-    // until enableCodeBlockPress arms it, so the block stays inert by default and
-    // scrolling/long-press keep working.
     _tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleCodeBlockTap:)];
     _tapRecognizer.delegate = self;
     _tapRecognizer.enabled = NO;
@@ -570,7 +565,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if !TARGET_OS_OSX
 - (void)handleCodeBlockTap:(UITapGestureRecognizer *)recognizer
 {
-  // Never fires for a pending (unclosed) block, matching the copy button.
   if (_pending) {
     return;
   }
@@ -581,8 +575,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
 {
-  // Let the copy button handle its own tap so onCodeBlockPress and onCopyPress
-  // never both fire from one press on the button.
+  // Let the copy button handle its own tap.
   for (UIView *hit = touch.view; hit != nil; hit = hit.superview) {
     if (hit == _copyButton) {
       return NO;

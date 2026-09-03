@@ -66,9 +66,6 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
             null
           }
         isLinkTouchActive = pressedLink != null || pressedImage != null || pressedCodeBlock != null
-        // A code block tap can land in the box padding where charOffsetAt is null;
-        // keep the touch tracked so ACTION_UP still fires the press instead of
-        // falling through to the parent.
         isTouchWithinTextBounds = charOffsetAt(widget, event) != null || pressedCodeBlock != null
         pressedLink?.let { scheduleLongPress(widget, it) }
       }
@@ -218,11 +215,8 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     return parent as? ImagePressHost
   }
 
-  // Unlike links/images, a code block is a whole-line box: a tap anywhere on one
-  // of its lines counts, including the horizontal padding and the empty space
-  // past short lines. So this maps the tap to a line (ignoring x) and checks that
-  // line's range for a CodeBlockSpan, rather than requiring an exact character
-  // offset the way charOffsetAt does.
+  // A code block is a whole-line box, so this matches a tap anywhere on the line
+  // (ignoring x), unlike charOffsetAt which needs an exact glyph.
   private fun findCodeBlockSpan(
     widget: TextView,
     buffer: Spannable,

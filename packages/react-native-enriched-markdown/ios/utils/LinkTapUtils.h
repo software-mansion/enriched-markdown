@@ -21,8 +21,7 @@ NSDictionary<NSString *, NSString *> *_Nullable imageAtTapLocation(ENRMPlatformT
                                                                    ENRMTapRecognizer *recognizer);
 
 /// Returns the tapped code block as @{@"code": ..., @"language": ...}, or nil if
-/// the tap did not land on a commonmark code block. `language` is "" when the
-/// fence had no info string.
+/// the tap did not land on a commonmark code block.
 NSDictionary<NSString *, NSString *> *_Nullable codeBlockAtTapLocation(ENRMPlatformTextView *textView,
                                                                        ENRMTapRecognizer *recognizer);
 

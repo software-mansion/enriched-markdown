@@ -71,8 +71,6 @@ class CodeBlockContainerView(
   var copyAsMarkdownLabel: String = ""
   var enableBlockContextMenu: Boolean = true
 
-  // Arms the whole block for taps. Off by default so text selection, the copy
-  // button, and the long-press context menu behave exactly as before.
   var enableCodeBlockPress: Boolean = false
 
   var onCopyPress: ((code: String, language: String) -> Unit)? = null
@@ -153,11 +151,6 @@ class CodeBlockContainerView(
       strokeWidth = context.resources.displayMetrics.density
     }
 
-  // A single tap anywhere in the block fires onCodeBlockPress. Fed from
-  // dispatchTouchEvent so it also sees taps landing on the scrolling code pane
-  // and the box background past short lines - places a plain click listener
-  // never receives. A horizontal drag is a scroll (not a tap) and the copy
-  // button is excluded, so neither double-fires.
   private val tapDetector =
     GestureDetector(
       context,
@@ -288,22 +281,16 @@ class CodeBlockContainerView(
     onCopyPress?.invoke(code, language ?: "")
   }
 
-  // Inert unless armed via enableCodeBlockPress; never fires for a pending
-  // (unclosed) block, matching the copy button's pending guard.
   private fun handleCodeBlockPress() {
     if (!enableCodeBlockPress || pending) return
     onCodeBlockPress?.invoke(code, language ?: "")
   }
 
-  // Observes every touch (children still handle scroll / button / long-press via
-  // super) so the tap detector can fire for the whole block, not just the header.
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
     tapDetector.onTouchEvent(ev)
     return super.dispatchTouchEvent(ev)
   }
 
-  // Coordinates are in this container's space, matching the laid-out copy button
-  // bounds, so the button keeps firing only its own copy action.
   private fun isPointInsideCopyButton(
     x: Float,
     y: Float,
