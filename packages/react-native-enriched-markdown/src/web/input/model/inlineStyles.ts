@@ -23,6 +23,14 @@ export type InputStyleType = (typeof INPUT_STYLE_TYPES)[number];
 // web cannot reach that state at all.
 export type PendingStyleType = Exclude<InputStyleType, 'link'>;
 
+export const TYPING_ATTRIBUTE_STYLES: readonly PendingStyleType[] = [
+  'strong',
+  'em',
+  'underline',
+  'strikethrough',
+  'spoiler',
+];
+
 export interface FormattingRange extends RangeBounds {
   type: InputStyleType;
   url?: string;

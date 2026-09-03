@@ -1,5 +1,10 @@
 import { linesTouching, type BlockStore } from '../formatting/BlockStore';
-import { isListItem, MAX_LIST_DEPTH, type BlockType } from '../model/blocks';
+import {
+  blockTypeForHeadingLevel,
+  isListItem,
+  MAX_LIST_DEPTH,
+  type BlockType,
+} from '../model/blocks';
 import type { RangeBounds } from '../model/rangeBounds';
 import { clamp } from '../utils';
 
@@ -39,6 +44,27 @@ export class BlockEditCoordinator {
     }
     this.blockStore.normalizeToLineBounds(text);
     return true;
+  }
+
+  toggleHeading(level: number, selection: RangeBounds, text: string): void {
+    const type = blockTypeForHeadingLevel(level);
+    if (type === null) {
+      return;
+    }
+    const startBlock = this.blockStore.blockAt(selection.start, text);
+    const turningOff =
+      startBlock !== null &&
+      startBlock.type === type &&
+      startBlock.level === level;
+
+    for (const line of linesTouching(selection, text)) {
+      if (turningOff) {
+        this.blockStore.removeBlock(line.start, line.start, text);
+      } else {
+        this.blockStore.setBlock(type, level, line.start, line.start, text);
+      }
+    }
+    this.blockStore.normalizeToLineBounds(text);
   }
 
   // Turns the list off when the item at the selection start already has
