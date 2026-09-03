@@ -32,18 +32,29 @@ class TaskListSpan(
     marginLeft = listStyle.marginLeft,
     gapWidth = listStyle.gapWidth,
   ) {
+  companion object {
+    private val boxPaint =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+      }
+
+    private const val CAP_HEIGHT_RATIO = 0.72f
+    private const val HALF_DIVISOR = 2f
+    private const val CHECKMARK_MIN_STROKE_WIDTH = 1.5f
+    private const val CHECKMARK_STROKE_RATIO = 0.12f
+    private const val CHECKMARK_INSET_RATIO = 0.22f
+    private const val CHECKMARK_MID_OFFSET_RATIO = 0.05f
+    private const val BORDER_MIN_STROKE_WIDTH = 1f
+    private const val BORDER_STROKE_RATIO = 0.09f
+  }
+
   private val checkboxSize = taskStyle.checkboxSize
   private val markerColumnWidth = listStyle.effectiveMarkerWidth(checkboxSize)
   private val cornerRadius = taskStyle.checkboxBorderRadius
   private val rect = RectF()
   private val insetRect = RectF()
   private val checkPath = Path()
-
-  private val boxPaint =
-    Paint(Paint.ANTI_ALIAS_FLAG).apply {
-      strokeCap = Paint.Cap.ROUND
-      strokeJoin = Paint.Join.ROUND
-    }
 
   override fun getMarkerWidth(): Float = markerColumnWidth
 
@@ -114,16 +125,5 @@ class TaskListSpan(
       rect.bottom - halfStroke,
     )
     canvas.drawRoundRect(insetRect, cornerRadius, cornerRadius, boxPaint)
-  }
-
-  companion object {
-    private const val CAP_HEIGHT_RATIO = 0.72f
-    private const val HALF_DIVISOR = 2f
-    private const val CHECKMARK_MIN_STROKE_WIDTH = 1.5f
-    private const val CHECKMARK_STROKE_RATIO = 0.12f
-    private const val CHECKMARK_INSET_RATIO = 0.22f
-    private const val CHECKMARK_MID_OFFSET_RATIO = 0.05f
-    private const val BORDER_MIN_STROKE_WIDTH = 1f
-    private const val BORDER_STROKE_RATIO = 0.09f
   }
 }
