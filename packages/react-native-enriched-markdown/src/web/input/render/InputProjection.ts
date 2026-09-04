@@ -166,6 +166,8 @@ export function projectParagraphs(
 ): ParagraphProjection[] {
   const paragraphs: ParagraphProjection[] = [];
   let blockIndex = 0;
+  let nextRange = 0;
+  let activeRanges: FormattingRange[] = [];
   let lineStart = 0;
   for (const line of text.split('\n')) {
     const lineEnd = lineStart + line.length;
@@ -176,6 +178,14 @@ export function projectParagraphs(
       blockEndsBeforeLine(blockRanges[blockIndex]!, lineStart)
     ) {
       blockIndex++;
+    }
+    activeRanges = activeRanges.filter((range) => range.end > lineStart);
+    while (
+      nextRange < formattingRanges.length &&
+      formattingRanges[nextRange]!.start < lineEnd
+    ) {
+      activeRanges.push(formattingRanges[nextRange]!);
+      nextRange++;
     }
 
     const candidate = blockRanges[blockIndex];
@@ -190,7 +200,7 @@ export function projectParagraphs(
       blockType: block?.type ?? 'paragraph',
       level: block?.level ?? 0,
       ordinal: block?.ordinal ?? 1,
-      runs: computeStyleRuns(formattingRanges, lineStart, lineEnd),
+      runs: computeStyleRuns(activeRanges, lineStart, lineEnd),
     });
     lineStart = lineEnd + 1;
   }
