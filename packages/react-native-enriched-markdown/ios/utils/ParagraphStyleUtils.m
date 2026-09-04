@@ -150,6 +150,11 @@ void ENRMApplyWritingDirectionToParagraphStyles(NSMutableAttributedString *outpu
                     if (!style) {
                       return;
                     }
+                    // Skip runs already in the target direction (issue #739),
+                    // mirroring ENRMApplyFirstStrongParagraphDirections.
+                    if (style.baseWritingDirection == writingDirection) {
+                      return;
+                    }
                     NSNumber *isCodeBlock = [output attribute:CodeBlockAttributeName
                                                       atIndex:range.location
                                                effectiveRange:nil];
