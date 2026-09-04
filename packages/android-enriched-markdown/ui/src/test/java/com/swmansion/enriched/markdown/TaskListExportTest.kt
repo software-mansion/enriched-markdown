@@ -17,22 +17,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/**
- * Regressions in the *export* path (spans -> HTML / spans -> Markdown) reported on PR #741.
- *
- * Two independent defects are covered:
- *  - [HTMLGenerator.handleList] picks a `<ul>`'s `list-style-type` from the first item at a depth
- *    and never reopens the list when task and plain items are mixed at that depth.
- *  - A list item's span covers its nested children (`ListItemRenderer` closes the span after
- *    `renderChildren`), so at a nested line every ancestor's span is returned too. Both
- *    `HTMLGenerator.collectParagraphs` and `MarkdownExtractor.detectList` read index `[0]` of that
- *    result instead of the span that actually starts on the line.
- */
+/** Task-list behaviour on the export path: spans -> HTML and spans -> Markdown. */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
 class TaskListExportTest {
-  // --- HTMLGenerator: `<ul>` marker style is frozen when the list is opened -------------------
-
   @Test
   fun plainItemsOfAMixedListKeepTheirBulletInHtml() {
     val html =
@@ -48,8 +36,7 @@ class TaskListExportTest {
         ),
       )
 
-    // The list opens as `list-style-type: none` for the task items and is never reopened, so
-    // `Plain item` renders without any marker at all.
+    // The `<ul>` must reopen as `disc` once the plain item follows the task items.
     html.assertContainsHtml("list-style-type: disc")
   }
 
@@ -67,11 +54,8 @@ class TaskListExportTest {
         ),
       )
 
-    // Mirror case: the list opens as `disc`, so the task item draws a bullet *and* a checkbox.
     html.assertContainsHtml("list-style-type: none")
   }
-
-  // --- HTMLGenerator: ancestor task spans leak onto nested lines ------------------------------
 
   @Test
   fun plainChildOfACheckedTaskIsNotACheckboxInHtml() {
@@ -90,8 +74,6 @@ class TaskListExportTest {
         ),
       )
 
-    // `getParagraphType` sees the parent's TaskListSpan on the nested line and types the plain
-    // bullet as a checked task item, so a second checkmark is emitted.
     assertEquals(
       "Only the parent task is checked, so exactly one checkmark is expected: $html",
       1,
@@ -116,16 +98,12 @@ class TaskListExportTest {
         ),
       )
 
-    // `getDepthForType` only maxes over TaskListSpans for a task paragraph, so the nested plain
-    // bullet reports the parent's depth (0) and is flattened into the outer list.
     assertEquals(
       "Expected an outer and an inner <ul>: $html",
       2,
       html.occurrencesOf("<ul"),
     )
   }
-
-  // --- MarkdownExtractor: ancestor spans leak onto nested lines -------------------------------
 
   @Test
   fun extractsPlainChildOfACheckedTaskAsAPlainBullet() {
@@ -140,8 +118,6 @@ class TaskListExportTest {
         ),
       )
 
-    // `detectList` sees the parent's TaskListSpan and turns a plain bullet into a checked task,
-    // so copying the document and pasting it back changes it.
     assertEquals("  - Plain nested", extractSelectingText(checklist, "Plain nested"))
   }
 
@@ -158,8 +134,6 @@ class TaskListExportTest {
         ),
       )
 
-    // Same defect on the ordered branch: `orderedSpans[0]` is the parent, so the nested bullet is
-    // extracted as `2.`.
     assertEquals("  - Plain nested", extractSelectingText(list, "Plain nested"))
   }
 

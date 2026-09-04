@@ -71,7 +71,6 @@ class MarkdownStyleBuilderTest {
     assertEquals(with(ComposeStyleTestSupport.testDensity) { 18.dp.toPx() }, taskList.checkboxSize, 0.01f)
     assertEquals(0xFF8E8E93.toInt(), taskList.checkedTextColor)
     assertEquals(true, taskList.checkedStrikethrough)
-    // Untouched keys fall through to the defaults.
     assertEquals(defaults.borderColor, taskList.borderColor)
     assertEquals(defaults.checkmarkColor, taskList.checkmarkColor)
   }

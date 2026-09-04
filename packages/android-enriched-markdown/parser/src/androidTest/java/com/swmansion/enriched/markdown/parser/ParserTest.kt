@@ -94,7 +94,6 @@ class ParserTest {
     assertEquals("false", listItems[1].getAttribute("taskChecked"))
     assertNull(listItems[2].getAttribute("isTask"))
 
-    // The `[x]` / `[ ]` marker is consumed by the parser, not left in the text.
     assertEquals("done", listItems[0].firstOfType(MarkdownASTNode.NodeType.Text)?.content)
     assertEquals("open", listItems[1].firstOfType(MarkdownASTNode.NodeType.Text)?.content)
   }
