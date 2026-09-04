@@ -1,31 +1,33 @@
 import type { RangeBounds } from '../model/rangeBounds';
+import type { ParagraphProjection } from '../render/InputProjection';
+import { firstIndexReachingTarget } from '../utils';
 
 export interface DomPosition {
   node: Node;
   offset: number;
 }
 
-// Paragraph divs map to buffer lines, so crossing one costs a newline;
-// runs within a line have no separators.
-const NEWLINE_LENGTH = '\n'.length;
-
 // Translates DOM positions to buffer offsets and back over the renderer's
-// canonical DOM.
+// canonical DOM. Line offsets come from the projection the renderer last
+// wrote.
 // A run-boundary offset maps to the start of the following run.
 export class SelectionMapper {
   private readonly root: HTMLElement;
+  private readonly paragraphs: () => readonly ParagraphProjection[];
 
-  constructor(root: HTMLElement) {
+  constructor(
+    root: HTMLElement,
+    paragraphs: () => readonly ParagraphProjection[]
+  ) {
     this.root = root;
+    this.paragraphs = paragraphs;
   }
 
   // Returns null for positions outside the editor.
   modelOffsetFromDom(node: Node, offset: number): number | null {
     if (node === this.root) {
-      const paragraph = this.root.childNodes[offset];
-      return paragraph === undefined
-        ? this.documentLength()
-        : paragraphStart(paragraph);
+      const paragraph = this.paragraphs()[offset];
+      return paragraph === undefined ? this.documentLength() : paragraph.start;
     }
 
     const paragraph = this.paragraphContaining(node);
@@ -33,27 +35,31 @@ export class SelectionMapper {
       return null;
     }
     return (
-      paragraphStart(paragraph) + offsetWithinParagraph(paragraph, node, offset)
+      this.lineStart(paragraph) + offsetWithinParagraph(paragraph, node, offset)
     );
   }
 
   // Offsets past the end clamp to the end of the document.
   domPositionFromModelOffset(offset: number): DomPosition | null {
-    const paragraphs = this.root.children;
+    const paragraphs = this.paragraphs();
     if (paragraphs.length === 0) {
       return null;
     }
-
-    let remaining = Math.max(offset, 0);
-    for (let i = 0; i < paragraphs.length; i++) {
-      const paragraph = paragraphs[i]!;
-      const length = textLength(paragraph);
-      if (remaining <= length || i === paragraphs.length - 1) {
-        return positionInParagraph(paragraph, Math.min(remaining, length));
-      }
-      remaining -= length + NEWLINE_LENGTH;
+    const clamped = Math.max(offset, 0);
+    const index = Math.min(
+      firstIndexReachingTarget(
+        clamped,
+        paragraphs.length,
+        (i) => paragraphs[i]!.end
+      ),
+      paragraphs.length - 1
+    );
+    const element = this.root.children[index];
+    if (element === undefined) {
+      return null;
     }
-    return null;
+    const { start, end } = paragraphs[index]!;
+    return positionInParagraph(element, Math.min(clamped - start, end - start));
   }
 
   modelSelectionFromDom(selection: Selection): RangeBounds | null {
@@ -80,25 +86,25 @@ export class SelectionMapper {
     return current;
   }
 
-  // n lines hold n - 1 newlines, hence the negative start.
+  private lineStart(paragraph: Node): number {
+    const index = paragraphIndex(paragraph);
+    const line = this.paragraphs()[index];
+    return line?.start ?? 0;
+  }
+
   private documentLength(): number {
-    let length = -NEWLINE_LENGTH;
-    for (const paragraph of this.root.childNodes) {
-      length += textLength(paragraph) + NEWLINE_LENGTH;
-    }
-    return Math.max(length, 0);
+    return this.paragraphs().at(-1)?.end ?? 0;
   }
 }
 
-// --- Line level: paragraph siblings, a newline per boundary. ---
+// --- Line level: a paragraph div per line, in projection order. ---
 
-// Buffer offset at which this paragraph's line starts.
-function paragraphStart(paragraph: Node): number {
-  let offset = 0;
+function paragraphIndex(paragraph: Node): number {
+  let index = 0;
   for (let s = paragraph.previousSibling; s !== null; s = s.previousSibling) {
-    offset += textLength(s) + NEWLINE_LENGTH;
+    index++;
   }
-  return offset;
+  return index;
 }
 
 // --- Run level: spans within one line, nothing between them. ---
