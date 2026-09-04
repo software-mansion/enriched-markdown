@@ -7,4 +7,5 @@ export type {
   ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
+  CodeBlockPressEvent,
 } from './types/events';

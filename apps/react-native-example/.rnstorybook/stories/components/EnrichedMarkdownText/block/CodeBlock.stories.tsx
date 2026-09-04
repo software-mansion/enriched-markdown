@@ -1,4 +1,7 @@
 import React from 'react';
+import { Alert } from 'react-native';
+import { action } from 'storybook/actions';
+import type { CodeBlockPressEvent } from 'react-native-enriched-markdown';
 import { EnrichedMarkdownTextStory } from '../EnrichedMarkdownTextStory';
 import { storyMeta } from '../shared/storyMeta';
 import {
@@ -124,6 +127,44 @@ export const CopyEvent: TextStory<CodeBlockStyleControls> = {
         title="Code Block — onCopyPress"
         description="Tap the header copy button (or long-press → Copy) to fire onCopyPress with the code and language (Actions panel). Requires flavor=github."
         {...rest}
+        style={{ codeBlock: toCodeBlockStyle(controls) }}
+      />
+    );
+  },
+};
+
+export const Events: TextStory<CodeBlockStyleControls> = {
+  args: {
+    markdown: MARKDOWN,
+    flavor: 'github',
+    ...codeBlockStyledDefaults,
+  },
+  argTypes: {
+    ...argTypes,
+    onCopyPress: { action: 'onCopyPress' },
+  },
+  render: (args) => {
+    const { controls, rest } = splitStyleControls(
+      args,
+      codeBlockStyledDefaults
+    );
+    // Alert if the payload is ever an array, else forward the object to Actions.
+    const logCodeBlockPress = action('onCodeBlockPress');
+    return (
+      <EnrichedMarkdownTextStory
+        title="Code Block — Events"
+        description="onCodeBlockPress fires on a tap anywhere in the body (both flavors); onCopyPress fires from the header copy button / long-press → Copy (flavor=github only). onCodeBlockPress is intercepted here: an array payload triggers an Alert, otherwise it is logged to the Actions panel as { code, language }. Flip the flavor control to test commonmark vs github."
+        {...rest}
+        onCodeBlockPress={(event: CodeBlockPressEvent) => {
+          if (Array.isArray(event)) {
+            Alert.alert(
+              'onCodeBlockPress got an ARRAY',
+              JSON.stringify(event, null, 2)
+            );
+            return;
+          }
+          logCodeBlockPress(event);
+        }}
         style={{ codeBlock: toCodeBlockStyle(controls) }}
       />
     );

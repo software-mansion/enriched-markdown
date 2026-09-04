@@ -7,6 +7,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 typedef void (^ENRMCodeBlockCopyBlock)(NSString *code, NSString *language);
+typedef void (^ENRMCodeBlockPressBlock)(NSString *code, NSString *language);
 
 @interface ENRMCodeBlockContainerView : RCTUIView
 
@@ -27,6 +28,9 @@ typedef void (^ENRMCodeBlockCopyBlock)(NSString *code, NSString *language);
 @property (nonatomic, assign) BOOL pending;
 @property (nonatomic, assign) BOOL enableBlockContextMenu;
 
+// Arms the block for taps; NO by default (selection / copy button / long-press unchanged).
+@property (nonatomic, assign) BOOL enableCodeBlockPress;
+
 // Renamed getters avoid the Cocoa `copy` method family (which signals +1
 // retained returns). Property names are unchanged so call sites stay the same.
 @property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
@@ -36,6 +40,9 @@ typedef void (^ENRMCodeBlockCopyBlock)(NSString *code, NSString *language);
 // VoiceOver copy action); set by the host to bridge up to the JS onCopyPress
 // event. Not fired for "Copy as Markdown".
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
+
+// Bridges a whole-block tap (not the copy button) up to the JS onCodeBlockPress event.
+@property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
 
 @end
 

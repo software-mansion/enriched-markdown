@@ -77,9 +77,16 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 @property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
 
+// Code block tap gate + callback, propagated to code block children (mirrors onCopyPress).
+@property (nonatomic, assign) BOOL enableCodeBlockPress;
+@property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
+
 // Re-applies the current copy labels and onCopyPress to already-created
 // children when the labels change without a remount.
 - (void)pushCopyLabelsToChildren;
+
+// Re-applies the tap gate to existing code block children when it toggles.
+- (void)pushCodeBlockPressEnabledToChildren:(BOOL)enabled;
 
 @end
 

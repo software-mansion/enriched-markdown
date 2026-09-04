@@ -5,6 +5,7 @@ import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.UIManagerHelper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
+import com.swmansion.enriched.markdown.events.CodeBlockPressEvent
 import com.swmansion.enriched.markdown.events.ContextMenuItemPressEvent
 import com.swmansion.enriched.markdown.events.CopyPressEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
@@ -22,6 +23,8 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
     mapOf("registrationName" to TaskListItemPressEvent.EVENT_NAME)
   map[CopyPressEvent.EVENT_NAME] =
     mapOf("registrationName" to CopyPressEvent.EVENT_NAME)
+  map[CodeBlockPressEvent.EVENT_NAME] =
+    mapOf("registrationName" to CodeBlockPressEvent.EVENT_NAME)
   map[ContextMenuItemPressEvent.EVENT_NAME] =
     mapOf("registrationName" to ContextMenuItemPressEvent.EVENT_NAME)
   return map
@@ -71,6 +74,19 @@ fun emitCopyPress(
   val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
   eventDispatcher?.dispatchEvent(
     CopyPressEvent(surfaceId, view.id, code, language),
+  )
+}
+
+fun emitCodeBlockPress(
+  view: View,
+  code: String,
+  language: String,
+) {
+  val context = view.context as com.facebook.react.bridge.ReactContext
+  val surfaceId = UIManagerHelper.getSurfaceId(context)
+  val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
+  eventDispatcher?.dispatchEvent(
+    CodeBlockPressEvent(surfaceId, view.id, code, language),
   )
 }
 

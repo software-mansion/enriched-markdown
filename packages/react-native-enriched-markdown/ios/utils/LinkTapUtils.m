@@ -40,7 +40,24 @@ NSDictionary<NSString *, NSString *> *_Nullable imageAtTapLocation(ENRMPlatformT
   return @{@"url" : url, @"altText" : altText ?: @""};
 }
 
-BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point, BOOL includeImages)
+NSDictionary<NSString *, NSString *> *_Nullable codeBlockAtTapLocation(ENRMPlatformTextView *textView,
+                                                                       ENRMTapRecognizer *recognizer)
+{
+  NSUInteger characterIndex = ENRMCharacterIndexForTap(textView, recognizer);
+  if (characterIndex == NSNotFound)
+    return nil;
+
+  NSAttributedString *attrText = ENRMGetAttributedText(textView);
+  NSString *code = [attrText attribute:@"codeBlockText" atIndex:characterIndex effectiveRange:NULL];
+  if (!code)
+    return nil;
+
+  NSString *language = [attrText attribute:@"codeBlockLanguage" atIndex:characterIndex effectiveRange:NULL];
+  return @{@"code" : code, @"language" : language ?: @""};
+}
+
+BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point, BOOL includeImages,
+                                 BOOL includeCodeBlock)
 {
   NSUInteger charIndex = ENRMCharacterIndexAtPoint(textView, point);
   if (charIndex == NSNotFound)
@@ -50,5 +67,8 @@ BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point, 
   if (attrs[@"linkURL"] != nil || [attrs[@"TaskItem"] boolValue] || attrs[SpoilerAttributeName] != nil)
     return YES;
 
-  return includeImages && attrs[@"imageURL"] != nil;
+  if (includeImages && attrs[@"imageURL"] != nil)
+    return YES;
+
+  return includeCodeBlock && attrs[@"codeBlockText"] != nil;
 }

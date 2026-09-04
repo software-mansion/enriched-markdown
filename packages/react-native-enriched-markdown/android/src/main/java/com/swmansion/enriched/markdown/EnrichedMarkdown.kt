@@ -91,6 +91,7 @@ class EnrichedMarkdown(
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((Int, Boolean, String) -> Unit)? = null
   private var onCopyPressCallback: ((String, String) -> Unit)? = null
+  private var onCodeBlockPressCallback: ((String, String) -> Unit)? = null
   private var contextMenuItemTexts: List<String> = emptyList()
   var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
   var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
@@ -114,6 +115,12 @@ class EnrichedMarkdown(
       if (field == value) return
       field = value
       pushBlockContextMenuToSegments()
+    }
+  var enableCodeBlockPress: Boolean = false
+    set(value) {
+      if (field == value) return
+      field = value
+      pushCodeBlockPressToSegments()
     }
 
   init {
@@ -278,6 +285,10 @@ class EnrichedMarkdown(
     onCopyPressCallback = callback
   }
 
+  fun setOnCodeBlockPressCallback(callback: ((code: String, language: String) -> Unit)?) {
+    onCodeBlockPressCallback = callback
+  }
+
   fun setContextMenuItems(items: List<String>) {
     contextMenuItemTexts = items
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
@@ -342,6 +353,12 @@ class EnrichedMarkdown(
           }
         }
       }
+    }
+  }
+
+  private fun pushCodeBlockPressToSegments() {
+    segmentViews.filterIsInstance<CodeBlockContainerView>().forEach {
+      it.enableCodeBlockPress = enableCodeBlockPress
     }
   }
 
@@ -488,9 +505,11 @@ class EnrichedMarkdown(
       selectionHandleColor = selectionHandleColor,
       contextMenuItemTexts = contextMenuItemTexts,
       enableBlockContextMenu = enableBlockContextMenu,
+      enableCodeBlockPress = enableCodeBlockPress,
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,
       onCopyPress = onCopyPressCallback,
+      onCodeBlockPress = onCodeBlockPressCallback,
       onTaskListItemPress = onTaskListItemPressCallback,
       onContextMenuItemPress = ::forwardContextMenuItemPress,
     )

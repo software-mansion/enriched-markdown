@@ -143,6 +143,31 @@ Only fires when `flavor="github"` — the copy button is part of the GitHub flav
 />
 ```
 
+### `onCodeBlockPress`
+
+Callback fired when a fenced code block is tapped anywhere in its body. Receives `code` (the block's source) and `language` (the fence language, or `""` if none). Useful for building custom actions such as copy-to-clipboard or opening the code in a viewer.
+
+Setting this prop arms the code block for taps. When it is unset the block stays inert - text selection, the header copy button, and the long-press context menu behave exactly as before. A tap never fires while text is being selected; selection still happens via long-press.
+
+Works in both flavors: `flavor="github"` fires on the container-based code block renderer, and `flavor="commonmark"` fires on the inline code-block region drawn inside the single text view. On web the code block is rendered as a clickable, keyboard-activatable element (the `flavor` prop is ignored on web).
+
+| Type                                   | Default Value | Platform          |
+| -------------------------------------- | ------------- | ----------------- |
+| `(event: CodeBlockPressEvent) => void` | -             | iOS, Android, Web |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  flavor="github"
+  markdown={"```ts\nconst x = 1;\n```"}
+  onCodeBlockPress={({ code, language }) => {
+    Clipboard.setString(code);
+    console.log(`Copied ${language} code`);
+  }}
+/>
+```
+
 ### `enableBlockContextMenu`
 
 Controls the long-press copy popup on code blocks, tables, and block math.

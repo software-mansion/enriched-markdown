@@ -7,6 +7,7 @@ import type {
   ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
+  CodeBlockPressEvent,
 } from './events';
 
 /**
@@ -203,6 +204,14 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos
    */
   onCopyPress?: (event: CopyPressEvent) => void;
+  /**
+   * Callback fired when a fenced code block is tapped/clicked anywhere in its
+   * body. Receives the block's `code` and `language`. Setting it arms the block
+   * for taps; text selection, the header copy button, and the long-press menu
+   * stay unchanged. Works in both flavors and on web.
+   * @platform ios, android, web
+   */
+  onCodeBlockPress?: (event: CodeBlockPressEvent) => void;
   /**
    * Controls the long-press context menu on block views (code blocks, tables,
    * and block math). When false, long-pressing a block does not open the copy
