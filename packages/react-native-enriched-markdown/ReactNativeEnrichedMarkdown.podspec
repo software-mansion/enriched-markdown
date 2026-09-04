@@ -40,7 +40,19 @@ Pod::Spec.new do |s|
   # deprecated fallback. `math_explicit` tracks an active opt-in (vs the implicit
   # default), which decides the missing-framework behavior below.
   config = EnrichedMarkdownConfig.consumer_config
-  ratex_present = File.directory?(File.join(__dir__, 'ios/vendor/RaTeX.xcframework'))
+  # "present" mirrors the code-highlight side (see code_highlight_podspec.rb, which
+  # gates on grammars/.stamp): the vendor script writes ios/vendor/.stamp only after
+  # the XCFramework, the four Swift sources, and the fonts have all landed and it
+  # swaps the tree into place atomically. Gating on the XCFramework directory alone
+  # would treat a half-finished download (framework extracted, Swift sources/fonts
+  # still missing) as ready and compile the RaTeX bridge against sources that are not
+  # there, failing several hundred lines into the pod build with an opaque Swift
+  # "cannot find type 'RaTeXRenderer' in scope" (#745).
+  ratex_dir = File.join(__dir__, 'ios/vendor')
+  # File.file? (not File.exist?) so a stray .stamp/ directory can't pass the check and
+  # reintroduce the #745 failure mode; the vendor script only ever writes it as a file.
+  ratex_present = File.directory?(File.join(ratex_dir, 'RaTeX.xcframework')) &&
+    File.file?(File.join(ratex_dir, '.stamp'))
   math_flag = ENV['ENRICHED_MARKDOWN_ENABLE_MATH']
 
   if config.key?('enableMath')
@@ -61,9 +73,9 @@ Pod::Spec.new do |s|
   end
 
   # RaTeX is downloaded at postinstall and kept out of the tarball. Reconcile the
-  # request with the vendored framework: an explicit opt-in with the framework missing
-  # fails loud; on by default but missing (a partial/failed download, or a monorepo root
-  # opt-out) falls back to a clean build without math.
+  # request with the vendored tree: an explicit opt-in with the tree missing or
+  # incomplete fails loud; on by default but missing (a partial/failed download, or a
+  # monorepo root opt-out) falls back to a clean build without math.
   enable_math = math_requested && ratex_present
   if !math_requested
     EnrichedMarkdownConfig.warn_once(:math_disabled, '[ReactNativeEnrichedMarkdown] LaTeX math disabled via ' \
@@ -71,13 +83,14 @@ Pod::Spec.new do |s|
   elsif !ratex_present
     if math_explicit
       raise '[ReactNativeEnrichedMarkdown] LaTeX math is enabled but the vendored RaTeX ' \
-        'XCFramework is missing at ios/vendor/RaTeX.xcframework. Reinstall to fetch it: ' \
-        '`npm rebuild react-native-enriched-markdown`. ' \
+        'assets are missing or incomplete at ios/vendor (need RaTeX.xcframework, the core ' \
+        'Swift sources, the fonts, and the .stamp the vendor script writes on success). ' \
+        'Reinstall to fetch them: `npm rebuild react-native-enriched-markdown`. ' \
         'To disable math, set "enriched-markdown".enableMath = false in your app package.json. ' \
         'Troubleshooting: https://github.com/software-mansion/enriched-markdown/blob/main/docs/NATIVE_ASSETS.md'
     end
     EnrichedMarkdownConfig.warn_once(:math_disabled, '[ReactNativeEnrichedMarkdown] LaTeX math disabled: the vendored RaTeX ' \
-      'XCFramework was not found at ios/vendor/RaTeX.xcframework. If this is unintended, re-run ' \
+      'assets were not found or are incomplete at ios/vendor. If this is unintended, re-run ' \
       '`node node_modules/react-native-enriched-markdown/postinstall.mjs`.')
   end
 
@@ -92,9 +105,10 @@ Pod::Spec.new do |s|
   preprocessor_defs = "$(inherited) MD4C_USE_UTF8=1#{code_highlight[:defines]}"
   if enable_math
     preprocessor_defs += ' ENRICHED_MARKDOWN_MATH=1'
-    # enable_math already implies ratex_present (the reconciliation above raises on an
-    # explicit opt-in with a missing framework and disables the default-on path), so the
-    # vendored references below always resolve.
+    # enable_math already implies ratex_present, i.e. a complete vendored tree marked by
+    # ios/vendor/.stamp (the reconciliation above raises on an explicit opt-in with a
+    # missing/incomplete tree and disables the default-on path), so the vendored
+    # references below always resolve.
     # Prebuilt static XCFramework (device + simulator[arm64,x86_64] + macOS). Vendored
     # rather than pulled via spm_dependency, which compiled RaTeX's Swift wrapper per
     # requested arch (breaking universal simulator builds, #527) and double-collected

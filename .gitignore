@@ -109,7 +109,11 @@ packages/core/cpp/highlight/vendor/generated-*/
 # RaTeX (iOS LaTeX math): the prebuilt static XCFramework, RaTeX's four core Swift
 # sources, and the KaTeX fonts are restored from the pins in vendor/ratex-version.json
 # by vendor/vendor-ratex.mjs (via `prepare`) and baked into the npm tarball on prepack.
+# The .staging/.backup siblings are transient swap dirs the script writes during a
+# restore and clears on completion; ignore any that linger after an interrupted run.
 packages/react-native-enriched-markdown/ios/vendor/
+packages/react-native-enriched-markdown/ios/vendor.staging/
+packages/react-native-enriched-markdown/ios/vendor.backup/
 
 # React Native Nitro Modules
 nitrogen/
