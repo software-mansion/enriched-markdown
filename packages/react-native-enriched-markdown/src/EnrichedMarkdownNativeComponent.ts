@@ -446,7 +446,7 @@ export interface NativeProps extends ViewProps {
    */
   onCopyPress?: CodegenTypes.BubblingEventHandler<CopyPressEvent>;
   /**
-   * Controls the long-press copy menu on code blocks, tables, and block math.
+   * Controls the long-press copy menu on code blocks, tables, block math, and blockquotes/admonitions.
    * @default true
    */
   enableBlockContextMenu?: CodegenTypes.WithDefault<boolean, true>;

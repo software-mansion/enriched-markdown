@@ -7,10 +7,15 @@
 #import "ENRMTextRenderer.h"
 #import "EnrichedMarkdownInternalText.h"
 #import "MarkdownASTNode.h"
+#import "MarkdownASTSerializer.h"
+#import "PasteboardUtils.h"
 #import "SegmentRenderer.h"
 #import "TableContainerView.h"
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathContainerView.h"
+#endif
+#if TARGET_OS_OSX
+#import "ENRMMenuAction.h"
 #endif
 
 // Inner content is rendered with trailing margins disabled; the quote's own
@@ -94,8 +99,13 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 }
 
 @interface ENRMBlockquoteContainerView ()
+#if !TARGET_OS_OSX
+    <UIContextMenuInteractionDelegate>
+#endif
 // nil for a plain blockquote; the admonition type string otherwise.
 @property (nonatomic, copy, nullable) NSString *admonitionType;
+@property (nonatomic, copy) NSString *cachedMarkdown;
+@property (nonatomic, copy) NSString *cachedPlainText;
 @end
 
 @implementation ENRMBlockquoteContainerView
@@ -110,8 +120,13 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
     // Preserved prior defaults until the host overrides them at creation.
     _allowFontScaling = YES;
     _lineBreakStrategy = NSLineBreakStrategyNone;
+    _enableBlockContextMenu = YES;
+    _cachedMarkdown = @"";
+    _cachedPlainText = @"";
 #if !TARGET_OS_OSX
     self.contentMode = UIViewContentModeRedraw;
+    UIContextMenuInteraction *contextMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
+    [self addInteraction:contextMenu];
 #endif
     self.segmentViewRegistry = [self buildChildRegistry];
   }
@@ -122,6 +137,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 {
   self.admonitionType = ENRMAdmonitionTypeForNode(node);
   self.contentInsets = ENRMBlockquoteContentInsetsForNode(self.config, self.admonitionType != nil);
+  self.cachedMarkdown = markdownFromBlockquoteNode(node);
+  self.cachedPlainText = plainTextFromASTNode(node);
   NSArray<ENRMRenderedSegment *> *rendered =
       ENRMRenderBlockquoteChildren(node, self.config, self.allowFontScaling, self.lineBreakStrategy);
   [self applySegments:rendered reset:NO];
@@ -254,6 +271,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                               view.lineBreakStrategy = strongSelf.lineBreakStrategy;
                               view.copyLabel = strongSelf.menuCopyLabel;
                               view.copyAsMarkdownLabel = strongSelf.menuCopyAsMarkdownLabel;
+                              view.enableBlockContextMenu = strongSelf.enableBlockContextMenu;
                               view.onCopyPress = strongSelf.onCopyPress;
                               view.onLinkPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
@@ -434,5 +452,72 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
   CGFloat titleY = headerTop + (headerHeight - titleSize.height) / 2.0;
   [attributed drawAtPoint:CGPointMake(titleX, titleY)];
 }
+
+#pragma mark - Context menu
+
+- (void)copyMarkdownToPasteboard
+{
+  if (_cachedMarkdown.length > 0) {
+    copyStringToPasteboard(_cachedMarkdown);
+  }
+}
+
+- (void)copyPlainTextToPasteboard
+{
+  if (_cachedPlainText.length > 0) {
+    NSMutableDictionary *items = [NSMutableDictionary dictionary];
+    items[kUTIPlainText] = _cachedPlainText;
+    if (_cachedMarkdown.length > 0) {
+      items[kUTIMarkdown] = _cachedMarkdown;
+    }
+    copyItemsToPasteboard(items);
+  }
+}
+
+#if !TARGET_OS_OSX
+- (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
+                        configurationForMenuAtLocation:(CGPoint)location
+{
+  if (!_enableBlockContextMenu) {
+    return nil;
+  }
+  return [UIContextMenuConfiguration
+      configurationWithIdentifier:nil
+                  previewProvider:nil
+                   actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
+                     UIAction *copyPlainText =
+                         [UIAction actionWithTitle:self.copyLabel
+                                             image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
+                                        identifier:nil
+                                           handler:^(__kindof UIAction *action) { [self copyPlainTextToPasteboard]; }];
+
+                     UIAction *copyMarkdown =
+                         [UIAction actionWithTitle:self.copyAsMarkdownLabel
+                                             image:[RCTUIImage systemImageNamed:@"doc.text"]
+                                        identifier:nil
+                                           handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
+
+                     return [UIMenu menuWithTitle:@"" children:@[ copyPlainText, copyMarkdown ]];
+                   }];
+}
+#endif // !TARGET_OS_OSX
+
+#if TARGET_OS_OSX
+- (BOOL)isFlipped
+{
+  return YES;
+}
+
+- (NSMenu *)menuForEvent:(NSEvent *)event
+{
+  if (!_enableBlockContextMenu) {
+    return [super menuForEvent:event];
+  }
+  NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
+  [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyPlainTextToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
+  return menu;
+}
+#endif
 
 @end

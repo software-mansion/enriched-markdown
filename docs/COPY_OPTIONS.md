@@ -46,8 +46,8 @@ Use `selectionMenuConfig` to hide built-in selection menu actions while keeping 
 ```
 
 On iOS, Android, and macOS, `enableBlockContextMenu={false}` disables the
-long-press popup on code blocks, tables, and block math. It leaves the
-code-block header copy button, accessibility copy action, and system
+long-press popup on code blocks, tables, block math, and blockquotes/admonitions.
+It leaves the code-block header copy button, accessibility copy action, and system
 text-selection menu unchanged.
 
 `EnrichedMarkdownTextInput` supports the same `{ enabled, label }` shape. In addition to `copyAsMarkdown`, the input's `selectionMenuConfig` exposes the built-in **Format** submenu, and `formatMenuConfig` controls the items inside it:
@@ -100,7 +100,7 @@ Notes:
   required; any category left `undefined` falls back to it. The `{count}` token
   is replaced by the number of selected images.
 - The labels apply to the main text selection menu as well as the table, math,
-  and code block copy menus. With `flavor="github"`, the code block header's copy
+  code block, and blockquote/admonition copy menus. With `flavor="github"`, the code block header's copy
   button also reuses the copy label for assistive technologies (the CommonMark
   flavor renders code inline with no header button): it is the button's
   contentDescription on Android, and on iOS it names the VoiceOver custom

@@ -183,6 +183,9 @@ object SegmentViewCreators {
     segment: RenderedSegment.Blockquote,
     config: SegmentViewConfig,
   ) = BlockquoteContainerView(config.context, config).apply {
+    enableBlockContextMenu = config.enableBlockContextMenu
+    copyLabel = config.selectionMenuConfig.copyLabel
+    copyAsMarkdownLabel = config.selectionMenuConfig.copyAsMarkdownLabel
     applyBlockquoteNode(segment.node)
   }
 }

@@ -1,5 +1,7 @@
 package com.swmansion.enriched.markdown.segments
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -16,6 +18,8 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
+import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -54,6 +58,16 @@ class BlockquoteContainerView(
   // Set from the applied node: null for a plain quote, the admonition type
   // ("note"/"tip"/…) otherwise. Drives the header + per-type theming.
   private var admonitionType: String? = null
+
+  // Cached markdown source for the "Copy as Markdown" action.
+  private var cachedMarkdown: String = ""
+
+  // Cached plain text for the "Copy" action.
+  private var cachedPlainText: String = ""
+
+  var copyLabel: String = ""
+  var copyAsMarkdownLabel: String = ""
+  var enableBlockContextMenu: Boolean = true
 
   private val iconSizePx: Int = ceil(blockquoteStyle.fontSize).toInt()
 
@@ -101,6 +115,8 @@ class BlockquoteContainerView(
     setPadding(leftInset, verticalInset, rightInset, verticalInset)
     segmentViewFactory = ChildFactory()
     trailingMarginEnabled = false
+    isLongClickable = true
+    setOnLongClickListener { view -> showContextMenu(view) }
   }
 
   fun applyBlockquoteNode(node: MarkdownASTNode) {
@@ -112,6 +128,9 @@ class BlockquoteContainerView(
       }
     // Reserve the header band above the body by enlarging the top padding.
     setPadding(leftInset, verticalInset + reservedHeaderHeight(), rightInset, verticalInset)
+
+    cachedMarkdown = MarkdownASTSerializer.serializeBlockquote(node)
+    cachedPlainText = MarkdownASTSerializer.plainText(node)
 
     val segments = splitASTIntoSegments(node)
     val rendered =
@@ -125,6 +144,24 @@ class BlockquoteContainerView(
       )
     applySegments(rendered, reset = false)
     requestLayout()
+  }
+
+  private fun showContextMenu(anchor: View): Boolean {
+    if (!enableBlockContextMenu) return false
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    ContextMenuPopup.show(anchor, this) {
+      item(ContextMenuPopup.Icon.COPY, copyLabel) {
+        if (cachedPlainText.isNotEmpty()) {
+          clipboard.setPrimaryClip(ClipData.newPlainText("Blockquote", cachedPlainText))
+        }
+      }
+      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) {
+        if (cachedMarkdown.isNotEmpty()) {
+          clipboard.setPrimaryClip(ClipData.newPlainText("Blockquote", cachedMarkdown))
+        }
+      }
+    }
+    return true
   }
 
   override fun onMeasure(
