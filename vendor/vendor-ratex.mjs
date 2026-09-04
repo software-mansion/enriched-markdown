@@ -52,8 +52,44 @@ function copyFile(src, dest) {
   fs.copyFileSync(src, dest);
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Downloads a url to a Buffer, resilient to the two failure modes that turn a
+// routine install into #745: transient GitHub/CDN blips, and being behind a proxy.
+// Node's global fetch is undici, which ignores http_proxy/https_proxy unless
+// NODE_USE_ENV_PROXY is set, so on a proxied machine the source tarball can time out
+// even though curl and the package manager both work. Retry fetch a few times, then
+// fall back to curl, which honors the proxy env and retries itself. The caller still
+// verifies the sha256, so a truncated or tampered body is caught either way.
+async function download(url, label) {
+  const attempts = 3;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      log(`${label} fetch attempt ${i}/${attempts} failed: ${err.message}`);
+      if (i < attempts) await sleep(500 * i);
+    }
+  }
+  log(`${label} falling back to curl (honors http_proxy/https_proxy) for ${url}`);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ratex-dl-'));
+  try {
+    const dest = path.join(tmp, 'asset');
+    const res = spawnSync('curl', ['-fsSL', '--retry', '3', '-o', dest, url], { stdio: ['ignore', 'ignore', 'inherit'] });
+    if (res.error && res.error.code === 'ENOENT') {
+      fail(`${label} download failed for ${url}: fetch failed and curl is not installed`);
+    }
+    if (res.status !== 0) fail(`${label} download failed for ${url} (curl exit ${res.status})`);
+    return fs.readFileSync(dest);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // Reads a manifest asset from a local path when the url points at an existing file
-// (offline), otherwise fetches it. The sha256 is verified either way; a mismatch is
+// (offline), otherwise downloads it. The sha256 is verified either way; a mismatch is
 // fatal and prints the computed digest to paste back into ratex-version.json on a re-pin.
 async function fetchAndVerify(url, sha256, label) {
   if (!sha256) fail(`${label}.sha256 missing in ratex-version.json; cannot verify ${url}`);
@@ -63,13 +99,7 @@ async function fetchAndVerify(url, sha256, label) {
     buf = fs.readFileSync(url);
   } else {
     log(`fetching ${label} from ${url}`);
-    try {
-      const res = await fetch(url);
-      if (!res.ok) fail(`${label} download failed: ${res.status} ${res.statusText} for ${url}`);
-      buf = Buffer.from(await res.arrayBuffer());
-    } catch (err) {
-      fail(`${label} download failed for ${url}: ${err.message}`);
-    }
+    buf = await download(url, label);
   }
   const digest = crypto.createHash('sha256').update(buf).digest('hex');
   if (digest !== sha256) {
