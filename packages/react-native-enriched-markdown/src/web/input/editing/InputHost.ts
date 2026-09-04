@@ -33,7 +33,7 @@ export class InputHost {
     this.callbacks = callbacks;
     this.pipeline = new EditPipeline(this.formattingStore, this.blockStore);
     this.renderer = new DomRenderer(root);
-    this.mapper = new SelectionMapper(root);
+    this.mapper = new SelectionMapper(root, () => this.renderer.paragraphs);
 
     injectInputStyles();
     root.classList.add(ENRM_INPUT_CLASS);
