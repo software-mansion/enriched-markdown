@@ -5,6 +5,7 @@ import android.text.Layout
 import android.text.Spannable
 import android.text.style.StyleSpan
 import android.text.style.UnderlineSpan
+import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.CodeSpan
@@ -487,9 +488,7 @@ object HTMLGenerator {
           .append(marginStyle)
           .append("padding-inline-start: ")
           .append(styles.listMarginLeft)
-          .append("px; list-style-type: ")
-          .append(if (isTask) "none" else "disc")
-          .append(";\">")
+          .append("px; list-style-type: disc;\">")
         state.openListTypes.add(false)
       }
     }
@@ -501,7 +500,13 @@ object HTMLGenerator {
       .append(styles.listColor)
       .append("; font-size: ")
       .append(styles.listFontSize)
-      .append("px;\">")
+      .append("px;")
+
+    if (isTask) {
+      html.append(" list-style-type: none;")
+    }
+
+    html.append("\">")
 
     if (isTask) {
       val size = styles.taskCheckboxSize
@@ -863,15 +868,10 @@ object HTMLGenerator {
       var lineEnd = string.indexOf('\n', currentIndex)
       if (lineEnd == -1) lineEnd = string.length else lineEnd++
 
-      val type = getParagraphType(text, currentIndex)
-      val depth = getDepthForType(text, currentIndex, type)
-      val isTaskChecked =
-        if (type == TYPE_TASK_LIST) {
-          val end = minOf(currentIndex + 1, text.length)
-          text.getSpans(currentIndex, end, TaskListSpan::class.java).firstOrNull()?.isChecked ?: false
-        } else {
-          false
-        }
+      val listSpan = innermostListSpan(text, currentIndex)
+      val type = getParagraphType(text, currentIndex, listSpan)
+      val depth = getDepthForType(text, currentIndex, type, listSpan)
+      val isTaskChecked = type == TYPE_TASK_LIST && (listSpan as? TaskListSpan)?.isChecked == true
 
       paragraphs.add(ParagraphInfo(currentIndex, lineEnd, type, depth, isTaskChecked))
       currentIndex = lineEnd
@@ -880,9 +880,23 @@ object HTMLGenerator {
     return paragraphs
   }
 
+  /**
+   * The list span that owns the line starting at [start]. A list item's span covers its nested
+   * children, so every ancestor is returned here as well - the innermost span is the item that
+   * actually starts on this line.
+   */
+  private fun innermostListSpan(
+    text: Spannable,
+    start: Int,
+  ): BaseListSpan? =
+    text
+      .getSpans(start, minOf(start + 1, text.length), BaseListSpan::class.java)
+      .maxByOrNull { it.depth }
+
   private fun getParagraphType(
     text: Spannable,
     start: Int,
+    listSpan: BaseListSpan?,
   ): Int {
     val end = minOf(start + 1, text.length)
 
@@ -892,27 +906,34 @@ object HTMLGenerator {
     if (headingSpans.isNotEmpty()) return headingSpans[0].level.coerceIn(1, 6)
 
     if (text.getSpans(start, end, BlockquoteSpan::class.java).isNotEmpty()) return TYPE_BLOCKQUOTE
-    if (text.getSpans(start, end, TaskListSpan::class.java).isNotEmpty()) return TYPE_TASK_LIST
-    if (text.getSpans(start, end, OrderedListSpan::class.java).isNotEmpty()) return TYPE_ORDERED_LIST
-    if (text.getSpans(start, end, UnorderedListSpan::class.java).isNotEmpty()) return TYPE_UNORDERED_LIST
 
-    return TYPE_NORMAL
+    return when (listSpan) {
+      is TaskListSpan -> TYPE_TASK_LIST
+      is OrderedListSpan -> TYPE_ORDERED_LIST
+      is UnorderedListSpan -> TYPE_UNORDERED_LIST
+      else -> TYPE_NORMAL
+    }
   }
 
   private fun getDepthForType(
     text: Spannable,
     start: Int,
     type: Int,
-  ): Int {
-    val end = start + 1
-    return when (type) {
-      TYPE_BLOCKQUOTE -> text.getSpans(start, end, BlockquoteSpan::class.java).maxOfOrNull { it.depth } ?: 0
-      TYPE_ORDERED_LIST -> text.getSpans(start, end, OrderedListSpan::class.java).maxOfOrNull { it.depth } ?: 0
-      TYPE_UNORDERED_LIST -> text.getSpans(start, end, UnorderedListSpan::class.java).maxOfOrNull { it.depth } ?: 0
-      TYPE_TASK_LIST -> text.getSpans(start, end, TaskListSpan::class.java).maxOfOrNull { it.depth } ?: 0
-      else -> 0
+    listSpan: BaseListSpan?,
+  ): Int =
+    when (type) {
+      TYPE_BLOCKQUOTE -> {
+        text.getSpans(start, start + 1, BlockquoteSpan::class.java).maxOfOrNull { it.depth } ?: 0
+      }
+
+      TYPE_ORDERED_LIST, TYPE_UNORDERED_LIST, TYPE_TASK_LIST -> {
+        listSpan?.depth ?: 0
+      }
+
+      else -> {
+        0
+      }
     }
-  }
 
   fun generateTableHTML(
     rows: List<List<Triple<CharSequence, Boolean, Layout.Alignment>>>,

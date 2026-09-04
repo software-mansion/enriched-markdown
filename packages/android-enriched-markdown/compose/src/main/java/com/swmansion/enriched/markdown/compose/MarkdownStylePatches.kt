@@ -23,6 +23,7 @@ import com.swmansion.enriched.markdown.styles.LinkStyle
 import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
+import com.swmansion.enriched.markdown.styles.TaskListStyle
 import com.swmansion.enriched.markdown.styles.TextAlignment
 import com.swmansion.enriched.markdown.styles.ThematicBreakStyle
 
@@ -617,6 +618,75 @@ class ListStyleScope {
             markerFontWeight = existing.markerFontWeight
             gapWidth = existing.gapWidth
             marginLeft = existing.marginLeft
+          }
+        }
+      scope.apply(block)
+      return scope.toPatch()
+    }
+  }
+}
+
+@Immutable
+internal data class TaskListStylePatch(
+  val checkedColor: Color? = null,
+  val borderColor: Color? = null,
+  val checkboxSize: Dp? = null,
+  val checkboxBorderRadius: Dp? = null,
+  val checkmarkColor: Color? = null,
+  val checkedTextColor: Color? = null,
+  val checkedStrikethrough: Boolean? = null,
+) {
+  fun apply(
+    base: TaskListStyle,
+    units: StyleUnits,
+  ): TaskListStyle =
+    base.copy(
+      checkedColor = checkedColor?.let(units::color) ?: base.checkedColor,
+      borderColor = borderColor?.let(units::color) ?: base.borderColor,
+      checkboxSize = checkboxSize?.let(units::dp) ?: base.checkboxSize,
+      checkboxBorderRadius = checkboxBorderRadius?.let(units::dp) ?: base.checkboxBorderRadius,
+      checkmarkColor = checkmarkColor?.let(units::color) ?: base.checkmarkColor,
+      checkedTextColor = checkedTextColor?.let(units::color) ?: base.checkedTextColor,
+      checkedStrikethrough = checkedStrikethrough ?: base.checkedStrikethrough,
+    )
+}
+
+@MarkdownStyleDsl
+class TaskListStyleScope {
+  var checkedColor: Color? = null
+  var borderColor: Color? = null
+  var checkboxSize: Dp? = null
+  var checkboxBorderRadius: Dp? = null
+  var checkmarkColor: Color? = null
+  var checkedTextColor: Color? = null
+  var checkedStrikethrough: Boolean? = null
+
+  internal fun toPatch(): TaskListStylePatch =
+    TaskListStylePatch(
+      checkedColor = checkedColor,
+      borderColor = borderColor,
+      checkboxSize = checkboxSize,
+      checkboxBorderRadius = checkboxBorderRadius,
+      checkmarkColor = checkmarkColor,
+      checkedTextColor = checkedTextColor,
+      checkedStrikethrough = checkedStrikethrough,
+    )
+
+  internal companion object {
+    fun merge(
+      existing: TaskListStylePatch?,
+      block: TaskListStyleScope.() -> Unit,
+    ): TaskListStylePatch {
+      val scope =
+        TaskListStyleScope().apply {
+          if (existing != null) {
+            checkedColor = existing.checkedColor
+            borderColor = existing.borderColor
+            checkboxSize = existing.checkboxSize
+            checkboxBorderRadius = existing.checkboxBorderRadius
+            checkmarkColor = existing.checkmarkColor
+            checkedTextColor = existing.checkedTextColor
+            checkedStrikethrough = existing.checkedStrikethrough
           }
         }
       scope.apply(block)

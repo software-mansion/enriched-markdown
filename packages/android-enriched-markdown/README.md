@@ -123,6 +123,7 @@ The `markdownStyle` builder supports these blocks:
 | `codeBlock` | Fenced code blocks |
 | `blockquote` | Block quotes |
 | `list` | Ordered and unordered lists |
+| `taskList` | Task list checkboxes |
 | `image` | Block images |
 | `inlineImage` | Inline images |
 | `thematicBreak` | Horizontal rules |
@@ -208,6 +209,7 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists
+- Task lists (`- [ ]` / `- [x]`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
 

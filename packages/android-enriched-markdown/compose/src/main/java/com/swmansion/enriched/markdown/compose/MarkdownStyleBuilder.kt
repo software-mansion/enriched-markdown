@@ -11,6 +11,7 @@ class MarkdownStyleBuilder internal constructor() {
   private var codeBlock: CodeBlockStylePatch? = null
   private var blockquote: BlockquoteStylePatch? = null
   private var list: ListStylePatch? = null
+  private var taskList: TaskListStylePatch? = null
   private var image: ImageStylePatch? = null
   private var inlineImage: InlineImageStylePatch? = null
   private var thematicBreak: ThematicBreakStylePatch? = null
@@ -59,6 +60,10 @@ class MarkdownStyleBuilder internal constructor() {
     list = ListStyleScope.merge(list, block)
   }
 
+  fun taskList(block: TaskListStyleScope.() -> Unit) {
+    taskList = TaskListStyleScope.merge(taskList, block)
+  }
+
   fun image(block: ImageStyleScope.() -> Unit) {
     image = ImageStyleScope.merge(image, block)
   }
@@ -82,6 +87,7 @@ class MarkdownStyleBuilder internal constructor() {
       codeBlock = codeBlock,
       blockquote = blockquote,
       list = list,
+      taskList = taskList,
       image = image,
       inlineImage = inlineImage,
       thematicBreak = thematicBreak,
