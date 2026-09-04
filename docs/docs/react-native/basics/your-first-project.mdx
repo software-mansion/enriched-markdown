@@ -35,7 +35,7 @@ Two things are worth calling out, because every editor feature follows the same 
 1. **You apply formatting by calling methods on the ref.** The ref is typed as `EnrichedMarkdownTextInputInstance`. Pressing the button calls `ref.current?.toggleBold()`, which toggles bold across the current selection - or arms it for the next characters you type when there's no selection.
 2. **You read formatting from the `onChangeState` callback.** Its payload has one entry per style (`bold`, `italic`, and so on), each with an `isActive` flag. That's what lets the button know whether to say "Bold" or "Unbold" and change color.
 
-The same `toggle` / `onChangeState` pair drives italic, underline, strikethrough, spoiler, and headings - so extending the toolbar is mostly repeating this shape. The input also ships a native format bar on selection out of the box, so basic formatting works even before you build any UI. See the [`EnrichedMarkdownTextInput` reference](/react-native/api-reference/enriched-markdown-text-input) for the full set of methods and events.
+The same `toggle` / `onChangeState` pair drives italic, underline, strikethrough and more - so extending the toolbar is mostly repeating this shape. The input also ships a native format bar on selection out of the box, so basic formatting works even before you build any UI. See the [`EnrichedMarkdownTextInput` reference](/react-native/api-reference/enriched-markdown-text-input) for the full set of methods and events.
 
 ## How the two fit together
 

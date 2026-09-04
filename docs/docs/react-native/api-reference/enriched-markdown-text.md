@@ -151,7 +151,7 @@ When `true`, parses `==text==` as highlighted spans. When disabled, double equal
 
 #### `latexMath`
 
-When `true`, parses `$...$` as inline math and `$$...$$` as display math. Rendering uses KaTeX. Unlike the other flags on this page, `latexMath` is enabled by default - set it to `false` to treat dollar signs as plain text.
+When `true`, parses `$...$` as inline math and `$$...$$` as display (block) math. Rendering on web uses [KaTeX](https://katex.org/) and natively [RaTeX](https://github.com/erweixin/RaTeX). Unlike the other flags on this page, `latexMath` is enabled by default - set it to `false` to treat dollar signs as plain text.
 
 <PropInfo type="boolean" default="true" />
 
@@ -322,7 +322,8 @@ Controls the built-in actions in the native text selection menu (and the table/m
 interface SelectionMenuConfig {
   copy?: { label?: string }; // system Copy: relabel only, cannot be hidden
   copyAsMarkdown?: { enabled?: boolean; label?: string };
-  copyImageUrl?: { // shown when the selection contains images
+  copyImageUrl?: {
+    // shown when the selection contains images
     enabled?: boolean;
     label?: string; // single image
     pluralLabels?: SelectionMenuPluralLabels; // multiple images
@@ -371,7 +372,8 @@ interface AccessibilityLabels {
   math?: {
     equation?: string; // {latex} is the equation source
   };
-  rotor?: { // iOS only, Android has no rotor
+  rotor?: {
+    // iOS only, Android has no rotor
     headings?: string;
     links?: string;
     images?: string;

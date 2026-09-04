@@ -5,13 +5,15 @@ sidebar_position: 3
 
 # Feature support
 
+:::caution
+The matrix does not look correct, verify it before pushing the docs
+:::
+
 Which features are implemented in each **library** - native iOS, native
 Android, and React Native - organized by component and by how the feature is
-enabled. The React Native column is tracked separately because a feature can
-exist in a native SDK before it is surfaced in the React Native wrapper. The
-**Web** column covers React Native for Web (via
+enabled. The **Web** column covers React Native for Web (via
 [`react-native-web`](https://necolas.github.io/react-native-web/)) and applies
-only to `EnrichedMarkdownText` - the editor is native-only. For the syntax
+only to `EnrichedMarkdownText` - the editor is currently native-only. For the syntax
 itself see [Core concepts](/introduction/core-concepts); for per-element detail
 and style properties see each platform's **Element structure** reference.
 
@@ -57,28 +59,28 @@ unconditionally).
 
 ### Inline extensions
 
-Toggled independently through the `md4cFlags` prop (each off by default), not
+Toggled independently through the `md4cFlags` prop (most fot them off by default), not
 the flavor. The one exception is **strikethrough color**, which is not an
 `md4cFlags` flag but a `markdownStyle.strikethrough.color` style property.
 
-| Feature                | iOS | Android |  React Native  | Web  |
-| ---------------------- | :-: | :-----: | :------------: | :--: |
-| Underline (`_text_`)   | Yes |   Yes   |      Yes       | Yes  |
-| Strikethrough color    | Yes |   No    | Yes (iOS only) | Yes  |
-| Superscript (`^text^`) | Yes |   Yes   |      Yes       | Yes  |
-| Subscript (`~text~`)   | Yes |   Yes   |      Yes       | Yes  |
-| Highlight (`==text==`) | Yes |   Yes   |      Yes       | Yes  |
+| Feature                | iOS | Android |  React Native  | Web |
+| ---------------------- | :-: | :-----: | :------------: | :-: |
+| Underline (`_text_`)   | Yes |   Yes   |      Yes       | Yes |
+| Strikethrough color    | Yes |   No    | Yes (iOS only) | Yes |
+| Superscript (`^text^`) | Yes |   Yes   |      Yes       | Yes |
+| Subscript (`~text~`)   | Yes |   Yes   |      Yes       | Yes |
+| Highlight (`==text==`) | Yes |   Yes   |      Yes       | Yes |
 
 ### Advanced features
 
 Each has its own page under **Rich text formatting**.
 
-| Feature                 | iOS | Android | React Native | Web  | Learn more                                                         |
-| ----------------------- | :-: | :-----: | :----------: | :--: | ------------------------------------------------------------------ |
-| LaTeX math              | Yes |   Yes   |     Yes      | Yes  | [LaTeX math](/rich-text-formatting/latex-math)                     |
-| Mentions                | Yes |   Yes   |     Yes      | Yes  | [Mentions](/rich-text-formatting/mentions)                         |
-| Code-block highlighting | Yes |   Yes   |     Yes      |  No  | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
-| Markdown streaming      | Yes |   Yes   |     Yes      |  No  | [Markdown streaming](/rich-text-formatting/markdown-streaming)     |
+| Feature                 | iOS | Android | React Native | Web | Learn more                                                         |
+| ----------------------- | :-: | :-----: | :----------: | :-: | ------------------------------------------------------------------ |
+| LaTeX math              | Yes |   Yes   |     Yes      | Yes | [LaTeX math](/rich-text-formatting/latex-math)                     |
+| Mentions                | Yes |   Yes   |     Yes      | Yes | [Mentions](/rich-text-formatting/mentions)                         |
+| Code-block highlighting | Yes |   Yes   |     Yes      | No  | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
+| Markdown streaming      | Yes |   Yes   |     Yes      | No  | [Markdown streaming](/rich-text-formatting/markdown-streaming)     |
 
 ## EnrichedMarkdownTextInput
 
@@ -118,12 +120,12 @@ Toggled through the editor's `toggle*` ref methods. `Spoiler` (`||text||`) is an
 editor-exclusive inline style with no counterpart in the read-only renderer's
 table above.
 
-| Feature                 | iOS | Android | React Native |
-| ----------------------- | :-: | :-----: | :----------: |
-| Underline               | Yes |   Yes   |     Yes      |
-| Spoiler (`\|\|text\|\|`)  | Yes |   Yes   |     Yes      |
-| Superscript / subscript | No  |   No    |      No      |
-| Highlight               | No  |   No    |      No      |
+| Feature                  | iOS | Android | React Native |
+| ------------------------ | :-: | :-----: | :----------: |
+| Underline                | Yes |   Yes   |     Yes      |
+| Spoiler (`\|\|text\|\|`) | Yes |   Yes   |     Yes      |
+| Superscript / subscript  | No  |   No    |      No      |
+| Highlight                | No  |   No    |      No      |
 
 ### Advanced features
 

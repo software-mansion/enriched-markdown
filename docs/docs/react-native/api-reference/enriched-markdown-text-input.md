@@ -133,7 +133,7 @@ Text shown while the input is empty.
 
 <PropInfo type="string" />
 
-:::note
+:::important
 The placeholder is plain text, not Markdown. Unlike [`defaultValue`](#defaultvalue), Markdown syntax here is shown literally - `**bold**` appears as those raw characters, never as bold text. It is drawn as a plain label, so it also ignores [`markdownStyle`](#markdownstyle); use [`placeholderTextColor`](#placeholdertextcolor) and the base `style` font to style it.
 :::
 
