@@ -25,6 +25,10 @@ class SpanStyleCache(
   val codeFontFamily: String = style.codeStyle.fontFamily
   val codeFontSize: Float = style.codeStyle.fontSize
   val codeColor: Int = style.codeStyle.color
+  val superscriptFontScale: Float = style.superscriptStyle.fontScale
+  val superscriptBaselineOffsetScale: Float = style.superscriptStyle.baselineOffsetScale
+  val subscriptFontScale: Float = style.subscriptStyle.fontScale
+  val subscriptBaselineOffsetScale: Float = style.subscriptStyle.baselineOffsetScale
 
   private fun buildColorsToPreserve(style: StyleConfig): IntArray {
     val paragraphColor = style.paragraphStyle.color

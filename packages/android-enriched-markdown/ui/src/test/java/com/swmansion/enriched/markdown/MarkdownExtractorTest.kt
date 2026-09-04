@@ -21,6 +21,8 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.strong
+import com.swmansion.enriched.markdown.test.TestAstFactory.subscript
+import com.swmansion.enriched.markdown.test.TestAstFactory.superscript
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.thematicBreak
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
@@ -103,6 +105,39 @@ class MarkdownExtractorTest {
           ),
         ),
         "300 million years",
+      ),
+    )
+  }
+
+  @Test
+  fun extractsSuperscriptText() {
+    assertEquals(
+      "^2^",
+      extractSelectingText(
+        document(
+          paragraph(
+            text("x"),
+            superscript(text("2")),
+          ),
+        ),
+        "2",
+      ),
+    )
+  }
+
+  @Test
+  fun extractsSubscriptText() {
+    assertEquals(
+      "H~2~O",
+      extractSelectingText(
+        document(
+          paragraph(
+            text("H"),
+            subscript(text("2")),
+            text("O"),
+          ),
+        ),
+        "H2O",
       ),
     )
   }

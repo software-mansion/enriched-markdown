@@ -118,6 +118,23 @@ class ParserTest {
   }
 
   @Test
+  fun respectsSuperscriptAndSubscriptFlags() {
+    val withFlags =
+      requireNotNull(
+        parser.parseMarkdown("x^2^ and H~2~O", Md4cFlags(superscript = true, subscript = true)),
+      )
+    assertNotNull(withFlags.firstOfType(MarkdownASTNode.NodeType.Superscript))
+    assertNotNull(withFlags.firstOfType(MarkdownASTNode.NodeType.Subscript))
+
+    val withoutFlags =
+      requireNotNull(
+        parser.parseMarkdown("x^2^ and H~2~O"),
+      )
+    assertNull(withoutFlags.firstOfType(MarkdownASTNode.NodeType.Superscript))
+    assertNull(withoutFlags.firstOfType(MarkdownASTNode.NodeType.Subscript))
+  }
+
+  @Test
   fun parsesUnicodeContent() {
     val ast = requireNotNull(parser.parseMarkdown("Cześć 🌍"))
 

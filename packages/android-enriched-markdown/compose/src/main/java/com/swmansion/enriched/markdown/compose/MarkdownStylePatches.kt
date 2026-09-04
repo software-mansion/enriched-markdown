@@ -23,6 +23,8 @@ import com.swmansion.enriched.markdown.styles.LinkStyle
 import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
+import com.swmansion.enriched.markdown.styles.SubscriptStyle
+import com.swmansion.enriched.markdown.styles.SuperscriptStyle
 import com.swmansion.enriched.markdown.styles.TextAlignment
 import com.swmansion.enriched.markdown.styles.ThematicBreakStyle
 
@@ -267,6 +269,88 @@ class EmphasisStyleScope {
             fontFamily = existing.fontFamily
             fontStyle = existing.fontStyle
             color = existing.color
+          }
+        }
+      scope.apply(block)
+      return scope.toPatch()
+    }
+  }
+}
+
+@Immutable
+internal data class SuperscriptStylePatch(
+  val fontScale: Float? = null,
+  val baselineOffsetScale: Float? = null,
+) {
+  fun apply(base: SuperscriptStyle): SuperscriptStyle =
+    base.copy(
+      fontScale = fontScale ?: base.fontScale,
+      baselineOffsetScale = baselineOffsetScale ?: base.baselineOffsetScale,
+    )
+}
+
+@MarkdownStyleDsl
+class SuperscriptStyleScope {
+  var fontScale: Float? = null
+  var baselineOffsetScale: Float? = null
+
+  internal fun toPatch(): SuperscriptStylePatch =
+    SuperscriptStylePatch(
+      fontScale = fontScale,
+      baselineOffsetScale = baselineOffsetScale,
+    )
+
+  internal companion object {
+    fun merge(
+      existing: SuperscriptStylePatch?,
+      block: SuperscriptStyleScope.() -> Unit,
+    ): SuperscriptStylePatch {
+      val scope =
+        SuperscriptStyleScope().apply {
+          if (existing != null) {
+            fontScale = existing.fontScale
+            baselineOffsetScale = existing.baselineOffsetScale
+          }
+        }
+      scope.apply(block)
+      return scope.toPatch()
+    }
+  }
+}
+
+@Immutable
+internal data class SubscriptStylePatch(
+  val fontScale: Float? = null,
+  val baselineOffsetScale: Float? = null,
+) {
+  fun apply(base: SubscriptStyle): SubscriptStyle =
+    base.copy(
+      fontScale = fontScale ?: base.fontScale,
+      baselineOffsetScale = baselineOffsetScale ?: base.baselineOffsetScale,
+    )
+}
+
+@MarkdownStyleDsl
+class SubscriptStyleScope {
+  var fontScale: Float? = null
+  var baselineOffsetScale: Float? = null
+
+  internal fun toPatch(): SubscriptStylePatch =
+    SubscriptStylePatch(
+      fontScale = fontScale,
+      baselineOffsetScale = baselineOffsetScale,
+    )
+
+  internal companion object {
+    fun merge(
+      existing: SubscriptStylePatch?,
+      block: SubscriptStyleScope.() -> Unit,
+    ): SubscriptStylePatch {
+      val scope =
+        SubscriptStyleScope().apply {
+          if (existing != null) {
+            fontScale = existing.fontScale
+            baselineOffsetScale = existing.baselineOffsetScale
           }
         }
       scope.apply(block)

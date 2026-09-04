@@ -77,6 +77,8 @@ internal object DefaultStyles {
         ),
       strongStyle = StrongStyle(fontFamily = "", fontWeight = "bold", color = null),
       emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
+      superscriptStyle = SuperscriptStyle(fontScale = 0.65f, baselineOffsetScale = 0.35f),
+      subscriptStyle = SubscriptStyle(fontScale = 0.65f, baselineOffsetScale = 0.2f),
       codeStyle =
         CodeStyle(
           fontFamily = "",

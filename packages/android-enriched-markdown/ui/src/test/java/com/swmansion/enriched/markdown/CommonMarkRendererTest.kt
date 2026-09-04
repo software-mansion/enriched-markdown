@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.spans.BaselineShiftSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.CodeSpan
@@ -30,6 +31,8 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.softBreak
 import com.swmansion.enriched.markdown.test.TestAstFactory.strong
+import com.swmansion.enriched.markdown.test.TestAstFactory.subscript
+import com.swmansion.enriched.markdown.test.TestAstFactory.superscript
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.thematicBreak
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
@@ -265,5 +268,42 @@ class CommonMarkRendererTest {
     rendered.assertContains("italic")
     rendered.assertSpanCovers("bold", StrongSpan::class.java)
     rendered.assertSpanCovers("italic", EmphasisSpan::class.java)
+  }
+
+  @Test
+  fun rendersSuperscriptText() {
+    val rendered =
+      render(
+        document(
+          paragraph(
+            text("x"),
+            superscript(text("2")),
+          ),
+        ),
+      )
+
+    rendered.assertContains("2")
+    rendered.assertSpanCovers("2", BaselineShiftSpan::class.java)
+    val span = rendered.getSpans(0, rendered.length, BaselineShiftSpan::class.java).first()
+    assertEquals(BaselineShiftSpan.SpanType.SUPERSCRIPT, span.spanType)
+  }
+
+  @Test
+  fun rendersSubscriptText() {
+    val rendered =
+      render(
+        document(
+          paragraph(
+            text("H"),
+            subscript(text("2")),
+            text("O"),
+          ),
+        ),
+      )
+
+    rendered.assertContains("2")
+    rendered.assertSpanCovers("2", BaselineShiftSpan::class.java)
+    val span = rendered.getSpans(0, rendered.length, BaselineShiftSpan::class.java).first()
+    assertEquals(BaselineShiftSpan.SpanType.SUBSCRIPT, span.spanType)
   }
 }
