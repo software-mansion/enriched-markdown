@@ -35,6 +35,18 @@ export const ANCHORED_BLOCK_TYPES: ReadonlySet<BlockType> = new Set([
   ...LIST_ITEM_BLOCK_TYPES,
 ]);
 
+export function isListItem(block: BlockRange | null): block is BlockRange {
+  return block !== null && LIST_ITEM_BLOCK_TYPES.has(block.type);
+}
+
+const HEADING_BLOCK_TYPES_SET: ReadonlySet<BlockType> = new Set(
+  HEADING_BLOCK_TYPES
+);
+
+export function isHeading(block: BlockRange | null): block is BlockRange {
+  return block !== null && HEADING_BLOCK_TYPES_SET.has(block.type);
+}
+
 export function blockTypeForHeadingLevel(level: number): BlockType | null {
   return HEADING_BLOCK_TYPES[level - 1] ?? null;
 }
