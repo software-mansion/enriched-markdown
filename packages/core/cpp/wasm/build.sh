@@ -30,7 +30,8 @@ emcc \
   -o "$OUT_DIR/md4c.o"
 
 # Compile C++ sources and link everything together
-emcc \
+# em++, not emcc: linking C++ objects needs the C++ standard library.
+em++ \
   "$SCRIPT_DIR/md4c_wasm.cpp" \
   "$SCRIPT_DIR/ASTSerializer.cpp" \
   "$CPP_ROOT/parser/MD4CParser.cpp" \

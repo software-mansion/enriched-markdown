@@ -19,10 +19,11 @@ extern "C" {
  * @param subscript  1 → enable ~subscript~ spans; 0 → disable.
  * @param highlight  1 → enable ==highlight== spans; 0 → disable.
  * @param hardSoftBreaks 1 → treat soft breaks as hard breaks; 0 → collapse to space.
+ * @param permissiveAutolinks 1 → autolink bare URLs/e-mails; 0 → explicit links only.
  * @return           Null-terminated UTF-8 JSON string, valid until the next call.
  */
 const char *parseMarkdown(const char *markdown, int underline, int latexMath, int superscript, int subscript,
-                          int highlight, int hardSoftBreaks) {
+                          int highlight, int hardSoftBreaks, int permissiveAutolinks) {
   if (!markdown) {
     g_resultBuffer = "{\"type\":\"Document\"}";
     return g_resultBuffer.c_str();
@@ -35,6 +36,7 @@ const char *parseMarkdown(const char *markdown, int underline, int latexMath, in
   flags.subscript = (subscript != 0);
   flags.highlight = (highlight != 0);
   flags.hardSoftBreaks = (hardSoftBreaks != 0);
+  flags.permissiveAutolinks = (permissiveAutolinks != 0);
 
   Markdown::MD4CParser parser;
   auto root = parser.parse(std::string(markdown), flags);
