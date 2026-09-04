@@ -90,6 +90,8 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.Link, LinkRenderer(config))
       put(MarkdownASTNode.NodeType.Strong, StrongRenderer(config))
       put(MarkdownASTNode.NodeType.Emphasis, EmphasisRenderer(config))
+      put(MarkdownASTNode.NodeType.Strikethrough, StrikethroughRenderer())
+      put(MarkdownASTNode.NodeType.Underline, UnderlineRenderer())
       put(MarkdownASTNode.NodeType.Code, CodeRenderer(config))
       put(MarkdownASTNode.NodeType.Image, ImageRenderer())
       put(MarkdownASTNode.NodeType.LineBreak, lineBreakRenderer)

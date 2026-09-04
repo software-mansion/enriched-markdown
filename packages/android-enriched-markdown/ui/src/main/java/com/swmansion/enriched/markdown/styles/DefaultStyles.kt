@@ -77,6 +77,8 @@ internal object DefaultStyles {
         ),
       strongStyle = StrongStyle(fontFamily = "", fontWeight = "bold", color = null),
       emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
+      strikethroughStyle = StrikethroughStyle(color = null),
+      underlineStyle = UnderlineStyle(color = null),
       codeStyle =
         CodeStyle(
           fontFamily = "",

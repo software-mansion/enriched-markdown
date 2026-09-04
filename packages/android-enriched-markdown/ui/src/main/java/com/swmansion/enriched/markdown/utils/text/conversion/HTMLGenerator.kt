@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.utils.text.conversion
 
 import android.graphics.Typeface
 import android.text.Spannable
+import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.UnderlineSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
@@ -68,9 +69,11 @@ object HTMLGenerator {
     val linkColor: String
     val linkUnderline: Boolean
 
-    // Strong/Emphasis
+    // Strong/Emphasis/Strikethrough/Underline
     val strongColor: String?
     val emphasisColor: String?
+    val strikethroughColor: String?
+    val underlineColor: String?
 
     // Image
     val imageMarginBottom: Int
@@ -136,11 +139,15 @@ object HTMLGenerator {
       linkColor = colorToCSS(style.linkStyle.color)
       linkUnderline = style.linkStyle.underline
 
-      // Strong/Emphasis (nullable for inherit)
+      // Strong/Emphasis/Strikethrough/Underline (nullable for inherit)
       val sc = style.strongStyle.color
       strongColor = if (sc != null && sc != 0) colorToCSS(sc) else null
       val ec = style.emphasisStyle.color
       emphasisColor = if (ec != null && ec != 0) colorToCSS(ec) else null
+      val stc = style.strikethroughStyle.color
+      strikethroughColor = if (stc != null && stc != 0) colorToCSS(stc) else null
+      val uc = style.underlineStyle.color
+      underlineColor = if (uc != null && uc != 0) colorToCSS(uc) else null
 
       // Image
       val imgStyle = style.imageStyle
@@ -684,6 +691,7 @@ object HTMLGenerator {
     val styleSpans = text.getSpans(start, end, StyleSpan::class.java)
     val emphasisSpans = text.getSpans(start, end, EmphasisSpan::class.java)
     val underlineSpans = text.getSpans(start, end, UnderlineSpan::class.java)
+    val strikethroughSpans = text.getSpans(start, end, StrikethroughSpan::class.java)
     val linkSpans = text.getSpans(start, end, LinkSpan::class.java)
     val codeSpans = text.getSpans(start, end, CodeSpan::class.java)
 
@@ -694,6 +702,7 @@ object HTMLGenerator {
       emphasisSpans.isNotEmpty() ||
         styleSpans.any { it.style == Typeface.ITALIC || it.style == Typeface.BOLD_ITALIC }
     val isUnderline = underlineSpans.isNotEmpty()
+    val isStrikethrough = strikethroughSpans.isNotEmpty()
     val link = linkSpans.firstOrNull()
     val isCode = codeSpans.isNotEmpty() && !isCodeBlock
 
@@ -742,13 +751,26 @@ object HTMLGenerator {
       }
     }
 
+    if (isStrikethrough) {
+      if (styles.strikethroughColor != null) {
+        html.append("<s style=\"color: ").append(styles.strikethroughColor).append(";\">")
+      } else {
+        html.append("<s>")
+      }
+    }
+
     if (isUnderline && link == null) {
-      html.append("<u>")
+      if (styles.underlineColor != null) {
+        html.append("<u style=\"color: ").append(styles.underlineColor).append(";\">")
+      } else {
+        html.append("<u>")
+      }
     }
 
     escapeHTMLTo(html, content.trimEnd('\n'))
 
     if (isUnderline && link == null) html.append("</u>")
+    if (isStrikethrough) html.append("</s>")
     if (isItalic) html.append("</em>")
     if (isBold) html.append("</strong>")
     if (isCode) html.append("</code>")

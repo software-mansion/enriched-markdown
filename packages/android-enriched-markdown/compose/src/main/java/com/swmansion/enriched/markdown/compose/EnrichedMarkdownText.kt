@@ -16,12 +16,17 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdownText as NativeMarkdownTextView
+import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
+
+typealias Md4cFlags = Md4cFlagsInternal
 
 /**
  * Renders [markdown] using the native markdown TextView inside Compose.
  *
  * Style defaults come from the nearest [MarkdownTheme]. Override per instance via the [style]
  * parameter, or nest [MarkdownTheme] to scope styles to a subtree.
+ *
+ * [flags] selects the optional md4c syntax extensions.
  *
  * **Previews:** This component renders nothing in `@Preview` because it relies on [AndroidView].
  */
@@ -30,6 +35,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
+  flags: Md4cFlags = Md4cFlags.DEFAULT,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkPress: ((String) -> Unit)? = null,
@@ -63,6 +69,7 @@ fun EnrichedMarkdownText(
         setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
         setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
         setMarkdownStyle(styleConfig)
+        setMd4cFlags(flags)
         setIsSelectable(selectable)
         setImageRequestHeaders(imageRequestHeaders)
         setMarkdownContent(markdown)
@@ -72,6 +79,7 @@ fun EnrichedMarkdownText(
       view.setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
       view.setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
       view.setMarkdownStyle(styleConfig)
+      view.setMd4cFlags(flags)
       view.setIsSelectable(selectable)
       view.setImageRequestHeaders(imageRequestHeaders)
       view.setMarkdownContent(markdown)
