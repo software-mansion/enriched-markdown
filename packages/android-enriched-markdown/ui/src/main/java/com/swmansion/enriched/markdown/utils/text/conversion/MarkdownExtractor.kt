@@ -4,6 +4,7 @@ import android.text.Spannable
 import android.text.style.UnderlineSpan
 import android.widget.TextView
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BaselineShiftSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
@@ -254,29 +255,23 @@ object MarkdownExtractor {
     end: Int,
     state: ExtractionState,
   ): String? {
-    val orderedSpans = spannable.getSpans(start, end, OrderedListSpan::class.java)
-    val unorderedSpans = spannable.getSpans(start, end, UnorderedListSpan::class.java)
-    val taskSpans = spannable.getSpans(start, end, TaskListSpan::class.java)
+    // A list item's span covers its nested children, so ancestors are returned here too. The
+    // innermost span is the item this segment actually belongs to.
+    val listSpan =
+      spannable.getSpans(start, end, BaseListSpan::class.java).maxByOrNull { it.depth }
 
-    val orderedDepth = orderedSpans.maxOfOrNull { it.depth } ?: -1
-    val unorderedDepth = unorderedSpans.maxOfOrNull { it.depth } ?: -1
-    val taskDepth = taskSpans.maxOfOrNull { it.depth } ?: -1
-    val depth = maxOf(orderedDepth, unorderedDepth, taskDepth)
-
-    return if (depth >= 0) {
-      state.listDepth = depth
-      val indent = "  ".repeat(depth)
-      if (taskSpans.isNotEmpty()) {
-        val checkbox = if (taskSpans[0].isChecked) "[x]" else "[ ]"
-        "$indent- $checkbox "
-      } else if (orderedSpans.isNotEmpty()) {
-        "$indent${orderedSpans[0].itemNumber}. "
-      } else {
-        "$indent- "
-      }
-    } else {
+    if (listSpan == null) {
       if (state.listDepth >= 0) state.listDepth = -1
-      null
+      return null
+    }
+
+    state.listDepth = listSpan.depth
+    val indent = "  ".repeat(listSpan.depth)
+
+    return when (listSpan) {
+      is TaskListSpan -> "$indent- ${if (listSpan.isChecked) "[x]" else "[ ]"} "
+      is OrderedListSpan -> "$indent${listSpan.itemNumber}. "
+      else -> "$indent- "
     }
   }
 
