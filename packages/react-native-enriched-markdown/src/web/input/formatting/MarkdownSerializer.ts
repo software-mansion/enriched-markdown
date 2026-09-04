@@ -1,4 +1,4 @@
-import { clamp, isWhitespace } from '../utils';
+import { clamp, firstIndexReachingTarget, isWhitespace } from '../utils';
 import { LIST_ITEM_BLOCK_TYPES, type BlockRange } from '../model/blocks';
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
 
@@ -171,11 +171,12 @@ function serializeWithAnchors(
     return inlineMarkdown;
   }
 
-  // Plain-text character offset at the start of each line.
   const lineStartOffsets: number[] = [];
+  const lineEndOffsets: number[] = [];
   let runningOffset = 0;
   for (const line of plainLines) {
     lineStartOffsets.push(runningOffset);
+    lineEndOffsets.push(runningOffset + line.length);
     runningOffset += line.length + 1; // +1 for the '\n' separator
   }
 
@@ -187,14 +188,21 @@ function serializeWithAnchors(
 
     const isZeroLength = block.end === block.start;
     const isListItem = LIST_ITEM_BLOCK_TYPES.has(block.type);
-    for (let lineIndex = 0; lineIndex < plainLines.length; lineIndex++) {
+    for (
+      let lineIndex = firstIndexReachingTarget(
+        block.start,
+        lineEndOffsets.length,
+        (index) => lineEndOffsets[index]!
+      );
+      lineIndex < plainLines.length;
+      lineIndex++
+    ) {
       const lineStart = lineStartOffsets[lineIndex]!;
-      const lineEnd = lineStart + plainLines[lineIndex]!.length;
       const overlaps = isZeroLength
         ? lineStart === block.start
-        : lineEnd >= block.start && lineStart < block.end;
+        : lineStart < block.end;
       if (!overlaps) {
-        continue;
+        break;
       }
       // A marker-only list line ("- " with no content) re-parses as a setext
       // underline for the previous line; emit an empty list line bare. An
