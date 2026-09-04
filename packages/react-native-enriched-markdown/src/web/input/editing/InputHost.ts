@@ -8,7 +8,7 @@ import { ENRM_INPUT_CLASS, injectInputStyles } from '../render/inputStyles';
 import { EditPipeline } from './EditPipeline';
 import { EditSession } from './EditSession';
 import { SelectionMapper } from './SelectionMapper';
-import { backwardStep, forwardStep } from '../utils';
+import { charLengthBefore, charLengthAfter } from '../utils';
 
 export interface InputHostCallbacks {
   onChangeText?: (text: string) => void;
@@ -169,7 +169,7 @@ export class InputHost {
     if (start === 0) {
       return;
     }
-    const deleteFrom = start - backwardStep(this.text, start);
+    const deleteFrom = start - charLengthBefore(this.text, start);
     this.applyEdit(deleteFrom, this.text.slice(deleteFrom, start), '');
   }
 
@@ -182,7 +182,7 @@ export class InputHost {
     if (end >= this.text.length) {
       return;
     }
-    const deleteTo = end + forwardStep(this.text, end);
+    const deleteTo = end + charLengthAfter(this.text, end);
     this.applyEdit(end, this.text.slice(end, deleteTo), '');
   }
 

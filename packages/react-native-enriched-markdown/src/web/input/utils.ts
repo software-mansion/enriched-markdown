@@ -36,9 +36,10 @@ function isLowSurrogate(code: number): boolean {
   return code >= 0xdc00 && code <= 0xdfff;
 }
 
-// Deleting half a surrogate pair would corrupt the buffer, so a delete step
-// spans the whole pair.
-export function backwardStep(text: string, position: number): number {
+// Length in UTF-16 units of the character before/after `position`: 2 for a
+// surrogate pair (an emoji), else 1. Deleting half a pair would corrupt the
+// buffer, so deletes remove whole characters.
+export function charLengthBefore(text: string, position: number): number {
   return position >= 2 &&
     isLowSurrogate(text.charCodeAt(position - 1)) &&
     isHighSurrogate(text.charCodeAt(position - 2))
@@ -46,7 +47,7 @@ export function backwardStep(text: string, position: number): number {
     : 1;
 }
 
-export function forwardStep(text: string, position: number): number {
+export function charLengthAfter(text: string, position: number): number {
   return position + 1 < text.length &&
     isHighSurrogate(text.charCodeAt(position)) &&
     isLowSurrogate(text.charCodeAt(position + 1))
