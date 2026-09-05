@@ -286,6 +286,82 @@
   ENRMSetNeedsDisplay(textView);
 }
 
+- (void)applyBaseLineHeightToTextView:(ENRMPlatformTextView *)textView
+                                style:(ENRMInputFormatterStyle *)style
+                        scopedToRange:(NSRange)scope
+{
+  NSTextStorage *textStorage = textView.textStorage;
+  NSUInteger textLength = textStorage.length;
+  if (textLength == 0) {
+    return;
+  }
+
+  NSUInteger scopeStart = MIN(scope.location, textLength);
+  NSUInteger scopeEnd = MIN(NSMaxRange(scope), textLength);
+  if (scopeEnd <= scopeStart) {
+    return;
+  }
+  NSRange scopeRange = NSMakeRange(scopeStart, scopeEnd - scopeStart);
+
+  CGFloat lineHeight = style.baseLineHeight > 0 ? style.baseLineHeight : 0;
+  CGFloat baseFontSize = style.baseFont.pointSize;
+
+  // Collect target paragraph styles first, then write them in one pass — mutating
+  // NSParagraphStyleAttributeName while enumerating the same attribute is unsafe.
+  NSMutableArray<NSValue *> *targetRanges = [NSMutableArray array];
+  NSMutableArray<NSParagraphStyle *> *targetStyles = [NSMutableArray array];
+
+  [textStorage enumerateAttribute:NSParagraphStyleAttributeName
+                          inRange:scopeRange
+                          options:0
+                       usingBlock:^(NSParagraphStyle *existing, NSRange range, BOOL *stop) {
+                         // Nothing to set and nothing to clear on an unstyled run.
+                         if (existing == nil && lineHeight <= 0) {
+                           return;
+                         }
+
+                         // Clamp (maximumLineHeight) only paragraphs whose glyphs fit the
+                         // requested height. Larger fonts (headings) and attachments keep an
+                         // unbounded max so a small lineHeight never clips them, mirroring
+                         // Android where small values compress body text but spare tall lines.
+                         __block BOOL allowClamp = YES;
+                         if (lineHeight > 0) {
+                           [textStorage enumerateAttributesInRange:range
+                                                           options:0
+                                                        usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attrs,
+                                                                     NSRange r, BOOL *innerStop) {
+                                                          UIFont *font = attrs[NSFontAttributeName];
+                                                          if ((font && font.pointSize > baseFontSize + 0.5) ||
+                                                              attrs[NSAttachmentAttributeName] != nil) {
+                                                            allowClamp = NO;
+                                                            *innerStop = YES;
+                                                          }
+                                                        }];
+                         }
+
+                         NSMutableParagraphStyle *paragraphStyle =
+                             existing ? [existing mutableCopy] : [[NSMutableParagraphStyle alloc] init];
+                         [style applyLineHeightToParagraphStyle:paragraphStyle allowClamp:allowClamp];
+
+                         if (existing != nil && existing.minimumLineHeight == paragraphStyle.minimumLineHeight &&
+                             existing.maximumLineHeight == paragraphStyle.maximumLineHeight) {
+                           return;
+                         }
+                         [targetRanges addObject:[NSValue valueWithRange:range]];
+                         [targetStyles addObject:paragraphStyle];
+                       }];
+
+  if (targetRanges.count == 0) {
+    return;
+  }
+
+  [textStorage beginEditing];
+  for (NSUInteger i = 0; i < targetRanges.count; i++) {
+    [textStorage addAttribute:NSParagraphStyleAttributeName value:targetStyles[i] range:targetRanges[i].rangeValue];
+  }
+  [textStorage endEditing];
+}
+
 /// Applies `blockFont` over `range` while preserving the symbolic traits already
 /// present on each existing font run (set by the inline formatting pass). The
 /// resulting font takes its size and descriptor from `blockFont` but unions in

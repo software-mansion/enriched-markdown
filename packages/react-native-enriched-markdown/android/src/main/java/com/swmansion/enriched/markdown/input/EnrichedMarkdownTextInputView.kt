@@ -127,6 +127,9 @@ class EnrichedMarkdownTextInputView(
   private var headingOverrideBaseSizePx: Float? = null
   private var baseHintColor: Int? = null
 
+  private var lineHeightDip: Float = 0f
+  private var baseFontSizePx: Float = ceil(PixelUtil.toPixelFromSP(16f))
+
   // Number of ZWSP empty-list anchors believed live in the buffer. Bumped on insert,
   // made exact on every strip scan (which recounts what it keeps), and reset when the
   // buffer is replaced. Incoming markdown is scrubbed of U+200B at parse time, so in
@@ -950,8 +953,24 @@ class EnrichedMarkdownTextInputView(
   fun setFontSizeFromProps(size: Float) {
     if (size <= 0f) return
     val sizePx = ceil(PixelUtil.toPixelFromSP(size))
+    baseFontSizePx = sizePx
     setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
+    applyLineHeight()
     layoutManager.invalidateLayout()
+  }
+
+  fun setLineHeightFromProps(value: Float) {
+    lineHeightDip = value
+    applyLineHeight()
+    layoutManager.invalidateLayout()
+  }
+
+  private fun applyLineHeight() {
+    if (lineHeightDip > 0f) {
+      setLineSpacing(PixelUtil.toPixelFromDIP(lineHeightDip) - baseFontSizePx, 1f)
+    } else {
+      setLineSpacing(0f, 1f)
+    }
   }
 
   fun setColorFromProps(colorInt: Int?) {
