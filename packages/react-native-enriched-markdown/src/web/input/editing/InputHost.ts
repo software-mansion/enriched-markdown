@@ -393,13 +393,13 @@ export class InputHost {
     if (domSelection === null) {
       return;
     }
-    // Compare in model offsets: a boundary caret has two DOM addresses, so
-    // node identity would report false divergence on every render.
     const current = this.mapper.modelSelectionFromDom(domSelection);
+    const collapsed = this.selection.start === this.selection.end;
     if (
       current !== null &&
       current.start === this.selection.start &&
-      current.end === this.selection.end
+      current.end === this.selection.end &&
+      domSelection.isCollapsed === collapsed
     ) {
       return;
     }
