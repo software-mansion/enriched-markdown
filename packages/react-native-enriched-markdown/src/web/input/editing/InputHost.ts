@@ -19,6 +19,13 @@ import { TypingAttributesController } from './TypingAttributesController';
 import { buildInputState, sameInputState, type InputState } from './InputState';
 import { charLengthBefore, charLengthAfter } from '../utils';
 
+export interface CaretRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface InputHostCallbacks {
   onChangeText?: (text: string) => void;
   onChangeSelection?: (selection: RangeBounds) => void;
@@ -40,6 +47,7 @@ export class InputHost {
 
   private text = '';
   private selection: RangeBounds = { start: 0, end: 0 };
+  private editable = true;
   private lastEmittedState: InputState | null = null;
 
   constructor(root: HTMLElement, callbacks: InputHostCallbacks = {}) {
@@ -99,6 +107,39 @@ export class InputHost {
     );
   }
 
+  focus(): void {
+    this.root.focus();
+  }
+
+  setEditable(editable: boolean): void {
+    this.editable = editable;
+    this.root.contentEditable = editable ? 'true' : 'false';
+  }
+
+  caretRect(): CaretRect | null {
+    const position = this.mapper.domPositionFromModelOffset(
+      this.selection.start
+    );
+    if (position === null) {
+      return null;
+    }
+    const range = this.root.ownerDocument.createRange();
+    range.setStart(position.node, position.offset);
+    range.collapse(true);
+    const rect = range.getBoundingClientRect();
+    const rootRect = this.root.getBoundingClientRect();
+    return {
+      x: rect.left - rootRect.left,
+      y: rect.top - rootRect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  blur(): void {
+    this.root.blur();
+  }
+
   async setValue(markdown: string): Promise<void> {
     const { plainText, formattingRanges, blockRanges } =
       await parseToPlainTextAndRanges(markdown);
@@ -111,6 +152,18 @@ export class InputHost {
     });
     this.render();
     this.emitTextEdited();
+  }
+
+  setSelection(start: number, end: number): void {
+    const max = this.text.length;
+    const clampedStart = Math.max(0, Math.min(start, max));
+    this.selection = {
+      start: clampedStart,
+      end: Math.max(clampedStart, Math.min(end, max)),
+    };
+    this.render();
+    this.resetTypingAfterSelectionMove();
+    this.emitSelectionMoved();
   }
 
   indentList(): void {
@@ -158,6 +211,10 @@ export class InputHost {
   }
 
   private readonly handleBeforeInput = (event: InputEvent): void => {
+    if (!this.editable) {
+      event.preventDefault();
+      return;
+    }
     // During composition the browser owns the DOM; the read-back step will
     // reconcile it later.
     if (this.session.isComposing) {
@@ -200,7 +257,7 @@ export class InputHost {
   // Tab never reaches beforeinput (the browser moves focus), so it is the
   // one key handled here.
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'Tab' || this.session.isComposing) {
+    if (!this.editable || event.key !== 'Tab' || this.session.isComposing) {
       return;
     }
     event.preventDefault();
@@ -310,6 +367,10 @@ export class InputHost {
     this.typing.toggleStyle(type, wasActive, start !== end);
     this.render();
     this.emitFormattingChanged();
+  }
+
+  insertText(text: string): void {
+    this.replaceSelection(text);
   }
 
   private replaceSelection(insertedText: string): void {
