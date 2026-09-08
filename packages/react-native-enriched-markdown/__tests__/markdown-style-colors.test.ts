@@ -27,6 +27,15 @@ it('keeps the default marker color when the color is explicitly undefined', () =
   expect(result.list.markerColor).toBe(defaultMarkerColor);
 });
 
+it('keeps the default marker color when the color is explicitly null', () => {
+  const result = normalizeMarkdownStyle({
+    list: { markerColor: null as unknown as string },
+  });
+
+  expect(result.list.markerColor).toBe(defaultMarkerColor);
+  expect(result.list.markerColor).not.toBeNull();
+});
+
 it('passes a valid marker color through unchanged', () => {
   const result = normalizeMarkdownStyle({
     list: { markerColor: '#123456' },

@@ -44,7 +44,7 @@ export function mergeSubStyle<T extends Record<string, unknown>>(
       const value = result[key];
       if (typeof value === 'string') {
         result[key] = normalizeColor(value) ?? defaultValue;
-      } else if (value === undefined) {
+      } else if (value === undefined || value === null) {
         result[key] = defaultValue;
       }
     }
