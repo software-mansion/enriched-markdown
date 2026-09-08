@@ -50,11 +50,22 @@ function listRules(): string {
 const INPUT_CSS = `
 .${ENRM_INPUT_CLASS} {
   white-space: pre-wrap;
+  position: relative;
   overflow-wrap: break-word;
   font-family: ${defaults.paragraph.fontFamily};
   font-size: ${defaults.paragraph.fontSize}px;
   line-height: ${defaults.paragraph.lineHeight}px;
   color: ${defaults.paragraph.color};
+}
+.${ENRM_INPUT_CLASS}[data-empty]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: inherit;
+  color: var(--enrm-placeholder-color, #9ca3af);
+  pointer-events: none;
+  white-space: pre-wrap;
 }
 .${ENRM_INPUT_CLASS} [data-block] {
   position: relative;
