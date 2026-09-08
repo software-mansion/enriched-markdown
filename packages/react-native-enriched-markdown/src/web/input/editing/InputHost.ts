@@ -21,6 +21,13 @@ import {
   isWhitespace,
 } from '../utils';
 
+export interface CaretRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface InputHostCallbacks {
   onChangeText?: (text: string) => void;
   onChangeSelection?: (selection: RangeBounds) => void;
@@ -59,6 +66,7 @@ export class InputHost {
   // because the editor is inert while one is parsing.
   private importGeneration = 0;
   private pendingImports = 0;
+  private editable = true;
   private lastEmittedState: InputState | null = null;
 
   constructor(
@@ -157,6 +165,39 @@ export class InputHost {
     await this.loadValue(markdown);
   }
 
+  focus(): void {
+    this.root.focus();
+  }
+
+  setEditable(editable: boolean): void {
+    this.editable = editable;
+    this.root.contentEditable = editable ? 'true' : 'false';
+  }
+
+  caretRect(): CaretRect | null {
+    const position = this.mapper.domPositionFromModelOffset(
+      this.selection.start
+    );
+    if (position === null) {
+      return null;
+    }
+    const range = this.root.ownerDocument.createRange();
+    range.setStart(position.node, position.offset);
+    range.collapse(true);
+    const rect = range.getBoundingClientRect();
+    const rootRect = this.root.getBoundingClientRect();
+    return {
+      x: rect.left - rootRect.left,
+      y: rect.top - rootRect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  blur(): void {
+    this.root.blur();
+  }
+
   // The imperative command path: loads the markdown and then reports it, the
   // way iOS's `setValue:` command re-emits once the import returns. Keeping
   // the two apart matters at the wrapper, where one `setValue` serving both
@@ -197,6 +238,18 @@ export class InputHost {
     });
     this.render();
     return true;
+  }
+
+  setSelection(start: number, end: number): void {
+    const max = this.text.length;
+    const clampedStart = Math.max(0, Math.min(start, max));
+    this.selection = {
+      start: clampedStart,
+      end: Math.max(clampedStart, Math.min(end, max)),
+    };
+    this.render();
+    this.resetTypingAfterSelectionMove();
+    this.emitSelectionMoved();
   }
 
   indentList(): void {
@@ -244,6 +297,10 @@ export class InputHost {
   }
 
   private readonly handleBeforeInput = (event: InputEvent): void => {
+    if (!this.editable) {
+      event.preventDefault();
+      return;
+    }
     // The browser owns the DOM during a composition and `beforeinput` for
     // `insertCompositionText` is not cancelable in every engine, so the model
     // stays out of the way and reads the result back on `compositionend`.
@@ -333,7 +390,7 @@ export class InputHost {
   // Tab never reaches beforeinput (the browser moves focus), so it is the
   // one key handled here.
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'Tab' || this.session.isComposing) {
+    if (!this.editable || event.key !== 'Tab' || this.session.isComposing) {
       return;
     }
     event.preventDefault();
@@ -534,6 +591,10 @@ export class InputHost {
     this.typing.toggleStyle(type, wasActive, start !== end);
     this.render();
     this.emitFormattingChanged();
+  }
+
+  insertText(text: string): void {
+    this.replaceSelection(text);
   }
 
   private replaceSelection(insertedText: string): void {
