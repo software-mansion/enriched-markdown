@@ -3,7 +3,7 @@ import {
   DEFAULT_LINK_COLOR,
   DEFAULT_SPOILER_BG_COLOR,
   DEFAULT_SPOILER_COLOR,
-} from '../../../normalizeMarkdownTextInputStyle';
+} from '../../../inputStyleDefaults';
 import { injectStyleOnce } from '../../injectStyle';
 import {
   HEADING_BLOCK_TYPES,

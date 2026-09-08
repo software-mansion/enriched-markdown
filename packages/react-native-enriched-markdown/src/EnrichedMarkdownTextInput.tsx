@@ -51,16 +51,16 @@ import type {
   MarkdownTextInputInstance,
   StyleState,
 } from './types/MarkdownTextInputInstance';
+import type {
+  HeadingStyle,
+  LinkStyle,
+  MarkdownTextInputStyle,
+} from './types/MarkdownTextInputStyle';
 
 type NativeRef = HostInstance;
 
-export interface LinkStyle {
-  color?: string;
-  underline?: boolean;
-  backgroundColor?: string;
-}
-
 export type { HeadingLevel, StyleState, CaretRect };
+export type { HeadingStyle, LinkStyle, MarkdownTextInputStyle };
 export type EnrichedMarkdownTextInputInstance =
   MarkdownTextInputInstance<HostInstance>;
 
@@ -68,47 +68,6 @@ const VALID_HEADING_LEVELS = new Set<number>([1, 2, 3, 4, 5, 6]);
 
 function toHeadingLevel(n: number): HeadingLevel {
   return (VALID_HEADING_LEVELS.has(n) ? n : 1) as HeadingLevel;
-}
-
-export interface HeadingStyle {
-  fontSize?: number;
-  fontWeight?: string;
-  color?: string;
-}
-
-export interface MarkdownTextInputStyle {
-  strong?: {
-    color?: string;
-  };
-  em?: {
-    color?: string;
-  };
-  link?: LinkStyle;
-  linkVariants?: Record<string, LinkStyle>;
-  spoiler?: {
-    color?: string;
-    backgroundColor?: string;
-  };
-  /**
-   * Per-level heading styling for the editor, mirroring the readonly
-   * renderer's `markdownStyle` h1..h6. Omitted levels fall back to defaults
-   * (font sizes 30/24/20/18/16/14).
-   */
-  h1?: HeadingStyle;
-  h2?: HeadingStyle;
-  h3?: HeadingStyle;
-  h4?: HeadingStyle;
-  h5?: HeadingStyle;
-  h6?: HeadingStyle;
-  /** List styling shared by bullet and numbered lists. */
-  list?: {
-    /**
-     * Vertical spacing (points) added above each list item so items read as
-     * separate rows. iOS uses `paragraphSpacingBefore`; Android a `LineHeightSpan`.
-     * @default 0
-     */
-    itemSpacing?: number;
-  };
 }
 
 export interface ContextMenuItem {
