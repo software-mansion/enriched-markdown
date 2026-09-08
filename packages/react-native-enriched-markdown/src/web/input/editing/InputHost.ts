@@ -436,12 +436,15 @@ export class InputHost {
       return;
     }
     this.selection = mapped;
-    if (!this.session.isPostEditGracePeriod) {
-      this.typing.resetForSelectionChange(mapped);
-    }
-    this.callbacks.onChangeSelection?.(mapped);
-    this.emitState();
+    this.resetTypingAfterSelectionMove();
+    this.emitSelectionMoved();
   };
+
+  private resetTypingAfterSelectionMove(): void {
+    if (!this.session.isPostEditGracePeriod) {
+      this.typing.resetForSelectionChange(this.selection);
+    }
+  }
 
   // The browser owns the DOM through a composition, so the composed text
   // lands without the model seeing it. This recovers it afterwards: read the
@@ -741,6 +744,11 @@ export class InputHost {
   private emitFormattingChanged(): void {
     this.emitState();
     this.emitMarkdown();
+  }
+
+  private emitSelectionMoved(): void {
+    this.emitSelection();
+    this.emitState();
   }
 }
 
