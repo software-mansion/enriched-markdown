@@ -1,6 +1,10 @@
 import { BlockStore, lineAtPosition } from '../formatting/BlockStore';
 import { FormattingStore } from '../formatting/FormattingStore';
 import { parseToPlainTextAndRanges } from '../formatting/InputParser';
+import {
+  markdownLinePrefix,
+  serialize,
+} from '../formatting/MarkdownSerializer';
 import type { RangeBounds } from '../model/rangeBounds';
 import { DomRenderer } from '../render/DomRenderer';
 import { projectParagraphs } from '../render/InputProjection';
@@ -19,6 +23,7 @@ export interface InputHostCallbacks {
   onChangeText?: (text: string) => void;
   onChangeSelection?: (selection: RangeBounds) => void;
   onChangeState?: (state: InputState) => void;
+  onChangeMarkdown?: (markdown: string) => void;
 }
 
 export class InputHost {
@@ -85,6 +90,15 @@ export class InputHost {
     return this.text;
   }
 
+  getMarkdown(): string {
+    return serialize(
+      this.text,
+      this.formattingStore.allRanges,
+      this.blockStore.allRanges,
+      markdownLinePrefix
+    );
+  }
+
   async setValue(markdown: string): Promise<void> {
     const { plainText, formattingRanges, blockRanges } =
       await parseToPlainTextAndRanges(markdown);
@@ -96,7 +110,7 @@ export class InputHost {
       this.selection = { start: plainText.length, end: plainText.length };
     });
     this.render();
-    this.emitChanges();
+    this.emitTextEdited();
   }
 
   indentList(): void {
@@ -140,7 +154,7 @@ export class InputHost {
       this.blockCoordinator.toggleHeading(level, this.selection, this.text)
     );
     this.render();
-    this.emitState();
+    this.emitFormattingChanged();
   }
 
   private readonly handleBeforeInput = (event: InputEvent): void => {
@@ -273,6 +287,7 @@ export class InputHost {
     );
     if (changed) {
       this.render();
+      this.emitFormattingChanged();
     }
   }
 
@@ -281,7 +296,7 @@ export class InputHost {
       this.blockCoordinator.toggleListType(type, this.selection, this.text)
     );
     this.render();
-    this.emitState();
+    this.emitFormattingChanged();
   }
 
   private toggleInlineStyle(type: InputStyleType): void {
@@ -291,7 +306,7 @@ export class InputHost {
     );
     this.typing.toggleStyle(type, wasActive, start !== end);
     this.render();
-    this.emitState();
+    this.emitFormattingChanged();
   }
 
   private replaceSelection(insertedText: string): void {
@@ -349,8 +364,7 @@ export class InputHost {
       this.session.recordTextChange();
     });
     this.render();
-    this.emitChanges();
-    this.emitState();
+    this.emitTextEdited();
   }
 
   private render(): void {
@@ -402,11 +416,17 @@ export class InputHost {
     );
   }
 
-  private emitChanges(): void {
+  private emitText(): void {
     if (this.session.shouldSuppressEvents) {
       return;
     }
     this.callbacks.onChangeText?.(this.text);
+  }
+
+  private emitSelection(): void {
+    if (this.session.shouldSuppressEvents) {
+      return;
+    }
     this.callbacks.onChangeSelection?.(this.selection);
   }
 
@@ -429,5 +449,24 @@ export class InputHost {
     }
     this.lastEmittedState = state;
     this.callbacks.onChangeState?.(state);
+  }
+
+  private emitMarkdown(): void {
+    if (this.session.shouldSuppressEvents || !this.callbacks.onChangeMarkdown) {
+      return;
+    }
+    this.callbacks.onChangeMarkdown(this.getMarkdown());
+  }
+
+  private emitTextEdited(): void {
+    this.emitText();
+    this.emitSelection();
+    this.emitState();
+    this.emitMarkdown();
+  }
+
+  private emitFormattingChanged(): void {
+    this.emitState();
+    this.emitMarkdown();
   }
 }
