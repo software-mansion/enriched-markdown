@@ -10,7 +10,7 @@ export interface InputState {
   underline: { isActive: boolean };
   strikethrough: { isActive: boolean };
   spoiler: { isActive: boolean };
-  link: { isActive: boolean };
+  link: { isActive: boolean; destination: string };
   heading: { isActive: boolean; level: number };
   unorderedList: { isActive: boolean; depth: number };
   orderedList: { isActive: boolean; depth: number };
@@ -40,7 +40,14 @@ function inlineStates(
     underline: { isActive: active('underline') },
     strikethrough: { isActive: active('strikethrough') },
     spoiler: { isActive: active('spoiler') },
-    link: { isActive: active('link') },
+    // The destination comes from the same range `isActive` reads, so the two
+    // never disagree. It stays `""` with no link there, which is also what a
+    // link with an empty url reports.
+    link: {
+      isActive: active('link'),
+      destination:
+        formattingStore.rangeOfType('link', selection.start)?.url ?? '',
+    },
   };
 }
 
@@ -71,6 +78,7 @@ export function sameInputState(a: InputState, b: InputState): boolean {
     a.strikethrough.isActive === b.strikethrough.isActive &&
     a.spoiler.isActive === b.spoiler.isActive &&
     a.link.isActive === b.link.isActive &&
+    a.link.destination === b.link.destination &&
     a.heading.isActive === b.heading.isActive &&
     a.heading.level === b.heading.level &&
     a.unorderedList.isActive === b.unorderedList.isActive &&
