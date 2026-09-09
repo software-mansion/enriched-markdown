@@ -319,6 +319,31 @@ Whether to preserve the bottom margin of the last block element.
 | --------- | ------------- | -------- |
 | `boolean` | `false`        | Both     |
 
+### `numberOfLines`
+
+Clamps the rendered markdown to a maximum number of lines, truncating with an ellipsis (see [`ellipsizeMode`](#ellipsizemode)) when it overflows. `0` (the default) means unlimited. Mirrors the prop of the same name on React Native's core `Text`, and is handy for previews such as chat-list rows or reply quotes. The clamp is applied to both the measurement pass and the rendered view, so the measured and rendered heights stay in sync.
+
+Only applies to CommonMark (the default flavor). When [`flavor`](#flavor) is `'github'` the content is laid out as independent block segments that cannot honor a document-wide line cap, so the prop is ignored - see [issue #786](https://github.com/software-mansion/enriched-markdown/issues/786).
+
+| Type     | Default Value | Platform |
+| -------- | ------------- | -------- |
+| `number` | `0`           | Both     |
+
+### `ellipsizeMode`
+
+Controls where the ellipsis is placed when the text is truncated by [`numberOfLines`](#numberoflines). Only takes effect when `numberOfLines` is set. Mirrors the prop of the same name on React Native's core `Text`.
+
+| Type                                        | Default Value | Platform |
+| ------------------------------------------- | ------------- | -------- |
+| `'head' \| 'middle' \| 'tail' \| 'clip'`    | `'tail'`      | Both     |
+
+- **`'head'`**: ellipsis at the start (`...allel to the end`).
+- **`'middle'`**: ellipsis in the middle (`start...end`).
+- **`'tail'`** (default): ellipsis at the end (`start of the...`).
+- **`'clip'`**: truncate at the line boundary with no ellipsis glyph.
+
+Ignored when [`flavor`](#flavor) is `'github'` (see [`numberOfLines`](#numberoflines)).
+
 ### `textBreakStrategy`
 
 Controls how Android breaks lines within paragraphs. Mirrors the prop of the same name on React Native's core `Text`. The same value is used for both the measurement pass (`StaticLayout.Builder`) and the rendered `TextView`, so measured and rendered line counts stay in sync. Requires API 23+; ignored on older Android versions.
