@@ -139,8 +139,6 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
 
   NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(maxWidth, CGFLOAT_MAX)];
   textContainer.lineFragmentPadding = 0;
-  // Clamp to numberOfLines so usedRect reports the truncated height, matching the
-  // visible view. lineBreakMode drives the ellipsis on the last visible line.
   if (numberOfLines > 0) {
     textContainer.maximumNumberOfLines = numberOfLines;
     textContainer.lineBreakMode = lineBreakMode;
@@ -294,7 +292,6 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
       const BOOL shouldAddBottomMargin = (!isLast || typedProps.allowTrailingMargin);
 
       if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-        // GFM segments are never line-clamped (numberOfLines is a no-op for GFM).
         CGSize textSize = ENRMMeasureAttributedTextViewFree(
             segment.textResult.attributedText, maxWidth, config, shouldAddBottomMargin,
             segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping);

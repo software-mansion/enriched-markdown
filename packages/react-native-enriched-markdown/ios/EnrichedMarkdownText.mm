@@ -443,7 +443,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 }
 
-// Applies the numberOfLines / ellipsizeMode clamp to the visible text container.
 // Kept in sync with the view-free measurement so the rendered line count matches
 // the measured height. numberOfLines == 0 restores the unlimited default.
 - (void)applyLineClampToTextContainer

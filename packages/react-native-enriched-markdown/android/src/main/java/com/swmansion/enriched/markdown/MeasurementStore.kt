@@ -72,9 +72,7 @@ object MeasurementStore {
 
   private val breakStrategies = ConcurrentHashMap<Int, String>()
 
-  // numberOfLines / ellipsizeMode are per-view layout props (CommonMark only).
-  // Stored per viewId like breakStrategies so the measure path and the display
-  // TextView resolve the same clamp. 0 means unlimited.
+  // The measure path and the display TextView resolve the same clamp. 0 means unlimited.
   private val numberOfLinesByViewId = ConcurrentHashMap<Int, Int>()
 
   private val ellipsizeModeByViewId = ConcurrentHashMap<Int, String>()
@@ -749,9 +747,6 @@ object MeasurementStore {
     return if (maxLines > 0) minOf(maxLines, layout.lineCount) else layout.lineCount
   }
 
-  // StaticLayout only shrinks its reported height for maxLines when ellipsizing, so
-  // truncate to the last visible line explicitly (mirrors RN's calculateHeight).
-  // Guards against a 0-line layout so getLineBottom(-1) can never be called.
   private fun truncatedHeight(
     layout: StaticLayout,
     visibleLineCount: Int,
