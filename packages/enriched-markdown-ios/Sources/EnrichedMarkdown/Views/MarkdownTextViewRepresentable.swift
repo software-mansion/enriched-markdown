@@ -11,6 +11,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let isSelectionEnabled: Bool
     let selectionColor: Color?
     let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
+    let accessibilityLabels: MarkdownAccessibilityLabels
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -33,6 +34,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
         textView.onTaskListItemTap = onTaskListItemTap
+        textView.accessibilityLabels = accessibilityLabels
         textView.setMarkdownAttributedText(attributedText)
     }
 
@@ -239,18 +241,38 @@ final class MarkdownTextView: UITextView {
 
     private let tapGestureDelegate = SimultaneousGestureDelegate()
 
-    /// VoiceOver elements built from the attributed string; frames resolve
-    /// lazily against TextKit 2 layout.
-    private var markdownAccessibilityElements: [UIAccessibilityElement] = []
+    /// VoiceOver elements and rotors, built on the first query after the
+    /// text or labels change so streaming re-renders never pay for them.
+    private var markdownAccessibilityElements: [MarkdownAccessibilityElement] = []
+    private var markdownAccessibilityRotors: [UIAccessibilityCustomRotor] = []
+    private var accessibilityTreeIsStale: Bool = true
+
+    var accessibilityLabels: MarkdownAccessibilityLabels = .default {
+        didSet {
+            guard accessibilityLabels != oldValue else { return }
+            accessibilityTreeIsStale = true
+        }
+    }
 
     override var accessibilityElements: [Any]? {
-        get { markdownAccessibilityElements.isEmpty ? super.accessibilityElements : markdownAccessibilityElements }
+        get {
+            let elements = accessibilityTree().elements
+            return elements.isEmpty ? super.accessibilityElements : elements
+        }
         set { super.accessibilityElements = newValue }
     }
 
     override var isAccessibilityElement: Bool {
-        get { markdownAccessibilityElements.isEmpty ? super.isAccessibilityElement : false }
+        get { accessibilityTree().elements.isEmpty ? super.isAccessibilityElement : false }
         set { super.isAccessibilityElement = newValue }
+    }
+
+    override var accessibilityCustomRotors: [UIAccessibilityCustomRotor]? {
+        get {
+            let rotors = accessibilityTree().rotors
+            return rotors.isEmpty ? super.accessibilityCustomRotors : rotors
+        }
+        set { super.accessibilityCustomRotors = newValue }
     }
 
     /// Gates the selection UI while keeping `isSelectable` on, so link taps
@@ -385,17 +407,23 @@ final class MarkdownTextView: UITextView {
         self.attributedText = attributedText
         invalidateIntrinsicContentSize()
         setDecorationNeedsDisplay()
-        rebuildAccessibilityElements()
+        accessibilityTreeIsStale = true
     }
 
-    private func rebuildAccessibilityElements() {
-        let specs = MarkdownAccessibilityElementBuilder.specs(for: attributedText ?? NSAttributedString())
-        markdownAccessibilityElements = specs.map { spec in
-            if case .link(let url) = spec.kind {
-                return MarkdownLinkAccessibilityElement(textView: self, spec: spec, url: url)
-            }
-            return MarkdownAccessibilityElement(textView: self, spec: spec)
+    private func accessibilityTree() -> (elements: [MarkdownAccessibilityElement], rotors: [UIAccessibilityCustomRotor]) {
+        if accessibilityTreeIsStale {
+            accessibilityTreeIsStale = false
+            let specs = MarkdownAccessibilityElementBuilder.specs(
+                for: attributedText ?? NSAttributedString(),
+                labels: accessibilityLabels
+            )
+            markdownAccessibilityElements = specs.map { MarkdownAccessibilityElement(textView: self, spec: $0) }
+            markdownAccessibilityRotors = MarkdownAccessibilityRotors.rotors(
+                for: markdownAccessibilityElements,
+                labels: accessibilityLabels
+            )
         }
+        return (markdownAccessibilityElements, markdownAccessibilityRotors)
     }
 
     /// Screen-coordinate frame for a character range, unioned over its

@@ -20,6 +20,7 @@ final class LaTeXRenderingTests: XCTestCase {
 
     private func renderWithStub(
         _ markdown: String,
+        accessibilityLabel: String = "Math: {latex}",
         typeset: @escaping MathRenderer.Typeset
     ) -> NSAttributedString {
         MarkdownRenderer.render(
@@ -27,7 +28,7 @@ final class LaTeXRenderingTests: XCTestCase {
             config: config,
             flags: .commonMark,
             imageRequestHeaders: [:],
-            plugins: [LaTeXRenderPlugin(typeset: typeset)]
+            plugins: [LaTeXRenderPlugin(typeset: typeset, accessibilityLabel: accessibilityLabel)]
         )
     }
 
@@ -95,6 +96,14 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertFalse(rendered.string.contains("$"))
     }
 
+    // MARK: - Accessibility
+
+    func testAccessibilityLabelTemplateReachesTheVoiceOverElement() {
+        let rendered = renderWithStub("$x^2$", accessibilityLabel: "Formel: {latex}") { _, _, _, _ in self.stubResult() }
+
+        XCTAssertEqual(MarkdownAccessibilityElementBuilder.specs(for: rendered).first?.label, "Formel: x^2")
+    }
+
     // MARK: - Renderer behavior (stubbed typesetting)
 
     func testInlineAttachmentMetricsAndDelimiters() {
@@ -111,7 +120,7 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertEqual(math.latex, "x^2")
         XCTAssertFalse(math.isDisplay)
         XCTAssertFalse(math.isBlock)
-        XCTAssertEqual(math.accessibilityLabel, "x^2")
+        XCTAssertEqual(math.accessibilityLabel, "Math: x^2")
         XCTAssertEqual(math.markdownText(), "$x^2$")
 
         let expectedFontSize = (config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)).pointSize

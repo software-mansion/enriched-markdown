@@ -17,6 +17,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownRenderPlugins) private var renderPlugins
     @Environment(\.markdownTaskListItemPressHandler) private var onTaskListItemPress
     @Environment(\.markdownTaskListItemToggleEnabled) private var isTaskListToggleEnabled
+    @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
     @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
@@ -52,7 +53,8 @@ public struct EnrichedMarkdownText: View {
                 onTaskListItemPress?(
                     TaskListItemPressEvent(index: hit.index, checked: checked, text: hit.itemText)
                 )
-            } : nil
+            } : nil,
+            accessibilityLabels: accessibilityLabels
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {

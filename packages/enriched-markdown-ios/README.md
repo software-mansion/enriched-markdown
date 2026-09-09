@@ -293,6 +293,40 @@ Configures the custom items added to the text-selection edit menu:
 - **Copy Image URL** / **Copy N Image URLs** appears when the selection contains images with http(s) URLs.
 - **Select All** is provided when the system omits it for non-editable text views.
 
+### `.markdownAccessibilityLabels`
+
+```swift
+public struct MarkdownAccessibilityLabels: Equatable, Sendable {
+  public var list: List             // top / nested, each: bulletPoint, orderedItem "List item {n}",
+                                    // checkedTask, uncheckedTask
+  public var blockquote: Blockquote // quote, nestedQuote
+  public var table: Table           // row "Row {n}: {content}"
+  public var image: Image           // fallback "Image" (no alt text)
+  public var codeBlock: CodeBlock   // copy "Copy code" (custom action name)
+  public var rotor: Rotor           // headings, links, images
+
+  public static let `default`: MarkdownAccessibilityLabels
+}
+
+extension View {
+  func markdownAccessibilityLabels(_ labels: MarkdownAccessibilityLabels) -> some View
+}
+```
+
+Overrides the strings VoiceOver speaks. Every field defaults to English, so set only what you localize:
+
+```swift
+var labels = MarkdownAccessibilityLabels()
+labels.list.top.bulletPoint = "Punkt"
+labels.list.top.orderedItem = "Listenelement {n}"
+labels.rotor.headings = "Überschriften"
+
+EnrichedMarkdownText(markdown)
+    .markdownAccessibilityLabels(labels)
+```
+
+`{n}` is a 1-based index and `{content}` the comma-joined cell text of a table row; translations must keep the placeholder names. Defaults use the cardinal form ("List item 2") so one template works in every language without plural rules. The math label lives in the LaTeX module: `.markdownLaTeX(accessibilityLabel: "Formel: {latex}")`.
+
 ### `.markdownImageRequestHeaders`
 
 ```swift
@@ -340,10 +374,17 @@ All decodes are downsampled to the screen's pixel width, so large images never d
 
 VoiceOver walks the rendered markdown as individual elements rather than one text blob:
 
-- Headings announce "heading, level N"
-- Links are activatable elements that invoke `.onLinkPress`
+- Headings announce "heading, level N"; a link inside a heading stays its own element and keeps the heading trait
+- Links are activatable elements that invoke `.onLinkPress`; a linked image (`[![alt](img)](url)`) reads its alt text with both the image and link traits
 - Images read their alt text ("Image" when absent)
-- List items announce their position ("bullet point", "list item N", with a "nested" prefix)
+- List items announce their position ("Bullet point", "List item N", "Task, checked", with "Nested" variants)
+- Content inside a blockquote appends "Blockquote" or "Nested blockquote"
+- Tables read one element per row ("Row N: cell, cell"); the header row carries the heading trait
+- Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element)
+- Math from `EnrichedMarkdownLaTeX` reads "Math: " followed by the raw LaTeX
+- Rotors (two-finger twist) jump between Headings, Links, and Images
+
+Every spoken string can be localized with `.markdownAccessibilityLabels` (see the API reference); the math template is a parameter of `.markdownLaTeX`. Element frames are resolved from the live layout on each query, so they stay correct inside a scrolling container and after Dynamic Type changes.
 
 Dynamic Type is supported throughout via text styles in the default theme.
 
