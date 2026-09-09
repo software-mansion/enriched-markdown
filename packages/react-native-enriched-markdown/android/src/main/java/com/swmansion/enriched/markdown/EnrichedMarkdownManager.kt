@@ -340,7 +340,7 @@ class EnrichedMarkdownManager :
     attachmentsPositions: FloatArray?,
   ): Long {
     val id = localData?.getInt("viewTag")
-    return MeasurementStore.getMeasureById(context, id, width, height, heightMode, props, splitTableSegments = true)
+    return MeasurementStore.getMeasureById(context, id, width, widthMode, height, heightMode, props, splitTableSegments = true)
   }
 
   companion object {
