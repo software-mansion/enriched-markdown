@@ -418,4 +418,23 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios
    */
   writingDirection?: 'auto' | 'ltr' | 'rtl' | 'first-strong';
+  /**
+   * Maximum number of lines to display before the text is truncated. `0` (the
+   * default) means unlimited. Matches React Native `Text`'s `numberOfLines`.
+   *
+   * Only supported for CommonMark (the default flavor). When `flavor` is
+   * `'github'` the content is laid out as independent block segments and this
+   * prop is ignored - see the GFM tracking issue.
+   * @default 0
+   */
+  numberOfLines?: number;
+  /**
+   * Where to place the ellipsis when text is truncated by `numberOfLines`.
+   * `'clip'` truncates with no ellipsis glyph. Only takes effect when
+   * `numberOfLines` is set. Matches React Native `Text`'s `ellipsizeMode`.
+   *
+   * Ignored when `flavor` is `'github'` (see `numberOfLines`).
+   * @default 'tail'
+   */
+  ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
 }

@@ -601,6 +601,21 @@ export interface NativeProps extends ViewProps {
    * @platform ios
    */
   writingDirection?: CodegenTypes.WithDefault<string, 'first-strong'>;
+  /**
+   * Maximum number of lines to display before the text is truncated. 0 (the
+   * default) means unlimited. Matches React Native Text's `numberOfLines`.
+   * Only applies to CommonMark; ignored when the flavor is 'github'.
+   * @default 0
+   */
+  numberOfLines?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+  /**
+   * Where to place the ellipsis when text is truncated by `numberOfLines`:
+   * 'head' | 'middle' | 'tail' | 'clip' ('clip' cuts with no ellipsis). Only
+   * takes effect when `numberOfLines` is set. Matches React Native Text's
+   * `ellipsizeMode`. Ignored when the flavor is 'github'.
+   * @default 'tail'
+   */
+  ellipsizeMode?: CodegenTypes.WithDefault<string, 'tail'>;
 }
 
 export default codegenNativeComponent<NativeProps>('EnrichedMarkdownText', {

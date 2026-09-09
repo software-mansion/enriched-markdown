@@ -281,6 +281,22 @@ class EnrichedMarkdownManager :
     view?.setTextBreakStrategy(strategy ?: "highQuality")
   }
 
+  @ReactProp(name = "numberOfLines", defaultInt = 0)
+  override fun setNumberOfLines(
+    view: EnrichedMarkdown?,
+    value: Int,
+  ) {
+    // No-op for GFM — block segments cannot honor a document-wide line cap. See the GFM tracking issue.
+  }
+
+  @ReactProp(name = "ellipsizeMode")
+  override fun setEllipsizeMode(
+    view: EnrichedMarkdown?,
+    value: String?,
+  ) {
+    // No-op for GFM — see setNumberOfLines.
+  }
+
   @ReactProp(name = "contextMenuItems")
   override fun setContextMenuItems(
     view: EnrichedMarkdown?,

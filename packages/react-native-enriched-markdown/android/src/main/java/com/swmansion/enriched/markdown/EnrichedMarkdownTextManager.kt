@@ -267,6 +267,22 @@ class EnrichedMarkdownTextManager :
     view?.setTextBreakStrategy(strategy ?: "highQuality")
   }
 
+  @ReactProp(name = "numberOfLines", defaultInt = 0)
+  override fun setNumberOfLines(
+    view: EnrichedMarkdownText?,
+    value: Int,
+  ) {
+    view?.setMarkdownNumberOfLines(value)
+  }
+
+  @ReactProp(name = "ellipsizeMode")
+  override fun setEllipsizeMode(
+    view: EnrichedMarkdownText?,
+    value: String?,
+  ) {
+    view?.setMarkdownEllipsizeMode(value ?: "tail")
+  }
+
   @ReactProp(name = "contextMenuItems")
   override fun setContextMenuItems(
     view: EnrichedMarkdownText?,

@@ -117,6 +117,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   NSLineBreakStrategy _lineBreakStrategy;
 
+  NSInteger _numberOfLines;
+  NSLineBreakMode _ellipsizeLineBreakMode;
+
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
 
@@ -269,6 +272,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
+    _numberOfLines = 0;
+    _ellipsizeLineBreakMode = NSLineBreakByTruncatingTail;
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection =
         [[RCTI18nUtil sharedInstance] isRTL] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
@@ -438,6 +443,15 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 }
 
+// Applies the numberOfLines / ellipsizeMode clamp to the visible text container.
+// Kept in sync with the view-free measurement so the rendered line count matches
+// the measured height. numberOfLines == 0 restores the unlimited default.
+- (void)applyLineClampToTextContainer
+{
+  _textView.textContainer.maximumNumberOfLines = _numberOfLines > 0 ? _numberOfLines : 0;
+  _textView.textContainer.lineBreakMode = _numberOfLines > 0 ? _ellipsizeLineBreakMode : NSLineBreakByWordWrapping;
+}
+
 - (void)applyRenderedText:(NSMutableAttributedString *)attributedText
 {
   NSUInteger tailStart = _previousTextLength;
@@ -457,6 +471,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     containerWidth = self.bounds.size.width;
   }
   _textView.textContainer.size = CGSizeMake(containerWidth, CGFLOAT_MAX);
+  [self applyLineClampToTextContainer];
 
   _accessibilityElements = nil;
   _accessibilityNeedsRebuild = YES;
@@ -671,6 +686,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (newViewProps.writingDirection != oldViewProps.writingDirection) {
     NSString *value = [[NSString alloc] initWithUTF8String:newViewProps.writingDirection.c_str()];
     _writingDirectionMode = ENRMResolveWritingDirectionMode(value);
+    _forceHeightUpdateOnNextRender = YES;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  if (newViewProps.numberOfLines != oldViewProps.numberOfLines) {
+    _numberOfLines = (NSInteger)newViewProps.numberOfLines;
+    [self applyLineClampToTextContainer];
+    _forceHeightUpdateOnNextRender = YES;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  if (newViewProps.ellipsizeMode != oldViewProps.ellipsizeMode) {
+    _ellipsizeLineBreakMode =
+        ENRMResolveEllipsizeLineBreakMode([[NSString alloc] initWithUTF8String:newViewProps.ellipsizeMode.c_str()]);
+    [self applyLineClampToTextContainer];
     _forceHeightUpdateOnNextRender = YES;
     _dirtyFlags |= ENRMDirtyRender;
   }

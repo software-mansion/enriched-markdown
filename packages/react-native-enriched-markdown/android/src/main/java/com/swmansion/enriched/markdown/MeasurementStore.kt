@@ -6,6 +6,7 @@ import android.os.Build
 import android.text.SpannableString
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.TextUtils.TruncateAt
 import android.util.Log
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.PixelUtil
@@ -26,6 +27,7 @@ import com.swmansion.enriched.markdown.spans.MathRenderMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
+import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
@@ -69,6 +71,13 @@ object MeasurementStore {
   private val fontScalingSettings = ConcurrentHashMap<Int, FontScalingSettings>()
 
   private val breakStrategies = ConcurrentHashMap<Int, String>()
+
+  // numberOfLines / ellipsizeMode are per-view layout props (CommonMark only).
+  // Stored per viewId like breakStrategies so the measure path and the display
+  // TextView resolve the same clamp. 0 means unlimited.
+  private val numberOfLinesByViewId = ConcurrentHashMap<Int, Int>()
+
+  private val ellipsizeModeByViewId = ConcurrentHashMap<Int, String>()
 
   private val streamingTableModes = ConcurrentHashMap<Int, TableStreamingMode>()
 
@@ -124,6 +133,8 @@ object MeasurementStore {
 
   fun release(id: Int) {
     data.remove(id)
+    numberOfLinesByViewId.remove(id)
+    ellipsizeModeByViewId.remove(id)
   }
 
   fun invalidate(id: Int) {
@@ -200,6 +211,33 @@ object MeasurementStore {
   }
 
   private fun resolveBreakStrategy(viewId: Int?): Int = BreakStrategyUtils.resolveBreakStrategy(viewId?.let { breakStrategies[it] })
+
+  fun updateNumberOfLines(
+    viewId: Int,
+    numberOfLines: Int,
+  ) {
+    numberOfLinesByViewId[viewId] = numberOfLines
+  }
+
+  fun clearNumberOfLines(viewId: Int) {
+    numberOfLinesByViewId.remove(viewId)
+  }
+
+  fun updateEllipsizeMode(
+    viewId: Int,
+    mode: String,
+  ) {
+    ellipsizeModeByViewId[viewId] = mode
+  }
+
+  fun clearEllipsizeMode(viewId: Int) {
+    ellipsizeModeByViewId.remove(viewId)
+  }
+
+  private fun resolveMaxLines(viewId: Int?): Int = viewId?.let { numberOfLinesByViewId[it] } ?: 0
+
+  private fun resolveEllipsize(viewId: Int?): TruncateAt? =
+    EllipsizeUtils.resolveTruncateAt(viewId?.let { ellipsizeModeByViewId[it] } ?: EllipsizeUtils.DEFAULT_MODE)
 
   fun updateStreamingTableMode(
     viewId: Int,
@@ -676,17 +714,47 @@ object MeasurementStore {
       builder.setUseLineSpacingFromFallbacks(true)
     }
 
-    val layout = builder.build()
-    val measuredHeight = layout.height.toFloat()
+    applyLineLimit(builder, viewId)
 
-    // Calculate actual content width (widest line)
-    val measuredWidth = (0 until layout.lineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
+    val layout = builder.build()
+    val visibleLineCount = visibleLineCount(layout, viewId)
+    val measuredHeight = truncatedHeight(layout, visibleLineCount)
+
+    // Calculate actual content width (widest visible line)
+    val measuredWidth = (0 until visibleLineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
 
     return YogaMeasureOutput.make(
       PixelUtil.toDIPFromPixel(ceil(measuredWidth)),
       PixelUtil.toDIPFromPixel(measuredHeight),
     )
   }
+
+  // Applies the per-view numberOfLines / ellipsizeMode clamp to a builder, matching
+  // RN's TextLayoutManager.buildLayout: only when a line limit is set.
+  private fun applyLineLimit(
+    builder: StaticLayout.Builder,
+    viewId: Int?,
+  ) {
+    val maxLines = resolveMaxLines(viewId)
+    if (maxLines > 0) {
+      builder.setMaxLines(maxLines).setEllipsize(resolveEllipsize(viewId))
+    }
+  }
+
+  private fun visibleLineCount(
+    layout: StaticLayout,
+    viewId: Int?,
+  ): Int {
+    val maxLines = resolveMaxLines(viewId)
+    return if (maxLines > 0) minOf(maxLines, layout.lineCount) else layout.lineCount
+  }
+
+  // StaticLayout only shrinks its reported height for maxLines when ellipsizing, so
+  // truncate to the last visible line explicitly (mirrors RN's calculateHeight).
+  private fun truncatedHeight(
+    layout: StaticLayout,
+    visibleLineCount: Int,
+  ): Float = layout.getLineBottom(visibleLineCount - 1).toFloat()
 
   /**
    * Measures text and returns both the size and the layout for calculating last line descent.
@@ -714,17 +782,20 @@ object MeasurementStore {
           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             setUseLineSpacingFromFallbacks(true)
           }
+          applyLineLimit(this, viewId)
         }.build()
 
-    // Find the widest line to get the actual content width
+    val visibleLineCount = visibleLineCount(layout, viewId)
+
+    // Find the widest visible line to get the actual content width
     val maxLineWidth =
-      (0 until layout.lineCount)
+      (0 until visibleLineCount)
         .maxOfOrNull { layout.getLineWidth(it) } ?: 0f
 
     val size =
       YogaMeasureOutput.make(
         PixelUtil.toDIPFromPixel(ceil(maxLineWidth)),
-        PixelUtil.toDIPFromPixel(layout.height.toFloat()),
+        PixelUtil.toDIPFromPixel(truncatedHeight(layout, visibleLineCount)),
       )
 
     return size to layout

@@ -130,7 +130,8 @@ static inline StyleConfig *ENRMStyleConfigFromProps(const PropsT &typedProps, CG
  */
 static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text, CGFloat maxWidth, StyleConfig *config,
                                                        BOOL allowTrailingMargin, CGFloat lastElementMarginBottom,
-                                                       CGFloat pointScaleFactor)
+                                                       CGFloat pointScaleFactor, NSInteger numberOfLines,
+                                                       NSLineBreakMode lineBreakMode)
 {
   if (text.length == 0) {
     return CGSizeZero;
@@ -138,6 +139,12 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
 
   NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(maxWidth, CGFLOAT_MAX)];
   textContainer.lineFragmentPadding = 0;
+  // Clamp to numberOfLines so usedRect reports the truncated height, matching the
+  // visible view. lineBreakMode drives the ellipsis on the last visible line.
+  if (numberOfLines > 0) {
+    textContainer.maximumNumberOfLines = numberOfLines;
+    textContainer.lineBreakMode = lineBreakMode;
+  }
   NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
   layoutManager.allowsNonContiguousLayout = NO;
   layoutManager.usesFontLeading = NO;
@@ -195,8 +202,12 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
         ENRMResolveWritingDirectionMode([[NSString alloc] initWithUTF8String:typedProps.writingDirection.c_str()]);
     ENRMApplyWritingDirectionMode(text, writingDirectionMode, resolvedLayoutDirection);
 
+    NSInteger numberOfLines = (NSInteger)typedProps.numberOfLines;
+    NSLineBreakMode lineBreakMode =
+        ENRMResolveEllipsizeLineBreakMode([[NSString alloc] initWithUTF8String:typedProps.ellipsizeMode.c_str()]);
     CGSize size = ENRMMeasureAttributedTextViewFree(text, maxWidth, config, typedProps.allowTrailingMargin,
-                                                    result.lastElementMarginBottom, pointScaleFactor);
+                                                    result.lastElementMarginBottom, pointScaleFactor, numberOfLines,
+                                                    lineBreakMode);
     if (size.height == 0) {
       return fallback;
     }
@@ -283,9 +294,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
       const BOOL shouldAddBottomMargin = (!isLast || typedProps.allowTrailingMargin);
 
       if (segment.kind == ENRMSegmentKindText && segment.textResult) {
+        // GFM segments are never line-clamped (numberOfLines is a no-op for GFM).
         CGSize textSize = ENRMMeasureAttributedTextViewFree(
             segment.textResult.attributedText, maxWidth, config, shouldAddBottomMargin,
-            segment.textResult.lastElementMarginBottom, pointScaleFactor);
+            segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping);
         yOffset += textSize.height;
         maxContentWidth = MAX(maxContentWidth, textSize.width);
       } else if (segment.kind == ENRMSegmentKindTable && segment.tableSegment) {

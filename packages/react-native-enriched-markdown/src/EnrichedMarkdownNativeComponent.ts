@@ -601,6 +601,19 @@ export interface NativeProps extends ViewProps {
    * @platform ios
    */
   writingDirection?: CodegenTypes.WithDefault<string, 'first-strong'>;
+  /**
+   * No-op for the GFM backend. Declared for parity with the CommonMark
+   * component so the shared JS props can be forwarded uniformly. GFM renders
+   * independent block segments and cannot honor a document-wide line cap, so
+   * this is ignored - see the GFM tracking issue.
+   * @default 0
+   */
+  numberOfLines?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+  /**
+   * No-op for the GFM backend. See `numberOfLines`.
+   * @default 'tail'
+   */
+  ellipsizeMode?: CodegenTypes.WithDefault<string, 'tail'>;
 }
 
 export default codegenNativeComponent<NativeProps>('EnrichedMarkdown', {

@@ -24,6 +24,7 @@ import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
@@ -112,6 +113,9 @@ class EnrichedMarkdownText
     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
 
     private var pendingStyledText: CharSequence? = null
+
+    private var mdNumberOfLines: Int = 0
+    private var mdEllipsizeMode: String = EllipsizeUtils.DEFAULT_MODE
 
     private var selectionColor: Int? = null
     private var selectionHandleColor: Int? = null
@@ -358,6 +362,37 @@ class EnrichedMarkdownText
       }
       MeasurementStore.invalidate(id)
       scheduleRenderIfNeeded()
+    }
+
+    fun setMarkdownNumberOfLines(value: Int) {
+      val normalized = value.coerceAtLeast(0)
+      if (mdNumberOfLines == normalized) return
+      mdNumberOfLines = normalized
+      MeasurementStore.updateNumberOfLines(id, normalized)
+      applyLineLimitToView()
+      MeasurementStore.invalidate(id)
+      scheduleRenderIfNeeded()
+    }
+
+    fun setMarkdownEllipsizeMode(value: String) {
+      if (mdEllipsizeMode == value) return
+      mdEllipsizeMode = value
+      MeasurementStore.updateEllipsizeMode(id, value)
+      applyLineLimitToView()
+      MeasurementStore.invalidate(id)
+      scheduleRenderIfNeeded()
+    }
+
+    // Mirrors RN's ReactTextView.updateView: only ellipsize when a line limit is
+    // set; unlimited restores the default unbounded, non-ellipsized state.
+    private fun applyLineLimitToView() {
+      if (mdNumberOfLines > 0) {
+        maxLines = mdNumberOfLines
+        ellipsize = EllipsizeUtils.resolveTruncateAt(mdEllipsizeMode)
+      } else {
+        maxLines = Integer.MAX_VALUE
+        ellipsize = null
+      }
     }
 
     fun emitOnLinkPress(url: String) {

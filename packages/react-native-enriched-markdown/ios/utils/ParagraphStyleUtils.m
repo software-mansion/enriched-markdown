@@ -23,6 +23,18 @@ NSLineBreakStrategy ENRMResolveLineBreakStrategy(NSString *strategy)
   return NSLineBreakStrategyNone;
 }
 
+NSLineBreakMode ENRMResolveEllipsizeLineBreakMode(NSString *mode)
+{
+  if ([mode isEqualToString:@"head"]) {
+    return NSLineBreakByTruncatingHead;
+  } else if ([mode isEqualToString:@"middle"]) {
+    return NSLineBreakByTruncatingMiddle;
+  } else if ([mode isEqualToString:@"clip"]) {
+    return NSLineBreakByClipping;
+  }
+  return NSLineBreakByTruncatingTail;
+}
+
 __attribute__((constructor)) static void initParagraphStyleUtils(void)
 {
   kNewlineAttributedString = [[NSAttributedString alloc] initWithString:@"\n"];
