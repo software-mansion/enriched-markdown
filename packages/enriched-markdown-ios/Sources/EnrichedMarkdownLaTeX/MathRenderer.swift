@@ -17,14 +17,14 @@ final class MathRenderer: NodeRenderer {
     private let blockStyle: MathBlockStyle
     private let inlineStyle: InlineMathStyle
     private let panel: MathPanelStyle
-    /// `{latex}` template for the attachment's VoiceOver label.
-    private let accessibilityLabel: String
+    /// Produces the attachment's VoiceOver label from the source.
+    private let accessibilityLabel: (String) -> String
 
     init(
         typeset: @escaping Typeset,
         blockStyle: MathBlockStyle,
         inlineStyle: InlineMathStyle,
-        accessibilityLabel: String
+        accessibilityLabel: @escaping (String) -> String
     ) {
         self.typeset = typeset
         self.blockStyle = blockStyle
@@ -62,7 +62,7 @@ final class MathRenderer: NodeRenderer {
             isDisplay: isDisplay,
             result: result,
             panel: isBlock ? panel : nil,
-            accessibilityLabel: accessibilityLabel.replacingOccurrences(of: "{latex}", with: latex)
+            accessibilityLabel: accessibilityLabel(latex)
         )
         SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))

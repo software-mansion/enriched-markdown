@@ -325,7 +325,7 @@ EnrichedMarkdownText(markdown)
     .markdownAccessibilityLabels(labels)
 ```
 
-`{n}` is a 1-based index and `{content}` the comma-joined cell text of a table row; translations must keep the placeholder names. Defaults use the cardinal form ("List item 2") so one template works in every language without plural rules. The math label lives in the LaTeX module: `.markdownLaTeX(accessibilityLabel: "Formel: {latex}")`.
+`{n}` is a 1-based index and `{content}` the comma-joined cell text of a table row; translations must keep the placeholder names. Defaults use the cardinal form ("List item 2") so one template works in every language without plural rules. The math label lives in the LaTeX module: `.markdownLaTeX(accessibilityLabel: "Formel: {speech}")`, or `.markdownLaTeX { latex in … }` for a custom converter.
 
 ### `.markdownImageRequestHeaders`
 
@@ -381,10 +381,10 @@ VoiceOver walks the rendered markdown as individual elements rather than one tex
 - Content inside a blockquote appends "Blockquote" or "Nested blockquote"
 - Tables read one element per row ("Row N: cell, cell"); the header row carries the heading trait
 - Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element)
-- Math from `EnrichedMarkdownLaTeX` reads "Math: " followed by the raw LaTeX
+- Math from `EnrichedMarkdownLaTeX` reads an English form of the formula ("Math: x squared over 2", "integral from 0 to 1 of …"); `{latex}` in the label template gives the raw source instead, and a closure can plug in another converter
 - Rotors (two-finger twist) jump between Headings, Links, and Images
 
-Every spoken string can be localized with `.markdownAccessibilityLabels` (see the API reference); the math template is a parameter of `.markdownLaTeX`. Element frames are resolved from the live layout on each query, so they stay correct inside a scrolling container and after Dynamic Type changes.
+Every spoken string can be localized with `.markdownAccessibilityLabels` (see the API reference); the math label is a parameter of `.markdownLaTeX`, either a template (`"Formel: {speech}"`, `{latex}` for the source) or a `(String) -> String` closure receiving the LaTeX source. The built-in reading (`LaTeXSpeech.spokenForm`) is English and covers fractions, roots, powers and indices, sums/products/integrals/limits with bounds, Greek letters, common relations and functions, decorations, and `\text`; unmapped commands are read by name. Element frames are resolved from the live layout on each query, so they stay correct inside a scrolling container and after Dynamic Type changes.
 
 Dynamic Type is supported throughout via text styles in the default theme.
 

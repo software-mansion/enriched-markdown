@@ -20,7 +20,9 @@ final class LaTeXRenderingTests: XCTestCase {
 
     private func renderWithStub(
         _ markdown: String,
-        accessibilityLabel: String = "Math: {latex}",
+        accessibilityLabel: @escaping (String) -> String = LaTeXRenderPlugin.label(
+            template: LaTeXRenderPlugin.defaultAccessibilityLabel
+        ),
         typeset: @escaping MathRenderer.Typeset
     ) -> NSAttributedString {
         MarkdownRenderer.render(
@@ -99,9 +101,20 @@ final class LaTeXRenderingTests: XCTestCase {
     // MARK: - Accessibility
 
     func testAccessibilityLabelTemplateReachesTheVoiceOverElement() {
-        let rendered = renderWithStub("$x^2$", accessibilityLabel: "Formel: {latex}") { _, _, _, _ in self.stubResult() }
+        let label = LaTeXRenderPlugin.label(template: "Formel: {speech} ({latex})")
+        let rendered = renderWithStub("$x^2$", accessibilityLabel: label) { _, _, _, _ in self.stubResult() }
 
-        XCTAssertEqual(MarkdownAccessibilityElementBuilder.specs(for: rendered).first?.label, "Formel: x^2")
+        XCTAssertEqual(MarkdownAccessibilityElementBuilder.specs(for: rendered).first?.label, "Formel: x squared (x^2)")
+    }
+
+    func testAccessibilityLabelClosureReceivesTheSource() {
+        let rendered = renderWithStub(
+            "$x^2$",
+            accessibilityLabel: { "custom " + $0 },
+            typeset: { _, _, _, _ in self.stubResult() }
+        )
+
+        XCTAssertEqual(MarkdownAccessibilityElementBuilder.specs(for: rendered).first?.label, "custom x^2")
     }
 
     // MARK: - Renderer behavior (stubbed typesetting)
@@ -120,7 +133,7 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertEqual(math.latex, "x^2")
         XCTAssertFalse(math.isDisplay)
         XCTAssertFalse(math.isBlock)
-        XCTAssertEqual(math.accessibilityLabel, "Math: x^2")
+        XCTAssertEqual(math.accessibilityLabel, "Math: x squared")
         XCTAssertEqual(math.markdownText(), "$x^2$")
 
         let expectedFontSize = (config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)).pointSize
