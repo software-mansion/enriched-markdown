@@ -751,10 +751,11 @@ object MeasurementStore {
 
   // StaticLayout only shrinks its reported height for maxLines when ellipsizing, so
   // truncate to the last visible line explicitly (mirrors RN's calculateHeight).
+  // Guards against a 0-line layout so getLineBottom(-1) can never be called.
   private fun truncatedHeight(
     layout: StaticLayout,
     visibleLineCount: Int,
-  ): Float = layout.getLineBottom(visibleLineCount - 1).toFloat()
+  ): Float = if (visibleLineCount <= 0) 0f else layout.getLineBottom(visibleLineCount - 1).toFloat()
 
   /**
    * Measures text and returns both the size and the layout for calculating last line descent.
