@@ -107,7 +107,7 @@ class MathContainerView(
       mathView.fallbackText = "\$\$" + latex + "\$\$"
       mathView.fallbackColor = mathStyle.color
       mathView.fallbackFontSize = mathStyle.fontSize
-      onLatexError?.report(latex, e.message ?: "", true)
+      onLatexError?.report(latex, e.message, true)
     }
     mathView.requestLayout()
     mathView.invalidate()

@@ -8,7 +8,7 @@ class LatexErrorEvent(
   surfaceId: Int,
   viewId: Int,
   private val source: String,
-  private val message: String,
+  private val message: String?,
   private val displayMode: Boolean,
 ) : Event<LatexErrorEvent>(surfaceId, viewId) {
   override fun getEventName(): String = EVENT_NAME

@@ -83,7 +83,7 @@ fun emitCopyPress(
 fun emitLatexError(
   view: View,
   source: String,
-  message: String,
+  message: String?,
   displayMode: Boolean,
 ) {
   val context = view.context as com.facebook.react.bridge.ReactContext

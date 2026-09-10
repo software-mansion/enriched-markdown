@@ -50,7 +50,7 @@ class MathInlineSpan(
     } catch (e: Exception) {
       renderFailed = true
       fallbackText = "\$" + latex + "\$"
-      onLatexError?.report(latex, e.message ?: "", false)
+      onLatexError?.report(latex, e.message, false)
     }
   }
 
