@@ -174,7 +174,7 @@ final class MathThemingTests: XCTestCase {
         )
 
         XCTAssertEqual(bounds(of: attachment, lineWidth: 300), CGRect(x: 0, y: -16, width: 300, height: 40))
-        XCTAssertEqual(bounds(of: attachment, lineWidth: 50).width, 64, "a wide formula keeps its padded width")
+        XCTAssertEqual(bounds(of: attachment, lineWidth: 50).width, 50, "a wide formula scrolls (or clips) inside the line")
     }
 
     func testPanelAlignsFormulaInsideInsets() {

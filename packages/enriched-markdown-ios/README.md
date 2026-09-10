@@ -379,8 +379,9 @@ EnrichedMarkdownText(content)
 ```
 
 `$…$` typesets inline at the surrounding text size, and a `$$…$$` block on
-its own line renders as a full-width panel. Source that fails to typeset
-falls back to the delimited text. Outside SwiftUI, `MarkdownRenderer.renderLaTeX`
+its own line renders as a full-width panel that scrolls horizontally when
+the formula is wider than the line. Source that fails to typeset falls back
+to the delimited text. Outside SwiftUI, `MarkdownRenderer.renderLaTeX`
 mirrors `MarkdownRenderer.render` with math enabled.
 
 Styling comes from two theme elements the product adds to the builder:

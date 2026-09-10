@@ -16,6 +16,10 @@ Sums work too:
 
 $$\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}$$
 
+A block wider than the line scrolls horizontally:
+
+$$f(x) = a_0 + \sum_{n=1}^{\infty} \left( a_n \cos\frac{n\pi x}{L} + b_n \sin\frac{n\pi x}{L} \right) + \int_0^1 \frac{\partial^2 u}{\partial t^2}\,dt$$
+
 ## Inside other blocks
 
 > Blockquotes can carry $E = mc^2$ inline.
