@@ -18,6 +18,7 @@ import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
+import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.TypefaceUtils
 import com.swmansion.enriched.markdown.utils.text.extensions.applyBlockStyleFont
 import com.swmansion.enriched.markdown.utils.text.extensions.applyColorPreserving
@@ -61,6 +62,8 @@ class BlockquoteSpan(
       ?.takeIf { it != Color.TRANSPARENT }
 
   private val iconSizePx: Int = ceil(blockquoteStyle.fontSize).toInt()
+
+  private val isRTL: Boolean = context.resources.isLayoutRTL()
 
   private val titlePaint: TextPaint by lazy {
     TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -233,20 +236,36 @@ class BlockquoteSpan(
     boxLeft = left.toFloat()
     boxRight = right.toFloat()
 
-    val rootSpan = (text as? Spanned)?.let { spanAtMinDepth(it, start) }
-    // The outermost box owns the fill: a LineBackgroundSpan only ever sees the full line width, so
-    // a nested level has no way to inset its own background anyway.
-    val bgColor = (rootSpan ?: this).boxBackgroundColor ?: return
-    val backgroundPaint = configureBackgroundPaint(bgColor)
+    val spanned = text as? Spanned
     val radius = blockquoteStyle.borderRadius
 
-    if (radius <= 0f || rootSpan == null) {
-      canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), backgroundPaint)
+    if (spanned == null) {
+      val bgColor = boxBackgroundColor ?: return
+      canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), configureBackgroundPaint(bgColor))
       return
     }
 
-    buildBoundaryPath(text as Spanned, start, end, rootSpan, left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
-    canvas.drawPath(path, backgroundPaint)
+    // Like the accent bars, every enclosing level is filled by this span (the deepest one on the
+    // line), outermost first, each inset by one bar + gap so it starts where that level's own bar
+    // does. Without the inset a nested admonition would be swallowed by its parent's fill instead
+    // of sitting framed inside it.
+    for (level in 0..depth) {
+      val levelSpan = (if (level == 0) spanAtMinDepth(spanned, start) else spanAtDepth(spanned, start, level)) ?: continue
+      val bgColor = levelSpan.boxBackgroundColor ?: continue
+      val backgroundPaint = configureBackgroundPaint(bgColor)
+      // drawBackground runs before any drawLeadingMargin of this frame, so the layout direction it
+      // hands out is not available yet; the view's configured direction stands in for it.
+      val inset = levelSpacing * level
+      val levelLeft = if (isRTL) left.toFloat() else left + inset
+      val levelRight = if (isRTL) right - inset else right.toFloat()
+
+      if (radius <= 0f) {
+        canvas.drawRect(levelLeft, top.toFloat(), levelRight, bottom.toFloat(), backgroundPaint)
+      } else {
+        buildBoundaryPath(spanned, start, end, levelSpan, levelLeft, top.toFloat(), levelRight, bottom.toFloat())
+        canvas.drawPath(path, backgroundPaint)
+      }
+    }
   }
 
   private fun drawBorders(

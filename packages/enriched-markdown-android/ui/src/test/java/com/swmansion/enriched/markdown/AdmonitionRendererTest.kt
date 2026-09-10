@@ -1,6 +1,8 @@
 package com.swmansion.enriched.markdown
 
 import android.graphics.Paint
+import android.text.StaticLayout
+import android.text.TextPaint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionIcons
@@ -135,6 +137,38 @@ class AdmonitionRendererTest {
       rendered.getSpans(0, rendered.length, AdmonitionHeaderSpan::class.java).size,
     )
     assertTrue(rendered.getSpans(0, rendered.length, BlockquoteSpan::class.java).isNotEmpty())
+  }
+
+  @Test
+  fun anAdmonitionKeepsItsBottomMarginWhenTheNextOneOpensWithANestedBox() {
+    val rendered =
+      render(
+        document(
+          admonition("note", paragraph(text("First"))),
+          admonition("tip", admonition("note", paragraph(text("Inner")))),
+        ),
+      )
+    val layout =
+      StaticLayout.Builder
+        .obtain(rendered, 0, rendered.length, TextPaint().apply { textSize = blockquoteStyle.fontSize }, 400)
+        .build()
+
+    val boxStarts =
+      rendered
+        .getSpans(0, rendered.length, BlockquoteSpan::class.java)
+        .filter { it.depth == 0 }
+        .map { rendered.getSpanStart(it) }
+        .sorted()
+    assertEquals(2, boxStarts.size)
+
+    // The character before the second box is the first one's bottom-margin spacer, on a line of its
+    // own. The nested box stacks two header spacers right after it, which used to read as the end of
+    // the document and collapse that line to nothing.
+    val gapLine = layout.getLineForOffset(boxStarts[1] - 1)
+    assertEquals(
+      blockquoteStyle.marginBottom.toInt(),
+      layout.getLineBottom(gapLine) - layout.getLineTop(gapLine),
+    )
   }
 
   @Test

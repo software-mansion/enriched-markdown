@@ -5,6 +5,7 @@ import android.text.SpannableString
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TaskListStyle
@@ -34,6 +35,9 @@ object MarkdownRenderTestSupport {
       underlineStyle = UnderlineStyle(color = underlineColor),
     )
 
+  /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
+  fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
+
   /** [defaultStyle] with only its [TaskListStyle] replaced. */
   fun styleWithTaskList(taskListStyle: TaskListStyle): StyleConfig = copyOfDefault(taskListStyle = taskListStyle)
 
@@ -44,6 +48,7 @@ object MarkdownRenderTestSupport {
     strikethroughStyle: StrikethroughStyle? = null,
     underlineStyle: UnderlineStyle? = null,
     taskListStyle: TaskListStyle? = null,
+    blockquoteStyle: BlockquoteStyle? = null,
   ): StyleConfig {
     val base = defaultStyle
     return StyleConfig(
@@ -58,7 +63,7 @@ object MarkdownRenderTestSupport {
       codeStyle = base.codeStyle,
       imageStyle = base.imageStyle,
       inlineImageStyle = base.inlineImageStyle,
-      blockquoteStyle = base.blockquoteStyle,
+      blockquoteStyle = blockquoteStyle ?: base.blockquoteStyle,
       listStyle = base.listStyle,
       taskListStyle = taskListStyle ?: base.taskListStyle,
       codeBlockStyle = base.codeBlockStyle,

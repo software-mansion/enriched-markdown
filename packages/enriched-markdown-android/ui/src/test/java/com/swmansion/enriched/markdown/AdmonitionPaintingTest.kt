@@ -9,7 +9,9 @@ import android.text.TextPaint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
+import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.HTMLGeneratorTestSupport
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.TestAstFactory.admonition
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
@@ -48,6 +50,8 @@ class AdmonitionPaintingTest {
     const val WARNING = 0xFF9A6700.toInt()
     const val PLAIN_BORDER = 0xFFD1D5DB.toInt()
     const val PLAIN_BACKGROUND = 0xFFF9FAFB.toInt()
+    const val NOTE_BACKGROUND = 0xFFDDF4FF.toInt()
+    const val TIP_BACKGROUND = 0xFFDAFBE1.toInt()
   }
 
   private class Raster(
@@ -69,10 +73,23 @@ class AdmonitionPaintingTest {
     }
 
     fun count(color: Int): Int = count(color, Rect(0, 0, bitmap.width, bitmap.height))
+
+    /** The band occupied by the line that holds [content], clipped horizontally to [left]..[right]. */
+    fun lineOf(
+      content: String,
+      left: Int = 0,
+      right: Int = WIDTH,
+    ): Rect {
+      val line = layout.getLineForOffset(layout.text.toString().indexOf(content))
+      return Rect(left, layout.getLineTop(line), right, layout.getLineBottom(line))
+    }
   }
 
-  private fun rasterize(document: MarkdownASTNode): Raster {
-    val rendered = render(document)
+  private fun rasterize(
+    document: MarkdownASTNode,
+    style: StyleConfig = MarkdownRenderTestSupport.defaultStyle,
+  ): Raster {
+    val rendered = render(document, style)
     val layout =
       StaticLayout.Builder
         .obtain(rendered, 0, rendered.length, TextPaint().apply { textSize = quoteStyle.fontSize }, WIDTH)
@@ -136,6 +153,44 @@ class AdmonitionPaintingTest {
     // Both bars are painted by the deepest span, each in the color of the level it belongs to.
     assertTrue("Outer admonition bar should be tinted", raster.count(NOTE) > 0)
     assertTrue("Inner plain quote bar should not be", raster.count(PLAIN_BORDER) > 0)
+  }
+
+  /** [quoteStyle] with the note and tip palettes filled, so nesting has two colors to tell apart. */
+  private fun filledNoteAndTip(): StyleConfig {
+    val base = MarkdownRenderTestSupport.defaultStyle.blockquoteStyle
+    return MarkdownRenderTestSupport.styleWithBlockquote(
+      base.copy(
+        admonitions =
+          base.admonitions.mapValues { (type, colors) ->
+            when (type) {
+              "note" -> colors.copy(backgroundColor = NOTE_BACKGROUND)
+              "tip" -> colors.copy(backgroundColor = TIP_BACKGROUND)
+              else -> colors
+            }
+          },
+      ),
+    )
+  }
+
+  @Test
+  fun aNestedAdmonitionIsFilledWithItsOwnColorInsideItsParents() {
+    val raster =
+      rasterize(
+        document(admonition("tip", admonition("note", paragraph(text("Inner"))))),
+        filledNoteAndTip(),
+      )
+    val levelSpacing = (quoteStyle.borderWidth + quoteStyle.gapWidth).toInt()
+
+    assertTrue("Nested admonition should paint its own fill", raster.count(NOTE_BACKGROUND) > 0)
+    assertEquals(
+      "Nested fill should start at its own accent bar, not at the parent's",
+      0,
+      raster.count(NOTE_BACKGROUND, raster.lineOf("Inner", right = levelSpacing)),
+    )
+    assertTrue(
+      "Parent fill should still frame the nested one",
+      raster.count(TIP_BACKGROUND, raster.lineOf("Inner", right = levelSpacing)) > 0,
+    )
   }
 
   @Test
