@@ -50,6 +50,7 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
     _listItemPositions = [NSMutableArray array];
     _listItemDepths = [NSMutableArray array];
     _listItemOrdered = [NSMutableArray array];
+    _mathReporters = [NSMutableArray array];
     _fontCache = [NSMutableDictionary dictionary];
     _currentBlockStyle = [[BlockStyle alloc] init];
     _allowFontScaling = YES;
@@ -305,6 +306,7 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
   [_listItemPositions removeAllObjects];
   [_listItemDepths removeAllObjects];
   [_listItemOrdered removeAllObjects];
+  [_mathReporters removeAllObjects];
   [self clearBlockStyle];
 
   _blockquoteDepth = 0;

@@ -20,6 +20,8 @@ class StyleConfigTest {
         linkStyle = sampleLink(),
         strongStyle = StrongStyle(fontFamily = "", fontWeight = "bold", color = null),
         emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
+        superscriptStyle = sampleSuperscript(),
+        subscriptStyle = sampleSubscript(),
         codeStyle = sampleCode(),
         imageStyle = sampleImage(),
         inlineImageStyle = InlineImageStyle(size = 20f),
@@ -39,6 +41,8 @@ class StyleConfigTest {
         linkStyle = sampleLink(),
         strongStyle = StrongStyle(fontFamily = "", fontWeight = "bold", color = null),
         emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
+        superscriptStyle = sampleSuperscript(),
+        subscriptStyle = sampleSubscript(),
         codeStyle = sampleCode(),
         imageStyle = sampleImage(),
         inlineImageStyle = InlineImageStyle(size = 20f),
@@ -65,6 +69,8 @@ class StyleConfigTest {
         linkStyle = sampleLink(),
         strongStyle = StrongStyle(fontFamily = "", fontWeight = "bold", color = null),
         emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
+        superscriptStyle = sampleSuperscript(),
+        subscriptStyle = sampleSubscript(),
         codeStyle = sampleCode(),
         imageStyle = sampleImage(),
         inlineImageStyle = InlineImageStyle(size = 20f),
@@ -87,6 +93,8 @@ class StyleConfigTest {
       linkStyle = sampleLink(),
       strongStyle = StrongStyle(fontFamily = "", fontWeight = "bold", color = null),
       emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
+      superscriptStyle = sampleSuperscript(),
+      subscriptStyle = sampleSubscript(),
       codeStyle = sampleCode(),
       imageStyle = sampleImage(),
       inlineImageStyle = InlineImageStyle(size = 20f),
@@ -138,6 +146,10 @@ class StyleConfigTest {
       backgroundColor = 0xFFF5F3FF.toInt(),
       borderColor = 0xFFDDD6FE.toInt(),
     )
+
+  private fun sampleSuperscript() = SuperscriptStyle(fontScale = 0.65f, baselineOffsetScale = 0.35f)
+
+  private fun sampleSubscript() = SubscriptStyle(fontScale = 0.65f, baselineOffsetScale = 0.2f)
 
   private fun sampleImage() =
     ImageStyle(

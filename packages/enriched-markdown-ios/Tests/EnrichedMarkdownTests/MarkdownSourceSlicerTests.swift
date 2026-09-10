@@ -81,6 +81,25 @@ final class MarkdownSourceSlicerTests: XCTestCase {
         )
     }
 
+    func testFullySelectedUnderlineKeepsUnderscoreMarkers() {
+        let flags = Md4cFlags(underline: true)
+        XCTAssertEqual(
+            copyMarkdown(selecting: "double", in: "a __double__ b", flags: flags),
+            "__double__"
+        )
+        XCTAssertEqual(
+            copyMarkdown(selecting: "single", in: "a _single_ b", flags: flags),
+            "_single_"
+        )
+    }
+
+    func testSelectionSpanningUnderlineSpansKeepsAllMarkers() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "one and two", in: "x _one_ and __two__ y", flags: Md4cFlags(underline: true)),
+            "_one_ and __two__"
+        )
+    }
+
     func testSoftBreakSurvivesAsSourceNewline() {
         XCTAssertEqual(
             copyMarkdown(selecting: "one line", in: "line one\nline two"),
@@ -152,6 +171,13 @@ final class MarkdownSourceSlicerTests: XCTestCase {
         XCTAssertEqual(
             copyMarkdown(selecting: "a*b and", in: "a\\*b and more\n\nplain"),
             "a\\*b and"
+        )
+    }
+
+    func testSelectionAcrossDroppedEntitySlicesVerbatim() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "an entity  2026", in: "next to an entity &copy; 2026 here"),
+            "an entity &copy; 2026"
         )
     }
 

@@ -6,6 +6,7 @@
 #import "ENRMAtomicSize.h"
 #import "ENRMContextMenuTextView+macOS.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLatexErrorCoordinator.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -25,6 +26,7 @@
 #import "MarkdownExtractor.h"
 #import "MeasurementCache.h"
 #import "ParagraphStyleUtils.h"
+#import "RenderContext.h"
 #import "RuntimeKeys.h"
 #import "SelectionColorUtils.h"
 #import "StylePropsUtils.h"
@@ -121,6 +123,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMDirtyFlags _dirtyFlags;
 
   ENRMAtomicSize _lastCommittedSize;
+
+  ENRMLatexErrorCoordinator *_latexErrorCoordinator;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -240,6 +244,22 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _renderCoordinator =
         [[ENRMAsyncRenderCoordinator alloc] initWithQueueLabel:"com.swmansion.enriched.markdown.render"];
 
+    __weak __typeof(self) weakLatexSelf = self;
+    _latexErrorCoordinator =
+        [[ENRMLatexErrorCoordinator alloc] initWithEmit:^BOOL(NSString *source, NSString *message, BOOL displayMode) {
+          __typeof(self) strongSelf = weakLatexSelf;
+          if (!strongSelf)
+            return NO;
+          auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(strongSelf->_eventEmitter);
+          if (!emitter)
+            return NO;
+          emitter->onLatexError({
+              .source = std::string(source.UTF8String ?: ""),
+              .message = std::string(message.UTF8String ?: ""),
+              .displayMode = displayMode ? true : false,
+          });
+          return YES;
+        }];
     _maxFontSizeMultiplier = 0;
     _allowTrailingMargin = NO;
     _enableLinkPreview = YES;
@@ -306,7 +326,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, strongSelf->_cachedMarkdown,
-                                     strongSelf->_config, @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig);
+                                     strongSelf->_config, @[ baseMenu ], customItems,
+                                     strongSelf -> _selectionMenuConfig);
   };
 #endif
 
@@ -374,6 +395,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         self->_lastElementMarginBottom = result.lastElementMarginBottom;
         self->_accessibilityInfo = result.accessibilityInfo;
         self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
+        [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
         [self applyRenderedText:result.attributedText];
       }];
 }
@@ -788,6 +810,12 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
         .selectionStart = (int)selectionStart,
         .selectionEnd = (int)selectionEnd,
     });
+}
+
+- (void)updateEventEmitter:(const facebook::react::EventEmitter::Shared &)eventEmitter
+{
+  [super updateEventEmitter:eventEmitter];
+  [_latexErrorCoordinator flushPending];
 }
 
 - (void)textTapped:(ENRMTapRecognizer *)recognizer

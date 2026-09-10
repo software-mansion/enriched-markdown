@@ -24,6 +24,13 @@ private let menuItems: [HomeMenuItem] = [
         accessibilityId: "home-block-text"
     ),
     HomeMenuItem(
+        route: .math,
+        label: "Math",
+        subtext: "LaTeX math rendering",
+        color: .tileTeal,
+        accessibilityId: "home-block-math"
+    ),
+    HomeMenuItem(
         route: .input,
         label: "Input",
         subtext: "chat-style rich text input",

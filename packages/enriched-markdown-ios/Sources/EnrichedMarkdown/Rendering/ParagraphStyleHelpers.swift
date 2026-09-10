@@ -57,28 +57,12 @@ enum ParagraphStyleHelpers {
         output.addAttribute(.paragraphStyle, value: style, range: range)
     }
 
-    static func rangeContainsNaturalHeightAttachment(
-        in output: NSAttributedString,
-        range: NSRange
-    ) -> Bool {
-        var found = false
-        output.enumerateAttribute(.attachment, in: range, options: []) { value, _, stop in
-            if let attachment = value as? any MarkdownPluginAttachment,
-               attachment.preservesNaturalLineHeight {
-                found = true
-                stop.pointee = true
-            }
-        }
-        return found
-    }
-
-    /// `capMaximum: false` keeps only the minimum line height, so
-    /// taller-than-text content is not clipped.
+    /// A range holding a plugin attachment (typeset math) keeps only the
+    /// minimum line height, so taller-than-text content is not clipped.
     static func applyLineHeight(
         to output: NSMutableAttributedString,
         range: NSRange,
-        lineHeight: CGFloat,
-        capMaximum: Bool = true
+        lineHeight: CGFloat
     ) {
         guard lineHeight > 0, range.length > 0 else { return }
 
@@ -86,8 +70,19 @@ enum ParagraphStyleHelpers {
         let style = getOrCreateParagraphStyle(in: output, at: range.location)
         style.lineSpacing = 0
         style.minimumLineHeight = roundedLineHeight
-        style.maximumLineHeight = capMaximum ? roundedLineHeight : 0
+        style.maximumLineHeight = containsPluginAttachment(output, in: range) ? 0 : roundedLineHeight
         output.addAttribute(.paragraphStyle, value: style, range: range)
+    }
+
+    private static func containsPluginAttachment(_ output: NSAttributedString, in range: NSRange) -> Bool {
+        var found = false
+        output.enumerateAttribute(.attachment, in: range, options: []) { value, _, stop in
+            if value is any MarkdownPluginAttachment {
+                found = true
+                stop.pointee = true
+            }
+        }
+        return found
     }
 
     static func applyBaselineOffset(
@@ -121,10 +116,9 @@ enum ParagraphStyleHelpers {
     static func applyBlockLineHeight(
         to output: NSMutableAttributedString,
         range: NSRange,
-        lineHeight: CGFloat,
-        capMaximum: Bool = true
+        lineHeight: CGFloat
     ) {
-        applyLineHeight(to: output, range: range, lineHeight: lineHeight, capMaximum: capMaximum)
+        applyLineHeight(to: output, range: range, lineHeight: lineHeight)
         applyBaselineOffset(to: output, range: range)
     }
 

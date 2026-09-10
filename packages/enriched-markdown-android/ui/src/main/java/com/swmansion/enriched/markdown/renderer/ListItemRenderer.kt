@@ -32,6 +32,10 @@ class ListItemRenderer(
       styleContext.incrementListItemNumber()
     }
 
+    // Claimed before the children render so nested task items take the later
+    // indices, matching the top-down order of `- [ ]` markers in the source.
+    val taskIndex = if (isTask) styleContext.taskItemCount++ else -1
+
     factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
 
     if (builder.length == start || builder.substring(start).isBlank()) return
@@ -52,6 +56,7 @@ class ListItemRenderer(
           depth = depth,
           context = factory.context,
           styleCache = factory.styleCache,
+          taskIndex = taskIndex,
           isChecked = isChecked,
         )
       } else {

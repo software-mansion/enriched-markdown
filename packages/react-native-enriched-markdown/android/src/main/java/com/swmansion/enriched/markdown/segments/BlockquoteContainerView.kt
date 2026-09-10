@@ -141,6 +141,7 @@ class BlockquoteContainerView(
         parentConfig.onLinkPress,
         parentConfig.onLinkLongPress,
         blockquoteStyle,
+        onLatexError = parentConfig.onLatexError,
       )
     applySegments(rendered, reset = false)
     requestLayout()

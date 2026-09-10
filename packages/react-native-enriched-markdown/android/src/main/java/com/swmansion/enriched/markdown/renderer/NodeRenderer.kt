@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.renderer
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.style.MetricAffectingSpan
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -21,6 +22,7 @@ interface NodeRenderer {
 
 data class RendererConfig(
   val style: StyleConfig,
+  val onLatexError: LatexErrorReporter? = null,
 )
 
 class RendererFactory(

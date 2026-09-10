@@ -6,7 +6,7 @@
   "scripts": {
     "build": "swift build",
     "test": "swift test",
-    "test:ios-native": "xcodebuild test -scheme EnrichedMarkdown -destination \"platform=iOS Simulator,id=${IOS_SIMULATOR_UDID:-booted}\"",
+    "test:ios-native": "xcodebuild test -scheme EnrichedMarkdown-Package -destination \"platform=iOS Simulator,id=${IOS_SIMULATOR_UDID:-booted}\"",
     "lint:ios-native": "swiftlint lint --strict",
     "clean": "swift package clean"
   }

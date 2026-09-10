@@ -121,6 +121,8 @@ The `markdownStyle` builder supports these blocks:
 | `emphasis` | Italic text |
 | `strikethrough` | Struck-through text |
 | `underline` | Underlined text (requires `Md4cFlags(underline = true)`) |
+| `superscript` | Superscript text (`^text^`) |
+| `subscript` | Subscript text (`~text~`) |
 | `code` | Inline code |
 | `codeBlock` | Fenced code blocks |
 | `blockquote` | Block quotes |
@@ -132,6 +134,23 @@ The `markdownStyle` builder supports these blocks:
 | `table` | Tables |
 
 Use `MarkdownStyle.copy { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style.
+
+`superscript` and `subscript` take unitless floats instead of `Dp`/`sp`/`Color`: `fontScale` shrinks the text size relative to its surrounding text, and `baselineOffsetScale` shifts the baseline (as a fraction of text size) up for superscript and down for subscript.
+
+```kotlin
+markdownStyle {
+  superscript {
+    fontScale = 0.65f
+    baselineOffsetScale = 0.35f
+  }
+  subscript {
+    fontScale = 0.65f
+    baselineOffsetScale = 0.2f
+  }
+}
+```
+
+Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
 
 ## API reference
 
@@ -148,6 +167,8 @@ fun EnrichedMarkdownText(
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkPress: ((String) -> Unit)? = null,
   onLinkLongPress: ((String) -> Unit)? = null,
+  onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
+  enableTaskListItemToggle: Boolean = true,
 )
 ```
 
@@ -160,16 +181,48 @@ fun EnrichedMarkdownText(
 | `imageRequestHeaders` | HTTP headers attached to remote image requests (e.g. `Referer`) |
 | `onLinkPress` | Called when a link is tapped |
 | `onLinkLongPress` | Called when a link is long-pressed |
+| `onTaskListItemPress` | Called after a task list checkbox tap toggles the item |
+| `enableTaskListItemToggle` | Whether a checkbox tap toggles the item (default `true`) |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
 > **Note:** Renders nothing in `@Preview` because it relies on `AndroidView`.
 
+#### Task list checkboxes
+
+```kotlin
+data class TaskListItemPressEvent(
+  val index: Int,     // 0-based, in document order
+  val checked: Boolean, // state after the toggle
+  val text: String,   // first line of the item's plain text
+)
+```
+
+Tapping anywhere in a task item's checkbox margin toggles its checked state in
+place — checkbox and checked-item text decoration alike — and calls
+`onTaskListItemPress` with the new state. The toggle is visual: the view never
+rewrites the `markdown` string you pass it, so persist the change from the
+handler if it has to survive a new source string. Re-supplying the *same*
+string on recomposition keeps the toggles.
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = checklist,
+  onTaskListItemPress = { (index, checked, _) -> store.setDone(index, checked) },
+)
+```
+
+`enableTaskListItemToggle = false` makes checkbox taps fully inert: no visual
+toggle and no `onTaskListItemPress`. Text selection and links are unaffected
+either way.
+
 ### `Md4cFlags`
 
 ```kotlin
 data class Md4cFlags(
-  val underline: Boolean = false,  // _text_ and __text__ render underlined instead of italic and bold
+  val underline: Boolean = false,    // _text_ and __text__ render underlined instead of italic and bold
+  val superscript: Boolean = false,  // ^text^ renders raised above the baseline
+  val subscript: Boolean = false,    // ~text~ renders lowered below the baseline
   // … further md4c extensions
 ) {
   companion object {
@@ -235,11 +288,11 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 
 - Headings (`#`–`######`)
 - Paragraphs, line breaks
-- **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~
+- **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~, ^superscript^, ~subscript~
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists
-- Task lists (`- [ ]` / `- [x]`)
+- Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemPress`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
 - Tables (GFM), including per-column alignment

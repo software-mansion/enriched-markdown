@@ -1,5 +1,6 @@
 package swmansion.enriched.markdown.android.example
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,14 +15,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.compose.Md4cFlags
 
 @Composable
 fun TextScreen(
   markdown: String,
   modifier: Modifier = Modifier,
 ) {
+  val context = LocalContext.current
   var pendingLink by remember { mutableStateOf<PendingLink?>(null) }
 
   Column(
@@ -36,8 +40,17 @@ fun TextScreen(
       markdown = markdown,
       modifier = Modifier.fillMaxWidth(),
       style = CustomMarkdownStyle,
+      flags = Md4cFlags(superscript = true, subscript = true),
       onLinkPress = { url -> pendingLink = PendingLink(url, isLongPress = false) },
       onLinkLongPress = { url -> pendingLink = PendingLink(url, isLongPress = true) },
+      onTaskListItemPress = { event ->
+        Toast
+          .makeText(
+            context,
+            "Task ${event.index} is now ${if (event.checked) "checked" else "unchecked"}: ${event.text}",
+            Toast.LENGTH_SHORT,
+          ).show()
+      },
     )
   }
 

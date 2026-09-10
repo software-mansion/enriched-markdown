@@ -58,13 +58,7 @@ final class ParagraphRenderer: NodeRenderer {
         let range = NSRange(location: start, length: output.length - start)
 
         if !isBlockImage, let lineHeight = paragraphStyle.lineHeight {
-            // A capped line height would clip taller-than-text plugin content.
-            ParagraphStyleHelpers.applyBlockLineHeight(
-                to: output,
-                range: range,
-                lineHeight: lineHeight,
-                capMaximum: !ParagraphStyleHelpers.rangeContainsNaturalHeightAttachment(in: output, range: range)
-            )
+            ParagraphStyleHelpers.applyBlockLineHeight(to: output, range: range, lineHeight: lineHeight)
         }
 
         if let alignment = paragraphStyle.textAlignment {

@@ -1,3 +1,4 @@
+import Combine
 import UIKit
 import XCTest
 @testable import EnrichedMarkdown
@@ -5,10 +6,14 @@ import XCTest
 private final class StubAttachment: NSTextAttachment, MarkdownPluginAttachment {
     let markdown: String
     let isBlock: Bool
+    let literalText: String
+    let sourceDelimiters: (opening: String, closing: String)?
 
-    init(markdown: String, isBlock: Bool) {
+    init(markdown: String, isBlock: Bool, literalText: String, delimiter: String) {
         self.markdown = markdown
         self.isBlock = isBlock
+        self.literalText = literalText
+        self.sourceDelimiters = (delimiter, delimiter)
         super.init(data: nil, ofType: nil)
     }
 
@@ -20,12 +25,18 @@ private final class StubAttachment: NSTextAttachment, MarkdownPluginAttachment {
     func markdownText() -> String { markdown }
 }
 
-/// Emits a stub attachment, taking block-ness from the context like a real
-/// plugin renderer would.
+/// Emits a stub attachment the way a real plugin renderer would: block-ness
+/// from the context, literal text from the node, and a source-range tag.
 private final class StubAttachmentRenderer: NodeRenderer {
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
         var attributes = context.getTextAttributes()
-        attributes[.attachment] = StubAttachment(markdown: "$stub$", isBlock: context.rendersPluginBlock)
+        attributes[.attachment] = StubAttachment(
+            markdown: "$stub$",
+            isBlock: context.rendersPluginBlock,
+            literalText: node.flattenedText(),
+            delimiter: node.type == .latexMathDisplay ? "$$" : "$"
+        )
+        SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
     }
 }
@@ -74,6 +85,21 @@ final class RenderPluginTests: XCTestCase {
             imageRequestHeaders: [:],
             plugins: plugins
         )
+    }
+
+    /// Copy as Markdown for the rendered selection matching `substring`.
+    private func copyMarkdown(
+        selecting substring: String,
+        in source: String,
+        plugins: [any MarkdownRenderPlugin],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> String? {
+        let rendered = render(source, plugins: plugins)
+        let range = (rendered.string as NSString).range(of: substring)
+        XCTAssertNotEqual(range.location, NSNotFound, "'\(substring)' not rendered", file: file, line: line)
+        guard range.location != NSNotFound else { return nil }
+        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, flags: effectiveFlags)
     }
 
     private func stubAttachments(in rendered: NSAttributedString) -> [StubAttachment] {
@@ -139,6 +165,87 @@ final class RenderPluginTests: XCTestCase {
         )
     }
 
+    // MARK: - Verbatim copy through the plugin seam
+
+    private var effectiveFlags: Md4cFlags {
+        MarkdownRenderer.effectiveFlags(.commonMark, plugins: [mathStubPlugin])
+    }
+
+    func testEffectiveFlagsApplyPluginAdjustments() {
+        XCTAssertFalse(Md4cFlags.commonMark.latexMathEnabled)
+        XCTAssertTrue(effectiveFlags.latexMathEnabled)
+    }
+
+    func testPartialSelectionWithPluginAttachmentCopiesVerbatim() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "a \u{FFFC} b", in: "a $x$ b and more", plugins: [mathStubPlugin]),
+            "a $x$ b"
+        )
+    }
+
+    func testPartialSelectionWithBlockPluginAttachmentKeepsDelimiterLines() {
+        let source = "before\n\n$$\nx\n$$\n\nafter"
+        let rendered = render(source, plugins: [mathStubPlugin])
+
+        let afterLocation = (rendered.string as NSString).range(of: "after").location
+        let copied = MarkdownExtractor.markdown(
+            for: NSRange(location: 0, length: afterLocation),
+            in: rendered,
+            sourceMarkdown: source,
+            flags: effectiveFlags
+        )
+        XCTAssertEqual(copied, "before\n\n$$\nx\n$$")
+    }
+
+    // The core flattens each line break plus its indentation inside a math
+    // body to one space; the annotator must still anchor the node.
+    func testIndentedBlockPluginAttachmentCopiesVerbatim() {
+        let source = "before\n\n$$\n  x\n    + y\n$$\n\nafter"
+        let rendered = render(source, plugins: [mathStubPlugin])
+
+        let afterLocation = (rendered.string as NSString).range(of: "after").location
+        let copied = MarkdownExtractor.markdown(
+            for: NSRange(location: 0, length: afterLocation),
+            in: rendered,
+            sourceMarkdown: source,
+            flags: effectiveFlags
+        )
+        XCTAssertEqual(copied, "before\n\n$$\n  x\n    + y\n$$")
+    }
+
+    func testMissingDelimiterAtSelectionEdgeFallsBackToReconstruction() {
+        // A stub attachment claiming `$` delimiters on a node whose source
+        // has none must not produce a slice when it bounds the selection.
+        let plugin = StubPlugin(claimed: [.code], makeRenderer: { StubAttachmentRenderer() })
+        XCTAssertEqual(copyMarkdown(selecting: "\u{FFFC}", in: "a `x` b", plugins: [plugin]), "$stub$")
+    }
+
+    func testInlinePluginReconstructionKeepsListPrefixAndMarkers() {
+        let rendered = render("- **$x$** item", plugins: [mathStubPlugin])
+        let extracted = MarkdownExtractor.extractMarkdown(
+            from: rendered,
+            in: NSRange(location: 0, length: rendered.length)
+        )
+        XCTAssertEqual(extracted?.trimmingCharacters(in: .whitespacesAndNewlines), "- **$stub$** item")
+    }
+
+    @MainActor
+    func testRenderStoreRecordsPluginAdjustedFlags() {
+        let store = MarkdownRenderStore()
+        let rendered = expectation(description: "render applied")
+        var recorded: RenderedSource?
+        let subscription = store.$source.compactMap { $0 }.first().sink { source in
+            recorded = source
+            rendered.fulfill()
+        }
+
+        store.schedule(markdown: "a $x$ b", config: config, plugins: [mathStubPlugin])
+        wait(for: [rendered], timeout: 5)
+        subscription.cancel()
+
+        XCTAssertEqual(recorded?.flags.latexMathEnabled, true)
+    }
+
     func testPluginAttachmentDropsLineHeightCap() {
         config.paragraph.lineHeight = 20
 
@@ -148,6 +255,13 @@ final class RenderPluginTests: XCTestCase {
         XCTAssertEqual(paragraphStyle(in: plain)?.maximumLineHeight, 20)
         XCTAssertEqual(paragraphStyle(in: withAttachment)?.maximumLineHeight, 0)
         XCTAssertEqual(paragraphStyle(in: withAttachment)?.minimumLineHeight, 20)
+
+        // Blocks that re-apply their own line height keep the exemption.
+        config.blockquote.lineHeight = 20
+        let quoted = render("> with $x$ math", plugins: [mathStubPlugin])
+        let formula = (quoted.string as NSString).range(of: "\u{FFFC}").location
+        let quotedStyle = quoted.attribute(.paragraphStyle, at: formula, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertEqual(quotedStyle?.maximumLineHeight, 0)
     }
 
     private func paragraphStyle(in rendered: NSAttributedString) -> NSParagraphStyle? {

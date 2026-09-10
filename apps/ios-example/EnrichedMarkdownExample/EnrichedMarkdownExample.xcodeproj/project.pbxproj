@@ -15,6 +15,8 @@
 		A10000010000000000000012 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000012 /* HomeScreen.swift */; };
 		A10000010000000000000013 /* HomeScreenButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000013 /* HomeScreenButton.swift */; };
 		A10000010000000000000014 /* TextScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000014 /* TextScreen.swift */; };
+		A10000010000000000000050 /* MathScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000050 /* MathScreen.swift */; };
+		A10000010000000000000051 /* EnrichedMarkdownLaTeX in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000002 /* EnrichedMarkdownLaTeX */; };
 		A10000010000000000000015 /* PlaygroundScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000015 /* PlaygroundScreen.swift */; };
 		A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000016 /* ExampleMarkdownStyles.swift */; };
 		A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000017 /* ExampleFontRegistrar.swift */; };
@@ -45,6 +47,7 @@
 		A10000020000000000000012 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000013 /* HomeScreenButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenButton.swift; sourceTree = "<group>"; };
 		A10000020000000000000014 /* TextScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000050 /* MathScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000015 /* PlaygroundScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000016 /* ExampleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleMarkdownStyles.swift; sourceTree = "<group>"; };
 		A10000020000000000000017 /* ExampleFontRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleFontRegistrar.swift; sourceTree = "<group>"; };
@@ -73,6 +76,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000010000000000000004 /* EnrichedMarkdown in Frameworks */,
+				A10000010000000000000051 /* EnrichedMarkdownLaTeX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -143,6 +147,7 @@
 			children = (
 				A10000020000000000000010 /* AppShell.swift */,
 				A1000006000000000000000B /* Home */,
+				A10000060000000000000050 /* Math */,
 				A1000006000000000000000C /* Playground */,
 				A1000006000000000000000D /* Text */,
 			);
@@ -174,6 +179,14 @@
 				A10000020000000000000014 /* TextScreen.swift */,
 			);
 			path = Text;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000050 /* Math */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000050 /* MathScreen.swift */,
+			);
+			path = Math;
 			sourceTree = "<group>";
 		};
 		A10000060000000000000003 /* Products */ = {
@@ -227,6 +240,7 @@
 			name = EnrichedMarkdownExample;
 			packageProductDependencies = (
 				A10000050000000000000001 /* EnrichedMarkdown */,
+				A10000050000000000000002 /* EnrichedMarkdownLaTeX */,
 			);
 			productName = EnrichedMarkdownExample;
 			productReference = A10000030000000000000001 /* EnrichedMarkdownExample.app */;
@@ -300,6 +314,7 @@
 				A10000010000000000000012 /* HomeScreen.swift in Sources */,
 				A10000010000000000000013 /* HomeScreenButton.swift in Sources */,
 				A10000010000000000000014 /* TextScreen.swift in Sources */,
+				A10000010000000000000050 /* MathScreen.swift in Sources */,
 				A10000010000000000000015 /* PlaygroundScreen.swift in Sources */,
 				A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */,
 				A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */,
@@ -445,6 +460,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */;
 			productName = EnrichedMarkdown;
+		};
+		A10000050000000000000002 /* EnrichedMarkdownLaTeX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */;
+			productName = EnrichedMarkdownLaTeX;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

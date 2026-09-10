@@ -137,6 +137,9 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
     NSMutableDictionary *attributesToApply = [metadata mutableCopy];
     attributesToApply[NSParagraphStyleAttributeName] = style;
     [output addAttributes:attributesToApply range:range];
+    if (lineHeightConfig > 0) {
+      applyBaselineOffset(output, range);
+    }
   };
 
   NSUInteger pos = itemRange.location;

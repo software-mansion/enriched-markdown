@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.renderer
 import android.content.Context
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
@@ -12,6 +13,7 @@ class Renderer {
   private var cachedFactory: RendererFactory? = null
   private var cachedStyle: StyleConfig? = null
   private var cachedContext: Context? = null
+  private var cachedOnLatexError: LatexErrorReporter? = null
 
   private val collectedImageSpans = mutableListOf<ImageSpan>()
   private var lastElementMarginBottom: Float = 0f
@@ -19,14 +21,16 @@ class Renderer {
   fun configure(
     style: StyleConfig,
     context: Context,
+    onLatexError: LatexErrorReporter? = null,
   ) {
-    if (cachedStyle === style && cachedContext === context) return
+    if (cachedStyle === style && cachedContext === context && cachedOnLatexError === onLatexError) return
 
     cachedStyle = style
     cachedContext = context
+    cachedOnLatexError = onLatexError
     cachedFactory =
       RendererFactory(
-        RendererConfig(style),
+        RendererConfig(style, onLatexError),
         context,
       ) { span -> reportImageSpan(span) }
   }

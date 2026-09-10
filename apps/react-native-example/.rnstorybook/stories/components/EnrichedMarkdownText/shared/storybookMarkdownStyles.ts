@@ -492,6 +492,12 @@ export const EXAMPLE_FONT_FAMILIES = [
   'Montserrat-Medium',
   'Montserrat-Italic',
   'CourierPrime-Regular',
+  // Poppins ships a nonzero lineGap, which surfaced the iOS descender clip in
+  // issue #770 - keep it selectable for regression checks.
+  'Poppins-Regular',
+  'Poppins-Medium',
+  'Poppins-SemiBold',
+  'Poppins-Italic',
 ] as const;
 
 const EXAMPLE_FONT_FAMILY_LABELS: Record<
@@ -505,6 +511,10 @@ const EXAMPLE_FONT_FAMILY_LABELS: Record<
   'Montserrat-Medium': 'Montserrat Medium',
   'Montserrat-Italic': 'Montserrat Italic',
   'CourierPrime-Regular': 'Courier Prime',
+  'Poppins-Regular': 'Poppins Regular',
+  'Poppins-Medium': 'Poppins Medium',
+  'Poppins-SemiBold': 'Poppins SemiBold',
+  'Poppins-Italic': 'Poppins Italic',
 };
 
 export function fontFamilyControl(description: string) {

@@ -4,6 +4,7 @@
 #import "ENRMAsyncRenderCoordinator.h"
 #import "ENRMAtomicSize.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLatexErrorCoordinator.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTailFadeInAnimator.h"
 #import "ENRMTextInteractionUtils.h"
@@ -34,6 +35,7 @@
 #import "MarkdownExtractor.h"
 #import "MeasurementCache.h"
 #import "ParagraphStyleUtils.h"
+#import "RenderContext.h"
 #import "RenderedMarkdownSegment.h"
 #import "RuntimeKeys.h"
 #import "SegmentReconciler.h"
@@ -92,6 +94,7 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _isGFM;
   NSString *_cachedMarkdown;
   NSString *_renderedMarkdown;
+  ENRMLatexErrorCoordinator *_latexErrorCoordinator;
   NSMutableArray<RCTUIView *> *_segmentViews;
   NSMutableArray<NSNumber *> *_segmentSignatures;
   ENRMSegmentViewRegistry *_segmentViewRegistry;
@@ -168,6 +171,22 @@ static char kENRMSegmentFadeAnimatorKey;
     _isGFM = defaultProps->isGFM;
     _segmentViews = [NSMutableArray array];
     _segmentSignatures = [NSMutableArray array];
+    __weak __typeof(self) weakLatexSelf = self;
+    _latexErrorCoordinator =
+        [[ENRMLatexErrorCoordinator alloc] initWithEmit:^BOOL(NSString *source, NSString *message, BOOL displayMode) {
+          __typeof(self) strongSelf = weakLatexSelf;
+          if (!strongSelf)
+            return NO;
+          auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(strongSelf->_eventEmitter);
+          if (!emitter)
+            return NO;
+          emitter->onLatexError({
+              .source = std::string(source.UTF8String ?: ""),
+              .message = std::string(message.UTF8String ?: ""),
+              .displayMode = displayMode ? true : false,
+          });
+          return YES;
+        }];
     _dirtyFlags = ENRMDirtyNone;
     [self configureSegmentViewRegistry];
 
@@ -860,6 +879,7 @@ static char kENRMSegmentFadeAnimatorKey;
   view.accessibilityInfo = segment.accessibilityInfo;
   view.accessibilityLabels = _accessibilityLabels;
   view.textView.selectable = _selectable;
+  [_latexErrorCoordinator wireReporters:segment.context.mathReporters];
   [view applyAttributedText:segment.attributedText context:segment.context];
 
   const auto &selectionProps = *std::static_pointer_cast<EnrichedMarkdownProps const>(self->_props);
@@ -893,7 +913,7 @@ static char kENRMSegmentFadeAnimatorKey;
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, segmentMarkdown, strongSelf->_config,
-                                     @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig);
+                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig);
   }];
 #endif
 
@@ -953,6 +973,10 @@ static char kENRMSegmentFadeAnimatorKey;
   mathView.accessibilityLabels = _accessibilityLabels;
   mathView.copyLabel = _selectionMenuLabels.copyLabel;
   mathView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+  ENRMLatexErrorCoordinator *coordinator = _latexErrorCoordinator;
+  mathView.onLatexError = ^(NSString *source, NSString *message, BOOL displayMode) {
+    [coordinator reportSource:source message:message displayMode:displayMode];
+  };
   [mathView applyLatex:mathSegment.latex];
   return mathView;
 }
@@ -1426,6 +1450,12 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
         .selectionStart = (int)selectionStart,
         .selectionEnd = (int)selectionEnd,
     });
+}
+
+- (void)updateEventEmitter:(const facebook::react::EventEmitter::Shared &)eventEmitter
+{
+  [super updateEventEmitter:eventEmitter];
+  [_latexErrorCoordinator flushPending];
 }
 
 - (void)textTapped:(ENRMTapRecognizer *)recognizer

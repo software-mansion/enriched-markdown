@@ -66,6 +66,10 @@
 		<string>Montserrat-Regular.ttf</string>
 		<string>Montserrat-Italic.ttf</string>
 		<string>CourierPrime-Regular.ttf</string>
+		<string>Poppins-Medium.ttf</string>
+		<string>Poppins-Regular.ttf</string>
+		<string>Poppins-SemiBold.ttf</string>
+		<string>Poppins-Italic.ttf</string>
 	</array>
 </dict>
 </plist>

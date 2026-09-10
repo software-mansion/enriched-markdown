@@ -6,7 +6,16 @@ export const normalizeColor = (
 ): ColorValue | undefined => {
   if (!color) return undefined;
   if (Platform.OS === 'web') return color;
-  return processColor(color) ?? undefined;
+  const processed = processColor(color);
+  if (processed === null || processed === undefined) {
+    if (__DEV__) {
+      console.warn(
+        `[MarkdownStyle] Ignoring invalid color value "${color}"; falling back to the default.`
+      );
+    }
+    return undefined;
+  }
+  return processed;
 };
 
 export function mergeSubStyle<T extends Record<string, unknown>>(
@@ -31,11 +40,13 @@ export function mergeSubStyle<T extends Record<string, unknown>>(
         ...(userValue as Record<string, unknown>),
       };
     }
-    if (
-      key.toLowerCase().includes('color') &&
-      typeof result[key] === 'string'
-    ) {
-      result[key] = normalizeColor(result[key] as string);
+    if (key.toLowerCase().includes('color')) {
+      const value = result[key];
+      if (typeof value === 'string') {
+        result[key] = normalizeColor(value) ?? defaultValue;
+      } else if (value === undefined || value === null) {
+        result[key] = defaultValue;
+      }
     }
   }
   return result as T;
