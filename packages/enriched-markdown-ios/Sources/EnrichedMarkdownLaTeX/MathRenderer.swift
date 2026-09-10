@@ -1,9 +1,10 @@
 import EnrichedMarkdown
 import UIKit
 
-/// Renders math nodes as baseline-aligned image attachments inheriting the
-/// surrounding font size and color; typeset failures fall back to the
-/// delimited source text.
+/// Renders math nodes as baseline-aligned image attachments: inline math at
+/// the surrounding font size, root-level display math as a `MathBlock`
+/// panel; unset style values inherit from the surrounding text. Typeset
+/// failures fall back to the delimited source text.
 final class MathRenderer: NodeRenderer {
     typealias Typeset = (
         _ latex: String,
@@ -13,9 +14,19 @@ final class MathRenderer: NodeRenderer {
     ) -> MathTypesetResult?
 
     private let typeset: Typeset
+    private let blockStyle: MathBlockStyle
+    private let inlineStyle: InlineMathStyle
+    private let panel: MathPanelStyle
 
-    init(typeset: @escaping Typeset) {
+    init(typeset: @escaping Typeset, blockStyle: MathBlockStyle, inlineStyle: InlineMathStyle) {
         self.typeset = typeset
+        self.blockStyle = blockStyle
+        self.inlineStyle = inlineStyle
+        self.panel = MathPanelStyle(
+            backgroundColor: blockStyle.backgroundColor,
+            padding: blockStyle.padding ?? 0,
+            textAlignment: blockStyle.textAlignment ?? .natural
+        )
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
@@ -23,12 +34,17 @@ final class MathRenderer: NodeRenderer {
         guard !latex.isEmpty else { return }
 
         let isDisplay = node.type == .latexMathDisplay
+        let isBlock = context.rendersPluginBlock
         var attributes = context.getTextAttributes()
         let font = attributes[.font] as? UIFont ?? UIFont.preferredFont(forTextStyle: .body)
-        let color = attributes[.foregroundColor] as? UIColor ?? UIColor.label
+        let fontSize = (isBlock ? blockStyle.fontSize : nil) ?? font.pointSize
+        let color = (isBlock ? blockStyle.foregroundColor : inlineStyle.foregroundColor)
+            ?? attributes[.foregroundColor] as? UIColor ?? UIColor.label
 
-        guard let result = typeset(latex, isDisplay, font.pointSize, color) else {
+        guard let result = typeset(latex, isDisplay, fontSize, color) else {
             let delimiter = MathAttachment.delimiter(isDisplay: isDisplay)
+            attributes[.font] = font.withSize(fontSize)
+            attributes[.foregroundColor] = color
             output.append(NSAttributedString(string: delimiter + latex + delimiter, attributes: attributes))
             return
         }
@@ -36,8 +52,8 @@ final class MathRenderer: NodeRenderer {
         attributes[.attachment] = MathAttachment(
             latex: latex,
             isDisplay: isDisplay,
-            isBlock: context.rendersPluginBlock,
-            result: result
+            result: result,
+            panel: isBlock ? panel : nil
         )
         SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))

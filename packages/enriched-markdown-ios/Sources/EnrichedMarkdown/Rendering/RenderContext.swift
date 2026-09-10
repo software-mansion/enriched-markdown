@@ -56,9 +56,10 @@ package final class RenderContext {
     var listItemNumber = 0
     var taskItemIndex = 0
     var rendersBlockImage = false
-    /// True while rendering the synthetic paragraph around a bare root-level
+    /// Set while rendering the synthetic paragraph around a bare root-level
     /// plugin block node (see `MarkdownRenderPlugin.rootBlockNodeTypes`).
-    package var rendersPluginBlock = false
+    var pluginBlockMargins: BlockMargins?
+    package var rendersPluginBlock: Bool { pluginBlockMargins != nil }
 
     private static let blockSpacerTemplate: NSParagraphStyle = {
         let style = NSMutableParagraphStyle()
@@ -76,7 +77,7 @@ package final class RenderContext {
         listItemNumber = 0
         taskItemIndex = 0
         rendersBlockImage = false
-        rendersPluginBlock = false
+        pluginBlockMargins = nil
     }
 
     func setBlockStyle(

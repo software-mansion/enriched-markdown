@@ -46,7 +46,7 @@ public enum ThemeColorSpec: Equatable, Sendable {
         case quaternary
     }
 
-    func resolve(traitCollection: UITraitCollection) -> UIColor {
+    package func resolve(traitCollection: UITraitCollection) -> UIColor {
         switch self {
         case let .semantic(semantic):
             switch semantic {

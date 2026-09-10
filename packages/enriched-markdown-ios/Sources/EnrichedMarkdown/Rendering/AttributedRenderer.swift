@@ -3,7 +3,8 @@ import UIKit
 final class AttributedRenderer {
     private let config: MarkdownStyleConfig
     private let factory: RendererFactory
-    private let rootBlockTypes: Set<NodeType>
+    /// Root-level plugin block node types and the margins each declares.
+    private let rootBlockMargins: [NodeType: BlockMargins]
 
     init(
         config: MarkdownStyleConfig,
@@ -16,7 +17,11 @@ final class AttributedRenderer {
             imageRequestHeaders: imageRequestHeaders,
             plugins: plugins
         )
-        self.rootBlockTypes = plugins.reduce(into: []) { $0.formUnion($1.rootBlockNodeTypes) }
+        self.rootBlockMargins = plugins.reduce(into: [:]) { margins, plugin in
+            for type in plugin.rootBlockNodeTypes where margins[type] == nil {
+                margins[type] = plugin.blockMargins(for: type, config: config)
+            }
+        }
     }
 
     func renderRoot(_ root: MarkdownASTNode) -> NSMutableAttributedString {
@@ -30,11 +35,11 @@ final class AttributedRenderer {
         for child in root.children {
             // A synthetic paragraph gives bare plugin block nodes their
             // block margins and alignment.
-            if rootBlockTypes.contains(child.type) {
-                context.rendersPluginBlock = true
+            if let margins = rootBlockMargins[child.type] {
+                context.pluginBlockMargins = margins
                 let paragraph = MarkdownASTNode(type: .paragraph, children: [child])
                 factory.renderer(for: .paragraph).render(node: paragraph, into: output, context: context)
-                context.rendersPluginBlock = false
+                context.pluginBlockMargins = nil
                 continue
             }
             factory.renderer(for: child.type).render(node: child, into: output, context: context)

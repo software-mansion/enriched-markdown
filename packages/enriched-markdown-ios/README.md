@@ -12,7 +12,7 @@ Standalone SwiftUI library for rendering enriched Markdown on iOS. This package 
 
 Add the package via [Swift Package Manager](https://docs.swift.org/latest/documentation/packagemanagerdocs/). The `Package.swift` lives at the repository root.
 
-**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product.
+**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math)).
 
 **Package.swift:**
 
@@ -154,6 +154,8 @@ The `MarkdownTheme` builder supports these elements:
 | `BlockImage()` | Block images |
 | `InlineImage()` | Inline images |
 | `ThematicBreak()` | Horizontal rules |
+| `MathBlock()` | Root-level `$$…$$` display math (`EnrichedMarkdownLaTeX`, see [LaTeX math](#latex-math)) |
+| `InlineMath()` | `$…$` math in running text (`EnrichedMarkdownLaTeX`) |
 
 Common modifiers (available on most elements): `.font`, `.fontFamily(_:size:)`, `.fontSize`, `.bold`, `.fontDesign`, `.foregroundStyle`, `.marginTop`, `.marginBottom`, `.lineHeight`, `.textAlignment`.
 
@@ -171,6 +173,8 @@ Element-specific modifiers include:
 - **BlockImage:** `.height`, `.borderRadius`
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.color` / `.foregroundStyle`, `.height`
+- **MathBlock:** `.fontSize`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.textAlignment` — the only modifiers; the face is always KaTeX's
+- **InlineMath:** `.foregroundStyle` — the only modifier; size follows the surrounding text
 
 ## API reference
 
@@ -360,6 +364,50 @@ Styling comes from the `Table()` theme element (header colors, row
 striping, borders, cell padding, alignment); the defaults adapt to light
 and dark mode.
 
+## LaTeX math
+
+Math rendering is an optional product so apps that never show formulas
+don't link the typesetting engine. Add `EnrichedMarkdownLaTeX` next to
+`EnrichedMarkdown` and enable it per view:
+
+```swift
+import EnrichedMarkdown
+import EnrichedMarkdownLaTeX
+
+EnrichedMarkdownText(content)
+  .markdownLaTeX()
+```
+
+`$…$` typesets inline at the surrounding text size, and a `$$…$$` block on
+its own line renders as a full-width panel. Source that fails to typeset
+falls back to the delimited text. Outside SwiftUI, `MarkdownRenderer.renderLaTeX`
+mirrors `MarkdownRenderer.render` with math enabled.
+
+Styling comes from two theme elements the product adds to the builder:
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownLaTeX()
+  .markdownTheme {
+    MathBlock()
+      .fontSize(22)
+      .background(Color(red: 243 / 255, green: 244 / 255, blue: 246 / 255))
+      .padding(16)
+      .marginBottom(24)
+      .textAlignment(.leading)
+
+    InlineMath()
+      .foregroundStyle(.tint)
+  }
+```
+
+`.markdownLaTeX()` layers `MarkdownTheme.latexDefault` — 20pt formulas
+centered on a padded `.quaternary` panel — directly above `MarkdownTheme.default`,
+so your own themes still win whether they're applied on an ancestor or on the
+view itself. Font size and color left unset follow the paragraph. When
+resolving a `MarkdownStyleConfig` by hand for `renderLaTeX`, include that
+layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], traitCollection: …)`.
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
@@ -377,6 +425,7 @@ and dark mode.
 - Links and images (block and inline)
 - Autolinked bare URLs, `www.` links, and emails (`permissiveAutolinks`, on by default)
 - Thematic breaks (`---`)
+- LaTeX math (`$…$`, `$$…$$`) with the `EnrichedMarkdownLaTeX` product — see [LaTeX math](#latex-math)
 
 ## Development
 

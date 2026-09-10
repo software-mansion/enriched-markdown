@@ -103,14 +103,16 @@ public extension MarkdownThemeElement {
         if let marginTop { style.marginTop = marginTop }
         if let marginBottom { style.marginBottom = marginBottom }
         if let lineHeight { style.lineHeight = lineHeight }
-        if let textAlignment { style.textAlignment = nsTextAlignment(from: textAlignment) }
+        if let textAlignment { style.textAlignment = NSTextAlignment(textAlignment) }
     }
+}
 
-    private func nsTextAlignment(from alignment: TextAlignment) -> NSTextAlignment {
+package extension NSTextAlignment {
+    init(_ alignment: TextAlignment) {
         switch alignment {
-        case .leading: return .left
-        case .center: return .center
-        case .trailing: return .right
+        case .leading: self = .left
+        case .center: self = .center
+        case .trailing: self = .right
         }
     }
 }

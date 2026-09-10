@@ -29,7 +29,11 @@ public struct EnrichedMarkdownText: View {
             colorScheme: colorScheme,
             dynamicTypeSize: dynamicTypeSize
         )
-        return MarkdownStyleConfig.resolve(layers: themeLayers, traitCollection: traitCollection)
+        // Plugin defaults go above `MarkdownTheme.default` (the environment's
+        // first layer) and below the app's themes.
+        var layers = themeLayers
+        layers.insert(contentsOf: renderPlugins.compactMap(\.defaultTheme), at: min(1, layers.count))
+        return MarkdownStyleConfig.resolve(layers: layers, traitCollection: traitCollection)
     }
 
     public var body: some View {

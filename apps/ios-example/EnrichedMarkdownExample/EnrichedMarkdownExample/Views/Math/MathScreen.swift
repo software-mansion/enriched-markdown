@@ -28,14 +28,40 @@ $$\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}$$
 Source that fails to typeset falls back to plain text: $\frac{1}{$
 """#
 
+/// Overrides `MarkdownTheme.latexDefault` (20pt, centered, quaternary panel)
+/// to show the `MathBlock` / `InlineMath` modifiers.
+private let customMathTheme = MarkdownTheme {
+    MathBlock()
+        .fontSize(24)
+        .foregroundStyle(Color.brandNavy)
+        .background(Color.brandNavy.opacity(0.08))
+        .padding(20)
+        .marginBottom(24)
+        .textAlignment(.leading)
+
+    InlineMath()
+        .foregroundStyle(Color.brandNavy)
+}
+
+/// Leaves `MarkdownTheme.latexDefault` in effect.
+private let noOverrides = MarkdownTheme {}
+
 struct MathScreen: View {
+    @State private var usesCustomTheme: Bool = false
+
     var body: some View {
         ScrollView {
-            EnrichedMarkdownText(sampleMathMarkdown)
-                .markdownLaTeX()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+            VStack(alignment: .leading, spacing: 16) {
+                Toggle("Custom math theme", isOn: $usesCustomTheme)
+                    .accessibilityIdentifier("math-custom-theme-toggle")
+
+                EnrichedMarkdownText(sampleMathMarkdown)
+                    .markdownLaTeX()
+                    .markdownTheme(usesCustomTheme ? customMathTheme : noOverrides)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
         }
         .background(Color.white)
     }

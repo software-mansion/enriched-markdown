@@ -416,6 +416,9 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var list: ListStyle
     public var taskList: TaskListStyle
     public var table: TableStyle
+    /// Styles of optional modules' elements (`EnrichedMarkdownLaTeX`'s math
+    /// panel, say), keyed by the module's own record type.
+    package var pluginStyles = PluginStyleStorage()
 
     public init(
         paragraph: ElementStyle = ElementStyle(),
@@ -491,6 +494,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         list.merge(other.list)
         taskList.merge(other.taskList)
         table.merge(other.table)
+        pluginStyles.merge(other.pluginStyles)
     }
 
     public func headingStyle(for level: Int) -> ElementStyle {

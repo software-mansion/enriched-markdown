@@ -19,11 +19,17 @@ package struct LaTeXRenderPlugin: MarkdownRenderPlugin {
     package func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer? {
         switch type {
         case .latexMathInline, .latexMathDisplay:
-            return MathRenderer(typeset: typeset)
+            return MathRenderer(typeset: typeset, blockStyle: config.mathBlock, inlineStyle: config.inlineMath)
         default:
             return nil
         }
     }
+
+    package func blockMargins(for type: NodeType, config: MarkdownStyleConfig) -> BlockMargins {
+        BlockMargins(marginTop: config.mathBlock.marginTop, marginBottom: config.mathBlock.marginBottom)
+    }
+
+    package var defaultTheme: MarkdownTheme? { .latexDefault }
 
     package func adjustFlags(_ flags: inout Md4cFlags) {
         flags.latexMathEnabled = true
@@ -36,7 +42,8 @@ package struct LaTeXRenderPlugin: MarkdownRenderPlugin {
 
 public extension View {
     /// Parses and renders LaTeX math (`$…$` inline, `$$…$$` display) with
-    /// the bundled RaTeX engine.
+    /// the bundled RaTeX engine, styled by `MarkdownTheme.latexDefault`
+    /// underneath the themes applied around this view.
     func markdownLaTeX() -> some View {
         transformEnvironment(\.markdownRenderPlugins) { plugins in
             guard !plugins.contains(where: { $0 is LaTeXRenderPlugin }) else { return }

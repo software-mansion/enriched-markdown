@@ -22,10 +22,11 @@ final class ParagraphRenderer: NodeRenderer {
         let start = output.length
         let shouldApplyMargin = context.currentBlockType == .none || context.currentBlockType == .paragraph
         let isBlockImage = node.children.count == 1 && node.children[0].type == .image
-        let imageStyle = config.image
-        let marginTop = isBlockImage
-            ? (imageStyle.marginTop ?? paragraphStyle.marginTop ?? 0)
-            : (paragraphStyle.marginTop ?? 0)
+        let overrides = isBlockImage
+            ? BlockMargins(marginTop: config.image.marginTop, marginBottom: config.image.marginBottom)
+            : context.pluginBlockMargins ?? BlockMargins()
+        let marginTop = overrides.marginTop ?? paragraphStyle.marginTop ?? 0
+        let marginBottom = overrides.marginBottom ?? paragraphStyle.marginBottom
         var contentStart = start
 
         if shouldApplyMargin, start == 0, marginTop > 0 {
@@ -73,10 +74,6 @@ final class ParagraphRenderer: NodeRenderer {
                 marginTop: marginTop
             )
         }
-
-        let marginBottom = isBlockImage
-            ? (imageStyle.marginBottom ?? paragraphStyle.marginBottom)
-            : paragraphStyle.marginBottom
 
         if shouldApplyMargin, let marginBottom {
             ParagraphStyleHelpers.applyParagraphSpacingAfter(
