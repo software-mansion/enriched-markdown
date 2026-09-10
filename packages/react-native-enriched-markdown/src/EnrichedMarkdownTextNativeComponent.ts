@@ -605,6 +605,9 @@ export interface NativeProps extends ViewProps {
    * Maximum number of lines to display before the text is truncated. 0 (the
    * default) means unlimited. Matches React Native Text's `numberOfLines`.
    * Only applies to CommonMark; ignored when the flavor is 'github'.
+   * Android: while clamped the view is not selectable and links are not tappable
+   * (DynamicLayout has no maxLines support, so selection/links would drop the
+   * ellipsis); both are restored once the clamp is removed. iOS is unaffected.
    * @default 0
    */
   numberOfLines?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;

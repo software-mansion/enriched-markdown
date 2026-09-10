@@ -116,6 +116,7 @@ class EnrichedMarkdownText
 
     private var mdNumberOfLines: Int = 0
     private var mdEllipsizeMode: String = EllipsizeUtils.DEFAULT_MODE
+    private var mdSelectable: Boolean = true
 
     private var selectionColor: Int? = null
     private var selectionHandleColor: Int? = null
@@ -298,9 +299,7 @@ class EnrichedMarkdownText
 
       text = styledText
 
-      if (movementMethod !is LinkLongPressMovementMethod) {
-        movementMethod = LinkLongPressMovementMethod.createInstance()
-      }
+      applyInteractivity()
 
       renderer.getCollectedImageSpans().forEach { span ->
         span.registerTextView(this)
@@ -340,7 +339,8 @@ class EnrichedMarkdownText
     }
 
     fun setIsSelectable(selectable: Boolean) {
-      applySelectableState(selectable)
+      mdSelectable = selectable
+      applyInteractivity()
     }
 
     fun setSelectionColor(color: Int?) {
@@ -392,6 +392,28 @@ class EnrichedMarkdownText
       } else {
         maxLines = Integer.MAX_VALUE
         ellipsize = null
+      }
+      applyInteractivity()
+    }
+
+    // The numberOfLines ellipsis and text selection / link taps are mutually
+    // exclusive on Android and cannot be reconciled. Both setTextIsSelectable(true)
+    // and a non-null movementMethod force the display text to a Spannable, which
+    // makes TextView pick DynamicLayout (TextView.useDynamicLayout). DynamicLayout
+    // has no setMaxLines, so the clamp is never baked into the layout and no
+    // ellipsis glyph is drawn (verified against AOSP TextView/DynamicLayout on
+    // API 35/36). To keep the ellipsis, a clamped view must be non-selectable AND
+    // drop its movement method; both are restored to the user's preference once
+    // the clamp is removed.
+    private fun applyInteractivity() {
+      if (mdNumberOfLines > 0) {
+        if (isTextSelectable) setTextIsSelectable(false)
+        movementMethod = null
+      } else {
+        applySelectableState(mdSelectable)
+        if (movementMethod !is LinkLongPressMovementMethod) {
+          movementMethod = LinkLongPressMovementMethod.createInstance()
+        }
       }
     }
 

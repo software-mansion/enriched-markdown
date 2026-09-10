@@ -425,6 +425,13 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * Only supported for CommonMark (the default flavor). When `flavor` is
    * `'github'` the content is laid out as independent block segments and this
    * prop is ignored - see the GFM tracking issue.
+   *
+   * Android: while clamped (`numberOfLines > 0`) the view is not selectable and
+   * its links are not tappable, regardless of `isSelectable`. Android only draws
+   * the truncation ellipsis through `StaticLayout`; enabling selection or a link
+   * movement method promotes the text to a `Spannable`, forcing `DynamicLayout`,
+   * which has no `maxLines` support and drops the clamp/ellipsis. Both are
+   * restored once the clamp is removed. iOS keeps selection and links.
    * @default 0
    */
   numberOfLines?: number;
