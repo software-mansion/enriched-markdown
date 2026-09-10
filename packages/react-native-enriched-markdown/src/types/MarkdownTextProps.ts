@@ -440,6 +440,12 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * `'clip'` truncates with no ellipsis glyph. Only takes effect when
    * `numberOfLines` is set. Matches React Native `Text`'s `ellipsizeMode`.
    *
+   * `'head'` and `'middle'` are single-line truncation modes: they only place
+   * the ellipsis as described when `numberOfLines` is `1`. With
+   * `numberOfLines > 1` Android falls back to tail-style truncation (only
+   * `TruncateAt.END` works past one line) and iOS is likewise unreliable, so
+   * use `'tail'` or `'clip'` for multi-line clamps. Same limitation as RN `Text`.
+   *
    * Ignored when `flavor` is `'github'` (see `numberOfLines`).
    * @default 'tail'
    */

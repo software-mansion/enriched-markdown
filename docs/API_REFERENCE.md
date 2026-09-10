@@ -344,6 +344,8 @@ Controls where the ellipsis is placed when the text is truncated by [`numberOfLi
 - **`'tail'`** (default): ellipsis at the end (`start of the...`).
 - **`'clip'`**: truncate at the line boundary with no ellipsis glyph.
 
+> **Multi-line note:** `'head'` and `'middle'` are single-line truncation modes. They only place the ellipsis as described when [`numberOfLines`](#numberoflines) is `1`. With `numberOfLines > 1`, Android only truncates through `StaticLayout`'s `TruncateAt.END`, so `'head'` and `'middle'` fall back to tail-style behavior; iOS multi-line truncation with these modes is likewise unreliable. This mirrors React Native's core `Text`, where only `'tail'` is documented to work correctly past one line. Use `'tail'` (or `'clip'`) for multi-line clamps.
+
 Ignored when [`flavor`](#flavor) is `'github'` (see [`numberOfLines`](#numberoflines)).
 
 ### `textBreakStrategy`
