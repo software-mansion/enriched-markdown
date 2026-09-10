@@ -33,6 +33,7 @@ import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.getArrayOrNull
 import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
+import com.swmansion.enriched.markdown.utils.common.getIntOrDefault
 import com.swmansion.enriched.markdown.utils.common.getMapOrNull
 import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
@@ -157,6 +158,18 @@ object MeasurementStore {
     if (markdown.isEmpty()) {
       val emptyWidth = if (widthMode === YogaMeasureMode.EXACTLY) PixelUtil.toDIPFromPixel(width) else 0f
       return YogaMeasureOutput.make(emptyWidth, 0f)
+    }
+
+    // Resolve the line clamp from props here so the (background) measure pass and
+    // the (main-thread) display TextView never race on the per-viewId cache. Only
+    // overwrite when the key is present so we never clobber the view's value.
+    if (id != null && props != null) {
+      if (props.hasKey("numberOfLines")) {
+        numberOfLinesByViewId[id] = props.getDouble("numberOfLines").toInt()
+      }
+      if (props.hasKey("ellipsizeMode")) {
+        ellipsizeModeByViewId[id] = props.getString("ellipsizeMode") ?: EllipsizeUtils.DEFAULT_MODE
+      }
     }
 
     val size = getMeasureByIdInternal(context, id, width, props, splitTableSegments)
@@ -323,6 +336,8 @@ object MeasurementStore {
     result = 31 * result + maxFontSizeMultiplier.toBits()
     result = 31 * result + allowTrailingMargin.hashCode()
     result = 31 * result + imageRequestHeaders.hashCode()
+    result = 31 * result + props.getIntOrDefault("numberOfLines", 0)
+    result = 31 * result + props.getStringOrDefault("ellipsizeMode", EllipsizeUtils.DEFAULT_MODE).hashCode()
     return result
   }
 

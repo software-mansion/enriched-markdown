@@ -444,11 +444,23 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 }
 
 // Kept in sync with the view-free measurement so the rendered line count matches
-// the measured height. numberOfLines == 0 restores the unlimited default.
+// the measured height. The clamp must be computed at the padding-inset content
+// width (the text view's own width) rather than the full component bounds, or a
+// full-width measurement pass leaves the truncation laid out too wide and fewer
+// lines render than were measured. numberOfLines == 0 restores the unlimited default.
 - (void)applyLineClampToTextContainer
 {
-  _textView.textContainer.maximumNumberOfLines = _numberOfLines > 0 ? _numberOfLines : 0;
-  _textView.textContainer.lineBreakMode = _numberOfLines > 0 ? _ellipsizeLineBreakMode : NSLineBreakByWordWrapping;
+  if (_numberOfLines > 0) {
+    CGFloat contentWidth = _textView.bounds.size.width;
+    if (contentWidth > 0) {
+      _textView.textContainer.size = CGSizeMake(contentWidth, CGFLOAT_MAX);
+    }
+    _textView.textContainer.maximumNumberOfLines = _numberOfLines;
+    _textView.textContainer.lineBreakMode = _ellipsizeLineBreakMode;
+  } else {
+    _textView.textContainer.maximumNumberOfLines = 0;
+    _textView.textContainer.lineBreakMode = NSLineBreakByWordWrapping;
+  }
 }
 
 - (void)applyRenderedText:(NSMutableAttributedString *)attributedText
@@ -504,6 +516,15 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     CGSize measured = [self measureSize:self.bounds.size.width];
     if (forceHeightUpdate || needsHeightUpdate(measured, self.bounds)) {
       [self requestHeightUpdate];
+    }
+
+    // measureSize lays the shared display container out at the full bounds width;
+    // re-pin the clamp to the content width so the visible truncation matches the
+    // content-width line count the shadow node measured.
+    if (_numberOfLines > 0) {
+      [self applyLineClampToTextContainer];
+      [_textView.layoutManager ensureLayoutForTextContainer:_textView.textContainer];
+      ENRMSetNeedsDisplay(_textView);
     }
   }
 

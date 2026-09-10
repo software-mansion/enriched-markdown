@@ -13,6 +13,14 @@ fun ReadableMap?.getFloatOrDefault(
   default: Float,
 ): Float = if (this?.hasKey(key) == true) getDouble(key).toFloat() else default
 
+fun ReadableMap?.getIntOrDefault(
+  key: String,
+  default: Int,
+): Int =
+  // Read through getDouble: numeric props cross the bridge as JS doubles, and
+  // ReadableMap.getInt throws on a double-typed value.
+  if (this?.hasKey(key) == true) getDouble(key).toInt() else default
+
 fun ReadableMap?.getStringOrDefault(
   key: String,
   default: String,
