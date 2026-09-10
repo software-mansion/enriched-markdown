@@ -427,7 +427,7 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * prop is ignored - see the GFM tracking issue.
    *
    * Android: while clamped (`numberOfLines > 0`) the view is not selectable and
-   * its links are not tappable, regardless of `isSelectable`. Android only draws
+   * its links are not tappable, regardless of `selectable`. Android only draws
    * the truncation ellipsis through `StaticLayout`; enabling selection or a link
    * movement method promotes the text to a `Spannable`, forcing `DynamicLayout`,
    * which has no `maxLines` support and drops the clamp/ellipsis. Both are

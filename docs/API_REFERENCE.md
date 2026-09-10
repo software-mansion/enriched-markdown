@@ -325,7 +325,7 @@ Clamps the rendered markdown to a maximum number of lines, truncating with an el
 
 Only applies to CommonMark (the default flavor). When [`flavor`](#flavor) is `'github'` the content is laid out as independent block segments that cannot honor a document-wide line cap, so the prop is ignored - see [issue #786](https://github.com/software-mansion/enriched-markdown/issues/786).
 
-> **Android note:** while a view is clamped (`numberOfLines > 0`) it is not selectable and its links are not tappable, regardless of [`isSelectable`](#isselectable). This is a platform constraint, not a choice: Android draws the truncation ellipsis only through `StaticLayout`, but enabling text selection or a link movement method promotes the text to a `Spannable`, which forces `TextView` onto `DynamicLayout` - and `DynamicLayout` has no `maxLines` support, so the clamp and its ellipsis are silently dropped (confirmed against AOSP `TextView`/`DynamicLayout` on API 35/36; React Native's own `Text` hits the same limitation). Selection and links are restored automatically once the clamp is removed. iOS keeps selection and links while clamped.
+> **Android note:** while a view is clamped (`numberOfLines > 0`) it is not selectable and its links are not tappable, regardless of [`selectable`](#selectable). This is a platform constraint, not a choice: Android draws the truncation ellipsis only through `StaticLayout`, but enabling text selection or a link movement method promotes the text to a `Spannable`, which forces `TextView` onto `DynamicLayout` - and `DynamicLayout` has no `maxLines` support, so the clamp and its ellipsis are silently dropped (confirmed against AOSP `TextView`/`DynamicLayout` on API 35/36; React Native's own `Text` hits the same limitation). Selection and links are restored automatically once the clamp is removed. iOS keeps selection and links while clamped.
 
 | Type     | Default Value | Platform |
 | -------- | ------------- | -------- |
@@ -339,7 +339,7 @@ Controls where the ellipsis is placed when the text is truncated by [`numberOfLi
 | ------------------------------------------- | ------------- | -------- |
 | `'head' \| 'middle' \| 'tail' \| 'clip'`    | `'tail'`      | Both     |
 
-- **`'head'`**: ellipsis at the start (`...allel to the end`).
+- **`'head'`**: ellipsis at the start (`...d of the text`).
 - **`'middle'`**: ellipsis in the middle (`start...end`).
 - **`'tail'`** (default): ellipsis at the end (`start of the...`).
 - **`'clip'`**: truncate at the line boundary with no ellipsis glyph.

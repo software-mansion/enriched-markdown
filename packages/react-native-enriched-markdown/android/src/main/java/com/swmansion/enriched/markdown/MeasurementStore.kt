@@ -230,19 +230,11 @@ object MeasurementStore {
     numberOfLinesByViewId[viewId] = numberOfLines
   }
 
-  fun clearNumberOfLines(viewId: Int) {
-    numberOfLinesByViewId.remove(viewId)
-  }
-
   fun updateEllipsizeMode(
     viewId: Int,
     mode: String,
   ) {
     ellipsizeModeByViewId[viewId] = mode
-  }
-
-  fun clearEllipsizeMode(viewId: Int) {
-    ellipsizeModeByViewId.remove(viewId)
   }
 
   private fun resolveMaxLines(viewId: Int?): Int = viewId?.let { numberOfLinesByViewId[it] } ?: 0

@@ -16,10 +16,6 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownTextProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streamingAnimation"] = props.streamingAnimation;
-  // Required by the measure pass to clamp height to numberOfLines. Without these
-  // the props map reaching MeasurementStore lacks the keys, so the measured
-  // height stays unclamped while the display TextView clamps - leaving the view
-  // sized for the full document. CommonMark only; GFM ignores the clamp.
   serializedProps["numberOfLines"] = props.numberOfLines;
   serializedProps["ellipsizeMode"] = props.ellipsizeMode;
 
