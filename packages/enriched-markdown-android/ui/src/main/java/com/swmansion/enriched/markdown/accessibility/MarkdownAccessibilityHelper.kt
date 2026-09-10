@@ -38,15 +38,13 @@ class MarkdownAccessibilityHelper(
     val linkUrl: String? = null,
     val listInfo: ListItemInfo? = null,
     val imageAltText: String? = null,
-    /** Set for a table row, whose bounds come from the table's own grid, not from a text range. */
-    val customBounds: Rect? = null,
-    val isTableHeaderRow: Boolean = false,
+    val tableRow: TableRowInfo? = null,
   ) {
     val isHeading get() = headingLevel > 0
     val isLink get() = linkUrl != null
     val isListItem get() = listInfo != null
     val isImage get() = imageAltText != null
-    val isTableRow get() = customBounds != null
+    val isTableRow get() = tableRow != null
   }
 
   data class ListItemInfo(
@@ -54,6 +52,12 @@ class MarkdownAccessibilityHelper(
     val itemNumber: Int,
     val depth: Int,
     val taskChecked: Boolean? = null,
+  )
+
+  data class TableRowInfo(
+    /** A row's bounds come from the table's own grid, not from a text range. */
+    val bounds: Rect,
+    val isHeader: Boolean,
   )
 
   private data class SpanRange(
@@ -202,13 +206,16 @@ class MarkdownAccessibilityHelper(
             text = "Row ${rowIndex + 1}: $content",
             start = start,
             end = end,
-            isTableHeaderRow = row.isHeader,
-            customBounds =
-              Rect(
-                lineLeft + bounds.left.toInt(),
-                lineTop + bounds.top.toInt(),
-                lineLeft + bounds.right.toInt(),
-                lineTop + bounds.bottom.toInt(),
+            tableRow =
+              TableRowInfo(
+                bounds =
+                  Rect(
+                    lineLeft + bounds.left.toInt(),
+                    lineTop + bounds.top.toInt(),
+                    lineLeft + bounds.right.toInt(),
+                    lineTop + bounds.bottom.toInt(),
+                  ),
+                isHeader = row.isHeader,
               ),
           ),
         )
@@ -320,7 +327,7 @@ class MarkdownAccessibilityHelper(
     if (items.isEmpty()) return HOST_ID
 
     items
-      .firstOrNull { it.customBounds?.contains(x.toInt(), y.toInt()) == true }
+      .firstOrNull { it.tableRow?.bounds?.contains(x.toInt(), y.toInt()) == true }
       ?.let { return it.id }
 
     val offset = getCharOffsetAt(x, y)
@@ -398,7 +405,7 @@ class MarkdownAccessibilityHelper(
     when {
       item.isTableRow -> {
         roleDescription = "table row"
-        if (item.isTableHeaderRow) isHeading = true
+        if (item.tableRow?.isHeader == true) isHeading = true
       }
 
       item.isHeading -> {
@@ -432,7 +439,7 @@ class MarkdownAccessibilityHelper(
     }
 
   private fun boundsForItem(item: AccessibilityItem): Rect {
-    item.customBounds?.let { return it }
+    item.tableRow?.let { return it.bounds }
     val layout = textView.layout ?: return Rect()
     val vs = item.visibleStart
     val ve = item.visibleEnd
