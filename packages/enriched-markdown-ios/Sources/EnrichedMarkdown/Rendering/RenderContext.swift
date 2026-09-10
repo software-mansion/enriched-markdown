@@ -29,6 +29,7 @@ enum MarkdownAttribute {
     static let emphasis = NSAttributedString.Key("EnrichedMarkdownEmphasis")
     static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
     static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
+    static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
     static let blockquoteDepth = NSAttributedString.Key("EnrichedMarkdownBlockquoteDepth")
     static let blockquoteBackgroundColor = NSAttributedString.Key("EnrichedMarkdownBlockquoteBackgroundColor")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")
@@ -120,6 +121,16 @@ package final class RenderContext {
 
     static func shouldPreserveColors(_ attributes: [NSAttributedString.Key: Any]) -> Bool {
         attributes[.link] != nil || attributes[MarkdownAttribute.inlineCode] != nil
+    }
+
+    /// Recolors `range` to `color`, leaving links and inline code on their own colors.
+    static func applyForegroundColor(_ color: UIColor, to output: NSMutableAttributedString, in range: NSRange) {
+        output.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
+            guard !shouldPreserveColors(attributes) else { return }
+            if (attributes[.foregroundColor] as? UIColor) != color {
+                output.addAttribute(.foregroundColor, value: color, range: subrange)
+            }
+        }
     }
 
     static func rangeForRenderedContent(in output: NSMutableAttributedString, start: Int) -> NSRange {

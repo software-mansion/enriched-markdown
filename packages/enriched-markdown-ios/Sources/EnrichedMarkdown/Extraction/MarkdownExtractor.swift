@@ -108,6 +108,7 @@ extension MarkdownExtractor {
         let isUnderline: Bool
         let isSuperscript: Bool
         let isSubscript: Bool
+        let isHighlight: Bool
         let linkURL: String?
 
         init(attrs: [NSAttributedString.Key: Any]) {
@@ -118,6 +119,7 @@ extension MarkdownExtractor {
             isUnderline = (MarkdownAttributeValue.intValue(from: attrs[.underlineStyle]) ?? 0) != 0
             isSuperscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.superscript])
             isSubscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.subscript])
+            isHighlight = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.highlight])
 
             switch attrs[.link] {
             case let url as URL:
@@ -455,6 +457,9 @@ private extension MarkdownExtractor {
         }
         if let linkURL = traits.linkURL {
             result = "[\(result)](\(linkURL))"
+        }
+        if traits.isHighlight {
+            result = "==\(result)=="
         }
 
         return result

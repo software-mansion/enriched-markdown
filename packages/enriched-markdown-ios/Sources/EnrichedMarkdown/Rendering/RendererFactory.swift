@@ -71,6 +71,8 @@ final class RendererFactory {
             return BaselineShiftRenderer(factory: self, attributeKey: MarkdownAttribute.superscript)
         case .subscript:
             return BaselineShiftRenderer(factory: self, attributeKey: MarkdownAttribute.subscript)
+        case .highlight:
+            return HighlightRenderer(factory: self, config: config)
         case .link:
             return LinkRenderer(factory: self, config: config)
         case .lineBreak:

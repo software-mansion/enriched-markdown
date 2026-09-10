@@ -129,7 +129,7 @@ struct PlaygroundScreen: View {
                 } else {
                     EnrichedMarkdownText(
                         markdown,
-                        flags: Md4cFlags(underline: underlineEnabled, superscript: true, subscript: true)
+                        flags: Md4cFlags(underline: underlineEnabled, superscript: true, subscript: true, highlight: true)
                     )
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)

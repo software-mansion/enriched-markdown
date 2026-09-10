@@ -161,7 +161,95 @@ final class InlineStyleRendererTests: XCTestCase {
         XCTAssertEqual(baselineOffset(onWord: "t", in: result) - baseOffset, -baseSize * 0.3, accuracy: 0.001)
     }
 
+    // MARK: - Highlight
+
+    func testEqualsRenderLiterallyWithoutFlag() {
+        let result = MarkdownRenderer.render("==marked== plain", config: config)
+        XCTAssertTrue(result.string.contains("==marked=="))
+
+        let withoutFlag = Parser.shared.parseMarkdown("==marked==")
+        XCTAssertNil(withoutFlag.first(ofType: .highlight))
+    }
+
+    func testHighlightAppliesBackgroundAndMarkerOnlyToSpan() {
+        var highlightConfig = config!
+        highlightConfig.highlight.backgroundColor = .systemYellow
+
+        let result = MarkdownRenderer.render(
+            "==marked== plain",
+            config: highlightConfig,
+            flags: Md4cFlags(highlight: true)
+        )
+
+        XCTAssertEqual(backgroundColor(onWord: "marked", in: result), .systemYellow)
+        XCTAssertTrue(MarkdownAttributeValue.boolValue(from: attribute(MarkdownAttribute.highlight, onWord: "marked", in: result)))
+        XCTAssertNil(backgroundColor(onWord: "plain", in: result))
+        XCTAssertNil(attribute(MarkdownAttribute.highlight, onWord: "plain", in: result))
+    }
+
+    func testHighlightInheritsTextColorUnlessOverridden() {
+        let flags = Md4cFlags(highlight: true)
+        let inherited = MarkdownRenderer.render("==marked==", config: config, flags: flags)
+        XCTAssertEqual(foregroundColor(onWord: "marked", in: inherited), config.paragraph.foregroundColor)
+
+        var coloredConfig = config!
+        coloredConfig.highlight.foregroundColor = .systemRed
+        let overridden = MarkdownRenderer.render("==marked==", config: coloredConfig, flags: flags)
+        XCTAssertEqual(foregroundColor(onWord: "marked", in: overridden), .systemRed)
+    }
+
+    func testHighlightPreservesBoldAndInlineCode() {
+        var highlightConfig = config!
+        highlightConfig.highlight.backgroundColor = .systemYellow
+        highlightConfig.code.backgroundColor = .systemGray
+
+        let result = MarkdownRenderer.render(
+            "==**both** and `code`==",
+            config: highlightConfig,
+            flags: Md4cFlags(highlight: true)
+        )
+
+        let font = attribute(.font, onWord: "both", in: result) as? UIFont
+        XCTAssertTrue(font?.fontDescriptor.symbolicTraits.contains(.traitBold) == true)
+        XCTAssertEqual(backgroundColor(onWord: "both", in: result), .systemYellow)
+        XCTAssertEqual(backgroundColor(onWord: "code", in: result), .systemGray)
+    }
+
+    func testHighlightedLinkKeepsLinkColorOnHighlightBackground() {
+        var highlightConfig = config!
+        highlightConfig.highlight.backgroundColor = .systemYellow
+        highlightConfig.highlight.foregroundColor = .systemRed
+        highlightConfig.link.foregroundColor = .systemBlue
+
+        let result = MarkdownRenderer.render(
+            "==[press](https://swmansion.com)==",
+            config: highlightConfig,
+            flags: Md4cFlags(highlight: true)
+        )
+
+        XCTAssertEqual(backgroundColor(onWord: "press", in: result), .systemYellow)
+        XCTAssertEqual(foregroundColor(onWord: "press", in: result), .systemBlue)
+    }
+
     // MARK: - Theme resolution
+
+    func testHighlightThemeElementResolves() {
+        let theme = MarkdownTheme {
+            Highlight()
+                .foregroundStyle(Color.black)
+                .background(Color.yellow)
+        }
+        let resolved = MarkdownStyleConfig.resolve(layers: [theme], traitCollection: .current)
+
+        XCTAssertNotNil(resolved.highlight.foregroundColor)
+        XCTAssertNotNil(resolved.highlight.backgroundColor)
+    }
+
+    func testDefaultThemeGivesHighlightABackground() {
+        let resolved = MarkdownStyleConfig.baseline()
+        XCTAssertNotNil(resolved.highlight.backgroundColor)
+        XCTAssertNil(resolved.highlight.foregroundColor)
+    }
 
     func testSuperscriptAndSubscriptThemeElementsResolve() {
         let theme = MarkdownTheme {
@@ -196,15 +284,26 @@ final class InlineStyleRendererTests: XCTestCase {
     // MARK: - Helpers
 
     private func fontSize(onWord word: String, in attributed: NSAttributedString) -> CGFloat {
-        let range = rangeOfWord(word, in: attributed)
-        let font = attributed.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont
+        let font = attribute(.font, onWord: word, in: attributed) as? UIFont
         XCTAssertNotNil(font, "expected a font on '\(word)'")
         return font?.pointSize ?? 0
     }
 
-    private func baselineOffset(onWord word: String, in attributed: NSAttributedString) -> CGFloat {
+    private func attribute(_ key: NSAttributedString.Key, onWord word: String, in attributed: NSAttributedString) -> Any? {
         let range = rangeOfWord(word, in: attributed)
-        let offset = attributed.attribute(.baselineOffset, at: range.location, effectiveRange: nil) as? NSNumber
+        return attributed.attribute(key, at: range.location, effectiveRange: nil)
+    }
+
+    private func backgroundColor(onWord word: String, in attributed: NSAttributedString) -> UIColor? {
+        attribute(.backgroundColor, onWord: word, in: attributed) as? UIColor
+    }
+
+    private func foregroundColor(onWord word: String, in attributed: NSAttributedString) -> UIColor? {
+        attribute(.foregroundColor, onWord: word, in: attributed) as? UIColor
+    }
+
+    private func baselineOffset(onWord word: String, in attributed: NSAttributedString) -> CGFloat {
+        let offset = attribute(.baselineOffset, onWord: word, in: attributed) as? NSNumber
         return CGFloat(offset?.doubleValue ?? 0)
     }
 

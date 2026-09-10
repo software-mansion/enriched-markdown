@@ -145,6 +145,7 @@ The `MarkdownTheme` builder supports these elements:
 | `Underline()` | Underlined text (`Md4cFlags(underline: true)`) |
 | `Superscript()` | Superscript text (`Md4cFlags(superscript: true)`) |
 | `Subscript()` | Subscript text (`Md4cFlags(subscript: true)`) |
+| `Highlight()` | Highlighted text (`Md4cFlags(highlight: true)`) |
 | `Code()` | Inline code |
 | `CodeBlock()` | Fenced code blocks |
 | `Blockquote()` | Block quotes |
@@ -162,7 +163,7 @@ For custom families, `.bold()` picks a bold face from the same `UIFont` family w
 Element-specific modifiers include:
 
 - **Link:** `.underline(_:)`
-- **Code / CodeBlock / Blockquote:** `.background` / `.backgroundStyle`
+- **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
 - **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
@@ -199,13 +200,13 @@ public struct Md4cFlags: Equatable, Sendable {
   public var permissiveAutolinks: Bool  // bare URLs become links (default true)
   public var superscript: Bool          // ^text^ renders as superscript
   public var subscript: Bool            // ~text~ renders as subscript
-  public var highlight: Bool
+  public var highlight: Bool            // ==text== renders with a background
 
   public static let commonMark: Md4cFlags
 }
 ```
 
-`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, and `subscript` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, and `highlight` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
 
 ### `.markdownTheme`
 
@@ -369,6 +370,7 @@ and dark mode.
 - Underline (`__text__` with `Md4cFlags(underline: true)`)
 - Superscript (`^text^` with `Md4cFlags(superscript: true)`)
 - Subscript (`~text~` with `Md4cFlags(subscript: true)`)
+- Highlight (`==text==` with `Md4cFlags(highlight: true)`)
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists

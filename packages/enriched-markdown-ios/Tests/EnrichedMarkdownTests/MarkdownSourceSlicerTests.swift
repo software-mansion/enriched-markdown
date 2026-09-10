@@ -81,6 +81,13 @@ final class MarkdownSourceSlicerTests: XCTestCase {
         )
     }
 
+    func testFullySelectedHighlightKeepsMarkers() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "marked", in: "some ==marked== text", flags: Md4cFlags(highlight: true)),
+            "==marked=="
+        )
+    }
+
     func testFullySelectedUnderlineKeepsUnderscoreMarkers() {
         let flags = Md4cFlags(underline: true)
         XCTAssertEqual(

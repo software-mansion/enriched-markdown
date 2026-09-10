@@ -159,6 +159,7 @@ private extension MarkdownSourceSlicer {
         case underline
         case emphasis
         case strong
+        case highlight
         case link
         case image
 
@@ -169,6 +170,7 @@ private extension MarkdownSourceSlicer {
             case .underline: return .underlineStyle
             case .emphasis: return MarkdownAttribute.emphasis
             case .strong: return MarkdownAttribute.strong
+            case .highlight: return MarkdownAttribute.highlight
             case .link: return .link
             case .image: return .attachment
             }
@@ -188,6 +190,7 @@ private extension MarkdownSourceSlicer {
             case .underline: return traits.isUnderline && traits.linkURL == nil
             case .emphasis: return traits.isEmphasis
             case .strong: return traits.isStrong
+            case .highlight: return traits.isHighlight
             case .link: return traits.linkURL != nil
             case .image: return attrs[.attachment] is MarkdownImageAttachment
             }
@@ -205,6 +208,8 @@ private extension MarkdownSourceSlicer {
             case .emphasis, .strong:
                 let markers = self == .strong ? ["**", "__"] : ["*", "_"]
                 return MarkdownSourceSlicer.matchAnyBackward(markers, in: bytes, before: index)
+            case .highlight:
+                return MarkdownSourceSlicer.matchBackward("==", in: bytes, before: index)
             case .link:
                 return MarkdownSourceSlicer.matchBackward("[", in: bytes, before: index)
             case .image:
@@ -224,6 +229,8 @@ private extension MarkdownSourceSlicer {
             case .emphasis, .strong:
                 let markers = self == .strong ? ["**", "__"] : ["*", "_"]
                 return MarkdownSourceSlicer.matchAnyForward(markers, in: bytes, at: index)
+            case .highlight:
+                return MarkdownSourceSlicer.matchForward("==", in: bytes, at: index)
             case .link, .image:
                 return MarkdownSourceSlicer.consumeLinkSuffix(in: bytes, from: index)
             }
