@@ -38,20 +38,23 @@ class MarkdownAccessibilityHelper(
     val linkUrl: String? = null,
     val listInfo: ListItemInfo? = null,
     val imageAltText: String? = null,
-    /**
-     * Bounds taken from a span's own geometry rather than from a text range — the band an
-     * admonition header is painted into.
-     */
-    val customBounds: Rect? = null,
-    /** Set for an admonition's header row; carries the alert type it announces. */
-    val admonitionType: String? = null,
+    val admonitionHeader: AdmonitionHeaderInfo? = null,
   ) {
     val isHeading get() = headingLevel > 0
     val isLink get() = linkUrl != null
     val isListItem get() = listInfo != null
     val isImage get() = imageAltText != null
-    val isAdmonitionHeader get() = admonitionType != null
+    val isAdmonitionHeader get() = admonitionHeader != null
   }
+
+  data class AdmonitionHeaderInfo(
+    /**
+     * Bounds taken from the span's own geometry rather than from a text range — the band the
+     * header is painted into.
+     */
+    val bounds: Rect,
+    val type: String,
+  )
 
   data class ListItemInfo(
     val isOrdered: Boolean,
@@ -202,14 +205,17 @@ class MarkdownAccessibilityHelper(
           text = header.title,
           start = start,
           end = spanned.getSpanEnd(header),
-          customBounds =
-            Rect(
-              layout.getLineLeft(line).toInt() + textView.paddingLeft,
-              layout.getLineTop(line) + textView.paddingTop,
-              layout.getLineRight(line).toInt() + textView.paddingLeft,
-              layout.getLineBottom(line) + textView.paddingTop,
+          admonitionHeader =
+            AdmonitionHeaderInfo(
+              bounds =
+                Rect(
+                  layout.getLineLeft(line).toInt() + textView.paddingLeft,
+                  layout.getLineTop(line) + textView.paddingTop,
+                  layout.getLineRight(line).toInt() + textView.paddingLeft,
+                  layout.getLineBottom(line) + textView.paddingTop,
+                ),
+              type = header.type,
             ),
-          admonitionType = header.type,
         ),
       )
     }
@@ -319,7 +325,7 @@ class MarkdownAccessibilityHelper(
     if (items.isEmpty()) return HOST_ID
 
     items
-      .firstOrNull { it.customBounds?.contains(x.toInt(), y.toInt()) == true }
+      .firstOrNull { it.admonitionHeader?.bounds?.contains(x.toInt(), y.toInt()) == true }
       ?.let { return it.id }
 
     val offset = getCharOffsetAt(x, y)
@@ -430,7 +436,7 @@ class MarkdownAccessibilityHelper(
     }
 
   private fun boundsForItem(item: AccessibilityItem): Rect {
-    item.customBounds?.let { return it }
+    item.admonitionHeader?.let { return it.bounds }
     val layout = textView.layout ?: return Rect()
     val vs = item.visibleStart
     val ve = item.visibleEnd
