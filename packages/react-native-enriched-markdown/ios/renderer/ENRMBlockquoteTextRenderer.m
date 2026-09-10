@@ -40,6 +40,7 @@
   while (location < text.length) {
     NSRange paragraph = [string paragraphRangeForRange:NSMakeRange(location, 0)];
     applyLineHeight(text, paragraph, lineHeight);
+    applyBaselineOffset(text, paragraph);
     location = NSMaxRange(paragraph);
   }
 }

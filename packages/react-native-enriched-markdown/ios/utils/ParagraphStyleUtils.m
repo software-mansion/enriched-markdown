@@ -297,10 +297,10 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
   [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
 }
 
-// TODO: Extend baseline offset to every block that calls applyLineHeight (headings, blockquotes,
-// code blocks, list items). Keep per-block range scoping — not a whole-document pass like RN Text,
-// since blocks can use different line heights. Optionally consolidate into a single post-pass in
-// AttributedRenderer; evaluate RN's per-line mode (enableIOSTextBaselineOffsetPerLine) if needed.
+// Centers text within its line height by offsetting the baseline by half the leading, matching how
+// Android's LineHeightSpan splits the extra leading evenly above and below the glyphs. Called per
+// block over its own range so blocks can keep different line heights. Ranges that already carry a
+// baseline offset are left untouched, keeping nesting (e.g. a blockquote wrapping list items) idempotent.
 void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
 {
   if (range.length == 0) {

@@ -60,6 +60,8 @@ object MarkdownRenderTestSupport {
       emphasisStyle = base.emphasisStyle,
       strikethroughStyle = strikethroughStyle ?: base.strikethroughStyle,
       underlineStyle = underlineStyle ?: base.underlineStyle,
+      superscriptStyle = base.superscriptStyle,
+      subscriptStyle = base.subscriptStyle,
       codeStyle = base.codeStyle,
       imageStyle = base.imageStyle,
       inlineImageStyle = base.inlineImageStyle,

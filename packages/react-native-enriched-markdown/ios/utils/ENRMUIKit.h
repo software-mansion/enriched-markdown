@@ -273,6 +273,7 @@ static inline void ENRMConfigureMarkdownTextView(ENRMPlatformTextView *textView)
   textView.drawsBackground = NO;
 #endif
   textView.textContainer.lineFragmentPadding = 0;
+  textView.layoutManager.usesFontLeading = NO;
   textView.linkTextAttributes = @{};
   textView.selectable = YES;
 #if !TARGET_OS_OSX

@@ -61,7 +61,9 @@
   // Avoid standard line height on block images to prevent vertical alignment issues
   if (!isBlockImage) {
     applyLineHeight(output, range, _config.paragraphLineHeight);
-    applyBaselineOffset(output, range);
+    if (!ENRMBlockTypeReappliesBaselineOffset(context.currentBlockType)) {
+      applyBaselineOffset(output, range);
+    }
   }
 
   applyTextAlignment(output, range, _config.paragraphTextAlign);

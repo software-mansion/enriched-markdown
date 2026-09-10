@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.segments
 
 import android.content.Context
 import android.text.SpannableString
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.BlockquoteTextRenderer
 import com.swmansion.enriched.markdown.renderer.Renderer
@@ -49,11 +50,12 @@ object MarkdownSegmentRenderer {
     onLinkPress: ((String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
     blockquoteStyle: BlockquoteStyle? = null,
+    onLatexError: LatexErrorReporter? = null,
   ): List<RenderedSegment> =
     segments.map { segment ->
       when (segment) {
         is MarkdownSegment.Text -> {
-          renderTextSegment(segment.nodes, style, context, onLinkPress, onLinkLongPress, blockquoteStyle)
+          renderTextSegment(segment.nodes, style, context, onLinkPress, onLinkLongPress, blockquoteStyle, onLatexError)
         }
 
         is MarkdownSegment.Table -> {
@@ -86,8 +88,9 @@ object MarkdownSegmentRenderer {
     onLinkPress: ((String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
     blockquoteStyle: BlockquoteStyle?,
+    onLatexError: LatexErrorReporter?,
   ): RenderedSegment.Text {
-    val renderer = Renderer().apply { configure(style, context) }
+    val renderer = Renderer().apply { configure(style, context, onLatexError) }
     val signature = SegmentSignature.signatureForNodes(nodes) xor SegmentSignature.TEXT_KIND_SALT
 
     val styledText =

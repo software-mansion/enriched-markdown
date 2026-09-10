@@ -27,6 +27,7 @@
   attachment.latex = latex;
   attachment.fontSize = currentFont ? currentFont.pointSize : [_config paragraphFontSize];
   attachment.mathTextColor = [_config inlineMathColor];
+  [context.mathReporters addObject:attachment];
 
 #if TARGET_OS_OSX
   // On macOS, NSLayoutManager uses self.image/self.bounds rather than calling

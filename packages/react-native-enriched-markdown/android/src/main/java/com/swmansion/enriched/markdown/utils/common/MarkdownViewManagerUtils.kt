@@ -8,6 +8,7 @@ import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.events.CodeBlockPressEvent
 import com.swmansion.enriched.markdown.events.ContextMenuItemPressEvent
 import com.swmansion.enriched.markdown.events.CopyPressEvent
+import com.swmansion.enriched.markdown.events.LatexErrorEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
@@ -27,6 +28,8 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
     mapOf("registrationName" to CodeBlockPressEvent.EVENT_NAME)
   map[ContextMenuItemPressEvent.EVENT_NAME] =
     mapOf("registrationName" to ContextMenuItemPressEvent.EVENT_NAME)
+  map[LatexErrorEvent.EVENT_NAME] =
+    mapOf("registrationName" to LatexErrorEvent.EVENT_NAME)
   return map
 }
 
@@ -74,6 +77,20 @@ fun emitCopyPress(
   val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
   eventDispatcher?.dispatchEvent(
     CopyPressEvent(surfaceId, view.id, code, language),
+  )
+}
+
+fun emitLatexError(
+  view: View,
+  source: String,
+  message: String?,
+  displayMode: Boolean,
+) {
+  val context = view.context as com.facebook.react.bridge.ReactContext
+  val surfaceId = UIManagerHelper.getSurfaceId(context)
+  val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
+  eventDispatcher?.dispatchEvent(
+    LatexErrorEvent(surfaceId, view.id, source, message, displayMode),
   )
 }
 

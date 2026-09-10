@@ -9,6 +9,8 @@ class MarkdownStyleBuilder internal constructor() {
   private var emphasis: EmphasisStylePatch? = null
   private var strikethrough: StrikethroughStylePatch? = null
   private var underline: UnderlineStylePatch? = null
+  private var superscript: SuperscriptStylePatch? = null
+  private var subscript: SubscriptStylePatch? = null
   private var code: CodeStylePatch? = null
   private var codeBlock: CodeBlockStylePatch? = null
   private var blockquote: BlockquoteStylePatch? = null
@@ -54,6 +56,14 @@ class MarkdownStyleBuilder internal constructor() {
     underline = UnderlineStyleScope.merge(underline, block)
   }
 
+  fun superscript(block: SuperscriptStyleScope.() -> Unit) {
+    superscript = SuperscriptStyleScope.merge(superscript, block)
+  }
+
+  fun subscript(block: SubscriptStyleScope.() -> Unit) {
+    subscript = SubscriptStyleScope.merge(subscript, block)
+  }
+
   fun code(block: CodeStyleScope.() -> Unit) {
     code = CodeStyleScope.merge(code, block)
   }
@@ -95,6 +105,8 @@ class MarkdownStyleBuilder internal constructor() {
       emphasis = emphasis,
       strikethrough = strikethrough,
       underline = underline,
+      superscript = superscript,
+      subscript = subscript,
       code = code,
       codeBlock = codeBlock,
       blockquote = blockquote,

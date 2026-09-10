@@ -65,6 +65,7 @@ static NSString *const kHeadingTypes[] = {nil,          @"heading-1", @"heading-
   [output addAttribute:MarkdownTypeAttributeName value:kHeadingTypes[level] range:range];
 
   applyLineHeight(output, range, style.lineHeight);
+  applyBaselineOffset(output, range);
   applyTextAlignment(output, range, style.textAlign);
 
   // Skip marginTop for the first block — already handled by applyBlockSpacingBefore above

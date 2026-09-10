@@ -143,6 +143,32 @@ Only fires when `flavor="github"` — the copy button is part of the GitHub flav
 />
 ```
 
+### `onLatexError`
+
+Callback when a math expression cannot be parsed or rendered by the LaTeX engine. Receives `source` (the raw LaTeX of the failing expression, without `$`/`$$` delimiters), `message` (the engine's error message, or `undefined` when the engine provides none), and `displayMode` (`false` for inline `$...$`, `true` for block `$$...$$`).
+
+The whole expression is the unit of failure - the engine either renders an expression in full or rejects it, so there is no single offending command and therefore no `command` field. Use `source` to report the failing formula to your own error tracker without maintaining an allowlist that goes stale on engine upgrades.
+
+Fires **at most once per distinct failing expression** per component instance - the callback is de-duplicated (keyed by `displayMode` + `source`) and the cache is kept across `markdown` changes, so streaming content does not re-report the same failure on every update. Requires `md4cFlags.latexMath` (on by default).
+
+> [!CAUTION]
+> De-duplication is per component **instance**. If the component unmounts and remounts (new instance - navigation, a changed React `key`, or list recycling), it reports the same failures again. De-duplicate on your side (e.g. by `source`) if you aggregate these app-wide. See [LaTeX Math - De-duplication and re-mounts](LATEX_MATH.md#de-duplication-and-re-mounts).
+
+| Type                                  | Default Value | Platform     |
+| ------------------------------------- | ------------- | ------------ |
+| `(event: LatexErrorEvent) => void`    | -             | iOS, Android |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  markdown={"Inline $\\foo$ and block:\n\n$$\\bar$$"}
+  onLatexError={({ source, message, displayMode }) => {
+    reportToErrorTracker('latex-render-failed', { source, message, displayMode });
+  }}
+/>
+```
+
 ### `onCodeBlockPress`
 
 Callback fired when a fenced code block is tapped anywhere in its body. Receives `code` (the block's source) and `language` (the fence language, or `""` if none). Useful for building custom actions such as copy-to-clipboard or opening the code in a viewer.

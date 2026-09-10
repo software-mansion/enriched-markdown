@@ -76,4 +76,8 @@ void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange
   paragraphStyle.baseWritingDirection = NSWritingDirectionLeftToRight;
   paragraphStyle.alignment = NSTextAlignmentLeft;
   [string addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:range];
+
+  if (lineHeight > 0) {
+    applyBaselineOffset(string, range);
+  }
 }

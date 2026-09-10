@@ -1,3 +1,4 @@
+#import "ENRMLatexErrorReporting.h"
 #import "ENRMUIKit.h"
 #import <Foundation/Foundation.h>
 
@@ -10,6 +11,16 @@ typedef NS_ENUM(NSInteger, BlockType) {
   BlockTypeOrderedList,
   BlockTypeCodeBlock
 };
+
+/// YES when the enclosing block re-stamps its own line height over paragraph content and applies the
+/// matching baseline offset itself, so a paragraph nested inside it must not apply its own (the outer
+/// block's line height wins, and applyBaselineOffset skips ranges that already carry an offset).
+/// TODO: loose list items have the same shape (ParagraphRenderer runs, then the list re-stamps its
+/// line height); add BlockTypeUnorderedList/BlockTypeOrderedList here once lists own their offset too.
+static inline BOOL ENRMBlockTypeReappliesBaselineOffset(BlockType type)
+{
+  return type == BlockTypeBlockquote;
+}
 
 typedef NS_ENUM(NSInteger, ListType) { ListTypeUnordered, ListTypeOrdered };
 
@@ -45,6 +56,7 @@ typedef NS_ENUM(NSInteger, ListType) { ListTypeUnordered, ListTypeOrdered };
 @property (nonatomic, assign) BOOL allowFontScaling;
 @property (nonatomic, assign) CGFloat maxFontSizeMultiplier;
 @property (nonatomic, assign) NSInteger taskItemCount;
+@property (nonatomic, strong) NSMutableArray<id<ENRMLatexErrorReporting>> *mathReporters;
 
 - (instancetype)init;
 - (void)reset;

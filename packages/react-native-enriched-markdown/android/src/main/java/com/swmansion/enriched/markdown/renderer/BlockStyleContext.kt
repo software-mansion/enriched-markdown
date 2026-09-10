@@ -141,6 +141,8 @@ class BlockStyleContext {
       )
   }
 
+  fun currentBlockStyleOrNull(): BlockStyle? = blockStyleStack.lastOrNull()?.blockStyle
+
   fun resetForNewRender() {
     blockStyleStack.clear()
     currentBlockType = BlockType.NONE

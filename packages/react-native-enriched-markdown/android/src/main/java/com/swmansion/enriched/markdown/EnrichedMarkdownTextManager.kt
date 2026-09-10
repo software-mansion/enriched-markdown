@@ -15,6 +15,7 @@ import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerInterface
 import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
+import com.swmansion.enriched.markdown.utils.common.emitLatexError
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
@@ -68,6 +69,10 @@ class EnrichedMarkdownTextManager :
       view.setMarkdownContent(updatedMarkdown)
 
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
+    }
+
+    view.setOnLatexErrorCallback { source, message, displayMode ->
+      emitLatexError(view, source, message, displayMode)
     }
     return view
   }
