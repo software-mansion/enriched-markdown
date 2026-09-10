@@ -336,11 +336,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   };
 #endif
 
-  ENRMTapRecognizer *tapRecognizer = [[ENRMTapRecognize  serializedProps["streamingAnimation"] = props.streamingAnimation;
-  // Required by the measure pass to clamp height to numberOfLines. Without these
-  // the props map reaching MeasurementStore lacks the keys, so the measured
-  // height stays unclamped while the display TextView clamps - leaving the view
-  // sized for the full document. CommonMark only; GFM ignores the clamp.r alloc] initWithTarget:self action:@selector(textTapped:)];
+  ENRMTapRecognizer *tapRecognizer = [[ENRMTapRecognizer alloc] initWithTarget:self action:@selector(textTapped:)];
   [_textView addGestureRecognizer:tapRecognizer];
 
   self.contentView = _textView;
