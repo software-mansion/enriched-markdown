@@ -3,6 +3,8 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import android.view.View
 import android.widget.FrameLayout
+import kotlin.math.ceil
+import kotlin.math.max
 
 /**
  * Reusable FrameLayout for an AST branch node that holds a vertical stack of block
@@ -57,6 +59,15 @@ open class ContainerNodeView(
 
     val contentWidth = (containerWidth - paddingLeft - paddingRight).coerceAtLeast(0)
 
+    val needsOverhang =
+      segmentViews.any { view ->
+        view is TableContainerView &&
+          ceil(view.tableStyle.horizontalOverflow.toDouble()).toInt() > 0
+      }
+    if (clipChildren == needsOverhang) {
+      clipChildren = !needsOverhang
+    }
+
     var currentY = paddingTop
     val lastIndex = segmentViews.lastIndex
     val widthSpec = MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY)
@@ -68,8 +79,27 @@ open class ContainerNodeView(
 
       currentY += segment?.segmentMarginTop ?: 0
 
-      view.measure(widthSpec, heightSpec)
-      view.layout(paddingLeft, currentY, paddingLeft + contentWidth, currentY + view.measuredHeight)
+      val overhang =
+        if (view is TableContainerView) {
+          max(ceil(view.tableStyle.horizontalOverflow.toDouble()).toInt(), 0)
+        } else {
+          0
+        }
+
+      if (overhang > 0) {
+        val extendedWidth = contentWidth + overhang * 2
+        val extWidthSpec = MeasureSpec.makeMeasureSpec(extendedWidth, MeasureSpec.EXACTLY)
+        view.measure(extWidthSpec, heightSpec)
+        view.layout(
+          paddingLeft - overhang,
+          currentY,
+          paddingLeft + contentWidth + overhang,
+          currentY + view.measuredHeight,
+        )
+      } else {
+        view.measure(widthSpec, heightSpec)
+        view.layout(paddingLeft, currentY, paddingLeft + contentWidth, currentY + view.measuredHeight)
+      }
       currentY += view.measuredHeight
 
       if (shouldAddBottomMargin) {

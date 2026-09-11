@@ -145,6 +145,22 @@ val CustomMarkdownStyle: MarkdownStyle =
       marginTop = 24.dp
       marginBottom = 24.dp
     }
+    table {
+      fontFamily = MontserratRegular
+      fontSize = 14.sp
+      color = Color(0xFF1F2937)
+      lineHeight = 22.sp
+      marginBottom = 16.dp
+      headerFontFamily = MontserratBold
+      headerBackgroundColor = Color(0xFFF3F4F6)
+      headerTextColor = Color(0xFF111827)
+      rowEvenBackgroundColor = Color(0xFFFFFFFF)
+      rowOddBackgroundColor = Color(0xFFF9FAFB)
+      borderColor = Color(0xFFE5E7EB)
+      cornerRadius = 8.dp
+      cellPaddingHorizontal = 12.dp
+      cellPaddingVertical = 8.dp
+    }
   }
 
 /**
