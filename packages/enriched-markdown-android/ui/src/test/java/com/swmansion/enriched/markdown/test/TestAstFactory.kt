@@ -49,6 +49,17 @@ object TestAstFactory {
 
   fun blockquote(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Blockquote, children = children.toList())
 
+  /** A GitHub alert, e.g. `> [!NOTE]`. [type] is the lowercase name md4c reports. */
+  fun admonition(
+    type: String,
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.Admonition,
+      attributes = mapOf("admonitionType" to type),
+      children = children.toList(),
+    )
+
   fun unorderedList(vararg items: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.UnorderedList, children = items.toList())
 
   fun orderedList(vararg items: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.OrderedList, children = items.toList())

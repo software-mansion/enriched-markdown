@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
+import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
@@ -37,12 +38,23 @@ class MarkdownAccessibilityHelper(
     val linkUrl: String? = null,
     val listInfo: ListItemInfo? = null,
     val imageAltText: String? = null,
+    val admonitionHeader: AdmonitionHeaderInfo? = null,
   ) {
     val isHeading get() = headingLevel > 0
     val isLink get() = linkUrl != null
     val isListItem get() = listInfo != null
     val isImage get() = imageAltText != null
+    val isAdmonitionHeader get() = admonitionHeader != null
   }
+
+  data class AdmonitionHeaderInfo(
+    /**
+     * Bounds taken from the span's own geometry rather than from a text range — the band the
+     * header is painted into.
+     */
+    val bounds: Rect,
+    val type: String,
+  )
 
   data class ListItemInfo(
     val isOrdered: Boolean,
@@ -157,7 +169,56 @@ class MarkdownAccessibilityHelper(
       paraStart = paraEnd
     }
 
-    return result.ifEmpty { listOf(AccessibilityItem(0, text.trim(), 0, spanned.length)) }
+    addAdmonitionHeaderItems(result, spanned)
+
+    if (result.isEmpty()) return listOf(AccessibilityItem(0, text.trim(), 0, spanned.length))
+
+    // Admonition headers are appended out of order and share the offsets of the character they are
+    // anchored to, so the list is re-sorted into reading order and the ids renumbered — `id`
+    // doubles as the index into `items`.
+    return result
+      .sortedBy { it.start }
+      .mapIndexed { index, item -> item.copy(id = index) }
+  }
+
+  /**
+   * Exposes an admonition's header as its own node.
+   *
+   * The header is painted onto a spacer character that carries no text, so the paragraph walk in
+   * [buildItems] skips it and a screen reader would otherwise never announce which kind of alert
+   * it is about to read. Bounds come from the reserved band, not from that character.
+   */
+  private fun addAdmonitionHeaderItems(
+    items: MutableList<AccessibilityItem>,
+    spanned: Spanned,
+  ) {
+    val layout = textView.layout ?: return
+
+    for (header in spanned.getSpans(0, spanned.length, AdmonitionHeaderSpan::class.java)) {
+      val start = spanned.getSpanStart(header)
+      if (start < 0) continue
+      val line = layout.getLineForOffset(start)
+
+      items.add(
+        AccessibilityItem(
+          id = 0,
+          text = header.title,
+          start = start,
+          end = spanned.getSpanEnd(header),
+          admonitionHeader =
+            AdmonitionHeaderInfo(
+              bounds =
+                Rect(
+                  layout.getLineLeft(line).toInt() + textView.paddingLeft,
+                  layout.getLineTop(line) + textView.paddingTop,
+                  layout.getLineRight(line).toInt() + textView.paddingLeft,
+                  layout.getLineBottom(line) + textView.paddingTop,
+                ),
+              type = header.type,
+            ),
+        ),
+      )
+    }
   }
 
   private fun collectSemanticSpans(spanned: Spanned): List<SpanRange> =
@@ -263,6 +324,10 @@ class MarkdownAccessibilityHelper(
     rebuildIfNeeded()
     if (items.isEmpty()) return HOST_ID
 
+    items
+      .firstOrNull { it.admonitionHeader?.bounds?.contains(x.toInt(), y.toInt()) == true }
+      ?.let { return it.id }
+
     val offset = getCharOffsetAt(x, y)
 
     val exact =
@@ -336,6 +401,10 @@ class MarkdownAccessibilityHelper(
     }
 
     when {
+      item.isAdmonitionHeader -> {
+        roleDescription = "alert"
+      }
+
       item.isHeading -> {
         isHeading = true
         contentDescription = "${item.text}, heading level ${item.headingLevel}"
@@ -367,6 +436,7 @@ class MarkdownAccessibilityHelper(
     }
 
   private fun boundsForItem(item: AccessibilityItem): Rect {
+    item.admonitionHeader?.let { return it.bounds }
     val layout = textView.layout ?: return Rect()
     val vs = item.visibleStart
     val ve = item.visibleEnd

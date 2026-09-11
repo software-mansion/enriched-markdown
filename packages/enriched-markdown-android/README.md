@@ -125,7 +125,7 @@ The `markdownStyle` builder supports these blocks:
 | `subscript` | Subscript text (`~text~`) |
 | `code` | Inline code |
 | `codeBlock` | Fenced code blocks |
-| `blockquote` | Block quotes |
+| `blockquote` | Block quotes, and `admonitions { }` for GitHub alerts (requires `Md4cFlags(admonitions = true)`) |
 | `list` | Ordered and unordered lists |
 | `taskList` | Task list checkboxes |
 | `image` | Block images |
@@ -222,6 +222,7 @@ data class Md4cFlags(
   val underline: Boolean = false,    // _text_ and __text__ render underlined instead of italic and bold
   val superscript: Boolean = false,  // ^text^ renders raised above the baseline
   val subscript: Boolean = false,    // ~text~ renders lowered below the baseline
+  val admonitions: Boolean = false,  // `> [!NOTE]` blockquotes render as GitHub alerts
   // … further md4c extensions
 ) {
   companion object {
@@ -294,6 +295,56 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 - Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemPress`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
+- Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
+
+### Admonitions
+
+A blockquote whose first line is one of the five GitHub alert markers renders as a themed callout —
+the usual blockquote geometry plus a header row with a tinted octicon and a bold title:
+
+```markdown
+> [!WARNING]
+> This action cannot be undone.
+```
+
+Admonitions are an opt-in parser extension, so pass the flag to enable them; without it the marker
+stays literal text inside an ordinary quote:
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = content,
+  flags = Md4cFlags(admonitions = true),
+)
+```
+
+Each type has a `color` (which tints the accent bar, the title and the icon) and an optional
+`backgroundColor`. The defaults are the GitHub palette; backgrounds are unset, so a callout is drawn
+unfilled unless you opt in:
+
+```kotlin
+markdownStyle {
+  blockquote {
+    admonitions {
+      warning {
+        color = Color(0xFF9A6700)
+        backgroundColor = Color(0xFFFFF8C5)
+      }
+      caution { color = Color(0xFFCF222E) }
+    }
+  }
+}
+```
+
+Types you do not name keep their defaults, and the surrounding `blockquote { }` properties
+(`fontSize`, `lineHeight`, `padding`, …) still apply to the callout's body. The title is always
+bold, whatever `fontWeight` the blockquote style carries.
+
+Copying a callout reproduces its `> [!NOTE]` marker, and screen readers announce the header as an
+"alert" node ahead of the body.
+
+An admonition nested inside a list item falls back to a plain blockquote with no header. This
+matches the React Native renderers on both platforms, so the same document looks the same
+everywhere.
 
 ## Development
 

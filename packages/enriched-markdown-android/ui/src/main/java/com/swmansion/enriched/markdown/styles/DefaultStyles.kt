@@ -64,6 +64,18 @@ internal object DefaultStyles {
         }
       }
 
+    // The React Native package resolves this same palette in JavaScript
+    // (src/admonitionDefaults.ts) and hands native a complete map; this package has no JS layer,
+    // so it is baked in here.
+    val admonitionColors =
+      mapOf(
+        "note" to AdmonitionColors(parser.color("#0969DA")),
+        "tip" to AdmonitionColors(parser.color("#1A7F37")),
+        "important" to AdmonitionColors(parser.color("#8250DF")),
+        "warning" to AdmonitionColors(parser.color("#9A6700")),
+        "caution" to AdmonitionColors(parser.color("#CF222E")),
+      )
+
     return StyleConfig(
       paragraphStyleDefault = paragraphStyle,
       headingStyles = headingStyles,
@@ -112,6 +124,7 @@ internal object DefaultStyles {
           backgroundColor = parser.color("#F9FAFB"),
           borderRadius = 0f,
           padding = 0f,
+          admonitions = admonitionColors,
         ),
       listStyle =
         ListStyle(
