@@ -13,9 +13,13 @@ final class AccessibilityElementBuilderTests: XCTestCase {
 
     private func specs(
         for markdown: String,
-        labels: MarkdownAccessibilityLabels = .default
+        labels: MarkdownAccessibilityLabels = .default,
+        flags: Md4cFlags = .commonMark
     ) -> [MarkdownAccessibilityElementSpec] {
-        MarkdownAccessibilityElementBuilder.specs(for: MarkdownRenderer.render(markdown, config: config), labels: labels)
+        MarkdownAccessibilityElementBuilder.specs(
+            for: MarkdownRenderer.render(markdown, config: config, flags: flags),
+            labels: labels
+        )
     }
 
     func testEmptyStringYieldsNoSpecs() {
@@ -223,6 +227,13 @@ final class AccessibilityElementBuilderTests: XCTestCase {
         let result = specs(for: "> - item")
 
         XCTAssertEqual(result.first?.value, "Bullet point, Blockquote")
+    }
+
+    func testAdmonitionReadsItsTitleThenContentAsBlockquote() {
+        let result = specs(for: "> [!NOTE]\n> quoted words", flags: Md4cFlags(admonitions: true))
+
+        XCTAssertEqual(result.map(\.label), ["Note", "quoted words"])
+        XCTAssertEqual(result.map(\.value), ["Blockquote", "Blockquote"])
     }
 
     // MARK: - Custom labels

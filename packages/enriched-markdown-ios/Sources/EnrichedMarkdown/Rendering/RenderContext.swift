@@ -32,6 +32,15 @@ enum MarkdownAttribute {
     static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
     static let blockquoteDepth = NSAttributedString.Key("EnrichedMarkdownBlockquoteDepth")
     static let blockquoteBackgroundColor = NSAttributedString.Key("EnrichedMarkdownBlockquoteBackgroundColor")
+    /// Leading inset of a quote's bars and fill, set on quote paragraphs
+    /// that sit inside a list item (the item's text column).
+    static let blockquoteBarOffset = NSAttributedString.Key("EnrichedMarkdownBlockquoteBarOffset")
+    /// Present on blockquote paragraphs inside a GitHub admonition: the bar
+    /// color of each nesting level, outermost first.
+    static let blockquoteBarColors = NSAttributedString.Key("EnrichedMarkdownBlockquoteBarColors")
+    /// Present on an admonition's title paragraph; the value is the type's
+    /// raw string. The title's head indent reserves the icon column.
+    static let admonitionHeader = NSAttributedString.Key("EnrichedMarkdownAdmonitionHeader")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")
     static let listType = NSAttributedString.Key("EnrichedMarkdownListType")
     static let listItemNumber = NSAttributedString.Key("EnrichedMarkdownListItemNumber")
@@ -51,7 +60,10 @@ package final class RenderContext {
     private(set) var currentBlockType: BlockType = .none
     private(set) var currentBlockStyle: BlockStyle?
 
-    var blockquoteDepth = 0
+    /// The enclosing blockquotes, outermost first: each level's admonition
+    /// type, or nil for a plain quote.
+    private(set) var blockquoteLevels: [AdmonitionType?] = []
+    var blockquoteDepth: Int { blockquoteLevels.count }
     var listDepth = 0
     var listType: ListType = .unordered
     var listItemNumber = 0
@@ -72,7 +84,7 @@ package final class RenderContext {
     func reset() {
         currentBlockType = .none
         currentBlockStyle = nil
-        blockquoteDepth = 0
+        blockquoteLevels = []
         listDepth = 0
         listType = .unordered
         listItemNumber = 0
@@ -89,6 +101,14 @@ package final class RenderContext {
     ) {
         currentBlockType = blockType
         currentBlockStyle = BlockStyle(font: font, color: color, headingLevel: headingLevel)
+    }
+
+    func enterBlockquote(admonition: AdmonitionType?) {
+        blockquoteLevels.append(admonition)
+    }
+
+    func exitBlockquote() {
+        blockquoteLevels.removeLast()
     }
 
     func clearBlockStyle() {

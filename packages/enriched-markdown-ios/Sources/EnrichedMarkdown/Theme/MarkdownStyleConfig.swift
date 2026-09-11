@@ -174,6 +174,26 @@ public struct CodeBlockStyle: Equatable, Sendable {
     }
 }
 
+/// Colors for one GitHub alert type; everything else comes from the
+/// enclosing `BlockquoteStyle`.
+public struct AdmonitionStyle: Equatable, Sendable {
+    /// Tints the accent bar, the icon, and the title; nil falls back to the
+    /// blockquote border color.
+    public var color: UIColor?
+    /// Fills the callout; nil leaves it unfilled.
+    public var backgroundColor: UIColor?
+
+    public init(color: UIColor? = nil, backgroundColor: UIColor? = nil) {
+        self.color = color
+        self.backgroundColor = backgroundColor
+    }
+
+    public mutating func merge(_ other: AdmonitionStyle) {
+        color = other.color ?? color
+        backgroundColor = other.backgroundColor ?? backgroundColor
+    }
+}
+
 public struct BlockquoteStyle: Equatable, Sendable {
     public var font: UIFont?
     public var foregroundColor: UIColor?
@@ -184,6 +204,8 @@ public struct BlockquoteStyle: Equatable, Sendable {
     public var borderColor: UIColor?
     public var borderWidth: CGFloat?
     public var gapWidth: CGFloat?
+    /// Per-type colors for `> [!NOTE]`-style alerts (`Md4cFlags(admonitions: true)`).
+    public var admonitions: [AdmonitionType: AdmonitionStyle]
 
     public init(
         font: UIFont? = nil,
@@ -194,7 +216,8 @@ public struct BlockquoteStyle: Equatable, Sendable {
         lineHeight: CGFloat? = nil,
         borderColor: UIColor? = nil,
         borderWidth: CGFloat? = nil,
-        gapWidth: CGFloat? = nil
+        gapWidth: CGFloat? = nil,
+        admonitions: [AdmonitionType: AdmonitionStyle] = [:]
     ) {
         self.font = font
         self.foregroundColor = foregroundColor
@@ -205,6 +228,7 @@ public struct BlockquoteStyle: Equatable, Sendable {
         self.borderColor = borderColor
         self.borderWidth = borderWidth
         self.gapWidth = gapWidth
+        self.admonitions = admonitions
     }
 
     public mutating func merge(_ other: BlockquoteStyle) {
@@ -217,6 +241,17 @@ public struct BlockquoteStyle: Equatable, Sendable {
         borderColor = other.borderColor ?? borderColor
         borderWidth = other.borderWidth ?? borderWidth
         gapWidth = other.gapWidth ?? gapWidth
+        for (type, style) in other.admonitions {
+            admonitions[type, default: AdmonitionStyle()].merge(style)
+        }
+    }
+
+    var resolvedBorderColor: UIColor {
+        borderColor ?? BlockDecorationConfig.defaultBlockquoteBorderColor
+    }
+
+    func admonitionTint(for type: AdmonitionType) -> UIColor {
+        admonitions[type]?.color ?? resolvedBorderColor
     }
 }
 
