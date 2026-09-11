@@ -45,4 +45,20 @@ object SegmentViewCreators {
     view.applyStyledText(segment.styledText)
     segment.imageSpans.forEach { it.registerTextView(view) }
   }
+
+  fun createTableView(
+    segment: RenderedSegment.Table,
+    config: SegmentViewConfig,
+  ): TableContainerView =
+    TableContainerView(config.context, config.style).apply {
+      selectionMenuConfig = config.selectionMenuConfig
+      applyTableNode(segment.node)
+    }
+
+  fun updateTableView(
+    view: TableContainerView,
+    segment: RenderedSegment.Table,
+  ) {
+    view.applyTableNode(segment.node)
+  }
 }

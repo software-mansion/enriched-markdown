@@ -10,6 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
+import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
@@ -23,6 +24,10 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.strong
+import com.swmansion.enriched.markdown.test.TestAstFactory.table
+import com.swmansion.enriched.markdown.test.TestAstFactory.tableBody
+import com.swmansion.enriched.markdown.test.TestAstFactory.tableCell
+import com.swmansion.enriched.markdown.test.TestAstFactory.tableRow
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import org.junit.Assert.assertEquals
@@ -132,6 +137,39 @@ class EnrichedMarkdownTest {
     val secondChild = container.getChildAt(0)
 
     assertSame(firstChild, secondChild)
+  }
+
+  @Test
+  fun paragraphTableParagraphProducesThreeChildrenInOrder() {
+    val doc =
+      document(
+        paragraph(text("Before")),
+        table(body = tableBody(tableRow(tableCell("default", text("Cell"))))),
+        paragraph(text("After")),
+      )
+
+    val container = containerWithAppliedSegments(doc)
+
+    assertEquals(3, container.childCount)
+    assertTrue(container.getChildAt(0) is EnrichedMarkdownInternalText)
+    assertTrue(container.getChildAt(1) is TableContainerView)
+    assertTrue(container.getChildAt(2) is EnrichedMarkdownInternalText)
+  }
+
+  @Test
+  fun tableViewInstanceSurvivesAnEditToTheSurroundingParagraph() {
+    val tableNode = table(body = tableBody(tableRow(tableCell("default", text("Cell")))))
+    val doc = document(paragraph(text("Before")), tableNode, paragraph(text("After")))
+    val editedDoc = document(paragraph(text("Before, edited")), tableNode, paragraph(text("After")))
+
+    val container = EnrichedMarkdown(context)
+    container.applyRenderedSegments(MarkdownSegmentRenderer.render(splitASTIntoSegments(doc), defaultStyle, context))
+    val tableChildBeforeEdit = container.getChildAt(1)
+
+    container.applyRenderedSegments(MarkdownSegmentRenderer.render(splitASTIntoSegments(editedDoc), defaultStyle, context))
+    val tableChildAfterEdit = container.getChildAt(1)
+
+    assertSame(tableChildBeforeEdit, tableChildAfterEdit)
   }
 
   private fun containerWithAppliedSegments(document: MarkdownASTNode): EnrichedMarkdown {

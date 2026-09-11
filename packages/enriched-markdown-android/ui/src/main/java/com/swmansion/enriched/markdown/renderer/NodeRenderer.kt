@@ -75,6 +75,8 @@ class RendererFactory(
   private val textRenderer = TextRenderer()
   private val lineBreakRenderer = LineBreakRenderer()
   private val softBreakRenderer = SoftBreakRenderer()
+  private val tableSectionRenderer = TableSectionRenderer()
+  private val tableCellRenderer = TableCellRenderer()
 
   private val renderers: Map<MarkdownASTNode.NodeType, NodeRenderer> by lazy {
     buildMap {
@@ -100,6 +102,12 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.BlankLine, BlankLineRenderer(config))
       put(MarkdownASTNode.NodeType.Superscript, SuperscriptRenderer())
       put(MarkdownASTNode.NodeType.Subscript, SubscriptRenderer())
+      put(MarkdownASTNode.NodeType.Table, tableSectionRenderer)
+      put(MarkdownASTNode.NodeType.TableHead, tableSectionRenderer)
+      put(MarkdownASTNode.NodeType.TableBody, tableSectionRenderer)
+      put(MarkdownASTNode.NodeType.TableRow, TableRowRenderer())
+      put(MarkdownASTNode.NodeType.TableHeaderCell, tableCellRenderer)
+      put(MarkdownASTNode.NodeType.TableCell, tableCellRenderer)
     }
   }
 
