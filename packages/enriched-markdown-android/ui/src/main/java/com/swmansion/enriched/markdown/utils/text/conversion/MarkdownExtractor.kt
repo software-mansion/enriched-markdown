@@ -4,7 +4,7 @@ import android.text.Spannable
 import android.text.style.StrikethroughSpan
 import android.text.style.UnderlineSpan
 import android.widget.TextView
-import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BaselineShiftSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
@@ -34,12 +34,21 @@ object MarkdownExtractor {
     val spannable = textView.text as? Spannable ?: return null
 
     val isFullSelection = start == 0 && end >= textView.text.length - 1
-    if (isFullSelection && textView is EnrichedMarkdownText) {
-      val original = textView.currentMarkdown
-      if (original.isNotEmpty()) return original
+    if (isFullSelection) {
+      val original = textView.owningSingleSegmentContainer()?.currentMarkdown
+      if (!original.isNullOrEmpty()) return original
     }
 
     return extractFromSpannable(spannable, start, end)
+  }
+
+  /**
+   * Only valid while this TextView is the container's sole child: selecting all of one
+   * segment equals selecting the whole document only when that segment IS the document.
+   */
+  private fun TextView.owningSingleSegmentContainer(): EnrichedMarkdown? {
+    val container = parent as? EnrichedMarkdown ?: return null
+    return container.takeIf { it.childCount == 1 && it.getChildAt(0) === this }
   }
 
   /** Extracts markdown from a Spannable within a given range. */
