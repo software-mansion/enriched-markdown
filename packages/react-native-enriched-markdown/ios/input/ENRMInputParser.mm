@@ -106,6 +106,9 @@ struct ParseContext {
   std::vector<BlockInfo> openBlockStack;
   std::vector<BlockInfo> resolvedBlocks;
   std::vector<size_t> textStartOffsets;
+  // Byte offsets of backslashes md4c resolved as escape sequences (the '\' of "\*"),
+  // stripped from the plain text alongside inline/block delimiters.
+  std::vector<size_t> escapeByteOffsets;
   size_t lastTextEnd = 0;
   // Open list containers, innermost last (true = ordered). An item's depth is
   // the stack size - 1 and its type the innermost container's; md4c carries no
@@ -315,6 +318,10 @@ static int onText(MD_TEXTTYPE, const MD_CHAR *text, MD_SIZE size, void *userdata
   size_t textEnd = textStart + size;
   context->textStartOffsets.push_back(textStart);
 
+  if (textStart > 0 && context->buffer[textStart - 1] == '\\' && (textStart - 1) >= context->lastTextEnd) {
+    context->escapeByteOffsets.push_back(textStart - 1);
+  }
+
   for (auto &openSpan : context->openStack) {
     if (openSpan.contentStartByteOffset == kByteOffsetUnset) {
       openSpan.contentStartByteOffset = textStart;
@@ -492,10 +499,17 @@ static NSArray<ENRMBlockRange *> *blockRangesFromContext(const ParseContext &con
   ParseContext context;
   NSArray<ENRMInputStyledRange *> *styledRanges = @[];
   NSArray<ENRMBlockRange *> *rawBlockRanges = @[];
+  NSMutableIndexSet *escapeIndexes = [NSMutableIndexSet indexSet];
   if (runMd4cParse(markdown, context)) {
     auto byteMap = buildByteToUTF16Map(context.buffer, context.bufferLength);
     styledRanges = styledRangesFromContext(context, byteMap);
     rawBlockRanges = blockRangesFromContext(context, byteMap, markdown);
+    for (size_t escapeByte : context.escapeByteOffsets) {
+      NSUInteger escapeIndex = mapByteOffset(byteMap, escapeByte, context.bufferLength);
+      if (escapeIndex < markdown.length) {
+        [escapeIndexes addIndex:escapeIndex];
+      }
+    }
   }
 
   NSUInteger rawLength = markdown.length;
@@ -534,6 +548,8 @@ static NSArray<ENRMBlockRange *> *blockRangesFromContext(const ParseContext &con
       [syntaxIndexes addIndexesInRange:NSMakeRange(lineStart, contentStart - lineStart)];
     }
   }
+
+  [syntaxIndexes addIndexes:escapeIndexes];
 
   // Strip \n/\r from syntax ranges — newlines are structural content, not
   // markdown syntax, and must survive into the plain text.
