@@ -64,6 +64,8 @@ private val BORDER_COLOR_EDGES =
     "borderRightColor" to LogicalEdge.RIGHT,
     "borderTopColor" to LogicalEdge.TOP,
     "borderBottomColor" to LogicalEdge.BOTTOM,
+    "borderStartColor" to LogicalEdge.START,
+    "borderEndColor" to LogicalEdge.END,
   )
 
 private val BORDER_RADIUS_PROPS =
