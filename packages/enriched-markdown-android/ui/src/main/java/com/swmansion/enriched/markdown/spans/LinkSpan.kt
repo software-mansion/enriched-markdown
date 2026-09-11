@@ -5,7 +5,7 @@ import android.graphics.Color
 import android.text.TextPaint
 import android.text.style.ClickableSpan
 import android.view.View
-import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
 import com.swmansion.enriched.markdown.utils.text.extensions.applyBlockStyleFont
@@ -27,13 +27,13 @@ class LinkSpan(
       return
     }
 
-    onLinkPress?.invoke(url) ?: (widget as? EnrichedMarkdownText)?.emitOnLinkPress(url)
+    onLinkPress?.invoke(url) ?: (widget as? EnrichedMarkdownInternalText)?.emitOnLinkPress(url)
   }
 
   fun onLongClick(widget: View): Boolean {
     longPressTriggered = true
 
-    (widget as? EnrichedMarkdownText)?.emitOnLinkLongPress(url)
+    (widget as? EnrichedMarkdownInternalText)?.emitOnLinkLongPress(url)
 
     onLinkLongPress?.invoke(url)
 

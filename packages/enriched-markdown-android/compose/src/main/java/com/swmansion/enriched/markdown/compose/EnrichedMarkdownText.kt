@@ -15,7 +15,7 @@ import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.swmansion.enriched.markdown.EnrichedMarkdownText as NativeMarkdownTextView
+import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
 import com.swmansion.enriched.markdown.TaskListItemPressEvent as TaskListItemPressEventInternal
 import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
 
@@ -71,7 +71,7 @@ fun EnrichedMarkdownText(
   AndroidView(
     modifier = modifier,
     factory = { viewContext ->
-      NativeMarkdownTextView(viewContext).apply {
+      NativeMarkdownView(viewContext).apply {
         setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
         setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
         setOnTaskListItemPressCallback { event -> onTaskListItemPressState?.invoke(event) }

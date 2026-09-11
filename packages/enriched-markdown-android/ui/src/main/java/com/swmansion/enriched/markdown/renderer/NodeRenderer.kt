@@ -119,9 +119,16 @@ class RendererFactory(
     onLinkPress: ((String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
   ) {
-    node.children.forEach { child ->
-      getRenderer(child).render(child, builder, onLinkPress, onLinkLongPress, this)
-    }
+    renderNodes(node.children, builder, onLinkPress, onLinkLongPress)
+  }
+
+  fun renderNodes(
+    nodes: List<MarkdownASTNode>,
+    builder: SpannableStringBuilder,
+    onLinkPress: ((String) -> Unit)?,
+    onLinkLongPress: ((String) -> Unit)?,
+  ) {
+    nodes.forEach { node -> getRenderer(node).render(node, builder, onLinkPress, onLinkLongPress, this) }
   }
 
   inline fun renderWithSpan(

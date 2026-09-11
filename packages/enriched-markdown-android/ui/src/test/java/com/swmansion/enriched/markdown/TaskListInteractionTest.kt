@@ -18,7 +18,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultTaskListStyle
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithTaskList
-import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.createEnrichedMarkdownTextWithStoredMarkdown
+import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.createContainerWithStoredMarkdown
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
@@ -366,9 +366,10 @@ class TaskListInteractionTest {
   @Test
   fun tappingTheViewTogglesTheItemAndReportsTheNewState() {
     val markdown = "- [ ] Open item\n- [x] Done item"
-    val view = laidOutTextView(createEnrichedMarkdownTextWithStoredMarkdown(markdown, render(checklist())))
+    val container = createContainerWithStoredMarkdown(markdown, render(checklist()))
+    val view = laidOutTextView(container.getChildAt(0) as EnrichedMarkdownInternalText)
     var event: TaskListItemPressEvent? = null
-    view.setOnTaskListItemPressCallback { event = it }
+    container.setOnTaskListItemPressCallback { event = it }
 
     tap(view, line = 0)
 
@@ -379,27 +380,29 @@ class TaskListInteractionTest {
   @Test
   fun keepsTheToggleWhenTheSameSourceIsSuppliedAgain() {
     val markdown = "- [ ] Open item\n- [x] Done item"
-    val view = laidOutTextView(createEnrichedMarkdownTextWithStoredMarkdown(markdown, render(checklist())))
+    val container = createContainerWithStoredMarkdown(markdown, render(checklist()))
+    val view = laidOutTextView(container.getChildAt(0) as EnrichedMarkdownInternalText)
 
     tap(view, line = 0)
-    view.setMarkdownContent(markdown)
+    container.setMarkdownContent(markdown)
 
-    assertEquals("- [x] Open item\n- [x] Done item", view.currentMarkdown)
+    assertEquals("- [x] Open item\n- [x] Done item", container.currentMarkdown)
   }
 
   @Test
   fun leavesTapsInertWhileTogglingIsDisabled() {
     val markdown = "- [ ] Open item\n- [x] Done item"
-    val view = laidOutTextView(createEnrichedMarkdownTextWithStoredMarkdown(markdown, render(checklist())))
+    val container = createContainerWithStoredMarkdown(markdown, render(checklist()))
+    val view = laidOutTextView(container.getChildAt(0) as EnrichedMarkdownInternalText)
     var fired = false
-    view.setOnTaskListItemPressCallback { fired = true }
-    view.setEnableTaskListItemToggle(false)
+    container.setOnTaskListItemPressCallback { fired = true }
+    container.setEnableTaskListItemToggle(false)
 
     tap(view, line = 0)
 
     assertFalse(fired)
     assertFalse((view.text as SpannableString).taskSpanCovering("Open item").isChecked)
-    assertEquals(markdown, view.currentMarkdown)
+    assertEquals(markdown, container.currentMarkdown)
   }
 
   private fun TextView.toggle(
