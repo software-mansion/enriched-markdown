@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Typeface
 import android.os.Build
 import android.text.SpannableString
+import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils.TruncateAt
@@ -21,6 +22,7 @@ import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
@@ -723,7 +725,7 @@ object MeasurementStore {
 
     val layout = builder.build()
     val visibleLineCount = visibleLineCount(layout, viewId)
-    val measuredHeight = truncatedHeight(layout, visibleLineCount)
+    val measuredHeight = truncatedHeight(layout, visibleLineCount, content)
 
     // Calculate actual content width (widest visible line)
     val measuredWidth = (0 until visibleLineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
@@ -757,7 +759,55 @@ object MeasurementStore {
   private fun truncatedHeight(
     layout: StaticLayout,
     visibleLineCount: Int,
-  ): Float = if (visibleLineCount <= 0) 0f else layout.getLineBottom(visibleLineCount - 1).toFloat()
+    text: CharSequence,
+  ): Float {
+    if (visibleLineCount <= 0) return 0f
+    val lastLine = visibleLineCount - 1
+    val bottom = layout.getLineBottom(lastLine).toFloat()
+    return (bottom - leakedTrailingMargin(layout, lastLine, text)).coerceAtLeast(0f)
+  }
+
+  /**
+   * When a clamp truncates mid-paragraph, Android extends the last visible line to
+   * absorb the rest of that paragraph, including its trailing MarginBottomSpan spacer
+   * (paragraph spacing rides on the '\n' that terminates the paragraph). That block
+   * marginBottom is then baked into the truncated line's descent, leaving a phantom
+   * gap below the text - iOS never reaches a truncated paragraph's trailing spacing.
+   * This returns the margin that leaked onto [lastLine] so callers can subtract it.
+   * Only the spacer at the very end of the line whose paragraph still has content
+   * after it counts (mirrors MarginBottomSpan's own rule); the final block's spacer
+   * has no content after and never contributes, so a non-truncated last line is
+   * unaffected.
+   */
+  private fun leakedTrailingMargin(
+    layout: StaticLayout,
+    lastLine: Int,
+    text: CharSequence,
+  ): Float {
+    val spanned = text as? Spanned ?: return 0f
+    val lineStart = layout.getLineStart(lastLine)
+    val lineEnd = layout.getLineEnd(lastLine)
+    if (lineEnd <= lineStart || lineEnd < 1 || text[lineEnd - 1] != '\n') return 0f
+    if (!hasContentAfter(text, lineEnd)) return 0f
+    val trailing =
+      spanned
+        .getSpans(lineStart, lineEnd, MarginBottomSpan::class.java)
+        .firstOrNull { spanned.getSpanEnd(it) == lineEnd } ?: return 0f
+    return trailing.marginBottom.toInt().toFloat()
+  }
+
+  private fun hasContentAfter(
+    text: CharSequence,
+    pos: Int,
+  ): Boolean {
+    if (pos >= text.length) return false
+    if (text[pos] == '\n') {
+      val nextPos = pos + 1
+      if (nextPos >= text.length) return false
+      return text[nextPos] != '\n'
+    }
+    return true
+  }
 
   /**
    * Measures text and returns both the size and the layout for calculating last line descent.
@@ -798,7 +848,7 @@ object MeasurementStore {
     val size =
       YogaMeasureOutput.make(
         PixelUtil.toDIPFromPixel(ceil(maxLineWidth)),
-        PixelUtil.toDIPFromPixel(truncatedHeight(layout, visibleLineCount)),
+        PixelUtil.toDIPFromPixel(truncatedHeight(layout, visibleLineCount, content)),
       )
 
     return size to layout

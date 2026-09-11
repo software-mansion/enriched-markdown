@@ -14,6 +14,7 @@ import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerInterface
 import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.utils.common.applyReactBorderProps
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
 import com.swmansion.enriched.markdown.utils.common.emitLatexError
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
@@ -80,6 +81,17 @@ class EnrichedMarkdownTextManager :
   override fun onAfterUpdateTransaction(view: EnrichedMarkdownText) {
     super.onAfterUpdateTransaction(view)
     view.commitProps()
+  }
+
+  // BaseViewManagerDelegate does not apply borderWidth / borderColor / borderRadius
+  // to a SimpleViewManager (see applyReactBorderProps), so `containerStyle` borders
+  // are dropped on Android. Replay them after the delegate has run.
+  override fun updateProperties(
+    view: EnrichedMarkdownText,
+    props: ReactStylesDiffMap,
+  ) {
+    super.updateProperties(view, props)
+    applyReactBorderProps(view, props)
   }
 
   override fun updateState(
