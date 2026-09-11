@@ -124,14 +124,7 @@ extension MarkdownExtractor {
             // Concealed or revealed: the source had the markers either way.
             isSpoiler = attrs[MarkdownAttribute.spoiler] != nil
 
-            switch attrs[.link] {
-            case let url as URL:
-                linkURL = url.absoluteString
-            case let string as String:
-                linkURL = string
-            default:
-                linkURL = nil
-            }
+            linkURL = MarkdownAttributeValue.linkString(from: MarkdownAttributeValue.sourceLink(in: attrs))
         }
     }
 }
