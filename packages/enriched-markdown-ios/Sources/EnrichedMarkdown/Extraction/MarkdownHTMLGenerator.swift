@@ -74,7 +74,8 @@ enum MarkdownHTMLGenerator {
         case normal
         case heading(Int)
         case codeBlock
-        case blockquote(depth: Int)
+        /// `admonition` is set on the title paragraph that opens an alert.
+        case blockquote(depth: Int, admonition: AdmonitionType?)
         case list(ListParagraph)
     }
 
@@ -127,7 +128,8 @@ enum MarkdownHTMLGenerator {
             return .heading(min(max(level, 1), 6))
         }
         if let depth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.blockquoteDepth]) {
-            return .blockquote(depth: depth)
+            let admonition = (attrs[MarkdownAttribute.admonitionHeader] as? String).flatMap(AdmonitionType.init(rawValue:))
+            return .blockquote(depth: depth, admonition: admonition)
         }
         if let depth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]) {
             let ordered = MarkdownAttributeValue.intValue(
@@ -170,8 +172,8 @@ enum MarkdownHTMLGenerator {
         switch paragraph.type {
         case .codeBlock:
             collectCodeBlockLine(inline, state: &state)
-        case .blockquote(let depth):
-            emitBlockquote(inline, depth: depth, into: &html, styles: styles, state: &state)
+        case .blockquote(let depth, let admonition):
+            emitBlockquote(inline, depth: depth, admonition: admonition, into: &html, styles: styles, state: &state)
         case .list(let list):
             emitList(inline, list: list, into: &html, styles: styles, state: &state)
         case .heading(let level):
@@ -228,6 +230,7 @@ enum MarkdownHTMLGenerator {
     private static func emitBlockquote(
         _ content: String,
         depth: Int,
+        admonition: AdmonitionType?,
         into html: inout String,
         styles: CachedStyles,
         state: inout State
@@ -238,30 +241,57 @@ enum MarkdownHTMLGenerator {
             closeAllBlockquotes(&html, state: &state)
         }
 
-        while state.blockquoteDepth > depth {
+        // An admonition title opens a fresh callout even at the current
+        // depth (an alert right after a sibling quote).
+        let keepDepth = admonition == nil ? depth : depth - 1
+        while state.blockquoteDepth > keepDepth {
             html += "</blockquote>"
             state.blockquoteDepth -= 1
         }
 
         while state.blockquoteDepth < depth {
             state.blockquoteDepth += 1
-            if state.blockquoteDepth == 0 {
-                html += "<blockquote style=\"background-color: \(styles.blockquoteBgColor); "
-                    + "border-inline-start: \(styles.blockquoteBorderWidth)px solid \(styles.blockquoteBorderColor); "
-                    + "padding: \(Fixed.blockquotePaddingVertical) \(styles.blockquoteGapWidth)px; "
-                    + "margin: 0 0 \(styles.blockquoteMarginBottom)px 0; "
-                    + "\(Fixed.blockquoteBorderRadiusCorners);\">"
-            } else {
-                html += "<blockquote style=\"border-inline-start: \(styles.blockquoteBorderWidth)px solid \(styles.blockquoteBorderColor); "
-                    + "padding-inline-start: \(styles.blockquoteGapWidth)px; "
-                    + "margin: \(Fixed.blockquoteNestedMargin);\">"
+            let opensAdmonition = state.blockquoteDepth == depth ? admonition : nil
+            html += blockquoteOpening(root: state.blockquoteDepth == 0, admonition: opensAdmonition, styles: styles)
+            if let opensAdmonition {
+                html += admonitionHeader(opensAdmonition, styles: styles)
             }
         }
 
-        html += "<p style=\"margin: \(Fixed.blockquoteParagraphMargin); "
-            + "color: \(styles.blockquoteColor); "
-            + "font-size: \(styles.blockquoteFontSize)px;\">\(content)</p>"
+        if admonition == nil {
+            html += "<p style=\"margin: \(Fixed.blockquoteParagraphMargin); "
+                + "color: \(styles.blockquoteColor); "
+                + "font-size: \(styles.blockquoteFontSize)px;\">\(content)</p>"
+        }
         state.previousWasBlockquote = true
+    }
+
+    /// An admonition recolors the box's bar and fill per type.
+    private static func blockquoteOpening(root: Bool, admonition: AdmonitionType?, styles: CachedStyles) -> String {
+        let borderColor = admonition.map(styles.admonitionTint) ?? styles.blockquoteBorderColor
+        let background = admonition.map { styles.admonitionBackgrounds[$0] ?? "transparent" }
+            ?? (root ? styles.blockquoteBgColor : nil)
+        var style = background.map { "background-color: \($0); " } ?? ""
+        style += "border-inline-start: \(styles.blockquoteBorderWidth)px solid \(borderColor); "
+        style += root
+            ? "padding: \(Fixed.blockquotePaddingVertical) \(styles.blockquoteGapWidth)px; "
+                + "margin: 0 0 \(styles.blockquoteMarginBottom)px 0; \(Fixed.blockquoteBorderRadiusCorners);"
+            : "padding-inline-start: \(styles.blockquoteGapWidth)px; margin: \(Fixed.blockquoteNestedMargin);"
+        return "<blockquote style=\"\(style)\">"
+    }
+
+    /// The icon + title row the web renderer emits.
+    private static func admonitionHeader(_ type: AdmonitionType, styles: CachedStyles) -> String {
+        let tint = styles.admonitionTint(type)
+        let iconSize = styles.admonitionIconSize
+        return "<div style=\"display: flex; align-items: center; gap: \(styles.admonitionIconGap)px; "
+            + "margin-bottom: \(styles.admonitionHeaderMargin)px; color: \(tint); font-weight: bold; "
+            + "font-size: \(styles.blockquoteFontSize)px;\">"
+            + "<svg width=\"\(iconSize)\" height=\"\(iconSize)\" "
+            + "viewBox=\"0 0 \(Int(AdmonitionHeader.iconViewBox)) \(Int(AdmonitionHeader.iconViewBox))\" "
+            + "fill=\"\(tint)\" aria-hidden=\"true\">"
+            + "<path d=\"\(AdmonitionHeader.iconPathData(for: type))\"></path></svg>"
+            + "<span>\(type.title)</span></div>"
     }
 
     private static func emitList(

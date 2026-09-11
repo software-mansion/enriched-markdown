@@ -149,6 +149,7 @@ The `MarkdownTheme` builder supports these elements:
 | `Code()` | Inline code |
 | `CodeBlock()` | Fenced code blocks |
 | `Blockquote()` | Block quotes |
+| `Admonition(.note)` | GitHub alerts (`> [!NOTE]`, `Md4cFlags(admonitions: true)`), one element per type |
 | `List()` | Ordered and unordered lists |
 | `TaskList()` | Task-list checkboxes (`- [x]`) |
 | `Table()` | GFM tables |
@@ -167,6 +168,7 @@ Element-specific modifiers include:
 - **Link:** `.underline(_:)`
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
 - **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
+- **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
@@ -205,12 +207,13 @@ public struct Md4cFlags: Equatable, Sendable {
   public var superscript: Bool          // ^text^ renders as superscript
   public var subscript: Bool            // ~text~ renders as subscript
   public var highlight: Bool            // ==text== renders with a background
+  public var admonitions: Bool          // > [!NOTE] quotes render as GitHub alerts
 
   public static let commonMark: Md4cFlags
 }
 ```
 
-`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, and `highlight` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, `highlight`, and `admonitions` affect rendering. Tables, task lists, and strikethrough are always enabled and need no flags.
 
 ### `.markdownTheme`
 
@@ -378,7 +381,7 @@ VoiceOver walks the rendered markdown as individual elements rather than one tex
 - Links are activatable elements that invoke `.onLinkPress`; a linked image (`[![alt](img)](url)`) reads its alt text with both the image and link traits
 - Images read their alt text ("Image" when absent)
 - List items announce their position ("Bullet point", "List item N", "Task, checked", with "Nested" variants)
-- Content inside a blockquote appends "Blockquote" or "Nested blockquote"
+- Content inside a blockquote appends "Blockquote" or "Nested blockquote"; an admonition reads its title ("Note", "Tip", …) as its own element first
 - Tables read one element per row ("Row N: cell, cell"); the header row carries the heading trait
 - Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element)
 - Math from `EnrichedMarkdownLaTeX` reads an English form of the formula ("Math: x squared over 2", "integral from 0 to 1 of …"); `{latex}` in the label template gives the raw source instead, and a closure can plug in another converter
@@ -463,6 +466,7 @@ layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], tr
 - Highlight (`==text==` with `Md4cFlags(highlight: true)`)
 - Fenced code blocks
 - Block quotes
+- GitHub alerts / admonitions (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` with `Md4cFlags(admonitions: true)`): a tinted bar, icon, and title above the quoted content
 - Ordered and unordered lists
 - Task lists (`- [x]` / `- [ ]`, tap to toggle — see `.onTaskListItemPress`)
 - Tables (GFM: column alignment, per-cell wrapping, horizontal scrolling)

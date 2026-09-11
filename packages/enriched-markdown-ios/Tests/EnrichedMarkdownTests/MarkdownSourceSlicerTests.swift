@@ -151,6 +151,13 @@ final class MarkdownSourceSlicerTests: XCTestCase {
         )
     }
 
+    func testAdmonitionBodySelectionSlicesItsLine() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "quoted words", in: "intro\n\n> [!NOTE]\n> quoted words", flags: Md4cFlags(admonitions: true)),
+            "> quoted words"
+        )
+    }
+
     func testHeadingSelectionKeepsHashesAndInlineMarkers() {
         XCTAssertEqual(
             copyMarkdown(selecting: "Big deal", in: "intro\n\n# Big **deal**"),
@@ -166,6 +173,15 @@ final class MarkdownSourceSlicerTests: XCTestCase {
     }
 
     // MARK: - Fallback to reconstruction
+
+    /// The rendered title has no source bytes, so a selection covering it
+    /// reconstructs the alert instead of slicing.
+    func testAdmonitionTitleSelectionReconstructsTheMarker() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "Note\nquoted words", in: "intro\n\n> [!NOTE]\n> quoted words", flags: Md4cFlags(admonitions: true)),
+            "> [!NOTE]\n> quoted words"
+        )
+    }
 
     func testMidMarkerCutFallsBackToReconstruction() {
         XCTAssertEqual(

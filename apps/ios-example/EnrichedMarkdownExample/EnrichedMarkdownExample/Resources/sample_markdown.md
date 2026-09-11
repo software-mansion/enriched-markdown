@@ -148,6 +148,38 @@ Use ==double equals== to highlight text, and ==**combine it** with other styles=
 
 ---
 
+## Admonitions
+
+GitHub-style alerts are blockquotes that open with a type marker:
+
+> [!NOTE]
+> Highlights information that users should take into account, even when skimming.
+
+> [!TIP]
+> Optional information to help a user be more successful.
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
+
+> [!IMPORTANT]
+> An alert can hold **formatted** text, a [link](https://swmansion.com), and other blocks:
+>
+> - first bullet
+> - second bullet
+>
+> > A plain quote nested inside keeps the alert's bar beside its own.
+>
+> > [!TIP]
+> > A tip nested inside the alert gets its own header.
+
+---
+
 ## Fascinating Forest Facts
 
 Did you know that trees communicate through an underground network? Scientists call this the `Wood Wide Web` — a fungal network connecting tree roots across entire forests.

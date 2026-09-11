@@ -1,5 +1,8 @@
 import UIKit
 
+/// Renders `> quote` blocks and, for `.admonition` nodes, GitHub alerts: the
+/// same quote with a tinted bar and a bold tinted title paragraph whose head
+/// indent reserves a column for the icon the decoration view draws.
 final class BlockquoteRenderer: NodeRenderer {
     private let factory: RendererFactory
     private let config: MarkdownStyleConfig
@@ -10,41 +13,56 @@ final class BlockquoteRenderer: NodeRenderer {
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
-        let currentDepth = context.blockquoteDepth
-        context.blockquoteDepth = currentDepth + 1
+        let admonition = Self.admonitionType(of: node)
+        context.enterBlockquote(admonition: admonition)
+        let levels = context.blockquoteLevels
+        let depth = levels.count - 1
 
         let blockStyle = config.blockquote
         let font = blockStyle.font ?? UIFont.preferredFont(forTextStyle: .body)
         let color = blockStyle.foregroundColor ?? UIColor.label
         context.setBlockStyle(font: font, color: color, blockType: .blockquote)
 
-        if currentDepth > 0 {
-            ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
-        }
-
+        ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
         let start = output.length
+        if let admonition {
+            appendHeader(for: admonition, font: font, to: output)
+        }
         factory.renderChildren(of: node, into: output, context: context)
         context.clearBlockStyle()
-        context.blockquoteDepth = currentDepth
+        context.exitBlockquote()
 
         guard output.length > start else { return }
 
-        applyStylingAndSpacing(
-            to: output,
-            start: start,
-            end: output.length,
-            currentDepth: currentDepth
-        )
+        applyStylingAndSpacing(to: output, start: start, end: output.length, levels: levels)
+    }
+
+    private static func admonitionType(of node: MarkdownASTNode) -> AdmonitionType? {
+        guard node.type == .admonition else { return nil }
+        return AdmonitionType(rawValue: node.attribute("admonitionType") ?? "") ?? .note
+    }
+
+    private func appendHeader(for type: AdmonitionType, font: UIFont, to output: NSMutableAttributedString) {
+        let style = NSMutableParagraphStyle()
+        style.paragraphSpacing = AdmonitionHeader.bodyGap(for: font)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: FontHelpers.ensureBold(font) ?? font,
+            .foregroundColor: config.blockquote.admonitionTint(for: type),
+            .paragraphStyle: style,
+            MarkdownAttribute.admonitionHeader: type.rawValue
+        ]
+        output.append(NSAttributedString(string: type.title + "\n", attributes: attributes))
     }
 
     private func applyStylingAndSpacing(
         to output: NSMutableAttributedString,
         start: Int,
         end: Int,
-        currentDepth: Int
+        levels: [AdmonitionType?]
     ) {
+        let depth = levels.count - 1
         var contentStart = start
-        if currentDepth == 0 {
+        if depth == 0 {
             contentStart += ParagraphStyleHelpers.applyBlockSpacingBefore(
                 to: output,
                 at: start,
@@ -52,75 +70,51 @@ final class BlockquoteRenderer: NodeRenderer {
             )
         }
 
-        let blockquoteRange = NSRange(location: contentStart, length: end - start)
-        let levelSpacing = (config.blockquote.borderWidth ?? 3) + (config.blockquote.gapWidth ?? 16)
-        let nestedInfo = collectNestedBlockquotes(in: output, range: blockquoteRange, depth: currentDepth)
+        let range = NSRange(location: contentStart, length: end - start)
+        applyBlockAttributes(to: output, range: range, levels: levels)
+        applyParagraphLayout(to: output, range: range, depth: depth)
 
-        applyBaseBlockquoteStyle(
-            to: output,
-            range: blockquoteRange,
-            depth: currentDepth,
-            levelSpacing: levelSpacing
-        )
-
-        reapplyNestedStyles(in: output, nestedInfo: nestedInfo, levelSpacing: levelSpacing)
-
-        if currentDepth == 0, let marginBottom = config.blockquote.marginBottom, marginBottom > 0 {
+        if depth == 0, let marginBottom = config.blockquote.marginBottom, marginBottom > 0 {
             ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: marginBottom)
         }
     }
 
-    private struct NestedBlockquoteInfo {
-        let depth: Int
-        let range: NSRange
-    }
-
-    private func collectNestedBlockquotes(
-        in output: NSMutableAttributedString,
-        range: NSRange,
-        depth: Int
-    ) -> [NestedBlockquoteInfo] {
-        var nestedInfo: [NestedBlockquoteInfo] = []
-
-        output.enumerateAttribute(MarkdownAttribute.blockquoteDepth, in: range, options: []) { value, subrange, _ in
-            guard let nestedDepth = MarkdownAttributeValue.intValue(from: value), nestedDepth > depth else { return }
-            nestedInfo.append(NestedBlockquoteInfo(depth: nestedDepth, range: subrange))
-        }
-
-        return nestedInfo
-    }
-
-    private func applyBaseBlockquoteStyle(
+    /// Depth, background, and bar colors on every run the quote owns; runs a
+    /// nested quote already claimed keep theirs.
+    private func applyBlockAttributes(
         to output: NSMutableAttributedString,
         range: NSRange,
-        depth: Int,
-        levelSpacing: CGFloat
+        levels: [AdmonitionType?]
     ) {
+        let blockStyle = config.blockquote
         var attributes: [NSAttributedString.Key: Any] = [
-            MarkdownAttribute.blockquoteDepth: depth
+            MarkdownAttribute.blockquoteDepth: levels.count - 1
         ]
-
-        if let backgroundColor = config.blockquote.backgroundColor {
+        if let admonition = levels.last ?? nil {
+            attributes[MarkdownAttribute.blockquoteBackgroundColor] =
+                blockStyle.admonitions[admonition]?.backgroundColor ?? UIColor.clear
+        } else if let backgroundColor = blockStyle.backgroundColor {
             attributes[MarkdownAttribute.blockquoteBackgroundColor] = backgroundColor
         }
+        if levels.contains(where: { $0 != nil }) {
+            attributes[MarkdownAttribute.blockquoteBarColors] = levels.map { level in
+                level.map(blockStyle.admonitionTint(for:)) ?? blockStyle.resolvedBorderColor
+            }
+        }
 
-        output.addAttributes(attributes, range: range)
-        applyIndentSkippingListItems(to: output, range: range, indent: CGFloat(depth + 1) * levelSpacing)
-
-        if let lineHeight = config.blockquote.lineHeight {
-            ParagraphStyleHelpers.applyBlockLineHeight(to: output, range: range, lineHeight: lineHeight)
+        output.enumerateAttribute(MarkdownAttribute.blockquoteDepth, in: range, options: []) { value, subrange, _ in
+            guard value == nil else { return }
+            output.addAttributes(attributes, range: subrange)
         }
     }
 
-    /// List items position themselves inside blockquotes (their indent
-    /// already includes the quote offset, and it must not be overwritten or
-    /// their marker column collapses onto the quote border), so the quote
-    /// indent is applied per paragraph, skipping list-item paragraphs.
-    private func applyIndentSkippingListItems(
-        to output: NSMutableAttributedString,
-        range: NSRange,
-        indent: CGFloat
-    ) {
+    /// Indents the quote's own paragraphs past the bars and applies the
+    /// configured line height. List items position themselves (their indent
+    /// already includes the quote offset) and nested quotes are already laid
+    /// out, so both are skipped.
+    private func applyParagraphLayout(to output: NSMutableAttributedString, range: NSRange, depth: Int) {
+        let levelSpacing = (config.blockquote.borderWidth ?? 3) + (config.blockquote.gapWidth ?? 16)
+        let indent = CGFloat(depth + 1) * levelSpacing
         let string = output.string as NSString
         var location = range.location
         let end = NSMaxRange(range)
@@ -131,30 +125,29 @@ final class BlockquoteRenderer: NodeRenderer {
             guard applyRange.length > 0 else { break }
             location = NSMaxRange(applyRange)
 
-            if output.attribute(MarkdownAttribute.listDepth, at: applyRange.location, effectiveRange: nil) != nil {
+            let attrs = output.attributes(at: applyRange.location, effectiveRange: nil)
+            if attrs[MarkdownAttribute.listDepth] != nil {
+                continue
+            }
+            if let paragraphDepth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.blockquoteDepth]),
+               paragraphDepth > depth {
                 continue
             }
 
+            var paragraphIndent = indent
+            if attrs[MarkdownAttribute.admonitionHeader] != nil, let font = attrs[.font] as? UIFont {
+                paragraphIndent += AdmonitionHeader.iconColumnWidth(for: font)
+            }
+
             let style = ParagraphStyleHelpers.getOrCreateParagraphStyle(in: output, at: applyRange.location)
-            style.firstLineHeadIndent = indent
-            style.headIndent = indent
+            style.firstLineHeadIndent = paragraphIndent
+            style.headIndent = paragraphIndent
             style.tailIndent = 0
             output.addAttribute(.paragraphStyle, value: style, range: applyRange)
-        }
-    }
 
-    private func reapplyNestedStyles(
-        in output: NSMutableAttributedString,
-        nestedInfo: [NestedBlockquoteInfo],
-        levelSpacing: CGFloat
-    ) {
-        for info in nestedInfo {
-            output.addAttributes([MarkdownAttribute.blockquoteDepth: info.depth], range: info.range)
-            applyIndentSkippingListItems(
-                to: output,
-                range: info.range,
-                indent: CGFloat(info.depth + 1) * levelSpacing
-            )
+            if let lineHeight = config.blockquote.lineHeight {
+                ParagraphStyleHelpers.applyBlockLineHeight(to: output, range: applyRange, lineHeight: lineHeight)
+            }
         }
     }
 }
