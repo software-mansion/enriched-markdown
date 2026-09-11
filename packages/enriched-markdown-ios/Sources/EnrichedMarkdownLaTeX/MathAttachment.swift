@@ -8,7 +8,18 @@ struct MathTypesetResult {
     let width: CGFloat
     let ascent: CGFloat
     let descent: CGFloat
+    /// Pre-rasterized off the main thread; nil draws lazily.
+    var image: UIImage?
     let draw: (CGContext) -> Void
+
+    var size: CGSize {
+        CGSize(width: ceil(width), height: ceil(ascent) + ceil(descent))
+    }
+
+    func rasterize() -> UIImage? {
+        guard size.width > 0, size.height > 0 else { return nil }
+        return UIGraphicsImageRenderer(size: size).image { draw($0.cgContext) }
+    }
 }
 
 /// The full-width panel a root-level display formula sits in: the
@@ -39,7 +50,7 @@ struct MathPanelStyle: Equatable {
 }
 
 /// A typeset formula embedded in the text, sat on the baseline by its
-/// negative bounds origin. Inline math draws as a lazily rasterized image;
+/// negative bounds origin. Inline math draws as a rasterized image;
 /// root-level display math (`panel != nil`) is hosted in a scrolling
 /// `MathBlockView`, or under TextKit 1, which installs no view, drawn as a
 /// panel image that clips the overflow.
@@ -72,10 +83,7 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment {
     private var panelImage: UIImage?
 
     /// The formula rasterized once at its natural size.
-    private(set) lazy var formulaImage: UIImage? = {
-        guard formulaSize.width > 0, formulaSize.height > 0 else { return nil }
-        return UIGraphicsImageRenderer(size: formulaSize).image { result.draw($0.cgContext) }
-    }()
+    private(set) lazy var formulaImage: UIImage? = result.image ?? result.rasterize()
 
     static func delimiter(isDisplay: Bool) -> String {
         isDisplay ? "$$" : "$"
@@ -92,6 +100,8 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment {
             super.init(data: Data("math".utf8), ofType: Self.fileType)
         } else {
             super.init(data: nil, ofType: nil)
+            // Else TextKit 2 hosts each inline formula in an image view, rebuilt per layout pass.
+            allowsTextAttachmentView = false
         }
         accessibilityLabel = latex
     }
@@ -117,9 +127,7 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment {
         Self.delimiter(isDisplay: isDisplay)
     }
 
-    var formulaSize: CGSize {
-        CGSize(width: ceil(result.width), height: ceil(result.ascent) + ceil(result.descent))
-    }
+    var formulaSize: CGSize { result.size }
 
     /// TextKit 2 sizes the hosted view from this too; overriding its own
     /// bounds method instead stops UIKit from installing the view.

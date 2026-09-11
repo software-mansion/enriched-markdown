@@ -88,6 +88,39 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertFalse(isBlank(image))
     }
 
+    /// Streaming re-renders the document per token; the same formula must
+    /// not be redrawn each time.
+    func testRepeatedRendersShareOneRaster() {
+        let config = MarkdownStyleConfig.baseline()
+        let first = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        let second = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        guard let firstImage = first.first?.formulaImage, let secondImage = second.first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertTrue(firstImage === secondImage)
+    }
+
+    func testDifferentFontSizesDoNotShareARaster() {
+        let config = MarkdownStyleConfig.baseline()
+        let body = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        let heading = mathAttachments(in: MarkdownRenderer.renderLaTeX("# $x^2$", config: config))
+        guard let bodyImage = body.first?.formulaImage, let headingImage = heading.first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertFalse(bodyImage === headingImage)
+        XCTAssertNotEqual(bodyImage.size, headingImage.size)
+    }
+
+    func testStubbedTypesetNeverSharesARaster() {
+        let first = renderWithStub("$x^2$") { _, _, _, _ in self.stubResult() }
+        let second = renderWithStub("$x^2$") { _, _, _, _ in self.stubResult() }
+        guard let firstImage = mathAttachments(in: first).first?.formulaImage,
+              let secondImage = mathAttachments(in: second).first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertFalse(firstImage === secondImage)
+    }
+
     func testRenderLaTeXProducesMathAttachmentWithoutFlagSetup() {
         let rendered = MarkdownRenderer.renderLaTeX("inline $x^2$ math", config: config)
 
