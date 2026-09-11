@@ -137,6 +137,7 @@ struct PlaygroundScreen: View {
                             admonitions: true
                         )
                     )
+                        .markdownSpoilerOverlay(.solid)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .accessibilityIdentifier("preview-text")
