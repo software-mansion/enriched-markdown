@@ -764,22 +764,12 @@ object MeasurementStore {
     if (visibleLineCount <= 0) return 0f
     val lastLine = visibleLineCount - 1
     val bottom = layout.getLineBottom(lastLine).toFloat()
-    return (bottom - leakedTrailingMargin(layout, lastLine, text)).coerceAtLeast(0f)
+    return (bottom - measureLeakedTrailingMargin(layout, lastLine, text)).coerceAtLeast(0f)
   }
 
-  /**
-   * When a clamp truncates mid-paragraph, Android extends the last visible line to
-   * absorb the rest of that paragraph, including its trailing MarginBottomSpan spacer
-   * (paragraph spacing rides on the '\n' that terminates the paragraph). That block
-   * marginBottom is then baked into the truncated line's descent, leaving a phantom
-   * gap below the text - iOS never reaches a truncated paragraph's trailing spacing.
-   * This returns the margin that leaked onto [lastLine] so callers can subtract it.
-   * Only the spacer at the very end of the line whose paragraph still has content
-   * after it counts (mirrors MarginBottomSpan's own rule); the final block's spacer
-   * has no content after and never contributes, so a non-truncated last line is
-   * unaffected.
-   */
-  private fun leakedTrailingMargin(
+  // When we clamp the text mid-paragraph, drop the trailing block margin that Android
+  // bakes into the truncated last line (only when content follows, like MarginBottomSpan).
+  private fun measureLeakedTrailingMargin(
     layout: StaticLayout,
     lastLine: Int,
     text: CharSequence,

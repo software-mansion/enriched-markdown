@@ -9,17 +9,10 @@ import com.facebook.react.uimanager.style.BorderRadiusProp
 import com.facebook.react.uimanager.style.BorderStyle
 import com.facebook.react.uimanager.style.LogicalEdge
 
-// The markdown view managers are SimpleViewManagers, so the codegen
-// ViewManagerDelegate routes every prop through BaseViewManagerDelegate. That
-// delegate has no case for borderWidth / borderColor / borderStyle, and its
-// borderRadius case forwards to BaseViewManager.setBorderRadius - a no-op that only
-// logs an "unsupported property" warning. Those props are implemented only on
-// ReactViewManager / ReactTextViewManager. So a `containerStyle` border was
-// dropped entirely on Android (no stroke, square corners) while iOS rendered it.
-// applyReactBorderProps replays those props onto the view via
-// BackgroundStyleApplicator, exactly the way ReactViewManager /
-// ReactTextViewManager do. Call it after super.updateProperties so the delegate
-// has already created the composite background drawable.
+// BaseViewManagerDelegate (used by our SimpleViewManagers) ignores border
+// width/color/style and no-ops borderRadius, so `containerStyle` borders vanish on
+// Android. Replay them via BackgroundStyleApplicator like ReactViewManager does.
+// Call after super.updateProperties so the composite background drawable exists.
 fun applyReactBorderProps(
   view: View,
   props: ReactStylesDiffMap,

@@ -84,9 +84,7 @@ class EnrichedMarkdownManager :
     view.commitProps()
   }
 
-  // BaseViewManagerDelegate does not apply borderWidth / borderColor / borderRadius
-  // to a SimpleViewManager (see applyReactBorderProps), so `containerStyle` borders
-  // are dropped on Android. Replay them after the delegate has run.
+  // Replay containerStyle border props the delegate drops (see applyReactBorderProps).
   override fun updateProperties(
     view: EnrichedMarkdown,
     props: ReactStylesDiffMap,
