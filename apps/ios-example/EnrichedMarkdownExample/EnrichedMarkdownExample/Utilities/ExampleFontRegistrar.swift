@@ -10,6 +10,16 @@ enum ExampleFontRegistrar {
         "Montserrat-Italic",
         "Montserrat-BoldItalic",
         "CourierPrime-Regular",
+        // Article screen: Newsreader for prose (a 16pt text cut plus a 48pt
+        // display cut for the headline), Space Grotesk for small labels.
+        "Newsreader-Regular",
+        "Newsreader-Italic",
+        "Newsreader-SemiBold",
+        "Newsreader-Bold",
+        "Newsreader-BoldItalic",
+        "NewsreaderDisplay-Regular",
+        "SpaceGrotesk-Regular",
+        "SpaceGrotesk-Medium",
     ]
 
     /// Registers example fonts from the app bundle before any markdown is rendered.

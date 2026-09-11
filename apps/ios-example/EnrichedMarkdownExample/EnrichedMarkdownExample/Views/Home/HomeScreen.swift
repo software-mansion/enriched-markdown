@@ -24,6 +24,13 @@ private let menuItems: [HomeMenuItem] = [
         accessibilityId: "home-block-text"
     ),
     HomeMenuItem(
+        route: .article,
+        label: "Article",
+        subtext: "long-form document with LaTeX",
+        color: .tileNavy,
+        accessibilityId: "home-block-article"
+    ),
+    HomeMenuItem(
         route: .math,
         label: "Math",
         subtext: "LaTeX math rendering",

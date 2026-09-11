@@ -2,6 +2,7 @@ enum ExampleRoute {
     case home
     case playground
     case text
+    case article
     case math
     case input
     case stream
@@ -12,6 +13,7 @@ enum ExampleRoute {
         case .home: return "Enriched Markdown Examples"
         case .playground: return "Playground"
         case .text: return "Text"
+        case .article: return "Article"
         case .math: return "Math"
         case .input: return "Input"
         case .stream: return "Stream"

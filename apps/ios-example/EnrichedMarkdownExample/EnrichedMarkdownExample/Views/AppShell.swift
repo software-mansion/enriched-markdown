@@ -15,8 +15,14 @@ struct AppShell: View {
             HomeScreen(onNavigate: handleNavigate)
                 .brandedNavigationBar(title: ExampleRoute.home.title)
                 .navigationDestination(for: ExampleRoute.self) { route in
-                    destination(for: route)
-                        .brandedNavigationBar(title: route.title)
+                    // The article dresses its own navigation bar to match the
+                    // page it is printed on; every other screen wears the mint.
+                    if route == .article {
+                        destination(for: route)
+                    } else {
+                        destination(for: route)
+                            .brandedNavigationBar(title: route.title)
+                    }
                 }
         }
         .tint(Color.brandNavy)
@@ -38,6 +44,8 @@ struct AppShell: View {
             PlaygroundScreen()
         case .text:
             TextScreen(markdown: sampleMarkdown)
+        case .article:
+            ArticleScreen(article: .featured)
         case .math:
             MathScreen()
         case .home, .input, .stream, .storybook:
@@ -49,7 +57,7 @@ struct AppShell: View {
 
     private func handleNavigate(_ target: ExampleRoute) {
         switch target {
-        case .playground, .text, .math:
+        case .playground, .text, .article, .math:
             path.append(target)
         case .input, .stream, .storybook:
             unavailableRouteName = target.title

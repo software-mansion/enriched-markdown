@@ -16,6 +16,9 @@
 		A10000010000000000000013 /* HomeScreenButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000013 /* HomeScreenButton.swift */; };
 		A10000010000000000000014 /* TextScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000014 /* TextScreen.swift */; };
 		A10000010000000000000050 /* MathScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000050 /* MathScreen.swift */; };
+		A10000010000000000000060 /* ArticleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000060 /* ArticleScreen.swift */; };
+		A10000010000000000000061 /* ArticleMarkdownStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000061 /* ArticleMarkdownStyles.swift */; };
+		A10000010000000000000062 /* article_markdown.md in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000062 /* article_markdown.md */; };
 		A10000010000000000000051 /* EnrichedMarkdownLaTeX in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000002 /* EnrichedMarkdownLaTeX */; };
 		A10000010000000000000015 /* PlaygroundScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000015 /* PlaygroundScreen.swift */; };
 		A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000016 /* ExampleMarkdownStyles.swift */; };
@@ -36,6 +39,22 @@
 		A10000010000000000000034 /* Montserrat-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000034 /* Montserrat-Italic.ttf */; };
 		A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000036 /* Montserrat-BoldItalic.ttf */; };
 		A10000010000000000000035 /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000035 /* CourierPrime-Regular.ttf */; };
+		A10000010000000000000063 /* ArticleTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000063 /* ArticleTypography.swift */; };
+		A10000010000000000000064 /* Article.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000064 /* Article.swift */; };
+		A10000010000000000000065 /* ArticleMasthead.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000065 /* ArticleMasthead.swift */; };
+		A10000010000000000000066 /* ArticleColophon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000066 /* ArticleColophon.swift */; };
+		A10000010000000000000067 /* ArticleReadingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000067 /* ArticleReadingProgress.swift */; };
+		A10000010000000000000068 /* Image+Bundled.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000068 /* Image+Bundled.swift */; };
+		A10000010000000000000069 /* article_hero.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000069 /* article_hero.png */; };
+		A1000001000000000000006A /* article_courant.png in Resources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006A /* article_courant.png */; };
+		A1000001000000000000006B /* Newsreader-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006B /* Newsreader-Regular.ttf */; };
+		A1000001000000000000006C /* Newsreader-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006C /* Newsreader-Italic.ttf */; };
+		A1000001000000000000006D /* Newsreader-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006D /* Newsreader-SemiBold.ttf */; };
+		A1000001000000000000006E /* Newsreader-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006E /* Newsreader-Bold.ttf */; };
+		A1000001000000000000006F /* Newsreader-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006F /* Newsreader-BoldItalic.ttf */; };
+		A10000010000000000000070 /* NewsreaderDisplay-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000070 /* NewsreaderDisplay-Regular.ttf */; };
+		A10000010000000000000071 /* SpaceGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000071 /* SpaceGrotesk-Regular.ttf */; };
+		A10000010000000000000072 /* SpaceGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000072 /* SpaceGrotesk-Medium.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,6 +67,9 @@
 		A10000020000000000000013 /* HomeScreenButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenButton.swift; sourceTree = "<group>"; };
 		A10000020000000000000014 /* TextScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000050 /* MathScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000060 /* ArticleScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000061 /* ArticleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleMarkdownStyles.swift; sourceTree = "<group>"; };
+		A10000020000000000000062 /* article_markdown.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = article_markdown.md; sourceTree = "<group>"; };
 		A10000020000000000000015 /* PlaygroundScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000016 /* ExampleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleMarkdownStyles.swift; sourceTree = "<group>"; };
 		A10000020000000000000017 /* ExampleFontRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleFontRegistrar.swift; sourceTree = "<group>"; };
@@ -68,6 +90,22 @@
 		A10000020000000000000036 /* Montserrat-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-BoldItalic.ttf"; sourceTree = "<group>"; };
 		A10000020000000000000035 /* CourierPrime-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-Regular.ttf"; sourceTree = "<group>"; };
 		A10000030000000000000001 /* EnrichedMarkdownExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnrichedMarkdownExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000020000000000000063 /* ArticleTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleTypography.swift; sourceTree = "<group>"; };
+		A10000020000000000000064 /* Article.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Article.swift; sourceTree = "<group>"; };
+		A10000020000000000000065 /* ArticleMasthead.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleMasthead.swift; sourceTree = "<group>"; };
+		A10000020000000000000066 /* ArticleColophon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleColophon.swift; sourceTree = "<group>"; };
+		A10000020000000000000067 /* ArticleReadingProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleReadingProgress.swift; sourceTree = "<group>"; };
+		A10000020000000000000068 /* Image+Bundled.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Image+Bundled.swift"; sourceTree = "<group>"; };
+		A10000020000000000000069 /* article_hero.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = article_hero.png; sourceTree = "<group>"; };
+		A1000002000000000000006A /* article_courant.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = article_courant.png; sourceTree = "<group>"; };
+		A1000002000000000000006B /* Newsreader-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Regular.ttf"; sourceTree = "<group>"; };
+		A1000002000000000000006C /* Newsreader-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Italic.ttf"; sourceTree = "<group>"; };
+		A1000002000000000000006D /* Newsreader-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-SemiBold.ttf"; sourceTree = "<group>"; };
+		A1000002000000000000006E /* Newsreader-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Bold.ttf"; sourceTree = "<group>"; };
+		A1000002000000000000006F /* Newsreader-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-BoldItalic.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000070 /* NewsreaderDisplay-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "NewsreaderDisplay-Regular.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000071 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000072 /* SpaceGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Medium.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +148,7 @@
 		A10000060000000000000006 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
+				A10000020000000000000068 /* Image+Bundled.swift */,
 				A10000020000000000000041 /* Bundle+Resources.swift */,
 				A10000020000000000000044 /* ButtonStyle+Pill.swift */,
 				A10000020000000000000040 /* Color+Named.swift */,
@@ -121,6 +160,7 @@
 		A10000060000000000000007 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A10000020000000000000064 /* Article.swift */,
 				A10000020000000000000011 /* ExampleRoute.swift */,
 			);
 			path = Models;
@@ -129,6 +169,8 @@
 		A10000060000000000000008 /* Theme */ = {
 			isa = PBXGroup;
 			children = (
+				A10000020000000000000063 /* ArticleTypography.swift */,
+				A10000020000000000000061 /* ArticleMarkdownStyles.swift */,
 				A10000020000000000000016 /* ExampleMarkdownStyles.swift */,
 			);
 			path = Theme;
@@ -146,6 +188,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000020000000000000010 /* AppShell.swift */,
+				A10000060000000000000060 /* Article */,
 				A1000006000000000000000B /* Home */,
 				A10000060000000000000050 /* Math */,
 				A1000006000000000000000C /* Playground */,
@@ -181,6 +224,17 @@
 			path = Text;
 			sourceTree = "<group>";
 		};
+		A10000060000000000000060 /* Article */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000067 /* ArticleReadingProgress.swift */,
+				A10000020000000000000066 /* ArticleColophon.swift */,
+				A10000020000000000000065 /* ArticleMasthead.swift */,
+				A10000020000000000000060 /* ArticleScreen.swift */,
+			);
+			path = Article;
+			sourceTree = "<group>";
+		};
 		A10000060000000000000050 /* Math */ = {
 			isa = PBXGroup;
 			children = (
@@ -200,7 +254,10 @@
 		A10000060000000000000004 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				A1000002000000000000006A /* article_courant.png */,
+				A10000020000000000000069 /* article_hero.png */,
 				A10000060000000000000005 /* Fonts */,
+				A10000020000000000000062 /* article_markdown.md */,
 				A10000020000000000000020 /* sample_markdown.md */,
 				A10000020000000000000021 /* logo.png */,
 				A10000020000000000000022 /* logo_icon.png */,
@@ -211,6 +268,14 @@
 		A10000060000000000000005 /* Fonts */ = {
 			isa = PBXGroup;
 			children = (
+				A10000020000000000000072 /* SpaceGrotesk-Medium.ttf */,
+				A10000020000000000000071 /* SpaceGrotesk-Regular.ttf */,
+				A10000020000000000000070 /* NewsreaderDisplay-Regular.ttf */,
+				A1000002000000000000006F /* Newsreader-BoldItalic.ttf */,
+				A1000002000000000000006E /* Newsreader-Bold.ttf */,
+				A1000002000000000000006D /* Newsreader-SemiBold.ttf */,
+				A1000002000000000000006C /* Newsreader-Italic.ttf */,
+				A1000002000000000000006B /* Newsreader-Regular.ttf */,
 				A10000020000000000000030 /* Montserrat-Regular.ttf */,
 				A10000020000000000000031 /* Montserrat-Bold.ttf */,
 				A10000020000000000000032 /* Montserrat-SemiBold.ttf */,
@@ -287,8 +352,19 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000010000000000000072 /* SpaceGrotesk-Medium.ttf in Resources */,
+				A10000010000000000000071 /* SpaceGrotesk-Regular.ttf in Resources */,
+				A10000010000000000000070 /* NewsreaderDisplay-Regular.ttf in Resources */,
+				A1000001000000000000006F /* Newsreader-BoldItalic.ttf in Resources */,
+				A1000001000000000000006E /* Newsreader-Bold.ttf in Resources */,
+				A1000001000000000000006D /* Newsreader-SemiBold.ttf in Resources */,
+				A1000001000000000000006C /* Newsreader-Italic.ttf in Resources */,
+				A1000001000000000000006B /* Newsreader-Regular.ttf in Resources */,
+				A1000001000000000000006A /* article_courant.png in Resources */,
+				A10000010000000000000069 /* article_hero.png in Resources */,
 				A10000010000000000000003 /* Assets.xcassets in Resources */,
 				A10000010000000000000020 /* sample_markdown.md in Resources */,
+				A10000010000000000000062 /* article_markdown.md in Resources */,
 				A10000010000000000000021 /* logo.png in Resources */,
 				A10000010000000000000022 /* logo_icon.png in Resources */,
 				A10000010000000000000030 /* Montserrat-Regular.ttf in Resources */,
@@ -308,6 +384,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000010000000000000068 /* Image+Bundled.swift in Sources */,
+				A10000010000000000000067 /* ArticleReadingProgress.swift in Sources */,
+				A10000010000000000000066 /* ArticleColophon.swift in Sources */,
+				A10000010000000000000065 /* ArticleMasthead.swift in Sources */,
+				A10000010000000000000064 /* Article.swift in Sources */,
+				A10000010000000000000063 /* ArticleTypography.swift in Sources */,
 				A10000010000000000000001 /* EnrichedMarkdownExampleApp.swift in Sources */,
 				A10000010000000000000010 /* AppShell.swift in Sources */,
 				A10000010000000000000011 /* ExampleRoute.swift in Sources */,
@@ -315,6 +397,8 @@
 				A10000010000000000000013 /* HomeScreenButton.swift in Sources */,
 				A10000010000000000000014 /* TextScreen.swift in Sources */,
 				A10000010000000000000050 /* MathScreen.swift in Sources */,
+				A10000010000000000000060 /* ArticleScreen.swift in Sources */,
+				A10000010000000000000061 /* ArticleMarkdownStyles.swift in Sources */,
 				A10000010000000000000015 /* PlaygroundScreen.swift in Sources */,
 				A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */,
 				A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */,

@@ -19,6 +19,7 @@ extension Color {
     static var tileOrange: Color { Color(red: 255 / 255, green: 149 / 255, blue: 0 / 255) }
     static var tileTeal: Color { Color(red: 48 / 255, green: 176 / 255, blue: 199 / 255) }
     static var tilePurple: Color { Color(red: 175 / 255, green: 82 / 255, blue: 222 / 255) }
+    static var tileNavy: Color { Color(red: 61 / 255, green: 82 / 255, blue: 160 / 255) }
     static var tilePink: Color { Color(red: 255 / 255, green: 45 / 255, blue: 85 / 255) }
 
     // MARK: - Grayscale palette (Tailwind gray)
