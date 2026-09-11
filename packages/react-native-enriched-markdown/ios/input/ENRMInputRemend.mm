@@ -22,6 +22,19 @@ static NSString *closingForStackEntry(NSString *entry)
   return entry;
 }
 
+// A symmetric delimiter can only start (and thus later need auto-closing) if it is
+// left-flanking: immediately followed by a non-whitespace character. A delimiter at
+// end-of-input or followed by whitespace cannot open emphasis in CommonMark, so
+// completing it would fabricate a marker md4c would never have produced.
+static BOOL isLeftFlankingOpener(NSString *markdown, NSUInteger start, NSUInteger openLen)
+{
+  NSUInteger after = start + openLen;
+  if (after >= markdown.length) {
+    return NO;
+  }
+  return ![[NSCharacterSet whitespaceAndNewlineCharacterSet] characterIsMember:[markdown characterAtIndex:after]];
+}
+
 NSString *ENRMInputRemendComplete(NSString *markdown)
 {
   if (markdown.length == 0) {
@@ -84,9 +97,12 @@ NSString *ENRMInputRemendComplete(NSString *markdown)
         if ([substring isEqualToString:pair.open]) {
           if (stack.count > 0 && [stack.lastObject isEqualToString:pair.open]) {
             [stack removeLastObject];
-          } else {
+          } else if (isLeftFlankingOpener(markdown, i, openLen)) {
             [stack addObject:pair.open];
           }
+          // A delimiter that neither closes an open run nor opens a new one is a
+          // lone literal (e.g. the trailing "*" of "control*"): consume it without
+          // stacking so no spurious closer is appended at end-of-input.
           i += openLen;
           matched = YES;
           break;
