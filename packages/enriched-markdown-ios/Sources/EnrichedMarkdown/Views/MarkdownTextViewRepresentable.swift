@@ -212,8 +212,23 @@ final class MarkdownTextView: UITextView {
     var styleConfig: MarkdownStyleConfig = .baseline() {
         didSet {
             updateDecorationStyleConfig()
+            // `updateUIView` assigns this on every pass, so only a real change
+            // may drop the measurement — clearing it unconditionally would
+            // re-measure the document every frame, which is the whole point.
+            if styleConfig != oldValue { cachedFit = nil }
         }
     }
+
+    /// The exact instance last handed to `attributedText`.
+    ///
+    /// `UITextView.attributedText` is `@NSCopying`, so its getter cannot serve
+    /// as an identity token — reading it to compare would copy the whole
+    /// document. This can.
+    private var renderedText: NSAttributedString?
+
+    /// Measuring lays out the whole document, and SwiftUI asks for it on every
+    /// update pass — and again through `intrinsicContentSize`.
+    private var cachedFit: (width: CGFloat, text: NSAttributedString, height: CGFloat)?
 
     /// Mirrored from the representable so VoiceOver link elements can invoke
     /// the press handler via accessibilityActivate.
@@ -381,11 +396,30 @@ final class MarkdownTextView: UITextView {
     }
 
     func setMarkdownAttributedText(_ attributedText: NSAttributedString) {
+        // Identity first, and not as an optimization: the round trip through
+        // `attributedText` does not compare equal to what was set, so the
+        // guard below lets every update through and re-assigns the whole
+        // document — measured at 30 re-assignments a second under a parent
+        // that re-evaluates at frame rate.
+        if let renderedText, renderedText === attributedText { return }
         guard !(self.attributedText?.isEqual(to: attributedText) ?? false) else { return }
+        renderedText = attributedText
+        cachedFit = nil
         self.attributedText = attributedText
         invalidateIntrinsicContentSize()
         setDecorationNeedsDisplay()
         rebuildAccessibilityElements()
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        if let cachedFit, cachedFit.width == size.width, cachedFit.text === renderedText {
+            return CGSize(width: size.width, height: cachedFit.height)
+        }
+        let fitted = super.sizeThatFits(size)
+        if let renderedText {
+            cachedFit = (size.width, renderedText, fitted.height)
+        }
+        return fitted
     }
 
     private func rebuildAccessibilityElements() {

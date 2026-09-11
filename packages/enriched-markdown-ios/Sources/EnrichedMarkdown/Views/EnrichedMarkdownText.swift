@@ -37,10 +37,13 @@ public struct EnrichedMarkdownText: View {
     }
 
     public var body: some View {
-        MarkdownTextViewRepresentable(
+        // Resolved once: `styleConfig` rebuilds the whole config on each read,
+        // and the representable and every `onChange` below read it.
+        let config = styleConfig
+        return MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,
             source: renderStore.source,
-            styleConfig: styleConfig,
+            styleConfig: config,
             onLinkPress: onLinkPress,
             onLinkLongPress: onLinkLongPress,
             selectionMenuConfig: selectionMenuConfig,
@@ -48,7 +51,7 @@ public struct EnrichedMarkdownText: View {
             selectionColor: selectionColor,
             onTaskListItemTap: isTaskListToggleEnabled ? { hit in
                 let checked = !hit.checked
-                renderStore.applyTaskListToggle(index: hit.index, checked: checked, config: styleConfig)
+                renderStore.applyTaskListToggle(index: hit.index, checked: checked, config: config)
                 onTaskListItemPress?(
                     TaskListItemPressEvent(index: hit.index, checked: checked, text: hit.itemText)
                 )
@@ -58,7 +61,7 @@ public struct EnrichedMarkdownText: View {
         .onAppear {
             renderStore.schedule(
                 markdown: markdown,
-                config: styleConfig,
+                config: config,
                 flags: flags,
                 imageRequestHeaders: imageRequestHeaders,
                 plugins: renderPlugins
@@ -70,13 +73,13 @@ public struct EnrichedMarkdownText: View {
         .onChange(of: markdown) { newValue in
             renderStore.schedule(
                 markdown: newValue,
-                config: styleConfig,
+                config: config,
                 flags: flags,
                 imageRequestHeaders: imageRequestHeaders,
                 plugins: renderPlugins
             )
         }
-        .onChange(of: styleConfig) { newValue in
+        .onChange(of: config) { newValue in
             renderStore.schedule(
                 markdown: markdown,
                 config: newValue,
@@ -88,7 +91,7 @@ public struct EnrichedMarkdownText: View {
         .onChange(of: flags) { newValue in
             renderStore.schedule(
                 markdown: markdown,
-                config: styleConfig,
+                config: config,
                 flags: newValue,
                 imageRequestHeaders: imageRequestHeaders,
                 plugins: renderPlugins
@@ -97,7 +100,7 @@ public struct EnrichedMarkdownText: View {
         .onChange(of: imageRequestHeaders) { newValue in
             renderStore.schedule(
                 markdown: markdown,
-                config: styleConfig,
+                config: config,
                 flags: flags,
                 imageRequestHeaders: newValue,
                 plugins: renderPlugins
