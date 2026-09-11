@@ -15,6 +15,7 @@ import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.SegmentViewConfig
 import com.swmansion.enriched.markdown.segments.SegmentViewCreators
 import com.swmansion.enriched.markdown.segments.SegmentViewFactory
+import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
@@ -120,12 +121,18 @@ class EnrichedMarkdown(
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.onLinkPressCallback = callback
     }
+    segmentViews.filterIsInstance<TableContainerView>().forEach {
+      it.onLinkPress = callback
+    }
   }
 
   fun setOnLinkLongPressCallback(callback: ((String) -> Unit)?) {
     onLinkLongPressCallback = callback
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.onLinkLongPressCallback = callback
+    }
+    segmentViews.filterIsInstance<TableContainerView>().forEach {
+      it.onLinkLongPress = callback
     }
   }
 
@@ -180,6 +187,9 @@ class EnrichedMarkdown(
     if (selectionMenuConfig == config) return
     selectionMenuConfig = config
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+      it.selectionMenuConfig = config
+    }
+    segmentViews.filterIsInstance<TableContainerView>().forEach {
       it.selectionMenuConfig = config
     }
   }
@@ -388,6 +398,7 @@ class EnrichedMarkdown(
     ): Boolean =
       when (segment) {
         is RenderedSegment.Text -> view is EnrichedMarkdownInternalText
+        is RenderedSegment.Table -> view is TableContainerView
       }
 
     override fun createView(segment: RenderedSegment): View =
@@ -398,6 +409,13 @@ class EnrichedMarkdown(
             onLinkLongPressCallback = this@EnrichedMarkdown.onLinkLongPressCallback
           }
         }
+
+        is RenderedSegment.Table -> {
+          SegmentViewCreators.createTableView(segment, segmentViewConfig()).apply {
+            onLinkPress = this@EnrichedMarkdown.onLinkPressCallback
+            onLinkLongPress = this@EnrichedMarkdown.onLinkLongPressCallback
+          }
+        }
       }
 
     override fun updateView(
@@ -406,6 +424,7 @@ class EnrichedMarkdown(
     ) {
       when (segment) {
         is RenderedSegment.Text -> SegmentViewCreators.updateTextView(view as EnrichedMarkdownInternalText, segment)
+        is RenderedSegment.Table -> SegmentViewCreators.updateTableView(view as TableContainerView, segment)
       }
     }
   }

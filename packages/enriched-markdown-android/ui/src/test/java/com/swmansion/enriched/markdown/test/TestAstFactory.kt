@@ -78,6 +78,37 @@ object TestAstFactory {
 
   fun thematicBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.ThematicBreak)
 
+  fun table(
+    head: MarkdownASTNode? = null,
+    body: MarkdownASTNode? = null,
+  ): MarkdownASTNode = MarkdownASTNode(NodeType.Table, children = listOfNotNull(head, body))
+
+  fun tableHead(vararg rows: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.TableHead, children = rows.toList())
+
+  fun tableBody(vararg rows: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.TableBody, children = rows.toList())
+
+  fun tableRow(vararg cells: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.TableRow, children = cells.toList())
+
+  fun tableHeaderCell(
+    align: String = "default",
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.TableHeaderCell,
+      attributes = mapOf("align" to align),
+      children = children.toList(),
+    )
+
+  fun tableCell(
+    align: String = "default",
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.TableCell,
+      attributes = mapOf("align" to align),
+      children = children.toList(),
+    )
+
   fun softBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.SoftBreak)
 
   fun lineBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.LineBreak)
