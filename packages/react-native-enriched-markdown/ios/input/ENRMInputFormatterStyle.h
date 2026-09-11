@@ -21,6 +21,19 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) UIFont *baseFont;
 @property (nonatomic, strong) RCTUIColor *baseTextColor;
 
+/// Editor-wide line height (points) applied to every paragraph, mirroring
+/// Android's view-level lineHeight. Set from the base `style.lineHeight` prop; 0
+/// disables it (natural line height).
+@property (nonatomic, assign) CGFloat baseLineHeight;
+
+/// Writes baseLineHeight onto `paragraphStyle`. `minimumLineHeight` is always set
+/// so short lines grow to the requested height. `maximumLineHeight` is set too
+/// only when `allowClamp` is YES, letting a small lineHeight compress body text
+/// below its natural height (matching Android's additive spacing). Callers pass
+/// allowClamp = NO for lines that must not be clipped — headings and other
+/// oversized/attachment lines. A zero baseLineHeight clears both.
+- (void)applyLineHeightToParagraphStyle:(NSMutableParagraphStyle *)paragraphStyle allowClamp:(BOOL)allowClamp;
+
 /// Bold — color override (nil = inherit baseTextColor)
 @property (nonatomic, strong, nullable) RCTUIColor *boldColor;
 

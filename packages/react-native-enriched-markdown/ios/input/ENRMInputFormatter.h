@@ -43,6 +43,15 @@ NS_ASSUME_NONNULL_BEGIN
                    style:(ENRMInputFormatterStyle *)style
            scopedToRange:(NSRange)scope;
 
+/// Injects the editor-wide `style.baseLineHeight` as each paragraph's
+/// minimumLineHeight across `scope`, preserving whatever paragraph styling the
+/// inline and block passes already applied (list indent, spacing). Runs last so
+/// it covers plain paragraphs (which get no paragraph style otherwise) as well as
+/// blocks. A zero baseLineHeight clears any previously-set minimum.
+- (void)applyBaseLineHeightToTextView:(ENRMPlatformTextView *)textView
+                                style:(ENRMInputFormatterStyle *)style
+                        scopedToRange:(NSRange)scope;
+
 @end
 
 NS_ASSUME_NONNULL_END

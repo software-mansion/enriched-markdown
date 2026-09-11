@@ -58,6 +58,11 @@ BOOL applyInputStyleProps(ENRMInputFormatterStyle *style, const InputProps &newP
     changed = YES;
   }
 
+  if (newProps.lineHeight != oldProps.lineHeight) {
+    style.baseLineHeight = newProps.lineHeight > 0 ? newProps.lineHeight : 0;
+    changed = YES;
+  }
+
   if (newProps.fontWeight != oldProps.fontWeight) {
     CGFloat fontSize = style.baseFont.pointSize;
     if (!newProps.fontWeight.empty()) {
