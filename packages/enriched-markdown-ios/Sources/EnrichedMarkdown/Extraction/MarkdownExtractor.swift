@@ -109,6 +109,7 @@ extension MarkdownExtractor {
         let isSuperscript: Bool
         let isSubscript: Bool
         let isHighlight: Bool
+        let isSpoiler: Bool
         let linkURL: String?
 
         init(attrs: [NSAttributedString.Key: Any]) {
@@ -120,6 +121,8 @@ extension MarkdownExtractor {
             isSuperscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.superscript])
             isSubscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.subscript])
             isHighlight = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.highlight])
+            // Concealed or revealed: the source had the markers either way.
+            isSpoiler = attrs[MarkdownAttribute.spoiler] != nil
 
             switch attrs[.link] {
             case let url as URL:
@@ -460,6 +463,9 @@ private extension MarkdownExtractor {
         }
         if traits.isHighlight {
             result = "==\(result)=="
+        }
+        if traits.isSpoiler {
+            result = "||\(result)||"
         }
 
         return result

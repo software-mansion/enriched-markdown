@@ -160,6 +160,7 @@ private extension MarkdownSourceSlicer {
         case emphasis
         case strong
         case highlight
+        case spoiler
         case link
         case image
 
@@ -171,6 +172,7 @@ private extension MarkdownSourceSlicer {
             case .emphasis: return MarkdownAttribute.emphasis
             case .strong: return MarkdownAttribute.strong
             case .highlight: return MarkdownAttribute.highlight
+            case .spoiler: return MarkdownAttribute.spoiler
             case .link: return .link
             case .image: return .attachment
             }
@@ -191,6 +193,7 @@ private extension MarkdownSourceSlicer {
             case .emphasis: return traits.isEmphasis
             case .strong: return traits.isStrong
             case .highlight: return traits.isHighlight
+            case .spoiler: return traits.isSpoiler
             case .link: return traits.linkURL != nil
             case .image: return attrs[.attachment] is MarkdownImageAttachment
             }
@@ -210,6 +213,8 @@ private extension MarkdownSourceSlicer {
                 return MarkdownSourceSlicer.matchAnyBackward(markers, in: bytes, before: index)
             case .highlight:
                 return MarkdownSourceSlicer.matchBackward("==", in: bytes, before: index)
+            case .spoiler:
+                return MarkdownSourceSlicer.matchBackward("||", in: bytes, before: index)
             case .link:
                 return MarkdownSourceSlicer.matchBackward("[", in: bytes, before: index)
             case .image:
@@ -231,6 +236,8 @@ private extension MarkdownSourceSlicer {
                 return MarkdownSourceSlicer.matchAnyForward(markers, in: bytes, at: index)
             case .highlight:
                 return MarkdownSourceSlicer.matchForward("==", in: bytes, at: index)
+            case .spoiler:
+                return MarkdownSourceSlicer.matchForward("||", in: bytes, at: index)
             case .link, .image:
                 return MarkdownSourceSlicer.consumeLinkSuffix(in: bytes, from: index)
             }

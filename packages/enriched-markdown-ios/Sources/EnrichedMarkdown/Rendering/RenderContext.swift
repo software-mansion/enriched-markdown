@@ -30,6 +30,10 @@ enum MarkdownAttribute {
     static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
     static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
     static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
+    /// `true` on concealed `||spoiler||` text, `false` once revealed.
+    static let spoiler = NSAttributedString.Key("EnrichedMarkdownSpoiler")
+    /// Foreground color a concealed run reveals in.
+    static let spoilerOriginalColor = NSAttributedString.Key("EnrichedMarkdownSpoilerOriginalColor")
     static let blockquoteDepth = NSAttributedString.Key("EnrichedMarkdownBlockquoteDepth")
     static let blockquoteBackgroundColor = NSAttributedString.Key("EnrichedMarkdownBlockquoteBackgroundColor")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")

@@ -17,6 +17,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownRenderPlugins) private var renderPlugins
     @Environment(\.markdownTaskListItemPressHandler) private var onTaskListItemPress
     @Environment(\.markdownTaskListItemToggleEnabled) private var isTaskListToggleEnabled
+    @Environment(\.markdownSpoilerOverlay) private var spoilerOverlay
     @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
     @StateObject private var renderStore = MarkdownRenderStore()
 
@@ -57,6 +58,10 @@ public struct EnrichedMarkdownText: View {
                     TaskListItemPressEvent(index: hit.index, checked: checked, text: hit.itemText)
                 )
             } : nil,
+            spoilerOverlay: spoilerOverlay,
+            onSpoilerTap: { range in
+                renderStore.revealSpoiler(in: range)
+            },
             accessibilityLabels: accessibilityLabels
         )
         .fixedSize(horizontal: false, vertical: true)

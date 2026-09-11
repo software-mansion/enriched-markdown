@@ -11,39 +11,7 @@ enum DefaultMarkdownTheme {
                 .lineHeight(26)
                 .marginBottom(16)
 
-            Heading(1)
-                .font(.largeTitle)
-                .bold()
-                .foregroundStyle(Semantic.primary)
-                .marginBottom(8)
-
-            Heading(2)
-                .font(.title)
-                .bold()
-                .foregroundStyle(Semantic.primary)
-                .marginBottom(8)
-
-            Heading(3)
-                .font(.title2)
-                .bold()
-                .foregroundStyle(Semantic.primary)
-                .marginBottom(8)
-
-            Heading(4)
-                .font(.title3)
-                .bold()
-                .foregroundStyle(Semantic.primary)
-                .marginBottom(8)
-
-            Heading(5)
-                .font(.headline)
-                .foregroundStyle(Semantic.primary)
-                .marginBottom(8)
-
-            Heading(6)
-                .font(.subheadline)
-                .foregroundStyle(Semantic.secondary)
-                .marginBottom(8)
+            headings()
 
             Link()
                 .foregroundStyle(Semantic.tint)
@@ -58,6 +26,10 @@ enum DefaultMarkdownTheme {
 
             // #FEF08A, the highlight background shared with the React Native package.
             Highlight().background(Color(red: 254 / 255, green: 240 / 255, blue: 138 / 255))
+
+            Spoiler()
+                .color(Semantic.secondary)
+                .background(Color(UIColor.systemBackground))
 
             Code()
                 .fontDesign(.monospaced)
@@ -123,5 +95,43 @@ enum DefaultMarkdownTheme {
                 .cellPaddingVertical(8)
                 .marginBottom(16)
         }
+    }
+
+    // Split out to keep `make()` under swiftlint's function body limit.
+    @MarkdownThemeBuilder
+    private static func headings() -> MarkdownThemeGroup {
+        Heading(1)
+            .font(.largeTitle)
+            .bold()
+            .foregroundStyle(Semantic.primary)
+            .marginBottom(8)
+
+        Heading(2)
+            .font(.title)
+            .bold()
+            .foregroundStyle(Semantic.primary)
+            .marginBottom(8)
+
+        Heading(3)
+            .font(.title2)
+            .bold()
+            .foregroundStyle(Semantic.primary)
+            .marginBottom(8)
+
+        Heading(4)
+            .font(.title3)
+            .bold()
+            .foregroundStyle(Semantic.primary)
+            .marginBottom(8)
+
+        Heading(5)
+            .font(.headline)
+            .foregroundStyle(Semantic.primary)
+            .marginBottom(8)
+
+        Heading(6)
+            .font(.subheadline)
+            .foregroundStyle(Semantic.secondary)
+            .marginBottom(8)
     }
 }

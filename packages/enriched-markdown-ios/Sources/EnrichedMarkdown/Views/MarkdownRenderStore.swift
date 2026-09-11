@@ -25,6 +25,12 @@ final class MarkdownRenderStore: ObservableObject {
     /// synchronously (unlike `source`, which waits for the render).
     private var currentMarkdown: String?
 
+    /// Ordinals (see `SpoilerInteraction.spoilerRanges`) of spoilers revealed
+    /// since the markdown last changed. Re-applied after a re-render of the
+    /// same source (a theme change, say) so a revealed spoiler does not snap
+    /// shut; a new source starts concealed.
+    private var revealedSpoilers: Set<Int> = []
+
     private let coordinator = AsyncRenderCoordinator()
 
     func schedule(
@@ -39,9 +45,13 @@ final class MarkdownRenderStore: ObservableObject {
             source = nil
             baseMarkdown = nil
             currentMarkdown = nil
+            revealedSpoilers = []
             return
         }
         let resolved = markdown == baseMarkdown ? (currentMarkdown ?? markdown) : markdown
+        if markdown != baseMarkdown {
+            revealedSpoilers = []
+        }
         baseMarkdown = markdown
         currentMarkdown = resolved
         // render adjusts the flags itself; the source keeps the adjusted ones for copying.
@@ -56,9 +66,20 @@ final class MarkdownRenderStore: ObservableObject {
                 plugins: plugins
             )
         } apply: { [weak self] result in
-            self?.attributedText = result
-            self?.source = RenderedSource(markdown: resolved, flags: effectiveFlags)
+            guard let self else { return }
+            attributedText = SpoilerInteraction.revealing(in: result, ordinals: revealedSpoilers) ?? result
+            source = RenderedSource(markdown: resolved, flags: effectiveFlags)
         }
+    }
+
+    /// Shows the concealed spoiler covering `range` in place.
+    func revealSpoiler(in range: NSRange) {
+        guard let ordinal = SpoilerInteraction.spoilerRanges(in: attributedText)
+            .firstIndex(where: { NSLocationInRange(range.location, $0) }),
+            let revealed = SpoilerInteraction.revealing(in: attributedText, ordinals: [ordinal])
+        else { return }
+        attributedText = revealed
+        revealedSpoilers.insert(ordinal)
     }
 
     /// Flips one task item's checked state in place: rendered text and
