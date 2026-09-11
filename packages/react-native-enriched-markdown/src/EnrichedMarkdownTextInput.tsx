@@ -20,6 +20,7 @@ import EnrichedMarkdownTextInputNativeComponent, {
   type OnCaretRectChangeEvent,
   type OnContextMenuItemPressEvent,
   type OnLinkDetected,
+  type OnLinkPressEvent,
   type OnStartMentionEvent,
   type OnChangeMentionEvent,
   type OnEndMentionEvent,
@@ -27,6 +28,7 @@ import EnrichedMarkdownTextInputNativeComponent, {
 export type {
   OnKeyPressEvent,
   OnLinkDetected,
+  OnLinkPressEvent,
   OnStartMentionEvent,
   OnChangeMentionEvent,
   OnEndMentionEvent,
@@ -222,6 +224,13 @@ export interface EnrichedMarkdownTextInputProps extends Omit<
   onKeyPress?: (e: NativeSyntheticEvent<OnKeyPressEvent>) => void;
   onCaretRectChange?: (rect: CaretRect) => void;
   onLinkDetected?: (event: OnLinkDetected) => void;
+  /**
+   * Called when a link is tapped while the input is not focused; the tap is
+   * consumed, so the input does not focus. While focused, taps place the
+   * cursor as usual and links are inert. Omit to keep every tap focusing the
+   * input.
+   */
+  onLinkPress?: (event: OnLinkPressEvent) => void;
   mentionIndicators?: string[];
   onStartMention?: (event: OnStartMentionEvent) => void;
   onChangeMention?: (event: OnChangeMentionEvent) => void;
@@ -300,6 +309,7 @@ export const EnrichedMarkdownTextInput = ({
   onKeyPress,
   onCaretRectChange,
   onLinkDetected,
+  onLinkPress,
   mentionIndicators,
   onStartMention,
   onChangeMention,
@@ -445,6 +455,13 @@ export const EnrichedMarkdownTextInput = ({
       onLinkDetected?.({ text, url, start, end });
     },
     [onLinkDetected]
+  );
+
+  const handleLinkPress = useCallback(
+    (e: NativeSyntheticEvent<OnLinkPressEvent>) => {
+      onLinkPress?.({ url: e.nativeEvent.url });
+    },
+    [onLinkPress]
   );
 
   const handleChangeText = useCallback(
@@ -652,6 +669,7 @@ export const EnrichedMarkdownTextInput = ({
       cursorColor={cursorColor}
       selectionColor={selectionColor}
       isOnChangeMarkdownSet={onChangeMarkdown !== undefined}
+      isOnLinkPressSet={onLinkPress !== undefined}
       onChangeText={handleChangeText as NativeProps['onChangeText']}
       onChangeMarkdown={handleChangeMarkdown as NativeProps['onChangeMarkdown']}
       onChangeSelection={
@@ -660,6 +678,7 @@ export const EnrichedMarkdownTextInput = ({
       onChangeState={handleChangeState as NativeProps['onChangeState']}
       onInputKeyPress={onKeyPress as NativeProps['onInputKeyPress']}
       onLinkDetected={handleLinkDetected as NativeProps['onLinkDetected']}
+      onLinkPress={handleLinkPress as NativeProps['onLinkPress']}
       onInputFocus={handleFocus as NativeProps['onInputFocus']}
       onInputBlur={handleBlur as NativeProps['onInputBlur']}
       onRequestMarkdownResult={

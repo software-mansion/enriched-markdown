@@ -868,6 +868,27 @@ All values are in density-independent pixels, relative to the input's top-left c
 />
 ```
 
+### `onLinkPress`
+
+Fires when a link is tapped while the input is **not focused**. The tap is consumed, so the input does not focus and the keyboard does not open. While the input is focused, taps place the cursor as usual and links are inert. When the callback is not provided, every tap focuses the input (the default behavior).
+
+Fires for both manual links (including mentions) and auto-detected links.
+
+| Type                                | Default Value | Platform |
+| ----------------------------------- | ------------- | -------- |
+| `(event: { url: string }) => void`  | -             | Both     |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownTextInput
+  defaultValue="Check out [React Native](https://reactnative.dev)!"
+  onLinkPress={({ url }) => {
+    Linking.openURL(url);
+  }}
+/>
+```
+
 ### `onFocus`
 
 Fires when the input gains focus.

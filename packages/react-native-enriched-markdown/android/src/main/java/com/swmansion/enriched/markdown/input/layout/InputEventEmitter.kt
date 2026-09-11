@@ -16,6 +16,7 @@ import com.swmansion.enriched.markdown.input.events.OnInputBlurEvent
 import com.swmansion.enriched.markdown.input.events.OnInputFocusEvent
 import com.swmansion.enriched.markdown.input.events.OnInputKeyPressEvent
 import com.swmansion.enriched.markdown.input.events.OnLinkDetectedEvent
+import com.swmansion.enriched.markdown.input.events.OnLinkPressEvent
 import com.swmansion.enriched.markdown.input.events.OnRequestCaretRectResultEvent
 import com.swmansion.enriched.markdown.input.events.OnRequestMarkdownResultEvent
 import com.swmansion.enriched.markdown.input.events.OnStartMentionEvent
@@ -110,6 +111,10 @@ class InputEventEmitter(
     end: Int,
   ) {
     dispatch(OnLinkDetectedEvent(surfaceId(), view.id, text, url, start, end))
+  }
+
+  fun emitLinkPress(url: String) {
+    dispatch(OnLinkPressEvent(surfaceId(), view.id, url))
   }
 
   fun emitStartMention(indicator: String) {

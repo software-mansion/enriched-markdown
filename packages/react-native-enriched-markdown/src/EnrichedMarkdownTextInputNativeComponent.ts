@@ -123,6 +123,10 @@ export interface OnLinkDetected {
   end: CodegenTypes.Int32;
 }
 
+export interface OnLinkPressEvent {
+  url: string;
+}
+
 export interface OnStartMentionEvent {
   indicator: string;
 }
@@ -246,6 +250,12 @@ export interface NativeProps extends ViewProps {
   isOnChangeMarkdownSet?: boolean;
 
   /**
+   * Whether onLinkPress handler is set. When true, taps on links while the
+   * input is not focused emit onLinkPress instead of focusing the input.
+   */
+  isOnLinkPressSet?: boolean;
+
+  /**
    * Custom items to show in the text selection context menu.
    * Each item is shown by its `text` label; invisible items should be filtered out before passing here.
    */
@@ -299,6 +309,7 @@ export interface NativeProps extends ViewProps {
   onCaretRectChange?: CodegenTypes.DirectEventHandler<OnCaretRectChangeEvent>;
   onContextMenuItemPress?: CodegenTypes.DirectEventHandler<OnContextMenuItemPressEvent>;
   onLinkDetected?: CodegenTypes.DirectEventHandler<OnLinkDetected>;
+  onLinkPress?: CodegenTypes.DirectEventHandler<OnLinkPressEvent>;
   onStartMention?: CodegenTypes.DirectEventHandler<OnStartMentionEvent>;
   onChangeMention?: CodegenTypes.DirectEventHandler<OnChangeMentionEvent>;
   onEndMention?: CodegenTypes.DirectEventHandler<OnEndMentionEvent>;

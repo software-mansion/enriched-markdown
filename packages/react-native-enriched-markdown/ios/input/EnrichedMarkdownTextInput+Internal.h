@@ -57,6 +57,9 @@ typedef struct {
 
 #if TARGET_OS_OSX
 - (NSMenu *)enrichedMenuForEvent:(NSEvent *)event defaultMenu:(NSMenu *)menu textView:(NSTextView *)textView;
+- (BOOL)handleLinkPressForMouseDownEvent:(NSEvent *)event;
+#else
+- (void)trackTouchDownAtPoint:(CGPoint)point;
 #endif
 
 @end

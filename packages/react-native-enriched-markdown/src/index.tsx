@@ -37,6 +37,7 @@ export type {
   FormatMenuConfig,
   OnKeyPressEvent,
   OnLinkDetected,
+  OnLinkPressEvent,
   OnStartMentionEvent,
   OnChangeMentionEvent,
   OnEndMentionEvent,

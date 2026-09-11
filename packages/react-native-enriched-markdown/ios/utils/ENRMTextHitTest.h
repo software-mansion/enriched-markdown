@@ -16,6 +16,10 @@ NSUInteger ENRMCharacterIndexForTap(ENRMPlatformTextView *textView, ENRMTapRecog
 /// the given point (in textView coordinates), or NSNotFound if out of range.
 NSUInteger ENRMCharacterIndexAtPoint(ENRMPlatformTextView *textView, CGPoint point);
 
+/// Like ENRMCharacterIndexAtPoint, but also returns NSNotFound when the point
+/// lies outside the text's actual bounds (e.g. past the end of a line).
+NSUInteger ENRMCharacterIndexAtPointStrict(ENRMPlatformTextView *textView, CGPoint point);
+
 #ifdef __cplusplus
 }
 #endif
