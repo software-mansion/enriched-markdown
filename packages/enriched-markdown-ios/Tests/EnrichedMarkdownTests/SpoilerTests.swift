@@ -21,7 +21,7 @@ final class SpoilerTests: XCTestCase {
         XCTAssertTrue(MarkdownAttributeValue.boolValue(from: attribute(MarkdownAttribute.spoiler, onWord: "hidden", in: result)))
         XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: result) as? UIColor, .clear)
         XCTAssertEqual(
-            attribute(MarkdownAttribute.spoilerOriginalColor, onWord: "hidden", in: result) as? UIColor,
+            stashedColor(onWord: "hidden", in: result),
             config.paragraph.foregroundColor
         )
 
@@ -40,12 +40,11 @@ final class SpoilerTests: XCTestCase {
 
         let strong = MarkdownRenderer.render("**||hidden||**", config: styled)
         XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: strong) as? UIColor, .clear)
-        XCTAssertEqual(attribute(MarkdownAttribute.spoilerOriginalColor, onWord: "hidden", in: strong) as? UIColor, .systemRed)
+        XCTAssertEqual(stashedColor(onWord: "hidden", in: strong), .systemRed)
 
         let link = MarkdownRenderer.render("[||hidden||](https://swmansion.com)", config: styled)
         XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: link) as? UIColor, .clear)
-        XCTAssertEqual(attribute(MarkdownAttribute.spoilerOriginalColor, onWord: "hidden", in: link) as? UIColor, .systemBlue)
-        XCTAssertNotNil(attribute(.link, onWord: "hidden", in: link))
+        XCTAssertEqual(stashedColor(onWord: "hidden", in: link), .systemBlue)
     }
 
     func testSpoilerInsideStrongRevealsInStrongColor() {
@@ -55,7 +54,7 @@ final class SpoilerTests: XCTestCase {
         let result = MarkdownRenderer.render("||**hidden**||", config: styled)
 
         XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: result) as? UIColor, .clear)
-        XCTAssertEqual(attribute(MarkdownAttribute.spoilerOriginalColor, onWord: "hidden", in: result) as? UIColor, .systemRed)
+        XCTAssertEqual(stashedColor(onWord: "hidden", in: result), .systemRed)
     }
 
     func testCheckedTaskItemRecolorsStashAtRenderAndToggleTime() {
@@ -64,12 +63,12 @@ final class SpoilerTests: XCTestCase {
 
         let rendered = MarkdownRenderer.render("- [x] ||done||", config: styled)
         XCTAssertEqual(attribute(.foregroundColor, onWord: "done", in: rendered) as? UIColor, .clear)
-        XCTAssertEqual(attribute(MarkdownAttribute.spoilerOriginalColor, onWord: "done", in: rendered) as? UIColor, .systemGray)
+        XCTAssertEqual(stashedColor(onWord: "done", in: rendered), .systemGray)
 
         let unchecked = MarkdownRenderer.render("- [ ] ||todo||", config: styled)
         let toggled = TaskListInteraction.togglingItem(in: unchecked, index: 0, checked: true, config: styled)!
         XCTAssertEqual(attribute(.foregroundColor, onWord: "todo", in: toggled) as? UIColor, .clear)
-        XCTAssertEqual(attribute(MarkdownAttribute.spoilerOriginalColor, onWord: "todo", in: toggled) as? UIColor, .systemGray)
+        XCTAssertEqual(stashedColor(onWord: "todo", in: toggled), .systemGray)
     }
 
     // MARK: - Reveal
@@ -80,7 +79,7 @@ final class SpoilerTests: XCTestCase {
         let revealed = SpoilerInteraction.revealing(in: rendered, ordinals: [0])!
 
         XCTAssertFalse(MarkdownAttributeValue.boolValue(from: attribute(MarkdownAttribute.spoiler, onWord: "hidden", in: revealed)))
-        XCTAssertNil(attribute(MarkdownAttribute.spoilerOriginalColor, onWord: "hidden", in: revealed))
+        XCTAssertNil(attribute(MarkdownAttribute.spoilerOriginalColors, onWord: "hidden", in: revealed))
         XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: revealed) as? UIColor, config.paragraph.foregroundColor)
         XCTAssertEqual(revealed.string, rendered.string)
         XCTAssertEqual(
@@ -106,14 +105,6 @@ final class SpoilerTests: XCTestCase {
 
         let both = SpoilerInteraction.revealing(in: first, ordinals: [1])!
         XCTAssertTrue(SpoilerInteraction.concealedRanges(in: both).isEmpty)
-    }
-
-    func testIsConcealedReportsAnyOverlap() {
-        let rendered = MarkdownRenderer.render("||hidden|| shown", config: config)
-
-        XCTAssertTrue(SpoilerInteraction.isConcealed(rangeOfWord("hidden", in: rendered), in: rendered))
-        XCTAssertTrue(SpoilerInteraction.isConcealed(NSRange(location: 4, length: 5), in: rendered))
-        XCTAssertFalse(SpoilerInteraction.isConcealed(rangeOfWord("shown", in: rendered), in: rendered))
     }
 
     @MainActor
@@ -204,20 +195,35 @@ final class SpoilerTests: XCTestCase {
         XCTAssertTrue(overlays(in: textView).isEmpty)
     }
 
-    @MainActor
-    func testConcealedLinkDoesNotInteract() {
-        let textView = makeLaidOutTextView("||[press](https://swmansion.com)|| [open](https://swmansion.com)")
-        let coordinator = MarkdownTextViewRepresentable.Coordinator()
-        var pressed: [URL] = []
-        coordinator.onLinkPress = { pressed.append($0) }
+    func testConcealedLinkIsNotALinkUntilRevealed() {
+        var styled = config!
+        styled.link.foregroundColor = .systemBlue
         let url = URL(string: "https://swmansion.com")!
 
-        let hidden = rangeOfWord("press", in: textView.attributedText)
-        let visible = rangeOfWord("open", in: textView.attributedText)
-        XCTAssertFalse(coordinator.textView(textView, shouldInteractWith: url, in: hidden, interaction: .invokeDefaultAction))
-        XCTAssertTrue(pressed.isEmpty)
-        XCTAssertFalse(coordinator.textView(textView, shouldInteractWith: url, in: visible, interaction: .invokeDefaultAction))
-        XCTAssertEqual(pressed, [url])
+        let rendered = MarkdownRenderer.render("||[press](https://swmansion.com)||", config: styled)
+        XCTAssertNil(attribute(.link, onWord: "press", in: rendered))
+        XCTAssertEqual(attribute(MarkdownAttribute.spoilerLink, onWord: "press", in: rendered) as? URL, url)
+        XCTAssertEqual(attribute(.underlineColor, onWord: "press", in: rendered) as? UIColor, .clear)
+        XCTAssertTrue(MarkdownAccessibilityElementBuilder.specs(for: rendered).allSatisfy { $0.kind != .link(url) })
+
+        let revealed = SpoilerInteraction.revealing(in: rendered, ordinals: [0])!
+        XCTAssertEqual(attribute(.link, onWord: "press", in: revealed) as? URL, url)
+        XCTAssertNil(attribute(MarkdownAttribute.spoilerLink, onWord: "press", in: revealed))
+        XCTAssertEqual(attribute(.underlineColor, onWord: "press", in: revealed) as? UIColor, .systemBlue)
+    }
+
+    func testConcealedLinkStillCopiesAsMarkdownAndHTML() {
+        let rendered = MarkdownRenderer.render("See ||[press](https://swmansion.com)|| now.", config: config)
+        let range = rangeOfWord("press", in: rendered)
+
+        XCTAssertEqual(
+            MarkdownExtractor.extractMarkdown(from: rendered, in: range),
+            "||[press](https://swmansion.com)||"
+        )
+        XCTAssertTrue(
+            MarkdownHTMLGenerator.generateHTML(from: rendered, in: range, config: config)
+                .contains("href=\"https://swmansion.com\"")
+        )
     }
 
     // MARK: - Theme
@@ -295,6 +301,11 @@ final class SpoilerTests: XCTestCase {
         store.schedule(markdown: markdown, config: config)
         wait(for: [rendered], timeout: 2)
         cancellable.cancel()
+    }
+
+    private func stashedColor(onWord word: String, in text: NSAttributedString) -> UIColor? {
+        let stash = attribute(MarkdownAttribute.spoilerOriginalColors, onWord: word, in: text)
+        return (stash as? [NSAttributedString.Key: UIColor])?[.foregroundColor]
     }
 
     private func rangeOfWord(_ word: String, in text: NSAttributedString) -> NSRange {

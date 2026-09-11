@@ -437,12 +437,7 @@ enum MarkdownHTMLGenerator {
         let isUnderline = (MarkdownAttributeValue.intValue(from: attrs[.underlineStyle]) ?? 0) != 0
         let isCode = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.inlineCode]) && !isCodeBlock
 
-        let linkURL: String?
-        switch attrs[.link] {
-        case let url as URL: linkURL = url.absoluteString
-        case let string as String: linkURL = string
-        default: linkURL = nil
-        }
+        let linkURL = MarkdownAttributeValue.linkString(from: MarkdownAttributeValue.sourceLink(in: attrs))
 
         var tags: [(open: String, close: String)] = []
         if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.highlight]) {

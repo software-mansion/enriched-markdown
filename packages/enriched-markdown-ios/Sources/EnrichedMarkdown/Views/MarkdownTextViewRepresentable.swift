@@ -79,12 +79,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
             return handleLinkPress(url)
         }
 
-        /// A link inside a concealed spoiler is not tappable: the tap
-        /// reveals the spoiler instead, and the link works from then on.
-        static func isConcealed(_ range: NSRange, in textView: UITextView) -> Bool {
-            SpoilerInteraction.isConcealed(range, in: textView.textStorage)
-        }
-
         // iOS 16 (and 17+ fallback when the UITextItem methods are
         // unavailable): tap arrives as .invokeDefaultAction, long-press as
         // .presentActions or .preview.
@@ -94,9 +88,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
             in characterRange: NSRange,
             interaction: UITextItemInteraction
         ) -> Bool {
-            if Self.isConcealed(characterRange, in: textView) {
-                return false
-            }
             switch interaction {
             case .invokeDefaultAction:
                 return !handleLinkPress(URL)
@@ -113,13 +104,9 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
             primaryActionFor textItem: UITextItem,
             defaultAction: UIAction
         ) -> UIAction? {
-            guard case .link(let url) = textItem.content else {
+            guard case .link(let url) = textItem.content, let onLinkPress else {
                 return defaultAction
             }
-            if Self.isConcealed(textItem.range, in: textView) {
-                return nil
-            }
-            guard let onLinkPress else { return defaultAction }
             return UIAction { _ in onLinkPress(url) }
         }
 
@@ -131,9 +118,6 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         ) -> UITextItem.MenuConfiguration? {
             guard case .link(let url) = textItem.content else {
                 return UITextItem.MenuConfiguration(menu: defaultMenu)
-            }
-            if Self.isConcealed(textItem.range, in: textView) {
-                return nil
             }
             return handleLinkLongPress(url) ? nil : UITextItem.MenuConfiguration(menu: defaultMenu)
         }

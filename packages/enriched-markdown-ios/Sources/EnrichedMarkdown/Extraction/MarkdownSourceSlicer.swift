@@ -164,7 +164,8 @@ private extension MarkdownSourceSlicer {
         case link
         case image
 
-        var key: NSAttributedString.Key {
+        /// The attribute carrying this trait on a run with `attrs`.
+        func key(in attrs: [NSAttributedString.Key: Any]) -> NSAttributedString.Key {
             switch self {
             case .inlineCode: return MarkdownAttribute.inlineCode
             case .strikethrough: return .strikethroughStyle
@@ -173,7 +174,7 @@ private extension MarkdownSourceSlicer {
             case .strong: return MarkdownAttribute.strong
             case .highlight: return MarkdownAttribute.highlight
             case .spoiler: return MarkdownAttribute.spoiler
-            case .link: return .link
+            case .link: return attrs[.link] == nil ? MarkdownAttribute.spoilerLink : .link
             case .image: return .attachment
             }
         }
@@ -259,7 +260,7 @@ private extension MarkdownSourceSlicer {
             guard trait.isActive(inlineTraits, attrs: run.attrs) else { return false }
             var span = NSRange()
             guard attributedText.attribute(
-                trait.key, at: run.runRange.location, longestEffectiveRange: &span, in: fullRange
+                trait.key(in: run.attrs), at: run.runRange.location, longestEffectiveRange: &span, in: fullRange
             ) != nil else { return false }
             return NSIntersectionRange(span, selection) == span
         }
