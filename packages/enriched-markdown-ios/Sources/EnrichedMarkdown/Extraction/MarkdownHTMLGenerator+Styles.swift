@@ -26,6 +26,13 @@ extension MarkdownHTMLGenerator {
         let blockquoteMarginBottom: Int
         let blockquoteFontSize: Int
 
+        private let admonitionTints: [AdmonitionType: String]
+        /// Only types with a configured fill.
+        let admonitionBackgrounds: [AdmonitionType: String]
+        let admonitionIconSize: Int
+        let admonitionIconGap: Int
+        let admonitionHeaderMargin: Int
+
         let listColor: String
         let listFontSize: Int
         let listMarginBottom: Int
@@ -76,6 +83,17 @@ extension MarkdownHTMLGenerator {
             blockquoteMarginBottom = Int(config.blockquote.marginBottom ?? 0)
             blockquoteFontSize = config.blockquote.font.map { Int($0.pointSize) } ?? bodySize
 
+            admonitionTints = Dictionary(uniqueKeysWithValues: AdmonitionType.allCases.map { type in
+                (type, cssColor(config.blockquote.admonitionTint(for: type)))
+            })
+            admonitionBackgrounds = config.blockquote.admonitions.compactMapValues { style in
+                style.backgroundColor.map(cssColor)
+            }
+            let blockquoteFont = config.blockquote.font ?? UIFont.preferredFont(forTextStyle: .body)
+            admonitionIconSize = Int(AdmonitionHeader.iconSize(for: blockquoteFont))
+            admonitionIconGap = Int(AdmonitionHeader.iconGap(for: blockquoteFont))
+            admonitionHeaderMargin = Int(AdmonitionHeader.bodyGap(for: blockquoteFont))
+
             listColor = cssColor(config.list.foregroundColor)
             listFontSize = config.list.font.map { Int($0.pointSize) } ?? bodySize
             listMarginBottom = Int(config.list.marginBottom ?? 0)
@@ -101,6 +119,10 @@ extension MarkdownHTMLGenerator {
             }
             headingColors = headings.map { cssColor($0.foregroundColor) }
             headingMarginBottoms = headings.map { Int($0.marginBottom ?? 0) }
+        }
+
+        func admonitionTint(_ type: AdmonitionType) -> String {
+            admonitionTints[type] ?? blockquoteBorderColor
         }
     }
 

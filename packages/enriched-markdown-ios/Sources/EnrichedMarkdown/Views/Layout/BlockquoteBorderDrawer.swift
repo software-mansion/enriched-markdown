@@ -12,46 +12,52 @@ enum BlockquoteBorderDrawer {
                 ?? drawContext.decorationConfig.blockquoteBackgroundColor
             guard bgColor.cgColor.alpha > 0 else { return }
 
+            let offset = attrs[MarkdownAttribute.blockquoteBarOffset] as? CGFloat ?? 0
+            let isRTL = TextLayoutHelpers.paragraphIsRTL(attrs[.paragraphStyle] as? NSParagraphStyle)
             drawContext.context.saveGState()
             drawContext.context.setFillColor(bgColor.cgColor)
             drawContext.context.fill(CGRect(
-                x: drawContext.origin.x,
+                x: drawContext.origin.x + (isRTL ? 0 : offset),
                 y: drawContext.origin.y + paragraphFrame.origin.y,
-                width: drawContext.containerWidth,
+                width: drawContext.containerWidth - offset,
                 height: paragraphFrame.height
             ))
             drawContext.context.restoreGState()
         }
     }
 
+    /// One bar per nesting level, in the level's baked color (an
+    /// admonition's tint) or the plain border color, batched per color.
     static func drawBorders(in drawContext: BlockDrawContext) {
         let config = drawContext.decorationConfig
         let borderWidth = config.blockquoteBorderWidth
-        let gapWidth = config.blockquoteGapWidth
-        let levelSpacing = borderWidth + gapWidth
-        let borderColor = config.blockquoteBorderColor
-        var borderPath = UIBezierPath()
+        let levelSpacing = borderWidth + config.blockquoteGapWidth
+        var barRects: [UIColor: [CGRect]] = [:]
 
         enumerateBlockquoteParagraphs(in: drawContext) { attrs, paragraphFrame, depthNum in
             let baseY = drawContext.origin.y + paragraphFrame.origin.y
-            let isRTL = paragraphIsRTL(attrs[.paragraphStyle] as? NSParagraphStyle)
+            let isRTL = TextLayoutHelpers.paragraphIsRTL(attrs[.paragraphStyle] as? NSParagraphStyle)
+            let barColors = attrs[MarkdownAttribute.blockquoteBarColors] as? [UIColor] ?? []
+            let offset = attrs[MarkdownAttribute.blockquoteBarOffset] as? CGFloat ?? 0
 
             for level in 0 ... depthNum {
+                let levelX = offset + levelSpacing * CGFloat(level)
                 let borderX = isRTL
-                    ? drawContext.origin.x + drawContext.containerWidth - borderWidth - (levelSpacing * CGFloat(level))
-                    : drawContext.origin.x + (levelSpacing * CGFloat(level))
-                let borderRect = CGRect(x: borderX, y: baseY, width: borderWidth, height: paragraphFrame.height)
-                borderPath.append(UIBezierPath(rect: borderRect))
+                    ? drawContext.origin.x + drawContext.containerWidth - borderWidth - levelX
+                    : drawContext.origin.x + levelX
+                let color = level < barColors.count ? barColors[level] : config.blockquoteBorderColor
+                barRects[color, default: []].append(
+                    CGRect(x: borderX, y: baseY, width: borderWidth, height: paragraphFrame.height)
+                )
             }
         }
 
-        if !borderPath.isEmpty {
-            drawContext.context.saveGState()
-            drawContext.context.setFillColor(borderColor.cgColor)
-            drawContext.context.addPath(borderPath.cgPath)
-            drawContext.context.fillPath()
-            drawContext.context.restoreGState()
+        drawContext.context.saveGState()
+        for (color, rects) in barRects {
+            drawContext.context.setFillColor(color.cgColor)
+            drawContext.context.fill(rects)
         }
+        drawContext.context.restoreGState()
     }
 
     private static func enumerateBlockquoteParagraphs(
@@ -76,13 +82,16 @@ enum BlockquoteBorderDrawer {
                 continue
             }
 
-            let paragraphFrame = paragraphFrame(
+            var paragraphFrame = paragraphFrame(
                 for: paragraphRange,
                 textLayoutManager: drawContext.textLayoutManager,
                 contentManager: drawContext.contentManager
             )
             guard !paragraphFrame.isNull else { continue }
 
+            // Line frames exclude paragraph spacing (an admonition title's
+            // gap, a heading's margin); the bar and fill must run through it.
+            paragraphFrame.size.height += (attrs[.paragraphStyle] as? NSParagraphStyle)?.paragraphSpacing ?? 0
             handler(attrs, paragraphFrame, depthNum)
         }
     }
@@ -110,19 +119,5 @@ enum BlockquoteBorderDrawer {
             return true
         }
         return paragraphFrame
-    }
-
-    private static func paragraphIsRTL(_ style: NSParagraphStyle?) -> Bool {
-        guard let style else {
-            return UIView.userInterfaceLayoutDirection(
-                for: UIView.appearance().semanticContentAttribute
-            ) == .rightToLeft
-        }
-        if style.baseWritingDirection != .natural {
-            return style.baseWritingDirection == .rightToLeft
-        }
-        return UIView.userInterfaceLayoutDirection(
-            for: UIView.appearance().semanticContentAttribute
-        ) == .rightToLeft
     }
 }

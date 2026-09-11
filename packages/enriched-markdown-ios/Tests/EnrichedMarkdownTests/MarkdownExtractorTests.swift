@@ -315,6 +315,42 @@ final class MarkdownExtractorTests: XCTestCase {
         )
     }
 
+    // MARK: - Admonitions
+
+    func testExtractsAdmonitionWithItsMarkerInsteadOfTheTitle() {
+        XCTAssertEqual(
+            extractSelecting("Note\nbody text", in: "> [!NOTE]\n> body text", flags: Md4cFlags(admonitions: true)),
+            "> [!NOTE]\n> body text"
+        )
+    }
+
+    func testExtractsAdmonitionAfterParagraph() {
+        // The trailing newlines are the quote's bottom-margin spacer.
+        XCTAssertEqual(
+            extractFullRange("intro\n\n> [!TIP]\n> body", flags: Md4cFlags(admonitions: true))?
+                .trimmingCharacters(in: .newlines),
+            "intro\n\n> [!TIP]\n> body"
+        )
+    }
+
+    func testExtractsNestedAdmonition() {
+        XCTAssertEqual(
+            extractSelecting(
+                "Tip\ninner",
+                in: "> [!WARNING]\n> outer\n>\n> > [!TIP]\n> > inner",
+                flags: Md4cFlags(admonitions: true)
+            ),
+            "> > [!TIP]\n> > inner"
+        )
+    }
+
+    func testExtractsAdmonitionBodyWithoutTitleAsPlainQuote() {
+        XCTAssertEqual(
+            extractSelecting("body", in: "> [!NOTE]\n> body", flags: Md4cFlags(admonitions: true)),
+            "> body"
+        )
+    }
+
     // MARK: - Lists
 
     func testExtractsUnorderedListItem() {

@@ -100,7 +100,7 @@ final class RendererFactory {
             return BlankLineRenderer(config: config)
         case .codeBlock:
             return CodeBlockRenderer(factory: self, config: config)
-        case .blockquote:
+        case .blockquote, .admonition:
             return BlockquoteRenderer(factory: self, config: config)
         case .unorderedList:
             return ListRenderer(factory: self, config: config, isOrdered: false)

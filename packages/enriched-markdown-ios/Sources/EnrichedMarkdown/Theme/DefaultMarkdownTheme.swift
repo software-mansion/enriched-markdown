@@ -86,13 +86,7 @@ enum DefaultMarkdownTheme {
                 .padding(12)
                 .marginBottom(16)
 
-            Blockquote()
-                .font(.body)
-                .foregroundStyle(Semantic.secondary)
-                .borderColor(Semantic.tint)
-                .borderWidth(3)
-                .gapWidth(16)
-                .marginBottom(16)
+            quoteStyles
 
             List()
                 .font(.body)
@@ -123,5 +117,28 @@ enum DefaultMarkdownTheme {
                 .cellPaddingVertical(8)
                 .marginBottom(16)
         }
+    }
+
+    /// Split out to keep `make()` under SwiftLint's body length. The alert
+    /// palette is GitHub's, shared with the React Native package.
+    private static var quoteStyles: MarkdownThemeGroup {
+        MarkdownThemeGroup(contents: [
+            Blockquote()
+                .font(.body)
+                .foregroundStyle(Semantic.secondary)
+                .borderColor(Semantic.tint)
+                .borderWidth(3)
+                .gapWidth(16)
+                .marginBottom(16),
+            Admonition(.note).foregroundStyle(rgb(0x09, 0x69, 0xDA)),
+            Admonition(.tip).foregroundStyle(rgb(0x1A, 0x7F, 0x37)),
+            Admonition(.important).foregroundStyle(rgb(0x82, 0x50, 0xDF)),
+            Admonition(.warning).foregroundStyle(rgb(0x9A, 0x67, 0x00)),
+            Admonition(.caution).foregroundStyle(rgb(0xCF, 0x22, 0x2E))
+        ])
+    }
+
+    private static func rgb(_ red: Int, _ green: Int, _ blue: Int) -> Color {
+        Color(red: Double(red) / 255, green: Double(green) / 255, blue: Double(blue) / 255)
     }
 }
