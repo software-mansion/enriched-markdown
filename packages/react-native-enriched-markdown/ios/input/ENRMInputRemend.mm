@@ -100,9 +100,6 @@ NSString *ENRMInputRemendComplete(NSString *markdown)
           } else if (isLeftFlankingOpener(markdown, i, openLen)) {
             [stack addObject:pair.open];
           }
-          // A delimiter that neither closes an open run nor opens a new one is a
-          // lone literal (e.g. the trailing "*" of "control*"): consume it without
-          // stacking so no spurious closer is appended at end-of-input.
           i += openLen;
           matched = YES;
           break;

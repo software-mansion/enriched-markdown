@@ -71,9 +71,6 @@ object InputRemend {
             } else if (isLeftFlankingOpener(markdown, i, openLen)) {
               stack.add(pair.open)
             }
-            // A delimiter that neither closes an open run nor opens a new one is a
-            // lone literal (e.g. the trailing "*" of "control*"): consume it without
-            // stacking so no spurious closer is appended at end-of-input.
             i += openLen
             matched = true
             break

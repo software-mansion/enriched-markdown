@@ -106,9 +106,8 @@ struct ParseContext {
   std::vector<BlockInfo> openBlockStack;
   std::vector<BlockInfo> resolvedBlocks;
   std::vector<size_t> textStartOffsets;
-  // Byte offsets of backslashes that md4c resolved as escape sequences (e.g. the
-  // '\' of "\*"). md4c never reports these as syntax, so they are collected in
-  // onText and stripped from the plain text alongside inline/block delimiters.
+  // Byte offsets of backslashes md4c resolved as escape sequences (the '\' of "\*"),
+  // stripped from the plain text alongside inline/block delimiters.
   std::vector<size_t> escapeByteOffsets;
   size_t lastTextEnd = 0;
   // Open list containers, innermost last (true = ordered). An item's depth is
@@ -319,12 +318,6 @@ static int onText(MD_TEXTTYPE, const MD_CHAR *text, MD_SIZE size, void *userdata
   size_t textEnd = textStart + size;
   context->textStartOffsets.push_back(textStart);
 
-  // md4c resolves a backslash escape by dropping the backslash and emitting the
-  // escaped character as its own text run that points into the buffer; the
-  // backslash byte is left in the gap, covered by no run. Flag it when the byte
-  // right before this run is a backslash sitting at or after the previous run's
-  // end. A backslash that is real content (not a valid escape, or inside a code
-  // span) stays within a text run, so its preceding-byte check never matches.
   if (textStart > 0 && context->buffer[textStart - 1] == '\\' && (textStart - 1) >= context->lastTextEnd) {
     context->escapeByteOffsets.push_back(textStart - 1);
   }
@@ -556,10 +549,6 @@ static NSArray<ENRMBlockRange *> *blockRangesFromContext(const ParseContext &con
     }
   }
 
-  // Hide the backslash of every resolved escape sequence ("\*" -> "*"), matching
-  // the read-only renderer and the Android input, which both build display text
-  // from md4c's resolved output. Only the backslash is treated as syntax; the
-  // escaped character stays visible.
   [syntaxIndexes addIndexes:escapeIndexes];
 
   // Strip \n/\r from syntax ranges — newlines are structural content, not
