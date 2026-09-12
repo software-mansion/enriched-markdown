@@ -173,6 +173,12 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
       ((ENRMMathContainerView *)child).copyAsMarkdownLabel = self.copyAsMarkdownLabel;
     }
 #endif
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([child isKindOfClass:[ENRMVideoContainerView class]]) {
+      ((ENRMVideoContainerView *)child).copyLabel = self.copyLabel;
+      ((ENRMVideoContainerView *)child).copyAsMarkdownLabel = self.copyAsMarkdownLabel;
+    }
+#endif
   }
 }
 
@@ -336,12 +342,19 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 #endif
 
 #if ENRICHED_MARKDOWN_VIDEO
+  __weak ENRMBlockquoteContainerView *weakBQ = self;
   [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindVideo
                           matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
                             return [view isKindOfClass:[ENRMVideoContainerView class]];
                           }
                           createView:^RCTUIView *(ENRMRenderedSegment *segment) {
                             ENRMVideoContainerView *view = [[ENRMVideoContainerView alloc] initWithConfig:config];
+                            ENRMBlockquoteContainerView *bq = weakBQ;
+                            if (bq) {
+                              view.enableBlockContextMenu = bq.enableBlockContextMenu;
+                              view.copyLabel = bq.copyLabel;
+                              view.copyAsMarkdownLabel = bq.copyAsMarkdownLabel;
+                            }
                             [view applyVideoNode:segment.videoSegment.videoNode];
                             return view;
                           }

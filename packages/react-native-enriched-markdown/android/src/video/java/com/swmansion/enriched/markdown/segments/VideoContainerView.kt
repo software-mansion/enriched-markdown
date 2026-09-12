@@ -1,5 +1,7 @@
 package com.swmansion.enriched.markdown.segments
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
 import android.widget.FrameLayout
@@ -8,6 +10,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import kotlin.math.roundToInt
 
 class VideoContainerView(
@@ -18,6 +21,10 @@ class VideoContainerView(
   private val playerView = PlayerView(context)
   private var player: ExoPlayer? = null
   private var currentUrl: String? = null
+
+  var copyLabel: String = ""
+  var copyAsMarkdownLabel: String = ""
+  var enableBlockContextMenu: Boolean = true
 
   override val segmentMarginTop: Int get() = styleConfig.videoStyle.marginTop.toInt()
   override val segmentMarginBottom: Int get() = styleConfig.videoStyle.marginBottom.toInt()
@@ -34,6 +41,9 @@ class VideoContainerView(
     }
 
     addView(playerView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+
+    isLongClickable = true
+    setOnLongClickListener { view -> showContextMenu(view) }
   }
 
   fun applyVideoNode(node: MarkdownASTNode) {
@@ -66,6 +76,23 @@ class VideoContainerView(
   override fun onDetachedFromWindow() {
     super.onDetachedFromWindow()
     releasePlayer()
+  }
+
+  private fun showContextMenu(anchor: android.view.View): Boolean {
+    val url = currentUrl ?: return false
+    if (!enableBlockContextMenu || url.isEmpty()) return false
+    ContextMenuPopup.show(anchor, this) {
+      item(ContextMenuPopup.Icon.COPY, copyLabel) { copyToClipboard(url) }
+      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) { copyToClipboard(videoMarkdown(url)) }
+    }
+    return true
+  }
+
+  private fun videoMarkdown(url: String): String = if (url.contains('"')) "<video src='$url' />" else "<video src=\"$url\" />"
+
+  private fun copyToClipboard(text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("Video", text))
   }
 
   private fun releasePlayer() {

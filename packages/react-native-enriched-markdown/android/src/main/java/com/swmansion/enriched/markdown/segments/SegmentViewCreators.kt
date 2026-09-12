@@ -225,6 +225,15 @@ object SegmentViewCreators {
           .getConstructor(Context::class.java, StyleConfig::class.java)
           .newInstance(config.context, config.style) as View
       resolvedClass
+        .getMethod("setCopyLabel", String::class.java)
+        .invoke(view, config.selectionMenuConfig.copyLabel)
+      resolvedClass
+        .getMethod("setCopyAsMarkdownLabel", String::class.java)
+        .invoke(view, config.selectionMenuConfig.copyAsMarkdownLabel)
+      resolvedClass
+        .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
+        .invoke(view, config.enableBlockContextMenu)
+      resolvedClass
         .getMethod("applyVideoNode", MarkdownASTNode::class.java)
         .invoke(view, segment.node)
       view

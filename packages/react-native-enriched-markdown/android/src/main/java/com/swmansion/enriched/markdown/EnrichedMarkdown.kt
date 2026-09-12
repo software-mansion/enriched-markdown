@@ -352,6 +352,15 @@ class EnrichedMarkdown(
               .invoke(view, copyAsMarkdownLabel)
           }
         }
+
+        isVideoContainerView(view) -> {
+          runCatching {
+            view.javaClass.getMethod("setCopyLabel", String::class.java).invoke(view, copyLabel)
+            view.javaClass
+              .getMethod("setCopyAsMarkdownLabel", String::class.java)
+              .invoke(view, copyAsMarkdownLabel)
+          }
+        }
       }
     }
   }
@@ -372,6 +381,14 @@ class EnrichedMarkdown(
         }
 
         isMathContainerView(view) -> {
+          runCatching {
+            view.javaClass
+              .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
+              .invoke(view, enableBlockContextMenu)
+          }
+        }
+
+        isVideoContainerView(view) -> {
           runCatching {
             view.javaClass
               .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)

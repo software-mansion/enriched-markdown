@@ -357,6 +357,9 @@ static char kENRMSegmentFadeAnimatorKey;
 
                             ENRMVideoContainerView *view =
                                 [[ENRMVideoContainerView alloc] initWithConfig:strongSelf->_config];
+                            view.enableBlockContextMenu = strongSelf->_enableBlockContextMenu;
+                            view.copyLabel = strongSelf->_selectionMenuLabels.copyLabel;
+                            view.copyAsMarkdownLabel = strongSelf->_selectionMenuLabels.copyAsMarkdownLabel;
                             [view applyVideoNode:segment.videoSegment.videoNode];
                             [strongSelf animateBlockViewIfNeeded:view];
                             return view;
@@ -666,6 +669,13 @@ static char kENRMSegmentFadeAnimatorKey;
       blockquoteView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
       [blockquoteView pushCopyLabelsToChildren];
     }
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
+      ENRMVideoContainerView *videoView = (ENRMVideoContainerView *)segment;
+      videoView.copyLabel = _selectionMenuLabels.copyLabel;
+      videoView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+    }
+#endif
   }
 }
 
@@ -685,6 +695,11 @@ static char kENRMSegmentFadeAnimatorKey;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
     }
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
+      ((ENRMVideoContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
+    }
+#endif
   }
 }
 

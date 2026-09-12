@@ -4,6 +4,7 @@
 
 #import "ENRMVideoContainerView.h"
 #import "MarkdownASTNode.h"
+#import "PasteboardUtils.h"
 #import <AVKit/AVKit.h>
 
 static const CGFloat kDefaultVideoAspectRatio = 16.0 / 9.0;
@@ -68,6 +69,7 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
 {
   if (self = [super init]) {
     _config = config;
+    _enableBlockContextMenu = YES;
     self.userInteractionEnabled = YES;
 
     _hostController = [[ENRMVideoHostController alloc] init];
@@ -78,6 +80,11 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
     _playIconOverlay = [ENRMVideoContainerView createPlayIconOverlay];
     _playIconOverlay.userInteractionEnabled = NO;
     [self addSubview:_playIconOverlay];
+
+#if !TARGET_OS_OSX
+    UIContextMenuInteraction *contextMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
+    [_hostController.view addInteraction:contextMenu];
+#endif
   }
   return self;
 }
@@ -213,6 +220,56 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
 {
   return maxWidth / ENRMVideoAspectRatio(config);
 }
+
+#pragma mark - Context Menu
+
+- (void)copyURLToPasteboard
+{
+  if (_currentURL.length > 0) {
+    copyStringToPasteboard(_currentURL);
+  }
+}
+
+- (void)copyMarkdownToPasteboard
+{
+  if (_currentURL.length > 0) {
+    NSString *markdown;
+    if ([_currentURL containsString:@"\""]) {
+      markdown = [NSString stringWithFormat:@"<video src='%@' />", _currentURL];
+    } else {
+      markdown = [NSString stringWithFormat:@"<video src=\"%@\" />", _currentURL];
+    }
+    copyStringToPasteboard(markdown);
+  }
+}
+
+#if !TARGET_OS_OSX
+- (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
+                        configurationForMenuAtLocation:(CGPoint)location
+{
+  if (!_enableBlockContextMenu || _currentURL.length == 0) {
+    return nil;
+  }
+  return [UIContextMenuConfiguration
+      configurationWithIdentifier:nil
+                  previewProvider:nil
+                   actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
+                     UIAction *copyURL =
+                         [UIAction actionWithTitle:self.copyLabel
+                                             image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
+                                        identifier:nil
+                                           handler:^(__kindof UIAction *action) { [self copyURLToPasteboard]; }];
+
+                     UIAction *copyMarkdown =
+                         [UIAction actionWithTitle:self.copyAsMarkdownLabel
+                                             image:[RCTUIImage systemImageNamed:@"doc.text"]
+                                        identifier:nil
+                                           handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
+
+                     return [UIMenu menuWithTitle:@"" children:@[ copyURL, copyMarkdown ]];
+                   }];
+}
+#endif
 
 #pragma mark - Cleanup
 

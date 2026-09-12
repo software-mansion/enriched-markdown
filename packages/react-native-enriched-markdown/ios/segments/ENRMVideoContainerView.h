@@ -11,6 +11,9 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ENRMVideoContainerView : RCTUIView
+#if !TARGET_OS_OSX
+                                    <UIContextMenuInteractionDelegate>
+#endif
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
 
@@ -23,6 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 + (CGFloat)measureHeightForVideoNode:(MarkdownASTNode *)node config:(StyleConfig *)config maxWidth:(CGFloat)maxWidth;
 
 @property (nonatomic, strong) StyleConfig *config;
+
+@property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
+@property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
+@property (nonatomic, assign) BOOL enableBlockContextMenu;
 
 @end
 
