@@ -44,6 +44,9 @@ class VideoContainerView(
 
     isLongClickable = true
     setOnLongClickListener { view -> showContextMenu(view) }
+
+    playerView.isLongClickable = true
+    playerView.setOnLongClickListener { showContextMenu(it) }
   }
 
   fun applyVideoNode(node: MarkdownASTNode) {
