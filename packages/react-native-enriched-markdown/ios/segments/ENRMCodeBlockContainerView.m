@@ -43,7 +43,7 @@ static UIFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
 
 static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
 {
-  return ceil(headerFont.lineHeight);
+  return ceil(UIFontLineHeight(headerFont));
 }
 #else
 static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
@@ -53,7 +53,7 @@ static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
 
 static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
 {
-  return ceil(headerFont.ascender - headerFont.descender);
+  return ceil(UIFontLineHeight(headerFont));
 }
 #endif
 
@@ -73,7 +73,7 @@ static NSAttributedString *ENRMCodeBlockPlainAttributedCode(NSString *code, Styl
 static CGFloat ENRMCodeBlockPerLineHeight(StyleConfig *config)
 {
   CGFloat lineHeight = [config codeBlockLineHeight];
-  return lineHeight > 0 ? lineHeight : ceil([config codeBlockFont].lineHeight);
+  return lineHeight > 0 ? lineHeight : ceil(UIFontLineHeight([config codeBlockFont]));
 }
 
 // Analytic code height: lines never wrap and each fragment is a fixed height, so
