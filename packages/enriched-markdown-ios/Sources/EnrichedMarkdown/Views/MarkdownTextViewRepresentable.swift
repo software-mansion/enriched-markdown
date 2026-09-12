@@ -228,9 +228,15 @@ final class MarkdownTextView: UITextView {
     /// document. This can.
     private var renderedText: NSAttributedString?
 
+    private struct CachedFit {
+        let width: CGFloat
+        let text: NSAttributedString
+        let height: CGFloat
+    }
+
     /// Measuring lays out the whole document, and SwiftUI asks for it on every
     /// update pass — and again through `intrinsicContentSize`.
-    private var cachedFit: (width: CGFloat, text: NSAttributedString, height: CGFloat)?
+    private var cachedFit: CachedFit?
 
     /// Mirrored from the representable so VoiceOver link elements can invoke
     /// the press handler via accessibilityActivate.
@@ -439,7 +445,7 @@ final class MarkdownTextView: UITextView {
         }
         let fitted = super.sizeThatFits(size)
         if let renderedText {
-            cachedFit = (size.width, renderedText, fitted.height)
+            cachedFit = CachedFit(width: size.width, text: renderedText, height: fitted.height)
         }
         return fitted
     }
