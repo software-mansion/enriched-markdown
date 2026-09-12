@@ -185,6 +185,7 @@ export default function PlaygroundScreen() {
 
         <View style={styles.editorContainer} testID="editor-container">
           <EnrichedMarkdownTextInput
+            markdownShortcuts
             ref={inputRef}
             placeholder="Type markdown here..."
             placeholderTextColor="#9CA3AF"

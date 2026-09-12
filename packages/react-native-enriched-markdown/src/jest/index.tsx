@@ -82,6 +82,7 @@ export const EnrichedMarkdownTextInput = ({
   selectionMenuConfig: _selectionMenuConfig,
   formatMenuConfig: _formatMenuConfig,
   linkRegex: _linkRegex,
+  markdownShortcuts: _markdownShortcuts,
   writingDirection: _writingDirection,
 }: EnrichedMarkdownTextInputProps) => {
   const [text, setText] = useState(defaultValue ?? '');

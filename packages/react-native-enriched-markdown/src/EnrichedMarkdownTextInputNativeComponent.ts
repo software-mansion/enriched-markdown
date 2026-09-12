@@ -210,6 +210,12 @@ export interface NativeProps extends ViewProps {
    */
   scrollEnabled?: boolean;
   /**
+   * Converts markdown block prefixes typed at a paragraph start (`# `, `- `, `1. `)
+   * into the matching block and removes the prefix.
+   * @default false
+   */
+  markdownShortcuts?: boolean;
+  /**
    * Auto-capitalization behavior.
    */
   autoCapitalize?: string;

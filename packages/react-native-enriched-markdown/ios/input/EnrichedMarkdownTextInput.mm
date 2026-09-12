@@ -20,6 +20,7 @@
 #import "ENRMInputTypingAttributesController.h"
 #import "ENRMLinkCoordinator.h"
 #import "ENRMLinkRegexConfig.h"
+#import "ENRMMarkdownShortcutMatcher.h"
 #import "ENRMMentionCoordinator.h"
 #import "ENRMStyleHandler.h"
 #import "ENRMStyleMergingConfig.h"
@@ -111,6 +112,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMLinkCoordinator *_linkCoordinator;
   ENRMClipboardCoordinator *_clipboardCoordinator;
 
+  BOOL _markdownShortcutsEnabled;
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
 
@@ -386,6 +388,9 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #if !TARGET_OS_OSX
   if (newViewProps.scrollEnabled != oldViewProps.scrollEnabled) {
     _textView.scrollEnabled = newViewProps.scrollEnabled;
+  }
+  if (newViewProps.markdownShortcuts != oldViewProps.markdownShortcuts) {
+    _markdownShortcutsEnabled = newViewProps.markdownShortcuts;
   }
 
   if (newViewProps.autoCapitalize != oldViewProps.autoCapitalize) {
@@ -1597,6 +1602,70 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 #pragma mark - Text edit tracking
 
+/// Markdown shortcuts: when the user types a space after `#`…`######`,
+/// `-`/`*`/`+` or `1.`/`1)` at the start of a plain paragraph, drop the prefix
+/// and make the paragraph that block. Runs after the stores are adjusted for the
+/// edit and before scoped formatting. Returns YES when it converted, in which
+/// case the replace path has already reformatted and emitted.
+- (BOOL)applyMarkdownShortcutForEditAtLocation:(NSUInteger)editLocation
+                                insertedLength:(NSUInteger)insertedLength
+                              preEditBlockType:(ENRMInputBlockType)preEditBlockType
+{
+  if (!_markdownShortcutsEnabled || insertedLength == 0 || preEditBlockType != ENRMInputBlockTypeParagraph) {
+    return NO;
+  }
+
+  NSString *text = ENRMGetPlainText(_textView);
+  if (editLocation >= text.length) {
+    return NO;
+  }
+  NSUInteger insertedEnd = MIN(editLocation + insertedLength, text.length);
+
+  // The trigger is the first space inside the inserted run — a single
+  // keystroke in the common case, a whole token when autocorrect or an
+  // automation inserts several characters at once.
+  NSUInteger spaceIndex = NSNotFound;
+  for (NSUInteger i = editLocation; i < insertedEnd; i++) {
+    if ([text characterAtIndex:i] == ' ') {
+      spaceIndex = i;
+      break;
+    }
+  }
+  if (spaceIndex == NSNotFound) {
+    return NO;
+  }
+
+  NSUInteger lineStart = [text paragraphRangeForRange:NSMakeRange(spaceIndex, 0)].location;
+  if (spaceIndex == lineStart || [_blockCoordinator blockAtPosition:lineStart inText:text] != nil) {
+    return NO;
+  }
+
+  NSString *prefix = [text substringWithRange:NSMakeRange(lineStart, spaceIndex - lineStart)];
+  ENRMInputBlockType type = ENRMInputBlockTypeParagraph;
+  NSInteger level = 0;
+  if (![ENRMMarkdownShortcutMatcher matchPrefix:prefix outType:&type outLevel:&level]) {
+    return NO;
+  }
+
+  NSRange prefixRange = NSMakeRange(lineStart, spaceIndex + 1 - lineStart);
+  NSRange caretBefore = _textView.selectedRange;
+
+  // A zero-length range at the line start: the store expands it to the whole
+  // paragraph, and on an emptied line it persists as the block's anchor.
+  ENRMBlockRange *block = [ENRMBlockRange rangeWithType:type range:NSMakeRange(0, 0) level:level];
+  [self replaceTextInRange:prefixRange withText:@"" formattingRanges:@[] blockRanges:@[ block ]];
+
+  if (caretBefore.location >= NSMaxRange(prefixRange)) {
+    NSUInteger caret = caretBefore.location - prefixRange.length;
+    _textView.selectedRange = NSMakeRange(MIN(caret, ENRMGetPlainText(_textView).length), 0);
+  }
+  _lastSelectedRange = _textView.selectedRange;
+
+  [_typingController syncWithCursorBlock];
+  [self updateEmptyBulletMarker];
+  return YES;
+}
+
 - (void)handleTextChanged
 {
   if (_editSession.isComposing) {
@@ -1640,6 +1709,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                       pendingStyleRemovals:_typingController.pendingStyleRemovals];
 
   BOOL touchedNewline = [_editPipeline processTextChangeWithContext:context];
+  ENRMInputBlockType preEditBlockType = _preEditBlockType;
 
   // Consumed: clear pre-edit state so stale values can't leak to the next edit.
   _preEditBlockType = ENRMInputBlockTypeParagraph;
@@ -1648,6 +1718,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   _preEditReplacedNewline = NO;
 
   _lastTextLength = newLength;
+
+  // A typed markdown prefix turns the paragraph into a block; the replace path
+  // reformats and emits on its own, so the rest of this pass is redundant.
+  if ([self applyMarkdownShortcutForEditAtLocation:editLocation
+                                    insertedLength:insertedLength
+                                  preEditBlockType:preEditBlockType]) {
+    return;
+  }
 
 #if !TARGET_OS_OSX
   if (newLength == 0) {

@@ -164,6 +164,29 @@ The callback fires only for newly detected links — not for links that were alr
 
 When a manual link is applied (via `setLink` or `insertLink`) over an auto-detected link, the auto-detected link is replaced by the manual one. Auto-link detection skips ranges that already contain a manual link.
 
+## Markdown Shortcuts
+
+With `markdownShortcuts` enabled, typing a markdown block prefix at the start of a paragraph and following it with a space converts the paragraph into that block and removes the prefix — the convention Notion, Bear, Obsidian and Apple Notes users expect:
+
+| Typed | Becomes |
+|---|---|
+| `# ` … `###### ` | Heading 1 … 6 |
+| `- `, `* `, `+ ` | Bullet list item |
+| `1. `, `1) ` (any number) | Numbered list item |
+
+```tsx
+<EnrichedMarkdownTextInput markdownShortcuts />
+```
+
+It is **off by default**: an app that treats `#` or `-` as literal text (tags, channel names, dashes) sees no change unless it opts in.
+
+Behavior notes:
+
+- The shortcut only fires on a **plain paragraph**. Typing `# ` inside an existing heading or list item leaves the text alone.
+- The conversion goes through the same block pipeline as [`toggleHeading`](#headings) and the [list commands](#lists), so `onChangeState`, serialization and Return-continues-the-list behave exactly as if the block had been toggled from a toolbar.
+- Backspace at the start of a freshly converted **list item** removes the marker again (the existing list Backspace rule). A converted heading is turned off with `toggleHeading` or by deleting the line.
+- Without the shortcut a literal `# Heading` paragraph still serializes as `# Heading`, so it would become a heading the next time the markdown is loaded. Enabling shortcuts makes what the user sees while typing agree with what they get after a reload.
+
 ## Caret Position Tracking
 
 `EnrichedMarkdownTextInput` can report the caret's pixel position relative to the input, which is useful when the input is embedded in a scrollable container with `scrollEnabled={false}` and you need to keep the caret visible.

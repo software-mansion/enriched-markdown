@@ -158,6 +158,14 @@ class EnrichedMarkdownTextInputManager :
     view?.isVerticalScrollBarEnabled = value
   }
 
+  @ReactProp(name = "markdownShortcuts", defaultBoolean = false)
+  override fun setMarkdownShortcuts(
+    view: EnrichedMarkdownTextInputView?,
+    value: Boolean,
+  ) {
+    view?.markdownShortcuts = value
+  }
+
   @ReactProp(name = "autoCapitalize")
   override fun setAutoCapitalize(
     view: EnrichedMarkdownTextInputView?,

@@ -106,6 +106,9 @@ class EnrichedMarkdownTextInputView(
       override fun runAsATransaction(block: () -> Unit) = this@EnrichedMarkdownTextInputView.runAsATransaction(block)
 
       override fun setViewSelection(position: Int) = setSelection(position)
+
+      override val markdownShortcutsEnabled: Boolean
+        get() = markdownShortcuts
     }
 
   val editPipeline =
@@ -122,6 +125,9 @@ class EnrichedMarkdownTextInputView(
   private var inputMethodManager: InputMethodManager? = null
   private var detectScrollMovement = false
   var scrollEnabled: Boolean = true
+
+  /** Typed `# `, `- `, `1. ` become blocks (opt-in from JS). */
+  var markdownShortcuts: Boolean = false
 
   private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline, formatter)
 

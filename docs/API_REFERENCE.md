@@ -723,6 +723,14 @@ Whether the input is scrollable when content exceeds the visible area.
 | --------- | ------------- | -------- |
 | `boolean` | `true`        | Both     |
 
+### `markdownShortcuts`
+
+Converts markdown block prefixes typed at the start of a paragraph into blocks and removes the prefix: `#`–`######` + space → heading, `-`/`*`/`+` + space → bullet item, `1.`/`1)` + space → numbered item. Only fires on a plain paragraph. See [INPUT — Markdown Shortcuts](INPUT.md#markdown-shortcuts).
+
+| Type      | Default Value | Platform |
+| --------- | ------------- | -------- |
+| `boolean` | `false`       | Both     |
+
 ### `autoCapitalize`
 
 Auto-capitalization behavior.

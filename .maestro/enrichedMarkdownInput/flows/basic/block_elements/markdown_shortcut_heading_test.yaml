@@ -1,0 +1,37 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - input
+  - heading
+  - block
+  - markdown-shortcuts
+---
+# Typing "# " at the start of a paragraph converts it into an H1 and drops the
+# prefix, so the visible text is "Title" styled as a heading — not the literal
+# "# Title" it used to stay until the markdown was reloaded.
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- tapOn:
+    id: focus-button
+- waitForAnimationToEnd
+
+- inputText: '# Title'
+- waitForAnimationToEnd
+
+- pressKey: Enter
+- waitForAnimationToEnd
+
+# A heading does not continue onto the next line; this stays a paragraph.
+- inputText: 'Body text'
+- waitForAnimationToEnd
+
+- tapOn:
+    id: blur-button
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'markdown_shortcut_heading_input'
