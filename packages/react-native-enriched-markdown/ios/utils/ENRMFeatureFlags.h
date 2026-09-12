@@ -18,13 +18,8 @@
 #define ENRICHED_MARKDOWN_CODE_HIGHLIGHT 0
 #endif
 
-// Video playback support. Uses AVKit (built into iOS — no external framework),
-// so the flag gates only the container view code itself.
-// Not yet supported on macOS — force off regardless of podspec.
+// Video playback support. Uses AVKit (built into both iOS and macOS — no
+// external framework), so the flag gates only the container view code itself.
 #if !defined(ENRICHED_MARKDOWN_VIDEO)
-#define ENRICHED_MARKDOWN_VIDEO 0
-#endif
-#if ENRICHED_MARKDOWN_VIDEO && TARGET_OS_OSX
-#undef ENRICHED_MARKDOWN_VIDEO
 #define ENRICHED_MARKDOWN_VIDEO 0
 #endif

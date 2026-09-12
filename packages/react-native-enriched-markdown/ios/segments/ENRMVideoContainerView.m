@@ -6,6 +6,9 @@
 #import "MarkdownASTNode.h"
 #import "PasteboardUtils.h"
 #import <AVKit/AVKit.h>
+#if TARGET_OS_OSX
+#import "ENRMMenuAction.h"
+#endif
 
 static const CGFloat kDefaultVideoAspectRatio = 16.0 / 9.0;
 
@@ -14,6 +17,8 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
   CGFloat aspectRatio = [config videoAspectRatio];
   return aspectRatio > 0 ? aspectRatio : kDefaultVideoAspectRatio;
 }
+
+#if !TARGET_OS_OSX
 
 // A thin wrapper VC that hosts AVPlayerViewController as a child with correct
 // containment. RNSScreen (react-native-screens) overrides
@@ -57,9 +62,43 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
 
 @end
 
+#endif // !TARGET_OS_OSX
+
+// ===== iOS implementation =====
+
+#if !TARGET_OS_OSX
+
+static RCTUIView *ENRMCreatePlayIconOverlay(void)
+{
+  CGFloat size = 52;
+  RCTUIView *circle = [[RCTUIView alloc] initWithFrame:CGRectMake(0, 0, size, size)];
+  circle.userInteractionEnabled = NO;
+  circle.layer.backgroundColor = [RCTUIColor colorWithWhite:0 alpha:0.5].CGColor;
+  circle.layer.cornerRadius = size / 2.0;
+
+  CGFloat inset = size * 0.3;
+  CGFloat triLeft = inset + size * 0.04;
+  CGFloat triTop = inset - size * 0.04;
+  CGFloat triRight = size - inset + size * 0.04;
+  CGFloat triMid = size / 2.0;
+
+  UIBezierPath *triangle = [UIBezierPath bezierPath];
+  [triangle moveToPoint:CGPointMake(triLeft, triTop)];
+  BezierPathAddLine(triangle, CGPointMake(triRight, triMid));
+  BezierPathAddLine(triangle, CGPointMake(triLeft, size - triTop));
+  [triangle closePath];
+
+  CAShapeLayer *triLayer = [CAShapeLayer layer];
+  triLayer.path = triangle.CGPath;
+  triLayer.fillColor = [RCTUIColor whiteColor].CGColor;
+  [circle.layer addSublayer:triLayer];
+
+  return circle;
+}
+
 @implementation ENRMVideoContainerView {
   ENRMVideoHostController *_hostController;
-  UIView *_playIconOverlay;
+  RCTUIView *_playIconOverlay;
   NSString *_currentURL;
   BOOL _hostInstalled;
   BOOL _hasBeenTapped;
@@ -77,44 +116,14 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
     [_hostController applyCornerRadius:[config videoBorderRadius] backgroundColor:[config videoBackgroundColor]];
     [self addSubview:_hostController.view];
 
-    _playIconOverlay = [ENRMVideoContainerView createPlayIconOverlay];
+    _playIconOverlay = ENRMCreatePlayIconOverlay();
     _playIconOverlay.userInteractionEnabled = NO;
     [self addSubview:_playIconOverlay];
 
-#if !TARGET_OS_OSX
     UIContextMenuInteraction *contextMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
     [_hostController.view addInteraction:contextMenu];
-#endif
   }
   return self;
-}
-
-+ (UIView *)createPlayIconOverlay
-{
-  CGFloat size = 52;
-  UIView *circle = [[UIView alloc] initWithFrame:CGRectMake(0, 0, size, size)];
-  circle.backgroundColor = [UIColor colorWithWhite:0 alpha:0.5];
-  circle.layer.cornerRadius = size / 2.0;
-  circle.userInteractionEnabled = NO;
-
-  CGFloat inset = size * 0.3;
-  CGFloat triLeft = inset + size * 0.04;
-  CGFloat triTop = inset - size * 0.04;
-  CGFloat triRight = size - inset + size * 0.04;
-  CGFloat triMid = size / 2.0;
-
-  UIBezierPath *triangle = [UIBezierPath bezierPath];
-  [triangle moveToPoint:CGPointMake(triLeft, triTop)];
-  [triangle addLineToPoint:CGPointMake(triRight, triMid)];
-  [triangle addLineToPoint:CGPointMake(triLeft, size - triTop)];
-  [triangle closePath];
-
-  CAShapeLayer *triLayer = [CAShapeLayer layer];
-  triLayer.path = triangle.CGPath;
-  triLayer.fillColor = [UIColor whiteColor].CGColor;
-  [circle.layer addSublayer:triLayer];
-
-  return circle;
 }
 
 #pragma mark - Touch Forwarding
@@ -243,7 +252,6 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
   }
 }
 
-#if !TARGET_OS_OSX
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
@@ -269,7 +277,6 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
                      return [UIMenu menuWithTitle:@"" children:@[ copyURL, copyMarkdown ]];
                    }];
 }
-#endif
 
 #pragma mark - Cleanup
 
@@ -285,4 +292,130 @@ static inline CGFloat ENRMVideoAspectRatio(StyleConfig *config)
 
 @end
 
-#endif
+#else // TARGET_OS_OSX
+
+// ===== macOS implementation =====
+
+@implementation ENRMVideoContainerView {
+  AVPlayerView *_playerView;
+  NSString *_currentURL;
+}
+
+- (instancetype)initWithConfig:(StyleConfig *)config
+{
+  if (self = [super init]) {
+    _config = config;
+    _enableBlockContextMenu = YES;
+    self.wantsLayer = YES;
+
+    _playerView = [[AVPlayerView alloc] init];
+    _playerView.controlsStyle = AVPlayerViewControlsStyleInline;
+    _playerView.wantsLayer = YES;
+    _playerView.layer.masksToBounds = YES;
+    _playerView.layer.cornerRadius = [config videoBorderRadius];
+    _playerView.layer.backgroundColor = ([config videoBackgroundColor] ?: [NSColor blackColor]).CGColor;
+    [self addSubview:_playerView];
+  }
+  return self;
+}
+
+- (BOOL)isFlipped
+{
+  return YES;
+}
+
+#pragma mark - Style Updates
+
+- (void)reapplyStyle
+{
+  _playerView.layer.cornerRadius = [_config videoBorderRadius];
+  _playerView.layer.backgroundColor = ([_config videoBackgroundColor] ?: [NSColor blackColor]).CGColor;
+}
+
+#pragma mark - Video Loading
+
+- (void)applyVideoNode:(MarkdownASTNode *)node
+{
+  NSString *url = [node.attributes objectForKey:@"url"];
+  if (!url || [url isEqualToString:_currentURL]) {
+    return;
+  }
+  _currentURL = [url copy];
+
+  [_playerView.player pause];
+
+  NSURL *videoURL = [NSURL URLWithString:url];
+  if (!videoURL) {
+    _playerView.player = nil;
+    return;
+  }
+
+  _playerView.player = [AVPlayer playerWithURL:videoURL];
+}
+
+#pragma mark - Layout & Measurement
+
+- (void)layout
+{
+  [super layout];
+  _playerView.frame = self.bounds;
+}
+
+- (CGFloat)measureHeight:(CGFloat)maxWidth
+{
+  return maxWidth / ENRMVideoAspectRatio(_config);
+}
+
++ (CGFloat)measureHeightForVideoNode:(__unused MarkdownASTNode *)node
+                              config:(StyleConfig *)config
+                            maxWidth:(CGFloat)maxWidth
+{
+  return maxWidth / ENRMVideoAspectRatio(config);
+}
+
+#pragma mark - Context Menu
+
+- (void)copyURLToPasteboard
+{
+  if (_currentURL.length > 0) {
+    copyStringToPasteboard(_currentURL);
+  }
+}
+
+- (void)copyMarkdownToPasteboard
+{
+  if (_currentURL.length > 0) {
+    NSString *markdown;
+    if ([_currentURL containsString:@"\""]) {
+      markdown = [NSString stringWithFormat:@"<video src='%@' />", _currentURL];
+    } else {
+      markdown = [NSString stringWithFormat:@"<video src=\"%@\" />", _currentURL];
+    }
+    copyStringToPasteboard(markdown);
+  }
+}
+
+- (NSMenu *)menuForEvent:(NSEvent *)event
+{
+  if (!_enableBlockContextMenu || _currentURL.length == 0) {
+    return [super menuForEvent:event];
+  }
+  NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
+  [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyURLToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
+  return menu;
+}
+
+#pragma mark - Cleanup
+
+- (void)dealloc
+{
+  [_playerView.player pause];
+  _playerView.player = nil;
+}
+
+@end
+
+#endif // TARGET_OS_OSX
+
+#endif // ENRICHED_MARKDOWN_VIDEO
