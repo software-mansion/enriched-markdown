@@ -318,6 +318,38 @@ public enum TableAlignment: String, Equatable, Sendable {
     case trailing
 }
 
+public struct SpoilerStyle: Equatable, Sendable {
+    /// Color of the particles or of the solid box.
+    public var color: UIColor?
+    /// Backdrop under the particles.
+    public var backgroundColor: UIColor?
+    public var particleDensity: CGFloat?
+    public var particleSpeed: CGFloat?
+    public var solidBorderRadius: CGFloat?
+
+    public init(
+        color: UIColor? = nil,
+        backgroundColor: UIColor? = nil,
+        particleDensity: CGFloat? = nil,
+        particleSpeed: CGFloat? = nil,
+        solidBorderRadius: CGFloat? = nil
+    ) {
+        self.color = color
+        self.backgroundColor = backgroundColor
+        self.particleDensity = particleDensity
+        self.particleSpeed = particleSpeed
+        self.solidBorderRadius = solidBorderRadius
+    }
+
+    public mutating func merge(_ other: SpoilerStyle) {
+        color = other.color ?? color
+        backgroundColor = other.backgroundColor ?? backgroundColor
+        particleDensity = other.particleDensity ?? particleDensity
+        particleSpeed = other.particleSpeed ?? particleSpeed
+        solidBorderRadius = other.solidBorderRadius ?? solidBorderRadius
+    }
+}
+
 public struct TableStyle: Equatable, Sendable {
     public var font: UIFont?
     public var foregroundColor: UIColor?
@@ -408,6 +440,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
     public var superscript: BaselineShiftStyle
     public var `subscript`: BaselineShiftStyle
     public var highlight: ElementStyle
+    public var spoiler: SpoilerStyle
     public var code: ElementStyle
     public var image: ImageStyle
     public var inlineImage: InlineImageStyle
@@ -437,6 +470,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         superscript: BaselineShiftStyle = BaselineShiftStyle(),
         subscript subscriptStyle: BaselineShiftStyle = BaselineShiftStyle(),
         highlight: ElementStyle = ElementStyle(),
+        spoiler: SpoilerStyle = SpoilerStyle(),
         code: ElementStyle = ElementStyle(),
         image: ImageStyle = ImageStyle(),
         inlineImage: InlineImageStyle = InlineImageStyle(),
@@ -462,6 +496,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.superscript = superscript
         self.subscript = subscriptStyle
         self.highlight = highlight
+        self.spoiler = spoiler
         self.code = code
         self.image = image
         self.inlineImage = inlineImage
@@ -489,6 +524,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         superscript.merge(other.superscript)
         self.subscript.merge(other.subscript)
         highlight.merge(other.highlight)
+        spoiler.merge(other.spoiler)
         code.merge(other.code)
         image.merge(other.image)
         inlineImage.merge(other.inlineImage)

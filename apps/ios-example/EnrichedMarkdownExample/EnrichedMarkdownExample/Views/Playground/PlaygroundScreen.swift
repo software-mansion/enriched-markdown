@@ -131,6 +131,7 @@ struct PlaygroundScreen: View {
                         markdown,
                         flags: Md4cFlags(underline: underlineEnabled, superscript: true, subscript: true, highlight: true)
                     )
+                        .markdownSpoilerOverlay(.solid)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .accessibilityIdentifier("preview-text")

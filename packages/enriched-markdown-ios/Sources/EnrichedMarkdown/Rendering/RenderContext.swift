@@ -30,6 +30,13 @@ enum MarkdownAttribute {
     static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
     static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
     static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
+    /// `true` on concealed `||spoiler||` text, `false` once revealed.
+    static let spoiler = NSAttributedString.Key("EnrichedMarkdownSpoiler")
+    /// Colors a concealed run had, restored on reveal.
+    static let spoilerOriginalColors = NSAttributedString.Key("EnrichedMarkdownSpoilerOriginalColors")
+    /// The `.link` value of a concealed run. Removed from `.link` so UIKit,
+    /// VoiceOver, and menus see no link until the spoiler is revealed.
+    static let spoilerLink = NSAttributedString.Key("EnrichedMarkdownSpoilerLink")
     static let blockquoteDepth = NSAttributedString.Key("EnrichedMarkdownBlockquoteDepth")
     static let blockquoteBackgroundColor = NSAttributedString.Key("EnrichedMarkdownBlockquoteBackgroundColor")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")
@@ -121,7 +128,7 @@ package final class RenderContext {
     }
 
     static func shouldPreserveColors(_ attributes: [NSAttributedString.Key: Any]) -> Bool {
-        attributes[.link] != nil || attributes[MarkdownAttribute.inlineCode] != nil
+        MarkdownAttributeValue.sourceLink(in: attributes) != nil || attributes[MarkdownAttribute.inlineCode] != nil
     }
 
     /// Recolors `range` to `color`, leaving links and inline code on their own colors.

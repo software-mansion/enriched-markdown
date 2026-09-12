@@ -146,6 +146,7 @@ The `MarkdownTheme` builder supports these elements:
 | `Superscript()` | Superscript text (`Md4cFlags(superscript: true)`) |
 | `Subscript()` | Subscript text (`Md4cFlags(subscript: true)`) |
 | `Highlight()` | Highlighted text (`Md4cFlags(highlight: true)`) |
+| `Spoiler()` | The overlay concealing `\|\|spoiler\|\|` text until tapped |
 | `Code()` | Inline code |
 | `CodeBlock()` | Fenced code blocks |
 | `Blockquote()` | Block quotes |
@@ -169,6 +170,7 @@ Element-specific modifiers include:
 - **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
+- **Spoiler:** `.color` (the particles or the solid box), `.particleDensity` (default `8`), `.particleSpeed` (default `20`), `.solidBorderRadius` (default `4`), `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
 - **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius` / `.borderRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.align`
 - **BlockImage:** `.height`, `.borderRadius`
@@ -210,7 +212,7 @@ public struct Md4cFlags: Equatable, Sendable {
 }
 ```
 
-`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, and `highlight` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, and `highlight` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, strikethrough, and spoilers are always enabled and need no flags.
 
 ### `.markdownTheme`
 
@@ -259,6 +261,21 @@ extension View {
 ```
 
 Tapping a task-list checkbox toggles its checked state in place (including the checked-item text decoration) and calls `onTaskListItemPress` with the new state. The toggle is visual — the view never mutates your `markdown` string, so persist the change from the handler if you need it back. `markdownTaskListItemToggleEnabled(false)` makes checkbox taps fully inert: no visual toggle and no `onTaskListItemPress`. Text selection and links are unaffected either way.
+
+### `.markdownSpoilerOverlay`
+
+```swift
+public enum MarkdownSpoilerOverlay: Equatable, Sendable {
+  case particles   // animated dot field (default)
+  case solid       // rounded box
+}
+
+extension View {
+  func markdownSpoilerOverlay(_ overlay: MarkdownSpoilerOverlay) -> some View
+}
+```
+
+`||spoiler||` text renders transparent under an overlay and shows on tap, one spoiler at a time. A link inside a concealed spoiler is not a link until the spoiler is revealed: no tap, long press, menu, or VoiceOver link element. Revealed spoilers stay revealed across theme changes and conceal again when the `markdown` string changes; Copy as Markdown emits the `||` markers either way. Colors and sizing come from the `Spoiler()` theme element; spoiler text reads as ordinary text to VoiceOver, matching the React Native renderer.
 
 ### `.markdownSelectable` / `.markdownSelectionColor`
 
@@ -461,6 +478,7 @@ layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], tr
 - Superscript (`^text^` with `Md4cFlags(superscript: true)`)
 - Subscript (`~text~` with `Md4cFlags(subscript: true)`)
 - Highlight (`==text==` with `Md4cFlags(highlight: true)`)
+- Spoilers (`||text||`, tap to reveal — see `.markdownSpoilerOverlay`)
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists

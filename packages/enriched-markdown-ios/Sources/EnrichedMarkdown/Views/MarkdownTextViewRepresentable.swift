@@ -11,6 +11,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let isSelectionEnabled: Bool
     let selectionColor: Color?
     let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
+    let spoilerOverlay: MarkdownSpoilerOverlay
+    let onSpoilerTap: ((NSRange) -> Void)?
     let accessibilityLabels: MarkdownAccessibilityLabels
 
     func makeCoordinator() -> Coordinator {
@@ -34,6 +36,8 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
         textView.onTaskListItemTap = onTaskListItemTap
+        textView.spoilerOverlays.mode = spoilerOverlay
+        textView.onSpoilerTap = onSpoilerTap
         textView.accessibilityLabels = accessibilityLabels
         textView.setMarkdownAttributedText(attributedText)
     }
@@ -41,6 +45,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     static func dismantleUIView(_ uiView: MarkdownTextView, coordinator: Coordinator) {
         uiView.delegate = nil
         uiView.onTaskListItemTap = nil
+        uiView.onSpoilerTap = nil
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {
@@ -217,7 +222,10 @@ final class MarkdownTextView: UITextView {
             // `updateUIView` assigns this on every pass, so only a real change
             // may drop the measurement — clearing it unconditionally would
             // re-measure the document every frame, which is the whole point.
-            if styleConfig != oldValue { cachedFit = nil }
+            if styleConfig != oldValue {
+                cachedFit = nil
+                spoilerOverlays.style = styleConfig.spoiler
+            }
         }
     }
 
@@ -246,6 +254,13 @@ final class MarkdownTextView: UITextView {
     /// checkbox margin. Nil makes checkbox taps fully inert (the
     /// `markdownTaskListItemToggleEnabled(false)` case).
     var onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
+
+    /// Fired with the concealed range when a tap lands on a spoiler
+    /// overlay. The overlay starts fading at once; the handler owns
+    /// restoring the text (see `MarkdownRenderStore.revealSpoiler`).
+    var onSpoilerTap: ((NSRange) -> Void)?
+
+    private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self)
 
     /// Our tap recognizer must not steal touches from the text view's own
     /// recognizers (selection, links), so it observes simultaneously.
@@ -369,10 +384,16 @@ final class MarkdownTextView: UITextView {
     }
 
     @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
-        guard recognizer.state == .ended,
-              let onTaskListItemTap,
-              let hit = taskListHit(at: recognizer.location(in: self))
-        else { return }
+        guard recognizer.state == .ended else { return }
+        let point = recognizer.location(in: self)
+
+        if let onSpoilerTap, let range = spoilerOverlays.concealedRange(at: point) {
+            spoilerOverlays.reveal(range: range)
+            onSpoilerTap(range)
+            return
+        }
+
+        guard let onTaskListItemTap, let hit = taskListHit(at: point) else { return }
         onTaskListItemTap(hit)
     }
 
@@ -437,6 +458,9 @@ final class MarkdownTextView: UITextView {
         invalidateIntrinsicContentSize()
         setDecorationNeedsDisplay()
         accessibilityTreeIsStale = true
+        // A text change alone does not schedule a layout pass, which is
+        // where spoiler overlays are reconciled.
+        setNeedsLayout()
     }
 
     override func sizeThatFits(_ size: CGSize) -> CGSize {
@@ -469,22 +493,9 @@ final class MarkdownTextView: UITextView {
     /// Screen-coordinate frame for a character range, unioned over its
     /// TextKit 2 layout fragments.
     func accessibilityScreenFrame(for range: NSRange) -> CGRect {
-        guard let textLayoutManager,
-              let contentManager = textLayoutManager.textContentManager,
-              let textRange = TextLayoutHelpers.textRange(range, in: contentManager) else {
-            return .zero
-        }
-
-        textLayoutManager.ensureLayout(for: textRange)
         var union = CGRect.null
-        textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { _, frame, _, _ in
-            union = union.union(frame)
-            return true
-        }
+        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { union = union.union($0) }
         guard !union.isNull else { return .zero }
-
-        union.origin.x += textContainerInset.left
-        union.origin.y += textContainerInset.top
         return UIAccessibility.convertToScreenCoordinates(union, in: self)
     }
 
@@ -492,6 +503,7 @@ final class MarkdownTextView: UITextView {
         super.layoutSubviews()
         layoutDecorationView()
         setDecorationNeedsDisplay()
+        spoilerOverlays.update()
     }
 }
 
