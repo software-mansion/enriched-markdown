@@ -31,7 +31,8 @@ final class MarkdownRenderStore: ObservableObject {
         markdown: String,
         config: MarkdownStyleConfig,
         flags: Md4cFlags = .commonMark,
-        imageRequestHeaders: [String: String] = [:]
+        imageRequestHeaders: [String: String] = [:],
+        plugins: [any MarkdownRenderPlugin] = []
     ) {
         if isBlank(markdown) {
             attributedText = NSAttributedString()
@@ -43,17 +44,20 @@ final class MarkdownRenderStore: ObservableObject {
         let resolved = markdown == baseMarkdown ? (currentMarkdown ?? markdown) : markdown
         baseMarkdown = markdown
         currentMarkdown = resolved
+        // render adjusts the flags itself; the source keeps the adjusted ones for copying.
+        let effectiveFlags = MarkdownRenderer.effectiveFlags(flags, plugins: plugins)
 
         coordinator.scheduleRender {
             MarkdownRenderer.render(
                 resolved,
                 config: config,
                 flags: flags,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: plugins
             )
         } apply: { [weak self] result in
             self?.attributedText = result
-            self?.source = RenderedSource(markdown: resolved, flags: flags)
+            self?.source = RenderedSource(markdown: resolved, flags: effectiveFlags)
         }
     }
 

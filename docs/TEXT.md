@@ -99,6 +99,10 @@ See the [API Reference](API_REFERENCE.md#onlinkpress) for detailed examples and 
 
 Rendered images can be made interactive with the `onImagePress` callback, which receives the image `url` and `altText`. Use it to open a lightbox or full-screen viewer. It fires for block and inline images (including those in headings, lists, and blockquotes); an image that is also a link keeps link behavior and fires `onLinkPress` instead. See the [API Reference](API_REFERENCE.md#onimagepress) for details.
 
+### Code Block Handling
+
+A fenced code block can be made tappable with the `onCodeBlockPress` callback, which receives the block's `code` and `language`. Use it to build actions like copy-to-clipboard or opening the code in a viewer. A tap anywhere in the block body fires it, while text selection, the header copy button (GitHub flavor), and the long-press menu stay unchanged. Works in both the CommonMark and GitHub flavors, and on web (where the code block is a clickable, keyboard-activatable element). See the [API Reference](API_REFERENCE.md#oncodeblockpress) for details.
+
 ## Supported Markdown Elements
 
 `react-native-enriched-markdown` supports a comprehensive set of Markdown elements. See [Element Structure](ELEMENTS_STRUCTURE.md) for a detailed overview of all supported elements, their syntax, block vs inline categorization, nesting behavior, and how elements inherit typography from their parent blocks.

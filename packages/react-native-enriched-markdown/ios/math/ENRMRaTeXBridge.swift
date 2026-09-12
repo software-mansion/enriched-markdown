@@ -48,13 +48,25 @@ public final class ENRMRaTeXBridge: NSObject {
     fontSize: CGFloat,
     color: UIColor
   ) -> ENRMRaTeXRenderResult? {
+    parse(latex, displayMode: displayMode, fontSize: fontSize, color: color, error: nil)
+  }
+
+  @objc(parse:displayMode:fontSize:color:error:)
+  public static func parse(
+    _ latex: String,
+    displayMode: Bool,
+    fontSize: CGFloat,
+    color: UIColor,
+    error: NSErrorPointer
+  ) -> ENRMRaTeXRenderResult? {
     RaTeXFontLoader.ensureLoaded()
     do {
       let displayList = try RaTeXEngine.shared.parse(latex, displayMode: displayMode, color: color)
       let renderer = RaTeXRenderer(displayList: displayList, fontSize: fontSize)
       return ENRMRaTeXRenderResult(renderer: renderer)
-    } catch {
-      NSLog("[RaTeX] Failed to parse LaTeX: %@", error.localizedDescription)
+    } catch let parseError {
+      NSLog("[RaTeX] Failed to parse LaTeX: %@", parseError.localizedDescription)
+      error?.pointee = parseError as NSError
       return nil
     }
   }

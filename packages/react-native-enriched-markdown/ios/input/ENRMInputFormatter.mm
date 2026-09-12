@@ -11,6 +11,54 @@
 #import "ENRMUnderlineStyleHandler.h"
 #import "ENRMUnorderedListBlockHandler.h"
 
+/// Sets `key` to `value` only on sub-runs whose value differs, recording each
+/// written range in `changed` so the caller can invalidate just what changed.
+static void ENRMSetAttributeIfChanged(NSMutableAttributedString *storage, NSAttributedStringKey key, id value,
+                                      NSRange range, NSMutableIndexSet *changed)
+{
+  if (range.length == 0) {
+    return;
+  }
+  NSMutableArray<NSValue *> *rangesToSet = [NSMutableArray array];
+  [storage enumerateAttribute:key
+                      inRange:range
+                      options:0
+                   usingBlock:^(id current, NSRange subRange, BOOL *stop) {
+                     BOOL equal = (current == value) || (current != nil && [current isEqual:value]);
+                     if (!equal) {
+                       [rangesToSet addObject:[NSValue valueWithRange:subRange]];
+                     }
+                   }];
+  for (NSValue *rangeValue in rangesToSet) {
+    NSRange subRange = rangeValue.rangeValue;
+    [storage addAttribute:key value:value range:subRange];
+    [changed addIndexesInRange:subRange];
+  }
+}
+
+/// Removes `key` only where present, recording cleared ranges in `changed`.
+static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSAttributedStringKey key, NSRange range,
+                                         NSMutableIndexSet *changed)
+{
+  if (range.length == 0) {
+    return;
+  }
+  NSMutableArray<NSValue *> *rangesToClear = [NSMutableArray array];
+  [storage enumerateAttribute:key
+                      inRange:range
+                      options:0
+                   usingBlock:^(id current, NSRange subRange, BOOL *stop) {
+                     if (current != nil) {
+                       [rangesToClear addObject:[NSValue valueWithRange:subRange]];
+                     }
+                   }];
+  for (NSValue *rangeValue in rangesToClear) {
+    NSRange subRange = rangeValue.rangeValue;
+    [storage removeAttribute:key range:subRange];
+    [changed addIndexesInRange:subRange];
+  }
+}
+
 @implementation ENRMInputFormatter {
   NSDictionary<NSNumber *, id<ENRMStyleHandler>> *_styleHandlers;
   NSDictionary<NSNumber *, id<ENRMBlockHandler>> *_blockHandlers;
@@ -85,13 +133,17 @@
   NSRange scopeRange = NSMakeRange(scopeStart, scopeEnd - scopeStart);
   NSUInteger scopeLength = scopeRange.length;
 
+  // Diff every write and invalidate only what changed, so unchanged content in
+  // scope (e.g. a table below a plain-paragraph edit) is not re-laid out (#739).
+  NSMutableIndexSet *changed = [NSMutableIndexSet indexSet];
+
   [textStorage beginEditing];
 
-  [textStorage addAttribute:NSFontAttributeName value:style.baseFont range:scopeRange];
-  [textStorage addAttribute:NSForegroundColorAttributeName value:style.baseTextColor range:scopeRange];
-  [textStorage removeAttribute:NSUnderlineStyleAttributeName range:scopeRange];
-  [textStorage removeAttribute:NSStrikethroughStyleAttributeName range:scopeRange];
-  [textStorage removeAttribute:NSBackgroundColorAttributeName range:scopeRange];
+  // Reset to base; fonts are resolved per trait run below.
+  ENRMSetAttributeIfChanged(textStorage, NSForegroundColorAttributeName, style.baseTextColor, scopeRange, changed);
+  ENRMRemoveAttributeIfPresent(textStorage, NSUnderlineStyleAttributeName, scopeRange, changed);
+  ENRMRemoveAttributeIfPresent(textStorage, NSStrikethroughStyleAttributeName, scopeRange, changed);
+  ENRMRemoveAttributeIfPresent(textStorage, NSBackgroundColorAttributeName, scopeRange, changed);
 
   UIFontDescriptorSymbolicTraits *traitMap =
       (UIFontDescriptorSymbolicTraits *)calloc(scopeLength, sizeof(UIFontDescriptorSymbolicTraits));
@@ -126,21 +178,21 @@
       }
     }
 
+    // Handler writes are not diffed; mark the styled run changed to keep its invalidation.
     [handler applyNonFontAttributesToTextStorage:textStorage range:clipped formattingRange:formattingRange style:style];
+    [changed addIndexesInRange:clipped];
   }
 
+  // Resolve the final font per trait run (base or styled), diffed.
   NSUInteger runStart = 0;
   UIFontDescriptorSymbolicTraits currentTraits = traitMap[0];
 
   for (NSUInteger i = 1; i <= scopeLength; i++) {
     UIFontDescriptorSymbolicTraits nextTraits = (i < scopeLength) ? traitMap[i] : ~currentTraits;
     if (nextTraits != currentTraits) {
-      if (currentTraits != 0) {
-        UIFont *font = [style fontForTraits:currentTraits];
-        [textStorage addAttribute:NSFontAttributeName
-                            value:font
-                            range:NSMakeRange(scopeStart + runStart, i - runStart)];
-      }
+      UIFont *font = (currentTraits != 0) ? [style fontForTraits:currentTraits] : style.baseFont;
+      ENRMSetAttributeIfChanged(textStorage, NSFontAttributeName, font,
+                                NSMakeRange(scopeStart + runStart, i - runStart), changed);
       runStart = i;
       currentTraits = (i < scopeLength) ? traitMap[i] : 0;
     }
@@ -152,7 +204,11 @@
 
   NSLayoutManager *layoutManager = textStorage.layoutManagers.firstObject;
   if (layoutManager) {
-    [layoutManager invalidateLayoutForCharacterRange:scopeRange actualCharacterRange:NULL];
+    // Invalidate only changed ranges; ensureLayout over the scope only realizes
+    // already-dirty runs, so the inserted line still lays out.
+    [changed enumerateRangesUsingBlock:^(NSRange changedRange, BOOL *stop) {
+      [layoutManager invalidateLayoutForCharacterRange:changedRange actualCharacterRange:NULL];
+    }];
     [layoutManager ensureLayoutForCharacterRange:scopeRange];
   }
 

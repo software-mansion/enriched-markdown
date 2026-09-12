@@ -18,15 +18,8 @@ final class StrikethroughRenderer: NodeRenderer {
 
         output.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
 
-        guard let strikethroughColor = config.strikethrough.foregroundColor else { return }
-
-        output.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
-            guard !RenderContext.shouldPreserveColors(attributes) else { return }
-
-            let currentColor = attributes[.foregroundColor] as? UIColor
-            if currentColor != strikethroughColor {
-                output.addAttribute(.foregroundColor, value: strikethroughColor, range: subrange)
-            }
+        if let strikethroughColor = config.strikethrough.foregroundColor {
+            RenderContext.applyForegroundColor(strikethroughColor, to: output, in: range)
         }
     }
 }

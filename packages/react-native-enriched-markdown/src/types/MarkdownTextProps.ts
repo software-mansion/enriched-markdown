@@ -7,6 +7,8 @@ import type {
   ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
+  LatexErrorEvent,
+  CodeBlockPressEvent,
 } from './events';
 
 /**
@@ -204,6 +206,32 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   onCopyPress?: (event: CopyPressEvent) => void;
   /**
+   * Callback fired when a math expression cannot be parsed or rendered by the
+   * LaTeX engine.
+   *
+   * Receives the raw LaTeX `source` of the failing expression (no `$`/`$$`
+   * delimiters), the engine's error `message` (omitted when the engine gives
+   * none), and `displayMode` (`false` for inline `$...$`, `true` for block
+   * `$$...$$`). The whole expression is the unit of failure - the engine does
+   * not report a single offending command, so there is no `command` field.
+   *
+   * De-duplicated per component instance (keyed by `displayMode` + `source`):
+   * fires at most once per distinct failing expression, and the cache is kept
+   * across `markdown` changes so streaming does not re-report the same failure.
+   * A remount (new instance) reports again, so de-duplicate on your side if you
+   * aggregate app-wide. Requires `md4cFlags.latexMath` (on by default).
+   * @platform ios, android
+   */
+  onLatexError?: (event: LatexErrorEvent) => void;
+  /**
+   * Callback fired when a fenced code block is tapped/clicked anywhere in its
+   * body. Receives the block's `code` and `language`. Setting it arms the block
+   * for taps; text selection, the header copy button, and the long-press menu
+   * stay unchanged. Works in both flavors and on web.
+   * @platform ios, android, web
+   */
+  onCodeBlockPress?: (event: CodeBlockPressEvent) => void;
+  /**
    * Controls the long-press context menu on block views (code blocks, tables,
    * and block math). When false, long-pressing a block does not open the copy
    * popup. Does not affect the code-block header copy button, the
@@ -390,4 +418,36 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios
    */
   writingDirection?: 'auto' | 'ltr' | 'rtl' | 'first-strong';
+  /**
+   * Maximum number of lines to display before the text is truncated. `0` (the
+   * default) means unlimited. Matches React Native `Text`'s `numberOfLines`.
+   *
+   * Only supported for CommonMark (the default flavor). When `flavor` is
+   * `'github'` the content is laid out as independent block segments and this
+   * prop is ignored - see the GFM tracking issue.
+   *
+   * Android: while clamped (`numberOfLines > 0`) the view is not selectable and
+   * its links are not tappable, regardless of `selectable`. Android only draws
+   * the truncation ellipsis through `StaticLayout`; enabling selection or a link
+   * movement method promotes the text to a `Spannable`, forcing `DynamicLayout`,
+   * which has no `maxLines` support and drops the clamp/ellipsis. Both are
+   * restored once the clamp is removed. iOS keeps selection and links.
+   * @default 0
+   */
+  numberOfLines?: number;
+  /**
+   * Where to place the ellipsis when text is truncated by `numberOfLines`.
+   * `'clip'` truncates with no ellipsis glyph. Only takes effect when
+   * `numberOfLines` is set. Matches React Native `Text`'s `ellipsizeMode`.
+   *
+   * `'head'` and `'middle'` are single-line truncation modes: they only place
+   * the ellipsis as described when `numberOfLines` is `1`. With
+   * `numberOfLines > 1` Android falls back to tail-style truncation (only
+   * `TruncateAt.END` works past one line) and iOS is likewise unreliable, so
+   * use `'tail'` or `'clip'` for multi-line clamps. Same limitation as RN `Text`.
+   *
+   * Ignored when `flavor` is `'github'` (see `numberOfLines`).
+   * @default 'tail'
+   */
+  ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
 }

@@ -37,6 +37,28 @@ Block math equations are rendered as standalone display elements with spacing an
 > [!IMPORTANT]
 > LaTeX commands use backslashes (e.g. `\frac`, `\alpha`). In regular JS strings and template literals, backslashes are escape characters. Use `String.raw` or double backslashes (`\\frac`) to preserve them. Block math (`$$...$$`) must be on its own line to render as a display element.
 
+## Detecting render failures
+
+When the engine cannot draw a formula (an unsupported command, a syntax error) it falls back to showing the raw source instead of crashing. The [`onLatexError`](API_REFERENCE.md#onlatexerror) callback lets you observe these failures - for example to report them to an error tracker:
+
+```tsx
+<EnrichedMarkdownText
+  markdown={"Inline $\\foo$ and block:\n\n$$\\bar$$"}
+  onLatexError={({ source, message, displayMode }) => {
+    reportToErrorTracker('latex-render-failed', { source, message, displayMode });
+  }}
+/>
+```
+
+The whole expression is the unit of failure: the engine either renders an expression in full or rejects it, so `source` is the entire failing inline span or block (no `$`/`$$` delimiters) rather than a single command. `displayMode` is `false` for inline `$...$` and `true` for block `$$...$$`. This is native-only (iOS and Android); on web, unsupported LaTeX falls back to the raw source without a callback.
+
+### De-duplication and re-mounts
+
+Each `EnrichedMarkdownText` instance remembers the failures it has already reported (keyed by `displayMode` + `source`) and fires `onLatexError` **at most once per distinct failing expression** for its lifetime. The cache is not cleared when the `markdown` prop changes, so streaming content - where the same expressions are re-parsed on every update - reports each failure only once instead of on every keystroke or token.
+
+> [!CAUTION]
+> The de-duplication is per component **instance**, not global. If the component unmounts and remounts (a new instance - e.g. navigating away and back, changing its React `key`, or list virtualization recycling it), the fresh instance has no memory of prior reports and will fire `onLatexError` again for the same expressions. If you forward these to an error tracker, de-duplicate on your side as well (e.g. by `source`) so a remount does not inflate your counts.
+
 ## Web
 
 On web the library renders LaTeX via [KaTeX](https://katex.org/) in **MathML output mode**. Browsers render MathML natively — no CSS or font files are required.

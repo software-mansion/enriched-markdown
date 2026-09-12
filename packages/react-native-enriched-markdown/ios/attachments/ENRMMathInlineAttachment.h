@@ -1,13 +1,16 @@
 #pragma once
+#import "ENRMLatexErrorReporting.h"
 #import "ENRMUIKit.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface ENRMMathInlineAttachment : NSTextAttachment
+@interface ENRMMathInlineAttachment : NSTextAttachment <ENRMLatexErrorReporting>
 
 @property (nonatomic, strong) NSString *latex;
 @property (nonatomic, assign) CGFloat fontSize;
 @property (nonatomic, strong, nullable) RCTUIColor *mathTextColor;
+@property (nonatomic, assign) BOOL displayMode;
+@property (nonatomic, copy, nullable) ENRMLatexErrorHandler onLatexError;
 
 @property (nonatomic, readonly) CGFloat boxHeight;
 

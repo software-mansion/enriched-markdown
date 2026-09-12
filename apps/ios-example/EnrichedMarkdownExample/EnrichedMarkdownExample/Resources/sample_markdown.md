@@ -142,6 +142,12 @@ Scientific prefixes: 6.022 × 10^23^ (Avogadro's number), the universe is approx
 
 ---
 
+## Highlight
+
+Use ==double equals== to highlight text, and ==**combine it** with other styles== when a phrase needs to stand out.
+
+---
+
 ## Fascinating Forest Facts
 
 Did you know that trees communicate through an underground network? Scientists call this the `Wood Wide Web` — a fungal network connecting tree roots across entire forests.

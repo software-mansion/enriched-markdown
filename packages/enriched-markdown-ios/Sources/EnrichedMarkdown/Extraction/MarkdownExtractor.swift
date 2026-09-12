@@ -108,6 +108,7 @@ extension MarkdownExtractor {
         let isUnderline: Bool
         let isSuperscript: Bool
         let isSubscript: Bool
+        let isHighlight: Bool
         let linkURL: String?
 
         init(attrs: [NSAttributedString.Key: Any]) {
@@ -118,6 +119,7 @@ extension MarkdownExtractor {
             isUnderline = (MarkdownAttributeValue.intValue(from: attrs[.underlineStyle]) ?? 0) != 0
             isSuperscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.superscript])
             isSubscript = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.subscript])
+            isHighlight = MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.highlight])
 
             switch attrs[.link] {
             case let url as URL:
@@ -159,8 +161,18 @@ private extension MarkdownExtractor {
         }
 
         if let table = attrs[.attachment] as? TableAttachment {
-            appendTable(table, to: &result, state: &state)
+            appendBlockElement(table.markdownText(), to: &result, state: &state)
             return
+        }
+
+        var text = text
+        if let attachment = attrs[.attachment] as? any MarkdownPluginAttachment {
+            if attachment.isBlock {
+                appendBlockElement(attachment.markdownText(), to: &result, state: &state)
+                return
+            }
+            // Inline plugin attachments reconstruct like any other inline run.
+            text = attachment.markdownText()
         }
 
         if text == "\u{FFFC}" {
@@ -213,14 +225,15 @@ private extension MarkdownExtractor {
         state.listDepth = -1
     }
 
-    static func appendTable(
-        _ table: TableAttachment,
+    /// Emits a standalone block, leaving any heading, list, or blockquote context.
+    static func appendBlockElement(
+        _ markdown: String,
         to result: inout String,
         state: inout ExtractionState
     ) {
         flushHeading(&result, state: &state)
         ensureBlankLine(&result)
-        result += table.markdownText() + "\n"
+        result += markdown + "\n"
         state.needsBlankLine = true
         state.blockquoteDepth = -1
         state.listDepth = -1
@@ -444,6 +457,9 @@ private extension MarkdownExtractor {
         }
         if let linkURL = traits.linkURL {
             result = "[\(result)](\(linkURL))"
+        }
+        if traits.isHighlight {
+            result = "==\(result)=="
         }
 
         return result

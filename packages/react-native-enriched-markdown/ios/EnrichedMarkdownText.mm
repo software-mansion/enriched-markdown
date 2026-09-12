@@ -6,6 +6,7 @@
 #import "ENRMAtomicSize.h"
 #import "ENRMContextMenuTextView+macOS.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLatexErrorCoordinator.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -25,6 +26,7 @@
 #import "MarkdownExtractor.h"
 #import "MeasurementCache.h"
 #import "ParagraphStyleUtils.h"
+#import "RenderContext.h"
 #import "RuntimeKeys.h"
 #import "SelectionColorUtils.h"
 #import "StylePropsUtils.h"
@@ -57,6 +59,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
+- (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitContextMenuItemPress:(NSString *)itemText
                     selectedText:(NSString *)selectedText
@@ -86,6 +89,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
+  BOOL _enableCodeBlockPress;
   BOOL _streamingAnimation;
   BOOL _forceHeightUpdateOnNextRender;
 
@@ -113,12 +117,17 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   NSLineBreakStrategy _lineBreakStrategy;
 
+  NSInteger _numberOfLines;
+  NSLineBreakMode _ellipsizeLineBreakMode;
+
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
 
   ENRMDirtyFlags _dirtyFlags;
 
   ENRMAtomicSize _lastCommittedSize;
+
+  ENRMLatexErrorCoordinator *_latexErrorCoordinator;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -238,14 +247,33 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _renderCoordinator =
         [[ENRMAsyncRenderCoordinator alloc] initWithQueueLabel:"com.swmansion.enriched.markdown.render"];
 
+    __weak __typeof(self) weakLatexSelf = self;
+    _latexErrorCoordinator =
+        [[ENRMLatexErrorCoordinator alloc] initWithEmit:^BOOL(NSString *source, NSString *message, BOOL displayMode) {
+          __typeof(self) strongSelf = weakLatexSelf;
+          if (!strongSelf)
+            return NO;
+          auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(strongSelf->_eventEmitter);
+          if (!emitter)
+            return NO;
+          emitter->onLatexError({
+              .source = std::string(source.UTF8String ?: ""),
+              .message = std::string(message.UTF8String ?: ""),
+              .displayMode = displayMode ? true : false,
+          });
+          return YES;
+        }];
     _maxFontSizeMultiplier = 0;
     _allowTrailingMargin = NO;
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
+    _enableCodeBlockPress = NO;
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
+    _numberOfLines = 0;
+    _ellipsizeLineBreakMode = NSLineBreakByTruncatingTail;
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection =
         [[RCTI18nUtil sharedInstance] isRTL] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
@@ -303,7 +331,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, strongSelf->_cachedMarkdown,
-                                     strongSelf->_config, @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig);
+                                     strongSelf->_config, @[ baseMenu ], customItems,
+                                     strongSelf -> _selectionMenuConfig);
   };
 #endif
 
@@ -371,6 +400,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         self->_lastElementMarginBottom = result.lastElementMarginBottom;
         self->_accessibilityInfo = result.accessibilityInfo;
         self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
+        [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
         [self applyRenderedText:result.attributedText];
       }];
 }
@@ -413,6 +443,26 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 }
 
+// Kept in sync with the view-free measurement so the rendered line count matches
+// the measured height. The clamp must be computed at the padding-inset content
+// width (the text view's own width) rather than the full component bounds, or a
+// full-width measurement pass leaves the truncation laid out too wide and fewer
+// lines render than were measured. numberOfLines == 0 restores the unlimited default.
+- (void)applyLineClampToTextContainer
+{
+  if (_numberOfLines > 0) {
+    CGFloat contentWidth = _textView.bounds.size.width;
+    if (contentWidth > 0) {
+      _textView.textContainer.size = CGSizeMake(contentWidth, CGFLOAT_MAX);
+    }
+    _textView.textContainer.maximumNumberOfLines = _numberOfLines;
+    _textView.textContainer.lineBreakMode = _ellipsizeLineBreakMode;
+  } else {
+    _textView.textContainer.maximumNumberOfLines = 0;
+    _textView.textContainer.lineBreakMode = NSLineBreakByWordWrapping;
+  }
+}
+
 - (void)applyRenderedText:(NSMutableAttributedString *)attributedText
 {
   NSUInteger tailStart = _previousTextLength;
@@ -432,6 +482,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     containerWidth = self.bounds.size.width;
   }
   _textView.textContainer.size = CGSizeMake(containerWidth, CGFLOAT_MAX);
+  [self applyLineClampToTextContainer];
 
   _accessibilityElements = nil;
   _accessibilityNeedsRebuild = YES;
@@ -465,6 +516,15 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     CGSize measured = [self measureSize:self.bounds.size.width];
     if (forceHeightUpdate || needsHeightUpdate(measured, self.bounds)) {
       [self requestHeightUpdate];
+    }
+
+    // measureSize lays the shared display container out at the full bounds width;
+    // re-pin the clamp to the content width so the visible truncation matches the
+    // content-width line count the shadow node measured.
+    if (_numberOfLines > 0) {
+      [self applyLineClampToTextContainer];
+      [_textView.layoutManager ensureLayoutForTextContainer:_textView.textContainer];
+      ENRMSetNeedsDisplay(_textView);
     }
   }
 
@@ -581,6 +641,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
+  _enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
   if (ENRMContextMenuItemsChanged(oldViewProps.contextMenuItems, newViewProps.contextMenuItems)) {
     _contextMenuItemTexts = ENRMContextMenuTextsFromItems(newViewProps.contextMenuItems);
@@ -645,6 +706,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (newViewProps.writingDirection != oldViewProps.writingDirection) {
     NSString *value = [[NSString alloc] initWithUTF8String:newViewProps.writingDirection.c_str()];
     _writingDirectionMode = ENRMResolveWritingDirectionMode(value);
+    _forceHeightUpdateOnNextRender = YES;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  if (newViewProps.numberOfLines != oldViewProps.numberOfLines) {
+    _numberOfLines = (NSInteger)newViewProps.numberOfLines;
+    [self applyLineClampToTextContainer];
+    _forceHeightUpdateOnNextRender = YES;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  if (newViewProps.ellipsizeMode != oldViewProps.ellipsizeMode) {
+    _ellipsizeLineBreakMode =
+        ENRMResolveEllipsizeLineBreakMode([[NSString alloc] initWithUTF8String:newViewProps.ellipsizeMode.c_str()]);
+    [self applyLineClampToTextContainer];
     _forceHeightUpdateOnNextRender = YES;
     _dirtyFlags |= ENRMDirtyRender;
   }
@@ -727,7 +803,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 {
   if (_textView) {
     CGPoint textViewPoint = [self convertPoint:point toView:_textView];
-    if (isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress)) {
+    if (isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress, _enableCodeBlockPress)) {
       return nil;
     }
   }
@@ -756,6 +832,14 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     emitter->onImagePress({.url = std::string(url.UTF8String ?: ""), .altText = std::string(altText.UTF8String ?: "")});
 }
 
+- (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onCodeBlockPress(
+        {.code = std::string(code.UTF8String ?: ""), .language = std::string(language.UTF8String ?: "")});
+}
+
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text
 {
   auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
@@ -776,6 +860,12 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
         .selectionStart = (int)selectionStart,
         .selectionEnd = (int)selectionEnd,
     });
+}
+
+- (void)updateEventEmitter:(const facebook::react::EventEmitter::Shared &)eventEmitter
+{
+  [super updateEventEmitter:eventEmitter];
+  [_latexErrorCoordinator flushPending];
 }
 
 - (void)textTapped:(ENRMTapRecognizer *)recognizer
@@ -804,6 +894,17 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
     if (image) {
       [self emitImagePress:image[@"url"] altText:image[@"altText"]];
+      return;
+    }
+  }
+
+  // Skip while text is selected so the tap clears the selection instead of
+  // firing the press (matches the web guard).
+  if (_enableCodeBlockPress && textView.selectedRange.length == 0) {
+    NSDictionary<NSString *, NSString *> *codeBlock = codeBlockAtTapLocation(textView, recognizer);
+    if (codeBlock) {
+      [self emitCodeBlockPress:codeBlock[@"code"] language:codeBlock[@"language"]];
+      return;
     }
   }
 }

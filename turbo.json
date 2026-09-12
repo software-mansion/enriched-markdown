@@ -48,8 +48,8 @@
         "package.json",
         "app/**",
         "gradle/**",
-        "$TURBO_ROOT$/packages/android-enriched-markdown/**",
-        "!$TURBO_ROOT$/packages/android-enriched-markdown/**/build/**",
+        "$TURBO_ROOT$/packages/enriched-markdown-android/**",
+        "!$TURBO_ROOT$/packages/enriched-markdown-android/**/build/**",
         "$TURBO_ROOT$/packages/core/cpp/**"
       ],
       "outputs": []

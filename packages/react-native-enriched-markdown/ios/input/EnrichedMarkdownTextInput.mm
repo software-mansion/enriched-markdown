@@ -59,6 +59,7 @@ using namespace facebook::react;
 - (void)setupTextView;
 - (void)applyFormatting;
 - (void)applyFormattingScopedToEditAtLocation:(NSUInteger)editLocation insertedLength:(NSUInteger)insertedLength;
+- (void)applyFormattingScopedFromParagraphAtLocation:(NSUInteger)editLocation;
 - (void)toggleInlineStyle:(ENRMInputStyleType)styleType;
 - (void)resetBaseTypingAttributes;
 @end
@@ -819,6 +820,26 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   NSUInteger rawEnd = MIN(editLocation + insertedLength, textLength);
   rawEnd = MAX(rawEnd, rawStart);
   NSRange scope = [plainText lineRangeForRange:NSMakeRange(rawStart, rawEnd - rawStart)];
+  [self applyFormattingScopedToRange:scope];
+}
+
+/// Newline variant: a newline can only restructure the paragraph it lands in and
+/// blocks below it, never content above. Scoping from the edit's paragraph start
+/// to the end of the text leaves paragraphs above untouched (issue #739). A
+/// backspace-merge is covered because editLocation lands at the merge point,
+/// whose paragraph range extends back over the joined previous line.
+- (void)applyFormattingScopedFromParagraphAtLocation:(NSUInteger)editLocation
+{
+  NSString *plainText = ENRMGetPlainText(_textView);
+  NSUInteger textLength = plainText.length;
+  if (textLength == 0) {
+    [self applyFormatting];
+    return;
+  }
+
+  NSUInteger location = MIN(editLocation, textLength);
+  NSRange paragraph = [plainText paragraphRangeForRange:NSMakeRange(location, 0)];
+  NSRange scope = NSMakeRange(paragraph.location, textLength - paragraph.location);
   [self applyFormattingScopedToRange:scope];
 }
 
@@ -1639,7 +1660,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #endif
 
   if (touchedNewline) {
-    [self applyFormatting];
+    [self applyFormattingScopedFromParagraphAtLocation:editLocation];
   } else {
     [self applyFormattingScopedToEditAtLocation:editLocation insertedLength:insertedLength];
   }

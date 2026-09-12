@@ -14,7 +14,9 @@ import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerInterface
 import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.utils.common.applyReactBorderProps
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
+import com.swmansion.enriched.markdown.utils.common.emitLatexError
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
@@ -69,12 +71,25 @@ class EnrichedMarkdownTextManager :
 
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
     }
+
+    view.setOnLatexErrorCallback { source, message, displayMode ->
+      emitLatexError(view, source, message, displayMode)
+    }
     return view
   }
 
   override fun onAfterUpdateTransaction(view: EnrichedMarkdownText) {
     super.onAfterUpdateTransaction(view)
     view.commitProps()
+  }
+
+  // Replay containerStyle border props the delegate drops (see applyReactBorderProps).
+  override fun updateProperties(
+    view: EnrichedMarkdownText,
+    props: ReactStylesDiffMap,
+  ) {
+    super.updateProperties(view, props)
+    applyReactBorderProps(view, props)
   }
 
   override fun updateState(
@@ -206,6 +221,14 @@ class EnrichedMarkdownTextManager :
     // No-op: block context menus are rendered by the container component.
   }
 
+  @ReactProp(name = "enableCodeBlockPress", defaultBoolean = false)
+  override fun setEnableCodeBlockPress(
+    view: EnrichedMarkdownText?,
+    enableCodeBlockPress: Boolean,
+  ) {
+    view?.setEnableCodeBlockPress(enableCodeBlockPress)
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdownText?,
@@ -252,6 +275,22 @@ class EnrichedMarkdownTextManager :
     strategy: String?,
   ) {
     view?.setTextBreakStrategy(strategy ?: "highQuality")
+  }
+
+  @ReactProp(name = "numberOfLines", defaultInt = 0)
+  override fun setNumberOfLines(
+    view: EnrichedMarkdownText?,
+    value: Int,
+  ) {
+    view?.setMarkdownNumberOfLines(value)
+  }
+
+  @ReactProp(name = "ellipsizeMode")
+  override fun setEllipsizeMode(
+    view: EnrichedMarkdownText?,
+    value: String?,
+  ) {
+    view?.setMarkdownEllipsizeMode(value ?: "tail")
   }
 
   @ReactProp(name = "contextMenuItems")
@@ -313,7 +352,7 @@ class EnrichedMarkdownTextManager :
     attachmentsPositions: FloatArray?,
   ): Long {
     val id = localData?.getInt("viewTag")
-    return MeasurementStore.getMeasureById(context, id, width, height, heightMode, props)
+    return MeasurementStore.getMeasureById(context, id, width, widthMode, height, heightMode, props)
   }
 
   companion object {

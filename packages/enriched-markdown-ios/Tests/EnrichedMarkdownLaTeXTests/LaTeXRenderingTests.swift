@@ -1,0 +1,270 @@
+import CoreText
+import UIKit
+import XCTest
+@testable import EnrichedMarkdown
+@testable import EnrichedMarkdownLaTeX
+
+final class LaTeXRenderingTests: XCTestCase {
+    private var config: MarkdownStyleConfig!
+
+    private var effectiveFlags: Md4cFlags {
+        MarkdownRenderer.effectiveFlags(.commonMark, plugins: [LaTeXRenderPlugin()])
+    }
+
+    override func setUp() {
+        super.setUp()
+        config = MarkdownStyleConfig.baseline()
+    }
+
+    // MARK: - Helpers
+
+    private func renderWithStub(
+        _ markdown: String,
+        accessibilityLabel: @escaping (String) -> String = LaTeXRenderPlugin.label(
+            template: LaTeXRenderPlugin.defaultAccessibilityLabel
+        ),
+        typeset: @escaping MathRenderer.Typeset
+    ) -> NSAttributedString {
+        MarkdownRenderer.render(
+            markdown,
+            config: config,
+            flags: .commonMark,
+            imageRequestHeaders: [:],
+            plugins: [LaTeXRenderPlugin(typeset: typeset, accessibilityLabel: accessibilityLabel)]
+        )
+    }
+
+    /// Copy as Markdown for the rendered selection matching `substring`,
+    /// rendered with stub typesetting.
+    private func copyMarkdown(
+        selecting substring: String,
+        in source: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> String? {
+        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
+        let range = (rendered.string as NSString).range(of: substring)
+        XCTAssertNotEqual(range.location, NSNotFound, "'\(substring)' not rendered", file: file, line: line)
+        guard range.location != NSNotFound else { return nil }
+        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, flags: effectiveFlags)
+    }
+
+    // MARK: - Real engine
+
+    // Guards the Fonts resource wiring (a symlink in the monorepo): an
+    // unregistered font would make CoreText fall back to a different face.
+    func testKaTeXFontsRegisterFromBundle() {
+        _ = RaTeXFontLoader.ensureLoaded()
+
+        let font = CTFontCreateWithName("KaTeX_Main-Regular" as CFString, 12, nil)
+        XCTAssertEqual(CTFontCopyPostScriptName(font) as String, "KaTeX_Main-Regular")
+    }
+
+    func testDisplayModeTypesetsTallerThanInline() {
+        let inline = MathRenderer.raTeXTypeset(#"\frac{1}{2}"#, displayMode: false, fontSize: 17, color: .black)
+        let display = MathRenderer.raTeXTypeset(#"\frac{1}{2}"#, displayMode: true, fontSize: 17, color: .black)
+
+        guard let inline, let display else {
+            return XCTFail("expected both modes to typeset")
+        }
+        XCTAssertGreaterThan(display.ascent + display.descent, inline.ascent + inline.descent)
+    }
+
+    func testInvalidLatexReturnsNil() {
+        XCTAssertNil(MathRenderer.raTeXTypeset(#"\frac{1}{"#, displayMode: false, fontSize: 17, color: .black))
+    }
+
+    func testTypesetFormulaDrawsNonBlankImage() {
+        guard let result = MathRenderer.raTeXTypeset("x^2", displayMode: false, fontSize: 17, color: .black) else {
+            return XCTFail("expected typeset result")
+        }
+        XCTAssertGreaterThan(result.width, 0)
+        XCTAssertGreaterThan(result.ascent, 0)
+
+        let size = CGSize(width: ceil(result.width), height: ceil(result.ascent + result.descent))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            result.draw(context.cgContext)
+        }
+
+        XCTAssertFalse(isBlank(image))
+    }
+
+    /// Streaming re-renders the document per token; the same formula must
+    /// not be redrawn each time.
+    func testRepeatedRendersShareOneRaster() {
+        let config = MarkdownStyleConfig.baseline()
+        let first = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        let second = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        guard let firstImage = first.first?.formulaImage, let secondImage = second.first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertTrue(firstImage === secondImage)
+    }
+
+    func testDifferentFontSizesDoNotShareARaster() {
+        let config = MarkdownStyleConfig.baseline()
+        let body = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        let heading = mathAttachments(in: MarkdownRenderer.renderLaTeX("# $x^2$", config: config))
+        guard let bodyImage = body.first?.formulaImage, let headingImage = heading.first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertFalse(bodyImage === headingImage)
+        XCTAssertNotEqual(bodyImage.size, headingImage.size)
+    }
+
+    func testStubbedTypesetNeverSharesARaster() {
+        let first = renderWithStub("$x^2$") { _, _, _, _ in self.stubResult() }
+        let second = renderWithStub("$x^2$") { _, _, _, _ in self.stubResult() }
+        guard let firstImage = mathAttachments(in: first).first?.formulaImage,
+              let secondImage = mathAttachments(in: second).first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertFalse(firstImage === secondImage)
+    }
+
+    func testRenderLaTeXProducesMathAttachmentWithoutFlagSetup() {
+        let rendered = MarkdownRenderer.renderLaTeX("inline $x^2$ math", config: config)
+
+        XCTAssertEqual(mathAttachments(in: rendered).count, 1)
+        XCTAssertFalse(rendered.string.contains("$"))
+    }
+
+    // MARK: - Accessibility
+
+    func testAccessibilityLabelTemplateReachesTheVoiceOverElement() {
+        let label = LaTeXRenderPlugin.label(template: "Formel: {speech} ({latex})")
+        let rendered = renderWithStub("$x^2$", accessibilityLabel: label) { _, _, _, _ in self.stubResult() }
+
+        XCTAssertEqual(MarkdownAccessibilityElementBuilder.specs(for: rendered).first?.label, "Formel: x squared (x^2)")
+    }
+
+    func testAccessibilityLabelClosureReceivesTheSource() {
+        let rendered = renderWithStub(
+            "$x^2$",
+            accessibilityLabel: { "custom " + $0 },
+            typeset: { _, _, _, _ in self.stubResult() }
+        )
+
+        XCTAssertEqual(MarkdownAccessibilityElementBuilder.specs(for: rendered).first?.label, "custom x^2")
+    }
+
+    // MARK: - Renderer behavior (stubbed typesetting)
+
+    func testInlineAttachmentMetricsAndDelimiters() {
+        var typesetFontSize: CGFloat?
+        let rendered = renderWithStub("before $x^2$ after") { _, _, fontSize, _ in
+            typesetFontSize = fontSize
+            return self.stubResult()
+        }
+
+        let attachments = mathAttachments(in: rendered)
+        XCTAssertEqual(attachments.count, 1)
+        guard let math = attachments.first else { return }
+
+        XCTAssertEqual(math.latex, "x^2")
+        XCTAssertFalse(math.isDisplay)
+        XCTAssertFalse(math.isBlock)
+        XCTAssertEqual(math.accessibilityLabel, "Math: x squared")
+        XCTAssertEqual(math.markdownText(), "$x^2$")
+
+        let expectedFontSize = (config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)).pointSize
+        XCTAssertEqual(typesetFontSize, expectedFontSize)
+
+        let bounds = math.attachmentBounds(
+            for: nil,
+            proposedLineFragment: CGRect(x: 0, y: 0, width: 300, height: 20),
+            glyphPosition: .zero,
+            characterIndex: 0
+        )
+        XCTAssertEqual(bounds, CGRect(x: 0, y: -4, width: 40, height: 16))
+    }
+
+    func testRootLevelDisplayMathIsBlock() {
+        let rendered = renderWithStub("before\n\n$$E=mc^2$$\n\nafter") { _, _, _, _ in self.stubResult() }
+
+        let attachments = mathAttachments(in: rendered)
+        XCTAssertEqual(attachments.count, 1)
+        XCTAssertEqual(attachments.first?.isDisplay, true)
+        XCTAssertEqual(attachments.first?.isBlock, true)
+        XCTAssertEqual(attachments.first?.markdownText(), "$$E=mc^2$$")
+    }
+
+    func testDisplayMathInsideParagraphStaysInline() {
+        let rendered = renderWithStub("before $$x$$ after") { _, _, _, _ in self.stubResult() }
+
+        let attachments = mathAttachments(in: rendered)
+        XCTAssertEqual(attachments.count, 1)
+        XCTAssertEqual(attachments.first?.isDisplay, true)
+        XCTAssertEqual(attachments.first?.isBlock, false)
+        XCTAssertTrue(rendered.string.contains("before \u{FFFC} after"))
+    }
+
+    func testTypesetFailureFallsBackToDelimitedSource() {
+        let rendered = renderWithStub("$x^2$") { _, _, _, _ in nil }
+
+        XCTAssertTrue(mathAttachments(in: rendered).isEmpty)
+        XCTAssertTrue(rendered.string.contains("$x^2$"))
+    }
+
+    // The core flattens breaks inside math spans to spaces, which TeX treats
+    // the same as newlines; both lines must reach the typesetter.
+    func testMultiLineDisplayMathKeepsAllContent() {
+        var receivedLatex: String?
+        _ = renderWithStub("$$\na + b\nc + d\n$$") { latex, _, _, _ in
+            receivedLatex = latex
+            return self.stubResult()
+        }
+
+        XCTAssertTrue(receivedLatex?.contains("a + b") ?? false)
+        XCTAssertTrue(receivedLatex?.contains("c + d") ?? false)
+    }
+
+    // MARK: - Copy as Markdown integration
+
+    func testPartialSelectionWithInlineMathCopiesVerbatim() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "before \u{FFFC} and", in: "before $x^2$ and more text after"),
+            "before $x^2$ and"
+        )
+    }
+
+    func testPartialSelectionKeepsMultiLineDisplayMathVerbatim() {
+        let source = "before\n\n$$\na + b\nc + d\n$$\n\nafter"
+        let rendered = renderWithStub(source) { _, _, _, _ in self.stubResult() }
+
+        let afterLocation = (rendered.string as NSString).range(of: "after").location
+        let copied = MarkdownExtractor.markdown(
+            for: NSRange(location: 0, length: afterLocation),
+            in: rendered,
+            sourceMarkdown: source,
+            flags: effectiveFlags
+        )
+        XCTAssertEqual(copied, "before\n\n$$\na + b\nc + d\n$$")
+    }
+
+    func testMathAtSelectionEdgeInsideEmphasisKeepsMarkers() {
+        XCTAssertEqual(copyMarkdown(selecting: "\u{FFFC}", in: "**$x^2$** after"), "**$x^2$**")
+    }
+
+    func testExtractionRoundTripsMathAttachments() {
+        let inline = renderWithStub("before $x^2$ after") { _, _, _, _ in self.stubResult() }
+        XCTAssertEqual(
+            MarkdownExtractor.extractMarkdown(
+                from: inline,
+                in: NSRange(location: 0, length: inline.length)
+            )?.trimmingCharacters(in: .whitespacesAndNewlines),
+            "before $x^2$ after"
+        )
+
+        let block = renderWithStub("before\n\n$$E=mc^2$$\n\nafter") { _, _, _, _ in self.stubResult() }
+        XCTAssertEqual(
+            MarkdownExtractor.extractMarkdown(
+                from: block,
+                in: NSRange(location: 0, length: block.length)
+            )?.trimmingCharacters(in: .whitespacesAndNewlines),
+            "before\n\n$$E=mc^2$$\n\nafter"
+        )
+    }
+}

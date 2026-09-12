@@ -13,6 +13,9 @@
   ENRMRaTeXRenderResult *_renderResult;
   // Visible-source fallback when RaTeX cannot parse the span; see ENRMMathFallback.h.
   NSAttributedString *_fallbackSource;
+  BOOL _didReportError;
+  BOOL _parseFailed;
+  NSString *_parseMessage;
 }
 @end
 

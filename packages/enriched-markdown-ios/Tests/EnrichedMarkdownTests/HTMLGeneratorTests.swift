@@ -86,6 +86,15 @@ final class HTMLGeneratorTests: XCTestCase {
         XCTAssertTrue(result.contains("<sub>2</sub>"))
     }
 
+    func testHighlightEmitsMarkWithBackground() {
+        config.highlight.backgroundColor = UIColor(red: 1, green: 0, blue: 0, alpha: 1)
+        config.highlight.foregroundColor = nil
+
+        let result = html(for: "==marked==", flags: Md4cFlags(highlight: true))
+
+        XCTAssertTrue(result.contains("<mark style=\"background-color: #FF0000;\">marked</mark>"))
+    }
+
     func testLinkCarriesHrefAndStyle() {
         let result = html(for: "[press](https://swmansion.com)")
 

@@ -158,6 +158,7 @@ static NSString *const kNestedInfoRangeKey = @"range";
                         }
                         [output addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:nonListRange];
                         applyLineHeight(output, nonListRange, lineHeight);
+                        applyBaselineOffset(output, nonListRange);
                       }];
 
   if (padding > 0) {

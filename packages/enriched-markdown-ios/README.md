@@ -12,7 +12,7 @@ Standalone SwiftUI library for rendering enriched Markdown on iOS. This package 
 
 Add the package via [Swift Package Manager](https://docs.swift.org/latest/documentation/packagemanagerdocs/). The `Package.swift` lives at the repository root.
 
-**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product.
+**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math)).
 
 **Package.swift:**
 
@@ -145,6 +145,7 @@ The `MarkdownTheme` builder supports these elements:
 | `Underline()` | Underlined text (`Md4cFlags(underline: true)`) |
 | `Superscript()` | Superscript text (`Md4cFlags(superscript: true)`) |
 | `Subscript()` | Subscript text (`Md4cFlags(subscript: true)`) |
+| `Highlight()` | Highlighted text (`Md4cFlags(highlight: true)`) |
 | `Code()` | Inline code |
 | `CodeBlock()` | Fenced code blocks |
 | `Blockquote()` | Block quotes |
@@ -154,6 +155,8 @@ The `MarkdownTheme` builder supports these elements:
 | `BlockImage()` | Block images |
 | `InlineImage()` | Inline images |
 | `ThematicBreak()` | Horizontal rules |
+| `MathBlock()` | Root-level `$$…$$` display math (`EnrichedMarkdownLaTeX`, see [LaTeX math](#latex-math)) |
+| `InlineMath()` | `$…$` math in running text (`EnrichedMarkdownLaTeX`) |
 
 Common modifiers (available on most elements): `.font`, `.fontFamily(_:size:)`, `.fontSize`, `.bold`, `.fontDesign`, `.foregroundStyle`, `.marginTop`, `.marginBottom`, `.lineHeight`, `.textAlignment`.
 
@@ -162,7 +165,7 @@ For custom families, `.bold()` picks a bold face from the same `UIFont` family w
 Element-specific modifiers include:
 
 - **Link:** `.underline(_:)`
-- **Code / CodeBlock / Blockquote:** `.background` / `.backgroundStyle`
+- **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
 - **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
@@ -171,6 +174,8 @@ Element-specific modifiers include:
 - **BlockImage:** `.height`, `.borderRadius`
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.color` / `.foregroundStyle`, `.height`
+- **MathBlock:** `.fontSize`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.textAlignment` — the only modifiers; the face is always KaTeX's
+- **InlineMath:** `.foregroundStyle` — the only modifier; size follows the surrounding text
 
 ## API reference
 
@@ -199,14 +204,13 @@ public struct Md4cFlags: Equatable, Sendable {
   public var permissiveAutolinks: Bool  // bare URLs become links (default true)
   public var superscript: Bool          // ^text^ renders as superscript
   public var subscript: Bool            // ~text~ renders as subscript
-  public var latexMath: Bool
-  public var highlight: Bool
+  public var highlight: Bool            // ==text== renders with a background
 
   public static let commonMark: Md4cFlags
 }
 ```
 
-`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, and `subscript` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, and `highlight` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
 
 ### `.markdownTheme`
 
@@ -289,6 +293,40 @@ Configures the custom items added to the text-selection edit menu:
 - **Copy Image URL** / **Copy N Image URLs** appears when the selection contains images with http(s) URLs.
 - **Select All** is provided when the system omits it for non-editable text views.
 
+### `.markdownAccessibilityLabels`
+
+```swift
+public struct MarkdownAccessibilityLabels: Equatable, Sendable {
+  public var list: List             // top / nested, each: bulletPoint, orderedItem "List item {n}",
+                                    // checkedTask, uncheckedTask
+  public var blockquote: Blockquote // quote, nestedQuote
+  public var table: Table           // row "Row {n}: {content}"
+  public var image: Image           // fallback "Image" (no alt text)
+  public var codeBlock: CodeBlock   // copy "Copy code" (custom action name)
+  public var rotor: Rotor           // headings, links, images
+
+  public static let `default`: MarkdownAccessibilityLabels
+}
+
+extension View {
+  func markdownAccessibilityLabels(_ labels: MarkdownAccessibilityLabels) -> some View
+}
+```
+
+Overrides the strings VoiceOver speaks. Every field defaults to English, so set only what you localize:
+
+```swift
+var labels = MarkdownAccessibilityLabels()
+labels.list.top.bulletPoint = "Punkt"
+labels.list.top.orderedItem = "Listenelement {n}"
+labels.rotor.headings = "Überschriften"
+
+EnrichedMarkdownText(markdown)
+    .markdownAccessibilityLabels(labels)
+```
+
+`{n}` is a 1-based index and `{content}` the comma-joined cell text of a table row; translations must keep the placeholder names. Defaults use the cardinal form ("List item 2") so one template works in every language without plural rules. The math label lives in the LaTeX module: `.markdownLaTeX(accessibilityLabel: "Formel: {speech}")`, or `.markdownLaTeX { latex in … }` for a custom converter.
+
 ### `.markdownImageRequestHeaders`
 
 ```swift
@@ -336,10 +374,17 @@ All decodes are downsampled to the screen's pixel width, so large images never d
 
 VoiceOver walks the rendered markdown as individual elements rather than one text blob:
 
-- Headings announce "heading, level N"
-- Links are activatable elements that invoke `.onLinkPress`
+- Headings announce "heading, level N"; a link inside a heading stays its own element and keeps the heading trait
+- Links are activatable elements that invoke `.onLinkPress`; a linked image (`[![alt](img)](url)`) reads its alt text with both the image and link traits
 - Images read their alt text ("Image" when absent)
-- List items announce their position ("bullet point", "list item N", with a "nested" prefix)
+- List items announce their position ("Bullet point", "List item N", "Task, checked", with "Nested" variants)
+- Content inside a blockquote appends "Blockquote" or "Nested blockquote"
+- Tables read one element per row ("Row N: cell, cell"); the header row carries the heading trait
+- Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element)
+- Math from `EnrichedMarkdownLaTeX` reads an English form of the formula ("Math: x squared over 2", "integral from 0 to 1 of …"); `{latex}` in the label template gives the raw source instead, and a closure can plug in another converter
+- Rotors (two-finger twist) jump between Headings, Links, and Images
+
+Every spoken string can be localized with `.markdownAccessibilityLabels` (see the API reference); the math label is a parameter of `.markdownLaTeX`, either a template (`"Formel: {speech}"`, `{latex}` for the source) or a `(String) -> String` closure receiving the LaTeX source. The built-in reading (`LaTeXSpeech.spokenForm`) is English and covers fractions, roots, powers and indices, sums/products/integrals/limits with bounds, Greek letters, common relations and functions, decorations, and `\text`; unmapped commands are read by name. Element frames are resolved from the live layout on each query, so they stay correct inside a scrolling container and after Dynamic Type changes.
 
 Dynamic Type is supported throughout via text styles in the default theme.
 
@@ -361,6 +406,51 @@ Styling comes from the `Table()` theme element (header colors, row
 striping, borders, cell padding, alignment); the defaults adapt to light
 and dark mode.
 
+## LaTeX math
+
+Math rendering is an optional product so apps that never show formulas
+don't link the typesetting engine. Add `EnrichedMarkdownLaTeX` next to
+`EnrichedMarkdown` and enable it per view:
+
+```swift
+import EnrichedMarkdown
+import EnrichedMarkdownLaTeX
+
+EnrichedMarkdownText(content)
+  .markdownLaTeX()
+```
+
+`$…$` typesets inline at the surrounding text size, and a `$$…$$` block on
+its own line renders as a full-width panel that scrolls horizontally when
+the formula is wider than the line. Source that fails to typeset falls back
+to the delimited text. Outside SwiftUI, `MarkdownRenderer.renderLaTeX`
+mirrors `MarkdownRenderer.render` with math enabled.
+
+Styling comes from two theme elements the product adds to the builder:
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownLaTeX()
+  .markdownTheme {
+    MathBlock()
+      .fontSize(22)
+      .background(Color(red: 243 / 255, green: 244 / 255, blue: 246 / 255))
+      .padding(16)
+      .marginBottom(24)
+      .textAlignment(.leading)
+
+    InlineMath()
+      .foregroundStyle(.tint)
+  }
+```
+
+`.markdownLaTeX()` layers `MarkdownTheme.latexDefault` — 20pt formulas
+centered on a padded `.quaternary` panel — directly above `MarkdownTheme.default`,
+so your own themes still win whether they're applied on an ancestor or on the
+view itself. Font size and color left unset follow the paragraph. When
+resolving a `MarkdownStyleConfig` by hand for `renderLaTeX`, include that
+layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], traitCollection: …)`.
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
@@ -370,6 +460,7 @@ and dark mode.
 - Underline (`__text__` with `Md4cFlags(underline: true)`)
 - Superscript (`^text^` with `Md4cFlags(superscript: true)`)
 - Subscript (`~text~` with `Md4cFlags(subscript: true)`)
+- Highlight (`==text==` with `Md4cFlags(highlight: true)`)
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists
@@ -378,6 +469,7 @@ and dark mode.
 - Links and images (block and inline)
 - Autolinked bare URLs, `www.` links, and emails (`permissiveAutolinks`, on by default)
 - Thematic breaks (`---`)
+- LaTeX math (`$…$`, `$$…$$`) with the `EnrichedMarkdownLaTeX` product — see [LaTeX math](#latex-math)
 
 ## Development
 

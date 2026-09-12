@@ -14,8 +14,10 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownSelectable) private var isSelectionEnabled
     @Environment(\.markdownSelectionColor) private var selectionColor
     @Environment(\.markdownImageRequestHeaders) private var imageRequestHeaders
+    @Environment(\.markdownRenderPlugins) private var renderPlugins
     @Environment(\.markdownTaskListItemPressHandler) private var onTaskListItemPress
     @Environment(\.markdownTaskListItemToggleEnabled) private var isTaskListToggleEnabled
+    @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
     @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
@@ -28,14 +30,21 @@ public struct EnrichedMarkdownText: View {
             colorScheme: colorScheme,
             dynamicTypeSize: dynamicTypeSize
         )
-        return MarkdownStyleConfig.resolve(layers: themeLayers, traitCollection: traitCollection)
+        // Plugin defaults go above `MarkdownTheme.default` (the environment's
+        // first layer) and below the app's themes.
+        var layers = themeLayers
+        layers.insert(contentsOf: renderPlugins.compactMap(\.defaultTheme), at: min(1, layers.count))
+        return MarkdownStyleConfig.resolve(layers: layers, traitCollection: traitCollection)
     }
 
     public var body: some View {
-        MarkdownTextViewRepresentable(
+        // Resolved once: `styleConfig` rebuilds the whole config on each read,
+        // and the representable and every `onChange` below read it.
+        let config = styleConfig
+        return MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,
             source: renderStore.source,
-            styleConfig: styleConfig,
+            styleConfig: config,
             onLinkPress: onLinkPress,
             onLinkLongPress: onLinkLongPress,
             selectionMenuConfig: selectionMenuConfig,
@@ -43,19 +52,21 @@ public struct EnrichedMarkdownText: View {
             selectionColor: selectionColor,
             onTaskListItemTap: isTaskListToggleEnabled ? { hit in
                 let checked = !hit.checked
-                renderStore.applyTaskListToggle(index: hit.index, checked: checked, config: styleConfig)
+                renderStore.applyTaskListToggle(index: hit.index, checked: checked, config: config)
                 onTaskListItemPress?(
                     TaskListItemPressEvent(index: hit.index, checked: checked, text: hit.itemText)
                 )
-            } : nil
+            } : nil,
+            accessibilityLabels: accessibilityLabels
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             renderStore.schedule(
                 markdown: markdown,
-                config: styleConfig,
+                config: config,
                 flags: flags,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: renderPlugins
             )
         }
         // The onChange closures run against the previous view value, so the
@@ -64,33 +75,37 @@ public struct EnrichedMarkdownText: View {
         .onChange(of: markdown) { newValue in
             renderStore.schedule(
                 markdown: newValue,
-                config: styleConfig,
+                config: config,
                 flags: flags,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: renderPlugins
             )
         }
-        .onChange(of: styleConfig) { newValue in
+        .onChange(of: config) { newValue in
             renderStore.schedule(
                 markdown: markdown,
                 config: newValue,
                 flags: flags,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: renderPlugins
             )
         }
         .onChange(of: flags) { newValue in
             renderStore.schedule(
                 markdown: markdown,
-                config: styleConfig,
+                config: config,
                 flags: newValue,
-                imageRequestHeaders: imageRequestHeaders
+                imageRequestHeaders: imageRequestHeaders,
+                plugins: renderPlugins
             )
         }
         .onChange(of: imageRequestHeaders) { newValue in
             renderStore.schedule(
                 markdown: markdown,
-                config: styleConfig,
+                config: config,
                 flags: flags,
-                imageRequestHeaders: newValue
+                imageRequestHeaders: newValue,
+                plugins: renderPlugins
             )
         }
         .onDisappear {

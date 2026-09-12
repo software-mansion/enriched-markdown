@@ -24,6 +24,22 @@
     {
       "path": "assets/fonts/Montserrat-SemiBold.ttf",
       "sha1": "79f74616d68b87d6cf89798fe72259036326567a"
+    },
+    {
+      "path": "assets/fonts/Poppins-Italic.ttf",
+      "sha1": "85a636b7eadeaa3dc87564646116c605dfe8b2dd"
+    },
+    {
+      "path": "assets/fonts/Poppins-Medium.ttf",
+      "sha1": "e837165aedb031ea74872c5983a3217d1c190a1a"
+    },
+    {
+      "path": "assets/fonts/Poppins-Regular.ttf",
+      "sha1": "86a425be5a919d86729b85b2bc1d07da5ce413d4"
+    },
+    {
+      "path": "assets/fonts/Poppins-SemiBold.ttf",
+      "sha1": "622ca6ccbe2f22c5611dffa016b745bd26be154c"
     }
   ]
 }

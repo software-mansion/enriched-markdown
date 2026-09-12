@@ -180,7 +180,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               .padding(14.dp)
               .testTag("preview-text"),
           style = PlaygroundMarkdownStyle,
-          flags = Md4cFlags(underline = underlineEnabled),
+          flags = Md4cFlags(underline = underlineEnabled, superscript = true, subscript = true),
         )
       }
     }

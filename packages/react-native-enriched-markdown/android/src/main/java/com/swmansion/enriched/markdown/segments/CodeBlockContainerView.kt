@@ -17,6 +17,8 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
 import android.util.TypedValue
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -69,7 +71,10 @@ class CodeBlockContainerView(
   var copyAsMarkdownLabel: String = ""
   var enableBlockContextMenu: Boolean = true
 
+  var enableCodeBlockPress: Boolean = false
+
   var onCopyPress: ((code: String, language: String) -> Unit)? = null
+  var onCodeBlockPress: ((code: String, language: String) -> Unit)? = null
 
   private var code: String = ""
   private var language: String? = null
@@ -145,6 +150,20 @@ class CodeBlockContainerView(
       color = dividerColor(codeBlockStyle.color)
       strokeWidth = context.resources.displayMetrics.density
     }
+
+  private val tapDetector =
+    GestureDetector(
+      context,
+      object : GestureDetector.SimpleOnGestureListener() {
+        override fun onDown(e: MotionEvent): Boolean = true
+
+        override fun onSingleTapUp(e: MotionEvent): Boolean {
+          if (isPointInsideCopyButton(e.x, e.y)) return false
+          handleCodeBlockPress()
+          return false
+        }
+      },
+    )
 
   init {
     setWillNotDraw(false)
@@ -261,6 +280,21 @@ class CodeBlockContainerView(
     copyToClipboard(code)
     onCopyPress?.invoke(code, language ?: "")
   }
+
+  private fun handleCodeBlockPress() {
+    if (!enableCodeBlockPress || pending) return
+    onCodeBlockPress?.invoke(code, language ?: "")
+  }
+
+  override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+    tapDetector.onTouchEvent(ev)
+    return super.dispatchTouchEvent(ev)
+  }
+
+  private fun isPointInsideCopyButton(
+    x: Float,
+    y: Float,
+  ): Boolean = x >= copyButton.left && x < copyButton.right && y >= copyButton.top && y < copyButton.bottom
 
   private fun copyFencedMarkdown() {
     if (code.isEmpty()) return

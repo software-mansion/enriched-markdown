@@ -4,6 +4,7 @@ import {
   EnrichedMarkdownText,
   type LinkPressEvent,
   type ImagePressEvent,
+  type CodeBlockPressEvent,
 } from 'react-native-enriched-markdown';
 import { sampleMarkdown } from '../../sampleMarkdown';
 import { customMarkdownStyle } from '../../markdownStyles';
@@ -58,6 +59,13 @@ export default function TextScreen() {
     ]);
   };
 
+  const handleCodeBlockPress = (event: CodeBlockPressEvent) => {
+    const { code, language } = event;
+    Alert.alert(`Code Block Pressed! (${language || 'plain'})`, code, [
+      { text: 'Dismiss', style: 'cancel' },
+    ]);
+  };
+
   return (
     <ScrollView
       style={styles.scrollView}
@@ -69,6 +77,7 @@ export default function TextScreen() {
         markdown={sampleMarkdown}
         onLinkPress={handleLinkPress}
         onImagePress={handleImagePress}
+        onCodeBlockPress={handleCodeBlockPress}
         markdownStyle={markdownStyle}
         contextMenuItems={contextMenuItems}
         selectionColor={Platform.OS === 'ios' ? '#5A52FA' : '#DCDDFE'}

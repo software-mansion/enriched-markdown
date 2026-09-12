@@ -3350,9 +3350,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@enriched-markdown/android@workspace:packages/android-enriched-markdown":
+"@enriched-markdown/android@workspace:packages/enriched-markdown-android":
   version: 0.0.0-use.local
-  resolution: "@enriched-markdown/android@workspace:packages/android-enriched-markdown"
+  resolution: "@enriched-markdown/android@workspace:packages/enriched-markdown-android"
   languageName: unknown
   linkType: soft
 

@@ -11,6 +11,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let isSelectionEnabled: Bool
     let selectionColor: Color?
     let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
+    let accessibilityLabels: MarkdownAccessibilityLabels
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -33,6 +34,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
         textView.onTaskListItemTap = onTaskListItemTap
+        textView.accessibilityLabels = accessibilityLabels
         textView.setMarkdownAttributedText(attributedText)
     }
 
@@ -212,8 +214,29 @@ final class MarkdownTextView: UITextView {
     var styleConfig: MarkdownStyleConfig = .baseline() {
         didSet {
             updateDecorationStyleConfig()
+            // `updateUIView` assigns this on every pass, so only a real change
+            // may drop the measurement — clearing it unconditionally would
+            // re-measure the document every frame, which is the whole point.
+            if styleConfig != oldValue { cachedFit = nil }
         }
     }
+
+    /// The exact instance last handed to `attributedText`.
+    ///
+    /// `UITextView.attributedText` is `@NSCopying`, so its getter cannot serve
+    /// as an identity token — reading it to compare would copy the whole
+    /// document. This can.
+    private var renderedText: NSAttributedString?
+
+    private struct CachedFit {
+        let width: CGFloat
+        let text: NSAttributedString
+        let height: CGFloat
+    }
+
+    /// Measuring lays out the whole document, and SwiftUI asks for it on every
+    /// update pass — and again through `intrinsicContentSize`.
+    private var cachedFit: CachedFit?
 
     /// Mirrored from the representable so VoiceOver link elements can invoke
     /// the press handler via accessibilityActivate.
@@ -239,18 +262,38 @@ final class MarkdownTextView: UITextView {
 
     private let tapGestureDelegate = SimultaneousGestureDelegate()
 
-    /// VoiceOver elements built from the attributed string; frames resolve
-    /// lazily against TextKit 2 layout.
-    private var markdownAccessibilityElements: [UIAccessibilityElement] = []
+    /// VoiceOver elements and rotors, built on the first query after the
+    /// text or labels change so streaming re-renders never pay for them.
+    private var markdownAccessibilityElements: [MarkdownAccessibilityElement] = []
+    private var markdownAccessibilityRotors: [UIAccessibilityCustomRotor] = []
+    private var accessibilityTreeIsStale: Bool = true
+
+    var accessibilityLabels: MarkdownAccessibilityLabels = .default {
+        didSet {
+            guard accessibilityLabels != oldValue else { return }
+            accessibilityTreeIsStale = true
+        }
+    }
 
     override var accessibilityElements: [Any]? {
-        get { markdownAccessibilityElements.isEmpty ? super.accessibilityElements : markdownAccessibilityElements }
+        get {
+            let elements = accessibilityTree().elements
+            return elements.isEmpty ? super.accessibilityElements : elements
+        }
         set { super.accessibilityElements = newValue }
     }
 
     override var isAccessibilityElement: Bool {
-        get { markdownAccessibilityElements.isEmpty ? super.isAccessibilityElement : false }
+        get { accessibilityTree().elements.isEmpty ? super.isAccessibilityElement : false }
         set { super.isAccessibilityElement = newValue }
+    }
+
+    override var accessibilityCustomRotors: [UIAccessibilityCustomRotor]? {
+        get {
+            let rotors = accessibilityTree().rotors
+            return rotors.isEmpty ? super.accessibilityCustomRotors : rotors
+        }
+        set { super.accessibilityCustomRotors = newValue }
     }
 
     /// Gates the selection UI while keeping `isSelectable` on, so link taps
@@ -381,21 +424,46 @@ final class MarkdownTextView: UITextView {
     }
 
     func setMarkdownAttributedText(_ attributedText: NSAttributedString) {
+        // Identity first, and not as an optimization: the round trip through
+        // `attributedText` does not compare equal to what was set, so the
+        // guard below lets every update through and re-assigns the whole
+        // document — measured at 30 re-assignments a second under a parent
+        // that re-evaluates at frame rate.
+        if let renderedText, renderedText === attributedText { return }
         guard !(self.attributedText?.isEqual(to: attributedText) ?? false) else { return }
+        renderedText = attributedText
+        cachedFit = nil
         self.attributedText = attributedText
         invalidateIntrinsicContentSize()
         setDecorationNeedsDisplay()
-        rebuildAccessibilityElements()
+        accessibilityTreeIsStale = true
     }
 
-    private func rebuildAccessibilityElements() {
-        let specs = MarkdownAccessibilityElementBuilder.specs(for: attributedText ?? NSAttributedString())
-        markdownAccessibilityElements = specs.map { spec in
-            if case .link(let url) = spec.kind {
-                return MarkdownLinkAccessibilityElement(textView: self, spec: spec, url: url)
-            }
-            return MarkdownAccessibilityElement(textView: self, spec: spec)
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        if let cachedFit, cachedFit.width == size.width, cachedFit.text === renderedText {
+            return CGSize(width: size.width, height: cachedFit.height)
         }
+        let fitted = super.sizeThatFits(size)
+        if let renderedText {
+            cachedFit = CachedFit(width: size.width, text: renderedText, height: fitted.height)
+        }
+        return fitted
+    }
+
+    private func accessibilityTree() -> (elements: [MarkdownAccessibilityElement], rotors: [UIAccessibilityCustomRotor]) {
+        if accessibilityTreeIsStale {
+            accessibilityTreeIsStale = false
+            let specs = MarkdownAccessibilityElementBuilder.specs(
+                for: attributedText ?? NSAttributedString(),
+                labels: accessibilityLabels
+            )
+            markdownAccessibilityElements = specs.map { MarkdownAccessibilityElement(textView: self, spec: $0) }
+            markdownAccessibilityRotors = MarkdownAccessibilityRotors.rotors(
+                for: markdownAccessibilityElements,
+                labels: accessibilityLabels
+            )
+        }
+        return (markdownAccessibilityElements, markdownAccessibilityRotors)
     }
 
     /// Screen-coordinate frame for a character range, unioned over its

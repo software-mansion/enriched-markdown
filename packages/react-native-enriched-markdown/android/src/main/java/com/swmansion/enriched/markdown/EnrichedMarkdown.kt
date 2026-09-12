@@ -11,6 +11,7 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.StateWrapper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.segments.BlockquoteContainerView
@@ -92,6 +93,18 @@ class EnrichedMarkdown(
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((Int, Boolean, String) -> Unit)? = null
   private var onCopyPressCallback: ((String, String) -> Unit)? = null
+  private var onCodeBlockPressCallback: ((String, String) -> Unit)? = null
+  private var onLatexErrorCallback: LatexErrorReporter? = null
+
+  private val reportedLatexErrors = HashSet<String>()
+
+  private val latexErrorReporter =
+    LatexErrorReporter { source, message, displayMode ->
+      val key = (if (displayMode) "B " else "I ") + source
+      if (reportedLatexErrors.add(key)) {
+        onLatexErrorCallback?.report(source, message, displayMode)
+      }
+    }
   private var contextMenuItemTexts: List<String> = emptyList()
   var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
   var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
@@ -115,6 +128,12 @@ class EnrichedMarkdown(
       if (field == value) return
       field = value
       pushBlockContextMenuToSegments()
+    }
+  var enableCodeBlockPress: Boolean = false
+    set(value) {
+      if (field == value) return
+      field = value
+      pushCodeBlockPressToSegments()
     }
 
   init {
@@ -257,6 +276,10 @@ class EnrichedMarkdown(
     onLinkLongPressCallback = callback
   }
 
+  fun setOnLatexErrorCallback(callback: LatexErrorReporter) {
+    onLatexErrorCallback = callback
+  }
+
   override var imagePressEnabled: Boolean = false
     private set
 
@@ -277,6 +300,10 @@ class EnrichedMarkdown(
 
   fun setOnCopyPressCallback(callback: ((code: String, language: String) -> Unit)?) {
     onCopyPressCallback = callback
+  }
+
+  fun setOnCodeBlockPressCallback(callback: ((code: String, language: String) -> Unit)?) {
+    onCodeBlockPressCallback = callback
   }
 
   fun setContextMenuItems(items: List<String>) {
@@ -352,6 +379,12 @@ class EnrichedMarkdown(
           }
         }
       }
+    }
+  }
+
+  private fun pushCodeBlockPressToSegments() {
+    segmentViews.filterIsInstance<CodeBlockContainerView>().forEach {
+      it.enableCodeBlockPress = enableCodeBlockPress
     }
   }
 
@@ -436,6 +469,7 @@ class EnrichedMarkdown(
             context,
             onLinkPressCallback,
             onLinkLongPressCallback,
+            onLatexError = latexErrorReporter,
           )
 
         postToMain(renderId) { applyRenderedSegments(renderedSegments, hasPendingCodeBlock) }
@@ -500,11 +534,14 @@ class EnrichedMarkdown(
       selectionHandleColor = selectionHandleColor,
       contextMenuItemTexts = contextMenuItemTexts,
       enableBlockContextMenu = enableBlockContextMenu,
+      enableCodeBlockPress = enableCodeBlockPress,
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,
       onCopyPress = onCopyPressCallback,
+      onCodeBlockPress = onCodeBlockPressCallback,
       onTaskListItemPress = onTaskListItemPressCallback,
       onContextMenuItemPress = ::forwardContextMenuItemPress,
+      onLatexError = latexErrorReporter,
     )
 
   /**

@@ -13,6 +13,11 @@ fun ReadableMap?.getFloatOrDefault(
   default: Float,
 ): Float = if (this?.hasKey(key) == true) getDouble(key).toFloat() else default
 
+fun ReadableMap?.getIntOrDefault(
+  key: String,
+  default: Int,
+): Int = if (this?.hasKey(key) == true) getDouble(key).toInt() else default
+
 fun ReadableMap?.getStringOrDefault(
   key: String,
   default: String,

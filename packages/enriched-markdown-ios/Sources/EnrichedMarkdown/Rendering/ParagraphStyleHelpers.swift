@@ -57,6 +57,8 @@ enum ParagraphStyleHelpers {
         output.addAttribute(.paragraphStyle, value: style, range: range)
     }
 
+    /// A range holding a plugin attachment (typeset math) keeps only the
+    /// minimum line height, so taller-than-text content is not clipped.
     static func applyLineHeight(
         to output: NSMutableAttributedString,
         range: NSRange,
@@ -68,8 +70,19 @@ enum ParagraphStyleHelpers {
         let style = getOrCreateParagraphStyle(in: output, at: range.location)
         style.lineSpacing = 0
         style.minimumLineHeight = roundedLineHeight
-        style.maximumLineHeight = roundedLineHeight
+        style.maximumLineHeight = containsPluginAttachment(output, in: range) ? 0 : roundedLineHeight
         output.addAttribute(.paragraphStyle, value: style, range: range)
+    }
+
+    private static func containsPluginAttachment(_ output: NSAttributedString, in range: NSRange) -> Bool {
+        var found = false
+        output.enumerateAttribute(.attachment, in: range, options: []) { value, _, stop in
+            if value is any MarkdownPluginAttachment {
+                found = true
+                stop.pointee = true
+            }
+        }
+        return found
     }
 
     static func applyBaselineOffset(

@@ -89,12 +89,54 @@ function AdmonitionRenderer({
   );
 }
 
-function CodeBlockRenderer({ node, styles, renderChildren }: RendererProps) {
+function CodeBlockRenderer({
+  node,
+  styles,
+  renderChildren,
+  callbacks,
+}: RendererProps) {
   const language = node.attributes?.language;
   const label = language ? `Code block: ${language}` : 'Code block';
 
+  if (callbacks.onCodeBlockPress == null) {
+    return (
+      <pre style={styles.codeBlock} aria-label={label}>
+        <code style={styles.codeBlockFont}>{renderChildren(node)}</code>
+      </pre>
+    );
+  }
+
+  const press = () =>
+    callbacks.onCodeBlockPress?.({
+      code: extractNodeText(node).replace(/\n+$/, ''),
+      language: language ?? '',
+    });
+
+  // Don't fire while code text is selected - selection stays separate from the tap.
+  const handleClick = () => {
+    const selection =
+      typeof window !== 'undefined' ? window.getSelection() : null;
+    if (selection && !selection.isCollapsed) return;
+    press();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLPreElement>) => {
+    if (event.repeat) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      press();
+    }
+  };
+
   return (
-    <pre style={styles.codeBlock} aria-label={label}>
+    <pre
+      style={{ ...styles.codeBlock, cursor: 'pointer' }}
+      aria-label={label}
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+    >
       <code style={styles.codeBlockFont}>{renderChildren(node)}</code>
     </pre>
   );

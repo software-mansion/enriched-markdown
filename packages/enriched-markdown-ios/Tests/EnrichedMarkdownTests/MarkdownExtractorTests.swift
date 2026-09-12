@@ -248,6 +248,13 @@ final class MarkdownExtractorTests: XCTestCase {
         )
     }
 
+    func testExtractsHighlight() {
+        XCTAssertEqual(
+            extractSelecting("marked", in: "Some ==marked== text.", flags: Md4cFlags(highlight: true)),
+            "==marked=="
+        )
+    }
+
     func testLinkIsNotWrappedInUnderline() {
         XCTAssertEqual(
             extractSelecting("swmansion", in: "Visit [swmansion](https://swmansion.com) now."),

@@ -15,9 +15,9 @@ enum ListType: Int {
     case ordered = 1
 }
 
-struct BlockStyle {
-    var font: UIFont
-    var color: UIColor
+package struct BlockStyle {
+    package var font: UIFont
+    package var color: UIColor
     var headingLevel: Int
 }
 
@@ -29,6 +29,7 @@ enum MarkdownAttribute {
     static let emphasis = NSAttributedString.Key("EnrichedMarkdownEmphasis")
     static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
     static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
+    static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
     static let blockquoteDepth = NSAttributedString.Key("EnrichedMarkdownBlockquoteDepth")
     static let blockquoteBackgroundColor = NSAttributedString.Key("EnrichedMarkdownBlockquoteBackgroundColor")
     static let listDepth = NSAttributedString.Key("EnrichedMarkdownListDepth")
@@ -46,7 +47,7 @@ enum MarkdownAttribute {
     static let sourceRange = NSAttributedString.Key("EnrichedMarkdownSourceRange")
 }
 
-final class RenderContext {
+package final class RenderContext {
     private(set) var currentBlockType: BlockType = .none
     private(set) var currentBlockStyle: BlockStyle?
 
@@ -56,6 +57,10 @@ final class RenderContext {
     var listItemNumber = 0
     var taskItemIndex = 0
     var rendersBlockImage = false
+    /// Set while rendering the synthetic paragraph around a bare root-level
+    /// plugin block node (see `MarkdownRenderPlugin.rootBlockNodeTypes`).
+    var pluginBlockMargins: BlockMargins?
+    package var rendersPluginBlock: Bool { pluginBlockMargins != nil }
 
     private static let blockSpacerTemplate: NSParagraphStyle = {
         let style = NSMutableParagraphStyle()
@@ -73,6 +78,7 @@ final class RenderContext {
         listItemNumber = 0
         taskItemIndex = 0
         rendersBlockImage = false
+        pluginBlockMargins = nil
     }
 
     func setBlockStyle(
@@ -90,11 +96,11 @@ final class RenderContext {
         currentBlockStyle = nil
     }
 
-    func getBlockStyle() -> BlockStyle? {
+    package func getBlockStyle() -> BlockStyle? {
         currentBlockStyle
     }
 
-    func getTextAttributes() -> [NSAttributedString.Key: Any] {
+    package func getTextAttributes() -> [NSAttributedString.Key: Any] {
         guard let blockStyle = currentBlockStyle else {
             return [:]
         }
@@ -116,6 +122,16 @@ final class RenderContext {
 
     static func shouldPreserveColors(_ attributes: [NSAttributedString.Key: Any]) -> Bool {
         attributes[.link] != nil || attributes[MarkdownAttribute.inlineCode] != nil
+    }
+
+    /// Recolors `range` to `color`, leaving links and inline code on their own colors.
+    static func applyForegroundColor(_ color: UIColor, to output: NSMutableAttributedString, in range: NSRange) {
+        output.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
+            guard !shouldPreserveColors(attributes) else { return }
+            if (attributes[.foregroundColor] as? UIColor) != color {
+                output.addAttribute(.foregroundColor, value: color, range: subrange)
+            }
+        }
     }
 
     static func rangeForRenderedContent(in output: NSMutableAttributedString, start: Int) -> NSRange {

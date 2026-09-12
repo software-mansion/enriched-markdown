@@ -1,7 +1,7 @@
 import type { Meta } from '@storybook/react-native';
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 
-export type StoryCategory = 'Block' | 'Inline' | 'Props';
+export type StoryCategory = 'Block' | 'Inline' | 'Props' | 'Regression';
 
 export function storyMeta(
   category: StoryCategory,

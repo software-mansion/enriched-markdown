@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.os.Build
 import android.text.Editable
 import android.text.InputType
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
@@ -289,6 +290,28 @@ class EnrichedMarkdownTextInputView(
   }
 
   override fun performClick(): Boolean = super.performClick()
+
+  // Framework bug (issue #728): inside Editor.performLongClick, the guarded branch calls
+  // Selection.setSelection, whose SpanWatcher callback runs our onSelectionChanged override
+  // synchronously; that can re-run prepareCursorControllers and flip mInsertionControllerEnabled
+  // to false before the immediately following getInsertionController().show(), which then
+  // dereferences null. Absorb only that specific NPE (thrown from Editor.performLongClick) and
+  // rethrow anything else so unrelated regressions in our own callbacks aren't masked. We log it
+  // rather than swallowing silently (RN's ReactSoftExceptionLogger is internal to RN, so we use a
+  // plain warning under our own tag), and return true so the long press counts as handled (else
+  // View.CheckForLongPress leaves mHasPerformedLongPress unset and a spurious click fires on
+  // ACTION_UP); the long press just skips the insertion UI on that frame instead of crashing.
+  override fun performLongClick(): Boolean =
+    try {
+      super.performLongClick()
+    } catch (e: NullPointerException) {
+      val top = e.stackTrace.firstOrNull()
+      if (top == null || !top.className.startsWith("android.widget.Editor") || top.methodName != "performLongClick") {
+        throw e
+      }
+      Log.w(TAG, "Absorbed framework NPE in performLongClick (issue #728)", e)
+      true
+    }
 
   // In auto-grow mode (scrollEnabled=false) TextView's internal bringPointIntoView
   // scrolls content before Fabric has resized the view, causing a visible flicker.
@@ -1066,5 +1089,9 @@ class EnrichedMarkdownTextInputView(
         is MentionEvent.End -> eventEmitter.emitEndMention(event.indicator)
       }
     }
+  }
+
+  companion object {
+    private val TAG: String = EnrichedMarkdownTextInputView::class.java.simpleName
   }
 }

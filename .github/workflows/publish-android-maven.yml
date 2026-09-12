@@ -19,7 +19,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: packages/android-enriched-markdown
+        working-directory: packages/enriched-markdown-android
 
     steps:
       - name: Check out
@@ -28,7 +28,7 @@ jobs:
       - name: Setup Android
         uses: ./.github/actions/setup-android
         with:
-          gradle-wrapper-properties: packages/android-enriched-markdown/gradle/wrapper/gradle-wrapper.properties
+          gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Publish to Maven Local (dry run)
         if: ${{ inputs.dry-run }}

@@ -49,6 +49,10 @@ no header, so it has no copy button. To observe when a user copies code, pass
 The copy label shown to assistive technologies is configurable via
 [`selectionMenuConfig`](./COPY_OPTIONS.md).
 
+To react to a tap anywhere on a code block (for example to build your own copy-to-clipboard
+action), pass [`onCodeBlockPress`](./API_REFERENCE.md#oncodeblockpress) instead — it fires with the
+block's `code` and `language`, in both the `commonmark` and `github` flavors.
+
 ## Supported languages
 
 Fence info strings map to a grammar (for example `js` and `jsx` both select JavaScript). The **curated default

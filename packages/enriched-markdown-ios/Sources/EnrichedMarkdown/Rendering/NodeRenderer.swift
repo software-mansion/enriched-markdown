@@ -1,6 +1,6 @@
 import UIKit
 
-protocol NodeRenderer: AnyObject {
+package protocol NodeRenderer: AnyObject {
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext)
 }
 

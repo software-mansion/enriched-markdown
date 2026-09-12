@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct CodeBlock: MarkdownThemeContent {
+public struct CodeBlock: MarkdownThemeContent, BackgroundThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
@@ -51,26 +51,6 @@ public struct CodeBlock: MarkdownThemeContent {
         var copy = self
         copy.foregroundColorSpec = ThemeColorModifiers.spec(from: semantic)
         return copy
-    }
-
-    public func backgroundStyle(_ color: Color) -> Self {
-        var copy = self
-        copy.backgroundColorSpec = ThemeColorModifiers.spec(from: color)
-        return copy
-    }
-
-    public func backgroundStyle(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
-        var copy = self
-        copy.backgroundColorSpec = ThemeColorModifiers.spec(from: semantic)
-        return copy
-    }
-
-    public func background(_ color: Color) -> Self {
-        backgroundStyle(color)
-    }
-
-    public func background(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
-        backgroundStyle(semantic)
     }
 
     public func borderColor(_ color: Color) -> Self {
@@ -138,9 +118,7 @@ public struct CodeBlock: MarkdownThemeContent {
         if let foregroundColorSpec {
             config.codeBlock.foregroundColor = foregroundColorSpec.resolve(traitCollection: traitCollection)
         }
-        if let backgroundColorSpec {
-            config.codeBlock.backgroundColor = backgroundColorSpec.resolve(traitCollection: traitCollection)
-        }
+        applyBackgroundColor(to: &config.codeBlock.backgroundColor, traitCollection: traitCollection)
         if let borderColorSpec {
             config.codeBlock.borderColor = borderColorSpec.resolve(traitCollection: traitCollection)
         }

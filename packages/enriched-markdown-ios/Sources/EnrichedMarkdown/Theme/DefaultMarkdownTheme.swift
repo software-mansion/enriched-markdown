@@ -56,6 +56,9 @@ enum DefaultMarkdownTheme {
             Superscript()
             Subscript()
 
+            // #FEF08A, the highlight background shared with the React Native package.
+            Highlight().background(Color(red: 254 / 255, green: 240 / 255, blue: 138 / 255))
+
             Code()
                 .fontDesign(.monospaced)
                 .foregroundStyle(Semantic.secondary)

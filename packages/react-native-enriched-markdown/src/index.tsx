@@ -14,6 +14,8 @@ export type {
   ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
+  LatexErrorEvent,
+  CodeBlockPressEvent,
 } from './types/events';
 export type {
   AccessibilityLabels,

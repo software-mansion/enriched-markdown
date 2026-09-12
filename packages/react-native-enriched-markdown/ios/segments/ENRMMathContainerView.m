@@ -60,7 +60,17 @@
 @property (nonatomic, copy, readwrite) NSString *cachedLatex;
 @end
 
-@implementation ENRMMathContainerView
+@implementation ENRMMathContainerView {
+  BOOL _parseFailed;
+  NSString *_parseMessage;
+}
+
+- (void)reportLatexErrorIfNeeded
+{
+  if (_parseFailed && self.onLatexError) {
+    self.onLatexError(_cachedLatex, _parseMessage ?: @"", YES);
+  }
+}
 
 - (instancetype)initWithConfig:(StyleConfig *)config
 {
@@ -97,13 +107,22 @@
 - (void)applyLatex:(NSString *)latex
 {
   _cachedLatex = [latex copy];
+  _parseFailed = NO;
+  _parseMessage = nil;
 
   StyleConfig *config = self.config;
 
+  NSError *error = nil;
   ENRMRaTeXRenderResult *result = [ENRMRaTeXBridge parse:latex
                                              displayMode:YES
                                                 fontSize:config.mathFontSize
-                                                   color:config.mathColor];
+                                                   color:config.mathColor
+                                                   error:&error];
+  if (!result) {
+    _parseFailed = YES;
+    _parseMessage = error.localizedDescription ?: @"";
+    [self reportLatexErrorIfNeeded];
+  }
   _mathView.renderResult = result;
   _mathView.fallbackSource = result ? nil : ENRMMathFallbackString(latex, @"$$", config.mathFontSize, config.mathColor);
 

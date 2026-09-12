@@ -23,7 +23,9 @@ class MathInlineRenderer(
     val latex = extractLatex(node)
     if (latex.isEmpty()) return
 
-    val blockStyle = factory.blockStyleContext.requireBlockStyle()
+    val fontSize =
+      factory.blockStyleContext.currentBlockStyleOrNull()?.fontSize
+        ?: config.style.mathStyle.fontSize
 
     val start = builder.length
     builder.append("\uFFFC")
@@ -33,8 +35,9 @@ class MathInlineRenderer(
       MathInlineSpan(
         context = context,
         latex = latex,
-        fontSize = blockStyle.fontSize,
+        fontSize = fontSize,
         textColor = config.style.inlineMathStyle.color,
+        onLatexError = config.onLatexError,
       )
 
     builder.setSpan(span, start, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)

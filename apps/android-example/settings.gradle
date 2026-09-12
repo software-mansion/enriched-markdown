@@ -26,7 +26,7 @@ include ":compose"
 include ":ui"
 include ":parser"
 
-def libraryRoot = new File(settingsDir, "../../packages/android-enriched-markdown")
+def libraryRoot = new File(settingsDir, "../../packages/enriched-markdown-android")
 project(":compose").projectDir = new File(libraryRoot, "compose")
 project(":ui").projectDir = new File(libraryRoot, "ui")
 project(":parser").projectDir = new File(libraryRoot, "parser")

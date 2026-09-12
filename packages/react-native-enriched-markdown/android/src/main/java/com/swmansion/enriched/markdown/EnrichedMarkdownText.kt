@@ -15,6 +15,7 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.StateWrapper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.renderer.Renderer
@@ -23,8 +24,11 @@ import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
+import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
+import com.swmansion.enriched.markdown.utils.text.view.CodeBlockPressHost
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
@@ -52,11 +56,23 @@ class EnrichedMarkdownText
     defStyleAttr: Int = 0,
   ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
     SpoilerCapable,
-    ImagePressHost {
+    ImagePressHost,
+    CodeBlockPressHost {
     private val parser = Parser.shared
     private val renderer = Renderer()
     private var onLinkPressCallback: ((String) -> Unit)? = null
     private var onLinkLongPressCallback: ((String) -> Unit)? = null
+    private var onLatexErrorCallback: LatexErrorReporter? = null
+
+    private val reportedLatexErrors = HashSet<String>()
+
+    private val latexErrorReporter =
+      LatexErrorReporter { source, message, displayMode ->
+        val key = (if (displayMode) "B " else "I ") + source
+        if (reportedLatexErrors.add(key)) {
+          onLatexErrorCallback?.report(source, message, displayMode)
+        }
+      }
     private val checkboxTouchHelper = CheckboxTouchHelper(this)
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -97,6 +113,10 @@ class EnrichedMarkdownText
     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
 
     private var pendingStyledText: CharSequence? = null
+
+    private var mdNumberOfLines: Int = 0
+    private var mdEllipsizeMode: String = EllipsizeUtils.DEFAULT_MODE
+    private var mdSelectable: Boolean = true
 
     private var selectionColor: Int? = null
     private var selectionHandleColor: Int? = null
@@ -251,7 +271,7 @@ class EnrichedMarkdownText
               return@execute
             }
 
-          renderer.configure(style, context)
+          renderer.configure(style, context, latexErrorReporter)
           val styledText = renderer.renderDocument(ast, onLinkPressCallback, onLinkLongPressCallback)
 
           mainHandler.post {
@@ -279,9 +299,7 @@ class EnrichedMarkdownText
 
       text = styledText
 
-      if (movementMethod !is LinkLongPressMovementMethod) {
-        movementMethod = LinkLongPressMovementMethod.createInstance()
-      }
+      applyInteractivity()
 
       renderer.getCollectedImageSpans().forEach { span ->
         span.registerTextView(this)
@@ -321,7 +339,8 @@ class EnrichedMarkdownText
     }
 
     fun setIsSelectable(selectable: Boolean) {
-      applySelectableState(selectable)
+      mdSelectable = selectable
+      applyInteractivity()
     }
 
     fun setSelectionColor(color: Int?) {
@@ -343,6 +362,59 @@ class EnrichedMarkdownText
       }
       MeasurementStore.invalidate(id)
       scheduleRenderIfNeeded()
+    }
+
+    fun setMarkdownNumberOfLines(value: Int) {
+      val normalized = value.coerceAtLeast(0)
+      if (mdNumberOfLines == normalized) return
+      mdNumberOfLines = normalized
+      MeasurementStore.updateNumberOfLines(id, normalized)
+      applyLineLimitToView()
+      MeasurementStore.invalidate(id)
+      scheduleRenderIfNeeded()
+    }
+
+    fun setMarkdownEllipsizeMode(value: String) {
+      if (mdEllipsizeMode == value) return
+      mdEllipsizeMode = value
+      MeasurementStore.updateEllipsizeMode(id, value)
+      applyLineLimitToView()
+      MeasurementStore.invalidate(id)
+      scheduleRenderIfNeeded()
+    }
+
+    // Mirrors RN's ReactTextView.updateView: only ellipsize when a line limit is
+    // set; unlimited restores the default unbounded, non-ellipsized state.
+    private fun applyLineLimitToView() {
+      if (mdNumberOfLines > 0) {
+        maxLines = mdNumberOfLines
+        ellipsize = EllipsizeUtils.resolveTruncateAt(mdEllipsizeMode)
+      } else {
+        maxLines = Integer.MAX_VALUE
+        ellipsize = null
+      }
+      applyInteractivity()
+    }
+
+    // The numberOfLines ellipsis and text selection / link taps are mutually
+    // exclusive on Android and cannot be reconciled. Both setTextIsSelectable(true)
+    // and a non-null movementMethod force the display text to a Spannable, which
+    // makes TextView pick DynamicLayout (TextView.useDynamicLayout). DynamicLayout
+    // has no setMaxLines, so the clamp is never baked into the layout and no
+    // ellipsis glyph is drawn (verified against AOSP TextView/DynamicLayout on
+    // API 35/36). To keep the ellipsis, a clamped view must be non-selectable AND
+    // drop its movement method; both are restored to the user's preference once
+    // the clamp is removed.
+    private fun applyInteractivity() {
+      if (mdNumberOfLines > 0) {
+        if (isTextSelectable) setTextIsSelectable(false)
+        movementMethod = null
+      } else {
+        applySelectableState(mdSelectable)
+        if (movementMethod !is LinkLongPressMovementMethod) {
+          movementMethod = LinkLongPressMovementMethod.createInstance()
+        }
+      }
     }
 
     fun emitOnLinkPress(url: String) {
@@ -367,12 +439,30 @@ class EnrichedMarkdownText
       imagePressEnabled = enabled
     }
 
+    override var codeBlockPressEnabled: Boolean = false
+      private set
+
+    override fun emitOnCodeBlockPress(
+      code: String,
+      language: String,
+    ) {
+      emitCodeBlockPress(this, code, language)
+    }
+
+    fun setEnableCodeBlockPress(enabled: Boolean) {
+      codeBlockPressEnabled = enabled
+    }
+
     fun setOnLinkPressCallback(callback: (String) -> Unit) {
       onLinkPressCallback = callback
     }
 
     fun setOnLinkLongPressCallback(callback: (String) -> Unit) {
       onLinkLongPressCallback = callback
+    }
+
+    fun setOnLatexErrorCallback(callback: LatexErrorReporter) {
+      onLatexErrorCallback = callback
     }
 
     fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {

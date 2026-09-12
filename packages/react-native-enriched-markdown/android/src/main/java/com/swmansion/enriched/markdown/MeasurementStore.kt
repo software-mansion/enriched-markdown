@@ -4,8 +4,10 @@ import android.content.Context
 import android.graphics.Typeface
 import android.os.Build
 import android.text.SpannableString
+import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.TextUtils.TruncateAt
 import android.util.Log
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.PixelUtil
@@ -20,17 +22,20 @@ import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
+import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.getArrayOrNull
 import com.swmansion.enriched.markdown.utils.common.getBooleanOrDefault
+import com.swmansion.enriched.markdown.utils.common.getIntOrDefault
 import com.swmansion.enriched.markdown.utils.common.getMapOrNull
 import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
@@ -69,6 +74,11 @@ object MeasurementStore {
   private val fontScalingSettings = ConcurrentHashMap<Int, FontScalingSettings>()
 
   private val breakStrategies = ConcurrentHashMap<Int, String>()
+
+  // The measure path and the display TextView resolve the same clamp. 0 means unlimited.
+  private val numberOfLinesByViewId = ConcurrentHashMap<Int, Int>()
+
+  private val ellipsizeModeByViewId = ConcurrentHashMap<Int, String>()
 
   private val streamingTableModes = ConcurrentHashMap<Int, TableStreamingMode>()
 
@@ -124,6 +134,8 @@ object MeasurementStore {
 
   fun release(id: Int) {
     data.remove(id)
+    numberOfLinesByViewId.remove(id)
+    ellipsizeModeByViewId.remove(id)
   }
 
   fun invalidate(id: Int) {
@@ -135,30 +147,53 @@ object MeasurementStore {
     context: Context,
     id: Int?,
     width: Float,
+    widthMode: YogaMeasureMode?,
     height: Float,
     heightMode: YogaMeasureMode?,
     props: ReadableMap?,
     splitTableSegments: Boolean = false,
   ): Long {
-    // Early exit for empty markdown
+    // Early exit for empty markdown. Honor widthMode here too: empty content has
+    // zero intrinsic width, so only fill when the width is EXACTLY assigned -
+    // otherwise an empty view would claim all available horizontal space.
     val markdown = props.getStringOrDefault("markdown", "")
     if (markdown.isEmpty()) {
-      return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
+      val emptyWidth = if (widthMode === YogaMeasureMode.EXACTLY) PixelUtil.toDIPFromPixel(width) else 0f
+      return YogaMeasureOutput.make(emptyWidth, 0f)
+    }
+
+    // Resolve the line clamp from props here so the (background) measure pass and
+    // the (main-thread) display TextView never race on the per-viewId cache. Only
+    // overwrite when the key is present so we never clobber the view's value.
+    if (id != null && props != null) {
+      if (props.hasKey("numberOfLines")) {
+        numberOfLinesByViewId[id] = props.getDouble("numberOfLines").toInt()
+      }
+      if (props.hasKey("ellipsizeMode")) {
+        ellipsizeModeByViewId[id] = props.getString("ellipsizeMode") ?: EllipsizeUtils.DEFAULT_MODE
+      }
     }
 
     val size = getMeasureByIdInternal(context, id, width, props, splitTableSegments)
-    val resultHeight = YogaMeasureOutput.getHeight(size)
 
+    // Honor the Yoga width contract. When the parent assigns an exact width
+    // (flex child, alignItems: stretch, explicit width / width: "100%"), fill it
+    // instead of reporting the content's widest line, which would make the node
+    // hug its content and wrap early. Mirrors RN's TextLayoutManager.calculateWidth;
+    // iOS already does this via ENRMClampMeasuredSize.
+    val resultWidth =
+      if (widthMode === YogaMeasureMode.EXACTLY) {
+        PixelUtil.toDIPFromPixel(width)
+      } else {
+        YogaMeasureOutput.getWidth(size)
+      }
+
+    var resultHeight = YogaMeasureOutput.getHeight(size)
     if (heightMode === YogaMeasureMode.AT_MOST) {
-      val maxHeight = PixelUtil.toDIPFromPixel(height)
-      val finalHeight = resultHeight.coerceAtMost(maxHeight)
-      return YogaMeasureOutput.make(
-        YogaMeasureOutput.getWidth(size),
-        finalHeight,
-      )
+      resultHeight = resultHeight.coerceAtMost(PixelUtil.toDIPFromPixel(height))
     }
 
-    return size
+    return YogaMeasureOutput.make(resultWidth, resultHeight)
   }
 
   fun updateFontScalingSettings(
@@ -189,6 +224,25 @@ object MeasurementStore {
   }
 
   private fun resolveBreakStrategy(viewId: Int?): Int = BreakStrategyUtils.resolveBreakStrategy(viewId?.let { breakStrategies[it] })
+
+  fun updateNumberOfLines(
+    viewId: Int,
+    numberOfLines: Int,
+  ) {
+    numberOfLinesByViewId[viewId] = numberOfLines
+  }
+
+  fun updateEllipsizeMode(
+    viewId: Int,
+    mode: String,
+  ) {
+    ellipsizeModeByViewId[viewId] = mode
+  }
+
+  private fun resolveMaxLines(viewId: Int?): Int = viewId?.let { numberOfLinesByViewId[it] } ?: 0
+
+  private fun resolveEllipsize(viewId: Int?): TruncateAt? =
+    EllipsizeUtils.resolveTruncateAt(viewId?.let { ellipsizeModeByViewId[it] } ?: EllipsizeUtils.DEFAULT_MODE)
 
   fun updateStreamingTableMode(
     viewId: Int,
@@ -276,6 +330,8 @@ object MeasurementStore {
     result = 31 * result + maxFontSizeMultiplier.toBits()
     result = 31 * result + allowTrailingMargin.hashCode()
     result = 31 * result + imageRequestHeaders.hashCode()
+    result = 31 * result + props.getIntOrDefault("numberOfLines", 0)
+    result = 31 * result + props.getStringOrDefault("ellipsizeMode", EllipsizeUtils.DEFAULT_MODE).hashCode()
     return result
   }
 
@@ -674,16 +730,82 @@ object MeasurementStore {
       builder.setUseLineSpacingFromFallbacks(true)
     }
 
-    val layout = builder.build()
-    val measuredHeight = layout.height.toFloat()
+    applyLineLimit(builder, viewId)
 
-    // Calculate actual content width (widest line)
-    val measuredWidth = (0 until layout.lineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
+    val layout = builder.build()
+    val visibleLineCount = visibleLineCount(layout, viewId)
+    val measuredHeight = truncatedHeight(layout, visibleLineCount, content)
+
+    // Calculate actual content width (widest visible line)
+    val measuredWidth = (0 until visibleLineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
 
     return YogaMeasureOutput.make(
       PixelUtil.toDIPFromPixel(ceil(measuredWidth)),
       PixelUtil.toDIPFromPixel(measuredHeight),
     )
+  }
+
+  // Applies the per-view numberOfLines / ellipsizeMode clamp to a builder, matching
+  // RN's TextLayoutManager.buildLayout: only when a line limit is set.
+  private fun applyLineLimit(
+    builder: StaticLayout.Builder,
+    viewId: Int?,
+  ) {
+    val maxLines = resolveMaxLines(viewId)
+    if (maxLines > 0) {
+      builder.setMaxLines(maxLines).setEllipsize(resolveEllipsize(viewId))
+    }
+  }
+
+  private fun visibleLineCount(
+    layout: StaticLayout,
+    viewId: Int?,
+  ): Int {
+    val maxLines = resolveMaxLines(viewId)
+    return if (maxLines > 0) minOf(maxLines, layout.lineCount) else layout.lineCount
+  }
+
+  private fun truncatedHeight(
+    layout: StaticLayout,
+    visibleLineCount: Int,
+    text: CharSequence,
+  ): Float {
+    if (visibleLineCount <= 0) return 0f
+    val lastLine = visibleLineCount - 1
+    val bottom = layout.getLineBottom(lastLine).toFloat()
+    return (bottom - measureLeakedTrailingMargin(layout, lastLine, text)).coerceAtLeast(0f)
+  }
+
+  // When we clamp the text mid-paragraph, drop the trailing block margin that Android
+  // bakes into the truncated last line (only when content follows, like MarginBottomSpan).
+  private fun measureLeakedTrailingMargin(
+    layout: StaticLayout,
+    lastLine: Int,
+    text: CharSequence,
+  ): Float {
+    val spanned = text as? Spanned ?: return 0f
+    val lineStart = layout.getLineStart(lastLine)
+    val lineEnd = layout.getLineEnd(lastLine)
+    if (lineEnd <= lineStart || lineEnd < 1 || text[lineEnd - 1] != '\n') return 0f
+    if (!hasContentAfter(text, lineEnd)) return 0f
+    val trailing =
+      spanned
+        .getSpans(lineStart, lineEnd, MarginBottomSpan::class.java)
+        .firstOrNull { spanned.getSpanEnd(it) == lineEnd } ?: return 0f
+    return trailing.marginBottom.toInt().toFloat()
+  }
+
+  private fun hasContentAfter(
+    text: CharSequence,
+    pos: Int,
+  ): Boolean {
+    if (pos >= text.length) return false
+    if (text[pos] == '\n') {
+      val nextPos = pos + 1
+      if (nextPos >= text.length) return false
+      return text[nextPos] != '\n'
+    }
+    return true
   }
 
   /**
@@ -712,17 +834,20 @@ object MeasurementStore {
           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             setUseLineSpacingFromFallbacks(true)
           }
+          applyLineLimit(this, viewId)
         }.build()
 
-    // Find the widest line to get the actual content width
+    val visibleLineCount = visibleLineCount(layout, viewId)
+
+    // Find the widest visible line to get the actual content width
     val maxLineWidth =
-      (0 until layout.lineCount)
+      (0 until visibleLineCount)
         .maxOfOrNull { layout.getLineWidth(it) } ?: 0f
 
     val size =
       YogaMeasureOutput.make(
         PixelUtil.toDIPFromPixel(ceil(maxLineWidth)),
-        PixelUtil.toDIPFromPixel(layout.height.toFloat()),
+        PixelUtil.toDIPFromPixel(truncatedHeight(layout, visibleLineCount, content)),
       )
 
     return size to layout

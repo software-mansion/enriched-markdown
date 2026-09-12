@@ -161,12 +161,7 @@ static const CGFloat kFocusRectPadding = 2.0;
   if (text.length > 0)
     element.accessibilityLabel = text;
 
-  UIBezierPath *path = [self accessibilityPathForRange:range inTextView:textView];
-  if (path) {
-    element.accessibilityPath = path;
-  } else {
-    element.accessibilityFrameInContainerSpace = [self frameForRange:range inTextView:textView container:container];
-  }
+  element.accessibilityFrameInContainerSpace = [self frameForRange:range inTextView:textView container:container];
 
   if (type == ElementTypeImage) {
     element.accessibilityTraits =
@@ -227,60 +222,6 @@ static const CGFloat kFocusRectPadding = 2.0;
   if (text.length == 0 || range.location >= text.length)
     return NSMakeRange(NSNotFound, 0);
   return NSMakeRange(range.location, MIN(range.length, text.length - range.location));
-}
-
-+ (NSArray<NSValue *> *)perLineRectsForGlyphRange:(NSRange)glyphRange inTextView:(UITextView *)textView
-{
-  NSLayoutManager *layoutManager = textView.layoutManager;
-  UIEdgeInsets insets = textView.textContainerInset;
-  NSMutableArray<NSValue *> *rects = [NSMutableArray array];
-
-  [layoutManager
-      enumerateLineFragmentsForGlyphRange:glyphRange
-                               usingBlock:^(CGRect lineRect, CGRect usedRect, NSTextContainer *textContainer,
-                                            NSRange lineGlyphRange, BOOL *stop) {
-                                 NSRange overlap = NSIntersectionRange(glyphRange, lineGlyphRange);
-                                 if (overlap.length == 0)
-                                   return;
-
-                                 CGFloat left = [layoutManager locationForGlyphAtIndex:overlap.location].x;
-                                 BOOL extendsToLineEnd = (NSMaxRange(overlap) == NSMaxRange(lineGlyphRange));
-                                 CGFloat right = extendsToLineEnd
-                                                     ? CGRectGetMaxX(usedRect)
-                                                     : [layoutManager locationForGlyphAtIndex:NSMaxRange(overlap)].x;
-
-                                 CGRect rect =
-                                     CGRectMake(left, CGRectGetMinY(usedRect), right - left, CGRectGetHeight(usedRect));
-                                 rect = CGRectInset(rect, -kFocusRectPadding, -kFocusRectPadding);
-                                 rect = CGRectOffset(rect, insets.left, insets.top);
-                                 [rects addObject:[NSValue valueWithCGRect:rect]];
-                               }];
-
-  return rects;
-}
-
-+ (UIBezierPath *)accessibilityPathForRange:(NSRange)range inTextView:(UITextView *)textView
-{
-  NSRange clamped = [self clampedRange:range forText:textView.attributedText.string];
-  if (clamped.location == NSNotFound)
-    return nil;
-
-  NSRange glyphRange = [textView.layoutManager glyphRangeForCharacterRange:clamped actualCharacterRange:NULL];
-  NSArray<NSValue *> *lineRects = [self perLineRectsForGlyphRange:glyphRange inTextView:textView];
-  if (lineRects.count <= 1)
-    return nil;
-
-  UIWindow *window = textView.window;
-  if (!window)
-    return nil;
-
-  id<UICoordinateSpace> screenSpace = window.screen.coordinateSpace;
-  UIBezierPath *path = [UIBezierPath bezierPath];
-  for (NSValue *value in lineRects) {
-    CGRect screenRect = [textView convertRect:CGRectIntegral(value.CGRectValue) toCoordinateSpace:screenSpace];
-    [path appendPath:[UIBezierPath bezierPathWithRect:screenRect]];
-  }
-  return path;
 }
 
 + (CGRect)frameForRange:(NSRange)range inTextView:(UITextView *)textView container:(id)container
