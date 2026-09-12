@@ -318,9 +318,15 @@ object MarkdownASTSerializer {
 
       NodeType.Video -> {
         val url = node.getAttribute("url") ?: ""
-        buffer.append("<video src=\"")
-        buffer.append(url)
-        buffer.append("\"></video>")
+        if (url.contains('"')) {
+          buffer.append("<video src='")
+          buffer.append(url)
+          buffer.append("' />")
+        } else {
+          buffer.append("<video src=\"")
+          buffer.append(url)
+          buffer.append("\" />")
+        }
       }
 
       else -> {
