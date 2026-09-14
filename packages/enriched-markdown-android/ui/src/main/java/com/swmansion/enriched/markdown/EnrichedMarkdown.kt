@@ -389,6 +389,8 @@ class EnrichedMarkdown(
       selectionMenuConfig = selectionMenuConfig,
       enableTaskListItemToggle = enableTaskListItemToggle,
       onTaskListItemTap = ::toggleTaskListItem,
+      onLinkPress = onLinkPressCallback,
+      onLinkLongPress = onLinkLongPressCallback,
     )
 
   private inner class RootFactory : SegmentViewFactory {
@@ -403,19 +405,8 @@ class EnrichedMarkdown(
 
     override fun createView(segment: RenderedSegment): View =
       when (segment) {
-        is RenderedSegment.Text -> {
-          SegmentViewCreators.createTextView(segment, segmentViewConfig()).apply {
-            onLinkPressCallback = this@EnrichedMarkdown.onLinkPressCallback
-            onLinkLongPressCallback = this@EnrichedMarkdown.onLinkLongPressCallback
-          }
-        }
-
-        is RenderedSegment.Table -> {
-          SegmentViewCreators.createTableView(segment, segmentViewConfig()).apply {
-            onLinkPress = this@EnrichedMarkdown.onLinkPressCallback
-            onLinkLongPress = this@EnrichedMarkdown.onLinkLongPressCallback
-          }
-        }
+        is RenderedSegment.Text -> SegmentViewCreators.createTextView(segment, segmentViewConfig())
+        is RenderedSegment.Table -> SegmentViewCreators.createTableView(segment, segmentViewConfig())
       }
 
     override fun updateView(

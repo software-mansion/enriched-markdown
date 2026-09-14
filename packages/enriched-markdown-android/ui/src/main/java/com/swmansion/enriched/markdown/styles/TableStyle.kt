@@ -4,13 +4,6 @@ import android.content.Context
 import android.graphics.Typeface
 import com.swmansion.enriched.markdown.utils.text.TypefaceUtils
 
-/**
- * Styling for GFM tables.
- *
- * [fontSize], [fontFamily], [fontWeight], [color] and [lineHeight] describe body cells; header
- * cells override the family with [headerFontFamily] (falling back to a bold [fontFamily]) and the
- * color with [headerTextColor].
- */
 data class TableStyle(
   override val fontSize: Float,
   override val fontFamily: String,
@@ -29,12 +22,10 @@ data class TableStyle(
   val borderRadius: Float,
   val cellPaddingHorizontal: Float,
   val cellPaddingVertical: Float,
-  /** How far the table may bleed horizontally past the container's content box, in pixels. */
   val horizontalOverflow: Float,
   val align: TableAlignment,
 ) : BaseBlockStyle {
   companion object {
-    /** Typeface for body cells, or `null` when the style carries no font family. */
     fun bodyTypeface(
       context: Context,
       style: TableStyle,

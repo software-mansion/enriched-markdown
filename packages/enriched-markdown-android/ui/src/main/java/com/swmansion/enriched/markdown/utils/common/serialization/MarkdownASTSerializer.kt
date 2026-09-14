@@ -3,18 +3,12 @@ package com.swmansion.enriched.markdown.utils.common.serialization
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 
-/**
- * Turns AST back into markdown source. The standalone package needs this because AST nodes carry no
- * source offsets, so a rendered block cannot be sliced back out of the original document.
- */
+/** Turns AST back into markdown source; AST nodes carry no source offsets to slice from. */
 object MarkdownASTSerializer {
   /**
-   * Rebuilds a table's markdown, used when copying the table out of the view. Built from the AST
-   * rather than from the laid-out rows so alignment markers stay correct in RTL, where a
-   * right-aligned column resolves to a start-aligned layout.
-   *
-   * Only the first header row is followed by an alignment separator: a second one would make the
-   * output invalid GFM.
+   * Rebuilds a table's markdown for "Copy as Markdown". Built from the AST rather than from the
+   * laid-out rows so alignment markers stay correct in RTL, where a right-aligned column resolves
+   * to a start-aligned layout.
    */
   fun serializeTable(node: MarkdownASTNode): String =
     buildString {
