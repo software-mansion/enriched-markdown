@@ -18,7 +18,6 @@ import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
-import android.widget.PopupMenu
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
@@ -32,6 +31,7 @@ import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.view.DEFAULT_COPY_AS_MARKDOWN_LABEL
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
@@ -318,44 +318,28 @@ class TableContainerView(
 
   private fun showContextMenu(anchor: View): Boolean {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val popup = PopupMenu(context, anchor)
-
-    val copyItem = popup.menu.add(context.getString(android.R.string.copy))
-    val copyAsMarkdownItem =
-      if (selectionMenuConfig.copyAsMarkdown) {
-        popup.menu.add(selectionMenuConfig.copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL })
-      } else {
-        null
+    ContextMenuPopup.show(anchor, this) {
+      item(ContextMenuPopup.Icon.COPY, context.getString(android.R.string.copy)) {
+        val plainText = rows.joinToString("\n") { row -> row.joinToString("\t") { it.plainText } }
+        if (plainText.isNotEmpty()) {
+          val displayMetrics = context.resources.displayMetrics
+          val tableRows =
+            rows.map { row ->
+              row.map { cell -> Triple(cell.attributedText as CharSequence, cell.isHeader, cell.alignment) }
+            }
+          val html = HTMLGenerator.generateTableHTML(tableRows, styleConfig, displayMetrics.scaledDensity, displayMetrics.density)
+          clipboard.setPrimaryClip(ClipData.newHtmlText("Table", plainText, html))
+        }
       }
-
-    popup.setOnMenuItemClickListener { item ->
-      when (item) {
-        copyItem -> {
-          val plainText = rows.joinToString("\n") { row -> row.joinToString("\t") { it.plainText } }
-          if (plainText.isNotEmpty()) {
-            val displayMetrics = context.resources.displayMetrics
-            val tableRows =
-              rows.map { row ->
-                row.map { cell -> Triple(cell.attributedText as CharSequence, cell.isHeader, cell.alignment) }
-              }
-            val html = HTMLGenerator.generateTableHTML(tableRows, styleConfig, displayMetrics.scaledDensity, displayMetrics.density)
-            clipboard.setPrimaryClip(ClipData.newHtmlText("Table", plainText, html))
-          }
-          true
-        }
-
-        copyAsMarkdownItem -> {
+      if (selectionMenuConfig.copyAsMarkdown) {
+        item(
+          ContextMenuPopup.Icon.DOCUMENT,
+          selectionMenuConfig.copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL },
+        ) {
           if (tableMarkdown.isNotEmpty()) clipboard.setPrimaryClip(ClipData.newPlainText("Table", tableMarkdown))
-          true
-        }
-
-        else -> {
-          false
         }
       }
     }
-
-    popup.show()
     return true
   }
 
