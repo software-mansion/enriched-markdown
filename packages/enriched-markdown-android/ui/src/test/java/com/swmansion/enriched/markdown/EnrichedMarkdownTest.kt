@@ -134,6 +134,20 @@ class EnrichedMarkdownTest {
     assertSame(firstChild, secondChild)
   }
 
+  @Test
+  fun unboundedParentWidthMeasuresChildrenAgainstTheirOwnWidth() {
+    val container = containerWithAppliedSegments(plainParagraph)
+
+    container.measure(
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+    )
+
+    val child = container.getChildAt(0)
+    assertTrue("Unbounded width collapsed the container to zero", container.measuredWidth > 0)
+    assertEquals(child.measuredWidth, container.measuredWidth)
+  }
+
   private fun containerWithAppliedSegments(document: MarkdownASTNode): EnrichedMarkdown {
     val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(document), defaultStyle, context)
     val container = EnrichedMarkdown(context)

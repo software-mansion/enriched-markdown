@@ -75,6 +75,11 @@ class EnrichedMarkdown(
   fun setMarkdownContent(markdown: String) {
     if (baseMarkdown == markdown) return
     baseMarkdown = markdown
+    // A checkbox tap mutates the child's spannable in place, leaving the segment
+    // signature on the pre-tap AST. Dropping those toggles here can therefore land
+    // on an identical signature - a source that differs only outside the AST, say -
+    // and the reconciler would keep showing the toggled state.
+    if (taskListToggles.isNotEmpty()) needsSegmentReset = true
     taskListToggles.clear()
     scheduleRender()
   }
@@ -202,6 +207,10 @@ class EnrichedMarkdown(
 
   override fun onConfigurationChanged(newConfig: Configuration) {
     super.onConfigurationChanged(newConfig)
+    // The AST, and so the signature, is unchanged by a configuration change, so
+    // without this the reconciler would reuse the children and drop the re-render
+    // along with the width-dependent state (image bounds) it carries.
+    needsSegmentReset = true
     scheduleRenderIfNeeded()
   }
 
@@ -214,9 +223,15 @@ class EnrichedMarkdown(
   private fun scheduleRender() {
     val style = markdownStyle
     val markdown = currentMarkdown
-    if (markdown.isEmpty()) return
 
     val renderId = ++currentRenderId
+    // Segments rendered while detached are superseded by this render.
+    pendingSegments = null
+
+    if (markdown.isEmpty()) {
+      landRenderedSegments(emptyList())
+      return
+    }
 
     MarkdownRenderDispatcher.submit(
       owner = this,
@@ -241,8 +256,6 @@ class EnrichedMarkdown(
             style,
             context,
             imageRequestHeaders,
-            onLinkPressCallback,
-            onLinkLongPressCallback,
           )
 
         if (renderId != currentRenderId) return@submit
@@ -298,7 +311,13 @@ class EnrichedMarkdown(
         availableWidth
       } else {
         // wrap_content: children decide the width, capped by the parent's bound when it has one.
-        val childWidthSpec = MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST)
+        // An UNSPECIFIED parent carries no bound - its size is 0 - so children measure unbounded.
+        val childWidthSpec =
+          if (widthMode == MeasureSpec.UNSPECIFIED) {
+            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+          } else {
+            MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST)
+          }
         val childHeightSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
         var desired = 0
         segmentViews.forEach { child ->
