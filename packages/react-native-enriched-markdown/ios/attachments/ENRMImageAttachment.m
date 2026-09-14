@@ -72,12 +72,16 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
 {
+  // Never share an instance across string positions. An NSTextAttachment carries
+  // per-position layout state (bounds, text container, last-processed width, redraw
+  // target). The same image URL can appear at different widths - e.g. a block image
+  // in a narrow table cell and again full-width outside the table - and a shared
+  // instance would thrash its single lastProcessedKey between those widths, re-firing
+  // -refreshDisplay every draw and spinning the layout/redraw loop. The original- and
+  // processed-image caches (keyed by URL + dimensions) already make a fresh instance
+  // cheap and flicker-free, so the loaded bytes are never re-fetched or re-scaled.
   NSString *key =
       [NSString stringWithFormat:@"%@_%d", ENRMImageCacheKey(imageURL, [config imageRequestHeaders]), isInline];
-  ENRMImageAttachment *existing = [[self attachmentRegistry] objectForKey:key];
-  if (existing && existing.loadedImage) {
-    return existing;
-  }
   ENRMImageAttachment *attachment = [[self alloc] initWithImageURL:imageURL config:config isInline:isInline];
   [[self attachmentRegistry] setObject:attachment forKey:key];
   return attachment;
@@ -335,6 +339,12 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 
 - (void)refreshDisplay
 {
+  // Notify self-drawing hosts (e.g. a table grid) that rasterize us via
+  // -drawWithRect: and have no live text view for the invalidation below to reach.
+  if (self.onImageLoaded) {
+    self.onImageLoaded();
+  }
+
   UITextView *textView = [self fetchAssociatedTextView];
   if (!textView)
     return;

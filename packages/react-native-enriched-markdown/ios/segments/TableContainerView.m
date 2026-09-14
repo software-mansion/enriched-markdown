@@ -1,6 +1,7 @@
 #import "TableContainerView.h"
 #import "AttributedRenderer.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMImageAttachment.h"
 #import "HTMLGenerator.h"
 #import "LinkTapUtils.h"
 #import "MarkdownASTNode.h"
@@ -103,6 +104,29 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
   }
 
   return attributedText;
+}
+
+// The grid rasterizes each cell's attributed string via -drawWithRect: in a single
+// drawRect: pass, so an image attachment loading asynchronously has no live text view
+// to invalidate (its -refreshDisplay no-ops). Point every cell image at the grid's own
+// redraw so the cell repaints once the image finishes loading.
+static void ENRMTableWireImageRedraw(NSArray<NSArray<TableCellData *> *> *rows, void (^redraw)(void))
+{
+  for (NSArray<TableCellData *> *row in rows) {
+    for (TableCellData *cell in row) {
+      NSAttributedString *text = cell.attributedText;
+      if (text.length == 0)
+        continue;
+      [text enumerateAttribute:NSAttachmentAttributeName
+                       inRange:NSMakeRange(0, text.length)
+                       options:0
+                    usingBlock:^(id value, NSRange range, BOOL *stop) {
+                      if ([value isKindOfClass:[ENRMImageAttachment class]]) {
+                        ((ENRMImageAttachment *)value).onImageLoaded = redraw;
+                      }
+                    }];
+    }
+  }
 }
 
 static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *tableNode, StyleConfig *config,
@@ -260,7 +284,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   // a single drawRect: pass (no subview / layer compositing issues).
   ENRMTableGridView *gridView = [[ENRMTableGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
-  gridView.menuProvider = ^NSMenu * {
+  gridView.menuProvider = ^NSMenu *
+  {
     TableContainerView *strongSelf = weakSelf;
     if (!strongSelf || !strongSelf.enableBlockContextMenu)
       return nil;
@@ -415,6 +440,9 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
       horizontalCellPadding:self.config.tableCellPaddingHorizontal
         verticalCellPadding:self.config.tableCellPaddingVertical
                cornerRadius:self.config.tableBorderRadius];
+
+  __weak ENRMTableGridView *weakGrid = gridView;
+  ENRMTableWireImageRedraw(_rows, ^{ [weakGrid setNeedsDisplay:YES]; });
 }
 
 #else
@@ -450,6 +478,9 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
       horizontalCellPadding:self.config.tableCellPaddingHorizontal
         verticalCellPadding:self.config.tableCellPaddingVertical
                cornerRadius:self.config.tableBorderRadius];
+
+  __weak ENRMTableIOSGridView *weakGrid = gridView;
+  ENRMTableWireImageRedraw(_rows, ^{ [weakGrid setNeedsDisplay]; });
 }
 #endif
 
