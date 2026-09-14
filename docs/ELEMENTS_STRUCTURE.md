@@ -169,6 +169,8 @@ Images are automatically detected as block or inline based on context:
 
 You don't need to specify which type—the renderer automatically determines this based on the image's position in the content. Note that a single newline doesn't split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
 
+Images also render inside GFM table cells, following the same block/inline detection and honoring the `image` styles (`aspectRatio`, `maxHeight`, `height`).
+
 ## Videos
 
 Videos are embedded using the standard HTML `<video>` tag, which is the most common way to include video in markdown:
