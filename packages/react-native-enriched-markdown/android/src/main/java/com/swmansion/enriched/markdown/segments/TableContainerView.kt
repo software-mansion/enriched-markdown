@@ -24,6 +24,7 @@ import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
@@ -300,6 +301,15 @@ class TableContainerView(
         topMargin = ceil(verticalPadding).toInt()
       },
     )
+
+    // Cell attributed text is rendered by a throwaway Renderer, so its ImageSpans are
+    // never collected by the host EnrichedMarkdownText and never registered with a view.
+    // Without a view an async image load has no redraw target (ImageSpan.requestReflow
+    // no-ops on a null viewRef), so the cell stays blank. Register them with the cell's
+    // own TextView so both inline and block images repaint when they finish loading.
+    data.attributedText
+      .getSpans(0, data.attributedText.length, ImageSpan::class.java)
+      .forEach { it.registerTextView(cellTextView, suppressLayoutNotify = true) }
   }
 
   override fun onMeasure(
@@ -409,6 +419,22 @@ class TableContainerView(
       }
     }
 
+    private fun prepareImageSpansForMeasurement(
+      text: CharSequence,
+      widthPx: Int,
+    ) {
+      if (widthPx <= 1) return
+      val spanned = text as? android.text.Spanned ?: return
+      spanned
+        .getSpans(0, spanned.length, ImageSpan::class.java)
+        .forEach { it.prepareForMeasurement(spanned, widthPx) }
+    }
+
+    private fun cellHasBlockImage(text: CharSequence): Boolean {
+      val spanned = text as? android.text.Spanned ?: return false
+      return spanned.getSpans(0, spanned.length, ImageSpan::class.java).any { !it.isInline }
+    }
+
     private fun computeTableDimensions(
       texts: List<List<CharSequence>>,
       config: StyleConfig,
@@ -433,8 +459,13 @@ class TableContainerView(
               .setIncludePad(false)
               .build()
           val textWidth: Float = (0 until layout.lineCount).maxOfOrNull { line -> layout.getLineWidth(line) } ?: 0f
+          // A block image has no intrinsic width until it loads, which would collapse the
+          // column to the minimum. iOS sizes the cell to the block image's full available
+          // width (its line fragment), so a lone image fills the column; mirror that by
+          // letting a block image request the max column width.
+          val effectiveWidth = if (cellHasBlockImage(cellText)) maxColumnWidth else ceil(textWidth)
           columnWidths[colIndex] =
-            max(columnWidths[colIndex], min(max(ceil(textWidth) + horizontalPadding, minColumnWidth), maxColumnWidth + horizontalPadding))
+            max(columnWidths[colIndex], min(max(effectiveWidth + horizontalPadding, minColumnWidth), maxColumnWidth + horizontalPadding))
         }
       }
 
@@ -442,6 +473,11 @@ class TableContainerView(
         texts.map { row ->
           row
             .mapIndexed { colIndex, cellText ->
+              val contentWidth = (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1)
+              // Mirror SegmentHeightMeasurer: size dynamic (aspectRatio/maxHeight) image
+              // boxes to the resolved column width before measuring, so block images in
+              // cells reserve the same height they would outside a table.
+              prepareImageSpansForMeasurement(cellText, contentWidth)
               val layout =
                 StaticLayout.Builder
                   .obtain(
@@ -449,7 +485,7 @@ class TableContainerView(
                     0,
                     cellText.length,
                     paint,
-                    (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1),
+                    contentWidth,
                   ).setIncludePad(false)
                   .build()
               ceil(layout.height.toFloat()) + verticalPadding
