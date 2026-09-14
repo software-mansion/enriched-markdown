@@ -65,6 +65,8 @@ object MarkdownRenderTestSupport {
       taskListStyle = taskListStyle ?: base.taskListStyle,
       codeBlockStyle = base.codeBlockStyle,
       thematicBreakStyle = base.thematicBreakStyle,
+      mathStyle = base.mathStyle,
+      inlineMathStyle = base.inlineMathStyle,
     )
   }
 }

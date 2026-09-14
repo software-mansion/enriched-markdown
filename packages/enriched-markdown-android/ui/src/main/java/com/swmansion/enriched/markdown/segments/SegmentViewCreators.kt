@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import android.util.TypedValue
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
@@ -17,6 +18,7 @@ data class SegmentViewConfig(
   val selectionMenuConfig: SelectionMenuConfig,
   val enableTaskListItemToggle: Boolean,
   val onTaskListItemTap: ((view: EnrichedMarkdownInternalText, hit: TaskListHitTestResult) -> Unit)?,
+  val onLatexError: LatexErrorReporter? = null,
 )
 
 object SegmentViewCreators {
@@ -44,5 +46,22 @@ object SegmentViewCreators {
     view.lastElementMarginBottom = segment.lastElementMarginBottom
     view.applyStyledText(segment.styledText)
     segment.imageSpans.forEach { it.registerTextView(view) }
+  }
+
+  fun createMathView(
+    segment: RenderedSegment.Math,
+    config: SegmentViewConfig,
+  ): MathContainerView =
+    MathContainerView(config.context, config.style).apply {
+      selectionMenuConfig = config.selectionMenuConfig
+      onLatexError = config.onLatexError
+      applyLatex(segment.latex)
+    }
+
+  fun updateMathView(
+    view: MathContainerView,
+    segment: RenderedSegment.Math,
+  ) {
+    view.applyLatex(segment.latex)
   }
 }

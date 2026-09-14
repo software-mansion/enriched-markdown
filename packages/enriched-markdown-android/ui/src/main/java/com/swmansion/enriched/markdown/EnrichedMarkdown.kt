@@ -7,10 +7,12 @@ import android.os.Looper
 import android.util.Log
 import android.view.View
 import androidx.annotation.VisibleForTesting
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.segments.ContainerNodeView
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
+import com.swmansion.enriched.markdown.segments.MathContainerView
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.SegmentViewConfig
 import com.swmansion.enriched.markdown.segments.SegmentViewCreators
@@ -64,6 +66,21 @@ class EnrichedMarkdown(
   private var onLinkPressCallback: ((String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((TaskListItemPressEvent) -> Unit)? = null
+  private var onLatexErrorCallback: ((LatexErrorEvent) -> Unit)? = null
+
+  /**
+   * Failures already reported, keyed by display mode and source. Not cleared when the
+   * markdown changes, so streamed content that re-renders the same broken expression
+   * on every update reports it once.
+   */
+  private val reportedLatexErrors = HashSet<String>()
+
+  private val latexErrorReporter =
+    LatexErrorReporter { source, message, displayMode ->
+      if (reportedLatexErrors.add("$displayMode:$source")) {
+        onLatexErrorCallback?.invoke(LatexErrorEvent(source, message, displayMode))
+      }
+    }
 
   private var pendingSegments: List<RenderedSegment>? = null
   private var needsSegmentReset = false
@@ -135,6 +152,15 @@ class EnrichedMarkdown(
   }
 
   /**
+   * Called when a LaTeX expression fails to render and falls back to its raw
+   * source. Fires at most once per distinct failing expression for the lifetime
+   * of this view (until it is recycled via [prepareForViewReuse]).
+   */
+  fun setOnLatexErrorCallback(callback: ((LatexErrorEvent) -> Unit)?) {
+    onLatexErrorCallback = callback
+  }
+
+  /**
    * Controls whether tapping a task-list checkbox toggles its checked state.
    * When `false` the tap is fully inert: no visual toggle and no
    * `onTaskListItemPress`. Defaults to `true`. Text selection and links are
@@ -164,6 +190,8 @@ class EnrichedMarkdown(
 
   fun setOnTaskListItemPressListener(listener: ((TaskListItemPressEvent) -> Unit)?) = setOnTaskListItemPressCallback(listener)
 
+  fun setOnLatexErrorListener(listener: ((LatexErrorEvent) -> Unit)?) = setOnLatexErrorCallback(listener)
+
   fun setSelectionColor(color: Int?) {
     if (selectionColor == color) return
     selectionColor = color
@@ -182,6 +210,9 @@ class EnrichedMarkdown(
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.selectionMenuConfig = config
     }
+    segmentViews.filterIsInstance<MathContainerView>().forEach {
+      it.selectionMenuConfig = config
+    }
   }
 
   private fun applySelectionColorsToSegments() {
@@ -198,9 +229,11 @@ class EnrichedMarkdown(
     setOnLinkPressCallback(null)
     setOnLinkLongPressCallback(null)
     setOnTaskListItemPressCallback(null)
+    setOnLatexErrorCallback(null)
     setEnableTaskListItemToggle(true)
     setMarkdownContent("")
     taskListToggles.clear()
+    reportedLatexErrors.clear()
     pendingSegments = null
     applySegments(emptyList(), reset = true)
   }
@@ -256,6 +289,7 @@ class EnrichedMarkdown(
             style,
             context,
             imageRequestHeaders,
+            onLatexError = latexErrorReporter,
           )
 
         if (renderId != currentRenderId) return@submit
@@ -379,6 +413,7 @@ class EnrichedMarkdown(
       selectionMenuConfig = selectionMenuConfig,
       enableTaskListItemToggle = enableTaskListItemToggle,
       onTaskListItemTap = ::toggleTaskListItem,
+      onLatexError = latexErrorReporter,
     )
 
   private inner class RootFactory : SegmentViewFactory {
@@ -388,6 +423,7 @@ class EnrichedMarkdown(
     ): Boolean =
       when (segment) {
         is RenderedSegment.Text -> view is EnrichedMarkdownInternalText
+        is RenderedSegment.Math -> view is MathContainerView
       }
 
     override fun createView(segment: RenderedSegment): View =
@@ -398,6 +434,10 @@ class EnrichedMarkdown(
             onLinkLongPressCallback = this@EnrichedMarkdown.onLinkLongPressCallback
           }
         }
+
+        is RenderedSegment.Math -> {
+          SegmentViewCreators.createMathView(segment, segmentViewConfig())
+        }
       }
 
     override fun updateView(
@@ -406,6 +446,7 @@ class EnrichedMarkdown(
     ) {
       when (segment) {
         is RenderedSegment.Text -> SegmentViewCreators.updateTextView(view as EnrichedMarkdownInternalText, segment)
+        is RenderedSegment.Math -> SegmentViewCreators.updateMathView(view as MathContainerView, segment)
       }
     }
   }

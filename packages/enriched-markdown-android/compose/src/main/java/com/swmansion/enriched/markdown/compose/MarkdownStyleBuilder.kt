@@ -19,6 +19,8 @@ class MarkdownStyleBuilder internal constructor() {
   private var image: ImageStylePatch? = null
   private var inlineImage: InlineImageStylePatch? = null
   private var thematicBreak: ThematicBreakStylePatch? = null
+  private var math: MathStylePatch? = null
+  private var inlineMath: InlineMathStylePatch? = null
 
   fun paragraph(block: ParagraphStyleScope.() -> Unit) {
     paragraph = TextStyleScope.merge(paragraph, block)
@@ -96,6 +98,14 @@ class MarkdownStyleBuilder internal constructor() {
     thematicBreak = ThematicBreakStyleScope.merge(thematicBreak, block)
   }
 
+  fun math(block: MathStyleScope.() -> Unit) {
+    math = MathStyleScope.merge(math, block)
+  }
+
+  fun inlineMath(block: InlineMathStyleScope.() -> Unit) {
+    inlineMath = InlineMathStyleScope.merge(inlineMath, block)
+  }
+
   internal fun captureLayer(): MarkdownStyleLayer =
     MarkdownStyleLayer(
       paragraph = paragraph,
@@ -115,6 +125,8 @@ class MarkdownStyleBuilder internal constructor() {
       image = image,
       inlineImage = inlineImage,
       thematicBreak = thematicBreak,
+      math = math,
+      inlineMath = inlineMath,
     )
 
   private fun heading(

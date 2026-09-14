@@ -7,8 +7,10 @@ import com.swmansion.enriched.markdown.styles.EmphasisStyle
 import com.swmansion.enriched.markdown.styles.HeadingStyle
 import com.swmansion.enriched.markdown.styles.ImageStyle
 import com.swmansion.enriched.markdown.styles.InlineImageStyle
+import com.swmansion.enriched.markdown.styles.InlineMathStyle
 import com.swmansion.enriched.markdown.styles.LinkStyle
 import com.swmansion.enriched.markdown.styles.ListStyle
+import com.swmansion.enriched.markdown.styles.MathStyle
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
@@ -38,6 +40,8 @@ internal data class StylePatch(
   val imageStyle: ImageStyle? = null,
   val inlineImageStyle: InlineImageStyle? = null,
   val thematicBreakStyle: ThematicBreakStyle? = null,
+  val mathStyle: MathStyle? = null,
+  val inlineMathStyle: InlineMathStyle? = null,
 )
 
 internal object StyleConfigMerger {
@@ -79,6 +83,8 @@ internal object StyleConfigMerger {
       taskListStyle = patch.taskListStyle ?: base.taskListStyle,
       codeBlockStyle = patch.codeBlockStyle ?: base.codeBlockStyle,
       thematicBreakStyle = patch.thematicBreakStyle ?: base.thematicBreakStyle,
+      mathStyle = patch.mathStyle ?: base.mathStyle,
+      inlineMathStyle = patch.inlineMathStyle ?: base.inlineMathStyle,
     )
   }
 
