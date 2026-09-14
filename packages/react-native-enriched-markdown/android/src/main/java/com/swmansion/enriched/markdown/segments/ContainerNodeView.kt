@@ -61,6 +61,17 @@ open class ContainerNodeView(
     result.viewsToRemove.forEach { removeView(it) }
     result.viewsToAttach.forEach { addView(it) }
 
+    // Only created views are appended, so a signature-based reorder would leave
+    // getChildAt out of step with segmentViews. detach/attach splices the child array
+    // without a detach-from-window pass, so a moved child keeps its selection, focus
+    // and scroll state; each step fixes one index without disturbing the ones before it.
+    result.views.forEachIndexed { index, view ->
+      if (getChildAt(index) !== view) {
+        detachViewFromParent(view)
+        attachViewToParent(view, index, view.layoutParams)
+      }
+    }
+
     segmentViews.clear()
     segmentViews.addAll(result.views)
     segmentSignatures.clear()

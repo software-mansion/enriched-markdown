@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown
 
 import android.content.Context
 import android.text.Spannable
+import android.text.SpannableString
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -147,6 +148,41 @@ class EnrichedMarkdownTest {
     assertTrue("Unbounded width collapsed the container to zero", container.measuredWidth > 0)
     assertEquals(child.measuredWidth, container.measuredWidth)
   }
+
+  /**
+   * The reconciler reuses both views on a swap, so nothing is attached or removed and
+   * only the explicit reorder keeps the child order in step with the segment order.
+   * Built from RenderedSegments directly because splitASTIntoSegments still collapses
+   * every document into a single Text segment.
+   */
+  @Test
+  fun childOrderFollowsSegmentOrderWhenSegmentsSwapPositions() {
+    val first = textSegment("Alpha", 1L)
+    val second = textSegment("Beta", 2L)
+    val container = EnrichedMarkdown(context)
+
+    container.applyRenderedSegments(listOf(first, second))
+    val firstView = container.getChildAt(0)
+    val secondView = container.getChildAt(1)
+
+    container.applyRenderedSegments(listOf(second, first))
+
+    assertEquals(2, container.childCount)
+    assertSame("Swapped segment left at its old child index", secondView, container.getChildAt(0))
+    assertSame(firstView, container.getChildAt(1))
+  }
+
+  private fun textSegment(
+    text: String,
+    signature: Long,
+  ): RenderedSegment.Text =
+    RenderedSegment.Text(
+      styledText = SpannableString(text),
+      imageSpans = emptyList(),
+      needsJustify = false,
+      lastElementMarginBottom = 0f,
+      signature = signature,
+    )
 
   private fun containerWithAppliedSegments(document: MarkdownASTNode): EnrichedMarkdown {
     val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(document), defaultStyle, context)
