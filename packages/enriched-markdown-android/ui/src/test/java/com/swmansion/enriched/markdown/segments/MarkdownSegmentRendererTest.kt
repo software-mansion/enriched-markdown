@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
-import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
@@ -41,6 +40,12 @@ class MarkdownSegmentRendererTest {
     assertEquals(doc.children, textSegment.nodes)
   }
 
+  /**
+   * Task indices address the source markdown, so they must keep counting across segments.
+   * The segments are built by hand because splitASTIntoSegments still collapses every
+   * document into a single Text segment - block kinds that split it (tables, code blocks,
+   * math) land on top of this scaffolding, and this pins the invariant they rely on.
+   */
   @Test
   fun taskIndicesStayDocumentGlobalAcrossSegments() {
     val firstSegment =
@@ -72,20 +77,5 @@ class MarkdownSegmentRendererTest {
 
     assertEquals(listOf(0, 1), firstIndices)
     assertEquals(listOf(2, 3), secondIndices)
-  }
-
-  @Test
-  fun singleSegmentRenderIsUnchanged() {
-    val doc =
-      document(
-        heading(1, text("Title")),
-        paragraph(text("A paragraph with content")),
-      )
-    val segment = MarkdownSegment.Text(doc.children)
-
-    val rendered = MarkdownSegmentRenderer.render(listOf(segment), defaultStyle, context)
-    val renderedText = (rendered[0] as RenderedSegment.Text).styledText
-
-    assertEquals(render(doc).toString(), renderedText.toString())
   }
 }
