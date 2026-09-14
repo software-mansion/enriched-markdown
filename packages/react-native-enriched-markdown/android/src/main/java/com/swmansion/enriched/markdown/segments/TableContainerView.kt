@@ -24,6 +24,7 @@ import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
@@ -300,6 +301,10 @@ class TableContainerView(
         topMargin = ceil(verticalPadding).toInt()
       },
     )
+
+    data.attributedText
+      .getSpans(0, data.attributedText.length, ImageSpan::class.java)
+      .forEach { it.registerTextView(cellTextView) }
   }
 
   override fun onMeasure(

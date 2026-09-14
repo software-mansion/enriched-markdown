@@ -91,10 +91,8 @@ class TableContainerView(
             val isHeader = isSectionHead || cell.type == NodeType.TableHeaderCell
             val sourceAlignment = cell.getAttribute("align")
             val align = textAlignmentFromString(sourceAlignment)
-            val (attributedText, imageSpans) = renderCellNode(cell, isHeader, align, imageRequestHeaders)
             TableCellData(
-              attributedText = attributedText,
-              imageSpans = imageSpans,
+              attributedText = renderCellNode(cell, isHeader, align, imageRequestHeaders),
               plainText = extractPlainText(cell),
               isHeader = isHeader,
               alignment = align,
@@ -123,22 +121,21 @@ class TableContainerView(
     isHeader: Boolean,
     alignment: Layout.Alignment,
     imageRequestHeaders: Map<String, String>,
-  ): Pair<SpannableString, List<ImageSpan>> {
+  ): SpannableString {
     val paragraph = MarkdownASTNode(NodeType.Paragraph, children = node.children)
     val cellParagraphStyle = styleConfig.tableCellParagraphStyle(isHeader)
-    val renderer = Renderer().apply { configure(styleConfig, context, imageRequestHeaders) }
-    val text =
-      styleConfig
-        .withParagraphOverride(cellParagraphStyle) {
-          // LinkSpan captures its callbacks; resolve ours at tap time so later setOnLinkPress* calls still apply.
-          renderer.renderContent(listOf(paragraph), { url -> onLinkPress?.invoke(url) }, { url -> onLinkLongPress?.invoke(url) })
-        }.apply {
-          if (isNotEmpty()) {
-            if (isHeader) setSpan(HeaderTypefaceSpan(styleConfig.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD), 0, length, 33)
-            if (alignment != Layout.Alignment.ALIGN_NORMAL) setSpan(AlignmentSpan.Standard(alignment), 0, length, 33)
-          }
+    return styleConfig
+      .withParagraphOverride(cellParagraphStyle) {
+        // LinkSpan captures its callbacks; resolve ours at tap time so later setOnLinkPress* calls still apply.
+        Renderer()
+          .apply { configure(styleConfig, context, imageRequestHeaders) }
+          .renderContent(listOf(paragraph), { url -> onLinkPress?.invoke(url) }, { url -> onLinkLongPress?.invoke(url) })
+      }.apply {
+        if (isNotEmpty()) {
+          if (isHeader) setSpan(HeaderTypefaceSpan(styleConfig.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD), 0, length, 33)
+          if (alignment != Layout.Alignment.ALIGN_NORMAL) setSpan(AlignmentSpan.Standard(alignment), 0, length, 33)
         }
-    return text to renderer.getCollectedImageSpans().toList()
+      }
   }
 
   private fun extractPlainText(node: MarkdownASTNode): String =
@@ -279,7 +276,9 @@ class TableContainerView(
         topMargin = ceil(verticalPadding).toInt()
       },
     )
-    data.imageSpans.forEach { it.registerTextView(cellTextView) }
+    data.attributedText
+      .getSpans(0, data.attributedText.length, ImageSpan::class.java)
+      .forEach { it.registerTextView(cellTextView) }
   }
 
   override fun onMeasure(
@@ -508,7 +507,6 @@ class TableContainerView(
 
   private data class TableCellData(
     val attributedText: SpannableString,
-    val imageSpans: List<ImageSpan>,
     val plainText: String,
     val isHeader: Boolean,
     val alignment: Layout.Alignment,
