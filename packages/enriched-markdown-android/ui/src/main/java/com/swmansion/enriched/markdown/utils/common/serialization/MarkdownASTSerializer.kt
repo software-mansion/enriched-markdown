@@ -16,7 +16,8 @@ object MarkdownASTSerializer {
       node.children.forEach { section ->
         section.children.filter { it.type == NodeType.TableRow }.forEach { row ->
           append("| ")
-          append(row.children.joinToString(" | ") { serializeChildren(it) })
+          // A literal pipe would otherwise start a new column.
+          append(row.children.joinToString(" | ") { serializeChildren(it).replace("|", "\\|") })
           append(" |\n")
 
           if (!headerDone && row.children.firstOrNull()?.type == NodeType.TableHeaderCell) {

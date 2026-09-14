@@ -22,6 +22,7 @@ import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableAlignment
 import com.swmansion.enriched.markdown.styles.TableStyle
@@ -78,19 +79,26 @@ class TableContainerView(
     addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
   }
 
-  fun applyTableNode(tableNode: MarkdownASTNode) {
+  fun applyTableNode(
+    tableNode: MarkdownASTNode,
+    imageRequestHeaders: Map<String, String> = emptyMap(),
+  ) {
     rows =
       tableNode.children.flatMap { section ->
         val isSectionHead = section.type == NodeType.TableHead
         section.children.filter { it.type == NodeType.TableRow }.map { row ->
           row.children.map { cell ->
             val isHeader = isSectionHead || cell.type == NodeType.TableHeaderCell
-            val align = textAlignmentFromString(cell.getAttribute("align"))
+            val sourceAlignment = cell.getAttribute("align")
+            val align = textAlignmentFromString(sourceAlignment)
+            val (attributedText, imageSpans) = renderCellNode(cell, isHeader, align, imageRequestHeaders)
             TableCellData(
-              attributedText = renderCellNode(cell, isHeader, align),
+              attributedText = attributedText,
+              imageSpans = imageSpans,
               plainText = extractPlainText(cell),
               isHeader = isHeader,
               alignment = align,
+              sourceAlignment = sourceAlignment,
             )
           }
         }
@@ -114,21 +122,32 @@ class TableContainerView(
     node: MarkdownASTNode,
     isHeader: Boolean,
     alignment: Layout.Alignment,
-  ): SpannableString {
+    imageRequestHeaders: Map<String, String>,
+  ): Pair<SpannableString, List<ImageSpan>> {
     val paragraph = MarkdownASTNode(NodeType.Paragraph, children = node.children)
     val cellParagraphStyle = styleConfig.tableCellParagraphStyle(isHeader)
-    return styleConfig
-      .withParagraphOverride(cellParagraphStyle) {
-        Renderer().apply { configure(styleConfig, context) }.renderContent(listOf(paragraph), onLinkPress, onLinkLongPress)
-      }.apply {
-        if (isNotEmpty()) {
-          if (isHeader) setSpan(HeaderTypefaceSpan(styleConfig.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD), 0, length, 33)
-          if (alignment != Layout.Alignment.ALIGN_NORMAL) setSpan(AlignmentSpan.Standard(alignment), 0, length, 33)
+    val renderer = Renderer().apply { configure(styleConfig, context, imageRequestHeaders) }
+    val text =
+      styleConfig
+        .withParagraphOverride(cellParagraphStyle) {
+          // LinkSpan captures its callbacks; resolve ours at tap time so later setOnLinkPress* calls still apply.
+          renderer.renderContent(listOf(paragraph), { url -> onLinkPress?.invoke(url) }, { url -> onLinkLongPress?.invoke(url) })
+        }.apply {
+          if (isNotEmpty()) {
+            if (isHeader) setSpan(HeaderTypefaceSpan(styleConfig.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD), 0, length, 33)
+            if (alignment != Layout.Alignment.ALIGN_NORMAL) setSpan(AlignmentSpan.Standard(alignment), 0, length, 33)
+          }
         }
-      }
+    return text to renderer.getCollectedImageSpans().toList()
   }
 
-  private fun extractPlainText(node: MarkdownASTNode): String = node.content + node.children.joinToString("") { extractPlainText(it) }
+  private fun extractPlainText(node: MarkdownASTNode): String =
+    when (node.type) {
+      // A space rather than a newline: plain-text copy is newline-separated per row.
+      NodeType.LineBreak, NodeType.SoftBreak -> " "
+
+      else -> node.content + node.children.joinToString("") { extractPlainText(it) }
+    }
 
   private fun textAlignmentFromString(align: String?): Layout.Alignment =
     when (align) {
@@ -214,9 +233,10 @@ class TableContainerView(
         contentDescription = description
         if (isHeaderRow) ViewCompat.setAccessibilityHeading(this, true)
       }
+    // Below every cell, but after the previous rows' overlays so traversal follows document order.
     gridContainer.addView(
       overlay,
-      0,
+      rowIndex,
       LayoutParams(
         ceil(totalTableWidth).toInt(),
         ceil(rowHeight + tableStyle.borderWidth).toInt(),
@@ -259,13 +279,15 @@ class TableContainerView(
         topMargin = ceil(verticalPadding).toInt()
       },
     )
+    data.imageSpans.forEach { it.registerTextView(cellTextView) }
   }
 
   override fun onMeasure(
     widthSpec: Int,
     heightSpec: Int,
   ) {
-    val measuredWidth = MeasureSpec.getSize(widthSpec)
+    // UNSPECIFIED carries size 0, so fall back to the table's own width there.
+    val measuredWidth = resolveSize(ceil(totalTableWidth).toInt(), widthSpec)
     val measuredHeight = ceil(totalTableHeight).toInt()
     scrollView.measure(
       MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
@@ -325,7 +347,7 @@ class TableContainerView(
           val displayMetrics = context.resources.displayMetrics
           val tableRows =
             rows.map { row ->
-              row.map { cell -> Triple(cell.attributedText as CharSequence, cell.isHeader, cell.alignment) }
+              row.map { cell -> Triple(cell.attributedText as CharSequence, cell.isHeader, cell.sourceAlignment) }
             }
           val html = HTMLGenerator.generateTableHTML(tableRows, styleConfig, displayMetrics.scaledDensity, displayMetrics.density)
           clipboard.setPrimaryClip(ClipData.newHtmlText("Table", plainText, html))
@@ -486,8 +508,11 @@ class TableContainerView(
 
   private data class TableCellData(
     val attributedText: SpannableString,
+    val imageSpans: List<ImageSpan>,
     val plainText: String,
     val isHeader: Boolean,
     val alignment: Layout.Alignment,
+    /** The GFM `align` attribute; [alignment] is mirrored in RTL, so HTML export needs the original. */
+    val sourceAlignment: String?,
   )
 }

@@ -207,6 +207,20 @@ class TableSegmentTest {
   }
 
   @Test
+  fun serializeTableEscapesLiteralPipesInCells() {
+    val node =
+      table(
+        head = tableHead(tableRow(tableHeaderCell("default", text("a|b")))),
+        body = tableBody(tableRow(tableCell("default", text("c|d")))),
+      )
+
+    val markdown = MarkdownASTSerializer.serializeTable(node)
+
+    assertTrue(markdown.contains("| a\\|b |"))
+    assertTrue(markdown.contains("| c\\|d |"))
+  }
+
+  @Test
   fun serializeTableKeepsInlineEmphasisMarkers() {
     val node =
       table(

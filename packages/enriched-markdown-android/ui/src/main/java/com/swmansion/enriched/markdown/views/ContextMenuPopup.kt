@@ -106,9 +106,11 @@ object ContextMenuPopup {
     val screenW = context.resources.displayMetrics.widthPixels
     val margin = 8f.dp
 
+    // Not coerceIn: a popup wider than the screen makes its max smaller than its min, which throws.
     val x =
       (centerX - container.measuredWidth / 2)
-        .coerceIn(margin, screenW - container.measuredWidth - margin)
+        .coerceAtMost(screenW - container.measuredWidth - margin)
+        .coerceAtLeast(margin)
     val y =
       (topY - container.measuredHeight - margin)
         .coerceAtLeast(margin)

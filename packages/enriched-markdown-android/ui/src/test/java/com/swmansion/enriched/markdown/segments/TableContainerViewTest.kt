@@ -95,8 +95,9 @@ class TableContainerViewTest {
     assertEquals(3, overlays.size)
     assertEquals(9, cells.size)
 
-    val byRowNumber = overlays.sortedBy { rowNumberOf(it) }
-    assertEquals(listOf(1, 2, 3), byRowNumber.map { rowNumberOf(it) })
+    // Child order drives accessibility traversal, so overlays must already be in document order.
+    assertEquals(listOf(1, 2, 3), overlays.map { rowNumberOf(it) })
+    val byRowNumber = overlays
 
     val expectedRowTexts = listOf(listOf("H1", "H2", "H3"), listOf("R1C1", "R1C2", "R1C3"), listOf("R2C1", "R2C2", "R2C3"))
     byRowNumber.forEachIndexed { index, overlay ->
@@ -203,6 +204,18 @@ class TableContainerViewTest {
 
     assertTrue(wideScrollView.isHorizontalScrollBarEnabled)
     assertFalse(narrowScrollView.isHorizontalScrollBarEnabled)
+  }
+
+  @Test
+  fun unboundedWidthMeasuresToTheTablesOwnWidth() {
+    val view = newTableView().apply { applyTableNode(threeByThreeTable) }
+
+    view.measure(
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+    )
+
+    assertTrue(view.measuredWidth > 0)
   }
 
   private companion object {

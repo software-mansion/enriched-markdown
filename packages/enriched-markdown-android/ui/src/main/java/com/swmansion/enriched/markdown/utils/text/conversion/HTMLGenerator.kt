@@ -1,7 +1,6 @@
 package com.swmansion.enriched.markdown.utils.text.conversion
 
 import android.graphics.Typeface
-import android.text.Layout
 import android.text.Spannable
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
@@ -204,7 +203,7 @@ object HTMLGenerator {
         }
       }
 
-      private fun fontWeightToCSS(fontWeight: String): String =
+      fun fontWeightToCSS(fontWeight: String): String =
         when {
           fontWeight.equals("bold", ignoreCase = true) -> "700"
           fontWeight.equals("semibold", ignoreCase = true) -> "600"
@@ -922,7 +921,7 @@ object HTMLGenerator {
     }
 
   fun generateTableHTML(
-    rows: List<List<Triple<CharSequence, Boolean, Layout.Alignment>>>,
+    rows: List<List<Triple<CharSequence, Boolean, String?>>>,
     style: StyleConfig,
     scaledDensity: Float = 1f,
     density: Float = 1f,
@@ -938,6 +937,7 @@ object HTMLGenerator {
     val fontSizePx = tableStyle.fontSize / scaledDensity
     val cellPaddingVerticalPx = tableStyle.cellPaddingVertical / density
     val cellPaddingHorizontalPx = tableStyle.cellPaddingHorizontal / density
+    val bodyFontWeight = CachedStyles.fontWeightToCSS(tableStyle.fontWeight)
 
     return buildString(rows.size * 250) {
       append("<table style=\"border-collapse: separate; border-spacing: 0; ")
@@ -971,7 +971,7 @@ object HTMLGenerator {
             }
           val textColor = if (isHeader) colorToCSS(tableStyle.headerTextColor) else colorToCSS(tableStyle.color)
           val textAlignment = alignmentToCSS(alignment)
-          val fontWeight = if (isHeader) "bold" else "normal"
+          val fontWeight = if (isHeader) "bold" else bodyFontWeight
 
           val htmlTag = if (isHeader) "th" else "td"
           append("<$htmlTag style=\"")
@@ -1007,10 +1007,11 @@ object HTMLGenerator {
     }
   }
 
-  private fun alignmentToCSS(alignment: Layout.Alignment): String =
-    when (alignment) {
-      Layout.Alignment.ALIGN_CENTER -> "center"
-      Layout.Alignment.ALIGN_OPPOSITE -> "right"
+  /** Takes the GFM `align` attribute, not the resolved Layout.Alignment, which is mirrored in RTL. */
+  private fun alignmentToCSS(align: String?): String =
+    when (align) {
+      "center" -> "center"
+      "right" -> "right"
       else -> "left"
     }
 
