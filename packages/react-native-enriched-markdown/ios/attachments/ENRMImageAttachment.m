@@ -17,7 +17,6 @@ static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
 
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
-static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 
 @interface ENRMImageAttachment ()
 
@@ -63,33 +62,13 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
   return _processedImageCache;
 }
 
-+ (NSMapTable<NSString *, ENRMImageAttachment *> *)attachmentRegistry
-{
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{ _attachmentRegistry = [NSMapTable strongToWeakObjectsMapTable]; });
-  return _attachmentRegistry;
-}
-
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
 {
-  // Never share an instance across string positions. An NSTextAttachment carries
-  // per-position layout state (bounds, text container, last-processed width, redraw
-  // target). The same image URL can appear at different widths - e.g. a block image
-  // in a narrow table cell and again full-width outside the table - and a shared
-  // instance would thrash its single lastProcessedKey between those widths, re-firing
-  // -refreshDisplay every draw and spinning the layout/redraw loop. The original- and
-  // processed-image caches (keyed by URL + dimensions) already make a fresh instance
-  // cheap and flicker-free, so the loaded bytes are never re-fetched or re-scaled.
-  NSString *key =
-      [NSString stringWithFormat:@"%@_%d", ENRMImageCacheKey(imageURL, [config imageRequestHeaders]), isInline];
-  ENRMImageAttachment *attachment = [[self alloc] initWithImageURL:imageURL config:config isInline:isInline];
-  [[self attachmentRegistry] setObject:attachment forKey:key];
-  return attachment;
-}
-
-+ (void)clearAttachmentRegistry
-{
-  [[self attachmentRegistry] removeAllObjects];
+  // Always a fresh instance, never shared across positions: the table renderer can draw
+  // the same image URL at a different width than a copy outside the table, and a shared
+  // NSTextAttachment would thrash its single last-processed width into a redraw loop. The
+  // image caches keep fresh instances cheap (no re-fetch or re-scale).
+  return [[self alloc] initWithImageURL:imageURL config:config isInline:isInline];
 }
 
 - (instancetype)initWithImageURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline

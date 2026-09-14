@@ -303,13 +303,7 @@ class TableContainerView(
       },
     )
 
-    // Cell attributed text is rendered by a throwaway Renderer, so its ImageSpans are
-    // never collected by the host EnrichedMarkdownText and never registered with a view.
-    // Without a view an async image load has no redraw target (ImageSpan.requestReflow
-    // no-ops on a null viewRef), so the cell stays blank. Register them with the cell's
-    // own TextView so both inline and block images repaint when they finish loading, and
-    // give the table a chance to re-measure its rows when a dynamic image (maxHeight /
-    // aspectRatio) settles on a height that differs from the pre-load estimate.
+    // register Image renderer into cell's text view.
     data.attributedText
       .getSpans(0, data.attributedText.length, ImageSpan::class.java)
       .forEach { span -> span.registerTextView(cellTextView) { scheduleImageRemeasure() } }
@@ -317,11 +311,6 @@ class TableContainerView(
 
   private var imageRemeasurePending = false
 
-  // A dynamic cell image resolves its box height only after loading (maxHeight fits to
-  // the intrinsic ratio; aspectRatio at a late width). Recompute this table's rows/height
-  // locally and re-render, then propagate the new height to the host so the component
-  // re-measures. The height guard makes this a no-op once heights are stable (so a
-  // deterministic aspectRatio/legacy image that was already sized correctly never churns).
   private fun scheduleImageRemeasure() {
     if (imageRemeasurePending) return
     imageRemeasurePending = true
@@ -496,10 +485,6 @@ class TableContainerView(
               .setIncludePad(false)
               .build()
           val textWidth: Float = (0 until layout.lineCount).maxOfOrNull { line -> layout.getLineWidth(line) } ?: 0f
-          // A block image has no intrinsic width until it loads, which would collapse the
-          // column to the minimum. iOS sizes the cell to the block image's full available
-          // width (its line fragment), so a lone image fills the column; mirror that by
-          // letting a block image request the max column width.
           val effectiveWidth = if (cellHasBlockImage(cellText)) maxColumnWidth else ceil(textWidth)
           columnWidths[colIndex] =
             max(columnWidths[colIndex], min(max(effectiveWidth + horizontalPadding, minColumnWidth), maxColumnWidth + horizontalPadding))
@@ -511,9 +496,6 @@ class TableContainerView(
           row
             .mapIndexed { colIndex, cellText ->
               val contentWidth = (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1)
-              // Mirror SegmentHeightMeasurer: size dynamic (aspectRatio/maxHeight) image
-              // boxes to the resolved column width before measuring, so block images in
-              // cells reserve the same height they would outside a table.
               prepareImageSpansForMeasurement(cellText, contentWidth)
               val layout =
                 StaticLayout.Builder

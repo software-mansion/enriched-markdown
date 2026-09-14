@@ -35,8 +35,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline;
 
-+ (void)clearAttachmentRegistry;
-
 + (NSCache<NSString *, RCTUIImage *> *)originalImageCache;
 + (NSCache<NSString *, RCTUIImage *> *)processedImageCache;
 
