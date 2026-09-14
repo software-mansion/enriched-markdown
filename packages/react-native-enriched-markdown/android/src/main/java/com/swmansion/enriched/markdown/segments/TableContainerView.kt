@@ -20,6 +20,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
+import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
@@ -306,10 +307,46 @@ class TableContainerView(
     // never collected by the host EnrichedMarkdownText and never registered with a view.
     // Without a view an async image load has no redraw target (ImageSpan.requestReflow
     // no-ops on a null viewRef), so the cell stays blank. Register them with the cell's
-    // own TextView so both inline and block images repaint when they finish loading.
+    // own TextView so both inline and block images repaint when they finish loading, and
+    // give the table a chance to re-measure its rows when a dynamic image (maxHeight /
+    // aspectRatio) settles on a height that differs from the pre-load estimate.
     data.attributedText
       .getSpans(0, data.attributedText.length, ImageSpan::class.java)
-      .forEach { it.registerTextView(cellTextView, suppressLayoutNotify = true) }
+      .forEach { span -> span.registerTextView(cellTextView) { scheduleImageRemeasure() } }
+  }
+
+  private var imageRemeasurePending = false
+
+  // A dynamic cell image resolves its box height only after loading (maxHeight fits to
+  // the intrinsic ratio; aspectRatio at a late width). Recompute this table's rows/height
+  // locally and re-render, then propagate the new height to the host so the component
+  // re-measures. The height guard makes this a no-op once heights are stable (so a
+  // deterministic aspectRatio/legacy image that was already sized correctly never churns).
+  private fun scheduleImageRemeasure() {
+    if (imageRemeasurePending) return
+    imageRemeasurePending = true
+    post {
+      imageRemeasurePending = false
+      remeasureForImageLoad()
+    }
+  }
+
+  private fun remeasureForImageLoad() {
+    if (rows.isEmpty()) return
+    val (widths, heights) =
+      computeTableDimensions(rows.map { row -> row.map { it.attributedText } }, styleConfig, context)
+    if (widths == columnWidths && heights == rowHeights) return
+
+    columnWidths = widths
+    rowHeights = heights
+    totalTableWidth = columnWidths.sum() + tableStyle.borderWidth
+    totalTableHeight = rowHeights.sum() + tableStyle.borderWidth
+    renderGrid()
+    requestLayout()
+
+    var parent = this.parent
+    while (parent != null && parent !is EnrichedMarkdown) parent = parent.parent
+    (parent as? EnrichedMarkdown)?.onImageLayoutChanged()
   }
 
   override fun onMeasure(

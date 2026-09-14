@@ -247,6 +247,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSString *_cachedMarkdown;
 
   NSArray *_cachedAccessibilityElements;
+
+  BOOL _imageRemeasurePending;
 }
 
 - (instancetype)initWithConfig:(StyleConfig *)config
@@ -441,8 +443,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
         verticalCellPadding:self.config.tableCellPaddingVertical
                cornerRadius:self.config.tableBorderRadius];
 
-  __weak ENRMTableGridView *weakGrid = gridView;
-  ENRMTableWireImageRedraw(_rows, ^{ [weakGrid setNeedsDisplay:YES]; });
+  __weak TableContainerView *weakSelf = self;
+  ENRMTableWireImageRedraw(_rows, ^{ [weakSelf handleCellImageResolved]; });
 }
 
 #else
@@ -479,10 +481,62 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
         verticalCellPadding:self.config.tableCellPaddingVertical
                cornerRadius:self.config.tableBorderRadius];
 
-  __weak ENRMTableIOSGridView *weakGrid = gridView;
-  ENRMTableWireImageRedraw(_rows, ^{ [weakGrid setNeedsDisplay]; });
+  __weak TableContainerView *weakSelf = self;
+  ENRMTableWireImageRedraw(_rows, ^{ [weakSelf handleCellImageResolved]; });
 }
 #endif
+
+// A dynamic cell image (maxHeight / aspectRatio) resolves its box height only after
+// loading. Recompute this table's layout locally; if a row height actually changed
+// (the maxHeight fitted case), re-render and ask the host to re-measure its Fabric
+// height, otherwise just repaint the freshly loaded pixels. The height guard makes this
+// a no-op once heights are stable, so a deterministic image never churns, and the host's
+// own needs-update guard stops the propagation from looping.
+- (void)handleCellImageResolved
+{
+  if (_imageRemeasurePending) {
+    return;
+  }
+  _imageRemeasurePending = YES;
+  __weak TableContainerView *weakSelf = self;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    TableContainerView *strongSelf = weakSelf;
+    if (!strongSelf) {
+      return;
+    }
+    strongSelf->_imageRemeasurePending = NO;
+    [strongSelf remeasureForCellImage];
+  });
+}
+
+- (void)remeasureForCellImage
+{
+  if (_rows.count == 0) {
+    return;
+  }
+  NSArray<NSNumber *> *oldRowHeights = _rowHeights;
+  CGFloat oldTotalHeight = _totalTableHeight;
+  [self computeLayout];
+
+  BOOL changed = ![_rowHeights isEqualToArray:oldRowHeights] || fabs(_totalTableHeight - oldTotalHeight) > 0.5;
+  if (!changed) {
+#if TARGET_OS_OSX
+    _gridContainer.needsDisplay = YES;
+#else
+    [_gridContainer setNeedsDisplay];
+#endif
+    return;
+  }
+
+  [self renderGrid];
+  [self setNeedsLayout];
+
+  RCTUIView *view = self.superview;
+  while (view && ![view conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
+    view = view.superview;
+  }
+  [(id<ENRMImageLayoutObserver>)view imageAttachmentDidResolveLayout];
+}
 
 #if !TARGET_OS_OSX
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
