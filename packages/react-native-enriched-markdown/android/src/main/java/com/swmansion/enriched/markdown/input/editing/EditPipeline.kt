@@ -37,6 +37,9 @@ interface EditPipelineHost {
   fun runAsATransaction(block: () -> Unit)
 
   fun setViewSelection(position: Int)
+
+  /** Whether typed markdown prefixes (`# `, `- `, `1. `) convert into blocks. */
+  val markdownShortcutsEnabled: Boolean
 }
 
 /**
@@ -64,6 +67,7 @@ class EditPipeline(
     adjustStores(context)
     pruneOrphanedAnchors()
     continueBlocks(context)
+    convertMarkdownShortcut(context)
     host.editable?.let { blockStore.normalizeToLineBounds(it) }
     applyPendingStyles(context)
 
@@ -146,6 +150,37 @@ class EditPipeline(
 
     val newLineStart = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
     blockStore.setBlock(prevBlock.type, prevBlock.level, newLineStart, newLineStart, editable)
+  }
+
+  /**
+   * Markdown shortcuts: a space typed after `#`…`######`, `-`/`*`/`+` or
+   * `1.`/`1)` at the start of a plain paragraph drops the prefix and makes the
+   * paragraph that block. Mirrors [continueBlocks]: mutate inside a transaction,
+   * then re-adjust the stores for the deletion before normalization stamps spans.
+   */
+  private fun convertMarkdownShortcut(context: EditContext) {
+    if (!host.markdownShortcutsEnabled) return
+    val editable = host.editable ?: return
+    if (context.deletedLength != 0 || context.insertedLength <= 0) return
+
+    val insertedEnd = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
+    val spaceIndex = (context.editStart until insertedEnd).firstOrNull { editable[it] == ' ' } ?: return
+
+    var lineStart = spaceIndex
+    while (lineStart > 0 && editable[lineStart - 1] != '\n') lineStart--
+    if (spaceIndex == lineStart || blockStore.blockStartingAt(lineStart) != null) return
+
+    val match = MarkdownShortcutMatcher.match(editable.subSequence(lineStart, spaceIndex)) ?: return
+
+    val deleteEnd = spaceIndex + 1
+    val deletedLength = deleteEnd - lineStart
+    host.runAsATransaction { editable.delete(lineStart, deleteEnd) }
+    formattingStore.adjustForEdit(lineStart, deletedLength, 0)
+    blockStore.adjustForEdit(lineStart, deletedLength, 0)
+    blockStore.setBlock(match.type, match.level, lineStart, lineStart, editable)
+
+    val caret = (context.editStart + context.insertedLength - deletedLength).coerceIn(0, editable.length)
+    host.setViewSelection(caret)
   }
 
   private fun applyPendingStyles(context: EditContext) {
