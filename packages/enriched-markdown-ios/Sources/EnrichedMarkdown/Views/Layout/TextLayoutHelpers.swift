@@ -102,9 +102,13 @@ enum TextLayoutHelpers {
         return NSTextRange(location: startLocation, end: endLocation)
     }
 
-    /// Calls `body` with the view-space frame of each TextKit 2 segment of
-    /// `range` (one per line piece), laying out on demand.
-    static func enumerateSegmentFrames(of range: NSRange, in textView: UITextView, _ body: (CGRect) -> Void) {
+    /// Calls `body` with the view-space frame and character range of each
+    /// TextKit 2 segment of `range` (one per line piece), laying out on demand.
+    static func enumerateSegmentFrames(
+        of range: NSRange,
+        in textView: UITextView,
+        _ body: (CGRect, NSRange) -> Void
+    ) {
         guard let textLayoutManager = textView.textLayoutManager,
               let contentManager = textLayoutManager.textContentManager,
               let textRange = textRange(range, in: contentManager)
@@ -112,8 +116,9 @@ enum TextLayoutHelpers {
 
         let inset = textView.textContainerInset
         textLayoutManager.ensureLayout(for: textRange)
-        textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { _, frame, _, _ in
-            body(frame.offsetBy(dx: inset.left, dy: inset.top))
+        textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { segment, frame, _, _ in
+            guard let segment, let segmentRange = nsRange(segment, in: contentManager) else { return true }
+            body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange)
             return true
         }
     }

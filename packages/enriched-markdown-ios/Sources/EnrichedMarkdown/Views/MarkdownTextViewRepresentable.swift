@@ -11,7 +11,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let isSelectionEnabled: Bool
     let selectionColor: Color?
     let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
-    let spoilerOverlay: MarkdownSpoilerOverlay
+    let spoilerOverlay: any SpoilerOverlayProvider
     let onSpoilerTap: ((NSRange) -> Void)?
     let accessibilityLabels: MarkdownAccessibilityLabels
 
@@ -36,7 +36,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
         textView.onTaskListItemTap = onTaskListItemTap
-        textView.spoilerOverlays.mode = spoilerOverlay
+        textView.spoilerOverlays.provider = spoilerOverlay
         textView.onSpoilerTap = onSpoilerTap
         textView.accessibilityLabels = accessibilityLabels
         textView.setMarkdownAttributedText(attributedText)
@@ -260,7 +260,7 @@ final class MarkdownTextView: UITextView {
     /// restoring the text (see `MarkdownRenderStore.revealSpoiler`).
     var onSpoilerTap: ((NSRange) -> Void)?
 
-    private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self)
+    private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self, style: styleConfig.spoiler)
 
     /// Our tap recognizer must not steal touches from the text view's own
     /// recognizers (selection, links), so it observes simultaneously.
@@ -494,7 +494,7 @@ final class MarkdownTextView: UITextView {
     /// TextKit 2 layout fragments.
     func accessibilityScreenFrame(for range: NSRange) -> CGRect {
         var union = CGRect.null
-        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { union = union.union($0) }
+        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { frame, _ in union = union.union(frame) }
         guard !union.isNull else { return .zero }
         return UIAccessibility.convertToScreenCoordinates(union, in: self)
     }
