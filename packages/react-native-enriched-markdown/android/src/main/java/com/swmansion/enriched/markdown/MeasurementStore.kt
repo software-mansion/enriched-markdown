@@ -142,6 +142,11 @@ object MeasurementStore {
     data.remove(id)
   }
 
+  // The content-box width (px) the shadow-node measure pass last wrapped text at.
+  // The display TextView reads this to inset its own padding by the same amount, so
+  // it wraps at the identical width and never reserves a phantom trailing line (#805).
+  fun contentBoxWidthPx(id: Int): Float? = data[id]?.cachedWidth
+
   /** Main entry point for ShadowNode measurement. */
   fun getMeasureById(
     context: Context,
