@@ -11,7 +11,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let isSelectionEnabled: Bool
     let selectionColor: Color?
     let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
-    let spoilerOverlay: MarkdownSpoilerOverlay
+    let spoilerOverlay: any SpoilerOverlayProvider
     let onSpoilerTap: ((NSRange) -> Void)?
     let accessibilityLabels: MarkdownAccessibilityLabels
 
@@ -36,7 +36,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.isSelectionEnabled = isSelectionEnabled
         textView.tintColor = selectionColor.map { UIColor($0) }
         textView.onTaskListItemTap = onTaskListItemTap
-        textView.spoilerOverlays.mode = spoilerOverlay
+        textView.spoilerOverlays.provider = spoilerOverlay
         textView.onSpoilerTap = onSpoilerTap
         textView.accessibilityLabels = accessibilityLabels
         textView.setMarkdownAttributedText(attributedText)
