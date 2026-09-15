@@ -3,26 +3,12 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import android.view.View
 import android.widget.FrameLayout
-import kotlin.math.ceil
-import kotlin.math.max
 
 /**
- * Reusable view for an AST branch node that holds a vertical stack of block
- * children (the document root and every blockquote). It owns the machinery
- * shared by both: reconciling a list of RenderedSegment into real child views
- * by signature, stacking them vertically with per-segment margins, and
- * reporting the total height (including its own vertical padding).
- *
- * Per-kind view construction is delegated to a SegmentViewFactory the subclass
- * supplies, so root-only wiring (link/copy callbacks, selection menu, spoiler,
- * accessibility, task-list toggle, pending code block) lives with the root and
- * the nested blockquote factory reuses only the shared creators.
- *
- * Layout honors paddingLeft/Top/Right/Bottom so a subclass can inset its
- * children (e.g. a blockquote's border/gap/padding) via padding: children are
- * measured at exactly width - paddingLeft - paddingRight and laid out starting
- * at (paddingLeft, paddingTop). The root uses zero padding, so its behavior is
- * unchanged.
+ * Reusable FrameLayout for an AST branch node that holds a vertical stack of block
+ * children. It reconciles a list of RenderedSegment into real child views by
+ * signature, stacks them vertically with per-segment margins, honors its own
+ * padding, and reports the total height.
  */
 open class ContainerNodeView(
   context: Context,
@@ -50,11 +36,7 @@ open class ContainerNodeView(
         renderedSegments = renderedSegments,
         reset = reset,
         matchesKind = segmentViewFactory::matchesKind,
-        createView = { segment ->
-          val view = segmentViewFactory.createView(segment)
-          segmentViewFactory.animateNewView(view, segment)
-          view
-        },
+        createView = { segment -> segmentViewFactory.createView(segment) },
         updateView = { view, segment -> segmentViewFactory.updateView(view, segment) },
       )
 
@@ -86,15 +68,6 @@ open class ContainerNodeView(
 
     val contentWidth = (containerWidth - paddingLeft - paddingRight).coerceAtLeast(0)
 
-    val needsOverhang =
-      segmentViews.any { view ->
-        view is TableContainerView &&
-          ceil(view.tableStyle.horizontalOverflow.toDouble()).toInt() > 0
-      }
-    if (clipChildren == needsOverhang) {
-      clipChildren = !needsOverhang
-    }
-
     var currentY = paddingTop
     val lastIndex = segmentViews.lastIndex
     val widthSpec = MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY)
@@ -106,27 +79,8 @@ open class ContainerNodeView(
 
       currentY += segment?.segmentMarginTop ?: 0
 
-      val overhang =
-        if (view is TableContainerView) {
-          max(ceil(view.tableStyle.horizontalOverflow.toDouble()).toInt(), 0)
-        } else {
-          0
-        }
-
-      if (overhang > 0) {
-        val extendedWidth = contentWidth + overhang * 2
-        val extWidthSpec = MeasureSpec.makeMeasureSpec(extendedWidth, MeasureSpec.EXACTLY)
-        view.measure(extWidthSpec, heightSpec)
-        view.layout(
-          paddingLeft - overhang,
-          currentY,
-          paddingLeft + contentWidth + overhang,
-          currentY + view.measuredHeight,
-        )
-      } else {
-        view.measure(widthSpec, heightSpec)
-        view.layout(paddingLeft, currentY, paddingLeft + contentWidth, currentY + view.measuredHeight)
-      }
+      view.measure(widthSpec, heightSpec)
+      view.layout(paddingLeft, currentY, paddingLeft + contentWidth, currentY + view.measuredHeight)
       currentY += view.measuredHeight
 
       if (shouldAddBottomMargin) {
@@ -136,10 +90,8 @@ open class ContainerNodeView(
   }
 
   /**
-   * Measures every child at the inner content width so computeSegmentsTotalHeight
-   * can read accurate measuredHeights during a subclass's onMeasure, before the
-   * onLayout pass runs layoutSegments. Without this a container that sizes itself
-   * from its children (a blockquote) would measure them as zero-height and clip.
+   * Measures every child at the inner content width so a container that sizes itself
+   * from its children doesn't measure them as zero-height before onLayout runs.
    */
   protected fun measureSegmentChildren(outerWidth: Int) {
     val contentWidth = (outerWidth - paddingLeft - paddingRight).coerceAtLeast(0)

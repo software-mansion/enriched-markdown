@@ -7,9 +7,11 @@ import android.text.Spannable
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
+import android.view.ViewParent
 import android.widget.TextView
-import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
@@ -125,7 +127,7 @@ private fun TextView.copyWithHTML() {
   val selectedText = spannable.subSequence(start, end)
   val plainText = selectedText.toString()
 
-  val styleConfig = (this as? EnrichedMarkdownText)?.markdownStyle
+  val styleConfig = findParentMarkdownStyle()
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
   if (styleConfig != null && selectedText is Spannable) {
@@ -143,6 +145,15 @@ private fun TextView.copyWithHTML() {
   } else {
     clipboard.setPrimaryClip(ClipData.newPlainText("Text", plainText))
   }
+}
+
+private fun TextView.findParentMarkdownStyle(): StyleConfig? {
+  var current: ViewParent? = parent
+  while (current != null) {
+    if (current is EnrichedMarkdown) return current.markdownStyle
+    current = current.parent
+  }
+  return null
 }
 
 private fun TextView.copyMarkdownToClipboard() {

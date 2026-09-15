@@ -122,9 +122,21 @@ class RendererFactory(
     onLinkPress: ((String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
   ) {
-    node.children.forEach { child ->
-      getRenderer(child).render(child, builder, onLinkPress, onLinkLongPress, this)
-    }
+    renderNodes(node.children, builder, onLinkPress, onLinkLongPress)
+  }
+
+  /**
+   * Renders a flat list of sibling nodes in order, dispatching each to its
+   * NodeRenderer. Lets a caller render a segment's own top-level nodes directly,
+   * without wrapping them in a synthetic Document node.
+   */
+  fun renderNodes(
+    nodes: List<MarkdownASTNode>,
+    builder: SpannableStringBuilder,
+    onLinkPress: ((String) -> Unit)?,
+    onLinkLongPress: ((String) -> Unit)?,
+  ) {
+    nodes.forEach { node -> getRenderer(node).render(node, builder, onLinkPress, onLinkLongPress, this) }
   }
 
   inline fun renderWithSpan(
