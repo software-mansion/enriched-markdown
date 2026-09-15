@@ -16,6 +16,7 @@ import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
+import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
@@ -91,6 +92,10 @@ object HTMLGenerator {
     // Image
     val imageMarginBottom: Int
     val imageBorderRadius: Int
+
+    // Spoiler
+    val spoilerColor: String
+    val spoilerBorderRadius: Int
 
     // Fixed HTML values (not from StyleConfig)
     val blockquotePaddingVertical = "8px"
@@ -174,6 +179,11 @@ object HTMLGenerator {
       val imgStyle = style.imageStyle
       imageMarginBottom = dimPx(imgStyle.marginBottom)
       imageBorderRadius = dimPx(imgStyle.borderRadius)
+
+      // Spoiler
+      val spStyle = style.spoilerStyle
+      spoilerColor = colorToCSS(spStyle.color)
+      spoilerBorderRadius = dimPx(spStyle.solidBorderRadius)
 
       // Headings (1-6, index 0-5)
       headingFontSizes = IntArray(6)
@@ -805,6 +815,7 @@ object HTMLGenerator {
     val strikethroughSpans = text.getSpans(start, end, StrikethroughSpan::class.java)
     val linkSpans = text.getSpans(start, end, LinkSpan::class.java)
     val codeSpans = text.getSpans(start, end, CodeSpan::class.java)
+    val spoilerSpans = text.getSpans(start, end, SpoilerSpan::class.java)
 
     val isBold =
       strongSpans.isNotEmpty() ||
@@ -816,6 +827,21 @@ object HTMLGenerator {
     val isStrikethrough = strikethroughSpans.isNotEmpty()
     val link = linkSpans.firstOrNull()
     val isCode = codeSpans.isNotEmpty() && !isCodeBlock
+    val isSpoiler = spoilerSpans.isNotEmpty()
+
+    // No web renderer defines a spoiler element, so the concealed state is carried by inline CSS
+    // that any HTML target can honour: the overlay color fills the box and paints the glyphs, and
+    // `data-spoiler` marks it up for a consumer that wants to re-implement the reveal.
+    if (isSpoiler) {
+      html
+        .append("<span data-spoiler=\"true\" style=\"background-color: ")
+        .append(styles.spoilerColor)
+        .append("; color: ")
+        .append(styles.spoilerColor)
+        .append("; border-radius: ")
+        .append(styles.spoilerBorderRadius)
+        .append("px;\">")
+    }
 
     link?.let {
       html.append("<a href=\"")
@@ -886,6 +912,7 @@ object HTMLGenerator {
     if (isBold) html.append("</strong>")
     if (isCode) html.append("</code>")
     if (link != null) html.append("</a>")
+    if (isSpoiler) html.append("</span>")
   }
 
   private fun collectParagraphs(text: Spannable): ArrayList<ParagraphInfo> {

@@ -18,10 +18,13 @@ import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdownText as NativeMarkdownTextView
 import com.swmansion.enriched.markdown.TaskListItemPressEvent as TaskListItemPressEventInternal
 import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay as SpoilerOverlayInternal
 
 typealias Md4cFlags = Md4cFlagsInternal
 
 typealias TaskListItemPressEvent = TaskListItemPressEventInternal
+
+typealias SpoilerOverlay = SpoilerOverlayInternal
 
 /**
  * Renders [markdown] using the native markdown TextView inside Compose.
@@ -30,6 +33,8 @@ typealias TaskListItemPressEvent = TaskListItemPressEventInternal
  * parameter, or nest [MarkdownTheme] to scope styles to a subtree.
  *
  * [flags] selects the optional md4c syntax extensions.
+ *
+ * [spoilerOverlay] picks how `||spoiler||` text is concealed until it is tapped.
  *
  * **Previews:** This component renders nothing in `@Preview` because it relies on [AndroidView].
  */
@@ -45,6 +50,7 @@ fun EnrichedMarkdownText(
   onLinkLongPress: ((String) -> Unit)? = null,
   onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
   enableTaskListItemToggle: Boolean = true,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES,
 ) {
   val context = LocalContext.current
   val configuration = LocalConfiguration.current
@@ -76,6 +82,7 @@ fun EnrichedMarkdownText(
         setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
         setOnTaskListItemPressCallback { event -> onTaskListItemPressState?.invoke(event) }
         setEnableTaskListItemToggle(enableTaskListItemToggle)
+        setSpoilerOverlay(spoilerOverlay)
         setMarkdownStyle(styleConfig)
         setMd4cFlags(flags)
         setIsSelectable(selectable)
@@ -88,6 +95,7 @@ fun EnrichedMarkdownText(
       view.setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
       view.setOnTaskListItemPressCallback { event -> onTaskListItemPressState?.invoke(event) }
       view.setEnableTaskListItemToggle(enableTaskListItemToggle)
+      view.setSpoilerOverlay(spoilerOverlay)
       view.setMarkdownStyle(styleConfig)
       view.setMd4cFlags(flags)
       view.setIsSelectable(selectable)

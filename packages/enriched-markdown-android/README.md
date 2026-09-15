@@ -131,6 +131,7 @@ The `markdownStyle` builder supports these blocks:
 | `image` | Block images |
 | `inlineImage` | Inline images |
 | `thematicBreak` | Horizontal rules |
+| `spoiler` | The overlay that conceals `\|\|spoiler\|\|` text |
 
 Use `MarkdownStyle.copy { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style.
 
@@ -168,6 +169,7 @@ fun EnrichedMarkdownText(
   onLinkLongPress: ((String) -> Unit)? = null,
   onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
   enableTaskListItemToggle: Boolean = true,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES,
 )
 ```
 
@@ -182,6 +184,7 @@ fun EnrichedMarkdownText(
 | `onLinkLongPress` | Called when a link is long-pressed |
 | `onTaskListItemPress` | Called after a task list checkbox tap toggles the item |
 | `enableTaskListItemToggle` | Whether a checkbox tap toggles the item (default `true`) |
+| `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.PARTICLES` (default) or `SpoilerOverlay.SOLID` |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
@@ -295,6 +298,7 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 - Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemPress`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
+- Spoilers (`||hidden||`, tap to reveal)
 - Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
 
 ### Admonitions
@@ -345,6 +349,59 @@ Copying a callout reproduces its `> [!NOTE]` marker, and screen readers announce
 An admonition nested inside a list item falls back to a plain blockquote with no header. This
 matches the React Native renderers on both platforms, so the same document looks the same
 everywhere.
+
+### Spoilers
+
+Text between double pipes is concealed until it is tapped:
+
+```markdown
+The butler ||did it||.
+```
+
+Unlike admonitions, spoilers need no parser flag — they are always recognized, so
+`Md4cFlags.DEFAULT` is enough.
+
+Two overlays are available. `SpoilerOverlay.PARTICLES` (the default) drifts a field of dots over the
+text; `SpoilerOverlay.SOLID` covers it with a rounded block:
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = content,
+  spoilerOverlay = SpoilerOverlay.SOLID,
+)
+```
+
+Tapping anywhere on a spoiler fades it away; adjoining spoilers that touch are revealed together, so
+a run broken up by inline formatting still reveals as one. A reveal is per view instance and is lost
+when the markdown changes.
+
+```kotlin
+markdownStyle {
+  spoiler {
+    color = Color(0xFF374151)
+    backgroundColor = Color(0xFFFFFFFF)
+    particles {
+      density = 8f
+      speed = 20f
+    }
+    solid { borderRadius = 4.dp }
+  }
+}
+```
+
+`color` paints the particles and fills the solid block. `density` and `speed` are unitless
+multipliers over the defaults shown above, and only apply in particle mode; `borderRadius` only
+applies in solid mode.
+
+`backgroundColor` is the surface the particle overlay paints over the concealed text before fading
+it out, so it has to match what the text sits on. Left unset it is inferred from the first ancestor
+view with a solid background, falling back to white — which is usually wrong under Compose, where
+the background normally comes from a `Modifier` the renderer cannot see. **Set it explicitly
+whenever the text does not sit on white.**
+
+Selecting and copying a spoiler reproduces its `||…||` markers rather than the bare text, so copied
+markdown stays concealed for the next reader. The selection itself is not obscured: a spoiler's text
+is readable once selected, revealed or not.
 
 ## Development
 

@@ -19,6 +19,7 @@ class MarkdownStyleBuilder internal constructor() {
   private var image: ImageStylePatch? = null
   private var inlineImage: InlineImageStylePatch? = null
   private var thematicBreak: ThematicBreakStylePatch? = null
+  private var spoiler: SpoilerStylePatch? = null
 
   fun paragraph(block: ParagraphStyleScope.() -> Unit) {
     paragraph = TextStyleScope.merge(paragraph, block)
@@ -96,6 +97,11 @@ class MarkdownStyleBuilder internal constructor() {
     thematicBreak = ThematicBreakStyleScope.merge(thematicBreak, block)
   }
 
+  /** Styling of the overlay that conceals `||spoiler||` text until it is tapped. */
+  fun spoiler(block: SpoilerStyleScope.() -> Unit) {
+    spoiler = SpoilerStyleScope.merge(spoiler, block)
+  }
+
   internal fun captureLayer(): MarkdownStyleLayer =
     MarkdownStyleLayer(
       paragraph = paragraph,
@@ -115,6 +121,7 @@ class MarkdownStyleBuilder internal constructor() {
       image = image,
       inlineImage = inlineImage,
       thematicBreak = thematicBreak,
+      spoiler = spoiler,
     )
 
   private fun heading(

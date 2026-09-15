@@ -22,6 +22,7 @@ class StyleConfig(
   val taskListStyle: TaskListStyle,
   val codeBlockStyle: CodeBlockStyle,
   val thematicBreakStyle: ThematicBreakStyle,
+  val spoilerStyle: SpoilerStyle = SpoilerStyle(),
 ) {
   private val paragraphStyleDefault: ParagraphStyle = paragraphStyleDefault
   private var paragraphStyleOverride: ParagraphStyle? = null
@@ -65,7 +66,8 @@ class StyleConfig(
       listStyle == other.listStyle &&
       taskListStyle == other.taskListStyle &&
       codeBlockStyle == other.codeBlockStyle &&
-      thematicBreakStyle == other.thematicBreakStyle
+      thematicBreakStyle == other.thematicBreakStyle &&
+      spoilerStyle == other.spoilerStyle
   }
 
   override fun hashCode(): Int {
@@ -86,6 +88,7 @@ class StyleConfig(
     result = 31 * result + taskListStyle.hashCode()
     result = 31 * result + codeBlockStyle.hashCode()
     result = 31 * result + thematicBreakStyle.hashCode()
+    result = 31 * result + spoilerStyle.hashCode()
     return result
   }
 

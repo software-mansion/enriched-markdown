@@ -8,10 +8,12 @@ import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.widget.TextView
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.SpoilerSpan
+import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import kotlin.math.abs
 
 /**
- * Movement method that adds link tap / long-press handling on top of
+ * Movement method that adds link tap / long-press and spoiler tap handling on top of
  * [ArrowKeyMovementMethod], the method [setTextIsSelectable] installs.
  *
  * Must never mutate the buffer's Selection spans — the platform Editor
@@ -63,6 +65,10 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         val tappedLink = pressedLink
         isLinkTouchActive = false
         pressedLink = null
+
+        if (handleSpoilerTap(widget, buffer, event)) {
+          return true
+        }
 
         // LinkSpan.onClick itself swallows the click that follows a completed
         // long-press (and resets its internal flag), so it is always invoked
@@ -137,6 +143,59 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   ): LinkSpan? {
     val offset = charOffsetAt(widget, event) ?: return null
     return buffer.getSpans(offset, offset, LinkSpan::class.java).firstOrNull()
+  }
+
+  private fun handleSpoilerTap(
+    widget: TextView,
+    buffer: Spannable,
+    event: MotionEvent,
+  ): Boolean {
+    val offset = charOffsetAt(widget, event) ?: return false
+    val tappedSpan =
+      buffer
+        .getSpans(offset, offset, SpoilerSpan::class.java)
+        .firstOrNull { !it.revealed && !it.revealing } ?: return false
+
+    val drawer = (widget as? SpoilerCapable)?.spoilerOverlayDrawer ?: return false
+    val spans = expandContiguousSpoilers(buffer, tappedSpan)
+    val remaining = intArrayOf(spans.size)
+
+    for (span in spans) {
+      drawer.revealSpan(span) {
+        remaining[0]--
+        if (remaining[0] <= 0) widget.invalidate()
+      }
+    }
+    widget.invalidate()
+    return true
+  }
+
+  private fun expandContiguousSpoilers(
+    buffer: Spannable,
+    seed: SpoilerSpan,
+  ): List<SpoilerSpan> {
+    val allSpans = buffer.getSpans(0, buffer.length, SpoilerSpan::class.java)
+    if (allSpans.size <= 1) return listOf(seed)
+
+    val result = mutableSetOf(seed)
+    var rangeStart = buffer.getSpanStart(seed)
+    var rangeEnd = buffer.getSpanEnd(seed)
+    var changed = true
+    while (changed) {
+      changed = false
+      for (span in allSpans) {
+        if (span in result) continue
+        val spanStart = buffer.getSpanStart(span)
+        val spanEnd = buffer.getSpanEnd(span)
+        if (spanEnd >= rangeStart && spanStart <= rangeEnd) {
+          result.add(span)
+          if (spanStart < rangeStart) rangeStart = spanStart
+          if (spanEnd > rangeEnd) rangeEnd = spanEnd
+          changed = true
+        }
+      }
+    }
+    return result.sortedBy { buffer.getSpanStart(it) }
   }
 
   companion object {

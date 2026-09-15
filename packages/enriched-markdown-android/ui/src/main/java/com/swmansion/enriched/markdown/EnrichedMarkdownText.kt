@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown
 
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Canvas
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -13,6 +14,9 @@ import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
@@ -31,7 +35,8 @@ class EnrichedMarkdownText
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-  ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr) {
+  ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
+    SpoilerCapable {
     private val parser = Parser.shared
     private val renderer = Renderer()
     private var onLinkPressCallback: ((String) -> Unit)? = null
@@ -62,6 +67,13 @@ class EnrichedMarkdownText
       get() = TaskListToggleUtils.applyCheckedStates(baseMarkdown, taskListToggles)
 
     var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
+      private set
+
+    override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
+      private set
+
+    /** How unrevealed `||spoiler||` text is concealed. Takes effect on the next render. */
+    var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
       private set
 
     private var pendingStyledText: CharSequence? = null
@@ -170,6 +182,18 @@ class EnrichedMarkdownText
       setMarkdownContent("")
       text = ""
       pendingStyledText = null
+      stopSpoilerAnimations()
+      spoilerOverlay = SpoilerOverlay.PARTICLES
+    }
+
+    /**
+     * Chooses the overlay that conceals unrevealed spoilers: drifting particles (the default) or
+     * a solid rounded block.
+     */
+    fun setSpoilerOverlay(mode: SpoilerOverlay) {
+      if (spoilerOverlay == mode) return
+      spoilerOverlay = mode
+      spoilerOverlayDrawer?.spoilerOverlay = mode
     }
 
     fun setSelectionColor(color: Int?) {
@@ -299,6 +323,9 @@ class EnrichedMarkdownText
         span.registerTextView(this)
       }
 
+      spoilerOverlayDrawer =
+        SpoilerOverlayDrawer.setupIfNeeded(this, styledText, spoilerOverlayDrawer, spoilerOverlay)
+
       accessibilityHelper.invalidateAccessibilityItems()
       applySelectionColors(selectionColor, selectionHandleColor)
     }
@@ -309,6 +336,21 @@ class EnrichedMarkdownText
         pendingStyledText = null
         applyRenderedText(it)
       }
+    }
+
+    override fun onDetachedFromWindow() {
+      stopSpoilerAnimations()
+      super.onDetachedFromWindow()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+      super.onDraw(canvas)
+      spoilerOverlayDrawer?.draw(canvas)
+    }
+
+    private fun stopSpoilerAnimations() {
+      spoilerOverlayDrawer?.stop()
+      spoilerOverlayDrawer = null
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
