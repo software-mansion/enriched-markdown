@@ -123,9 +123,6 @@ class EnrichedMarkdownText
     private var selectionColor: Int? = null
     private var selectionHandleColor: Int? = null
     private var selectionMenuConfig = SelectionMenuConfig()
-
-    // Padding assigned by the ViewManager, before we fold in the border inset. See
-    // applyContentBoxInset for why the two are tracked separately.
     private var baseHorizontalPaddingLeft = 0
     private var baseHorizontalPaddingRight = 0
     private var applyingContentBoxInset = false
@@ -516,13 +513,6 @@ class EnrichedMarkdownText
      * when measuring text in the shadow node, so the on-screen TextView (whose padding
      * carries no border) wraps ~1dp wider than the measure pass and can reserve a phantom
      * trailing line - an empty gap at the bottom of an unclamped box (#805).
-     *
-     * The shadow-node content box (frame - padding - border, already px-rounded by Fabric)
-     * is cached per view id, so `frame - contentBox` is exactly the padding+border inset the
-     * measure assumed. Folding that whole amount into the horizontal padding makes the view
-     * wrap at the identical width. Only the total inset is derived from Fabric's numbers (so
-     * the line count can never drift); the left/right split keeps the base padding and centers
-     * the border remainder, which affects visual position but not wrapping.
      */
     private fun applyContentBoxInset(widthMeasureSpec: Int) {
       if (MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.EXACTLY) return
