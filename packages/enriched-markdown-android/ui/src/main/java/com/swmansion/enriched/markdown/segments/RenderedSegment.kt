@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.segments
 
 import android.content.Context
 import android.text.SpannableString
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
@@ -17,6 +18,11 @@ sealed interface RenderedSegment {
     val lastElementMarginBottom: Float,
     override val signature: Long,
   ) : RenderedSegment
+
+  data class Math(
+    val latex: String,
+    override val signature: Long,
+  ) : RenderedSegment
 }
 
 object MarkdownSegmentRenderer {
@@ -27,6 +33,7 @@ object MarkdownSegmentRenderer {
     imageRequestHeaders: Map<String, String> = emptyMap(),
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
+    onLatexError: LatexErrorReporter? = null,
   ): List<RenderedSegment> {
     // Task indices must stay document-global: each Text segment gets a fresh Renderer,
     // so the running count is threaded through explicitly rather than reset per segment.
@@ -35,9 +42,24 @@ object MarkdownSegmentRenderer {
       when (segment) {
         is MarkdownSegment.Text -> {
           val (rendered, taskItemCount) =
-            renderTextSegment(segment.nodes, style, context, imageRequestHeaders, onLinkPress, onLinkLongPress, taskIndexOffset)
+            renderTextSegment(
+              segment.nodes,
+              style,
+              context,
+              imageRequestHeaders,
+              onLinkPress,
+              onLinkLongPress,
+              onLatexError,
+              taskIndexOffset,
+            )
           taskIndexOffset = taskItemCount
           rendered
+        }
+
+        is MarkdownSegment.Math -> {
+          var signature = SegmentSignature.signatureForNode(null) xor SegmentSignature.MATH_KIND_SALT
+          signature = SegmentSignature.fnvMixString(signature, segment.latex)
+          RenderedSegment.Math(segment.latex, signature)
         }
       }
     }
@@ -50,9 +72,10 @@ object MarkdownSegmentRenderer {
     imageRequestHeaders: Map<String, String>,
     onLinkPress: ((String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
+    onLatexError: LatexErrorReporter?,
     startingTaskIndex: Int,
   ): Pair<RenderedSegment.Text, Int> {
-    val renderer = Renderer().apply { configure(style, context, imageRequestHeaders) }
+    val renderer = Renderer().apply { configure(style, context, imageRequestHeaders, onLatexError) }
     val signature = SegmentSignature.signatureForNodes(nodes) xor SegmentSignature.TEXT_KIND_SALT
 
     val styledText = renderer.renderContent(nodes, onLinkPress, onLinkLongPress, startingTaskIndex)

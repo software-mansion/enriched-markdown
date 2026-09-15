@@ -131,6 +131,8 @@ The `markdownStyle` builder supports these blocks:
 | `image` | Block images |
 | `inlineImage` | Inline images |
 | `thematicBreak` | Horizontal rules |
+| `math` | Block LaTeX math (`$$...$$`, requires `Md4cFlags(latexMath = true)`) |
+| `inlineMath` | Inline LaTeX math (`$...$`, requires `Md4cFlags(latexMath = true)`) |
 
 Use `MarkdownStyle.copy { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style.
 
@@ -151,6 +153,22 @@ markdownStyle {
 
 Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
 
+`math` styles standalone equations: `fontSize`, `color`, `backgroundColor`, `padding`, `marginTop`, `marginBottom`, and `textAlign` (`LEFT`, `CENTER` — the default — or `RIGHT`). `inlineMath` takes a `color`; its size follows the surrounding text.
+
+```kotlin
+markdownStyle {
+  math {
+    fontSize = 20.sp
+    backgroundColor = Color(0xFFF3F4F6)
+    padding = 12.dp
+    textAlign = TextAlignment.CENTER
+  }
+  inlineMath {
+    color = Color(0xFF1F2937)
+  }
+}
+```
+
 ## API reference
 
 ### `EnrichedMarkdownText`
@@ -168,6 +186,7 @@ fun EnrichedMarkdownText(
   onLinkLongPress: ((String) -> Unit)? = null,
   onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
   enableTaskListItemToggle: Boolean = true,
+  onLatexError: ((LatexErrorEvent) -> Unit)? = null,
 )
 ```
 
@@ -182,6 +201,7 @@ fun EnrichedMarkdownText(
 | `onLinkLongPress` | Called when a link is long-pressed |
 | `onTaskListItemPress` | Called after a task list checkbox tap toggles the item |
 | `enableTaskListItemToggle` | Whether a checkbox tap toggles the item (default `true`) |
+| `onLatexError` | Called when a LaTeX expression fails to render (see below) |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
@@ -215,6 +235,36 @@ EnrichedMarkdownText(
 toggle and no `onTaskListItemPress`. Text selection and links are unaffected
 either way.
 
+#### LaTeX math
+
+With `Md4cFlags(latexMath = true)`, `$...$` renders inline within the text and
+`$$...$$` on its own line renders as a standalone, horizontally scrollable
+block. Long-press a block equation to copy its LaTeX source or copy it as
+Markdown.
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = "Mass-energy: \$E = mc^2\$\n\n\$\$\n\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}\n\$\$",
+  flags = Md4cFlags(latexMath = true),
+)
+```
+
+When the engine cannot draw an expression (an unsupported command, a syntax
+error) it shows the raw source instead, and `onLatexError` reports it:
+
+```kotlin
+data class LatexErrorEvent(
+  val source: String,       // the whole failing expression, without $ / $$ delimiters
+  val message: String?,     // the engine's error, when it gave one
+  val displayMode: Boolean, // false for inline $...$, true for block $$...$$
+)
+```
+
+Each view reports a distinct failing expression (by `displayMode` + `source`)
+at most once, and keeps remembering it when `markdown` changes, so streamed
+content doesn't report the same failure on every update. A recycled view
+starts with an empty record.
+
 ### `Md4cFlags`
 
 ```kotlin
@@ -222,6 +272,7 @@ data class Md4cFlags(
   val underline: Boolean = false,    // _text_ and __text__ render underlined instead of italic and bold
   val superscript: Boolean = false,  // ^text^ renders raised above the baseline
   val subscript: Boolean = false,    // ~text~ renders lowered below the baseline
+  val latexMath: Boolean = false,    // $...$ and $$...$$ render as LaTeX math
   val admonitions: Boolean = false,  // `> [!NOTE]` blockquotes render as GitHub alerts
   // … further md4c extensions
 ) {
@@ -295,6 +346,7 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 - Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemPress`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
+- LaTeX math, inline (`$...$`) and block (`$$...$$`) — requires `Md4cFlags(latexMath = true)`
 - Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
 
 ### Admonitions

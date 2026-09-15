@@ -186,6 +186,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               superscript = true,
               subscript = true,
               admonitions = true,
+              latexMath = true,
             ),
         )
       }

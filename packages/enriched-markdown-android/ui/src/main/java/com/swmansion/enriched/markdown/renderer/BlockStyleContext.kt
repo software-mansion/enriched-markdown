@@ -130,6 +130,8 @@ class BlockStyleContext {
     }
   }
 
+  fun currentBlockStyleOrNull(): BlockStyle? = blockStyleStack.lastOrNull()?.blockStyle
+
   fun requireBlockStyle(): BlockStyle {
     val entry = blockStyleStack.lastOrNull()
     return entry?.blockStyle

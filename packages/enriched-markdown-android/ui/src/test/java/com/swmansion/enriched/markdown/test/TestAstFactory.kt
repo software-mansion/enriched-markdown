@@ -92,4 +92,9 @@ object TestAstFactory {
   fun softBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.SoftBreak)
 
   fun lineBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.LineBreak)
+
+  fun latexMathInline(latex: String): MarkdownASTNode = MarkdownASTNode(NodeType.LatexMathInline, children = listOf(text(latex)))
+
+  /** Display math as the parser emits it at document level once promoted out of its paragraph. */
+  fun latexMathDisplay(latex: String): MarkdownASTNode = MarkdownASTNode(NodeType.LatexMathDisplay, children = listOf(text(latex)))
 }

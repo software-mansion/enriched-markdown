@@ -175,6 +175,17 @@ internal object DefaultStyles {
           marginTop = parser.toPixelFromDIP(24f),
           marginBottom = parser.toPixelFromDIP(24f),
         ),
+      mathStyle =
+        MathStyle(
+          fontSize = parser.toPixelFromSP(20f),
+          color = parser.color("#1F2937"),
+          backgroundColor = parser.color("#F3F4F6"),
+          padding = parser.toPixelFromDIP(12f),
+          marginTop = parser.toPixelFromDIP(0f),
+          marginBottom = parser.toPixelFromDIP(16f),
+          textAlign = TextAlignment.CENTER,
+        ),
+      inlineMathStyle = InlineMathStyle(color = parser.color("#1F2937")),
     )
   }
 }

@@ -15,6 +15,7 @@ import com.swmansion.enriched.markdown.spans.EmphasisSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.MathInlineSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
@@ -1021,18 +1022,8 @@ object HTMLGenerator {
   }
 
   private fun extractMathLatex(
-    text: android.text.Spannable,
+    text: Spannable,
     start: Int,
     end: Int,
-  ): String? {
-    return try {
-      val mathInlineSpanClass = Class.forName("com.swmansion.enriched.markdown.spans.MathInlineSpan")
-      val spans = text.getSpans(start, end, mathInlineSpanClass)
-      if (spans.isEmpty()) return null
-      val latexField = mathInlineSpanClass.getDeclaredField("latex").apply { isAccessible = true }
-      latexField.get(spans[0]) as? String
-    } catch (_: Exception) {
-      null
-    }
-  }
+  ): String? = text.getSpans(start, end, MathInlineSpan::class.java).firstOrNull()?.latex
 }

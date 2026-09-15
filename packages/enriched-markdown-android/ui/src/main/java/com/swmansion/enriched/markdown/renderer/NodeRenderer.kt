@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.renderer
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.style.MetricAffectingSpan
+import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -20,6 +21,7 @@ interface NodeRenderer {
 data class RendererConfig(
   val style: StyleConfig,
   val imageRequestHeaders: Map<String, String> = emptyMap(),
+  val onLatexError: LatexErrorReporter? = null,
 )
 
 class RendererFactory(
@@ -103,6 +105,13 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.BlankLine, BlankLineRenderer(config))
       put(MarkdownASTNode.NodeType.Superscript, SuperscriptRenderer())
       put(MarkdownASTNode.NodeType.Subscript, SubscriptRenderer())
+
+      val mathInlineRenderer = MathInlineRenderer(config, context)
+      put(MarkdownASTNode.NodeType.LatexMathInline, mathInlineRenderer)
+      // Isolated display math is promoted to a block segment by the parser
+      // (see promoteDisplayMathFromParagraphs). What reaches the factory is
+      // genuinely mid-line display math (e.g. `a $$x$$ b`); render it inline.
+      put(MarkdownASTNode.NodeType.LatexMathDisplay, mathInlineRenderer)
     }
   }
 

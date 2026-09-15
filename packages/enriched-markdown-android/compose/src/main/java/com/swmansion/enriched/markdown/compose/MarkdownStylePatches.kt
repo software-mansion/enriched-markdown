@@ -20,8 +20,10 @@ import com.swmansion.enriched.markdown.styles.EmphasisStyle
 import com.swmansion.enriched.markdown.styles.HeadingStyle
 import com.swmansion.enriched.markdown.styles.ImageStyle
 import com.swmansion.enriched.markdown.styles.InlineImageStyle
+import com.swmansion.enriched.markdown.styles.InlineMathStyle
 import com.swmansion.enriched.markdown.styles.LinkStyle
 import com.swmansion.enriched.markdown.styles.ListStyle
+import com.swmansion.enriched.markdown.styles.MathStyle
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
@@ -1029,6 +1031,112 @@ class InlineImageStyleScope {
         InlineImageStyleScope().apply {
           if (existing != null) {
             size = existing.size
+          }
+        }
+      scope.apply(block)
+      return scope.toPatch()
+    }
+  }
+}
+
+@Immutable
+internal data class MathStylePatch(
+  val fontSize: TextUnit? = null,
+  val color: Color? = null,
+  val backgroundColor: Color? = null,
+  val padding: Dp? = null,
+  val marginTop: Dp? = null,
+  val marginBottom: Dp? = null,
+  val textAlign: TextAlignment? = null,
+) {
+  fun apply(
+    base: MathStyle,
+    units: StyleUnits,
+  ): MathStyle =
+    base.copy(
+      fontSize = fontSize?.let(units::sp) ?: base.fontSize,
+      color = color?.let(units::color) ?: base.color,
+      backgroundColor = backgroundColor?.let(units::color) ?: base.backgroundColor,
+      padding = padding?.let(units::dp) ?: base.padding,
+      marginTop = marginTop?.let(units::dp) ?: base.marginTop,
+      marginBottom = marginBottom?.let(units::dp) ?: base.marginBottom,
+      textAlign = textAlign ?: base.textAlign,
+    )
+}
+
+/** Block math (`$$...$$`). [textAlign] positions the equation: `LEFT`, `CENTER` (default) or `RIGHT`. */
+@MarkdownStyleDsl
+class MathStyleScope {
+  var fontSize: TextUnit? = null
+  var color: Color? = null
+  var backgroundColor: Color? = null
+  var padding: Dp? = null
+  var marginTop: Dp? = null
+  var marginBottom: Dp? = null
+  var textAlign: TextAlignment? = null
+
+  internal fun toPatch(): MathStylePatch =
+    MathStylePatch(
+      fontSize = fontSize,
+      color = color,
+      backgroundColor = backgroundColor,
+      padding = padding,
+      marginTop = marginTop,
+      marginBottom = marginBottom,
+      textAlign = textAlign,
+    )
+
+  internal companion object {
+    fun merge(
+      existing: MathStylePatch?,
+      block: MathStyleScope.() -> Unit,
+    ): MathStylePatch {
+      val scope =
+        MathStyleScope().apply {
+          if (existing != null) {
+            fontSize = existing.fontSize
+            color = existing.color
+            backgroundColor = existing.backgroundColor
+            padding = existing.padding
+            marginTop = existing.marginTop
+            marginBottom = existing.marginBottom
+            textAlign = existing.textAlign
+          }
+        }
+      scope.apply(block)
+      return scope.toPatch()
+    }
+  }
+}
+
+@Immutable
+internal data class InlineMathStylePatch(
+  val color: Color? = null,
+) {
+  fun apply(
+    base: InlineMathStyle,
+    units: StyleUnits,
+  ): InlineMathStyle =
+    base.copy(
+      color = color?.let(units::color) ?: base.color,
+    )
+}
+
+@MarkdownStyleDsl
+class InlineMathStyleScope {
+  var color: Color? = null
+
+  internal fun toPatch(): InlineMathStylePatch = InlineMathStylePatch(color = color)
+
+  internal companion object {
+    fun merge(
+      existing: InlineMathStylePatch?,
+      block: InlineMathStyleScope.() -> Unit,
+    ): InlineMathStylePatch {
+      val scope =
+        InlineMathStyleScope().apply {
+          if (existing != null) {
+            color = existing.color
           }
         }
       scope.apply(block)
