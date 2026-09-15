@@ -109,6 +109,10 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 @property (nonatomic, copy, nullable) NSString *admonitionType;
 @property (nonatomic, copy) NSString *cachedMarkdown;
 @property (nonatomic, copy) NSString *cachedPlainText;
+
+// Depth-first walk over this quote's own segments, descending into nested quotes
+// so a runtime prop toggle reaches segments at every nesting level. See issue #768.
+- (void)enumerateSegmentsRecursivelyUsingBlock:(void (^)(RCTUIView *segment))block;
 @end
 
 @implementation ENRMBlockquoteContainerView
@@ -152,46 +156,80 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 #endif
 }
 
-- (void)pushCopyLabelsToChildren
+- (void)enumerateSegmentsRecursivelyUsingBlock:(void (^)(RCTUIView *segment))block
 {
   for (RCTUIView *child in self.subviews) {
-    if ([child isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      ((ENRMCodeBlockContainerView *)child).copyLabel = self.copyLabel;
-      ((ENRMCodeBlockContainerView *)child).copyAsMarkdownLabel = self.copyAsMarkdownLabel;
-    } else if ([child isKindOfClass:[TableContainerView class]]) {
-      ((TableContainerView *)child).copyLabel = self.copyLabel;
-      ((TableContainerView *)child).copyAsMarkdownLabel = self.copyAsMarkdownLabel;
-    } else if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      ENRMBlockquoteContainerView *quote = (ENRMBlockquoteContainerView *)child;
-      quote.copyLabel = self.copyLabel;
-      quote.copyAsMarkdownLabel = self.copyAsMarkdownLabel;
-      [quote pushCopyLabelsToChildren];
+    block(child);
+    if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      [(ENRMBlockquoteContainerView *)child enumerateSegmentsRecursivelyUsingBlock:block];
+    }
+  }
+}
+
+- (void)pushCopyLabelsToChildren
+{
+  NSString *copyLabel = self.copyLabel;
+  NSString *copyAsMarkdownLabel = self.copyAsMarkdownLabel;
+  [self enumerateSegmentsRecursivelyUsingBlock:^(RCTUIView *segment) {
+    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)segment).copyLabel = copyLabel;
+      ((ENRMCodeBlockContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
+    } else if ([segment isKindOfClass:[TableContainerView class]]) {
+      ((TableContainerView *)segment).copyLabel = copyLabel;
+      ((TableContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
+    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      ((ENRMBlockquoteContainerView *)segment).copyLabel = copyLabel;
+      ((ENRMBlockquoteContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
     }
 #if ENRICHED_MARKDOWN_MATH
-    else if ([child isKindOfClass:[ENRMMathContainerView class]]) {
-      ((ENRMMathContainerView *)child).copyLabel = self.copyLabel;
-      ((ENRMMathContainerView *)child).copyAsMarkdownLabel = self.copyAsMarkdownLabel;
+    else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
+      ((ENRMMathContainerView *)segment).copyLabel = copyLabel;
+      ((ENRMMathContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
     }
 #endif
 #if ENRICHED_MARKDOWN_VIDEO
-    else if ([child isKindOfClass:[ENRMVideoContainerView class]]) {
-      ((ENRMVideoContainerView *)child).copyLabel = self.copyLabel;
-      ((ENRMVideoContainerView *)child).copyAsMarkdownLabel = self.copyAsMarkdownLabel;
+    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
+      ((ENRMVideoContainerView *)segment).copyLabel = copyLabel;
+      ((ENRMVideoContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
     }
 #endif
-  }
+  }];
 }
 
 - (void)pushCodeBlockPressEnabledToChildren:(BOOL)enabled
 {
   self.enableCodeBlockPress = enabled;
-  for (RCTUIView *child in self.subviews) {
-    if ([child isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      ((ENRMCodeBlockContainerView *)child).enableCodeBlockPress = enabled;
-    } else if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      [(ENRMBlockquoteContainerView *)child pushCodeBlockPressEnabledToChildren:enabled];
+  [self enumerateSegmentsRecursivelyUsingBlock:^(RCTUIView *segment) {
+    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)segment).enableCodeBlockPress = enabled;
+    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      ((ENRMBlockquoteContainerView *)segment).enableCodeBlockPress = enabled;
     }
-  }
+  }];
+}
+
+- (void)pushBlockContextMenuEnabledToChildren:(BOOL)enabled
+{
+  self.enableBlockContextMenu = enabled;
+  [self enumerateSegmentsRecursivelyUsingBlock:^(RCTUIView *segment) {
+    if ([segment isKindOfClass:[TableContainerView class]]) {
+      ((TableContainerView *)segment).enableBlockContextMenu = enabled;
+    } else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)segment).enableBlockContextMenu = enabled;
+    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      ((ENRMBlockquoteContainerView *)segment).enableBlockContextMenu = enabled;
+    }
+#if ENRICHED_MARKDOWN_MATH
+    else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
+      ((ENRMMathContainerView *)segment).enableBlockContextMenu = enabled;
+    }
+#endif
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
+      ((ENRMVideoContainerView *)segment).enableBlockContextMenu = enabled;
+    }
+#endif
+  }];
 }
 
 // Child registry for this quote's own content. It reuses static creators for

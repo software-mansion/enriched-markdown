@@ -327,7 +327,7 @@ class EnrichedMarkdown(
   private fun pushCopyLabelsToBlockSegments() {
     val copyLabel = selectionMenuConfig.copyLabel
     val copyAsMarkdownLabel = selectionMenuConfig.copyAsMarkdownLabel
-    segmentViews.forEach { view ->
+    forEachSegmentRecursive { view ->
       when {
         view is TableContainerView -> {
           view.copyLabel = copyLabel
@@ -366,7 +366,7 @@ class EnrichedMarkdown(
   }
 
   private fun pushBlockContextMenuToSegments() {
-    segmentViews.forEach { view ->
+    forEachSegmentRecursive { view ->
       when {
         view is TableContainerView -> {
           view.enableBlockContextMenu = enableBlockContextMenu
@@ -400,8 +400,8 @@ class EnrichedMarkdown(
   }
 
   private fun pushCodeBlockPressToSegments() {
-    segmentViews.filterIsInstance<CodeBlockContainerView>().forEach {
-      it.enableCodeBlockPress = enableCodeBlockPress
+    forEachSegmentRecursive { view ->
+      if (view is CodeBlockContainerView) view.enableCodeBlockPress = enableCodeBlockPress
     }
   }
 
