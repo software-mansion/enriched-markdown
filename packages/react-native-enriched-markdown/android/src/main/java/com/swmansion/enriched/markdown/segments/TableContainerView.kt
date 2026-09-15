@@ -250,7 +250,7 @@ class TableContainerView(
         isClickable = false
         isLongClickable = false
         isFocusable = true
-        isScreenReaderFocusable = true
+        ViewCompat.setScreenReaderFocusable(this, true)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = description
         if (isHeaderRow) ViewCompat.setAccessibilityHeading(this, true)

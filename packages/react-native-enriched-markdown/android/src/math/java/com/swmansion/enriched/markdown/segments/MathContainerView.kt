@@ -12,6 +12,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.spans.MathMeasureHelper
@@ -87,7 +88,7 @@ class MathContainerView(
     addView(scrollView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
     isFocusable = true
-    isScreenReaderFocusable = true
+    ViewCompat.setScreenReaderFocusable(this, true)
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
     updateAccessibilityLabel()
 
