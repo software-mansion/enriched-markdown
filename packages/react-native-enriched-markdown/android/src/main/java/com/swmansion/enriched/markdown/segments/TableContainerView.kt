@@ -20,10 +20,12 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
+import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
@@ -300,6 +302,40 @@ class TableContainerView(
         topMargin = ceil(verticalPadding).toInt()
       },
     )
+
+    // register Image renderer into cell's text view.
+    data.attributedText
+      .getSpans(0, data.attributedText.length, ImageSpan::class.java)
+      .forEach { span -> span.registerTextView(cellTextView) { scheduleImageRemeasure() } }
+  }
+
+  private var imageRemeasurePending = false
+
+  private fun scheduleImageRemeasure() {
+    if (imageRemeasurePending) return
+    imageRemeasurePending = true
+    post {
+      imageRemeasurePending = false
+      remeasureForImageLoad()
+    }
+  }
+
+  private fun remeasureForImageLoad() {
+    if (rows.isEmpty()) return
+    val (widths, heights) =
+      computeTableDimensions(rows.map { row -> row.map { it.attributedText } }, styleConfig, context)
+    if (widths == columnWidths && heights == rowHeights) return
+
+    columnWidths = widths
+    rowHeights = heights
+    totalTableWidth = columnWidths.sum() + tableStyle.borderWidth
+    totalTableHeight = rowHeights.sum() + tableStyle.borderWidth
+    renderGrid()
+    requestLayout()
+
+    var parent = this.parent
+    while (parent != null && parent !is EnrichedMarkdown) parent = parent.parent
+    (parent as? EnrichedMarkdown)?.onImageLayoutChanged()
   }
 
   override fun onMeasure(
@@ -409,6 +445,22 @@ class TableContainerView(
       }
     }
 
+    private fun prepareImageSpansForMeasurement(
+      text: CharSequence,
+      widthPx: Int,
+    ) {
+      if (widthPx <= 1) return
+      val spanned = text as? android.text.Spanned ?: return
+      spanned
+        .getSpans(0, spanned.length, ImageSpan::class.java)
+        .forEach { it.prepareForMeasurement(spanned, widthPx) }
+    }
+
+    private fun cellHasBlockImage(text: CharSequence): Boolean {
+      val spanned = text as? android.text.Spanned ?: return false
+      return spanned.getSpans(0, spanned.length, ImageSpan::class.java).any { !it.isInline }
+    }
+
     private fun computeTableDimensions(
       texts: List<List<CharSequence>>,
       config: StyleConfig,
@@ -433,8 +485,9 @@ class TableContainerView(
               .setIncludePad(false)
               .build()
           val textWidth: Float = (0 until layout.lineCount).maxOfOrNull { line -> layout.getLineWidth(line) } ?: 0f
+          val effectiveWidth = if (cellHasBlockImage(cellText)) maxColumnWidth else ceil(textWidth)
           columnWidths[colIndex] =
-            max(columnWidths[colIndex], min(max(ceil(textWidth) + horizontalPadding, minColumnWidth), maxColumnWidth + horizontalPadding))
+            max(columnWidths[colIndex], min(max(effectiveWidth + horizontalPadding, minColumnWidth), maxColumnWidth + horizontalPadding))
         }
       }
 
@@ -442,6 +495,8 @@ class TableContainerView(
         texts.map { row ->
           row
             .mapIndexed { colIndex, cellText ->
+              val contentWidth = (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1)
+              prepareImageSpansForMeasurement(cellText, contentWidth)
               val layout =
                 StaticLayout.Builder
                   .obtain(
@@ -449,7 +504,7 @@ class TableContainerView(
                     0,
                     cellText.length,
                     paint,
-                    (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1),
+                    contentWidth,
                   ).setIncludePad(false)
                   .build()
               ceil(layout.height.toFloat()) + verticalPadding

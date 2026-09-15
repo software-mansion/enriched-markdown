@@ -17,7 +17,6 @@ static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
 
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
-static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 
 @interface ENRMImageAttachment ()
 
@@ -63,29 +62,13 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
   return _processedImageCache;
 }
 
-+ (NSMapTable<NSString *, ENRMImageAttachment *> *)attachmentRegistry
-{
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{ _attachmentRegistry = [NSMapTable strongToWeakObjectsMapTable]; });
-  return _attachmentRegistry;
-}
-
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
 {
-  NSString *key =
-      [NSString stringWithFormat:@"%@_%d", ENRMImageCacheKey(imageURL, [config imageRequestHeaders]), isInline];
-  ENRMImageAttachment *existing = [[self attachmentRegistry] objectForKey:key];
-  if (existing && existing.loadedImage) {
-    return existing;
-  }
-  ENRMImageAttachment *attachment = [[self alloc] initWithImageURL:imageURL config:config isInline:isInline];
-  [[self attachmentRegistry] setObject:attachment forKey:key];
-  return attachment;
-}
-
-+ (void)clearAttachmentRegistry
-{
-  [[self attachmentRegistry] removeAllObjects];
+  // Always a fresh instance, never shared across positions: the table renderer can draw
+  // the same image URL at a different width than a copy outside the table, and a shared
+  // NSTextAttachment would thrash its single last-processed width into a redraw loop. The
+  // image caches keep fresh instances cheap (no re-fetch or re-scale).
+  return [[self alloc] initWithImageURL:imageURL config:config isInline:isInline];
 }
 
 - (instancetype)initWithImageURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
@@ -335,6 +318,12 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 
 - (void)refreshDisplay
 {
+  // Notify self-drawing hosts (e.g. a table grid) that rasterize us via
+  // -drawWithRect: and have no live text view for the invalidation below to reach.
+  if (self.onImageLoaded) {
+    self.onImageLoaded();
+  }
+
   UITextView *textView = [self fetchAssociatedTextView];
   if (!textView)
     return;

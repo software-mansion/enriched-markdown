@@ -1,6 +1,7 @@
 #import "TableContainerView.h"
 #import "AttributedRenderer.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMImageAttachment.h"
 #import "HTMLGenerator.h"
 #import "LinkTapUtils.h"
 #import "MarkdownASTNode.h"
@@ -103,6 +104,29 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
   }
 
   return attributedText;
+}
+
+// The grid rasterizes each cell's attributed string via -drawWithRect: in a single
+// drawRect: pass, so an image attachment loading asynchronously has no live text view
+// to invalidate (its -refreshDisplay no-ops). Point every cell image at the grid's own
+// redraw so the cell repaints once the image finishes loading.
+static void ENRMTableWireImageRedraw(NSArray<NSArray<TableCellData *> *> *rows, void (^redraw)(void))
+{
+  for (NSArray<TableCellData *> *row in rows) {
+    for (TableCellData *cell in row) {
+      NSAttributedString *text = cell.attributedText;
+      if (text.length == 0)
+        continue;
+      [text enumerateAttribute:NSAttachmentAttributeName
+                       inRange:NSMakeRange(0, text.length)
+                       options:0
+                    usingBlock:^(id value, NSRange range, BOOL *stop) {
+                      if ([value isKindOfClass:[ENRMImageAttachment class]]) {
+                        ((ENRMImageAttachment *)value).onImageLoaded = redraw;
+                      }
+                    }];
+    }
+  }
 }
 
 static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *tableNode, StyleConfig *config,
@@ -223,6 +247,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSString *_cachedMarkdown;
 
   NSArray *_cachedAccessibilityElements;
+
+  BOOL _imageRemeasurePending;
 }
 
 - (instancetype)initWithConfig:(StyleConfig *)config
@@ -260,7 +286,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   // a single drawRect: pass (no subview / layer compositing issues).
   ENRMTableGridView *gridView = [[ENRMTableGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
-  gridView.menuProvider = ^NSMenu * {
+  gridView.menuProvider = ^NSMenu *
+  {
     TableContainerView *strongSelf = weakSelf;
     if (!strongSelf || !strongSelf.enableBlockContextMenu)
       return nil;
@@ -415,6 +442,9 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
       horizontalCellPadding:self.config.tableCellPaddingHorizontal
         verticalCellPadding:self.config.tableCellPaddingVertical
                cornerRadius:self.config.tableBorderRadius];
+
+  __weak TableContainerView *weakSelf = self;
+  ENRMTableWireImageRedraw(_rows, ^{ [weakSelf handleCellImageResolved]; });
 }
 
 #else
@@ -450,8 +480,63 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
       horizontalCellPadding:self.config.tableCellPaddingHorizontal
         verticalCellPadding:self.config.tableCellPaddingVertical
                cornerRadius:self.config.tableBorderRadius];
+
+  __weak TableContainerView *weakSelf = self;
+  ENRMTableWireImageRedraw(_rows, ^{ [weakSelf handleCellImageResolved]; });
 }
 #endif
+
+// A dynamic cell image (maxHeight / aspectRatio) resolves its box height only after
+// loading. Recompute this table's layout locally; if a row height actually changed
+// (the maxHeight fitted case), re-render and ask the host to re-measure its Fabric
+// height, otherwise just repaint the freshly loaded pixels. The height guard makes this
+// a no-op once heights are stable, so a deterministic image never churns, and the host's
+// own needs-update guard stops the propagation from looping.
+- (void)handleCellImageResolved
+{
+  if (_imageRemeasurePending) {
+    return;
+  }
+  _imageRemeasurePending = YES;
+  __weak TableContainerView *weakSelf = self;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    TableContainerView *strongSelf = weakSelf;
+    if (!strongSelf) {
+      return;
+    }
+    strongSelf->_imageRemeasurePending = NO;
+    [strongSelf remeasureForCellImage];
+  });
+}
+
+- (void)remeasureForCellImage
+{
+  if (_rows.count == 0) {
+    return;
+  }
+  NSArray<NSNumber *> *oldRowHeights = _rowHeights;
+  CGFloat oldTotalHeight = _totalTableHeight;
+  [self computeLayout];
+
+  BOOL changed = ![_rowHeights isEqualToArray:oldRowHeights] || fabs(_totalTableHeight - oldTotalHeight) > 0.5;
+  if (!changed) {
+#if TARGET_OS_OSX
+    _gridContainer.needsDisplay = YES;
+#else
+    [_gridContainer setNeedsDisplay];
+#endif
+    return;
+  }
+
+  [self renderGrid];
+  [self setNeedsLayout];
+
+  RCTUIView *view = self.superview;
+  while (view && ![view conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
+    view = view.superview;
+  }
+  [(id<ENRMImageLayoutObserver>)view imageAttachmentDidResolveLayout];
+}
 
 #if !TARGET_OS_OSX
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction

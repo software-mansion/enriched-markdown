@@ -565,7 +565,6 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 
   if (applyMarkdownStyleToConfig(_config, newViewProps.markdownStyle, oldViewProps.markdownStyle)) {
-    [ENRMImageAttachment clearAttachmentRegistry];
     _forceHeightUpdateOnNextRender = YES;
     _dirtyFlags |= ENRMDirtyRender;
   }
