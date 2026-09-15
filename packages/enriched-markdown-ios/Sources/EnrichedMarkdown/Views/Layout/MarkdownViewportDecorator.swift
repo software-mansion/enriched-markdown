@@ -66,7 +66,7 @@ final class MarkdownViewportDecorator {
                 decorationConfig: config
             )
             BlockquoteBorderDrawer.drawBorders(in: drawContext)
-            ListMarkerDrawer.draw(
+            ParagraphMarkerDrawer.draw(
                 in: MarkerDrawContext(
                     context: context,
                     textStorage: textStorage,
