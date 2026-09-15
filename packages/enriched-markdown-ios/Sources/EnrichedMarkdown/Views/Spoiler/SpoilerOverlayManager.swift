@@ -14,22 +14,23 @@ final class SpoilerOverlayManager {
     private weak var textView: UITextView?
     private var overlays: [OverlayKey: SpoilerOverlayView] = [:]
 
-    var mode: MarkdownSpoilerOverlay = .particles {
+    var provider: any SpoilerOverlayProvider = ParticleSpoilerOverlayProvider() {
         didSet {
-            guard mode != oldValue else { return }
+            guard !provider.isEqual(to: oldValue) else { return }
             rebuild()
         }
     }
 
-    var style = SpoilerStyle() {
+    var style: SpoilerStyle {
         didSet {
             guard style != oldValue else { return }
             rebuild()
         }
     }
 
-    init(textView: UITextView) {
+    init(textView: UITextView, style: SpoilerStyle) {
         self.textView = textView
+        self.style = style
     }
 
     /// Character range of the spoiler under `point` (text view coordinates).
@@ -42,7 +43,7 @@ final class SpoilerOverlayManager {
     /// drops it.
     func reveal(range: NSRange) {
         for (key, overlay) in overlays where TextLayoutHelpers.rangesIntersect(overlay.charRange, range) {
-            overlay.animateReveal { [weak self] in
+            overlay.reveal { [weak self] in
                 self?.overlays.removeValue(forKey: key)
             }
         }
@@ -58,13 +59,14 @@ final class SpoilerOverlayManager {
         var desired = Set<OverlayKey>()
 
         for range in SpoilerInteraction.concealedRanges(in: textStorage) {
-            TextLayoutHelpers.enumerateSegmentFrames(of: range, in: textView) { frame in
+            TextLayoutHelpers.enumerateSegmentFrames(of: range, in: textView) { frame, segmentRange in
                 guard frame.width > 0, frame.height > 0 else { return }
                 let key = OverlayKey(range: range, frame: frame.integral)
                 desired.insert(key)
                 guard overlays[key] == nil else { return }
 
-                let overlay = makeOverlay(charRange: range)
+                let overlay = provider.makeOverlay(charRange: range, style: style)
+                overlay.concealedText = SpoilerInteraction.revealedText(of: textStorage, in: segmentRange)
                 overlay.frame = frame
                 textView.addSubview(overlay)
                 overlays[key] = overlay
@@ -81,14 +83,5 @@ final class SpoilerOverlayManager {
         overlays.values.forEach { $0.removeFromSuperview() }
         overlays.removeAll()
         update()
-    }
-
-    private func makeOverlay(charRange: NSRange) -> SpoilerOverlayView {
-        switch mode {
-        case .solid:
-            return SolidSpoilerOverlayView(style: style, charRange: charRange)
-        case .particles:
-            return ParticleSpoilerOverlayView(style: style, charRange: charRange)
-        }
     }
 }

@@ -1,34 +1,41 @@
 import UIKit
 
 /// One line segment of a concealed spoiler, layered over the transparent
-/// text. Subclasses draw the particles or the solid box; the base handles
-/// the reveal fade and reports which characters it covers.
-class SpoilerOverlayView: UIView {
+/// text. Subclass to draw a custom effect and return it from a
+/// `SpoilerOverlayProvider`.
+///
+/// The text view sets the frame, adds the view above the text, and recreates
+/// it whenever its segment moves, so keep construction cheap. The view must
+/// be opaque: the text under it is transparent, but emoji and inline images
+/// ignore that. An effect that shows the text through draws `concealedText`
+/// itself. A reveal calls `animateReveal` and removes the view when it
+/// completes.
+open class SpoilerOverlayView: UIView {
     static let revealDuration: TimeInterval = 0.45
 
-    let charRange: NSRange
+    /// The whole spoiler's range, shared by all of its segment views.
+    public let charRange: NSRange
+    /// This segment's slice of the spoiler, styled as it reveals, inline
+    /// styling only. Set before the view is added to the text view.
+    public internal(set) var concealedText = NSAttributedString()
     private(set) var isRevealing = false
 
-    init(charRange: NSRange) {
+    public init(charRange: NSRange) {
         self.charRange = charRange
         super.init(frame: .zero)
+        // Reveal taps are hit-tested from overlay frames and must reach the text view.
         isUserInteractionEnabled = false
         clipsToBounds = true
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// Hook for subclasses to speed up or stop their effect as the fade starts.
-    func prepareRevealAnimation() {}
-
-    func animateReveal(completion: @escaping () -> Void) {
-        guard !isRevealing else { return }
-        isRevealing = true
-        prepareRevealAnimation()
-
+    /// Animates the view out, fading `alpha` by default. An override must
+    /// call `completion` when done; call `super` to keep the fade.
+    open func animateReveal(completion: @escaping () -> Void) {
         UIView.animate(
             withDuration: Self.revealDuration,
             delay: 0,
@@ -36,7 +43,15 @@ class SpoilerOverlayView: UIView {
         ) {
             self.alpha = 0
         } completion: { _ in
-            self.removeFromSuperview()
+            completion()
+        }
+    }
+
+    func reveal(completion: @escaping () -> Void) {
+        guard !isRevealing else { return }
+        isRevealing = true
+        animateReveal { [self] in
+            removeFromSuperview()
             completion()
         }
     }
@@ -112,7 +127,12 @@ final class ParticleSpoilerOverlayView: SpoilerOverlayView {
         emitterLayer.emitterSize = bounds.size
     }
 
-    override func prepareRevealAnimation() {
+    override func animateReveal(completion: @escaping () -> Void) {
+        burstParticles()
+        super.animateReveal(completion: completion)
+    }
+
+    private func burstParticles() {
         guard let emitterLayer else { return }
         emitterLayer.birthRate = 0
         for cell in emitterLayer.emitterCells ?? [] {
