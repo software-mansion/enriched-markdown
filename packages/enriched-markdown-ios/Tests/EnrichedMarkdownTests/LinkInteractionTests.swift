@@ -5,14 +5,14 @@ import XCTest
 
 final class LinkInteractionTests: XCTestCase {
     private var coordinator: MarkdownTextViewRepresentable.Coordinator!
-    private var textView: UITextView!
+    private var textView: HandleTouchTextView!
     private let url = URL(string: "https://swmansion.com")!
     private let range = NSRange(location: 0, length: 4)
 
     override func setUp() {
         super.setUp()
         coordinator = MarkdownTextViewRepresentable.Coordinator()
-        textView = UITextView()
+        textView = HandleTouchTextView()
     }
 
     private func interact(_ interaction: UITextItemInteraction) -> Bool {
@@ -74,4 +74,36 @@ final class LinkInteractionTests: XCTestCase {
     func testEnvironmentDefaultsToNoLongPressHandler() {
         XCTAssertNil(EnvironmentValues().markdownLinkLongPressHandler)
     }
+
+    // MARK: - Selection handle grabs
+
+    // Selecting the last word of a line parks the end knob on top of the
+    // following line, where a press on it used to fire the link underneath.
+
+    func testLongPressOnSelectionHandleFiresNothing() {
+        var fired = false
+        coordinator.onLinkPress = { _ in fired = true }
+        coordinator.onLinkLongPress = { _ in fired = true }
+        textView.isTouchOnSelectionHandle = true
+
+        XCTAssertFalse(interact(.presentActions))
+        XCTAssertFalse(fired)
+    }
+
+    func testTapOnSelectionHandleFiresNothing() {
+        var fired = false
+        coordinator.onLinkPress = { _ in fired = true }
+        textView.isTouchOnSelectionHandle = true
+
+        XCTAssertFalse(interact(.invokeDefaultAction))
+        XCTAssertFalse(fired)
+    }
+}
+
+// MARK: -
+
+/// Stands in for `MarkdownTextView`, which is `final` and would need a window,
+/// first responder status and a live selection to report a real grab.
+private final class HandleTouchTextView: UITextView, SelectionHandleTouchReporting {
+    var isTouchOnSelectionHandle = false
 }
