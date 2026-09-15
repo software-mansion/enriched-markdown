@@ -11,9 +11,13 @@ import android.util.AttributeSet
 import android.util.Log
 import android.util.TypedValue
 import android.view.MotionEvent
+import android.view.View
 import android.view.View.MeasureSpec
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.uimanager.BackgroundStyleApplicator
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.StateWrapper
+import com.facebook.react.uimanager.style.LogicalEdge
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
@@ -45,6 +49,7 @@ import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfL
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * EnrichedMarkdownText that handles Markdown parsing and rendering on a background thread.
@@ -509,23 +514,47 @@ class EnrichedMarkdownText
     }
 
     /**
-     * Fabric hands us a border-box frame width but subtracts the `containerStyle` border
-     * when measuring text in the shadow node, so the on-screen TextView (whose padding
-     * carries no border) wraps ~1dp wider than the measure pass and can reserve a phantom
-     * trailing line - an empty gap at the bottom of an unclamped box (#805).
+     * Fabric measures text at the content box (frame - padding - border) but the TextView's
+     * padding carries no border, so it wraps ~1dp wider and reserves a phantom trailing line
+     * under an unclamped box (#805). Fold the border into padding to match; restore the base
+     * padding when the cache or an exact frame is missing so no stale inset lingers.
      */
     private fun applyContentBoxInset(widthMeasureSpec: Int) {
-      if (MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.EXACTLY) return
+      val contentBox =
+        if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) {
+          MeasurementStore.contentBoxWidthPx(id)?.let { ceil(it).toInt() }?.takeIf { it > 0 }
+        } else {
+          null
+        }
       val frame = MeasureSpec.getSize(widthMeasureSpec)
-      if (frame <= 0) return
-      val contentBox = MeasurementStore.contentBoxWidthPx(id)?.let { ceil(it).toInt() } ?: return
-      if (contentBox <= 0) return
+      if (contentBox == null || frame <= 0) {
+        setHorizontalPadding(baseHorizontalPaddingLeft, baseHorizontalPaddingRight)
+        return
+      }
 
       val totalInset = (frame - contentBox).coerceIn(0, frame)
-      val border = (totalInset - baseHorizontalPaddingLeft - baseHorizontalPaddingRight).coerceAtLeast(0)
-      val left = (baseHorizontalPaddingLeft + border / 2).coerceIn(0, totalInset)
+      val left = (baseHorizontalPaddingLeft + resolvedBorderPx(leftEdge = true)).coerceIn(0, totalInset)
       val right = (totalInset - left).coerceAtLeast(0)
+      setHorizontalPadding(left, right)
+    }
 
+    // Physical border width (px); only the left/right split reads it, never the total inset.
+    private fun resolvedBorderPx(leftEdge: Boolean): Int {
+      val rtl = layoutDirection == View.LAYOUT_DIRECTION_RTL
+      val physical = if (leftEdge) LogicalEdge.LEFT else LogicalEdge.RIGHT
+      val logical = if (leftEdge != rtl) LogicalEdge.START else LogicalEdge.END
+      val dp =
+        BackgroundStyleApplicator.getBorderWidth(this, physical)
+          ?: BackgroundStyleApplicator.getBorderWidth(this, logical)
+          ?: BackgroundStyleApplicator.getBorderWidth(this, LogicalEdge.ALL)
+          ?: return 0
+      return PixelUtil.toPixelFromDIP(dp).roundToInt().coerceAtLeast(0)
+    }
+
+    private fun setHorizontalPadding(
+      left: Int,
+      right: Int,
+    ) {
       if (left == paddingLeft && right == paddingRight) return
       applyingContentBoxInset = true
       super.setPadding(left, paddingTop, right, paddingBottom)
