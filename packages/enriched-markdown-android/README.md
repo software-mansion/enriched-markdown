@@ -131,6 +131,7 @@ The `markdownStyle` builder supports these blocks:
 | `image` | Block images |
 | `inlineImage` | Inline images |
 | `thematicBreak` | Horizontal rules |
+| `table` | Tables |
 
 Use `MarkdownStyle.copy { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style.
 
@@ -296,6 +297,7 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 - Links and images (block and inline)
 - Thematic breaks (`---`)
 - Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
+- Tables (GFM), including per-column alignment
 
 ### Admonitions
 
@@ -345,6 +347,38 @@ Copying a callout reproduces its `> [!NOTE]` marker, and screen readers announce
 An admonition nested inside a list item falls back to a plain blockquote with no header. This
 matches the React Native renderers on both platforms, so the same document looks the same
 everywhere.
+
+### Tables
+
+A table is rendered as its own scrollable child view rather than as text, so it can be styled
+independently of the surrounding body text:
+
+```kotlin
+markdownStyle {
+  table {
+    fontSize = 14.sp
+    color = Color(0xFF1F2937)
+    headerBackgroundColor = Color(0xFFF3F4F6)
+    headerTextColor = Color(0xFF111827)
+    rowEvenBackgroundColor = Color.White
+    rowOddBackgroundColor = Color(0xFFF9FAFB)
+    borderColor = Color(0xFFE5E7EB)
+    borderWidth = 1.dp
+    cornerRadius = 6.dp
+    cellPaddingHorizontal = 12.dp
+    cellPaddingVertical = 8.dp
+    align = TableAlignment.CENTER
+  }
+}
+```
+
+A column is sized to its widest cell, within 60dp-300dp. A table wider than the space available keeps
+those widths and scrolls sideways, with a horizontal scrollbar. `align` places a table that is
+narrower than the available width; it defaults to `TableAlignment.AUTO`, which follows the reading
+direction. `horizontalOverflow` lets a table bleed that far past the container's content box on each
+side, so it can reach the screen edge while the body text stays inset.
+
+Long-pressing a table offers **Copy** (rich text) and **Copy as Markdown**.
 
 ## Development
 

@@ -15,25 +15,23 @@ import android.text.TextPaint
 import android.text.style.AlignmentSpan
 import android.text.style.MetricAffectingSpan
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
-import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.styles.TableAlignment
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
-import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.utils.text.view.DEFAULT_COPY_AS_MARKDOWN_LABEL
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
-import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForLinkTap
-import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import kotlin.math.ceil
 import kotlin.math.max
@@ -51,20 +49,9 @@ class TableContainerView(
   private val density = resources.displayMetrics.density
   private val isRtl = resources.isLayoutRTL()
 
-  var allowFontScaling = true
-  var maxFontSizeMultiplier = 0f
   var onLinkPress: ((String) -> Unit)? = null
   var onLinkLongPress: ((String) -> Unit)? = null
-  var accessibilityLabels: AccessibilityLabels = AccessibilityLabels()
-    set(value) {
-      if (field == value) return
-      field = value
-      if (rowCount > 0) renderGrid()
-    }
-
-  var copyLabel: String = ""
-  var copyAsMarkdownLabel: String = ""
-  var enableBlockContextMenu: Boolean = true
+  var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
 
   private val scrollView =
     HorizontalScrollView(context).apply {
@@ -79,32 +66,6 @@ class TableContainerView(
     }
   private val gridContainer get() = scrollView.getChildAt(0) as GridContainerView
 
-  val rowCount: Int get() = rows.size
-
-  fun animateNewRows(
-    previousRowCount: Int,
-    durationMs: Long,
-  ) {
-    if (rowCount <= previousRowCount) return
-    val grid = gridContainer
-    val childCount = grid.childCount
-    if (childCount == 0 || rowCount == 0) return
-
-    val colCount = childCount / rowCount
-    if (colCount == 0) return
-
-    val firstNewCellIndex = previousRowCount * colCount
-    for (i in firstNewCellIndex until childCount) {
-      val cell = grid.getChildAt(i) ?: continue
-      cell.alpha = 0f
-      cell
-        .animate()
-        .alpha(1f)
-        .setDuration(durationMs)
-        .start()
-    }
-  }
-
   private var rows: List<List<TableCellData>> = emptyList()
   private var columnCount = 0
   private var columnWidths = emptyList<Float>()
@@ -118,27 +79,33 @@ class TableContainerView(
     addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
   }
 
-  fun applyTableNode(tableNode: MarkdownASTNode) {
+  fun applyTableNode(
+    tableNode: MarkdownASTNode,
+    imageRequestHeaders: Map<String, String> = emptyMap(),
+  ) {
     rows =
       tableNode.children.flatMap { section ->
         val isSectionHead = section.type == NodeType.TableHead
         section.children.filter { it.type == NodeType.TableRow }.map { row ->
           row.children.map { cell ->
             val isHeader = isSectionHead || cell.type == NodeType.TableHeaderCell
-            val align = textAlignmentFromString(cell.getAttribute("align"))
+            val sourceAlignment = cell.getAttribute("align")
+            val align = textAlignmentFromString(sourceAlignment)
             TableCellData(
-              attributedText = renderCellNode(cell, isHeader, align),
+              attributedText = renderCellNode(cell, isHeader, align, imageRequestHeaders),
               plainText = extractPlainText(cell),
-              markdownText = MarkdownASTSerializer.serializeChildren(cell),
               isHeader = isHeader,
               alignment = align,
+              sourceAlignment = sourceAlignment,
             )
           }
         }
       }
 
     columnCount = rows.maxOfOrNull { it.size } ?: 0
-    tableMarkdown = buildMarkdownFromRows()
+    // AST-based, not row-based (RN's buildMarkdownFromRows): a right-aligned column resolves to a
+    // start-aligned Layout.Alignment in RTL, so reconstructing from rows would emit the wrong marker.
+    tableMarkdown = MarkdownASTSerializer.serializeTable(tableNode)
 
     val (widths, heights) = computeTableDimensions(rows.map { row -> row.map { it.attributedText } }, styleConfig, context)
     columnWidths = widths
@@ -153,12 +120,16 @@ class TableContainerView(
     node: MarkdownASTNode,
     isHeader: Boolean,
     alignment: Layout.Alignment,
+    imageRequestHeaders: Map<String, String>,
   ): SpannableString {
     val paragraph = MarkdownASTNode(NodeType.Paragraph, children = node.children)
-    val cellParagraphStyle = styleConfig.tableCellParagraphStyle(tableStyle, isHeader)
+    val cellParagraphStyle = styleConfig.tableCellParagraphStyle(isHeader)
     return styleConfig
       .withParagraphOverride(cellParagraphStyle) {
-        Renderer().apply { configure(styleConfig, context) }.renderContent(listOf(paragraph), onLinkPress, onLinkLongPress)
+        // LinkSpan captures its callbacks; resolve ours at tap time so later setOnLinkPress* calls still apply.
+        Renderer()
+          .apply { configure(styleConfig, context, imageRequestHeaders) }
+          .renderContent(listOf(paragraph), { url -> onLinkPress?.invoke(url) }, { url -> onLinkLongPress?.invoke(url) })
       }.apply {
         if (isNotEmpty()) {
           if (isHeader) setSpan(HeaderTypefaceSpan(styleConfig.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD), 0, length, 33)
@@ -167,7 +138,13 @@ class TableContainerView(
       }
   }
 
-  private fun extractPlainText(node: MarkdownASTNode): String = node.content + node.children.joinToString("") { extractPlainText(it) }
+  private fun extractPlainText(node: MarkdownASTNode): String =
+    when (node.type) {
+      // A space rather than a newline: plain-text copy is newline-separated per row.
+      NodeType.LineBreak, NodeType.SoftBreak -> " "
+
+      else -> node.content + node.children.joinToString("") { extractPlainText(it) }
+    }
 
   private fun textAlignmentFromString(align: String?): Layout.Alignment =
     when (align) {
@@ -179,7 +156,7 @@ class TableContainerView(
 
   private fun renderGrid() {
     gridContainer.removeAllViews()
-    gridContainer.configure(totalTableWidth, totalTableHeight, tableStyle)
+    gridContainer.configure(tableStyle)
 
     var yOffset = 0f
     var bodyRowIndex = 0
@@ -241,10 +218,7 @@ class TableContainerView(
     rowHeight: Float,
   ) {
     val joinedContent = row.joinToString(", ") { it.plainText }
-    val description =
-      accessibilityLabels.tableRow
-        .replace("{n}", (rowIndex + 1).toString())
-        .replace("{content}", joinedContent)
+    val description = "Row ${rowIndex + 1}: $joinedContent"
 
     val overlay =
       View(context).apply {
@@ -256,9 +230,10 @@ class TableContainerView(
         contentDescription = description
         if (isHeaderRow) ViewCompat.setAccessibilityHeading(this, true)
       }
+    // Below every cell, but after the previous rows' overlays so traversal follows document order.
     gridContainer.addView(
       overlay,
-      0,
+      rowIndex,
       LayoutParams(
         ceil(totalTableWidth).toInt(),
         ceil(rowHeight + tableStyle.borderWidth).toInt(),
@@ -301,7 +276,6 @@ class TableContainerView(
         topMargin = ceil(verticalPadding).toInt()
       },
     )
-
     data.attributedText
       .getSpans(0, data.attributedText.length, ImageSpan::class.java)
       .forEach { it.registerTextView(cellTextView) }
@@ -311,7 +285,8 @@ class TableContainerView(
     widthSpec: Int,
     heightSpec: Int,
   ) {
-    val measuredWidth = MeasureSpec.getSize(widthSpec)
+    // UNSPECIFIED carries size 0, so fall back to the table's own width there.
+    val measuredWidth = resolveSize(ceil(totalTableWidth).toInt(), widthSpec)
     val measuredHeight = ceil(totalTableHeight).toInt()
     scrollView.measure(
       MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
@@ -339,14 +314,15 @@ class TableContainerView(
     scrollView.layout(0, 0, viewWidth, bottom - top)
 
     gridContainer.translationX =
-      if (tableStyle.align.isNotEmpty() && !tableOverflows) {
+      if (!tableOverflows) {
         val freeSpace = max(contentWidth - totalTableWidth, 0f)
         val desiredLeft =
           overhang +
             when (tableStyle.align) {
-              "center" -> freeSpace / 2f
-              "right" -> freeSpace
-              else -> 0f
+              TableAlignment.CENTER -> freeSpace / 2f
+              TableAlignment.RIGHT -> freeSpace
+              TableAlignment.LEFT -> 0f
+              TableAlignment.AUTO -> if (isRtl) freeSpace else 0f
             }
         desiredLeft - gridContainer.left
       } else {
@@ -362,44 +338,31 @@ class TableContainerView(
   }
 
   private fun showContextMenu(anchor: View): Boolean {
-    if (!enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, copyLabel) {
+      item(ContextMenuPopup.Icon.COPY, context.getString(android.R.string.copy)) {
         val plainText = rows.joinToString("\n") { row -> row.joinToString("\t") { it.plainText } }
         if (plainText.isNotEmpty()) {
           val displayMetrics = context.resources.displayMetrics
           val tableRows =
             rows.map { row ->
-              row.map { cell -> Triple(cell.attributedText as CharSequence, cell.isHeader, cell.alignment) }
+              row.map { cell -> Triple(cell.attributedText as CharSequence, cell.isHeader, cell.sourceAlignment) }
             }
           val html = HTMLGenerator.generateTableHTML(tableRows, styleConfig, displayMetrics.scaledDensity, displayMetrics.density)
           clipboard.setPrimaryClip(ClipData.newHtmlText("Table", plainText, html))
         }
       }
-      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) {
-        if (tableMarkdown.isNotEmpty()) clipboard.setPrimaryClip(ClipData.newPlainText("Table", tableMarkdown))
+      if (selectionMenuConfig.copyAsMarkdown) {
+        item(
+          ContextMenuPopup.Icon.DOCUMENT,
+          selectionMenuConfig.copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL },
+        ) {
+          if (tableMarkdown.isNotEmpty()) clipboard.setPrimaryClip(ClipData.newPlainText("Table", tableMarkdown))
+        }
       }
     }
     return true
   }
-
-  private fun buildMarkdownFromRows(): String =
-    rows.joinToString("") { row ->
-      val line = "| ${row.joinToString(" | ") { it.markdownText }} |\n"
-      if (row.firstOrNull()?.isHeader == true) {
-        val sep = "| ${row.joinToString(" | ") {
-          when (it.alignment) {
-            Layout.Alignment.ALIGN_CENTER -> ":---:"
-            Layout.Alignment.ALIGN_OPPOSITE -> "---:"
-            else -> "---"
-          }
-        }} |\n"
-        line + sep
-      } else {
-        line
-      }
-    }
 
   companion object {
     private class HeaderTypefaceSpan(
@@ -462,39 +425,6 @@ class TableContainerView(
         }
       return columnWidths.toList() to rowHeights
     }
-
-    fun measureTableNodeHeight(
-      node: MarkdownASTNode,
-      config: StyleConfig,
-      context: Context,
-    ): Float {
-      val tableStyle = config.tableStyle
-      val headerTypeface = config.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD
-      val texts =
-        node.children.flatMap { section ->
-          section.children.filter { it.type == NodeType.TableRow }.map { row ->
-            row.children.map { cell ->
-              val isHeader = section.type == NodeType.TableHead || cell.type == NodeType.TableHeaderCell
-              val paragraph = MarkdownASTNode(NodeType.Paragraph, children = cell.children)
-              val cellParagraphStyle = config.tableCellParagraphStyle(tableStyle, isHeader)
-              val styledText =
-                config.withParagraphOverride(cellParagraphStyle) {
-                  Renderer()
-                    .apply { configure(config, context) }
-                    .renderContent(listOf(paragraph), null, null)
-                }
-              styledText.replaceMathSpansWithPlaceholders(context)
-              if (isHeader && styledText.isNotEmpty()) {
-                styledText.setSpan(HeaderTypefaceSpan(headerTypeface), 0, styledText.length, 33)
-              }
-              styledText
-            }
-          }
-        }
-      if (texts.isEmpty()) return 0f
-      val (_, heights) = computeTableDimensions(texts, config, context)
-      return heights.sum() + tableStyle.borderWidth
-    }
   }
 
   private class GridContainerView(
@@ -509,11 +439,7 @@ class TableContainerView(
       layoutDirection = View.LAYOUT_DIRECTION_LTR
     }
 
-    fun configure(
-      tableWidth: Float,
-      tableHeight: Float,
-      style: TableStyle,
-    ) {
+    fun configure(style: TableStyle) {
       radius = style.borderRadius
       paint.color = style.borderColor
       paint.strokeWidth = style.borderWidth
@@ -577,22 +503,14 @@ class TableContainerView(
       textDirection = View.TEXT_DIRECTION_LOCALE
       importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
-
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-      val result = super.onTouchEvent(event)
-      when (event.action) {
-        MotionEvent.ACTION_DOWN -> cancelJSTouchForLinkTap(event)
-        else -> reallowParentInterceptIfLinkReleased()
-      }
-      return result
-    }
   }
 
   private data class TableCellData(
     val attributedText: SpannableString,
     val plainText: String,
-    val markdownText: String,
     val isHeader: Boolean,
     val alignment: Layout.Alignment,
+    /** The GFM `align` attribute; [alignment] is mirrored in RTL, so HTML export needs the original. */
+    val sourceAlignment: String?,
   )
 }

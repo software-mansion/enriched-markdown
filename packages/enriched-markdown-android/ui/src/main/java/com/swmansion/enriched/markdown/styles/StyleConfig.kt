@@ -22,6 +22,9 @@ class StyleConfig(
   val taskListStyle: TaskListStyle,
   val codeBlockStyle: CodeBlockStyle,
   val thematicBreakStyle: ThematicBreakStyle,
+  val tableStyle: TableStyle,
+  val tableTypeface: Typeface? = null,
+  val tableHeaderTypeface: Typeface? = null,
 ) {
   private val paragraphStyleDefault: ParagraphStyle = paragraphStyleDefault
   private var paragraphStyleOverride: ParagraphStyle? = null
@@ -40,6 +43,23 @@ class StyleConfig(
       paragraphStyleOverride = null
     }
   }
+
+  fun tableCellParagraphStyle(isHeader: Boolean): ParagraphStyle =
+    paragraphStyleDefault.copy(
+      fontSize = tableStyle.fontSize,
+      fontFamily =
+        if (isHeader && tableStyle.headerFontFamily.isNotEmpty()) {
+          tableStyle.headerFontFamily
+        } else {
+          tableStyle.fontFamily
+        },
+      fontWeight = if (isHeader) "bold" else tableStyle.fontWeight,
+      color = if (isHeader) tableStyle.headerTextColor else tableStyle.color,
+      lineHeight = tableStyle.lineHeight,
+      marginTop = 0f,
+      marginBottom = 0f,
+      textAlign = TextAlignment.AUTO,
+    )
 
   val needsJustify: Boolean
     get() =
@@ -65,7 +85,8 @@ class StyleConfig(
       listStyle == other.listStyle &&
       taskListStyle == other.taskListStyle &&
       codeBlockStyle == other.codeBlockStyle &&
-      thematicBreakStyle == other.thematicBreakStyle
+      thematicBreakStyle == other.thematicBreakStyle &&
+      tableStyle == other.tableStyle
   }
 
   override fun hashCode(): Int {
@@ -86,6 +107,7 @@ class StyleConfig(
     result = 31 * result + taskListStyle.hashCode()
     result = 31 * result + codeBlockStyle.hashCode()
     result = 31 * result + thematicBreakStyle.hashCode()
+    result = 31 * result + tableStyle.hashCode()
     return result
   }
 

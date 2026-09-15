@@ -17,6 +17,12 @@ sealed interface RenderedSegment {
     val lastElementMarginBottom: Float,
     override val signature: Long,
   ) : RenderedSegment
+
+  data class Table(
+    val node: MarkdownASTNode,
+    override val signature: Long,
+    val imageRequestHeaders: Map<String, String> = emptyMap(),
+  ) : RenderedSegment
 }
 
 object MarkdownSegmentRenderer {
@@ -38,6 +44,11 @@ object MarkdownSegmentRenderer {
             renderTextSegment(segment.nodes, style, context, imageRequestHeaders, onLinkPress, onLinkLongPress, taskIndexOffset)
           taskIndexOffset = taskItemCount
           rendered
+        }
+
+        is MarkdownSegment.Table -> {
+          val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.TABLE_KIND_SALT
+          RenderedSegment.Table(segment.node, signature, imageRequestHeaders)
         }
       }
     }
