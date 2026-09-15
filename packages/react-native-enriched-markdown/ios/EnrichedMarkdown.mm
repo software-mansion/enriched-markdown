@@ -693,7 +693,7 @@ static char kENRMSegmentFadeAnimatorKey;
     else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
       ((ENRMCodeBlockContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      ((ENRMBlockquoteContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
+      [(ENRMBlockquoteContainerView *)segment pushBlockContextMenuEnabledToChildren:_enableBlockContextMenu];
     }
 #if ENRICHED_MARKDOWN_VIDEO
     else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {

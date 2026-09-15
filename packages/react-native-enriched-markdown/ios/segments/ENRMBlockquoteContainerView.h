@@ -91,6 +91,10 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // Re-applies the tap gate to existing code block children when it toggles.
 - (void)pushCodeBlockPressEnabledToChildren:(BOOL)enabled;
 
+// Re-applies the block context menu gate to existing block children (including
+// nested quotes) when it toggles.
+- (void)pushBlockContextMenuEnabledToChildren:(BOOL)enabled;
+
 @end
 
 NS_ASSUME_NONNULL_END
