@@ -57,6 +57,14 @@ class StyleConfigTest {
   }
 
   @Test
+  fun differentAdmonitionPalettesAreNotEqual() {
+    val first = sampleBlockquote()
+    val second = first.copy(admonitions = mapOf("note" to AdmonitionColors(0xFF000000.toInt())))
+
+    assertFalse(first == second)
+  }
+
+  @Test
   fun differentParagraphColorsAreNotEqual() {
     val first = sampleConfig()
     val second =
@@ -168,6 +176,7 @@ class StyleConfigTest {
       borderWidth = 3f,
       gapWidth = 16f,
       backgroundColor = 0xFFF9FAFB.toInt(),
+      admonitions = mapOf("note" to AdmonitionColors(0xFF0969DA.toInt())),
     )
 
   private fun sampleList() =

@@ -160,10 +160,12 @@ private extension MarkdownSourceSlicer {
         case emphasis
         case strong
         case highlight
+        case spoiler
         case link
         case image
 
-        var key: NSAttributedString.Key {
+        /// The attribute carrying this trait on a run with `attrs`.
+        func key(in attrs: [NSAttributedString.Key: Any]) -> NSAttributedString.Key {
             switch self {
             case .inlineCode: return MarkdownAttribute.inlineCode
             case .strikethrough: return .strikethroughStyle
@@ -171,7 +173,8 @@ private extension MarkdownSourceSlicer {
             case .emphasis: return MarkdownAttribute.emphasis
             case .strong: return MarkdownAttribute.strong
             case .highlight: return MarkdownAttribute.highlight
-            case .link: return .link
+            case .spoiler: return MarkdownAttribute.spoiler
+            case .link: return attrs[.link] == nil ? MarkdownAttribute.spoilerLink : .link
             case .image: return .attachment
             }
         }
@@ -191,6 +194,7 @@ private extension MarkdownSourceSlicer {
             case .emphasis: return traits.isEmphasis
             case .strong: return traits.isStrong
             case .highlight: return traits.isHighlight
+            case .spoiler: return traits.isSpoiler
             case .link: return traits.linkURL != nil
             case .image: return attrs[.attachment] is MarkdownImageAttachment
             }
@@ -210,6 +214,8 @@ private extension MarkdownSourceSlicer {
                 return MarkdownSourceSlicer.matchAnyBackward(markers, in: bytes, before: index)
             case .highlight:
                 return MarkdownSourceSlicer.matchBackward("==", in: bytes, before: index)
+            case .spoiler:
+                return MarkdownSourceSlicer.matchBackward("||", in: bytes, before: index)
             case .link:
                 return MarkdownSourceSlicer.matchBackward("[", in: bytes, before: index)
             case .image:
@@ -231,6 +237,8 @@ private extension MarkdownSourceSlicer {
                 return MarkdownSourceSlicer.matchAnyForward(markers, in: bytes, at: index)
             case .highlight:
                 return MarkdownSourceSlicer.matchForward("==", in: bytes, at: index)
+            case .spoiler:
+                return MarkdownSourceSlicer.matchForward("||", in: bytes, at: index)
             case .link, .image:
                 return MarkdownSourceSlicer.consumeLinkSuffix(in: bytes, from: index)
             }
@@ -252,7 +260,7 @@ private extension MarkdownSourceSlicer {
             guard trait.isActive(inlineTraits, attrs: run.attrs) else { return false }
             var span = NSRange()
             guard attributedText.attribute(
-                trait.key, at: run.runRange.location, longestEffectiveRange: &span, in: fullRange
+                trait.key(in: run.attrs), at: run.runRange.location, longestEffectiveRange: &span, in: fullRange
             ) != nil else { return false }
             return NSIntersectionRange(span, selection) == span
         }

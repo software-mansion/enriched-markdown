@@ -37,7 +37,7 @@ fun TextScreen(
       markdown = markdown,
       modifier = Modifier.fillMaxWidth(),
       style = CustomMarkdownStyle,
-      flags = Md4cFlags(superscript = true, subscript = true),
+      flags = Md4cFlags(superscript = true, subscript = true, admonitions = true),
       onLinkPress = { url ->
         runCatching {
           context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))

@@ -23,6 +23,10 @@ sealed interface MarkdownSegment {
   data class Blockquote(
     val node: MarkdownASTNode,
   ) : MarkdownSegment
+
+  data class Video(
+    val node: MarkdownASTNode,
+  ) : MarkdownSegment
 }
 
 fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
@@ -64,6 +68,11 @@ fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
       -> {
         flushTextNodes()
         segments.add(MarkdownSegment.Blockquote(child))
+      }
+
+      MarkdownASTNode.NodeType.Video -> {
+        flushTextNodes()
+        segments.add(MarkdownSegment.Video(child))
       }
 
       else -> {

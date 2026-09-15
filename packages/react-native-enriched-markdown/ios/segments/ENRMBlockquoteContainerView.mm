@@ -14,6 +14,9 @@
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathContainerView.h"
 #endif
+#if ENRICHED_MARKDOWN_VIDEO
+#import "ENRMVideoContainerView.h"
+#endif
 #if TARGET_OS_OSX
 #import "ENRMMenuAction.h"
 #endif
@@ -168,6 +171,12 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
     else if ([child isKindOfClass:[ENRMMathContainerView class]]) {
       ((ENRMMathContainerView *)child).copyLabel = self.copyLabel;
       ((ENRMMathContainerView *)child).copyAsMarkdownLabel = self.copyAsMarkdownLabel;
+    }
+#endif
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([child isKindOfClass:[ENRMVideoContainerView class]]) {
+      ((ENRMVideoContainerView *)child).copyLabel = self.copyLabel;
+      ((ENRMVideoContainerView *)child).copyAsMarkdownLabel = self.copyAsMarkdownLabel;
     }
 #endif
   }
@@ -330,6 +339,28 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             [(ENRMMathContainerView *)view applyLatex:segment.mathSegment.latex];
                           }]];
 #endif
+#endif
+
+#if ENRICHED_MARKDOWN_VIDEO
+  __weak ENRMBlockquoteContainerView *weakBQ = self;
+  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindVideo
+                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            return [view isKindOfClass:[ENRMVideoContainerView class]];
+                          }
+                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
+                            ENRMVideoContainerView *view = [[ENRMVideoContainerView alloc] initWithConfig:config];
+                            ENRMBlockquoteContainerView *bq = weakBQ;
+                            if (bq) {
+                              view.enableBlockContextMenu = bq.enableBlockContextMenu;
+                              view.copyLabel = bq.copyLabel;
+                              view.copyAsMarkdownLabel = bq.copyAsMarkdownLabel;
+                            }
+                            [view applyVideoNode:segment.videoSegment.videoNode];
+                            return view;
+                          }
+                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            [(ENRMVideoContainerView *)view applyVideoNode:segment.videoSegment.videoNode];
+                          }]];
 #endif
 
   return [[ENRMSegmentViewRegistry alloc] initWithHandlers:handlers];

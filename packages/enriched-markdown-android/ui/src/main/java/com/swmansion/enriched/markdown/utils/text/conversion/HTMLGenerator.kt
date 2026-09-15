@@ -5,6 +5,8 @@ import android.text.Spannable
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.UnderlineSpan
+import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
+import com.swmansion.enriched.markdown.spans.AdmonitionIcons
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
@@ -53,6 +55,7 @@ object HTMLGenerator {
     val codeBgColor: String
 
     // Blockquote
+    private val admonitionPalette = style.blockquoteStyle.admonitions
     val blockquoteColor: String
     val blockquoteBgColor: String
     val blockquoteBorderColor: String
@@ -188,6 +191,17 @@ object HTMLGenerator {
       }
     }
 
+    fun admonitionColor(type: String): String = admonitionPalette[type]?.color?.let { colorToCSS(it) } ?: blockquoteBorderColor
+
+    /**
+     * Fill of an admonition box. Unlike a plain quote it never inherits the blockquote background:
+     * a type with no palette entry, or one that sets no background, is drawn unfilled.
+     */
+    fun admonitionBackground(type: String): String {
+      val background = admonitionPalette[type]?.backgroundColor ?: return "transparent"
+      return if (background == 0) "transparent" else colorToCSS(background)
+    }
+
     companion object {
       private fun colorToCSS(color: Int): String {
         if (color == 0) return "inherit"
@@ -242,6 +256,11 @@ object HTMLGenerator {
     val end: Int,
     val type: Int,
     val depth: Int = 0,
+    /**
+     * Set on the spacer paragraph that opens a themed admonition (see AdmonitionHeaderSpan). It
+     * carries no text of its own — it becomes the header row and tints the box it opens.
+     */
+    val admonitionType: String? = null,
     val isTaskChecked: Boolean = false,
   )
 
@@ -383,14 +402,19 @@ object HTMLGenerator {
       state.blockquoteDepth++
       state.inBlockquote = true
 
+      // The type themes only the box it actually opens: where a plain quote and an admonition
+      // inside it open on the same paragraph, the outer levels keep the plain colors.
+      val admonition = para.admonitionType?.takeIf { state.blockquoteDepth == depth }
+      val borderColor = admonition?.let { styles.admonitionColor(it) } ?: styles.blockquoteBorderColor
+
       if (state.blockquoteDepth == 0) {
         html
           .append("<blockquote style=\"background-color: ")
-          .append(styles.blockquoteBgColor)
+          .append(admonition?.let { styles.admonitionBackground(it) } ?: styles.blockquoteBgColor)
           .append("; border-inline-start: ")
           .append(styles.blockquoteBorderWidth)
           .append("px solid ")
-          .append(styles.blockquoteBorderColor)
+          .append(borderColor)
           .append("; padding: ")
           .append(styles.blockquotePaddingVertical)
           .append(" ")
@@ -405,13 +429,33 @@ object HTMLGenerator {
           .append("<blockquote style=\"border-inline-start: ")
           .append(styles.blockquoteBorderWidth)
           .append("px solid ")
-          .append(styles.blockquoteBorderColor)
+          .append(borderColor)
           .append("; padding-inline-start: ")
           .append(styles.blockquoteGapWidth)
           .append("px; margin: ")
           .append(styles.blockquoteNestedMargin)
           .append(";\">")
       }
+    }
+
+    // The spacer paragraph that opens an admonition holds no text of its own: it becomes the
+    // header row rather than an empty <p>. The octicon is left out — a tinted bold title carries
+    // the meaning without embedding an SVG in copied HTML.
+    if (para.admonitionType != null) {
+      html
+        .append("<p style=\"margin: ")
+        .append(styles.blockquoteParagraphMargin)
+        .append("; color: ")
+        .append(styles.admonitionColor(para.admonitionType))
+        .append("; font-size: ")
+        .append(styles.blockquoteFontSize)
+        .append("px; font-weight: 700;\">")
+      escapeHTMLTo(html, AdmonitionIcons.title(para.admonitionType))
+      html.append("</p>")
+
+      state.previousWasBlockquote = true
+      state.previousWasCodeBlock = false
+      return
     }
 
     html
@@ -856,9 +900,23 @@ object HTMLGenerator {
       val listSpan = innermostListSpan(text, currentIndex)
       val type = getParagraphType(text, currentIndex, listSpan)
       val depth = getDepthForType(text, currentIndex, type, listSpan)
+      val admonitionType =
+        text
+          .getSpans(currentIndex, minOf(currentIndex + 1, text.length), AdmonitionHeaderSpan::class.java)
+          .firstOrNull()
+          ?.type
       val isTaskChecked = type == TYPE_TASK_LIST && (listSpan as? TaskListSpan)?.isChecked == true
 
-      paragraphs.add(ParagraphInfo(currentIndex, lineEnd, type, depth, isTaskChecked))
+      paragraphs.add(
+        ParagraphInfo(
+          start = currentIndex,
+          end = lineEnd,
+          type = type,
+          depth = depth,
+          admonitionType = admonitionType,
+          isTaskChecked = isTaskChecked,
+        ),
+      )
       currentIndex = lineEnd
     }
 

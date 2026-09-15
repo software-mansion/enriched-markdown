@@ -2,7 +2,7 @@ import CoreText
 import UIKit
 
 enum ListMarkerDrawer {
-    static func draw(in drawContext: ListDrawContext) {
+    static func draw(in drawContext: MarkerDrawContext) {
         let visibleCharacterRange = drawContext.visibleCharacterRange
         guard visibleCharacterRange.length > 0 else { return }
 
@@ -25,41 +25,38 @@ enum ListMarkerDrawer {
             drawnParagraphs.insert(paragraphRange.location)
 
             let attrs = drawContext.textStorage.attributes(at: paragraphRange.location, effectiveRange: nil)
-            guard MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]) != nil else {
+            let admonition = (attrs[MarkdownAttribute.admonitionHeader] as? String)
+                .flatMap(AdmonitionType.init(rawValue:))
+            guard admonition != nil || MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]) != nil else {
                 continue
             }
 
+            let font = (attrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
             let isRTL = TextLayoutHelpers.paragraphIsRTL(attrs[.paragraphStyle] as? NSParagraphStyle)
-            let layoutInfo = layoutInfo(
-                ParagraphLayoutRequest(
-                    paragraphRange: paragraphRange,
-                    textLayoutManager: drawContext.textLayoutManager,
-                    contentManager: drawContext.contentManager,
-                    attrs: attrs,
-                    gap: gap,
-                    origin: drawContext.origin,
-                    isRTL: isRTL
-                )
+            let layoutInfo = ParagraphMarkerLayout(
+                paragraphRange: paragraphRange,
+                attrs: attrs,
+                gap: admonition == nil ? gap : AdmonitionHeader.iconGap(for: font),
+                isRTL: isRTL,
+                drawContext: drawContext
             )
 
-            if let taskValue = attrs[MarkdownAttribute.taskListItem] {
-                let font = (attrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
-                let rect = checkboxRect(
-                    markerX: layoutInfo.markerX,
-                    baselineY: layoutInfo.visualBaselineY,
-                    font: font,
-                    isRTL: isRTL,
-                    config: config
+            if let admonition {
+                drawAdmonitionIcon(
+                    admonition,
+                    in: layoutInfo.markerRect(size: AdmonitionHeader.iconSize(for: font), font: font, isRTL: isRTL),
+                    tint: (attrs[.foregroundColor] as? UIColor) ?? config.blockquoteBorderColor,
+                    context: drawContext.context
                 )
+            } else if let taskValue = attrs[MarkdownAttribute.taskListItem] {
                 drawCheckbox(
-                    in: rect,
+                    in: layoutInfo.markerRect(size: config.taskCheckboxSize, font: font, isRTL: isRTL),
                     isChecked: MarkdownAttributeValue.boolValue(from: taskValue),
                     config: config,
                     context: drawContext.context
                 )
             } else if MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listType]) == ListType.unordered.rawValue {
                 let depth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]) ?? 0
-                let font = (attrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
                 let bulletY = bulletCenterY(visualBaselineY: layoutInfo.visualBaselineY, font: font)
                 drawBullet(at: CGPoint(x: layoutInfo.markerX, y: bulletY), depth: depth, config: config, in: drawContext.context)
             } else if let number = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listItemNumber]) {
@@ -73,56 +70,6 @@ enum ListMarkerDrawer {
                 )
             }
         }
-    }
-
-    private struct ParagraphLayoutInfo {
-        let markerX: CGFloat
-        let visualBaselineY: CGFloat
-    }
-
-    private struct ParagraphLayoutRequest {
-        let paragraphRange: NSRange
-        let textLayoutManager: NSTextLayoutManager
-        let contentManager: NSTextContentManager
-        let attrs: [NSAttributedString.Key: Any]
-        let gap: CGFloat
-        let origin: CGPoint
-        let isRTL: Bool
-    }
-
-    private static func layoutInfo(_ request: ParagraphLayoutRequest) -> ParagraphLayoutInfo {
-        let paragraphStyle = request.attrs[.paragraphStyle] as? NSParagraphStyle
-        let textStartX = paragraphStyle?.headIndent ?? paragraphStyle?.firstLineHeadIndent ?? 0
-        let font = (request.attrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
-        var segmentFrame = CGRect(x: textStartX, y: 0, width: 0, height: 0)
-        var baselineFromLineTop = font.ascender
-
-        if let textRange = TextLayoutHelpers.textRange(request.paragraphRange, in: request.contentManager) {
-            request.textLayoutManager.enumerateTextSegments(
-                in: textRange,
-                type: .standard,
-                options: []
-            ) { _, frame, baseline, _ in
-                segmentFrame = frame
-                baselineFromLineTop = baseline
-                return false
-            }
-        }
-
-        let layoutBaselineY = request.origin.y + segmentFrame.minY + baselineFromLineTop
-        let baselineOffset = CGFloat((request.attrs[.baselineOffset] as? NSNumber)?.doubleValue ?? 0)
-        let visualBaselineY = layoutBaselineY - baselineOffset
-
-        let markerX: CGFloat
-        if request.isRTL {
-            let textEndX = max(segmentFrame.maxX, textStartX)
-            markerX = request.origin.x + textEndX + request.gap
-        } else {
-            let textOriginX = segmentFrame.width > 0 ? segmentFrame.minX : textStartX
-            markerX = request.origin.x + textOriginX - request.gap
-        }
-
-        return ParagraphLayoutInfo(markerX: markerX, visualBaselineY: visualBaselineY)
     }
 
     private static func bulletCenterY(visualBaselineY: CGFloat, font: UIFont) -> CGFloat {
@@ -186,20 +133,22 @@ enum ListMarkerDrawer {
         )
     }
 
-    /// Checkbox trailing edge sits at the marker boundary (like ordered
-    /// markers), vertically centered on the cap height so the box brackets
-    /// the first line's text.
-    private static func checkboxRect(
-        markerX: CGFloat,
-        baselineY: CGFloat,
-        font: UIFont,
-        isRTL: Bool,
-        config: BlockDecorationConfig
-    ) -> CGRect {
-        let size = config.taskCheckboxSize
-        let originX = isRTL ? markerX : markerX - size
-        let centerY = baselineY - font.capHeight / 2
-        return CGRect(x: originX, y: centerY - size / 2, width: size, height: size)
+    /// The octicon, scaled from its 16×16 space into `rect`.
+    private static func drawAdmonitionIcon(
+        _ type: AdmonitionType,
+        in rect: CGRect,
+        tint: UIColor,
+        context: CGContext
+    ) {
+        guard let path = AdmonitionHeader.iconPath(for: type) else { return }
+        let scale = rect.width / AdmonitionHeader.iconViewBox
+        context.saveGState()
+        context.translateBy(x: rect.minX, y: rect.minY)
+        context.scaleBy(x: scale, y: scale)
+        context.addPath(path)
+        context.setFillColor(tint.cgColor)
+        context.fillPath()
+        context.restoreGState()
     }
 
     /// Geometry mirrors the React Native package's ListMarkerDrawer so both

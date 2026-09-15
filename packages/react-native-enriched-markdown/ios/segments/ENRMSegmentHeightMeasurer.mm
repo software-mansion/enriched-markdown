@@ -8,6 +8,9 @@
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathContainerView.h"
 #endif
+#if ENRICHED_MARKDOWN_VIDEO
+#import "ENRMVideoContainerView.h"
+#endif
 
 CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segments, StyleConfig *config,
                                           CGFloat contentWidth, BOOL allowTrailingMargin, CGFloat pointScaleFactor,
@@ -28,9 +31,10 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
     const BOOL shouldAddBottomMargin = (!isLast || allowTrailingMargin);
 
     if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-      CGSize textSize = ENRMMeasureAttributedTextViewFree(segment.textResult.attributedText, contentWidth, config,
-                                                          shouldAddBottomMargin,
-                                                          segment.textResult.lastElementMarginBottom, pointScaleFactor);
+      // GFM segments are never line-clamped (numberOfLines is a no-op for GFM).
+      CGSize textSize = ENRMMeasureAttributedTextViewFree(
+          segment.textResult.attributedText, contentWidth, config, shouldAddBottomMargin,
+          segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping);
       totalHeight += textSize.height;
     } else if (segment.kind == ENRMSegmentKindTable && segment.tableSegment) {
       totalHeight += config.tableMarginTop;
@@ -70,6 +74,17 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                                          maxWidth:contentWidth];
       if (shouldAddBottomMargin) {
         totalHeight += config.mathMarginBottom;
+      }
+    }
+#endif
+#if ENRICHED_MARKDOWN_VIDEO
+    else if (segment.kind == ENRMSegmentKindVideo && segment.videoSegment) {
+      totalHeight += config.videoMarginTop;
+      totalHeight += [ENRMVideoContainerView measureHeightForVideoNode:segment.videoSegment.videoNode
+                                                                config:config
+                                                              maxWidth:contentWidth];
+      if (shouldAddBottomMargin) {
+        totalHeight += config.videoMarginBottom;
       }
     }
 #endif

@@ -193,6 +193,22 @@ export const imageStyledDefaults: ImageStyleControls = {
   marginBottom: 16,
 };
 
+export type VideoStyleControls = {
+  marginTop: number;
+  marginBottom: number;
+  borderRadius: number;
+  aspectRatio: number;
+  backgroundColor: string;
+};
+
+export const videoStyledDefaults: VideoStyleControls = {
+  marginTop: 0,
+  marginBottom: 16,
+  borderRadius: 8,
+  aspectRatio: 16 / 9,
+  backgroundColor: '#000000',
+};
+
 export type TableStyleControls = {
   fontSize: number;
   fontFamily: string;

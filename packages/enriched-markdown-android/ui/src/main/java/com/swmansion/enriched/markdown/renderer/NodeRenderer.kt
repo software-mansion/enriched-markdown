@@ -82,6 +82,9 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.Paragraph, ParagraphRenderer(config))
       put(MarkdownASTNode.NodeType.Heading, HeadingRenderer(config))
       put(MarkdownASTNode.NodeType.Blockquote, BlockquoteRenderer(config))
+      // An admonition is a themed blockquote: same renderer, which reads the node type to decide
+      // whether to reserve and paint a header.
+      put(MarkdownASTNode.NodeType.Admonition, BlockquoteRenderer(config))
       put(MarkdownASTNode.NodeType.CodeBlock, CodeBlockRenderer(config))
       put(MarkdownASTNode.NodeType.UnorderedList, ListRenderer(config, isOrdered = false))
       put(MarkdownASTNode.NodeType.OrderedList, ListRenderer(config, isOrdered = true))

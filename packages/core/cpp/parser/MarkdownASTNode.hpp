@@ -40,7 +40,8 @@ enum class NodeType {
     Highlight,
     SoftBreak,
     BlankLine,
-    Admonition
+    Admonition,
+    Video
 };
 
 struct MarkdownASTNode {

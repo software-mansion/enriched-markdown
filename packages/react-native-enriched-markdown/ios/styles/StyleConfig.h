@@ -222,6 +222,17 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setImageMarginBottom:(CGFloat)newValue;
 - (nullable NSDictionary<NSString *, NSString *> *)imageRequestHeaders;
 - (void)setImageRequestHeaders:(nullable NSDictionary<NSString *, NSString *> *)newValue;
+// Video properties
+- (CGFloat)videoMarginTop;
+- (void)setVideoMarginTop:(CGFloat)newValue;
+- (CGFloat)videoMarginBottom;
+- (void)setVideoMarginBottom:(CGFloat)newValue;
+- (CGFloat)videoBorderRadius;
+- (void)setVideoBorderRadius:(CGFloat)newValue;
+- (CGFloat)videoAspectRatio;
+- (void)setVideoAspectRatio:(CGFloat)newValue;
+- (RCTUIColor *)videoBackgroundColor;
+- (void)setVideoBackgroundColor:(RCTUIColor *)newValue;
 // Inline image properties
 - (CGFloat)inlineImageSize;
 - (void)setInlineImageSize:(CGFloat)newValue;

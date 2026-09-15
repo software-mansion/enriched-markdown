@@ -14,6 +14,9 @@
 -keep class com.swmansion.enriched.markdown.views.MathContainerView { *; }
 -keep class com.swmansion.enriched.markdown.renderer.MathInlineRenderer { *; }
 
+# Reflection: Video container loaded via Class.forName when enableVideo=true.
+-keep class com.swmansion.enriched.markdown.segments.VideoContainerView { *; }
+
 # RaTeX uses JNI to instantiate Java objects from native code.
 # R8 cannot trace these lookups and will strip or rename the referenced classes.
 -keep class io.ratex.** { *; }

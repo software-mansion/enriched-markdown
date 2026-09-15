@@ -16,6 +16,8 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownTextProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streamingAnimation"] = props.streamingAnimation;
+  serializedProps["numberOfLines"] = props.numberOfLines;
+  serializedProps["ellipsizeMode"] = props.ellipsizeMode;
 
   folly::dynamic imageRequestHeaders = folly::dynamic::array();
   for (const auto &header : props.imageRequestHeaders) {

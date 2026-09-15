@@ -170,7 +170,8 @@ final class MathThemingTests: XCTestCase {
             latex: "x",
             isDisplay: true,
             result: stubResult(),
-            panel: MathPanelStyle(padding: 12, textAlignment: .center)
+            panel: MathPanelStyle(padding: 12, textAlignment: .center),
+            accessibilityLabel: "Math: x"
         )
 
         XCTAssertEqual(bounds(of: attachment, lineWidth: 300), CGRect(x: 0, y: -16, width: 300, height: 40))
@@ -195,7 +196,8 @@ final class MathThemingTests: XCTestCase {
                 latex: "x",
                 isDisplay: true,
                 result: stubResult(),
-                panel: MathPanelStyle(backgroundColor: background, padding: 12)
+                panel: MathPanelStyle(backgroundColor: background, padding: 12),
+                accessibilityLabel: "Math: x"
             )
             let size = CGSize(width: width, height: 40)
             return attachment.image(forBounds: CGRect(origin: .zero, size: size), textContainer: nil, characterIndex: 0)
@@ -204,7 +206,13 @@ final class MathThemingTests: XCTestCase {
         XCTAssertEqual(image(background: nil, width: 300).map(isBlank), true)
         XCTAssertEqual(image(background: .systemRed, width: 300).map(isBlank), false)
 
-        let attachment = MathAttachment(latex: "x", isDisplay: true, result: stubResult(), panel: MathPanelStyle())
+        let attachment = MathAttachment(
+            latex: "x",
+            isDisplay: true,
+            result: stubResult(),
+            panel: MathPanelStyle(),
+            accessibilityLabel: "Math: x"
+        )
         let narrow = attachment.image(forBounds: CGRect(x: 0, y: 0, width: 100, height: 16), textContainer: nil, characterIndex: 0)
         let wide = attachment.image(forBounds: CGRect(x: 0, y: 0, width: 200, height: 16), textContainer: nil, characterIndex: 0)
         XCTAssertEqual(narrow?.size.width, 100)

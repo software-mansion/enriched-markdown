@@ -42,7 +42,8 @@ export type NodeType =
   | 'LatexMathInline'
   | 'LatexMathDisplay'
   | 'BlankLine'
-  | 'Admonition';
+  | 'Admonition'
+  | 'Video';
 
 export interface NodeAttributes {
   level?: string;

@@ -40,6 +40,11 @@ sealed interface RenderedSegment {
     val node: MarkdownASTNode,
     override val signature: Long,
   ) : RenderedSegment
+
+  data class Video(
+    val node: MarkdownASTNode,
+    override val signature: Long,
+  ) : RenderedSegment
 }
 
 object MarkdownSegmentRenderer {
@@ -77,6 +82,11 @@ object MarkdownSegmentRenderer {
         is MarkdownSegment.Blockquote -> {
           val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.BLOCKQUOTE_KIND_SALT
           RenderedSegment.Blockquote(segment.node, signature)
+        }
+
+        is MarkdownSegment.Video -> {
+          val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.VIDEO_KIND_SALT
+          RenderedSegment.Video(segment.node, signature)
         }
       }
     }

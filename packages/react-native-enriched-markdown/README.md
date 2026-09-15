@@ -27,6 +27,7 @@
 - 👤 Renders mentions as styled links (compatible with `EnrichedMarkdownTextInput` mention output)
 - 🙈 Spoiler text with animated particle overlay and tap-to-reveal
 - 🖼️ Native image interactions (iOS: Copy, Save to Camera Roll)
+- 🎬 Native video playback — block-level videos via HTML `<video>` tag
 - 🌐 Native platform features (Translate, Look Up, Search Web, Share)
 - 🗣️ Accessibility support (VoiceOver on iOS, TalkBack on Android, semantic HTML on web)
 - 🔄 Full RTL (right-to-left) support including text, lists, blockquotes, tables, and task lists
@@ -141,6 +142,7 @@ Add an `"enriched-markdown"` block to your app's `package.json` to configure whi
   "enriched-markdown": {
     "enableCodeHighlight": true,
     "enableMath": true,
+    "enableVideo": true,
     "codeHighlightLanguages": ["javascript", "typescript", "python", "swift", "kotlin"]
   }
 }
@@ -150,6 +152,7 @@ Add an `"enriched-markdown"` block to your app's `package.json` to configure whi
 |---|---|---|---|
 | `enableCodeHighlight` | `boolean` | `true` | Download and compile tree-sitter grammars for syntax highlighting |
 | `enableMath` | `boolean` | `true` | Download RaTeX for LaTeX math rendering (iOS) and include the Maven dependency (Android) |
+| `enableVideo` | `boolean` | `true` | Enable native video playback. Adds Media3 ExoPlayer (~2-3 MB) on Android; uses built-in AVKit on iOS. Set to `false` to exclude the dependency |
 | `codeHighlightLanguages` | `string[]` | all default grammars | Subset of languages to compile (reduces binary size). Ignored when `enableCodeHighlight` is `false`; an empty array `[]` compiles none (same as disabling). |
 
 Your app's `package.json` is the single source of truth. `postinstall` reads it to decide

@@ -81,6 +81,8 @@ static jint nodeTypeToJavaOrdinal(NodeType type) {
       return 31;
     case NodeType::Admonition:
       return 32;
+    case NodeType::Video:
+      return 33;
     default:
       return 0;
   }
