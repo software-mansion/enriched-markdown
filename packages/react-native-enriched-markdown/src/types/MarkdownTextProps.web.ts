@@ -13,6 +13,17 @@ export interface EnrichedMarkdownTextProps extends Omit<
   'style' | 'dir'
 > {
   /**
+   * Test identifier applied to the root element as `data-testid`.
+   * @platform web
+   */
+  testID?: string;
+  /**
+   * Accepted for React Native compatibility. Browsers handle font scaling
+   * through operating system accessibility settings.
+   * @platform web
+   */
+  allowFontScaling?: boolean;
+  /**
    * Markdown content to render.
    * @platform ios, android, web
    */

@@ -29,6 +29,8 @@ export const EnrichedMarkdownText = ({
   selectable = true,
   dir,
   selectionColor,
+  testID,
+  allowFontScaling: _allowFontScaling,
   ...rest
 }: EnrichedMarkdownTextProps) => {
   const normalizedStyle = useMemo(
@@ -158,7 +160,13 @@ export const EnrichedMarkdownText = ({
 
   if (parseError) {
     return (
-      <div className={ENRM_TEXT_CLASS} style={wrapperStyle} dir={dir} {...rest}>
+      <div
+        className={ENRM_TEXT_CLASS}
+        style={wrapperStyle}
+        dir={dir}
+        data-testid={testID}
+        {...rest}
+      >
         <pre style={parseErrorFallbackStyle}>{markdown}</pre>
       </div>
     );
@@ -170,7 +178,13 @@ export const EnrichedMarkdownText = ({
   const lastIdx = children.length - 1;
 
   return (
-    <div className={ENRM_TEXT_CLASS} style={wrapperStyle} dir={dir} {...rest}>
+    <div
+      className={ENRM_TEXT_CLASS}
+      style={wrapperStyle}
+      dir={dir}
+      data-testid={testID}
+      {...rest}
+    >
       {children.map((child, index) => (
         <RenderNode
           key={`${child.type}-${index}`}
