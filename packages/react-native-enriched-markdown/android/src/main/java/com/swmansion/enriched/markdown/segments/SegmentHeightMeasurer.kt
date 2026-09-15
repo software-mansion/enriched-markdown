@@ -80,6 +80,14 @@ object SegmentHeightMeasurer {
           // MeasurementStore); this mirrors BlockquoteContainerView.nested.
           totalHeightPx += BlockquoteContainerView.measureBlockquoteNodeHeight(segment.node, style, context, contentWidthPx)
         }
+
+        is RenderedSegment.Video -> {
+          totalHeightPx += style.videoStyle.marginTop
+          totalHeightPx += contentWidthPx / style.videoStyle.resolvedAspectRatio
+          if (includeBottomMargin) {
+            totalHeightPx += style.videoStyle.marginBottom
+          }
+        }
       }
     }
     return totalHeightPx

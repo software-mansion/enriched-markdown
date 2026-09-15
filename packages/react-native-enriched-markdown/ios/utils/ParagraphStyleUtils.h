@@ -11,6 +11,12 @@ NSLineBreakStrategy ENRMResolveLineBreakStrategy(NSString *_Nullable strategy);
 void ENRMApplyLineBreakStrategyToParagraphStyles(NSMutableAttributedString *output,
                                                  NSLineBreakStrategy lineBreakStrategy);
 
+/// Resolves an ellipsizeMode prop value to the NSLineBreakMode used for
+/// truncation on the text container (with maximumNumberOfLines). 'clip' maps to
+/// NSLineBreakByClipping (truncate with no ellipsis). Defaults to tail. Mirrors
+/// React Native Text's ellipsizeMode.
+NSLineBreakMode ENRMResolveEllipsizeLineBreakMode(NSString *_Nullable mode);
+
 /// Auto/LTR/RTL match React Native's writingDirection prop.
 /// FirstStrong is the library extension: resolve each paragraph from its first strong
 /// directional character (matches Android's TEXT_DIRECTION_FIRST_STRONG).

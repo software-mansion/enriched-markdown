@@ -175,6 +175,13 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     marginTop: 0,
     marginBottom: 16,
   },
+  video: {
+    marginTop: 0,
+    marginBottom: 16,
+    borderRadius: 8,
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000000',
+  },
   inlineImage: { size: 20 },
   thematicBreak: {
     color: '#E5E7EB',

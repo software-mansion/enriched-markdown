@@ -20,6 +20,9 @@ final class LaTeXRenderingTests: XCTestCase {
 
     private func renderWithStub(
         _ markdown: String,
+        accessibilityLabel: @escaping (String) -> String = LaTeXRenderPlugin.label(
+            template: LaTeXRenderPlugin.defaultAccessibilityLabel
+        ),
         typeset: @escaping MathRenderer.Typeset
     ) -> NSAttributedString {
         MarkdownRenderer.render(
@@ -27,7 +30,7 @@ final class LaTeXRenderingTests: XCTestCase {
             config: config,
             flags: .commonMark,
             imageRequestHeaders: [:],
-            plugins: [LaTeXRenderPlugin(typeset: typeset)]
+            plugins: [LaTeXRenderPlugin(typeset: typeset, accessibilityLabel: accessibilityLabel)]
         )
     }
 
@@ -88,11 +91,63 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertFalse(isBlank(image))
     }
 
+    /// Streaming re-renders the document per token; the same formula must
+    /// not be redrawn each time.
+    func testRepeatedRendersShareOneRaster() {
+        let config = MarkdownStyleConfig.baseline()
+        let first = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        let second = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        guard let firstImage = first.first?.formulaImage, let secondImage = second.first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertTrue(firstImage === secondImage)
+    }
+
+    func testDifferentFontSizesDoNotShareARaster() {
+        let config = MarkdownStyleConfig.baseline()
+        let body = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
+        let heading = mathAttachments(in: MarkdownRenderer.renderLaTeX("# $x^2$", config: config))
+        guard let bodyImage = body.first?.formulaImage, let headingImage = heading.first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertFalse(bodyImage === headingImage)
+        XCTAssertNotEqual(bodyImage.size, headingImage.size)
+    }
+
+    func testStubbedTypesetNeverSharesARaster() {
+        let first = renderWithStub("$x^2$") { _, _, _, _ in self.stubResult() }
+        let second = renderWithStub("$x^2$") { _, _, _, _ in self.stubResult() }
+        guard let firstImage = mathAttachments(in: first).first?.formulaImage,
+              let secondImage = mathAttachments(in: second).first?.formulaImage else {
+            return XCTFail("expected rasterized formulas")
+        }
+        XCTAssertFalse(firstImage === secondImage)
+    }
+
     func testRenderLaTeXProducesMathAttachmentWithoutFlagSetup() {
         let rendered = MarkdownRenderer.renderLaTeX("inline $x^2$ math", config: config)
 
         XCTAssertEqual(mathAttachments(in: rendered).count, 1)
         XCTAssertFalse(rendered.string.contains("$"))
+    }
+
+    // MARK: - Accessibility
+
+    func testAccessibilityLabelTemplateReachesTheVoiceOverElement() {
+        let label = LaTeXRenderPlugin.label(template: "Formel: {speech} ({latex})")
+        let rendered = renderWithStub("$x^2$", accessibilityLabel: label) { _, _, _, _ in self.stubResult() }
+
+        XCTAssertEqual(MarkdownAccessibilityElementBuilder.specs(for: rendered).first?.label, "Formel: x squared (x^2)")
+    }
+
+    func testAccessibilityLabelClosureReceivesTheSource() {
+        let rendered = renderWithStub(
+            "$x^2$",
+            accessibilityLabel: { "custom " + $0 },
+            typeset: { _, _, _, _ in self.stubResult() }
+        )
+
+        XCTAssertEqual(MarkdownAccessibilityElementBuilder.specs(for: rendered).first?.label, "custom x^2")
     }
 
     // MARK: - Renderer behavior (stubbed typesetting)
@@ -111,7 +166,7 @@ final class LaTeXRenderingTests: XCTestCase {
         XCTAssertEqual(math.latex, "x^2")
         XCTAssertFalse(math.isDisplay)
         XCTAssertFalse(math.isBlock)
-        XCTAssertEqual(math.accessibilityLabel, "x^2")
+        XCTAssertEqual(math.accessibilityLabel, "Math: x squared")
         XCTAssertEqual(math.markdownText(), "$x^2$")
 
         let expectedFontSize = (config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)).pointSize

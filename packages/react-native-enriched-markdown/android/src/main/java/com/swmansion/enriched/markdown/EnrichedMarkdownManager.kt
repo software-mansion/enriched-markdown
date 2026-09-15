@@ -16,6 +16,7 @@ import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
+import com.swmansion.enriched.markdown.utils.common.applyReactBorderProps
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
 import com.swmansion.enriched.markdown.utils.common.emitCopyPress
@@ -81,6 +82,15 @@ class EnrichedMarkdownManager :
   override fun onAfterUpdateTransaction(view: EnrichedMarkdown) {
     super.onAfterUpdateTransaction(view)
     view.commitProps()
+  }
+
+  // Replay containerStyle border props the delegate drops (see applyReactBorderProps).
+  override fun updateProperties(
+    view: EnrichedMarkdown,
+    props: ReactStylesDiffMap,
+  ) {
+    super.updateProperties(view, props)
+    applyReactBorderProps(view, props)
   }
 
   override fun updateState(
@@ -281,6 +291,22 @@ class EnrichedMarkdownManager :
     view?.setTextBreakStrategy(strategy ?: "highQuality")
   }
 
+  @ReactProp(name = "numberOfLines", defaultInt = 0)
+  override fun setNumberOfLines(
+    view: EnrichedMarkdown?,
+    value: Int,
+  ) {
+    // No-op for GFM — block segments cannot honor a document-wide line cap. See the GFM tracking issue.
+  }
+
+  @ReactProp(name = "ellipsizeMode")
+  override fun setEllipsizeMode(
+    view: EnrichedMarkdown?,
+    value: String?,
+  ) {
+    // No-op for GFM — see setNumberOfLines.
+  }
+
   @ReactProp(name = "contextMenuItems")
   override fun setContextMenuItems(
     view: EnrichedMarkdown?,
@@ -340,7 +366,7 @@ class EnrichedMarkdownManager :
     attachmentsPositions: FloatArray?,
   ): Long {
     val id = localData?.getInt("viewTag")
-    return MeasurementStore.getMeasureById(context, id, width, height, heightMode, props, splitTableSegments = true)
+    return MeasurementStore.getMeasureById(context, id, width, widthMode, height, heightMode, props, splitTableSegments = true)
   }
 
   companion object {

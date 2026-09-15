@@ -17,8 +17,15 @@ final class MathRenderer: NodeRenderer {
     private let blockStyle: MathBlockStyle
     private let inlineStyle: InlineMathStyle
     private let panel: MathPanelStyle
+    /// Produces the attachment's VoiceOver label from the source.
+    private let accessibilityLabel: (String) -> String
 
-    init(typeset: @escaping Typeset, blockStyle: MathBlockStyle, inlineStyle: InlineMathStyle) {
+    init(
+        typeset: @escaping Typeset,
+        blockStyle: MathBlockStyle,
+        inlineStyle: InlineMathStyle,
+        accessibilityLabel: @escaping (String) -> String
+    ) {
         self.typeset = typeset
         self.blockStyle = blockStyle
         self.inlineStyle = inlineStyle
@@ -27,6 +34,7 @@ final class MathRenderer: NodeRenderer {
             padding: blockStyle.padding ?? 0,
             textAlignment: blockStyle.textAlignment ?? .natural
         )
+        self.accessibilityLabel = accessibilityLabel
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
@@ -53,14 +61,16 @@ final class MathRenderer: NodeRenderer {
             latex: latex,
             isDisplay: isDisplay,
             result: result,
-            panel: isBlock ? panel : nil
+            panel: isBlock ? panel : nil,
+            accessibilityLabel: accessibilityLabel(latex)
         )
         SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
         output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
     }
 
-    /// Synchronous and thread-safe, so it runs on the render queue; layouts are
-    /// cached because every re-render (each streamed token) would repeat the FFI parse.
+    /// Synchronous and thread-safe, so it runs on the render queue; layouts and
+    /// rasters are cached because every re-render (each streamed token) would
+    /// otherwise repeat the FFI parse and redraw every formula.
     static func raTeXTypeset(
         _ latex: String,
         displayMode: Bool,
@@ -74,13 +84,15 @@ final class MathRenderer: NodeRenderer {
         }
 
         let renderer = RaTeXRenderer(displayList: displayList, fontSize: fontSize)
-        return MathTypesetResult(
+        var result = MathTypesetResult(
             width: renderer.width,
             ascent: renderer.height,
             descent: renderer.depth
         ) { context in
             renderer.draw(in: context)
         }
+        result.image = raster(for: result, key: "\(fontSize)|\(layoutKey(latex, displayMode: displayMode, color: color))")
+        return result
     }
 
     private static let displayListCache: NSCache<NSString, DisplayListBox> = {
@@ -89,11 +101,31 @@ final class MathRenderer: NodeRenderer {
         return cache
     }()
 
+    private static let rasterCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 300
+        cache.totalCostLimit = 24 * 1024 * 1024
+        return cache
+    }()
+
+    private static func raster(for result: MathTypesetResult, key: String) -> UIImage? {
+        if let cached = rasterCache.object(forKey: key as NSString) {
+            return cached
+        }
+        guard let image = result.rasterize(), let cgImage = image.cgImage else { return nil }
+        rasterCache.setObject(image, forKey: key as NSString, cost: cgImage.bytesPerRow * cgImage.height)
+        return image
+    }
+
     /// The layout is font-size independent (em units) but bakes in the
     /// color, so the color joins the key.
-    private static func displayList(for latex: String, displayMode: Bool, color: UIColor) -> DisplayList? {
+    private static func layoutKey(_ latex: String, displayMode: Bool, color: UIColor) -> String {
         let colorKey = color.cgColor.components?.map { "\($0)" }.joined(separator: ",") ?? "?"
-        let key = "\(displayMode)|\(colorKey)|\(latex)" as NSString
+        return "\(displayMode)|\(colorKey)|\(latex)"
+    }
+
+    private static func displayList(for latex: String, displayMode: Bool, color: UIColor) -> DisplayList? {
+        let key = layoutKey(latex, displayMode: displayMode, color: color) as NSString
         if let cached = displayListCache.object(forKey: key) {
             return cached.displayList
         }

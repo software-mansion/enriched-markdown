@@ -117,6 +117,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   NSLineBreakStrategy _lineBreakStrategy;
 
+  NSInteger _numberOfLines;
+  NSLineBreakMode _ellipsizeLineBreakMode;
+
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
 
@@ -269,6 +272,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _forceHeightUpdateOnNextRender = NO;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
+    _numberOfLines = 0;
+    _ellipsizeLineBreakMode = NSLineBreakByTruncatingTail;
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection =
         [[RCTI18nUtil sharedInstance] isRTL] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
@@ -438,6 +443,26 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 }
 
+// Kept in sync with the view-free measurement so the rendered line count matches
+// the measured height. The clamp must be computed at the padding-inset content
+// width (the text view's own width) rather than the full component bounds, or a
+// full-width measurement pass leaves the truncation laid out too wide and fewer
+// lines render than were measured. numberOfLines == 0 restores the unlimited default.
+- (void)applyLineClampToTextContainer
+{
+  if (_numberOfLines > 0) {
+    CGFloat contentWidth = _textView.bounds.size.width;
+    if (contentWidth > 0) {
+      _textView.textContainer.size = CGSizeMake(contentWidth, CGFLOAT_MAX);
+    }
+    _textView.textContainer.maximumNumberOfLines = _numberOfLines;
+    _textView.textContainer.lineBreakMode = _ellipsizeLineBreakMode;
+  } else {
+    _textView.textContainer.maximumNumberOfLines = 0;
+    _textView.textContainer.lineBreakMode = NSLineBreakByWordWrapping;
+  }
+}
+
 - (void)applyRenderedText:(NSMutableAttributedString *)attributedText
 {
   NSUInteger tailStart = _previousTextLength;
@@ -457,6 +482,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     containerWidth = self.bounds.size.width;
   }
   _textView.textContainer.size = CGSizeMake(containerWidth, CGFLOAT_MAX);
+  [self applyLineClampToTextContainer];
 
   _accessibilityElements = nil;
   _accessibilityNeedsRebuild = YES;
@@ -490,6 +516,15 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     CGSize measured = [self measureSize:self.bounds.size.width];
     if (forceHeightUpdate || needsHeightUpdate(measured, self.bounds)) {
       [self requestHeightUpdate];
+    }
+
+    // measureSize lays the shared display container out at the full bounds width;
+    // re-pin the clamp to the content width so the visible truncation matches the
+    // content-width line count the shadow node measured.
+    if (_numberOfLines > 0) {
+      [self applyLineClampToTextContainer];
+      [_textView.layoutManager ensureLayoutForTextContainer:_textView.textContainer];
+      ENRMSetNeedsDisplay(_textView);
     }
   }
 
@@ -671,6 +706,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (newViewProps.writingDirection != oldViewProps.writingDirection) {
     NSString *value = [[NSString alloc] initWithUTF8String:newViewProps.writingDirection.c_str()];
     _writingDirectionMode = ENRMResolveWritingDirectionMode(value);
+    _forceHeightUpdateOnNextRender = YES;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  if (newViewProps.numberOfLines != oldViewProps.numberOfLines) {
+    _numberOfLines = (NSInteger)newViewProps.numberOfLines;
+    [self applyLineClampToTextContainer];
+    _forceHeightUpdateOnNextRender = YES;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+
+  if (newViewProps.ellipsizeMode != oldViewProps.ellipsizeMode) {
+    _ellipsizeLineBreakMode =
+        ENRMResolveEllipsizeLineBreakMode([[NSString alloc] initWithUTF8String:newViewProps.ellipsizeMode.c_str()]);
+    [self applyLineClampToTextContainer];
     _forceHeightUpdateOnNextRender = YES;
     _dirtyFlags |= ENRMDirtyRender;
   }

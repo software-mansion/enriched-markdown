@@ -145,6 +145,12 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   CGFloat _imageMarginTop;
   CGFloat _imageMarginBottom;
   NSDictionary<NSString *, NSString *> *_imageRequestHeaders;
+  // Video properties
+  CGFloat _videoMarginTop;
+  CGFloat _videoMarginBottom;
+  CGFloat _videoBorderRadius;
+  CGFloat _videoAspectRatio;
+  RCTUIColor *_videoBackgroundColor;
   // Inline image properties
   CGFloat _inlineImageSize;
   // Blockquote properties
@@ -432,6 +438,11 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_imageMarginTop = _imageMarginTop;
   copy->_imageMarginBottom = _imageMarginBottom;
   copy->_imageRequestHeaders = [_imageRequestHeaders copy];
+  copy->_videoMarginTop = _videoMarginTop;
+  copy->_videoMarginBottom = _videoMarginBottom;
+  copy->_videoBorderRadius = _videoBorderRadius;
+  copy->_videoAspectRatio = _videoAspectRatio;
+  copy->_videoBackgroundColor = [_videoBackgroundColor copy];
   copy->_inlineImageSize = _inlineImageSize;
   copy->_blockquoteFontSize = _blockquoteFontSize;
   copy->_blockquoteFontFamily = [_blockquoteFontFamily copy];
@@ -1604,6 +1615,56 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (void)setImageRequestHeaders:(NSDictionary<NSString *, NSString *> *)newValue
 {
   _imageRequestHeaders = [newValue copy];
+}
+
+- (CGFloat)videoMarginTop
+{
+  return _videoMarginTop;
+}
+
+- (void)setVideoMarginTop:(CGFloat)newValue
+{
+  _videoMarginTop = newValue;
+}
+
+- (CGFloat)videoMarginBottom
+{
+  return _videoMarginBottom;
+}
+
+- (void)setVideoMarginBottom:(CGFloat)newValue
+{
+  _videoMarginBottom = newValue;
+}
+
+- (CGFloat)videoBorderRadius
+{
+  return _videoBorderRadius;
+}
+
+- (void)setVideoBorderRadius:(CGFloat)newValue
+{
+  _videoBorderRadius = newValue;
+}
+
+- (CGFloat)videoAspectRatio
+{
+  return _videoAspectRatio;
+}
+
+- (void)setVideoAspectRatio:(CGFloat)newValue
+{
+  _videoAspectRatio = newValue;
+}
+
+- (RCTUIColor *)videoBackgroundColor
+{
+  return _videoBackgroundColor;
+}
+
+- (void)setVideoBackgroundColor:(RCTUIColor *)newValue
+{
+  _videoBackgroundColor = newValue;
 }
 
 - (CGFloat)inlineImageSize

@@ -26,6 +26,7 @@ import type {
   TaskListStyleControls,
   ThematicBreakStyleControls,
   UnderlineStyleControls,
+  VideoStyleControls,
 } from './storybookMarkdownStyles';
 
 /**
@@ -186,6 +187,18 @@ export function toImageStyle(
     borderRadius: controls.borderRadius,
     marginTop: controls.marginTop,
     marginBottom: controls.marginBottom,
+  };
+}
+
+export function toVideoStyle(
+  controls: VideoStyleControls
+): NonNullable<MarkdownStyle['video']> {
+  return {
+    marginTop: controls.marginTop,
+    marginBottom: controls.marginBottom,
+    borderRadius: controls.borderRadius,
+    ...(controls.aspectRatio > 0 ? { aspectRatio: controls.aspectRatio } : {}),
+    backgroundColor: controls.backgroundColor,
   };
 }
 

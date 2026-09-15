@@ -165,6 +165,11 @@ The library provides sensible default styles for all Markdown elements out of th
       borderRadius: 8,
       marginBottom: 12,
     },
+    video: {
+      borderRadius: 12,
+      aspectRatio: 16 / 9,
+      backgroundColor: '#000000',
+    },
     inlineImage: {
       size: 20,
     },
@@ -431,6 +436,20 @@ Styles for highlighted text (`==text==`). Requires `md4cFlags={{ highlight: true
 | `marginBottom` | `number` | Bottom margin |
 
 > Sizing precedence: `aspectRatio` > `maxHeight` > `height`. `resizeMode` applies independently on top. When no new knob is set (`resizeMode`, `maxHeight`, or `aspectRatio`), block images keep the exact legacy fixed-`height` behavior.
+
+### Video-specific
+
+Styles for block-level videos embedded via the HTML `<video>` tag (e.g. `<video src="url"></video>`). Requires `flavor="github"` and the `enableVideo` opt-in in your app's `package.json`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `marginTop` | `number` | Top margin |
+| `marginBottom` | `number` | Bottom margin |
+| `borderRadius` | `number` | Corner radius |
+| `aspectRatio` | `number` | Width / height ratio (e.g. `16 / 9`). The video fills the available width and its height is derived from this ratio. Must be positive; defaults to `16 / 9` |
+| `backgroundColor` | `string` | Fill color behind the video element, visible before the video loads or in letterboxing areas |
+
+Videos render as native player views — `AVPlayerViewController` on iOS and ExoPlayer (`PlayerView`) on Android. Playback controls are provided by the native player and appear automatically.
 
 ### Inline Image-specific
 

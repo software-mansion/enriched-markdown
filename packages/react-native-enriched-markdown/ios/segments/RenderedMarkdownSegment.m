@@ -51,6 +51,16 @@
 }
 @end
 
+@implementation ENRMVideoSegment
++ (instancetype)segmentWithVideoNode:(MarkdownASTNode *)node
+{
+  NSParameterAssert(node != nil);
+  ENRMVideoSegment *segment = [[ENRMVideoSegment alloc] init];
+  segment.videoNode = node;
+  return segment;
+}
+@end
+
 @implementation ENRMRenderedSegment
 + (instancetype)textSegmentWithResult:(ENRMRenderResult *)result signature:(uint64_t)signature
 {
@@ -98,6 +108,16 @@
   ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
   segment.kind = ENRMSegmentKindBlockquote;
   segment.blockquoteSegment = blockquoteSegment;
+  segment.signature = signature;
+  return segment;
+}
+
++ (instancetype)videoSegmentWithSegment:(ENRMVideoSegment *)videoSegment signature:(uint64_t)signature
+{
+  NSParameterAssert(videoSegment != nil);
+  ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
+  segment.kind = ENRMSegmentKindVideo;
+  segment.videoSegment = videoSegment;
   segment.signature = signature;
   return segment;
 }

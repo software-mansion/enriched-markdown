@@ -8,6 +8,9 @@
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathContainerView.h"
 #endif
+#if ENRICHED_MARKDOWN_VIDEO
+#import "ENRMVideoContainerView.h"
+#endif
 
 @implementation ENRMContainerNodeView {
   NSMutableArray<RCTUIView *> *_segmentViews;
@@ -79,6 +82,11 @@
     return _config.mathMarginTop;
   }
 #endif
+#if ENRICHED_MARKDOWN_VIDEO
+  if ([view isKindOfClass:[ENRMVideoContainerView class]]) {
+    return _config.videoMarginTop;
+  }
+#endif
   return 0;
 }
 
@@ -96,6 +104,11 @@
 #if ENRICHED_MARKDOWN_MATH
   if ([view isKindOfClass:[ENRMMathContainerView class]]) {
     return _config.mathMarginBottom;
+  }
+#endif
+#if ENRICHED_MARKDOWN_VIDEO
+  if ([view isKindOfClass:[ENRMVideoContainerView class]]) {
+    return _config.videoMarginBottom;
   }
 #endif
   return 0;
@@ -120,6 +133,11 @@
 #if ENRICHED_MARKDOWN_MATH
   if ([view isKindOfClass:[ENRMMathContainerView class]]) {
     return [(ENRMMathContainerView *)view measureHeight:width];
+  }
+#endif
+#if ENRICHED_MARKDOWN_VIDEO
+  if ([view isKindOfClass:[ENRMVideoContainerView class]]) {
+    return [(ENRMVideoContainerView *)view measureHeight:width];
   }
 #endif
   return 0;

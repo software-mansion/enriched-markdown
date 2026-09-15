@@ -19,6 +19,9 @@
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathContainerView.h"
 #endif
+#if ENRICHED_MARKDOWN_VIDEO
+#import "ENRMVideoContainerView.h"
+#endif
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMSpoilerCapable.h"
@@ -341,6 +344,33 @@ static char kENRMSegmentFadeAnimatorKey;
                                 applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode];
                           }]];
 
+#if ENRICHED_MARKDOWN_VIDEO
+  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindVideo
+                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            return [view isKindOfClass:[ENRMVideoContainerView class]];
+                          }
+                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
+                            EnrichedMarkdown *strongSelf = weakSelf;
+                            if (!strongSelf) {
+                              return [[RCTUIView alloc] init];
+                            }
+
+                            ENRMVideoContainerView *view =
+                                [[ENRMVideoContainerView alloc] initWithConfig:strongSelf->_config];
+                            view.enableBlockContextMenu = strongSelf->_enableBlockContextMenu;
+                            view.copyLabel = strongSelf->_selectionMenuLabels.copyLabel;
+                            view.copyAsMarkdownLabel = strongSelf->_selectionMenuLabels.copyAsMarkdownLabel;
+                            [view applyVideoNode:segment.videoSegment.videoNode];
+                            [strongSelf animateBlockViewIfNeeded:view];
+                            return view;
+                          }
+                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            ENRMVideoContainerView *videoView = (ENRMVideoContainerView *)view;
+                            [videoView applyVideoNode:segment.videoSegment.videoNode];
+                            [videoView reapplyStyle];
+                          }]];
+#endif
+
   _segmentViewRegistry = [[ENRMSegmentViewRegistry alloc] initWithHandlers:handlers];
 }
 
@@ -448,6 +478,13 @@ static char kENRMSegmentFadeAnimatorKey;
       segmentHeight = [(ENRMBlockquoteContainerView *)segment measureHeight:width];
       maxContentWidth = width;
     }
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
+      yOffset += _config.videoMarginTop;
+      segmentHeight = [(ENRMVideoContainerView *)segment measureHeight:width];
+      maxContentWidth = width;
+    }
+#endif
 
     if (applyFrames) {
       CGFloat segmentX = 0;
@@ -487,6 +524,11 @@ static char kENRMSegmentFadeAnimatorKey;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]] && shouldAddBottomMargin) {
       yOffset += _config.blockquoteMarginBottom;
     }
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([segment isKindOfClass:[ENRMVideoContainerView class]] && shouldAddBottomMargin) {
+      yOffset += _config.videoMarginBottom;
+    }
+#endif
   }];
 
   return CGSizeMake(maxContentWidth, yOffset);
@@ -627,6 +669,13 @@ static char kENRMSegmentFadeAnimatorKey;
       blockquoteView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
       [blockquoteView pushCopyLabelsToChildren];
     }
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
+      ENRMVideoContainerView *videoView = (ENRMVideoContainerView *)segment;
+      videoView.copyLabel = _selectionMenuLabels.copyLabel;
+      videoView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+    }
+#endif
   }
 }
 
@@ -646,6 +695,11 @@ static char kENRMSegmentFadeAnimatorKey;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
     }
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
+      ((ENRMVideoContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
+    }
+#endif
   }
 }
 

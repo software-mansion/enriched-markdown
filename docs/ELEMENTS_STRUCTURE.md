@@ -19,6 +19,7 @@ Markdown elements in `react-native-enriched-markdown` are organized into block a
 | Task Lists | `- [x] Done`, `- [ ] Todo` | `taskList` | Interactive checkboxes (requires `flavor="github"`) |
 | Thematic Break | `---`, `***`, or `___` | `thematicBreak` | Horizontal rule separator |
 | Images | `![alt](url)` | `image` | Block-level images with spacing |
+| Videos | `<video src="url">` | `video` | Native video player via HTML `<video>` tag (requires `flavor="github"` and `enableVideo`) |
 | Tables | `| col | col |` | `table` | GFM tables with alignment support (requires `flavor="github"`) |
 | Math Block | `$$...$$` | `math` | Block-level LaTeX math (display equations) (requires `flavor="github"`) |
 
@@ -167,6 +168,27 @@ Images are automatically detected as block or inline based on context:
 - **Inline images**: When an image appears alongside other text content, it's treated as inline and aligns with the text baseline
 
 You don't need to specify which type—the renderer automatically determines this based on the image's position in the content. Note that a single newline doesn't split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
+
+## Videos
+
+Videos are embedded using the standard HTML `<video>` tag, which is the most common way to include video in markdown:
+
+```markdown
+<video src="https://example.com/ocean.mp4"></video>
+```
+
+The parser recognizes block-level `<video>` tags and renders them as native video players. Other HTML tags are silently ignored — only `<video>` is allowlisted. Inline HTML remains disabled.
+
+> **Note:** HTML attributes like `width`, `height`, `controls`, `autoplay`, etc. on the `<video>` tag are ignored — only `src` is used. All video styling (dimensions, aspect ratio, border radius, margins, background color) is controlled via the `markdownStyle.video` prop. See [Style Properties Reference](./STYLES.md#video-specific).
+
+Video requires:
+- `flavor="github"` for native segment rendering
+- `enableVideo` in your app's `package.json` `"enriched-markdown"` config (enabled by default)
+
+On iOS, videos render via `AVPlayerViewController`; on Android, via ExoPlayer (`PlayerView`). On web, videos render as `<video>` elements with native browser controls.
+
+> [!NOTE]
+> Videos inside **blockquotes** and **admonitions** are fully supported. Videos inside **lists** are currently promoted out of the list and rendered as standalone blocks above the remaining list items — the list bullet/marker is not shown for video items. This behavior may change in a future release.
 
 ## Nested Elements
 

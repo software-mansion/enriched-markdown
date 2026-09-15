@@ -40,6 +40,7 @@ data class MarkdownASTNode(
     SoftBreak,
     BlankLine,
     Admonition,
+    Video,
   }
 
   fun getAttribute(key: String): String? = attributes[key]
@@ -59,6 +60,7 @@ internal fun MarkdownASTNode.NodeType.isTopLevelBlock(): Boolean =
     MarkdownASTNode.NodeType.BlankLine,
     MarkdownASTNode.NodeType.Table,
     MarkdownASTNode.NodeType.LatexMathDisplay,
+    MarkdownASTNode.NodeType.Video,
     -> true
 
     else -> false

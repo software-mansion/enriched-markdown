@@ -213,6 +213,13 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
     marginTop: 0,
     marginBottom: 16,
   },
+  video: {
+    marginTop: 0,
+    marginBottom: 16,
+    borderRadius: 8,
+    aspectRatio: 16 / 9,
+    backgroundColor: normalizeColor('#000000')!,
+  },
   inlineImage: { size: 20 },
   thematicBreak: {
     color: normalizeColor('#E5E7EB')!,

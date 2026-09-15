@@ -129,8 +129,15 @@ struct PlaygroundScreen: View {
                 } else {
                     EnrichedMarkdownText(
                         markdown,
-                        flags: Md4cFlags(underline: underlineEnabled, superscript: true, subscript: true, highlight: true)
+                        flags: Md4cFlags(
+                            underline: underlineEnabled,
+                            superscript: true,
+                            subscript: true,
+                            highlight: true,
+                            admonitions: true
+                        )
                     )
+                        .markdownSpoilerOverlay(.particles)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .accessibilityIdentifier("preview-text")

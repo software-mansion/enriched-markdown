@@ -102,7 +102,14 @@ Pod::Spec.new do |s|
   exclude += ["ios/math/**/*.swift", "ios/vendor/*.swift"] unless enable_math
   s.exclude_files = exclude
 
+  # Video playback (AVKit, built into iOS — no external framework or vendored asset).
+  # Default on: consumers opt out via "enriched-markdown".enableVideo = false in package.json.
+  enable_video = config.key?('enableVideo') ? config['enableVideo'] != false : true
+
   preprocessor_defs = "$(inherited) MD4C_USE_UTF8=1#{code_highlight[:defines]}"
+  if enable_video
+    preprocessor_defs += ' ENRICHED_MARKDOWN_VIDEO=1'
+  end
   if enable_math
     preprocessor_defs += ' ENRICHED_MARKDOWN_MATH=1'
     # enable_math already implies ratex_present, i.e. a complete vendored tree marked by

@@ -7,9 +7,11 @@ struct BlockDecorationConfig {
     var codeBlockBorderRadius: CGFloat = 8
     var codeBlockPadding: CGFloat = 16
 
+    static let defaultBlockquoteBorderColor = UIColor(red: 0.82, green: 0.84, blue: 0.86, alpha: 1)
+
     var blockquoteBorderWidth: CGFloat = 3
     var blockquoteGapWidth: CGFloat = 16
-    var blockquoteBorderColor: UIColor = UIColor(red: 0.82, green: 0.84, blue: 0.86, alpha: 1)
+    var blockquoteBorderColor: UIColor = defaultBlockquoteBorderColor
     var blockquoteBackgroundColor: UIColor = UIColor(red: 0.98, green: 0.98, blue: 0.99, alpha: 1)
 
     var listGapWidth: CGFloat = 12

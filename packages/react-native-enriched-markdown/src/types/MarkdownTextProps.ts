@@ -418,4 +418,36 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios
    */
   writingDirection?: 'auto' | 'ltr' | 'rtl' | 'first-strong';
+  /**
+   * Maximum number of lines to display before the text is truncated. `0` (the
+   * default) means unlimited. Matches React Native `Text`'s `numberOfLines`.
+   *
+   * Only supported for CommonMark (the default flavor). When `flavor` is
+   * `'github'` the content is laid out as independent block segments and this
+   * prop is ignored - see the GFM tracking issue.
+   *
+   * Android: while clamped (`numberOfLines > 0`) the view is not selectable and
+   * its links are not tappable, regardless of `selectable`. Android only draws
+   * the truncation ellipsis through `StaticLayout`; enabling selection or a link
+   * movement method promotes the text to a `Spannable`, forcing `DynamicLayout`,
+   * which has no `maxLines` support and drops the clamp/ellipsis. Both are
+   * restored once the clamp is removed. iOS keeps selection and links.
+   * @default 0
+   */
+  numberOfLines?: number;
+  /**
+   * Where to place the ellipsis when text is truncated by `numberOfLines`.
+   * `'clip'` truncates with no ellipsis glyph. Only takes effect when
+   * `numberOfLines` is set. Matches React Native `Text`'s `ellipsizeMode`.
+   *
+   * `'head'` and `'middle'` are single-line truncation modes: they only place
+   * the ellipsis as described when `numberOfLines` is `1`. With
+   * `numberOfLines > 1` Android falls back to tail-style truncation (only
+   * `TruncateAt.END` works past one line) and iOS is likewise unreliable, so
+   * use `'tail'` or `'clip'` for multi-line clamps. Same limitation as RN `Text`.
+   *
+   * Ignored when `flavor` is `'github'` (see `numberOfLines`).
+   * @default 'tail'
+   */
+  ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
 }

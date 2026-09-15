@@ -114,6 +114,7 @@ enum TaskListInteraction {
             } else {
                 TaskListDecoration.remove(from: result, range: range, baseColor: baseColor)
             }
+            SpoilerConcealment.conceal(result, in: range)
         }
         return result
     }
