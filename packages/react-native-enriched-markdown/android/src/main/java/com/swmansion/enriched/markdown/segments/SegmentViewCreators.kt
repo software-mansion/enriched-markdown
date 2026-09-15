@@ -9,6 +9,7 @@ import android.view.View
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
@@ -198,5 +199,56 @@ object SegmentViewCreators {
     copyLabel = config.selectionMenuConfig.copyLabel
     copyAsMarkdownLabel = config.selectionMenuConfig.copyAsMarkdownLabel
     applyBlockquoteNode(segment.node)
+  }
+
+  private val cachedVideoContainerClass: Class<*>? by lazy {
+    try {
+      Class.forName("com.swmansion.enriched.markdown.segments.VideoContainerView")
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  fun videoContainerClass(): Class<*>? = cachedVideoContainerClass
+
+  fun isVideoContainerView(view: View): Boolean = cachedVideoContainerClass?.isInstance(view) == true
+
+  fun createVideoView(
+    segment: RenderedSegment.Video,
+    config: SegmentViewConfig,
+  ): View {
+    val resolvedClass = videoContainerClass()
+    if (!FeatureFlags.IS_VIDEO_ENABLED || resolvedClass == null) return View(config.context)
+    return try {
+      val view =
+        resolvedClass
+          .getConstructor(Context::class.java, StyleConfig::class.java)
+          .newInstance(config.context, config.style) as View
+      resolvedClass
+        .getMethod("setCopyLabel", String::class.java)
+        .invoke(view, config.selectionMenuConfig.copyLabel)
+      resolvedClass
+        .getMethod("setCopyAsMarkdownLabel", String::class.java)
+        .invoke(view, config.selectionMenuConfig.copyAsMarkdownLabel)
+      resolvedClass
+        .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
+        .invoke(view, config.enableBlockContextMenu)
+      resolvedClass
+        .getMethod("applyVideoNode", MarkdownASTNode::class.java)
+        .invoke(view, segment.node)
+      view
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to create video view", e)
+      View(config.context)
+    }
+  }
+
+  fun updateVideoView(
+    view: View,
+    segment: RenderedSegment.Video,
+  ) {
+    videoContainerClass()
+      ?.getMethod("applyVideoNode", MarkdownASTNode::class.java)
+      ?.invoke(view, segment.node)
   }
 }

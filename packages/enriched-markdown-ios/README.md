@@ -146,9 +146,11 @@ The `MarkdownTheme` builder supports these elements:
 | `Superscript()` | Superscript text (`Md4cFlags(superscript: true)`) |
 | `Subscript()` | Subscript text (`Md4cFlags(subscript: true)`) |
 | `Highlight()` | Highlighted text (`Md4cFlags(highlight: true)`) |
+| `Spoiler()` | The overlay concealing `\|\|spoiler\|\|` text until tapped |
 | `Code()` | Inline code |
 | `CodeBlock()` | Fenced code blocks |
 | `Blockquote()` | Block quotes |
+| `Admonition(.note)` | GitHub alerts (`> [!NOTE]`, `Md4cFlags(admonitions: true)`), one element per type |
 | `List()` | Ordered and unordered lists |
 | `TaskList()` | Task-list checkboxes (`- [x]`) |
 | `Table()` | GFM tables |
@@ -167,8 +169,10 @@ Element-specific modifiers include:
 - **Link:** `.underline(_:)`
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
 - **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
+- **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
+- **Spoiler:** `.color` (the particles or the solid box), `.particleDensity` (default `8`), `.particleSpeed` (default `20`), `.solidBorderRadius` (default `4`), `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
 - **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius` / `.borderRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.align`
 - **BlockImage:** `.height`, `.borderRadius`
@@ -205,12 +209,13 @@ public struct Md4cFlags: Equatable, Sendable {
   public var superscript: Bool          // ^text^ renders as superscript
   public var subscript: Bool            // ~text~ renders as subscript
   public var highlight: Bool            // ==text== renders with a background
+  public var admonitions: Bool          // > [!NOTE] quotes render as GitHub alerts
 
   public static let commonMark: Md4cFlags
 }
 ```
 
-`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, and `highlight` affect rendering. The remaining flags gate parsing only — their content currently renders as plain text. Tables, task lists, and strikethrough are always enabled and need no flags.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, `highlight`, and `admonitions` affect rendering. Tables, task lists, strikethrough, and spoilers are always enabled and need no flags.
 
 ### `.markdownTheme`
 
@@ -260,6 +265,21 @@ extension View {
 
 Tapping a task-list checkbox toggles its checked state in place (including the checked-item text decoration) and calls `onTaskListItemPress` with the new state. The toggle is visual — the view never mutates your `markdown` string, so persist the change from the handler if you need it back. `markdownTaskListItemToggleEnabled(false)` makes checkbox taps fully inert: no visual toggle and no `onTaskListItemPress`. Text selection and links are unaffected either way.
 
+### `.markdownSpoilerOverlay`
+
+```swift
+public enum MarkdownSpoilerOverlay: Equatable, Sendable {
+  case particles   // animated dot field (default)
+  case solid       // rounded box
+}
+
+extension View {
+  func markdownSpoilerOverlay(_ overlay: MarkdownSpoilerOverlay) -> some View
+}
+```
+
+`||spoiler||` text renders transparent under an overlay and shows on tap, one spoiler at a time. A link inside a concealed spoiler is not a link until the spoiler is revealed: no tap, long press, menu, or VoiceOver link element. Revealed spoilers stay revealed across theme changes and conceal again when the `markdown` string changes; Copy as Markdown emits the `||` markers either way. Colors and sizing come from the `Spoiler()` theme element; spoiler text reads as ordinary text to VoiceOver, matching the React Native renderer.
+
 ### `.markdownSelectable` / `.markdownSelectionColor`
 
 ```swift
@@ -292,6 +312,40 @@ Configures the custom items added to the text-selection edit menu:
 - **Copy as Markdown** puts the selection on the clipboard as markdown. A selection covering the whole document returns the original source verbatim; partial selections are reconstructed from the rendered text.
 - **Copy Image URL** / **Copy N Image URLs** appears when the selection contains images with http(s) URLs.
 - **Select All** is provided when the system omits it for non-editable text views.
+
+### `.markdownAccessibilityLabels`
+
+```swift
+public struct MarkdownAccessibilityLabels: Equatable, Sendable {
+  public var list: List             // top / nested, each: bulletPoint, orderedItem "List item {n}",
+                                    // checkedTask, uncheckedTask
+  public var blockquote: Blockquote // quote, nestedQuote
+  public var table: Table           // row "Row {n}: {content}"
+  public var image: Image           // fallback "Image" (no alt text)
+  public var codeBlock: CodeBlock   // copy "Copy code" (custom action name)
+  public var rotor: Rotor           // headings, links, images
+
+  public static let `default`: MarkdownAccessibilityLabels
+}
+
+extension View {
+  func markdownAccessibilityLabels(_ labels: MarkdownAccessibilityLabels) -> some View
+}
+```
+
+Overrides the strings VoiceOver speaks. Every field defaults to English, so set only what you localize:
+
+```swift
+var labels = MarkdownAccessibilityLabels()
+labels.list.top.bulletPoint = "Punkt"
+labels.list.top.orderedItem = "Listenelement {n}"
+labels.rotor.headings = "Überschriften"
+
+EnrichedMarkdownText(markdown)
+    .markdownAccessibilityLabels(labels)
+```
+
+`{n}` is a 1-based index and `{content}` the comma-joined cell text of a table row; translations must keep the placeholder names. Defaults use the cardinal form ("List item 2") so one template works in every language without plural rules. The math label lives in the LaTeX module: `.markdownLaTeX(accessibilityLabel: "Formel: {speech}")`, or `.markdownLaTeX { latex in … }` for a custom converter.
 
 ### `.markdownImageRequestHeaders`
 
@@ -340,10 +394,17 @@ All decodes are downsampled to the screen's pixel width, so large images never d
 
 VoiceOver walks the rendered markdown as individual elements rather than one text blob:
 
-- Headings announce "heading, level N"
-- Links are activatable elements that invoke `.onLinkPress`
+- Headings announce "heading, level N"; a link inside a heading stays its own element and keeps the heading trait
+- Links are activatable elements that invoke `.onLinkPress`; a linked image (`[![alt](img)](url)`) reads its alt text with both the image and link traits
 - Images read their alt text ("Image" when absent)
-- List items announce their position ("bullet point", "list item N", with a "nested" prefix)
+- List items announce their position ("Bullet point", "List item N", "Task, checked", with "Nested" variants)
+- Content inside a blockquote appends "Blockquote" or "Nested blockquote"; an admonition reads its title ("Note", "Tip", …) as its own element first
+- Tables read one element per row ("Row N: cell, cell"); the header row carries the heading trait
+- Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element)
+- Math from `EnrichedMarkdownLaTeX` reads an English form of the formula ("Math: x squared over 2", "integral from 0 to 1 of …"); `{latex}` in the label template gives the raw source instead, and a closure can plug in another converter
+- Rotors (two-finger twist) jump between Headings, Links, and Images
+
+Every spoken string can be localized with `.markdownAccessibilityLabels` (see the API reference); the math label is a parameter of `.markdownLaTeX`, either a template (`"Formel: {speech}"`, `{latex}` for the source) or a `(String) -> String` closure receiving the LaTeX source. The built-in reading (`LaTeXSpeech.spokenForm`) is English and covers fractions, roots, powers and indices, sums/products/integrals/limits with bounds, Greek letters, common relations and functions, decorations, and `\text`; unmapped commands are read by name. Element frames are resolved from the live layout on each query, so they stay correct inside a scrolling container and after Dynamic Type changes.
 
 Dynamic Type is supported throughout via text styles in the default theme.
 
@@ -420,8 +481,10 @@ layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], tr
 - Superscript (`^text^` with `Md4cFlags(superscript: true)`)
 - Subscript (`~text~` with `Md4cFlags(subscript: true)`)
 - Highlight (`==text==` with `Md4cFlags(highlight: true)`)
+- Spoilers (`||text||`, tap to reveal — see `.markdownSpoilerOverlay`)
 - Fenced code blocks
 - Block quotes
+- GitHub alerts / admonitions (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` with `Md4cFlags(admonitions: true)`): a tinted bar, icon, and title above the quoted content
 - Ordered and unordered lists
 - Task lists (`- [x]` / `- [ ]`, tap to toggle — see `.onTaskListItemPress`)
 - Tables (GFM: column alignment, per-cell wrapping, horizontal scrolling)

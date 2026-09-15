@@ -72,6 +72,10 @@ def consumerAppSlug = (consumerAppName ?: rootProject.projectDir.parentFile?.nam
     .replaceAll('[^A-Za-z0-9._-]+', '-').replaceAll('^-+|-+$', '')
 if (!consumerAppSlug) consumerAppSlug = "app"
 
+// Video: package.json > default true. Android video uses Media3 ExoPlayer as a Maven
+// dependency. Disable via "enriched-markdown".enableVideo = false to save ~2-3 MB.
+def enableVideo = consumerConfig.containsKey("enableVideo") ? consumerConfig.enableVideo != false : true
+
 // Math: package.json > gradle property (deprecated) > default true. Android math is a
 // Maven dependency (no downloaded asset), so the flag simply includes or excludes it --
 // there is nothing to be missing, hence no throw as on iOS.
@@ -177,6 +181,7 @@ android {
     targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
     consumerProguardFiles "consumer-rules.pro"
     buildConfigField "boolean", "ENABLE_MATH", "${enableMath}"
+    buildConfigField "boolean", "ENABLE_VIDEO", "${enableVideo}"
     buildConfigField "boolean", "ENABLE_CODE_HIGHLIGHT", "${codeHighlightActive}"
   }
 
@@ -207,6 +212,9 @@ android {
       ]
       if (enableMath) {
         java.srcDirs += ["src/math/java"]
+      }
+      if (enableVideo) {
+        java.srcDirs += ["src/video/java"]
       }
     }
   }
@@ -279,6 +287,11 @@ dependencies {
   // LaTeX math rendering (optional — set enrichedMarkdown.enableMath=false in gradle.properties to exclude)
   if (enableMath) {
     implementation("io.github.erweixin:ratex-android:0.1.14")
+  }
+  // Video playback (optional — set "enriched-markdown".enableVideo = false in package.json to exclude)
+  if (enableVideo) {
+    implementation("androidx.media3:media3-exoplayer:1.6.0")
+    implementation("androidx.media3:media3-ui:1.6.0")
   }
 }
 

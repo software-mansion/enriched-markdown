@@ -201,6 +201,14 @@ interface ImageStyle {
   marginBottom?: number;
 }
 
+interface VideoStyle {
+  marginTop?: number;
+  marginBottom?: number;
+  borderRadius?: number;
+  aspectRatio?: number;
+  backgroundColor?: string;
+}
+
 interface InlineImageStyle {
   size?: number;
 }
@@ -368,6 +376,7 @@ export interface MarkdownStyle {
   underline?: UnderlineStyle;
   code?: CodeStyle;
   image?: ImageStyle;
+  video?: VideoStyle;
   inlineImage?: InlineImageStyle;
   thematicBreak?: ThematicBreakStyle;
   table?: TableStyle;

@@ -760,6 +760,33 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
     changed = YES;
   }
 
+  // ── Video ───────────────────────────────────────────────────────────────────
+
+  if (newStyle.video.marginTop != oldStyle.video.marginTop) {
+    [config setVideoMarginTop:newStyle.video.marginTop];
+    changed = YES;
+  }
+
+  if (newStyle.video.marginBottom != oldStyle.video.marginBottom) {
+    [config setVideoMarginBottom:newStyle.video.marginBottom];
+    changed = YES;
+  }
+
+  if (newStyle.video.borderRadius != oldStyle.video.borderRadius) {
+    [config setVideoBorderRadius:newStyle.video.borderRadius];
+    changed = YES;
+  }
+
+  if (newStyle.video.aspectRatio != oldStyle.video.aspectRatio) {
+    [config setVideoAspectRatio:newStyle.video.aspectRatio];
+    changed = YES;
+  }
+
+  if (newStyle.video.backgroundColor != oldStyle.video.backgroundColor) {
+    [config setVideoBackgroundColor:RCTUIColorFromSharedColor(newStyle.video.backgroundColor)];
+    changed = YES;
+  }
+
   // ── Inline Image ───────────────────────────────────────────────────────────
 
   if (newStyle.inlineImage.size != oldStyle.inlineImage.size) {

@@ -168,6 +168,14 @@ class StyleConfig(
 
   var imageRequestHeaders: Map<String, String> = emptyMap()
 
+  val videoStyle: VideoStyle by lazy {
+    val map =
+      requireNotNull(style.getMap("video")) {
+        "Video style not found. JS should always provide defaults."
+      }
+    VideoStyle.fromReadableMap(map, styleParser)
+  }
+
   val inlineImageStyle: InlineImageStyle by lazy {
     val map =
       requireNotNull(style.getMap("inlineImage")) {
@@ -327,6 +335,7 @@ class StyleConfig(
       underlineStyle == other.underlineStyle &&
       codeStyle == other.codeStyle &&
       imageStyle == other.imageStyle &&
+      videoStyle == other.videoStyle &&
       inlineImageStyle == other.inlineImageStyle &&
       blockquoteStyle == other.blockquoteStyle &&
       listStyle == other.listStyle &&
@@ -354,6 +363,7 @@ class StyleConfig(
     result = 31 * result + underlineStyle.hashCode()
     result = 31 * result + codeStyle.hashCode()
     result = 31 * result + imageStyle.hashCode()
+    result = 31 * result + videoStyle.hashCode()
     result = 31 * result + inlineImageStyle.hashCode()
     result = 31 * result + blockquoteStyle.hashCode()
     result = 31 * result + listStyle.hashCode()

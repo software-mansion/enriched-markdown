@@ -47,6 +47,7 @@ final class AttributedRenderer {
 
         context.clearBlockStyle()
         BaselineShiftRenderer.applyShifts(to: output, config: config)
+        SpoilerConcealment.conceal(output, in: NSRange(location: 0, length: output.length))
         return output
     }
 }

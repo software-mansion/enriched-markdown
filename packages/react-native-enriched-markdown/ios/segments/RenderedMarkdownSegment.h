@@ -12,7 +12,8 @@ typedef NS_ENUM(NSInteger, ENRMSegmentKind) {
   ENRMSegmentKindTable,
   ENRMSegmentKindMath,
   ENRMSegmentKindCodeBlock,
-  ENRMSegmentKindBlockquote
+  ENRMSegmentKindBlockquote,
+  ENRMSegmentKindVideo
 };
 
 @interface ENRMTextSegment : NSObject
@@ -40,6 +41,11 @@ typedef NS_ENUM(NSInteger, ENRMSegmentKind) {
 + (instancetype)segmentWithBlockquoteNode:(MarkdownASTNode *)node;
 @end
 
+@interface ENRMVideoSegment : NSObject
+@property (nonatomic, strong) MarkdownASTNode *videoNode;
++ (instancetype)segmentWithVideoNode:(MarkdownASTNode *)node;
+@end
+
 @interface ENRMRenderedSegment : NSObject
 @property (nonatomic, assign) ENRMSegmentKind kind;
 @property (nonatomic, assign) uint64_t signature;
@@ -48,11 +54,13 @@ typedef NS_ENUM(NSInteger, ENRMSegmentKind) {
 @property (nonatomic, strong, nullable) ENRMMathSegment *mathSegment;
 @property (nonatomic, strong, nullable) ENRMCodeBlockSegment *codeBlockSegment;
 @property (nonatomic, strong, nullable) ENRMBlockquoteSegment *blockquoteSegment;
+@property (nonatomic, strong, nullable) ENRMVideoSegment *videoSegment;
 + (instancetype)textSegmentWithResult:(ENRMRenderResult *)result signature:(uint64_t)signature;
 + (instancetype)tableSegmentWithSegment:(ENRMTableSegment *)segment signature:(uint64_t)signature;
 + (instancetype)mathSegmentWithSegment:(ENRMMathSegment *)segment signature:(uint64_t)signature;
 + (instancetype)codeBlockSegmentWithSegment:(ENRMCodeBlockSegment *)segment signature:(uint64_t)signature;
 + (instancetype)blockquoteSegmentWithSegment:(ENRMBlockquoteSegment *)segment signature:(uint64_t)signature;
++ (instancetype)videoSegmentWithSegment:(ENRMVideoSegment *)segment signature:(uint64_t)signature;
 @end
 
 #ifdef __cplusplus

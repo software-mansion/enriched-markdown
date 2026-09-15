@@ -95,6 +95,16 @@ static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer)
       break;
     }
 
+    case MarkdownNodeTypeVideo: {
+      NSString *url = node.attributes[@"url"] ?: @"";
+      if ([url containsString:@"\""]) {
+        [buffer appendFormat:@"<video src='%@' />", url];
+      } else {
+        [buffer appendFormat:@"<video src=\"%@\" />", url];
+      }
+      break;
+    }
+
     case MarkdownNodeTypeParagraph:
     default:
       serializeChildren(node, buffer);

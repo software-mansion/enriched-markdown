@@ -45,7 +45,17 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
         [currentTextNodes removeAllObjects];
       }
       [segments addObject:[ENRMBlockquoteSegment segmentWithBlockquoteNode:child]];
-    } else {
+    }
+#if ENRICHED_MARKDOWN_VIDEO
+    else if (child.type == MarkdownNodeTypeVideo) {
+      if (currentTextNodes.count > 0) {
+        [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
+        [currentTextNodes removeAllObjects];
+      }
+      [segments addObject:[ENRMVideoSegment segmentWithVideoNode:child]];
+    }
+#endif
+    else {
       [currentTextNodes addObject:child];
     }
   }
@@ -70,6 +80,7 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
   static const uint64_t kMathKindSalt = 0x6D61746800000000ULL;       // "math"
   static const uint64_t kCodeBlockKindSalt = 0x63626C6B00000000ULL;  // "cblk"
   static const uint64_t kBlockquoteKindSalt = 0x6271746500000000ULL; // "bqte"
+  static const uint64_t kVideoKindSalt = 0x7669646F00000000ULL;      // "vido"
 
   for (id segment in segments) {
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
@@ -110,6 +121,13 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
       [renderedSegments addObject:[ENRMRenderedSegment blockquoteSegmentWithSegment:blockquoteSegment
                                                                           signature:signature]];
     }
+#if ENRICHED_MARKDOWN_VIDEO
+    else if ([segment isKindOfClass:[ENRMVideoSegment class]]) {
+      ENRMVideoSegment *videoSegment = (ENRMVideoSegment *)segment;
+      uint64_t signature = ENRMSignatureForNode(videoSegment.videoNode) ^ kVideoKindSalt;
+      [renderedSegments addObject:[ENRMRenderedSegment videoSegmentWithSegment:videoSegment signature:signature]];
+    }
+#endif
   }
 
   return renderedSegments;

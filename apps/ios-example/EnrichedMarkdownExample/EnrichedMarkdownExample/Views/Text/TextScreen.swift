@@ -13,7 +13,10 @@ struct TextScreen: View {
 
     var body: some View {
         ScrollView {
-            EnrichedMarkdownText(markdown, flags: Md4cFlags(superscript: true, subscript: true, highlight: true))
+            EnrichedMarkdownText(
+                markdown,
+                flags: Md4cFlags(superscript: true, subscript: true, highlight: true, admonitions: true)
+            )
                 .markdownTheme(CustomMarkdownTheme)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)

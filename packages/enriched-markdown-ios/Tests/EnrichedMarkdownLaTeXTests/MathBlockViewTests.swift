@@ -16,7 +16,8 @@ final class MathBlockViewTests: XCTestCase {
             latex: "x",
             isDisplay: true,
             result: stubResult(),
-            panel: MathPanelStyle(backgroundColor: background, padding: padding, textAlignment: alignment)
+            panel: MathPanelStyle(backgroundColor: background, padding: padding, textAlignment: alignment),
+            accessibilityLabel: "Math: x"
         )
     }
 
@@ -41,7 +42,9 @@ final class MathBlockViewTests: XCTestCase {
 
     func testOnlyBlockMathDeclaresTheProviderFileType() {
         XCTAssertEqual(blockAttachment().fileType, MathAttachment.fileType)
-        XCTAssertNil(MathAttachment(latex: "x", isDisplay: false, result: stubResult()).fileType)
+        XCTAssertNil(
+            MathAttachment(latex: "x", isDisplay: false, result: stubResult(), accessibilityLabel: "Math: x").fileType
+        )
     }
 
     // MARK: - Layout

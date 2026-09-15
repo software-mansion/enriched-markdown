@@ -93,6 +93,11 @@ let CustomMarkdownTheme = MarkdownTheme {
         .foregroundStyle(Color.codeViolet)
         .backgroundStyle(Color.codeVioletBackground)
 
+    // The Text screen forces a white page in both color schemes.
+    Spoiler()
+        .color(Color.gray700)
+        .background(Color.white)
+
     Link()
         .fontFamily(ExampleFonts.montserratBold, size: 16)
         .foregroundStyle(Color.linkBlue)

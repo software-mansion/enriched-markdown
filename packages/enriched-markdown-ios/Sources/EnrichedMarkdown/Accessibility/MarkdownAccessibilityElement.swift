@@ -2,16 +2,19 @@ import UIKit
 
 /// VoiceOver element for one segment of the rendered markdown. The frame is
 /// resolved lazily from TextKit 2 layout on every query, so scrolling and
-/// Dynamic Type changes never leave stale bounds.
-class MarkdownAccessibilityElement: UIAccessibilityElement {
+/// Dynamic Type changes never leave stale bounds. Elements with a `url`
+/// (links, linked images) activate the text view's press handler.
+final class MarkdownAccessibilityElement: UIAccessibilityElement {
     private(set) weak var textView: MarkdownTextView?
     let range: NSRange
+    let url: URL?
     /// For table rows: vertical slice of the attachment frame.
     private let rowSlice: (offset: CGFloat, height: CGFloat)?
 
     init(textView: MarkdownTextView, spec: MarkdownAccessibilityElementSpec) {
         self.textView = textView
         self.range = spec.range
+        self.url = spec.linkURL
         if case .tableRow(let offset, let height, _) = spec.kind {
             self.rowSlice = (offset, height)
         } else {
@@ -20,24 +23,39 @@ class MarkdownAccessibilityElement: UIAccessibilityElement {
         super.init(accessibilityContainer: textView)
 
         accessibilityLabel = spec.label
-        accessibilityValue = spec.listAnnouncement
+        accessibilityValue = spec.value
+        accessibilityTraits = Self.traits(for: spec)
 
-        switch spec.kind {
-        case .text:
-            accessibilityTraits = .staticText
-        case .heading(let level):
-            accessibilityTraits = [.staticText, .header]
+        if let level = spec.headingLevel {
             accessibilityAttributedLabel = NSAttributedString(
                 string: spec.label,
                 attributes: [.accessibilityTextHeadingLevel: level]
             )
-        case .link:
-            accessibilityTraits = .link
-        case .image:
-            accessibilityTraits = .image
-        case .tableRow(_, _, let isHeader):
-            accessibilityTraits = isHeader ? [.staticText, .header] : .staticText
         }
+
+        if case .codeBlock(let copyAction) = spec.kind {
+            let code = spec.label
+            accessibilityCustomActions = [
+                UIAccessibilityCustomAction(name: copyAction) { [weak textView] _ in
+                    guard let textView else { return false }
+                    textView.pasteboard.string = code
+                    return true
+                }
+            ]
+        }
+    }
+
+    private static func traits(for spec: MarkdownAccessibilityElementSpec) -> UIAccessibilityTraits {
+        var traits: UIAccessibilityTraits = switch spec.kind {
+        case .text, .codeBlock: .staticText
+        case .link: .link
+        case .image(let link): link == nil ? .image : [.image, .link]
+        case .tableRow(_, _, let isHeader): isHeader ? [.staticText, .header] : .staticText
+        }
+        if spec.headingLevel != nil {
+            traits.insert(.header)
+        }
+        return traits
     }
 
     override var accessibilityFrame: CGRect {
@@ -53,18 +71,9 @@ class MarkdownAccessibilityElement: UIAccessibilityElement {
         }
         set { super.accessibilityFrame = newValue }
     }
-}
-
-final class MarkdownLinkAccessibilityElement: MarkdownAccessibilityElement {
-    let url: URL
-
-    init(textView: MarkdownTextView, spec: MarkdownAccessibilityElementSpec, url: URL) {
-        self.url = url
-        super.init(textView: textView, spec: spec)
-    }
 
     override func accessibilityActivate() -> Bool {
-        guard let textView, let onLinkPress = textView.onLinkPress else { return false }
+        guard let url, let onLinkPress = textView?.onLinkPress else { return false }
         onLinkPress(url)
         return true
     }

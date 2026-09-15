@@ -319,6 +319,35 @@ Whether to preserve the bottom margin of the last block element.
 | --------- | ------------- | -------- |
 | `boolean` | `false`        | Both     |
 
+### `numberOfLines`
+
+Clamps the rendered markdown to a maximum number of lines, truncating with an ellipsis (see [`ellipsizeMode`](#ellipsizemode)) when it overflows. `0` (the default) means unlimited. Mirrors the prop of the same name on React Native's core `Text`, and is handy for previews such as chat-list rows or reply quotes. The clamp is applied to both the measurement pass and the rendered view, so the measured and rendered heights stay in sync.
+
+Only applies to CommonMark (the default flavor). When [`flavor`](#flavor) is `'github'` the content is laid out as independent block segments that cannot honor a document-wide line cap, so the prop is ignored - see [issue #786](https://github.com/software-mansion/enriched-markdown/issues/786).
+
+> **Android note:** while a view is clamped (`numberOfLines > 0`) it is not selectable and its links are not tappable, regardless of [`selectable`](#selectable). This is a platform constraint, not a choice: Android draws the truncation ellipsis only through `StaticLayout`, but enabling text selection or a link movement method promotes the text to a `Spannable`, which forces `TextView` onto `DynamicLayout` - and `DynamicLayout` has no `maxLines` support, so the clamp and its ellipsis are silently dropped (confirmed against AOSP `TextView`/`DynamicLayout` on API 35/36; React Native's own `Text` hits the same limitation). Selection and links are restored automatically once the clamp is removed. iOS keeps selection and links while clamped.
+
+| Type     | Default Value | Platform |
+| -------- | ------------- | -------- |
+| `number` | `0`           | Both     |
+
+### `ellipsizeMode`
+
+Controls where the ellipsis is placed when the text is truncated by [`numberOfLines`](#numberoflines). Only takes effect when `numberOfLines` is set. Mirrors the prop of the same name on React Native's core `Text`.
+
+| Type                                        | Default Value | Platform |
+| ------------------------------------------- | ------------- | -------- |
+| `'head' \| 'middle' \| 'tail' \| 'clip'`    | `'tail'`      | Both     |
+
+- **`'head'`**: ellipsis at the start (`...d of the text`).
+- **`'middle'`**: ellipsis in the middle (`start...end`).
+- **`'tail'`** (default): ellipsis at the end (`start of the...`).
+- **`'clip'`**: truncate at the line boundary with no ellipsis glyph.
+
+> **Multi-line note:** `'head'` and `'middle'` are single-line truncation modes. They only place the ellipsis as described when [`numberOfLines`](#numberoflines) is `1`. With `numberOfLines > 1`, Android only truncates through `StaticLayout`'s `TruncateAt.END`, so `'head'` and `'middle'` fall back to tail-style behavior; iOS multi-line truncation with these modes is likewise unreliable. This mirrors React Native's core `Text`, where only `'tail'` is documented to work correctly past one line. Use `'tail'` (or `'clip'`) for multi-line clamps.
+
+Ignored when [`flavor`](#flavor) is `'github'` (see [`numberOfLines`](#numberoflines)).
+
 ### `textBreakStrategy`
 
 Controls how Android breaks lines within paragraphs. Mirrors the prop of the same name on React Native's core `Text`. The same value is used for both the measurement pass (`StaticLayout.Builder`) and the rendered `TextView`, so measured and rendered line counts stay in sync. Requires API 23+; ignored on older Android versions.

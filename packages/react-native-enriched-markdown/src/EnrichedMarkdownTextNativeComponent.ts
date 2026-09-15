@@ -138,6 +138,14 @@ interface ImageStyleInternal {
   marginBottom: CodegenTypes.Float;
 }
 
+interface VideoStyleInternal {
+  marginTop: CodegenTypes.Float;
+  marginBottom: CodegenTypes.Float;
+  borderRadius: CodegenTypes.Float;
+  aspectRatio: CodegenTypes.Float;
+  backgroundColor: ColorValue;
+}
+
 interface InlineImageStyleInternal {
   size: CodegenTypes.Float;
 }
@@ -237,6 +245,7 @@ export interface MarkdownStyleInternal {
   underline: UnderlineStyleInternal;
   code: CodeStyleInternal;
   image: ImageStyleInternal;
+  video: VideoStyleInternal;
   inlineImage: InlineImageStyleInternal;
   thematicBreak: ThematicBreakStyleInternal;
   table: TableStyleInternal;
@@ -601,6 +610,24 @@ export interface NativeProps extends ViewProps {
    * @platform ios
    */
   writingDirection?: CodegenTypes.WithDefault<string, 'first-strong'>;
+  /**
+   * Maximum number of lines to display before the text is truncated. 0 (the
+   * default) means unlimited. Matches React Native Text's `numberOfLines`.
+   * Only applies to CommonMark; ignored when the flavor is 'github'.
+   * Android: while clamped the view is not selectable and links are not tappable
+   * (DynamicLayout has no maxLines support, so selection/links would drop the
+   * ellipsis); both are restored once the clamp is removed. iOS is unaffected.
+   * @default 0
+   */
+  numberOfLines?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
+  /**
+   * Where to place the ellipsis when text is truncated by `numberOfLines`:
+   * 'head' | 'middle' | 'tail' | 'clip' ('clip' cuts with no ellipsis). Only
+   * takes effect when `numberOfLines` is set. Matches React Native Text's
+   * `ellipsizeMode`. Ignored when the flavor is 'github'.
+   * @default 'tail'
+   */
+  ellipsizeMode?: CodegenTypes.WithDefault<string, 'tail'>;
 }
 
 export default codegenNativeComponent<NativeProps>('EnrichedMarkdownText', {
