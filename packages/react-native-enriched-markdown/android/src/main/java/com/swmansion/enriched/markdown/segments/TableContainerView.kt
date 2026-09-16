@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.SpannableString
+import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.style.AlignmentSpan
@@ -20,7 +21,6 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
-import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
@@ -28,6 +28,7 @@ import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
+import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
@@ -303,7 +304,6 @@ class TableContainerView(
       },
     )
 
-    // register Image renderer into cell's text view.
     data.attributedText
       .getSpans(0, data.attributedText.length, ImageSpan::class.java)
       .forEach { span -> span.registerTextView(cellTextView) { scheduleImageRemeasure() } }
@@ -333,9 +333,7 @@ class TableContainerView(
     renderGrid()
     requestLayout()
 
-    var parent = this.parent
-    while (parent != null && parent !is EnrichedMarkdown) parent = parent.parent
-    (parent as? EnrichedMarkdown)?.onImageLayoutChanged()
+    findEnrichedMarkdownAncestor()?.onImageLayoutChanged()
   }
 
   override fun onMeasure(
@@ -450,14 +448,14 @@ class TableContainerView(
       widthPx: Int,
     ) {
       if (widthPx <= 1) return
-      val spanned = text as? android.text.Spanned ?: return
+      val spanned = text as? Spanned ?: return
       spanned
         .getSpans(0, spanned.length, ImageSpan::class.java)
         .forEach { it.prepareForMeasurement(spanned, widthPx) }
     }
 
     private fun cellHasBlockImage(text: CharSequence): Boolean {
-      val spanned = text as? android.text.Spanned ?: return false
+      val spanned = text as? Spanned ?: return false
       return spanned.getSpans(0, spanned.length, ImageSpan::class.java).any { !it.isInline }
     }
 

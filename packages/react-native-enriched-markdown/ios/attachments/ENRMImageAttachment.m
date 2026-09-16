@@ -18,6 +18,19 @@ static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
+@implementation RCTUIView (ENRMImageLayoutObserver)
+
+- (id<ENRMImageLayoutObserver>)enrm_imageLayoutObserver
+{
+  RCTUIView *view = self;
+  while (view && ![view conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
+    view = view.superview;
+  }
+  return (id<ENRMImageLayoutObserver>)view;
+}
+
+@end
+
 @interface ENRMImageAttachment ()
 
 @property (nonatomic, copy) NSString *imageURL;
@@ -350,14 +363,10 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0)
     return;
 
-  RCTUIView *candidate = textView;
-  while (candidate && ![candidate conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
-    candidate = candidate.superview;
-  }
-  if (!candidate)
+  id<ENRMImageLayoutObserver> observer = [textView enrm_imageLayoutObserver];
+  if (!observer)
     return;
 
-  id<ENRMImageLayoutObserver> observer = (id<ENRMImageLayoutObserver>)candidate;
   dispatch_async(dispatch_get_main_queue(), ^{ [observer imageAttachmentDidResolveLayout]; });
 }
 

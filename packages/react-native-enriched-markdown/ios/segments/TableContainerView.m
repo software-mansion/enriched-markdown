@@ -531,11 +531,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   [self renderGrid];
   [self setNeedsLayout];
 
-  RCTUIView *view = self.superview;
-  while (view && ![view conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
-    view = view.superview;
-  }
-  [(id<ENRMImageLayoutObserver>)view imageAttachmentDidResolveLayout];
+  [[self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
 }
 
 #if !TARGET_OS_OSX

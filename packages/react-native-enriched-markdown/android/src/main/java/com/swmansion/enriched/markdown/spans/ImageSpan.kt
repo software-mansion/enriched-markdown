@@ -18,9 +18,9 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
-import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
@@ -194,9 +194,7 @@ class ImageSpan(
       view.layoutManager.invalidateLayout()
       return
     }
-    var parent = view.parent
-    while (parent != null && parent !is EnrichedMarkdown) parent = parent.parent
-    parent?.onImageLayoutChanged()
+    view.findEnrichedMarkdownAncestor()?.onImageLayoutChanged()
   }
 
   fun registerTextView(

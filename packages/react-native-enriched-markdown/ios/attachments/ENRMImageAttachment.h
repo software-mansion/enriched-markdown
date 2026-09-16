@@ -14,6 +14,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)imageAttachmentDidResolveLayout;
 @end
 
+@interface RCTUIView (ENRMImageLayoutObserver)
+/**
+ * Nearest ancestor (self included) adopting ENRMImageLayoutObserver, walking up
+ * the superview chain. Returns nil when none is found.
+ */
+- (nullable id<ENRMImageLayoutObserver>)enrm_imageLayoutObserver;
+@end
+
 /**
  * Custom NSTextAttachment for rendering markdown images.
  * Images are loaded asynchronously and scaled dynamically based on text container width.
