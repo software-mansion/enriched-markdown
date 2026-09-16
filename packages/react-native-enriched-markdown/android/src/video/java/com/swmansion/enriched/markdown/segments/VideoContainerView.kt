@@ -22,9 +22,9 @@ class VideoContainerView(
   private var player: ExoPlayer? = null
   private var currentUrl: String? = null
 
-  var copyLabel: String = ""
-  var copyAsMarkdownLabel: String = ""
-  var enableBlockContextMenu: Boolean = true
+  // Set reflectively by EnrichedMarkdown (video is an optional module). The block
+  // props are read live from the shared box at menu-open. See DynamicBlockProps.
+  var dynamic: DynamicBlockProps = DynamicBlockProps()
 
   override val segmentMarginTop: Int get() = styleConfig.videoStyle.marginTop.toInt()
   override val segmentMarginBottom: Int get() = styleConfig.videoStyle.marginBottom.toInt()
@@ -83,10 +83,10 @@ class VideoContainerView(
 
   private fun showContextMenu(anchor: android.view.View): Boolean {
     val url = currentUrl ?: return false
-    if (!enableBlockContextMenu || url.isEmpty()) return false
+    if (!dynamic.enableBlockContextMenu || url.isEmpty()) return false
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, copyLabel) { copyToClipboard(url) }
-      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) { copyToClipboard(videoMarkdown(url)) }
+      item(ContextMenuPopup.Icon.COPY, dynamic.copyLabel) { copyToClipboard(url) }
+      item(ContextMenuPopup.Icon.DOCUMENT, dynamic.copyAsMarkdownLabel) { copyToClipboard(videoMarkdown(url)) }
     }
     return true
   }

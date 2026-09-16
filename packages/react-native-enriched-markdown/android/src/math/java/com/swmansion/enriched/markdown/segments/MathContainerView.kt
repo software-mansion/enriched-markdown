@@ -40,10 +40,9 @@ class MathContainerView(
       updateAccessibilityLabel()
     }
 
-  // Set reflectively by EnrichedMarkdown (math is an optional module).
-  var copyLabel: String = ""
-  var copyAsMarkdownLabel: String = ""
-  var enableBlockContextMenu: Boolean = true
+  // Set reflectively by EnrichedMarkdown (math is an optional module). The block
+  // props are read live from the shared box at menu-open. See DynamicBlockProps.
+  var dynamic: DynamicBlockProps = DynamicBlockProps()
   var onLatexError: LatexErrorReporter? = null
 
   override val segmentMarginTop: Int get() = mathStyle.marginTop.toInt()
@@ -119,13 +118,13 @@ class MathContainerView(
   }
 
   private fun showContextMenu(anchor: View): Boolean {
-    if (!enableBlockContextMenu) return false
+    if (!dynamic.enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, copyLabel) {
+      item(ContextMenuPopup.Icon.COPY, dynamic.copyLabel) {
         clipboard.setPrimaryClip(ClipData.newPlainText("Math", cachedLatex))
       }
-      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) {
+      item(ContextMenuPopup.Icon.DOCUMENT, dynamic.copyAsMarkdownLabel) {
         clipboard.setPrimaryClip(ClipData.newPlainText("Math", "$$\n$cachedLatex\n$$"))
       }
     }

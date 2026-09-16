@@ -109,10 +109,6 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 @property (nonatomic, copy, nullable) NSString *admonitionType;
 @property (nonatomic, copy) NSString *cachedMarkdown;
 @property (nonatomic, copy) NSString *cachedPlainText;
-
-// Depth-first walk over this quote's own segments, descending into nested quotes
-// so a runtime prop toggle reaches segments at every nesting level. See issue #768.
-- (void)enumerateSegmentsRecursivelyUsingBlock:(void (^)(RCTUIView *segment))block;
 @end
 
 @implementation ENRMBlockquoteContainerView
@@ -127,7 +123,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
     // Preserved prior defaults until the host overrides them at creation.
     _allowFontScaling = YES;
     _lineBreakStrategy = NSLineBreakStrategyNone;
-    _enableBlockContextMenu = YES;
+    // Safe default until the host assigns its shared instance at creation.
+    _dynamic = [[ENRMDynamicBlockProps alloc] init];
     _cachedMarkdown = @"";
     _cachedPlainText = @"";
 #if !TARGET_OS_OSX
@@ -154,82 +151,6 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 #else
   self.needsDisplay = YES;
 #endif
-}
-
-- (void)enumerateSegmentsRecursivelyUsingBlock:(void (^)(RCTUIView *segment))block
-{
-  for (RCTUIView *child in self.subviews) {
-    block(child);
-    if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      [(ENRMBlockquoteContainerView *)child enumerateSegmentsRecursivelyUsingBlock:block];
-    }
-  }
-}
-
-- (void)pushCopyLabelsToChildren
-{
-  NSString *copyLabel = self.copyLabel;
-  NSString *copyAsMarkdownLabel = self.copyAsMarkdownLabel;
-  [self enumerateSegmentsRecursivelyUsingBlock:^(RCTUIView *segment) {
-    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      ((ENRMCodeBlockContainerView *)segment).copyLabel = copyLabel;
-      ((ENRMCodeBlockContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
-    } else if ([segment isKindOfClass:[TableContainerView class]]) {
-      ((TableContainerView *)segment).copyLabel = copyLabel;
-      ((TableContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
-    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      ((ENRMBlockquoteContainerView *)segment).copyLabel = copyLabel;
-      ((ENRMBlockquoteContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
-    }
-#if ENRICHED_MARKDOWN_MATH
-    else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
-      ((ENRMMathContainerView *)segment).copyLabel = copyLabel;
-      ((ENRMMathContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
-    }
-#endif
-#if ENRICHED_MARKDOWN_VIDEO
-    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
-      ((ENRMVideoContainerView *)segment).copyLabel = copyLabel;
-      ((ENRMVideoContainerView *)segment).copyAsMarkdownLabel = copyAsMarkdownLabel;
-    }
-#endif
-  }];
-}
-
-- (void)pushCodeBlockPressEnabledToChildren:(BOOL)enabled
-{
-  self.enableCodeBlockPress = enabled;
-  [self enumerateSegmentsRecursivelyUsingBlock:^(RCTUIView *segment) {
-    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      ((ENRMCodeBlockContainerView *)segment).enableCodeBlockPress = enabled;
-    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      ((ENRMBlockquoteContainerView *)segment).enableCodeBlockPress = enabled;
-    }
-  }];
-}
-
-- (void)pushBlockContextMenuEnabledToChildren:(BOOL)enabled
-{
-  self.enableBlockContextMenu = enabled;
-  [self enumerateSegmentsRecursivelyUsingBlock:^(RCTUIView *segment) {
-    if ([segment isKindOfClass:[TableContainerView class]]) {
-      ((TableContainerView *)segment).enableBlockContextMenu = enabled;
-    } else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      ((ENRMCodeBlockContainerView *)segment).enableBlockContextMenu = enabled;
-    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      ((ENRMBlockquoteContainerView *)segment).enableBlockContextMenu = enabled;
-    }
-#if ENRICHED_MARKDOWN_MATH
-    else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
-      ((ENRMMathContainerView *)segment).enableBlockContextMenu = enabled;
-    }
-#endif
-#if ENRICHED_MARKDOWN_VIDEO
-    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
-      ((ENRMVideoContainerView *)segment).enableBlockContextMenu = enabled;
-    }
-#endif
-  }];
 }
 
 // Child registry for this quote's own content. It reuses static creators for
@@ -274,8 +195,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             TableContainerView *view = [[TableContainerView alloc] initWithConfig:config];
                             ENRMBlockquoteContainerView *strongSelf = weakSelf;
                             if (strongSelf) {
-                              view.copyLabel = strongSelf.menuCopyLabel;
-                              view.copyAsMarkdownLabel = strongSelf.menuCopyAsMarkdownLabel;
+                              view.dynamic = strongSelf.dynamic;
                               view.onLinkPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onLinkPress && url)
@@ -302,9 +222,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                     createView:^RCTUIView *(ENRMRenderedSegment *segment) {
                       ENRMCodeBlockContainerView *view = [[ENRMCodeBlockContainerView alloc] initWithConfig:config];
                       ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                      view.copyLabel = strongSelf.menuCopyLabel;
-                      view.copyAsMarkdownLabel = strongSelf.menuCopyAsMarkdownLabel;
-                      view.enableCodeBlockPress = strongSelf.enableCodeBlockPress;
+                      view.dynamic = strongSelf.dynamic;
                       view.onCopyPress = ^(NSString *code, NSString *language) {
                         ENRMBlockquoteContainerView *s = weakSelf;
                         if (s.onCopyPress)
@@ -334,11 +252,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             if (strongSelf) {
                               view.allowFontScaling = strongSelf.allowFontScaling;
                               view.lineBreakStrategy = strongSelf.lineBreakStrategy;
-                              view.copyLabel = strongSelf.menuCopyLabel;
-                              view.copyAsMarkdownLabel = strongSelf.menuCopyAsMarkdownLabel;
-                              view.enableBlockContextMenu = strongSelf.enableBlockContextMenu;
+                              view.dynamic = strongSelf.dynamic;
                               view.onCopyPress = strongSelf.onCopyPress;
-                              view.enableCodeBlockPress = strongSelf.enableCodeBlockPress;
                               view.onCodeBlockPress = strongSelf.onCodeBlockPress;
                               view.onLinkPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
@@ -368,8 +283,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                           createView:^RCTUIView *(ENRMRenderedSegment *segment) {
                             ENRMMathContainerView *view = [[ENRMMathContainerView alloc] initWithConfig:config];
                             ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                            view.copyLabel = strongSelf.menuCopyLabel;
-                            view.copyAsMarkdownLabel = strongSelf.menuCopyAsMarkdownLabel;
+                            view.dynamic = strongSelf.dynamic;
                             [view applyLatex:segment.mathSegment.latex];
                             return view;
                           }
@@ -389,9 +303,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             ENRMVideoContainerView *view = [[ENRMVideoContainerView alloc] initWithConfig:config];
                             ENRMBlockquoteContainerView *bq = weakBQ;
                             if (bq) {
-                              view.enableBlockContextMenu = bq.enableBlockContextMenu;
-                              view.copyLabel = bq.copyLabel;
-                              view.copyAsMarkdownLabel = bq.copyAsMarkdownLabel;
+                              view.dynamic = bq.dynamic;
                             }
                             [view applyVideoNode:segment.videoSegment.videoNode];
                             return view;
@@ -567,7 +479,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  if (!_enableBlockContextMenu) {
+  if (!self.dynamic.enableBlockContextMenu) {
     return nil;
   }
   return [UIContextMenuConfiguration
@@ -575,13 +487,13 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                   previewProvider:nil
                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                      UIAction *copyPlainText =
-                         [UIAction actionWithTitle:self.copyLabel
+                         [UIAction actionWithTitle:self.dynamic.menuCopyLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyPlainTextToPasteboard]; }];
 
                      UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.copyAsMarkdownLabel
+                         [UIAction actionWithTitle:self.dynamic.menuCopyAsMarkdownLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.text"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
@@ -599,12 +511,12 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 
 - (NSMenu *)menuForEvent:(NSEvent *)event
 {
-  if (!_enableBlockContextMenu) {
+  if (!self.dynamic.enableBlockContextMenu) {
     return [super menuForEvent:event];
   }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
-  [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyPlainTextToPasteboard]; })];
-  [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamic.menuCopyLabel, ^{ [self copyPlainTextToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamic.menuCopyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
   return menu;
 }
 #endif

@@ -230,23 +230,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #endif
 }
 
-@synthesize copyLabel = _copyLabel;
-@synthesize copyAsMarkdownLabel = _copyAsMarkdownLabel;
-
-- (void)setCopyLabel:(NSString *)copyLabel
-{
-  _copyLabel = [copyLabel copy];
-  _copyButton.accessibilityLabel = _copyLabel;
-}
-
-- (void)setEnableCodeBlockPress:(BOOL)enableCodeBlockPress
-{
-  _enableCodeBlockPress = enableCodeBlockPress;
-#if !TARGET_OS_OSX
-  _tapRecognizer.enabled = enableCodeBlockPress;
-#endif
-}
-
 - (void)setPending:(BOOL)pending
 {
   if (_pending == pending) {
@@ -276,7 +259,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _config = config;
     _cachedCode = @"";
     _fenceChar = @"`";
-    _enableBlockContextMenu = YES;
+    // Safe default until the host assigns its shared instance at creation.
+    _dynamic = [[ENRMDynamicBlockProps alloc] init];
     _headerFont = ENRMCodeBlockHeaderFont(config);
     _headerLabelLineHeight = ENRMCodeBlockHeaderLabelLineHeight(_headerFont);
     self.backgroundColor = [RCTUIColor clearColor];
@@ -299,9 +283,11 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:_copyButton];
 
+    // The gate is read live in gestureRecognizerShouldBegin: (the recognizer
+    // fails to begin when the feature is off, so it never cancels other touches),
+    // instead of toggling .enabled via a runtime push.
     _tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleCodeBlockTap:)];
     _tapRecognizer.delegate = self;
-    _tapRecognizer.enabled = NO;
     [self addGestureRecognizer:_tapRecognizer];
 #else
     NSImageSymbolConfiguration *symbolConfig =
@@ -445,6 +431,11 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
   [self rebuildAttributedCode];
 
+  // Copy-button VoiceOver label follows the live copy label; refreshed here since
+  // there is no per-label push (a pure label change without a content change is a
+  // narrow case that resolves on the next content update).
+  _copyButton.accessibilityLabel = self.dynamic.menuCopyLabel;
+
 #if !TARGET_OS_OSX
   [self setNeedsLayout];
   [self setNeedsDisplay];
@@ -565,12 +556,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if !TARGET_OS_OSX
 - (void)handleCodeBlockTap:(UITapGestureRecognizer *)recognizer
 {
-  if (_pending) {
+  if (!self.dynamic.enableCodeBlockPress || _pending) {
     return;
   }
   if (self.onCodeBlockPress) {
     self.onCodeBlockPress(_cachedCode ?: @"", _cachedLanguage ?: @"");
   }
+}
+
+// Live gate: the tap recognizer only begins when the feature is on, so when off
+// it fails immediately and never cancels touches to the scroll view / copy button.
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
+{
+  if (gestureRecognizer == _tapRecognizer) {
+    return self.dynamic.enableCodeBlockPress && !_pending;
+  }
+  return YES;
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
@@ -589,7 +590,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  if (!_enableBlockContextMenu || _pending) {
+  if (!self.dynamic.enableBlockContextMenu || _pending) {
     return nil;
   }
   return [UIContextMenuConfiguration
@@ -597,13 +598,13 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
                   previewProvider:nil
                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                      UIAction *copyCode =
-                         [UIAction actionWithTitle:self.copyLabel
+                         [UIAction actionWithTitle:self.dynamic.menuCopyLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyCodeToPasteboard]; }];
 
                      UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.copyAsMarkdownLabel
+                         [UIAction actionWithTitle:self.dynamic.menuCopyAsMarkdownLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.text"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
@@ -616,12 +617,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if TARGET_OS_OSX
 - (NSMenu *)buildContextMenu
 {
-  if (!_enableBlockContextMenu || _pending) {
+  if (!self.dynamic.enableBlockContextMenu || _pending) {
     return nil;
   }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
-  [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyCodeToPasteboard]; })];
-  [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamic.menuCopyLabel, ^{ [self copyCodeToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamic.menuCopyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
   return menu;
 }
 
@@ -646,11 +647,11 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 // button subview from VoiceOver; expose the copy action explicitly instead.
 - (NSArray<UIAccessibilityCustomAction *> *)accessibilityCustomActions
 {
-  if (_pending || self.copyLabel.length == 0) {
+  if (_pending || self.dynamic.menuCopyLabel.length == 0) {
     return @[];
   }
   UIAccessibilityCustomAction *copyAction =
-      [[UIAccessibilityCustomAction alloc] initWithName:self.copyLabel
+      [[UIAccessibilityCustomAction alloc] initWithName:self.dynamic.menuCopyLabel
                                                  target:self
                                                selector:@selector(performCopyAccessibilityAction:)];
   return @[ copyAction ];

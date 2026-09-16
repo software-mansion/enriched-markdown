@@ -17,6 +17,7 @@ import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.segments.BlockquoteContainerView
 import com.swmansion.enriched.markdown.segments.CodeBlockContainerView
 import com.swmansion.enriched.markdown.segments.ContainerNodeView
+import com.swmansion.enriched.markdown.segments.DynamicBlockProps
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.SegmentViewConfig
@@ -92,8 +93,6 @@ class EnrichedMarkdown(
   private var onLinkPressCallback: ((String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((Int, Boolean, String) -> Unit)? = null
-  private var onCopyPressCallback: ((String, String) -> Unit)? = null
-  private var onCodeBlockPressCallback: ((String, String) -> Unit)? = null
   private var onLatexErrorCallback: LatexErrorReporter? = null
 
   private val reportedLatexErrors = HashSet<String>()
@@ -123,17 +122,23 @@ class EnrichedMarkdown(
         it.enableTaskListItemToggle = value
       }
     }
-  var enableBlockContextMenu: Boolean = true
+
+  // The one runtime-mutable block-props box, mutated in place and shared by
+  // reference into every segment view (SegmentViewConfig.dynamic), so a view
+  // created after a toggle is born current. See DynamicBlockProps, issues
+  // #768 / #822. These props are read at use-time and gate no layout/draw, so a
+  // write needs no push into existing views and no invalidation.
+  private val dynamic = DynamicBlockProps()
+
+  var enableBlockContextMenu: Boolean
+    get() = dynamic.enableBlockContextMenu
     set(value) {
-      if (field == value) return
-      field = value
-      pushBlockContextMenuToSegments()
+      dynamic.enableBlockContextMenu = value
     }
-  var enableCodeBlockPress: Boolean = false
+  var enableCodeBlockPress: Boolean
+    get() = dynamic.enableCodeBlockPress
     set(value) {
-      if (field == value) return
-      field = value
-      pushCodeBlockPressToSegments()
+      dynamic.enableCodeBlockPress = value
     }
 
   init {
@@ -299,11 +304,11 @@ class EnrichedMarkdown(
   }
 
   fun setOnCopyPressCallback(callback: ((code: String, language: String) -> Unit)?) {
-    onCopyPressCallback = callback
+    dynamic.onCopyPress = callback
   }
 
   fun setOnCodeBlockPressCallback(callback: ((code: String, language: String) -> Unit)?) {
-    onCodeBlockPressCallback = callback
+    dynamic.onCodeBlockPress = callback
   }
 
   fun setContextMenuItems(items: List<String>) {
@@ -316,92 +321,12 @@ class EnrichedMarkdown(
   fun setSelectionMenuConfig(config: SelectionMenuConfig) {
     if (selectionMenuConfig == config) return
     selectionMenuConfig = config
+    // Block views read these labels live from the shared box at menu-open, so
+    // updating it here is all that's needed (existing and future views alike).
+    dynamic.copyLabel = config.copyLabel
+    dynamic.copyAsMarkdownLabel = config.copyAsMarkdownLabel
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.selectionMenuConfig = config
-    }
-    // Table and math views cache the copy labels, so re-push them on update
-    // (e.g. a language change without a remount) to avoid stale labels.
-    pushCopyLabelsToBlockSegments()
-  }
-
-  private fun pushCopyLabelsToBlockSegments() {
-    val copyLabel = selectionMenuConfig.copyLabel
-    val copyAsMarkdownLabel = selectionMenuConfig.copyAsMarkdownLabel
-    forEachSegmentRecursive { view ->
-      when {
-        view is TableContainerView -> {
-          view.copyLabel = copyLabel
-          view.copyAsMarkdownLabel = copyAsMarkdownLabel
-        }
-
-        view is CodeBlockContainerView -> {
-          view.copyLabel = copyLabel
-          view.copyAsMarkdownLabel = copyAsMarkdownLabel
-        }
-
-        view is BlockquoteContainerView -> {
-          view.copyLabel = copyLabel
-          view.copyAsMarkdownLabel = copyAsMarkdownLabel
-        }
-
-        isMathContainerView(view) -> {
-          runCatching {
-            view.javaClass.getMethod("setCopyLabel", String::class.java).invoke(view, copyLabel)
-            view.javaClass
-              .getMethod("setCopyAsMarkdownLabel", String::class.java)
-              .invoke(view, copyAsMarkdownLabel)
-          }
-        }
-
-        isVideoContainerView(view) -> {
-          runCatching {
-            view.javaClass.getMethod("setCopyLabel", String::class.java).invoke(view, copyLabel)
-            view.javaClass
-              .getMethod("setCopyAsMarkdownLabel", String::class.java)
-              .invoke(view, copyAsMarkdownLabel)
-          }
-        }
-      }
-    }
-  }
-
-  private fun pushBlockContextMenuToSegments() {
-    forEachSegmentRecursive { view ->
-      when {
-        view is TableContainerView -> {
-          view.enableBlockContextMenu = enableBlockContextMenu
-        }
-
-        view is CodeBlockContainerView -> {
-          view.enableBlockContextMenu = enableBlockContextMenu
-        }
-
-        view is BlockquoteContainerView -> {
-          view.enableBlockContextMenu = enableBlockContextMenu
-        }
-
-        isMathContainerView(view) -> {
-          runCatching {
-            view.javaClass
-              .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
-              .invoke(view, enableBlockContextMenu)
-          }
-        }
-
-        isVideoContainerView(view) -> {
-          runCatching {
-            view.javaClass
-              .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
-              .invoke(view, enableBlockContextMenu)
-          }
-        }
-      }
-    }
-  }
-
-  private fun pushCodeBlockPressToSegments() {
-    forEachSegmentRecursive { view ->
-      if (view is CodeBlockContainerView) view.enableCodeBlockPress = enableCodeBlockPress
     }
   }
 
@@ -550,12 +475,9 @@ class EnrichedMarkdown(
       selectionColor = selectionColor,
       selectionHandleColor = selectionHandleColor,
       contextMenuItemTexts = contextMenuItemTexts,
-      enableBlockContextMenu = enableBlockContextMenu,
-      enableCodeBlockPress = enableCodeBlockPress,
+      dynamic = dynamic,
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,
-      onCopyPress = onCopyPressCallback,
-      onCodeBlockPress = onCodeBlockPressCallback,
       onTaskListItemPress = onTaskListItemPressCallback,
       onContextMenuItemPress = ::forwardContextMenuItemPress,
       onLatexError = latexErrorReporter,

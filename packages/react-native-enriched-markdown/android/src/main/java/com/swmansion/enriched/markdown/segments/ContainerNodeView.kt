@@ -69,18 +69,6 @@ open class ContainerNodeView(
     return result.viewsToAttach.isNotEmpty() || result.viewsToRemove.isNotEmpty()
   }
 
-  /**
-   * Depth-first walk over this container's segments, descending into nested
-   * containers (a blockquote's own children) so a runtime prop toggle reaches
-   * segments at every nesting level, not just the top one. See issue #768.
-   */
-  protected fun forEachSegmentRecursive(action: (View) -> Unit) {
-    segmentViews.forEach { view ->
-      action(view)
-      if (view is ContainerNodeView) view.forEachSegmentRecursive(action)
-    }
-  }
-
   protected fun layoutSegments() {
     val containerWidth = width
     if (containerWidth <= 0) return

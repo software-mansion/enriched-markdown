@@ -24,6 +24,7 @@
 #endif
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
+#import "ENRMDynamicBlockProps.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -87,7 +88,6 @@ static char kENRMSegmentFadeAnimatorKey;
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
-- (void)pushBlockContextMenuToSegments;
 @end
 
 @implementation EnrichedMarkdown {
@@ -116,8 +116,6 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
-  BOOL _enableBlockContextMenu;
-  BOOL _enableCodeBlockPress;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
@@ -132,6 +130,12 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMSelectionMenuConfig _selectionMenuConfig;
   ENRMAccessibilityLabels *_accessibilityLabels;
   ENRMSelectionMenuLabels _selectionMenuLabels;
+
+  // The one runtime-mutable block-props box, mutated in place on prop changes and
+  // handed by reference to every block segment view (including nested blockquote
+  // children), so a view created after a toggle is born current with no push. See
+  // ENRMDynamicBlockProps, issues #768 / #822.
+  ENRMDynamicBlockProps *_dynamicBlockProps;
 
   ENRMSpoilerOverlay _spoilerOverlay;
 
@@ -202,8 +206,7 @@ static char kENRMSegmentFadeAnimatorKey;
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
-    _enableBlockContextMenu = YES;
-    _enableCodeBlockPress = NO;
+    _dynamicBlockProps = [[ENRMDynamicBlockProps alloc] init];
     _streamingAnimation = NO;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
@@ -357,9 +360,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
                             ENRMVideoContainerView *view =
                                 [[ENRMVideoContainerView alloc] initWithConfig:strongSelf->_config];
-                            view.enableBlockContextMenu = strongSelf->_enableBlockContextMenu;
-                            view.copyLabel = strongSelf->_selectionMenuLabels.copyLabel;
-                            view.copyAsMarkdownLabel = strongSelf->_selectionMenuLabels.copyAsMarkdownLabel;
+                            view.dynamic = strongSelf->_dynamicBlockProps;
                             [view applyVideoNode:segment.videoSegment.videoNode];
                             [strongSelf animateBlockViewIfNeeded:view];
                             return view;
@@ -379,11 +380,7 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMBlockquoteContainerView *view = [[ENRMBlockquoteContainerView alloc] initWithConfig:_config];
   view.allowFontScaling = _fontScaleObserver.allowFontScaling;
   view.lineBreakStrategy = _lineBreakStrategy;
-  view.copyLabel = _selectionMenuLabels.copyLabel;
-  view.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
-  view.enableBlockContextMenu = _enableBlockContextMenu;
-
-  view.enableCodeBlockPress = _enableCodeBlockPress;
+  view.dynamic = _dynamicBlockProps;
 
   __weak EnrichedMarkdown *weakSelf = self;
   view.onCopyPress = ^(NSString *code, NSString *language) {
@@ -638,79 +635,6 @@ static char kENRMSegmentFadeAnimatorKey;
       ((ENRMMathContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     }
 #endif
-  }
-}
-
-// Table and math views cache the copy labels at creation time, so re-push them
-// on prop updates (e.g. a language change without a remount) to avoid stale
-// labels. Only the copy/copy-as-markdown labels apply to these block menus.
-- (void)pushSelectionMenuLabelsToSegments
-{
-  for (RCTUIView *segment in _segmentViews) {
-    if ([segment isKindOfClass:[TableContainerView class]]) {
-      TableContainerView *tableView = (TableContainerView *)segment;
-      tableView.copyLabel = _selectionMenuLabels.copyLabel;
-      tableView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
-    }
-#if ENRICHED_MARKDOWN_MATH
-    else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
-      ENRMMathContainerView *mathView = (ENRMMathContainerView *)segment;
-      mathView.copyLabel = _selectionMenuLabels.copyLabel;
-      mathView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
-    }
-#endif
-    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      ENRMCodeBlockContainerView *codeBlockView = (ENRMCodeBlockContainerView *)segment;
-      codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
-      codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
-    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      ENRMBlockquoteContainerView *blockquoteView = (ENRMBlockquoteContainerView *)segment;
-      blockquoteView.copyLabel = _selectionMenuLabels.copyLabel;
-      blockquoteView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
-      [blockquoteView pushCopyLabelsToChildren];
-    }
-#if ENRICHED_MARKDOWN_VIDEO
-    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
-      ENRMVideoContainerView *videoView = (ENRMVideoContainerView *)segment;
-      videoView.copyLabel = _selectionMenuLabels.copyLabel;
-      videoView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
-    }
-#endif
-  }
-}
-
-- (void)pushBlockContextMenuToSegments
-{
-  for (RCTUIView *segment in _segmentViews) {
-    if ([segment isKindOfClass:[TableContainerView class]]) {
-      ((TableContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
-    }
-#if ENRICHED_MARKDOWN_MATH
-    else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
-      ((ENRMMathContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
-    }
-#endif
-    else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      ((ENRMCodeBlockContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
-    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      [(ENRMBlockquoteContainerView *)segment pushBlockContextMenuEnabledToChildren:_enableBlockContextMenu];
-    }
-#if ENRICHED_MARKDOWN_VIDEO
-    else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
-      ((ENRMVideoContainerView *)segment).enableBlockContextMenu = _enableBlockContextMenu;
-    }
-#endif
-  }
-}
-
-- (void)pushCodeBlockPressToSegments
-{
-  for (RCTUIView *segment in _segmentViews) {
-    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      ((ENRMCodeBlockContainerView *)segment).enableCodeBlockPress = _enableCodeBlockPress;
-    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
-      [(ENRMBlockquoteContainerView *)segment pushCodeBlockPressEnabledToChildren:_enableCodeBlockPress];
-    }
   }
 }
 
@@ -981,12 +905,10 @@ static char kENRMSegmentFadeAnimatorKey;
   tableView.allowFontScaling = _fontScaleObserver.allowFontScaling;
   tableView.maxFontSizeMultiplier = _maxFontSizeMultiplier;
   tableView.enableLinkPreview = _enableLinkPreview;
-  tableView.enableBlockContextMenu = _enableBlockContextMenu;
+  tableView.dynamic = _dynamicBlockProps;
   tableView.writingDirectionMode = _writingDirectionMode;
   tableView.resolvedLayoutDirection = _resolvedLayoutDirection;
   tableView.accessibilityLabels = _accessibilityLabels;
-  tableView.copyLabel = _selectionMenuLabels.copyLabel;
-  tableView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
 
   __weak EnrichedMarkdown *weakSelf = self;
 
@@ -1023,10 +945,8 @@ static char kENRMSegmentFadeAnimatorKey;
 - (ENRMMathContainerView *)createMathViewForSegment:(ENRMMathSegment *)mathSegment
 {
   ENRMMathContainerView *mathView = [[ENRMMathContainerView alloc] initWithConfig:_config];
-  mathView.enableBlockContextMenu = _enableBlockContextMenu;
+  mathView.dynamic = _dynamicBlockProps;
   mathView.accessibilityLabels = _accessibilityLabels;
-  mathView.copyLabel = _selectionMenuLabels.copyLabel;
-  mathView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
   ENRMLatexErrorCoordinator *coordinator = _latexErrorCoordinator;
   mathView.onLatexError = ^(NSString *source, NSString *message, BOOL displayMode) {
     [coordinator reportSource:source message:message displayMode:displayMode];
@@ -1039,10 +959,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (ENRMCodeBlockContainerView *)createCodeBlockViewForSegment:(ENRMCodeBlockSegment *)codeBlockSegment
 {
   ENRMCodeBlockContainerView *codeBlockView = [[ENRMCodeBlockContainerView alloc] initWithConfig:_config];
-  codeBlockView.enableBlockContextMenu = _enableBlockContextMenu;
-  codeBlockView.enableCodeBlockPress = _enableCodeBlockPress;
-  codeBlockView.copyLabel = _selectionMenuLabels.copyLabel;
-  codeBlockView.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
+  codeBlockView.dynamic = _dynamicBlockProps;
 
   __weak EnrichedMarkdown *weakSelf = self;
   codeBlockView.onCopyPress = ^(NSString *code, NSString *language) {
@@ -1186,15 +1103,10 @@ static char kENRMSegmentFadeAnimatorKey;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
 
-  if (_enableBlockContextMenu != newViewProps.enableBlockContextMenu) {
-    _enableBlockContextMenu = newViewProps.enableBlockContextMenu;
-    [self pushBlockContextMenuToSegments];
-  }
-
-  if (_enableCodeBlockPress != newViewProps.enableCodeBlockPress) {
-    _enableCodeBlockPress = newViewProps.enableCodeBlockPress;
-    [self pushCodeBlockPressToSegments];
-  }
+  // Block gates: mutate the shared box in place. Every existing and future block
+  // view reads it live at use-time, so no push into segments is needed.
+  _dynamicBlockProps.enableBlockContextMenu = newViewProps.enableBlockContextMenu;
+  _dynamicBlockProps.enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
     _streamingAnimation = newViewProps.streamingAnimation;
@@ -1236,7 +1148,10 @@ static char kENRMSegmentFadeAnimatorKey;
   _selectionMenuConfig =
       ENRMBuildSelectionMenuConfig(_selectionMenuLabels, newViewProps.selectionMenuConfig.copyAsMarkdown,
                                    newViewProps.selectionMenuConfig.copyImageUrl);
-  [self pushSelectionMenuLabelsToSegments];
+  // Block menu labels live in the shared box; block views read them live at
+  // menu-open. (_selectionMenuLabels also feeds the text selection menu above.)
+  _dynamicBlockProps.copyLabel = _selectionMenuLabels.copyLabel;
+  _dynamicBlockProps.copyAsMarkdownLabel = _selectionMenuLabels.copyAsMarkdownLabel;
 
   if (ENRMAccessibilityLabelsChanged(oldViewProps.accessibilityLabels, newViewProps.accessibilityLabels)) {
     _accessibilityLabels = [[ENRMAccessibilityLabels alloc] init];
