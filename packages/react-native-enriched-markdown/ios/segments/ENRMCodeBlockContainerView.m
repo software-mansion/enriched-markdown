@@ -427,7 +427,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
   [self rebuildAttributedCode];
 
+  // iOS VoiceOver reads the copy label live via accessibilityCustomActions and the
+  // button is hidden behind the container's single a11y element, so its own label
+  // is consumed only on macOS; refresh it there on each content update.
+#if TARGET_OS_OSX
   _copyButton.accessibilityLabel = self.dynamicProps.menuCopyLabel;
+#endif
 
 #if !TARGET_OS_OSX
   [self setNeedsLayout];

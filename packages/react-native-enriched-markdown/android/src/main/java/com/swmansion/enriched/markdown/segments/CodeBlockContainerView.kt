@@ -124,8 +124,12 @@ class CodeBlockContainerView(
       setTextColor(secondaryColor(codeBlockStyle.color))
     }
 
+  // contentDescription reads the shared label live so a runtime label change is
+  // reflected for TalkBack without a push (mirrors the live block-menu reads).
   private val copyButton =
-    AppCompatImageButton(context).apply {
+    object : AppCompatImageButton(context) {
+      override fun getContentDescription(): CharSequence = dynamicProps.copyLabel
+    }.apply {
       background = null
       scaleType = ImageView.ScaleType.CENTER
       setImageDrawable(
@@ -184,7 +188,6 @@ class CodeBlockContainerView(
       languageView.text = CodeBlockNode.displayLanguageName(newLanguage)
     }
 
-    copyButton.contentDescription = dynamicProps.copyLabel
     rebuildCodeText()
   }
 

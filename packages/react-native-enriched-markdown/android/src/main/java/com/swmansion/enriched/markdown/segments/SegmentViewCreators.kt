@@ -180,7 +180,7 @@ object SegmentViewCreators {
           .invoke(view, config.accessibilityLabels)
       }
       resolvedClass
-        .getMethod("setDynamic", DynamicBlockProps::class.java)
+        .getMethod("setDynamicProps", DynamicBlockProps::class.java)
         .invoke(view, config.dynamicProps)
       runCatching {
         resolvedClass
@@ -235,7 +235,7 @@ object SegmentViewCreators {
           .getConstructor(Context::class.java, StyleConfig::class.java)
           .newInstance(config.context, config.style) as View
       resolvedClass
-        .getMethod("setDynamic", DynamicBlockProps::class.java)
+        .getMethod("setDynamicProps", DynamicBlockProps::class.java)
         .invoke(view, config.dynamicProps)
       resolvedClass
         .getMethod("applyVideoNode", MarkdownASTNode::class.java)
