@@ -174,4 +174,63 @@ final class MarkdownTextViewTests: XCTestCase {
 
         XCTAssertFalse(textView.isPointOnSelectionHandle(endKnob))
     }
+
+    // MARK: - Image layout
+
+    // A `maxHeight` image box is the cap until the image loads and only then
+    // settles to the fitted height. The view has already been measured by
+    // then, so it has to hear about it and measure again.
+
+    private func imageDocument(
+        _ image: BlockImage,
+        downloader: ImageDownloading
+    ) -> (text: NSAttributedString, attachment: MarkdownImageAttachment) {
+        let attachment = MarkdownImageAttachment.attachment(
+            for: "https://example.invalid/\(#function).png",
+            config: imageSizingConfig(image),
+            isInline: false,
+            altText: "",
+            downloader: downloader
+        )
+        let text = NSAttributedString(string: "\u{FFFC}", attributes: [.attachment: attachment])
+        return (text, attachment)
+    }
+
+    func testSettingTextAdoptsImageAttachments() {
+        let textView = MarkdownTextView()
+        let document = imageDocument(BlockImage().maxHeight(150), downloader: DeferredImageDownloader())
+
+        textView.setMarkdownAttributedText(document.text)
+
+        XCTAssertTrue(document.attachment.layoutObserver === textView)
+    }
+
+    func testSettledImageBoxDropsTheCachedMeasurement() {
+        let downloader = DeferredImageDownloader()
+        let textView = MarkdownTextView()
+        let document = imageDocument(BlockImage().maxHeight(150), downloader: downloader)
+        textView.setMarkdownAttributedText(document.text)
+
+        let before = height(of: textView, width: 300)
+
+        downloader.complete(with: makeImage(width: 300, height: 100))
+        drainMainQueue()
+
+        // 300 points wide at 3:1 fits in 100, half a cap of 150.
+        XCTAssertEqual(before - height(of: textView, width: 300), 50, accuracy: 1)
+    }
+
+    func testFixedImageBoxKeepsItsMeasurementAcrossTheLoad() {
+        let downloader = DeferredImageDownloader()
+        let textView = MarkdownTextView()
+        let document = imageDocument(BlockImage().height(200), downloader: downloader)
+        textView.setMarkdownAttributedText(document.text)
+
+        let before = height(of: textView, width: 300)
+
+        downloader.complete(with: makeImage(width: 300, height: 100))
+        drainMainQueue()
+
+        XCTAssertEqual(height(of: textView, width: 300), before)
+    }
 }
