@@ -233,7 +233,6 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     _allowFontScaling = YES;
     _maxFontSizeMultiplier = 0;
     _enableLinkPreview = YES;
-    // Safe default until the host assigns its shared instance at creation.
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection = NSWritingDirectionLeftToRight;

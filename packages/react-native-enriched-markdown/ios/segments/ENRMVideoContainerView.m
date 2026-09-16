@@ -108,7 +108,6 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 {
   if (self = [super init]) {
     _config = config;
-    // Safe default until the host assigns its shared instance at creation.
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     self.userInteractionEnabled = YES;
 
@@ -306,7 +305,6 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 {
   if (self = [super init]) {
     _config = config;
-    // Safe default until the host assigns its shared instance at creation.
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     self.wantsLayer = YES;
 

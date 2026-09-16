@@ -316,8 +316,6 @@ class EnrichedMarkdown(
   fun setSelectionMenuConfig(config: SelectionMenuConfig) {
     if (selectionMenuConfig == config) return
     selectionMenuConfig = config
-    // Block views read these labels live from the shared box at menu-open, so
-    // updating it here is all that's needed (existing and future views alike).
     dynamicProps.copyLabel = config.copyLabel
     dynamicProps.copyAsMarkdownLabel = config.copyAsMarkdownLabel
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {

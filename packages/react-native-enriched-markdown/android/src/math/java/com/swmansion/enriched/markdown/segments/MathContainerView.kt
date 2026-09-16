@@ -39,9 +39,6 @@ class MathContainerView(
       field = value
       updateAccessibilityLabel()
     }
-
-  // Set reflectively by EnrichedMarkdown (math is an optional module). The block
-  // props are read live from the shared box at menu-open. See DynamicBlockProps.
   var dynamicProps: DynamicBlockProps = DynamicBlockProps()
   var onLatexError: LatexErrorReporter? = null
 

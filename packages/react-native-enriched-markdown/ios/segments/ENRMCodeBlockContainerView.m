@@ -259,7 +259,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _config = config;
     _cachedCode = @"";
     _fenceChar = @"`";
-    // Safe default until the host assigns its shared instance at creation.
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     _headerFont = ENRMCodeBlockHeaderFont(config);
     _headerLabelLineHeight = ENRMCodeBlockHeaderLabelLineHeight(_headerFont);
@@ -283,9 +282,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:_copyButton];
 
-    // The gate is read live in gestureRecognizerShouldBegin: (the recognizer
-    // fails to begin when the feature is off, so it never cancels other touches),
-    // instead of toggling .enabled via a runtime push.
     _tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleCodeBlockTap:)];
     _tapRecognizer.delegate = self;
     [self addGestureRecognizer:_tapRecognizer];
@@ -431,9 +427,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
   [self rebuildAttributedCode];
 
-  // Copy-button VoiceOver label follows the live copy label; refreshed here since
-  // there is no per-label push (a pure label change without a content change is a
-  // narrow case that resolves on the next content update).
   _copyButton.accessibilityLabel = self.dynamicProps.menuCopyLabel;
 
 #if !TARGET_OS_OSX
@@ -564,8 +557,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
 }
 
-// Live gate: the tap recognizer only begins when the feature is on, so when off
-// it fails immediately and never cancels touches to the scroll view / copy button.
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
 {
   if (gestureRecognizer == _tapRecognizer) {

@@ -123,7 +123,6 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
     // Preserved prior defaults until the host overrides them at creation.
     _allowFontScaling = YES;
     _lineBreakStrategy = NSLineBreakStrategyNone;
-    // Safe default until the host assigns its shared instance at creation.
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     _cachedMarkdown = @"";
     _cachedPlainText = @"";

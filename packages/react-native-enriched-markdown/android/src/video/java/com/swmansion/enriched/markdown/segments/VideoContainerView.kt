@@ -21,9 +21,6 @@ class VideoContainerView(
   private val playerView = PlayerView(context)
   private var player: ExoPlayer? = null
   private var currentUrl: String? = null
-
-  // Set reflectively by EnrichedMarkdown (video is an optional module). The block
-  // props are read live from the shared box at menu-open. See DynamicBlockProps.
   var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
   override val segmentMarginTop: Int get() = styleConfig.videoStyle.marginTop.toInt()

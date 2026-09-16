@@ -131,10 +131,6 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMAccessibilityLabels *_accessibilityLabels;
   ENRMSelectionMenuLabels _selectionMenuLabels;
 
-  // The one runtime-mutable block-props box, mutated in place on prop changes and
-  // handed by reference to every block segment view (including nested blockquote
-  // children), so a view created after a toggle is born current with no push. See
-  // ENRMDynamicBlockProps, issues #768 / #822.
   ENRMDynamicBlockProps *_dynamicBlockProps;
 
   ENRMSpoilerOverlay _spoilerOverlay;

@@ -78,7 +78,6 @@
   if (self) {
     _config = config;
     _cachedLatex = @"";
-    // Safe default until the host assigns its shared instance at creation.
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
 
     _mathView = [[ENRMRaTeXCanvasView alloc] initWithFrame:CGRectZero];

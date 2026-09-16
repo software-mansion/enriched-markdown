@@ -70,9 +70,6 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkPress;
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkLongPress;
 
-// Stable copy/tap event bridges set once at creation and forwarded to this
-// quote's block children (they capture this quote and emit up to JS), so they
-// never go stale and stay per-view rather than in the shared box.
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
 
