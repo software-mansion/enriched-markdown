@@ -234,7 +234,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     _maxFontSizeMultiplier = 0;
     _enableLinkPreview = YES;
     // Safe default until the host assigns its shared instance at creation.
-    _dynamic = [[ENRMDynamicBlockProps alloc] init];
+    _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
     _resolvedLayoutDirection = NSWritingDirectionLeftToRight;
     [self setupScrollView];
@@ -264,11 +264,11 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   gridView.menuProvider = ^NSMenu *
   {
     TableContainerView *strongSelf = weakSelf;
-    if (!strongSelf || !strongSelf.dynamic.enableBlockContextMenu)
+    if (!strongSelf || !strongSelf.dynamicProps.enableBlockContextMenu)
       return nil;
     NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
-    [menu addItem:ENRMCreateMenuItem(strongSelf.dynamic.menuCopyLabel, ^{ [strongSelf copyTableToPasteboard]; })];
-    [menu addItem:ENRMCreateMenuItem(strongSelf.dynamic.menuCopyAsMarkdownLabel,
+    [menu addItem:ENRMCreateMenuItem(strongSelf.dynamicProps.menuCopyLabel, ^{ [strongSelf copyTableToPasteboard]; })];
+    [menu addItem:ENRMCreateMenuItem(strongSelf.dynamicProps.menuCopyAsMarkdownLabel,
                                      ^{ [strongSelf copyMarkdownToPasteboard]; })];
     return menu;
   };
@@ -460,7 +460,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  if (!self.dynamic.enableBlockContextMenu) {
+  if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }
   return [UIContextMenuConfiguration
@@ -468,13 +468,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
                   previewProvider:nil
                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                      UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.dynamic.menuCopyAsMarkdownLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyAsMarkdownLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.text"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
 
                      UIAction *copyPlainText =
-                         [UIAction actionWithTitle:self.dynamic.menuCopyLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyTableToPasteboard]; }];

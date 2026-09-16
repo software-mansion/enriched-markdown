@@ -22,7 +22,7 @@ import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
  * the code-block tap gate, the copy menu labels, and the copy/tap callbacks.
  *
  * The root owns one instance and mutates it in place; every view down the tree
- * holds the same reference (SegmentViewConfig.dynamic) and reads a field at use-time
+ * holds the same reference (SegmentViewConfig.dynamicProps) and reads a field at use-time
  * (menu-open, tap). That single shared box is the source of truth, so a view
  * created after a toggle (e.g. a code block added to a blockquote once
  * onCodeBlockPress is on) is born current instead of from a stale snapshot, and
@@ -52,7 +52,7 @@ class DynamicBlockProps {
  *
  * Everything here is a fixed-for-the-view's-life value: changing any of it
  * recreates the tree (see EnrichedMarkdown.setMarkdownStyle et al.), so a
- * snapshot never goes stale. The runtime-mutable block props live in [dynamic].
+ * snapshot never goes stale. The runtime-mutable block props live in [dynamicProps].
  */
 data class SegmentViewConfig(
   val context: Context,
@@ -66,7 +66,7 @@ data class SegmentViewConfig(
   val selectionColor: Int?,
   val selectionHandleColor: Int?,
   val contextMenuItemTexts: List<String>,
-  val dynamic: DynamicBlockProps,
+  val dynamicProps: DynamicBlockProps,
   val onLinkPress: ((String) -> Unit)?,
   val onLinkLongPress: ((String) -> Unit)?,
   val onTaskListItemPress: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?,
@@ -131,7 +131,7 @@ object SegmentViewCreators {
     segment: RenderedSegment.Table,
     config: SegmentViewConfig,
   ) = TableContainerView(config.context, config.style).apply {
-    dynamic = config.dynamic
+    dynamicProps = config.dynamicProps
     allowFontScaling = config.allowFontScaling
     maxFontSizeMultiplier = config.maxFontSizeMultiplier
     accessibilityLabels = config.accessibilityLabels
@@ -144,7 +144,7 @@ object SegmentViewCreators {
     segment: RenderedSegment.CodeBlock,
     config: SegmentViewConfig,
   ) = CodeBlockContainerView(config.context, config.style).apply {
-    dynamic = config.dynamic
+    dynamicProps = config.dynamicProps
     applyCodeBlockNode(segment.node)
   }
 
@@ -181,7 +181,7 @@ object SegmentViewCreators {
       }
       resolvedClass
         .getMethod("setDynamic", DynamicBlockProps::class.java)
-        .invoke(view, config.dynamic)
+        .invoke(view, config.dynamicProps)
       runCatching {
         resolvedClass
           .getMethod("setOnLatexError", LatexErrorReporter::class.java)
@@ -236,7 +236,7 @@ object SegmentViewCreators {
           .newInstance(config.context, config.style) as View
       resolvedClass
         .getMethod("setDynamic", DynamicBlockProps::class.java)
-        .invoke(view, config.dynamic)
+        .invoke(view, config.dynamicProps)
       resolvedClass
         .getMethod("applyVideoNode", MarkdownASTNode::class.java)
         .invoke(view, segment.node)

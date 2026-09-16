@@ -66,7 +66,7 @@ class CodeBlockContainerView(
   // Shared, runtime-mutable block props read live at use-time (menu-open, tap);
   // the root mutates the one instance in place, so this view and any sibling
   // created later see the same current values. See DynamicBlockProps.
-  var dynamic: DynamicBlockProps = DynamicBlockProps()
+  var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
   private var code: String = ""
   private var language: String? = null
@@ -184,7 +184,7 @@ class CodeBlockContainerView(
       languageView.text = CodeBlockNode.displayLanguageName(newLanguage)
     }
 
-    copyButton.contentDescription = dynamic.copyLabel
+    copyButton.contentDescription = dynamicProps.copyLabel
     rebuildCodeText()
   }
 
@@ -260,10 +260,10 @@ class CodeBlockContainerView(
   // Returns whether a menu was shown, so the long-press listener only consumes
   // the event when there is one (a pending block has no menu yet).
   private fun showContextMenu(anchor: View): Boolean {
-    if (!dynamic.enableBlockContextMenu || pending) return false
+    if (!dynamicProps.enableBlockContextMenu || pending) return false
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, dynamic.copyLabel) { copyCode() }
-      item(ContextMenuPopup.Icon.DOCUMENT, dynamic.copyAsMarkdownLabel) { copyFencedMarkdown() }
+      item(ContextMenuPopup.Icon.COPY, dynamicProps.copyLabel) { copyCode() }
+      item(ContextMenuPopup.Icon.DOCUMENT, dynamicProps.copyAsMarkdownLabel) { copyFencedMarkdown() }
     }
     return true
   }
@@ -271,12 +271,12 @@ class CodeBlockContainerView(
   private fun copyCode() {
     if (pending || code.isEmpty()) return
     copyToClipboard(code)
-    dynamic.onCopyPress?.invoke(code, language ?: "")
+    dynamicProps.onCopyPress?.invoke(code, language ?: "")
   }
 
   private fun handleCodeBlockPress() {
-    if (!dynamic.enableCodeBlockPress || pending) return
-    dynamic.onCodeBlockPress?.invoke(code, language ?: "")
+    if (!dynamicProps.enableCodeBlockPress || pending) return
+    dynamicProps.onCodeBlockPress?.invoke(code, language ?: "")
   }
 
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {

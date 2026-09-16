@@ -360,7 +360,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
                             ENRMVideoContainerView *view =
                                 [[ENRMVideoContainerView alloc] initWithConfig:strongSelf->_config];
-                            view.dynamic = strongSelf->_dynamicBlockProps;
+                            view.dynamicProps = strongSelf->_dynamicBlockProps;
                             [view applyVideoNode:segment.videoSegment.videoNode];
                             [strongSelf animateBlockViewIfNeeded:view];
                             return view;
@@ -380,7 +380,7 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMBlockquoteContainerView *view = [[ENRMBlockquoteContainerView alloc] initWithConfig:_config];
   view.allowFontScaling = _fontScaleObserver.allowFontScaling;
   view.lineBreakStrategy = _lineBreakStrategy;
-  view.dynamic = _dynamicBlockProps;
+  view.dynamicProps = _dynamicBlockProps;
 
   __weak EnrichedMarkdown *weakSelf = self;
   view.onCopyPress = ^(NSString *code, NSString *language) {
@@ -905,7 +905,7 @@ static char kENRMSegmentFadeAnimatorKey;
   tableView.allowFontScaling = _fontScaleObserver.allowFontScaling;
   tableView.maxFontSizeMultiplier = _maxFontSizeMultiplier;
   tableView.enableLinkPreview = _enableLinkPreview;
-  tableView.dynamic = _dynamicBlockProps;
+  tableView.dynamicProps = _dynamicBlockProps;
   tableView.writingDirectionMode = _writingDirectionMode;
   tableView.resolvedLayoutDirection = _resolvedLayoutDirection;
   tableView.accessibilityLabels = _accessibilityLabels;
@@ -945,7 +945,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (ENRMMathContainerView *)createMathViewForSegment:(ENRMMathSegment *)mathSegment
 {
   ENRMMathContainerView *mathView = [[ENRMMathContainerView alloc] initWithConfig:_config];
-  mathView.dynamic = _dynamicBlockProps;
+  mathView.dynamicProps = _dynamicBlockProps;
   mathView.accessibilityLabels = _accessibilityLabels;
   ENRMLatexErrorCoordinator *coordinator = _latexErrorCoordinator;
   mathView.onLatexError = ^(NSString *source, NSString *message, BOOL displayMode) {
@@ -959,7 +959,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (ENRMCodeBlockContainerView *)createCodeBlockViewForSegment:(ENRMCodeBlockSegment *)codeBlockSegment
 {
   ENRMCodeBlockContainerView *codeBlockView = [[ENRMCodeBlockContainerView alloc] initWithConfig:_config];
-  codeBlockView.dynamic = _dynamicBlockProps;
+  codeBlockView.dynamicProps = _dynamicBlockProps;
 
   __weak EnrichedMarkdown *weakSelf = self;
   codeBlockView.onCopyPress = ^(NSString *code, NSString *language) {

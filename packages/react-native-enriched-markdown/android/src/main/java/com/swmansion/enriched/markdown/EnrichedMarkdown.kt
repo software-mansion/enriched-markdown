@@ -123,22 +123,17 @@ class EnrichedMarkdown(
       }
     }
 
-  // The one runtime-mutable block-props box, mutated in place and shared by
-  // reference into every segment view (SegmentViewConfig.dynamic), so a view
-  // created after a toggle is born current. See DynamicBlockProps, issues
-  // #768 / #822. These props are read at use-time and gate no layout/draw, so a
-  // write needs no push into existing views and no invalidation.
-  private val dynamic = DynamicBlockProps()
+  private val dynamicProps = DynamicBlockProps()
 
   var enableBlockContextMenu: Boolean
-    get() = dynamic.enableBlockContextMenu
+    get() = dynamicProps.enableBlockContextMenu
     set(value) {
-      dynamic.enableBlockContextMenu = value
+      dynamicProps.enableBlockContextMenu = value
     }
   var enableCodeBlockPress: Boolean
-    get() = dynamic.enableCodeBlockPress
+    get() = dynamicProps.enableCodeBlockPress
     set(value) {
-      dynamic.enableCodeBlockPress = value
+      dynamicProps.enableCodeBlockPress = value
     }
 
   init {
@@ -304,11 +299,11 @@ class EnrichedMarkdown(
   }
 
   fun setOnCopyPressCallback(callback: ((code: String, language: String) -> Unit)?) {
-    dynamic.onCopyPress = callback
+    dynamicProps.onCopyPress = callback
   }
 
   fun setOnCodeBlockPressCallback(callback: ((code: String, language: String) -> Unit)?) {
-    dynamic.onCodeBlockPress = callback
+    dynamicProps.onCodeBlockPress = callback
   }
 
   fun setContextMenuItems(items: List<String>) {
@@ -323,8 +318,8 @@ class EnrichedMarkdown(
     selectionMenuConfig = config
     // Block views read these labels live from the shared box at menu-open, so
     // updating it here is all that's needed (existing and future views alike).
-    dynamic.copyLabel = config.copyLabel
-    dynamic.copyAsMarkdownLabel = config.copyAsMarkdownLabel
+    dynamicProps.copyLabel = config.copyLabel
+    dynamicProps.copyAsMarkdownLabel = config.copyAsMarkdownLabel
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.selectionMenuConfig = config
     }
@@ -475,7 +470,7 @@ class EnrichedMarkdown(
       selectionColor = selectionColor,
       selectionHandleColor = selectionHandleColor,
       contextMenuItemTexts = contextMenuItemTexts,
-      dynamic = dynamic,
+      dynamicProps = dynamicProps,
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,
       onTaskListItemPress = onTaskListItemPressCallback,

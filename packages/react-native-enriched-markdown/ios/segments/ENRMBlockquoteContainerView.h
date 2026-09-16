@@ -80,7 +80,7 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // copy labels) read live at use-time. Set to the root's shared instance at
 // creation and handed unchanged to this quote's children, so a child added after
 // a toggle is born current with no per-toggle push. See ENRMDynamicBlockProps.
-@property (nonatomic, strong) ENRMDynamicBlockProps *dynamic;
+@property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
 
 @end
 

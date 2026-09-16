@@ -51,7 +51,7 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 // Shared, runtime-mutable block props (context-menu gate + copy labels) read live
 // at menu-open. Set to the root's shared instance at creation. See
 // ENRMDynamicBlockProps.
-@property (nonatomic, strong) ENRMDynamicBlockProps *dynamic;
+@property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
 
 @property (nonatomic, readonly) NSUInteger rowCount;
 

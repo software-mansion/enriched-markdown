@@ -124,7 +124,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
     _allowFontScaling = YES;
     _lineBreakStrategy = NSLineBreakStrategyNone;
     // Safe default until the host assigns its shared instance at creation.
-    _dynamic = [[ENRMDynamicBlockProps alloc] init];
+    _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     _cachedMarkdown = @"";
     _cachedPlainText = @"";
 #if !TARGET_OS_OSX
@@ -195,7 +195,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             TableContainerView *view = [[TableContainerView alloc] initWithConfig:config];
                             ENRMBlockquoteContainerView *strongSelf = weakSelf;
                             if (strongSelf) {
-                              view.dynamic = strongSelf.dynamic;
+                              view.dynamicProps = strongSelf.dynamicProps;
                               view.onLinkPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onLinkPress && url)
@@ -222,7 +222,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                     createView:^RCTUIView *(ENRMRenderedSegment *segment) {
                       ENRMCodeBlockContainerView *view = [[ENRMCodeBlockContainerView alloc] initWithConfig:config];
                       ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                      view.dynamic = strongSelf.dynamic;
+                      view.dynamicProps = strongSelf.dynamicProps;
                       view.onCopyPress = ^(NSString *code, NSString *language) {
                         ENRMBlockquoteContainerView *s = weakSelf;
                         if (s.onCopyPress)
@@ -252,7 +252,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             if (strongSelf) {
                               view.allowFontScaling = strongSelf.allowFontScaling;
                               view.lineBreakStrategy = strongSelf.lineBreakStrategy;
-                              view.dynamic = strongSelf.dynamic;
+                              view.dynamicProps = strongSelf.dynamicProps;
                               view.onCopyPress = strongSelf.onCopyPress;
                               view.onCodeBlockPress = strongSelf.onCodeBlockPress;
                               view.onLinkPress = ^(NSString *url) {
@@ -283,7 +283,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                           createView:^RCTUIView *(ENRMRenderedSegment *segment) {
                             ENRMMathContainerView *view = [[ENRMMathContainerView alloc] initWithConfig:config];
                             ENRMBlockquoteContainerView *strongSelf = weakSelf;
-                            view.dynamic = strongSelf.dynamic;
+                            view.dynamicProps = strongSelf.dynamicProps;
                             [view applyLatex:segment.mathSegment.latex];
                             return view;
                           }
@@ -303,7 +303,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             ENRMVideoContainerView *view = [[ENRMVideoContainerView alloc] initWithConfig:config];
                             ENRMBlockquoteContainerView *bq = weakBQ;
                             if (bq) {
-                              view.dynamic = bq.dynamic;
+                              view.dynamicProps = bq.dynamicProps;
                             }
                             [view applyVideoNode:segment.videoSegment.videoNode];
                             return view;
@@ -479,7 +479,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  if (!self.dynamic.enableBlockContextMenu) {
+  if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }
   return [UIContextMenuConfiguration
@@ -487,13 +487,13 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                   previewProvider:nil
                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                      UIAction *copyPlainText =
-                         [UIAction actionWithTitle:self.dynamic.menuCopyLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyPlainTextToPasteboard]; }];
 
                      UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.dynamic.menuCopyAsMarkdownLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyAsMarkdownLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.text"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
@@ -511,12 +511,12 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 
 - (NSMenu *)menuForEvent:(NSEvent *)event
 {
-  if (!self.dynamic.enableBlockContextMenu) {
+  if (!self.dynamicProps.enableBlockContextMenu) {
     return [super menuForEvent:event];
   }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
-  [menu addItem:ENRMCreateMenuItem(self.dynamic.menuCopyLabel, ^{ [self copyPlainTextToPasteboard]; })];
-  [menu addItem:ENRMCreateMenuItem(self.dynamic.menuCopyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamicProps.menuCopyLabel, ^{ [self copyPlainTextToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamicProps.menuCopyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
   return menu;
 }
 #endif

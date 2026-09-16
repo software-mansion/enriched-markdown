@@ -31,7 +31,7 @@ typedef void (^ENRMCodeBlockPressBlock)(NSString *code, NSString *language);
 // Shared, runtime-mutable block props (context-menu gate, tap gate, copy labels)
 // read live at use-time. Set to the root's shared instance at creation so a code
 // block added after a toggle is born current. See ENRMDynamicBlockProps.
-@property (nonatomic, strong) ENRMDynamicBlockProps *dynamic;
+@property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
 
 // Fired when the code is copied (header button, context-menu Copy, or the
 // VoiceOver copy action); set by the host to bridge up to the JS onCopyPress

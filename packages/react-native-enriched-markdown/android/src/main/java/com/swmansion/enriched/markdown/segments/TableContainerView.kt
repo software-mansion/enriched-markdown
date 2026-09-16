@@ -62,7 +62,7 @@ class TableContainerView(
     }
 
   // Runtime-mutable block props read live at menu-open. See DynamicBlockProps.
-  var dynamic: DynamicBlockProps = DynamicBlockProps()
+  var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
   private val scrollView =
     HorizontalScrollView(context).apply {
@@ -356,10 +356,10 @@ class TableContainerView(
   }
 
   private fun showContextMenu(anchor: View): Boolean {
-    if (!dynamic.enableBlockContextMenu) return false
+    if (!dynamicProps.enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, dynamic.copyLabel) {
+      item(ContextMenuPopup.Icon.COPY, dynamicProps.copyLabel) {
         val plainText = rows.joinToString("\n") { row -> row.joinToString("\t") { it.plainText } }
         if (plainText.isNotEmpty()) {
           val displayMetrics = context.resources.displayMetrics
@@ -371,7 +371,7 @@ class TableContainerView(
           clipboard.setPrimaryClip(ClipData.newHtmlText("Table", plainText, html))
         }
       }
-      item(ContextMenuPopup.Icon.DOCUMENT, dynamic.copyAsMarkdownLabel) {
+      item(ContextMenuPopup.Icon.DOCUMENT, dynamicProps.copyAsMarkdownLabel) {
         if (tableMarkdown.isNotEmpty()) clipboard.setPrimaryClip(ClipData.newPlainText("Table", tableMarkdown))
       }
     }
