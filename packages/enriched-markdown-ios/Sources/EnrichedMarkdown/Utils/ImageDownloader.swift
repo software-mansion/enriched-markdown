@@ -77,7 +77,7 @@ final class ImageDownloader: ImageDownloading {
             MarkdownImageAttachment.originalImageCache.setObject(
                 image,
                 forKey: requestKey as NSString,
-                cost: Self.byteCost(for: image)
+                cost: image.byteCost
             )
         }
         dispatchCallbacks(for: requestKey, image: image)
@@ -90,10 +90,5 @@ final class ImageDownloader: ImageDownloading {
         DispatchQueue.main.async {
             callbacks.forEach { $0(image) }
         }
-    }
-
-    private static func byteCost(for image: UIImage) -> Int {
-        guard let cgImage = image.cgImage else { return 0 }
-        return cgImage.bytesPerRow * cgImage.height
     }
 }

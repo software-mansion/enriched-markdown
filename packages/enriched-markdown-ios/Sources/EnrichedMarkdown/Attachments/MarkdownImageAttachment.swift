@@ -15,7 +15,15 @@ final class MarkdownImageAttachment: NSTextAttachment {
         return cache
     }()
 
-    private static let processedImageCache = NSCache<NSString, UIImage>()
+    /// Bitmaps already scaled into a box. Entries are whole decoded images, so
+    /// the cache is bounded by bytes rather than by count alone: an inline
+    /// square and a full-width block box differ by two orders of magnitude.
+    private static let processedImageCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 100
+        cache.totalCostLimit = 30 * 1024 * 1024
+        return cache
+    }()
 
     let imageURL: String
     let requestHeaders: [String: String]
@@ -217,7 +225,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
             )
 
             if let processed {
-                Self.processedImageCache.setObject(processed, forKey: key as NSString)
+                Self.processedImageCache.setObject(processed, forKey: key as NSString, cost: processed.byteCost)
             }
 
             DispatchQueue.main.async {
