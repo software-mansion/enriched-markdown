@@ -60,44 +60,6 @@ public struct BaselineShiftStyle: Equatable, Sendable {
     }
 }
 
-public struct ImageStyle: Equatable, Sendable {
-    public var height: CGFloat?
-    public var borderRadius: CGFloat?
-    public var marginTop: CGFloat?
-    public var marginBottom: CGFloat?
-
-    public init(
-        height: CGFloat? = nil,
-        borderRadius: CGFloat? = nil,
-        marginTop: CGFloat? = nil,
-        marginBottom: CGFloat? = nil
-    ) {
-        self.height = height
-        self.borderRadius = borderRadius
-        self.marginTop = marginTop
-        self.marginBottom = marginBottom
-    }
-
-    public mutating func merge(_ other: ImageStyle) {
-        height = other.height ?? height
-        borderRadius = other.borderRadius ?? borderRadius
-        marginTop = other.marginTop ?? marginTop
-        marginBottom = other.marginBottom ?? marginBottom
-    }
-}
-
-public struct InlineImageStyle: Equatable, Sendable {
-    public var size: CGFloat?
-
-    public init(size: CGFloat? = nil) {
-        self.size = size
-    }
-
-    public mutating func merge(_ other: InlineImageStyle) {
-        size = other.size ?? size
-    }
-}
-
 public struct ThematicBreakStyle: Equatable, Sendable {
     public var color: UIColor?
     public var height: CGFloat?

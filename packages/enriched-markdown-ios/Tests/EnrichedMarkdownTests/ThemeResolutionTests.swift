@@ -51,4 +51,42 @@ final class ThemeResolutionTests: XCTestCase {
         XCTAssertNotNil(config.blockquote.borderColor)
         XCTAssertNotNil(config.list.bulletColor)
     }
+
+    func testBlockImageSizingModifiersReachTheConfig() {
+        let config = MarkdownStyleConfig.resolve(
+            layers: [.default, MarkdownTheme {
+                BlockImage()
+                    .maxHeight(300)
+                    .aspectRatio(16 / 9)
+                    .resizeMode(.contain)
+            }],
+            traitCollection: UITraitCollection(userInterfaceStyle: .light)
+        )
+
+        XCTAssertEqual(config.image.maxHeight, 300)
+        XCTAssertEqual(config.image.aspectRatio, 16 / 9)
+        XCTAssertEqual(config.image.resizeMode, .contain)
+    }
+
+    func testDefaultThemeLeavesBlockImageSizingUnset() {
+        let config = MarkdownStyleConfig.baseline()
+
+        XCTAssertEqual(config.image.height, 200)
+        XCTAssertNil(config.image.maxHeight)
+        XCTAssertNil(config.image.aspectRatio)
+        XCTAssertNil(config.image.resizeMode)
+    }
+
+    func testHigherLayerCanClearResponsiveImageSizing() {
+        let config = MarkdownStyleConfig.resolve(
+            layers: [
+                .default,
+                MarkdownTheme { BlockImage().maxHeight(150) },
+                MarkdownTheme { BlockImage().maxHeight(0) }
+            ],
+            traitCollection: .current
+        )
+
+        XCTAssertEqual(config.image.maxHeight, 0)
+    }
 }

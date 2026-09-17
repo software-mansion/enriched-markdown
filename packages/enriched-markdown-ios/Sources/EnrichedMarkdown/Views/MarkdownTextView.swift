@@ -7,7 +7,7 @@ protocol SelectionHandleTouchReporting {
     var isTouchOnSelectionHandle: Bool { get }
 }
 
-final class MarkdownTextView: UITextView, SelectionHandleTouchReporting {
+final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, MarkdownAttachmentLayoutObserver {
     var styleConfig: MarkdownStyleConfig = .baseline() {
         didSet {
             updateDecorationStyleConfig()
@@ -287,11 +287,28 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting {
         renderedText = attributedText
         cachedFit = nil
         self.attributedText = attributedText
+        adoptImageAttachments(in: attributedText)
         invalidateIntrinsicContentSize()
         setDecorationNeedsDisplay()
         accessibilityTreeIsStale = true
         // A text change alone does not schedule a layout pass, which is
         // where spoiler overlays are reconciled.
+        setNeedsLayout()
+    }
+
+    /// Attachments that resize after loading have no other way to reach this view.
+    private func adoptImageAttachments(in attributedText: NSAttributedString) {
+        let full = NSRange(location: 0, length: attributedText.length)
+        let options: NSAttributedString.EnumerationOptions = .longestEffectiveRangeNotRequired
+        attributedText.enumerateAttribute(.attachment, in: full, options: options) { value, _, _ in
+            (value as? MarkdownImageAttachment)?.layoutObserver = self
+        }
+    }
+
+    /// The cached measurement is wrong now, not merely stale.
+    func attachmentDidInvalidateLayout() {
+        cachedFit = nil
+        invalidateIntrinsicContentSize()
         setNeedsLayout()
     }
 

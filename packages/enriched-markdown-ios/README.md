@@ -175,7 +175,7 @@ Element-specific modifiers include:
 - **Spoiler:** `.color` (the particles or the solid box), `.particleDensity` (default `8`), `.particleSpeed` (default `20`), `.solidBorderRadius` (default `4`), `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
 - **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius` / `.borderRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.align`
-- **BlockImage:** `.height`, `.borderRadius`
+- **BlockImage:** `.height`, `.maxHeight`, `.aspectRatio`, `.resizeMode`, `.borderRadius` — see [Image sizing](#image-sizing)
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.color` / `.foregroundStyle`, `.height`
 - **MathBlock:** `.fontSize`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.textAlignment` — the only modifiers; the face is always KaTeX's
@@ -389,6 +389,48 @@ Images load from these sources:
 | Bundle resource name | `![alt](logo.png)` — looked up in `Bundle.main` (loose files and asset catalogs), with a normalized fallback (lowercase, `-` → `_`) |
 
 All decodes are downsampled to the screen's pixel width, so large images never decode at full size. Downloads are cached (memory + disk) and deduplicated in flight.
+
+## Image sizing
+
+Block images fill the width available to them. Three `BlockImage` modifiers decide how tall the box they fill is:
+
+| Modifier | Box height |
+|----------|------------|
+| `.height(_:)` | Fixed. The default, at 200 points. |
+| `.maxHeight(_:)` | The image's own proportions at the current width, capped at this value. |
+| `.aspectRatio(_:)` | The width divided by this ratio, e.g. `16 / 9`. |
+
+Set more than one and `aspectRatio` wins over `maxHeight`, which wins over `height`. Passing `0` clears a modifier, so a theme layered over another can switch its responsive sizing back off.
+
+`.resizeMode(_:)` decides how the image fills that box:
+
+| Mode | Drawing |
+|------|---------|
+| `.contain` | Scaled to fit inside the box, never cropped |
+| `.cover` | Scaled to fill the box, cropping what overflows |
+| `.stretch` | Fills the box exactly, ignoring the image's proportions |
+| `.center` | Centered at its own size, scaled down only when it exceeds the box |
+| `.original` | Centered at its own size, never scaled, cropping what overflows |
+
+Left unset it is `.cover` for a `maxHeight` or `aspectRatio` box. For a plain `height` box the image is instead scaled to the box width and centered vertically.
+
+```swift
+EnrichedMarkdownText(markdown)
+    .markdownTheme(
+        MarkdownTheme {
+            BlockImage()
+                .maxHeight(320)
+                .resizeMode(.contain)
+        }
+    )
+```
+
+Two things worth knowing:
+
+- A `maxHeight` box stands at the full cap until the image loads and only then shrinks to the fitted height, so the page reflows once. An `aspectRatio` box is settled from the start and never moves.
+- `.center` and `.original` draw the decoded image, and decoding is capped at the screen's pixel width, so a very large image is not drawn at its full pixel size.
+
+Inline images ignore all four modifiers. They are always a square of `InlineImage().size`.
 
 ## Accessibility
 
