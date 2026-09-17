@@ -8,6 +8,29 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Fast, dependency-free structural check: src/examples/ must stay 1:1 with
+  # docs/. Runs in parallel with the build so a misfiled example fails the PR in
+  # seconds rather than after a full Docusaurus build (which would not catch it
+  # at all - see docs/scripts/check-examples.mjs).
+  docs-examples-parity:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # Invoked directly rather than through `yarn check-examples` so the job
+      # needs no install at all; the script has no dependencies.
+      - name: Check examples mirror the docs tree
+        run: node scripts/check-examples.mjs
+
   docs-build:
     runs-on: ubuntu-latest
     defaults:

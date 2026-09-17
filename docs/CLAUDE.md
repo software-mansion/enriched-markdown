@@ -15,7 +15,7 @@ Deployed to `https://docs.swmansion.com/react-native-enriched-markdown/` via Git
 ## Content
 
 - Pages live in `docs/`, served at the site root (`routeBasePath: '/'`). The
-  homepage is `docs/fundamentals/getting-started.mdx` (`slug: /getting-started`,
+  homepage is `docs/introduction/getting-started.mdx` (`slug: /getting-started`,
   merges the old intro + installation + getting-started). The bare root `/`
   is a redirect to it (`src/pages/index.tsx`). Do NOT give a real doc `slug: /`:
   t-rex-ui treats the exact root URL as a marketing "landing" page and hides the
@@ -29,29 +29,83 @@ Deployed to `https://docs.swmansion.com/react-native-enriched-markdown/` via Git
   each folder's `_category_.json`; page order within a section from the
   `sidebar_position` frontmatter. Restructure by moving files / editing those,
   not `sidebars.js`.
-- Sections: Fundamentals, Rich text formatting, Guides, API reference
-  (`EnrichedMarkdownText`, `EnrichedMarkdownTextInput`, Style properties,
-  Element structure), Misc (macOS support, RTL, Accessibility, Breaking
-  changes). Web is (becoming) its own package - a separate library the same way
+- Sections, with each folder's `_category_.json` `position` in parentheses:
+
+```
+introduction/         (10)  getting-started.mdx (slug: /getting-started, the
+                            homepage), core-concepts, supported-features
+ios/                  (20)  installation, enriched-markdown-text,
+                            enriched-markdown-text-input, style-properties,
+                            element-structure
+android/              (30)  the same five pages as iOS
+react-native/         (40)  basics/ (10)        installation, your-first-project
+                            api-reference/ (20) enriched-markdown-text,
+                                                enriched-markdown-text-input,
+                                                style-properties, element-structure
+                            guides/ (30)        image-caching, native-assets,
+                                                testing, web-support
+rich-text-formatting/ (50)  code-highlighting, editor-style-text, latex-math,
+                            markdown-flavors, markdown-streaming, mentions
+misc/                 (60)  compatibility.mdx, macos, rtl, accessibility,
+                            copy-options, breaking-changes
+```
+
+  iOS and Android are **standalone native packages** with their own doc trees
+  (native devs install them directly); `react-native/` documents the RN package.
+  The APIs are meant to converge, but the prose is written per tree - there is
+  no global platform selector (an earlier prototype of one was removed).
+  `rich-text-formatting/` and `misc/` are cross-platform and sit at the top
+  level. Web is (becoming) its own package - a separate library the same way
   the native Android package is separate today - not dropped. It ships web
   support for `EnrichedMarkdownText` (react-native-web + md4c-wasm), documented
   in `react-native/guides/web-support.md` (ported from `docs-md/WEB.md`); the
-  editor stays native-only. Most pages are stubs whose content is ported from
-  the flat `docs/*.md` files on the `main` branch (each stub's TODO names its
-  source).
+  editor stays native-only.
 
-## MDX components
+### `src/examples/` mirrors `docs/` 1:1 - keep it that way
 
-Registered in `src/theme/MDXComponents.js`, same conventions as the
-react-native-reanimated docs:
-`PlatformCompatibility`, `CollapsibleCode`, `InteractiveExample`, `Optional`,
-`Required`, `Yes`, `No`, `Version`, `Spacer`, `EnrichedCompatibility` (RN
-support matrix, used on `misc/compatibility.mdx`), `Row`, `Grid`, `Indent`,
-`ExampleVideo`, `ThemedVideo`, `Badges` (t-rex-ui), `InteractiveExample` /
-`LivePreview` (static vs editable example demos), `AndroidBadge` / `IosBadge` /
-`WebBadge` (platform-specific prop flags), `PropInfo` (per-prop Type/Default
-table), plus restyled admonitions, `<details>`, Tabs, diff and highlighted code
-blocks, and Mermaid diagrams.
+Every interactive example lives at the path of the doc page that owns it:
+
+```
+src/examples/<platform>/<doc path without extension>/<ExampleName>.tsx
+```
+
+`<platform>` is the package the example targets - today always `react-native`,
+so `docs/rich-text-formatting/latex-math.md` owns
+`src/examples/react-native/rich-text-formatting/latex-math/*.tsx`. For pages
+already under `docs/react-native/` the prefix is not doubled:
+`docs/react-native/api-reference/enriched-markdown-text.md` owns
+`src/examples/react-native/api-reference/enriched-markdown-text/*.tsx`. The
+`ios/` and `android/` pages have no runnable web examples yet; when they get
+some they take the same shape under `src/examples/ios/...`.
+
+**This mapping is a hard rule, not a loose convention. When documentation moves,
+its examples move with it, in the same commit.** Concretely:
+
+- move or rename a doc page -> `git mv` its whole example folder to the new
+  path and fix every `@site/src/examples/...` import on that page;
+- move a prop to a different page -> move that prop's example file into the
+  destination page's folder;
+- rename a prop -> rename its example file to match (PascalCase of the prop:
+  `allowFontScaling` -> `AllowFontScaling.tsx`);
+- drop a documented prop or section -> delete the orphaned example files;
+- create a new page folder -> add its colocated `theme.ts` re-export (below).
+
+Never leave an example at a stale path just because the import still resolves -
+the path *is* the record of which page owns it, and `yarn build` will not catch
+a misfiled example. Two exceptions are deliberate and should stay that way: the
+API-reference pages reuse
+`react-native/basics/your-first-project/{FirstText,FirstEditor}` as the canonical
+intro snippet, and `src/examples/_shared/markdownTheme.ts` is shared by all.
+
+Verify parity with **`yarn check-examples`** (`scripts/check-examples.mjs`,
+zero dependencies). It fails on: an import with no file, an orphaned example no
+page imports, an example imported by a page other than the one that owns its
+folder, an example folder that maps to no doc page, a missing colocated
+`theme.ts`, and non-PascalCase filenames. `yarn build` catches only the first of
+those, which is why this exists. The same script runs as the
+`docs-examples-parity` job in `.github/workflows/docs-build.yml`, in parallel
+with the build. Genuinely shared example modules go in the script's `SHARED`
+allowlist with a reason - don't loosen the checks.
 
 ### Interactive examples
 
@@ -62,6 +116,8 @@ the `docs/` tree of the page that introduces them (e.g. the "Your first ..."
 page at `docs/react-native/basics/your-first-project.mdx` owns
 `src/examples/react-native/basics/your-first-project/FirstText.tsx` and `.../FirstEditor.tsx`), so
 the folder stays navigable as examples multiply across sections and platforms.
+That mirroring is mandatory and must be maintained when pages or props move -
+see "`src/examples/` mirrors `docs/` 1:1" above.
 A doc page imports that file twice and passes both to the component:
 
 ```mdx
