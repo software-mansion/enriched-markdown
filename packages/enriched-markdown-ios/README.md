@@ -6,13 +6,13 @@
 
 # Enriched Markdown iOS
 
-Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package (`EnrichedMarkdown`).
+Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package with two products: `EnrichedMarkdown`, and the optional `EnrichedMarkdownLaTeX` for math rendering.
 
 ## Installation
 
 Add the package via [Swift Package Manager](https://docs.swift.org/latest/documentation/packagemanagerdocs/). The `Package.swift` lives at the repository root.
 
-**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math)).
+**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and the optional `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math)).
 
 **Package.swift:**
 
@@ -32,6 +32,23 @@ targets: [
   ),
 ]
 ```
+
+`EnrichedMarkdown` is all most apps need. Math rendering ships as a separate,
+optional product: leave it out and nothing links the typesetting engine
+(~3–5 MB of app size), with `$…$` staying plain text. Apps that show formulas
+add `EnrichedMarkdownLaTeX` alongside it:
+
+```swift
+.target(
+  name: "YourApp",
+  dependencies: [
+    .product(name: "EnrichedMarkdown", package: "enriched-markdown-ios"),
+    .product(name: "EnrichedMarkdownLaTeX", package: "enriched-markdown-ios"),
+  ]
+),
+```
+
+Math is then enabled per view with `.markdownLaTeX()` — see [LaTeX math](#latex-math).
 
 For local development, add a path dependency to a local checkout instead:
 
@@ -467,9 +484,8 @@ and dark mode.
 
 ## LaTeX math
 
-Math rendering is an optional product so apps that never show formulas
-don't link the typesetting engine. Add `EnrichedMarkdownLaTeX` next to
-`EnrichedMarkdown` and enable it per view:
+Math rendering lives in the optional `EnrichedMarkdownLaTeX` product (see
+[Installation](#installation)). Import it and enable math per view:
 
 ```swift
 import EnrichedMarkdown
@@ -530,7 +546,7 @@ layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], tr
 - Links and images (block and inline)
 - Autolinked bare URLs, `www.` links, and emails (`permissiveAutolinks`, on by default)
 - Thematic breaks (`---`)
-- LaTeX math (`$…$`, `$$…$$`) with the `EnrichedMarkdownLaTeX` product — see [LaTeX math](#latex-math)
+- LaTeX math (`$…$`, `$$…$$`) with the optional `EnrichedMarkdownLaTeX` product — see [LaTeX math](#latex-math)
 
 ## Development
 
