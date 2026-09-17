@@ -1,0 +1,81 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 4rem;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.125rem 0.5rem;
+  white-space: nowrap;
+  margin: 0 0.25rem;
+  vertical-align: middle;
+}
+
+.badge .icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* Android only - warm green */
+.android {
+  background-color: var(--swm-green-light-40);
+  border: 1px solid var(--swm-green-light-100);
+  color: var(--swm-green-dark-120);
+}
+
+.android .icon {
+  fill: var(--swm-green-dark-120);
+}
+
+[data-theme='dark'] .android {
+  background-color: rgba(63, 198, 132, 0.14);
+  border-color: var(--swm-green-dark-100);
+  color: var(--swm-green-dark-80);
+}
+
+[data-theme='dark'] .android .icon {
+  fill: var(--swm-green-dark-80);
+}
+
+/* iOS only - snow white */
+.ios {
+  background-color: #fbfcfe;
+  border: 1px solid #d5dae2;
+  color: #3a3f4b;
+}
+
+.ios .icon {
+  fill: #3a3f4b;
+}
+
+[data-theme='dark'] .ios {
+  background-color: #f4f6fa;
+  border-color: #f4f6fa;
+  color: #2a2e39;
+}
+
+[data-theme='dark'] .ios .icon {
+  fill: #2a2e39;
+}
+
+/* Web only - sky blue */
+.web {
+  background-color: #e7f4fb;
+  border: 1px solid #8fcfe8;
+  color: #17698c;
+}
+
+.web .icon {
+  fill: #17698c;
+}
+
+[data-theme='dark'] .web {
+  background-color: rgba(56, 172, 221, 0.14);
+  border-color: var(--swm-blue-light-100);
+  color: #7cc8e6;
+}
+
+[data-theme='dark'] .web .icon {
+  fill: #7cc8e6;
+}
