@@ -239,7 +239,7 @@ final class RenderPluginTests: XCTestCase {
             rendered.fulfill()
         }
 
-        store.schedule(markdown: "a $x$ b", config: config, plugins: [mathStubPlugin])
+        store.schedule(MarkdownRenderInputs(markdown: "a $x$ b", config: config), plugins: [mathStubPlugin])
         wait(for: [rendered], timeout: 5)
         subscription.cancel()
 

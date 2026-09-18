@@ -413,6 +413,23 @@ extension View {
 
 Custom HTTP headers sent with every markdown image request, e.g. for authenticated CDNs. The same URL fetched with different headers is cached separately.
 
+### `.markdownWritingDirection`
+
+```swift
+extension View {
+  func markdownWritingDirection(_ direction: MarkdownWritingDirection) -> some View  // default .firstStrong
+}
+```
+
+| Value | Behavior |
+|-------|----------|
+| `.firstStrong` (default) | Each paragraph follows its first strong directional character; paragraphs without one (digits, punctuation) follow the SwiftUI `layoutDirection`. Matches Android and the React Native package. |
+| `.auto` | Leaves direction to TextKit; list markers, checkboxes, and blockquote bars follow the app's interface direction rather than the paragraph's content. |
+| `.leftToRight` | Forces every paragraph left-to-right. |
+| `.rightToLeft` | Forces every paragraph right-to-left. |
+
+Code blocks always render left-to-right. See [Right-to-left text](#right-to-left-text) for what follows a paragraph's direction.
+
 ### `rememberMarkdownTheme`
 
 ```swift
@@ -431,6 +448,8 @@ Re-creates a theme when `colorScheme` or `dynamicTypeSize` changes. Call from `V
 System **Copy** puts two flavors of the selection on the pasteboard: plain text and styled HTML (`public.html`), so pasting into rich-text targets keeps headings, inline styles, lists, blockquotes, code blocks, links, and images. Plain-text targets receive plain text as usual.
 
 The selection menu additionally offers **Copy as Markdown** and **Copy Image URL(s)** — see `.markdownSelectionMenu` above.
+
+The HTML flavor carries one `dir` attribute, read from the first copied paragraph (`rtl`, or `auto` under `.markdownWritingDirection(.auto)`); see [Right-to-left text](#right-to-left-text).
 
 ## Image sources
 
@@ -481,6 +500,20 @@ markdown-based copies. VoiceOver reads one element per row.
 Styling comes from the `Table()` theme element (header colors, row
 striping, borders, cell padding, alignment); the defaults adapt to light
 and dark mode.
+
+## Right-to-left text
+
+Writing direction resolves **per paragraph**: each paragraph takes its base direction from its first strong directional character, so Arabic, Hebrew, or Persian paragraphs right-align inside a left-to-right app and next to English paragraphs in the same document. The block chrome follows the paragraph it belongs to:
+
+| Element | Behavior |
+|---------|----------|
+| Paragraphs & headings | Base direction from the first strong character, or the direction forced by `.markdownWritingDirection` |
+| Lists | Bullet, number, or checkbox drawn on the side matching the item's direction; checkbox taps hit-test on that side |
+| Blockquotes & admonitions | Bar drawn on the side matching each quoted paragraph; an admonition's title follows its body |
+| Tables | Each cell resolves its own direction from its content |
+| Code blocks | Always left-to-right |
+
+Paragraphs with no strong character (digits, punctuation) follow the SwiftUI layout direction, so `.environment(\.layoutDirection, .rightToLeft)` right-aligns neutral content. Copied HTML carries a single `dir` attribute read from the first copied paragraph; receivers apply their own bidi algorithm, so a mixed-direction selection may not reproduce the per-paragraph layout after pasting.
 
 ## LaTeX math
 

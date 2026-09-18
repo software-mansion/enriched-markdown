@@ -285,18 +285,25 @@ final class HTMLGeneratorTests: XCTestCase {
         XCTAssertTrue(result.contains("<br>"))
     }
 
-    func testRTLWrapsDocumentInDirectionalDiv() {
-        let rendered = MarkdownRenderer.render("مرحبا", config: config)
-        let result = MarkdownHTMLGenerator.generateHTML(
-            from: rendered,
-            in: NSRange(location: 0, length: rendered.length),
-            config: config,
-            isRTL: true
-        )
+    func testRTLFirstParagraphWrapsDocumentInDirectionalDiv() {
+        let result = html(for: "مرحبا\n\nHello")
 
         XCTAssertTrue(result.hasPrefix("<html dir=\"rtl\">"))
         XCTAssertTrue(result.contains("direction: rtl"))
         XCTAssertTrue(result.hasSuffix("</div></html>"))
+    }
+
+    func testUnresolvedDirectionMarksDocumentAuto() {
+        let rendered = MarkdownRenderer.render("مرحبا", config: config, writingDirection: .auto)
+        let result = MarkdownHTMLGenerator.generateHTML(
+            from: rendered,
+            in: NSRange(location: 0, length: rendered.length),
+            config: config
+        )
+
+        XCTAssertTrue(result.hasPrefix("<html dir=\"auto\">"))
+        XCTAssertFalse(result.contains("<div"))
+        XCTAssertTrue(result.hasSuffix("</html>"))
     }
 
     func testPartialRangeGeneratesOnlySelection() {
@@ -343,6 +350,26 @@ final class MarkdownTextViewCopyTests: XCTestCase {
         XCTAssertNotNil(item)
         XCTAssertTrue((item?["public.utf8-plain-text"] as? String)?.contains("bold text") == true)
         XCTAssertTrue((item?["public.html"] as? String)?.contains("<strong>bold</strong>") == true)
+    }
+
+    func testCopyMarksHTMLWithTheFirstSelectedParagraphDirection() {
+        let textView = makeTextView(markdown: "مرحبا\n\nHello")
+        textView.selectedRange = NSRange(location: 0, length: textView.attributedText.length)
+
+        textView.copy(nil)
+
+        XCTAssertTrue((pasteboard.items.first?["public.html"] as? String)?.hasPrefix("<html dir=\"rtl\">") == true)
+    }
+
+    func testCopyOfLeftToRightSelectionLeavesHTMLUndirected() {
+        let textView = makeTextView(markdown: "مرحبا\n\nHello")
+        textView.selectedRange = (textView.attributedText.string as NSString).range(of: "Hello")
+
+        textView.copy(nil)
+
+        let html = pasteboard.items.first?["public.html"] as? String
+        XCTAssertTrue(html?.hasPrefix("<html>") == true)
+        XCTAssertFalse(html?.contains("dir=") == true)
     }
 
     func testCopyWithEmptySelectionWritesNoFlavors() {
