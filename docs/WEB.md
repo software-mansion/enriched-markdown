@@ -32,6 +32,7 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 | Prop | Description |
 |---|---|
 | `dir` | Sets the text direction on the root container (`'ltr'`, `'rtl'`, or `'auto'`). CSS logical properties in the renderers automatically flip layout for RTL. |
+| `testID` | Sets `data-testid` on the root container. |
 
 The web implementation also exports `WebMarkdownTextProps` which extends `EnrichedMarkdownTextProps` with the web-only props above.
 
