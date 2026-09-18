@@ -1,4 +1,5 @@
 #import "ENRMImageDownloader.h"
+#import "ENRMAnimatedImage.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLocalImageLoader.h"
 #import <CommonCrypto/CommonDigest.h>
@@ -13,6 +14,12 @@ static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
   if (!cgImage)
     return 0;
   return CGImageGetBytesPerRow(cgImage) * CGImageGetHeight(cgImage);
+}
+
+// An animated entry retains the encoded bytes plus one decoded poster frame.
+static inline NSUInteger ENRMAnimatedImageCost(ENRMAnimatedImage *animated)
+{
+  return animated.data.length + ENRMImageByteCost(animated.firstFrame);
 }
 
 NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> *headers)
@@ -71,25 +78,40 @@ NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> 
          completion:(ENRMImageDownloadCompletion)completion
 {
   if (url.length == 0) {
-    completion(nil);
+    completion(nil, nil);
     return;
   }
 
   BOOL isLocal = ENRMIsLocalImageURL(url);
   NSString *cacheKey = isLocal ? url : ENRMImageCacheKey(url, headers);
 
+  // Separate caches so an eviction never leaves a GIF's poster without its frames.
+  ENRMAnimatedImage *cachedAnimated = [[ENRMImageAttachment animatedImageCache] objectForKey:cacheKey];
+  if (cachedAnimated) {
+    completion(cachedAnimated.firstFrame, cachedAnimated);
+    return;
+  }
+
   RCTUIImage *cached = [[ENRMImageAttachment originalImageCache] objectForKey:cacheKey];
   if (cached) {
-    completion(cached);
+    completion(cached, nil);
     return;
   }
 
   if (isLocal) {
+    ENRMAnimatedImage *localAnimated = ENRMLoadLocalAnimatedImage(url);
+    if (localAnimated) {
+      [[ENRMImageAttachment animatedImageCache] setObject:localAnimated
+                                                   forKey:cacheKey
+                                                     cost:ENRMAnimatedImageCost(localAnimated)];
+      completion(localAnimated.firstFrame, localAnimated);
+      return;
+    }
     RCTUIImage *local = ENRMLoadLocalImage(url);
     if (local) {
       [[ENRMImageAttachment originalImageCache] setObject:local forKey:cacheKey cost:ENRMImageByteCost(local)];
     }
-    completion(local);
+    completion(local, nil);
     return;
   }
 
@@ -104,7 +126,7 @@ NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> 
 
   NSURL *nsURL = [NSURL URLWithString:url];
   if (!nsURL) {
-    [self dispatchCallbacksForKey:cacheKey image:nil];
+    [self dispatchCallbacksForKey:cacheKey image:nil animated:nil];
     return;
   }
 
@@ -115,10 +137,30 @@ NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> 
 
   [[_session dataTaskWithRequest:request
                completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                 NSInteger status = [response isKindOfClass:[NSHTTPURLResponse class]]
+                                        ? ((NSHTTPURLResponse *)response).statusCode
+                                        : 200;
+                 if (!data || error || status < 200 || status >= 300) {
+                   if (status < 200 || status >= 300) {
+                     NSLog(@"[EnrichedMarkdown] Image request failed with HTTP %ld: %@", (long)status, url);
+                   }
+                   [self dispatchCallbacksForKey:cacheKey image:nil animated:nil];
+                   return;
+                 }
+
+                 ENRMAnimatedImage *animated = [ENRMAnimatedImage animatedImageWithData:data];
+                 if (animated) {
+                   [[ENRMImageAttachment animatedImageCache] setObject:animated
+                                                                forKey:cacheKey
+                                                                  cost:ENRMAnimatedImageCost(animated)];
+                   [self dispatchCallbacksForKey:cacheKey image:animated.firstFrame animated:animated];
+                   return;
+                 }
+
 #if !TARGET_OS_OSX
-                 RCTUIImage *image = (data && !error) ? [RCTUIImage imageWithData:data] : nil;
+                 RCTUIImage *image = [RCTUIImage imageWithData:data];
 #else
-        RCTUIImage *image = (data && !error) ? [[RCTUIImage alloc] initWithData:data] : nil;
+        RCTUIImage *image = [[RCTUIImage alloc] initWithData:data];
 #endif
 
                  if (image) {
@@ -127,11 +169,13 @@ NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> 
                                                                   cost:ENRMImageByteCost(image)];
                  }
 
-                 [self dispatchCallbacksForKey:cacheKey image:image];
+                 [self dispatchCallbacksForKey:cacheKey image:image animated:nil];
                }] resume];
 }
 
-- (void)dispatchCallbacksForKey:(NSString *)cacheKey image:(RCTUIImage *_Nullable)image
+- (void)dispatchCallbacksForKey:(NSString *)cacheKey
+                          image:(RCTUIImage *_Nullable)image
+                       animated:(ENRMAnimatedImage *_Nullable)animated
 {
   NSArray<ENRMImageDownloadCompletion> *callbacks;
   @synchronized(_inFlightRequests) {
@@ -144,7 +188,7 @@ NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> 
 
   dispatch_async(dispatch_get_main_queue(), ^{
     for (ENRMImageDownloadCompletion cb in callbacks) {
-      cb(image);
+      cb(image, animated);
     }
   });
 }

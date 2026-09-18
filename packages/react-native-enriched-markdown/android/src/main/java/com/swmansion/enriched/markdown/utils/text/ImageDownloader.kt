@@ -13,6 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import java.io.File
+import java.io.FileInputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -27,7 +28,7 @@ object ImageDownloader {
   private var client: OkHttpClient? = null
   private var maxTargetWidth: Int = 0
 
-  private val inFlight = HashMap<String, MutableList<(Bitmap?) -> Unit>>()
+  private val inFlight = HashMap<String, MutableList<(DecodedImage?) -> Unit>>()
 
   private fun getClient(context: Context): OkHttpClient =
     client ?: synchronized(this) {
@@ -51,11 +52,11 @@ object ImageDownloader {
     context: Context,
     url: String,
     headers: Map<String, String> = emptyMap(),
-    callback: (Bitmap?) -> Unit,
+    callback: (DecodedImage?) -> Unit,
   ) {
     val requestKey = ImageCache.requestKey(url, headers)
 
-    ImageCache.getOriginal(requestKey)?.let {
+    ImageCache.getOriginalImage(requestKey)?.let {
       callback(it)
       return
     }
@@ -81,8 +82,12 @@ object ImageDownloader {
           call: Call,
           response: Response,
         ) {
-          val bitmap =
+          val decoded =
             response.use {
+              if (!it.isSuccessful) {
+                Log.w(TAG, "Image request failed with HTTP ${it.code}: $url")
+                return@use null
+              }
               try {
                 val bytes = it.body?.bytes() ?: return@use null
                 decodeDownsampled(bytes, maxTargetWidth)
@@ -95,8 +100,8 @@ object ImageDownloader {
               }
             }
 
-          bitmap?.let { ImageCache.putOriginal(requestKey, it) }
-          dispatchCallbacks(requestKey, bitmap)
+          decoded?.let { ImageCache.putOriginal(requestKey, it) }
+          dispatchCallbacks(requestKey, decoded)
         }
 
         override fun onFailure(
@@ -110,33 +115,57 @@ object ImageDownloader {
     )
   }
 
+  // BitmapFactory decodes a GIF to its first frame, which serves as the poster.
   private fun decodeDownsampled(
     bytes: ByteArray,
     targetWidth: Int,
-  ): Bitmap? {
+  ): DecodedImage? {
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-    return decodeWithSampleSize(opts, targetWidth) {
-      BitmapFactory.decodeByteArray(bytes, 0, bytes.size, it)
-    }
+    val bitmap =
+      decodeWithSampleSize(opts, targetWidth) {
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, it)
+      } ?: return null
+    return DecodedImage(bitmap, AnimatedImages.animatedBytesOrNull(bytes))
   }
 
   fun decodeBytesDownsampled(
     context: Context,
     bytes: ByteArray,
-  ): Bitmap? = decodeDownsampled(bytes, context.resources.displayMetrics.widthPixels)
+  ): DecodedImage? = decodeDownsampled(bytes, context.resources.displayMetrics.widthPixels)
 
   fun decodeFileDownsampled(
     context: Context,
     path: String,
-  ): Bitmap? {
+  ): DecodedImage? {
+    if (AnimatedImages.isSupported && fileHasGifHeader(path)) {
+      return decodeBytesDownsampled(context, File(path).readBytes())
+    }
     val targetWidth = context.resources.displayMetrics.widthPixels
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(path, opts)
-    return decodeWithSampleSize(opts, targetWidth) {
-      BitmapFactory.decodeFile(path, it)
-    }
+    val bitmap =
+      decodeWithSampleSize(opts, targetWidth) {
+        BitmapFactory.decodeFile(path, it)
+      } ?: return null
+    return DecodedImage(bitmap)
   }
+
+  private fun fileHasGifHeader(path: String): Boolean =
+    try {
+      FileInputStream(path).use { stream ->
+        val header = ByteArray(6)
+        var read = 0
+        while (read < header.size) {
+          val n = stream.read(header, read, header.size - read)
+          if (n < 0) break
+          read += n
+        }
+        read == header.size && AnimatedImages.isGifHeader(header)
+      }
+    } catch (_: IOException) {
+      false
+    }
 
   private inline fun decodeWithSampleSize(
     opts: BitmapFactory.Options,
@@ -159,11 +188,11 @@ object ImageDownloader {
 
   private fun dispatchCallbacks(
     requestKey: String,
-    bitmap: Bitmap?,
+    image: DecodedImage?,
   ) {
     val callbacks = synchronized(inFlight) { inFlight.remove(requestKey) } ?: return
     mainHandler.post {
-      callbacks.forEach { it(bitmap) }
+      callbacks.forEach { it(image) }
     }
   }
 }

@@ -1,4 +1,5 @@
 #import "ENRMLocalImageLoader.h"
+#import "ENRMAnimatedImage.h"
 
 static NSString *_Nullable ENRMBundleRelativePath(NSString *path)
 {
@@ -36,7 +37,8 @@ BOOL ENRMIsLocalImageURL(NSString *url)
   return parsed == nil || parsed.scheme.length == 0;
 }
 
-RCTUIImage *_Nullable ENRMLoadLocalImage(NSString *url)
+static void ENRMResolveLocalImageSource(NSString *url, NSString *_Nullable *filePathOut,
+                                        NSString *_Nullable *imageNameOut)
 {
   NSString *filePath = nil;
   NSString *imageName = nil;
@@ -60,9 +62,42 @@ RCTUIImage *_Nullable ENRMLoadLocalImage(NSString *url)
     }
   }
 
+  *filePathOut = filePath;
+  *imageNameOut = imageName;
+}
+
+RCTUIImage *_Nullable ENRMLoadLocalImage(NSString *url)
+{
+  NSString *filePath = nil;
+  NSString *imageName = nil;
+  ENRMResolveLocalImageSource(url, &filePath, &imageName);
+
   RCTUIImage *image = imageName.length > 0 ? ENRMImageNamed(imageName) : nil;
   if (image == nil && filePath.length > 0) {
     image = ENRMImageAtPath(filePath);
   }
   return image;
+}
+
+ENRMAnimatedImage *_Nullable ENRMLoadLocalAnimatedImage(NSString *url)
+{
+  NSString *filePath = nil;
+  NSString *imageName = nil;
+  ENRMResolveLocalImageSource(url, &filePath, &imageName);
+  if (filePath.length == 0)
+    return nil;
+
+  // Skip the read for other explicit extensions; an extension-less path is tried as .gif.
+  NSString *extension = filePath.pathExtension.lowercaseString;
+  if (extension.length == 0) {
+    filePath = [filePath stringByAppendingPathExtension:@"gif"];
+  } else if (![extension isEqualToString:@"gif"]) {
+    return nil;
+  }
+
+  // Not memory-mapped: the bytes outlive the file in the animated cache.
+  NSData *data = [NSData dataWithContentsOfFile:filePath];
+  if (!data)
+    return nil;
+  return [ENRMAnimatedImage animatedImageWithData:data];
 }

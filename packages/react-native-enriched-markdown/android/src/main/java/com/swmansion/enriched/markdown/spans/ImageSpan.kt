@@ -6,9 +6,11 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.drawable.AnimatedImageDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.text.Spannable
 import android.text.Spanned
 import android.text.style.LeadingMarginSpan
@@ -21,6 +23,8 @@ import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
+import com.swmansion.enriched.markdown.utils.text.AnimatedImages
+import com.swmansion.enriched.markdown.utils.text.DecodedImage
 import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
@@ -69,6 +73,34 @@ class ImageSpan(
   private var sourceDrawable: Drawable? = null
   private var onBoxHeightChanged: (() -> Unit)? = null
 
+  // The drawable is only built once a host view is known, so measurement-only
+  // spans never pay for a decode.
+  private var animatedBytes: ByteArray? = null
+  private var animatedDrawable: AnimatedImageDrawable? = null
+
+  // TextView.invalidateDrawable() ignores drawables it does not own (verifyDrawable).
+  private val animationCallback =
+    object : Drawable.Callback {
+      override fun invalidateDrawable(who: Drawable) {
+        viewRef?.get()?.invalidate()
+      }
+
+      override fun scheduleDrawable(
+        who: Drawable,
+        what: Runnable,
+        `when`: Long,
+      ) {
+        viewRef?.get()?.postDelayed(what, `when` - SystemClock.uptimeMillis())
+      }
+
+      override fun unscheduleDrawable(
+        who: Drawable,
+        what: Runnable,
+      ) {
+        viewRef?.get()?.removeCallbacks(what)
+      }
+    }
+
   private fun intrinsicImageSize(): Pair<Int, Int> {
     sourceDrawable?.let { return it.intrinsicWidth to it.intrinsicHeight }
     val cached = ImageCache.getOriginal(imageUrl) ?: return 0 to 0
@@ -109,21 +141,38 @@ class ImageSpan(
   private fun loadImage() {
     val scheme = Uri.parse(imageUrl).scheme?.lowercase()
     if (scheme == "http" || scheme == "https") {
-      ImageDownloader.download(context, imageUrl, requestHeaders) { bitmap ->
-        if (bitmap != null) {
-          sourceDrawable = bitmap.toDrawable(context.resources)
-          wrapAndAssignDrawable()
-        }
+      ImageDownloader.download(context, imageUrl, requestHeaders) { image ->
+        if (image != null) assignSource(image)
       }
     } else {
-      val cached = ImageCache.getOriginal(imageUrl)
-      val bitmap = cached ?: LocalImageLoader.load(context, imageUrl)
-      if (bitmap != null) {
-        if (cached == null) ImageCache.putOriginal(imageUrl, bitmap)
-        sourceDrawable = bitmap.toDrawable(context.resources)
-        wrapAndAssignDrawable()
-      }
+      val loaded =
+        ImageCache.getOriginalImage(imageUrl)
+          ?: LocalImageLoader.load(context, imageUrl)?.also { ImageCache.putOriginal(imageUrl, it) }
+          ?: return
+      assignSource(loaded)
     }
+  }
+
+  // Inline images stay still (matches iOS).
+  private fun assignSource(image: DecodedImage) {
+    sourceDrawable = image.bitmap.toDrawable(context.resources)
+    animatedBytes = if (isInline) null else image.animatedBytes
+    attachAnimatedDrawableIfPossible()
+    wrapAndAssignDrawable()
+  }
+
+  // The drawable is shared with spans from earlier renders on the same view, so
+  // playback continues across re-renders; only the callback is re-pointed.
+  private fun attachAnimatedDrawableIfPossible() {
+    if (animatedDrawable != null) return
+    val bytes = animatedBytes ?: return
+    val view = viewRef?.get() ?: return
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || !AnimatedImages.animationsEnabled()) return
+    val drawable = AnimatedImages.drawableFor(view, requestKey, bytes) ?: return
+    drawable.callback = animationCallback
+    if (!drawable.isRunning) drawable.start()
+    animatedDrawable = drawable
+    sourceDrawable = drawable
   }
 
   private fun wrapAndAssignDrawable() {
@@ -138,7 +187,14 @@ class ImageSpan(
 
     boxHeight = resolveBoxHeight(targetWidth)
 
-    val cachedBitmap = ImageCache.getProcessed(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode)
+    // Processed bitmaps are flattened, which would freeze a GIF on one frame.
+    val animated = animatedDrawable
+    val cachedBitmap =
+      if (animated == null) {
+        ImageCache.getProcessed(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode)
+      } else {
+        null
+      }
 
     if (cachedBitmap != null) {
       loadedDrawable =
@@ -155,7 +211,7 @@ class ImageSpan(
           isBlockImage = !isInline,
           resizeMode = resizeMode,
           legacySizing = legacySizing,
-          cacheKey = CacheKey(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode),
+          cacheKey = if (animated == null) CacheKey(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode) else null,
         )
     }
     requestReflow()
@@ -203,6 +259,10 @@ class ImageSpan(
   ) {
     this.onBoxHeightChanged = onBoxHeightChanged
     viewRef = WeakReference(view)
+    if (animatedBytes != null && animatedDrawable == null) {
+      attachAnimatedDrawableIfPossible()
+      if (animatedDrawable != null) wrapAndAssignDrawable()
+    }
     if (!isInline) {
       val availableWidth = getAvailableWidth(view)
       if (availableWidth > 0) {
@@ -329,6 +389,7 @@ class ImageSpan(
     private val cacheKey: CacheKey? = null,
   ) : Drawable() {
     private val clipPath: Path?
+    private val imageBounds: android.graphics.Rect
     private var hasCached = false
 
     init {
@@ -363,7 +424,8 @@ class ImageSpan(
 
       val left = (targetWidth - scaledWidth) / 2
       val top = (targetHeight - scaledHeight) / 2
-      imageDrawable.setBounds(left, top, left + scaledWidth, top + scaledHeight)
+      imageBounds = android.graphics.Rect(left, top, left + scaledWidth, top + scaledHeight)
+      imageDrawable.bounds = imageBounds
 
       val clipLeft = maxOf(0, left).toFloat()
       val clipTop = maxOf(0, top).toFloat()
@@ -415,6 +477,9 @@ class ImageSpan(
     }
 
     override fun draw(canvas: Canvas) {
+      // An animated drawable is shared between copies of the same GIF in one
+      // view, each with its own box; re-apply ours (no-op when unchanged).
+      imageDrawable.bounds = imageBounds
       if (clipPath != null) {
         canvas.withSave {
           clipPath(clipPath)

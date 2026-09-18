@@ -1,7 +1,6 @@
 package com.swmansion.enriched.markdown.utils.text
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Base64
 import android.util.Log
@@ -27,7 +26,8 @@ import java.io.InputStream
  * `android_res`/`android_asset` and drawable/raw lookups follow expo-asset's
  * `ResourceAsset.kt`. `content://`, `asset://`, `res://` and `data:` URIs are
  * supported for parity with RN's Fresco pipeline. All decodes are downsampled
- * to screen width like the network path.
+ * to screen width like the network path, and multi-frame GIFs keep their bytes
+ * for animation (see [AnimatedImages]).
  */
 object LocalImageLoader {
   private const val TAG = "LocalImageLoader"
@@ -38,7 +38,7 @@ object LocalImageLoader {
   fun load(
     context: Context,
     source: String,
-  ): Bitmap? =
+  ): DecodedImage? =
     try {
       val uri = Uri.parse(source)
       when (uri.scheme?.lowercase()) {
@@ -88,7 +88,7 @@ object LocalImageLoader {
   private fun loadFileUri(
     context: Context,
     uri: Uri,
-  ): Bitmap? {
+  ): DecodedImage? {
     val path = uri.path ?: return null
     return when {
       path.startsWith(ASSET_PATH_PREFIX) -> {
@@ -112,7 +112,7 @@ object LocalImageLoader {
   private fun decodeAndroidRes(
     context: Context,
     uri: Uri,
-  ): Bitmap? {
+  ): DecodedImage? {
     val segments = uri.pathSegments
     if (segments.size < 3) return null
     val directory = segments[1].substringBefore('-')
@@ -128,7 +128,7 @@ object LocalImageLoader {
   private fun decodeResourceByName(
     context: Context,
     name: String,
-  ): Bitmap? {
+  ): DecodedImage? {
     if (name.isEmpty()) return null
     val normalized = name.lowercase().replace('-', '_')
     val resId =
@@ -145,7 +145,7 @@ object LocalImageLoader {
   private fun decodeDataUri(
     context: Context,
     source: String,
-  ): Bitmap? {
+  ): DecodedImage? {
     val marker = source.indexOf(BASE64_MARKER)
     if (marker == -1) return null
     val bytes = Base64.decode(source.substring(marker + BASE64_MARKER.length), Base64.DEFAULT)
@@ -155,7 +155,7 @@ object LocalImageLoader {
   private inline fun decodeStream(
     context: Context,
     open: () -> InputStream,
-  ): Bitmap? = open().use { ImageDownloader.decodeBytesDownsampled(context, it.readBytes()) }
+  ): DecodedImage? = open().use { ImageDownloader.decodeBytesDownsampled(context, it.readBytes()) }
 
   private fun schemelessPath(uri: Uri): String = (uri.host.orEmpty() + uri.path.orEmpty()).trimStart('/')
 }
