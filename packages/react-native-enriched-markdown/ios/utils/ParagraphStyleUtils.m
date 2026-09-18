@@ -264,47 +264,19 @@ void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBot
   [output addAttribute:NSParagraphStyleAttributeName value:spacerStyle range:NSMakeRange(spacerLocation, 1)];
 }
 
-BOOL ENRMRangeContainsBlockImage(NSAttributedString *output, NSRange range)
-{
-  __block BOOL found = NO;
-  [output enumerateAttribute:NSAttachmentAttributeName
-                     inRange:range
-                     options:0
-                  usingBlock:^(id value, __unused NSRange attrRange, BOOL *stop) {
-                    if ([value isKindOfClass:[ENRMImageAttachment class]] && !((ENRMImageAttachment *)value).isInline) {
-                      found = YES;
-                      *stop = YES;
-                    }
-                  }];
-  return found;
-}
-
+// Floor, not clamp: minimumLineHeight keeps short lines at lineHeight, while maximumLineHeight = 0 lets
+// a line grow to fit a taller run (large inline code, math, images) instead of clipping it. We can
+// diverge from RN's clamp because we measure the real laid-out height, so grown lines are reserved.
 void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight)
 {
   if (lineHeight <= 0) {
     return;
   }
 
-  __block BOOL hasMath = NO;
-
-#if ENRICHED_MARKDOWN_MATH
-  [output enumerateAttribute:NSAttachmentAttributeName
-                     inRange:range
-                     options:0
-                  usingBlock:^(id value, __unused NSRange attrRange, BOOL *stop) {
-                    if ([value isKindOfClass:[ENRMMathInlineAttachment class]]) {
-                      hasMath = YES;
-                      *stop = YES;
-                    }
-                  }];
-#endif
-
-  BOOL hasBlockImage = ENRMRangeContainsBlockImage(output, range);
-
   NSMutableParagraphStyle *style = getOrCreateParagraphStyle(output, range.location);
 
   style.minimumLineHeight = lineHeight;
-  style.maximumLineHeight = (hasMath || hasBlockImage) ? 0 : lineHeight;
+  style.maximumLineHeight = 0;
 
   [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
 }
