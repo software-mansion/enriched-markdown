@@ -11,9 +11,10 @@ The matrix does not look correct, verify it before pushing the docs
 
 Which features are implemented in each **library** - native iOS, native
 Android, and React Native - organized by component and by how the feature is
-enabled. The **Web** column covers React Native for Web (via
-[`react-native-web`](https://necolas.github.io/react-native-web/)) and applies
-only to `EnrichedMarkdownText` - the editor is currently native-only. For the syntax
+enabled. The **Web** column covers the React Native package's web build - a
+plain React renderer that emits semantic HTML, not `react-native-web`
+primitives - and applies only to `EnrichedMarkdownText`; the editor is
+currently native-only. For the syntax
 itself see [Core concepts](/introduction/core-concepts); for per-element detail
 and style properties see each platform's **Element structure** reference. For
 what is missing and what is being worked on, see the [Roadmap](/misc/roadmap).

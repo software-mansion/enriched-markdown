@@ -63,7 +63,8 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
   limitations, roadmap, contributing). Web is (becoming) its own package - a
   separate library the same way the native Android package is separate today -
   not dropped. It ships web
-  support for `EnrichedMarkdownText` (react-native-web + md4c-wasm), documented
+  support for `EnrichedMarkdownText` (a plain React/DOM renderer - no
+  react-native-web primitives - plus md4c-wasm), documented
   in `react-native/guides/web-support.md` (ported from `docs-md/WEB.md`); the
   editor stays native-only.
 
