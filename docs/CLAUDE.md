@@ -37,7 +37,12 @@ introduction/         (10)  getting-started.mdx (slug: /getting-started, the
 ios/                  (20)  installation, enriched-markdown-text,
                             enriched-markdown-text-input, style-properties,
                             element-structure
-android/              (30)  the same five pages as iOS
+android/              (30)  basics/ (10)        installation, your-first-screen
+                            api-reference/ (20) enriched-markdown-text,
+                                                markdown-theme, style-properties,
+                                                element-structure
+                            guides/ (30)        parser-extensions, image-caching,
+                                                custom-fonts, compose-interop
 react-native/         (40)  basics/ (10)        installation, your-first-project
                             api-reference/ (20) enriched-markdown-text,
                                                 enriched-markdown-text-input,
@@ -54,6 +59,14 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
 
   iOS and Android are **standalone native packages** with their own doc trees
   (native devs install them directly); `react-native/` documents the RN package.
+  `android/` follows the same basics/api-reference/guides shape as
+  `react-native/`, but is written for a reader who may know nothing about React
+  Native: it must never explain an Android feature by comparison to the RN
+  package, and has no "not available on Android" tables. It has no editor page -
+  `EnrichedMarkdownTextInput` is RN-only, noted once on `your-first-screen` with
+  a roadmap link - and no testing guide, because the parser is a JNI `.so`
+  (its own tests live in `parser/src/androidTest`) and the package ships no
+  importable test double, so a consumer cannot parse Markdown in a JVM test.
   The APIs are meant to converge, but the prose is written per tree - there is
   no global platform selector (an earlier prototype of one was removed).
   `rich-text-formatting/`, `user-experience/` and `misc/` are cross-platform and

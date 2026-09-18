@@ -92,9 +92,6 @@ const config = {
             '**/_*/**',
             '**/*.test.{js,jsx,ts,tsx}',
             '**/__tests__/**',
-            ...(process.env.SHOW_UNRELEASED_PLATFORMS === '1'
-              ? []
-              : ['ios/**', 'android/**']),
           ],
           editUrl:
             'https://github.com/software-mansion/enriched-markdown/edit/main/docs/',

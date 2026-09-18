@@ -22,3 +22,20 @@ The library also needs these minimum platform versions:
 | macOS | 14.0 |
 
 The React Native package also requires the [New Architecture (Fabric)](https://reactnative.dev/architecture/landing-page).
+
+## Android (standalone SDK)
+
+[`enriched-markdown-android`](/android/basics/installation) is published separately from the React Native package and versioned on its own line, so the table above does not apply to it - there is no React Native version to match against. It needs:
+
+| | |
+| --- | --- |
+| **Min SDK** | `24` (Android 7.0) |
+| **Compile SDK** | `36` or newer |
+| **Java** | 11 |
+| **Kotlin** | 2.x, with the Compose compiler plugin (`org.jetbrains.kotlin.plugin.compose`) |
+| **UI toolkit** | Jetpack Compose, with Material 3 |
+| **AndroidX** | Required (`android.useAndroidX=true`) |
+
+`compileSdk` is a floor rather than a suggestion: the Android Gradle Plugin fails the build when a dependency was compiled against a newer SDK than the consumer.
+
+The artifacts are published to Maven Central under the `com.swmansion.enriched.markdown` group. See [Installation](/android/basics/installation) for the coordinates and what each artifact contains.
