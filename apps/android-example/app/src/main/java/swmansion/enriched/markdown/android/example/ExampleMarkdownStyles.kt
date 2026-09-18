@@ -168,6 +168,18 @@ val CustomMarkdownStyle: MarkdownStyle =
       cellPaddingHorizontal = 12.dp
       cellPaddingVertical = 8.dp
     }
+    spoiler {
+      color = Color(0xFF374151)
+      // TextScreen paints itself white, and the particle overlay has to cover the concealed text
+      // with the surface it sits on. The background comes from a Modifier, which the renderer
+      // cannot infer, so it is named here.
+      backgroundColor = Color.White
+      particles {
+        density = 8f
+        speed = 20f
+      }
+      solid { borderRadius = 4.dp }
+    }
   }
 
 /**
@@ -194,4 +206,6 @@ val PlaygroundMarkdownStyle: MarkdownStyle =
       borderWidth = 3.dp
       gapWidth = 12.dp
     }
+    // The preview Surface is white; see CustomMarkdownStyle for why this cannot be inferred.
+    spoiler { backgroundColor = Color.White }
   }

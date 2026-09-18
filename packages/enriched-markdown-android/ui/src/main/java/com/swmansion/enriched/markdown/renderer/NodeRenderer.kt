@@ -103,6 +103,7 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.BlankLine, BlankLineRenderer(config))
       put(MarkdownASTNode.NodeType.Superscript, SuperscriptRenderer())
       put(MarkdownASTNode.NodeType.Subscript, SubscriptRenderer())
+      put(MarkdownASTNode.NodeType.Spoiler, SpoilerRenderer())
     }
   }
 
