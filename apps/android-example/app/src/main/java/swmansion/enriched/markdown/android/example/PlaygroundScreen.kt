@@ -185,6 +185,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               underline = underlineEnabled,
               superscript = true,
               subscript = true,
+              highlight = true,
               admonitions = true,
             ),
         )

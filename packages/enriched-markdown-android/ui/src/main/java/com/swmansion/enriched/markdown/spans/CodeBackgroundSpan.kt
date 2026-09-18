@@ -5,9 +5,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.text.Spanned
-import android.text.StaticLayout
-import android.text.TextPaint
-import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlin.math.max
@@ -59,9 +56,19 @@ class CodeBackgroundSpan(
 
     // 2. Calculate coordinates
     val finalBottom = adjustBottomForMargin(text, end, bottom)
-    val leadingMargin = leadingMarginAt(text, start)
-    val startX = if (isFirst) getHorizontalOffset(text, start, end, spanStart, p, leadingMargin) + left else left.toFloat() + leadingMargin
-    val endX = if (isLast) getHorizontalOffset(text, start, end, spanEnd, p, leadingMargin) + left else right.toFloat()
+    val leadingMargin = InlineBackgroundGeometry.leadingMarginAt(text, start)
+    val startX =
+      if (isFirst) {
+        InlineBackgroundGeometry.horizontalOffset(text, start, end, spanStart, p, leadingMargin) + left
+      } else {
+        left.toFloat() + leadingMargin
+      }
+    val endX =
+      if (isLast) {
+        InlineBackgroundGeometry.horizontalOffset(text, start, end, spanEnd, p, leadingMargin) + left
+      } else {
+        right.toFloat()
+      }
 
     rect.set(min(startX, endX), top.toFloat(), max(startX, endX), finalBottom.toFloat())
 
@@ -71,29 +78,6 @@ class CodeBackgroundSpan(
     sharedBorderPaint.color = codeStyle.borderColor
 
     drawShapes(canvas, isFirst, isLast)
-  }
-
-  /**
-   * Returns the x position of [index] relative to the line's left edge, including any
-   * leading margin. The measuring StaticLayout is built from a subSequence that keeps
-   * all spans, so LeadingMarginSpans (lists, blockquotes) are already applied to
-   * getPrimaryHorizontal; adding the margin again on top would shift the background
-   * right by the indent. The margin is only added explicitly in the early-return case,
-   * where no layout is built.
-   */
-  private fun getHorizontalOffset(
-    text: CharSequence,
-    lineStart: Int,
-    lineEnd: Int,
-    index: Int,
-    paint: Paint,
-    leadingMargin: Int,
-  ): Float {
-    if (index <= lineStart) return leadingMargin.toFloat()
-    val lineText = text.subSequence(lineStart, lineEnd)
-    val textPaint = paint as? TextPaint ?: TextPaint(paint)
-    val layout = StaticLayout.Builder.obtain(lineText, 0, lineText.length, textPaint, 10000).build()
-    return layout.getPrimaryHorizontal(index - lineStart)
   }
 
   private fun drawShapes(
@@ -173,19 +157,6 @@ class CodeBackgroundSpan(
     else -> {
       floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
     }
-  }
-
-  private fun leadingMarginAt(
-    text: Spanned,
-    lineStart: Int,
-  ): Int {
-    if (lineStart >= text.length) return 0
-    val spans = text.getSpans(lineStart, lineStart + 1, LeadingMarginSpan::class.java)
-    var margin = 0
-    for (span in spans) {
-      margin += span.getLeadingMargin(false)
-    }
-    return margin
   }
 
   private fun adjustBottomForMargin(

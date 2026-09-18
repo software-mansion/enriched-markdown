@@ -15,6 +15,7 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.codeBlock
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.emphasis
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
+import com.swmansion.enriched.markdown.test.TestAstFactory.highlight
 import com.swmansion.enriched.markdown.test.TestAstFactory.image
 import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
@@ -137,6 +138,23 @@ class MarkdownExtractorTest {
           paragraph(
             text("Forests cover "),
             strikethrough(underline(text("31%"))),
+            text(" of land."),
+          ),
+        ),
+        "31%",
+      ),
+    )
+  }
+
+  @Test
+  fun extractsHighlightedText() {
+    assertEquals(
+      "==31%==",
+      extractSelectingText(
+        document(
+          paragraph(
+            text("Forests cover "),
+            highlight(text("31%")),
             text(" of land."),
           ),
         ),

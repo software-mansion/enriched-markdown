@@ -121,6 +121,7 @@ The `markdownStyle` builder supports these blocks:
 | `emphasis` | Italic text |
 | `strikethrough` | Struck-through text |
 | `underline` | Underlined text (requires `Md4cFlags(underline = true)`) |
+| `highlight` | Highlighted text `==text==` (requires `Md4cFlags(highlight = true)`) |
 | `superscript` | Superscript text (`^text^`) |
 | `subscript` | Subscript text (`~text~`) |
 | `code` | Inline code |
@@ -223,6 +224,7 @@ data class Md4cFlags(
   val underline: Boolean = false,    // _text_ and __text__ render underlined instead of italic and bold
   val superscript: Boolean = false,  // ^text^ renders raised above the baseline
   val subscript: Boolean = false,    // ~text~ renders lowered below the baseline
+  val highlight: Boolean = false,    // ==text== renders with a highlight background
   val admonitions: Boolean = false,  // `> [!NOTE]` blockquotes render as GitHub alerts
   // … further md4c extensions
 ) {
@@ -289,7 +291,7 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 
 - Headings (`#`–`######`)
 - Paragraphs, line breaks
-- **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~, ^superscript^, ~subscript~
+- **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~, ^superscript^, ~subscript~, ==highlight==
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists

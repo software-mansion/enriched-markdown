@@ -15,6 +15,7 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.codeBlock
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.emphasis
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
+import com.swmansion.enriched.markdown.test.TestAstFactory.highlight
 import com.swmansion.enriched.markdown.test.TestAstFactory.image
 import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
@@ -78,6 +79,23 @@ class HTMLGeneratorTest {
       )
 
     html.assertContainsHtmlInOrder("<s", "31%", "</s>")
+  }
+
+  @Test
+  fun generatesHighlightedText() {
+    val html =
+      generateHTMLSelectingText(
+        document(
+          paragraph(
+            text("Forests cover "),
+            highlight(text("31%")),
+            text(" of land."),
+          ),
+        ),
+        "31%",
+      )
+
+    html.assertContainsHtmlInOrder("<mark", "31%", "</mark>")
   }
 
   @Test

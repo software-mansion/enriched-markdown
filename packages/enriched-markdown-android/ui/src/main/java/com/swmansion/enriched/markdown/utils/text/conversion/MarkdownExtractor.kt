@@ -13,6 +13,7 @@ import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.CodeSpan
 import com.swmansion.enriched.markdown.spans.EmphasisSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
+import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
@@ -335,6 +336,7 @@ object MarkdownExtractor {
     val hasSuperscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUPERSCRIPT }
     val hasSubscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUBSCRIPT }
     val linkSpans = spannable.getSpans(start, end, LinkSpan::class.java)
+    val hasHighlight = spannable.getSpans(start, end, HighlightSpan::class.java).isNotEmpty()
 
     var result = text
 
@@ -361,6 +363,9 @@ object MarkdownExtractor {
     }
     if (linkSpans.isNotEmpty()) {
       result = "[$result](${linkSpans[0].url})"
+    }
+    if (hasHighlight) {
+      result = "==$result=="
     }
 
     return result

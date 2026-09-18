@@ -20,6 +20,8 @@ class SpanStyleCache(
   val emphasisColor: Int? = style.emphasisStyle.color
   val strikethroughColor: Int? = style.strikethroughStyle.color
   val underlineColor: Int? = style.underlineStyle.color
+  val highlightColor: Int? = style.highlightStyle.color
+  val highlightBackgroundColor: Int = style.highlightStyle.backgroundColor
   val linkFontFamily: String = style.linkStyle.fontFamily
   val linkColor: Int = style.linkStyle.color
   val linkUnderline: Boolean = style.linkStyle.underline
@@ -45,6 +47,9 @@ class SpanStyleCache(
         ?.takeIf { it != 0 }
         ?.let { add(it) }
       style.underlineStyle.color
+        ?.takeIf { it != 0 }
+        ?.let { add(it) }
+      style.highlightStyle.color
         ?.takeIf { it != 0 }
         ?.let { add(it) }
       style.linkStyle.color

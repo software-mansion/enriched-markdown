@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
+import com.swmansion.enriched.markdown.styles.HighlightStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TaskListStyle
@@ -38,6 +39,9 @@ object MarkdownRenderTestSupport {
       underlineStyle = UnderlineStyle(color = underlineColor),
     )
 
+  /** [defaultStyle] with only its [HighlightStyle] replaced. */
+  fun styleWithHighlight(highlightStyle: HighlightStyle): StyleConfig = copyOfDefault(highlightStyle = highlightStyle)
+
   /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
   fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
 
@@ -50,6 +54,7 @@ object MarkdownRenderTestSupport {
   private fun copyOfDefault(
     strikethroughStyle: StrikethroughStyle? = null,
     underlineStyle: UnderlineStyle? = null,
+    highlightStyle: HighlightStyle? = null,
     taskListStyle: TaskListStyle? = null,
     blockquoteStyle: BlockquoteStyle? = null,
   ): StyleConfig {
@@ -63,6 +68,7 @@ object MarkdownRenderTestSupport {
       emphasisStyle = base.emphasisStyle,
       strikethroughStyle = strikethroughStyle ?: base.strikethroughStyle,
       underlineStyle = underlineStyle ?: base.underlineStyle,
+      highlightStyle = highlightStyle ?: base.highlightStyle,
       superscriptStyle = base.superscriptStyle,
       subscriptStyle = base.subscriptStyle,
       codeStyle = base.codeStyle,
