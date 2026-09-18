@@ -209,6 +209,16 @@ export interface EnrichedMarkdownTextInputProps extends Omit<
   editable?: boolean;
   autoFocus?: boolean;
   scrollEnabled?: boolean;
+  /**
+   * Converts markdown block prefixes typed at the start of a paragraph into
+   * blocks, the way Notion, Bear and Obsidian do: `#`–`######` + space becomes
+   * a heading, `-`/`*`/`+` + space a bullet item, `1.` (or `1)`) + space a
+   * numbered item. The prefix and its space are removed from the text.
+   * Off by default so apps that treat `#` or `-` as literal text (tags, dashes)
+   * see no change.
+   * @default false
+   */
+  markdownShortcuts?: boolean;
   autoCapitalize?: string;
   multiline?: boolean;
   cursorColor?: ColorValue;
@@ -289,6 +299,7 @@ export const EnrichedMarkdownTextInput = ({
   editable = true,
   autoFocus = false,
   scrollEnabled = true,
+  markdownShortcuts = false,
   autoCapitalize = 'sentences',
   multiline = true,
   cursorColor,
@@ -647,6 +658,7 @@ export const EnrichedMarkdownTextInput = ({
       editable={editable}
       autoFocus={autoFocus}
       scrollEnabled={scrollEnabled}
+      markdownShortcuts={markdownShortcuts}
       autoCapitalize={autoCapitalize}
       multiline={multiline}
       cursorColor={cursorColor}
