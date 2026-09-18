@@ -22,6 +22,8 @@ const enrichedMarkdownWebEntry = path.resolve(
 const lightCodeTheme = require('./src/theme/CodeBlock/highlighting-light.js');
 const darkCodeTheme = require('./src/theme/CodeBlock/highlighting-dark.js');
 
+const baseUrl = '/enriched-markdown/';
+
 const firstBannerZone = TOP_BAR_BANNER.zones[0];
 const bannerReservationHeadTags = firstBannerZone
   ? [
@@ -44,7 +46,7 @@ const config = {
 
   url: 'https://docs.swmansion.com',
 
-  baseUrl: '/enriched-markdown/',
+  baseUrl,
 
   organizationName: 'software-mansion',
   projectName: 'enriched-markdown',
@@ -105,7 +107,23 @@ const config = {
     ],
   ],
 
-  headTags: bannerReservationHeadTags,
+  headTags: [
+    // Docusaurus renders the `favicon` link through Helmet (client-side only),
+    // so the dev server's HTML ships without it and the browser falls back to
+    // requesting `/favicon.ico` at the origin root - which the dev server
+    // answers with the SPA HTML. Emitting the tag here puts it in the initial
+    // markup in dev and prod alike. `headTags` hrefs are not baseUrl-prefixed
+    // automatically, hence the explicit prefix.
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'icon',
+        type: 'image/png',
+        href: `${baseUrl}img/favicon.png`,
+      },
+    },
+    ...bannerReservationHeadTags,
+  ],
 
   clientModules: [
     require.resolve('./src/clientModules/topbarBannerRefresh.ts'),
