@@ -27,6 +27,7 @@ import com.swmansion.enriched.markdown.input.events.OnInputBlurEvent
 import com.swmansion.enriched.markdown.input.events.OnInputFocusEvent
 import com.swmansion.enriched.markdown.input.events.OnInputKeyPressEvent
 import com.swmansion.enriched.markdown.input.events.OnLinkDetectedEvent
+import com.swmansion.enriched.markdown.input.events.OnLinkPressEvent
 import com.swmansion.enriched.markdown.input.events.OnRequestCaretRectResultEvent
 import com.swmansion.enriched.markdown.input.events.OnRequestMarkdownResultEvent
 import com.swmansion.enriched.markdown.input.events.OnStartMentionEvent
@@ -100,6 +101,7 @@ class EnrichedMarkdownTextInputManager :
       OnInputBlurEvent.EVENT_NAME,
       OnContextMenuItemPressEvent.EVENT_NAME,
       OnLinkDetectedEvent.EVENT_NAME,
+      OnLinkPressEvent.EVENT_NAME,
       OnStartMentionEvent.EVENT_NAME,
       OnChangeMentionEvent.EVENT_NAME,
       OnEndMentionEvent.EVENT_NAME,
@@ -254,6 +256,14 @@ class EnrichedMarkdownTextInputManager :
     value: Boolean,
   ) {
     view?.emitMarkdown = value
+  }
+
+  @ReactProp(name = "isOnLinkPressSet", defaultBoolean = false)
+  override fun setIsOnLinkPressSet(
+    view: EnrichedMarkdownTextInputView?,
+    value: Boolean,
+  ) {
+    view?.isOnLinkPressSet = value
   }
 
   @ReactProp(name = "contextMenuItems")

@@ -23,6 +23,7 @@
 #import "ENRMMentionCoordinator.h"
 #import "ENRMStyleHandler.h"
 #import "ENRMStyleMergingConfig.h"
+#import "ENRMTextHitTest.h"
 #import "ENRMUIKit.h"
 #import "EnrichedMarkdownTextInput+Internal.h"
 #import "InputStylePropsUtils.h"
@@ -110,6 +111,13 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMMentionCoordinator *_mentionCoordinator;
   ENRMLinkCoordinator *_linkCoordinator;
   ENRMClipboardCoordinator *_clipboardCoordinator;
+
+  BOOL _isOnLinkPressSet;
+#if !TARGET_OS_OSX
+  CGPoint _touchDownPoint;
+  CFTimeInterval _touchDownTime;
+  BOOL _isLinkTapCandidate;
+#endif
 
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
@@ -425,6 +433,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 
   _inputEventEmitter.emitMarkdown = newViewProps.isOnChangeMarkdownSet;
+  _isOnLinkPressSet = newViewProps.isOnLinkPressSet;
 
   {
     auto configFromProp = [](const auto &prop) {
@@ -1595,6 +1604,80 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   return _typingController;
 }
 
+#pragma mark - Link press (unfocused input)
+
+- (nullable NSString *)linkURLForTapAtPoint:(CGPoint)point
+{
+  NSUInteger index = ENRMCharacterIndexAtPointStrict(_textView, point);
+  if (index == NSNotFound) {
+    return nil;
+  }
+  for (ENRMFormattingRange *range in [self allRangesIncludingTransient]) {
+    if (range.type == ENRMInputStyleTypeLink && NSLocationInRange(index, range.range) && range.url.length > 0) {
+      return range.url;
+    }
+  }
+  return nil;
+}
+
+- (void)emitOnLinkPress:(NSString *)url
+{
+  auto emitter = [self fabricEventEmitter];
+  if (emitter == nullptr) {
+    return;
+  }
+  emitter->onLinkPress({.url = std::string([url UTF8String] ?: "")});
+}
+
+#if !TARGET_OS_OSX
+
+- (void)trackTouchDownAtPoint:(CGPoint)point
+{
+  _touchDownPoint = point;
+  _touchDownTime = CACurrentMediaTime();
+  _isLinkTapCandidate = _isOnLinkPressSet && ![_textView isFirstResponder];
+}
+
+// UITextView's internal tap recognizers cannot be reliably beaten with gesture
+// failure requirements, so the unfocused link press is resolved at the one choke
+// point every focusing tap must pass: vetoing beginEditing is what keeps the
+// keyboard closed and the caret unmoved.
+- (BOOL)handleLinkPressInsteadOfBeginEditing
+{
+  if (!_isLinkTapCandidate) {
+    return NO;
+  }
+  _isLinkTapCandidate = NO;
+  // Past the long-press timeout this is a text-selection gesture, not a tap.
+  if (CACurrentMediaTime() - _touchDownTime >= 0.5) {
+    return NO;
+  }
+  NSString *url = [self linkURLForTapAtPoint:_touchDownPoint];
+  if (url == nil) {
+    return NO;
+  }
+  [self emitOnLinkPress:url];
+  return YES;
+}
+
+#else
+
+- (BOOL)handleLinkPressForMouseDownEvent:(NSEvent *)event
+{
+  if (!_isOnLinkPressSet) {
+    return NO;
+  }
+  CGPoint point = [_textView convertPoint:event.locationInWindow fromView:nil];
+  NSString *url = [self linkURLForTapAtPoint:point];
+  if (url == nil) {
+    return NO;
+  }
+  [self emitOnLinkPress:url];
+  return YES;
+}
+
+#endif
+
 #pragma mark - Text edit tracking
 
 - (void)handleTextChanged
@@ -1770,6 +1853,11 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   [_editSession exitPhase];
   [_editSession recordTextChange];
   _lastSelectedRange = textView.selectedRange;
+}
+
+- (BOOL)textViewShouldBeginEditing:(UITextView *)textView
+{
+  return ![self handleLinkPressInsteadOfBeginEditing];
 }
 
 - (void)textViewDidBeginEditing:(UITextView *)textView
