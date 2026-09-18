@@ -9,6 +9,7 @@ pluginManagement {
     id "org.jetbrains.kotlin.plugin.compose" version "2.4.0"
     id "com.gradleup.nmcp" version "1.4.4"
     id "com.gradleup.nmcp.aggregation" version "1.4.4"
+    id "androidx.benchmark" version "1.5.0"
   }
 }
 
@@ -25,3 +26,6 @@ rootProject.name = "enriched-markdown-android"
 include ":parser"
 include ":ui"
 include ":compose"
+// Measurement only, never published: the root subprojects block applies the publish
+// script to parser/ui/compose alone, and this module is absent from nmcpAggregation.
+include ":display-benchmark"
