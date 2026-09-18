@@ -34,6 +34,7 @@
   ENRMInputFormatterStyle *copy = [[ENRMInputFormatterStyle allocWithZone:zone] init];
   copy.baseFont = _baseFont;
   copy.baseTextColor = _baseTextColor;
+  copy.baseLineHeight = _baseLineHeight;
   copy.boldColor = _boldColor;
   copy.italicColor = _italicColor;
   copy.linkColor = _linkColor;
@@ -49,6 +50,13 @@
     [copy setHeadingColor:_headingColors[level] forLevel:level];
   }
   return copy;
+}
+
+- (void)applyLineHeightToParagraphStyle:(NSMutableParagraphStyle *)paragraphStyle allowClamp:(BOOL)allowClamp
+{
+  CGFloat lineHeight = _baseLineHeight > 0 ? _baseLineHeight : 0;
+  paragraphStyle.minimumLineHeight = lineHeight;
+  paragraphStyle.maximumLineHeight = (lineHeight > 0 && allowClamp) ? lineHeight : 0;
 }
 
 - (BOOL)isValidHeadingLevel:(NSInteger)level

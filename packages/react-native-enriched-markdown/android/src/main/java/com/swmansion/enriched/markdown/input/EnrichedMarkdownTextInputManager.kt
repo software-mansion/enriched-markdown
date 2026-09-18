@@ -227,9 +227,7 @@ class EnrichedMarkdownTextInputManager :
     view: EnrichedMarkdownTextInputView?,
     value: Float,
   ) {
-    if (value > 0 && view != null) {
-      view.setLineSpacing(value - view.textSize, 1f)
-    }
+    view?.setLineHeightFromProps(value)
   }
 
   @ReactProp(name = "fontFamily")
