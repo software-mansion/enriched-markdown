@@ -30,6 +30,8 @@ class StyleConfigTest {
         taskListStyle = sampleTaskList(),
         codeBlockStyle = sampleCodeBlock(),
         thematicBreakStyle = sampleThematicBreak(),
+        mathStyle = sampleMath(),
+        inlineMathStyle = InlineMathStyle(color = 0xFF1F2937.toInt()),
       )
 
     val second =
@@ -50,6 +52,8 @@ class StyleConfigTest {
         taskListStyle = sampleTaskList(),
         codeBlockStyle = sampleCodeBlock(),
         thematicBreakStyle = sampleThematicBreak(),
+        mathStyle = sampleMath(),
+        inlineMathStyle = InlineMathStyle(color = 0xFF1F2937.toInt()),
       )
 
     assertEquals(first, second)
@@ -85,9 +89,39 @@ class StyleConfigTest {
         taskListStyle = sampleTaskList(),
         codeBlockStyle = sampleCodeBlock(),
         thematicBreakStyle = sampleThematicBreak(),
+        mathStyle = sampleMath(),
+        inlineMathStyle = InlineMathStyle(color = 0xFF1F2937.toInt()),
       )
 
     assertFalse(first == second)
+  }
+
+  @Test
+  fun differentMathStylesAreNotEqual() {
+    val base = sampleConfig()
+    val withLeftAlignedMath =
+      StyleConfig(
+        paragraphStyleDefault = sampleParagraph(),
+        headingStyles = arrayOf(null, sampleHeading()),
+        headingTypefaces = arrayOf(null, null),
+        linkStyle = sampleLink(),
+        strongStyle = StrongStyle(fontFamily = "", fontWeight = "bold", color = null),
+        emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
+        superscriptStyle = sampleSuperscript(),
+        subscriptStyle = sampleSubscript(),
+        codeStyle = sampleCode(),
+        imageStyle = sampleImage(),
+        inlineImageStyle = InlineImageStyle(size = 20f),
+        blockquoteStyle = sampleBlockquote(),
+        listStyle = sampleList(),
+        taskListStyle = sampleTaskList(),
+        codeBlockStyle = sampleCodeBlock(),
+        thematicBreakStyle = sampleThematicBreak(),
+        mathStyle = sampleMath().copy(textAlign = TextAlignment.LEFT),
+        inlineMathStyle = InlineMathStyle(color = 0xFF1F2937.toInt()),
+      )
+
+    assertFalse(base == withLeftAlignedMath)
   }
 
   private fun sampleConfig(): StyleConfig =
@@ -108,6 +142,8 @@ class StyleConfigTest {
       taskListStyle = sampleTaskList(),
       codeBlockStyle = sampleCodeBlock(),
       thematicBreakStyle = sampleThematicBreak(),
+      mathStyle = sampleMath(),
+      inlineMathStyle = InlineMathStyle(color = 0xFF1F2937.toInt()),
     )
 
   private fun sampleParagraph(color: Int = 0xFF112233.toInt()) =
@@ -230,5 +266,16 @@ class StyleConfigTest {
       height = 1f,
       marginTop = 24f,
       marginBottom = 24f,
+    )
+
+  private fun sampleMath() =
+    MathStyle(
+      fontSize = 20f,
+      color = 0xFF1F2937.toInt(),
+      backgroundColor = 0xFFF3F4F6.toInt(),
+      padding = 12f,
+      marginTop = 0f,
+      marginBottom = 16f,
+      textAlign = TextAlignment.CENTER,
     )
 }

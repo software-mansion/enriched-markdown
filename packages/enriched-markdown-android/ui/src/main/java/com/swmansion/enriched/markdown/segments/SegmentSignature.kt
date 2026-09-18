@@ -8,6 +8,7 @@ object SegmentSignature {
   private const val FNV_PRIME = 1099511628211L
 
   internal const val TEXT_KIND_SALT = 0x7465787400000000L // "text"
+  internal const val MATH_KIND_SALT = 0x6D61746800000000L // "math"
 
   private fun fnvMixByte(
     hash: Long,

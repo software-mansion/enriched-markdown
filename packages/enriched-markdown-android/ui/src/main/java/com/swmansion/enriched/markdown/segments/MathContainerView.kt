@@ -12,35 +12,33 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.PopupMenu
 import androidx.core.view.ViewCompat
-import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
-import com.swmansion.enriched.markdown.spans.MathMeasureHelper
-import com.swmansion.enriched.markdown.spans.MathMeasureRequest
-import com.swmansion.enriched.markdown.spans.MathRenderMode
 import com.swmansion.enriched.markdown.styles.MathStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
-import com.swmansion.enriched.markdown.views.ContextMenuPopup
+import com.swmansion.enriched.markdown.styles.TextAlignment
+import com.swmansion.enriched.markdown.utils.text.view.DEFAULT_COPY_AS_MARKDOWN_LABEL
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import io.ratex.RaTeXEngine
 import io.ratex.RaTeXFontLoader
 import io.ratex.RaTeXRenderer
 import kotlin.math.ceil
 
+/** Block segment for display math (`$$...$$`): the equation, horizontally scrollable when wider than the view. */
 class MathContainerView(
   context: Context,
   styleConfig: StyleConfig,
 ) : FrameLayout(context),
   BlockSegmentView {
-  private val mathStyle: MathStyle = styleConfig.mathStyle
+  internal val mathStyle: MathStyle = styleConfig.mathStyle
   private val scrollView = HorizontalScrollView(context)
-  private var cachedLatex: String = ""
+  private val mathView = RaTeXCanvasView(context)
 
-  var accessibilityLabels: AccessibilityLabels = AccessibilityLabels()
-    set(value) {
-      field = value
-      updateAccessibilityLabel()
-    }
-  var dynamicProps: DynamicBlockProps = DynamicBlockProps()
+  internal var latex: String = ""
+    private set
+
+  var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
   var onLatexError: LatexErrorReporter? = null
 
   override val segmentMarginTop: Int get() = mathStyle.marginTop.toInt()
@@ -48,12 +46,10 @@ class MathContainerView(
 
   private val mathGravity =
     when (mathStyle.textAlign) {
-      "left" -> Gravity.START
-      "right" -> Gravity.END
-      else -> Gravity.CENTER_HORIZONTAL
+      TextAlignment.LEFT, TextAlignment.AUTO, TextAlignment.JUSTIFY -> Gravity.START
+      TextAlignment.RIGHT -> Gravity.END
+      TextAlignment.CENTER -> Gravity.CENTER_HORIZONTAL
     }
-
-  private val mathView = RaTeXCanvasView(context)
 
   init {
     setBackgroundColor(mathStyle.backgroundColor)
@@ -62,16 +58,16 @@ class MathContainerView(
 
     RaTeXFontLoader.ensureLoaded(context)
 
-    val mathLayoutParams =
-      FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-        gravity = mathGravity
-      }
-
     val mathWrapper =
       FrameLayout(context).apply {
         setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
       }
-    mathWrapper.addView(mathView, mathLayoutParams)
+    mathWrapper.addView(
+      mathView,
+      LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+        gravity = mathGravity
+      },
+    )
 
     scrollView.apply {
       isHorizontalScrollBarEnabled = true
@@ -93,7 +89,7 @@ class MathContainerView(
   }
 
   fun applyLatex(latex: String) {
-    cachedLatex = latex
+    this.latex = latex
     try {
       val displayList = RaTeXEngine.parseBlocking(latex, displayMode = true, color = mathStyle.color)
       mathView.renderer = RaTeXRenderer(displayList, mathStyle.fontSize) { RaTeXFontLoader.getTypeface(it) }
@@ -112,20 +108,39 @@ class MathContainerView(
   }
 
   private fun updateAccessibilityLabel() {
-    contentDescription = accessibilityLabels.mathEquation.replace("{latex}", cachedLatex)
+    contentDescription = "Math: $latex"
   }
 
   private fun showContextMenu(anchor: View): Boolean {
-    if (!dynamicProps.enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, dynamicProps.copyLabel) {
-        clipboard.setPrimaryClip(ClipData.newPlainText("Math", cachedLatex))
+    val popup = PopupMenu(context, anchor)
+
+    val copyItem = popup.menu.add(context.getString(android.R.string.copy))
+    val copyAsMarkdownItem =
+      if (selectionMenuConfig.copyAsMarkdown) {
+        popup.menu.add(selectionMenuConfig.copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL })
+      } else {
+        null
       }
-      item(ContextMenuPopup.Icon.DOCUMENT, dynamicProps.copyAsMarkdownLabel) {
-        clipboard.setPrimaryClip(ClipData.newPlainText("Math", "$$\n$cachedLatex\n$$"))
+
+    popup.setOnMenuItemClickListener { item ->
+      when (item) {
+        copyItem -> {
+          clipboard.setPrimaryClip(ClipData.newPlainText("Math", latex))
+          true
+        }
+
+        copyAsMarkdownItem -> {
+          clipboard.setPrimaryClip(ClipData.newPlainText("Math", "$$\n$latex\n$$"))
+          true
+        }
+
+        else -> {
+          false
+        }
       }
     }
+    popup.show()
     return true
   }
 
@@ -180,22 +195,7 @@ class MathContainerView(
     }
   }
 
-  companion object {
-    fun measureMathHeight(
-      latex: String,
-      mathStyle: MathStyle,
-      context: Context,
-    ): Float {
-      val request =
-        MathMeasureRequest(
-          fontSize = mathStyle.fontSize,
-          latex = latex,
-          mode = MathRenderMode.Display,
-        )
-      val metrics = MathMeasureHelper.measure(context, listOf(request)).first()
-      return ceil(metrics.ascent + metrics.descent).toInt() + (mathStyle.padding * 2)
-    }
-
-    private const val TAG = "MathContainerView"
+  private companion object {
+    const val TAG = "MathContainerView"
   }
 }
