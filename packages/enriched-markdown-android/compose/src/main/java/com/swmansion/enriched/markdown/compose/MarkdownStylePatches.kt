@@ -599,6 +599,8 @@ internal data class BlockquoteStylePatch(
   val borderWidth: Dp? = null,
   val gapWidth: Dp? = null,
   val backgroundColor: Color? = null,
+  val borderRadius: Dp? = null,
+  val padding: Dp? = null,
   val admonitions: Map<String, AdmonitionColorsPatch> = emptyMap(),
 ) {
   fun apply(
@@ -618,6 +620,8 @@ internal data class BlockquoteStylePatch(
       borderWidth = borderWidth?.let(units::dp) ?: base.borderWidth,
       gapWidth = gapWidth?.let(units::dp) ?: base.gapWidth,
       backgroundColor = backgroundColor?.let(units::color) ?: base.backgroundColor,
+      borderRadius = borderRadius?.let(units::dp) ?: base.borderRadius,
+      padding = padding?.let(units::dp) ?: base.padding,
       admonitions = applyAdmonitions(base, units),
     )
 
@@ -723,6 +727,8 @@ class BlockquoteStyleScope {
   var borderWidth: Dp? = null
   var gapWidth: Dp? = null
   var backgroundColor: Color? = null
+  var borderRadius: Dp? = null
+  var padding: Dp? = null
 
   private var admonitions: Map<String, AdmonitionColorsPatch> = emptyMap()
 
@@ -744,6 +750,8 @@ class BlockquoteStyleScope {
       borderWidth = borderWidth,
       gapWidth = gapWidth,
       backgroundColor = backgroundColor,
+      borderRadius = borderRadius,
+      padding = padding,
       admonitions = admonitions,
     )
 
@@ -766,6 +774,8 @@ class BlockquoteStyleScope {
             borderWidth = existing.borderWidth
             gapWidth = existing.gapWidth
             backgroundColor = existing.backgroundColor
+            borderRadius = existing.borderRadius
+            padding = existing.padding
             admonitions = existing.admonitions
           }
         }
