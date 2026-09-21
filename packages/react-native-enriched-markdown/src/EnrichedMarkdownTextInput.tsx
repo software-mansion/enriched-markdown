@@ -39,8 +39,8 @@ import type {
   TextStyle,
   ColorValue,
 } from 'react-native';
-import { normalizeMarkdownTextInputStyle } from './normalizeMarkdownTextInputStyle';
 import { normalizeMarkdownShortcuts } from './normalizeMarkdownShortcuts';
+import { normalizeMarkdownTextInputStyle } from './normalizeMarkdownTextInputStyle';
 import { normalizeMenuItem } from './normalizeMenuItem';
 import { toNativeRegexConfig } from './utils/regexParser';
 import { TextInputState } from './utils/textInputState';
