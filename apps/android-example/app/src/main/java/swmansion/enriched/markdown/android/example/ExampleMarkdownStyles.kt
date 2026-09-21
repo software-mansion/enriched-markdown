@@ -81,6 +81,13 @@ val CustomMarkdownStyle: MarkdownStyle =
       backgroundColor = Color(0xFFF9FAFB)
       gapWidth = 16.dp
       marginBottom = 16.dp
+      admonitions {
+        note { backgroundColor = Color(0xFFDDF4FF) }
+        tip { backgroundColor = Color(0xFFDAFBE1) }
+        important { backgroundColor = Color(0xFFFBEFFF) }
+        warning { backgroundColor = Color(0xFFFFF8C5) }
+        caution { backgroundColor = Color(0xFFFFEBE9) }
+      }
     }
     list {
       fontFamily = MontserratRegular
@@ -144,6 +151,22 @@ val CustomMarkdownStyle: MarkdownStyle =
       height = 1.dp
       marginTop = 24.dp
       marginBottom = 24.dp
+    }
+    table {
+      fontFamily = MontserratRegular
+      fontSize = 14.sp
+      color = Color(0xFF1F2937)
+      lineHeight = 22.sp
+      marginBottom = 16.dp
+      headerFontFamily = MontserratBold
+      headerBackgroundColor = Color(0xFFF3F4F6)
+      headerTextColor = Color(0xFF111827)
+      rowEvenBackgroundColor = Color(0xFFFFFFFF)
+      rowOddBackgroundColor = Color(0xFFF9FAFB)
+      borderColor = Color(0xFFE5E7EB)
+      cornerRadius = 8.dp
+      cellPaddingHorizontal = 12.dp
+      cellPaddingVertical = 8.dp
     }
   }
 

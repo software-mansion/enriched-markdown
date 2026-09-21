@@ -1,4 +1,5 @@
 #pragma once
+#import "ENRMDynamicBlockProps.h"
 #import "ENRMUIKit.h"
 #import "ParagraphStyleUtils.h"
 #import "StyleConfig.h"
@@ -41,17 +42,16 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 @property (nonatomic, copy, nullable) TableLinkPressBlock onLinkLongPress;
 
 @property (nonatomic, assign) BOOL enableLinkPreview;
-@property (nonatomic, assign) BOOL enableBlockContextMenu;
 
 @property (nonatomic, assign) ENRMWritingDirectionMode writingDirectionMode;
 @property (nonatomic, assign) NSWritingDirection resolvedLayoutDirection;
 
 @property (nonatomic, strong, nullable) ENRMAccessibilityLabels *accessibilityLabels;
 
-// Renamed getters avoid the Cocoa `copy` method family (which signals +1
-// retained returns). Property names are unchanged so call sites stay the same.
-@property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
-@property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
+// Shared, runtime-mutable block props (context-menu gate + copy labels) read live
+// at menu-open. Set to the root's shared instance at creation. See
+// ENRMDynamicBlockProps.
+@property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
 
 @property (nonatomic, readonly) NSUInteger rowCount;
 

@@ -5,13 +5,17 @@ import android.text.SpannableString
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TaskListStyle
 import com.swmansion.enriched.markdown.styles.UnderlineStyle
 
 object MarkdownRenderTestSupport {
-  private val context: Context = ApplicationProvider.getApplicationContext()
+  // Resolved per call, not cached: a @Config qualifier (a locale, an RTL layout direction) is
+  // applied to the current test's context, and a singleton would pin the first test's one.
+  private val context: Context
+    get() = ApplicationProvider.getApplicationContext()
 
   val defaultStyle: StyleConfig get() = StyleConfig.default(context)
 
@@ -34,6 +38,9 @@ object MarkdownRenderTestSupport {
       underlineStyle = UnderlineStyle(color = underlineColor),
     )
 
+  /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
+  fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
+
   /** [defaultStyle] with only its [TaskListStyle] replaced. */
   fun styleWithTaskList(taskListStyle: TaskListStyle): StyleConfig = copyOfDefault(taskListStyle = taskListStyle)
 
@@ -44,6 +51,7 @@ object MarkdownRenderTestSupport {
     strikethroughStyle: StrikethroughStyle? = null,
     underlineStyle: UnderlineStyle? = null,
     taskListStyle: TaskListStyle? = null,
+    blockquoteStyle: BlockquoteStyle? = null,
   ): StyleConfig {
     val base = defaultStyle
     return StyleConfig(
@@ -60,11 +68,14 @@ object MarkdownRenderTestSupport {
       codeStyle = base.codeStyle,
       imageStyle = base.imageStyle,
       inlineImageStyle = base.inlineImageStyle,
-      blockquoteStyle = base.blockquoteStyle,
+      blockquoteStyle = blockquoteStyle ?: base.blockquoteStyle,
       listStyle = base.listStyle,
       taskListStyle = taskListStyle ?: base.taskListStyle,
       codeBlockStyle = base.codeBlockStyle,
       thematicBreakStyle = base.thematicBreakStyle,
+      tableStyle = base.tableStyle,
+      tableTypeface = base.tableTypeface,
+      tableHeaderTypeface = base.tableHeaderTypeface,
     )
   }
 }

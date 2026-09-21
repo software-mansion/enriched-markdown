@@ -64,6 +64,41 @@ internal object DefaultStyles {
         }
       }
 
+    val tableStyle =
+      TableStyle(
+        fontSize = parser.toPixelFromSP(14f),
+        fontFamily = SYSTEM_FONT,
+        fontWeight = "",
+        color = parser.color("#1F2937"),
+        marginTop = parser.toPixelFromDIP(0f),
+        marginBottom = parser.toPixelFromDIP(16f),
+        lineHeight = parser.toPixelFromSP(22f),
+        headerFontFamily = "",
+        headerBackgroundColor = parser.color("#F3F4F6"),
+        headerTextColor = parser.color("#111827"),
+        rowEvenBackgroundColor = parser.color("#FFFFFF"),
+        rowOddBackgroundColor = parser.color("#F9FAFB"),
+        borderColor = parser.color("#E5E7EB"),
+        borderWidth = parser.toPixelFromDIP(1f),
+        borderRadius = parser.toPixelFromDIP(6f),
+        cellPaddingHorizontal = parser.toPixelFromDIP(12f),
+        cellPaddingVertical = parser.toPixelFromDIP(8f),
+        horizontalOverflow = parser.toPixelFromDIP(0f),
+        align = TableAlignment.AUTO,
+      )
+
+    // The React Native package resolves this same palette in JavaScript
+    // (src/admonitionDefaults.ts) and hands native a complete map; this package has no JS layer,
+    // so it is baked in here.
+    val admonitionColors =
+      mapOf(
+        "note" to AdmonitionColors(parser.color("#0969DA")),
+        "tip" to AdmonitionColors(parser.color("#1A7F37")),
+        "important" to AdmonitionColors(parser.color("#8250DF")),
+        "warning" to AdmonitionColors(parser.color("#9A6700")),
+        "caution" to AdmonitionColors(parser.color("#CF222E")),
+      )
+
     return StyleConfig(
       paragraphStyleDefault = paragraphStyle,
       headingStyles = headingStyles,
@@ -112,6 +147,7 @@ internal object DefaultStyles {
           backgroundColor = parser.color("#F9FAFB"),
           borderRadius = 0f,
           padding = 0f,
+          admonitions = admonitionColors,
         ),
       listStyle =
         ListStyle(
@@ -162,6 +198,9 @@ internal object DefaultStyles {
           marginTop = parser.toPixelFromDIP(24f),
           marginBottom = parser.toPixelFromDIP(24f),
         ),
+      tableStyle = tableStyle,
+      tableTypeface = TableStyle.bodyTypeface(context, tableStyle),
+      tableHeaderTypeface = TableStyle.headerTypeface(context, tableStyle),
     )
   }
 }

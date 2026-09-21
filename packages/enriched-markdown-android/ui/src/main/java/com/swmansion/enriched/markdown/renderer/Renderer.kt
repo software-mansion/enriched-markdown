@@ -38,19 +38,28 @@ class Renderer {
     document: MarkdownASTNode,
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
+  ): SpannableString = renderContent(document.children, onLinkPress, onLinkLongPress)
+
+  fun renderContent(
+    nodes: List<MarkdownASTNode>,
+    onLinkPress: ((String) -> Unit)? = null,
+    onLinkLongPress: ((String) -> Unit)? = null,
+    startingTaskIndex: Int = 0,
   ): SpannableString {
     val factory =
       requireNotNull(cachedFactory) {
-        "Renderer must be configured with a style before calling renderDocument."
+        "Renderer must be configured with a style before rendering."
       }
 
     factory.resetForNewRender()
+    // Must run after resetForNewRender, which zeroes taskItemCount.
+    factory.blockStyleContext.taskItemCount = startingTaskIndex
     collectedImageSpans.clear()
     lastElementMarginBottom = 0f
 
     val builder = SpannableStringBuilder()
 
-    renderNode(document, builder, onLinkPress, onLinkLongPress, factory)
+    factory.renderNodes(nodes, builder, onLinkPress, onLinkLongPress)
 
     // Remove trailing margin from last block element
     removeTrailingMargin(builder)
@@ -61,6 +70,9 @@ class Renderer {
 
     return SpannableString(builder)
   }
+
+  /** Task-list items rendered by the last [renderContent], continuing from its `startingTaskIndex`. */
+  fun getTaskItemCount(): Int = cachedFactory?.blockStyleContext?.taskItemCount ?: 0
 
   /** Removes trailing newlines and captures the margin of the final element. */
   private fun removeTrailingMargin(builder: SpannableStringBuilder) {
@@ -92,16 +104,6 @@ class Renderer {
    */
   fun getLastElementMarginBottom(): Float = lastElementMarginBottom
 
-  private fun renderNode(
-    node: MarkdownASTNode,
-    builder: SpannableStringBuilder,
-    onLinkPress: ((String) -> Unit)?,
-    onLinkLongPress: ((String) -> Unit)?,
-    factory: RendererFactory,
-  ) {
-    factory.getRenderer(node).render(node, builder, onLinkPress, onLinkLongPress, factory)
-  }
-
   /**
    * Internal helper used by the Factory's lambda to collect spans.
    */
@@ -110,7 +112,7 @@ class Renderer {
   }
 
   /**
-   * Provides the EnrichedMarkdownText with the exact list of spans that need registration.
+   * Provides the segment's text view with the exact list of spans that need registration.
    */
   fun getCollectedImageSpans(): List<ImageSpan> = collectedImageSpans
 }

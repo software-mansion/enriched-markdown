@@ -65,10 +65,6 @@ class BlockquoteContainerView(
   // Cached plain text for the "Copy" action.
   private var cachedPlainText: String = ""
 
-  var copyLabel: String = ""
-  var copyAsMarkdownLabel: String = ""
-  var enableBlockContextMenu: Boolean = true
-
   private val iconSizePx: Int = ceil(blockquoteStyle.fontSize).toInt()
 
   private val titlePaint =
@@ -148,15 +144,15 @@ class BlockquoteContainerView(
   }
 
   private fun showContextMenu(anchor: View): Boolean {
-    if (!enableBlockContextMenu) return false
+    if (!parentConfig.dynamicProps.enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, copyLabel) {
+      item(ContextMenuPopup.Icon.COPY, parentConfig.dynamicProps.copyLabel) {
         if (cachedPlainText.isNotEmpty()) {
           clipboard.setPrimaryClip(ClipData.newPlainText("Blockquote", cachedPlainText))
         }
       }
-      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) {
+      item(ContextMenuPopup.Icon.DOCUMENT, parentConfig.dynamicProps.copyAsMarkdownLabel) {
         if (cachedMarkdown.isNotEmpty()) {
           clipboard.setPrimaryClip(ClipData.newPlainText("Blockquote", cachedMarkdown))
         }

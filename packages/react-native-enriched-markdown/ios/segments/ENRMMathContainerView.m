@@ -78,7 +78,7 @@
   if (self) {
     _config = config;
     _cachedLatex = @"";
-    _enableBlockContextMenu = YES;
+    _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
 
     _mathView = [[ENRMRaTeXCanvasView alloc] initWithFrame:CGRectZero];
     _mathView.backgroundColor = [RCTUIColor clearColor];
@@ -144,7 +144,7 @@
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  if (!self.enableBlockContextMenu) {
+  if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }
   return [UIContextMenuConfiguration
@@ -152,13 +152,13 @@
                   previewProvider:nil
                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                      UIAction *copyPlainText =
-                         [UIAction actionWithTitle:self.copyLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyLatexToPasteboard]; }];
 
                      UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.copyAsMarkdownLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyAsMarkdownLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.text"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
@@ -171,12 +171,12 @@
 #if TARGET_OS_OSX
 - (NSMenu *)menuForEvent:(NSEvent *)event
 {
-  if (!self.enableBlockContextMenu) {
+  if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
-  [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyLatexToPasteboard]; })];
-  [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamicProps.menuCopyLabel, ^{ [self copyLatexToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamicProps.menuCopyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
   return menu;
 }
 #endif

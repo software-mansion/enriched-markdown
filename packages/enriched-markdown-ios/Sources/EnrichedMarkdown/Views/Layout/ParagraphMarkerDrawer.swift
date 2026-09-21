@@ -1,7 +1,9 @@
 import CoreText
 import UIKit
 
-enum ListMarkerDrawer {
+/// Draws a paragraph's leading-gutter glyph: list bullet or number, task
+/// checkbox, or admonition icon.
+enum ParagraphMarkerDrawer {
     static func draw(in drawContext: MarkerDrawContext) {
         let visibleCharacterRange = drawContext.visibleCharacterRange
         guard visibleCharacterRange.length > 0 else { return }
@@ -133,7 +135,6 @@ enum ListMarkerDrawer {
         )
     }
 
-    /// The octicon, scaled from its 16×16 space into `rect`.
     private static func drawAdmonitionIcon(
         _ type: AdmonitionType,
         in rect: CGRect,

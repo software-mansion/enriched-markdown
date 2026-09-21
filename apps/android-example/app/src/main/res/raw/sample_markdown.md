@@ -111,6 +111,28 @@ The largest terrestrial biome, spanning across **Northern Russia, Canada, and Sc
 
 ---
 
+## Field Notes
+
+> [!NOTE]
+> Forest cover figures come from the FAO *Global Forest Resources Assessment*, published every five
+> years.
+
+> [!TIP]
+> Visit a temperate forest in **autumn** — the canopy thins and the understory becomes visible for
+> the first time all year.
+
+> [!IMPORTANT]
+> Always check local fire restrictions before entering `dry season` woodland.
+
+> [!WARNING]
+> Never remove deadwood from a protected forest. It hosts more species than the living canopy does.
+
+> [!CAUTION]
+> Some bristlecone pines are over *4,850 years old*. Touching the exposed heartwood damages growth
+> rings that took millennia to form.
+
+---
+
 ## Spoiler Examples
 
 Try tapping the hidden text below to reveal it:

@@ -15,6 +15,7 @@ struct PlaygroundScreen: View {
     @State private var longPressedLink: String = ""
     @State private var linkAlertVisible: Bool = false
     @State private var acceptImageType: String = "image/png"
+    @State private var spoilerOverlay: PlaygroundSpoilerOverlay = .particles
 
     // MARK: - Views
 
@@ -64,8 +65,16 @@ struct PlaygroundScreen: View {
                     }
                 }
 
-                PlaygroundButton(label: "Insert Math", accessibilityId: "insert-math-button") {
-                    insertMath()
+                HStack(spacing: 8) {
+                    PlaygroundButton(label: "Insert Math", accessibilityId: "insert-math-button") {
+                        insertMath()
+                    }
+                    PlaygroundButton(
+                        label: "Spoiler: \(spoilerOverlay.rawValue)",
+                        accessibilityId: "spoiler-overlay-button"
+                    ) {
+                        spoilerOverlay = spoilerOverlay.next
+                    }
                 }
 
                 setMarkdownButton
@@ -78,6 +87,7 @@ struct PlaygroundScreen: View {
         .markdownTheme(PlaygroundMarkdownTheme)
         .markdownSelectionMenu(MarkdownSelectionMenuConfig())
         .markdownSelectable(selectableEnabled)
+        .markdownSpoilerOverlay(spoilerOverlay.provider)
         .markdownSelectionColor(.orange)
         .markdownImageRequestHeaders(["Accept": acceptImageType])
         .markdownLaTeX()
@@ -137,7 +147,6 @@ struct PlaygroundScreen: View {
                             admonitions: true
                         )
                     )
-                        .markdownSpoilerOverlay(.particles)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .accessibilityIdentifier("preview-text")

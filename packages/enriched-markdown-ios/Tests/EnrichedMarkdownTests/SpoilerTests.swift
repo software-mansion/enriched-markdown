@@ -14,105 +14,87 @@ final class SpoilerTests: XCTestCase {
 
     // MARK: - Rendering
 
-    func testSpoilerConcealsTextAndStashesColor() {
+    func testSpoilerConcealsTextAndStashesColor() throws {
         let result = MarkdownRenderer.render("||hidden|| shown", config: config)
 
         XCTAssertEqual(result.string.trimmingCharacters(in: .newlines), "hidden shown")
-        XCTAssertTrue(MarkdownAttributeValue.boolValue(from: attribute(MarkdownAttribute.spoiler, onWord: "hidden", in: result)))
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: result) as? UIColor, .clear)
-        XCTAssertEqual(
-            stashedColor(onWord: "hidden", in: result),
-            config.paragraph.foregroundColor
-        )
+        XCTAssertTrue(MarkdownAttributeValue.boolValue(from: try attribute(MarkdownAttribute.spoiler, onWord: "hidden", in: result)))
+        try assertConcealed("hidden", in: result, stashing: config.paragraph.foregroundColor)
 
-        XCTAssertNil(attribute(MarkdownAttribute.spoiler, onWord: "shown", in: result))
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "shown", in: result) as? UIColor, config.paragraph.foregroundColor)
+        XCTAssertNil(try attribute(MarkdownAttribute.spoiler, onWord: "shown", in: result))
+        XCTAssertEqual(try color(onWord: "shown", in: result), config.paragraph.foregroundColor)
     }
 
     func testSpoilerIsAlwaysEnabled() {
         XCTAssertNotNil(Parser.shared.parseMarkdown("||hidden||").first(ofType: .spoiler))
     }
 
-    func testWrappersRenderedAfterSpoilerStayConcealed() {
+    func testConcealmentSurvivesWrappersInEitherOrder() throws {
         var styled = config!
         styled.strong.foregroundColor = .systemRed
         styled.link.foregroundColor = .systemBlue
 
-        let strong = MarkdownRenderer.render("**||hidden||**", config: styled)
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: strong) as? UIColor, .clear)
-        XCTAssertEqual(stashedColor(onWord: "hidden", in: strong), .systemRed)
-
-        let link = MarkdownRenderer.render("[||hidden||](https://swmansion.com)", config: styled)
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: link) as? UIColor, .clear)
-        XCTAssertEqual(stashedColor(onWord: "hidden", in: link), .systemBlue)
+        try assertConcealed("hidden", in: MarkdownRenderer.render("**||hidden||**", config: styled), stashing: .systemRed)
+        try assertConcealed("hidden", in: MarkdownRenderer.render("||**hidden**||", config: styled), stashing: .systemRed)
+        try assertConcealed(
+            "hidden",
+            in: MarkdownRenderer.render("[||hidden||](https://swmansion.com)", config: styled),
+            stashing: .systemBlue
+        )
     }
 
-    func testSpoilerInsideStrongRevealsInStrongColor() {
-        var styled = config!
-        styled.strong.foregroundColor = .systemRed
-
-        let result = MarkdownRenderer.render("||**hidden**||", config: styled)
-
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: result) as? UIColor, .clear)
-        XCTAssertEqual(stashedColor(onWord: "hidden", in: result), .systemRed)
-    }
-
-    func testCheckedTaskItemRecolorsStashAtRenderAndToggleTime() {
+    func testCheckedTaskItemRecolorsStashAtRenderAndToggleTime() throws {
         var styled = config!
         styled.taskList.checkedTextColor = .systemGray
 
-        let rendered = MarkdownRenderer.render("- [x] ||done||", config: styled)
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "done", in: rendered) as? UIColor, .clear)
-        XCTAssertEqual(stashedColor(onWord: "done", in: rendered), .systemGray)
+        try assertConcealed("done", in: MarkdownRenderer.render("- [x] ||done||", config: styled), stashing: .systemGray)
 
         let unchecked = MarkdownRenderer.render("- [ ] ||todo||", config: styled)
-        let toggled = TaskListInteraction.togglingItem(in: unchecked, index: 0, checked: true, config: styled)!
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "todo", in: toggled) as? UIColor, .clear)
-        XCTAssertEqual(stashedColor(onWord: "todo", in: toggled), .systemGray)
+        let toggled = try XCTUnwrap(TaskListInteraction.togglingItem(in: unchecked, index: 0, checked: true, config: styled))
+        try assertConcealed("todo", in: toggled, stashing: .systemGray)
     }
 
     // MARK: - Reveal
 
-    func testRevealingRestoresColorAndKeepsMarkerForCopy() {
+    func testRevealingRestoresColorAndKeepsMarkerForCopy() throws {
         let rendered = MarkdownRenderer.render("||hidden|| shown", config: config)
 
-        let revealed = SpoilerInteraction.revealing(in: rendered, ordinals: [0])!
+        let revealed = try XCTUnwrap(SpoilerInteraction.revealing(in: rendered, ordinals: [0]))
 
-        XCTAssertFalse(MarkdownAttributeValue.boolValue(from: attribute(MarkdownAttribute.spoiler, onWord: "hidden", in: revealed)))
-        XCTAssertNil(attribute(MarkdownAttribute.spoilerOriginalColors, onWord: "hidden", in: revealed))
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: revealed) as? UIColor, config.paragraph.foregroundColor)
-        XCTAssertEqual(revealed.string, rendered.string)
+        XCTAssertFalse(MarkdownAttributeValue.boolValue(from: try attribute(MarkdownAttribute.spoiler, onWord: "hidden", in: revealed)))
+        XCTAssertNil(try attribute(MarkdownAttribute.spoilerOriginalColors, onWord: "hidden", in: revealed))
+        XCTAssertEqual(try color(onWord: "hidden", in: revealed), config.paragraph.foregroundColor)
         XCTAssertEqual(
-            MarkdownExtractor.extractMarkdown(from: revealed, in: rangeOfWord("hidden", in: revealed)),
+            MarkdownExtractor.extractMarkdown(from: revealed, in: try rangeOfWord("hidden", in: revealed)),
             "||hidden||"
         )
     }
 
-    func testRevealingUnknownOrRevealedOrdinalReturnsNil() {
+    func testRevealingUnknownOrRevealedOrdinalReturnsNil() throws {
         let rendered = MarkdownRenderer.render("||hidden|| shown", config: config)
-        let revealed = SpoilerInteraction.revealing(in: rendered, ordinals: [0])!
+        let revealed = try XCTUnwrap(SpoilerInteraction.revealing(in: rendered, ordinals: [0]))
 
         XCTAssertNil(SpoilerInteraction.revealing(in: rendered, ordinals: [3]))
         XCTAssertNil(SpoilerInteraction.revealing(in: revealed, ordinals: [0]))
     }
 
-    func testOrdinalsCountRevealedSpoilersToo() {
+    func testOrdinalsCountRevealedSpoilersToo() throws {
         let rendered = MarkdownRenderer.render("||one|| and ||two||", config: config)
 
-        let first = SpoilerInteraction.revealing(in: rendered, ordinals: [0])!
+        let first = try XCTUnwrap(SpoilerInteraction.revealing(in: rendered, ordinals: [0]))
         XCTAssertEqual(SpoilerInteraction.spoilerRanges(in: first).count, 2)
-        XCTAssertEqual(SpoilerInteraction.concealedRanges(in: first), [rangeOfWord("two", in: first)])
+        XCTAssertEqual(SpoilerInteraction.concealedRanges(in: first), [try rangeOfWord("two", in: first)])
 
-        let both = SpoilerInteraction.revealing(in: first, ordinals: [1])!
+        let both = try XCTUnwrap(SpoilerInteraction.revealing(in: first, ordinals: [1]))
         XCTAssertTrue(SpoilerInteraction.concealedRanges(in: both).isEmpty)
     }
 
     @MainActor
-    func testStoreRevealSurvivesConfigRerenderButNotNewMarkdown() {
+    func testStoreRevealSurvivesConfigRerenderButNotNewMarkdown() throws {
         let store = MarkdownRenderStore()
         renderSynchronously(store, markdown: "||hidden|| shown", config: config)
 
-        store.revealSpoiler(in: rangeOfWord("hidden", in: store.attributedText))
+        store.revealSpoiler(in: try rangeOfWord("hidden", in: store.attributedText))
         XCTAssertTrue(SpoilerInteraction.concealedRanges(in: store.attributedText).isEmpty)
 
         // A top margin inserts a spacer character, so the range shifts.
@@ -121,7 +103,7 @@ final class SpoilerTests: XCTestCase {
         shifted.paragraph.foregroundColor = .systemRed
         renderSynchronously(store, markdown: "||hidden|| shown", config: shifted)
         XCTAssertTrue(SpoilerInteraction.concealedRanges(in: store.attributedText).isEmpty)
-        XCTAssertEqual(attribute(.foregroundColor, onWord: "hidden", in: store.attributedText) as? UIColor, .systemRed)
+        XCTAssertEqual(try color(onWord: "hidden", in: store.attributedText), .systemRed)
 
         renderSynchronously(store, markdown: "||hidden|| changed", config: shifted)
         XCTAssertEqual(SpoilerInteraction.concealedRanges(in: store.attributedText).count, 1)
@@ -130,46 +112,54 @@ final class SpoilerTests: XCTestCase {
     // MARK: - Overlays
 
     @MainActor
-    func testOverlaysCoverConcealedSegmentsOnly() {
+    func testOverlaysCoverConcealedSegmentsOnly() throws {
         let textView = makeLaidOutTextView("||hidden|| shown")
-        let hidden = rangeOfWord("hidden", in: textView.attributedText)
+        let hidden = try rangeOfWord("hidden", in: textView.attributedText)
 
         XCTAssertEqual(overlays(in: textView).map(\.charRange), [hidden])
         let hiddenFrame = textView.accessibilityScreenFrame(for: hidden)
         XCTAssertGreaterThan(hiddenFrame.width, 0)
         XCTAssertEqual(overlays(in: textView).first?.frame.width ?? 0, hiddenFrame.width, accuracy: 1)
+
+        try revealFirstSpoiler(in: textView)
+        XCTAssertTrue(overlays(in: textView).isEmpty)
     }
 
     @MainActor
-    func testWrappedSpoilerGetsOneOverlayPerLine() {
+    func testWrappedSpoilerGetsOneOverlayPerLineCarryingItsText() throws {
         let words = Array(repeating: "spoiler", count: 30).joined(separator: " ")
         let textView = makeLaidOutTextView("||\(words)||", width: 200)
 
-        XCTAssertGreaterThan(overlays(in: textView).count, 1)
+        let segments = overlays(in: textView)
+        XCTAssertGreaterThan(segments.count, 1)
+        XCTAssertEqual(segments.map(\.concealedText.string).joined(), words)
+
+        let text = try XCTUnwrap(segments.first).concealedText
+        XCTAssertEqual(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, config.paragraph.foregroundColor)
+        XCTAssertNil(text.attribute(.paragraphStyle, at: 0, effectiveRange: nil))
     }
 
     @MainActor
-    func testOverlayModeAndStyleAreApplied() {
+    func testOverlayChoiceAndStyleAreApplied() throws {
         let textView = makeLaidOutTextView("||hidden||")
         XCTAssertTrue(overlays(in: textView).first is ParticleSpoilerOverlayView)
 
-        textView.spoilerOverlays.mode = .solid
+        textView.spoilerOverlays.provider = .solid
         var styled = textView.styleConfig
         styled.spoiler.color = .systemPurple
         styled.spoiler.solidBorderRadius = 9
         textView.styleConfig = styled
 
-        let solid = overlays(in: textView).first as? SolidSpoilerOverlayView
-        XCTAssertNotNil(solid)
+        let solid = try XCTUnwrap(overlays(in: textView).first as? SolidSpoilerOverlayView)
         XCTAssertEqual(overlays(in: textView).count, 1)
-        XCTAssertEqual(solid?.backgroundColor, .systemPurple)
-        XCTAssertEqual(solid?.layer.cornerRadius, 9)
+        XCTAssertEqual(solid.backgroundColor, .systemPurple)
+        XCTAssertEqual(solid.layer.cornerRadius, 9)
     }
 
     @MainActor
-    func testTapHitTestFindsOverlayAndRevealFadesIt() {
+    func testTapHitTestFindsOverlayAndRevealFadesIt() throws {
         let textView = makeLaidOutTextView("||hidden|| shown")
-        let overlay = overlays(in: textView).first!
+        let overlay = try XCTUnwrap(overlays(in: textView).first)
         let inside = CGPoint(x: overlay.frame.midX, y: overlay.frame.midY)
         let outside = CGPoint(x: overlay.frame.maxX + 40, y: overlay.frame.midY)
 
@@ -179,42 +169,33 @@ final class SpoilerTests: XCTestCase {
         textView.spoilerOverlays.reveal(range: overlay.charRange)
         XCTAssertTrue(overlay.isRevealing)
 
-        textView.setMarkdownAttributedText(SpoilerInteraction.revealing(in: textView.attributedText, ordinals: [0])!)
-        textView.layoutIfNeeded()
+        try revealFirstSpoiler(in: textView)
         // The fading overlay is kept until its animation completes; no new one appears.
         XCTAssertEqual(overlays(in: textView), [overlay])
     }
 
-    @MainActor
-    func testRevealedTextRemovesOverlays() {
-        let textView = makeLaidOutTextView("||hidden|| shown")
+    // MARK: - Links
 
-        textView.setMarkdownAttributedText(SpoilerInteraction.revealing(in: textView.attributedText, ordinals: [0])!)
-        textView.layoutIfNeeded()
-
-        XCTAssertTrue(overlays(in: textView).isEmpty)
-    }
-
-    func testConcealedLinkIsNotALinkUntilRevealed() {
+    func testConcealedLinkIsNotALinkUntilRevealed() throws {
         var styled = config!
         styled.link.foregroundColor = .systemBlue
-        let url = URL(string: "https://swmansion.com")!
+        let url = try XCTUnwrap(URL(string: "https://swmansion.com"))
 
         let rendered = MarkdownRenderer.render("||[press](https://swmansion.com)||", config: styled)
-        XCTAssertNil(attribute(.link, onWord: "press", in: rendered))
-        XCTAssertEqual(attribute(MarkdownAttribute.spoilerLink, onWord: "press", in: rendered) as? URL, url)
-        XCTAssertEqual(attribute(.underlineColor, onWord: "press", in: rendered) as? UIColor, .clear)
+        XCTAssertNil(try attribute(.link, onWord: "press", in: rendered))
+        XCTAssertEqual(try attribute(MarkdownAttribute.spoilerLink, onWord: "press", in: rendered) as? URL, url)
+        XCTAssertEqual(try attribute(.underlineColor, onWord: "press", in: rendered) as? UIColor, .clear)
         XCTAssertTrue(MarkdownAccessibilityElementBuilder.specs(for: rendered).allSatisfy { $0.kind != .link(url) })
 
-        let revealed = SpoilerInteraction.revealing(in: rendered, ordinals: [0])!
-        XCTAssertEqual(attribute(.link, onWord: "press", in: revealed) as? URL, url)
-        XCTAssertNil(attribute(MarkdownAttribute.spoilerLink, onWord: "press", in: revealed))
-        XCTAssertEqual(attribute(.underlineColor, onWord: "press", in: revealed) as? UIColor, .systemBlue)
+        let revealed = try XCTUnwrap(SpoilerInteraction.revealing(in: rendered, ordinals: [0]))
+        XCTAssertEqual(try attribute(.link, onWord: "press", in: revealed) as? URL, url)
+        XCTAssertNil(try attribute(MarkdownAttribute.spoilerLink, onWord: "press", in: revealed))
+        XCTAssertEqual(try attribute(.underlineColor, onWord: "press", in: revealed) as? UIColor, .systemBlue)
     }
 
-    func testConcealedLinkStillCopiesAsMarkdownAndHTML() {
+    func testConcealedLinkStillCopiesAsMarkdownAndHTML() throws {
         let rendered = MarkdownRenderer.render("See ||[press](https://swmansion.com)|| now.", config: config)
-        let range = rangeOfWord("press", in: rendered)
+        let range = try rangeOfWord("press", in: rendered)
 
         XCTAssertEqual(
             MarkdownExtractor.extractMarkdown(from: rendered, in: range),
@@ -224,6 +205,46 @@ final class SpoilerTests: XCTestCase {
             MarkdownHTMLGenerator.generateHTML(from: rendered, in: range, config: config)
                 .contains("href=\"https://swmansion.com\"")
         )
+    }
+
+    // MARK: - Custom providers
+
+    @MainActor
+    func testCustomProviderBuildsOverlaysFromSpoilerStyle() {
+        let textView = makeLaidOutTextView("||hidden||")
+        var styled = textView.styleConfig
+        styled.spoiler.color = .systemPurple
+        textView.styleConfig = styled
+
+        textView.spoilerOverlays.provider = TintOverlayProvider()
+
+        let tinted = overlays(in: textView).first
+        XCTAssertTrue(tinted is TintOverlayView)
+        XCTAssertEqual(tinted?.backgroundColor, .systemPurple)
+    }
+
+    @MainActor
+    func testProviderEqualityDecidesRebuild() {
+        let textView = makeLaidOutTextView("||hidden||")
+        textView.spoilerOverlays.provider = TintOverlayProvider(fallback: .red)
+        let first = overlays(in: textView).first
+
+        textView.spoilerOverlays.provider = TintOverlayProvider(fallback: .red)
+        XCTAssertTrue(overlays(in: textView).first === first)
+
+        textView.spoilerOverlays.provider = TintOverlayProvider(fallback: .blue)
+        XCTAssertFalse(overlays(in: textView).first === first)
+    }
+
+    @MainActor
+    func testCustomRevealAnimationRemovesOverlayOnCompletion() throws {
+        let textView = makeLaidOutTextView("||hidden||")
+        textView.spoilerOverlays.provider = TintOverlayProvider()
+        let overlay = try XCTUnwrap(overlays(in: textView).first)
+
+        textView.spoilerOverlays.reveal(range: overlay.charRange)
+
+        XCTAssertTrue(overlays(in: textView).isEmpty)
     }
 
     // MARK: - Theme
@@ -262,18 +283,7 @@ final class SpoilerTests: XCTestCase {
     }
 
     func testEnvironmentDefaultsToParticles() {
-        XCTAssertEqual(EnvironmentValues().markdownSpoilerOverlay, .particles)
-    }
-
-    // MARK: - Copy as Markdown
-
-    func testExtractorWrapsSpoilerInPipes() {
-        let rendered = MarkdownRenderer.render("Some ||hidden|| text.", config: config)
-
-        XCTAssertEqual(
-            MarkdownExtractor.extractMarkdown(from: rendered, in: rangeOfWord("hidden", in: rendered)),
-            "||hidden||"
-        )
+        XCTAssertTrue(EnvironmentValues().markdownSpoilerOverlay is ParticleSpoilerOverlayProvider)
     }
 
     // MARK: - Helpers
@@ -293,6 +303,14 @@ final class SpoilerTests: XCTestCase {
     }
 
     @MainActor
+    private func revealFirstSpoiler(in textView: MarkdownTextView) throws {
+        textView.setMarkdownAttributedText(
+            try XCTUnwrap(SpoilerInteraction.revealing(in: textView.attributedText, ordinals: [0]))
+        )
+        textView.layoutIfNeeded()
+    }
+
+    @MainActor
     private func renderSynchronously(_ store: MarkdownRenderStore, markdown: String, config: MarkdownStyleConfig) {
         let rendered = expectation(description: "render applied for \(markdown)")
         let cancellable = store.$source
@@ -303,20 +321,47 @@ final class SpoilerTests: XCTestCase {
         cancellable.cancel()
     }
 
-    private func stashedColor(onWord word: String, in text: NSAttributedString) -> UIColor? {
-        let stash = attribute(MarkdownAttribute.spoilerOriginalColors, onWord: word, in: text)
-        return (stash as? [NSAttributedString.Key: UIColor])?[.foregroundColor]
+    private func assertConcealed(
+        _ word: String,
+        in text: NSAttributedString,
+        stashing stashed: UIColor?,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        XCTAssertEqual(try color(onWord: word, in: text), .clear, file: file, line: line)
+        let stash = try attribute(MarkdownAttribute.spoilerOriginalColors, onWord: word, in: text)
+        XCTAssertEqual((stash as? [NSAttributedString.Key: UIColor])?[.foregroundColor], stashed, file: file, line: line)
     }
 
-    private func rangeOfWord(_ word: String, in text: NSAttributedString) -> NSRange {
-        let range = (text.string as NSString).range(of: word)
-        XCTAssertNotEqual(range.location, NSNotFound, "'\(word)' not found in '\(text.string)'")
-        return range
+    private func color(onWord word: String, in text: NSAttributedString) throws -> UIColor? {
+        try attribute(.foregroundColor, onWord: word, in: text) as? UIColor
     }
 
-    private func attribute(_ key: NSAttributedString.Key, onWord word: String, in text: NSAttributedString) -> Any? {
-        let range = rangeOfWord(word, in: text)
-        guard range.location != NSNotFound else { return nil }
-        return text.attribute(key, at: range.location, effectiveRange: nil)
+    private func rangeOfWord(_ word: String, in text: NSAttributedString) throws -> NSRange {
+        try XCTUnwrap(
+            text.string.range(of: word).map { NSRange($0, in: text.string) },
+            "'\(word)' not found in '\(text.string)'"
+        )
+    }
+
+    private func attribute(_ key: NSAttributedString.Key, onWord word: String, in text: NSAttributedString) throws -> Any? {
+        text.attribute(key, at: try rangeOfWord(word, in: text).location, effectiveRange: nil)
+    }
+}
+
+/// A flat tint that reveals instantly, standing in for a consumer's effect.
+private final class TintOverlayView: SpoilerOverlayView {
+    override func animateReveal(completion: @escaping () -> Void) {
+        completion()
+    }
+}
+
+private struct TintOverlayProvider: SpoilerOverlayProvider {
+    var fallback: UIColor?
+
+    func makeOverlay(charRange: NSRange, style: SpoilerStyle) -> SpoilerOverlayView {
+        let view = TintOverlayView(charRange: charRange)
+        view.backgroundColor = style.color ?? fallback
+        return view
     }
 }

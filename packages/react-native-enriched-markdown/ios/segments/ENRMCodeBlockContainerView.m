@@ -230,23 +230,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #endif
 }
 
-@synthesize copyLabel = _copyLabel;
-@synthesize copyAsMarkdownLabel = _copyAsMarkdownLabel;
-
-- (void)setCopyLabel:(NSString *)copyLabel
-{
-  _copyLabel = [copyLabel copy];
-  _copyButton.accessibilityLabel = _copyLabel;
-}
-
-- (void)setEnableCodeBlockPress:(BOOL)enableCodeBlockPress
-{
-  _enableCodeBlockPress = enableCodeBlockPress;
-#if !TARGET_OS_OSX
-  _tapRecognizer.enabled = enableCodeBlockPress;
-#endif
-}
-
 - (void)setPending:(BOOL)pending
 {
   if (_pending == pending) {
@@ -276,7 +259,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _config = config;
     _cachedCode = @"";
     _fenceChar = @"`";
-    _enableBlockContextMenu = YES;
+    _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     _headerFont = ENRMCodeBlockHeaderFont(config);
     _headerLabelLineHeight = ENRMCodeBlockHeaderLabelLineHeight(_headerFont);
     self.backgroundColor = [RCTUIColor clearColor];
@@ -301,7 +284,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
     _tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleCodeBlockTap:)];
     _tapRecognizer.delegate = self;
-    _tapRecognizer.enabled = NO;
     [self addGestureRecognizer:_tapRecognizer];
 #else
     NSImageSymbolConfiguration *symbolConfig =
@@ -445,6 +427,13 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
   [self rebuildAttributedCode];
 
+  // iOS VoiceOver reads the copy label live via accessibilityCustomActions and the
+  // button is hidden behind the container's single a11y element, so its own label
+  // is consumed only on macOS; refresh it there on each content update.
+#if TARGET_OS_OSX
+  _copyButton.accessibilityLabel = self.dynamicProps.menuCopyLabel;
+#endif
+
 #if !TARGET_OS_OSX
   [self setNeedsLayout];
   [self setNeedsDisplay];
@@ -565,12 +554,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if !TARGET_OS_OSX
 - (void)handleCodeBlockTap:(UITapGestureRecognizer *)recognizer
 {
-  if (_pending) {
+  if (!self.dynamicProps.enableCodeBlockPress || _pending) {
     return;
   }
   if (self.onCodeBlockPress) {
     self.onCodeBlockPress(_cachedCode ?: @"", _cachedLanguage ?: @"");
   }
+}
+
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
+{
+  if (gestureRecognizer == _tapRecognizer) {
+    return self.dynamicProps.enableCodeBlockPress && !_pending;
+  }
+  return YES;
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
@@ -589,7 +586,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  if (!_enableBlockContextMenu || _pending) {
+  if (!self.dynamicProps.enableBlockContextMenu || _pending) {
     return nil;
   }
   return [UIContextMenuConfiguration
@@ -597,13 +594,13 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
                   previewProvider:nil
                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                      UIAction *copyCode =
-                         [UIAction actionWithTitle:self.copyLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyCodeToPasteboard]; }];
 
                      UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.copyAsMarkdownLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyAsMarkdownLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.text"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
@@ -616,12 +613,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #if TARGET_OS_OSX
 - (NSMenu *)buildContextMenu
 {
-  if (!_enableBlockContextMenu || _pending) {
+  if (!self.dynamicProps.enableBlockContextMenu || _pending) {
     return nil;
   }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
-  [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyCodeToPasteboard]; })];
-  [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamicProps.menuCopyLabel, ^{ [self copyCodeToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamicProps.menuCopyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
   return menu;
 }
 
@@ -646,11 +643,11 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 // button subview from VoiceOver; expose the copy action explicitly instead.
 - (NSArray<UIAccessibilityCustomAction *> *)accessibilityCustomActions
 {
-  if (_pending || self.copyLabel.length == 0) {
+  if (_pending || self.dynamicProps.menuCopyLabel.length == 0) {
     return @[];
   }
   UIAccessibilityCustomAction *copyAction =
-      [[UIAccessibilityCustomAction alloc] initWithName:self.copyLabel
+      [[UIAccessibilityCustomAction alloc] initWithName:self.dynamicProps.menuCopyLabel
                                                  target:self
                                                selector:@selector(performCopyAccessibilityAction:)];
   return @[ copyAction ];

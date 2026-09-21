@@ -6,13 +6,13 @@
 
 # Enriched Markdown iOS
 
-Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package (`EnrichedMarkdown`).
+Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package with two products: `EnrichedMarkdown`, and the optional `EnrichedMarkdownLaTeX` for math rendering.
 
 ## Installation
 
 Add the package via [Swift Package Manager](https://docs.swift.org/latest/documentation/packagemanagerdocs/). The `Package.swift` lives at the repository root.
 
-**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math)).
+**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and the optional `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math)).
 
 **Package.swift:**
 
@@ -32,6 +32,23 @@ targets: [
   ),
 ]
 ```
+
+`EnrichedMarkdown` is all most apps need. Math rendering ships as a separate,
+optional product: leave it out and nothing links the typesetting engine
+(~3–5 MB of app size), with `$…$` staying plain text. Apps that show formulas
+add `EnrichedMarkdownLaTeX` alongside it:
+
+```swift
+.target(
+  name: "YourApp",
+  dependencies: [
+    .product(name: "EnrichedMarkdown", package: "enriched-markdown-ios"),
+    .product(name: "EnrichedMarkdownLaTeX", package: "enriched-markdown-ios"),
+  ]
+),
+```
+
+Math is then enabled per view with `.markdownLaTeX()` — see [LaTeX math](#latex-math).
 
 For local development, add a path dependency to a local checkout instead:
 
@@ -268,17 +285,56 @@ Tapping a task-list checkbox toggles its checked state in place (including the c
 ### `.markdownSpoilerOverlay`
 
 ```swift
-public enum MarkdownSpoilerOverlay: Equatable, Sendable {
-  case particles   // animated dot field (default)
-  case solid       // rounded box
-}
-
 extension View {
-  func markdownSpoilerOverlay(_ overlay: MarkdownSpoilerOverlay) -> some View
+  func markdownSpoilerOverlay(_ provider: any SpoilerOverlayProvider) -> some View   // .particles (default), .solid
 }
 ```
 
-`||spoiler||` text renders transparent under an overlay and shows on tap, one spoiler at a time. A link inside a concealed spoiler is not a link until the spoiler is revealed: no tap, long press, menu, or VoiceOver link element. Revealed spoilers stay revealed across theme changes and conceal again when the `markdown` string changes; Copy as Markdown emits the `||` markers either way. Colors and sizing come from the `Spoiler()` theme element; spoiler text reads as ordinary text to VoiceOver, matching the React Native renderer.
+`||spoiler||` text renders transparent under an overlay and shows on tap, one spoiler at a time. A link inside a concealed spoiler is not a link until the spoiler is revealed: no tap, long press, menu, or VoiceOver link element. Revealed spoilers stay revealed across theme changes and conceal again when the `markdown` string changes; Copy as Markdown emits the `||` markers either way. Colors and sizing of the built-in overlays come from the `Spoiler()` theme element; spoiler text reads as ordinary text to VoiceOver, matching the React Native renderer.
+
+#### Custom overlays
+
+Any effect can stand in for the particles: subclass `SpoilerOverlayView` and return it from a `SpoilerOverlayProvider`.
+
+```swift
+public protocol SpoilerOverlayProvider: Equatable, Sendable {
+  @MainActor
+  func makeOverlay(charRange: NSRange, style: SpoilerStyle) -> SpoilerOverlayView
+}
+
+open class SpoilerOverlayView: UIView {
+  public let charRange: NSRange
+  public var concealedText: NSAttributedString                // this segment's slice, styled as it reveals
+  public init(charRange: NSRange)
+  open func animateReveal(completion: @escaping () -> Void)   // default fades alpha; an override calls completion
+}
+```
+
+```swift
+final class BlurOverlayView: SpoilerOverlayView {
+  private static let context = CIContext()
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    let text = UIGraphicsImageRenderer(bounds: bounds).image { _ in concealedText.draw(at: .zero) }
+    guard let input = CIImage(image: text) else { return }
+    layer.contents = Self.context.createCGImage(input.applyingGaussianBlur(sigma: 6), from: input.extent)
+  }
+}
+
+struct BlurOverlayProvider: SpoilerOverlayProvider {
+  func makeOverlay(charRange: NSRange, style: SpoilerStyle) -> SpoilerOverlayView {
+    let view = BlurOverlayView(charRange: charRange)
+    view.backgroundColor = style.backgroundColor ?? .systemBackground
+    return view
+  }
+}
+
+EnrichedMarkdownText(content)
+  .markdownSpoilerOverlay(BlurOverlayProvider())
+```
+
+A spoiler gets one view per line segment; the text view sets its frame and recreates it whenever the segment moves, so keep construction cheap. The view must be opaque, because emoji and inline images ignore the transparent foreground under it. An effect that shows the text through draws `concealedText`, the segment's slice with inline styling only, as the blur above does. Overlays are rebuilt when the provider value or the `Spoiler()` style changes, so a provider with parameters should keep them in stored properties and let `Equatable` synthesis compare them.
 
 ### `.markdownSelectable` / `.markdownSelectionColor`
 
@@ -428,9 +484,8 @@ and dark mode.
 
 ## LaTeX math
 
-Math rendering is an optional product so apps that never show formulas
-don't link the typesetting engine. Add `EnrichedMarkdownLaTeX` next to
-`EnrichedMarkdown` and enable it per view:
+Math rendering lives in the optional `EnrichedMarkdownLaTeX` product (see
+[Installation](#installation)). Import it and enable math per view:
 
 ```swift
 import EnrichedMarkdown
@@ -491,7 +546,7 @@ layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], tr
 - Links and images (block and inline)
 - Autolinked bare URLs, `www.` links, and emails (`permissiveAutolinks`, on by default)
 - Thematic breaks (`---`)
-- LaTeX math (`$…$`, `$$…$$`) with the `EnrichedMarkdownLaTeX` product — see [LaTeX math](#latex-math)
+- LaTeX math (`$…$`, `$$…$$`) with the optional `EnrichedMarkdownLaTeX` product — see [LaTeX math](#latex-math)
 
 ## Development
 

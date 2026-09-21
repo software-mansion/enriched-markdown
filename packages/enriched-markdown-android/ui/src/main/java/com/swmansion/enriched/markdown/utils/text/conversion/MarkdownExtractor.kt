@@ -4,7 +4,8 @@ import android.text.Spannable
 import android.text.style.StrikethroughSpan
 import android.text.style.UnderlineSpan
 import android.widget.TextView
-import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.EnrichedMarkdown
+import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BaselineShiftSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
@@ -19,6 +20,7 @@ import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.ThematicBreakSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
+import java.util.Locale
 
 /** Extracts markdown from styled text (Spannable). */
 object MarkdownExtractor {
@@ -34,12 +36,21 @@ object MarkdownExtractor {
     val spannable = textView.text as? Spannable ?: return null
 
     val isFullSelection = start == 0 && end >= textView.text.length - 1
-    if (isFullSelection && textView is EnrichedMarkdownText) {
-      val original = textView.currentMarkdown
-      if (original.isNotEmpty()) return original
+    if (isFullSelection) {
+      val original = textView.owningSingleSegmentContainer()?.currentMarkdown
+      if (!original.isNullOrEmpty()) return original
     }
 
     return extractFromSpannable(spannable, start, end)
+  }
+
+  /**
+   * Only valid while this TextView is the container's sole child: selecting all of one
+   * segment equals selecting the whole document only when that segment IS the document.
+   */
+  private fun TextView.owningSingleSegmentContainer(): EnrichedMarkdown? {
+    val container = parent as? EnrichedMarkdown ?: return null
+    return container.takeIf { it.childCount == 1 && it.getChildAt(0) === this }
   }
 
   /** Extracts markdown from a Spannable within a given range. */
@@ -91,6 +102,12 @@ object MarkdownExtractor {
     val thematicBreakSpans = spannable.getSpans(segmentStart, segmentEnd, ThematicBreakSpan::class.java)
     if (thematicBreakSpans.isNotEmpty()) {
       appendThematicBreak(result, state)
+      return true
+    }
+
+    val admonitionHeaders = spannable.getSpans(segmentStart, segmentEnd, AdmonitionHeaderSpan::class.java)
+    if (admonitionHeaders.isNotEmpty()) {
+      appendAdmonitionMarker(spannable, admonitionHeaders[0], segmentStart, segmentEnd, result, state)
       return true
     }
 
@@ -164,6 +181,33 @@ object MarkdownExtractor {
       state.blockquoteDepth = -1
       state.listDepth = -1
     }
+  }
+
+  /**
+   * Emits an admonition's `> [!NOTE]` marker line.
+   *
+   * The header is drawn onto a spacer character that holds no text of its own (see
+   * AdmonitionHeaderSpan), so the marker is rebuilt from the span. The body follows on the next
+   * line and picks up its own `> ` prefixes from [detectBlockquote] as usual.
+   */
+  private fun appendAdmonitionMarker(
+    spannable: Spannable,
+    header: AdmonitionHeaderSpan,
+    start: Int,
+    end: Int,
+    result: StringBuilder,
+    state: ExtractionState,
+  ) {
+    if (state.needsBlankLine && result.isNotEmpty()) {
+      result.ensureBlankLine()
+      state.needsBlankLine = false
+    }
+    if (!result.isAtLineStart()) result.append("\n")
+
+    val depth = spannable.getSpans(start, end, BlockquoteSpan::class.java).maxOfOrNull { it.depth } ?: 0
+    result.append("> ".repeat(depth + 1))
+    result.append("[!").append(header.type.uppercase(Locale.ROOT)).append("]\n")
+    state.blockquoteDepth = depth
   }
 
   private fun appendThematicBreak(

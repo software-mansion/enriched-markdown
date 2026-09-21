@@ -57,20 +57,20 @@ class MarginBottomSpan(
   /**
    * Checks if there's non-newline content after the given position.
    * Used to determine if spacing should be applied (between items) or skipped (after last item).
+   *
+   * Spacer lines stack, so the whole run of newlines has to be skipped rather than a single one:
+   * a block's bottom margin can be followed by the next block's top margin, its padding spacer and
+   * its admonition header spacer before any glyph. Stopping after one newline read those spacers as
+   * the end of the document and collapsed the margin away.
    */
   private fun hasContentAfter(
     text: CharSequence,
     pos: Int,
   ): Boolean {
-    if (pos >= text.length) return false
-
-    // If the next character is a newline, check the character after that
-    if (text[pos] == '\n') {
-      val nextPos = pos + 1
-      if (nextPos >= text.length) return false
-      return text[nextPos] != '\n' // Non-newline = content exists
+    var next = pos
+    while (next < text.length && text[next] == '\n') {
+      next++
     }
-
-    return true // Non-newline content immediately after
+    return next < text.length
   }
 }

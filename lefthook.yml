@@ -9,12 +9,21 @@ pre-commit:
       run: yarn typecheck
     clang-format:
       glob: '*.{h,m,mm,cpp}'
-      exclude: '(Pods|build|node_modules)'
-      run: npx clang-format -i {staged_files} && git add {staged_files}
-    ktlint:
-      glob: '*.kt'
-      exclude: '(build|generated|node_modules)'
-      run: cd apps/react-native-example/android && ./gradlew :react-native-enriched-markdown:ktlintFormat --quiet && cd ../../.. && git add {staged_files}
+      exclude:
+        - '**/Pods/**'
+        - '**/build/**'
+        - '**/node_modules/**'
+      run: npx clang-format -i {staged_files}
+      stage_fixed: true
+    ktlint-react-native:
+      glob: 'packages/react-native-enriched-markdown/android/**/*.kt'
+      run: cd apps/react-native-example/android && ./gradlew :react-native-enriched-markdown:ktlintFormat --quiet
+      stage_fixed: true
+    ktlint-android:
+      root: 'packages/enriched-markdown-android/'
+      glob: 'packages/enriched-markdown-android/**/*.kt'
+      run: ./gradlew ktlintFormat --quiet
+      stage_fixed: true
 commit-msg:
   parallel: true
   commands:

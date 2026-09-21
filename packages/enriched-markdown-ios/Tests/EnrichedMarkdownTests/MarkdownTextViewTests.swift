@@ -4,6 +4,15 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class MarkdownTextViewTests: XCTestCase {
+    /// A text view only keeps first responder status while its window is alive.
+    private var window: UIWindow?
+
+    override func tearDown() {
+        window?.isHidden = true
+        window = nil
+        super.tearDown()
+    }
+
     func testDefaultConfiguration() {
         let textView = MarkdownTextView()
 
@@ -122,5 +131,47 @@ final class MarkdownTextViewTests: XCTestCase {
 
         XCTAssertEqual(height(of: textView), before)
         XCTAssertEqual(textView.attributedText.string, "Stable content")
+    }
+
+    // MARK: - Selection handle hit testing
+
+    /// On screen and selected is what it takes for UIKit to hand back caret
+    /// rects; returns the text view and where its end knob sits.
+    private func selectingTextView() throws -> (textView: MarkdownTextView, endKnob: CGPoint) {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+        self.window = window
+        let textView = MarkdownTextView()
+        textView.frame = window.bounds
+        window.addSubview(textView)
+        window.makeKeyAndVisible()
+        textView.setMarkdownAttributedText(attributed("Selection handles sit at both ends"))
+        textView.layoutIfNeeded()
+        textView.becomeFirstResponder()
+        textView.selectedRange = NSRange(location: 0, length: 9)
+
+        let selection = try XCTUnwrap(textView.selectedTextRange)
+        let end = textView.caretRect(for: selection.end)
+        return (textView, CGPoint(x: end.midX, y: end.maxY))
+    }
+
+    func testPointOnEndKnobIsASelectionHandle() throws {
+        let (textView, endKnob) = try selectingTextView()
+
+        XCTAssertTrue(textView.isPointOnSelectionHandle(endKnob))
+    }
+
+    func testPointAwayFromKnobsIsNotASelectionHandle() throws {
+        let (textView, endKnob) = try selectingTextView()
+
+        XCTAssertFalse(textView.isPointOnSelectionHandle(endKnob.applying(.init(translationX: 120, y: 120))))
+    }
+
+    /// This is what keeps plain link taps working.
+    func testNoSelectionMeansNoSelectionHandles() throws {
+        let (textView, endKnob) = try selectingTextView()
+
+        textView.selectedRange = NSRange(location: 0, length: 0)
+
+        XCTAssertFalse(textView.isPointOnSelectionHandle(endKnob))
     }
 }

@@ -1,6 +1,8 @@
 # Web Support
 
-`EnrichedMarkdownText` runs on web using [`react-native-web`](https://necolas.github.io/react-native-web/) for the React Native primitives and [md4c](https://github.com/mity/md4c) compiled to WebAssembly for parsing. The WASM binary is bundled in the npm package — no build step is required by consumers.
+`EnrichedMarkdownText` runs on web using plain React and DOM primitives — **no `react-native-web` dependency required**. It works in any React project (Next.js, Vite, Remix, CRA, etc.).
+
+Markdown parsing is handled by [md4c](https://github.com/mity/md4c) compiled to WebAssembly. The WASM binary is inlined as base64 inside the bundle (`SINGLE_FILE=1`), so there is no separate `.wasm` file to serve and no build step required by consumers — just import the component and it works.
 
 The web renderer uses semantic HTML elements (`<p>`, `<h1>`–`<h6>`, `<blockquote>`, `<ul>`, `<ol>`, `<table>`, etc.) for improved accessibility.
 
