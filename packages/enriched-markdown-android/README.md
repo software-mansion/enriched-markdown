@@ -384,59 +384,6 @@ side, so it can reach the screen edge while the body text stays inset.
 
 Long-pressing a table offers **Copy** (rich text) and **Copy as Markdown**.
 
-### Spoilers
-
-Text between double pipes is concealed until it is tapped:
-
-```markdown
-The butler ||did it||.
-```
-
-Unlike admonitions, spoilers need no parser flag — they are always recognized, so
-`Md4cFlags.DEFAULT` is enough.
-
-Two overlays are available. `SpoilerOverlay.PARTICLES` (the default) drifts a field of dots over the
-text; `SpoilerOverlay.SOLID` covers it with a rounded block:
-
-```kotlin
-EnrichedMarkdownText(
-  markdown = content,
-  spoilerOverlay = SpoilerOverlay.SOLID,
-)
-```
-
-Tapping anywhere on a spoiler fades it away; adjoining spoilers that touch are revealed together, so
-a run broken up by inline formatting still reveals as one. A link inside a concealed spoiler does
-nothing until the spoiler is revealed. A reveal is per view instance: it survives style and theme
-changes, and is lost when the markdown changes.
-
-```kotlin
-markdownStyle {
-  spoiler {
-    color = Color(0xFF374151)
-    backgroundColor = Color(0xFFFFFFFF)
-    particles {
-      density = 8f
-      speed = 20f
-    }
-    solid { borderRadius = 4.dp }
-  }
-}
-```
-
-`color` paints the particles and fills the solid block. `density` and `speed` are unitless
-multipliers over the defaults shown above, and only apply in particle mode; `borderRadius` only
-applies in solid mode.
-
-`backgroundColor` is the surface the particle overlay paints over the concealed text before fading
-it out, so it has to match what the text sits on. Left unset it is inferred from the first ancestor
-view with a solid background, falling back to white — which is usually wrong under Compose, where
-the background normally comes from a `Modifier` the renderer cannot see. **Set it explicitly
-whenever the text does not sit on white.**
-
-Selecting a concealed spoiler does not reveal it — the overlay stays on top of the selection. Copying
-a spoiler reproduces its `||…||` markers rather than the bare text, so copied markdown stays
-concealed for the next reader; HTML export carries the bare text.
 
 ## Development
 
