@@ -38,8 +38,8 @@ interface EditPipelineHost {
 
   fun setViewSelection(position: Int)
 
-  /** Whether typed markdown prefixes (`# `, `- `, `1. `) convert into blocks. */
-  val markdownShortcutsEnabled: Boolean
+  /** Which typed markdown prefixes (`# `, `- `, `1. `) convert into blocks. */
+  val markdownShortcuts: MarkdownShortcutsConfig
 }
 
 /**
@@ -159,18 +159,31 @@ class EditPipeline(
    * then re-adjust the stores for the deletion before normalization stamps spans.
    */
   private fun convertMarkdownShortcut(context: EditContext) {
-    if (!host.markdownShortcutsEnabled) return
+    val config = host.markdownShortcuts
+    if (!config.isEnabled) return
     val editable = host.editable ?: return
     if (context.deletedLength != 0 || context.insertedLength <= 0) return
 
+    // The trigger is the first space in the inserted run, and a line break ends
+    // the search so the converted line is always the one the insertion started
+    // on. The line start itself is scanned the way [BlockStore] bounds a
+    // paragraph, or the lookup below would miss the block.
     val insertedEnd = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
-    val spaceIndex = (context.editStart until insertedEnd).firstOrNull { editable[it] == ' ' } ?: return
+    val spaceIndex =
+      (context.editStart until insertedEnd)
+        .asSequence()
+        .takeWhile { !editable[it].isLineBreak() }
+        .firstOrNull { editable[it] == ' ' } ?: return
 
     var lineStart = spaceIndex
     while (lineStart > 0 && editable[lineStart - 1] != '\n') lineStart--
     if (spaceIndex == lineStart || blockStore.blockStartingAt(lineStart) != null) return
 
-    val match = MarkdownShortcutMatcher.match(editable.subSequence(lineStart, spaceIndex)) ?: return
+    val match =
+      MarkdownShortcutMatcher.match(
+        editable.subSequence(lineStart, spaceIndex),
+        config,
+      ) ?: return
 
     val deleteEnd = spaceIndex + 1
     val deletedLength = deleteEnd - lineStart

@@ -112,7 +112,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMLinkCoordinator *_linkCoordinator;
   ENRMClipboardCoordinator *_clipboardCoordinator;
 
-  BOOL _markdownShortcutsEnabled;
+  ENRMMarkdownShortcutsConfig _markdownShortcutsConfig;
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
 
@@ -385,12 +385,17 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
     _textView.editable = newViewProps.editable;
   }
 
+  // Copied unconditionally: the generated struct only has `operator==` under
+  // RN_SERIALIZABLE_STATE, and three BOOLs are cheaper than the comparison.
+  _markdownShortcutsConfig = (ENRMMarkdownShortcutsConfig){
+      .heading = newViewProps.markdownShortcuts.heading,
+      .unorderedList = newViewProps.markdownShortcuts.unorderedList,
+      .orderedList = newViewProps.markdownShortcuts.orderedList,
+  };
+
 #if !TARGET_OS_OSX
   if (newViewProps.scrollEnabled != oldViewProps.scrollEnabled) {
     _textView.scrollEnabled = newViewProps.scrollEnabled;
-  }
-  if (newViewProps.markdownShortcuts != oldViewProps.markdownShortcuts) {
-    _markdownShortcutsEnabled = newViewProps.markdownShortcuts;
   }
 
   if (newViewProps.autoCapitalize != oldViewProps.autoCapitalize) {
@@ -1608,10 +1613,12 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 /// edit and before scoped formatting. Returns YES when it converted, in which
 /// case the replace path has already reformatted and emitted.
 - (BOOL)applyMarkdownShortcutForEditAtLocation:(NSUInteger)editLocation
+                                 deletedLength:(NSUInteger)deletedLength
                                 insertedLength:(NSUInteger)insertedLength
-                              preEditBlockType:(ENRMInputBlockType)preEditBlockType
 {
-  if (!_markdownShortcutsEnabled || insertedLength == 0 || preEditBlockType != ENRMInputBlockTypeParagraph) {
+  // A typing affordance, not a paste/import path: pure insertions only, which
+  // is also how block continuation gates itself.
+  if (!ENRMMarkdownShortcutsEnabled(_markdownShortcutsConfig) || deletedLength != 0 || insertedLength == 0) {
     return NO;
   }
 
@@ -1622,13 +1629,19 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   NSUInteger insertedEnd = MIN(editLocation + insertedLength, text.length);
 
   // The trigger is the first space inside the inserted run — a single
-  // keystroke in the common case, a whole token when autocorrect or an
-  // automation inserts several characters at once.
+  // keystroke in the common case, a whole token when an automation inserts
+  // several characters at once. A line break ends the search so the converted
+  // line is always the one the insertion started on.
+  NSCharacterSet *newlines = [NSCharacterSet newlineCharacterSet];
   NSUInteger spaceIndex = NSNotFound;
   for (NSUInteger i = editLocation; i < insertedEnd; i++) {
-    if ([text characterAtIndex:i] == ' ') {
+    unichar c = [text characterAtIndex:i];
+    if (c == ' ') {
       spaceIndex = i;
       break;
+    }
+    if ([newlines characterIsMember:c]) {
+      return NO;
     }
   }
   if (spaceIndex == NSNotFound) {
@@ -1643,7 +1656,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   NSString *prefix = [text substringWithRange:NSMakeRange(lineStart, spaceIndex - lineStart)];
   ENRMInputBlockType type = ENRMInputBlockTypeParagraph;
   NSInteger level = 0;
-  if (![ENRMMarkdownShortcutMatcher matchPrefix:prefix outType:&type outLevel:&level]) {
+  if (![ENRMMarkdownShortcutMatcher matchPrefix:prefix config:_markdownShortcutsConfig outType:&type outLevel:&level]) {
     return NO;
   }
 
@@ -1709,7 +1722,6 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                       pendingStyleRemovals:_typingController.pendingStyleRemovals];
 
   BOOL touchedNewline = [_editPipeline processTextChangeWithContext:context];
-  ENRMInputBlockType preEditBlockType = _preEditBlockType;
 
   // Consumed: clear pre-edit state so stale values can't leak to the next edit.
   _preEditBlockType = ENRMInputBlockTypeParagraph;
@@ -1722,8 +1734,8 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   // A typed markdown prefix turns the paragraph into a block; the replace path
   // reformats and emits on its own, so the rest of this pass is redundant.
   if ([self applyMarkdownShortcutForEditAtLocation:editLocation
-                                    insertedLength:insertedLength
-                                  preEditBlockType:preEditBlockType]) {
+                                     deletedLength:deletedLength
+                                    insertedLength:insertedLength]) {
     return;
   }
 

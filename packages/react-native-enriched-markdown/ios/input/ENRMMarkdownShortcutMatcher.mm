@@ -6,7 +6,10 @@ static const NSUInteger kENRMMaxOrderedMarkerDigits = 9;
 
 @implementation ENRMMarkdownShortcutMatcher
 
-+ (BOOL)matchPrefix:(NSString *)prefix outType:(ENRMInputBlockType *)outType outLevel:(NSInteger *)outLevel
++ (BOOL)matchPrefix:(NSString *)prefix
+             config:(ENRMMarkdownShortcutsConfig)config
+            outType:(ENRMInputBlockType *)outType
+           outLevel:(NSInteger *)outLevel
 {
   NSUInteger length = prefix.length;
   if (length == 0) {
@@ -17,7 +20,7 @@ static const NSUInteger kENRMMaxOrderedMarkerDigits = 9;
 
   // `#`{1,6} → heading at that level.
   if (first == '#') {
-    if (length > 6) {
+    if (!config.heading || length > 6) {
       return NO;
     }
     for (NSUInteger i = 1; i < length; i++) {
@@ -32,6 +35,9 @@ static const NSUInteger kENRMMaxOrderedMarkerDigits = 9;
 
   // `-`, `*`, `+` → bullet item at depth 0.
   if (length == 1 && (first == '-' || first == '*' || first == '+')) {
+    if (!config.unorderedList) {
+      return NO;
+    }
     *outType = ENRMInputBlockTypeUnorderedListItem;
     *outLevel = 0;
     return YES;
@@ -45,6 +51,9 @@ static const NSUInteger kENRMMaxOrderedMarkerDigits = 9;
       if (c < '0' || c > '9') {
         return NO;
       }
+    }
+    if (!config.orderedList) {
+      return NO;
     }
     *outType = ENRMInputBlockTypeOrderedListItem;
     *outLevel = 0;

@@ -178,11 +178,16 @@ With `markdownShortcuts` enabled, typing a markdown block prefix at the start of
 <EnrichedMarkdownTextInput markdownShortcuts />
 ```
 
-It is **off by default**: an app that treats `#` or `-` as literal text (tags, channel names, dashes) sees no change unless it opts in.
+It is **off by default**: an app that treats `#` or `-` as literal text (tags, channel names, dashes) sees no change unless it opts in. Pass a config object to enable a subset — an omitted key is off:
+
+```tsx
+<EnrichedMarkdownTextInput markdownShortcuts={{ heading: true }} />
+```
 
 Behavior notes:
 
 - The shortcut only fires on a **plain paragraph**. Typing `# ` inside an existing heading or list item leaves the text alone.
+- It is a **typing** affordance: it converts only text that was inserted, so pasting `# Title`, typing over a selection or committing an autocorrection never reformats a line. Markdown that is loaded into the input is parsed as markdown already.
 - The conversion goes through the same block pipeline as [`toggleHeading`](#headings) and the [list commands](#lists), so `onChangeState`, serialization and Return-continues-the-list behave exactly as if the block had been toggled from a toolbar.
 - Backspace at the start of a freshly converted **list item** removes the marker again (the existing list Backspace rule). A converted heading is turned off with `toggleHeading` or by deleting the line.
 - Without the shortcut a literal `# Heading` paragraph still serializes as `# Heading`, so it would become a heading the next time the markdown is loaded. Enabling shortcuts makes what the user sees while typing agree with what they get after a reload.
