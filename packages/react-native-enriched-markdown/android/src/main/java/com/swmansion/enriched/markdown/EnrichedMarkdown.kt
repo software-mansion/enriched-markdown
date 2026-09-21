@@ -17,6 +17,7 @@ import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.segments.BlockquoteContainerView
 import com.swmansion.enriched.markdown.segments.CodeBlockContainerView
 import com.swmansion.enriched.markdown.segments.ContainerNodeView
+import com.swmansion.enriched.markdown.segments.DynamicBlockProps
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.SegmentViewConfig
@@ -92,8 +93,6 @@ class EnrichedMarkdown(
   private var onLinkPressCallback: ((String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((Int, Boolean, String) -> Unit)? = null
-  private var onCopyPressCallback: ((String, String) -> Unit)? = null
-  private var onCodeBlockPressCallback: ((String, String) -> Unit)? = null
   private var onLatexErrorCallback: LatexErrorReporter? = null
 
   private val reportedLatexErrors = HashSet<String>()
@@ -123,17 +122,18 @@ class EnrichedMarkdown(
         it.enableTaskListItemToggle = value
       }
     }
-  var enableBlockContextMenu: Boolean = true
+
+  private val dynamicProps = DynamicBlockProps()
+
+  var enableBlockContextMenu: Boolean
+    get() = dynamicProps.enableBlockContextMenu
     set(value) {
-      if (field == value) return
-      field = value
-      pushBlockContextMenuToSegments()
+      dynamicProps.enableBlockContextMenu = value
     }
-  var enableCodeBlockPress: Boolean = false
+  var enableCodeBlockPress: Boolean
+    get() = dynamicProps.enableCodeBlockPress
     set(value) {
-      if (field == value) return
-      field = value
-      pushCodeBlockPressToSegments()
+      dynamicProps.enableCodeBlockPress = value
     }
 
   init {
@@ -299,11 +299,11 @@ class EnrichedMarkdown(
   }
 
   fun setOnCopyPressCallback(callback: ((code: String, language: String) -> Unit)?) {
-    onCopyPressCallback = callback
+    dynamicProps.onCopyPress = callback
   }
 
   fun setOnCodeBlockPressCallback(callback: ((code: String, language: String) -> Unit)?) {
-    onCodeBlockPressCallback = callback
+    dynamicProps.onCodeBlockPress = callback
   }
 
   fun setContextMenuItems(items: List<String>) {
@@ -316,92 +316,10 @@ class EnrichedMarkdown(
   fun setSelectionMenuConfig(config: SelectionMenuConfig) {
     if (selectionMenuConfig == config) return
     selectionMenuConfig = config
+    dynamicProps.copyLabel = config.copyLabel
+    dynamicProps.copyAsMarkdownLabel = config.copyAsMarkdownLabel
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
       it.selectionMenuConfig = config
-    }
-    // Table and math views cache the copy labels, so re-push them on update
-    // (e.g. a language change without a remount) to avoid stale labels.
-    pushCopyLabelsToBlockSegments()
-  }
-
-  private fun pushCopyLabelsToBlockSegments() {
-    val copyLabel = selectionMenuConfig.copyLabel
-    val copyAsMarkdownLabel = selectionMenuConfig.copyAsMarkdownLabel
-    segmentViews.forEach { view ->
-      when {
-        view is TableContainerView -> {
-          view.copyLabel = copyLabel
-          view.copyAsMarkdownLabel = copyAsMarkdownLabel
-        }
-
-        view is CodeBlockContainerView -> {
-          view.copyLabel = copyLabel
-          view.copyAsMarkdownLabel = copyAsMarkdownLabel
-        }
-
-        view is BlockquoteContainerView -> {
-          view.copyLabel = copyLabel
-          view.copyAsMarkdownLabel = copyAsMarkdownLabel
-        }
-
-        isMathContainerView(view) -> {
-          runCatching {
-            view.javaClass.getMethod("setCopyLabel", String::class.java).invoke(view, copyLabel)
-            view.javaClass
-              .getMethod("setCopyAsMarkdownLabel", String::class.java)
-              .invoke(view, copyAsMarkdownLabel)
-          }
-        }
-
-        isVideoContainerView(view) -> {
-          runCatching {
-            view.javaClass.getMethod("setCopyLabel", String::class.java).invoke(view, copyLabel)
-            view.javaClass
-              .getMethod("setCopyAsMarkdownLabel", String::class.java)
-              .invoke(view, copyAsMarkdownLabel)
-          }
-        }
-      }
-    }
-  }
-
-  private fun pushBlockContextMenuToSegments() {
-    segmentViews.forEach { view ->
-      when {
-        view is TableContainerView -> {
-          view.enableBlockContextMenu = enableBlockContextMenu
-        }
-
-        view is CodeBlockContainerView -> {
-          view.enableBlockContextMenu = enableBlockContextMenu
-        }
-
-        view is BlockquoteContainerView -> {
-          view.enableBlockContextMenu = enableBlockContextMenu
-        }
-
-        isMathContainerView(view) -> {
-          runCatching {
-            view.javaClass
-              .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
-              .invoke(view, enableBlockContextMenu)
-          }
-        }
-
-        isVideoContainerView(view) -> {
-          runCatching {
-            view.javaClass
-              .getMethod("setEnableBlockContextMenu", Boolean::class.javaPrimitiveType)
-              .invoke(view, enableBlockContextMenu)
-          }
-        }
-      }
-    }
-  }
-
-  private fun pushCodeBlockPressToSegments() {
-    segmentViews.filterIsInstance<CodeBlockContainerView>().forEach {
-      it.enableCodeBlockPress = enableCodeBlockPress
     }
   }
 
@@ -550,12 +468,9 @@ class EnrichedMarkdown(
       selectionColor = selectionColor,
       selectionHandleColor = selectionHandleColor,
       contextMenuItemTexts = contextMenuItemTexts,
-      enableBlockContextMenu = enableBlockContextMenu,
-      enableCodeBlockPress = enableCodeBlockPress,
+      dynamicProps = dynamicProps,
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,
-      onCopyPress = onCopyPressCallback,
-      onCodeBlockPress = onCodeBlockPressCallback,
       onTaskListItemPress = onTaskListItemPressCallback,
       onContextMenuItemPress = ::forwardContextMenuItemPress,
       onLatexError = latexErrorReporter,

@@ -18,9 +18,9 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
-import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
@@ -67,6 +67,7 @@ class ImageSpan(
   private var cachedWidth: Int = 0
   private var viewRef: WeakReference<TextView>? = null
   private var sourceDrawable: Drawable? = null
+  private var onBoxHeightChanged: (() -> Unit)? = null
 
   private fun intrinsicImageSize(): Pair<Int, Int> {
     sourceDrawable?.let { return it.intrinsicWidth to it.intrinsicHeight }
@@ -182,16 +183,25 @@ class ImageSpan(
   // re-measure; it only propagates when the stored height actually changed.
   private fun notifyBoxHeightMayHaveChanged(view: TextView) {
     if (!dynamicBoxHeight) return
+    // A self-measuring host (e.g. a table cell) sizes the image box itself and drives
+    // its own re-layout, so bubbling up to the component would churn it and orphan this
+    // freshly registered view. Let the host re-measure locally instead.
+    onBoxHeightChanged?.let {
+      it()
+      return
+    }
     if (view is EnrichedMarkdownText) {
       view.layoutManager.invalidateLayout()
       return
     }
-    var parent = view.parent
-    while (parent != null && parent !is EnrichedMarkdown) parent = parent.parent
-    parent?.onImageLayoutChanged()
+    view.findEnrichedMarkdownAncestor()?.onImageLayoutChanged()
   }
 
-  fun registerTextView(view: TextView) {
+  fun registerTextView(
+    view: TextView,
+    onBoxHeightChanged: (() -> Unit)? = null,
+  ) {
+    this.onBoxHeightChanged = onBoxHeightChanged
     viewRef = WeakReference(view)
     if (!isInline) {
       val availableWidth = getAvailableWidth(view)

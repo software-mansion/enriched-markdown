@@ -21,10 +21,7 @@ class VideoContainerView(
   private val playerView = PlayerView(context)
   private var player: ExoPlayer? = null
   private var currentUrl: String? = null
-
-  var copyLabel: String = ""
-  var copyAsMarkdownLabel: String = ""
-  var enableBlockContextMenu: Boolean = true
+  var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
   override val segmentMarginTop: Int get() = styleConfig.videoStyle.marginTop.toInt()
   override val segmentMarginBottom: Int get() = styleConfig.videoStyle.marginBottom.toInt()
@@ -83,10 +80,10 @@ class VideoContainerView(
 
   private fun showContextMenu(anchor: android.view.View): Boolean {
     val url = currentUrl ?: return false
-    if (!enableBlockContextMenu || url.isEmpty()) return false
+    if (!dynamicProps.enableBlockContextMenu || url.isEmpty()) return false
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, copyLabel) { copyToClipboard(url) }
-      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) { copyToClipboard(videoMarkdown(url)) }
+      item(ContextMenuPopup.Icon.COPY, dynamicProps.copyLabel) { copyToClipboard(url) }
+      item(ContextMenuPopup.Icon.DOCUMENT, dynamicProps.copyAsMarkdownLabel) { copyToClipboard(videoMarkdown(url)) }
     }
     return true
   }

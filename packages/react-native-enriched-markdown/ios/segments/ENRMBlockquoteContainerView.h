@@ -70,26 +70,14 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkPress;
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkLongPress;
 
-// Copy-menu titles and copy callback propagated to block children (code block,
-// table, math) inside the quote, recursing into nested quotes. Renamed getters
-// avoid the Cocoa `copy` method family, matching ENRMCodeBlockContainerView.
-@property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
-@property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
-
-// Code block tap gate + callback, propagated to code block children (mirrors onCopyPress).
-@property (nonatomic, assign) BOOL enableCodeBlockPress;
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
 
-// Block-level context menu (Copy / Copy as Markdown) on long press.
-@property (nonatomic, assign) BOOL enableBlockContextMenu;
-
-// Re-applies the current copy labels and onCopyPress to already-created
-// children when the labels change without a remount.
-- (void)pushCopyLabelsToChildren;
-
-// Re-applies the tap gate to existing code block children when it toggles.
-- (void)pushCodeBlockPressEnabledToChildren:(BOOL)enabled;
+// Shared, runtime-mutable block props (context-menu gate, code-block tap gate,
+// copy labels) read live at use-time. Set to the root's shared instance at
+// creation and handed unchanged to this quote's children, so a child added after
+// a toggle is born current with no per-toggle push. See ENRMDynamicBlockProps.
+@property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
 
 @end
 

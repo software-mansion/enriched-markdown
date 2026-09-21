@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.SpannableString
+import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.style.AlignmentSpan
@@ -24,8 +25,10 @@ import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
+import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
@@ -61,9 +64,8 @@ class TableContainerView(
       if (rowCount > 0) renderGrid()
     }
 
-  var copyLabel: String = ""
-  var copyAsMarkdownLabel: String = ""
-  var enableBlockContextMenu: Boolean = true
+  // Runtime-mutable block props read live at menu-open. See DynamicBlockProps.
+  var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
   private val scrollView =
     HorizontalScrollView(context).apply {
@@ -300,6 +302,37 @@ class TableContainerView(
         topMargin = ceil(verticalPadding).toInt()
       },
     )
+
+    data.attributedText
+      .getSpans(0, data.attributedText.length, ImageSpan::class.java)
+      .forEach { span -> span.registerTextView(cellTextView) { scheduleImageRemeasure() } }
+  }
+
+  private var imageRemeasurePending = false
+
+  private fun scheduleImageRemeasure() {
+    if (imageRemeasurePending) return
+    imageRemeasurePending = true
+    post {
+      imageRemeasurePending = false
+      remeasureForImageLoad()
+    }
+  }
+
+  private fun remeasureForImageLoad() {
+    if (rows.isEmpty()) return
+    val (widths, heights) =
+      computeTableDimensions(rows.map { row -> row.map { it.attributedText } }, styleConfig, context)
+    if (widths == columnWidths && heights == rowHeights) return
+
+    columnWidths = widths
+    rowHeights = heights
+    totalTableWidth = columnWidths.sum() + tableStyle.borderWidth
+    totalTableHeight = rowHeights.sum() + tableStyle.borderWidth
+    renderGrid()
+    requestLayout()
+
+    findEnrichedMarkdownAncestor()?.onImageLayoutChanged()
   }
 
   override fun onMeasure(
@@ -357,10 +390,10 @@ class TableContainerView(
   }
 
   private fun showContextMenu(anchor: View): Boolean {
-    if (!enableBlockContextMenu) return false
+    if (!dynamicProps.enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, copyLabel) {
+      item(ContextMenuPopup.Icon.COPY, dynamicProps.copyLabel) {
         val plainText = rows.joinToString("\n") { row -> row.joinToString("\t") { it.plainText } }
         if (plainText.isNotEmpty()) {
           val displayMetrics = context.resources.displayMetrics
@@ -372,7 +405,7 @@ class TableContainerView(
           clipboard.setPrimaryClip(ClipData.newHtmlText("Table", plainText, html))
         }
       }
-      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) {
+      item(ContextMenuPopup.Icon.DOCUMENT, dynamicProps.copyAsMarkdownLabel) {
         if (tableMarkdown.isNotEmpty()) clipboard.setPrimaryClip(ClipData.newPlainText("Table", tableMarkdown))
       }
     }
@@ -409,6 +442,22 @@ class TableContainerView(
       }
     }
 
+    private fun prepareImageSpansForMeasurement(
+      text: CharSequence,
+      widthPx: Int,
+    ) {
+      if (widthPx <= 1) return
+      val spanned = text as? Spanned ?: return
+      spanned
+        .getSpans(0, spanned.length, ImageSpan::class.java)
+        .forEach { it.prepareForMeasurement(spanned, widthPx) }
+    }
+
+    private fun cellHasBlockImage(text: CharSequence): Boolean {
+      val spanned = text as? Spanned ?: return false
+      return spanned.getSpans(0, spanned.length, ImageSpan::class.java).any { !it.isInline }
+    }
+
     private fun computeTableDimensions(
       texts: List<List<CharSequence>>,
       config: StyleConfig,
@@ -433,8 +482,9 @@ class TableContainerView(
               .setIncludePad(false)
               .build()
           val textWidth: Float = (0 until layout.lineCount).maxOfOrNull { line -> layout.getLineWidth(line) } ?: 0f
+          val effectiveWidth = if (cellHasBlockImage(cellText)) maxColumnWidth else ceil(textWidth)
           columnWidths[colIndex] =
-            max(columnWidths[colIndex], min(max(ceil(textWidth) + horizontalPadding, minColumnWidth), maxColumnWidth + horizontalPadding))
+            max(columnWidths[colIndex], min(max(effectiveWidth + horizontalPadding, minColumnWidth), maxColumnWidth + horizontalPadding))
         }
       }
 
@@ -442,6 +492,8 @@ class TableContainerView(
         texts.map { row ->
           row
             .mapIndexed { colIndex, cellText ->
+              val contentWidth = (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1)
+              prepareImageSpansForMeasurement(cellText, contentWidth)
               val layout =
                 StaticLayout.Builder
                   .obtain(
@@ -449,7 +501,7 @@ class TableContainerView(
                     0,
                     cellText.length,
                     paint,
-                    (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1),
+                    contentWidth,
                   ).setIncludePad(false)
                   .build()
               ceil(layout.height.toFloat()) + verticalPadding

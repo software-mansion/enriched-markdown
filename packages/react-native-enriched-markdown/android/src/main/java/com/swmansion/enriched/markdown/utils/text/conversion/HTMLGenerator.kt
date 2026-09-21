@@ -208,7 +208,7 @@ object HTMLGenerator {
         }
       }
 
-      private fun fontWeightToCSS(fontWeight: String): String =
+      fun fontWeightToCSS(fontWeight: String): String =
         when {
           fontWeight.equals("bold", ignoreCase = true) -> "700"
           fontWeight.equals("semibold", ignoreCase = true) -> "600"
@@ -952,6 +952,7 @@ object HTMLGenerator {
     val fontSizePx = tableStyle.fontSize / scaledDensity
     val cellPaddingVerticalPx = tableStyle.cellPaddingVertical / density
     val cellPaddingHorizontalPx = tableStyle.cellPaddingHorizontal / density
+    val bodyFontWeight = CachedStyles.fontWeightToCSS(tableStyle.fontWeight)
 
     return buildString(rows.size * 250) {
       append("<table style=\"border-collapse: separate; border-spacing: 0; ")
@@ -985,7 +986,7 @@ object HTMLGenerator {
             }
           val textColor = if (isHeader) colorToCSS(tableStyle.headerTextColor) else colorToCSS(tableStyle.color)
           val textAlignment = alignmentToCSS(alignment)
-          val fontWeight = if (isHeader) "bold" else "normal"
+          val fontWeight = if (isHeader) "bold" else bodyFontWeight
 
           val htmlTag = if (isHeader) "th" else "td"
           append("<$htmlTag style=\"")

@@ -142,6 +142,9 @@ object MeasurementStore {
     data.remove(id)
   }
 
+  // Content-box width (px) the measure pass last wrapped at; the display view insets to match (#805).
+  fun contentBoxWidthPx(id: Int): Float? = data[id]?.cachedWidth
+
   /** Main entry point for ShadowNode measurement. */
   fun getMeasureById(
     context: Context,
