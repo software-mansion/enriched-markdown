@@ -9,12 +9,12 @@ import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.MarkdownStyle
 import com.swmansion.enriched.markdown.compose.markdownStyle
 
-private val MontserratRegular = FontFamily(Font(R.font.montserrat_regular))
-private val MontserratBold = FontFamily(Font(R.font.montserrat_bold))
-private val MontserratSemiBold = FontFamily(Font(R.font.montserrat_semibold))
-private val MontserratMedium = FontFamily(Font(R.font.montserrat_medium))
-private val MontserratItalic = FontFamily(Font(R.font.montserrat_italic))
-private val CourierPrimeRegular = FontFamily(Font(R.font.courier_prime_regular))
+internal val MontserratRegular = FontFamily(Font(R.font.montserrat_regular))
+internal val MontserratBold = FontFamily(Font(R.font.montserrat_bold))
+internal val MontserratSemiBold = FontFamily(Font(R.font.montserrat_semibold))
+internal val MontserratMedium = FontFamily(Font(R.font.montserrat_medium))
+internal val MontserratItalic = FontFamily(Font(R.font.montserrat_italic))
+internal val CourierPrimeRegular = FontFamily(Font(R.font.courier_prime_regular))
 
 /**
  * Mirrors [apps/example/src/markdownStyles.ts] so the native Android example renders

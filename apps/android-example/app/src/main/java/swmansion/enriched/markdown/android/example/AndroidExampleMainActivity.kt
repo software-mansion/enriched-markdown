@@ -3,6 +3,7 @@ package swmansion.enriched.markdown.android.example
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,8 +38,19 @@ class AndroidExampleMainActivity : ComponentActivity() {
     setContent {
       var currentRoute by rememberSaveable { mutableStateOf(ExampleRoute.Home) }
 
+      BackHandler(enabled = currentRoute != ExampleRoute.Home) {
+        currentRoute = ExampleRoute.Home
+      }
+
       MaterialTheme {
         MarkdownTheme {
+          // The release notes dress their own top bar to match the page they
+          // are printed on; every other screen wears the mint.
+          if (currentRoute == ExampleRoute.WhatsNew) {
+            WhatsNewScreen(onBack = { currentRoute = ExampleRoute.Home })
+            return@MarkdownTheme
+          }
+
           Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.White,
@@ -76,8 +88,10 @@ class AndroidExampleMainActivity : ComponentActivity() {
                 modifier = Modifier.padding(innerPadding),
                 onNavigate = { route ->
                   when (route) {
-                    ExampleRoute.Playground -> currentRoute = ExampleRoute.Playground
-                    ExampleRoute.Text -> currentRoute = ExampleRoute.Text
+                    ExampleRoute.Playground,
+                    ExampleRoute.Text,
+                    ExampleRoute.WhatsNew,
+                    -> currentRoute = route
                     else ->
                       Toast
                         .makeText(
