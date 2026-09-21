@@ -197,12 +197,18 @@ class MarkdownAccessibilityHelper(
   }
 
   /** Ellipsis-aware end offset for a visible line. */
-  private fun visibleLineEnd(layout: Layout, line: Int): Int =
-    if (layout.getEllipsisCount(line) > 0) {
-      layout.getLineStart(line) + layout.getEllipsisStart(line)
-    } else {
-      layout.getLineEnd(line)
-    }
+  private fun visibleLineEnd(
+    layout: Layout,
+    line: Int,
+  ): Int {
+    val lineEnd = layout.getLineEnd(line)
+    val count = layout.getEllipsisCount(line)
+    if (count == 0) return lineEnd
+    // Only a tail ellipsis hides text up to the end of the line. Head/middle hide a prefix or an
+    // inner range, so the line end is still laid out and must stay reachable.
+    val hiddenStart = layout.getLineStart(line) + layout.getEllipsisStart(line)
+    return if (hiddenStart + count >= lineEnd) hiddenStart else lineEnd
+  }
 
   /** End offset of the laid-out (visible) text; less than the full length when truncated. */
   private fun visibleTextLength(fullLength: Int): Int {
