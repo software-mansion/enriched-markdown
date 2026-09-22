@@ -18,12 +18,6 @@ export interface EnrichedMarkdownTextProps extends Omit<
    */
   testID?: string;
   /**
-   * Accepted for React Native compatibility. Browsers handle font scaling
-   * through operating system accessibility settings.
-   * @platform web
-   */
-  allowFontScaling?: boolean;
-  /**
    * Markdown content to render.
    * @platform ios, android, web
    */

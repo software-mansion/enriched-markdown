@@ -13,6 +13,7 @@ import { indexTaskItems, markInlineImages } from './utils';
 import { loadKaTeX } from './katex';
 import type { KaTeXInstance } from './katex';
 import { ENRM_TEXT_CLASS, ENRM_SELECTION_BG_VAR } from './globalStyles';
+import { filterNativeOnlyProps } from './nativeProps';
 
 export const EnrichedMarkdownText = ({
   markdown,
@@ -30,7 +31,6 @@ export const EnrichedMarkdownText = ({
   dir,
   selectionColor,
   testID,
-  allowFontScaling: _allowFontScaling,
   ...rest
 }: EnrichedMarkdownTextProps) => {
   const normalizedStyle = useMemo(
@@ -158,6 +158,8 @@ export const EnrichedMarkdownText = ({
     [containerStyle, selectable, selectionColor]
   );
 
+  const domProps = filterNativeOnlyProps(rest);
+
   if (parseError) {
     return (
       <div
@@ -165,7 +167,7 @@ export const EnrichedMarkdownText = ({
         style={wrapperStyle}
         dir={dir}
         data-testid={testID}
-        {...rest}
+        {...domProps}
       >
         <pre style={parseErrorFallbackStyle}>{markdown}</pre>
       </div>
@@ -183,7 +185,7 @@ export const EnrichedMarkdownText = ({
       style={wrapperStyle}
       dir={dir}
       data-testid={testID}
-      {...rest}
+      {...domProps}
     >
       {children.map((child, index) => (
         <RenderNode

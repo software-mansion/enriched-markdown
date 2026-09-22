@@ -25,16 +25,22 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - Math (KaTeX fallback): `role="math"` and `aria-label` with the expression content
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
 
-### Web-only props
+### Web props
 
 | Prop | Description |
 |---|---|
-| `dir` | Sets the text direction on the root container (`'ltr'`, `'rtl'`, or `'auto'`). CSS logical properties in the renderers automatically flip layout for RTL. |
-| `testID` | Sets `data-testid` on the root container. |
+| `dir` | Web-only. Sets the text direction on the root container (`'ltr'`, `'rtl'`, or `'auto'`). CSS logical properties in the renderers automatically flip layout for RTL. |
+| `testID` | Standard React Native prop; on web it is applied to the root container as `data-testid`. |
 
-The web implementation also exports `WebMarkdownTextProps` which extends `EnrichedMarkdownTextProps` with the web-only props above.
+All of these are part of the exported `EnrichedMarkdownTextProps` type for web.
 
 ## Ignored props (native-only)
+
+These props belong to the iOS/Android API and have no effect on web. Because a
+cross-platform project is usually type-checked against the native prop interface,
+the same JSX compiles for web; these props are stripped before the root element
+is rendered, so they never reach the DOM or trigger React "unknown prop"
+warnings.
 
 | Prop | Reason |
 |---|---|
@@ -43,9 +49,16 @@ The web implementation also exports `WebMarkdownTextProps` which extends `Enrich
 | `allowFontScaling` / `maxFontSizeMultiplier` | React Native text scaling props. Browsers handle font scaling natively via OS accessibility settings. |
 | `streamingAnimation` | Native-only tail fade-in animation. Not yet implemented on web. |
 | `streamingConfig` | Native-only streaming table configuration. Not yet implemented on web. |
-| `contextMenuItems` | Not supported — browsers don't allow extending the native context menu. |
-| `selectionMenuConfig` | Not supported — native-only built-in selection menu actions. |
-| `selectionHandleColor` | Android-only — desktop browsers don't render selection handles. |
+| `numberOfLines` / `ellipsizeMode` | Native text truncation. Not yet implemented on web. |
+| `spoilerOverlay` | Native-only spoiler reveal animation. Not yet implemented on web. |
+| `contextMenuItems` | Not supported - browsers don't allow extending the native context menu. |
+| `selectionMenuConfig` | Not supported - native-only built-in selection menu actions. |
+| `selectionHandleColor` | Android-only - desktop browsers don't render selection handles. |
+| `imageRequestHeaders` | Not supported - browsers don't allow custom headers on `<img>` requests. |
+| `accessibilityLabels` | VoiceOver / TalkBack announcement strings. The web renderer uses semantic HTML and native `aria-*` instead. |
+| `textBreakStrategy` / `lineBreakStrategyIOS` / `writingDirection` | Native line-breaking and paragraph-direction controls. Use `dir` for web text direction. |
+| `enableBlockContextMenu` | Native-only long-press copy popup on block views. |
+| `onCopyPress` / `onLatexError` | Native-only callbacks. |
 
 ## Not supported on web
 
