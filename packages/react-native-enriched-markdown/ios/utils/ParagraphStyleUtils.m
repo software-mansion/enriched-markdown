@@ -291,7 +291,8 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
     return;
   }
 
-  // Math paragraphs leave maximumLineHeight at 0, so fall back to minimumLineHeight.
+  // applyLineHeight floors lines with minimumLineHeight (maximumLineHeight is 0 for grown lines,
+  // or equal to the minimum for re-clamped code blocks), so the target is the minimum line height.
   __block CGFloat targetLineHeight = 0;
   [output enumerateAttribute:NSParagraphStyleAttributeName
                      inRange:range
@@ -300,8 +301,7 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                     if (!paragraphStyle) {
                       return;
                     }
-                    CGFloat clamp = MAX(paragraphStyle.maximumLineHeight, paragraphStyle.minimumLineHeight);
-                    targetLineHeight = MAX(clamp, targetLineHeight);
+                    targetLineHeight = MAX(paragraphStyle.minimumLineHeight, targetLineHeight);
                   }];
 
   if (targetLineHeight <= 0) {
