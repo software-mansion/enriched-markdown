@@ -175,6 +175,10 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
     private func handleLoadedImage(_ image: UIImage?) {
         guard let image else { return }
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.handleLoadedImage(image) }
+            return
+        }
         originalImage = image
 
         if isInline {
@@ -227,6 +231,8 @@ final class MarkdownImageAttachment: NSTextAttachment {
             }
 
             DispatchQueue.main.async {
+                // Scalings run concurrently; an older box may finish last.
+                guard self.lastProcessedBox == box else { return }
                 self.loadedImage = processed
                 if self.isInline {
                     self.image = processed

@@ -257,6 +257,21 @@ final class MarkdownImageAttachmentTests: XCTestCase {
         XCTAssertEqual(attachment.contentMode, .stretch)
     }
 
+    func testLoadArrivingOffTheMainThreadIsAppliedOnMain() {
+        let downloader = DeferredImageDownloader()
+        let attachment = blockAttachment(BlockImage().maxHeight(150), downloader: downloader)
+
+        let delivered = expectation(description: "delivered off main")
+        DispatchQueue.global().async {
+            downloader.complete(with: self.makeImage(width: 300, height: 100))
+            delivered.fulfill()
+        }
+        wait(for: [delivered], timeout: 1)
+        awaitMainQueue()
+
+        XCTAssertEqual(layOut(attachment), 100)
+    }
+
     // MARK: - Re-measure notifications
 
     func testSettledBoxAsksTheHostToMeasureAgain() {

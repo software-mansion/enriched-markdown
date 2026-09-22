@@ -2,6 +2,9 @@ import UIKit
 
 /// Abstraction over image fetching so consumers of attachments can inject
 /// a stub in tests and previews instead of hitting the network.
+///
+/// The completion runs on the main queue, except a cache hit, which completes
+/// synchronously on the calling queue.
 protocol ImageDownloading: AnyObject {
     func download(url: String, headers: [String: String], completion: @escaping (UIImage?) -> Void)
 }
