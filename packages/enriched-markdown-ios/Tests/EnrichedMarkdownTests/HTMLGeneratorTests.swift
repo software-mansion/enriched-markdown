@@ -294,7 +294,7 @@ final class HTMLGeneratorTests: XCTestCase {
     }
 
     func testUnresolvedDirectionMarksDocumentAuto() {
-        let rendered = MarkdownRenderer.render("مرحبا", config: config, writingDirection: .auto)
+        let rendered = MarkdownRenderer.render("مرحبا", config: config, writingDirection: .natural)
         let result = MarkdownHTMLGenerator.generateHTML(
             from: rendered,
             in: NSRange(location: 0, length: rendered.length),

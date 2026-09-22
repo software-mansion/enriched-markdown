@@ -37,7 +37,7 @@ enum WritingDirectionResolver {
         let string = output.string as NSString
         let direction: ([NSAttributedString.Key: Any], NSRange) -> NSWritingDirection
         switch mode {
-        case .auto:
+        case .natural:
             return
         case .leftToRight:
             direction = { _, _ in .leftToRight }

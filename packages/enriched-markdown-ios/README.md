@@ -368,11 +368,13 @@ extension View {
 | Value | Behavior |
 |-------|----------|
 | `.firstStrong` (default) | Each paragraph follows its first strong directional character; paragraphs without one (digits, punctuation) follow the SwiftUI `layoutDirection`. Matches Android and the React Native package. |
-| `.auto` | Leaves direction to TextKit; list markers, checkboxes, and blockquote bars follow the app's interface direction rather than the paragraph's content. |
+| `.natural` | Leaves direction to TextKit, as the React Native prop's `auto` does; list markers, checkboxes, blockquote bars, and paragraphs with no strong character follow the app's interface direction, not the SwiftUI `layoutDirection`, so an `.environment(\.layoutDirection, .rightToLeft)` subtree still gets left-side markers. |
 | `.leftToRight` | Forces every paragraph left-to-right. |
 | `.rightToLeft` | Forces every paragraph right-to-left. |
 
 Code blocks always render left-to-right. See [Right-to-left text](#right-to-left-text) for what follows a paragraph's direction.
+
+Outside SwiftUI, `MarkdownRenderer.render` and `renderLaTeX` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
 
 ### `rememberMarkdownTheme`
 
@@ -393,7 +395,7 @@ System **Copy** puts two flavors of the selection on the pasteboard: plain text 
 
 The selection menu additionally offers **Copy as Markdown** and **Copy Image URL(s)** — see `.markdownSelectionMenu` above.
 
-The HTML flavor carries one `dir` attribute, read from the first copied paragraph (`rtl`, or `auto` under `.markdownWritingDirection(.auto)`); see [Right-to-left text](#right-to-left-text).
+The HTML flavor carries one `dir` attribute, read from the first copied paragraph (`rtl`, or `auto` under `.markdownWritingDirection(.natural)`); see [Right-to-left text](#right-to-left-text).
 
 ## Image sources
 
@@ -457,7 +459,7 @@ Writing direction resolves **per paragraph**: each paragraph takes its base dire
 | Tables | Each cell resolves its own direction from its content |
 | Code blocks | Always left-to-right |
 
-Paragraphs with no strong character (digits, punctuation) follow the SwiftUI layout direction, so `.environment(\.layoutDirection, .rightToLeft)` right-aligns neutral content. Copied HTML carries a single `dir` attribute read from the first copied paragraph; receivers apply their own bidi algorithm, so a mixed-direction selection may not reproduce the per-paragraph layout after pasting.
+Under the default `.firstStrong`, paragraphs with no strong character (digits, punctuation) follow the SwiftUI layout direction, so `.environment(\.layoutDirection, .rightToLeft)` right-aligns neutral content. Copied HTML carries a single `dir` attribute read from the first copied paragraph; receivers apply their own bidi algorithm, so a mixed-direction selection may not reproduce the per-paragraph layout after pasting.
 
 ## LaTeX math
 

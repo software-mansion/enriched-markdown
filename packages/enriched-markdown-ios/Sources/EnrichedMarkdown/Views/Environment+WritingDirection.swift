@@ -2,15 +2,15 @@ import SwiftUI
 
 /// How each paragraph's base writing direction is resolved. Mirrors the
 /// React Native package's `writingDirection` prop.
-public enum MarkdownWritingDirection: Equatable, Sendable {
+public enum MarkdownWritingDirection: CaseIterable, Equatable, Sendable {
     /// Each paragraph follows its first strong directional character;
     /// paragraphs without one (digits, punctuation) follow the SwiftUI
     /// layout direction. The default, matching Android.
     case firstStrong
-    /// Leaves direction to TextKit. List markers, checkboxes, and
-    /// blockquote bars then follow the app's interface direction rather
-    /// than each paragraph's content.
-    case auto
+    /// Leaves direction to TextKit, as the React Native prop's `auto` does.
+    /// List markers, checkboxes, blockquote bars, and paragraphs with no
+    /// strong character then follow the app's interface direction.
+    case natural
     /// Forces every paragraph left-to-right.
     case leftToRight
     /// Forces every paragraph right-to-left.

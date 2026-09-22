@@ -59,8 +59,8 @@ final class WritingDirectionTests: XCTestCase {
         XCTAssertEqual(direction(of: "مرحبا", in: render("مرحبا", writingDirection: .leftToRight)), .leftToRight)
     }
 
-    func testAutoLeavesParagraphsNatural() {
-        XCTAssertEqual(direction(of: "مرحبا", in: render("مرحبا", writingDirection: .auto)), .natural)
+    func testNaturalLeavesParagraphsToTextKit() {
+        XCTAssertEqual(direction(of: "مرحبا", in: render("مرحبا", writingDirection: .natural)), .natural)
     }
 
     func testCodeBlocksStayLeftToRight() {
