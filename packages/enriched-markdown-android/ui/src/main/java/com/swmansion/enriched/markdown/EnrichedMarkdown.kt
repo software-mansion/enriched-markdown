@@ -52,7 +52,7 @@ class EnrichedMarkdown(
   val currentMarkdown: String
     get() = TaskListToggleUtils.applyCheckedStates(baseMarkdown, taskListToggles)
 
-  var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
+  var md4cFlags: Md4cFlags = Md4cFlags.Default
     private set
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()

@@ -61,7 +61,7 @@ import com.swmansion.enriched.markdown.compose.MarkdownTheme
 MarkdownTheme {
   EnrichedMarkdownText(
     markdown = "# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).",
-    onLinkPress = { url -> /* open url */ },
+    onLinkClick = { url -> /* open url */ },
   )
 }
 ```

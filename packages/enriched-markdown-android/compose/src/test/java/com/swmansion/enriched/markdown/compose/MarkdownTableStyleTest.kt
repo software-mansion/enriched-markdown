@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.compose
 
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.font.FontFamily
@@ -43,7 +44,7 @@ class MarkdownTableStyleTest {
           borderWidth = 2.dp
           cornerRadius = 10.dp
           cellPaddingHorizontal = 14.dp
-          align = TableAlignment.CENTER
+          alignment = Alignment.CenterHorizontally
         }
       }.resolve(context)
 

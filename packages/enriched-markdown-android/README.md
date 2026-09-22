@@ -38,7 +38,7 @@ MaterialTheme {
   MarkdownTheme {
     EnrichedMarkdownText(
       markdown = "# Hello\n\nThis is **enriched** markdown.",
-      onLinkPress = { url -> /* open url */ },
+      onLinkClick = { url -> /* open url */ },
     )
   }
 }
@@ -51,7 +51,9 @@ See the full example in [`apps/android-example`](../../apps/android-example).
 Build styles with `markdownStyle { }` and pass them to `MarkdownTheme` or per-component via the `style` parameter:
 
 ```kotlin
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.MarkdownStyle
@@ -70,14 +72,14 @@ val AppMarkdownStyle: MarkdownStyle = markdownStyle {
   }
   link {
     color = Color(0xFF2563EB)
-    underline = true
+    textDecoration = TextDecoration.Underline
   }
   codeBlock {
     fontSize = 14.sp
     color = Color(0xFFF3F4F6)
     backgroundColor = Color(0xFF1F2937)
     cornerRadius = 8.dp
-    padding = 16.dp
+    padding = PaddingValues(16.dp)
   }
 }
 
@@ -89,7 +91,7 @@ MarkdownTheme(style = AppMarkdownStyle) {
 // Per-instance override
 EnrichedMarkdownText(
   markdown = content,
-  style = AppMarkdownStyle.copy {
+  style = AppMarkdownStyle.merge {
     link { color = Color.Red }
   },
 )
@@ -133,7 +135,7 @@ The `markdownStyle` builder supports these blocks:
 | `thematicBreak` | Horizontal rules |
 | `table` | Tables |
 
-Use `MarkdownStyle.copy { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style.
+Use `MarkdownStyle.merge { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style. `a.merge(b)` and `a + b` layer a whole style on top of another the same way.
 
 `superscript` and `subscript` take unitless floats instead of `Dp`/`sp`/`Color`: `fontScale` shrinks the text size relative to its surrounding text, and `baselineOffsetScale` shifts the baseline (as a fraction of text size) up for superscript and down for subscript.
 
@@ -162,13 +164,13 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Md4cFlags = Md4cFlags.DEFAULT,
+  flags: Md4cFlags = Md4cFlags.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
-  onLinkPress: ((String) -> Unit)? = null,
-  onLinkLongPress: ((String) -> Unit)? = null,
-  onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
-  enableTaskListItemToggle: Boolean = true,
+  onLinkClick: (String) -> Unit = {},
+  onLinkLongClick: (String) -> Unit = {},
+  onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
+  taskListToggleEnabled: Boolean = true,
 )
 ```
 
@@ -179,10 +181,10 @@ fun EnrichedMarkdownText(
 | `flags` | Optional parser extensions (see `Md4cFlags`) |
 | `selectable` | Enable text selection |
 | `imageRequestHeaders` | HTTP headers attached to remote image requests (e.g. `Referer`) |
-| `onLinkPress` | Called when a link is tapped |
-| `onLinkLongPress` | Called when a link is long-pressed |
-| `onTaskListItemPress` | Called after a task list checkbox tap toggles the item |
-| `enableTaskListItemToggle` | Whether a checkbox tap toggles the item (default `true`) |
+| `onLinkClick` | Called when a link is tapped |
+| `onLinkLongClick` | Called when a link is long-pressed |
+| `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
+| `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
@@ -191,7 +193,7 @@ Style defaults come from the nearest `MarkdownTheme`.
 #### Task list checkboxes
 
 ```kotlin
-data class TaskListItemPressEvent(
+data class TaskListItemToggle(
   val index: Int,     // 0-based, in document order
   val checked: Boolean, // state after the toggle
   val text: String,   // first line of the item's plain text
@@ -200,7 +202,7 @@ data class TaskListItemPressEvent(
 
 Tapping anywhere in a task item's checkbox margin toggles its checked state in
 place — checkbox and checked-item text decoration alike — and calls
-`onTaskListItemPress` with the new state. The toggle is visual: the view never
+`onTaskListItemToggle` with the new state. The toggle is visual: the view never
 rewrites the `markdown` string you pass it, so persist the change from the
 handler if it has to survive a new source string. Re-supplying the *same*
 string on recomposition keeps the toggles.
@@ -208,12 +210,12 @@ string on recomposition keeps the toggles.
 ```kotlin
 EnrichedMarkdownText(
   markdown = checklist,
-  onTaskListItemPress = { (index, checked, _) -> store.setDone(index, checked) },
+  onTaskListItemToggle = { (index, checked, _) -> store.setDone(index, checked) },
 )
 ```
 
-`enableTaskListItemToggle = false` makes checkbox taps fully inert: no visual
-toggle and no `onTaskListItemPress`. Text selection and links are unaffected
+`taskListToggleEnabled = false` makes checkbox taps fully inert: no visual
+toggle and no `onTaskListItemToggle`. Text selection and links are unaffected
 either way.
 
 ### `Md4cFlags`
@@ -227,7 +229,7 @@ data class Md4cFlags(
   // … further md4c extensions
 ) {
   companion object {
-    val DEFAULT: Md4cFlags
+    val Default: Md4cFlags
   }
 }
 ```
@@ -266,7 +268,9 @@ Provides a default `MarkdownStyle` for a subtree. Nest themes to scope styles to
 fun markdownStyle(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
 
 class MarkdownStyle {
-  fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(other: MarkdownStyle): MarkdownStyle
+  operator fun plus(other: MarkdownStyle): MarkdownStyle
   companion object {
     val Default: MarkdownStyle
   }
@@ -285,6 +289,36 @@ fun rememberMarkdownStyle(
 
 Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `MaterialTheme { }`.
 
+## Migrating to the Compose names
+
+The public surface follows Jetpack Compose vocabulary. Renames keep a deprecated alias for one
+release; the four type changes and the `EnrichedMarkdownText` parameter names are source-breaking,
+so named arguments have to be updated.
+
+| Was | Now | Where |
+|-----|-----|-------|
+| `onLinkPress`, `onLinkLongPress` | `onLinkClick`, `onLinkLongClick` | `EnrichedMarkdownText` |
+| `onTaskListItemPress`, `TaskListItemPressEvent` | `onTaskListItemToggle`, `TaskListItemToggle` | `EnrichedMarkdownText` |
+| `enableTaskListItemToggle` | `taskListToggleEnabled` | `EnrichedMarkdownText` |
+| `Md4cFlags.DEFAULT` | `Md4cFlags.Default` | `Md4cFlags` |
+| `MarkdownStyle.copy { }` | `MarkdownStyle.merge { }`, `merge(other)`, `a + b` | `MarkdownStyle` |
+| `textAlign: TextAlignment` | `textAlign: TextAlign` | `paragraph`, `h1`…`h6` |
+| `align: TableAlignment` | `alignment: Alignment.Horizontal` | `table` |
+| `underline: Boolean` | `textDecoration: TextDecoration` | `link` |
+| `padding: Dp` | `padding: PaddingValues` | `codeBlock`, `blockquote` |
+| `borderRadius` | `cornerRadius` | `blockquote`, `image` |
+| `checkboxBorderRadius` | `checkboxCornerRadius` | `taskList` |
+| `marginLeft` | `marginStart` | `list` |
+
+Two mappings are lossy, because the text layer underneath is narrower than the Compose type:
+
+- `padding` must be uniform. A `PaddingValues` with differing sides throws, since the renderer draws
+  one inset on every side.
+- `link { textDecoration }` only honours `TextDecoration.Underline`; `LineThrough` is ignored.
+
+Style scope constructors are `internal` — build scopes through the `markdownStyle { }` DSL, which is
+the only supported way to reach them.
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
@@ -293,7 +327,7 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists
-- Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemPress`)
+- Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemToggle`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
 - Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
@@ -367,15 +401,15 @@ markdownStyle {
     cornerRadius = 6.dp
     cellPaddingHorizontal = 12.dp
     cellPaddingVertical = 8.dp
-    align = TableAlignment.CENTER
+    alignment = Alignment.CenterHorizontally
   }
 }
 ```
 
 A column is sized to its widest cell, within 60dp-300dp. A table wider than the space available keeps
-those widths and scrolls sideways, with a horizontal scrollbar. `align` places a table that is
-narrower than the available width; it defaults to `TableAlignment.AUTO`, which follows the reading
-direction. `horizontalOverflow` lets a table bleed that far past the container's content box on each
+those widths and scrolls sideways, with a horizontal scrollbar. `alignment` places a table that is
+narrower than the available width; it defaults to `Alignment.Start`, which follows the reading
+direction. `AbsoluteAlignment.Left` / `.Right` pin a side regardless of it. `horizontalOverflow` lets a table bleed that far past the container's content box on each
 side, so it can reach the screen edge while the body text stays inset.
 
 Long-pressing a table offers **Copy** (rich text) and **Copy as Markdown**.
