@@ -56,37 +56,53 @@ final class ThemeResolutionTests: XCTestCase {
         let config = MarkdownStyleConfig.resolve(
             layers: [.default, MarkdownTheme {
                 BlockImage()
-                    .maxHeight(300)
                     .aspectRatio(16 / 9)
-                    .resizeMode(.contain)
+                    .contentMode(.fit)
             }],
             traitCollection: UITraitCollection(userInterfaceStyle: .light)
         )
 
-        XCTAssertEqual(config.image.maxHeight, 300)
-        XCTAssertEqual(config.image.aspectRatio, 16 / 9)
-        XCTAssertEqual(config.image.resizeMode, .contain)
+        XCTAssertEqual(config.image.sizing, .aspectRatio(16 / 9))
+        XCTAssertEqual(config.image.contentMode, .fit)
     }
 
-    func testDefaultThemeLeavesBlockImageSizingUnset() {
+    func testSizingModifiersOnTheElement() {
+        XCTAssertEqual(BlockImage().maxHeight(150).height(100).sizing, .height(100))
+        XCTAssertEqual(BlockImage().aspectRatio(CGSize(width: 16, height: 9)).sizing, .aspectRatio(16 / 9))
+
+        let withMode = BlockImage().aspectRatio(16 / 9, contentMode: .fit)
+        XCTAssertEqual(withMode.sizing, .aspectRatio(16 / 9))
+        XCTAssertEqual(withMode.contentMode, .fit)
+    }
+
+    func testDefaultThemeSizesBlockImagesToAFixedHeight() {
         let config = MarkdownStyleConfig.baseline()
 
+        XCTAssertEqual(config.image.sizing, .height(200))
         XCTAssertEqual(config.image.height, 200)
-        XCTAssertNil(config.image.maxHeight)
-        XCTAssertNil(config.image.aspectRatio)
-        XCTAssertNil(config.image.resizeMode)
+        XCTAssertNil(config.image.contentMode)
     }
 
-    func testHigherLayerCanClearResponsiveImageSizing() {
+    func testHigherLayerReplacesTheLowerLayerSizing() {
         let config = MarkdownStyleConfig.resolve(
             layers: [
                 .default,
                 MarkdownTheme { BlockImage().maxHeight(150) },
-                MarkdownTheme { BlockImage().maxHeight(0) }
+                MarkdownTheme { BlockImage().height(100) }
             ],
             traitCollection: .current
         )
 
-        XCTAssertEqual(config.image.maxHeight, 0)
+        XCTAssertEqual(config.image.sizing, .height(100))
+    }
+
+    func testImageStyleHeightConvenienceReplacesTheSizing() {
+        var style = ImageStyle(sizing: .maxHeight(150))
+
+        style.height = 100
+
+        XCTAssertEqual(style.sizing, .height(100))
+        XCTAssertEqual(style.height, 100)
+        XCTAssertNil(ImageStyle(sizing: .maxHeight(150)).height)
     }
 }

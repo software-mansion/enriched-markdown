@@ -33,13 +33,15 @@ final class MarkdownImageAttachment: NSTextAttachment {
     let cachedHeight: CGFloat
     let cachedBorderRadius: CGFloat
     /// How this image's box height is derived. Inline images ignore it.
-    let sizing: ImageBoxSizing
-    /// How the bitmap fills its box; nil is the legacy fill-width drawing.
-    let resizeMode: ImageResizeMode?
+    let sizing: ImageSizing
+    /// How the bitmap fills its box.
+    let contentMode: ImageContentMode
 
     weak var layoutObserver: MarkdownAttachmentLayoutObserver?
 
     private let requestKey: String
+    /// The processed-cache key less the box, which is all that varies per pass.
+    private let processedKeyPrefix: String
     private let downloader: ImageDownloading
 
     private var originalImage: UIImage?
@@ -90,12 +92,13 @@ final class MarkdownImageAttachment: NSTextAttachment {
         self.requestKey = requestKey
         self.isInline = isInline
         self.downloader = downloader
-        let sizing = ImageBoxSizing(style: config.image)
+        let sizing = config.image.sizing ?? .height(ImageSizing.fallbackHeight)
         self.sizing = sizing
         // Inline images fill their square exactly.
-        resizeMode = isInline ? .stretch : (config.image.resizeMode ?? sizing.defaultResizeMode)
+        contentMode = isInline ? .stretch : (config.image.contentMode ?? sizing.defaultContentMode)
         cachedHeight = isInline ? (config.inlineImage.size ?? 20) : sizing.placeholderHeight
         cachedBorderRadius = config.image.borderRadius ?? 0
+        processedKeyPrefix = "\(requestKey)_r\(cachedBorderRadius)_m\(contentMode.rawValue)"
         super.init(data: nil, ofType: nil)
         accessibilityLabel = altText.isEmpty ? nil : altText
         setupPlaceholder()
@@ -170,10 +173,6 @@ final class MarkdownImageAttachment: NSTextAttachment {
         }
     }
 
-    /// Callbacks land on the main queue, except a synchronous hit on the
-    /// original-image cache, which arrives on the render queue while the
-    /// document is still being built — before any layout, hence the
-    /// `lastLaidOutBox` guard.
     private func handleLoadedImage(_ image: UIImage?) {
         guard let image else { return }
         originalImage = image
@@ -199,13 +198,12 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
     private func processAndApplyImage(_ image: UIImage, box: CGSize) {
         guard box.width > 0, box.height > 0 else { return }
-        // Every other part of the cache key is fixed for this attachment, so
-        // the box alone decides whether the last result still stands. This runs
-        // on every layout pass, and building the key would not be free.
+        // This runs on every layout pass; the box alone decides whether the
+        // last result still stands.
         if box == lastProcessedBox { return }
         lastProcessedBox = box
 
-        let key = "\(requestKey)_w\(box.width)_h\(box.height)_r\(cachedBorderRadius)_m\(resizeMode?.rawValue ?? "")"
+        let key = "\(processedKeyPrefix)_w\(box.width)_h\(box.height)"
 
         if let cached = Self.processedImageCache.object(forKey: key as NSString) {
             loadedImage = cached
@@ -248,7 +246,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
     ) -> UIImage? {
         guard image.size.width > 0, image.size.height > 0 else { return nil }
 
-        let drawingRect = ImageDrawing.rect(mode: resizeMode, source: image.size, box: box)
+        let drawingRect = ImageDrawing.rect(mode: contentMode, source: image.size, box: box)
         let renderer = UIGraphicsImageRenderer(size: box)
         return renderer.image { _ in
             if borderRadius > 0 {

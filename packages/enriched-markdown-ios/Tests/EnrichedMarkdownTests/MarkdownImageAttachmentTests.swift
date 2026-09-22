@@ -231,29 +231,30 @@ final class MarkdownImageAttachmentTests: XCTestCase {
         XCTAssertEqual(bounds.size, CGSize(width: 20, height: 20))
     }
 
-    // MARK: - Effective resize mode
+    // MARK: - Effective content mode
 
-    func testFixedBoxKeepsLegacyDrawingUntilAModeIsSet() {
+    func testContentModeFollowsTheSizingUntilSet() {
         let downloader = DeferredImageDownloader()
 
-        let legacy = blockAttachment(BlockImage().height(200), downloader: downloader)
-        XCTAssertNil(legacy.resizeMode)
+        XCTAssertEqual(blockAttachment(BlockImage().height(200), downloader: downloader).contentMode, .fitWidth)
+        XCTAssertEqual(blockAttachment(BlockImage().maxHeight(150), downloader: downloader).contentMode, .fill)
+        XCTAssertEqual(blockAttachment(BlockImage().aspectRatio(2), downloader: downloader).contentMode, .fill)
 
-        let explicit = blockAttachment(BlockImage().height(200).resizeMode(.contain), downloader: downloader)
-        XCTAssertEqual(explicit.resizeMode, .contain)
+        let explicit = blockAttachment(BlockImage().maxHeight(150).contentMode(.fit), downloader: downloader)
+        XCTAssertEqual(explicit.contentMode, .fit)
     }
 
     func testInlineImagesAlwaysFillTheirSquare() {
         let downloader = DeferredImageDownloader()
         let attachment = MarkdownImageAttachment.attachment(
             for: "https://example.com/\(#function).png",
-            config: imageSizingConfig(BlockImage().resizeMode(.contain)),
+            config: imageSizingConfig(BlockImage().contentMode(.fit)),
             isInline: true,
             altText: "",
             downloader: downloader
         )
 
-        XCTAssertEqual(attachment.resizeMode, .stretch)
+        XCTAssertEqual(attachment.contentMode, .stretch)
     }
 
     // MARK: - Re-measure notifications

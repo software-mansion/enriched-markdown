@@ -46,4 +46,20 @@ extension XCTestCase {
     func drainMainQueue(for interval: TimeInterval = 0.3) {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: interval))
     }
+
+    /// Returns once every block already on the main queue has run.
+    func awaitMainQueue() {
+        let drained = expectation(description: "main queue drained")
+        DispatchQueue.main.async { drained.fulfill() }
+        wait(for: [drained], timeout: 1)
+    }
+}
+
+extension UIView {
+    func firstSubview<T: UIView>(of type: T.Type) -> T? {
+        for subview in subviews {
+            if let match = subview as? T ?? subview.firstSubview(of: type) { return match }
+        }
+        return nil
+    }
 }

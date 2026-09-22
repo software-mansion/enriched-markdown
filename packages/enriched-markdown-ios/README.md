@@ -192,7 +192,7 @@ Element-specific modifiers include:
 - **Spoiler:** `.color` (the particles or the solid box), `.particleDensity` (default `8`), `.particleSpeed` (default `20`), `.solidBorderRadius` (default `4`), `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
 - **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius` / `.borderRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.align`
-- **BlockImage:** `.height`, `.maxHeight`, `.aspectRatio`, `.resizeMode`, `.borderRadius` — see [Image sizing](#image-sizing)
+- **BlockImage:** `.height`, `.maxHeight`, `.aspectRatio`, `.contentMode`, `.borderRadius` — see [Image sizing](#image-sizing)
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.color` / `.foregroundStyle`, `.height`
 - **MathBlock:** `.fontSize`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.textAlignment` — the only modifiers; the face is always KaTeX's
@@ -454,21 +454,22 @@ Block images fill the width available to them. Three `BlockImage` modifiers deci
 |----------|------------|
 | `.height(_:)` | Fixed. The default, at 200 points. |
 | `.maxHeight(_:)` | The image's own proportions at the current width, capped at this value. |
-| `.aspectRatio(_:)` | The width divided by this ratio, e.g. `16 / 9`. |
+| `.aspectRatio(_:)` | The width divided by this ratio, e.g. `16 / 9` or `CGSize(width: 16, height: 9)`. |
 
-Set more than one and `aspectRatio` wins over `maxHeight`, which wins over `height`. Passing `0` clears a modifier, so a theme layered over another can switch its responsive sizing back off.
+They are one setting: the last one applied wins, and a theme layered over another replaces its sizing outright.
 
-`.resizeMode(_:)` decides how the image fills that box:
+`.contentMode(_:)` decides how the image fills that box:
 
-| Mode | Drawing |
-|------|---------|
-| `.contain` | Scaled to fit inside the box, never cropped |
-| `.cover` | Scaled to fill the box, cropping what overflows |
-| `.stretch` | Fills the box exactly, ignoring the image's proportions |
-| `.center` | Centered at its own size, scaled down only when it exceeds the box |
-| `.original` | Centered at its own size, never scaled, cropping what overflows |
+| Mode | Drawing | UIKit / SwiftUI | React Native |
+|------|---------|-----------------|--------------|
+| `.fit` | Scaled to fit inside the box, never cropped | `.scaleAspectFit` / `.fit` | `contain` |
+| `.fill` | Scaled to fill the box, cropping what overflows | `.scaleAspectFill` / `.fill` | `cover` |
+| `.stretch` | Fills the box exactly, ignoring the image's proportions | `.scaleToFill` | `stretch` |
+| `.scaleDown` | Centered at its own size, scaled down only when it exceeds the box | — | `center` |
+| `.original` | Centered at its own size, never scaled, cropping what overflows | `.center` | `none` |
+| `.fitWidth` | Scaled to the box width and centered vertically, cropping what overflows | — | — |
 
-Left unset it is `.cover` for a `maxHeight` or `aspectRatio` box. For a plain `height` box the image is instead scaled to the box width and centered vertically.
+Left unset it is `.fitWidth` for a `height` box and `.fill` for a `maxHeight` or `aspectRatio` box. `.aspectRatio(_:contentMode:)` sets both at once; note that unlike SwiftUI's modifier of the same name, the ratio shapes the box and the mode places the image inside it.
 
 ```swift
 EnrichedMarkdownText(markdown)
@@ -476,15 +477,16 @@ EnrichedMarkdownText(markdown)
         MarkdownTheme {
             BlockImage()
                 .maxHeight(320)
-                .resizeMode(.contain)
+                .contentMode(.fit)
         }
     )
 ```
 
-Two things worth knowing:
+Three things worth knowing:
 
 - A `maxHeight` box stands at the full cap until the image loads and only then shrinks to the fitted height, so the page reflows once. An `aspectRatio` box is settled from the start and never moves.
-- `.center` and `.original` draw the decoded image, and decoding is capped at the screen's pixel width, so a very large image is not drawn at its full pixel size.
+- `.borderRadius` rounds the drawn image, not the box, so with `.fit`, `.scaleDown` or `.original` the corners follow the image.
+- `.scaleDown` and `.original` draw the decoded image, and decoding is capped at the screen's pixel width, so a very large image is not drawn at its full pixel size.
 
 Inline images ignore all four modifiers. They are always a square of `InlineImage().size`.
 

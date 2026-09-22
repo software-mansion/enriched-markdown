@@ -1,43 +1,44 @@
 import SwiftUI
 
 public struct BlockImage: MarkdownThemeContent {
-    public var height: CGFloat?
-    public var maxHeight: CGFloat?
-    public var aspectRatio: CGFloat?
-    public var resizeMode: ImageResizeMode?
+    public var sizing: ImageSizing?
+    public var contentMode: ImageContentMode?
     public var borderRadius: CGFloat?
     public var marginTop: CGFloat?
     public var marginBottom: CGFloat?
 
     public init() {}
 
+    /// A fixed box height.
     public func height(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.height = value
-        return copy
+        sizing(.height(value))
     }
 
-    /// Fits the image into at most `value` points of height, keeping its
-    /// aspect ratio. Takes precedence over `height`; `0` clears it.
+    /// Fits the image at the available width, capped at `value` points of height.
     public func maxHeight(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.maxHeight = value
-        return copy
+        sizing(.maxHeight(value))
     }
 
-    /// Sizes the box from the available width and a width-over-height ratio,
-    /// e.g. `16 / 9`. Takes precedence over `height` and `maxHeight`; `0` clears it.
-    public func aspectRatio(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.aspectRatio = value
-        return copy
+    /// Sizes the box from the available width and a width-over-height ratio, e.g. `16 / 9`.
+    public func aspectRatio(_ ratio: CGFloat) -> Self {
+        sizing(.aspectRatio(ratio))
     }
 
-    /// How the image fills its box. Defaults to `.cover` for `maxHeight` and
-    /// `aspectRatio` boxes, and to fill-width drawing for a fixed `height`.
-    public func resizeMode(_ value: ImageResizeMode) -> Self {
+    public func aspectRatio(_ size: CGSize) -> Self {
+        aspectRatio(size.width / size.height)
+    }
+
+    /// `aspectRatio(ratio).contentMode(contentMode)`. Unlike SwiftUI's modifier,
+    /// the ratio shapes the box and the mode places the image inside it.
+    public func aspectRatio(_ ratio: CGFloat, contentMode: ImageContentMode) -> Self {
+        aspectRatio(ratio).contentMode(contentMode)
+    }
+
+    /// How the image fills its box. Left unset, a `height` box draws
+    /// `.fitWidth` and a `maxHeight` or `aspectRatio` box `.fill`.
+    public func contentMode(_ value: ImageContentMode) -> Self {
         var copy = self
-        copy.resizeMode = value
+        copy.contentMode = value
         return copy
     }
 
@@ -60,12 +61,16 @@ public struct BlockImage: MarkdownThemeContent {
     }
 
     public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
-        if let height { config.image.height = height }
-        if let maxHeight { config.image.maxHeight = maxHeight }
-        if let aspectRatio { config.image.aspectRatio = aspectRatio }
-        if let resizeMode { config.image.resizeMode = resizeMode }
+        if let sizing { config.image.sizing = sizing }
+        if let contentMode { config.image.contentMode = contentMode }
         if let borderRadius { config.image.borderRadius = borderRadius }
         if let marginTop { config.image.marginTop = marginTop }
         if let marginBottom { config.image.marginBottom = marginBottom }
+    }
+
+    private func sizing(_ value: ImageSizing) -> Self {
+        var copy = self
+        copy.sizing = value
+        return copy
     }
 }

@@ -19,10 +19,8 @@ private enum ImageSizingOption: CaseIterable {
     }
 }
 
-/// Legacy fill-width drawing first, then every explicit mode.
-private let imageResizeModeCycle: [ImageResizeMode?] = [
-    nil, .contain, .cover, .stretch, .center, .original
-]
+/// The sizing's own default first, then every explicit mode.
+private let imageContentModeCycle: [ImageContentMode?] = [nil] + ImageContentMode.allCases
 
 private func cycled<T: Equatable>(_ current: T, in options: [T]) -> T {
     let index = options.firstIndex(of: current) ?? 0
@@ -44,7 +42,7 @@ struct PlaygroundScreen: View {
     @State private var acceptImageType: String = "image/png"
     @State private var spoilerOverlay: PlaygroundSpoilerOverlay = .particles
     @State private var imageSizing: ImageSizingOption = .height
-    @State private var imageResizeMode: ImageResizeMode?
+    @State private var imageContentMode: ImageContentMode?
 
     // MARK: - Views
 
@@ -102,10 +100,10 @@ struct PlaygroundScreen: View {
                         imageSizing = cycled(imageSizing, in: ImageSizingOption.allCases)
                     }
                     PlaygroundButton(
-                        label: "Mode: \(imageResizeModeLabel)",
-                        accessibilityId: "image-resize-mode-button"
+                        label: "Mode: \(imageContentModeLabel)",
+                        accessibilityId: "image-content-mode-button"
                     ) {
-                        cycleImageResizeMode()
+                        imageContentMode = cycled(imageContentMode, in: imageContentModeCycle)
                     }
                     PlaygroundButton(label: "Insert Photo", accessibilityId: "insert-photo-button") {
                         insertPhoto()
@@ -216,25 +214,21 @@ struct PlaygroundScreen: View {
         inlineImageURI = Bundle.main.imageURI(named: "logo_icon", extension: "png")
     }
 
-    private var imageResizeModeLabel: String {
-        imageResizeMode?.rawValue.capitalized ?? "Legacy"
-    }
-
-    private func cycleImageResizeMode() {
-        imageResizeMode = cycled(imageResizeMode, in: imageResizeModeCycle)
+    private var imageContentModeLabel: String {
+        imageContentMode?.rawValue.capitalized ?? "Default"
     }
 
     /// Layered over the screen theme so the sizing buttons restyle block
     /// images live.
     private var imageSizingTheme: MarkdownTheme {
         var image = imageSizing.labelled.image
-        if let imageResizeMode {
-            image = image.resizeMode(imageResizeMode)
+        if let imageContentMode {
+            image = image.contentMode(imageContentMode)
         }
         return MarkdownTheme { image }
     }
 
-    /// A tall remote photo, so cover, contain and original differ visibly from
+    /// A tall remote photo, so fill, fit and original differ visibly from
     /// each other and from the wide bundled logo.
     private func insertPhoto() {
         let url = "https://images.unsplash.com/photo-1448375240586-882707db888b?w=800"

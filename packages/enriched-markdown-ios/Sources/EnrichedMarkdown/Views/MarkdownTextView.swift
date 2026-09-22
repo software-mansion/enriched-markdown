@@ -297,6 +297,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     }
 
     /// Attachments that resize after loading have no other way to reach this view.
+    /// One attribute walk per assignment, negligible next to the assignment itself.
     private func adoptImageAttachments(in attributedText: NSAttributedString) {
         let full = NSRange(location: 0, length: attributedText.length)
         let options: NSAttributedString.EnumerationOptions = .longestEffectiveRangeNotRequired
