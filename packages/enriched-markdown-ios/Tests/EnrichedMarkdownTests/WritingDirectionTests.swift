@@ -38,7 +38,8 @@ final class WritingDirectionTests: XCTestCase {
     // MARK: - Rendered paragraphs
 
     func testParagraphsResolveFromTheirOwnContent() {
-        let rendered = render("Hello\n\nمرحبا\n\nשלום")
+        // Emoji: non-letters, two UTF-16 units each.
+        let rendered = render("😀 Hello\n\n🙂🙂 مرحبا\n\nשלום")
 
         XCTAssertEqual(direction(of: "Hello", in: rendered), .leftToRight)
         XCTAssertEqual(direction(of: "مرحبا", in: rendered), .rightToLeft)

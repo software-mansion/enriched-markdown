@@ -10,11 +10,21 @@ enum WritingDirectionResolver {
     /// Hebrew through Arabic Extended-B, plus the Hebrew and Arabic
     /// presentation forms.
     private static let rightToLeftScalars: [ClosedRange<UInt32>] = [0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF]
+    private static let letters = CharacterSet.letters
 
     /// Direction of the first letter in `text`, or `.natural` when it has none.
     static func firstStrongDirection(of text: String) -> NSWritingDirection {
-        guard let letter = text.unicodeScalars.first(where: CharacterSet.letters.contains) else { return .natural }
-        return rightToLeftScalars.contains { $0.contains(letter.value) } ? .rightToLeft : .leftToRight
+        let string = text as NSString
+        return firstStrongDirection(in: string, range: NSRange(location: 0, length: string.length))
+    }
+
+    /// The same over one paragraph, in place. A letter beyond the BMP counts
+    /// by its lead surrogate: left-to-right, as the table has no ranges there.
+    private static func firstStrongDirection(in string: NSString, range: NSRange) -> NSWritingDirection {
+        let letter = string.rangeOfCharacter(from: letters, range: range)
+        guard letter.location != NSNotFound else { return .natural }
+        let value = UInt32(string.character(at: letter.location))
+        return rightToLeftScalars.contains { $0.contains(value) } ? .rightToLeft : .leftToRight
     }
 
     /// `layoutDirection` is what a `.firstStrong` paragraph with no strong
@@ -37,8 +47,8 @@ enum WritingDirectionResolver {
             let fallback: NSWritingDirection = layoutDirection == .rightToLeft ? .rightToLeft : .leftToRight
             direction = { attrs, paragraphRange in
                 let detected = attrs[MarkdownAttribute.admonitionHeader] == nil
-                    ? firstStrongDirection(of: string.substring(with: paragraphRange))
-                    : bodyDirection(afterTitle: paragraphRange, in: output)
+                    ? firstStrongDirection(in: string, range: paragraphRange)
+                    : bodyDirection(afterTitle: paragraphRange, of: string, in: output)
                 return detected == .natural ? fallback : detected
             }
         }
@@ -53,8 +63,11 @@ enum WritingDirectionResolver {
     /// An admonition title ("Note") is the renderer's text, not the author's,
     /// so it takes the direction of the body it introduces: the first strong
     /// character in the quote paragraphs after it, nested titles excluded.
-    private static func bodyDirection(afterTitle titleRange: NSRange, in output: NSAttributedString) -> NSWritingDirection {
-        let string = output.string as NSString
+    private static func bodyDirection(
+        afterTitle titleRange: NSRange,
+        of string: NSString,
+        in output: NSAttributedString
+    ) -> NSWritingDirection {
         let titleAttrs = output.attributes(at: titleRange.location, effectiveRange: nil)
         guard let titleDepth = MarkdownAttributeValue.intValue(from: titleAttrs[MarkdownAttribute.blockquoteDepth]) else {
             return .natural
@@ -66,7 +79,7 @@ enum WritingDirectionResolver {
                   depth >= titleDepth
             else { break }
             guard attrs[MarkdownAttribute.admonitionHeader] == nil else { continue }
-            let direction = firstStrongDirection(of: string.substring(with: paragraphRange))
+            let direction = firstStrongDirection(in: string, range: paragraphRange)
             if direction != .natural {
                 return direction
             }
