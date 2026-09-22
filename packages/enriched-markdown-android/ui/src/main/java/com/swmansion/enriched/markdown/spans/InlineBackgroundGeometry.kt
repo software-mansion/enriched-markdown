@@ -6,19 +6,11 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.style.LeadingMarginSpan
 
-/**
- * Horizontal measurement shared by the inline [android.text.style.LineBackgroundSpan]s
- * ([CodeBackgroundSpan], [HighlightSpan]), which paint a background behind a run of text
- * rather than across the whole line.
- */
 internal object InlineBackgroundGeometry {
   /**
-   * Returns the x position of [index] relative to the line's left edge, including any
-   * leading margin. The measuring StaticLayout is built from a subSequence that keeps
-   * all spans, so LeadingMarginSpans (lists, blockquotes) are already applied to
-   * getPrimaryHorizontal; adding the margin again on top would shift the background
-   * right by the indent. The margin is only added explicitly in the early-return case,
-   * where no layout is built.
+   * Returns the x position of [index] relative to the line's left edge. The measuring layout keeps
+   * the line's spans, so a LeadingMarginSpan is already folded into getPrimaryHorizontal — only the
+   * early return, which builds no layout, adds [leadingMargin] itself.
    */
   fun horizontalOffset(
     text: CharSequence,

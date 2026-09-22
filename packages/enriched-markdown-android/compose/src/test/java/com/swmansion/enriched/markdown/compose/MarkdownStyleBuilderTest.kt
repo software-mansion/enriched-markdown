@@ -113,6 +113,70 @@ class MarkdownStyleBuilderTest {
   }
 
   @Test
+  fun resolvesHighlightStyleOverrides() {
+    var resolveContext: com.swmansion.enriched.markdown.compose.style.StyleResolveContext? = null
+
+    composeRule.setContent {
+      resolveContext = ComposeStyleTestSupport.rememberResolveContext()
+    }
+    composeRule.waitForIdle()
+
+    val style =
+      markdownStyle {
+        highlight {
+          color = Color(0xFF1A1A1A)
+          backgroundColor = Color(0xFFB7F5C1)
+        }
+      }
+
+    val resolved = style.resolve(requireNotNull(resolveContext))
+
+    assertEquals(0xFF1A1A1A.toInt(), resolved.highlightStyle.color)
+    assertEquals(0xFFB7F5C1.toInt(), resolved.highlightStyle.backgroundColor)
+  }
+
+  @Test
+  fun leavesHighlightStyleAtDefaultsWhenUnset() {
+    var resolveContext: com.swmansion.enriched.markdown.compose.style.StyleResolveContext? = null
+
+    composeRule.setContent {
+      resolveContext = ComposeStyleTestSupport.rememberResolveContext()
+    }
+    composeRule.waitForIdle()
+
+    val resolved = markdownStyle { paragraph { fontSize = 16.sp } }.resolve(requireNotNull(resolveContext))
+    val defaults = StyleConfig.default(ComposeStyleTestSupport.context).highlightStyle
+
+    assertNull(resolved.highlightStyle.color)
+    assertEquals(defaults.backgroundColor, resolved.highlightStyle.backgroundColor)
+  }
+
+  @Test
+  fun copyOverridesHighlightBackgroundAndKeepsColor() {
+    var resolveContext: com.swmansion.enriched.markdown.compose.style.StyleResolveContext? = null
+
+    composeRule.setContent {
+      resolveContext = ComposeStyleTestSupport.rememberResolveContext()
+    }
+    composeRule.waitForIdle()
+
+    val style =
+      markdownStyle {
+        highlight {
+          color = Color(0xFF1A1A1A)
+          backgroundColor = Color(0xFFB7F5C1)
+        }
+      }.copy {
+        highlight { backgroundColor = Color(0xFF334455) }
+      }
+
+    val resolved = style.resolve(requireNotNull(resolveContext))
+
+    assertEquals(0xFF1A1A1A.toInt(), resolved.highlightStyle.color)
+    assertEquals(0xFF334455.toInt(), resolved.highlightStyle.backgroundColor)
+  }
+
+  @Test
   fun resolvesSuperscriptAndSubscriptStyleOverrides() {
     var resolveContext: com.swmansion.enriched.markdown.compose.style.StyleResolveContext? = null
 

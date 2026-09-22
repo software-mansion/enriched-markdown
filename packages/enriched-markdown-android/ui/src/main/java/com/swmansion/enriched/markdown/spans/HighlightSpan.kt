@@ -13,15 +13,10 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Paints the highlight background and optionally recolors the highlighted run.
- *
- * Deliberately a plain [CharacterStyle] rather than a `MetricAffectingSpan`: it must not reset
- * the typeface or text size, so nested strong/emphasis spans inside `==highlight==` keep working.
- *
- * The background is drawn here as a [LineBackgroundSpan] rather than set through
- * [TextPaint.bgColor], because that fills the full line box — which [LineHeightSpan] pads above
- * and below to reach the configured line height, leaving the highlight floating well above the
- * text it marks. Measuring from the baseline instead keeps the band tight to the glyphs.
+ * A plain [CharacterStyle], not a `MetricAffectingSpan`, so nested strong/emphasis spans inside
+ * `==highlight==` keep their typeface and size. The background is a [LineBackgroundSpan] rather
+ * than [TextPaint.bgColor], which fills the whole line box and floats above the text once
+ * [LineHeightSpan] pads it out to the configured line height.
  */
 class HighlightSpan(
   private val styleCache: SpanStyleCache,
@@ -30,7 +25,6 @@ class HighlightSpan(
   private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
   override fun updateDrawState(tp: TextPaint) {
-    // A null color inherits whatever the surrounding block or a nested inline span set.
     styleCache.highlightColor?.let { tp.applyColorPreserving(it, *styleCache.colorsToPreserve) }
   }
 
@@ -72,8 +66,8 @@ class HighlightSpan(
         right.toFloat()
       }
 
-    // Bound the band by the glyphs' own ascent/descent around the baseline, not by the line
-    // box, then clamp so a tall line-height never lets it bleed into the neighbouring lines.
+    // Bound by the glyphs' ascent/descent, clamped to the line box so a tall line height never
+    // lets the band bleed into its neighbours.
     val metrics = p.fontMetricsInt
     val bandTop = max(top.toFloat(), (baseline + metrics.ascent).toFloat())
     val bandBottom = min(bottom.toFloat(), (baseline + metrics.descent).toFloat())

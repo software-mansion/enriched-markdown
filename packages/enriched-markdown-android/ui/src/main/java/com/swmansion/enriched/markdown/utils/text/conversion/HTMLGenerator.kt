@@ -90,7 +90,7 @@ object HTMLGenerator {
     val strikethroughColor: String?
     val underlineColor: String?
     val highlightColor: String?
-    val highlightBackgroundColor: String?
+    val highlightBackgroundColor: String
 
     // Image
     val imageMarginBottom: Int
@@ -176,7 +176,7 @@ object HTMLGenerator {
       val hc = style.highlightStyle.color
       highlightColor = if (hc != null && hc != 0) colorToCSS(hc) else null
       val hbc = style.highlightStyle.backgroundColor
-      highlightBackgroundColor = if (Color.alpha(hbc) > 0) colorToCSS(hbc) else null
+      highlightBackgroundColor = if (Color.alpha(hbc) > 0) colorToCSS(hbc) else "transparent"
 
       // Image
       val imgStyle = style.imageStyle
@@ -828,13 +828,13 @@ object HTMLGenerator {
     val isHighlight = highlightSpans.isNotEmpty()
 
     if (isHighlight) {
-      html.append("<mark")
-      if (styles.highlightBackgroundColor != null || styles.highlightColor != null) {
-        html.append(" style=\"")
-        styles.highlightBackgroundColor?.let { html.append("background-color: ").append(it).append("; ") }
-        html.append("color: ").append(styles.highlightColor ?: "inherit").append(";\"")
-      }
-      html.append(">")
+      // The background is always explicit: a bare <mark> would pick up the user agent's yellow.
+      html
+        .append("<mark style=\"background-color: ")
+        .append(styles.highlightBackgroundColor)
+        .append("; color: ")
+        .append(styles.highlightColor ?: "inherit")
+        .append(";\">")
     }
 
     link?.let {

@@ -13,11 +13,14 @@ object HTMLGeneratorTestSupport {
 
   val defaultStyle: StyleConfig = StyleConfig.default(context)
 
-  fun generateHTML(spannable: Spannable): String {
+  fun generateHTML(
+    spannable: Spannable,
+    style: StyleConfig = defaultStyle,
+  ): String {
     val metrics = context.resources.displayMetrics
     return HTMLGenerator.generateHTML(
       text = spannable,
-      style = defaultStyle,
+      style = style,
       scaledDensity = metrics.scaledDensity,
       density = metrics.density,
       isRTL = false,
@@ -36,11 +39,13 @@ object HTMLGeneratorTestSupport {
   fun generateHTMLSelectingText(
     document: MarkdownASTNode,
     selectedText: String,
+    style: StyleConfig = defaultStyle,
   ): String {
-    val spannable = MarkdownTextViewTestSupport.render(document)
+    val spannable = MarkdownRenderTestSupport.render(document, style)
     val start = MarkdownTextViewTestSupport.indexOf(spannable, selectedText)
     return generateHTML(
       MarkdownTextViewTestSupport.selectedRange(spannable, start, start + selectedText.length),
+      style,
     )
   }
 }

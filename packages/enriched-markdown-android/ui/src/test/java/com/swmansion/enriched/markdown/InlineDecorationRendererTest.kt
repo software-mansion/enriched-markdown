@@ -185,11 +185,6 @@ class InlineDecorationRendererTest {
     assertEquals(0xFFFEF08A.toInt(), canvas.color)
   }
 
-  /**
-   * Regression test: the background used to come from [TextPaint.bgColor], which fills the whole
-   * line box. `LineHeightSpan` pads that box to reach the configured line height, so the highlight
-   * floated well above the text it marked.
-   */
   @Test
   fun highlightBackgroundHugsTextRatherThanLineBox() {
     val rendered = render(document(paragraph(highlight(text("marked")))))
@@ -251,7 +246,6 @@ class InlineDecorationRendererTest {
     rendered.assertSpanCovers("both", StrongSpan::class.java)
   }
 
-  /** Records the one rect a [LineBackgroundSpan] paints, so its bounds can be asserted. */
   private class RecordingCanvas : Canvas() {
     var rect: RectF? = null
     var color: Int = 0
@@ -268,7 +262,6 @@ class InlineDecorationRendererTest {
     }
   }
 
-  /** Runs the highlight's background pass over a line box padded above and below. */
   private fun SpannableString.drawHighlightBackground(
     paint: TextPaint = TextPaint().apply { textSize = 16f },
     lineTop: Int = BASELINE - LINE_PADDING,
