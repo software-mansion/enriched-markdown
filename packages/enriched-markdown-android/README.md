@@ -51,7 +51,6 @@ See the full example in [`apps/android-example`](../../apps/android-example).
 Build styles with `markdownStyle { }` and pass them to `MarkdownTheme` or per-component via the `style` parameter:
 
 ```kotlin
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -79,7 +78,7 @@ val AppMarkdownStyle: MarkdownStyle = markdownStyle {
     color = Color(0xFFF3F4F6)
     backgroundColor = Color(0xFF1F2937)
     cornerRadius = 8.dp
-    padding = PaddingValues(16.dp)
+    padding = 16.dp
   }
 }
 
@@ -289,9 +288,10 @@ fun rememberMarkdownStyle(
 
 Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `MaterialTheme { }`.
 
+Values the renderer cannot draw are ignored rather than rejected:
 
-- `padding` must be uniform. A `PaddingValues` with differing sides throws, since the renderer draws
-  one inset on every side.
+- `textAlign` follows the reading direction. `TextAlign.Left` / `.Right` behave like `Start` / `End`,
+  so `Left` right-aligns RTL text. `TextAlign.Unspecified` keeps the inherited alignment.
 - `link { textDecoration }` only honours `TextDecoration.Underline`; `LineThrough` is ignored.
 
 Style scope constructors are `internal` — build scopes through the `markdownStyle { }` DSL, which is
@@ -386,9 +386,10 @@ markdownStyle {
 
 A column is sized to its widest cell, within 60dp-300dp. A table wider than the space available keeps
 those widths and scrolls sideways, with a horizontal scrollbar. `alignment` places a table that is
-narrower than the available width; it defaults to `Alignment.Start`, which follows the reading
-direction. `AbsoluteAlignment.Left` / `.Right` pin a side regardless of it. `horizontalOverflow` lets a table bleed that far past the container's content box on each
-side, so it can reach the screen edge while the body text stays inset.
+narrower than the available width; it defaults to `Alignment.Start`. `Alignment.Start` / `.End`
+follow the reading direction, while `AbsoluteAlignment.Left` / `.Right` pin a side regardless of it.
+`horizontalOverflow` lets a table bleed that far past the container's content box on each side, so it
+can reach the screen edge while the body text stays inset.
 
 Long-pressing a table offers **Copy** (rich text) and **Copy as Markdown**.
 

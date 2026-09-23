@@ -16,7 +16,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
-import com.swmansion.enriched.markdown.TaskListItemPressEvent as TaskListItemToggleInternal
+import com.swmansion.enriched.markdown.TaskListItemToggle as TaskListItemToggleInternal
 import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
 
 typealias Md4cFlags = Md4cFlagsInternal

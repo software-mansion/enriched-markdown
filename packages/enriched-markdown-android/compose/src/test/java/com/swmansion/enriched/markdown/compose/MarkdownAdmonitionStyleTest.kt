@@ -1,6 +1,5 @@
 package com.swmansion.enriched.markdown.compose
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
@@ -137,7 +136,7 @@ class MarkdownAdmonitionStyleTest {
       markdownStyle {
         blockquote {
           cornerRadius = 12.dp
-          padding = PaddingValues(10.dp)
+          padding = 10.dp
         }
       }.resolve(context)
 
@@ -151,7 +150,7 @@ class MarkdownAdmonitionStyleTest {
     val density = ComposeStyleTestSupport.testDensity
 
     val base = markdownStyle { blockquote { cornerRadius = 12.dp } }
-    val derived = base.merge { blockquote { padding = PaddingValues(10.dp) } }.resolve(context)
+    val derived = base.merge { blockquote { padding = 10.dp } }.resolve(context)
 
     assertEquals(with(density) { 12.dp.toPx() }, derived.blockquoteStyle.borderRadius, 0.01f)
     assertEquals(with(density) { 10.dp.toPx() }, derived.blockquoteStyle.padding, 0.01f)

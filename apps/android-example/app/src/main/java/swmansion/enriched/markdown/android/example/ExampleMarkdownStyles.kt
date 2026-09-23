@@ -1,6 +1,5 @@
 package swmansion.enriched.markdown.android.example
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -120,7 +119,7 @@ val CustomMarkdownStyle: MarkdownStyle =
       borderColor = Color(0xFF374151)
       borderWidth = 1.dp
       cornerRadius = 8.dp
-      padding = PaddingValues(16.dp)
+      padding = 16.dp
       lineHeight = 22.sp
       marginBottom = 16.dp
     }

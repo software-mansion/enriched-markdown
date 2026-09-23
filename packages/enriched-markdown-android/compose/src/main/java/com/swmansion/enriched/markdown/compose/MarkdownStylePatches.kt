@@ -1,6 +1,5 @@
 package com.swmansion.enriched.markdown.compose
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -514,7 +513,7 @@ internal data class CodeBlockStylePatch(
   val borderColor: Color? = null,
   val cornerRadius: Dp? = null,
   val borderWidth: Dp? = null,
-  val padding: PaddingValues? = null,
+  val padding: Dp? = null,
 ) {
   fun apply(
     base: CodeBlockStyle,
@@ -533,7 +532,7 @@ internal data class CodeBlockStylePatch(
       borderColor = borderColor?.let(units::color) ?: base.borderColor,
       borderRadius = cornerRadius?.let(units::dp) ?: base.borderRadius,
       borderWidth = borderWidth?.let(units::dp) ?: base.borderWidth,
-      padding = padding?.let { units.padding(it, "codeBlock.padding") } ?: base.padding,
+      padding = padding?.let(units::dp) ?: base.padding,
     )
 }
 
@@ -550,7 +549,7 @@ class CodeBlockStyleScope internal constructor() {
   var borderColor: Color? = null
   var cornerRadius: Dp? = null
   var borderWidth: Dp? = null
-  var padding: PaddingValues? = null
+  var padding: Dp? = null
 
   internal fun toPatch(): CodeBlockStylePatch =
     CodeBlockStylePatch(
@@ -610,7 +609,7 @@ internal data class BlockquoteStylePatch(
   val gapWidth: Dp? = null,
   val backgroundColor: Color? = null,
   val cornerRadius: Dp? = null,
-  val padding: PaddingValues? = null,
+  val padding: Dp? = null,
   val admonitions: Map<String, AdmonitionColorsPatch> = emptyMap(),
 ) {
   fun apply(
@@ -631,7 +630,7 @@ internal data class BlockquoteStylePatch(
       gapWidth = gapWidth?.let(units::dp) ?: base.gapWidth,
       backgroundColor = backgroundColor?.let(units::color) ?: base.backgroundColor,
       borderRadius = cornerRadius?.let(units::dp) ?: base.borderRadius,
-      padding = padding?.let { units.padding(it, "blockquote.padding") } ?: base.padding,
+      padding = padding?.let(units::dp) ?: base.padding,
       admonitions = applyAdmonitions(base, units),
     )
 
@@ -739,7 +738,7 @@ class BlockquoteStyleScope internal constructor() {
   var backgroundColor: Color? = null
   var cornerRadius: Dp? = null
 
-  var padding: PaddingValues? = null
+  var padding: Dp? = null
 
   private var admonitions: Map<String, AdmonitionColorsPatch> = emptyMap()
 

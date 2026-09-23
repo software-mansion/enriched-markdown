@@ -368,12 +368,12 @@ class TaskListInteractionTest {
     val markdown = "- [ ] Open item\n- [x] Done item"
     val container = createContainerWithStoredMarkdown(markdown, render(checklist()))
     val view = laidOutTextView(container.getChildAt(0) as EnrichedMarkdownInternalText)
-    var event: TaskListItemPressEvent? = null
+    var event: TaskListItemToggle? = null
     container.setOnTaskListItemPressCallback { event = it }
 
     tap(view, line = 0)
 
-    assertEquals(TaskListItemPressEvent(index = 0, checked = true, text = "Open item"), event)
+    assertEquals(TaskListItemToggle(index = 0, checked = true, text = "Open item"), event)
     assertTrue((view.text as SpannableString).taskSpanCovering("Open item").isChecked)
   }
 
