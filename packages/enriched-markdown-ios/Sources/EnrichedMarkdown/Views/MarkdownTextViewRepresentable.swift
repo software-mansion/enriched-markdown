@@ -4,7 +4,7 @@ import UIKit
 struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let attributedText: NSAttributedString
     let source: RenderedSource?
-    let styleConfig: MarkdownStyleConfig
+    let styleConfig: MarkdownStyleConfiguration
     /// The SwiftUI `openURL` action: where a tap goes when no legacy
     /// `onLinkPress` handler is installed.
     let openURL: (URL) -> Void

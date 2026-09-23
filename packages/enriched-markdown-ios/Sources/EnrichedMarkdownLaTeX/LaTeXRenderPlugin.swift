@@ -42,7 +42,7 @@ package struct LaTeXRenderPlugin: MarkdownRenderPlugin {
         }
     }
 
-    package func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer? {
+    package func renderer(for type: NodeType, config: MarkdownStyleConfiguration) -> NodeRenderer? {
         switch type {
         case .latexMathInline, .latexMathDisplay:
             return MathRenderer(
@@ -56,7 +56,7 @@ package struct LaTeXRenderPlugin: MarkdownRenderPlugin {
         }
     }
 
-    package func blockMargins(for type: NodeType, config: MarkdownStyleConfig) -> BlockMargins {
+    package func blockMargins(for type: NodeType, config: MarkdownStyleConfiguration) -> BlockMargins {
         BlockMargins(marginTop: config.mathBlock.marginTop, marginBottom: config.mathBlock.marginBottom)
     }
 
@@ -100,7 +100,7 @@ public extension MarkdownRenderer {
     /// `accessibilityLabel` as in `.markdownLaTeX`.
     static func renderLaTeX(
         _ markdown: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
         accessibilityLabel: String = "Math: {speech}",
@@ -120,7 +120,7 @@ public extension MarkdownRenderer {
 
     static func renderLaTeX(
         _ markdown: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
         accessibilityLabel: @escaping (String) -> String,

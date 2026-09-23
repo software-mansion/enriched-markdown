@@ -4,11 +4,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class TaskListRenderingTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Parsing
@@ -183,7 +183,7 @@ final class TaskListRenderingTests: XCTestCase {
     // MARK: - Theme element
 
     func testTaskListThemeElementAppliesToConfig() {
-        var applied = MarkdownStyleConfig()
+        var applied = MarkdownStyleConfiguration()
         TaskList()
             .checkedColor(Color(UIColor.systemGreen))
             .borderColor(Color(UIColor.systemGray))

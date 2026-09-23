@@ -1,6 +1,6 @@
 import Foundation
 
-/// A style record an optional module keeps in `MarkdownStyleConfig.pluginStyles`,
+/// A style record an optional module keeps in `MarkdownStyleConfiguration.pluginStyles`,
 /// written by its theme elements and read by its renderers.
 package protocol PluginStyle: Equatable, Sendable {
     /// Overlays `other`'s set properties, the way the built-in styles merge.

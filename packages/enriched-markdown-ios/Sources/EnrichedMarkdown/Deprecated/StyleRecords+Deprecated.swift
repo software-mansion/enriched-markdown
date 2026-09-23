@@ -258,3 +258,6 @@ public extension SpoilerStyle {
         )
     }
 }
+
+@available(*, deprecated, renamed: "MarkdownStyleConfiguration")
+public typealias MarkdownStyleConfig = MarkdownStyleConfiguration

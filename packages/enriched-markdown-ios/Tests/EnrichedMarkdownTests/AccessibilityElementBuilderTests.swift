@@ -4,11 +4,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class AccessibilityElementBuilderTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        config = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
     }
 
     private func specs(
@@ -262,12 +262,12 @@ final class AccessibilityElementBuilderTests: XCTestCase {
 }
 
 final class MarkdownTextViewAccessibilityTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
     private var pasteboard: UIPasteboard!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        config = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
         // UIPasteboard.general is not accessible from a headless test process.
         pasteboard = UIPasteboard.withUniqueName()
     }

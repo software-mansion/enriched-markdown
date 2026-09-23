@@ -11,6 +11,7 @@ public struct TaskList: MarkdownThemeContent {
 
     public init() {}
 
+    @_disfavoredOverload
     public func checkedColor(_ color: Color) -> Self {
         var copy = self
         copy.checkedColorSpec = ThemeColorModifiers.spec(from: color)
@@ -23,6 +24,7 @@ public struct TaskList: MarkdownThemeContent {
         return copy
     }
 
+    @_disfavoredOverload
     public func borderColor(_ color: Color) -> Self {
         var copy = self
         copy.borderColorSpec = ThemeColorModifiers.spec(from: color)
@@ -35,6 +37,7 @@ public struct TaskList: MarkdownThemeContent {
         return copy
     }
 
+    @_disfavoredOverload
     public func checkmarkColor(_ color: Color) -> Self {
         var copy = self
         copy.checkmarkColorSpec = ThemeColorModifiers.spec(from: color)
@@ -47,6 +50,7 @@ public struct TaskList: MarkdownThemeContent {
         return copy
     }
 
+    @_disfavoredOverload
     public func checkedTextColor(_ color: Color) -> Self {
         var copy = self
         copy.checkedTextColorSpec = ThemeColorModifiers.spec(from: color)
@@ -77,7 +81,7 @@ public struct TaskList: MarkdownThemeContent {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         if let checkedColorSpec {
             config.taskList.checkedColor = checkedColorSpec.resolve(traitCollection: traitCollection)
         }

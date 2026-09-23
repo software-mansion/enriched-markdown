@@ -18,7 +18,7 @@ struct TableModel: Equatable {
     let columnAlignments: [String?]
 }
 
-/// Style values resolved from `MarkdownStyleConfig.table`, with RN-parity
+/// Style values resolved from `MarkdownStyleConfiguration.table`, with RN-parity
 /// fallbacks for unset keys.
 struct TableAttachmentStyle: Equatable {
     static let `default` = TableAttachmentStyle()
@@ -46,7 +46,7 @@ struct TableAttachmentStyle: Equatable {
 
     init() {}
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfiguration) {
         applyColors(from: config.table)
         applyMetrics(from: config.table)
     }

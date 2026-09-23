@@ -26,7 +26,7 @@ struct BlockDecorationConfig {
     var taskBorderColor: UIColor = UIColor(red: 0.62, green: 0.62, blue: 0.62, alpha: 1)
     var taskCheckmarkColor: UIColor = .white
 
-    init(styleConfig: MarkdownStyleConfig) {
+    init(styleConfig: MarkdownStyleConfiguration) {
         applyCodeBlockStyle(from: styleConfig.codeBlock)
         applyBlockquoteStyle(from: styleConfig.blockquote)
         applyListStyle(from: styleConfig.list)

@@ -60,7 +60,7 @@ public struct BlockImage: MarkdownThemeContent {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         if let sizing { config.image.sizing = sizing }
         if let contentMode { config.image.contentMode = contentMode }
         if let cornerRadius { config.image.cornerRadius = cornerRadius }

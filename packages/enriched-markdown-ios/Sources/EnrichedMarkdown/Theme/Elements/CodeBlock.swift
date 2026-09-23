@@ -4,6 +4,7 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
+    public var isItalic: Bool?
     public var foregroundColorSpec: ThemeColorSpec?
     public var backgroundColorSpec: ThemeColorSpec?
     public var borderColorSpec: ThemeColorSpec?
@@ -31,7 +32,7 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyTextStyle(to: &config.codeBlock, traitCollection: traitCollection)
         applyBackgroundColor(to: &config.codeBlock.backgroundColor, traitCollection: traitCollection)
         applyBorder(

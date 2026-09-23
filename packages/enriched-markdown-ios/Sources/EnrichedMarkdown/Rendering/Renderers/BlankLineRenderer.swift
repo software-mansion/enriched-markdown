@@ -6,9 +6,9 @@ import UIKit
 // surrounding paragraphs. Any extra block spacing is left to the caller to
 // configure.
 final class BlankLineRenderer: NodeRenderer {
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfiguration) {
         self.config = config
     }
 

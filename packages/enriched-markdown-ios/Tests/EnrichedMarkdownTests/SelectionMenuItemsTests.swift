@@ -3,11 +3,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class SelectionMenuItemsTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     private func render(_ markdown: String) -> NSAttributedString {

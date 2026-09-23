@@ -5,7 +5,7 @@ public enum MarkdownRenderer {
     /// character follow; pass the hosting view's resolved direction.
     public static func render(
         _ markdown: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
         writingDirection: MarkdownWritingDirection = .firstStrong,
@@ -24,7 +24,7 @@ public enum MarkdownRenderer {
 
     package static func render(
         _ markdown: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         options: MarkdownParsingOptions,
         imageRequestHeaders: [String: String],
         plugins: [any MarkdownRenderPlugin],

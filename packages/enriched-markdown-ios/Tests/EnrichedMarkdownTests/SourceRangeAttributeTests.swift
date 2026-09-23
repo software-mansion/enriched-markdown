@@ -2,11 +2,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class SourceRangeAttributeTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     /// Slices the source's UTF-8 bytes with a run's sourceRange value.

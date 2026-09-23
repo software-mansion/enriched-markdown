@@ -1,7 +1,7 @@
 import UIKit
 
 final class RendererFactory {
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
     private let imageRequestHeaders: [String: String]
     private let plugins: [any MarkdownRenderPlugin]
     private let writingDirection: MarkdownWritingDirection
@@ -10,7 +10,7 @@ final class RendererFactory {
     private lazy var childrenOnlyRenderer = ChildrenOnlyRenderer(factory: self)
 
     init(
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         imageRequestHeaders: [String: String] = [:],
         plugins: [any MarkdownRenderPlugin] = [],
         writingDirection: MarkdownWritingDirection = .firstStrong,

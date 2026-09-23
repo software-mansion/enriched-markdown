@@ -3,11 +3,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class MarkdownExtractorTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Helpers
@@ -73,7 +73,7 @@ final class MarkdownExtractorTests: XCTestCase {
     /// the excluded head is invisible, so the original source comes back
     /// verbatim (exact separator dashes included).
     func testSelectionAfterLeadingSpacerReturnsSourceVerbatim() {
-        var spacedConfig = MarkdownStyleConfig.baseline()
+        var spacedConfig = MarkdownStyleConfiguration.baseline()
         spacedConfig.paragraph.marginTop = 12
         let source = "intro\n\n| A | B |\n|:--------|------:|\n| one | two |\n\nafter"
         let rendered = MarkdownRenderer.render(source, config: spacedConfig)

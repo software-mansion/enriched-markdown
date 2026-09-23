@@ -76,7 +76,7 @@ enum TaskListInteraction {
         in attributedText: NSAttributedString,
         index: Int,
         checked: Bool,
-        config: MarkdownStyleConfig
+        config: MarkdownStyleConfiguration
     ) -> NSAttributedString? {
         var itemRanges: [NSRange] = []
         attributedText.enumerateAttribute(

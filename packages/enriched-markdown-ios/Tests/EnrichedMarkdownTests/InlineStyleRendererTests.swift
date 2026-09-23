@@ -4,11 +4,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class InlineStyleRendererTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Strikethrough
@@ -239,14 +239,14 @@ final class InlineStyleRendererTests: XCTestCase {
                 .foregroundStyle(Color.black)
                 .background(Color.yellow)
         }
-        let resolved = MarkdownStyleConfig.resolve(layers: [theme], traitCollection: .current)
+        let resolved = MarkdownStyleConfiguration.resolve(layers: [theme], traitCollection: .current)
 
         XCTAssertNotNil(resolved.highlight.foregroundColor)
         XCTAssertNotNil(resolved.highlight.backgroundColor)
     }
 
     func testDefaultThemeGivesHighlightABackground() {
-        let resolved = MarkdownStyleConfig.baseline()
+        let resolved = MarkdownStyleConfiguration.baseline()
         XCTAssertNotNil(resolved.highlight.backgroundColor)
         XCTAssertNil(resolved.highlight.foregroundColor)
     }
@@ -260,7 +260,7 @@ final class InlineStyleRendererTests: XCTestCase {
                 .fontScale(0.55)
                 .baselineOffsetScale(0.25)
         }
-        let resolved = MarkdownStyleConfig.resolve(layers: [theme], traitCollection: .current)
+        let resolved = MarkdownStyleConfiguration.resolve(layers: [theme], traitCollection: .current)
 
         XCTAssertEqual(resolved.superscript.fontScale, 0.6)
         XCTAssertEqual(resolved.superscript.baselineOffsetScale, 0.4)
@@ -275,7 +275,7 @@ final class InlineStyleRendererTests: XCTestCase {
             Underline()
                 .foregroundStyle(Color.blue)
         }
-        let resolved = MarkdownStyleConfig.resolve(layers: [theme], traitCollection: .current)
+        let resolved = MarkdownStyleConfiguration.resolve(layers: [theme], traitCollection: .current)
 
         XCTAssertNotNil(resolved.strikethrough.foregroundColor)
         XCTAssertNotNil(resolved.underline.foregroundColor)

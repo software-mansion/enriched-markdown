@@ -89,7 +89,9 @@ public extension List {
 }
 
 public extension ThematicBreak {
+
     @available(*, deprecated, renamed: "foregroundStyle(_:)")
+    @_disfavoredOverload
     func color(_ color: Color) -> Self {
         foregroundStyle(color)
     }
@@ -101,7 +103,9 @@ public extension ThematicBreak {
 }
 
 public extension Spoiler {
+
     @available(*, deprecated, renamed: "foregroundStyle(_:)")
+    @_disfavoredOverload
     func color(_ color: Color) -> Self {
         foregroundStyle(color)
     }
@@ -113,7 +117,9 @@ public extension Spoiler {
 }
 
 public extension BorderThemeElement {
+
     @available(*, deprecated, message: "Use border(_:width:), which sets the color and width together.")
+    @_disfavoredOverload
     func borderColor(_ color: Color) -> Self {
         border(color)
     }
@@ -132,6 +138,7 @@ public extension BorderThemeElement {
 }
 
 public extension Table {
+
     @available(*, deprecated, renamed: "cellPadding(horizontal:vertical:)")
     func cellPaddingHorizontal(_ value: CGFloat) -> Self {
         cellPadding(horizontal: value)
@@ -144,6 +151,7 @@ public extension Table {
 }
 
 public extension Spoiler {
+
     @available(*, deprecated, message: "Tune the overlay itself: .markdownSpoilerOverlay(.particles(density:speed:)).")
     func particleDensity(_ value: CGFloat) -> Self {
         var copy = self
@@ -169,5 +177,41 @@ public extension Spoiler {
     var solidBorderRadius: CGFloat? {
         get { solidCornerRadius }
         set { solidCornerRadius = newValue }
+    }
+}
+
+public extension MarkdownThemeElement {
+    @available(*, deprecated, renamed: "font(size:weight:design:)")
+    func fontSize(_ size: CGFloat, weight: Font.Weight = .regular) -> Self {
+        font(size: size, weight: weight)
+    }
+
+    @available(*, deprecated, renamed: "font(custom:size:)")
+    func fontFamily(_ name: String, size: CGFloat) -> Self {
+        font(custom: name, size: size)
+    }
+}
+
+public extension Table {
+    @available(*, deprecated, renamed: "headerFont(custom:size:)")
+    func headerFontFamily(_ name: String, size: CGFloat) -> Self {
+        headerFont(custom: name, size: size)
+    }
+
+    @available(*, deprecated, renamed: "headerForegroundStyle(_:)")
+    @_disfavoredOverload
+    func headerTextColor(_ color: Color) -> Self {
+        headerForegroundStyle(color)
+    }
+
+    @available(*, deprecated, renamed: "headerForegroundStyle(_:)")
+    func headerTextColor(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
+        headerForegroundStyle(semantic)
+    }
+
+    @available(*, deprecated, renamed: "headerForegroundColorSpec")
+    var headerTextColorSpec: ThemeColorSpec? {
+        get { headerForegroundColorSpec }
+        set { headerForegroundColorSpec = newValue }
     }
 }

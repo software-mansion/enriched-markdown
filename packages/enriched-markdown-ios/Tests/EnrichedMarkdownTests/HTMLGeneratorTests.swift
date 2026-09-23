@@ -3,11 +3,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class HTMLGeneratorTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        config = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
     }
 
     private func html(for markdown: String, options: MarkdownParsingOptions = .commonMark) -> String {
@@ -318,12 +318,12 @@ final class HTMLGeneratorTests: XCTestCase {
 }
 
 final class MarkdownTextViewCopyTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
     private var pasteboard: UIPasteboard!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        config = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
         // UIPasteboard.general is not accessible from a headless test process.
         pasteboard = UIPasteboard.withUniqueName()
     }

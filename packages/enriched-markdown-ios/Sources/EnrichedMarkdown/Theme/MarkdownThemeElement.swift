@@ -5,6 +5,7 @@ public protocol MarkdownThemeElement: MarkdownThemeContent {
     var fontSpec: ThemeFontSpec? { get set }
     var fontWeight: Font.Weight? { get set }
     var fontDesign: Font.Design? { get set }
+    var isItalic: Bool? { get set }
     var foregroundColorSpec: ThemeColorSpec? { get set }
     var marginTop: CGFloat? { get set }
     var marginBottom: CGFloat? { get set }
@@ -13,6 +14,16 @@ public protocol MarkdownThemeElement: MarkdownThemeContent {
 }
 
 public extension MarkdownThemeElement {
+    /// Elements written before `italic()` existed have nowhere to keep it.
+    var isItalic: Bool? {
+        get { nil }
+        set { _ = newValue }
+    }
+
+    /// A SwiftUI text style in any spelling (`.body`, `.system(.title,
+    /// design: .serif, weight: .bold)`), tracking Dynamic Type. Point-sized
+    /// and custom fonts take `font(size:weight:design:)` and
+    /// `font(custom:size:)`; any other `Font` logs and renders as `.body`.
     func font(_ font: Font) -> Self {
         var copy = self
         let resolved = ThemeResolver.resolveFont(from: font, traitCollection: .current)
@@ -26,22 +37,42 @@ public extension MarkdownThemeElement {
         return copy
     }
 
-    func fontFamily(_ name: String, size: CGFloat) -> Self {
+    /// A fixed point size, as `Font.system(size:weight:design:)`. A nil
+    /// design keeps the element's current one.
+    func font(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design? = nil) -> Self {
+        var copy = self
+        copy.fontSpec = .system(size: size, weight: .regular, design: .default)
+        copy.fontWeight = weight
+        if let design {
+            copy.fontDesign = design
+        }
+        return copy
+    }
+
+    /// A custom face by PostScript name, as `Font.custom(_:size:)`. Faces
+    /// bundled as `<name>.ttf` / `.otf` (optionally under `Fonts/`) are
+    /// registered on first use.
+    func font(custom name: String, size: CGFloat) -> Self {
         var copy = self
         copy.fontSpec = .custom(name: name, size: size)
         return copy
     }
 
-    func fontSize(_ size: CGFloat, weight: Font.Weight = .regular) -> Self {
+    func fontWeight(_ weight: Font.Weight) -> Self {
         var copy = self
-        copy.fontSpec = .system(size: size, weight: .regular, design: .default)
         copy.fontWeight = weight
         return copy
     }
 
     func bold() -> Self {
+        fontWeight(.bold)
+    }
+
+    /// Italicizes with the family's italic face, or a synthesized slant
+    /// when it has none.
+    func italic(_ isActive: Bool = true) -> Self {
         var copy = self
-        copy.fontWeight = .bold
+        copy.isItalic = isActive
         return copy
     }
 
@@ -51,9 +82,10 @@ public extension MarkdownThemeElement {
         return copy
     }
 
+    @_disfavoredOverload
     func foregroundStyle(_ color: Color) -> Self {
         var copy = self
-        copy.foregroundColorSpec = ThemeResolver.color(from: color, traitCollection: .current)
+        copy.foregroundColorSpec = ThemeColorModifiers.spec(from: color)
         return copy
     }
 
@@ -115,11 +147,12 @@ public extension MarkdownThemeElement {
         to style: inout Style,
         traitCollection: UITraitCollection
     ) {
-        if fontSpec != nil || fontWeight != nil || fontDesign != nil {
+        if fontSpec != nil || fontWeight != nil || fontDesign != nil || isItalic == true {
             style.font = ThemeResolver.applyFont(
                 spec: fontSpec,
                 weight: fontWeight,
                 design: fontDesign,
+                italic: isItalic == true,
                 to: style.font,
                 traitCollection: traitCollection
             )

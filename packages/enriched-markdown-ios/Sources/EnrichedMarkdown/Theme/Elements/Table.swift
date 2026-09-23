@@ -5,9 +5,12 @@ public struct Table: MarkdownThemeElement, BorderThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
+    public var isItalic: Bool?
     public var headerFontSpec: ThemeFontSpec?
+    public var headerFontWeight: Font.Weight?
+    public var headerFontDesign: Font.Design?
     public var foregroundColorSpec: ThemeColorSpec?
-    public var headerTextColorSpec: ThemeColorSpec?
+    public var headerForegroundColorSpec: ThemeColorSpec?
     public var headerBackgroundColorSpec: ThemeColorSpec?
     public var rowEvenBackgroundColorSpec: ThemeColorSpec?
     public var rowOddBackgroundColorSpec: ThemeColorSpec?
@@ -24,21 +27,33 @@ public struct Table: MarkdownThemeElement, BorderThemeElement {
 
     public init() {}
 
-    public func headerFontFamily(_ name: String, size: CGFloat) -> Self {
+    /// The header row's font, a SwiftUI text style as `font(_:)` takes.
+    public func headerFont(_ font: Font) -> Self {
+        var copy = self
+        let resolved = ThemeResolver.resolveFont(from: font, traitCollection: .current)
+        copy.headerFontSpec = resolved.spec
+        if let design = resolved.design { copy.headerFontDesign = design }
+        if let weight = resolved.weight { copy.headerFontWeight = weight }
+        return copy
+    }
+
+    /// The header row in a custom face, as `font(custom:size:)`.
+    public func headerFont(custom name: String, size: CGFloat) -> Self {
         var copy = self
         copy.headerFontSpec = .custom(name: name, size: size)
         return copy
     }
 
-    public func headerTextColor(_ color: Color) -> Self {
+    @_disfavoredOverload
+    public func headerForegroundStyle(_ color: Color) -> Self {
         var copy = self
-        copy.headerTextColorSpec = ThemeColorModifiers.spec(from: color)
+        copy.headerForegroundColorSpec = ThemeColorModifiers.spec(from: color)
         return copy
     }
 
-    public func headerTextColor(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
+    public func headerForegroundStyle(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
         var copy = self
-        copy.headerTextColorSpec = ThemeColorModifiers.spec(from: semantic)
+        copy.headerForegroundColorSpec = ThemeColorModifiers.spec(from: semantic)
         return copy
     }
 
@@ -54,6 +69,7 @@ public struct Table: MarkdownThemeElement, BorderThemeElement {
         return copy
     }
 
+    @_disfavoredOverload
     public func rowEvenBackground(_ color: Color) -> Self {
         var copy = self
         copy.rowEvenBackgroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -66,6 +82,7 @@ public struct Table: MarkdownThemeElement, BorderThemeElement {
         return copy
     }
 
+    @_disfavoredOverload
     public func rowOddBackground(_ color: Color) -> Self {
         var copy = self
         copy.rowOddBackgroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -100,21 +117,21 @@ public struct Table: MarkdownThemeElement, BorderThemeElement {
             Self.logger.warning("EnrichedMarkdown: Table().alignment only takes .leading, .center, or .trailing.")
             return self
         }
+
         var copy = self
         copy.alignment = tableAlignment
         return copy
     }
 
     private static let logger = Logger(subsystem: "com.swmansion.EnrichedMarkdown", category: "Theme")
-
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyColors(to: &config, traitCollection: traitCollection)
         applyMetrics(to: &config, traitCollection: traitCollection)
     }
 
-    private func applyColors(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
-        if let headerTextColorSpec {
-            config.table.headerTextColor = headerTextColorSpec.resolve(traitCollection: traitCollection)
+    private func applyColors(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
+        if let headerForegroundColorSpec {
+            config.table.headerTextColor = headerForegroundColorSpec.resolve(traitCollection: traitCollection)
         }
         if let headerBackgroundColorSpec {
             config.table.headerBackgroundColor = headerBackgroundColorSpec.resolve(traitCollection: traitCollection)
@@ -128,13 +145,13 @@ public struct Table: MarkdownThemeElement, BorderThemeElement {
         applyBorder(color: &config.table.borderColor, width: &config.table.borderWidth, traitCollection: traitCollection)
     }
 
-    private func applyMetrics(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    private func applyMetrics(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyTextStyle(to: &config.table, traitCollection: traitCollection)
-        if headerFontSpec != nil {
+        if headerFontSpec != nil || headerFontWeight != nil || headerFontDesign != nil {
             config.table.headerFont = ThemeResolver.applyFont(
                 spec: headerFontSpec,
-                weight: nil,
-                design: nil,
+                weight: headerFontWeight,
+                design: headerFontDesign,
                 to: config.table.headerFont,
                 traitCollection: traitCollection
             )

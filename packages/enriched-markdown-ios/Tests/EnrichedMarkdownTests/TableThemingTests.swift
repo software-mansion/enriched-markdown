@@ -10,7 +10,7 @@ final class TableThemingTests: XCTestCase {
 
     private func attachment(
         for markdown: String,
-        config: MarkdownStyleConfig = .baseline(),
+        config: MarkdownStyleConfiguration = .baseline(),
         options: MarkdownParsingOptions = .commonMark
     ) -> TableAttachment? {
         let rendered = MarkdownRenderer.render(markdown, config: config, options: options)
@@ -24,12 +24,12 @@ final class TableThemingTests: XCTestCase {
     // MARK: - Theme element
 
     func testTableThemeElementAppliesToConfig() {
-        var config = MarkdownStyleConfig()
+        var config = MarkdownStyleConfiguration()
         Table()
-            .fontSize(15)
+            .font(size: 15)
             .lineHeight(22)
             .foregroundStyle(Color(UIColor.systemRed))
-            .headerTextColor(Color(UIColor.systemBlue))
+            .headerForegroundStyle(Color(UIColor.systemBlue))
             .headerBackground(Color(UIColor.systemGreen))
             .rowEvenBackground(Color(UIColor.systemYellow))
             .rowOddBackground(Color(UIColor.systemOrange))
@@ -59,11 +59,11 @@ final class TableThemingTests: XCTestCase {
     }
 
     func testDefaultThemeTableColorsAdaptToDarkMode() {
-        let light = MarkdownStyleConfig.resolve(
+        let light = MarkdownStyleConfiguration.resolve(
             layers: [.default],
             traitCollection: UITraitCollection(userInterfaceStyle: .light)
         )
-        let dark = MarkdownStyleConfig.resolve(
+        let dark = MarkdownStyleConfiguration.resolve(
             layers: [.default],
             traitCollection: UITraitCollection(userInterfaceStyle: .dark)
         )
@@ -74,7 +74,7 @@ final class TableThemingTests: XCTestCase {
     }
 
     func testConfigDrivesAttachmentStyle() {
-        var config = MarkdownStyleConfig.baseline()
+        var config = MarkdownStyleConfiguration.baseline()
         config.table.cellPaddingHorizontal = 20
         config.table.borderWidth = 3
         config.table.alignment = .trailing
@@ -142,9 +142,9 @@ final class TableThemingTests: XCTestCase {
     }
 
     func testHeaderFontFamilyOverridesHeaderCellsOnly() {
-        var config = MarkdownStyleConfig.baseline()
+        var config = MarkdownStyleConfiguration.baseline()
         Table()
-            .headerFontFamily("Helvetica", size: 13)
+            .headerFont(custom: "Helvetica", size: 13)
             .apply(to: &config, traitCollection: .current)
         XCTAssertEqual(config.table.headerFont?.familyName, "Helvetica")
         XCTAssertEqual(config.table.headerFont?.pointSize, 13)
@@ -266,7 +266,7 @@ final class TableThemingTests: XCTestCase {
     // MARK: - Align placement
 
     func testCenterAlignPositionsGridWhenTableFits() {
-        var config = MarkdownStyleConfig.baseline()
+        var config = MarkdownStyleConfiguration.baseline()
         config.table.alignment = .center
         guard let table = attachment(for: "| A |\n|---|\n| x |", config: config) else {
             return XCTFail("no table")
@@ -308,7 +308,7 @@ final class TableThemingTests: XCTestCase {
     // MARK: - alignment(_:)
 
     func testAlignmentTakesSwiftUIHorizontalAlignment() {
-        let config = MarkdownStyleConfig.resolve(
+        let config = MarkdownStyleConfiguration.resolve(
             layers: [MarkdownTheme { Table().alignment(.trailing) }],
             traitCollection: .current
         )
@@ -316,7 +316,7 @@ final class TableThemingTests: XCTestCase {
     }
 
     func testUnsupportedHorizontalAlignmentLeavesInheritedValue() {
-        let config = MarkdownStyleConfig.resolve(
+        let config = MarkdownStyleConfiguration.resolve(
             layers: [
                 MarkdownTheme { Table().alignment(.center) },
                 MarkdownTheme { Table().alignment(.listRowSeparatorLeading) }
@@ -329,7 +329,7 @@ final class TableThemingTests: XCTestCase {
     // MARK: - Grouped modifiers
 
     func testBorderWithoutWidthKeepsTheLowerLayersWidth() {
-        let config = MarkdownStyleConfig.resolve(
+        let config = MarkdownStyleConfiguration.resolve(
             layers: [
                 MarkdownTheme { Table().border(Color(UIColor.systemBlue), width: 4) },
                 MarkdownTheme { Table().border(Color(UIColor.systemRed)) }
@@ -341,7 +341,7 @@ final class TableThemingTests: XCTestCase {
     }
 
     func testCellPaddingSetsOnlyTheGivenSides() {
-        let config = MarkdownStyleConfig.resolve(
+        let config = MarkdownStyleConfiguration.resolve(
             layers: [
                 MarkdownTheme { Table().cellPadding(horizontal: 12, vertical: 8) },
                 MarkdownTheme { Table().cellPadding(vertical: 2) }
@@ -350,5 +350,18 @@ final class TableThemingTests: XCTestCase {
         )
         XCTAssertEqual(config.table.cellPaddingHorizontal, 12)
         XCTAssertEqual(config.table.cellPaddingVertical, 2)
+    }
+
+    // MARK: - Header font and color
+
+    func testHeaderFontTakesATextStyleWithWeight() throws {
+        let config = MarkdownStyleConfiguration.resolve(
+            layers: [.default, MarkdownTheme { Table().headerFont(.system(.caption, weight: .bold)).headerForegroundStyle(.tertiary) }],
+            traitCollection: .current
+        )
+        let font = try XCTUnwrap(config.table.headerFont)
+        XCTAssertEqual(font.pointSize, UIFont.preferredFont(forTextStyle: .caption1).pointSize)
+        XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+        XCTAssertEqual(config.table.headerTextColor, UIColor.tertiaryLabel.resolvedColor(with: .current))
     }
 }

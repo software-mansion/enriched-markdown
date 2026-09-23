@@ -7,7 +7,7 @@ public extension MarkdownRenderer {
     @available(*, deprecated, renamed: "renderLaTeX(_:config:options:imageRequestHeaders:accessibilityLabel:writingDirection:layoutDirection:)")
     static func renderLaTeX(
         _ markdown: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         flags: MarkdownParsingOptions,
         imageRequestHeaders: [String: String] = [:],
         accessibilityLabel: String = "Math: {speech}",
@@ -28,7 +28,7 @@ public extension MarkdownRenderer {
     @available(*, deprecated, renamed: "renderLaTeX(_:config:options:imageRequestHeaders:accessibilityLabel:writingDirection:layoutDirection:)")
     static func renderLaTeX(
         _ markdown: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         flags: MarkdownParsingOptions,
         imageRequestHeaders: [String: String] = [:],
         accessibilityLabel: @escaping (String) -> String,

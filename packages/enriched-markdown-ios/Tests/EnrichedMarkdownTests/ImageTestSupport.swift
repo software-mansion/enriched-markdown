@@ -35,8 +35,8 @@ extension XCTestCase {
     }
 
     /// The default theme with one `BlockImage` layered over it.
-    func imageSizingConfig(_ image: BlockImage) -> MarkdownStyleConfig {
-        MarkdownStyleConfig.resolve(
+    func imageSizingConfig(_ image: BlockImage) -> MarkdownStyleConfiguration {
+        MarkdownStyleConfiguration.resolve(
             layers: [.default, MarkdownTheme { image }],
             traitCollection: .current
         )

@@ -9,19 +9,19 @@ final class ThemeResolutionTests: XCTestCase {
 
         let base = MarkdownTheme {
             Paragraph()
-                .fontSize(18)
+                .font(size: 18)
                 .foregroundStyle(ThemeColorSpec.SemanticColor.primary)
             Heading(1)
-                .fontSize(30)
+                .font(size: 30)
         }
 
         let override = MarkdownTheme {
             Heading(1)
-                .fontSize(40)
+                .font(size: 40)
                 .foregroundStyle(ThemeColorSpec.SemanticColor.tint)
         }
 
-        let config = MarkdownStyleConfig.resolve(
+        let config = MarkdownStyleConfiguration.resolve(
             layers: [base, override],
             traitCollection: traitCollection
         )
@@ -39,7 +39,7 @@ final class ThemeResolutionTests: XCTestCase {
     }
 
     func testDefaultThemeResolvesAllCommonMarkElements() {
-        let config = MarkdownStyleConfig.baseline()
+        let config = MarkdownStyleConfiguration.baseline()
 
         XCTAssertNotNil(config.paragraph.font)
         XCTAssertNotNil(config.paragraph.foregroundColor)
@@ -53,7 +53,7 @@ final class ThemeResolutionTests: XCTestCase {
     }
 
     func testBlockImageSizingModifiersReachTheConfig() {
-        let config = MarkdownStyleConfig.resolve(
+        let config = MarkdownStyleConfiguration.resolve(
             layers: [.default, MarkdownTheme {
                 BlockImage()
                     .aspectRatio(16 / 9)
@@ -76,7 +76,7 @@ final class ThemeResolutionTests: XCTestCase {
     }
 
     func testDefaultThemeSizesBlockImagesToAFixedHeight() {
-        let config = MarkdownStyleConfig.baseline()
+        let config = MarkdownStyleConfiguration.baseline()
 
         XCTAssertEqual(config.image.sizing, .height(200))
         XCTAssertEqual(config.image.height, 200)
@@ -84,7 +84,7 @@ final class ThemeResolutionTests: XCTestCase {
     }
 
     func testHigherLayerReplacesTheLowerLayerSizing() {
-        let config = MarkdownStyleConfig.resolve(
+        let config = MarkdownStyleConfiguration.resolve(
             layers: [
                 .default,
                 MarkdownTheme { BlockImage().maxHeight(150) },

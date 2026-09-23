@@ -1,9 +1,9 @@
 import UIKit
 
 final class ThematicBreakRenderer: NodeRenderer {
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfiguration) {
         self.config = config
     }
 

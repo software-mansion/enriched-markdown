@@ -8,7 +8,7 @@ protocol SelectionHandleTouchReporting {
 }
 
 final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, MarkdownAttachmentLayoutObserver {
-    var styleConfig: MarkdownStyleConfig = .baseline() {
+    var styleConfig: MarkdownStyleConfiguration = .baseline() {
         didSet {
             updateDecorationStyleConfig()
             // `updateUIView` assigns this on every pass, so only a real change

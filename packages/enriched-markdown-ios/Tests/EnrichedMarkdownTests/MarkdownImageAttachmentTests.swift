@@ -15,8 +15,8 @@ private final class MockImageDownloader: ImageDownloading {
 }
 
 final class MarkdownImageAttachmentTests: XCTestCase {
-    private func makeConfig() -> MarkdownStyleConfig {
-        MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+    private func makeConfig() -> MarkdownStyleConfiguration {
+        MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
     }
 
     func testAttachmentRequestsImageFromInjectedDownloader() {

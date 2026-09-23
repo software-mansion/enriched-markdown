@@ -4,6 +4,7 @@ public struct Blockquote: MarkdownThemeElement, BackgroundThemeElement, BorderTh
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
+    public var isItalic: Bool?
     public var foregroundColorSpec: ThemeColorSpec?
     public var backgroundColorSpec: ThemeColorSpec?
     public var borderColorSpec: ThemeColorSpec?
@@ -22,7 +23,7 @@ public struct Blockquote: MarkdownThemeElement, BackgroundThemeElement, BorderTh
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyTextStyle(to: &config.blockquote, traitCollection: traitCollection)
         applyBackgroundColor(to: &config.blockquote.backgroundColor, traitCollection: traitCollection)
         applyBorder(

@@ -53,7 +53,7 @@ private struct StubPlugin: MarkdownRenderPlugin {
     let claimed: Set<NodeType>
     let makeRenderer: () -> NodeRenderer
 
-    func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer? {
+    func renderer(for type: NodeType, config: MarkdownStyleConfiguration) -> NodeRenderer? {
         claimed.contains(type) ? makeRenderer() : nil
     }
 
@@ -65,7 +65,7 @@ private struct StubPlugin: MarkdownRenderPlugin {
 }
 
 final class RenderPluginTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     private let mathStubPlugin = StubPlugin(
         claimed: [.latexMathInline, .latexMathDisplay],
@@ -74,7 +74,7 @@ final class RenderPluginTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     private func render(_ markdown: String, plugins: [any MarkdownRenderPlugin]) -> NSAttributedString {

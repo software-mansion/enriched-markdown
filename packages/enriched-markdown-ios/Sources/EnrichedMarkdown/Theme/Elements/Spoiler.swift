@@ -16,6 +16,7 @@ public struct Spoiler: BackgroundThemeElement {
     public init() {}
 
     /// Color of the particles or of the solid box.
+    @_disfavoredOverload
     public func foregroundStyle(_ color: Color) -> Self {
         var copy = self
         copy.colorSpec = ThemeColorModifiers.spec(from: color)
@@ -28,7 +29,7 @@ public struct Spoiler: BackgroundThemeElement {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         if let colorSpec {
             config.spoiler.color = colorSpec.resolve(traitCollection: traitCollection)
         }

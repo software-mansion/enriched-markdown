@@ -15,49 +15,49 @@ private enum ExampleFonts {
 /// demonstrate cross-platform hex parity or custom branding.
 let CustomMarkdownTheme = MarkdownTheme {
     Paragraph()
-        .fontFamily(ExampleFonts.montserratRegular, size: 16)
+        .font(custom: ExampleFonts.montserratRegular, size: 16)
         .foregroundStyle(Color.gray800)
         .lineHeight(26)
         .marginBottom(16)
 
     Heading(1)
-        .fontFamily(ExampleFonts.montserratBold, size: 30)
+        .font(custom: ExampleFonts.montserratBold, size: 30)
         .foregroundStyle(Color.gray900)
         .lineHeight(38)
         .marginBottom(8)
 
     Heading(2)
-        .fontFamily(ExampleFonts.montserratBold, size: 24)
+        .font(custom: ExampleFonts.montserratBold, size: 24)
         .foregroundStyle(Color.gray900)
         .lineHeight(32)
         .marginBottom(8)
 
     Heading(3)
-        .fontFamily(ExampleFonts.montserratSemiBold, size: 20)
+        .font(custom: ExampleFonts.montserratSemiBold, size: 20)
         .foregroundStyle(Color.gray800)
         .lineHeight(28)
         .marginBottom(8)
 
     Heading(4)
-        .fontFamily(ExampleFonts.montserratSemiBold, size: 18)
+        .font(custom: ExampleFonts.montserratSemiBold, size: 18)
         .foregroundStyle(Color.gray800)
         .lineHeight(26)
         .marginBottom(8)
 
     Heading(5)
-        .fontFamily(ExampleFonts.montserratMedium, size: 16)
+        .font(custom: ExampleFonts.montserratMedium, size: 16)
         .foregroundStyle(Color.gray700)
         .lineHeight(24)
         .marginBottom(8)
 
     Heading(6)
-        .fontFamily(ExampleFonts.montserratMedium, size: 14)
+        .font(custom: ExampleFonts.montserratMedium, size: 14)
         .foregroundStyle(Color.gray600)
         .lineHeight(22)
         .marginBottom(8)
 
     Blockquote()
-        .fontFamily(ExampleFonts.montserratItalic, size: 16)
+        .font(custom: ExampleFonts.montserratItalic, size: 16)
         .foregroundStyle(Color.gray600)
         .lineHeight(26)
         .border(Color.gray300, width: 3)
@@ -66,7 +66,7 @@ let CustomMarkdownTheme = MarkdownTheme {
         .marginBottom(16)
 
     List()
-        .fontFamily(ExampleFonts.montserratRegular, size: 16)
+        .font(custom: ExampleFonts.montserratRegular, size: 16)
         .foregroundStyle(Color.gray800)
         .lineHeight(26)
         .bulletColor(Color.gray500)
@@ -78,7 +78,7 @@ let CustomMarkdownTheme = MarkdownTheme {
         .marginBottom(16)
 
     CodeBlock()
-        .fontFamily(ExampleFonts.courierPrimeRegular, size: 14)
+        .font(custom: ExampleFonts.courierPrimeRegular, size: 14)
         .foregroundStyle(Color.gray100)
         .backgroundStyle(Color.gray800)
         .border(Color.gray700, width: 1)
@@ -97,7 +97,7 @@ let CustomMarkdownTheme = MarkdownTheme {
         .background(Color.white)
 
     Link()
-        .fontFamily(ExampleFonts.montserratBold, size: 16)
+        .font(custom: ExampleFonts.montserratBold, size: 16)
         .foregroundStyle(Color.linkBlue)
         .underline(true)
 

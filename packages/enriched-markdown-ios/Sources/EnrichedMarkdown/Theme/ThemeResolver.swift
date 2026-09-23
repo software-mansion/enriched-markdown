@@ -43,8 +43,9 @@ public enum ThemeColorSpec: Equatable, Sendable {
     public enum SemanticColor: Equatable, Sendable {
         case primary
         case secondary
-        case tint
+        case tertiary
         case quaternary
+        case tint
     }
 
     package func resolve(traitCollection: UITraitCollection) -> UIColor {
@@ -57,6 +58,8 @@ public enum ThemeColorSpec: Equatable, Sendable {
                 return UIColor.secondaryLabel.resolvedColor(with: traitCollection)
             case .tint:
                 return UIColor.tintColor.resolvedColor(with: traitCollection)
+            case .tertiary:
+                return UIColor.tertiaryLabel.resolvedColor(with: traitCollection)
             case .quaternary:
                 return UIColor.quaternaryLabel.resolvedColor(with: traitCollection)
             }
@@ -230,38 +233,47 @@ enum ThemeResolver {
         return .uiColor(uiColor)
     }
 
+    /// Resolves an element's font over `base`, the lower layer's font. With
+    /// no spec, the weight, design, and italic apply to `base` itself, so
+    /// `Heading(1).bold()` layers over the default theme. A custom face
+    /// takes only a bold weight (its family's bold face) and italic; design
+    /// is a system-font notion.
     static func applyFont(
         spec: ThemeFontSpec?,
         weight: Font.Weight?,
         design: Font.Design?,
+        italic: Bool = false,
         to base: UIFont?,
         traitCollection: UITraitCollection
     ) -> UIFont? {
-        guard let spec else { return base }
-        if case .custom = spec {
-            return applyWeightToCustomFont(
-                spec.resolve(traitCollection: traitCollection),
-                weight: weight
-            )
+        guard var font = spec?.resolve(traitCollection: traitCollection) ?? base else { return nil }
+        let isCustomFace: Bool
+        if let spec {
+            if case .custom = spec { isCustomFace = true } else { isCustomFace = false }
+        } else {
+            isCustomFace = !font.isSystemFace
         }
 
-        var font = spec.resolve(traitCollection: traitCollection)
-
-        if let weight {
-            let uiWeight = uiFontWeight(from: weight)
-            font = font.withWeight(uiWeight)
-        }
-
-        if let design {
-            let uiDesign = uiFontDesign(from: design)
-            if uiDesign == .monospaced {
-                let uiWeight = weight.map(uiFontWeight(from:)) ?? .regular
-                font = UIFont.monospacedSystemFont(ofSize: font.pointSize, weight: uiWeight)
-            } else if let descriptor = font.fontDescriptor.withDesign(uiDesign) {
-                font = UIFont(descriptor: descriptor, size: font.pointSize)
+        if isCustomFace {
+            font = applyWeightToCustomFont(font, weight: weight)
+        } else {
+            if let weight {
+                font = font.withWeight(uiFontWeight(from: weight))
+            }
+            if let design {
+                let uiDesign = uiFontDesign(from: design)
+                if uiDesign == .monospaced {
+                    let uiWeight = weight.map(uiFontWeight(from:)) ?? font.weightTrait
+                    font = UIFont.monospacedSystemFont(ofSize: font.pointSize, weight: uiWeight)
+                } else if let descriptor = font.fontDescriptor.withDesign(uiDesign) {
+                    font = UIFont(descriptor: descriptor, size: font.pointSize)
+                }
             }
         }
 
+        if italic {
+            font = FontHelpers.ensureItalic(font) ?? font
+        }
         return font
     }
 
@@ -299,6 +311,18 @@ enum ThemeResolver {
 }
 
 private extension UIFont {
+    /// System faces carry a leading dot in their family name (`.AppleSystemUIFont`).
+    var isSystemFace: Bool {
+        familyName.hasPrefix(".")
+    }
+
+    /// The weight the descriptor carries, `.regular` when it has none.
+    var weightTrait: UIFont.Weight {
+        let traits = fontDescriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any]
+        guard let raw = traits?[.weight] as? CGFloat else { return .regular }
+        return UIFont.Weight(rawValue: raw)
+    }
+
     func withWeight(_ weight: UIFont.Weight) -> UIFont {
         let traits: [UIFontDescriptor.TraitKey: Any] = [
             .weight: weight

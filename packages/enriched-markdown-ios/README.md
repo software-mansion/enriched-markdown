@@ -139,7 +139,7 @@ struct RootView: View {
 }
 ```
 
-Prefer semantic colors (`.primary`, `.secondary`, `.tint`, `.quaternary`) when you want automatic light/dark adaptation; pass a concrete `Color` (or hex) for fixed branding.
+Prefer semantic colors (`.primary`, `.secondary`, `.tertiary`, `.quaternary`, `.tint`) when you want automatic light/dark adaptation; pass a concrete `Color` (or hex) for fixed branding.
 
 ### Theme elements
 
@@ -171,11 +171,11 @@ The `MarkdownTheme` builder supports these elements:
 | `MathBlock()` | Root-level `$$…$$` display math (`EnrichedMarkdownLaTeX`, see [LaTeX math](#latex-math)) |
 | `InlineMath()` | `$…$` math in running text (`EnrichedMarkdownLaTeX`) |
 
-Common modifiers (available on most elements): `.font`, `.fontFamily(_:size:)`, `.fontSize`, `.bold`, `.fontDesign`, `.foregroundStyle`, `.marginTop`, `.marginBottom`, `.lineHeight`, `.multilineTextAlignment`.
+Common modifiers (available on most elements): `.font`, `.font(size:weight:design:)`, `.font(custom:size:)`, `.fontWeight`, `.bold`, `.italic`, `.fontDesign`, `.foregroundStyle`, `.marginTop`, `.marginBottom`, `.lineHeight`, `.multilineTextAlignment`.
 
-`.font` takes the SwiftUI text styles in every spelling — `.body`, `.system(.title)`, `.system(.title, design: .serif, weight: .bold)` — and they track Dynamic Type. A point-sized or custom `Font` (`.system(size:)`, `.custom(_:size:)`, `.weight()`, `.italic()`) cannot be read back through public API, so it logs a runtime warning and renders as `.body`; use `.fontSize(_:weight:)` and `.fontFamily(_:size:)` for those. `marginTop` / `marginBottom` are outer spacing between blocks and do not collapse the way CSS margins do.
+`.font` takes the SwiftUI text styles in every spelling — `.body`, `.system(.title)`, `.system(.title, design: .serif, weight: .bold)` — and they track Dynamic Type. A point-sized or custom `Font` (`.system(size:)`, `.custom(_:size:)`, `.weight()`, `.italic()`) cannot be read back through public API, so it logs a runtime warning and renders as `.body`; use `.font(size:weight:design:)` and `.font(custom:size:)` for those. `.fontWeight`, `.bold()`, `.italic()`, and `.fontDesign` layer over whatever font the lower theme set, so `Heading(1).bold()` alone bolds the default heading. `marginTop` / `marginBottom` are outer spacing between blocks and do not collapse the way CSS margins do.
 
-For custom families, `.bold()` picks a bold face from the same `UIFont` family when one is registered (e.g. `Helvetica` → `Helvetica-Bold`). If no bold face exists, the original face is kept. `.fontDesign` only applies to system fonts, not `.fontFamily`.
+For custom families, `.bold()` and `.italic()` pick the matching face from the same `UIFont` family when one is registered (e.g. `Helvetica` → `Helvetica-Bold`); italic is synthesized when no face exists, bold falls back to the original face. `.fontDesign` only applies to system fonts, not `.font(custom:size:)`.
 
 Element-specific modifiers include:
 
@@ -188,11 +188,11 @@ Element-specific modifiers include:
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxCornerRadius`, `.checkedTextColor`, `.checkedStrikethrough`
 - **Spoiler:** `.foregroundStyle` (the particles or the solid box) and `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed. Particle density and speed and the solid box's corner radius belong to the overlay choice: `.markdownSpoilerOverlay(.particles(density: 12, speed: 30))`
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
-- **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.border(_:width:)`, `.cornerRadius`, `.cellPadding(horizontal:vertical:)`, `.alignment` (`HorizontalAlignment`: `.leading`, `.center`, `.trailing`)
+- **Table:** `.headerFont` (a text style or `custom:size:`), `.headerForegroundStyle`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.border(_:width:)`, `.cornerRadius`, `.cellPadding(horizontal:vertical:)`, `.alignment` (`HorizontalAlignment`: `.leading`, `.center`, `.trailing`)
 - **BlockImage:** `.height`, `.maxHeight`, `.aspectRatio`, `.contentMode`, `.cornerRadius` — see [Image sizing](#image-sizing)
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.foregroundStyle`, `.height`
-- **MathBlock:** `.fontSize`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.multilineTextAlignment` — the only modifiers; the face is always KaTeX's
+- **MathBlock:** `.font(size:)`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.multilineTextAlignment` — the only modifiers; the face is always KaTeX's
 - **InlineMath:** `.foregroundStyle` — the only modifier; size follows the surrounding text
 
 ## API reference
@@ -468,6 +468,10 @@ Every 0.1 name still compiles as a deprecated alias that forwards to its replace
 | `Table().cellPaddingHorizontal(_:)` / `.cellPaddingVertical(_:)` | `.cellPadding(horizontal:vertical:)` |
 | `Spoiler().particleDensity(_:)` / `.particleSpeed(_:)` / `.solidBorderRadius(_:)` | `.markdownSpoilerOverlay(.particles(density:speed:))` / `.markdownSpoilerOverlay(.solid(cornerRadius:))` |
 | `SpoilerStyle.solidBorderRadius` | `solidCornerRadius` |
+| `MarkdownStyleConfig` | `MarkdownStyleConfiguration` (the `config:` label is unchanged) |
+| `.fontSize(_:weight:)`, `.fontFamily(_:size:)` | `.font(size:weight:design:)`, `.font(custom:size:)` |
+| `Table().headerFontFamily(_:size:)`, `.headerTextColor(_:)` | `.headerFont(custom:size:)`, `.headerForegroundStyle(_:)` |
+| `MathBlock().fontSize(_:)` | `.font(size:)` |
 | `CodeBlockStyle.borderRadius`, `ImageStyle.borderRadius`, `TableStyle.borderRadius` / `.align`, `TaskListStyle.checkboxBorderRadius`, `ListStyle.marginLeft` | `cornerRadius`, `alignment`, `checkboxCornerRadius`, `marginLeading` (fields and init labels) |
 
 ## Copy & clipboard
@@ -612,7 +616,7 @@ EnrichedMarkdownText(content)
   .markdownLaTeX()
   .markdownTheme {
     MathBlock()
-      .fontSize(22)
+      .font(size: 22)
       .background(Color(red: 243 / 255, green: 244 / 255, blue: 246 / 255))
       .padding(16)
       .marginBottom(24)
@@ -627,8 +631,8 @@ EnrichedMarkdownText(content)
 centered on a padded `.quaternary` panel — directly above `MarkdownTheme.default`,
 so your own themes still win whether they're applied on an ancestor or on the
 view itself. Font size and color left unset follow the paragraph. When
-resolving a `MarkdownStyleConfig` by hand for `renderLaTeX`, include that
-layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], traitCollection: …)`.
+resolving a `MarkdownStyleConfiguration` by hand for `renderLaTeX`, include that
+layer: `MarkdownStyleConfiguration.resolve(layers: [.default, .latexDefault, yours], traitCollection: …)`.
 
 ## Supported Markdown
 

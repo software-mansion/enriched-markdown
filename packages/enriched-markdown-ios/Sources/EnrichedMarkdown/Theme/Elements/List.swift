@@ -4,6 +4,7 @@ public struct List: MarkdownThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
+    public var isItalic: Bool?
     public var foregroundColorSpec: ThemeColorSpec?
     public var bulletColorSpec: ThemeColorSpec?
     public var markerColorSpec: ThemeColorSpec?
@@ -18,6 +19,7 @@ public struct List: MarkdownThemeElement {
 
     public init() {}
 
+    @_disfavoredOverload
     public func bulletColor(_ color: Color) -> Self {
         var copy = self
         copy.bulletColorSpec = ThemeColorModifiers.spec(from: color)
@@ -30,6 +32,7 @@ public struct List: MarkdownThemeElement {
         return copy
     }
 
+    @_disfavoredOverload
     public func markerColor(_ color: Color) -> Self {
         var copy = self
         copy.markerColorSpec = ThemeColorModifiers.spec(from: color)
@@ -67,7 +70,7 @@ public struct List: MarkdownThemeElement {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyTextStyle(to: &config.list, traitCollection: traitCollection)
         if let bulletColorSpec {
             config.list.bulletColor = bulletColorSpec.resolve(traitCollection: traitCollection)

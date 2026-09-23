@@ -27,7 +27,7 @@ enum MarkdownHTMLGenerator {
     static func generateHTML(
         from attributedText: NSAttributedString,
         in range: NSRange,
-        config: MarkdownStyleConfig
+        config: MarkdownStyleConfiguration
     ) -> String {
         guard range.location != NSNotFound,
               range.length > 0,

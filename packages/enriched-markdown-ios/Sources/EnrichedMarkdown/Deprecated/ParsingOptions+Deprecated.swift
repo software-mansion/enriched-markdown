@@ -17,7 +17,7 @@ public extension MarkdownRenderer {
     @available(*, deprecated, renamed: "render(_:config:options:imageRequestHeaders:writingDirection:layoutDirection:)")
     static func render(
         _ markdown: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         flags: MarkdownParsingOptions,
         imageRequestHeaders: [String: String] = [:],
         writingDirection: MarkdownWritingDirection = .firstStrong,

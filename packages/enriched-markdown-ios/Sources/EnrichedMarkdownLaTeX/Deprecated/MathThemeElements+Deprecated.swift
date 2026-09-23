@@ -8,3 +8,10 @@ public extension MathBlock {
         multilineTextAlignment(alignment)
     }
 }
+
+public extension MathBlock {
+    @available(*, deprecated, renamed: "font(size:)")
+    func fontSize(_ size: CGFloat) -> Self {
+        font(size: size)
+    }
+}

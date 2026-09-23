@@ -5,11 +5,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class SpoilerTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Rendering
@@ -250,7 +250,7 @@ final class SpoilerTests: XCTestCase {
     // MARK: - Theme
 
     func testSpoilerThemeElementAppliesToConfig() {
-        var applied = MarkdownStyleConfig()
+        var applied = MarkdownStyleConfiguration()
         Spoiler()
             .foregroundStyle(Color(UIColor.systemPurple))
             .background(Color(UIColor.black))
@@ -300,7 +300,7 @@ final class SpoilerTests: XCTestCase {
     }
 
     func testDefaultThemeConfiguresSpoilerOverlayColors() {
-        let resolved = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        let resolved = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
 
         XCTAssertNotNil(resolved.spoiler.color)
         XCTAssertNotNil(resolved.spoiler.backgroundColor)
@@ -344,7 +344,7 @@ final class SpoilerTests: XCTestCase {
     }
 
     @MainActor
-    private func renderSynchronously(_ store: MarkdownRenderStore, markdown: String, config: MarkdownStyleConfig) {
+    private func renderSynchronously(_ store: MarkdownRenderStore, markdown: String, config: MarkdownStyleConfiguration) {
         let rendered = expectation(description: "render applied for \(markdown)")
         let cancellable = store.$source
             .dropFirst()

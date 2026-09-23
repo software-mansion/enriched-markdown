@@ -11,6 +11,7 @@ public struct Admonition: BackgroundThemeElement {
         self.type = type
     }
 
+    @_disfavoredOverload
     public func foregroundStyle(_ color: Color) -> Self {
         var copy = self
         copy.foregroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -23,7 +24,7 @@ public struct Admonition: BackgroundThemeElement {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         var style = config.blockquote.admonitions[type] ?? AdmonitionStyle()
         if let foregroundColorSpec {
             style.color = foregroundColorSpec.resolve(traitCollection: traitCollection)

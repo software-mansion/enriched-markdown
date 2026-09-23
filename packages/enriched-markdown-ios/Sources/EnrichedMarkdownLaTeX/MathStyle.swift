@@ -33,7 +33,7 @@ struct InlineMathStyle: PluginStyle {
     }
 }
 
-extension MarkdownStyleConfig {
+extension MarkdownStyleConfiguration {
     var mathBlock: MathBlockStyle {
         get { pluginStyles[MathBlockStyle.self] ?? MathBlockStyle() }
         set { pluginStyles[MathBlockStyle.self] = newValue }

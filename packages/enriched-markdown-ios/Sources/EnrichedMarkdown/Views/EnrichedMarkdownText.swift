@@ -30,7 +30,7 @@ public struct EnrichedMarkdownText: View {
         self.options = options
     }
 
-    private var styleConfig: MarkdownStyleConfig {
+    private var styleConfig: MarkdownStyleConfiguration {
         let traitCollection = ThemeResolver.traitCollection(
             colorScheme: colorScheme,
             dynamicTypeSize: dynamicTypeSize
@@ -39,7 +39,7 @@ public struct EnrichedMarkdownText: View {
         // first layer) and below the app's themes.
         var layers = themeLayers
         layers.insert(contentsOf: renderPlugins.compactMap(\.defaultTheme), at: min(1, layers.count))
-        return MarkdownStyleConfig.resolve(layers: layers, traitCollection: traitCollection)
+        return MarkdownStyleConfiguration.resolve(layers: layers, traitCollection: traitCollection)
     }
 
     public var body: some View {

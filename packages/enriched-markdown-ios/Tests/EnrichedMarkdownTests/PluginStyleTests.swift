@@ -32,7 +32,7 @@ private final class PlaceholderRenderer: NodeRenderer {
 private struct BlockMarginsPlugin: MarkdownRenderPlugin {
     let margins: BlockMargins
 
-    func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer? {
+    func renderer(for type: NodeType, config: MarkdownStyleConfiguration) -> NodeRenderer? {
         type == .latexMathDisplay ? PlaceholderRenderer() : nil
     }
 
@@ -42,7 +42,7 @@ private struct BlockMarginsPlugin: MarkdownRenderPlugin {
 
     var rootBlockNodeTypes: Set<NodeType> { [.latexMathDisplay] }
 
-    func blockMargins(for type: NodeType, config: MarkdownStyleConfig) -> BlockMargins { margins }
+    func blockMargins(for type: NodeType, config: MarkdownStyleConfiguration) -> BlockMargins { margins }
 }
 
 final class PluginStyleTests: XCTestCase {
@@ -97,8 +97,8 @@ final class PluginStyleTests: XCTestCase {
     }
 
     func testConfigEqualityAndMergeCoverPluginStyles() {
-        var lhs = MarkdownStyleConfig.baseline()
-        let rhs = MarkdownStyleConfig.baseline()
+        var lhs = MarkdownStyleConfiguration.baseline()
+        let rhs = MarkdownStyleConfiguration.baseline()
         XCTAssertEqual(lhs, rhs)
 
         lhs.pluginStyles[RecordStyle.self] = RecordStyle(size: 3)
@@ -111,7 +111,7 @@ final class PluginStyleTests: XCTestCase {
 
     // MARK: - Block margins
 
-    private func render(_ markdown: String, config: MarkdownStyleConfig, margins: BlockMargins) -> NSAttributedString {
+    private func render(_ markdown: String, config: MarkdownStyleConfiguration, margins: BlockMargins) -> NSAttributedString {
         MarkdownRenderer.render(
             markdown,
             config: config,
@@ -134,8 +134,8 @@ final class PluginStyleTests: XCTestCase {
         return (before?.paragraphSpacingBefore, block?.paragraphSpacing)
     }
 
-    private var marginConfig: MarkdownStyleConfig {
-        var config = MarkdownStyleConfig.baseline()
+    private var marginConfig: MarkdownStyleConfiguration {
+        var config = MarkdownStyleConfiguration.baseline()
         config.paragraph.marginTop = 3
         config.paragraph.marginBottom = 5
         return config

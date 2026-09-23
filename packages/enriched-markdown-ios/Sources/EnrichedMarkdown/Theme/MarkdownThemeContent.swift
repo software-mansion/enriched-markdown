@@ -1,7 +1,7 @@
 import UIKit
 
 public protocol MarkdownThemeContent {
-    func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection)
+    func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection)
 }
 
 public struct MarkdownThemeGroup: MarkdownThemeContent, Sendable {
@@ -11,7 +11,7 @@ public struct MarkdownThemeGroup: MarkdownThemeContent, Sendable {
         self.contents = contents
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         for content in contents {
             content.apply(to: &config, traitCollection: traitCollection)
         }

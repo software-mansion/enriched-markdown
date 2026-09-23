@@ -5,7 +5,7 @@ import XCTest
 @testable import EnrichedMarkdownLaTeX
 
 final class LaTeXRenderingTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     private var effectiveParsingOptions: MarkdownParsingOptions {
         MarkdownRenderer.effectiveParsingOptions(.commonMark, plugins: [LaTeXRenderPlugin()])
@@ -13,7 +13,7 @@ final class LaTeXRenderingTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Helpers
@@ -94,7 +94,7 @@ final class LaTeXRenderingTests: XCTestCase {
     /// Streaming re-renders the document per token; the same formula must
     /// not be redrawn each time.
     func testRepeatedRendersShareOneRaster() {
-        let config = MarkdownStyleConfig.baseline()
+        let config = MarkdownStyleConfiguration.baseline()
         let first = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
         let second = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
         guard let firstImage = first.first?.formulaImage, let secondImage = second.first?.formulaImage else {
@@ -104,7 +104,7 @@ final class LaTeXRenderingTests: XCTestCase {
     }
 
     func testDifferentFontSizesDoNotShareARaster() {
-        let config = MarkdownStyleConfig.baseline()
+        let config = MarkdownStyleConfiguration.baseline()
         let body = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
         let heading = mathAttachments(in: MarkdownRenderer.renderLaTeX("# $x^2$", config: config))
         guard let bodyImage = body.first?.formulaImage, let headingImage = heading.first?.formulaImage else {

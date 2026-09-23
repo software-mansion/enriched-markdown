@@ -1,6 +1,6 @@
 import UIKit
 
-public struct MarkdownStyleConfig: Equatable, Sendable {
+public struct MarkdownStyleConfiguration: Equatable, Sendable {
     public var paragraph: ElementStyle
     public var heading1: ElementStyle
     public var heading2: ElementStyle
@@ -84,7 +84,7 @@ public struct MarkdownStyleConfig: Equatable, Sendable {
         self.table = table
     }
 
-    public mutating func merge(_ other: MarkdownStyleConfig) {
+    public mutating func merge(_ other: MarkdownStyleConfiguration) {
         paragraph.merge(other.paragraph)
         heading1.merge(other.heading1)
         heading2.merge(other.heading2)

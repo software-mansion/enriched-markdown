@@ -14,7 +14,7 @@ struct RenderedSource: Equatable {
 /// not `Equatable`.
 struct MarkdownRenderInputs: Equatable {
     var markdown: String
-    var config: MarkdownStyleConfig
+    var config: MarkdownStyleConfiguration
     var options: MarkdownParsingOptions = .commonMark
     var imageRequestHeaders: [String: String] = [:]
     var writingDirection: MarkdownWritingDirection = .firstStrong
@@ -94,7 +94,7 @@ final class MarkdownRenderStore: ObservableObject {
     /// Flips one task item's checked state in place: rendered text and
     /// tracked source, no re-parse. Drops any in-flight render so a stale
     /// result can't revert the toggle.
-    func applyTaskListToggle(index: Int, checked: Bool, config: MarkdownStyleConfig) {
+    func applyTaskListToggle(index: Int, checked: Bool, config: MarkdownStyleConfiguration) {
         guard let toggled = TaskListInteraction.togglingItem(
             in: attributedText,
             index: index,

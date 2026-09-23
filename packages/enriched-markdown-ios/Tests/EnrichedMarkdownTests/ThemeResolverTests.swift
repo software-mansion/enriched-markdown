@@ -41,6 +41,37 @@ final class ThemeResolverTests: XCTestCase {
         }
     }
 
+    // MARK: - Weight, italic, and explicit forms
+
+    private func resolvedFont(@MarkdownThemeBuilder _ content: () -> MarkdownThemeGroup) -> UIFont? {
+        MarkdownStyleConfiguration.resolve(layers: [.default, MarkdownTheme(content)], traitCollection: .current).heading1.font
+    }
+
+    func testWeightAndItalicLayerOverTheLowerThemesFont() throws {
+        let base = try XCTUnwrap(resolvedFont {})
+        let bold = try XCTUnwrap(resolvedFont { Heading(1).fontWeight(.bold) })
+        let italic = try XCTUnwrap(resolvedFont { Heading(1).italic() })
+        XCTAssertEqual(bold.pointSize, base.pointSize)
+        XCTAssertTrue(bold.fontDescriptor.symbolicTraits.contains(.traitBold))
+        XCTAssertTrue(italic.fontDescriptor.symbolicTraits.contains(.traitItalic))
+        XCTAssertEqual(italic.pointSize, base.pointSize)
+    }
+
+    func testMonospacedDesignKeepsTheBaseWeight() throws {
+        let font = try XCTUnwrap(resolvedFont { Heading(1).fontDesign(.monospaced) })
+        XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
+        XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold), "the default heading is bold")
+    }
+
+    func testExplicitSizeAndCustomForms() throws {
+        let sized = try XCTUnwrap(resolvedFont { Heading(1).font(size: 33, weight: .semibold, design: .rounded) })
+        XCTAssertEqual(sized.pointSize, 33)
+        let custom = try XCTUnwrap(resolvedFont { Heading(1).font(custom: "Helvetica", size: 21).italic() })
+        XCTAssertEqual(custom.familyName, "Helvetica")
+        XCTAssertEqual(custom.pointSize, 21)
+        XCTAssertTrue(custom.fontDescriptor.symbolicTraits.contains(.traitItalic))
+    }
+
     func testFontModifierAppliesResolvedWeight() {
         let element = Paragraph().font(.system(.body, weight: .bold))
         XCTAssertEqual(element.fontSpec, .textStyle(.body))

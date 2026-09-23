@@ -52,7 +52,7 @@ extension MarkdownHTMLGenerator {
         let headingColors: [String]
         let headingMarginBottoms: [Int]
 
-        init(config: MarkdownStyleConfig) {
+        init(config: MarkdownStyleConfiguration) {
             let bodySize = Int(UIFont.preferredFont(forTextStyle: .body).pointSize)
 
             paragraphColor = cssColor(config.paragraph.foregroundColor)

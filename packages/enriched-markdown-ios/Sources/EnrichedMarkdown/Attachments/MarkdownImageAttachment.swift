@@ -61,7 +61,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
     /// caches, which hit synchronously.
     static func attachment(
         for url: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         isInline: Bool,
         altText: String,
         requestHeaders: [String: String] = [:],
@@ -80,7 +80,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
     private init(
         url: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         isInline: Bool,
         altText: String,
         requestHeaders: [String: String],
