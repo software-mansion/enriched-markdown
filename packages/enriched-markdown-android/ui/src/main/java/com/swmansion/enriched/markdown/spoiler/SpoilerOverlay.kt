@@ -5,13 +5,4 @@ enum class SpoilerOverlay(
 ) {
   PARTICLES({ animator -> ParticleStrategy(animator) }),
   SOLID({ _ -> SolidStrategy() }),
-  ;
-
-  companion object {
-    fun fromString(value: String?): SpoilerOverlay =
-      when (value) {
-        "solid" -> SOLID
-        else -> PARTICLES
-      }
-  }
 }

@@ -1227,10 +1227,9 @@ class TableStyleScope {
 @Immutable
 internal data class SpoilerStylePatch(
   val color: Color? = null,
-  val backgroundColor: Color? = null,
   val particleDensity: Float? = null,
   val particleSpeed: Float? = null,
-  val solidBorderRadius: Dp? = null,
+  val solidCornerRadius: Dp? = null,
 ) {
   fun apply(
     base: SpoilerStyle,
@@ -1238,16 +1237,15 @@ internal data class SpoilerStylePatch(
   ): SpoilerStyle =
     base.copy(
       color = color?.let(units::color) ?: base.color,
-      backgroundColor = backgroundColor?.let(units::color) ?: base.backgroundColor,
       particleDensity = particleDensity ?: base.particleDensity,
       particleSpeed = particleSpeed ?: base.particleSpeed,
-      solidBorderRadius = solidBorderRadius?.let(units::dp) ?: base.solidBorderRadius,
+      solidCornerRadius = solidCornerRadius?.let(units::dp) ?: base.solidCornerRadius,
     )
 }
 
 /** Tuning for the drifting-particle overlay (`spoilerOverlay = SpoilerOverlay.PARTICLES`). */
 @MarkdownStyleDsl
-class SpoilerParticlesStyleScope {
+class SpoilerParticlesStyleScope internal constructor() {
   /** Particles per 100x100 area. Higher values conceal more densely. */
   var density: Float? = null
 
@@ -1257,28 +1255,19 @@ class SpoilerParticlesStyleScope {
 
 /** Tuning for the solid overlay (`spoilerOverlay = SpoilerOverlay.SOLID`). */
 @MarkdownStyleDsl
-class SpoilerSolidStyleScope {
+class SpoilerSolidStyleScope internal constructor() {
   /** Corner radius of the rectangles the solid overlay draws. */
-  var borderRadius: Dp? = null
+  var cornerRadius: Dp? = null
 }
 
 @MarkdownStyleDsl
-class SpoilerStyleScope {
+class SpoilerStyleScope internal constructor() {
   /** Color of the particles, and the fill of the solid overlay. */
   var color: Color? = null
 
-  /**
-   * Color the particle overlay paints over the concealed text before fading it out.
-   *
-   * Set this whenever the surface behind the text comes from a `Modifier.background` rather than
-   * from a view background — the renderer cannot see a Compose modifier and would fall back to
-   * white.
-   */
-  var backgroundColor: Color? = null
-
   private var particleDensity: Float? = null
   private var particleSpeed: Float? = null
-  private var solidBorderRadius: Dp? = null
+  private var solidCornerRadius: Dp? = null
 
   fun particles(block: SpoilerParticlesStyleScope.() -> Unit) {
     val scope = SpoilerParticlesStyleScope()
@@ -1291,18 +1280,17 @@ class SpoilerStyleScope {
 
   fun solid(block: SpoilerSolidStyleScope.() -> Unit) {
     val scope = SpoilerSolidStyleScope()
-    scope.borderRadius = solidBorderRadius
+    scope.cornerRadius = solidCornerRadius
     scope.block()
-    solidBorderRadius = scope.borderRadius
+    solidCornerRadius = scope.cornerRadius
   }
 
   internal fun toPatch(): SpoilerStylePatch =
     SpoilerStylePatch(
       color = color,
-      backgroundColor = backgroundColor,
       particleDensity = particleDensity,
       particleSpeed = particleSpeed,
-      solidBorderRadius = solidBorderRadius,
+      solidCornerRadius = solidCornerRadius,
     )
 
   internal companion object {
@@ -1314,12 +1302,11 @@ class SpoilerStyleScope {
         SpoilerStyleScope().apply {
           if (existing != null) {
             color = existing.color
-            backgroundColor = existing.backgroundColor
             particles {
               density = existing.particleDensity
               speed = existing.particleSpeed
             }
-            solid { borderRadius = existing.solidBorderRadius }
+            solid { cornerRadius = existing.solidCornerRadius }
           }
         }
       scope.apply(block)

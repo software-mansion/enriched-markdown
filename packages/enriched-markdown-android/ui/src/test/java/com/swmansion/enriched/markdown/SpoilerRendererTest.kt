@@ -1,5 +1,9 @@
 package com.swmansion.enriched.markdown
 
+import android.graphics.Color
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.style.CharacterStyle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.spans.EmphasisSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
@@ -12,6 +16,7 @@ import com.swmansion.enriched.markdown.test.MarkdownRenderAssertions.assertConta
 import com.swmansion.enriched.markdown.test.MarkdownRenderAssertions.assertSpanCovers
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
+import com.swmansion.enriched.markdown.test.TestAstFactory.code
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.emphasis
 import com.swmansion.enriched.markdown.test.TestAstFactory.link
@@ -86,6 +91,54 @@ class SpoilerRendererTest {
   }
 
   @Test
+  fun inlineCodeInsideASpoilerKeepsItsOwnSize() {
+    val defaults = MarkdownRenderTestSupport.defaultStyle
+    val codeSize = defaults.paragraphStyle.fontSize - 5f
+    val style = MarkdownRenderTestSupport.styleWithCode(defaults.codeStyle.copy(fontSize = codeSize))
+
+    val plain = render(document(paragraph(code("x"))), style).drawStateAt("x")
+    val concealed = render(document(paragraph(spoiler(code("x")))), style).drawStateAt("x")
+
+    assertEquals(codeSize, plain.textSize, 0.001f)
+    assertEquals(codeSize, concealed.textSize, 0.001f)
+  }
+
+  @Test
+  fun concealedTextIsDrawnTransparent() {
+    val rendered = render(document(paragraph(spoiler(text("secret")))))
+
+    assertEquals(0, Color.alpha(rendered.drawStateAt("secret").color))
+  }
+
+  @Test
+  fun wrappersThatRecolorTheRunDoNotUncoverIt() {
+    val rendered =
+      render(
+        document(
+          paragraph(
+            link("https://example.com", spoiler(text("linked"))),
+            strong(spoiler(code("coded"))),
+          ),
+        ),
+      )
+
+    listOf("linked", "coded").forEach { run ->
+      val paint = rendered.drawStateAt(run)
+      assertEquals("$run should stay concealed", 0, Color.alpha(paint.color))
+      assertEquals("$run should stay concealed", 0, Color.alpha(paint.linkColor))
+    }
+  }
+
+  @Test
+  fun aRevealedSpoilerDrawsItsTextInTheBlockColor() {
+    val rendered = render(document(paragraph(spoiler(text("secret")))))
+    rendered.getSpans(0, rendered.length, SpoilerSpan::class.java).single().markRevealed()
+
+    val plain = render(document(paragraph(text("secret")))).drawStateAt("secret")
+    assertEquals(plain.color, rendered.drawStateAt("secret").color)
+  }
+
+  @Test
   fun aLinkInsideASpoilerKeepsItsUrl() {
     val rendered =
       render(document(paragraph(spoiler(link("https://example.com", text("tap"))))))
@@ -151,9 +204,7 @@ class SpoilerRendererTest {
     assertEquals(0xFF374151.toInt(), style.color)
     assertEquals(8f, style.particleDensity, 0.001f)
     assertEquals(20f, style.particleSpeed, 0.001f)
-    assertTrue("Solid radius is stored in pixels", style.solidBorderRadius > 0f)
-    // Unset by default: the overlay infers the surface it paints over.
-    assertEquals(null, style.backgroundColor)
+    assertTrue("Solid radius is stored in pixels", style.solidCornerRadius > 0f)
   }
 
   // MARK: Copy / export
@@ -216,5 +267,13 @@ class SpoilerRendererTest {
     // Matches the React Native package, which leaves spoilers out of the HTML export.
     html.assertContainsHtml("secret")
     assertFalse(html.contains("data-spoiler"))
+  }
+
+  /** The paint a run is drawn with: every character style over it, applied in span order. */
+  private fun Spanned.drawStateAt(run: String): TextPaint {
+    val start = toString().indexOf(run)
+    val paint = TextPaint().apply { color = Color.BLACK }
+    getSpans(start, start + run.length, CharacterStyle::class.java).forEach { it.updateDrawState(paint) }
+    return paint
   }
 }

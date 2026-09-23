@@ -1,9 +1,12 @@
 package com.swmansion.enriched.markdown.spoiler
 
+import android.animation.ValueAnimator
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.text.Spannable
 import android.text.Spanned
 import android.text.TextPaint
+import android.view.animation.LinearInterpolator
 import android.widget.TextView
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
@@ -54,9 +57,9 @@ class SpoilerOverlayDrawer(
       if (spanStart < 0 || spanEnd < 0 || spanStart >= spanEnd) continue
 
       // The span may be set in a different size than the view (e.g. in a heading), so measure the
-      // band it covers with its own metrics rather than the view's.
+      // band it covers with its block's metrics rather than the view's.
       metricsPaint.set(ctx.layout.paint)
-      span.updateMeasureState(metricsPaint)
+      metricsPaint.textSize = span.blockStyle.fontSize
       metricsPaint.getFontMetrics(fontMetrics)
 
       val spanIdentity = System.identityHashCode(span)
@@ -99,11 +102,38 @@ class SpoilerOverlayDrawer(
       return
     }
     span.markRevealing()
+    fadeInText(span)
     strategy.revealSpan(span, ctx) {
       span.markRevealed()
-      textViewReference.get()?.invalidate()
+      refreshText(span)
       onAllComplete()
     }
+  }
+
+  // The text fades in as the overlay fades out, on the same curve.
+  private fun fadeInText(span: SpoilerSpan) {
+    ValueAnimator.ofFloat(0f, 1f).apply {
+      duration = REVEAL_DURATION_MS
+      interpolator = LinearInterpolator()
+      addUpdateListener { animation ->
+        if (span.revealed) return@addUpdateListener
+        span.textAlpha = 1f - overlayAlphaAt(animation.animatedFraction)
+        refreshText(span)
+      }
+      start()
+    }
+  }
+
+  // A selectable TextView caches its rendered text per block, which a plain invalidate() does not
+  // refresh; setting the span again marks its range dirty.
+  private fun refreshText(span: SpoilerSpan) {
+    val textView = textViewReference.get() ?: return
+    val text = textView.text as? Spannable
+    val start = text?.getSpanStart(span) ?: -1
+    if (text != null && start >= 0) {
+      text.setSpan(span, start, text.getSpanEnd(span), text.getSpanFlags(span))
+    }
+    textView.invalidate()
   }
 
   fun stop() {
@@ -124,7 +154,6 @@ class SpoilerOverlayDrawer(
       spans = spans,
       paddingLeft = textView.totalPaddingLeft.toFloat(),
       paddingTop = textView.totalPaddingTop.toFloat(),
-      backgroundColor = SpoilerDrawContext.resolveBackgroundColor(textView, cachedStyle?.backgroundColor),
     )
   }
 

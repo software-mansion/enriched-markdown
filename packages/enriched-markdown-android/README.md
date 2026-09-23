@@ -153,6 +153,25 @@ markdownStyle {
 
 Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
 
+`spoiler` styles the overlay that conceals `||spoiler||` text. `color` paints the particles and fills
+the solid block; `particles { density, speed }` only apply to `SpoilerOverlay.PARTICLES` and are
+unitless multipliers over the defaults shown below, and `solid { cornerRadius }` only applies to
+`SpoilerOverlay.SOLID`. The concealed text itself is drawn transparent, so the overlay works over any
+background without being told what that background is.
+
+```kotlin
+markdownStyle {
+  spoiler {
+    color = Color(0xFF374151)
+    particles {
+      density = 8f
+      speed = 20f
+    }
+    solid { cornerRadius = 4.dp }
+  }
+}
+```
+
 ## API reference
 
 ### `EnrichedMarkdownText`
@@ -299,7 +318,9 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 - Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemPress`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
-- Spoilers (`||hidden||`, tap to reveal)
+- Spoilers (`||hidden||`, tap to reveal). Adjacent spoilers reveal together. Concealment is visual
+  only: screen readers read concealed text as ordinary text, and a plain Copy yields it too (Copy as
+  Markdown keeps the `||` markers)
 - Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
 - Tables (GFM), including per-column alignment
 

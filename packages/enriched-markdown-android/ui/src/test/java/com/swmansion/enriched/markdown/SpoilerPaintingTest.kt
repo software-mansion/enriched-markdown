@@ -256,19 +256,13 @@ class SpoilerPaintingTest {
   // MARK: Overlay modes
 
   @Test
-  fun theParticleOverlayPaintsTheSurfaceColorRatherThanRoundedBlocks() {
-    val style =
-      MarkdownRenderTestSupport.styleWithSpoiler(
-        SpoilerStyle(color = OVERLAY, backgroundColor = Color.MAGENTA),
-      )
+  fun theParticleOverlayPaintsNoBackdrop() {
+    val style = MarkdownRenderTestSupport.styleWithSpoiler(SpoilerStyle(color = OVERLAY))
     val canvas =
       harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.PARTICLES, style).draw()
 
     assertEquals("Particles never draw the solid block", 0, canvas.roundRects.size)
-    assertTrue(
-      "The styled background color should cover the concealed text",
-      canvas.rects.any { it.second == Color.MAGENTA },
-    )
+    assertEquals("The text is drawn transparent, so nothing covers it", 0, canvas.rects.size)
   }
 
   @Test

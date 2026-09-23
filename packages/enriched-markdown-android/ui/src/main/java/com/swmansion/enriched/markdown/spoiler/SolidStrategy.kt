@@ -29,12 +29,12 @@ class SolidStrategy : SpoilerStrategy {
   private val rectF = RectF()
 
   private var color = 0
-  private var borderRadius = 0f
+  private var cornerRadius = 0f
 
   override fun applyStyle(style: SpoilerStyle) {
     this.color = style.color
     // Already in pixels here, unlike the React Native package where the style carries dp.
-    this.borderRadius = style.solidBorderRadius
+    this.cornerRadius = style.solidCornerRadius
   }
 
   override fun drawSegment(
@@ -49,14 +49,14 @@ class SolidStrategy : SpoilerStrategy {
       val now = SystemClock.uptimeMillis()
       if (state.revealStartTime < 0L) state.revealStartTime = now
       val progress = ((now - state.revealStartTime).toFloat() / REVEAL_DURATION_MS).coerceIn(0f, 1f)
-      state.alpha = (1f - progress) * (1f - progress)
+      state.alpha = overlayAlphaAt(progress)
       if (progress >= 1f) state.finishReveal()
     }
 
     if (!state.revealFinished) {
       solidPaint.color = colorWithAlpha(this.color, state.alpha)
       rectF.set(rect.left, rect.top, rect.left + rect.width, rect.top + rect.height)
-      canvas.drawRoundRect(rectF, borderRadius, borderRadius, solidPaint)
+      canvas.drawRoundRect(rectF, cornerRadius, cornerRadius, solidPaint)
     }
 
     if (state.revealing && !state.revealFinished) {

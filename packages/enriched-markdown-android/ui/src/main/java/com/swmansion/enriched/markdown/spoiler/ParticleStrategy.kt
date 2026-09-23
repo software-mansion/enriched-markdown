@@ -1,7 +1,6 @@
 package com.swmansion.enriched.markdown.spoiler
 
 import android.graphics.Canvas
-import android.graphics.Paint
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 
@@ -9,7 +8,6 @@ class ParticleStrategy(
   private val animator: SpoilerAnimator,
 ) : SpoilerStrategy {
   private val segments = mutableMapOf<SegmentKey, SpoilerParticleDrawable>()
-  private val backgroundPaint = Paint()
 
   private var particleColor = 0
   private var particleDensity = 0f
@@ -33,9 +31,6 @@ class ParticleStrategy(
           .also { animator.register(it) }
       }
     drawable.setSize(rect.width, rect.height)
-
-    backgroundPaint.color = colorWithAlpha(context.backgroundColor, drawable.overallAlpha)
-    canvas.drawRect(rect.left, rect.top, rect.left + rect.width, rect.top + rect.height, backgroundPaint)
     drawable.draw(canvas, rect.left, rect.top)
   }
 

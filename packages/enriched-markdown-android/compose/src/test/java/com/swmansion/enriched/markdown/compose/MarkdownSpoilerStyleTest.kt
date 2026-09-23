@@ -7,7 +7,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.compose.test.ComposeStyleTestSupport
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,19 +26,12 @@ class MarkdownSpoilerStyleTest {
   }
 
   @Test
-  fun resolvesTheOverlayColors() {
+  fun resolvesTheOverlayColor() {
     val context = resolveContext()
 
-    val resolved =
-      markdownStyle {
-        spoiler {
-          color = Color(0xFF112233)
-          backgroundColor = Color(0xFF445566)
-        }
-      }.resolve(context)
+    val resolved = markdownStyle { spoiler { color = Color(0xFF112233) } }.resolve(context)
 
     assertEquals(0xFF112233.toInt(), resolved.spoilerStyle.color)
-    assertEquals(0xFF445566.toInt(), resolved.spoilerStyle.backgroundColor)
   }
 
   @Test
@@ -53,14 +45,14 @@ class MarkdownSpoilerStyleTest {
             density = 16f
             speed = 40f
           }
-          solid { borderRadius = 6.dp }
+          solid { cornerRadius = 6.dp }
         }
       }.resolve(context)
 
     assertEquals(16f, resolved.spoilerStyle.particleDensity, 0.001f)
     assertEquals(40f, resolved.spoilerStyle.particleSpeed, 0.001f)
     // The test density is 2, and the resolved radius is in pixels.
-    assertEquals(12f, resolved.spoilerStyle.solidBorderRadius, 0.001f)
+    assertEquals(12f, resolved.spoilerStyle.solidCornerRadius, 0.001f)
   }
 
   @Test
@@ -73,7 +65,7 @@ class MarkdownSpoilerStyleTest {
     assertEquals(3f, resolved.spoilerStyle.particleDensity, 0.001f)
     assertEquals(defaults.color, resolved.spoilerStyle.color)
     assertEquals(defaults.particleSpeed, resolved.spoilerStyle.particleSpeed, 0.001f)
-    assertEquals(defaults.solidBorderRadius, resolved.spoilerStyle.solidBorderRadius, 0.001f)
+    assertEquals(defaults.solidCornerRadius, resolved.spoilerStyle.solidCornerRadius, 0.001f)
   }
 
   @Test
@@ -81,12 +73,12 @@ class MarkdownSpoilerStyleTest {
     val context = resolveContext()
 
     val base = markdownStyle { spoiler { color = Color(0xFF010203) } }
-    val derived = base.copy { spoiler { solid { borderRadius = 2.dp } } }
+    val derived = base.copy { spoiler { solid { cornerRadius = 2.dp } } }
 
     val resolved = derived.resolve(context).spoilerStyle
     // The later layer only sets the radius, so the earlier layer's color survives.
     assertEquals(0xFF010203.toInt(), resolved.color)
-    assertEquals(4f, resolved.solidBorderRadius, 0.001f)
+    assertEquals(4f, resolved.solidCornerRadius, 0.001f)
   }
 
   @Test
@@ -103,17 +95,6 @@ class MarkdownSpoilerStyleTest {
 
     assertEquals(5f, resolved.spoilerStyle.particleDensity, 0.001f)
     assertEquals(7f, resolved.spoilerStyle.particleSpeed, 0.001f)
-  }
-
-  @Test
-  fun theBackgroundIsUnsetByDefault() {
-    val context = resolveContext()
-
-    assertNull(
-      MarkdownStyle.Default
-        .resolve(context)
-        .spoilerStyle.backgroundColor,
-    )
   }
 
   @Test

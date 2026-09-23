@@ -71,10 +71,9 @@ class StyleConfigTest {
     val first = sampleSpoiler()
 
     assertFalse(first == first.copy(color = 0xFF000000.toInt()))
-    assertFalse(first == first.copy(backgroundColor = 0xFFFFFFFF.toInt()))
     assertFalse(first == first.copy(particleDensity = 12f))
     assertFalse(first == first.copy(particleSpeed = 30f))
-    assertFalse(first == first.copy(solidBorderRadius = 8f))
+    assertFalse(first == first.copy(solidCornerRadius = 8f))
   }
 
   @Test
@@ -251,10 +250,9 @@ class StyleConfigTest {
   private fun sampleSpoiler() =
     SpoilerStyle(
       color = 0xFF374151.toInt(),
-      backgroundColor = null,
       particleDensity = 8f,
       particleSpeed = 20f,
-      solidBorderRadius = 4f,
+      solidCornerRadius = 4f,
     )
 
   private fun sampleThematicBreak() =

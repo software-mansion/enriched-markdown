@@ -85,7 +85,7 @@ class SpoilerParticleDrawable(
     if (isRevealing) {
       if (revealStartTime < 0L) revealStartTime = currentTimeMs
       val progress = ((currentTimeMs - revealStartTime).toFloat() / REVEAL_DURATION_MS).coerceIn(0f, 1f)
-      overallAlpha = (1f - progress) * (1f - progress)
+      overallAlpha = overlayAlphaAt(progress)
 
       if (progress >= 1f) finishReveal()
     }

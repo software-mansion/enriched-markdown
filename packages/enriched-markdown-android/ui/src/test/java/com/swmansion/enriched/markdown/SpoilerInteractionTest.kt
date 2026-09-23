@@ -5,6 +5,7 @@ import android.text.Spannable
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -31,6 +32,7 @@ class SpoilerInteractionTest {
 
   private fun laidOutView(document: MarkdownASTNode): EnrichedMarkdownInternalText {
     val view = EnrichedMarkdownInternalText(context)
+    view.layoutParams = ViewGroup.LayoutParams(WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
     view.applyStyledText(render(document))
     view.measure(
       View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY),

@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
+import com.swmansion.enriched.markdown.styles.CodeStyle
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -42,6 +43,9 @@ object MarkdownRenderTestSupport {
   /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
   fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
 
+  /** [defaultStyle] with only its inline [CodeStyle] replaced. */
+  fun styleWithCode(codeStyle: CodeStyle): StyleConfig = copyOfDefault(codeStyle = codeStyle)
+
   /** [defaultStyle] with only its [SpoilerStyle] replaced. */
   fun styleWithSpoiler(spoilerStyle: SpoilerStyle): StyleConfig = copyOfDefault(spoilerStyle = spoilerStyle)
 
@@ -56,6 +60,7 @@ object MarkdownRenderTestSupport {
     underlineStyle: UnderlineStyle? = null,
     taskListStyle: TaskListStyle? = null,
     blockquoteStyle: BlockquoteStyle? = null,
+    codeStyle: CodeStyle? = null,
     spoilerStyle: SpoilerStyle? = null,
   ): StyleConfig {
     val base = defaultStyle
@@ -70,7 +75,7 @@ object MarkdownRenderTestSupport {
       underlineStyle = underlineStyle ?: base.underlineStyle,
       superscriptStyle = base.superscriptStyle,
       subscriptStyle = base.subscriptStyle,
-      codeStyle = base.codeStyle,
+      codeStyle = codeStyle ?: base.codeStyle,
       imageStyle = base.imageStyle,
       inlineImageStyle = base.inlineImageStyle,
       blockquoteStyle = blockquoteStyle ?: base.blockquoteStyle,
