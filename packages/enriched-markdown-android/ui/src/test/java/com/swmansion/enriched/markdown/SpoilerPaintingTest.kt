@@ -7,7 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.text.SpannableString
+import android.text.Spannable
 import android.text.TextPaint
 import android.util.TypedValue
 import android.view.View
@@ -106,7 +106,7 @@ class SpoilerPaintingTest {
     )
 
   private fun laidOutTextView(
-    rendered: SpannableString,
+    rendered: Spannable,
     style: StyleConfig,
   ): TextView {
     val textView = TextView(context)
@@ -127,7 +127,7 @@ class SpoilerPaintingTest {
   private class Harness(
     val textView: TextView,
     val drawer: SpoilerOverlayDrawer,
-    val rendered: SpannableString,
+    val rendered: Spannable,
   ) {
     val spans: Array<SpoilerSpan> get() = rendered.getSpans(0, rendered.length, SpoilerSpan::class.java)
 
