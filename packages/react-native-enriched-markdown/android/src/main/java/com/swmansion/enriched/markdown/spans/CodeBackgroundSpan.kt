@@ -9,6 +9,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
+import com.swmansion.enriched.markdown.spoiler.isConcealedBySpoiler
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlin.math.max
 import kotlin.math.min
@@ -52,6 +53,10 @@ class CodeBackgroundSpan(
     val spanStart = text.getSpanStart(this)
     val spanEnd = text.getSpanEnd(this)
     if (spanStart !in 0 until spanEnd) return
+
+    // The spoiler overlay only covers the text's glyph box, so a background drawn to the line's bounds
+    // would outline the hidden code around it.
+    if (text.isConcealedBySpoiler(maxOf(spanStart, start), minOf(spanEnd, end))) return
 
     // 1. Determine relative positioning
     val isFirst = spanStart >= start
