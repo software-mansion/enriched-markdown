@@ -28,7 +28,7 @@ The whole document renders into a **single native text view**, with block struct
 | Admonition | `> [!NOTE]` | Needs `Md4cFlags(admonitions = true)` - see [below](#admonitions) |
 | Unordered list | `- item` | Nests |
 | Ordered list | `1. item` | Nests |
-| Task list | `- [ ]` / `- [x]` | Tappable - see [`onTaskListItemPress`](/android/api-reference/enriched-markdown-text#ontasklistitempress) |
+| Task list | `- [ ]` / `- [x]` | Tappable - see [`onTaskListItemToggle`](/android/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
 | Fenced code block | ```` ```kotlin ```` | Language label is parsed; no syntax highlighting |
 | Block image | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline) |
 | Thematic break | `---` | |
@@ -42,7 +42,7 @@ The whole document renders into a **single native text view**, with block struct
 | Underline | `_text_`, `__text__` | Needs `Md4cFlags(underline = true)`, and **replaces** the italic/bold meaning of those markers |
 | Strikethrough | `~~struck~~` | |
 | Inline code | `` `code` `` | |
-| Link | `[text](url)` | Inert until you handle [`onLinkPress`](/android/api-reference/enriched-markdown-text#onlinkpress) |
+| Link | `[text](url)` | Inert until you handle [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) |
 | Autolink | `<https://…>`, or a bare URL | Bare URLs need `permissiveAutolinks`, which is on by default |
 | Inline image | `![alt](url)` beside text | See [below](#images-block-vs-inline) |
 | Superscript | `^text^` | Needs `Md4cFlags(superscript = true)` |
@@ -52,7 +52,7 @@ The whole document renders into a **single native text view**, with block struct
 
 ### Nested lists
 
-Indent a list item to nest it. Each level adds `list.marginLeft` of indent, and unordered levels alternate their bullet shape so depth stays readable:
+Indent a list item to nest it. Each level adds `list.marginStart` of indent, and unordered levels alternate their bullet shape so depth stays readable:
 
 ```markdown
 - First level
