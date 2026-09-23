@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.text.SpannableString
 import android.text.TextPaint
@@ -22,6 +23,7 @@ import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
+import com.swmansion.enriched.markdown.test.TestAstFactory.code
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
@@ -66,6 +68,15 @@ class SpoilerPaintingTest {
   ) : Canvas(bitmap) {
     val roundRects = mutableListOf<Pair<RectF, Int>>()
     val rects = mutableListOf<Pair<RectF, Int>>()
+    val pathColors = mutableListOf<Int>()
+
+    override fun drawPath(
+      path: Path,
+      paint: Paint,
+    ) {
+      pathColors.add(paint.color)
+      super.drawPath(path, paint)
+    }
 
     override fun drawRoundRect(
       rect: RectF,
@@ -123,6 +134,13 @@ class SpoilerPaintingTest {
     fun draw(): RecordingCanvas {
       val canvas = RecordingCanvas(Bitmap.createBitmap(maxOf(textView.width, 1), maxOf(textView.height, 1), Bitmap.Config.ARGB_8888))
       drawer.draw(canvas)
+      return canvas
+    }
+
+    /** Draws the text itself, with its line backgrounds, rather than the overlay. */
+    fun drawText(): RecordingCanvas {
+      val canvas = RecordingCanvas(Bitmap.createBitmap(maxOf(textView.width, 1), maxOf(textView.height, 1), Bitmap.Config.ARGB_8888))
+      requireNotNull(textView.layout).draw(canvas)
       return canvas
     }
   }
@@ -273,6 +291,27 @@ class SpoilerPaintingTest {
     test.drawer.spoilerOverlay = SpoilerOverlay.SOLID
 
     assertEquals(1, test.draw().roundRects.size)
+  }
+
+  // MARK: Decorations under a spoiler
+
+  @Test
+  fun inlineCodeUnderAConcealedSpoilerPaintsNoBackground() {
+    val test = harness(document(paragraph(spoiler(text("see "), code("secret")))))
+
+    assertTrue(
+      "A concealed code background would outline the hidden text",
+      test.drawText().pathColors.none { Color.alpha(it) > 0 },
+    )
+  }
+
+  @Test
+  fun inlineCodeBackgroundReturnsOnceTheSpoilerIsRevealed() {
+    val test = harness(document(paragraph(spoiler(text("see "), code("secret")))))
+
+    test.spans.single().markRevealed()
+
+    assertTrue(test.drawText().pathColors.any { Color.alpha(it) > 0 })
   }
 
   // MARK: Reveal transitions

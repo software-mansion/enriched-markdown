@@ -9,6 +9,8 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
+import com.swmansion.enriched.markdown.spoiler.colorWithAlpha
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlin.math.max
 import kotlin.math.min
@@ -53,6 +55,11 @@ class CodeBackgroundSpan(
     val spanEnd = text.getSpanEnd(this)
     if (spanStart !in 0 until spanEnd) return
 
+    // A background under a concealed spoiler would outline the hidden code, so it fades in with
+    // the text instead.
+    val visibility = text.spoilerTextAlpha(maxOf(spanStart, start), minOf(spanEnd, end))
+    if (visibility <= 0f) return
+
     // 1. Determine relative positioning
     val isFirst = spanStart >= start
     val isLast = spanEnd <= end
@@ -67,8 +74,8 @@ class CodeBackgroundSpan(
 
     // 3. Apply Style
     val codeStyle = styleConfig.codeStyle
-    sharedBackgroundPaint.color = codeStyle.backgroundColor
-    sharedBorderPaint.color = codeStyle.borderColor
+    sharedBackgroundPaint.color = colorWithAlpha(codeStyle.backgroundColor, visibility)
+    sharedBorderPaint.color = colorWithAlpha(codeStyle.borderColor, visibility)
 
     drawShapes(canvas, isFirst, isLast)
   }
