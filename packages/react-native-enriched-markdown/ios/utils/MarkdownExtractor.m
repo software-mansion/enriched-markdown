@@ -1,4 +1,5 @@
 #import "MarkdownExtractor.h"
+#import "BaselineShiftTextAttributes.h"
 #import "BlockquoteBorder.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMImageAttachment.h"
@@ -300,9 +301,11 @@ NSString *_Nullable extractMarkdownFromAttributedString(NSAttributedString *attr
                         BOOL isStrikethrough = (strikethroughStyle != nil && [strikethroughStyle integerValue] != 0);
                         NSNumber *underlineStyle = attrs[NSUnderlineStyleAttributeName];
                         BOOL isUnderline = (underlineStyle != nil && [underlineStyle integerValue] != 0);
-                        NSNumber *baselineOffset = attrs[NSBaselineOffsetAttributeName];
-                        BOOL isSuperscript = baselineOffset != nil && [baselineOffset doubleValue] > 0;
-                        BOOL isSubscript = baselineOffset != nil && [baselineOffset doubleValue] < 0;
+                        // Line-height alignment also shifts baselines. Only semantic script spans
+                        // should produce superscript/subscript Markdown on the clipboard.
+                        NSString *script = attrs[ENRMScriptAttributeName];
+                        BOOL isSuperscript = [script isEqualToString:ENRMScriptValueSuperscript];
+                        BOOL isSubscript = [script isEqualToString:ENRMScriptValueSubscript];
 
                         BOOL isHighlight = [attrs[HighlightAttributeName] boolValue];
                         NSString *linkURL = attrs[NSLinkAttributeName];

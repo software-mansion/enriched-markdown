@@ -163,6 +163,12 @@ export interface FormatMenuConfigInternal {
   linkLabel: string;
 }
 
+export interface MarkdownShortcutsConfigInternal {
+  heading: boolean;
+  unorderedList: boolean;
+  orderedList: boolean;
+}
+
 export interface OnContextMenuItemPressEvent {
   itemText: string;
   selectedText: string;
@@ -209,6 +215,12 @@ export interface NativeProps extends ViewProps {
    * @default true
    */
   scrollEnabled?: boolean;
+  /**
+   * Which markdown block prefixes typed at a paragraph start convert into the
+   * matching block. Always complete — the JS side normalizes the public
+   * `boolean | MarkdownShortcutsConfig` form before it gets here.
+   */
+  markdownShortcuts: Readonly<MarkdownShortcutsConfigInternal>;
   /**
    * Auto-capitalization behavior.
    */

@@ -37,14 +37,16 @@ ext {
   ndkVersion = "28.2.13676358"
 }
 
-subprojects { subproject ->
-  if (subproject.name !in ["parser", "ui", "compose"]) {
-    return
-  }
+// Kept in sync with the nmcpAggregation list above: everything else is measurement
+// scaffolding, which is still linted but never published.
+ext.publishedProjects = ["parser", "ui", "compose"]
 
+subprojects { subproject ->
   subproject.plugins.withId("com.android.library") {
     subproject.apply plugin: "org.jlleitschuh.gradle.ktlint"
-    subproject.apply from: "${rootProject.projectDir}/gradle/publish.gradle"
+    if (subproject.name in rootProject.ext.publishedProjects) {
+      subproject.apply from: "${rootProject.projectDir}/gradle/publish.gradle"
+    }
     subproject.ktlint {
       version = "1.8.0"
       debug = false

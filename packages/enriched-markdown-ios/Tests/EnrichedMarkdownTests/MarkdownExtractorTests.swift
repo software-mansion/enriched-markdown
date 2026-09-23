@@ -191,6 +191,50 @@ final class MarkdownExtractorTests: XCTestCase {
         XCTAssertEqual(extractSelecting("31%", in: "Forests cover **31%** of land."), "**31%**")
     }
 
+    func testTypographyBaselineOffsetsDoNotProduceScriptMarkdown() {
+        for offset in [-4.0, 0.0, 4.0] {
+            for (source, word, expected) in [
+                ("before plain after", "plain", "plain"),
+                ("before **bold** after", "bold", "**bold**")
+            ] {
+                let rendered = NSMutableAttributedString(attributedString: render(source))
+                let range = (rendered.string as NSString).range(of: word)
+                XCTAssertNotEqual(range.location, NSNotFound)
+                guard range.location != NSNotFound else { continue }
+                rendered.addAttribute(.baselineOffset, value: offset, range: range)
+
+                XCTAssertEqual(
+                    MarkdownExtractor.extractMarkdown(from: rendered, in: range),
+                    expected,
+                    "Typography baseline \(offset) for \(source)"
+                )
+            }
+        }
+    }
+
+    func testScriptMarkdownDoesNotDependOnVisualBaselineSign() {
+        let flags = Md4cFlags(superscript: true, subscript: true)
+        for offset in [-4.0, 0.0, 4.0] {
+            for (source, word, expected) in [
+                ("before ^super^ after", "super", "^super^"),
+                ("before ~sub~ after", "sub", "~sub~"),
+                ("before **^bold^** after", "bold", "**^bold^**")
+            ] {
+                let rendered = NSMutableAttributedString(attributedString: render(source, flags: flags))
+                let range = (rendered.string as NSString).range(of: word)
+                XCTAssertNotEqual(range.location, NSNotFound)
+                guard range.location != NSNotFound else { continue }
+                rendered.addAttribute(.baselineOffset, value: offset, range: range)
+
+                XCTAssertEqual(
+                    MarkdownExtractor.extractMarkdown(from: rendered, in: range),
+                    expected,
+                    "Semantic script with visual baseline \(offset) for \(source)"
+                )
+            }
+        }
+    }
+
     func testExtractsItalicText() {
         XCTAssertEqual(
             extractSelecting("300 million years", in: "Over *300 million years* old."),
