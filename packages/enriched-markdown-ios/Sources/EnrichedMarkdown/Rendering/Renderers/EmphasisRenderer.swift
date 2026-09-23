@@ -30,7 +30,7 @@ final class EmphasisRenderer: NodeRenderer {
             let currentFont = (attributes[.font] as? UIFont) ?? FontHelpers.cachedFont(from: blockStyle)
             let resolvedFont = FontHelpers.ensureItalic(currentFont) ?? currentFont
 
-            if let currentFont, resolvedFont != currentFont {
+            if let currentFont, let resolvedFont, resolvedFont != currentFont {
                 output.addAttribute(.font, value: resolvedFont, range: subrange)
             }
 

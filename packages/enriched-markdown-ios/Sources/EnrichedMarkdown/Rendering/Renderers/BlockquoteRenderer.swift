@@ -16,7 +16,6 @@ final class BlockquoteRenderer: NodeRenderer {
         let admonition = Self.admonitionType(of: node)
         context.enterBlockquote(admonition: admonition)
         let levels = context.blockquoteLevels
-        let depth = levels.count - 1
 
         let blockStyle = config.blockquote
         let font = blockStyle.font ?? UIFont.preferredFont(forTextStyle: .body)
