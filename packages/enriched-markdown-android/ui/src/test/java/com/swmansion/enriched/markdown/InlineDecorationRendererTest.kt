@@ -3,20 +3,25 @@ package com.swmansion.enriched.markdown
 import android.text.Spannable
 import android.text.TextPaint
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.StrikethroughSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.UnderlineSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderAssertions.assertContains
 import com.swmansion.enriched.markdown.test.MarkdownRenderAssertions.assertSpanCovers
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithDecorationColors
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithLink
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
+import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.strikethrough
 import com.swmansion.enriched.markdown.test.TestAstFactory.strong
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.underline
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -143,6 +148,25 @@ class InlineDecorationRendererTest {
 
     rendered.assertSpanCovers("both", UnderlineSpan::class.java)
     rendered.assertSpanCovers("both", StrongSpan::class.java)
+  }
+
+  // MARK: Link
+
+  @Test
+  fun linkDrawsNoLineThroughByDefault() {
+    val rendered = render(document(paragraph(link("https://example.com", text("link")))))
+
+    assertFalse(rendered.paintAfterSpan("link", LinkSpan::class.java).isStrikeThruText)
+  }
+
+  @Test
+  fun linkStrikethroughDrawsALineThrough() {
+    val style = styleWithLink(defaultStyle.linkStyle.copy(underline = false, strikethrough = true))
+    val rendered = render(document(paragraph(link("https://example.com", text("link")))), style)
+
+    val paint = rendered.paintAfterSpan("link", LinkSpan::class.java)
+    assertTrue(paint.isStrikeThruText)
+    assertFalse(paint.isUnderlineText)
   }
 
   private fun <T> Spannable.spansOver(

@@ -147,6 +147,7 @@ internal data class LinkStylePatch(
       fontFamily = fontFamily?.let { FontFamilyResolver.resolve(it, resolveContext) } ?: base.fontFamily,
       color = color?.let(units::color) ?: base.color,
       underline = textDecoration?.contains(TextDecoration.Underline) ?: base.underline,
+      strikethrough = textDecoration?.contains(TextDecoration.LineThrough) ?: base.strikethrough,
       backgroundColor = backgroundColor?.let(units::color) ?: base.backgroundColor,
     )
 }
@@ -155,13 +156,7 @@ internal data class LinkStylePatch(
 class LinkStyleScope internal constructor() {
   var fontFamily: FontFamily? = null
   var color: Color? = null
-
-  /**
-   * Only [TextDecoration.Underline] reaches the rendered link; the native link span cannot draw a
-   * line-through, so [TextDecoration.LineThrough] is ignored.
-   */
   var textDecoration: TextDecoration? = null
-
   var backgroundColor: Color? = null
 
   internal fun toPatch(): LinkStylePatch =
@@ -1189,8 +1184,8 @@ class TableStyleScope internal constructor() {
   /**
    * Horizontal placement of a table narrower than the space available to it.
    *
-   * [Alignment.Start] follows the reading direction; [androidx.compose.ui.AbsoluteAlignment] pins
-   * a side regardless of it.
+   * [Alignment.Start] and [Alignment.End] follow the reading direction;
+   * [androidx.compose.ui.AbsoluteAlignment] pins a side regardless of it.
    */
   var alignment: Alignment.Horizontal? = null
 

@@ -80,7 +80,7 @@ object HTMLGenerator {
     // Link
     val linkFontFamily: String
     val linkColor: String
-    val linkUnderline: Boolean
+    val linkTextDecoration: String
 
     // Strong/Emphasis/Strikethrough/Underline
     val strongColor: String?
@@ -158,7 +158,11 @@ object HTMLGenerator {
       // Link
       linkFontFamily = style.linkStyle.fontFamily
       linkColor = colorToCSS(style.linkStyle.color)
-      linkUnderline = style.linkStyle.underline
+      linkTextDecoration =
+        listOfNotNull(
+          "underline".takeIf { style.linkStyle.underline },
+          "line-through".takeIf { style.linkStyle.strikethrough },
+        ).joinToString(" ").ifEmpty { "none" }
 
       // Strong/Emphasis/Strikethrough/Underline (nullable for inherit)
       val sc = style.strongStyle.color
@@ -824,7 +828,7 @@ object HTMLGenerator {
         .append("\" style=\"color: ")
         .append(styles.linkColor)
         .append("; text-decoration: ")
-        .append(if (styles.linkUnderline) "underline" else "none")
+        .append(styles.linkTextDecoration)
       if (styles.linkFontFamily.isNotEmpty()) {
         html.append("; font-family: '").append(styles.linkFontFamily).append("'")
       }

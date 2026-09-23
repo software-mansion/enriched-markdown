@@ -64,15 +64,27 @@ class MarkdownStyleComposeTypesTest {
   }
 
   @Test
-  fun mapsLinkTextDecorationOntoUnderline() {
+  fun mapsLinkTextDecorationOntoTheLinkLines() {
     val context = resolveContext()
 
-    assertTrue(
-      markdownStyle { link { textDecoration = TextDecoration.Underline } }.resolve(context).linkStyle.underline,
-    )
-    assertFalse(
-      markdownStyle { link { textDecoration = TextDecoration.None } }.resolve(context).linkStyle.underline,
-    )
+    val underline = markdownStyle { link { textDecoration = TextDecoration.Underline } }.resolve(context).linkStyle
+    assertTrue(underline.underline)
+    assertFalse(underline.strikethrough)
+
+    val lineThrough = markdownStyle { link { textDecoration = TextDecoration.LineThrough } }.resolve(context).linkStyle
+    assertFalse(lineThrough.underline)
+    assertTrue(lineThrough.strikethrough)
+
+    val both =
+      markdownStyle {
+        link { textDecoration = TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough)) }
+      }.resolve(context).linkStyle
+    assertTrue(both.underline)
+    assertTrue(both.strikethrough)
+
+    val none = markdownStyle { link { textDecoration = TextDecoration.None } }.resolve(context).linkStyle
+    assertFalse(none.underline)
+    assertFalse(none.strikethrough)
   }
 
   @Test

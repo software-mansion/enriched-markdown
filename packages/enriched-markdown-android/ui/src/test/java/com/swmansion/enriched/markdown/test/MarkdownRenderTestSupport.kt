@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
+import com.swmansion.enriched.markdown.styles.LinkStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TaskListStyle
@@ -41,6 +42,9 @@ object MarkdownRenderTestSupport {
   /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
   fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
 
+  /** [defaultStyle] with only its [LinkStyle] replaced. */
+  fun styleWithLink(linkStyle: LinkStyle): StyleConfig = copyOfDefault(linkStyle = linkStyle)
+
   /** [defaultStyle] with only its [TaskListStyle] replaced. */
   fun styleWithTaskList(taskListStyle: TaskListStyle): StyleConfig = copyOfDefault(taskListStyle = taskListStyle)
 
@@ -52,13 +56,14 @@ object MarkdownRenderTestSupport {
     underlineStyle: UnderlineStyle? = null,
     taskListStyle: TaskListStyle? = null,
     blockquoteStyle: BlockquoteStyle? = null,
+    linkStyle: LinkStyle? = null,
   ): StyleConfig {
     val base = defaultStyle
     return StyleConfig(
       paragraphStyleDefault = base.paragraphStyle,
       headingStyles = base.headingStyles,
       headingTypefaces = base.headingTypefaces,
-      linkStyle = base.linkStyle,
+      linkStyle = linkStyle ?: base.linkStyle,
       strongStyle = base.strongStyle,
       emphasisStyle = base.emphasisStyle,
       strikethroughStyle = strikethroughStyle ?: base.strikethroughStyle,
