@@ -43,4 +43,7 @@ configuration, mirroring `ReactNativeEnrichedMarkdown.podspec`.
 
 `EnrichedMarkdownExampleTests.m` in the app-side target dir is a harness
 placeholder that keeps the bundle non-empty; it can stay or be removed once real
-suites land here.
+suites land here. `SwiftLinker.swift` next to it is an empty presence-only file:
+the host app and the pod contain Swift, so the test bundle must link the Swift
+runtime (otherwise CI's pinned Xcode fails with
+`Undefined symbol __swift_FORCE_LOAD_$_swiftCompatibility56`). Keep it.

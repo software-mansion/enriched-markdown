@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		00E356F31AD99517003FC87E /* EnrichedMarkdownExampleTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F21AD99517003FC87E /* EnrichedMarkdownExampleTests.m */; };
+		00E356F91AD99517003FC87E /* SwiftLinker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F81AD99517003FC87E /* SwiftLinker.swift */; };
 		029E4BE967864F599BC07069 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFDFCE7DCD1A46B5B744D7EE /* Montserrat-Regular.ttf */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		266AF6A295504B0D86F4FC27 /* Poppins-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A7358B17E8E74D62A4B1C654 /* Poppins-Regular.ttf */; };
@@ -40,6 +41,7 @@
 		00E356EE1AD99517003FC87E /* EnrichedMarkdownExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EnrichedMarkdownExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		00E356F11AD99517003FC87E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = EnrichedMarkdownExampleTests/Info.plist; sourceTree = "<group>"; };
 		00E356F21AD99517003FC87E /* EnrichedMarkdownExampleTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EnrichedMarkdownExampleTests.m; sourceTree = "<group>"; };
+		00E356F81AD99517003FC87E /* SwiftLinker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftLinker.swift; sourceTree = "<group>"; };
 		09EF1B231B420F64060CE9C8 /* libPods-EnrichedMarkdownExample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-EnrichedMarkdownExample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* EnrichedMarkdownExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnrichedMarkdownExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = EnrichedMarkdownExample/Images.xcassets; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 			isa = PBXGroup;
 			children = (
 				00E356F21AD99517003FC87E /* EnrichedMarkdownExampleTests.m */,
+				00E356F81AD99517003FC87E /* SwiftLinker.swift */,
 				00E356F01AD99517003FC87E /* Supporting Files */,
 			);
 			path = EnrichedMarkdownExampleTests;
@@ -433,6 +436,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				00E356F31AD99517003FC87E /* EnrichedMarkdownExampleTests.m in Sources */,
+				00E356F91AD99517003FC87E /* SwiftLinker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -489,6 +493,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = swmansion.enriched.markdown.example.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EnrichedMarkdownExample.app/EnrichedMarkdownExample";
 			};
 			name = Debug;
@@ -527,6 +532,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = swmansion.enriched.markdown.example.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EnrichedMarkdownExample.app/EnrichedMarkdownExample";
 			};
 			name = Release;
