@@ -1,6 +1,7 @@
 #pragma once
 
 #import "ENRMInputFormatter.h"
+#import "ENRMInputFormatterStyle.h"
 #import "ENRMUIKit.h"
 #import "FontUtils.h"
 #import <React/RCTConversions.h>
@@ -17,6 +18,18 @@ static inline UITextAutocapitalizationType ENRMAutocapitalizationTypeFromString(
   return UITextAutocapitalizationTypeSentences;
 }
 #endif
+
+static inline NSMutableParagraphStyle *
+ENRMInputParagraphStyleWithLineHeight(ENRMInputFormatterStyle *style, NSParagraphStyle *_Nullable existingParagraph)
+{
+  NSMutableParagraphStyle *paragraph =
+      existingParagraph ? [existingParagraph mutableCopy] : [[NSMutableParagraphStyle alloc] init];
+  if (style.baseLineHeight > 0) {
+    paragraph.minimumLineHeight = style.baseLineHeight;
+    paragraph.maximumLineHeight = style.baseLineHeight;
+  }
+  return paragraph;
+}
 
 /// Headings h1..h6 share an identical struct shape (fontSize / fontWeight /
 /// color) but are distinct codegen types, hence the template.
@@ -89,6 +102,11 @@ BOOL applyInputStyleProps(ENRMInputFormatterStyle *style, const InputProps &newP
     } else {
       style.baseTextColor = [RCTUIColor labelColor];
     }
+    changed = YES;
+  }
+
+  if (newProps.lineHeight != oldProps.lineHeight) {
+    style.baseLineHeight = newProps.lineHeight > 0 ? newProps.lineHeight : 0;
     changed = YES;
   }
 
