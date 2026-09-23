@@ -18,7 +18,9 @@ import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
 
 private const val MENU_ITEM_COPY_MARKDOWN = 1000
 private const val MENU_ITEM_COPY_IMAGE_URL = 1001
-internal const val DEFAULT_COPY_AS_MARKDOWN_LABEL = "Copy as Markdown"
+
+/** Public so plugin modules can label their own copy-as-markdown menu items identically. */
+const val DEFAULT_COPY_AS_MARKDOWN_LABEL = "Copy as Markdown"
 
 data class SelectionMenuConfig(
   val copyAsMarkdown: Boolean = true,

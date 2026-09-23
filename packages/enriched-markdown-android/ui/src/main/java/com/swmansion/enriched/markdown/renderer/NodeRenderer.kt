@@ -4,6 +4,9 @@ import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.style.MetricAffectingSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
@@ -20,6 +23,7 @@ interface NodeRenderer {
 data class RendererConfig(
   val style: StyleConfig,
   val imageRequestHeaders: Map<String, String> = emptyMap(),
+  val onPluginEvent: PluginEventSink? = null,
 )
 
 class RendererFactory(
@@ -76,6 +80,7 @@ class RendererFactory(
   private val lineBreakRenderer = LineBreakRenderer()
   private val softBreakRenderer = SoftBreakRenderer()
 
+  @OptIn(InternalPluginApi::class)
   private val renderers: Map<MarkdownASTNode.NodeType, NodeRenderer> by lazy {
     buildMap {
       put(MarkdownASTNode.NodeType.Document, DocumentRenderer())
@@ -103,6 +108,17 @@ class RendererFactory(
       put(MarkdownASTNode.NodeType.BlankLine, BlankLineRenderer(config))
       put(MarkdownASTNode.NodeType.Superscript, SuperscriptRenderer())
       put(MarkdownASTNode.NodeType.Subscript, SubscriptRenderer())
+      // Core knows the delimiters - they are parser syntax - but not how to draw an equation,
+      // so without a math plugin these echo their own source.
+      put(MarkdownASTNode.NodeType.LatexMathInline, LatexSourceRenderer(isDisplay = false))
+      put(MarkdownASTNode.NodeType.LatexMathDisplay, LatexSourceRenderer(isDisplay = true))
+
+      // Layered last so a plugin that claims a node type replaces core's handling of it. The
+      // snapshot is read once here rather than per node, so a mid-render install cannot make
+      // one document render against two different registries.
+      for ((type, rendererFactory) in EnrichedMarkdownPlugins.snapshot.nodeRenderers) {
+        put(type, rendererFactory(config, context))
+      }
     }
   }
 
