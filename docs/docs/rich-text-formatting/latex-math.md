@@ -24,7 +24,7 @@ Math parsing is **on by default**. You can turn it off so `$` is treated as plai
 </Tab>
 <Tab label="iOS">
 
-On the standalone iOS SDK, math is **off** until you add the optional `EnrichedMarkdownLaTeX` product and enable it per view. There is no `md4cFlags` entry: the modifier switches parsing and rendering on together, so `$…$` stays plain text without it.
+On the standalone iOS SDK, math is **off** until you add the optional `EnrichedMarkdownLaTeX` product and enable it per view. There is no `MarkdownParsingOptions` field for it: the modifier switches parsing and rendering on together, so `$…$` stays plain text without it.
 
 ```swift
 import EnrichedMarkdown
@@ -33,7 +33,7 @@ import EnrichedMarkdownLaTeX
 EnrichedMarkdownText(content)
   .markdownLaTeX()
   .markdownTheme {
-    MathBlock().fontSize(22)
+    MathBlock().font(size: 22)
     InlineMath().foregroundStyle(.tint)
   }
 ```

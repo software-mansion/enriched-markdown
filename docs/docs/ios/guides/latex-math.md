@@ -7,7 +7,7 @@ sidebar_position: 2
 
 Math rendering ships as a **separate product**, `EnrichedMarkdownLaTeX`, so an app that never shows a formula does not link a typesetting engine it will not use. The engine is a prebuilt binary dependency plus the KaTeX font files - a few megabytes of app size - which is why it is opt-in rather than part of the base package.
 
-The consequence to know up front: without the product, `$…$` is not math syntax at all. There is no `Md4cFlags` entry for it, so `$x^2$` stays plain text and nothing is lost or mangled. Adding the product turns the parsing **and** the rendering on together, in one modifier.
+The consequence to know up front: without the product, `$…$` is not math syntax at all. There is no `MarkdownParsingOptions` field for it, so `$x^2$` stays plain text and nothing is lost or mangled. Adding the product turns the parsing **and** the rendering on together, in one modifier.
 
 ## Turning it on
 
@@ -52,11 +52,11 @@ EnrichedMarkdownText(content)
   .markdownLaTeX()
   .markdownTheme {
     MathBlock()
-      .fontSize(22)
+      .font(size: 22)
       .background(Color(.secondarySystemBackground))
       .padding(16)
       .marginBottom(24)
-      .textAlignment(.leading)
+      .multilineTextAlignment(.leading)
 
     InlineMath()
       .foregroundStyle(.tint)
@@ -65,7 +65,7 @@ EnrichedMarkdownText(content)
 
 ### `MathBlock()`
 
-Display math (`$$…$$`). Takes `.fontSize(_:)`, `.foregroundStyle(_:)`, `.background(_:)` / `.backgroundStyle(_:)`, `.padding(_:)`, `.marginTop(_:)`, `.marginBottom(_:)`, and `.textAlignment(_:)` - **only** those. The typeface is always KaTeX's; there is no `.font` or `.fontFamily`.
+Display math (`$$…$$`). Takes `.font(size:)`, `.foregroundStyle(_:)`, `.background(_:)` / `.backgroundStyle(_:)`, `.padding(_:)`, `.marginTop(_:)`, `.marginBottom(_:)`, and `.multilineTextAlignment(_:)` - **only** those. The typeface is always KaTeX's; there is no `.font(_:)` or `.font(custom:size:)`.
 
 | Property | Default |
 | --- | --- |
@@ -110,7 +110,7 @@ The closure receives the raw source and runs on the render queue, so keep it che
 `MarkdownRenderer.renderLaTeX` mirrors [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed:
 
 ```swift
-let config = MarkdownStyleConfig.resolve(
+let config = MarkdownStyleConfiguration.resolve(
   layers: [.default, .latexDefault, myTheme],
   traitCollection: .current
 )
@@ -119,7 +119,7 @@ let text = MarkdownRenderer.renderLaTeX(content, config: config)
 ```
 
 :::caution
-Resolving the config yourself means **you** place the `.latexDefault` layer. `MarkdownStyleConfig.baseline()` is `.default` alone, so a config built that way leaves `MathBlock` unstyled - no panel, no padding, no centering. Include `.latexDefault` between `.default` and your own layers, exactly as `.markdownLaTeX()` does.
+Resolving the config yourself means **you** place the `.latexDefault` layer. `MarkdownStyleConfiguration.baseline()` is `.default` alone, so a config built that way leaves `MathBlock` unstyled - no panel, no padding, no centering. Include `.latexDefault` between `.default` and your own layers, exactly as `.markdownLaTeX()` does.
 :::
 
 The same caveat as `render` applies: the returned attributed string carries the typeset formulas, but the decorations `EnrichedMarkdownText` draws around the text are not in it - see [UIKit interop](/ios/guides/uikit-interop).

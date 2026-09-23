@@ -25,10 +25,10 @@ The whole document renders into a **single native text view**. Block structure i
 | Heading | `# H1` … `###### H6` | Six levels, each styled independently |
 | Paragraph | Text separated by a blank line | |
 | Blockquote | `> quoted` | Nests |
-| Admonition | `> [!NOTE]` | Needs `Md4cFlags(admonitions: true)` - see [below](#admonitions) |
+| Admonition | `> [!NOTE]` | Needs `MarkdownParsingOptions(admonitions: true)` - see [below](#admonitions) |
 | Unordered list | `- item` | Nests |
 | Ordered list | `1. item` | Nests |
-| Task list | `- [ ]` / `- [x]` | Tappable - see [`.onTaskListItemPress`](/ios/api-reference/enriched-markdown-text#ontasklistitempress) |
+| Task list | `- [ ]` / `- [x]` | Tappable - see [`.onTaskListItemToggle`](/ios/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
 | Table | GFM pipe table | Always enabled - see [below](#tables) |
 | Fenced code block | ```` ```swift ```` | Language label is parsed; no syntax highlighting |
 | Block image | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline) |
@@ -41,25 +41,25 @@ The whole document renders into a **single native text view**. Block structure i
 | --- | --- | --- |
 | Strong | `**bold**` | |
 | Emphasis | `*italic*` | |
-| Underline | `_text_`, `__text__` | Needs `Md4cFlags(underline: true)`, and **replaces** the italic/bold meaning of those markers |
+| Underline | `_text_`, `__text__` | Needs `MarkdownParsingOptions(underline: true)`, and **replaces** the italic/bold meaning of those markers |
 | Strikethrough | `~~struck~~` | Always enabled |
 | Inline code | `` `code` `` | |
-| Link | `[text](url)` | Inert until you handle [`.onLinkPress`](/ios/api-reference/enriched-markdown-text#onlinkpress) |
+| Link | `[text](url)` | Tapping calls SwiftUI's [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) action |
 | Autolink | `<https://…>`, or a bare URL | Bare URLs, `www.` hosts, and emails need `permissiveAutolinks`, which is on by default |
 | Inline image | `![alt](url)` beside text | See [below](#images-block-vs-inline) |
 | Spoiler | `\|\|hidden\|\|` | Always enabled - see [below](#spoilers) |
-| Superscript | `^text^` | Needs `Md4cFlags(superscript: true)` |
-| Subscript | `~text~` | Needs `Md4cFlags(subscript: true)` |
-| Highlight | `==text==` | Needs `Md4cFlags(highlight: true)` |
+| Superscript | `^text^` | Needs `MarkdownParsingOptions(superscript: true)` |
+| Subscript | `~text~` | Needs `MarkdownParsingOptions(subscript: true)` |
+| Highlight | `==text==` | Needs `MarkdownParsingOptions(highlight: true)` |
 | Inline math | `$…$` | Needs `EnrichedMarkdownLaTeX` |
 
-Tables, task lists, strikethrough, and spoilers have no flag - they are always on. Everything else marked "needs" is a [parser extension](/ios/guides/parser-extensions).
+Tables, task lists, strikethrough, and spoilers have no option - they are always on. Everything else marked "needs" is a [parser extension](/ios/guides/parser-extensions).
 
 ## Nesting
 
 ### Nested lists
 
-Indent a list item to nest it. Each level adds `List().marginLeft` of indent:
+Indent a list item to nest it. Each level adds `List().marginLeading` of indent:
 
 ```markdown
 - First level
@@ -116,7 +116,7 @@ A blockquote whose **first line** is one of the five GitHub alert markers render
 
 The five types are `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]`. Colors come from the [`Admonition()`](/ios/api-reference/style-properties#admonition) element, and the geometry from [`Blockquote()`](/ios/api-reference/style-properties#blockquote).
 
-This is an opt-in parser extension. Without `Md4cFlags(admonitions: true)` the marker stays **literal text** inside an ordinary quote.
+This is an opt-in parser extension. Without `MarkdownParsingOptions(admonitions: true)` the marker stays **literal text** inside an ordinary quote.
 
 A callout keeps working where you would expect it to: inside a list item it still draws its title and its own bar, indented to the item's text column. Copying one reproduces its `> [!NOTE]` marker, and VoiceOver announces the title as its own element ahead of the body.
 
@@ -133,13 +133,13 @@ GFM pipe tables render as live views inside the text rather than as monospaced A
 - Columns size to their content, and a long cell wraps rather than pushing the table wider.
 - A table wider than the view **scrolls horizontally in place**, without moving the rest of the document.
 - Cells take inline styling - bold, italic, inline code, strikethrough, and tappable links.
-- Alignment comes from the separator row (`:--`, `:-:`, `--:`); [`Table().align(_:)`](/ios/api-reference/style-properties#table) sets the default for columns that do not specify one.
+- Alignment comes from the separator row (`:--`, `:-:`, `--:`); [`Table().alignment(_:)`](/ios/api-reference/style-properties#table) sets the default for columns that do not specify one.
 
 Long-pressing a table offers **Copy** (tab-separated text) and **Copy as Markdown** (the pipe table rebuilt with alignment separators and inline markers). To a text selection the whole table counts as a single character, so a selection that spans one copies it as tab-separated text in the plain flavor and as a real `<table>` in the HTML flavor. VoiceOver reads one element per row.
 
 ## Spoilers
 
-`||text||` renders transparent under an overlay and shows when tapped. There is no flag - spoiler syntax is always parsed. The overlay's shape is [`.markdownSpoilerOverlay`](/ios/api-reference/enriched-markdown-text#markdownspoileroverlay) and its colors are the [`Spoiler()`](/ios/api-reference/style-properties#spoiler) element.
+`||text||` renders transparent under an overlay and shows when tapped. There is no option - spoiler syntax is always parsed. The overlay's shape is [`.markdownSpoilerOverlay`](/ios/api-reference/enriched-markdown-text#markdownspoileroverlay) and its colors are the [`Spoiler()`](/ios/api-reference/style-properties#spoiler) element.
 
 ```markdown
 The killer was ||the butler||.
@@ -164,24 +164,24 @@ So putting an image on its own line is the whole gesture - there is no separate 
 
 ## Line breaks
 
-By default Markdown **reflows** text: a single newline inside a paragraph is treated as a space, and consecutive blank lines collapse into one paragraph separator. Two parser flags change that.
+By default Markdown **reflows** text: a single newline inside a paragraph is treated as a space, and consecutive blank lines collapse into one paragraph separator. Two parser options change that.
 
 ### Preserving single newlines
 
-`Md4cFlags(hardSoftBreaks: true)` turns every single newline into a real line break, so the lines you typed are the lines you get:
+`MarkdownParsingOptions(hardSoftBreaks: true)` turns every single newline into a real line break, so the lines you typed are the lines you get:
 
 ```markdown
 Roses are red
 Violets are blue
 ```
 
-Without the flag that renders as one line. With it, two. This is the flag to reach for when you render user-authored text - chat messages, notes - where people expect Return to mean Return.
+Without it that renders as one line. With it, two. This is the option to reach for when you render user-authored text - chat messages, notes - where people expect Return to mean Return.
 
 ### Blank lines
 
-`Md4cFlags(preserveBlankLines: true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output.
+`MarkdownParsingOptions(preserveBlankLines: true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output.
 
-Both flags are off by default, and both are set per view through [`flags`](/ios/api-reference/enriched-markdown-text#flags).
+Both are off by default, and both are set per view through [`options`](/ios/api-reference/enriched-markdown-text#options).
 
 ## Writing direction
 
@@ -191,7 +191,7 @@ The decorations drawn around the text - list bullets and numbers, task checkboxe
 
 ## Raw HTML
 
-HTML in the source is **not** rendered. An inline tag stays literal text - `<b>bold</b>` renders with its angle brackets - and an HTML block is parsed and dropped, producing nothing. There is no flag to turn this on; use Markdown syntax, or the [theme](/ios/api-reference/markdown-theme) for anything Markdown cannot express.
+HTML in the source is **not** rendered. An inline tag stays literal text - `<b>bold</b>` renders with its angle brackets - and an HTML block is parsed and dropped, producing nothing. There is no option to turn this on; use Markdown syntax, or the [theme](/ios/api-reference/markdown-theme) for anything Markdown cannot express.
 
 ## What is not rendered yet
 

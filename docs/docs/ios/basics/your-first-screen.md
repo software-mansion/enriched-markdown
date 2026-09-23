@@ -21,16 +21,17 @@ struct ArticleView: View {
       EnrichedMarkdownText("# Hello\n\nA paragraph with **bold** and a [link](https://swmansion.com).")
         .padding()
     }
-    .onLinkPress { url in
-      UIApplication.shared.open(url)
-    }
+    .environment(\.openURL, OpenURLAction { url in
+      analytics.linkTapped(url)
+      return .systemAction
+    })
   }
 }
 ```
 
-That's the whole setup. The view sizes itself to its content, which is why it belongs inside a `ScrollView` for anything longer than a screen. Links are inert until you give them a meaning - `onLinkPress` hands you the tapped `URL` and you decide what happens, here opening it in the browser.
+That's the whole setup. The view sizes itself to its content, which is why it belongs inside a `ScrollView` for anything longer than a screen. Tapping a link calls SwiftUI's `openURL` action, exactly as a link in a `Text` does - so links open with the system out of the box, and you install an `OpenURLAction` only when you want to route or observe them yourself.
 
-Everything except the Markdown string itself is configured through **view modifiers** rather than initializer parameters, and each one reads from the SwiftUI environment. That means you can set a handler once on a container and have every `EnrichedMarkdownText` beneath it pick the handler up - which is why `.onLinkPress` sits on the `ScrollView` above rather than on the text. The [`EnrichedMarkdownText` reference](/ios/api-reference/enriched-markdown-text) covers every modifier.
+Everything except the Markdown string itself is configured through **view modifiers** rather than initializer parameters, and each one reads from the SwiftUI environment. That means you can set a handler once on a container and have every `EnrichedMarkdownText` beneath it pick it up - which is why the `openURL` action above sits on the `ScrollView` rather than on the text. The [`EnrichedMarkdownText` reference](/ios/api-reference/enriched-markdown-text) covers every modifier.
 
 :::note
 Rendering happens **off the main thread**. The view paints empty for the first frame or two of a long document and then swaps in the finished text, rather than blocking the main thread while it parses.
@@ -77,7 +78,7 @@ This package **renders** Markdown; it does not edit it. There is no editable ric
 
 You have a working screen. From here:
 
-- [`EnrichedMarkdownText`](/ios/api-reference/enriched-markdown-text) - every modifier, callback, and parser flag.
+- [`EnrichedMarkdownText`](/ios/api-reference/enriched-markdown-text) - every modifier, callback, and parsing option.
 - [Parser extensions](/ios/guides/parser-extensions) - turning on the syntax that is off by default, such as underline, super/subscript, and GitHub alerts.
 - [Core concepts](/introduction/core-concepts) - the ideas behind the library.
 - [Feature support](/introduction/supported-features) - the full matrix of what's supported.

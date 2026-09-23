@@ -68,20 +68,9 @@ Being a result builder, the closure also takes `if` / `else` and `for` loops, so
 
 The built-in look: system text styles throughout, semantic colors that follow light and dark mode, GitHub's alert palette, and the margins listed under each element in [Style properties](/ios/api-reference/style-properties). It is always the bottom layer, which is why `EnrichedMarkdownText` renders sensibly with no theme at all.
 
-## `rememberMarkdownTheme`
+## Themes that branch on the environment {#environment-themes}
 
-```swift
-@MainActor
-public func rememberMarkdownTheme(
-  colorScheme: ColorScheme,
-  dynamicTypeSize: DynamicTypeSize,
-  @MarkdownThemeBuilder _ content: () -> MarkdownThemeGroup
-) -> MarkdownTheme
-```
-
-Builds a theme inside a `View.body`, taking the two environment values a theme is most likely to read as explicit parameters. Reading them in the view is what makes SwiftUI re-evaluate the body - and so rebuild the theme - when they change.
-
-Reach for it when the **builder itself branches** on the appearance or the text size:
+When the **builder itself branches** on the appearance or the text size, build the theme in `body` and read the environment values in the view. SwiftUI re-evaluates `body` when they change, so the theme is rebuilt with them - there is nothing extra to call:
 
 ```swift
 struct RootView: View {
@@ -89,23 +78,22 @@ struct RootView: View {
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
-    let theme = rememberMarkdownTheme(
-      colorScheme: colorScheme,
-      dynamicTypeSize: dynamicTypeSize
-    ) {
-      Heading(1).foregroundStyle(colorScheme == .dark ? brandLight : brandDark)
-      if dynamicTypeSize.isAccessibilitySize {
-        Paragraph().lineHeight(34)
-      }
-    }
-
     Content()
-      .markdownTheme(theme)
+      .markdownTheme {
+        Heading(1).foregroundStyle(colorScheme == .dark ? brandLight : brandDark)
+        if dynamicTypeSize.isAccessibilitySize {
+          Paragraph().lineHeight(34)
+        }
+      }
   }
 }
 ```
 
-A theme that does **not** branch does not need it - see below.
+:::note
+`rememberMarkdownTheme(colorScheme:dynamicTypeSize:)` did this in 0.1 and is now deprecated: building the theme in `body` has the same effect. Replace a call with a plain `MarkdownTheme { … }`, or with the `.markdownTheme { … }` builder overload as above.
+:::
+
+A theme that does **not** branch does not need any of this - see below.
 
 ## Light, dark, and Dynamic Type {#appearance}
 
@@ -114,18 +102,18 @@ Themes are stored as unresolved specs and turned into fonts and colors only when
 | You write | What adapts |
 | --- | --- |
 | `.font(.body)`, `.font(.largeTitle)`, any SwiftUI text style | Size follows **Dynamic Type** |
-| `.fontSize(17)`, `.fontFamily("Inter", size: 17)` | Nothing - a fixed point size |
+| `.font(size: 17)`, `.font(custom: "Inter", size: 17)` | Nothing - a fixed point size |
 | `.foregroundStyle(.primary)`, `.secondary`, `.tint`, `.quaternary` | Light and dark, automatically |
 | `.foregroundStyle(Color(.label))`, or any dynamic system `Color` | Light and dark, automatically |
 | `.foregroundStyle(Color(red: …, green: …, blue: …))` | Nothing - a fixed color |
 
 :::caution
-Setting `.fontSize` or `.fontFamily` on an element **opts that element out of Dynamic Type**: the size you pass is the size it gets at every text size setting. Prefer `.font(.body)` and friends, and see [Custom fonts](/ios/guides/custom-fonts) for scaling a custom family yourself.
+Setting `.font(size:)` or `.font(custom:size:)` on an element **opts that element out of Dynamic Type**: the size you pass is the size it gets at every text size setting. Prefer `.font(.body)` and friends, and see [Custom fonts](/ios/guides/custom-fonts) for scaling a custom family yourself.
 :::
 
 ### Capping or disabling text scaling
 
-There is no font-scaling flag on the view. `EnrichedMarkdownText` reads `dynamicTypeSize` from the environment and resolves against it, so SwiftUI's own modifier is the control - applied to the view or anywhere above it:
+There is no font-scaling option on the view. `EnrichedMarkdownText` reads `dynamicTypeSize` from the environment and resolves against it, so SwiftUI's own modifier is the control - applied to the view or anywhere above it:
 
 ```swift
 EnrichedMarkdownText(content)
@@ -137,16 +125,16 @@ EnrichedMarkdownText(content)
 
 Capping is almost always the better of the two: it keeps the document readable at large text sizes without letting a long heading run off the screen.
 
-## `MarkdownStyleConfig`
+## `MarkdownStyleConfiguration`
 
 ```swift
-public struct MarkdownStyleConfig: Equatable, Sendable {
+public struct MarkdownStyleConfiguration: Equatable, Sendable {
   public static func resolve(
     layers: [MarkdownTheme],
     traitCollection: UITraitCollection
-  ) -> MarkdownStyleConfig
+  ) -> MarkdownStyleConfiguration
 
-  public static func baseline(traitCollection: UITraitCollection = .current) -> MarkdownStyleConfig
+  public static func baseline(traitCollection: UITraitCollection = .current) -> MarkdownStyleConfiguration
 }
 ```
 
@@ -158,7 +146,7 @@ A theme flattened into concrete `UIFont`s, `UIColor`s, and lengths - the form th
 Every field is public and optional, so a config can also be adjusted after resolving, which is often the shortest path in a test:
 
 ```swift
-var config = MarkdownStyleConfig.baseline()
+var config = MarkdownStyleConfiguration.baseline()
 config.blockquote.borderWidth = 6
 ```
 
@@ -168,8 +156,8 @@ config.blockquote.borderWidth = 6
 public enum MarkdownRenderer {
   public static func render(
     _ markdown: String,
-    config: MarkdownStyleConfig,
-    flags: Md4cFlags = .commonMark,
+    config: MarkdownStyleConfiguration,
+    options: MarkdownParsingOptions = .commonMark,
     imageRequestHeaders: [String: String] = [:]
   ) -> NSAttributedString
 }
@@ -192,11 +180,11 @@ The attributed string is **not the whole rendering**. List bullets and numbers, 
 
 ## Performance notes
 
-- **Hoist your themes.** Building one inside a `body` allocates a fresh `MarkdownTheme` on every evaluation, and a changed theme re-resolves the config and re-renders the document. A `let` at file scope, or `rememberMarkdownTheme` when the builder reads the environment, keeps that from happening on every frame.
-- **Re-resolving is cheap; re-rendering is not.** The view re-parses and re-renders when the markdown, the flags, the image headers, or the resolved config change - the last of which includes a Dynamic Type or appearance switch. That work happens off the main thread, but a theme that changes identity every frame will keep it running.
+- **Hoist the themes that can be hoisted.** Building one inside a `body` allocates a fresh `MarkdownTheme` on every evaluation, and a changed theme re-resolves the config and re-renders the document. A `let` at file scope keeps that from happening on every frame; reserve the in-`body` form for themes that genuinely [branch on the environment](#environment-themes).
+- **Re-resolving is cheap; re-rendering is not.** The view re-parses and re-renders when the markdown, the parsing options, the image headers, or the resolved config change - the last of which includes a Dynamic Type or appearance switch. That work happens off the main thread, but a theme that changes identity every frame will keep it running.
 
 ## See also
 
 - [Style properties](/ios/api-reference/style-properties) - the elements and modifiers you can set.
 - [`EnrichedMarkdownText`](/ios/api-reference/enriched-markdown-text) - the view and its modifiers.
-- [Custom fonts](/ios/guides/custom-fonts) - how `.fontFamily` resolves a face.
+- [Custom fonts](/ios/guides/custom-fonts) - how `.font(custom:size:)` resolves a face.

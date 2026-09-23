@@ -42,9 +42,9 @@ The elements:
 | [`Strong()`](#strong-emphasis-strikethrough) | Bold text |
 | [`Emphasis()`](#strong-emphasis-strikethrough) | Italic text |
 | [`Strikethrough()`](#strong-emphasis-strikethrough) | Struck-through text |
-| [`Underline()`](#underline) | Underlined text (needs `Md4cFlags(underline: true)`) |
-| [`Superscript()` / `Subscript()`](#superscript--subscript) | Raised and lowered text (needs the matching flag) |
-| [`Highlight()`](#highlight) | Highlighted text (needs `Md4cFlags(highlight: true)`) |
+| [`Underline()`](#underline) | Underlined text (needs `MarkdownParsingOptions(underline: true)`) |
+| [`Superscript()` / `Subscript()`](#superscript--subscript) | Raised and lowered text (needs the matching option) |
+| [`Highlight()`](#highlight) | Highlighted text (needs `MarkdownParsingOptions(highlight: true)`) |
 | [`Spoiler()`](#spoiler) | The overlay concealing `\|\|spoiler\|\|` text |
 | [`BlockImage()`](#blockimage) | Images alone in a paragraph |
 | [`InlineImage()`](#inlineimage) | Images sharing a line with text |
@@ -58,22 +58,30 @@ Most elements accept the same base set. Where an element does **not**, its secti
 
 | Modifier | Effect |
 | --- | --- |
-| `.font(_ font: Font)` | A SwiftUI text style (`.body`, `.largeTitle`, `.system(.body, design: .monospaced)`). Scales with Dynamic Type |
-| `.fontFamily(_ name: String, size: CGFloat)` | A registered font family at a **fixed** size |
-| `.fontSize(_ size: CGFloat, weight: Font.Weight = .regular)` | A **fixed** system size |
-| `.bold()` | Bumps the weight to bold |
+| `.font(_ font: Font)` | A SwiftUI text style, in any spelling (`.body`, `.system(.title)`, `.system(.title, design: .serif, weight: .bold)`). Scales with Dynamic Type |
+| `.font(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design? = nil)` | A **fixed** system size |
+| `.font(custom name: String, size: CGFloat)` | A registered font family at a **fixed** size |
+| `.fontWeight(_ weight: Font.Weight)` | Weight only, over whatever font a lower layer set |
+| `.bold()` | Shorthand for `.fontWeight(.bold)` |
+| `.italic(_ isActive: Bool = true)` | The family's italic face, or a synthesized slant when it has none |
 | `.fontDesign(_ design: Font.Design)` | `.default`, `.serif`, `.rounded`, `.monospaced` - system fonts only |
 | `.foregroundStyle(_ color: Color)` | Text color |
-| `.foregroundStyle(_ semantic:)` | `.primary`, `.secondary`, `.tint`, `.quaternary` - adapt to light and dark |
+| `.foregroundStyle(_ semantic:)` | `.primary`, `.secondary`, `.tertiary`, `.quaternary`, `.tint` - adapt to light and dark |
 | `.marginTop(_ value: CGFloat)` | Space above the block |
 | `.marginBottom(_ value: CGFloat)` | Space below the block |
 | `.lineHeight(_ value: CGFloat)` | Line height in points |
-| `.textAlignment(_ alignment: TextAlignment)` | `.leading`, `.center`, `.trailing` |
+| `.multilineTextAlignment(_ alignment: TextAlignment)` | `.leading`, `.center`, `.trailing` |
+
+`.fontWeight`, `.bold()`, `.italic()`, and `.fontDesign` **layer** over the font a lower theme layer set, so `Heading(1).bold()` on its own bolds the default heading font rather than replacing it.
 
 Background modifiers - `.background(_:)` and its alias `.backgroundStyle(_:)` - are available on `Code`, `CodeBlock`, `Blockquote`, `Admonition`, `Highlight`, and `Spoiler` only; a paragraph or heading has no fill.
 
 :::caution
-`.fontFamily` and `.fontSize` take a point size, which **opts the element out of Dynamic Type**. Use `.font(.body)` and its siblings unless you have a reason not to; see [Custom fonts](/ios/guides/custom-fonts).
+`.font(size:)` and `.font(custom:size:)` take a point size, which **opts the element out of Dynamic Type**. Use `.font(.body)` and its siblings unless you have a reason not to; see [Custom fonts](/ios/guides/custom-fonts).
+:::
+
+:::note
+`.font(_:)` reads back a SwiftUI **text style** only. A point-sized or otherwise modified `Font` - `.system(size: 17)`, `.custom(_:size:)`, `.weight()`, `.italic()` - cannot be inspected through public API, so passing one logs a runtime warning and renders as `.body`. Use `.font(size:weight:design:)` and `.font(custom:size:)` for those.
 :::
 
 ## Style inheritance
@@ -127,17 +135,11 @@ One heading level, 1 through 6. The level is clamped into that range, so `Headin
 
 Block quotes, and the geometry every admonition inherits. Takes the [shared modifiers](#shared-modifiers) plus:
 
-#### `.borderColor(_:)`
+#### `.border(_ color:, width:)`
 
-The accent bar down the side of the quote. An [`Admonition()`](#admonition) tint overrides it for that alert type.
+The accent bar down the side of the quote - its color and thickness together, as SwiftUI's own `border(_:width:)`. Leave `width` out to recolor a bar a lower layer sized. An [`Admonition()`](#admonition) tint overrides the color for that alert type.
 
-<PropInfo type="Color | semantic" default=".tint" />
-
-#### `.borderWidth(_:)`
-
-Thickness of that bar.
-
-<PropInfo type="CGFloat" default="3" />
+<PropInfo type="Color | semantic, CGFloat?" default=".tint, 3" />
 
 #### `.gapWidth(_:)`
 
@@ -187,7 +189,7 @@ The five types and their default tints, GitHub's palette:
 | `.warning` | `> [!WARNING]` | `#9A6700` |
 | `.caution` | `> [!CAUTION]` | `#CF222E` |
 
-A type you never style falls back to the blockquote's border color. Admonitions need `Md4cFlags(admonitions: true)`; see [Parser extensions](/ios/guides/parser-extensions#admonitions).
+A type you never style falls back to the blockquote's border color. Admonitions need `MarkdownParsingOptions(admonitions: true)`; see [Parser extensions](/ios/guides/parser-extensions#admonitions).
 
 ### `List()` {#list}
 
@@ -223,9 +225,9 @@ Space between the marker and the item text. Clamped to a minimum of `4`.
 
 <PropInfo type="CGFloat" default="12" />
 
-#### `.marginLeft(_:)`
+#### `.marginLeading(_:)`
 
-Indent added per nesting level.
+Indent added per nesting level, on the paragraph's leading side.
 
 <PropInfo type="CGFloat" default="24" />
 
@@ -241,7 +243,7 @@ Side length of the box, in points.
 
 <PropInfo type="CGFloat" default="14" />
 
-#### `.checkboxBorderRadius(_:)`
+#### `.checkboxCornerRadius(_:)`
 
 Corner radius of the box.
 
@@ -283,13 +285,13 @@ Both of the last two apply the moment the reader toggles a box, not only on the 
 
 GFM tables. Takes the [shared modifiers](#shared-modifiers) for the **cell** text, plus:
 
-#### `.headerFontFamily(_ name: String, size: CGFloat)`
+#### `.headerFont(_ font: Font)` / `.headerFont(custom name: String, size: CGFloat)`
 
-A registered family for the header row only, at a fixed size.
+The header row's font alone - a SwiftUI text style, or a registered family at a fixed size.
 
-<PropInfo type="String, CGFloat" default="the cell font" />
+<PropInfo type="Font | String, CGFloat" default="the cell font" />
 
-#### `.headerTextColor(_:)`
+#### `.headerForegroundStyle(_:)`
 
 <PropInfo type="Color | semantic" default=".primary" />
 
@@ -303,37 +305,39 @@ Zebra striping for body rows.
 
 <PropInfo type="Color | semantic" default="quaternarySystemFill / unset" />
 
-#### `.borderColor(_:)` / `.borderWidth(_:)`
+#### `.border(_ color:, width:)`
 
-<PropInfo type="Color | semantic, CGFloat" default="separator, 1" />
+The table's grid and outer border - color and width together. Leave `width` out to recolor a border a lower layer sized.
+
+<PropInfo type="Color | semantic, CGFloat?" default="separator, 1" />
 
 #### `.cornerRadius(_:)`
 
-Rounds the table's outer border. `.borderRadius(_:)` is an alias.
+Rounds the table's outer border.
 
 <PropInfo type="CGFloat" default="6" />
 
-#### `.cellPaddingHorizontal(_:)` / `.cellPaddingVertical(_:)`
+#### `.cellPadding(horizontal:vertical:)`
 
-<PropInfo type="CGFloat" default="12 / 8" />
+Inset of every cell. Both arguments are optional; a side you leave out keeps what a lower theme layer set.
 
-#### `.align(_ value: TableAlignment)`
+<PropInfo type="CGFloat?, CGFloat?" default="12 / 8" />
 
-Default horizontal alignment of cell content - `.leading`, `.center`, or `.trailing` - for columns whose Markdown separator row does not specify one.
+#### `.alignment(_ value: HorizontalAlignment)`
 
-<PropInfo type="TableAlignment" default="unset" />
+Default horizontal alignment of cell content for columns whose Markdown separator row does not specify one. Only `.leading`, `.center`, and `.trailing` apply; any other `HorizontalAlignment` logs a warning and leaves the inherited value.
+
+<PropInfo type="HorizontalAlignment" default="unset" />
 
 Line height defaults to `20`, cell color to `.primary`, and margin bottom to `16`.
 
 :::note
-Use `.align(_:)` for column alignment. `Table()` accepts the shared `.textAlignment(_:)` because it shares the base element protocol, but nothing reads it - a table's alignment comes from `.align` and from the Markdown separator row.
+Use `.alignment(_:)` for column alignment. `Table()` accepts the shared `.multilineTextAlignment(_:)` because it shares the base element protocol, but nothing reads it - a table's alignment comes from `.alignment` and from the Markdown separator row.
 :::
 
 ### `CodeBlock()` {#codeblock}
 
-Fenced code blocks. It does **not** take the full shared set - no `.bold()`, `.fontDesign()`, or `.textAlignment()`. What it takes:
-
-`.font(_:)`, `.fontFamily(_:size:)`, `.fontSize(_:weight:)`, `.foregroundStyle(_:)`, `.marginTop(_:)`, `.marginBottom(_:)`, `.lineHeight(_:)`, and:
+Fenced code blocks. Takes the [shared modifiers](#shared-modifiers) - alignment among them, though a code block always lays out left-to-right and ignores it - plus:
 
 #### `.background(_:)`
 
@@ -349,17 +353,17 @@ Space between the fill's edge and the code.
 
 #### `.cornerRadius(_:)`
 
-Rounds the fill. `.borderRadius(_:)` is an alias.
+Rounds the fill.
 
 <PropInfo type="CGFloat" default="8" />
 
-#### `.borderColor(_:)` / `.borderWidth(_:)`
+#### `.border(_ color:, width:)`
 
-An outline around the fill.
+An outline around the fill - color and width together.
 
-<PropInfo type="Color | semantic, CGFloat" default="unset" />
+<PropInfo type="Color | semantic, CGFloat?" default="unset" />
 
-Font defaults to `.system(.body, design: .monospaced)`, color to `.primary`, and margin bottom to `16`. A block keeps the monospaced design unless you replace it explicitly: `.font(.body)` re-sizes the monospaced face, while `.font(.system(.body, design: .serif))` or `.fontFamily(_:size:)` gives you the face you named.
+Font defaults to `.system(.body, design: .monospaced)`, color to `.primary`, and margin bottom to `16`. A block keeps the monospaced design unless you replace it explicitly: `.font(.body)` re-sizes the monospaced face, while `.font(.system(.body, design: .serif))` or `.font(custom:size:)` gives you the face you named.
 
 The fence's language label is parsed and available to the renderer, but this package ships no syntax highlighting - see [Code-block syntax highlighting](/rich-text-formatting/code-highlighting).
 
@@ -373,7 +377,7 @@ Inline `` `code` ``. Takes the [shared modifiers](#shared-modifiers) plus `.back
 | Color | `.secondary` |
 | Background | `.quaternary` |
 
-Leaving the font unset is what keeps inline code the size of the line it sits in - inline code in a heading is heading-sized. Passing `.fontSize` or `.fontFamily` pins it to that size everywhere.
+Leaving the font unset is what keeps inline code the size of the line it sits in - inline code in a heading is heading-sized. Passing `.font(size:)` or `.font(custom:size:)` pins it to that size everywhere.
 
 ### `Link()` {#link}
 
@@ -383,7 +387,7 @@ Links and autolinks. Takes the [shared modifiers](#shared-modifiers) plus:
 
 <PropInfo type="Bool" default="true" />
 
-Color defaults to `.tint`; everything else is inherited from the surrounding block. Links are inert until you handle [`.onLinkPress`](/ios/api-reference/enriched-markdown-text#onlinkpress).
+Color defaults to `.tint`; everything else is inherited from the surrounding block. A tapped link goes to SwiftUI's [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) action, which opens it with the system unless you install your own.
 
 ### `Strong()`, `Emphasis()`, `Strikethrough()` {#strong-emphasis-strikethrough}
 
@@ -393,15 +397,15 @@ Setting a color on one pins it document-wide, including inside headings and quot
 
 ### `Underline()` {#underline}
 
-Underlined text, from `_text_` and `__text__` with `Md4cFlags(underline: true)`. Takes the [shared modifiers](#shared-modifiers); nothing set by default.
+Underlined text, from `_text_` and `__text__` with `MarkdownParsingOptions(underline: true)`. Takes the [shared modifiers](#shared-modifiers); nothing set by default.
 
 :::note
-The flag **replaces** the usual meaning of those markers. With it on, `_text_` is underlined rather than italic - use `*text*` and `**text**` for italic and bold.
+The option **replaces** the usual meaning of those markers. With it on, `_text_` is underlined rather than italic - use `*text*` and `**text**` for italic and bold.
 :::
 
 ### `Superscript()` / `Subscript()` {#superscript--subscript}
 
-Raised and lowered text, from `^text^` and `~text~` with the matching flag. Both scale relative to the text around them, so these are the only two modifiers - font and color follow the surrounding text:
+Raised and lowered text, from `^text^` and `~text~` with the matching option. Both scale relative to the text around them, so these are the only two modifiers - font and color follow the surrounding text:
 
 #### `.fontScale(_:)`
 
@@ -419,19 +423,19 @@ Because the values are fractions, superscript inside an `h1` is larger than supe
 
 ### `Highlight()` {#highlight}
 
-`==text==` with `Md4cFlags(highlight: true)`. Takes the [shared modifiers](#shared-modifiers) plus `.background(_:)`.
+`==text==` with `MarkdownParsingOptions(highlight: true)`. Takes the [shared modifiers](#shared-modifiers) plus `.background(_:)`.
 
 <PropInfo type="Color | semantic" default="#FEF08A" />
 
 :::caution
-The default highlight background is a **fixed** light yellow and does not adapt to dark mode, where the surrounding text color may leave it unreadable. If you enable the flag, set both a background and a foreground for the appearance you support.
+The default highlight background is a **fixed** light yellow and does not adapt to dark mode, where the surrounding text color may leave it unreadable. If you enable the option, set both a background and a foreground for the appearance you support.
 :::
 
 ### `Spoiler()` {#spoiler}
 
 The overlay concealing `||spoiler||` text until it is tapped. Spoilers are always parsed; the overlay's shape is chosen with [`.markdownSpoilerOverlay`](/ios/api-reference/enriched-markdown-text#markdownspoileroverlay). Once revealed, the text keeps the surrounding font and color, so this element styles the cover only:
 
-#### `.color(_:)`
+#### `.foregroundStyle(_:)`
 
 The particles, or the fill of the solid box.
 
@@ -443,23 +447,15 @@ Backdrop painted under the particles, hiding the text through the gaps.
 
 <PropInfo type="Color | semantic" default="systemBackground" />
 
-#### `.particleDensity(_:)`
+Those two are the whole element. The overlay's **geometry and motion** - particle density and speed, the solid box's corner radius - are tuning of the overlay rather than of the theme, so they are passed where the overlay is chosen:
 
-How many particles, relative to the default.
+```swift
+EnrichedMarkdownText(content)
+  .markdownSpoilerOverlay(.particles(density: 12, speed: 30))  // defaults: 8, 20
 
-<PropInfo type="CGFloat" default="8" />
-
-#### `.particleSpeed(_:)`
-
-How fast they drift, relative to the default.
-
-<PropInfo type="CGFloat" default="20" />
-
-#### `.solidBorderRadius(_:)`
-
-Corner radius of the `.solid` overlay. Ignored by `.particles`.
-
-<PropInfo type="CGFloat" default="4" />
+EnrichedMarkdownText(content)
+  .markdownSpoilerOverlay(.solid(cornerRadius: 6))             // default: 4
+```
 
 ### `BlockImage()` {#blockimage}
 
@@ -471,7 +467,7 @@ Rendered height in points; the image spans the container width.
 
 <PropInfo type="CGFloat" default="200" />
 
-#### `.borderRadius(_:)`
+#### `.cornerRadius(_:)`
 
 <PropInfo type="CGFloat" default="8" />
 
@@ -497,9 +493,9 @@ Which of the two an image becomes depends on what else is in its paragraph - see
 
 ### `ThematicBreak()` {#thematicbreak}
 
-The rule drawn for `---`. Note the color modifier here is `.color(_:)`; `.foregroundStyle(_:)` is accepted only with a semantic color.
+The rule drawn for `---`. It has no text of its own, so these are all its modifiers:
 
-#### `.color(_:)`
+#### `.foregroundStyle(_:)`
 
 <PropInfo type="Color | semantic" default=".secondary" />
 
@@ -517,4 +513,4 @@ Thickness of the rule.
 
 - [`MarkdownTheme`](/ios/api-reference/markdown-theme) - building, providing, and layering themes.
 - [Element structure](/ios/api-reference/element-structure) - what each Markdown construct renders as.
-- [Custom fonts](/ios/guides/custom-fonts) - `.fontFamily`, bold faces, and Dynamic Type.
+- [Custom fonts](/ios/guides/custom-fonts) - `.font(custom:size:)`, bold faces, and Dynamic Type.
