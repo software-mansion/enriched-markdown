@@ -27,6 +27,7 @@ dependencies {
   nmcpAggregation project(":parser")
   nmcpAggregation project(":ui")
   nmcpAggregation project(":compose")
+  nmcpAggregation project(":math")
 }
 
 ext {
@@ -38,7 +39,7 @@ ext {
 }
 
 subprojects { subproject ->
-  if (subproject.name !in ["parser", "ui", "compose"]) {
+  if (subproject.name !in ["parser", "ui", "compose", "math"]) {
     return
   }
 
