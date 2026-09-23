@@ -1,7 +1,7 @@
 package com.swmansion.enriched.markdown.test
 
 import android.content.Context
-import android.text.SpannableString
+import android.text.Spannable
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
@@ -12,14 +12,17 @@ import com.swmansion.enriched.markdown.styles.TaskListStyle
 import com.swmansion.enriched.markdown.styles.UnderlineStyle
 
 object MarkdownRenderTestSupport {
-  private val context: Context = ApplicationProvider.getApplicationContext()
+  // Resolved per call, not cached: a @Config qualifier (a locale, an RTL layout direction) is
+  // applied to the current test's context, and a singleton would pin the first test's one.
+  private val context: Context
+    get() = ApplicationProvider.getApplicationContext()
 
   val defaultStyle: StyleConfig get() = StyleConfig.default(context)
 
   fun render(
     document: MarkdownASTNode,
     style: StyleConfig = defaultStyle,
-  ): SpannableString {
+  ): Spannable {
     val renderer = Renderer()
     renderer.configure(style, context)
     return renderer.renderDocument(document, null, null)
@@ -70,6 +73,9 @@ object MarkdownRenderTestSupport {
       taskListStyle = taskListStyle ?: base.taskListStyle,
       codeBlockStyle = base.codeBlockStyle,
       thematicBreakStyle = base.thematicBreakStyle,
+      tableStyle = base.tableStyle,
+      tableTypeface = base.tableTypeface,
+      tableHeaderTypeface = base.tableHeaderTypeface,
     )
   }
 }

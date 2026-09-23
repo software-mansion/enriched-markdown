@@ -2,7 +2,6 @@ package com.swmansion.enriched.markdown.test
 
 import android.content.Context
 import android.text.Spannable
-import android.text.SpannableString
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -25,7 +24,7 @@ object HTMLGeneratorTestSupport {
   }
 
   fun generateHTML(
-    spannable: SpannableString,
+    spannable: Spannable,
     selectionStart: Int,
     selectionEnd: Int,
   ): String =

@@ -9,7 +9,6 @@ import {
   Platform,
   Alert,
   Image,
-  Modal,
   TextInput,
   Keyboard,
 } from 'react-native';
@@ -185,6 +184,7 @@ export default function PlaygroundScreen() {
 
         <View style={styles.editorContainer} testID="editor-container">
           <EnrichedMarkdownTextInput
+            markdownShortcuts
             ref={inputRef}
             placeholder="Type markdown here..."
             placeholderTextColor="#9CA3AF"
@@ -245,7 +245,12 @@ export default function PlaygroundScreen() {
               markdownStyle={MARKDOWN_STYLE}
               flavor="github"
               spoilerOverlay="solid"
-              md4cFlags={{ underline: underlineEnabled, highlight: true }}
+              md4cFlags={{
+                underline: underlineEnabled,
+                highlight: true,
+                superscript: true,
+                subscript: true,
+              }}
               onLinkPress={({ url }) =>
                 Alert.alert('Link', url, [{ text: 'OK' }])
               }
@@ -266,15 +271,10 @@ export default function PlaygroundScreen() {
         </View>
       </ScrollView>
 
-      <Modal
-        visible={setMarkdownModalVisible}
-        animationType={Platform.OS === 'android' ? 'fade' : 'slide'}
-        transparent
-        onRequestClose={() => setSetMarkdownModalVisible(false)}
-      >
+      {setMarkdownModalVisible && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={[StyleSheet.absoluteFill, styles.modalOverlay]}
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Set Raw Markdown</Text>
@@ -310,7 +310,7 @@ export default function PlaygroundScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -409,12 +409,12 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     padding: 16,
     gap: 12,
   },

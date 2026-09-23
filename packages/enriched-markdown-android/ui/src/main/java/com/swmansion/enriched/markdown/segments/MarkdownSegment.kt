@@ -6,6 +6,10 @@ sealed interface MarkdownSegment {
   data class Text(
     val nodes: List<MarkdownASTNode>,
   ) : MarkdownSegment
+
+  data class Table(
+    val node: MarkdownASTNode,
+  ) : MarkdownSegment
 }
 
 fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
@@ -20,7 +24,16 @@ fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
   }
 
   for (child in root.children) {
-    currentTextNodes.add(child)
+    when (child.type) {
+      MarkdownASTNode.NodeType.Table -> {
+        flushTextNodes()
+        segments.add(MarkdownSegment.Table(child))
+      }
+
+      else -> {
+        currentTextNodes.add(child)
+      }
+    }
   }
   flushTextNodes()
   return segments

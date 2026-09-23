@@ -1,6 +1,6 @@
 package com.swmansion.enriched.markdown
 
-import android.text.SpannableString
+import android.text.Spannable
 import android.text.TextPaint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.spans.StrikethroughSpan
@@ -145,7 +145,7 @@ class InlineDecorationRendererTest {
     rendered.assertSpanCovers("both", StrongSpan::class.java)
   }
 
-  private fun <T> SpannableString.spansOver(
+  private fun <T> Spannable.spansOver(
     text: String,
     spanClass: Class<T>,
   ): Array<out T> {
@@ -155,7 +155,7 @@ class InlineDecorationRendererTest {
   }
 
   /** Runs the span's draw state over a paint seeded with an inherited color. */
-  private fun <T : android.text.style.CharacterStyle> SpannableString.paintAfterSpan(
+  private fun <T : android.text.style.CharacterStyle> Spannable.paintAfterSpan(
     text: String,
     spanClass: Class<T>,
   ): TextPaint {

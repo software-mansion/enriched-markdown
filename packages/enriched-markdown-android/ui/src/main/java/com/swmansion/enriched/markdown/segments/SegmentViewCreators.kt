@@ -17,6 +17,8 @@ data class SegmentViewConfig(
   val selectionMenuConfig: SelectionMenuConfig,
   val enableTaskListItemToggle: Boolean,
   val onTaskListItemTap: ((view: EnrichedMarkdownInternalText, hit: TaskListHitTestResult) -> Unit)?,
+  val onLinkPress: ((String) -> Unit)?,
+  val onLinkLongPress: ((String) -> Unit)?,
 )
 
 object SegmentViewCreators {
@@ -31,6 +33,8 @@ object SegmentViewCreators {
       setJustificationMode(segment.needsJustify)
       enableTaskListItemToggle = config.enableTaskListItemToggle
       onTaskListItemTapCallback = { hit -> config.onTaskListItemTap?.invoke(this, hit) }
+      onLinkPressCallback = config.onLinkPress
+      onLinkLongPressCallback = config.onLinkLongPress
       lastElementMarginBottom = segment.lastElementMarginBottom
       applyStyledText(segment.styledText)
       segment.imageSpans.forEach { it.registerTextView(this) }
@@ -44,5 +48,23 @@ object SegmentViewCreators {
     view.lastElementMarginBottom = segment.lastElementMarginBottom
     view.applyStyledText(segment.styledText)
     segment.imageSpans.forEach { it.registerTextView(view) }
+  }
+
+  fun createTableView(
+    segment: RenderedSegment.Table,
+    config: SegmentViewConfig,
+  ): TableContainerView =
+    TableContainerView(config.context, config.style).apply {
+      selectionMenuConfig = config.selectionMenuConfig
+      onLinkPress = config.onLinkPress
+      onLinkLongPress = config.onLinkLongPress
+      applyTableNode(segment.node, segment.imageRequestHeaders)
+    }
+
+  fun updateTableView(
+    view: TableContainerView,
+    segment: RenderedSegment.Table,
+  ) {
+    view.applyTableNode(segment.node, segment.imageRequestHeaders)
   }
 }

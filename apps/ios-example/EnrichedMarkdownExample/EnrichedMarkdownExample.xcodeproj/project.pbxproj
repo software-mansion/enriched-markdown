@@ -25,6 +25,7 @@
 		A10000010000000000000044 /* ButtonStyle+Pill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000044 /* ButtonStyle+Pill.swift */; };
 		A10000010000000000000045 /* View+BrandedNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000045 /* View+BrandedNavigationBar.swift */; };
 		A10000010000000000000042 /* PlaygroundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000042 /* PlaygroundButton.swift */; };
+		A10000010000000000000046 /* PlaygroundSpoilerOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */; };
 		A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000043 /* SetMarkdownSheet.swift */; };
 		A10000010000000000000020 /* sample_markdown.md in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000020 /* sample_markdown.md */; };
 		A10000010000000000000021 /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000021 /* logo.png */; };
@@ -56,6 +57,7 @@
 		A10000020000000000000044 /* ButtonStyle+Pill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ButtonStyle+Pill.swift"; sourceTree = "<group>"; };
 		A10000020000000000000045 /* View+BrandedNavigationBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+BrandedNavigationBar.swift"; sourceTree = "<group>"; };
 		A10000020000000000000042 /* PlaygroundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundButton.swift; sourceTree = "<group>"; };
+		A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundSpoilerOverlay.swift; sourceTree = "<group>"; };
 		A10000020000000000000043 /* SetMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetMarkdownSheet.swift; sourceTree = "<group>"; };
 		A10000020000000000000020 /* sample_markdown.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = sample_markdown.md; sourceTree = "<group>"; };
 		A10000020000000000000021 /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
@@ -168,6 +170,7 @@
 			children = (
 				A10000020000000000000042 /* PlaygroundButton.swift */,
 				A10000020000000000000015 /* PlaygroundScreen.swift */,
+				A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */,
 				A10000020000000000000043 /* SetMarkdownSheet.swift */,
 			);
 			path = Playground;
@@ -323,6 +326,7 @@
 				A10000010000000000000044 /* ButtonStyle+Pill.swift in Sources */,
 				A10000010000000000000045 /* View+BrandedNavigationBar.swift in Sources */,
 				A10000010000000000000042 /* PlaygroundButton.swift in Sources */,
+				A10000010000000000000046 /* PlaygroundSpoilerOverlay.swift in Sources */,
 				A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

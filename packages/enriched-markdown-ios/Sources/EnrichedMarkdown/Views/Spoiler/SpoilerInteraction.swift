@@ -15,6 +15,16 @@ enum SpoilerInteraction {
         spoilerRanges(in: attributedText, concealedOnly: false)
     }
 
+    /// `range`'s text as it looks once revealed, with paragraph layout
+    /// stripped so an overlay can draw it inside its own bounds.
+    static func revealedText(of attributedText: NSAttributedString, in range: NSRange) -> NSAttributedString {
+        let text = NSMutableAttributedString(attributedString: attributedText.attributedSubstring(from: range))
+        let all = NSRange(location: 0, length: text.length)
+        SpoilerConcealment.reveal(text, in: all)
+        text.removeAttribute(.paragraphStyle, range: all)
+        return text
+    }
+
     /// A copy of `attributedText` with the spoilers at `ordinals` revealed, or
     /// nil when none of them was concealed.
     static func revealing(in attributedText: NSAttributedString, ordinals: Set<Int>) -> NSAttributedString? {

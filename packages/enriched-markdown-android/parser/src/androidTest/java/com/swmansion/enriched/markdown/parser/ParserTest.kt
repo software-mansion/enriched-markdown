@@ -125,6 +125,38 @@ class ParserTest {
     requireNotNull(ast.firstOfType(MarkdownASTNode.NodeType.TableCell))
   }
 
+  // MarkdownASTSerializer.serializeTable writes the delimiter row after each TableHead row, so it
+  // relies on md4c emitting exactly one head row holding every header cell, even for odd input.
+  @Test
+  fun tableHeadAlwaysHasExactlyOneRow() {
+    val inputs =
+      listOf(
+        "| H1 | H2 |\n|----|----|\n| a  | b  |",
+        // Header only, no body.
+        "| H1 | H2 |\n|----|----|",
+        // A second delimiter-looking row stays in the body.
+        "| H1 | H2 |\n|----|----|\n|----|----|\n| a  | b  |",
+        // Body rows with fewer and more cells than the header.
+        "| H1 | H2 |\n|----|----|\n| a |\n| a | b | c |",
+        // No leading or trailing pipes.
+        "H1 | H2\n--- | ---\na | b",
+      )
+
+    inputs.forEach { markdown ->
+      val ast = requireNotNull(parser.parseMarkdown(markdown))
+      val table = requireNotNull(ast.firstOfType(MarkdownASTNode.NodeType.Table)) { "No table for: $markdown" }
+
+      val heads = table.children.filter { it.type == MarkdownASTNode.NodeType.TableHead }
+      assertEquals("Head sections for: $markdown", 1, heads.size)
+      assertEquals("Head rows for: $markdown", 1, heads.single().children.count { it.type == MarkdownASTNode.NodeType.TableRow })
+      assertEquals(
+        "Header cells outside head for: $markdown",
+        heads.single().allOfType(MarkdownASTNode.NodeType.TableHeaderCell).size,
+        table.allOfType(MarkdownASTNode.NodeType.TableHeaderCell).size,
+      )
+    }
+  }
+
   @Test
   fun respectsUnderlineFlag() {
     val withUnderline =

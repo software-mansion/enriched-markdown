@@ -52,7 +52,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting {
     /// restoring the text (see `MarkdownRenderStore.revealSpoiler`).
     var onSpoilerTap: ((NSRange) -> Void)?
 
-    private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self)
+    private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self, style: styleConfig.spoiler)
 
     /// Our tap recognizer must not steal touches from the text view's own
     /// recognizers (selection, links), so it observes simultaneously.
@@ -326,7 +326,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting {
     /// TextKit 2 layout fragments.
     func accessibilityScreenFrame(for range: NSRange) -> CGRect {
         var union = CGRect.null
-        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { union = union.union($0) }
+        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { frame, _ in union = union.union(frame) }
         guard !union.isNull else { return .zero }
         return UIAccessibility.convertToScreenCoordinates(union, in: self)
     }

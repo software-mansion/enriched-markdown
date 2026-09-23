@@ -1,0 +1,33 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - advanced
+  - inline
+  - text
+  - ios-only
+---
+- launchApp
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+# Default paragraph typography has a positive alignment baseline offset.
+# Neither plain nor bold text should gain superscript syntax on the clipboard.
+- runFlow:
+    file: '../../../subflows/assert_partial_copy_markdown.yaml'
+    env:
+      SOURCE: 'plain'
+      EXPECTED: 'plain'
+- runFlow:
+    file: '../../../subflows/assert_partial_copy_markdown.yaml'
+    env:
+      SOURCE: '**bold**'
+      EXPECTED: '\*\*bold\*\*'
+- runFlow:
+    file: '../../../subflows/assert_partial_copy_markdown.yaml'
+    env:
+      SOURCE: '^super^'
+      EXPECTED: '\^super\^'
+- runFlow:
+    file: '../../../subflows/assert_partial_copy_markdown.yaml'
+    env:
+      SOURCE: '~sub~'
+      EXPECTED: '~sub~'

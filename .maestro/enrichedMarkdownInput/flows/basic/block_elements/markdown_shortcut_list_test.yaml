@@ -1,0 +1,46 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - input
+  - unordered-list
+  - ordered-list
+  - block
+  - markdown-shortcuts
+---
+# "- " and "1. " typed at a paragraph start become list items with the prefix
+# removed; Return then continues the list exactly as a toolbar-toggled one does.
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- tapOn:
+    id: focus-button
+- waitForAnimationToEnd
+
+- inputText: '- First bullet'
+- waitForAnimationToEnd
+- pressKey: Enter
+- waitForAnimationToEnd
+- inputText: 'Second bullet'
+- waitForAnimationToEnd
+
+# Two Returns exit the list, leaving a plain paragraph to start a numbered one.
+- pressKey: Enter
+- pressKey: Enter
+- waitForAnimationToEnd
+
+- inputText: '1. First step'
+- waitForAnimationToEnd
+- pressKey: Enter
+- waitForAnimationToEnd
+- inputText: 'Second step'
+- waitForAnimationToEnd
+
+- tapOn:
+    id: blur-button
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'markdown_shortcut_list_input'
