@@ -316,7 +316,7 @@ final class SpoilerTests: XCTestCase {
         let cancellable = store.$source
             .dropFirst()
             .sink { _ in rendered.fulfill() }
-        store.schedule(markdown: markdown, config: config)
+        store.schedule(MarkdownRenderInputs(markdown: markdown, config: config))
         wait(for: [rendered], timeout: 2)
         cancellable.cancel()
     }

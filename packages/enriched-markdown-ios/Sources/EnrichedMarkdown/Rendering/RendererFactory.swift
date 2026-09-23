@@ -4,17 +4,23 @@ final class RendererFactory {
     private let config: MarkdownStyleConfig
     private let imageRequestHeaders: [String: String]
     private let plugins: [any MarkdownRenderPlugin]
+    private let writingDirection: MarkdownWritingDirection
+    private let layoutDirection: UIUserInterfaceLayoutDirection
     private var cache: [NodeType: NodeRenderer] = [:]
     private lazy var childrenOnlyRenderer = ChildrenOnlyRenderer(factory: self)
 
     init(
         config: MarkdownStyleConfig,
         imageRequestHeaders: [String: String] = [:],
-        plugins: [any MarkdownRenderPlugin] = []
+        plugins: [any MarkdownRenderPlugin] = [],
+        writingDirection: MarkdownWritingDirection = .firstStrong,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) {
         self.config = config
         self.imageRequestHeaders = imageRequestHeaders
         self.plugins = plugins
+        self.writingDirection = writingDirection
+        self.layoutDirection = layoutDirection
     }
 
     func renderer(for type: NodeType) -> NodeRenderer {
@@ -25,6 +31,12 @@ final class RendererFactory {
         let renderer = createRenderer(for: type)
         cache[type] = renderer
         return renderer
+    }
+
+    /// Resolves paragraph directions; run on the document and on every
+    /// table cell, which is drawn from its own string.
+    func applyWritingDirection(to output: NSMutableAttributedString) {
+        WritingDirectionResolver.apply(writingDirection, layoutDirection: layoutDirection, to: output)
     }
 
     func renderChildren(

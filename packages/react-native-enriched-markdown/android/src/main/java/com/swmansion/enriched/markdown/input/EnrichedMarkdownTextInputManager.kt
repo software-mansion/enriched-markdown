@@ -15,6 +15,7 @@ import com.facebook.react.viewmanagers.EnrichedMarkdownTextInputManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextInputManagerInterface
 import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
+import com.swmansion.enriched.markdown.input.editing.MarkdownShortcutsConfig
 import com.swmansion.enriched.markdown.input.events.OnCaretRectChangeEvent
 import com.swmansion.enriched.markdown.input.events.OnChangeMarkdownEvent
 import com.swmansion.enriched.markdown.input.events.OnChangeMentionEvent
@@ -156,6 +157,24 @@ class EnrichedMarkdownTextInputManager :
   ) {
     view?.scrollEnabled = value
     view?.isVerticalScrollBarEnabled = value
+  }
+
+  @ReactProp(name = "markdownShortcuts")
+  override fun setMarkdownShortcuts(
+    view: EnrichedMarkdownTextInputView?,
+    value: ReadableMap?,
+  ) {
+    if (view == null) return
+    view.markdownShortcuts =
+      if (value == null) {
+        MarkdownShortcutsConfig()
+      } else {
+        MarkdownShortcutsConfig(
+          heading = value.getBoolean("heading"),
+          unorderedList = value.getBoolean("unorderedList"),
+          orderedList = value.getBoolean("orderedList"),
+        )
+      }
   }
 
   @ReactProp(name = "autoCapitalize")

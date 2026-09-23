@@ -3,7 +3,7 @@ package com.swmansion.enriched.markdown
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
-import android.text.SpannableString
+import android.text.Spannable
 import android.text.TextPaint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.spans.HighlightSpan
@@ -262,7 +262,7 @@ class InlineDecorationRendererTest {
     }
   }
 
-  private fun SpannableString.drawHighlightBackground(
+  private fun Spannable.drawHighlightBackground(
     paint: TextPaint = TextPaint().apply { textSize = 16f },
     lineTop: Int = BASELINE - LINE_PADDING,
     lineBottom: Int = BASELINE + LINE_PADDING,
@@ -273,7 +273,7 @@ class InlineDecorationRendererTest {
     }
   }
 
-  private fun <T> SpannableString.spansOver(
+  private fun <T> Spannable.spansOver(
     text: String,
     spanClass: Class<T>,
   ): Array<out T> {
@@ -283,7 +283,7 @@ class InlineDecorationRendererTest {
   }
 
   /** Runs the span's draw state over a paint seeded with an inherited color. */
-  private fun <T : android.text.style.CharacterStyle> SpannableString.paintAfterSpan(
+  private fun <T : android.text.style.CharacterStyle> Spannable.paintAfterSpan(
     text: String,
     spanClass: Class<T>,
   ): TextPaint {

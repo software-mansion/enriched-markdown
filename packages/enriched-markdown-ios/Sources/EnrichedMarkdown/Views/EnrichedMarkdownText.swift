@@ -19,6 +19,9 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownTaskListItemToggleEnabled) private var isTaskListToggleEnabled
     @Environment(\.markdownSpoilerOverlay) private var spoilerOverlay
     @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
+    @Environment(\.markdownWritingDirection) private var writingDirection
+    // The fallback for paragraphs with no strong directional character.
+    @Environment(\.layoutDirection) private var layoutDirection
     @StateObject private var renderStore = MarkdownRenderStore()
 
     public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
@@ -39,9 +42,16 @@ public struct EnrichedMarkdownText: View {
     }
 
     public var body: some View {
-        // Resolved once: `styleConfig` rebuilds the whole config on each read,
-        // and the representable and every `onChange` below read it.
+        // Resolved once: `styleConfig` rebuilds the whole config on each read.
         let config = styleConfig
+        let inputs = MarkdownRenderInputs(
+            markdown: markdown,
+            config: config,
+            flags: flags,
+            imageRequestHeaders: imageRequestHeaders,
+            writingDirection: writingDirection,
+            layoutDirection: layoutDirection
+        )
         return MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,
             source: renderStore.source,
@@ -66,52 +76,12 @@ public struct EnrichedMarkdownText: View {
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
-            renderStore.schedule(
-                markdown: markdown,
-                config: config,
-                flags: flags,
-                imageRequestHeaders: imageRequestHeaders,
-                plugins: renderPlugins
-            )
+            renderStore.schedule(inputs, plugins: renderPlugins)
         }
-        // The onChange closures run against the previous view value, so the
-        // changed value must come from the closure parameter — reading the
-        // view property would render one update behind.
-        .onChange(of: markdown) { newValue in
-            renderStore.schedule(
-                markdown: newValue,
-                config: config,
-                flags: flags,
-                imageRequestHeaders: imageRequestHeaders,
-                plugins: renderPlugins
-            )
-        }
-        .onChange(of: config) { newValue in
-            renderStore.schedule(
-                markdown: markdown,
-                config: newValue,
-                flags: flags,
-                imageRequestHeaders: imageRequestHeaders,
-                plugins: renderPlugins
-            )
-        }
-        .onChange(of: flags) { newValue in
-            renderStore.schedule(
-                markdown: markdown,
-                config: config,
-                flags: newValue,
-                imageRequestHeaders: imageRequestHeaders,
-                plugins: renderPlugins
-            )
-        }
-        .onChange(of: imageRequestHeaders) { newValue in
-            renderStore.schedule(
-                markdown: markdown,
-                config: config,
-                flags: flags,
-                imageRequestHeaders: newValue,
-                plugins: renderPlugins
-            )
+        // Runs against the previous view value, so the render takes the
+        // closure's inputs; the view's would be one update behind.
+        .onChange(of: inputs) { newValue in
+            renderStore.schedule(newValue, plugins: renderPlugins)
         }
         .onDisappear {
             renderStore.invalidate()

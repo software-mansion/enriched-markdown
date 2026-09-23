@@ -93,6 +93,21 @@ class EnrichedMarkdownTest {
   }
 
   @Test
+  fun childAdoptsTheRenderedBufferWithoutCopyingIt() {
+    val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(mixedBlocks), defaultStyle, context)
+    val rendered = segments[0] as RenderedSegment.Text
+
+    val container = EnrichedMarkdown(context)
+    container.applyRenderedSegments(segments)
+    val child = container.getChildAt(0) as EnrichedMarkdownInternalText
+
+    // A span set through the view must land in the rendered buffer; a copy would leave it at -1.
+    val marker = Any()
+    (child.text as Spannable).setSpan(marker, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+    assertEquals(0, rendered.styledText.getSpanStart(marker))
+  }
+
+  @Test
   fun containerContributesNoStrayMarginToHeight() {
     documents.forEach { (document, _) ->
       val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(document), defaultStyle, context)
