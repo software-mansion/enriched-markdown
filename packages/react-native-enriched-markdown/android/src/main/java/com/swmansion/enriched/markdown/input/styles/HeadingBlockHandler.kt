@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.input.styles
 
+import com.facebook.react.views.text.TextAttributes
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
@@ -19,7 +20,32 @@ class HeadingBlockHandler : BlockHandler {
   override fun createSpans(
     blockRange: BlockRange,
     style: InputFormatterStyle,
-  ): List<Any> = listOf(InputHeadingSpan(blockRange.level, style))
+    bodyTextAttributes: TextAttributes,
+  ): List<Any> {
+    val headingStyle = style.headingStyle(blockRange.level)
+    val bodyFontSizeSp = bodyTextAttributes.fontSize
+    val bodyLineHeightSp = bodyTextAttributes.lineHeight
+    // Without a body lineHeight every line keeps its font's natural height,
+    // headings included.
+    val lineHeightPx =
+      if (bodyLineHeightSp.isNaN() || !(bodyFontSizeSp > 0f)) {
+        null
+      } else {
+        // The heading keeps the body's extra leading (lineHeight - fontSize) on
+        // top of its own font size. Convert its px size back to SP so it goes
+        // through the same font scaling as the body line height.
+        val headingFontSizeSp =
+          headingStyle.fontSizePx?.let { it / bodyTextAttributes.effectiveFontSize * bodyFontSizeSp }
+            ?: bodyFontSizeSp
+        TextAttributes()
+          .apply {
+            allowFontScaling = bodyTextAttributes.allowFontScaling
+            fontSize = headingFontSizeSp
+            lineHeight = headingFontSizeSp + (bodyLineHeightSp - bodyFontSizeSp)
+          }.effectiveLineHeight
+      }
+    return listOf(InputHeadingSpan(blockRange.level, style, lineHeightPx))
+  }
 
   override fun spanClasses(): List<Class<*>> = listOf(InputHeadingSpan::class.java)
 
