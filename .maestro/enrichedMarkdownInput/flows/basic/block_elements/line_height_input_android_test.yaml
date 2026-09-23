@@ -1,0 +1,40 @@
+appId: swmansion.enriched.markdown.example
+# Capture/update goldens with:
+# yarn test:e2e:android:update-screenshots -- .maestro/enrichedMarkdownInput/flows/basic/block_elements/line_height_input_android_test.yaml
+tags:
+  - input
+  - block
+  - android-only
+---
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- tapOn:
+    id: set-markdown-button
+
+- tapOn:
+    id: set-markdown-input
+
+- inputText: '# Heading'
+- pressKey: Enter
+- inputText: 'Line one of body text'
+- pressKey: Enter
+- inputText: '- List item alpha'
+- pressKey: Enter
+- inputText: 'Line two of body text'
+
+- tapOn:
+    id: set-markdown-confirm
+
+- tapOn:
+    id: line-height-toggle
+
+- tapOn:
+    id: blur-button
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'line_height_tall_input'
