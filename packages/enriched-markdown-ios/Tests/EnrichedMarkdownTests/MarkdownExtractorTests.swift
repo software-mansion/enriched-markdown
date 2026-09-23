@@ -12,18 +12,18 @@ final class MarkdownExtractorTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func render(_ markdown: String, flags: Md4cFlags = .commonMark) -> NSAttributedString {
-        MarkdownRenderer.render(markdown, config: config, flags: flags)
+    private func render(_ markdown: String, options: MarkdownParsingOptions = .commonMark) -> NSAttributedString {
+        MarkdownRenderer.render(markdown, config: config, options: options)
     }
 
     private func extractSelecting(
         _ substring: String,
         in markdown: String,
-        flags: Md4cFlags = .commonMark,
+        options: MarkdownParsingOptions = .commonMark,
         file: StaticString = #filePath,
         line: UInt = #line
     ) -> String? {
-        let rendered = render(markdown, flags: flags)
+        let rendered = render(markdown, options: options)
         let range = (rendered.string as NSString).range(of: substring)
         XCTAssertNotEqual(
             range.location, NSNotFound,
@@ -34,8 +34,8 @@ final class MarkdownExtractorTests: XCTestCase {
         return MarkdownExtractor.extractMarkdown(from: rendered, in: range)
     }
 
-    private func extractFullRange(_ markdown: String, flags: Md4cFlags = .commonMark) -> String? {
-        let rendered = render(markdown, flags: flags)
+    private func extractFullRange(_ markdown: String, options: MarkdownParsingOptions = .commonMark) -> String? {
+        let rendered = render(markdown, options: options)
         return MarkdownExtractor.extractMarkdown(
             from: rendered,
             in: NSRange(location: 0, length: rendered.length)
@@ -111,7 +111,7 @@ final class MarkdownExtractorTests: XCTestCase {
         let range = (rendered.string as NSString).range(of: "\u{FFFC}")
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(),
+            config: MarkdownSelectionMenu(),
             selectedRange: range,
             attributedText: rendered,
             source: nil
@@ -213,14 +213,14 @@ final class MarkdownExtractorTests: XCTestCase {
     }
 
     func testScriptMarkdownDoesNotDependOnVisualBaselineSign() {
-        let flags = Md4cFlags(superscript: true, subscript: true)
+        let options = MarkdownParsingOptions(superscript: true, subscript: true)
         for offset in [-4.0, 0.0, 4.0] {
             for (source, word, expected) in [
                 ("before ^super^ after", "super", "^super^"),
                 ("before ~sub~ after", "sub", "~sub~"),
                 ("before **^bold^** after", "bold", "**^bold^**")
             ] {
-                let rendered = NSMutableAttributedString(attributedString: render(source, flags: flags))
+                let rendered = NSMutableAttributedString(attributedString: render(source, options: options))
                 let range = (rendered.string as NSString).range(of: word)
                 XCTAssertNotEqual(range.location, NSNotFound)
                 guard range.location != NSNotFound else { continue }
@@ -272,7 +272,7 @@ final class MarkdownExtractorTests: XCTestCase {
             extractSelecting(
                 "underlined",
                 in: "Some _underlined_ text.",
-                flags: Md4cFlags(underline: true)
+                options: MarkdownParsingOptions(underline: true)
             ),
             "<u>underlined</u>"
         )
@@ -280,21 +280,21 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsSuperscript() {
         XCTAssertEqual(
-            extractSelecting("2", in: "x^2^ equals four", flags: Md4cFlags(superscript: true)),
+            extractSelecting("2", in: "x^2^ equals four", options: MarkdownParsingOptions(superscript: true)),
             "^2^"
         )
     }
 
     func testExtractsSubscript() {
         XCTAssertEqual(
-            extractSelecting("2", in: "Water is H~2~O", flags: Md4cFlags(subscript: true)),
+            extractSelecting("2", in: "Water is H~2~O", options: MarkdownParsingOptions(subscript: true)),
             "~2~"
         )
     }
 
     func testExtractsHighlight() {
         XCTAssertEqual(
-            extractSelecting("marked", in: "Some ==marked== text.", flags: Md4cFlags(highlight: true)),
+            extractSelecting("marked", in: "Some ==marked== text.", options: MarkdownParsingOptions(highlight: true)),
             "==marked=="
         )
     }
@@ -363,7 +363,7 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsAdmonitionWithItsMarkerInsteadOfTheTitle() {
         XCTAssertEqual(
-            extractSelecting("Note\nbody text", in: "> [!NOTE]\n> body text", flags: Md4cFlags(admonitions: true)),
+            extractSelecting("Note\nbody text", in: "> [!NOTE]\n> body text", options: MarkdownParsingOptions(admonitions: true)),
             "> [!NOTE]\n> body text"
         )
     }
@@ -371,7 +371,7 @@ final class MarkdownExtractorTests: XCTestCase {
     func testExtractsAdmonitionAfterParagraph() {
         // The trailing newlines are the quote's bottom-margin spacer.
         XCTAssertEqual(
-            extractFullRange("intro\n\n> [!TIP]\n> body", flags: Md4cFlags(admonitions: true))?
+            extractFullRange("intro\n\n> [!TIP]\n> body", options: MarkdownParsingOptions(admonitions: true))?
                 .trimmingCharacters(in: .newlines),
             "intro\n\n> [!TIP]\n> body"
         )
@@ -382,7 +382,7 @@ final class MarkdownExtractorTests: XCTestCase {
             extractSelecting(
                 "Tip\ninner",
                 in: "> [!WARNING]\n> outer\n>\n> > [!TIP]\n> > inner",
-                flags: Md4cFlags(admonitions: true)
+                options: MarkdownParsingOptions(admonitions: true)
             ),
             "> > [!TIP]\n> > inner"
         )
@@ -390,7 +390,7 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsAdmonitionBodyWithoutTitleAsPlainQuote() {
         XCTAssertEqual(
-            extractSelecting("body", in: "> [!NOTE]\n> body", flags: Md4cFlags(admonitions: true)),
+            extractSelecting("body", in: "> [!NOTE]\n> body", options: MarkdownParsingOptions(admonitions: true)),
             "> body"
         )
     }

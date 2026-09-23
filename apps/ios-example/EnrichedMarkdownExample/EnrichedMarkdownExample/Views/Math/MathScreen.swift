@@ -41,7 +41,7 @@ private let customMathTheme = MarkdownTheme {
         .background(Color.brandNavy.opacity(0.08))
         .padding(20)
         .marginBottom(24)
-        .textAlignment(.leading)
+        .multilineTextAlignment(.leading)
 
     InlineMath()
         .foregroundStyle(Color.brandNavy)

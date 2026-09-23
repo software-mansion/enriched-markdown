@@ -90,7 +90,7 @@ final class MathBlockViewTests: XCTestCase {
         let rendered = MarkdownRenderer.render(
             "before\n\n$$E=mc^2$$\n\nafter",
             config: config,
-            flags: .commonMark,
+            options: .commonMark,
             imageRequestHeaders: [:],
             plugins: [LaTeXRenderPlugin(typeset: { _, _, _, _ in wide })]
         )

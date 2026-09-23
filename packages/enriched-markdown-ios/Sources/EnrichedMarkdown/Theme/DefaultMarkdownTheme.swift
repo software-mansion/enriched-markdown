@@ -28,7 +28,7 @@ enum DefaultMarkdownTheme {
             Highlight().background(Color(red: 254 / 255, green: 240 / 255, blue: 138 / 255))
 
             Spoiler()
-                .color(Semantic.secondary)
+                .foregroundStyle(Semantic.secondary)
                 .background(Color(UIColor.systemBackground))
 
             Code()
@@ -38,7 +38,7 @@ enum DefaultMarkdownTheme {
 
             BlockImage()
                 .height(200)
-                .borderRadius(8)
+                .cornerRadius(8)
                 .marginBottom(16)
 
             InlineImage()
@@ -66,7 +66,7 @@ enum DefaultMarkdownTheme {
                 .bulletColor(Semantic.secondary)
                 .markerColor(Semantic.secondary)
                 .gapWidth(12)
-                .marginLeft(24)
+                .marginLeading(24)
                 .marginBottom(16)
 
             TaskList()
@@ -74,7 +74,7 @@ enum DefaultMarkdownTheme {
                 .borderColor(Semantic.secondary)
                 .checkmarkColor(.white)
                 .checkboxSize(14)
-                .checkboxBorderRadius(3)
+                .checkboxCornerRadius(3)
 
             Table()
                 .lineHeight(20)

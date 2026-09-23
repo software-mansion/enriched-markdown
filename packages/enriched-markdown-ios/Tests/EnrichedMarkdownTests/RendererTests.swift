@@ -758,4 +758,19 @@ private extension String {
     subscript(range: NSRange) -> String {
         (self as NSString).substring(with: range)
     }
+
+    // MARK: - CodeBlock as a MarkdownThemeElement
+
+    func testCodeBlockSharesTheElementModifiers() {
+        let config = MarkdownStyleConfig.resolve(
+            layers: [MarkdownTheme { CodeBlock().fontDesign(.serif).bold().multilineTextAlignment(.center) }],
+            traitCollection: .current
+        )
+        XCTAssertEqual(config.codeBlock.textAlignment, .center)
+        XCTAssertTrue(config.codeBlock.font?.fontDescriptor.symbolicTraits.contains(.traitBold) ?? false)
+
+        let rendered = MarkdownRenderer.render("```\ncode\n```", config: config)
+        let style = rendered.attribute(.paragraphStyle, at: 1, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertEqual(style?.alignment, .center)
+    }
 }

@@ -5,7 +5,7 @@ import XCTest
 
 final class AdmonitionRenderingTests: XCTestCase {
     private var config: MarkdownStyleConfig!
-    private let flags = Md4cFlags(admonitions: true)
+    private let options = MarkdownParsingOptions(admonitions: true)
 
     override func setUp() {
         super.setUp()
@@ -15,7 +15,7 @@ final class AdmonitionRenderingTests: XCTestCase {
     // MARK: - Helpers
 
     private func render(_ markdown: String, config: MarkdownStyleConfig? = nil) -> NSAttributedString {
-        MarkdownRenderer.render(markdown, config: config ?? self.config, flags: flags)
+        MarkdownRenderer.render(markdown, config: config ?? self.config, options: options)
     }
 
     private func attributes(onWord word: String, in text: NSAttributedString) -> [NSAttributedString.Key: Any] {
@@ -146,7 +146,7 @@ final class AdmonitionRenderingTests: XCTestCase {
     }
 
     func testFlagOffRendersMarkerAsPlainQuoteText() {
-        let result = MarkdownRenderer.render("> [!NOTE]\n> body", config: config, flags: .commonMark)
+        let result = MarkdownRenderer.render("> [!NOTE]\n> body", config: config, options: .commonMark)
 
         XCTAssertTrue(result.string.contains("[!NOTE]"))
         XCTAssertNil(attributes(onWord: "body", in: result)[MarkdownAttribute.admonitionHeader])

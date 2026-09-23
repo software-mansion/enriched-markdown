@@ -75,7 +75,7 @@ let CustomMarkdownTheme = MarkdownTheme {
         .markerMinWidth(20)
         .markerColor(Color.gray500)
         .gapWidth(8)
-        .marginLeft(24)
+        .marginLeading(24)
         .marginBottom(16)
 
     CodeBlock()
@@ -84,7 +84,7 @@ let CustomMarkdownTheme = MarkdownTheme {
         .backgroundStyle(Color.gray800)
         .borderColor(Color.gray700)
         .borderWidth(1)
-        .borderRadius(8)
+        .cornerRadius(8)
         .padding(16)
         .lineHeight(22)
         .marginBottom(16)
@@ -95,7 +95,7 @@ let CustomMarkdownTheme = MarkdownTheme {
 
     // The Text screen forces a white page in both color schemes.
     Spoiler()
-        .color(Color.gray700)
+        .foregroundStyle(Color.gray700)
         .background(Color.white)
 
     Link()
@@ -111,14 +111,14 @@ let CustomMarkdownTheme = MarkdownTheme {
 
     BlockImage()
         .height(200)
-        .borderRadius(8)
+        .cornerRadius(8)
         .marginBottom(16)
 
     InlineImage()
         .size(20)
 
     ThematicBreak()
-        .color(Color.gray200)
+        .foregroundStyle(Color.gray200)
         .height(1)
         .marginTop(24)
         .marginBottom(24)
@@ -127,7 +127,7 @@ let CustomMarkdownTheme = MarkdownTheme {
         .checkedColor(Color.linkBlue)
         .borderColor(Color.gray400)
         .checkboxSize(18)
-        .checkboxBorderRadius(4)
+        .checkboxCornerRadius(4)
         .checkmarkColor(Color.white)
         .checkedTextColor(Color.gray400)
         .checkedStrikethrough(true)
@@ -146,7 +146,7 @@ let PlaygroundMarkdownTheme = MarkdownTheme {
     CodeBlock()
         .foregroundStyle(Color.gray100)
         .backgroundStyle(Color.gray800)
-        .borderRadius(8)
+        .cornerRadius(8)
 
     Blockquote()
         .foregroundStyle(Color.gray600)

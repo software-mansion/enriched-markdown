@@ -41,25 +41,11 @@ public struct Blockquote: MarkdownThemeElement, BackgroundThemeElement {
     }
 
     public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
-        if fontSpec != nil || fontWeight != nil || fontDesign != nil {
-            config.blockquote.font = ThemeResolver.applyFont(
-                spec: fontSpec,
-                weight: fontWeight,
-                design: fontDesign,
-                to: config.blockquote.font,
-                traitCollection: traitCollection
-            )
-        }
-        if let foregroundColorSpec {
-            config.blockquote.foregroundColor = foregroundColorSpec.resolve(traitCollection: traitCollection)
-        }
+        applyTextStyle(to: &config.blockquote, traitCollection: traitCollection)
         applyBackgroundColor(to: &config.blockquote.backgroundColor, traitCollection: traitCollection)
         if let borderColorSpec {
             config.blockquote.borderColor = borderColorSpec.resolve(traitCollection: traitCollection)
         }
-        if let marginTop { config.blockquote.marginTop = marginTop }
-        if let marginBottom { config.blockquote.marginBottom = marginBottom }
-        if let lineHeight { config.blockquote.lineHeight = lineHeight }
         if let borderWidth { config.blockquote.borderWidth = borderWidth }
         if let gapWidth { config.blockquote.gapWidth = gapWidth }
     }

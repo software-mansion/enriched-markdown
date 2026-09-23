@@ -73,7 +73,7 @@ public struct MathBlock: MarkdownThemeContent {
     }
 
     /// Where the formula sits inside the panel when narrower than it.
-    public func textAlignment(_ alignment: TextAlignment) -> Self {
+    public func multilineTextAlignment(_ alignment: TextAlignment) -> Self {
         var copy = self
         copy.textAlignment = alignment
         return copy
@@ -134,6 +134,6 @@ public extension MarkdownTheme {
             .background(ThemeColorSpec.SemanticColor.quaternary)
             .padding(12)
             .marginBottom(16)
-            .textAlignment(.center)
+            .multilineTextAlignment(.center)
     }
 }

@@ -35,7 +35,7 @@ public struct ImageStyle: Equatable, Sendable {
     public var sizing: ImageSizing?
     /// See `BlockImage.contentMode(_:)`.
     public var contentMode: ImageContentMode?
-    public var borderRadius: CGFloat?
+    public var cornerRadius: CGFloat?
     public var marginTop: CGFloat?
     public var marginBottom: CGFloat?
 
@@ -51,13 +51,13 @@ public struct ImageStyle: Equatable, Sendable {
     public init(
         sizing: ImageSizing? = nil,
         contentMode: ImageContentMode? = nil,
-        borderRadius: CGFloat? = nil,
+        cornerRadius: CGFloat? = nil,
         marginTop: CGFloat? = nil,
         marginBottom: CGFloat? = nil
     ) {
         self.sizing = sizing
         self.contentMode = contentMode
-        self.borderRadius = borderRadius
+        self.cornerRadius = cornerRadius
         self.marginTop = marginTop
         self.marginBottom = marginBottom
     }
@@ -65,7 +65,7 @@ public struct ImageStyle: Equatable, Sendable {
     public mutating func merge(_ other: ImageStyle) {
         sizing = other.sizing ?? sizing
         contentMode = other.contentMode ?? contentMode
-        borderRadius = other.borderRadius ?? borderRadius
+        cornerRadius = other.cornerRadius ?? cornerRadius
         marginTop = other.marginTop ?? marginTop
         marginBottom = other.marginBottom ?? marginBottom
     }

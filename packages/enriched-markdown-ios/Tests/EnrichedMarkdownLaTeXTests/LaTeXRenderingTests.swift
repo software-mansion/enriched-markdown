@@ -7,8 +7,8 @@ import XCTest
 final class LaTeXRenderingTests: XCTestCase {
     private var config: MarkdownStyleConfig!
 
-    private var effectiveFlags: Md4cFlags {
-        MarkdownRenderer.effectiveFlags(.commonMark, plugins: [LaTeXRenderPlugin()])
+    private var effectiveParsingOptions: MarkdownParsingOptions {
+        MarkdownRenderer.effectiveParsingOptions(.commonMark, plugins: [LaTeXRenderPlugin()])
     }
 
     override func setUp() {
@@ -28,7 +28,7 @@ final class LaTeXRenderingTests: XCTestCase {
         MarkdownRenderer.render(
             markdown,
             config: config,
-            flags: .commonMark,
+            options: .commonMark,
             imageRequestHeaders: [:],
             plugins: [LaTeXRenderPlugin(typeset: typeset, accessibilityLabel: accessibilityLabel)]
         )
@@ -46,7 +46,7 @@ final class LaTeXRenderingTests: XCTestCase {
         let range = (rendered.string as NSString).range(of: substring)
         XCTAssertNotEqual(range.location, NSNotFound, "'\(substring)' not rendered", file: file, line: line)
         guard range.location != NSNotFound else { return nil }
-        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, flags: effectiveFlags)
+        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, options: effectiveParsingOptions)
     }
 
     // MARK: - Real engine
@@ -239,7 +239,7 @@ final class LaTeXRenderingTests: XCTestCase {
             for: NSRange(location: 0, length: afterLocation),
             in: rendered,
             sourceMarkdown: source,
-            flags: effectiveFlags
+            options: effectiveParsingOptions
         )
         XCTAssertEqual(copied, "before\n\n$$\na + b\nc + d\n$$")
     }

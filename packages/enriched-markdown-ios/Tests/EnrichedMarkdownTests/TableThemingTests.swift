@@ -11,9 +11,9 @@ final class TableThemingTests: XCTestCase {
     private func attachment(
         for markdown: String,
         config: MarkdownStyleConfig = .baseline(),
-        flags: Md4cFlags = .commonMark
+        options: MarkdownParsingOptions = .commonMark
     ) -> TableAttachment? {
-        let rendered = MarkdownRenderer.render(markdown, config: config, flags: flags)
+        let rendered = MarkdownRenderer.render(markdown, config: config, options: options)
         var found: TableAttachment?
         rendered.enumerateAttribute(.attachment, in: NSRange(location: 0, length: rendered.length)) { value, _, _ in
             if let table = value as? TableAttachment { found = table }
@@ -40,7 +40,7 @@ final class TableThemingTests: XCTestCase {
             .cellPaddingVertical(10)
             .marginTop(4)
             .marginBottom(24)
-            .align(.center)
+            .alignment(.center)
             .apply(to: &config, traitCollection: .current)
 
         XCTAssertEqual(config.table.font?.pointSize, 15)
@@ -52,12 +52,12 @@ final class TableThemingTests: XCTestCase {
         XCTAssertNotNil(config.table.rowOddBackgroundColor)
         XCTAssertNotNil(config.table.borderColor)
         XCTAssertEqual(config.table.borderWidth, 2)
-        XCTAssertEqual(config.table.borderRadius, 9)
+        XCTAssertEqual(config.table.cornerRadius, 9)
         XCTAssertEqual(config.table.cellPaddingHorizontal, 20)
         XCTAssertEqual(config.table.cellPaddingVertical, 10)
         XCTAssertEqual(config.table.marginTop, 4)
         XCTAssertEqual(config.table.marginBottom, 24)
-        XCTAssertEqual(config.table.align, .center)
+        XCTAssertEqual(config.table.alignment, .center)
     }
 
     func testDefaultThemeTableColorsAdaptToDarkMode() {
@@ -79,13 +79,13 @@ final class TableThemingTests: XCTestCase {
         var config = MarkdownStyleConfig.baseline()
         config.table.cellPaddingHorizontal = 20
         config.table.borderWidth = 3
-        config.table.align = .trailing
+        config.table.alignment = .trailing
 
         let table = attachment(for: tableMarkdown, config: config)
 
         XCTAssertEqual(table?.style.cellPaddingHorizontal, 20)
         XCTAssertEqual(table?.style.borderWidth, 3)
-        XCTAssertEqual(table?.style.align, .trailing)
+        XCTAssertEqual(table?.style.alignment, .trailing)
     }
 
     // MARK: - Cell styling
@@ -111,7 +111,7 @@ final class TableThemingTests: XCTestCase {
     func testSuperscriptAndSubscriptShiftInsideCells() {
         guard let table = attachment(
             for: "| A | B |\n|---|---|\n| x^2^ | H~2~O |",
-            flags: Md4cFlags(superscript: true, subscript: true)
+            options: MarkdownParsingOptions(superscript: true, subscript: true)
         ) else { return XCTFail("no table") }
 
         let supCell = table.model.rows[1][0].attributedText
@@ -269,7 +269,7 @@ final class TableThemingTests: XCTestCase {
 
     func testCenterAlignPositionsGridWhenTableFits() {
         var config = MarkdownStyleConfig.baseline()
-        config.table.align = .center
+        config.table.alignment = .center
         guard let table = attachment(for: "| A |\n|---|\n| x |", config: config) else {
             return XCTFail("no table")
         }
@@ -305,5 +305,26 @@ final class TableThemingTests: XCTestCase {
         recreated.layoutIfNeeded()
         let recreatedScroll = recreated.subviews.compactMap { $0 as? UIScrollView }.first
         XCTAssertEqual(recreatedScroll?.contentOffset.x, 42)
+    }
+
+    // MARK: - alignment(_:)
+
+    func testAlignmentTakesSwiftUIHorizontalAlignment() {
+        let config = MarkdownStyleConfig.resolve(
+            layers: [MarkdownTheme { Table().alignment(.trailing) }],
+            traitCollection: .current
+        )
+        XCTAssertEqual(config.table.alignment, .trailing)
+    }
+
+    func testUnsupportedHorizontalAlignmentLeavesInheritedValue() {
+        let config = MarkdownStyleConfig.resolve(
+            layers: [
+                MarkdownTheme { Table().alignment(.center) },
+                MarkdownTheme { Table().alignment(.listRowSeparatorLeading) }
+            ],
+            traitCollection: .current
+        )
+        XCTAssertEqual(config.table.alignment, .center)
     }
 }

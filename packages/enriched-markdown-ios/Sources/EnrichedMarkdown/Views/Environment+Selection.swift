@@ -21,10 +21,11 @@ public extension EnvironmentValues {
 }
 
 public extension View {
-    /// Controls whether the rendered markdown text can be selected.
-    /// Defaults to `true`. Links remain tappable when selection is disabled.
-    func markdownSelectable(_ isSelectable: Bool) -> some View {
-        environment(\.markdownSelectable, isSelectable)
+    /// Controls whether the rendered markdown text can be selected, with
+    /// SwiftUI's `.enabled` / `.disabled` selectability. Defaults to
+    /// enabled. Links remain tappable when selection is disabled.
+    func markdownTextSelection<Selectability: TextSelectability>(_ selectability: Selectability) -> some View {
+        environment(\.markdownSelectable, Selectability.allowsSelection)
     }
 
     /// Tint for the selection highlight, handles, and caret — UIKit derives

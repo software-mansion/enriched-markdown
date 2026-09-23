@@ -1,4 +1,5 @@
 import CoreText
+import OSLog
 import SwiftUI
 import UIKit
 
@@ -69,7 +70,10 @@ enum ThemeResolver {
     struct ResolvedFont {
         var spec: ThemeFontSpec?
         var design: Font.Design?
+        var weight: Font.Weight?
     }
+
+    private static let logger = Logger(subsystem: "com.swmansion.EnrichedMarkdown", category: "Theme")
 
     private static let contentSizeCategories: [DynamicTypeSize: UIContentSizeCategory] = [
         .xSmall: .extraSmall,
@@ -170,33 +174,55 @@ enum ThemeResolver {
         resolveFont(from: font, traitCollection: traitCollection).spec ?? .textStyle(.body)
     }
 
-    static func resolveFont(from font: Font, traitCollection: UITraitCollection) -> ResolvedFont {
-        if let resolved = resolveSystemFont(from: font) {
-            return resolved
-        }
-        if let resolved = resolveDirectTextStyle(from: font) {
-            return resolved
-        }
-        return ResolvedFont(spec: .textStyle(.body), design: nil)
-    }
-
-    private static func resolveSystemFont(from font: Font) -> ResolvedFont? {
-        for design in [Font.Design.default, .monospaced, .serif, .rounded] {
-            for (swiftStyle, uiStyle) in systemTextStylePairs where font == Font.system(swiftStyle, design: design) {
-                return ResolvedFont(
-                    spec: .textStyle(uiStyle),
-                    design: design == .default ? nil : design
-                )
+    /// Every `Font` a theme resolves without private API: the eleven text
+    /// styles plain (`.body`), by design, and by design and weight
+    /// (`Font.system(_:design:weight:)`), in both the iOS 13 and iOS 16
+    /// spellings. Built once; `Font` is `Hashable`.
+    private static let textStyleFonts: [Font: ResolvedFont] = {
+        var table: [Font: ResolvedFont] = [:]
+        let designs: [Font.Design?] = [nil, .default, .monospaced, .serif, .rounded]
+        let weights: [Font.Weight?] = [
+            nil, .ultraLight, .thin, .light, .regular, .medium, .semibold, .bold, .heavy, .black
+        ]
+        for (swiftStyle, uiStyle) in systemTextStylePairs {
+            table[Font.system(swiftStyle)] = ResolvedFont(spec: .textStyle(uiStyle))
+            for design in designs {
+                let resolvedDesign = design == .default ? nil : design
+                if let design {
+                    table[Font.system(swiftStyle, design: design)] = ResolvedFont(
+                        spec: .textStyle(uiStyle), design: resolvedDesign
+                    )
+                }
+                for weight in weights {
+                    table[Font.system(swiftStyle, design: design, weight: weight)] = ResolvedFont(
+                        spec: .textStyle(uiStyle), design: resolvedDesign, weight: weight
+                    )
+                }
             }
         }
-        return nil
-    }
-
-    private static func resolveDirectTextStyle(from font: Font) -> ResolvedFont? {
-        for (swiftFont, uiStyle) in directTextStyleMappings where font == swiftFont {
-            return ResolvedFont(spec: .textStyle(uiStyle), design: nil)
+        for (font, uiStyle) in directTextStyleMappings {
+            table[font] = ResolvedFont(spec: .textStyle(uiStyle))
         }
-        return nil
+        return table
+    }()
+
+    /// Point-sized, custom, and modified fonts (`.system(size:)`, `.custom`,
+    /// `.weight()`, `.italic()`) carry their values in SwiftUI's private
+    /// font box, so they cannot be read back; they log and fall back to
+    /// `.body`. `fontSize(_:weight:)` and `fontFamily(_:size:)` are the
+    /// explicit forms for those.
+    static func resolveFont(from font: Font, traitCollection: UITraitCollection) -> ResolvedFont {
+        if let resolved = textStyleFonts[font] {
+            return resolved
+        }
+        logger.warning(
+            """
+            EnrichedMarkdown: .font() only resolves text styles such as .body or \
+            .system(.title, design: .serif, weight: .bold); falling back to .body. \
+            Use .fontSize(_:weight:) for a point size or .fontFamily(_:size:) for a custom face.
+            """
+        )
+        return ResolvedFont(spec: .textStyle(.body))
     }
 
     static func color(from color: Color, traitCollection: UITraitCollection) -> ThemeColorSpec {

@@ -28,7 +28,7 @@ final class MathThemingTests: XCTestCase {
         MarkdownRenderer.render(
             markdown,
             config: config,
-            flags: .commonMark,
+            options: .commonMark,
             imageRequestHeaders: [:],
             plugins: [LaTeXRenderPlugin(typeset: { _, _, fontSize, color in
                 self.typesetCalls.append(TypesetCall(fontSize: fontSize, color: color))
@@ -61,7 +61,7 @@ final class MathThemingTests: XCTestCase {
             .padding(10)
             .marginTop(4)
             .marginBottom(20)
-            .textAlignment(.trailing)
+            .multilineTextAlignment(.trailing)
             .apply(to: &config, traitCollection: .current)
 
         XCTAssertEqual(config.mathBlock.fontSize, 24)
@@ -96,7 +96,7 @@ final class MathThemingTests: XCTestCase {
 
     func testLaterThemeLayersOverrideOnlySetMathProperties() {
         let config = MarkdownStyleConfig.resolve(
-            layers: [.default, .latexDefault, MarkdownTheme { MathBlock().padding(4).textAlignment(.leading) }],
+            layers: [.default, .latexDefault, MarkdownTheme { MathBlock().padding(4).multilineTextAlignment(.leading) }],
             traitCollection: .current
         )
 

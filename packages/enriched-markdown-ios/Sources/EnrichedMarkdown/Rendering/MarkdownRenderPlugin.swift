@@ -7,9 +7,9 @@ package protocol MarkdownRenderPlugin {
     /// built-ins. Called once per node type per render; the result is cached.
     func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer?
 
-    /// Adjusts parser flags before parsing, e.g. enabling the md4c extension
+    /// Adjusts parser options before parsing, e.g. enabling the md4c extension
     /// whose nodes the plugin renders.
-    func adjustFlags(_ flags: inout Md4cFlags)
+    func adjustParsingOptions(_ options: inout MarkdownParsingOptions)
 
     /// Node types the parser emits bare at document root (promoted isolated
     /// display math, for instance) that should render wrapped in a synthetic
@@ -26,7 +26,7 @@ package protocol MarkdownRenderPlugin {
 }
 
 package extension MarkdownRenderPlugin {
-    func adjustFlags(_ flags: inout Md4cFlags) {}
+    func adjustParsingOptions(_ options: inout MarkdownParsingOptions) {}
 
     var rootBlockNodeTypes: Set<NodeType> { [] }
 

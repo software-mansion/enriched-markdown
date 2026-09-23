@@ -1,28 +1,28 @@
 import SwiftUI
 
-/// Configuration for the custom items added to the text-selection edit menu.
-public struct MarkdownSelectionMenuConfig: Equatable, Sendable {
+/// The custom items added to the text-selection edit menu.
+public struct MarkdownSelectionMenu: Equatable, Sendable {
     public var copyAsMarkdown: Bool
-    public var copyImageUrl: Bool
+    public var copyImageURL: Bool
     public var copyAsMarkdownLabel: String
 
     public init(
         copyAsMarkdown: Bool = true,
-        copyImageUrl: Bool = true,
+        copyImageURL: Bool = true,
         copyAsMarkdownLabel: String = "Copy as Markdown"
     ) {
         self.copyAsMarkdown = copyAsMarkdown
-        self.copyImageUrl = copyImageUrl
+        self.copyImageURL = copyImageURL
         self.copyAsMarkdownLabel = copyAsMarkdownLabel
     }
 }
 
 private struct MarkdownSelectionMenuKey: EnvironmentKey {
-    static let defaultValue = MarkdownSelectionMenuConfig()
+    static let defaultValue = MarkdownSelectionMenu()
 }
 
 public extension EnvironmentValues {
-    var markdownSelectionMenu: MarkdownSelectionMenuConfig {
+    var markdownSelectionMenu: MarkdownSelectionMenu {
         get { self[MarkdownSelectionMenuKey.self] }
         set { self[MarkdownSelectionMenuKey.self] = newValue }
     }
@@ -31,7 +31,7 @@ public extension EnvironmentValues {
 public extension View {
     /// Configures the custom edit-menu items ("Copy as Markdown",
     /// "Copy Image URL") shown when text is selected.
-    func markdownSelectionMenu(_ config: MarkdownSelectionMenuConfig) -> some View {
-        environment(\.markdownSelectionMenu, config)
+    func markdownSelectionMenu(_ menu: MarkdownSelectionMenu) -> some View {
+        environment(\.markdownSelectionMenu, menu)
     }
 }

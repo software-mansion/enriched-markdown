@@ -57,8 +57,8 @@ private struct StubPlugin: MarkdownRenderPlugin {
         claimed.contains(type) ? makeRenderer() : nil
     }
 
-    func adjustFlags(_ flags: inout Md4cFlags) {
-        flags.latexMathEnabled = true
+    func adjustParsingOptions(_ options: inout MarkdownParsingOptions) {
+        options.latexMathEnabled = true
     }
 
     var rootBlockNodeTypes: Set<NodeType> { [.latexMathDisplay] }
@@ -81,7 +81,7 @@ final class RenderPluginTests: XCTestCase {
         MarkdownRenderer.render(
             markdown,
             config: config,
-            flags: .commonMark,
+            options: .commonMark,
             imageRequestHeaders: [:],
             plugins: plugins
         )
@@ -99,7 +99,7 @@ final class RenderPluginTests: XCTestCase {
         let range = (rendered.string as NSString).range(of: substring)
         XCTAssertNotEqual(range.location, NSNotFound, "'\(substring)' not rendered", file: file, line: line)
         guard range.location != NSNotFound else { return nil }
-        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, flags: effectiveFlags)
+        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, options: effectiveParsingOptions)
     }
 
     private func stubAttachments(in rendered: NSAttributedString) -> [StubAttachment] {
@@ -167,13 +167,13 @@ final class RenderPluginTests: XCTestCase {
 
     // MARK: - Verbatim copy through the plugin seam
 
-    private var effectiveFlags: Md4cFlags {
-        MarkdownRenderer.effectiveFlags(.commonMark, plugins: [mathStubPlugin])
+    private var effectiveParsingOptions: MarkdownParsingOptions {
+        MarkdownRenderer.effectiveParsingOptions(.commonMark, plugins: [mathStubPlugin])
     }
 
     func testEffectiveFlagsApplyPluginAdjustments() {
-        XCTAssertFalse(Md4cFlags.commonMark.latexMathEnabled)
-        XCTAssertTrue(effectiveFlags.latexMathEnabled)
+        XCTAssertFalse(MarkdownParsingOptions.commonMark.latexMathEnabled)
+        XCTAssertTrue(effectiveParsingOptions.latexMathEnabled)
     }
 
     func testPartialSelectionWithPluginAttachmentCopiesVerbatim() {
@@ -192,7 +192,7 @@ final class RenderPluginTests: XCTestCase {
             for: NSRange(location: 0, length: afterLocation),
             in: rendered,
             sourceMarkdown: source,
-            flags: effectiveFlags
+            options: effectiveParsingOptions
         )
         XCTAssertEqual(copied, "before\n\n$$\nx\n$$")
     }
@@ -208,7 +208,7 @@ final class RenderPluginTests: XCTestCase {
             for: NSRange(location: 0, length: afterLocation),
             in: rendered,
             sourceMarkdown: source,
-            flags: effectiveFlags
+            options: effectiveParsingOptions
         )
         XCTAssertEqual(copied, "before\n\n$$\n  x\n    + y\n$$")
     }
@@ -243,7 +243,7 @@ final class RenderPluginTests: XCTestCase {
         wait(for: [rendered], timeout: 5)
         subscription.cancel()
 
-        XCTAssertEqual(recorded?.flags.latexMathEnabled, true)
+        XCTAssertEqual(recorded?.options.latexMathEnabled, true)
     }
 
     func testPluginAttachmentDropsLineHeightCap() {

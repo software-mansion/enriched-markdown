@@ -6,7 +6,7 @@ public struct TaskList: MarkdownThemeContent {
     public var checkmarkColorSpec: ThemeColorSpec?
     public var checkedTextColorSpec: ThemeColorSpec?
     public var checkboxSize: CGFloat?
-    public var checkboxBorderRadius: CGFloat?
+    public var checkboxCornerRadius: CGFloat?
     public var checkedStrikethrough: Bool?
 
     public init() {}
@@ -65,9 +65,9 @@ public struct TaskList: MarkdownThemeContent {
         return copy
     }
 
-    public func checkboxBorderRadius(_ value: CGFloat) -> Self {
+    public func checkboxCornerRadius(_ value: CGFloat) -> Self {
         var copy = self
-        copy.checkboxBorderRadius = value
+        copy.checkboxCornerRadius = value
         return copy
     }
 
@@ -91,7 +91,7 @@ public struct TaskList: MarkdownThemeContent {
             config.taskList.checkedTextColor = checkedTextColorSpec.resolve(traitCollection: traitCollection)
         }
         if let checkboxSize { config.taskList.checkboxSize = checkboxSize }
-        if let checkboxBorderRadius { config.taskList.checkboxBorderRadius = checkboxBorderRadius }
+        if let checkboxCornerRadius { config.taskList.checkboxCornerRadius = checkboxCornerRadius }
         if let checkedStrikethrough { config.taskList.checkedStrikethrough = checkedStrikethrough }
     }
 }

@@ -6,7 +6,7 @@ public struct ListStyle: Equatable, Sendable {
     public var marginTop: CGFloat?
     public var marginBottom: CGFloat?
     public var lineHeight: CGFloat?
-    public var marginLeft: CGFloat?
+    public var marginLeading: CGFloat?
     public var gapWidth: CGFloat?
     public var bulletColor: UIColor?
     public var bulletSize: CGFloat?
@@ -19,7 +19,7 @@ public struct ListStyle: Equatable, Sendable {
         marginTop: CGFloat? = nil,
         marginBottom: CGFloat? = nil,
         lineHeight: CGFloat? = nil,
-        marginLeft: CGFloat? = nil,
+        marginLeading: CGFloat? = nil,
         gapWidth: CGFloat? = nil,
         bulletColor: UIColor? = nil,
         bulletSize: CGFloat? = nil,
@@ -31,7 +31,7 @@ public struct ListStyle: Equatable, Sendable {
         self.marginTop = marginTop
         self.marginBottom = marginBottom
         self.lineHeight = lineHeight
-        self.marginLeft = marginLeft
+        self.marginLeading = marginLeading
         self.gapWidth = gapWidth
         self.bulletColor = bulletColor
         self.bulletSize = bulletSize
@@ -45,7 +45,7 @@ public struct ListStyle: Equatable, Sendable {
         marginTop = other.marginTop ?? marginTop
         marginBottom = other.marginBottom ?? marginBottom
         lineHeight = other.lineHeight ?? lineHeight
-        marginLeft = other.marginLeft ?? marginLeft
+        marginLeading = other.marginLeading ?? marginLeading
         gapWidth = other.gapWidth ?? gapWidth
         bulletColor = other.bulletColor ?? bulletColor
         bulletSize = other.bulletSize ?? bulletSize

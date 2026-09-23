@@ -83,7 +83,7 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
         let fits = layout.totalWidth <= bounds.width
         let alignOffset: CGFloat
         if fits {
-            switch attachment.style.align {
+            switch attachment.style.alignment {
             case .leading: alignOffset = 0
             case .center: alignOffset = (bounds.width - layout.totalWidth) / 2
             case .trailing: alignOffset = bounds.width - layout.totalWidth

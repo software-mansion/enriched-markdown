@@ -1,4 +1,4 @@
-public struct Md4cFlags: Sendable, Equatable {
+public struct MarkdownParsingOptions: Sendable, Equatable {
     public var underline: Bool
     public var superscript: Bool
     public var `subscript`: Bool
@@ -8,7 +8,7 @@ public struct Md4cFlags: Sendable, Equatable {
     public var preserveBlankLines: Bool
     public var admonitions: Bool
 
-    /// Set only via `MarkdownRenderPlugin.adjustFlags` (the
+    /// Set only via `MarkdownRenderPlugin.adjustParsingOptions` (the
     /// EnrichedMarkdownLaTeX product) — base cannot render math nodes.
     package var latexMathEnabled: Bool = false
 
@@ -32,5 +32,5 @@ public struct Md4cFlags: Sendable, Equatable {
         self.admonitions = admonitions
     }
 
-    public static let commonMark = Md4cFlags()
+    public static let commonMark = MarkdownParsingOptions()
 }

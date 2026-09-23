@@ -125,7 +125,7 @@ final class WritingDirectionTests: XCTestCase {
         MarkdownRenderer.render(
             markdown,
             config: config,
-            flags: Md4cFlags(admonitions: true),
+            options: MarkdownParsingOptions(admonitions: true),
             writingDirection: writingDirection,
             layoutDirection: layoutDirection
         )

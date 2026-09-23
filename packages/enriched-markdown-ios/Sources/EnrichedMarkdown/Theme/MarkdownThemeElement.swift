@@ -20,6 +20,9 @@ public extension MarkdownThemeElement {
         if let design = resolved.design {
             copy.fontDesign = design
         }
+        if let weight = resolved.weight {
+            copy.fontWeight = weight
+        }
         return copy
     }
 
@@ -78,7 +81,7 @@ public extension MarkdownThemeElement {
         return copy
     }
 
-    func textAlignment(_ alignment: TextAlignment) -> Self {
+    func multilineTextAlignment(_ alignment: TextAlignment) -> Self {
         var copy = self
         copy.textAlignment = alignment
         return copy
@@ -86,6 +89,30 @@ public extension MarkdownThemeElement {
 
     func applyElementStyle(
         to style: inout ElementStyle,
+        traitCollection: UITraitCollection
+    ) {
+        applyTextStyle(to: &style, traitCollection: traitCollection)
+    }
+
+    /// Writes the set font, color, margins, and line height into any style record.
+    package func applyTextStyle<Style: TextStyleRecord>(
+        to style: inout Style,
+        traitCollection: UITraitCollection
+    ) {
+        applyBaseTextStyle(to: &style, traitCollection: traitCollection)
+    }
+
+    /// `applyTextStyle` plus the alignment, for records that carry one.
+    package func applyTextStyle<Style: AlignableTextStyleRecord>(
+        to style: inout Style,
+        traitCollection: UITraitCollection
+    ) {
+        applyBaseTextStyle(to: &style, traitCollection: traitCollection)
+        if let textAlignment { style.textAlignment = NSTextAlignment(textAlignment) }
+    }
+
+    private func applyBaseTextStyle<Style: TextStyleRecord>(
+        to style: inout Style,
         traitCollection: UITraitCollection
     ) {
         if fontSpec != nil || fontWeight != nil || fontDesign != nil {
@@ -103,7 +130,6 @@ public extension MarkdownThemeElement {
         if let marginTop { style.marginTop = marginTop }
         if let marginBottom { style.marginBottom = marginBottom }
         if let lineHeight { style.lineHeight = lineHeight }
-        if let textAlignment { style.textAlignment = NSTextAlignment(textAlignment) }
     }
 }
 

@@ -1,8 +1,52 @@
+import SwiftUI
 import UIKit
 import XCTest
 @testable import EnrichedMarkdown
 
 final class ThemeResolverTests: XCTestCase {
+    // MARK: - SwiftUI Font resolution
+
+    func testTextStyleFontsResolveInEverySpelling() {
+        for font in [Font.title2, .system(.title2), .system(.title2, design: .default), .system(.title2, weight: nil)] {
+            let resolved = ThemeResolver.resolveFont(from: font, traitCollection: .current)
+            XCTAssertEqual(resolved.spec, .textStyle(.title2), "\(font)")
+            XCTAssertNil(resolved.design)
+            XCTAssertNil(resolved.weight)
+        }
+    }
+
+    func testDesignAndWeightResolveFromSystemTextStyleFont() {
+        let resolved = ThemeResolver.resolveFont(
+            from: .system(.headline, design: .serif, weight: .semibold),
+            traitCollection: .current
+        )
+        XCTAssertEqual(resolved.spec, .textStyle(.headline))
+        XCTAssertEqual(resolved.design, .serif)
+        XCTAssertEqual(resolved.weight, .semibold)
+    }
+
+    func testMonospacedDesignResolvesFromLegacySpelling() {
+        let resolved = ThemeResolver.resolveFont(from: .system(.body, design: .monospaced), traitCollection: .current)
+        XCTAssertEqual(resolved.spec, .textStyle(.body))
+        XCTAssertEqual(resolved.design, .monospaced)
+    }
+
+    func testPointSizedFontFallsBackToBody() {
+        // Sizes and custom names live in SwiftUI's private font box; the
+        // fallback is documented and logged.
+        for font in [Font.system(size: 18), .custom("Helvetica", size: 12), Font.body.weight(.bold)] {
+            let resolved = ThemeResolver.resolveFont(from: font, traitCollection: .current)
+            XCTAssertEqual(resolved.spec, .textStyle(.body), "\(font)")
+            XCTAssertNil(resolved.weight)
+        }
+    }
+
+    func testFontModifierAppliesResolvedWeight() {
+        let element = Paragraph().font(.system(.body, weight: .bold))
+        XCTAssertEqual(element.fontSpec, .textStyle(.body))
+        XCTAssertEqual(element.fontWeight, .bold)
+    }
+
     func testCustomFontSpecResolvesRegisteredFont() {
         let spec = ThemeFontSpec.custom(name: "Helvetica", size: 16)
         let font = spec.resolve(traitCollection: .current)

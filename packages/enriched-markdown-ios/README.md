@@ -69,7 +69,7 @@ import SwiftUI
 struct ContentView: View {
   var body: some View {
     EnrichedMarkdownText("# Hello\n\nThis is **enriched** markdown.")
-      .onLinkPress { url in
+      .environment(\.openURL, OpenURLAction { url in
         UIApplication.shared.open(url)
       }
   }
@@ -123,24 +123,18 @@ EnrichedMarkdownText(content)
 
 Themes **layer**: each `.markdownTheme` appends on top of parent themes (and `MarkdownTheme.default`). Later layers override only the properties they set.
 
-When styles should react to appearance or Dynamic Type changes, use `rememberMarkdownTheme` after reading those values from the environment:
+Themes built in `body` follow appearance and Dynamic Type changes on their own, because SwiftUI re-evaluates `body` when those environment values change:
 
 ```swift
 struct RootView: View {
   @Environment(\.colorScheme) private var colorScheme
-  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
-    let theme = rememberMarkdownTheme(
-      colorScheme: colorScheme,
-      dynamicTypeSize: dynamicTypeSize
-    ) {
-      Paragraph().foregroundStyle(.primary)
-      Link().foregroundStyle(.tint)
-    }
-
     Content()
-      .markdownTheme(theme)
+      .markdownTheme {
+        Paragraph().foregroundStyle(.primary)
+        Link().foregroundStyle(colorScheme == .dark ? .tint : .secondary)
+      }
   }
 }
 ```
@@ -159,15 +153,15 @@ The `MarkdownTheme` builder supports these elements:
 | `Strong()` | Bold text |
 | `Emphasis()` | Italic text |
 | `Strikethrough()` | Struck-through text |
-| `Underline()` | Underlined text (`Md4cFlags(underline: true)`) |
-| `Superscript()` | Superscript text (`Md4cFlags(superscript: true)`) |
-| `Subscript()` | Subscript text (`Md4cFlags(subscript: true)`) |
-| `Highlight()` | Highlighted text (`Md4cFlags(highlight: true)`) |
+| `Underline()` | Underlined text (`MarkdownParsingOptions(underline: true)`) |
+| `Superscript()` | Superscript text (`MarkdownParsingOptions(superscript: true)`) |
+| `Subscript()` | Subscript text (`MarkdownParsingOptions(subscript: true)`) |
+| `Highlight()` | Highlighted text (`MarkdownParsingOptions(highlight: true)`) |
 | `Spoiler()` | The overlay concealing `\|\|spoiler\|\|` text until tapped |
 | `Code()` | Inline code |
 | `CodeBlock()` | Fenced code blocks |
 | `Blockquote()` | Block quotes |
-| `Admonition(.note)` | GitHub alerts (`> [!NOTE]`, `Md4cFlags(admonitions: true)`), one element per type |
+| `Admonition(.note)` | GitHub alerts (`> [!NOTE]`, `MarkdownParsingOptions(admonitions: true)`), one element per type |
 | `List()` | Ordered and unordered lists |
 | `TaskList()` | Task-list checkboxes (`- [x]`) |
 | `Table()` | GFM tables |
@@ -177,7 +171,9 @@ The `MarkdownTheme` builder supports these elements:
 | `MathBlock()` | Root-level `$$…$$` display math (`EnrichedMarkdownLaTeX`, see [LaTeX math](#latex-math)) |
 | `InlineMath()` | `$…$` math in running text (`EnrichedMarkdownLaTeX`) |
 
-Common modifiers (available on most elements): `.font`, `.fontFamily(_:size:)`, `.fontSize`, `.bold`, `.fontDesign`, `.foregroundStyle`, `.marginTop`, `.marginBottom`, `.lineHeight`, `.textAlignment`.
+Common modifiers (available on most elements): `.font`, `.fontFamily(_:size:)`, `.fontSize`, `.bold`, `.fontDesign`, `.foregroundStyle`, `.marginTop`, `.marginBottom`, `.lineHeight`, `.multilineTextAlignment`.
+
+`.font` takes the SwiftUI text styles in every spelling — `.body`, `.system(.title)`, `.system(.title, design: .serif, weight: .bold)` — and they track Dynamic Type. A point-sized or custom `Font` (`.system(size:)`, `.custom(_:size:)`, `.weight()`, `.italic()`) cannot be read back through public API, so it logs a runtime warning and renders as `.body`; use `.fontSize(_:weight:)` and `.fontFamily(_:size:)` for those. `marginTop` / `marginBottom` are outer spacing between blocks and do not collapse the way CSS margins do.
 
 For custom families, `.bold()` picks a bold face from the same `UIFont` family when one is registered (e.g. `Helvetica` → `Helvetica-Bold`). If no bold face exists, the original face is kept. `.fontDesign` only applies to system fonts, not `.fontFamily`.
 
@@ -185,17 +181,17 @@ Element-specific modifiers include:
 
 - **Link:** `.underline(_:)`
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
-- **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` / `.borderRadius`
+- **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock)
 - **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
-- **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeft`
-- **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxBorderRadius`, `.checkedTextColor`, `.checkedStrikethrough`
-- **Spoiler:** `.color` (the particles or the solid box), `.particleDensity` (default `8`), `.particleSpeed` (default `20`), `.solidBorderRadius` (default `4`), `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed
+- **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeading`
+- **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxCornerRadius`, `.checkedTextColor`, `.checkedStrikethrough`
+- **Spoiler:** `.foregroundStyle` (the particles or the solid box), `.particleDensity` (default `8`), `.particleSpeed` (default `20`), `.solidBorderRadius` (default `4`), `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
-- **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius` / `.borderRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.align`
-- **BlockImage:** `.height`, `.maxHeight`, `.aspectRatio`, `.contentMode`, `.borderRadius` — see [Image sizing](#image-sizing)
+- **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.alignment` (`HorizontalAlignment`: `.leading`, `.center`, `.trailing`)
+- **BlockImage:** `.height`, `.maxHeight`, `.aspectRatio`, `.contentMode`, `.cornerRadius` — see [Image sizing](#image-sizing)
 - **InlineImage:** `.size`
-- **ThematicBreak:** `.color` / `.foregroundStyle`, `.height`
-- **MathBlock:** `.fontSize`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.textAlignment` — the only modifiers; the face is always KaTeX's
+- **ThematicBreak:** `.foregroundStyle`, `.height`
+- **MathBlock:** `.fontSize`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.multilineTextAlignment` — the only modifiers; the face is always KaTeX's
 - **InlineMath:** `.foregroundStyle` — the only modifier; size follows the surrounding text
 
 ## API reference
@@ -204,21 +200,21 @@ Element-specific modifiers include:
 
 ```swift
 public struct EnrichedMarkdownText: View {
-  public init(_ markdown: String, flags: Md4cFlags = .commonMark)
+  public init(_ markdown: String, options: MarkdownParsingOptions = .commonMark)
 }
 ```
 
 | Parameter | Description |
 |-----------|-------------|
 | `markdown` | Markdown source string |
-| `flags` | Optional parser extensions (see `Md4cFlags`) |
+| `options` | Optional parser extensions (see `MarkdownParsingOptions`) |
 
-Style and interaction handling come from the environment (`.markdownTheme`, `.onLinkPress`, and the other modifiers below), not from initializer parameters.
+Style and interaction handling come from the environment (`.markdownTheme`, `openURL`, and the other modifiers below), not from initializer parameters.
 
-### `Md4cFlags`
+### `MarkdownParsingOptions`
 
 ```swift
-public struct Md4cFlags: Equatable, Sendable {
+public struct MarkdownParsingOptions: Equatable, Sendable {
   public var underline: Bool            // __text__ renders underlined instead of bold
   public var hardSoftBreaks: Bool       // single newlines become visible line breaks
   public var preserveBlankLines: Bool   // consecutive blank lines render as extra empty lines
@@ -228,11 +224,11 @@ public struct Md4cFlags: Equatable, Sendable {
   public var highlight: Bool            // ==text== renders with a background
   public var admonitions: Bool          // > [!NOTE] quotes render as GitHub alerts
 
-  public static let commonMark: Md4cFlags
+  public static let commonMark: MarkdownParsingOptions
 }
 ```
 
-`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, `highlight`, and `admonitions` affect rendering. Tables, task lists, strikethrough, and spoilers are always enabled and need no flags.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, `highlight`, and `admonitions` affect rendering. Tables, task lists, strikethrough, and spoilers are always enabled and need no options.
 
 ### `.markdownTheme`
 
@@ -254,33 +250,43 @@ public struct MarkdownTheme: Sendable {
 }
 ```
 
-### `.onLinkPress` / `.onLinkLongPress`
+### Links: `openURL` / `.onMarkdownLinkLongPress`
 
 ```swift
 extension View {
-  func onLinkPress(_ action: @escaping (URL) -> Void) -> some View
-  func onLinkLongPress(_ action: @escaping (URL) -> Void) -> some View
+  func onMarkdownLinkLongPress(_ action: @escaping (URL) -> Void) -> some View
 }
 ```
 
-`onLinkPress` is called when a link is tapped. `onLinkLongPress` is called when a link is long-pressed, replacing the system link menu; without it, a long-press behaves like a press when `onLinkPress` is set. Scope either to a single view or a larger subtree.
-
-### `.onTaskListItemPress` / `.markdownTaskListItemToggleEnabled`
+A tapped link calls the SwiftUI `openURL` environment action, exactly as `Text` does with its own markdown links. Left alone it opens the URL with the system; install an `OpenURLAction` to route it yourself, and return `.systemAction` to fall through:
 
 ```swift
-public struct TaskListItemPressEvent: Equatable, Sendable {
-  public let index: Int      // 0-based, in document order
-  public let checked: Bool   // state after the toggle
-  public let text: String    // first line of the item's plain text
+EnrichedMarkdownText(markdown)
+  .environment(\.openURL, OpenURLAction { url in
+    guard url.host == "myapp.example" else { return .systemAction }
+    navigate(to: url)
+    return .handled
+  })
+```
+
+`onMarkdownLinkLongPress` is called when a link is long-pressed, replacing the system link menu. Without it the system menu stays. Scope either to a single view or a larger subtree.
+
+### `.onTaskListItemToggle` / `.markdownTaskListItemToggleEnabled`
+
+```swift
+public struct TaskListItemToggle: Equatable, Sendable {
+  public let index: Int        // 0-based, in document order
+  public let isChecked: Bool   // state after the toggle
+  public let text: String      // first line of the item's plain text
 }
 
 extension View {
-  func onTaskListItemPress(_ action: @escaping (TaskListItemPressEvent) -> Void) -> some View
+  func onTaskListItemToggle(_ action: @escaping (TaskListItemToggle) -> Void) -> some View
   func markdownTaskListItemToggleEnabled(_ enabled: Bool) -> some View   // default true
 }
 ```
 
-Tapping a task-list checkbox toggles its checked state in place (including the checked-item text decoration) and calls `onTaskListItemPress` with the new state. The toggle is visual — the view never mutates your `markdown` string, so persist the change from the handler if you need it back. `markdownTaskListItemToggleEnabled(false)` makes checkbox taps fully inert: no visual toggle and no `onTaskListItemPress`. Text selection and links are unaffected either way.
+Tapping a task-list checkbox toggles its checked state in place (including the checked-item text decoration) and calls `onTaskListItemToggle` with the new state. The toggle is visual — the view never mutates your `markdown` string, so persist the change from the handler if you need it back. `markdownTaskListItemToggleEnabled(false)` makes checkbox taps fully inert: no visual toggle and no `onTaskListItemToggle`. Text selection and links are unaffected either way.
 
 ### `.markdownSpoilerOverlay`
 
@@ -336,30 +342,30 @@ EnrichedMarkdownText(content)
 
 A spoiler gets one view per line segment; the text view sets its frame and recreates it whenever the segment moves, so keep construction cheap. The view must be opaque, because emoji and inline images ignore the transparent foreground under it. An effect that shows the text through draws `concealedText`, the segment's slice with inline styling only, as the blur above does. Overlays are rebuilt when the provider value or the `Spoiler()` style changes, so a provider with parameters should keep them in stored properties and let `Equatable` synthesis compare them.
 
-### `.markdownSelectable` / `.markdownSelectionColor`
+### `.markdownTextSelection` / `.markdownSelectionColor`
 
 ```swift
 extension View {
-  func markdownSelectable(_ isSelectable: Bool) -> some View   // default true
-  func markdownSelectionColor(_ color: Color?) -> some View    // default nil = system tint
+  func markdownTextSelection(_ selectability: some TextSelectability) -> some View   // .enabled (default) / .disabled
+  func markdownSelectionColor(_ color: Color?) -> some View                          // default nil = system tint
 }
 ```
 
-`markdownSelectable(false)` disables text selection while links stay tappable. `markdownSelectionColor` tints the selection highlight, handles, and caret (UIKit derives all three from one tint).
+`markdownTextSelection(.disabled)` disables text selection while links stay tappable, mirroring SwiftUI's `textSelection`. To drive it from a `Bool`, set the environment value directly: `.environment(\.markdownSelectable, isSelectable)`. `markdownSelectionColor` tints the selection highlight, handles, and caret (UIKit derives all three from one tint).
 
 ### `.markdownSelectionMenu`
 
 ```swift
-public struct MarkdownSelectionMenuConfig: Equatable, Sendable {
+public struct MarkdownSelectionMenu: Equatable, Sendable {
   public init(
     copyAsMarkdown: Bool = true,
-    copyImageUrl: Bool = true,
+    copyImageURL: Bool = true,
     copyAsMarkdownLabel: String = "Copy as Markdown"
   )
 }
 
 extension View {
-  func markdownSelectionMenu(_ config: MarkdownSelectionMenuConfig) -> some View
+  func markdownSelectionMenu(_ menu: MarkdownSelectionMenu) -> some View
 }
 ```
 
@@ -432,18 +438,26 @@ Code blocks always render left-to-right. See [Right-to-left text](#right-to-left
 
 Outside SwiftUI, `MarkdownRenderer.render` and `renderLaTeX` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
 
-### `rememberMarkdownTheme`
+### Migrating from 0.1
 
-```swift
-@MainActor
-public func rememberMarkdownTheme(
-  colorScheme: ColorScheme,
-  dynamicTypeSize: DynamicTypeSize,
-  @MarkdownThemeBuilder _ content: () -> MarkdownThemeGroup
-) -> MarkdownTheme
-```
+Every 0.1 name still compiles as a deprecated alias that forwards to its replacement, with an Xcode fix-it where the shape is unchanged. They will be removed in the next major version.
 
-Re-creates a theme when `colorScheme` or `dynamicTypeSize` changes. Call from `View.body` after reading those environment values.
+| 0.1 | Now |
+|-----|-----|
+| `Md4cFlags`, `EnrichedMarkdownText(_:flags:)`, `MarkdownRenderer.render(_:config:flags:)` | `MarkdownParsingOptions`, `options:` |
+| `.onLinkPress { url in … }` | `.environment(\.openURL, OpenURLAction { url in …; return .handled })` |
+| `.onLinkLongPress` | `.onMarkdownLinkLongPress` |
+| `.onTaskListItemPress`, `TaskListItemPressEvent(index:checked:text:)` | `.onTaskListItemToggle`, `TaskListItemToggle(index:isChecked:text:)` |
+| `.markdownSelectable(false)` | `.markdownTextSelection(.disabled)` |
+| `MarkdownSelectionMenuConfig(copyImageUrl:)` | `MarkdownSelectionMenu(copyImageURL:)` |
+| `rememberMarkdownTheme(colorScheme:dynamicTypeSize:) { … }` | `MarkdownTheme { … }` built in `body` |
+| `.textAlignment(_:)` (all elements, `MathBlock`) | `.multilineTextAlignment(_:)` |
+| `.borderRadius(_:)` on `BlockImage`, `CodeBlock`, `Table` | `.cornerRadius(_:)` |
+| `TaskList().checkboxBorderRadius(_:)` | `.checkboxCornerRadius(_:)` |
+| `List().marginLeft(_:)` | `.marginLeading(_:)` |
+| `Table().align(_: TableAlignment)` | `.alignment(_: HorizontalAlignment)` |
+| `ThematicBreak().color(_:)`, `Spoiler().color(_:)` | `.foregroundStyle(_:)` |
+| `CodeBlockStyle.borderRadius`, `ImageStyle.borderRadius`, `TableStyle.borderRadius` / `.align`, `TaskListStyle.checkboxBorderRadius`, `ListStyle.marginLeft` | `cornerRadius`, `alignment`, `checkboxCornerRadius`, `marginLeading` (fields and init labels) |
 
 ## Copy & clipboard
 
@@ -506,7 +520,7 @@ EnrichedMarkdownText(markdown)
 Three things worth knowing:
 
 - A `maxHeight` box stands at the full cap until the image loads and only then shrinks to the fitted height, so the page reflows once. An `aspectRatio` box is settled from the start and never moves.
-- `.borderRadius` rounds the drawn image, not the box, so with `.fit`, `.scaleDown` or `.original` the corners follow the image.
+- `.cornerRadius` rounds the drawn image, not the box, so with `.fit`, `.scaleDown` or `.original` the corners follow the image.
 - `.scaleDown` and `.original` draw the decoded image, and decoding is capped at the screen's pixel width, so a very large image is not drawn at its full pixel size.
 
 Inline images ignore all four modifiers. They are always a square of `InlineImage().size`.
@@ -516,7 +530,7 @@ Inline images ignore all four modifiers. They are always a square of `InlineImag
 VoiceOver walks the rendered markdown as individual elements rather than one text blob:
 
 - Headings announce "heading, level N"; a link inside a heading stays its own element and keeps the heading trait
-- Links are activatable elements that invoke `.onLinkPress`; a linked image (`[![alt](img)](url)`) reads its alt text with both the image and link traits
+- Links are activatable elements that call the `openURL` action; a linked image (`[![alt](img)](url)`) reads its alt text with both the image and link traits
 - Images read their alt text ("Image" when absent)
 - List items announce their position ("Bullet point", "List item N", "Task, checked", with "Nested" variants)
 - Content inside a blockquote appends "Blockquote" or "Nested blockquote"; an admonition reads its title ("Note", "Tip", …) as its own element first
@@ -591,7 +605,7 @@ EnrichedMarkdownText(content)
       .background(Color(red: 243 / 255, green: 244 / 255, blue: 246 / 255))
       .padding(16)
       .marginBottom(24)
-      .textAlignment(.leading)
+      .multilineTextAlignment(.leading)
 
     InlineMath()
       .foregroundStyle(.tint)
@@ -611,16 +625,16 @@ layer: `MarkdownStyleConfig.resolve(layers: [.default, .latexDefault, yours], tr
 - Paragraphs, line breaks
 - **Bold**, *italic*, `inline code`
 - ~~Strikethrough~~ (`~~text~~`)
-- Underline (`__text__` with `Md4cFlags(underline: true)`)
-- Superscript (`^text^` with `Md4cFlags(superscript: true)`)
-- Subscript (`~text~` with `Md4cFlags(subscript: true)`)
-- Highlight (`==text==` with `Md4cFlags(highlight: true)`)
+- Underline (`__text__` with `MarkdownParsingOptions(underline: true)`)
+- Superscript (`^text^` with `MarkdownParsingOptions(superscript: true)`)
+- Subscript (`~text~` with `MarkdownParsingOptions(subscript: true)`)
+- Highlight (`==text==` with `MarkdownParsingOptions(highlight: true)`)
 - Spoilers (`||text||`, tap to reveal — see `.markdownSpoilerOverlay`)
 - Fenced code blocks
 - Block quotes
-- GitHub alerts / admonitions (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` with `Md4cFlags(admonitions: true)`): a tinted bar, icon, and title above the quoted content
+- GitHub alerts / admonitions (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` with `MarkdownParsingOptions(admonitions: true)`): a tinted bar, icon, and title above the quoted content
 - Ordered and unordered lists
-- Task lists (`- [x]` / `- [ ]`, tap to toggle — see `.onTaskListItemPress`)
+- Task lists (`- [x]` / `- [ ]`, tap to toggle — see `.onTaskListItemToggle`)
 - Tables (GFM: column alignment, per-cell wrapping, horizontal scrolling)
 - Links and images (block and inline)
 - Autolinked bare URLs, `www.` links, and emails (`permissiveAutolinks`, on by default)

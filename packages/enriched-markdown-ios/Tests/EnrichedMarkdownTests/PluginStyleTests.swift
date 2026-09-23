@@ -36,8 +36,8 @@ private struct BlockMarginsPlugin: MarkdownRenderPlugin {
         type == .latexMathDisplay ? PlaceholderRenderer() : nil
     }
 
-    func adjustFlags(_ flags: inout Md4cFlags) {
-        flags.latexMathEnabled = true
+    func adjustParsingOptions(_ options: inout MarkdownParsingOptions) {
+        options.latexMathEnabled = true
     }
 
     var rootBlockNodeTypes: Set<NodeType> { [.latexMathDisplay] }
@@ -115,7 +115,7 @@ final class PluginStyleTests: XCTestCase {
         MarkdownRenderer.render(
             markdown,
             config: config,
-            flags: .commonMark,
+            options: .commonMark,
             imageRequestHeaders: [:],
             plugins: [BlockMarginsPlugin(margins: margins)]
         )

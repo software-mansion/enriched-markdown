@@ -43,7 +43,7 @@ struct BlockDecorationConfig {
         if let width = style.borderWidth {
             codeBlockBorderWidth = width
         }
-        if let radius = style.borderRadius {
+        if let radius = style.cornerRadius {
             codeBlockBorderRadius = radius
         }
         if let padding = style.padding {
@@ -88,7 +88,7 @@ struct BlockDecorationConfig {
         if let size = style.checkboxSize {
             taskCheckboxSize = size
         }
-        if let radius = style.checkboxBorderRadius {
+        if let radius = style.checkboxCornerRadius {
             taskCheckboxBorderRadius = radius
         }
         if let color = style.checkedColor {

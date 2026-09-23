@@ -252,7 +252,7 @@ final class SpoilerTests: XCTestCase {
     func testSpoilerThemeElementAppliesToConfig() {
         var applied = MarkdownStyleConfig()
         Spoiler()
-            .color(Color(UIColor.systemPurple))
+            .foregroundStyle(Color(UIColor.systemPurple))
             .background(Color(UIColor.black))
             .particleDensity(12)
             .particleSpeed(30)

@@ -207,7 +207,7 @@ final class TaskListInteractionTests: XCTestCase {
     func testEnvironmentDefaults() {
         let environment = EnvironmentValues()
 
-        XCTAssertNil(environment.markdownTaskListItemPressHandler)
+        XCTAssertNil(environment.markdownTaskListItemToggleHandler)
         XCTAssertTrue(environment.markdownTaskListItemToggleEnabled)
     }
 

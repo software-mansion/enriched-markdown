@@ -2,7 +2,7 @@ import EnrichedMarkdownCppShim
 import Foundation
 
 enum MarkdownParserBridge {
-    static func parse(_ markdown: String, flags: Md4cFlags) -> MarkdownASTNode {
+    static func parse(_ markdown: String, options: MarkdownParsingOptions) -> MarkdownASTNode {
         if isBlank(markdown) {
             return MarkdownASTNode(type: .document)
         }
@@ -10,15 +10,15 @@ enum MarkdownParserBridge {
         return markdown.withCString { cString in
             guard let result = em_parse_markdown(
                 cString,
-                flags.underline ? 1 : 0,
-                flags.latexMathEnabled ? 1 : 0,
-                flags.superscript ? 1 : 0,
-                flags.subscript ? 1 : 0,
-                flags.highlight ? 1 : 0,
-                flags.hardSoftBreaks ? 1 : 0,
-                flags.permissiveAutolinks ? 1 : 0,
-                flags.preserveBlankLines ? 1 : 0,
-                flags.admonitions ? 1 : 0
+                options.underline ? 1 : 0,
+                options.latexMathEnabled ? 1 : 0,
+                options.superscript ? 1 : 0,
+                options.subscript ? 1 : 0,
+                options.highlight ? 1 : 0,
+                options.hardSoftBreaks ? 1 : 0,
+                options.permissiveAutolinks ? 1 : 0,
+                options.preserveBlankLines ? 1 : 0,
+                options.admonitions ? 1 : 0
             ) else {
                 return MarkdownASTNode(type: .document)
             }

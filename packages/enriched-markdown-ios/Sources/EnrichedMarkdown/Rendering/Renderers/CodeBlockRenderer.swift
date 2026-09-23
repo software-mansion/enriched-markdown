@@ -61,7 +61,7 @@ final class CodeBlockRenderer: NodeRenderer {
 
         let baseStyle = ParagraphStyleHelpers.getOrCreateParagraphStyle(in: output, at: contentStart)
         baseStyle.baseWritingDirection = .leftToRight
-        baseStyle.alignment = .left
+        baseStyle.alignment = blockStyle.textAlignment ?? .left
         baseStyle.firstLineHeadIndent = padding
         baseStyle.headIndent = padding
         baseStyle.tailIndent = -padding

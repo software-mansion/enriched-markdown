@@ -3,11 +3,12 @@ import UIKit
 
 public struct EnrichedMarkdownText: View {
     private let markdown: String
-    private let flags: Md4cFlags
+    private let options: MarkdownParsingOptions
 
     @Environment(\.markdownThemeLayers) private var themeLayers
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.openURL) private var openURL
     @Environment(\.markdownLinkPressHandler) private var onLinkPress
     @Environment(\.markdownLinkLongPressHandler) private var onLinkLongPress
     @Environment(\.markdownSelectionMenu) private var selectionMenuConfig
@@ -15,7 +16,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownSelectionColor) private var selectionColor
     @Environment(\.markdownImageRequestHeaders) private var imageRequestHeaders
     @Environment(\.markdownRenderPlugins) private var renderPlugins
-    @Environment(\.markdownTaskListItemPressHandler) private var onTaskListItemPress
+    @Environment(\.markdownTaskListItemToggleHandler) private var onTaskListItemToggle
     @Environment(\.markdownTaskListItemToggleEnabled) private var isTaskListToggleEnabled
     @Environment(\.markdownSpoilerOverlay) private var spoilerOverlay
     @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
@@ -24,9 +25,9 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.layoutDirection) private var layoutDirection
     @StateObject private var renderStore = MarkdownRenderStore()
 
-    public init(_ markdown: String, flags: Md4cFlags = .commonMark) {
+    public init(_ markdown: String, options: MarkdownParsingOptions = .commonMark) {
         self.markdown = markdown
-        self.flags = flags
+        self.options = options
     }
 
     private var styleConfig: MarkdownStyleConfig {
@@ -47,7 +48,7 @@ public struct EnrichedMarkdownText: View {
         let inputs = MarkdownRenderInputs(
             markdown: markdown,
             config: config,
-            flags: flags,
+            options: options,
             imageRequestHeaders: imageRequestHeaders,
             writingDirection: writingDirection,
             layoutDirection: layoutDirection
@@ -56,6 +57,7 @@ public struct EnrichedMarkdownText: View {
             attributedText: renderStore.attributedText,
             source: renderStore.source,
             styleConfig: config,
+            openURL: { openURL($0) },
             onLinkPress: onLinkPress,
             onLinkLongPress: onLinkLongPress,
             selectionMenuConfig: selectionMenuConfig,
@@ -64,8 +66,8 @@ public struct EnrichedMarkdownText: View {
             onTaskListItemTap: isTaskListToggleEnabled ? { hit in
                 let checked = !hit.checked
                 renderStore.applyTaskListToggle(index: hit.index, checked: checked, config: config)
-                onTaskListItemPress?(
-                    TaskListItemPressEvent(index: hit.index, checked: checked, text: hit.itemText)
+                onTaskListItemToggle?(
+                    TaskListItemToggle(index: hit.index, isChecked: checked, text: hit.itemText)
                 )
             } : nil,
             spoilerOverlay: spoilerOverlay,

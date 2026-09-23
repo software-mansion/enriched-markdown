@@ -4,7 +4,7 @@ public struct TaskListStyle: Equatable, Sendable {
     public var checkedColor: UIColor?
     public var borderColor: UIColor?
     public var checkboxSize: CGFloat?
-    public var checkboxBorderRadius: CGFloat?
+    public var checkboxCornerRadius: CGFloat?
     public var checkmarkColor: UIColor?
     public var checkedTextColor: UIColor?
     public var checkedStrikethrough: Bool?
@@ -13,7 +13,7 @@ public struct TaskListStyle: Equatable, Sendable {
         checkedColor: UIColor? = nil,
         borderColor: UIColor? = nil,
         checkboxSize: CGFloat? = nil,
-        checkboxBorderRadius: CGFloat? = nil,
+        checkboxCornerRadius: CGFloat? = nil,
         checkmarkColor: UIColor? = nil,
         checkedTextColor: UIColor? = nil,
         checkedStrikethrough: Bool? = nil
@@ -21,7 +21,7 @@ public struct TaskListStyle: Equatable, Sendable {
         self.checkedColor = checkedColor
         self.borderColor = borderColor
         self.checkboxSize = checkboxSize
-        self.checkboxBorderRadius = checkboxBorderRadius
+        self.checkboxCornerRadius = checkboxCornerRadius
         self.checkmarkColor = checkmarkColor
         self.checkedTextColor = checkedTextColor
         self.checkedStrikethrough = checkedStrikethrough
@@ -31,7 +31,7 @@ public struct TaskListStyle: Equatable, Sendable {
         checkedColor = other.checkedColor ?? checkedColor
         borderColor = other.borderColor ?? borderColor
         checkboxSize = other.checkboxSize ?? checkboxSize
-        checkboxBorderRadius = other.checkboxBorderRadius ?? checkboxBorderRadius
+        checkboxCornerRadius = other.checkboxCornerRadius ?? checkboxCornerRadius
         checkmarkColor = other.checkmarkColor ?? checkmarkColor
         checkedTextColor = other.checkedTextColor ?? checkedTextColor
         checkedStrikethrough = other.checkedStrikethrough ?? checkedStrikethrough

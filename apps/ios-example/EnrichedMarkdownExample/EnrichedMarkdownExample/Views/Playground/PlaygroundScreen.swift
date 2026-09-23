@@ -130,13 +130,13 @@ struct PlaygroundScreen: View {
         .background(Color.gray50)
         .accessibilityIdentifier("playground-screen")
         .markdownTheme(PlaygroundMarkdownTheme)
-        .markdownSelectionMenu(MarkdownSelectionMenuConfig())
-        .markdownSelectable(selectableEnabled)
+        .markdownSelectionMenu(MarkdownSelectionMenu())
+        .environment(\.markdownSelectable, selectableEnabled)
         .markdownSpoilerOverlay(spoilerOverlay.provider)
         .markdownSelectionColor(.orange)
         .markdownImageRequestHeaders(["Accept": acceptImageType])
         .markdownLaTeX()
-        .onLinkLongPress { url in
+        .onMarkdownLinkLongPress { url in
             longPressedLink = url.absoluteString
             linkAlertVisible = true
         }
@@ -184,7 +184,7 @@ struct PlaygroundScreen: View {
                 } else {
                     EnrichedMarkdownText(
                         markdown,
-                        flags: Md4cFlags(
+                        options: MarkdownParsingOptions(
                             underline: underlineEnabled,
                             superscript: true,
                             subscript: true,

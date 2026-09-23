@@ -62,8 +62,8 @@ package struct LaTeXRenderPlugin: MarkdownRenderPlugin {
 
     package var defaultTheme: MarkdownTheme? { .latexDefault }
 
-    package func adjustFlags(_ flags: inout Md4cFlags) {
-        flags.latexMathEnabled = true
+    package func adjustParsingOptions(_ options: inout MarkdownParsingOptions) {
+        options.latexMathEnabled = true
     }
 
     package var rootBlockNodeTypes: Set<NodeType> {
@@ -101,7 +101,7 @@ public extension MarkdownRenderer {
     static func renderLaTeX(
         _ markdown: String,
         config: MarkdownStyleConfig,
-        flags: Md4cFlags = .commonMark,
+        options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
         accessibilityLabel: String = "Math: {speech}",
         writingDirection: MarkdownWritingDirection = .firstStrong,
@@ -110,7 +110,7 @@ public extension MarkdownRenderer {
         renderLaTeX(
             markdown,
             config: config,
-            flags: flags,
+            options: options,
             imageRequestHeaders: imageRequestHeaders,
             accessibilityLabel: LaTeXRenderPlugin.label(template: accessibilityLabel),
             writingDirection: writingDirection,
@@ -121,7 +121,7 @@ public extension MarkdownRenderer {
     static func renderLaTeX(
         _ markdown: String,
         config: MarkdownStyleConfig,
-        flags: Md4cFlags = .commonMark,
+        options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
         accessibilityLabel: @escaping (String) -> String,
         writingDirection: MarkdownWritingDirection = .firstStrong,
@@ -130,7 +130,7 @@ public extension MarkdownRenderer {
         render(
             markdown,
             config: config,
-            flags: flags,
+            options: options,
             imageRequestHeaders: imageRequestHeaders,
             plugins: [LaTeXRenderPlugin(accessibilityLabel: accessibilityLabel)],
             writingDirection: writingDirection,

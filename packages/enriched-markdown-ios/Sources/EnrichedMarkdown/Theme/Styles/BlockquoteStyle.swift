@@ -10,7 +10,7 @@ public struct BlockquoteStyle: Equatable, Sendable {
     public var borderColor: UIColor?
     public var borderWidth: CGFloat?
     public var gapWidth: CGFloat?
-    /// Per-type colors for `> [!NOTE]`-style alerts (`Md4cFlags(admonitions: true)`).
+    /// Per-type colors for `> [!NOTE]`-style alerts (`MarkdownParsingOptions(admonitions: true)`).
     public var admonitions: [AdmonitionType: AdmonitionStyle]
 
     public init(

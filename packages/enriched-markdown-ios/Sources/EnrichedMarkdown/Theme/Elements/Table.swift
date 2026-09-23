@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 public struct Table: MarkdownThemeElement {
@@ -16,10 +17,10 @@ public struct Table: MarkdownThemeElement {
     public var lineHeight: CGFloat?
     public var textAlignment: TextAlignment?
     public var borderWidth: CGFloat?
-    public var borderRadius: CGFloat?
+    public var cornerRadius: CGFloat?
     public var cellPaddingHorizontal: CGFloat?
     public var cellPaddingVertical: CGFloat?
-    public var align: TableAlignment?
+    public var alignment: TableAlignment?
 
     public init() {}
 
@@ -97,12 +98,8 @@ public struct Table: MarkdownThemeElement {
 
     public func cornerRadius(_ value: CGFloat) -> Self {
         var copy = self
-        copy.borderRadius = value
+        copy.cornerRadius = value
         return copy
-    }
-
-    public func borderRadius(_ value: CGFloat) -> Self {
-        cornerRadius(value)
     }
 
     public func cellPaddingHorizontal(_ value: CGFloat) -> Self {
@@ -117,11 +114,20 @@ public struct Table: MarkdownThemeElement {
         return copy
     }
 
-    public func align(_ value: TableAlignment) -> Self {
+    /// Horizontal placement of a table narrower than the text. Only
+    /// `.leading`, `.center`, and `.trailing` apply; any other alignment
+    /// logs and leaves the inherited value.
+    public func alignment(_ value: HorizontalAlignment) -> Self {
+        guard let tableAlignment = TableAlignment(value) else {
+            Self.logger.warning("EnrichedMarkdown: Table().alignment only takes .leading, .center, or .trailing.")
+            return self
+        }
         var copy = self
-        copy.align = value
+        copy.alignment = tableAlignment
         return copy
     }
+
+    private static let logger = Logger(subsystem: "com.swmansion.EnrichedMarkdown", category: "Theme")
 
     public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
         applyColors(to: &config, traitCollection: traitCollection)
@@ -129,9 +135,6 @@ public struct Table: MarkdownThemeElement {
     }
 
     private func applyColors(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
-        if let foregroundColorSpec {
-            config.table.foregroundColor = foregroundColorSpec.resolve(traitCollection: traitCollection)
-        }
         if let headerTextColorSpec {
             config.table.headerTextColor = headerTextColorSpec.resolve(traitCollection: traitCollection)
         }
@@ -150,15 +153,7 @@ public struct Table: MarkdownThemeElement {
     }
 
     private func applyMetrics(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
-        if fontSpec != nil || fontWeight != nil || fontDesign != nil {
-            config.table.font = ThemeResolver.applyFont(
-                spec: fontSpec,
-                weight: fontWeight,
-                design: fontDesign,
-                to: config.table.font,
-                traitCollection: traitCollection
-            )
-        }
+        applyTextStyle(to: &config.table, traitCollection: traitCollection)
         if headerFontSpec != nil {
             config.table.headerFont = ThemeResolver.applyFont(
                 spec: headerFontSpec,
@@ -168,13 +163,10 @@ public struct Table: MarkdownThemeElement {
                 traitCollection: traitCollection
             )
         }
-        if let marginTop { config.table.marginTop = marginTop }
-        if let marginBottom { config.table.marginBottom = marginBottom }
-        if let lineHeight { config.table.lineHeight = lineHeight }
         if let borderWidth { config.table.borderWidth = borderWidth }
-        if let borderRadius { config.table.borderRadius = borderRadius }
+        if let cornerRadius { config.table.cornerRadius = cornerRadius }
         if let cellPaddingHorizontal { config.table.cellPaddingHorizontal = cellPaddingHorizontal }
         if let cellPaddingVertical { config.table.cellPaddingVertical = cellPaddingVertical }
-        if let align { config.table.align = align }
+        if let alignment { config.table.alignment = alignment }
     }
 }

@@ -9,8 +9,10 @@ public struct CodeBlockStyle: Equatable, Sendable {
     public var lineHeight: CGFloat?
     public var padding: CGFloat?
     public var borderColor: UIColor?
-    public var borderRadius: CGFloat?
+    public var cornerRadius: CGFloat?
     public var borderWidth: CGFloat?
+    /// Code blocks always lay out left-to-right; nil aligns to the left.
+    public var textAlignment: NSTextAlignment?
 
     public init(
         font: UIFont? = nil,
@@ -21,8 +23,9 @@ public struct CodeBlockStyle: Equatable, Sendable {
         lineHeight: CGFloat? = nil,
         padding: CGFloat? = nil,
         borderColor: UIColor? = nil,
-        borderRadius: CGFloat? = nil,
-        borderWidth: CGFloat? = nil
+        cornerRadius: CGFloat? = nil,
+        borderWidth: CGFloat? = nil,
+        textAlignment: NSTextAlignment? = nil
     ) {
         self.font = font
         self.foregroundColor = foregroundColor
@@ -32,8 +35,9 @@ public struct CodeBlockStyle: Equatable, Sendable {
         self.lineHeight = lineHeight
         self.padding = padding
         self.borderColor = borderColor
-        self.borderRadius = borderRadius
+        self.cornerRadius = cornerRadius
         self.borderWidth = borderWidth
+        self.textAlignment = textAlignment
     }
 
     public mutating func merge(_ other: CodeBlockStyle) {
@@ -45,7 +49,8 @@ public struct CodeBlockStyle: Equatable, Sendable {
         lineHeight = other.lineHeight ?? lineHeight
         padding = other.padding ?? padding
         borderColor = other.borderColor ?? borderColor
-        borderRadius = other.borderRadius ?? borderRadius
+        cornerRadius = other.cornerRadius ?? cornerRadius
         borderWidth = other.borderWidth ?? borderWidth
+        textAlignment = other.textAlignment ?? textAlignment
     }
 }

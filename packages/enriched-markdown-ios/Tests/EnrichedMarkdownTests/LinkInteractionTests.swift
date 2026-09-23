@@ -31,6 +31,38 @@ final class LinkInteractionTests: XCTestCase {
         XCTAssertTrue(interact(.invokeDefaultAction))
     }
 
+    // MARK: - openURL
+
+    func testTapGoesToOpenURLWhenNoPressHandler() {
+        var opened: URL?
+        coordinator.openURL = { opened = $0 }
+
+        XCTAssertFalse(interact(.invokeDefaultAction))
+        XCTAssertEqual(opened, url)
+    }
+
+    func testLegacyPressHandlerTakesPrecedenceOverOpenURL() {
+        var opened = false
+        var pressedURL: URL?
+        coordinator.openURL = { _ in opened = true }
+        coordinator.onLinkPress = { pressedURL = $0 }
+
+        XCTAssertFalse(interact(.invokeDefaultAction))
+        XCTAssertEqual(pressedURL, url)
+        XCTAssertFalse(opened)
+    }
+
+    func testLongPressWithOnlyOpenURLLeavesSystemMenu() {
+        // Unlike a legacy press handler, the environment's openURL never
+        // swallows a long-press: the system link menu stays.
+        var opened = false
+        coordinator.openURL = { _ in opened = true }
+
+        XCTAssertTrue(interact(.presentActions))
+        XCTAssertTrue(interact(.preview))
+        XCTAssertFalse(opened)
+    }
+
     func testLongPressPrefersLongPressHandler() {
         var pressed = false
         var longPressedURL: URL?

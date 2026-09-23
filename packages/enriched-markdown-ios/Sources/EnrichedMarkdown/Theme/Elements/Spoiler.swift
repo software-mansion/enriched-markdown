@@ -14,13 +14,13 @@ public struct Spoiler: BackgroundThemeElement {
     public init() {}
 
     /// Color of the particles or of the solid box.
-    public func color(_ color: Color) -> Self {
+    public func foregroundStyle(_ color: Color) -> Self {
         var copy = self
         copy.colorSpec = ThemeColorModifiers.spec(from: color)
         return copy
     }
 
-    public func color(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
+    public func foregroundStyle(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
         var copy = self
         copy.colorSpec = ThemeColorModifiers.spec(from: semantic)
         return copy
