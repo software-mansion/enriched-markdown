@@ -157,55 +157,6 @@ enum ParagraphStyleHelpers {
         return NSMutableParagraphStyle()
     }
 
-    static func applyHeadIndent(
-        to output: NSMutableAttributedString,
-        range: NSRange,
-        indent: CGFloat
-    ) {
-        guard range.length > 0 else { return }
-
-        output.enumerateAttribute(
-            .paragraphStyle,
-            in: range,
-            options: []
-        ) { value, subrange, _ in
-            let paragraphStyle: NSMutableParagraphStyle
-            if let existing = value as? NSParagraphStyle,
-               let mutable = existing.mutableCopy() as? NSMutableParagraphStyle {
-                paragraphStyle = mutable
-            } else {
-                paragraphStyle = NSMutableParagraphStyle()
-            }
-            paragraphStyle.firstLineHeadIndent = indent
-            paragraphStyle.headIndent = indent
-            output.addAttribute(.paragraphStyle, value: paragraphStyle, range: subrange)
-        }
-    }
-
-    static func applyTextLists(
-        to output: NSMutableAttributedString,
-        range: NSRange,
-        lists: [NSTextList]
-    ) {
-        guard range.length > 0 else { return }
-
-        output.enumerateAttribute(
-            .paragraphStyle,
-            in: range,
-            options: []
-        ) { value, subrange, _ in
-            let paragraphStyle: NSMutableParagraphStyle
-            if let existing = value as? NSParagraphStyle,
-               let mutable = existing.mutableCopy() as? NSMutableParagraphStyle {
-                paragraphStyle = mutable
-            } else {
-                paragraphStyle = NSMutableParagraphStyle()
-            }
-            paragraphStyle.textLists = lists
-            output.addAttribute(.paragraphStyle, value: paragraphStyle, range: subrange)
-        }
-    }
-
     static func spacerParagraphStyle(height: CGFloat, spacing: CGFloat = 0) -> NSMutableParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.minimumLineHeight = height

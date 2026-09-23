@@ -472,6 +472,7 @@ Every 0.1 name still compiles as a deprecated alias that forwards to its replace
 | `.fontSize(_:weight:)`, `.fontFamily(_:size:)` | `.font(size:weight:design:)`, `.font(custom:size:)` |
 | `Table().headerFontFamily(_:size:)`, `.headerTextColor(_:)` | `.headerFont(custom:size:)`, `.headerForegroundStyle(_:)` |
 | `MathBlock().fontSize(_:)` | `.font(size:)` |
+| `EnrichedMarkdown` (an empty namespace enum) | removed; it shadowed the module, so `EnrichedMarkdown.List()` now resolves as module-qualified lookup |
 | `CodeBlockStyle.borderRadius`, `ImageStyle.borderRadius`, `TableStyle.borderRadius` / `.align`, `TaskListStyle.checkboxBorderRadius`, `ListStyle.marginLeft` | `cornerRadius`, `alignment`, `checkboxCornerRadius`, `marginLeading` (fields and init labels) |
 
 ## Copy & clipboard

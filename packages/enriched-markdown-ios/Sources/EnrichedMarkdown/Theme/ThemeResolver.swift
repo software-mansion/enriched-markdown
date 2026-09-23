@@ -173,10 +173,6 @@ enum ThemeResolver {
         return .regular
     }
 
-    static func font(from font: Font, traitCollection: UITraitCollection) -> ThemeFontSpec {
-        resolveFont(from: font, traitCollection: traitCollection).spec ?? .textStyle(.body)
-    }
-
     /// Every `Font` a theme resolves without private API: the eleven text
     /// styles plain (`.body`), by design, and by design and weight
     /// (`Font.system(_:design:weight:)`), in both the iOS 13 and iOS 16

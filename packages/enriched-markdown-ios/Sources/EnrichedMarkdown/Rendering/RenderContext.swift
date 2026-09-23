@@ -81,25 +81,6 @@ package final class RenderContext {
     var pluginBlockMargins: BlockMargins?
     package var rendersPluginBlock: Bool { pluginBlockMargins != nil }
 
-    private static let blockSpacerTemplate: NSParagraphStyle = {
-        let style = NSMutableParagraphStyle()
-        style.minimumLineHeight = 1
-        style.maximumLineHeight = 1
-        return style
-    }()
-
-    func reset() {
-        currentBlockType = .none
-        currentBlockStyle = nil
-        blockquoteLevels = []
-        listDepth = 0
-        listType = .unordered
-        listItemNumber = 0
-        taskItemIndex = 0
-        rendersBlockImage = false
-        pluginBlockMargins = nil
-    }
-
     func setBlockStyle(
         font: UIFont,
         color: UIColor,
@@ -135,16 +116,6 @@ package final class RenderContext {
             .font: blockStyle.font,
             .foregroundColor: blockStyle.color
         ]
-    }
-
-    func spacerStyle(height: CGFloat, spacing: CGFloat = 0) -> NSMutableParagraphStyle {
-        guard let style = Self.blockSpacerTemplate.mutableCopy() as? NSMutableParagraphStyle else {
-            return NSMutableParagraphStyle()
-        }
-        style.minimumLineHeight = height
-        style.maximumLineHeight = height
-        style.paragraphSpacing = spacing
-        return style
     }
 
     static func shouldPreserveColors(_ attributes: [NSAttributedString.Key: Any]) -> Bool {
