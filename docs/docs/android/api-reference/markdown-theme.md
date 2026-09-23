@@ -47,7 +47,7 @@ Reads the style currently in scope. This is what `EnrichedMarkdownText` uses as 
 ```kotlin
 EnrichedMarkdownText(
   markdown = content,
-  style = MarkdownTheme.style.copy { link { color = Color.Red } },
+  style = MarkdownTheme.style.merge { link { color = Color.Red } },
 )
 ```
 
@@ -105,14 +105,16 @@ MaterialTheme {
 }
 ```
 
-Pass extra `keys` for any other value the block reads, the way you would to `remember`. For static light/dark palettes with literal colors, hoist `markdownStyle` / `copy` to file scope instead - there is nothing to track.
+Pass extra `keys` for any other value the block reads, the way you would to `remember`. For static light/dark palettes with literal colors, hoist `markdownStyle` / `merge` to file scope instead - there is nothing to track.
 
 ## `MarkdownStyle`
 
 ```kotlin
 @Immutable
 class MarkdownStyle {
-  fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(other: MarkdownStyle): MarkdownStyle
+  operator fun plus(other: MarkdownStyle): MarkdownStyle
 
   companion object {
     val Default: MarkdownStyle
@@ -126,21 +128,23 @@ An immutable, **layered** style. It holds a stack of override layers rather than
 
 The empty style - no layers, so every element keeps its platform default. It is what `LocalMarkdownStyle` starts out as, which is why `EnrichedMarkdownText` renders sensibly with no theme at all.
 
-### `MarkdownStyle.copy`
+### `MarkdownStyle.merge`
 
-Returns a new style with `block` **added as a layer on top**; it does not rebuild the style or replace what came before. Later layers win per property, and properties no layer sets keep their defaults. That makes `copy` the natural way to express variants:
+Returns a new style with `block` **added as a layer on top**; it does not rebuild the style or replace what came before. Later layers win per property, and properties no layer sets keep their defaults. That makes `merge` the natural way to express variants:
 
 ```kotlin
 val Base = markdownStyle {
   paragraph { fontSize = 16.sp }
-  link { underline = true }
+  link { textDecoration = TextDecoration.Underline }
 }
 
-val Light = Base.copy { paragraph { color = Color(0xFF1A1A1A) } }
-val Dark = Base.copy { paragraph { color = Color(0xFFE0E0E0) } }
+val Light = Base.merge { paragraph { color = Color(0xFF1A1A1A) } }
+val Dark = Base.merge { paragraph { color = Color(0xFFE0E0E0) } }
 ```
 
 `Light` and `Dark` both keep the base font size and underlined links.
+
+`merge` also takes a whole `MarkdownStyle` - `a.merge(b)` layers `b`'s overrides on top of `a`, and the `+` operator is shorthand for the same: `a + b`. Values `b` leaves unset keep whatever `a` resolved them to.
 
 Two styles are equal when their layers are equal, so a hoisted style stays equal across recompositions and does not retrigger work downstream.
 

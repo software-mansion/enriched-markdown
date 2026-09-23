@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
 
           EnrichedMarkdownText(
             markdown = "# Hello\n\nA paragraph with **bold** and a [link](https://swmansion.com).",
-            onLinkPress = { url ->
+            onLinkClick = { url ->
               context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             },
           )
@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-That's the whole setup. `MarkdownTheme` supplies the default style for everything beneath it, and links are inert until you give them a meaning - `onLinkPress` hands you the tapped URL and you decide what happens, here opening it in the browser. The [`EnrichedMarkdownText` reference](/android/api-reference/enriched-markdown-text) covers the rest of the parameters and callbacks.
+That's the whole setup. `MarkdownTheme` supplies the default style for everything beneath it, and links are inert until you give them a meaning - `onLinkClick` hands you the tapped URL and you decide what happens, here opening it in the browser. The [`EnrichedMarkdownText` reference](/android/api-reference/enriched-markdown-text) covers the rest of the parameters and callbacks.
 
 :::note
 `EnrichedMarkdownText` renders nothing in `@Preview`. It wraps a real Android `View`, which Compose previews do not run. Use an emulator or a device.
@@ -58,6 +58,7 @@ Every element is styled through the `markdownStyle { }` DSL. Build a style once 
 
 ```kotlin
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.markdownStyle
@@ -71,7 +72,7 @@ val AppMarkdownStyle = markdownStyle {
   h1 { color = Color(0xFF111827) }
   link {
     color = Color(0xFF2563EB)
-    underline = true
+    textDecoration = TextDecoration.Underline
   }
 }
 

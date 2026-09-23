@@ -13,13 +13,13 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Md4cFlags = Md4cFlags.DEFAULT,
+  flags: Md4cFlags = Md4cFlags.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
-  onLinkPress: ((String) -> Unit)? = null,
-  onLinkLongPress: ((String) -> Unit)? = null,
-  onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
-  enableTaskListItemToggle: Boolean = true,
+  onLinkClick: (String) -> Unit = {},
+  onLinkLongClick: (String) -> Unit = {},
+  onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
+  taskListToggleEnabled: Boolean = true,
 )
 ```
 
@@ -51,7 +51,7 @@ A per-instance style override. Defaults to the style provided by the nearest [`M
 
 Toggles for md4c's parser extensions. Each one opts a piece of extra syntax in or out; pass only the flags you want to change and the rest keep their defaults.
 
-<PropInfo type="Md4cFlags" default="Md4cFlags.DEFAULT" />
+<PropInfo type="Md4cFlags" default="Md4cFlags.Default" />
 
 ```kotlin
 data class Md4cFlags(
@@ -75,7 +75,7 @@ EnrichedMarkdownText(
 ```
 
 :::note
-`Md4cFlags.DEFAULT` turns **everything off except `permissiveAutolinks`**.
+`Md4cFlags.Default` turns **everything off except `permissiveAutolinks`**.
 :::
 
 For a walkthrough of what each extension changes, see [Parser extensions](/android/guides/parser-extensions).
@@ -169,45 +169,45 @@ EnrichedMarkdownText(
 
 Headers take part in the cache key, so the same URL fetched with different headers is cached separately - see [Image caching](/android/guides/image-caching).
 
-### `enableTaskListItemToggle`
+### `taskListToggleEnabled`
 
-Whether tapping a task list checkbox toggles it. With `false`, checkbox taps are fully inert: no visual toggle and no [`onTaskListItemPress`](#ontasklistitempress). Text selection and links are unaffected either way.
+Whether tapping a task list checkbox toggles it. With `false`, checkbox taps are fully inert: no visual toggle and no [`onTaskListItemToggle`](#ontasklistitemtoggle). Text selection and links are unaffected either way.
 
 <PropInfo type="Boolean" default="true" />
 
 ## Callbacks
 
-### `onLinkPress`
+### `onLinkClick`
 
 Called with the URL when the reader taps a link. Links do nothing until you handle this - the library never opens a URL on your behalf.
 
-<PropInfo type="((String) -> Unit)?" default="null" />
+<PropInfo type="(String) -> Unit" default="{}" />
 
 ```kotlin
 val context = LocalContext.current
 
 EnrichedMarkdownText(
   markdown = content,
-  onLinkPress = { url ->
+  onLinkClick = { url ->
     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
   },
 )
 ```
 
-### `onLinkLongPress`
+### `onLinkLongClick`
 
 Called with the URL when the reader long-presses a link - the usual hook for a "copy link" or share sheet.
 
-<PropInfo type="((String) -> Unit)?" default="null" />
+<PropInfo type="(String) -> Unit" default="{}" />
 
-### `onTaskListItemPress`
+### `onTaskListItemToggle`
 
-Called after a task list checkbox tap toggles the item. Not called when [`enableTaskListItemToggle`](#enabletasklistitemtoggle) is `false`.
+Called after a task list checkbox tap toggles the item. Not called when [`taskListToggleEnabled`](#tasklisttoggleenabled) is `false`.
 
-<PropInfo type="((TaskListItemPressEvent) -> Unit)?" default="null" />
+<PropInfo type="(TaskListItemToggle) -> Unit" default="{}" />
 
 ```kotlin
-data class TaskListItemPressEvent(
+data class TaskListItemToggle(
   val index: Int,       // 0-based, in document order
   val checked: Boolean, // state after the toggle
   val text: String,     // first line of the item's plain text
@@ -217,7 +217,7 @@ data class TaskListItemPressEvent(
 ```kotlin
 EnrichedMarkdownText(
   markdown = checklist,
-  onTaskListItemPress = { event -> store.setDone(event.index, event.checked) },
+  onTaskListItemToggle = { event -> store.setDone(event.index, event.checked) },
 )
 ```
 

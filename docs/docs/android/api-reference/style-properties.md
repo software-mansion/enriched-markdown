@@ -65,20 +65,20 @@ markdownStyle {
 
 Leave it unset to keep bold following its surroundings.
 
-## Layering with `copy`
+## Layering with `merge`
 
-`MarkdownStyle.copy { }` adds a layer on top of an existing style rather than replacing it, so variants stay expressed as differences:
+`MarkdownStyle.merge { }` adds a layer on top of an existing style rather than replacing it, so variants stay expressed as differences:
 
 ```kotlin
 val Base = markdownStyle {
   paragraph { fontSize = 16.sp }
-  link { underline = true }
+  link { textDecoration = TextDecoration.Underline }
 }
 
-val Compact = Base.copy { paragraph { marginBottom = 8.dp } }
+val Compact = Base.merge { paragraph { marginBottom = 8.dp } }
 ```
 
-See [`MarkdownStyle.copy`](/android/api-reference/markdown-theme#markdownstylecopy) for the details.
+See [`MarkdownStyle.merge`](/android/api-reference/markdown-theme#markdownstylemerge) for the details.
 
 ## Dark mode
 
@@ -121,7 +121,7 @@ Shared by `paragraph` and every heading level.
 | `lineHeight` | `TextUnit` | `26.sp` | Line height |
 | `marginTop` | `Dp` | `0.dp` | Space above the block |
 | `marginBottom` | `Dp` | `16.dp` | Space below the block |
-| `textAlign` | `TextAlignment` | `TextAlignment.AUTO` | Alignment |
+| `textAlign` | `TextAlign` | `TextAlign.Unspecified` | Alignment; unset follows the reading direction |
 
 The defaults above are the `paragraph` values. Each heading level overrides size, line height, color, and bottom margin:
 
@@ -210,7 +210,7 @@ Requires [`Md4cFlags(admonitions = true)`](/android/api-reference/enriched-markd
 | `markerFontWeight` | `FontWeight` | `FontWeight.Medium` (500) | Ordered list number weight |
 | `markerMinWidth` | `Dp` | `0.dp` | Minimum width reserved for the marker column |
 | `gapWidth` | `Dp` | `12.dp` | Gap between the marker and the text |
-| `marginLeft` | `Dp` | `24.dp` | Indent applied per nesting level |
+| `marginStart` | `Dp` | `24.dp` | Indent applied per nesting level |
 
 ### `taskList`
 
@@ -221,7 +221,7 @@ Styles the checkbox drawn for `- [ ]` and `- [x]` items. The item's text is styl
 | `checkedColor` | `Color` | `#2196F3` | Fill of a checked box |
 | `borderColor` | `Color` | `#9E9E9E` | Border of an unchecked box |
 | `checkboxSize` | `Dp` | `14.dp` | Box size |
-| `checkboxBorderRadius` | `Dp` | `3.dp` | Box corner radius |
+| `checkboxCornerRadius` | `Dp` | `3.dp` | Box corner radius |
 | `checkmarkColor` | `Color` | `#FFFFFF` | Checkmark color |
 | `checkedTextColor` | `Color` | Unset | Text color of a checked item. Unset keeps the `list` color |
 | `checkedStrikethrough` | `Boolean` | `false` | Strike through the text of a checked item |
@@ -241,7 +241,7 @@ Styles the checkbox drawn for `- [ ]` and `- [x]` items. The item's text is styl
 | `borderColor` | `Color` | `#374151` | Border color |
 | `borderWidth` | `Dp` | `1.dp` | Border width |
 | `cornerRadius` | `Dp` | `8.dp` | Corner radius |
-| `padding` | `Dp` | `16.dp` | Inner padding |
+| `padding` | `PaddingValues` | `PaddingValues(16.dp)` | Inner padding; must be uniform (the same on every side) |
 
 ### `code`
 
@@ -261,7 +261,7 @@ Inline code. `fontSize` and `fontFamily` are unset by default, so inline code ta
 | --- | --- | --- | --- |
 | `fontFamily` | `FontFamily` | Inherited | Typeface |
 | `color` | `Color` | `#2563EB` | Text color |
-| `underline` | `Boolean` | `true` | Underline the link text |
+| `textDecoration` | `TextDecoration` | `TextDecoration.Underline` | Link text decoration; only `TextDecoration.Underline` is honored (`LineThrough` is ignored) |
 | `backgroundColor` | `Color` | `Color.Transparent` | Background fill |
 
 ### `strong`
@@ -315,7 +315,7 @@ Block images - an image that is the whole paragraph.
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
 | `height` | `Dp` | `200.dp` | Rendered height; width follows the container |
-| `borderRadius` | `Dp` | `8.dp` | Corner radius |
+| `cornerRadius` | `Dp` | `8.dp` | Corner radius |
 | `marginTop` | `Dp` | `0.dp` | Space above |
 | `marginBottom` | `Dp` | `16.dp` | Space below |
 
