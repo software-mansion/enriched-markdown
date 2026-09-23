@@ -1,7 +1,12 @@
 package com.swmansion.enriched.markdown.compose
 
+import android.content.Context
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.createFontFamilyResolver
+import androidx.compose.ui.unit.Density
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
 /**
@@ -30,6 +35,20 @@ class MarkdownStyle internal constructor(
     val layer = MarkdownStyleBuilder().apply(block).captureLayer()
     return MarkdownStyle(layers + layer)
   }
+
+  /**
+   * Resolves this style into the [StyleConfig] the view renders with, outside a composition.
+   *
+   * [EnrichedMarkdownText] already does this; it is public for plugin modules, which own style
+   * types of their own and otherwise cannot check that their DSL block reaches [StyleConfig]
+   * without standing up a whole composition to look at.
+   */
+  @InternalPluginApi
+  fun resolveStyleConfig(
+    context: Context,
+    density: Density,
+    fontFamilyResolver: FontFamily.Resolver = createFontFamilyResolver(context),
+  ): StyleConfig = resolve(StyleResolveContext(context, density, fontFamilyResolver))
 
   internal fun resolve(resolveContext: StyleResolveContext): StyleConfig =
     layers.fold(StyleConfig.default(resolveContext.context)) { config, layer ->

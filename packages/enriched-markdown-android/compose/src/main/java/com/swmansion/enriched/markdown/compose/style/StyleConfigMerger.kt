@@ -13,6 +13,7 @@ import com.swmansion.enriched.markdown.styles.ParagraphStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.styles.StyleExtensionKey
 import com.swmansion.enriched.markdown.styles.SubscriptStyle
 import com.swmansion.enriched.markdown.styles.SuperscriptStyle
 import com.swmansion.enriched.markdown.styles.TableStyle
@@ -40,6 +41,8 @@ internal data class StylePatch(
   val inlineImageStyle: InlineImageStyle? = null,
   val thematicBreakStyle: ThematicBreakStyle? = null,
   val tableStyle: TableStyle? = null,
+  /** Plugin styles resolved for this layer; layered over the base map, so untouched keys survive. */
+  val extensions: Map<StyleExtensionKey<*>, Any>? = null,
 )
 
 internal object StyleConfigMerger {
@@ -98,6 +101,7 @@ internal object StyleConfigMerger {
       tableStyle = tableStyle,
       tableTypeface = tableTypeface,
       tableHeaderTypeface = tableHeaderTypeface,
+      extensions = patch.extensions?.let { base.extensions + it } ?: base.extensions,
     )
   }
 

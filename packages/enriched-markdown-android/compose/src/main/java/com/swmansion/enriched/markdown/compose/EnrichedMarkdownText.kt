@@ -18,10 +18,13 @@ import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
 import com.swmansion.enriched.markdown.TaskListItemPressEvent as TaskListItemPressEventInternal
 import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
+import com.swmansion.enriched.markdown.plugin.PluginEvent as PluginEventInternal
 
 typealias Md4cFlags = Md4cFlagsInternal
 
 typealias TaskListItemPressEvent = TaskListItemPressEventInternal
+
+typealias PluginEvent = PluginEventInternal
 
 /**
  * Renders [markdown] using the native markdown TextView inside Compose.
@@ -30,6 +33,9 @@ typealias TaskListItemPressEvent = TaskListItemPressEventInternal
  * parameter, or nest [MarkdownTheme] to scope styles to a subtree.
  *
  * [flags] selects the optional md4c syntax extensions.
+ *
+ * [onPluginEvent] receives events reported by installed plugins (for example an expression a
+ * plugin could not render), at most once per distinct event for the lifetime of the view.
  *
  * **Previews:** This component renders nothing in `@Preview` because it relies on [AndroidView].
  */
@@ -45,6 +51,7 @@ fun EnrichedMarkdownText(
   onLinkLongPress: ((String) -> Unit)? = null,
   onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
   enableTaskListItemToggle: Boolean = true,
+  onPluginEvent: ((PluginEvent) -> Unit)? = null,
 ) {
   val context = LocalContext.current
   val configuration = LocalConfiguration.current
@@ -67,6 +74,7 @@ fun EnrichedMarkdownText(
   val onLinkPressState by rememberUpdatedState(onLinkPress)
   val onLinkLongPressState by rememberUpdatedState(onLinkLongPress)
   val onTaskListItemPressState by rememberUpdatedState(onTaskListItemPress)
+  val onPluginEventState by rememberUpdatedState(onPluginEvent)
 
   AndroidView(
     modifier = modifier,
@@ -75,6 +83,7 @@ fun EnrichedMarkdownText(
         setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
         setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
         setOnTaskListItemPressCallback { event -> onTaskListItemPressState?.invoke(event) }
+        setOnPluginEventCallback { event -> onPluginEventState?.invoke(event) }
         setEnableTaskListItemToggle(enableTaskListItemToggle)
         setMarkdownStyle(styleConfig)
         setMd4cFlags(flags)
@@ -87,6 +96,7 @@ fun EnrichedMarkdownText(
       view.setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
       view.setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
       view.setOnTaskListItemPressCallback { event -> onTaskListItemPressState?.invoke(event) }
+      view.setOnPluginEventCallback { event -> onPluginEventState?.invoke(event) }
       view.setEnableTaskListItemToggle(enableTaskListItemToggle)
       view.setMarkdownStyle(styleConfig)
       view.setMd4cFlags(flags)

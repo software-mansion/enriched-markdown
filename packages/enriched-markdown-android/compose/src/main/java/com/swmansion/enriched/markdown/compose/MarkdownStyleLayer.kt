@@ -1,11 +1,17 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.compose
 
 import androidx.compose.runtime.Immutable
+import com.swmansion.enriched.markdown.compose.style.PluginStylePatch
+import com.swmansion.enriched.markdown.compose.style.PluginStyleScope
 import com.swmansion.enriched.markdown.compose.style.StyleConfigMerger
 import com.swmansion.enriched.markdown.compose.style.StylePatch
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.compose.style.StyleUnits
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.styles.StyleExtensionKey
 
 @Immutable
 internal data class MarkdownStyleLayer(
@@ -27,6 +33,8 @@ internal data class MarkdownStyleLayer(
   val inlineImage: InlineImageStylePatch? = null,
   val thematicBreak: ThematicBreakStylePatch? = null,
   val table: TableStylePatch? = null,
+  /** Pending edits owned by plugins, keyed by the [StyleExtensionKey] each plugin declares. */
+  val pluginPatches: Map<StyleExtensionKey<*>, PluginStylePatch<*>> = emptyMap(),
 ) {
   fun apply(
     resolveContext: StyleResolveContext,
@@ -39,6 +47,14 @@ internal data class MarkdownStyleLayer(
           base.headingStyles.getOrNull(level)?.let { level to patch.apply(it, resolveContext, units) }
         }.toMap()
         .takeIf { it.isNotEmpty() }
+
+    val extensions =
+      if (pluginPatches.isEmpty()) {
+        null
+      } else {
+        val scope = PluginStyleScope(resolveContext.context, units)
+        pluginPatches.mapValues { (key, patch) -> applyPluginPatch(patch, base.extensions[key], scope) }
+      }
 
     return StyleConfigMerger.merge(
       resolveContext = resolveContext,
@@ -63,7 +79,20 @@ internal data class MarkdownStyleLayer(
           inlineImageStyle = inlineImage?.apply(base.inlineImageStyle, units),
           thematicBreakStyle = thematicBreak?.apply(base.thematicBreakStyle, units),
           tableStyle = table?.apply(base.tableStyle, resolveContext, units),
+          extensions = extensions,
         ),
     )
   }
+
+  /**
+   * The cast only erases the patch's own style type, which its stored value already matches:
+   * [MarkdownStyleBuilder.updatePluginPatch] is the only writer and keys the patch by the very
+   * [StyleExtensionKey] whose value [base] came from.
+   */
+  @Suppress("UNCHECKED_CAST")
+  private fun applyPluginPatch(
+    patch: PluginStylePatch<*>,
+    base: Any?,
+    scope: PluginStyleScope,
+  ): Any = (patch as PluginStylePatch<Any>).apply(base, scope)
 }

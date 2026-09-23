@@ -1,4 +1,10 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.compose
+
+import com.swmansion.enriched.markdown.compose.style.PluginStylePatch
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.styles.StyleExtensionKey
 
 @MarkdownStyleDsl
 class MarkdownStyleBuilder internal constructor() {
@@ -20,6 +26,7 @@ class MarkdownStyleBuilder internal constructor() {
   private var inlineImage: InlineImageStylePatch? = null
   private var thematicBreak: ThematicBreakStylePatch? = null
   private var table: TableStylePatch? = null
+  private val pluginPatches = mutableMapOf<StyleExtensionKey<*>, PluginStylePatch<*>>()
 
   fun paragraph(block: ParagraphStyleScope.() -> Unit) {
     paragraph = TextStyleScope.merge(paragraph, block)
@@ -101,6 +108,28 @@ class MarkdownStyleBuilder internal constructor() {
     table = TableStyleScope.merge(table, block)
   }
 
+  /**
+   * Read-modify-write of the patch stored for [key], so a plugin's DSL block merges into an
+   * earlier one in the same builder instead of replacing it - the way core's own blocks do.
+   *
+   * `update` receives the patch this builder already holds for [key], or null on the first call,
+   * and returns the patch to store. A plugin exposes this as an extension function:
+   *
+   * ```
+   * fun MarkdownStyleBuilder.callout(block: CalloutStyleScope.() -> Unit) =
+   *   updatePluginPatch(CalloutStyleKey) { existing: CalloutStylePatch? ->
+   *     CalloutStyleScope(existing).apply(block).toPatch()
+   *   }
+   * ```
+   */
+  @InternalPluginApi
+  fun <S : Any, P : PluginStylePatch<S>> updatePluginPatch(
+    key: StyleExtensionKey<S>,
+    update: (existing: P?) -> P,
+  ) {
+    pluginPatches[key] = update(patchFor(key))
+  }
+
   internal fun captureLayer(): MarkdownStyleLayer =
     MarkdownStyleLayer(
       paragraph = paragraph,
@@ -121,7 +150,15 @@ class MarkdownStyleBuilder internal constructor() {
       inlineImage = inlineImage,
       thematicBreak = thematicBreak,
       table = table,
+      pluginPatches = pluginPatches.toMap(),
     )
+
+  /**
+   * The cast is safe by construction: [updatePluginPatch] is the only writer, and it only ever
+   * stores the `P` its own caller produced for that key.
+   */
+  @Suppress("UNCHECKED_CAST")
+  private fun <P : PluginStylePatch<*>> patchFor(key: StyleExtensionKey<*>): P? = pluginPatches[key] as P?
 
   private fun heading(
     level: Int,
