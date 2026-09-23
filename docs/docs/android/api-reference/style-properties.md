@@ -46,6 +46,7 @@ The available blocks:
 | `image` | Block images |
 | `inlineImage` | Inline images |
 | `thematicBreak` | Horizontal rules |
+| `table` | GFM tables, header row and cells |
 
 Values use Compose types throughout: `Color`, `Dp` for lengths, `TextUnit` (`sp`) for text metrics, plus `FontFamily`, `FontWeight`, and `FontStyle`.
 
@@ -65,20 +66,20 @@ markdownStyle {
 
 Leave it unset to keep bold following its surroundings.
 
-## Layering with `merge`
+## Layering with `copy`
 
-`MarkdownStyle.merge { }` adds a layer on top of an existing style rather than replacing it, so variants stay expressed as differences:
+`MarkdownStyle.copy { }` adds a layer on top of an existing style rather than replacing it, so variants stay expressed as differences:
 
 ```kotlin
 val Base = markdownStyle {
   paragraph { fontSize = 16.sp }
-  link { textDecoration = TextDecoration.Underline }
+  link { underline = true }
 }
 
-val Compact = Base.merge { paragraph { marginBottom = 8.dp } }
+val Compact = Base.copy { paragraph { marginBottom = 8.dp } }
 ```
 
-See [`MarkdownStyle.merge`](/android/api-reference/markdown-theme#markdownstylemerge) for the details.
+See [`MarkdownStyle.copy`](/android/api-reference/markdown-theme#markdownstylecopy) for the details.
 
 ## Dark mode
 
@@ -121,7 +122,23 @@ Shared by `paragraph` and every heading level.
 | `lineHeight` | `TextUnit` | `26.sp` | Line height |
 | `marginTop` | `Dp` | `0.dp` | Space above the block |
 | `marginBottom` | `Dp` | `16.dp` | Space below the block |
-| `textAlign` | `TextAlign` | `TextAlign.Unspecified` | Alignment; unset follows the reading direction |
+| `textAlign` | `TextAlignment` | `TextAlignment.AUTO` | `LEFT`, `CENTER`, `RIGHT`, `JUSTIFY`, or `AUTO` - the package's own enum, not Compose's `TextAlign`. `AUTO` follows the reading direction |
+
+```kotlin
+markdownStyle {
+  paragraph {
+    fontSize = 16.sp
+    lineHeight = 28.sp
+    marginBottom = 20.dp
+  }
+  h1 {
+    fontSize = 32.sp
+    fontWeight = FontWeight.Bold
+    color = Color(0xFF111827)
+  }
+  h2 { textAlign = TextAlignment.CENTER }
+}
+```
 
 The defaults above are the `paragraph` values. Each heading level overrides size, line height, color, and bottom margin:
 
@@ -151,6 +168,22 @@ Carries the full set of block properties, with its own defaults, plus the quote 
 | `borderWidth` | `Dp` | `3.dp` | Left accent bar width |
 | `gapWidth` | `Dp` | `16.dp` | Gap between the bar and the text |
 | `backgroundColor` | `Color` | `#F9FAFB` | Background fill |
+| `borderRadius` | `Dp` | `0.dp` | Rounds the quote box |
+| `padding` | `Dp` | `0.dp` | Inset between the box edge and the text |
+
+```kotlin
+markdownStyle {
+  blockquote {
+    color = Color(0xFF4B5563)
+    borderColor = Color(0xFF2563EB)
+    borderWidth = 4.dp
+    gapWidth = 12.dp
+    backgroundColor = Color(0xFFF3F4F6)
+    borderRadius = 6.dp
+    padding = 12.dp
+  }
+}
+```
 
 ### `admonitions` {#admonitions}
 
@@ -210,7 +243,20 @@ Requires [`Md4cFlags(admonitions = true)`](/android/api-reference/enriched-markd
 | `markerFontWeight` | `FontWeight` | `FontWeight.Medium` (500) | Ordered list number weight |
 | `markerMinWidth` | `Dp` | `0.dp` | Minimum width reserved for the marker column |
 | `gapWidth` | `Dp` | `12.dp` | Gap between the marker and the text |
-| `marginStart` | `Dp` | `24.dp` | Indent applied per nesting level |
+| `marginLeft` | `Dp` | `24.dp` | Indent applied per nesting level |
+
+```kotlin
+markdownStyle {
+  list {
+    bulletColor = Color(0xFF2563EB)
+    bulletSize = 8.dp
+    markerColor = Color(0xFF2563EB)
+    markerMinWidth = 24.dp   // keeps text aligned past "9."
+    gapWidth = 10.dp
+    marginLeft = 20.dp
+  }
+}
+```
 
 ### `taskList`
 
@@ -221,10 +267,22 @@ Styles the checkbox drawn for `- [ ]` and `- [x]` items. The item's text is styl
 | `checkedColor` | `Color` | `#2196F3` | Fill of a checked box |
 | `borderColor` | `Color` | `#9E9E9E` | Border of an unchecked box |
 | `checkboxSize` | `Dp` | `14.dp` | Box size |
-| `checkboxCornerRadius` | `Dp` | `3.dp` | Box corner radius |
+| `checkboxBorderRadius` | `Dp` | `3.dp` | Box corner radius |
 | `checkmarkColor` | `Color` | `#FFFFFF` | Checkmark color |
 | `checkedTextColor` | `Color` | Unset | Text color of a checked item. Unset keeps the `list` color |
 | `checkedStrikethrough` | `Boolean` | `false` | Strike through the text of a checked item |
+
+```kotlin
+markdownStyle {
+  taskList {
+    checkboxSize = 18.dp
+    checkboxBorderRadius = 9.dp   // a circle, at half the size
+    checkedColor = Color(0xFF16A34A)
+    checkedTextColor = Color(0xFF9CA3AF)
+    checkedStrikethrough = true
+  }
+}
+```
 
 ### `codeBlock`
 
@@ -241,7 +299,19 @@ Styles the checkbox drawn for `- [ ]` and `- [x]` items. The item's text is styl
 | `borderColor` | `Color` | `#374151` | Border color |
 | `borderWidth` | `Dp` | `1.dp` | Border width |
 | `cornerRadius` | `Dp` | `8.dp` | Corner radius |
-| `padding` | `PaddingValues` | `PaddingValues(16.dp)` | Inner padding; must be uniform (the same on every side) |
+| `padding` | `Dp` | `16.dp` | Inner padding, the same on every side |
+
+```kotlin
+markdownStyle {
+  codeBlock {
+    fontSize = 13.sp
+    backgroundColor = Color(0xFF0D1117)
+    borderColor = Color(0xFF30363D)
+    cornerRadius = 10.dp
+    padding = 14.dp
+  }
+}
+```
 
 ### `code`
 
@@ -255,14 +325,33 @@ Inline code. `fontSize` and `fontFamily` are unset by default, so inline code ta
 | `backgroundColor` | `Color` | `#FDF2F4` | Background fill |
 | `borderColor` | `Color` | `#F8D7DA` | Border color |
 
+```kotlin
+markdownStyle {
+  code {
+    color = Color(0xFFBE185D)
+    backgroundColor = Color(0xFFFDF2F8)
+    borderColor = Color(0xFFFBCFE8)
+  }
+}
+```
+
 ### `link`
 
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
 | `fontFamily` | `FontFamily` | Inherited | Typeface |
 | `color` | `Color` | `#2563EB` | Text color |
-| `textDecoration` | `TextDecoration` | `TextDecoration.Underline` | Link text decoration; only `TextDecoration.Underline` is honored (`LineThrough` is ignored) |
+| `underline` | `Boolean` | `true` | Whether the link is underlined |
 | `backgroundColor` | `Color` | `Color.Transparent` | Background fill |
+
+```kotlin
+markdownStyle {
+  link {
+    color = Color(0xFF1D4ED8)
+    underline = false
+  }
+}
+```
 
 ### `strong`
 
@@ -292,6 +381,15 @@ Inline code. `fontSize` and `fontFamily` are unset by default, so inline code ta
 | --- | --- | --- | --- |
 | `color` | `Color` | Inherited | Text color |
 
+```kotlin
+markdownStyle {
+  strong { color = Color(0xFF111827) }
+  emphasis { fontStyle = FontStyle.Italic }
+  strikethrough { color = Color(0xFF9CA3AF) }
+  underline { color = Color(0xFF2563EB) }
+}
+```
+
 ### `superscript`
 
 Takes unitless `Float`s rather than `Dp`/`sp`, because both are expressed relative to the surrounding text.
@@ -308,6 +406,19 @@ Takes unitless `Float`s rather than `Dp`/`sp`, because both are expressed relati
 | `fontScale` | `Float` | `0.65f` | Text size as a fraction of the surrounding text |
 | `baselineOffsetScale` | `Float` | `0.2f` | Baseline shift **down**, as a fraction of text size |
 
+```kotlin
+markdownStyle {
+  superscript {
+    fontScale = 0.7f
+    baselineOffsetScale = 0.4f
+  }
+  subscript {
+    fontScale = 0.7f
+    baselineOffsetScale = 0.25f
+  }
+}
+```
+
 ### `image`
 
 Block images - an image that is the whole paragraph.
@@ -315,9 +426,19 @@ Block images - an image that is the whole paragraph.
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
 | `height` | `Dp` | `200.dp` | Rendered height; width follows the container |
-| `cornerRadius` | `Dp` | `8.dp` | Corner radius |
+| `borderRadius` | `Dp` | `8.dp` | Corner radius |
 | `marginTop` | `Dp` | `0.dp` | Space above |
 | `marginBottom` | `Dp` | `16.dp` | Space below |
+
+```kotlin
+markdownStyle {
+  image {
+    height = 240.dp
+    borderRadius = 12.dp
+    marginBottom = 24.dp
+  }
+}
+```
 
 ### `inlineImage`
 
@@ -327,6 +448,12 @@ An image sitting inside a line of text, sized to the line rather than the contai
 | --- | --- | --- | --- |
 | `size` | `Dp` | `20.dp` | Width and height of the inline image |
 
+```kotlin
+markdownStyle {
+  inlineImage { size = 24.dp }
+}
+```
+
 ### `thematicBreak`
 
 | Property | Type | Default | Description |
@@ -335,3 +462,55 @@ An image sitting inside a line of text, sized to the line rather than the contai
 | `height` | `Dp` | `1.dp` | Rule thickness |
 | `marginTop` | `Dp` | `24.dp` | Space above |
 | `marginBottom` | `Dp` | `24.dp` | Space below |
+
+```kotlin
+markdownStyle {
+  thematicBreak {
+    color = Color(0xFFD1D5DB)
+    height = 2.dp
+    marginTop = 32.dp
+    marginBottom = 32.dp
+  }
+}
+```
+
+### `table`
+
+GFM pipe tables - the body text, the header row, and the grid.
+
+| Property | Type | Default | Description |
+| --- | --- | --- | --- |
+| `fontSize` | `TextUnit` | `14.sp` | Cell text size |
+| `fontFamily` | `FontFamily` | `FontFamily.SansSerif` | Cell typeface |
+| `fontWeight` | `FontWeight` | `FontWeight.Normal` | Cell weight |
+| `color` | `Color` | `#1F2937` | Cell text color |
+| `lineHeight` | `TextUnit` | `22.sp` | Cell line height |
+| `marginTop` | `Dp` | `0.dp` | Space above the table |
+| `marginBottom` | `Dp` | `16.dp` | Space below the table |
+| `headerFontFamily` | `FontFamily` | The cell typeface | Header row typeface alone |
+| `headerTextColor` | `Color` | `#111827` | Header row text color |
+| `headerBackgroundColor` | `Color` | `#F3F4F6` | Header row fill |
+| `rowEvenBackgroundColor` | `Color` | `#FFFFFF` | Even body rows |
+| `rowOddBackgroundColor` | `Color` | `#F9FAFB` | Odd body rows |
+| `borderColor` | `Color` | `#E5E7EB` | Grid and outer border color |
+| `borderWidth` | `Dp` | `1.dp` | Grid and outer border width |
+| `cornerRadius` | `Dp` | `6.dp` | Rounds the outer border |
+| `cellPaddingHorizontal` | `Dp` | `12.dp` | Inset inside a cell, left and right |
+| `cellPaddingVertical` | `Dp` | `8.dp` | Inset inside a cell, top and bottom |
+| `horizontalOverflow` | `Dp` | `0.dp` | How far a wide table may bleed past the text column on each side before it scrolls. `0.dp` keeps it inside the column |
+| `align` | `TableAlignment` | `TableAlignment.AUTO` | Default column alignment where the Markdown separator row does not specify one. `AUTO`, `LEFT`, `CENTER`, `RIGHT` |
+
+```kotlin
+markdownStyle {
+  table {
+    headerTextColor = Color(0xFF111827)
+    headerBackgroundColor = Color(0xFFF3F4F6)
+    rowOddBackgroundColor = Color(0xFFF9FAFB)
+    borderColor = Color(0xFFE5E7EB)
+    cornerRadius = 8.dp
+    cellPaddingHorizontal = 14.dp
+    cellPaddingVertical = 10.dp
+    align = TableAlignment.LEFT
+  }
+}
+```

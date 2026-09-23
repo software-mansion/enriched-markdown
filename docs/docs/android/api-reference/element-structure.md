@@ -28,7 +28,8 @@ The whole document renders into a **single native text view**, with block struct
 | Admonition | `> [!NOTE]` | Needs `Md4cFlags(admonitions = true)` - see [below](#admonitions) |
 | Unordered list | `- item` | Nests |
 | Ordered list | `1. item` | Nests |
-| Task list | `- [ ]` / `- [x]` | Tappable - see [`onTaskListItemToggle`](/android/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
+| Task list | `- [ ]` / `- [x]` | Tappable - see [`onTaskListItemPress`](/android/api-reference/enriched-markdown-text#ontasklistitempress) |
+| Table | GFM pipe table | Always enabled - see [below](#tables) |
 | Fenced code block | ```` ```kotlin ```` | Language label is parsed; no syntax highlighting |
 | Block image | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline) |
 | Thematic break | `---` | |
@@ -42,7 +43,7 @@ The whole document renders into a **single native text view**, with block struct
 | Underline | `_text_`, `__text__` | Needs `Md4cFlags(underline = true)`, and **replaces** the italic/bold meaning of those markers |
 | Strikethrough | `~~struck~~` | |
 | Inline code | `` `code` `` | |
-| Link | `[text](url)` | Inert until you handle [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) |
+| Link | `[text](url)` | Inert until you handle [`onLinkPress`](/android/api-reference/enriched-markdown-text#onlinkpress) |
 | Autolink | `<https://…>`, or a bare URL | Bare URLs need `permissiveAutolinks`, which is on by default |
 | Inline image | `![alt](url)` beside text | See [below](#images-block-vs-inline) |
 | Superscript | `^text^` | Needs `Md4cFlags(superscript = true)` |
@@ -116,12 +117,35 @@ Two behaviors worth knowing:
 
 Copying a callout reproduces its `> [!NOTE]` marker, and TalkBack announces the header ahead of the body.
 
+## Tables
+
+GFM pipe tables render as real views inside the text rather than as monospaced ASCII, and need no flag - they are always parsed:
+
+```markdown
+| Package | Platform |
+| --- | :-: |
+| enriched-markdown-android | Android |
+```
+
+- Columns size to their content, and a long cell wraps rather than pushing the table wider.
+- A table wider than the view **scrolls horizontally in place**, without moving the rest of the document. `table { horizontalOverflow }` controls how far it may bleed past the text column before it does.
+- Alignment comes from the separator row (`:--`, `:-:`, `--:`); `table { align }` sets the default for columns that do not specify one.
+- Cells take inline styling - bold, italic, inline code, strikethrough, and tappable links.
+
+Colors, borders, padding and the header row are all styled through the [`table`](/android/api-reference/style-properties#table) block.
+
 ## Images: block vs. inline
 
 The same `![alt](url)` syntax renders two different ways, and which one you get depends on **what else is in the paragraph**:
 
 - **Block image** - the image is the only thing in its paragraph. It is laid out on its own, at `image.height`, spanning the container width.
 - **Inline image** - anything else shares the line with it. It is drawn in the text flow at `inlineImage.size`, sized to sit on the line like a large glyph.
+
+:::important
+CommonMark has no block image. [`![alt](url)`](https://spec.commonmark.org/0.31.2/#images) is defined as an **inline** element wherever it appears, and the Supported elements table above lists "Block image" as a block only to describe what this renderer does with it.
+
+The split is a rendering decision, not a parsing one: the parser emits the same inline image node in both cases, and the renderer sets an `isBlockImage` flag on the span when the image is its paragraph's only content. Anything reading the AST - your own traversal, or another CommonMark implementation - sees an inline image either way.
+:::
 
 ```markdown
 ![A block image](https://example.com/hero.png)
@@ -148,7 +172,17 @@ Without the flag that renders as one line. With it, two. This is the flag to rea
 
 ### Blank lines
 
-`Md4cFlags(preserveBlankLines = true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output.
+`Md4cFlags(preserveBlankLines = true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output:
+
+```markdown
+A first paragraph.
+
+
+
+A second one, three blank lines later.
+```
+
+Without the flag those three blank lines collapse to one paragraph break; with it, the gap is kept.
 
 Both flags are off by default, and both are set per instance through [`flags`](/android/api-reference/enriched-markdown-text#flags).
 
@@ -158,14 +192,13 @@ The parser understands more than the renderer draws. These constructs parse with
 
 | Element | Status |
 | --- | --- |
-| Tables | Renderer in progress |
 | LaTeX math (inline and block) | Renderer in progress |
 | Spoilers | Renderer in progress |
 | Highlight (`==text==`) | No renderer |
 | Code syntax highlighting | Not built into this package |
 
 :::caution
-A construct with no renderer has its text **dropped from the output** rather than shown unstyled, so enabling [`latexMath`](/android/api-reference/enriched-markdown-text#latexmath) or [`highlight`](/android/api-reference/enriched-markdown-text#highlight) makes that content vanish. Both flags are off by default; leave them off until the renderers land. Tables and spoilers have no flag to enable, so they are simply parsed and skipped.
+A construct with no renderer has its text **dropped from the output** rather than shown unstyled, so enabling [`latexMath`](/android/api-reference/enriched-markdown-text#latexmath) or [`highlight`](/android/api-reference/enriched-markdown-text#highlight) makes that content vanish. Both flags are off by default; leave them off until the renderers land. Spoilers have no flag to enable, so they are simply parsed and skipped.
 :::
 
 See the [roadmap](/misc/roadmap#android-renderer) for what is landing next.

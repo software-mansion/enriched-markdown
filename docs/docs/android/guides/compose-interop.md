@@ -38,12 +38,12 @@ Rendering one `EnrichedMarkdownText` per row works, with one caveat that bites: 
 
 Task list checkboxes are the visible case. A tap toggles a checkbox in place without rewriting your `markdown` string, so the toggle lives in the view - and when that view is reused for another row, it is cleared. A checkbox the reader ticked can come back unticked after scrolling away and back.
 
-The fix is the one you would apply to any recycled row: **hoist the state**. Record the change in [`onTaskListItemToggle`](/android/api-reference/enriched-markdown-text#ontasklistitemtoggle) and feed it back through the `markdown` string you pass:
+The fix is the one you would apply to any recycled row: **hoist the state**. Record the change in [`onTaskListItemPress`](/android/api-reference/enriched-markdown-text#ontasklistitempress) and feed it back through the `markdown` string you pass:
 
 ```kotlin
 EnrichedMarkdownText(
   markdown = item.markdown,
-  onTaskListItemToggle = { event -> viewModel.setDone(item.id, event.index, event.checked) },
+  onTaskListItemPress = { event -> viewModel.setDone(item.id, event.index, event.checked) },
 )
 ```
 

@@ -193,6 +193,12 @@ Images are automatically detected as block or inline based on context:
 
 You don't need to specify which type - the renderer determines it from the image's position in the content. Note that a single newline does not split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
 
+:::important
+CommonMark has no block image. [`![alt](url)`](https://spec.commonmark.org/0.31.2/#images) is defined as an **inline** element wherever it appears, and the Supported elements table above lists "Block image" as a block only to describe what this renderer does with it.
+
+The split is a rendering decision, not a parsing one: the parser emits the same inline image node in both cases, and the renderer flags the one that stands alone in its paragraph. Anything reading the AST - your own traversal, or another CommonMark implementation - sees an inline image either way.
+:::
+
 ## Videos
 
 Videos are embedded with an HTML `<video>` tag - the tag is the one piece of HTML the parser allowlists, and it is recognized only as a block-level element:

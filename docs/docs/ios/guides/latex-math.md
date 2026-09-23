@@ -5,9 +5,9 @@ sidebar_position: 2
 
 # LaTeX math
 
-Math rendering ships as a **separate product**, `EnrichedMarkdownLaTeX`, so an app that never shows a formula does not link a typesetting engine it will not use. The engine is a prebuilt binary dependency plus the KaTeX font files - a few megabytes of app size - which is why it is opt-in rather than part of the base package.
+Math rendering ships as a **separate product**, `EnrichedMarkdownLaTeX`, so an app that never shows a formula does not link a typesetting engine it will not use. The engine is a prebuilt binary dependency plus the [KaTeX font files](#engine) - a few megabytes of app size - which is why it is opt-in rather than part of the base package.
 
-The consequence to know up front: without the product, `$…$` is not math syntax at all. There is no `MarkdownParsingOptions` field for it, so `$x^2$` stays plain text and nothing is lost or mangled. Adding the product turns the parsing **and** the rendering on together, in one modifier.
+The consequence to know up front: without the product, `$…$` is not math syntax at all. There is no `Md4cFlags` field for it, so `$x^2$` stays plain text and nothing is lost or mangled. Adding the product turns the parsing **and** the rendering on together, in one modifier.
 
 ## Turning it on
 
@@ -43,6 +43,12 @@ $$
 
 Source that fails to typeset falls back to the **delimited text** - `$\frac{1}{}$` renders as that literal string rather than vanishing - so a typo in one formula never blanks a paragraph.
 
+## The engine and its fonts {#engine}
+
+Three similar names circle this product, and they are three different things. **LaTeX** is the markup you write between the dollar signs. **RaTeX** is the engine that turns that markup into positioned glyphs - a Rust library shipped as a prebuilt, checksum-pinned XCFramework, and the binary dependency this product adds. **KaTeX** is the math project whose font files RaTeX draws with: `KaTeX_Main-Regular`, `KaTeX_Math-Italic`, and the rest of that family.
+
+The fonts travel inside the product as a resource bundle and are registered with CoreText in your app's process the first time a formula renders. They are not installed on the device and they change nothing about the rest of your text - but they are why a formula keeps the familiar TeX look whatever font the surrounding Markdown uses, and why [`MathBlock()`](#mathblock) lets you set a size but not a typeface.
+
 ## Styling {#styling}
 
 The product adds two elements to the theme builder, usable wherever the base ones are:
@@ -63,9 +69,9 @@ EnrichedMarkdownText(content)
   }
 ```
 
-### `MathBlock()`
+### `MathBlock()` {#mathblock}
 
-Display math (`$$…$$`). Takes `.font(size:)`, `.foregroundStyle(_:)`, `.background(_:)` / `.backgroundStyle(_:)`, `.padding(_:)`, `.marginTop(_:)`, `.marginBottom(_:)`, and `.multilineTextAlignment(_:)` - **only** those. The typeface is always KaTeX's; there is no `.font(_:)` or `.font(custom:size:)`.
+Display math (`$$…$$`). Takes `.font(size:)`, `.foregroundStyle(_:)`, `.background(_:)` / `.backgroundStyle(_:)`, `.padding(_:)`, `.marginTop(_:)`, `.marginBottom(_:)`, and `.multilineTextAlignment(_:)` - **only** those. The typeface is always [KaTeX's](#engine); there is no `.font(_:)` or `.font(custom:size:)`.
 
 | Property | Default |
 | --- | --- |
@@ -76,7 +82,7 @@ Display math (`$$…$$`). Takes `.font(size:)`, `.foregroundStyle(_:)`, `.backgr
 | Text alignment | `.center` |
 | Color | follows the paragraph |
 
-### `InlineMath()`
+### `InlineMath()` {#inlinemath}
 
 Inline math (`$…$`). Takes `.foregroundStyle(_:)` and nothing else - the size follows the surrounding text, which is what keeps a formula in a heading heading-sized.
 
@@ -110,7 +116,7 @@ The closure receives the raw source and runs on the render queue, so keep it che
 `MarkdownRenderer.renderLaTeX` mirrors [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed:
 
 ```swift
-let config = MarkdownStyleConfiguration.resolve(
+let config = MarkdownStyleConfig.resolve(
   layers: [.default, .latexDefault, myTheme],
   traitCollection: .current
 )
@@ -119,7 +125,7 @@ let text = MarkdownRenderer.renderLaTeX(content, config: config)
 ```
 
 :::caution
-Resolving the config yourself means **you** place the `.latexDefault` layer. `MarkdownStyleConfiguration.baseline()` is `.default` alone, so a config built that way leaves `MathBlock` unstyled - no panel, no padding, no centering. Include `.latexDefault` between `.default` and your own layers, exactly as `.markdownLaTeX()` does.
+Resolving the config yourself means **you** place the `.latexDefault` layer. `MarkdownStyleConfig.baseline()` is `.default` alone, so a config built that way leaves `MathBlock` unstyled - no panel, no padding, no centering. Include `.latexDefault` between `.default` and your own layers, exactly as `.markdownLaTeX()` does.
 :::
 
 The same caveat as `render` applies: the returned attributed string carries the typeset formulas, but the decorations `EnrichedMarkdownText` draws around the text are not in it - see [UIKit interop](/ios/guides/uikit-interop).

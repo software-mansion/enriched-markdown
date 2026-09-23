@@ -97,7 +97,7 @@ If you are reaching for `render` because a `UITextView` seems simpler than hosti
 ```swift
 import EnrichedMarkdown
 
-let ast = Parser.shared.parseMarkdown("# Title\n\n![hero](hero.png)", options: .commonMark)
+let ast = Parser.shared.parseMarkdown("# Title\n\n![hero](hero.png)", flags: .commonMark)
 
 func imageURLs(in node: MarkdownASTNode) -> [String] {
   let own = node.type == .image ? [node.attribute("url")].compactMap { $0 } : []
@@ -109,5 +109,5 @@ func imageURLs(in node: MarkdownASTNode) -> [String] {
 
 ## See also
 
-- [`MarkdownTheme`](/ios/api-reference/markdown-theme#markdownrenderer) - `MarkdownRenderer` and `MarkdownStyleConfiguration`.
+- [`MarkdownTheme`](/ios/api-reference/markdown-theme#markdownrenderer) - `MarkdownRenderer` and `MarkdownStyleConfig`.
 - [`EnrichedMarkdownText`](/ios/api-reference/enriched-markdown-text) - the modifiers you apply to `rootView`.
