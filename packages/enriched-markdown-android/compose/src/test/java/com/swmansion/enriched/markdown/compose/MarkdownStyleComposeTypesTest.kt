@@ -48,8 +48,20 @@ class MarkdownStyleComposeTypesTest {
       markdownStyle { paragraph { textAlign = TextAlign.Justify } }.resolve(context).paragraphStyle.textAlign,
     )
     assertEquals(
-      TextAlignment.RIGHT,
+      TextAlignment.START,
+      markdownStyle { paragraph { textAlign = TextAlign.Start } }.resolve(context).paragraphStyle.textAlign,
+    )
+    assertEquals(
+      TextAlignment.LEFT,
+      markdownStyle { paragraph { textAlign = TextAlign.Left } }.resolve(context).paragraphStyle.textAlign,
+    )
+    assertEquals(
+      TextAlignment.END,
       markdownStyle { h1 { textAlign = TextAlign.End } }.resolve(context).headingStyles[1]?.textAlign,
+    )
+    assertEquals(
+      TextAlignment.RIGHT,
+      markdownStyle { h1 { textAlign = TextAlign.Right } }.resolve(context).headingStyles[1]?.textAlign,
     )
   }
 

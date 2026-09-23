@@ -48,15 +48,15 @@ internal fun FontStyle.toEmphasisStyleString(): String =
 /**
  * Maps Compose's [TextAlign] onto the alignment the text layer understands.
  *
- * The layer aligns relative to the reading direction and cannot pin a side, so [TextAlign.Left]
- * and [TextAlign.Right] resolve the same way as [TextAlign.Start] and [TextAlign.End].
  * [TextAlign.Unspecified] maps to `null`, leaving the value untouched.
  */
 internal fun TextAlign.toStyleTextAlignment(): TextAlignment? =
   when (this) {
-    TextAlign.Start, TextAlign.Left -> TextAlignment.LEFT
+    TextAlign.Start -> TextAlignment.START
+    TextAlign.Left -> TextAlignment.LEFT
     TextAlign.Center -> TextAlignment.CENTER
-    TextAlign.End, TextAlign.Right -> TextAlignment.RIGHT
+    TextAlign.End -> TextAlignment.END
+    TextAlign.Right -> TextAlignment.RIGHT
     TextAlign.Justify -> TextAlignment.JUSTIFY
     else -> null
   }

@@ -288,8 +288,7 @@ fun rememberMarkdownStyle(
 
 Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `MaterialTheme { }`.
 
-`textAlign` follows the reading direction: `TextAlign.Left` / `.Right` behave like `Start` / `End`,
-so `Left` right-aligns RTL text. `TextAlign.Unspecified` keeps the inherited alignment.
+`TextAlign.Unspecified` keeps the inherited alignment.
 
 Style scope constructors are `internal` — build scopes through the `markdownStyle { }` DSL, which is
 the only supported way to reach them.
