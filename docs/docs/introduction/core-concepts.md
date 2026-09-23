@@ -148,10 +148,10 @@ There is a small CommonMark core that every Markdown parser agrees on (everythin
 </Tab>
 <Tab label="iOS">
 
-The standalone iOS SDK has no `flavor` selector. GFM's **tables**, **task lists** and **strikethrough** are always on and cannot be turned off; the remaining extensions are individual flags:
+The standalone iOS SDK has no `flavor` selector. GFM's **tables**, **task lists** and **strikethrough** are always on and cannot be turned off; the remaining extensions are individual parsing options:
 
 ```swift
-EnrichedMarkdownText(markdown, flags: Md4cFlags(underline: true, admonitions: true))
+EnrichedMarkdownText(markdown, options: MarkdownParsingOptions(underline: true, admonitions: true))
 ```
 
 See [Parser extensions](/ios/guides/parser-extensions).

@@ -45,12 +45,11 @@ Half of this works today. A mention is an ordinary link, so routing a tap by sch
 
 ```swift
 EnrichedMarkdownText(content)
-  .onLinkPress { url in
-    switch url.scheme {
-    case "user": openProfile(url.host)
-    default: UIApplication.shared.open(url)
-    }
-  }
+  .environment(\.openURL, OpenURLAction { url in
+    guard url.scheme == "user" else { return .systemAction }
+    openProfile(url.host)
+    return .handled
+  })
 ```
 
 What is missing is the **styling**: the standalone iOS SDK has no `linkVariants` equivalent, so every link - mention or not - uses the single [`Link()`](/ios/api-reference/style-properties#link) style. Per-URL link variants are on the [roadmap](/misc/roadmap#native-renderer-parity).
@@ -58,7 +57,7 @@ What is missing is the **styling**: the standalone iOS SDK has no `linkVariants`
 </Tab>
 <Tab label="Android">
 
-The same split applies: [`onLinkPress`](/android/api-reference/enriched-markdown-text#onlinkpress) hands you the mention's URL and you route by scheme, but there is no `linkVariants` equivalent, so mentions cannot be styled apart from ordinary links. See the [roadmap](/misc/roadmap#native-renderer-parity).
+The same split applies: [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) hands you the mention's URL and you route by scheme, but there is no `linkVariants` equivalent, so mentions cannot be styled apart from ordinary links. See the [roadmap](/misc/roadmap#native-renderer-parity).
 
 </Tab>
 </CodeTabs>

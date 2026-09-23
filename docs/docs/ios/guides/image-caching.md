@@ -34,7 +34,7 @@ Local sources need no network and no `Info.plist` entry. Only `http(s)` images t
 
 ## Sizing
 
-Whether an image is drawn as a block or in the text flow depends on what else shares its paragraph - see [Images: block vs. inline](/ios/api-reference/element-structure#images-block-vs-inline). Sizing follows from that: `BlockImage().height` (default `200`) for a block image, `InlineImage().size` (default `20`) for an inline one, and `BlockImage().borderRadius` for rounded corners. Width, aspect ratio, and content mode are not configurable yet - see the [roadmap](/misc/roadmap#ios).
+Whether an image is drawn as a block or in the text flow depends on what else shares its paragraph - see [Images: block vs. inline](/ios/api-reference/element-structure#images-block-vs-inline). Sizing follows from that: `BlockImage().height` (default `200`) for a block image, `InlineImage().size` (default `20`) for an inline one, and `BlockImage().cornerRadius` for rounded corners. Width, aspect ratio, and content mode are not configurable yet - see the [roadmap](/misc/roadmap#ios).
 
 ## Decoding
 

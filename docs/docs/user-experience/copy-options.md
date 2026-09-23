@@ -63,7 +63,7 @@ The standalone iOS SDK takes one config value, and each item is a plain `Bool`:
 ```swift
 EnrichedMarkdownText(content)
   .markdownSelectionMenu(
-    MarkdownSelectionMenuConfig(copyAsMarkdown: false, copyImageUrl: false)
+    MarkdownSelectionMenu(copyAsMarkdown: false, copyImageURL: false)
   )
 ```
 
@@ -109,7 +109,7 @@ The standalone iOS SDK exposes one label:
 ```swift
 EnrichedMarkdownText(content)
   .markdownSelectionMenu(
-    MarkdownSelectionMenuConfig(copyAsMarkdownLabel: t("copyAsMarkdown"))
+    MarkdownSelectionMenu(copyAsMarkdownLabel: t("copyAsMarkdown"))
   )
 ```
 

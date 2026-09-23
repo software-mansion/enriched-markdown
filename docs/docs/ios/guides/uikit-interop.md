@@ -35,7 +35,6 @@ final class ArticleViewController: UIViewController {
       EnrichedMarkdownText(markdown)
         .padding()
     }
-    .onLinkPress { UIApplication.shared.open($0) }
     .markdownTheme(appTheme)
 
     let host = UIHostingController(rootView: root)
@@ -50,7 +49,7 @@ final class ArticleViewController: UIViewController {
 
 Two things to get right:
 
-- **Apply the modifiers inside the SwiftUI hierarchy**, on `rootView`, not on the hosting controller's `view`. They are environment values, and a `UIView` has no way to set one.
+- **Apply the modifiers inside the SwiftUI hierarchy**, on `rootView`, not on the hosting controller's `view`. They are environment values, and a `UIView` has no way to set one. The same goes for link routing: install an `OpenURLAction` with `.environment(\.openURL, …)` on `rootView` rather than reaching for a UIKit delegate.
 - **`EnrichedMarkdownText` sizes itself to its content** - its height is the document's height, with no internal scrolling. Inside a `ScrollView` as above, that is exactly what you want. If you instead need the hosting view to report the document's height to a UIKit layout - a cell, a stack view - set `host.sizingOptions = .intrinsicContentSize` so it publishes an intrinsic content size, and let your own scroll view do the scrolling.
 
 To put one in a `UITableViewCell` or `UICollectionViewCell`, host it as a child controller of the view controller that owns the collection, the way you would any other SwiftUI-in-a-cell.
@@ -98,7 +97,7 @@ If you are reaching for `render` because a `UITextView` seems simpler than hosti
 ```swift
 import EnrichedMarkdown
 
-let ast = Parser.shared.parseMarkdown("# Title\n\n![hero](hero.png)", flags: .commonMark)
+let ast = Parser.shared.parseMarkdown("# Title\n\n![hero](hero.png)", options: .commonMark)
 
 func imageURLs(in node: MarkdownASTNode) -> [String] {
   let own = node.type == .image ? [node.attribute("url")].compactMap { $0 } : []
@@ -110,5 +109,5 @@ func imageURLs(in node: MarkdownASTNode) -> [String] {
 
 ## See also
 
-- [`MarkdownTheme`](/ios/api-reference/markdown-theme#markdownrenderer) - `MarkdownRenderer` and `MarkdownStyleConfig`.
+- [`MarkdownTheme`](/ios/api-reference/markdown-theme#markdownrenderer) - `MarkdownRenderer` and `MarkdownStyleConfiguration`.
 - [`EnrichedMarkdownText`](/ios/api-reference/enriched-markdown-text) - the modifiers you apply to `rootView`.

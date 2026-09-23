@@ -9,8 +9,8 @@ Pointing an element at your own typeface is one modifier:
 
 ```swift
 MarkdownTheme {
-  Paragraph().fontFamily("Inter-Regular", size: 17)
-  Heading(1).fontFamily("Inter-Bold", size: 34)
+  Paragraph().font(custom: "Inter-Regular", size: 17)
+  Heading(1).font(custom: "Inter-Bold", size: 34)
 }
 ```
 
@@ -18,7 +18,7 @@ The rest of this page is about the three things that go wrong afterwards: **a na
 
 ## How a name is resolved
 
-`.fontFamily(_ name: String, size: CGFloat)` takes a **PostScript name** - `Inter-SemiBold`, not `Inter Semi Bold` - and resolves it in three steps:
+`.font(custom name: String, size: CGFloat)` takes a **PostScript name** - `Inter-SemiBold`, not `Inter Semi Bold` - and resolves it in three steps:
 
 1. `UIFont(name:size:)`, which finds any font the system already knows: a system family, or one declared in your `Info.plist` under `UIAppFonts`.
 2. If that misses, the package looks in `Bundle.main` for `<name>.ttf` or `<name>.otf`, first in a `Fonts/` subdirectory and then at the bundle root, and registers what it finds with CoreText for the current process. Then it retries step 1.
@@ -36,17 +36,17 @@ A bundle lookup is attempted **once per name per process**. Registering the file
 
 Markdown's `**bold**` and `*italic*` do not carry a font of their own - the renderer takes the font of the surrounding block and asks for a bolder or slanted face of the **same family**. It looks through the faces actually registered for that family and picks the best match.
 
-So bold text inside a paragraph set to `Inter-Regular` renders in `Inter-Bold` only if `Inter-Bold` is also registered. When no matching face exists, the renderer keeps the original face rather than faking one - which means:
+So bold text inside a paragraph set to `Inter-Regular` renders in `Inter-Bold` only if `Inter-Bold` is also registered. The two differ in what happens when there is no matching face:
 
-- A single-weight family renders `**bold**` **identically to body text**.
-- A family with no italic face renders `*italic*` **upright**.
+- **Bold** keeps the original face rather than faking one, so a single-weight family renders `**bold**` **identically to body text**.
+- **Italic** is synthesized as a slant, so `*italic*` still reads as italic even in a family with no italic face - just not as the designer drew it.
 
-Ship every face you rely on, or accept that emphasis will not be visible.
+Ship every face you rely on, or accept that bold will not be visible.
 
-The `.bold()` modifier follows the same rule on a custom family: it asks for a bold face and keeps the original if there is none. On a *system* font it always works, because the system has every weight.
+The `.bold()` and `.italic()` modifiers follow the same rules on a custom family. On a *system* font they always work, because the system has every weight.
 
 :::note
-`.fontDesign(_:)` applies to system fonts only. Combined with `.fontFamily`, it is ignored - the family you named is the family you get.
+`.fontDesign(_:)` applies to system fonts only. Combined with `.font(custom:size:)`, it is ignored - the family you named is the family you get.
 :::
 
 ## Dynamic Type
@@ -56,39 +56,33 @@ This is the trade-off that is easiest to miss:
 | Modifier | Scales with Dynamic Type |
 | --- | --- |
 | `.font(.body)`, `.font(.largeTitle)`, any SwiftUI text style | **Yes** |
-| `.fontFamily("Inter-Regular", size: 17)` | No - `17` at every text size |
-| `.fontSize(17)` | No |
+| `.font(custom: "Inter-Regular", size: 17)` | No - `17` at every text size |
+| `.font(size: 17)` | No |
 
 `MarkdownTheme.default` uses text styles throughout, so the built-in look scales. The moment you set a family, that element is pinned - and an app that pins every element has opted its Markdown out of an accessibility feature its other screens still have.
 
-If you want both, scale the size yourself and rebuild the theme when the text size changes. `UIFontMetrics` does the scaling, and [`rememberMarkdownTheme`](/ios/api-reference/markdown-theme#remembermarkdowntheme) does the rebuilding:
+If you want both, scale the size yourself with `UIFontMetrics` and [build the theme in `body`](/ios/api-reference/markdown-theme#environment-themes), reading `dynamicTypeSize` from the environment so SwiftUI re-evaluates it when the text size changes:
 
 ```swift
 struct RootView: View {
-  @Environment(\.colorScheme) private var colorScheme
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
     let body = UIFontMetrics(forTextStyle: .body).scaledValue(for: 17)
     let title = UIFontMetrics(forTextStyle: .largeTitle).scaledValue(for: 34)
 
-    let theme = rememberMarkdownTheme(
-      colorScheme: colorScheme,
-      dynamicTypeSize: dynamicTypeSize
-    ) {
-      Paragraph().fontFamily("Inter-Regular", size: body)
-      Heading(1).fontFamily("Inter-Bold", size: title)
-    }
-
     Content()
-      .markdownTheme(theme)
+      .markdownTheme {
+        Paragraph().font(custom: "Inter-Regular", size: body)
+        Heading(1).font(custom: "Inter-Bold", size: title)
+      }
   }
 }
 ```
 
 ## Which elements take a family
 
-`.fontFamily(_:size:)` is available on every element that has a font of its own: `Paragraph`, `Heading`, `Blockquote`, `List`, `Table`, `Code`, `CodeBlock`, `Link`, `Strong`, `Emphasis`, `Strikethrough`, `Underline`, and `Highlight`. `Table()` additionally takes `.headerFontFamily(_:size:)` for the header row alone.
+`.font(custom:size:)` is available on every element that has a font of its own: `Paragraph`, `Heading`, `Blockquote`, `List`, `Table`, `Code`, `CodeBlock`, `Link`, `Strong`, `Emphasis`, `Strikethrough`, `Underline`, and `Highlight`. `Table()` additionally takes `.headerFont(custom:size:)` for the header row alone.
 
 The rest - `TaskList`, `BlockImage`, `InlineImage`, `ThematicBreak`, `Spoiler`, `Admonition`, `Superscript`, `Subscript` - have no font to set. They either draw no text, or scale with the text around them.
 
