@@ -146,8 +146,31 @@ There is a small CommonMark core that every Markdown parser agrees on (everythin
 <EnrichedMarkdownText flavor="github" markdown={markdown} />
 ```
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
+<Tab label="iOS">
+
+The standalone iOS SDK has no `flavor` selector. GFM's **tables**, **task lists** and **strikethrough** are always on and cannot be turned off; the remaining extensions are individual flags:
+
+```swift
+EnrichedMarkdownText(markdown, flags: Md4cFlags(underline: true, admonitions: true))
+```
+
+See [Parser extensions](/ios/guides/parser-extensions).
+
+</Tab>
+<Tab label="Android">
+
+The standalone Android SDK has no `flavor` selector either. GFM's **tables**, **task lists** and **strikethrough** are always on; the rest are individual flags:
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = markdown,
+  flags = Md4cFlags(underline = true, admonitions = true),
+)
+```
+
+See [Parser extensions](/android/guides/parser-extensions).
+
+</Tab>
 
 </CodeTabs>
 

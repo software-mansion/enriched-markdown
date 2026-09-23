@@ -23,6 +23,21 @@ The library also needs these minimum platform versions:
 
 The React Native package also requires the [New Architecture (Fabric)](https://reactnative.dev/architecture/landing-page).
 
+## iOS (standalone SDK)
+
+[`enriched-markdown-ios`](/ios/basics/installation) is published separately from the React Native package and versioned on its own line, so the table above does not apply to it - there is no React Native version to match against. It needs:
+
+| | |
+| --- | --- |
+| **Deployment target** | iOS 16.0 |
+| **Swift tools** | 5.9 (Xcode 15 or newer) |
+| **UI framework** | SwiftUI - the package exports a `View` |
+| **Dependency manager** | Swift Package Manager |
+
+The package declares `platforms: [.iOS(.v16)]` and its sources import UIKit, so it builds for iOS only - a macOS, watchOS, or tvOS target cannot depend on it.
+
+It ships two products: `EnrichedMarkdown`, which is the package, and the optional `EnrichedMarkdownLaTeX`, which adds `$…$` typesetting and pulls in a prebuilt engine plus the KaTeX fonts. See [Installation](/ios/basics/installation) for both, and [LaTeX math](/ios/guides/latex-math) for what the optional product costs.
+
 ## Android (standalone SDK)
 
 [`enriched-markdown-android`](/android/basics/installation) is published separately from the React Native package and versioned on its own line, so the table above does not apply to it - there is no React Native version to match against. It needs:

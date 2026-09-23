@@ -146,13 +146,24 @@ Renders a blockquote whose first line is `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT
 
 ### `selectable`
 
-Whether the reader can select and copy text. Copying reproduces the **Markdown source** of the selection, not the rendered plain text.
+Whether the reader can select and copy text.
 
 <PropInfo type="Boolean" default="true" />
 
 :::note
 A document renders into a single text view, so a selection can run across the whole document - headings, quotes, and code blocks included. It cannot span **two** `EnrichedMarkdownText` composables, though: each one is its own selection scope.
 :::
+
+#### What copying produces {#copying}
+
+The system **Copy** action writes the selection twice: as rendered plain text, and as styled HTML. Rich text targets - Gmail, Docs - pick up the HTML and keep headings, inline styles, lists, quotes, code blocks, links, and images.
+
+The selection menu also carries two items of the library's own, both on by default:
+
+- **Copy as Markdown** puts the selection on the clipboard as Markdown source rather than rendered text.
+- **Copy Image URL** appears when the selection contains images with `http(s)` URLs, and copies them one per line.
+
+Neither can be hidden or relabeled from the Compose API yet - the view underneath takes a config for them, but `EnrichedMarkdownText` does not pass one through. See the [roadmap](/misc/roadmap#the-compose-api-surface) and [Copy options](/user-experience/copy-options).
 
 ### `imageRequestHeaders`
 

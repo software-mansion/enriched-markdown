@@ -39,8 +39,28 @@ Rendering content that already contains mentions needs nothing special: pass the
 <LivePreview src={DisplayMentionsSrc} />
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
+<Tab label="iOS">
+
+Half of this works today. A mention is an ordinary link, so routing a tap by scheme needs nothing special:
+
+```swift
+EnrichedMarkdownText(content)
+  .onLinkPress { url in
+    switch url.scheme {
+    case "user": openProfile(url.host)
+    default: UIApplication.shared.open(url)
+    }
+  }
+```
+
+What is missing is the **styling**: the standalone iOS SDK has no `linkVariants` equivalent, so every link - mention or not - uses the single [`Link()`](/ios/api-reference/style-properties#link) style. Per-URL link variants are on the [roadmap](/misc/roadmap#native-renderer-parity).
+
+</Tab>
+<Tab label="Android">
+
+The same split applies: [`onLinkPress`](/android/api-reference/enriched-markdown-text#onlinkpress) hands you the mention's URL and you route by scheme, but there is no `linkVariants` equivalent, so mentions cannot be styled apart from ordinary links. See the [roadmap](/misc/roadmap#native-renderer-parity).
+
+</Tab>
 </CodeTabs>
 
 To make a mention tappable, add `onLinkPress` and route by scheme (`url.startsWith('user://')`).

@@ -39,8 +39,33 @@ All strings spoken by the screen reader (list announcements, blockquote suffix, 
 ```
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
+<Tab label="iOS">
+
+The standalone iOS SDK takes a `MarkdownAccessibilityLabels` value. Every field defaults to English, so set only what you localize:
+
+```swift
+var labels = MarkdownAccessibilityLabels()
+labels.list.top.bulletPoint = "Punkt"
+labels.list.nested.bulletPoint = "Eingebetteter Punkt"
+labels.list.top.orderedItem = "Listenelement {n}"
+labels.blockquote.quote = "Zitat"
+labels.table.row = "Zeile {n}: {content}"
+labels.image.fallback = "Bild"
+labels.codeBlock.copy = "Code kopieren"
+labels.rotor.headings = "Überschriften"
+
+EnrichedMarkdownText(markdown)
+    .markdownAccessibilityLabels(labels)
+```
+
+Two differences from the shape above: nesting is a `list.top` / `list.nested` pair rather than `nested…` field names, and there is no `math` field - the formula label is a parameter of `.markdownLaTeX`, which by default speaks an **English rendering** of the formula (`"Math: {speech}"`) rather than reading the LaTeX verbatim. See [`.markdownAccessibilityLabels`](/ios/api-reference/enriched-markdown-text#markdownaccessibilitylabels) and [LaTeX math](/ios/guides/latex-math#accessibility).
+
+</Tab>
+<Tab label="Android">
+
+Not localizable yet. The standalone Android SDK announces its labels in English from hardcoded strings (`"bullet point"`, `"list item {n}"`, `"task, checked"`, their `"nested"` variants, and `"heading level {n}"`), and the Compose API exposes no equivalent of this prop. See the [roadmap](/misc/roadmap#the-compose-api-surface).
+
+</Tab>
 </CodeTabs>
 
 ### Defaults
@@ -99,6 +124,15 @@ The editor's model is intentionally simpler than the renderer's:
 - [`accessibilityLabels`](/react-native/api-reference/enriched-markdown-text#accessibilitylabels) - translate every spoken string (see the Defaults table above).
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
+<Tab label="iOS">
+
+- [`.markdownAccessibilityLabels`](/ios/api-reference/enriched-markdown-text#markdownaccessibilitylabels) - translate every spoken string, including the image fallback, the code-block copy action, and the rotor names.
+- [`.markdownLaTeX(accessibilityLabel:)`](/ios/guides/latex-math#accessibility) - the formula label, as a `{speech}` / `{latex}` template or a closure.
+
+</Tab>
+<Tab label="Android">
+
+No equivalent yet - the spoken strings are hardcoded English. See the [roadmap](/misc/roadmap#the-compose-api-surface).
+
+</Tab>
 </CodeTabs>

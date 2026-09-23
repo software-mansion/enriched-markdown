@@ -56,8 +56,25 @@ The editor exposes the same `{ enabled, label }` shape, plus a built-in **Format
 ```
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
+<Tab label="iOS">
+
+The standalone iOS SDK takes one config value, and each item is a plain `Bool`:
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownSelectionMenu(
+    MarkdownSelectionMenuConfig(copyAsMarkdown: false, copyImageUrl: false)
+  )
+```
+
+The system's own items - Copy, Look Up, Translate, Share - are untouched either way. There is no `enableBlockContextMenu` equivalent: the long-press menu on a table (Copy / Copy as Markdown) is always available. See [`.markdownSelectionMenu`](/ios/api-reference/enriched-markdown-text#markdownselectionmenu).
+
+</Tab>
+<Tab label="Android">
+
+**Copy as Markdown** and **Copy Image URL** are added to the selection menu by default and behave as described above - but they are not configurable yet. The underlying view takes the same three options; the Compose API does not surface them, so there is no way to hide or relabel an item from `EnrichedMarkdownText`. See the [roadmap](/misc/roadmap#the-compose-api-surface).
+
+</Tab>
 </CodeTabs>
 
 ## Localizing labels
@@ -85,8 +102,25 @@ The built-in copy actions are English by default (**Copy**, **Copy as Markdown**
 ```
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
+<Tab label="iOS">
+
+The standalone iOS SDK exposes one label:
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownSelectionMenu(
+    MarkdownSelectionMenuConfig(copyAsMarkdownLabel: t("copyAsMarkdown"))
+  )
+```
+
+**Copy Image URL** is not relabelable - its title is built in English and already pluralized by count ("Copy Image URL", "Copy 3 Image URLs"). Neither is the **Select All** item the package supplies when the system omits it for non-editable text. System **Copy** is the platform's own item and is localized by iOS.
+
+</Tab>
+<Tab label="Android">
+
+No equivalent yet. The view underneath accepts a Copy as Markdown label, but the Compose API does not pass one through, so every built-in item is English. See the [roadmap](/misc/roadmap#the-compose-api-surface).
+
+</Tab>
 </CodeTabs>
 
 Notes:
@@ -106,6 +140,16 @@ Notes:
 - Editor extras: `formatMenuConfig` and `selectionMenuConfig` on [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input).
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
+<Tab label="iOS">
+
+- [`.markdownSelectionMenu`](/ios/api-reference/enriched-markdown-text#markdownselectionmenu) - toggle Copy as Markdown and Copy Image URL, and relabel the former.
+- [What the system Copy puts on the pasteboard](/ios/api-reference/enriched-markdown-text#copy-flavors) - the standalone SDK writes **plain text and HTML**; the RTF and RTFD flavors described above are the React Native package's.
+- [Tables](/ios/api-reference/element-structure#tables) - the separate long-press menu on a table.
+
+</Tab>
+<Tab label="Android">
+
+- [`selectable`](/android/api-reference/enriched-markdown-text#selectable) - turn selection on or off. Copy writes **plain text and HTML**; Copy as Markdown and Copy Image URL are present with their English defaults and are not yet configurable.
+
+</Tab>
 </CodeTabs>
