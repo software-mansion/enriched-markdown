@@ -63,6 +63,37 @@ final class ThemeResolverTests: XCTestCase {
         XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold), "the default heading is bold")
     }
 
+    func testCodeDefaultsToMonospacedOnlyForItsOwnFont() throws {
+        let serif = MarkdownStyleConfiguration.resolve(
+            layers: [
+                .default,
+                MarkdownTheme { CodeBlock().font(.system(.body, design: .serif)) },
+                MarkdownTheme { CodeBlock().foregroundStyle(Color(UIColor.systemRed)) }
+            ],
+            traitCollection: .current
+        ).codeBlock.font
+        XCTAssertFalse(try XCTUnwrap(serif).fontDescriptor.symbolicTraits.contains(.traitMonoSpace),
+                       "a recolor layer must not reset the design a lower layer chose")
+
+        let sized = MarkdownStyleConfiguration.resolve(
+            layers: [.default, MarkdownTheme { CodeBlock().font(size: 14) }],
+            traitCollection: .current
+        ).codeBlock.font
+        XCTAssertTrue(try XCTUnwrap(sized).fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
+        XCTAssertEqual(sized?.pointSize, 14)
+    }
+
+    func testItalicFalseRemovesAnInheritedItalic() throws {
+        let font = try XCTUnwrap(resolvedFont { Heading(1).italic() })
+        XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitItalic))
+        let upright = MarkdownStyleConfiguration.resolve(
+            layers: [.default, MarkdownTheme { Heading(1).italic() }, MarkdownTheme { Heading(1).italic(false) }],
+            traitCollection: .current
+        ).heading1.font
+        XCTAssertFalse(try XCTUnwrap(upright).fontDescriptor.symbolicTraits.contains(.traitItalic))
+        XCTAssertEqual(upright?.pointSize, font.pointSize)
+    }
+
     func testExplicitSizeAndCustomForms() throws {
         let sized = try XCTUnwrap(resolvedFont { Heading(1).font(size: 33, weight: .semibold, design: .rounded) })
         XCTAssertEqual(sized.pointSize, 33)

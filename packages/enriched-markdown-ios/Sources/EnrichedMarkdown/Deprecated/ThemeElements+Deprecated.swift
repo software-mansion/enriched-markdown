@@ -129,11 +129,9 @@ public extension BorderThemeElement {
         border(semantic)
     }
 
-    @available(*, deprecated, message: "Use border(_:width:), which sets the color and width together.")
+    @available(*, deprecated, renamed: "border(width:)")
     func borderWidth(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.borderWidth = value
-        return copy
+        border(width: value)
     }
 }
 

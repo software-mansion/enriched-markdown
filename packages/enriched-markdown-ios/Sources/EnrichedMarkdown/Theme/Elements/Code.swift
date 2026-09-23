@@ -12,9 +12,9 @@ public struct Code: MarkdownThemeElement, BackgroundThemeElement {
     public var lineHeight: CGFloat?
     public var textAlignment: TextAlignment?
 
-    public init() {
-        fontDesign = .monospaced
-    }
+    public init() {}
+
+    public var defaultFontDesign: Font.Design? { .monospaced }
 
     public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyElementStyle(to: &config.code, traitCollection: traitCollection)

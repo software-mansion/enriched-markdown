@@ -16,9 +16,9 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
     public var cornerRadius: CGFloat?
     public var borderWidth: CGFloat?
 
-    public init() {
-        fontDesign = .monospaced
-    }
+    public init() {}
+
+    public var defaultFontDesign: Font.Design? { .monospaced }
 
     public func padding(_ value: CGFloat) -> Self {
         var copy = self

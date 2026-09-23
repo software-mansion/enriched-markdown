@@ -9,6 +9,19 @@ enum FontHelpers {
         applyTrait(to: font, bold: false, italic: true)
     }
 
+    /// The upright face of an italic font: the family's own when it has
+    /// one, else the descriptor without the italic trait.
+    static func removeItalic(_ font: UIFont?) -> UIFont? {
+        guard let font, hasItalicTrait(font) else { return font }
+        if let upright = resolveFamilyVariant(from: font, bold: hasBoldTrait(font), italic: false) {
+            return upright
+        }
+        var traits = font.fontDescriptor.symbolicTraits
+        traits.remove(.traitItalic)
+        guard let descriptor = font.fontDescriptor.withSymbolicTraits(traits) else { return font }
+        return UIFont(descriptor: descriptor, size: font.pointSize)
+    }
+
     static func cachedFont(from blockStyle: BlockStyle?) -> UIFont? {
         blockStyle?.font
     }

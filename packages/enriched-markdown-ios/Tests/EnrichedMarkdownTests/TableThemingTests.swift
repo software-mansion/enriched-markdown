@@ -340,6 +340,18 @@ final class TableThemingTests: XCTestCase {
         XCTAssertEqual(config.table.borderWidth, 4)
     }
 
+    func testBorderWidthAloneKeepsTheLowerLayersColor() {
+        let config = MarkdownStyleConfiguration.resolve(
+            layers: [
+                MarkdownTheme { Table().border(Color(UIColor.systemBlue), width: 1) },
+                MarkdownTheme { Table().border(width: 5) }
+            ],
+            traitCollection: .current
+        )
+        XCTAssertEqual(config.table.borderColor, UIColor.systemBlue.resolvedColor(with: .current))
+        XCTAssertEqual(config.table.borderWidth, 5)
+    }
+
     func testCellPaddingSetsOnlyTheGivenSides() {
         let config = MarkdownStyleConfiguration.resolve(
             layers: [

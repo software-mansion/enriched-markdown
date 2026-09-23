@@ -208,7 +208,7 @@ enum ThemeResolver {
     /// Point-sized, custom, and modified fonts (`.system(size:)`, `.custom`,
     /// `.weight()`, `.italic()`) carry their values in SwiftUI's private
     /// font box, so they cannot be read back; they log and fall back to
-    /// `.body`. `fontSize(_:weight:)` and `fontFamily(_:size:)` are the
+    /// `.body`. `font(size:weight:design:)` and `font(custom:size:)` are the
     /// explicit forms for those.
     static func resolveFont(from font: Font, traitCollection: UITraitCollection) -> ResolvedFont {
         if let resolved = textStyleFonts[font] {
@@ -218,7 +218,7 @@ enum ThemeResolver {
             """
             EnrichedMarkdown: .font() only resolves text styles such as .body or \
             .system(.title, design: .serif, weight: .bold); falling back to .body. \
-            Use .fontSize(_:weight:) for a point size or .fontFamily(_:size:) for a custom face.
+            Use .font(size:weight:design:) for a point size or .font(custom:size:) for a custom face.
             """
         )
         return ResolvedFont(spec: .textStyle(.body))
@@ -233,12 +233,13 @@ enum ThemeResolver {
     /// no spec, the weight, design, and italic apply to `base` itself, so
     /// `Heading(1).bold()` layers over the default theme. A custom face
     /// takes only a bold weight (its family's bold face) and italic; design
-    /// is a system-font notion.
+    /// is a system-font notion. `italic` nil leaves the slant alone, false
+    /// removes one a lower layer set.
     static func applyFont(
         spec: ThemeFontSpec?,
         weight: Font.Weight?,
         design: Font.Design?,
-        italic: Bool = false,
+        italic: Bool? = nil,
         to base: UIFont?,
         traitCollection: UITraitCollection
     ) -> UIFont? {
@@ -267,8 +268,10 @@ enum ThemeResolver {
             }
         }
 
-        if italic {
-            font = FontHelpers.ensureItalic(font) ?? font
+        switch italic {
+        case true?: font = FontHelpers.ensureItalic(font) ?? font
+        case false?: font = FontHelpers.removeItalic(font) ?? font
+        case nil: break
         }
         return font
     }

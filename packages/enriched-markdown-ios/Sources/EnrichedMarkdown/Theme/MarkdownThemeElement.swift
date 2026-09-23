@@ -11,6 +11,10 @@ public protocol MarkdownThemeElement: MarkdownThemeContent {
     var marginBottom: CGFloat? { get set }
     var lineHeight: CGFloat? { get set }
     var textAlignment: TextAlignment? { get set }
+    /// The design an element's own font takes when `fontDesign` is not set;
+    /// code elements answer `.monospaced`. It never touches a lower layer's
+    /// font, so `CodeBlock().foregroundStyle(.red)` keeps a serif code font.
+    var defaultFontDesign: Font.Design? { get }
 }
 
 public extension MarkdownThemeElement {
@@ -19,6 +23,8 @@ public extension MarkdownThemeElement {
         get { nil }
         set { _ = newValue }
     }
+
+    var defaultFontDesign: Font.Design? { nil }
 
     /// A SwiftUI text style in any spelling (`.body`, `.system(.title,
     /// design: .serif, weight: .bold)`), tracking Dynamic Type. Point-sized
@@ -69,7 +75,7 @@ public extension MarkdownThemeElement {
     }
 
     /// Italicizes with the family's italic face, or a synthesized slant
-    /// when it has none.
+    /// when it has none; `italic(false)` removes an italic a lower layer set.
     func italic(_ isActive: Bool = true) -> Self {
         var copy = self
         copy.isItalic = isActive
@@ -147,12 +153,13 @@ public extension MarkdownThemeElement {
         to style: inout Style,
         traitCollection: UITraitCollection
     ) {
-        if fontSpec != nil || fontWeight != nil || fontDesign != nil || isItalic == true {
+        let design = fontDesign ?? (fontSpec != nil ? defaultFontDesign : nil)
+        if fontSpec != nil || fontWeight != nil || design != nil || isItalic != nil {
             style.font = ThemeResolver.applyFont(
                 spec: fontSpec,
                 weight: fontWeight,
-                design: fontDesign,
-                italic: isItalic == true,
+                design: design,
+                italic: isItalic,
                 to: style.font,
                 traitCollection: traitCollection
             )

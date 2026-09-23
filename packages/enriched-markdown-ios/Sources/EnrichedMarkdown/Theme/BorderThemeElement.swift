@@ -14,14 +14,21 @@ public extension BorderThemeElement {
     func border(_ color: Color, width: CGFloat? = nil) -> Self {
         var copy = self
         copy.borderColorSpec = ThemeColorModifiers.spec(from: color)
-        if let width { copy.borderWidth = width }
-        return copy
+        guard let width else { return copy }
+        return copy.border(width: width)
     }
 
     func border(_ semantic: ThemeColorSpec.SemanticColor, width: CGFloat? = nil) -> Self {
         var copy = self
         copy.borderColorSpec = ThemeColorModifiers.spec(from: semantic)
-        if let width { copy.borderWidth = width }
+        guard let width else { return copy }
+        return copy.border(width: width)
+    }
+
+    /// Sets only the width, keeping the color a lower layer set.
+    func border(width: CGFloat) -> Self {
+        var copy = self
+        copy.borderWidth = width
         return copy
     }
 
