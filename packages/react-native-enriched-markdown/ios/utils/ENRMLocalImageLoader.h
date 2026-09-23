@@ -1,6 +1,8 @@
 #pragma once
 #import "ENRMUIKit.h"
 
+@class ENRMAnimatedImage;
+
 NS_ASSUME_NONNULL_BEGIN
 
 /**
@@ -27,5 +29,9 @@ BOOL ENRMIsLocalImageURL(NSString *url);
 /// Synchronously loads a local image; returns nil when the source cannot be
 /// resolved. Safe to call off the main thread.
 RCTUIImage *_Nullable ENRMLoadLocalImage(NSString *url);
+
+/// Synchronously loads a local multi-frame GIF; nil for anything else. Try it
+/// before ENRMLoadLocalImage, which flattens GIFs to their first frame.
+ENRMAnimatedImage *_Nullable ENRMLoadLocalAnimatedImage(NSString *url);
 
 NS_ASSUME_NONNULL_END

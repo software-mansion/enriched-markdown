@@ -437,6 +437,16 @@ Styles for highlighted text (`==text==`). Requires `md4cFlags={{ highlight: true
 
 > Sizing precedence: `aspectRatio` > `maxHeight` > `height`. `resizeMode` applies independently on top. When no new knob is set (`resizeMode`, `maxHeight`, or `aspectRatio`), block images keep the exact legacy fixed-`height` behavior.
 
+#### Animated GIFs
+
+Block images whose bytes are a multi-frame GIF play in place on iOS and Android, using exactly the same `image` styles (`height`, `maxHeight`, `aspectRatio`, `resizeMode`, `borderRadius`, margins). Detection is by content, not by URL, so a `.gif` URL that serves a still image renders as a still image. Nothing to configure and no extra dependency: iOS decodes frames through ImageIO, Android through `AnimatedImageDrawable`.
+
+- Inline images (a GIF inside a line of text) show their first frame.
+- Android 8.1 (API 27) and below, and macOS, show the first frame.
+- When the system reduce-motion / "remove animations" setting is on, the first frame is shown.
+- Playback stops while the hosting text view is detached from the window (a recycled list row, a hidden tab) and continues from the same frame once it is drawn again. Android table cells keep playing while attached.
+- Re-rendering the same markdown (for example while streaming) does not restart the GIF.
+
 ### Video-specific
 
 Styles for block-level videos embedded via the HTML `<video>` tag (e.g. `<video src="url"></video>`). Requires `flavor="github"` and the `enableVideo` opt-in in your app's `package.json`.

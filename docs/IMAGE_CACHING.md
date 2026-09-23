@@ -38,6 +38,7 @@ The library uses a three-tier caching strategy on both platforms:
 
 - **Original cache** stores decoded images keyed by URL. On Android, large images are downsampled to screen width during decode to reduce peak memory.
 - **Processed cache** stores scaled and clipped variants keyed by URL + dimensions + border radius, so repeated layouts with the same geometry skip all image processing.
+- **Animated GIFs** keep their encoded bytes plus one decoded poster frame, and further frames are decoded lazily while playing. They live in their own 20 MB memory tier on both platforms (cost = bytes + poster), separate from still originals, so an eviction never leaves a poster without its animation and a few large GIFs don't flush every still image. Only the poster is written to the processed cache; animation frames are held per attachment while playing (up to 8 MB on iOS) and released when playback pauses.
 - **Disk cache** persists raw HTTP responses across app launches, respecting standard HTTP cache headers.
 
 ## Request Headers

@@ -27,6 +27,7 @@
 - 👤 Renders mentions as styled links (compatible with `EnrichedMarkdownTextInput` mention output)
 - 🙈 Spoiler text with animated particle overlay and tap-to-reveal
 - 🖼️ Native image interactions (iOS: Copy, Save to Camera Roll)
+- 🎞️ Animated GIFs play in place via the regular `![alt](url)` syntax (iOS and Android)
 - 🎬 Native video playback — block-level videos via HTML `<video>` tag
 - 🌐 Native platform features (Translate, Look Up, Search Web, Share)
 - 🗣️ Accessibility support (VoiceOver on iOS, TalkBack on Android, semantic HTML on web)

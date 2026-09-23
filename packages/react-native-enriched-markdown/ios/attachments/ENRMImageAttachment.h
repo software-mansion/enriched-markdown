@@ -1,6 +1,7 @@
 #pragma once
 #import "ENRMUIKit.h"
 
+@class ENRMAnimatedImage;
 @class StyleConfig;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -26,6 +27,10 @@ NS_ASSUME_NONNULL_BEGIN
  * Custom NSTextAttachment for rendering markdown images.
  * Images are loaded asynchronously and scaled dynamically based on text container width.
  * Supports inline and block images with custom height and border radius from config.
+ *
+ * Multi-frame block GIFs animate in place on iOS: frames are decoded lazily off
+ * the main thread and swapped in on a per-frame timer that redraws only the
+ * attachment's glyph range. Inline images and macOS show the first frame.
  */
 @interface ENRMImageAttachment : NSTextAttachment
 
@@ -45,6 +50,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSCache<NSString *, RCTUIImage *> *)originalImageCache;
 + (NSCache<NSString *, RCTUIImage *> *)processedImageCache;
++ (NSCache<NSString *, ENRMAnimatedImage *> *)animatedImageCache;
 
 @end
 

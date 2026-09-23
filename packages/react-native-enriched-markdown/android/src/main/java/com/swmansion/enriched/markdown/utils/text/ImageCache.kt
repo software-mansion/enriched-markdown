@@ -6,9 +6,26 @@ import java.security.MessageDigest
 
 object ImageCache {
   private const val ORIGINAL_CACHE_SIZE = 20 * 1024 * 1024
+  private const val ANIMATED_CACHE_SIZE = 20 * 1024 * 1024
   private const val PROCESSED_CACHE_SIZE = 30 * 1024 * 1024
 
-  private val originalCache = bitmapLruCache(ORIGINAL_CACHE_SIZE)
+  private val originalCache =
+    object : LruCache<String, DecodedImage>(ORIGINAL_CACHE_SIZE) {
+      override fun sizeOf(
+        key: String,
+        value: DecodedImage,
+      ): Int = value.bitmap.byteCount
+    }
+
+  // Animated GIFs (poster + encoded bytes) live in their own tier so a few
+  // large GIFs don't evict every still image, and vice versa.
+  private val animatedCache =
+    object : LruCache<String, DecodedImage>(ANIMATED_CACHE_SIZE) {
+      override fun sizeOf(
+        key: String,
+        value: DecodedImage,
+      ): Int = value.bitmap.byteCount + (value.animatedBytes?.size ?: 0)
+    }
   private val processedCache = bitmapLruCache(PROCESSED_CACHE_SIZE)
 
   /**
@@ -30,13 +47,15 @@ object ImageCache {
     return url + "|" + digest.joinToString(separator = "") { "%02x".format(it) }
   }
 
-  fun getOriginal(url: String): Bitmap? = originalCache.get(url)
+  fun getOriginal(url: String): Bitmap? = getOriginalImage(url)?.bitmap
+
+  fun getOriginalImage(url: String): DecodedImage? = animatedCache.get(url) ?: originalCache.get(url)
 
   fun putOriginal(
     url: String,
-    bitmap: Bitmap,
+    image: DecodedImage,
   ) {
-    originalCache.put(url, bitmap)
+    if (image.animatedBytes != null) animatedCache.put(url, image) else originalCache.put(url, image)
   }
 
   fun getProcessed(

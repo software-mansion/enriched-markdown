@@ -1,4 +1,6 @@
 #import "ENRMImageAttachment.h"
+#import "ENRMAnimatedFramePlayer.h"
+#import "ENRMAnimatedImage.h"
 #import "ENRMImageDownloader.h"
 #import "ENRMUIKit.h"
 #import "RuntimeKeys.h"
@@ -17,6 +19,7 @@ static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
 
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
+static NSCache<NSString *, ENRMAnimatedImage *> *_animatedImageCache;
 
 @implementation RCTUIView (ENRMImageLayoutObserver)
 
@@ -31,7 +34,16 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
 @end
 
-@interface ENRMImageAttachment ()
+static inline CGFloat ENRMDisplayScale(void)
+{
+#if !TARGET_OS_OSX
+  return [UIScreen mainScreen].scale;
+#else
+  return [NSScreen mainScreen].backingScaleFactor ?: 1.0;
+#endif
+}
+
+@interface ENRMImageAttachment () <ENRMAnimatedFramePlayerDelegate>
 
 @property (nonatomic, copy) NSString *imageURL;
 @property (nonatomic, copy, nullable) NSDictionary<NSString *, NSString *> *requestHeaders;
@@ -48,6 +60,10 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 @property (nonatomic, strong) RCTUIImage *loadedImage;
 @property (nonatomic, strong) RCTUIImage *placeholderImage;
 @property (nonatomic, copy) NSString *lastProcessedKey;
+
+// Set only for multi-frame block GIFs; the player owns all playback state.
+@property (nonatomic, strong, nullable) ENRMAnimatedImage *animatedImage;
+@property (nonatomic, strong, nullable) ENRMAnimatedFramePlayer *framePlayer;
 
 @end
 
@@ -75,12 +91,24 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   return _processedImageCache;
 }
 
++ (NSCache<NSString *, ENRMAnimatedImage *> *)animatedImageCache
+{
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    _animatedImageCache = [[NSCache alloc] init];
+    _animatedImageCache.countLimit = 20;
+    _animatedImageCache.totalCostLimit = 1024 * 1024 * 20; // 20 MB, costed as GIF bytes + poster frame
+  });
+  return _animatedImageCache;
+}
+
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
 {
   // Always a fresh instance, never shared across positions: the table renderer can draw
   // the same image URL at a different width than a copy outside the table, and a shared
   // NSTextAttachment would thrash its single last-processed width into a redraw loop. The
-  // image caches keep fresh instances cheap (no re-fetch or re-scale).
+  // image caches keep fresh instances cheap (no re-fetch or re-scale), and an animated
+  // GIF keeps its playhead on the shared ENRMAnimatedImage so playback continues.
   return [[self alloc] initWithImageURL:imageURL config:config isInline:isInline];
 }
 
@@ -174,20 +202,35 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     [self processAndApplyImage:self.originalImage withTargetWidth:imageBounds.size.width];
   }
 
+  if (self.framePlayer) {
+    // Only the real draw path reaches here (view-free measurement stops at
+    // layout): remember the host and restart a loop paused while off-window.
+    ENRMPlatformTextView *host = objc_getAssociatedObject(textContainer, kTextViewKey);
+    if (host) {
+      [self.framePlayer addHost:host];
+    }
+    [self.framePlayer startIfNeeded];
+  }
+
   return self.loadedImage ?: self.placeholderImage;
 }
 
-- (void)handleLoadedImage:(RCTUIImage *)image
+- (void)handleLoadedImage:(RCTUIImage *)image animated:(nullable ENRMAnimatedImage *)animated
 {
   if (!image)
     return;
 
   // The downloader completes synchronously on cache hits, which can happen on the render queue
   if (!NSThread.isMainThread) {
-    dispatch_async(dispatch_get_main_queue(), ^{ [self handleLoadedImage:image]; });
+    dispatch_async(dispatch_get_main_queue(), ^{ [self handleLoadedImage:image animated:animated]; });
     return;
   }
 
+  // Inline images stay still (matches Android).
+  self.animatedImage = self.isInline ? nil : animated;
+  self.framePlayer = self.animatedImage
+                         ? [[ENRMAnimatedFramePlayer alloc] initWithAnimatedImage:self.animatedImage delegate:self]
+                         : nil;
   self.originalImage = image;
   // UIKit reads the plain image property for save/drag/copy — it must hold the original
   self.image = image;
@@ -214,6 +257,7 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   if ([processedKey isEqualToString:self.lastProcessedKey])
     return;
   self.lastProcessedKey = processedKey;
+  [self.framePlayer resetForKey:processedKey geometry:[self frameGeometryForWidth:targetWidth boxHeight:boxHeight]];
 
   RCTUIImage *cachedProcessed = [[ENRMImageAttachment processedImageCache] objectForKey:processedKey];
 
@@ -241,6 +285,11 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     }
 
     dispatch_async(dispatch_get_main_queue(), ^{
+      // Don't clobber a newer size, or a running animation, with a stale poster.
+      if (![processedKey isEqualToString:strongSelf.lastProcessedKey])
+        return;
+      if (strongSelf.framePlayer.playing && strongSelf.framePlayer.currentFrameIndex != 0)
+        return;
       strongSelf.loadedImage = processedImage;
       if (strongSelf.isInline) {
         strongSelf.bounds = CGRectMake(0, 0, strongSelf.cachedHeight, strongSelf.cachedHeight);
@@ -262,24 +311,7 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
   CGSize source = CGSizeMake(sourceWidth, sourceHeight);
   CGSize box = CGSizeMake(targetWidth, targetHeight);
-  BOOL legacy = [self isLegacyBlockSizing];
-
-  CGRect drawingRect;
-  if (self.isInline || legacy) {
-    CGFloat drawingWidth, drawingHeight;
-    if (!self.isInline) {
-      CGFloat aspectRatioScale = targetWidth / sourceWidth;
-      drawingWidth = targetWidth;
-      drawingHeight = sourceHeight * aspectRatioScale;
-    } else {
-      drawingWidth = targetWidth;
-      drawingHeight = targetHeight;
-    }
-    drawingRect = CGRectMake((targetWidth - drawingWidth) / 2.0, (targetHeight - drawingHeight) / 2.0, drawingWidth,
-                             drawingHeight);
-  } else {
-    drawingRect = [self drawingRectForResizeMode:self.cachedResizeMode source:source box:box];
-  }
+  CGRect drawingRect = [self drawingRectForSource:source box:box];
 
   RCTUIGraphicsImageRenderer *renderer = ImageRendererForSize(box);
 
@@ -291,6 +323,26 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     }
     [image drawInRect:drawingRect];
   }];
+}
+
+// Where a source of the given size lands inside the box. Depends only on the
+// aspect ratio of `source`, except 'center' and 'none' which draw at 1:1.
+- (CGRect)drawingRectForSource:(CGSize)source box:(CGSize)box
+{
+  if (self.isInline || [self isLegacyBlockSizing]) {
+    CGFloat drawingWidth, drawingHeight;
+    if (!self.isInline) {
+      CGFloat aspectRatioScale = box.width / source.width;
+      drawingWidth = box.width;
+      drawingHeight = source.height * aspectRatioScale;
+    } else {
+      drawingWidth = box.width;
+      drawingHeight = box.height;
+    }
+    return CGRectMake((box.width - drawingWidth) / 2.0, (box.height - drawingHeight) / 2.0, drawingWidth,
+                      drawingHeight);
+  }
+  return [self drawingRectForResizeMode:self.cachedResizeMode source:source box:box];
 }
 
 - (CGRect)drawingRectForResizeMode:(NSString *)mode source:(CGSize)source box:(CGSize)box
@@ -326,7 +378,9 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
   __weak typeof(self) weakSelf = self;
   [[ENRMImageDownloader shared] downloadURL:self.imageURL
                                     headers:self.requestHeaders
-                                 completion:^(RCTUIImage *image) { [weakSelf handleLoadedImage:image]; }];
+                                 completion:^(RCTUIImage *image, ENRMAnimatedImage *animated) {
+                                   [weakSelf handleLoadedImage:image animated:animated];
+                                 }];
 }
 
 - (void)refreshDisplay
@@ -368,6 +422,45 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     return;
 
   dispatch_async(dispatch_get_main_queue(), ^{ [observer imageAttachmentDidResolveLayout]; });
+}
+
+#pragma mark - GIF animation
+
+// Frames are decoded just large enough for the rect they are drawn into; for
+// 'center' and 'none' that rect is the intrinsic size, so they stay 1:1.
+- (ENRMFrameGeometry)frameGeometryForWidth:(CGFloat)targetWidth boxHeight:(CGFloat)boxHeight
+{
+  CGRect drawingRect = [self drawingRectForSource:self.originalImage.size box:CGSizeMake(targetWidth, boxHeight)];
+  ENRMFrameGeometry geometry;
+  geometry.targetWidth = targetWidth;
+  geometry.boxHeight = boxHeight;
+  geometry.maxPixelSize = MAX(drawingRect.size.width, drawingRect.size.height) * ENRMDisplayScale();
+  return geometry;
+}
+
+- (RCTUIImage *)framePlayer:(ENRMAnimatedFramePlayer *)player
+               processFrame:(RCTUIImage *)raw
+                   geometry:(ENRMFrameGeometry)geometry
+{
+  return [self createScaledImage:raw
+                         toWidth:geometry.targetWidth
+                          height:geometry.boxHeight
+                    borderRadius:self.cachedBorderRadius];
+}
+
+- (void)framePlayer:(ENRMAnimatedFramePlayer *)player showFrame:(RCTUIImage *)frame
+{
+  self.loadedImage = frame;
+}
+
+// Display-only invalidation: a frame swap never changes the box size.
+- (BOOL)framePlayer:(ENRMAnimatedFramePlayer *)player redrawInHost:(ENRMPlatformTextView *)host
+{
+  NSRange range = [self findAttachmentRangeInText:host.textStorage];
+  if (range.location == NSNotFound)
+    return NO;
+  [host.layoutManager invalidateDisplayForCharacterRange:range];
+  return YES;
 }
 
 - (ENRMPlatformTextView *)fetchAssociatedTextView

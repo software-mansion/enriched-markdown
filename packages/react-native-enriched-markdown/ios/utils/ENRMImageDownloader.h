@@ -1,9 +1,13 @@
 #pragma once
 #import "ENRMUIKit.h"
 
+@class ENRMAnimatedImage;
+
 NS_ASSUME_NONNULL_BEGIN
 
-typedef void (^ENRMImageDownloadCompletion)(RCTUIImage *_Nullable image);
+/// `image` is the decoded still (for a GIF: its first frame). `animated` is
+/// non-nil only for multi-frame GIFs; it shares the same cache identity.
+typedef void (^ENRMImageDownloadCompletion)(RCTUIImage *_Nullable image, ENRMAnimatedImage *_Nullable animated);
 
 /**
  * Cache identity for a remote image request. Returns the URL itself when no
