@@ -21,6 +21,7 @@ jobs:
       react-native: ${{ steps.filter.outputs.react-native }}
       android: ${{ steps.filter.outputs.android }}
       ios: ${{ steps.filter.outputs.ios }}
+      core: ${{ steps.filter.outputs.core }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -32,6 +33,10 @@ jobs:
         id: filter
         with:
           filters: |
+            core:
+              - 'packages/core/**'
+              - 'package.json'
+              - '.github/**'
             react-native:
               - 'packages/react-native-enriched-markdown/**'
               - 'packages/core/**'
@@ -59,6 +64,25 @@ jobs:
               - '.nvmrc'
               - '.yarnrc.yml'
               - '.github/**'
+
+  core-tests:
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [RelWithDebInfo, Debug]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build and run C++ core tests (${{ matrix.build_type }})
+        env:
+          CORE_CMAKE_ARGS: -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        run: yarn core:test
 
   rn-lint:
     needs: changes
@@ -524,6 +548,7 @@ jobs:
   ci-success:
     needs:
       - changes
+      - core-tests
       - rn-lint
       - rn-build-library
       - rn-build-android
@@ -542,6 +567,8 @@ jobs:
           REACT_NATIVE: ${{ needs.changes.outputs.react-native }}
           ANDROID: ${{ needs.changes.outputs.android }}
           IOS: ${{ needs.changes.outputs.ios }}
+          CORE: ${{ needs.changes.outputs.core }}
+          CORE_TESTS: ${{ needs.core-tests.result }}
           RN_LINT: ${{ needs.rn-lint.result }}
           RN_BUILD_LIBRARY: ${{ needs.rn-build-library.result }}
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
@@ -570,11 +597,12 @@ jobs:
             fi
           }
 
-          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" ]]; then
+          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" && "$CORE" != "true" ]]; then
             echo "No relevant changes detected - CI passed"
             exit 0
           fi
 
+          check_required "$CORE" "$CORE_TESTS" "core-tests"
           check_required "$REACT_NATIVE" "$RN_LINT" "rn-lint"
           check_required "$REACT_NATIVE" "$RN_BUILD_LIBRARY" "rn-build-library"
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"
