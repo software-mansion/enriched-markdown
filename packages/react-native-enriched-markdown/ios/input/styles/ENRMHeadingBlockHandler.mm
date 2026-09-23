@@ -23,6 +23,12 @@
   if (headingColor) {
     attributes[NSForegroundColorAttributeName] = headingColor;
   }
+
+  CGFloat derivedLineHeight = [style derivedLineHeightForHeadingLevel:level];
+  if (derivedLineHeight > 0) {
+    paragraphStyle.minimumLineHeight = derivedLineHeight;
+    paragraphStyle.maximumLineHeight = derivedLineHeight;
+  }
 }
 
 - (NSString *)markdownLinePrefixForBlockRange:(ENRMBlockRange *)blockRange

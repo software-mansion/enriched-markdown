@@ -2,6 +2,7 @@
 #import "ENRMBlockHandler.h"
 #import "ENRMBoldStyleHandler.h"
 #import "ENRMHeadingBlockHandler.h"
+#import "ENRMInputBlockType.h"
 #import "ENRMItalicStyleHandler.h"
 #import "ENRMLinkStyleHandler.h"
 #import "ENRMOrderedListBlockHandler.h"
@@ -10,6 +11,7 @@
 #import "ENRMStyleHandler.h"
 #import "ENRMUnderlineStyleHandler.h"
 #import "ENRMUnorderedListBlockHandler.h"
+#import "ParagraphStyleUtils.h"
 
 /// Sets `key` to `value` only on sub-runs whose value differs, recording each
 /// written range in `changed` so the caller can invalidate just what changed.
@@ -200,6 +202,8 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
 
   free(traitMap);
 
+  [self applyBaseLineHeight:style.baseLineHeight toNonHeadingParagraphsInTextStorage:textStorage range:scopeRange];
+
   [textStorage endEditing];
 
   NSLayoutManager *layoutManager = textStorage.layoutManagers.firstObject;
@@ -334,12 +338,60 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
 
     if (applyRange.length > 0) {
       [textStorage addAttributes:attributes range:applyRange];
+      if (paragraphStyle.minimumLineHeight > 0) {
+        applyBaselineOffset(textStorage, applyRange);
+      }
     }
   }
+
+  // Default body line height on lists and plain paragraphs after block styles
+  // (indent, heading override) are reconciled.
+  [self applyBaseLineHeight:style.baseLineHeight toNonHeadingParagraphsInTextStorage:textStorage range:scopeRange];
 
   [textStorage endEditing];
 
   ENRMSetNeedsDisplay(textView);
+}
+
+/// Body line height on every paragraph that is not a heading. Lists share this
+/// default so toggling a list cannot drop line height. Headings keep the
+/// derived height from the heading handler.
+- (void)applyBaseLineHeight:(CGFloat)lineHeight
+    toNonHeadingParagraphsInTextStorage:(NSTextStorage *)textStorage
+                                  range:(NSRange)scopeRange
+{
+  if (lineHeight <= 0 || scopeRange.length == 0) {
+    return;
+  }
+
+  NSString *string = textStorage.string;
+  NSUInteger position = scopeRange.location;
+  NSUInteger scopeEnd = NSMaxRange(scopeRange);
+  while (position < scopeEnd) {
+    NSRange paragraphRange = [string paragraphRangeForRange:NSMakeRange(position, 0)];
+    paragraphRange = NSIntersectionRange(paragraphRange, scopeRange);
+    if (paragraphRange.length == 0) {
+      break;
+    }
+
+    id blockType = [textStorage attribute:ENRMBlockTypeAttributeName
+                                  atIndex:paragraphRange.location
+                           effectiveRange:NULL];
+    NSInteger headingLevel = 0;
+    if ([blockType isKindOfClass:[NSNumber class]]) {
+      headingLevel = ENRMHeadingLevelForBlockType((ENRMInputBlockType)[blockType integerValue]);
+    }
+    if (headingLevel == 0) {
+      applyLineHeight(textStorage, paragraphRange, lineHeight);
+      applyBaselineOffset(textStorage, paragraphRange);
+    }
+
+    NSUInteger nextPosition = NSMaxRange(paragraphRange);
+    if (nextPosition <= position) {
+      break;
+    }
+    position = nextPosition;
+  }
 }
 
 /// Applies `blockFont` over `range` while preserving the symbolic traits already
