@@ -1,22 +1,27 @@
 package com.swmansion.enriched.markdown.input.spans
 
 import android.annotation.SuppressLint
+import android.graphics.Paint.FontMetricsInt
 import android.graphics.Typeface
 import android.text.TextPaint
+import android.text.style.LineHeightSpan
 import android.text.style.MetricAffectingSpan
 import com.facebook.react.common.ReactConstants
 import com.swmansion.enriched.markdown.input.formatting.MarkdownSpan
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
 
 /**
- * Sizes and optionally weights/colors a heading line per [InputFormatterStyle.headingStyle].
- * Preserves inline bold/italic via [BOLD_ITALIC_MASK] so emphasis composes with heading weight.
- * Tagged [MarkdownSpan] for formatter cleanup.
+ * Applies heading font size, weight, color, and line height to a markdown
+ * heading paragraph. [InputFormatterStyle.headingStyle] picks the level style;
+ * [BOLD_ITALIC_MASK] keeps inline bold/italic so emphasis composes with the
+ * heading weight. Tagged [MarkdownSpan] for formatter cleanup.
  */
 class InputHeadingSpan(
   val level: Int,
   style: InputFormatterStyle,
+  private val lineHeightPx: Float?,
 ) : MetricAffectingSpan(),
+  LineHeightSpan,
   MarkdownSpan {
   private val resolved = style.headingStyle(level)
 
@@ -27,6 +32,25 @@ class InputHeadingSpan(
 
   override fun updateMeasureState(tp: TextPaint) {
     applyHeadingStyle(tp)
+  }
+
+  override fun chooseHeight(
+    text: CharSequence,
+    start: Int,
+    end: Int,
+    spanstartv: Int,
+    v: Int,
+    fm: FontMetricsInt,
+  ) {
+    // null: no body lineHeight, so keep the font's natural height.
+    val lineHeightPx = lineHeightPx ?: return
+    applyCssLineHeight(
+      fm = fm,
+      lineHeightPx = kotlin.math.ceil(lineHeightPx.toDouble()).toInt(),
+      start = start,
+      end = end,
+      textLength = text.length,
+    )
   }
 
   @SuppressLint("WrongConstant") // Result of mask is always valid: 0, 1, 2, or 3

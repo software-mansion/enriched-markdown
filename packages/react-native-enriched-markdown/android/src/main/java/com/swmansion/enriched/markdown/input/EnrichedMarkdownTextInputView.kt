@@ -23,6 +23,7 @@ import com.facebook.react.uimanager.BackgroundStyleApplicator
 import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.views.text.ReactTypefaceUtils
+import com.facebook.react.views.text.TextAttributes
 import com.swmansion.enriched.markdown.input.autolink.AutoLinkDetector
 import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
@@ -52,6 +53,7 @@ import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
 import com.swmansion.enriched.markdown.input.model.StyleType
+import com.swmansion.enriched.markdown.input.spans.applyBodyLineHeightSpan
 import com.swmansion.enriched.markdown.input.toolbar.InputContextMenu
 import com.swmansion.enriched.markdown.utils.input.AutoCapitalizeUtils
 import kotlin.math.ceil
@@ -83,6 +85,7 @@ class EnrichedMarkdownTextInputView(
   private var typefaceDirty = false
   private var fontFamilyValue: String? = null
   private var fontWeightValue: Int = ReactConstants.UNSET
+  private val textAttributes = TextAttributes()
 
   val contextMenu = InputContextMenu(this)
   val eventEmitter = InputEventEmitter(this)
@@ -175,6 +178,13 @@ class EnrichedMarkdownTextInputView(
 
     setEditableFactory(MarkdownEditableFactory(this))
     setPadding(0, 0, 0, 0)
+    // Line height comes from InputCssLineHeightSpan, so there is no extra line
+    // spacing, as in React Native's text layout:
+    // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/text/TextLayoutManager.kt#L676
+    setLineSpacing(0f, 1f)
+    // Start from EditText's default size so heading line heights can be
+    // derived even when no fontSize prop is set.
+    textAttributes.fontSize = textSize / (resources.displayMetrics.density * resources.configuration.fontScale)
     background = null
     BackgroundStyleApplicator.setBackgroundColor(this, Color.TRANSPARENT)
     contextMenu.install()
@@ -381,6 +391,9 @@ class EnrichedMarkdownTextInputView(
           pendingStyleRemovals = pendingStyleRemovals.toSet(),
         )
       editPipeline.processTextChange(context)
+      // Formatting may have changed (e.g. a new list item or heading), so Yoga
+      // needs to remeasure even when the text watcher already did.
+      layoutManager.invalidateLayout()
       editSession.isTextChanging = false
       editSession.didTextChangeRecently = true
       lastProcessedText = text?.toString() ?: currentText
@@ -482,8 +495,14 @@ class EnrichedMarkdownTextInputView(
 
   fun applyFormatting() {
     val editable = text ?: return
+    formatter.bodyTextAttributes = textAttributesForMeasurement()
     formatter.applyFormatting(editable, formattingStore.allRanges)
     formatter.applyBlockFormatting(editable, blockStore.allRanges)
+    applyBodyLineHeightSpan(editable, textAttributes)
+    // Formatting can change the height without changing the text (toggling a
+    // heading or list, or a new font size or line height), so Yoga has to
+    // re-measure here, not only on text changes.
+    layoutManager.invalidateLayout()
   }
 
   private fun applyFormattingAndEmit() {
@@ -966,7 +985,6 @@ class EnrichedMarkdownTextInputView(
       zwspAnchorCount = 0
       applyFormatting()
       forceScrollToSelection()
-      layoutManager.invalidateLayout()
       lastProcessedText = text?.toString() ?: ""
     } finally {
       editSession.exit()
@@ -979,14 +997,36 @@ class EnrichedMarkdownTextInputView(
 
   fun setFontSizeFromProps(size: Float) {
     if (size <= 0f) return
+    textAttributes.fontSize = size
     val sizePx = ceil(PixelUtil.toPixelFromSP(size))
     setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
-    layoutManager.invalidateLayout()
+    // Heading line heights are derived from the body font size.
+    applyFormatting()
+  }
+
+  fun setLineHeightFromProps(lineHeight: Float) {
+    // Mirrors React Native TextInput: lineHeight stays in SP on TextAttributes
+    // and is applied as a span on the text rather than through setLineSpacing:
+    // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L332-L334
+    // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L856-L858
+    textAttributes.lineHeight = if (lineHeight > 0f) lineHeight else Float.NaN
+    applyFormatting()
   }
 
   fun setColorFromProps(colorInt: Int?) {
     setTextColor(colorInt ?: Color.BLACK)
   }
+
+  /** Copy of the body text attributes, safe to keep after this view changes them. */
+  fun textAttributesForMeasurement(): TextAttributes =
+    TextAttributes().apply {
+      allowFontScaling = textAttributes.allowFontScaling
+      fontSize = textAttributes.fontSize
+      lineHeight = textAttributes.lineHeight
+    }
+
+  /** Hint currently shown on screen; measured instead of the text when the buffer is empty. */
+  fun hintForMeasurement(): CharSequence? = hint
 
   fun setCursorColorFromProps(colorInt: Int?) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

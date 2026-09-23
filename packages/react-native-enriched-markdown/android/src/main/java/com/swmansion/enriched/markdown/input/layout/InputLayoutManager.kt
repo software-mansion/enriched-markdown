@@ -8,13 +8,27 @@ class InputLayoutManager(
 ) {
   private var forceHeightRecalculationCounter = 0
 
+  /**
+   * Re-measures and asks Fabric to adopt a new height when the result
+   * changed. Call after text, block ranges, or text attributes that feed
+   * [InputMeasurementStore] are in their final state.
+   *
+   * This only affects React Native's Yoga height, not EditText's DynamicLayout.
+   */
   fun invalidateLayout() {
     if (view.stateWrapper == null) return
 
-    val text = view.text
-    val paint = view.paint
-
-    val needUpdate = InputMeasurementStore.store(view.id, text, paint)
+    val needUpdate =
+      InputMeasurementStore.store(
+        context = view.context,
+        id = view.id,
+        text = view.text,
+        textAttributes = view.textAttributesForMeasurement(),
+        hint = view.hintForMeasurement(),
+        paint = view.paint,
+        blockRanges = view.blockStore.allRanges,
+        formatter = view.formatter,
+      )
     if (!needUpdate) return
 
     val state = Arguments.createMap()
