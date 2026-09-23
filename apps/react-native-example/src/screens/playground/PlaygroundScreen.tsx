@@ -60,6 +60,9 @@ const INLINE_IMAGE_URI = Image.resolveAssetSource(
   require('../../assets/logo_icon.png')
 ).uri;
 
+const DEFAULT_INPUT_LINE_HEIGHT = undefined;
+const TALL_INPUT_LINE_HEIGHT = 36;
+
 export default function PlaygroundScreen() {
   const headerHeight = useHeaderHeight();
   const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
@@ -70,6 +73,9 @@ export default function PlaygroundScreen() {
   const [underlineEnabled, setUnderlineEnabled] = useState(true);
   const [setMarkdownModalVisible, setSetMarkdownModalVisible] = useState(false);
   const [rawInput, setRawInput] = useState('');
+  const [inputLineHeight, setInputLineHeight] = useState<number | undefined>(
+    DEFAULT_INPUT_LINE_HEIGHT
+  );
   const handleGetMarkdown = useCallback(async () => {
     const md = await inputRef.current?.getMarkdown();
     Alert.alert('Markdown', md ?? '(empty)', [{ text: 'OK' }]);
@@ -153,6 +159,30 @@ export default function PlaygroundScreen() {
               Underline
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              inputLineHeight === TALL_INPUT_LINE_HEIGHT && styles.buttonActive,
+            ]}
+            onPress={() =>
+              setInputLineHeight((current) =>
+                current === TALL_INPUT_LINE_HEIGHT
+                  ? DEFAULT_INPUT_LINE_HEIGHT
+                  : TALL_INPUT_LINE_HEIGHT
+              )
+            }
+            testID="line-height-toggle"
+          >
+            <Text
+              style={[
+                styles.buttonText,
+                inputLineHeight === TALL_INPUT_LINE_HEIGHT &&
+                  styles.buttonTextActive,
+              ]}
+            >
+              LH {inputLineHeight ?? 'auto'}
+            </Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.buttonRow}>
           <TouchableOpacity
@@ -190,8 +220,19 @@ export default function PlaygroundScreen() {
             placeholderTextColor="#9CA3AF"
             style={
               sizeMode === 'max'
-                ? { ...styles.input, ...styles.inputMax }
-                : styles.input
+                ? {
+                    ...styles.input,
+                    ...styles.inputMax,
+                    ...(inputLineHeight != null
+                      ? { lineHeight: inputLineHeight }
+                      : {}),
+                  }
+                : {
+                    ...styles.input,
+                    ...(inputLineHeight != null
+                      ? { lineHeight: inputLineHeight }
+                      : {}),
+                  }
             }
             markdownStyle={MARKDOWN_STYLE}
             onChangeState={setState}
