@@ -105,28 +105,4 @@ class MarkdownStyleComposeTypesTest {
 
     assertTrue(error.message.orEmpty().contains("codeBlock.padding"))
   }
-
-  @Test
-  @Suppress("DEPRECATION")
-  fun deprecatedNamesStillWriteTheRenamedProperties() {
-    val context = resolveContext()
-    val density = ComposeStyleTestSupport.testDensity
-
-    val resolved =
-      markdownStyle {
-        blockquote { borderRadius = 6.dp }
-        image { borderRadius = 8.dp }
-        list { marginLeft = 10.dp }
-        taskList { checkboxBorderRadius = 3.dp }
-        link { underline = true }
-        table { align = TableAlignment.CENTER }
-      }.resolve(context)
-
-    assertEquals(with(density) { 6.dp.toPx() }, resolved.blockquoteStyle.borderRadius, 0.01f)
-    assertEquals(with(density) { 8.dp.toPx() }, resolved.imageStyle.borderRadius, 0.01f)
-    assertEquals(with(density) { 10.dp.toPx() }, resolved.listStyle.marginLeft, 0.01f)
-    assertEquals(with(density) { 3.dp.toPx() }, resolved.taskListStyle.checkboxBorderRadius, 0.01f)
-    assertTrue(resolved.linkStyle.underline)
-    assertEquals(TableAlignment.CENTER, resolved.tableStyle.align)
-  }
 }

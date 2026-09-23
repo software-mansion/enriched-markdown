@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.TextUnit
 import com.swmansion.enriched.markdown.compose.style.FontFamilyResolver
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.compose.style.StyleUnits
-import com.swmansion.enriched.markdown.compose.style.toComposeAlignment
 import com.swmansion.enriched.markdown.compose.style.toEmphasisStyleString
 import com.swmansion.enriched.markdown.compose.style.toStyleTableAlignment
 import com.swmansion.enriched.markdown.compose.style.toStyleTextAlignment
@@ -34,7 +33,6 @@ import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
 import com.swmansion.enriched.markdown.styles.SubscriptStyle
 import com.swmansion.enriched.markdown.styles.SuperscriptStyle
-import com.swmansion.enriched.markdown.styles.TableAlignment
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.styles.TaskListStyle
 import com.swmansion.enriched.markdown.styles.ThematicBreakStyle
@@ -164,13 +162,6 @@ class LinkStyleScope internal constructor() {
    * line-through, so [TextDecoration.LineThrough] is ignored.
    */
   var textDecoration: TextDecoration? = null
-
-  @Deprecated("Replaced by textDecoration, which takes Compose's TextDecoration.", ReplaceWith("textDecoration"))
-  var underline: Boolean?
-    get() = textDecoration?.contains(TextDecoration.Underline)
-    set(value) {
-      textDecoration = value?.let { if (it) TextDecoration.Underline else TextDecoration.None }
-    }
 
   var backgroundColor: Color? = null
 
@@ -748,13 +739,6 @@ class BlockquoteStyleScope internal constructor() {
   var backgroundColor: Color? = null
   var cornerRadius: Dp? = null
 
-  @Deprecated("Renamed to cornerRadius, the name Compose uses for a rounded corner.", ReplaceWith("cornerRadius"))
-  var borderRadius: Dp?
-    get() = cornerRadius
-    set(value) {
-      cornerRadius = value
-    }
-
   var padding: PaddingValues? = null
 
   private var admonitions: Map<String, AdmonitionColorsPatch> = emptyMap()
@@ -869,13 +853,6 @@ class ListStyleScope internal constructor() {
   var gapWidth: Dp? = null
   var marginStart: Dp? = null
 
-  @Deprecated("Renamed to marginStart; Compose layout APIs are start/end only.", ReplaceWith("marginStart"))
-  var marginLeft: Dp?
-    get() = marginStart
-    set(value) {
-      marginStart = value
-    }
-
   internal fun toPatch(): ListStylePatch =
     ListStylePatch(
       fontSize = fontSize,
@@ -956,15 +933,6 @@ class TaskListStyleScope internal constructor() {
   var checkboxSize: Dp? = null
   var checkboxCornerRadius: Dp? = null
 
-  @Deprecated(
-    "Renamed to checkboxCornerRadius, the name Compose uses for a rounded corner.",
-    ReplaceWith("checkboxCornerRadius"),
-  )
-  var checkboxBorderRadius: Dp?
-    get() = checkboxCornerRadius
-    set(value) {
-      checkboxCornerRadius = value
-    }
   var checkmarkColor: Color? = null
   var checkedTextColor: Color? = null
   var checkedStrikethrough: Boolean? = null
@@ -1026,13 +994,6 @@ internal data class ImageStylePatch(
 class ImageStyleScope internal constructor() {
   var height: Dp? = null
   var cornerRadius: Dp? = null
-
-  @Deprecated("Renamed to cornerRadius, the name Compose uses for a rounded corner.", ReplaceWith("cornerRadius"))
-  var borderRadius: Dp?
-    get() = cornerRadius
-    set(value) {
-      cornerRadius = value
-    }
 
   var marginTop: Dp? = null
   var marginBottom: Dp? = null
@@ -1233,13 +1194,6 @@ class TableStyleScope internal constructor() {
    * a side regardless of it.
    */
   var alignment: Alignment.Horizontal? = null
-
-  @Deprecated("Replaced by alignment, which takes Compose's Alignment.Horizontal.", ReplaceWith("alignment"))
-  var align: TableAlignment?
-    get() = alignment?.toStyleTableAlignment()
-    set(value) {
-      alignment = value?.toComposeAlignment()
-    }
 
   internal fun toPatch(): TableStylePatch =
     TableStylePatch(

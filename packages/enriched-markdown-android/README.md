@@ -289,28 +289,6 @@ fun rememberMarkdownStyle(
 
 Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `MaterialTheme { }`.
 
-## Migrating to the Compose names
-
-The public surface follows Jetpack Compose vocabulary. Renames keep a deprecated alias for one
-release; the four type changes and the `EnrichedMarkdownText` parameter names are source-breaking,
-so named arguments have to be updated.
-
-| Was | Now | Where |
-|-----|-----|-------|
-| `onLinkPress`, `onLinkLongPress` | `onLinkClick`, `onLinkLongClick` | `EnrichedMarkdownText` |
-| `onTaskListItemPress`, `TaskListItemPressEvent` | `onTaskListItemToggle`, `TaskListItemToggle` | `EnrichedMarkdownText` |
-| `enableTaskListItemToggle` | `taskListToggleEnabled` | `EnrichedMarkdownText` |
-| `Md4cFlags.DEFAULT` | `Md4cFlags.Default` | `Md4cFlags` |
-| `MarkdownStyle.copy { }` | `MarkdownStyle.merge { }`, `merge(other)`, `a + b` | `MarkdownStyle` |
-| `textAlign: TextAlignment` | `textAlign: TextAlign` | `paragraph`, `h1`…`h6` |
-| `align: TableAlignment` | `alignment: Alignment.Horizontal` | `table` |
-| `underline: Boolean` | `textDecoration: TextDecoration` | `link` |
-| `padding: Dp` | `padding: PaddingValues` | `codeBlock`, `blockquote` |
-| `borderRadius` | `cornerRadius` | `blockquote`, `image` |
-| `checkboxBorderRadius` | `checkboxCornerRadius` | `taskList` |
-| `marginLeft` | `marginStart` | `list` |
-
-Two mappings are lossy, because the text layer underneath is narrower than the Compose type:
 
 - `padding` must be uniform. A `PaddingValues` with differing sides throws, since the renderer draws
   one inset on every side.

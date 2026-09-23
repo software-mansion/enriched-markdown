@@ -40,12 +40,6 @@ class MarkdownStyle internal constructor(
   /** Operator form of [merge]. */
   operator fun plus(other: MarkdownStyle): MarkdownStyle = merge(other)
 
-  @Deprecated(
-    "Renamed to merge: the block layers on top of this style rather than replacing values.",
-    ReplaceWith("merge(block)"),
-  )
-  fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle = merge(block)
-
   internal fun resolve(resolveContext: StyleResolveContext): StyleConfig =
     layers.fold(StyleConfig.default(resolveContext.context)) { config, layer ->
       layer.apply(resolveContext, config)

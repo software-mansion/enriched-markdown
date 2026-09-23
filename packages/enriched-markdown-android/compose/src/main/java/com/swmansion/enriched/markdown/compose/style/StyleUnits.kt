@@ -99,11 +99,3 @@ internal fun Alignment.Horizontal.toStyleTableAlignment(): TableAlignment =
     AbsoluteAlignment.Right -> TableAlignment.RIGHT
     else -> TableAlignment.AUTO
   }
-
-internal fun TableAlignment.toComposeAlignment(): Alignment.Horizontal =
-  when (this) {
-    TableAlignment.AUTO -> Alignment.Start
-    TableAlignment.LEFT -> AbsoluteAlignment.Left
-    TableAlignment.CENTER -> Alignment.CenterHorizontally
-    TableAlignment.RIGHT -> AbsoluteAlignment.Right
-  }

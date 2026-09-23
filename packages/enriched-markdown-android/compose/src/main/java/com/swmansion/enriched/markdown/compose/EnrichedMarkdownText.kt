@@ -24,9 +24,6 @@ typealias Md4cFlags = Md4cFlagsInternal
 /** The item a task-list checkbox toggle happened on, and its checked state after the toggle. */
 typealias TaskListItemToggle = TaskListItemToggleInternal
 
-@Deprecated("Renamed to TaskListItemToggle.", ReplaceWith("TaskListItemToggle"))
-typealias TaskListItemPressEvent = TaskListItemToggleInternal
-
 /**
  * Renders [markdown] using the native markdown TextView inside Compose.
  *

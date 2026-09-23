@@ -15,9 +15,6 @@ data class Md4cFlags(
 ) {
   companion object {
     val Default = Md4cFlags()
-
-    @Deprecated("Renamed to Default; companion constants in Compose are PascalCase.", ReplaceWith("Md4cFlags.Default"))
-    val DEFAULT = Default
   }
 }
 
