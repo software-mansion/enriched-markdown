@@ -66,6 +66,16 @@ When you copy content to the clipboard, the HTML representation carries a single
 - Editor equivalent: [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input#writingdirection).
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
+<Tab label="iOS">
+
+No prop - the standalone iOS SDK has no writing-direction control, and there is nothing to configure. Paragraph text resolves its own base direction from the first strong character, as TextKit does for any native text, so a mixed-direction document lays each paragraph out correctly on its own.
+
+The decorations drawn **around** the text - list bullets and numbers, task checkboxes, blockquote and admonition bars - currently mirror with the **app's** layout direction rather than per paragraph, so an RTL paragraph inside an LTR app keeps its markers on the left. Fenced code blocks are pinned LTR deliberately. Bringing per-paragraph resolution to the decorations is on the [roadmap](/misc/roadmap#ios).
+
+</Tab>
+<Tab label="Android">
+
+No prop, and no per-paragraph resolution yet. See the [roadmap](/misc/roadmap#the-compose-api-surface).
+
+</Tab>
 </CodeTabs>

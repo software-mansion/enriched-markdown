@@ -22,7 +22,25 @@ Math parsing is **on by default**. You can turn it off so `$` is treated as plai
 <LivePreview src={MathSrc} />
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
+<Tab label="iOS">
+
+On the standalone iOS SDK, math is **off** until you add the optional `EnrichedMarkdownLaTeX` product and enable it per view. There is no `md4cFlags` entry: the modifier switches parsing and rendering on together, so `$…$` stays plain text without it.
+
+```swift
+import EnrichedMarkdown
+import EnrichedMarkdownLaTeX
+
+EnrichedMarkdownText(content)
+  .markdownLaTeX()
+  .markdownTheme {
+    MathBlock().fontSize(22)
+    InlineMath().foregroundStyle(.tint)
+  }
+```
+
+Display math needs no flavor switch - a `$$…$$` on its own line always renders as a panel, scrolling horizontally when the formula is wider than the line. See [LaTeX math](/ios/guides/latex-math).
+
+</Tab>
 <Tab label="Android"><ComingSoon platform="Android" /></Tab>
 </CodeTabs>
 
@@ -86,6 +104,13 @@ LaTeX math is not yet enabled on macOS.
 - **Web** - math renders through KaTeX, an optional peer dependency. See [Web support](/react-native/guides/web-support#math-katex).
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
+<Tab label="iOS">
+
+- [`.markdownLaTeX()`](/ios/guides/latex-math#turning-it-on) - enable math parsing and rendering; math is off without it.
+- [`MathBlock()` and `InlineMath()`](/ios/guides/latex-math#styling) - display and inline equation styling.
+- **Render errors** - there is no error callback; a formula that fails to typeset falls back to its delimited source.
+- **Reduce app size** - simply omit the `EnrichedMarkdownLaTeX` product. The base package links no math engine, so nothing to opt out of.
+
+</Tab>
 <Tab label="Android"><ComingSoon platform="Android" /></Tab>
 </CodeTabs>

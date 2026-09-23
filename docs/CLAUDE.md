@@ -34,9 +34,13 @@ Deployed to `https://docs.swmansion.com/react-native-enriched-markdown/` via Git
 ```
 introduction/         (10)  getting-started.mdx (slug: /getting-started, the
                             homepage), core-concepts, supported-features
-ios/                  (20)  installation, enriched-markdown-text,
-                            enriched-markdown-text-input, style-properties,
-                            element-structure
+ios/                  (20)  basics/ (10)        installation, your-first-screen
+                            api-reference/ (20) enriched-markdown-text,
+                                                markdown-theme, style-properties,
+                                                element-structure
+                            guides/ (30)        parser-extensions, latex-math,
+                                                image-caching, custom-fonts,
+                                                uikit-interop
 android/              (30)  basics/ (10)        installation, your-first-screen
                             api-reference/ (20) enriched-markdown-text,
                                                 markdown-theme, style-properties,
@@ -59,14 +63,24 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
 
   iOS and Android are **standalone native packages** with their own doc trees
   (native devs install them directly); `react-native/` documents the RN package.
-  `android/` follows the same basics/api-reference/guides shape as
-  `react-native/`, but is written for a reader who may know nothing about React
-  Native: it must never explain an Android feature by comparison to the RN
-  package, and has no "not available on Android" tables. It has no editor page -
-  `EnrichedMarkdownTextInput` is RN-only, noted once on `your-first-screen` with
-  a roadmap link - and no testing guide, because the parser is a JNI `.so`
-  (its own tests live in `parser/src/androidTest`) and the package ships no
-  importable test double, so a consumer cannot parse Markdown in a JVM test.
+  Both `ios/` and `android/` follow the same basics/api-reference/guides shape
+  as `react-native/`, but are written for a reader who may know nothing about
+  React Native: they must never explain a native feature by comparison to the RN
+  package, and have no "not available on <platform>" tables. Neither has an
+  editor page - `EnrichedMarkdownTextInput` is RN-only, noted once on
+  `your-first-screen` with a roadmap link. `android/` has no testing guide
+  either, because the parser is a JNI `.so` (its own tests live in
+  `parser/src/androidTest`) and the package ships no importable test double, so
+  a consumer cannot parse Markdown in a JVM test; on iOS `Parser` and
+  `MarkdownRenderer.render` are public, and that story is covered by the
+  `uikit-interop` guide rather than a testing page. The two trees deliberately
+  diverge where the packages do: the iOS package renders tables, spoilers,
+  highlight and LaTeX (a separate `EnrichedMarkdownLaTeX` product) and exposes
+  behavior through SwiftUI view modifiers rather than composable parameters, so
+  it gets a `latex-math` and a `uikit-interop` guide where Android gets
+  `compose-interop`. Its fallback renderer emits a node's **children**, so
+  unsupported syntax loses styling, not text - the opposite of Android's, and
+  the reason no iOS page carries Android's `:::danger` about vanishing content.
   The APIs are meant to converge, but the prose is written per tree - there is
   no global platform selector (an earlier prototype of one was removed).
   `rich-text-formatting/`, `user-experience/` and `misc/` are cross-platform and
