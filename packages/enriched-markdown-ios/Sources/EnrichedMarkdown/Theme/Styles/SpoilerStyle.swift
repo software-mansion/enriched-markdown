@@ -7,20 +7,20 @@ public struct SpoilerStyle: Equatable, Sendable {
     public var backgroundColor: UIColor?
     public var particleDensity: CGFloat?
     public var particleSpeed: CGFloat?
-    public var solidBorderRadius: CGFloat?
+    public var solidCornerRadius: CGFloat?
 
     public init(
         color: UIColor? = nil,
         backgroundColor: UIColor? = nil,
         particleDensity: CGFloat? = nil,
         particleSpeed: CGFloat? = nil,
-        solidBorderRadius: CGFloat? = nil
+        solidCornerRadius: CGFloat? = nil
     ) {
         self.color = color
         self.backgroundColor = backgroundColor
         self.particleDensity = particleDensity
         self.particleSpeed = particleSpeed
-        self.solidBorderRadius = solidBorderRadius
+        self.solidCornerRadius = solidCornerRadius
     }
 
     public mutating func merge(_ other: SpoilerStyle) {
@@ -28,6 +28,6 @@ public struct SpoilerStyle: Equatable, Sendable {
         backgroundColor = other.backgroundColor ?? backgroundColor
         particleDensity = other.particleDensity ?? particleDensity
         particleSpeed = other.particleSpeed ?? particleSpeed
-        solidBorderRadius = other.solidBorderRadius ?? solidBorderRadius
+        solidCornerRadius = other.solidCornerRadius ?? solidCornerRadius
     }
 }

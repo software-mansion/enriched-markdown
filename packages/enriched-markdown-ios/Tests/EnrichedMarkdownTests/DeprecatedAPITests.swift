@@ -42,6 +42,22 @@ final class DeprecatedAPITests: XCTestCase {
         XCTAssertNotNil(config.spoiler.color)
     }
 
+    func testGroupedModifierShimsForwardToGroupedForms() {
+        let config = resolve {
+            CodeBlock().borderColor(Color(UIColor.systemRed)).borderWidth(2)
+            Table().cellPaddingHorizontal(11).cellPaddingVertical(7)
+            Spoiler().particleDensity(3).particleSpeed(4).solidBorderRadius(5)
+        }
+        XCTAssertEqual(config.codeBlock.borderColor, UIColor.systemRed.resolvedColor(with: .current))
+        XCTAssertEqual(config.codeBlock.borderWidth, 2)
+        XCTAssertEqual(config.table.cellPaddingHorizontal, 11)
+        XCTAssertEqual(config.table.cellPaddingVertical, 7)
+        XCTAssertEqual(config.spoiler.particleDensity, 3)
+        XCTAssertEqual(config.spoiler.particleSpeed, 4)
+        XCTAssertEqual(config.spoiler.solidCornerRadius, 5)
+        XCTAssertEqual(SpoilerStyle(solidBorderRadius: 8).solidCornerRadius, 8)
+    }
+
     func testStyleRecordFieldAliasesAndInitLabels() {
         var codeBlock = CodeBlockStyle(borderRadius: 4)
         XCTAssertEqual(codeBlock.cornerRadius, 4)

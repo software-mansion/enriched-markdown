@@ -82,11 +82,9 @@ enum DefaultMarkdownTheme {
                 .headerTextColor(Semantic.primary)
                 .headerBackground(Color(UIColor.tertiarySystemFill))
                 .rowOddBackground(Color(UIColor.quaternarySystemFill))
-                .borderColor(Color(UIColor.separator))
-                .borderWidth(1)
+                .border(Color(UIColor.separator), width: 1)
                 .cornerRadius(6)
-                .cellPaddingHorizontal(12)
-                .cellPaddingVertical(8)
+                .cellPadding(horizontal: 12, vertical: 8)
                 .marginBottom(16)
         }
     }
@@ -98,8 +96,7 @@ enum DefaultMarkdownTheme {
             Blockquote()
                 .font(.body)
                 .foregroundStyle(Semantic.secondary)
-                .borderColor(Semantic.tint)
-                .borderWidth(3)
+                .border(Semantic.tint, width: 3)
                 .gapWidth(16)
                 .marginBottom(16),
             Admonition(.note).foregroundStyle(rgb(0x09, 0x69, 0xDA)),

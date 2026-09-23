@@ -147,7 +147,7 @@ final class SpoilerTests: XCTestCase {
         textView.spoilerOverlays.provider = .solid
         var styled = textView.styleConfig
         styled.spoiler.color = .systemPurple
-        styled.spoiler.solidBorderRadius = 9
+        styled.spoiler.solidCornerRadius = 9
         textView.styleConfig = styled
 
         let solid = try XCTUnwrap(overlays(in: textView).first as? SolidSpoilerOverlayView)
@@ -254,16 +254,49 @@ final class SpoilerTests: XCTestCase {
         Spoiler()
             .foregroundStyle(Color(UIColor.systemPurple))
             .background(Color(UIColor.black))
-            .particleDensity(12)
-            .particleSpeed(30)
-            .solidBorderRadius(6)
             .apply(to: &applied, traitCollection: .current)
 
         XCTAssertNotNil(applied.spoiler.color)
         XCTAssertNotNil(applied.spoiler.backgroundColor)
-        XCTAssertEqual(applied.spoiler.particleDensity, 12)
-        XCTAssertEqual(applied.spoiler.particleSpeed, 30)
-        XCTAssertEqual(applied.spoiler.solidBorderRadius, 6)
+    }
+
+    // MARK: - Overlay tuning
+
+    @MainActor
+    func testProviderTuningWinsOverThemeAndDefaults() throws {
+        var style = SpoilerStyle()
+        style.particleDensity = 3
+        style.solidCornerRadius = 9
+
+        let tuned = try XCTUnwrap(
+            ParticleSpoilerOverlayProvider.particles(density: 12, speed: 30)
+                .makeOverlay(charRange: NSRange(location: 0, length: 1), style: style) as? ParticleSpoilerOverlayView
+        )
+        XCTAssertEqual(tuned.density, 12)
+        XCTAssertEqual(tuned.speed, 30)
+
+        let themed = try XCTUnwrap(
+            ParticleSpoilerOverlayProvider.particles
+                .makeOverlay(charRange: NSRange(location: 0, length: 1), style: style) as? ParticleSpoilerOverlayView
+        )
+        XCTAssertEqual(themed.density, 3, "the theme's value is the fallback")
+        XCTAssertEqual(themed.speed, ParticleSpoilerOverlayView.defaultSpeed)
+
+        let solid = SolidSpoilerOverlayProvider.solid(cornerRadius: 6)
+            .makeOverlay(charRange: NSRange(location: 0, length: 1), style: style)
+        XCTAssertEqual(solid.layer.cornerRadius, 6)
+        XCTAssertEqual(
+            SolidSpoilerOverlayProvider.solid.makeOverlay(charRange: NSRange(location: 0, length: 1), style: style)
+                .layer.cornerRadius,
+            9
+        )
+    }
+
+    func testTunedProvidersCompareByTheirParameters() {
+        XCTAssertNotEqual(ParticleSpoilerOverlayProvider.particles(density: 1), .particles)
+        XCTAssertEqual(ParticleSpoilerOverlayProvider.particles(density: 1), .particles(density: 1))
+        XCTAssertTrue(SolidSpoilerOverlayProvider.solid(cornerRadius: 2).isEqual(to: SolidSpoilerOverlayProvider(cornerRadius: 2)))
+        XCTAssertFalse(SolidSpoilerOverlayProvider.solid.isEqual(to: ParticleSpoilerOverlayProvider.particles))
     }
 
     func testDefaultThemeConfiguresSpoilerOverlayColors() {

@@ -33,11 +33,9 @@ final class TableThemingTests: XCTestCase {
             .headerBackground(Color(UIColor.systemGreen))
             .rowEvenBackground(Color(UIColor.systemYellow))
             .rowOddBackground(Color(UIColor.systemOrange))
-            .borderColor(Color(UIColor.systemPurple))
-            .borderWidth(2)
+            .border(Color(UIColor.systemPurple), width: 2)
             .cornerRadius(9)
-            .cellPaddingHorizontal(20)
-            .cellPaddingVertical(10)
+            .cellPadding(horizontal: 20, vertical: 10)
             .marginTop(4)
             .marginBottom(24)
             .alignment(.center)
@@ -326,5 +324,31 @@ final class TableThemingTests: XCTestCase {
             traitCollection: .current
         )
         XCTAssertEqual(config.table.alignment, .center)
+    }
+
+    // MARK: - Grouped modifiers
+
+    func testBorderWithoutWidthKeepsTheLowerLayersWidth() {
+        let config = MarkdownStyleConfig.resolve(
+            layers: [
+                MarkdownTheme { Table().border(Color(UIColor.systemBlue), width: 4) },
+                MarkdownTheme { Table().border(Color(UIColor.systemRed)) }
+            ],
+            traitCollection: .current
+        )
+        XCTAssertEqual(config.table.borderColor, UIColor.systemRed.resolvedColor(with: .current))
+        XCTAssertEqual(config.table.borderWidth, 4)
+    }
+
+    func testCellPaddingSetsOnlyTheGivenSides() {
+        let config = MarkdownStyleConfig.resolve(
+            layers: [
+                MarkdownTheme { Table().cellPadding(horizontal: 12, vertical: 8) },
+                MarkdownTheme { Table().cellPadding(vertical: 2) }
+            ],
+            traitCollection: .current
+        )
+        XCTAssertEqual(config.table.cellPaddingHorizontal, 12)
+        XCTAssertEqual(config.table.cellPaddingVertical, 2)
     }
 }

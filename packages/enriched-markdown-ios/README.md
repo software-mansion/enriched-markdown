@@ -181,13 +181,14 @@ Element-specific modifiers include:
 
 - **Link:** `.underline(_:)`
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
-- **CodeBlock / Blockquote:** `.borderColor`, `.borderWidth`, `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock)
+- **CodeBlock / Blockquote / Table:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized
+- **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock)
 - **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeading`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxCornerRadius`, `.checkedTextColor`, `.checkedStrikethrough`
-- **Spoiler:** `.foregroundStyle` (the particles or the solid box), `.particleDensity` (default `8`), `.particleSpeed` (default `20`), `.solidBorderRadius` (default `4`), `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed
+- **Spoiler:** `.foregroundStyle` (the particles or the solid box) and `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed. Particle density and speed and the solid box's corner radius belong to the overlay choice: `.markdownSpoilerOverlay(.particles(density: 12, speed: 30))`
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
-- **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.alignment` (`HorizontalAlignment`: `.leading`, `.center`, `.trailing`)
+- **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.border(_:width:)`, `.cornerRadius`, `.cellPadding(horizontal:vertical:)`, `.alignment` (`HorizontalAlignment`: `.leading`, `.center`, `.trailing`)
 - **BlockImage:** `.height`, `.maxHeight`, `.aspectRatio`, `.contentMode`, `.cornerRadius` — see [Image sizing](#image-sizing)
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.foregroundStyle`, `.height`
@@ -292,8 +293,14 @@ Tapping a task-list checkbox toggles its checked state in place (including the c
 
 ```swift
 extension View {
-  func markdownSpoilerOverlay(_ provider: any SpoilerOverlayProvider) -> some View   // .particles (default), .solid
+  func markdownSpoilerOverlay(_ provider: any SpoilerOverlayProvider) -> some View
 }
+
+// Built-in overlays, plain or tuned:
+.particles                              // the default: 8 particles per 100×100 pt, drifting 20 pt/s
+.particles(density: 12, speed: 30)
+.solid                                  // a box with 4 pt corners
+.solid(cornerRadius: 6)
 ```
 
 `||spoiler||` text renders transparent under an overlay and shows on tap, one spoiler at a time. A link inside a concealed spoiler is not a link until the spoiler is revealed: no tap, long press, menu, or VoiceOver link element. Revealed spoilers stay revealed across theme changes and conceal again when the `markdown` string changes; Copy as Markdown emits the `||` markers either way. Colors and sizing of the built-in overlays come from the `Spoiler()` theme element; spoiler text reads as ordinary text to VoiceOver, matching the React Native renderer.
@@ -457,6 +464,10 @@ Every 0.1 name still compiles as a deprecated alias that forwards to its replace
 | `List().marginLeft(_:)` | `.marginLeading(_:)` |
 | `Table().align(_: TableAlignment)` | `.alignment(_: HorizontalAlignment)` |
 | `ThematicBreak().color(_:)`, `Spoiler().color(_:)` | `.foregroundStyle(_:)` |
+| `.borderColor(_:)` + `.borderWidth(_:)` on `CodeBlock`, `Blockquote`, `Table` | `.border(_:width:)` |
+| `Table().cellPaddingHorizontal(_:)` / `.cellPaddingVertical(_:)` | `.cellPadding(horizontal:vertical:)` |
+| `Spoiler().particleDensity(_:)` / `.particleSpeed(_:)` / `.solidBorderRadius(_:)` | `.markdownSpoilerOverlay(.particles(density:speed:))` / `.markdownSpoilerOverlay(.solid(cornerRadius:))` |
+| `SpoilerStyle.solidBorderRadius` | `solidCornerRadius` |
 | `CodeBlockStyle.borderRadius`, `ImageStyle.borderRadius`, `TableStyle.borderRadius` / `.align`, `TaskListStyle.checkboxBorderRadius`, `ListStyle.marginLeft` | `cornerRadius`, `alignment`, `checkboxCornerRadius`, `marginLeading` (fields and init labels) |
 
 ## Copy & clipboard

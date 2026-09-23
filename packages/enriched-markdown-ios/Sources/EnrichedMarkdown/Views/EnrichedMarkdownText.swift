@@ -143,8 +143,7 @@ Final paragraph after a thematic break.
                 .foregroundStyle(.teal)
                 .underline(true)
             Blockquote()
-                .borderColor(.orange)
-                .borderWidth(4)
+                .border(.orange, width: 4)
         }
     )
 }

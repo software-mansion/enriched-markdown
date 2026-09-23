@@ -60,8 +60,7 @@ let CustomMarkdownTheme = MarkdownTheme {
         .fontFamily(ExampleFonts.montserratItalic, size: 16)
         .foregroundStyle(Color.gray600)
         .lineHeight(26)
-        .borderColor(Color.gray300)
-        .borderWidth(3)
+        .border(Color.gray300, width: 3)
         .backgroundStyle(Color.gray50)
         .gapWidth(16)
         .marginBottom(16)
@@ -82,8 +81,7 @@ let CustomMarkdownTheme = MarkdownTheme {
         .fontFamily(ExampleFonts.courierPrimeRegular, size: 14)
         .foregroundStyle(Color.gray100)
         .backgroundStyle(Color.gray800)
-        .borderColor(Color.gray700)
-        .borderWidth(1)
+        .border(Color.gray700, width: 1)
         .cornerRadius(8)
         .padding(16)
         .lineHeight(22)
@@ -150,7 +148,6 @@ let PlaygroundMarkdownTheme = MarkdownTheme {
 
     Blockquote()
         .foregroundStyle(Color.gray600)
-        .borderColor(Color.gray300)
-        .borderWidth(3)
+        .border(Color.gray300, width: 3)
         .gapWidth(12)
 }

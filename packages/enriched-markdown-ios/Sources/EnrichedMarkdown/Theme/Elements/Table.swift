@@ -1,7 +1,7 @@
 import OSLog
 import SwiftUI
 
-public struct Table: MarkdownThemeElement {
+public struct Table: MarkdownThemeElement, BorderThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
@@ -78,39 +78,17 @@ public struct Table: MarkdownThemeElement {
         return copy
     }
 
-    public func borderColor(_ color: Color) -> Self {
-        var copy = self
-        copy.borderColorSpec = ThemeColorModifiers.spec(from: color)
-        return copy
-    }
-
-    public func borderColor(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
-        var copy = self
-        copy.borderColorSpec = ThemeColorModifiers.spec(from: semantic)
-        return copy
-    }
-
-    public func borderWidth(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.borderWidth = value
-        return copy
-    }
-
     public func cornerRadius(_ value: CGFloat) -> Self {
         var copy = self
         copy.cornerRadius = value
         return copy
     }
 
-    public func cellPaddingHorizontal(_ value: CGFloat) -> Self {
+    /// Inset of every cell; a nil side keeps what a lower theme layer set.
+    public func cellPadding(horizontal: CGFloat? = nil, vertical: CGFloat? = nil) -> Self {
         var copy = self
-        copy.cellPaddingHorizontal = value
-        return copy
-    }
-
-    public func cellPaddingVertical(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.cellPaddingVertical = value
+        if let horizontal { copy.cellPaddingHorizontal = horizontal }
+        if let vertical { copy.cellPaddingVertical = vertical }
         return copy
     }
 
@@ -147,9 +125,7 @@ public struct Table: MarkdownThemeElement {
         if let rowOddBackgroundColorSpec {
             config.table.rowOddBackgroundColor = rowOddBackgroundColorSpec.resolve(traitCollection: traitCollection)
         }
-        if let borderColorSpec {
-            config.table.borderColor = borderColorSpec.resolve(traitCollection: traitCollection)
-        }
+        applyBorder(color: &config.table.borderColor, width: &config.table.borderWidth, traitCollection: traitCollection)
     }
 
     private func applyMetrics(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
@@ -163,7 +139,6 @@ public struct Table: MarkdownThemeElement {
                 traitCollection: traitCollection
             )
         }
-        if let borderWidth { config.table.borderWidth = borderWidth }
         if let cornerRadius { config.table.cornerRadius = cornerRadius }
         if let cellPaddingHorizontal { config.table.cellPaddingHorizontal = cellPaddingHorizontal }
         if let cellPaddingVertical { config.table.cellPaddingVertical = cellPaddingVertical }

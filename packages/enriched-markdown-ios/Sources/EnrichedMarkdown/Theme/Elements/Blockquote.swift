@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct Blockquote: MarkdownThemeElement, BackgroundThemeElement {
+public struct Blockquote: MarkdownThemeElement, BackgroundThemeElement, BorderThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
@@ -16,24 +16,6 @@ public struct Blockquote: MarkdownThemeElement, BackgroundThemeElement {
 
     public init() {}
 
-    public func borderColor(_ color: Color) -> Self {
-        var copy = self
-        copy.borderColorSpec = ThemeColorModifiers.spec(from: color)
-        return copy
-    }
-
-    public func borderColor(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
-        var copy = self
-        copy.borderColorSpec = ThemeColorModifiers.spec(from: semantic)
-        return copy
-    }
-
-    public func borderWidth(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.borderWidth = value
-        return copy
-    }
-
     public func gapWidth(_ value: CGFloat) -> Self {
         var copy = self
         copy.gapWidth = value
@@ -43,10 +25,9 @@ public struct Blockquote: MarkdownThemeElement, BackgroundThemeElement {
     public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
         applyTextStyle(to: &config.blockquote, traitCollection: traitCollection)
         applyBackgroundColor(to: &config.blockquote.backgroundColor, traitCollection: traitCollection)
-        if let borderColorSpec {
-            config.blockquote.borderColor = borderColorSpec.resolve(traitCollection: traitCollection)
-        }
-        if let borderWidth { config.blockquote.borderWidth = borderWidth }
+        applyBorder(
+            color: &config.blockquote.borderColor, width: &config.blockquote.borderWidth, traitCollection: traitCollection
+        )
         if let gapWidth { config.blockquote.gapWidth = gapWidth }
     }
 }

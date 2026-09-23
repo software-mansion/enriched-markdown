@@ -58,12 +58,14 @@ open class SpoilerOverlayView: UIView {
 }
 
 final class SolidSpoilerOverlayView: SpoilerOverlayView {
-    static let defaultBorderRadius: CGFloat = 4
+    static let defaultCornerRadius: CGFloat = 4
 
-    init(style: SpoilerStyle, charRange: NSRange) {
+    /// The provider's radius wins; the theme's (set by the deprecated
+    /// `Spoiler().solidBorderRadius`) is the fallback.
+    init(style: SpoilerStyle, cornerRadius: CGFloat?, charRange: NSRange) {
         super.init(charRange: charRange)
         backgroundColor = style.color ?? .secondaryLabel
-        layer.cornerRadius = style.solidBorderRadius ?? Self.defaultBorderRadius
+        layer.cornerRadius = cornerRadius ?? style.solidCornerRadius ?? Self.defaultCornerRadius
     }
 }
 
@@ -107,10 +109,16 @@ final class ParticleSpoilerOverlayView: SpoilerOverlayView {
     }()
 
     private let style: SpoilerStyle
+    let density: CGFloat
+    let speed: CGFloat
     private var emitterLayer: CAEmitterLayer?
 
-    init(style: SpoilerStyle, charRange: NSRange) {
+    /// The provider's tuning wins; the theme's (set by the deprecated
+    /// `Spoiler().particleDensity` / `particleSpeed`) is the fallback.
+    init(style: SpoilerStyle, density: CGFloat?, speed: CGFloat?, charRange: NSRange) {
         self.style = style
+        self.density = density ?? style.particleDensity ?? Self.defaultDensity
+        self.speed = speed ?? style.particleSpeed ?? Self.defaultSpeed
         super.init(charRange: charRange)
         backgroundColor = style.backgroundColor ?? .systemBackground
     }
@@ -149,9 +157,6 @@ final class ParticleSpoilerOverlayView: SpoilerOverlayView {
     }
 
     private func makeCell(_ spec: Cell, area: CGFloat) -> CAEmitterCell {
-        let density = style.particleDensity ?? Self.defaultDensity
-        let speed = style.particleSpeed ?? Self.defaultSpeed
-
         let cell = CAEmitterCell()
         cell.name = spec.name
         cell.contents = Self.dotImage

@@ -7,9 +7,11 @@ public struct Spoiler: BackgroundThemeElement {
     public var colorSpec: ThemeColorSpec?
     /// Backdrop under the particles; the solid overlay ignores it.
     public var backgroundColorSpec: ThemeColorSpec?
+    /// Written only by the deprecated tuning modifiers; new code tunes the
+    /// overlay itself: `.markdownSpoilerOverlay(.particles(density:speed:))`.
     public var particleDensity: CGFloat?
     public var particleSpeed: CGFloat?
-    public var solidBorderRadius: CGFloat?
+    public var solidCornerRadius: CGFloat?
 
     public init() {}
 
@@ -26,24 +28,6 @@ public struct Spoiler: BackgroundThemeElement {
         return copy
     }
 
-    public func particleDensity(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.particleDensity = value
-        return copy
-    }
-
-    public func particleSpeed(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.particleSpeed = value
-        return copy
-    }
-
-    public func solidBorderRadius(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.solidBorderRadius = value
-        return copy
-    }
-
     public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
         if let colorSpec {
             config.spoiler.color = colorSpec.resolve(traitCollection: traitCollection)
@@ -51,6 +35,6 @@ public struct Spoiler: BackgroundThemeElement {
         applyBackgroundColor(to: &config.spoiler.backgroundColor, traitCollection: traitCollection)
         if let particleDensity { config.spoiler.particleDensity = particleDensity }
         if let particleSpeed { config.spoiler.particleSpeed = particleSpeed }
-        if let solidBorderRadius { config.spoiler.solidBorderRadius = solidBorderRadius }
+        if let solidCornerRadius { config.spoiler.solidCornerRadius = solidCornerRadius }
     }
 }

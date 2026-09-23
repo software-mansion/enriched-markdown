@@ -233,3 +233,28 @@ public extension TableStyle {
         )
     }
 }
+
+public extension SpoilerStyle {
+    @available(*, deprecated, renamed: "solidCornerRadius")
+    var solidBorderRadius: CGFloat? {
+        get { solidCornerRadius }
+        set { solidCornerRadius = newValue }
+    }
+
+    @available(*, deprecated, message: "The solidBorderRadius: label is now solidCornerRadius:.")
+    init(
+        color: UIColor? = nil,
+        backgroundColor: UIColor? = nil,
+        particleDensity: CGFloat? = nil,
+        particleSpeed: CGFloat? = nil,
+        solidBorderRadius: CGFloat?
+    ) {
+        self.init(
+            color: color,
+            backgroundColor: backgroundColor,
+            particleDensity: particleDensity,
+            particleSpeed: particleSpeed,
+            solidCornerRadius: solidBorderRadius
+        )
+    }
+}
