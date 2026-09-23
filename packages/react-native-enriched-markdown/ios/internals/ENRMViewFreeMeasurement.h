@@ -123,18 +123,13 @@ static inline StyleConfig *ENRMStyleConfigFromProps(const PropsT &typedProps, CG
  * same result the view path produces, and a guard against TextKit's
  * empty-string layout freeze (see RCTTextLayoutManager).
  *
- * `usesFontLeading` must be NO: a raw NSLayoutManager defaults to YES and
- * adds the used fonts' leading on top of the paragraph style's line-height
- * clamp, while the UITextView the visible view renders with does not. Fonts
- * pulled in by glyph fallback make this observable — Geeza Pro (Arabic)
- * carries nonzero leading, so with YES every Arabic-script line measures
- * taller than it renders and the surplus pools as phantom bottom space.
- * RCTTextLayoutManager disables it for the same view-parity reason.
+ * Uses the same `usesFontLeading` as the views that draw the text; see
+ * ENRMLayoutManagerUsesFontLeading.
  */
 static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text, CGFloat maxWidth, StyleConfig *config,
                                                        BOOL allowTrailingMargin, CGFloat lastElementMarginBottom,
                                                        CGFloat pointScaleFactor, NSInteger numberOfLines,
-                                                       NSLineBreakMode lineBreakMode)
+                                                       NSLineBreakMode lineBreakMode, BOOL subtractExtraLineFragment)
 {
   if (text.length == 0) {
     return CGSizeZero;
@@ -148,7 +143,7 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
   }
   NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
   layoutManager.allowsNonContiguousLayout = NO;
-  layoutManager.usesFontLeading = NO;
+  layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   [layoutManager addTextContainer:textContainer];
   NSTextStorage *textStorage = [[NSTextStorage alloc] initWithAttributedString:text];
   [textStorage addLayoutManager:layoutManager];
@@ -159,7 +154,7 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
   layout.extraLineFragmentRect = layoutManager.extraLineFragmentRect;
 
   return ENRMFinalizeMeasuredTextSize(layout, layoutManager, text, maxWidth, config, allowTrailingMargin,
-                                      lastElementMarginBottom, pointScaleFactor);
+                                      lastElementMarginBottom, subtractExtraLineFragment, pointScaleFactor);
 }
 
 /**
@@ -208,7 +203,7 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
         ENRMResolveEllipsizeLineBreakMode([[NSString alloc] initWithUTF8String:typedProps.ellipsizeMode.c_str()]);
     CGSize size = ENRMMeasureAttributedTextViewFree(text, maxWidth, config, typedProps.allowTrailingMargin,
                                                     result.lastElementMarginBottom, pointScaleFactor, numberOfLines,
-                                                    lineBreakMode);
+                                                    lineBreakMode, YES);
     if (size.height == 0) {
       return fallback;
     }
@@ -297,7 +292,7 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
       if (segment.kind == ENRMSegmentKindText && segment.textResult) {
         CGSize textSize = ENRMMeasureAttributedTextViewFree(
             segment.textResult.attributedText, maxWidth, config, shouldAddBottomMargin,
-            segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping);
+            segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping, YES);
         yOffset += textSize.height;
         maxContentWidth = MAX(maxContentWidth, textSize.width);
       } else if (segment.kind == ENRMSegmentKindTable && segment.tableSegment) {

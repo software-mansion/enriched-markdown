@@ -40,8 +40,10 @@ static inline void ENRMDetachLayoutManager(ENRMPlatformTextView *textView)
 ///   narrow the view below maxWidth, re-wrapping at the narrower width and
 ///   mismatching the measured height — so multiline content reports maxWidth,
 ///   while single-line content keeps its tight width for shrink-to-fit.
-/// - Subtract the extra line fragment (iOS counts a trailing newline's empty
-///   line fragment into usedRect).
+/// - Optionally subtract the extra line fragment (iOS counts a trailing
+///   newline's empty line fragment into usedRect). Read-only markdown passes
+///   YES; text input passes NO so trailing newlines keep a blank line (RN Text
+///   parity).
 /// - Add code-block padding when the last element is a code block, and the
 ///   trailing margin when enabled.
 /// - Round up to the pixel grid of `scale` (pass `RCTScreenScale()` on main;
@@ -51,7 +53,7 @@ static inline void ENRMDetachLayoutManager(ENRMPlatformTextView *textView)
 static inline CGSize ENRMFinalizeMeasuredTextSize(ENRMTextLayoutResult layout, NSLayoutManager *layoutManager,
                                                   NSAttributedString *text, CGFloat maxWidth, StyleConfig *config,
                                                   BOOL allowTrailingMargin, CGFloat lastElementMarginBottom,
-                                                  CGFloat scale)
+                                                  BOOL subtractExtraLineFragment, CGFloat scale)
 {
   CGFloat measuredWidth = layout.usedRect.size.width;
   CGFloat measuredHeight = layout.usedRect.size.height;
@@ -65,7 +67,7 @@ static inline CGSize ENRMFinalizeMeasuredTextSize(ENRMTextLayoutResult layout, N
     }
   }
 
-  if (!CGRectIsEmpty(layout.extraLineFragmentRect)) {
+  if (subtractExtraLineFragment && !CGRectIsEmpty(layout.extraLineFragmentRect)) {
     measuredHeight -= layout.extraLineFragmentRect.size.height;
   }
 
@@ -90,7 +92,7 @@ static inline CGSize ENRMMeasureMarkdownText(ENRMPlatformTextView *textView, CGF
 
   ENRMTextLayoutResult layout = ENRMMeasureTextLayout(textView, maxWidth);
   return ENRMFinalizeMeasuredTextSize(layout, textView.layoutManager, text, maxWidth, config, allowTrailingMargin,
-                                      lastElementMarginBottom, RCTScreenScale());
+                                      lastElementMarginBottom, YES, RCTScreenScale());
 }
 
 NS_ASSUME_NONNULL_END
