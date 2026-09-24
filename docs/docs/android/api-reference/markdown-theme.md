@@ -132,7 +132,7 @@ The empty style - no layers, so every element keeps its platform default. It is 
 fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
 ```
 
-Returns a new style with `block` **added as a layer on top**; it does not rebuild the style or replace what came before. Later layers win per property, and properties no layer sets keep their defaults. That makes `copy` the natural way to express variants:
+Returns a new style with `block` **added as a layer on top**. It does not rebuild the style or replace what came before. Later layers win per property, and properties no layer sets keep their defaults. That makes `copy` the natural way to express variants:
 
 ```kotlin
 val Base = markdownStyle {

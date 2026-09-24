@@ -69,6 +69,16 @@ renderer, so each of these is close.
 
 ## Planned
 
+### Container blocks
+
+[Container blocks](https://spec.commonmark.org/0.31.2/#container-blocks) are the
+elements that hold other blocks as children. Blockquotes already do this
+correctly on every package - a quote's content is a recursive container that can
+nest paragraphs, code, and further quotes. We want the same treatment for the
+other container types, so **all list kinds** (ordered, unordered, and task
+lists) render arbitrary block content in their items the way blockquotes do,
+uniformly across React Native, web, iOS, and Android.
+
 ### Native renderer parity
 
 Available in React Native, not in either native package yet:
