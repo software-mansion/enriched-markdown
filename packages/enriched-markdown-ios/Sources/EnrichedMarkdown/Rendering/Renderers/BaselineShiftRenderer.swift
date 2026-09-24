@@ -29,11 +29,19 @@ final class BaselineShiftRenderer: NodeRenderer {
         guard range.length > 0 else { return }
 
         output.addAttribute(attributeKey, value: true, range: range)
+        context.hasBaselineShifts = true
     }
 
     /// Call exactly once per assembled attributed string, after all block
-    /// styling (line heights, margins) is in place.
-    static func applyShifts(to output: NSMutableAttributedString, config: MarkdownStyleConfiguration) {
+    /// styling (line heights, margins) is in place. A no-op unless `context`
+    /// rendered a superscript or subscript, so most documents skip the two
+    /// full attribute walks.
+    static func applyShifts(
+        to output: NSMutableAttributedString,
+        context: RenderContext,
+        config: MarkdownStyleConfiguration
+    ) {
+        guard context.hasBaselineShifts else { return }
         applyShift(
             to: output,
             key: MarkdownAttribute.superscript,

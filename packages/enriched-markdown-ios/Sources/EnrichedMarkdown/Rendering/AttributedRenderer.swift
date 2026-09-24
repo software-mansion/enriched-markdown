@@ -50,7 +50,7 @@ final class AttributedRenderer {
         }
 
         context.clearBlockStyle()
-        BaselineShiftRenderer.applyShifts(to: output, config: config)
+        BaselineShiftRenderer.applyShifts(to: output, context: context, config: config)
         SpoilerConcealment.conceal(output, in: NSRange(location: 0, length: output.length))
         factory.applyWritingDirection(to: output)
         return output
