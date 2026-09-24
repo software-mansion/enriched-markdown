@@ -50,6 +50,8 @@ struct MeasurementCacheKey {
   std::string writingDirection;
   int numberOfLines;
   std::string ellipsizeMode;
+  std::string linkRegexKey;
+  std::string inlineCodeLinkRegexKey;
 
   bool operator==(const MeasurementCacheKey &other) const
   {
@@ -57,13 +59,14 @@ struct MeasurementCacheKey {
                     md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsHighlight,
                     md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, md4cFlagsPreserveBlankLines, md4cFlagsAdmonitions,
                     styleFingerprint, fontScale, flavor, lineBreakStrategyIOS, writingDirection, numberOfLines,
-                    ellipsizeMode) ==
+                    ellipsizeMode, linkRegexKey, inlineCodeLinkRegexKey) ==
            std::tie(other.markdown, other.maxWidth, other.allowTrailingMargin, other.allowFontScaling,
                     other.maxFontSizeMultiplier, other.md4cFlagsUnderline, other.md4cFlagsSuperscript,
                     other.md4cFlagsSubscript, other.md4cFlagsHighlight, other.md4cFlagsLatexMath,
                     other.md4cFlagsHardSoftBreaks, other.md4cFlagsPreserveBlankLines, other.md4cFlagsAdmonitions,
                     other.styleFingerprint, other.fontScale, other.flavor, other.lineBreakStrategyIOS,
-                    other.writingDirection, other.numberOfLines, other.ellipsizeMode);
+                    other.writingDirection, other.numberOfLines, other.ellipsizeMode, other.linkRegexKey,
+                    other.inlineCodeLinkRegexKey);
   }
 };
 
@@ -91,6 +94,8 @@ struct MeasurementCacheKeyHash {
     HashUtils::hash_one(h, key.writingDirection);
     HashUtils::hash_one(h, key.numberOfLines);
     HashUtils::hash_one(h, key.ellipsizeMode);
+    HashUtils::hash_one(h, key.linkRegexKey);
+    HashUtils::hash_one(h, key.inlineCodeLinkRegexKey);
     return h;
   }
 };
@@ -157,6 +162,17 @@ template <typename StyleStruct> inline size_t computeStyleFingerprint(const Styl
   return h;
 }
 
+template <typename RegexProps> inline std::string buildLinkRecognitionCacheKey(const RegexProps &props)
+{
+  // Fixed-width flag prefix keeps key equality exact, including pattern changes.
+  std::string key;
+  key += props.caseInsensitive ? '1' : '0';
+  key += props.dotAll ? '1' : '0';
+  key += props.isDisabled ? '1' : '0';
+  key += props.isDefault ? '1' : '0';
+  return key + props.pattern;
+}
+
 template <typename PropsType>
 inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFloat maxWidth, CGFloat fontScale,
                                                     MarkdownFlavor flavor)
@@ -182,6 +198,8 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .writingDirection = props.writingDirection,
       .numberOfLines = props.numberOfLines,
       .ellipsizeMode = props.ellipsizeMode,
+      .linkRegexKey = buildLinkRecognitionCacheKey(props.linkRegex),
+      .inlineCodeLinkRegexKey = buildLinkRecognitionCacheKey(props.inlineCodeLinkRegex),
   };
 }
 

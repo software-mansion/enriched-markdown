@@ -52,3 +52,11 @@ export const toNativeRegexConfig = (
     isDefault: false,
   };
 };
+
+/** Renderer recognition is opt-in, including when input normalization falls back. */
+export const toNativeTextLinkRegexConfig = (
+  regex: RegExp | undefined | null
+): LinkNativeRegex => {
+  const config = toNativeRegexConfig(regex ?? null);
+  return config.isDefault ? DISABLED_REGEX : config;
+};

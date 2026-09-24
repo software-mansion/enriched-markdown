@@ -123,6 +123,24 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   markdown: string;
   /**
+   * Recognize nonempty matches within parsed plain-text nodes as native links.
+   * The exact matched text is the URL. Existing links and code are excluded.
+   * Uses the input linkRegex conventions: native regex source plus i/s flags.
+   * Other JS flags are not transported; all non-overlapping matches are found.
+   * Patterns must work in NSRegularExpression and java.util.regex.Pattern.
+   * Undefined, null, rejected lookbehinds and invalid native patterns disable it.
+   * @default null
+   * @platform ios, android
+   */
+  linkRegex?: RegExp | null;
+  /**
+   * Recognize an entire inline-code span as a native link, preserving its code
+   * node and text. Partial matches are ignored. Uses linkRegex conventions.
+   * @default null
+   * @platform ios, android
+   */
+  inlineCodeLinkRegex?: RegExp | null;
+  /**
    * Style configuration for markdown elements.
    * @platform ios, android, web
    */

@@ -13,6 +13,7 @@ import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextManagerInterface
 import com.facebook.yoga.YogaMeasureMode
+import com.swmansion.enriched.markdown.parser.parseTextLinkRegex
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.utils.common.applyReactBorderProps
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
@@ -147,6 +148,22 @@ class EnrichedMarkdownTextManager :
     value: Int?,
   ) {
     view?.setSelectionHandleColor(value)
+  }
+
+  @ReactProp(name = "linkRegex")
+  override fun setLinkRegex(
+    view: EnrichedMarkdownText?,
+    value: ReadableMap?,
+  ) {
+    view?.setLinkRegex(parseTextLinkRegex(value))
+  }
+
+  @ReactProp(name = "inlineCodeLinkRegex")
+  override fun setInlineCodeLinkRegex(
+    view: EnrichedMarkdownText?,
+    value: ReadableMap?,
+  ) {
+    view?.setInlineCodeLinkRegex(parseTextLinkRegex(value))
   }
 
   @ReactProp(name = "md4cFlags")

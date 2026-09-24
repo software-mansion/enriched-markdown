@@ -298,6 +298,10 @@ object MarkdownASTSerializer {
       }
 
       NodeType.Link -> {
+        if (node.getAttribute("recognizedLink") == "true") {
+          appendChildren(node, buffer)
+          return
+        }
         val url = node.getAttribute("url") ?: ""
         buffer.append("[")
         appendChildren(node, buffer)

@@ -1,4 +1,5 @@
 #import "ENRMMarkdownParser.h"
+#import "ENRMTextLinkRecognizer.h"
 #import "MarkdownASTNode.h"
 
 extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM);
@@ -56,6 +57,17 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags isGFM:(BOOL)isGFM
 {
   return parseMarkdownWithCppParser(markdown, flags, isGFM);
+}
+
+- (MarkdownASTNode *)parseMarkdown:(NSString *)markdown
+                             flags:(ENRMMd4cFlags *)flags
+                             isGFM:(BOOL)isGFM
+                         linkRegex:(ENRMLinkRegexConfig *)linkRegex
+               inlineCodeLinkRegex:(ENRMLinkRegexConfig *)inlineCodeLinkRegex
+{
+  MarkdownASTNode *ast = [self parseMarkdown:markdown flags:flags isGFM:isGFM];
+  ENRMRecognizeTextLinks(ast, linkRegex, inlineCodeLinkRegex);
+  return ast;
 }
 
 @end

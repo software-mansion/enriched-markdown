@@ -407,7 +407,18 @@ interface StreamingConfigInternal {
   codeBlockMode: string;
 }
 
+// Same transport as EnrichedMarkdownTextInput.linkRegex. Kept local for codegen.
+interface TextLinkNativeRegex {
+  pattern: string;
+  caseInsensitive: boolean;
+  dotAll: boolean;
+  isDisabled: boolean;
+  isDefault: boolean;
+}
+
 export interface NativeProps extends ViewProps {
+  linkRegex?: Readonly<TextLinkNativeRegex>;
+  inlineCodeLinkRegex?: Readonly<TextLinkNativeRegex>;
   /**
    * Markdown content to render.
    */

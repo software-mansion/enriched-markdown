@@ -17,6 +17,8 @@ class LinkSpan(
   private val styleCache: SpanStyleCache,
   private val blockStyle: BlockStyle,
   private val context: Context,
+  private val preserveCodeFont: Boolean = false,
+  val recognizedLink: Boolean = false,
 ) : ClickableSpan() {
   @Volatile
   private var longPressTriggered = false
@@ -43,16 +45,18 @@ class LinkSpan(
   override fun updateDrawState(textPaint: TextPaint) {
     super.updateDrawState(textPaint)
 
-    textPaint.textSize = blockStyle.fontSize
+    if (!preserveCodeFont) textPaint.textSize = blockStyle.fontSize
 
     val variant = styleCache.resolvedVariantForUrl(url)
 
     val fontFamily = styleCache.linkFontFamily
-    if (fontFamily.isNotEmpty()) {
-      val overriddenBlockStyle = blockStyle.copy(fontFamily = fontFamily)
-      textPaint.applyBlockStyleFont(overriddenBlockStyle, context)
-    } else {
-      textPaint.applyBlockStyleFont(blockStyle, context)
+    if (!preserveCodeFont) {
+      if (fontFamily.isNotEmpty()) {
+        val overriddenBlockStyle = blockStyle.copy(fontFamily = fontFamily)
+        textPaint.applyBlockStyleFont(overriddenBlockStyle, context)
+      } else {
+        textPaint.applyBlockStyleFont(blockStyle, context)
+      }
     }
 
     textPaint.color = variant?.color ?: styleCache.linkColor
