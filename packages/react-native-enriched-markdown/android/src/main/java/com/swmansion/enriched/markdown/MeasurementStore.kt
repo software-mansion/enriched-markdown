@@ -3,7 +3,7 @@ package com.swmansion.enriched.markdown
 import android.content.Context
 import android.graphics.Typeface
 import android.os.Build
-import android.text.SpannableString
+import android.text.Spannable
 import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -658,7 +658,7 @@ object MeasurementStore {
     allowFontScaling: Boolean,
     maxFontSizeMultiplier: Float,
     imageRequestHeaders: Map<String, String> = emptyMap(),
-  ): SpannableString? {
+  ): Spannable? {
     if (styleMap == null) return null
 
     return try {

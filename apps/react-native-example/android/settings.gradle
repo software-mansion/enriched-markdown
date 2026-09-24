@@ -3,4 +3,7 @@ plugins { id("com.facebook.react.settings") }
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'swmansion.enriched.markdown.example'
 include ':app'
+// Measurement only: the library's display benchmark. The app does not depend on it;
+// see display-benchmark/README.md.
+include ':display-benchmark'
 includeBuild('../node_modules/@react-native/gradle-plugin')
