@@ -9,7 +9,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 /**
- * Body line height for the whole input, using the same CSS metrics as
+ * Body line height for the whole input, using the same half-leading metrics as
  * React Native's CustomLineHeightSpan.
  *
  * applyFormatting strips and re-adds this span when lists or headings
@@ -20,7 +20,7 @@ import kotlin.math.floor
  * Headings apply their own LineHeightSpan at default priority after
  * this one and overwrite these metrics.
  */
-internal class InputCssLineHeightSpan(
+internal class InputLineHeightSpan(
   lineHeightPx: Float,
 ) : LineHeightSpan,
   UpdateLayout {
@@ -34,7 +34,7 @@ internal class InputCssLineHeightSpan(
     v: Int,
     fm: FontMetricsInt,
   ) {
-    applyCssLineHeight(fm, lineHeight, start, end, text.length)
+    applyLineHeight(fm, lineHeight, start, end, text.length)
   }
 }
 
@@ -52,15 +52,15 @@ internal fun applyBodyLineHeightSpan(
   text: Spannable,
   textAttributes: TextAttributes,
 ) {
-  text.getSpans(0, text.length, InputCssLineHeightSpan::class.java).forEach { text.removeSpan(it) }
+  text.getSpans(0, text.length, InputLineHeightSpan::class.java).forEach { text.removeSpan(it) }
 
-  val lineHeightPx = textAttributes.effectiveLineHeight
-  if (text.isEmpty() || lineHeightPx.isNaN()) return
+  val lineHeight = textAttributes.effectiveLineHeight
+  if (text.isEmpty() || lineHeight.isNaN()) return
 
   // SPAN_PRIORITY gives the lowest precedence, so heading line heights and
   // other markdown spans win over the body line height.
   text.setSpan(
-    InputCssLineHeightSpan(lineHeightPx),
+    InputLineHeightSpan(lineHeight),
     0,
     text.length,
     Spannable.SPAN_INCLUSIVE_INCLUSIVE or Spannable.SPAN_PRIORITY,
@@ -68,20 +68,20 @@ internal fun applyBodyLineHeightSpan(
 }
 
 /**
- * CSS-like line height, copied from RN CustomLineHeightSpan so we do
- * not depend on React Native internal span types.
+ * Splits extra leading above and below the line, copied from RN
+ * CustomLineHeightSpan so we do not depend on React Native internal span types.
  *
  * Mirrors CustomLineHeightSpan.chooseHeight:
  * https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/text/internal/span/CustomLineHeightSpan.kt#L44-L57
  */
-internal fun applyCssLineHeight(
+internal fun applyLineHeight(
   fm: FontMetricsInt,
-  lineHeightPx: Int,
+  lineHeight: Int,
   start: Int,
   end: Int,
   textLength: Int,
 ) {
-  val leading = lineHeightPx - ((-fm.ascent) + fm.descent)
+  val leading = lineHeight - ((-fm.ascent) + fm.descent)
   fm.ascent -= ceil(leading / 2.0f).toInt()
   fm.descent += floor(leading / 2.0f).toInt()
 

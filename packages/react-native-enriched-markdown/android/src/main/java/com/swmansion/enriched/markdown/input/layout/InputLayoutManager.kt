@@ -24,7 +24,7 @@ class InputLayoutManager(
         id = view.id,
         text = view.text,
         textAttributes = view.textAttributesForMeasurement(),
-        hint = view.hintForMeasurement(),
+        hint = view.hint,
         paint = view.paint,
         blockRanges = view.blockStore.allRanges,
         formatter = view.formatter,

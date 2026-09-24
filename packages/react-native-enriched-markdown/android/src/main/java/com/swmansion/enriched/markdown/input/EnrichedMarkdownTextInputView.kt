@@ -178,7 +178,7 @@ class EnrichedMarkdownTextInputView(
 
     setEditableFactory(MarkdownEditableFactory(this))
     setPadding(0, 0, 0, 0)
-    // Line height comes from InputCssLineHeightSpan, so there is no extra line
+    // Line height comes from InputLineHeightSpan, so there is no extra line
     // spacing, as in React Native's text layout:
     // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/text/TextLayoutManager.kt#L676
     setLineSpacing(0f, 1f)
@@ -1024,9 +1024,6 @@ class EnrichedMarkdownTextInputView(
       fontSize = textAttributes.fontSize
       lineHeight = textAttributes.lineHeight
     }
-
-  /** Hint currently shown on screen; measured instead of the text when the buffer is empty. */
-  fun hintForMeasurement(): CharSequence? = hint
 
   fun setCursorColorFromProps(colorInt: Int?) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

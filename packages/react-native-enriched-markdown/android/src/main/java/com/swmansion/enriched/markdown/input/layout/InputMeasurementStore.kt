@@ -183,7 +183,7 @@ object InputMeasurementStore {
       StaticLayout.Builder
         .obtain(spannable, 0, spannable.length, paint, widthPx)
         .setIncludePad(true)
-        // Line height comes from InputCssLineHeightSpan / InputHeadingSpan, not
+        // Line height comes from InputLineHeightSpan / InputHeadingSpan, not
         // extra line spacing.
         .setLineSpacing(0f, 1f)
 
