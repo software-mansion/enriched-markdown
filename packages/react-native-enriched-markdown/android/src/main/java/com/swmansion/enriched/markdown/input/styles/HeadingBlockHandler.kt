@@ -21,30 +21,43 @@ class HeadingBlockHandler : BlockHandler {
     blockRange: BlockRange,
     style: InputFormatterStyle,
     bodyTextAttributes: TextAttributes,
-  ): List<Any> {
-    val headingStyle = style.headingStyle(blockRange.level)
+  ): List<Any> =
+    listOf(
+      InputHeadingSpan(
+        blockRange.level,
+        style,
+        headingLineHeightPx(style, blockRange.level, bodyTextAttributes),
+      ),
+    )
+
+  /**
+   * Heading line height is the heading font size plus the body's extra leading
+   * (`lineHeight - fontSize`). Returns null when the body has no line height,
+   * so the heading keeps its font's natural height.
+   */
+  private fun headingLineHeightPx(
+    style: InputFormatterStyle,
+    level: Int,
+    bodyTextAttributes: TextAttributes,
+  ): Float? {
     val bodyFontSizeSp = bodyTextAttributes.fontSize
     val bodyLineHeightSp = bodyTextAttributes.lineHeight
-    // Without a body lineHeight every line keeps its font's natural height,
-    // headings included.
-    val lineHeightPx =
-      if (bodyLineHeightSp.isNaN() || !(bodyFontSizeSp > 0f)) {
-        null
-      } else {
-        // The heading keeps the body's extra leading (lineHeight - fontSize) on
-        // top of its own font size. Convert its px size back to SP so it goes
-        // through the same font scaling as the body line height.
-        val headingFontSizeSp =
-          headingStyle.fontSizePx?.let { it / bodyTextAttributes.effectiveFontSize * bodyFontSizeSp }
-            ?: bodyFontSizeSp
-        TextAttributes()
-          .apply {
-            allowFontScaling = bodyTextAttributes.allowFontScaling
-            fontSize = headingFontSizeSp
-            lineHeight = headingFontSizeSp + (bodyLineHeightSp - bodyFontSizeSp)
-          }.effectiveLineHeight
-      }
-    return listOf(InputHeadingSpan(blockRange.level, style, lineHeightPx))
+    if (bodyLineHeightSp.isNaN() || bodyFontSizeSp <= 0f) return null
+
+    val headingStyle = style.headingStyle(level)
+    // Convert the heading's px size back to SP so it goes through the same
+    // font scaling as the body line height.
+    val headingFontSizeSp =
+      headingStyle.fontSizePx?.let { fontSizePx ->
+        fontSizePx / bodyTextAttributes.effectiveFontSize * bodyFontSizeSp
+      } ?: bodyFontSizeSp
+
+    return TextAttributes()
+      .apply {
+        allowFontScaling = bodyTextAttributes.allowFontScaling
+        fontSize = headingFontSizeSp
+        lineHeight = headingFontSizeSp + (bodyLineHeightSp - bodyFontSizeSp)
+      }.effectiveLineHeight
   }
 
   override fun spanClasses(): List<Class<*>> = listOf(InputHeadingSpan::class.java)

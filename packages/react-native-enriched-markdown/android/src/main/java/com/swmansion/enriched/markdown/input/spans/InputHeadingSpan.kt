@@ -9,6 +9,7 @@ import android.text.style.MetricAffectingSpan
 import com.facebook.react.common.ReactConstants
 import com.swmansion.enriched.markdown.input.formatting.MarkdownSpan
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
+import kotlin.math.ceil
 
 /**
  * Applies heading font size, weight, color, and line height to a markdown
@@ -43,13 +44,13 @@ class InputHeadingSpan(
     fm: FontMetricsInt,
   ) {
     // null: no body lineHeight, so keep the font's natural height.
-    val lineHeightPx = lineHeightPx ?: return
-    applyCssLineHeight(
-      fm = fm,
-      lineHeightPx = kotlin.math.ceil(lineHeightPx.toDouble()).toInt(),
-      start = start,
-      end = end,
-      textLength = text.length,
+    val heightPx = lineHeightPx ?: return
+    applyLineHeight(
+      fm,
+      ceil(heightPx.toDouble()).toInt(),
+      start,
+      end,
+      text.length,
     )
   }
 
