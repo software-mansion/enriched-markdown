@@ -151,7 +151,7 @@ Add an `"enriched-markdown"` block to your app's `package.json` to configure whi
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `enableCodeHighlight` | `boolean` | `true` | Download and compile tree-sitter grammars for syntax highlighting |
-| `enableMath` | `boolean` | `true` | Download RaTeX for LaTeX math rendering (iOS) and include the Maven dependency (Android) |
+| `enableMath` | `boolean` | `true` | Download [RaTeX](https://ratex.lites.dev/) for LaTeX math rendering (iOS) and include the Maven dependency (Android) |
 | `enableVideo` | `boolean` | `true` | Enable native video playback. Adds Media3 ExoPlayer (~2-3 MB) on Android; uses built-in AVKit on iOS. Set to `false` to exclude the dependency |
 | `codeHighlightLanguages` | `string[]` | all default grammars | Subset of languages to compile (reduces binary size). Ignored when `enableCodeHighlight` is `false`; an empty array `[]` compiles none (same as disabling). |
 

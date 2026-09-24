@@ -6,10 +6,24 @@ We want this community to be friendly and respectful to each other. Please follo
 
 ## Development workflow
 
-This project is a monorepo managed using [Yarn workspaces](https://yarnpkg.com/features/workspaces). It contains the following packages:
+This project is a monorepo managed using [Yarn workspaces](https://yarnpkg.com/features/workspaces), with every workspace under `packages/*` or `apps/*`.
 
-- The library package in the root directory.
-- A React Native example app in the `apps/react-native-example/` directory.
+The libraries:
+
+- [`packages/react-native-enriched-markdown/`](./packages/react-native-enriched-markdown/) — the React Native library published to npm: the JS API, its iOS and Android native code, and the web build.
+- [`packages/core/`](./packages/core/) — the shared C++ core: the md4c parser and the Markdown AST. Every other package compiles these same sources, so there is exactly one parser in the repository.
+- [`packages/enriched-markdown-ios/`](./packages/enriched-markdown-ios/) — the standalone iOS package: a SwiftPM package wrapping the core in a Swift API, plus an optional LaTeX target.
+- [`packages/enriched-markdown-android/`](./packages/enriched-markdown-android/) — the standalone Android package: Gradle modules for the span-based `ui` renderer and its `compose` wrapper, over a `parser` module that is a JNI binding to the core.
+
+The example apps, each driven by a script from the root directory:
+
+- [`apps/react-native-example/`](./apps/react-native-example/) — `yarn react-native-example <start|ios|android>`. The main development app; Storybook and the Maestro E2E suite live here.
+- [`apps/react-native-macos-example/`](./apps/react-native-macos-example/) — `yarn react-native-macos-example <start|macos>`.
+- [`apps/react-native-web-example/`](./apps/react-native-web-example/) — `yarn react-native-web-example web`. The web build running in a browser (Expo).
+- [`apps/ios-example/`](./apps/ios-example/) — `yarn ios-example`. A native Swift app using the iOS package directly.
+- [`apps/android-example/`](./apps/android-example/) — `yarn android-example`. A native Android app using the Android package directly.
+
+The documentation site lives in [`docs/`](./docs/). It is a standalone Docusaurus project with its own `yarn.lock`, not part of the workspace: run `yarn && yarn start` inside it, and make sure `yarn build` passes before merging documentation changes.
 
 To get started with the project, make sure you have the correct version of [Node.js](https://nodejs.org/) installed. See the [`.nvmrc`](./.nvmrc) file for the version used in this project.
 
@@ -32,7 +46,7 @@ yarn prepare
 
 > Since the project relies on Yarn workspaces, you cannot use [`npm`](https://github.com/npm/cli) for development without manually migrating.
 
-The [react-native-example app](/apps/react-native-example/) demonstrates usage of the library. You need to run it to test any changes you make.
+The [react-native-example app](./apps/react-native-example/) demonstrates usage of the library. You need to run it to test any changes you make.
 
 It is configured to use the local version of the library, so any changes you make to the library's source code will be reflected in the example app. Changes to the library's JavaScript code will be reflected in the example app without a rebuild, but native code changes will require a rebuild of the example app.
 
@@ -60,13 +74,7 @@ To run the example app on iOS:
 yarn react-native-example ios
 ```
 
-To confirm that the app is running with the new architecture, you can check the Metro logs for a message like this:
-
-```sh
-Running "EnrichedMarkdownExample" with {"fabric":true,"initialProps":{"concurrentRoot":true},"rootTag":1}
-```
-
-Note the `"fabric":true` and `"concurrentRoot":true` properties.
+The library is Fabric-only, and the example app enables the New Architecture explicitly (`newArchEnabled=true` in `apps/react-native-example/android/gradle.properties`, `RCT_NEW_ARCH_ENABLED=1` in its `Podfile`), so there is nothing to switch on first.
 
 Make sure your code passes TypeScript and ESLint. Run the following to verify:
 
@@ -139,7 +147,7 @@ Our pre-commit hooks verify that your commit message matches this format when co
 
 [ESLint](https://eslint.org/), [Prettier](https://prettier.io/), [TypeScript](https://www.typescriptlang.org/)
 
-We use [TypeScript](https://www.typescriptlang.org/) for type checking and [ESLint](https://eslint.org/) with [Prettier](https://prettier.io/) for linting and formatting the code. User-facing behavior is covered by Maestro E2E tests.
+We use [TypeScript](https://www.typescriptlang.org/) for type checking and [ESLint](https://eslint.org/) with [Prettier](https://prettier.io/) for linting and formatting the code. User-facing behavior is covered by Maestro E2E tests; a smaller [Jest](https://jestjs.io/) suite (`yarn test`) backs them up for JS-level regressions.
 
 Our pre-commit hooks verify that lint and typecheck pass when committing.
 
@@ -161,6 +169,8 @@ The `package.json` file contains various scripts for common tasks:
 - `yarn prepare`: build the library (required before running any app).
 - `yarn typecheck`: type-check files with TypeScript.
 - `yarn lint`: lint files with ESLint.
+- `yarn test`: run the Jest unit tests of the React Native package.
+- `yarn build:wasm`: rebuild the md4c WebAssembly parser used by the web build.
 - `yarn react-native-example start`: start the Metro server for the react-native-example app.
 - `yarn react-native-example android`: run the react-native-example app on Android.
 - `yarn react-native-example ios`: run the react-native-example app on iOS.

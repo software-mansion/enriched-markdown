@@ -12,7 +12,7 @@ A multi-platform SDK for rendering Markdown as native text and editing rich text
 - **Rich text input** — Text input with Markdown output, inline formatting, headings, lists, links, and mentions
 - **Cross-platform** — Consistent API across React Native (TypeScript), iOS (Swift), and Android (Kotlin)
 - **CommonMark & GFM** — Full CommonMark compliance with GitHub Flavored Markdown extensions (tables, task lists, strikethrough)
-- **LaTeX math** — Block and inline math rendering powered by [RaTeX](https://github.com/erweixin/RaTeX)
+- **LaTeX math** — Block and inline math rendering powered by [RaTeX](https://ratex.lites.dev/)
 - **Markdown streaming** — Real-time streaming support for AI/LLM chat interfaces
 - **Code syntax highlighting** — Native syntax highlighting powered by [tree-sitter](https://tree-sitter.github.io/tree-sitter/)
 - **Accessibility** — VoiceOver on iOS, TalkBack on Android, semantic HTML on web
