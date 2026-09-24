@@ -159,6 +159,8 @@ export default function PlaygroundScreen() {
               Underline
             </Text>
           </TouchableOpacity>
+        </View>
+        <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[
               styles.button,
@@ -180,11 +182,9 @@ export default function PlaygroundScreen() {
                   styles.buttonTextActive,
               ]}
             >
-              LH {inputLineHeight ?? 'auto'}
+              Line height {inputLineHeight ?? 'auto'}
             </Text>
           </TouchableOpacity>
-        </View>
-        <View style={styles.buttonRow}>
           <TouchableOpacity
             style={styles.button}
             onPress={async () => {
@@ -218,22 +218,11 @@ export default function PlaygroundScreen() {
             ref={inputRef}
             placeholder="Type markdown here..."
             placeholderTextColor="#9CA3AF"
-            style={
-              sizeMode === 'max'
-                ? {
-                    ...styles.input,
-                    ...styles.inputMax,
-                    ...(inputLineHeight != null
-                      ? { lineHeight: inputLineHeight }
-                      : {}),
-                  }
-                : {
-                    ...styles.input,
-                    ...(inputLineHeight != null
-                      ? { lineHeight: inputLineHeight }
-                      : {}),
-                  }
-            }
+            style={[
+              styles.input,
+              sizeMode === 'max' && styles.inputMax,
+              inputLineHeight != null && { lineHeight: inputLineHeight },
+            ]}
             markdownStyle={MARKDOWN_STYLE}
             onChangeState={setState}
             onChangeMarkdown={setMarkdown}
