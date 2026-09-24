@@ -174,4 +174,102 @@ final class MarkdownTextViewTests: XCTestCase {
 
         XCTAssertFalse(textView.isPointOnSelectionHandle(endKnob))
     }
+
+    // MARK: - Image layout
+
+    // A `maxHeight` image box is the cap until the image loads and only then
+    // settles to the fitted height. The view has already been measured by
+    // then, so it has to hear about it and measure again.
+
+    private func imageDocument(
+        _ image: BlockImage,
+        downloader: ImageDownloading
+    ) -> (text: NSAttributedString, attachment: MarkdownImageAttachment) {
+        let attachment = MarkdownImageAttachment.attachment(
+            for: "https://example.invalid/\(#function).png",
+            config: imageSizingConfig(image),
+            isInline: false,
+            altText: "",
+            downloader: downloader
+        )
+        let text = NSAttributedString(string: "\u{FFFC}", attributes: [.attachment: attachment])
+        return (text, attachment)
+    }
+
+    func testSettingTextAdoptsImageAttachments() {
+        let textView = MarkdownTextView()
+        let document = imageDocument(BlockImage().maxHeight(150), downloader: DeferredImageDownloader())
+
+        textView.setMarkdownAttributedText(document.text)
+
+        XCTAssertTrue(document.attachment.layoutObserver === textView)
+    }
+
+    func testSettledImageBoxDropsTheCachedMeasurement() {
+        let downloader = DeferredImageDownloader()
+        let textView = MarkdownTextView()
+        let document = imageDocument(BlockImage().maxHeight(150), downloader: downloader)
+        textView.setMarkdownAttributedText(document.text)
+
+        let before = height(of: textView, width: 300)
+
+        downloader.complete(with: makeImage(width: 300, height: 100))
+        drainMainQueue()
+
+        // 300 points wide at 3:1 fits in 100, half a cap of 150.
+        XCTAssertEqual(before - height(of: textView, width: 300), 50, accuracy: 1)
+    }
+
+    /// SwiftUI measured the view against the cap and must measure again.
+    func testHostedViewShrinksOnceAMaxHeightImageSettles() throws {
+        let downloader = DeferredImageDownloader()
+        let document = imageDocument(BlockImage().maxHeight(150), downloader: downloader)
+        let host = UIHostingController(rootView: hostedRepresentable(document.text))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 600))
+        self.window = window
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.layoutIfNeeded()
+        let textView = try XCTUnwrap(host.view.firstSubview(of: MarkdownTextView.self))
+        let before = textView.frame.height
+
+        downloader.complete(with: makeImage(width: 300, height: 100))
+        awaitMainQueue()
+        host.view.layoutIfNeeded()
+
+        // 300 points wide at 3:1 fits in 100, half a cap of 150.
+        XCTAssertEqual(before - textView.frame.height, 50, accuracy: 1)
+    }
+
+    func testFixedImageBoxKeepsItsMeasurementAcrossTheLoad() {
+        let downloader = DeferredImageDownloader()
+        let textView = MarkdownTextView()
+        let document = imageDocument(BlockImage().height(200), downloader: downloader)
+        textView.setMarkdownAttributedText(document.text)
+
+        let before = height(of: textView, width: 300)
+
+        downloader.complete(with: makeImage(width: 300, height: 100))
+        drainMainQueue()
+
+        XCTAssertEqual(height(of: textView, width: 300), before)
+    }
+
+    private func hostedRepresentable(_ text: NSAttributedString) -> some View {
+        MarkdownTextViewRepresentable(
+            attributedText: text,
+            source: nil,
+            styleConfig: .baseline(),
+            onLinkPress: nil,
+            onLinkLongPress: nil,
+            selectionMenuConfig: MarkdownSelectionMenuConfig(),
+            isSelectionEnabled: true,
+            selectionColor: nil,
+            onTaskListItemTap: nil,
+            spoilerOverlay: ParticleSpoilerOverlayProvider(),
+            onSpoilerTap: nil,
+            accessibilityLabels: .default
+        )
+        .fixedSize(horizontal: false, vertical: true)
+    }
 }

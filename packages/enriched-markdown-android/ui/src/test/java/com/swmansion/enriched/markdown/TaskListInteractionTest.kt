@@ -1,9 +1,12 @@
 package com.swmansion.enriched.markdown
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.text.SpanWatcher
 import android.text.Spannable
-import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.LeadingMarginSpan
@@ -157,7 +160,7 @@ class TaskListInteractionTest {
     val updated = textView.toggle("Open item", newChecked = true, style)
 
     assertTrue(updated)
-    val text = textView.text as SpannableString
+    val text = textView.text as Spannable
     assertTrue(text.taskSpanCovering("Open item").isChecked)
     assertTrue("Expected the checked text color", text.hasDecoration<ForegroundColorSpan>("Open item"))
     assertTrue("Expected the checked strikethrough", text.hasDecoration<AndroidStrikethroughSpan>("Open item"))
@@ -170,7 +173,7 @@ class TaskListInteractionTest {
 
     textView.toggle("Done item", newChecked = false, style)
 
-    val text = textView.text as SpannableString
+    val text = textView.text as Spannable
     assertFalse(text.taskSpanCovering("Done item").isChecked)
     assertFalse(text.hasDecoration<ForegroundColorSpan>("Done item"))
     assertFalse(text.hasDecoration<AndroidStrikethroughSpan>("Done item"))
@@ -189,7 +192,7 @@ class TaskListInteractionTest {
 
     textView.toggle("Struck item", newChecked = false, style)
 
-    val text = textView.text as SpannableString
+    val text = textView.text as Spannable
     assertTrue(
       "The item's own ~~strikethrough~~ is markdown, not checked-state decoration",
       text.hasDecoration<MarkdownStrikethroughSpan>("Struck item"),
@@ -220,14 +223,14 @@ class TaskListInteractionTest {
     // Layout.draw walks LeadingMarginSpans in buffer order, accumulating each
     // one's margin, so reordering them moves where a marker is painted.
     assertEquals("Toggling must not reorder the list markers", before, textView.leadingMarginSpans())
-    assertTrue((textView.text as SpannableString).taskSpanCovering("Second nested").isChecked)
+    assertTrue((textView.text as Spannable).taskSpanCovering("Second nested").isChecked)
   }
 
   @Test
   fun reportsTheSpanChangeWhenTogglingSoTheViewRepaints() {
     val style = decoratedStyle()
     val textView = laidOutTextView(render(checklist(), style))
-    val spannable = textView.text as SpannableString
+    val spannable = textView.text as Spannable
     val target = spannable.taskSpanCovering("Open item")
     val changed = mutableListOf<Any>()
     spannable.setSpan(
@@ -275,7 +278,7 @@ class TaskListInteractionTest {
   fun leavesADetachedSpanAlone() {
     val style = decoratedStyle()
     val textView = laidOutTextView(render(checklist(), style))
-    val detached = (textView.text as SpannableString).taskSpanCovering("Open item")
+    val detached = (textView.text as Spannable).taskSpanCovering("Open item")
     // Stands in for a render that landed between the touch down and up.
     textView.setText(render(checklist(), style), TextView.BufferType.SPANNABLE)
 
@@ -368,13 +371,55 @@ class TaskListInteractionTest {
     val markdown = "- [ ] Open item\n- [x] Done item"
     val container = createContainerWithStoredMarkdown(markdown, render(checklist()))
     val view = laidOutTextView(container.getChildAt(0) as EnrichedMarkdownInternalText)
-    var event: TaskListItemPressEvent? = null
+    var event: TaskListItemToggle? = null
     container.setOnTaskListItemPressCallback { event = it }
 
     tap(view, line = 0)
 
-    assertEquals(TaskListItemPressEvent(index = 0, checked = true, text = "Open item"), event)
-    assertTrue((view.text as SpannableString).taskSpanCovering("Open item").isChecked)
+    assertEquals(TaskListItemToggle(index = 0, checked = true, text = "Open item"), event)
+    assertTrue((view.text as Spannable).taskSpanCovering("Open item").isChecked)
+  }
+
+  @Test
+  fun paintsANestedCheckboxInsideItsOwnMargin() {
+    val nested =
+      document(
+        unorderedList(
+          taskListItem(
+            checked = true,
+            paragraph(text("Parent task")),
+            unorderedList(taskListItem(checked = false, paragraph(text("Nested task")))),
+          ),
+        ),
+      )
+    val markdown = "- [x] Parent task\n  - [ ] Nested task"
+    val container = createContainerWithStoredMarkdown(markdown, render(nested))
+    val view = laidOutTextView(container.getChildAt(0) as EnrichedMarkdownInternalText)
+    val boxes = mutableListOf<RectF>()
+    val canvas =
+      object : Canvas(Bitmap.createBitmap(VIEW_WIDTH, view.layout.height, Bitmap.Config.ARGB_8888)) {
+        override fun drawRoundRect(
+          rect: RectF,
+          rx: Float,
+          ry: Float,
+          paint: Paint,
+        ) {
+          boxes += RectF(rect)
+          super.drawRoundRect(rect, rx, ry, paint)
+        }
+      }
+
+    view.layout.draw(canvas)
+
+    // The view is handed the renderer's buffer uncopied; a SpannableStringBuilder
+    // makes Layout paint the leading margins outer-first, which pushed the nested
+    // checkbox an indent right, over its own text and out of the tappable margin.
+    val nestedLine = view.layout.getLineForOffset(view.text.indexOf("Nested task"))
+    val nestedBox = boxes.single { it.centerY() > view.layout.getLineTop(nestedLine) }
+    assertTrue(
+      "Nested checkbox at ${nestedBox.right} overlaps its text at ${leadingMarginOf(view, nestedLine)}",
+      nestedBox.right <= leadingMarginOf(view, nestedLine),
+    )
   }
 
   @Test
@@ -401,7 +446,7 @@ class TaskListInteractionTest {
     tap(view, line = 0)
 
     assertFalse(fired)
-    assertFalse((view.text as SpannableString).taskSpanCovering("Open item").isChecked)
+    assertFalse((view.text as Spannable).taskSpanCovering("Open item").isChecked)
     assertEquals(markdown, container.currentMarkdown)
   }
 
@@ -412,7 +457,7 @@ class TaskListInteractionTest {
   ): Boolean =
     TaskListTapUtils.updateTaskListItemCheckedState(
       this,
-      (text as SpannableString).taskSpanCovering(itemText),
+      (text as Spannable).taskSpanCovering(itemText),
       newChecked,
       style,
     )
@@ -445,9 +490,12 @@ class TaskListInteractionTest {
     return view
   }
 
-  private fun laidOutTextView(spannable: SpannableString): TextView =
+  // EnrichedMarkdownInternalText rather than a plain TextView: a plain one's default
+  // spannable factory copies the builder into a SpannableString, so these tests would
+  // exercise the old copied path instead of the no-copy wrapper production installs.
+  private fun laidOutTextView(spannable: Spannable): TextView =
     laidOutTextView(
-      TextView(context).apply { setText(spannable, TextView.BufferType.SPANNABLE) },
+      EnrichedMarkdownInternalText(context).apply { setText(spannable, TextView.BufferType.SPANNABLE) },
     )
 
   private fun lineCenterY(
@@ -486,7 +534,7 @@ class TaskListInteractionTest {
     return spanned.getSpans(0, spanned.length, LeadingMarginSpan::class.java).toList()
   }
 
-  private fun SpannableString.taskSpanCovering(text: String): TaskListSpan {
+  private fun Spannable.taskSpanCovering(text: String): TaskListSpan {
     val start = indexOf(text)
     assertTrue("Rendered text does not contain \"$text\": \"$this\"", start >= 0)
     val spans = getSpans(start, start + text.length, TaskListSpan::class.java)
@@ -494,7 +542,7 @@ class TaskListInteractionTest {
     return spans.maxBy { it.depth }
   }
 
-  private inline fun <reified T : Any> SpannableString.hasDecoration(text: String): Boolean {
+  private inline fun <reified T : Any> Spannable.hasDecoration(text: String): Boolean {
     val start = indexOf(text)
     return getSpans(start, start + text.length, T::class.java).any { it.javaClass == T::class.java }
   }

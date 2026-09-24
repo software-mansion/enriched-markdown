@@ -38,12 +38,12 @@ fun TextScreen(
       modifier = Modifier.fillMaxWidth(),
       style = CustomMarkdownStyle,
       flags = Md4cFlags(superscript = true, subscript = true, admonitions = true),
-      onLinkPress = { url ->
+      onLinkClick = { url ->
         runCatching {
           context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }
       },
-      onTaskListItemPress = { event ->
+      onTaskListItemToggle = { event ->
         Toast
           .makeText(
             context,

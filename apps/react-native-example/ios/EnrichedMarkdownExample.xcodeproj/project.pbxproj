@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00E356F31AD99517003FC87E /* EnrichedMarkdownExampleTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F21AD99517003FC87E /* EnrichedMarkdownExampleTests.m */; };
+		00E356F91AD99517003FC87E /* SwiftLinker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F81AD99517003FC87E /* SwiftLinker.swift */; };
 		029E4BE967864F599BC07069 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFDFCE7DCD1A46B5B744D7EE /* Montserrat-Regular.ttf */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		266AF6A295504B0D86F4FC27 /* Poppins-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A7358B17E8E74D62A4B1C654 /* Poppins-Regular.ttf */; };
@@ -22,9 +24,24 @@
 		9BFD46416F6C43EFBD2EE56C /* Montserrat-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9BC709807BEE4A948F59B9EF /* Montserrat-Medium.ttf */; };
 		9E6DECF91246407194021F8B /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D495169E422740CF87E4E8EB /* CourierPrime-Regular.ttf */; };
 		A352776896814266B8C2320C /* Poppins-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DB9BD7A36CF349D19BD6AE5B /* Poppins-SemiBold.ttf */; };
+		C5E681697D864CB241D83EFA /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A8E5ECDA77F0C61C263AE4C /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		00E356F41AD99517003FC87E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
+			remoteInfo = EnrichedMarkdownExample;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		00E356EE1AD99517003FC87E /* EnrichedMarkdownExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EnrichedMarkdownExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		00E356F11AD99517003FC87E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = EnrichedMarkdownExampleTests/Info.plist; sourceTree = "<group>"; };
+		00E356F21AD99517003FC87E /* EnrichedMarkdownExampleTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EnrichedMarkdownExampleTests.m; sourceTree = "<group>"; };
+		00E356F81AD99517003FC87E /* SwiftLinker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftLinker.swift; sourceTree = "<group>"; };
 		09EF1B231B420F64060CE9C8 /* libPods-EnrichedMarkdownExample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-EnrichedMarkdownExample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* EnrichedMarkdownExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnrichedMarkdownExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = EnrichedMarkdownExample/Images.xcassets; sourceTree = "<group>"; };
@@ -33,9 +50,12 @@
 		3B4392A12AC88292D35C810B /* Pods-EnrichedMarkdownExample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExample.debug.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExample/Pods-EnrichedMarkdownExample.debug.xcconfig"; sourceTree = "<group>"; };
 		431C95EEA90C4B3995118D3D /* Montserrat-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Bold.ttf"; path = "../assets/fonts/Montserrat-Bold.ttf"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-EnrichedMarkdownExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExample.release.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExample/Pods-EnrichedMarkdownExample.release.xcconfig"; sourceTree = "<group>"; };
+		5B7EB9410499542E8C5724F5 /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig"; sourceTree = "<group>"; };
 		720AC2EB09FA42C5A3E4EE58 /* Poppins-Italic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Poppins-Italic.ttf"; path = "../assets/fonts/Poppins-Italic.ttf"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = EnrichedMarkdownExample/AppDelegate.swift; sourceTree = "<group>"; };
+		7A8E5ECDA77F0C61C263AE4C /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = EnrichedMarkdownExample/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		89C6BE57DB24E9ADA2F236DE /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig"; path = "Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig"; sourceTree = "<group>"; };
 		9BC709807BEE4A948F59B9EF /* Montserrat-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Medium.ttf"; path = "../assets/fonts/Montserrat-Medium.ttf"; sourceTree = "<group>"; };
 		A7358B17E8E74D62A4B1C654 /* Poppins-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Poppins-Regular.ttf"; path = "../assets/fonts/Poppins-Regular.ttf"; sourceTree = "<group>"; };
 		B24805265C44464B924D7791 /* Montserrat-Italic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Italic.ttf"; path = "../assets/fonts/Montserrat-Italic.ttf"; sourceTree = "<group>"; };
@@ -48,6 +68,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		00E356EB1AD99517003FC87E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C5E681697D864CB241D83EFA /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -59,6 +87,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		00E356EF1AD99517003FC87E /* EnrichedMarkdownExampleTests */ = {
+			isa = PBXGroup;
+			children = (
+				00E356F21AD99517003FC87E /* EnrichedMarkdownExampleTests.m */,
+				00E356F81AD99517003FC87E /* SwiftLinker.swift */,
+				00E356F01AD99517003FC87E /* Supporting Files */,
+			);
+			path = EnrichedMarkdownExampleTests;
+			sourceTree = "<group>";
+		};
+		00E356F01AD99517003FC87E /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				00E356F11AD99517003FC87E /* Info.plist */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* EnrichedMarkdownExample */ = {
 			isa = PBXGroup;
 			children = (
@@ -76,6 +122,7 @@
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				09EF1B231B420F64060CE9C8 /* libPods-EnrichedMarkdownExample.a */,
+				7A8E5ECDA77F0C61C263AE4C /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -92,6 +139,7 @@
 			children = (
 				13B07FAE1A68108700A75B9A /* EnrichedMarkdownExample */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
+				00E356EF1AD99517003FC87E /* EnrichedMarkdownExampleTests */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
@@ -106,6 +154,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* EnrichedMarkdownExample.app */,
+				00E356EE1AD99517003FC87E /* EnrichedMarkdownExampleTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -133,6 +182,8 @@
 			children = (
 				3B4392A12AC88292D35C810B /* Pods-EnrichedMarkdownExample.debug.xcconfig */,
 				5709B34CF0A7D63546082F79 /* Pods-EnrichedMarkdownExample.release.xcconfig */,
+				5B7EB9410499542E8C5724F5 /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig */,
+				89C6BE57DB24E9ADA2F236DE /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -140,6 +191,27 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		00E356ED1AD99517003FC87E /* EnrichedMarkdownExampleTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00E357021AD99517003FC87E /* Build configuration list for PBXNativeTarget "EnrichedMarkdownExampleTests" */;
+			buildPhases = (
+				A55EABD7B0C7F3A422A6CC61 /* [CP] Check Pods Manifest.lock */,
+				00E356EA1AD99517003FC87E /* Sources */,
+				00E356EB1AD99517003FC87E /* Frameworks */,
+				00E356EC1AD99517003FC87E /* Resources */,
+				F6A41C54EA430FDDC6A6ED99 /* [CP] Copy Pods Resources */,
+				A44ED3CC3037C88F69E3AF15 /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				00E356F51AD99517003FC87E /* PBXTargetDependency */,
+			);
+			name = EnrichedMarkdownExampleTests;
+			productName = EnrichedMarkdownExampleTests;
+			productReference = 00E356EE1AD99517003FC87E /* EnrichedMarkdownExampleTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		13B07F861A680F5B00A75B9A /* EnrichedMarkdownExample */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "EnrichedMarkdownExample" */;
@@ -169,6 +241,10 @@
 			attributes = {
 				LastUpgradeCheck = 1210;
 				TargetAttributes = {
+					00E356ED1AD99517003FC87E = {
+						CreatedOnToolsVersion = 6.2;
+						TestTargetID = 13B07F861A680F5B00A75B9A;
+					};
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1120;
 					};
@@ -188,11 +264,19 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* EnrichedMarkdownExample */,
+				00E356ED1AD99517003FC87E /* EnrichedMarkdownExampleTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		00E356EC1AD99517003FC87E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		13B07F8E1A680F5B00A75B9A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -249,6 +333,45 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample/Pods-EnrichedMarkdownExample-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		A44ED3CC3037C88F69E3AF15 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		A55EABD7B0C7F3A422A6CC61 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -288,9 +411,35 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample/Pods-EnrichedMarkdownExample-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		F6A41C54EA430FDDC6A6ED99 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests/Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		00E356EA1AD99517003FC87E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00E356F31AD99517003FC87E /* EnrichedMarkdownExampleTests.m in Sources */,
+				00E356F91AD99517003FC87E /* SwiftLinker.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		13B07F871A680F5B00A75B9A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -301,7 +450,93 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		00E356F51AD99517003FC87E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 13B07F861A680F5B00A75B9A /* EnrichedMarkdownExample */;
+			targetProxy = 00E356F41AD99517003FC87E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		00E356F61AD99517003FC87E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5B7EB9410499542E8C5724F5 /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.debug.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"MD4C_USE_UTF8=1",
+					"$(inherited)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"${PODS_ROOT}/../../../../packages/core/cpp/md4c",
+					"${PODS_ROOT}/../../../../packages/core/cpp/parser",
+					"${PODS_ROOT}/../../../../packages/core/cpp/highlight",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/internals",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/input/internals",
+				);
+				INFOPLIST_FILE = EnrichedMarkdownExampleTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-ObjC",
+					"-lc++",
+					"$(inherited)",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = swmansion.enriched.markdown.example.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EnrichedMarkdownExample.app/EnrichedMarkdownExample";
+			};
+			name = Debug;
+		};
+		00E356F71AD99517003FC87E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 89C6BE57DB24E9ADA2F236DE /* Pods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.release.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
+				COPY_PHASE_STRIP = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"MD4C_USE_UTF8=1",
+					"$(inherited)",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"${PODS_ROOT}/../../../../packages/core/cpp/md4c",
+					"${PODS_ROOT}/../../../../packages/core/cpp/parser",
+					"${PODS_ROOT}/../../../../packages/core/cpp/highlight",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/internals",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/input/internals",
+				);
+				INFOPLIST_FILE = EnrichedMarkdownExampleTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-ObjC",
+					"-lc++",
+					"$(inherited)",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = swmansion.enriched.markdown.example.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EnrichedMarkdownExample.app/EnrichedMarkdownExample";
+			};
+			name = Release;
+		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3B4392A12AC88292D35C810B /* Pods-EnrichedMarkdownExample.debug.xcconfig */;
@@ -551,6 +786,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		00E357021AD99517003FC87E /* Build configuration list for PBXNativeTarget "EnrichedMarkdownExampleTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00E356F61AD99517003FC87E /* Debug */,
+				00E356F71AD99517003FC87E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "EnrichedMarkdownExample" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

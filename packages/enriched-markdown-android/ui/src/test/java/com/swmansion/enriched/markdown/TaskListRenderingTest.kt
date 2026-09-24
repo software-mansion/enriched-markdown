@@ -1,6 +1,6 @@
 package com.swmansion.enriched.markdown
 
-import android.text.SpannableString
+import android.text.Spannable
 import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -234,13 +234,13 @@ class TaskListRenderingTest {
     assertEquals("  - [ ] Nested task", extractSelectingText(checklist, "Nested task"))
   }
 
-  private fun SpannableString.rangeOf(text: String): IntRange {
+  private fun Spannable.rangeOf(text: String): IntRange {
     val start = indexOf(text)
     assertTrue("Rendered text does not contain \"$text\": \"$this\"", start >= 0)
     return start..(start + text.length)
   }
 
-  private fun SpannableString.taskSpanCovering(text: String): TaskListSpan {
+  private fun Spannable.taskSpanCovering(text: String): TaskListSpan {
     val range = rangeOf(text)
     val spans = getSpans(range.first, range.last, TaskListSpan::class.java)
     assertTrue("Expected a TaskListSpan covering \"$text\"", spans.isNotEmpty())

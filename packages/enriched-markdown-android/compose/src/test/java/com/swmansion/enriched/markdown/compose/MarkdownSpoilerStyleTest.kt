@@ -69,11 +69,11 @@ class MarkdownSpoilerStyleTest {
   }
 
   @Test
-  fun layersSpoilerOverridesAcrossCopies() {
+  fun layersSpoilerOverridesAcrossMerges() {
     val context = resolveContext()
 
     val base = markdownStyle { spoiler { color = Color(0xFF010203) } }
-    val derived = base.copy { spoiler { solid { cornerRadius = 2.dp } } }
+    val derived = base.merge { spoiler { solid { cornerRadius = 2.dp } } }
 
     val resolved = derived.resolve(context).spoilerStyle
     // The later layer only sets the radius, so the earlier layer's color survives.

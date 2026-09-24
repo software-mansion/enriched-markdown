@@ -1,16 +1,20 @@
 package com.swmansion.enriched.markdown.test
 
 import android.content.Context
-import android.text.SpannableString
+import android.text.Spannable
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.CodeStyle
+import com.swmansion.enriched.markdown.styles.HeadingStyle
+import com.swmansion.enriched.markdown.styles.LinkStyle
+import com.swmansion.enriched.markdown.styles.ParagraphStyle
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TaskListStyle
+import com.swmansion.enriched.markdown.styles.TextAlignment
 import com.swmansion.enriched.markdown.styles.UnderlineStyle
 
 object MarkdownRenderTestSupport {
@@ -24,7 +28,7 @@ object MarkdownRenderTestSupport {
   fun render(
     document: MarkdownASTNode,
     style: StyleConfig = defaultStyle,
-  ): SpannableString {
+  ): Spannable {
     val renderer = Renderer()
     renderer.configure(style, context)
     return renderer.renderDocument(document, null, null)
@@ -49,6 +53,18 @@ object MarkdownRenderTestSupport {
   /** [defaultStyle] with only its [SpoilerStyle] replaced. */
   fun styleWithSpoiler(spoilerStyle: SpoilerStyle): StyleConfig = copyOfDefault(spoilerStyle = spoilerStyle)
 
+  /** [defaultStyle] with only its [LinkStyle] replaced. */
+  fun styleWithLink(linkStyle: LinkStyle): StyleConfig = copyOfDefault(linkStyle = linkStyle)
+
+  /** [defaultStyle] with paragraphs and every heading aligned by [textAlign]. */
+  fun styleWithTextAlign(textAlign: TextAlignment): StyleConfig {
+    val base = defaultStyle
+    return copyOfDefault(
+      paragraphStyle = base.paragraphStyle.copy(textAlign = textAlign),
+      headingStyles = base.headingStyles.map { it?.copy(textAlign = textAlign) }.toTypedArray(),
+    )
+  }
+
   /** [defaultStyle] with only its [TaskListStyle] replaced. */
   fun styleWithTaskList(taskListStyle: TaskListStyle): StyleConfig = copyOfDefault(taskListStyle = taskListStyle)
 
@@ -62,13 +78,16 @@ object MarkdownRenderTestSupport {
     blockquoteStyle: BlockquoteStyle? = null,
     codeStyle: CodeStyle? = null,
     spoilerStyle: SpoilerStyle? = null,
+    linkStyle: LinkStyle? = null,
+    paragraphStyle: ParagraphStyle? = null,
+    headingStyles: Array<HeadingStyle?>? = null,
   ): StyleConfig {
     val base = defaultStyle
     return StyleConfig(
-      paragraphStyleDefault = base.paragraphStyle,
-      headingStyles = base.headingStyles,
+      paragraphStyleDefault = paragraphStyle ?: base.paragraphStyle,
+      headingStyles = headingStyles ?: base.headingStyles,
       headingTypefaces = base.headingTypefaces,
-      linkStyle = base.linkStyle,
+      linkStyle = linkStyle ?: base.linkStyle,
       strongStyle = base.strongStyle,
       emphasisStyle = base.emphasisStyle,
       strikethroughStyle = strikethroughStyle ?: base.strikethroughStyle,

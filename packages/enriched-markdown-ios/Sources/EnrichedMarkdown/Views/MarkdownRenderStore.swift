@@ -9,6 +9,18 @@ struct RenderedSource: Equatable {
     let flags: Md4cFlags
 }
 
+/// What a render depends on, as one value so a change to any of it
+/// schedules exactly one re-render. Plugins travel alongside: they are
+/// not `Equatable`.
+struct MarkdownRenderInputs: Equatable {
+    var markdown: String
+    var config: MarkdownStyleConfig
+    var flags: Md4cFlags = .commonMark
+    var imageRequestHeaders: [String: String] = [:]
+    var writingDirection: MarkdownWritingDirection = .firstStrong
+    var layoutDirection: LayoutDirection = .leftToRight
+}
+
 @MainActor
 final class MarkdownRenderStore: ObservableObject {
     @Published private(set) var attributedText = NSAttributedString()
@@ -33,13 +45,8 @@ final class MarkdownRenderStore: ObservableObject {
 
     private let coordinator = AsyncRenderCoordinator()
 
-    func schedule(
-        markdown: String,
-        config: MarkdownStyleConfig,
-        flags: Md4cFlags = .commonMark,
-        imageRequestHeaders: [String: String] = [:],
-        plugins: [any MarkdownRenderPlugin] = []
-    ) {
+    func schedule(_ inputs: MarkdownRenderInputs, plugins: [any MarkdownRenderPlugin] = []) {
+        let markdown = inputs.markdown
         if isBlank(markdown) {
             attributedText = NSAttributedString()
             source = nil
@@ -55,15 +62,17 @@ final class MarkdownRenderStore: ObservableObject {
         baseMarkdown = markdown
         currentMarkdown = resolved
         // render adjusts the flags itself; the source keeps the adjusted ones for copying.
-        let effectiveFlags = MarkdownRenderer.effectiveFlags(flags, plugins: plugins)
+        let effectiveFlags = MarkdownRenderer.effectiveFlags(inputs.flags, plugins: plugins)
 
         coordinator.scheduleRender {
             MarkdownRenderer.render(
                 resolved,
-                config: config,
-                flags: flags,
-                imageRequestHeaders: imageRequestHeaders,
-                plugins: plugins
+                config: inputs.config,
+                flags: inputs.flags,
+                imageRequestHeaders: inputs.imageRequestHeaders,
+                plugins: plugins,
+                writingDirection: inputs.writingDirection,
+                layoutDirection: UIUserInterfaceLayoutDirection(inputs.layoutDirection)
             )
         } apply: { [weak self] result in
             guard let self else { return }
@@ -110,5 +119,15 @@ final class MarkdownRenderStore: ObservableObject {
 
     private func isBlank(_ markdown: String) -> Bool {
         markdown.isEmpty || markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+private extension UIUserInterfaceLayoutDirection {
+    init(_ layoutDirection: LayoutDirection) {
+        switch layoutDirection {
+        case .rightToLeft: self = .rightToLeft
+        case .leftToRight: self = .leftToRight
+        @unknown default: self = .leftToRight
+        }
     }
 }

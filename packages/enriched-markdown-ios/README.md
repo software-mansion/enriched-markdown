@@ -192,7 +192,7 @@ Element-specific modifiers include:
 - **Spoiler:** `.color` (the particles or the solid box), `.particleDensity` (default `8`), `.particleSpeed` (default `20`), `.solidBorderRadius` (default `4`), `.background` (backdrop under the particles, default system background) — the only modifiers; the text keeps the surrounding font and color once revealed
 - **Superscript / Subscript:** `.fontScale` (default `0.75`), `.baselineOffsetScale` (shift up/down, defaults `0.35` / `0.20`) — both fractions of the surrounding text size, and the only modifiers; font and color follow the surrounding text
 - **Table:** `.headerFontFamily(_:size:)`, `.headerTextColor`, `.headerBackground`, `.rowEvenBackground`, `.rowOddBackground`, `.borderColor`, `.borderWidth`, `.cornerRadius` / `.borderRadius`, `.cellPaddingHorizontal`, `.cellPaddingVertical`, `.align`
-- **BlockImage:** `.height`, `.borderRadius`
+- **BlockImage:** `.height`, `.maxHeight`, `.aspectRatio`, `.contentMode`, `.borderRadius` — see [Image sizing](#image-sizing)
 - **InlineImage:** `.size`
 - **ThematicBreak:** `.color` / `.foregroundStyle`, `.height`
 - **MathBlock:** `.fontSize`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.textAlignment` — the only modifiers; the face is always KaTeX's
@@ -413,6 +413,25 @@ extension View {
 
 Custom HTTP headers sent with every markdown image request, e.g. for authenticated CDNs. The same URL fetched with different headers is cached separately.
 
+### `.markdownWritingDirection`
+
+```swift
+extension View {
+  func markdownWritingDirection(_ direction: MarkdownWritingDirection) -> some View  // default .firstStrong
+}
+```
+
+| Value | Behavior |
+|-------|----------|
+| `.firstStrong` (default) | Each paragraph follows its first strong directional character; paragraphs without one (digits, punctuation) follow the SwiftUI `layoutDirection`. Matches Android and the React Native package. |
+| `.natural` | Leaves direction to TextKit, as the React Native prop's `auto` does; list markers, checkboxes, blockquote bars, and paragraphs with no strong character follow the app's interface direction, not the SwiftUI `layoutDirection`, so an `.environment(\.layoutDirection, .rightToLeft)` subtree still gets left-side markers. |
+| `.leftToRight` | Forces every paragraph left-to-right. |
+| `.rightToLeft` | Forces every paragraph right-to-left. |
+
+Code blocks always render left-to-right. See [Right-to-left text](#right-to-left-text) for what follows a paragraph's direction.
+
+Outside SwiftUI, `MarkdownRenderer.render` and `renderLaTeX` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
+
 ### `rememberMarkdownTheme`
 
 ```swift
@@ -432,6 +451,8 @@ System **Copy** puts two flavors of the selection on the pasteboard: plain text 
 
 The selection menu additionally offers **Copy as Markdown** and **Copy Image URL(s)** — see `.markdownSelectionMenu` above.
 
+The HTML flavor carries one `dir` attribute, read from the first copied paragraph (`rtl`, or `auto` under `.markdownWritingDirection(.natural)`); see [Right-to-left text](#right-to-left-text).
+
 ## Image sources
 
 Images load from these sources:
@@ -445,6 +466,50 @@ Images load from these sources:
 | Bundle resource name | `![alt](logo.png)` — looked up in `Bundle.main` (loose files and asset catalogs), with a normalized fallback (lowercase, `-` → `_`) |
 
 All decodes are downsampled to the screen's pixel width, so large images never decode at full size. Downloads are cached (memory + disk) and deduplicated in flight.
+
+## Image sizing
+
+Block images fill the width available to them. Three `BlockImage` modifiers decide how tall the box they fill is:
+
+| Modifier | Box height |
+|----------|------------|
+| `.height(_:)` | Fixed. The default, at 200 points. |
+| `.maxHeight(_:)` | The image's own proportions at the current width, capped at this value. |
+| `.aspectRatio(_:)` | The width divided by this ratio, e.g. `16 / 9` or `CGSize(width: 16, height: 9)`. |
+
+They are one setting: the last one applied wins, and a theme layered over another replaces its sizing outright.
+
+`.contentMode(_:)` decides how the image fills that box:
+
+| Mode | Drawing | UIKit / SwiftUI | React Native |
+|------|---------|-----------------|--------------|
+| `.fit` | Scaled to fit inside the box, never cropped | `.scaleAspectFit` / `.fit` | `contain` |
+| `.fill` | Scaled to fill the box, cropping what overflows | `.scaleAspectFill` / `.fill` | `cover` |
+| `.stretch` | Fills the box exactly, ignoring the image's proportions | `.scaleToFill` | `stretch` |
+| `.scaleDown` | Centered at its own size, scaled down only when it exceeds the box | — | `center` |
+| `.original` | Centered at its own size, never scaled, cropping what overflows | `.center` | `none` |
+| `.fitWidth` | Scaled to the box width and centered vertically, cropping what overflows | — | — |
+
+Left unset it is `.fitWidth` for a `height` box and `.fill` for a `maxHeight` or `aspectRatio` box. `.aspectRatio(_:contentMode:)` sets both at once; note that unlike SwiftUI's modifier of the same name, the ratio shapes the box and the mode places the image inside it.
+
+```swift
+EnrichedMarkdownText(markdown)
+    .markdownTheme(
+        MarkdownTheme {
+            BlockImage()
+                .maxHeight(320)
+                .contentMode(.fit)
+        }
+    )
+```
+
+Three things worth knowing:
+
+- A `maxHeight` box stands at the full cap until the image loads and only then shrinks to the fitted height, so the page reflows once. An `aspectRatio` box is settled from the start and never moves.
+- `.borderRadius` rounds the drawn image, not the box, so with `.fit`, `.scaleDown` or `.original` the corners follow the image.
+- `.scaleDown` and `.original` draw the decoded image, and decoding is capped at the screen's pixel width, so a very large image is not drawn at its full pixel size.
+
+Inline images ignore all four modifiers. They are always a square of `InlineImage().size`.
 
 ## Accessibility
 
@@ -481,6 +546,20 @@ markdown-based copies. VoiceOver reads one element per row.
 Styling comes from the `Table()` theme element (header colors, row
 striping, borders, cell padding, alignment); the defaults adapt to light
 and dark mode.
+
+## Right-to-left text
+
+Writing direction resolves **per paragraph**: each paragraph takes its base direction from its first strong directional character, so Arabic, Hebrew, or Persian paragraphs right-align inside a left-to-right app and next to English paragraphs in the same document. The block chrome follows the paragraph it belongs to:
+
+| Element | Behavior |
+|---------|----------|
+| Paragraphs & headings | Base direction from the first strong character, or the direction forced by `.markdownWritingDirection` |
+| Lists | Bullet, number, or checkbox drawn on the side matching the item's direction; checkbox taps hit-test on that side |
+| Blockquotes & admonitions | Bar drawn on the side matching each quoted paragraph; an admonition's title follows its body |
+| Tables | Each cell resolves its own direction from its content |
+| Code blocks | Always left-to-right |
+
+Under the default `.firstStrong`, paragraphs with no strong character (digits, punctuation) follow the SwiftUI layout direction, so `.environment(\.layoutDirection, .rightToLeft)` right-aligns neutral content. Copied HTML carries a single `dir` attribute read from the first copied paragraph; receivers apply their own bidi algorithm, so a mixed-direction selection may not reproduce the per-paragraph layout after pasting.
 
 ## LaTeX math
 

@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.compose
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.compose.test.ComposeStyleTestSupport
@@ -85,11 +86,11 @@ class MarkdownAdmonitionStyleTest {
   }
 
   @Test
-  fun layersAdmonitionOverridesAcrossCopies() {
+  fun layersAdmonitionOverridesAcrossMerges() {
     val context = resolveContext()
 
     val base = markdownStyle { blockquote { admonitions { caution { color = Color(0xFF010203) } } } }
-    val derived = base.copy { blockquote { admonitions { caution { backgroundColor = Color(0xFF040506) } } } }
+    val derived = base.merge { blockquote { admonitions { caution { backgroundColor = Color(0xFF040506) } } } }
 
     val caution =
       derived
@@ -124,5 +125,34 @@ class MarkdownAdmonitionStyleTest {
     val resolved = markdownStyle { blockquote { borderColor = Color.Blue } }.resolve(context)
 
     assertEquals(defaults, resolved.blockquoteStyle.admonitions)
+  }
+
+  @Test
+  fun resolvesBlockquoteBoxOverrides() {
+    val context = resolveContext()
+    val density = ComposeStyleTestSupport.testDensity
+
+    val resolved =
+      markdownStyle {
+        blockquote {
+          cornerRadius = 12.dp
+          padding = 10.dp
+        }
+      }.resolve(context)
+
+    assertEquals(with(density) { 12.dp.toPx() }, resolved.blockquoteStyle.borderRadius, 0.01f)
+    assertEquals(with(density) { 10.dp.toPx() }, resolved.blockquoteStyle.padding, 0.01f)
+  }
+
+  @Test
+  fun keepsBlockquoteBoxOverridesAcrossMerge() {
+    val context = resolveContext()
+    val density = ComposeStyleTestSupport.testDensity
+
+    val base = markdownStyle { blockquote { cornerRadius = 12.dp } }
+    val derived = base.merge { blockquote { padding = 10.dp } }.resolve(context)
+
+    assertEquals(with(density) { 12.dp.toPx() }, derived.blockquoteStyle.borderRadius, 0.01f)
+    assertEquals(with(density) { 10.dp.toPx() }, derived.blockquoteStyle.padding, 0.01f)
   }
 }
