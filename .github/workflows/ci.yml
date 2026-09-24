@@ -601,6 +601,53 @@ jobs:
       - name: Run iOS unit tests
         run: yarn test:ios-native --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
+  # The benchmarks run on the PR head and on the base branch tip, back to back
+  # on the same runner, so the ratio between them holds even though the
+  # absolute numbers do not. Only a 2x slowdown fails the job; smaller
+  # differences are runner noise. Not required by ci-success yet.
+  ios-benchmarks:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true' && github.event_name == 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The base branch tip is checked out into a worktree for comparison.
+          fetch-depth: 0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Restore RaTeX vendor files
+        run: node vendor/vendor-ratex.mjs
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      - name: Select iOS simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[] | .[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
+
+          if [[ -z "$UDID" || "$UDID" == "null" ]]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices
+            exit 1
+          fi
+
+          echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+
+      - name: Compare benchmarks against the base branch
+        working-directory: packages/enriched-markdown-ios
+        run: |
+          node scripts/benchmark.mjs \
+            --base ${{ github.event.pull_request.base.sha }} \
+            --fail-above 2 \
+            --markdown "$GITHUB_STEP_SUMMARY"
+
   ios-swift-lint:
     needs: changes
     if: needs.changes.outputs.ios == 'true'
