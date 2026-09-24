@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
-class MarkdownStyleCopyTest {
+class MarkdownStyleMergeTest {
   @get:Rule
   val composeRule = createComposeRule()
 
@@ -23,7 +23,7 @@ class MarkdownStyleCopyTest {
     }
 
   @Test
-  fun copyLayerOverridesEarlierValues() {
+  fun mergeLayerOverridesEarlierValues() {
     var resolveContext: com.swmansion.enriched.markdown.compose.style.StyleResolveContext? = null
 
     composeRule.setContent {
@@ -32,7 +32,7 @@ class MarkdownStyleCopyTest {
     composeRule.waitForIdle()
 
     val darkStyle =
-      base.copy {
+      base.merge {
         paragraph { color = Color(0xFFE0E0E0) }
         link { color = Color(0xFF6CB6FF) }
       }
@@ -41,5 +41,23 @@ class MarkdownStyleCopyTest {
 
     assertEquals(0xFFE0E0E0.toInt(), resolved.paragraphStyle.color)
     assertEquals(0xFF6CB6FF.toInt(), resolved.linkStyle.color)
+  }
+
+  @Test
+  fun plusLayersTheRightHandStyleOnTop() {
+    var resolveContext: com.swmansion.enriched.markdown.compose.style.StyleResolveContext? = null
+
+    composeRule.setContent {
+      resolveContext = ComposeStyleTestSupport.rememberResolveContext()
+    }
+    composeRule.waitForIdle()
+
+    val overrides = markdownStyle { paragraph { color = Color(0xFFE0E0E0) } }
+
+    val resolved = (base + overrides).resolve(requireNotNull(resolveContext))
+
+    assertEquals(0xFFE0E0E0.toInt(), resolved.paragraphStyle.color)
+    // The right-hand style says nothing about links, so the left-hand value survives.
+    assertEquals(0xFF0066CC.toInt(), resolved.linkStyle.color)
   }
 }

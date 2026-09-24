@@ -86,11 +86,11 @@ class MarkdownAdmonitionStyleTest {
   }
 
   @Test
-  fun layersAdmonitionOverridesAcrossCopies() {
+  fun layersAdmonitionOverridesAcrossMerges() {
     val context = resolveContext()
 
     val base = markdownStyle { blockquote { admonitions { caution { color = Color(0xFF010203) } } } }
-    val derived = base.copy { blockquote { admonitions { caution { backgroundColor = Color(0xFF040506) } } } }
+    val derived = base.merge { blockquote { admonitions { caution { backgroundColor = Color(0xFF040506) } } } }
 
     val caution =
       derived
@@ -135,7 +135,7 @@ class MarkdownAdmonitionStyleTest {
     val resolved =
       markdownStyle {
         blockquote {
-          borderRadius = 12.dp
+          cornerRadius = 12.dp
           padding = 10.dp
         }
       }.resolve(context)
@@ -145,12 +145,12 @@ class MarkdownAdmonitionStyleTest {
   }
 
   @Test
-  fun keepsBlockquoteBoxOverridesAcrossCopy() {
+  fun keepsBlockquoteBoxOverridesAcrossMerge() {
     val context = resolveContext()
     val density = ComposeStyleTestSupport.testDensity
 
-    val base = markdownStyle { blockquote { borderRadius = 12.dp } }
-    val derived = base.copy { blockquote { padding = 10.dp } }.resolve(context)
+    val base = markdownStyle { blockquote { cornerRadius = 12.dp } }
+    val derived = base.merge { blockquote { padding = 10.dp } }.resolve(context)
 
     assertEquals(with(density) { 12.dp.toPx() }, derived.blockquoteStyle.borderRadius, 0.01f)
     assertEquals(with(density) { 10.dp.toPx() }, derived.blockquoteStyle.padding, 0.01f)

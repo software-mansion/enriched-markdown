@@ -1,16 +1,21 @@
 package com.swmansion.enriched.markdown.compose
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import com.swmansion.enriched.markdown.compose.style.FontFamilyResolver
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.compose.style.StyleUnits
 import com.swmansion.enriched.markdown.compose.style.toEmphasisStyleString
+import com.swmansion.enriched.markdown.compose.style.toStyleTableAlignment
+import com.swmansion.enriched.markdown.compose.style.toStyleTextAlignment
 import com.swmansion.enriched.markdown.compose.style.toStyleWeight
 import com.swmansion.enriched.markdown.styles.AdmonitionColors
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
@@ -28,10 +33,8 @@ import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
 import com.swmansion.enriched.markdown.styles.SubscriptStyle
 import com.swmansion.enriched.markdown.styles.SuperscriptStyle
-import com.swmansion.enriched.markdown.styles.TableAlignment
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.styles.TaskListStyle
-import com.swmansion.enriched.markdown.styles.TextAlignment
 import com.swmansion.enriched.markdown.styles.ThematicBreakStyle
 import com.swmansion.enriched.markdown.styles.UnderlineStyle
 
@@ -44,7 +47,7 @@ internal data class TextStylePatch(
   val lineHeight: TextUnit? = null,
   val marginTop: Dp? = null,
   val marginBottom: Dp? = null,
-  val textAlign: TextAlignment? = null,
+  val textAlign: TextAlign? = null,
 ) {
   fun apply(
     base: ParagraphStyle,
@@ -59,7 +62,7 @@ internal data class TextStylePatch(
       lineHeight = lineHeight?.let(units::sp) ?: base.lineHeight,
       marginTop = marginTop?.let(units::dp) ?: base.marginTop,
       marginBottom = marginBottom?.let(units::dp) ?: base.marginBottom,
-      textAlign = textAlign ?: base.textAlign,
+      textAlign = textAlign?.toStyleTextAlignment() ?: base.textAlign,
     )
 
   fun apply(
@@ -75,12 +78,12 @@ internal data class TextStylePatch(
       lineHeight = lineHeight?.let(units::sp) ?: base.lineHeight,
       marginTop = marginTop?.let(units::dp) ?: base.marginTop,
       marginBottom = marginBottom?.let(units::dp) ?: base.marginBottom,
-      textAlign = textAlign ?: base.textAlign,
+      textAlign = textAlign?.toStyleTextAlignment() ?: base.textAlign,
     )
 }
 
 @MarkdownStyleDsl
-class TextStyleScope {
+class TextStyleScope internal constructor() {
   var fontSize: TextUnit? = null
   var fontFamily: FontFamily? = null
   var fontWeight: FontWeight? = null
@@ -88,7 +91,7 @@ class TextStyleScope {
   var lineHeight: TextUnit? = null
   var marginTop: Dp? = null
   var marginBottom: Dp? = null
-  var textAlign: TextAlignment? = null
+  var textAlign: TextAlign? = null
 
   internal fun toPatch(): TextStylePatch =
     TextStylePatch(
@@ -133,7 +136,7 @@ typealias HeadingStyleScope = TextStyleScope
 internal data class LinkStylePatch(
   val fontFamily: FontFamily? = null,
   val color: Color? = null,
-  val underline: Boolean? = null,
+  val textDecoration: TextDecoration? = null,
   val backgroundColor: Color? = null,
 ) {
   fun apply(
@@ -144,23 +147,24 @@ internal data class LinkStylePatch(
     base.copy(
       fontFamily = fontFamily?.let { FontFamilyResolver.resolve(it, resolveContext) } ?: base.fontFamily,
       color = color?.let(units::color) ?: base.color,
-      underline = underline ?: base.underline,
+      underline = textDecoration?.contains(TextDecoration.Underline) ?: base.underline,
+      strikethrough = textDecoration?.contains(TextDecoration.LineThrough) ?: base.strikethrough,
       backgroundColor = backgroundColor?.let(units::color) ?: base.backgroundColor,
     )
 }
 
 @MarkdownStyleDsl
-class LinkStyleScope {
+class LinkStyleScope internal constructor() {
   var fontFamily: FontFamily? = null
   var color: Color? = null
-  var underline: Boolean? = null
+  var textDecoration: TextDecoration? = null
   var backgroundColor: Color? = null
 
   internal fun toPatch(): LinkStylePatch =
     LinkStylePatch(
       fontFamily = fontFamily,
       color = color,
-      underline = underline,
+      textDecoration = textDecoration,
       backgroundColor = backgroundColor,
     )
 
@@ -174,7 +178,7 @@ class LinkStyleScope {
           if (existing != null) {
             fontFamily = existing.fontFamily
             color = existing.color
-            underline = existing.underline
+            textDecoration = existing.textDecoration
             backgroundColor = existing.backgroundColor
           }
         }
@@ -203,7 +207,7 @@ internal data class StrongStylePatch(
 }
 
 @MarkdownStyleDsl
-class StrongStyleScope {
+class StrongStyleScope internal constructor() {
   var fontFamily: FontFamily? = null
   var fontWeight: FontWeight? = null
   var color: Color? = null
@@ -253,7 +257,7 @@ internal data class EmphasisStylePatch(
 }
 
 @MarkdownStyleDsl
-class EmphasisStyleScope {
+class EmphasisStyleScope internal constructor() {
   var fontFamily: FontFamily? = null
   var fontStyle: FontStyle? = null
   var color: Color? = null
@@ -295,7 +299,7 @@ internal data class StrikethroughStylePatch(
 }
 
 @MarkdownStyleDsl
-class StrikethroughStyleScope {
+class StrikethroughStyleScope internal constructor() {
   var color: Color? = null
 
   internal fun toPatch(): StrikethroughStylePatch = StrikethroughStylePatch(color = color)
@@ -328,7 +332,7 @@ internal data class UnderlineStylePatch(
 }
 
 @MarkdownStyleDsl
-class UnderlineStyleScope {
+class UnderlineStyleScope internal constructor() {
   var color: Color? = null
 
   internal fun toPatch(): UnderlineStylePatch = UnderlineStylePatch(color = color)
@@ -366,7 +370,7 @@ internal data class HighlightStylePatch(
 }
 
 @MarkdownStyleDsl
-class HighlightStyleScope {
+class HighlightStyleScope internal constructor() {
   var color: Color? = null
   var backgroundColor: Color? = null
 
@@ -407,7 +411,7 @@ internal data class SuperscriptStylePatch(
 }
 
 @MarkdownStyleDsl
-class SuperscriptStyleScope {
+class SuperscriptStyleScope internal constructor() {
   var fontScale: Float? = null
   var baselineOffsetScale: Float? = null
 
@@ -448,7 +452,7 @@ internal data class SubscriptStylePatch(
 }
 
 @MarkdownStyleDsl
-class SubscriptStyleScope {
+class SubscriptStyleScope internal constructor() {
   var fontScale: Float? = null
   var baselineOffsetScale: Float? = null
 
@@ -499,7 +503,7 @@ internal data class CodeStylePatch(
 }
 
 @MarkdownStyleDsl
-class CodeStyleScope {
+class CodeStyleScope internal constructor() {
   var fontFamily: FontFamily? = null
   var fontSize: TextUnit? = null
   var color: Color? = null
@@ -573,7 +577,7 @@ internal data class CodeBlockStylePatch(
 }
 
 @MarkdownStyleDsl
-class CodeBlockStyleScope {
+class CodeBlockStyleScope internal constructor() {
   var fontSize: TextUnit? = null
   var fontFamily: FontFamily? = null
   var fontWeight: FontWeight? = null
@@ -644,7 +648,7 @@ internal data class BlockquoteStylePatch(
   val borderWidth: Dp? = null,
   val gapWidth: Dp? = null,
   val backgroundColor: Color? = null,
-  val borderRadius: Dp? = null,
+  val cornerRadius: Dp? = null,
   val padding: Dp? = null,
   val admonitions: Map<String, AdmonitionColorsPatch> = emptyMap(),
 ) {
@@ -665,7 +669,7 @@ internal data class BlockquoteStylePatch(
       borderWidth = borderWidth?.let(units::dp) ?: base.borderWidth,
       gapWidth = gapWidth?.let(units::dp) ?: base.gapWidth,
       backgroundColor = backgroundColor?.let(units::color) ?: base.backgroundColor,
-      borderRadius = borderRadius?.let(units::dp) ?: base.borderRadius,
+      borderRadius = cornerRadius?.let(units::dp) ?: base.borderRadius,
       padding = padding?.let(units::dp) ?: base.padding,
       admonitions = applyAdmonitions(base, units),
     )
@@ -697,7 +701,7 @@ internal data class AdmonitionColorsPatch(
 
 /** Colors of a single admonition type. */
 @MarkdownStyleDsl
-class AdmonitionColorsScope {
+class AdmonitionColorsScope internal constructor() {
   /** Tints the accent bar, the header title and the header icon. */
   var color: Color? = null
 
@@ -712,7 +716,7 @@ class AdmonitionColorsScope {
  * keep the GitHub palette from the defaults.
  */
 @MarkdownStyleDsl
-class AdmonitionsStyleScope {
+class AdmonitionsStyleScope internal constructor() {
   private val patches = mutableMapOf<String, AdmonitionColorsPatch>()
 
   fun note(block: AdmonitionColorsScope.() -> Unit) = type("note", block)
@@ -760,7 +764,7 @@ class AdmonitionsStyleScope {
 }
 
 @MarkdownStyleDsl
-class BlockquoteStyleScope {
+class BlockquoteStyleScope internal constructor() {
   var fontSize: TextUnit? = null
   var fontFamily: FontFamily? = null
   var fontWeight: FontWeight? = null
@@ -772,7 +776,8 @@ class BlockquoteStyleScope {
   var borderWidth: Dp? = null
   var gapWidth: Dp? = null
   var backgroundColor: Color? = null
-  var borderRadius: Dp? = null
+  var cornerRadius: Dp? = null
+
   var padding: Dp? = null
 
   private var admonitions: Map<String, AdmonitionColorsPatch> = emptyMap()
@@ -795,7 +800,7 @@ class BlockquoteStyleScope {
       borderWidth = borderWidth,
       gapWidth = gapWidth,
       backgroundColor = backgroundColor,
-      borderRadius = borderRadius,
+      cornerRadius = cornerRadius,
       padding = padding,
       admonitions = admonitions,
     )
@@ -819,7 +824,7 @@ class BlockquoteStyleScope {
             borderWidth = existing.borderWidth
             gapWidth = existing.gapWidth
             backgroundColor = existing.backgroundColor
-            borderRadius = existing.borderRadius
+            cornerRadius = existing.cornerRadius
             padding = existing.padding
             admonitions = existing.admonitions
           }
@@ -845,7 +850,7 @@ internal data class ListStylePatch(
   val markerColor: Color? = null,
   val markerFontWeight: FontWeight? = null,
   val gapWidth: Dp? = null,
-  val marginLeft: Dp? = null,
+  val marginStart: Dp? = null,
 ) {
   fun apply(
     base: ListStyle,
@@ -866,12 +871,12 @@ internal data class ListStylePatch(
       markerColor = markerColor?.let(units::color) ?: base.markerColor,
       markerFontWeight = markerFontWeight?.toStyleWeight() ?: base.markerFontWeight,
       gapWidth = gapWidth?.let(units::dp) ?: base.gapWidth,
-      marginLeft = marginLeft?.let(units::dp) ?: base.marginLeft,
+      marginLeft = marginStart?.let(units::dp) ?: base.marginLeft,
     )
 }
 
 @MarkdownStyleDsl
-class ListStyleScope {
+class ListStyleScope internal constructor() {
   var fontSize: TextUnit? = null
   var fontFamily: FontFamily? = null
   var fontWeight: FontWeight? = null
@@ -885,7 +890,7 @@ class ListStyleScope {
   var markerColor: Color? = null
   var markerFontWeight: FontWeight? = null
   var gapWidth: Dp? = null
-  var marginLeft: Dp? = null
+  var marginStart: Dp? = null
 
   internal fun toPatch(): ListStylePatch =
     ListStylePatch(
@@ -902,7 +907,7 @@ class ListStyleScope {
       markerColor = markerColor,
       markerFontWeight = markerFontWeight,
       gapWidth = gapWidth,
-      marginLeft = marginLeft,
+      marginStart = marginStart,
     )
 
   internal companion object {
@@ -926,7 +931,7 @@ class ListStyleScope {
             markerColor = existing.markerColor
             markerFontWeight = existing.markerFontWeight
             gapWidth = existing.gapWidth
-            marginLeft = existing.marginLeft
+            marginStart = existing.marginStart
           }
         }
       scope.apply(block)
@@ -940,7 +945,7 @@ internal data class TaskListStylePatch(
   val checkedColor: Color? = null,
   val borderColor: Color? = null,
   val checkboxSize: Dp? = null,
-  val checkboxBorderRadius: Dp? = null,
+  val checkboxCornerRadius: Dp? = null,
   val checkmarkColor: Color? = null,
   val checkedTextColor: Color? = null,
   val checkedStrikethrough: Boolean? = null,
@@ -953,7 +958,7 @@ internal data class TaskListStylePatch(
       checkedColor = checkedColor?.let(units::color) ?: base.checkedColor,
       borderColor = borderColor?.let(units::color) ?: base.borderColor,
       checkboxSize = checkboxSize?.let(units::dp) ?: base.checkboxSize,
-      checkboxBorderRadius = checkboxBorderRadius?.let(units::dp) ?: base.checkboxBorderRadius,
+      checkboxBorderRadius = checkboxCornerRadius?.let(units::dp) ?: base.checkboxBorderRadius,
       checkmarkColor = checkmarkColor?.let(units::color) ?: base.checkmarkColor,
       checkedTextColor = checkedTextColor?.let(units::color) ?: base.checkedTextColor,
       checkedStrikethrough = checkedStrikethrough ?: base.checkedStrikethrough,
@@ -961,11 +966,12 @@ internal data class TaskListStylePatch(
 }
 
 @MarkdownStyleDsl
-class TaskListStyleScope {
+class TaskListStyleScope internal constructor() {
   var checkedColor: Color? = null
   var borderColor: Color? = null
   var checkboxSize: Dp? = null
-  var checkboxBorderRadius: Dp? = null
+  var checkboxCornerRadius: Dp? = null
+
   var checkmarkColor: Color? = null
   var checkedTextColor: Color? = null
   var checkedStrikethrough: Boolean? = null
@@ -975,7 +981,7 @@ class TaskListStyleScope {
       checkedColor = checkedColor,
       borderColor = borderColor,
       checkboxSize = checkboxSize,
-      checkboxBorderRadius = checkboxBorderRadius,
+      checkboxCornerRadius = checkboxCornerRadius,
       checkmarkColor = checkmarkColor,
       checkedTextColor = checkedTextColor,
       checkedStrikethrough = checkedStrikethrough,
@@ -992,7 +998,7 @@ class TaskListStyleScope {
             checkedColor = existing.checkedColor
             borderColor = existing.borderColor
             checkboxSize = existing.checkboxSize
-            checkboxBorderRadius = existing.checkboxBorderRadius
+            checkboxCornerRadius = existing.checkboxCornerRadius
             checkmarkColor = existing.checkmarkColor
             checkedTextColor = existing.checkedTextColor
             checkedStrikethrough = existing.checkedStrikethrough
@@ -1007,7 +1013,7 @@ class TaskListStyleScope {
 @Immutable
 internal data class ImageStylePatch(
   val height: Dp? = null,
-  val borderRadius: Dp? = null,
+  val cornerRadius: Dp? = null,
   val marginTop: Dp? = null,
   val marginBottom: Dp? = null,
 ) {
@@ -1017,23 +1023,24 @@ internal data class ImageStylePatch(
   ): ImageStyle =
     base.copy(
       height = height?.let(units::dp) ?: base.height,
-      borderRadius = borderRadius?.let(units::dp) ?: base.borderRadius,
+      borderRadius = cornerRadius?.let(units::dp) ?: base.borderRadius,
       marginTop = marginTop?.let(units::dp) ?: base.marginTop,
       marginBottom = marginBottom?.let(units::dp) ?: base.marginBottom,
     )
 }
 
 @MarkdownStyleDsl
-class ImageStyleScope {
+class ImageStyleScope internal constructor() {
   var height: Dp? = null
-  var borderRadius: Dp? = null
+  var cornerRadius: Dp? = null
+
   var marginTop: Dp? = null
   var marginBottom: Dp? = null
 
   internal fun toPatch(): ImageStylePatch =
     ImageStylePatch(
       height = height,
-      borderRadius = borderRadius,
+      cornerRadius = cornerRadius,
       marginTop = marginTop,
       marginBottom = marginBottom,
     )
@@ -1047,7 +1054,7 @@ class ImageStyleScope {
         ImageStyleScope().apply {
           if (existing != null) {
             height = existing.height
-            borderRadius = existing.borderRadius
+            cornerRadius = existing.cornerRadius
             marginTop = existing.marginTop
             marginBottom = existing.marginBottom
           }
@@ -1072,7 +1079,7 @@ internal data class InlineImageStylePatch(
 }
 
 @MarkdownStyleDsl
-class InlineImageStyleScope {
+class InlineImageStyleScope internal constructor() {
   var size: Dp? = null
 
   internal fun toPatch(): InlineImageStylePatch = InlineImageStylePatch(size = size)
@@ -1114,7 +1121,7 @@ internal data class ThematicBreakStylePatch(
 }
 
 @MarkdownStyleDsl
-class ThematicBreakStyleScope {
+class ThematicBreakStyleScope internal constructor() {
   var color: Color? = null
   var height: Dp? = null
   var marginTop: Dp? = null
@@ -1168,7 +1175,7 @@ internal data class TableStylePatch(
   val cellPaddingHorizontal: Dp? = null,
   val cellPaddingVertical: Dp? = null,
   val horizontalOverflow: Dp? = null,
-  val align: TableAlignment? = null,
+  val alignment: Alignment.Horizontal? = null,
 ) {
   fun apply(
     base: TableStyle,
@@ -1194,12 +1201,12 @@ internal data class TableStylePatch(
       cellPaddingHorizontal = cellPaddingHorizontal?.let(units::dp) ?: base.cellPaddingHorizontal,
       cellPaddingVertical = cellPaddingVertical?.let(units::dp) ?: base.cellPaddingVertical,
       horizontalOverflow = horizontalOverflow?.let(units::dp) ?: base.horizontalOverflow,
-      align = align ?: base.align,
+      align = alignment?.toStyleTableAlignment() ?: base.align,
     )
 }
 
 @MarkdownStyleDsl
-class TableStyleScope {
+class TableStyleScope internal constructor() {
   var fontSize: TextUnit? = null
   var fontFamily: FontFamily? = null
   var fontWeight: FontWeight? = null
@@ -1218,7 +1225,14 @@ class TableStyleScope {
   var cellPaddingHorizontal: Dp? = null
   var cellPaddingVertical: Dp? = null
   var horizontalOverflow: Dp? = null
-  var align: TableAlignment? = null
+
+  /**
+   * Horizontal placement of a table narrower than the space available to it.
+   *
+   * [Alignment.Start] and [Alignment.End] follow the reading direction;
+   * [androidx.compose.ui.AbsoluteAlignment] pins a side regardless of it.
+   */
+  var alignment: Alignment.Horizontal? = null
 
   internal fun toPatch(): TableStylePatch =
     TableStylePatch(
@@ -1240,7 +1254,7 @@ class TableStyleScope {
       cellPaddingHorizontal = cellPaddingHorizontal,
       cellPaddingVertical = cellPaddingVertical,
       horizontalOverflow = horizontalOverflow,
-      align = align,
+      alignment = alignment,
     )
 
   internal companion object {
@@ -1269,7 +1283,7 @@ class TableStyleScope {
             cellPaddingHorizontal = existing.cellPaddingHorizontal
             cellPaddingVertical = existing.cellPaddingVertical
             horizontalOverflow = existing.horizontalOverflow
-            align = existing.align
+            alignment = existing.alignment
           }
         }
       scope.apply(block)

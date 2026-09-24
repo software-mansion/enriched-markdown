@@ -152,7 +152,7 @@ class MarkdownStyleBuilderTest {
   }
 
   @Test
-  fun copyOverridesHighlightBackgroundAndKeepsColor() {
+  fun mergeOverridesHighlightBackgroundAndKeepsColor() {
     var resolveContext: com.swmansion.enriched.markdown.compose.style.StyleResolveContext? = null
 
     composeRule.setContent {
@@ -166,7 +166,7 @@ class MarkdownStyleBuilderTest {
           color = Color(0xFF1A1A1A)
           backgroundColor = Color(0xFFB7F5C1)
         }
-      }.copy {
+      }.merge {
         highlight { backgroundColor = Color(0xFF334455) }
       }
 

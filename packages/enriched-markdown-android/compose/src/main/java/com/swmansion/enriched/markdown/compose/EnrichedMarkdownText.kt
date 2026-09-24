@@ -16,12 +16,12 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
-import com.swmansion.enriched.markdown.TaskListItemPressEvent as TaskListItemPressEventInternal
+import com.swmansion.enriched.markdown.TaskListItemToggle as TaskListItemToggleInternal
 import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
 
 typealias Md4cFlags = Md4cFlagsInternal
 
-typealias TaskListItemPressEvent = TaskListItemPressEventInternal
+typealias TaskListItemToggle = TaskListItemToggleInternal
 
 /**
  * Renders [markdown] using the native markdown TextView inside Compose.
@@ -38,13 +38,13 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Md4cFlags = Md4cFlags.DEFAULT,
+  flags: Md4cFlags = Md4cFlags.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
-  onLinkPress: ((String) -> Unit)? = null,
-  onLinkLongPress: ((String) -> Unit)? = null,
-  onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
-  enableTaskListItemToggle: Boolean = true,
+  onLinkClick: (String) -> Unit = {},
+  onLinkLongClick: (String) -> Unit = {},
+  onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
+  taskListToggleEnabled: Boolean = true,
 ) {
   val context = LocalContext.current
   val configuration = LocalConfiguration.current
@@ -64,18 +64,18 @@ fun EnrichedMarkdownText(
       }
   }
 
-  val onLinkPressState by rememberUpdatedState(onLinkPress)
-  val onLinkLongPressState by rememberUpdatedState(onLinkLongPress)
-  val onTaskListItemPressState by rememberUpdatedState(onTaskListItemPress)
+  val onLinkClickState by rememberUpdatedState(onLinkClick)
+  val onLinkLongClickState by rememberUpdatedState(onLinkLongClick)
+  val onTaskListItemToggleState by rememberUpdatedState(onTaskListItemToggle)
 
   AndroidView(
     modifier = modifier,
     factory = { viewContext ->
       NativeMarkdownView(viewContext).apply {
-        setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
-        setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
-        setOnTaskListItemPressCallback { event -> onTaskListItemPressState?.invoke(event) }
-        setEnableTaskListItemToggle(enableTaskListItemToggle)
+        setOnLinkPressCallback { url -> onLinkClickState(url) }
+        setOnLinkLongPressCallback { url -> onLinkLongClickState(url) }
+        setOnTaskListItemPressCallback { event -> onTaskListItemToggleState(event) }
+        setEnableTaskListItemToggle(taskListToggleEnabled)
         setMarkdownStyle(styleConfig)
         setMd4cFlags(flags)
         setIsSelectable(selectable)
@@ -84,10 +84,10 @@ fun EnrichedMarkdownText(
       }
     },
     update = { view ->
-      view.setOnLinkPressCallback { url -> onLinkPressState?.invoke(url) }
-      view.setOnLinkLongPressCallback { url -> onLinkLongPressState?.invoke(url) }
-      view.setOnTaskListItemPressCallback { event -> onTaskListItemPressState?.invoke(event) }
-      view.setEnableTaskListItemToggle(enableTaskListItemToggle)
+      view.setOnLinkPressCallback { url -> onLinkClickState(url) }
+      view.setOnLinkLongPressCallback { url -> onLinkLongClickState(url) }
+      view.setOnTaskListItemPressCallback { event -> onTaskListItemToggleState(event) }
+      view.setEnableTaskListItemToggle(taskListToggleEnabled)
       view.setMarkdownStyle(styleConfig)
       view.setMd4cFlags(flags)
       view.setIsSelectable(selectable)

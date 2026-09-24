@@ -52,7 +52,7 @@ class EnrichedMarkdown(
   val currentMarkdown: String
     get() = TaskListToggleUtils.applyCheckedStates(baseMarkdown, taskListToggles)
 
-  var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
+  var md4cFlags: Md4cFlags = Md4cFlags.Default
     private set
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
@@ -64,7 +64,7 @@ class EnrichedMarkdown(
 
   private var onLinkPressCallback: ((String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
-  private var onTaskListItemPressCallback: ((TaskListItemPressEvent) -> Unit)? = null
+  private var onTaskListItemPressCallback: ((TaskListItemToggle) -> Unit)? = null
 
   private var pendingSegments: List<RenderedSegment>? = null
   private var needsSegmentReset = false
@@ -137,7 +137,7 @@ class EnrichedMarkdown(
   }
 
   /** Called after a tap on a task-list checkbox has toggled the item. */
-  fun setOnTaskListItemPressCallback(callback: ((TaskListItemPressEvent) -> Unit)?) {
+  fun setOnTaskListItemPressCallback(callback: ((TaskListItemToggle) -> Unit)?) {
     onTaskListItemPressCallback = callback
   }
 
@@ -169,7 +169,7 @@ class EnrichedMarkdown(
 
   fun setOnLinkLongPressListener(listener: ((String) -> Unit)?) = setOnLinkLongPressCallback(listener)
 
-  fun setOnTaskListItemPressListener(listener: ((TaskListItemPressEvent) -> Unit)?) = setOnTaskListItemPressCallback(listener)
+  fun setOnTaskListItemPressListener(listener: ((TaskListItemToggle) -> Unit)?) = setOnTaskListItemPressCallback(listener)
 
   fun setSelectionColor(color: Int?) {
     if (selectionColor == color) return
@@ -375,7 +375,7 @@ class EnrichedMarkdown(
     }
 
     onTaskListItemPressCallback?.invoke(
-      TaskListItemPressEvent(index = hit.taskIndex, checked = newChecked, text = hit.itemText),
+      TaskListItemToggle(index = hit.taskIndex, checked = newChecked, text = hit.itemText),
     )
   }
 

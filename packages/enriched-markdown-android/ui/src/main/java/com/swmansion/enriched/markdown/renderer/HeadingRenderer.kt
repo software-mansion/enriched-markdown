@@ -1,12 +1,13 @@
 package com.swmansion.enriched.markdown.renderer
 
 import android.text.SpannableStringBuilder
-import android.text.style.AlignmentSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.HeadingSpan
+import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
+import com.swmansion.enriched.markdown.utils.text.span.applyTextAlignment
 import com.swmansion.enriched.markdown.utils.text.span.createLineHeightSpan
 
 class HeadingRenderer(
@@ -53,16 +54,7 @@ class HeadingRenderer(
         SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
       )
 
-      // Only apply AlignmentSpan for non-default alignments (Center/Right).
-      // Justify is handled at the TextView level (API 26+).
-      if (headingStyle.textAlign.needsAlignmentSpan) {
-        builder.setSpan(
-          AlignmentSpan.Standard(headingStyle.textAlign.layoutAlignment),
-          start,
-          end,
-          SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
-        )
-      }
+      applyTextAlignment(builder, start, end, headingStyle.textAlign, factory.context.resources.isLayoutRTL())
 
       applyMarginTop(builder, start, headingStyle.marginTop)
       applyMarginBottom(builder, headingStyle.marginBottom)
