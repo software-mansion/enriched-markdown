@@ -293,6 +293,14 @@ class EnrichedMarkdownTextManager :
     view?.setMarkdownEllipsizeMode(value ?: "tail")
   }
 
+  @ReactProp(name = "linkContextMenus")
+  override fun setLinkContextMenus(
+    view: EnrichedMarkdownText?,
+    value: ReadableArray?,
+  ) {
+    // Native per-link menus are currently iOS-only. onLinkLongPress remains the Android hook.
+  }
+
   @ReactProp(name = "contextMenuItems")
   override fun setContextMenuItems(
     view: EnrichedMarkdownText?,

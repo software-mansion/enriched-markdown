@@ -21,6 +21,8 @@ typedef void (^ENRMTableIOSLinkBlock)(NSString *url);
 
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkTap;
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkLongTap;
+@property (nonatomic, copy, nullable) BOOL (^hasLinkContextMenu)(NSString *url);
+- (nullable NSString *)linkURLAtPoint:(CGPoint)point;
 
 - (void)updateWithRows:(NSArray<ENRMTableIOSRowData *> *)rows
              columnWidths:(NSArray<NSNumber *> *)columnWidths

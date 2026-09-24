@@ -1,0 +1,48 @@
+# On iOS 17+, select Storybook > EnrichedMarkdownText > Props >
+# Link Context Menu > Default before running this focused interaction flow.
+# This suite is separate from config.yaml because it starts in that story.
+# Run: maestro test .maestro/linkContextMenus/native_menu_test.yaml
+appId: swmansion.enriched.markdown.example
+tags:
+  - ios-only
+  - link
+  - context-menu
+---
+- assertVisible: 'No action'
+- longPressOn: '.*Root link.*'
+- assertVisible: 'Open notes'
+- assertVisible: 'Unavailable'
+- assertNotVisible: 'Hidden'
+- tapOn: 'Open notes'
+- assertVisible: 'Open: ./notes.md'
+
+- longPressOn: '.*Nested quote link.*'
+- assertVisible: 'Open notes'
+- tapOn: 'Remove bookmark'
+- assertVisible: 'Remove: ./notes.md'
+
+- scrollUntilVisible:
+    element:
+      text: '.*Quoted table link.*'
+    direction: DOWN
+- longPressOn: '.*Quoted table link.*'
+- assertVisible: 'Open notes'
+- tapOn: 'Open notes'
+- assertVisible: 'Open: ./notes.md'
+
+- scrollUntilVisible:
+    element:
+      text: '.*Table link.*'
+    direction: DOWN
+- longPressOn: '.*Table link.*'
+- assertVisible: 'Open notes'
+- tapOn: 'Open notes'
+- assertVisible: 'Open: ./notes.md'
+
+- scrollUntilVisible:
+    element:
+      text: 'Disable link menus'
+    direction: UP
+- tapOn: 'Disable link menus'
+- longPressOn: '.*Root link.*'
+- assertVisible: 'Fallback: ./notes.md'

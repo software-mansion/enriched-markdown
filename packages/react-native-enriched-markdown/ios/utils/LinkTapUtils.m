@@ -12,6 +12,14 @@ NSString *_Nullable linkURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTap
   return [attrText attribute:@"linkURL" atIndex:characterIndex effectiveRange:NULL];
 }
 
+NSString *_Nullable linkURLAtPoint(ENRMPlatformTextView *textView, CGPoint point)
+{
+  NSUInteger index = ENRMCharacterIndexAtPoint(textView, point);
+  if (index == NSNotFound)
+    return nil;
+  return [ENRMGetAttributedText(textView) attribute:@"linkURL" atIndex:index effectiveRange:NULL];
+}
+
 NSString *_Nullable linkURLAtRange(ENRMPlatformTextView *textView, NSRange characterRange)
 {
   NSAttributedString *attrText = ENRMGetAttributedText(textView);

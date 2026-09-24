@@ -406,7 +406,27 @@ interface StreamingConfigInternal {
   codeBlockMode: string;
 }
 
+interface LinkContextMenuItemConfig {
+  text: string;
+  icon: string;
+  disabled: boolean;
+  destructive: boolean;
+}
+
+interface LinkContextMenuConfig {
+  url: string;
+  title: string;
+  items: ReadonlyArray<Readonly<LinkContextMenuItemConfig>>;
+}
+
+interface OnLinkContextMenuItemPressEvent {
+  url: string;
+  itemText: string;
+}
+
 export interface NativeProps extends ViewProps {
+  linkContextMenus?: ReadonlyArray<Readonly<LinkContextMenuConfig>>;
+  onLinkContextMenuItemPress?: CodegenTypes.BubblingEventHandler<OnLinkContextMenuItemPressEvent>;
   /**
    * Markdown content to render.
    */

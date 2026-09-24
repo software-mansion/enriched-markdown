@@ -49,6 +49,25 @@ export interface LatexErrorEvent {
  * Native-level context menu item config sent to the native component.
  * Does not include the `onPress` callback — callbacks are managed on the JS side.
  */
+export interface LinkContextMenuItemConfig {
+  text: string;
+  icon: string;
+  disabled: boolean;
+  destructive: boolean;
+}
+
+export interface LinkContextMenuConfig {
+  url: string;
+  title: string;
+  items: ReadonlyArray<Readonly<LinkContextMenuItemConfig>>;
+}
+
+export interface OnLinkContextMenuItemPressEvent {
+  url: string;
+  itemText: string;
+}
+
+/** Native selection menu config. Callbacks are managed on the JS side. */
 export interface ContextMenuItemConfig {
   text: string;
   icon?: string;

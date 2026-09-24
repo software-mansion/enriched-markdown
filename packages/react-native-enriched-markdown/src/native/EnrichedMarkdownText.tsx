@@ -1,3 +1,8 @@
+import {
+  normalizeLinkContextMenus,
+  dispatchLinkContextMenuItem,
+} from '../linkContextMenuUtils';
+import type { OnLinkContextMenuItemPressEvent } from '../types/events';
 import { useMemo, useCallback, useRef, useEffect } from 'react';
 import EnrichedMarkdownTextNativeComponent from '../EnrichedMarkdownTextNativeComponent';
 import type { MarkdownStyleInternal } from '../EnrichedMarkdownTextNativeComponent';
@@ -142,6 +147,7 @@ export const EnrichedMarkdownText = ({
   streamingConfig,
   spoilerOverlay = 'particles',
   contextMenuItems,
+  linkContextMenus,
   imageRequestHeaders,
   selectionMenuConfig,
   accessibilityLabels,
@@ -200,6 +206,20 @@ export const EnrichedMarkdownText = ({
         ?.filter((item) => item.visible !== false)
         .map((item) => ({ text: item.text, icon: item.icon })),
     [contextMenuItems]
+  );
+
+  const linkContextMenusRef = useRef(linkContextMenus);
+  linkContextMenusRef.current = linkContextMenus;
+  const nativeLinkContextMenus = useMemo(
+    () => normalizeLinkContextMenus(linkContextMenus),
+    [linkContextMenus]
+  );
+  const handleLinkContextMenuItemPress = useCallback(
+    (event: NativeSyntheticEvent<OnLinkContextMenuItemPressEvent>) => {
+      const { url, itemText } = event.nativeEvent;
+      dispatchLinkContextMenuItem(linkContextMenusRef.current, url, itemText);
+    },
+    []
   );
 
   const nativeImageRequestHeaders = useMemo(
@@ -365,6 +385,8 @@ export const EnrichedMarkdownText = ({
     spoilerOverlay,
     style: containerStyle,
     contextMenuItems: nativeContextMenuItems,
+    linkContextMenus: nativeLinkContextMenus,
+    onLinkContextMenuItemPress: handleLinkContextMenuItemPress,
     imageRequestHeaders: nativeImageRequestHeaders,
     selectionMenuConfig: normalizedSelectionMenuConfig,
     accessibilityLabels: resolvedAccessibilityLabels,

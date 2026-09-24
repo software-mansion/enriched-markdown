@@ -307,6 +307,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     if (strongSelf && strongSelf.onLinkPress)
       strongSelf.onLinkPress(url);
   };
+  iosGridView.hasLinkContextMenu =
+      ^BOOL(NSString *url) { return [weakSelf.dynamicProps.linkContextMenus hasMenuForURL:url]; };
   iosGridView.onLinkLongTap = ^(NSString *url) {
     TableContainerView *strongSelf = weakSelf;
     if (strongSelf && strongSelf.onLinkLongPress)
@@ -539,6 +541,14 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
+  NSString *url = [(ENRMTableIOSGridView *)_gridContainer linkURLAtPoint:location];
+  UIMenu *linkMenu = [self.dynamicProps.linkContextMenus menuForURL:url];
+  if (linkMenu) {
+    return [UIContextMenuConfiguration
+        configurationWithIdentifier:url
+                    previewProvider:nil
+                     actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) { return linkMenu; }];
+  }
   if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }

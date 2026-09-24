@@ -1,3 +1,7 @@
+export type {
+  LinkContextMenu,
+  LinkContextMenuItem,
+} from './types/MarkdownTextProps';
 export { default as EnrichedMarkdownText } from './native/EnrichedMarkdownText';
 export type {
   EnrichedMarkdownTextProps,

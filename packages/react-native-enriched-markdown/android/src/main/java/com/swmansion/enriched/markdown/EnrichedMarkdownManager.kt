@@ -307,6 +307,14 @@ class EnrichedMarkdownManager :
     // No-op for GFM — see setNumberOfLines.
   }
 
+  @ReactProp(name = "linkContextMenus")
+  override fun setLinkContextMenus(
+    view: EnrichedMarkdown?,
+    value: ReadableArray?,
+  ) {
+    // Native per-link menus are currently iOS-only. onLinkLongPress remains the Android hook.
+  }
+
   @ReactProp(name = "contextMenuItems")
   override fun setContextMenuItems(
     view: EnrichedMarkdown?,

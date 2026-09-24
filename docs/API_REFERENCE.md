@@ -69,6 +69,46 @@ Callback when a link is long pressed. Access URL via `event.url`. On iOS, automa
 />
 ```
 
+### `linkContextMenus`
+
+Per-link native menus for iOS 17 and later, keyed by the original Markdown URL.
+
+| Type | Default Value | Platform |
+| ---- | ------------- | -------- |
+| `Record<string, LinkContextMenu>` | - | iOS 17+ |
+
+A nonempty configured menu takes precedence over `onLinkLongPress` and the system link preview. It contains only your actions, with no web-page preview. An omitted URL, an empty `items` array, or a menu containing only hidden items uses the existing long-press behavior. On older iOS versions, Android, macOS, and web, keep using `onLinkLongPress`.
+
+Each menu accepts an optional `title` and an `items` array. Each item has `text`, `onPress({ url })`, and optional `icon`, `visible`, `disabled`, and `destructive` fields. `icon` is an SF Symbol name, as with `contextMenuItems`. Visibility defaults to `true`; disabled and destructive default to `false`. Labels must be unique within one URL's menu. Different URLs can reuse the same label.
+
+Keys and action events use the original URL, including relative paths. The library does not resolve destinations, navigate, or copy a URL for these actions. Handle those operations in JavaScript. Replace the configuration when updating it; events from an open menu use the current callbacks and ignore removed, hidden, or disabled actions.
+
+```tsx
+<EnrichedMarkdownText
+  markdown="Read [Notes](./notes.md) or [the guide](https://example.com/guide)."
+  linkContextMenus={{
+    './notes.md': {
+      title: 'Notes',
+      items: [
+        {
+          text: 'Open',
+          icon: 'doc.text',
+          onPress: ({ url }) => openDocument(url),
+        },
+        {
+          text: 'Remove bookmark',
+          destructive: true,
+          onPress: ({ url }) => removeBookmark(url),
+        },
+      ],
+    },
+  }}
+  onLinkLongPress={({ url }) => showFallbackMenu(url)}
+/>
+```
+
+Supported in CommonMark text and GitHub-flavor text segments, including nested blockquotes and table cells. Text-selection actions remain controlled by `contextMenuItems` and `selectionMenuConfig`; block copy menus remain controlled by `enableBlockContextMenu`.
+
 ### `onImagePress`
 
 Callback when a rendered image is tapped or clicked. Access the image URL via `event.url` and its Markdown alt text via `event.altText` (`""` when the image has no alt text). Use it to open a lightbox or full-screen viewer.

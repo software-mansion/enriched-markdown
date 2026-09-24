@@ -7,6 +7,7 @@
 #import "ENRMContextMenuTextView+macOS.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLatexErrorCoordinator.h"
+#import "ENRMLinkContextMenus.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
@@ -108,6 +109,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 #endif
   BOOL _accessibilityNeedsRebuild;
 
+  ENRMLinkContextMenus *_linkContextMenus;
   NSArray<NSString *> *_contextMenuItemTexts;
   NSArray<NSString *> *_contextMenuItemIcons;
   ENRMSelectionMenuConfig _selectionMenuConfig;
@@ -642,6 +644,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _enableImagePress = newViewProps.enableImagePress;
   _enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
+  if (!_linkContextMenus) {
+    _linkContextMenus = [[ENRMLinkContextMenus alloc] init];
+    __weak EnrichedMarkdownText *weakSelf = self;
+    _linkContextMenus.onPress = ^(NSString *url, NSString *itemText) {
+      EnrichedMarkdownText *strongSelf = weakSelf;
+      if (!strongSelf)
+        return;
+      auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(strongSelf->_eventEmitter);
+      if (emitter)
+        emitter->onLinkContextMenuItemPress(
+            {.url = std::string(url.UTF8String), .itemText = std::string(itemText.UTF8String)});
+    };
+  }
+  _linkContextMenus.menus = ENRMParseLinkContextMenus(newViewProps.linkContextMenus);
+
   if (ENRMContextMenuItemsChanged(oldViewProps.contextMenuItems, newViewProps.contextMenuItems)) {
     _contextMenuItemTexts = ENRMContextMenuTextsFromItems(newViewProps.contextMenuItems);
     _contextMenuItemIcons = ENRMContextMenuIconsFromItems(newViewProps.contextMenuItems);
@@ -776,6 +793,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
   _renderedStyleFingerprint = 0;
   _pendingStyleFingerprint = 0;
+  _linkContextMenus = nil;
   _contextMenuItemTexts = nil;
   _contextMenuItemIcons = nil;
   _fontScaleObserver.allowFontScaling = resetProps->allowFontScaling;
@@ -911,6 +929,21 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 #pragma mark - UITextViewDelegate (Link Interaction)
 
 #if !TARGET_OS_OSX
+- (UITextItemMenuConfiguration *)textView:(UITextView *)textView
+             menuConfigurationForTextItem:(UITextItem *)textItem
+                              defaultMenu:(UIMenu *)defaultMenu API_AVAILABLE(ios(17.0))
+{
+  NSString *url = linkURLAtRange(textView, textItem.range);
+  UIMenu *menu = [_linkContextMenus menuForURL:url];
+  if (menu)
+    return [UITextItemMenuConfiguration configurationWithPreview:nil menu:menu];
+  if (url && !_enableLinkPreview) {
+    [self emitLinkLongPress:url];
+    return nil;
+  }
+  return [UITextItemMenuConfiguration configurationWithMenu:defaultMenu];
+}
+
 - (BOOL)textView:(ENRMPlatformTextView *)textView
     shouldInteractWithURL:(NSURL *)URL
                   inRange:(NSRange)characterRange
@@ -921,6 +954,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
   }
 
   NSString *urlString = linkURLAtRange(textView, characterRange);
+
+  // Do not let the legacy callback veto an explicitly configured iOS 17 menu.
+  if ([_linkContextMenus hasMenuForURL:urlString])
+    return YES;
 
   if (!urlString || _enableLinkPreview) {
     return YES;

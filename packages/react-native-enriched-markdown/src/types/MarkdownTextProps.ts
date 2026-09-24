@@ -11,6 +11,22 @@ import type {
   CodeBlockPressEvent,
 } from './events';
 
+/** An action in a link's native context menu. Labels must be unique per URL. */
+export interface LinkContextMenuItem {
+  text: string;
+  /** SF Symbol name, as in contextMenuItems. */
+  icon?: string;
+  visible?: boolean;
+  disabled?: boolean;
+  destructive?: boolean;
+  onPress: (event: LinkPressEvent) => void;
+}
+
+export interface LinkContextMenu {
+  title?: string;
+  items: LinkContextMenuItem[];
+}
+
 /**
  * Public context menu item. Each item includes a JS-side `onPress` callback
  * that is called when the user taps the item in the selection context menu.
@@ -345,6 +361,14 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android
    */
   contextMenuItems?: ContextMenuItem[];
+  /**
+   * Native menus keyed by the original link URL. Configured menus take precedence
+   * over link preview and onLinkLongPress. Hidden items are omitted; empty menus
+   * use the existing long-press behavior. No page preview is presented.
+   * Use onLinkLongPress for other platforms and older iOS versions.
+   * @platform ios 17+
+   */
+  linkContextMenus?: Record<string, LinkContextMenu>;
   /**
    * HTTP headers to attach to remote image requests, e.g. a `Referer`
    * required by CDN hotlink protection or an `Authorization` token.

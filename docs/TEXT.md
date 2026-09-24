@@ -95,6 +95,8 @@ Links in Markdown are interactive and can be handled with the `onLinkPress` and 
 
 See the [API Reference](API_REFERENCE.md#onlinkpress) for detailed examples and usage.
 
+For per-link native actions on iOS 17 and later, use [`linkContextMenus`](API_REFERENCE.md#linkcontextmenus). A nonempty configured menu takes precedence over `onLinkLongPress` and the system preview. Keep the callback for unconfigured links and other platforms.
+
 ### Image Handling
 
 Rendered images can be made interactive with the `onImagePress` callback, which receives the image `url` and `altText`. Use it to open a lightbox or full-screen viewer. It fires for block and inline images (including those in headings, lists, and blockquotes); an image that is also a link keeps link behavior and fires `onLinkPress` instead. See the [API Reference](API_REFERENCE.md#onimagepress) for details.
