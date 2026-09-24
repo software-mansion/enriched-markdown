@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-  implementation("com.swmansion.enriched.markdown:compose:0.1.0")
+  implementation("com.swmansion.enriched.markdown:compose:0.2.0")
 }
 ```
 
