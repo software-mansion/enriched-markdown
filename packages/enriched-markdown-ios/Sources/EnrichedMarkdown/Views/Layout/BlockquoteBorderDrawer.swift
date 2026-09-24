@@ -1,12 +1,12 @@
 import UIKit
 
 enum BlockquoteBorderDrawer {
-    static func draw(in drawContext: BlockDrawContext) {
+    static func draw(in drawContext: DecorationDrawContext) {
         drawBackgrounds(in: drawContext)
         drawBorders(in: drawContext)
     }
 
-    static func drawBackgrounds(in drawContext: BlockDrawContext) {
+    static func drawBackgrounds(in drawContext: DecorationDrawContext) {
         enumerateBlockquoteParagraphs(in: drawContext) { attrs, paragraphFrame, _ in
             let bgColor = (attrs[MarkdownAttribute.blockquoteBackgroundColor] as? UIColor)
                 ?? drawContext.decorationConfig.blockquoteBackgroundColor
@@ -28,7 +28,7 @@ enum BlockquoteBorderDrawer {
 
     /// One bar per nesting level, in the level's baked color (an
     /// admonition's tint) or the plain border color, batched per color.
-    static func drawBorders(in drawContext: BlockDrawContext) {
+    static func drawBorders(in drawContext: DecorationDrawContext) {
         let config = drawContext.decorationConfig
         let borderWidth = config.blockquoteBorderWidth
         let levelSpacing = borderWidth + config.blockquoteGapWidth
@@ -61,32 +61,15 @@ enum BlockquoteBorderDrawer {
     }
 
     private static func enumerateBlockquoteParagraphs(
-        in drawContext: BlockDrawContext,
+        in drawContext: DecorationDrawContext,
         handler: ([NSAttributedString.Key: Any], CGRect, Int) -> Void
     ) {
-        let visibleCharacterRange = drawContext.visibleCharacterRange
-        guard visibleCharacterRange.length > 0 else { return }
-
-        let string = drawContext.textStorage.string as NSString
-        var location = visibleCharacterRange.location
-        let end = NSMaxRange(visibleCharacterRange)
-
-        while location < end {
-            let paragraphRange = string.paragraphRange(for: NSRange(location: location, length: 0))
-            defer { location = NSMaxRange(paragraphRange) }
-
-            guard paragraphRange.length > 0, paragraphRange.location < drawContext.textStorage.length else { continue }
-
-            let attrs = drawContext.textStorage.attributes(at: paragraphRange.location, effectiveRange: nil)
+        for paragraph in drawContext.paragraphs {
+            let attrs = paragraph.attributes
             guard let depthNum = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.blockquoteDepth]) else {
                 continue
             }
-
-            var paragraphFrame = paragraphFrame(
-                for: paragraphRange,
-                textLayoutManager: drawContext.textLayoutManager,
-                contentManager: drawContext.contentManager
-            )
+            var paragraphFrame = paragraph.frame
             guard !paragraphFrame.isNull else { continue }
 
             // Line frames exclude paragraph spacing (an admonition title's
@@ -94,30 +77,5 @@ enum BlockquoteBorderDrawer {
             paragraphFrame.size.height += (attrs[.paragraphStyle] as? NSParagraphStyle)?.paragraphSpacing ?? 0
             handler(attrs, paragraphFrame, depthNum)
         }
-    }
-
-    private static func paragraphFrame(
-        for paragraphRange: NSRange,
-        textLayoutManager: NSTextLayoutManager,
-        contentManager: NSTextContentManager
-    ) -> CGRect {
-        guard let textRange = TextLayoutHelpers.textRange(paragraphRange, in: contentManager) else {
-            return .null
-        }
-
-        var paragraphFrame = CGRect.null
-        textLayoutManager.enumerateTextSegments(
-            in: textRange,
-            type: .standard,
-            options: []
-        ) { _, segmentFrame, _, _ in
-            if paragraphFrame.isNull {
-                paragraphFrame = segmentFrame
-            } else {
-                paragraphFrame = paragraphFrame.union(segmentFrame)
-            }
-            return true
-        }
-        return paragraphFrame
     }
 }

@@ -24,86 +24,30 @@ final class MarkdownViewportDecorator {
         foregroundView?.setNeedsDisplay()
     }
 
-    func draw(in context: CGContext, textView: UITextView, pass: MarkdownDecorationPass) {
-        guard let textLayoutManager = textView.textLayoutManager,
-              let textContentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
-              let textStorage = textContentStorage.textStorage,
-              textStorage.length > 0 else {
-            return
-        }
+    /// Draws one pass for `tile`, the part of the text view the receiving
+    /// decoration view covers, in that view's coordinates.
+    func draw(in context: CGContext, textView: UITextView, tile: CGRect, pass: MarkdownDecorationPass) {
+        guard let textLayoutManager = textView.textLayoutManager else { return }
 
-        let contentManager: NSTextContentManager = textContentStorage
-        let containerWidth = textView.textContainer.size.width
-        let origin = CGPoint(x: 0, y: -textView.contentOffset.y)
-        let visibleRange = visibleCharacterRange(
+        // Container coordinates: the content sits at minus the scroll offset.
+        let containerTile = tile.offsetBy(dx: 0, dy: textView.contentOffset.y)
+        let drawContext = DecorationDrawContext(
+            context: context,
+            paragraphs: ParagraphLayoutWalker.paragraphs(in: textLayoutManager, intersecting: containerTile),
             textLayoutManager: textLayoutManager,
-            contentManager: contentManager
+            containerWidth: textView.textContainer.size.width,
+            origin: CGPoint(x: -containerTile.minX, y: -containerTile.minY),
+            decorationConfig: config
         )
 
         switch pass {
         case .background:
-            let drawContext = BlockDrawContext(
-                context: context,
-                textStorage: textStorage,
-                textLayoutManager: textLayoutManager,
-                contentManager: contentManager,
-                containerWidth: containerWidth,
-                origin: origin,
-                visibleCharacterRange: visibleRange,
-                decorationConfig: config
-            )
             CodeBlockBackgroundDrawer.draw(in: drawContext)
             BlockquoteBorderDrawer.drawBackgrounds(in: drawContext)
         case .foreground:
-            let drawContext = BlockDrawContext(
-                context: context,
-                textStorage: textStorage,
-                textLayoutManager: textLayoutManager,
-                contentManager: contentManager,
-                containerWidth: containerWidth,
-                origin: origin,
-                visibleCharacterRange: visibleRange,
-                decorationConfig: config
-            )
             BlockquoteBorderDrawer.drawBorders(in: drawContext)
-            ParagraphMarkerDrawer.draw(
-                in: MarkerDrawContext(
-                    context: context,
-                    textStorage: textStorage,
-                    textLayoutManager: textLayoutManager,
-                    contentManager: contentManager,
-                    origin: origin,
-                    visibleCharacterRange: visibleRange,
-                    decorationConfig: config
-                )
-            )
+            ParagraphMarkerDrawer.draw(in: drawContext)
         }
-    }
-
-    private func visibleCharacterRange(
-        textLayoutManager: NSTextLayoutManager,
-        contentManager: NSTextContentManager
-    ) -> NSRange {
-        var range = NSRange(location: 0, length: 0)
-        textLayoutManager.enumerateTextLayoutFragments(
-            from: textLayoutManager.documentRange.location,
-            options: []
-        ) { fragment in
-            guard let fragmentRange = TextLayoutHelpers.nsRange(fragment.rangeInElement, in: contentManager) else {
-                return true
-            }
-            if range.length == 0 {
-                range = fragmentRange
-            } else {
-                let end = max(NSMaxRange(range), NSMaxRange(fragmentRange))
-                range = NSRange(
-                    location: min(range.location, fragmentRange.location),
-                    length: end - min(range.location, fragmentRange.location)
-                )
-            }
-            return true
-        }
-        return range
     }
 }
 
@@ -130,6 +74,6 @@ final class MarkdownDecorationView: UIView {
               let viewportDecorator else {
             return
         }
-        viewportDecorator.draw(in: context, textView: textView, pass: pass)
+        viewportDecorator.draw(in: context, textView: textView, tile: frame, pass: pass)
     }
 }
