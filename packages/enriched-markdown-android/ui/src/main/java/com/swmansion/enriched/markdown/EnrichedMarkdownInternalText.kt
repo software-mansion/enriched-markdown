@@ -37,7 +37,7 @@ class EnrichedMarkdownInternalText
       private set
 
     /** How unrevealed `||spoiler||` text is concealed. */
-    var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
+    var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles
       set(value) {
         if (field == value) return
         field = value

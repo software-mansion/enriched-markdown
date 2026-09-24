@@ -57,7 +57,7 @@ class EnrichedMarkdown(
     private set
 
   /** How unrevealed `||spoiler||` text is concealed. */
-  var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
+  var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles
     private set
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
@@ -226,7 +226,7 @@ class EnrichedMarkdown(
     setOnLinkLongPressCallback(null)
     setOnTaskListItemPressCallback(null)
     setEnableTaskListItemToggle(true)
-    setSpoilerOverlay(SpoilerOverlay.PARTICLES)
+    setSpoilerOverlay(SpoilerOverlay.Particles)
     setMarkdownContent("")
     taskListToggles.clear()
     pendingSegments = null

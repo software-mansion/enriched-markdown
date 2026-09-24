@@ -155,9 +155,9 @@ markdownStyle {
 Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
 
 `spoiler` styles the overlay that conceals `||spoiler||` text. `color` paints the particles and fills
-the solid block; `particles { density, speed }` only apply to `SpoilerOverlay.PARTICLES` and are
+the solid block; `particles { density, speed }` only apply to `SpoilerOverlay.Particles` and are
 unitless multipliers over the defaults shown below, and `solid { cornerRadius }` only applies to
-`SpoilerOverlay.SOLID`. The concealed text itself is drawn transparent, so the overlay works over any
+`SpoilerOverlay.Solid`. The concealed text itself is drawn transparent, so the overlay works over any
 background without being told what that background is.
 
 ```kotlin
@@ -190,7 +190,7 @@ fun EnrichedMarkdownText(
   onLinkLongClick: (String) -> Unit = {},
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
-  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles,
 )
 ```
 
@@ -205,7 +205,7 @@ fun EnrichedMarkdownText(
 | `onLinkLongClick` | Called when a link is long-pressed |
 | `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
 | `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
-| `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.PARTICLES` (default) or `SpoilerOverlay.SOLID` |
+| `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles` (default) or `SpoilerOverlay.Solid` |
 
 Style defaults come from the nearest `MarkdownTheme`.
 

@@ -18,8 +18,8 @@ class SpoilerOverlayDrawer(
   private val textViewReference = WeakReference(textView)
   val animator = SpoilerAnimator(textView)
 
-  private var strategy: SpoilerStrategy = createStrategy(SpoilerOverlay.PARTICLES)
-  private var currentMode: SpoilerOverlay = SpoilerOverlay.PARTICLES
+  private var strategy: SpoilerStrategy = createStrategy(SpoilerOverlay.Particles)
+  private var currentMode: SpoilerOverlay = SpoilerOverlay.Particles
 
   private val activeKeys = mutableSetOf<SegmentKey>()
   private val metricsPaint = TextPaint()
@@ -164,7 +164,7 @@ class SpoilerOverlayDrawer(
       textView: TextView,
       styledText: CharSequence,
       existing: SpoilerOverlayDrawer?,
-      spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES,
+      spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles,
     ): SpoilerOverlayDrawer? {
       if (styledText !is Spanned) return tearDown(existing)
       val spans = styledText.getSpans(0, styledText.length, SpoilerSpan::class.java)

@@ -1267,7 +1267,7 @@ internal data class SpoilerStylePatch(
     )
 }
 
-/** Tuning for the drifting-particle overlay (`spoilerOverlay = SpoilerOverlay.PARTICLES`). */
+/** Tuning for the drifting-particle overlay (`spoilerOverlay = SpoilerOverlay.Particles`). */
 @MarkdownStyleDsl
 class SpoilerParticlesStyleScope internal constructor() {
   /** Particles per 100x100 area. Higher values conceal more densely. */
@@ -1277,7 +1277,7 @@ class SpoilerParticlesStyleScope internal constructor() {
   var speed: Float? = null
 }
 
-/** Tuning for the solid overlay (`spoilerOverlay = SpoilerOverlay.SOLID`). */
+/** Tuning for the solid overlay (`spoilerOverlay = SpoilerOverlay.Solid`). */
 @MarkdownStyleDsl
 class SpoilerSolidStyleScope internal constructor() {
   /** Corner radius of the rectangles the solid overlay draws. */

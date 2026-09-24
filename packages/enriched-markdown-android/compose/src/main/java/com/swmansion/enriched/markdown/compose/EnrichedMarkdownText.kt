@@ -50,7 +50,7 @@ fun EnrichedMarkdownText(
   onLinkLongClick: (String) -> Unit = {},
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
-  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles,
 ) {
   val context = LocalContext.current
   val configuration = LocalConfiguration.current

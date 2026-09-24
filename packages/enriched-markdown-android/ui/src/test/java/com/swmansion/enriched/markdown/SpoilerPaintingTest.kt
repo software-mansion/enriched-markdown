@@ -147,7 +147,7 @@ class SpoilerPaintingTest {
 
   private fun harness(
     document: MarkdownASTNode,
-    overlay: SpoilerOverlay = SpoilerOverlay.SOLID,
+    overlay: SpoilerOverlay = SpoilerOverlay.Solid,
     style: StyleConfig = styleWithOverlayColor(),
   ): Harness {
     val rendered = render(document, style)
@@ -277,7 +277,7 @@ class SpoilerPaintingTest {
   fun theParticleOverlayPaintsNoBackdrop() {
     val style = MarkdownRenderTestSupport.styleWithSpoiler(SpoilerStyle(color = OVERLAY))
     val canvas =
-      harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.PARTICLES, style).draw()
+      harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles, style).draw()
 
     assertEquals("Particles never draw the solid block", 0, canvas.roundRects.size)
     assertEquals("The text is drawn transparent, so nothing covers it", 0, canvas.rects.size)
@@ -285,10 +285,10 @@ class SpoilerPaintingTest {
 
   @Test
   fun switchingModesRepaintsWithTheOtherStrategy() {
-    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.PARTICLES)
+    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles)
     assertEquals(0, test.draw().roundRects.size)
 
-    test.drawer.spoilerOverlay = SpoilerOverlay.SOLID
+    test.drawer.spoilerOverlay = SpoilerOverlay.Solid
 
     assertEquals(1, test.draw().roundRects.size)
   }
@@ -383,7 +383,7 @@ class SpoilerPaintingTest {
     var completed = false
     test.drawer.revealSpan(span) { completed = true }
 
-    test.drawer.spoilerOverlay = SpoilerOverlay.PARTICLES
+    test.drawer.spoilerOverlay = SpoilerOverlay.Particles
 
     assertTrue(completed)
     assertTrue(span.revealed)
@@ -412,7 +412,7 @@ class SpoilerPaintingTest {
 
   @Test
   fun stoppingMidRevealFinishesTheReveal() {
-    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.PARTICLES)
+    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles)
     test.draw()
     val span = test.spans.single()
     test.drawer.revealSpan(span) {}
@@ -452,6 +452,6 @@ class SpoilerPaintingTest {
     val rendered = render(document(paragraph(text("nothing hidden"))), style)
     val textView = laidOutTextView(rendered, style)
 
-    assertNull(SpoilerOverlayDrawer.setupIfNeeded(textView, rendered, null, SpoilerOverlay.SOLID))
+    assertNull(SpoilerOverlayDrawer.setupIfNeeded(textView, rendered, null, SpoilerOverlay.Solid))
   }
 }
