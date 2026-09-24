@@ -477,6 +477,15 @@
 					"${PODS_ROOT}/../../../../packages/core/cpp/highlight",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/internals",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/input/internals",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/attachments",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/styles",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/utils",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/renderer",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/views",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/segments",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/parser",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/math",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/input",
 				);
 				INFOPLIST_FILE = EnrichedMarkdownExampleTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -516,6 +525,15 @@
 					"${PODS_ROOT}/../../../../packages/core/cpp/highlight",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/internals",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/input/internals",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/attachments",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/styles",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/utils",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/renderer",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/views",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/segments",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/parser",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/math",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/input",
 				);
 				INFOPLIST_FILE = EnrichedMarkdownExampleTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
