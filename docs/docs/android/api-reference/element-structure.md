@@ -7,7 +7,7 @@ sidebar_position: 4
 
 This page is about **what the renderer does with your Markdown**: which constructs it understands, how they nest, and where the result differs from what the source looks like. For the properties that control their appearance, see [Style properties](/android/api-reference/style-properties).
 
-## Block vs. inline elements
+## Block & inline elements
 
 The renderer sorts every element into one of two kinds, and the distinction drives both styling and layout:
 
@@ -16,39 +16,44 @@ The renderer sorts every element into one of two kinds, and the distinction driv
 
 The whole document renders into a **single native text view**, with block structure drawn by spans rather than by separate views. That is why a selection can run from the first heading to the last list item without interruption.
 
-## Supported elements
-
 ### Block elements
 
-| Element | Markdown | Notes |
-| --- | --- | --- |
-| Heading | `# H1` … `###### H6` | Six levels, each styled independently |
-| Paragraph | Text separated by a blank line | |
-| Blockquote | `> quoted` | Nests |
-| Admonition | `> [!NOTE]` | Needs `Md4cFlags(admonitions = true)` - see [below](#admonitions) |
-| Unordered list | `- item` | Nests |
-| Ordered list | `1. item` | Nests |
-| Task list | `- [ ]` / `- [x]` | Tappable - see [`onTaskListItemToggle`](/android/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
-| Fenced code block | ```` ```kotlin ```` | Language label is parsed; no syntax highlighting |
-| Block image | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline) |
-| Thematic break | `---` | |
+| Element           | Markdown                           | Notes                                                                                                     |
+| ----------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Heading           | `# H1` … `###### H6`               | Six levels, each styled independently                                                                     |
+| Paragraph         | Text separated by a blank line     |                                                                                                           |
+| Blockquote        | `> quoted`                         | Nests                                                                                                     |
+| Admonition        | `> [!NOTE]`                        | Needs `Md4cFlags(admonitions = true)` - see [below](#admonitions)                                         |
+| Unordered list    | `- item`                           | Nests                                                                                                     |
+| Ordered list      | `1. item`                          | Nests                                                                                                     |
+| Task list         | `- [ ]` / `- [x]`                  | Tappable - see [`onTaskListItemPress`](/android/api-reference/enriched-markdown-text#ontasklistitempress) |
+| Table             | GFM pipe table                     | Always enabled - see [below](#tables)                                                                     |
+| Fenced code block | ` ```kotlin `                      | Language label is parsed; no syntax highlighting                                                          |
+| Block image       | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline)                                                                      |
+| Thematic break    | `---`                              |                                                                                                           |
 
 ### Inline elements
 
-| Element | Markdown | Notes |
-| --- | --- | --- |
-| Strong | `**bold**` | |
-| Emphasis | `*italic*` | |
-| Underline | `_text_`, `__text__` | Needs `Md4cFlags(underline = true)`, and **replaces** the italic/bold meaning of those markers |
-| Strikethrough | `~~struck~~` | |
-| Inline code | `` `code` `` | |
-| Link | `[text](url)` | Inert until you handle [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) |
-| Autolink | `<https://…>`, or a bare URL | Bare URLs need `permissiveAutolinks`, which is on by default |
-| Inline image | `![alt](url)` beside text | See [below](#images-block-vs-inline) |
-| Superscript | `^text^` | Needs `Md4cFlags(superscript = true)` |
-| Subscript | `~text~` | Needs `Md4cFlags(subscript = true)` |
+| Element       | Markdown                     | Notes                                                                                             |
+| ------------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| Strong        | `**bold**`, `__bold__`       |                                                                                                   |
+| Emphasis      | `*italic*`, `_italic_`       |                                                                                                   |
+| Underline     | `_text_`, `__text__`         | Needs `Md4cFlags(underline = true)`, and **replaces** the italic/bold meaning of those markers    |
+| Strikethrough | `~~struck~~`                 |                                                                                                   |
+| Inline code   | `` `code` ``                 |                                                                                                   |
+| Link          | `[text](url)`                | Inert until you handle [`onLinkPress`](/android/api-reference/enriched-markdown-text#onlinkpress) |
+| Autolink      | `<https://…>`, or a bare URL | Bare URLs need `permissiveAutolinks`, which is on by default                                      |
+| Inline image  | `![alt](url)` beside text    | See [below](#images-block-vs-inline)                                                              |
+| Superscript   | `^text^`                     | Needs `Md4cFlags(superscript = true)`                                                             |
+| Subscript     | `~text~`                     | Needs `Md4cFlags(subscript = true)`                                                               |
+
+:::important
+The `_` markers are context-dependent. By default `_italic_` and `__bold__` mean the same as `*italic*` and `**bold**`, but `Md4cFlags(underline = true)` reinterprets both `_text_` and `__text__` as underline, so under that flag they no longer produce emphasis or strong. The asterisk markers `*` and `**` always mean emphasis and strong, whatever the flag.
+:::
 
 ## Nesting
+
+Due to existence of [_container blocks_](https://spec.commonmark.org/0.31.2/#container-blocks), some of markdown allows for nesting other block markdown inside them.
 
 ### Nested lists
 
@@ -86,16 +91,6 @@ Stack `>` markers to nest quotes. Each level draws its own accent bar, so the de
 > > Inner quote
 ```
 
-### Superscript and subscript
-
-Both are inline, so they compose with other inline styles and with each other's siblings:
-
-```markdown
-E = mc^2^ and H~2~O
-```
-
-They scale relative to the text around them rather than to a fixed size, which is why their style properties are unitless fractions - superscript text inside an `h1` is larger than superscript text in a paragraph, automatically.
-
 ## Admonitions
 
 A blockquote whose **first line** is one of the five GitHub alert markers renders as a themed callout: the usual quote geometry plus a header row with a tinted icon and a bold title.
@@ -111,10 +106,27 @@ This is an opt-in parser extension. Without `Md4cFlags(admonitions = true)` the 
 
 Two behaviors worth knowing:
 
-- **An admonition nested inside a list item falls back to a plain blockquote**, with no header. This is deliberate and consistent across every platform the library targets, so one document looks the same everywhere.
+- **An admonition nested inside a list item falls back to a plain blockquote**, with no header. This is consistent across every platform the library targets, and a known limitations we want to target in the future.
 - **A body-less quote renders nothing at all**, admonition or not - a header with no text beneath it is not worth the vertical space.
 
 Copying a callout reproduces its `> [!NOTE]` marker, and TalkBack announces the header ahead of the body.
+
+## Tables
+
+GFM pipe tables render as real views inside the text rather than as monospaced ASCII, and need no flag - they are always parsed:
+
+```markdown
+| Package                   | Platform |
+| ------------------------- | :------: |
+| enriched-markdown-android | Android  |
+```
+
+- Columns size to their content, and a long cell wraps rather than pushing the table wider.
+- A table wider than the view **scrolls horizontally in place**, without moving the rest of the document. `table { horizontalOverflow }` controls how far it may bleed past the text column before it does.
+- Alignment comes from the separator row (`:--`, `:-:`, `--:`); `table { align }` sets the default for columns that do not specify one.
+- Cells take inline styling - bold, italic, inline code, strikethrough, and tappable links.
+
+Colors, borders, padding and the header row are all styled through the [`table`](/android/api-reference/style-properties#table) block.
 
 ## Images: block vs. inline
 
@@ -122,6 +134,12 @@ The same `![alt](url)` syntax renders two different ways, and which one you get 
 
 - **Block image** - the image is the only thing in its paragraph. It is laid out on its own, at `image.height`, spanning the container width.
 - **Inline image** - anything else shares the line with it. It is drawn in the text flow at `inlineImage.size`, sized to sit on the line like a large glyph.
+
+:::important
+CommonMark has no block image. [`![alt](url)`](https://spec.commonmark.org/0.31.2/#images) is defined as an **inline** element wherever it appears, and the Supported elements table above lists "Block image" as a block only to describe what this renderer does with it.
+
+The split is a rendering decision, not a parsing one: the parser emits the same inline image node in both cases, and the renderer sets an `isBlockImage` flag on the span when the image is its paragraph's only content. Anything reading the AST - your own traversal, or another CommonMark implementation - sees an inline image either way.
+:::
 
 ```markdown
 ![A block image](https://example.com/hero.png)
@@ -148,7 +166,15 @@ Without the flag that renders as one line. With it, two. This is the flag to rea
 
 ### Blank lines
 
-`Md4cFlags(preserveBlankLines = true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output.
+`Md4cFlags(preserveBlankLines = true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output:
+
+```markdown
+A first paragraph.
+
+A second one, three blank lines later.
+```
+
+Without the flag those three blank lines collapse to one paragraph break; with it, the gap is kept.
 
 Both flags are off by default, and both are set per instance through [`flags`](/android/api-reference/enriched-markdown-text#flags).
 
@@ -156,16 +182,15 @@ Both flags are off by default, and both are set per instance through [`flags`](/
 
 The parser understands more than the renderer draws. These constructs parse without error but produce no special rendering today:
 
-| Element | Status |
-| --- | --- |
-| Tables | Renderer in progress |
-| LaTeX math (inline and block) | Renderer in progress |
-| Spoilers | Renderer in progress |
-| Highlight (`==text==`) | No renderer |
-| Code syntax highlighting | Not built into this package |
+| Element                       | Status                          |
+| ----------------------------- | ------------------------------- |
+| LaTeX math (inline and block) | Renderer in progress            |
+| Spoilers                      | Renderer in progress            |
+| Highlight (`==text==`)        | No renderer                     |
+| Code syntax highlighting      | Not yet built into this package |
 
 :::caution
-A construct with no renderer has its text **dropped from the output** rather than shown unstyled, so enabling [`latexMath`](/android/api-reference/enriched-markdown-text#latexmath) or [`highlight`](/android/api-reference/enriched-markdown-text#highlight) makes that content vanish. Both flags are off by default; leave them off until the renderers land. Tables and spoilers have no flag to enable, so they are simply parsed and skipped.
+A construct with no renderer has its text **dropped from the output** rather than shown unstyled, so enabling [`latexMath`](/android/api-reference/enriched-markdown-text#latexmath) or [`highlight`](/android/api-reference/enriched-markdown-text#highlight) makes that content vanish. Both flags are off by default; leave them off until the renderers land. Spoilers have no flag to enable, so they are simply parsed and skipped.
 :::
 
 See the [roadmap](/misc/roadmap#android-renderer) for what is landing next.

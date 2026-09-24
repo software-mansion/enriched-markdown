@@ -25,10 +25,10 @@ The whole document renders into a **single native text view**. Block structure i
 | Heading | `# H1` … `###### H6` | Six levels, each styled independently |
 | Paragraph | Text separated by a blank line | |
 | Blockquote | `> quoted` | Nests |
-| Admonition | `> [!NOTE]` | Needs `MarkdownParsingOptions(admonitions: true)` - see [below](#admonitions) |
+| Admonition | `> [!NOTE]` | Needs `Md4cFlags(admonitions: true)` - see [below](#admonitions) |
 | Unordered list | `- item` | Nests |
 | Ordered list | `1. item` | Nests |
-| Task list | `- [ ]` / `- [x]` | Tappable - see [`.onTaskListItemToggle`](/ios/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
+| Task list | `- [ ]` / `- [x]` | Tappable - see [`.onTaskListItemPress`](/ios/api-reference/enriched-markdown-text#ontasklistitempress) |
 | Table | GFM pipe table | Always enabled - see [below](#tables) |
 | Fenced code block | ```` ```swift ```` | Language label is parsed; no syntax highlighting |
 | Block image | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline) |
@@ -41,16 +41,16 @@ The whole document renders into a **single native text view**. Block structure i
 | --- | --- | --- |
 | Strong | `**bold**` | |
 | Emphasis | `*italic*` | |
-| Underline | `_text_`, `__text__` | Needs `MarkdownParsingOptions(underline: true)`, and **replaces** the italic/bold meaning of those markers |
+| Underline | `_text_`, `__text__` | Needs `Md4cFlags(underline: true)`, and **replaces** the italic/bold meaning of those markers |
 | Strikethrough | `~~struck~~` | Always enabled |
 | Inline code | `` `code` `` | |
-| Link | `[text](url)` | Tapping calls SwiftUI's [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) action |
+| Link | `[text](url)` | Tapping runs [`.onLinkPress`](/ios/api-reference/enriched-markdown-text#onlinkpress), or opens the URL with the system |
 | Autolink | `<https://…>`, or a bare URL | Bare URLs, `www.` hosts, and emails need `permissiveAutolinks`, which is on by default |
 | Inline image | `![alt](url)` beside text | See [below](#images-block-vs-inline) |
 | Spoiler | `\|\|hidden\|\|` | Always enabled - see [below](#spoilers) |
-| Superscript | `^text^` | Needs `MarkdownParsingOptions(superscript: true)` |
-| Subscript | `~text~` | Needs `MarkdownParsingOptions(subscript: true)` |
-| Highlight | `==text==` | Needs `MarkdownParsingOptions(highlight: true)` |
+| Superscript | `^text^` | Needs `Md4cFlags(superscript: true)` |
+| Subscript | `~text~` | Needs `Md4cFlags(subscript: true)` |
+| Highlight | `==text==` | Needs `Md4cFlags(highlight: true)` |
 | Inline math | `$…$` | Needs `EnrichedMarkdownLaTeX` |
 
 Tables, task lists, strikethrough, and spoilers have no option - they are always on. Everything else marked "needs" is a [parser extension](/ios/guides/parser-extensions).
@@ -59,7 +59,7 @@ Tables, task lists, strikethrough, and spoilers have no option - they are always
 
 ### Nested lists
 
-Indent a list item to nest it. Each level adds `List().marginLeading` of indent:
+Indent a list item to nest it. Each level adds `List().marginLeft` of indent:
 
 ```markdown
 - First level
@@ -116,7 +116,7 @@ A blockquote whose **first line** is one of the five GitHub alert markers render
 
 The five types are `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]`. Colors come from the [`Admonition()`](/ios/api-reference/style-properties#admonition) element, and the geometry from [`Blockquote()`](/ios/api-reference/style-properties#blockquote).
 
-This is an opt-in parser extension. Without `MarkdownParsingOptions(admonitions: true)` the marker stays **literal text** inside an ordinary quote.
+This is an opt-in parser extension. Without `Md4cFlags(admonitions: true)` the marker stays **literal text** inside an ordinary quote.
 
 A callout keeps working where you would expect it to: inside a list item it still draws its title and its own bar, indented to the item's text column. Copying one reproduces its `> [!NOTE]` marker, and VoiceOver announces the title as its own element ahead of the body.
 
@@ -133,7 +133,7 @@ GFM pipe tables render as live views inside the text rather than as monospaced A
 - Columns size to their content, and a long cell wraps rather than pushing the table wider.
 - A table wider than the view **scrolls horizontally in place**, without moving the rest of the document.
 - Cells take inline styling - bold, italic, inline code, strikethrough, and tappable links.
-- Alignment comes from the separator row (`:--`, `:-:`, `--:`); [`Table().alignment(_:)`](/ios/api-reference/style-properties#table) sets the default for columns that do not specify one.
+- Alignment comes from the separator row (`:--`, `:-:`, `--:`); [`Table().align(_:)`](/ios/api-reference/style-properties#table) sets the default for columns that do not specify one.
 
 Long-pressing a table offers **Copy** (tab-separated text) and **Copy as Markdown** (the pipe table rebuilt with alignment separators and inline markers). To a text selection the whole table counts as a single character, so a selection that spans one copies it as tab-separated text in the plain flavor and as a real `<table>` in the HTML flavor. VoiceOver reads one element per row.
 
@@ -154,6 +154,12 @@ The same `![alt](url)` syntax renders two different ways, and which one you get 
 - **Block image** - the image is the only thing in its paragraph. It is laid out on its own, at `BlockImage().height`, spanning the container width.
 - **Inline image** - anything else shares the line with it. It is drawn in the text flow at `InlineImage().size`, sized to sit on the line like a large glyph.
 
+:::important
+CommonMark has no block image. [`![alt](url)`](https://spec.commonmark.org/0.31.2/#images) is defined as an **inline** element wherever it appears, and the Supported elements table above lists "Block image" as a block only to describe what this renderer does with it.
+
+The split is a rendering decision, not a parsing one: the parser emits the same inline image node in both cases, and `ParagraphRenderer` promotes the one that is its paragraph's only child. Anything reading the AST - your own traversal, or another CommonMark implementation - sees an inline image either way.
+:::
+
 ```markdown
 ![A block image](https://example.com/hero.png)
 
@@ -168,7 +174,7 @@ By default Markdown **reflows** text: a single newline inside a paragraph is tre
 
 ### Preserving single newlines
 
-`MarkdownParsingOptions(hardSoftBreaks: true)` turns every single newline into a real line break, so the lines you typed are the lines you get:
+`Md4cFlags(hardSoftBreaks: true)` turns every single newline into a real line break, so the lines you typed are the lines you get:
 
 ```markdown
 Roses are red
@@ -179,9 +185,19 @@ Without it that renders as one line. With it, two. This is the option to reach f
 
 ### Blank lines
 
-`MarkdownParsingOptions(preserveBlankLines: true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output.
+`Md4cFlags(preserveBlankLines: true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output:
 
-Both are off by default, and both are set per view through [`options`](/ios/api-reference/enriched-markdown-text#options).
+```markdown
+A first paragraph.
+
+
+
+A second one, three blank lines later.
+```
+
+Without the option those three blank lines collapse to one paragraph break; with it, the gap is kept.
+
+Both are off by default, and both are set per view through [`flags`](/ios/api-reference/enriched-markdown-text#flags).
 
 ## Writing direction
 
@@ -203,7 +219,7 @@ HTML in the source is **not** rendered. An inline tag stays literal text - `<b>b
 | Image tap callbacks, `maxHeight` / `aspectRatio` / `resizeMode` | Block images size by height and corner radius only |
 
 :::note
-Unlike a construct that is missing entirely, a node type with no renderer here still renders **its children**, so unsupported syntax loses its styling rather than its text. Nothing you write silently disappears from the document.
+Unlike a construct that is missing entirely, a node type with no renderer here still renders **its children**, so unsupported syntax loses its styling rather than its text. Nothing you write silently disappears from the document. In a `DEBUG` build the renderer also logs `No renderer for node type '…'; rendering its children only.` the first time it meets one.
 :::
 
 See the [roadmap](/misc/roadmap#ios) for what is landing next.

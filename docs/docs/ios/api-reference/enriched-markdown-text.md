@@ -9,7 +9,7 @@ sidebar_position: 1
 
 ```swift
 public struct EnrichedMarkdownText: View {
-  public init(_ markdown: String, options: MarkdownParsingOptions = .commonMark)
+  public init(_ markdown: String, flags: Md4cFlags = .commonMark)
 }
 ```
 
@@ -21,7 +21,7 @@ ScrollView {
     EnrichedMarkdownText(message.body)
   }
 }
-.environment(\.openURL, OpenURLAction { url in route(url); return .handled })
+.onLinkPress { url in route(url) }
 .markdownTheme(appTheme)
 ```
 
@@ -33,20 +33,26 @@ Parsing and rendering run **off the main thread**, and the result is applied whe
 
 ### `markdown`
 
-The Markdown source to render. Which syntax is recognized depends on [`options`](#options) - see [Feature support](/introduction/supported-features) for the full matrix and [Element structure](/ios/api-reference/element-structure) for what each element renders as.
+The Markdown source to render. Which syntax is recognized depends on [`flags`](#flags) - see [Feature support](/introduction/supported-features) for the full matrix and [Element structure](/ios/api-reference/element-structure) for what each element renders as.
 
 An empty or whitespace-only string renders nothing at all, rather than an empty box with the paragraph's margins.
 
 <PropInfo type="String" required />
 
-### `options`
+```swift
+EnrichedMarkdownText(article.body)
+
+EnrichedMarkdownText("# Inline\n\nA **bold** word and a [link](https://swmansion.com).")
+```
+
+### `flags` {#flags}
 
 Toggles for md4c's parser extensions. Each one opts a piece of extra syntax in or out; set only the ones you want to change and the rest keep their defaults.
 
-<PropInfo type="MarkdownParsingOptions" default=".commonMark" />
+<PropInfo type="Md4cFlags" default=".commonMark" />
 
 ```swift
-public struct MarkdownParsingOptions: Sendable, Equatable {
+public struct Md4cFlags: Sendable, Equatable {
   public var underline: Bool            // false
   public var superscript: Bool          // false
   public var `subscript`: Bool          // false
@@ -56,12 +62,12 @@ public struct MarkdownParsingOptions: Sendable, Equatable {
   public var preserveBlankLines: Bool   // false
   public var admonitions: Bool          // false
 
-  public static let commonMark: MarkdownParsingOptions
+  public static let commonMark: Md4cFlags
 }
 ```
 
 ```swift
-EnrichedMarkdownText(content, options: MarkdownParsingOptions(underline: true, admonitions: true))
+EnrichedMarkdownText(content, flags: Md4cFlags(underline: true, admonitions: true))
 ```
 
 :::note
@@ -126,26 +132,32 @@ Renders a blockquote whose first line is `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT
 
 ## Links
 
-### `openURL` {#openurl}
+### `.onLinkPress` {#onlinkpress}
 
-A tapped link goes to SwiftUI's own `openURL` environment action, exactly as a link in a `Text` does. Left alone, the system opens the URL - there is no handler to install for the ordinary case.
+Called with the `URL` when the reader taps a link. Install it to route taps yourself; with no handler, the text view's own default action opens the URL with the system, which is the ordinary case.
 
-<PropInfo type="OpenURLAction" default="the system action" />
-
-Install an `OpenURLAction` to route taps yourself, and return `.systemAction` for the ones you do not want:
+<PropInfo type="(URL) -> Void" default="none" />
 
 ```swift
 EnrichedMarkdownText(content)
-  .environment(\.openURL, OpenURLAction { url in
-    guard url.host == "myapp.example" else { return .systemAction }
+  .onLinkPress { url in
+    guard url.host == "myapp.example" else {
+      UIApplication.shared.open(url)
+      return
+    }
     navigate(to: url)
-    return .handled
-  })
+  }
 ```
 
-Because it is an environment value, one action set on a container covers every `EnrichedMarkdownText` beneath it.
+Because it reads from the environment, one handler set on a container covers every `EnrichedMarkdownText` beneath it.
 
-### `.onMarkdownLinkLongPress` {#onmarkdownlinklongpress}
+:::caution
+This is **not** SwiftUI's `openURL`. The document renders into a `UITextView` behind a `UIViewRepresentable`, which never consults the `openURL` environment action - installing an `OpenURLAction` has no effect on link taps here. Use `.onLinkPress` instead.
+:::
+
+Your handler takes the interaction over completely, so an unhandled URL stays unopened unless you open it yourself, as above.
+
+### `.onLinkLongPress` {#onlinklongpress}
 
 Called with the `URL` when the reader long-presses a link, **replacing** the system link preview menu - the usual hook for your own share sheet or "copy link" action.
 
@@ -153,56 +165,69 @@ Called with the `URL` when the reader long-presses a link, **replacing** the sys
 
 | Set | Long-pressing a link |
 | --- | --- |
-| `.onMarkdownLinkLongPress` | Your handler runs; the system menu is suppressed |
+| `.onLinkLongPress` | Your handler runs; the system menu is suppressed |
 | Nothing | The system link preview and menu appear, as in any text view |
 
-There is no separate "enable link preview" switch: the system preview is what you get until a long-press handler takes the interaction over. A tap and a long press are independent - installing an `OpenURLAction` does not suppress the preview menu.
+```swift
+EnrichedMarkdownText(content)
+  .onLinkLongPress { url in
+    shareSheet(for: url)   // replaces the system preview
+  }
+```
+
+There is no separate "enable link preview" switch: the system preview is what you get until a long-press handler takes the interaction over. A tap and a long press are independent - installing [`.onLinkPress`](#onlinkpress) does not suppress the preview menu.
 
 ## Task lists
 
-### `.onTaskListItemToggle` {#ontasklistitemtoggle}
+### `.onTaskListItemPress` {#ontasklistitempress}
 
 Called after a tap on a task list checkbox toggles the item. Not called when [`.markdownTaskListItemToggleEnabled`](#markdowntasklistitemtoggleenabled) is `false`.
 
-<PropInfo type="(TaskListItemToggle) -> Void" default="none" />
+<PropInfo type="(TaskListItemPressEvent) -> Void" default="none" />
 
 ```swift
-public struct TaskListItemToggle: Equatable, Sendable {
-  public let index: Int        // 0-based, in document order
-  public let isChecked: Bool   // state after the toggle
-  public let text: String      // first line of the item's plain text
+public struct TaskListItemPressEvent: Equatable, Sendable {
+  public let index: Int     // 0-based, in document order
+  public let checked: Bool  // state after the toggle
+  public let text: String   // first line of the item's plain text
 }
 ```
 
 ```swift
 EnrichedMarkdownText(checklist)
-  .onTaskListItemToggle { toggle in
-    store.setDone(toggle.index, toggle.isChecked)
+  .onTaskListItemPress { item in
+    store.setDone(item.index, item.checked)
   }
 ```
 
-The toggle is **visual only**. The view never rewrites the `markdown` string you passed it, so persist the change from the handler if it has to survive a new source string. Re-supplying the *same* string keeps the toggles as the reader left them, and so does a theme or Dynamic Type change - the toggle is re-applied on top of the re-render.
+The toggle **never writes back to your state**: the `markdown` string you passed in is left exactly as it was, so persist the change from the handler if it has to survive a **new** source string. The view does keep its own toggled copy of the source, which is what re-renders parse - so re-supplying the *same* string keeps the toggles as the reader left them, and so does a theme or Dynamic Type change. That copy is also what [Copy as Markdown](#markdownselectionmenu) serializes, so copying an item the reader checked yields `- [x]` rather than the `- [ ]` you supplied.
 
 ### `.markdownTaskListItemToggleEnabled` {#markdowntasklistitemtoggleenabled}
 
-Whether tapping a task list checkbox toggles it. With `false`, checkbox taps are fully inert: no visual toggle and no [`.onTaskListItemToggle`](#ontasklistitemtoggle). Text selection and links are unaffected either way.
+Whether tapping a task list checkbox toggles it. With `false`, checkbox taps are fully inert: no visual toggle and no [`.onTaskListItemPress`](#ontasklistitempress). Text selection and links are unaffected either way.
 
 <PropInfo type="Bool" default="true" />
 
+```swift
+// A read-only checklist: boxes render checked or not, but do not respond.
+EnrichedMarkdownText(checklist)
+  .markdownTaskListItemToggleEnabled(false)
+```
+
 ## Selection and copying
 
-### `.markdownTextSelection` {#markdowntextselection}
+### `.markdownSelectable` {#markdownselectable}
 
-Whether the reader can select and copy text, taking SwiftUI's `.enabled` / `.disabled` selectability the way `textSelection` does. Links stay tappable when selection is off.
+Whether the reader can select and copy text. Links stay tappable when selection is off.
 
-<PropInfo type="some TextSelectability" default=".enabled" />
+<PropInfo type="Bool" default="true" />
 
 ```swift
 EnrichedMarkdownText(content)
-  .markdownTextSelection(.disabled)
+  .markdownSelectable(false)
 ```
 
-To drive it from a `Bool`, set the environment value directly: `.environment(\.markdownSelectable, isSelectable)`.
+It takes a plain `Bool`, not SwiftUI's `TextSelectability`, so a stored flag drives it directly: `.markdownSelectable(isSelectable)`.
 
 :::note
 A document renders into a single text view, so a selection can run across the whole document - headings, quotes, and code blocks included. It cannot span **two** `EnrichedMarkdownText` views, though: each one is its own selection scope.
@@ -214,19 +239,27 @@ Tints the selection highlight, the drag handles, and the caret. UIKit derives al
 
 <PropInfo type="Color?" default="nil" />
 
+```swift
+EnrichedMarkdownText(content)
+  .markdownSelectionColor(.orange)
+
+EnrichedMarkdownText(content)
+  .markdownSelectionColor(nil)   // back to the system tint
+```
+
 ### `.markdownSelectionMenu` {#markdownselectionmenu}
 
 Configures the two items the package adds to the text selection edit menu. The system's own items - Copy, Look Up, Translate, Share - are untouched.
 
 These two are the only additions available: there is no hook for contributing your own menu items yet, and no switch for the long-press menu on a table. Custom context-menu items are on the [roadmap](/misc/roadmap#native-renderer-parity).
 
-<PropInfo type="MarkdownSelectionMenu" default="MarkdownSelectionMenu()" />
+<PropInfo type="MarkdownSelectionMenuConfig" default="MarkdownSelectionMenuConfig()" />
 
 ```swift
-public struct MarkdownSelectionMenu: Equatable, Sendable {
+public struct MarkdownSelectionMenuConfig: Equatable, Sendable {
   public init(
     copyAsMarkdown: Bool = true,
-    copyImageURL: Bool = true,
+    copyImageUrl: Bool = true,
     copyAsMarkdownLabel: String = "Copy as Markdown"
   )
 }
@@ -238,9 +271,9 @@ Adds an item that puts the selection on the pasteboard as **Markdown source**. A
 
 <PropInfo type="Bool" default="true" />
 
-#### `copyImageURL`
+#### `copyImageUrl`
 
-Adds an item that copies the `http(s)` URLs of any images inside the selection, one per line. It appears only when the selection actually contains one, and its title counts them - *Copy Image URL*, *Copy 3 Image URLs*.
+Adds an item that copies the URLs of any images inside the selection, one per line. It appears only when the selection actually contains one, and its title counts them - *Copy Image URL*, *Copy 3 Image URLs*.
 
 <PropInfo type="Bool" default="true" />
 
@@ -253,8 +286,8 @@ The title of the Copy as Markdown item - the hook for localizing it.
 ```swift
 EnrichedMarkdownText(content)
   .markdownSelectionMenu(
-    MarkdownSelectionMenu(
-      copyImageURL: false,
+    MarkdownSelectionMenuConfig(
+      copyImageUrl: false,
       copyAsMarkdownLabel: "Als Markdown kopieren"
     )
   )
@@ -267,6 +300,12 @@ Recent iOS versions stop offering **Select All** on non-editable text views, whi
 ### What the system Copy puts on the pasteboard {#copy-flavors}
 
 The system **Copy** item writes the selection in two flavors at once: plain text, and styled HTML (`public.html`). Rich text targets - Mail, Notes, a web editor - pick up the HTML and keep headings, inline styles, lists, quotes, code blocks, links, and images; plain text targets get plain text. A table inside the selection becomes tab-separated columns in the plain flavor and a real `<table>` in the HTML one.
+
+```swift
+// Reading what the reader just copied, after a system Copy:
+let plain = UIPasteboard.general.string
+let html = UIPasteboard.general.data(forPasteboardType: "public.html")
+```
 
 For the Markdown source instead, use the Copy as Markdown item above. See [Copy options](/user-experience/copy-options) for more on what each action puts on the pasteboard.
 
@@ -283,14 +322,12 @@ extension View {
   func markdownSpoilerOverlay(_ provider: any SpoilerOverlayProvider) -> some View
 }
 
-// The built-in overlays, plain or tuned:
-.particles                                // the default: 8 particles per 100×100 pt, drifting 20 pt/s
-.particles(density: 12, speed: 30)
-.solid                                    // a box with 4 pt corners
-.solid(cornerRadius: 6)
+// The two built-in overlays. Neither takes parameters:
+.particles   // the default - a drifting field of dots
+.solid       // an opaque box with 4 pt corners
 ```
 
-Spoiler syntax is always parsed - there is no option to enable. The overlay's **colors** come from the [`Spoiler()`](/ios/api-reference/style-properties#spoiler) theme element; its **tuning** - particle density and speed, the solid box's corner radius - belongs to the provider value above.
+Spoiler syntax is always parsed - there is no option to enable. The provider chooses **which** overlay is drawn, and that is all it does: every aspect of how it looks - colors, particle density and speed, the solid box's corner radius - is set on the [`Spoiler()`](/ios/api-reference/style-properties#spoiler) theme element.
 
 Behavior worth knowing:
 

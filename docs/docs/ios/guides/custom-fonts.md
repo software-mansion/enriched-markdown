@@ -94,4 +94,4 @@ Two fonts are worth setting deliberately:
 ## See also
 
 - [Style properties](/ios/api-reference/style-properties#shared-modifiers) - the full modifier list per element.
-- [`MarkdownTheme`](/ios/api-reference/markdown-theme#appearance) - which theme values adapt to appearance and text size.
+- [Style properties](/ios/api-reference/style-properties#adaptive-values) - which theme values adapt to appearance and text size.

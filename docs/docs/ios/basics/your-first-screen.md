@@ -21,20 +21,20 @@ struct ArticleView: View {
       EnrichedMarkdownText("# Hello\n\nA paragraph with **bold** and a [link](https://swmansion.com).")
         .padding()
     }
-    .environment(\.openURL, OpenURLAction { url in
+    .onLinkPress { url in
       analytics.linkTapped(url)
-      return .systemAction
-    })
+      UIApplication.shared.open(url)
+    }
   }
 }
 ```
 
-That's the whole setup. The view sizes itself to its content, which is why it belongs inside a `ScrollView` for anything longer than a screen. Tapping a link calls SwiftUI's `openURL` action, exactly as a link in a `Text` does - so links open with the system out of the box, and you install an `OpenURLAction` only when you want to route or observe them yourself.
+That's the whole setup. The view sizes itself to its content, which is why it belongs inside a `ScrollView` for anything longer than a screen. Links open with the system out of the box; install [`.onLinkPress`](/ios/api-reference/enriched-markdown-text#onlinkpress) only when you want to route or observe them yourself, and open the ones you do not handle.
 
-Everything except the Markdown string itself is configured through **view modifiers** rather than initializer parameters, and each one reads from the SwiftUI environment. That means you can set a handler once on a container and have every `EnrichedMarkdownText` beneath it pick it up - which is why the `openURL` action above sits on the `ScrollView` rather than on the text. The [`EnrichedMarkdownText` reference](/ios/api-reference/enriched-markdown-text) covers every modifier.
+Everything except the Markdown string itself is configured through **view modifiers** rather than initializer parameters, and each one reads from the SwiftUI environment. That means you can set a handler once on a container and have every `EnrichedMarkdownText` beneath it pick it up - which is why the link handler above sits on the `ScrollView` rather than on the text. The [`EnrichedMarkdownText` reference](/ios/api-reference/enriched-markdown-text) covers every modifier.
 
 :::note
-Rendering happens **off the main thread**. The view paints empty for the first frame or two of a long document and then swaps in the finished text, rather than blocking the main thread while it parses.
+Parsing happens **off the main thread**, on a private serial queue, and the finished text is applied back on the main thread. Every document takes that hop, so the view paints empty on its first frame and swaps the text in a moment later. You will not notice it on a paragraph; you will on a long article. And because the view sizes itself to its text, that empty frame has no height, so anything below it shifts down once the text arrives.
 :::
 
 ## Styling it

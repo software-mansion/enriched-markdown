@@ -10,11 +10,18 @@ import TabItem from '@theme/TabItem';
 
 `enriched-markdown-ios` is a **standalone Swift package** - a SwiftUI view that renders Markdown as native text. You add it the way you add any other Swift package, and the Markdown parser is compiled into it - there is no third-party dependency to resolve.
 
+:::caution
+`enriched-markdown-ios` is **pre-1.0**. Until it reaches a stable release the API can still change between versions: modifiers get renamed, defaults get retuned, and elements can move. Pin an exact version with `.package(url:, exact:)` if that matters to you, and check [Breaking changes](/misc/breaking-changes) before upgrading.
+
+These pages are written against the current release and kept in step with it by hand, so one can fall behind the code. If something here does not match what the compiler tells you, that is worth reporting: [open an issue](https://github.com/software-mansion/enriched-markdown/issues) and say which page.
+:::
+
 ## Requirements
 
 | | |
 | --- | --- |
 | **Deployment target** | iOS 16.0 |
+| **Platforms** | iOS only - iPhone and iPad. Not macOS, watchOS, or tvOS |
 | **Swift tools** | 5.9 (Xcode 15 or newer) |
 | **UI framework** | SwiftUI - the package exports a `View` |
 | **Dependency manager** | Swift Package Manager |
@@ -60,7 +67,7 @@ targets: [
 That is the whole setup. There is no `Info.plist` entry, no build phase, and no initialization call - the Markdown parser is C and C++ compiled into the package and linked with your app.
 
 :::note
-The package builds for **iOS only**. Its manifest declares `platforms: [.iOS(.v16)]` and its sources import UIKit, so a macOS, watchOS, or tvOS target cannot depend on it - and neither can a test target that runs outside a simulator.
+Because the manifest declares `platforms: [.iOS(.v16)]` and the sources import UIKit, the package's types cannot be exercised from a test process running on the host Mac - test targets that touch them have to run in a simulator or on a device.
 :::
 
 ## The two products

@@ -90,51 +90,27 @@ struct RootView: View {
 ```
 
 :::note
-`rememberMarkdownTheme(colorScheme:dynamicTypeSize:)` did this in 0.1 and is now deprecated: building the theme in `body` has the same effect. Replace a call with a plain `MarkdownTheme { … }`, or with the `.markdownTheme { … }` builder overload as above.
+`rememberMarkdownTheme(colorScheme:dynamicTypeSize:)` did this in 0.1. It still compiles and carries no deprecation warning, but it now ignores both arguments and simply builds the theme - so it is equivalent to a plain `MarkdownTheme { … }`, or to the `.markdownTheme { … }` builder overload above. Prefer either of those in new code.
 :::
 
 A theme that does **not** branch does not need any of this - see below.
 
 ## Light, dark, and Dynamic Type {#appearance}
 
-Themes are stored as unresolved specs and turned into fonts and colors only when a view renders, against a trait collection built from that view's own `colorScheme` and `dynamicTypeSize`. So a theme hoisted to a `let` at file scope still adapts - as long as the values you give it are the adaptive kind:
+Themes are stored as unresolved specs: fonts and colors are produced only when a view renders, against a trait collection built from that view's own `colorScheme` and `dynamicTypeSize`. Resolution is per render rather than per theme, which is why a theme hoisted to a `let` at file scope still adapts to both.
 
-| You write | What adapts |
-| --- | --- |
-| `.font(.body)`, `.font(.largeTitle)`, any SwiftUI text style | Size follows **Dynamic Type** |
-| `.font(size: 17)`, `.font(custom: "Inter", size: 17)` | Nothing - a fixed point size |
-| `.foregroundStyle(.primary)`, `.secondary`, `.tint`, `.quaternary` | Light and dark, automatically |
-| `.foregroundStyle(Color(.label))`, or any dynamic system `Color` | Light and dark, automatically |
-| `.foregroundStyle(Color(red: …, green: …, blue: …))` | Nothing - a fixed color |
+How far it adapts depends on the values you gave it - see [Dark mode and Dynamic Type](/ios/api-reference/style-properties#adaptive-values) for which ones follow the appearance and the text size, which are frozen, and how to cap how far text scales.
 
-:::caution
-Setting `.font(size:)` or `.font(custom:size:)` on an element **opts that element out of Dynamic Type**: the size you pass is the size it gets at every text size setting. Prefer `.font(.body)` and friends, and see [Custom fonts](/ios/guides/custom-fonts) for scaling a custom family yourself.
-:::
-
-### Capping or disabling text scaling
-
-There is no font-scaling option on the view. `EnrichedMarkdownText` reads `dynamicTypeSize` from the environment and resolves against it, so SwiftUI's own modifier is the control - applied to the view or anywhere above it:
+## `MarkdownStyleConfig`
 
 ```swift
-EnrichedMarkdownText(content)
-  .dynamicTypeSize(...DynamicTypeSize.accessibility1)  // cap how far it scales
-
-EnrichedMarkdownText(content)
-  .dynamicTypeSize(.large)                             // pin one size
-```
-
-Capping is almost always the better of the two: it keeps the document readable at large text sizes without letting a long heading run off the screen.
-
-## `MarkdownStyleConfiguration`
-
-```swift
-public struct MarkdownStyleConfiguration: Equatable, Sendable {
+public struct MarkdownStyleConfig: Equatable, Sendable {
   public static func resolve(
     layers: [MarkdownTheme],
     traitCollection: UITraitCollection
-  ) -> MarkdownStyleConfiguration
+  ) -> MarkdownStyleConfig
 
-  public static func baseline(traitCollection: UITraitCollection = .current) -> MarkdownStyleConfiguration
+  public static func baseline(traitCollection: UITraitCollection = .current) -> MarkdownStyleConfig
 }
 ```
 
@@ -146,7 +122,7 @@ A theme flattened into concrete `UIFont`s, `UIColor`s, and lengths - the form th
 Every field is public and optional, so a config can also be adjusted after resolving, which is often the shortest path in a test:
 
 ```swift
-var config = MarkdownStyleConfiguration.baseline()
+var config = MarkdownStyleConfig.baseline()
 config.blockquote.borderWidth = 6
 ```
 
@@ -156,8 +132,8 @@ config.blockquote.borderWidth = 6
 public enum MarkdownRenderer {
   public static func render(
     _ markdown: String,
-    config: MarkdownStyleConfiguration,
-    options: MarkdownParsingOptions = .commonMark,
+    config: MarkdownStyleConfig,
+    flags: Md4cFlags = .commonMark,
     imageRequestHeaders: [String: String] = [:]
   ) -> NSAttributedString
 }
