@@ -35,6 +35,28 @@ export function paragraphBounds(
   return { start, end };
 }
 
+// The line containing `position`.
+export function lineAtPosition(position: number, text: string): RangeBounds {
+  return paragraphBounds(position, position, text);
+}
+
+// Bounds of every line the selection touches, first to last.
+export function linesTouching(
+  selection: RangeBounds,
+  text: string
+): RangeBounds[] {
+  const lines: RangeBounds[] = [];
+  const { end } = paragraphBounds(selection.start, selection.end, text);
+  let line = lineAtPosition(selection.start, text);
+  while (true) {
+    lines.push(line);
+    if (line.end >= end) {
+      return lines;
+    }
+    line = lineAtPosition(line.end + 1, text);
+  }
+}
+
 // Stores the block-level (line-scoped) ranges for the editor, mirroring
 // FormattingStore. Block ranges never overlap: at most one block covers any
 // paragraph, and ranges stay normalized to whole-line boundaries.
@@ -100,7 +122,7 @@ export class BlockStore {
 
     let previousEnd = -1;
     this.ranges = this.ranges.filter((range) => {
-      const line = paragraphBounds(range.start, range.start, text);
+      const line = lineAtPosition(range.start, text);
       const isEmptyLine = line.end === line.start;
       if (
         (isEmptyLine && !ANCHORED_BLOCK_TYPES.has(range.type)) ||
@@ -246,6 +268,11 @@ export class BlockStore {
     }
 
     this.ranges = ranges;
+  }
+
+  // The block on the line containing `position`, if any.
+  blockAt(position: number, text: string): BlockRange | null {
+    return this.blockStartingAt(lineAtPosition(position, text).start);
   }
 
   // Starts are unique (one block per paragraph), so a binary search finds the

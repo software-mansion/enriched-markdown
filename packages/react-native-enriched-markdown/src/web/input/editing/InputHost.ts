@@ -1,18 +1,24 @@
-import { BlockStore } from '../formatting/BlockStore';
+import { BlockStore, lineAtPosition } from '../formatting/BlockStore';
 import { FormattingStore } from '../formatting/FormattingStore';
 import { parseToPlainTextAndRanges } from '../formatting/InputParser';
 import type { RangeBounds } from '../model/rangeBounds';
 import { DomRenderer } from '../render/DomRenderer';
 import { projectParagraphs } from '../render/InputProjection';
 import { ENRM_INPUT_CLASS, injectInputStyles } from '../render/inputStyles';
+import { isListItem, type BlockType } from '../model/blocks';
+import type { InputStyleType } from '../model/inlineStyles';
+import { BlockEditCoordinator } from './BlockEditCoordinator';
 import { EditPipeline } from './EditPipeline';
 import { EditSession } from './EditSession';
 import { SelectionMapper } from './SelectionMapper';
+import { TypingAttributesController } from './TypingAttributesController';
+import { buildInputState, sameInputState, type InputState } from './InputState';
 import { charLengthBefore, charLengthAfter } from '../utils';
 
 export interface InputHostCallbacks {
   onChangeText?: (text: string) => void;
   onChangeSelection?: (selection: RangeBounds) => void;
+  onChangeState?: (state: InputState) => void;
 }
 
 export class InputHost {
@@ -22,16 +28,21 @@ export class InputHost {
   private readonly blockStore = new BlockStore();
   private readonly session = new EditSession();
   private readonly pipeline: EditPipeline;
+  private readonly blockCoordinator: BlockEditCoordinator;
+  private readonly typing: TypingAttributesController;
   private readonly renderer: DomRenderer;
   private readonly mapper: SelectionMapper;
 
   private text = '';
   private selection: RangeBounds = { start: 0, end: 0 };
+  private lastEmittedState: InputState | null = null;
 
   constructor(root: HTMLElement, callbacks: InputHostCallbacks = {}) {
     this.root = root;
     this.callbacks = callbacks;
     this.pipeline = new EditPipeline(this.formattingStore, this.blockStore);
+    this.blockCoordinator = new BlockEditCoordinator(this.blockStore);
+    this.typing = new TypingAttributesController(this.formattingStore);
     this.renderer = new DomRenderer(root);
     this.mapper = new SelectionMapper(root, () => this.renderer.paragraphs);
 
@@ -45,6 +56,7 @@ export class InputHost {
     root.setAttribute('translate', 'no');
 
     root.addEventListener('beforeinput', this.handleBeforeInput);
+    root.addEventListener('keydown', this.handleKeyDown);
     root.addEventListener('compositionstart', this.handleCompositionStart);
     root.addEventListener('compositionend', this.handleCompositionEnd);
     root.ownerDocument.addEventListener(
@@ -57,6 +69,7 @@ export class InputHost {
 
   destroy(): void {
     this.root.removeEventListener('beforeinput', this.handleBeforeInput);
+    this.root.removeEventListener('keydown', this.handleKeyDown);
     this.root.removeEventListener(
       'compositionstart',
       this.handleCompositionStart
@@ -86,6 +99,50 @@ export class InputHost {
     this.emitChanges();
   }
 
+  indentList(): void {
+    this.changeListDepthBy(1);
+  }
+
+  outdentList(): void {
+    this.changeListDepthBy(-1);
+  }
+
+  toggleUnorderedList(): void {
+    this.toggleListType('unordered-list-item');
+  }
+
+  toggleOrderedList(): void {
+    this.toggleListType('ordered-list-item');
+  }
+
+  toggleBold(): void {
+    this.toggleInlineStyle('strong');
+  }
+
+  toggleItalic(): void {
+    this.toggleInlineStyle('em');
+  }
+
+  toggleUnderline(): void {
+    this.toggleInlineStyle('underline');
+  }
+
+  toggleStrikethrough(): void {
+    this.toggleInlineStyle('strikethrough');
+  }
+
+  toggleSpoiler(): void {
+    this.toggleInlineStyle('spoiler');
+  }
+
+  toggleHeading(level: number): void {
+    this.session.scoped('processing', () =>
+      this.blockCoordinator.toggleHeading(level, this.selection, this.text)
+    );
+    this.render();
+    this.emitState();
+  }
+
   private readonly handleBeforeInput = (event: InputEvent): void => {
     // During composition the browser owns the DOM; the read-back step will
     // reconcile it later.
@@ -99,6 +156,10 @@ export class InputHost {
     switch (event.inputType) {
       case 'insertText':
         this.replaceSelection(event.data ?? '');
+        break;
+      case 'insertParagraph':
+      case 'insertLineBreak':
+        this.insertNewline();
         break;
       case 'deleteContentBackward':
         this.deleteBackward();
@@ -121,6 +182,21 @@ export class InputHost {
       this.selection = mapped;
     }
   }
+
+  // Tab never reaches beforeinput (the browser moves focus), so it is the
+  // one key handled here.
+  private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Tab' || this.session.isComposing) {
+      return;
+    }
+    event.preventDefault();
+    this.syncSelectionFromDom();
+    if (event.shiftKey) {
+      this.outdentList();
+    } else {
+      this.indentList();
+    }
+  };
 
   private readonly handleCompositionStart = (): void => {
     this.session.isComposing = true;
@@ -152,8 +228,71 @@ export class InputHost {
       return;
     }
     this.selection = mapped;
+    if (!this.session.isPostEditGracePeriod) {
+      this.typing.resetForSelectionChange(mapped);
+    }
     this.callbacks.onChangeSelection?.(mapped);
+    this.emitState();
   };
+
+  private insertNewline(): void {
+    const { start, end } = this.selection;
+    if (start === end && this.unlistEmptyListItem(start)) {
+      return;
+    }
+    this.replaceSelection('\n');
+  }
+
+  private unlistEmptyListItem(caret: number): boolean {
+    const line = lineAtPosition(caret, this.text);
+    const block = this.blockStore.blockAt(caret, this.text);
+    if (line.start !== line.end || !isListItem(block)) {
+      return false;
+    }
+    this.toggleListType(block.type);
+    return true;
+  }
+
+  // Backspace at the start of a list item outdents it, or un-lists it at
+  // depth 0, instead of merging with the line above.
+  private outdentListAtLineStart(caret: number): boolean {
+    const line = lineAtPosition(caret, this.text);
+    if (
+      caret !== line.start ||
+      !isListItem(this.blockStore.blockAt(caret, this.text))
+    ) {
+      return false;
+    }
+    this.outdentList();
+    return true;
+  }
+
+  private changeListDepthBy(delta: number): void {
+    const changed = this.session.scoped('processing', () =>
+      this.blockCoordinator.changeListDepthBy(delta, this.selection, this.text)
+    );
+    if (changed) {
+      this.render();
+    }
+  }
+
+  private toggleListType(type: BlockType): void {
+    this.session.scoped('processing', () =>
+      this.blockCoordinator.toggleListType(type, this.selection, this.text)
+    );
+    this.render();
+    this.emitState();
+  }
+
+  private toggleInlineStyle(type: InputStyleType): void {
+    const { start, end } = this.selection;
+    const wasActive = this.session.scoped('processing', () =>
+      this.formattingStore.toggleStyle(type, start, end)
+    );
+    this.typing.toggleStyle(type, wasActive, start !== end);
+    this.render();
+    this.emitState();
+  }
 
   private replaceSelection(insertedText: string): void {
     const { start, end } = this.selection;
@@ -166,7 +305,7 @@ export class InputHost {
       this.replaceSelection('');
       return;
     }
-    if (start === 0) {
+    if (this.outdentListAtLineStart(start) || start === 0) {
       return;
     }
     const deleteFrom = start - charLengthBefore(this.text, start);
@@ -202,8 +341,8 @@ export class InputHost {
         editStart,
         deletedText,
         insertedText,
-        pendingStyles: [],
-        pendingStyleRemovals: [],
+        pendingStyles: this.typing.styles,
+        pendingStyleRemovals: this.typing.styleRemovals,
       });
       const caret = editStart + insertedText.length;
       this.selection = { start: caret, end: caret };
@@ -211,6 +350,7 @@ export class InputHost {
     });
     this.render();
     this.emitChanges();
+    this.emitState();
   }
 
   private render(): void {
@@ -268,5 +408,26 @@ export class InputHost {
     }
     this.callbacks.onChangeText?.(this.text);
     this.callbacks.onChangeSelection?.(this.selection);
+  }
+
+  private emitState(): void {
+    if (this.session.shouldSuppressEvents) {
+      return;
+    }
+    const state = buildInputState(
+      this.formattingStore,
+      this.blockStore,
+      this.typing,
+      this.selection,
+      this.text
+    );
+    if (
+      this.lastEmittedState !== null &&
+      sameInputState(state, this.lastEmittedState)
+    ) {
+      return;
+    }
+    this.lastEmittedState = state;
+    this.callbacks.onChangeState?.(state);
   }
 }
