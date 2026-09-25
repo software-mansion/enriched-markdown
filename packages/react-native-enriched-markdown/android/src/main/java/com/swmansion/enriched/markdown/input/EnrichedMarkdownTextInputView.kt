@@ -497,6 +497,9 @@ class EnrichedMarkdownTextInputView(
   fun applyFormatting() {
     val editable = text ?: return
     formattingDirty = false
+    // textAttributes is mutated in place by the prop setters, while
+    // InputFormatter.copy() (used for measurement snapshots) shares
+    // bodyTextAttributes on the assumption that it is never mutated.
     formatter.bodyTextAttributes = textAttributes.copy()
     formatter.applyFormatting(editable, formattingStore.allRanges)
     formatter.applyBlockFormatting(editable, blockStore.allRanges)
@@ -985,6 +988,7 @@ class EnrichedMarkdownTextInputView(
       zwspAnchorCount = 0
       applyFormatting()
       forceScrollToSelection()
+      // No invalidateLayout() needed: applyFormatting() already re-measures.
       lastProcessedText = text?.toString() ?: ""
     }
   }
