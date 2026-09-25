@@ -72,15 +72,6 @@ class LinkCoordinator(
     formattingStore.addRange(FormattingRange(StyleType.LINK, start, end, sanitizeUrl(url)))
   }
 
-  fun addLinkDirect(
-    url: String,
-    start: Int,
-    end: Int,
-  ) {
-    if (start >= end) return
-    formattingStore.addRange(FormattingRange(StyleType.LINK, start, end, url))
-  }
-
   fun removeLink(
     start: Int,
     end: Int,
