@@ -40,6 +40,9 @@ class MathInlineSpan(
   /** Bare latex: core wraps it in the inline-code styling HTML export uses for `$...$`. */
   override fun toHtmlText(): String = latex
 
+  /** Bare latex, matching what the display-math segment's plain copy puts on the clipboard. */
+  override fun toPlainText(): String = latex
+
   private fun prepareResources() {
     if (cachedBitmap != null && !cachedBitmap!!.isRecycled) return
     if (renderFailed) return

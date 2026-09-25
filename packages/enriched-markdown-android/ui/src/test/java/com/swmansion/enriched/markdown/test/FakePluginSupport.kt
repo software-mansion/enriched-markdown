@@ -126,6 +126,8 @@ class FakeInlineSpan(
 
   override fun toHtmlText(): String? = htmlText
 
+  override fun toPlainText(): String = "plain:$source"
+
   override fun getSize(
     paint: Paint,
     text: CharSequence?,

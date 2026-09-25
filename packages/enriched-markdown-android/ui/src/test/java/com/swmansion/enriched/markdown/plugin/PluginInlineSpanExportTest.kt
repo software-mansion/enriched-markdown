@@ -7,6 +7,7 @@ import com.swmansion.enriched.markdown.test.HTMLGeneratorTestSupport.generateHTM
 import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.createTextViewWithFullSelection
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.view.toClipboardPlainText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,6 +40,17 @@ class PluginInlineSpanExportTest {
   fun htmlExportEscapesTheSpanTextAndOmitsItWhenNull() {
     assertTrue(generateHTML(spannableWith(FakeInlineSpan("a<b"))).contains("a&lt;b</code>"))
     assertTrue(!generateHTML(spannableWith(FakeInlineSpan("x", htmlText = null))).contains("<code"))
+  }
+
+  @Test
+  fun plainTextCopyAsksEachSpanForItsText() {
+    val text =
+      SpannableString("a ￼ b ￼ c").apply {
+        setSpan(FakeInlineSpan("x^2"), 2, 3, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+        setSpan(FakeInlineSpan("y"), 6, 7, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+      }
+
+    assertEquals("a plain:x^2 b plain:y c", text.toClipboardPlainText())
   }
 
   private fun spannableWith(span: FakeInlineSpan): SpannableString =

@@ -10,4 +10,7 @@ interface PluginInlineSpan {
 
   /** Text for HTML export, which core wraps in its inline-code styling. Null omits it. */
   fun toHtmlText(): String?
+
+  /** Text standing in for the span in a plain-text copy. Null omits it. */
+  fun toPlainText(): String?
 }

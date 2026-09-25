@@ -12,7 +12,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
-import android.widget.PopupMenu
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.segments.BlockSegmentView
@@ -20,6 +19,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TextAlignment
 import com.swmansion.enriched.markdown.utils.text.view.DEFAULT_COPY_AS_MARKDOWN_LABEL
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import io.ratex.RaTeXEngine
 import io.ratex.RaTeXFontLoader
 import io.ratex.RaTeXRenderer
@@ -68,6 +68,9 @@ class MathContainerView(
     val mathWrapper =
       FrameLayout(context).apply {
         setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+        // The wrapper fills the scroll viewport, so it is what a press anywhere in the block lands
+        // on; the scroll view itself swallows touches and never reports a long press.
+        setOnLongClickListener { view -> showContextMenu(view) }
       }
     mathWrapper.addView(
       mathView,
@@ -92,7 +95,6 @@ class MathContainerView(
     updateAccessibilityLabel()
 
     setOnLongClickListener { view -> showContextMenu(view) }
-    mathView.setOnLongClickListener { view -> showContextMenu(view) }
   }
 
   /**
@@ -127,34 +129,19 @@ class MathContainerView(
 
   private fun showContextMenu(anchor: View): Boolean {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val popup = PopupMenu(context, anchor)
-
-    val copyItem = popup.menu.add(context.getString(android.R.string.copy))
-    val copyAsMarkdownItem =
-      if (selectionMenuConfig.copyAsMarkdown) {
-        popup.menu.add(selectionMenuConfig.copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL })
-      } else {
-        null
+    ContextMenuPopup.show(anchor, this) {
+      item(ContextMenuPopup.Icon.COPY, context.getString(android.R.string.copy)) {
+        clipboard.setPrimaryClip(ClipData.newPlainText("Math", latex))
       }
-
-    popup.setOnMenuItemClickListener { item ->
-      when (item) {
-        copyItem -> {
-          clipboard.setPrimaryClip(ClipData.newPlainText("Math", latex))
-          true
-        }
-
-        copyAsMarkdownItem -> {
+      if (selectionMenuConfig.copyAsMarkdown) {
+        item(
+          ContextMenuPopup.Icon.DOCUMENT,
+          selectionMenuConfig.copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL },
+        ) {
           clipboard.setPrimaryClip(ClipData.newPlainText("Math", "$$\n$latex\n$$"))
-          true
-        }
-
-        else -> {
-          false
         }
       }
     }
-    popup.show()
     return true
   }
 
