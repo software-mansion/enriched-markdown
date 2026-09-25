@@ -85,7 +85,7 @@ class EnrichedMarkdownTextInputView(
   private var typefaceDirty = false
   private var fontFamilyValue: String? = null
   private var fontWeightValue: Int = ReactConstants.UNSET
-  private val textAttributes = TextAttributes()
+  internal val textAttributes = TextAttributes()
 
   val contextMenu = InputContextMenu(this)
   val eventEmitter = InputEventEmitter(this)
@@ -495,7 +495,7 @@ class EnrichedMarkdownTextInputView(
 
   fun applyFormatting() {
     val editable = text ?: return
-    formatter.bodyTextAttributes = textAttributesForMeasurement()
+    formatter.bodyTextAttributes = textAttributes.copy()
     formatter.applyFormatting(editable, formattingStore.allRanges)
     formatter.applyBlockFormatting(editable, blockStore.allRanges)
     applyBodyLineHeightSpan(editable, textAttributes)
@@ -1017,14 +1017,6 @@ class EnrichedMarkdownTextInputView(
     setTextColor(colorInt ?: Color.BLACK)
   }
 
-  /** Copy of the body text attributes, safe to keep after this view changes them. */
-  fun textAttributesForMeasurement(): TextAttributes =
-    TextAttributes().apply {
-      allowFontScaling = textAttributes.allowFontScaling
-      fontSize = textAttributes.fontSize
-      lineHeight = textAttributes.lineHeight
-    }
-
   fun setCursorColorFromProps(colorInt: Int?) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       val cursorDrawable = textCursorDrawable ?: return
@@ -1137,5 +1129,15 @@ class EnrichedMarkdownTextInputView(
 
   companion object {
     private val TAG: String = EnrichedMarkdownTextInputView::class.java.simpleName
+  }
+}
+
+/** Copy of the body text attributes the input uses, safe to keep after the original changes. */
+internal fun TextAttributes.copy(): TextAttributes {
+  val source = this
+  return TextAttributes().apply {
+    allowFontScaling = source.allowFontScaling
+    fontSize = source.fontSize
+    lineHeight = source.lineHeight
   }
 }
