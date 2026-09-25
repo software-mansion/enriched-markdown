@@ -265,8 +265,19 @@ void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBot
 }
 
 // Floor, not clamp: minimumLineHeight keeps short lines at lineHeight, while maximumLineHeight = 0 lets
-// a line grow to fit a taller run (large inline code, math, images) instead of clipping it. We can
-// diverge from RN's clamp because we measure the real laid-out height, so grown lines are reserved.
+// a line grow to fit a taller run (large inline code, math, images) instead of clipping it, e.g.
+// https://github.com/software-mansion/enriched-markdown/issues/827. We can diverge from RN's clamp
+// because we measure the real laid-out height, so grown lines are reserved.
+void ENRMApplyLineHeightToParagraphStyle(NSMutableParagraphStyle *style, CGFloat lineHeight)
+{
+  if (lineHeight <= 0) {
+    return;
+  }
+
+  style.minimumLineHeight = lineHeight;
+  style.maximumLineHeight = 0;
+}
+
 void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight)
 {
   if (lineHeight <= 0) {
@@ -274,9 +285,7 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
   }
 
   NSMutableParagraphStyle *style = getOrCreateParagraphStyle(output, range.location);
-
-  style.minimumLineHeight = lineHeight;
-  style.maximumLineHeight = 0;
+  ENRMApplyLineHeightToParagraphStyle(style, lineHeight);
 
   [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
 }

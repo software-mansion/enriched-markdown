@@ -4,6 +4,7 @@
 #import "ENRMInputFormatterStyle.h"
 #import "ENRMUIKit.h"
 #import "FontUtils.h"
+#import "ParagraphStyleUtils.h"
 #import <React/RCTConversions.h>
 
 #if !TARGET_OS_OSX
@@ -24,10 +25,7 @@ ENRMInputParagraphStyleWithLineHeight(ENRMInputFormatterStyle *style, NSParagrap
 {
   NSMutableParagraphStyle *paragraph =
       existingParagraph ? [existingParagraph mutableCopy] : [[NSMutableParagraphStyle alloc] init];
-  if (style.baseLineHeight > 0) {
-    paragraph.minimumLineHeight = style.baseLineHeight;
-    paragraph.maximumLineHeight = style.baseLineHeight;
-  }
+  ENRMApplyLineHeightToParagraphStyle(paragraph, style.baseLineHeight);
   return paragraph;
 }
 
