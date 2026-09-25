@@ -9,7 +9,7 @@ static EnrichedMarkdownTextInputEventEmitter::OnChangeState ENRMFabricChangeStat
       .italic = {.isActive = s.italic},
       .underline = {.isActive = s.underline},
       .strikethrough = {.isActive = s.strikethrough},
-      .spoiler = {.isActive = s.spoilerlinkForSelection},
+      .spoiler = {.isActive = s.spoiler},
       .link = {.isActive = s.link, .destination = s.linkDestination},
       .heading = {.isActive = s.headingLevel > 0, .level = static_cast<int>(s.headingLevel)},
       .unorderedList = {.isActive = s.unorderedList, .depth = static_cast<int>(s.unorderedList ? s.listDepth : 0)},
