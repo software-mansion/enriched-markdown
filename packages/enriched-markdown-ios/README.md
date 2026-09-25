@@ -675,6 +675,6 @@ These scripts run `swift build` / `swift test` / `swift package clean` from the 
 yarn workspace @enriched-markdown/ios bench:ios-native --base main
 ```
 
-Absolute numbers depend on the machine and on Debug builds; read the head/base ratio from one run. CI runs the same comparison against the base branch for every pull request that touches the package and fails only when a benchmark is twice as slow, since a shared runner cannot resolve smaller differences.
+Absolute numbers depend on the machine and on Debug builds; read the head/base ratio from one run. Each number is the median of XCTest's iterations, so a single stalled iteration does not move it. CI runs the same comparison against the base branch for every pull request that touches the package, posts the table as a comment on it, and fails only when a benchmark is twice as slow, since a shared runner cannot resolve smaller differences.
 
 In the monorepo, `core/md4c` and `core/parser` are symlinks into the shared C++ sources at `packages/core/cpp`. When syncing this folder to the standalone repository, dereference them so real files are copied (e.g. `rsync -a --copy-links`).
