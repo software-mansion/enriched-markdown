@@ -85,6 +85,13 @@ class EnrichedMarkdownTextInputView(
   private var pendingAutoFocusKeyboard = false
 
   private var typefaceDirty = false
+
+  /**
+   * Whenever formatting has changed, set this to true to ensure `onAfterUpdateTransaction` calls
+   * `applyFormatting` after all new props have been processed. We use this instead of directly
+   * calling `applyFormatting` to avoid duplicate calls when setting multiple props.
+   */
+  private var formattingDirty = false
   private var fontFamilyValue: String? = null
   private var fontWeightValue: Int = ReactConstants.UNSET
   internal val textAttributes = TextAttributes()
@@ -379,8 +386,7 @@ class EnrichedMarkdownTextInputView(
     val currentText = text?.toString() ?: ""
     if (currentText == lastProcessedText) return
 
-    editSession.enter(EditPhase.Processing)
-    try {
+    editSession.scoped(EditPhase.Processing) {
       val context =
         EditContext(
           editStart = editStart,
@@ -393,14 +399,12 @@ class EnrichedMarkdownTextInputView(
           pendingStyleRemovals = pendingStyleRemovals.toSet(),
         )
       editPipeline.processTextChange(context)
-      // Formatting may have changed (e.g. a new list item or heading), so Yoga
-      // needs to remeasure even when the text watcher already did.
+      // Measure only once the pipeline has settled the text and its formatting
+      // (list continuation, shortcuts, the ZWSP anchor), never mid-edit.
       layoutManager.invalidateLayout()
       editSession.isTextChanging = false
       editSession.didTextChangeRecently = true
       lastProcessedText = text?.toString() ?: currentText
-    } finally {
-      editSession.exit()
     }
     emitSelectionIfChanged()
   }
@@ -501,25 +505,23 @@ class EnrichedMarkdownTextInputView(
     start: Int,
     end: Int,
     newText: String,
-    postAdjust: (Editable) -> Unit = {},
+    crossinline postAdjust: (Editable) -> Unit = {},
   ) {
     val editable = text ?: return
-    editSession.enter(EditPhase.Processing)
-    try {
+    editSession.scoped(EditPhase.Processing) {
       editable.replace(start, end, newText)
       adjustStoresForEdit(start, end - start, newText.length)
       postAdjust(editable)
       lastProcessedText = editable.toString()
       applyFormattingAndEmit()
       eventEmitter.emitChangeText()
-    } finally {
-      editSession.exit()
     }
     emitSelectionIfChanged()
   }
 
   fun applyFormatting() {
     val editable = text ?: return
+    formattingDirty = false
     formatter.bodyTextAttributes = textAttributes.copy()
     formatter.applyFormatting(editable, formattingStore.allRanges)
     formatter.applyBlockFormatting(editable, blockStore.allRanges)
@@ -611,8 +613,8 @@ class EnrichedMarkdownTextInputView(
   private fun toggleListType(type: BlockType) {
     val editable = text ?: return
     blockCoordinator.toggleList(editable, type, selectionStart, selectionStart, selectionEnd)
+    syncEmptyListAnchor(restamp = false)
     applyFormattingAndEmit()
-    syncEmptyListAnchor()
   }
 
   /** Increases the nesting depth of the selected list item(s). QoL: indenting a plain paragraph starts a list. */
@@ -625,8 +627,8 @@ class EnrichedMarkdownTextInputView(
     val editable = text ?: return
     val result = blockCoordinator.changeDepth(editable, selectionStart, selectionStart, selectionEnd, delta)
     if (result == BlockEditCoordinator.DepthChangeResult.NO_OP) return
+    syncEmptyListAnchor(restamp = false)
     applyFormattingAndEmit()
-    syncEmptyListAnchor()
   }
 
   /**
@@ -634,8 +636,8 @@ class EnrichedMarkdownTextInputView(
    * indents (a [android.text.style.LeadingMarginSpan] doesn't indent an empty
    * paragraph). Inserts the ZWSP on the caret's empty list line, strips stale ones.
    *
-   * @param restamp re-apply block formatting here (selection/command paths); the
-   *   text-change pass passes false and stamps once afterwards.
+   * @param restamp re-apply block formatting here (selection path); the text-change
+   *   pass and list commands pass false and stamp once afterwards.
    * @return true if an anchor was inserted or stripped (text/ranges mutated).
    *
    * When called from `onAfterTextChanged` this mutates the [Editable] from inside
@@ -654,9 +656,8 @@ class EnrichedMarkdownTextInputView(
   private fun syncEmptyListAnchor(restamp: Boolean = true): Boolean {
     if (editSession.shouldSuppressAnchorSync) return false
     val editable = text ?: return false
-    editSession.enter(EditPhase.ManagingAnchors)
-    var anchorChanged = false
-    try {
+    return editSession.scoped(EditPhase.ManagingAnchors) {
+      var anchorChanged = false
       // Strip every stale ZWSP first (a line that gained content or stopped being a
       // list). Skip the full-document scan when we've inserted no anchors — there is
       // nothing to strip, so a caret move in a document with no empty list lines is
@@ -710,9 +711,7 @@ class EnrichedMarkdownTextInputView(
         if (emitMarkdown) eventEmitter.emitChangeMarkdown()
       }
       syncHintVisibility()
-      return anchorChanged
-    } finally {
-      editSession.exit()
+      anchorChanged
     }
   }
 
@@ -838,8 +837,10 @@ class EnrichedMarkdownTextInputView(
     val selStart = selectionStart.coerceIn(0, editable.length)
     val selEnd = selectionEnd.coerceIn(selStart, editable.length)
     blockCoordinator.toggleBlock(editable, type, level, selStart, selEnd)
-    applyFormattingAndEmit()
+    // Resize the caret first: on an empty heading line the measured height comes
+    // from the paint's text size.
     syncCursorSizeWithBlock()
+    applyFormattingAndEmit()
   }
 
   private fun blockOnParagraphAt(pos: Int): BlockRange? {
@@ -988,20 +989,19 @@ class EnrichedMarkdownTextInputView(
   /**
    * Applies the parsed `markdownStyle` (which now carries `list.itemSpacing`).
    * Display density is folded in at [InputFormatter] construction, so the style is
-   * handed to the formatter as-is. Returns true if the effective style changed
-   * (caller re-applies formatting).
+   * handed to the formatter as-is. Formatting is re-applied in [afterUpdateTransaction]
+   * if the effective style changed.
    */
-  fun setMarkdownStyleFromProps(style: InputFormatterStyle): Boolean {
+  fun setMarkdownStyleFromProps(style: InputFormatterStyle) {
     setAutoLinkStyle(style)
-    return formatter.updateStyle(style)
+    if (formatter.updateStyle(style)) formattingDirty = true
   }
 
   fun allFormattingRangesForSerialization(): List<FormattingRange> = clipboardCoordinator.allRangesForSerialization(text)
 
   fun setValueFromJS(markdown: String) {
     val parsed = InputParser.parseToPlainTextAndRanges(markdown)
-    editSession.enter(EditPhase.Importing)
-    try {
+    editSession.scoped(EditPhase.Importing) {
       formattingStore.clearAll()
       formattingStore.setRanges(parsed.formattingRanges)
       blockStore.setRanges(parsed.blockRanges)
@@ -1011,8 +1011,6 @@ class EnrichedMarkdownTextInputView(
       applyFormatting()
       forceScrollToSelection()
       lastProcessedText = text?.toString() ?: ""
-    } finally {
-      editSession.exit()
     }
     emitSelectionIfChanged()
   }
@@ -1027,7 +1025,7 @@ class EnrichedMarkdownTextInputView(
     val sizePx = ceil(PixelUtil.toPixelFromSP(size))
     setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx)
     // Heading line heights are derived from the body font size.
-    applyFormatting()
+    formattingDirty = true
   }
 
   fun setLineHeightFromProps(lineHeight: Float) {
@@ -1036,7 +1034,7 @@ class EnrichedMarkdownTextInputView(
     // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L332-L334
     // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L856-L858
     textAttributes.lineHeight = if (lineHeight > 0f) lineHeight else Float.NaN
-    applyFormatting()
+    formattingDirty = true
   }
 
   fun setColorFromProps(colorInt: Int?) {
@@ -1070,8 +1068,9 @@ class EnrichedMarkdownTextInputView(
     }
   }
 
-  private fun updateTypeface() {
-    if (!typefaceDirty) return
+  /** Returns true if the typeface changed. */
+  private fun updateTypeface(): Boolean {
+    if (!typefaceDirty) return false
     typefaceDirty = false
 
     val newTypeface =
@@ -1084,7 +1083,7 @@ class EnrichedMarkdownTextInputView(
       )
     typeface = newTypeface
     paint.typeface = newTypeface
-    layoutManager.invalidateLayout()
+    return true
   }
 
   fun setAutoCapitalize(flagName: String?) {
@@ -1115,8 +1114,16 @@ class EnrichedMarkdownTextInputView(
     inputMethodManager?.showSoftInput(this, 0)
   }
 
+  /** Called after props updates */
   fun afterUpdateTransaction() {
-    updateTypeface()
+    val typefaceChanged = updateTypeface()
+    // Props that affect formatting only mark it dirty, so a transaction that
+    // changes several of them restamps spans and re-measures once.
+    if (formattingDirty) {
+      applyFormatting()
+    } else if (typefaceChanged) {
+      layoutManager.invalidateLayout()
+    }
     if (autoFocusRequested) {
       autoFocusRequested = false
       pendingAutoFocusKeyboard = true
