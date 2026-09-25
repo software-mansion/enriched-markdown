@@ -17,6 +17,7 @@ import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
+import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.ThematicBreakSpan
@@ -337,6 +338,7 @@ object MarkdownExtractor {
     val hasSubscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUBSCRIPT }
     val linkSpans = spannable.getSpans(start, end, LinkSpan::class.java)
     val hasHighlight = spannable.getSpans(start, end, HighlightSpan::class.java).isNotEmpty()
+    val hasSpoiler = spannable.getSpans(start, end, SpoilerSpan::class.java).isNotEmpty()
 
     var result = text
 
@@ -366,6 +368,11 @@ object MarkdownExtractor {
     }
     if (hasHighlight) {
       result = "==$result=="
+    }
+    // Outermost, matching the iOS package: copying a spoiler keeps it concealed in the markdown
+    // even though the selection itself reads the revealed text.
+    if (hasSpoiler) {
+      result = "||$result||"
     }
 
     return result

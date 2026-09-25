@@ -134,6 +134,7 @@ The `markdownStyle` builder supports these blocks:
 | `inlineImage` | Inline images |
 | `thematicBreak` | Horizontal rules |
 | `table` | Tables |
+| `spoiler` | The overlay that conceals `\|\|spoiler\|\|` text |
 
 Use `MarkdownStyle.merge { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style. `a.merge(b)` and `a + b` layer a whole style on top of another the same way.
 
@@ -154,6 +155,25 @@ markdownStyle {
 
 Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
 
+`spoiler` styles the overlay that conceals `||spoiler||` text. `color` paints the particles and fills
+the solid block; `particles { density, speed }` only apply to `SpoilerOverlay.Particles` and are
+unitless multipliers over the defaults shown below, and `solid { cornerRadius }` only applies to
+`SpoilerOverlay.Solid`. The concealed text itself is drawn transparent, so the overlay works over any
+background without being told what that background is.
+
+```kotlin
+markdownStyle {
+  spoiler {
+    color = Color(0xFF374151)
+    particles {
+      density = 8f
+      speed = 20f
+    }
+    solid { cornerRadius = 4.dp }
+  }
+}
+```
+
 ## API reference
 
 ### `EnrichedMarkdownText`
@@ -171,6 +191,7 @@ fun EnrichedMarkdownText(
   onLinkLongClick: (String) -> Unit = {},
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles,
 )
 ```
 
@@ -185,6 +206,7 @@ fun EnrichedMarkdownText(
 | `onLinkLongClick` | Called when a link is long-pressed |
 | `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
 | `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
+| `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles` (default) or `SpoilerOverlay.Solid` |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
@@ -306,6 +328,9 @@ the only supported way to reach them.
 - Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemToggle`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
+- Spoilers (`||hidden||`, tap to reveal). Adjacent spoilers reveal together. Concealment is visual
+  only: screen readers read concealed text as ordinary text, and a plain Copy yields it too (Copy as
+  Markdown keeps the `||` markers)
 - Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
 - Tables (GFM), including per-column alignment
 
@@ -390,6 +415,7 @@ follow the reading direction, while `AbsoluteAlignment.Left` / `.Right` pin a si
 can reach the screen edge while the body text stays inset.
 
 Long-pressing a table offers **Copy** (rich text) and **Copy as Markdown**.
+
 
 ## Development
 

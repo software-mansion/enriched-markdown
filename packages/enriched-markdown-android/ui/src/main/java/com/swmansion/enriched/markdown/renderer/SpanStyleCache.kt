@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.renderer
 
 import android.content.Context
 import android.graphics.Typeface
+import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.TypefaceUtils
 
@@ -34,6 +35,7 @@ class SpanStyleCache(
   val superscriptBaselineOffsetScale: Float = style.superscriptStyle.baselineOffsetScale
   val subscriptFontScale: Float = style.subscriptStyle.fontScale
   val subscriptBaselineOffsetScale: Float = style.subscriptStyle.baselineOffsetScale
+  val spoilerStyle: SpoilerStyle = style.spoilerStyle
 
   private fun buildColorsToPreserve(style: StyleConfig): IntArray {
     val paragraphColor = style.paragraphStyle.color

@@ -169,6 +169,14 @@ val CustomMarkdownStyle: MarkdownStyle =
       cellPaddingHorizontal = 12.dp
       cellPaddingVertical = 8.dp
     }
+    spoiler {
+      color = Color(0xFF374151)
+      particles {
+        density = 8f
+        speed = 20f
+      }
+      solid { cornerRadius = 4.dp }
+    }
   }
 
 /**

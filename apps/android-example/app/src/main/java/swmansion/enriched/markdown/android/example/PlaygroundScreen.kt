@@ -1,6 +1,7 @@
 package swmansion.enriched.markdown.android.example
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -188,6 +189,9 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               highlight = true,
               admonitions = true,
             ),
+          onLinkClick = { url ->
+            Toast.makeText(context, "Link pressed: $url", Toast.LENGTH_SHORT).show()
+          },
         )
       }
     }

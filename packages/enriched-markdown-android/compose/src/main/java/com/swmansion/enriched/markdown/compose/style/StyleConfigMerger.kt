@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.styles.InlineImageStyle
 import com.swmansion.enriched.markdown.styles.LinkStyle
 import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
+import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -42,6 +43,7 @@ internal data class StylePatch(
   val inlineImageStyle: InlineImageStyle? = null,
   val thematicBreakStyle: ThematicBreakStyle? = null,
   val tableStyle: TableStyle? = null,
+  val spoilerStyle: SpoilerStyle? = null,
 )
 
 internal object StyleConfigMerger {
@@ -101,6 +103,7 @@ internal object StyleConfigMerger {
       tableStyle = tableStyle,
       tableTypeface = tableTypeface,
       tableHeaderTypeface = tableHeaderTypeface,
+      spoilerStyle = patch.spoilerStyle ?: base.spoilerStyle,
     )
   }
 

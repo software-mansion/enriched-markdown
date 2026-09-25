@@ -339,6 +339,7 @@ export const normalizeMarkdownStyle = (
     ([pattern, override]): LinkVariantEntryInternal => {
       return {
         pattern,
+        fontFamily: override.fontFamily ?? linkBase.fontFamily,
         color: ((override.color ? normalizeColor(override.color) : null) ??
           linkBase.color) as string,
         underline: override.underline ?? linkBase.underline,

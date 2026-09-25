@@ -17,6 +17,7 @@ import com.swmansion.enriched.markdown.segments.SegmentViewCreators
 import com.swmansion.enriched.markdown.segments.SegmentViewFactory
 import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListTapUtils
@@ -53,6 +54,10 @@ class EnrichedMarkdown(
     get() = TaskListToggleUtils.applyCheckedStates(baseMarkdown, taskListToggles)
 
   var md4cFlags: Md4cFlags = Md4cFlags.Default
+    private set
+
+  /** How unrevealed `||spoiler||` text is concealed. */
+  var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles
     private set
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
@@ -155,6 +160,18 @@ class EnrichedMarkdown(
     }
   }
 
+  /**
+   * Chooses the overlay that conceals unrevealed spoilers: drifting particles (the default) or
+   * a solid rounded block.
+   */
+  fun setSpoilerOverlay(mode: SpoilerOverlay) {
+    if (spoilerOverlay == mode) return
+    spoilerOverlay = mode
+    segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+      it.spoilerOverlay = mode
+    }
+  }
+
   fun setIsSelectable(selectable: Boolean) {
     if (isSelectable == selectable) return
     isSelectable = selectable
@@ -209,6 +226,7 @@ class EnrichedMarkdown(
     setOnLinkLongPressCallback(null)
     setOnTaskListItemPressCallback(null)
     setEnableTaskListItemToggle(true)
+    setSpoilerOverlay(SpoilerOverlay.Particles)
     setMarkdownContent("")
     taskListToggles.clear()
     pendingSegments = null
@@ -388,6 +406,7 @@ class EnrichedMarkdown(
       selectionHandleColor = selectionHandleColor,
       selectionMenuConfig = selectionMenuConfig,
       enableTaskListItemToggle = enableTaskListItemToggle,
+      spoilerOverlay = spoilerOverlay,
       onTaskListItemTap = ::toggleTaskListItem,
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,

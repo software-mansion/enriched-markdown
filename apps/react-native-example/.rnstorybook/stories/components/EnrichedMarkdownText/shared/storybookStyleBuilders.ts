@@ -11,6 +11,7 @@ import type {
   InlineImageStyleControls,
   InlineMathStyleControls,
   LinkStyleControls,
+  LinkVariantFontControls,
   LinkVariantsDemoControls,
   ListStyleControls,
   MathStyleControls,
@@ -338,6 +339,29 @@ export function toLinkVariantsDemoStyle(
         color: channelVariantColor,
         underline: channelVariantUnderline,
         backgroundColor: channelVariantBackgroundColor,
+      },
+    },
+  };
+}
+
+export function toLinkVariantFontStyle(
+  controls: LinkVariantFontControls
+): Pick<MarkdownStyle, 'link' | 'linkVariants'> {
+  return {
+    link: {
+      ...(controls.fontFamily ? { fontFamily: controls.fontFamily } : {}),
+      color: controls.color,
+    },
+    linkVariants: {
+      '^user:': {
+        ...(controls.userVariantFontFamily
+          ? { fontFamily: controls.userVariantFontFamily }
+          : {}),
+      },
+      '^https://example\\.com/': {
+        ...(controls.docsVariantFontFamily
+          ? { fontFamily: controls.docsVariantFontFamily }
+          : {}),
       },
     },
   };

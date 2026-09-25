@@ -28,6 +28,7 @@ internal data class MarkdownStyleLayer(
   val inlineImage: InlineImageStylePatch? = null,
   val thematicBreak: ThematicBreakStylePatch? = null,
   val table: TableStylePatch? = null,
+  val spoiler: SpoilerStylePatch? = null,
 ) {
   fun apply(
     resolveContext: StyleResolveContext,
@@ -65,6 +66,7 @@ internal data class MarkdownStyleLayer(
           inlineImageStyle = inlineImage?.apply(base.inlineImageStyle, units),
           thematicBreakStyle = thematicBreak?.apply(base.thematicBreakStyle, units),
           tableStyle = table?.apply(base.tableStyle, resolveContext, units),
+          spoilerStyle = spoiler?.apply(base.spoilerStyle, units),
         ),
     )
   }

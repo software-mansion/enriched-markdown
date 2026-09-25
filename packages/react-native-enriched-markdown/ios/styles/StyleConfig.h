@@ -9,6 +9,7 @@ NS_ASSUME_NONNULL_BEGIN
  * Populated from the JS `linkVariants` map by StylePropsUtils and consumed by LinkRenderer.
  */
 @interface LinkVariantConfig : NSObject
+@property (nonatomic, copy) NSString *fontFamily;
 @property (nonatomic, copy) NSString *pattern;
 @property (nonatomic, strong) RCTUIColor *color;
 @property (nonatomic, assign) BOOL underline;
