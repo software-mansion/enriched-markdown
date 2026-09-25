@@ -48,7 +48,7 @@ open class SpoilerOverlayView: UIView {
     /// do: it uses the font's natural line height, not the theme's.
     public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage {
         guard !bounds.isEmpty else { return UIImage() }
-        let line = CTLineCreateWithAttributedString(Self.coreTextAttributes(of: text ?? concealedText))
+        let line = CTLineCreateWithAttributedString(coreTextAttributes(of: text ?? concealedText))
         return UIGraphicsImageRenderer(bounds: bounds).image { context in
             let cgContext = context.cgContext
             cgContext.textMatrix = .identity
@@ -59,8 +59,10 @@ open class SpoilerOverlayView: UIView {
         }
     }
 
-    /// CoreText reads its own keys, not UIKit's.
-    private static func coreTextAttributes(of text: NSAttributedString) -> NSAttributedString {
+    /// CoreText reads its own keys, not UIKit's, and CGColors, resolved for
+    /// this view's traits rather than `UITraitCollection.current`.
+    private func coreTextAttributes(of text: NSAttributedString) -> NSAttributedString {
+        let traits = traitCollection
         let result = NSMutableAttributedString(attributedString: text)
         result.enumerateAttributes(in: NSRange(location: 0, length: result.length)) { attributes, range, _ in
             var converted: [NSAttributedString.Key: Any] = [:]
@@ -68,7 +70,7 @@ open class SpoilerOverlayView: UIView {
                 converted[NSAttributedString.Key(kCTFontAttributeName as String)] = font
             }
             if let color = attributes[.foregroundColor] as? UIColor {
-                converted[NSAttributedString.Key(kCTForegroundColorAttributeName as String)] = color.cgColor
+                converted[NSAttributedString.Key(kCTForegroundColorAttributeName as String)] = color.resolvedColor(with: traits).cgColor
             }
             if let offset = attributes[.baselineOffset] as? NSNumber {
                 converted[NSAttributedString.Key(kCTBaselineOffsetAttributeName as String)] = offset
@@ -77,7 +79,8 @@ open class SpoilerOverlayView: UIView {
                 converted[NSAttributedString.Key(kCTUnderlineStyleAttributeName as String)] = underline
             }
             if let underlineColor = attributes[.underlineColor] as? UIColor {
-                converted[NSAttributedString.Key(kCTUnderlineColorAttributeName as String)] = underlineColor.cgColor
+                converted[NSAttributedString.Key(kCTUnderlineColorAttributeName as String)] =
+                    underlineColor.resolvedColor(with: traits).cgColor
             }
             result.addAttributes(converted, range: range)
         }
