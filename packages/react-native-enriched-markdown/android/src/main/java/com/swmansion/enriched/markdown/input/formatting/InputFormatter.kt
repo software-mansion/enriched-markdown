@@ -220,6 +220,18 @@ class InputFormatter(
     }
   }
 
+  /**
+   * Copy that keeps the current style and body text attributes after this
+   * formatter changes them. Handlers are stateless, so only those are copied.
+   * [bodyTextAttributes] is only ever replaced, never mutated, so sharing the
+   * instance is safe.
+   */
+  internal fun copy(): InputFormatter =
+    InputFormatter(displayDensity).also {
+      it.style = style
+      it.bodyTextAttributes = bodyTextAttributes
+    }
+
   private data class SpanDescriptor(
     val start: Int,
     val end: Int,

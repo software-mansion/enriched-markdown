@@ -9,6 +9,7 @@ import android.text.style.MetricAffectingSpan
 import com.facebook.react.common.ReactConstants
 import com.swmansion.enriched.markdown.input.formatting.MarkdownSpan
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
+import com.swmansion.enriched.markdown.utils.text.span.applyLineHeight
 import kotlin.math.ceil
 
 /**

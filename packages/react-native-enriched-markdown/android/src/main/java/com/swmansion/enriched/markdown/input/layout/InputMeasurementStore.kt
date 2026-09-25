@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.input.layout
 
 import android.content.Context
 import android.os.Build
+import android.text.Editable
 import android.text.SpannableStringBuilder
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -10,6 +11,7 @@ import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.views.text.TextAttributes
 import com.facebook.yoga.YogaMeasureMode
 import com.facebook.yoga.YogaMeasureOutput
+import com.swmansion.enriched.markdown.input.copy
 import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.InputParser
 import com.swmansion.enriched.markdown.input.model.BlockRange
@@ -18,29 +20,28 @@ import com.swmansion.enriched.markdown.utils.input.MarkdownStyleParser
 import java.util.concurrent.ConcurrentHashMap
 
 object InputMeasurementStore {
-  private data class MeasurementParams(
-    val cachedWidth: Float,
-    val cachedSize: Long,
+  private data class MeasurementInput(
     val text: CharSequence?,
+    val hint: String?,
     val textAttributes: TextAttributes,
-    val hint: CharSequence?,
     val paint: TextPaint,
     val blockRanges: List<BlockRange>,
     val formatter: InputFormatter,
   )
 
+  private data class MeasurementParams(
+    val cachedWidth: Float,
+    val cachedSize: Long,
+    val input: MeasurementInput,
+  )
+
   private val data = ConcurrentHashMap<Int, MeasurementParams>()
 
-  /**
-   * [textAttributes] must be a copy the caller no longer mutates: it is kept
-   * for re-measuring at other widths.
-   */
   internal fun store(
-    context: Context,
     id: Int,
-    text: CharSequence?,
+    text: Editable?,
     textAttributes: TextAttributes,
-    hint: CharSequence?,
+    hint: String?,
     paint: TextPaint,
     blockRanges: List<BlockRange>,
     formatter: InputFormatter,
@@ -48,13 +49,20 @@ object InputMeasurementStore {
     val cachedWidth = data[id]?.cachedWidth ?: 0f
     val cachedSize = data[id]?.cachedSize ?: 0L
 
-    // The view keeps mutating its own paint (text size, typeface, and the
-    // heading size used for the caret on an empty heading line), while this
-    // entry is re-measured later for new widths on the layout thread.
-    val paintSnapshot = TextPaint(paint)
-    val size = measure(context, cachedWidth, text, hint, textAttributes, paintSnapshot, blockRanges, formatter)
+    // Most of the parameters passed in here are mutable. We create copies to
+    // ensure we persist the current values forever.
+    val input =
+      MeasurementInput(
+        text = text?.let { SpannableStringBuilder(it) },
+        hint = hint,
+        textAttributes = textAttributes.copy(),
+        paint = TextPaint(paint),
+        blockRanges = blockRanges.map { it.copy() },
+        formatter = formatter.copy(),
+      )
+    val size = measure(cachedWidth, input)
 
-    data[id] = MeasurementParams(cachedWidth, size, text, textAttributes, hint, paintSnapshot, blockRanges, formatter)
+    data[id] = MeasurementParams(cachedWidth, size, input)
     return size != cachedSize
   }
 
@@ -94,17 +102,7 @@ object InputMeasurementStore {
       return value.cachedSize
     }
 
-    val size =
-      measure(
-        context,
-        width,
-        value.text,
-        value.hint,
-        value.textAttributes,
-        value.paint,
-        value.blockRanges,
-        value.formatter,
-      )
+    val size = measure(width, value.input)
     data[id] = value.copy(cachedWidth = width, cachedSize = size)
     return size
   }
@@ -140,32 +138,28 @@ object InputMeasurementStore {
       }
 
     return measure(
-      context,
       width,
-      parseResult.plainText,
-      props?.getString("placeholder"),
-      textAttributes,
-      paint,
-      parseResult.blockRanges,
-      formatter,
+      MeasurementInput(
+        text = parseResult.plainText,
+        hint = props?.getString("placeholder"),
+        textAttributes = textAttributes,
+        paint = paint,
+        blockRanges = parseResult.blockRanges,
+        formatter = formatter,
+      ),
     )
   }
 
   /**
-   * Lays out the same spans the editor draws with. [formatter] must already
-   * have [textAttributes] as its body text attributes; it is shared with the
-   * view, so it is only read here.
+   * Lays out the same spans the editor draws with. The formatter must already
+   * have the input's text attributes as its body text attributes.
    */
   private fun measure(
-    context: Context,
     maxWidth: Float,
-    text: CharSequence?,
-    hint: CharSequence?,
-    textAttributes: TextAttributes,
-    paint: TextPaint,
-    blockRanges: List<BlockRange>,
-    formatter: InputFormatter,
+    input: MeasurementInput,
   ): Long {
+    val (text, hint, textAttributes, paint, blockRanges, formatter) = input
+
     // An empty editor is measured with its hint, like React Native TextInput:
     // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L1093-L1100
     // With no hint either, StaticLayout still gives the empty text one line

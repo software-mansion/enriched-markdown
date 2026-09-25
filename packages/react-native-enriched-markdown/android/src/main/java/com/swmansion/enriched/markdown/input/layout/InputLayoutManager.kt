@@ -20,11 +20,10 @@ class InputLayoutManager(
 
     val needUpdate =
       InputMeasurementStore.store(
-        context = view.context,
         id = view.id,
         text = view.text,
-        textAttributes = view.textAttributesForMeasurement(),
-        hint = view.hint,
+        textAttributes = view.textAttributes,
+        hint = view.hint?.toString(),
         paint = view.paint,
         blockRanges = view.blockStore.allRanges,
         formatter = view.formatter,
