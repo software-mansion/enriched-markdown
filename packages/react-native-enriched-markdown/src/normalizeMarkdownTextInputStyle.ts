@@ -3,7 +3,13 @@ import type {
   HeadingStyle,
   LinkStyle,
   MarkdownTextInputStyle,
-} from './EnrichedMarkdownTextInput';
+} from './types/MarkdownTextInputStyle';
+import {
+  DEFAULT_LINK_BG_COLOR,
+  DEFAULT_LINK_COLOR,
+  DEFAULT_SPOILER_BG_COLOR,
+  DEFAULT_SPOILER_COLOR,
+} from './inputStyleDefaults';
 import { normalizeLinkVariantEntries } from './linkVariantUtils';
 import { normalizeColor } from './styleUtils';
 import {
@@ -52,11 +58,6 @@ interface MarkdownTextInputStyleInternal {
     itemSpacing: number;
   };
 }
-
-export const DEFAULT_LINK_COLOR = '#2563EB';
-const DEFAULT_LINK_BG_COLOR = 'transparent';
-export const DEFAULT_SPOILER_COLOR = '#374151';
-export const DEFAULT_SPOILER_BG_COLOR = '#E5E7EB';
 
 // Defaults shared with the read-only renderer via headingDefaults; consumers
 // override per level via markdownStyle h1..h6.

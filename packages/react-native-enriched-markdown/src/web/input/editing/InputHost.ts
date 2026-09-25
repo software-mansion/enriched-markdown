@@ -1,6 +1,10 @@
 import { BlockStore, lineAtPosition } from '../formatting/BlockStore';
 import { FormattingStore } from '../formatting/FormattingStore';
 import { parseToPlainTextAndRanges } from '../formatting/InputParser';
+import {
+  markdownLinePrefix,
+  serialize,
+} from '../formatting/MarkdownSerializer';
 import type { RangeBounds } from '../model/rangeBounds';
 import { DomRenderer } from '../render/DomRenderer';
 import { projectParagraphs } from '../render/InputProjection';
@@ -15,10 +19,18 @@ import { TypingAttributesController } from './TypingAttributesController';
 import { buildInputState, sameInputState, type InputState } from './InputState';
 import { charLengthBefore, charLengthAfter } from '../utils';
 
+export interface CaretRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface InputHostCallbacks {
   onChangeText?: (text: string) => void;
   onChangeSelection?: (selection: RangeBounds) => void;
   onChangeState?: (state: InputState) => void;
+  onChangeMarkdown?: (markdown: string) => void;
 }
 
 export class InputHost {
@@ -35,6 +47,7 @@ export class InputHost {
 
   private text = '';
   private selection: RangeBounds = { start: 0, end: 0 };
+  private editable = true;
   private lastEmittedState: InputState | null = null;
 
   constructor(root: HTMLElement, callbacks: InputHostCallbacks = {}) {
@@ -85,6 +98,48 @@ export class InputHost {
     return this.text;
   }
 
+  getMarkdown(): string {
+    return serialize(
+      this.text,
+      this.formattingStore.allRanges,
+      this.blockStore.allRanges,
+      markdownLinePrefix
+    );
+  }
+
+  focus(): void {
+    this.root.focus();
+  }
+
+  setEditable(editable: boolean): void {
+    this.editable = editable;
+    this.root.contentEditable = editable ? 'true' : 'false';
+  }
+
+  caretRect(): CaretRect | null {
+    const position = this.mapper.domPositionFromModelOffset(
+      this.selection.start
+    );
+    if (position === null) {
+      return null;
+    }
+    const range = this.root.ownerDocument.createRange();
+    range.setStart(position.node, position.offset);
+    range.collapse(true);
+    const rect = range.getBoundingClientRect();
+    const rootRect = this.root.getBoundingClientRect();
+    return {
+      x: rect.left - rootRect.left,
+      y: rect.top - rootRect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  blur(): void {
+    this.root.blur();
+  }
+
   async setValue(markdown: string): Promise<void> {
     const { plainText, formattingRanges, blockRanges } =
       await parseToPlainTextAndRanges(markdown);
@@ -96,7 +151,19 @@ export class InputHost {
       this.selection = { start: plainText.length, end: plainText.length };
     });
     this.render();
-    this.emitChanges();
+    this.emitTextEdited();
+  }
+
+  setSelection(start: number, end: number): void {
+    const max = this.text.length;
+    const clampedStart = Math.max(0, Math.min(start, max));
+    this.selection = {
+      start: clampedStart,
+      end: Math.max(clampedStart, Math.min(end, max)),
+    };
+    this.render();
+    this.resetTypingAfterSelectionMove();
+    this.emitSelectionMoved();
   }
 
   indentList(): void {
@@ -140,10 +207,14 @@ export class InputHost {
       this.blockCoordinator.toggleHeading(level, this.selection, this.text)
     );
     this.render();
-    this.emitState();
+    this.emitFormattingChanged();
   }
 
   private readonly handleBeforeInput = (event: InputEvent): void => {
+    if (!this.editable) {
+      event.preventDefault();
+      return;
+    }
     // During composition the browser owns the DOM; the read-back step will
     // reconcile it later.
     if (this.session.isComposing) {
@@ -186,7 +257,7 @@ export class InputHost {
   // Tab never reaches beforeinput (the browser moves focus), so it is the
   // one key handled here.
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'Tab' || this.session.isComposing) {
+    if (!this.editable || event.key !== 'Tab' || this.session.isComposing) {
       return;
     }
     event.preventDefault();
@@ -228,12 +299,15 @@ export class InputHost {
       return;
     }
     this.selection = mapped;
-    if (!this.session.isPostEditGracePeriod) {
-      this.typing.resetForSelectionChange(mapped);
-    }
-    this.callbacks.onChangeSelection?.(mapped);
-    this.emitState();
+    this.resetTypingAfterSelectionMove();
+    this.emitSelectionMoved();
   };
+
+  private resetTypingAfterSelectionMove(): void {
+    if (!this.session.isPostEditGracePeriod) {
+      this.typing.resetForSelectionChange(this.selection);
+    }
+  }
 
   private insertNewline(): void {
     const { start, end } = this.selection;
@@ -273,6 +347,7 @@ export class InputHost {
     );
     if (changed) {
       this.render();
+      this.emitFormattingChanged();
     }
   }
 
@@ -281,7 +356,7 @@ export class InputHost {
       this.blockCoordinator.toggleListType(type, this.selection, this.text)
     );
     this.render();
-    this.emitState();
+    this.emitFormattingChanged();
   }
 
   private toggleInlineStyle(type: InputStyleType): void {
@@ -291,7 +366,11 @@ export class InputHost {
     );
     this.typing.toggleStyle(type, wasActive, start !== end);
     this.render();
-    this.emitState();
+    this.emitFormattingChanged();
+  }
+
+  insertText(text: string): void {
+    this.replaceSelection(text);
   }
 
   private replaceSelection(insertedText: string): void {
@@ -349,12 +428,15 @@ export class InputHost {
       this.session.recordTextChange();
     });
     this.render();
-    this.emitChanges();
-    this.emitState();
+    this.emitTextEdited();
   }
 
   private render(): void {
     this.session.scoped('formatting', () => {
+      this.root.toggleAttribute(
+        'data-empty',
+        this.text.length === 0 && this.blockStore.allRanges.length === 0
+      );
       this.renderer.render(
         this.text,
         projectParagraphs(
@@ -376,13 +458,13 @@ export class InputHost {
     if (domSelection === null) {
       return;
     }
-    // Compare in model offsets: a boundary caret has two DOM addresses, so
-    // node identity would report false divergence on every render.
     const current = this.mapper.modelSelectionFromDom(domSelection);
+    const collapsed = this.selection.start === this.selection.end;
     if (
       current !== null &&
       current.start === this.selection.start &&
-      current.end === this.selection.end
+      current.end === this.selection.end &&
+      domSelection.isCollapsed === collapsed
     ) {
       return;
     }
@@ -402,11 +484,17 @@ export class InputHost {
     );
   }
 
-  private emitChanges(): void {
+  private emitText(): void {
     if (this.session.shouldSuppressEvents) {
       return;
     }
     this.callbacks.onChangeText?.(this.text);
+  }
+
+  private emitSelection(): void {
+    if (this.session.shouldSuppressEvents) {
+      return;
+    }
     this.callbacks.onChangeSelection?.(this.selection);
   }
 
@@ -429,5 +517,29 @@ export class InputHost {
     }
     this.lastEmittedState = state;
     this.callbacks.onChangeState?.(state);
+  }
+
+  private emitMarkdown(): void {
+    if (this.session.shouldSuppressEvents || !this.callbacks.onChangeMarkdown) {
+      return;
+    }
+    this.callbacks.onChangeMarkdown(this.getMarkdown());
+  }
+
+  private emitTextEdited(): void {
+    this.emitText();
+    this.emitSelection();
+    this.emitState();
+    this.emitMarkdown();
+  }
+
+  private emitFormattingChanged(): void {
+    this.emitState();
+    this.emitMarkdown();
+  }
+
+  private emitSelectionMoved(): void {
+    this.emitSelection();
+    this.emitState();
   }
 }
