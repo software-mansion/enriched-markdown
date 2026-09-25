@@ -57,9 +57,12 @@ android {
 
   buildTypes {
     release {
-      // No R8, matching the example app's release build (enableProguardInReleaseBuilds
-      // is false), so the library is measured as the app ships it.
-      minifyEnabled false
+      // R8, as in the enriched-markdown-android benchmark, so the two libraries are
+      // compared under the same optimisation. The module's own sources are all
+      // androidTest, so it is the test APK that gets minified; the library's consumer
+      // rules keep what its JNI code looks up by name.
+      androidTest.enableMinification = true
+      testProguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "benchmark-proguard-rules.pro")
     }
   }
 
