@@ -16,6 +16,7 @@ class OnContextMenuItemPressEvent(
   private val isUnderline: Boolean,
   private val isStrikethrough: Boolean,
   private val isSpoiler: Boolean,
+  private val isLink: Boolean,
   private val linkDestination: String,
   private val headingLevel: Int,
   private val isUnorderedList: Boolean,
@@ -28,11 +29,13 @@ class OnContextMenuItemPressEvent(
   override fun getEventData(): WritableMap {
     fun styleEntry(isActive: Boolean) = Arguments.createMap().apply { putBoolean("isActive", isActive) }
 
-    fun linkEntry(destination: String) =
-      Arguments.createMap().apply {
-        putBoolean("isActive", destination.isNotEmpty())
-        putString("destination", destination)
-      }
+    fun linkEntry(
+      isActive: Boolean,
+      destination: String,
+    ) = Arguments.createMap().apply {
+      putBoolean("isActive", isActive)
+      putString("destination", destination)
+    }
 
     return Arguments.createMap().apply {
       putString("itemText", itemText)
@@ -47,7 +50,7 @@ class OnContextMenuItemPressEvent(
           putMap("underline", styleEntry(isUnderline))
           putMap("strikethrough", styleEntry(isStrikethrough))
           putMap("spoiler", styleEntry(isSpoiler))
-          putMap("link", linkEntry(linkDestination))
+          putMap("link", linkEntry(isLink, linkDestination))
           putMap(
             "heading",
             Arguments.createMap().apply {

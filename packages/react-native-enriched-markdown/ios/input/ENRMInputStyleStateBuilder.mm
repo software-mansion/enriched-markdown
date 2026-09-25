@@ -6,7 +6,9 @@
                   forSelection:(NSRange)selection
                     dataSource:(id<ENRMInputStyleStateDataSource>)dataSource
 {
-  snapshot->linkDestination = [dataSource linkURLForSelection:selection].UTF8String ?: "";
+  ENRMFormattingRange *link = [dataSource linkForSelection:selection];
+  snapshot->link = link != nil;
+  snapshot->linkDestination = link.url.UTF8String ?: "";
 }
 
 + (ENRMInputStyleSnapshot)snapshotAtCurrentCursor:(id<ENRMInputStyleStateDataSource>)dataSource

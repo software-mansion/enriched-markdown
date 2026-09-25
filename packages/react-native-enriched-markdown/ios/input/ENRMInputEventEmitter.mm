@@ -9,8 +9,8 @@ static EnrichedMarkdownTextInputEventEmitter::OnChangeState ENRMFabricChangeStat
       .italic = {.isActive = s.italic},
       .underline = {.isActive = s.underline},
       .strikethrough = {.isActive = s.strikethrough},
-      .spoiler = {.isActive = s.spoiler},
-      .link = {.isActive = !s.linkDestination.empty(), .destination = s.linkDestination},
+      .spoiler = {.isActive = s.spoilerlinkForSelection},
+      .link = {.isActive = s.link, .destination = s.linkDestination},
       .heading = {.isActive = s.headingLevel > 0, .level = static_cast<int>(s.headingLevel)},
       .unorderedList = {.isActive = s.unorderedList, .depth = static_cast<int>(s.unorderedList ? s.listDepth : 0)},
       .orderedList = {.isActive = s.orderedList, .depth = static_cast<int>(s.orderedList ? s.listDepth : 0)},
@@ -26,7 +26,7 @@ ENRMFabricContextMenuStyleState(ENRMInputStyleSnapshot s)
       .underline = {.isActive = s.underline},
       .strikethrough = {.isActive = s.strikethrough},
       .spoiler = {.isActive = s.spoiler},
-      .link = {.isActive = !s.linkDestination.empty(), .destination = s.linkDestination},
+      .link = {.isActive = s.link, .destination = s.linkDestination},
       .heading = {.isActive = s.headingLevel > 0, .level = static_cast<int>(s.headingLevel)},
       .unorderedList = {.isActive = s.unorderedList, .depth = static_cast<int>(s.unorderedList ? s.listDepth : 0)},
       .orderedList = {.isActive = s.orderedList, .depth = static_cast<int>(s.orderedList ? s.listDepth : 0)},
@@ -43,7 +43,7 @@ ENRMFabricContextMenuStyleState(ENRMInputStyleSnapshot s)
   __weak id<ENRMInputEventEmitterDataSource> _dataSource;
 
   struct {
-    BOOL bold, italic, underline, strikethrough, spoiler, initialized;
+    BOOL bold, italic, underline, strikethrough, spoiler, link, initialized;
     std::string linkDestination;
     NSInteger headingLevel;
     BOOL unorderedList;
@@ -179,10 +179,10 @@ ENRMFabricContextMenuStyleState(ENRMInputStyleSnapshot s)
 
   if (_prevState.initialized && _prevState.bold == snapshot.bold && _prevState.italic == snapshot.italic &&
       _prevState.underline == snapshot.underline && _prevState.strikethrough == snapshot.strikethrough &&
-      _prevState.spoiler == snapshot.spoiler && _prevState.linkDestination == snapshot.linkDestination &&
-      _prevState.headingLevel == snapshot.headingLevel && _prevState.unorderedList == snapshot.unorderedList &&
-      _prevState.unorderedListDepth == snapshot.listDepth && _prevState.orderedList == snapshot.orderedList &&
-      _prevState.orderedListDepth == snapshot.listDepth) {
+      _prevState.spoiler == snapshot.spoiler && _prevState.link == snapshot.link &&
+      _prevState.linkDestination == snapshot.linkDestination && _prevState.headingLevel == snapshot.headingLevel &&
+      _prevState.unorderedList == snapshot.unorderedList && _prevState.unorderedListDepth == snapshot.listDepth &&
+      _prevState.orderedList == snapshot.orderedList && _prevState.orderedListDepth == snapshot.listDepth) {
     return;
   }
 
@@ -191,6 +191,7 @@ ENRMFabricContextMenuStyleState(ENRMInputStyleSnapshot s)
   _prevState.underline = snapshot.underline;
   _prevState.strikethrough = snapshot.strikethrough;
   _prevState.spoiler = snapshot.spoiler;
+  _prevState.link = snapshot.link;
   _prevState.linkDestination = snapshot.linkDestination;
   _prevState.headingLevel = snapshot.headingLevel;
   _prevState.unorderedList = snapshot.unorderedList;

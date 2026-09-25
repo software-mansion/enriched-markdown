@@ -27,15 +27,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// NSMaxRange(link) after tapping a link.
 - (nullable ENRMFormattingRange *)linkForSelection:(NSRange)selection;
 
-/// Updates the URL of the link at the selection, or adds a link over a
-/// non-empty selection. Returns YES if a mutation occurred.
+/// Updates the URL of the link at the selection if the selection lies within
+/// it, or otherwise adds a link over a non-empty selection. Returns YES if a
+/// mutation occurred.
 - (BOOL)setLinkURL:(NSString *)url forSelection:(NSRange)selection;
-
-/// Adds a new link range (sanitizes the URL, clears auto-links).
-- (void)addLinkWithURL:(NSString *)url start:(NSUInteger)start end:(NSUInteger)end;
-
-/// Adds a link range with an already-sanitized URL (no auto-link clearing).
-- (void)addLinkDirectWithURL:(NSString *)url start:(NSUInteger)start end:(NSUInteger)end;
 
 /// Removes the link at the selection. Returns YES if a link was found and removed.
 - (BOOL)removeLinkForSelection:(NSRange)selection;
