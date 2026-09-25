@@ -120,17 +120,13 @@
     paragraph.firstLineHeadIndent = indent;
     paragraph.headIndent = indent;
     paragraph.paragraphSpacingBefore = _formatterStyle.listItemSpacing;
-    if (_formatterStyle.baseLineHeight > 0) {
-      paragraph.minimumLineHeight = _formatterStyle.baseLineHeight;
-      paragraph.maximumLineHeight = _formatterStyle.baseLineHeight;
-    }
+    ENRMApplyLineHeightToParagraphStyle(paragraph, _formatterStyle.baseLineHeight);
     attrs[NSParagraphStyleAttributeName] = paragraph;
   } else if (headingLevel >= 1 && headingLevel <= 6) {
     CGFloat derivedLineHeight = [_formatterStyle derivedLineHeightForHeadingLevel:headingLevel];
     if (derivedLineHeight > 0) {
       NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
-      paragraph.minimumLineHeight = derivedLineHeight;
-      paragraph.maximumLineHeight = derivedLineHeight;
+      ENRMApplyLineHeightToParagraphStyle(paragraph, derivedLineHeight);
       attrs[NSParagraphStyleAttributeName] = paragraph;
     } else {
       [attrs removeObjectForKey:NSParagraphStyleAttributeName];

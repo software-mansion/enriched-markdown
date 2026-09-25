@@ -10,6 +10,10 @@ import kotlin.math.floor
  *
  * Mirrors CustomLineHeightSpan.chooseHeight:
  * https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/text/internal/span/CustomLineHeightSpan.kt#L44-L57
+ *
+ * Unlike RN, [lineHeight] is a floor, not a clamp: taller content grows the
+ * line instead of being clipped (e.g. inline code taller than the paragraph,
+ * https://github.com/software-mansion/enriched-markdown/issues/827).
  */
 internal fun applyLineHeight(
   fm: FontMetricsInt,
@@ -19,6 +23,11 @@ internal fun applyLineHeight(
   textLength: Int,
 ) {
   val leading = lineHeight - ((-fm.ascent) + fm.descent)
+
+  // Use lineHeight as a floor: if the default line-height is greater, don't
+  // override it
+  if (leading <= 0) return
+
   fm.ascent -= ceil(leading / 2.0f).toInt()
   fm.descent += floor(leading / 2.0f).toInt()
 
