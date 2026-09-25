@@ -50,7 +50,7 @@ import { Linking } from 'react-native';
 
 ```kotlin
 dependencies {
-  implementation("com.swmansion.enriched.markdown:compose:0.1.0")
+  implementation("com.swmansion.enriched.markdown:compose:0.2.0")
 }
 ```
 
@@ -61,7 +61,7 @@ import com.swmansion.enriched.markdown.compose.MarkdownTheme
 MarkdownTheme {
   EnrichedMarkdownText(
     markdown = "# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).",
-    onLinkPress = { url -> /* open url */ },
+    onLinkClick = { url -> /* open url */ },
   )
 }
 ```

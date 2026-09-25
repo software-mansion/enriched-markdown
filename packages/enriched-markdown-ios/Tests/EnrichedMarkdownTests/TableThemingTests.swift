@@ -278,7 +278,7 @@ final class TableThemingTests: XCTestCase {
         view.frame = CGRect(x: 0, y: 0, width: 400, height: table.layout.totalHeight)
         view.layoutIfNeeded()
 
-        guard let grid = findGridView(in: view) else { return XCTFail("no grid view") }
+        guard let grid = view.firstSubview(of: TableGridView.self) else { return XCTFail("no grid view") }
         let expectedX = (400 - table.layout.totalWidth) / 2
         XCTAssertEqual(grid.frame.minX, expectedX, accuracy: 0.5)
     }
@@ -305,13 +305,5 @@ final class TableThemingTests: XCTestCase {
         recreated.layoutIfNeeded()
         let recreatedScroll = recreated.subviews.compactMap { $0 as? UIScrollView }.first
         XCTAssertEqual(recreatedScroll?.contentOffset.x, 42)
-    }
-
-    private func findGridView(in view: UIView) -> TableGridView? {
-        if let grid = view as? TableGridView { return grid }
-        for subview in view.subviews {
-            if let found = findGridView(in: subview) { return found }
-        }
-        return nil
     }
 }

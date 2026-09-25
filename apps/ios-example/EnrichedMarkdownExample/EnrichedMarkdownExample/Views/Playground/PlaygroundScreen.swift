@@ -2,6 +2,31 @@ import EnrichedMarkdown
 import EnrichedMarkdownLaTeX
 import SwiftUI
 
+/// The three ways a block image can be sized, cycled by the playground button.
+private enum ImageSizingOption: CaseIterable {
+    case height
+    case maxHeight
+    case aspectRatio
+
+    /// The button title paired with the modifier it stands for, so the two
+    /// cannot drift apart.
+    var labelled: (label: String, image: BlockImage) {
+        switch self {
+        case .height: return ("Height 200", BlockImage().height(200))
+        case .maxHeight: return ("Max 150", BlockImage().maxHeight(150))
+        case .aspectRatio: return ("16:9", BlockImage().aspectRatio(16 / 9))
+        }
+    }
+}
+
+/// The sizing's own default first, then every explicit mode.
+private let imageContentModeCycle: [ImageContentMode?] = [nil] + ImageContentMode.allCases
+
+private func cycled<T: Equatable>(_ current: T, in options: [T]) -> T {
+    let index = options.firstIndex(of: current) ?? 0
+    return options[(index + 1) % options.count]
+}
+
 struct PlaygroundScreen: View {
     // MARK: - Properties
 
@@ -16,6 +41,8 @@ struct PlaygroundScreen: View {
     @State private var linkAlertVisible: Bool = false
     @State private var acceptImageType: String = "image/png"
     @State private var spoilerOverlay: PlaygroundSpoilerOverlay = .particles
+    @State private var imageSizing: ImageSizingOption = .height
+    @State private var imageContentMode: ImageContentMode?
 
     // MARK: - Views
 
@@ -62,6 +89,24 @@ struct PlaygroundScreen: View {
                     }
                     PlaygroundButton(label: "Insert Data URI Image", accessibilityId: "insert-data-uri-image-button") {
                         insertDataURIImage()
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    PlaygroundButton(
+                        label: "Sizing: \(imageSizing.labelled.label)",
+                        accessibilityId: "image-sizing-button"
+                    ) {
+                        imageSizing = cycled(imageSizing, in: ImageSizingOption.allCases)
+                    }
+                    PlaygroundButton(
+                        label: "Mode: \(imageContentModeLabel)",
+                        accessibilityId: "image-content-mode-button"
+                    ) {
+                        imageContentMode = cycled(imageContentMode, in: imageContentModeCycle)
+                    }
+                    PlaygroundButton(label: "Insert Photo", accessibilityId: "insert-photo-button") {
+                        insertPhoto()
                     }
                 }
 
@@ -147,6 +192,7 @@ struct PlaygroundScreen: View {
                             admonitions: true
                         )
                     )
+                        .markdownTheme(imageSizingTheme)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .accessibilityIdentifier("preview-text")
@@ -166,6 +212,27 @@ struct PlaygroundScreen: View {
     private func loadBundledImages() {
         blockImageURI = Bundle.main.imageURI(named: "logo", extension: "png")
         inlineImageURI = Bundle.main.imageURI(named: "logo_icon", extension: "png")
+    }
+
+    private var imageContentModeLabel: String {
+        imageContentMode?.rawValue.capitalized ?? "Default"
+    }
+
+    /// Layered over the screen theme so the sizing buttons restyle block
+    /// images live.
+    private var imageSizingTheme: MarkdownTheme {
+        var image = imageSizing.labelled.image
+        if let imageContentMode {
+            image = image.contentMode(imageContentMode)
+        }
+        return MarkdownTheme { image }
+    }
+
+    /// A tall remote photo, so fill, fit and original differ visibly from
+    /// each other and from the wide bundled logo.
+    private func insertPhoto() {
+        let url = "https://images.unsplash.com/photo-1448375240586-882707db888b?w=800"
+        appendBlock("![Misty forest at sunrise](\(url))")
     }
 
     private func insertBlockImage() {

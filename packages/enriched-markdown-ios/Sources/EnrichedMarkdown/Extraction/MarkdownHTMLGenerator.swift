@@ -27,8 +27,7 @@ enum MarkdownHTMLGenerator {
     static func generateHTML(
         from attributedText: NSAttributedString,
         in range: NSRange,
-        config: MarkdownStyleConfig,
-        isRTL: Bool = false
+        config: MarkdownStyleConfig
     ) -> String {
         guard range.location != NSNotFound,
               range.length > 0,
@@ -47,10 +46,17 @@ enum MarkdownHTMLGenerator {
         var state = State()
         var html = ""
 
-        if isRTL {
+        // One `dir` for the whole document, read from its first paragraph as
+        // the React Native package does; `auto` while it is still `.natural`.
+        let direction = (text.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?
+            .baseWritingDirection ?? .natural
+        switch direction {
+        case .rightToLeft:
             html += "<html dir=\"rtl\"><div dir=\"rtl\" style=\"direction: rtl; text-align: right;\">"
-        } else {
+        case .leftToRight:
             html += "<html>"
+        default:
+            html += "<html dir=\"auto\">"
         }
 
         for paragraph in collectParagraphs(in: text) {
@@ -61,7 +67,7 @@ enum MarkdownHTMLGenerator {
         closeAllBlockquotes(&html, state: &state)
         closeListsIfOpen(&html, state: &state)
 
-        if isRTL {
+        if direction == .rightToLeft {
             html += "</div>"
         }
         html += "</html>"

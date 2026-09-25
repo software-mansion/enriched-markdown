@@ -103,14 +103,18 @@ public extension MarkdownRenderer {
         config: MarkdownStyleConfig,
         flags: Md4cFlags = .commonMark,
         imageRequestHeaders: [String: String] = [:],
-        accessibilityLabel: String = "Math: {speech}"
+        accessibilityLabel: String = "Math: {speech}",
+        writingDirection: MarkdownWritingDirection = .firstStrong,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) -> NSAttributedString {
         renderLaTeX(
             markdown,
             config: config,
             flags: flags,
             imageRequestHeaders: imageRequestHeaders,
-            accessibilityLabel: LaTeXRenderPlugin.label(template: accessibilityLabel)
+            accessibilityLabel: LaTeXRenderPlugin.label(template: accessibilityLabel),
+            writingDirection: writingDirection,
+            layoutDirection: layoutDirection
         )
     }
 
@@ -119,14 +123,18 @@ public extension MarkdownRenderer {
         config: MarkdownStyleConfig,
         flags: Md4cFlags = .commonMark,
         imageRequestHeaders: [String: String] = [:],
-        accessibilityLabel: @escaping (String) -> String
+        accessibilityLabel: @escaping (String) -> String,
+        writingDirection: MarkdownWritingDirection = .firstStrong,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) -> NSAttributedString {
         render(
             markdown,
             config: config,
             flags: flags,
             imageRequestHeaders: imageRequestHeaders,
-            plugins: [LaTeXRenderPlugin(accessibilityLabel: accessibilityLabel)]
+            plugins: [LaTeXRenderPlugin(accessibilityLabel: accessibilityLabel)],
+            writingDirection: writingDirection,
+            layoutDirection: layoutDirection
         )
     }
 }

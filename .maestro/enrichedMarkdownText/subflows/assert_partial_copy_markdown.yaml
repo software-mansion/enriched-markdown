@@ -1,0 +1,33 @@
+appId: swmansion.enriched.markdown.example
+---
+- runFlow:
+    file: 'set_enriched_text_value.yaml'
+    env:
+      VALUE: '${SOURCE} and unselected trailing text.'
+
+- scrollUntilVisible:
+    element:
+      id: preview-text
+    direction: DOWN
+
+# Select the first word only. Selecting all would return the cached source
+# instead of exercising MarkdownExtractor's attributed-string reconstruction.
+- longPressOn:
+    id: preview-text
+    point: '5%,25%'
+- tapOn: 'Copy as Markdown'
+
+- scrollUntilVisible:
+    element:
+      id: set-markdown-button
+    direction: UP
+- tapOn:
+    id: set-markdown-button
+- longPressOn:
+    id: set-markdown-input
+- tapOn: 'Paste'
+- assertVisible:
+    id: set-markdown-input
+    text: ${EXPECTED}
+- tapOn:
+    id: set-markdown-cancel

@@ -35,6 +35,7 @@ internal data class MarkdownStyleLayer(
   val table: TableStylePatch? = null,
   /** Pending edits owned by plugins, keyed by the [StyleExtensionKey] each plugin declares. */
   val pluginPatches: Map<StyleExtensionKey<*>, PluginStylePatch<*>> = emptyMap(),
+  val spoiler: SpoilerStylePatch? = null,
 ) {
   fun apply(
     resolveContext: StyleResolveContext,
@@ -80,6 +81,7 @@ internal data class MarkdownStyleLayer(
           thematicBreakStyle = thematicBreak?.apply(base.thematicBreakStyle, units),
           tableStyle = table?.apply(base.tableStyle, resolveContext, units),
           extensions = extensions,
+          spoilerStyle = spoiler?.apply(base.spoilerStyle, units),
         ),
     )
   }

@@ -3,7 +3,6 @@ package com.swmansion.enriched.markdown.test
 import android.content.Context
 import android.text.Selection
 import android.text.Spannable
-import android.text.SpannableString
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.EnrichedMarkdown
@@ -15,10 +14,10 @@ import com.swmansion.enriched.markdown.segments.SegmentSignature
 object MarkdownTextViewTestSupport {
   private val context: Context = ApplicationProvider.getApplicationContext()
 
-  fun render(document: MarkdownASTNode): SpannableString = MarkdownRenderTestSupport.render(document)
+  fun render(document: MarkdownASTNode): Spannable = MarkdownRenderTestSupport.render(document)
 
   fun createTextViewWithSelection(
-    spannable: SpannableString,
+    spannable: Spannable,
     selectionStart: Int,
     selectionEnd: Int,
   ): TextView {
@@ -35,7 +34,7 @@ object MarkdownTextViewTestSupport {
     selectionEnd: Int,
   ): TextView = createTextViewWithSelection(render(document), selectionStart, selectionEnd)
 
-  fun createTextViewWithFullSelection(spannable: SpannableString): TextView = createTextViewWithSelection(spannable, 0, spannable.length)
+  fun createTextViewWithFullSelection(spannable: Spannable): TextView = createTextViewWithSelection(spannable, 0, spannable.length)
 
   fun createTextViewWithFullSelection(document: MarkdownASTNode): TextView {
     val spannable = render(document)
@@ -59,7 +58,7 @@ object MarkdownTextViewTestSupport {
    * `MarkdownExtractor`) sees a real ancestor.
    */
   fun createEnrichedMarkdownTextWithSelection(
-    spannable: SpannableString,
+    spannable: Spannable,
     selectionStart: Int,
     selectionEnd: Int,
   ): EnrichedMarkdownInternalText {
@@ -84,7 +83,7 @@ object MarkdownTextViewTestSupport {
 
   fun createEnrichedMarkdownTextWithStoredMarkdown(
     originalMarkdown: String,
-    rendered: SpannableString,
+    rendered: Spannable,
   ): EnrichedMarkdownInternalText {
     val textView = createEnrichedMarkdownTextWithSelection(rendered, 0, rendered.length)
     setCurrentMarkdown(textView.parent as EnrichedMarkdown, originalMarkdown)
@@ -99,7 +98,7 @@ object MarkdownTextViewTestSupport {
    */
   fun createContainerWithStoredMarkdown(
     originalMarkdown: String,
-    rendered: SpannableString,
+    rendered: Spannable,
   ): EnrichedMarkdown {
     val textView = createEnrichedMarkdownTextWithSelection(rendered, 0, rendered.length)
     val container = textView.parent as EnrichedMarkdown
@@ -108,7 +107,7 @@ object MarkdownTextViewTestSupport {
   }
 
   fun selectedRange(
-    spannable: SpannableString,
+    spannable: Spannable,
     start: Int,
     end: Int,
   ): Spannable = spannable.subSequence(start, end) as Spannable
@@ -122,7 +121,7 @@ object MarkdownTextViewTestSupport {
     return index
   }
 
-  private fun attachSoleChild(spannable: SpannableString): EnrichedMarkdownInternalText {
+  private fun attachSoleChild(spannable: Spannable): EnrichedMarkdownInternalText {
     val container = EnrichedMarkdown(context)
     val segment =
       RenderedSegment.Text(

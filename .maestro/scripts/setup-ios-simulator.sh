@@ -49,7 +49,8 @@ defaults write "$PREFS_PLIST" KeyboardAutocorrection -bool false
 defaults write "$PREFS_PLIST" KeyboardCheckSpelling -bool false
 xcrun simctl spawn "$UDID" launchctl kickstart -k system/com.apple.SpringBoard 2>/dev/null || true
 
-open -a Simulator
+# Xcode 26+ renamed Simulator.app to DeviceHub.app; fall back so setup does not abort.
+open -a Simulator 2>/dev/null || open -a DeviceHub 2>/dev/null || true
 
 echo "Simulator ready: $DEVICE_NAME ($UDID)"
 echo "DEVICE_ID=$UDID"

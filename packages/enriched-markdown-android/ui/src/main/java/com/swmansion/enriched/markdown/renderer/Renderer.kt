@@ -1,7 +1,6 @@
 package com.swmansion.enriched.markdown.renderer
 
 import android.content.Context
-import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
@@ -48,14 +47,22 @@ class Renderer {
     document: MarkdownASTNode,
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
-  ): SpannableString = renderContent(document.children, onLinkPress, onLinkLongPress)
+  ): SpannableStringBuilder = renderContent(document.children, onLinkPress, onLinkLongPress)
 
+  /**
+   * Renders [nodes] into a fresh buffer and hands over ownership of it.
+   *
+   * The builder is returned as-is rather than frozen into a `SpannableString`:
+   * the markdown text view adopts it verbatim (see `NoCopySpannableFactory`),
+   * and converting it would cost a quadratic span copy for no benefit. Each call
+   * builds its own buffer, so callers must not mutate one they have passed on.
+   */
   fun renderContent(
     nodes: List<MarkdownASTNode>,
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
     startingTaskIndex: Int = 0,
-  ): SpannableString {
+  ): SpannableStringBuilder {
     val factory =
       requireNotNull(cachedFactory) {
         "Renderer must be configured with a style before rendering."
@@ -74,11 +81,11 @@ class Renderer {
     // Remove trailing margin from last block element
     removeTrailingMargin(builder)
 
-    // Flush deferred spans (e.g. BaselineShiftSpan) after all block-level spans are set.
+    // Flush deferred spans (e.g. BaselineShiftSpan, SpoilerSpan) after all block-level spans are set.
     // See BaselineShiftRenderer for context and the proper long-term fix.
     factory.flushDeferredSpans(builder)
 
-    return SpannableString(builder)
+    return builder
   }
 
   /** Task-list items rendered by the last [renderContent], continuing from its `startingTaskIndex`. */

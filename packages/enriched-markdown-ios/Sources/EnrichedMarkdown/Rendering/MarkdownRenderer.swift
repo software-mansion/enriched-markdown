@@ -1,18 +1,24 @@
 import UIKit
 
 public enum MarkdownRenderer {
+    /// `layoutDirection` is what `.firstStrong` paragraphs without a strong
+    /// character follow; pass the hosting view's resolved direction.
     public static func render(
         _ markdown: String,
         config: MarkdownStyleConfig,
         flags: Md4cFlags = .commonMark,
-        imageRequestHeaders: [String: String] = [:]
+        imageRequestHeaders: [String: String] = [:],
+        writingDirection: MarkdownWritingDirection = .firstStrong,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) -> NSAttributedString {
         render(
             markdown,
             config: config,
             flags: flags,
             imageRequestHeaders: imageRequestHeaders,
-            plugins: []
+            plugins: [],
+            writingDirection: writingDirection,
+            layoutDirection: layoutDirection
         )
     }
 
@@ -21,14 +27,18 @@ public enum MarkdownRenderer {
         config: MarkdownStyleConfig,
         flags: Md4cFlags,
         imageRequestHeaders: [String: String],
-        plugins: [any MarkdownRenderPlugin]
+        plugins: [any MarkdownRenderPlugin],
+        writingDirection: MarkdownWritingDirection = .firstStrong,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) -> NSAttributedString {
         let ast = Parser.shared.parseMarkdown(markdown, flags: effectiveFlags(flags, plugins: plugins))
         let annotated = SourceOffsetAnnotator.annotate(ast, source: markdown)
         let renderer = AttributedRenderer(
             config: config,
             imageRequestHeaders: imageRequestHeaders,
-            plugins: plugins
+            plugins: plugins,
+            writingDirection: writingDirection,
+            layoutDirection: layoutDirection
         )
         return renderer.renderRoot(annotated)
     }

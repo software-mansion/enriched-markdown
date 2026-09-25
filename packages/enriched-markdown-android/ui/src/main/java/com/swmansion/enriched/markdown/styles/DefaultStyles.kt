@@ -191,6 +191,13 @@ internal object DefaultStyles {
           borderWidth = parser.toPixelFromDIP(1f),
           padding = parser.toPixelFromDIP(16f),
         ),
+      spoilerStyle =
+        SpoilerStyle(
+          color = parser.color("#374151"),
+          particleDensity = SpoilerStyle.DEFAULT_PARTICLE_DENSITY,
+          particleSpeed = SpoilerStyle.DEFAULT_PARTICLE_SPEED,
+          solidCornerRadius = parser.toPixelFromDIP(4f),
+        ),
       thematicBreakStyle =
         ThematicBreakStyle(
           color = parser.color("#E5E7EB"),

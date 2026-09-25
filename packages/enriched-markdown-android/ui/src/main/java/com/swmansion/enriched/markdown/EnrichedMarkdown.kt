@@ -24,6 +24,7 @@ import com.swmansion.enriched.markdown.segments.SegmentViewCreators
 import com.swmansion.enriched.markdown.segments.SegmentViewFactory
 import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListTapUtils
@@ -59,7 +60,11 @@ class EnrichedMarkdown(
   val currentMarkdown: String
     get() = TaskListToggleUtils.applyCheckedStates(baseMarkdown, taskListToggles)
 
-  var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
+  var md4cFlags: Md4cFlags = Md4cFlags.Default
+    private set
+
+  /** How unrevealed `||spoiler||` text is concealed. */
+  var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles
     private set
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
@@ -71,7 +76,7 @@ class EnrichedMarkdown(
 
   private var onLinkPressCallback: ((String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
-  private var onTaskListItemPressCallback: ((TaskListItemPressEvent) -> Unit)? = null
+  private var onTaskListItemPressCallback: ((TaskListItemToggle) -> Unit)? = null
   private var onPluginEventCallback: ((PluginEvent) -> Unit)? = null
 
   /**
@@ -163,7 +168,7 @@ class EnrichedMarkdown(
   }
 
   /** Called after a tap on a task-list checkbox has toggled the item. */
-  fun setOnTaskListItemPressCallback(callback: ((TaskListItemPressEvent) -> Unit)?) {
+  fun setOnTaskListItemPressCallback(callback: ((TaskListItemToggle) -> Unit)?) {
     onTaskListItemPressCallback = callback
   }
 
@@ -196,6 +201,18 @@ class EnrichedMarkdown(
     }
   }
 
+  /**
+   * Chooses the overlay that conceals unrevealed spoilers: drifting particles (the default) or
+   * a solid rounded block.
+   */
+  fun setSpoilerOverlay(mode: SpoilerOverlay) {
+    if (spoilerOverlay == mode) return
+    spoilerOverlay = mode
+    segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+      it.spoilerOverlay = mode
+    }
+  }
+
   fun setIsSelectable(selectable: Boolean) {
     if (isSelectable == selectable) return
     isSelectable = selectable
@@ -210,7 +227,7 @@ class EnrichedMarkdown(
 
   fun setOnLinkLongPressListener(listener: ((String) -> Unit)?) = setOnLinkLongPressCallback(listener)
 
-  fun setOnTaskListItemPressListener(listener: ((TaskListItemPressEvent) -> Unit)?) = setOnTaskListItemPressCallback(listener)
+  fun setOnTaskListItemPressListener(listener: ((TaskListItemToggle) -> Unit)?) = setOnTaskListItemPressCallback(listener)
 
   fun setOnPluginEventListener(listener: ((PluginEvent) -> Unit)?) = setOnPluginEventCallback(listener)
 
@@ -253,6 +270,7 @@ class EnrichedMarkdown(
     setOnTaskListItemPressCallback(null)
     setOnPluginEventCallback(null)
     setEnableTaskListItemToggle(true)
+    setSpoilerOverlay(SpoilerOverlay.Particles)
     setMarkdownContent("")
     taskListToggles.clear()
     reportedPluginEvents.clear()
@@ -423,7 +441,7 @@ class EnrichedMarkdown(
     }
 
     onTaskListItemPressCallback?.invoke(
-      TaskListItemPressEvent(index = hit.taskIndex, checked = newChecked, text = hit.itemText),
+      TaskListItemToggle(index = hit.taskIndex, checked = newChecked, text = hit.itemText),
     )
   }
 
@@ -436,6 +454,7 @@ class EnrichedMarkdown(
       selectionHandleColor = selectionHandleColor,
       selectionMenuConfig = selectionMenuConfig,
       enableTaskListItemToggle = enableTaskListItemToggle,
+      spoilerOverlay = spoilerOverlay,
       onTaskListItemTap = ::toggleTaskListItem,
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,

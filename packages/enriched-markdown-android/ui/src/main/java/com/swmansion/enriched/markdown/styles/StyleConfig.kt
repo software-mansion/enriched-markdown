@@ -27,6 +27,7 @@ class StyleConfig(
   val tableHeaderTypeface: Typeface? = null,
   /** Styles owned by plugins, keyed by the [StyleExtensionKey] each plugin declares. */
   val extensions: Map<StyleExtensionKey<*>, Any> = emptyMap(),
+  val spoilerStyle: SpoilerStyle = SpoilerStyle(),
 ) {
   private val paragraphStyleDefault: ParagraphStyle = paragraphStyleDefault
   private var paragraphStyleOverride: ParagraphStyle? = null
@@ -128,7 +129,8 @@ class StyleConfig(
       codeBlockStyle == other.codeBlockStyle &&
       thematicBreakStyle == other.thematicBreakStyle &&
       tableStyle == other.tableStyle &&
-      extensions == other.extensions
+      extensions == other.extensions &&
+      spoilerStyle == other.spoilerStyle
   }
 
   override fun hashCode(): Int {
@@ -151,6 +153,7 @@ class StyleConfig(
     result = 31 * result + thematicBreakStyle.hashCode()
     result = 31 * result + tableStyle.hashCode()
     result = 31 * result + extensions.hashCode()
+    result = 31 * result + spoilerStyle.hashCode()
     return result
   }
 

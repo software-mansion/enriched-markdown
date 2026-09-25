@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-  implementation("com.swmansion.enriched.markdown:compose:0.1.0")
+  implementation("com.swmansion.enriched.markdown:compose:0.2.0")
 }
 ```
 
@@ -80,7 +80,7 @@ MaterialTheme {
   MarkdownTheme {
     EnrichedMarkdownText(
       markdown = "# Hello\n\nThis is **enriched** markdown.",
-      onLinkPress = { url -> /* open url */ },
+      onLinkClick = { url -> /* open url */ },
     )
   }
 }
@@ -94,6 +94,7 @@ Build styles with `markdownStyle { }` and pass them to `MarkdownTheme` or per-co
 
 ```kotlin
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.MarkdownStyle
@@ -112,7 +113,7 @@ val AppMarkdownStyle: MarkdownStyle = markdownStyle {
   }
   link {
     color = Color(0xFF2563EB)
-    underline = true
+    textDecoration = TextDecoration.Underline
   }
   codeBlock {
     fontSize = 14.sp
@@ -131,7 +132,7 @@ MarkdownTheme(style = AppMarkdownStyle) {
 // Per-instance override
 EnrichedMarkdownText(
   markdown = content,
-  style = AppMarkdownStyle.copy {
+  style = AppMarkdownStyle.merge {
     link { color = Color.Red }
   },
 )
@@ -174,10 +175,11 @@ The `markdownStyle` builder supports these blocks:
 | `inlineImage` | Inline images |
 | `thematicBreak` | Horizontal rules |
 | `table` | Tables |
+| `spoiler` | The overlay that conceals `\|\|spoiler\|\|` text |
 | `math` | Block LaTeX math (`$$...$$`; needs the `:math` artifact and `Md4cFlags(latexMath = true)`) |
 | `inlineMath` | Inline LaTeX math (`$...$`; same two requirements) |
 
-Use `MarkdownStyle.copy { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style.
+Use `MarkdownStyle.merge { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style. `a.merge(b)` and `a + b` layer a whole style on top of another the same way.
 
 `superscript` and `subscript` take unitless floats instead of `Dp`/`sp`/`Color`: `fontScale` shrinks the text size relative to its surrounding text, and `baselineOffsetScale` shifts the baseline (as a fraction of text size) up for superscript and down for subscript.
 
@@ -195,6 +197,25 @@ markdownStyle {
 ```
 
 Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
+
+`spoiler` styles the overlay that conceals `||spoiler||` text. `color` paints the particles and fills
+the solid block; `particles { density, speed }` only apply to `SpoilerOverlay.Particles` and are
+unitless multipliers over the defaults shown below, and `solid { cornerRadius }` only applies to
+`SpoilerOverlay.Solid`. The concealed text itself is drawn transparent, so the overlay works over any
+background without being told what that background is.
+
+```kotlin
+markdownStyle {
+  spoiler {
+    color = Color(0xFF374151)
+    particles {
+      density = 8f
+      speed = 20f
+    }
+    solid { cornerRadius = 4.dp }
+  }
+}
+```
 
 ### Math style blocks
 
@@ -227,7 +248,7 @@ markdownStyle {
 
 `math` styles standalone equations: `fontSize`, `color`, `backgroundColor`, `padding`, `marginTop`, `marginBottom`, and `textAlign` (`LEFT`, `CENTER` — the default — or `RIGHT`). `inlineMath` takes a `color` only; its size follows the surrounding text.
 
-Properties you leave unset keep the plugin's own defaults, which live in `:math` rather than in core. Repeating either block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.copy { math { … } }` layers over a base style.
+Properties you leave unset keep the plugin's own defaults, which live in `:math` rather than in core. Repeating either block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { math { … } }` layers over a base style.
 
 ## API reference
 
@@ -239,14 +260,15 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Md4cFlags = Md4cFlags.DEFAULT,
+  flags: Md4cFlags = Md4cFlags.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
-  onLinkPress: ((String) -> Unit)? = null,
-  onLinkLongPress: ((String) -> Unit)? = null,
-  onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
-  enableTaskListItemToggle: Boolean = true,
-  onPluginEvent: ((PluginEvent) -> Unit)? = null,
+  onLinkClick: (String) -> Unit = {},
+  onLinkLongClick: (String) -> Unit = {},
+  onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
+  taskListToggleEnabled: Boolean = true,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles,
+  onPluginEvent: (PluginEvent) -> Unit = {},
 )
 ```
 
@@ -257,10 +279,11 @@ fun EnrichedMarkdownText(
 | `flags` | Optional parser extensions (see `Md4cFlags`) |
 | `selectable` | Enable text selection |
 | `imageRequestHeaders` | HTTP headers attached to remote image requests (e.g. `Referer`) |
-| `onLinkPress` | Called when a link is tapped |
-| `onLinkLongPress` | Called when a link is long-pressed |
-| `onTaskListItemPress` | Called after a task list checkbox tap toggles the item |
-| `enableTaskListItemToggle` | Whether a checkbox tap toggles the item (default `true`) |
+| `onLinkClick` | Called when a link is tapped |
+| `onLinkLongClick` | Called when a link is long-pressed |
+| `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
+| `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
+| `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles` (default) or `SpoilerOverlay.Solid` |
 | `onPluginEvent` | Called when an installed plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
 
 Style defaults come from the nearest `MarkdownTheme`.
@@ -270,7 +293,7 @@ Style defaults come from the nearest `MarkdownTheme`.
 #### Task list checkboxes
 
 ```kotlin
-data class TaskListItemPressEvent(
+data class TaskListItemToggle(
   val index: Int,     // 0-based, in document order
   val checked: Boolean, // state after the toggle
   val text: String,   // first line of the item's plain text
@@ -279,7 +302,7 @@ data class TaskListItemPressEvent(
 
 Tapping anywhere in a task item's checkbox margin toggles its checked state in
 place — checkbox and checked-item text decoration alike — and calls
-`onTaskListItemPress` with the new state. The toggle is visual: the view never
+`onTaskListItemToggle` with the new state. The toggle is visual: the view never
 rewrites the `markdown` string you pass it, so persist the change from the
 handler if it has to survive a new source string. Re-supplying the *same*
 string on recomposition keeps the toggles.
@@ -287,12 +310,12 @@ string on recomposition keeps the toggles.
 ```kotlin
 EnrichedMarkdownText(
   markdown = checklist,
-  onTaskListItemPress = { (index, checked, _) -> store.setDone(index, checked) },
+  onTaskListItemToggle = { (index, checked, _) -> store.setDone(index, checked) },
 )
 ```
 
-`enableTaskListItemToggle = false` makes checkbox taps fully inert: no visual
-toggle and no `onTaskListItemPress`. Text selection and links are unaffected
+`taskListToggleEnabled = false` makes checkbox taps fully inert: no visual
+toggle and no `onTaskListItemToggle`. Text selection and links are unaffected
 either way.
 
 #### LaTeX math
@@ -361,7 +384,7 @@ data class Md4cFlags(
   // … further md4c extensions
 ) {
   companion object {
-    val DEFAULT: Md4cFlags
+    val Default: Md4cFlags
   }
 }
 ```
@@ -400,7 +423,9 @@ Provides a default `MarkdownStyle` for a subtree. Nest themes to scope styles to
 fun markdownStyle(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
 
 class MarkdownStyle {
-  fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(other: MarkdownStyle): MarkdownStyle
+  operator fun plus(other: MarkdownStyle): MarkdownStyle
   companion object {
     val Default: MarkdownStyle
   }
@@ -419,6 +444,11 @@ fun rememberMarkdownStyle(
 
 Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `MaterialTheme { }`.
 
+`TextAlign.Unspecified` keeps the inherited alignment.
+
+Style scope constructors are `internal` — build scopes through the `markdownStyle { }` DSL, which is
+the only supported way to reach them.
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
@@ -427,9 +457,12 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 - Fenced code blocks
 - Block quotes
 - Ordered and unordered lists
-- Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemPress`)
+- Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemToggle`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
+- Spoilers (`||hidden||`, tap to reveal). Adjacent spoilers reveal together. Concealment is visual
+  only: screen readers read concealed text as ordinary text, and a plain Copy yields it too (Copy as
+  Markdown keeps the `||` markers)
 - Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
 - Tables (GFM), including per-column alignment
 - LaTeX math, inline (`$...$`) and block (`$$...$$`) — requires `Md4cFlags(latexMath = true)` and the `:math` artifact
@@ -502,18 +535,20 @@ markdownStyle {
     cornerRadius = 6.dp
     cellPaddingHorizontal = 12.dp
     cellPaddingVertical = 8.dp
-    align = TableAlignment.CENTER
+    alignment = Alignment.CenterHorizontally
   }
 }
 ```
 
 A column is sized to its widest cell, within 60dp-300dp. A table wider than the space available keeps
-those widths and scrolls sideways, with a horizontal scrollbar. `align` places a table that is
-narrower than the available width; it defaults to `TableAlignment.AUTO`, which follows the reading
-direction. `horizontalOverflow` lets a table bleed that far past the container's content box on each
-side, so it can reach the screen edge while the body text stays inset.
+those widths and scrolls sideways, with a horizontal scrollbar. `alignment` places a table that is
+narrower than the available width; it defaults to `Alignment.Start`. `Alignment.Start` / `.End`
+follow the reading direction, while `AbsoluteAlignment.Left` / `.Right` pin a side regardless of it.
+`horizontalOverflow` lets a table bleed that far past the container's content box on each side, so it
+can reach the screen edge while the body text stays inset.
 
 Long-pressing a table offers **Copy** (rich text) and **Copy as Markdown**.
+
 
 ## Development
 

@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.TypedValue
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
@@ -17,6 +18,7 @@ data class SegmentViewConfig(
   val selectionHandleColor: Int?,
   val selectionMenuConfig: SelectionMenuConfig,
   val enableTaskListItemToggle: Boolean,
+  val spoilerOverlay: SpoilerOverlay,
   val onTaskListItemTap: ((view: EnrichedMarkdownInternalText, hit: TaskListHitTestResult) -> Unit)?,
   val onLinkPress: ((String) -> Unit)?,
   val onLinkLongPress: ((String) -> Unit)?,
@@ -34,6 +36,7 @@ object SegmentViewCreators {
       setTextSize(TypedValue.COMPLEX_UNIT_PX, config.style.paragraphStyle.fontSize)
       setJustificationMode(segment.needsJustify)
       enableTaskListItemToggle = config.enableTaskListItemToggle
+      spoilerOverlay = config.spoilerOverlay
       onTaskListItemTapCallback = { hit -> config.onTaskListItemTap?.invoke(this, hit) }
       onLinkPressCallback = config.onLinkPress
       onLinkLongPressCallback = config.onLinkLongPress

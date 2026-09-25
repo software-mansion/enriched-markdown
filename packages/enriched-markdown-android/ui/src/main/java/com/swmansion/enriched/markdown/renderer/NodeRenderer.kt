@@ -2,7 +2,7 @@ package com.swmansion.enriched.markdown.renderer
 
 import android.content.Context
 import android.text.SpannableStringBuilder
-import android.text.style.MetricAffectingSpan
+import android.text.style.CharacterStyle
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
@@ -35,7 +35,7 @@ class RendererFactory(
   val styleCache = SpanStyleCache(config.style, context)
 
   private data class DeferredSpan(
-    val span: MetricAffectingSpan,
+    val span: CharacterStyle,
     val start: Int,
     val end: Int,
   )
@@ -43,7 +43,7 @@ class RendererFactory(
   private val deferredSpans = mutableListOf<DeferredSpan>()
 
   fun registerDeferredSpan(
-    span: MetricAffectingSpan,
+    span: CharacterStyle,
     start: Int,
     end: Int,
   ) {
@@ -119,6 +119,7 @@ class RendererFactory(
       for ((type, rendererFactory) in EnrichedMarkdownPlugins.snapshot.nodeRenderers) {
         put(type, rendererFactory(config, context))
       }
+      put(MarkdownASTNode.NodeType.Spoiler, SpoilerRenderer())
     }
   }
 

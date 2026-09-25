@@ -7,4 +7,7 @@ enum class TableAlignment {
   LEFT,
   CENTER,
   RIGHT,
+
+  /** Opposite the reading direction: end-aligned in LTR, start-aligned in RTL. */
+  END,
 }

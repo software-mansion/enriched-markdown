@@ -26,6 +26,7 @@ class MarkdownStyleBuilder internal constructor() {
   private var inlineImage: InlineImageStylePatch? = null
   private var thematicBreak: ThematicBreakStylePatch? = null
   private var table: TableStylePatch? = null
+  private var spoiler: SpoilerStylePatch? = null
   private val pluginPatches = mutableMapOf<StyleExtensionKey<*>, PluginStylePatch<*>>()
 
   fun paragraph(block: ParagraphStyleScope.() -> Unit) {
@@ -108,6 +109,11 @@ class MarkdownStyleBuilder internal constructor() {
     table = TableStyleScope.merge(table, block)
   }
 
+  /** Styling of the overlay that conceals `||spoiler||` text until it is tapped. */
+  fun spoiler(block: SpoilerStyleScope.() -> Unit) {
+    spoiler = SpoilerStyleScope.merge(spoiler, block)
+  }
+
   /**
    * Read-modify-write of the patch stored for [key], so a plugin's DSL block merges into an
    * earlier one in the same builder instead of replacing it - the way core's own blocks do.
@@ -150,6 +156,7 @@ class MarkdownStyleBuilder internal constructor() {
       inlineImage = inlineImage,
       thematicBreak = thematicBreak,
       table = table,
+      spoiler = spoiler,
       pluginPatches = pluginPatches.toMap(),
     )
 

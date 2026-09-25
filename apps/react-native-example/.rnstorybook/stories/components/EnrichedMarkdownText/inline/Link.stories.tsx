@@ -4,13 +4,16 @@ import { storyMeta } from '../shared/storyMeta';
 import {
   fontFamilyControl,
   linkStyledDefaults,
+  linkVariantFontDefaults,
   linkVariantsDemoDefaults,
   type LinkStyleControls,
+  type LinkVariantFontControls,
   type LinkVariantsDemoControls,
 } from '../shared/storybookMarkdownStyles';
 import {
   splitStyleControls,
   toLinkStyle,
+  toLinkVariantFontStyle,
   toLinkVariantsDemoStyle,
 } from '../shared/storybookStyleBuilders';
 import type { TextStory } from '../shared/storyTypes';
@@ -26,6 +29,9 @@ const INTERACTIONS_MARKDOWN =
 
 const VARIANTS_MARKDOWN =
   'Hey [Alice](user:alice), check [general](channel:general) and [docs](https://example.com).';
+
+const VARIANT_FONTS_MARKDOWN =
+  'Base [React Native](https://reactnative.dev), mention [Alice](user:alice), and read [our docs](https://example.com/docs).';
 
 const linkBaseArgTypes = {
   fontFamily: fontFamilyControl('markdownStyle.link.fontFamily'),
@@ -73,6 +79,20 @@ const variantsArgTypes = {
     control: 'color',
     description: 'markdownStyle.linkVariants["^channel:"].backgroundColor',
   },
+};
+
+const variantFontsArgTypes = {
+  fontFamily: fontFamilyControl('markdownStyle.link.fontFamily (base font)'),
+  color: {
+    control: 'color',
+    description: 'markdownStyle.link.color',
+  },
+  userVariantFontFamily: fontFamilyControl(
+    'markdownStyle.linkVariants["^user:"].fontFamily'
+  ),
+  docsVariantFontFamily: fontFamilyControl(
+    'markdownStyle.linkVariants["^https://example\\.com/"].fontFamily'
+  ),
 };
 
 const interactionsArgTypes = {
@@ -138,6 +158,28 @@ export const Variants: TextStory<LinkVariantsDemoControls> = {
         description="Per-URL-pattern overrides via markdownStyle.linkVariants. Unmatched links use the base link style."
         {...rest}
         style={toLinkVariantsDemoStyle(controls)}
+      />
+    );
+  },
+};
+
+export const VariantFonts: TextStory<LinkVariantFontControls> = {
+  args: {
+    markdown: VARIANT_FONTS_MARKDOWN,
+    ...linkVariantFontDefaults,
+  },
+  argTypes: variantFontsArgTypes,
+  render: (args) => {
+    const { controls, rest } = splitStyleControls(
+      args,
+      linkVariantFontDefaults
+    );
+    return (
+      <EnrichedMarkdownTextStory
+        title="Link Variant Fonts"
+        description="Each linkVariant can override fontFamily. The user: and example.com links use their own fonts; the unmatched reactnative.dev link falls back to the base link font."
+        {...rest}
+        style={toLinkVariantFontStyle(controls)}
       />
     );
   },

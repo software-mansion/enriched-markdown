@@ -42,6 +42,47 @@
       ],
       "outputs": []
     },
+    "test:android": {
+      "env": ["ANDROID_HOME", "ORG_GRADLE_PROJECT_newArchEnabled"],
+      "inputs": [
+        "package.json",
+        "android/**",
+        "!android/build/**",
+        "!android/.gradle/**",
+        "src/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/android/**",
+        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/android/build/**",
+        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/android/generated/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/**",
+        "$TURBO_ROOT$/packages/core/cpp/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json"
+      ],
+      "outputs": []
+    },
+    "test:ios": {
+      "passThroughEnv": ["IOS_SIMULATOR_UDID"],
+      "env": [
+        "RCT_NEW_ARCH_ENABLED",
+        "RCT_REMOVE_LEGACY_ARCH",
+        "RCT_USE_RN_DEP",
+        "RCT_USE_PREBUILT_RNCORE"
+      ],
+      "inputs": [
+        "package.json",
+        "ios/**",
+        "!ios/build/**",
+        "!ios/Pods/**",
+        "src/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/**",
+        "!$TURBO_ROOT$/packages/react-native-enriched-markdown/ios/build/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/src/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/__tests__/ios/**",
+        "$TURBO_ROOT$/packages/core/cpp/**",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/*.podspec",
+        "$TURBO_ROOT$/packages/react-native-enriched-markdown/package.json"
+      ],
+      "outputs": []
+    },
     "build:android-native": {
       "env": ["ANDROID_HOME"],
       "inputs": [

@@ -1,5 +1,12 @@
 import UIKit
 
+/// Adopted by the view hosting a rendered document, so an attachment whose box
+/// settles only after asynchronous work can ask to be measured again: the view
+/// was sized, and that size cached, against the earlier guess.
+protocol MarkdownAttachmentLayoutObserver: AnyObject {
+    func attachmentDidInvalidateLayout()
+}
+
 final class MarkdownImageAttachment: NSTextAttachment {
     static let originalImageCache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
@@ -8,20 +15,44 @@ final class MarkdownImageAttachment: NSTextAttachment {
         return cache
     }()
 
-    private static let processedImageCache = NSCache<NSString, UIImage>()
+    /// Bitmaps already scaled into a box. Entries are whole decoded images, so
+    /// the cache is bounded by bytes rather than by count alone: an inline
+    /// square and a full-width block box differ by two orders of magnitude.
+    private static let processedImageCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 100
+        cache.totalCostLimit = 30 * 1024 * 1024
+        return cache
+    }()
 
     let imageURL: String
     let requestHeaders: [String: String]
     let isInline: Bool
+    /// Inline images are a square of this size. For a block image it is the
+    /// box height used until the container width is known.
     let cachedHeight: CGFloat
     let cachedBorderRadius: CGFloat
+    /// How this image's box height is derived. Inline images ignore it.
+    let sizing: ImageSizing
+    /// How the bitmap fills its box.
+    let contentMode: ImageContentMode
+
+    weak var layoutObserver: MarkdownAttachmentLayoutObserver?
+
     private let requestKey: String
+    /// The processed-cache key less the box, which is all that varies per pass.
+    private let processedKeyPrefix: String
     private let downloader: ImageDownloading
 
     private var originalImage: UIImage?
     private var loadedImage: UIImage?
     private weak var textContainer: NSTextContainer?
-    private var lastProcessedKey: String?
+    /// The box last handed to the layout manager, so a finishing load can tell
+    /// whether the box is about to change, and the drawing has a box to use
+    /// before UIKit has asked for one.
+    private var lastLaidOutBox: CGSize?
+    /// The box `loadedImage` was last scaled into.
+    private var lastProcessedBox: CGSize?
 
     /// Always returns a fresh attachment: an NSTextAttachment carries
     /// per-position layout state (bounds, text container, refresh range), so
@@ -61,10 +92,13 @@ final class MarkdownImageAttachment: NSTextAttachment {
         self.requestKey = requestKey
         self.isInline = isInline
         self.downloader = downloader
-        cachedHeight = isInline
-            ? (config.inlineImage.size ?? 20)
-            : (config.image.height ?? 200)
+        let sizing = config.image.sizing ?? .height(ImageSizing.fallbackHeight)
+        self.sizing = sizing
+        // Inline images fill their square exactly.
+        contentMode = isInline ? .stretch : (config.image.contentMode ?? sizing.defaultContentMode)
+        cachedHeight = isInline ? (config.inlineImage.size ?? 20) : sizing.placeholderHeight
         cachedBorderRadius = config.image.borderRadius ?? 0
+        processedKeyPrefix = "\(requestKey)_r\(cachedBorderRadius)_m\(contentMode.rawValue)"
         super.init(data: nil, ofType: nil)
         accessibilityLabel = altText.isEmpty ? nil : altText
         setupPlaceholder()
@@ -83,10 +117,9 @@ final class MarkdownImageAttachment: NSTextAttachment {
         characterIndex charIndex: Int
     ) -> CGRect {
         self.textContainer = textContainer
-        let height = cachedHeight
-        let width = isInline ? height : (lineFragmentRect.width > 0 ? lineFragmentRect.width : height)
 
         if isInline {
+            let size = cachedHeight
             var appliedFont: UIFont?
             if let textStorage = textStorage(from: textContainer),
                charIndex >= 0,
@@ -96,14 +129,17 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
             let verticalOffset: CGFloat
             if let appliedFont {
-                verticalOffset = (appliedFont.capHeight - height) / 2
+                verticalOffset = (appliedFont.capHeight - size) / 2
             } else {
-                verticalOffset = (lineFragmentRect.height - height) / 2
+                verticalOffset = (lineFragmentRect.height - size) / 2
             }
-            return CGRect(x: 0, y: verticalOffset, width: width, height: height)
+            return CGRect(x: 0, y: verticalOffset, width: size, height: size)
         }
 
-        return CGRect(x: 0, y: 0, width: width, height: height)
+        let width = lineFragmentRect.width > 0 ? lineFragmentRect.width : cachedHeight
+        let box = CGSize(width: width, height: sizing.boxHeight(width: width, intrinsicSize: originalImage?.size))
+        lastLaidOutBox = box
+        return CGRect(origin: .zero, size: box)
     }
 
     override func image(
@@ -115,7 +151,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
         if let originalImage, imageBounds.width > 0 {
             bounds = imageBounds
-            processAndApplyImage(originalImage, targetWidth: imageBounds.width)
+            processAndApplyImage(originalImage, box: imageBounds.size)
         }
 
         return loadedImage ?? image
@@ -139,22 +175,41 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
     private func handleLoadedImage(_ image: UIImage?) {
         guard let image else { return }
-        originalImage = image
-        let targetWidth = isInline ? cachedHeight : bounds.width
-        if !isInline, targetWidth <= 0 {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.handleLoadedImage(image) }
             return
         }
-        processAndApplyImage(image, targetWidth: targetWidth)
+        originalImage = image
+
+        if isInline {
+            processAndApplyImage(image, box: CGSize(width: cachedHeight, height: cachedHeight))
+            return
+        }
+
+        // Scaling into the placeholder bounds would only cache a wrongly
+        // shaped bitmap that nothing would ever look up again.
+        guard let lastLaidOutBox else { return }
+
+        if sizing.boxHeight(width: lastLaidOutBox.width, intrinsicSize: image.size) != lastLaidOutBox.height {
+            // The box stood at a height the image has now settled.
+            refreshDisplay()
+            notifyLayoutObserver()
+            return
+        }
+
+        processAndApplyImage(image, box: lastLaidOutBox)
     }
 
-    private func processAndApplyImage(_ image: UIImage, targetWidth: CGFloat) {
-        guard targetWidth > 0 else { return }
+    private func processAndApplyImage(_ image: UIImage, box: CGSize) {
+        guard box.width > 0, box.height > 0 else { return }
+        // This runs on every layout pass; the box alone decides whether the
+        // last result still stands.
+        if box == lastProcessedBox { return }
+        lastProcessedBox = box
 
-        let processedKey = "\(requestKey)_w\(targetWidth)_h\(cachedHeight)_r\(cachedBorderRadius)"
-        if processedKey == lastProcessedKey { return }
-        lastProcessedKey = processedKey
+        let key = "\(processedKeyPrefix)_w\(box.width)_h\(box.height)"
 
-        if let cached = Self.processedImageCache.object(forKey: processedKey as NSString) {
+        if let cached = Self.processedImageCache.object(forKey: key as NSString) {
             loadedImage = cached
             if isInline {
                 self.image = cached
@@ -167,16 +222,17 @@ final class MarkdownImageAttachment: NSTextAttachment {
             guard let self else { return }
             let processed = self.createScaledImage(
                 image,
-                targetWidth: targetWidth,
-                targetHeight: self.cachedHeight,
+                box: box,
                 borderRadius: self.cachedBorderRadius
             )
 
             if let processed {
-                Self.processedImageCache.setObject(processed, forKey: processedKey as NSString)
+                Self.processedImageCache.setObject(processed, forKey: key as NSString, cost: processed.byteCost)
             }
 
             DispatchQueue.main.async {
+                // Scalings run concurrently; an older box may finish last.
+                guard self.lastProcessedBox == box else { return }
                 self.loadedImage = processed
                 if self.isInline {
                     self.image = processed
@@ -191,40 +247,28 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
     private func createScaledImage(
         _ image: UIImage,
-        targetWidth: CGFloat,
-        targetHeight: CGFloat,
+        box: CGSize,
         borderRadius: CGFloat
     ) -> UIImage? {
-        let sourceWidth = image.size.width
-        let sourceHeight = image.size.height
-        guard sourceWidth > 0, sourceHeight > 0 else { return nil }
+        guard image.size.width > 0, image.size.height > 0 else { return nil }
 
-        let drawingWidth: CGFloat
-        let drawingHeight: CGFloat
-
-        if isInline {
-            drawingWidth = targetWidth
-            drawingHeight = targetHeight
-        } else {
-            let aspectRatioScale = targetWidth / sourceWidth
-            drawingWidth = targetWidth
-            drawingHeight = sourceHeight * aspectRatioScale
-        }
-
-        let drawingRect = CGRect(
-            x: (targetWidth - drawingWidth) / 2,
-            y: (targetHeight - drawingHeight) / 2,
-            width: drawingWidth,
-            height: drawingHeight
-        )
-
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: targetWidth, height: targetHeight))
+        let drawingRect = ImageDrawing.rect(mode: contentMode, source: image.size, box: box)
+        let renderer = UIGraphicsImageRenderer(size: box)
         return renderer.image { _ in
             if borderRadius > 0 {
-                let clippingRect = drawingRect.intersection(CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
+                let clippingRect = drawingRect.intersection(CGRect(origin: .zero, size: box))
                 UIBezierPath(roundedRect: clippingRect, cornerRadius: borderRadius).addClip()
             }
             image.draw(in: drawingRect)
+        }
+    }
+
+    private func notifyLayoutObserver() {
+        // A load can finish inside a layout pass, by way of a synchronous hit
+        // in `image(forBounds:)`; measuring again from there would re-enter the
+        // layout manager.
+        DispatchQueue.main.async { [weak layoutObserver] in
+            layoutObserver?.attachmentDidInvalidateLayout()
         }
     }
 

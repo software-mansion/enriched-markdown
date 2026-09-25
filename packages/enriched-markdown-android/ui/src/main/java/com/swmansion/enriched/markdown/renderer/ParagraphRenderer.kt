@@ -1,14 +1,14 @@
 package com.swmansion.enriched.markdown.renderer
 
 import android.text.SpannableStringBuilder
-import android.text.style.AlignmentSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.ParagraphStyle
+import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.extensions.containsBlockImage
-import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
+import com.swmansion.enriched.markdown.utils.text.span.applyTextAlignment
 
 class ParagraphRenderer(
   private val config: RendererConfig,
@@ -40,7 +40,7 @@ class ParagraphRenderer(
     }
 
     if (builder.length > start) {
-      builder.applySpans(node, style, start)
+      builder.applySpans(node, style, start, factory.context.resources.isLayoutRTL())
     }
   }
 
@@ -48,6 +48,7 @@ class ParagraphRenderer(
     node: MarkdownASTNode,
     style: ParagraphStyle,
     start: Int,
+    layoutIsRtl: Boolean,
   ) {
     val end = length
 
@@ -56,15 +57,7 @@ class ParagraphRenderer(
     // be needed here once super/subscript usage in practice is better understood.
     applyLineHeightSkippingImages(this, start, end, style.lineHeight)
 
-    // Only apply AlignmentSpan for non-default alignments (Center/Right)
-    if (style.textAlign.needsAlignmentSpan) {
-      setSpan(
-        AlignmentSpan.Standard(style.textAlign.layoutAlignment),
-        start,
-        end,
-        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
-      )
-    }
+    applyTextAlignment(this, start, end, style.textAlign, layoutIsRtl)
 
     val marginTop = if (node.containsBlockImage()) config.style.imageStyle.marginTop else style.marginTop
     applyMarginTop(this, start, marginTop)

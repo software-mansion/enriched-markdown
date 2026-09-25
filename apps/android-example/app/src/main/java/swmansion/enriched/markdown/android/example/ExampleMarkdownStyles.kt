@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.MarkdownStyle
@@ -105,7 +106,7 @@ val CustomMarkdownStyle: MarkdownStyle =
       markerColor = Color(0xFF6B7280)
       markerFontWeight = FontWeight.Medium
       gapWidth = 8.dp
-      marginLeft = 24.dp
+      marginStart = 24.dp
       marginBottom = 16.dp
     }
     taskList {
@@ -113,7 +114,7 @@ val CustomMarkdownStyle: MarkdownStyle =
       borderColor = Color(0xFF9E9E9E)
       checkmarkColor = Color(0xFFFFFFFF)
       checkboxSize = 14.dp
-      checkboxBorderRadius = 3.dp
+      checkboxCornerRadius = 3.dp
     }
     codeBlock {
       fontFamily = CourierPrimeRegular
@@ -135,7 +136,7 @@ val CustomMarkdownStyle: MarkdownStyle =
     link {
       fontFamily = MontserratBold
       color = Color(0xFF2563EB)
-      underline = true
+      textDecoration = TextDecoration.Underline
     }
     strong {
       color = Color(0xFF111827)
@@ -145,7 +146,7 @@ val CustomMarkdownStyle: MarkdownStyle =
     }
     image {
       height = 200.dp
-      borderRadius = 8.dp
+      cornerRadius = 8.dp
       marginBottom = 16.dp
     }
     inlineImage {
@@ -184,6 +185,14 @@ val CustomMarkdownStyle: MarkdownStyle =
       cellPaddingHorizontal = 12.dp
       cellPaddingVertical = 8.dp
     }
+    spoiler {
+      color = Color(0xFF374151)
+      particles {
+        density = 8f
+        speed = 20f
+      }
+      solid { cornerRadius = 4.dp }
+    }
   }
 
 /**
@@ -193,7 +202,7 @@ val PlaygroundMarkdownStyle: MarkdownStyle =
   markdownStyle {
     link {
       color = Color(0xFF2563EB)
-      underline = true
+      textDecoration = TextDecoration.Underline
     }
     code {
       color = Color(0xFF7C3AED)

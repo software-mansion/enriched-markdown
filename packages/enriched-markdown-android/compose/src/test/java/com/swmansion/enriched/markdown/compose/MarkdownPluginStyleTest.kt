@@ -88,7 +88,7 @@ class MarkdownPluginStyleTest {
         }
       }
 
-    val resolved = requireNotNull(resolveFakePlugin(base.copy { fakePlugin { padding = 2.dp } }))
+    val resolved = requireNotNull(resolveFakePlugin(base.merge { fakePlugin { padding = 2.dp } }))
 
     assertEquals(with(density) { 20.sp.toPx() }, resolved.fontSize, 0.01f)
     assertEquals(with(density) { 2.dp.toPx() }, resolved.padding, 0.01f)
@@ -99,7 +99,7 @@ class MarkdownPluginStyleTest {
     val style =
       markdownStyle {
         fakePlugin(OtherFakePluginStyleKey) { fontSize = 30.sp }
-      }.copy {
+      }.merge {
         fakePlugin { fontSize = 20.sp }
       }
 

@@ -52,8 +52,8 @@ class MathContainerView(
 
   private val mathGravity =
     when (mathStyle.textAlign) {
-      TextAlignment.LEFT, TextAlignment.AUTO, TextAlignment.JUSTIFY -> Gravity.START
-      TextAlignment.RIGHT -> Gravity.END
+      TextAlignment.START, TextAlignment.LEFT, TextAlignment.AUTO, TextAlignment.JUSTIFY -> Gravity.START
+      TextAlignment.END, TextAlignment.RIGHT -> Gravity.END
       TextAlignment.CENTER -> Gravity.CENTER_HORIZONTAL
     }
 

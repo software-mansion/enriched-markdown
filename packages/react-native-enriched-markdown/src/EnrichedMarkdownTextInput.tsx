@@ -39,6 +39,7 @@ import type {
   TextStyle,
   ColorValue,
 } from 'react-native';
+import { normalizeMarkdownShortcuts } from './normalizeMarkdownShortcuts';
 import { normalizeMarkdownTextInputStyle } from './normalizeMarkdownTextInputStyle';
 import { normalizeMenuItem } from './normalizeMenuItem';
 import { toNativeRegexConfig } from './utils/regexParser';
@@ -198,6 +199,19 @@ export interface FormatMenuConfig {
   link?: MenuItem;
 }
 
+/**
+ * Which typed markdown block prefixes convert into blocks. An omitted key is
+ * off, so `{ heading: true }` enables headings and nothing else.
+ */
+export interface MarkdownShortcutsConfig {
+  /** `#`–`######` + space. @default false */
+  heading?: boolean;
+  /** `-`/`*`/`+` + space. @default false */
+  unorderedList?: boolean;
+  /** `1.` or `1)` + space. @default false */
+  orderedList?: boolean;
+}
+
 export interface EnrichedMarkdownTextInputProps extends Omit<
   ViewProps,
   'style' | 'children'
@@ -209,6 +223,17 @@ export interface EnrichedMarkdownTextInputProps extends Omit<
   editable?: boolean;
   autoFocus?: boolean;
   scrollEnabled?: boolean;
+  /**
+   * Converts markdown block prefixes typed at the start of a paragraph into
+   * blocks, the way Notion, Bear and Obsidian do: `#`–`######` + space becomes
+   * a heading, `-`/`*`/`+` + space a bullet item, `1.` (or `1)`) + space a
+   * numbered item. The prefix and its space are removed from the text.
+   * `true` enables all three; pass a {@link MarkdownShortcutsConfig} to enable
+   * a subset. Off by default so apps that treat `#` or `-` as literal text
+   * (tags, dashes) see no change.
+   * @default false
+   */
+  markdownShortcuts?: boolean | MarkdownShortcutsConfig;
   autoCapitalize?: string;
   multiline?: boolean;
   cursorColor?: ColorValue;
@@ -289,6 +314,7 @@ export const EnrichedMarkdownTextInput = ({
   editable = true,
   autoFocus = false,
   scrollEnabled = true,
+  markdownShortcuts,
   autoCapitalize = 'sentences',
   multiline = true,
   cursorColor,
@@ -433,6 +459,11 @@ export const EnrichedMarkdownTextInput = ({
       linkLabel: link.label,
     };
   }, [formatMenuConfig]);
+
+  const normalizedMarkdownShortcuts = useMemo(
+    () => normalizeMarkdownShortcuts(markdownShortcuts),
+    [markdownShortcuts]
+  );
 
   const linkRegex = useMemo(
     () => toNativeRegexConfig(_linkRegex),
@@ -647,6 +678,7 @@ export const EnrichedMarkdownTextInput = ({
       editable={editable}
       autoFocus={autoFocus}
       scrollEnabled={scrollEnabled}
+      markdownShortcuts={normalizedMarkdownShortcuts}
       autoCapitalize={autoCapitalize}
       multiline={multiline}
       cursorColor={cursorColor}

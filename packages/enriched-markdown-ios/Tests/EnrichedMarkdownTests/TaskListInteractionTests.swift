@@ -155,6 +155,15 @@ final class TaskListInteractionTests: XCTestCase {
         XCTAssertNil(textView.taskListHit(at: CGPoint(x: 4, y: 8)))
     }
 
+    /// A right-to-left item draws its checkbox on the trailing side, so the
+    /// tappable margin moves there too.
+    func testHitInTrailingMarginFindsRightToLeftItem() {
+        let textView = makeLaidOutTextView("- [ ] مرحبا")
+
+        XCTAssertEqual(textView.taskListHit(at: CGPoint(x: 316, y: 8))?.index, 0)
+        XCTAssertNil(textView.taskListHit(at: CGPoint(x: 4, y: 8)))
+    }
+
     // MARK: - Render store
 
     @MainActor
@@ -223,7 +232,7 @@ final class TaskListInteractionTests: XCTestCase {
 
     @MainActor
     private func renderSynchronously(_ store: MarkdownRenderStore, markdown: String) {
-        store.schedule(markdown: markdown, config: config)
+        store.schedule(MarkdownRenderInputs(markdown: markdown, config: config))
         let rendered = expectation(description: "render applied for \(markdown)")
         let cancellable = store.$source
             .dropFirst()

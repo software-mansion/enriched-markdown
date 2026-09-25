@@ -36,6 +36,7 @@ import com.swmansion.enriched.markdown.input.editing.EditSession
 import com.swmansion.enriched.markdown.input.editing.InputConnectionWrapper
 import com.swmansion.enriched.markdown.input.editing.LinkCoordinator
 import com.swmansion.enriched.markdown.input.editing.MarkdownEditableFactory
+import com.swmansion.enriched.markdown.input.editing.MarkdownShortcutsConfig
 import com.swmansion.enriched.markdown.input.editing.MarkdownTextWatcher
 import com.swmansion.enriched.markdown.input.editing.MentionCoordinator
 import com.swmansion.enriched.markdown.input.editing.MentionEvent
@@ -106,6 +107,9 @@ class EnrichedMarkdownTextInputView(
       override fun runAsATransaction(block: () -> Unit) = this@EnrichedMarkdownTextInputView.runAsATransaction(block)
 
       override fun setViewSelection(position: Int) = setSelection(position)
+
+      override val markdownShortcuts: MarkdownShortcutsConfig
+        get() = this@EnrichedMarkdownTextInputView.markdownShortcuts
     }
 
   val editPipeline =
@@ -122,6 +126,9 @@ class EnrichedMarkdownTextInputView(
   private var inputMethodManager: InputMethodManager? = null
   private var detectScrollMovement = false
   var scrollEnabled: Boolean = true
+
+  /** Typed `# `, `- `, `1. ` become blocks (opt-in per family from JS). */
+  var markdownShortcuts: MarkdownShortcutsConfig = MarkdownShortcutsConfig()
 
   private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline, formatter)
 

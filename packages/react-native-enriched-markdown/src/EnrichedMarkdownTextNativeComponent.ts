@@ -97,6 +97,7 @@ interface LinkVariantEntryInternal {
   color: ColorValue;
   underline: boolean;
   backgroundColor: ColorValue;
+  fontFamily: string;
 }
 
 interface StrongStyleInternal {

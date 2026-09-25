@@ -2,7 +2,6 @@ package com.swmansion.enriched.markdown.test
 
 import android.content.Context
 import android.text.Spannable
-import android.text.SpannableString
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -13,11 +12,14 @@ object HTMLGeneratorTestSupport {
 
   val defaultStyle: StyleConfig = StyleConfig.default(context)
 
-  fun generateHTML(spannable: Spannable): String {
+  fun generateHTML(
+    spannable: Spannable,
+    style: StyleConfig = defaultStyle,
+  ): String {
     val metrics = context.resources.displayMetrics
     return HTMLGenerator.generateHTML(
       text = spannable,
-      style = defaultStyle,
+      style = style,
       scaledDensity = metrics.scaledDensity,
       density = metrics.density,
       isRTL = false,
@@ -25,7 +27,7 @@ object HTMLGeneratorTestSupport {
   }
 
   fun generateHTML(
-    spannable: SpannableString,
+    spannable: Spannable,
     selectionStart: Int,
     selectionEnd: Int,
   ): String =
@@ -36,11 +38,13 @@ object HTMLGeneratorTestSupport {
   fun generateHTMLSelectingText(
     document: MarkdownASTNode,
     selectedText: String,
+    style: StyleConfig = defaultStyle,
   ): String {
     val spannable = MarkdownTextViewTestSupport.render(document)
     val start = MarkdownTextViewTestSupport.indexOf(spannable, selectedText)
     return generateHTML(
       MarkdownTextViewTestSupport.selectedRange(spannable, start, start + selectedText.length),
+      style,
     )
   }
 }
