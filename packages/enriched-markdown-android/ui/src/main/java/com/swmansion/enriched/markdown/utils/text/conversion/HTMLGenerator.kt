@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.utils.text.conversion
 
+import android.graphics.Color
 import android.graphics.Typeface
 import android.text.Spannable
 import android.text.style.StrikethroughSpan
@@ -13,6 +14,7 @@ import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.CodeSpan
 import com.swmansion.enriched.markdown.spans.EmphasisSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
+import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
@@ -82,11 +84,13 @@ object HTMLGenerator {
     val linkColor: String
     val linkTextDecoration: String
 
-    // Strong/Emphasis/Strikethrough/Underline
+    // Strong/Emphasis/Strikethrough/Underline/Highlight
     val strongColor: String?
     val emphasisColor: String?
     val strikethroughColor: String?
     val underlineColor: String?
+    val highlightColor: String?
+    val highlightBackgroundColor: String
 
     // Image
     val imageMarginBottom: Int
@@ -164,7 +168,7 @@ object HTMLGenerator {
           "line-through".takeIf { style.linkStyle.strikethrough },
         ).joinToString(" ").ifEmpty { "none" }
 
-      // Strong/Emphasis/Strikethrough/Underline (nullable for inherit)
+      // Strong/Emphasis/Strikethrough/Underline/Highlight (nullable for inherit)
       val sc = style.strongStyle.color
       strongColor = if (sc != null && sc != 0) colorToCSS(sc) else null
       val ec = style.emphasisStyle.color
@@ -173,6 +177,10 @@ object HTMLGenerator {
       strikethroughColor = if (stc != null && stc != 0) colorToCSS(stc) else null
       val uc = style.underlineStyle.color
       underlineColor = if (uc != null && uc != 0) colorToCSS(uc) else null
+      val hc = style.highlightStyle.color
+      highlightColor = if (hc != null && hc != 0) colorToCSS(hc) else null
+      val hbc = style.highlightStyle.backgroundColor
+      highlightBackgroundColor = if (Color.alpha(hbc) > 0) colorToCSS(hbc) else "transparent"
 
       // Image
       val imgStyle = style.imageStyle
@@ -809,6 +817,7 @@ object HTMLGenerator {
     val strikethroughSpans = text.getSpans(start, end, StrikethroughSpan::class.java)
     val linkSpans = text.getSpans(start, end, LinkSpan::class.java)
     val codeSpans = text.getSpans(start, end, CodeSpan::class.java)
+    val highlightSpans = text.getSpans(start, end, HighlightSpan::class.java)
 
     val isBold =
       strongSpans.isNotEmpty() ||
@@ -820,6 +829,17 @@ object HTMLGenerator {
     val isStrikethrough = strikethroughSpans.isNotEmpty()
     val link = linkSpans.firstOrNull()
     val isCode = codeSpans.isNotEmpty() && !isCodeBlock
+    val isHighlight = highlightSpans.isNotEmpty()
+
+    if (isHighlight) {
+      // The background is always explicit: a bare <mark> would pick up the user agent's yellow.
+      html
+        .append("<mark style=\"background-color: ")
+        .append(styles.highlightBackgroundColor)
+        .append("; color: ")
+        .append(styles.highlightColor ?: "inherit")
+        .append(";\">")
+    }
 
     link?.let {
       html.append("<a href=\"")
@@ -890,6 +910,7 @@ object HTMLGenerator {
     if (isBold) html.append("</strong>")
     if (isCode) html.append("</code>")
     if (link != null) html.append("</a>")
+    if (isHighlight) html.append("</mark>")
   }
 
   private fun collectParagraphs(text: Spannable): ArrayList<ParagraphInfo> {

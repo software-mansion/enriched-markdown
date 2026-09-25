@@ -1,11 +1,13 @@
 package com.swmansion.enriched.markdown
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.styles.HighlightStyle
 import com.swmansion.enriched.markdown.test.HTMLAssertions.assertContainsHtml
 import com.swmansion.enriched.markdown.test.HTMLAssertions.assertContainsHtmlInOrder
 import com.swmansion.enriched.markdown.test.HTMLGeneratorTestSupport.generateHTML
 import com.swmansion.enriched.markdown.test.HTMLGeneratorTestSupport.generateHTMLSelectingText
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithHighlight
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithLink
 import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.createTextViewWithSelection
 import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.indexOf
@@ -17,6 +19,7 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.codeBlock
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.emphasis
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
+import com.swmansion.enriched.markdown.test.TestAstFactory.highlight
 import com.swmansion.enriched.markdown.test.TestAstFactory.image
 import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
@@ -80,6 +83,36 @@ class HTMLGeneratorTest {
       )
 
     html.assertContainsHtmlInOrder("<s", "31%", "</s>")
+  }
+
+  @Test
+  fun generatesHighlightedText() {
+    val html =
+      generateHTMLSelectingText(
+        document(
+          paragraph(
+            text("Forests cover "),
+            highlight(text("31%")),
+            text(" of land."),
+          ),
+        ),
+        "31%",
+      )
+
+    html.assertContainsHtmlInOrder("<mark", "background-color: #FEF08A", "31%", "</mark>")
+  }
+
+  @Test
+  fun generatesHighlightWithExplicitTransparentBackground() {
+    val html =
+      generateHTMLSelectingText(
+        document(paragraph(highlight(text("31%")))),
+        "31%",
+        styleWithHighlight(HighlightStyle(backgroundColor = 0)),
+      )
+
+    // A bare <mark> would pick up the user agent's yellow, which the style does not ask for.
+    html.assertContainsHtmlInOrder("<mark", "background-color: transparent", "31%", "</mark>")
   }
 
   @Test

@@ -5,6 +5,7 @@ import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.styles.CodeStyle
 import com.swmansion.enriched.markdown.styles.EmphasisStyle
 import com.swmansion.enriched.markdown.styles.HeadingStyle
+import com.swmansion.enriched.markdown.styles.HighlightStyle
 import com.swmansion.enriched.markdown.styles.ImageStyle
 import com.swmansion.enriched.markdown.styles.InlineImageStyle
 import com.swmansion.enriched.markdown.styles.LinkStyle
@@ -30,6 +31,7 @@ internal data class StylePatch(
   val emphasisStyle: EmphasisStyle? = null,
   val strikethroughStyle: StrikethroughStyle? = null,
   val underlineStyle: UnderlineStyle? = null,
+  val highlightStyle: HighlightStyle? = null,
   val superscriptStyle: SuperscriptStyle? = null,
   val subscriptStyle: SubscriptStyle? = null,
   val codeStyle: CodeStyle? = null,
@@ -87,6 +89,7 @@ internal object StyleConfigMerger {
       emphasisStyle = patch.emphasisStyle ?: base.emphasisStyle,
       strikethroughStyle = patch.strikethroughStyle ?: base.strikethroughStyle,
       underlineStyle = patch.underlineStyle ?: base.underlineStyle,
+      highlightStyle = patch.highlightStyle ?: base.highlightStyle,
       superscriptStyle = patch.superscriptStyle ?: base.superscriptStyle,
       subscriptStyle = patch.subscriptStyle ?: base.subscriptStyle,
       codeStyle = patch.codeStyle ?: base.codeStyle,

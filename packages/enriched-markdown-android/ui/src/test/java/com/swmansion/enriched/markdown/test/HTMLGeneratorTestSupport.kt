@@ -40,7 +40,7 @@ object HTMLGeneratorTestSupport {
     selectedText: String,
     style: StyleConfig = defaultStyle,
   ): String {
-    val spannable = MarkdownTextViewTestSupport.render(document)
+    val spannable = MarkdownRenderTestSupport.render(document, style)
     val start = MarkdownTextViewTestSupport.indexOf(spannable, selectedText)
     return generateHTML(
       MarkdownTextViewTestSupport.selectedRange(spannable, start, start + selectedText.length),
