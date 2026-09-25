@@ -140,6 +140,46 @@ final class SpoilerTests: XCTestCase {
     }
 
     @MainActor
+    func testOverlaysCarryBaselineAndReadingOrder() throws {
+        config.paragraph.lineHeight = 32
+        let words = Array(repeating: "spoiler", count: 30).joined(separator: " ")
+        let textView = makeLaidOutTextView("||\(words)||", width: 200)
+
+        let segments = overlays(in: textView).sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertGreaterThan(segments.count, 1)
+        XCTAssertEqual(segments.map(\.segmentIndex), Array(segments.indices))
+        XCTAssertEqual(Set(segments.map(\.segmentCount)), [segments.count])
+        // With a theme line height the typographic baseline can sit at the
+        // very bottom of the segment; the baseline offset lifts the glyphs.
+        for segment in segments {
+            XCTAssertGreaterThan(segment.baseline, 0)
+            XCTAssertLessThanOrEqual(segment.baseline, segment.bounds.height)
+        }
+    }
+
+    /// A theme line height taller than the font is the case where drawing
+    /// the slice at the view's origin drifts from the real glyphs.
+    @MainActor
+    func testConcealedTextImageLinesUpWithRevealedGlyphs() throws {
+        config.paragraph.lineHeight = 32
+        let textView = makeLaidOutTextView("Shown ||hidden ghosts jump|| after")
+        let overlay = try XCTUnwrap(overlays(in: textView).first)
+        let frame = overlay.frame
+        let drawn = try XCTUnwrap(inkBounds(of: overlay.concealedTextImage(), in: CGRect(origin: .zero, size: frame.size)))
+
+        try revealFirstSpoiler(in: textView)
+        let rendered = UIGraphicsImageRenderer(bounds: textView.bounds).image { context in
+            textView.layer.render(in: context.cgContext)
+        }
+        let real = try XCTUnwrap(inkBounds(of: rendered, in: frame))
+
+        XCTAssertEqual(drawn.minY, real.minY, accuracy: 1)
+        XCTAssertEqual(drawn.maxY, real.maxY, accuracy: 1)
+        XCTAssertEqual(drawn.minX, real.minX, accuracy: 1)
+        XCTAssertEqual(drawn.maxX, real.maxX, accuracy: 1)
+    }
+
+    @MainActor
     func testOverlayChoiceAndStyleAreApplied() throws {
         let textView = makeLaidOutTextView("||hidden||")
         XCTAssertTrue(overlays(in: textView).first is ParticleSpoilerOverlayView)
@@ -295,6 +335,41 @@ final class SpoilerTests: XCTestCase {
         textView.setMarkdownAttributedText(MarkdownRenderer.render(markdown, config: config))
         textView.layoutIfNeeded()
         return textView
+    }
+
+    /// Bounding box, in points relative to `rect`'s origin, of the pixels in
+    /// `rect` that are more than faintly opaque; nil when there are none.
+    private func inkBounds(of image: UIImage, in rect: CGRect) -> CGRect? {
+        guard let cgImage = image.cgImage else { return nil }
+        let scale = image.scale
+        let width = cgImage.width, height = cgImage.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+
+        let columns = max(0, Int(rect.minX * scale))..<min(width, Int(rect.maxX * scale))
+        let rows = max(0, Int(rect.minY * scale))..<min(height, Int(rect.maxY * scale))
+        var minX = Int.max, maxX = -1, minY = Int.max, maxY = -1
+        for row in rows {
+            for column in columns where pixels[(row * width + column) * 4 + 3] > 64 {
+                minX = min(minX, column); maxX = max(maxX, column)
+                minY = min(minY, row); maxY = max(maxY, row)
+            }
+        }
+        guard maxX >= 0 else { return nil }
+        return CGRect(
+            x: (CGFloat(minX) - rect.minX * scale) / scale,
+            y: (CGFloat(minY) - rect.minY * scale) / scale,
+            width: CGFloat(maxX - minX + 1) / scale,
+            height: CGFloat(maxY - minY + 1) / scale
+        )
     }
 
     @MainActor

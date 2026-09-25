@@ -29,8 +29,7 @@ final class BlurOverlayView: SpoilerOverlayView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let text = UIGraphicsImageRenderer(bounds: bounds).image { _ in concealedText.draw(at: .zero) }
-        guard let input = CIImage(image: text) else { return }
+        guard let input = CIImage(image: concealedTextImage()) else { return }
         layer.contents = Self.context.createCGImage(input.applyingGaussianBlur(sigma: 6), from: input.extent)
     }
 }

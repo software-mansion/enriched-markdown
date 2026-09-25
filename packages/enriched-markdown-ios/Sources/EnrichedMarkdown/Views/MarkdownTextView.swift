@@ -344,7 +344,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     /// TextKit 2 layout fragments.
     func accessibilityScreenFrame(for range: NSRange) -> CGRect {
         var union = CGRect.null
-        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { frame, _ in union = union.union(frame) }
+        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { frame, _, _ in union = union.union(frame) }
         guard !union.isNull else { return .zero }
         return UIAccessibility.convertToScreenCoordinates(union, in: self)
     }
