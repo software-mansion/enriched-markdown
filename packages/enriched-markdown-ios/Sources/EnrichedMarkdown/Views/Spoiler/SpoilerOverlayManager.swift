@@ -74,21 +74,18 @@ final class SpoilerOverlayManager {
             for (index, segment) in segments.enumerated() {
                 let key = OverlayKey(range: range, frame: segment.frame.integral)
                 desired.insert(key)
-                let overlay: SpoilerOverlayView
-                if let existing = overlays[key] {
-                    overlay = existing
-                } else {
-                    overlay = provider.makeOverlay(charRange: range, style: style)
-                    overlay.concealedText = SpoilerInteraction.revealedText(of: textStorage, in: segment.range)
-                    overlay.baseline = segment.baseline
-                    overlay.frame = segment.frame
-                    textView.addSubview(overlay)
-                    overlays[key] = overlay
-                }
+                let overlay = overlays[key] ?? provider.makeOverlay(charRange: range, style: style)
                 // Order can change without this segment moving, e.g. when
                 // the line above it wraps differently.
                 overlay.segmentIndex = index
                 overlay.segmentCount = segments.count
+                guard overlays[key] == nil else { continue }
+
+                overlay.concealedText = SpoilerInteraction.revealedText(of: textStorage, in: segment.range)
+                overlay.baseline = segment.baseline
+                overlay.frame = segment.frame
+                textView.addSubview(overlay)
+                overlays[key] = overlay
             }
         }
 

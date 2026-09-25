@@ -25,8 +25,8 @@ open class SpoilerOverlayView: UIView {
     public internal(set) var baseline: CGFloat = 0
     /// This segment's place among the spoiler's segments, in reading order,
     /// for effects that reveal a wrapped spoiler line by line.
-    public internal(set) var segmentIndex = 0
-    public internal(set) var segmentCount = 1
+    public internal(set) var segmentIndex: Int = 0
+    public internal(set) var segmentCount: Int = 1
     private(set) var isRevealing = false
 
     public init(charRange: NSRange) {
