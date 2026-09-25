@@ -5,6 +5,7 @@ import android.text.style.StrikethroughSpan
 import android.text.style.UnderlineSpan
 import android.widget.TextView
 import com.swmansion.enriched.markdown.EnrichedMarkdown
+import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BaselineShiftSpan
@@ -116,6 +117,14 @@ object MarkdownExtractor {
       val imageSpans = spannable.getSpans(segmentStart, segmentEnd, ImageSpan::class.java)
       if (imageSpans.isNotEmpty()) {
         appendImage(imageSpans[0], result, state)
+        return true
+      }
+
+      // The span carries its own delimiters: core round-trips plugin content without knowing
+      // which syntax produced it.
+      val pluginSpans = spannable.getSpans(segmentStart, segmentEnd, PluginInlineSpan::class.java)
+      if (pluginSpans.isNotEmpty()) {
+        result.append(pluginSpans[0].toMarkdownSource())
         return true
       }
     }

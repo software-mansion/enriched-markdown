@@ -5,6 +5,7 @@ import android.text.Spannable
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.UnderlineSpan
+import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionIcons
 import com.swmansion.enriched.markdown.spans.BaseListSpan
@@ -774,8 +775,8 @@ object HTMLGenerator {
       return
     }
 
-    val mathLatex = extractMathLatex(text, pos, pos + 1)
-    if (mathLatex != null) {
+    val pluginText = text.getSpans(pos, pos + 1, PluginInlineSpan::class.java).firstOrNull()?.toHtmlText()
+    if (pluginText != null) {
       html
         .append("<code style=\"background-color: ")
         .append(styles.codeBgColor)
@@ -788,7 +789,7 @@ object HTMLGenerator {
         .append("; font-size: ")
         .append(styles.codeFontSize)
         .append("; font-family: Menlo, Monaco, Consolas, monospace;\">")
-      escapeHTMLTo(html, mathLatex)
+      escapeHTMLTo(html, pluginText)
       html.append("</code>")
     }
   }
@@ -1116,22 +1117,6 @@ object HTMLGenerator {
         '\'' -> output.append("&#39;")
         else -> output.append(c)
       }
-    }
-  }
-
-  private fun extractMathLatex(
-    text: android.text.Spannable,
-    start: Int,
-    end: Int,
-  ): String? {
-    return try {
-      val mathInlineSpanClass = Class.forName("com.swmansion.enriched.markdown.spans.MathInlineSpan")
-      val spans = text.getSpans(start, end, mathInlineSpanClass)
-      if (spans.isEmpty()) return null
-      val latexField = mathInlineSpanClass.getDeclaredField("latex").apply { isAccessible = true }
-      latexField.get(spans[0]) as? String
-    } catch (_: Exception) {
-      null
     }
   }
 }

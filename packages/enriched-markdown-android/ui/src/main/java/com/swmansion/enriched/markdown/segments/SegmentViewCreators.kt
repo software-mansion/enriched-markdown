@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import android.util.TypedValue
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
+import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
@@ -21,6 +22,7 @@ data class SegmentViewConfig(
   val onTaskListItemTap: ((view: EnrichedMarkdownInternalText, hit: TaskListHitTestResult) -> Unit)?,
   val onLinkPress: ((String) -> Unit)?,
   val onLinkLongPress: ((String) -> Unit)?,
+  val onPluginEvent: PluginEventSink? = null,
 )
 
 object SegmentViewCreators {

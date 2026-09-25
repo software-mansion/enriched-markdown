@@ -1,0 +1,57 @@
+plugins {
+  id "com.android.library"
+}
+
+android {
+  namespace = "com.swmansion.enriched.markdown.math"
+
+  compileSdk = rootProject.ext.compileSdkVersion
+
+  defaultConfig {
+    minSdk = rootProject.ext.minSdkVersion
+    consumerProguardFiles("consumer-rules.pro")
+  }
+
+  testOptions {
+    unitTests {
+      includeAndroidResources = true
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled = false
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+  }
+}
+
+dependencies {
+  api(project(":ui"))
+  // LaTeX math rendering (KaTeX-compatible native engine + KaTeX fonts)
+  api("io.github.erweixin:ratex-android:0.1.14")
+
+  def composeBom = platform("androidx.compose:compose-bom:2026.06.00")
+
+  // The Compose style DSL (`markdownStyle { math { ... } }`) ships as extension functions on
+  // :compose types, but math renders through the View API alone. compileOnly keeps Compose out
+  // of the published POM, so an app that never uses :compose does not gain it by adding math.
+  compileOnly(project(":compose"))
+  compileOnly(composeBom)
+  compileOnly("androidx.compose.ui:ui")
+  compileOnly("androidx.compose.runtime:runtime")
+
+  implementation("androidx.appcompat:appcompat:1.7.0")
+  implementation("androidx.core:core-ktx:1.15.0")
+
+  testImplementation(project(":compose"))
+  testImplementation(composeBom)
+  testImplementation("androidx.compose.ui:ui")
+  testImplementation("junit:junit:4.13.2")
+  testImplementation("androidx.test:core:1.6.1")
+  testImplementation("androidx.test.ext:junit:1.2.1")
+  testImplementation("org.robolectric:robolectric:4.14.1")}

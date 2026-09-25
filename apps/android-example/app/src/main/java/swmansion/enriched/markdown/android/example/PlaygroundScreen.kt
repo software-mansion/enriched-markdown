@@ -187,6 +187,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               superscript = true,
               subscript = true,
               admonitions = true,
+              latexMath = true,
             ),
           onLinkClick = { url ->
             Toast.makeText(context, "Link pressed: $url", Toast.LENGTH_SHORT).show()

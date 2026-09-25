@@ -25,6 +25,48 @@ Requirements: `minSdk 24`, AndroidX.
 
 The `compose` artifact pulls in internal `ui` and `parser` modules transitively. Consumers should depend only on `compose`.
 
+### Optional plugins
+
+Features with a heavy dependency of their own ship as separate artifacts, installed at runtime. Today there is one: **math**.
+
+```kotlin
+dependencies {
+  implementation("com.swmansion.enriched.markdown:compose:0.1.0")
+  implementation("com.swmansion.enriched.markdown:math:0.1.0") // only if you render LaTeX
+}
+```
+
+An app that renders no math does not add this line and pays nothing for it — not the artifact, and not its native LaTeX engine. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run.
+
+Install the plugin once, at startup, before any markdown is rendered:
+
+```kotlin
+import android.app.Application
+import com.swmansion.enriched.markdown.math.LatexMathPlugin
+import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+
+@OptIn(InternalPluginApi::class)
+class MyApplication : Application() {
+  override fun onCreate() {
+    super.onCreate()
+    EnrichedMarkdownPlugins.install(LatexMathPlugin)
+  }
+}
+```
+
+…registered in `AndroidManifest.xml`:
+
+```xml
+<application android:name=".MyApplication" …>
+```
+
+The registry is an internal extension surface — we write and version the plugins alongside core — so installing one needs `@OptIn(InternalPluginApi::class)`. Everything else in this README is ordinary public API.
+
+Without the install call nothing breaks: `$...$` and `$$...$$` render as their raw source, delimiters included, and logcat carries a single `EnrichedMarkdown` warning naming the missing artifact and this call.
+
+The plugin and the parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, installed plugin or not.
+
 ## Quick start
 
 Wrap your app (or a screen) in `MarkdownTheme`, then render markdown with `EnrichedMarkdownText`:
@@ -134,6 +176,8 @@ The `markdownStyle` builder supports these blocks:
 | `thematicBreak` | Horizontal rules |
 | `table` | Tables |
 | `spoiler` | The overlay that conceals `\|\|spoiler\|\|` text |
+| `math` | Block LaTeX math (`$$...$$`; needs the `:math` artifact and `Md4cFlags(latexMath = true)`) |
+| `inlineMath` | Inline LaTeX math (`$...$`; same two requirements) |
 
 Use `MarkdownStyle.merge { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style. `a.merge(b)` and `a + b` layer a whole style on top of another the same way.
 
@@ -173,6 +217,39 @@ markdownStyle {
 }
 ```
 
+### Math style blocks
+
+`math` and `inlineMath` come from the `:math` artifact, not from the builder itself: they are extension functions on `MarkdownStyleBuilder`, so they need an import before they resolve.
+
+```kotlin
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.swmansion.enriched.markdown.compose.markdownStyle
+import com.swmansion.enriched.markdown.math.compose.inlineMath
+import com.swmansion.enriched.markdown.math.compose.math
+import com.swmansion.enriched.markdown.styles.TextAlignment
+
+markdownStyle {
+  math {
+    fontSize = 20.sp
+    color = Color(0xFF1F2937)
+    backgroundColor = Color(0xFFF3F4F6)
+    padding = 12.dp
+    marginTop = 0.dp
+    marginBottom = 16.dp
+    textAlign = TextAlignment.CENTER
+  }
+  inlineMath {
+    color = Color(0xFF7C3AED)
+  }
+}
+```
+
+`math` styles standalone equations: `fontSize`, `color`, `backgroundColor`, `padding`, `marginTop`, `marginBottom`, and `textAlign` (`LEFT`, `CENTER` — the default — or `RIGHT`). `inlineMath` takes a `color` only; its size follows the surrounding text.
+
+Properties you leave unset keep the plugin's own defaults, which live in `:math` rather than in core. Repeating either block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { math { … } }` layers over a base style.
+
 ## API reference
 
 ### `EnrichedMarkdownText`
@@ -191,6 +268,7 @@ fun EnrichedMarkdownText(
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles,
+  onPluginEvent: (PluginEvent) -> Unit = {},
 )
 ```
 
@@ -206,6 +284,7 @@ fun EnrichedMarkdownText(
 | `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
 | `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
 | `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles` (default) or `SpoilerOverlay.Solid` |
+| `onPluginEvent` | Called when an installed plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
@@ -239,6 +318,60 @@ EnrichedMarkdownText(
 toggle and no `onTaskListItemToggle`. Text selection and links are unaffected
 either way.
 
+#### LaTeX math
+
+With the `:math` artifact on the classpath, `EnrichedMarkdownPlugins.install(LatexMathPlugin)`
+called at startup, and `Md4cFlags(latexMath = true)` on the instance, `$...$` renders inline
+within the text and `$$...$$` on its own line renders as a standalone, horizontally scrollable
+block. Long-press a block equation to copy its LaTeX source or copy it as Markdown. Display math
+that appears mid-line (`a $$x$$ b`) stays in the text flow rather than breaking the paragraph.
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = "Mass-energy: \$E = mc^2\$\n\n\$\$\n\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}\n\$\$",
+  flags = Md4cFlags(latexMath = true),
+)
+```
+
+Miss any of the three and the math still reaches the screen, unrendered: with the flag off it is
+literal text, and with the flag on but no plugin installed it is its own raw source, delimiters
+included, plus one warning in logcat.
+
+#### `onPluginEvent` and `LatexErrorEvent`
+
+Installed plugins report per-view problems through `onPluginEvent`, a single channel shared by
+every plugin rather than one callback per feature. The math plugin sends a `LatexErrorEvent` when
+the engine cannot draw an expression (an unsupported command, a syntax error); the expression then
+shows as its raw source.
+
+```kotlin
+import com.swmansion.enriched.markdown.math.LatexErrorEvent
+
+EnrichedMarkdownText(
+  markdown = content,
+  flags = Md4cFlags(latexMath = true),
+  onPluginEvent = { event ->
+    if (event is LatexErrorEvent) {
+      Log.w("Latex", "${event.source} failed: ${event.message}")
+    }
+  },
+)
+```
+
+```kotlin
+data class LatexErrorEvent(
+  val source: String,       // the whole failing expression, without $ / $$ delimiters
+  val message: String?,     // the engine's error, when it gave one
+  val displayMode: Boolean, // false for inline $...$, true for block $$...$$
+  val pluginId: String,     // LatexMathPlugin.ID
+) : PluginEvent
+```
+
+Each view reports a distinct event at most once, by event equality, and keeps remembering it when
+`markdown` changes, so streamed content does not report the same failure on every update. A
+recycled view starts with an empty record. `PluginEvent` itself carries only `pluginId`, so check
+the type — as above — before reading a plugin's own fields.
+
 ### `Md4cFlags`
 
 ```kotlin
@@ -246,6 +379,7 @@ data class Md4cFlags(
   val underline: Boolean = false,    // _text_ and __text__ render underlined instead of italic and bold
   val superscript: Boolean = false,  // ^text^ renders raised above the baseline
   val subscript: Boolean = false,    // ~text~ renders lowered below the baseline
+  val latexMath: Boolean = false,    // $...$ and $$...$$ parse as math nodes
   val admonitions: Boolean = false,  // `> [!NOTE]` blockquotes render as GitHub alerts
   // … further md4c extensions
 ) {
@@ -331,6 +465,7 @@ the only supported way to reach them.
   Markdown keeps the `||` markers)
 - Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
 - Tables (GFM), including per-column alignment
+- LaTeX math, inline (`$...$`) and block (`$$...$$`) — requires `Md4cFlags(latexMath = true)` and the `:math` artifact
 
 ### Admonitions
 
