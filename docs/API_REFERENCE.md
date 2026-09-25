@@ -937,7 +937,7 @@ The input participates in React Native's text-input focus tracking (`TextInput.S
 
 ### `onPress`, `onPressIn`, `onPressOut`
 
-Fire for taps on the input, like React Native `TextInput`. The input claims the JS touch responder, so a tap that focuses it does not also fire the `onPress` of an ancestor `Pressable`. After `onPress` runs, the input focuses itself (unless `editable` is `false`) without changing the current selection.
+Fire for taps on the input, like React Native `TextInput`. The input claims the JS touch responder, so a tap that focuses it does not also fire the `onPress` of an ancestor `Pressable`. After `onPress` runs, the input focuses itself (unless `editable` is `false`) without changing the current selection. As on `TextInput`, responder props passed through `ViewProps` (`onStartShouldSetResponder`, `onResponderGrant`, and the rest) are overridden by the input's press handling.
 
 | Type                                        | Default Value | Platform |
 | ------------------------------------------- | ------------- | -------- |

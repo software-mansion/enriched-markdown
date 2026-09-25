@@ -48,9 +48,7 @@ class InputEventEmitter(
   fun emitSelection(
     start: Int,
     end: Int,
-  ) {
-    dispatch(OnChangeSelectionEvent(surfaceId(), view.id, start, end))
-  }
+  ): Boolean = dispatch(OnChangeSelectionEvent(surfaceId(), view.id, start, end))
 
   fun emitState() {
     val pos = view.selectionStart
@@ -236,10 +234,13 @@ class InputEventEmitter(
     return UIManagerHelper.getSurfaceId(reactContext)
   }
 
-  private fun dispatch(event: Event<*>) {
-    if (view.editSession.shouldSuppressEvents) return
-    val reactContext = view.context as? ReactContext ?: return
-    val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id)
-    dispatcher?.dispatchEvent(event)
+  /** Returns true when [event] was handed to the React event dispatcher */
+  private fun dispatch(event: Event<*>): Boolean {
+    if (view.editSession.shouldSuppressEvents) return false
+    val reactContext = view.context as? ReactContext ?: return false
+    val dispatcher =
+      UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id) ?: return false
+    dispatcher.dispatchEvent(event)
+    return true
   }
 }

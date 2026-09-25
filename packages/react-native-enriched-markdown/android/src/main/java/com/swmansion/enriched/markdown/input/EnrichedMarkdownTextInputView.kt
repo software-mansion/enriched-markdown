@@ -426,19 +426,24 @@ class EnrichedMarkdownTextInputView(
   }
 
   /**
-   * [onSelectionChanged] ignores selection changes made during an edit phase
-   * (setValue, programmatic inserts, anchor management), so every path that
-   * moves the caret inside a phase calls this after the phase ends. Reads the
-   * current selection, since anchor sync can move it after the callback fired.
+   * Sends the caret range to JS when it differs from the last range JS received.
+   *
+   * [onSelectionChanged] returns immediately while an edit phase is active, so
+   * a caret move from setValue, a programmatic insert, or anchor management is
+   * not reported there. Those callers invoke this once the edit phase has ended.
+   *
+   * This function then rereads the latest range at that point before emitting
+   * the selection.
    */
   private fun emitSelectionIfChanged() {
     if (!isComponentReady) return
     val start = selectionStart
     val end = selectionEnd
     if (start == lastEmittedSelectionStart && end == lastEmittedSelectionEnd) return
-    lastEmittedSelectionStart = start
-    lastEmittedSelectionEnd = end
-    eventEmitter.emitSelection(start, end)
+    if (eventEmitter.emitSelection(start, end)) {
+      lastEmittedSelectionStart = start
+      lastEmittedSelectionEnd = end
+    }
   }
 
   /**
