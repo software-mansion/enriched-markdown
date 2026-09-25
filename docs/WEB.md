@@ -60,6 +60,13 @@ warnings.
 | `enableBlockContextMenu` | Native-only long-press copy popup on block views. |
 | `onCopyPress` / `onLatexError` | Native-only callbacks. |
 
+The stripping covers this library's own props only. Generic React Native
+`ViewProps` that the native interface inherits - `accessibilityLabel`,
+`onLayout`, `pointerEvents`, `hitSlop`, `nativeID` and friends - are still
+forwarded to the root element and will produce React "unknown prop" warnings on
+web. Use the DOM equivalents (`aria-label`, `id`, CSS) instead. `testID` is the
+exception: it is mapped to `data-testid`.
+
 ## Not supported on web
 
 - `EnrichedMarkdownTextInput` — native-only

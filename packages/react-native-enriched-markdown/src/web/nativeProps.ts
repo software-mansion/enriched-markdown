@@ -1,3 +1,7 @@
+import type { ViewProps } from 'react-native';
+import type { EnrichedMarkdownTextProps as NativeMarkdownTextProps } from '../types/MarkdownTextProps';
+import type { EnrichedMarkdownTextProps as WebMarkdownTextProps } from '../types/MarkdownTextProps.web';
+
 /**
  * Props that form the native (iOS/Android) EnrichedMarkdownText API but have no
  * effect on web.
@@ -10,36 +14,45 @@
  * root DOM element, triggering React "unknown prop" warnings. They are dropped
  * here before reaching the DOM.
  *
- * This list mirrors the library's own public API. Generic React Native
- * ViewProps (nativeID, accessibility*, hitSlop, etc.) are a broader
- * react-native-web concern and are intentionally out of scope.
+ * The set below is not hand-maintained: `NativeOnlyPropName` is derived as the
+ * native prop names minus the ones web implements, so adding a native-only prop
+ * to `MarkdownTextProps.ts` fails the build here until it is listed and thus
+ * filtered. Generic React Native ViewProps (nativeID, accessibility*, hitSlop,
+ * etc.) are excluded from that union and stay out of scope; they are documented
+ * as not stripped in docs/WEB.md.
+ *
+ * The `react-native` and native-props imports are type-only, so nothing from
+ * either reaches the web bundle.
  */
-const NATIVE_ONLY_PROP_NAMES = [
-  'onCopyPress',
-  'onLatexError',
-  'enableBlockContextMenu',
-  'enableLinkPreview',
-  'selectionHandleColor',
-  'allowFontScaling',
-  'maxFontSizeMultiplier',
-  'flavor',
-  'streamingAnimation',
-  'streamingConfig',
-  'spoilerOverlay',
-  'contextMenuItems',
-  'imageRequestHeaders',
-  'selectionMenuConfig',
-  'accessibilityLabels',
-  'textBreakStrategy',
-  'lineBreakStrategyIOS',
-  'writingDirection',
-  'numberOfLines',
-  'ellipsizeMode',
-] as const;
+type NativeOnlyPropName = Exclude<
+  keyof NativeMarkdownTextProps,
+  keyof WebMarkdownTextProps | keyof ViewProps
+>;
 
-type NativeOnlyPropName = (typeof NATIVE_ONLY_PROP_NAMES)[number];
+export const NATIVE_ONLY_PROP_NAMES: Record<NativeOnlyPropName, true> = {
+  onCopyPress: true,
+  onLatexError: true,
+  enableBlockContextMenu: true,
+  enableLinkPreview: true,
+  selectionHandleColor: true,
+  allowFontScaling: true,
+  maxFontSizeMultiplier: true,
+  flavor: true,
+  streamingAnimation: true,
+  streamingConfig: true,
+  spoilerOverlay: true,
+  contextMenuItems: true,
+  imageRequestHeaders: true,
+  selectionMenuConfig: true,
+  accessibilityLabels: true,
+  textBreakStrategy: true,
+  lineBreakStrategyIOS: true,
+  writingDirection: true,
+  numberOfLines: true,
+  ellipsizeMode: true,
+};
 
-const NATIVE_ONLY_PROPS = new Set<string>(NATIVE_ONLY_PROP_NAMES);
+const NATIVE_ONLY_PROPS = new Set<string>(Object.keys(NATIVE_ONLY_PROP_NAMES));
 
 /**
  * Removes native-only props so they are never forwarded to a DOM element.
