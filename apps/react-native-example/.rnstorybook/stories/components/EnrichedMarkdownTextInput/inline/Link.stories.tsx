@@ -1,5 +1,8 @@
 import React from 'react';
-import { EnrichedMarkdownTextInputStory } from '../EnrichedMarkdownTextInputStory';
+import {
+  EnrichedMarkdownTextInputStory,
+  StyleStateStory,
+} from '../EnrichedMarkdownTextInputStory';
 import { storyMeta } from '../shared/storyMeta';
 import {
   inputLinkBaseArgTypes,
@@ -62,4 +65,16 @@ export const Variants: InputStory<InputLinkVariantsDemoControls> = {
       />
     );
   },
+};
+
+export const LinkState: InputStory = {
+  argTypes: { onChangeState: { action: 'onChangeState' } },
+  render: (args) => (
+    <StyleStateStory
+      title="Link State"
+      description="styleState.link reports the link at the selection and its destination. Move the caret between the two adjacent links, place it right after a link, select across a link boundary and set a link, or put the caret in the empty-URL link (isActive: true, destination: '')."
+      initialMarkdown="[one](https://one.example)[two](https://two.example) and [empty]()"
+      onChangeState={args.onChangeState}
+    />
+  ),
 };

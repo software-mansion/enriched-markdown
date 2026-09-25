@@ -810,10 +810,10 @@ class EnrichedMarkdownTextInputView(
     return blockCoordinator.headingLevelAtPosition(editable, selectionStart)
   }
 
-  fun linkDestinationForSelection(
+  fun linkForSelection(
     start: Int,
     end: Int,
-  ): String? = linkCoordinator.linkForSelection(start, end)?.url
+  ): FormattingRange? = linkCoordinator.linkForSelection(start, end)
 
   /**
    * On empty text with a heading block, overrides text size to the heading's

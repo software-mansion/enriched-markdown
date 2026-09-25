@@ -31,8 +31,9 @@ class LinkCoordinator(
       ?: if (start == end && start > 0) formattingStore.rangeOfType(StyleType.LINK, start - 1) else null
 
   /**
-   * Updates the URL of the link at the selection, or adds a link over a
-   * non-empty selection. Returns true if anything changed.
+   * Updates the URL of the link at the selection if the selection lies within
+   * it, or otherwise adds a link over a non-empty selection. Returns true if
+   * anything changed.
    */
   fun setLinkUrl(
     url: String,
@@ -40,13 +41,16 @@ class LinkCoordinator(
     end: Int,
     editable: Spannable?,
   ): Boolean {
-    linkForSelection(start, end)?.let { link ->
+    // Update the link if selection is entirely within link
+    linkForSelection(start, end)?.takeIf { start >= it.start && end <= it.end }?.let { link ->
       link.url = url
       if (editable != null) {
         autoLinkDetector.clearAutoLinkInRange(editable, link.start, link.end)
       }
       return true
     }
+
+    // Insert a link at the selection (removing any existing links that overlap)
     if (start == end) return false
     if (editable != null) {
       autoLinkDetector.clearAutoLinkInRange(editable, start, end)

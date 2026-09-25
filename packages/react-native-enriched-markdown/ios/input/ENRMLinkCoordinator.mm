@@ -35,12 +35,15 @@
 {
   ENRMFormattingRange *activeLink = [self linkForSelection:selection];
 
-  if (activeLink != nil) {
+  // Update the link if selection is entirely within it
+  if (activeLink != nil && selection.location >= activeLink.range.location &&
+      NSMaxRange(selection) <= NSMaxRange(activeLink.range)) {
     activeLink.url = url;
     [_autoLinkDetector clearAutoLinkInRange:activeLink.range];
     return YES;
   }
 
+  // Insert a link at the selection (removing any existing links that overlap)
   if (selection.length > 0) {
     ENRMFormattingRange *linkRange = [ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink range:selection url:url];
     [_formattingStore addRange:linkRange];
@@ -49,28 +52,6 @@
   }
 
   return NO;
-}
-
-- (void)addLinkWithURL:(NSString *)url start:(NSUInteger)start end:(NSUInteger)end
-{
-  if (start >= end) {
-    return;
-  }
-  NSRange range = NSMakeRange(start, end - start);
-  [_autoLinkDetector clearAutoLinkInRange:range];
-  [_formattingStore addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink
-                                                          range:range
-                                                            url:[self sanitizeURL:url]]];
-}
-
-- (void)addLinkDirectWithURL:(NSString *)url start:(NSUInteger)start end:(NSUInteger)end
-{
-  if (start >= end) {
-    return;
-  }
-  [_formattingStore addRange:[ENRMFormattingRange rangeWithType:ENRMInputStyleTypeLink
-                                                          range:NSMakeRange(start, end - start)
-                                                            url:url]];
 }
 
 - (BOOL)removeLinkForSelection:(NSRange)selection

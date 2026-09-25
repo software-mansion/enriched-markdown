@@ -857,8 +857,10 @@ interface StyleState {
   spoiler: { isActive: boolean };
   // The link at the selection: the one containing the first selected
   // character, or, for a collapsed caret, the one the caret is inside or
-  // right after. setLink and removeLink act on this same link.
-  link: { isActive: false } | { isActive: true; destination: string };
+  // right after. setLink and removeLink act on this same link. `destination`
+  // is "" when there is no link, and can also be "" for a link with an empty
+  // URL, so read `isActive` to tell whether there is a link.
+  link: { isActive: boolean; destination: string };
   // Heading level of the cursor's paragraph: 0 = none, 1-6 = H1-H6.
   heading: { isActive: boolean; level: number };
   // `depth` is the 0-based nesting level while `isActive` is true, and is
@@ -1011,7 +1013,7 @@ interface ContextMenuItem {
       underline: { isActive: boolean };
       strikethrough: { isActive: boolean };
       spoiler: { isActive: boolean };
-      link: { isActive: false } | { isActive: true; destination: string };
+      link: { isActive: boolean; destination: string };
     };
   }) => void;
   /** When false, the item is not shown in the menu. Defaults to true. */
@@ -1198,7 +1200,7 @@ Lifts the current list item out one nesting level. Outdenting a depth-0 item rem
 
 ### `setLink(url: string)`
 
-Updates the URL of the link at the selection, or, if there is none, applies a link to the selected text. "The link at the selection" is the same one `onChangeState` reports: the link containing the first selected character, or, for a collapsed caret, the link the caret is inside or right after.
+Updates the URL of the link at the selection if the selection lies within that link, or otherwise applies a link to the selected text. "The link at the selection" is the same one `onChangeState` reports: the link containing the first selected character, or, for a collapsed caret, the link the caret is inside or right after.
 
 ### `insertLink(text: string, url: string)`
 

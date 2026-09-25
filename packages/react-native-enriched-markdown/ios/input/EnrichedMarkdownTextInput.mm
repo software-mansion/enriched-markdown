@@ -1493,9 +1493,9 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   return [_typingController isEffectiveStyleActive:type atPosition:position];
 }
 
-- (nullable NSString *)linkURLForSelection:(NSRange)selection
+- (nullable ENRMFormattingRange *)linkForSelection:(NSRange)selection
 {
-  return [_linkCoordinator linkForSelection:selection].url;
+  return [_linkCoordinator linkForSelection:selection];
 }
 
 #pragma mark - ENRMInputTypingAttributesDataSource
@@ -1555,16 +1555,18 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 }
 
+/// Handles backspace or delete on a link's text, or deleting a selection that
+/// starts in a link. Without this, UIKit removes only those characters and
+/// leaves a partial link still pointing at the old URL; with it, the whole link
+/// is deleted. Returns YES when it did so, and the caller rejects UIKit's edit.
 - (BOOL)deleteLinkForReplacementRange:(NSRange)range replacementText:(NSString *)text
 {
   if (text.length > 0) {
     return NO;
   }
 
-  // Deleting is about the characters being removed: the selected link, or the
-  // link containing the character before the caret. linkForSelection:'s caret
-  // rule would also match a caret at a link's start, deleting the whole link
-  // instead of the character before it.
+  // linkForSelection: would match a caret at a link's start, so backspace at
+  // the start of the text would delete a link that follows it.
   ENRMFormattingRange *linkRange = range.length > 0 ? [_linkCoordinator linkForSelection:range]
                                                     : [_linkCoordinator linkRangeForDeletionAtPosition:range.location];
   if (linkRange == nil) {

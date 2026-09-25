@@ -1,6 +1,7 @@
 #pragma once
 
 #import "ENRMBlockRange.h"
+#import "ENRMFormattingRange.h"
 #import "ENRMInputStyledRange.h"
 #import <Foundation/Foundation.h>
 #include <string>
@@ -13,7 +14,9 @@ typedef struct {
   BOOL underline;
   BOOL strikethrough;
   BOOL spoiler;
-  /// URL of the link at the selection; empty when there is none.
+  BOOL link;
+  /// URL of the link at the selection. Note that this can be an empty string
+  /// for a link with an empty URL.
   std::string linkDestination;
   NSInteger headingLevel;
   BOOL unorderedList;
@@ -28,7 +31,7 @@ typedef struct {
 - (BOOL)isStyleActive:(ENRMInputStyleType)type inRange:(NSRange)range;
 - (NSInteger)headingLevelForCursorParagraph;
 - (nullable ENRMBlockRange *)listBlockForCursorParagraph;
-- (nullable NSString *)linkURLForSelection:(NSRange)selection;
+- (nullable ENRMFormattingRange *)linkForSelection:(NSRange)selection;
 
 @end
 
