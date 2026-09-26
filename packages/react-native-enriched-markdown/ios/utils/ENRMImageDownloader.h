@@ -3,6 +3,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/// Decoded pixel cost, shared by native image caches.
+FOUNDATION_EXPORT NSUInteger ENRMImageByteCost(RCTUIImage *image);
+
 typedef void (^ENRMImageDownloadCompletion)(RCTUIImage *_Nullable image);
 
 /**

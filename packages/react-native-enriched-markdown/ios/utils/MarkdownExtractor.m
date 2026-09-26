@@ -3,6 +3,7 @@
 #import "BlockquoteBorder.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillAttachment.h"
 #import "ENRMUIKit.h"
 #import "HighlightRenderer.h"
 #include <TargetConditionals.h>
@@ -127,6 +128,17 @@ NSString *_Nullable extractMarkdownFromAttributedString(NSAttributedString *attr
   }
 
   range.length = MIN(range.length, attributedText.length - range.location);
+#if !TARGET_OS_OSX
+  NSMutableAttributedString *semanticText = [attributedText mutableCopy];
+  [attributedText enumerateAttribute:NSAttachmentAttributeName
+                             inRange:range
+                             options:0
+                          usingBlock:^(id value, NSRange attachmentRange, BOOL *stop) {
+                            if ([value isKindOfClass:ENRMLinkPillAttachment.class])
+                              [semanticText removeAttribute:NSAttachmentAttributeName range:attachmentRange];
+                          }];
+  attributedText = semanticText;
+#endif
 
   NSMutableString *result = [NSMutableString string];
 

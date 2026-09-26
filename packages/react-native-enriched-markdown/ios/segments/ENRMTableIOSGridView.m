@@ -1,4 +1,6 @@
 #import "ENRMTableIOSGridView.h"
+#import "ENRMLinkPillAttachment.h"
+#import "ENRMLinkPillTextStorage.h"
 
 #if !TARGET_OS_OSX
 
@@ -97,9 +99,7 @@
       if (text.length > 0) {
         CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding, yOffset + _verticalCellPadding,
                                      columnWidth - _horizontalCellPadding * 2, rowHeight - _verticalCellPadding * 2);
-        [text drawWithRect:textRect
-                   options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-                   context:nil];
+        ENRMDrawLinkPillText(text, textRect);
       }
 
       xOffset += columnWidth;
@@ -149,8 +149,9 @@ static NSString *linkInAttributedString(NSAttributedString *text, CGRect textRec
   if (text.length == 0)
     return nil;
 
-  NSTextStorage *textStorage = [[NSTextStorage alloc] initWithAttributedString:text];
+  NSTextStorage *textStorage = [[ENRMLinkPillTextStorage alloc] initWithAttributedString:text];
   NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
+  layoutManager.delegate = ENRMLinkPillLayoutDelegate.shared;
   NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:textRect.size];
   textContainer.lineFragmentPadding = 0;
   [layoutManager addTextContainer:textContainer];

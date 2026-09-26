@@ -1,6 +1,7 @@
 #import "RTFExportUtils.h"
 #import "BlockquoteBorder.h"
 #import "CodeBackground.h"
+#import "ENRMLinkPillAttachment.h"
 #import "LastElementUtils.h"
 #import "ListItemRenderer.h"
 #import "RenderContext.h"
@@ -282,6 +283,15 @@ NSAttributedString *prepareAttributedStringForRTFExport(NSAttributedString *attr
     return attributedString;
 
   NSMutableAttributedString *prepared = [attributedString mutableCopy];
+#if !TARGET_OS_OSX
+  [attributedString enumerateAttribute:NSAttachmentAttributeName
+                               inRange:NSMakeRange(0, attributedString.length)
+                               options:0
+                            usingBlock:^(id value, NSRange range, BOOL *stop) {
+                              if ([value isKindOfClass:ENRMLinkPillAttachment.class])
+                                [prepared removeAttribute:NSAttachmentAttributeName range:range];
+                            }];
+#endif
 
   RCTUIColor *codeBgColor = [styleConfig codeBackgroundColor];
   RCTUIColor *codeBlockBgColor = [styleConfig codeBlockBackgroundColor];

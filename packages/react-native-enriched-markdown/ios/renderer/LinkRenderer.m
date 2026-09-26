@@ -1,9 +1,27 @@
 #import "LinkRenderer.h"
+#import "ENRMLinkPillAttachment.h"
 #import "FontUtils.h"
 #import "RenderContext.h"
 #import "RendererFactory.h"
 #import "StyleConfig.h"
 #import <React/RCTFont.h>
+
+#if !TARGET_OS_OSX
+static BOOL ENRMRangeHasAttachment(NSAttributedString *text, NSRange range)
+{
+  __block BOOL found = NO;
+  [text enumerateAttribute:NSAttachmentAttributeName
+                   inRange:range
+                   options:0
+                usingBlock:^(id value, NSRange subrange, BOOL *stop) {
+                  if (value) {
+                    found = YES;
+                    *stop = YES;
+                  }
+                }];
+  return found;
+}
+#endif
 
 @implementation LinkRenderer
 
@@ -74,10 +92,26 @@
                             }
                           }];
 
-  if (backgroundColor) {
+#if !TARGET_OS_OSX
+  BOOL willBePill = variant.pill && !ENRMRangeHasAttachment(output, range);
+#else
+  BOOL willBePill = NO;
+#endif
+  if (backgroundColor && !willBePill)
     [output addAttribute:NSBackgroundColorAttributeName value:backgroundColor range:range];
-  }
 
+#if !TARGET_OS_OSX
+  if (willBePill) {
+    UIFont *font = [output attribute:NSFontAttributeName atIndex:range.location effectiveRange:NULL];
+    ENRMLinkPillAttachment *pill =
+        [[ENRMLinkPillAttachment alloc] initWithLinkText:[output.string substringWithRange:range]
+                                                 variant:variant
+                                                    font:font ?: [context getBlockStyle].cachedFont];
+    // Children may already have an inline-code background. Pills draw their own.
+    [output removeAttribute:NSBackgroundColorAttributeName range:range];
+    [output addAttribute:NSAttachmentAttributeName value:pill range:range];
+  }
+#endif
   [context registerLinkRange:range url:url];
 }
 

@@ -561,7 +561,13 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
         const auto &oldVariant = oldStyle.linkVariants[i];
         if (newVariant.pattern != oldVariant.pattern || newVariant.color != oldVariant.color ||
             newVariant.underline != oldVariant.underline || newVariant.backgroundColor != oldVariant.backgroundColor ||
-            newVariant.fontFamily != oldVariant.fontFamily) {
+            newVariant.fontFamily != oldVariant.fontFamily || newVariant.pill != oldVariant.pill ||
+            newVariant.label != oldVariant.label || newVariant.iconUri != oldVariant.iconUri ||
+            newVariant.borderRadius != oldVariant.borderRadius ||
+            newVariant.paddingHorizontal != oldVariant.paddingHorizontal ||
+            newVariant.paddingVertical != oldVariant.paddingVertical ||
+            newVariant.borderWidth != oldVariant.borderWidth || newVariant.borderColor != oldVariant.borderColor ||
+            newVariant.maxWidth != oldVariant.maxWidth) {
           linkVariantsChanged = YES;
           break;
         }
@@ -575,6 +581,15 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
         variant.color = RCTUIColorFromSharedColor(entry.color);
         variant.underline = entry.underline;
         variant.fontFamily = [[NSString alloc] initWithUTF8String:entry.fontFamily.c_str()];
+        variant.pill = entry.pill;
+        variant.label = [[NSString alloc] initWithUTF8String:entry.label.c_str()];
+        variant.iconUri = [[NSString alloc] initWithUTF8String:entry.iconUri.c_str()];
+        variant.borderRadius = entry.borderRadius;
+        variant.paddingHorizontal = entry.paddingHorizontal;
+        variant.paddingVertical = entry.paddingVertical;
+        variant.borderWidth = entry.borderWidth;
+        variant.borderColor = RCTUIColorFromSharedColor(entry.borderColor);
+        variant.maxWidth = entry.maxWidth;
         RCTUIColor *backgroundColor = RCTUIColorFromSharedColor(entry.backgroundColor);
         variant.backgroundColor = CGColorGetAlpha(backgroundColor.CGColor) > 0 ? backgroundColor : nil;
         [variants addObject:variant];

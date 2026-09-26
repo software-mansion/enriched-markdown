@@ -110,6 +110,15 @@ export interface LinkVariantEntryInternal {
   underline: boolean;
   backgroundColor: string;
   fontFamily: string;
+  pill: boolean;
+  label: string;
+  iconUri: string;
+  borderRadius: number;
+  paddingHorizontal: number;
+  paddingVertical: number;
+  borderWidth: number;
+  borderColor: string;
+  maxWidth: number;
 }
 
 interface StrongStyleInternal {

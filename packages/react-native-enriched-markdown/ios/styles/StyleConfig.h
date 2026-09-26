@@ -10,6 +10,15 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @interface LinkVariantConfig : NSObject
 @property (nonatomic, copy) NSString *fontFamily;
+@property (nonatomic, assign) BOOL pill;
+@property (nonatomic, copy) NSString *label;
+@property (nonatomic, copy) NSString *iconUri;
+@property (nonatomic, assign) CGFloat borderRadius;
+@property (nonatomic, assign) CGFloat paddingHorizontal;
+@property (nonatomic, assign) CGFloat paddingVertical;
+@property (nonatomic, assign) CGFloat borderWidth;
+@property (nonatomic, strong) RCTUIColor *borderColor;
+@property (nonatomic, assign) CGFloat maxWidth;
 @property (nonatomic, copy) NSString *pattern;
 @property (nonatomic, strong) RCTUIColor *color;
 @property (nonatomic, assign) BOOL underline;

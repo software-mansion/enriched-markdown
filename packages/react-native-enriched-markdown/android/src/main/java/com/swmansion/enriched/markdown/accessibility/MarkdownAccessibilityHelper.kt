@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 
@@ -238,7 +239,15 @@ class MarkdownAccessibilityHelper(
       }
 
       // The semantic span itself
-      val content = span.imageAltText ?: spanned.substring(span.start, span.end).trim()
+      val pill =
+        if (span.linkUrl != null) {
+          spanned.getSpans(span.start, span.end, LinkPillSpan::class.java).firstOrNull {
+            spanned.getSpanStart(it) == span.start && spanned.getSpanEnd(it) == span.end
+          }
+        } else {
+          null
+        }
+      val content = span.imageAltText ?: pill?.accessibilityText ?: spanned.substring(span.start, span.end).trim()
       if (content.isNotEmpty()) {
         items.add(createSpanItem(nextId++, content, span, spanned))
       }

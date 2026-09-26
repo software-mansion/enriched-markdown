@@ -7,14 +7,6 @@
 
 #define CACHE_KEY_PROCESSED(url, w, h, r, m) [NSString stringWithFormat:@"%@_w%.1f_h%.1f_r%.1f_m%@", url, w, h, r, m]
 
-static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
-{
-  CGImageRef cgImage = image.CGImage;
-  if (!cgImage)
-    return 0;
-  return CGImageGetBytesPerRow(cgImage) * CGImageGetHeight(cgImage);
-}
-
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
