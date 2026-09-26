@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.input.spans
 import android.graphics.Paint
 import android.text.Spanned
 import android.text.style.LineHeightSpan
+import android.text.style.UpdateLayout
 import com.swmansion.enriched.markdown.input.formatting.MarkdownSpan
 
 /**
@@ -15,10 +16,14 @@ import com.swmansion.enriched.markdown.input.formatting.MarkdownSpan
  * adjustment compounds line after line (progressively growing gaps). Guard to
  * the single line that contains the span start so only the item's first visual
  * line is spaced, exactly once.
+ *
+ * [UpdateLayout] makes EditText rebuild the affected lines when the span is
+ * added or removed; a plain LineHeightSpan change leaves stale line heights.
  */
 class InputListItemSpacingSpan(
   val spacingPx: Int,
 ) : LineHeightSpan,
+  UpdateLayout,
   MarkdownSpan {
   override fun chooseHeight(
     text: CharSequence?,

@@ -286,7 +286,7 @@ function App() {
 | `lineHeight` | `number` | Line height |
 
 > [!NOTE]
-> **iOS `lineHeight` behavior:** `lineHeight` acts as a floor, not a fixed height. A line grows to fit its tallest content (large inline `code`, math, or an inline image) instead of clipping it, so backgrounds and glyphs stay aligned. A consequence is that a `lineHeight` set below the block font's natural line height renders at the natural height rather than the smaller value, so a very tight `lineHeight` no longer matches React Native's core `<Text>`, and scripts whose glyphs are taller than the Latin baseline (for example Thai) can produce lines of uneven height within a block. Fenced code blocks are exempt - their lines stay clamped to `lineHeight`. On Android `lineHeight` already behaves as a floor.
+> **`lineHeight` is a minimum**. Lines with taller content (large inline `code`, math, images, emoji) grow to fit instead of being clipped, so a `lineHeight` below the font's natural height won't make lines tighter. This differs from React Native's `<Text>` and `<TextInput>`, which use it as an exact height. On iOS, fenced code block lines stay at exactly `lineHeight`.
 
 ### Paragraph and Heading-specific (paragraph, h1-h6)
 

@@ -29,10 +29,7 @@ class MarkdownTextWatcher(
     start: Int,
     before: Int,
     count: Int,
-  ) {
-    if (view.editSession.shouldSuppressTextWatcher) return
-    view.layoutManager.invalidateLayout()
-  }
+  ) = Unit
 
   override fun afterTextChanged(editable: Editable) {
     if (view.editSession.shouldSuppressTextWatcher) return

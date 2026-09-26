@@ -36,6 +36,16 @@ static inline CGFloat UIFontLineHeight(UIFont *font)
 #define ENRMTapRecognizer NSClickGestureRecognizer
 #endif
 
+/// Value for `usesFontLeading` on every NSLayoutManager that draws or
+/// measures markdown. NSLayoutManager defaults to YES, which adds each font's
+/// built-in leading on top of the paragraph line height. React Native turns it
+/// off for Text layout, and drawing and measuring must agree, or the reported
+/// height and the on-screen layout drift apart. Fonts pulled in by glyph
+/// fallback make this visible: Geeza Pro (Arabic) has nonzero leading, so with
+/// YES every Arabic line measures taller than it renders.
+/// https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm#L237
+static const BOOL ENRMLayoutManagerUsesFontLeading = NO;
+
 /// On iOS, explicitly sets opaque=NO — without it the renderer produces an opaque backing,
 /// breaking transparent backgrounds. macOS handles transparency by default.
 static inline RCTUIGraphicsImageRenderer *ImageRendererForSize(CGSize size)
@@ -273,7 +283,7 @@ static inline void ENRMConfigureMarkdownTextView(ENRMPlatformTextView *textView)
   textView.drawsBackground = NO;
 #endif
   textView.textContainer.lineFragmentPadding = 0;
-  textView.layoutManager.usesFontLeading = NO;
+  textView.layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   textView.linkTextAttributes = @{};
   textView.selectable = YES;
 #if !TARGET_OS_OSX
