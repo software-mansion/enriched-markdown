@@ -196,6 +196,108 @@ final class SpoilerTests: XCTestCase {
         XCTAssertEqual(solid.layer.cornerRadius, 9)
     }
 
+    /// A layout that only shifts the segments, here a taller top inset, keeps
+    /// every overlay and moves it; an effect's state survives.
+    @MainActor
+    func testOverlaysMoveWhenOnlyTheirPositionChanges() throws {
+        let words = Array(repeating: "spoiler", count: 30).joined(separator: " ")
+        let textView = makeLaidOutTextView("||\(words)||", width: 200)
+        let before = overlays(in: textView).sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertGreaterThan(before.count, 1)
+        let originalTop = try XCTUnwrap(before.first).frame.minY
+
+        textView.textContainerInset.top += 40
+        textView.setNeedsLayout()
+        textView.layoutIfNeeded()
+
+        let after = overlays(in: textView).sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertEqual(after.map { ObjectIdentifier($0) }, before.map { ObjectIdentifier($0) })
+        XCTAssertEqual(try XCTUnwrap(after.first).frame.minY, originalTop + 40, accuracy: 1)
+    }
+
+    /// A rewrap changes what a segment shows, so its overlay is replaced.
+    @MainActor
+    func testOverlaysAreReplacedWhenTheirTextChanges() throws {
+        let words = Array(repeating: "spoiler", count: 30).joined(separator: " ")
+        let textView = makeLaidOutTextView("||\(words)||", width: 200)
+        let before = overlays(in: textView)
+
+        textView.frame.size.width = 260
+        textView.layoutIfNeeded()
+
+        let after = overlays(in: textView)
+        XCTAssertEqual(after.map(\.concealedText.string).joined(), words)
+        XCTAssertTrue(Set(after.map { ObjectIdentifier($0) }).isDisjoint(with: before.map { ObjectIdentifier($0) }))
+    }
+
+    /// A re-render of the same markdown, as each streaming chunk is, keeps
+    /// the overlays of spoilers it did not touch.
+    @MainActor
+    func testOverlaysSurviveARerenderOfTheSameText() throws {
+        let markdown = "Intro ||hidden words|| tail"
+        let textView = makeLaidOutTextView(markdown)
+        let before = overlays(in: textView).map { ObjectIdentifier($0) }
+        XCTAssertFalse(before.isEmpty)
+
+        textView.setMarkdownAttributedText(MarkdownRenderer.render(markdown + " more", config: config))
+        textView.layoutIfNeeded()
+
+        XCTAssertEqual(overlays(in: textView).map { ObjectIdentifier($0) }, before)
+    }
+
+    /// New text in the same place and size is still new text. The two words
+    /// are anagrams, so they lay out at the same width and only the content
+    /// check can tell them apart.
+    @MainActor
+    func testOverlayIsReplacedWhenNewTextHasTheSameLayout() throws {
+        let textView = makeLaidOutTextView("||listen||")
+        let before = try XCTUnwrap(overlays(in: textView).first)
+
+        textView.setMarkdownAttributedText(MarkdownRenderer.render("||silent||", config: config))
+        textView.layoutIfNeeded()
+
+        let after = try XCTUnwrap(overlays(in: textView).first)
+        XCTAssertEqual(after.frame.size.width, before.frame.size.width, accuracy: 0.5)
+        XCTAssertFalse(after === before)
+        XCTAssertEqual(after.concealedText.string, "silent")
+    }
+
+    /// A second tap while the reveal runs must not move the point.
+    @MainActor
+    func testSecondTapDoesNotMoveTheRevealPoint() throws {
+        let textView = makeLaidOutTextView("||hidden|| shown")
+        let overlay = try XCTUnwrap(overlays(in: textView).first)
+        let first = CGPoint(x: overlay.frame.minX + 5, y: overlay.frame.minY + 3)
+
+        textView.spoilerOverlays.reveal(range: overlay.charRange, at: first)
+        textView.spoilerOverlays.reveal(range: overlay.charRange, at: CGPoint(x: first.x + 20, y: first.y))
+
+        XCTAssertEqual(try XCTUnwrap(overlay.revealPoint).x, 5, accuracy: 0.5)
+    }
+
+    @MainActor
+    func testRevealCarriesTheTapPointInOverlayCoordinates() throws {
+        let textView = makeLaidOutTextView("||hidden|| shown")
+        let overlay = try XCTUnwrap(overlays(in: textView).first)
+        let tap = CGPoint(x: overlay.frame.minX + 5, y: overlay.frame.minY + 3)
+
+        textView.spoilerOverlays.reveal(range: overlay.charRange, at: tap)
+
+        let point = try XCTUnwrap(overlay.revealPoint)
+        XCTAssertEqual(point.x, 5, accuracy: 0.5)
+        XCTAssertEqual(point.y, 3, accuracy: 0.5)
+    }
+
+    @MainActor
+    func testProgrammaticRevealHasNoTapPoint() throws {
+        let textView = makeLaidOutTextView("||hidden||")
+        let overlay = try XCTUnwrap(overlays(in: textView).first)
+
+        textView.spoilerOverlays.reveal(range: overlay.charRange)
+
+        XCTAssertNil(overlay.revealPoint)
+    }
+
     @MainActor
     func testTapHitTestFindsOverlayAndRevealFadesIt() throws {
         let textView = makeLaidOutTextView("||hidden|| shown")

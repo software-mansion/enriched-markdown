@@ -5,12 +5,14 @@ import UIKit
 /// text. Subclass to draw a custom effect and return it from a
 /// `SpoilerOverlayProvider`.
 ///
-/// The text view sets the frame, adds the view above the text, and recreates
-/// it whenever its segment moves, so keep construction cheap. The view must
-/// be opaque: the text under it is transparent, but emoji and inline images
-/// ignore that. An effect that shows the text through draws
-/// `concealedTextImage()`. A reveal calls `animateReveal` on every segment
-/// of the spoiler at once and removes each view when it completes.
+/// The text view sets the frame and adds the view above the text. When a
+/// re-layout only moves the segment, the view moves with it and keeps its
+/// state; when its text, size or baseline changes, the view is replaced, so
+/// keep construction cheap. The view must be opaque: the text under it is
+/// transparent, but emoji and inline images ignore that. An effect that
+/// shows the text through draws `concealedTextImage()`. A reveal calls
+/// `animateReveal` on every segment of the spoiler at once and removes each
+/// view when it completes; `revealPoint` says where the reader tapped.
 open class SpoilerOverlayView: UIView {
     static let revealDuration: TimeInterval = 0.45
 
@@ -27,6 +29,11 @@ open class SpoilerOverlayView: UIView {
     /// for effects that reveal a wrapped spoiler line by line.
     public internal(set) var segmentIndex: Int = 0
     public internal(set) var segmentCount: Int = 1
+    /// Where the reader tapped, in this view's coordinates, set just before
+    /// `animateReveal` is called. Nil for a programmatic reveal, and it can
+    /// lie outside the bounds when the tap landed on another segment of the
+    /// same spoiler.
+    public internal(set) var revealPoint: CGPoint?
     private(set) var isRevealing = false
 
     public init(charRange: NSRange) {
@@ -101,9 +108,12 @@ open class SpoilerOverlayView: UIView {
         }
     }
 
-    func reveal(completion: @escaping () -> Void) {
+    /// Starts the reveal once; a second call, such as another tap while the
+    /// animation runs, changes nothing, `revealPoint` included.
+    func reveal(from point: CGPoint?, completion: @escaping () -> Void) {
         guard !isRevealing else { return }
         isRevealing = true
+        revealPoint = point
         animateReveal { [self] in
             removeFromSuperview()
             completion()
