@@ -9,6 +9,9 @@ export const inputActionArgTypes = {
   onKeyPress: { action: 'onKeyPress' },
   onFocus: { action: 'onFocus' },
   onBlur: { action: 'onBlur' },
+  onPress: { action: 'onPress' },
+  onPressIn: { action: 'onPressIn' },
+  onPressOut: { action: 'onPressOut' },
   onLinkDetected: { action: 'onLinkDetected' },
 };
 

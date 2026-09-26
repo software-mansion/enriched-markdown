@@ -935,6 +935,30 @@ Fires when the input loses focus.
 
 The input participates in React Native's text-input focus tracking (`TextInput.State`), so blur also happens through the platform's standard keyboard-dismiss paths: taps outside the input inside a `ScrollView` (per its `keyboardShouldPersistTaps` setting) and `Keyboard.dismiss()`. See [Keyboard Dismissal](INPUT.md#keyboard-dismissal).
 
+### `onPress`, `onPressIn`, `onPressOut`
+
+Fire for taps on the input, like React Native `TextInput`. The input claims the JS touch responder, so a tap that focuses it does not also fire the `onPress` of an ancestor `Pressable`. After `onPress` runs, the input focuses itself (unless `editable` is `false`) without changing the current selection. As on `TextInput`, responder props passed through `ViewProps` (`onStartShouldSetResponder`, `onResponderGrant`, and the rest) are overridden by the input's press handling.
+
+| Type                                        | Default Value | Platform |
+| ------------------------------------------- | ------------- | -------- |
+| `(event: GestureResponderEvent) => unknown` | -             | Both     |
+
+### `hitSlop`
+
+Extends the touchable area for the press handlers above. Same as `hitSlop` on React Native `TextInput`.
+
+| Type                   | Default Value | Platform |
+| ---------------------- | ------------- | -------- |
+| `ViewProps['hitSlop']` | -             | Both     |
+
+### `rejectResponderTermination`
+
+When `true`, a parent scroll view or pressable can't take over the touch responder while the input is being pressed. Same as React Native `TextInput`.
+
+| Type      | Default Value | Platform |
+| --------- | ------------- | -------- |
+| `boolean` | `true`        | iOS      |
+
 ### `onStartMention`
 
 Fires when a new mention flow starts. See [Mentions](MENTIONS.md#events).
