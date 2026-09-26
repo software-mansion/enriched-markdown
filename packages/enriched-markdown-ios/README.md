@@ -321,6 +321,7 @@ open class SpoilerOverlayView: UIView {
   public var baseline: CGFloat                                // the line's typographic baseline, from the top
   public var segmentIndex: Int                                // this segment's place in the spoiler, reading order
   public var segmentCount: Int
+  public var revealPoint: CGPoint?                            // where the reader tapped, in the view's coordinates; nil if programmatic
   public init(charRange: NSRange)
   public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage   // the slice drawn where the text view draws it
   open func animateReveal(completion: @escaping () -> Void)   // default fades alpha; an override calls completion
@@ -350,13 +351,15 @@ EnrichedMarkdownText(content)
   .markdownSpoilerOverlay(BlurOverlayProvider())
 ```
 
-A spoiler gets one view per line segment; the text view sets its frame and recreates it whenever the segment moves, so keep construction cheap. Overlays are rebuilt when the provider value or the `Spoiler()` style changes, so a provider with parameters should keep them in stored properties and let `Equatable` synthesis compare them.
+A spoiler gets one view per line segment. When a re-layout only moves a segment (an image above it finishes loading, the text view's insets change, a streamed chunk arrives), its view moves with it and keeps its state; when the segment's text, size or baseline changes (a rewrap, a font change), the view is replaced, so keep construction cheap. Overlays are rebuilt when the provider value or the `Spoiler()` style changes, so a provider with parameters should keep them in stored properties and let `Equatable` synthesis compare them.
 
 **Showing the text through.** An effect that reveals the words gradually (blur, pixelation, scrambled characters) draws `concealedTextImage()`, which puts the glyphs exactly where the text view draws them, so nothing jumps when the view is removed at the end of the reveal. Pass an attributed string to draw a variation of the slice with the same metrics, such as `concealedText` with some characters replaced. Drawing `concealedText` yourself with `draw(at: .zero)` sits above the real glyphs whenever the theme sets a line height taller than the font, because the slice carries inline styling only; `baseline` is there for effects that need the number.
 
 **Opaque backdrops.** The view must be opaque, because emoji and inline images ignore the transparent foreground under it, so `Spoiler().background` has to match what is actually behind the text view or every overlay shows as a box. Watch for ancestors that tint the text view's area: a SwiftUI `.shadow` applied to a container that holds the text, for example, is composited over it; put the shadow on the background shape instead.
 
 **Wrapped spoilers.** A reveal starts every segment of the spoiler at once. To run line by line, delay by `segmentIndex`, as with `UIView.animate(withDuration:delay:...)` or a `CAAnimation.beginTime`, and keep the view fully concealed until its turn.
+
+**Revealing from the tap.** `revealPoint` is set before `animateReveal` runs, so an effect can wipe or ripple out from the reader's finger. It is nil when the spoiler is revealed programmatically, and it can fall outside the view's bounds when the tap hit another segment of the same spoiler, so clamp or fall back to the center.
 
 ### `.markdownTextSelection` / `.markdownSelectionColor`
 
