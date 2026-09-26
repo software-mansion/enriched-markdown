@@ -13,6 +13,11 @@ export interface EnrichedMarkdownTextProps extends Omit<
   'style' | 'dir'
 > {
   /**
+   * Test identifier applied to the root element as `data-testid`.
+   * @platform web
+   */
+  testID?: string;
+  /**
    * Markdown content to render.
    * @platform ios, android, web
    */
