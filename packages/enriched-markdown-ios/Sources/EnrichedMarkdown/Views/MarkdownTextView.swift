@@ -10,11 +10,11 @@ protocol SelectionHandleTouchReporting {
 final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, MarkdownAttachmentLayoutObserver {
     var styleConfig: MarkdownStyleConfiguration = .baseline() {
         didSet {
-            updateDecorationStyleConfig()
-            // `updateUIView` assigns this on every pass, so only a real change
-            // may drop the measurement — clearing it unconditionally would
-            // re-measure the document every frame, which is the whole point.
+            // `updateUIView` assigns this on every pass; only a real change may
+            // drop the measurement or repaint the block chrome, or every frame
+            // would re-measure and repaint the whole document.
             if styleConfig != oldValue {
+                updateDecorationStyleConfig()
                 cachedFit = nil
                 spoilerOverlays.style = styleConfig.spoiler
             }
@@ -351,9 +351,59 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layoutDecorationView()
+        updateDecorationFrames()
         setDecorationNeedsDisplay()
         spoilerOverlays.update()
+    }
+
+    /// Re-parenting passes through here too: a view leaves its window
+    /// before joining the next superview.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        observeEnclosingScrollView()
+        updateDecorationFrames()
+    }
+
+    /// The scroll view this text view sits in, whose visible region the
+    /// decoration views tile; nil leaves them covering the whole document.
+    private weak var enclosingScrollView: UIScrollView?
+    private var scrollObservation: NSKeyValueObservation?
+    /// The frame both decoration views have.
+    private var decorationTile: CGRect = .zero
+
+    /// Points drawn beyond the visible region on each side, so ordinary
+    /// scrolling reuses a tile and a re-tile happens once per margin.
+    static let decorationTileMargin: CGFloat = 600
+
+    private func observeEnclosingScrollView() {
+        var view = superview
+        while let current = view, !(current is UIScrollView) {
+            view = current.superview
+        }
+        let found = view as? UIScrollView
+        guard found !== enclosingScrollView else { return }
+        enclosingScrollView = found
+        scrollObservation = found?.observe(\.contentOffset, options: []) { [weak self] _, _ in
+            self?.updateDecorationFrames()
+        }
+    }
+
+    /// A tile around the visible region, kept until the region leaves it or
+    /// the tile outgrows its budget; the whole document outside a scroll
+    /// view. Two full-height decoration bitmaps cost hundreds of megabytes
+    /// on a long document and a full repaint per display; a tile costs a
+    /// screen or two.
+    private func decorationTileFrame() -> CGRect {
+        guard let scrollView = enclosingScrollView else { return bounds }
+        let visible = convert(scrollView.bounds, from: scrollView).intersection(bounds)
+        // Off screen, or not laid out yet: nothing to show until that changes.
+        guard !visible.isEmpty else { return decorationTile }
+
+        let margin = Self.decorationTileMargin
+        if decorationTile.contains(visible), decorationTile.height <= visible.height + margin * 2 {
+            return decorationTile.intersection(bounds)
+        }
+        return visible.insetBy(dx: 0, dy: -margin).integral.intersection(bounds)
     }
 }
 
@@ -406,9 +456,16 @@ private extension MarkdownTextView {
         addSubview(foregroundView)
     }
 
-    func layoutDecorationView() {
-        backgroundDecorationView.frame = bounds
-        foregroundDecorationView.frame = bounds
+    func updateDecorationFrames() {
+        let tile = decorationTileFrame()
+        guard tile != decorationTile else { return }
+        decorationTile = tile
+        for view in [backgroundDecorationView, foregroundDecorationView] {
+            view.frame = tile
+            // `.redraw` repaints on a size change only; a moved tile shows
+            // other paragraphs.
+            view.setNeedsDisplay()
+        }
     }
 
     func updateDecorationStyleConfig() {

@@ -274,3 +274,106 @@ final class MarkdownTextViewTests: XCTestCase {
         .fixedSize(horizontal: false, vertical: true)
     }
 }
+
+// MARK: - Decoration tiling
+
+extension MarkdownTextViewTests {
+    private func listTextView(items: Int) -> MarkdownTextView {
+        let markdown = (1...items).map { "- Item \($0)" }.joined(separator: "\n")
+        return laidOutTextView(showing: MarkdownRenderer.render(markdown, config: .baseline()))
+    }
+
+    /// A scroll view in a window, to host a text view as its ancestor.
+    private func scrollViewInWindow() -> UIScrollView {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let scrollView = UIScrollView(frame: window.bounds)
+        window.addSubview(scrollView)
+        window.isHidden = false
+        self.window = window
+        return scrollView
+    }
+
+    private func decorationFrames(of textView: MarkdownTextView) -> [CGRect] {
+        textView.subviews.compactMap { $0 as? MarkdownDecorationView }.map(\.frame)
+    }
+
+    func testDecorationsCoverTheDocumentOutsideAScrollView() {
+        let textView = listTextView(items: 400)
+
+        XCTAssertGreaterThan(textView.bounds.height, MarkdownTextView.decorationTileMargin * 3)
+        XCTAssertEqual(decorationFrames(of: textView), [textView.bounds, textView.bounds])
+    }
+
+    func testDecorationsCoverAShortDocumentInsideAScrollView() {
+        let textView = listTextView(items: 5)
+        scrollViewInWindow().addSubview(textView)
+        textView.layoutIfNeeded()
+
+        XCTAssertEqual(decorationFrames(of: textView), [textView.bounds, textView.bounds])
+    }
+
+    func testDecorationsTileTheVisibleRegionOfTheScrollView() {
+        let textView = listTextView(items: 400)
+        let scrollView = scrollViewInWindow()
+        scrollView.addSubview(textView)
+        scrollView.contentSize = textView.bounds.size
+        textView.layoutIfNeeded()
+
+        let margin = MarkdownTextView.decorationTileMargin
+        let initial = CGRect(x: 0, y: 0, width: 390, height: 844 + margin)
+        XCTAssertEqual(decorationFrames(of: textView), [initial, initial])
+
+        // Scrolling within the tile keeps it.
+        scrollView.contentOffset = CGPoint(x: 0, y: margin / 2)
+        XCTAssertEqual(decorationFrames(of: textView), [initial, initial])
+
+        // Scrolling out of it moves the tile around the new visible region.
+        let far: CGFloat = 4000
+        scrollView.contentOffset = CGPoint(x: 0, y: far)
+        let moved = CGRect(x: 0, y: far - margin, width: 390, height: 844 + margin * 2)
+        XCTAssertEqual(decorationFrames(of: textView), [moved, moved])
+        XCTAssertLessThan(moved.height, textView.bounds.height)
+
+        // The tile never leaves the document.
+        let end = textView.bounds.height - 844
+        scrollView.contentOffset = CGPoint(x: 0, y: end)
+        let last = decorationFrames(of: textView)[0]
+        XCTAssertEqual(last.maxY, textView.bounds.height, accuracy: 0.001)
+        XCTAssertTrue(last.contains(CGRect(x: 0, y: end, width: 390, height: 844)))
+    }
+
+    /// A tile that cuts through a code block still draws the block's
+    /// rounded corners at the block's ends, not at the cut.
+    func testTiledDrawMatchesFullDrawThroughACutCodeBlock() throws {
+        let markdown = "Intro\n\n```\n" + (1...60).map { "line \($0)" }.joined(separator: "\n") + "\n```\n\nOutro"
+        let textView = laidOutTextView(showing: MarkdownRenderer.render(markdown, config: .baseline()))
+        let decorator = MarkdownViewportDecorator(
+            backgroundView: MarkdownDecorationView(),
+            foregroundView: MarkdownDecorationView()
+        )
+        decorator.updateStyleConfig(.baseline())
+        let tile = CGRect(x: 0, y: 300, width: 390, height: 400)
+        XCTAssertGreaterThan(textView.bounds.height, tile.maxY + 300)
+
+        func rows(drawing rect: CGRect) throws -> [[UInt8]] {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let image = UIGraphicsImageRenderer(size: rect.size, format: format).image { context in
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: .zero, size: rect.size))
+                decorator.draw(in: context.cgContext, textView: textView, tile: rect, pass: .background)
+            }
+            let cgImage = try XCTUnwrap(image.cgImage)
+            let data = try XCTUnwrap(cgImage.dataProvider?.data) as Data
+            return (0..<Int(rect.height)).map { row in
+                Array(data[(row * cgImage.bytesPerRow)..<(row * cgImage.bytesPerRow + Int(rect.width) * 4)])
+            }
+        }
+
+        let full = try rows(drawing: textView.bounds)
+        let tiled = try rows(drawing: tile)
+        for (row, pixels) in tiled.enumerated() {
+            XCTAssertEqual(pixels, full[Int(tile.minY) + row], "row \(row) of the tile")
+        }
+    }
+}

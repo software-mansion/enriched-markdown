@@ -24,8 +24,8 @@ final class ListRenderer: NodeRenderer {
                 at: startLocation,
                 marginTop: config.list.marginTop ?? 0
             )
-        } else if output.length > 0, !output.string.hasSuffix("\n") {
-            output.append(ParagraphStyleHelpers.newline)
+        } else {
+            ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
         }
 
         context.listDepth = prevDepth + 1

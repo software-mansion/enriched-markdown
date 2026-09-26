@@ -1,12 +1,40 @@
 import UIKit
+import os
 
 enum FontHelpers {
+    /// Resolving a trait reads font descriptors and walks the family's faces:
+    /// tens of microseconds per call, once per bold or italic run of every
+    /// render. Documents reuse a handful of fonts, so results are remembered.
+    private struct TraitKey: Hashable {
+        let font: UIFont
+        let bold: Bool
+        let italic: Bool
+    }
+
+    private static let traitCache = OSAllocatedUnfairLock<[TraitKey: UIFont]>(initialState: [:])
+    private static let traitCacheLimit: Int = 256
+
     static func ensureBold(_ font: UIFont?) -> UIFont? {
-        applyTrait(to: font, bold: true, italic: false)
+        font.map { cachedTrait(of: $0, bold: true, italic: false) }
     }
 
     static func ensureItalic(_ font: UIFont?) -> UIFont? {
-        applyTrait(to: font, bold: false, italic: true)
+        font.map { cachedTrait(of: $0, bold: false, italic: true) }
+    }
+
+    private static func cachedTrait(of font: UIFont, bold: Bool, italic: Bool) -> UIFont {
+        let key = TraitKey(font: font, bold: bold, italic: italic)
+        if let cached = traitCache.withLock({ $0[key] }) {
+            return cached
+        }
+        let result = applyTrait(to: font, bold: bold, italic: italic)
+        traitCache.withLock { cache in
+            if cache.count >= traitCacheLimit {
+                cache.removeAll(keepingCapacity: true)
+            }
+            cache[key] = result
+        }
+        return result
     }
 
     /// The upright face of an italic font: the family's own when it has
@@ -41,9 +69,7 @@ enum FontHelpers {
         return UIFont.monospacedSystemFont(ofSize: font.pointSize, weight: weight)
     }
 
-    private static func applyTrait(to font: UIFont?, bold: Bool, italic: Bool) -> UIFont? {
-        guard let font else { return nil }
-
+    private static func applyTrait(to font: UIFont, bold: Bool, italic: Bool) -> UIFont {
         let wantsBold = bold || hasBoldTrait(font)
         let wantsItalic = italic || hasItalicTrait(font)
 

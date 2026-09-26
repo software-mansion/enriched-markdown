@@ -601,6 +601,79 @@ jobs:
       - name: Run iOS unit tests
         run: yarn test:ios-native --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
+  # The benchmarks run on the PR head and on the base branch tip, back to back
+  # on the same runner, so the ratio between them holds even though the
+  # absolute numbers do not. Only a 2x slowdown fails the job; smaller
+  # differences are runner noise. Not required by ci-success yet.
+  ios-benchmarks:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true' && github.event_name == 'pull_request'
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The base branch tip is checked out into a worktree for comparison.
+          fetch-depth: 0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Restore RaTeX vendor files
+        run: node vendor/vendor-ratex.mjs
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      - name: Select iOS simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[] | .[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
+
+          if [[ -z "$UDID" || "$UDID" == "null" ]]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices
+            exit 1
+          fi
+
+          echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+          # Measure on a settled simulator, not one still finishing its boot.
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Compare benchmarks against the base branch
+        working-directory: packages/enriched-markdown-ios
+        run: |
+          node scripts/benchmark.mjs \
+            --base ${{ github.event.pull_request.base.sha }} \
+            --fail-above 2 \
+            --markdown "$RUNNER_TEMP/ios-benchmarks.md"
+
+      # The table goes to the job summary and to one comment on the pull
+      # request, which later runs edit in place rather than pile up.
+      - name: Publish the results
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULTS: ${{ runner.temp }}/ios-benchmarks.md
+        run: |
+          if [[ ! -f "$RESULTS" ]]; then
+            echo "No results to publish: the comparison did not get as far as measuring."
+            exit 0
+          fi
+          cat >> "$RESULTS" <<EOF
+          Each number is the median of XCTest's iterations on one shared runner; the absolute values vary between runs, the ratio is what to read. [Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          EOF
+          cat "$RESULTS" >> "$GITHUB_STEP_SUMMARY"
+          # Best effort: a pull request from a fork gets a read-only token.
+          gh pr comment ${{ github.event.pull_request.number }} --body-file "$RESULTS" --edit-last \
+            || gh pr comment ${{ github.event.pull_request.number }} --body-file "$RESULTS" \
+            || echo "::warning::Could not post the benchmark comment; the table is in the job summary."
+
   ios-swift-lint:
     needs: changes
     if: needs.changes.outputs.ios == 'true'

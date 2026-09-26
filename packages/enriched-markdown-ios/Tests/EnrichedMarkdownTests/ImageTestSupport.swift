@@ -42,6 +42,22 @@ extension XCTestCase {
         )
     }
 
+    /// A text view showing `rendered` at `width`, laid out at its fitted height.
+    func laidOutTextView(
+        showing rendered: NSAttributedString,
+        width: CGFloat = 390,
+        config: MarkdownStyleConfiguration = .baseline()
+    ) -> MarkdownTextView {
+        let textView = MarkdownTextView()
+        textView.styleConfig = config
+        textView.frame = CGRect(x: 0, y: 0, width: width, height: 100)
+        textView.setMarkdownAttributedText(rendered)
+        let height = textView.sizeThatFits(CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)).height
+        textView.frame = CGRect(x: 0, y: 0, width: width, height: height)
+        textView.layoutIfNeeded()
+        return textView
+    }
+
     /// Lets the main queue drain, where a settled layout is announced.
     func drainMainQueue(for interval: TimeInterval = 0.3) {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: interval))

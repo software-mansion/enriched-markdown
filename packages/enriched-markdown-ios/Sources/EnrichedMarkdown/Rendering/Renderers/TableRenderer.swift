@@ -80,7 +80,7 @@ final class TableRenderer: NodeRenderer {
         factory.renderChildren(of: cellNode, into: cellOutput, context: cellContext)
         trimTrailingWhitespace(in: cellOutput)
         applyParagraphStyle(align: cellNode.attribute("align"), style: style, to: cellOutput)
-        BaselineShiftRenderer.applyShifts(to: cellOutput, config: config)
+        BaselineShiftRenderer.applyShifts(to: cellOutput, context: cellContext, config: config)
         factory.applyWritingDirection(to: cellOutput)
         return cellOutput
     }

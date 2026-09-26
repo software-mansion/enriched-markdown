@@ -208,6 +208,9 @@ final class ListItemRenderer: NodeRenderer {
         if attrs[MarkdownAttribute.blockquoteDepth] != nil {
             return true
         }
-        return (output.string as NSString).substring(with: range).allSatisfy(\.isNewline)
+        // Read in place: bridging `output.string` copies the document.
+        return output.mutableString.rangeOfCharacter(from: Self.nonNewlines, options: [], range: range).location == NSNotFound
     }
+
+    private static let nonNewlines = CharacterSet.newlines.inverted
 }
