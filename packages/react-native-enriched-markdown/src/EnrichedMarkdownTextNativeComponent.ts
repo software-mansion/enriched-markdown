@@ -98,6 +98,16 @@ interface LinkVariantEntryInternal {
   underline: boolean;
   backgroundColor: ColorValue;
   fontFamily: string;
+  pill: boolean;
+  label: string;
+  iconUri: string;
+  iconTintColor?: ColorValue;
+  borderRadius: CodegenTypes.Float;
+  paddingHorizontal: CodegenTypes.Float;
+  paddingVertical: CodegenTypes.Float;
+  borderWidth: CodegenTypes.Float;
+  borderColor: ColorValue;
+  maxWidth: CodegenTypes.Float;
 }
 
 interface StrongStyleInternal {

@@ -2,6 +2,7 @@
 #import "AttributedRenderer.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillAttachment.h"
 #import "HTMLGenerator.h"
 #import "LinkTapUtils.h"
 #import "MarkdownASTNode.h"
@@ -190,10 +191,14 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 
   for (NSArray<TableCellData *> *row in rows) {
     for (NSUInteger column = 0; column < row.count; column++) {
+#if !TARGET_OS_OSX
+      CGRect boundingRect = ENRMLinkPillTextBounds(row[column].attributedText, maximumColumnWidth);
+#else
       CGRect boundingRect = [row[column].attributedText
           boundingRectWithSize:CGSizeMake(maximumColumnWidth, CGFLOAT_MAX)
                        options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                        context:nil];
+#endif
       CGFloat width = MIN(MAX(ceil(boundingRect.size.width) + horizontalPadding, minimumColumnWidth),
                           maximumColumnWidth + horizontalPadding);
       if (width > [colWidths[column] doubleValue])
@@ -206,10 +211,14 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     CGFloat maxHeight = 0;
     for (NSUInteger column = 0; column < row.count; column++) {
       CGFloat availableWidth = [colWidths[column] doubleValue] - horizontalPadding;
+#if !TARGET_OS_OSX
+      CGRect boundingRect = ENRMLinkPillTextBounds(row[column].attributedText, availableWidth);
+#else
       CGRect boundingRect = [row[column].attributedText
           boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
                        options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                        context:nil];
+#endif
       maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
     }
     [rowHeights addObject:@(maxHeight)];

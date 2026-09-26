@@ -35,7 +35,7 @@
 - (void)setupTextView
 {
 #if !TARGET_OS_OSX
-  _textView = [[ENRMPlatformTextView alloc] init];
+  _textView = ENRMCreateMarkdownTextView();
   _textView.text = @"";
 #else
   _textView = [[ENRMContextMenuTextView alloc] init];

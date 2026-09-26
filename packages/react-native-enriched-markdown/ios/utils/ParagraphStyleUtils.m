@@ -1,6 +1,7 @@
 #import "ParagraphStyleUtils.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillAttachment.h"
 #import "LastElementUtils.h"
 #import <React/RCTI18nUtil.h>
 
@@ -330,6 +331,17 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                           }];
 
   CGFloat contentLineHeight = textLineHeight;
+#if !TARGET_OS_OSX
+  __block CGFloat pillBoxHeight = 0;
+  [output enumerateAttribute:NSAttachmentAttributeName
+                     inRange:range
+                     options:0
+                  usingBlock:^(id value, NSRange subrange, BOOL *stop) {
+                    if ([value isKindOfClass:ENRMLinkPillAttachment.class])
+                      pillBoxHeight = MAX(pillBoxHeight, ((ENRMLinkPillAttachment *)value).boxHeight);
+                  }];
+  contentLineHeight = MAX(contentLineHeight, pillBoxHeight);
+#endif
 
 #if ENRICHED_MARKDOWN_MATH
   // Math only grows the content height, so measure it (parsing LaTeX) only when text
@@ -344,7 +356,7 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                         mathBoxHeight = MAX(((ENRMMathInlineAttachment *)value).boxHeight, mathBoxHeight);
                       }
                     }];
-    contentLineHeight = MAX(textLineHeight, mathBoxHeight);
+    contentLineHeight = MAX(contentLineHeight, mathBoxHeight);
   }
 #endif
 

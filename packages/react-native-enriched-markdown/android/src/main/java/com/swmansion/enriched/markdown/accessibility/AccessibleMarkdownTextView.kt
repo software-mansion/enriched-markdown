@@ -6,6 +6,7 @@ import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
+import com.swmansion.enriched.markdown.spans.LinkPillSpan
 
 /** AppCompatTextView with built-in TalkBack support via MarkdownAccessibilityHelper. */
 abstract class AccessibleMarkdownTextView
@@ -16,6 +17,23 @@ abstract class AccessibleMarkdownTextView
     defStyleAttr: Int = 0,
   ) : AppCompatTextView(context, attrs, defStyleAttr) {
     val accessibilityHelper = MarkdownAccessibilityHelper(this)
+
+    override fun onMeasure(
+      widthMeasureSpec: Int,
+      heightMeasureSpec: Int,
+    ) {
+      if (MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED) {
+        val width = (MeasureSpec.getSize(widthMeasureSpec) - compoundPaddingLeft - compoundPaddingRight).coerceAtLeast(1)
+        if (LinkPillSpan
+            .prepareForMeasurement(text, width)
+        ) {
+          // TextView can reuse a layout at the same width after a style or label change.
+          val current = text
+          text = current
+        }
+      }
+      super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
 
     override fun dispatchHoverEvent(event: MotionEvent): Boolean =
       accessibilityHelper.dispatchHoverEvent(event) || super.dispatchHoverEvent(event)
