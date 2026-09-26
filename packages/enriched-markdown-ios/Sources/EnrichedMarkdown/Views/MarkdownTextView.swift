@@ -220,7 +220,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         let point = recognizer.location(in: self)
 
         if let onSpoilerTap, let range = spoilerOverlays.concealedRange(at: point) {
-            spoilerOverlays.reveal(range: range)
+            spoilerOverlays.reveal(range: range, at: point)
             onSpoilerTap(range)
             return
         }
@@ -291,6 +291,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         invalidateIntrinsicContentSize()
         setDecorationNeedsDisplay()
         accessibilityTreeIsStale = true
+        spoilerOverlays.textDidChange()
         // A text change alone does not schedule a layout pass, which is
         // where spoiler overlays are reconciled.
         setNeedsLayout()
