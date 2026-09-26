@@ -1,7 +1,7 @@
 package com.swmansion.enriched.markdown.utils.text.extensions
 
 import android.content.Context
-import android.text.SpannableString
+import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.util.Log
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
@@ -15,7 +15,7 @@ fun SpannableStringBuilder.isInlineImage(): Boolean {
 }
 
 /** Swaps MathInlineSpans for MathInlinePlaceholderSpans safe for background-thread measurement. */
-fun SpannableString.replaceMathSpansWithPlaceholders(context: Context) {
+fun Spannable.replaceMathSpansWithPlaceholders(context: Context) {
   if (!FeatureFlags.IS_MATH_ENABLED) return
 
   try {
