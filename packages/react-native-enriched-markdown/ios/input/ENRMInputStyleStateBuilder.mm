@@ -2,6 +2,15 @@
 
 @implementation ENRMInputStyleStateBuilder
 
++ (void)setLinkStateOnSnapshot:(ENRMInputStyleSnapshot *)snapshot
+                  forSelection:(NSRange)selection
+                    dataSource:(id<ENRMInputStyleStateDataSource>)dataSource
+{
+  ENRMFormattingRange *link = [dataSource linkForSelection:selection];
+  snapshot->link = link != nil;
+  snapshot->linkDestination = link.url.UTF8String ?: "";
+}
+
 + (ENRMInputStyleSnapshot)snapshotAtCurrentCursor:(id<ENRMInputStyleStateDataSource>)dataSource
 {
   NSUInteger cursor = [dataSource selectedRange].location;
@@ -14,7 +23,7 @@
   snapshot.underline = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeUnderline atPosition:cursor];
   snapshot.strikethrough = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeStrikethrough atPosition:cursor];
   snapshot.spoiler = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeSpoiler atPosition:cursor];
-  snapshot.link = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeLink atPosition:cursor];
+  [self setLinkStateOnSnapshot:&snapshot forSelection:[dataSource selectedRange] dataSource:dataSource];
   snapshot.headingLevel = [dataSource headingLevelForCursorParagraph];
 
   ENRMBlockRange *listBlock = [dataSource listBlockForCursorParagraph];
@@ -37,7 +46,6 @@
     snapshot.underline = [dataSource isStyleActive:ENRMInputStyleTypeUnderline inRange:range];
     snapshot.strikethrough = [dataSource isStyleActive:ENRMInputStyleTypeStrikethrough inRange:range];
     snapshot.spoiler = [dataSource isStyleActive:ENRMInputStyleTypeSpoiler inRange:range];
-    snapshot.link = [dataSource isStyleActive:ENRMInputStyleTypeLink inRange:range];
   } else {
     snapshot.bold = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeStrong atPosition:range.location];
     snapshot.italic = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeEmphasis atPosition:range.location];
@@ -45,8 +53,8 @@
     snapshot.strikethrough = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeStrikethrough
                                                      atPosition:range.location];
     snapshot.spoiler = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeSpoiler atPosition:range.location];
-    snapshot.link = [dataSource isEffectiveStyleActive:ENRMInputStyleTypeLink atPosition:range.location];
   }
+  [self setLinkStateOnSnapshot:&snapshot forSelection:range dataSource:dataSource];
   snapshot.headingLevel = [dataSource headingLevelForCursorParagraph];
 
   ENRMBlockRange *listBlock = [dataSource listBlockForCursorParagraph];

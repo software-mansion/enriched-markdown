@@ -28,6 +28,7 @@ class InputEventEmitter(
   private val view: EnrichedMarkdownTextInputView,
 ) {
   private var prevState: Map<StyleType, Boolean> = emptyMap()
+  private var prevLink: Pair<Boolean, String> = false to ""
   private var prevHeadingLevel: Int = 0
   private var prevUnorderedList: Pair<Boolean, Int> = false to 0
   private var prevOrderedList: Pair<Boolean, Int> = false to 0
@@ -54,6 +55,8 @@ class InputEventEmitter(
 
   fun emitState() {
     val pos = view.selectionStart
+    val linkRange = view.linkForSelection(view.selectionStart, view.selectionEnd)
+    val link = (linkRange != null) to linkRange?.url.orEmpty()
     val current =
       StyleType.entries.associateWith { style ->
         isStyleEffectivelyActive(style, pos)
@@ -63,11 +66,12 @@ class InputEventEmitter(
     val orderedList = view.listStateAtCursor(BlockType.ORDERED_LIST_ITEM)
 
     if (current == prevState && headingLevel == prevHeadingLevel && unorderedList == prevUnorderedList &&
-      orderedList == prevOrderedList
+      orderedList == prevOrderedList && link == prevLink
     ) {
       return
     }
     prevState = current
+    prevLink = link
     prevHeadingLevel = headingLevel
     prevUnorderedList = unorderedList
     prevOrderedList = orderedList
@@ -81,7 +85,8 @@ class InputEventEmitter(
         current[StyleType.UNDERLINE] ?: false,
         current[StyleType.STRIKETHROUGH] ?: false,
         current[StyleType.SPOILER] ?: false,
-        current[StyleType.LINK] ?: false,
+        link.first,
+        link.second,
         headingLevel,
         unorderedList.first,
         unorderedList.second,
@@ -184,6 +189,7 @@ class InputEventEmitter(
 
     val contextMenuListState = view.listStateAtCursor(BlockType.UNORDERED_LIST_ITEM)
     val contextMenuOrderedState = view.listStateAtCursor(BlockType.ORDERED_LIST_ITEM)
+    val link = view.linkForSelection(selectionStart, selectionEnd)
     dispatch(
       OnContextMenuItemPressEvent(
         surfaceId(),
@@ -197,7 +203,8 @@ class InputEventEmitter(
         isUnderline = isActive(StyleType.UNDERLINE),
         isStrikethrough = isActive(StyleType.STRIKETHROUGH),
         isSpoiler = isActive(StyleType.SPOILER),
-        isLink = isActive(StyleType.LINK),
+        isLink = link != null,
+        linkDestination = link?.url.orEmpty(),
         headingLevel = view.headingLevelAtCursor(),
         isUnorderedList = contextMenuListState.first,
         unorderedListDepth = contextMenuListState.second,
@@ -210,12 +217,16 @@ class InputEventEmitter(
   private fun isStyleEffectivelyActive(
     style: StyleType,
     pos: Int,
-  ): Boolean =
-    view.pendingStyles.contains(style) ||
+  ): Boolean {
+    if (style == StyleType.LINK) {
+      return view.linkForSelection(view.selectionStart, view.selectionEnd) != null
+    }
+    return view.pendingStyles.contains(style) ||
       (
         !view.pendingStyleRemovals.contains(style) &&
           view.formattingStore.isStyleActive(style, pos)
       )
+  }
 
   private fun serializeToMarkdown(): String {
     val plainText = view.text?.toString() ?: ""

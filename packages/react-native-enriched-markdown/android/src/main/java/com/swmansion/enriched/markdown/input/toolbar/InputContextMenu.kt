@@ -151,7 +151,7 @@ class InputContextMenu(
     start: Int,
     end: Int,
   ) {
-    val existingLink = view.formattingStore.rangeOfType(StyleType.LINK, start)
+    val existingLink = view.linkForSelection(start, end)
     val isEdit = existingLink != null
 
     val urlInput =
@@ -168,7 +168,7 @@ class InputContextMenu(
       .setView(urlInput)
       .setPositiveButton(if (isEdit) "Update" else "Add") { _, _ ->
         val url = urlInput.text.toString().trim()
-        if (url.isNotEmpty()) view.applyLinkToRange(url, start, end)
+        if (url.isNotEmpty()) view.setLinkForRange(url, start, end)
       }.setNegativeButton("Cancel", null)
       .show()
   }
