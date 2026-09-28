@@ -24,20 +24,6 @@ describe('adjustRangesForEdit', () => {
     expect(adjustRangesForEdit([r(4, 9)], 9, 0, 2)).toEqual([r(4, 9)]);
   });
 
-  it('insert at range start grows the range when growsAtStartOnInsert allows it', () => {
-    // Block ranges own their whole line, so the typed text joins the range.
-    const result = adjustRangesForEdit(
-      [r(4, 9)],
-      4,
-      0,
-      2,
-      undefined,
-      () => true
-    );
-
-    expect(result).toEqual([r(4, 11)]);
-  });
-
   it('delete before the range shifts it left; delete after leaves it alone', () => {
     expect(adjustRangesForEdit([r(4, 9)], 1, 2, 0)).toEqual([r(2, 7)]);
     expect(adjustRangesForEdit([r(4, 9)], 10, 3, 0)).toEqual([r(4, 9)]);

@@ -9,20 +9,92 @@ type EditOverlap =
   | 'clipped-start';
 
 function classifyOverlap(
-  rangeStart: number,
-  rangeEnd: number,
-  editLocation: number,
-  deleteEnd: number
+  range: RangeBounds,
+  deleted: RangeBounds
 ): EditOverlap {
-  if (rangeEnd <= editLocation) return 'before-edit';
-  if (rangeStart >= deleteEnd) return 'after-edit';
-  if (rangeStart >= editLocation && rangeEnd <= deleteEnd) {
+  if (range.end <= deleted.start) return 'before-edit';
+  if (range.start >= deleted.end) return 'after-edit';
+  if (range.start >= deleted.start && range.end <= deleted.end) {
     return 'fully-deleted';
   }
-  if (rangeStart < editLocation && rangeEnd > deleteEnd) {
+  if (range.start < deleted.start && range.end > deleted.end) {
     return 'deleted-inside';
   }
-  return rangeStart < editLocation ? 'clipped-end' : 'clipped-start';
+  return range.start < deleted.start ? 'clipped-end' : 'clipped-start';
+}
+
+/**
+ * Applies an edit that replaced the `deleted` span with `insertedLength`
+ * characters to one range. A range the edit removes outright collapses to zero
+ * length instead of being reported separately; the caller drops it when it
+ * filters out empty ranges.
+ *
+ * `clipped-end` only classifies ranges starting before the deletion, so the
+ * surviving head is never empty and the range always keeps its start.
+ */
+function applyReplacement<T extends RangeBounds>(
+  range: T,
+  deleted: RangeBounds,
+  insertedLength: number,
+  inheritsReplacementAtStart: (range: T) => boolean
+): void {
+  const delta = insertedLength - (deleted.end - deleted.start);
+  const inheritsReplacement =
+    insertedLength > 0 &&
+    range.start === deleted.start &&
+    inheritsReplacementAtStart(range);
+
+  switch (classifyOverlap(range, deleted)) {
+    case 'before-edit':
+      break;
+
+    case 'after-edit':
+      range.start += delta;
+      range.end += delta;
+      break;
+
+    case 'fully-deleted':
+      if (inheritsReplacement) {
+        range.start = deleted.start;
+        range.end = deleted.start + insertedLength;
+      } else {
+        range.end = range.start;
+      }
+      break;
+
+    case 'deleted-inside':
+      range.end += delta;
+      break;
+
+    case 'clipped-end':
+      range.end = deleted.start + insertedLength;
+      break;
+
+    case 'clipped-start': {
+      const survivingLength = range.end - deleted.end;
+      if (inheritsReplacement) {
+        range.start = deleted.start;
+        range.end = deleted.start + insertedLength + survivingLength;
+      } else {
+        range.start = deleted.start + insertedLength;
+        range.end = range.start + survivingLength;
+      }
+      break;
+    }
+  }
+}
+
+function applyInsertion(
+  range: RangeBounds,
+  editLocation: number,
+  insertedLength: number
+): void {
+  if (range.start >= editLocation) {
+    range.start += insertedLength;
+    range.end += insertedLength;
+  } else if (editLocation < range.end) {
+    range.end += insertedLength;
+  }
 }
 
 /**
@@ -31,13 +103,11 @@ function classifyOverlap(
  * characters. Bounds are mutated in place; the returned array drops ranges
  * deleted outright or clipped to zero length.
  *
- * Insert-only edits at exactly `range.end` do NOT grow the range — whether
+ * Insert-only edits at exactly `range.end` do NOT grow the range - whether
  * typed text continues a style is decided by the pending-styles layer, and
- * links must never auto-extend. An insert at
- * exactly `range.start` grows the range only when `growsAtStartOnInsert`
- * returns true (block ranges own their whole line); otherwise the range shifts
- * and the typed characters stay outside it (a character typed before a bold
- * run must not become bold).
+ * links must never auto-extend. An insert at exactly `range.start` shifts the
+ * range so the typed characters stay outside it (a character typed before a
+ * bold run must not become bold).
  *
  * `inheritsReplacementAtStart`: when true for a range whose start is the edit
  * location, replacement text joins the range (autocorrect over a styled word
@@ -48,86 +118,27 @@ export function adjustRangesForEdit<T extends RangeBounds>(
   editLocation: number,
   deletedLength: number,
   insertedLength: number,
-  inheritsReplacementAtStart: (range: T) => boolean = () => false,
-  growsAtStartOnInsert: (range: T) => boolean = () => false
+  inheritsReplacementAtStart: (range: T) => boolean = () => false
 ): T[] {
   if (deletedLength === 0 && insertedLength === 0) {
     return ranges;
   }
 
-  const deleteEnd = editLocation + deletedLength;
-  const removed = new Set<T>();
-
-  for (const range of ranges) {
-    if (deletedLength > 0) {
-      const inheritsReplacement =
-        insertedLength > 0 &&
-        range.start === editLocation &&
-        inheritsReplacementAtStart(range);
-
-      switch (
-        classifyOverlap(range.start, range.end, editLocation, deleteEnd)
-      ) {
-        case 'before-edit':
-          break;
-
-        case 'after-edit':
-          range.start += insertedLength - deletedLength;
-          range.end += insertedLength - deletedLength;
-          break;
-
-        case 'fully-deleted':
-          if (inheritsReplacement) {
-            range.start = editLocation;
-            range.end = editLocation + insertedLength;
-          } else {
-            removed.add(range);
-          }
-          break;
-
-        case 'deleted-inside':
-          range.end += insertedLength - deletedLength;
-          break;
-
-        case 'clipped-end': {
-          const newEnd = editLocation + insertedLength;
-          const newLength = newEnd > range.start ? newEnd - range.start : 0;
-          range.end = range.start + newLength;
-          if (newLength === 0) {
-            removed.add(range);
-          }
-          break;
-        }
-
-        case 'clipped-start': {
-          const charsClipped = deleteEnd - range.start;
-          const survivingLength = range.end - range.start - charsClipped;
-          if (inheritsReplacement) {
-            range.start = editLocation;
-            range.end = editLocation + insertedLength + survivingLength;
-          } else {
-            range.start = editLocation + insertedLength;
-            range.end = range.start + survivingLength;
-            if (survivingLength === 0) {
-              removed.add(range);
-            }
-          }
-          break;
-        }
-      }
-    } else {
-      if (range.start === editLocation && growsAtStartOnInsert(range)) {
-        range.end += insertedLength;
-      } else if (range.start >= editLocation) {
-        range.start += insertedLength;
-        range.end += insertedLength;
-      } else if (editLocation > range.start && editLocation < range.end) {
-        range.end += insertedLength;
-      }
+  if (deletedLength > 0) {
+    const deleted = { start: editLocation, end: editLocation + deletedLength };
+    for (const range of ranges) {
+      applyReplacement(
+        range,
+        deleted,
+        insertedLength,
+        inheritsReplacementAtStart
+      );
+    }
+  } else {
+    for (const range of ranges) {
+      applyInsertion(range, editLocation, insertedLength);
     }
   }
 
-  return ranges.filter(
-    (range) => !removed.has(range) && range.end - range.start > 0
-  );
+  return ranges.filter((range) => range.end > range.start);
 }

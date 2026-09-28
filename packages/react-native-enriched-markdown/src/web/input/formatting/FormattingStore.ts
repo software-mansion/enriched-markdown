@@ -45,9 +45,7 @@ export class FormattingStore {
     end: number
   ): boolean {
     return this.ranges.some(
-      (range) =>
-        range.type === type &&
-        Math.min(range.end, end) - Math.max(range.start, start) > 0
+      (range) => range.type === type && range.start < end && range.end > start
     );
   }
 

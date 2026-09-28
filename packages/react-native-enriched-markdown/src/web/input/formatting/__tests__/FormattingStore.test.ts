@@ -215,4 +215,33 @@ describe('FormattingStore', () => {
       strong(6, 10),
     ]);
   });
+
+  // removeRange matches by identity, not by value, on all three platforms:
+  // neither ENRMFormattingRange nor the Kotlin FormattingRange overrides
+  // equality. Callers must pass a range the store handed out.
+  it('removeRange drops the range a query returned', () => {
+    store.setRanges([strong(0, 4), range('em', 6, 10)]);
+    const target = store.rangeOfType('em', 7);
+
+    expect(target).not.toBeNull();
+    store.removeRange(target!);
+
+    expect(store.allRanges).toEqual([strong(0, 4)]);
+  });
+
+  // allRanges is a shallow copy, so the elements it yields stay identical to
+  // the stored ones. Deep-copying there would silently break removeRange.
+  it('removeRange accepts a range taken from allRanges', () => {
+    store.setRanges([strong(0, 4), strong(6, 10)]);
+    store.removeRange(store.allRanges[1]!);
+
+    expect(store.allRanges).toEqual([strong(0, 4)]);
+  });
+
+  it('removeRange ignores an equal but distinct range', () => {
+    store.setRanges([strong(0, 4)]);
+    store.removeRange(strong(0, 4));
+
+    expect(store.allRanges).toEqual([strong(0, 4)]);
+  });
 });

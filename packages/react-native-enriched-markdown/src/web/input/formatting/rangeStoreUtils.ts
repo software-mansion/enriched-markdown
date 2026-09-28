@@ -6,12 +6,15 @@ export function sortedInsertionIndex(
   ranges: readonly RangeBounds[],
   location: number
 ): number {
-  let index = 0;
-  for (const existing of ranges) {
-    if (existing.start > location) {
-      break;
+  let low = 0;
+  let high = ranges.length;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (ranges[mid]!.start > location) {
+      high = mid;
+    } else {
+      low = mid + 1;
     }
-    index++;
   }
-  return index;
+  return low;
 }
