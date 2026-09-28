@@ -1,8 +1,8 @@
 import { BlockStore, paragraphBounds } from '../BlockStore';
-import { createBlockRange as block } from '../../model/blocks';
+import { createBlockRange as block, MAX_LIST_DEPTH } from '../../model/blocks';
 
 // "The world\nis big\n\nend"
-//  0-8 line 1 | 10-15 line 2 | 17 empty | 18-20 line 3
+//  0-8 line 1 | 10-15 line 2 | 17 line 3 (empty) | 18-20 line 4
 const text = 'The world\nis big\n\nend';
 
 describe('paragraphBounds', () => {
@@ -57,7 +57,7 @@ describe('BlockStore', () => {
   it('setBlock claims the whole line from a caret position', () => {
     store.setBlock('h2', 2, 4, 4, text);
 
-    expect(store.allRanges).toEqual([{ ...block('h2', 0, 9), level: 2 }]);
+    expect(store.allRanges).toEqual([block('h2', 0, 9, 2)]);
   });
 
   it('setBlock replaces whatever block covered those lines', () => {
@@ -73,7 +73,7 @@ describe('BlockStore', () => {
 
   it('setBlock on an empty line creates an anchor only for anchored types', () => {
     store.setBlock('h1', 1, 17, 17, text);
-    expect(store.allRanges).toEqual([{ ...block('h1', 17, 17), level: 1 }]);
+    expect(store.allRanges).toEqual([block('h1', 17, 17, 1)]);
 
     store.clearAll();
     store.setBlock('paragraph', 0, 17, 17, text);
@@ -117,12 +117,53 @@ describe('BlockStore', () => {
     ]);
   });
 
-  it('adjustForEdit absorbs a char typed at the line start into its block', () => {
-    store.setRanges([block('h2', 0, 6)]);
+  it('adjustForEdit clips a block whose tail the delete eats into', () => {
+    store.setRanges([block('h1', 0, 4), block('h2', 5, 9)]);
+
+    store.adjustForEdit(2, 2, 0);
+
+    expect(store.allRanges).toEqual([block('h1', 0, 2), block('h2', 3, 7)]);
+  });
+
+  it('a char typed at the line start joins the block once normalized', () => {
+    // The insert shifts the range off the line start; normalizeToLineBounds
+    // snaps it back over the typed char.
+    store.setRanges([block('h2', 0, 5)]); // "Title" on line 1
 
     store.adjustForEdit(0, 0, 1);
+    expect(store.allRanges).toEqual([block('h2', 1, 6)]);
 
-    expect(store.allRanges).toEqual([block('h2', 0, 7)]);
+    store.normalizeToLineBounds('XTitle\nbody');
+    expect(store.allRanges).toEqual([block('h2', 0, 6)]);
+  });
+
+  it('Enter typed at the line start carries the block down with its text', () => {
+    // The heading must follow "Title" to line 2 rather than stay behind as an
+    // empty anchor on the new line 1 - the reason an insert at the start
+    // shifts instead of growing the range.
+    store.setRanges([block('h2', 0, 5)]);
+
+    store.adjustForEdit(0, 0, 1);
+    store.normalizeToLineBounds('\nTitle\nbody');
+
+    expect(store.allRanges).toEqual([block('h2', 1, 6)]);
+  });
+
+  it('adjustForEdit holds an anchor still so typing fills its line', () => {
+    // "aaaa\n\nbbbb": a paragraph on line 1, an empty heading anchor on line 2.
+    store.setRanges([block('paragraph', 0, 4), block('h2', 5, 5)]);
+
+    store.adjustForEdit(5, 0, 1);
+    expect(store.allRanges).toEqual([
+      block('paragraph', 0, 4),
+      block('h2', 5, 5),
+    ]);
+
+    store.normalizeToLineBounds('aaaa\nX\nbbbb');
+    expect(store.allRanges).toEqual([
+      block('paragraph', 0, 4),
+      block('h2', 5, 6),
+    ]);
   });
 
   it('adjustForEdit keeps the block through a replacement of its content', () => {
@@ -164,11 +205,11 @@ describe('BlockStore', () => {
 
   it('normalizeToLineBounds snaps ranges to their full lines', () => {
     // Math left the heading covering only part of line 1 and leaking a char.
-    store.setRanges([{ ...block('h2', 1, 5), level: 2 }]);
+    store.setRanges([block('h2', 1, 5, 2)]);
 
     store.normalizeToLineBounds(text);
 
-    expect(store.allRanges).toEqual([{ ...block('h2', 0, 9), level: 2 }]);
+    expect(store.allRanges).toEqual([block('h2', 0, 9, 2)]);
   });
 
   it('normalizeToLineBounds clips a block split by a newline to its first line', () => {
@@ -187,6 +228,23 @@ describe('BlockStore', () => {
     store.normalizeToLineBounds(text);
 
     expect(store.allRanges).toEqual([block('h1', 0, 9)]);
+  });
+
+  it('normalizeToLineBounds resolves a shared start in favour of the earlier range', () => {
+    // Forward-delete on an empty heading line pulls the next line up, so the
+    // anchor and the paragraph briefly share a start. The anchor is spliced
+    // after the paragraph, so the paragraph wins the dedup and the emptied
+    // heading goes away rather than claiming the text it absorbed.
+    store.setRanges([block('h2', 0, 0), block('paragraph', 1, 5)]);
+
+    store.adjustForEdit(0, 1, 0);
+    expect(store.allRanges).toEqual([
+      block('paragraph', 0, 4),
+      block('h2', 0, 0),
+    ]);
+
+    store.normalizeToLineBounds('bbbb');
+    expect(store.allRanges).toEqual([block('paragraph', 0, 4)]);
   });
 
   it('normalizeToLineBounds keeps anchored empties and drops the rest', () => {
@@ -210,9 +268,9 @@ describe('BlockStore', () => {
 
   it('clamps depths to one level below the previous adjacent item', () => {
     store.setRanges([
-      { ...block('ordered-list-item', 0, 5), level: 3 },
-      { ...block('ordered-list-item', 6, 11), level: 2 },
-      { ...block('ordered-list-item', 12, 17), level: 1 },
+      block('ordered-list-item', 0, 5, 3),
+      block('ordered-list-item', 6, 11, 2),
+      block('ordered-list-item', 12, 17, 1),
     ]);
 
     expect(store.allRanges.map((r) => r.level)).toEqual([0, 1, 1]);
@@ -238,14 +296,53 @@ describe('BlockStore', () => {
 
   it('resets deeper counters when the list returns to a shallower depth', () => {
     store.setRanges([
-      { ...block('ordered-list-item', 0, 5), level: 0 },
-      { ...block('ordered-list-item', 6, 11), level: 1 },
-      { ...block('ordered-list-item', 12, 17), level: 0 },
-      { ...block('ordered-list-item', 18, 23), level: 1 },
+      block('ordered-list-item', 0, 5, 0),
+      block('ordered-list-item', 6, 11, 1),
+      block('ordered-list-item', 12, 17, 0),
+      block('ordered-list-item', 18, 23, 1),
     ]);
 
     // The second depth-1 run starts over at 1.
     expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 1, 2, 1]);
+  });
+
+  it('caps nesting at MAX_LIST_DEPTH however deep the levels ask to go', () => {
+    const count = MAX_LIST_DEPTH + 2;
+    store.setRanges(
+      Array.from({ length: count }, (_, i) =>
+        block('unordered-list-item', i * 5, i * 5 + 4, i)
+      )
+    );
+
+    expect(store.allRanges.map((r) => r.level)).toEqual(
+      Array.from({ length: count }, (_, i) => Math.min(i, MAX_LIST_DEPTH))
+    );
+  });
+
+  it('setBlock renumbers the ordered run it joins', () => {
+    store.setRanges([block('ordered-list-item', 0, 9)]);
+
+    store.setBlock('ordered-list-item', 0, 10, 10, text);
+
+    expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2]);
+  });
+
+  it('removeBlock renumbers the ordered items left behind', () => {
+    // "one\ntwo\nsix": three adjacent lines, one ordered item each.
+    const lines = 'one\ntwo\nsix';
+    store.setRanges([
+      block('ordered-list-item', 0, 3),
+      block('ordered-list-item', 4, 7),
+      block('ordered-list-item', 8, 11),
+    ]);
+    expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2, 3]);
+
+    store.removeBlock(1, 1, lines);
+
+    expect(store.allRanges.map((r) => [r.start, r.ordinal])).toEqual([
+      [4, 1],
+      [8, 2],
+    ]);
   });
 
   it('setRanges sorts incoming blocks by start', () => {

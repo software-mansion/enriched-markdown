@@ -69,12 +69,13 @@ export class BlockStore {
     const { start, end } = paragraphBounds(paragraphStart, paragraphEnd, text);
     this.removeBlocksOverlapping(start, end);
     // An anchored block (heading, list item) on an empty line is kept as a
-    // zero-length anchor; other blocks need real content.
-    if (end < start || (end === start && !ANCHORED_BLOCK_TYPES.has(type))) {
-      return;
+    // zero-length anchor; other blocks need real content. `paragraphBounds`
+    // never returns an inverted range, so `end === start` is the empty line.
+    if (end > start || ANCHORED_BLOCK_TYPES.has(type)) {
+      const block = createBlockRange(type, start, end, level);
+      this.ranges.splice(sortedInsertionIndex(this.ranges, start), 0, block);
     }
-    const block = createBlockRange(type, start, end, level);
-    this.ranges.splice(sortedInsertionIndex(this.ranges, start), 0, block);
+    this.recomputeListMetadata();
   }
 
   // Clears any block on the paragraphs the given range touches, reverting
@@ -86,6 +87,7 @@ export class BlockStore {
   ): void {
     const { start, end } = paragraphBounds(paragraphStart, paragraphEnd, text);
     this.removeBlocksOverlapping(start, end);
+    this.recomputeListMetadata();
   }
 
   // Snaps every stored range to the line bounds of its start position.
@@ -128,8 +130,8 @@ export class BlockStore {
   private recomputeListMetadata(): void {
     let prevEnd = -2;
     let prevDepth = -1;
-    const counters = new Array<number>(MAX_LIST_DEPTH + 2).fill(0);
-    const counterTypes = new Array<BlockType | null>(MAX_LIST_DEPTH + 2).fill(
+    const counters = new Array<number>(MAX_LIST_DEPTH + 1).fill(0);
+    const counterTypes = new Array<BlockType | null>(MAX_LIST_DEPTH + 1).fill(
       null
     );
 
@@ -153,7 +155,7 @@ export class BlockStore {
         range.level = 0;
       }
       const depth = range.level;
-      for (let i = depth + 1; i <= MAX_LIST_DEPTH + 1; i++) {
+      for (let i = depth + 1; i <= MAX_LIST_DEPTH; i++) {
         counters[i] = 0;
         counterTypes[i] = null;
       }
@@ -187,6 +189,13 @@ export class BlockStore {
   // persistence layered on top: a block deleted exactly to its end collapses
   // to a zero-length anchor at the edit location (its line survives), and
   // existing anchors shift/keep/drop with their line.
+  //
+  // Text inserted at a block's start shifts the range off the line start
+  // rather than growing it, and normalizeToLineBounds snaps it back over the
+  // typed characters. Growing here instead would look equivalent for a plain
+  // character but breaks Enter at a line start: the block would stretch over
+  // the new empty line, normalize to it, and strand the block as an empty
+  // anchor while its own text on the next line lost the block.
   adjustForEdit(
     editLocation: number,
     deletedLength: number,
@@ -219,7 +228,6 @@ export class BlockStore {
       editLocation,
       deletedLength,
       insertedLength,
-      () => true,
       () => true
     );
 
