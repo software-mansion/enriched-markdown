@@ -4,7 +4,7 @@ import {
   serializeInline,
   ZWSP,
 } from '../MarkdownSerializer';
-import { createBlockRange } from '../../model/blocks';
+import { createBlockRange, MAX_LIST_DEPTH } from '../../model/blocks';
 import { createFormattingRange as range } from '../../model/inlineStyles';
 
 describe('serializeInline', () => {
@@ -62,8 +62,6 @@ describe('serializeInline', () => {
   });
 });
 
-const prefix = markdownLinePrefix;
-
 describe('serialize', () => {
   const text = 'Rebase\nfetch\nmerge';
 
@@ -74,33 +72,45 @@ describe('serialize', () => {
       { ...createBlockRange('ordered-list-item', 13, 18), ordinal: 2 },
     ];
 
-    expect(serialize(text, [], blocks, prefix)).toBe(
-      '## Rebase\n1. fetch\n2. merge'
-    );
+    expect(serialize(text, [], blocks)).toBe('## Rebase\n1. fetch\n2. merge');
   });
 
   it('combines block prefixes with inline delimiters', () => {
     const blocks = [createBlockRange('ordered-list-item', 7, 12)];
     const bold = [{ type: 'strong' as const, start: 7, end: 12 }];
 
-    expect(serialize(text, bold, blocks, prefix)).toBe(
-      'Rebase\n1. **fetch**\nmerge'
+    expect(serialize(text, bold, blocks)).toBe('Rebase\n1. **fetch**\nmerge');
+  });
+
+  // The shape the block store produces: an emptied heading or list item keeps
+  // its line as a zero-length range, the line itself holding no characters.
+  it('prefixes an empty heading anchor but leaves an empty list item bare', () => {
+    const anchorText = 'a\n\nb';
+
+    expect(serialize(anchorText, [], [createBlockRange('h1', 2, 2, 1)])).toBe(
+      'a\n# \nb'
+    );
+    expect(
+      serialize(anchorText, [], [createBlockRange('unordered-list-item', 2, 2)])
+    ).toBe('a\n\nb');
+  });
+
+  it('anchors the trailing empty line after a final newline', () => {
+    expect(serialize('a\n', [], [createBlockRange('h1', 2, 2, 1)])).toBe(
+      'a\n# '
     );
   });
 
-  it('prefixes an empty heading anchor but leaves an empty list item bare', () => {
+  // Markdown imported from an Android buffer anchors the same empty line with
+  // a ZWSP instead, so the line reads as one character wide.
+  it('treats an imported ZWSP anchor line as empty and strips the character', () => {
     const anchorText = `a\n${ZWSP}\nb`;
 
+    expect(serialize(anchorText, [], [createBlockRange('h1', 2, 3, 1)])).toBe(
+      'a\n# \nb'
+    );
     expect(
-      serialize(anchorText, [], [createBlockRange('h1', 2, 3, 1)], prefix)
-    ).toBe('a\n# \nb');
-    expect(
-      serialize(
-        anchorText,
-        [],
-        [createBlockRange('unordered-list-item', 2, 3)],
-        prefix
-      )
+      serialize(anchorText, [], [createBlockRange('unordered-list-item', 2, 3)])
     ).toBe('a\n\nb');
   });
 });
@@ -118,5 +128,16 @@ describe('markdownLinePrefix', () => {
         ordinal: 3,
       })
     ).toBe('      3. ');
+  });
+
+  it('takes the heading level from the type, not from level', () => {
+    expect(markdownLinePrefix(createBlockRange('h3', 0, 5))).toBe('### ');
+    expect(markdownLinePrefix(createBlockRange('h6', 0, 5, 2))).toBe('###### ');
+  });
+
+  it('clamps list indentation to the deepest nesting the store allows', () => {
+    expect(
+      markdownLinePrefix(createBlockRange('unordered-list-item', 0, 5, 9))
+    ).toBe('   '.repeat(MAX_LIST_DEPTH) + '- ');
   });
 });

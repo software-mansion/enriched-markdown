@@ -1,9 +1,18 @@
 import { clamp, firstIndexReachingTarget, isWhitespace } from '../utils';
-import { LIST_ITEM_BLOCK_TYPES, type BlockRange } from '../model/blocks';
+import {
+  HEADING_BLOCK_TYPES,
+  LIST_ITEM_BLOCK_TYPES,
+  MAX_LIST_DEPTH,
+  type BlockRange,
+} from '../model/blocks';
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
+import type { RangeBounds } from '../model/rangeBounds';
 
-// Zero-width space used by the editor to anchor an empty bullet line; it is an
-// internal editing aid and must never appear in serialized markdown.
+// Zero-width space the Android editor writes to anchor an empty bullet line,
+// where a marker span needs a character to attach to. The web editor anchors
+// an empty line with a zero-length block range instead (see BlockStore) and
+// never writes this character, but markdown imported from a buffer that did
+// can carry one, and it must never appear in serialized output.
 export const ZWSP = '\u200B';
 // Single choke point for scrubbing the empty-line ZWSP anchor out of anything
 // bound for JS. Route new output paths through this rather than scattering
@@ -128,27 +137,22 @@ export function serializeInline(
 }
 
 // Block-aware serialization: serializes inline styles exactly as
-// serializeInline, then prepends each line's block prefix.
-// `blockPrefixProvider` is asked, per block range, for the markdown line
-// marker (e.g. "# ", "- "); returning "" leaves the line unprefixed. Any ZWSP
+// serializeInline, then prepends each line's markdownLinePrefix marker (e.g.
+// "# ", "- "); a block whose marker is "" leaves its line unprefixed. Any ZWSP
 // empty-line anchor is stripped so an empty bullet still serializes to a bare
 // line rather than "- \u200B".
 export function serialize(
   text: string,
   ranges: readonly FormattingRange[],
-  blockRanges: readonly BlockRange[],
-  blockPrefixProvider: (block: BlockRange) => string
+  blockRanges: readonly BlockRange[]
 ): string {
-  return stripZwsp(
-    serializeWithAnchors(text, ranges, blockRanges, blockPrefixProvider)
-  );
+  return stripZwsp(serializeWithAnchors(text, ranges, blockRanges));
 }
 
 function serializeWithAnchors(
   text: string,
   ranges: readonly FormattingRange[],
-  blockRanges: readonly BlockRange[],
-  blockPrefixProvider: (block: BlockRange) => string
+  blockRanges: readonly BlockRange[]
 ): string {
   const inlineMarkdown = serializeInline(text, ranges);
   if (blockRanges.length === 0) {
@@ -171,33 +175,34 @@ function serializeWithAnchors(
     return inlineMarkdown;
   }
 
-  const lineStartOffsets: number[] = [];
-  const lineEndOffsets: number[] = [];
+  const lineBounds: RangeBounds[] = [];
   let runningOffset = 0;
   for (const line of plainLines) {
-    lineStartOffsets.push(runningOffset);
-    lineEndOffsets.push(runningOffset + line.length);
+    lineBounds.push({ start: runningOffset, end: runningOffset + line.length });
     runningOffset += line.length + 1; // +1 for the '\n' separator
   }
 
   for (const block of blockRanges) {
-    const prefix = blockPrefixProvider(block);
+    const prefix = markdownLinePrefix(block);
     if (prefix === '') {
       continue;
     }
 
     const isZeroLength = block.end === block.start;
     const isListItem = LIST_ITEM_BLOCK_TYPES.has(block.type);
+    // Line ends rise strictly, so the first line reaching the block's start is
+    // the block's own first line; its remaining lines follow it.
+    const firstLine = firstIndexReachingTarget(
+      block.start,
+      lineBounds.length,
+      (index) => lineBounds[index]!.end
+    );
     for (
-      let lineIndex = firstIndexReachingTarget(
-        block.start,
-        lineEndOffsets.length,
-        (index) => lineEndOffsets[index]!
-      );
-      lineIndex < plainLines.length;
+      let lineIndex = firstLine;
+      lineIndex < lineBounds.length;
       lineIndex++
     ) {
-      const lineStart = lineStartOffsets[lineIndex]!;
+      const lineStart = lineBounds[lineIndex]!.start;
       const overlaps = isZeroLength
         ? lineStart === block.start
         : lineStart < block.end;
@@ -217,18 +222,31 @@ function serializeWithAnchors(
   return markdownLines.join('\n');
 }
 
-// Default per-line markdown marker for a block, gathered from the native
-// block handlers. The three-space list indent is wide enough for ordered
-// markers; paragraphs carry no marker.
+// Three spaces per nesting depth, wide enough to indent under a single-digit
+// ordered marker. Depth is clamped the way the block store clamps it, so a
+// stray level cannot indent a line far enough to re-parse as a code block.
+function listIndent(level: number): string {
+  return '   '.repeat(clamp(level, 0, MAX_LIST_DEPTH));
+}
+
+// Per-line markdown marker for a block; paragraphs carry no marker. A
+// heading's level comes from its type rather than from `level`, so the two
+// cannot disagree. There is deliberately no `default` arm: a block type added
+// to the model has to be given a marker here or this stops compiling.
 export function markdownLinePrefix(block: BlockRange): string {
   switch (block.type) {
     case 'paragraph':
       return '';
     case 'unordered-list-item':
-      return '   '.repeat(Math.max(block.level, 0)) + '- ';
+      return listIndent(block.level) + '- ';
     case 'ordered-list-item':
-      return '   '.repeat(Math.max(block.level, 0)) + `${block.ordinal}. `;
-    default:
-      return '#'.repeat(clamp(block.level, 1, 6)) + ' ';
+      return listIndent(block.level) + `${block.ordinal}. `;
+    case 'h1':
+    case 'h2':
+    case 'h3':
+    case 'h4':
+    case 'h5':
+    case 'h6':
+      return '#'.repeat(HEADING_BLOCK_TYPES.indexOf(block.type) + 1) + ' ';
   }
 }
