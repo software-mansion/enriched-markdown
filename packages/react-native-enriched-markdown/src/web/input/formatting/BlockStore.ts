@@ -8,7 +8,7 @@ import {
 } from '../model/blocks';
 import { adjustRangesForEdit } from './RangeEditAdjustment';
 import { sortedInsertionIndex } from './rangeStoreUtils';
-import { clamp } from '../utils';
+import { clamp, firstIndexReachingTarget } from '../utils';
 import type { RangeBounds } from '../model/rangeBounds';
 
 // Expands a selection to cover whole lines (line-scoped block boundaries).
@@ -256,22 +256,15 @@ export class BlockStore {
     this.ranges = ranges;
   }
 
-  // Starts are unique (one block per paragraph), so a binary search finds the
-  // block whose paragraph starts exactly at `lineStart`.
+  // Starts are unique (one block per paragraph), so the first range reaching
+  // `lineStart` is the block starting there, when one does.
   blockStartingAt(lineStart: number): BlockRange | null {
-    let lo = 0;
-    let hi = this.ranges.length - 1;
-    while (lo <= hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      const start = this.ranges[mid]!.start;
-      if (start < lineStart) {
-        lo = mid + 1;
-      } else if (start > lineStart) {
-        hi = mid - 1;
-      } else {
-        return this.ranges[mid]!;
-      }
-    }
-    return null;
+    const index = firstIndexReachingTarget(
+      lineStart,
+      this.ranges.length,
+      (position) => this.ranges[position]!.start
+    );
+    const block = this.ranges[index];
+    return block !== undefined && block.start === lineStart ? block : null;
   }
 }
