@@ -1,11 +1,12 @@
 import UIKit
 
-/// What one decoration pass draws with: the paragraphs it covers, the
-/// layout they came from (for a drawer that must see past them), and where
-/// the container's origin sits in the drawing.
+/// What one decoration pass draws with: the paragraphs it covers, the text
+/// and layout they came from (for a drawer that must see past them), and
+/// where the container's origin sits in the drawing.
 struct DecorationDrawContext {
     let context: CGContext
     let paragraphs: [ParagraphLayout]
+    let textStorage: NSTextStorage
     let textLayoutManager: NSTextLayoutManager
     let containerWidth: CGFloat
     let origin: CGPoint

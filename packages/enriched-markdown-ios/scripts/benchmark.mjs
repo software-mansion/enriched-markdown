@@ -370,6 +370,12 @@ function parseArgs(argv) {
         break;
       case '--fail-above':
         parsed.failAbove = Number(value);
+        if (!Number.isFinite(parsed.failAbove) || parsed.failAbove <= 0) {
+          console.error(
+            `--fail-above needs a positive number, got ${value ?? 'nothing'}`
+          );
+          process.exit(2);
+        }
         index += 1;
         break;
       case '--markdown':

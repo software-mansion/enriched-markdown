@@ -2,8 +2,9 @@ import UIKit
 import XCTest
 @testable import EnrichedMarkdown
 
-/// Opt-in benchmarks of the render and decoration paths, skipped unless the
-/// test process has `ENRICHED_MARKDOWN_BENCHMARKS` set. From the package:
+/// Opt-in benchmarks of the render, accessibility and decoration paths,
+/// skipped unless the test process has `ENRICHED_MARKDOWN_BENCHMARKS` set.
+/// From the package:
 ///
 ///     TEST_RUNNER_ENRICHED_MARKDOWN_BENCHMARKS=1 xcodebuild test \
 ///         -scheme EnrichedMarkdown-Package \
@@ -95,6 +96,15 @@ final class PerformanceBenchmarks: XCTestCase {
             textView.setMarkdownAttributedText(rendered)
             _ = textView.sizeThatFits(CGSize(width: 390, height: CGFloat.greatestFiniteMagnitude))
         }
+    }
+
+    // MARK: - Accessibility
+
+    /// The VoiceOver element descriptions, built on the first query after
+    /// every text change.
+    func testAccessibilitySpecsOfLongList() {
+        let rendered = MarkdownRenderer.render(Self.longList, config: Self.config)
+        measure { _ = MarkdownAccessibilityElementBuilder.specs(for: rendered) }
     }
 
     // MARK: - Decorations

@@ -34,14 +34,13 @@ enum ParagraphLayoutWalker {
         intersecting rect: CGRect? = nil
     ) -> [ParagraphLayout] {
         guard let store = Store(textLayoutManager) else { return [] }
-        let start = rect.flatMap { store.location(reaching: $0.minY, in: textLayoutManager) }
-            ?? textLayoutManager.documentRange.location
+        let start = rect.flatMap { store.location(reaching: $0.minY) } ?? textLayoutManager.documentRange.location
 
-        // No `.ensuresLayout`: the whole document is laid out before anything
-        // draws (the text view never scrolls), and ensuring walks from the
-        // document start.
+        // No `.ensuresLayout`, which walks from the document start: layout
+        // precedes every draw, see `Store.laidOut(_:)`.
         var paragraphs: [ParagraphLayout] = []
-        textLayoutManager.enumerateTextLayoutFragments(from: start, options: []) { fragment in
+        textLayoutManager.enumerateTextLayoutFragments(from: start, options: []) { probed in
+            let fragment = store.laidOut(probed)
             if let rect, fragment.layoutFragmentFrame.minY >= rect.maxY {
                 return false
             }
@@ -53,36 +52,19 @@ enum ParagraphLayoutWalker {
         return paragraphs
     }
 
-    /// The paragraph laid out before `paragraph`, or nil at the document start.
-    static func paragraph(before paragraph: ParagraphLayout, in textLayoutManager: NSTextLayoutManager) -> ParagraphLayout? {
-        neighbor(of: paragraph, in: textLayoutManager) { range, contentStorage in
-            contentStorage.location(range.location, offsetBy: -1)
-        }
-    }
-
-    /// The paragraph laid out after `paragraph`, or nil at the document end.
-    static func paragraph(after paragraph: ParagraphLayout, in textLayoutManager: NSTextLayoutManager) -> ParagraphLayout? {
-        neighbor(of: paragraph, in: textLayoutManager) { range, _ in range.endLocation }
-    }
-
-    /// The paragraph at the location `locate` derives from the paragraph's range.
-    private static func neighbor(
-        of paragraph: ParagraphLayout,
-        in textLayoutManager: NSTextLayoutManager,
-        locate: (NSTextRange, NSTextContentStorage) -> NSTextLocation?
-    ) -> ParagraphLayout? {
+    /// The paragraph containing the character at `offset`, or nil past the end.
+    static func paragraph(containing offset: Int, in textLayoutManager: NSTextLayoutManager) -> ParagraphLayout? {
         guard let store = Store(textLayoutManager),
-              let textRange = TextLayoutHelpers.textRange(paragraph.range, in: store.contentStorage),
-              let location = locate(textRange, store.contentStorage),
-              let fragment = textLayoutManager.textLayoutFragment(for: location),
-              let neighbor = store.paragraph(for: fragment),
-              neighbor.range != paragraph.range
+              offset >= 0, offset < store.textStorage.length,
+              let location = store.location(at: offset),
+              let fragment = textLayoutManager.textLayoutFragment(for: location)
         else { return nil }
-        return neighbor
+        return store.paragraph(for: store.laidOut(fragment))
     }
 
-    /// The attributed string behind a layout manager.
+    /// A layout manager with the attributed string behind it.
     private struct Store {
+        let textLayoutManager: NSTextLayoutManager
         let contentStorage: NSTextContentStorage
         let textStorage: NSTextStorage
 
@@ -90,28 +72,50 @@ enum ParagraphLayoutWalker {
             guard let contentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
                   let textStorage = contentStorage.textStorage
             else { return nil }
+            self.textLayoutManager = textLayoutManager
             self.contentStorage = contentStorage
             self.textStorage = textStorage
+        }
+
+        func location(at offset: Int) -> NSTextLocation? {
+            contentStorage.location(contentStorage.documentRange.location, offsetBy: offset)
+        }
+
+        func offset(of location: NSTextLocation) -> Int {
+            contentStorage.offset(from: contentStorage.documentRange.location, to: location)
         }
 
         /// The start of the first paragraph reaching below `edge`, found by
         /// bisecting character offsets: a fragment lookup by location is
         /// constant-time, where one by point walks from the document start.
-        func location(reaching edge: CGFloat, in textLayoutManager: NSTextLayoutManager) -> NSTextLocation? {
-            let documentStart = contentStorage.documentRange.location
+        func location(reaching edge: CGFloat) -> NSTextLocation? {
             var low = 0
             var high = textStorage.length
             while low < high {
-                guard let location = contentStorage.location(documentStart, offsetBy: (low + high) / 2),
-                      let fragment = textLayoutManager.textLayoutFragment(for: location)
+                guard let location = location(at: (low + high) / 2),
+                      let probed = textLayoutManager.textLayoutFragment(for: location)
                 else { return nil }
+                let fragment = laidOut(probed)
                 if fragment.layoutFragmentFrame.maxY <= edge {
-                    low = contentStorage.offset(from: documentStart, to: fragment.rangeInElement.endLocation)
+                    low = offset(of: fragment.rangeInElement.endLocation)
                 } else {
-                    high = contentStorage.offset(from: documentStart, to: fragment.rangeInElement.location)
+                    high = offset(of: fragment.rangeInElement.location)
                 }
             }
-            return contentStorage.location(documentStart, offsetBy: low)
+            return location(at: low)
+        }
+
+        /// The fragment with its layout done. That is normally already so: a
+        /// tile lies inside the text view's bounds, which is the TextKit viewport
+        /// of a text view that does not scroll, and Core Animation lays that
+        /// viewport out before it displays the decoration views. A host that
+        /// draws earlier, or a scrolling text view asked about a region outside
+        /// its viewport, gets the fragment laid out here, at the price of a walk
+        /// from the document start; before that its frame and lines are empty.
+        func laidOut(_ fragment: NSTextLayoutFragment) -> NSTextLayoutFragment {
+            guard fragment.state != .layoutAvailable else { return fragment }
+            textLayoutManager.ensureLayout(for: fragment.rangeInElement)
+            return textLayoutManager.textLayoutFragment(for: fragment.rangeInElement.location) ?? fragment
         }
 
         func paragraph(for fragment: NSTextLayoutFragment) -> ParagraphLayout? {

@@ -7,7 +7,7 @@ enum CodeBlockBackgroundDrawer {
         // Consecutive code paragraphs form one block; the spacer between
         // two blocks carries no attribute, so they never merge.
         for block in drawContext.paragraphs.split(whereSeparator: { !isCode($0) }) {
-            drawCodeBlockBackground(for: completed(block, in: drawContext.textLayoutManager), in: drawContext)
+            drawCodeBlockBackground(for: block, in: drawContext)
         }
     }
 
@@ -15,29 +15,20 @@ enum CodeBlockBackgroundDrawer {
         MarkdownAttributeValue.boolValue(from: paragraph.attributes[MarkdownAttribute.codeBlock])
     }
 
-    /// The whole block when the drawn paragraphs cut it: its rounded
-    /// corners belong at the block's ends, not at the cut.
-    private static func completed(
-        _ block: ArraySlice<ParagraphLayout>,
-        in textLayoutManager: NSTextLayoutManager
-    ) -> [ParagraphLayout] {
-        var block = Array(block)
-        while let first = block.first,
-              let previous = ParagraphLayoutWalker.paragraph(before: first, in: textLayoutManager),
-              isCode(previous) {
-            block.insert(previous, at: 0)
-        }
-        while let last = block.last,
-              let next = ParagraphLayoutWalker.paragraph(after: last, in: textLayoutManager),
-              isCode(next) {
-            block.append(next)
-        }
-        return block
-    }
+    /// The block's rect spans from its first line to its last, wherever the
+    /// drawn paragraphs cut it: the attribute run gives the whole block's
+    /// range, and its end paragraphs are looked up directly rather than
+    /// walked to, so a long fence costs the same from any tile.
+    private static func drawCodeBlockBackground(for block: ArraySlice<ParagraphLayout>, in drawContext: DecorationDrawContext) {
+        let textLayoutManager = drawContext.textLayoutManager
+        guard let first = block.first,
+              let range = MarkdownAttributeValue.codeBlockRange(in: drawContext.textStorage, at: first.range.location),
+              let top = ParagraphLayoutWalker.paragraph(containing: range.location, in: textLayoutManager),
+              let bottom = ParagraphLayoutWalker.paragraph(containing: NSMaxRange(range) - 1, in: textLayoutManager)
+        else { return }
 
-    private static func drawCodeBlockBackground(for block: [ParagraphLayout], in drawContext: DecorationDrawContext) {
         var blockRect = CGRect.null
-        for paragraph in block {
+        for paragraph in [top, bottom] {
             // CodeBlockRenderer sets one font over the block's content; the
             // padding spacers carry none and measure with the default.
             let font = paragraph.attributes[.font] as? UIFont ?? defaultFont

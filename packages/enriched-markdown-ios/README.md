@@ -669,7 +669,7 @@ These scripts run `swift build` / `swift test` / `swift package clean` from the 
 
 ### Benchmarks
 
-`Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift` times rendering, first layout and the decoration display of long documents. It is skipped in a normal test run; `scripts/benchmark.mjs` runs it on the booted simulator and, with `--base`, on another ref in a temporary worktree, and prints both with the ratio:
+`Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift` times rendering, first layout, the accessibility element build and the decoration display of long documents. It is skipped in a normal test run; `scripts/benchmark.mjs` runs it on the booted simulator and, with `--base`, on another ref in a temporary worktree, and prints both with the ratio:
 
 ```sh
 yarn workspace @enriched-markdown/ios bench:ios-native --base main

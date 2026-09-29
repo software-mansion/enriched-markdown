@@ -351,15 +351,28 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateDecorationFrames()
+        trackEnclosingScrollView()
         setDecorationNeedsDisplay()
         spoilerOverlays.update()
     }
 
-    /// Re-parenting passes through here too: a view leaves its window
-    /// before joining the next superview.
     override func didMoveToWindow() {
         super.didMoveToWindow()
+        trackEnclosingScrollView()
+    }
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        trackEnclosingScrollView()
+    }
+
+    /// UIKit reports only some moves to this view, so each report looks the
+    /// scroll view up again: a new window reaches every descendant, a move
+    /// within one window only the moved view, and an ancestor moving into or
+    /// out of a scroll view reaches this one as a trait change that lays it
+    /// out. An ancestor moving from one scroll view straight into another
+    /// reaches none of them.
+    private func trackEnclosingScrollView() {
         observeEnclosingScrollView()
         updateDecorationFrames()
     }

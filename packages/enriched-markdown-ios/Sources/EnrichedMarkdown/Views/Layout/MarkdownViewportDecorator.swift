@@ -29,14 +29,17 @@ final class MarkdownViewportDecorator {
     func draw(in context: CGContext, textView: UITextView, tile: CGRect, pass: MarkdownDecorationPass) {
         guard let textLayoutManager = textView.textLayoutManager else { return }
 
-        // Container coordinates: the content sits at minus the scroll offset.
-        let containerTile = tile.offsetBy(dx: 0, dy: textView.contentOffset.y)
+        // A subview's frame is in the text view's bounds space, whatever the
+        // content offset; the text container sits inset within it.
+        let inset = textView.textContainerInset
+        let containerTile = tile.offsetBy(dx: -inset.left, dy: -inset.top)
         let drawContext = DecorationDrawContext(
             context: context,
             paragraphs: ParagraphLayoutWalker.paragraphs(in: textLayoutManager, intersecting: containerTile),
+            textStorage: textView.textStorage,
             textLayoutManager: textLayoutManager,
             containerWidth: textView.textContainer.size.width,
-            origin: CGPoint(x: -containerTile.minX, y: -containerTile.minY),
+            origin: CGPoint(x: inset.left - tile.minX, y: inset.top - tile.minY),
             decorationConfig: config
         )
 

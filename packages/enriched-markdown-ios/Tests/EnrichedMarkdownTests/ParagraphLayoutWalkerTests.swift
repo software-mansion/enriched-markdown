@@ -112,22 +112,50 @@ final class ParagraphLayoutWalkerTests: XCTestCase {
         }
     }
 
-    func testNeighborsStepThroughTheDocument() throws {
+    func testParagraphContainingAnOffset() throws {
         let textLayoutManager = try layOut()
         let all = ParagraphLayoutWalker.paragraphs(in: textLayoutManager)
 
-        XCTAssertNil(ParagraphLayoutWalker.paragraph(before: all[0], in: textLayoutManager))
-        XCTAssertNil(ParagraphLayoutWalker.paragraph(after: all[all.count - 1], in: textLayoutManager))
-        for index in 1..<all.count {
-            XCTAssertEqual(
-                ParagraphLayoutWalker.paragraph(before: all[index], in: textLayoutManager)?.range,
-                all[index - 1].range
-            )
-            XCTAssertEqual(
-                ParagraphLayoutWalker.paragraph(after: all[index - 1], in: textLayoutManager)?.range,
-                all[index].range
-            )
+        for paragraph in all {
+            for offset in [paragraph.range.location, NSMaxRange(paragraph.range) - 1] {
+                XCTAssertEqual(
+                    ParagraphLayoutWalker.paragraph(containing: offset, in: textLayoutManager)?.range,
+                    paragraph.range,
+                    "offset \(offset)"
+                )
+            }
         }
+        let end = try XCTUnwrap(all.last).range
+        XCTAssertNil(ParagraphLayoutWalker.paragraph(containing: NSMaxRange(end), in: textLayoutManager))
+        XCTAssertNil(ParagraphLayoutWalker.paragraph(containing: -1, in: textLayoutManager))
+    }
+
+    /// A host that draws before TextKit laid out the drawn region still
+    /// gets lines: the walker lays such a fragment out itself.
+    func testWalkLaysOutFragmentsOutsideTheViewport() throws {
+        let rendered = MarkdownRenderer.render((1...200).map { "- Item \($0)" }.joined(separator: "\n"), config: .baseline())
+        // A scrolling text view lays out only its viewport, the first 200 points.
+        let textView = UITextView(usingTextLayoutManager: true)
+        textView.frame = CGRect(x: 0, y: 0, width: 390, height: 200)
+        textView.attributedText = rendered
+        textView.layoutIfNeeded()
+        let textLayoutManager = try XCTUnwrap(textView.textLayoutManager)
+
+        let far = CGRect(x: 0, y: 2000, width: 390, height: 300)
+        let paragraphs = ParagraphLayoutWalker.paragraphs(in: textLayoutManager, intersecting: far)
+        XCTAssertGreaterThan(paragraphs.count, 5)
+        for paragraph in paragraphs {
+            XCTAssertFalse(paragraph.lines.isEmpty, "paragraph at \(paragraph.range)")
+        }
+        let first = try XCTUnwrap(paragraphs.first)
+        let last = try XCTUnwrap(paragraphs.last)
+        XCTAssertLessThanOrEqual(first.frame.minY, far.minY)
+        XCTAssertGreaterThan(first.frame.maxY, far.minY)
+        XCTAssertGreaterThanOrEqual(last.frame.maxY, far.maxY)
+
+        // A lookup by offset lays its fragment out the same way.
+        let lastItem = ParagraphLayoutWalker.paragraph(containing: textView.textStorage.length - 2, in: textLayoutManager)
+        XCTAssertFalse(try XCTUnwrap(lastItem).lines.isEmpty)
     }
 }
 
