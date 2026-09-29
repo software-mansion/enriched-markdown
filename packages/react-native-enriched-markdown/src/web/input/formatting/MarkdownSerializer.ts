@@ -8,19 +8,6 @@ import {
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
 import type { RangeBounds } from '../model/rangeBounds';
 
-// Zero-width space the Android editor writes to anchor an empty bullet line,
-// where a marker span needs a character to attach to. The web editor anchors
-// an empty line with a zero-length block range instead (see BlockStore) and
-// never writes this character, but markdown imported from a buffer that did
-// can carry one, and it must never appear in serialized output.
-export const ZWSP = '\u200B';
-// Single choke point for scrubbing the empty-line ZWSP anchor out of anything
-// bound for JS. Route new output paths through this rather than scattering
-// replace calls, so the anchor can never leak because one path forgot to strip.
-export function stripZwsp(text: string): string {
-  return text.replaceAll(ZWSP, '');
-}
-
 const OPENING_DELIMITERS: Record<InputStyleType, string> = {
   strong: '**',
   em: '*',
@@ -30,12 +17,34 @@ const OPENING_DELIMITERS: Record<InputStyleType, string> = {
   spoiler: '||',
 };
 
+function hasBalancedParens(url: string): boolean {
+  let depth = 0;
+  for (const char of url) {
+    if (char === '(') {
+      depth++;
+    } else if (char === ')' && --depth < 0) {
+      return false;
+    }
+  }
+  return depth === 0;
+}
+
+// A bare destination ends at the first whitespace and at an unbalanced ")", so
+// a url carrying either goes in angle brackets, where only "<" and ">"
+// themselves still need escaping.
+function linkDestination(url: string): string {
+  if (!/\s/.test(url) && hasBalancedParens(url)) {
+    return url;
+  }
+  return `<${url.replaceAll('<', '\\<').replaceAll('>', '\\>')}>`;
+}
+
 function closingDelimiter(
   type: InputStyleType,
   url: string | undefined
 ): string {
   if (type === 'link') {
-    return `](${url ?? ''})`;
+    return `](${linkDestination(url ?? '')})`;
   }
   return OPENING_DELIMITERS[type];
 }
@@ -72,6 +81,31 @@ function compareBoundaryEvents(a: BoundaryEvent, b: BoundaryEvent): number {
     : NESTING_PRIORITY[b.type] - NESTING_PRIORITY[a.type];
 }
 
+// Every line is its own block (see BlockStore), and no inline run may cross a
+// block boundary: "- **a\n- b**" re-parses as two items carrying literal
+// asterisks rather than one bold run. Each range is therefore emitted once per
+// line it covers, which also splits a link spanning lines into one link per
+// line - the only form the block model can express.
+function splitRangesAtLineBreaks(
+  ranges: readonly FormattingRange[],
+  text: string
+): FormattingRange[] {
+  const segments: FormattingRange[] = [];
+  for (const range of ranges) {
+    let start = range.start;
+    while (start < range.end) {
+      const lineBreak = text.indexOf('\n', start);
+      const end =
+        lineBreak === -1 || lineBreak >= range.end ? range.end : lineBreak;
+      if (end > start) {
+        segments.push({ ...range, start, end });
+      }
+      start = end + 1;
+    }
+  }
+  return segments;
+}
+
 export function serializeInline(
   text: string,
   ranges: readonly FormattingRange[]
@@ -81,7 +115,7 @@ export function serializeInline(
   }
 
   const events: BoundaryEvent[] = [];
-  for (const range of ranges) {
+  for (const range of splitRangesAtLineBreaks(ranges, text)) {
     let start = clamp(range.start, 0, text.length);
     let end = clamp(range.end, 0, text.length);
     if (start >= end) {
@@ -115,41 +149,29 @@ export function serializeInline(
 
   events.sort(compareBoundaryEvents);
 
-  const markdown: string[] = [];
+  let markdown = '';
   let lastPosition = 0;
   for (const event of events) {
     const position = Math.min(event.position, text.length);
     if (position > lastPosition) {
-      markdown.push(text.slice(lastPosition, position));
+      markdown += text.slice(lastPosition, position);
       lastPosition = position;
     }
-    markdown.push(
-      event.isOpening
-        ? OPENING_DELIMITERS[event.type]
-        : closingDelimiter(event.type, event.url)
-    );
+    markdown += event.isOpening
+      ? OPENING_DELIMITERS[event.type]
+      : closingDelimiter(event.type, event.url);
   }
   if (lastPosition < text.length) {
-    markdown.push(text.slice(lastPosition));
+    markdown += text.slice(lastPosition);
   }
 
-  return markdown.join('');
+  return markdown;
 }
 
 // Block-aware serialization: serializes inline styles exactly as
 // serializeInline, then prepends each line's markdownLinePrefix marker (e.g.
-// "# ", "- "); a block whose marker is "" leaves its line unprefixed. Any ZWSP
-// empty-line anchor is stripped so an empty bullet still serializes to a bare
-// line rather than "- \u200B".
+// "# ", "- "); a block whose marker is "" leaves its line unprefixed.
 export function serialize(
-  text: string,
-  ranges: readonly FormattingRange[],
-  blockRanges: readonly BlockRange[]
-): string {
-  return stripZwsp(serializeWithAnchors(text, ranges, blockRanges));
-}
-
-function serializeWithAnchors(
   text: string,
   ranges: readonly FormattingRange[],
   blockRanges: readonly BlockRange[]
@@ -170,7 +192,7 @@ function serializeWithAnchors(
   const markdownLines = inlineMarkdown.split('\n');
   if (plainLines.length !== markdownLines.length) {
     console.error(
-      `[MarkdownSerializer] Block serialization line-count invariant violated: plain=${plainLines.length} markdown=${markdownLines.length}`
+      `[EnrichedMarkdown - MarkdownSerializer] Block serialization line-count invariant violated: plain=${plainLines.length} markdown=${markdownLines.length}`
     );
     return inlineMarkdown;
   }
@@ -212,7 +234,7 @@ function serializeWithAnchors(
       // A marker-only list line ("- " with no content) re-parses as a setext
       // underline for the previous line; emit an empty list line bare. An
       // empty "# " heading is valid ATX and keeps its prefix.
-      if (isListItem && stripZwsp(plainLines[lineIndex]!) === '') {
+      if (isListItem && plainLines[lineIndex] === '') {
         continue;
       }
       markdownLines[lineIndex] = prefix + markdownLines[lineIndex]!;

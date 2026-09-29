@@ -2,7 +2,6 @@ import {
   markdownLinePrefix,
   serialize,
   serializeInline,
-  ZWSP,
 } from '../MarkdownSerializer';
 import { createBlockRange, MAX_LIST_DEPTH } from '../../model/blocks';
 import { createFormattingRange as range } from '../../model/inlineStyles';
@@ -60,6 +59,37 @@ describe('serializeInline', () => {
       serializeInline('ab', [range('strong', 0, 1), range('underline', 1, 2)])
     ).toBe('**a**_b_');
   });
+
+  it('closes and reopens a range on each line it covers', () => {
+    // Delimiters may not cross a line: every line is its own block, so a
+    // run left open would re-parse as literal asterisks.
+    expect(serializeInline('foo\nbar', [range('strong', 0, 7)])).toBe(
+      '**foo**\n**bar**'
+    );
+    // A blank line in the middle contributes no delimiters of its own.
+    expect(serializeInline('foo\n\nbar', [range('em', 0, 8)])).toBe(
+      '*foo*\n\n*bar*'
+    );
+    expect(
+      serializeInline('foo\nbar', [range('link', 0, 7, 'https://a.example')])
+    ).toBe('[foo](https://a.example)\n[bar](https://a.example)');
+  });
+
+  it('wraps a link destination that would end early', () => {
+    const link = (url: string) =>
+      serializeInline('docs', [range('link', 0, 4, url)]);
+
+    expect(link('https://a.example/a b')).toBe(
+      '[docs](<https://a.example/a b>)'
+    );
+    expect(link('https://a.example/a(b')).toBe(
+      '[docs](<https://a.example/a(b>)'
+    );
+    // Balanced parens parse fine bare, so they stay bare.
+    expect(link('https://a.example/a(b)c')).toBe(
+      '[docs](https://a.example/a(b)c)'
+    );
+  });
 });
 
 describe('serialize', () => {
@@ -99,19 +129,6 @@ describe('serialize', () => {
     expect(serialize('a\n', [], [createBlockRange('h1', 2, 2, 1)])).toBe(
       'a\n# '
     );
-  });
-
-  // Markdown imported from an Android buffer anchors the same empty line with
-  // a ZWSP instead, so the line reads as one character wide.
-  it('treats an imported ZWSP anchor line as empty and strips the character', () => {
-    const anchorText = `a\n${ZWSP}\nb`;
-
-    expect(serialize(anchorText, [], [createBlockRange('h1', 2, 3, 1)])).toBe(
-      'a\n# \nb'
-    );
-    expect(
-      serialize(anchorText, [], [createBlockRange('unordered-list-item', 2, 3)])
-    ).toBe('a\n\nb');
   });
 });
 
