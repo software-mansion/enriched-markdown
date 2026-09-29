@@ -456,4 +456,10 @@ export interface Md4cFlags {
    * @default true
    */
   admonitions?: boolean;
+  /**
+   * Autolink bare URLs and e-mail addresses without angle brackets.
+   * When disabled, only explicit `[text](url)` and `<url>` links are parsed.
+   * @default true
+   */
+  permissiveAutolinks?: boolean;
 }
