@@ -15,6 +15,11 @@ export class DomRenderer {
     this.root.replaceChildren();
   }
 
+  // The projection the DOM currently shows; line offsets for the mapper.
+  get paragraphs(): readonly ParagraphProjection[] {
+    return this.renderedParagraphs;
+  }
+
   render(text: string, paragraphs: readonly ParagraphProjection[]): void {
     const document = this.root.ownerDocument;
     const { start, stalePairs, freshPairs } = changedWindow(
