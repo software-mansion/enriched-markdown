@@ -8,6 +8,14 @@ export type InputStyleType =
   | 'link'
   | 'spoiler';
 
+export const TYPING_ATTRIBUTE_STYLES: readonly InputStyleType[] = [
+  'strong',
+  'em',
+  'underline',
+  'strikethrough',
+  'spoiler',
+];
+
 export interface FormattingRange extends RangeBounds {
   type: InputStyleType;
   url?: string;
