@@ -81,6 +81,10 @@ static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer)
       break;
 
     case MarkdownNodeTypeLink: {
+      if ([node.attributes[@"recognizedLink"] isEqualToString:@"true"]) {
+        serializeChildren(node, buffer);
+        break;
+      }
       NSString *url = node.attributes[@"url"] ?: @"";
       [buffer appendString:@"["];
       serializeChildren(node, buffer);

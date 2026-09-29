@@ -60,6 +60,8 @@ const INLINE_IMAGE_URI = Image.resolveAssetSource(
   require('../../assets/logo_icon.png')
 ).uri;
 
+const REFERENCE_REGEX = /ref:[a-z]+/;
+
 export default function PlaygroundScreen() {
   const headerHeight = useHeaderHeight();
   const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
@@ -70,6 +72,7 @@ export default function PlaygroundScreen() {
   const [underlineEnabled, setUnderlineEnabled] = useState(true);
   const [setMarkdownModalVisible, setSetMarkdownModalVisible] = useState(false);
   const [rawInput, setRawInput] = useState('');
+  const [recognitionMode, setRecognitionMode] = useState(0);
   const handleGetMarkdown = useCallback(async () => {
     const md = await inputRef.current?.getMarkdown();
     Alert.alert('Markdown', md ?? '(empty)', [{ text: 'OK' }]);
@@ -238,12 +241,23 @@ export default function PlaygroundScreen() {
         <View style={styles.divider} />
 
         <Text style={styles.previewLabel}>Preview</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => setRecognitionMode((mode) => (mode + 1) % 3)}
+          testID="recognize-links-button"
+        >
+          <Text style={styles.buttonText}>
+            Reference links: {['Off', 'CommonMark', 'GitHub'][recognitionMode]}
+          </Text>
+        </TouchableOpacity>
         <View style={styles.previewContainer} testID="preview-container">
           {markdown.length > 0 ? (
             <EnrichedMarkdownText
               markdown={markdown}
               markdownStyle={MARKDOWN_STYLE}
-              flavor="github"
+              flavor={recognitionMode === 1 ? 'commonmark' : 'github'}
+              linkRegex={recognitionMode ? REFERENCE_REGEX : null}
+              inlineCodeLinkRegex={recognitionMode ? REFERENCE_REGEX : null}
               spoilerOverlay="solid"
               md4cFlags={{
                 underline: underlineEnabled,

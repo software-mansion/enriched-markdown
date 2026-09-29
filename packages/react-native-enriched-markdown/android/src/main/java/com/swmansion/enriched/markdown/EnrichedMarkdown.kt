@@ -11,6 +11,7 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.StateWrapper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
+import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
@@ -79,6 +80,8 @@ class EnrichedMarkdown(
 
   var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
     private set
+  private var linkRegex: LinkRegexConfig? = null
+  private var inlineCodeLinkRegex: LinkRegexConfig? = null
   private var isGFM: Boolean = true
   private var allowFontScaling: Boolean = true
   private var maxFontSizeMultiplier: Float = 0f
@@ -186,6 +189,18 @@ class EnrichedMarkdown(
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
       scheduleRenderIfNeeded()
     }
+  }
+
+  fun setLinkRegex(config: LinkRegexConfig?) {
+    if (linkRegex == config) return
+    linkRegex = config
+    renderPending = true
+  }
+
+  fun setInlineCodeLinkRegex(config: LinkRegexConfig?) {
+    if (inlineCodeLinkRegex == config) return
+    inlineCodeLinkRegex = config
+    renderPending = true
   }
 
   fun setMd4cFlags(flags: Md4cFlags) {
@@ -372,6 +387,8 @@ class EnrichedMarkdown(
     val tableMode = tableStreamingMode
     val codeBlockMode = codeBlockStreamingMode
 
+    val textLinkRegex = linkRegex
+    val codeLinkRegex = inlineCodeLinkRegex
     val renderId = ++currentRenderId
 
     executor.execute {
@@ -391,7 +408,7 @@ class EnrichedMarkdown(
         }
 
         val ast =
-          parser.parseMarkdown(renderableMarkdown, md4cFlags, isGFM) ?: run {
+          parser.parseMarkdown(renderableMarkdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
             postToMain(renderId) { applyRenderedSegments(emptyList(), false) }
             return@execute
           }

@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.parser
 
 import android.util.Log
+import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
 
 data class Md4cFlags(
@@ -51,6 +52,8 @@ class Parser {
     markdown: String,
     flags: Md4cFlags = Md4cFlags.DEFAULT,
     isGFM: Boolean = true,
+    linkRegex: LinkRegexConfig? = null,
+    inlineCodeLinkRegex: LinkRegexConfig? = null,
   ): MarkdownASTNode? {
     if (markdown.isBlank()) {
       return null
@@ -60,7 +63,7 @@ class Parser {
       val ast = nativeParseMarkdown(markdown, flags, isGFM)
 
       if (ast != null) {
-        return ast
+        return TextLinkRecognizer.recognize(ast, linkRegex, inlineCodeLinkRegex)
       } else {
         Log.w("MarkdownParser", "Native parser returned null")
         return null

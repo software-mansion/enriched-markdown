@@ -20,6 +20,7 @@ import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.style.LogicalEdge
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
+import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
@@ -102,6 +103,8 @@ class EnrichedMarkdownText
 
     var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
       private set
+    private var linkRegex: LinkRegexConfig? = null
+    private var inlineCodeLinkRegex: LinkRegexConfig? = null
     private var isGFM: Boolean = false
 
     private var lastKnownFontScale: Float = context.resources.configuration.fontScale
@@ -183,6 +186,18 @@ class EnrichedMarkdownText
         recreateStyleConfig()
         scheduleRenderIfNeeded()
       }
+    }
+
+    fun setLinkRegex(config: LinkRegexConfig?) {
+      if (linkRegex == config) return
+      linkRegex = config
+      scheduleRenderIfNeeded()
+    }
+
+    fun setInlineCodeLinkRegex(config: LinkRegexConfig?) {
+      if (inlineCodeLinkRegex == config) return
+      inlineCodeLinkRegex = config
+      scheduleRenderIfNeeded()
     }
 
     fun setMd4cFlags(flags: Md4cFlags) {
@@ -271,12 +286,14 @@ class EnrichedMarkdownText
       val markdown = currentMarkdown
       if (markdown.isEmpty()) return
 
+      val textLinkRegex = linkRegex
+      val codeLinkRegex = inlineCodeLinkRegex
       val renderId = ++currentRenderId
 
       executor.execute {
         try {
           val ast =
-            parser.parseMarkdown(markdown, md4cFlags, isGFM) ?: run {
+            parser.parseMarkdown(markdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
               mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
               return@execute
             }

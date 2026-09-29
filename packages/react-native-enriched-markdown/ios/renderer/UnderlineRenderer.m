@@ -1,4 +1,5 @@
 #import "UnderlineRenderer.h"
+#import "ENRMTextLinkAttributes.h"
 #import "MarkdownASTNode.h"
 #import "RenderContext.h"
 #import "RendererFactory.h"
@@ -20,6 +21,7 @@
     return;
 
   [output addAttribute:NSUnderlineStyleAttributeName value:@(NSUnderlineStyleSingle) range:range];
+  [output addAttribute:ENRMRecognizedLinkOriginalUnderlineAttributeName value:@(NSUnderlineStyleSingle) range:range];
 
   RCTUIColor *underlineColor = [_config underlineColor];
 

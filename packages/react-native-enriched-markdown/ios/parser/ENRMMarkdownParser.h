@@ -16,10 +16,18 @@
 
 @end
 
+@class ENRMLinkRegexConfig;
+
 @interface ENRMMarkdownParser : NSObject
 
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown;
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags;
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags isGFM:(BOOL)isGFM;
+// Recognition runs before returning the AST to renderers and measurement.
+- (MarkdownASTNode *)parseMarkdown:(NSString *)markdown
+                             flags:(ENRMMd4cFlags *)flags
+                             isGFM:(BOOL)isGFM
+                         linkRegex:(ENRMLinkRegexConfig *)linkRegex
+               inlineCodeLinkRegex:(ENRMLinkRegexConfig *)inlineCodeLinkRegex;
 
 @end

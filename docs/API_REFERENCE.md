@@ -12,6 +12,30 @@ The Markdown content to render.
 | -------- | ------------- | -------- |
 | `string` | Required      | Both     |
 
+### `linkRegex` and `inlineCodeLinkRegex`
+
+Optional consumer patterns for native link recognition in both CommonMark and GitHub flavors. Both default to disabled; `undefined` and `null` disable recognition.
+
+`linkRegex` finds every nonempty, non-overlapping match within individual parsed plain-text nodes. It does not match across formatting boundaries or inside existing Markdown links, autolinks, inline code, block code, media or math. `inlineCodeLinkRegex` recognizes only nonempty matches covering an entire inline-code span, retaining the code node and its formatting. Partial code matches are ignored.
+
+Recognized links use the exact matched rendered text as their URL, without normalization. They use existing `linkVariants`, `onLinkPress` and `onLinkLongPress` handling. Consumers own recognition patterns, styles and routing. The Markdown source and copy semantics are preserved.
+
+| Prop | Type | Default | Platform |
+| ---- | ---- | ------- | -------- |
+| `linkRegex` | `RegExp \| null` | Disabled | iOS, Android |
+| `inlineCodeLinkRegex` | `RegExp \| null` | Disabled | iOS, Android |
+
+The native transport follows `EnrichedMarkdownTextInput.linkRegex`: only regex source, case-insensitive `i`, and dot-all `s` are transported. Other JavaScript flags and `lastIndex` are ignored. Patterns must compile with both `NSRegularExpression` and `java.util.regex.Pattern`. Rejected variable-width lookbehinds and invalid native expressions disable that recognizer.
+
+```tsx
+<EnrichedMarkdownText
+  markdown="ref:one and `ref:two`"
+  linkRegex={/ref:[a-z]+/i}
+  inlineCodeLinkRegex={/ref:[a-z]+/i}
+  onLinkPress={({ url }) => routeReference(url)}
+/>
+```
+
 ### `markdownStyle`
 
 Style configuration for Markdown elements. See the [Style Properties Reference](STYLES.md) for a detailed overview of all available style properties.
