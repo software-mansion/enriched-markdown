@@ -110,8 +110,9 @@ jobs:
             --fail-above 2 \
             --markdown "$RUNNER_TEMP/ios-benchmarks.md"
 
-      # The table goes to the job summary and to one comment on the pull
-      # request, which later runs edit in place rather than pile up.
+      # The table goes to the job summary and to a new comment on the pull
+      # request on every run. Editing one comment in place kept it at its old
+      # spot in the thread and sent no notification, so a refresh went unseen.
       - name: Publish the results
         if: always()
         env:
@@ -128,5 +129,5 @@ jobs:
           EOF
           cat "$RESULTS" >> "$GITHUB_STEP_SUMMARY"
           # Best effort: a pull request from a fork gets a read-only token.
-          gh pr comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RESULTS" --edit-last --create-if-none \
+          gh pr comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RESULTS" \
             || echo "::warning::Could not post the benchmark comment; the table is in the job summary."

@@ -61,11 +61,16 @@ function main(options) {
   mkdirSync(workDir, { recursive: true });
   mkdirSync(cacheDir, { recursive: true });
 
+  // Named before the long measurements, so a broken checkout fails fast.
+  const headName = describeHead();
   const head = runBenchmarks(packageDir, 'head', options, udid);
   const base = options.base
     ? runBenchmarksAt(options.base, options, udid)
     : null;
-  const { text, markdown, worst } = report(head, base, options);
+  const { text, markdown, worst } = report(head, base, {
+    ...options,
+    headName,
+  });
   console.log(`\n${text}`);
   if (options.markdown) {
     appendFileSync(options.markdown, `${markdown}\n\n`);
@@ -268,10 +273,11 @@ export function report(head, base, options) {
   ]
     .filter(Boolean)
     .join(' · ');
+  const headName = options.headName ? `head ${options.headName}` : 'head';
   const markdown = [
     base
-      ? `### iOS benchmarks: head vs base ${baseName}`
-      : '### iOS benchmarks',
+      ? `### iOS benchmarks: ${headName} vs base ${baseName}`
+      : `### iOS benchmarks: ${headName}`,
     base ? `${marker(worst?.verdict)} ${summarize(worst, options)}` : null,
     [
       header,
@@ -392,4 +398,16 @@ function parseArgs(argv) {
 
 function git(args) {
   return execFileSync('git', args, { cwd: repoDir, encoding: 'utf8' });
+}
+
+// The commit the head measurements describe, with "-dirty" when the working
+// tree has uncommitted changes, so a report says what it measured.
+function describeHead() {
+  return git([
+    'describe',
+    '--always',
+    '--dirty',
+    '--abbrev=12',
+    '--exclude=*',
+  ]).trim();
 }
