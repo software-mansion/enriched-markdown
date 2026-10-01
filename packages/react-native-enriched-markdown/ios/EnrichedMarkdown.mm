@@ -415,18 +415,18 @@ static char kENRMSegmentFadeAnimatorKey;
 /// the component view itself rather than to `contentView`, so nothing applies
 /// the insets for us.
 ///
-/// Falls back to `self.bounds` before the first layout metrics arrive, where
-/// the two boxes are equal anyway.
+/// `_layoutMetrics` is assigned by `RCTViewComponentView` in the same
+/// `updateLayoutMetrics:` that sets our bounds, so the two always agree. The box
+/// is empty both before the first layout metrics arrive and when the insets
+/// consume the whole component width; neither may fall back to `self.bounds`,
+/// which is the padded border box the segments must not be drawn across, so an
+/// over-constrained box clamps to zero and callers skip laying out at all.
 - (CGRect)contentBounds
 {
   const auto &insets = _layoutMetrics.contentInsets;
   CGRect bounds = self.bounds;
-  CGRect contentFrame = CGRectMake(insets.left, insets.top, bounds.size.width - insets.left - insets.right,
-                                   bounds.size.height - insets.top - insets.bottom);
-  if (contentFrame.size.width > 0) {
-    return contentFrame;
-  }
-  return bounds;
+  return CGRectMake(insets.left, insets.top, MAX(bounds.size.width - insets.left - insets.right, 0),
+                    MAX(bounds.size.height - insets.top - insets.bottom, 0));
 }
 
 - (CGSize)computeSegmentLayoutForWidth:(CGFloat)width applyFrames:(BOOL)applyFrames
@@ -1262,9 +1262,11 @@ static char kENRMSegmentFadeAnimatorKey;
     }
 
     CGRect contentBounds = [self contentBounds];
-    CGSize measured = [self measureSize:contentBounds.size.width];
-    if (needsHeightUpdate(measured, contentBounds)) {
-      [self requestHeightUpdate];
+    if (contentBounds.size.width > 0) {
+      CGSize measured = [self measureSize:contentBounds.size.width];
+      if (needsHeightUpdate(measured, contentBounds)) {
+        [self requestHeightUpdate];
+      }
     }
   }
 }

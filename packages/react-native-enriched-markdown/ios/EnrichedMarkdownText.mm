@@ -165,15 +165,14 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 /// sees: glyphs spill past the text view and get clipped, while the taller
 /// content-width height Yoga committed shows up as blank space at the bottom.
 ///
-/// Falls back to `self.bounds` before the first layout metrics arrive, where
-/// the two boxes are equal anyway.
+/// The text view's frame is authoritative, so this is zero-sized both before the
+/// first layout metrics arrive and when the insets consume the whole component
+/// width. Neither may fall back to `self.bounds`: that is the padded border box,
+/// and in the second case it is a real layout the text would then be drawn
+/// across. Callers skip measuring and laying out at a zero width instead.
 - (CGRect)contentBounds
 {
-  CGRect textViewBounds = _textView.bounds;
-  if (textViewBounds.size.width > 0) {
-    return textViewBounds;
-  }
-  return self.bounds;
+  return _textView.bounds;
 }
 
 - (CGSize)measureSize:(CGFloat)maxWidth
@@ -754,23 +753,20 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   if (self.window && _renderedMarkdown != nil) {
     _textView.hidden = NO;
-    // Refresh in place: the frame RCTViewComponentView gave the text view is the
-    // content frame, so overwriting it with self.bounds would drop the
-    // containerStyle insets (see contentBounds). Only a text view that never got
-    // a frame falls back to the component bounds.
-    if (_textView.bounds.size.width > 0) {
-      ENRMRefreshTextViewLayout(_textView);
-    } else {
-      ENRMRefreshTextViewAfterWindowAttach(_textView, self.bounds);
-    }
+    // Refresh in place: RCTViewComponentView owns the text view's frame and has
+    // already set it to the content frame, so re-assigning self.bounds here would
+    // drop the containerStyle insets (see contentBounds).
+    ENRMRefreshTextViewLayout(_textView);
 
     [_spoilerManager setNeedsUpdate];
     [_spoilerManager updateIfNeeded];
 
     CGRect contentBounds = [self contentBounds];
-    CGSize measured = [self measureSize:contentBounds.size.width];
-    if (needsHeightUpdate(measured, contentBounds)) {
-      [self requestHeightUpdate];
+    if (contentBounds.size.width > 0) {
+      CGSize measured = [self measureSize:contentBounds.size.width];
+      if (needsHeightUpdate(measured, contentBounds)) {
+        [self requestHeightUpdate];
+      }
     }
   }
 }
