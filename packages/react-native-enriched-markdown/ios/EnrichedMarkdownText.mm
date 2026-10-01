@@ -151,6 +151,31 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 #pragma mark - Measuring and State
 
+/// The box the text actually lives in: `self.bounds` inset by the
+/// `containerStyle` border and padding.
+///
+/// Yoga hands `measureContent` an available size that already excludes those
+/// insets, and `RCTViewComponentView` sizes `contentView` (our text view) to
+/// `layoutMetrics.getContentFrame()`, so the shadow node's height and the text
+/// view's frame are both content-box quantities. Measuring at `self.bounds`
+/// instead overshoots by the horizontal insets, and because
+/// `ENRMMeasureTextLayout` measures by resizing the live display container and
+/// leaves it there (UIKit never re-syncs it - `widthTracksTextView` does not
+/// apply with `scrollEnabled = NO`), the overshoot becomes the layout the user
+/// sees: glyphs spill past the text view and get clipped, while the taller
+/// content-width height Yoga committed shows up as blank space at the bottom.
+///
+/// Falls back to `self.bounds` before the first layout metrics arrive, where
+/// the two boxes are equal anyway.
+- (CGRect)contentBounds
+{
+  CGRect textViewBounds = _textView.bounds;
+  if (textViewBounds.size.width > 0) {
+    return textViewBounds;
+  }
+  return self.bounds;
+}
+
 - (CGSize)measureSize:(CGFloat)maxWidth
 {
   CGSize size = ENRMMeasureMarkdownText(_textView, maxWidth, _config, _allowTrailingMargin, _lastElementMarginBottom);
@@ -225,9 +250,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     facebook::react::MeasurementCache::shared().removeMatchingMarkdown(std::string(_renderedMarkdown.UTF8String));
   }
 
-  if (self.bounds.size.width > 0) {
-    CGSize measured = [self measureSize:self.bounds.size.width];
-    if (needsHeightUpdate(measured, self.bounds)) {
+  CGRect contentBounds = [self contentBounds];
+  if (contentBounds.size.width > 0) {
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (needsHeightUpdate(measured, contentBounds)) {
       [self requestHeightUpdate];
     }
   }
@@ -444,17 +470,12 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 }
 
 // Kept in sync with the view-free measurement so the rendered line count matches
-// the measured height. The clamp must be computed at the padding-inset content
-// width (the text view's own width) rather than the full component bounds, or a
-// full-width measurement pass leaves the truncation laid out too wide and fewer
-// lines render than were measured. numberOfLines == 0 restores the unlimited default.
+// the measured height: both clamp a layout performed at the content width (see
+// contentBounds), so the truncation falls on the same word.
+// numberOfLines == 0 restores the unlimited default.
 - (void)applyLineClampToTextContainer
 {
   if (_numberOfLines > 0) {
-    CGFloat contentWidth = _textView.bounds.size.width;
-    if (contentWidth > 0) {
-      _textView.textContainer.size = CGSizeMake(contentWidth, CGFLOAT_MAX);
-    }
     _textView.textContainer.maximumNumberOfLines = _numberOfLines;
     _textView.textContainer.lineBreakMode = _ellipsizeLineBreakMode;
   } else {
@@ -477,9 +498,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   // Ensure the text container has unlimited height before setting content.
   // updateLayoutMetrics may have shrunk the frame (and thus the text container)
   // from a previous layout pass, which would clip the new attributed text.
-  CGFloat containerWidth = _textView.textContainer.size.width;
+  CGRect contentBounds = [self contentBounds];
+  CGFloat containerWidth = contentBounds.size.width;
   if (containerWidth <= 0) {
-    containerWidth = self.bounds.size.width;
+    containerWidth = _textView.textContainer.size.width;
   }
   _textView.textContainer.size = CGSizeMake(containerWidth, CGFLOAT_MAX);
   [self applyLineClampToTextContainer];
@@ -499,7 +521,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   // that corrupts the height sent to Yoga.
   [_spoilerManager setNeedsUpdate];
 
-  if (self.bounds.size.width > 0) {
+  if (contentBounds.size.width > 0) {
     // Font/style changes can produce the same measured size before UIKit has
     // fully refreshed layout, so force one Yoga update after those renders.
     BOOL forceHeightUpdate = _forceHeightUpdateOnNextRender;
@@ -513,18 +535,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
     [_spoilerManager updateIfNeeded];
 
-    CGSize measured = [self measureSize:self.bounds.size.width];
-    if (forceHeightUpdate || needsHeightUpdate(measured, self.bounds)) {
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (forceHeightUpdate || needsHeightUpdate(measured, contentBounds)) {
       [self requestHeightUpdate];
-    }
-
-    // measureSize lays the shared display container out at the full bounds width;
-    // re-pin the clamp to the content width so the visible truncation matches the
-    // content-width line count the shadow node measured.
-    if (_numberOfLines > 0) {
-      [self applyLineClampToTextContainer];
-      [_textView.layoutManager ensureLayoutForTextContainer:_textView.textContainer];
-      ENRMSetNeedsDisplay(_textView);
     }
   }
 
@@ -741,13 +754,22 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   if (self.window && _renderedMarkdown != nil) {
     _textView.hidden = NO;
-    ENRMRefreshTextViewAfterWindowAttach(_textView, self.bounds);
+    // Refresh in place: the frame RCTViewComponentView gave the text view is the
+    // content frame, so overwriting it with self.bounds would drop the
+    // containerStyle insets (see contentBounds). Only a text view that never got
+    // a frame falls back to the component bounds.
+    if (_textView.bounds.size.width > 0) {
+      ENRMRefreshTextViewLayout(_textView);
+    } else {
+      ENRMRefreshTextViewAfterWindowAttach(_textView, self.bounds);
+    }
 
     [_spoilerManager setNeedsUpdate];
     [_spoilerManager updateIfNeeded];
 
-    CGSize measured = [self measureSize:self.bounds.size.width];
-    if (needsHeightUpdate(measured, self.bounds)) {
+    CGRect contentBounds = [self contentBounds];
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (needsHeightUpdate(measured, contentBounds)) {
       [self requestHeightUpdate];
     }
   }

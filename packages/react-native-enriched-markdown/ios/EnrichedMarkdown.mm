@@ -404,6 +404,31 @@ static char kENRMSegmentFadeAnimatorKey;
   return view;
 }
 
+/// The box the segments actually live in: `self.bounds` inset by the
+/// `containerStyle` border and padding (`LayoutMetrics::contentInsets`).
+///
+/// Yoga hands `measureContent` an available size that already excludes those
+/// insets and then adds them back to the frame it commits, so laying the
+/// segments out against `self.bounds` would stack them over the padding and
+/// across the border while the space Yoga reserved for the content stays blank
+/// at the bottom. Unlike `EnrichedMarkdownText`, the segments are attached to
+/// the component view itself rather than to `contentView`, so nothing applies
+/// the insets for us.
+///
+/// Falls back to `self.bounds` before the first layout metrics arrive, where
+/// the two boxes are equal anyway.
+- (CGRect)contentBounds
+{
+  const auto &insets = _layoutMetrics.contentInsets;
+  CGRect bounds = self.bounds;
+  CGRect contentFrame = CGRectMake(insets.left, insets.top, bounds.size.width - insets.left - insets.right,
+                                   bounds.size.height - insets.top - insets.bottom);
+  if (contentFrame.size.width > 0) {
+    return contentFrame;
+  }
+  return bounds;
+}
+
 - (CGSize)computeSegmentLayoutForWidth:(CGFloat)width applyFrames:(BOOL)applyFrames
 {
   if (_segmentViews.count == 0)
@@ -435,6 +460,10 @@ static char kENRMSegmentFadeAnimatorKey;
   __block CGFloat yOffset = 0.0;
   __block CGFloat maxContentWidth = 0.0;
   const NSUInteger lastIndex = _segmentViews.count - 1;
+  // Frames are stacked in the component's own coordinate space, so the content
+  // origin (containerStyle border + padding) shifts every segment. yOffset stays
+  // content-relative because it doubles as the measured content height.
+  const CGPoint contentOrigin = applyFrames ? [self contentBounds].origin : CGPointZero;
 
   [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
     const BOOL isLast = (i == lastIndex);
@@ -480,16 +509,16 @@ static char kENRMSegmentFadeAnimatorKey;
 #endif
 
     if (applyFrames) {
-      CGFloat segmentX = 0;
+      CGFloat segmentX = contentOrigin.x;
       CGFloat segmentWidth = width;
       if (isTable) {
         CGFloat overhang = MAX(_config.tableHorizontalOverflow, 0);
         if (overhang > 0) {
-          segmentX = -overhang;
+          segmentX = contentOrigin.x - overhang;
           segmentWidth = width + overhang * 2;
         }
       }
-      CGRect segmentFrame = CGRectMake(segmentX, yOffset, segmentWidth, segmentHeight);
+      CGRect segmentFrame = CGRectMake(segmentX, contentOrigin.y + yOffset, segmentWidth, segmentHeight);
       segment.frame = segmentFrame;
 #if TARGET_OS_OSX
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
@@ -649,10 +678,11 @@ static char kENRMSegmentFadeAnimatorKey;
     MeasurementCache::shared().removeMatchingMarkdown(std::string(_renderedMarkdown.UTF8String));
   }
 
-  if (self.bounds.size.width > 0) {
+  CGRect contentBounds = [self contentBounds];
+  if (contentBounds.size.width > 0) {
     [self setNeedsLayout];
-    CGSize measured = [self measureSize:self.bounds.size.width];
-    if (needsHeightUpdate(measured, self.bounds)) {
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (needsHeightUpdate(measured, contentBounds)) {
       [self requestHeightUpdate];
     }
   }
@@ -829,16 +859,17 @@ static char kENRMSegmentFadeAnimatorKey;
     }
   }];
 
-  if (self.bounds.size.width > 0) {
+  CGRect contentBounds = [self contentBounds];
+  if (contentBounds.size.width > 0) {
     [self setNeedsLayout];
 
     if (forceHeightUpdate || segmentTopologyChanged) {
-      [self computeSegmentLayoutForWidth:self.bounds.size.width applyFrames:YES];
+      [self computeSegmentLayoutForWidth:contentBounds.size.width applyFrames:YES];
       [self layoutIfNeeded];
       [self requestHeightUpdate];
     } else {
-      CGSize measured = [self measureSize:self.bounds.size.width];
-      if (needsHeightUpdate(measured, self.bounds)) {
+      CGSize measured = [self measureSize:contentBounds.size.width];
+      if (needsHeightUpdate(measured, contentBounds)) {
         [self requestHeightUpdate];
       }
     }
@@ -1012,7 +1043,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (void)layoutSubviews
 {
   [super layoutSubviews];
-  [self computeSegmentLayoutForWidth:self.bounds.size.width applyFrames:YES];
+  [self computeSegmentLayoutForWidth:[self contentBounds].size.width applyFrames:YES];
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
@@ -1230,8 +1261,9 @@ static char kENRMSegmentFadeAnimatorKey;
       }
     }
 
-    CGSize measured = [self measureSize:self.bounds.size.width];
-    if (needsHeightUpdate(measured, self.bounds)) {
+    CGRect contentBounds = [self contentBounds];
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (needsHeightUpdate(measured, contentBounds)) {
       [self requestHeightUpdate];
     }
   }
