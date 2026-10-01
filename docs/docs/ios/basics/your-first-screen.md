@@ -21,15 +21,15 @@ struct ArticleView: View {
       EnrichedMarkdownText("# Hello\n\nA paragraph with **bold** and a [link](https://swmansion.com).")
         .padding()
     }
-    .onLinkPress { url in
+    .environment(\.openURL, OpenURLAction { url in
       analytics.linkTapped(url)
-      UIApplication.shared.open(url)
-    }
+      return .systemAction
+    })
   }
 }
 ```
 
-That's the whole setup. The view sizes itself to its content, which is why it belongs inside a `ScrollView` for anything longer than a screen. Links open with the system out of the box; install [`.onLinkPress`](/ios/api-reference/enriched-markdown-text#onlinkpress) only when you want to route or observe them yourself, and open the ones you do not handle.
+That's the whole setup. The view sizes itself to its content, which is why it belongs inside a `ScrollView` for anything longer than a screen. Links open with the system out of the box, through SwiftUI's [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) action; install your own `OpenURLAction` only when you want to route or observe them yourself, returning `.systemAction` for the ones you do not handle.
 
 Everything except the Markdown string itself is configured through **view modifiers** rather than initializer parameters, and each one reads from the SwiftUI environment. That means you can set a handler once on a container and have every `EnrichedMarkdownText` beneath it pick it up - which is why the link handler above sits on the `ScrollView` rather than on the text. The [`EnrichedMarkdownText` reference](/ios/api-reference/enriched-markdown-text) covers every modifier.
 

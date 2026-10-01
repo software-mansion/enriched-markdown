@@ -25,10 +25,10 @@ The whole document renders into a **single native text view**. Block structure i
 | Heading | `# H1` … `###### H6` | Six levels, each styled independently |
 | Paragraph | Text separated by a blank line | |
 | Blockquote | `> quoted` | Nests |
-| Admonition | `> [!NOTE]` | Needs `Md4cFlags(admonitions: true)` - see [below](#admonitions) |
+| Admonition | `> [!NOTE]` | Needs `MarkdownParsingOptions(admonitions: true)` - see [below](#admonitions) |
 | Unordered list | `- item` | Nests |
 | Ordered list | `1. item` | Nests |
-| Task list | `- [ ]` / `- [x]` | Tappable - see [`.onTaskListItemPress`](/ios/api-reference/enriched-markdown-text#ontasklistitempress) |
+| Task list | `- [ ]` / `- [x]` | Tappable - see [`.onTaskListItemToggle`](/ios/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
 | Table | GFM pipe table | Always enabled - see [below](#tables) |
 | Fenced code block | ```` ```swift ```` | Language label is parsed; no syntax highlighting |
 | Block image | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline) |
@@ -41,16 +41,16 @@ The whole document renders into a **single native text view**. Block structure i
 | --- | --- | --- |
 | Strong | `**bold**` | |
 | Emphasis | `*italic*` | |
-| Underline | `_text_`, `__text__` | Needs `Md4cFlags(underline: true)`, and **replaces** the italic/bold meaning of those markers |
+| Underline | `_text_`, `__text__` | Needs `MarkdownParsingOptions(underline: true)`, and **replaces** the italic/bold meaning of those markers |
 | Strikethrough | `~~struck~~` | Always enabled |
 | Inline code | `` `code` `` | |
-| Link | `[text](url)` | Tapping runs [`.onLinkPress`](/ios/api-reference/enriched-markdown-text#onlinkpress), or opens the URL with the system |
+| Link | `[text](url)` | Tapping goes through [`openURL`](/ios/api-reference/enriched-markdown-text#openurl), which opens the URL with the system by default |
 | Autolink | `<https://…>`, or a bare URL | Bare URLs, `www.` hosts, and emails need `permissiveAutolinks`, which is on by default |
 | Inline image | `![alt](url)` beside text | See [below](#images-block-vs-inline) |
 | Spoiler | `\|\|hidden\|\|` | Always enabled - see [below](#spoilers) |
-| Superscript | `^text^` | Needs `Md4cFlags(superscript: true)` |
-| Subscript | `~text~` | Needs `Md4cFlags(subscript: true)` |
-| Highlight | `==text==` | Needs `Md4cFlags(highlight: true)` |
+| Superscript | `^text^` | Needs `MarkdownParsingOptions(superscript: true)` |
+| Subscript | `~text~` | Needs `MarkdownParsingOptions(subscript: true)` |
+| Highlight | `==text==` | Needs `MarkdownParsingOptions(highlight: true)` |
 | Inline math | `$…$` | Needs `EnrichedMarkdownLaTeX` |
 
 Tables, task lists, strikethrough, and spoilers have no option - they are always on. Everything else marked "needs" is a [parser extension](/ios/guides/parser-extensions).
@@ -59,7 +59,7 @@ Tables, task lists, strikethrough, and spoilers have no option - they are always
 
 ### Nested lists
 
-Indent a list item to nest it. Each level adds `List().marginLeft` of indent:
+Indent a list item to nest it. Each level adds `List().marginLeading` of indent:
 
 ```markdown
 - First level
@@ -116,7 +116,7 @@ A blockquote whose **first line** is one of the five GitHub alert markers render
 
 The five types are `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]`. Colors come from the [`Admonition()`](/ios/api-reference/style-properties#admonition) element, and the geometry from [`Blockquote()`](/ios/api-reference/style-properties#blockquote).
 
-This is an opt-in parser extension. Without `Md4cFlags(admonitions: true)` the marker stays **literal text** inside an ordinary quote.
+This is an opt-in parser extension. Without `MarkdownParsingOptions(admonitions: true)` the marker stays **literal text** inside an ordinary quote.
 
 A callout keeps working where you would expect it to: inside a list item it still draws its title and its own bar, indented to the item's text column. Copying one reproduces its `> [!NOTE]` marker, and VoiceOver announces the title as its own element ahead of the body.
 
@@ -174,7 +174,7 @@ By default Markdown **reflows** text: a single newline inside a paragraph is tre
 
 ### Preserving single newlines
 
-`Md4cFlags(hardSoftBreaks: true)` turns every single newline into a real line break, so the lines you typed are the lines you get:
+`MarkdownParsingOptions(hardSoftBreaks: true)` turns every single newline into a real line break, so the lines you typed are the lines you get:
 
 ```markdown
 Roses are red
@@ -185,7 +185,7 @@ Without it that renders as one line. With it, two. This is the option to reach f
 
 ### Blank lines
 
-`Md4cFlags(preserveBlankLines: true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output:
+`MarkdownParsingOptions(preserveBlankLines: true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output:
 
 ```markdown
 A first paragraph.
@@ -197,7 +197,7 @@ A second one, three blank lines later.
 
 Without the option those three blank lines collapse to one paragraph break; with it, the gap is kept.
 
-Both are off by default, and both are set per view through [`flags`](/ios/api-reference/enriched-markdown-text#flags).
+Both are off by default, and both are set per view through [`options`](/ios/api-reference/enriched-markdown-text#options).
 
 ## Writing direction
 
