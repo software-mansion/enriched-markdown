@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -128,6 +129,66 @@ export function KeyPressStory({
             ))}
           </View>
         )}
+      </View>
+    </ScrollView>
+  );
+}
+
+export function StyleStateStory({
+  title,
+  description,
+  initialMarkdown,
+  onChangeState,
+}: {
+  title: string;
+  description: string;
+  initialMarkdown?: string;
+  onChangeState?: EnrichedMarkdownTextInputProps['onChangeState'];
+}) {
+  const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
+  const [state, setState] = useState<StyleState | null>(null);
+  const [hasSelection, setHasSelection] = useState(false);
+
+  useEffect(() => {
+    if (initialMarkdown != null) {
+      inputRef.current?.setValue(initialMarkdown);
+    }
+  }, [initialMarkdown]);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.description}>{description}</Text>
+
+      <View style={styles.block}>
+        <Text style={styles.label}>Input</Text>
+        <View style={styles.editorContainer}>
+          <EnrichedMarkdownTextInput
+            ref={inputRef}
+            placeholder="Type markdown here..."
+            placeholderTextColor="#9CA3AF"
+            style={styles.input}
+            onChangeState={(next) => {
+              setState(next);
+              onChangeState?.(next);
+            }}
+            onChangeSelection={(sel) => setHasSelection(sel.start !== sel.end)}
+          />
+          <FormattingToolbar
+            state={state}
+            inputRef={inputRef}
+            hasSelection={hasSelection}
+          />
+        </View>
+      </View>
+
+      <View style={styles.block}>
+        <Text style={styles.label}>Style state</Text>
+        <Text style={styles.styleStateJson}>
+          {state == null
+            ? 'No state yet — focus the input'
+            : JSON.stringify(state, null, 2)}
+        </Text>
       </View>
     </ScrollView>
   );
@@ -356,5 +417,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
+  },
+  styleStateJson: {
+    fontSize: 12,
+    color: '#374151',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });
