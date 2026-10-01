@@ -170,9 +170,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 /// width. Neither may fall back to `self.bounds`: that is the padded border box,
 /// and in the second case it is a real layout the text would then be drawn
 /// across. Callers skip measuring and laying out at a zero width instead.
+///
+/// The frame, not the bounds: a `UITextView` is a scroll view, so its
+/// `bounds.origin` is the content offset rather than the inset the segments of
+/// `EnrichedMarkdown` get from the matching method.
 - (CGRect)contentBounds
 {
-  return _textView.bounds;
+  return _textView.frame;
 }
 
 - (CGSize)measureSize:(CGFloat)maxWidth
@@ -210,15 +214,21 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   }
 }
 
-/// Yoga-resolved direction inherited from any ancestor `direction` style.
-/// In FirstStrong mode this feeds the neutral-paragraph fallback, so a change
-/// requires a re-render of the cached markdown.
+/// Publishes the committed size to the streaming fast path's mailbox, and picks
+/// up the Yoga-resolved direction inherited from any ancestor `direction` style.
+/// In FirstStrong mode the direction feeds the neutral-paragraph fallback, so a
+/// change requires a re-render of the cached markdown.
+///
+/// The mailbox holds a content size, not the border box: `measureContent`
+/// returns it straight to Yoga, which adds the `containerStyle` insets back on
+/// top of whatever it gets, so storing `frame.size` would double-count them.
 - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
 
-  _lastCommittedSize.store(CGSizeMake(layoutMetrics.frame.size.width, layoutMetrics.frame.size.height));
+  const auto contentSize = layoutMetrics.getContentFrame().size;
+  _lastCommittedSize.store(CGSizeMake(contentSize.width, contentSize.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {

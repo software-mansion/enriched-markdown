@@ -404,8 +404,8 @@ static char kENRMSegmentFadeAnimatorKey;
   return view;
 }
 
-/// The box the segments actually live in: `self.bounds` inset by the
-/// `containerStyle` border and padding (`LayoutMetrics::contentInsets`).
+/// The box the segments actually live in: the component frame inset by the
+/// `containerStyle` border and padding (`LayoutMetrics::getContentFrame`).
 ///
 /// Yoga hands `measureContent` an available size that already excludes those
 /// insets and then adds them back to the frame it commits, so laying the
@@ -415,18 +415,19 @@ static char kENRMSegmentFadeAnimatorKey;
 /// the component view itself rather than to `contentView`, so nothing applies
 /// the insets for us.
 ///
-/// `_layoutMetrics` is assigned by `RCTViewComponentView` in the same
-/// `updateLayoutMetrics:` that sets our bounds, so the two always agree. The box
-/// is empty both before the first layout metrics arrive and when the insets
-/// consume the whole component width; neither may fall back to `self.bounds`,
-/// which is the padded border box the segments must not be drawn across, so an
-/// over-constrained box clamps to zero and callers skip laying out at all.
+/// Taken from `_layoutMetrics` rather than recomputed off `self.bounds`:
+/// `prepareForRecycle` resets the metrics but leaves the bounds behind, so the
+/// two do not always agree. The box is empty both before the first layout
+/// metrics arrive and when the insets consume the whole component width; neither
+/// may fall back to `self.bounds`, which is the padded border box the segments
+/// must not be drawn across, so an over-constrained box clamps to zero and
+/// callers skip laying out at all.
 - (CGRect)contentBounds
 {
-  const auto &insets = _layoutMetrics.contentInsets;
-  CGRect bounds = self.bounds;
-  return CGRectMake(insets.left, insets.top, MAX(bounds.size.width - insets.left - insets.right, 0),
-                    MAX(bounds.size.height - insets.top - insets.bottom, 0));
+  CGRect box = RCTCGRectFromRect(_layoutMetrics.getContentFrame());
+  box.size.width = MAX(box.size.width, 0);
+  box.size.height = MAX(box.size.height, 0);
+  return box;
 }
 
 - (CGSize)computeSegmentLayoutForWidth:(CGFloat)width applyFrames:(BOOL)applyFrames
@@ -609,15 +610,21 @@ static char kENRMSegmentFadeAnimatorKey;
   }
 }
 
-/// Yoga-resolved direction inherited from any ancestor `direction` style.
-/// In FirstStrong mode this feeds the neutral-paragraph fallback, so a change
-/// requires segment recreation.
+/// Publishes the committed size to the streaming fast path's mailbox, and picks
+/// up the Yoga-resolved direction inherited from any ancestor `direction` style.
+/// In FirstStrong mode the direction feeds the neutral-paragraph fallback, so a
+/// change requires segment recreation.
+///
+/// The mailbox holds a content size, not the border box: `measureContent`
+/// returns it straight to Yoga, which adds the `containerStyle` insets back on
+/// top of whatever it gets, so storing `frame.size` would double-count them.
 - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
 
-  _lastCommittedSize.store(CGSizeMake(layoutMetrics.frame.size.width, layoutMetrics.frame.size.height));
+  const auto contentSize = layoutMetrics.getContentFrame().size;
+  _lastCommittedSize.store(CGSizeMake(contentSize.width, contentSize.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -1043,7 +1050,10 @@ static char kENRMSegmentFadeAnimatorKey;
 - (void)layoutSubviews
 {
   [super layoutSubviews];
-  [self computeSegmentLayoutForWidth:[self contentBounds].size.width applyFrames:YES];
+  CGFloat contentWidth = [self contentBounds].size.width;
+  if (contentWidth > 0) {
+    [self computeSegmentLayoutForWidth:contentWidth applyFrames:YES];
+  }
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
