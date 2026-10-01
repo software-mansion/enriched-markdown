@@ -14,7 +14,7 @@ data class Md4cFlags(
   val admonitions: Boolean = false,
 ) {
   companion object {
-    val DEFAULT = Md4cFlags()
+    val Default = Md4cFlags()
   }
 }
 
@@ -39,7 +39,7 @@ class Parser {
 
   fun parseMarkdown(
     markdown: String,
-    flags: Md4cFlags = Md4cFlags.DEFAULT,
+    flags: Md4cFlags = Md4cFlags.Default,
   ): MarkdownASTNode? {
     if (markdown.isBlank()) {
       return null

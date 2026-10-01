@@ -5,15 +5,15 @@ import XCTest
 @testable import EnrichedMarkdownLaTeX
 
 final class LaTeXRenderingTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
-    private var effectiveFlags: Md4cFlags {
-        MarkdownRenderer.effectiveFlags(.commonMark, plugins: [LaTeXRenderPlugin()])
+    private var effectiveParsingOptions: MarkdownParsingOptions {
+        MarkdownRenderer.effectiveParsingOptions(.commonMark, plugins: [LaTeXRenderPlugin()])
     }
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Helpers
@@ -28,7 +28,7 @@ final class LaTeXRenderingTests: XCTestCase {
         MarkdownRenderer.render(
             markdown,
             config: config,
-            flags: .commonMark,
+            options: .commonMark,
             imageRequestHeaders: [:],
             plugins: [LaTeXRenderPlugin(typeset: typeset, accessibilityLabel: accessibilityLabel)]
         )
@@ -46,7 +46,7 @@ final class LaTeXRenderingTests: XCTestCase {
         let range = (rendered.string as NSString).range(of: substring)
         XCTAssertNotEqual(range.location, NSNotFound, "'\(substring)' not rendered", file: file, line: line)
         guard range.location != NSNotFound else { return nil }
-        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, flags: effectiveFlags)
+        return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, options: effectiveParsingOptions)
     }
 
     // MARK: - Real engine
@@ -94,7 +94,7 @@ final class LaTeXRenderingTests: XCTestCase {
     /// Streaming re-renders the document per token; the same formula must
     /// not be redrawn each time.
     func testRepeatedRendersShareOneRaster() {
-        let config = MarkdownStyleConfig.baseline()
+        let config = MarkdownStyleConfiguration.baseline()
         let first = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
         let second = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
         guard let firstImage = first.first?.formulaImage, let secondImage = second.first?.formulaImage else {
@@ -104,7 +104,7 @@ final class LaTeXRenderingTests: XCTestCase {
     }
 
     func testDifferentFontSizesDoNotShareARaster() {
-        let config = MarkdownStyleConfig.baseline()
+        let config = MarkdownStyleConfiguration.baseline()
         let body = mathAttachments(in: MarkdownRenderer.renderLaTeX("$x^2$", config: config))
         let heading = mathAttachments(in: MarkdownRenderer.renderLaTeX("# $x^2$", config: config))
         guard let bodyImage = body.first?.formulaImage, let headingImage = heading.first?.formulaImage else {
@@ -239,7 +239,7 @@ final class LaTeXRenderingTests: XCTestCase {
             for: NSRange(location: 0, length: afterLocation),
             in: rendered,
             sourceMarkdown: source,
-            flags: effectiveFlags
+            options: effectiveParsingOptions
         )
         XCTAssertEqual(copied, "before\n\n$$\na + b\nc + d\n$$")
     }

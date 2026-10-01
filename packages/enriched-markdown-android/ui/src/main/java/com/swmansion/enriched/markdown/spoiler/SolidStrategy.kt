@@ -1,0 +1,101 @@
+package com.swmansion.enriched.markdown.spoiler
+
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.os.SystemClock
+import com.swmansion.enriched.markdown.spans.SpoilerSpan
+import com.swmansion.enriched.markdown.styles.SpoilerStyle
+
+class SolidStrategy : SpoilerStrategy {
+  private class SegmentState(
+    var alpha: Float = 1f,
+    var revealing: Boolean = false,
+    var revealStartTime: Long = -1L,
+    var revealFinished: Boolean = false,
+    var revealCallback: (() -> Unit)? = null,
+  ) {
+    fun finishReveal() {
+      if (!revealing || revealFinished) return
+      revealFinished = true
+      val callback = revealCallback
+      revealCallback = null
+      callback?.invoke()
+    }
+  }
+
+  private val segments = mutableMapOf<SegmentKey, SegmentState>()
+  private val solidPaint = Paint()
+  private val rectF = RectF()
+
+  private var color = 0
+  private var cornerRadius = 0f
+
+  override fun applyStyle(style: SpoilerStyle) {
+    this.color = style.color
+    // Already in pixels here, unlike the React Native package where the style carries dp.
+    this.cornerRadius = style.solidCornerRadius
+  }
+
+  override fun drawSegment(
+    canvas: Canvas,
+    context: SpoilerDrawContext,
+    key: SegmentKey,
+    rect: SegmentRect,
+  ) {
+    val state = segments.getOrPut(key) { SegmentState() }
+
+    if (state.revealing) {
+      val now = SystemClock.uptimeMillis()
+      if (state.revealStartTime < 0L) state.revealStartTime = now
+      val progress = ((now - state.revealStartTime).toFloat() / REVEAL_DURATION_MS).coerceIn(0f, 1f)
+      state.alpha = overlayAlphaAt(progress)
+      if (progress >= 1f) state.finishReveal()
+    }
+
+    if (!state.revealFinished) {
+      solidPaint.color = colorWithAlpha(this.color, state.alpha)
+      rectF.set(rect.left, rect.top, rect.left + rect.width, rect.top + rect.height)
+      canvas.drawRoundRect(rectF, cornerRadius, cornerRadius, solidPaint)
+    }
+
+    if (state.revealing && !state.revealFinished) {
+      context.textView.postInvalidateOnAnimation()
+    }
+  }
+
+  override fun pruneStaleSegments(activeKeys: Set<SegmentKey>) {
+    val staleKeys = segments.keys - activeKeys
+    staleKeys.forEach(::dropSegment)
+  }
+
+  override fun revealSpan(
+    span: SpoilerSpan,
+    context: SpoilerDrawContext,
+    onAllComplete: () -> Unit,
+  ) {
+    revealSegments(
+      span = span,
+      segmentKeys = segments.keys,
+      onAllComplete = onAllComplete,
+      cleanup = { keys -> keys.forEach { segments.remove(it) } },
+      onSegment = { key, onComplete ->
+        segments[key]?.let { state ->
+          state.revealing = true
+          state.revealCallback = onComplete
+        }
+      },
+    )
+    context.textView.invalidate()
+  }
+
+  override fun stop() {
+    segments.keys.toList().forEach(::dropSegment)
+  }
+
+  // A reflow or a mode switch can drop a segment mid-reveal; finishing it keeps the span from
+  // being stuck in `revealing` with nothing left to complete it.
+  private fun dropSegment(key: SegmentKey) {
+    segments.remove(key)?.finishReveal()
+  }
+}

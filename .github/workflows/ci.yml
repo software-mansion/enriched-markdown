@@ -215,6 +215,139 @@ jobs:
       - name: Build example for iOS
         run: yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
+  rn-android-unit-tests:
+    needs: changes
+    if: needs.changes.outputs.react-native == 'true'
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      TURBO_CACHE_DIR: .turbo/rn-android-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build library and generate codegen
+        run: yarn prepare
+
+      - name: Cache turborepo for RN Android unit tests
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.TURBO_CACHE_DIR }}
+          key: ${{ runner.os }}-turborepo-rn-android-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/android/**', 'packages/react-native-enriched-markdown/src/**', 'packages/core/cpp/**', 'apps/react-native-example/android/**') }}
+          restore-keys: |
+            ${{ runner.os }}-turborepo-rn-android-test-
+
+      - name: Check turborepo cache for RN Android unit tests
+        run: |
+          TURBO_CACHE_STATUS=$(yarn test:android \
+            --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
+            --dry=json | jq -r '.tasks[0].cache.status')
+
+          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
+            echo "turbo_cache_hit=1" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Android
+        if: env.turbo_cache_hit != 1
+        uses: ./.github/actions/setup-android
+        with:
+          gradle-wrapper-properties: apps/react-native-example/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Run RN Android unit tests
+        env:
+          JAVA_OPTS: '-XX:MaxHeapSize=6g'
+        run: yarn test:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+
+  rn-ios-unit-tests:
+    needs: changes
+    if: needs.changes.outputs.react-native == 'true'
+    runs-on: macos-latest-xlarge
+    env:
+      TURBO_CACHE_DIR: .turbo/rn-ios-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build library
+        run: yarn prepare
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      - name: Reset build folder and pods
+        run: rm -rf apps/react-native-example/build apps/react-native-example/ios/Pods apps/react-native-example/ios/Podfile.lock
+
+      - name: Cache turborepo for RN iOS unit tests
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.TURBO_CACHE_DIR }}
+          key: ${{ runner.os }}-turborepo-rn-ios-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/react-native-enriched-markdown/__tests__/ios/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**') }}
+          restore-keys: |
+            ${{ runner.os }}-turborepo-rn-ios-test-
+
+      - name: Check turborepo cache for RN iOS unit tests
+        run: |
+          TURBO_CACHE_STATUS=$(yarn test:ios \
+            --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
+            --dry=json | jq -r '.tasks[0].cache.status')
+
+          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
+            echo "turbo_cache_hit=1" >> $GITHUB_ENV
+          fi
+
+      - name: Restore cocoapods
+        if: env.turbo_cache_hit != 1
+        id: cocoapods-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            **/ios/Pods
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cocoapods-
+
+      - name: Install cocoapods
+        if: env.turbo_cache_hit != 1
+        run: |
+          cd apps/react-native-example/ios
+          pod install
+        env:
+          NO_FLIPPER: 1
+
+      - name: Cache cocoapods
+        if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            **/ios/Pods
+          key: ${{ steps.cocoapods-cache.outputs.cache-primary-key }}
+
+      - name: Select iOS simulator
+        if: env.turbo_cache_hit != 1
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[] | .[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
+
+          if [[ -z "$UDID" || "$UDID" == "null" ]]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices
+            exit 1
+          fi
+
+          echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+
+      - name: Run RN iOS unit tests
+        run: yarn test:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+
   android-build:
     needs: changes
     if: needs.changes.outputs.android == 'true'
@@ -285,8 +418,7 @@ jobs:
 
       - name: Check turborepo cache for Android native tests
         run: |
-          TURBO_CACHE_STATUS=$(yarn turbo run test:android-native \
-            --filter=@enriched-markdown/android \
+          TURBO_CACHE_STATUS=$(yarn test:android-native \
             --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
             --dry=json | jq -r '.tasks[0].cache.status')
 
@@ -303,7 +435,7 @@ jobs:
       - name: Run Android unit tests
         env:
           JAVA_OPTS: '-XX:MaxHeapSize=6g'
-        run: yarn turbo run test:android-native --filter=@enriched-markdown/android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+        run: yarn test:android-native --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   android-kotlin-lint:
     needs: changes
@@ -438,8 +570,7 @@ jobs:
 
       - name: Check turborepo cache for iOS native tests
         run: |
-          TURBO_CACHE_STATUS=$(yarn turbo run test:ios-native \
-            --filter=@enriched-markdown/ios \
+          TURBO_CACHE_STATUS=$(yarn test:ios-native \
             --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
             --dry=json | jq -r '.tasks[0].cache.status')
 
@@ -468,7 +599,7 @@ jobs:
           echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
 
       - name: Run iOS unit tests
-        run: yarn turbo run test:ios-native --filter=@enriched-markdown/ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+        run: yarn test:ios-native --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   ios-swift-lint:
     needs: changes
@@ -528,6 +659,8 @@ jobs:
       - rn-build-library
       - rn-build-android
       - rn-build-ios
+      - rn-android-unit-tests
+      - rn-ios-unit-tests
       - android-build
       - android-unit-tests
       - android-kotlin-lint
@@ -546,6 +679,8 @@ jobs:
           RN_BUILD_LIBRARY: ${{ needs.rn-build-library.result }}
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
           RN_BUILD_IOS: ${{ needs.rn-build-ios.result }}
+          RN_ANDROID_UNIT_TESTS: ${{ needs.rn-android-unit-tests.result }}
+          RN_IOS_UNIT_TESTS: ${{ needs.rn-ios-unit-tests.result }}
           ANDROID_BUILD: ${{ needs.android-build.result }}
           ANDROID_UNIT_TESTS: ${{ needs.android-unit-tests.result }}
           ANDROID_KOTLIN_LINT: ${{ needs.android-kotlin-lint.result }}
@@ -579,6 +714,8 @@ jobs:
           check_required "$REACT_NATIVE" "$RN_BUILD_LIBRARY" "rn-build-library"
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"
           check_required "$REACT_NATIVE" "$RN_BUILD_IOS" "rn-build-ios"
+          check_required "$REACT_NATIVE" "$RN_ANDROID_UNIT_TESTS" "rn-android-unit-tests"
+          check_required "$REACT_NATIVE" "$RN_IOS_UNIT_TESTS" "rn-ios-unit-tests"
           check_required "$ANDROID" "$ANDROID_BUILD" "android-build"
           check_required "$ANDROID" "$ANDROID_UNIT_TESTS" "android-unit-tests"
           check_required "$ANDROID" "$ANDROID_KOTLIN_LINT" "android-kotlin-lint"

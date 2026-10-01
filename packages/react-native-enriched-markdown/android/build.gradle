@@ -189,6 +189,10 @@ android {
     buildConfig true
   }
 
+  testOptions {
+    unitTests.includeAndroidResources = true
+  }
+
   buildTypes {
     release {
       minifyEnabled false
@@ -280,6 +284,12 @@ repositories {
 def kotlin_version = getExtOrDefault("kotlinVersion")
 
 dependencies {
+  // JVM unit tests (Robolectric) for the library's Kotlin spans/renderers. Run with
+  // `./gradlew :react-native-enriched-markdown:testDebugUnitTest` from an app that
+  // autolinks this module (e.g. apps/react-native-example/android). Mirrors the
+  // standalone @enriched-markdown/android test stack.
+  testImplementation "junit:junit:4.13.2"
+  testImplementation "org.robolectric:robolectric:4.14.1"
   implementation "com.facebook.react:react-android"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
   // Baseline Profile installer for AOT compilation hints

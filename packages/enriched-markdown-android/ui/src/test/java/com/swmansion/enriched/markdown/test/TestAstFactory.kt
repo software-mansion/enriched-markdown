@@ -23,6 +23,9 @@ object TestAstFactory {
 
   fun subscript(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Subscript, children = children.toList())
 
+  /** Concealed inline text, `||like this||`. */
+  fun spoiler(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Spoiler, children = children.toList())
+
   fun link(
     url: String,
     vararg children: MarkdownASTNode,

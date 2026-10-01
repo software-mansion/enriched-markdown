@@ -109,6 +109,7 @@ export interface LinkVariantEntryInternal {
   color: string;
   underline: boolean;
   backgroundColor: string;
+  fontFamily: string;
 }
 
 interface StrongStyleInternal {

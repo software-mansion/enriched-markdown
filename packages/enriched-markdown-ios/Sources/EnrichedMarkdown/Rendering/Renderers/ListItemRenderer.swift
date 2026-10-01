@@ -2,9 +2,9 @@ import UIKit
 
 final class ListItemRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
         self.factory = factory
         self.config = config
     }
@@ -33,9 +33,9 @@ final class ListItemRenderer: NodeRenderer {
             ? effectiveTaskMarkerWidth(for: context.listType)
             : effectiveMarkerWidth(for: context.listType)
         let gapWidth = max(config.list.gapWidth ?? 12, 4)
-        let marginLeft = config.list.marginLeft ?? 24
+        let marginLeading = config.list.marginLeading ?? 24
         let blockquoteIndent = CGFloat(context.blockquoteDepth) * blockquoteLevelSpacing()
-        let totalIndent = blockquoteIndent + baseMarkerWidth + gapWidth + (CGFloat(nestingLevel) * marginLeft)
+        let totalIndent = blockquoteIndent + baseMarkerWidth + gapWidth + (CGFloat(nestingLevel) * marginLeading)
         let lineHeight = config.list.lineHeight ?? 0
 
         let metadata: [NSAttributedString.Key: Any] = [

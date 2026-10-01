@@ -1,12 +1,16 @@
 package com.swmansion.enriched.markdown
 
 import android.content.Context
+import android.graphics.Canvas
 import android.os.Build
 import android.text.Layout
 import android.util.AttributeSet
 import android.view.MotionEvent
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.segments.BlockSegmentView
+import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
@@ -22,11 +26,23 @@ class EnrichedMarkdownInternalText
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
   ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
-    BlockSegmentView {
+    BlockSegmentView,
+    SpoilerCapable {
     var lastElementMarginBottom: Float = 0f
     override val segmentMarginBottom: Int get() = lastElementMarginBottom.toInt()
 
     var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+
+    override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
+      private set
+
+    /** How unrevealed `||spoiler||` text is concealed. */
+    var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles
+      set(value) {
+        if (field == value) return
+        field = value
+        spoilerOverlayDrawer?.spoilerOverlay = value
+      }
 
     var onLinkPressCallback: ((String) -> Unit)? = null
     var onLinkLongPressCallback: ((String) -> Unit)? = null
@@ -55,11 +71,15 @@ class EnrichedMarkdownInternalText
     }
 
     fun applyStyledText(styledText: CharSequence) {
+      SpoilerOverlayDrawer.carryOverReveals(text, styledText)
       text = styledText
 
       if (movementMethod !is LinkLongPressMovementMethod) {
         movementMethod = LinkLongPressMovementMethod.createInstance()
       }
+
+      spoilerOverlayDrawer =
+        SpoilerOverlayDrawer.setupIfNeeded(this, styledText, spoilerOverlayDrawer, spoilerOverlay)
 
       accessibilityHelper.invalidateAccessibilityItems()
     }
@@ -85,6 +105,17 @@ class EnrichedMarkdownInternalText
 
     fun emitOnLinkLongPress(url: String) {
       onLinkLongPressCallback?.invoke(url)
+    }
+
+    override fun onDetachedFromWindow() {
+      // Kept, not cleared: the next draw after reattaching picks the animation back up.
+      spoilerOverlayDrawer?.stop()
+      super.onDetachedFromWindow()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+      super.onDraw(canvas)
+      spoilerOverlayDrawer?.draw(canvas)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

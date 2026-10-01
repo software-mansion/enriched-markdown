@@ -5,6 +5,8 @@ import com.swmansion.enriched.markdown.test.HTMLAssertions.assertContainsHtml
 import com.swmansion.enriched.markdown.test.HTMLAssertions.assertContainsHtmlInOrder
 import com.swmansion.enriched.markdown.test.HTMLGeneratorTestSupport.generateHTML
 import com.swmansion.enriched.markdown.test.HTMLGeneratorTestSupport.generateHTMLSelectingText
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithLink
 import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.createTextViewWithSelection
 import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.indexOf
 import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.render
@@ -169,6 +171,23 @@ class HTMLGeneratorTest {
       "Example link",
       "</a>",
     )
+  }
+
+  @Test
+  fun generatesLinkTextDecorationFromTheLinkStyle() {
+    val link = document(paragraph(link("https://example.com", text("Example link"))))
+
+    generateHTMLSelectingText(link, "Example link").assertContainsHtml("text-decoration: underline;")
+    generateHTMLSelectingText(
+      link,
+      "Example link",
+      styleWithLink(defaultStyle.linkStyle.copy(strikethrough = true)),
+    ).assertContainsHtml("text-decoration: underline line-through;")
+    generateHTMLSelectingText(
+      link,
+      "Example link",
+      styleWithLink(defaultStyle.linkStyle.copy(underline = false)),
+    ).assertContainsHtml("text-decoration: none;")
   }
 
   @Test

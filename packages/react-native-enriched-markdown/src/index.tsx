@@ -1,3 +1,4 @@
+export type { LinkVariantStyle } from './types/MarkdownStyle';
 export { default as EnrichedMarkdownText } from './native/EnrichedMarkdownText';
 export type {
   EnrichedMarkdownTextProps,

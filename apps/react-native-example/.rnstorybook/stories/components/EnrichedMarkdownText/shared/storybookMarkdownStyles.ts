@@ -388,6 +388,23 @@ export const linkVariantsDemoDefaults: LinkVariantsDemoControls = {
   channelVariantBackgroundColor: '#e6f4ea',
 };
 
+// Isolates the per-variant fontFamily override: a base link font plus two
+// variants that each swap in their own family. Unmatched links fall back to
+// the base font.
+export type LinkVariantFontControls = {
+  fontFamily: string;
+  color: string;
+  userVariantFontFamily: string;
+  docsVariantFontFamily: string;
+};
+
+export const linkVariantFontDefaults: LinkVariantFontControls = {
+  fontFamily: 'Montserrat-Regular',
+  color: '#2563eb',
+  userVariantFontFamily: 'CourierPrime-Regular',
+  docsVariantFontFamily: 'Poppins-SemiBold',
+};
+
 export type InlineCodeStyleControls = {
   fontFamily: string;
   fontSize: number;

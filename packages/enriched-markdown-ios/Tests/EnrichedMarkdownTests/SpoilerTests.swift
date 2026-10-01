@@ -5,11 +5,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class SpoilerTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Rendering
@@ -140,6 +140,46 @@ final class SpoilerTests: XCTestCase {
     }
 
     @MainActor
+    func testOverlaysCarryBaselineAndReadingOrder() throws {
+        config.paragraph.lineHeight = 32
+        let words = Array(repeating: "spoiler", count: 30).joined(separator: " ")
+        let textView = makeLaidOutTextView("||\(words)||", width: 200)
+
+        let segments = overlays(in: textView).sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertGreaterThan(segments.count, 1)
+        XCTAssertEqual(segments.map(\.segmentIndex), Array(segments.indices))
+        XCTAssertEqual(Set(segments.map(\.segmentCount)), [segments.count])
+        // With a theme line height the typographic baseline can sit at the
+        // very bottom of the segment; the baseline offset lifts the glyphs.
+        for segment in segments {
+            XCTAssertGreaterThan(segment.baseline, 0)
+            XCTAssertLessThanOrEqual(segment.baseline, segment.bounds.height)
+        }
+    }
+
+    /// A theme line height taller than the font is the case where drawing
+    /// the slice at the view's origin drifts from the real glyphs.
+    @MainActor
+    func testConcealedTextImageLinesUpWithRevealedGlyphs() throws {
+        config.paragraph.lineHeight = 32
+        let textView = makeLaidOutTextView("Shown ||hidden ghosts jump|| after")
+        let overlay = try XCTUnwrap(overlays(in: textView).first)
+        let frame = overlay.frame
+        let drawn = try XCTUnwrap(inkBounds(of: overlay.concealedTextImage(), in: CGRect(origin: .zero, size: frame.size)))
+
+        try revealFirstSpoiler(in: textView)
+        let rendered = UIGraphicsImageRenderer(bounds: textView.bounds).image { context in
+            textView.layer.render(in: context.cgContext)
+        }
+        let real = try XCTUnwrap(inkBounds(of: rendered, in: frame))
+
+        XCTAssertEqual(drawn.minY, real.minY, accuracy: 1)
+        XCTAssertEqual(drawn.maxY, real.maxY, accuracy: 1)
+        XCTAssertEqual(drawn.minX, real.minX, accuracy: 1)
+        XCTAssertEqual(drawn.maxX, real.maxX, accuracy: 1)
+    }
+
+    @MainActor
     func testOverlayChoiceAndStyleAreApplied() throws {
         let textView = makeLaidOutTextView("||hidden||")
         XCTAssertTrue(overlays(in: textView).first is ParticleSpoilerOverlayView)
@@ -147,7 +187,7 @@ final class SpoilerTests: XCTestCase {
         textView.spoilerOverlays.provider = .solid
         var styled = textView.styleConfig
         styled.spoiler.color = .systemPurple
-        styled.spoiler.solidBorderRadius = 9
+        styled.spoiler.solidCornerRadius = 9
         textView.styleConfig = styled
 
         let solid = try XCTUnwrap(overlays(in: textView).first as? SolidSpoilerOverlayView)
@@ -250,24 +290,57 @@ final class SpoilerTests: XCTestCase {
     // MARK: - Theme
 
     func testSpoilerThemeElementAppliesToConfig() {
-        var applied = MarkdownStyleConfig()
+        var applied = MarkdownStyleConfiguration()
         Spoiler()
-            .color(Color(UIColor.systemPurple))
+            .foregroundStyle(Color(UIColor.systemPurple))
             .background(Color(UIColor.black))
-            .particleDensity(12)
-            .particleSpeed(30)
-            .solidBorderRadius(6)
             .apply(to: &applied, traitCollection: .current)
 
         XCTAssertNotNil(applied.spoiler.color)
         XCTAssertNotNil(applied.spoiler.backgroundColor)
-        XCTAssertEqual(applied.spoiler.particleDensity, 12)
-        XCTAssertEqual(applied.spoiler.particleSpeed, 30)
-        XCTAssertEqual(applied.spoiler.solidBorderRadius, 6)
+    }
+
+    // MARK: - Overlay tuning
+
+    @MainActor
+    func testProviderTuningWinsOverThemeAndDefaults() throws {
+        var style = SpoilerStyle()
+        style.particleDensity = 3
+        style.solidCornerRadius = 9
+
+        let tuned = try XCTUnwrap(
+            ParticleSpoilerOverlayProvider.particles(density: 12, speed: 30)
+                .makeOverlay(charRange: NSRange(location: 0, length: 1), style: style) as? ParticleSpoilerOverlayView
+        )
+        XCTAssertEqual(tuned.density, 12)
+        XCTAssertEqual(tuned.speed, 30)
+
+        let themed = try XCTUnwrap(
+            ParticleSpoilerOverlayProvider.particles
+                .makeOverlay(charRange: NSRange(location: 0, length: 1), style: style) as? ParticleSpoilerOverlayView
+        )
+        XCTAssertEqual(themed.density, 3, "the theme's value is the fallback")
+        XCTAssertEqual(themed.speed, ParticleSpoilerOverlayView.defaultSpeed)
+
+        let solid = SolidSpoilerOverlayProvider.solid(cornerRadius: 6)
+            .makeOverlay(charRange: NSRange(location: 0, length: 1), style: style)
+        XCTAssertEqual(solid.layer.cornerRadius, 6)
+        XCTAssertEqual(
+            SolidSpoilerOverlayProvider.solid.makeOverlay(charRange: NSRange(location: 0, length: 1), style: style)
+                .layer.cornerRadius,
+            9
+        )
+    }
+
+    func testTunedProvidersCompareByTheirParameters() {
+        XCTAssertNotEqual(ParticleSpoilerOverlayProvider.particles(density: 1), .particles)
+        XCTAssertEqual(ParticleSpoilerOverlayProvider.particles(density: 1), .particles(density: 1))
+        XCTAssertTrue(SolidSpoilerOverlayProvider.solid(cornerRadius: 2).isEqual(to: SolidSpoilerOverlayProvider(cornerRadius: 2)))
+        XCTAssertFalse(SolidSpoilerOverlayProvider.solid.isEqual(to: ParticleSpoilerOverlayProvider.particles))
     }
 
     func testDefaultThemeConfiguresSpoilerOverlayColors() {
-        let resolved = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        let resolved = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
 
         XCTAssertNotNil(resolved.spoiler.color)
         XCTAssertNotNil(resolved.spoiler.backgroundColor)
@@ -297,6 +370,41 @@ final class SpoilerTests: XCTestCase {
         return textView
     }
 
+    /// Bounding box, in points relative to `rect`'s origin, of the pixels in
+    /// `rect` that are more than faintly opaque; nil when there are none.
+    private func inkBounds(of image: UIImage, in rect: CGRect) -> CGRect? {
+        guard let cgImage = image.cgImage else { return nil }
+        let scale = image.scale
+        let width = cgImage.width, height = cgImage.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+
+        let columns = max(0, Int(rect.minX * scale))..<min(width, Int(rect.maxX * scale))
+        let rows = max(0, Int(rect.minY * scale))..<min(height, Int(rect.maxY * scale))
+        var minX = Int.max, maxX = -1, minY = Int.max, maxY = -1
+        for row in rows {
+            for column in columns where pixels[(row * width + column) * 4 + 3] > 64 {
+                minX = min(minX, column); maxX = max(maxX, column)
+                minY = min(minY, row); maxY = max(maxY, row)
+            }
+        }
+        guard maxX >= 0 else { return nil }
+        return CGRect(
+            x: (CGFloat(minX) - rect.minX * scale) / scale,
+            y: (CGFloat(minY) - rect.minY * scale) / scale,
+            width: CGFloat(maxX - minX + 1) / scale,
+            height: CGFloat(maxY - minY + 1) / scale
+        )
+    }
+
     @MainActor
     private func overlays(in textView: MarkdownTextView) -> [SpoilerOverlayView] {
         textView.subviews.compactMap { $0 as? SpoilerOverlayView }
@@ -311,12 +419,12 @@ final class SpoilerTests: XCTestCase {
     }
 
     @MainActor
-    private func renderSynchronously(_ store: MarkdownRenderStore, markdown: String, config: MarkdownStyleConfig) {
+    private func renderSynchronously(_ store: MarkdownRenderStore, markdown: String, config: MarkdownStyleConfiguration) {
         let rendered = expectation(description: "render applied for \(markdown)")
         let cancellable = store.$source
             .dropFirst()
             .sink { _ in rendered.fulfill() }
-        store.schedule(markdown: markdown, config: config)
+        store.schedule(MarkdownRenderInputs(markdown: markdown, config: config))
         wait(for: [rendered], timeout: 2)
         cancellable.cancel()
     }

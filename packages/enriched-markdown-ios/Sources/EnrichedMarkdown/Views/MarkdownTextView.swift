@@ -7,8 +7,8 @@ protocol SelectionHandleTouchReporting {
     var isTouchOnSelectionHandle: Bool { get }
 }
 
-final class MarkdownTextView: UITextView, SelectionHandleTouchReporting {
-    var styleConfig: MarkdownStyleConfig = .baseline() {
+final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, MarkdownAttachmentLayoutObserver {
+    var styleConfig: MarkdownStyleConfiguration = .baseline() {
         didSet {
             updateDecorationStyleConfig()
             // `updateUIView` assigns this on every pass, so only a real change
@@ -287,11 +287,29 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting {
         renderedText = attributedText
         cachedFit = nil
         self.attributedText = attributedText
+        adoptImageAttachments(in: attributedText)
         invalidateIntrinsicContentSize()
         setDecorationNeedsDisplay()
         accessibilityTreeIsStale = true
         // A text change alone does not schedule a layout pass, which is
         // where spoiler overlays are reconciled.
+        setNeedsLayout()
+    }
+
+    /// Attachments that resize after loading have no other way to reach this view.
+    /// One attribute walk per assignment, negligible next to the assignment itself.
+    private func adoptImageAttachments(in attributedText: NSAttributedString) {
+        let full = NSRange(location: 0, length: attributedText.length)
+        let options: NSAttributedString.EnumerationOptions = .longestEffectiveRangeNotRequired
+        attributedText.enumerateAttribute(.attachment, in: full, options: options) { value, _, _ in
+            (value as? MarkdownImageAttachment)?.layoutObserver = self
+        }
+    }
+
+    /// The cached measurement is wrong now, not merely stale.
+    func attachmentDidInvalidateLayout() {
+        cachedFit = nil
+        invalidateIntrinsicContentSize()
         setNeedsLayout()
     }
 
@@ -326,7 +344,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting {
     /// TextKit 2 layout fragments.
     func accessibilityScreenFrame(for range: NSRange) -> CGRect {
         var union = CGRect.null
-        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { frame, _ in union = union.union(frame) }
+        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: self) { frame, _, _ in union = union.union(frame) }
         guard !union.isNull else { return .zero }
         return UIAccessibility.convertToScreenCoordinates(union, in: self)
     }

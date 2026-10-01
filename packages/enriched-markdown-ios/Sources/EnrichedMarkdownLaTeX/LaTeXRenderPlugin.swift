@@ -42,7 +42,7 @@ package struct LaTeXRenderPlugin: MarkdownRenderPlugin {
         }
     }
 
-    package func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer? {
+    package func renderer(for type: NodeType, config: MarkdownStyleConfiguration) -> NodeRenderer? {
         switch type {
         case .latexMathInline, .latexMathDisplay:
             return MathRenderer(
@@ -56,14 +56,14 @@ package struct LaTeXRenderPlugin: MarkdownRenderPlugin {
         }
     }
 
-    package func blockMargins(for type: NodeType, config: MarkdownStyleConfig) -> BlockMargins {
+    package func blockMargins(for type: NodeType, config: MarkdownStyleConfiguration) -> BlockMargins {
         BlockMargins(marginTop: config.mathBlock.marginTop, marginBottom: config.mathBlock.marginBottom)
     }
 
     package var defaultTheme: MarkdownTheme? { .latexDefault }
 
-    package func adjustFlags(_ flags: inout Md4cFlags) {
-        flags.latexMathEnabled = true
+    package func adjustParsingOptions(_ options: inout MarkdownParsingOptions) {
+        options.latexMathEnabled = true
     }
 
     package var rootBlockNodeTypes: Set<NodeType> {
@@ -100,33 +100,41 @@ public extension MarkdownRenderer {
     /// `accessibilityLabel` as in `.markdownLaTeX`.
     static func renderLaTeX(
         _ markdown: String,
-        config: MarkdownStyleConfig,
-        flags: Md4cFlags = .commonMark,
+        config: MarkdownStyleConfiguration,
+        options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
-        accessibilityLabel: String = "Math: {speech}"
+        accessibilityLabel: String = "Math: {speech}",
+        writingDirection: MarkdownWritingDirection = .firstStrong,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) -> NSAttributedString {
         renderLaTeX(
             markdown,
             config: config,
-            flags: flags,
+            options: options,
             imageRequestHeaders: imageRequestHeaders,
-            accessibilityLabel: LaTeXRenderPlugin.label(template: accessibilityLabel)
+            accessibilityLabel: LaTeXRenderPlugin.label(template: accessibilityLabel),
+            writingDirection: writingDirection,
+            layoutDirection: layoutDirection
         )
     }
 
     static func renderLaTeX(
         _ markdown: String,
-        config: MarkdownStyleConfig,
-        flags: Md4cFlags = .commonMark,
+        config: MarkdownStyleConfiguration,
+        options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
-        accessibilityLabel: @escaping (String) -> String
+        accessibilityLabel: @escaping (String) -> String,
+        writingDirection: MarkdownWritingDirection = .firstStrong,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) -> NSAttributedString {
         render(
             markdown,
             config: config,
-            flags: flags,
+            options: options,
             imageRequestHeaders: imageRequestHeaders,
-            plugins: [LaTeXRenderPlugin(accessibilityLabel: accessibilityLabel)]
+            plugins: [LaTeXRenderPlugin(accessibilityLabel: accessibilityLabel)],
+            writingDirection: writingDirection,
+            layoutDirection: layoutDirection
         )
     }
 }

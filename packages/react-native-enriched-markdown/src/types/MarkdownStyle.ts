@@ -122,11 +122,11 @@ export interface LinkStyle {
   backgroundColor?: string;
 }
 
-export interface LinkVariantStyle {
-  color?: string;
-  underline?: boolean;
-  backgroundColor?: string;
-}
+/**
+ * Per-variant link override. Structurally identical to {@link LinkStyle}:
+ * every field is optional and inherits from the base `link` style when omitted.
+ */
+export type LinkVariantStyle = LinkStyle;
 
 interface StrongStyle {
   fontFamily?: string;
@@ -358,7 +358,7 @@ export interface MarkdownStyle {
    *
    * `color` and `underline` inherit from the base `link` style when omitted.
    * `backgroundColor` defaults to `transparent`.
-   * `fontFamily` always follows the base `link` style and cannot be overridden per-variant.
+   * `fontFamily` inherits the base `link` family and can be overridden per variant.
    *
    * @example
    * linkVariants: {

@@ -20,7 +20,7 @@ enum MarkdownExtractor {
         for range: NSRange,
         in attributedText: NSAttributedString,
         sourceMarkdown: String?,
-        flags: Md4cFlags = .commonMark
+        options: MarkdownParsingOptions = .commonMark
     ) -> String? {
         guard let clamped = clampedRange(range, in: attributedText) else { return nil }
 
@@ -32,7 +32,7 @@ enum MarkdownExtractor {
                 for: clamped,
                 in: attributedText,
                 source: sourceMarkdown,
-                flags: flags
+                options: options
             ) {
                 return slice
             }

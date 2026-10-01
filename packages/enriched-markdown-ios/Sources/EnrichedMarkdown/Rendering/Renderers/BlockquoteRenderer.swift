@@ -5,9 +5,9 @@ import UIKit
 /// indent reserves a column for the icon the decoration view draws.
 final class BlockquoteRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
         self.factory = factory
         self.config = config
     }
@@ -16,7 +16,6 @@ final class BlockquoteRenderer: NodeRenderer {
         let admonition = Self.admonitionType(of: node)
         context.enterBlockquote(admonition: admonition)
         let levels = context.blockquoteLevels
-        let depth = levels.count - 1
 
         let blockStyle = config.blockquote
         let font = blockStyle.font ?? UIFont.preferredFont(forTextStyle: .body)

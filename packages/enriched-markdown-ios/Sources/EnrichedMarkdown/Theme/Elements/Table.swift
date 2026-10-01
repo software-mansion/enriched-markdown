@@ -1,12 +1,16 @@
+import OSLog
 import SwiftUI
 
-public struct Table: MarkdownThemeElement {
+public struct Table: MarkdownThemeElement, BorderThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
+    public var isItalic: Bool?
     public var headerFontSpec: ThemeFontSpec?
+    public var headerFontWeight: Font.Weight?
+    public var headerFontDesign: Font.Design?
     public var foregroundColorSpec: ThemeColorSpec?
-    public var headerTextColorSpec: ThemeColorSpec?
+    public var headerForegroundColorSpec: ThemeColorSpec?
     public var headerBackgroundColorSpec: ThemeColorSpec?
     public var rowEvenBackgroundColorSpec: ThemeColorSpec?
     public var rowOddBackgroundColorSpec: ThemeColorSpec?
@@ -16,28 +20,40 @@ public struct Table: MarkdownThemeElement {
     public var lineHeight: CGFloat?
     public var textAlignment: TextAlignment?
     public var borderWidth: CGFloat?
-    public var borderRadius: CGFloat?
+    public var cornerRadius: CGFloat?
     public var cellPaddingHorizontal: CGFloat?
     public var cellPaddingVertical: CGFloat?
-    public var align: TableAlignment?
+    public var alignment: TableAlignment?
 
     public init() {}
 
-    public func headerFontFamily(_ name: String, size: CGFloat) -> Self {
+    /// The header row's font, a SwiftUI text style as `font(_:)` takes.
+    public func headerFont(_ font: Font) -> Self {
+        var copy = self
+        let resolved = ThemeResolver.resolveFont(from: font, traitCollection: .current)
+        copy.headerFontSpec = resolved.spec
+        if let design = resolved.design { copy.headerFontDesign = design }
+        if let weight = resolved.weight { copy.headerFontWeight = weight }
+        return copy
+    }
+
+    /// The header row in a custom face, as `font(custom:size:)`.
+    public func headerFont(custom name: String, size: CGFloat) -> Self {
         var copy = self
         copy.headerFontSpec = .custom(name: name, size: size)
         return copy
     }
 
-    public func headerTextColor(_ color: Color) -> Self {
+    @_disfavoredOverload
+    public func headerForegroundStyle(_ color: Color) -> Self {
         var copy = self
-        copy.headerTextColorSpec = ThemeColorModifiers.spec(from: color)
+        copy.headerForegroundColorSpec = ThemeColorModifiers.spec(from: color)
         return copy
     }
 
-    public func headerTextColor(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
+    public func headerForegroundStyle(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
         var copy = self
-        copy.headerTextColorSpec = ThemeColorModifiers.spec(from: semantic)
+        copy.headerForegroundColorSpec = ThemeColorModifiers.spec(from: semantic)
         return copy
     }
 
@@ -53,6 +69,7 @@ public struct Table: MarkdownThemeElement {
         return copy
     }
 
+    @_disfavoredOverload
     public func rowEvenBackground(_ color: Color) -> Self {
         var copy = self
         copy.rowEvenBackgroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -65,6 +82,7 @@ public struct Table: MarkdownThemeElement {
         return copy
     }
 
+    @_disfavoredOverload
     public func rowOddBackground(_ color: Color) -> Self {
         var copy = self
         copy.rowOddBackgroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -77,63 +95,43 @@ public struct Table: MarkdownThemeElement {
         return copy
     }
 
-    public func borderColor(_ color: Color) -> Self {
-        var copy = self
-        copy.borderColorSpec = ThemeColorModifiers.spec(from: color)
-        return copy
-    }
-
-    public func borderColor(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
-        var copy = self
-        copy.borderColorSpec = ThemeColorModifiers.spec(from: semantic)
-        return copy
-    }
-
-    public func borderWidth(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.borderWidth = value
-        return copy
-    }
-
     public func cornerRadius(_ value: CGFloat) -> Self {
         var copy = self
-        copy.borderRadius = value
+        copy.cornerRadius = value
         return copy
     }
 
-    public func borderRadius(_ value: CGFloat) -> Self {
-        cornerRadius(value)
-    }
-
-    public func cellPaddingHorizontal(_ value: CGFloat) -> Self {
+    /// Inset of every cell; a nil side keeps what a lower theme layer set.
+    public func cellPadding(horizontal: CGFloat? = nil, vertical: CGFloat? = nil) -> Self {
         var copy = self
-        copy.cellPaddingHorizontal = value
+        if let horizontal { copy.cellPaddingHorizontal = horizontal }
+        if let vertical { copy.cellPaddingVertical = vertical }
         return copy
     }
 
-    public func cellPaddingVertical(_ value: CGFloat) -> Self {
+    /// Horizontal placement of a table narrower than the text. Only
+    /// `.leading`, `.center`, and `.trailing` apply; any other alignment
+    /// logs and leaves the inherited value.
+    public func alignment(_ value: HorizontalAlignment) -> Self {
+        guard let tableAlignment = TableAlignment(value) else {
+            Self.logger.warning("EnrichedMarkdown: Table().alignment only takes .leading, .center, or .trailing.")
+            return self
+        }
+
         var copy = self
-        copy.cellPaddingVertical = value
+        copy.alignment = tableAlignment
         return copy
     }
 
-    public func align(_ value: TableAlignment) -> Self {
-        var copy = self
-        copy.align = value
-        return copy
-    }
-
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    private static let logger = Logger(subsystem: "com.swmansion.EnrichedMarkdown", category: "Theme")
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyColors(to: &config, traitCollection: traitCollection)
         applyMetrics(to: &config, traitCollection: traitCollection)
     }
 
-    private func applyColors(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
-        if let foregroundColorSpec {
-            config.table.foregroundColor = foregroundColorSpec.resolve(traitCollection: traitCollection)
-        }
-        if let headerTextColorSpec {
-            config.table.headerTextColor = headerTextColorSpec.resolve(traitCollection: traitCollection)
+    private func applyColors(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
+        if let headerForegroundColorSpec {
+            config.table.headerTextColor = headerForegroundColorSpec.resolve(traitCollection: traitCollection)
         }
         if let headerBackgroundColorSpec {
             config.table.headerBackgroundColor = headerBackgroundColorSpec.resolve(traitCollection: traitCollection)
@@ -144,37 +142,23 @@ public struct Table: MarkdownThemeElement {
         if let rowOddBackgroundColorSpec {
             config.table.rowOddBackgroundColor = rowOddBackgroundColorSpec.resolve(traitCollection: traitCollection)
         }
-        if let borderColorSpec {
-            config.table.borderColor = borderColorSpec.resolve(traitCollection: traitCollection)
-        }
+        applyBorder(color: &config.table.borderColor, width: &config.table.borderWidth, traitCollection: traitCollection)
     }
 
-    private func applyMetrics(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
-        if fontSpec != nil || fontWeight != nil || fontDesign != nil {
-            config.table.font = ThemeResolver.applyFont(
-                spec: fontSpec,
-                weight: fontWeight,
-                design: fontDesign,
-                to: config.table.font,
-                traitCollection: traitCollection
-            )
-        }
-        if headerFontSpec != nil {
+    private func applyMetrics(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
+        applyTextStyle(to: &config.table, traitCollection: traitCollection)
+        if headerFontSpec != nil || headerFontWeight != nil || headerFontDesign != nil {
             config.table.headerFont = ThemeResolver.applyFont(
                 spec: headerFontSpec,
-                weight: nil,
-                design: nil,
+                weight: headerFontWeight,
+                design: headerFontDesign,
                 to: config.table.headerFont,
                 traitCollection: traitCollection
             )
         }
-        if let marginTop { config.table.marginTop = marginTop }
-        if let marginBottom { config.table.marginBottom = marginBottom }
-        if let lineHeight { config.table.lineHeight = lineHeight }
-        if let borderWidth { config.table.borderWidth = borderWidth }
-        if let borderRadius { config.table.borderRadius = borderRadius }
+        if let cornerRadius { config.table.cornerRadius = cornerRadius }
         if let cellPaddingHorizontal { config.table.cellPaddingHorizontal = cellPaddingHorizontal }
         if let cellPaddingVertical { config.table.cellPaddingVertical = cellPaddingVertical }
-        if let align { config.table.align = align }
+        if let alignment { config.table.alignment = alignment }
     }
 }

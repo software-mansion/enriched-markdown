@@ -11,6 +11,12 @@ final class SpoilerOverlayManager {
         let frame: CGRect
     }
 
+    private struct Segment {
+        let frame: CGRect
+        let range: NSRange
+        let baseline: CGFloat
+    }
+
     private weak var textView: UITextView?
     private var overlays: [OverlayKey: SpoilerOverlayView] = [:]
 
@@ -59,15 +65,25 @@ final class SpoilerOverlayManager {
         var desired = Set<OverlayKey>()
 
         for range in SpoilerInteraction.concealedRanges(in: textStorage) {
-            TextLayoutHelpers.enumerateSegmentFrames(of: range, in: textView) { frame, segmentRange in
+            var segments: [Segment] = []
+            TextLayoutHelpers.enumerateSegmentFrames(of: range, in: textView) { frame, segmentRange, baseline in
                 guard frame.width > 0, frame.height > 0 else { return }
-                let key = OverlayKey(range: range, frame: frame.integral)
-                desired.insert(key)
-                guard overlays[key] == nil else { return }
+                segments.append(Segment(frame: frame, range: segmentRange, baseline: baseline))
+            }
 
-                let overlay = provider.makeOverlay(charRange: range, style: style)
-                overlay.concealedText = SpoilerInteraction.revealedText(of: textStorage, in: segmentRange)
-                overlay.frame = frame
+            for (index, segment) in segments.enumerated() {
+                let key = OverlayKey(range: range, frame: segment.frame.integral)
+                desired.insert(key)
+                let overlay = overlays[key] ?? provider.makeOverlay(charRange: range, style: style)
+                // Order can change without this segment moving, e.g. when
+                // the line above it wraps differently.
+                overlay.segmentIndex = index
+                overlay.segmentCount = segments.count
+                guard overlays[key] == nil else { continue }
+
+                overlay.concealedText = SpoilerInteraction.revealedText(of: textStorage, in: segment.range)
+                overlay.baseline = segment.baseline
+                overlay.frame = segment.frame
                 textView.addSubview(overlay)
                 overlays[key] = overlay
             }

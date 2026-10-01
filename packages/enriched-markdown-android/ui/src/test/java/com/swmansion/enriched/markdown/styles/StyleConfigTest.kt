@@ -67,6 +67,24 @@ class StyleConfigTest {
   }
 
   @Test
+  fun differentSpoilerStylesAreNotEqual() {
+    val first = sampleSpoiler()
+
+    assertFalse(first == first.copy(color = 0xFF000000.toInt()))
+    assertFalse(first == first.copy(particleDensity = 12f))
+    assertFalse(first == first.copy(particleSpeed = 30f))
+    assertFalse(first == first.copy(solidCornerRadius = 8f))
+  }
+
+  @Test
+  fun configsThatDifferOnlyInTheirSpoilerStyleAreNotEqual() {
+    val first = sampleConfig()
+    val second = sampleConfig(spoilerStyle = sampleSpoiler().copy(color = 0xFF000000.toInt()))
+
+    assertFalse(first == second)
+  }
+
+  @Test
   fun differentParagraphColorsAreNotEqual() {
     val first = sampleConfig()
     val second =
@@ -93,7 +111,7 @@ class StyleConfigTest {
     assertFalse(first == second)
   }
 
-  private fun sampleConfig(): StyleConfig =
+  private fun sampleConfig(spoilerStyle: SpoilerStyle = sampleSpoiler()): StyleConfig =
     StyleConfig(
       paragraphStyleDefault = sampleParagraph(),
       headingStyles = arrayOf(null, sampleHeading()),
@@ -112,6 +130,7 @@ class StyleConfigTest {
       codeBlockStyle = sampleCodeBlock(),
       thematicBreakStyle = sampleThematicBreak(),
       tableStyle = sampleTable(),
+      spoilerStyle = spoilerStyle,
     )
 
   private fun sampleParagraph(color: Int = 0xFF112233.toInt()) =
@@ -226,6 +245,14 @@ class StyleConfigTest {
       borderRadius = 8f,
       borderWidth = 1f,
       padding = 16f,
+    )
+
+  private fun sampleSpoiler() =
+    SpoilerStyle(
+      color = 0xFF374151.toInt(),
+      particleDensity = 8f,
+      particleSpeed = 20f,
+      solidCornerRadius = 4f,
     )
 
   private fun sampleThematicBreak() =

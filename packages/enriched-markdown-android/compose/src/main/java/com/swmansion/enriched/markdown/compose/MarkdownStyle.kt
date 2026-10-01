@@ -7,14 +7,14 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 /**
  * An immutable, layered markdown style that resolves to a [StyleConfig] at composition time.
  *
- * Create styles with [markdownStyle] or derive overrides with [copy]. Provide defaults app-wide
+ * Create styles with [markdownStyle] or derive overrides with [merge]. Provide defaults app-wide
  * via [MarkdownTheme], and override per subtree by nesting another [MarkdownTheme].
  *
  * ```
  * val base = markdownStyle { paragraph { fontSize = 16.sp } }
  *
- * val lightStyle = base.copy { paragraph { color = Color(0xFF1A1A1A) } }
- * val darkStyle = base.copy { paragraph { color = Color(0xFFE0E0E0) } }
+ * val lightStyle = base.merge { paragraph { color = Color(0xFF1A1A1A) } }
+ * val darkStyle = base.merge { paragraph { color = Color(0xFFE0E0E0) } }
  * ```
  */
 @Immutable
@@ -26,10 +26,19 @@ class MarkdownStyle internal constructor(
    *
    * Useful for light/dark overrides or scoped tweaks without rebuilding the entire style.
    */
-  fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle {
+  fun merge(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle {
     val layer = MarkdownStyleBuilder().apply(block).captureLayer()
     return MarkdownStyle(layers + layer)
   }
+
+  /**
+   * Returns a new style with [other]'s layers applied on top of this style's. Values [other]
+   * leaves unset keep whatever this style resolved them to.
+   */
+  fun merge(other: MarkdownStyle): MarkdownStyle = MarkdownStyle(layers + other.layers)
+
+  /** Operator form of [merge]. */
+  operator fun plus(other: MarkdownStyle): MarkdownStyle = merge(other)
 
   internal fun resolve(resolveContext: StyleResolveContext): StyleConfig =
     layers.fold(StyleConfig.default(resolveContext.context)) { config, layer ->

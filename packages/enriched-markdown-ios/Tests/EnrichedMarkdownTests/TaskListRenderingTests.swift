@@ -4,11 +4,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class TaskListRenderingTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Parsing
@@ -183,14 +183,14 @@ final class TaskListRenderingTests: XCTestCase {
     // MARK: - Theme element
 
     func testTaskListThemeElementAppliesToConfig() {
-        var applied = MarkdownStyleConfig()
+        var applied = MarkdownStyleConfiguration()
         TaskList()
             .checkedColor(Color(UIColor.systemGreen))
             .borderColor(Color(UIColor.systemGray))
             .checkmarkColor(Color(UIColor.black))
             .checkedTextColor(Color(UIColor.systemGray2))
             .checkboxSize(20)
-            .checkboxBorderRadius(5)
+            .checkboxCornerRadius(5)
             .checkedStrikethrough()
             .apply(to: &applied, traitCollection: .current)
 
@@ -199,13 +199,13 @@ final class TaskListRenderingTests: XCTestCase {
         XCTAssertNotNil(applied.taskList.checkmarkColor)
         XCTAssertNotNil(applied.taskList.checkedTextColor)
         XCTAssertEqual(applied.taskList.checkboxSize, 20)
-        XCTAssertEqual(applied.taskList.checkboxBorderRadius, 5)
+        XCTAssertEqual(applied.taskList.checkboxCornerRadius, 5)
         XCTAssertEqual(applied.taskList.checkedStrikethrough, true)
     }
 
     func testDefaultThemeConfiguresCheckbox() {
         XCTAssertEqual(config.taskList.checkboxSize, 14)
-        XCTAssertEqual(config.taskList.checkboxBorderRadius, 3)
+        XCTAssertEqual(config.taskList.checkboxCornerRadius, 3)
         XCTAssertNotNil(config.taskList.checkedColor)
         XCTAssertNotNil(config.taskList.borderColor)
         XCTAssertNotNil(config.taskList.checkmarkColor)

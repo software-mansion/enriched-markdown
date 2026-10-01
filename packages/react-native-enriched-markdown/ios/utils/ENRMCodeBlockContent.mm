@@ -75,6 +75,12 @@ void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange
   NSMutableParagraphStyle *paragraphStyle = [getOrCreateParagraphStyle(string, range.location) mutableCopy];
   paragraphStyle.baseWritingDirection = NSWritingDirectionLeftToRight;
   paragraphStyle.alignment = NSTextAlignmentLeft;
+  // Re-clamp: unlike paragraphs, code blocks reserve their height analytically as
+  // lineCount * lineHeight (ENRMCodeBlockCodeHeight), so a line must not grow past the
+  // configured lineHeight or a tall run (emoji, wide glyph) would overflow and clip the block.
+  if (lineHeight > 0) {
+    paragraphStyle.maximumLineHeight = lineHeight;
+  }
   [string addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:range];
 
   if (lineHeight > 0) {

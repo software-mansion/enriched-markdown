@@ -3,6 +3,8 @@ package com.swmansion.enriched.markdown.spoiler
 import android.graphics.Color
 import android.graphics.Paint
 import android.text.Layout
+import android.text.Spanned
+import com.swmansion.enriched.markdown.spans.SpoilerSpan
 
 internal fun computeSegmentRect(
   layout: Layout,
@@ -38,3 +40,12 @@ internal fun colorWithAlpha(
   val alphaComponent = (Color.alpha(color) * alpha).toInt().coerceIn(0, 255)
   return Color.argb(alphaComponent, Color.red(color), Color.green(color), Color.blue(color))
 }
+
+/**
+ * Whether a spoiler still hides `[start, end)`. Once a reveal starts, the fading overlay lets the text show
+ * through, so decorations drawn outside the text paint come back with it.
+ */
+internal fun Spanned.isConcealedBySpoiler(
+  start: Int,
+  end: Int,
+): Boolean = getSpans(start, end, SpoilerSpan::class.java).any { !it.revealed && !it.revealing }

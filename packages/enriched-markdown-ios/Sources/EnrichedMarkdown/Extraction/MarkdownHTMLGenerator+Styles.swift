@@ -52,7 +52,7 @@ extension MarkdownHTMLGenerator {
         let headingColors: [String]
         let headingMarginBottoms: [Int]
 
-        init(config: MarkdownStyleConfig) {
+        init(config: MarkdownStyleConfiguration) {
             let bodySize = Int(UIFont.preferredFont(forTextStyle: .body).pointSize)
 
             paragraphColor = cssColor(config.paragraph.foregroundColor)
@@ -63,7 +63,7 @@ extension MarkdownHTMLGenerator {
             codeBlockBgColor = cssColor(config.codeBlock.backgroundColor)
             codeBlockFontSize = config.codeBlock.font.map { Int($0.pointSize) } ?? bodySize
             codeBlockPadding = Int(config.codeBlock.padding ?? 0)
-            codeBlockBorderRadius = Int(config.codeBlock.borderRadius ?? 0)
+            codeBlockBorderRadius = Int(config.codeBlock.cornerRadius ?? 0)
             codeBlockMarginBottom = Int(config.codeBlock.marginBottom ?? 0)
 
             codeColor = cssColor(config.code.foregroundColor)
@@ -97,7 +97,7 @@ extension MarkdownHTMLGenerator {
             listColor = cssColor(config.list.foregroundColor)
             listFontSize = config.list.font.map { Int($0.pointSize) } ?? bodySize
             listMarginBottom = Int(config.list.marginBottom ?? 0)
-            listMarginLeft = Int(config.list.marginLeft ?? 24)
+            listMarginLeft = Int(config.list.marginLeading ?? 24)
 
             linkColor = cssColor(config.link.foregroundColor)
             linkUnderline = config.link.underline ?? true
@@ -106,7 +106,7 @@ extension MarkdownHTMLGenerator {
             emphasisColor = config.emphasis.foregroundColor.map(cssColor)
 
             imageMarginBottom = Int(config.image.marginBottom ?? 0)
-            imageBorderRadius = Int(config.image.borderRadius ?? 0)
+            imageBorderRadius = Int(config.image.cornerRadius ?? 0)
 
             let headings = [
                 config.heading1, config.heading2, config.heading3,

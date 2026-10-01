@@ -33,7 +33,7 @@ final class BaselineShiftRenderer: NodeRenderer {
 
     /// Call exactly once per assembled attributed string, after all block
     /// styling (line heights, margins) is in place.
-    static func applyShifts(to output: NSMutableAttributedString, config: MarkdownStyleConfig) {
+    static func applyShifts(to output: NSMutableAttributedString, config: MarkdownStyleConfiguration) {
         applyShift(
             to: output,
             key: MarkdownAttribute.superscript,

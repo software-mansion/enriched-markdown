@@ -4,9 +4,9 @@ import UIKit
 /// through the regular renderer factory.
 final class TableRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
         self.factory = factory
         self.config = config
     }
@@ -81,6 +81,7 @@ final class TableRenderer: NodeRenderer {
         trimTrailingWhitespace(in: cellOutput)
         applyParagraphStyle(align: cellNode.attribute("align"), style: style, to: cellOutput)
         BaselineShiftRenderer.applyShifts(to: cellOutput, config: config)
+        factory.applyWritingDirection(to: cellOutput)
         return cellOutput
     }
 

@@ -430,6 +430,25 @@ A longer RTL paragraph to exercise line wrapping and measurement:
 
 זוהי פסקה ארוכה בעברית שמטרתה לבדוק את אופן הטיפול בשבירת שורות ובמדידה כאשר הטקסט ארוך מספיק כדי להתפרס על פני מספר שורות, עם **טקסט מודגש** ו*נטוי* ו[קישור](https://example.com) בתוך הפסקה.
 
+Lists, task lists, admonitions, and tables place their chrome on the side of each paragraph's direction:
+
+- الغابات المطيرة
+- الغابات الشمالية
+  1. الصنوبر
+  2. التنوب
+- Temperate forests
+
+- [ ] ازرع شجرة
+- [x] ادعم الحفاظ على الغابات
+
+> [!TIP]
+> الغابات تنظم دورة المياه وتحمي التربة من التآكل.
+
+| النوع | المساحة |
+|---|---|
+| مطيرة | 13% |
+| Boreal | 27% |
+
 ---
 
 ## Conclusion

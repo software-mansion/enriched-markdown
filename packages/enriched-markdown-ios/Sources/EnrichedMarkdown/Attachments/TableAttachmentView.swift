@@ -83,7 +83,7 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
         let fits = layout.totalWidth <= bounds.width
         let alignOffset: CGFloat
         if fits {
-            switch attachment.style.align {
+            switch attachment.style.alignment {
             case .leading: alignOffset = 0
             case .center: alignOffset = (bounds.width - layout.totalWidth) / 2
             case .trailing: alignOffset = bounds.width - layout.totalWidth
@@ -123,6 +123,13 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
 
     @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
         guard let url = gridView.linkURL(at: recognizer.location(in: gridView)) else { return }
+        openLink(url)
+    }
+
+    /// Routes a tapped cell link through the host text view's handler,
+    /// which the SwiftUI view sets to its `onLinkPress` or `openURL`; a
+    /// text view outside SwiftUI with no handler opens the URL directly.
+    func openLink(_ url: URL) {
         if let onLinkPress = hostTextView()?.onLinkPress {
             onLinkPress(url)
         } else {

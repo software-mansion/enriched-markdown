@@ -15,7 +15,7 @@ final class MarkdownViewportDecorator {
         self.foregroundView = foregroundView
     }
 
-    func updateStyleConfig(_ styleConfig: MarkdownStyleConfig) {
+    func updateStyleConfig(_ styleConfig: MarkdownStyleConfiguration) {
         config = BlockDecorationConfig(styleConfig: styleConfig)
     }
 

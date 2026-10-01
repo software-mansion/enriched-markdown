@@ -55,6 +55,8 @@ class LinkSpan(
 
     textPaint.color = styleCache.linkColor
     textPaint.isUnderlineText = styleCache.linkUnderline
+    // Only ever turns the line on, so a link inside `~~…~~` keeps the enclosing strikethrough.
+    if (styleCache.linkStrikethrough) textPaint.isStrikeThruText = true
 
     val backgroundColor = styleCache.linkBackgroundColor
     if (Color.alpha(backgroundColor) > 0) {

@@ -5,11 +5,11 @@ import UIKit
 package protocol MarkdownRenderPlugin {
     /// A renderer for `type`, or nil to leave it to the next plugin or the
     /// built-ins. Called once per node type per render; the result is cached.
-    func renderer(for type: NodeType, config: MarkdownStyleConfig) -> NodeRenderer?
+    func renderer(for type: NodeType, config: MarkdownStyleConfiguration) -> NodeRenderer?
 
-    /// Adjusts parser flags before parsing, e.g. enabling the md4c extension
+    /// Adjusts parser options before parsing, e.g. enabling the md4c extension
     /// whose nodes the plugin renders.
-    func adjustFlags(_ flags: inout Md4cFlags)
+    func adjustParsingOptions(_ options: inout MarkdownParsingOptions)
 
     /// Node types the parser emits bare at document root (promoted isolated
     /// display math, for instance) that should render wrapped in a synthetic
@@ -18,7 +18,7 @@ package protocol MarkdownRenderPlugin {
 
     /// Margins for a `rootBlockNodeTypes` member's synthetic paragraph; unset
     /// ones keep the paragraph style's.
-    func blockMargins(for type: NodeType, config: MarkdownStyleConfig) -> BlockMargins
+    func blockMargins(for type: NodeType, config: MarkdownStyleConfiguration) -> BlockMargins
 
     /// The plugin's element defaults, layered directly above
     /// `MarkdownTheme.default` and below the app's themes.
@@ -26,11 +26,11 @@ package protocol MarkdownRenderPlugin {
 }
 
 package extension MarkdownRenderPlugin {
-    func adjustFlags(_ flags: inout Md4cFlags) {}
+    func adjustParsingOptions(_ options: inout MarkdownParsingOptions) {}
 
     var rootBlockNodeTypes: Set<NodeType> { [] }
 
-    func blockMargins(for type: NodeType, config: MarkdownStyleConfig) -> BlockMargins { BlockMargins() }
+    func blockMargins(for type: NodeType, config: MarkdownStyleConfiguration) -> BlockMargins { BlockMargins() }
 
     var defaultTheme: MarkdownTheme? { nil }
 }

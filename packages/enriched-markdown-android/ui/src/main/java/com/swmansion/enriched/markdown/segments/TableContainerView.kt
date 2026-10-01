@@ -323,6 +323,7 @@ class TableContainerView(
               TableAlignment.RIGHT -> freeSpace
               TableAlignment.LEFT -> 0f
               TableAlignment.AUTO -> if (isRtl) freeSpace else 0f
+              TableAlignment.END -> if (isRtl) 0f else freeSpace
             }
         desiredLeft - gridContainer.left
       } else {

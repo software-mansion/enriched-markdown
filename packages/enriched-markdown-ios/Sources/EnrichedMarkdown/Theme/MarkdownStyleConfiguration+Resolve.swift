@@ -1,18 +1,18 @@
 import UIKit
 
-extension MarkdownStyleConfig {
+extension MarkdownStyleConfiguration {
     public static func resolve(
         layers: [MarkdownTheme],
         traitCollection: UITraitCollection
-    ) -> MarkdownStyleConfig {
-        var config = MarkdownStyleConfig()
+    ) -> MarkdownStyleConfiguration {
+        var config = MarkdownStyleConfiguration()
         for layer in layers {
             layer.apply(to: &config, traitCollection: traitCollection)
         }
         return config
     }
 
-    public static func baseline(traitCollection: UITraitCollection = .current) -> MarkdownStyleConfig {
+    public static func baseline(traitCollection: UITraitCollection = .current) -> MarkdownStyleConfiguration {
         resolve(layers: [.default], traitCollection: traitCollection)
     }
 }

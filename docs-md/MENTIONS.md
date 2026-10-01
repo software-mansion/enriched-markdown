@@ -69,6 +69,8 @@ linkVariants: {
 }
 ```
 
+`fontFamily` can be overridden per variant and otherwise inherits the base `link` family.
+
 Each key is a regex tested against the link URL. First match wins. Unspecified properties inherit from the base `link` style. Patterns are auto-sorted longest-first.
 
 ## Positioning the Suggestion List

@@ -5,7 +5,7 @@ package com.swmansion.enriched.markdown
  * order, its checked state *after* the toggle, and the first line of the item's
  * plain text.
  */
-data class TaskListItemPressEvent(
+data class TaskListItemToggle(
   val index: Int,
   val checked: Boolean,
   val text: String,

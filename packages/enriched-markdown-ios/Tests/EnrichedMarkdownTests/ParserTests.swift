@@ -119,7 +119,7 @@ final class ParserTests: XCTestCase {
     func testParsesSoftBreakAsLineBreakWithHardSoftBreaksFlag() {
         let ast = parser.parseMarkdown(
             "line one\nline two",
-            flags: Md4cFlags(hardSoftBreaks: true)
+            options: MarkdownParsingOptions(hardSoftBreaks: true)
         )
 
         let paragraph = ast.child(ofType: .paragraph)
@@ -135,7 +135,7 @@ final class ParserTests: XCTestCase {
     func testPreservesBlankLinesWithFlag() {
         let ast = parser.parseMarkdown(
             "one\n\n\n\ntwo",
-            flags: Md4cFlags(preserveBlankLines: true)
+            options: MarkdownParsingOptions(preserveBlankLines: true)
         )
 
         let blankLine = ast.child(ofType: .blankLine)
