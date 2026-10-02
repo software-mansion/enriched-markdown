@@ -1,30 +1,58 @@
+import CoreText
 import UIKit
 
 /// Stamps `baseWritingDirection` on every paragraph after a render, as the
 /// React Native package does: the block chrome (blockquote bars, list
 /// markers, checkboxes, admonition icons) and the task-list hit test read it
 /// from the paragraph style, where `.natural` would mean the app's interface
-/// direction rather than the paragraph's. Code blocks keep the
-/// `.leftToRight` their renderer sets.
+/// direction rather than the paragraph's. TextKit's own resolution of a
+/// `.natural` paragraph is no substitute: it keeps the indents, and so the
+/// marker column, on the app's side. Code blocks keep the `.leftToRight`
+/// their renderer sets.
 enum WritingDirectionResolver {
-    /// Hebrew through Arabic Extended-B, plus the Hebrew and Arabic
-    /// presentation forms.
-    private static let rightToLeftScalars: [ClosedRange<UInt32>] = [0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF]
-    private static let letters = CharacterSet.letters
+    /// Letters and the directional marks that force a direction, as one
+    /// immutable set: a set derived with `union` or `subtracting` is copied
+    /// on every bridge to `NSCharacterSet`.
+    private static let strongCharacters = CharacterSet(
+        bitmapRepresentation: CharacterSet.letters
+            .subtracting(.nonBaseCharacters)
+            .union(CharacterSet(charactersIn: "\u{200E}\u{200F}\u{061C}"))
+            .bitmapRepresentation
+    )
 
-    /// Direction of the first letter in `text`, or `.natural` when it has none.
+    /// Hebrew through Arabic Extended-B and the presentation forms: the only
+    /// right-to-left letters in the Basic Multilingual Plane.
+    private static let rightToLeftBlocks: [ClosedRange<unichar>] = [0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF]
+
+    /// Direction of the first strong character in `text`, or `.natural` when it has none.
     static func firstStrongDirection(of text: String) -> NSWritingDirection {
         let string = text as NSString
         return firstStrongDirection(in: string, range: NSRange(location: 0, length: string.length))
     }
 
-    /// The same over one paragraph, in place. A letter beyond the BMP counts
-    /// by its lead surrogate: left-to-right, as the table has no ranges there.
+    /// The same over one paragraph, in place. A letter beyond the BMP (Adlam,
+    /// Old Hungarian) is classified by CoreText rather than a table.
     private static func firstStrongDirection(in string: NSString, range: NSRange) -> NSWritingDirection {
-        let letter = string.rangeOfCharacter(from: letters, range: range)
-        guard letter.location != NSNotFound else { return .natural }
-        let value = UInt32(string.character(at: letter.location))
-        return rightToLeftScalars.contains { $0.contains(value) } ? .rightToLeft : .leftToRight
+        let strong = string.rangeOfCharacter(from: strongCharacters, range: range)
+        guard strong.location != NSNotFound else { return .natural }
+        let unit = string.character(at: strong.location)
+        switch unit {
+        case 0x200E:
+            return .leftToRight
+        case 0x200F, 0x061C:
+            return .rightToLeft
+        case 0xD800...0xDFFF:
+            return coreTextDirection(of: string.substring(with: strong))
+        default:
+            return rightToLeftBlocks.contains { $0.contains(unit) } ? .rightToLeft : .leftToRight
+        }
+    }
+
+    /// CoreText's bidi class of one character, read off the run it lays out.
+    private static func coreTextDirection(of character: String) -> NSWritingDirection {
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: character))
+        guard let run = (CTLineGetGlyphRuns(line) as? [CTRun])?.first else { return .natural }
+        return CTRunGetStatus(run).contains(.rightToLeft) ? .rightToLeft : .leftToRight
     }
 
     /// `layoutDirection` is what a `.firstStrong` paragraph with no strong
