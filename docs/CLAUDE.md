@@ -136,10 +136,40 @@ zero dependencies). It fails on: an import with no file, an orphaned example no
 page imports, an example imported by a page other than the one that owns its
 folder, an example folder that maps to no doc page, a missing colocated
 `theme.ts`, and non-PascalCase filenames. `yarn build` catches only the first of
-those, which is why this exists. The same script runs as the
-`docs-examples-parity` job in `.github/workflows/docs-build.yml`, in parallel
-with the build. Genuinely shared example modules go in the script's `SHARED`
-allowlist with a reason - don't loosen the checks.
+those, which is why this exists. It runs in the `docs-examples-parity` job in
+`.github/workflows/docs-build.yml`, alongside `check-llms.mjs` (below), in
+parallel with the build. Genuinely shared example modules go in the script's
+`SHARED` allowlist with a reason - don't loosen the checks.
+
+### `static/llms.txt` lists every page - keep it that way
+
+`static/llms.txt` ships to `https://docs.swmansion.com/enriched-markdown/llms.txt`
+and is the machine-readable index of this site, in the
+[llms.txt](https://llmstxt.org/) format: an H1, a one-paragraph summary, then one
+link per page grouped by section.
+
+It is **hand-written on purpose**, and it links to the rendered **HTML** pages
+rather than to `.md` files. That matches the other sites on the domain - see
+`https://docs.swmansion.com/pulsar/llms.txt` - and means the site needs no
+markdown-generation plugin and no per-page `.md` artifacts. Descriptions are
+written for a reader deciding which page to open, so keep them to one line and
+say what the page settles, not just what it is named.
+
+Because nothing generates it, **`yarn check-llms`** (`scripts/check-llms.mjs`,
+zero dependencies) is what keeps it honest: it fails on a doc page with no entry
+and on an entry pointing at a page that does not exist. It reads the `docs/`
+tree rather than the build output, so it needs no build and no install, and it
+honours `SHOW_UNRELEASED_PLATFORMS` so it does not demand `ios/` and `android/`
+lines while those trees are hidden. Add a page, add its line.
+
+Note the ceiling on what an LLM actually gets from the linked HTML: a
+`<LivePreview>` without `unavailable` renders inside `BrowserOnly`, so its
+example source is **not** in the server-rendered HTML (it SSRs as `Loading...`).
+`<LivePreview ... unavailable>` and `<InteractiveExample>` both do SSR their
+code. Today that is 74 of 125 examples server-rendered, with the live ones
+concentrated in `style-properties` and `enriched-markdown-text`. Rendering a
+hidden static `<CodeBlock>` of `src` outside `LivePreview`'s `BrowserOnly` -
+mirroring what `InteractiveExample` already does - would close the gap.
 
 ### Interactive examples
 
@@ -236,19 +266,49 @@ banner: `<InteractiveExample src={FirstEditorSrc} comingSoon />`.
 
 ## Site configuration (`docusaurus.config.js`)
 
-- Version label: `presets` > `docs.versions.current.label` (now `0.x`).
-- `noIndex: true` and a blocking `static/robots.txt` keep the pre-launch
-  deploy out of search engines; remove both at launch.
-- Google Tag Manager is commented out in `plugins`; add a container id to
-  enable analytics.
-- Algolia DocSearch credentials are placeholders. Apply for DocSearch only
-  after the site is public, indexable, and on its final URL.
+- `noIndex: true` is the **only** thing keeping the pre-launch deploy out of
+  search engines, and it also suppresses the sitemap (no `build/sitemap.xml` is
+  emitted while it is on). `static/robots.txt` does **not** help: static files
+  are served under `baseUrl`, so it lands at `/enriched-markdown/robots.txt`,
+  where no crawler reads it. The real `robots.txt` is the host-root one - see
+  Deploy below. Drop `noIndex` at launch and delete the misleading
+  `static/robots.txt`.
+- Google Tag Manager **is active** in production builds
+  (`containerId: 'GTM-N5QK8TMT'`, gated on `NODE_ENV === 'production'`), so
+  analytics fire on the deployed site but not under `yarn start`.
+- Algolia DocSearch credentials are placeholders (`PLACEHOLDER_APP_ID` /
+  `PLACEHOLDER_API_KEY`), so the search box renders but returns nothing. The
+  block cannot simply be deleted: `preset-classic` only activates
+  `@docusaurus/theme-search-algolia` when it is present, and the
+  `@theme/SearchTranslations` alias fails to resolve without it. `indexName` is
+  also stale - it says `react-native-enriched-markdown`, not the actual path
+  `enriched-markdown`. Apply for DocSearch only after the site is public,
+  indexable, and on its final URL.
 
 ## Deploy
 
 `.github/workflows/docs-publish.yml` deploys to the `gh-pages` branch on
 every push to `main` that touches `docs/**`. GitHub Pages must be enabled in
 the repo settings (serve from `gh-pages`). `docs-build.yml` builds on PRs.
+
+This site is a **project page under an org-level custom domain**:
+`software-mansion/software-mansion.github.io` (branch `master`) holds
+`docs.swmansion.com`, and every project repo is served at
+`docs.swmansion.com/<baseUrl>/`. `static/CNAME` must stay - the deploy action
+replaces the branch contents on each run, which would otherwise clear this
+repo's custom-domain setting. Every sibling docs repo ships the same file.
+
+Two things live in that org repo, not this one, and both need a PR when the
+site launches:
+
+- `robots.txt` - the only `robots.txt` crawlers read. Add
+  `Sitemap: https://docs.swmansion.com/enriched-markdown/sitemap.xml` to its
+  alphabetical Sitemap block. Do this only **after** `noIndex` is off, or the
+  URL 404s. It is also where a pre-launch `Disallow: /enriched-markdown/` would
+  go, under its `# Not launched yet.` comment.
+- `llms.txt` - a curated index of every docs site on the domain. Add an entry
+  under `## React Native` pointing at
+  `https://docs.swmansion.com/enriched-markdown/`.
 
 ## Theme gotchas
 

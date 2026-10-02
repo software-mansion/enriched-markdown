@@ -8,10 +8,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Fast, dependency-free structural check: src/examples/ must stay 1:1 with
-  # docs/. Runs in parallel with the build so a misfiled example fails the PR in
-  # seconds rather than after a full Docusaurus build (which would not catch it
-  # at all - see docs/scripts/check-examples.mjs).
+  # Fast, dependency-free structural checks that the Docusaurus build cannot
+  # catch: src/examples/ must stay 1:1 with docs/, and the hand-written
+  # static/llms.txt must list every page. Runs in parallel with the build so
+  # drift fails the PR in seconds rather than after a full build - see
+  # docs/scripts/check-examples.mjs and docs/scripts/check-llms.mjs.
   docs-examples-parity:
     runs-on: ubuntu-latest
     defaults:
@@ -30,6 +31,9 @@ jobs:
       # needs no install at all; the script has no dependencies.
       - name: Check examples mirror the docs tree
         run: node scripts/check-examples.mjs
+
+      - name: Check llms.txt lists every page
+        run: node scripts/check-llms.mjs
 
   docs-build:
     runs-on: ubuntu-latest

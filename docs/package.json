@@ -7,6 +7,7 @@
     "start": "docusaurus start",
     "build": "docusaurus build",
     "check-examples": "node scripts/check-examples.mjs",
+    "check-llms": "node scripts/check-llms.mjs",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
