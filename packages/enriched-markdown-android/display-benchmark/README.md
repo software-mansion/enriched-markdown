@@ -111,8 +111,9 @@ module does not benchmark and does not carry.
 
 ## Running
 
-A **physical device**, not an emulator. Numbers from an emulator are meaningless here.
-Lock clocks if the device supports it, keep it cool and plugged in, and close other apps.
+A **physical device** for numbers you can quote. An emulator only shows the direction of a
+change between two commits measured back to back (see [CI](#ci)). Lock clocks if the device
+supports it, keep it cool and plugged in, and close other apps.
 
 Keep the screen **on and unlocked** for the whole run; the benchmark library refuses to
 measure a locked device.
@@ -176,8 +177,35 @@ benchmark library's ~90 s cool-down otherwise counts against the 10 s main-threa
 deadline and fails the test.
 
 
-## Not in CI
+### Comparing two commits
 
-This module is deliberately absent from `.github/workflows/ci.yml`. Microbenchmarks need
-a physical device with locked clocks to produce stable numbers; a shared CI runner would
-only produce noise.
+`tools/compare.mjs` runs the benchmark on this checkout and on another ref, back to back on
+one device, and prints both medians with the head/base ratio. The other ref is built in a
+throwaway worktree, and each side runs its own copy of the benchmark, so a change to the
+benchmark itself makes the two sides incomparable. Each document is measured on its own,
+both sides back to back, and which side goes first alternates between documents, so the
+device drifting over the session does not read as a difference between the two. A result
+missing on one side is marked in the table rather than left out.
+
+```sh
+yarn workspace @enriched-markdown/android bench:android-native --base main
+# or, from this package:
+node display-benchmark/tools/compare.mjs --base main --documents complex_large --serial <serial>
+```
+
+On an emulator it suppresses the benchmark library's `EMULATOR` error; the ratio then
+shows the direction of a change, not its size.
+
+## CI
+
+`.github/workflows/android-benchmarks.yml` runs the comparison on demand, on an emulator.
+It is not part of `.github/workflows/ci.yml`: emulator numbers are too noisy to gate a pull
+request on. Comment `/benchmark android` on a pull request (write access required), or start
+the workflow from the Actions tab with the pull request number. It measures the pull request
+head against the tip of `main` and comments the table, with both commits, on the pull
+request. Those numbers only show the direction of a change; confirm it on a physical device.
+
+The run builds the pull request's code, so a pull request from a fork is measured only at a
+commit you name after reviewing it: `/benchmark android <full head SHA>`. If the head has
+moved on since, the run stops and says so. A newer request on the same pull request
+replaces one still running.
