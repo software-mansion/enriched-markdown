@@ -676,4 +676,14 @@ yarn workspace @enriched-markdown/ios clean
 
 These scripts run `swift build` / `swift test` / `swift package clean` from the package root.
 
+### Benchmarks
+
+`Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift` times rendering, first layout, the accessibility element build and the decoration display of long documents. It is skipped in a normal test run; `scripts/benchmark.mjs` runs it on the booted simulator and, with `--base`, on another ref in a temporary worktree, and prints both with the ratio:
+
+```sh
+yarn workspace @enriched-markdown/ios bench:ios-native --base main
+```
+
+Absolute numbers depend on the machine and on Debug builds; read the head/base ratio from one run. Each number is the median of XCTest's iterations, so a single stalled iteration does not move it. CI runs the same comparison on demand: label a pull request `benchmark: ios` (later pushes re-run it while the label stays), comment `/benchmark ios` on it, or start the "iOS benchmarks" workflow from the Actions tab. Each run posts the table as a new comment on the pull request, headed by the commit it measured, and the job fails only when a benchmark is twice as slow, since a shared runner cannot resolve smaller differences.
+
 In the monorepo, `core/md4c` and `core/parser` are symlinks into the shared C++ sources at `packages/core/cpp`. When syncing this folder to the standalone repository, dereference them so real files are copied (e.g. `rsync -a --copy-links`).

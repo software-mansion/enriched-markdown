@@ -1,0 +1,133 @@
+name: iOS benchmarks
+
+# On demand, not on every pull request: label a pull request `benchmark: ios`
+# (later pushes re-run it while the label stays), comment `/benchmark ios` on
+# it, or start it from the Actions tab with the pull request number. The
+# benchmarks run on the pull request head and on its base branch tip, back
+# to back on the same runner, and the ratio is posted as a comment.
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Pull request number
+        required: true
+        type: number
+
+# Any comment on the pull request creates a run in this group (its job is
+# then skipped), so only benchmark-triggering events may cancel one in progress.
+concurrency:
+  group: ios-benchmarks-${{ github.event.pull_request.number || github.event.issue.number || inputs.pull_request }}
+  cancel-in-progress: ${{ github.event_name != 'issue_comment' || startsWith(github.event.comment.body, '/benchmark ios') }}
+
+jobs:
+  compare:
+    # A comment-triggered run executes the pull request's code with a token
+    # that can comment, so only people with write access may start one.
+    if: >-
+      (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'benchmark: ios')
+      || (github.event_name == 'pull_request' && github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'benchmark: ios'))
+      || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark ios') && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+      || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Acknowledge the comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -f content=rocket --silent || true
+
+      # Captured into variables before use: a failing `gh` inside an echo
+      # would pass unnoticed and leave the base empty.
+      - name: Resolve the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pull_request }}
+        run: |
+          set -euo pipefail
+          REFS=$(gh pr view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefOid,headRefOid --jq '"\(.baseRefOid) \(.headRefOid)"')
+          read -r BASE HEAD <<< "$REFS"
+          if [[ -z "$BASE" || -z "$HEAD" ]]; then
+            echo "::error::Could not resolve the base and head of pull request #$NUMBER"
+            exit 1
+          fi
+          {
+            echo "number=$NUMBER"
+            echo "base=$BASE"
+            echo "head=$HEAD"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ steps.pr.outputs.head }}
+          # The base branch tip is checked out into a worktree for comparison.
+          fetch-depth: 0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Restore RaTeX vendor files
+        run: node vendor/vendor-ratex.mjs
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      - name: Select iOS simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[] | .[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
+
+          if [[ -z "$UDID" || "$UDID" == "null" ]]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices
+            exit 1
+          fi
+
+          echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+          # Measure on a settled simulator, not one still finishing its boot.
+          xcrun simctl bootstatus "$UDID" -b
+
+      # Only a 2x slowdown fails the job; smaller differences are runner noise.
+      - name: Compare benchmarks against the base branch
+        working-directory: packages/enriched-markdown-ios
+        run: |
+          node scripts/benchmark.mjs \
+            --base ${{ steps.pr.outputs.base }} \
+            --fail-above 2 \
+            --markdown "$RUNNER_TEMP/ios-benchmarks.md"
+
+      # The table goes to the job summary and to a new comment on the pull
+      # request on every run. Editing one comment in place kept it at its old
+      # spot in the thread and sent no notification, so a refresh went unseen.
+      - name: Publish the results
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULTS: ${{ runner.temp }}/ios-benchmarks.md
+          NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          if [[ ! -f "$RESULTS" ]]; then
+            echo "No results to publish: the comparison did not get as far as measuring."
+            exit 0
+          fi
+          cat >> "$RESULTS" <<EOF
+          Each number is the median of XCTest's iterations on one shared runner; the absolute values vary between runs, the ratio is what to read. [Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          EOF
+          cat "$RESULTS" >> "$GITHUB_STEP_SUMMARY"
+          # Best effort: a pull request from a fork gets a read-only token.
+          gh pr comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RESULTS" \
+            || echo "::warning::Could not post the benchmark comment; the table is in the job summary."

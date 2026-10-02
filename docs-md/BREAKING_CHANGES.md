@@ -5,6 +5,11 @@ This file tracks breaking changes and how to migrate for each. Entries are newes
 
 ## Unreleased
 
+## v1.1.0
+
+No breaking changes. v1.1.0 is additive over v1.0.2 - every public prop, method, event and style key
+from v1.0.2 keeps its name and behaviour, and no deprecation was introduced or removed.
+
 ## v1.0.2
 
 ### The Expo config plugin was removed

@@ -34,4 +34,23 @@ enum MarkdownAttributeValue {
         }
         return false
     }
+
+    /// The full range of the fenced code block containing `position`, spacer
+    /// lines included, or nil outside one.
+    static func codeBlockRange(in text: NSAttributedString, at position: Int) -> NSRange? {
+        // Checked before the range: outside a block, the longest range runs
+        // to the next block, so a scan asking at every paragraph would walk
+        // the text once per paragraph.
+        guard position >= 0, position < text.length,
+              boolValue(from: text.attribute(MarkdownAttribute.codeBlock, at: position, effectiveRange: nil))
+        else { return nil }
+        var range = NSRange()
+        _ = text.attribute(
+            MarkdownAttribute.codeBlock,
+            at: position,
+            longestEffectiveRange: &range,
+            in: NSRange(location: 0, length: text.length)
+        )
+        return range
+    }
 }
