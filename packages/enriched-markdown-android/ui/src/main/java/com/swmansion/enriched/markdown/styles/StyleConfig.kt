@@ -26,6 +26,7 @@ class StyleConfig(
   val tableTypeface: Typeface? = null,
   val tableHeaderTypeface: Typeface? = null,
   val spoilerStyle: SpoilerStyle = SpoilerStyle(),
+  val extensions: Map<StyleExtensionKey<*>, Any> = emptyMap(),
 ) {
   private val paragraphStyleDefault: ParagraphStyle = paragraphStyleDefault
   private var paragraphStyleOverride: ParagraphStyle? = null
@@ -62,6 +63,46 @@ class StyleConfig(
       textAlign = TextAlignment.AUTO,
     )
 
+  /** The value stored for [key], or null when no plugin supplied one. */
+  @Suppress("UNCHECKED_CAST")
+  operator fun <T : Any> get(key: StyleExtensionKey<T>): T? = extensions[key] as T?
+
+  fun <T : Any> getOrDefault(
+    key: StyleExtensionKey<T>,
+    default: T,
+  ): T = get(key) ?: default
+
+  /** A copy carrying [value] under [key]; [StyleConfig] is shared across views, so it is never mutated in place. */
+  fun <T : Any> withExtension(
+    key: StyleExtensionKey<T>,
+    value: T,
+  ): StyleConfig =
+    StyleConfig(
+      paragraphStyleDefault = paragraphStyleDefault,
+      headingStyles = headingStyles,
+      headingTypefaces = headingTypefaces,
+      linkStyle = linkStyle,
+      strongStyle = strongStyle,
+      emphasisStyle = emphasisStyle,
+      strikethroughStyle = strikethroughStyle,
+      underlineStyle = underlineStyle,
+      superscriptStyle = superscriptStyle,
+      subscriptStyle = subscriptStyle,
+      codeStyle = codeStyle,
+      imageStyle = imageStyle,
+      inlineImageStyle = inlineImageStyle,
+      blockquoteStyle = blockquoteStyle,
+      listStyle = listStyle,
+      taskListStyle = taskListStyle,
+      codeBlockStyle = codeBlockStyle,
+      thematicBreakStyle = thematicBreakStyle,
+      tableStyle = tableStyle,
+      tableTypeface = tableTypeface,
+      tableHeaderTypeface = tableHeaderTypeface,
+      spoilerStyle = spoilerStyle,
+      extensions = extensions + (key to value),
+    )
+
   val needsJustify: Boolean
     get() =
       paragraphStyle.textAlign.needsJustify ||
@@ -88,6 +129,7 @@ class StyleConfig(
       codeBlockStyle == other.codeBlockStyle &&
       thematicBreakStyle == other.thematicBreakStyle &&
       tableStyle == other.tableStyle &&
+      extensions == other.extensions &&
       spoilerStyle == other.spoilerStyle
   }
 
@@ -110,6 +152,7 @@ class StyleConfig(
     result = 31 * result + codeBlockStyle.hashCode()
     result = 31 * result + thematicBreakStyle.hashCode()
     result = 31 * result + tableStyle.hashCode()
+    result = 31 * result + extensions.hashCode()
     result = 31 * result + spoilerStyle.hashCode()
     return result
   }

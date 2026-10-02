@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StrongStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.styles.StyleExtensionKey
 import com.swmansion.enriched.markdown.styles.SubscriptStyle
 import com.swmansion.enriched.markdown.styles.SuperscriptStyle
 import com.swmansion.enriched.markdown.styles.TableStyle
@@ -42,6 +43,8 @@ internal data class StylePatch(
   val thematicBreakStyle: ThematicBreakStyle? = null,
   val tableStyle: TableStyle? = null,
   val spoilerStyle: SpoilerStyle? = null,
+  /** Plugin styles resolved for this layer; layered over the base map, so untouched keys survive. */
+  val extensions: Map<StyleExtensionKey<*>, Any>? = null,
 )
 
 internal object StyleConfigMerger {
@@ -101,6 +104,7 @@ internal object StyleConfigMerger {
       tableTypeface = tableTypeface,
       tableHeaderTypeface = tableHeaderTypeface,
       spoilerStyle = patch.spoilerStyle ?: base.spoilerStyle,
+      extensions = patch.extensions?.let { base.extensions + it } ?: base.extensions,
     )
   }
 

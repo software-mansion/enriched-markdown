@@ -164,6 +164,40 @@ Scientific prefixes: 6.022 × 10^23^ (Avogadro's number), the universe is approx
 
 ---
 
+## Math Examples
+
+Standalone display math renders as a centered, horizontally scrollable block:
+
+$$
+E = mc^2
+$$
+
+Display math surrounded by text on both sides (no blank lines) should still render as a block, with the text flowing above and below it:
+
+Energy released by fusion follows
+$$
+E = \Delta m \cdot c^2
+$$
+and this is why the sun shines.
+
+Inline math like $a^2 + b^2 = c^2$ and genuine mid-line display math ($$x = y$$ inside a sentence) both stay in the text flow.
+
+A wide equation scrolls sideways instead of wrapping:
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi} \quad\text{and}\quad \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+$$
+
+An expression the engine cannot draw falls back to its own source and is reported through `onPluginEvent`:
+
+$$
+\thisCommandDoesNotExist{x}
+$$
+
+Inline failures fall back the same way: $\notARealCommand{y}$ stays as its source.
+
+---
+
 ## Fascinating Forest Facts
 
 Did you know that trees communicate through an underground network? Scientists call this the `Wood Wide Web` — a fungal network connecting tree roots across entire forests.
