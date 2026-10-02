@@ -377,6 +377,7 @@ static char kENRMSegmentFadeAnimatorKey;
   view.allowFontScaling = _fontScaleObserver.allowFontScaling;
   view.lineBreakStrategy = _lineBreakStrategy;
   view.dynamicProps = _dynamicBlockProps;
+  view.accessibilityLabels = _accessibilityLabels;
 
   __weak EnrichedMarkdown *weakSelf = self;
   view.onCopyPress = ^(NSString *code, NSString *language) {
@@ -661,6 +662,8 @@ static char kENRMSegmentFadeAnimatorKey;
       ((EnrichedMarkdownInternalText *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[TableContainerView class]]) {
       ((TableContainerView *)segment).accessibilityLabels = _accessibilityLabels;
+    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      ((ENRMBlockquoteContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     }
 #if ENRICHED_MARKDOWN_MATH
     else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
