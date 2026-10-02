@@ -2,7 +2,7 @@
 
 Docusaurus site for React Native Enriched Markdown, scaffolded from
 [react-native-screens-docs](https://github.com/software-mansion/react-native-screens-docs).
-Deployed to `https://docs.swmansion.com/react-native-enriched-markdown/` via GitHub Pages.
+Deployed to `https://docs.swmansion.com/enriched-markdown/` via GitHub Pages (`baseUrl: '/enriched-markdown/'`).
 
 ## Working in this folder
 
@@ -15,8 +15,10 @@ Deployed to `https://docs.swmansion.com/react-native-enriched-markdown/` via Git
 ## Content
 
 - Pages live in `docs/`, served at the site root (`routeBasePath: '/'`). The
-  homepage is `docs/introduction/getting-started.mdx` (`slug: /getting-started`,
-  merges the old intro + installation + getting-started). The bare root `/`
+  homepage is `docs/introduction/getting-started.mdx` (`slug: /getting-started`).
+  It is an orientation page, not a quick start: it deliberately carries no
+  install command or package name and routes the reader to
+  `react-native/basics/installation` for those. The bare root `/`
   is a redirect to it (`src/pages/index.tsx`). Do NOT give a real doc `slug: /`:
   t-rex-ui treats the exact root URL as a marketing "landing" page and hides the
   mobile hamburger + doc sidebar there (`usePageType` keys off
@@ -60,6 +62,20 @@ user-experience/      (55)  accessibility, rtl, copy-options
 misc/                 (60)  compatibility.mdx, breaking-changes,
                             known-limitations, roadmap, contributing
 ```
+
+  **iOS and Android are currently hidden from the build.** The two packages are
+  not released yet, so `docusaurus.config.js` excludes `ios/**` and
+  `android/**` from the docs plugin unless `SHOW_UNRELEASED_PLATFORMS=1` is
+  set. The page sources stay in the tree, untouched. Everything the released
+  sections used to say about those packages - platform tabs, table columns,
+  cross-links - is commented out in place with `{/* ... */}` and tagged
+  `UNRELEASED PLATFORMS`; several of those comments also record where the
+  hidden prose had gone stale, so read them before restoring anything. To bring
+  the trees back: drop the two globs from `exclude`, then
+  `grep -rn "UNRELEASED PLATFORMS" docs/` and work through each site.
+  `onBrokenLinks: 'throw'` is what keeps the two states honest - a leftover
+  link into either tree fails the build. On the homepage the two bullets stay
+  visible but unlinked, marked with `<ComingSoonBadge />`.
 
   iOS and Android are **standalone native packages** with their own doc trees
   (native devs install them directly); `react-native/` documents the RN package.
@@ -202,7 +218,10 @@ The API-reference pages also use a few small MDX components registered in
 (`src/components/PlatformBadge`) flag platform-specific props in a heading, and
 `PropInfo` (`src/components/PropInfo`) renders each prop's Type/Default as a
 compact fixed-width table (`<PropInfo type="boolean" default="true" />`, or
-`required`) instead of a Markdown table.
+`required`) instead of a Markdown table. The same module exports
+`ComingSoonBadge`, an iconless amber badge for something documented but not
+released yet - used on the homepage next to the hidden iOS and Android
+sections.
 
 The examples render the library's **web build** in the browser -
 `docusaurus.config.js` aliases the bare `react-native-enriched-markdown`

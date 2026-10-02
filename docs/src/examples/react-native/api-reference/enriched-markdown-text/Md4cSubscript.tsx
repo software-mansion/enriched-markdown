@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { defaultMarkdownStyle } from './theme';
 
 const markdown =
-  'With `subscript` on, write H~2~O and CO~2~. On the other hand ~~this~~ is allways strikethrough';
+  'With `subscript` on, write H~2~O and CO~2~. Double tildes are unaffected, so ~~this~~ is still strikethrough.';
 
 export default function App() {
   const isDark = useColorScheme() === 'dark';
@@ -15,6 +15,7 @@ export default function App() {
       <EnrichedMarkdownText
         markdown={markdown}
         markdownStyle={markdownStyle}
+        flavor="github"
         md4cFlags={{ subscript: true }}
       />
     </View>

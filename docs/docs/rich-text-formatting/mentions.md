@@ -9,7 +9,7 @@ import DisplayMentionsSrc from '!!raw-loader!@site/src/examples/react-native/ric
 
 A mention is just a Markdown link with a custom URL scheme - `[@Alice](user://alice)`. There is no dedicated mention token, which means mentions work with **both** components: `EnrichedMarkdownText` displays them as styled, tappable links, and `EnrichedMarkdownTextInput` additionally lets users author them interactively as they type.
 
-## A mention is just a link
+## A mention is just a link {#styling-mentions-with-linkvariants}
 
 Because a mention is an ordinary link, everything the library already does with links applies:
 
@@ -25,7 +25,9 @@ markdownStyle={{
 }}
 ```
 
-Each key is a regex tested against the link URL; the first match wins, unspecified properties fall back to the base `link` style, and patterns are auto-sorted longest-first. `linkVariants` is a shared style property, so the same config styles mentions in the renderer and the editor alike.
+Each key is a regex tested against the link URL; the first match wins, unspecified properties fall back to the base `link` style, and patterns are auto-sorted longest-first.
+
+Both components accept a `linkVariants` key, so the same config styles mentions in the renderer and the editor. The two types are not quite interchangeable, though: the renderer's `LinkVariantStyle` has a `fontFamily` field and the editor's does not, so an object you intend to share must leave `fontFamily` unset to typecheck as `MarkdownTextInputStyle`.
 
 - **Interaction** is through the usual link callbacks - a mention tap is a link tap, delivered with the mention's URL.
 
@@ -33,40 +35,17 @@ Each key is a regex tested against the link URL; the first match wins, unspecifi
 
 Rendering content that already contains mentions needs nothing special: pass the Markdown to the display component, style the schemes with `linkVariants`, and route taps by scheme in `onLinkPress`.
 
-<CodeTabs groupId="platform">
-<Tab label="React Native">
-
 <LivePreview src={DisplayMentionsSrc} />
 
-</Tab>
-<Tab label="iOS">
+{/* UNRELEASED PLATFORMS: the standalone iOS and Android SDKs display mentions
+(a mention tap is an ordinary link tap, routed by scheme through the SwiftUI
+`openURL` action / Compose `onLinkPress`), but neither has a `linkVariants`
+equivalent, so a mention cannot be styled apart from a regular link there.
+Restore those tabs, and the links to /ios/api-reference/style-properties#link
+and /android/api-reference/enriched-markdown-text#onlinkpress, when those
+packages ship. */}
 
-Half of this works today. A mention is an ordinary link, so routing a tap by scheme needs nothing special:
-
-```swift
-EnrichedMarkdownText(content)
-  .onLinkPress { url in
-    guard url.scheme == "user" else {
-      UIApplication.shared.open(url)
-      return
-    }
-    openProfile(url.host)
-  }
-```
-
-What is missing is the **styling**: the standalone iOS SDK has no `linkVariants` equivalent, so every link - mention or not - uses the single [`Link()`](/ios/api-reference/style-properties#link) style. Per-URL link variants are on the [roadmap](/misc/roadmap#native-renderer-parity).
-
-</Tab>
-<Tab label="Android">
-
-The same split applies: [`onLinkPress`](/android/api-reference/enriched-markdown-text#onlinkpress) hands you the mention's URL and you route by scheme, but there is no `linkVariants` equivalent, so mentions cannot be styled apart from ordinary links. See the [roadmap](/misc/roadmap#native-renderer-parity).
-
-</Tab>
-</CodeTabs>
-
-To make a mention tappable, add `onLinkPress` and route by scheme (`url.startsWith('user://')`).
-
-That is the whole story for read-only surfaces - message lists, comment threads, previews. The rest of this page is about letting users _write_ mentions in the editor.
+That is the whole story for read-only surfaces - message lists, comment threads, previews. It works on web too. The rest of this page is about letting users _write_ mentions in the editor, which is **native only** - there is no web editor, so none of the authoring API below exists on web.
 
 ## Authoring mentions
 
@@ -74,7 +53,7 @@ That is the whole story for read-only surfaces - message lists, comment threads,
 
 ### The mention flow
 
-1. The user types an indicator from `mentionIndicators` (`@`, `#`) - or a toolbar calls `startMention('@')`. `onStartMention` fires; show your list.
+1. The user types an indicator you listed in `mentionIndicators` - or a toolbar calls `startMention('@')`. `onStartMention` fires; show your list. There is no default: with the prop unset no flow ever starts, and `['@', '#']` is a typical choice.
 2. As they keep typing, `onChangeMention` fires on each keystroke with the current query `text`; filter your list.
 3. The user picks a result and you call `insertMention(displayText, url)`. The active token becomes a link.
 4. `onEndMention` fires when the flow ends - a pick, a cancel, or the caret moving away; hide your list.
@@ -132,9 +111,18 @@ export default function Composer() {
         ref={ref}
         mentionIndicators={['@']}
         markdownStyle={MENTION_STYLE}
-        onStartMention={() => setOpen(true)}
+        // Reset the query on every new flow: native does not emit a
+        // Change event for the bare indicator, so a stale query would
+        // pre-filter the list the second time around.
+        onStartMention={() => {
+          setQuery('');
+          setOpen(true);
+        }}
         onChangeMention={({ text }) => setQuery(text)}
-        onEndMention={() => setOpen(false)}
+        onEndMention={() => {
+          setQuery('');
+          setOpen(false);
+        }}
         onCaretRectChange={setCaret}
       />
 
@@ -164,13 +152,14 @@ export default function Composer() {
 ```
 
 </Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
 </CodeTabs>
+
+{/* UNRELEASED PLATFORMS: neither standalone SDK has an editor, so there is no
+mention-authoring equivalent on iOS or Android today. */}
 
 ### Building the matching engine
 
-The library's job ends at detection. It watches the caret, isolates the active token, strips the indicator, and hands you the query through `onChangeMention` - that is the whole of the native contribution. Everything downstream is ordinary React state that you own:
+The library's job ends at detection. It watches the caret, isolates the active token, strips the indicator, and hands you the query through `onChangeMention` - that is all the native side does. Everything downstream is ordinary React state that you own:
 
 1. **Receive** the query from `onChangeMention({ text })` - a plain string, one whitespace-delimited token with the indicator already removed.
 2. **Match and rank** it against your data however you like.
@@ -189,8 +178,8 @@ const matches = USERS.filter((u) => u.name.toLowerCase().includes(query.toLowerC
 // Fuzzy - typo-tolerant ranking via a search library of your choice
 const matches = query ? fuzzySearch(USERS, query) : USERS;
 
-// Remote - fetch ranked results from your backend
-onChangeMention={({ text }) => debouncedSearch(text).then(setMatches)}
+// Remote - fetch ranked results from your backend, straight from the handler:
+//   onChangeMention={({ text }) => debouncedSearch(text).then(setMatches)}
 ```
 
 The same handler is free to score, sort, highlight, or group results before rendering - the library never sees your list.
@@ -201,7 +190,7 @@ Custom matching is a JavaScript concern, not a native one. Swapping `startsWith`
 
 ### Positioning the suggestion list
 
-`onCaretRectChange` reports the caret's `{ x, y, width, height }` relative to the input. Combine it with the input's own on-screen position (from `onLayout`) to anchor a floating popup just below the caret:
+`onCaretRectChange` reports the caret's `{ x, y, width, height }` relative to the input. Combine it with the input's own position (`onLayout` gives you a position relative to the parent; use `measureInWindow` on the ref for screen coordinates) to anchor a floating popup just below the caret:
 
 ```tsx
 top: inputLayout.y + caret.y + caret.height + 4,
@@ -216,21 +205,25 @@ If the list sits inside the same container as the input (as in the example above
 - **Debounce** - `onChangeMention` fires on every keystroke, so debounce network-backed suggestion lookups.
 - **Toolbar triggers** - call `focus()` before `startMention()` if the input isn't already focused.
 - **URL schemes** - custom schemes (`user://`, `channel://`) both drive `linkVariants` styling and let your `onLinkPress` handler tell a mention from a normal link.
+- **`insertMention` needs an active flow** - outside one it is a no-op, so a "recent mentions" toolbar button must use `insertLink(text, url)` instead.
+- **A trailing space is appended** by `insertMention` unless the next character is already whitespace, and the caret is parked after it.
+- **A flow never starts inside an existing link**, which is what makes re-editing an inserted mention inert.
+- **No `Change` event for a bare indicator** - typing `@` alone emits `onStartMention` and no `onChangeMention`, which is why the example resets `query` on start.
+
+:::caution
+Indicator matching is **first-in-array, not longest-match**: the first entry of `mentionIndicators` that prefixes the token wins. With `['@', '@@']` the two-character indicator can never match, because `@` always matches first. List longer indicators first.
+:::
 
 ## Reference
 
-Displaying mentions uses ordinary display-component styling (`linkVariants` and the link-press callback); authoring adds the mention surface on the editor: a `mentionIndicators` prop, the start/change/end mention events (`{ indicator }`, `{ indicator, text }`, `{ indicator }`), the `startMention` / `insertMention` ref methods, and a caret-rect change event for positioning. See your platform's reference for exact signatures and defaults.
-
-<CodeTabs groupId="platform">
-<Tab label="React Native">
+Displaying mentions uses ordinary display-component styling (`linkVariants` and the link-press callback); authoring adds the mention surface on the editor: a `mentionIndicators` prop, the start/change/end mention events, the `startMention` / `insertMention` ref methods, and a caret-rect change event for positioning.
 
 - Prop [`mentionIndicators`](/react-native/api-reference/enriched-markdown-text-input#mentionindicators) - the trigger strings that start a flow.
 - Events [`onStartMention`](/react-native/api-reference/enriched-markdown-text-input#onstartmention) `{ indicator }`, [`onChangeMention`](/react-native/api-reference/enriched-markdown-text-input#onchangemention) `{ indicator, text }`, [`onEndMention`](/react-native/api-reference/enriched-markdown-text-input#onendmention) `{ indicator }`.
-- Ref methods `startMention(indicator)` and `insertMention(displayText, url)`.
+- Ref methods [`startMention(indicator)`](/react-native/api-reference/enriched-markdown-text-input#startmentionindicator-string) and [`insertMention(displayText, url)`](/react-native/api-reference/enriched-markdown-text-input#insertmentiondisplaytext-string-url-string).
 - [`onCaretRectChange`](/react-native/api-reference/enriched-markdown-text-input#oncaretrectchange) - caret geometry for positioning.
 - Displaying: [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) with `markdownStyle.linkVariants` and `onLinkPress`.
 
-</Tab>
-<Tab label="iOS"><ComingSoon platform="iOS" /></Tab>
-<Tab label="Android"><ComingSoon platform="Android" /></Tab>
-</CodeTabs>
+{/* UNRELEASED PLATFORMS: half of this reference exists natively - the
+standalone SDKs can display and route mentions - but neither has an editor or a
+`linkVariants` equivalent. Restore the iOS/Android tabs when they ship. */}

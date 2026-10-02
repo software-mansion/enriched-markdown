@@ -87,11 +87,21 @@ const config = {
           // iOS and Android are not released yet, so their docs are excluded
           // from the build by default. Set SHOW_UNRELEASED_PLATFORMS=1 to
           // include them (e.g. to preview locally or at launch).
+          //
+          // The two trees are excluded wholesale rather than marked
+          // `unlisted`, so that `onBrokenLinks: 'throw'` keeps catching any
+          // cross-section link that still points into them. Prose in the
+          // released sections that describes the standalone SDKs is commented
+          // out with `{/* ... */}` and tagged `UNRELEASED PLATFORMS` - grep for
+          // that marker to restore everything in one pass.
           exclude: [
             '**/_*.{js,jsx,ts,tsx,md,mdx}',
             '**/_*/**',
             '**/*.test.{js,jsx,ts,tsx}',
             '**/__tests__/**',
+            ...(process.env.SHOW_UNRELEASED_PLATFORMS
+              ? []
+              : ['ios/**', 'android/**']),
           ],
           editUrl:
             'https://github.com/software-mansion/enriched-markdown/edit/main/docs/',

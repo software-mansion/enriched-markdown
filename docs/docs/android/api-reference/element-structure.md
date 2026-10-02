@@ -193,4 +193,4 @@ The parser understands more than the renderer draws. These constructs parse with
 A construct with no renderer has its text **dropped from the output** rather than shown unstyled, so enabling [`latexMath`](/android/api-reference/enriched-markdown-text#latexmath) or [`highlight`](/android/api-reference/enriched-markdown-text#highlight) makes that content vanish. Both flags are off by default; leave them off until the renderers land. Spoilers have no flag to enable, so they are simply parsed and skipped.
 :::
 
-See the [roadmap](/misc/roadmap#android-renderer) for what is landing next.
+See the [roadmap](/misc/roadmap) for what is landing next.

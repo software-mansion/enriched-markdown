@@ -203,7 +203,7 @@ Both are off by default, and both are set per view through [`options`](/ios/api-
 
 Paragraph text resolves its own base direction from the **first strong character**, the way any native text view does, so a document that mixes Arabic or Hebrew with Latin lays each paragraph out correctly with nothing to configure. There is no writing-direction modifier.
 
-The decorations drawn around the text - list bullets and numbers, task checkboxes, blockquote and admonition bars - currently mirror with the **app's** layout direction rather than per paragraph, so an RTL paragraph in an LTR app keeps its markers on the left. Fenced code blocks are pinned left-to-right deliberately, so code reads as written. See [RTL support](/user-experience/rtl) for how right-to-left content behaves, and the [roadmap](/misc/roadmap#ios) for per-paragraph decorations.
+The decorations drawn around the text - list bullets and numbers, task checkboxes, blockquote and admonition bars - currently mirror with the **app's** layout direction rather than per paragraph, so an RTL paragraph in an LTR app keeps its markers on the left. Fenced code blocks are pinned left-to-right deliberately, so code reads as written. See [RTL support](/user-experience/rtl) for how right-to-left content behaves, and the [roadmap](/misc/roadmap) for per-paragraph decorations.
 
 ## Raw HTML
 
@@ -222,4 +222,4 @@ HTML in the source is **not** rendered. An inline tag stays literal text - `<b>b
 Unlike a construct that is missing entirely, a node type with no renderer here still renders **its children**, so unsupported syntax loses its styling rather than its text. Nothing you write silently disappears from the document. In a `DEBUG` build the renderer also logs `No renderer for node type '…'; rendering its children only.` the first time it meets one.
 :::
 
-See the [roadmap](/misc/roadmap#ios) for what is landing next.
+See the [roadmap](/misc/roadmap) for what is landing next.

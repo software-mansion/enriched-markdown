@@ -1,16 +1,18 @@
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { useEffect, useState } from 'react';
 
-const full = `Here are the results:
+const fence = '```';
+
+const full = `Here is what I found.
 
 | Model | Score |
 | ----- | ----: |
 | A     |    91 |
 | B     |    87 |
 
-\`\`\`ts
-const score = results.at(0);
-\`\`\`
+${fence}ts
+const best = results.at(0);
+${fence}
 `;
 
 export default function App() {
@@ -32,12 +34,7 @@ export default function App() {
       markdown={markdown}
       flavor="github"
       streamingAnimation
-      streamingConfig={{
-        // Hold incomplete tables back until they are complete...
-        tableMode: 'hidden',
-        // ...but stream code line-by-line as it arrives.
-        codeBlockMode: 'progressive',
-      }}
+      streamingConfig={{ tableMode: 'hidden', codeBlockMode: 'progressive' }}
     />
   );
 }

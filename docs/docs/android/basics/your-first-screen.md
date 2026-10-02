@@ -85,7 +85,7 @@ Anything you don't set keeps its default, so a style is a set of overrides rathe
 
 ## Editor on Android
 
-There is no editor on Android **yet**. `EnrichedMarkdownTextInput` - the live rich text input that the React Native package ships - has no Android counterpart today: this package renders Markdown, it does not edit it. Bringing the editor to the native packages is on the [roadmap](/misc/roadmap#the-editor-on-native).
+There is no editor on Android **yet**. `EnrichedMarkdownTextInput` - the live rich text input that the React Native package ships - has no Android counterpart today: this package renders Markdown, it does not edit it. Bringing the editor to the native packages is on the [roadmap](/misc/roadmap).
 
 ## Next steps
 

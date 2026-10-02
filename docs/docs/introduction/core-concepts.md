@@ -5,9 +5,9 @@ sidebar_position: 2
 
 # Core concepts
 
-In Enriched Markdown **Markdown is the shared format** between the two components. `EnrichedMarkdownTextInput` _produces_ Markdown as the user types, and `EnrichedMarkdownText` _consumes_ Markdown to render it. If you understand the Markdown syntax below, you understand what both components can express.
+In Enriched Markdown, **Markdown is the shared format** between the two components. `EnrichedMarkdownTextInput` _produces_ Markdown as the user types, and `EnrichedMarkdownText` _consumes_ Markdown to render it. If you understand the Markdown syntax below, you understand what both components can express.
 
-This page is a primer on that syntax and the flavor that decides which parts of it are available. It's platform-neutral - the same Markdown drives iOS, Android, and React Native.
+This page is a primer on that syntax and the flavor that decides which parts of it are available. It's platform-neutral - the same Markdown string drives every target the library renders to.
 
 ## What is Markdown?
 
@@ -24,11 +24,11 @@ Markdown elements fall into two families, and the distinction matters when you c
 - **Block elements** occupy whole lines and stack vertically: headings, paragraphs, lists, blockquotes, code blocks, tables. They establish structure.
 - **Inline elements** live _within_ a block and style a run of text: bold, italic, strikethrough, inline code, links.
 
-Inline elements inherit typography from the block that contains them - bold text inside a heading takes the heading's size. For the full breakdown of which elements exist, how they nest, and how inheritance works, see the per-platform **Element structure** reference.
+Inline elements inherit typography from the block that contains them - bold text inside a heading takes the heading's size. For the full breakdown of which elements exist, how they nest, and how inheritance works, see the [Element structure](/react-native/api-reference/element-structure) reference.
 
 ## Markdown syntax
 
-The examples below show the **raw Markdown** you write on the left, and describe what it renders to. This is the CommonMark core that every platform supports.
+The examples below show the **raw Markdown** you write, and describe what it renders to. This is the CommonMark core that every target supports, in both flavors.
 
 :::tip
 This page is a practical primer, not an exhaustive reference. For the complete, authoritative rules of the core syntax, see the [CommonMark specification](https://spec.commonmark.org/).
@@ -39,19 +39,19 @@ This page is a practical primer, not an exhaustive reference. For the complete, 
 Inline formatting applies to a span of characters _inside_ a paragraph.
 
 ```md
-**bold** and **also bold**
-_italic_ and _also italic_
-~~strikethrough~~
+**bold** and __also bold__
+*italic* and _also italic_
 `inline code`
 ```
 
-- `**text**` or `__text__` → **bold**
-- `*text*` or `_text_` → _italic_
-- `~~text~~` → ~~strikethrough~~
-- `` `text` `` → `inline code`, rendered in a monospace font
+- `**text**` or `__text__` - **bold**
+- `*text*` or `_text_` - _italic_
+- `` `text` `` - `inline code`, rendered in a monospace font
+
+Strikethrough (`~~text~~`) is **not** part of the CommonMark core - it is a GitHub Flavored Markdown extension, covered under [Markdown flavors](#markdown-flavors) below.
 
 :::caution
-With specific extensions enabled meaning of `__text__` and `_text_` may change. The `*` syntax does not change, hence its safer to use. Learn more in platform-specific section about `md4c flags`
+With certain extensions enabled, the meaning of `__text__` and `_text_` may change. The `*` syntax never changes, so it is the safer choice. Learn more about [`md4cFlags`](/react-native/api-reference/enriched-markdown-text#md4cflags).
 :::
 
 You can combine them - for example `***bold italic***` applies _**bold and italic together**_.
@@ -98,7 +98,7 @@ Unordered lists use `-`, `*`, or `+` as the bullet. Ordered lists use a number f
 ```
 
 :::tip
-You can start ordered list from number different than `1.`; just start with desired first number for example `12.`.
+An ordered list does not have to start at `1.` - begin with the number you want, for example `12.`.
 :::
 
 ### Blockquotes
@@ -113,7 +113,7 @@ Prefix a line with `>` to quote it. Blockquotes can contain other Markdown and c
 
 ### Code blocks
 
-Fence a block of code with triple backticks. An optional language after the opening fence enables syntax highlighting.
+Fence a block of code with triple backticks. An optional language after the opening fence enables syntax highlighting in the React Native package on iOS and Android.
 
 ````md
 ```tsx
@@ -135,46 +135,27 @@ Three or more `-`, `*`, or `_` on their own line render a divider.
 
 ## Markdown flavors
 
-There is a small CommonMark core that every Markdown parser agrees on (everything above), plus optional extensions layered on top. Enriched Markdown exposes this through the `flavor` prop:
+There is a small CommonMark core that every Markdown parser agrees on (everything above), plus optional extensions layered on top. The React Native package exposes this through the `flavor` prop:
 
 - **CommonMark** (default) - the standard core syntax.
 - **GitHub Flavored Markdown (GFM)** - CommonMark plus **tables**, **task lists**, **strikethrough** and much more. Opt in with `flavor="github"`.
-<CodeTabs groupId="platform">
 
-<Tab label="React Native">
 ```tsx
 <EnrichedMarkdownText flavor="github" markdown={markdown} />
 ```
-</Tab>
-<Tab label="iOS">
 
-The standalone iOS SDK has no `flavor` selector. GFM's **tables**, **task lists** and **strikethrough** are always on and cannot be turned off; the remaining extensions are individual parsing options:
+{/* UNRELEASED PLATFORMS: the standalone iOS and Android SDKs have no `flavor`
+selector - GFM's tables, task lists and strikethrough are always on there, and
+the remaining extensions are individual parsing options
+(`MarkdownParsingOptions` / `Md4cFlags`). Restore these tabs, and the links to
+`/ios/guides/parser-extensions` and `/android/guides/parser-extensions`, when
+those packages ship. */}
 
-```swift
-EnrichedMarkdownText(markdown, options: MarkdownParsingOptions(underline: true, admonitions: true))
-```
+:::note
+The web build has no `flavor` prop - it always parses GFM. See [Web support](/react-native/guides/web-support).
+:::
 
-See [Parser extensions](/ios/guides/parser-extensions).
-
-</Tab>
-<Tab label="Android">
-
-The standalone Android SDK has no `flavor` selector either. GFM's **tables**, **task lists** and **strikethrough** are always on; the rest are individual flags:
-
-```kotlin
-EnrichedMarkdownText(
-  markdown = markdown,
-  flags = Md4cFlags(underline = true, admonitions = true),
-)
-```
-
-See [Parser extensions](/android/guides/parser-extensions).
-
-</Tab>
-
-</CodeTabs>
-
-Tables render with column alignment, rich text in cells, and header styling; task lists become interactive checkboxes you can respond to. See the per-platform `EnrichedMarkdownText` reference for the props that surface these.
+Tables render with column alignment, rich text in cells, and header styling; task lists become interactive checkboxes you can respond to. See the [`EnrichedMarkdownText` reference](/react-native/api-reference/enriched-markdown-text) for the props that surface these.
 
 For an in-depth look at why flavors exist, everything GFM adds, and how extensions are enabled, see [Markdown flavors](/react-native/guides/markdown-flavors) in the React Native guides. Some of the extensions themselves are defined by the [GitHub Flavored Markdown spec](https://github.github.com/gfm/).
 
@@ -182,7 +163,7 @@ For an in-depth look at why flavors exist, everything GFM adds, and how extensio
 
 Bringing it back to the two components:
 
-- **`EnrichedMarkdownTextInput`** is a imperative [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) editor - the user sees formatted text, not raw markup - that turns their edits into a Markdown string. Toggling bold on a selection wraps it in `**…**`; making a line a heading prepends `#`. You read the result through `onChangeMarkdown`.
+- **`EnrichedMarkdownTextInput`** is an imperative [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) editor - the user sees formatted text, not raw markup - that turns their edits into a Markdown string. Toggling bold on a selection wraps it in `**...**`; making a line a heading prepends `#`. You read the result through `onChangeMarkdown`.
 - **`EnrichedMarkdownText`** does the reverse: it parses a Markdown string from the `markdown` prop and renders native, styled text.
 
 Because both speak the same format, a string produced by the editor renders identically in the display. That round-trip - edit, serialize to Markdown, store, render - is the core workflow the rest of these docs build on.

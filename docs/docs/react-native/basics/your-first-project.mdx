@@ -18,9 +18,13 @@ With the package [installed](/react-native/basics/installation), let's put both 
 
 <LivePreview src={FirstTextSrc} />
 
-That's the whole setup for a display. The `onLinkPress` callback fires when the reader taps a link - here we hand the URL off to React Native's `Linking` so it opens in the browser.
+That is all a display needs. The `onLinkPress` callback fires when the reader taps a link - here we hand the URL off to React Native's `Linking` so it opens in the browser.
 
 You can restyle every element through the `markdownStyle` prop - see the [Style properties reference](/react-native/api-reference/style-properties) for the full list.
+
+:::note
+`defaultMarkdownStyle` is a docs helper, not part of the library: it gives every example on this site a complete light/dark palette in one line. In your own app, pass your own `markdownStyle` object or omit the prop entirely to get the built-in defaults.
+:::
 
 ## Building an editor
 
@@ -41,7 +45,7 @@ The same `toggle` / `onChangeState` pair drives italic, underline, strikethrough
 
 The mental model to carry into the rest of the docs: **Markdown is the shared source of truth between the two components.**
 
-- `EnrichedMarkdownTextInput` **edits** Markdown. Seed it with a Markdown string (`defaultValue`) and read the edited content back as Markdown at any time (`onChangeMarkdown`, or `getMarkdown()` on the ref).
+- `EnrichedMarkdownTextInput` **edits** Markdown. Seed it with a Markdown string (`defaultValue`) and read the edited content back as Markdown at any time (`onChangeMarkdown`, or `getMarkdown()` on the ref - it returns a `Promise<string>`).
 - `EnrichedMarkdownText` **renders** Markdown through its `markdown` prop.
 
 Because both sides speak the same format, content flows between them without conversion - edit in one, store the Markdown, render it in the other.
@@ -54,5 +58,5 @@ Because both sides speak the same format, content flows between them without con
 
 You now have a working display and editor and the model that ties them together. From here:
 
-- [Core concepts](/introduction/core-concepts) — the ideas behind the two components.
-- [Feature support](/introduction/supported-features) — what's supported and how to enable it.
+- [Core concepts](/introduction/core-concepts) - the ideas behind the two components.
+- [Feature support](/introduction/supported-features) - what's supported and how to enable it.

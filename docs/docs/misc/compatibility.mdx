@@ -10,6 +10,10 @@ support which React Native versions.
 
 <EnrichedCompatibility />
 
+The `nightly` row is the automated build published from `main` every day. It is
+ahead of every numbered release, so treat it as a preview rather than a
+supported version - see [Nightly builds](/react-native/basics/installation#nightly-builds).
+
 ## Platform requirements
 
 The library also needs these minimum platform versions:
@@ -17,40 +21,45 @@ The library also needs these minimum platform versions:
 | Platform | Minimum |
 | --- | --- |
 | Android | `minSdk 24` (Android 7.0) |
-| iOS (React Native) | React Native's minimum deployment target; some features require iOS 16+ |
-| iOS (standalone SDK) | iOS 16+ |
-| macOS | 14.0 |
+| iOS | React Native's minimum deployment target; [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems), `selectionMenuConfig` and `formatMenuConfig` additionally require iOS 16+ |
+| macOS | 14.0, via [react-native-macos](https://github.com/microsoft/react-native-macos) |
+| Web | Any browser with WebAssembly; MathML rendering for [LaTeX math](/rich-text-formatting/latex-math) needs Chrome 109+, Firefox, or Safari |
 
 The React Native package also requires the [New Architecture (Fabric)](https://reactnative.dev/architecture/landing-page).
 
-## iOS (standalone SDK)
+:::note
+The macOS row is the deployment target, not a `react-native-macos` version. The
+library's own macOS example app is built against `react-native-macos` 0.81,
+which trails the React Native versions in the table above. See
+[macOS support](/react-native/guides/macos).
+:::
 
-[`enriched-markdown-ios`](/ios/basics/installation) is published separately from the React Native package and versioned on its own line, so the table above does not apply to it - there is no React Native version to match against. It needs:
-
-| | |
-| --- | --- |
-| **Deployment target** | iOS 16.0 |
-| **Swift tools** | 5.9 (Xcode 15 or newer) |
-| **UI framework** | SwiftUI - the package exports a `View` |
-| **Dependency manager** | Swift Package Manager |
-
-The package declares `platforms: [.iOS(.v16)]` and its sources import UIKit, so it builds for iOS only - a macOS, watchOS, or tvOS target cannot depend on it.
-
-It ships two products: `EnrichedMarkdown`, which is the package, and the optional `EnrichedMarkdownLaTeX`, which adds `$…$` typesetting and pulls in a prebuilt engine plus the KaTeX fonts. See [Installation](/ios/basics/installation) for both, and [LaTeX math](/ios/guides/latex-math) for what the optional product costs.
-
-## Android (standalone SDK)
-
-[`enriched-markdown-android`](/android/basics/installation) is published separately from the React Native package and versioned on its own line, so the table above does not apply to it - there is no React Native version to match against. It needs:
+## Dependencies
 
 | | |
 | --- | --- |
-| **Min SDK** | `24` (Android 7.0) |
-| **Compile SDK** | `36` or newer |
-| **Java** | 11 |
-| **Kotlin** | 2.x, with the Compose compiler plugin (`org.jetbrains.kotlin.plugin.compose`) |
-| **UI toolkit** | Jetpack Compose, with Material 3 |
-| **AndroidX** | Required (`android.useAndroidX=true`) |
+| **Runtime dependencies** | None |
+| **Peer dependencies** | `react`, `react-native` (no version floor declared beyond the table above) |
+| **Optional peer dependency** | [`katex`](https://katex.org/) `>=0.16.0`, used only by the web build to typeset LaTeX |
+| **Expo** | Supported through `npx expo install` and a [development build](https://docs.expo.dev/develop/development-builds/introduction/). The library's compile-time settings cannot apply in Expo Go. There is no config plugin - see [Installation](/react-native/basics/installation#expo). |
 
-`compileSdk` is a floor rather than a suggestion: the Android Gradle Plugin fails the build when a dependency was compiled against a newer SDK than the consumer.
+{/* UNRELEASED PLATFORMS: this page also carried "iOS (standalone SDK)" and
+"Android (standalone SDK)" sections. Their verified contents, for when those
+packages ship:
 
-The artifacts are published to Maven Central under the `com.swmansion.enriched.markdown` group. See [Installation](/android/basics/installation) for the coordinates and what each artifact contains.
+iOS - deployment target iOS 16.0; Swift tools 5.9 (Xcode 15+); SwiftUI, the
+package exports a `View`; distributed through Swift Package Manager. It
+declares `platforms: [.iOS(.v16)]` and its sources import UIKit, so it builds
+for iOS only - a macOS, watchOS or tvOS target cannot depend on it. It ships
+two products: `EnrichedMarkdown`, and the optional `EnrichedMarkdownLaTeX`,
+which adds `$...$` typesetting and pulls in a prebuilt engine plus the KaTeX
+fonts.
+
+Android - minSdk 24; compileSdk 36 or newer (a floor, not a suggestion: AGP
+fails the build when a dependency was compiled against a newer SDK than the
+consumer); Java 11 as the bytecode target, though AGP 9.x and Kotlin 2.4 need a
+much newer JDK to run Gradle; Kotlin 2.x with the Compose compiler plugin;
+Jetpack Compose with Material 3; AndroidX required. Published to Maven Central
+under the `com.swmansion.enriched.markdown` group, currently at 0.2.0 - note
+that the android/ installation page still pins 0.1.0 and must be corrected
+before it is unhidden. */}

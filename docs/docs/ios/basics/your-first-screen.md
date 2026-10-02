@@ -72,7 +72,7 @@ Themes **layer**: each `.markdownTheme` stacks on top of the ones above it and o
 
 ## Editor on iOS
 
-This package **renders** Markdown; it does not edit it. There is no editable rich text field here yet - no live formatting as the reader types, no format bar, no imperative editing API. If you need one today, you'll have to build it over a `UITextView` or `TextEditor` yourself and render the result with `EnrichedMarkdownText`. An editor is on the [roadmap](/misc/roadmap#the-editor-on-native).
+This package **renders** Markdown; it does not edit it. There is no editable rich text field here yet - no live formatting as the reader types, no format bar, no imperative editing API. If you need one today, you'll have to build it over a `UITextView` or `TextEditor` yourself and render the result with `EnrichedMarkdownText`. An editor is on the [roadmap](/misc/roadmap).
 
 ## Next steps
 

@@ -17,7 +17,7 @@ The libraries:
 
 The example apps, each driven by a script from the root directory:
 
-- [`apps/react-native-example/`](./apps/react-native-example/) — `yarn react-native-example <start|ios|android>`. The main development app; Storybook and the Maestro E2E suite live here.
+- [`apps/react-native-example/`](./apps/react-native-example/) — `yarn react-native-example <start|ios|android>`. The main development app; Storybook lives here. (The Maestro E2E suite lives at the repository root, in `.maestro/`.)
 - [`apps/react-native-macos-example/`](./apps/react-native-macos-example/) — `yarn react-native-macos-example <start|macos>`.
 - [`apps/react-native-web-example/`](./apps/react-native-web-example/) — `yarn react-native-web-example web`. The web build running in a browser (Expo).
 - [`apps/ios-example/`](./apps/ios-example/) — `yarn ios-example`. A native Swift app using the iOS package directly.

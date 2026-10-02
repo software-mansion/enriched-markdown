@@ -14,6 +14,7 @@ import EditableSrc from '!!raw-loader!@site/src/examples/react-native/api-refere
 import AutoFocusSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/AutoFocus';
 import ScrollEnabledSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/ScrollEnabled';
 import MultilineSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/Multiline';
+import MarkdownShortcutsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/MarkdownShortcuts';
 import AutoCapitalizeSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/AutoCapitalize';
 import CursorColorSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/CursorColor';
 import SelectionColorSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/SelectionColor';
@@ -104,7 +105,7 @@ const styles = StyleSheet.create({
 
 The example above shows the two patterns you will use everywhere:
 
-- **Drive formatting through the ref.** Call methods like [`toggleBold()`](#ref-methods) to apply a style to the current selection or cursor.
+- **Drive formatting through the ref.** Call methods like [`toggleBold()`](#togglebold) to apply a style to the current selection or cursor.
 - **Read active styles from [`onChangeState`](#onchangestate).** It reports which styles are active at the cursor, so your toolbar can highlight the right buttons.
 
 ## Props
@@ -114,6 +115,8 @@ The example above shows the two patterns you will use everywhere:
 :::note
 Props marked with a <IosBadge /> or <AndroidBadge /> badge only take effect on that platform - they are flagged with a matching colored dot in the table of contents. Unlike [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text), the editable input is **not yet available on web**, so each example shows its source now; a runnable live preview will follow once web support lands.
 :::
+
+Every shape printed inline below is an exported type you can import from the package root: `MarkdownTextInputStyle`, `StyleState`, `HeadingLevel`, `ContextMenuItem`, `InputSelectionMenuConfig`, `FormatMenuConfig`, `MarkdownShortcutsConfig`, `CaretRect`, and the event payloads. Note that the unprefixed `ContextMenuItem` is **this** component's type; the renderer's equivalent is exported as `TextContextMenuItem`.
 
 ### `defaultValue`
 
@@ -149,7 +152,7 @@ Color of the placeholder text.
 
 ### `editable`
 
-Whether the input can be edited. When `false`, the content is still selectable but cannot be changed.
+Whether the input can be edited. On iOS and macOS, `false` leaves the content selectable but unchangeable. On Android it maps to the view's enabled state, which disables the whole text field - no touch, no selection, no focus.
 
 <PropInfo type="boolean" default="true" />
 
@@ -179,11 +182,37 @@ Whether the input accepts multiple lines.
 
 <LivePreview src={MultilineSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
+### `markdownShortcuts`
+
+Converts Markdown block prefixes typed at the start of a paragraph into real blocks, the way Notion, Bear and Obsidian do. Typing `## ` turns the line into a heading, `- ` into a bullet item, `1. ` into a numbered item - and the prefix plus its space is removed from the text.
+
+`true` enables all three. Pass a `MarkdownShortcutsConfig` to enable a subset; an omitted key is **off**, so `{ heading: true }` enables headings and nothing else.
+
+<PropInfo type="boolean | MarkdownShortcutsConfig" default="false" />
+
+```ts
+interface MarkdownShortcutsConfig {
+  heading?: boolean; // `#` through `######` + space
+  unorderedList?: boolean; // `-`, `*` or `+` + space
+  orderedList?: boolean; // `1.` or `1)` + space
+}
+```
+
+:::note
+It is off by default because it is a user-visible behavior change: an app where `#` starts a tag, or `-` is just a dash, would otherwise see those characters disappear as the user types.
+:::
+
+<LivePreview src={MarkdownShortcutsSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+
 ### `autoCapitalize`
 
 Auto-capitalization behavior, mirroring the [prop of the same name](https://reactnative.dev/docs/textinput#autocapitalize) on React Native's `TextInput`.
 
 <PropInfo type="'none' | 'sentences' | 'words' | 'characters'" default="'sentences'" />
+
+:::note
+The prop is typed as `string` so that future platform values do not break the type. Only the four values above are recognized; anything else silently falls back to `'none'` on Android.
+:::
 
 <LivePreview src={AutoCapitalizeSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
@@ -223,7 +252,7 @@ The input uses the regular `style` prop directly, just like a native `TextInput`
 
 ### `markdownStyle`
 
-Overrides for how formatted text is painted inside the input. Its type, `MarkdownTextInputStyle`, is a subset of the renderer's `MarkdownStyle` - the editor styles inline formatting, links, spoilers, and headings. Every field is optional and falls back to a default that matches the read-only [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) renderer, so content looks the same in the editor and a rendered preview. See [Editor styles](/react-native/api-reference/style-properties#editor-styles) for the full list of styleable properties.
+Overrides for how formatted text is painted inside the input. Its type, `MarkdownTextInputStyle`, is a subset of the renderer's `MarkdownStyle` - the editor styles inline formatting, links, spoilers, headings, and list item spacing. Every field is optional and falls back to a default that matches the read-only [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) renderer, so content looks the same in the editor and a rendered preview. See [Editor styles](/react-native/api-reference/style-properties#editor-styles) for the full list of styleable properties.
 
 <PropInfo type="MarkdownTextInputStyle" default="{}" />
 
@@ -284,7 +313,7 @@ interface ContextMenuItem {
 
 ### `selectionMenuConfig`
 
-Controls the built-in items in the text selection menu - the **Format** submenu and the **Copy as Markdown** action - and lets you localize their labels. Custom app actions are controlled separately with [`contextMenuItems`](#contextmenuitems). Each item takes `{ enabled, label }`: `enabled` toggles visibility and `label` overrides the English default. Available on iOS, Android, and macOS.
+Controls the built-in items in the text selection menu - the **Format** submenu and the **Copy as Markdown** action - and lets you localize their labels. Custom app actions are controlled separately with [`contextMenuItems`](#contextmenuitems). Each item takes `{ enabled, label }`: `enabled` toggles visibility and `label` overrides the English default. Available on iOS, Android, and macOS (iOS requires 16+; earlier versions ignore the prop).
 
 <PropInfo type="InputSelectionMenuConfig" default="{}" />
 
@@ -305,7 +334,7 @@ System **Cut / Copy / Paste / Select All** come from the platform and are alread
 
 ### `formatMenuConfig`
 
-Controls which items appear inside the **Format** submenu, and each item's label. Only effective while `selectionMenuConfig.format` is enabled (the default). Same `{ enabled, label }` shape as above. Available on iOS, Android, and macOS.
+Controls which items appear inside the **Format** submenu, and each item's label. Only effective while `selectionMenuConfig.format` is enabled (the default). Same `{ enabled, label }` shape as above. Available on iOS, Android, and macOS (iOS requires 16+; earlier versions ignore the prop).
 
 <PropInfo type="FormatMenuConfig" default="{}" />
 
@@ -382,7 +411,7 @@ Fires when the selection changes. Useful when applying [links](#setlinkurl-strin
 
 ### `onChangeState`
 
-Fires when the active style state changes. Each style reports `isActive`; `heading` additionally carries the cursor paragraph's `level`, and the list styles their nesting `depth`.
+Fires when the active style state changes. Each style reports `isActive`; `heading` additionally carries the cursor paragraph's `level`, and the list styles their nesting `depth`. `level` is a `HeadingLevel` (`1` to `6`) and is only meaningful while `heading.isActive` is true - it is never `0`, so test `isActive` rather than comparing the level.
 
 <PropInfo type="(state: StyleState) => void" />
 
@@ -394,8 +423,9 @@ interface StyleState {
   strikethrough: { isActive: boolean };
   spoiler: { isActive: boolean };
   link: { isActive: boolean };
-  // Heading level of the cursor's paragraph: 0 = none, 1-6 = H1-H6.
-  heading: { isActive: boolean; level: number };
+  // Heading level of the cursor's paragraph. Read `isActive` to find out
+  // whether the paragraph is a heading at all - `level` is never 0.
+  heading: { isActive: boolean; level: HeadingLevel }; // 1 | 2 | 3 | 4 | 5 | 6
   // `depth` is the 0-based nesting level and is only meaningful while
   // `isActive` is true (it is 0 when the cursor is not in a list).
   unorderedList: { isActive: boolean; depth: number };
@@ -417,10 +447,10 @@ interface OnKeyPressEvent {
 }
 ```
 
-The event is a React Native [`NativeSyntheticEvent`](https://reactnative.dev/docs/textinput#onkeypress), so read the key from `e.nativeEvent.key` - the same shape as `TextInput`'s `onKeyPress`.
+This is the one callback on this page that hands you the raw `NativeSyntheticEvent`, so read the key from `e.nativeEvent.key`; every other callback is unwrapped in JS and gives you a plain value.
 
 :::note
-On Android, the key reported for soft-keyboard input can lag actual typing when autocomplete suggestions are involved. Paste operations do not fire this event.
+On Android, the key reported for soft-keyboard input can lag actual typing when autocomplete suggestions are involved. Paste operations do not fire this event on **any** platform - paste is intercepted before the delegate that emits the key.
 :::
 
 <LivePreview src={OnKeyPressSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
@@ -547,7 +577,7 @@ Parses `text` as Markdown and inserts it at the cursor, replacing the selection 
 Copies the full content to the system clipboard, as if the user selected all and pressed **Copy**. The selection is left unchanged, and calling it on an empty input is a no-op.
 
 :::note
-On iOS and macOS the clipboard receives both plain text and a private Markdown pasteboard type, so pasting back into an `EnrichedMarkdownTextInput` restores the formatting; external apps receive plain text only. On Android the clipboard receives plain text only.
+Both platforms write a dual representation: clean plain text for external paste targets, plus the Markdown source under a private type (an extra pasteboard type on iOS and macOS, a vendor MIME type on Android). Pasting back into an `EnrichedMarkdownTextInput` therefore restores the formatting on either platform, while external apps receive plain text.
 :::
 
 <LivePreview src={CopyToClipboardSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
@@ -594,9 +624,9 @@ Toggles spoiler on the current selection or cursor.
 
 <LivePreview src={ToggleSpoilerSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
-### `toggleHeading(level: number)`
+### `toggleHeading(level: HeadingLevel)`
 
-Toggles a heading of the given level (`1`-`6`) on the cursor's paragraph. Calling it with the level already applied turns the paragraph back into regular text.
+Toggles a heading of the given level (`1`-`6`, the `HeadingLevel` union) on the cursor's paragraph. Calling it with the level already applied turns the paragraph back into regular text.
 
 :::note
 Headings are single-line blocks. An emptied heading line stays a heading until you toggle it off, and pressing Enter at the end of a heading starts a regular paragraph (headings do not continue like list items).
@@ -606,7 +636,7 @@ Headings are single-line blocks. An emptied heading line stays a heading until y
 
 ### `toggleUnorderedList()`
 
-Turns the cursor's paragraph(s) into bullet items, or back into regular paragraphs. Toggling one list type onto a line carrying the other replaces it, keeping the nesting depth.
+Turns every paragraph the selection touches into bullet items, or back into regular paragraphs. Toggling one list type onto a line carrying the other replaces it, keeping the nesting depth.
 
 <LivePreview src={ToggleUnorderedListSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
@@ -618,7 +648,7 @@ Same as above for numbered items. Numbering derives from each item's position am
 
 ### `indentList()`
 
-Nests the current item one level deeper (up to a maximum). On a non-list paragraph it starts a bullet list. Equivalent to **Tab** on a hardware keyboard.
+Nests the current item one level deeper, up to a maximum depth of 5. On a non-list paragraph it starts a bullet list. Equivalent to **Tab** on a hardware keyboard.
 
 <LivePreview src={IndentOutdentSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
@@ -656,7 +686,7 @@ Programmatically starts a mention flow by inserting `indicator` at the cursor. T
 
 ### `insertMention(displayText: string, url: string)`
 
-Replaces the active mention token with a formatted link, serialized as `[displayText](url)`. Only works while a mention flow is active.
+Replaces the active mention token with a formatted link, serialized as `[displayText](url)`. It is a **no-op unless a mention flow is active** - for a "recent mentions" button outside a flow, use [`insertLink`](#insertlinktext-string-url-string) instead. A trailing space is appended unless the next character is already whitespace, and the caret is parked after it.
 
 <LivePreview src={MentionsSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 

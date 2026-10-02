@@ -248,7 +248,7 @@ EnrichedMarkdownText(content)
 
 Configures the two items the package adds to the text selection edit menu. The system's own items - Copy, Look Up, Translate, Share - are untouched.
 
-These two are the only additions available: there is no hook for contributing your own menu items yet, and no switch for the long-press menu on a table. Custom context-menu items are on the [roadmap](/misc/roadmap#native-renderer-parity).
+These two are the only additions available: there is no hook for contributing your own menu items yet, and no switch for the long-press menu on a table. Custom context-menu items are on the [roadmap](/misc/roadmap).
 
 <PropInfo type="MarkdownSelectionMenu" default="MarkdownSelectionMenu()" />
 

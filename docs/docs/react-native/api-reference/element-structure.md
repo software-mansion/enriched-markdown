@@ -13,7 +13,7 @@ This page is the **catalog of every Markdown element** `react-native-enriched-ma
 
 - For the **syntax** of each element (how you write it), see [Core concepts](/introduction/core-concepts).
 - For **styling** each element through `markdownStyle`, see [Style properties](/react-native/api-reference/style-properties).
-- For **which platforms** support each element (iOS, Android, React Native, Web), see [Feature support](/introduction/supported-features).
+- For **which targets** support each element (React Native and Web), see [Feature support](/introduction/supported-features).
 
 The syntax and style-property columns below are pointers for scanning - follow the links above for the full detail.
 
@@ -32,17 +32,17 @@ Every element falls into one of two categories, and the distinction drives how i
 |---------|--------|----------------|-------------|
 | Headings | `# H1` to<br />`###### H6` | `h1` - `h6` | Six levels of headings |
 | Paragraphs | Plain text | `paragraph` | Default text container |
-| Blockquotes | `> Quote` | `blockquote` | Quoted content with accent bar, unlimited nesting |
+| Blockquotes | `> Quote` | `blockquote` | Quoted content with an accent bar, unlimited nesting |
 | Admonitions | `> [!NOTE]` | `blockquote.admonitions` | GitHub alert callouts with an icon and title header (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)) |
 | Code blocks | ` ``` code ``` ` | `codeBlock` | Multi-line code containers; with [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) rendered as a block component with a language header and copy-code button |
 | Unordered lists | `- Item`,<br />`* Item`, or<br />`+ Item` | `list` | Bullet lists with unlimited nesting |
 | Ordered lists | `1. Item` | `list` | Numbered lists with unlimited nesting |
-| Task lists | `- [x] Done`,<br />`- [ ] Todo` | `taskList` | Interactive checkboxes (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)) |
-| Thematic break | `---`, `***`,<br />or `___` | `thematicBreak` | Horizontal rule separator |
+| Task lists | `- [x] Done`,<br />`- [ ] Todo` | `taskList` | Interactive checkboxes (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)). There is no separate task-list node - a task item is a list item carrying `isTask` and `taskChecked` |
+| Thematic breaks | `---`, `***`,<br />or `___` | `thematicBreak` | Horizontal rule separator |
 | Images | `![alt](url)` | `image` | Block-level images with spacing |
 | Videos | `<video src="url" />` | `video` | Native video player (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)) |
 | Tables | `\| col \| col \|` | `table` | GFM tables with alignment support (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)) |
-| Math block | `$$...$$` | `math` | Block-level LaTeX math (display equations) (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)) |
+| Math blocks | `$$...$$` | `math` | Block-level LaTeX math (display equations) (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and [`md4cFlags={{ latexMath: true }}`](/react-native/api-reference/enriched-markdown-text#latexmath), the latter on by default) |
 
 ### Inline elements
 
@@ -52,14 +52,14 @@ Inline elements inherit the typography of their parent block and add their own s
 |---------|--------|----------------|------|
 | Bold | `**text**` (or `__text__`) | `strong` | Bold weight, optional color |
 | Italic | `*text*` (or `_text_`) | `em` | Italic style, optional color |
-| Underline | `_text_` | `underline` | Underline; custom underline color is iOS only (requires [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline)) |
-| Strikethrough | `~~text~~` | `strikethrough` | Strike line; custom line color is iOS only |
+| Underline | `_text_` | `underline` | Underline; custom underline color on iOS and web, Android always underlines in the text color (requires [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline)) |
+| Strikethrough | `~~text~~` | `strikethrough` | Strike line; custom line color on iOS and web, Android always strikes in the text color (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)) |
 | Bold + italic | `***text***` (or `___text___`) | `strong` + `em` | Combined emphasis |
-| Links | `[text](url)` | `link` | Optional font family, color, underline |
+| Links | `[text](url)` | `link` | Optional font family, color, background color, underline. Bare URLs autolink too, in both flavors. Per-URL overrides go through `linkVariants` |
 | Inline code | `` `code` `` | `code` | Monospace font, background, optional fontSize |
 | Inline images | `![alt](url)` | `inlineImage` | Inline images within the text flow (does not inherit block typography) |
-| Inline math | `$...$` | `inlineMath` | LaTeX math rendered within the text flow |
-| Spoiler | `\|\|text\|\|` | `spoiler` | Text concealed behind an animated particle overlay, tap to reveal. Can wrap inline text or an entire block (e.g. a full paragraph) |
+| Inline math | `$...$` | `inlineMath` | LaTeX math rendered within the text flow (requires [`md4cFlags={{ latexMath: true }}`](/react-native/api-reference/enriched-markdown-text#latexmath), on by default, plus the native math build) |
+| Spoiler | `\|\|text\|\|` | `spoiler` | Text concealed behind an overlay; tap to reveal. Animated particles by default, or an opaque rectangle with [`spoilerOverlay="solid"`](/react-native/api-reference/enriched-markdown-text#spoileroverlay). It is always an inline span, never a block |
 | Superscript | `^text^` | `superscript` | Raised text at a reduced font size (requires [`md4cFlags={{ superscript: true }}`](/react-native/api-reference/enriched-markdown-text#superscript)) |
 | Subscript | `~text~` | `subscript` | Lowered text at a reduced font size (requires [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript)) |
 | Highlight | `==text==` | `highlight` | Highlighted text with a background color (requires [`md4cFlags={{ highlight: true }}`](/react-native/api-reference/enriched-markdown-text#highlight)) |
@@ -67,8 +67,8 @@ Inline elements inherit the typography of their parent block and add their own s
 :::note
 Some delimiters are ambiguous, and how they parse depends on your [`md4cFlags`](/react-native/api-reference/enriched-markdown-text#md4cflags):
 
-- **Underscores** (`__text__`, `_text_`) mean bold/italic by default. Enable [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline) to treat `_text_` as underline instead.
-- **Single tildes** (`~text~`) mean strikethrough by default. Enable [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to treat them as subscript instead - double tildes (`~~text~~`) stay strikethrough regardless.
+- **Underscores** (`__text__`, `_text_`) mean bold/italic by default. Enabling [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline) takes `_` away from emphasis **entirely**: `_text_` becomes underline and `__text__` becomes doubly underlined rather than bold. The `*` forms are unaffected, which is why they are the safer ones to author with - and why the "(or `__text__`)" / "(or `___text___`)" alternatives in the table above do not hold with the flag on.
+- **Single tildes** (`~text~`) mean nothing by default. Enable [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to parse them as subscript. Double tildes (`~~text~~`) are strikethrough, but only under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) - under `commonmark` they render literally.
 - **Double pipes** (`||text||`) are always parsed as spoilers, so `a || b || c` renders `b` as a spoiler span rather than plain text.
 :::
 
@@ -142,7 +142,7 @@ H~3~O^+^  (mixed superscript and subscript)
 ```
 
 :::note
-Superscript and subscript can be nested inside other inline elements such as bold, italic, and links. They cannot be nested inside each other.
+Superscript and subscript can be nested inside other inline elements such as bold, italic, and links, and inside **each other** in either direction (`x^a~b~c^`, `x~a^b^c~`). Nesting compounds both the font scale and the baseline shift, so two levels deep gets small fast.
 :::
 
 ## Admonitions
@@ -188,15 +188,19 @@ Requires both [`flavor="github"`](/react-native/api-reference/enriched-markdown-
 
 Images are automatically detected as block or inline based on context:
 
-- **Block images** - when an image is the only content in a paragraph (standalone), it is treated as a block image and uses block-level spacing.
-- **Inline images** - when an image appears alongside other text content, it is treated as inline and aligns with the text baseline.
+- **Block images** use block-level spacing and sit on their own line.
+- **Inline images** align with the text baseline inside the surrounding run of text.
 
-You don't need to specify which type - the renderer determines it from the image's position in the content. Note that a single newline does not split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
+You don't need to specify which type - the renderer determines it from the image's position. Note that a single newline does not split a paragraph, so an image on its own source line directly below text is still inline; separate it with a blank line to make it a block image.
+
+:::caution
+**The rule differs between native and web.** On iOS and Android the decision is made from what *precedes* the image on its line: an image is a block image when nothing has been emitted before it on that line. On web it must be the *only* child of its paragraph. So `![alt](url) trailing text` renders as a **block** image on native and an **inline** image on web.
+:::
 
 :::important
-CommonMark has no block image. [`![alt](url)`](https://spec.commonmark.org/0.31.2/#images) is defined as an **inline** element wherever it appears, and the Supported elements table above lists "Block image" as a block only to describe what this renderer does with it.
+CommonMark has no block image. [`![alt](url)`](https://spec.commonmark.org/0.31.2/#images) is defined as an **inline** element wherever it appears; the `Images` row in the Supported elements table above is listed under block elements only to describe what this renderer does with a standalone one.
 
-The split is a rendering decision, not a parsing one: the parser emits the same inline image node in both cases, and the renderer flags the one that stands alone in its paragraph. Anything reading the AST - your own traversal, or another CommonMark implementation - sees an inline image either way.
+The split is a rendering decision, not a parsing one: the parser emits the same `Image` node in both cases, and the renderer marks the ones that are *inline*. Anything reading the AST - your own traversal, or another CommonMark implementation - sees an inline image either way.
 :::
 
 ## Videos
@@ -217,10 +221,10 @@ Quote the URL. An unquoted `src` ends at the first `/`, so `<video src=https://e
 Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the `enableVideo` build flag (on by default) - see [Optional native features](/react-native/guides/native-assets#optional-features). No other HTML is rendered: inline HTML is disabled and any other tag is ignored.
 :::
 
-A video inside a blockquote or an admonition renders normally. A video inside a **list item** is different: it is promoted out of the list and rendered as a standalone block above the remaining items, without a bullet or number. This may change in a future release.
+A video inside a blockquote or an admonition renders normally. A video inside a **list item** is different: it is promoted out of the list and rendered as a standalone block above the remaining items, without a bullet or number, which splits the list in two.
 
 :::caution
-Videos are not supported on the web build yet - the tag renders as nothing there.
+Videos do not render on web. The published WebAssembly parser predates the feature, so it never emits a `Video` node and the tag produces nothing there.
 :::
 
 ## Line breaks
@@ -277,6 +281,28 @@ Paragraph margins stack on top of the blank-line spacing. Set `paragraph.marginT
 :::tip
 To reproduce editor content line for line, combine `preserveBlankLines` with `hardSoftBreaks`. See the [Editor-style text](/rich-text-formatting/editor-style-text) guide for the full recipe.
 :::
+
+## What happens to an unsupported element
+
+Not every target renders every element, and the three renderers fail in **three different ways**. This matters most for spoilers on web and for math in a build compiled without the native math engine.
+
+| Target      | Unmapped node                                                                   |
+| ----------- | ------------------------------------------------------------------------------- |
+| iOS / macOS | Recurses into the node's children, so the **text survives** without its styling |
+| Android     | Falls back to a plain text renderer that emits only the node's own content and never visits children, so an unsupported **container loses all of its text** |
+| Web         | Drops the node **and its whole subtree**                                        |
+
+:::danger
+The clearest case is **spoilers on web**: the parser emits the node, the web renderer has no entry for it, so the concealed text is deleted rather than concealed - `a ||secret|| b` renders as `a  b`. Do not put content behind a spoiler if the same Markdown is rendered on web.
+:::
+
+## Reading the AST
+
+If you traverse the parsed tree yourself, these are the node type names the parser emits:
+
+`Document`, `Paragraph`, `Text`, `Link`, `Heading`, `LineBreak`, `Strong`, `Emphasis`, `Strikethrough`, `Underline`, `Code`, `Image`, `Blockquote`, `UnorderedList`, `OrderedList`, `ListItem`, `CodeBlock`, `ThematicBreak`, `Table`, `TableHead`, `TableBody`, `TableRow`, `TableHeaderCell`, `TableCell`, `LatexMathInline`, `LatexMathDisplay`, `Spoiler`, `Superscript`, `Subscript`, `Highlight`, `SoftBreak`, `BlankLine`, `Admonition`, `Video`.
+
+Two things are easy to miss: there is **no** `TaskList` node (a task item is a `ListItem` with `isTask` and `taskChecked`), and tables expand into five structural node types of their own. Match on the names rather than on any numeric ordinal - the ordinals are insertion order and new types are appended.
 
 ## Try it yourself
 

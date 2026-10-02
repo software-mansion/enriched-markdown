@@ -15,6 +15,7 @@ import {
   AndroidBadge,
   IosBadge,
   WebBadge,
+  ComingSoonBadge,
 } from '@site/src/components/PlatformBadge';
 import PropInfo from '@site/src/components/PropInfo';
 import CodeTabs, { Tab } from '@site/src/components/CodeTabs';
@@ -40,6 +41,7 @@ export default {
   AndroidBadge,
   IosBadge,
   WebBadge,
+  ComingSoonBadge,
   PropInfo,
   CodeTabs,
   Tab,

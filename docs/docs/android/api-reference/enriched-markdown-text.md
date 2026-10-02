@@ -195,7 +195,7 @@ The selection menu also carries two items of the library's own, both on by defau
 - **Copy as Markdown** puts the selection on the clipboard as Markdown source rather than rendered text.
 - **Copy Image URL** appears when the selection contains images with `http(s)` URLs, and copies them one per line.
 
-Neither can be hidden or relabeled from the Compose API yet - the view underneath takes a config for them, but `EnrichedMarkdownText` does not pass one through. See the [roadmap](/misc/roadmap#the-compose-api-surface) and [Copy options](/user-experience/copy-options).
+Neither can be hidden or relabeled from the Compose API yet - the view underneath takes a config for them, but `EnrichedMarkdownText` does not pass one through. See the [roadmap](/misc/roadmap) and [Copy options](/user-experience/copy-options).
 
 ### `imageRequestHeaders`
 
