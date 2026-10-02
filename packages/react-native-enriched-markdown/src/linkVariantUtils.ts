@@ -40,3 +40,26 @@ export function normalizeLinkVariantEntries(
       return true;
     });
 }
+
+/** Native pill geometry is finite and nonnegative before crossing codegen. */
+export function normalizeLinkPillStyle(style: LinkVariantStyle) {
+  const hasConfig = typeof style.pill === 'object' && style.pill !== null;
+  const config =
+    typeof style.pill === 'object' && style.pill !== null ? style.pill : {};
+  const dimension = (value: number | undefined, fallback: number) =>
+    value === undefined || !Number.isFinite(value)
+      ? fallback
+      : Math.max(0, value);
+  return {
+    pill: style.pill === true || hasConfig,
+    borderColor: config.borderColor ?? 'transparent',
+    label: config.label ?? '',
+    iconUri: config.iconUri ?? '',
+    iconTintColor: config.iconTintColor,
+    borderRadius: dimension(config.borderRadius, 8),
+    paddingHorizontal: dimension(config.paddingHorizontal, 6),
+    paddingVertical: dimension(config.paddingVertical, 2),
+    borderWidth: dimension(config.borderWidth, 0),
+    maxWidth: dimension(config.maxWidth, 0),
+  };
+}

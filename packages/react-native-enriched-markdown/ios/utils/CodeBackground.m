@@ -1,4 +1,5 @@
 #import "CodeBackground.h"
+#import "ENRMLinkPillAttachment.h"
 #import "ENRMUIKit.h"
 #import "RenderContext.h"
 
@@ -43,12 +44,31 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
                          if (NSIntersectionRange(range, charRange).length == 0)
                            return;
 
-                         [self drawCodeBackgroundForRange:range
-                                            layoutManager:layoutManager
-                                            textContainer:textContainer
-                                                  atPoint:origin
-                                          backgroundColor:backgroundColor
-                                              borderColor:self->_config.codeBorderColor];
+#if !TARGET_OS_OSX
+                         // Keep CodeAttributeName for extraction; attachments own their visual background.
+                         [textStorage enumerateAttribute:NSAttachmentAttributeName
+                                                 inRange:range
+                                                 options:0
+                                              usingBlock:^(id attachment, NSRange uncoveredRange, BOOL *innerStop) {
+                                                if ([attachment isKindOfClass:ENRMLinkPillAttachment.class])
+                                                  return;
+                                                if (NSIntersectionRange(uncoveredRange, charRange).length == 0)
+                                                  return;
+                                                [self drawCodeBackgroundForRange:uncoveredRange
+                                                                   layoutManager:layoutManager
+                                                                   textContainer:textContainer
+                                                                         atPoint:origin
+                                                                 backgroundColor:backgroundColor
+                                                                     borderColor:self->_config.codeBorderColor];
+                                              }];
+#else
+        [self drawCodeBackgroundForRange:range
+                           layoutManager:layoutManager
+                           textContainer:textContainer
+                                 atPoint:origin
+                         backgroundColor:backgroundColor
+                             borderColor:self->_config.codeBorderColor];
+#endif
                        }];
 }
 

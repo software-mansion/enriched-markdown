@@ -38,38 +38,39 @@ object LocalImageLoader {
   fun load(
     context: Context,
     source: String,
+    maxDimension: Int? = null,
   ): Bitmap? =
     try {
       val uri = Uri.parse(source)
       when (uri.scheme?.lowercase()) {
         null -> {
           if (source.startsWith('/')) {
-            ImageDownloader.decodeFileDownsampled(context, source)
+            ImageDownloader.decodeFileDownsampled(context, source, maxDimension)
           } else {
-            decodeResourceByName(context, source)
+            decodeResourceByName(context, source, maxDimension)
           }
         }
 
         "file" -> {
-          loadFileUri(context, uri)
+          loadFileUri(context, uri, maxDimension)
         }
 
         "asset" -> {
-          decodeStream(context) { context.assets.open(schemelessPath(uri)) }
+          decodeStream(context, maxDimension) { context.assets.open(schemelessPath(uri)) }
         }
 
         "content" -> {
-          decodeStream(context) {
+          decodeStream(context, maxDimension) {
             context.contentResolver.openInputStream(uri) ?: throw FileNotFoundException(source)
           }
         }
 
         "res" -> {
-          decodeResourceByName(context, schemelessPath(uri))
+          decodeResourceByName(context, schemelessPath(uri), maxDimension)
         }
 
         "data" -> {
-          decodeDataUri(context, source)
+          decodeDataUri(context, source, maxDimension)
         }
 
         else -> {
@@ -88,19 +89,20 @@ object LocalImageLoader {
   private fun loadFileUri(
     context: Context,
     uri: Uri,
+    maxDimension: Int?,
   ): Bitmap? {
     val path = uri.path ?: return null
     return when {
       path.startsWith(ASSET_PATH_PREFIX) -> {
-        decodeStream(context) { context.assets.open(path.removePrefix(ASSET_PATH_PREFIX)) }
+        decodeStream(context, maxDimension) { context.assets.open(path.removePrefix(ASSET_PATH_PREFIX)) }
       }
 
       path.startsWith(RES_PATH_PREFIX) -> {
-        decodeAndroidRes(context, uri)
+        decodeAndroidRes(context, uri, maxDimension)
       }
 
       else -> {
-        ImageDownloader.decodeFileDownsampled(context, path)
+        ImageDownloader.decodeFileDownsampled(context, path, maxDimension)
       }
     }
   }
@@ -112,6 +114,7 @@ object LocalImageLoader {
   private fun decodeAndroidRes(
     context: Context,
     uri: Uri,
+    maxDimension: Int?,
   ): Bitmap? {
     val segments = uri.pathSegments
     if (segments.size < 3) return null
@@ -122,12 +125,13 @@ object LocalImageLoader {
       Log.w(TAG, "No $directory resource named: $name")
       return null
     }
-    return decodeStream(context) { context.resources.openRawResource(resId) }
+    return decodeStream(context, maxDimension) { context.resources.openRawResource(resId) }
   }
 
   private fun decodeResourceByName(
     context: Context,
     name: String,
+    maxDimension: Int?,
   ): Bitmap? {
     if (name.isEmpty()) return null
     val normalized = name.lowercase().replace('-', '_')
@@ -139,23 +143,25 @@ object LocalImageLoader {
       Log.w(TAG, "No drawable or raw resource named: $normalized")
       return null
     }
-    return decodeStream(context) { context.resources.openRawResource(resId) }
+    return decodeStream(context, maxDimension) { context.resources.openRawResource(resId) }
   }
 
   private fun decodeDataUri(
     context: Context,
     source: String,
+    maxDimension: Int?,
   ): Bitmap? {
     val marker = source.indexOf(BASE64_MARKER)
     if (marker == -1) return null
     val bytes = Base64.decode(source.substring(marker + BASE64_MARKER.length), Base64.DEFAULT)
-    return ImageDownloader.decodeBytesDownsampled(context, bytes)
+    return ImageDownloader.decodeBytesDownsampled(context, bytes, maxDimension)
   }
 
   private inline fun decodeStream(
     context: Context,
+    maxDimension: Int?,
     open: () -> InputStream,
-  ): Bitmap? = open().use { ImageDownloader.decodeBytesDownsampled(context, it.readBytes()) }
+  ): Bitmap? = open().use { ImageDownloader.decodeBytesDownsampled(context, it.readBytes(), maxDimension) }
 
   private fun schemelessPath(uri: Uri): String = (uri.host.orEmpty() + uri.path.orEmpty()).trimStart('/')
 }
