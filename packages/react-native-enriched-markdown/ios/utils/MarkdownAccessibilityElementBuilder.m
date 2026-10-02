@@ -174,8 +174,10 @@ static const CGFloat kFocusRectPadding = 2.0;
   }
 
   NSMutableArray<NSString *> *valueParts = [NSMutableArray array];
-  if (listInfo && type != ElementTypeImage) {
-    [valueParts addObject:[self formatListAnnouncement:listInfo labels:labels]];
+  NSString *listAnnouncement =
+      (listInfo && type != ElementTypeImage) ? [self formatListAnnouncement:listInfo labels:labels] : nil;
+  if (listAnnouncement) {
+    [valueParts addObject:listAnnouncement];
   }
   NSString *blockquoteAnnouncement = [self blockquoteAnnouncementForRange:range textView:textView labels:labels];
   if (blockquoteAnnouncement) {
