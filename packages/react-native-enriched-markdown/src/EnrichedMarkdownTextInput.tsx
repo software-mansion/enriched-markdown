@@ -35,8 +35,8 @@ import type {
   HostInstance,
   NativeSyntheticEvent,
   ViewProps,
-  ViewStyle,
   TextStyle,
+  StyleProp,
   ColorValue,
 } from 'react-native';
 import { normalizeMarkdownShortcuts } from './normalizeMarkdownShortcuts';
@@ -239,7 +239,7 @@ export interface EnrichedMarkdownTextInputProps extends Omit<
   cursorColor?: ColorValue;
   selectionColor?: ColorValue;
   markdownStyle?: MarkdownTextInputStyle;
-  style?: ViewStyle | TextStyle;
+  style?: StyleProp<TextStyle>;
   onChangeText?: (text: string) => void;
   onChangeMarkdown?: (markdown: string) => void;
   onChangeSelection?: (selection: { start: number; end: number }) => void;
