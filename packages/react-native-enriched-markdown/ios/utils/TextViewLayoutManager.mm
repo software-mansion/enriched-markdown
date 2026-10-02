@@ -44,6 +44,63 @@
   [markerDrawer drawMarkersForGlyphRange:glyphsToShow layoutManager:self textContainer:textContainer atPoint:origin];
 }
 
+#pragma mark - Decoration baseline correction
+
+/// Returns the NSBaselineOffsetAttributeName value for the first character in
+/// the given glyph range, or 0 when the attribute is absent.
+///
+/// applyBaselineOffset (ParagraphStyleUtils) shifts glyphs upward so text is
+/// vertically centered within a line height larger than the font's natural
+/// height.  TextKit 1 does not account for this shift when drawing underline
+/// and strikethrough decorations — it draws them at the original, unshifted
+/// baseline.  Reading the attribute here lets the draw overrides below
+/// compensate by the same amount.
+- (CGFloat)baselineShiftForGlyphRange:(NSRange)glyphRange
+{
+  NSTextStorage *storage = self.textStorage;
+  if (!storage || storage.length == 0)
+    return 0;
+
+  NSUInteger charIndex = [self characterIndexForGlyphAtIndex:glyphRange.location];
+  if (charIndex >= storage.length)
+    return 0;
+
+  NSNumber *offset = [storage attribute:NSBaselineOffsetAttributeName atIndex:charIndex effectiveRange:NULL];
+  return offset ? offset.doubleValue : 0;
+}
+
+- (void)drawUnderlineForGlyphRange:(NSRange)glyphRange
+                     underlineType:(NSUnderlineStyle)underlineVal
+                    baselineOffset:(CGFloat)baselineOffset
+                  lineFragmentRect:(CGRect)lineRect
+            lineFragmentGlyphRange:(NSRange)lineGlyphRange
+                   containerOrigin:(CGPoint)containerOrigin
+{
+  CGFloat shift = [self baselineShiftForGlyphRange:glyphRange];
+  [super drawUnderlineForGlyphRange:glyphRange
+                      underlineType:underlineVal
+                     baselineOffset:baselineOffset + shift
+                   lineFragmentRect:lineRect
+             lineFragmentGlyphRange:lineGlyphRange
+                    containerOrigin:containerOrigin];
+}
+
+- (void)drawStrikethroughForGlyphRange:(NSRange)glyphRange
+                     strikethroughType:(NSUnderlineStyle)strikethroughVal
+                        baselineOffset:(CGFloat)baselineOffset
+                      lineFragmentRect:(CGRect)lineRect
+                lineFragmentGlyphRange:(NSRange)lineGlyphRange
+                       containerOrigin:(CGPoint)containerOrigin
+{
+  CGFloat shift = [self baselineShiftForGlyphRange:glyphRange];
+  [super drawStrikethroughForGlyphRange:glyphRange
+                      strikethroughType:strikethroughVal
+                         baselineOffset:baselineOffset + shift
+                       lineFragmentRect:lineRect
+                 lineFragmentGlyphRange:lineGlyphRange
+                        containerOrigin:containerOrigin];
+}
+
 #pragma mark - Safe Property Accessors
 
 // We split these into explicit methods to avoid the 'code 257' pointer corruption
