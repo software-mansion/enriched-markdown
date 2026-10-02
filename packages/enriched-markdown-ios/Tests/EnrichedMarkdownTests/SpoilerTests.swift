@@ -136,7 +136,9 @@ final class SpoilerTests: XCTestCase {
 
         let text = try XCTUnwrap(segments.first).concealedText
         XCTAssertEqual(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, config.paragraph.foregroundColor)
-        XCTAssertNil(text.attribute(.paragraphStyle, at: 0, effectiveRange: nil))
+        let style = try XCTUnwrap(text.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertEqual(style.minimumLineHeight, try XCTUnwrap(config.paragraph.lineHeight))
+        XCTAssertEqual(style.lineBreakMode, .byClipping)
     }
 
     @MainActor
@@ -168,15 +170,39 @@ final class SpoilerTests: XCTestCase {
         let drawn = try XCTUnwrap(inkBounds(of: overlay.concealedTextImage(), in: CGRect(origin: .zero, size: frame.size)))
 
         try revealFirstSpoiler(in: textView)
-        let rendered = UIGraphicsImageRenderer(bounds: textView.bounds).image { context in
-            textView.layer.render(in: context.cgContext)
-        }
-        let real = try XCTUnwrap(inkBounds(of: rendered, in: frame))
+        let real = try XCTUnwrap(inkBounds(of: snapshot(of: textView), in: frame))
 
-        XCTAssertEqual(drawn.minY, real.minY, accuracy: 1)
-        XCTAssertEqual(drawn.maxY, real.maxY, accuracy: 1)
-        XCTAssertEqual(drawn.minX, real.minX, accuracy: 1)
-        XCTAssertEqual(drawn.maxX, real.maxX, accuracy: 1)
+        XCTAssertEqual(drawn, real, accuracy: 1)
+    }
+
+    /// Inline code and highlight boxes come from the layout engine, not the
+    /// font, so they are the tell when the slice is laid out differently
+    /// from the text view: under a theme line height they have to top and
+    /// bottom out where the revealed text's do, and a quote's indent must
+    /// not push them along.
+    @MainActor
+    func testConcealedTextImagePaintsInlineBackgroundsWhereTheTextViewDoes() throws {
+        config.blockquote.lineHeight = 40
+        config.code.backgroundColor = .red
+        config.highlight.backgroundColor = .blue
+        let textView = makeLaidOutTextView(
+            "> Shown ||`code` and ==marked== up|| after",
+            options: MarkdownParsingOptions(highlight: true)
+        )
+        let overlay = try XCTUnwrap(overlays(in: textView).first)
+        let frame = overlay.frame
+        let image = overlay.concealedTextImage()
+        let canvas = CGRect(origin: .zero, size: frame.size)
+        let drawnCode = try XCTUnwrap(inkBounds(of: image, in: canvas, matching: .red))
+        let drawnHighlight = try XCTUnwrap(inkBounds(of: image, in: canvas, matching: .blue))
+
+        try revealFirstSpoiler(in: textView)
+        let rendered = snapshot(of: textView)
+        let realCode = try XCTUnwrap(inkBounds(of: rendered, in: frame, matching: .red))
+        let realHighlight = try XCTUnwrap(inkBounds(of: rendered, in: frame, matching: .blue))
+
+        XCTAssertEqual(drawnCode, realCode, accuracy: 1, "code box")
+        XCTAssertEqual(drawnHighlight, realHighlight, accuracy: 1, "highlight box")
     }
 
     @MainActor
@@ -464,17 +490,23 @@ final class SpoilerTests: XCTestCase {
     // MARK: - Helpers
 
     @MainActor
-    private func makeLaidOutTextView(_ markdown: String, width: CGFloat = 320) -> MarkdownTextView {
-        let textView = MarkdownTextView()
-        textView.frame = CGRect(x: 0, y: 0, width: width, height: 400)
-        textView.setMarkdownAttributedText(MarkdownRenderer.render(markdown, config: config))
-        textView.layoutIfNeeded()
-        return textView
+    private func makeLaidOutTextView(
+        _ markdown: String,
+        width: CGFloat = 320,
+        options: MarkdownParsingOptions = .commonMark
+    ) -> MarkdownTextView {
+        laidOutTextView(showing: MarkdownRenderer.render(markdown, config: config, options: options), width: width, config: config)
+    }
+
+    @MainActor
+    private func snapshot(of view: UIView) -> UIImage {
+        UIGraphicsImageRenderer(bounds: view.bounds).image { context in view.layer.render(in: context.cgContext) }
     }
 
     /// Bounding box, in points relative to `rect`'s origin, of the pixels in
-    /// `rect` that are more than faintly opaque; nil when there are none.
-    private func inkBounds(of image: UIImage, in rect: CGRect) -> CGRect? {
+    /// `rect` that are more than faintly opaque, and near `color` when one is
+    /// given; nil when there are none.
+    private func inkBounds(of image: UIImage, in rect: CGRect, matching color: UIColor? = nil) -> CGRect? {
         guard let cgImage = image.cgImage else { return nil }
         let scale = image.scale
         let width = cgImage.width, height = cgImage.height
@@ -489,11 +521,22 @@ final class SpoilerTests: XCTestCase {
         }
         guard drawn else { return nil }
 
+        let target = color.map { color -> [Int] in
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0
+            color.getRed(&red, green: &green, blue: &blue, alpha: nil)
+            return [red, green, blue].map { Int($0 * 255) }
+        }
+        func isInk(_ index: Int) -> Bool {
+            guard pixels[index + 3] > 64 else { return false }
+            guard let target else { return true }
+            return (0..<3).allSatisfy { abs(Int(pixels[index + $0]) - target[$0]) <= 60 }
+        }
+
         let columns = max(0, Int(rect.minX * scale))..<min(width, Int(rect.maxX * scale))
         let rows = max(0, Int(rect.minY * scale))..<min(height, Int(rect.maxY * scale))
         var minX = Int.max, maxX = -1, minY = Int.max, maxY = -1
         for row in rows {
-            for column in columns where pixels[(row * width + column) * 4 + 3] > 64 {
+            for column in columns where isInk((row * width + column) * 4) {
                 minX = min(minX, column); maxX = max(maxX, column)
                 minY = min(minY, row); maxY = max(maxY, row)
             }
