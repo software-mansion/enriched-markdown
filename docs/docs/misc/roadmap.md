@@ -5,7 +5,7 @@ sidebar_position: 4
 
 # Roadmap
 
-Where each package stands today and what is being worked on next. For what
+Where the library stands today and what is being worked on next. For what
 already ships, see [Feature support](/introduction/supported-features), and for
 the rough edges in what ships, [Known limitations](/misc/known-limitations) -
 this page covers the gaps.
@@ -18,54 +18,38 @@ the next releases; **planned** means it is on the list without a timeline yet.
 
 ## Status at a glance
 
-The React Native package leads. The standalone iOS and Android packages parse
-through the same C++ core, so syntax support arrives everywhere at once, but
-each renders with its own text stack and trails React Native in rendering
-features. The [web build](/react-native/guides/web-support) covers
-`EnrichedMarkdownText` only.
+The React Native package is what ships today, on iOS, Android, macOS and the
+web. The [web build](/react-native/guides/web-support) covers
+`EnrichedMarkdownText` only, and macOS runs the iOS code with a few gaps of its
+own.
 
-| Area | React Native | Web | iOS | Android |
-| --- | :-: | :-: | :-: | :-: |
-| CommonMark | Yes | Yes | Yes | Yes |
-| GFM (tables, task lists, strikethrough, autolinks) | Yes | Yes | Yes | Tables in progress |
-| Extended Markdown (underline, superscript, subscript, highlight, spoiler) | Yes | No spoiler | Yes | Spoiler in progress, highlight planned |
-| [LaTeX math](/rich-text-formatting/latex-math) | Yes | Yes | Yes | In progress |
-| [Markdown streaming](/rich-text-formatting/markdown-streaming) | Yes | Planned | Planned | Planned |
-| [Smart copy](/user-experience/copy-options) (Markdown, HTML, RTF, RTFD) | Yes | Planned | Yes | Partial |
-| [Accessibility](/user-experience/accessibility) & [RTL](/user-experience/rtl) | Yes | Yes | Yes | Partial |
-| `EnrichedMarkdownTextInput` (editor) | Yes | Planned | Planned | Planned |
-
-Where the table says **Partial** on Android:
-
-- **Smart copy** - the plain-text and HTML clipboard write works; the dedicated
-  *Copy as Markdown* and *Copy image URL* actions exist in the view but are not
-  exposed by the Compose API yet.
-- **Accessibility** - list and heading labels are in place; table, math, and
-  blockquote labels follow the renderers below, and the label strings are
-  hardcoded (no localization prop yet).
+| Area | iOS / Android | macOS | Web |
+| --- | :-: | :-: | :-: |
+| CommonMark | Yes | Yes | Yes |
+| GFM (tables, task lists, strikethrough, autolinks) | Yes | Yes | Yes |
+| [Admonitions](/react-native/api-reference/element-structure#admonitions) | Yes | Yes | Yes |
+| Extended Markdown (underline, superscript, subscript, highlight) | Yes | Yes | Yes |
+| Spoilers | Yes | Yes | Planned |
+| [Videos](/react-native/api-reference/element-structure#videos) | Yes | Yes | Planned |
+| [LaTeX math](/rich-text-formatting/latex-math) | Yes | Inline only | Yes |
+| [Code-block highlighting](/rich-text-formatting/code-highlighting) | Yes | Yes | Planned |
+| [Markdown streaming](/rich-text-formatting/markdown-streaming) | Yes | Instant reveal | Planned |
+| [Smart copy](/user-experience/copy-options) | Yes | Yes | Planned |
+| [Accessibility](/user-experience/accessibility) | Yes | Planned | Partial |
+| [RTL](/user-experience/rtl) | Yes | Yes | Container-level |
+| `EnrichedMarkdownTextInput` (editor) | Yes | Yes | Planned |
 
 ## In progress
 
-### Android renderer
+### macOS
 
-The parser already emits these nodes on Android - what is missing is the
-renderer, so each of these is close.
-
-- **GFM tables**, rendered as scrollable view segments.
-- **LaTeX math**, inline and block.
-- **Spoilers**, including the spoiler overlay.
-
-### iOS
-
-- **Block image sizing** - `maxHeight`, `aspectRatio`, and `resizeMode`. Both
-  native packages currently size images through height and corner radius only.
-- **Per-paragraph writing direction** - the first-strong resolution described in
-  [RTL support](/user-experience/rtl), brought to the iOS package.
-
-### Shared core
-
-- **HTML line breaks (`<br>`)** - the tag is being added to the parser; the
-  renderers follow once it lands.
+- **Block math.** A `$$...$$` equation under `flavor="github"` currently
+  produces no segment and no fallback text, so it disappears from the output.
+  Inline math renders correctly today.
+- **VoiceOver**, pending an `NSAccessibility` implementation - a no-op stub
+  ships now.
+- **Tail fade-in animation**, which falls back to an instant reveal.
+- **System font-scale observation.**
 
 ## Planned
 
@@ -73,55 +57,64 @@ renderer, so each of these is close.
 
 [Container blocks](https://spec.commonmark.org/0.31.2/#container-blocks) are the
 elements that hold other blocks as children. Blockquotes already do this
-correctly on every package - a quote's content is a recursive container that can
-nest paragraphs, code, and further quotes. We want the same treatment for the
-other container types, so **all list kinds** (ordered, unordered, and task
-lists) render arbitrary block content in their items the way blockquotes do,
-uniformly across React Native, web, iOS, and Android.
+correctly in the React Native package - a quote's content is a recursive
+container that can nest paragraphs, code, and further quotes. We want the same
+treatment for the other container types, so **all list kinds** (ordered,
+unordered, and task lists) render arbitrary block content in their items the way
+blockquotes do, on every target.
 
-### Native renderer parity
+### Web {#web}
 
-Available in React Native, not in either native package yet:
+The [web build](/react-native/guides/web-support) ships the renderer. Still to
+come:
 
-- **Container styling** - the native APIs expose per-element margins and a
-  modifier or view, with no equivalent of `containerStyle`.
-- **Image tap callbacks** - images are not tappable in either package.
-- **Block context menu** on code blocks, tables, and block math.
-- **Link previews.**
-- **A single flavor selector** - both packages toggle GFM through individual
-  md4c flags instead, and tables are always enabled.
-- **[Markdown streaming](/rich-text-formatting/markdown-streaming)** - Android
-  has the fade-in machinery internally, but no public streaming API.
-- **Custom context-menu items.**
-- **Per-URL link variants**, and with them
-  [mentions](/rich-text-formatting/mentions) - neither package has a mention
-  node or renderer.
-- **[Code-block syntax highlighting](/rich-text-formatting/code-highlighting)** -
-  the tree-sitter module is optional and is not compiled into either package.
+- **The editor.** `EnrichedMarkdownTextInput` has no web build at all.
+- **Spoilers**, which are currently dropped along with their text - the most
+  important gap on this list.
+- **Videos**, which need a rebuild of the published WebAssembly parser.
+- **Code-block highlighting**, including the header and copy button.
+- **[Streaming](/rich-text-formatting/markdown-streaming)** and
+  **[smart copy](/user-experience/copy-options)**, neither of which has a web
+  implementation.
+- **Localizable accessibility strings.** Everything the web renderer speaks is
+  hard-coded English today, and `accessibilityLabels` is stripped.
+- **Per-paragraph direction.** Web resolves direction once, at the container
+  level, rather than per paragraph as native does.
 
-Android additionally has no renderer for **highlight** (`==text==`) yet, even
-though the parser produces the node.
+### Shared core
 
-### The Compose API surface
+- **HTML line breaks (`<br>`)** - today the tag is raw HTML like any other: an
+  inline `<br>` stays in the output as literal text, and one on its own line is
+  dropped. Parser-level support is on the list, but no work has started.
 
-Several Android capabilities exist in the underlying span-based view but are not
-reachable from the `compose` wrapper. Exposing them is planned:
-selection color and selection handle color, font scaling, trailing margin, the
-*Copy as Markdown* and *Copy image URL* actions, accessibility label
-localization, and the text break strategy.
+### Accessibility
 
-### Web
+- **Task list items** have no accessibility handling on either native platform -
+  a checkbox is read as plain list text, with no state and no toggle action.
+- **Admonitions** carry no accessibility role.
 
-The [web build](/react-native/guides/web-support) ships the renderer.
-Still to come: the editor, [streaming](/rich-text-formatting/markdown-streaming),
-[smart copy](/user-experience/copy-options), and spoilers.
+{/* UNRELEASED PLATFORMS: this page previously carried "In progress > Android
+renderer", "In progress > iOS", "Planned > Native renderer parity", "The Compose
+API surface" and "The editor on native", plus iOS and Android columns in the
+status table. Five of those headings were inbound anchor targets from the ios/
+and android/ trees (#android-renderer, #ios, #native-renderer-parity,
+#the-compose-api-surface, #the-editor-on-native); restore the headings with the
+same slugs when those trees are unhidden, or fix their inbound links in the same
+commit.
 
-### The editor on native
-
-The standalone iOS and Android packages are read-only renderers today - there is
-no `EnrichedMarkdownTextInput` equivalent in either, so inline and block
-formatting, the format bar, and the imperative editing API are React Native only.
-Bringing the editor to the native packages is planned; there is no date for it.
+Do not restore the old contents verbatim - several entries were stale:
+- Android tables shipped in 0.2.0; LaTeX math and highlight renderers are the
+  genuinely outstanding ones.
+- The iOS block-image-sizing and per-paragraph-writing-direction items both
+  landed.
+- "Smart copy (Markdown, HTML, RTF, RTFD) | iOS | Yes" was wrong: the standalone
+  iOS SDK writes plain text and HTML only, with no RTF or RTFD anywhere.
+- "Block context menu on code blocks, tables, and block math" is done for tables
+  on both packages and for block math on iOS; only code blocks and custom items
+  remain.
+- "Blockquotes already do this correctly on every package" was false for
+  standalone Android, whose segment splitter emits only Text and Table segments.
+- The page had no macOS column even though macOS is a shipped target. */}
 
 ## Asking for something
 

@@ -90,7 +90,7 @@ struct RootView: View {
 ```
 
 :::note
-`rememberMarkdownTheme(colorScheme:dynamicTypeSize:)` did this in 0.1. It still compiles and carries no deprecation warning, but it now ignores both arguments and simply builds the theme - so it is equivalent to a plain `MarkdownTheme { … }`, or to the `.markdownTheme { … }` builder overload above. Prefer either of those in new code.
+`rememberMarkdownTheme(colorScheme:dynamicTypeSize:)` did this in 0.1 - a Compose idiom that never did anything in SwiftUI. It still compiles, now deprecated, and ignores both arguments: it simply builds the theme, so it is equivalent to a plain `MarkdownTheme { … }` or to the `.markdownTheme { … }` builder overload above. Use either of those instead.
 :::
 
 A theme that does **not** branch does not need any of this - see below.
@@ -101,16 +101,16 @@ Themes are stored as unresolved specs: fonts and colors are produced only when a
 
 How far it adapts depends on the values you gave it - see [Dark mode and Dynamic Type](/ios/api-reference/style-properties#adaptive-values) for which ones follow the appearance and the text size, which are frozen, and how to cap how far text scales.
 
-## `MarkdownStyleConfig`
+## `MarkdownStyleConfiguration`
 
 ```swift
-public struct MarkdownStyleConfig: Equatable, Sendable {
+public struct MarkdownStyleConfiguration: Equatable, Sendable {
   public static func resolve(
     layers: [MarkdownTheme],
     traitCollection: UITraitCollection
-  ) -> MarkdownStyleConfig
+  ) -> MarkdownStyleConfiguration
 
-  public static func baseline(traitCollection: UITraitCollection = .current) -> MarkdownStyleConfig
+  public static func baseline(traitCollection: UITraitCollection = .current) -> MarkdownStyleConfiguration
 }
 ```
 
@@ -122,7 +122,7 @@ A theme flattened into concrete `UIFont`s, `UIColor`s, and lengths - the form th
 Every field is public and optional, so a config can also be adjusted after resolving, which is often the shortest path in a test:
 
 ```swift
-var config = MarkdownStyleConfig.baseline()
+var config = MarkdownStyleConfiguration.baseline()
 config.blockquote.borderWidth = 6
 ```
 
@@ -132,14 +132,18 @@ config.blockquote.borderWidth = 6
 public enum MarkdownRenderer {
   public static func render(
     _ markdown: String,
-    config: MarkdownStyleConfig,
-    flags: Md4cFlags = .commonMark,
-    imageRequestHeaders: [String: String] = [:]
+    config: MarkdownStyleConfiguration,
+    options: MarkdownParsingOptions = .commonMark,
+    imageRequestHeaders: [String: String] = [:],
+    writingDirection: MarkdownWritingDirection = .firstStrong,
+    layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
   ) -> NSAttributedString
 }
 ```
 
 Renders a document to an `NSAttributedString` without a view - the escape hatch for tests and for one-off attributed text.
+
+`writingDirection` picks how each paragraph's base direction is resolved and `layoutDirection` is the interface direction it falls back to; a view supplies both from its environment, so pass them only when rendering by hand. See [RTL and bidirectional text](/user-experience/rtl).
 
 ```swift
 let text = MarkdownRenderer.render(

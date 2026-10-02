@@ -12,24 +12,22 @@ This section walks you through adding `react-native-enriched-markdown` to your a
 
 ## Prerequisites
 
-The library works only with the [React Native New Architecture (Fabric)](https://reactnative.dev/architecture/landing-page). It's enabled by default on recent React Native versions; if your app still runs the old architecture you'd need to switch before installing.
+The library requires the [React Native New Architecture (Fabric)](https://reactnative.dev/architecture/landing-page), which every supported React Native version enables by default.
 
 It also needs these minimum platform versions:
 
+- **React Native** - 0.83 or newer.
 - **Android** - `minSdk 24` (Android 7.0).
-- **iOS** - React Native's own minimum deployment target; a few features additionally require iOS 16+ (for example [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems)). The standalone iOS SDK requires iOS 16+.
-- **macOS** (via [react-native-macos](https://github.com/microsoft/react-native-macos)) - 14.0.
+- **iOS** - React Native's own minimum deployment target; a few features additionally require iOS 16+ (for example [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems)).
+- **macOS** (via [react-native-macos](https://github.com/microsoft/react-native-macos)) - 14.0. See [macOS support](/react-native/guides/macos) for what differs there.
+
+The package declares no runtime dependencies. Its one optional peer dependency is [`katex`](https://katex.org/), used only by the web build to typeset LaTeX; npm's warning about a missing optional peer is safe to ignore unless you render math on web.
 
 For the exact React Native versions we support, see [Compatibility](/misc/compatibility).
 
 ## Install the package
 
 Install the package with your package manager of choice:
-
-:::caution
-todo verify pnpm does not break install
-:::
-
 
 <Tabs groupId="package-managers">
   <TabItem value="npm" label="npm">
@@ -55,10 +53,31 @@ pnpm add react-native-enriched-markdown
   </TabItem>
 </Tabs>
 
-The library contains native code, so rebuild your app after installing. On iOS install the pods first:
+The library contains native code, so rebuild your app after installing. On iOS, install the pods first:
+
 ```bash
-cd ios && pod install
+cd ios && bundle exec pod install
 ```
+
+(Drop `bundle exec` if your project does not pin CocoaPods through a `Gemfile`.)
+
+### Install-time native downloads
+
+Installing the package runs a `postinstall` script that downloads the native assets the optional features need: the tree-sitter grammars used for [code-block highlighting](/rich-text-formatting/code-highlighting) (from `registry.npmjs.org`) and the RaTeX framework used for [LaTeX math](/rich-text-formatting/latex-math) on iOS (from `github.com`). Together they are around 200 MB and are fetched once, then cached.
+
+The script **warns but never fails**, so a restricted network, an `--ignore-scripts` install, or a package manager that skips lifecycle scripts leaves you with a quietly feature-less build. To re-run it:
+
+```bash
+npm rebuild react-native-enriched-markdown
+# or, directly:
+node node_modules/react-native-enriched-markdown/postinstall.mjs
+```
+
+Run it **before** `pod install` or the Android build, and see [Native assets](/react-native/guides/native-assets) for how to opt out of either download deliberately.
+
+:::note
+pnpm blocks dependency lifecycle scripts by default, so the `postinstall` above never runs. Allow it by adding the package to `onlyBuiltDependencies` (in `pnpm-workspace.yaml`, or the `"pnpm"` field of your `package.json`), or run the recovery command above afterwards. Yarn PnP is not supported.
+:::
 
 ## Expo
 
@@ -68,15 +87,18 @@ Install with the Expo CLI so the correct version is picked for your SDK:
 npx expo install react-native-enriched-markdown
 ```
 
-Then regenerate the native projects:
+Then regenerate the native projects and run the app:
 
 ```bash
 npx expo prebuild
+npx expo run:ios # or run:android
 ```
 
 :::note
 The library needs native code, so it won't run in Expo Go. Use a [development build](https://docs.expo.dev/develop/development-builds/introduction/) instead.
 :::
+
+There is **no Expo config plugin**. The former one was removed in 1.0.2 (see [Breaking changes](/misc/breaking-changes)); feature configuration now lives in an `enriched-markdown` block in your app's `package.json`, which the podspec and Gradle script read directly. See [Native assets](/react-native/guides/native-assets#optional-features) for the keys.
 
 ## Nightly builds
 
@@ -112,4 +134,4 @@ Nightlies are published to npm automatically and may contain breaking changes.
 
 <hr />
 
-You're set up. Next let's try [building your first view and editor](/react-native/basics/your-first-project).
+You're set up. Next, [build your first view and editor](/react-native/basics/your-first-project).

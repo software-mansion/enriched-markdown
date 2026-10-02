@@ -12,10 +12,10 @@ export default function App() {
   const isDark = useColorScheme() === 'dark';
 
   // Only the two blocks set size and color. The inline elements below leave
-  // those unset, so each inherits its block's size and color and adds only its
-  // own emphasis: strong -> bold, em -> italic, link -> its color + underline,
-  // code -> a background chip. Change the block color and every inline element
-  // inside it follows.
+  // those unset, so each inherits its block's size and adds only its own
+  // emphasis: strong -> bold, em -> italic, link -> its color + underline,
+  // code -> a background chip. Color inheritance has two exceptions: link and
+  // code carry their own default color, so they do not follow the block.
   const markdownStyle = useMemo(() => {
     const base = defaultMarkdownStyle(isDark);
     const headingColor = isDark ? '#7dd3fc' : '#1d4ed8';

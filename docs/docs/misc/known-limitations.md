@@ -9,26 +9,21 @@ This section covers the rough edges worth knowing about before you hit them.
 Deliberate behaviours, constraints imposed by the underlying text stacks, and a few things
 that are simply not wired up yet.
 
-The three packages are grouped separately below. All of them parse through the
-same C++ core, so Markdown **syntax** support is identical everywhere - the
-differences are in rendering and in how much of each API surface is exposed.
+This page covers `react-native-enriched-markdown` 1.1.0, including its web and
+macOS targets.
 
 :::note
-This page describes the state today. For what is being worked on and what is
-merely planned, see the [Roadmap](/misc/roadmap); for the full per-feature
-matrix, [Feature support](/introduction/supported-features).
+It describes the state today. For what is being worked on and what is merely
+planned, see the [Roadmap](/misc/roadmap); for the full per-feature matrix,
+[Feature support](/introduction/supported-features).
 :::
-
-## React Native
-
-Covers `react-native-enriched-markdown`, including its web and macOS targets.
 
 ### Rendering
 
 - **Text selection cannot span segments.** With
   [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)
   the document is split into independent segments (tables, fenced code blocks,
-  block math, and blockquotes each become their own view). This enables features like
+  block math, blockquotes and admonitions each become their own view). This enables features like
   horizontal table scrolling and the block context menu. The tradeoff is that selection starts and
   ends inside one segment. `flavor="commonmark"` renders a single text view and
   selects across the whole document.
@@ -46,9 +41,6 @@ Covers `react-native-enriched-markdown`, including its web and macOS targets.
   promotes the text to `DynamicLayout`, which has no `maxLines` support - React
   Native's own `Text` behaves the same way. Both are restored once the clamp is
   removed, and iOS keeps selection and links while clamped.
-- **Superscript and subscript cannot nest inside each other.** They nest fine
-  inside bold, italic, and links - see
-  [Element structure](/react-native/api-reference/element-structure#superscript-and-subscript).
 - **Raw HTML is not rendered.** Inline HTML is disabled and HTML tags in the
   source are ignored. The one allowlisted exception is a block-level
   [`<video>`](/react-native/api-reference/element-structure#videos) tag, of which
@@ -58,7 +50,7 @@ Covers `react-native-enriched-markdown`, including its web and macOS targets.
   inline `<br>` stays in the output as literal text, and one on its own line is
   dropped. Use a hard break (two trailing spaces or a backslash) or
   [`hardSoftBreaks`](/react-native/api-reference/enriched-markdown-text#hardsoftbreaks).
-  Parser-level support is [planned](/misc/roadmap).
+  Parser-level support is [planned](/misc/roadmap), but nothing in the parser touches it today.
 - **There is no `colorScheme` prop.** The library ships light-mode color
   defaults and leaves theming to you, exactly like React Native's `Text` - swap
   `markdownStyle` objects on `useColorScheme()`. See
@@ -66,8 +58,9 @@ Covers `react-native-enriched-markdown`, including its web and macOS targets.
 
 ### The editor
 
-- **Block elements are limited.** [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input).
-  Headings and lists are allowed; anything else (Codeblock, blockquote, etc.) needs the read-only renderer.
+- **Block elements are limited.** [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input)
+  supports headings and lists; anything else - code blocks, blockquotes, tables -
+  needs the read-only renderer.
 - **The input is uncontrolled by design.** The value lives in the native
   component rather than in React state - read it through `onChangeMarkdown` or
   `getMarkdown()`, and write it with `setValue()`. There is no `value` prop to
@@ -97,14 +90,15 @@ Covers `react-native-enriched-markdown`, including its web and macOS targets.
 - **iOS blockquote backgrounds** may break at link boundaries instead of
   spanning the full line. Visual only - it does not affect what is announced.
 
-Details and the full announcement model are in
-[Accessibility](/user-experience/accessibility#known-limitations).
+The full announcement model is in
+[Accessibility](/user-experience/accessibility).
 
 ### Copy and clipboard
 
-- **Copy-as-HTML carries one direction for the whole document.** The HTML
-  representation gets a single `dir` attribute read from the first paragraph, so
-  a mixed-direction document may not paste with the per-paragraph layout you see
+- **Copy-as-HTML carries one direction for the whole document**, and the two
+  platforms derive it differently - iOS from the first paragraph, Android from
+  the view's layout direction (and its table export carries none at all). A
+  mixed-direction document will not paste with the per-paragraph layout you see
   in-app. Plain text and Markdown round-trip cleanly - see the
   [copy-as-HTML caveat](/user-experience/rtl#copy-as-html-caveat).
 - **The system Copy item cannot be hidden**, only relabeled, through
@@ -119,8 +113,13 @@ Details and the full announcement model are in
   fold [`imageRequestHeaders`](/react-native/api-reference/enriched-markdown-text#imagerequestheaders)
   into the cache identity, but the disk layer is managed by the HTTP stack
   (OkHttp / `NSURLCache`), so a response fetched with one set of headers can be
-  served for a request with different ones, subject to `Cache-Control` and
-  `Vary`. See [Request headers](/react-native/guides/image-caching#request-headers).
+  served for a request with different ones. The library adds no `Vary` handling.
+  See [Request headers](/react-native/guides/image-caching#request-headers).
+- **The iOS disk cache ignores HTTP freshness.** Its session runs with
+  `NSURLRequestReturnCacheDataElseLoad`, so a cached response is served
+  regardless of its age or `max-age`. Android's OkHttp cache behaves normally.
+- **The image caches are process-global and cannot be cleared.** There is no
+  public API to inspect, clear, or invalidate them.
 - **`imageRequestHeaders` has no effect on web** - browsers do not allow custom
   headers on `<img>` requests.
 
@@ -149,85 +148,67 @@ Details and the full announcement model are in
 
 ### Web
 
-The web build renders `EnrichedMarkdownText` only. It has no editor, no spoiler
-concealment, no code-block syntax highlighting (fenced blocks render as
-plain monospaced text), and no [video](/react-native/api-reference/element-structure#videos)
-support - the `<video>` tag is not parsed there. Every link opens in a new tab -
-`target` is not configurable. A handful of native-only props are accepted and ignored. See
+The web build renders `EnrichedMarkdownText` only - there is no editor.
+
+:::danger
+**Spoilers lose their content on web.** The parser emits a spoiler node, the web
+renderer has none, and an unhandled node is dropped together with its subtree, so
+`a ||secret|| b` renders as `a  b`. The concealed text is gone, not concealed.
+:::
+
+Also missing there: code-block syntax highlighting (fenced blocks render as plain
+monospaced text, with no header or copy button),
+[videos](/react-native/api-reference/element-structure#videos) - the published
+WebAssembly parser predates the feature, so the tag produces no node - and any
+clipboard integration at all. Every link opens in a new tab; `target` is not
+configurable. There is no `flavor` prop: GFM is always on. LaTeX math needs the
+optional `katex` peer dependency, falling back to raw `$...$` without it. The
+accessibility strings are hard-coded English and `accessibilityLabels` is
+stripped, as are a number of other native-only props. See
 [Ignored props](/react-native/guides/web-support#ignored-props-native-only) and
 [Not supported on web](/react-native/guides/web-support#not-supported-on-web).
 
 ### macOS
 
-LaTeX math is not enabled, the tail fade-in animation falls back to an instant
-reveal, system font-scale changes are not observed, VoiceOver is stubbed, and
-`selectionColor` tints only the selection background - AppKit's `NSTextView`
-does not expose caret and handle tinting via `tintColor`. See
+**Block math is silently dropped** under `flavor="github"` - the equation
+produces no segment and no fallback text. Inline math renders. Beyond that: the
+tail fade-in animation falls back to an instant reveal, system font-scale
+changes are not observed, VoiceOver is stubbed, and `selectionColor` tints only
+the selection background - AppKit's `NSTextView` does not expose caret and
+handle tinting via `tintColor`. See
 [macOS support](/react-native/guides/macos#known-limitations).
 
 ### Testing
 
-The Jest mock does not parse or render Markdown - it stores and echoes raw
-text, so it is meant for testing your components' wiring rather than the
-library's rendering. See [Testing](/react-native/guides/testing#limitations).
+The Jest mock does not parse or render Markdown - it mostly stores and echoes
+raw text, so it is meant for testing your components' wiring rather than the
+library's rendering. Its ref-method surface is type-checked against the real
+component; its **props** are not, and a few display props are already
+unforwarded. See [Testing](/react-native/guides/testing#limitations).
 
-## iOS
+{/* UNRELEASED PLATFORMS: the standalone iOS and Android limitation lists lived
+here and are NOT safe to restore verbatim - several entries went stale before
+this page was hidden. Re-verify each against the packages before unhiding:
 
-Covers the standalone iOS package. It renders CommonMark, GFM, and LaTeX math,
-but through its own TextKit stack, so it trails the React Native package in
-rendering features and API surface.
+iOS: block image sizing now has maxHeight/aspectRatio/resizeMode (ImageStyle),
+writing direction IS resolved per paragraph (WritingDirectionResolver), and a
+block context menu DOES exist on tables and block math (only code blocks and
+custom items are still missing). Still true: read-only, no container styling,
+no image tap callback, no link previews, no flavor selector, no public
+streaming API, no per-URL link variants or mentions, and no code-block syntax
+highlighting (there is no tree-sitter target in Package.swift at all - the old
+wording "optional and not compiled in" was misleading).
 
-- **Read-only.** There is no `EnrichedMarkdownTextInput` equivalent, so inline
-  and block formatting, the format bar, and the imperative editing API are React
-  Native only.
-- **Block image sizing is limited** to height and corner radius - `maxHeight`,
-  `aspectRatio`, and `resizeMode` have no equivalent yet.
-- **Writing direction is not resolved per paragraph.** The first-strong
-  resolution described in [RTL support](/user-experience/rtl) has not reached the native
-  package, so paragraph direction follows the app's UI layout direction.
-- **No container styling.** The API exposes per-element margins and a wrapping
-  view, with no equivalent of `containerStyle`.
-- **Images are not tappable** - there is no image tap callback.
-- **No block context menu** on code blocks, tables, or block math, and no
-  custom context-menu items.
-- **No link previews.**
-- **No flavor selector.** GFM is toggled through individual md4c flags instead
-  of a single `flavor` prop, and tables are always enabled.
-- **No public streaming API** - see
-  [Markdown streaming](/rich-text-formatting/markdown-streaming).
-- **No per-URL link variants**, and with them no
-  [mentions](/rich-text-formatting/mentions) - the package has no mention node
-  or renderer.
-- **No code-block syntax highlighting** - the tree-sitter module is optional
-  and is not compiled into the package. See
-  [Code-block highlighting](/rich-text-formatting/code-highlighting).
+Android: tables ARE implemented and shipped in 0.2.0, and the table view has a
+block context menu. Still true for the released version: spoilers, LaTeX math
+and highlight are parsed but not drawn; the Compose wrapper does not expose
+selection colors, font scaling, trailing margin, the copy actions, label
+localization or break strategy; accessibility labels are hardcoded with no
+override at any layer; the composable renders nothing in @Preview.
 
-## Android
-
-Covers the standalone Android package. The parser emits every node the other
-packages do; several renderers and a slice of the Compose API are still catching
-up.
-
-- **Read-only**, like the iOS package - no editor equivalent.
-- **Missing renderers.** GFM tables, LaTeX math, spoilers, and highlight
-  (`==text==`) are parsed but not yet drawn.
-- **Parts of the view are not reachable from Compose.** Selection color,
-  selection handle color, font scaling, trailing margin, the *Copy as Markdown*
-  and *Copy image URL* actions, accessibility label localization, and the text
-  break strategy exist in the underlying span-based view but are not exposed by
-  the `compose` wrapper.
-- **Smart copy is partial.** The plain-text and HTML clipboard write works; the
-  dedicated *Copy as Markdown* and *Copy image URL* actions are not exposed by
-  the Compose API. See [Copy options](/user-experience/copy-options).
-- **Accessibility labels are hardcoded.** List and heading labels are in place,
-  but there is no localization prop - table, math, and blockquote labels follow
-  the renderers above.
-- **Block image sizing is limited** to height and corner radius, as on iOS.
-- **The same API gaps as iOS** otherwise: no container styling, no image tap
-  callbacks, no block context menu or custom context-menu items, no link
-  previews, no flavor selector, no public streaming API (the fade-in machinery
-  exists internally), no per-URL link variants or mentions, and no code-block
-  syntax highlighting.
+Also unrecorded anywhere: task-list accessibility is entirely absent from the
+React Native package on both platforms, and onImagePress does not fire for
+images inside GFM tables. */}
 
 ## Something missing?
 

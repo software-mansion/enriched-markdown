@@ -22,6 +22,13 @@ Font resolution goes through React Native's font manager (`RCTFont` on iOS,
 is available to `markdownStyle`. There are two steps: bundle the font, then
 reference its family name.
 
+:::note
+The **iOS editor** is the one exception: `EnrichedMarkdownTextInput` resolves its
+font with `UIFont fontWithName:` rather than through `RCTFont`, and silently
+keeps the system font when the name does not match. Setting `fontWeight` and
+`fontFamily` together on the same style there also loses the weight.
+:::
+
 ### Bundle the font
 
 <Tabs groupId="project-type">
@@ -62,8 +69,10 @@ npx expo prebuild --clean
 npx expo run:ios # or: npx expo run:android
 ```
 
-The plugin also accepts per-weight `fontDefinitions` and platform-specific
-lists - see the [Expo fonts guide](https://docs.expo.dev/develop/user-interface/fonts/).
+The plugin also accepts platform-specific lists. Per-weight `fontDefinitions`
+are **Android only** (`android.fonts[].fontDefinitions`); the `ios` key takes
+paths and always derives the family from the file. See the
+[Expo fonts guide](https://docs.expo.dev/develop/user-interface/fonts/).
 
   </TabItem>
   <TabItem value="bare" label="Bare React Native">
@@ -86,7 +95,7 @@ npx react-native-asset
 ```
 
 On iOS this registers the fonts in `Info.plist` (`UIAppFonts`); on Android it
-copies them into `assets/fonts`. Rebuild the app afterwards.
+copies them into `android/app/src/main/assets/fonts`. Rebuild the app afterwards.
 
   </TabItem>
 </Tabs>
@@ -112,12 +121,30 @@ which style keys accept `fontFamily` and how it interacts with bold and italic,
 see [Style properties](/react-native/api-reference/style-properties#custom-font-family-for-inline-styles).
 
 :::note
-Single-file custom fonts (one face, with no bundled `_bold` / `_italic` variant
-files) are handled gracefully: the library loads the font at its regular weight
-and synthesizes bold and italic on top, so `**bold**` and `*italic*` still render
-in your font instead of falling back to the system face. If you ship separate
-weight files and want them used as-is, set `fontWeight` / `fontStyle` to
-`'normal'` on that style (see the Style properties link above).
+**Single-file custom fonts** (one face, no bundled `_bold` / `_italic` variants)
+behave differently per platform. **Android** loads the family at its regular
+weight and synthesizes bold and italic on top, so `**bold**` and `*italic*`
+still render in your font. **iOS** matches a real bold or italic face through
+CoreText and, when none exists, falls back to the *unchanged* font - so a truly
+single-face font can render `**bold**` not bold on iOS. To use the face exactly
+as-is, set `fontWeight` / `fontStyle` to `'normal'` on `strong` / `em` - note
+that this only takes effect when `fontFamily` is also set on that same style
+key (see the Style properties link above).
+:::
+
+:::caution
+**Multi-weight families** are the common gotcha on Android: the library always
+loads the family at `Typeface.NORMAL` and synthesizes, so a bundled
+`Montserrat-Bold.ttf` is never auto-selected for `**bold**` even when it is
+present. iOS does pick the real face. The portable fix is to name the face you
+want per style key - `strong: { fontFamily: 'Montserrat-Bold' }`,
+`em: { fontFamily: 'Montserrat-Italic' }` - rather than relying on synthesis.
+:::
+
+:::note
+None of this applies on **web**, where `fontFamily` is passed straight through
+to CSS. A font bundled the React Native way is invisible to the browser; declare
+it with an `@font-face` rule instead.
 :::
 
 ## Bundled images
@@ -147,9 +174,10 @@ Shipping them inside the npm tarball would push every install past 200 MB, even
 for apps that use neither feature.
 
 Instead they are **downloaded once at install time** by a `postinstall` script,
-keeping the published package small. Each download is verified by sha256 and is
-idempotent - a `.stamp` fingerprint in each vendor directory makes repeated
-installs a no-op.
+keeping the published package small. The tree-sitter runtime tarball and both
+RaTeX assets are pinned and verified by sha256; the grammar sources come from
+the npm registry at pinned versions. Every download is idempotent - a `.stamp`
+fingerprint in each vendor directory makes repeated installs a no-op.
 
 ### What gets downloaded
 
@@ -202,7 +230,8 @@ Then re-run `pod install` (iOS) or rebuild (Android).
 :::note
 **Package managers.** npm and Yarn (node-modules linker) work out of the box.
 **pnpm** blocks dependency lifecycle scripts by default - allow this package to
-run its `postinstall` (e.g. add it to `onlyBuiltDependencies`). **Yarn PnP** is
+run its `postinstall` by adding it to `onlyBuiltDependencies`, either in
+`pnpm-workspace.yaml` or in the `"pnpm"` field of your `package.json`. **Yarn PnP** is
 not supported: its read-only archives can't receive the vendored assets, so use
 the `node-modules` linker (the norm for React Native anyway). With
 **`--ignore-scripts`**, run the recovery command above after installing.
@@ -224,12 +253,20 @@ an `enriched-markdown` block (both fields default to `true`):
 ```
 
 `enableCodeHighlight: false` skips the tree-sitter runtime and grammar download
-(iOS and Android). `enableMath: false` skips the RaTeX download (iOS only;
-Android math uses a Maven dependency and is unaffected). The native build reads
-the same block directly, so a `package.json` opt-out also disables the feature at
-build time - no Podfile or `gradle.properties` edit needed.
+(iOS and Android). `enableMath: false` skips the RaTeX **download**, which is an
+iOS-only asset - but the same flag also turns math off at **build** time on
+Android, where it drops the `io.github.erweixin:ratex-android` dependency and the
+math source set. The native build reads the same block directly, so a
+`package.json` opt-out disables the feature on both platforms - no Podfile or
+`gradle.properties` edit needed.
 
 :::important
+**Re-enabling a feature needs a reinstall first.** The assets are only fetched
+during `postinstall`, so flipping a flag back to `true` and going straight to
+`pod install` or a Gradle build hits the explicit-opt-in hard-fail branch (the
+feature is requested but its assets are absent). Re-run the install - or
+`npm rebuild react-native-enriched-markdown` - before building.
+
 **Applying a change on iOS.** The podspec reads `package.json` at `pod install`
 time, so run `pod install` after editing the block. When you disable a feature
 that was already compiled in, also do a clean build (`Product > Clean Build

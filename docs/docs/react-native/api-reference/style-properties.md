@@ -49,11 +49,11 @@ Unless noted otherwise, this reference covers the read-only [`EnrichedMarkdownTe
 
 You do not need to set anything to get a polished result. Every element ships with defaults tuned to the platform it renders on, so a document looks at home on each without configuration:
 
-- **Fonts.** Text uses the platform system font (San Francisco on iOS, Roboto on Android). Inline code and code blocks use the platform monospace font (SF Mono on iOS, monospace on Android).
+- **Fonts.** Text uses the platform system font (San Francisco on iOS, Roboto on Android). *Inline* code uses the system monospace face (SF Mono on iOS); *code blocks* set an explicit family - `Menlo` on iOS, `monospace` on Android.
 - **Spacing.** Line height and block margins follow each platform's text conventions, so paragraphs, headings, and lists sit at a natural rhythm out of the box.
 - **Colors.** Text, links, code, blockquotes, and tables start from light-mode color defaults. See [Dark mode](#dark-mode) to switch palettes with the system color scheme.
 
-Override any of these through `markdownStyle` prop. You set only the properties you want to change, and everything else keeps its default.
+Override any of these through the `markdownStyle` prop. The web build has its own defaults for the same keys - a system-UI font stack and a `ui-monospace` stack - so the playgrounds on this page, which run the web build, may differ slightly from a device. You set only the properties you want to change, and everything else keeps its default.
 
 ## Style inheritance
 
@@ -73,7 +73,7 @@ Each block type extends this base style with its own specific properties (e.g. `
 
 Inline styles (strong, emphasis, links, inline code, etc.) automatically inherit the base typography properties from their containing block. This means inline elements use the block's `fontSize`, `fontFamily`, `fontWeight`, and `color` as their foundation, then apply their own additional styling on top.
 
-In the playground below, only the two blocks set a size and color: the heading uses `fontSize: 24` with a blue `color`, the list uses `fontSize: 16` with a gray `color`. Every inline element leaves both unset, so each inherits from its block and adds only its own emphasis: **bold** and _italic_ take the block size and color and add weight or slant, the link takes the size and adds its own color plus an underline, and `inline code` takes the size and color and adds only a background chip. Change a block's `color` and every inline element inside it follows.
+In the playground below, only the two blocks set a size and color: the heading uses `fontSize: 24` with a blue `color`, the list uses `fontSize: 16` with a gray `color`. Every inline element leaves both unset, so each inherits from its block and adds only its own emphasis: **bold** and _italic_ take the block size and color and add weight or slant, the link takes the size and adds its own color plus an underline, and `inline code` takes the size and adds a background chip plus its own default color (`#E01E5A`, which does *not* follow the block). Change a block's `color` and every inline element inside it follows.
 
 <LivePreview src={InheritanceSrc} />
 
@@ -173,7 +173,22 @@ As you may have noticed in the other examples throughout this documentation, eve
 | `marginBottom` | `number` | `16`                    | Bottom margin       |
 | `lineHeight`   | `number` | `24` iOS / `26` Android | Line height         |
 
-These properties are shared by every block element - set any of them on a `paragraph`, `h1`-`h6`, `blockquote`, `list`, or `codeBlock` key. The defaults above are the `paragraph` (body) values; other block types override several of them - headings use sizes `30/24/20/18/16/14` at weight `bold` with an `8` bottom margin, `codeBlock` uses the monospace font and `table` the system font both at size `14`, and `blockquote` uses color `#4B5563`. The playground below sets these on a heading and a paragraph; the element-specific sections that follow layer their own properties on top.
+These properties are shared by every block element - set any of them on a `paragraph`, `h1`-`h6`, `blockquote`, `list`, `codeBlock` or `table` key. **The defaults above are the `paragraph` (body) values only**; every other block type overrides several of them:
+
+| Block           | Overrides                                                            |
+| --------------- | -------------------------------------------------------------------- |
+| `h1`-`h6`       | sizes `30/24/20/18/16/14`, weight `bold`, `marginBottom` `8`, color `#111827` (`h1`-`h4`), `#374151` (`h5`), `#4B5563` (`h6`) |
+| `blockquote`    | color `#4B5563`                                                      |
+| `codeBlock`     | the monospace font at size `14`, and color **`#F3F4F6`**             |
+| `table`         | the system font at size `14`                                         |
+
+`lineHeight` is likewise per block, not shared: `24`/`26` is the paragraph value, headings run `36`/`38` down to `20`/`22` for a code block.
+
+:::caution
+The `codeBlock` default color is a near-white `#F3F4F6`, paired with the dark `#1F2937` code background. If you lighten `codeBlock.backgroundColor` without also setting `codeBlock.color`, the code turns invisible.
+:::
+
+The playground below sets these on a heading and a paragraph; the element-specific sections that follow layer their own properties on top.
 
 <LivePreview src={BaseBlockSrc} />
 
@@ -183,7 +198,7 @@ These properties are shared by every block element - set any of them on a `parag
 | ----------- | ------------------------------------------------------ | -------- | -------------- |
 | `textAlign` | `'auto' \| 'left' \| 'right' \| 'center' \| 'justify'` | `'auto'` | Text alignment |
 
-Each heading level (`h1`–`h6`) and `paragraph` is styled by its own key. Give each level its own size and color.
+Each heading level (`h1`-`h6`) and `paragraph` is styled by its own key. Give each level its own size and color.
 
 <LivePreview src={HeadingsSrc} />
 
@@ -228,7 +243,7 @@ Default `color` per type, matching GitHub's alert palette:
 Pass only the types you want to restyle - every type you omit keeps its default, and within a type an omitted field falls back the same way.
 
 :::note
-Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and [`md4cFlags.admonitions`](/react-native/api-reference/enriched-markdown-text#admonitions), both on by default. With either off, the syntax renders as a plain blockquote and these styles do not apply.
+Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) **and** [`md4cFlags.admonitions`](/react-native/api-reference/enriched-markdown-text#admonitions). The flag is on by default but the flavor is **not** - `flavor` defaults to `'commonmark'`, where admonitions are forced off and the syntax renders as a plain blockquote with the literal `[!NOTE]` text.
 :::
 
 <LivePreview src={AdmonitionsSrc} />
@@ -300,6 +315,8 @@ Syntax colors only take visible effect when the optional syntax-highlighting mod
 
 ### Inline code-specific
 
+Under the `code` key.
+
 | Property          | Type     | Default                 | Description                                                                                                                                                 |
 | ----------------- | -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fontFamily`      | `string` | System monospace        | Font family for inline code. Uses the exact font face as-is. When not set, uses the platform's system monospace font (SF Mono on iOS, monospace on Android) |
@@ -319,7 +336,7 @@ Syntax colors only take visible effect when the optional syntax-highlighting mod
 | `underline`       | `boolean` | `true`         | Show underline                                                           |
 | `backgroundColor` | `string`  | `transparent`  | Link background color                                                    |
 
-You can also style links per URL pattern through the top-level `linkVariants` key (a `Record<string, LinkStyle>` whose keys are regexes tested against the link URL). See [Mentions - Link variants](/rich-text-formatting/mentions).
+You can also style links per URL pattern through the top-level `linkVariants` key: a `Record<string, LinkVariantStyle>` whose keys are regexes tested against the link URL. See [Mentions](/rich-text-formatting/mentions#styling-mentions-with-linkvariants).
 
 <LivePreview src={LinkSrc} />
 
@@ -341,11 +358,11 @@ You can also style links per URL pattern through the top-level `linkVariants` ke
 | `fontStyle`  | `'italic' \| 'normal'` | `'italic'`     | Controls whether italic is applied on top of the custom `fontFamily`. Set to `'normal'` to use the font face as-is. Only relevant when `fontFamily` is set |
 | `color`      | `string`               | Inherits block | Italic text color                                                                                                                                          |
 
-The inline elements (`strong`, `em`, `link`, `code`) inherit the surrounding block's typography and add their own color on top.
-
 <LivePreview src={EmphasisSrc} />
 
 ### Strikethrough-specific
+
+Strikethrough (`~~text~~`) is a GitHub Flavored Markdown extension, so these styles only apply under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor).
 
 | Property | Type     | Default   | Description                                                                       |
 | -------- | -------- | --------- | --------------------------------------------------------------------------------- |
@@ -392,13 +409,7 @@ Sizing precedence is `aspectRatio` > `maxHeight` > `height`: the first one set w
 
 ### Video-specific
 
-Styles block-level videos embedded with the HTML `<video>` tag, written self-closing:
-
-```markdown
-<video src="https://example.com/ocean.mp4" />
-```
-
-The paired form `<video src="url"></video>` is equally valid. Only `src` is read - `width`, `height`, `controls`, `autoplay` and the rest of the HTML attributes are ignored, so all video appearance comes from here. Videos render through the platform's native player - `AVPlayerViewController` on iOS, ExoPlayer on Android - which supplies its own playback controls.
+Styles block-level videos embedded with the HTML `<video>` tag. [Element structure](/react-native/api-reference/element-structure#videos) owns the authoring rules - the two tag forms, the quoted-`src` trap, and what happens to a video inside a list. Because only `src` is read, every attribute of the video's appearance comes from the keys below. Playback controls come from the platform player (`AVPlayerViewController` on iOS, ExoPlayer on Android).
 
 | Property          | Type     | Default   | Description                                                                                                        |
 | ----------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -410,19 +421,11 @@ The paired form `<video src="url"></video>` is equally valid. Only `src` is read
 
 Unlike [images](#image-specific), there is no `height` or `maxHeight` knob - `aspectRatio` is the only sizing control.
 
-:::important
-Quote the URL. An unquoted `src` terminates at the first `/`, so `<video src=https://example.com/a.mp4 />` parses as the URL `https:` and the video fails to load.
-:::
-
 :::note
 Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) for native segment rendering, and the `enableVideo` build flag (on by default) in your app's `package.json` `enriched-markdown` block - see [Optional native features](/react-native/guides/native-assets#optional-features).
 :::
 
-:::caution
-Videos inside blockquotes and admonitions are fully supported. A video inside a **list** is currently promoted out of the list and rendered as a standalone block above the remaining items, without the list marker.
-:::
-
-<LivePreview src={VideoSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the web build does not parse the <code>&lt;video&gt;</code> tag yet.</>} />
+<LivePreview src={VideoSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the published WebAssembly parser predates the <code>&lt;video&gt;</code> tag, so nothing renders on web.</>} />
 
 ### Inline image-specific
 
@@ -466,6 +469,8 @@ Table styles only apply when [`flavor="github"`](/react-native/api-reference/enr
 
 ### Task list-specific
 
+Task list styles only apply when [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) is set - task lists are a GitHub Flavored Markdown extension.
+
 | Property               | Type      | Default                           | Description                                                      |
 | ---------------------- | --------- | --------------------------------- | ---------------------------------------------------------------- |
 | `checkedColor`         | `string`  | `#007AFF` iOS / `#2196F3` Android | Background color of checked checkbox                             |
@@ -484,7 +489,7 @@ On web, the checkbox is the browser's native `<input type="checkbox">` tinted vi
 
 ### Math block-specific
 
-Styles for block-level LaTeX math (`$$...$$`). Block math is rendered as a standalone display element and only applies when [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) is set. Rendering also requires [`md4cFlags={{ latexMath: true }}`](/react-native/api-reference/enriched-markdown-text#latexmath), which is on by default.
+Styles for block-level LaTeX math (`$$...$$`), under the `math` key (not `mathBlock`). Block math is rendered as a standalone display element and only applies when [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) is set - under `commonmark` the equation becomes an inline attachment styled from `inlineMath`, and nothing in this table applies. Rendering also requires [`md4cFlags={{ latexMath: true }}`](/react-native/api-reference/enriched-markdown-text#latexmath), which is on by default.
 
 | Property          | Type                            | Default    | Description                                  |
 | ----------------- | ------------------------------- | ---------- | -------------------------------------------- |
@@ -540,7 +545,7 @@ Styles for superscript text (`^text^`). Requires [`md4cFlags={{ superscript: tru
 
 ### Subscript-specific
 
-Styles for subscript text (`~text~`). Requires [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to enable the parser. Note: enabling subscript changes the behavior of single tildes - `~text~` becomes subscript instead of strikethrough.
+Styles for subscript text (`~text~`). Requires [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to enable the parser. Note that single tildes mean nothing by default: `~text~` is literal text until this flag turns it into subscript. Double tildes (`~~text~~`) are strikethrough, and only under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor).
 
 | Property              | Type     | Default                                  | Description                                                        |
 | --------------------- | -------- | ---------------------------------------- | ------------------------------------------------------------------ |
@@ -555,7 +560,7 @@ Android uses a slightly smaller default `fontScale` (`0.65`) compared to iOS (`0
 
 ## Editor styles (`EnrichedMarkdownTextInput`) {#editor-styles}
 
-The editable [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input) takes its own `markdownStyle` of type `MarkdownTextInputStyle`. It is a **subset** of the renderer's `MarkdownStyle` documented above: the editor supports inline formatting, links, spoilers, and headings, so only those elements are styleable - there is no `paragraph`, `code`, `blockquote`, `table`, and so on. Every field is optional and falls back to a default that matches the renderer, so content looks the same while editing and once rendered.
+The editable [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input) takes its own `markdownStyle` of type `MarkdownTextInputStyle`. It is a **subset** of the renderer's `MarkdownStyle` documented above: the editor styles inline formatting, links, spoilers, headings and list item spacing, so only those elements are styleable - there is no `paragraph`, `code`, `blockquote`, `table`, and so on. Every field is optional and falls back to a default that matches the renderer, so content looks the same while editing and once rendered.
 
 The base text appearance (font size, family, color) comes from the input's [`style`](/react-native/api-reference/enriched-markdown-text-input#style) prop, not from `markdownStyle`.
 
@@ -566,9 +571,9 @@ The base text appearance (font size, family, color) comes from the input's [`sty
 | `link.color`              | `string`                             | `#2563EB`          | Link text color                                                                                                                                  |
 | `link.underline`          | `boolean`                            | `true`             | Whether links are underlined                                                                                                                     |
 | `link.backgroundColor`    | `string`                             | `transparent`      | Link background color                                                                                                                            |
-| `linkVariants`            | `Record<string, LinkStyle>`          | none               | Per-URL-pattern style overrides. Each key is a regex tested against the link URL; see [Mentions - Link variants](/rich-text-formatting/mentions) |
+| `linkVariants`            | `Record<string, LinkVariantStyle>`   | none               | Per-URL-pattern style overrides. Each key is a regex tested against the link URL; see [Mentions](/rich-text-formatting/mentions#styling-mentions-with-linkvariants). The editor's variant type has no `fontFamily` field, so a single object shared with the renderer must leave it unset |
 | `spoiler.color`           | `string`                             | `#374151`          | Spoiler text color                                                                                                                               |
 | `spoiler.backgroundColor` | `string`                             | `#E5E7EB`          | Spoiler background color                                                                                                                         |
-| `h1`–`h6`                 | `{ fontSize?, fontWeight?, color? }` | Match the renderer | Per-level heading styling. Defaults match the renderer (sizes `30/24/20/18/16/14`, bold); omitted levels or fields fall back to those defaults   |
+| `h1`-`h6`                 | `{ fontSize?, fontWeight?, color? }` | Match the renderer | Per-level heading styling. Defaults match the renderer (sizes `30/24/20/18/16/14`, bold); omitted levels or fields fall back to those defaults   |
 | `list.itemSpacing`        | `number`                             | `0`                | Vertical spacing (points) added above each list item (bullet and numbered alike) so items read as separate rows                                  |
 

@@ -3,10 +3,7 @@ sidebar_label: EnrichedMarkdownText
 sidebar_position: 1
 ---
 
-import InteractiveExample from '@site/src/components/InteractiveExample';
 import LivePreview from '@site/src/components/LivePreview';
-import FirstText from '@site/src/examples/react-native/basics/your-first-project/FirstText';
-import FirstTextSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstText';
 
 import MarkdownSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Markdown';
 import MarkdownStyleSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/MarkdownStyle';
@@ -72,7 +69,13 @@ export default function App() {
 
 ## Props
 
-`EnrichedMarkdownText` accepts every prop below. It also forwards the standard React Native [`View`](https://reactnative.dev/docs/view#props) props - such as `testID`, `onLayout`, `pointerEvents`, `hitSlop`, and the `accessibility*` props - to the underlying native view. The one exception is `style`: use [`containerStyle`](#containerstyle) instead. It maps to the wrapper view's `style`, and is renamed so it is not mistaken for styling the Markdown text - that is [`markdownStyle`](#markdownstyle).
+`EnrichedMarkdownText` accepts every prop below. On iOS and Android it also forwards the standard React Native [`View`](https://reactnative.dev/docs/view#props) props - such as `testID`, `onLayout`, `pointerEvents`, `hitSlop`, and the `accessibility*` props - to the underlying native view. The one exception is `style`: use [`containerStyle`](#containerstyle) instead. It maps to the wrapper view's `style`, and is renamed so it is not mistaken for styling the Markdown text - that is [`markdownStyle`](#markdownstyle).
+
+:::caution
+The web build does **not** implement React Native `View` props. Its props type is `HTMLAttributes<HTMLDivElement>` plus `testID` (which becomes `data-testid`), and any unrecognized prop is spread onto the root `<div>`, so passing `pointerEvents` or `hitSlop` there produces React unknown-prop warnings. Use `id`, `aria-*` and CSS instead. See [Web support](/react-native/guides/web-support).
+:::
+
+All the shapes printed inline below (`Md4cFlags`, `StreamingConfig`, `AccessibilityLabels` and the rest) are exported types you can import from the package root. Note the `Text` prefix on three of them: `TextContextMenuItem`, `TextSelectionMenuConfig` and `TextSelectionMenuPluralLabels` are this component's types, because the unprefixed names belong to [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input).
 
 :::note
 Each prop has a live playground below - edit the code and try it. Props marked with a <IosBadge />, <AndroidBadge />, or <WebBadge /> badge only take effect on that platform - they are flagged with a matching colored dot in the table of contents.
@@ -80,7 +83,7 @@ Each prop has a live playground below - edit the code and try it. Props marked w
 
 ### `markdown`
 
-The Markdown content to render. Depending on the [flavor](/react-native/api-reference/enriched-markdown-text#flavor), [md4c flags](/react-native/api-reference/enriched-markdown-text#md4cflags), etc., this supports different syntax elements. To learn more, go to the [Feature support page](/introduction/supported-features).
+The Markdown content to render. Which syntax elements are recognized depends on the [`flavor`](#flavor) and the [`md4cFlags`](#md4cflags) you set. To learn more, see [Feature support](/introduction/supported-features).
 
 <PropInfo type="string" required />
 
@@ -102,15 +105,19 @@ Style for the view that wraps the rendered Markdown. `ViewStyle` and `TextStyle`
 `containerStyle` is React Native's regular `style` prop, renamed. It is handed straight to the wrapper `<View>`, so `ViewStyle` values (`padding`, `margin`, `backgroundColor`, the flexbox props) behave exactly as on any React Native view. It is renamed because the renderer is text-like: a prop called `style` would imply it styles the Markdown text, but the text is styled per element through [`markdownStyle`](#markdownstyle). `containerStyle` styles only the box around it.
 :::
 
+:::caution
+On web, `containerStyle` is typed as React's `CSSProperties` and is spread straight onto the root `<div>`, so React Native shorthands do not apply: write `paddingLeft`/`paddingRight` rather than `paddingHorizontal`, `marginTop`/`marginBottom` rather than `marginVertical`, and `fontWeight: 'bold'` rather than `fontWeight: 700`. The web type also omits `style` entirely - `containerStyle` is the only way to style the container there.
+:::
+
 <PropInfo type="ViewStyle | TextStyle" />
 
 <LivePreview src={ContainerStyleSrc} />
 
 ### `flavor`
 
-Markdown flavor. `'commonmark'` (default) renders the whole document as a single text view. `'github'` splits the AST into segments and enables GitHub Flavored Markdown features: tables and block-style fenced code blocks (with a header bar, language label, and copy button). Text selection cannot span across segments.
+Markdown flavor. `'commonmark'` (default) renders the whole document as a single text view. `'github'` splits the AST into segments, which changes both what is parsed and how it is rendered.
 
-For exactly which syntax each flavor parses and renders, and which elements are GitHub-only, see the [Feature support](/introduction/supported-features) matrix and the [Element structure](/react-native/api-reference/element-structure) reference. Extra inline syntax (underline, highlight, super/subscript, math) is enabled separately through [`md4cFlags`](#md4cflags), independent of the flavor.
+[Markdown flavors](/react-native/guides/markdown-flavors#what-gfm-adds) is the canonical list of what the switch changes - parsing, rendering, and the two things you give up under `github` ([`numberOfLines`](#numberoflines) / [`ellipsizeMode`](#ellipsizemode) are ignored, and text selection cannot span segments). Extra inline syntax (underline, highlight, super/subscript, math) is enabled separately through [`md4cFlags`](#md4cflags), independent of the flavor.
 
 <PropInfo type="'commonmark' | 'github'" default="'commonmark'" />
 
@@ -124,7 +131,7 @@ Toggles for md4c's parser extensions; each opts a piece of extra inline syntax i
 
 #### `underline`
 
-When `true`, treats `_text_` as underline instead of emphasis. With it on, only `*text*` produces italic emphasis.
+When `true`, the `_` character stops meaning emphasis entirely and starts meaning underline: `_text_` is underlined, and `__text__` becomes *doubly* underlined rather than bold. Only `*text*` and `**text**` still produce italic and bold, which is why the `*` forms are the safer ones to author with.
 
 <PropInfo type="boolean" default="false" />
 
@@ -140,7 +147,7 @@ When `true`, parses `^text^` as superscript.
 
 #### `subscript`
 
-When `true`, parses `~text~` as subscript. When disabled, single and double tildes stay as strikethrough markers instead.
+When `true`, parses `~text~` as subscript. When disabled, `~` means nothing on its own; `~~text~~` is strikethrough, but only under [`flavor="github"`](#flavor) - under `commonmark` the tildes render literally.
 
 <PropInfo type="boolean" default="false" />
 
@@ -194,7 +201,7 @@ Only takes effect with [`flavor="github"`](#flavor). Under `flavor="commonmark"`
 
 ### `enableTaskListItemToggle`
 
-Controls whether tapping a task list checkbox toggles its checked state. When `false`, the checkbox renders its Markdown state read-only and the tap is **fully inert**; no visual toggle and `onTaskListItemPress` does not fire. Text selection and links in the same row are unaffected.
+Controls whether tapping a task list checkbox toggles its checked state. When `false`, the checkbox renders its Markdown state read-only and the tap is **fully inert**; no visual toggle and `onTaskListItemPress` does not fire. Text selection and links in the same row are unaffected. Task lists themselves need [`flavor="github"`](#flavor), so this prop has nothing to act on under `commonmark`.
 
 <PropInfo type="boolean" default="true" />
 
@@ -210,7 +217,7 @@ Controls the long-press context menu on block views - fenced code blocks, tables
 
 ### `enableLinkPreview` <IosBadge /> {#enablelinkpreview}
 
-Controls the native link preview on long press. Defaults to `true`, but automatically becomes `false` when `onLinkLongPress` is provided. Set it explicitly to override the automatic behavior.
+Controls the native link preview on long press. It is on by default, and supplying [`onLinkLongPress`](#onlinklongpress) turns it off - your handler owns the long press instead. That override cannot be undone from this prop: with `onLinkLongPress` set, even an explicit `enableLinkPreview={true}` is discarded. Setting [`selectable={false}`](#selectable) also suppresses the preview.
 
 <PropInfo type="boolean" default="true" />
 
@@ -218,7 +225,7 @@ Controls the native link preview on long press. Defaults to `true`, but automati
 
 ### `selectable`
 
-Whether text can be selected. For example on web, `false` applies `user-select: none`.
+Whether text can be selected. On web, `false` applies `user-select: none`. On iOS it also suppresses the long-press link preview (see [`enableLinkPreview`](#enablelinkpreview)).
 
 <PropInfo type="boolean" default="true" />
 
@@ -266,26 +273,35 @@ Whether to preserve the bottom margin of the last block element. When `false` (d
 
 ### `streamingAnimation`
 
-When `true`, newly appended content fades in during streaming updates. Only the tail (new characters beyond the previous content) is animated. Recommended for LLM streaming use cases.
+When `true`, newly appended content fades in during streaming updates. Only the tail is animated, and the tail is found by **length**, not by diffing: everything past the previous content's length fades in. Streaming therefore assumes append-only updates - replacing `markdown` wholesale (a retry or a regeneration) will not fade correctly. Recommended for LLM streaming use cases.
 
 <PropInfo type="boolean" default="false" />
 
-<LivePreview src={StreamingAnimationSrc} unavailable unavailableReason={<>iOS and Android only - the fade-in animation is native.</>} />
+<LivePreview src={StreamingAnimationSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the fade-in animation is native. On macOS it degrades to an instant reveal.</>} />
 
 ### `streamingConfig`
 
-Fine-grained control over how incomplete tables and fenced code blocks are handled while streaming with `flavor="github"`. Only effective when `streamingAnimation` is `true`.
+Fine-grained control over how incomplete tables and fenced code blocks are handled while streaming. Two conditions must both hold for it to do anything: `streamingAnimation` must be `true`, **and** the flavor must be `github` - the filter runs only on the segmented renderer, so under `flavor="commonmark"` you get the tail fade and nothing else.
 
-<PropInfo type="{ tableMode?: 'progressive' | 'hidden', codeBlockMode?: 'progressive' | 'hidden' }" default="{ tableMode: 'progressive', codeBlockMode: 'progressive' }" />
+<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive' }" />
+
+```ts
+interface StreamingConfig {
+  tableMode?: 'hidden' | 'progressive';
+  codeBlockMode?: 'hidden' | 'progressive';
+}
+```
 
 <LivePreview src={StreamingConfigSrc} unavailable unavailableReason={<>iOS and Android only - streaming block handling is native.</>} />
 
 - `tableMode`
-  - `'progressive'` **(default)** renders the table row-by-row as content arrives (incomplete trailing rows are trimmed);
+  - `'progressive'` **(default)** renders the table row-by-row as content arrives (incomplete trailing rows are trimmed).
   - `'hidden'` withholds the table until it is complete.
 - `codeBlockMode`
-  - `'progressive'` **(default)** streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives;
+  - `'progressive'` **(default)** streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives.
   - `'hidden'` withholds the block until it is complete.
+
+An unterminated block-math (`$$`) block is also withheld until its closing `$$` arrives. That behavior is unconditional and has no key here.
 
 ### `spoilerOverlay`
 
@@ -293,7 +309,11 @@ Controls how spoiler text (`||hidden text||`) is displayed before being revealed
 
 <PropInfo type="'particles' | 'solid'" default="'particles'" />
 
-<LivePreview src={SpoilerOverlaySrc} unavailable unavailableReason={<>iOS and Android only - the spoiler overlay is not rendered by the web build.</>} />
+:::danger
+The web build has no spoiler renderer at all, and an unhandled node is dropped **together with its subtree** - so `a ||secret|| b` renders as `a  b` with the concealed text missing, not concealed. Do not place content behind a spoiler if the same Markdown is also rendered on web.
+:::
+
+<LivePreview src={SpoilerOverlaySrc} unavailable unavailableReason={<>iOS and Android only - the web build drops spoiler nodes entirely.</>} />
 
 - **`'particles'`**: animated particle overlay (CAEmitterLayer on iOS, Choreographer-driven Canvas particles on Android).
 - **`'solid'`**: opaque rectangle covering the text (Discord-style).
@@ -310,10 +330,14 @@ HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN
 
 Custom items to add to the text selection context menu. Items appear before the system actions and are hidden when `visible: false`. On iOS this requires iOS 16+; on earlier versions the prop is ignored.
 
-<PropInfo type="ContextMenuItem[]" />
+<PropInfo type="TextContextMenuItem[]" />
+
+:::note
+The exported type is `TextContextMenuItem`. The unprefixed `ContextMenuItem` export is the **editor's** item type, whose `onPress` payload carries an extra `styleState` field.
+:::
 
 ```ts
-interface ContextMenuItem {
+interface TextContextMenuItem {
   /** Label shown in the context menu. */
   text: string;
   /** SF Symbol name for the item icon (iOS/macOS only; ignored on Android). */
@@ -329,27 +353,27 @@ interface ContextMenuItem {
 }
 ```
 
-<LivePreview src={ContextMenuItemsSrc} unavailable unavailableReason={<>iOS and Android only - it customizes the native selection menu.</>} />
+<LivePreview src={ContextMenuItemsSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - it customizes the native selection menu.</>} />
 
 ### `selectionMenuConfig`
 
-Controls the built-in actions in the native text selection menu (and the table/math copy menus) and lets you localize their labels. Custom app actions are controlled separately with `contextMenuItems`. Each item takes an object: `{ enabled }` toggles visibility (the system `copy` item can't be hidden - only relabeled) and `label` overrides the English default.
+Controls the built-in actions in the native text selection menu (and the table/math copy menus) and lets you localize their labels. Custom app actions are controlled separately with `contextMenuItems`. Each item takes an object: `{ enabled }` toggles visibility (the system `copy` item can't be hidden - only relabeled) and `label` overrides the English default. On iOS this goes through the same iOS 16+ edit-menu API as [`contextMenuItems`](#contextmenuitems), so it is ignored on earlier versions.
 
-<PropInfo type="SelectionMenuConfig" default="{}" />
+<PropInfo type="TextSelectionMenuConfig" default="{ copyAsMarkdown: { enabled: true }, copyImageUrl: { enabled: true } }" />
 
 ```ts
-interface SelectionMenuConfig {
+interface TextSelectionMenuConfig {
   copy?: { label?: string }; // system Copy: relabel only, cannot be hidden
   copyAsMarkdown?: { enabled?: boolean; label?: string };
   copyImageUrl?: {
     // shown when the selection contains images
     enabled?: boolean;
     label?: string; // single image
-    pluralLabels?: SelectionMenuPluralLabels; // multiple images
+    pluralLabels?: TextSelectionMenuPluralLabels; // 2 or more images
   };
 }
 
-interface SelectionMenuPluralLabels {
+interface TextSelectionMenuPluralLabels {
   other: string; // required; every other category falls back to this
   zero?: string;
   one?: string;
@@ -359,7 +383,7 @@ interface SelectionMenuPluralLabels {
 }
 ```
 
-In each plural form, the `{count}` token is replaced with the number of selected images.
+In each plural form, the `{count}` token is replaced with the number of selected images. A selection containing exactly one image always uses the singular `label`, never a plural form - `pluralLabels` starts at two.
 
 <LivePreview src={SelectionMenuConfigSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - it customizes the native selection menu.</>} />
 
@@ -386,7 +410,7 @@ interface AccessibilityLabels {
     nestedQuote?: string;
   };
   table?: {
-    row?: string; // {n} is the row index, {content} the joined cell text
+    row?: string; // {n} is the 1-based row index, {content} the joined cell text
   };
   math?: {
     equation?: string; // {latex} is the equation source
@@ -400,7 +424,7 @@ interface AccessibilityLabels {
 }
 ```
 
-Every field is optional; see the [Accessibility guide](/user-experience/accessibility) for each field's English default.
+The package also exports the defaults themselves: `DEFAULT_ACCESSIBILITY_LABELS` (the full English object, the natural thing to seed a translation table from) and `resolveAccessibilityLabels(labels)`, which merges a partial override onto them and returns a `ResolvedAccessibilityLabels`.
 
 <LivePreview src={AccessibilityLabelsSrc} unavailable unavailableReason={<>iOS and Android only - it translates VoiceOver / TalkBack announcements.</>} />
 
@@ -464,7 +488,7 @@ Controls iOS line-breaking refinements. Mirrors the prop of the same name on Rea
 
 ### `writingDirection` <IosBadge /> {#writingdirection}
 
-Paragraph writing direction. iOS only.
+Paragraph writing direction.
 
 :::important
 Android resolves direction per paragraph via the platform Bidi heuristic (`TEXT_DIRECTION_FIRST_STRONG`) and is unaffected by this prop.

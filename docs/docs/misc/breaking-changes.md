@@ -11,6 +11,8 @@ Looking for the full release notes? See the [changelog](https://swmansion.com/ch
 
 This page tracks breaking changes to the React Native package and how to migrate for each, newest first. Deprecations (things that still work but are slated for removal) are noted alongside the change that introduces them.
 
+The current release is **1.1.0**, which introduced no breaking changes.
+
 ## v1.0.2
 
 ### The Expo config plugin was removed
@@ -55,7 +57,7 @@ Note the key renames: the plugin's `codeHighlight.enabled` / `codeHighlight.lang
 
 ### Feature config moved to `package.json`; ENV vars and gradle properties are deprecated
 
-The `enriched-markdown` block in your app's `package.json` is now the single source of truth for `enableMath`, `enableCodeHighlight`, and `codeHighlightLanguages` on both platforms - the native build reads it directly at `pod install` / Gradle configuration time. The previous build flags still work as a fallback but are deprecated, print a warning, and are ignored when the matching `package.json` key is set:
+The `enriched-markdown` block in your app's `package.json` is now the single source of truth for the compile-time feature flags - `enableMath`, `enableCodeHighlight`, `codeHighlightLanguages`, and since 1.1.0 `enableVideo` as well - on both platforms - the native build reads it directly at `pod install` / Gradle configuration time. The previous build flags still work as a fallback but are deprecated, print a warning, and are ignored when the matching `package.json` key is set:
 
 | Deprecated flag | Replaced by (`enriched-markdown` in `package.json`) |
 |---|---|

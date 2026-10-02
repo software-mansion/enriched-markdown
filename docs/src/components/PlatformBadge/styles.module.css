@@ -79,3 +79,16 @@
 [data-theme='dark'] .web .icon {
   fill: #7cc8e6;
 }
+
+/* Coming soon - amber, no icon */
+.comingSoon {
+  background-color: #fdf4e3;
+  border: 1px solid #f0cf8e;
+  color: #8a5a00;
+}
+
+[data-theme='dark'] .comingSoon {
+  background-color: rgba(240, 207, 142, 0.14);
+  border-color: #8a6b2e;
+  color: #e8c98a;
+}

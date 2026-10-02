@@ -5,11 +5,18 @@ import { No, Version, Yes } from './index';
 // versions. Mirrors the Compatibility Table in the package README.
 const REACT_NATIVE_VERSIONS = ['0.82', '0.83', '0.84', '0.85', '0.86', '0.87'];
 
+// Keep in sync with the Compatibility Table in
+// packages/react-native-enriched-markdown/README.md - the two are maintained
+// by hand and have drifted before.
 const LIBRARY_VERSIONS = [
   { version: 'nightly', supportedFrom: '0.83', supportedTo: '0.87' },
-  { version: '1.0.0', supportedFrom: '0.83', supportedTo: '0.87' },
+  { version: '1.1.0', supportedFrom: '0.83', supportedTo: '0.87' },
+  { version: '1.0.x', supportedFrom: '0.83', supportedTo: '0.87' },
   { version: '0.7.0', supportedFrom: '0.83', supportedTo: '0.87' },
   { version: '0.6.0', supportedFrom: '0.83', supportedTo: '0.85' },
+  { version: '0.5.0', supportedFrom: '0.83', supportedTo: '0.85' },
+  { version: '0.4.x', supportedFrom: '0.82', supportedTo: '0.84' },
+  { version: '0.3.0', supportedFrom: '0.82', supportedTo: '0.84' },
 ] as const;
 
 function isSupported(

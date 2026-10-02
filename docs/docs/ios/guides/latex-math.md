@@ -7,7 +7,7 @@ sidebar_position: 2
 
 Math rendering ships as a **separate product**, `EnrichedMarkdownLaTeX`, so an app that never shows a formula does not link a typesetting engine it will not use. The engine is a prebuilt binary dependency plus the [KaTeX font files](#engine) - a few megabytes of app size - which is why it is opt-in rather than part of the base package.
 
-The consequence to know up front: without the product, `$…$` is not math syntax at all. There is no `Md4cFlags` field for it, so `$x^2$` stays plain text and nothing is lost or mangled. Adding the product turns the parsing **and** the rendering on together, in one modifier.
+The consequence to know up front: without the product, `$…$` is not math syntax at all. There is no `MarkdownParsingOptions` field for it, so `$x^2$` stays plain text and nothing is lost or mangled. Adding the product turns the parsing **and** the rendering on together, in one modifier.
 
 ## Turning it on
 
@@ -116,7 +116,7 @@ The closure receives the raw source and runs on the render queue, so keep it che
 `MarkdownRenderer.renderLaTeX` mirrors [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed:
 
 ```swift
-let config = MarkdownStyleConfig.resolve(
+let config = MarkdownStyleConfiguration.resolve(
   layers: [.default, .latexDefault, myTheme],
   traitCollection: .current
 )
@@ -125,7 +125,7 @@ let text = MarkdownRenderer.renderLaTeX(content, config: config)
 ```
 
 :::caution
-Resolving the config yourself means **you** place the `.latexDefault` layer. `MarkdownStyleConfig.baseline()` is `.default` alone, so a config built that way leaves `MathBlock` unstyled - no panel, no padding, no centering. Include `.latexDefault` between `.default` and your own layers, exactly as `.markdownLaTeX()` does.
+Resolving the config yourself means **you** place the `.latexDefault` layer. `MarkdownStyleConfiguration.baseline()` is `.default` alone, so a config built that way leaves `MathBlock` unstyled - no panel, no padding, no centering. Include `.latexDefault` between `.default` and your own layers, exactly as `.markdownLaTeX()` does.
 :::
 
 The same caveat as `render` applies: the returned attributed string carries the typeset formulas, but the decorations `EnrichedMarkdownText` draws around the text are not in it - see [UIKit interop](/ios/guides/uikit-interop).

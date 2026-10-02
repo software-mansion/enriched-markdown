@@ -19,8 +19,7 @@ export default function App() {
 
     return {
       ...base,
-      math: { ...base.math, padding: 12, textAlign: 'center' },
-      inlineMath: { ...base.inlineMath },
+      math: { ...base.math, padding: 12, textAlign: 'center' as const },
     };
   }, [isDark]);
 

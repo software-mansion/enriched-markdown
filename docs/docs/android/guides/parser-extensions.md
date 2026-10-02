@@ -80,7 +80,7 @@ Two flags control how whitespace in the source survives into the output, and bot
 Enabling either **removes content from the page**. An unrendered node's text is dropped rather than shown unstyled, so `==important==` and `$E = mc^2$` render as nothing at all, with a `No renderer for: …` warning in Logcat. Leave both off: the `==` and `$` then stay literal text, and your reader still sees the words.
 :::
 
-The same is true of two constructs that have no flag at all: **tables** and **spoilers** parse - tables always, spoilers unconditionally - but are skipped at render time. Renderers for all four are in progress; see the [roadmap](/misc/roadmap#android-renderer).
+The same is true of two constructs that have no flag at all: **tables** and **spoilers** parse - tables always, spoilers unconditionally - but are skipped at render time. Renderers for all four are in progress; see the [roadmap](/misc/roadmap).
 
 ## Reference
 

@@ -67,3 +67,14 @@ export function WebBadge({ children }: PlatformBadgeProps) {
     </span>
   );
 }
+
+// Marks a platform or feature that is documented but not released yet. Unlike
+// the platform badges it carries no icon, because it qualifies the thing it
+// sits next to rather than naming another platform.
+export function ComingSoonBadge({ children }: PlatformBadgeProps) {
+  return (
+    <span className={`${styles.badge} ${styles.comingSoon}`}>
+      {children ?? 'Coming soon'}
+    </span>
+  );
+}
