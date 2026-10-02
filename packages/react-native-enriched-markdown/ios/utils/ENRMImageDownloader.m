@@ -7,7 +7,7 @@
 static const NSUInteger kDiskCacheMemoryCapacity = 10 * 1024 * 1024;
 static const NSUInteger kDiskCacheDiskCapacity = 100 * 1024 * 1024;
 
-static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
+NSUInteger ENRMImageByteCost(RCTUIImage *image)
 {
   CGImageRef cgImage = image.CGImage;
   if (!cgImage)

@@ -147,10 +147,17 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
     textContainer.lineBreakMode = lineBreakMode;
   }
   NSLayoutManager *layoutManager = [[NSLayoutManager alloc] init];
+#if !TARGET_OS_OSX
+  layoutManager.delegate = ENRMLinkPillLayoutDelegate.shared;
+#endif
   layoutManager.allowsNonContiguousLayout = NO;
   layoutManager.usesFontLeading = NO;
   [layoutManager addTextContainer:textContainer];
+#if !TARGET_OS_OSX
+  NSTextStorage *textStorage = [[ENRMLinkPillTextStorage alloc] initWithAttributedString:text];
+#else
   NSTextStorage *textStorage = [[NSTextStorage alloc] initWithAttributedString:text];
+#endif
   [textStorage addLayoutManager:layoutManager];
 
   [layoutManager ensureLayoutForTextContainer:textContainer];

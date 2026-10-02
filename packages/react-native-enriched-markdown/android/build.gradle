@@ -185,6 +185,10 @@ android {
     buildConfigField "boolean", "ENABLE_CODE_HIGHLIGHT", "${codeHighlightActive}"
   }
 
+  testOptions {
+    unitTests.includeAndroidResources = true
+  }
+
   buildFeatures {
     buildConfig true
   }

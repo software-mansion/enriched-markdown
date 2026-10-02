@@ -22,6 +22,7 @@ import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
@@ -618,6 +619,8 @@ object MeasurementStore {
     text: CharSequence?,
     widthPx: Int,
   ) {
+    LinkPillSpan
+      .prepareForMeasurement(text, widthPx)
     // widthPx == 1 is the coerceAtLeast(1) fallback for a not-yet-measured view
     if (widthPx <= 1) return
     val spanned = text as? android.text.Spanned ?: return

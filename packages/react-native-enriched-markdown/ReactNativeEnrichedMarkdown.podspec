@@ -101,6 +101,8 @@ Pod::Spec.new do |s|
   # sources. Both compile into this pod's module only when math is enabled.
   exclude += ["ios/math/**/*.swift", "ios/vendor/*.swift"] unless enable_math
   s.exclude_files = exclude
+  # Bounded decoding of native pill icons.
+  s.frameworks = "ImageIO"
 
   # Video playback (AVKit, built into iOS — no external framework or vendored asset).
   # Default on: consumers opt out via "enriched-markdown".enableVideo = false in package.json.
