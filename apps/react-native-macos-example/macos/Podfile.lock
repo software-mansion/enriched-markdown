@@ -2255,7 +2255,7 @@ PODS:
     - React-perflogger (= 0.81.4)
     - React-utils (= 0.81.4)
     - SocketRocket
-  - ReactNativeEnrichedMarkdown (1.0.2):
+  - ReactNativeEnrichedMarkdown (1.1.0):
     - boost
     - DoubleConversion
     - EnrichedMarkdownCore

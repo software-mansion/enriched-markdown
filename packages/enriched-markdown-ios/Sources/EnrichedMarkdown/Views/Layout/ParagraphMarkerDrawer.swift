@@ -4,29 +4,12 @@ import UIKit
 /// Draws a paragraph's leading-gutter glyph: list bullet or number, task
 /// checkbox, or admonition icon.
 enum ParagraphMarkerDrawer {
-    static func draw(in drawContext: MarkerDrawContext) {
-        let visibleCharacterRange = drawContext.visibleCharacterRange
-        guard visibleCharacterRange.length > 0 else { return }
-
+    static func draw(in drawContext: DecorationDrawContext) {
         let config = drawContext.decorationConfig
         let gap = config.listGapWidth
-        let string = drawContext.textStorage.string as NSString
-        var drawnParagraphs = Set<Int>()
-        var location = visibleCharacterRange.location
-        let end = NSMaxRange(visibleCharacterRange)
 
-        while location < end {
-            let paragraphRange = string.paragraphRange(for: NSRange(location: location, length: 0))
-            defer { location = NSMaxRange(paragraphRange) }
-
-            guard paragraphRange.length > 0,
-                  paragraphRange.location < drawContext.textStorage.length,
-                  !drawnParagraphs.contains(paragraphRange.location) else {
-                continue
-            }
-            drawnParagraphs.insert(paragraphRange.location)
-
-            let attrs = drawContext.textStorage.attributes(at: paragraphRange.location, effectiveRange: nil)
+        for paragraph in drawContext.paragraphs {
+            let attrs = paragraph.attributes
             let admonition = (attrs[MarkdownAttribute.admonitionHeader] as? String)
                 .flatMap(AdmonitionType.init(rawValue:))
             guard admonition != nil || MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]) != nil else {
@@ -36,11 +19,10 @@ enum ParagraphMarkerDrawer {
             let font = (attrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
             let isRTL = TextLayoutHelpers.paragraphIsRTL(attrs[.paragraphStyle] as? NSParagraphStyle)
             let layoutInfo = ParagraphMarkerLayout(
-                paragraphRange: paragraphRange,
-                attrs: attrs,
+                paragraph: paragraph,
                 gap: admonition == nil ? gap : AdmonitionHeader.iconGap(for: font),
                 isRTL: isRTL,
-                drawContext: drawContext
+                origin: drawContext.origin
             )
 
             if let admonition {

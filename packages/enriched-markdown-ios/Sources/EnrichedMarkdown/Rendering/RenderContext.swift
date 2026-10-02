@@ -76,6 +76,9 @@ package final class RenderContext {
     var listItemNumber = 0
     var taskItemIndex = 0
     var rendersBlockImage = false
+    /// Set once a superscript or subscript run is rendered, so the post-pass
+    /// that scales them runs only on documents that have any.
+    var hasBaselineShifts = false
     /// Set while rendering the synthetic paragraph around a bare root-level
     /// plugin block node (see `MarkdownRenderPlugin.rootBlockNodeTypes`).
     var pluginBlockMargins: BlockMargins?

@@ -8,9 +8,7 @@ final class ThematicBreakRenderer: NodeRenderer {
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
-        if output.length > 0, !output.string.hasSuffix("\n") {
-            output.append(ParagraphStyleHelpers.newline)
-        }
+        ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
 
         let style = config.thematicBreak
         let attachment = ThematicBreakAttachment()

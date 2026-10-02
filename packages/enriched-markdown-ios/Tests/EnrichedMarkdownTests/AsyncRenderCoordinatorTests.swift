@@ -87,3 +87,30 @@ final class AsyncRenderCoordinatorTests: XCTestCase {
         waitForExpectations(timeout: 0.2)
     }
 }
+
+extension AsyncRenderCoordinatorTests {
+    /// A render that a later schedule superseded before the queue reached
+    /// it is skipped, not rendered and then dropped.
+    func testSupersededRenderNeverRuns() {
+        let coordinator = AsyncRenderCoordinator()
+        let lastApply = expectation(description: "last apply")
+        let secondRendered = expectation(description: "second render ran")
+        secondRendered.isInverted = true
+
+        coordinator.scheduleRender({
+            Thread.sleep(forTimeInterval: 0.05)
+            return NSAttributedString(string: "first")
+        }, apply: { _ in })
+        coordinator.scheduleRender({
+            secondRendered.fulfill()
+            return NSAttributedString(string: "second")
+        }, apply: { _ in })
+        coordinator.scheduleRender({
+            NSAttributedString(string: "third")
+        }, apply: { _ in
+            lastApply.fulfill()
+        })
+
+        wait(for: [lastApply, secondRendered], timeout: 2)
+    }
+}

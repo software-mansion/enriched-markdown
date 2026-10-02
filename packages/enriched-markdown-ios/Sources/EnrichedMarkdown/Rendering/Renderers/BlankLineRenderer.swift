@@ -16,9 +16,7 @@ final class BlankLineRenderer: NodeRenderer {
         let count = Int(node.attribute("count") ?? "0") ?? 0
         guard count > 0 else { return }
 
-        if output.length > 0, !output.string.hasSuffix("\n") {
-            output.append(ParagraphStyleHelpers.newline)
-        }
+        ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
 
         let paragraph = config.paragraph
         let font = paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)
