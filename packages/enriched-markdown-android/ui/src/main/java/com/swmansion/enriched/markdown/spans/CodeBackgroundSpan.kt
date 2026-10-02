@@ -4,16 +4,30 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.text.Layout
 import android.text.Spanned
-import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
+import android.widget.TextView
 import com.swmansion.enriched.markdown.spoiler.colorWithAlpha
 import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.min
+
+/**
+ * Registers this view with every [CodeBackgroundSpan] in [text], so each positions its background
+ * from the layout the view draws with. A view showing rendered markdown calls it whenever its text
+ * changes.
+ */
+internal fun TextView.registerCodeBackgrounds(text: CharSequence?) {
+  if (text !is Spanned) return
+  for (span in text.getSpans(0, text.length, CodeBackgroundSpan::class.java)) {
+    span.registerTextView(this)
+  }
+}
 
 class CodeBackgroundSpan(
   private val styleConfig: StyleConfig,
@@ -35,6 +49,9 @@ class CodeBackgroundSpan(
   // Reusable drawing objects per instance
   private val rect = RectF()
   private val path = Path()
+
+  // Weak, so a rendered text that outlives its view does not keep the view alive.
+  private var textViewRef: WeakReference<TextView>? = null
 
   override fun drawBackground(
     canvas: Canvas,
@@ -66,9 +83,21 @@ class CodeBackgroundSpan(
 
     // 2. Calculate coordinates
     val finalBottom = adjustBottomForMargin(text, end, bottom)
-    val leadingMargin = leadingMarginAt(text, start)
-    val startX = if (isFirst) getHorizontalOffset(text, start, end, spanStart, p, leadingMargin) + left else left.toFloat() + leadingMargin
-    val endX = if (isLast) getHorizontalOffset(text, start, end, spanEnd, p, leadingMargin) + left else right.toFloat()
+    // The layout drawing this line, when the view showing the text registered with this span. Its
+    // x positions are in the same frame as left and right, which the layout draws from.
+    val layout = textViewRef?.get()?.layout?.takeIf { it.text === text }
+    val startX =
+      when {
+        !isFirst -> left.toFloat() + leadingMarginAt(text, start)
+        layout != null -> layout.horizontalOnLine(spanStart, lineNum)
+        else -> left + measuredOffset(text, start, spanStart, p)
+      }
+    val endX =
+      when {
+        !isLast -> right.toFloat()
+        layout != null -> layout.horizontalOnLine(spanEnd, lineNum)
+        else -> left + measuredOffset(text, start, spanEnd, p)
+      }
 
     rect.set(min(startX, endX), top.toFloat(), max(startX, endX), finalBottom.toFloat())
 
@@ -81,26 +110,41 @@ class CodeBackgroundSpan(
   }
 
   /**
-   * Returns the x position of [index] relative to the line's left edge, including any
-   * leading margin. The measuring StaticLayout is built from a subSequence that keeps
-   * all spans, so LeadingMarginSpans (lists, blockquotes) are already applied to
-   * getPrimaryHorizontal; adding the margin again on top would shift the background
-   * right by the indent. The margin is only added explicitly in the early-return case,
-   * where no layout is built.
+   * Makes this span position itself from [view]'s layout, which is the one that draws it. See
+   * [registerCodeBackgrounds].
    */
-  private fun getHorizontalOffset(
-    text: CharSequence,
+  fun registerTextView(view: TextView) {
+    if (textViewRef?.get() !== view) textViewRef = WeakReference(view)
+  }
+
+  /**
+   * The x of [offset] on [line]. An offset at the end of a wrapped line also starts the next
+   * line, where getPrimaryHorizontal would place it, so the line's trailing edge is used instead.
+   */
+  private fun Layout.horizontalOnLine(
+    offset: Int,
+    line: Int,
+  ): Float {
+    if (offset < getLineEnd(line) || line == lineCount - 1) return getPrimaryHorizontal(offset)
+    return if (getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT) getLineLeft(line) else getLineRight(line)
+  }
+
+  /**
+   * The x of [index] relative to the line's left edge, for text drawn by a view that did not
+   * register with this span. It measures the line from its start, so it is exact only for
+   * left-to-right text aligned to the start; a registered view's layout is exact for any
+   * alignment and direction.
+   */
+  private fun measuredOffset(
+    text: Spanned,
     lineStart: Int,
-    lineEnd: Int,
     index: Int,
     paint: Paint,
-    leadingMargin: Int,
   ): Float {
-    if (index <= lineStart) return leadingMargin.toFloat()
-    val lineText = text.subSequence(lineStart, lineEnd)
+    val leadingMargin = leadingMarginAt(text, lineStart).toFloat()
+    if (index <= lineStart) return leadingMargin
     val textPaint = paint as? TextPaint ?: TextPaint(paint)
-    val layout = StaticLayout.Builder.obtain(lineText, 0, lineText.length, textPaint, 10000).build()
-    return layout.getPrimaryHorizontal(index - lineStart)
+    return leadingMargin + Layout.getDesiredWidth(text, lineStart, index, textPaint)
   }
 
   private fun drawShapes(

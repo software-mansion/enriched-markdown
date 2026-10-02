@@ -23,6 +23,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.registerCodeBackgrounds
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableAlignment
 import com.swmansion.enriched.markdown.styles.TableStyle
@@ -503,6 +504,16 @@ class TableContainerView(
       layoutDirection = View.LAYOUT_DIRECTION_LOCALE
       textDirection = View.TEXT_DIRECTION_LOCALE
       importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    override fun onTextChanged(
+      text: CharSequence?,
+      start: Int,
+      lengthBefore: Int,
+      lengthAfter: Int,
+    ) {
+      super.onTextChanged(text, start, lengthBefore, lengthAfter)
+      registerCodeBackgrounds(text)
     }
   }
 
