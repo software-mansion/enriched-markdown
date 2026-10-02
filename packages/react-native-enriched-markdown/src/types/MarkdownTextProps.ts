@@ -147,8 +147,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   /**
    * Callback fired when a link is long pressed.
    * Receives the link URL directly.
-   * - iOS: When provided, automatically disables the system link preview
-   *   (unless `enableLinkPreview` is explicitly set to `true`).
+   * - iOS: When provided, disables the system link preview unconditionally -
+   *   an explicit `enableLinkPreview={true}` does not win.
    * - Android: Handles long press gestures on links.
    * - Web: Mapped to the `contextmenu` event (right-click).
    * @platform ios, android, web
@@ -246,8 +246,10 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * When `true`, long-pressing a link shows the native iOS link preview.
    * When `false`, the system preview is suppressed.
    *
-   * Defaults to `true`, but automatically becomes `false` when `onLinkLongPress`
-   * is provided. Set explicitly to override the automatic behavior.
+   * Defaults to `true`, but is forced to `false` whenever `onLinkLongPress` is
+   * provided - your handler owns the long press instead. That override cannot
+   * be undone from here: with `onLinkLongPress` set, an explicit `true` is
+   * discarded (see the resolution in `native/EnrichedMarkdownText.tsx`).
    *
    * @default true
    * @platform ios
