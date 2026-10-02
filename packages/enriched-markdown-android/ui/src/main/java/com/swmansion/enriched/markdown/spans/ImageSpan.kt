@@ -18,12 +18,14 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 import android.text.style.ImageSpan as AndroidImageSpan
 import android.text.style.LineHeightSpan as AndroidLineHeightSpan
 
@@ -200,6 +202,10 @@ class ImageSpan(
     bottom: Int,
     paint: Paint,
   ) {
+    // A spoiler conceals text through the paint, which a drawable ignores, so the image fades with
+    // the text instead.
+    val visibility = (text as? Spanned)?.spoilerTextAlpha(start, end) ?: 1f
+    if (visibility <= 0f) return
     val drawable = getDrawable()
     canvas.withSave {
       if (isInline) {
@@ -207,6 +213,16 @@ class ImageSpan(
         translate(x, (y - imageHeight + (imageHeight * 0.1f)))
       } else {
         translate(x, top.toFloat())
+      }
+      if (visibility < 1f) {
+        val bounds = drawable.bounds
+        saveLayerAlpha(
+          bounds.left.toFloat(),
+          bounds.top.toFloat(),
+          bounds.right.toFloat(),
+          bounds.bottom.toFloat(),
+          (visibility * 255f).roundToInt(),
+        )
       }
       drawable.draw(this)
     }

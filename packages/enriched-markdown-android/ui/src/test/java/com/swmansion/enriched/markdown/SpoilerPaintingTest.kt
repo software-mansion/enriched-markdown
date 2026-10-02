@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -26,9 +27,11 @@ import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.TestAstFactory.code
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
+import com.swmansion.enriched.markdown.test.TestAstFactory.image
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.spoiler
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
+import com.swmansion.enriched.markdown.utils.text.ImageCache
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -44,10 +47,8 @@ import java.time.Duration
 /**
  * Covers the geometry the overlay paints and the state machine a reveal walks through.
  *
- * Scope note: the particle field is driven by [android.view.Choreographer], which Robolectric only
- * advances through a paused looper, and its output is random by design. The animation *timing* is
- * therefore deliberately out of scope — what is asserted here is the static draw (one rect per
- * line of the span, in the styled color) and the transitions a span makes as it is revealed.
+ * Frames are drawn by hand with [ShadowSystemClock] as the clock, since Robolectric only advances
+ * [android.view.Choreographer] through a paused looper.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
@@ -62,10 +63,11 @@ class SpoilerPaintingTest {
     const val OVERLAY = 0xFF884422.toInt()
   }
 
-  /** A [Canvas] that remembers the shapes drawn onto it, with the color each was painted in. */
+  /** Records the shapes drawn onto it, in view coordinates, with their colors. */
   private class RecordingCanvas(
-    bitmap: Bitmap,
+    val bitmap: Bitmap,
   ) : Canvas(bitmap) {
+    private val currentMatrix = Matrix()
     val roundRects = mutableListOf<Pair<RectF, Int>>()
     val rects = mutableListOf<Pair<RectF, Int>>()
     val pathColors = mutableListOf<Int>()
@@ -84,7 +86,7 @@ class SpoilerPaintingTest {
       ry: Float,
       paint: Paint,
     ) {
-      roundRects.add(RectF(rect) to paint.color)
+      roundRects.add(inViewCoordinates(RectF(rect)) to paint.color)
       super.drawRoundRect(rect, rx, ry, paint)
     }
 
@@ -95,8 +97,17 @@ class SpoilerPaintingTest {
       bottom: Float,
       paint: Paint,
     ) {
-      rects.add(RectF(left, top, right, bottom) to paint.color)
+      rects.add(inViewCoordinates(RectF(left, top, right, bottom)) to paint.color)
       super.drawRect(left, top, right, bottom, paint)
+    }
+
+    // Overlays draw in their segment's coordinates, under a translation. getMatrix is deprecated
+    // because a hardware canvas's matrix is implementation-defined; over a bitmap it is exact.
+    @Suppress("DEPRECATION")
+    private fun inViewCoordinates(rect: RectF): RectF {
+      getMatrix(currentMatrix)
+      currentMatrix.mapRect(rect)
+      return rect
     }
   }
 
@@ -147,7 +158,7 @@ class SpoilerPaintingTest {
 
   private fun harness(
     document: MarkdownASTNode,
-    overlay: SpoilerOverlay = SpoilerOverlay.Solid,
+    overlay: SpoilerOverlay = SpoilerOverlay.Solid(),
     style: StyleConfig = styleWithOverlayColor(),
   ): Harness {
     val rendered = render(document, style)
@@ -277,7 +288,7 @@ class SpoilerPaintingTest {
   fun theParticleOverlayPaintsNoBackdrop() {
     val style = MarkdownRenderTestSupport.styleWithSpoiler(SpoilerStyle(color = OVERLAY))
     val canvas =
-      harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles, style).draw()
+      harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles(), style).draw()
 
     assertEquals("Particles never draw the solid block", 0, canvas.roundRects.size)
     assertEquals("The text is drawn transparent, so nothing covers it", 0, canvas.rects.size)
@@ -285,10 +296,10 @@ class SpoilerPaintingTest {
 
   @Test
   fun switchingModesRepaintsWithTheOtherStrategy() {
-    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles)
+    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles())
     assertEquals(0, test.draw().roundRects.size)
 
-    test.drawer.spoilerOverlay = SpoilerOverlay.Solid
+    test.drawer.spoilerOverlay = SpoilerOverlay.Solid()
 
     assertEquals(1, test.draw().roundRects.size)
   }
@@ -313,6 +324,40 @@ class SpoilerPaintingTest {
 
     assertTrue(test.drawText().pathColors.any { Color.alpha(it) > 0 })
   }
+
+  // Color glyphs take the paint's alpha like any other, so the concealment covers them.
+  @Test
+  fun anEmojiUnderAConcealedSpoilerDrawsNoInk() {
+    val test = harness(document(paragraph(spoiler(text("\uD83D\uDE00")))))
+
+    assertEquals(0, test.drawText().bitmap.inkedPixels())
+
+    test.spans.single().markRevealed()
+    assertTrue("The emoji should draw once revealed", test.drawText().bitmap.inkedPixels() > 0)
+  }
+
+  // A drawable ignores the paint, so an image has to be concealed explicitly.
+  @Test
+  fun anInlineImageUnderAConcealedSpoilerIsNotDrawn() {
+    val url = "test://spoiler-inline-image"
+    ImageCache.putOriginal(url, Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) })
+    val test = harness(document(paragraph(text("see "), spoiler(image(url)))))
+
+    assertEquals(0, test.drawText().bitmap.redPixels())
+
+    test.spans.single().textAlpha = 0.5f
+    val halfway = test.drawText().bitmap
+    assertTrue("The image should fade in with the text", halfway.redPixels() > 0)
+
+    test.spans.single().markRevealed()
+    assertTrue(test.drawText().bitmap.redPixels() > 0)
+  }
+
+  private fun Bitmap.inkedPixels(): Int = pixels().count { Color.alpha(it) > 0 }
+
+  private fun Bitmap.redPixels(): Int = pixels().count { Color.alpha(it) > 0 && Color.red(it) > 128 && Color.green(it) < 64 }
+
+  private fun Bitmap.pixels(): IntArray = IntArray(width * height).also { getPixels(it, 0, width, 0, 0, width, height) }
 
   // MARK: Reveal transitions
 
@@ -383,7 +428,7 @@ class SpoilerPaintingTest {
     var completed = false
     test.drawer.revealSpan(span) { completed = true }
 
-    test.drawer.spoilerOverlay = SpoilerOverlay.Particles
+    test.drawer.spoilerOverlay = SpoilerOverlay.Particles()
 
     assertTrue(completed)
     assertTrue(span.revealed)
@@ -412,7 +457,7 @@ class SpoilerPaintingTest {
 
   @Test
   fun stoppingMidRevealFinishesTheReveal() {
-    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles)
+    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles())
     test.draw()
     val span = test.spans.single()
     test.drawer.revealSpan(span) {}
@@ -452,6 +497,6 @@ class SpoilerPaintingTest {
     val rendered = render(document(paragraph(text("nothing hidden"))), style)
     val textView = laidOutTextView(rendered, style)
 
-    assertNull(SpoilerOverlayDrawer.setupIfNeeded(textView, rendered, null, SpoilerOverlay.Solid))
+    assertNull(SpoilerOverlayDrawer.setupIfNeeded(textView, rendered, null, SpoilerOverlay.Solid()))
   }
 }

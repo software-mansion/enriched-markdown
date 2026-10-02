@@ -171,11 +171,6 @@ val CustomMarkdownStyle: MarkdownStyle =
     }
     spoiler {
       color = Color(0xFF374151)
-      particles {
-        density = 8f
-        speed = 20f
-      }
-      solid { cornerRadius = 4.dp }
     }
   }
 
