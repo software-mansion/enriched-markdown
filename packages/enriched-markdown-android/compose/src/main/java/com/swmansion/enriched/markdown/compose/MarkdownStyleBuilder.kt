@@ -1,5 +1,44 @@
 package com.swmansion.enriched.markdown.compose
 
+import com.swmansion.enriched.markdown.compose.patches.BlockquoteStylePatch
+import com.swmansion.enriched.markdown.compose.patches.BlockquoteStyleScope
+import com.swmansion.enriched.markdown.compose.patches.CodeBlockStylePatch
+import com.swmansion.enriched.markdown.compose.patches.CodeBlockStyleScope
+import com.swmansion.enriched.markdown.compose.patches.CodeStylePatch
+import com.swmansion.enriched.markdown.compose.patches.CodeStyleScope
+import com.swmansion.enriched.markdown.compose.patches.EmphasisStylePatch
+import com.swmansion.enriched.markdown.compose.patches.EmphasisStyleScope
+import com.swmansion.enriched.markdown.compose.patches.HeadingStyleScope
+import com.swmansion.enriched.markdown.compose.patches.ImageStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ImageStyleScope
+import com.swmansion.enriched.markdown.compose.patches.InlineImageStylePatch
+import com.swmansion.enriched.markdown.compose.patches.InlineImageStyleScope
+import com.swmansion.enriched.markdown.compose.patches.LinkStylePatch
+import com.swmansion.enriched.markdown.compose.patches.LinkStyleScope
+import com.swmansion.enriched.markdown.compose.patches.ListStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ListStyleScope
+import com.swmansion.enriched.markdown.compose.patches.ParagraphStyleScope
+import com.swmansion.enriched.markdown.compose.patches.SpoilerStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SpoilerStyleScope
+import com.swmansion.enriched.markdown.compose.patches.StrikethroughStylePatch
+import com.swmansion.enriched.markdown.compose.patches.StrikethroughStyleScope
+import com.swmansion.enriched.markdown.compose.patches.StrongStylePatch
+import com.swmansion.enriched.markdown.compose.patches.StrongStyleScope
+import com.swmansion.enriched.markdown.compose.patches.SubscriptStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SubscriptStyleScope
+import com.swmansion.enriched.markdown.compose.patches.SuperscriptStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SuperscriptStyleScope
+import com.swmansion.enriched.markdown.compose.patches.TableStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TableStyleScope
+import com.swmansion.enriched.markdown.compose.patches.TaskListStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TaskListStyleScope
+import com.swmansion.enriched.markdown.compose.patches.TextStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TextStyleScope
+import com.swmansion.enriched.markdown.compose.patches.ThematicBreakStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ThematicBreakStyleScope
+import com.swmansion.enriched.markdown.compose.patches.UnderlineStylePatch
+import com.swmansion.enriched.markdown.compose.patches.UnderlineStyleScope
+
 @MarkdownStyleDsl
 class MarkdownStyleBuilder internal constructor() {
   private var paragraph: TextStylePatch? = null

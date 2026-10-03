@@ -1,6 +1,24 @@
 package com.swmansion.enriched.markdown.compose
 
 import androidx.compose.runtime.Immutable
+import com.swmansion.enriched.markdown.compose.patches.BlockquoteStylePatch
+import com.swmansion.enriched.markdown.compose.patches.CodeBlockStylePatch
+import com.swmansion.enriched.markdown.compose.patches.CodeStylePatch
+import com.swmansion.enriched.markdown.compose.patches.EmphasisStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ImageStylePatch
+import com.swmansion.enriched.markdown.compose.patches.InlineImageStylePatch
+import com.swmansion.enriched.markdown.compose.patches.LinkStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ListStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SpoilerStylePatch
+import com.swmansion.enriched.markdown.compose.patches.StrikethroughStylePatch
+import com.swmansion.enriched.markdown.compose.patches.StrongStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SubscriptStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SuperscriptStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TableStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TaskListStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TextStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ThematicBreakStylePatch
+import com.swmansion.enriched.markdown.compose.patches.UnderlineStylePatch
 import com.swmansion.enriched.markdown.compose.style.StyleConfigMerger
 import com.swmansion.enriched.markdown.compose.style.StylePatch
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
