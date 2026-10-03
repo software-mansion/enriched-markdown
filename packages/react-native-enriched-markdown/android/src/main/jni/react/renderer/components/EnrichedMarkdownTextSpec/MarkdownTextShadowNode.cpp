@@ -22,6 +22,13 @@ void MarkdownTextShadowNode::dirtyLayoutIfNeeded() {
   }
 }
 
+// Only new props change the rendered markdown. Yoga clones a node on every ancestor layout pass,
+// and dirtying those clones re-measures every settled message whenever the list above grows.
+bool MarkdownTextShadowNode::shouldNewRevisionDirtyMeasurement(const ShadowNode & /*sourceShadowNode*/,
+                                                               const ShadowNodeFragment &fragment) const {
+  return fragment.props != nullptr;
+}
+
 Size MarkdownTextShadowNode::measureContent(const LayoutContext &layoutContext,
                                             const LayoutConstraints &layoutConstraints) const {
   return measurementsManager_->measure(getSurfaceId(), getTag(), getConcreteProps(), layoutConstraints);
