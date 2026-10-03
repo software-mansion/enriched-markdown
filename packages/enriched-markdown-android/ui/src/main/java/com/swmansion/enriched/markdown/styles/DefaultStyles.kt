@@ -114,6 +114,7 @@ internal object DefaultStyles {
       emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
       strikethroughStyle = StrikethroughStyle(color = null),
       underlineStyle = UnderlineStyle(color = null),
+      highlightStyle = HighlightStyle(color = null, backgroundColor = parser.color("#FEF08A")),
       superscriptStyle = SuperscriptStyle(),
       subscriptStyle = SubscriptStyle(),
       codeStyle =

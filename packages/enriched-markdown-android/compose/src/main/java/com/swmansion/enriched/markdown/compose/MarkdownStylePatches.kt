@@ -23,6 +23,7 @@ import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.styles.CodeStyle
 import com.swmansion.enriched.markdown.styles.EmphasisStyle
 import com.swmansion.enriched.markdown.styles.HeadingStyle
+import com.swmansion.enriched.markdown.styles.HighlightStyle
 import com.swmansion.enriched.markdown.styles.ImageStyle
 import com.swmansion.enriched.markdown.styles.InlineImageStyle
 import com.swmansion.enriched.markdown.styles.LinkStyle
@@ -346,6 +347,50 @@ class UnderlineStyleScope internal constructor() {
         UnderlineStyleScope().apply {
           if (existing != null) {
             color = existing.color
+          }
+        }
+      scope.apply(block)
+      return scope.toPatch()
+    }
+  }
+}
+
+@Immutable
+internal data class HighlightStylePatch(
+  val color: Color? = null,
+  val backgroundColor: Color? = null,
+) {
+  fun apply(
+    base: HighlightStyle,
+    units: StyleUnits,
+  ): HighlightStyle =
+    base.copy(
+      color = color?.let(units::color) ?: base.color,
+      backgroundColor = backgroundColor?.let(units::color) ?: base.backgroundColor,
+    )
+}
+
+@MarkdownStyleDsl
+class HighlightStyleScope internal constructor() {
+  var color: Color? = null
+  var backgroundColor: Color? = null
+
+  internal fun toPatch(): HighlightStylePatch =
+    HighlightStylePatch(
+      color = color,
+      backgroundColor = backgroundColor,
+    )
+
+  internal companion object {
+    fun merge(
+      existing: HighlightStylePatch?,
+      block: HighlightStyleScope.() -> Unit,
+    ): HighlightStylePatch {
+      val scope =
+        HighlightStyleScope().apply {
+          if (existing != null) {
+            color = existing.color
+            backgroundColor = existing.backgroundColor
           }
         }
       scope.apply(block)
