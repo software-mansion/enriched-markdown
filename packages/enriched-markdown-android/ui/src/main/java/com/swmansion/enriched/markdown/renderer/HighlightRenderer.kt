@@ -13,9 +13,9 @@ class HighlightRenderer : NodeRenderer {
     onLinkLongPress: ((String) -> Unit)?,
     factory: RendererFactory,
   ) {
-    factory.renderWithSpan(builder, { factory.renderChildren(node, builder, onLinkPress, onLinkLongPress) }) { start, end, _ ->
+    factory.renderWithSpan(builder, { factory.renderChildren(node, builder, onLinkPress, onLinkLongPress) }) { start, end, blockStyle ->
       builder.setSpan(
-        HighlightSpan(factory.styleCache),
+        HighlightSpan(factory.styleCache, blockStyle),
         start,
         end,
         SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,

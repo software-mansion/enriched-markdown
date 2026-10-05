@@ -7,7 +7,10 @@ import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.CharacterStyle
 import android.text.style.LineBackgroundSpan
+import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
+import com.swmansion.enriched.markdown.spoiler.colorWithAlpha
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.utils.text.extensions.applyColorPreserving
 import kotlin.math.max
 import kotlin.math.min
@@ -20,9 +23,11 @@ import kotlin.math.min
  */
 class HighlightSpan(
   private val styleCache: SpanStyleCache,
+  private val blockStyle: BlockStyle,
 ) : CharacterStyle(),
   LineBackgroundSpan {
   private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+  private val metricsPaint = TextPaint()
 
   override fun updateDrawState(tp: TextPaint) {
     styleCache.highlightColor?.let { tp.applyColorPreserving(it, *styleCache.colorsToPreserve) }
@@ -49,6 +54,11 @@ class HighlightSpan(
     val spanEnd = text.getSpanEnd(this)
     if (spanStart !in 0 until spanEnd) return
 
+    // A band under a concealed spoiler would outline the hidden text, so it fades in with the text
+    // instead.
+    val visibility = text.spoilerTextAlpha(maxOf(spanStart, start), minOf(spanEnd, end))
+    if (visibility <= 0f) return
+
     val isFirst = spanStart >= start
     val isLast = spanEnd <= end
 
@@ -67,12 +77,15 @@ class HighlightSpan(
       }
 
     // Bound by the glyphs' ascent/descent, clamped to the line box so a tall line height never
-    // lets the band bleed into its neighbours.
-    val metrics = p.fontMetricsInt
+    // lets the band bleed into its neighbours. `p` is set in the view's size, so measure with the
+    // block's (e.g. a heading's) instead.
+    metricsPaint.set(p)
+    metricsPaint.textSize = blockStyle.fontSize
+    val metrics = metricsPaint.fontMetricsInt
     val bandTop = max(top.toFloat(), (baseline + metrics.ascent).toFloat())
     val bandBottom = min(bottom.toFloat(), (baseline + metrics.descent).toFloat())
 
-    backgroundPaint.color = backgroundColor
+    backgroundPaint.color = colorWithAlpha(backgroundColor, visibility)
     canvas.drawRect(min(startX, endX), bandTop, max(startX, endX), bandBottom, backgroundPaint)
   }
 }

@@ -20,6 +20,7 @@ import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithD
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithHighlight
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithLink
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
+import com.swmansion.enriched.markdown.test.TestAstFactory.heading
 import com.swmansion.enriched.markdown.test.TestAstFactory.highlight
 import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
@@ -33,6 +34,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
@@ -226,6 +228,26 @@ class InlineDecorationRendererTest {
     assertEquals((BASELINE + metrics.descent).toFloat(), band.bottom, 0.5f)
     assertTrue("Band must not reach the padded line top", band.top > lineTop)
     assertTrue("Band must not reach the padded line bottom", band.bottom < lineBottom)
+  }
+
+  // Robolectric's legacy graphics report the same font metrics at every size, which would hide a
+  // band measured in the view's size rather than the heading's.
+  @Test
+  @GraphicsMode(GraphicsMode.Mode.NATIVE)
+  fun highlightBackgroundCoversTheHeadingsFontSize() {
+    val rendered = render(document(heading(1, highlight(text("marked")))))
+
+    val viewPaint = TextPaint().apply { textSize = 16f }
+    val metrics = TextPaint().apply { textSize = defaultStyle.headingStyles[1]!!.fontSize }.fontMetricsInt
+    assertTrue(
+      "The heading must be taller than the view's base size for this to be meaningful",
+      metrics.descent - metrics.ascent > viewPaint.fontMetricsInt.let { it.descent - it.ascent },
+    )
+
+    val band = rendered.drawHighlightBackground(viewPaint, lineTop = 0, lineBottom = 2 * BASELINE).rect!!
+
+    assertEquals((BASELINE + metrics.ascent).toFloat(), band.top, 0.5f)
+    assertEquals((BASELINE + metrics.descent).toFloat(), band.bottom, 0.5f)
   }
 
   @Test
