@@ -264,6 +264,26 @@ void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBot
   [output addAttribute:NSParagraphStyleAttributeName value:spacerStyle range:NSMakeRange(spacerLocation, 1)];
 }
 
+// UIKit's own key for the pre-substitution font. Not exported by any SDK header, so it is spelled out
+// here; it is the same string UIKit writes into a UITextView's storage when it substitutes a font.
+static NSString *const ENRMOriginalFontAttributeName = @"NSOriginalFont";
+
+void ENRMPinLineMetricsToStyledFonts(NSMutableAttributedString *output, NSRange range)
+{
+  if (range.length == 0 || NSMaxRange(range) > output.length) {
+    return;
+  }
+
+  [output enumerateAttribute:NSFontAttributeName
+                     inRange:range
+                     options:0
+                  usingBlock:^(UIFont *font, NSRange range, __unused BOOL *stop) {
+                    if (font) {
+                      [output addAttribute:ENRMOriginalFontAttributeName value:font range:range];
+                    }
+                  }];
+}
+
 // Floor, not clamp: minimumLineHeight keeps short lines at lineHeight, while maximumLineHeight = 0 lets
 // a line grow to fit a taller run (large inline code, math, images) instead of clipping it. We can
 // diverge from RN's clamp because we measure the real laid-out height, so grown lines are reserved.

@@ -50,6 +50,21 @@ NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRang
 NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger insertionPoint, CGFloat marginTop);
 void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
 void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight);
+
+/// Stamps every styled run in `range` with `NSOriginalFont` set to its own
+/// `NSFont`, so a line is sized from the font the renderer chose rather than
+/// from whichever font ends up drawing the glyphs.
+///
+/// UIKit writes this attribute itself, but only into a UITextView's storage, so
+/// the view-free measurement stack never saw it and sized a line from the
+/// fallback font instead. Stamping it here keeps measuring and rendering agreed.
+///
+/// IMPORTANT:
+/// Call this last, after every font in the range is final, on any attributed
+/// string handed to a layout engine. `ENRMRenderASTNodesCore` covers everything
+/// built through the node renderers; the two paths that assemble their own
+/// string (table cells, code block content) call it themselves.
+void ENRMPinLineMetricsToStyledFonts(NSMutableAttributedString *output, NSRange range);
 void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
 void applyTextAlignment(NSMutableAttributedString *output, NSRange range, NSTextAlignment textAlign);
 NSTextAlignment textAlignmentFromString(NSString *textAlign);
