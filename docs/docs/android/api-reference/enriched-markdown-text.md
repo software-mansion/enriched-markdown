@@ -128,13 +128,11 @@ Renders `~text~` lowered below the baseline. Style it through [`subscript`](/and
 
 #### `highlight`
 
-Parses `==text==` as a highlight node.
+Renders `==text==` with a highlight band behind the glyphs. Style it through [`highlight`](/android/api-reference/style-properties#highlight).
 
 <PropInfo type="Boolean" default="false" />
 
-:::danger
-**Leave this off.** The parser emits the node, but Android has no highlight renderer, and an unrendered node's text is **dropped from the output** rather than shown unmarked - so `==text==` renders as nothing at all, with a `No renderer for: Highlight` warning in Logcat. With the flag off, the `==` markers stay literal text and nothing is lost. See the [roadmap](/misc/roadmap).
-:::
+With the flag off, the `==` markers stay literal text.
 
 #### `latexMath`
 

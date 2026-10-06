@@ -43,6 +43,7 @@ The available blocks:
 | `underline`     | Underlined text (needs `Md4cFlags(underline = true)`)                           |
 | `superscript`   | Superscript (needs `Md4cFlags(superscript = true)`)                             |
 | `subscript`     | Subscript (needs `Md4cFlags(subscript = true)`)                                 |
+| `highlight`     | Highlighted text (needs `Md4cFlags(highlight = true)`)                          |
 | `image`         | Block images                                                                    |
 | `inlineImage`   | Inline images                                                                   |
 | `thematicBreak` | Horizontal rules                                                                |
@@ -415,6 +416,24 @@ markdownStyle {
   subscript {
     fontScale = 0.7f
     baselineOffsetScale = 0.25f
+  }
+}
+```
+
+### `highlight`
+
+`==text==` runs, drawn as a band behind the glyphs. Needs [`Md4cFlags(highlight = true)`](/android/api-reference/enriched-markdown-text#highlight).
+
+| Property          | Type    | Default    | Description                                           |
+| ----------------- | ------- | ---------- | ----------------------------------------------------- |
+| `color`           | `Color` | Inherited  | Text color of the highlighted run                     |
+| `backgroundColor` | `Color` | `#FEF08A`  | Band fill; a fully transparent color draws no band    |
+
+```kotlin
+markdownStyle {
+  highlight {
+    color = Color(0xFF713F12)
+    backgroundColor = Color(0xFFFDE68A)
   }
 }
 ```

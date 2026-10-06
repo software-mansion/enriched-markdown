@@ -103,8 +103,8 @@ same slugs when those trees are unhidden, or fix their inbound links in the same
 commit.
 
 Do not restore the old contents verbatim - several entries were stale:
-- Android tables shipped in 0.2.0; LaTeX math and highlight renderers are the
-  genuinely outstanding ones.
+- Android tables shipped in 0.2.0 and the highlight renderer landed in #844;
+  LaTeX math and spoilers are the genuinely outstanding ones.
 - The iOS block-image-sizing and per-paragraph-writing-direction items both
   landed.
 - "Smart copy (Markdown, HTML, RTF, RTFD) | iOS | Yes" was wrong: the standalone

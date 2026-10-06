@@ -72,15 +72,15 @@ Two flags control how whitespace in the source survives into the output, and bot
 
 `permissiveAutolinks` is the one extension that is **on** by default. It linkifies bare URLs, so `https://swmansion.com` becomes a link without being wrapped in `<>`. Turn it off if you need a stricter parse in which only explicit `[text](url)` links and `<bracketed>` autolinks are live.
 
-## Two flags to leave off
+## One flag to leave off
 
-`highlight` and `latexMath` parse, but the Android renderer has no drawing code for the nodes they produce.
+`latexMath` parses, but the Android renderer has no drawing code for the nodes it produces.
 
 :::danger
-Enabling either **removes content from the page**. An unrendered node's text is dropped rather than shown unstyled, so `==important==` and `$E = mc^2$` render as nothing at all, with a `No renderer for: …` warning in Logcat. Leave both off: the `==` and `$` then stay literal text, and your reader still sees the words.
+Enabling it **removes content from the page**. An unrendered node's text is dropped rather than shown unstyled, so `$E = mc^2$` renders as nothing at all, with a `No renderer for: …` warning in Logcat. Leave it off: the `$` then stays literal text, and your reader still sees the words.
 :::
 
-The same is true of two constructs that have no flag at all: **tables** and **spoilers** parse - tables always, spoilers unconditionally - but are skipped at render time. Renderers for all four are in progress; see the [roadmap](/misc/roadmap).
+The same is true of **spoilers**, which have no flag at all: they are parsed unconditionally but skipped at render time. Both renderers are in progress; see the [roadmap](/misc/roadmap).
 
 ## Reference
 
@@ -93,7 +93,7 @@ The same is true of two constructs that have no flag at all: **tables** and **sp
 | `admonitions` | `false` | `> [!NOTE]` renders as a callout |
 | `hardSoftBreaks` | `false` | A single newline is a line break |
 | `preserveBlankLines` | `false` | Consecutive blank lines are kept |
-| `highlight` | `false` | Parses `==text==` - **no renderer, drops the text** |
+| `highlight` | `false` | `==text==` renders with a highlight band |
 | `latexMath` | `false` | Parses `$math$` - **no renderer, drops the text** |
 
 Always on, with no flag: tables, strikethrough, task lists. Never on: raw HTML.

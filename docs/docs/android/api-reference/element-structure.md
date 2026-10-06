@@ -46,6 +46,7 @@ The whole document renders into a **single native text view**, with block struct
 | Inline image  | `![alt](url)` beside text    | See [below](#images-block-vs-inline)                                                              |
 | Superscript   | `^text^`                     | Needs `Md4cFlags(superscript = true)`                                                             |
 | Subscript     | `~text~`                     | Needs `Md4cFlags(subscript = true)`                                                               |
+| Highlight     | `==text==`                   | Needs `Md4cFlags(highlight = true)`                                                               |
 
 :::important
 The `_` markers are context-dependent. By default `_italic_` and `__bold__` mean the same as `*italic*` and `**bold**`, but `Md4cFlags(underline = true)` reinterprets both `_text_` and `__text__` as underline, so under that flag they no longer produce emphasis or strong. The asterisk markers `*` and `**` always mean emphasis and strong, whatever the flag.
@@ -186,11 +187,10 @@ The parser understands more than the renderer draws. These constructs parse with
 | ----------------------------- | ------------------------------- |
 | LaTeX math (inline and block) | Renderer in progress            |
 | Spoilers                      | Renderer in progress            |
-| Highlight (`==text==`)        | No renderer                     |
 | Code syntax highlighting      | Not yet built into this package |
 
 :::caution
-A construct with no renderer has its text **dropped from the output** rather than shown unstyled, so enabling [`latexMath`](/android/api-reference/enriched-markdown-text#latexmath) or [`highlight`](/android/api-reference/enriched-markdown-text#highlight) makes that content vanish. Both flags are off by default; leave them off until the renderers land. Spoilers have no flag to enable, so they are simply parsed and skipped.
+A construct with no renderer has its text **dropped from the output** rather than shown unstyled, so enabling [`latexMath`](/android/api-reference/enriched-markdown-text#latexmath) makes that content vanish. The flag is off by default; leave it off until the renderer lands. Spoilers have no flag to enable, so they are simply parsed and skipped.
 :::
 
 See the [roadmap](/misc/roadmap) for what is landing next.
