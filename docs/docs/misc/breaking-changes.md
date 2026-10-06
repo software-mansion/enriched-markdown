@@ -11,7 +11,7 @@ Looking for the full release notes? See the [changelog](https://swmansion.com/ch
 
 This page tracks breaking changes to the React Native package and how to migrate for each, newest first. Deprecations (things that still work but are slated for removal) are noted alongside the change that introduces them.
 
-The current release is **1.1.0**, which introduced no breaking changes.
+The current release is **1.1.1**, a patch over 1.1.0; neither introduced breaking changes.
 
 ## v1.0.2
 

@@ -10,7 +10,7 @@ const REACT_NATIVE_VERSIONS = ['0.82', '0.83', '0.84', '0.85', '0.86', '0.87'];
 // by hand and have drifted before.
 const LIBRARY_VERSIONS = [
   { version: 'nightly', supportedFrom: '0.83', supportedTo: '0.87' },
-  { version: '1.1.0', supportedFrom: '0.83', supportedTo: '0.87' },
+  { version: '1.1.x', supportedFrom: '0.83', supportedTo: '0.87' },
   { version: '1.0.x', supportedFrom: '0.83', supportedTo: '0.87' },
   { version: '0.7.0', supportedFrom: '0.83', supportedTo: '0.87' },
   { version: '0.6.0', supportedFrom: '0.83', supportedTo: '0.85' },

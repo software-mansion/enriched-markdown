@@ -9,7 +9,7 @@ This section covers the rough edges worth knowing about before you hit them.
 Deliberate behaviours, constraints imposed by the underlying text stacks, and a few things
 that are simply not wired up yet.
 
-This page covers `react-native-enriched-markdown` 1.1.0, including its web and
+This page covers `react-native-enriched-markdown` 1.1.1, including its web and
 macOS targets.
 
 :::note

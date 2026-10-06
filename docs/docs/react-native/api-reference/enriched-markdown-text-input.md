@@ -34,6 +34,7 @@ import OnKeyPressSrc from '!!raw-loader!@site/src/examples/react-native/api-refe
 import OnCaretRectChangeSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/OnCaretRectChange';
 import OnLinkDetectedSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/OnLinkDetected';
 import FocusBlurSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/FocusBlur';
+import PressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/Press';
 import SetValueSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/SetValue';
 import GetMarkdownSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/GetMarkdown';
 import InsertTextSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/InsertText';
@@ -377,6 +378,18 @@ The **placeholder** follows the host view's layout direction, not this prop. For
 
 <LivePreview src={WritingDirectionSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
+### `hitSlop`
+
+Extends the touchable area around the input for the [press handlers](#onpress), so a tap that lands just outside the view still focuses it. Same as [`hitSlop`](https://reactnative.dev/docs/view#hitslop) on React Native `View` and `TextInput`.
+
+<PropInfo type="ViewProps['hitSlop']" typeHref="https://reactnative.dev/docs/view#hitslop" />
+
+### `rejectResponderTermination` <IosBadge /> {#rejectrespondertermination}
+
+When `true`, an ancestor `ScrollView` or `Pressable` cannot take the touch responder away from the input mid-press. Same as [`rejectResponderTermination`](https://reactnative.dev/docs/textinput#rejectrespondertermination) on React Native `TextInput`.
+
+<PropInfo type="boolean" default="true" />
+
 ## Events
 
 Every event below is an optional callback prop. Content-reading events fire whenever the relevant part of the input changes.
@@ -527,6 +540,16 @@ The [`onFocus` example](#onfocus) wires up both callbacks.
 :::note
 The input registers with React Native's text-input focus tracking (`TextInput.State`), so blur also happens through the platform's standard keyboard-dismiss paths: taps outside the input inside a `ScrollView` (per its [`keyboardShouldPersistTaps`](https://reactnative.dev/docs/scrollview#keyboardshouldpersisttaps)) and [`Keyboard.dismiss()`](https://reactnative.dev/docs/keyboard#dismiss).
 :::
+
+### `onPress`, `onPressIn`, `onPressOut` {#onpress}
+
+Fire for taps on the input, like the same props on React Native [`TextInput`](https://reactnative.dev/docs/textinput#onpressin). The input claims the JS touch responder, so a tap that focuses it does **not** also fire the `onPress` of an ancestor [`Pressable`](https://reactnative.dev/docs/pressable). After `onPress` runs the input focuses itself - unless [`editable`](#editable) is `false` - without moving the selection.
+
+<PropInfo type="(event: GestureResponderEvent) => void" typeHref="https://reactnative.dev/docs/pressevent" />
+
+Use these three, together with [`hitSlop`](#hitslop) and [`rejectResponderTermination`](#rejectrespondertermination), rather than the raw responder props: press handling overrides the `onStartShouldSetResponder` / `onResponderGrant` family that the forwarded [`View`](https://reactnative.dev/docs/view#props) props would otherwise give you, exactly as it does on `TextInput`.
+
+<LivePreview src={PressSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
 ## Ref methods
 
