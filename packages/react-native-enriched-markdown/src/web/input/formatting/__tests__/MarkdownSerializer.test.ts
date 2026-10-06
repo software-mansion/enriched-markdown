@@ -90,6 +90,29 @@ describe('serializeInline', () => {
       '[docs](https://a.example/a(b)c)'
     );
   });
+
+  it('doubles a backslash in a link destination in both forms', () => {
+    const link = (url: string) =>
+      serializeInline('docs', [range('link', 0, 4, url)]);
+
+    // Left bare, the trailing "\" would escape the closing ">".
+    expect(link('https://a.example/a b\\')).toBe(
+      '[docs](<https://a.example/a b\\\\>)'
+    );
+    // Bare destinations resolve escapes too, so "\*" would come back as "*".
+    expect(link('https://a.example/a\\*b')).toBe(
+      '[docs](https://a.example/a\\\\*b)'
+    );
+  });
+
+  it('percent-encodes a line ending in a link destination', () => {
+    expect(
+      serializeInline('docs', [range('link', 0, 4, 'https://a.example/a\nb')])
+    ).toBe('[docs](https://a.example/a%0Ab)');
+    expect(
+      serializeInline('docs', [range('link', 0, 4, 'https://a.example/a\r\nb')])
+    ).toBe('[docs](https://a.example/a%0D%0Ab)');
+  });
 });
 
 describe('serialize', () => {
@@ -125,6 +148,36 @@ describe('serialize', () => {
     ).toBe('a\n\nb');
   });
 
+  // A line ending in a url used to reach the output verbatim, breaking the
+  // line-count invariant and dropping every block prefix in the document.
+  it('keeps block prefixes when a link url carries a line ending', () => {
+    const blocks = [
+      createBlockRange('h1', 0, 6, 1),
+      createBlockRange('unordered-list-item', 7, 12),
+    ];
+    const link = [range('link', 7, 12, 'https://a.example/a\nb')];
+
+    expect(serialize(text, link, blocks)).toBe(
+      '# Rebase\n- [fetch](https://a.example/a%0Ab)\nmerge'
+    );
+  });
+
+  it('indents a nested item under a multi-digit ordered marker', () => {
+    const nested = (ordinal: number) =>
+      serialize(
+        'a\nb',
+        [],
+        [
+          { ...createBlockRange('ordered-list-item', 0, 1), ordinal },
+          createBlockRange('unordered-list-item', 2, 3, 1),
+        ]
+      );
+
+    // Three spaces clear "1. " but not "10. ", which would de-nest the child.
+    expect(nested(1)).toBe('1. a\n   - b');
+    expect(nested(10)).toBe('10. a\n    - b');
+  });
+
   it('anchors the trailing empty line after a final newline', () => {
     expect(serialize('a\n', [], [createBlockRange('h1', 2, 2, 1)])).toBe(
       'a\n# '
@@ -133,7 +186,9 @@ describe('serialize', () => {
 });
 
 describe('markdownLinePrefix', () => {
-  it('builds heading, bullet and numbered markers with three-space nesting', () => {
+  // With no parent content column passed, nesting falls back to assuming
+  // single-digit markers all the way up; `serialize` passes the real width.
+  it('builds heading, bullet and numbered markers', () => {
     expect(markdownLinePrefix(createBlockRange('h3', 0, 5, 3))).toBe('### ');
     expect(markdownLinePrefix(createBlockRange('paragraph', 0, 5))).toBe('');
     expect(

@@ -30,13 +30,22 @@ function hasBalancedParens(url: string): boolean {
 }
 
 // A bare destination ends at the first whitespace and at an unbalanced ")", so
-// a url carrying either goes in angle brackets, where only "<" and ">"
-// themselves still need escaping.
+// a url carrying either goes in angle brackets, where "<" and ">" need
+// escaping as well. Backslash escapes are resolved in both forms, so a literal
+// "\" has to be doubled before anything else is escaped - left bare, a url
+// ending in one would escape the closing delimiter and swallow the rest of the
+// line. No form admits a line ending at all, and one reaching the output would
+// also break the line-count invariant `serialize` relies on, so line endings
+// are percent-encoded rather than passed through.
 function linkDestination(url: string): string {
-  if (!/\s/.test(url) && hasBalancedParens(url)) {
-    return url;
+  const escaped = url
+    .replaceAll('\\', '\\\\')
+    .replaceAll('\r', '%0D')
+    .replaceAll('\n', '%0A');
+  if (!/\s/.test(escaped) && hasBalancedParens(escaped)) {
+    return escaped;
   }
-  return `<${url.replaceAll('<', '\\<').replaceAll('>', '\\>')}>`;
+  return `<${escaped.replaceAll('<', '\\<').replaceAll('>', '\\>')}>`;
 }
 
 function closingDelimiter(
@@ -204,14 +213,27 @@ export function serialize(
     runningOffset += line.length + 1; // +1 for the '\n' separator
   }
 
+  // Content column of the last list item seen at each depth, so a nested item
+  // can indent to its parent's marker width. The store clamps a depth to one
+  // more than the previous adjacent item's, so the parent's entry is always
+  // already filled in by the time a child reads it.
+  const listContentColumns: number[] = [];
+
   for (const block of blockRanges) {
-    const prefix = markdownLinePrefix(block);
+    const isListItem = LIST_ITEM_BLOCK_TYPES.has(block.type);
+    const depth = isListItem ? clamp(block.level, 0, MAX_LIST_DEPTH) : 0;
+    const prefix = markdownLinePrefix(
+      block,
+      depth === 0 ? 0 : listContentColumns[depth - 1]
+    );
+    if (isListItem) {
+      listContentColumns[depth] = prefix.length;
+    }
     if (prefix === '') {
       continue;
     }
 
     const isZeroLength = block.end === block.start;
-    const isListItem = LIST_ITEM_BLOCK_TYPES.has(block.type);
     // Line ends rise strictly, so the first line reaching the block's start is
     // the block's own first line; its remaining lines follow it.
     const firstLine = firstIndexReachingTarget(
@@ -244,25 +266,46 @@ export function serialize(
   return markdownLines.join('\n');
 }
 
-// Three spaces per nesting depth, wide enough to indent under a single-digit
-// ordered marker. Depth is clamped the way the block store clamps it, so a
-// stray level cannot indent a line far enough to re-parse as a code block.
-function listIndent(level: number): string {
-  return '   '.repeat(clamp(level, 0, MAX_LIST_DEPTH));
+// Width of "- " or "1. ", the narrowest markers a list item can carry.
+const SINGLE_DIGIT_MARKER_WIDTH = 3;
+
+// A nested item has to be indented to its parent's content column or it
+// de-nests on re-parse, and that column is the parent's rendered marker width:
+// "1. " and "10. " do not indent their children alike. `parentContentColumn`
+// carries it down from `serialize`; callers with no document context fall back
+// to assuming single-digit markers all the way up. Depth is clamped the way the
+// block store clamps it, so a stray level cannot indent a line far enough to
+// re-parse as a code block.
+function listIndent(
+  level: number,
+  parentContentColumn: number | undefined
+): string {
+  const depth = clamp(level, 0, MAX_LIST_DEPTH);
+  if (depth === 0) {
+    return '';
+  }
+  return ' '.repeat(parentContentColumn ?? SINGLE_DIGIT_MARKER_WIDTH * depth);
 }
 
 // Per-line markdown marker for a block; paragraphs carry no marker. A
 // heading's level comes from its type rather than from `level`, so the two
-// cannot disagree. There is deliberately no `default` arm: a block type added
-// to the model has to be given a marker here or this stops compiling.
-export function markdownLinePrefix(block: BlockRange): string {
+// cannot disagree. `parentContentColumn` is the content column of the list item
+// this one nests under, ignored by every type that cannot nest. There is
+// deliberately no `default` arm: a block type added to the model has to be
+// given a marker here or this stops compiling.
+export function markdownLinePrefix(
+  block: BlockRange,
+  parentContentColumn?: number
+): string {
   switch (block.type) {
     case 'paragraph':
       return '';
     case 'unordered-list-item':
-      return listIndent(block.level) + '- ';
+      return listIndent(block.level, parentContentColumn) + '- ';
     case 'ordered-list-item':
-      return listIndent(block.level) + `${block.ordinal}. `;
+      return (
+        listIndent(block.level, parentContentColumn) + `${block.ordinal}. `
+      );
     case 'h1':
     case 'h2':
     case 'h3':
