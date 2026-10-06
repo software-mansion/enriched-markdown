@@ -545,7 +545,7 @@ The input registers with React Native's text-input focus tracking (`TextInput.St
 
 Fire for taps on the input, like the same props on React Native [`TextInput`](https://reactnative.dev/docs/textinput#onpressin). The input claims the JS touch responder, so a tap that focuses it does **not** also fire the `onPress` of an ancestor [`Pressable`](https://reactnative.dev/docs/pressable). After `onPress` runs the input focuses itself - unless [`editable`](#editable) is `false` - without moving the selection.
 
-<PropInfo type="(event: GestureResponderEvent) => void" typeHref="https://reactnative.dev/docs/pressevent" />
+<PropInfo type="(event: GestureResponderEvent) => unknown" typeHref="https://reactnative.dev/docs/pressevent" />
 
 Use these three, together with [`hitSlop`](#hitslop) and [`rejectResponderTermination`](#rejectrespondertermination), rather than the raw responder props: press handling overrides the `onStartShouldSetResponder` / `onResponderGrant` family that the forwarded [`View`](https://reactnative.dev/docs/view#props) props would otherwise give you, exactly as it does on `TextInput`.
 
