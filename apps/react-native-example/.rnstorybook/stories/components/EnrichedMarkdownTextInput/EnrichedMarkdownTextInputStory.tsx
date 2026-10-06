@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -129,6 +130,114 @@ export function KeyPressStory({
           </View>
         )}
       </View>
+    </ScrollView>
+  );
+}
+
+const LARGE_HIT_SLOP = { top: 48, bottom: 48, left: 48, right: 48 };
+
+export function PressabilityStory({
+  title,
+  description,
+  onPress,
+  onPressIn,
+  onPressOut,
+}: {
+  title: string;
+  description: string;
+  onPress?: EnrichedMarkdownTextInputProps['onPress'];
+  onPressIn?: EnrichedMarkdownTextInputProps['onPressIn'];
+  onPressOut?: EnrichedMarkdownTextInputProps['onPressOut'];
+}) {
+  const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
+  const [state, setState] = useState<StyleState | null>(null);
+  const [hasSelection, setHasSelection] = useState(false);
+  const [parentPressCount, setParentPressCount] = useState(0);
+  const [pressCount, setPressCount] = useState(0);
+  const [pressInCount, setPressInCount] = useState(0);
+  const [pressOutCount, setPressOutCount] = useState(0);
+  const [selectionRange, setSelectionRange] = useState({ start: 0, end: 0 });
+  const [editable, setEditable] = useState(true);
+  const [hitSlopEnabled, setHitSlopEnabled] = useState(false);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.description}>{description}</Text>
+
+      <View style={styles.toggleRow}>
+        <TouchableOpacity
+          style={styles.toggle}
+          onPress={() => setEditable((value) => !value)}
+          testID="pressability-editable-toggle"
+        >
+          <Text style={styles.toggleText}>
+            Editable: {editable ? 'on' : 'off'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toggle}
+          onPress={() => setHitSlopEnabled((value) => !value)}
+          testID="pressability-hitslop-toggle"
+        >
+          <Text style={styles.toggleText}>
+            hitSlop: {hitSlopEnabled ? '48' : 'off'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <Pressable
+        onPress={() => setParentPressCount((count) => count + 1)}
+        style={styles.editorPressable}
+        testID="editor-parent-pressable"
+      >
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel} testID="parent-press-count">
+            Parent presses: {parentPressCount}
+          </Text>
+          <Text style={styles.statusLabel} testID="selection-range">
+            Selection: {selectionRange.start}-{selectionRange.end}
+          </Text>
+        </View>
+        <View style={styles.editorContainer}>
+          <EnrichedMarkdownTextInput
+            ref={inputRef}
+            testID="pressability-input"
+            placeholder="Tap here. The parent Pressable should stay quiet."
+            placeholderTextColor="#9CA3AF"
+            style={styles.input}
+            editable={editable}
+            hitSlop={hitSlopEnabled ? LARGE_HIT_SLOP : undefined}
+            onChangeState={setState}
+            onChangeSelection={(sel) => {
+              setHasSelection(sel.start !== sel.end);
+              setSelectionRange({ start: sel.start, end: sel.end });
+            }}
+            onPress={(event) => {
+              setPressCount((count) => count + 1);
+              onPress?.(event);
+            }}
+            onPressIn={(event) => {
+              setPressInCount((count) => count + 1);
+              onPressIn?.(event);
+            }}
+            onPressOut={(event) => {
+              setPressOutCount((count) => count + 1);
+              onPressOut?.(event);
+            }}
+          />
+          <FormattingToolbar
+            state={state}
+            inputRef={inputRef}
+            hasSelection={hasSelection}
+          />
+        </View>
+      </Pressable>
+
+      <Text style={styles.statusLabel} testID="input-press-counts">
+        onPress {pressCount} · onPressIn {pressInCount} · onPressOut{' '}
+        {pressOutCount}
+      </Text>
     </ScrollView>
   );
 }
@@ -356,5 +465,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  toggle: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  toggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  editorPressable: {
+    gap: 6,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statusLabel: {
+    fontSize: 13,
+    color: '#6B7280',
   },
 });

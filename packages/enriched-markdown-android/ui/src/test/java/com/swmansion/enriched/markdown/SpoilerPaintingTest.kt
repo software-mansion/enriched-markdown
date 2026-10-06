@@ -26,6 +26,7 @@ import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.TestAstFactory.code
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
+import com.swmansion.enriched.markdown.test.TestAstFactory.highlight
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.spoiler
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
@@ -312,6 +313,26 @@ class SpoilerPaintingTest {
     test.spans.single().markRevealed()
 
     assertTrue(test.drawText().pathColors.any { Color.alpha(it) > 0 })
+  }
+
+  @Test
+  fun highlightUnderAConcealedSpoilerPaintsNoBand() {
+    val test = harness(document(paragraph(spoiler(text("see "), highlight(text("secret"))))))
+
+    assertTrue(
+      "A concealed highlight band would outline the hidden text",
+      test.drawText().rects.none { Color.alpha(it.second) > 0 },
+    )
+  }
+
+  @Test
+  fun highlightBandReturnsOnceTheSpoilerIsRevealed() {
+    val test = harness(document(paragraph(spoiler(text("see "), highlight(text("secret"))))))
+
+    test.spans.single().markRevealed()
+
+    val highlightColor = MarkdownRenderTestSupport.defaultStyle.highlightStyle.backgroundColor
+    assertTrue(test.drawText().rects.any { it.second == highlightColor })
   }
 
   // MARK: Reveal transitions

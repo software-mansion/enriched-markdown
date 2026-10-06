@@ -1,8 +1,10 @@
 package com.swmansion.enriched.markdown.styles
 
+import android.graphics.Color
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -85,6 +87,19 @@ class StyleConfigTest {
   }
 
   @Test
+  fun configsThatDifferOnlyInTheirHighlightStyleAreNotEqual() {
+    val first = sampleConfig()
+
+    assertFalse(first == sampleConfig(highlightStyle = HighlightStyle(color = 0xFF000000.toInt())))
+    assertFalse(first == sampleConfig(highlightStyle = HighlightStyle(backgroundColor = 0xFF000000.toInt())))
+  }
+
+  @Test
+  fun aBareHighlightStyleDrawsAVisibleBackground() {
+    assertTrue(Color.alpha(HighlightStyle().backgroundColor) > 0)
+  }
+
+  @Test
   fun differentParagraphColorsAreNotEqual() {
     val first = sampleConfig()
     val second =
@@ -111,7 +126,10 @@ class StyleConfigTest {
     assertFalse(first == second)
   }
 
-  private fun sampleConfig(spoilerStyle: SpoilerStyle = sampleSpoiler()): StyleConfig =
+  private fun sampleConfig(
+    spoilerStyle: SpoilerStyle = sampleSpoiler(),
+    highlightStyle: HighlightStyle = HighlightStyle(),
+  ): StyleConfig =
     StyleConfig(
       paragraphStyleDefault = sampleParagraph(),
       headingStyles = arrayOf(null, sampleHeading()),
@@ -131,6 +149,7 @@ class StyleConfigTest {
       thematicBreakStyle = sampleThematicBreak(),
       tableStyle = sampleTable(),
       spoilerStyle = spoilerStyle,
+      highlightStyle = highlightStyle,
     )
 
   private fun sampleParagraph(color: Int = 0xFF112233.toInt()) =
