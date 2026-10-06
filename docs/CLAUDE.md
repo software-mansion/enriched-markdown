@@ -308,14 +308,33 @@ banner: `<InteractiveExample src={FirstEditorSrc} comingSoon />`.
 
 `.github/workflows/docs-publish.yml` deploys to the `gh-pages` branch on
 every push to `main` that touches `docs/**`. GitHub Pages must be enabled in
-the repo settings (serve from `gh-pages`). `docs-build.yml` builds on PRs.
+the repo settings (serve from `gh-pages`, path `/`). `docs-build.yml` builds on
+PRs.
+
+The deploy action creates `gh-pages` itself and needs only `contents: write`,
+so the first publish must run **before** Pages can be pointed at the branch -
+the settings dropdown only lists branches that exist.
 
 This site is a **project page under an org-level custom domain**:
-`software-mansion/software-mansion.github.io` (branch `master`) holds
-`docs.swmansion.com`, and every project repo is served at
-`docs.swmansion.com/<baseUrl>/`. `static/CNAME` must stay - the deploy action
-replaces the branch contents on each run, which would otherwise clear this
-repo's custom-domain setting. Every sibling docs repo ships the same file.
+`software-mansion/software-mansion.github.io` (branch `master`) is the only
+repo in the org whose Pages config carries the custom domain
+(`cname: docs.swmansion.com`), and every other project repo is served under it
+at `docs.swmansion.com/<baseUrl>/` automatically. The org's
+`github.io/enriched-markdown/` URL already 301s there, so the mapping is
+inherited, not configured here.
+
+So this repo ships **no `CNAME` file** and its Pages "Custom domain" field
+stays **empty**. Setting either one claims `docs.swmansion.com` for this repo,
+which the org site already owns - GitHub rejects that as a domain already in
+use. Verified against the siblings: `react-native-screens`,
+`react-native-reanimated` and `pulsar` all report `cname: null`, none ships a
+`CNAME` on its published branch, and all three serve correctly. (An earlier
+version of this file claimed the opposite - that `static/CNAME` must stay or
+the deploy would clear the custom domain, and that every sibling ships one.
+Both halves were wrong; the file was deleted.)
+
+DNS needs nothing: `docs.swmansion.com` resolves through Cloudflare and
+already serves the sibling sites.
 
 Two things live in that org repo, not this one, and both need a PR when the
 site launches:
