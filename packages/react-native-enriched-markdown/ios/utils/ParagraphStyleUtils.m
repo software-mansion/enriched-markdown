@@ -277,9 +277,9 @@ void ENRMPinLineMetricsToStyledFonts(NSMutableAttributedString *output, NSRange 
   [output enumerateAttribute:NSFontAttributeName
                      inRange:range
                      options:0
-                  usingBlock:^(UIFont *font, NSRange range, __unused BOOL *stop) {
+                  usingBlock:^(UIFont *font, NSRange fontRange, __unused BOOL *stop) {
                     if (font) {
-                      [output addAttribute:ENRMOriginalFontAttributeName value:font range:range];
+                      [output addAttribute:ENRMOriginalFontAttributeName value:font range:fontRange];
                     }
                   }];
 }

@@ -61,7 +61,10 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
 ///
 /// IMPORTANT:
 /// Call this last, after every font in the range is final, on any attributed
-/// string handed to a layout engine. `ENRMRenderASTNodesCore` covers everything
+/// string handed to a layout engine. A run whose `NSFont` changes after the
+/// stamp is then sized from the stale font, in the measurement stack and in
+/// `UITextView` alike, so the line comes out wrong in both.
+/// `ENRMRenderASTNodes` and `ENRMRenderBlockquoteContentNodes` cover everything
 /// built through the node renderers; the two paths that assemble their own
 /// string (table cells, code block content) call it themselves.
 void ENRMPinLineMetricsToStyledFonts(NSMutableAttributedString *output, NSRange range);
