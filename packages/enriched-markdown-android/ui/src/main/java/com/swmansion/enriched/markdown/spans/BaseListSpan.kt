@@ -99,7 +99,7 @@ abstract class BaseListSpan(
       textPaint.typeface?.let { base -> textPaint.typeface = Typeface.create(base, preservedStyle) }
     }
 
-    textPaint.applyColorPreserving(blockStyle.color, *styleCache.colorsToPreserve)
+    textPaint.applyColorPreserving(blockStyle.color, *styleCache.listColorsToPreserve)
   }
 
   companion object {

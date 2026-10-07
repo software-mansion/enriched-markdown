@@ -13,6 +13,16 @@ class SpanStyleCache(
 ) {
   val colorsToPreserve: IntArray = buildColorsToPreserve(style)
 
+  /**
+   * A list item's span is set after its content, so it paints over a nested code block's text too
+   * and must leave that color alone as well.
+   */
+  val listColorsToPreserve: IntArray =
+    style.codeBlockStyle.color
+      .takeIf { it != 0 }
+      ?.let { colorsToPreserve + it }
+      ?: colorsToPreserve
+
   val strongFontFamily: String = style.strongStyle.fontFamily
   val strongFontWeight: String = style.strongStyle.fontWeight
   val strongColor: Int? = style.strongStyle.color
