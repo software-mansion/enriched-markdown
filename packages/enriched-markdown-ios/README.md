@@ -51,8 +51,10 @@ add `EnrichedMarkdownLaTeX` alongside it:
 Math is then enabled per view with `.markdownLaTeX()` — see [LaTeX math](#latex-math).
 
 Syntax highlighting is optional the same way: `EnrichedMarkdownSyntaxHighlighting`
-compiles tree-sitter and its grammars into the app (~8 MB), and without it
-fenced code renders in one color. Add it next to the others:
+compiles tree-sitter and its grammars into the app, and without it fenced code
+renders in one color. The grammars are a fixed set of 14 languages, so the
+product always adds about 8 MB; there is no way to compile in only the
+languages an app needs. Add it next to the others:
 
 ```swift
 .product(name: "EnrichedMarkdownSyntaxHighlighting", package: "enriched-markdown-ios"),
@@ -694,13 +696,23 @@ measures exactly like a plain one.
 | TypeScript | `typescript`, `ts` |
 | YAML | `yaml`, `yml` |
 
-Info strings match case-insensitively. Highlighting runs with the render,
-off the main thread, and tokens are cached per block, so re-rendering a
-streamed document parses only the block that changed. A block over 50 KB or
-2,000 lines is left plain.
+Info strings match case-insensitively. The set is fixed: the package compiles
+these 14 grammars and no others, so unlike the React Native package's
+`codeHighlightLanguages` it can neither be trimmed to save app size nor
+extended with that package's opt-in grammars (C++, Swift, PHP, Ruby, C#).
+
+Highlighting runs with the render, off the main thread, and tokens are cached
+per block, so a block that has not changed is served from the cache on a
+re-render. A block whose closing fence has not arrived yet is re-highlighted
+in full on every update, so streaming a long block costs more per update as
+it grows, and the text of an unfinished multi-line string or comment takes
+its final color only once the closing delimiter arrives. A block over 50 KB
+or 2,000 lines is left plain.
 
 `markdownSyntaxHighlighting` takes a `Bool`, so a setting can drive it
 without rebuilding the view: `.markdownSyntaxHighlighting(isHighlightingOn)`.
+A streaming UI can pass `!isStreaming` to color code once the response is
+complete; until then every block in the view renders plain.
 
 Token colors come from `SyntaxToken` theme elements, one per token type:
 
