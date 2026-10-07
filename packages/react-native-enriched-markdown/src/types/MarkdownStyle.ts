@@ -124,7 +124,7 @@ export interface LinkStyle {
 
 export type LinkVariantStyle = LinkStyle & {
   /** Native atomic presentation. True uses defaults; an object enables overrides. */
-  pill?: boolean | LinkPillStyle | null;
+  pill?: boolean | LinkPillStyle;
 };
 
 export interface LinkPillStyle {
