@@ -41,6 +41,10 @@ typealias EnrichedMarkdownPlugins = EnrichedMarkdownPluginsInternal
  * [spoilerOverlay] picks how `||spoiler||` text is concealed until it is tapped. The overlays are
  * rebuilt only when it changes by `==`, so pass a data class or object, or `remember` it.
  *
+ * [allowTrailingMargin] keeps the last block's bottom margin, so the view ends with the same
+ * spacing that separates its blocks instead of flush with its last line. Turn it on when stacking
+ * several of these one after another.
+ *
  * [onPluginEvent] receives events reported by installed plugins (for example an expression a
  * plugin could not render), once per distinct event until [markdown] is replaced rather than
  * appended to.
@@ -60,6 +64,7 @@ fun EnrichedMarkdownText(
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
+  allowTrailingMargin: Boolean = false,
   onPluginEvent: (PluginEvent) -> Unit = {},
 ) {
   val context = LocalContext.current
@@ -95,6 +100,7 @@ fun EnrichedMarkdownText(
         setOnPluginEventCallback { event -> onPluginEventState(event) }
         setEnableTaskListItemToggle(taskListToggleEnabled)
         setSpoilerOverlay(spoilerOverlay)
+        setAllowTrailingMargin(allowTrailingMargin)
         setMarkdownStyle(styleConfig)
         setMd4cFlags(flags)
         setIsSelectable(selectable)
@@ -109,6 +115,7 @@ fun EnrichedMarkdownText(
       view.setOnPluginEventCallback { event -> onPluginEventState(event) }
       view.setEnableTaskListItemToggle(taskListToggleEnabled)
       view.setSpoilerOverlay(spoilerOverlay)
+      view.setAllowTrailingMargin(allowTrailingMargin)
       view.setMarkdownStyle(styleConfig)
       view.setMd4cFlags(flags)
       view.setIsSelectable(selectable)

@@ -222,6 +222,14 @@ class EnrichedMarkdown(
     }
   }
 
+  fun setAllowTrailingMargin(allow: Boolean) {
+    if (trailingMarginEnabled == allow) return
+    trailingMarginEnabled = allow
+    // Only the container's height and child offsets depend on it, so the
+    // rendered segments stay valid and a layout pass is enough.
+    requestLayout()
+  }
+
   /** Chooses the overlay that conceals unrevealed spoilers. */
   fun setSpoilerOverlay(overlay: SpoilerOverlay) {
     if (spoilerOverlay == overlay) return
@@ -289,6 +297,7 @@ class EnrichedMarkdown(
     setOnPluginEventCallback(null)
     setEnableTaskListItemToggle(true)
     setSpoilerOverlay(SpoilerOverlay.Particles())
+    setAllowTrailingMargin(false)
     setMarkdownContent("")
     taskListToggles.clear()
     forgetReportedPluginEvents()
