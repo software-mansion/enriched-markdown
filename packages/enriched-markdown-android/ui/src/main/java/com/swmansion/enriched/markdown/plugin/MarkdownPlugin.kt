@@ -35,4 +35,10 @@ interface PluginRegistry {
     type: MarkdownASTNode.NodeType,
     segment: PluginBlockSegment<*>,
   )
+
+  /**
+   * Decorate every code block after core renders it. Decorators stack rather than replace each
+   * other: each one installed runs, in install order.
+   */
+  fun registerCodeBlockDecorator(decorator: CodeBlockDecorator)
 }

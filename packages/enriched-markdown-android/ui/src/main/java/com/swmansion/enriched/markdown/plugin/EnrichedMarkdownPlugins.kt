@@ -27,9 +27,12 @@ class PluginSnapshot internal constructor(
   val nodeRenderers: Map<NodeType, (RendererConfig, Context) -> NodeRenderer>,
   @property:InternalPluginApi
   val blockSegments: Map<NodeType, BlockSegmentRegistration>,
+  /** In install order, which is the order they run in. */
+  @property:InternalPluginApi
+  val codeBlockDecorators: List<CodeBlockDecorator>,
 ) {
   companion object {
-    val EMPTY = PluginSnapshot(emptyMap(), emptyMap())
+    val EMPTY = PluginSnapshot(emptyMap(), emptyMap(), emptyList())
 
     /** A snapshot of [plugins] that bypasses the process-wide registry. */
     @InternalPluginApi
@@ -41,6 +44,7 @@ class PluginSnapshot internal constructor(
       val nodeRenderers = LinkedHashMap<NodeType, (RendererConfig, Context) -> NodeRenderer>()
       val nodeRendererOwners = HashMap<NodeType, String>()
       val blockSegments = LinkedHashMap<NodeType, BlockSegmentRegistration>()
+      val codeBlockDecorators = ArrayList<CodeBlockDecorator>()
 
       // Install order, so a later install wins a contested node type.
       for (registrations in installed) {
@@ -55,9 +59,11 @@ class PluginSnapshot internal constructor(
           warnOnConflict("block segment", type, blockSegments[type]?.pluginId, pluginId)
           blockSegments[type] = BlockSegmentRegistration(pluginId, segment)
         }
+
+        codeBlockDecorators += registrations.codeBlockDecorators
       }
 
-      return PluginSnapshot(nodeRenderers, blockSegments)
+      return PluginSnapshot(nodeRenderers, blockSegments, codeBlockDecorators)
     }
 
     private fun warnOnConflict(
@@ -78,6 +84,7 @@ class PluginSnapshot internal constructor(
   ) : PluginRegistry {
     val nodeRenderers = LinkedHashMap<NodeType, (RendererConfig, Context) -> NodeRenderer>()
     val blockSegments = LinkedHashMap<NodeType, PluginBlockSegment<*>>()
+    val codeBlockDecorators = ArrayList<CodeBlockDecorator>()
 
     override fun registerNodeRenderer(
       type: NodeType,
@@ -91,6 +98,10 @@ class PluginSnapshot internal constructor(
       segment: PluginBlockSegment<*>,
     ) {
       blockSegments[type] = segment
+    }
+
+    override fun registerCodeBlockDecorator(decorator: CodeBlockDecorator) {
+      codeBlockDecorators += decorator
     }
   }
 }

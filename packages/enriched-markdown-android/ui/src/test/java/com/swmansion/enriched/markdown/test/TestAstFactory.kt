@@ -50,7 +50,16 @@ object TestAstFactory {
 
   fun code(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Code, children = listOf(text(content)))
 
-  fun codeBlock(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.CodeBlock, children = listOf(text(content)))
+  /** A fenced code block; [language] is the info string's first word, as md4c reports it. */
+  fun codeBlock(
+    content: String,
+    language: String? = null,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.CodeBlock,
+      attributes = language?.let { mapOf("language" to it) }.orEmpty(),
+      children = listOf(text(content)),
+    )
 
   fun blockquote(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Blockquote, children = children.toList())
 
