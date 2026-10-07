@@ -114,6 +114,7 @@ internal object DefaultStyles {
       emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
       strikethroughStyle = StrikethroughStyle(color = null),
       underlineStyle = UnderlineStyle(color = null),
+      highlightStyle = HighlightStyle(color = null, backgroundColor = HighlightStyle.DEFAULT_BACKGROUND_COLOR),
       superscriptStyle = SuperscriptStyle(),
       subscriptStyle = SubscriptStyle(),
       codeStyle =
@@ -194,9 +195,6 @@ internal object DefaultStyles {
       spoilerStyle =
         SpoilerStyle(
           color = parser.color("#374151"),
-          particleDensity = SpoilerStyle.DEFAULT_PARTICLE_DENSITY,
-          particleSpeed = SpoilerStyle.DEFAULT_PARTICLE_SPEED,
-          solidCornerRadius = parser.toPixelFromDIP(4f),
         ),
       thematicBreakStyle =
         ThematicBreakStyle(

@@ -19,6 +19,8 @@ object TestAstFactory {
 
   fun underline(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Underline, children = children.toList())
 
+  fun highlight(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Highlight, children = children.toList())
+
   fun superscript(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Superscript, children = children.toList())
 
   fun subscript(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Subscript, children = children.toList())
@@ -122,6 +124,10 @@ object TestAstFactory {
       attributes = mapOf("align" to align),
       children = children.toList(),
     )
+
+  fun latexMathInline(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.LatexMathInline, content = content)
+
+  fun latexMathDisplay(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.LatexMathDisplay, content = content)
 
   fun softBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.SoftBreak)
 

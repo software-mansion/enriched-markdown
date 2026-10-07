@@ -3,6 +3,9 @@ package com.swmansion.enriched.markdown.renderer
 import android.content.Context
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
+import com.swmansion.enriched.markdown.plugin.PluginEventSink
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -12,6 +15,8 @@ class Renderer {
   private var cachedStyle: StyleConfig? = null
   private var cachedContext: Context? = null
   private var cachedImageRequestHeaders: Map<String, String> = emptyMap()
+  private var cachedOnPluginEvent: PluginEventSink? = null
+  private var cachedPlugins: PluginSnapshot? = null
 
   private val collectedImageSpans = mutableListOf<ImageSpan>()
   private var lastElementMarginBottom: Float = 0f
@@ -20,16 +25,28 @@ class Renderer {
     style: StyleConfig,
     context: Context,
     imageRequestHeaders: Map<String, String> = emptyMap(),
+    onPluginEvent: PluginEventSink? = null,
+    plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
   ) {
-    if (cachedStyle === style && cachedContext === context && cachedImageRequestHeaders == imageRequestHeaders) return
+    if (cachedStyle === style &&
+      cachedContext === context &&
+      cachedImageRequestHeaders == imageRequestHeaders &&
+      cachedOnPluginEvent === onPluginEvent &&
+      cachedPlugins === plugins
+    ) {
+      return
+    }
 
     cachedStyle = style
     cachedContext = context
     cachedImageRequestHeaders = imageRequestHeaders
+    cachedOnPluginEvent = onPluginEvent
+    cachedPlugins = plugins
     cachedFactory =
       RendererFactory(
-        RendererConfig(style, imageRequestHeaders),
+        RendererConfig(style, imageRequestHeaders, onPluginEvent),
         context,
+        plugins,
       ) { span -> reportImageSpan(span) }
   }
 

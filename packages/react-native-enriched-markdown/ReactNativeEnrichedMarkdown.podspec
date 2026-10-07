@@ -87,7 +87,7 @@ Pod::Spec.new do |s|
         'Swift sources, the fonts, and the .stamp the vendor script writes on success). ' \
         'Reinstall to fetch them: `npm rebuild react-native-enriched-markdown`. ' \
         'To disable math, set "enriched-markdown".enableMath = false in your app package.json. ' \
-        'Troubleshooting: https://github.com/software-mansion/enriched-markdown/blob/main/docs/NATIVE_ASSETS.md'
+        'Troubleshooting: https://github.com/software-mansion/enriched-markdown/blob/main/docs-md/NATIVE_ASSETS.md'
     end
     EnrichedMarkdownConfig.warn_once(:math_disabled, '[ReactNativeEnrichedMarkdown] LaTeX math disabled: the vendored RaTeX ' \
       'assets were not found or are incomplete at ios/vendor. If this is unintended, re-run ' \
