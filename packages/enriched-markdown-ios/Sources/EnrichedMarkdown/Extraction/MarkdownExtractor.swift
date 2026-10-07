@@ -45,12 +45,26 @@ enum MarkdownExtractor {
         in attributedText: NSAttributedString,
         within range: NSRange
     ) -> NSAttributedString {
-        let merged = NSMutableAttributedString(attributedString: attributedText)
+        var merged: NSMutableAttributedString?
         attributedText.enumerateAttribute(MarkdownAttribute.codeBlock, in: range, options: []) { value, blockRange, _ in
-            guard MarkdownAttributeValue.boolValue(from: value) else { return }
-            merged.removeAttribute(.foregroundColor, range: blockRange)
+            guard MarkdownAttributeValue.boolValue(from: value), hasSeveralColors(attributedText, in: blockRange) else { return }
+            if merged == nil {
+                merged = NSMutableAttributedString(attributedString: attributedText)
+            }
+            merged?.removeAttribute(.foregroundColor, range: blockRange)
         }
-        return merged
+        return merged ?? attributedText
+    }
+
+    /// Plain code carries one color; highlighting splits it per token.
+    private static func hasSeveralColors(_ attributedText: NSAttributedString, in range: NSRange) -> Bool {
+        var colors = 0
+        attributedText.enumerateAttribute(.foregroundColor, in: range, options: []) { value, _, stop in
+            guard value != nil else { return }
+            colors += 1
+            stop.pointee = ObjCBool(colors > 1)
+        }
+        return colors > 1
     }
 
     private static func reconstructMarkdown(from attributedText: NSAttributedString, in clamped: NSRange) -> String? {
