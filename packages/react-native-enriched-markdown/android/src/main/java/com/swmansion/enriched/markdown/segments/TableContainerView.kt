@@ -308,7 +308,7 @@ class TableContainerView(
     data.attributedText
       .getSpans(0, data.attributedText.length, ImageSpan::class.java)
       .forEach { span -> span.registerTextView(cellTextView) { scheduleImageRemeasure() } }
-    LinkPillSpan.registerView(data.attributedText, cellTextView)
+    LinkPillSpan.registerView(data.attributedText, cellTextView) { scheduleImageRemeasure() }
   }
 
   private var imageRemeasurePending = false
