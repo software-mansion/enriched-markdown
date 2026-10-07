@@ -6,6 +6,7 @@
   "scripts": {
     "build": "./gradlew assembleRelease --no-daemon --console=plain",
     "test:android-native": "./gradlew testDebugUnitTest --no-daemon --console=plain",
+    "bench:android-native": "node display-benchmark/tools/compare.mjs",
     "lint:android-native": "./gradlew ktlintCheck --no-daemon --console=plain",
     "publish:maven-local": "./gradlew publishToMavenLocal --no-daemon --console=plain",
     "publish:maven-central": "./gradlew publishAggregationToCentralPortal --no-daemon --console=plain",

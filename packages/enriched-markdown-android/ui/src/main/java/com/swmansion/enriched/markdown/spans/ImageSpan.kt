@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.spans
 
 import android.content.Context
@@ -18,12 +20,15 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 import android.text.style.ImageSpan as AndroidImageSpan
 import android.text.style.LineHeightSpan as AndroidLineHeightSpan
 
@@ -107,6 +112,14 @@ class ImageSpan(
   private fun requestReflow() {
     val view = viewRef?.get() ?: return
     val text = view.text
+    // An image that loads at the size it held keeps the spoiler's segments in place, so the
+    // segments have to be told their content changed.
+    if (text is Spanned) {
+      val start = text.getSpanStart(this)
+      if (start != -1) {
+        text.getSpans(start, text.getSpanEnd(this), SpoilerSpan::class.java).forEach { it.contentVersion++ }
+      }
+    }
     if (text is Spannable) {
       val start = text.getSpanStart(this)
       val end = text.getSpanEnd(this)
@@ -201,6 +214,10 @@ class ImageSpan(
     bottom: Int,
     paint: Paint,
   ) {
+    // A spoiler conceals text through the paint, which a drawable ignores, so the image fades with
+    // the text instead.
+    val visibility = (text as? Spanned)?.spoilerTextAlpha(start, end) ?: 1f
+    if (visibility <= 0f) return
     val drawable = getDrawable()
     canvas.withSave {
       if (isInline) {
@@ -208,6 +225,16 @@ class ImageSpan(
         translate(x, (y - imageHeight + (imageHeight * 0.1f)))
       } else {
         translate(x, top.toFloat())
+      }
+      if (visibility < 1f) {
+        val bounds = drawable.bounds
+        saveLayerAlpha(
+          bounds.left.toFloat(),
+          bounds.top.toFloat(),
+          bounds.right.toFloat(),
+          bounds.bottom.toFloat(),
+          (visibility * 255f).roundToInt(),
+        )
       }
       drawable.draw(this)
     }

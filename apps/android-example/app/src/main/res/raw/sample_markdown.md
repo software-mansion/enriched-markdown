@@ -143,6 +143,12 @@ Here is a spoiler with **bold** inside: ||The tree is named **Methuselah** and i
 
 Multiple spoilers in one paragraph: The password is ||swordfish|| and the code is ||42||.
 
+A spoiler with a link inside: ||read more about [bristlecone pines](https://en.wikipedia.org/wiki/Bristlecone_pine)||.
+
+Emoji hide too: ||🌲🌳🍂 the forest wins||.
+
+### The ||hidden|| heading
+
 ||The entire Amazon rainforest produces about **20% of the world's oxygen**, but recent studies suggest that the true figure may be closer to *6-9%* because the forest also consumes a significant amount of oxygen through decomposition. Nevertheless, the Amazon remains the single largest tropical rainforest on Earth, spanning **5.5 million square kilometers** across nine countries.||
 
 ---
@@ -161,6 +167,40 @@ Mathematical and scientific notation using superscripts and subscripts:
 Footnote-style references^1^ and trademark symbols like React Native^™^ can also use superscripts.
 
 Scientific prefixes: 6.022 × 10^23^ (Avogadro's number), the universe is approximately 1.38 × 10^10^ years old.
+
+---
+
+## Math Examples
+
+Standalone display math renders as a centered, horizontally scrollable block:
+
+$$
+E = mc^2
+$$
+
+Display math surrounded by text on both sides (no blank lines) should still render as a block, with the text flowing above and below it:
+
+Energy released by fusion follows
+$$
+E = \Delta m \cdot c^2
+$$
+and this is why the sun shines.
+
+Inline math like $a^2 + b^2 = c^2$ and genuine mid-line display math ($$x = y$$ inside a sentence) both stay in the text flow.
+
+A wide equation scrolls sideways instead of wrapping:
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi} \quad\text{and}\quad \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+$$
+
+An expression the engine cannot draw falls back to its own source and is reported through `onPluginEvent`:
+
+$$
+\thisCommandDoesNotExist{x}
+$$
+
+Inline failures fall back the same way: $\notARealCommand{y}$ stays as its source.
 
 ---
 

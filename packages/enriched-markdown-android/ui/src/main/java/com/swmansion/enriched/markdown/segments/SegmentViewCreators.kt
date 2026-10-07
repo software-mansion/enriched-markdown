@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import android.util.TypedValue
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
+import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.spans.registerWithSpans
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -22,6 +23,7 @@ data class SegmentViewConfig(
   val onTaskListItemTap: ((view: EnrichedMarkdownInternalText, hit: TaskListHitTestResult) -> Unit)?,
   val onLinkPress: ((String) -> Unit)?,
   val onLinkLongPress: ((String) -> Unit)?,
+  val onPluginEvent: PluginEventSink? = null,
 )
 
 object SegmentViewCreators {
@@ -62,13 +64,14 @@ object SegmentViewCreators {
       selectionMenuConfig = config.selectionMenuConfig
       onLinkPress = config.onLinkPress
       onLinkLongPress = config.onLinkLongPress
-      applyTableNode(segment.node, segment.imageRequestHeaders)
+      applyTableNode(segment.node, segment.imageRequestHeaders, segment.plugins, config.onPluginEvent)
     }
 
   fun updateTableView(
     view: TableContainerView,
     segment: RenderedSegment.Table,
+    config: SegmentViewConfig,
   ) {
-    view.applyTableNode(segment.node, segment.imageRequestHeaders)
+    view.applyTableNode(segment.node, segment.imageRequestHeaders, segment.plugins, config.onPluginEvent)
   }
 }
