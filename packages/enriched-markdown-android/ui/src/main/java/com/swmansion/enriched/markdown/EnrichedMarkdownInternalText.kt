@@ -8,7 +8,6 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.segments.BlockSegmentView
-import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
@@ -26,18 +25,17 @@ class EnrichedMarkdownInternalText
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
   ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
-    BlockSegmentView,
-    SpoilerCapable {
+    BlockSegmentView {
     var lastElementMarginBottom: Float = 0f
     override val segmentMarginBottom: Int get() = lastElementMarginBottom.toInt()
 
     var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
 
-    override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
+    internal var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
       private set
 
     /** How unrevealed `||spoiler||` text is concealed. */
-    var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles
+    var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles()
       set(value) {
         if (field == value) return
         field = value

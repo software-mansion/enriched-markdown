@@ -65,7 +65,7 @@ class EnrichedMarkdown(
     private set
 
   /** How unrevealed `||spoiler||` text is concealed. */
-  var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles
+  var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles()
     private set
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
@@ -222,15 +222,12 @@ class EnrichedMarkdown(
     }
   }
 
-  /**
-   * Chooses the overlay that conceals unrevealed spoilers: drifting particles (the default) or
-   * a solid rounded block.
-   */
-  fun setSpoilerOverlay(mode: SpoilerOverlay) {
-    if (spoilerOverlay == mode) return
-    spoilerOverlay = mode
+  /** Chooses the overlay that conceals unrevealed spoilers. */
+  fun setSpoilerOverlay(overlay: SpoilerOverlay) {
+    if (spoilerOverlay == overlay) return
+    spoilerOverlay = overlay
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
-      it.spoilerOverlay = mode
+      it.spoilerOverlay = overlay
     }
   }
 
@@ -291,7 +288,7 @@ class EnrichedMarkdown(
     setOnTaskListItemPressCallback(null)
     setOnPluginEventCallback(null)
     setEnableTaskListItemToggle(true)
-    setSpoilerOverlay(SpoilerOverlay.Particles)
+    setSpoilerOverlay(SpoilerOverlay.Particles())
     setMarkdownContent("")
     taskListToggles.clear()
     forgetReportedPluginEvents()

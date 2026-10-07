@@ -10,6 +10,17 @@
 #
 # Output:
 #   packages/react-native-enriched-markdown/src/web/wasm/md4c.js
+#
+# NOTE: the committed md4c.js is an artifact, and the docs describe what the
+# *committed* one can do - not what this source can. It was last rebuilt before
+# the Video node type was added, so the shipped parser emits no `Video` node and
+# three doc pages correctly say video does not render on web:
+#   docs/docs/introduction/supported-features.md       (Videos | Web | No)
+#   docs/docs/react-native/guides/web-support.md       ("Not supported on web")
+#   docs/docs/react-native/api-reference/element-structure.md (the video caution)
+# A VideoRenderer, `videoStyle` and the 'Video' type already exist under
+# src/web/, so the day this script is run those three pages flip to wrong at
+# once. Update them in the same commit as the rebuilt artifact.
 
 set -euo pipefail
 

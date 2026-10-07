@@ -143,6 +143,12 @@ Here is a spoiler with **bold** inside: ||The tree is named **Methuselah** and i
 
 Multiple spoilers in one paragraph: The password is ||swordfish|| and the code is ||42||.
 
+A spoiler with a link inside: ||read more about [bristlecone pines](https://en.wikipedia.org/wiki/Bristlecone_pine)||.
+
+Emoji hide too: ||🌲🌳🍂 the forest wins||.
+
+### The ||hidden|| heading
+
 ||The entire Amazon rainforest produces about **20% of the world's oxygen**, but recent studies suggest that the true figure may be closer to *6-9%* because the forest also consumes a significant amount of oxygen through decomposition. Nevertheless, the Amazon remains the single largest tropical rainforest on Earth, spanning **5.5 million square kilometers** across nine countries.||
 
 ---
