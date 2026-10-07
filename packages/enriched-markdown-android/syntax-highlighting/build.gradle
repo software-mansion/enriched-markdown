@@ -1,0 +1,72 @@
+plugins {
+  id "com.android.library"
+}
+
+// The tree-sitter runtime, grammars and generated registry are gitignored and restored by the
+// vendor script, which writes grammars/.stamp once every grammar is in place. Fail at
+// configuration with the fix rather than deep inside CMake with a missing source.
+def highlightVendorDir = file("../../core/cpp/highlight/vendor")
+def highlightVendorStamp = new File(highlightVendorDir, "grammars/.stamp")
+if (!highlightVendorStamp.exists()) {
+  throw new GradleException(
+    "[syntax-highlighting] tree-sitter grammar sources are missing (${highlightVendorStamp.path} not found). " +
+      "From the repository root run: yarn install && node vendor/vendor-grammars.mjs"
+  )
+}
+
+android {
+  namespace = "com.swmansion.enriched.markdown.syntaxhighlighting"
+
+  compileSdk = rootProject.ext.compileSdkVersion
+
+  defaultConfig {
+    minSdk = rootProject.ext.minSdkVersion
+    consumerProguardFiles("consumer-rules.pro")
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    externalNativeBuild {
+      cmake {
+        cppFlags("-std=c++17")
+        arguments("-DANDROID_STL=c++_shared")
+      }
+    }
+
+    ndk {
+      abiFilters("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+    }
+  }
+
+  packaging {
+    jniLibs {
+      pickFirsts += ["**/libc++_shared.so"]
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled = false
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+  }
+
+  externalNativeBuild {
+    cmake {
+      path = file("src/main/cpp/CMakeLists.txt")
+    }
+  }
+
+  ndkVersion = rootProject.ext.ndkVersion
+}
+
+dependencies {
+  api(project(":ui"))
+
+  androidTestImplementation("junit:junit:4.13.2")
+  androidTestImplementation("androidx.test:core:1.6.1")
+  androidTestImplementation("androidx.test.ext:junit:1.2.1")
+  androidTestImplementation("androidx.test:runner:1.6.2")
+}
