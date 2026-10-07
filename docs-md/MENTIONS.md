@@ -165,7 +165,7 @@ Icons are drawn at the label's font size.
 | `data:` (base64)                                                                      | Yes | Yes     |
 | Drawable/raw resource name, `asset://`, `res://`, `content://`                        | No  | Yes     |
 
-Local files show on the first layout. Remote icons load in the background through the same pipeline as Markdown images, using `imageRequestHeaders`, and the pill keeps room for them while they load. A source that fails to load shows no icon and is retried after 30 seconds.
+Local files show on the first layout. Remote icons load in the background through the same pipeline as Markdown images, using `imageRequestHeaders`, and the pill keeps room for them while they load. A source that fails to load gives that room back, so the pill shrinks to its label, and is retried after 30 seconds.
 
 Pill presentation is native only. Web and macOS render ordinary links and ignore `pill` and `linkPillContent`.
 

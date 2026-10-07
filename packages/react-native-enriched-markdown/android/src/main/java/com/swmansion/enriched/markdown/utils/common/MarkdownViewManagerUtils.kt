@@ -3,7 +3,6 @@ package com.swmansion.enriched.markdown.utils.common
 import android.view.View
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
-import com.facebook.react.bridge.ReadableType
 import com.facebook.react.uimanager.UIManagerHelper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.events.CodeBlockPressEvent
@@ -160,9 +159,7 @@ fun parseLinkPillContent(value: ReadableArray?): Map<String, LinkPillContent> =
     .mapNotNull { index ->
       val entry = value?.getMap(index) ?: return@mapNotNull null
       val url = entry.getString("url") ?: return@mapNotNull null
-      val hasTint = entry.hasKey("iconTintColor") && entry.getType("iconTintColor") == ReadableType.Number
-      val tint = if (hasTint) entry.getDouble("iconTintColor").toInt() else null
-      url to LinkPillContent(entry.getString("label") ?: "", entry.getString("iconUri") ?: "", tint)
+      url to LinkPillContent.fromReadableMap(entry)
     }.toMap()
 
 fun parseSelectionMenuConfig(value: ReadableMap?): SelectionMenuConfig {

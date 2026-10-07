@@ -95,14 +95,14 @@ internal object LinkPillIconCache {
 
   /**
    * Returns the cached remote icon, or null after starting a download that reports
-   * through [onLoaded] on the main thread. [onLoaded] can also run before this
-   * returns when the downloader already holds the image.
+   * through [onLoaded] on the main thread, with null when the download fails. [onLoaded]
+   * can also run before this returns when the downloader already holds the image.
    */
   fun loadRemote(
     context: Context,
     iconUri: String,
     headers: Map<String, String>,
-    onLoaded: (Bitmap) -> Unit,
+    onLoaded: (Bitmap?) -> Unit,
   ): Bitmap? {
     val key = remoteKey(iconUri, headers)
     synchronized(this) {
@@ -118,7 +118,7 @@ internal object LinkPillIconCache {
           sources.put(key, Source(key, clock(), failed = shared == null))
           shared
         }
-      icon?.let(onLoaded)
+      onLoaded(icon)
     }
     return null
   }
