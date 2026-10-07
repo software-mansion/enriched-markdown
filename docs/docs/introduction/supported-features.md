@@ -117,13 +117,15 @@ Each has its own page under **Rich text formatting**.
 | ----------------------- | :----------: | :-: | ------------------------------------------------------------------ |
 | LaTeX math              |     Yes      | Yes | [LaTeX math](/rich-text-formatting/latex-math)                     |
 | Mentions                |     Yes      | Yes | [Mentions](/rich-text-formatting/mentions)                         |
+| Link pills              |     Yes      | No  | [Link pills](/rich-text-formatting/link-pills)                     |
 | Code-block highlighting |     Yes      | No  | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
 | Markdown streaming      |     Yes      | No  | [Markdown streaming](/rich-text-formatting/markdown-streaming)     |
 
 LaTeX math on web needs the optional `katex` peer dependency; without it the
 formula falls back to its raw `$...$` source. Code-block highlighting on web
 renders a plain, uncolored `<pre><code>`. The two streaming props are stripped
-on web.
+on web. Link pills are drawn by the native text stack, so on web those links
+render as ordinary links with the variant's colors.
 
 ## EnrichedMarkdownTextInput
 

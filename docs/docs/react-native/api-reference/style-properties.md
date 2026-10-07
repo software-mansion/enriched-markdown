@@ -338,6 +338,8 @@ Under the `code` key.
 
 You can also style links per URL pattern through the top-level `linkVariants` key: a `Record<string, LinkVariantStyle>` whose keys are regexes tested against the link URL. See [Mentions](/rich-text-formatting/mentions#styling-mentions-with-linkvariants).
 
+A variant can also present its links as **pills** - rounded chips with an optional icon and label - through its `pill` key (`true` for the default look, or a `LinkPillStyle` object). Pills are native-only; see [Link pills](/rich-text-formatting/link-pills) for the fields and behavior.
+
 <LivePreview src={LinkSrc} />
 
 ### Strong-specific

@@ -31,6 +31,8 @@ Both components accept a `linkVariants` key, so the same config styles mentions 
 
 - **Interaction** is through the usual link callbacks - a mention tap is a link tap, delivered with the mention's URL.
 
+- **Pills** - on iOS and Android a variant can present its mentions as [link pills](/rich-text-formatting/link-pills): a rounded chip with the user's avatar and name, while the Markdown stays an ordinary link.
+
 ## Displaying mentions
 
 Rendering content that already contains mentions needs nothing special: pass the Markdown to the display component, style the schemes with `linkVariants`, and route taps by scheme in `onLinkPress`.

@@ -1,6 +1,6 @@
 ---
 sidebar_label: Markdown streaming
-sidebar_position: 4
+sidebar_position: 5
 ---
 
 import StreamingSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-formatting/markdown-streaming/Streaming';

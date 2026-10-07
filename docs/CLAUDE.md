@@ -57,8 +57,8 @@ react-native/         (40)  basics/ (10)        installation, your-first-project
                                                 image-caching, native-assets,
                                                 testing, macos
 rich-text-formatting/ (50)  code-highlighting, editor-style-text, latex-math,
-                            markdown-streaming, mentions
-user-experience/      (55)  accessibility, rtl, copy-options
+                            link-pills, markdown-streaming, mentions
+user-experience/      (55)  accessibility, rtl, copy-options, link-menus
 misc/                 (60)  compatibility.mdx, breaking-changes,
                             known-limitations, roadmap, contributing
 ```

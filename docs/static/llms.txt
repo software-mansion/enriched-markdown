@@ -26,6 +26,7 @@
 ## Rich text formatting
 
 - [Mentions](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/mentions): Mentions as ordinary links with custom URL schemes - styling with `linkVariants`, and the editor's mention-authoring flow.
+- [Link pills](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/link-pills): Presenting links as native chips with an icon and label - the `pill` variant key, per-link content through `linkPillContent`, line height, and icon sources.
 - [LaTeX math](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/latex-math): Inline and block equations, styling, handling render errors, and excluding the math engine.
 - [Code-block highlighting](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/code-highlighting): tree-sitter syntax highlighting, the token palette, the supported grammars, and trimming the language set.
 - [Markdown streaming](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/markdown-streaming): Rendering LLM output as it arrives, the tail fade-in, and how incomplete tables, code blocks and math are withheld.
@@ -36,6 +37,7 @@
 - [Accessibility](https://docs.swmansion.com/enriched-markdown/user-experience/accessibility): How content is announced by VoiceOver and TalkBack, translating every spoken string, font scaling, and the known gaps.
 - [RTL support](https://docs.swmansion.com/enriched-markdown/user-experience/rtl): Per-paragraph direction resolution, `writingDirection`, and how each element mirrors.
 - [Copy options](https://docs.swmansion.com/enriched-markdown/user-experience/copy-options): Smart copy, Copy as Markdown, Copy Image URL, and localizing the selection menu.
+- [Link menus](https://docs.swmansion.com/enriched-markdown/user-experience/link-menus): What a long press on a link does per platform, and custom iOS 17+ menus per URL pattern with `linkContextMenuItems`.
 
 ## Project
 

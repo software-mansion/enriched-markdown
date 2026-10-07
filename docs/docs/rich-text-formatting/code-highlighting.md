@@ -1,6 +1,6 @@
 ---
 sidebar_label: Code-block highlighting
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 import SyntaxColorsSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-formatting/code-highlighting/SyntaxColors';
