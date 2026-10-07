@@ -33,6 +33,10 @@ if(NOT REGISTRY_LANGUAGES STREQUAL EXPECTED_LANGUAGES)
     "[${EXPECTED_LANGUAGES}]. Regenerate the default registry: node vendor/vendor-grammars.mjs --force")
 endif()
 
+# tree-sitter forces default visibility on its API (api.h pushes it, alloc.h and every parser.c
+# mark symbols TS_PUBLIC) unless these are defined. alloc.h spells the macro differently.
+set(TS_HIDE_SYMBOLS_DEFINITIONS TREE_SITTER_HIDE_SYMBOLS TREE_SITTER_HIDDEN_SYMBOLS)
+
 add_library(tree_sitter_runtime STATIC "${TS_VENDOR}/tree-sitter/src/lib.c")
 target_include_directories(tree_sitter_runtime
   PRIVATE "${TS_VENDOR}/tree-sitter/src"
@@ -40,6 +44,8 @@ target_include_directories(tree_sitter_runtime
 set_target_properties(tree_sitter_runtime PROPERTIES
   C_STANDARD 11 C_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE ON)
 target_compile_options(tree_sitter_runtime PRIVATE -fvisibility=hidden)
+# PUBLIC so every consumer of api.h (the highlighter and JNI sources) sees it too.
+target_compile_definitions(tree_sitter_runtime PUBLIC ${TS_HIDE_SYMBOLS_DEFINITIONS})
 
 # One OBJECT lib per grammar, each in its own include dir so grammar parser.h files never collide.
 set(GRAMMAR_OBJECTS "")
@@ -54,6 +60,7 @@ foreach(lang IN LISTS HIGHLIGHT_LANGUAGES)
   set_target_properties(ts_grammar_${lang} PROPERTIES
     C_STANDARD 11 C_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE ON)
   target_compile_options(ts_grammar_${lang} PRIVATE -fvisibility=hidden)
+  target_compile_definitions(ts_grammar_${lang} PRIVATE ${TS_HIDE_SYMBOLS_DEFINITIONS})
   list(APPEND GRAMMAR_OBJECTS $<TARGET_OBJECTS:ts_grammar_${lang}>)
 endforeach()
 
