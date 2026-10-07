@@ -4,6 +4,7 @@ enum class ExampleRoute {
   Home,
   Playground,
   Text,
+  Code,
   Input,
   Stream,
   Storybook,
