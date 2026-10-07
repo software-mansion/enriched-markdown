@@ -8,11 +8,11 @@ struct SyntaxHighlightingPlugin: MarkdownRenderPlugin {
     func styleCodeBlock(
         in output: NSMutableAttributedString,
         range: NSRange,
-        language: String?,
+        language: String,
         config: MarkdownStyleConfiguration
     ) {
         let colors = config.syntaxHighlight.colors
-        guard let language, !colors.isEmpty else { return }
+        guard !colors.isEmpty else { return }
 
         let code = output.mutableString.substring(with: range)
         for token in SyntaxHighlighter.tokens(in: code, language: language) {

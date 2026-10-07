@@ -9,10 +9,11 @@ package protocol MarkdownRenderPlugin {
     func renderer(for type: NodeType, config: MarkdownStyleConfiguration) -> NodeRenderer?
 
     /// Recolors a laid-out code block's code; only `.foregroundColor` may change.
+    /// Called for blocks whose info string names a language.
     func styleCodeBlock(
         in output: NSMutableAttributedString,
         range: NSRange,
-        language: String?,
+        language: String,
         config: MarkdownStyleConfiguration
     )
 
@@ -40,7 +41,7 @@ package extension MarkdownRenderPlugin {
     func styleCodeBlock(
         in output: NSMutableAttributedString,
         range: NSRange,
-        language: String?,
+        language: String,
         config: MarkdownStyleConfiguration
     ) {}
 

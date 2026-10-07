@@ -67,7 +67,7 @@ private struct StubPlugin: MarkdownRenderPlugin {
 private final class CodeBlockStylingRecorder: MarkdownRenderPlugin {
     struct Call: Equatable {
         var code: String
-        var language: String?
+        var language: String
     }
 
     static let tint = UIColor.systemPink
@@ -76,7 +76,7 @@ private final class CodeBlockStylingRecorder: MarkdownRenderPlugin {
     func styleCodeBlock(
         in output: NSMutableAttributedString,
         range: NSRange,
-        language: String?,
+        language: String,
         config: MarkdownStyleConfiguration
     ) {
         calls.append(Call(code: output.mutableString.substring(with: range), language: language))
@@ -299,19 +299,17 @@ final class RenderPluginTests: XCTestCase {
         return rendered.attribute(.foregroundColor, at: location, effectiveRange: nil) as? UIColor
     }
 
-    func testCodeBlockStylingReceivesEachBlocksCodeAndLanguage() {
+    func testCodeBlockStylingReceivesLabeledBlocksOnly() {
         let recorder = CodeBlockStylingRecorder()
         let rendered = render(
             "```python\nprint(1)\nprint(2)\n```\n\nBetween\n\n```\nplain\n```\n\n    indented",
             plugins: [recorder]
         )
 
-        XCTAssertEqual(recorder.calls, [
-            .init(code: "print(1)\nprint(2)\n", language: "python"),
-            .init(code: "plain\n", language: nil),
-            .init(code: "indented\n", language: nil)
-        ])
+        XCTAssertEqual(recorder.calls, [.init(code: "print(1)\nprint(2)\n", language: "python")])
         XCTAssertEqual(foregroundColor(of: "print(1)", in: rendered), CodeBlockStylingRecorder.tint)
+        XCTAssertNotEqual(foregroundColor(of: "plain", in: rendered), CodeBlockStylingRecorder.tint)
+        XCTAssertNotEqual(foregroundColor(of: "indented", in: rendered), CodeBlockStylingRecorder.tint)
         XCTAssertEqual(foregroundColor(of: "Between", in: rendered), config.paragraph.foregroundColor)
     }
 

@@ -92,7 +92,7 @@ final class CodeBlockRenderer: NodeRenderer {
             ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: marginBottom)
         }
 
-        let language = node.attribute("language")
+        guard let language = node.attribute("language") else { return }
         for plugin in plugins {
             plugin.styleCodeBlock(in: output, range: contentRange, language: language, config: config)
         }
