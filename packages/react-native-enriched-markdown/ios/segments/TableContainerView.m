@@ -87,6 +87,7 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
 
   [context applyLinkAttributesToString:attributedText];
 
+  ENRMPinLineMetricsToStyledFonts(attributedText, NSMakeRange(0, attributedText.length));
   ENRMApplyWritingDirectionMode(attributedText, writingDirectionMode, resolvedLayoutDirection);
 
   if (alignment != NSTextAlignmentLeft && attributedText.length > 0) {
