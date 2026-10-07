@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.benchmark
 
 import android.content.Context
@@ -21,8 +23,12 @@ import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
+import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,6 +52,11 @@ import java.io.File
  * [render], [layout] and [draw] split that same work into its phases, so a slow
  * document can be attributed to one of them. They share the fixture and the parsed
  * AST with [full] and keep per-iteration setup out of the measured region.
+ *
+ * The `code_medium` cases render one document three ways, so the cost syntax highlighting adds to
+ * the render can be read off against the plain case: `_highlighted` with the plugin's token cache
+ * warm, as on a re-render, and `_highlighted_cold` with every block tokenized afresh, as on a
+ * document's first render.
  */
 @RunWith(Parameterized::class)
 class DisplayBenchmark(
@@ -54,6 +65,18 @@ class DisplayBenchmark(
   @get:Rule val benchmarkRule = BenchmarkRule()
 
   @get:Rule val activityRule = ActivityScenarioRule(DisplayActivity::class.java)
+
+  /** The fixture behind [document]: the highlighting cases share the plain case's. */
+  private val fixture = document.substringBefore(HIGHLIGHTED_SUFFIX)
+
+  private val plugins =
+    if (HIGHLIGHTED_SUFFIX in document) PluginSnapshot.of(SyntaxHighlightingPlugin) else PluginSnapshot.EMPTY
+
+  /**
+   * The plugin caches tokens process-wide by block, so a cold case renders a document whose blocks
+   * no earlier iteration has seen; see [Harness.freshDocument].
+   */
+  private val cold = document.endsWith(COLD_SUFFIX)
 
   /**
    * Builds the view displaying [document] inside a vertical scroll container.
@@ -71,7 +94,7 @@ class DisplayBenchmark(
     document: MarkdownASTNode,
   ): View {
     val textView = EnrichedMarkdownInternalText(context).apply { setIsSelectable(false) }
-    val renderer = Renderer().apply { configure(StyleConfig.default(context), context) }
+    val renderer = newRenderer(context)
     textView.text = renderer.renderDocument(document)
     return scrollWrapped(context, textView)
   }
@@ -81,8 +104,8 @@ class DisplayBenchmark(
   fun full() {
     val harness = Harness()
 
-    fun display() {
-      harness.container.addView(createView(harness.context, harness.parsed))
+    fun display(document: MarkdownASTNode = harness.parsed) {
+      harness.container.addView(createView(harness.context, document))
       harness.layOutContainer()
       harness.recordDraw()
     }
@@ -95,9 +118,16 @@ class DisplayBenchmark(
       harness.container.removeAllViews()
     }
 
-    benchmarkRule.measureRepeatedOnMainThread {
-      display()
-      runWithMeasurementDisabled { harness.container.removeAllViews() }
+    if (cold) {
+      benchmarkRule.measureRepeatedOnMainThread {
+        display(runWithMeasurementDisabled { harness.freshDocument() })
+        runWithMeasurementDisabled { harness.container.removeAllViews() }
+      }
+    } else {
+      benchmarkRule.measureRepeatedOnMainThread {
+        display()
+        runWithMeasurementDisabled { harness.container.removeAllViews() }
+      }
     }
   }
 
@@ -107,10 +137,16 @@ class DisplayBenchmark(
     val harness = Harness()
     // Hoisted out of the measured region: the phase benchmarks measure the phase, and
     // building StyleConfig.default and a Renderer is not part of rendering spans.
-    val renderer = Renderer().apply { configure(StyleConfig.default(harness.context), harness.context) }
+    val renderer = newRenderer(harness.context)
 
-    benchmarkRule.measureRepeatedOnMainThread {
-      renderer.renderDocument(harness.parsed)
+    if (cold) {
+      benchmarkRule.measureRepeatedOnMainThread {
+        renderer.renderDocument(runWithMeasurementDisabled { harness.freshDocument() })
+      }
+    } else {
+      benchmarkRule.measureRepeatedOnMainThread {
+        renderer.renderDocument(harness.parsed)
+      }
     }
   }
 
@@ -131,8 +167,10 @@ class DisplayBenchmark(
    */
   @Test
   fun layout() {
+    // Tokenizing happens in the render alone; the warm case already covers the spans it leaves.
+    assumeFalse(cold)
     val harness = Harness()
-    val renderer = Renderer().apply { configure(StyleConfig.default(harness.context), harness.context) }
+    val renderer = newRenderer(harness.context)
 
     benchmarkRule.measureRepeatedOnMainThread {
       val (textView, spannable) =
@@ -158,6 +196,7 @@ class DisplayBenchmark(
    */
   @Test
   fun draw() {
+    assumeFalse(cold)
     val harness = Harness()
     val spannable = harness.renderSpannable()
 
@@ -207,6 +246,10 @@ class DisplayBenchmark(
     Log.i(LOG_TAG, "$document: ${spans.size} spans")
   }
 
+  /** A renderer with the default style and this case's [plugins]. */
+  private fun newRenderer(context: Context): Renderer =
+    Renderer().apply { configure(StyleConfig.default(context), context, plugins = plugins) }
+
   private fun newTextView(context: Context): EnrichedMarkdownInternalText =
     EnrichedMarkdownInternalText(context).apply { setIsSelectable(false) }
 
@@ -228,10 +271,13 @@ class DisplayBenchmark(
     private val heightSpec: Int
     private val renderNode: RenderNode
 
+    private val markdown: String
+    private var freshDocuments = 0
+
     init {
-      val markdown =
+      markdown =
         instrumentation.context.assets
-          .open("$document.md")
+          .open("$fixture.md")
           .bufferedReader()
           .use { it.readText() }
 
@@ -283,14 +329,31 @@ class DisplayBenchmark(
     }
 
     /** The spannable the draw phase starts from. Not measured. */
-    fun renderSpannable(): CharSequence {
-      val renderer = Renderer().apply { configure(StyleConfig.default(context), context) }
-      return renderer.renderDocument(parsed)
+    fun renderSpannable(): CharSequence = newRenderer(context).renderDocument(parsed)
+
+    /**
+     * The fixture parsed again with a whitespace-only line after the first line of every fenced
+     * block, spelled in spaces and tabs from a counter. Every call changes every block, so none hits
+     * the plugin's token cache, while each block grows by the same few characters on every call. The
+     * pattern repeats after 1024 calls, long after the cache has evicted its first entries. Parse
+     * it with measurement disabled.
+     */
+    fun freshDocument(): MarkdownASTNode {
+      val salt = freshDocuments++
+      val line = String(CharArray(SALT_BITS) { bit -> if (salt shr bit and 1 == 1) '\t' else ' ' })
+      val salted = markdown.replace(FENCE_OPENING) { "${it.value}$line\n" }
+      return requireNotNull(Parser.shared.parseMarkdown(salted, Md4cFlags(permissiveAutolinks = false)))
     }
   }
 
   companion object {
     private const val LOG_TAG = "DisplayBenchmark"
+    private const val HIGHLIGHTED_SUFFIX = "_highlighted"
+    private const val COLD_SUFFIX = "_cold"
+    private const val SALT_BITS = 10
+
+    /** An opening fence that names a language, with the block's first line. */
+    private val FENCE_OPENING = Regex("^```[a-z]+\\n.*\\n", RegexOption.MULTILINE)
 
     private val ALL_DOCUMENTS =
       listOf(
@@ -300,6 +363,9 @@ class DisplayBenchmark(
         "complex_small",
         "complex_medium",
         "complex_large",
+        "code_medium",
+        "code_medium$HIGHLIGHTED_SUFFIX",
+        "code_medium$HIGHLIGHTED_SUFFIX$COLD_SUFFIX",
       )
 
     /** All documents, or those listed in the `mdbench.documents` instrumentation argument. */
