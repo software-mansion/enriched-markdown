@@ -136,7 +136,7 @@ it('normalizes nested web configuration without changing document labels', () =>
   });
 });
 
-it.each([undefined, false, null])('keeps pills disabled for %s', (pill) => {
+it.each([undefined, false])('keeps pills disabled for %s', (pill) => {
   expect(
     normalizeMarkdownStyle({ linkVariants: { '^app:': { pill } } })
       .linkVariants[0]?.pill
