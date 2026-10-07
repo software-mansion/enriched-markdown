@@ -25,10 +25,12 @@ jobs:
       - name: Check out
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      # Holds secrets, so no Gradle cache: android-benchmarks can write one.
       - name: Setup Android
         uses: ./.github/actions/setup-android
         with:
           gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
+          cache: none
 
       - name: Publish to Maven Local (dry run)
         if: ${{ inputs.dry-run }}

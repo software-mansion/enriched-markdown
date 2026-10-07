@@ -5,6 +5,7 @@
 #import "StyleConfig.h"
 
 @class MarkdownASTNode;
+@class ENRMAccessibilityLabels;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -78,6 +79,11 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // creation and handed unchanged to this quote's children, so a child added after
 // a toggle is born current with no per-toggle push. See ENRMDynamicBlockProps.
 @property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
+
+// Resolved VoiceOver strings (list, quote, table and math announcements). Set by
+// the host at creation and pushed to this quote's children, recursing into
+// nested quotes, so they are labelled the same way top-level segments are.
+@property (nonatomic, strong, nullable) ENRMAccessibilityLabels *accessibilityLabels;
 
 @end
 

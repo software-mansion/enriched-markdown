@@ -1,7 +1,11 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.utils.common.serialization
 
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.renderer.latexSourceOf
 
 /** Turns AST back into markdown source; AST nodes carry no source offsets to slice from. */
 object MarkdownASTSerializer {
@@ -90,6 +94,15 @@ object MarkdownASTSerializer {
 
       NodeType.Code -> {
         buffer.wrap("`", node)
+      }
+
+      // Delimiters included, so the copied source parses back as math rather than plain text.
+      NodeType.LatexMathInline -> {
+        buffer.append("$").append(latexSourceOf(node)).append("$")
+      }
+
+      NodeType.LatexMathDisplay -> {
+        buffer.append("$$").append(latexSourceOf(node)).append("$$")
       }
 
       NodeType.Link -> {

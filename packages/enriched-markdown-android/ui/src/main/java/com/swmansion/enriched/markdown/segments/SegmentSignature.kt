@@ -66,6 +66,19 @@ object SegmentSignature {
     return hash
   }
 
+  /**
+   * A plugin segment's signature, salted by the owning plugin id so two plugins that emit the same
+   * bytes - and a Text or Table segment - cannot collide. Core computes it rather than the plugin:
+   * streamed updates diff by this value, so an unstable one recycles the wrong view per token.
+   */
+  fun signatureForPluginSegment(
+    pluginId: String,
+    signatureSource: String,
+  ): Long {
+    val salt = fnvMixString(FNV_OFFSET_BASIS, pluginId)
+    return fnvMixString(signatureForNode(null) xor salt, signatureSource)
+  }
+
   fun signatureForNodes(nodes: List<MarkdownASTNode>): Long {
     var hash = FNV_OFFSET_BASIS
     for (node in nodes) {
