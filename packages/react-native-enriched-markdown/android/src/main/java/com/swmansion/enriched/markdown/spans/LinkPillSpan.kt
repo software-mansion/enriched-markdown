@@ -16,10 +16,12 @@ import android.text.style.LeadingMarginSpan
 import android.text.style.ReplacementSpan
 import android.view.View
 import android.widget.TextView
+import com.swmansion.enriched.markdown.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.spoiler.isConcealedBySpoiler
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.LinkPillStyle
 import com.swmansion.enriched.markdown.styles.LinkVariantEntry
+import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import java.lang.ref.WeakReference
 import kotlin.math.ceil
 import kotlin.math.max
@@ -43,8 +45,10 @@ class LinkPillSpan(
   private val followsRunTypeface: Boolean = false,
 ) : ReplacementSpan() {
   private val pill = variant.pill ?: LinkPillStyle()
+  private val resolved = (content ?: LinkPillContent()).orElse(pill.content)
   private val label =
-    (content?.label?.ifEmpty { null } ?: pill.label.ifEmpty { originalLinkText })
+    resolved.label
+      .ifEmpty { originalLinkText }
       .replace('\n', ' ')
       .replace('\r', ' ')
 
@@ -70,9 +74,13 @@ class LinkPillSpan(
   private var icon: Bitmap? = null
 
   // A remote icon keeps its slot while it loads, so its arrival needs a redraw, never a
-  // relayout. If the load fails the slot stays empty until the next render.
-  private val reservesIconSlot: Boolean
+  // relayout. A failed load gives the slot up, which reflows the text and re-measures.
+  @Volatile
+  private var reservesIconSlot: Boolean
   private val views = ArrayList<WeakReference<View>>()
+
+  // A self-measuring host (a table cell) re-measures itself instead of the component.
+  private var onSlotReleased: (() -> Unit)? = null
 
   private var ellipsizedLabel = label
   private var ellipsizedForWidth = -1f
@@ -83,15 +91,19 @@ class LinkPillSpan(
   val lineHeight: Float = pill.lineHeight
 
   init {
-    val iconUri = content?.iconUri?.ifEmpty { null } ?: pill.iconUri
+    val iconUri = resolved.iconUri
     if (LinkPillIconCache.isRemote(iconUri)) {
       // A source that failed a moment ago gets no slot and no request until it may be retried.
       reservesIconSlot = !LinkPillIconCache.hasFailedRecently(iconUri, requestHeaders)
       if (reservesIconSlot) {
         LinkPillIconCache
           .loadRemote(context, iconUri, requestHeaders) { loaded ->
-            icon = loaded
-            invalidateViews()
+            if (loaded == null) {
+              releaseIconSlot()
+            } else {
+              icon = loaded
+              invalidateViews()
+            }
           }?.let { icon = it }
       }
     } else {
@@ -135,41 +147,60 @@ class LinkPillSpan(
     return spanStart < 0 || start <= spanStart
   }
 
-  /** Lets an icon that arrives after layout redraw [view]. */
-  fun registerView(view: View) {
+  /** Lets an icon that arrives after layout redraw [view], and a failed one reflow it. */
+  fun registerView(
+    view: View,
+    onSlotReleased: (() -> Unit)? = null,
+  ) {
     if (!reservesIconSlot || icon != null) return
+    this.onSlotReleased = onSlotReleased
     synchronized(views) {
       views.removeAll { it.get() == null }
       if (views.none { it.get() === view }) views.add(WeakReference(view))
     }
   }
 
-  private fun invalidateViews() {
-    synchronized(views) {
-      views.forEach { reference ->
-        val view = reference.get() ?: return@forEach
-        when {
-          view !is TextView -> view.postInvalidate()
-          Looper.myLooper() == Looper.getMainLooper() -> redrawIn(view)
-          else -> view.post { redrawIn(view) }
-        }
+  private fun releaseIconSlot() {
+    reservesIconSlot = false
+    withHosts { hosts ->
+      val host = hosts.filter { reflowIn(it) }.firstOrNull() ?: return@withHosts
+      onSlotReleased?.let {
+        it()
+        return@withHosts
       }
-      views.clear()
+      if (host is EnrichedMarkdownText) {
+        host.layoutManager.invalidateLayout()
+      } else {
+        host.findEnrichedMarkdownAncestor()?.onImageLayoutChanged()
+      }
     }
   }
 
+  private fun invalidateViews() {
+    withHosts { hosts -> hosts.forEach { reflowIn(it) } }
+  }
+
+  /** Hands the registered views, once, to [action] on the main thread. */
+  private fun withHosts(action: (List<View>) -> Unit) {
+    val hosts = synchronized(views) { views.mapNotNull { it.get() }.also { views.clear() } }
+    if (hosts.isEmpty()) return
+    if (Looper.myLooper() == Looper.getMainLooper()) action(hosts) else hosts.first().post { action(hosts) }
+  }
+
   /**
-   * A selectable TextView draws its text from a cached display list, which invalidating
-   * the view does not record again; a span change does.
+   * A span change makes a TextView lay the pill out again and re-record the display list
+   * a selectable one draws from, which invalidating alone does not. False when [view] no
+   * longer shows this span.
    */
-  private fun redrawIn(view: TextView) {
-    val text = view.text as? Spannable
+  private fun reflowIn(view: View): Boolean {
+    val text = (view as? TextView)?.text as? Spannable
     val start = text?.getSpanStart(this) ?: -1
     if (text != null && start >= 0) {
       text.setSpan(this, start, text.getSpanEnd(this), text.getSpanFlags(this))
-    } else {
-      view.invalidate()
+      return true
     }
+    view.invalidate()
+    return false
   }
 
   private fun TextPaint.applyLabelStyle(source: Paint): TextPaint {
@@ -320,9 +351,10 @@ class LinkPillSpan(
     fun registerView(
       text: CharSequence?,
       view: View,
+      onSlotReleased: (() -> Unit)? = null,
     ) {
       val spanned = text as? Spanned ?: return
-      spanned.getSpans(0, spanned.length, LinkPillSpan::class.java).forEach { it.registerView(view) }
+      spanned.getSpans(0, spanned.length, LinkPillSpan::class.java).forEach { it.registerView(view, onSlotReleased) }
     }
 
     /** Redraws the pills in `[start, end)`, which skipped drawing while a spoiler concealed them. */
@@ -332,7 +364,7 @@ class LinkPillSpan(
       end: Int,
     ) {
       val spanned = view.text as? Spanned ?: return
-      spanned.getSpans(start, end, LinkPillSpan::class.java).forEach { it.redrawIn(view) }
+      spanned.getSpans(start, end, LinkPillSpan::class.java).forEach { it.reflowIn(view) }
     }
   }
 }

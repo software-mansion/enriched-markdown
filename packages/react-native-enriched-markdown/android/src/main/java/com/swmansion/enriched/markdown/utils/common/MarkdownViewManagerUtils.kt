@@ -159,7 +159,7 @@ fun parseLinkPillContent(value: ReadableArray?): Map<String, LinkPillContent> =
     .mapNotNull { index ->
       val entry = value?.getMap(index) ?: return@mapNotNull null
       val url = entry.getString("url") ?: return@mapNotNull null
-      url to LinkPillContent(entry.getString("label") ?: "", entry.getString("iconUri") ?: "")
+      url to LinkPillContent.fromReadableMap(entry)
     }.toMap()
 
 fun parseSelectionMenuConfig(value: ReadableMap?): SelectionMenuConfig {
