@@ -20,5 +20,16 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>ChakraPetch-Regular.ttf</string>
+		<string>ChakraPetch-Bold.ttf</string>
+		<string>SpaceMono-Regular.ttf</string>
+		<string>ChakraPetch-Italic.ttf</string>
+		<string>SpaceMono-Bold.ttf</string>
+		<string>ChakraPetch-SemiBold.ttf</string>
+		<string>Michroma-Regular.ttf</string>
+		<string>ChakraPetch-Medium.ttf</string>
+	</array>
 </dict>
 </plist>
