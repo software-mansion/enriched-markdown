@@ -42,6 +42,12 @@ android {
     }
   }
 
+  testOptions {
+    unitTests {
+      includeAndroidResources = true
+    }
+  }
+
   buildTypes {
     release {
       minifyEnabled = false
@@ -64,6 +70,24 @@ android {
 
 dependencies {
   api(project(":ui"))
+
+  def composeBom = platform("androidx.compose:compose-bom:2026.06.00")
+
+  // The Compose style DSL (`markdownStyle { syntaxHighlighting { ... } }`) ships as extension
+  // functions on :compose types, but highlighting itself goes through the View API alone.
+  // compileOnly keeps Compose out of the published POM, as for math.
+  compileOnly(project(":compose"))
+  compileOnly(composeBom)
+  compileOnly("androidx.compose.ui:ui")
+  compileOnly("androidx.compose.runtime:runtime")
+
+  testImplementation(project(":compose"))
+  testImplementation(composeBom)
+  testImplementation("androidx.compose.ui:ui")
+  testImplementation("junit:junit:4.13.2")
+  testImplementation("androidx.test:core:1.6.1")
+  testImplementation("androidx.test.ext:junit:1.2.1")
+  testImplementation("org.robolectric:robolectric:4.14.1")
 
   androidTestImplementation("junit:junit:4.13.2")
   androidTestImplementation("androidx.test:core:1.6.1")

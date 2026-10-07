@@ -23,6 +23,7 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
+import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -127,6 +128,64 @@ class CodeBlockDecoratorTest {
     assertEquals(TOKEN_COLOR, drawColorAt(rendered, rendered.indexOf("val")))
   }
 
+  /**
+   * A list item's span is set after its children and repaints colors it does not preserve; it
+   * moves a [PreservedColorSpan] after itself, at every depth, so the token keeps its color.
+   */
+  @Test
+  fun aPreservedTokenColorSurvivesInAListItem() {
+    val decorator = RecordingDecorator(tokenColor = TOKEN_COLOR, preserved = true)
+
+    val rendered =
+      render(
+        document(
+          unorderedList(listItem(codeBlock(CODE, "kotlin"))),
+          unorderedList(listItem(paragraph(text("outer")), unorderedList(listItem(codeBlock(NESTED_CODE, "kotlin"))))),
+        ),
+        plugins = PluginSnapshot.of(DecoratingPlugin(decorator)),
+      )
+
+    assertEquals(TOKEN_COLOR, drawColorAt(rendered, rendered.indexOf("val")))
+    assertEquals(TOKEN_COLOR, drawColorAt(rendered, rendered.indexOf("var")))
+  }
+
+  /** An unmarked color is still repainted: the list item only moves spans that opted in. */
+  @Test
+  fun anUnmarkedTokenColorTakesTheListColor() {
+    val decorator = RecordingDecorator(tokenColor = TOKEN_COLOR)
+
+    val rendered =
+      render(document(unorderedList(listItem(codeBlock(CODE, "kotlin")))), plugins = PluginSnapshot.of(DecoratingPlugin(decorator)))
+
+    assertEquals(defaultStyle.listStyle.color, drawColorAt(rendered, rendered.indexOf("val")))
+  }
+
+  /**
+   * Copy as Markdown walks span transitions; a color ending right before a line's "\n" must not
+   * leave that "\n" to be read as a paragraph break, which dropped the closing fence.
+   */
+  @Test
+  fun aDecoratorsSpansDoNotChangeCopyAsMarkdown() {
+    val colorEveryLine =
+      CodeBlockDecorator { builder, start, end, _, _, _ ->
+        var lineStart = start
+        while (lineStart < end) {
+          val lineEnd = builder.indexOf('\n', lineStart).takeIf { it in lineStart until end } ?: end
+          builder.setSpan(ForegroundColorSpan(TOKEN_COLOR), lineStart, lineEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+          lineStart = lineEnd + 1
+        }
+      }
+    val doc = document(paragraph(text("before")), codeBlock(CODE, "kotlin"), unorderedList(listItem(codeBlock(CODE))))
+
+    val plain = render(doc, plugins = PluginSnapshot.EMPTY)
+    val decorated = render(doc, plugins = PluginSnapshot.of(DecoratingPlugin(colorEveryLine)))
+
+    assertEquals(
+      MarkdownExtractor.extractFromSpannable(plain, 0, plain.length),
+      MarkdownExtractor.extractFromSpannable(decorated, 0, decorated.length),
+    )
+  }
+
   @Test
   fun withNoDecoratorTheRenderIsUnchanged() {
     val doc =
@@ -212,9 +271,13 @@ class CodeBlockDecoratorTest {
     val language: String?,
   )
 
-  /** Records each call; with a [tokenColor], colors the first word of the block like a keyword. */
+  /**
+   * Records each call; with a [tokenColor], colors the first word of the block like a keyword,
+   * through a [PreservedColorSpan] when [preserved] is set.
+   */
   private class RecordingDecorator(
     private val tokenColor: Int? = null,
+    private val preserved: Boolean = false,
   ) : CodeBlockDecorator {
     val calls = mutableListOf<Decorated>()
     var lastStyle: StyleConfig? = null
@@ -237,10 +300,16 @@ class CodeBlockDecoratorTest {
       lastStyle = style
       if (tokenColor != null) {
         val wordEnd = builder.indexOf(' ', start)
-        builder.setSpan(ForegroundColorSpan(tokenColor), start, wordEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val span = if (preserved) PreservedTokenSpan(tokenColor) else ForegroundColorSpan(tokenColor)
+        builder.setSpan(span, start, wordEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
       }
     }
   }
+
+  private class PreservedTokenSpan(
+    color: Int,
+  ) : ForegroundColorSpan(color),
+    PreservedColorSpan
 
   private class DecoratingPlugin(
     private val decorator: CodeBlockDecorator,
@@ -251,6 +320,7 @@ class CodeBlockDecoratorTest {
 
   private companion object {
     const val CODE = "val answer = 42\nprintln(answer)\n"
+    const val NESTED_CODE = "var count = 0\n"
     const val TOKEN_COLOR = 0xFF123456.toInt()
   }
 }

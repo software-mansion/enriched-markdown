@@ -11,7 +11,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
  * The code is `builder.subSequence(start, end)`: what the block displays, read back from the
  * builder rather than the AST. Core's own block spans are set by then, so a character style set
  * here applies after the block's and is not repainted with its text color. An enclosing list
- * item's span is set later still, and repaints both.
+ * item's span is set later still and repaints both, except for spans marked [PreservedColorSpan].
  */
 @InternalPluginApi
 fun interface CodeBlockDecorator {
