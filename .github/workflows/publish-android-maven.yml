@@ -25,6 +25,13 @@ jobs:
       - name: Check out
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      # The :syntax-highlighting AAR compiles the gitignored tree-sitter grammars.
+      - name: Restore highlight vendor files
+        uses: ./.github/actions/restore-highlight-vendor
+
       - name: Setup Android
         uses: ./.github/actions/setup-android
         with:

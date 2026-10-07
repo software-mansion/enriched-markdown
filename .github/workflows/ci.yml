@@ -44,6 +44,9 @@ jobs:
             android:
               - 'packages/enriched-markdown-android/**'
               - 'packages/core/**'
+              - 'vendor/vendor-grammars.mjs'
+              - 'vendor/gen-registry.mjs'
+              - 'vendor/grammar-versions.json'
               - 'apps/android-example/**'
               - 'package.json'
               - 'yarn.lock'
@@ -363,11 +366,15 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      # :syntax-highlighting fails Gradle configuration without the grammars.
+      - name: Restore highlight vendor files
+        uses: ./.github/actions/restore-highlight-vendor
+
       - name: Cache turborepo for Android native
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'apps/android-example/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-android-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'apps/android-example/**', 'packages/core/cpp/**', 'vendor/vendor-grammars.mjs', 'vendor/gen-registry.mjs', 'vendor/grammar-versions.json') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-android-native-build-
 
@@ -408,11 +415,15 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      # :syntax-highlighting fails Gradle configuration without the grammars.
+      - name: Restore highlight vendor files
+        uses: ./.github/actions/restore-highlight-vendor
+
       - name: Cache turborepo for Android native tests
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-android-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'packages/core/cpp/**', 'vendor/vendor-grammars.mjs', 'vendor/gen-registry.mjs', 'vendor/grammar-versions.json') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-android-native-test-
 
@@ -451,6 +462,10 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+
+      # :syntax-highlighting fails Gradle configuration without the grammars.
+      - name: Restore highlight vendor files
+        uses: ./.github/actions/restore-highlight-vendor
 
       - name: Cache turborepo for Android native lint
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0

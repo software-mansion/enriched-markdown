@@ -91,7 +91,10 @@
         "gradle/**",
         "$TURBO_ROOT$/packages/enriched-markdown-android/**",
         "!$TURBO_ROOT$/packages/enriched-markdown-android/**/build/**",
-        "$TURBO_ROOT$/packages/core/cpp/**"
+        "$TURBO_ROOT$/packages/core/cpp/**",
+        "$TURBO_ROOT$/vendor/vendor-grammars.mjs",
+        "$TURBO_ROOT$/vendor/gen-registry.mjs",
+        "$TURBO_ROOT$/vendor/grammar-versions.json"
       ],
       "outputs": []
     },
@@ -102,7 +105,10 @@
         "**/*.kt",
         "**/*.gradle",
         "gradle/**",
-        "$TURBO_ROOT$/packages/core/cpp/**"
+        "$TURBO_ROOT$/packages/core/cpp/**",
+        "$TURBO_ROOT$/vendor/vendor-grammars.mjs",
+        "$TURBO_ROOT$/vendor/gen-registry.mjs",
+        "$TURBO_ROOT$/vendor/grammar-versions.json"
       ],
       "outputs": []
     },
