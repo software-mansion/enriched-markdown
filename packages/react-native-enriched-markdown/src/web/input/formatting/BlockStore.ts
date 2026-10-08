@@ -90,6 +90,31 @@ export class BlockStore {
     this.recomputeListMetadata();
   }
 
+  // Drops anchored blocks (headings, list items) whose start is no longer at
+  // a line start, as happens when Backspace merges their line into the one
+  // above. Mirrors iOS's `pruneOrphanedBlockAnchors` and Android's
+  // `pruneOrphanedAnchors`.
+  //
+  // Must run BEFORE `normalizeToLineBounds`, so a merged range is judged on
+  // its unsnapped anchor: normalize would otherwise snap the orphan onto the
+  // line it was merged into and spread it over that line's text, promoting a
+  // plain paragraph into a heading or a bullet. Only the orphan goes - a
+  // legitimate block on the merged-into line keeps its line.
+  pruneOrphanedAnchors(text: string): void {
+    const kept = this.ranges.filter((range) => {
+      if (!ANCHORED_BLOCK_TYPES.has(range.type)) {
+        return true;
+      }
+      const anchor = clamp(range.start, 0, text.length);
+      return paragraphBounds(anchor, anchor, text).start === anchor;
+    });
+    if (kept.length === this.ranges.length) {
+      return;
+    }
+    this.ranges = kept;
+    this.recomputeListMetadata();
+  }
+
   // Snaps every stored range to the line bounds of its start position.
   // Absorbs edge-typed chars, clips split ranges to their first line, drops
   // duplicates. On an empty line an anchored block persists as a zero-length

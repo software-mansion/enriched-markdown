@@ -27,12 +27,11 @@ describe('EditPipeline', () => {
     ]);
     const pipeline = new EditPipeline(styles, blocks);
 
-    const touchedNewline = pipeline.processTextChange(
+    pipeline.processTextChange(
       'merge',
       context({ editStart: 0, deletedText: 'fetch\n' })
     );
 
-    expect(touchedNewline).toBe(true);
     expect(styles.allRanges).toEqual([range('strong', 0, 5)]);
     expect(blocks.allRanges).toEqual([block('ordered-list-item', 0, 5)]);
   });
@@ -42,7 +41,7 @@ describe('EditPipeline', () => {
     styles.setRanges([range('em', 0, 2)]);
     const pipeline = new EditPipeline(styles, new BlockStore());
 
-    const touchedNewline = pipeline.processTextChange(
+    pipeline.processTextChange(
       'axb',
       context({
         editStart: 1,
@@ -52,7 +51,6 @@ describe('EditPipeline', () => {
       })
     );
 
-    expect(touchedNewline).toBe(false);
     expect(styles.allRanges).toEqual([
       range('em', 0, 1),
       range('strong', 1, 2),
@@ -64,12 +62,141 @@ describe('EditPipeline', () => {
     const styles = new FormattingStore();
     const pipeline = new EditPipeline(styles, new BlockStore());
 
-    const touchedNewline = pipeline.processTextChange(
+    pipeline.processTextChange(
       'a\nb',
       context({ editStart: 1, insertedText: '\n', pendingStyles: ['strong'] })
     );
 
-    expect(touchedNewline).toBe(true);
     expect(styles.allRanges).toEqual([]);
+  });
+
+  // A paste or a dictated phrase arrives as one multi-line insert; a
+  // caret-level style belongs only to the first of those lines.
+  it('clips a pending style at the first newline of a mixed insert', () => {
+    const styles = new FormattingStore();
+    const pipeline = new EditPipeline(styles, new BlockStore());
+
+    pipeline.processTextChange(
+      'xa\nby',
+      context({ editStart: 1, insertedText: 'a\nb', pendingStyles: ['strong'] })
+    );
+
+    expect(styles.allRanges).toEqual([range('strong', 1, 2)]);
+  });
+
+  it('still carves removals across the whole multi-line insert', () => {
+    const styles = new FormattingStore();
+    styles.setRanges([range('em', 0, 2)]);
+    const pipeline = new EditPipeline(styles, new BlockStore());
+
+    pipeline.processTextChange(
+      'xa\nby',
+      context({
+        editStart: 1,
+        insertedText: 'a\nb',
+        pendingStyleRemovals: ['em'],
+      })
+    );
+
+    expect(styles.allRanges).toEqual([range('em', 0, 1), range('em', 4, 5)]);
+  });
+
+  describe('orphaned block anchors', () => {
+    // Backspace at the start of a block line merges it into the line above.
+    // The anchor lands mid-line, and without the prune `normalizeToLineBounds`
+    // snaps it onto the merged line and spreads it over that line's text -
+    // promoting a plain paragraph into a heading or a bullet.
+    it('drops a heading anchor merged into the paragraph above', () => {
+      const blocks = new BlockStore();
+      blocks.setRanges([{ ...block('h1', 2, 3), level: 1 }]);
+
+      new EditPipeline(new FormattingStore(), blocks).processTextChange(
+        'ab',
+        context({ editStart: 1, deletedText: '\n' })
+      );
+
+      expect(blocks.allRanges).toEqual([]);
+    });
+
+    it('drops a list anchor merged into the paragraph above', () => {
+      const blocks = new BlockStore();
+      blocks.setRanges([block('unordered-list-item', 2, 3)]);
+
+      new EditPipeline(new FormattingStore(), blocks).processTextChange(
+        'ab',
+        context({ editStart: 1, deletedText: '\n' })
+      );
+
+      expect(blocks.allRanges).toEqual([]);
+    });
+
+    it('drops an emptied heading anchor merged upwards', () => {
+      const blocks = new BlockStore();
+      blocks.setRanges([{ ...block('h2', 3, 3), level: 2 }]);
+
+      new EditPipeline(new FormattingStore(), blocks).processTextChange(
+        'ab',
+        context({ editStart: 2, deletedText: '\n' })
+      );
+
+      expect(blocks.allRanges).toEqual([]);
+    });
+
+    // Delete-forward at the end of a line joins the next one up, so the same
+    // orphan arrives from the other direction.
+    it('drops a heading joined upwards by a forward delete', () => {
+      const blocks = new BlockStore();
+      blocks.setRanges([{ ...block('h1', 3, 5), level: 1 }]);
+
+      new EditPipeline(new FormattingStore(), blocks).processTextChange(
+        'abcd',
+        context({ editStart: 2, deletedText: '\n' })
+      );
+
+      expect(blocks.allRanges).toEqual([]);
+    });
+
+    it('keeps a legitimate block on the line merged into', () => {
+      const blocks = new BlockStore();
+      blocks.setRanges([
+        { ...block('h1', 0, 2), level: 1 },
+        { ...block('h2', 3, 3), level: 2 },
+      ]);
+
+      new EditPipeline(new FormattingStore(), blocks).processTextChange(
+        'ab',
+        context({ editStart: 2, deletedText: '\n' })
+      );
+
+      expect(blocks.allRanges).toEqual([{ ...block('h1', 0, 2), level: 1 }]);
+    });
+
+    // Web lets an insert at a line start shift the range off the line start
+    // and relies on normalize to snap it back, so the prune has to stay out
+    // of the way of inserts or it would delete the block on every keystroke
+    // there.
+    it('leaves a block alone when typing at its line start', () => {
+      const blocks = new BlockStore();
+      blocks.setRanges([{ ...block('h1', 0, 2), level: 1 }]);
+
+      new EditPipeline(new FormattingStore(), blocks).processTextChange(
+        'xab',
+        context({ editStart: 0, insertedText: 'x' })
+      );
+
+      expect(blocks.allRanges).toEqual([{ ...block('h1', 0, 3), level: 1 }]);
+    });
+
+    it('leaves a block alone on Enter at its line start', () => {
+      const blocks = new BlockStore();
+      blocks.setRanges([{ ...block('h1', 0, 2), level: 1 }]);
+
+      new EditPipeline(new FormattingStore(), blocks).processTextChange(
+        '\nab',
+        context({ editStart: 0, insertedText: '\n' })
+      );
+
+      expect(blocks.allRanges).toEqual([{ ...block('h1', 1, 3), level: 1 }]);
+    });
   });
 });
