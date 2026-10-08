@@ -500,6 +500,7 @@ export class InputHost {
     );
     if (changed) {
       this.render();
+      this.emitState();
     }
   }
 

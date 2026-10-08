@@ -1,4 +1,9 @@
-import { BlockStore, paragraphBounds } from '../BlockStore';
+import {
+  BlockStore,
+  lineAtPosition,
+  linesTouching,
+  paragraphBounds,
+} from '../BlockStore';
 import { createBlockRange as block, MAX_LIST_DEPTH } from '../../model/blocks';
 
 // "The world\nis big\n\nend"
@@ -31,11 +36,89 @@ describe('paragraphBounds', () => {
   });
 });
 
+describe('lineAtPosition', () => {
+  it('resolves a position to the line holding it', () => {
+    expect(lineAtPosition(4, text)).toEqual({ start: 0, end: 9 });
+    expect(lineAtPosition(12, text)).toEqual({ start: 10, end: 16 });
+  });
+
+  it('resolves a line start and a line end to the same line', () => {
+    expect(lineAtPosition(10, text)).toEqual({ start: 10, end: 16 });
+    expect(lineAtPosition(16, text)).toEqual({ start: 10, end: 16 });
+  });
+});
+
+describe('linesTouching', () => {
+  it('returns the one line a caret sits on', () => {
+    expect(linesTouching({ start: 4, end: 4 }, text)).toEqual([
+      { start: 0, end: 9 },
+    ]);
+  });
+
+  it('returns every line a selection spans, including an empty one', () => {
+    expect(linesTouching({ start: 4, end: 19 }, text)).toEqual([
+      { start: 0, end: 9 },
+      { start: 10, end: 16 },
+      { start: 17, end: 17 },
+      { start: 18, end: 21 },
+    ]);
+  });
+
+  // The terminator belongs to no line, so a selection stopping on it must not
+  // drag in the line it separates - otherwise every command run from the end
+  // of a line would also hit the next one.
+  it('stops at a selection ending on a newline', () => {
+    expect(linesTouching({ start: 0, end: 9 }, text)).toEqual([
+      { start: 0, end: 9 },
+    ]);
+  });
+
+  it('walks on from a selection starting on a newline', () => {
+    expect(linesTouching({ start: 9, end: 12 }, text)).toEqual([
+      { start: 0, end: 9 },
+      { start: 10, end: 16 },
+    ]);
+  });
+
+  it('returns the single empty line a caret sits on', () => {
+    expect(linesTouching({ start: 17, end: 17 }, text)).toEqual([
+      { start: 17, end: 17 },
+    ]);
+  });
+
+  it('terminates on a trailing newline rather than running past the text', () => {
+    expect(linesTouching({ start: 0, end: 4 }, 'ab\n')).toEqual([
+      { start: 0, end: 2 },
+      { start: 3, end: 3 },
+    ]);
+  });
+
+  it('returns one line for empty text', () => {
+    expect(linesTouching({ start: 0, end: 0 }, '')).toEqual([
+      { start: 0, end: 0 },
+    ]);
+  });
+});
+
 describe('BlockStore', () => {
   let store: BlockStore;
 
   beforeEach(() => {
     store = new BlockStore();
+  });
+
+  it('blockAt finds the block from any position on its line', () => {
+    store.setRanges([block('h1', 0, 9), block('unordered-list-item', 10, 16)]);
+
+    expect(store.blockAt(4, text)?.type).toBe('h1');
+    expect(store.blockAt(9, text)?.type).toBe('h1');
+    expect(store.blockAt(14, text)?.type).toBe('unordered-list-item');
+  });
+
+  it('blockAt returns null on a line no block covers', () => {
+    store.setRanges([block('h1', 0, 9)]);
+
+    expect(store.blockAt(19, text)).toBeNull();
   });
 
   it('blockStartingAt finds the block by its exact line start', () => {
@@ -343,6 +426,88 @@ describe('BlockStore', () => {
       [4, 1],
       [8, 2],
     ]);
+  });
+
+  // The ancestry clamp overwrites `level`, so a pass over a chain with a hole
+  // in it is destructive: the depth it flattens cannot be recovered once the
+  // hole is filled. Writing the lines in one batch is what keeps the order of
+  // the writes from deciding the result.
+  describe('batchWrites', () => {
+    // "a\nb\nc": 0-1 | 2-3 | 4-5
+    const lines = 'a\nb\nc';
+
+    // The guarantee a batch buys: the order the lines are written in stops
+    // deciding the result. Unbatched, writing the earlier line first
+    // recomputes across the hole where the later one is still missing and
+    // flattens the item below it.
+    it('gives the same result whichever order the lines are written in', () => {
+      // "a\nb" nested, then Enter at the end of line 1 opens a hole at the
+      // fresh line - the state the edit pipeline hands to a continuation.
+      const held = 'a\n\nb';
+      const build = (freshLineFirst: boolean) => {
+        const subject = new BlockStore();
+        subject.setRanges([
+          block('unordered-list-item', 0, 1, 0),
+          block('unordered-list-item', 2, 3, 1),
+        ]);
+        subject.adjustForEdit(1, 0, 1);
+        const writes = [
+          () => subject.setBlock('unordered-list-item', 0, 0, 0, held),
+          () => subject.setBlock('unordered-list-item', 0, 2, 2, held),
+        ];
+        subject.batchWrites(() => {
+          for (const write of freshLineFirst ? writes.reverse() : writes) {
+            write();
+          }
+        });
+        subject.normalizeToLineBounds(held);
+        return subject.allRanges.map((r) => [r.start, r.level]);
+      };
+
+      expect(build(true)).toEqual(build(false));
+      expect(build(false)).toEqual([
+        [0, 0],
+        [2, 0],
+        [3, 1],
+      ]);
+    });
+
+    it('renumbers once the batch is done', () => {
+      store.batchWrites(() => {
+        store.setBlock('ordered-list-item', 0, 0, 0, lines);
+        store.setBlock('ordered-list-item', 0, 2, 2, lines);
+        store.setBlock('ordered-list-item', 0, 4, 4, lines);
+      });
+
+      expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2, 3]);
+    });
+
+    it('recomputes once for the outermost batch only', () => {
+      store.batchWrites(() => {
+        store.setBlock('ordered-list-item', 0, 0, 0, lines);
+        store.batchWrites(() => {
+          store.setBlock('ordered-list-item', 0, 2, 2, lines);
+        });
+        store.setBlock('ordered-list-item', 0, 4, 4, lines);
+      });
+
+      expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2, 3]);
+    });
+
+    // A write that throws must not leave the store with its metadata pass
+    // switched off for the rest of the session.
+    it('restores the metadata pass when a write throws', () => {
+      expect(() =>
+        store.batchWrites(() => {
+          throw new Error('write failed');
+        })
+      ).toThrow('write failed');
+
+      store.setBlock('ordered-list-item', 0, 0, 0, lines);
+      store.setBlock('ordered-list-item', 0, 2, 2, lines);
+
+      expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2]);
+    });
   });
 
   it('setRanges sorts incoming blocks by start', () => {

@@ -34,14 +34,22 @@ export class BlockEditCoordinator {
       return true;
     }
 
-    for (const line of linesTouching(selection, text)) {
-      const block = this.blockStore.blockStartingAt(line.start);
-      if (!isListItem(block)) {
-        continue;
+    this.blockStore.batchWrites(() => {
+      for (const line of linesTouching(selection, text)) {
+        const block = this.blockStore.blockStartingAt(line.start);
+        if (!isListItem(block)) {
+          continue;
+        }
+        const depth = clamp(block.level + delta, 0, MAX_LIST_DEPTH);
+        this.blockStore.setBlock(
+          block.type,
+          depth,
+          line.start,
+          line.start,
+          text
+        );
       }
-      const depth = clamp(block.level + delta, 0, MAX_LIST_DEPTH);
-      this.blockStore.setBlock(block.type, depth, line.start, line.start, text);
-    }
+    });
     this.blockStore.normalizeToLineBounds(text);
     return true;
   }
@@ -57,13 +65,15 @@ export class BlockEditCoordinator {
       startBlock.type === type &&
       startBlock.level === level;
 
-    for (const line of linesTouching(selection, text)) {
-      if (turningOff) {
-        this.blockStore.removeBlock(line.start, line.start, text);
-      } else {
-        this.blockStore.setBlock(type, level, line.start, line.start, text);
+    this.blockStore.batchWrites(() => {
+      for (const line of linesTouching(selection, text)) {
+        if (turningOff) {
+          this.blockStore.removeBlock(line.start, line.start, text);
+        } else {
+          this.blockStore.setBlock(type, level, line.start, line.start, text);
+        }
       }
-    }
+    });
     this.blockStore.normalizeToLineBounds(text);
   }
 
@@ -74,15 +84,17 @@ export class BlockEditCoordinator {
     const startBlock = this.blockStore.blockAt(selection.start, text);
     const turningOff = isListItem(startBlock) && startBlock.type === type;
 
-    for (const line of linesTouching(selection, text)) {
-      if (turningOff) {
-        this.blockStore.removeBlock(line.start, line.start, text);
-        continue;
+    this.blockStore.batchWrites(() => {
+      for (const line of linesTouching(selection, text)) {
+        if (turningOff) {
+          this.blockStore.removeBlock(line.start, line.start, text);
+          continue;
+        }
+        const existing = this.blockStore.blockStartingAt(line.start);
+        const depth = isListItem(existing) ? existing.level : 0;
+        this.blockStore.setBlock(type, depth, line.start, line.start, text);
       }
-      const existing = this.blockStore.blockStartingAt(line.start);
-      const depth = isListItem(existing) ? existing.level : 0;
-      this.blockStore.setBlock(type, depth, line.start, line.start, text);
-    }
+    });
     this.blockStore.normalizeToLineBounds(text);
   }
 }

@@ -62,6 +62,7 @@ export function linesTouching(
 // paragraph, and ranges stay normalized to whole-line boundaries.
 export class BlockStore {
   private ranges: BlockRange[] = [];
+  private deferredRecomputes = 0;
 
   get allRanges(): BlockRange[] {
     return [...this.ranges];
@@ -76,6 +77,22 @@ export class BlockStore {
 
   clearAll(): void {
     this.ranges = [];
+  }
+
+  // Runs `writes` with the list-metadata pass held back until they are all in,
+  // then recomputes once. The ancestry clamp mutates `level` in place, so a
+  // pass over a half-written chain is destructive: it sees the gap where a
+  // line has not been written yet, flattens the item after it, and the
+  // finished chain can no longer tell what that depth was. Deferring also
+  // makes a multi-line write linear rather than one full pass per line.
+  batchWrites(writes: () => void): void {
+    this.deferredRecomputes++;
+    try {
+      writes();
+    } finally {
+      this.deferredRecomputes--;
+    }
+    this.recomputeListMetadata();
   }
 
   // Sets/replaces the block on every paragraph the given range touches,
@@ -175,6 +192,9 @@ export class BlockStore {
   // orphan nesting) and renumbers ordered items among their adjacent
   // same-depth, same-type run.
   private recomputeListMetadata(): void {
+    if (this.deferredRecomputes > 0) {
+      return;
+    }
     let prevEnd = -2;
     let prevDepth = -1;
     const counters = new Array<number>(MAX_LIST_DEPTH + 1).fill(0);

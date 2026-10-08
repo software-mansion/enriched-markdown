@@ -56,9 +56,9 @@ export class EditPipeline {
       this.blockStore.pruneOrphanedAnchors(text);
     }
     // Continuation must follow the prune and precede normalization: the fresh
-    // anchors sit on line starts, so the prune leaves them alone, while the
-    // adjacent line chain keeps the depth clamp from flattening nested items
-    // that follow the fresh empty line.
+    // anchors sit on line starts, so the prune leaves them alone, and
+    // normalization is what snaps the split item back off the newline it
+    // briefly spans.
     if (insertedText === '\n') {
       this.continueBlockOnNewline(text, editStart);
     }
@@ -70,7 +70,9 @@ export class EditPipeline {
   }
 
   // Enter inside a list item continues the list on the new line; other
-  // blocks do not continue.
+  // blocks do not continue. Both halves are written in one batch so the
+  // ancestry clamp never sees the gap between them and flattens an item
+  // nested below the fresh line.
   private continueBlockOnNewline(text: string, newlinePosition: number): void {
     // The inserted newline closes the line before it; take that line's block.
     const closedLine = lineAtPosition(newlinePosition, text);
@@ -81,8 +83,16 @@ export class EditPipeline {
     const { type, level } = closedBlock;
     const lineStart = closedLine.start;
     const freshLineStart = newlinePosition + 1;
-    this.blockStore.setBlock(type, level, lineStart, lineStart, text);
-    this.blockStore.setBlock(type, level, freshLineStart, freshLineStart, text);
+    this.blockStore.batchWrites(() => {
+      this.blockStore.setBlock(type, level, lineStart, lineStart, text);
+      this.blockStore.setBlock(
+        type,
+        level,
+        freshLineStart,
+        freshLineStart,
+        text
+      );
+    });
   }
 
   private applyPendingStyles(context: EditContext): void {
