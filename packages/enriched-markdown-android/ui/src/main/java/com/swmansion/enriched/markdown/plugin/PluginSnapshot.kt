@@ -15,9 +15,8 @@ class BlockSegmentRegistration internal constructor(
 )
 
 /**
- * The installed registrations, as an immutable value. Rendering entry points take one as a
- * parameter, defaulting to the registry's, so a test can render against plugins of its own
- * without touching the process-wide registry.
+ * What a set of plugins registered, as an immutable value. Each view builds one from the plugins
+ * passed to it, and rendering entry points take it as a parameter.
  *
  * Only its contents are [InternalPluginApi], so rendering entry points can take one without
  * making their callers opt in.
@@ -31,7 +30,7 @@ class PluginSnapshot internal constructor(
   companion object {
     val EMPTY = PluginSnapshot(emptyMap(), emptyMap())
 
-    /** A snapshot of [plugins] that bypasses the process-wide registry. */
+    /** Later plugins win a node type that several claim. */
     @InternalPluginApi
     fun of(vararg plugins: MarkdownPlugin): PluginSnapshot = build(plugins.map { plugin -> Registrations(plugin.id).also(plugin::install) })
 
@@ -42,7 +41,7 @@ class PluginSnapshot internal constructor(
       val nodeRendererOwners = HashMap<NodeType, String>()
       val blockSegments = LinkedHashMap<NodeType, BlockSegmentRegistration>()
 
-      // Install order, so a later install wins a contested node type.
+      // Plugin order, so a later plugin wins a contested node type.
       for (registrations in installed) {
         val pluginId = registrations.pluginId
 
@@ -70,7 +69,7 @@ class PluginSnapshot internal constructor(
       Log.w(TAG, "Plugins '$previousOwner' and '$newOwner' both claim $kind for $type; '$newOwner' wins.")
     }
 
-    private const val TAG = "EnrichedMarkdownPlugins"
+    private const val TAG = "MarkdownPlugins"
   }
 
   internal class Registrations(
@@ -93,67 +92,4 @@ class PluginSnapshot internal constructor(
       blockSegments[type] = segment
     }
   }
-}
-
-/**
- * Global, app-level registry. Plugins are installed once, at startup, before any markdown renders:
- * the first render freezes the registry, and a later [install] is ignored with a warning. Nothing
- * rendered can therefore disagree with what is installed, and a view never has to re-render
- * because the plugins changed under it.
- */
-object EnrichedMarkdownPlugins {
-  private val lock = Any()
-
-  /** What each installed plugin registered, in install order. Guarded by [lock]. */
-  private val installed = LinkedHashMap<String, PluginSnapshot.Registrations>()
-
-  /** Guarded by [lock]; volatile so [snapshot] can skip the lock once it is set. */
-  @Volatile
-  private var frozen = false
-
-  @Volatile
-  private var current: PluginSnapshot = PluginSnapshot.EMPTY
-
-  /** What renders use. Reading it freezes the registry, so only core's render paths may. */
-  internal val snapshot: PluginSnapshot
-    get() {
-      if (!frozen) synchronized(lock) { frozen = true }
-      return current
-    }
-
-  /**
-   * Installing an id that is already installed replaces its registrations, it does not add to
-   * them. Ignored, with a warning, once anything has rendered.
-   */
-  fun install(vararg plugins: MarkdownPlugin) {
-    if (plugins.isEmpty()) return
-    synchronized(lock) {
-      if (frozen) {
-        Log.w(
-          TAG,
-          "Ignoring install of ${plugins.joinToString { "'${it.id}'" }}: markdown has already rendered. " +
-            "Install plugins at startup, before any EnrichedMarkdown view renders.",
-        )
-        return
-      }
-      for (plugin in plugins) {
-        installed[plugin.id] = PluginSnapshot.Registrations(plugin.id).also(plugin::install)
-      }
-      current = PluginSnapshot.build(installed.values)
-    }
-  }
-
-  fun isInstalled(pluginId: String): Boolean = synchronized(lock) { installed.containsKey(pluginId) }
-
-  /** Test seam: drops every registration and lifts the freeze. */
-  @InternalPluginApi
-  fun reset() {
-    synchronized(lock) {
-      installed.clear()
-      current = PluginSnapshot.EMPTY
-      frozen = false
-    }
-  }
-
-  private const val TAG = "EnrichedMarkdownPlugins"
 }

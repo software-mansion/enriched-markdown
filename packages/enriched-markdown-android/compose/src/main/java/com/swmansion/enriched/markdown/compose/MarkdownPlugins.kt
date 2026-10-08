@@ -5,12 +5,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 
-/**
- * The plugins enabled by the enclosing plugin scopes, outermost first. Null outside every scope,
- * where [EnrichedMarkdownText] falls back to the plugins installed through [EnrichedMarkdownPlugins].
- */
+/** The plugins enabled by the enclosing plugin scopes, outermost first. Empty outside every scope. */
 val LocalMarkdownPlugins =
-  staticCompositionLocalOf<List<MarkdownPlugin>?> { null }
+  staticCompositionLocalOf<List<MarkdownPlugin>> { emptyList() }
 
 /**
  * Enables this plugin for every [EnrichedMarkdownText] in [content], on top of those the
@@ -29,6 +26,6 @@ val LocalMarkdownPlugins =
 @Composable
 operator fun MarkdownPlugin.invoke(content: @Composable () -> Unit) {
   val outer = LocalMarkdownPlugins.current
-  val plugins = remember(outer, this) { outer.orEmpty().filterNot { it.id == id } + this }
+  val plugins = remember(outer, this) { outer.filterNot { it.id == id } + this }
   CompositionLocalProvider(LocalMarkdownPlugins provides plugins, content)
 }

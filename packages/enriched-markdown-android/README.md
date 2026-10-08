@@ -27,7 +27,7 @@ The `compose` artifact pulls in internal `ui` and `parser` modules transitively.
 
 ### Optional plugins
 
-Features with a heavy dependency of their own ship as separate artifacts, installed at runtime. Today there is one: **math**.
+Features with a heavy dependency of their own ship as separate artifacts that you enable where you need them. Today there is one: **math**.
 
 > [!NOTE]
 > The `math` artifact is not on Maven Central yet. It will be published with the next release.
@@ -43,30 +43,21 @@ dependencies {
 
 An app that renders no math does not add this line and pays nothing for it — not the artifact, and not its native LaTeX engine. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run.
 
-Install the plugin once, at startup, before any markdown is rendered:
+Enable the plugin for every `EnrichedMarkdownText` in a subtree by wrapping it in the plugin's scope:
 
 ```kotlin
-import android.app.Application
-import com.swmansion.enriched.markdown.compose.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
-class MyApplication : Application() {
-  override fun onCreate() {
-    super.onCreate()
-    EnrichedMarkdownPlugins.install(LatexMathPlugin)
-  }
+LatexMathPlugin {
+  HomeScreen()
 }
 ```
 
-…registered in `AndroidManifest.xml`:
+Scopes nest: an inner scope adds its plugin to those enabled outside, and a scope for a plugin already enabled replaces it. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes. Outside the Compose API, call `setPlugins(listOf(LatexMathPlugin))` on the `EnrichedMarkdown` view.
 
-```xml
-<application android:name=".MyApplication" …>
-```
+Without the plugin nothing breaks: `$...$` and `$$...$$` render as their raw source, delimiters included, and logcat carries a single `EnrichedMarkdown` warning naming the missing artifact and how to enable the plugin.
 
-Without the install call nothing breaks: `$...$` and `$$...$$` render as their raw source, delimiters included, and logcat carries a single `EnrichedMarkdown` warning naming the missing artifact and this call.
-
-The plugin and the parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, installed plugin or not.
+The plugin and the parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, plugin or not.
 
 ## Quick start
 
@@ -262,6 +253,7 @@ fun EnrichedMarkdownText(
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
+  plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
   onPluginEvent: (PluginEvent) -> Unit = {},
 )
 ```
@@ -278,7 +270,8 @@ fun EnrichedMarkdownText(
 | `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
 | `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
 | `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles()` (default), `SpoilerOverlay.Solid()`, or a `CustomSpoilerOverlay` (see [Spoiler overlays](#spoiler-overlays)) |
-| `onPluginEvent` | Called when an installed plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
+| `plugins` | Plugins this instance renders with; defaults to those enabled by the enclosing plugin scopes (see [Optional plugins](#optional-plugins)) |
+| `onPluginEvent` | Called when an enabled plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
@@ -522,8 +515,8 @@ never equal, so every recomposition would restart the overlay.
 
 #### LaTeX math
 
-With the `:math` artifact on the classpath, `EnrichedMarkdownPlugins.install(LatexMathPlugin)`
-called at startup, and `Md4cFlags(latexMath = true)` on the instance, `$...$` renders inline
+With the `:math` artifact on the classpath, the instance inside a `LatexMathPlugin { }` scope,
+and `Md4cFlags(latexMath = true)` on the instance, `$...$` renders inline
 within the text and `$$...$$` on its own line renders as a standalone, horizontally scrollable
 block. Long-press a block equation to copy its LaTeX source or copy it as Markdown. Display math
 that appears mid-line (`a $$x$$ b`) stays in the text flow rather than breaking the paragraph.
@@ -536,12 +529,12 @@ EnrichedMarkdownText(
 ```
 
 Miss any of the three and the math still reaches the screen, unrendered: with the flag off it is
-literal text, and with the flag on but no plugin installed it is its own raw source, delimiters
+literal text, and with the flag on but no plugin enabled it is its own raw source, delimiters
 included, plus one warning in logcat.
 
 #### `onPluginEvent` and `LatexError`
 
-Installed plugins report per-view problems through `onPluginEvent`, a single channel shared by
+Enabled plugins report per-view problems through `onPluginEvent`, a single channel shared by
 every plugin rather than one callback per feature. The math plugin sends a `LatexError` when
 the engine cannot draw an expression (an unsupported command, a syntax error); the expression then
 shows as its raw source.

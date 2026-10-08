@@ -4,6 +4,7 @@ import android.content.Context
 import android.text.Spannable
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.CodeStyle
@@ -29,9 +30,10 @@ object MarkdownRenderTestSupport {
   fun render(
     document: MarkdownASTNode,
     style: StyleConfig = defaultStyle,
+    plugins: PluginSnapshot = PluginSnapshot.EMPTY,
   ): Spannable {
     val renderer = Renderer()
-    renderer.configure(style, context)
+    renderer.configure(style, context, plugins = plugins)
     return renderer.renderDocument(document, null, null)
   }
 

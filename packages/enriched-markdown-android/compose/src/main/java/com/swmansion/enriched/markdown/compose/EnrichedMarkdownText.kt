@@ -19,7 +19,6 @@ import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
 import com.swmansion.enriched.markdown.TaskListItemToggle as TaskListItemToggleInternal
 import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins as EnrichedMarkdownPluginsInternal
 import com.swmansion.enriched.markdown.plugin.MarkdownPlugin as MarkdownPluginInternal
 import com.swmansion.enriched.markdown.plugin.PluginEvent as PluginEventInternal
 
@@ -28,8 +27,6 @@ typealias Md4cFlags = Md4cFlagsInternal
 typealias TaskListItemToggle = TaskListItemToggleInternal
 
 typealias PluginEvent = PluginEventInternal
-
-typealias EnrichedMarkdownPlugins = EnrichedMarkdownPluginsInternal
 
 typealias MarkdownPlugin = MarkdownPluginInternal
 
@@ -44,8 +41,7 @@ typealias MarkdownPlugin = MarkdownPluginInternal
  * [spoilerOverlay] picks how `||spoiler||` text is concealed until it is tapped. The overlays are
  * rebuilt only when it changes by `==`, so pass a data class or object, or `remember` it.
  *
- * [plugins] defaults to those enabled by the enclosing plugin scopes (`LatexMathPlugin { ... }`),
- * and outside any to those installed app-wide through [EnrichedMarkdownPlugins].
+ * [plugins] defaults to those enabled by the enclosing plugin scopes (`LatexMathPlugin { ... }`).
  *
  * [onPluginEvent] receives events reported by installed plugins (for example an expression a
  * plugin could not render), once per distinct event until [markdown] is replaced rather than
@@ -66,7 +62,7 @@ fun EnrichedMarkdownText(
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
-  plugins: List<MarkdownPlugin>? = LocalMarkdownPlugins.current,
+  plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
   onPluginEvent: (PluginEvent) -> Unit = {},
 ) {
   val context = LocalContext.current

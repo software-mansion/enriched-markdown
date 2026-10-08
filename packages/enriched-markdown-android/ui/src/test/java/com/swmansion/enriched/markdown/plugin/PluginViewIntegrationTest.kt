@@ -11,12 +11,9 @@ import com.swmansion.enriched.markdown.segments.SegmentSignature
 import com.swmansion.enriched.markdown.test.FakePayload
 import com.swmansion.enriched.markdown.test.FakePlugin
 import com.swmansion.enriched.markdown.test.FakeSegmentView
-import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -25,13 +22,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class PluginViewIntegrationTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
-
-  // The registry is process-wide and the first render anywhere freezes it.
-  @Before
-  fun setUp() = EnrichedMarkdownPlugins.reset()
-
-  @After
-  fun tearDown() = EnrichedMarkdownPlugins.reset()
 
   @Test
   fun aCustomSegmentIsBuiltAndRecycledByItsOwningPlugin() {
@@ -60,25 +50,6 @@ class PluginViewIntegrationTest {
     assertEquals(2, view.childCount)
     assertEquals(2, plugin.blockSegment.createdViews)
     assertNotSame(view.getChildAt(0), view.getChildAt(1))
-  }
-
-  @Test
-  fun aViewWithPluginsOfItsOwnLeavesTheAppWideRegistryUnfrozen() {
-    val view = EnrichedMarkdown(context)
-    view.setPlugins(listOf(FakePlugin(id = "local")))
-    view.setMarkdownContent("a")
-
-    EnrichedMarkdownPlugins.install(FakePlugin())
-    assertTrue(EnrichedMarkdownPlugins.isInstalled(FakePlugin.ID))
-  }
-
-  @Test
-  fun aViewWithoutPluginsOfItsOwnFreezesTheAppWideRegistry() {
-    val view = EnrichedMarkdown(context)
-    view.setMarkdownContent("a")
-
-    EnrichedMarkdownPlugins.install(FakePlugin())
-    assertFalse(EnrichedMarkdownPlugins.isInstalled(FakePlugin.ID))
   }
 
   @Test
