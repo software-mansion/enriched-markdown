@@ -39,10 +39,10 @@ Rendering content that already contains mentions needs nothing special: pass the
 
 {/* UNRELEASED PLATFORMS: the standalone iOS and Android SDKs display mentions
 (a mention tap is an ordinary link tap, routed by scheme through the SwiftUI
-`openURL` action / Compose `onLinkPress`), but neither has a `linkVariants`
+`openURL` action / Compose `onLinkClick`), but neither has a `linkVariants`
 equivalent, so a mention cannot be styled apart from a regular link there.
 Restore those tabs, and the links to /ios/api-reference/style-properties#link
-and /android/api-reference/enriched-markdown-text#onlinkpress, when those
+and /android/api-reference/enriched-markdown-text#onlinkclick, when those
 packages ship. */}
 
 That is the whole story for read-only surfaces - message lists, comment threads, previews. It works on web too. The rest of this page is about letting users _write_ mentions in the editor, which is **native only** - there is no web editor, so none of the authoring API below exists on web.
