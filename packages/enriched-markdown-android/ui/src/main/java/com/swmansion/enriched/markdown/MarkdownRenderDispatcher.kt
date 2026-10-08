@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown
 
+import androidx.annotation.VisibleForTesting
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
@@ -52,12 +53,21 @@ internal object MarkdownRenderDispatcher {
 
   private val workers = Array(POOL_SIZE) { index -> RenderWorker("enriched-markdown-render-$index") }
 
+  /** Runs every job on the submitting thread, so a test can render without waiting on a worker. */
+  @VisibleForTesting
+  @Volatile
+  internal var runInline = false
+
   fun submit(
     owner: Any,
     priority: Int,
     isCancelled: () -> Boolean,
     task: () -> Unit,
   ) {
+    if (runInline) {
+      if (!isCancelled()) task()
+      return
+    }
     val workerIndex = (System.identityHashCode(owner) and Int.MAX_VALUE) % POOL_SIZE
     workers[workerIndex].submit(
       RenderJob(
