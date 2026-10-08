@@ -15,13 +15,13 @@ Pod::Spec.new do |s|
 
   s.platforms    = { :ios => min_ios_version_supported, :osx => "14.0" }
 
-  s.source_files = ["cpp/md4c/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"] + code_highlight[:source_files]
+  s.source_files = ["cpp/enrmrkd/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"] + code_highlight[:source_files]
   s.private_header_files = "cpp/**/*.{h,hpp}"
   # Include-only vendored sources (schema.*.c, tree_sitter/*.h, other runtime .c)
   # must ship even though they are not compiled, so quoted relative includes resolve.
   s.preserve_paths = "cpp/highlight/vendor/**/*" if code_highlight[:enabled]
 
-  header_paths = ['"$(PODS_TARGET_SRCROOT)/cpp/md4c"', '"$(PODS_TARGET_SRCROOT)/cpp/parser"', '"$(PODS_TARGET_SRCROOT)/cpp/highlight"']
+  header_paths = ['"$(PODS_TARGET_SRCROOT)/cpp/enrmrkd"', '"$(PODS_TARGET_SRCROOT)/cpp/parser"', '"$(PODS_TARGET_SRCROOT)/cpp/highlight"']
   header_paths += code_highlight[:header_paths].map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }
 
   # Define a clang module so the Swift-containing ReactNativeEnrichedMarkdown pod can
@@ -31,7 +31,7 @@ Pod::Spec.new do |s|
   s.pod_target_xcconfig = {
     "DEFINES_MODULE" => "YES",
     "HEADER_SEARCH_PATHS" => header_paths.join(" "),
-    "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) MD4C_USE_UTF8=1#{code_highlight[:defines]}",
+    "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) ENRMRKD_USE_UTF8=1#{code_highlight[:defines]}",
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
   }
 end

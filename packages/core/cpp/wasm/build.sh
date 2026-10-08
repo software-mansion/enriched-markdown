@@ -11,16 +11,18 @@
 # Output:
 #   packages/react-native-enriched-markdown/src/web/wasm/md4c.js
 #
-# NOTE: the committed md4c.js is an artifact, and the docs describe what the
-# *committed* one can do - not what this source can. It was last rebuilt before
-# the Video node type was added, so the shipped parser emits no `Video` node and
-# three doc pages correctly say video does not render on web:
-#   docs/docs/introduction/supported-features.md       (Videos | Web | No)
-#   docs/docs/react-native/guides/web-support.md       ("Not supported on web")
-#   docs/docs/react-native/api-reference/element-structure.md (the video caution)
-# A VideoRenderer, `videoStyle` and the 'Video' type already exist under
-# src/web/, so the day this script is run those three pages flip to wrong at
-# once. Update them in the same commit as the rebuilt artifact.
+# NOTE: the committed md4c.js is an artifact, and the docs under docs/ describe
+# what the *committed* one can do - not what this source can. Nothing rebuilds
+# it on install, prepare or prepack, so a change under packages/core/cpp reaches
+# native immediately and web only once someone runs this script. It had been
+# behind by a release cycle and a whole feature (#765's video blocks, which the
+# web renderer already had a VideoRenderer for) before anyone noticed, which is
+# why scripts/test-web-bundle.mjs now compares the committed bundle against the
+# same golden AST dump as the host parser, in CI.
+#
+# That test catches a stale bundle, not stale prose: after rebuilding, re-read
+# whatever docs/ says about what web does and does not support, and update it in
+# the same commit as the artifact.
 
 set -euo pipefail
 
@@ -31,22 +33,29 @@ OUT_DIR="${OUT_DIR:-$REPO_ROOT/packages/react-native-enriched-markdown/src/web/w
 
 mkdir -p "$OUT_DIR"
 
+# Intermediates stay out of the source tree: a failed link used to leave
+# enrmrkd.o sitting next to the bundle.
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
 echo "Building md4c WASM…"
 
 # Compile the C file separately (no -std=c++17)
 emcc \
   -I "$CPP_ROOT" \
   -O2 \
-  -c "$CPP_ROOT/md4c/md4c.c" \
-  -o "$OUT_DIR/md4c.o"
+  -c "$CPP_ROOT/enrmrkd/enrmrkd.c" \
+  -o "$WORK/enrmrkd.o"
 
-# Compile C++ sources and link everything together
-emcc \
+# Compile C++ sources and link everything together. em++, not emcc: emscripten
+# 6.0.6 turned DEFAULT_TO_CXX off, so emcc no longer links the C++ runtime.
+em++ \
   "$SCRIPT_DIR/md4c_wasm.cpp" \
   "$SCRIPT_DIR/ASTSerializer.cpp" \
   "$CPP_ROOT/parser/MD4CParser.cpp" \
-  "$OUT_DIR/md4c.o" \
+  "$WORK/enrmrkd.o" \
   -I "$CPP_ROOT" \
+  -I "$CPP_ROOT/enrmrkd" \
   -I "$SCRIPT_DIR" \
   -O2 \
   -std=c++17 \
@@ -64,7 +73,5 @@ emcc \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s GROWABLE_ARRAYBUFFERS=0 \
   -o "$OUT_DIR/md4c.js"
-
-rm "$OUT_DIR/md4c.o"
 
 echo "Done → $OUT_DIR/md4c.js"

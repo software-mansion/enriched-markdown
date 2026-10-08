@@ -157,14 +157,12 @@ renderer has none, and an unhandled node is dropped together with its subtree, s
 :::
 
 Also missing there: code-block syntax highlighting (fenced blocks render as plain
-monospaced text, with no header or copy button),
-[videos](/react-native/api-reference/element-structure#videos) - the published
-WebAssembly parser predates the feature, so the tag produces no node - and any
-clipboard integration at all. Every link opens in a new tab; `target` is not
-configurable. There is no `flavor` prop: GFM is always on. LaTeX math needs the
-optional `katex` peer dependency, falling back to raw `$...$` without it. The
-accessibility strings are hard-coded English and `accessibilityLabels` is
-stripped, as are a number of other native-only props. See
+monospaced text, with no header or copy button) and any clipboard integration at
+all. Every link opens in a new tab; `target` is not configurable. There is no
+`flavor` prop: GFM is always on. LaTeX math needs the optional `katex` peer
+dependency, falling back to raw `$...$` without it. The accessibility strings are
+hard-coded English and `accessibilityLabels` is stripped, as are a number of
+other native-only props. See
 [Ignored props](/react-native/guides/web-support#ignored-props-native-only) and
 [Not supported on web](/react-native/guides/web-support#not-supported-on-web).
 

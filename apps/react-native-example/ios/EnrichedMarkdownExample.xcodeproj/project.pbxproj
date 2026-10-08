@@ -467,12 +467,12 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
-					"MD4C_USE_UTF8=1",
+					"ENRMRKD_USE_UTF8=1",
 					"$(inherited)",
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"${PODS_ROOT}/../../../../packages/core/cpp/md4c",
+					"${PODS_ROOT}/../../../../packages/core/cpp/enrmrkd",
 					"${PODS_ROOT}/../../../../packages/core/cpp/parser",
 					"${PODS_ROOT}/../../../../packages/core/cpp/highlight",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/internals",
@@ -506,12 +506,12 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				COPY_PHASE_STRIP = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"MD4C_USE_UTF8=1",
+					"ENRMRKD_USE_UTF8=1",
 					"$(inherited)",
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"${PODS_ROOT}/../../../../packages/core/cpp/md4c",
+					"${PODS_ROOT}/../../../../packages/core/cpp/enrmrkd",
 					"${PODS_ROOT}/../../../../packages/core/cpp/parser",
 					"${PODS_ROOT}/../../../../packages/core/cpp/highlight",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/internals",

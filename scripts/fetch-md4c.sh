@@ -1,17 +1,21 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO="mity/md4c"
+# Software Mansion's MD4C fork, not upstream mity/md4c: it renames everything
+# the parser exposes to an ENRMRKD_/enrmrkd_ prefix so an application can embed
+# Enriched alongside another copy of MD4C without duplicate symbols or ambiguous
+# `md4c.h` lookups (#846). Upstream changes reach us by merging into that fork.
+REPO="software-mansion-labs/md4c"
 BRANCH="master"
 BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/src"
-DEST_DIR="$(cd "$(dirname "$0")/.." && pwd)/packages/core/cpp/md4c"
+DEST_DIR="$(cd "$(dirname "$0")/.." && pwd)/packages/core/cpp/enrmrkd"
 
 FILES=(
-  "md4c.c"
-  "md4c.h"
+  "enrmrkd.c"
+  "enrmrkd.h"
 )
 
-echo "Fetching md4c sources from github.com/${REPO} (branch: ${BRANCH})..."
+echo "Fetching parser sources from github.com/${REPO} (branch: ${BRANCH})..."
 
 mkdir -p "$DEST_DIR"
 

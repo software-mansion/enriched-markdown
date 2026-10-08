@@ -1,6 +1,9 @@
 #include "ASTSerializer.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <utility>
+#include <vector>
 
 namespace Markdown {
 
@@ -130,15 +133,25 @@ void ASTSerializer::serializeNode(const MarkdownASTNode &node, std::string &out)
   }
 
   if (!node.attributes.empty()) {
+    // Sorted: attributes live in an unordered_map, whose iteration order is
+    // not fixed across standard library implementations, and the golden dump
+    // in packages/core/cpp/tests compares these bytes.
+    std::vector<const std::pair<const std::string, std::string> *> sorted;
+    sorted.reserve(node.attributes.size());
+    for (const auto &kv : node.attributes) {
+      sorted.push_back(&kv);
+    }
+    std::sort(sorted.begin(), sorted.end(), [](const auto *lhs, const auto *rhs) { return lhs->first < rhs->first; });
+
     out += ",\"attributes\":{";
     bool first = true;
-    for (const auto &kv : node.attributes) {
+    for (const auto *kv : sorted) {
       if (!first)
         out += ',';
       first = false;
-      appendEscaped(kv.first, out);
+      appendEscaped(kv->first, out);
       out += ':';
-      appendEscaped(kv.second, out);
+      appendEscaped(kv->second, out);
     }
     out += '}';
   }

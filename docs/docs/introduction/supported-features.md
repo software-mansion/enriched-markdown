@@ -64,15 +64,15 @@ Enabled with `flavor="github"`. See
 | Task lists                     |     Yes      | Yes |
 | Strikethrough                  |     Yes      | Yes |
 | Admonitions (`> [!NOTE]`)      |     Yes      | Yes |
-| Videos (`<video src="url" />`) |     Yes      | No  |
+| Videos (`<video src="url" />`) |     Yes      | Yes |
 
 Two things commonly filed under GFM are **not** gated by the flavor:
 
 - **Bare-URL autolinks** are always parsed, in both flavors, on every target.
 - **Videos** are promoted from `<video>` HTML regardless of flavor, so
-  `flavor="commonmark"` parses them too. They do not render on web - the
-  published WebAssembly parser predates the feature, so the node never reaches
-  the web renderer.
+  `flavor="commonmark"` parses them too. On web there is no flavor to set and
+  no build flag to enable: the tag renders in the browser's own `<video>`
+  player.
 
 :::note
 The web renderer has no `flavor` prop - tables, task lists, strikethrough and

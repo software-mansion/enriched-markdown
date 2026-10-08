@@ -15,7 +15,7 @@ accessible and lets browser features (text selection, the native context menu,
 OS font scaling) work on their own.
 
 Markdown parsing is handled by [md4c](https://github.com/mity/md4c) compiled to
-WebAssembly. The WASM binary is inlined as base64 inside the JavaScript bundle
+WebAssembly. The WASM binary is inlined inside the JavaScript bundle
 (`SINGLE_FILE=1`), so there is no separate `.wasm` asset to host or configure
 and no build step is required by consumers.
 
@@ -270,6 +270,7 @@ development.
 All core `EnrichedMarkdownText` features are supported on web, including:
 
 - Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline)
+- [Videos](/react-native/api-reference/element-structure#videos) - a block-level `<video src="url" />` tag renders as the browser's own `<video>` element with `controls`, `playsInline` and `preload="metadata"`. All five [`markdownStyle.video`](/react-native/api-reference/style-properties#video-specific) keys apply. Neither `flavor` nor the native `enableVideo` build flag exists here, so the player is always on
 - Most `markdownStyle` options - see [Ignored style keys](#ignored-style-keys) for the exceptions
 - `onLinkPress`, `onLinkLongPress` (mapped to the `contextmenu` event), `onImagePress`, `onTaskListItemPress` and `onCodeBlockPress`
 - `onCodeBlockPress` - makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role; it does not fire while code text is selected
@@ -299,6 +300,7 @@ Most of `markdownStyle` applies, but these keys are accepted and ignored:
 - Code blocks: `aria-label` with language when available (e.g. `"Code block: python"`)
 - Math: `role="math"` and `aria-label` with the expression source, on both the KaTeX MathML output and the plain-text fallback
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
+- Videos: `aria-label` from the tag's text content, falling back to `title`, then `"Video"`
 
 :::caution
 Every one of those strings is **hard-coded English** on web, and
@@ -368,6 +370,5 @@ rendered on web.
 - `EnrichedMarkdownTextInput` - native-only today; **web support is coming soon** (see the [roadmap](/misc/roadmap)). Importing it from the web entry point yields `undefined`.
 - Code-block syntax highlighting - fenced code blocks render as plain monospaced text with no per-token colors, no header bar and no copy button
 - Configurable link `target` - all links open in a new tab (`target="_blank" rel="noopener noreferrer"`). Use `onLinkPress` for custom navigation.
-- Videos - the published WebAssembly parser predates the feature, so a `<video>` tag produces no node and renders nothing
 - Line clamping - `numberOfLines` and `ellipsizeMode` are native-only and are not part of the web props type
 - Clipboard integration - the web build never writes to the clipboard, so none of the [copy options](/user-experience/copy-options) apply

@@ -1,5 +1,5 @@
 #include "MD4CParser.hpp"
-#include "../md4c/md4c.h"
+#include "enrmrkd.h"
 #include <cctype>
 #include <cstring>
 #include <vector>
@@ -80,7 +80,7 @@ public:
     }
   }
 
-  std::string getAttributeText(const MD_ATTRIBUTE *attr) {
+  std::string getAttributeText(const ENRMRKD_ATTRIBUTE *attr) {
     if (!attr || attr->size == 0 || !attr->text)
       return {};
 
@@ -89,25 +89,25 @@ public:
     return std::string(attr->text, attr->size);
   }
 
-  static int enterBlock(MD_BLOCKTYPE type, void *detail, void *userdata) {
+  static int enterBlock(ENRMRKD_BLOCKTYPE type, void *detail, void *userdata) {
     if (!userdata)
       return 1;
     auto *impl = static_cast<Impl *>(userdata);
 
     switch (type) {
-      case MD_BLOCK_DOC:
+      case ENRMRKD_BLOCK_DOC:
         // Document node already created in reset()
         break;
 
-      case MD_BLOCK_P: {
+      case ENRMRKD_BLOCK_P: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Paragraph));
         break;
       }
 
-      case MD_BLOCK_H: {
+      case ENRMRKD_BLOCK_H: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::Heading);
         if (detail) {
-          auto *h = static_cast<MD_BLOCK_H_DETAIL *>(detail);
+          auto *h = static_cast<ENRMRKD_BLOCK_H_DETAIL *>(detail);
           int level = static_cast<int>(h->level);
           // Clamp level to valid range (1-6)
           level = (level < 1) ? 1 : (level > 6) ? 6 : level;
@@ -120,15 +120,15 @@ public:
         break;
       }
 
-      case MD_BLOCK_QUOTE: {
+      case ENRMRKD_BLOCK_QUOTE: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Blockquote));
         break;
       }
 
-      case MD_BLOCK_ADMONITION: {
+      case ENRMRKD_BLOCK_ADMONITION: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::Admonition);
         if (detail) {
-          auto *adm = static_cast<MD_BLOCK_ADMONITION_DETAIL *>(detail);
+          auto *adm = static_cast<ENRMRKD_BLOCK_ADMONITION_DETAIL *>(detail);
           std::string admonitionType = impl->getAttributeText(&adm->type);
           if (!admonitionType.empty()) {
             node->setAttribute(ATTR_ADMONITION_TYPE, admonitionType);
@@ -138,15 +138,15 @@ public:
         break;
       }
 
-      case MD_BLOCK_UL: {
+      case ENRMRKD_BLOCK_UL: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::UnorderedList));
         break;
       }
 
-      case MD_BLOCK_OL: {
+      case ENRMRKD_BLOCK_OL: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::OrderedList);
         if (detail) {
-          auto *ol = static_cast<MD_BLOCK_OL_DETAIL *>(detail);
+          auto *ol = static_cast<ENRMRKD_BLOCK_OL_DETAIL *>(detail);
           if (ol->start != 1) {
             node->setAttribute(ATTR_START, std::to_string(ol->start));
           }
@@ -155,10 +155,10 @@ public:
         break;
       }
 
-      case MD_BLOCK_LI: {
+      case ENRMRKD_BLOCK_LI: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::ListItem);
         if (detail) {
-          auto *li = static_cast<MD_BLOCK_LI_DETAIL *>(detail);
+          auto *li = static_cast<ENRMRKD_BLOCK_LI_DETAIL *>(detail);
           if (li->is_task) {
             node->setAttribute(ATTR_IS_TASK, "true");
             node->setAttribute(ATTR_TASK_CHECKED, (li->task_mark == 'x' || li->task_mark == 'X') ? "true" : "false");
@@ -168,10 +168,10 @@ public:
         break;
       }
 
-      case MD_BLOCK_CODE: {
+      case ENRMRKD_BLOCK_CODE: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::CodeBlock);
         if (detail) {
-          auto *codeDetail = static_cast<MD_BLOCK_CODE_DETAIL *>(detail);
+          auto *codeDetail = static_cast<ENRMRKD_BLOCK_CODE_DETAIL *>(detail);
           // Extract fence character (if fenced code block)
           if (codeDetail->fence_char != 0) {
             char fenceStr[2] = {static_cast<char>(codeDetail->fence_char), '\0'};
@@ -187,25 +187,25 @@ public:
         break;
       }
 
-      case MD_BLOCK_HR: {
+      case ENRMRKD_BLOCK_HR: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::ThematicBreak));
         break;
       }
 
-      case MD_BLOCK_BLANK: {
+      case ENRMRKD_BLOCK_BLANK: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::BlankLine);
         if (detail) {
-          auto *blankDetail = static_cast<MD_BLOCK_BLANK_DETAIL *>(detail);
+          auto *blankDetail = static_cast<ENRMRKD_BLOCK_BLANK_DETAIL *>(detail);
           node->setAttribute(ATTR_BLANK_LINE_COUNT, std::to_string(blankDetail->line_count));
         }
         impl->pushNode(node);
         break;
       }
 
-      case MD_BLOCK_TABLE: {
+      case ENRMRKD_BLOCK_TABLE: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::Table);
         if (detail) {
-          auto *tableDetail = static_cast<MD_BLOCK_TABLE_DETAIL *>(detail);
+          auto *tableDetail = static_cast<ENRMRKD_BLOCK_TABLE_DETAIL *>(detail);
           node->setAttribute("colCount", std::to_string(tableDetail->col_count));
           node->setAttribute("headRowCount", std::to_string(tableDetail->head_row_count));
           node->setAttribute("bodyRowCount", std::to_string(tableDetail->body_row_count));
@@ -214,36 +214,36 @@ public:
         break;
       }
 
-      case MD_BLOCK_THEAD: {
+      case ENRMRKD_BLOCK_THEAD: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::TableHead));
         break;
       }
 
-      case MD_BLOCK_TBODY: {
+      case ENRMRKD_BLOCK_TBODY: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::TableBody));
         break;
       }
 
-      case MD_BLOCK_TR: {
+      case ENRMRKD_BLOCK_TR: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::TableRow));
         break;
       }
 
-      case MD_BLOCK_TH:
-      case MD_BLOCK_TD: {
-        auto node =
-            std::make_shared<MarkdownASTNode>(type == MD_BLOCK_TH ? NodeType::TableHeaderCell : NodeType::TableCell);
+      case ENRMRKD_BLOCK_TH:
+      case ENRMRKD_BLOCK_TD: {
+        auto node = std::make_shared<MarkdownASTNode>(type == ENRMRKD_BLOCK_TH ? NodeType::TableHeaderCell
+                                                                               : NodeType::TableCell);
         if (detail) {
-          auto *tdDetail = static_cast<MD_BLOCK_TD_DETAIL *>(detail);
+          auto *tdDetail = static_cast<ENRMRKD_BLOCK_TD_DETAIL *>(detail);
           const char *alignStr;
           switch (tdDetail->align) {
-            case MD_ALIGN_LEFT:
+            case ENRMRKD_ALIGN_LEFT:
               alignStr = "left";
               break;
-            case MD_ALIGN_CENTER:
+            case ENRMRKD_ALIGN_CENTER:
               alignStr = "center";
               break;
-            case MD_ALIGN_RIGHT:
+            case ENRMRKD_ALIGN_RIGHT:
               alignStr = "right";
               break;
             default:
@@ -256,7 +256,7 @@ public:
         break;
       }
 
-      case MD_BLOCK_HTML: {
+      case ENRMRKD_BLOCK_HTML: {
         impl->inHtmlBlock = true;
         impl->htmlBlockContent.clear();
         break;
@@ -270,13 +270,13 @@ public:
     return 0;
   }
 
-  static int leaveBlock(MD_BLOCKTYPE type, void *detail, void *userdata) {
+  static int leaveBlock(ENRMRKD_BLOCKTYPE type, void *detail, void *userdata) {
     (void)detail;
     if (!userdata)
       return 1;
     auto *impl = static_cast<Impl *>(userdata);
 
-    if (type == MD_BLOCK_HTML) {
+    if (type == ENRMRKD_BLOCK_HTML) {
       impl->inHtmlBlock = false;
       auto node = tryPromoteHtmlBlock(impl->htmlBlockContent);
       impl->htmlBlockContent.clear();
@@ -286,23 +286,23 @@ public:
       return 0;
     }
 
-    if (type != MD_BLOCK_DOC && !impl->nodeStack.empty()) {
+    if (type != ENRMRKD_BLOCK_DOC && !impl->nodeStack.empty()) {
       impl->popNode();
     }
 
     return 0;
   }
 
-  static int enterSpan(MD_SPANTYPE type, void *detail, void *userdata) {
+  static int enterSpan(ENRMRKD_SPANTYPE type, void *detail, void *userdata) {
     if (!userdata)
       return 1;
     auto *impl = static_cast<Impl *>(userdata);
 
     switch (type) {
-      case MD_SPAN_A: {
+      case ENRMRKD_SPAN_A: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::Link);
         if (detail) {
-          auto *linkDetail = static_cast<MD_SPAN_A_DETAIL *>(detail);
+          auto *linkDetail = static_cast<ENRMRKD_SPAN_A_DETAIL *>(detail);
           std::string url = impl->getAttributeText(&linkDetail->href);
           if (!url.empty()) {
             node->setAttribute(ATTR_URL, url);
@@ -312,35 +312,35 @@ public:
         break;
       }
 
-      case MD_SPAN_STRONG: {
+      case ENRMRKD_SPAN_STRONG: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Strong));
         break;
       }
 
-      case MD_SPAN_EM: {
+      case ENRMRKD_SPAN_EM: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Emphasis));
         break;
       }
 
-      case MD_SPAN_U: {
+      case ENRMRKD_SPAN_U: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Underline));
         break;
       }
 
-      case MD_SPAN_CODE: {
+      case ENRMRKD_SPAN_CODE: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Code));
         break;
       }
 
-      case MD_SPAN_DEL: {
+      case ENRMRKD_SPAN_DEL: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Strikethrough));
         break;
       }
 
-      case MD_SPAN_IMG: {
+      case ENRMRKD_SPAN_IMG: {
         auto node = std::make_shared<MarkdownASTNode>(NodeType::Image);
         if (detail) {
-          auto *imgDetail = static_cast<MD_SPAN_IMG_DETAIL *>(detail);
+          auto *imgDetail = static_cast<ENRMRKD_SPAN_IMG_DETAIL *>(detail);
           std::string url = impl->getAttributeText(&imgDetail->src);
           if (!url.empty()) {
             node->setAttribute(ATTR_URL, url);
@@ -354,32 +354,32 @@ public:
         break;
       }
 
-      case MD_SPAN_LATEXMATH: {
+      case ENRMRKD_SPAN_LATEXMATH: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::LatexMathInline));
         break;
       }
 
-      case MD_SPAN_LATEXMATH_DISPLAY: {
+      case ENRMRKD_SPAN_LATEXMATH_DISPLAY: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::LatexMathDisplay));
         break;
       }
 
-      case MD_SPAN_SPOILER: {
+      case ENRMRKD_SPAN_SPOILER: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Spoiler));
         break;
       }
 
-      case MD_SPAN_SUPERSCRIPT: {
+      case ENRMRKD_SPAN_SUPERSCRIPT: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Superscript));
         break;
       }
 
-      case MD_SPAN_SUBSCRIPT: {
+      case ENRMRKD_SPAN_SUBSCRIPT: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Subscript));
         break;
       }
 
-      case MD_SPAN_MARK: {
+      case ENRMRKD_SPAN_MARK: {
         impl->pushNode(std::make_shared<MarkdownASTNode>(NodeType::Highlight));
         break;
       }
@@ -391,7 +391,7 @@ public:
     return 0;
   }
 
-  static int leaveSpan(MD_SPANTYPE type, void *detail, void *userdata) {
+  static int leaveSpan(ENRMRKD_SPANTYPE type, void *detail, void *userdata) {
     (void)detail;
     if (!userdata)
       return 1;
@@ -404,22 +404,22 @@ public:
     return 0;
   }
 
-  static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size, void *userdata) {
+  static int text(ENRMRKD_TEXTTYPE type, const ENRMRKD_CHAR *text, ENRMRKD_SIZE size, void *userdata) {
     if (!userdata || !text || size == 0)
       return 0;
     auto *impl = static_cast<Impl *>(userdata);
 
-    if (type == MD_TEXT_SOFTBR) {
+    if (type == ENRMRKD_TEXT_SOFTBR) {
       impl->addInlineNode(std::make_shared<MarkdownASTNode>(NodeType::SoftBreak));
       return 0;
     }
 
-    if (type == MD_TEXT_BR) {
+    if (type == ENRMRKD_TEXT_BR) {
       impl->addInlineNode(std::make_shared<MarkdownASTNode>(NodeType::LineBreak));
       return 0;
     }
 
-    if (type == MD_TEXT_HTML) {
+    if (type == ENRMRKD_TEXT_HTML) {
       if (impl->inHtmlBlock) {
         impl->htmlBlockContent.append(text, size);
       }
@@ -427,7 +427,7 @@ public:
     }
 
     // Handle text content (normal text, code text, LaTeX math, etc.)
-    if (type == MD_TEXT_NORMAL || type == MD_TEXT_CODE || type == MD_TEXT_LATEXMATH) {
+    if (type == ENRMRKD_TEXT_NORMAL || type == ENRMRKD_TEXT_CODE || type == ENRMRKD_TEXT_LATEXMATH) {
       impl->currentText.append(text, size);
     }
 
@@ -817,40 +817,40 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   impl_->reset(estimatedDepth);
   impl_->inputText = markdown.c_str();
 
-  unsigned flags = MD_FLAG_NOHTMLSPANS | MD_FLAG_SPOILERS;
+  unsigned flags = ENRMRKD_FLAG_NOHTMLSPANS | ENRMRKD_FLAG_SPOILERS;
   if (isGFM) {
-    flags |= MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | MD_FLAG_TASKLISTS;
+    flags |= ENRMRKD_FLAG_TABLES | ENRMRKD_FLAG_STRIKETHROUGH | ENRMRKD_FLAG_TASKLISTS;
   }
   if (md4cFlags.permissiveAutolinks) {
-    flags |= MD_FLAG_PERMISSIVEAUTOLINKS;
+    flags |= ENRMRKD_FLAG_PERMISSIVEAUTOLINKS;
   }
   if (md4cFlags.latexMath) {
-    flags |= MD_FLAG_LATEXMATHSPANS;
+    flags |= ENRMRKD_FLAG_LATEXMATHSPANS;
   }
   if (md4cFlags.underline) {
-    flags |= MD_FLAG_UNDERLINE;
+    flags |= ENRMRKD_FLAG_UNDERLINE;
   }
   if (md4cFlags.superscript) {
-    flags |= MD_FLAG_SUPERSCRIPTS;
+    flags |= ENRMRKD_FLAG_SUPERSCRIPTS;
   }
   if (md4cFlags.subscript) {
-    flags |= MD_FLAG_SUBSCRIPTS;
+    flags |= ENRMRKD_FLAG_SUBSCRIPTS;
   }
   if (md4cFlags.highlight) {
-    flags |= MD_FLAG_HIGHLIGHT;
+    flags |= ENRMRKD_FLAG_HIGHLIGHT;
   }
   if (md4cFlags.hardSoftBreaks) {
-    flags |= MD_FLAG_HARD_SOFT_BREAKS;
+    flags |= ENRMRKD_FLAG_HARD_SOFT_BREAKS;
   }
   if (md4cFlags.preserveBlankLines) {
-    flags |= MD_FLAG_PRESERVEBLANKLINES;
+    flags |= ENRMRKD_FLAG_PRESERVEBLANKLINES;
   }
   if (md4cFlags.admonitions) {
-    flags |= MD_FLAG_ADMONITIONS;
+    flags |= ENRMRKD_FLAG_ADMONITIONS;
   }
 
   // Configure MD4C parser with callbacks
-  MD_PARSER parser = {
+  ENRMRKD_PARSER parser = {
       0, // abi_version
       flags,   &Impl::enterBlock, &Impl::leaveBlock, &Impl::enterSpan, &Impl::leaveSpan, &Impl::text,
       nullptr, // debug_log
@@ -858,7 +858,7 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   };
 
   // Parse the markdown
-  int result = md_parse(markdown.c_str(), static_cast<MD_SIZE>(markdown.size()), &parser, impl_.get());
+  int result = enrmrkd_parse(markdown.c_str(), static_cast<ENRMRKD_SIZE>(markdown.size()), &parser, impl_.get());
 
   if (result != 0) {
     // Parsing failed, return empty document

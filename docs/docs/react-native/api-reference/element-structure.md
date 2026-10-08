@@ -211,21 +211,17 @@ Videos are embedded with an HTML `<video>` tag - the tag is the one piece of HTM
 <video src="https://example.com/ocean.mp4" />
 ```
 
-The paired form `<video src="url"></video>` works identically. Only `src` is read: `width`, `height`, `controls`, `autoplay` and every other attribute are ignored, so all appearance comes from [`markdownStyle.video`](/react-native/api-reference/style-properties#video-specific). Playback controls come from the platform player - `AVPlayerViewController` on iOS, ExoPlayer on Android.
+The paired form `<video src="url"></video>` works identically. Only `src` is read: `width`, `height`, `controls`, `autoplay` and every other attribute are ignored, so all appearance comes from [`markdownStyle.video`](/react-native/api-reference/style-properties#video-specific). Playback controls come from the platform player - `AVPlayerViewController` on iOS, ExoPlayer on Android, and the browser's built-in `<video>` controls on web.
 
 :::important
 Quote the URL. An unquoted `src` ends at the first `/`, so `<video src=https://example.com/a.mp4 />` parses as the URL `https:` and nothing loads.
 :::
 
 :::note
-Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the `enableVideo` build flag (on by default) - see [Optional native features](/react-native/guides/native-assets#optional-features). No other HTML is rendered: inline HTML is disabled and any other tag is ignored.
+On native, requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the `enableVideo` build flag (on by default) - see [Optional native features](/react-native/guides/native-assets#optional-features). Web has neither knob and always renders the player. No other HTML is rendered on any target: inline HTML is disabled and any other tag is ignored.
 :::
 
-A video inside a blockquote or an admonition renders normally. A video inside a **list item** is different: it is promoted out of the list and rendered as a standalone block above the remaining items, without a bullet or number, which splits the list in two.
-
-:::caution
-Videos do not render on web. The published WebAssembly parser predates the feature, so it never emits a `Video` node and the tag produces nothing there.
-:::
+A video inside a blockquote or an admonition renders normally. A video inside a **list item** is different: it is promoted out of the list and rendered as a standalone block above the remaining items, without a bullet or number, which splits the list in two. The promotion happens in the parser, so web behaves the same way.
 
 ## Line breaks
 

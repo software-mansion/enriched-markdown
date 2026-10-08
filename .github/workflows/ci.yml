@@ -21,6 +21,7 @@ jobs:
       react-native: ${{ steps.filter.outputs.react-native }}
       android: ${{ steps.filter.outputs.android }}
       ios: ${{ steps.filter.outputs.ios }}
+      core-cpp: ${{ steps.filter.outputs.core-cpp }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -59,6 +60,40 @@ jobs:
               - '.nvmrc'
               - '.yarnrc.yml'
               - '.github/**'
+            core-cpp:
+              - 'packages/core/cpp/**'
+              - 'packages/react-native-enriched-markdown/src/web/wasm/**'
+              - 'scripts/fetch-md4c.sh'
+              - 'scripts/test-core-parser.sh'
+              - 'scripts/test-web-bundle.mjs'
+              - '.github/**'
+
+  # The parser is vendored from software-mansion-labs/md4c, so a sync can change
+  # how documents parse and can reintroduce a global symbol that collides with
+  # another embedded MD4C copy. Neither shows up in a native build.
+  core-parser:
+    needs: changes
+    if: needs.changes.outputs.core-cpp == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Check the vendored parser and the AST it produces
+        run: ./scripts/test-core-parser.sh
+
+      # The web bundle is a committed build artifact that nothing rebuilds on
+      # install, so it silently falls behind packages/core/cpp.
+      - name: Check the committed WASM bundle against the same AST
+        run: node scripts/test-web-bundle.mjs
+
+      # Nothing else gates these sources: the clang-format hook is local and
+      # can be bypassed, and no other job formats packages/core/cpp.
+      - name: Check formatting
+        run: yarn lint-clang:core-parser
 
   rn-lint:
     needs: changes
@@ -655,6 +690,7 @@ jobs:
   ci-success:
     needs:
       - changes
+      - core-parser
       - rn-lint
       - rn-build-library
       - rn-build-android
@@ -675,6 +711,8 @@ jobs:
           REACT_NATIVE: ${{ needs.changes.outputs.react-native }}
           ANDROID: ${{ needs.changes.outputs.android }}
           IOS: ${{ needs.changes.outputs.ios }}
+          CORE_CPP: ${{ needs.changes.outputs.core-cpp }}
+          CORE_PARSER: ${{ needs.core-parser.result }}
           RN_LINT: ${{ needs.rn-lint.result }}
           RN_BUILD_LIBRARY: ${{ needs.rn-build-library.result }}
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
@@ -705,11 +743,12 @@ jobs:
             fi
           }
 
-          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" ]]; then
+          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" && "$CORE_CPP" != "true" ]]; then
             echo "No relevant changes detected - CI passed"
             exit 0
           fi
 
+          check_required "$CORE_CPP" "$CORE_PARSER" "core-parser"
           check_required "$REACT_NATIVE" "$RN_LINT" "rn-lint"
           check_required "$REACT_NATIVE" "$RN_BUILD_LIBRARY" "rn-build-library"
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"

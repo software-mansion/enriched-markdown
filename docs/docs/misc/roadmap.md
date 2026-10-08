@@ -30,7 +30,7 @@ own.
 | [Admonitions](/react-native/api-reference/element-structure#admonitions) | Yes | Yes | Yes |
 | Extended Markdown (underline, superscript, subscript, highlight) | Yes | Yes | Yes |
 | Spoilers | Yes | Yes | Planned |
-| [Videos](/react-native/api-reference/element-structure#videos) | Yes | Yes | Planned |
+| [Videos](/react-native/api-reference/element-structure#videos) | Yes | Yes | Yes |
 | [LaTeX math](/rich-text-formatting/latex-math) | Yes | Inline only | Yes |
 | [Code-block highlighting](/rich-text-formatting/code-highlighting) | Yes | Yes | Planned |
 | [Markdown streaming](/rich-text-formatting/markdown-streaming) | Yes | Instant reveal | Planned |
@@ -71,7 +71,6 @@ come:
 - **The editor.** `EnrichedMarkdownTextInput` has no web build at all.
 - **Spoilers**, which are currently dropped along with their text - the most
   important gap on this list.
-- **Videos**, which need a rebuild of the published WebAssembly parser.
 - **Code-block highlighting**, including the header and copy button.
 - **[Streaming](/rich-text-formatting/markdown-streaming)** and
   **[smart copy](/user-experience/copy-options)**, neither of which has a web
