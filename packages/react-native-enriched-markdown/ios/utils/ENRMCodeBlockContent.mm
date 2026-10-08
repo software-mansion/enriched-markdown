@@ -86,4 +86,6 @@ void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange
   if (lineHeight > 0) {
     applyBaselineOffset(string, range);
   }
+
+  ENRMPinLineMetricsToStyledFonts(string, range);
 }

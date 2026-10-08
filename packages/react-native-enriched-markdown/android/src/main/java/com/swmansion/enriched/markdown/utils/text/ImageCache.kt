@@ -66,11 +66,15 @@ object ImageCache {
     resizeMode: String,
   ): String = "${url}_w${width}_h${height}_r${borderRadius}_m$resizeMode"
 
-  private fun bitmapLruCache(maxSize: Int): LruCache<String, Bitmap> =
+  // A minimum per-entry cost bounds entry count as well as decoded bytes.
+  internal fun bitmapLruCache(
+    maxSize: Int,
+    maxEntries: Int = Int.MAX_VALUE,
+  ): LruCache<String, Bitmap> =
     object : LruCache<String, Bitmap>(maxSize) {
       override fun sizeOf(
         key: String,
         value: Bitmap,
-      ): Int = value.byteCount
+      ): Int = value.allocationByteCount.coerceAtLeast(((maxSize.toLong() + maxEntries - 1) / maxEntries).toInt())
     }
 }

@@ -51,8 +51,15 @@ object MarkdownRenderTestSupport {
   /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
   fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
 
-  /** [defaultStyle] with only its inline [CodeStyle] replaced. */
-  fun styleWithCode(codeStyle: CodeStyle): StyleConfig = copyOfDefault(codeStyle = codeStyle)
+  /** [defaultStyle] with its inline [CodeStyle] replaced, and aligned like [styleWithTextAlign] when [textAlign] is given. */
+  fun styleWithCode(
+    codeStyle: CodeStyle,
+    textAlign: TextAlignment? = null,
+  ): StyleConfig {
+    if (textAlign == null) return copyOfDefault(codeStyle = codeStyle)
+    val aligned = styleWithTextAlign(textAlign)
+    return copyOfDefault(codeStyle = codeStyle, paragraphStyle = aligned.paragraphStyle, headingStyles = aligned.headingStyles)
+  }
 
   /** [defaultStyle] with only its [SpoilerStyle] replaced. */
   fun styleWithSpoiler(spoilerStyle: SpoilerStyle): StyleConfig = copyOfDefault(spoilerStyle = spoilerStyle)

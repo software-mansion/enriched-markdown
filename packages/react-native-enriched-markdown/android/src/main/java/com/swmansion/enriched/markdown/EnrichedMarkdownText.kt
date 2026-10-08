@@ -27,6 +27,7 @@ import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
+import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
@@ -111,6 +112,7 @@ class EnrichedMarkdownText
     private var maxFontSizeMultiplier: Float = 0f
     private var allowTrailingMargin: Boolean = false
     private var imageRequestHeaders: Map<String, String> = emptyMap()
+    private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
     private var streamingAnimation: Boolean = false
     private var previousTextLength: Int = 0
@@ -157,6 +159,7 @@ class EnrichedMarkdownText
       updateMeasurementStoreFontScaling()
       val newStyle = style?.let { StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier) }
       newStyle?.imageRequestHeaders = imageRequestHeaders
+      newStyle?.linkPillContent = linkPillContent
       if (markdownStyle == newStyle) return
       markdownStyle = newStyle
       updateJustificationMode(newStyle)
@@ -167,6 +170,13 @@ class EnrichedMarkdownText
       if (imageRequestHeaders == headers) return
       imageRequestHeaders = headers
       markdownStyle?.imageRequestHeaders = headers
+      scheduleRenderIfNeeded()
+    }
+
+    fun setLinkPillContent(content: Map<String, LinkPillContent>) {
+      if (linkPillContent == content) return
+      linkPillContent = content
+      markdownStyle?.linkPillContent = content
       scheduleRenderIfNeeded()
     }
 
@@ -250,6 +260,7 @@ class EnrichedMarkdownText
         markdownStyle =
           StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier).also {
             it.imageRequestHeaders = imageRequestHeaders
+            it.linkPillContent = linkPillContent
           }
         updateJustificationMode(markdownStyle)
       }

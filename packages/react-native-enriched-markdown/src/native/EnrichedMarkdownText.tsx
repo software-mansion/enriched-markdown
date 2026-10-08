@@ -3,6 +3,15 @@ import EnrichedMarkdownTextNativeComponent from '../EnrichedMarkdownTextNativeCo
 import type { MarkdownStyleInternal } from '../EnrichedMarkdownTextNativeComponent';
 import EnrichedMarkdownNativeComponent from '../EnrichedMarkdownNativeComponent';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle';
+import {
+  isLinkPillContentEqual,
+  normalizeLinkPillContent,
+} from '../linkVariantUtils';
+import {
+  dispatchLinkContextMenuItem,
+  isLinkContextMenuItemsEqual,
+  normalizeLinkContextMenuItems,
+} from '../linkContextMenuUtils';
 import { resolveAccessibilityLabels } from '../accessibilityLabelDefaults';
 import {
   normalizeMenuItem,
@@ -26,6 +35,7 @@ import type {
   LatexErrorEvent,
   CodeBlockPressEvent,
   OnContextMenuItemPressEvent,
+  OnLinkContextMenuItemPressEvent,
 } from '../types/events';
 
 export type { MarkdownStyle, Md4cFlags };
@@ -142,7 +152,9 @@ export const EnrichedMarkdownText = ({
   streamingConfig,
   spoilerOverlay = 'particles',
   contextMenuItems,
+  linkContextMenuItems,
   imageRequestHeaders,
+  linkPillContent,
   selectionMenuConfig,
   accessibilityLabels,
   selectionColor,
@@ -202,6 +214,35 @@ export const EnrichedMarkdownText = ({
     [contextMenuItems]
   );
 
+  const linkContextMenuItemsRef = useRef(linkContextMenuItems);
+  linkContextMenuItemsRef.current = linkContextMenuItems;
+  // Callbacks change on most renders; native only needs to hear about the menus
+  // when what they show changes.
+  const nativeLinkContextMenuItemsRef = useRef<
+    ReturnType<typeof normalizeLinkContextMenuItems>
+  >([]);
+  const nativeLinkContextMenuItems = useMemo(() => {
+    const next = normalizeLinkContextMenuItems(linkContextMenuItems);
+    if (
+      !isLinkContextMenuItemsEqual(nativeLinkContextMenuItemsRef.current, next)
+    ) {
+      nativeLinkContextMenuItemsRef.current = next;
+    }
+    return nativeLinkContextMenuItemsRef.current;
+  }, [linkContextMenuItems]);
+  const handleLinkContextMenuItemPress = useCallback(
+    (event: NativeSyntheticEvent<OnLinkContextMenuItemPressEvent>) => {
+      const { url, pattern, itemText } = event.nativeEvent;
+      dispatchLinkContextMenuItem(
+        linkContextMenuItemsRef.current,
+        pattern,
+        itemText,
+        url
+      );
+    },
+    []
+  );
+
   const nativeImageRequestHeaders = useMemo(
     () =>
       imageRequestHeaders
@@ -211,6 +252,18 @@ export const EnrichedMarkdownText = ({
         : undefined,
     [imageRequestHeaders]
   );
+
+  // An equal map keeps the previous array, so passing the prop inline does not
+  // re-send it to native on every render.
+  const linkPillContentRef =
+    useRef<ReturnType<typeof normalizeLinkPillContent>>(undefined);
+  const nativeLinkPillContent = useMemo(() => {
+    const next = normalizeLinkPillContent(linkPillContent);
+    if (!isLinkPillContentEqual(linkPillContentRef.current, next)) {
+      linkPillContentRef.current = next;
+    }
+    return linkPillContentRef.current;
+  }, [linkPillContent]);
 
   const handleContextMenuItemPress = useCallback(
     (e: NativeSyntheticEvent<OnContextMenuItemPressEvent>) => {
@@ -365,7 +418,10 @@ export const EnrichedMarkdownText = ({
     spoilerOverlay,
     style: containerStyle,
     contextMenuItems: nativeContextMenuItems,
+    linkContextMenuItems: nativeLinkContextMenuItems,
+    onLinkContextMenuItemPress: handleLinkContextMenuItemPress,
     imageRequestHeaders: nativeImageRequestHeaders,
+    linkPillContent: nativeLinkPillContent,
     selectionMenuConfig: normalizedSelectionMenuConfig,
     accessibilityLabels: resolvedAccessibilityLabels,
     onContextMenuItemPress: handleContextMenuItemPress,

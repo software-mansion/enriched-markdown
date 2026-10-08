@@ -5,6 +5,7 @@ import android.text.style.AlignmentSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.applyLinkPillLineHeight
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
 import com.swmansion.enriched.markdown.utils.text.span.createLineHeightSpan
@@ -56,6 +57,7 @@ class HeadingRenderer(
         end,
         SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
       )
+      applyLinkPillLineHeight(builder, start, end)
 
       // Only apply AlignmentSpan for non-default alignments (Center/Right).
       // Justify is handled at the TextView level (API 26+).

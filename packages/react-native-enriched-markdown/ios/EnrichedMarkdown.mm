@@ -5,6 +5,7 @@
 #import "ENRMAtomicSize.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLatexErrorCoordinator.h"
+#import "ENRMLinkContextMenus.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTailFadeInAnimator.h"
 #import "ENRMTextInteractionUtils.h"
@@ -13,6 +14,8 @@
 #import "ENRMUIKit.h"
 #import "EditMenuUtils.h"
 #import "ImageRequestHeaderUtils.h"
+#import "LinkContextMenuUtils.h"
+#import "LinkPillContentUtils.h"
 
 #import "ENRMFeatureFlags.h"
 
@@ -80,6 +83,7 @@ static char kENRMSegmentFadeAnimatorKey;
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
+- (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitCopyPress:(NSString *)code language:(NSString *)language;
@@ -89,6 +93,11 @@ static char kENRMSegmentFadeAnimatorKey;
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
 @end
+
+#if !TARGET_OS_OSX
+@interface EnrichedMarkdown () <ENRMLinkContextMenuSource>
+@end
+#endif
 
 @implementation EnrichedMarkdown {
   ENRMMarkdownParser *_parser;
@@ -125,6 +134,7 @@ static char kENRMSegmentFadeAnimatorKey;
   size_t _renderedStyleFingerprint;
   size_t _pendingStyleFingerprint;
 
+  ENRMLinkContextMenus *_linkContextMenus;
   NSArray<NSString *> *_contextMenuItemTexts;
   NSArray<NSString *> *_contextMenuItemIcons;
   ENRMSelectionMenuConfig _selectionMenuConfig;
@@ -203,6 +213,12 @@ static char kENRMSegmentFadeAnimatorKey;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
     _dynamicBlockProps = [[ENRMDynamicBlockProps alloc] init];
+    _linkContextMenus = [[ENRMLinkContextMenus alloc] init];
+    __weak EnrichedMarkdown *weakMenuSelf = self;
+    _linkContextMenus.onPress = ^(NSString *url, NSString *pattern, NSString *itemText) {
+      [weakMenuSelf emitLinkContextMenuItemPress:itemText pattern:pattern url:url];
+    };
+    _dynamicBlockProps.linkContextMenus = _linkContextMenus;
     _streamingAnimation = NO;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
@@ -1089,6 +1105,15 @@ static char kENRMSegmentFadeAnimatorKey;
     }
   }
 
+  // Pill labels change layout, so treat new content like a style change.
+  if (ENRMLinkPillContentChanged(oldViewProps.linkPillContent, newViewProps.linkPillContent)) {
+    [_config setLinkPillContent:ENRMLinkPillContentFromProps(newViewProps.linkPillContent)];
+    _dirtyFlags |= ENRMDirtyRender;
+    if (!markdownChanged) {
+      _dirtyFlags |= ENRMDirtyRecreateSegments;
+    }
+  }
+
   _selectable = newViewProps.selectable;
 
   for (RCTUIView *segment in _segmentViews) {
@@ -1144,6 +1169,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
   // Block gates: mutate the shared box in place. Every existing and future block
   // view reads it live at use-time, so no push into segments is needed.
+  _dynamicBlockProps.enableLinkPreview = newViewProps.enableLinkPreview;
   _dynamicBlockProps.enableBlockContextMenu = newViewProps.enableBlockContextMenu;
   _dynamicBlockProps.enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
@@ -1176,6 +1202,10 @@ static char kENRMSegmentFadeAnimatorKey;
     _codeBlockStreamingMode = [codeBlockModeStr isEqualToString:@"hidden"] ? ENRMCodeBlockStreamingModeHidden
                                                                            : ENRMCodeBlockStreamingModeProgressive;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
+  }
+
+  if (ENRMLinkContextMenuItemsChanged(oldViewProps.linkContextMenuItems, newViewProps.linkContextMenuItems)) {
+    _linkContextMenus.entries = ENRMLinkContextMenuEntriesFromProps(newViewProps.linkContextMenuItems);
   }
 
   if (ENRMContextMenuItemsChanged(oldViewProps.contextMenuItems, newViewProps.contextMenuItems)) {
@@ -1318,6 +1348,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
   _renderedStyleFingerprint = 0;
   _pendingStyleFingerprint = 0;
+  _linkContextMenus.entries = @[];
   _contextMenuItemTexts = nil;
   _contextMenuItemIcons = nil;
   _fontScaleObserver.allowFontScaling = resetProps->allowFontScaling;
@@ -1425,6 +1456,16 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     emitter->onLinkLongPress({.url = std::string(url.UTF8String)});
 }
 
+- (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter) {
+    emitter->onLinkContextMenuItemPress({.url = std::string(url.UTF8String),
+                                         .pattern = std::string(pattern.UTF8String),
+                                         .itemText = std::string(itemText.UTF8String)});
+  }
+}
+
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text
 {
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
@@ -1530,6 +1571,20 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
                                    customActions, _selectionMenuConfig);
 }
 
+- (UITextItemMenuConfiguration *)textView:(UITextView *)textView
+             menuConfigurationForTextItem:(UITextItem *)textItem
+                              defaultMenu:(UIMenu *)defaultMenu API_AVAILABLE(ios(17.0))
+{
+  __weak EnrichedMarkdown *weakSelf = self;
+  return ENRMLinkMenuConfigurationForTextItem(textView, textItem, defaultMenu, _linkContextMenus, _enableLinkPreview,
+                                              ^(NSString *url) { [weakSelf emitLinkLongPress:url]; });
+}
+
+- (ENRMLinkContextMenus *)linkContextMenusForTextView:(UITextView *)textView
+{
+  return _linkContextMenus;
+}
+
 - (BOOL)textView:(UITextView *)textView
     shouldInteractWithURL:(NSURL *)URL
                   inRange:(NSRange)characterRange
@@ -1540,6 +1595,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   }
 
   NSString *urlString = linkURLAtRange(textView, characterRange);
+
+  // A link with a menu is presented by the iOS 17 callback above and must not be vetoed here.
+  if ([_linkContextMenus hasMenuForURL:urlString])
+    return YES;
 
   if (!urlString || _enableLinkPreview) {
     return YES;

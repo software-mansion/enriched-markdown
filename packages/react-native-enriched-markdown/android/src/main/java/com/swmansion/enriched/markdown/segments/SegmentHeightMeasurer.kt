@@ -8,6 +8,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import kotlin.math.ceil
 
 /**
@@ -103,7 +104,7 @@ object SegmentHeightMeasurer {
       TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = fontSizePx
       }
-    prepareImageSpansForMeasurement(text, widthPx)
+    prepareWidthAwareSpans(text, widthPx)
     return StaticLayout.Builder
       .obtain(text, 0, text.length, paint, widthPx)
       .setIncludePad(false)
@@ -117,16 +118,5 @@ object SegmentHeightMeasurer {
           setUseLineSpacingFromFallbacks(true)
         }
       }.build()
-  }
-
-  private fun prepareImageSpansForMeasurement(
-    text: CharSequence?,
-    widthPx: Int,
-  ) {
-    if (widthPx <= 1) return
-    val spanned = text as? android.text.Spanned ?: return
-    spanned
-      .getSpans(0, spanned.length, com.swmansion.enriched.markdown.spans.ImageSpan::class.java)
-      .forEach { it.prepareForMeasurement(spanned, widthPx) }
   }
 }

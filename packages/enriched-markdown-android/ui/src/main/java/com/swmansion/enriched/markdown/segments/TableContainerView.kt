@@ -26,6 +26,7 @@ import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.registerCodeBackgrounds
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableAlignment
 import com.swmansion.enriched.markdown.styles.TableStyle
@@ -285,6 +286,7 @@ class TableContainerView(
     data.attributedText
       .getSpans(0, data.attributedText.length, ImageSpan::class.java)
       .forEach { it.registerTextView(cellTextView) }
+    cellTextView.registerCodeBackgrounds(data.attributedText)
   }
 
   override fun onMeasure(

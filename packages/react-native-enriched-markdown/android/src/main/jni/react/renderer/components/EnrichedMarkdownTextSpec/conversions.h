@@ -25,6 +25,13 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownTextProps &props) {
   }
   serializedProps["imageRequestHeaders"] = std::move(imageRequestHeaders);
 
+  // Pill labels change text width, so measurement needs the same content the view renders.
+  folly::dynamic linkPillContent = folly::dynamic::array();
+  for (const auto &content : props.linkPillContent) {
+    linkPillContent.push_back(toDynamic(content));
+  }
+  serializedProps["linkPillContent"] = std::move(linkPillContent);
+
   return serializedProps;
 }
 
@@ -43,6 +50,13 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
     imageRequestHeaders.push_back(toDynamic(header));
   }
   serializedProps["imageRequestHeaders"] = std::move(imageRequestHeaders);
+
+  // Pill labels change text width, so measurement needs the same content the view renders.
+  folly::dynamic linkPillContent = folly::dynamic::array();
+  for (const auto &content : props.linkPillContent) {
+    linkPillContent.push_back(toDynamic(content));
+  }
+  serializedProps["linkPillContent"] = std::move(linkPillContent);
 
   return serializedProps;
 }

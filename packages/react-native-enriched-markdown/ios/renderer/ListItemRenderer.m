@@ -165,13 +165,14 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
     NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
     style.firstLineHeadIndent = totalIndent;
     style.headIndent = totalIndent;
-    if (lineHeightConfig > 0) {
-      style.minimumLineHeight = lineHeightConfig;
+    const CGFloat lineHeight = ENRMLineHeightWithLinkPills(output, range, lineHeightConfig);
+    if (lineHeight > 0) {
+      style.minimumLineHeight = lineHeight;
     }
     NSMutableDictionary *attributesToApply = [metadata mutableCopy];
     attributesToApply[NSParagraphStyleAttributeName] = style;
     [output addAttributes:attributesToApply range:range];
-    if (lineHeightConfig > 0) {
+    if (lineHeight > 0) {
       applyBaselineOffset(output, range);
     }
   };
