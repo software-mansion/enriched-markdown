@@ -512,8 +512,8 @@ class EnrichedMarkdown(
     Log.w(
       TAG,
       "Md4cFlags(latexMath = true) but no plugin renders math, so equations show as their raw " +
-        "source. Add the com.swmansion.enriched.markdown:math artifact and provide LatexMathPlugin " +
-        "through a LatexMathPlugin { ... } scope in Compose or setPlugins on the view.",
+        "source. Add the com.swmansion.enriched.markdown:math artifact and wrap the content in a " +
+        "LatexMathPlugin { ... } scope.",
     )
   }
 

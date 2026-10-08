@@ -53,7 +53,7 @@ LatexMathPlugin {
 }
 ```
 
-Scopes nest: an inner scope adds its plugin to those enabled outside, and a scope for a plugin already enabled replaces it. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes. Outside the Compose API, call `setPlugins(listOf(LatexMathPlugin))` on the `EnrichedMarkdown` view.
+Scopes nest: an inner scope adds its plugin to those enabled outside, and a scope for a plugin already enabled replaces it. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes.
 
 Without the plugin nothing breaks: `$...$` and `$$...$$` render as their raw source, delimiters included, and logcat carries a single `EnrichedMarkdown` warning naming the missing artifact and how to enable the plugin.
 
