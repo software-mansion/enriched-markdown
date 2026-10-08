@@ -9,11 +9,11 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** Uses a flat FloatArray (struct-of-arrays) to avoid GC pressure. */
-internal class ParticleLineOverlay(
+internal class ParticleSliceOverlay(
   particleColor: Int,
   particleDensity: Float,
   particleSpeed: Float,
-) : SpoilerLineOverlay() {
+) : SpoilerSliceOverlay() {
   private var particleData = FloatArray(INITIAL_CAPACITY * STRIDE)
   private var particleCount = 0
 
@@ -40,21 +40,21 @@ internal class ParticleLineOverlay(
 
   override fun draw(
     canvas: Canvas,
-    line: SpoilerLine,
+    slice: SpoilerSlice,
   ) {
-    setSize(line.width, line.height)
-    advanceTo(line.frameTimeMillis)
+    setSize(slice.width, slice.height)
+    advanceTo(slice.frameTimeMillis)
     drawParticles(canvas, overallAlpha = 1f)
   }
 
   override fun drawReveal(
     canvas: Canvas,
-    line: SpoilerLine,
+    slice: SpoilerSlice,
     progress: Float,
   ) {
     if (!isBursting) burst()
-    setSize(line.width, line.height)
-    advanceTo(line.frameTimeMillis)
+    setSize(slice.width, slice.height)
+    advanceTo(slice.frameTimeMillis)
     drawParticles(canvas, overlayAlphaAt(progress))
   }
 

@@ -8,19 +8,19 @@ import android.text.style.ParagraphStyle
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 
 /**
- * The part of a concealed spoiler on one line of text, as a [SpoilerLineOverlay] sees it: a
- * wrapped spoiler has one per line, and one that starts or ends mid-line covers only part of its
- * line. Positions are in the spoiler line's own coordinates, the space the overlay's canvas is in;
+ * The part of a concealed spoiler on one line of text, as a [SpoilerSliceOverlay] sees it: a
+ * wrapped spoiler has one slice per line, and one that starts or ends mid-line covers only part of
+ * its line. Positions are in the slice's own coordinates, the space the overlay's canvas is in;
  * ranges index the view's text. The view updates it before every draw.
  */
-class SpoilerLine internal constructor(
-  /** Start of the whole spoiler, shared by all of its lines. */
+class SpoilerSlice internal constructor(
+  /** Start of the whole spoiler, shared by all of its slices. */
   val spoilerStart: Int,
   /** End of the whole spoiler, exclusive. */
   val spoilerEnd: Int,
-  /** Start of this line's slice of the spoiler. */
+  /** Start of this slice of the spoiler. */
   val start: Int,
-  /** End of this line's slice, exclusive. */
+  /** End of this slice, exclusive. */
   val end: Int,
   private val source: Spanned,
 ) {
@@ -36,15 +36,15 @@ class SpoilerLine internal constructor(
   var baseline: Float = 0f
     internal set
 
-  /** Whether the line's paragraph runs right to left, for effects with a direction to follow. */
+  /** Whether the slice's paragraph runs right to left, for effects with a direction to follow. */
   var isRtl: Boolean = false
     internal set
 
-  /** This line's place among the spoiler's lines, in reading order. */
+  /** This slice's place among the spoiler's slices, in reading order. */
   var index: Int = 0
     internal set
 
-  /** How many lines the spoiler spans. */
+  /** How many slices the spoiler has, one per line it spans. */
   var count: Int = 1
     internal set
 
@@ -52,7 +52,7 @@ class SpoilerLine internal constructor(
   var frameTimeMillis: Long = 0L
     internal set
 
-  /** This line's slice of the text, styled as it looks once revealed, inline styling only. */
+  /** This slice of the text, styled as it looks once revealed, inline styling only. */
   val text: CharSequence by lazy(LazyThreadSafetyMode.NONE) {
     SpannableStringBuilder(source, start, end).apply {
       for (span in getSpans(0, length, Any::class.java)) {
@@ -63,17 +63,17 @@ class SpoilerLine internal constructor(
 
   private var layout: Layout? = null
 
-  // Where the layout's origin falls in this line's coordinates.
+  // Where the layout's origin falls in this slice's coordinates.
   private var layoutX = 0f
   private var layoutY = 0f
 
   /**
-   * Draws the line's text as it looks once revealed, each glyph where the text view draws it, for
+   * Draws the slice's text as it looks once revealed, each glyph where the text view draws it, for
    * effects that show the text through (a blur, pixelation). It lays out the whole line each time,
-   * so cache the result until [width] or [height] changes. New content under the line, such as an
+   * so cache the result until [width] or [height] changes. New content under the slice, such as an
    * image loading, comes with a new overlay.
    *
-   * Call it on the main thread, as from [SpoilerLineOverlay.draw]. It lifts the spoiler's
+   * Call it on the main thread, as from [SpoilerSliceOverlay.draw]. It lifts the spoiler's
    * concealment while it draws, so a call from another thread could show the hidden text in the
    * text view's own draw. For heavy work such as a blur, draw the text into a bitmap on the main
    * thread, process the bitmap on another one, and call [SpoilerOverlayHost.invalidate] when the
@@ -98,7 +98,7 @@ class SpoilerLine internal constructor(
 
   internal fun place(
     layout: Layout,
-    rect: LineRect,
+    rect: SliceRect,
     lineBaseline: Float,
     paddingLeft: Float,
     paddingTop: Float,

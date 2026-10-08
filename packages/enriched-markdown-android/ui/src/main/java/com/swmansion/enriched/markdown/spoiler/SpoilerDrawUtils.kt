@@ -8,7 +8,7 @@ import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 
-internal fun computeLineRect(
+internal fun computeSliceRect(
   layout: Layout,
   line: Int,
   start: Int,
@@ -16,7 +16,7 @@ internal fun computeLineRect(
   fontMetrics: Paint.FontMetrics,
   paddingLeft: Float,
   paddingTop: Float,
-): LineRect? {
+): SliceRect? {
   val startHorizontal = layout.getPrimaryHorizontal(start)
   val endHorizontal =
     if (end >= layout.getLineEnd(line)) {
@@ -39,7 +39,7 @@ internal fun computeLineRect(
   }
   val width = right - left
   val height = bottom - top
-  return if (width > 0 && height > 0) LineRect(left, top, width, height) else null
+  return if (width > 0 && height > 0) SliceRect(left, top, width, height) else null
 }
 
 private fun Spanned.blockImageHeight(

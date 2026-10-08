@@ -17,14 +17,14 @@ import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import java.lang.ref.WeakReference
 import kotlin.math.roundToLong
 
-/** Draws a [SpoilerLineOverlay] over each line of every concealed spoiler, and runs reveals. */
+/** Draws a [SpoilerSliceOverlay] over each line of every concealed spoiler, and runs reveals. */
 internal class SpoilerOverlayDrawer(
   textView: TextView,
 ) : SpoilerOverlayHost {
-  private class LiveLine(
+  private class LiveSlice(
     val span: SpoilerSpan,
-    val overlay: SpoilerLineOverlay,
-    val line: SpoilerLine,
+    val overlay: SpoilerSliceOverlay,
+    val slice: SpoilerSlice,
     val contentVersion: Int,
   )
 
@@ -36,21 +36,21 @@ internal class SpoilerOverlayDrawer(
     fun progressAt(time: Long): Float = if (durationMillis <= 0) 1f else ((time - startTime).toFloat() / durationMillis).coerceIn(0f, 1f)
   }
 
-  private class LinePlacement(
+  private class SlicePlacement(
     val line: Int,
     val start: Int,
     val end: Int,
-    val rect: LineRect,
+    val rect: SliceRect,
   )
 
   private val textViewReference = WeakReference(textView)
   private val animator = SpoilerAnimator(::onFrame)
 
-  private val lines = LinkedHashMap<LineKey, LiveLine>()
+  private val slices = LinkedHashMap<SliceKey, LiveSlice>()
   private val reveals = LinkedHashMap<SpoilerSpan, Reveal>()
 
-  private val activeKeys = HashSet<LineKey>()
-  private val placements = ArrayList<LinePlacement>()
+  private val activeKeys = HashSet<SliceKey>()
+  private val placements = ArrayList<SlicePlacement>()
   private val metricsPaint = TextPaint()
   private val fontMetrics = Paint.FontMetrics()
 
@@ -110,26 +110,26 @@ internal class SpoilerOverlayDrawer(
       collectPlacements(ctx, span, spanStart, spanEnd)
       val reveal = reveals[span]
       for ((index, placement) in placements.withIndex()) {
-        val key = LineKey(span, placement.line, placement.start, placement.end)
-        var existing = lines[key]
-        // New content under a line that stayed put (an image loading) starts its overlay over,
+        val key = SliceKey(span, placement.line, placement.start, placement.end)
+        var existing = slices[key]
+        // New content under a slice that stayed put (an image loading) starts its overlay over,
         // so nothing it cached goes stale. A reveal in flight keeps fading out what it started with.
         if (existing != null && existing.contentVersion != span.contentVersion && reveal == null) {
-          lines.remove(key)?.overlay?.onRemoved()
+          slices.remove(key)?.overlay?.onRemoved()
           existing = null
         }
-        // A reveal in flight only fades out the lines it started with.
+        // A reveal in flight only fades out the slices it started with.
         if (existing == null && reveal != null) continue
         val live =
-          existing ?: LiveLine(
+          existing ?: LiveSlice(
             span = span,
-            overlay = spoilerOverlay.createLineOverlay(this, style),
-            line = SpoilerLine(spanStart, spanEnd, placement.start, placement.end, ctx.text),
+            overlay = spoilerOverlay.createSliceOverlay(this, style),
+            slice = SpoilerSlice(spanStart, spanEnd, placement.start, placement.end, ctx.text),
             contentVersion = span.contentVersion,
-          ).also { lines[key] = it }
+          ).also { slices[key] = it }
         activeKeys.add(key)
 
-        live.line.place(
+        live.slice.place(
           layout = ctx.layout,
           rect = placement.rect,
           lineBaseline = ctx.layout.getLineBaseline(placement.line).toFloat(),
@@ -140,13 +140,13 @@ internal class SpoilerOverlayDrawer(
           count = placements.size,
           frameTimeMillis = now,
         )
-        drawLine(canvas, live, placement.rect, reveal?.progressAt(now))
+        drawSlice(canvas, live, placement.rect, reveal?.progressAt(now))
       }
     }
 
-    pruneStaleLines()
+    pruneStaleSlices()
 
-    if (reveals.isNotEmpty() || lines.values.any { it.overlay.isAnimated }) {
+    if (reveals.isNotEmpty() || slices.values.any { it.overlay.isAnimated }) {
       animator.requestFrame()
     }
   }
@@ -169,7 +169,7 @@ internal class SpoilerOverlayDrawer(
       return
     }
     // Nothing on screen to fade out: the span was never drawn, or has no area.
-    if (lines.keys.none { it.span === span }) {
+    if (slices.keys.none { it.span === span }) {
       span.markRevealed()
       refreshText(span)
       onAllComplete()
@@ -183,7 +183,7 @@ internal class SpoilerOverlayDrawer(
 
   fun stop() {
     animator.stop()
-    lines.keys.toList().forEach(::dropLine)
+    slices.keys.toList().forEach(::dropSlice)
     reveals.keys.toList().forEach(::finishReveal)
   }
 
@@ -227,7 +227,7 @@ internal class SpoilerOverlayDrawer(
       if (start >= end) continue
 
       val rect =
-        computeLineRect(
+        computeSliceRect(
           ctx.layout,
           line,
           start,
@@ -236,22 +236,22 @@ internal class SpoilerOverlayDrawer(
           ctx.paddingLeft,
           ctx.paddingTop,
         ) ?: continue
-      placements.add(LinePlacement(line, start, end, rect))
+      placements.add(SlicePlacement(line, start, end, rect))
     }
   }
 
-  private fun drawLine(
+  private fun drawSlice(
     canvas: Canvas,
-    live: LiveLine,
-    rect: LineRect,
+    live: LiveSlice,
+    rect: SliceRect,
     revealProgress: Float?,
   ) {
     canvas.withTranslation(rect.left, rect.top) {
       clipRect(0f, 0f, rect.width, rect.height)
       if (revealProgress != null) {
-        live.overlay.drawReveal(this, live.line, revealProgress)
+        live.overlay.drawReveal(this, live.slice, revealProgress)
       } else {
-        live.overlay.draw(this, live.line)
+        live.overlay.draw(this, live.slice)
       }
     }
   }
@@ -273,27 +273,27 @@ internal class SpoilerOverlayDrawer(
 
   private fun finishReveal(span: SpoilerSpan) {
     val reveal = reveals.remove(span) ?: return
-    lines.keys.filter { it.span === span }.forEach { key -> lines.remove(key)?.overlay?.onRemoved() }
+    slices.keys.filter { it.span === span }.forEach { key -> slices.remove(key)?.overlay?.onRemoved() }
     span.markRevealed()
     refreshText(span)
     reveal.onComplete()
   }
 
-  private fun pruneStaleLines() {
-    if (lines.size == activeKeys.size) return
-    lines.keys.filter { it !in activeKeys }.forEach(::dropLine)
+  private fun pruneStaleSlices() {
+    if (slices.size == activeKeys.size) return
+    slices.keys.filter { it !in activeKeys }.forEach(::dropSlice)
   }
 
-  // A reflow, an overlay switch or a detach can drop a line mid-reveal; finishing the reveal
+  // A reflow, an overlay switch or a detach can drop a slice mid-reveal; finishing the reveal
   // keeps the span from being stuck in `revealing` with nothing left to complete it.
-  private fun dropLine(key: LineKey) {
-    val live = lines.remove(key) ?: return
+  private fun dropSlice(key: SliceKey) {
+    val live = slices.remove(key) ?: return
     live.overlay.onRemoved()
     finishReveal(live.span)
   }
 
   private fun rebuild() {
-    lines.keys.toList().forEach(::dropLine)
+    slices.keys.toList().forEach(::dropSlice)
     textViewReference.get()?.invalidate()
   }
 

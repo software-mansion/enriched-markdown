@@ -15,11 +15,11 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spoiler.CustomSpoilerOverlay
-import com.swmansion.enriched.markdown.spoiler.SpoilerLine
-import com.swmansion.enriched.markdown.spoiler.SpoilerLineOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayHost
+import com.swmansion.enriched.markdown.spoiler.SpoilerSlice
+import com.swmansion.enriched.markdown.spoiler.SpoilerSliceOverlay
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
@@ -45,7 +45,7 @@ import kotlin.math.floor
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
-// The native runtime lays text out for real, which line geometry and glyph pixels need.
+// The native runtime lays text out for real, which slice geometry and glyph pixels need.
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SpoilerCustomOverlayTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
@@ -57,7 +57,7 @@ class SpoilerCustomOverlayTest {
   }
 
   private class Probe {
-    val created = mutableListOf<ProbeLine>()
+    val created = mutableListOf<ProbeSlice>()
   }
 
   private data class ProbeOverlay(
@@ -65,47 +65,47 @@ class SpoilerCustomOverlayTest {
     val probe: Probe,
     val drawsText: Boolean = false,
   ) : CustomSpoilerOverlay {
-    override fun createLineOverlay(
+    override fun createSliceOverlay(
       host: SpoilerOverlayHost,
       style: SpoilerStyle,
-    ): SpoilerLineOverlay = ProbeLine(style, drawsText).also { probe.created.add(it) }
+    ): SpoilerSliceOverlay = ProbeSlice(style, drawsText).also { probe.created.add(it) }
   }
 
   private data class TimedProbeOverlay(
     val probe: Probe,
     override val revealDurationMillis: Long,
   ) : CustomSpoilerOverlay {
-    override fun createLineOverlay(
+    override fun createSliceOverlay(
       host: SpoilerOverlayHost,
       style: SpoilerStyle,
-    ): SpoilerLineOverlay = ProbeLine(style, drawsText = false).also { probe.created.add(it) }
+    ): SpoilerSliceOverlay = ProbeSlice(style, drawsText = false).also { probe.created.add(it) }
   }
 
-  private class ProbeLine(
+  private class ProbeSlice(
     val style: SpoilerStyle,
     private val drawsText: Boolean,
-  ) : SpoilerLineOverlay() {
-    var line: SpoilerLine? = null
+  ) : SpoilerSliceOverlay() {
+    var slice: SpoilerSlice? = null
     var draws = 0
     val revealProgress = mutableListOf<Float>()
     var removals = 0
 
     override fun draw(
       canvas: Canvas,
-      line: SpoilerLine,
+      slice: SpoilerSlice,
     ) {
-      this.line = line
+      this.slice = slice
       draws++
-      if (drawsText) line.drawText(canvas)
+      if (drawsText) slice.drawText(canvas)
     }
 
     override fun drawReveal(
       canvas: Canvas,
-      line: SpoilerLine,
+      slice: SpoilerSlice,
       progress: Float,
     ) {
       revealProgress.add(progress)
-      super.drawReveal(canvas, line, progress)
+      super.drawReveal(canvas, slice, progress)
     }
 
     override fun onRemoved() {
@@ -166,14 +166,14 @@ class SpoilerCustomOverlayTest {
     test.draw()
 
     assertEquals(test.expectedLineCount(), probe.created.size)
-    probe.created.forEach { line ->
-      assertEquals(OVERLAY, line.style.color)
-      assertEquals(1, line.draws)
+    probe.created.forEach { slice ->
+      assertEquals(OVERLAY, slice.style.color)
+      assertEquals(1, slice.draws)
     }
   }
 
   @Test
-  fun lineOverlaysLiveAcrossFrames() {
+  fun sliceOverlaysLiveAcrossFrames() {
     val probe = Probe()
     val test = harness(document(paragraph(spoiler(text("secret")))), ProbeOverlay("a", probe))
 
@@ -184,7 +184,7 @@ class SpoilerCustomOverlayTest {
   }
 
   @Test
-  fun equalOverlaysKeepTheirLinesWhileUnequalOnesRebuildThem() {
+  fun equalOverlaysKeepTheirSlicesWhileUnequalOnesRebuildThem() {
     val probe = Probe()
     val test = harness(document(paragraph(spoiler(text("secret")))), ProbeOverlay("a", probe))
     test.draw()
@@ -193,18 +193,18 @@ class SpoilerCustomOverlayTest {
     test.drawer.spoilerOverlay = ProbeOverlay("a", probe)
     test.draw()
 
-    assertEquals("An equal overlay keeps its lines", listOf(first), probe.created)
+    assertEquals("An equal overlay keeps its slices", listOf(first), probe.created)
     assertEquals(0, first.removals)
 
     test.drawer.spoilerOverlay = ProbeOverlay("b", probe)
 
-    assertEquals("A different overlay removes the old lines at once", 1, first.removals)
+    assertEquals("A different overlay removes the old slices at once", 1, first.removals)
     test.draw()
     assertEquals(2, probe.created.size)
   }
 
   @Test
-  fun aNewStyleRebuildsTheLines() {
+  fun aNewStyleRebuildsTheSlices() {
     val probe = Probe()
     val test = harness(document(paragraph(spoiler(text("secret")))), ProbeOverlay("a", probe))
     test.draw()
@@ -223,7 +223,7 @@ class SpoilerCustomOverlayTest {
   }
 
   @Test
-  fun anImageLoadingUnderTheSpoilerRecreatesItsLines() {
+  fun anImageLoadingUnderTheSpoilerRecreatesItsSlices() {
     val url = "test://spoiler-late-image"
     ImageCache.putOriginal(url, Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) })
     val probe = Probe()
@@ -241,17 +241,17 @@ class SpoilerCustomOverlayTest {
     test.draw()
 
     // The text's overlay is replaced in place; the image's line may now get an overlay of its own.
-    val textLine = requireNotNull(first.single().line)
+    val textSlice = requireNotNull(first.single().slice)
     assertEquals(1, first.single().removals)
-    val replacement = probe.created.drop(1).map { requireNotNull(it.line) }
-    assertTrue(replacement.any { it.start == textLine.start && it.end == textLine.end })
+    val replacement = probe.created.drop(1).map { requireNotNull(it.slice) }
+    assertTrue(replacement.any { it.start == textSlice.start && it.end == textSlice.end })
     val created = probe.created.size
     test.draw()
-    assertEquals("The new lines live on", created, probe.created.size)
+    assertEquals("The new slices live on", created, probe.created.size)
   }
 
   @Test
-  fun aRevealInFlightKeepsItsLinesWhenTheContentChanges() {
+  fun aRevealInFlightKeepsItsSlicesWhenTheContentChanges() {
     val probe = Probe()
     val test = harness(document(paragraph(spoiler(text("secret")))), ProbeOverlay("a", probe))
     test.draw()
@@ -261,73 +261,73 @@ class SpoilerCustomOverlayTest {
     test.advanceBy(100)
     test.draw()
 
-    val line = probe.created.single()
-    assertEquals(0, line.removals)
-    assertEquals(1, line.revealProgress.size)
+    val slice = probe.created.single()
+    assertEquals(0, slice.removals)
+    assertEquals(1, slice.revealProgress.size)
   }
 
-  // MARK: Line data
+  // MARK: Slice data
 
   @Test
-  fun aWrappedSpoilerGivesEachLineItsPlaceAndRanges() {
+  fun aWrappedSpoilerGivesEachSliceItsPlaceAndRanges() {
     val probe = Probe()
     val test = harness(document(paragraph(text("before "), spoiler(text(LONG_SPOILER)))), ProbeOverlay("a", probe))
     test.draw()
 
     val spanStart = test.rendered.getSpanStart(test.span)
     val spanEnd = test.rendered.getSpanEnd(test.span)
-    val lines = probe.created.map { requireNotNull(it.line) }.sortedBy { it.index }
+    val slices = probe.created.map { requireNotNull(it.slice) }.sortedBy { it.index }
     val count = test.expectedLineCount()
 
-    assertEquals((0 until count).toList(), lines.map { it.index })
-    lines.forEach { line ->
-      assertEquals(count, line.count)
-      assertEquals(spanStart, line.spoilerStart)
-      assertEquals(spanEnd, line.spoilerEnd)
-      assertEquals(test.rendered.substring(line.start, line.end), line.text.toString())
-      assertTrue(line.width > 0f && line.height > 0f)
+    assertEquals((0 until count).toList(), slices.map { it.index })
+    slices.forEach { slice ->
+      assertEquals(count, slice.count)
+      assertEquals(spanStart, slice.spoilerStart)
+      assertEquals(spanEnd, slice.spoilerEnd)
+      assertEquals(test.rendered.substring(slice.start, slice.end), slice.text.toString())
+      assertTrue(slice.width > 0f && slice.height > 0f)
     }
-    assertEquals("The first line starts the spoiler", spanStart, lines.first().start)
-    assertEquals("The last line ends it", spanEnd, lines.last().end)
-    lines.zipWithNext().forEach { (line, next) ->
-      assertEquals("Lines are contiguous, in reading order", line.end, next.start)
+    assertEquals("The first slice starts the spoiler", spanStart, slices.first().start)
+    assertEquals("The last slice ends it", spanEnd, slices.last().end)
+    slices.zipWithNext().forEach { (line, next) ->
+      assertEquals("Slices are contiguous, in reading order", line.end, next.start)
     }
   }
 
   @Test
-  fun theLinesTextIsStyledAsRevealed() {
+  fun theSlicesTextIsStyledAsRevealed() {
     val probe = Probe()
     val test = harness(document(paragraph(spoiler(text("secret")))), ProbeOverlay("a", probe))
     test.draw()
 
-    val text = requireNotNull(probe.created.single().line).text as Spannable
+    val text = requireNotNull(probe.created.single().slice).text as Spannable
 
     assertEquals(0, text.getSpans(0, text.length, SpoilerSpan::class.java).size)
   }
 
   @Test
-  fun theBaselineIsMeasuredFromTheLinesTop() {
+  fun theBaselineIsMeasuredFromTheSlicesTop() {
     val probe = Probe()
     val test = harness(document(paragraph(spoiler(text("secret")))), ProbeOverlay("a", probe))
     test.draw()
 
-    val line = requireNotNull(probe.created.single().line)
+    val slice = requireNotNull(probe.created.single().slice)
     val metrics = TextPaint().apply { textSize = test.span.blockStyle.fontSize }.fontMetrics
 
-    // The line spans the block font's ascent to descent around the line's baseline.
-    assertEquals(-metrics.ascent, line.baseline, 1f)
-    assertEquals(metrics.descent - metrics.ascent, line.height, 1f)
+    // The slice spans the block font's ascent to descent around the line's baseline.
+    assertEquals(-metrics.ascent, slice.baseline, 1f)
+    assertEquals(metrics.descent - metrics.ascent, slice.height, 1f)
   }
 
   @Test
-  fun theLineKnowsWhichWayItsParagraphRuns() {
+  fun theSliceKnowsWhichWayItsParagraphRuns() {
     val ltr = Probe()
     val rtl = Probe()
     harness(document(paragraph(text("plain "), spoiler(text("secret")))), ProbeOverlay("a", ltr)).draw()
     harness(document(paragraph(text("שלום "), spoiler(text("סוד")))), ProbeOverlay("a", rtl)).draw()
 
-    assertFalse(requireNotNull(ltr.created.single().line).isRtl)
-    assertTrue(requireNotNull(rtl.created.single().line).isRtl)
+    assertFalse(requireNotNull(ltr.created.single().slice).isRtl)
+    assertTrue(requireNotNull(rtl.created.single().slice).isRtl)
   }
 
   // MARK: Reveal
@@ -342,8 +342,8 @@ class SpoilerCustomOverlayTest {
     test.advanceBy(225)
     test.draw()
 
-    val line = probe.created.single()
-    assertEquals(0.5f, line.revealProgress.single(), 0.001f)
+    val slice = probe.created.single()
+    assertEquals(0.5f, slice.revealProgress.single(), 0.001f)
     // Halfway through, the overlay is at a quarter of its opacity and the text at the rest.
     assertEquals(0.75f, test.span.textAlpha, 0.001f)
   }
@@ -359,8 +359,8 @@ class SpoilerCustomOverlayTest {
     test.advanceBy(250)
     test.draw()
 
-    val line = probe.created.single()
-    assertEquals(0.25f, line.revealProgress.single(), 0.001f)
+    val slice = probe.created.single()
+    assertEquals(0.25f, slice.revealProgress.single(), 0.001f)
     assertEquals(1f - 0.75f * 0.75f, test.span.textAlpha, 0.001f)
 
     test.advanceBy(450)
@@ -383,15 +383,15 @@ class SpoilerCustomOverlayTest {
     test.drawer.revealSpan(test.span) { completed = true }
     test.draw()
 
-    val line = probe.created.single()
+    val slice = probe.created.single()
     assertTrue(completed)
     assertTrue(test.span.revealed)
-    assertEquals(1, line.removals)
-    assertTrue("No reveal frame is drawn", line.revealProgress.isEmpty())
+    assertEquals(1, slice.removals)
+    assertTrue("No reveal frame is drawn", slice.revealProgress.isEmpty())
   }
 
   @Test
-  fun aFinishedRevealRemovesTheLineAndRevealsTheSpan() {
+  fun aFinishedRevealRemovesTheSliceAndRevealsTheSpan() {
     val probe = Probe()
     val test = harness(document(paragraph(spoiler(text("secret")))), ProbeOverlay("a", probe))
     test.draw()
@@ -403,14 +403,14 @@ class SpoilerCustomOverlayTest {
     test.advanceBy(1_000)
     test.draw()
 
-    val line = probe.created.single()
+    val slice = probe.created.single()
     assertTrue(completed)
     assertTrue(test.span.revealed)
     assertFalse(test.span.revealing)
-    assertEquals(1, line.removals)
-    assertEquals("The line is removed before a frame past the end", 1, line.revealProgress.size)
+    assertEquals(1, slice.removals)
+    assertEquals("The slice is removed before a frame past the end", 1, slice.revealProgress.size)
     test.draw()
-    assertEquals("A revealed spoiler gets no new lines", 1, probe.created.size)
+    assertEquals("A revealed spoiler gets no new slices", 1, probe.created.size)
   }
 
   @Test
@@ -429,7 +429,7 @@ class SpoilerCustomOverlayTest {
   }
 
   @Test
-  fun aLineThatAppearsMidRevealIsNotCreated() {
+  fun aSliceThatAppearsMidRevealIsNotCreated() {
     val probe = Probe()
     val prefix = List(30) { "plain" }.joinToString(" ", postfix = " ")
     val test = harness(document(paragraph(text(prefix), spoiler(text(LONG_SPOILER)))), ProbeOverlay("a", probe))
@@ -445,7 +445,7 @@ class SpoilerCustomOverlayTest {
     test.draw()
 
     assertEquals(before, probe.created.size)
-    assertTrue("Losing its lines finishes the reveal", test.span.revealed)
+    assertTrue("Losing its slices finishes the reveal", test.span.revealed)
   }
 
   // MARK: Drawing the text through
@@ -460,7 +460,7 @@ class SpoilerCustomOverlayTest {
       )
     test.textView.paint.color = Color.BLACK
     val throughOverlay = test.draw()
-    val line = requireNotNull(probe.created.single().line)
+    val slice = requireNotNull(probe.created.single().slice)
 
     test.span.markRevealed()
     val revealed = Bitmap.createBitmap(test.textView.width, test.textView.height, Bitmap.Config.ARGB_8888)
@@ -470,19 +470,19 @@ class SpoilerCustomOverlayTest {
     }
 
     val layout = requireNotNull(test.textView.layout)
-    val left = test.textView.totalPaddingLeft + layout.getPrimaryHorizontal(line.start)
-    val top = test.textView.totalPaddingTop + layout.getLineBaseline(0) - line.baseline
-    // Inside the line, pixel for pixel; the edges are left out, where the clip antialiases.
+    val left = test.textView.totalPaddingLeft + layout.getPrimaryHorizontal(slice.start)
+    val top = test.textView.totalPaddingTop + layout.getLineBaseline(0) - slice.baseline
+    // Inside the slice, pixel for pixel; the edges are left out, where the clip antialiases.
     var inked = 0
-    for (x in ceil(left).toInt() + 1 until floor(left + line.width).toInt() - 1) {
-      for (y in ceil(top).toInt() + 1 until floor(top + line.height).toInt() - 1) {
+    for (x in ceil(left).toInt() + 1 until floor(left + slice.width).toInt() - 1) {
+      for (y in ceil(top).toInt() + 1 until floor(top + slice.height).toInt() - 1) {
         assertEquals("Pixel ($x, $y)", revealed.getPixel(x, y), throughOverlay.getPixel(x, y))
         if (Color.alpha(revealed.getPixel(x, y)) > 0) inked++
       }
     }
-    assertTrue("The line should hold glyphs", inked > 0)
+    assertTrue("The slice should hold glyphs", inked > 0)
 
-    // Outside the line, the neighbouring text is clipped away.
+    // Outside the slice, the neighbouring text is clipped away.
     for (x in 0 until floor(left).toInt()) {
       for (y in 0 until throughOverlay.height) {
         assertEquals(0, Color.alpha(throughOverlay.getPixel(x, y)))
@@ -506,24 +506,24 @@ class SpoilerCustomOverlayTest {
   @Test
   fun theReadmePixelatedSpoilerDrawsTheTextAsHardEdgedBlocks() {
     val document = document(paragraph(text("plain "), spoiler(text("secret words")), text(" more")))
-    // The same text through a probe, for the line's geometry.
+    // The same text through a probe, for the slice's geometry.
     val probe = Probe()
     val probed = harness(document, ProbeOverlay("a", probe))
     probed.draw()
-    val line = requireNotNull(probe.created.single().line)
+    val slice = requireNotNull(probe.created.single().slice)
     val layout = requireNotNull(probed.textView.layout)
-    val left = probed.textView.totalPaddingLeft + layout.getPrimaryHorizontal(line.start)
-    val top = probed.textView.totalPaddingTop + layout.getLineBaseline(0) - line.baseline
+    val left = probed.textView.totalPaddingLeft + layout.getPrimaryHorizontal(slice.start)
+    val top = probed.textView.totalPaddingTop + layout.getLineBaseline(0) - slice.baseline
 
     val test = harness(document, PixelatedSpoiler())
     test.textView.paint.color = Color.BLACK
     val bitmap = test.draw()
 
     val blockSize = 6f * test.textView.resources.displayMetrics.density
-    val columns = (line.width / blockSize).toInt()
-    val rows = (line.height / blockSize).toInt()
-    val blockWidth = line.width / columns
-    val blockHeight = line.height / rows
+    val columns = (slice.width / blockSize).toInt()
+    val rows = (slice.height / blockSize).toInt()
+    val blockWidth = slice.width / columns
+    val blockHeight = slice.height / rows
     var inked = 0
     for (column in 0 until columns) {
       for (row in 0 until rows) {

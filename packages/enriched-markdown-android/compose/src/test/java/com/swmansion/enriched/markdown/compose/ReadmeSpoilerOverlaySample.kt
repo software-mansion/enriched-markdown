@@ -11,8 +11,8 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.swmansion.enriched.markdown.spoiler.CustomSpoilerOverlay
-import com.swmansion.enriched.markdown.spoiler.SpoilerLine
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayHost
+import com.swmansion.enriched.markdown.spoiler.SpoilerSlice
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 
 // The Compose custom overlay example from the README, kept here so it keeps compiling. Keep it in
@@ -21,17 +21,17 @@ import com.swmansion.enriched.markdown.styles.SpoilerStyle
 data class ShimmerSpoiler(
   val periodMillis: Long = 1_500,
 ) : CustomSpoilerOverlay {
-  override fun createLineOverlay(
+  override fun createSliceOverlay(
     host: SpoilerOverlayHost,
     style: SpoilerStyle,
-  ) = ShimmerLine(host, Color(style.color), periodMillis)
+  ) = ShimmerSlice(host, Color(style.color), periodMillis)
 }
 
-class ShimmerLine(
+class ShimmerSlice(
   host: SpoilerOverlayHost,
   private val color: Color,
   private val periodMillis: Long,
-) : DrawScopeSpoilerLineOverlay(host) {
+) : DrawScopeSpoilerSliceOverlay(host) {
   // A band of light, made once and moved with translate(): a new Brush each frame is a new shader.
   private val band = 32 * host.density
   private val shine =
@@ -43,10 +43,10 @@ class ShimmerLine(
 
   override val isAnimated get() = true
 
-  override fun DrawScope.draw(line: SpoilerLine) {
+  override fun DrawScope.draw(slice: SpoilerSlice) {
     drawRoundRect(color, cornerRadius = CornerRadius(4.dp.toPx()))
     // The band sweeps across in reading order, once per period.
-    val phase = (line.frameTimeMillis % periodMillis) / periodMillis.toFloat()
+    val phase = (slice.frameTimeMillis % periodMillis) / periodMillis.toFloat()
     val travelled = -band + (size.width + 2 * band) * phase
     val center = if (layoutDirection == LayoutDirection.Ltr) travelled else size.width - travelled
     translate(left = center) {
@@ -56,11 +56,11 @@ class ShimmerLine(
 
   // Wipes the box away in reading order, instead of the default fade.
   override fun DrawScope.drawReveal(
-    line: SpoilerLine,
+    slice: SpoilerSlice,
     progress: Float,
   ) {
     val covered = size.width * (1f - progress)
     val left = if (layoutDirection == LayoutDirection.Ltr) size.width - covered else 0f
-    clipRect(left = left, right = left + covered) { draw(line) }
+    clipRect(left = left, right = left + covered) { draw(slice) }
   }
 }

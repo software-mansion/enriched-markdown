@@ -14,13 +14,13 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.swmansion.enriched.markdown.compose.DrawScopeSpoilerLineOverlay
+import com.swmansion.enriched.markdown.compose.DrawScopeSpoilerSliceOverlay
 import com.swmansion.enriched.markdown.compose.invoke
 import com.swmansion.enriched.markdown.spoiler.CustomSpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayHost
-import com.swmansion.enriched.markdown.spoiler.SpoilerLine
-import com.swmansion.enriched.markdown.spoiler.SpoilerLineOverlay
+import com.swmansion.enriched.markdown.spoiler.SpoilerSlice
+import com.swmansion.enriched.markdown.spoiler.SpoilerSliceOverlay
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 
 /**
@@ -64,17 +64,17 @@ fun spoilerSampleMarkdown(inlineImageUri: String): String =
 data class ShimmerSpoiler(
   val periodMillis: Long = 1_500,
 ) : CustomSpoilerOverlay {
-  override fun createLineOverlay(
+  override fun createSliceOverlay(
     host: SpoilerOverlayHost,
     style: SpoilerStyle,
-  ) = ShimmerLine(host, Color(style.color), periodMillis)
+  ) = ShimmerSlice(host, Color(style.color), periodMillis)
 }
 
-class ShimmerLine(
+class ShimmerSlice(
   host: SpoilerOverlayHost,
   private val color: Color,
   private val periodMillis: Long,
-) : DrawScopeSpoilerLineOverlay(host) {
+) : DrawScopeSpoilerSliceOverlay(host) {
   // A band of light, made once and moved with translate(): a new Brush each frame is a new shader.
   private val band = 32 * host.density
   private val shine =
@@ -86,10 +86,10 @@ class ShimmerLine(
 
   override val isAnimated get() = true
 
-  override fun DrawScope.draw(line: SpoilerLine) {
+  override fun DrawScope.draw(slice: SpoilerSlice) {
     drawRoundRect(color, cornerRadius = CornerRadius(4.dp.toPx()))
     // The band sweeps across in reading order, once per period.
-    val phase = (line.frameTimeMillis % periodMillis) / periodMillis.toFloat()
+    val phase = (slice.frameTimeMillis % periodMillis) / periodMillis.toFloat()
     val travelled = -band + (size.width + 2 * band) * phase
     val center = if (layoutDirection == LayoutDirection.Ltr) travelled else size.width - travelled
     translate(left = center) {
@@ -99,12 +99,12 @@ class ShimmerLine(
 
   // Wipes the box away in reading order, instead of the default fade.
   override fun DrawScope.drawReveal(
-    line: SpoilerLine,
+    slice: SpoilerSlice,
     progress: Float,
   ) {
     val covered = size.width * (1f - progress)
     val left = if (layoutDirection == LayoutDirection.Ltr) size.width - covered else 0f
-    clipRect(left = left, right = left + covered) { draw(line) }
+    clipRect(left = left, right = left + covered) { draw(slice) }
   }
 }
 
@@ -117,15 +117,15 @@ class ShimmerLine(
 data class PixelatedSpoiler(
   val blockSize: Float = 6f,
 ) : CustomSpoilerOverlay {
-  override fun createLineOverlay(
+  override fun createSliceOverlay(
     host: SpoilerOverlayHost,
     style: SpoilerStyle,
-  ) = PixelatedLine(blockSize * host.density)
+  ) = PixelatedSlice(blockSize * host.density)
 }
 
-class PixelatedLine(
+class PixelatedSlice(
   private val blockSize: Float,
-) : SpoilerLineOverlay() {
+) : SpoilerSliceOverlay() {
   // Paint filters bitmaps by default since Android 10; turn it off so the blocks keep hard edges.
   private val paint = Paint().apply { isFilterBitmap = false }
   private val bounds = RectF()
@@ -133,21 +133,21 @@ class PixelatedLine(
 
   override fun draw(
     canvas: Canvas,
-    line: SpoilerLine,
+    slice: SpoilerSlice,
   ) {
-    val columns = (line.width / blockSize).toInt().coerceAtLeast(1)
-    val rows = (line.height / blockSize).toInt().coerceAtLeast(1)
+    val columns = (slice.width / blockSize).toInt().coerceAtLeast(1)
+    val rows = (slice.height / blockSize).toInt().coerceAtLeast(1)
     val image =
       pixels?.takeIf { it.width == columns && it.height == rows }
         ?: Bitmap.createBitmap(columns, rows, Bitmap.Config.ARGB_8888).also { bitmap ->
           // The text, shrunk to one pixel per block.
           Canvas(bitmap).apply {
-            scale(columns / line.width, rows / line.height)
-            line.drawText(this)
+            scale(columns / slice.width, rows / slice.height)
+            slice.drawText(this)
           }
           pixels = bitmap
         }
-    bounds.set(0f, 0f, line.width, line.height)
+    bounds.set(0f, 0f, slice.width, slice.height)
     canvas.drawBitmap(image, null, bounds, paint)
   }
 

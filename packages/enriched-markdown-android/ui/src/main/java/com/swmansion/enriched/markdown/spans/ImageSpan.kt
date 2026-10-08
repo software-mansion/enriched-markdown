@@ -111,7 +111,7 @@ class ImageSpan(
   private fun requestReflow() {
     val view = viewRef?.get() ?: return
     val text = view.text
-    // An image that loads at the size it held keeps the spoiler's lines in place, so they have to
+    // An image that loads at the size it held keeps the spoiler's slices in place, so they have to
     // be told their content changed.
     if (text is Spanned) {
       val start = text.getSpanStart(this)
