@@ -5,6 +5,12 @@ inputs:
   gradle-wrapper-properties:
     description: Path to gradle-wrapper.properties used for the Gradle cache key
     required: true
+  cache:
+    description: >-
+      How to use the Gradle cache: read-write, restore (restore it but never
+      save it), or none
+    required: false
+    default: read-write
 
 runs:
   using: composite
@@ -26,8 +32,27 @@ runs:
       run: /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
       shell: bash
 
+    - name: Check the cache mode
+      if: ${{ !contains(fromJSON('["read-write", "restore", "none"]'), inputs.cache) }}
+      run: |
+        echo "::error::Unknown cache mode '${{ inputs.cache }}'; expected read-write, restore or none"
+        exit 1
+      shell: bash
+
     - name: Cache Gradle
+      if: inputs.cache == 'read-write'
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.gradle/wrapper
+          ~/.gradle/caches
+        key: ${{ runner.os }}-gradle-${{ hashFiles(inputs.gradle-wrapper-properties) }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Restore Gradle
+      if: inputs.cache == 'restore'
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
           ~/.gradle/wrapper

@@ -18,16 +18,30 @@ final class WritingDirectionTests: XCTestCase {
         XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "مرحبا بالعالم"), .rightToLeft)
         XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "שלום עולם"), .rightToLeft)
         XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "سلام دنیا"), .rightToLeft)
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{1E900}\u{1E901}"), .rightToLeft, "Adlam")
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{10C80}\u{10C81}"), .rightToLeft, "Old Hungarian")
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{10900}\u{10901}"), .rightToLeft, "Phoenician")
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{1EE00}\u{1EE01}"), .rightToLeft, "Arabic mathematical alphabet")
     }
 
     func testFirstStrongDetectsLeftToRightScripts() {
         XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "Hello"), .leftToRight)
         XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "こんにちは"), .leftToRight)
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{10400}\u{10401}"), .leftToRight, "Deseret")
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{11005}\u{11006}"), .leftToRight, "Brahmi")
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{1E7E0}\u{1E7E1}"), .leftToRight, "Ethiopic Extended-B")
     }
 
     func testFirstStrongSkipsLeadingNeutralCharacters() {
         XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "123 مرحبا"), .rightToLeft)
         XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "(\"Hello\") مرحبا"), .leftToRight)
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "😀 سلام"), .rightToLeft)
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{2764}\u{FE0F} مرحبا"), .rightToLeft, "emoji variation selector")
+    }
+
+    func testFirstStrongHonorsDirectionalMarks() {
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{200F}123"), .rightToLeft)
+        XCTAssertEqual(WritingDirectionResolver.firstStrongDirection(of: "\u{200E}مرحبا"), .leftToRight)
     }
 
     func testFirstStrongIsNaturalWithoutLetters() {
@@ -39,11 +53,13 @@ final class WritingDirectionTests: XCTestCase {
 
     func testParagraphsResolveFromTheirOwnContent() {
         // Emoji: non-letters, two UTF-16 units each.
-        let rendered = render("😀 Hello\n\n🙂🙂 مرحبا\n\nשלום")
+        let rendered = render("😀 Hello\n\n🙂🙂 مرحبا\n\nשלום\n\n\u{200F}123\n\n\u{1E900}\u{1E901}")
 
         XCTAssertEqual(direction(of: "Hello", in: rendered), .leftToRight)
         XCTAssertEqual(direction(of: "مرحبا", in: rendered), .rightToLeft)
         XCTAssertEqual(direction(of: "שלום", in: rendered), .rightToLeft)
+        XCTAssertEqual(direction(of: "\u{200F}123", in: rendered), .rightToLeft)
+        XCTAssertEqual(direction(of: "\u{1E900}", in: rendered), .rightToLeft)
     }
 
     func testNeutralParagraphFollowsLayoutDirection() {
@@ -80,12 +96,32 @@ final class WritingDirectionTests: XCTestCase {
         XCTAssertEqual(direction(of: "World", in: rendered), .leftToRight)
     }
 
+    func testRightToLeftItemKeepsItsMarkerColumnOnTheTrailingSide() throws {
+        let textView = laidOutTextView(showing: render("- مرحبا بالعالم"), width: 320, config: config)
+        let textLayoutManager = try XCTUnwrap(textView.textLayoutManager)
+        let contentManager = try XCTUnwrap(textLayoutManager.textContentManager)
+        let string = textView.textStorage.string as NSString
+        let paragraphRange = string.paragraphRange(for: string.range(of: "مرحبا"))
+        let style = textView.textStorage.attribute(.paragraphStyle, at: paragraphRange.location, effectiveRange: nil)
+        let headIndent = try XCTUnwrap(style as? NSParagraphStyle).headIndent
+        let textRange = try XCTUnwrap(TextLayoutHelpers.textRange(paragraphRange, in: contentManager))
+        var glyphs = CGRect.null
+        textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { _, frame, _, _ in
+            glyphs = glyphs.union(frame)
+            return true
+        }
+
+        XCTAssertGreaterThan(headIndent, 0)
+        XCTAssertEqual(glyphs.maxX, textView.textContainer.size.width - headIndent, accuracy: 1)
+    }
+
     /// Nested titles are skipped; text after the quote is not consulted.
     func testAdmonitionTitleFollowsItsBody() {
         XCTAssertEqual(titleDirection("> [!NOTE]\n> مرحبا"), .rightToLeft)
         XCTAssertEqual(titleDirection("> [!NOTE]\n> Hello"), .leftToRight)
         XCTAssertEqual(titleDirection("> [!NOTE]\n> 123\n>\n> مرحبا"), .rightToLeft)
         XCTAssertEqual(titleDirection("> [!NOTE]\n> > [!TIP]\n> > مرحبا"), .rightToLeft)
+        XCTAssertEqual(titleDirection("> [!NOTE]\n> \u{200F}123"), .rightToLeft)
         XCTAssertEqual(titleDirection("> [!NOTE]\n\nمرحبا"), .leftToRight)
     }
 

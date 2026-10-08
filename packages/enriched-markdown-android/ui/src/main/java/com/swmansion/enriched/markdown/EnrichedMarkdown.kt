@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown
 
 import android.content.Context
@@ -7,8 +9,14 @@ import android.os.Looper
 import android.util.Log
 import android.view.View
 import androidx.annotation.VisibleForTesting
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
+import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginEvent
+import com.swmansion.enriched.markdown.plugin.PluginEventSink
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.segments.ContainerNodeView
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
@@ -70,6 +78,18 @@ class EnrichedMarkdown(
   private var onLinkPressCallback: ((String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((TaskListItemToggle) -> Unit)? = null
+  private var onPluginEventCallback: ((PluginEvent) -> Unit)? = null
+
+  /** Events already reported, kept while the markdown only grows (streaming) and bounded in size. */
+  private val reportedPluginEvents =
+    object : LinkedHashMap<PluginEvent, Unit>() {
+      override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PluginEvent, Unit>?): Boolean = size > MAX_REPORTED_PLUGIN_EVENTS
+    }
+
+  /** Bumped with every clear of [reportedPluginEvents], so events from a superseded render are dropped. */
+  private var pluginEventGeneration = 0
+
+  private val pluginEventSink = PluginEventSink { event -> onMainThread { deliverPluginEvent(event) } }
 
   private var pendingSegments: List<RenderedSegment>? = null
   private var needsSegmentReset = false
@@ -80,6 +100,8 @@ class EnrichedMarkdown(
 
   fun setMarkdownContent(markdown: String) {
     if (baseMarkdown == markdown) return
+    // Streaming appends; anything else is a new document.
+    if (!markdown.startsWith(baseMarkdown)) forgetReportedPluginEvents()
     baseMarkdown = markdown
     // A checkbox tap mutates the child's spannable in place, leaving the segment
     // signature on the pre-tap AST. Dropping those toggles here can therefore land
@@ -147,6 +169,46 @@ class EnrichedMarkdown(
   }
 
   /**
+   * Called when a plugin reports an event for this view, e.g. a LaTeX expression that failed to
+   * render and fell back to its raw source. Fires once per distinct event until the markdown is
+   * replaced (rather than appended to) or the view is recycled via [prepareForViewReuse].
+   */
+  fun setOnPluginEventCallback(callback: ((PluginEvent) -> Unit)?) {
+    onPluginEventCallback = callback
+  }
+
+  /** The sink for one render's events, which the render thread may post after the document it rendered is gone. */
+  @VisibleForTesting
+  internal fun renderPluginEventSink(): PluginEventSink {
+    val generation = pluginEventGeneration
+    return PluginEventSink { event ->
+      onMainThread { if (generation == pluginEventGeneration) deliverPluginEvent(event) }
+    }
+  }
+
+  // Plugins emit from the render thread (renderPayload, node renderers) and from the main
+  // thread (their views), so everything is funnelled onto the main thread: the dedup set and
+  // the callback then live on one thread and need no locking of their own.
+  private fun onMainThread(block: () -> Unit) {
+    if (Looper.myLooper() === mainHandler.looper) {
+      block()
+    } else {
+      mainHandler.post(block)
+    }
+  }
+
+  private fun deliverPluginEvent(event: PluginEvent) {
+    if (reportedPluginEvents.put(event, Unit) == null) {
+      onPluginEventCallback?.invoke(event)
+    }
+  }
+
+  private fun forgetReportedPluginEvents() {
+    reportedPluginEvents.clear()
+    pluginEventGeneration++
+  }
+
+  /**
    * Controls whether tapping a task-list checkbox toggles its checked state.
    * When `false` the tap is fully inert: no visual toggle and no
    * `onTaskListItemPress`. Defaults to `true`. Text selection and links are
@@ -185,6 +247,8 @@ class EnrichedMarkdown(
 
   fun setOnTaskListItemPressListener(listener: ((TaskListItemToggle) -> Unit)?) = setOnTaskListItemPressCallback(listener)
 
+  fun setOnPluginEventListener(listener: ((PluginEvent) -> Unit)?) = setOnPluginEventCallback(listener)
+
   fun setSelectionColor(color: Int?) {
     if (selectionColor == color) return
     selectionColor = color
@@ -222,10 +286,12 @@ class EnrichedMarkdown(
     setOnLinkPressCallback(null)
     setOnLinkLongPressCallback(null)
     setOnTaskListItemPressCallback(null)
+    setOnPluginEventCallback(null)
     setEnableTaskListItemToggle(true)
     setSpoilerOverlay(SpoilerOverlay.Particles())
     setMarkdownContent("")
     taskListToggles.clear()
+    forgetReportedPluginEvents()
     pendingSegments = null
     applySegments(emptyList(), reset = true)
   }
@@ -248,6 +314,10 @@ class EnrichedMarkdown(
   private fun scheduleRender() {
     val style = markdownStyle
     val markdown = currentMarkdown
+    val plugins = EnrichedMarkdownPlugins.snapshot
+    val onPluginEvent = renderPluginEventSink()
+
+    warnIfMathPluginMissing(plugins)
 
     val renderId = ++currentRenderId
     // Segments rendered while detached are superseded by this render.
@@ -274,13 +344,15 @@ class EnrichedMarkdown(
 
         if (renderId != currentRenderId) return@submit
 
-        val segments = splitASTIntoSegments(ast)
+        val segments = splitASTIntoSegments(ast, plugins)
         val renderedSegments =
           MarkdownSegmentRenderer.render(
             segments,
             style,
             context,
             imageRequestHeaders,
+            onPluginEvent = onPluginEvent,
+            plugins = plugins,
           )
 
         if (renderId != currentRenderId) return@submit
@@ -407,7 +479,25 @@ class EnrichedMarkdown(
       onTaskListItemTap = ::toggleTaskListItem,
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,
+      onPluginEvent = pluginEventSink,
     )
+
+  /**
+   * Parsing latex without a plugin to render it is a dependency the app forgot, not a content
+   * error, so it is reported once per process rather than per view or per render.
+   */
+  private fun warnIfMathPluginMissing(plugins: PluginSnapshot) {
+    if (!md4cFlags.latexMath || missingMathPluginWarned) return
+    if (MATH_NODE_TYPES.any { it in plugins.nodeRenderers || it in plugins.blockSegments }) return
+
+    missingMathPluginWarned = true
+    Log.w(
+      TAG,
+      "Md4cFlags(latexMath = true) but no plugin renders math, so equations show as their raw " +
+        "source. Add the com.swmansion.enriched.markdown:math artifact and call " +
+        "EnrichedMarkdownPlugins.install(LatexMathPlugin) at startup.",
+    )
+  }
 
   private inner class RootFactory : SegmentViewFactory {
     override fun matchesKind(
@@ -417,12 +507,14 @@ class EnrichedMarkdown(
       when (segment) {
         is RenderedSegment.Text -> view is EnrichedMarkdownInternalText
         is RenderedSegment.Table -> view is TableContainerView
+        is RenderedSegment.Custom<*> -> segment.matchesView(view)
       }
 
     override fun createView(segment: RenderedSegment): View =
       when (segment) {
         is RenderedSegment.Text -> SegmentViewCreators.createTextView(segment, segmentViewConfig())
         is RenderedSegment.Table -> SegmentViewCreators.createTableView(segment, segmentViewConfig())
+        is RenderedSegment.Custom<*> -> segment.createView(segmentViewConfig())
       }
 
     override fun updateView(
@@ -431,12 +523,20 @@ class EnrichedMarkdown(
     ) {
       when (segment) {
         is RenderedSegment.Text -> SegmentViewCreators.updateTextView(view as EnrichedMarkdownInternalText, segment)
-        is RenderedSegment.Table -> SegmentViewCreators.updateTableView(view as TableContainerView, segment)
+        is RenderedSegment.Table -> SegmentViewCreators.updateTableView(view as TableContainerView, segment, segmentViewConfig())
+        is RenderedSegment.Custom<*> -> segment.updateView(view, segmentViewConfig())
       }
     }
   }
 
   companion object {
     private const val TAG = "EnrichedMarkdown"
+    private const val MAX_REPORTED_PLUGIN_EVENTS = 256
+
+    private val MATH_NODE_TYPES =
+      listOf(MarkdownASTNode.NodeType.LatexMathInline, MarkdownASTNode.NodeType.LatexMathDisplay)
+
+    @Volatile
+    private var missingMathPluginWarned = false
   }
 }

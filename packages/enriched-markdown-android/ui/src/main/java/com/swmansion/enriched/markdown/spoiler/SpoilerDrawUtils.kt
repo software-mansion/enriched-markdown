@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.text.Layout
 import android.text.Spanned
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 
@@ -60,8 +61,12 @@ internal fun colorWithAlpha(
 /**
  * How much of `[start, end)` shows through the spoilers over it: 0 while concealed, 1 once revealed
  * or when no spoiler covers it. Lets decorations drawn outside the text paint fade with the text.
+ *
+ * Replacement spans need it too: the platform hands their `draw` a paint without any
+ * `CharacterStyle` applied, so the spoiler's transparent paint never reaches them.
  */
-internal fun Spanned.spoilerTextAlpha(
+@InternalPluginApi
+fun Spanned.spoilerTextAlpha(
   start: Int,
   end: Int,
 ): Float {

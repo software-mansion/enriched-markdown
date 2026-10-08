@@ -207,6 +207,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               subscript = true,
               highlight = true,
               admonitions = true,
+              latexMath = true,
             ),
           spoilerOverlay = spoilerOverlay.overlay,
           onLinkClick = { url ->

@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.utils.text.conversion
 
 import android.text.Spannable
@@ -5,6 +7,8 @@ import android.text.style.StrikethroughSpan
 import android.text.style.UnderlineSpan
 import android.widget.TextView
 import com.swmansion.enriched.markdown.EnrichedMarkdown
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BaselineShiftSpan
@@ -68,7 +72,9 @@ object MarkdownExtractor {
     var i = start
     while (i < end) {
       val nextTransition = spannable.nextSpanTransition(i, end, Any::class.java)
-      val segmentText = spannable.subSequence(i, nextTransition).toString()
+      val segmentText =
+        pluginMarkdownSource(spannable, i, nextTransition)
+          ?: spannable.subSequence(i, nextTransition).toString()
 
       val handled =
         processSegment(
@@ -90,6 +96,15 @@ object MarkdownExtractor {
 
     headingAccumulator.flush(result, state)
     return result.toString()
+  }
+
+  private fun pluginMarkdownSource(
+    spannable: Spannable,
+    start: Int,
+    end: Int,
+  ): String? {
+    if (end - start != 1 || spannable[start] != '\uFFFC') return null
+    return spannable.getSpans(start, end, PluginInlineSpan::class.java).firstOrNull()?.toMarkdownSource()
   }
 
   private fun processSegment(

@@ -1,4 +1,5 @@
 #import "ContextMenuUtils.h"
+#import "ENRMLinkPillText.h"
 #import "ENRMMenuAction.h"
 
 #if !TARGET_OS_OSX
@@ -14,7 +15,8 @@ NSMutableArray<UIAction *> *_Nullable ENRMBuildContextMenuActions(NSArray<NSStri
     return nil;
   }
 
-  NSString *selectedText = [textView.text substringWithRange:selectedRange];
+  NSString *selectedText =
+      ENRMStringByExpandingLinkPills([textView.textStorage attributedSubstringFromRange:selectedRange]);
   NSUInteger selectionStart = selectedRange.location;
   NSUInteger selectionEnd = NSMaxRange(selectedRange);
 

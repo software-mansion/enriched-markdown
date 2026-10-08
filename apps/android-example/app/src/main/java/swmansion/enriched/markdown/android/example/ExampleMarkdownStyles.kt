@@ -1,5 +1,6 @@
 package swmansion.enriched.markdown.android.example
 
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -9,6 +10,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.MarkdownStyle
 import com.swmansion.enriched.markdown.compose.markdownStyle
+// `math` and `inlineMath` are extension functions shipped by the :math artifact, not members of
+// the style builder, so they have to be imported before they can be used below.
+import com.swmansion.enriched.markdown.math.compose.inlineMath
+import com.swmansion.enriched.markdown.math.compose.math
 
 private val MontserratRegular = FontFamily(Font(R.font.montserrat_regular))
 private val MontserratBold = FontFamily(Font(R.font.montserrat_bold))
@@ -153,6 +158,17 @@ val CustomMarkdownStyle: MarkdownStyle =
       marginTop = 24.dp
       marginBottom = 24.dp
     }
+    math {
+      fontSize = 22.sp
+      color = Color(0xFF1F2937)
+      backgroundColor = Color(0xFFF5F3FF)
+      padding = 12.dp
+      marginBottom = 16.dp
+      alignment = Alignment.CenterHorizontally
+    }
+    inlineMath {
+      color = Color(0xFF7C3AED)
+    }
     table {
       fontFamily = MontserratRegular
       fontSize = 14.sp
@@ -197,5 +213,12 @@ val PlaygroundMarkdownStyle: MarkdownStyle =
       borderColor = Color(0xFFD1D5DB)
       borderWidth = 3.dp
       gapWidth = 12.dp
+    }
+    math {
+      alignment = Alignment.Start
+      backgroundColor = Color(0xFFF9FAFB)
+    }
+    inlineMath {
+      color = Color(0xFF7C3AED)
     }
   }

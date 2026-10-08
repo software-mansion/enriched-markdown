@@ -50,6 +50,7 @@ class BlockquoteRenderer(
     var contentStart = start
     if (padding > 0) {
       builder.insert(start, "\n")
+      factory.shiftDeferredSpans(start, 1)
       builder.setSpan(
         BlockquotePaddingSpacerSpan(padding),
         start,

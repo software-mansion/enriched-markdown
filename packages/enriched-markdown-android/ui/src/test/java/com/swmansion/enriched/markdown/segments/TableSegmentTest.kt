@@ -3,13 +3,18 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.emphasis
+import com.swmansion.enriched.markdown.test.TestAstFactory.latexMathDisplay
+import com.swmansion.enriched.markdown.test.TestAstFactory.latexMathInline
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
+import com.swmansion.enriched.markdown.test.TestAstFactory.softBreak
 import com.swmansion.enriched.markdown.test.TestAstFactory.table
 import com.swmansion.enriched.markdown.test.TestAstFactory.tableBody
 import com.swmansion.enriched.markdown.test.TestAstFactory.tableCell
@@ -232,5 +237,37 @@ class TableSegmentTest {
     val markdown = MarkdownASTSerializer.serializeTable(node)
 
     assertTrue(markdown.contains("*italic*"))
+  }
+
+  @Test
+  fun serializeTableKeepsLatexDelimiters() {
+    val node =
+      table(
+        head = tableHead(tableRow(tableHeaderCell("default", text("Formula")))),
+        body =
+          tableBody(
+            tableRow(tableCell("default", text("a "), latexMathInline("x^2"), text(" b"))),
+            tableRow(tableCell("default", latexMathDisplay("\\frac{1}{2}"))),
+          ),
+      )
+
+    val markdown = MarkdownASTSerializer.serializeTable(node)
+
+    assertTrue(markdown.contains("| a \$x^2\$ b |"))
+    assertTrue(markdown.contains("| \$\$\\frac{1}{2}\$\$ |"))
+  }
+
+  @Test
+  fun serializeTableKeepsLatexSplitAcrossTextChildren() {
+    val latex = MarkdownASTNode(NodeType.LatexMathInline, children = listOf(text("a +"), softBreak(), text("b")))
+    val node =
+      table(
+        head = tableHead(tableRow(tableHeaderCell("default", text("Formula")))),
+        body = tableBody(tableRow(tableCell("default", latex))),
+      )
+
+    val markdown = MarkdownASTSerializer.serializeTable(node)
+
+    assertTrue(markdown.contains("| \$a + b\$ |"))
   }
 }
