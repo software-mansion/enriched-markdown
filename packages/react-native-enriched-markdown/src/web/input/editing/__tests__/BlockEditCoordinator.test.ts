@@ -22,13 +22,25 @@ describe('BlockEditCoordinator', () => {
     ]);
     const coordinator = new BlockEditCoordinator(store);
 
-    coordinator.changeListDepthBy(1, caret(8), text);
-    coordinator.changeListDepthBy(1, caret(8), text);
+    expect(coordinator.changeListDepthBy(1, caret(8), text)).toBe(true);
+    // The ancestry clamp holds it at 1, so the second press changes nothing.
+    expect(coordinator.changeListDepthBy(1, caret(8), text)).toBe(false);
 
     expect(depths(store)).toEqual([
       ['unordered-list-item', 0],
       ['unordered-list-item', 1],
     ]);
+  });
+
+  // The first item has nothing to nest under, so this never leaves depth 0.
+  it('reports no change when indenting the first item of a list', () => {
+    const store = new BlockStore();
+    store.setRanges([block('unordered-list-item', 0, 5)]);
+    const coordinator = new BlockEditCoordinator(store);
+
+    expect(coordinator.changeListDepthBy(1, caret(2), text)).toBe(false);
+
+    expect(depths(store)).toEqual([['unordered-list-item', 0]]);
   });
 
   it('outdents at depth 0 out of the list, and indent starts a list only on a paragraph', () => {
@@ -106,7 +118,9 @@ describe('BlockEditCoordinator', () => {
     );
     const coordinator = new BlockEditCoordinator(store);
 
-    coordinator.changeListDepthBy(1, caret((count - 1) * 5 + 2), ladder);
+    expect(
+      coordinator.changeListDepthBy(1, caret((count - 1) * 5 + 2), ladder)
+    ).toBe(false);
 
     expect(store.allRanges.map((b) => b.level)).toEqual(
       Array.from({ length: count }, (_, i) => i)
