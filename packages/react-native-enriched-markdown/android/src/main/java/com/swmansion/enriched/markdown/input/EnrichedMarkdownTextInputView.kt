@@ -657,6 +657,7 @@ class EnrichedMarkdownTextInputView(
             val isEmptyListLine = onlyZwsp && blockCoordinator.listBlockAtLineStart(ls) != null
             if (!isEmptyListLine) {
               runAsATransaction { editable.delete(i, i + 1) }
+              formattingStore.adjustForEdit(i, 1, 0)
               blockStore.adjustForEdit(i, 1, 0)
               anchorChanged = true
             } else {
@@ -675,6 +676,7 @@ class EnrichedMarkdownTextInputView(
         val block = blockCoordinator.listBlockAtLineStart(ls)
         if (block != null && le == ls) {
           runAsATransaction { editable.insert(ls, ZWSP.toString()) }
+          formattingStore.adjustForEdit(ls, 0, 1)
           blockStore.adjustForEdit(ls, 0, 1)
           blockStore.normalizeToLineBounds(editable)
           setSelection(ls + 1)
