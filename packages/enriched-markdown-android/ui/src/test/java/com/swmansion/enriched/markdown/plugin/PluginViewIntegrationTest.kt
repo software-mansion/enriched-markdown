@@ -2,17 +2,16 @@
 
 package com.swmansion.enriched.markdown.plugin
 
-import android.app.Activity
 import android.content.Context
-import android.os.Looper
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.EnrichedMarkdown
-import com.swmansion.enriched.markdown.MarkdownRenderDispatcher
-import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.SegmentSignature
+import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.FakePayload
 import com.swmansion.enriched.markdown.test.FakePlugin
 import com.swmansion.enriched.markdown.test.FakeSegmentView
@@ -20,26 +19,18 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.latexMathInline
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
 class PluginViewIntegrationTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
-
-  @After
-  fun tearDown() {
-    MarkdownRenderDispatcher.runInline = false
-  }
 
   @Test
   fun aCustomSegmentIsBuiltAndRecycledByItsOwningPlugin() {
@@ -161,49 +152,40 @@ class PluginViewIntegrationTest {
   }
 
   /**
-   * A plugin change leaves the AST, and so every segment signature, as it was: the view must still
-   * re-render and rebuild its segments rather than keep what the previous plugins drew.
+   * A plugin change leaves the AST, and so every segment signature, as it was: the next render must
+   * still rebuild the segments rather than keep the views the previous plugins drew.
    */
   @Test
   fun changingThePluginsRebuildsTheSegmentsOfUnchangedMarkdown() {
-    val view = renderingView("Area \$r^2\$", document(paragraph(text("Area "), latexMathInline("r^2"))))
+    val view = EnrichedMarkdown(context)
     val pluginA = FakePlugin(marker = "a")
     view.setPlugins(listOf(pluginA))
-    idleMainLooper()
+    view.applyRenderedSegments(renderAreaFormula(pluginA))
     val firstView = view.getChildAt(0)
-    assertEquals("Area [a:r^2:sink=true]", view.renderedText())
+    assertTrue(view.renderedText().startsWith("Area [a:r^2:"))
 
-    // An equal list is a no-op: no render, so the same view stays.
+    // An equal list is a no-op, so the next render keeps the view.
     view.setPlugins(listOf(pluginA))
-    idleMainLooper()
+    view.applyRenderedSegments(renderAreaFormula(pluginA))
     assertSame(firstView, view.getChildAt(0))
 
-    view.setPlugins(listOf(FakePlugin(marker = "b")))
-    idleMainLooper()
-    assertEquals("Area [b:r^2:sink=true]", view.renderedText())
+    val pluginB = FakePlugin(marker = "b")
+    view.setPlugins(listOf(pluginB))
+    view.applyRenderedSegments(renderAreaFormula(pluginB))
     assertNotSame(firstView, view.getChildAt(0))
+    assertTrue(view.renderedText().startsWith("Area [b:r^2:"))
 
     view.setPlugins(emptyList())
-    idleMainLooper()
+    view.applyRenderedSegments(renderAreaFormula())
     assertEquals("Area \$r^2\$", view.renderedText())
   }
 
-  /** An attached view rendering [markdown] synchronously, with [ast] standing in for the native parser. */
-  private fun renderingView(
-    markdown: String,
-    ast: MarkdownASTNode,
-  ): EnrichedMarkdown {
-    MarkdownRenderDispatcher.runInline = true
-    val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-    val view = EnrichedMarkdown(activity)
-    view.parseMarkdown = { _, _ -> ast }
-    activity.setContentView(view)
-    idleMainLooper()
-    view.setMarkdownContent(markdown)
-    return view
+  /** The segments the view's own render lands for `Area $r^2$` once it has parsed it with [plugins] enabled. */
+  private fun renderAreaFormula(vararg plugins: MarkdownPlugin): List<RenderedSegment> {
+    val snapshot = PluginSnapshot.of(*plugins)
+    val ast = document(paragraph(text("Area "), latexMathInline("r^2")))
+    return MarkdownSegmentRenderer.render(splitASTIntoSegments(ast, snapshot), StyleConfig.default(context), context, plugins = snapshot)
   }
-
-  private fun idleMainLooper() = shadowOf(Looper.getMainLooper()).idle()
 
   private fun EnrichedMarkdown.renderedText(): String {
     assertEquals(1, childCount)

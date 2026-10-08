@@ -43,10 +43,6 @@ class EnrichedMarkdown(
 
   @Volatile private var currentRenderId = 0L
 
-  /** Parses on the render thread. Tests replace it, as the native parser does not load on the JVM. */
-  @VisibleForTesting
-  internal var parseMarkdown: (String, Md4cFlags) -> MarkdownASTNode? = parser::parseMarkdown
-
   var markdownStyle: StyleConfig = StyleConfig.default(context)
     private set
 
@@ -359,7 +355,7 @@ class EnrichedMarkdown(
 
       try {
         val ast =
-          parseMarkdown(markdown, md4cFlags) ?: run {
+          parser.parseMarkdown(markdown, md4cFlags) ?: run {
             mainHandler.post { if (renderId == currentRenderId) landRenderedSegments(emptyList()) }
             return@submit
           }
