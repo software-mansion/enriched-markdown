@@ -36,10 +36,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * Covers where an inline background, inline code's or a highlight's, is painted: over the run's
- * glyphs, as the layout that draws the text places them.
- */
+/** Covers where inline code and highlight backgrounds are painted: over the run's glyphs. */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @Config(sdk = [28])
 // Robolectric's legacy graphics report zero text widths; the native runtime measures for real.
@@ -49,10 +46,7 @@ class InlineBackgroundPaintingTest(
 ) {
   private val context: Context = ApplicationProvider.getApplicationContext()
 
-  /**
-   * The inline runs that paint a background, each given [BACKGROUND] so the canvas can pick it out,
-   * and text in [RUN_INK] so the run's glyphs can be told from the text around them.
-   */
+  /** Runs that paint a background, in [BACKGROUND] with text in [RUN_INK] so both can be found. */
   enum class Kind(
     val spanClass: Class<*>,
   ) {
@@ -85,7 +79,7 @@ class InlineBackgroundPaintingTest(
     private const val BACKGROUND = 0xFF224488.toInt()
     private const val RUN_INK = 0xFFFF0000.toInt()
 
-    // How far, in pixels, a glyph's anti-aliased edge may stray past the background.
+    // Pixels an anti-aliased glyph edge may stray past the background.
     private const val INK_TOLERANCE = 1.5f
 
     @JvmStatic
@@ -93,10 +87,7 @@ class InlineBackgroundPaintingTest(
     fun kinds() = Kind.entries.map { arrayOf(it) }
   }
 
-  /**
-   * A [Canvas] that remembers the bounds of every path or rect filled in [BACKGROUND]. It paints
-   * no paths or rects, so its bitmap holds only the glyphs.
-   */
+  /** Records [BACKGROUND] fills without painting them, so its bitmap holds only glyphs. */
   private class RecordingCanvas(
     bitmap: Bitmap,
   ) : Canvas(bitmap) {
@@ -139,10 +130,7 @@ class InlineBackgroundPaintingTest(
     val runEnd: Int get() = rendered.getSpanEnd(span)
   }
 
-  /**
-   * Draws [document] in a markdown text view that registers with its spans, as
-   * SegmentViewCreators does, or, when not [registered], in a plain TextView that does not.
-   */
+  /** Draws [document] in a view that registers with its spans, or a plain TextView if not [registered]. */
   private fun draw(
     document: MarkdownASTNode,
     style: StyleConfig = style(),
@@ -165,10 +153,7 @@ class InlineBackgroundPaintingTest(
     return Drawn(textView, rendered, canvas.backgrounds, glyphs, kind.spanClass)
   }
 
-  /**
-   * Asserts the background spans the glyphs from [from] to [to]. Their x positions are compared by
-   * their min and max, since in right-to-left text [from] lies to the right of [to].
-   */
+  /** Asserts the background spans [from]..[to], in either direction. */
   private fun assertCoversTheRun(
     drawn: Drawn,
     from: Int = drawn.runStart,
@@ -190,11 +175,7 @@ class InlineBackgroundPaintingTest(
     assertEquals(maxOf(fromX, toX), background.right, 0.01f)
   }
 
-  /**
-   * Asserts that a run wrapping across lines gets one background per line, each spanning only the
-   * run's glyphs on that line. A line the run continues past ends at the space it wraps on,
-   * which is not drawn, so neither is its background.
-   */
+  /** Asserts one background per line, each spanning only the run's glyphs on it. */
   private fun assertCoversEachLineOfTheRun(drawn: Drawn) {
     val layout = requireNotNull(drawn.textView.layout)
     val firstLine = layout.getLineForOffset(drawn.runStart)
@@ -211,9 +192,8 @@ class InlineBackgroundPaintingTest(
   }
 
   /**
-   * Asserts the backgrounds cover every glyph of the run and none of the text around it. Unlike
-   * [assertCovers], it reads where the glyphs are from the drawn pixels rather than from the
-   * layout's caret positions, which do not mark a glyph's edge where the text changes direction.
+   * Asserts the backgrounds cover all of the run's glyphs and none of the rest, read from pixels.
+   * Caret positions, which [assertCovers] uses, are wrong where the direction changes.
    */
   private fun assertCoversOnlyTheRunsGlyphs(drawn: Drawn) {
     val layout = requireNotNull(drawn.textView.layout)
@@ -225,7 +205,7 @@ class InlineBackgroundPaintingTest(
       val backgrounds = backgroundsByLine[line].orEmpty()
       for (x in 0 until drawn.glyphs.width) {
         val pixel = drawn.glyphs.getPixel(x, y)
-        // Faint edge pixels carry too little color to tell the run's from the rest.
+        // Faint edge pixels are too pale to classify.
         if (Color.alpha(pixel) < 128) continue
         val centerX = x + 0.5f
         if (Color.red(pixel) > 192 && Color.green(pixel) < 64 && Color.blue(pixel) < 64) {
@@ -246,7 +226,7 @@ class InlineBackgroundPaintingTest(
     assertTrue("The run and the text around it must both be drawn for this to be meaningful", runPixels > 0 && otherPixels > 0)
   }
 
-  /** Draws a run long enough to wrap across at least three lines, between [before] and [after]. */
+  /** Draws a run wrapping across 3+ lines, between [before] and [after]. */
   private fun drawWrappedRun(
     before: String,
     word: String,
@@ -254,11 +234,7 @@ class InlineBackgroundPaintingTest(
     style: StyleConfig = style(),
   ): Drawn = draw(document(paragraph(text(before), styledRun("$word ".repeat(40).trimEnd()), text(after))), style)
 
-  /**
-   * Draws a run of [content] followed by a word too long to share its line, so the first line
-   * wraps right after the run's trailing space and the run's end offset is also the next line's
-   * start.
-   */
+  /** Draws a run of [content] that ends the first line, followed by [longWord]. */
   private fun drawRunEndingAWrappedLine(
     content: String,
     longWord: String,
@@ -304,7 +280,7 @@ class InlineBackgroundPaintingTest(
   fun runEndingAWrappedLineStopsAtItsLastGlyph() {
     val drawn = drawRunEndingAWrappedLine("render() ", "a".repeat(200))
 
-    // The trailing space where the line wraps is not drawn, so neither is its background.
+    // The trailing space isn't drawn, so isn't covered.
     assertCoversTheRun(drawn, to = drawn.runEnd - 1)
   }
 
@@ -349,8 +325,7 @@ class InlineBackgroundPaintingTest(
 
   @Test
   fun leftToRightRunInRightToLeftTextCoversOnlyItsOwnWords() {
-    // The run's start is where the Hebrew turns to English, whose caret position is the far end
-    // of the whole English stretch, past " world".
+    // The caret where Hebrew turns to English is past " world".
     val drawn = draw(document(paragraph(text("שלום "), styledRun("hello"), text(" world"))))
 
     assertEquals(Layout.DIR_RIGHT_TO_LEFT, requireNotNull(drawn.textView.layout).getParagraphDirection(0))
@@ -369,8 +344,7 @@ class InlineBackgroundPaintingTest(
 
   @Test
   fun runDrawnInPiecesGetsABackgroundPerPiece() {
-    // The Hebrew is drawn right to left, so the run's last word lands to the right of " עולם",
-    // which follows it, with " עולם" between it and the run's English word.
+    // Drawn right to left, " עולם" lands between the run's two words.
     val drawn = draw(document(paragraph(text("call "), styledRun("render שלום"), text(" עולם once"))))
 
     assertEquals(Layout.DIR_LEFT_TO_RIGHT, requireNotNull(drawn.textView.layout).getParagraphDirection(0))
@@ -386,8 +360,6 @@ class InlineBackgroundPaintingTest(
     assertTrue("The run must break mid-word for this to be meaningful", layout.getLineEnd(0) < drawn.runEnd)
     assertCoversOnlyTheRunsGlyphs(drawn)
     for (background in drawn.backgrounds) {
-      // A line breaks mid-word where its end offset also starts the next line, whose selection
-      // would run on to the view edge.
       val line = layout.getLineForVertical(background.centerY().toInt())
       assertTrue("$background must end at line $line's glyphs", background.right <= layout.getLineRight(line) + 0.5f)
     }

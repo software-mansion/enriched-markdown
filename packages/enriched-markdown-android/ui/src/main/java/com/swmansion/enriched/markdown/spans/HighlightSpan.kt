@@ -65,7 +65,7 @@ class HighlightSpan(
     val visibility = text.spoilerTextAlpha(maxOf(spanStart, start), minOf(spanEnd, end))
     if (visibility <= 0f) return
 
-    geometry.findRanges(text, lineNum, start, end, spanStart, spanEnd, left, right, p)
+    val ranges = geometry.ranges(text, lineNum, start, end, spanStart, spanEnd, left, right, p)
 
     // Bound by the glyphs' ascent/descent, clamped to the line box so a tall line height never
     // lets the band bleed into its neighbours. `p` is set in the view's size, so measure with the
@@ -77,11 +77,9 @@ class HighlightSpan(
     val bandBottom = min(bottom.toFloat(), (baseline + metrics.descent).toFloat())
 
     backgroundPaint.color = colorWithAlpha(backgroundColor, visibility)
-    for (i in 0 until geometry.rangeCount) {
-      canvas.drawRect(geometry.rangeLeft(i), bandTop, geometry.rangeRight(i), bandBottom, backgroundPaint)
-    }
+    for (range in ranges) canvas.drawRect(range.left, bandTop, range.right, bandBottom, backgroundPaint)
   }
 
-  /** Makes this span position its band from [view]'s layout, which is the one that draws it. */
+  /** Positions the band from [view]'s layout. */
   override fun registerTextView(view: TextView) = geometry.registerTextView(view)
 }

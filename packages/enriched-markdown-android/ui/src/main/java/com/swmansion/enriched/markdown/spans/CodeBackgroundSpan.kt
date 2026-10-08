@@ -66,7 +66,7 @@ class CodeBackgroundSpan(
     val isLast = spanEnd <= end
 
     // 2. Calculate coordinates
-    geometry.findRanges(text, lineNum, start, end, spanStart, spanEnd, left, right, p)
+    val ranges = geometry.ranges(text, lineNum, start, end, spanStart, spanEnd, left, right, p)
     rect.top = top.toFloat()
     rect.bottom = adjustBottomForMargin(text, end, bottom).toFloat()
 
@@ -75,17 +75,15 @@ class CodeBackgroundSpan(
     sharedBackgroundPaint.color = colorWithAlpha(codeStyle.backgroundColor, visibility)
     sharedBorderPaint.color = colorWithAlpha(codeStyle.borderColor, visibility)
 
-    // Where the line mixes directions, the code can be drawn in pieces with other text between
-    // them. They are drawn as one background cut apart, open where it is cut.
-    val lastRange = geometry.rangeCount - 1
-    for (i in 0..lastRange) {
-      rect.left = geometry.rangeLeft(i)
-      rect.right = geometry.rangeRight(i)
-      drawShapes(canvas, isFirst && i == 0, isLast && i == lastRange)
+    // Mixed-direction text can split the code into pieces, left open where split.
+    ranges.forEachIndexed { i, range ->
+      rect.left = range.left
+      rect.right = range.right
+      drawShapes(canvas, isFirst && i == 0, isLast && i == ranges.lastIndex)
     }
   }
 
-  /** Makes this span position itself from [view]'s layout, which is the one that draws it. */
+  /** Positions the background from [view]'s layout. */
   override fun registerTextView(view: TextView) = geometry.registerTextView(view)
 
   private fun drawShapes(
