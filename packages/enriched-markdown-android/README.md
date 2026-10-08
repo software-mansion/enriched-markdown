@@ -46,6 +46,7 @@ An app that renders no math does not add this line and pays nothing for it — n
 Enable the plugin for every `EnrichedMarkdownText` in a subtree by wrapping it in the plugin's scope:
 
 ```kotlin
+import com.swmansion.enriched.markdown.compose.invoke
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
 LatexMathPlugin {
