@@ -42,4 +42,21 @@ describe('completeMarkdown', () => {
     );
     expect(completeMarkdown('2 \\* 2')).toBe('2 \\* 2');
   });
+
+  it('leaves a closing bracket with nothing open alone', () => {
+    // The asymmetric pair only pops when its own opener is on top of the
+    // stack, so a stray or surplus ']' is consumed without touching it.
+    expect(completeMarkdown('a] b')).toBe('a] b');
+    expect(completeMarkdown('[a]] b')).toBe('[a]] b');
+    expect(completeMarkdown('a) b')).toBe('a) b');
+  });
+
+  it('closes a delimiter the user meant literally', () => {
+    // A known limitation rather than intent: the serializer does not escape,
+    // so an unescaped '**' reaching import is indistinguishable from a
+    // half-typed one. Pinned because it is what makes a round trip of
+    // '2 \\*\\* 2' grow a delimiter on its second pass.
+    expect(completeMarkdown('2 ** 2')).toBe('2 ** 2**');
+    expect(completeMarkdown('a || b')).toBe('a || b||');
+  });
 });

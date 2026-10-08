@@ -1,7 +1,14 @@
-import { parseResultFromAst } from '../InputParser';
+import { parseResultFromAst, parseToPlainTextAndRanges } from '../InputParser';
+import { parseMarkdown } from '../../../parseMarkdown';
 import { createFormattingRange as range } from '../../model/inlineStyles';
 import { createBlockRange as block } from '../../model/blocks';
 import type { ASTNode, NodeAttributes, NodeType } from '../../../types';
+
+jest.mock('../../../parseMarkdown', () => ({ parseMarkdown: jest.fn() }));
+
+const parseMarkdownMock = parseMarkdown as jest.MockedFunction<
+  typeof parseMarkdown
+>;
 
 const node = (
   type: NodeType,
@@ -112,5 +119,37 @@ describe('parseResultFromAst', () => {
     ]);
 
     expect(parseResultFromAst(ast, 'pull\npush').plainText).toBe('pull\npush');
+  });
+});
+
+describe('parseToPlainTextAndRanges', () => {
+  afterEach(() => {
+    parseMarkdownMock.mockReset();
+  });
+
+  it('short-circuits empty input without reaching the parser', async () => {
+    await expect(parseToPlainTextAndRanges('')).resolves.toEqual({
+      plainText: '',
+      formattingRanges: [],
+      blockRanges: [],
+    });
+    expect(parseMarkdownMock).not.toHaveBeenCalled();
+  });
+
+  it('degrades to unformatted text when the parser rejects', async () => {
+    // A library must not crash the host app when the WASM parser is
+    // unavailable. The fallback reports the caller's markdown, not the
+    // delimiter-completed form, so nothing the user never typed survives.
+    parseMarkdownMock.mockRejectedValue(new Error('WASM unavailable'));
+
+    await expect(parseToPlainTextAndRanges('**force push')).resolves.toEqual({
+      plainText: '**force push',
+      formattingRanges: [],
+      blockRanges: [],
+    });
+    expect(parseMarkdownMock).toHaveBeenCalledWith(
+      '**force push**',
+      expect.objectContaining({ permissiveAutolinks: false })
+    );
   });
 });

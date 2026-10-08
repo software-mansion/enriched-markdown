@@ -1,5 +1,5 @@
 import type { ASTNode, NodeType } from '../../types';
-import { parseMarkdown } from '../../parseMarkdown';
+import { parseMarkdown, type WebMd4cFlags } from '../../parseMarkdown';
 import { completeMarkdown } from './InputRemend';
 import {
   blockTypeForHeadingLevel,
@@ -30,7 +30,7 @@ function countNewlines(text: string): number {
 }
 
 // Bare URLs stay plain text until the autolink layer claims them.
-const INPUT_PARSE_FLAGS = {
+const INPUT_PARSE_FLAGS: WebMd4cFlags = {
   underline: true,
   latexMath: false,
   superscript: false,
