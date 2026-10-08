@@ -71,7 +71,7 @@ EnrichedMarkdownText(markdown = message, style = CompactStyle)
 // Or derive from whatever the enclosing theme provides:
 EnrichedMarkdownText(
   markdown = message,
-  style = MarkdownTheme.style.copy { link { color = Color.Red } },
+  style = MarkdownTheme.style.merge { link { color = Color.Red } },
 )
 ```
 
