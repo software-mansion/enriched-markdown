@@ -70,22 +70,18 @@ The plugin and the parser flag are two separate switches. `Md4cFlags(latexMath =
 
 ## Quick start
 
-Wrap your app (or a screen) in `MarkdownTheme`, then render markdown with `EnrichedMarkdownText`:
+Render markdown with `EnrichedMarkdownText`:
 
 ```kotlin
-import androidx.compose.material3.MaterialTheme
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
 
-MaterialTheme {
-  MarkdownTheme {
-    EnrichedMarkdownText(
-      markdown = "# Hello\n\nThis is **enriched** markdown.",
-      onLinkClick = { url -> /* open url */ },
-    )
-  }
-}
+EnrichedMarkdownText(
+  markdown = "# Hello\n\nThis is **enriched** markdown.",
+  onLinkClick = { url -> /* open url */ },
+)
 ```
+
+With no style provided, it renders with `MarkdownStyle.Default`. See [Styling](#styling) to customize it.
 
 See the full example in [`apps/android-example`](../../apps/android-example).
 
@@ -610,7 +606,7 @@ EnrichedMarkdownText(
 ```kotlin
 @Composable
 fun MarkdownTheme(
-  style: MarkdownStyle = LocalMarkdownStyle.current,
+  style: MarkdownStyle,
   content: @Composable () -> Unit,
 )
 
@@ -619,7 +615,7 @@ object MarkdownTheme {
 }
 ```
 
-Provides a default `MarkdownStyle` for a subtree. Nest themes to scope styles to part of the UI.
+Provides `style` as the default `MarkdownStyle` for a subtree. Nest themes to scope styles to part of the UI.
 
 ### `markdownStyle` / `MarkdownStyle`
 

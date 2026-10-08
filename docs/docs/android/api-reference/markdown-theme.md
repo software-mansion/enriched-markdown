@@ -14,7 +14,7 @@ A style reaches a component one of two ways: from the nearest enclosing `Markdow
 ```kotlin
 @Composable
 fun MarkdownTheme(
-  style: MarkdownStyle = LocalMarkdownStyle.current,
+  style: MarkdownStyle,
   content: @Composable () -> Unit,
 )
 ```
@@ -31,7 +31,7 @@ MarkdownTheme(style = appStyle) {
 }
 ```
 
-Omitting `style` inherits the enclosing theme's style, so a bare `MarkdownTheme { }` at the root is a no-op that simply establishes the default.
+`style` is required. Outside any `MarkdownTheme`, components fall back to [`MarkdownStyle.Default`](#markdownstyledefault), so there is no need to wrap your UI in a theme that only restates it.
 
 ### `MarkdownTheme.style`
 
