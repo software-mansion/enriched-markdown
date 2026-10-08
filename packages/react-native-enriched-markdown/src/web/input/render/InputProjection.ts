@@ -1,17 +1,15 @@
 import type { BlockRange, BlockType } from '../model/blocks';
-import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
+import {
+  INPUT_STYLE_TYPES,
+  type FormattingRange,
+  type InputStyleType,
+} from '../model/inlineStyles';
+import {
+  compareBoundaryEvents,
+  type BoundaryEvent,
+} from '../model/boundaryEvents';
 import type { RangeBounds } from '../model/rangeBounds';
 import { clamp } from '../utils';
-
-// Canonical order for a run's style list, so equal style sets compare equal.
-const STYLE_ORDER: readonly InputStyleType[] = [
-  'strong',
-  'em',
-  'underline',
-  'strikethrough',
-  'link',
-  'spoiler',
-];
 
 // A maximal segment of text with one constant style set; renders as one
 // DOM element.
@@ -20,30 +18,19 @@ export interface StyleRun extends RangeBounds {
   url?: string;
 }
 
-function sameRunStyle(run: StyleRun, styles: InputStyleType[], url?: string) {
+// Element-wise comparison is valid because `INPUT_STYLE_TYPES` orders every
+// run's styles canonically. Shared with the DOM renderer, which asks the same
+// question when deciding whether a rendered run can be reused.
+export function sameRunStyle(
+  run: StyleRun,
+  styles: InputStyleType[],
+  url?: string
+) {
   return (
     run.url === url &&
     run.styles.length === styles.length &&
     run.styles.every((style, i) => style === styles[i])
   );
-}
-
-interface BoundaryEvent {
-  position: number;
-  isOpening: boolean;
-  type: InputStyleType;
-  url: string | undefined;
-}
-
-function compareBoundaryEvents(a: BoundaryEvent, b: BoundaryEvent): number {
-  if (a.position !== b.position) {
-    return a.position - b.position;
-  }
-  // Closings before openings at the same position.
-  if (a.isOpening !== b.isOpening) {
-    return a.isOpening ? 1 : -1;
-  }
-  return 0;
 }
 
 // Flattens overlapping formatting ranges over [start, end) into disjoint
@@ -90,7 +77,7 @@ export function computeStyleRuns(
   const emitRunUpTo = (segmentEnd: number) => {
     if (segmentEnd <= segmentStart) return;
 
-    const styles = STYLE_ORDER.filter(
+    const styles = INPUT_STYLE_TYPES.filter(
       (style) => (activeCounts.get(style) ?? 0) > 0
     );
     const url = activeLinkUrls[0];

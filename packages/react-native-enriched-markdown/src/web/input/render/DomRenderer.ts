@@ -1,5 +1,9 @@
 import { LIST_ITEM_BLOCK_TYPES } from '../model/blocks';
-import type { ParagraphProjection, StyleRun } from './InputProjection';
+import {
+  sameRunStyle,
+  type ParagraphProjection,
+  type StyleRun,
+} from './InputProjection';
 
 // Writes the projection into the contentEditable DOM. The caret and IME sit
 // in these nodes, so existing nodes are mutated rather than replaced; nodes
@@ -114,8 +118,7 @@ function sameRun(
   next: StyleRun
 ): boolean {
   return (
-    classNameFor(previous.styles) === classNameFor(next.styles) &&
-    previous.url === next.url &&
+    sameRunStyle(previous, next.styles, next.url) &&
     previousText.slice(previous.start, previous.end) ===
       text.slice(next.start, next.end)
   );

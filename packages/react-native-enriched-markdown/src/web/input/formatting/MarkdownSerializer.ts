@@ -6,6 +6,10 @@ import {
   type BlockRange,
 } from '../model/blocks';
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
+import {
+  compareBoundaryEvents,
+  type BoundaryEvent,
+} from '../model/boundaryEvents';
 import type { RangeBounds } from '../model/rangeBounds';
 
 const OPENING_DELIMITERS: Record<InputStyleType, string> = {
@@ -68,23 +72,11 @@ const NESTING_PRIORITY: Record<InputStyleType, number> = {
   link: 5,
 };
 
-interface BoundaryEvent {
-  position: number;
-  isOpening: boolean;
-  type: InputStyleType;
-  url: string | undefined;
-}
-
-function compareBoundaryEvents(a: BoundaryEvent, b: BoundaryEvent): number {
-  if (a.position !== b.position) {
-    return a.position - b.position;
-  }
-  // Closing events before opening events at the same position.
-  if (a.isOpening !== b.isOpening) {
-    return a.isOpening ? 1 : -1;
-  }
-  // Among openings: outer first (lower priority emitted first).
-  // Among closings: inner first (higher priority emitted first) — LIFO order.
+// Among openings: outer first (lower priority emitted first).
+// Among closings: inner first (higher priority emitted first) — LIFO order.
+// Delimiters have to nest, unlike the projection's runs, which is why this
+// sweep breaks ties where the shared comparator does not.
+function compareNestingPriority(a: BoundaryEvent, b: BoundaryEvent): number {
   return a.isOpening
     ? NESTING_PRIORITY[a.type] - NESTING_PRIORITY[b.type]
     : NESTING_PRIORITY[b.type] - NESTING_PRIORITY[a.type];
@@ -156,7 +148,7 @@ export function serializeInline(
     });
   }
 
-  events.sort(compareBoundaryEvents);
+  events.sort((a, b) => compareBoundaryEvents(a, b, compareNestingPriority));
 
   let markdown = '';
   let lastPosition = 0;

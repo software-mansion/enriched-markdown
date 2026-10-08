@@ -22,8 +22,10 @@ function headingRules(): string {
   }).join('\n');
 }
 
+// Dot, then ring, then square for everything deeper - the cap the native
+// drawers use and what a browser's own `ul` markers do.
 function bulletShape(depth: number): string {
-  switch (depth % 3) {
+  switch (Math.min(depth, 2)) {
     case 0:
       return 'background: currentColor; border-radius: 50%;';
     case 1:
