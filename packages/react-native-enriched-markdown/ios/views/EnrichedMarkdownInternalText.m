@@ -1,11 +1,18 @@
 #import "EnrichedMarkdownInternalText.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMContextMenuTextView+macOS.h"
+#import "ENRMImageAttachment.h"
+#import "ENRMMarkdownTextView.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMTextViewSetup.h"
 #import "MarkdownAccessibilityElementBuilder.h"
+#import "MarkdownExtractor.h"
+#import "PasteboardUtils.h"
 #import "RuntimeKeys.h"
 #include <TargetConditionals.h>
+
+@interface EnrichedMarkdownInternalText () <ENRMImageLayoutObserver>
+@end
 
 @implementation EnrichedMarkdownInternalText {
   ENRMPlatformTextView *_textView;
@@ -35,7 +42,17 @@
 - (void)setupTextView
 {
 #if !TARGET_OS_OSX
-  _textView = [[ENRMPlatformTextView alloc] init];
+  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
+  __weak EnrichedMarkdownInternalText *weakCopyOwner = self;
+  markdownTextView.copySelectionHandler = ^(NSRange range) {
+    EnrichedMarkdownInternalText *owner = weakCopyOwner;
+    if (!owner)
+      return;
+    NSAttributedString *text = owner->_textView.textStorage;
+    copyAttributedStringToPasteboard([text attributedSubstringFromRange:range],
+                                     extractMarkdownFromAttributedString(text, range), owner -> _config);
+  };
+  _textView = markdownTextView;
   _textView.text = @"";
 #else
   _textView = [[ENRMContextMenuTextView alloc] init];
@@ -103,6 +120,15 @@
   _textView.frame = self.bounds;
 
   [_spoilerManager updateIfNeeded];
+}
+
+// An attachment that settles after render (an image's box, a link pill giving up its icon
+// slot) moves the text around it, and the spoiler overlays with it.
+- (void)imageAttachmentDidResolveLayout
+{
+  [_spoilerManager setNeedsUpdate];
+  [_spoilerManager updateIfNeeded];
+  [[(RCTUIView *)self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
 }
 
 #pragma mark - Accessibility

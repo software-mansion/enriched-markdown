@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.TypedValue
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
+import com.swmansion.enriched.markdown.spans.registerCodeBackgrounds
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
@@ -43,6 +44,7 @@ object SegmentViewCreators {
       lastElementMarginBottom = segment.lastElementMarginBottom
       applyStyledText(segment.styledText)
       segment.imageSpans.forEach { it.registerTextView(this) }
+      registerCodeBackgrounds(segment.styledText)
       applySelectionColors(config.selectionColor, config.selectionHandleColor)
     }
 
@@ -53,6 +55,7 @@ object SegmentViewCreators {
     view.lastElementMarginBottom = segment.lastElementMarginBottom
     view.applyStyledText(segment.styledText)
     segment.imageSpans.forEach { it.registerTextView(view) }
+    view.registerCodeBackgrounds(segment.styledText)
   }
 
   fun createTableView(

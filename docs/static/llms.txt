@@ -1,0 +1,52 @@
+# Enriched Markdown
+
+> Markdown-based rich text for React Native: `EnrichedMarkdownText`, a read-only renderer that paints Markdown with the platform's native text stack, and `EnrichedMarkdownTextInput`, a WYSIWYG editor that produces Markdown as the user types. Both run on iOS, Android and macOS; the renderer also has a plain React/DOM build for the web. Standalone native SDKs for iOS and Android are in development and not documented here yet.
+
+## Introduction
+
+- [Getting started](https://docs.swmansion.com/enriched-markdown/getting-started): What the library is, the two components, and how these docs are organized.
+- [Core concepts](https://docs.swmansion.com/enriched-markdown/introduction/core-concepts): A primer on the Markdown syntax both components speak, block vs. inline elements, and the CommonMark/GitHub flavor split.
+- [Feature support](https://docs.swmansion.com/enriched-markdown/introduction/supported-features): Which features each target renders, organized by component and by the switch that enables them.
+
+## React Native
+
+- [Installation](https://docs.swmansion.com/enriched-markdown/react-native/basics/installation): Prerequisites, package managers, the install-time native asset download, Expo, and nightly builds.
+- [Your first markdown view and editor](https://docs.swmansion.com/enriched-markdown/react-native/basics/your-first-project): Putting both components on screen, and the ref/`onChangeState` pattern every editor feature follows.
+- [EnrichedMarkdownText](https://docs.swmansion.com/enriched-markdown/react-native/api-reference/enriched-markdown-text): Full prop and event reference for the read-only renderer, with a live playground per prop.
+- [EnrichedMarkdownTextInput](https://docs.swmansion.com/enriched-markdown/react-native/api-reference/enriched-markdown-text-input): Full prop, event and imperative ref-method reference for the editor.
+- [Style properties](https://docs.swmansion.com/enriched-markdown/react-native/api-reference/style-properties): Every `markdownStyle` key and default, the base-block inheritance model, and a dark-mode recipe.
+- [Element structure](https://docs.swmansion.com/enriched-markdown/react-native/api-reference/element-structure): The catalog of every Markdown element, how elements nest, and what happens to an element a target cannot render.
+- [Markdown flavors](https://docs.swmansion.com/enriched-markdown/react-native/guides/markdown-flavors): The canonical description of what `flavor="github"` changes at parse time and render time, plus the `md4cFlags` parser extensions.
+- [Web support](https://docs.swmansion.com/enriched-markdown/react-native/guides/web-support): Bundler setup for the web build, the WebAssembly parser, KaTeX, and everything the web target ignores or does not support.
+- [Image caching](https://docs.swmansion.com/enriched-markdown/react-native/guides/image-caching): Supported image sources, the three cache tiers, request headers and deduplication.
+- [Native assets](https://docs.swmansion.com/enriched-markdown/react-native/guides/native-assets): Bundling custom fonts and images, the assets downloaded at install time, and how to opt out to shrink your binary.
+- [Testing](https://docs.swmansion.com/enriched-markdown/react-native/guides/testing): The Jest mock the package ships, what it replaces, and what it cannot cover.
+- [macOS support](https://docs.swmansion.com/enriched-markdown/react-native/guides/macos): Requirements and the known differences from iOS, including silently dropped block math.
+
+## Rich text formatting
+
+- [Mentions](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/mentions): Mentions as ordinary links with custom URL schemes - styling with `linkVariants`, and the editor's mention-authoring flow.
+- [LaTeX math](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/latex-math): Inline and block equations, styling, handling render errors, and excluding the math engine.
+- [Code-block highlighting](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/code-highlighting): tree-sitter syntax highlighting, the token palette, the supported grammars, and trimming the language set.
+- [Markdown streaming](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/markdown-streaming): Rendering LLM output as it arrives, the tail fade-in, and how incomplete tables, code blocks and math are withheld.
+- [Editor-style text](https://docs.swmansion.com/enriched-markdown/rich-text-formatting/editor-style-text): Reproducing editor content line for line with `hardSoftBreaks` and `preserveBlankLines`.
+
+## User experience
+
+- [Accessibility](https://docs.swmansion.com/enriched-markdown/user-experience/accessibility): How content is announced by VoiceOver and TalkBack, translating every spoken string, font scaling, and the known gaps.
+- [RTL support](https://docs.swmansion.com/enriched-markdown/user-experience/rtl): Per-paragraph direction resolution, `writingDirection`, and how each element mirrors.
+- [Copy options](https://docs.swmansion.com/enriched-markdown/user-experience/copy-options): Smart copy, Copy as Markdown, Copy Image URL, and localizing the selection menu.
+
+## Project
+
+- [Compatibility](https://docs.swmansion.com/enriched-markdown/misc/compatibility): Which library version supports which React Native version, platform minimums, and dependencies.
+- [Breaking changes](https://docs.swmansion.com/enriched-markdown/misc/breaking-changes): Breaking changes per release and how to migrate.
+- [Known limitations](https://docs.swmansion.com/enriched-markdown/misc/known-limitations): The rough edges worth knowing about before you hit them, grouped by area.
+- [Roadmap](https://docs.swmansion.com/enriched-markdown/misc/roadmap): What ships today per target, what is in progress, and what is planned.
+- [Contributing](https://docs.swmansion.com/enriched-markdown/misc/contributing): Repository layout, local setup, the checks to run before pushing, and what CI does and does not cover.
+
+## About
+
+- [react-native-enriched-markdown on npm](https://www.npmjs.com/package/react-native-enriched-markdown): The published package.
+- [GitHub repository](https://github.com/software-mansion/enriched-markdown): Source, issues and pull requests.
+- [Software Mansion](https://swmansion.com): maintainer of Enriched Markdown

@@ -11,6 +11,30 @@ import type {
   CodeBlockPressEvent,
 } from './events';
 
+export interface LinkPillContent {
+  label?: string;
+  iconUri?: string;
+  /**
+   * Tint for this link's icon. The variant's `pill.iconTintColor` is not applied
+   * to an icon set here through `iconUri`.
+   */
+  iconTintColor?: string;
+}
+
+/**
+ * An item of a link's long-press menu. `text` identifies the item, so it must be
+ * unique within one pattern.
+ */
+export interface LinkContextMenuItem {
+  text: string;
+  /** SF Symbol name, as in `contextMenuItems`. */
+  icon?: string;
+  visible?: boolean;
+  disabled?: boolean;
+  destructive?: boolean;
+  onPress: (event: LinkPressEvent) => void;
+}
+
 /**
  * Public context menu item. Each item includes a JS-side `onPress` callback
  * that is called when the user taps the item in the selection context menu.
@@ -147,8 +171,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   /**
    * Callback fired when a link is long pressed.
    * Receives the link URL directly.
-   * - iOS: When provided, automatically disables the system link preview
-   *   (unless `enableLinkPreview` is explicitly set to `true`).
+   * - iOS: When provided, disables the system link preview unconditionally -
+   *   an explicit `enableLinkPreview={true}` does not win.
    * - Android: Handles long press gestures on links.
    * - Web: Mapped to the `contextmenu` event (right-click).
    * @platform ios, android, web
@@ -246,8 +270,10 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * When `true`, long-pressing a link shows the native iOS link preview.
    * When `false`, the system preview is suppressed.
    *
-   * Defaults to `true`, but automatically becomes `false` when `onLinkLongPress`
-   * is provided. Set explicitly to override the automatic behavior.
+   * Defaults to `true`, but is forced to `false` whenever `onLinkLongPress` is
+   * provided - your handler owns the long press instead. That override cannot
+   * be undone from here: with `onLinkLongPress` set, an explicit `true` is
+   * discarded (see the resolution in `native/EnrichedMarkdownText.tsx`).
    *
    * @default true
    * @platform ios
@@ -346,6 +372,23 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   contextMenuItems?: ContextMenuItem[];
   /**
+   * Items of the native menu shown when a link is long-pressed, keyed by a URL
+   * regex pattern like `markdownStyle.linkVariants`: the longest pattern that
+   * matches the link supplies its menu. A link with a menu shows it instead of
+   * the link preview and `onLinkLongPress`; other links keep their long-press
+   * behavior. Items with `visible: false` are left out, and a pattern with no
+   * visible items has no menu.
+   *
+   * @example
+   * linkContextMenuItems={{
+   *   '^https://example\\.com/files/': [
+   *     { text: 'Copy path', icon: 'doc.on.doc', onPress: ({ url }) => copy(url) },
+   *   ],
+   * }}
+   * @platform ios 17+
+   */
+  linkContextMenuItems?: Record<string, LinkContextMenuItem[]>;
+  /**
    * HTTP headers to attach to remote image requests, e.g. a `Referer`
    * required by CDN hotlink protection or an `Authorization` token.
    *
@@ -357,6 +400,18 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android
    */
   imageRequestHeaders?: Record<string, string>;
+  /**
+   * Label and icon for individual link pills, keyed by the exact link URL.
+   * Applies only to links whose `markdownStyle.linkVariants` entry enables `pill`.
+   * It is content, not style, so `markdownStyle` can stay stable while this changes.
+   *
+   * @example
+   * linkPillContent={{
+   *   'https://example.com/files/a/long/path/file.ts': { label: 'file.ts' },
+   * }}
+   * @platform ios, android
+   */
+  linkPillContent?: Record<string, LinkPillContent>;
   /**
    * Controls the built-in items added to the native text selection menu and
    * lets you localize their labels. Custom app-provided actions are controlled

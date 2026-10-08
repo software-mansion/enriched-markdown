@@ -26,6 +26,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
@@ -33,6 +34,7 @@ import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForLinkTap
 import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
@@ -306,6 +308,7 @@ class TableContainerView(
     data.attributedText
       .getSpans(0, data.attributedText.length, ImageSpan::class.java)
       .forEach { span -> span.registerTextView(cellTextView) { scheduleImageRemeasure() } }
+    LinkPillSpan.registerView(data.attributedText, cellTextView) { scheduleImageRemeasure() }
   }
 
   private var imageRemeasurePending = false
@@ -442,17 +445,6 @@ class TableContainerView(
       }
     }
 
-    private fun prepareImageSpansForMeasurement(
-      text: CharSequence,
-      widthPx: Int,
-    ) {
-      if (widthPx <= 1) return
-      val spanned = text as? Spanned ?: return
-      spanned
-        .getSpans(0, spanned.length, ImageSpan::class.java)
-        .forEach { it.prepareForMeasurement(spanned, widthPx) }
-    }
-
     private fun cellHasBlockImage(text: CharSequence): Boolean {
       val spanned = text as? Spanned ?: return false
       return spanned.getSpans(0, spanned.length, ImageSpan::class.java).any { !it.isInline }
@@ -476,6 +468,8 @@ class TableContainerView(
       val columnWidths = FloatArray(texts.maxOfOrNull { it.size } ?: 0)
       texts.forEach { row ->
         row.forEachIndexed { colIndex, cellText ->
+          // Images are sized in the row pass below, once the column width is known.
+          prepareWidthAwareSpans(cellText, maxColumnWidth.toInt(), includeImages = false)
           val layout =
             StaticLayout.Builder
               .obtain(cellText, 0, cellText.length, paint, maxColumnWidth.toInt())
@@ -493,7 +487,7 @@ class TableContainerView(
           row
             .mapIndexed { colIndex, cellText ->
               val contentWidth = (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1)
-              prepareImageSpansForMeasurement(cellText, contentWidth)
+              prepareWidthAwareSpans(cellText, contentWidth)
               val layout =
                 StaticLayout.Builder
                   .obtain(

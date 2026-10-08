@@ -122,11 +122,39 @@ export interface LinkStyle {
   backgroundColor?: string;
 }
 
-/**
- * Per-variant link override. Structurally identical to {@link LinkStyle}:
- * every field is optional and inherits from the base `link` style when omitted.
- */
-export type LinkVariantStyle = LinkStyle;
+export type LinkVariantStyle = LinkStyle & {
+  /** Native atomic presentation. True uses defaults; an object enables overrides. */
+  pill?: boolean | LinkPillStyle;
+};
+
+export interface LinkPillStyle {
+  /** Visible text, also included in the accessible name alongside original link text. */
+  label?: string;
+  /** Local file, bundled asset or `http(s)` URL. A source that fails shows no icon. */
+  iconUri?: string;
+  /**
+   * Tints this variant's icon, keeping its alpha. Omit to keep the image's own colors.
+   * Icons set per link through `linkPillContent` are not tinted by it.
+   */
+  iconTintColor?: string;
+  borderRadius?: number;
+  paddingHorizontal?: number;
+  paddingVertical?: number;
+  /**
+   * Minimum line height of a block (paragraph, list item, heading, quote) that holds
+   * this pill. It applies to every line of that block and only ever raises the block's
+   * own `lineHeight`; it does not size the pill. Use it to keep pills on consecutive
+   * lines apart without loosening text that has no pills. Unset by default.
+   *
+   * For streamed text prefer the block's own `lineHeight`: this one takes effect when a
+   * link completes and becomes a pill, which moves the text around it.
+   */
+  lineHeight?: number;
+  borderWidth?: number;
+  borderColor?: string;
+  /** Maximum width in points/DIP. 0 uses the available text width. */
+  maxWidth?: number;
+}
 
 interface StrongStyle {
   fontFamily?: string;
@@ -359,6 +387,7 @@ export interface MarkdownStyle {
    * `color` and `underline` inherit from the base `link` style when omitted.
    * `backgroundColor` defaults to `transparent`.
    * `fontFamily` inherits the base `link` family and can be overridden per variant.
+   * `pill: true` enables atomic native presentation with optional label, icon, and geometry.
    *
    * @example
    * linkVariants: {
@@ -395,7 +424,7 @@ export interface MarkdownStyle {
  */
 export interface Md4cFlags {
   /**
-   * Enable underline syntax support (__text__).
+   * Enable underline syntax support (_text_).
    * When enabled, underscores are treated as underline markers.
    * When disabled, underscores are treated as emphasis markers (same as asterisks).
    * @default false

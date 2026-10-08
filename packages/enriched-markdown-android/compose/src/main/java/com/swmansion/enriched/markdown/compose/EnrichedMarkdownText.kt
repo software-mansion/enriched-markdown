@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.viewinterop.AndroidView
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -20,13 +21,10 @@ import com.swmansion.enriched.markdown.TaskListItemToggle as TaskListItemToggleI
 import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
 import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins as EnrichedMarkdownPluginsInternal
 import com.swmansion.enriched.markdown.plugin.PluginEvent as PluginEventInternal
-import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay as SpoilerOverlayInternal
 
 typealias Md4cFlags = Md4cFlagsInternal
 
 typealias TaskListItemToggle = TaskListItemToggleInternal
-
-typealias SpoilerOverlay = SpoilerOverlayInternal
 
 typealias PluginEvent = PluginEventInternal
 
@@ -40,7 +38,8 @@ typealias EnrichedMarkdownPlugins = EnrichedMarkdownPluginsInternal
  *
  * [flags] selects the optional md4c syntax extensions.
  *
- * [spoilerOverlay] picks how `||spoiler||` text is concealed until it is tapped.
+ * [spoilerOverlay] picks how `||spoiler||` text is concealed until it is tapped. The overlays are
+ * rebuilt only when it changes by `==`, so pass a data class or object, or `remember` it.
  *
  * [onPluginEvent] receives events reported by installed plugins (for example an expression a
  * plugin could not render), once per distinct event until [markdown] is replaced rather than
@@ -60,7 +59,7 @@ fun EnrichedMarkdownText(
   onLinkLongClick: (String) -> Unit = {},
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
-  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
   onPluginEvent: (PluginEvent) -> Unit = {},
 ) {
   val context = LocalContext.current
