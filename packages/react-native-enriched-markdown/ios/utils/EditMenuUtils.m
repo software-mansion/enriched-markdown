@@ -21,15 +21,17 @@ static UIAction *createCopyAction(NSAttributedString *selectedText, NSString *ma
                            }];
 }
 
-static UIAction *_Nullable createCopyMarkdownAction(NSString *markdown, NSString *copyAsMarkdownLabel)
+static UIAction *_Nullable createCopyMarkdownAction(NSString *markdown, NSString *copyAsMarkdownLabel,
+                                                    NSAttributedString *selection, StyleConfig *config)
 {
   if (markdown.length == 0)
     return nil;
 
-  return [UIAction actionWithTitle:copyAsMarkdownLabel
-                             image:[RCTUIImage systemImageNamed:@"doc.text"]
-                        identifier:kActionIdentifierCopyMarkdown
-                           handler:^(__kindof UIAction *action) { copyStringToPasteboard(markdown); }];
+  return [UIAction
+      actionWithTitle:copyAsMarkdownLabel
+                image:[RCTUIImage systemImageNamed:@"doc.text"]
+           identifier:kActionIdentifierCopyMarkdown
+              handler:^(__kindof UIAction *action) { copySelectionMarkdownToPasteboard(markdown, selection, config); }];
 }
 
 static UIAction *_Nullable createCopyImageURLAction(NSArray<NSString *> *imageURLs,
@@ -102,9 +104,10 @@ UIMenu *buildEditMenuForSelection(NSAttributedString *attributedText, NSRange ra
   NSArray<NSString *> *imageURLs = imageURLsInRange(attributedText, range);
 
   UIAction *copyAction = createCopyAction(selectedText, markdown, styleConfig, selectionMenuConfig.copyLabel);
-  UIAction *copyMarkdownAction = selectionMenuConfig.copyAsMarkdown
-                                     ? createCopyMarkdownAction(markdown, selectionMenuConfig.copyAsMarkdownLabel)
-                                     : nil;
+  UIAction *copyMarkdownAction =
+      selectionMenuConfig.copyAsMarkdown
+          ? createCopyMarkdownAction(markdown, selectionMenuConfig.copyAsMarkdownLabel, selectedText, styleConfig)
+          : nil;
   UIAction *copyImageURLAction =
       selectionMenuConfig.copyImageURL ? createCopyImageURLAction(imageURLs, selectionMenuConfig) : nil;
 

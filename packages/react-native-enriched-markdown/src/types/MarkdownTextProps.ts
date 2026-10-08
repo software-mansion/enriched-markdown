@@ -141,6 +141,15 @@ export interface StreamingConfig {
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
+  /** Native clipboard metadata for selections containing an exact configured link URL.
+   * Replaces that link's plain copy text, wraps HTML with escaped attributes,
+   * and adds custom pasteboard types on iOS. No effect on rendering or layout.
+   */
+  selectionClipboard?: {
+    linkTextByUrl: Record<string, string>;
+    htmlAttributes?: Record<string, string>;
+    mimeTypes?: Record<string, string>;
+  };
   /**
    * Markdown content to render.
    * @platform ios, android, web

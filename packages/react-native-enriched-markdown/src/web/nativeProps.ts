@@ -30,6 +30,7 @@ type NativeOnlyPropName = Exclude<
 >;
 
 export const NATIVE_ONLY_PROP_NAMES: Record<NativeOnlyPropName, true> = {
+  selectionClipboard: true,
   onCopyPress: true,
   onLatexError: true,
   enableBlockContextMenu: true,

@@ -43,6 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @interface StyleConfig : NSObject <NSCopying>
+@property (nonatomic, copy, nullable) NSDictionary *selectionClipboard;
 - (instancetype)init;
 - (CGFloat)fontScaleMultiplier;
 /// `pill.lineHeight`, scaled with the font like the blocks' own line heights.

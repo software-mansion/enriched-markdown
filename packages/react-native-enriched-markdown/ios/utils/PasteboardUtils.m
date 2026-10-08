@@ -56,6 +56,83 @@ static void addHTMLData(NSMutableDictionary *items, NSAttributedString *attribut
 
 #pragma mark - Public API
 
+static NSString *canonicalClipboardText(NSAttributedString *text, StyleConfig *config)
+{
+  NSDictionary *links = config.selectionClipboard[@"linkTextByUrl"];
+  if (![links isKindOfClass:NSDictionary.class])
+    return nil;
+  NSMutableString *result = [text.string mutableCopy];
+  __block BOOL matched = NO;
+  [text enumerateAttribute:NSLinkAttributeName
+                   inRange:NSMakeRange(0, text.length)
+                   options:NSAttributedStringEnumerationReverse
+                usingBlock:^(id value, NSRange range, BOOL *stop) {
+                  NSString *replacement = value ? links[[value description]] : nil;
+                  if ([replacement isKindOfClass:NSString.class]) {
+                    [result replaceCharactersInRange:range withString:replacement];
+                    matched = YES;
+                  }
+                }];
+  return matched ? result : nil;
+}
+
+static NSString *escapeClipboardAttribute(NSString *value)
+{
+  return [[[[value stringByReplacingOccurrencesOfString:@"&"
+                                             withString:@"&amp;"] stringByReplacingOccurrencesOfString:@"\""
+                                                                                            withString:@"&quot;"]
+      stringByReplacingOccurrencesOfString:@"<"
+                                withString:@"&lt;"] stringByReplacingOccurrencesOfString:@">" withString:@"&gt;"];
+}
+
+static void addSelectionMetadata(NSMutableDictionary *items, StyleConfig *config)
+{
+  NSDictionary *attributes = config.selectionClipboard[@"htmlAttributes"];
+  NSMutableArray *encoded = [NSMutableArray array];
+  if ([attributes isKindOfClass:NSDictionary.class]) {
+    NSRegularExpression *validName = [NSRegularExpression regularExpressionWithPattern:@"^[A-Za-z_][A-Za-z0-9:_-]*$"
+                                                                               options:0
+                                                                                 error:nil];
+    for (id name in attributes) {
+      id value = attributes[name];
+      if ([name isKindOfClass:NSString.class] && [value isKindOfClass:NSString.class] &&
+          [validName numberOfMatchesInString:name options:0 range:NSMakeRange(0, [name length])] == 1)
+        [encoded addObject:[NSString stringWithFormat:@"%@=\"%@\"", name, escapeClipboardAttribute(value)]];
+    }
+  }
+  NSString *html = [[NSString alloc] initWithData:items[kUTIHTML] encoding:NSUTF8StringEncoding];
+  if (html && encoded.count > 0)
+    items[kUTIHTML] = [[NSString stringWithFormat:@"<div %@>%@</div>", [encoded componentsJoinedByString:@" "], html]
+        dataUsingEncoding:NSUTF8StringEncoding];
+#if !TARGET_OS_OSX
+  NSDictionary *types = config.selectionClipboard[@"mimeTypes"];
+  if ([types isKindOfClass:NSDictionary.class]) {
+    for (id type in types) {
+      id value = types[type];
+      if ([type isKindOfClass:NSString.class] && [value isKindOfClass:NSString.class] && !items[type])
+        items[type] = [value dataUsingEncoding:NSUTF8StringEncoding];
+    }
+  }
+#endif
+}
+
+void copySelectionMarkdownToPasteboard(NSString *markdown, NSAttributedString *selection, StyleConfig *config)
+{
+  selection = ENRMAttributedStringByExpandingLinkPills(selection, NULL);
+  if (!canonicalClipboardText(selection, config)) {
+    copyStringToPasteboard(markdown);
+    return;
+  }
+  NSMutableDictionary *items = [@{
+    kUTIPlainText : markdown,
+    kUTIMarkdown : markdown,
+    kUTIHTML : [[NSString stringWithFormat:@"<pre>%@</pre>", escapeClipboardAttribute(markdown)]
+        dataUsingEncoding:NSUTF8StringEncoding]
+  } mutableCopy];
+  addSelectionMetadata(items, config);
+  copyItemsToPasteboard(items);
+}
+
 void copyStringToPasteboard(NSString *string)
 {
 #if !TARGET_OS_OSX
@@ -96,7 +173,8 @@ void copyAttributedStringToPasteboard(NSAttributedString *attributedString, NSSt
 
   NSMutableDictionary *items = [NSMutableDictionary dictionary];
 
-  items[kUTIPlainText] = attributedString.string;
+  NSString *canonicalText = canonicalClipboardText(attributedString, styleConfig);
+  items[kUTIPlainText] = canonicalText ?: attributedString.string;
 
   if (markdown.length > 0) {
     items[kUTIMarkdown] = markdown;
@@ -105,6 +183,8 @@ void copyAttributedStringToPasteboard(NSAttributedString *attributedString, NSSt
   if (styleConfig) {
     addHTMLData(items, attributedString, styleConfig);
   }
+  if (canonicalText)
+    addSelectionMetadata(items, styleConfig);
 
   // RTF export requires preprocessing (backgrounds, markers, normalized spacing)
   NSAttributedString *rtfPrepared = prepareAttributedStringForRTFExport(attributedString, styleConfig);

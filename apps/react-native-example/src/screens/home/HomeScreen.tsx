@@ -17,6 +17,13 @@ type ScreenItem = {
 
 const SCREENS: ScreenItem[] = [
   {
+    route: 'SelectionClipboard',
+    label: 'Selection clipboard',
+    subtext: 'canonical link identities on copy',
+    testID: 'home-block-clipboard',
+    color: '#007AFF',
+  },
+  {
     route: 'Playground',
     label: 'Playground',
     subtext: 'live editor with preview',

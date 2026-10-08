@@ -72,6 +72,18 @@ class EnrichedMarkdown(
   var currentMarkdown: String = ""
     private set
 
+  var selectionClipboardConfig =
+    com.swmansion.enriched.markdown.utils.text.view
+      .SelectionClipboardConfig()
+    private set
+
+  fun setSelectionClipboardConfig(value: String?) {
+    selectionClipboardConfig =
+      com.swmansion.enriched.markdown.utils.text.view.SelectionClipboardConfig
+        .parse(value)
+    markdownStyle?.selectionClipboard = selectionClipboardConfig
+  }
+
   var markdownStyle: StyleConfig? = null
     private set
 
@@ -151,6 +163,7 @@ class EnrichedMarkdown(
   fun setMarkdownStyle(style: ReadableMap?) {
     markdownStyleMap = style
     val newConfig = style?.let { StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier) }
+    newConfig?.selectionClipboard = selectionClipboardConfig
     newConfig?.imageRequestHeaders = imageRequestHeaders
     newConfig?.linkPillContent = linkPillContent
     if (markdownStyle == newConfig) return
@@ -369,6 +382,7 @@ class EnrichedMarkdown(
     markdownStyleMap?.let {
       markdownStyle =
         StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier).also { config ->
+          config.selectionClipboard = selectionClipboardConfig
           config.imageRequestHeaders = imageRequestHeaders
           config.linkPillContent = linkPillContent
         }

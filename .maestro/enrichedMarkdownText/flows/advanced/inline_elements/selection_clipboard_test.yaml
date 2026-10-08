@@ -1,0 +1,67 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - advanced
+  - inline
+  - text
+  - ios-only
+---
+- launchApp:
+    stopApp: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: home-block-clipboard
+      - tapOn:
+          id: clipboard-source
+          point: '5%,50%'
+      # The adjacent plain and link spans form one word for native selection.
+      - doubleTapOn:
+          id: clipboard-source
+          point: '5%,50%'
+      - assertVisible: Copy
+      - tapOn: Copy
+      - longPressOn:
+          id: clipboard-paste
+      - tapOn: Paste
+      - assertVisible:
+          id: clipboard-paste
+          text: 'beforeContext'
+      - tapOn:
+          id: clipboard-clear
+      - tapOn:
+          id: canonical-copy-switch
+      - tapOn:
+          id: clipboard-source
+          point: '5%,50%'
+      - doubleTapOn:
+          id: clipboard-source
+          point: '5%,50%'
+      - assertVisible: Copy
+      - tapOn: Copy
+      - longPressOn:
+          id: clipboard-paste
+      - tapOn: Paste
+      - assertVisible:
+          id: clipboard-paste
+          text: 'before\[Context\]\(ref:one\)'
+      - tapOn:
+          id: clipboard-clear
+      # Disabling the prop restores ordinary copying without remounting the view.
+      - tapOn:
+          id: canonical-copy-switch
+      - tapOn:
+          id: clipboard-source
+          point: '5%,50%'
+      - doubleTapOn:
+          id: clipboard-source
+          point: '5%,50%'
+      - assertVisible: Copy
+      - tapOn: Copy
+      - longPressOn:
+          id: clipboard-paste
+      - tapOn: Paste
+      - assertVisible:
+          id: clipboard-paste
+          text: 'beforeContext'

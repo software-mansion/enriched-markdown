@@ -209,6 +209,14 @@ class EnrichedMarkdownManager :
     view?.enableTaskListItemToggle = enableTaskListItemToggle
   }
 
+  @ReactProp(name = "selectionClipboardConfig")
+  override fun setSelectionClipboardConfig(
+    view: EnrichedMarkdown?,
+    value: String?,
+  ) {
+    view?.setSelectionClipboardConfig(value)
+  }
+
   @ReactProp(name = "enableImagePress", defaultBoolean = false)
   override fun setEnableImagePress(
     view: EnrichedMarkdown?,

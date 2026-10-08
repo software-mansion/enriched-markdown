@@ -177,6 +177,8 @@ private fun TextView.copyWithHTML() {
   val styleConfig =
     (this as? EnrichedMarkdownText)?.markdownStyle
       ?: findParentMarkdownStyle()
+  val config = styleConfig?.selectionClipboard ?: SelectionClipboardConfig()
+  val canonical = (selectedText as? android.text.Spanned)?.let { canonicalClipboardText(it, config) }
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
   if (styleConfig != null && selectedText is Spannable) {
@@ -191,16 +193,35 @@ private fun TextView.copyWithHTML() {
         displayMetrics.density,
         isRTL,
       )
-    clipboard.setPrimaryClip(ClipData.newHtmlText("EnrichedMarkdown", plainText, html))
+    clipboard.setPrimaryClip(
+      ClipData.newHtmlText(
+        "EnrichedMarkdown",
+        canonical ?: plainText,
+        if (canonical !=
+          null
+        ) {
+          clipboardHtml(html, config)
+        } else {
+          html
+        },
+      ),
+    )
   } else {
-    clipboard.setPrimaryClip(ClipData.newPlainText("Text", plainText))
+    clipboard.setPrimaryClip(ClipData.newPlainText("Text", canonical ?: plainText))
   }
 }
 
 private fun TextView.copyMarkdownToClipboard() {
   val markdown = MarkdownExtractor.getMarkdownForSelection(this) ?: return
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("Markdown", markdown))
+  val config = ((this as? EnrichedMarkdownText)?.markdownStyle ?: findParentMarkdownStyle())?.selectionClipboard
+  val selected = text.subSequence(selectionStart, selectionEnd) as? android.text.Spanned
+  if (config != null && selected != null && canonicalClipboardText(selected, config) != null) {
+    val escaped = markdown.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    clipboard.setPrimaryClip(ClipData.newHtmlText("Markdown", markdown, clipboardHtml("<pre>$escaped</pre>", config)))
+  } else {
+    clipboard.setPrimaryClip(ClipData.newPlainText("Markdown", markdown))
+  }
 }
 
 /** Returns remote image URLs (http/https only) from the current selection. */

@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { Stack } from './navigation/Stack';
 import HomeScreen from './screens/home/HomeScreen';
 import PlaygroundScreen from './screens/playground/PlaygroundScreen';
+import SelectionClipboardScreen from './screens/clipboard/SelectionClipboardScreen';
 import TextScreen from './screens/text/TextScreen';
 import InputScreen from './screens/input/InputScreen';
 import StreamingMarkdownSimulator from './screens/streaming/StreamingMarkdownSimulator';
@@ -32,6 +33,11 @@ export default function App() {
           name="Playground"
           component={PlaygroundScreen}
           options={{ title: 'Playground' }}
+        />
+        <Stack.Screen
+          name="SelectionClipboard"
+          component={SelectionClipboardScreen}
+          options={{ title: 'Selection clipboard' }}
         />
         <Stack.Screen
           name="Text"

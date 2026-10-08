@@ -355,6 +355,32 @@ interface TextContextMenuItem {
 
 <LivePreview src={ContextMenuItemsSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - it customizes the native selection menu.</>} />
 
+### `selectionClipboard` <IosBadge /> <AndroidBadge />
+
+Optional application metadata for native copied selections. `linkTextByUrl` maps
+exact link destinations to plain-copy text. When a selection contains a configured
+link, including part of its label, Copy substitutes that text and wraps the HTML
+in a `div` carrying the escaped `htmlAttributes`. iOS additionally writes the
+UTF-8 values in `mimeTypes` as custom pasteboard types. Other selections keep the
+ordinary clipboard formats. Copy as Markdown keeps the Markdown text and attaches
+the same metadata. This prop does not change rendering or layout and is ignored
+on web.
+
+```tsx
+<EnrichedMarkdownText
+  markdown="See [Context](ref:one)."
+  selectionClipboard={{
+    linkTextByUrl: { 'ref:one': '[Context](ref:one)' },
+    htmlAttributes: { 'data-reference': 'ref:one' },
+    mimeTypes: { 'com.example.reference': 'ref:one' },
+  }}
+/>
+```
+
+The configuration defaults to disabled. Removing it restores ordinary copy
+behavior. Choose custom pasteboard type names that the receiving application
+understands; standard clipboard types are retained.
+
 ### `selectionMenuConfig`
 
 Controls the built-in actions in the native text selection menu (and the table/math copy menus) and lets you localize their labels. Custom app actions are controlled separately with `contextMenuItems`. Each item takes an object: `{ enabled }` toggles visibility (the system `copy` item can't be hidden - only relabeled) and `label` overrides the English default. On iOS this goes through the same iOS 16+ edit-menu API as [`contextMenuItems`](#contextmenuitems), so it is ignored on earlier versions.

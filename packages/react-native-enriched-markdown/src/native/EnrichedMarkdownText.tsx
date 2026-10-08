@@ -155,6 +155,7 @@ export const EnrichedMarkdownText = ({
   linkContextMenuItems,
   imageRequestHeaders,
   linkPillContent,
+  selectionClipboard,
   selectionMenuConfig,
   accessibilityLabels,
   selectionColor,
@@ -392,7 +393,12 @@ export const EnrichedMarkdownText = ({
     [accessibilityLabels]
   );
 
+  const selectionClipboardConfig = useMemo(
+    () => (selectionClipboard ? JSON.stringify(selectionClipboard) : ''),
+    [selectionClipboard]
+  );
   const sharedProps = {
+    selectionClipboardConfig,
     markdown,
     markdownStyle: normalizedStyle,
     onLinkPress: handleLinkPress,

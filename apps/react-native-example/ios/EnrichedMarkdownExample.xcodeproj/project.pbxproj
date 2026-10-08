@@ -25,6 +25,7 @@
 		9E6DECF91246407194021F8B /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D495169E422740CF87E4E8EB /* CourierPrime-Regular.ttf */; };
 		A352776896814266B8C2320C /* Poppins-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DB9BD7A36CF349D19BD6AE5B /* Poppins-SemiBold.ttf */; };
 		C5E681697D864CB241D83EFA /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A8E5ECDA77F0C61C263AE4C /* libPods-EnrichedMarkdownExample-EnrichedMarkdownExampleTests.a */; };
+		627C67C3DE68FD925F1AE5FC /* ENRMSelectionClipboardTests.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1BA77A78E97A8DA30BF1BEE /* ENRMSelectionClipboardTests.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		EFA8D1CE74004DB3BF0ABC53 /* Montserrat-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-SemiBold.ttf"; path = "../assets/fonts/Montserrat-SemiBold.ttf"; sourceTree = "<group>"; };
 		EFDFCE7DCD1A46B5B744D7EE /* Montserrat-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Montserrat-Regular.ttf"; path = "../assets/fonts/Montserrat-Regular.ttf"; sourceTree = "<group>"; };
+		A1BA77A78E97A8DA30BF1BEE /* ENRMSelectionClipboardTests.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = ENRMSelectionClipboardTests.mm; path = "../../../packages/react-native-enriched-markdown/__tests__/ios/ENRMSelectionClipboardTests.mm"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -436,6 +438,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				00E356F31AD99517003FC87E /* EnrichedMarkdownExampleTests.m in Sources */,
+				627C67C3DE68FD925F1AE5FC /* ENRMSelectionClipboardTests.mm in Sources */,
 				00E356F91AD99517003FC87E /* SwiftLinker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -476,6 +479,7 @@
 					"${PODS_ROOT}/../../../../packages/core/cpp/parser",
 					"${PODS_ROOT}/../../../../packages/core/cpp/highlight",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/internals",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/utils",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/input/internals",
 				);
 				INFOPLIST_FILE = EnrichedMarkdownExampleTests/Info.plist;
@@ -515,6 +519,7 @@
 					"${PODS_ROOT}/../../../../packages/core/cpp/parser",
 					"${PODS_ROOT}/../../../../packages/core/cpp/highlight",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/internals",
+					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/utils",
 					"${PODS_ROOT}/../../../../packages/react-native-enriched-markdown/ios/input/internals",
 				);
 				INFOPLIST_FILE = EnrichedMarkdownExampleTests/Info.plist;

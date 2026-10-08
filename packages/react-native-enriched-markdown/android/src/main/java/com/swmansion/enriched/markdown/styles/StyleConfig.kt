@@ -19,6 +19,10 @@ class StyleConfig(
   allowFontScaling: Boolean,
   maxFontSizeMultiplier: Float,
 ) {
+  var selectionClipboard =
+    com.swmansion.enriched.markdown.utils.text.view
+      .SelectionClipboardConfig()
+
   private val styleParser = StyleParser(context, allowFontScaling, maxFontSizeMultiplier)
   internal val assetManager: AssetManager = context.assets
   private val assets: AssetManager get() = assetManager

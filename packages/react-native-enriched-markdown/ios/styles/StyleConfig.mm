@@ -452,6 +452,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_imageBorderRadius = _imageBorderRadius;
   copy->_imageMarginTop = _imageMarginTop;
   copy->_imageMarginBottom = _imageMarginBottom;
+  copy.selectionClipboard = self.selectionClipboard;
   copy->_imageRequestHeaders = [_imageRequestHeaders copy];
   copy->_linkPillContent = [_linkPillContent copy];
   copy->_videoMarginTop = _videoMarginTop;

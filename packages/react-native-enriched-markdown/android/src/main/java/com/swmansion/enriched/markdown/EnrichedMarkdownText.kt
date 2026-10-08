@@ -95,6 +95,18 @@ class EnrichedMarkdownText
     private var contextMenuItemTexts: List<String> = emptyList()
     var onContextMenuItemPressCallback: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
 
+    var selectionClipboardConfig =
+      com.swmansion.enriched.markdown.utils.text.view
+        .SelectionClipboardConfig()
+      private set
+
+    fun setSelectionClipboardConfig(value: String?) {
+      selectionClipboardConfig =
+        com.swmansion.enriched.markdown.utils.text.view.SelectionClipboardConfig
+          .parse(value)
+      markdownStyle?.selectionClipboard = selectionClipboardConfig
+    }
+
     var markdownStyle: StyleConfig? = null
       private set
 
@@ -158,6 +170,7 @@ class EnrichedMarkdownText
       // Register font scaling settings when style is set (view should have ID by now)
       updateMeasurementStoreFontScaling()
       val newStyle = style?.let { StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier) }
+      newStyle?.selectionClipboard = selectionClipboardConfig
       newStyle?.imageRequestHeaders = imageRequestHeaders
       newStyle?.linkPillContent = linkPillContent
       if (markdownStyle == newStyle) return
@@ -259,6 +272,7 @@ class EnrichedMarkdownText
       markdownStyleMap?.let { styleMap ->
         markdownStyle =
           StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier).also {
+            it.selectionClipboard = selectionClipboardConfig
             it.imageRequestHeaders = imageRequestHeaders
             it.linkPillContent = linkPillContent
           }
