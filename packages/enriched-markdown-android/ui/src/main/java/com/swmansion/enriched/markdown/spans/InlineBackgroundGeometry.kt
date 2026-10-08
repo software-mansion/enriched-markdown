@@ -43,9 +43,9 @@ internal class InlineBackgroundGeometry {
   }
 
   /**
-   * Read from the layout's selection, which knows each glyph's edges. Caret positions don't where
-   * the direction changes. Each single-direction run is selected on its own, since runs of
-   * opposite directions may be drawn apart.
+   * Read from the layout's selection rather than caret positions, which can point at the wrong
+   * glyph where the text direction changes. Each single-direction run is selected on its own,
+   * since runs of opposite directions may be drawn apart.
    */
   private fun Layout.glyphRanges(
     line: Int,
