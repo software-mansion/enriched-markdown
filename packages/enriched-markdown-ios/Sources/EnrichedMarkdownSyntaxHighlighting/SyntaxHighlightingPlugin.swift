@@ -12,9 +12,8 @@ struct SyntaxHighlightingPlugin: MarkdownRenderPlugin {
         config: MarkdownStyleConfiguration
     ) {
         let colors = config.syntaxHighlight.colors
-        guard !colors.isEmpty else { return }
+        guard !colors.isEmpty, let code = output.utf8(in: range) else { return }
 
-        let code = output.mutableString.substring(with: range)
         for token in SyntaxHighlighter.tokens(in: code, language: language) {
             guard let color = colors[token.type], NSMaxRange(token.range) <= range.length else { continue }
             output.addAttribute(
@@ -23,6 +22,28 @@ struct SyntaxHighlightingPlugin: MarkdownRenderPlugin {
                 range: NSRange(location: range.location + token.range.location, length: token.range.length)
             )
         }
+    }
+}
+
+private extension NSAttributedString {
+    func utf8(in range: NSRange) -> [UInt8]? {
+        // UTF-8 needs at most three bytes per UTF-16 unit.
+        let capacity = range.length * 3
+        var used = 0
+        var converted = false
+        let bytes = [UInt8](unsafeUninitializedCapacity: capacity) { buffer, initialized in
+            converted = (string as NSString).getBytes(
+                buffer.baseAddress,
+                maxLength: capacity,
+                usedLength: &used,
+                encoding: String.Encoding.utf8.rawValue,
+                options: [],
+                range: range,
+                remaining: nil
+            )
+            initialized = converted ? used : 0
+        }
+        return converted ? bytes : nil
     }
 }
 

@@ -106,6 +106,17 @@ final class SyntaxHighlightingRenderingTests: XCTestCase {
         XCTAssertEqual(inQuote.foregroundColor(of: "def"), keyword)
     }
 
+    func testNonASCIICodeKeepsTokenPositions() {
+        let config = highlightingConfig()
+        let colors = config.syntaxHighlight.colors
+        let rendered = MarkdownRenderer.renderSyntaxHighlighted("```python\nx = \"🎉é\"  # 🎉\nimport os\n```", config: config)
+
+        XCTAssertEqual(rendered.foregroundColor(of: "\"🎉é\""), colors[.string])
+        XCTAssertEqual(rendered.foregroundColor(of: "  #"), config.codeBlock.foregroundColor)
+        XCTAssertEqual(rendered.foregroundColor(of: "# 🎉"), colors[.comment])
+        XCTAssertEqual(rendered.foregroundColor(of: "import"), colors[.keyword])
+    }
+
     func testThemeColorsReachTheRenderedBlock() {
         let config = highlightingConfig {
             SyntaxToken(.keyword).foregroundStyle(Color(red: 1, green: 0, blue: 1))

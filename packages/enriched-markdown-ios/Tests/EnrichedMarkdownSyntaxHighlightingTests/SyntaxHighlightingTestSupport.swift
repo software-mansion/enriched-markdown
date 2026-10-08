@@ -41,3 +41,9 @@ extension UIView {
         return nil
     }
 }
+
+extension SyntaxHighlighter {
+    static func tokens(in code: String, language: String) -> [Token] {
+        tokens(in: Array(code.utf8), language: language)
+    }
+}

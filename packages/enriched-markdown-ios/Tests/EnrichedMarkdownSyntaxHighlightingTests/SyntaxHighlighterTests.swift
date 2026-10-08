@@ -41,6 +41,15 @@ final class SyntaxHighlighterTests: XCTestCase {
         XCTAssertEqual(SyntaxHighlighter.tokens(in: code, language: "JS"), tokens, "info strings match case-insensitively")
     }
 
+    func testLanguageIsPartOfTheCacheKey() {
+        let code = "x = 1  # note"
+        let python = SyntaxHighlighter.tokens(in: code, language: "python")
+        let javascript = SyntaxHighlighter.tokens(in: code, language: "javascript")
+
+        XCTAssertTrue(python.contains { $0.type == .comment })
+        XCTAssertNotEqual(python, javascript)
+    }
+
     func testEveryBundledGrammarHighlights() {
         let samples: [String: String] = [
             "json": "{\"key\": [1, true, null]}",
