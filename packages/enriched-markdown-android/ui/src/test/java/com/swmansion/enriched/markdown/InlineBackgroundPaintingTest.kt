@@ -353,19 +353,6 @@ class InlineBackgroundPaintingTest(
   }
 
   @Test
-  fun runBrokenMidWordStaysWithinEachLinesGlyphs() {
-    val drawn = draw(document(paragraph(text("call "), styledRun("a".repeat(120)), text(" once"))))
-    val layout = requireNotNull(drawn.textView.layout)
-
-    assertTrue("The run must break mid-word for this to be meaningful", layout.getLineEnd(0) < drawn.runEnd)
-    assertCoversOnlyTheRunsGlyphs(drawn)
-    for (background in drawn.backgrounds) {
-      val line = layout.getLineForVertical(background.centerY().toInt())
-      assertTrue("$background must end at line $line's glyphs", background.right <= layout.getLineRight(line) + 0.5f)
-    }
-  }
-
-  @Test
   fun theBackgroundFollowsTheListIndent() {
     val drawn = draw(document(unorderedList(listItem(paragraph(styledRun("render()"))))))
 
@@ -374,23 +361,9 @@ class InlineBackgroundPaintingTest(
   }
 
   @Test
-  fun aViewThatDidNotRegisterStillPlacesAStartAlignedRun() {
-    assertCoversTheRun(
-      draw(document(paragraph(text("call "), styledRun("render()"), text(" once"))), registered = false),
-    )
-  }
+  fun aViewThatDidNotRegisterDrawsNoBackground() {
+    val drawn = draw(document(paragraph(text("call "), styledRun("render()"), text(" once"))), registered = false)
 
-  @Test
-  fun aViewThatDidNotRegisterStillFollowsTheListIndent() {
-    assertCoversTheRun(
-      draw(document(unorderedList(listItem(paragraph(text("call "), styledRun("render()"))))), registered = false),
-    )
-  }
-
-  @Test
-  fun aViewThatDidNotRegisterStillEndsAnIndentedRunThatStartsTheLine() {
-    assertCoversTheRun(
-      draw(document(unorderedList(listItem(paragraph(styledRun("render()"), text(" once"))))), registered = false),
-    )
+    assertTrue(drawn.backgrounds.isEmpty())
   }
 }

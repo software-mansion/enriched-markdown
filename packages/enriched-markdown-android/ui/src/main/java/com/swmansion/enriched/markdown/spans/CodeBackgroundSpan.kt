@@ -66,7 +66,7 @@ class CodeBackgroundSpan(
     val isLast = spanEnd <= end
 
     // 2. Calculate coordinates
-    val ranges = geometry.ranges(text, lineNum, start, end, spanStart, spanEnd, left, right, p)
+    val ranges = geometry.ranges(text, lineNum, spanStart, spanEnd)
     rect.top = top.toFloat()
     rect.bottom = adjustBottomForMargin(text, end, bottom).toFloat()
 

@@ -65,7 +65,7 @@ class HighlightSpan(
     val visibility = text.spoilerTextAlpha(maxOf(spanStart, start), minOf(spanEnd, end))
     if (visibility <= 0f) return
 
-    val ranges = geometry.ranges(text, lineNum, start, end, spanStart, spanEnd, left, right, p)
+    val ranges = geometry.ranges(text, lineNum, spanStart, spanEnd)
 
     // Bound by the glyphs' ascent/descent, clamped to the line box so a tall line height never
     // lets the band bleed into its neighbours. `p` is set in the view's size, so measure with the
