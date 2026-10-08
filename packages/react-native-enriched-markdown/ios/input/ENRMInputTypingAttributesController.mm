@@ -122,19 +122,8 @@
     paragraph.paragraphSpacingBefore = _formatterStyle.listItemSpacing;
     ENRMApplyLineHeightToParagraphStyle(paragraph, _formatterStyle.baseLineHeight);
     attrs[NSParagraphStyleAttributeName] = paragraph;
-  } else if (headingLevel >= 1 && headingLevel <= 6) {
-    CGFloat derivedLineHeight = [_formatterStyle derivedLineHeightForHeadingLevel:headingLevel];
-    if (derivedLineHeight > 0) {
-      NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
-      ENRMApplyLineHeightToParagraphStyle(paragraph, derivedLineHeight);
-      attrs[NSParagraphStyleAttributeName] = paragraph;
-    } else {
-      [attrs removeObjectForKey:NSParagraphStyleAttributeName];
-    }
-  } else if (_formatterStyle.baseLineHeight > 0) {
-    attrs[NSParagraphStyleAttributeName] = ENRMInputParagraphStyleWithLineHeight(_formatterStyle, nil);
   } else {
-    [attrs removeObjectForKey:NSParagraphStyleAttributeName];
+    [self setNonListParagraphStyleInAttributes:attrs headingLevel:headingLevel];
   }
 
   if (![attrs isEqualToDictionary:_textView.typingAttributes]) {
@@ -175,12 +164,32 @@
   if (_textView.typingAttributes[NSParagraphStyleAttributeName] == nil) {
     return;
   }
+  // Drop the list indent but keep the line height, which also sizes the caret
+  // on an empty trailing line and in an empty editor.
   NSMutableDictionary *attrs = [_textView.typingAttributes mutableCopy];
-  [attrs removeObjectForKey:NSParagraphStyleAttributeName];
-  _textView.typingAttributes = attrs;
+  [self setNonListParagraphStyleInAttributes:attrs headingLevel:[_dataSource headingLevelForCursorParagraph]];
+  if (![attrs isEqualToDictionary:_textView.typingAttributes]) {
+    _textView.typingAttributes = attrs;
+  }
 }
 
 #pragma mark - Private
+
+/// Paragraph style for a non-list paragraph: the heading's derived line height,
+/// or the base line height, or none when no line height is set.
+- (void)setNonListParagraphStyleInAttributes:(NSMutableDictionary *)attrs headingLevel:(NSInteger)headingLevel
+{
+  CGFloat lineHeight = (headingLevel >= 1 && headingLevel <= 6)
+                           ? [_formatterStyle derivedLineHeightForHeadingLevel:headingLevel]
+                           : _formatterStyle.baseLineHeight;
+  if (lineHeight > 0) {
+    NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
+    ENRMApplyLineHeightToParagraphStyle(paragraph, lineHeight);
+    attrs[NSParagraphStyleAttributeName] = paragraph;
+  } else {
+    [attrs removeObjectForKey:NSParagraphStyleAttributeName];
+  }
+}
 
 - (void)rebuildFromContext
 {

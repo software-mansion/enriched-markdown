@@ -16,6 +16,7 @@ import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.InputParser
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.spans.applyBodyLineHeightSpan
+import com.swmansion.enriched.markdown.input.spans.bodyLineMinimumFontMetrics
 import com.swmansion.enriched.markdown.utils.input.MarkdownStyleParser
 import java.util.concurrent.ConcurrentHashMap
 
@@ -187,6 +188,11 @@ object InputMeasurementStore {
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
       builder.setUseLineSpacingFromFallbacks(true)
+    }
+
+    // Matches the editor, which sets the same minimum on Android 15+.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+      builder.setMinimumFontMetrics(bodyLineMinimumFontMetrics(paint, textAttributes))
     }
 
     val staticLayout = builder.build()

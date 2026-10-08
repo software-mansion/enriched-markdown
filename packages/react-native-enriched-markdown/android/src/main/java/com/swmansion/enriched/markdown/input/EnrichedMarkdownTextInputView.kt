@@ -8,6 +8,8 @@ import android.graphics.Color
 import android.os.Build
 import android.text.Editable
 import android.text.InputType
+import android.text.SpannableString
+import android.text.TextPaint
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -54,6 +56,7 @@ import com.swmansion.enriched.markdown.input.model.FormattingRange
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
 import com.swmansion.enriched.markdown.input.model.StyleType
 import com.swmansion.enriched.markdown.input.spans.applyBodyLineHeightSpan
+import com.swmansion.enriched.markdown.input.spans.bodyLineMinimumFontMetrics
 import com.swmansion.enriched.markdown.input.toolbar.InputContextMenu
 import com.swmansion.enriched.markdown.utils.input.AutoCapitalizeUtils
 import kotlin.math.ceil
@@ -157,6 +160,11 @@ class EnrichedMarkdownTextInputView(
 
   // The consumer-set placeholder, hidden while a bullet is drawn on an empty editor.
   private var userHint: CharSequence? = null
+
+  // userHint with the body line-height span, so the hint lays out at the same
+  // line height that InputMeasurementStore measures it with.
+  private var styledHint: CharSequence? = null
+  private var styledHintLineHeight = Float.NaN
 
   init {
     setupDetectorPipeline()
@@ -529,10 +537,39 @@ class EnrichedMarkdownTextInputView(
     formatter.applyFormatting(editable, formattingStore.allRanges)
     formatter.applyBlockFormatting(editable, blockStore.allRanges)
     applyBodyLineHeightSpan(editable, textAttributes)
+    updateMinimumFontMetrics()
+    updateStyledHint()
     // Formatting can change the height without changing the text (toggling a
     // heading or list, or a new font size or line height), so Yoga has to
     // re-measure here, not only on text changes.
     layoutManager.invalidateLayout()
+  }
+
+  /** Ensures empty lines also apply the lineHeight. See [bodyLineMinimumFontMetrics]. */
+  private fun updateMinimumFontMetrics() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
+
+    // Measure with the body font size even while an empty heading line has
+    // enlarged the paint (syncCursorSizeWithBlock).
+    val bodyPaint = TextPaint(paint).apply { headingOverrideBaseSizePx?.let { textSize = it } }
+    val metrics = bodyLineMinimumFontMetrics(bodyPaint, textAttributes)
+    val current = minimumFontMetrics
+    val unchanged =
+      metrics == current ||
+        (
+          metrics != null &&
+            current != null &&
+            metrics.top == current.top &&
+            metrics.ascent == current.ascent &&
+            metrics.descent == current.descent &&
+            metrics.bottom == current.bottom
+        )
+    if (unchanged) return
+
+    minimumFontMetrics = metrics
+    // setMinimumFontMetrics doesn't rebuild the layout and DynamicLayout keeps
+    // the metrics it was built with; re-setting the break strategy does both.
+    breakStrategy = breakStrategy
   }
 
   private fun applyFormattingAndEmit() {
@@ -722,17 +759,30 @@ class EnrichedMarkdownTextInputView(
    * The hint shows only on a truly empty editor with no block range — a bullet's
    * ZWSP anchor counts as content, so the hint never overlaps a marker. Mirrors iOS.
    */
-  private fun syncHintVisibility() {
+  private fun syncHintVisibility(force: Boolean = false) {
     val content = text
     val hasRealText = content != null && content.any { it != ZWSP }
     val hasBlock = blockStore.allRanges.isNotEmpty()
-    val target: CharSequence? = if (hasRealText || hasBlock) "" else userHint
-    if (hint != target) super.setHint(target)
+    val target: CharSequence? = if (hasRealText || hasBlock) "" else styledHint
+    // Compare as strings: setHint copies the hint, so the spanned copy is never
+    // identical to target. A line-height change passes force instead.
+    if (force || hint?.toString() != target?.toString()) super.setHint(target)
   }
 
   fun setUserHint(value: CharSequence?) {
     userHint = value
-    syncHintVisibility()
+    updateStyledHint(force = true)
+  }
+
+  /** Rebuilds [styledHint] when the hint text or the body line height changes. */
+  private fun updateStyledHint(force: Boolean = false) {
+    val lineHeight = textAttributes.effectiveLineHeight
+    // compareTo treats NaN (no line height) as equal to itself, unlike !=.
+    if (!force && lineHeight.compareTo(styledHintLineHeight) == 0) return
+
+    styledHintLineHeight = lineHeight
+    styledHint = userHint?.let { SpannableString(it).apply { applyBodyLineHeightSpan(this, textAttributes) } }
+    syncHintVisibility(force = true)
   }
 
   // Copies the whole input as markdown without disturbing the current selection,

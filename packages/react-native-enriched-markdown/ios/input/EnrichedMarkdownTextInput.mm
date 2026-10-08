@@ -83,6 +83,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMEditSession *_editSession;
 
   ENRMPlaceholderLabel *_placeholderLabel;
+  NSString *_placeholderText;
 
   NSUInteger _lastTextLength;
   NSRange _lastSelectedRange;
@@ -410,12 +411,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #endif
 
   if (newViewProps.placeholder != oldViewProps.placeholder) {
-    ENRMSetPlaceholderText(_placeholderLabel, [NSString stringWithUTF8String:newViewProps.placeholder.c_str()]);
+    _placeholderText = [NSString stringWithUTF8String:newViewProps.placeholder.c_str()];
+    [self updatePlaceholderText];
   }
 
   if (newViewProps.placeholderTextColor != oldViewProps.placeholderTextColor) {
     if (isColorMeaningful(newViewProps.placeholderTextColor)) {
       _placeholderLabel.textColor = RCTUIColorFromSharedColor(newViewProps.placeholderTextColor);
+      [self updatePlaceholderText];
     }
   }
 
@@ -518,7 +521,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 
   if (styleChanged) {
-    _placeholderLabel.font = _formatterStyle.baseFont;
+    [self updatePlaceholderText];
 
     [self resetBaseTypingAttributes];
     [self applyFormatting];
@@ -626,7 +629,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
     [self resetBaseTypingAttributes];
 
-    _placeholderLabel.font = _formatterStyle.baseFont;
+    [self updatePlaceholderText];
 
     [self applyFormatting];
     [self requestHeightUpdate];
@@ -647,6 +650,27 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 }
 
 #pragma mark - Placeholder
+
+/// Lays the placeholder out like a body paragraph: base font, and the body line
+/// height with the same baseline centering the formatter applies to typed text.
+- (void)updatePlaceholderText
+{
+  NSMutableDictionary *attrs = [@{
+    NSFontAttributeName : _formatterStyle.baseFont,
+    NSForegroundColorAttributeName : _placeholderLabel.textColor,
+  } mutableCopy];
+  if (_formatterStyle.baseLineHeight > 0) {
+    attrs[NSParagraphStyleAttributeName] = ENRMInputParagraphStyleWithLineHeight(_formatterStyle, nil);
+  }
+  NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:_placeholderText ?: @""
+                                                                           attributes:attrs];
+  NSRange fullRange = NSMakeRange(0, text.length);
+  CGFloat baselineOffset = calculateBaselineOffset(text, fullRange);
+  if (baselineOffset > 0) {
+    [text addAttribute:NSBaselineOffsetAttributeName value:@(baselineOffset) range:fullRange];
+  }
+  ENRMSetPlaceholderAttributedText(_placeholderLabel, text);
+}
 
 - (void)updatePlaceholderVisibility
 {

@@ -274,6 +274,7 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
     [textStorage removeAttribute:ENRMBlockLevelAttributeName range:range];
     [textStorage removeAttribute:ENRMBlockOrdinalAttributeName range:range];
     [textStorage removeAttribute:NSParagraphStyleAttributeName range:range];
+    [textStorage removeAttribute:NSBaselineOffsetAttributeName range:range];
   }
 
   for (ENRMBlockRange *blockRange in blockRanges) {
@@ -355,12 +356,14 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
 
 /// Body line height on every paragraph that is not a heading. Lists share this
 /// default so toggling a list cannot drop line height. Headings keep the
-/// derived height from the heading handler.
+/// derived height from the heading handler. When lineHeight is <= 0, clears a
+/// previously applied body line height. Writes only what differs, so unchanged
+/// paragraphs are not re-laid out.
 - (void)applyBaseLineHeight:(CGFloat)lineHeight
     toNonHeadingParagraphsInTextStorage:(NSTextStorage *)textStorage
                                   range:(NSRange)scopeRange
 {
-  if (lineHeight <= 0 || scopeRange.length == 0) {
+  if (scopeRange.length == 0) {
     return;
   }
 
@@ -382,8 +385,26 @@ static void ENRMRemoveAttributeIfPresent(NSMutableAttributedString *storage, NSA
       headingLevel = ENRMHeadingLevelForBlockType((ENRMInputBlockType)[blockType integerValue]);
     }
     if (headingLevel == 0) {
-      applyLineHeight(textStorage, paragraphRange, lineHeight);
-      applyBaselineOffset(textStorage, paragraphRange);
+      // Unlike applyLineHeight, overwrite the line height left by an earlier
+      // pass, or clear it when lineHeight is <= 0. Leave paragraphs that never
+      // had a line height without a paragraph style.
+      NSMutableParagraphStyle *paragraphStyle = getOrCreateParagraphStyle(textStorage, paragraphRange.location);
+      if (lineHeight > 0 || paragraphStyle.minimumLineHeight > 0) {
+        paragraphStyle.minimumLineHeight = 0;
+        paragraphStyle.maximumLineHeight = 0;
+        ENRMApplyLineHeightToParagraphStyle(paragraphStyle, lineHeight);
+        ENRMSetAttributeIfChanged(textStorage, NSParagraphStyleAttributeName, paragraphStyle, paragraphRange, nil);
+      }
+
+      // Unlike applyBaselineOffset, overwrite an offset centered for a previous
+      // line height or font, and clear it when none is needed. Unlike the text renderer,
+      // the input has no block images or super/subscript offsets to preserve.
+      CGFloat baselineOffset = calculateBaselineOffset(textStorage, paragraphRange);
+      if (baselineOffset > 0) {
+        ENRMSetAttributeIfChanged(textStorage, NSBaselineOffsetAttributeName, @(baselineOffset), paragraphRange, nil);
+      } else {
+        ENRMRemoveAttributeIfPresent(textStorage, NSBaselineOffsetAttributeName, paragraphRange, nil);
+      }
     }
 
     NSUInteger nextPosition = NSMaxRange(paragraphRange);

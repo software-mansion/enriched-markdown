@@ -26,10 +26,10 @@ internal fun applyLineHeight(
 
   // Use lineHeight as a floor: if the default line-height is greater, don't
   // override it
-  if (leading <= 0) return
-
-  fm.ascent -= ceil(leading / 2.0f).toInt()
-  fm.descent += floor(leading / 2.0f).toInt()
+  if (leading > 0) {
+    fm.ascent -= ceil(leading / 2.0f).toInt()
+    fm.descent += floor(leading / 2.0f).toInt()
+  }
 
   if (start == 0) {
     fm.top = fm.ascent

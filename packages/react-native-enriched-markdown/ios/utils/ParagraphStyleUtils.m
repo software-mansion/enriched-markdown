@@ -329,14 +329,12 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
   [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
 }
 
-// Centers text within its line height by offsetting the baseline by half the leading, matching how
-// Android's LineHeightSpan splits the extra leading evenly above and below the glyphs. Called per
-// block over its own range so blocks can keep different line heights. Ranges that already carry a
-// baseline offset are left untouched, keeping nesting (e.g. a blockquote wrapping list items) idempotent.
-void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
+// Calculates the offset needed to center the text within the line height. Returns 0
+// when the range has no minimum line height or its content already fills the line.
+CGFloat calculateBaselineOffset(NSAttributedString *output, NSRange range)
 {
   if (range.length == 0) {
-    return;
+    return 0;
   }
 
   // applyLineHeight floors lines with minimumLineHeight (maximumLineHeight is 0 for grown lines,
@@ -353,7 +351,7 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                   }];
 
   if (targetLineHeight <= 0) {
-    return;
+    return 0;
   }
 
   // Center on real text; on a math-only line center the math box instead of its font.
@@ -408,10 +406,21 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
 #endif
 
   if (contentLineHeight <= 0 || targetLineHeight <= contentLineHeight) {
-    return;
+    return 0;
   }
 
-  CGFloat baseLineOffset = (targetLineHeight - contentLineHeight) / 2.0;
+  return (targetLineHeight - contentLineHeight) / 2.0;
+}
+
+// Centers text within its line height (see calculateBaselineOffset). Called per block over its
+// own range so blocks can keep different line heights. Ranges that already carry a baseline offset
+// are left untouched, keeping nesting (e.g. a blockquote wrapping list items) idempotent.
+void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
+{
+  CGFloat baseLineOffset = calculateBaselineOffset(output, range);
+  if (baseLineOffset <= 0) {
+    return;
+  }
 
   [output enumerateAttribute:NSBaselineOffsetAttributeName
                      inRange:range

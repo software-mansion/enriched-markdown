@@ -418,12 +418,12 @@ static inline ENRMPlaceholderLabel *ENRMCreatePlaceholderLabel(ENRMPlatformTextV
 #endif
 }
 
-/// Cross-platform placeholder text setter.
-static inline void ENRMSetPlaceholderText(ENRMPlaceholderLabel *label, NSString *text)
+/// Cross-platform placeholder attributed text setter.
+static inline void ENRMSetPlaceholderAttributedText(ENRMPlaceholderLabel *label, NSAttributedString *text)
 {
 #if !TARGET_OS_OSX
-  label.text = text;
+  label.attributedText = text;
 #else
-  label.stringValue = text;
+  label.attributedStringValue = text;
 #endif
 }
