@@ -5,7 +5,6 @@ package com.swmansion.enriched.markdown.spans
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.CharacterStyle
@@ -34,7 +33,6 @@ class HighlightSpan(
   TextViewAwareSpan {
   private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
   private val metricsPaint = TextPaint()
-  private val band = RectF()
   private val geometry = InlineBackgroundGeometry()
 
   override fun updateDrawState(tp: TextPaint) {
@@ -67,7 +65,7 @@ class HighlightSpan(
     val visibility = text.spoilerTextAlpha(maxOf(spanStart, start), minOf(spanEnd, end))
     if (visibility <= 0f) return
 
-    geometry.horizontalBounds(text, lineNum, start, end, spanStart, spanEnd, left, right, p, band)
+    geometry.findRanges(text, lineNum, start, end, spanStart, spanEnd, left, right, p)
 
     // Bound by the glyphs' ascent/descent, clamped to the line box so a tall line height never
     // lets the band bleed into its neighbours. `p` is set in the view's size, so measure with the
@@ -75,11 +73,13 @@ class HighlightSpan(
     metricsPaint.set(p)
     metricsPaint.textSize = blockStyle.fontSize
     val metrics = metricsPaint.fontMetricsInt
-    band.top = max(top.toFloat(), (baseline + metrics.ascent).toFloat())
-    band.bottom = min(bottom.toFloat(), (baseline + metrics.descent).toFloat())
+    val bandTop = max(top.toFloat(), (baseline + metrics.ascent).toFloat())
+    val bandBottom = min(bottom.toFloat(), (baseline + metrics.descent).toFloat())
 
     backgroundPaint.color = colorWithAlpha(backgroundColor, visibility)
-    canvas.drawRect(band.left, band.top, band.right, band.bottom, backgroundPaint)
+    for (i in 0 until geometry.rangeCount) {
+      canvas.drawRect(geometry.rangeLeft(i), bandTop, geometry.rangeRight(i), bandBottom, backgroundPaint)
+    }
   }
 
   /** Makes this span position its band from [view]'s layout, which is the one that draws it. */

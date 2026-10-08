@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.spans
 
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.text.Layout
 import android.text.Spanned
@@ -20,17 +21,37 @@ internal class InlineBackgroundGeometry {
   // Weak, so a rendered text that outlives its view does not keep the view alive.
   private var textViewRef: WeakReference<TextView>? = null
 
+  // Reused on every draw.
+  private val selection = Path()
+  private val drawnSide = Path()
+  private val selectionBounds = RectF()
+  private var lefts = FloatArray(2)
+  private var rights = FloatArray(2)
+
+  /** How many x ranges the last [findRanges] found. */
+  var rangeCount = 0
+    private set
+
+  /** The left of the [index]th range the last [findRanges] found, counting from the left. */
+  fun rangeLeft(index: Int): Float = lefts[index]
+
+  /** The right of the [index]th range the last [findRanges] found, counting from the left. */
+  fun rangeRight(index: Int): Float = rights[index]
+
   fun registerTextView(view: TextView) {
     if (textViewRef?.get() !== view) textViewRef = WeakReference(view)
   }
 
   /**
-   * Sets [out]'s left and right to the x range of [spanStart]..[spanEnd] on [line], which holds
-   * [lineStart]..[lineEnd] of [text] and is drawn between [left] and [right]. On a line the span
-   * continues onto or past, the range runs to the line's glyphs, which only a layout knows for every
-   * alignment and direction; without one it runs to the view edges.
+   * Finds the x ranges of [spanStart]..[spanEnd] on [line], which holds [lineStart]..[lineEnd] of
+   * [text] and is drawn between [left] and [right], and leaves them in [rangeCount], [rangeLeft]
+   * and [rangeRight]. There is usually one, but where the line mixes directions the span's glyphs
+   * can lie on both sides of other text, and each stretch gets its own range. Only a layout knows
+   * where the glyphs are for every alignment and direction; without one, there is a single range
+   * measured from the line's start, which runs to the view edges on a line the span continues
+   * onto or past.
    */
-  fun horizontalBounds(
+  fun findRanges(
     text: Spanned,
     line: Int,
     lineStart: Int,
@@ -40,58 +61,116 @@ internal class InlineBackgroundGeometry {
     left: Int,
     right: Int,
     paint: Paint,
-    out: RectF,
   ) {
-    val isFirst = spanStart >= lineStart
-    val isLast = spanEnd <= lineEnd
+    rangeCount = 0
     // The layout drawing this line, when the view showing the text registered with this span. Its
     // x positions are in the same frame as left and right, which the layout draws from.
     val layout = textViewRef?.get()?.layout?.takeIf { it.text === text }
+    if (layout != null) {
+      layout.findGlyphRanges(line, spanStart, spanEnd)
+      return
+    }
     val startX =
-      when {
-        layout != null && isFirst -> layout.horizontalOnLine(spanStart, line)
-        layout != null -> layout.leadingEdge(line)
-        isFirst -> left + measuredOffset(text, lineStart, spanStart, paint)
-        else -> left.toFloat() + leadingMarginAt(text, lineStart)
+      if (spanStart >= lineStart) {
+        left + measuredOffset(text, lineStart, spanStart, paint)
+      } else {
+        left.toFloat() + leadingMarginAt(text, lineStart)
       }
-    val endX =
-      when {
-        layout != null && isLast -> layout.horizontalOnLine(spanEnd, line)
-        layout != null -> layout.trailingEdge(line)
-        isLast -> left + measuredOffset(text, lineStart, spanEnd, paint)
-        else -> right.toFloat()
-      }
-    out.left = min(startX, endX)
-    out.right = max(startX, endX)
+    val endX = if (spanEnd <= lineEnd) left + measuredOffset(text, lineStart, spanEnd, paint) else right.toFloat()
+    addRange(min(startX, endX), max(startX, endX))
   }
 
   /**
-   * The x of [offset] on [line]. An offset at the end of a wrapped line also starts the next
-   * line, where getPrimaryHorizontal would place it, so the line's trailing edge is used instead.
+   * Adds the ranges of the glyphs [spanStart]..[spanEnd] draws on [line], leaving out whitespace
+   * the line ends with, which is not drawn. They are read from the layout's selection, which
+   * places each glyph by its own edges. A caret position does not: where the text changes
+   * direction, it sits at the edge of whichever run the paragraph's direction favours, which may be
+   * the far end of the other run.
    */
-  private fun Layout.horizontalOnLine(
-    offset: Int,
+  private fun Layout.findGlyphRanges(
     line: Int,
-  ): Float {
-    if (offset < getLineEnd(line) || line == lineCount - 1) return getPrimaryHorizontal(offset)
-    return trailingEdge(line)
+    spanStart: Int,
+    spanEnd: Int,
+  ) {
+    val start = max(spanStart, getLineStart(line))
+    val end = min(spanEnd, glyphsEnd(line))
+    // The glyphs of one direction are drawn side by side, but a run of the other direction may be
+    // drawn apart from them, so each run is selected on its own.
+    var runStart = start
+    while (runStart < end) {
+      val isRtl = isRtlCharAt(runStart)
+      var runEnd = runStart + 1
+      while (runEnd < end && isRtlCharAt(runEnd) == isRtl) runEnd++
+      addSelectedRange(line, runStart, runEnd)
+      runStart = runEnd
+    }
   }
 
-  /** The x where [line]'s first character is drawn: its right edge in right-to-left text. */
-  private fun Layout.leadingEdge(line: Int): Float = getPrimaryHorizontal(getLineStart(line))
+  /** Adds the range of [start]..[end] on [line], which is a run of a single direction. */
+  private fun Layout.addSelectedRange(
+    line: Int,
+    start: Int,
+    end: Int,
+  ) {
+    getSelectionPath(start, end, selection)
+    // An end where a line breaks mid-word also starts the next line, so the selection carries on
+    // past this line's glyphs to the view edge. That part lies beyond the line's trailing edge.
+    if (end == getLineEnd(line) && line < lineCount - 1) {
+      drawnSide.reset()
+      if (getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT) {
+        drawnSide.addRect(getLineLeft(line), getLineTop(line).toFloat(), width.toFloat(), getLineBottom(line).toFloat(), Path.Direction.CW)
+      } else {
+        drawnSide.addRect(0f, getLineTop(line).toFloat(), getLineRight(line), getLineBottom(line).toFloat(), Path.Direction.CW)
+      }
+      selection.op(drawnSide, Path.Op.INTERSECT)
+    }
+    if (selection.isEmpty) return
+    selection.computeBounds(selectionBounds, true)
+    addRange(selectionBounds.left, selectionBounds.right)
+  }
+
+  /** The end of [line]'s text, leaving out the whitespace and line break it ends with. */
+  private fun Layout.glyphsEnd(line: Int): Int {
+    val lineStart = getLineStart(line)
+    var glyphsEnd = getLineEnd(line)
+    while (glyphsEnd > lineStart && text[glyphsEnd - 1].isWhitespace()) glyphsEnd--
+    return glyphsEnd
+  }
 
   /**
-   * The x where [line]'s last glyph ends, leaving out trailing whitespace: its left edge in
-   * right-to-left text. It is read where the whitespace starts, as getLineLeft and getLineRight
-   * round centered lines differently from where the layout draws them. A line broken mid-word has
-   * no whitespace to read, and its offset there would start the next line.
+   * Adds [left]..[right] to the ranges, kept in order from the left. A range touching others,
+   * as runs of opposite directions drawn side by side do, is merged with them.
    */
-  private fun Layout.trailingEdge(line: Int): Float {
-    val lineEnd = getLineEnd(line)
-    var glyphsEnd = lineEnd
-    while (glyphsEnd > getLineStart(line) && text[glyphsEnd - 1].isWhitespace()) glyphsEnd--
-    if (glyphsEnd < lineEnd) return getPrimaryHorizontal(glyphsEnd)
-    return if (getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT) getLineLeft(line) else getLineRight(line)
+  private fun addRange(
+    left: Float,
+    right: Float,
+  ) {
+    var mergedLeft = left
+    var mergedRight = right
+    var kept = 0
+    for (i in 0 until rangeCount) {
+      if (lefts[i] <= mergedRight + TOUCHING && rights[i] >= mergedLeft - TOUCHING) {
+        mergedLeft = min(mergedLeft, lefts[i])
+        mergedRight = max(mergedRight, rights[i])
+      } else {
+        lefts[kept] = lefts[i]
+        rights[kept] = rights[i]
+        kept++
+      }
+    }
+    if (kept == lefts.size) {
+      lefts = lefts.copyOf(kept * 2)
+      rights = rights.copyOf(kept * 2)
+    }
+    var at = kept
+    while (at > 0 && lefts[at - 1] > mergedLeft) {
+      lefts[at] = lefts[at - 1]
+      rights[at] = rights[at - 1]
+      at--
+    }
+    lefts[at] = mergedLeft
+    rights[at] = mergedRight
+    rangeCount = kept + 1
   }
 
   /**
@@ -123,5 +202,10 @@ internal class InlineBackgroundGeometry {
       margin += span.getLeadingMargin(false)
     }
     return margin
+  }
+
+  private companion object {
+    // How far apart, in pixels, two ranges may be and still be drawn as one.
+    const val TOUCHING = 0.5f
   }
 }

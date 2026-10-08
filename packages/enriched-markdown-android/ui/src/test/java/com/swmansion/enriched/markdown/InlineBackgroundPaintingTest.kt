@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -48,7 +49,10 @@ class InlineBackgroundPaintingTest(
 ) {
   private val context: Context = ApplicationProvider.getApplicationContext()
 
-  /** The inline runs that paint a background, each given [BACKGROUND] so the canvas can pick it out. */
+  /**
+   * The inline runs that paint a background, each given [BACKGROUND] so the canvas can pick it out,
+   * and text in [RUN_INK] so the run's glyphs can be told from the text around them.
+   */
   enum class Kind(
     val spanClass: Class<*>,
   ) {
@@ -57,7 +61,7 @@ class InlineBackgroundPaintingTest(
 
       override fun style(textAlign: TextAlignment?) =
         MarkdownRenderTestSupport.styleWithCode(
-          MarkdownRenderTestSupport.defaultStyle.codeStyle.copy(backgroundColor = BACKGROUND),
+          MarkdownRenderTestSupport.defaultStyle.codeStyle.copy(color = RUN_INK, backgroundColor = BACKGROUND),
           textAlign,
         )
     },
@@ -66,7 +70,7 @@ class InlineBackgroundPaintingTest(
 
       override fun style(textAlign: TextAlignment?) =
         MarkdownRenderTestSupport.styleWithHighlight(
-          MarkdownRenderTestSupport.defaultStyle.highlightStyle.copy(backgroundColor = BACKGROUND),
+          MarkdownRenderTestSupport.defaultStyle.highlightStyle.copy(color = RUN_INK, backgroundColor = BACKGROUND),
           textAlign,
         )
     }, ;
@@ -79,13 +83,20 @@ class InlineBackgroundPaintingTest(
   companion object {
     private const val WIDTH = 400
     private const val BACKGROUND = 0xFF224488.toInt()
+    private const val RUN_INK = 0xFFFF0000.toInt()
+
+    // How far, in pixels, a glyph's anti-aliased edge may stray past the background.
+    private const val INK_TOLERANCE = 1.5f
 
     @JvmStatic
     @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
     fun kinds() = Kind.entries.map { arrayOf(it) }
   }
 
-  /** A [Canvas] that remembers the bounds of every path or rect filled in [BACKGROUND]. */
+  /**
+   * A [Canvas] that remembers the bounds of every path or rect filled in [BACKGROUND]. It paints
+   * no paths or rects, so its bitmap holds only the glyphs.
+   */
   private class RecordingCanvas(
     bitmap: Bitmap,
   ) : Canvas(bitmap) {
@@ -98,7 +109,6 @@ class InlineBackgroundPaintingTest(
       if (paint.style == Paint.Style.FILL && paint.color == BACKGROUND) {
         backgrounds.add(RectF().also { path.computeBounds(it, true) })
       }
-      super.drawPath(path, paint)
     }
 
     override fun drawRect(
@@ -109,7 +119,6 @@ class InlineBackgroundPaintingTest(
       paint: Paint,
     ) {
       if (paint.style == Paint.Style.FILL && paint.color == BACKGROUND) backgrounds.add(RectF(left, top, right, bottom))
-      super.drawRect(left, top, right, bottom, paint)
     }
   }
 
@@ -122,6 +131,7 @@ class InlineBackgroundPaintingTest(
     val textView: TextView,
     val rendered: Spannable,
     val backgrounds: List<RectF>,
+    val glyphs: Bitmap,
     spanClass: Class<*>,
   ) {
     private val span = rendered.getSpans(0, rendered.length, spanClass).single()
@@ -149,9 +159,10 @@ class InlineBackgroundPaintingTest(
     )
     textView.layout(0, 0, WIDTH, textView.measuredHeight)
 
-    val canvas = RecordingCanvas(Bitmap.createBitmap(WIDTH, maxOf(textView.height, 1), Bitmap.Config.ARGB_8888))
+    val glyphs = Bitmap.createBitmap(WIDTH, maxOf(textView.height, 1), Bitmap.Config.ARGB_8888)
+    val canvas = RecordingCanvas(glyphs)
     requireNotNull(textView.layout).draw(canvas)
-    return Drawn(textView, rendered, canvas.backgrounds, kind.spanClass)
+    return Drawn(textView, rendered, canvas.backgrounds, glyphs, kind.spanClass)
   }
 
   /**
@@ -197,6 +208,42 @@ class InlineBackgroundPaintingTest(
       if (continues) assertEquals("Line $line must wrap on a space", ' ', drawn.rendered[to])
       assertCovers(layout, drawn.backgrounds[line - firstLine], maxOf(drawn.runStart, layout.getLineStart(line)), to)
     }
+  }
+
+  /**
+   * Asserts the backgrounds cover every glyph of the run and none of the text around it. Unlike
+   * [assertCovers], it reads where the glyphs are from the drawn pixels rather than from the
+   * layout's caret positions, which do not mark a glyph's edge where the text changes direction.
+   */
+  private fun assertCoversOnlyTheRunsGlyphs(drawn: Drawn) {
+    val layout = requireNotNull(drawn.textView.layout)
+    val backgroundsByLine = drawn.backgrounds.groupBy { layout.getLineForVertical(it.centerY().toInt()) }
+    var runPixels = 0
+    var otherPixels = 0
+    for (y in 0 until drawn.glyphs.height) {
+      val line = layout.getLineForVertical(y)
+      val backgrounds = backgroundsByLine[line].orEmpty()
+      for (x in 0 until drawn.glyphs.width) {
+        val pixel = drawn.glyphs.getPixel(x, y)
+        // Faint edge pixels carry too little color to tell the run's from the rest.
+        if (Color.alpha(pixel) < 128) continue
+        val centerX = x + 0.5f
+        if (Color.red(pixel) > 192 && Color.green(pixel) < 64 && Color.blue(pixel) < 64) {
+          runPixels++
+          assertTrue(
+            "The run's glyph at ($x, $y) must lie on a background, not outside $backgrounds",
+            backgrounds.any { centerX >= it.left - INK_TOLERANCE && centerX <= it.right + INK_TOLERANCE },
+          )
+        } else {
+          otherPixels++
+          assertTrue(
+            "The glyph at ($x, $y) is not the run's, so it must not lie on any of $backgrounds",
+            backgrounds.none { centerX > it.left + INK_TOLERANCE && centerX < it.right - INK_TOLERANCE },
+          )
+        }
+      }
+    }
+    assertTrue("The run and the text around it must both be drawn for this to be meaningful", runPixels > 0 && otherPixels > 0)
   }
 
   /** Draws a run long enough to wrap across at least three lines, between [before] and [after]. */
@@ -298,6 +345,52 @@ class InlineBackgroundPaintingTest(
 
     assertEquals(Layout.DIR_RIGHT_TO_LEFT, requireNotNull(drawn.textView.layout).getParagraphDirection(0))
     assertCoversEachLineOfTheRun(drawn)
+  }
+
+  @Test
+  fun leftToRightRunInRightToLeftTextCoversOnlyItsOwnWords() {
+    // The run's start is where the Hebrew turns to English, whose caret position is the far end
+    // of the whole English stretch, past " world".
+    val drawn = draw(document(paragraph(text("שלום "), styledRun("hello"), text(" world"))))
+
+    assertEquals(Layout.DIR_RIGHT_TO_LEFT, requireNotNull(drawn.textView.layout).getParagraphDirection(0))
+    assertEquals(1, drawn.backgrounds.size)
+    assertCoversOnlyTheRunsGlyphs(drawn)
+  }
+
+  @Test
+  fun rightToLeftRunInLeftToRightTextCoversOnlyItsOwnWords() {
+    val drawn = draw(document(paragraph(text("call "), styledRun("שלום"), text(" עולם once"))))
+
+    assertEquals(Layout.DIR_LEFT_TO_RIGHT, requireNotNull(drawn.textView.layout).getParagraphDirection(0))
+    assertEquals(1, drawn.backgrounds.size)
+    assertCoversOnlyTheRunsGlyphs(drawn)
+  }
+
+  @Test
+  fun runDrawnInPiecesGetsABackgroundPerPiece() {
+    // The Hebrew is drawn right to left, so the run's last word lands to the right of " עולם",
+    // which follows it, with " עולם" between it and the run's English word.
+    val drawn = draw(document(paragraph(text("call "), styledRun("render שלום"), text(" עולם once"))))
+
+    assertEquals(Layout.DIR_LEFT_TO_RIGHT, requireNotNull(drawn.textView.layout).getParagraphDirection(0))
+    assertEquals(2, drawn.backgrounds.size)
+    assertCoversOnlyTheRunsGlyphs(drawn)
+  }
+
+  @Test
+  fun runBrokenMidWordStaysWithinEachLinesGlyphs() {
+    val drawn = draw(document(paragraph(text("call "), styledRun("a".repeat(120)), text(" once"))))
+    val layout = requireNotNull(drawn.textView.layout)
+
+    assertTrue("The run must break mid-word for this to be meaningful", layout.getLineEnd(0) < drawn.runEnd)
+    assertCoversOnlyTheRunsGlyphs(drawn)
+    for (background in drawn.backgrounds) {
+      // A line breaks mid-word where its end offset also starts the next line, whose selection
+      // would run on to the view edge.
+      val line = layout.getLineForVertical(background.centerY().toInt())
+      assertTrue("$background must end at line $line's glyphs", background.right <= layout.getLineRight(line) + 0.5f)
+    }
   }
 
   @Test
