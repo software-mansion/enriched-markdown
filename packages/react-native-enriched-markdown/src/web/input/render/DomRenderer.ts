@@ -1,16 +1,29 @@
 import { LIST_ITEM_BLOCK_TYPES } from '../model/blocks';
+import type { RangeBounds } from '../model/rangeBounds';
 import {
   sameRunStyle,
   type ParagraphProjection,
   type StyleRun,
 } from './InputProjection';
 
+const LOG_PREFIX = '[EnrichedMarkdown - DomRenderer]';
+
 // Writes the projection into the contentEditable DOM. The caret and IME sit
 // in these nodes, so existing nodes are mutated rather than replaced; nodes
 // are added or removed only when the paragraph/run structure changes.
+//
+// Element children of the root correspond to the projection index for index,
+// which is the invariant the selection mapper reads positions through. Only
+// `render` maintains it, so only `render` traverses `children` - a foreign
+// node the browser or an extension leaves behind is not a line.
 export class DomRenderer {
   private readonly root: HTMLElement;
   private renderedText = '';
+  // The projection the DOM currently shows, and `changedWindow`'s diff
+  // baseline. Safe to hold by reference: the projection layer is a value-copy
+  // boundary over the stores (`projectParagraphs` allocates a fresh paragraph
+  // per line and `computeStyleRuns` fresh runs, reading stored ranges only for
+  // their numbers), so no later store mutation can reach it.
   private renderedParagraphs: readonly ParagraphProjection[] = [];
 
   constructor(root: HTMLElement) {
@@ -19,7 +32,43 @@ export class DomRenderer {
     this.root.replaceChildren();
   }
 
+  get lineCount(): number {
+    return this.renderedParagraphs.length;
+  }
+
+  // Line offsets for the selection mapper, as fresh bounds per call. Handing
+  // out the stored paragraph would expose the diff baseline: a caller
+  // mutating `start`/`end` makes a changed line compare equal, and `render`
+  // then skips patching it.
+  lineBounds(index: number): RangeBounds | undefined {
+    const paragraph = this.renderedParagraphs[index];
+    return paragraph === undefined
+      ? undefined
+      : { start: paragraph.start, end: paragraph.end };
+  }
+
   render(text: string, paragraphs: readonly ParagraphProjection[]): void {
+    try {
+      this.patch(text, paragraphs);
+    } catch (error) {
+      // A half-patched DOM whose cache still claims the pre-edit state is
+      // unrecoverable: `changedWindow` would find no difference and patch
+      // nothing, ever. Drop the cache and rebuild from an empty root, which
+      // takes the all-inserts path and cannot hit a stale node.
+      if (__DEV__) {
+        console.error(`${LOG_PREFIX} Patch failed; rebuilding the DOM`, error);
+      }
+      this.renderedText = '';
+      this.renderedParagraphs = [];
+      this.root.replaceChildren();
+      this.patch(text, paragraphs);
+    }
+  }
+
+  private patch(
+    text: string,
+    paragraphs: readonly ParagraphProjection[]
+  ): void {
     const document = this.root.ownerDocument;
     const { start, stalePairs, freshPairs } = changedWindow(
       this.renderedText,
@@ -34,15 +83,15 @@ export class DomRenderer {
     for (let i = 0; i < patched; i++) {
       patchParagraph(
         document,
-        this.root.childNodes[start + i] as HTMLElement,
+        this.root.children[start + i] as HTMLElement,
         text,
         paragraphs[start + i]!
       );
     }
     for (let i = 0; i < removed; i++) {
-      this.root.childNodes[start + patched]!.remove();
+      this.root.children[start + patched]!.remove();
     }
-    const suffixAnchor = this.root.childNodes[start + patched] ?? null;
+    const suffixAnchor = this.root.children[start + patched] ?? null;
     for (let i = 0; i < inserted; i++) {
       this.root.insertBefore(
         createParagraph(document, text, paragraphs[start + patched + i]!),
@@ -157,20 +206,37 @@ function patchParagraph(
     return;
   }
 
-  if (element.firstChild?.nodeName === 'BR') {
-    element.firstChild.remove();
+  // Drop every child that is not a reusable run span: the <br> a formerly
+  // empty line carried, and anything an IME or a browser extension left
+  // behind. The model is authoritative by the time a render runs, and keeping
+  // a foreign node would both break the index correspondence the mapper reads
+  // positions through and send `patchRun` at a node with no text child.
+  for (const child of [...element.childNodes]) {
+    if (!isReusableRun(child)) {
+      child.remove();
+    }
   }
-  while (element.childNodes.length > paragraph.runs.length) {
-    element.lastChild!.remove();
+  while (element.children.length > paragraph.runs.length) {
+    element.lastElementChild!.remove();
   }
   paragraph.runs.forEach((run, index) => {
-    const existing = element.childNodes[index];
+    const existing = element.children[index];
     if (existing === undefined) {
       element.appendChild(createRun(document, text, run));
     } else {
       patchRun(existing as HTMLElement, text, run);
     }
   });
+}
+
+// A run span as `createRun` builds them: exactly one text node inside, which
+// is what `patchRun` writes through.
+function isReusableRun(node: Node): boolean {
+  return (
+    node.nodeName === 'SPAN' &&
+    node.childNodes.length === 1 &&
+    node.firstChild!.nodeType === Node.TEXT_NODE
+  );
 }
 
 function patchBlockAttributes(
