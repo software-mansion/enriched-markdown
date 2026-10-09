@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.compose.MarkdownStyle
-import com.swmansion.enriched.markdown.compose.invoke
 import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
 // `syntaxHighlighting` is an extension function shipped by the :syntax-highlighting artifact, not a
 // member of the style builder, so it has to be imported before it can be used below.
