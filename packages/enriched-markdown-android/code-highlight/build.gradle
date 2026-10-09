@@ -83,7 +83,8 @@ dependencies {
   // The Compose style DSL (`markdownStyle { codeHighlight { ... } }`) ships as extension
   // functions on :compose types and the `CodeHighlightPlugin { ... }` scope as a composable,
   // but highlighting itself goes through the View API alone. compileOnly keeps Compose out of the
-  // published POM, as for math.
+  // published POM, as for math. The Compose compiler still annotates every class here with
+  // StabilityInferred, which a View-only app lacks; consumer-rules.pro tells R8 not to fail on it.
   compileOnly(project(":compose"))
   compileOnly(composeBom)
   compileOnly("androidx.compose.ui:ui")
