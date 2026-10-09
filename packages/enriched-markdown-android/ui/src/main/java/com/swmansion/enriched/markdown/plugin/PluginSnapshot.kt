@@ -30,9 +30,19 @@ class PluginSnapshot internal constructor(
   companion object {
     val EMPTY = PluginSnapshot(emptyMap(), emptyMap())
 
-    /** Later plugins win a node type that several claim. */
+    /**
+     * Later plugins win a node type that several claim. Of several plugins with the same id only
+     * the last is installed, at its own position, so it replaces the earlier ones entirely.
+     */
     @InternalPluginApi
-    fun of(vararg plugins: MarkdownPlugin): PluginSnapshot = build(plugins.map { plugin -> Registrations(plugin.id).also(plugin::install) })
+    fun of(vararg plugins: MarkdownPlugin): PluginSnapshot =
+      build(
+        plugins
+          .reversed()
+          .distinctBy { it.id }
+          .reversed()
+          .map { plugin -> Registrations(plugin.id).also(plugin::install) },
+      )
 
     internal fun build(installed: Collection<Registrations>): PluginSnapshot {
       if (installed.isEmpty()) return EMPTY
