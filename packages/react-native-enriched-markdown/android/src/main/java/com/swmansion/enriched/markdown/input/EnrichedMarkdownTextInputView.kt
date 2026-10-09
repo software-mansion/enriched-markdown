@@ -147,7 +147,7 @@ class EnrichedMarkdownTextInputView(
 
   private val clipboardCoordinator = ClipboardCoordinator(formattingStore, blockStore, detectorPipeline, formatter)
 
-  private var headingOverrideBaseSizePx: Float? = null
+  private var bodySizeBeforeHeadingOverridePx: Float? = null
   private var baseHintColor: Int? = null
 
   // Number of ZWSP empty-list anchors believed live in the buffer. Bumped on insert,
@@ -549,9 +549,12 @@ class EnrichedMarkdownTextInputView(
   private fun updateMinimumFontMetrics() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
 
-    // Measure with the body font size even while an empty heading line has
-    // enlarged the paint (syncCursorSizeWithBlock).
-    val bodyPaint = TextPaint(paint).apply { headingOverrideBaseSizePx?.let { textSize = it } }
+    // The minimum is for body lines, so compute it at the body font size.
+    //
+    // On an empty heading line, syncCursorSizeWithBlock has enlarged the paint to
+    // the heading size and saved the body size in bodySizeBeforeHeadingOverridePx,
+    // so use a copy of the paint at that saved size.
+    val bodyPaint = TextPaint(paint).apply { bodySizeBeforeHeadingOverridePx?.let { textSize = it } }
     val metrics = bodyLineMinimumFontMetrics(bodyPaint, textAttributes)
     val current = minimumFontMetrics
     val unchanged =
@@ -919,8 +922,8 @@ class EnrichedMarkdownTextInputView(
 
     if (block != null && block.type in BlockType.HEADINGS && editable.isEmpty()) {
       val headingSizePx = formatter.resolveHeadingFontSizePx(block.level) ?: return
-      if (headingOverrideBaseSizePx == null) {
-        headingOverrideBaseSizePx = paint.textSize
+      if (bodySizeBeforeHeadingOverridePx == null) {
+        bodySizeBeforeHeadingOverridePx = paint.textSize
         baseHintColor = currentHintTextColor
         setHintTextColor(Color.TRANSPARENT)
       }
@@ -928,9 +931,9 @@ class EnrichedMarkdownTextInputView(
         setTextSize(TypedValue.COMPLEX_UNIT_PX, headingSizePx)
       }
     } else {
-      headingOverrideBaseSizePx?.let { baseSizePx ->
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, baseSizePx)
-        headingOverrideBaseSizePx = null
+      bodySizeBeforeHeadingOverridePx?.let { bodySizePx ->
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, bodySizePx)
+        bodySizeBeforeHeadingOverridePx = null
         baseHintColor?.let { setHintTextColor(it) }
         baseHintColor = null
       }

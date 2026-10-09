@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.input.layout
 
+import android.os.Build
 import com.facebook.react.bridge.Arguments
 import com.swmansion.enriched.markdown.input.EnrichedMarkdownTextInputView
 
@@ -25,6 +26,8 @@ class InputLayoutManager(
         textAttributes = view.textAttributes,
         hint = view.hint?.toString(),
         paint = view.paint,
+        minimumFontMetrics =
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) view.minimumFontMetrics else null,
         blockRanges = view.blockStore.allRanges,
         formatter = view.formatter,
       )

@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.input.layout
 
 import android.content.Context
+import android.graphics.Paint
 import android.os.Build
 import android.text.Editable
 import android.text.SpannableStringBuilder
@@ -26,6 +27,7 @@ object InputMeasurementStore {
     val hint: String?,
     val textAttributes: TextAttributes,
     val paint: TextPaint,
+    val minimumFontMetrics: Paint.FontMetrics?,
     val blockRanges: List<BlockRange>,
     val formatter: InputFormatter,
   )
@@ -44,6 +46,7 @@ object InputMeasurementStore {
     textAttributes: TextAttributes,
     hint: String?,
     paint: TextPaint,
+    minimumFontMetrics: Paint.FontMetrics?,
     blockRanges: List<BlockRange>,
     formatter: InputFormatter,
   ): Boolean {
@@ -58,6 +61,7 @@ object InputMeasurementStore {
         hint = hint,
         textAttributes = textAttributes.copy(),
         paint = TextPaint(paint),
+        minimumFontMetrics = minimumFontMetrics?.copy(),
         blockRanges = blockRanges.map { it.copy() },
         formatter = formatter.copy(),
       )
@@ -145,6 +149,7 @@ object InputMeasurementStore {
         hint = props?.getString("placeholder"),
         textAttributes = textAttributes,
         paint = paint,
+        minimumFontMetrics = bodyLineMinimumFontMetrics(paint, textAttributes),
         blockRanges = parseResult.blockRanges,
         formatter = formatter,
       ),
@@ -159,7 +164,7 @@ object InputMeasurementStore {
     maxWidth: Float,
     input: MeasurementInput,
   ): Long {
-    val (text, hint, textAttributes, paint, blockRanges, formatter) = input
+    val (text, hint, textAttributes, paint, minimumFontMetrics, blockRanges, formatter) = input
 
     // An empty editor is measured with its hint, like React Native TextInput:
     // https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L1093-L1100
@@ -190,9 +195,12 @@ object InputMeasurementStore {
       builder.setUseLineSpacingFromFallbacks(true)
     }
 
-    // Matches the editor, which sets the same minimum on Android 15+.
+    // The editor's own minimum (Android 15+), not one recomputed from [paint]:
+    // on an empty heading line the paint is heading-sized but the editor's
+    // minimum is still body-sized (see updateMinimumFontMetrics), and the two
+    // give different line heights.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-      builder.setMinimumFontMetrics(bodyLineMinimumFontMetrics(paint, textAttributes))
+      builder.setMinimumFontMetrics(minimumFontMetrics)
     }
 
     val staticLayout = builder.build()
@@ -200,6 +208,15 @@ object InputMeasurementStore {
     val widthInDip = PixelUtil.toDIPFromPixel(maxWidth)
     return YogaMeasureOutput.make(widthInDip, heightInDip)
   }
+
+  private fun Paint.FontMetrics.copy() =
+    Paint.FontMetrics().also {
+      it.top = top
+      it.ascent = ascent
+      it.descent = descent
+      it.bottom = bottom
+      it.leading = leading
+    }
 
   private fun ReadableMap.positiveFloat(key: String): Float? = if (hasKey(key)) getDouble(key).toFloat().takeIf { it > 0f } else null
 
