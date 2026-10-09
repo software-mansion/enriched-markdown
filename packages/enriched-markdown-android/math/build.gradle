@@ -1,5 +1,6 @@
 plugins {
   id "com.android.library"
+  id "org.jetbrains.kotlin.plugin.compose"
 }
 
 android {
@@ -38,8 +39,9 @@ dependencies {
   def composeBom = platform("androidx.compose:compose-bom:2026.06.00")
 
   // The Compose style DSL (`markdownStyle { math { ... } }`) ships as extension functions on
-  // :compose types, but math renders through the View API alone. compileOnly keeps Compose out
-  // of the published POM, so an app that never uses :compose does not gain it by adding math.
+  // :compose types and the `LatexMathPlugin { ... }` scope as a composable, but math renders
+  // through the View API alone. compileOnly keeps Compose out of the published POM, so an app
+  // that never uses :compose does not gain it by adding math.
   compileOnly(project(":compose"))
   compileOnly(composeBom)
   compileOnly("androidx.compose.ui:ui")
@@ -51,6 +53,8 @@ dependencies {
   testImplementation(project(":compose"))
   testImplementation(composeBom)
   testImplementation("androidx.compose.ui:ui")
+  testImplementation("androidx.compose.ui:ui-test-junit4")
+  debugImplementation("androidx.compose.ui:ui-test-manifest")
   testImplementation("junit:junit:4.13.2")
   testImplementation("androidx.test:core:1.6.1")
   testImplementation("androidx.test.ext:junit:1.2.1")
