@@ -11,7 +11,7 @@ With the library [installed](/android/basics/installation), let's get Markdown o
 
 `EnrichedMarkdownText` is a composable that takes a Markdown string and paints it as **fully native text** - no WebView, and no intermediate HTML. It parses with [md4c](https://github.com/mity/md4c) and renders through the platform's own text stack, so selection, TalkBack, and font scaling behave the way they do in any other `TextView`.
 
-Wrap your content in `MarkdownTheme` once, near the top of your UI, and render:
+Call it from any composable:
 
 ```kotlin
 import android.content.Intent
@@ -22,7 +22,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.platform.LocalContext
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,23 +29,21 @@ class MainActivity : ComponentActivity() {
 
     setContent {
       MaterialTheme {
-        MarkdownTheme {
-          val context = LocalContext.current
+        val context = LocalContext.current
 
-          EnrichedMarkdownText(
-            markdown = "# Hello\n\nA paragraph with **bold** and a [link](https://swmansion.com).",
-            onLinkClick = { url ->
-              context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            },
-          )
-        }
+        EnrichedMarkdownText(
+          markdown = "# Hello\n\nA paragraph with **bold** and a [link](https://swmansion.com).",
+          onLinkClick = { url ->
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+          },
+        )
       }
     }
   }
 }
 ```
 
-That's the whole setup. `MarkdownTheme` supplies the default style for everything beneath it, and links are inert until you give them a meaning - `onLinkClick` hands you the tapped URL and you decide what happens, here opening it in the browser. The [`EnrichedMarkdownText` reference](/android/api-reference/enriched-markdown-text) covers the rest of the parameters and callbacks.
+That's the whole setup. With no style provided, the text renders with the built-in defaults, and links are inert until you give them a meaning - `onLinkClick` hands you the tapped URL and you decide what happens, here opening it in the browser. The [`EnrichedMarkdownText` reference](/android/api-reference/enriched-markdown-text) covers the rest of the parameters and callbacks.
 
 :::note
 `EnrichedMarkdownText` renders nothing in `@Preview`. It wraps a real Android `View`, which Compose previews do not run. Use an emulator or a device.

@@ -20,7 +20,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
 
 class AndroidExampleMainActivity : ComponentActivity() {
   @OptIn(ExperimentalMaterial3Api::class)
@@ -38,11 +37,10 @@ class AndroidExampleMainActivity : ComponentActivity() {
       var currentRoute by rememberSaveable { mutableStateOf(ExampleRoute.Home) }
 
       MaterialTheme {
-        MarkdownTheme {
-          Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = Color.White,
-            topBar = {
+        Scaffold(
+          modifier = Modifier.fillMaxSize(),
+          containerColor = Color.White,
+          topBar = {
             TopAppBar(
               title = {
                 Text(
@@ -102,7 +100,6 @@ class AndroidExampleMainActivity : ComponentActivity() {
 
             else -> Unit
           }
-        }
         }
       }
     }

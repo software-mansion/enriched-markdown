@@ -79,3 +79,11 @@ extension UIView {
         return nil
     }
 }
+
+func XCTAssertEqual(_ lhs: CGRect, _ rhs: CGRect, accuracy: CGFloat, _ message: String = "",
+                    file: StaticString = #filePath, line: UInt = #line) {
+    XCTAssertEqual(lhs.minX, rhs.minX, accuracy: accuracy, message, file: file, line: line)
+    XCTAssertEqual(lhs.minY, rhs.minY, accuracy: accuracy, message, file: file, line: line)
+    XCTAssertEqual(lhs.width, rhs.width, accuracy: accuracy, message, file: file, line: line)
+    XCTAssertEqual(lhs.height, rhs.height, accuracy: accuracy, message, file: file, line: line)
+}

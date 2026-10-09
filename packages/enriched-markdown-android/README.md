@@ -70,22 +70,18 @@ The plugin and the parser flag are two separate switches. `Md4cFlags(latexMath =
 
 ## Quick start
 
-Wrap your app (or a screen) in `MarkdownTheme`, then render markdown with `EnrichedMarkdownText`:
+Render markdown with `EnrichedMarkdownText`:
 
 ```kotlin
-import androidx.compose.material3.MaterialTheme
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
 
-MaterialTheme {
-  MarkdownTheme {
-    EnrichedMarkdownText(
-      markdown = "# Hello\n\nThis is **enriched** markdown.",
-      onLinkClick = { url -> /* open url */ },
-    )
-  }
-}
+EnrichedMarkdownText(
+  markdown = "# Hello\n\nThis is **enriched** markdown.",
+  onLinkClick = { url -> /* open url */ },
+)
 ```
+
+With no style provided, it renders with `MarkdownStyle.Default`. See [Styling](#styling) to customize it.
 
 See the full example in [`apps/android-example`](../../apps/android-example).
 
@@ -262,6 +258,7 @@ fun EnrichedMarkdownText(
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
+  includeLastBlockMargin: Boolean = false,
   onPluginEvent: (PluginEvent) -> Unit = {},
 )
 ```
@@ -278,6 +275,7 @@ fun EnrichedMarkdownText(
 | `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
 | `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
 | `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles()` (default), `SpoilerOverlay.Solid()`, or a `CustomSpoilerOverlay` (see [Spoiler overlays](#spoiler-overlays)) |
+| `includeLastBlockMargin` | Whether the last block's bottom margin counts toward the view's height (default `false`, so the view ends flush with its last line) |
 | `onPluginEvent` | Called when an installed plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
 
 Style defaults come from the nearest `MarkdownTheme`.
@@ -341,29 +339,29 @@ EnrichedMarkdownText(
 ##### Custom overlays
 
 Any effect can stand in for the built-ins. Implement `CustomSpoilerOverlay` to build a
-`SpoilerSegmentOverlay`, which draws the effect on the text view's canvas:
+`SpoilerSliceOverlay` for each slice of a spoiler, which draws the effect on the text view's canvas:
 
 ```kotlin
 interface CustomSpoilerOverlay : SpoilerOverlay {
-  fun createSegmentOverlay(host: SpoilerOverlayHost, style: SpoilerStyle): SpoilerSegmentOverlay
+  fun createSliceOverlay(host: SpoilerOverlayHost, style: SpoilerStyle): SpoilerSliceOverlay
   val revealDurationMillis: Long  // default: 450
 }
 
-abstract class SpoilerSegmentOverlay {
-  abstract fun draw(canvas: Canvas, segment: SpoilerSegment)
-  open fun drawReveal(canvas: Canvas, segment: SpoilerSegment, progress: Float)  // default: draw() fading out
+abstract class SpoilerSliceOverlay {
+  abstract fun draw(canvas: Canvas, slice: SpoilerSlice)
+  open fun drawReveal(canvas: Canvas, slice: SpoilerSlice, progress: Float)  // default: draw() fading out
   open val isAnimated: Boolean                                                   // default: false
   open fun onRemoved()
 }
 
-class SpoilerSegment {
+class SpoilerSlice {
   val width: Float
   val height: Float
-  val baseline: Float                         // the line's baseline, from the segment's top
+  val baseline: Float                         // the text's baseline, from the top
   val spoilerStart: Int; val spoilerEnd: Int  // the whole spoiler, in the view's text
-  val start: Int; val end: Int                // this segment's slice of it
+  val start: Int; val end: Int                // this slice of it
   val text: CharSequence                      // the slice, styled as it looks once revealed
-  val index: Int; val count: Int              // this segment's place in the spoiler, reading order
+  val index: Int; val count: Int              // this slice's place in the spoiler, reading order
   val isRtl: Boolean                          // whether its paragraph runs right to left
   val frameTimeMillis: Long
   fun drawText(canvas: Canvas)                // the slice's glyphs, where the text view draws them
@@ -380,29 +378,29 @@ This one pixelates the hidden words:
 
 ```kotlin
 data class PixelatedSpoiler(val blockSize: Float = 6f) : CustomSpoilerOverlay {
-  override fun createSegmentOverlay(host: SpoilerOverlayHost, style: SpoilerStyle) =
-    PixelatedSegment(blockSize * host.density)
+  override fun createSliceOverlay(host: SpoilerOverlayHost, style: SpoilerStyle) =
+    PixelatedSlice(blockSize * host.density)
 }
 
-class PixelatedSegment(private val blockSize: Float) : SpoilerSegmentOverlay() {
+class PixelatedSlice(private val blockSize: Float) : SpoilerSliceOverlay() {
   // Paint filters bitmaps by default since Android 10; turn it off so the blocks keep hard edges.
   private val paint = Paint().apply { isFilterBitmap = false }
   private val bounds = RectF()
   private var pixels: Bitmap? = null
 
-  override fun draw(canvas: Canvas, segment: SpoilerSegment) {
-    val columns = (segment.width / blockSize).toInt().coerceAtLeast(1)
-    val rows = (segment.height / blockSize).toInt().coerceAtLeast(1)
+  override fun draw(canvas: Canvas, slice: SpoilerSlice) {
+    val columns = (slice.width / blockSize).toInt().coerceAtLeast(1)
+    val rows = (slice.height / blockSize).toInt().coerceAtLeast(1)
     val image = pixels?.takeIf { it.width == columns && it.height == rows }
       ?: Bitmap.createBitmap(columns, rows, Bitmap.Config.ARGB_8888).also { bitmap ->
         // The text, shrunk to one pixel per block.
         Canvas(bitmap).apply {
-          scale(columns / segment.width, rows / segment.height)
-          segment.drawText(this)
+          scale(columns / slice.width, rows / slice.height)
+          slice.drawText(this)
         }
         pixels = bitmap
       }
-    bounds.set(0f, 0f, segment.width, segment.height)
+    bounds.set(0f, 0f, slice.width, slice.height)
     canvas.drawBitmap(image, null, bounds, paint)
   }
 
@@ -414,28 +412,29 @@ class PixelatedSegment(private val blockSize: Float) : SpoilerSegmentOverlay() {
 EnrichedMarkdownText(markdown = content, spoilerOverlay = PixelatedSpoiler())
 ```
 
-A spoiler gets one segment overlay per line. The view creates it when the segment comes into view
-and removes it when the spoiler is revealed, when the text reflows onto different lines, when an
-image under the spoiler finishes loading, or when the overlay or the style changes, so keep
-`createSegmentOverlay` cheap. The canvas is moved to the segment's top-left corner and clipped to
-its size. The view rebuilds its overlays only when the new
+A `SpoilerSlice` is the part of a spoiler on one line of text: a wrapped spoiler has one slice per
+line, and one that starts or ends mid-line covers only part of its line. Each gets its own overlay,
+which the view creates when the slice comes into view and removes when the spoiler is revealed, when
+the text reflows onto different lines, when an image under the spoiler finishes loading, or when the
+overlay or the style changes, so keep `createSliceOverlay` cheap. The canvas is moved to the slice's
+top-left corner and clipped to its size. The view rebuilds its overlays only when the new
 `spoilerOverlay` is not `==` to the old one, so make custom overlays data classes or objects, or
 `remember` them: a plain class created in every recomposition restarts every overlay each time.
 
 **Animation.** An overlay that moves on its own returns `true` from `isAnimated`, and the view then
-draws every frame while it is on screen. Advance the effect from `segment.frameTimeMillis`. `draw`
-then runs every frame for every segment on screen, so make paints, paths, shaders and brushes once,
+draws every frame while it is on screen. Advance the effect from `slice.frameTimeMillis`. `draw`
+then runs every frame for every slice on screen, so make paints, paths, shaders and brushes once,
 in the overlay's fields, and move or restyle them per frame instead of creating new ones.
 
 **Reveals.** The view runs the reveal over the overlay's `revealDurationMillis` (450 ms unless
 overridden) and calls `drawReveal` each frame with `progress` rising from 0 towards 1, fading the
 text in underneath on the same clock. The default draws `draw()` fading out; override it to shape
-the reveal (a burst, a wipe), and call `super` to keep the fade. Every segment of a spoiler reveals
-at once; for a line-by-line effect, stagger by `segment.index`. The duration follows the system's
+the reveal (a burst, a wipe), and call `super` to keep the fade. Every slice of a spoiler reveals
+at once; for a line-by-line effect, stagger by `slice.index`. The duration follows the system's
 animator duration scale, like any `ValueAnimator`: a scale of 2× doubles it, and with animations
 turned off a reveal completes at once.
 
-**Showing the text through.** `drawText` draws the segment's text as it looks once revealed, each
+**Showing the text through.** `drawText` draws the slice's text as it looks once revealed, each
 glyph where the text view draws it, so a blur, pixelation or scramble lines up with the real text as
 the overlay fades. It lays out the line each time, so cache what you make from it, as above. Call
 it on the main thread, as `draw` does: it lifts the spoiler's concealment while it draws, so a call
@@ -444,39 +443,40 @@ bitmap on the main thread, process the bitmap on another one, and call `host.inv
 result is ready.
 
 **No backdrop needed.** The concealed text is drawn transparent, emoji and inline images included,
-so an overlay can leave parts of the segment clear.
+so an overlay can leave parts of the slice clear.
 
 ##### Custom overlays with `DrawScope`
 
 To draw with Compose's `DrawScope`, `Color` and `Brush` instead, extend
-`DrawScopeSpoilerSegmentOverlay` from the `compose` module and pass it the host:
+`DrawScopeSpoilerSliceOverlay` from the `compose` module and pass it the host:
 
 ```kotlin
-abstract class DrawScopeSpoilerSegmentOverlay(host: SpoilerOverlayHost) : SpoilerSegmentOverlay() {
-  abstract fun DrawScope.draw(segment: SpoilerSegment)
-  open fun DrawScope.drawReveal(segment: SpoilerSegment, progress: Float)  // default: drawFadingOut()
-  protected fun DrawScope.drawFadingOut(segment: SpoilerSegment, progress: Float)
+abstract class DrawScopeSpoilerSliceOverlay(host: SpoilerOverlayHost) : SpoilerSliceOverlay() {
+  abstract fun DrawScope.draw(slice: SpoilerSlice)
+  open fun DrawScope.drawReveal(slice: SpoilerSlice, progress: Float)  // default: drawFadingOut()
+  protected fun DrawScope.drawFadingOut(slice: SpoilerSlice, progress: Float)
 }
 
-fun DrawScope.drawSegmentText(segment: SpoilerSegment)  // segment.drawText(), through the scope
+fun DrawScope.drawSliceText(slice: SpoilerSlice)  // slice.drawText(), through the scope
 ```
 
-The scope's `size` is the segment's, its origin is the segment's top-left corner, its density is the
-display's (with the user's font scale), and its `layoutDirection` follows the segment's paragraph (`segment.isRtl`). `isAnimated`,
+The scope's `size` is the slice's, its origin is the slice's top-left corner, its density is the
+display's (with the user's font scale), and its `layoutDirection` follows the slice's paragraph
+(`slice.isRtl`). `isAnimated`,
 `onRemoved`, reveals and everything else work as above. This one sweeps a band of light across a
 rounded box, and wipes the box away in reading order when revealed:
 
 ```kotlin
 data class ShimmerSpoiler(val periodMillis: Long = 1_500) : CustomSpoilerOverlay {
-  override fun createSegmentOverlay(host: SpoilerOverlayHost, style: SpoilerStyle) =
-    ShimmerSegment(host, Color(style.color), periodMillis)
+  override fun createSliceOverlay(host: SpoilerOverlayHost, style: SpoilerStyle) =
+    ShimmerSlice(host, Color(style.color), periodMillis)
 }
 
-class ShimmerSegment(
+class ShimmerSlice(
   host: SpoilerOverlayHost,
   private val color: Color,
   private val periodMillis: Long,
-) : DrawScopeSpoilerSegmentOverlay(host) {
+) : DrawScopeSpoilerSliceOverlay(host) {
   // A band of light, made once and moved with translate(): a new Brush each frame is a new shader.
   private val band = 32 * host.density
   private val shine =
@@ -488,10 +488,10 @@ class ShimmerSegment(
 
   override val isAnimated get() = true
 
-  override fun DrawScope.draw(segment: SpoilerSegment) {
+  override fun DrawScope.draw(slice: SpoilerSlice) {
     drawRoundRect(color, cornerRadius = CornerRadius(4.dp.toPx()))
     // The band sweeps across in reading order, once per period.
-    val phase = (segment.frameTimeMillis % periodMillis) / periodMillis.toFloat()
+    val phase = (slice.frameTimeMillis % periodMillis) / periodMillis.toFloat()
     val travelled = -band + (size.width + 2 * band) * phase
     val center = if (layoutDirection == LayoutDirection.Ltr) travelled else size.width - travelled
     translate(left = center) {
@@ -500,20 +500,20 @@ class ShimmerSegment(
   }
 
   // Wipes the box away in reading order, instead of the default fade.
-  override fun DrawScope.drawReveal(segment: SpoilerSegment, progress: Float) {
+  override fun DrawScope.drawReveal(slice: SpoilerSlice, progress: Float) {
     val covered = size.width * (1f - progress)
     val left = if (layoutDirection == LayoutDirection.Ltr) size.width - covered else 0f
-    clipRect(left = left, right = left + covered) { draw(segment) }
+    clipRect(left = left, right = left + covered) { draw(slice) }
   }
 }
 
 EnrichedMarkdownText(markdown = content, spoilerOverlay = ShimmerSpoiler())
 ```
 
-To keep the fade and add to it, call `drawFadingOut(segment, progress)` from `drawReveal`. To show
-the text through, `drawSegmentText(segment)` draws the glyphs into the scope, under its current transform.
+To keep the fade and add to it, call `drawFadingOut(slice, progress)` from `drawReveal`. To show
+the text through, `drawSliceText(slice)` draws the glyphs into the scope, under its current transform.
 
-`createSegmentOverlay` runs outside composition, so an overlay that needs a value from the
+`createSliceOverlay` runs outside composition, so an overlay that needs a value from the
 composition, such as a theme color, takes it as a property, the way `ShimmerSpoiler` takes `periodMillis`, and is
 created with it in the composable. Since `EnrichedMarkdownText` rebuilds the overlays whenever `spoilerOverlay` is not `==` to the last
 one, keep such overlays data classes or objects, so each recomposition passes an equal value, or
@@ -610,7 +610,7 @@ EnrichedMarkdownText(
 ```kotlin
 @Composable
 fun MarkdownTheme(
-  style: MarkdownStyle = LocalMarkdownStyle.current,
+  style: MarkdownStyle,
   content: @Composable () -> Unit,
 )
 
@@ -619,7 +619,7 @@ object MarkdownTheme {
 }
 ```
 
-Provides a default `MarkdownStyle` for a subtree. Nest themes to scope styles to part of the UI.
+Provides `style` as the default `MarkdownStyle` for a subtree. Nest themes to scope styles to part of the UI.
 
 ### `markdownStyle` / `MarkdownStyle`
 

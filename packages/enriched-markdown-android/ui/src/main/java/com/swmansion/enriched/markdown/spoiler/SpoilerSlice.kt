@@ -8,18 +8,19 @@ import android.text.style.ParagraphStyle
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 
 /**
- * One line segment of a concealed spoiler, as a [SpoilerSegmentOverlay] sees it. Positions are in
- * the segment's own coordinates, the space the overlay's canvas is in; ranges index the view's
- * text. The view updates it before every draw.
+ * The part of a concealed spoiler on one line of text, as a [SpoilerSliceOverlay] sees it: a
+ * wrapped spoiler has one slice per line, and one that starts or ends mid-line covers only part of
+ * its line. Positions are in the slice's own coordinates, the space the overlay's canvas is in;
+ * ranges index the view's text. The view updates it before every draw.
  */
-class SpoilerSegment internal constructor(
-  /** Start of the whole spoiler, shared by all of its segments. */
+class SpoilerSlice internal constructor(
+  /** Start of the whole spoiler, shared by all of its slices. */
   val spoilerStart: Int,
   /** End of the whole spoiler, exclusive. */
   val spoilerEnd: Int,
-  /** Start of this segment's slice of the spoiler. */
+  /** Start of this slice of the spoiler. */
   val start: Int,
-  /** End of this segment's slice, exclusive. */
+  /** End of this slice, exclusive. */
   val end: Int,
   private val source: Spanned,
 ) {
@@ -29,21 +30,21 @@ class SpoilerSegment internal constructor(
     internal set
 
   /**
-   * The line's baseline, from the segment's top. Runs set above or below it (superscript,
-   * subscript) keep their shift, which [drawText] reproduces.
+   * The text's baseline, from the top. Runs set above or below it (superscript, subscript) keep
+   * their shift, which [drawText] reproduces.
    */
   var baseline: Float = 0f
     internal set
 
-  /** Whether the segment's paragraph runs right to left, for effects with a direction to follow. */
+  /** Whether the slice's paragraph runs right to left, for effects with a direction to follow. */
   var isRtl: Boolean = false
     internal set
 
-  /** This segment's place among the spoiler's segments, in reading order. */
+  /** This slice's place among the spoiler's slices, in reading order. */
   var index: Int = 0
     internal set
 
-  /** How many segments the spoiler has. */
+  /** How many slices the spoiler has, one per line it spans. */
   var count: Int = 1
     internal set
 
@@ -51,7 +52,7 @@ class SpoilerSegment internal constructor(
   var frameTimeMillis: Long = 0L
     internal set
 
-  /** This segment's slice of the text, styled as it looks once revealed, inline styling only. */
+  /** This slice of the text, styled as it looks once revealed, inline styling only. */
   val text: CharSequence by lazy(LazyThreadSafetyMode.NONE) {
     SpannableStringBuilder(source, start, end).apply {
       for (span in getSpans(0, length, Any::class.java)) {
@@ -62,17 +63,17 @@ class SpoilerSegment internal constructor(
 
   private var layout: Layout? = null
 
-  // Where the layout's origin falls in this segment's coordinates.
+  // Where the layout's origin falls in this slice's coordinates.
   private var layoutX = 0f
   private var layoutY = 0f
 
   /**
-   * Draws the segment's text as it looks once revealed, each glyph where the text view draws it,
-   * for effects that show the text through (a blur, pixelation). It lays out the whole line each
-   * time, so cache the result until [width] or [height] changes. New content under the segment,
-   * such as an image loading, comes with a new overlay.
+   * Draws the slice's text as it looks once revealed, each glyph where the text view draws it, for
+   * effects that show the text through (a blur, pixelation). It lays out the whole line each time,
+   * so cache the result until [width] or [height] changes. New content under the slice, such as an
+   * image loading, comes with a new overlay.
    *
-   * Call it on the main thread, as from [SpoilerSegmentOverlay.draw]. It lifts the spoiler's
+   * Call it on the main thread, as from [SpoilerSliceOverlay.draw]. It lifts the spoiler's
    * concealment while it draws, so a call from another thread could show the hidden text in the
    * text view's own draw. For heavy work such as a blur, draw the text into a bitmap on the main
    * thread, process the bitmap on another one, and call [SpoilerOverlayHost.invalidate] when the
@@ -97,7 +98,7 @@ class SpoilerSegment internal constructor(
 
   internal fun place(
     layout: Layout,
-    rect: SegmentRect,
+    rect: SliceRect,
     lineBaseline: Float,
     paddingLeft: Float,
     paddingTop: Float,

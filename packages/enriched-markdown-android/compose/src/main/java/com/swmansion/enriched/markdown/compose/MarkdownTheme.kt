@@ -21,7 +21,7 @@ object MarkdownTheme {
 }
 
 /**
- * Provides a default [MarkdownStyle] for the [content] subtree via [LocalMarkdownStyle].
+ * Provides [style] as the default for the [content] subtree via [LocalMarkdownStyle].
  *
  * Nest [MarkdownTheme] to override styles for part of the UI; inner themes win.
  *
@@ -36,7 +36,7 @@ object MarkdownTheme {
  */
 @Composable
 fun MarkdownTheme(
-  style: MarkdownStyle = LocalMarkdownStyle.current,
+  style: MarkdownStyle,
   content: @Composable () -> Unit,
 ) {
   CompositionLocalProvider(LocalMarkdownStyle provides style) {

@@ -37,8 +37,8 @@ import type {
   NativeSyntheticEvent,
   TextInputProps,
   ViewProps,
-  ViewStyle,
   TextStyle,
+  StyleProp,
   ColorValue,
 } from 'react-native';
 import { Platform } from 'react-native';
@@ -161,7 +161,7 @@ export interface EnrichedMarkdownTextInputProps
   cursorColor?: ColorValue;
   selectionColor?: ColorValue;
   markdownStyle?: MarkdownTextInputStyle;
-  style?: ViewStyle | TextStyle;
+  style?: StyleProp<TextStyle>;
   onChangeText?: (text: string) => void;
   onChangeMarkdown?: (markdown: string) => void;
   onChangeSelection?: (selection: { start: number; end: number }) => void;

@@ -12,9 +12,8 @@ and by how each feature is enabled.
   iOS and Android. macOS runs the same iOS code with a few documented gaps - see
   [macOS support](/react-native/guides/macos).
 - The **Web** column is the same package's web build, a plain React renderer
-  that emits semantic HTML. The tables below cover `EnrichedMarkdownText`; the
-  editor's own web gaps are listed under
-  [EnrichedMarkdownTextInput](#enrichedmarkdowntextinput). See the
+  that emits semantic HTML. It applies to `EnrichedMarkdownText` only, because
+  the editor has no web build yet. See the
   [Web support](/react-native/guides/web-support) guide.
 
 **Yes** means the feature renders with no extra work beyond the switch named in
@@ -112,7 +111,8 @@ spoiler if the same Markdown is rendered on web. See
 
 ### Advanced features
 
-Each has its own page under **Rich text formatting**.
+Each has its own page - under **Rich text formatting**, or under the React Native
+**Guides** when the feature exists only in the React Native package.
 
 | Feature                 | React Native | Web | Learn more                                                         |
 | ----------------------- | :----------: | :-: | ------------------------------------------------------------------ |
@@ -120,22 +120,25 @@ Each has its own page under **Rich text formatting**.
 | Mentions                |     Yes      | Yes | [Mentions](/rich-text-formatting/mentions)                         |
 | Code-block highlighting |     Yes      | No  | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
 | Markdown streaming      |     Yes      | No  | [Markdown streaming](/rich-text-formatting/markdown-streaming)     |
+| Link pills              |     Yes      | No  | [Link pills](/react-native/guides/link-pills)                      |
+| Link menus              |     Yes      | No  | [Link menus](/react-native/guides/link-menus)                      |
 
 LaTeX math on web needs the optional `katex` peer dependency; without it the
 formula falls back to its raw `$...$` source. Code-block highlighting on web
 renders a plain, uncolored `<pre><code>`. The two streaming props are stripped
-on web.
+on web. Link pills are drawn by the native text stack, so on web those links
+render as ordinary links with the variant's colors; custom link menus are an
+iOS 17+ feature, and a long press on web is the `contextmenu` event delivered
+to `onLinkLongPress`.
 
 ## EnrichedMarkdownTextInput
 
 The editor - produces a Markdown string as the user types.
 
 :::important
-The editor runs on iOS, Android, macOS and web. On web the link and mention
-commands - `setLink`, `insertLink`, `removeLink`, `insertMention`,
-`startMention` - and `copyToClipboard` warn once and do nothing; everything
-else, including every inline and block command and all the `onChange*` events,
-works. See [Web support](/react-native/guides/web-support#not-supported-on-web).
+The editor is **native only**: it runs on iOS, Android and macOS, and has no web
+build. Importing `EnrichedMarkdownTextInput` from the web entry point yields
+`undefined`.
 :::
 
 The editor is a **flat inline-formatting surface**: it supports inline styles

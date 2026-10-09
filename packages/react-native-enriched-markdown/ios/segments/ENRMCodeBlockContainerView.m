@@ -172,7 +172,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
   _textStorage = [[NSTextStorage alloc] initWithAttributedString:attributedCode];
   _layoutManager = [[NSLayoutManager alloc] init];
-  _layoutManager.usesFontLeading = NO;
+  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   _textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)];
   _textContainer.lineFragmentPadding = 0;
   _textContainer.maximumNumberOfLines = 0;

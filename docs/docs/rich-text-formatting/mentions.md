@@ -31,6 +31,10 @@ Both components accept a `linkVariants` key, so the same config styles mentions 
 
 - **Interaction** is through the usual link callbacks - a mention tap is a link tap, delivered with the mention's URL.
 
+:::caution
+**Pills are React Native only, for now.** In the React Native package a `linkVariants` entry can present its mentions as [link pills](/react-native/guides/link-pills) on iOS and Android - a rounded chip with the user's avatar and name, while the Markdown stays an ordinary link. The web build renders those mentions as ordinary links.
+:::
+
 ## Displaying mentions
 
 Rendering content that already contains mentions needs nothing special: pass the Markdown to the display component, style the schemes with `linkVariants`, and route taps by scheme in `onLinkPress`.
