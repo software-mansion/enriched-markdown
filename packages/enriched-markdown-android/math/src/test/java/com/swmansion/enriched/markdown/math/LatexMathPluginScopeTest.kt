@@ -16,10 +16,10 @@ class LatexMathPluginScopeTest {
   @get:Rule
   val composeRule = createComposeRule()
 
-  // Deliberately without importing `com.swmansion.enriched.markdown.compose.invoke`: the scope
-  // must resolve through the plugin's own name alone.
+  // Deliberately without importing `com.swmansion.enriched.markdown.compose.MarkdownPlugins`: the
+  // scope must resolve through the plugin's own name alone.
   @Test
-  fun theScopeEnablesThePluginWithoutTheComposeOperatorImport() {
+  fun theScopeEnablesThePluginThroughItsOwnName() {
     var captured: List<MarkdownPlugin>? = null
 
     composeRule.setContent {
