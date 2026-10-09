@@ -11,6 +11,11 @@ struct DecorationDrawContext {
     let containerWidth: CGFloat
     let origin: CGPoint
     let decorationConfig: BlockDecorationConfig
+    let trailingPadding: CGFloat
+
+    func trailingPadding(after range: NSRange) -> CGFloat {
+        NSMaxRange(range) == textStorage.length ? trailingPadding : 0
+    }
 }
 
 /// Where a paragraph's marker column ends (`markerX`, a gap before the text
@@ -94,9 +99,12 @@ enum TextLayoutHelpers {
         else { return }
 
         let inset = textView.textContainerInset
+        var previous: NSRange?
         textLayoutManager.ensureLayout(for: textRange)
         textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { segment, frame, baseline, _ in
-            guard let segment, let segmentRange = nsRange(segment, in: contentManager) else { return true }
+            guard let segment, let segmentRange = nsRange(segment, in: contentManager), segmentRange != previous
+            else { return true }
+            previous = segmentRange
             body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange, baseline)
             return true
         }

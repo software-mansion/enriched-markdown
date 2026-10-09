@@ -167,7 +167,14 @@ final class MarkdownSourceSlicerTests: XCTestCase {
 
     func testFullySelectedCodeBlockIncludesFences() {
         XCTAssertEqual(
-            copyMarkdown(selecting: "let a = 1\n", in: "intro\n\n```\nlet a = 1\n```"),
+            copyMarkdown(selecting: "let a = 1\n", in: "intro\n\n```\nlet a = 1\n```\n\noutro"),
+            "```\nlet a = 1\n```"
+        )
+    }
+
+    func testFullySelectedCodeBlockEndingTheDocumentIncludesFences() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "let a = 1", in: "intro\n\n```\nlet a = 1\n```"),
             "```\nlet a = 1\n```"
         )
     }

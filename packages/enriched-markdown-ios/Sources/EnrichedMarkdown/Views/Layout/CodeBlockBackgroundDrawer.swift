@@ -44,6 +44,7 @@ enum CodeBlockBackgroundDrawer {
         }
         guard !blockRect.isNull else { return }
 
+        blockRect.size.height += drawContext.trailingPadding(after: range)
         blockRect.origin.x = drawContext.origin.x
         blockRect.origin.y += drawContext.origin.y
         blockRect.size.width = drawContext.containerWidth

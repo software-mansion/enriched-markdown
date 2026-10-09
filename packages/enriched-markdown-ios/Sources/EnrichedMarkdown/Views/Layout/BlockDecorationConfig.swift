@@ -5,7 +5,6 @@ struct BlockDecorationConfig {
     var codeBlockBorderColor: UIColor = UIColor(red: 0.22, green: 0.25, blue: 0.29, alpha: 1)
     var codeBlockBorderWidth: CGFloat = 1
     var codeBlockBorderRadius: CGFloat = 8
-    var codeBlockPadding: CGFloat = 16
 
     static let defaultBlockquoteBorderColor = UIColor(red: 0.82, green: 0.84, blue: 0.86, alpha: 1)
 
@@ -45,9 +44,6 @@ struct BlockDecorationConfig {
         }
         if let radius = style.cornerRadius {
             codeBlockBorderRadius = radius
-        }
-        if let padding = style.padding {
-            codeBlockPadding = padding
         }
     }
 
