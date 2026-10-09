@@ -153,7 +153,7 @@ let text = MarkdownRenderer.render(
 ```
 
 :::caution
-The attributed string is **not the whole rendering**. List bullets and numbers, task list checkboxes, blockquote and admonition bars, code block backgrounds, and spoiler overlays are drawn by `EnrichedMarkdownText` around the text, not stored as attributes - so dropping this string into a plain `UITextView` gives you the text without them. See [UIKit interop](/ios/guides/uikit-interop) for what survives and what to do instead.
+The attributed string is **not the whole rendering**. List bullets and numbers, task list checkboxes, blockquote and admonition bars, code block backgrounds, and spoiler overlays are drawn by `EnrichedMarkdownText` around the text, not stored as attributes - so dropping this string into a plain `UITextView` gives you the text without them. The string also ends at its last visible character: the last block's bottom margin is the view's to lay out (see [`.markdownBottomMarginEnabled`](/ios/api-reference/enriched-markdown-text#markdownbottommarginenabled)), not part of the text. See [UIKit interop](/ios/guides/uikit-interop) for what survives and what to do instead.
 :::
 
 `EnrichedMarkdownLaTeX` adds a `renderLaTeX` counterpart with math typesetting installed - see [LaTeX math](/ios/guides/latex-math#rendering-without-a-view).

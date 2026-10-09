@@ -4,6 +4,7 @@ import UIKit
 struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let attributedText: NSAttributedString
     let source: RenderedSource?
+    let isBottomMarginEnabled: Bool
     let styleConfig: MarkdownStyleConfiguration
     /// The SwiftUI `openURL` action: where a tap goes when no legacy
     /// `onLinkPress` handler is installed.
@@ -45,6 +46,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.onSpoilerTap = onSpoilerTap
         textView.onCodeBlockCopy = onCodeBlockCopy
         textView.accessibilityLabels = accessibilityLabels
+        textView.isBottomMarginEnabled = isBottomMarginEnabled
         textView.setMarkdownAttributedText(attributedText)
     }
 

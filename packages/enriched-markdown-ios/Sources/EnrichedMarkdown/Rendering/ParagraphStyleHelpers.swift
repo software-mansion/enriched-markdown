@@ -3,6 +3,7 @@ import UIKit
 
 enum ParagraphStyleHelpers {
     static let newline = NSAttributedString(string: "\n")
+    static let nonNewlines = CharacterSet.newlines.inverted
 
     @discardableResult
     static func applyParagraphSpacingBefore(

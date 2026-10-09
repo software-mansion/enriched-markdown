@@ -214,7 +214,7 @@ final class CodeBlockAttachmentTests: XCTestCase {
     }
 
     func testPlainTextAndHTMLFlavorsCarryTheCode() {
-        let rendered = render("before\n\n```html\n<b>&</b>\n```")
+        let rendered = render("before\n\n```html\n<b>&</b>\n```\n\nafter")
         let full = NSRange(location: 0, length: rendered.length)
         let plain = MarkdownTextView.plainText(of: rendered, in: full)
         XCTAssertTrue(plain.hasPrefix("before\n"), plain)

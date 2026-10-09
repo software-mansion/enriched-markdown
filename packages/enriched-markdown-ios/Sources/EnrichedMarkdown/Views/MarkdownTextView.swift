@@ -61,6 +61,16 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
 
     private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self, style: styleConfig.spoiler)
 
+    private(set) var trailingSpacing = TrailingSpacing()
+
+    var isBottomMarginEnabled: Bool = false {
+        didSet {
+            if isBottomMarginEnabled != oldValue {
+                invalidateIntrinsicContentSize()
+            }
+        }
+    }
+
     /// Our tap recognizer must not steal touches from the text view's own
     /// recognizers (selection, links), so it observes simultaneously.
     /// UITextView is the delegate of its internal recognizers — a separate
@@ -296,6 +306,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         carryScrollOffsets(from: renderedText, to: attributedText)
         renderedText = attributedText
         cachedFit = nil
+        trailingSpacing = TrailingSpacing.read(from: attributedText)
         self.attributedText = attributedText
         adoptImageAttachments(in: attributedText)
         invalidateIntrinsicContentSize()
@@ -350,14 +361,15 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     }
 
     override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let trailingInset = trailingSpacing.inset(marginEnabled: isBottomMarginEnabled)
         if let cachedFit, cachedFit.width == size.width, cachedFit.text === renderedText {
-            return CGSize(width: size.width, height: cachedFit.height)
+            return CGSize(width: size.width, height: cachedFit.height + trailingInset)
         }
         let fitted = super.sizeThatFits(size)
         if let renderedText {
             cachedFit = CachedFit(width: size.width, text: renderedText, height: fitted.height)
         }
-        return fitted
+        return CGSize(width: fitted.width, height: fitted.height + trailingInset)
     }
 
     private func accessibilityTree() -> (elements: [MarkdownAccessibilityElement], rotors: [UIAccessibilityCustomRotor]) {

@@ -69,6 +69,8 @@ This is genuinely useful for tests, for a one-line label, or for measuring text.
 
 Fonts, colors, and inline backgrounds; paragraph styles, indents, and block margins; links as `.link` attributes; and everything implemented as a text attachment - images, thematic breaks, tables, and typeset math. The table and math attachments register their view providers globally, so a TextKit 2 text view will even lay those out and scroll them.
 
+The string ends at its last visible character, so a `UITextView` of your own gets the content height and nothing below it: neither the last block's bottom margin nor the bottom padding of a code block that ends the document. `EnrichedMarkdownText` lays both out below the text, the margin only with [`.markdownBottomMarginEnabled`](/ios/api-reference/enriched-markdown-text#markdownbottommarginenabled).
+
 ### What is not
 
 Everything the view draws **around** the text, and everything the view handles:
