@@ -45,7 +45,7 @@ typealias MarkdownPlugin = MarkdownPluginInternal
  * spacing that separates its blocks instead of flush with its last line. Turn it on when stacking
  * several of these one after another.
  *
- * [plugins] defaults to those enabled by the enclosing plugin scopes (`LatexMathPlugin { ... }`).
+ * [plugins] defaults to those enabled by the enclosing [MarkdownPlugins] scopes.
  *
  * [onPluginEvent] receives events reported by installed plugins (for example an expression a
  * plugin could not render), once per distinct event until [markdown] is replaced rather than
