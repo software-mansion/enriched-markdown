@@ -31,6 +31,10 @@ Both components accept a `linkVariants` key, so the same config styles mentions 
 
 - **Interaction** is through the usual link callbacks - a mention tap is a link tap, delivered with the mention's URL.
 
+:::caution
+**Pills are React Native only, for now.** In the React Native package a `linkVariants` entry can present its mentions as [link pills](/react-native/guides/link-pills) on iOS and Android - a rounded chip with the user's avatar and name, while the Markdown stays an ordinary link. The web build renders those mentions as ordinary links.
+:::
+
 ## Displaying mentions
 
 Rendering content that already contains mentions needs nothing special: pass the Markdown to the display component, style the schemes with `linkVariants`, and route taps by scheme in `onLinkPress`.
@@ -39,10 +43,10 @@ Rendering content that already contains mentions needs nothing special: pass the
 
 {/* UNRELEASED PLATFORMS: the standalone iOS and Android SDKs display mentions
 (a mention tap is an ordinary link tap, routed by scheme through the SwiftUI
-`openURL` action / Compose `onLinkPress`), but neither has a `linkVariants`
+`openURL` action / Compose `onLinkClick`), but neither has a `linkVariants`
 equivalent, so a mention cannot be styled apart from a regular link there.
 Restore those tabs, and the links to /ios/api-reference/style-properties#link
-and /android/api-reference/enriched-markdown-text#onlinkpress, when those
+and /android/api-reference/enriched-markdown-text#onlinkclick, when those
 packages ship. */}
 
 That is the whole story for read-only surfaces - message lists, comment threads, previews. It works on web too. The rest of this page is about letting users _write_ mentions in the editor, which is **native only** - there is no web editor, so none of the authoring API below exists on web.

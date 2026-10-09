@@ -34,9 +34,9 @@ class MarkdownPluginsTest {
     var captured: List<MarkdownPlugin>? = null
 
     composeRule.setContent {
-      pluginA {
-        MarkdownTheme {
-          pluginB {
+      MarkdownPlugins(pluginA) {
+        MarkdownTheme(style = MarkdownStyle.Default) {
+          MarkdownPlugins(pluginB) {
             captured = LocalMarkdownPlugins.current
           }
         }
@@ -52,16 +52,27 @@ class MarkdownPluginsTest {
     var captured: List<MarkdownPlugin>? = null
 
     composeRule.setContent {
-      pluginA {
-        pluginB {
-          reconfiguredA {
-            captured = LocalMarkdownPlugins.current
-          }
+      MarkdownPlugins(pluginA, pluginB) {
+        MarkdownPlugins(reconfiguredA) {
+          captured = LocalMarkdownPlugins.current
         }
       }
     }
 
     assertEquals(listOf(pluginB, reconfiguredA), captured)
+  }
+
+  @Test
+  fun oneScopeEnablesSeveralPluginsInOrder() {
+    var captured: List<MarkdownPlugin>? = null
+
+    composeRule.setContent {
+      MarkdownPlugins(pluginA, pluginB) {
+        captured = LocalMarkdownPlugins.current
+      }
+    }
+
+    assertEquals(listOf(pluginA, pluginB), captured)
   }
 
   private class NoOpPlugin(

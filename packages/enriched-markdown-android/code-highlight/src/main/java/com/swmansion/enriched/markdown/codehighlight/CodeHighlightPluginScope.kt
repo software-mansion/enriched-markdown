@@ -1,15 +1,14 @@
 package com.swmansion.enriched.markdown.codehighlight
 
 import androidx.compose.runtime.Composable
-import com.swmansion.enriched.markdown.compose.invoke
+import com.swmansion.enriched.markdown.compose.MarkdownPlugins
 
 /**
- * Enables [CodeHighlightPlugin] for every `EnrichedMarkdownText` in [content]. It shares the
- * object's name, so importing [CodeHighlightPlugin] is enough for
- * `CodeHighlightPlugin { ... }`; without it the call would need the plugin scope operator from
- * `:compose` imported as well.
+ * Enables [CodeHighlightPlugin] for every `EnrichedMarkdownText` in [content]; shorthand for
+ * `MarkdownPlugins(CodeHighlightPlugin) { ... }`. It shares the object's name, so importing
+ * [CodeHighlightPlugin] is enough for `CodeHighlightPlugin { ... }`.
  */
 @Composable
 fun CodeHighlightPlugin(content: @Composable () -> Unit) {
-  CodeHighlightPlugin.invoke(content)
+  MarkdownPlugins(CodeHighlightPlugin, content = content)
 }

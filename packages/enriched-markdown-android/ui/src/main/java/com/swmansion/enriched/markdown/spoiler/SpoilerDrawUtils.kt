@@ -8,21 +8,21 @@ import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 
-internal fun computeSegmentRect(
+internal fun computeSliceRect(
   layout: Layout,
   line: Int,
-  segmentStart: Int,
-  segmentEnd: Int,
+  start: Int,
+  end: Int,
   fontMetrics: Paint.FontMetrics,
   paddingLeft: Float,
   paddingTop: Float,
-): SegmentRect? {
-  val startHorizontal = layout.getPrimaryHorizontal(segmentStart)
+): SliceRect? {
+  val startHorizontal = layout.getPrimaryHorizontal(start)
   val endHorizontal =
-    if (segmentEnd >= layout.getLineEnd(line)) {
+    if (end >= layout.getLineEnd(line)) {
       layout.getLineRight(line)
     } else {
-      layout.getPrimaryHorizontal(segmentEnd)
+      layout.getPrimaryHorizontal(end)
     }
   val baseline = layout.getLineBaseline(line).toFloat()
 
@@ -31,7 +31,7 @@ internal fun computeSegmentRect(
   var top = baseline + fontMetrics.ascent + paddingTop
   var bottom = baseline + fontMetrics.descent + paddingTop
 
-  val imageHeight = (layout.text as? Spanned)?.blockImageHeight(segmentStart, segmentEnd) ?: 0
+  val imageHeight = (layout.text as? Spanned)?.blockImageHeight(start, end) ?: 0
   if (imageHeight > 0) {
     val lineTop = layout.getLineTop(line) + paddingTop
     top = minOf(top, lineTop)
@@ -39,7 +39,7 @@ internal fun computeSegmentRect(
   }
   val width = right - left
   val height = bottom - top
-  return if (width > 0 && height > 0) SegmentRect(left, top, width, height) else null
+  return if (width > 0 && height > 0) SliceRect(left, top, width, height) else null
 }
 
 private fun Spanned.blockImageHeight(

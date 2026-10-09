@@ -80,6 +80,29 @@ class PluginNodeRendererTest {
   }
 
   @Test
+  fun aLaterPluginWithTheSameIdDropsEverythingTheEarlierOneRegistered() {
+    val plugins =
+      PluginSnapshot.of(
+        FakePlugin(id = "claiming", marker = "a"),
+        ClaimingPlugin(MarkdownASTNode.NodeType.Spoiler) { _, builder, _ -> builder.append("[mine]") },
+      )
+
+    assertEquals("\$x\$", render(document(paragraph(latexMathInline("x"))), plugins = plugins).toString())
+  }
+
+  @Test
+  fun aPluginWithARepeatedIdTakesThePositionOfItsLastOccurrence() {
+    val plugins =
+      PluginSnapshot.of(
+        FakePlugin(id = "a", marker = "a"),
+        FakePlugin(id = "b", marker = "b"),
+        FakePlugin(id = "a", marker = "a2"),
+      )
+
+    assertTrue(render(document(paragraph(latexMathInline("x"))), plugins = plugins).toString().contains("[a2:x:"))
+  }
+
+  @Test
   fun aPluginCanClaimEveryCoreNodeTypeIncludingSpoilers() {
     val plugins = PluginSnapshot.of(ClaimingPlugin(MarkdownASTNode.NodeType.Spoiler) { _, builder, _ -> builder.append("[mine]") })
 

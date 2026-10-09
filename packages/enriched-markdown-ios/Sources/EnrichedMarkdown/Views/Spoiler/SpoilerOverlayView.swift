@@ -1,4 +1,3 @@
-import CoreText
 import UIKit
 
 /// One line segment of a concealed spoiler, layered over the transparent
@@ -18,8 +17,8 @@ open class SpoilerOverlayView: UIView {
 
     /// The whole spoiler's range, shared by all of its segment views.
     public let charRange: NSRange
-    /// This segment's slice of the spoiler, styled as it reveals, inline
-    /// styling only. Set before the view is added to the text view.
+    /// This segment's slice of the spoiler, styled as it reveals. Set before
+    /// the view is added to the text view.
     public internal(set) var concealedText = NSAttributedString()
     /// The line's typographic baseline, from the top of the view, before any
     /// per-run `.baselineOffset`: with a theme line height it can sit at the
@@ -50,48 +49,29 @@ open class SpoilerOverlayView: UIView {
     }
 
     /// `concealedText`, or `text` in its place, on a transparent canvas the
-    /// size of the view with the glyphs where the text view draws them, so
-    /// nothing shifts when the view goes. `draw(at:)` on the slice would not
-    /// do: it uses the font's natural line height, not the theme's.
+    /// size of the view, laid out as the text view lays the segment out.
     public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage {
         guard !bounds.isEmpty else { return UIImage() }
-        let line = CTLineCreateWithAttributedString(coreTextAttributes(of: text ?? concealedText))
-        return UIGraphicsImageRenderer(bounds: bounds).image { context in
-            let cgContext = context.cgContext
-            cgContext.textMatrix = .identity
-            cgContext.translateBy(x: 0, y: bounds.height)
-            cgContext.scaleBy(x: 1, y: -1)
-            cgContext.textPosition = CGPoint(x: 0, y: bounds.height - baseline)
-            CTLineDraw(line, cgContext)
-        }
-    }
+        let contentStorage = NSTextContentStorage()
+        let layoutManager = NSTextLayoutManager()
+        contentStorage.addTextLayoutManager(layoutManager)
+        let container = SnapshotTextContainer(size: CGSize(width: bounds.width, height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        layoutManager.textContainer = container
+        contentStorage.attributedString = text ?? concealedText
+        layoutManager.ensureLayout(for: layoutManager.documentRange)
+        let renderer = UIGraphicsImageRenderer(bounds: bounds)
+        guard let fragment = layoutManager.textLayoutFragment(for: layoutManager.documentRange.location),
+              let line = fragment.textLineFragments.first
+        else { return renderer.image { _ in } }
 
-    /// CoreText reads its own keys, not UIKit's, and CGColors, resolved for
-    /// this view's traits rather than `UITraitCollection.current`.
-    private func coreTextAttributes(of text: NSAttributedString) -> NSAttributedString {
-        let traits = traitCollection
-        let result = NSMutableAttributedString(attributedString: text)
-        result.enumerateAttributes(in: NSRange(location: 0, length: result.length)) { attributes, range, _ in
-            var converted: [NSAttributedString.Key: Any] = [:]
-            if let font = attributes[.font] as? UIFont {
-                converted[NSAttributedString.Key(kCTFontAttributeName as String)] = font
+        let lineBaseline = fragment.layoutFragmentFrame.minY + line.typographicBounds.minY + line.glyphOrigin.y
+        return renderer.image { context in
+            // Dynamic colors resolve for this view's traits, whoever calls.
+            traitCollection.performAsCurrent {
+                fragment.draw(at: CGPoint(x: 0, y: baseline - lineBaseline), in: context.cgContext)
             }
-            if let color = attributes[.foregroundColor] as? UIColor {
-                converted[NSAttributedString.Key(kCTForegroundColorAttributeName as String)] = color.resolvedColor(with: traits).cgColor
-            }
-            if let offset = attributes[.baselineOffset] as? NSNumber {
-                converted[NSAttributedString.Key(kCTBaselineOffsetAttributeName as String)] = offset
-            }
-            if let underline = attributes[.underlineStyle] as? NSNumber {
-                converted[NSAttributedString.Key(kCTUnderlineStyleAttributeName as String)] = underline
-            }
-            if let underlineColor = attributes[.underlineColor] as? UIColor {
-                converted[NSAttributedString.Key(kCTUnderlineColorAttributeName as String)] =
-                    underlineColor.resolvedColor(with: traits).cgColor
-            }
-            result.addAttributes(converted, range: range)
         }
-        return result
     }
 
     /// Animates the view out, fading `alpha` by default. An override must

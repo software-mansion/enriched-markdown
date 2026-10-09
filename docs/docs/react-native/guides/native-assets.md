@@ -1,6 +1,6 @@
 ---
 sidebar_label: Native assets
-sidebar_position: 3
+sidebar_position: 5
 ---
 
 import Tabs from '@theme/Tabs';

@@ -239,6 +239,14 @@ class EnrichedMarkdown(
     }
   }
 
+  fun setAllowTrailingMargin(allow: Boolean) {
+    if (trailingMarginEnabled == allow) return
+    trailingMarginEnabled = allow
+    // Only the container's height and child offsets depend on it, so the
+    // rendered segments stay valid and a layout pass is enough.
+    requestLayout()
+  }
+
   /** Chooses the overlay that conceals unrevealed spoilers. */
   fun setSpoilerOverlay(overlay: SpoilerOverlay) {
     if (spoilerOverlay == overlay) return
@@ -306,6 +314,7 @@ class EnrichedMarkdown(
     setOnPluginEventCallback(null)
     setEnableTaskListItemToggle(true)
     setSpoilerOverlay(SpoilerOverlay.Particles())
+    setAllowTrailingMargin(false)
     setMarkdownContent("")
     setPlugins(emptyList())
     taskListToggles.clear()
@@ -512,8 +521,9 @@ class EnrichedMarkdown(
     Log.w(
       TAG,
       "Md4cFlags(latexMath = true) but no plugin renders math, so equations show as their raw " +
-        "source. Add the com.swmansion.enriched.markdown:math artifact and wrap the content in a " +
-        "LatexMathPlugin { ... } scope.",
+        "source. Add the com.swmansion.enriched.markdown:math artifact, then in Compose wrap the " +
+        "content in a LatexMathPlugin { ... } scope, or on a View call " +
+        "setPlugins(listOf(LatexMathPlugin)).",
     )
   }
 

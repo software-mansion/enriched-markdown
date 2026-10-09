@@ -41,7 +41,11 @@ typealias MarkdownPlugin = MarkdownPluginInternal
  * [spoilerOverlay] picks how `||spoiler||` text is concealed until it is tapped. The overlays are
  * rebuilt only when it changes by `==`, so pass a data class or object, or `remember` it.
  *
- * [plugins] defaults to those enabled by the enclosing plugin scopes (`LatexMathPlugin { ... }`).
+ * [includeLastBlockMargin] keeps the last block's bottom margin, so the view ends with the same
+ * spacing that separates its blocks instead of flush with its last line. Turn it on when stacking
+ * several of these one after another.
+ *
+ * [plugins] defaults to those enabled by the enclosing [MarkdownPlugins] scopes.
  *
  * [onPluginEvent] receives events reported by installed plugins (for example an expression a
  * plugin could not render), once per distinct event until [markdown] is replaced rather than
@@ -62,6 +66,7 @@ fun EnrichedMarkdownText(
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
+  includeLastBlockMargin: Boolean = false,
   plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
   onPluginEvent: (PluginEvent) -> Unit = {},
 ) {
@@ -98,6 +103,7 @@ fun EnrichedMarkdownText(
         setOnPluginEventCallback { event -> onPluginEventState(event) }
         setEnableTaskListItemToggle(taskListToggleEnabled)
         setSpoilerOverlay(spoilerOverlay)
+        setAllowTrailingMargin(includeLastBlockMargin)
         setPlugins(plugins)
         setMarkdownStyle(styleConfig)
         setMd4cFlags(flags)
@@ -113,6 +119,7 @@ fun EnrichedMarkdownText(
       view.setOnPluginEventCallback { event -> onPluginEventState(event) }
       view.setEnableTaskListItemToggle(taskListToggleEnabled)
       view.setSpoilerOverlay(spoilerOverlay)
+      view.setAllowTrailingMargin(includeLastBlockMargin)
       view.setPlugins(plugins)
       view.setMarkdownStyle(styleConfig)
       view.setMd4cFlags(flags)

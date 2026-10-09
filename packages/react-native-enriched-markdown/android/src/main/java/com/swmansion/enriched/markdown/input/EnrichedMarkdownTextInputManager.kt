@@ -218,11 +218,9 @@ class EnrichedMarkdownTextInputManager :
   ) {
     if (view == null || value == null) return
 
-    val style = MarkdownStyleParser.parse(value)
-    val changed = view.setMarkdownStyleFromProps(style)
-    if (changed) {
-      view.applyFormatting()
-    }
+    view.setMarkdownStyleFromProps(MarkdownStyleParser.parse(value))
+    // This call takes care of setting formattingDirty if needed, so we don't
+    // need to explicitly apply formatting or set it here separately
   }
 
   @ReactProp(name = "color", customType = "Color")
@@ -246,9 +244,7 @@ class EnrichedMarkdownTextInputManager :
     view: EnrichedMarkdownTextInputView?,
     value: Float,
   ) {
-    if (value > 0 && view != null) {
-      view.setLineSpacing(value - view.textSize, 1f)
-    }
+    view?.setLineHeightFromProps(value)
   }
 
   @ReactProp(name = "fontFamily")

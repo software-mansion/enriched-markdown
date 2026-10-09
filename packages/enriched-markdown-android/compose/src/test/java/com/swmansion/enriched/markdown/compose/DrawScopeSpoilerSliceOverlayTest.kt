@@ -18,12 +18,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spoiler.CustomSpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayHost
-import com.swmansion.enriched.markdown.spoiler.SpoilerSegment
+import com.swmansion.enriched.markdown.spoiler.SpoilerSlice
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import org.junit.Assert.assertEquals
@@ -43,9 +44,9 @@ import android.graphics.Color as AndroidColor
 @RunWith(AndroidJUnit4::class)
 // xhdpi, so the density the scope gets is not the default of 1.
 @Config(sdk = [28], qualifiers = "xhdpi")
-// The native runtime lays text out for real, which segment geometry and glyph pixels need.
+// The native runtime lays text out for real, which slice geometry and glyph pixels need.
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-class DrawScopeSpoilerSegmentOverlayTest {
+class DrawScopeSpoilerSliceOverlayTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
 
   private companion object {
@@ -54,7 +55,7 @@ class DrawScopeSpoilerSegmentOverlayTest {
   }
 
   private class Probe {
-    val created = mutableListOf<ProbeSegment>()
+    val created = mutableListOf<ProbeSlice>()
   }
 
   private enum class Drawing { FILL, TEXT, NOTHING }
@@ -64,18 +65,18 @@ class DrawScopeSpoilerSegmentOverlayTest {
     val drawing: Drawing = Drawing.FILL,
     val customReveal: Boolean = false,
   ) : CustomSpoilerOverlay {
-    override fun createSegmentOverlay(
+    override fun createSliceOverlay(
       host: SpoilerOverlayHost,
       style: SpoilerStyle,
-    ) = ProbeSegment(host, drawing, customReveal).also { probe.created.add(it) }
+    ) = ProbeSlice(host, drawing, customReveal).also { probe.created.add(it) }
   }
 
-  private class ProbeSegment(
+  private class ProbeSlice(
     host: SpoilerOverlayHost,
     private val drawing: Drawing,
     private val customReveal: Boolean,
-  ) : DrawScopeSpoilerSegmentOverlay(host) {
-    var segment: SpoilerSegment? = null
+  ) : DrawScopeSpoilerSliceOverlay(host) {
+    var slice: SpoilerSlice? = null
     var size: Size? = null
     var density = 0f
     var fontScale = 0f
@@ -83,21 +84,21 @@ class DrawScopeSpoilerSegmentOverlayTest {
     val revealProgress = mutableListOf<Float>()
     val revealSizes = mutableListOf<Size>()
 
-    override fun DrawScope.draw(segment: SpoilerSegment) {
-      this@ProbeSegment.segment = segment
-      this@ProbeSegment.size = size
-      this@ProbeSegment.density = density
-      this@ProbeSegment.fontScale = fontScale
-      this@ProbeSegment.layoutDirection = layoutDirection
+    override fun DrawScope.draw(slice: SpoilerSlice) {
+      this@ProbeSlice.slice = slice
+      this@ProbeSlice.size = size
+      this@ProbeSlice.density = density
+      this@ProbeSlice.fontScale = fontScale
+      this@ProbeSlice.layoutDirection = layoutDirection
       when (drawing) {
         Drawing.FILL -> drawRect(FILL)
-        Drawing.TEXT -> drawSegmentText(segment)
+        Drawing.TEXT -> drawSliceText(slice)
         Drawing.NOTHING -> Unit
       }
     }
 
     override fun DrawScope.drawReveal(
-      segment: SpoilerSegment,
+      slice: SpoilerSlice,
       progress: Float,
     ) {
       revealProgress.add(progress)
@@ -105,7 +106,7 @@ class DrawScopeSpoilerSegmentOverlayTest {
       if (customReveal) {
         drawRect(Color.Blue, size = size.copy(width = size.width * progress))
       } else {
-        drawFadingOut(segment, progress)
+        drawFadingOut(slice, progress)
       }
     }
   }
@@ -122,13 +123,13 @@ class DrawScopeSpoilerSegmentOverlayTest {
       return bitmap
     }
 
-    /** Where the view draws [segment], in left-to-right text: left, top, right, bottom. */
-    fun boundsOf(segment: SpoilerSegment): FloatArray {
+    /** Where the view draws [slice], in left-to-right text: left, top, right, bottom. */
+    fun boundsOf(slice: SpoilerSlice): FloatArray {
       val layout = requireNotNull(view.layout)
-      val line = layout.getLineForOffset(segment.start)
-      val left = view.totalPaddingLeft + layout.getPrimaryHorizontal(segment.start)
-      val top = view.totalPaddingTop + layout.getLineBaseline(line) - segment.baseline
-      return floatArrayOf(left, top, left + segment.width, top + segment.height)
+      val layoutLine = layout.getLineForOffset(slice.start)
+      val left = view.totalPaddingLeft + layout.getPrimaryHorizontal(slice.start)
+      val top = view.totalPaddingTop + layout.getLineBaseline(layoutLine) - slice.baseline
+      return floatArrayOf(left, top, left + slice.width, top + slice.height)
     }
 
     fun tapSpoiler() {
@@ -163,7 +164,7 @@ class DrawScopeSpoilerSegmentOverlayTest {
       ).filter { it.type != NodeType.Text || it.content.isNotEmpty() }
     val document =
       MarkdownASTNode(NodeType.Document, children = listOf(MarkdownASTNode(NodeType.Paragraph, children = paragraph)))
-    val text = Renderer().apply { configure(style, context) }.renderDocument(document)
+    val text = Renderer().apply { configure(style, context, plugins = PluginSnapshot.EMPTY) }.renderDocument(document)
 
     val view = EnrichedMarkdownInternalText(context)
     view.layoutParams = ViewGroup.LayoutParams(WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -191,19 +192,19 @@ class DrawScopeSpoilerSegmentOverlayTest {
   // MARK: The scope
 
   @Test
-  fun theScopeCoversTheSegmentAtTheHostsDensity() {
+  fun theScopeCoversTheSliceAtTheHostsDensity() {
     val probe = Probe()
     val test = harness(ProbeOverlay(probe))
 
     val bitmap = test.draw()
 
-    val segment = probe.created.single()
-    val drawn = requireNotNull(segment.segment)
-    assertEquals(Size(drawn.width, drawn.height), segment.size)
-    assertEquals(2f, segment.density, 0f)
-    assertEquals(test.view.resources.displayMetrics.density, segment.density, 0f)
-    assertEquals(1f, segment.fontScale, 0f)
-    assertEquals(LayoutDirection.Ltr, segment.layoutDirection)
+    val slice = probe.created.single()
+    val drawn = requireNotNull(slice.slice)
+    assertEquals(Size(drawn.width, drawn.height), slice.size)
+    assertEquals(2f, slice.density, 0f)
+    assertEquals(test.view.resources.displayMetrics.density, slice.density, 0f)
+    assertEquals(1f, slice.fontScale, 0f)
+    assertEquals(LayoutDirection.Ltr, slice.layoutDirection)
 
     // Filled a few pixels in from each edge, and not a few pixels out.
     val (left, top, right, bottom) = test.boundsOf(drawn).map { it.toInt() }
@@ -214,7 +215,7 @@ class DrawScopeSpoilerSegmentOverlayTest {
     for ((x, y) in inside) assertEquals("Pixel ($x, $y)", FILL.toArgb(), bitmap.getPixel(x, y))
     for ((x, y) in outside) {
       if (x !in 0 until bitmap.width || y !in 0 until bitmap.height) continue
-      assertTrue("Fill outside the segment at ($x, $y)", bitmap.getPixel(x, y) != FILL.toArgb())
+      assertTrue("Fill outside the slice at ($x, $y)", bitmap.getPixel(x, y) != FILL.toArgb())
     }
   }
 
@@ -225,14 +226,14 @@ class DrawScopeSpoilerSegmentOverlayTest {
     val test = harness(ProbeOverlay(probe))
 
     test.draw()
-    val segment = probe.created.single()
-    assertEquals(1.5f, segment.fontScale, 0f)
+    val slice = probe.created.single()
+    assertEquals(1.5f, slice.fontScale, 0f)
 
-    // A change while the segment lives reaches its next draw.
+    // A change while the slice lives reaches its next draw.
     RuntimeEnvironment.setFontScale(2f)
     test.draw()
-    assertTrue("The segment should outlive the change", probe.created.single() === segment)
-    assertEquals(2f, segment.fontScale, 0f)
+    assertTrue("The slice should outlive the change", probe.created.single() === slice)
+    assertEquals(2f, slice.fontScale, 0f)
   }
 
   @Test
@@ -241,14 +242,14 @@ class DrawScopeSpoilerSegmentOverlayTest {
     val test = harness(ProbeOverlay(probe))
 
     test.draw()
-    val segment = probe.created.single()
-    assertEquals(2f, segment.density, 0f)
+    val slice = probe.created.single()
+    assertEquals(2f, slice.density, 0f)
 
-    // A change while the segment lives reaches its next draw.
+    // A change while the slice lives reaches its next draw.
     RuntimeEnvironment.setQualifiers("xxhdpi")
     test.draw()
-    assertTrue("The segment should outlive the change", probe.created.single() === segment)
-    assertEquals(3f, segment.density, 0f)
+    assertTrue("The slice should outlive the change", probe.created.single() === slice)
+    assertEquals(3f, slice.density, 0f)
   }
 
   @Test
@@ -273,22 +274,22 @@ class DrawScopeSpoilerSegmentOverlayTest {
     test.advanceBy(225)
     val bitmap = test.draw()
 
-    val segment = probe.created.single()
-    assertEquals(0.5f, segment.revealProgress.single(), 0.01f)
+    val slice = probe.created.single()
+    assertEquals(0.5f, slice.revealProgress.single(), 0.01f)
     // Halfway, the overlay is at a quarter of its opacity, as the text under it is at three
     // quarters. Pixels with a glyph under them are mixed, so only the bare fill is read.
     var bare = 0
-    forEachPixelInside(test.boundsOf(requireNotNull(segment.segment))) { x, y ->
+    forEachPixelInside(test.boundsOf(requireNotNull(slice.slice))) { x, y ->
       val pixel = bitmap.getPixel(x, y)
       if (AndroidColor.green(pixel) != 0 || AndroidColor.blue(pixel) != 0) return@forEachPixelInside
       assertEquals("Alpha at ($x, $y)", 64f, AndroidColor.alpha(pixel).toFloat(), 2f)
       bare++
     }
-    assertTrue("The segment should have bare fill", bare > 0)
+    assertTrue("The slice should have bare fill", bare > 0)
   }
 
   @Test
-  fun aCustomRevealReceivesTheProgressInTheSegmentsScope() {
+  fun aCustomRevealReceivesTheProgressInTheSlicesScope() {
     val probe = Probe()
     val test = harness(ProbeOverlay(probe, customReveal = true))
     test.draw()
@@ -299,15 +300,15 @@ class DrawScopeSpoilerSegmentOverlayTest {
     test.advanceBy(135)
     val bitmap = test.draw()
 
-    val segment = probe.created.single()
-    val drawn = requireNotNull(segment.segment)
+    val slice = probe.created.single()
+    val drawn = requireNotNull(slice.slice)
     // A frame is a millisecond or so either way of where the clock was moved to.
-    assertEquals(2, segment.revealProgress.size)
-    assertEquals(0.2f, segment.revealProgress[0], 0.01f)
-    assertEquals(0.5f, segment.revealProgress[1], 0.01f)
-    assertEquals(Size(drawn.width, drawn.height), segment.revealSizes.last())
+    assertEquals(2, slice.revealProgress.size)
+    assertEquals(0.2f, slice.revealProgress[0], 0.01f)
+    assertEquals(0.5f, slice.revealProgress[1], 0.01f)
+    assertEquals(Size(drawn.width, drawn.height), slice.revealSizes.last())
 
-    // The override drew instead of the fade: a blue bar over the first half of the segment.
+    // The override drew instead of the fade: a blue bar over the first half of the slice.
     val bounds = test.boundsOf(drawn)
     val y = ((bounds[1] + bounds[3]) / 2f).toInt()
     assertEquals(Color.Blue.toArgb(), bitmap.getPixel(ceil(bounds[0]).toInt() + 2, y))
@@ -317,7 +318,7 @@ class DrawScopeSpoilerSegmentOverlayTest {
   // MARK: Drawing the text through
 
   @Test
-  fun drawSegmentTextShowsTheConcealedGlyphs() {
+  fun drawSliceTextShowsTheConcealedGlyphs() {
     val bareProbe = Probe()
     val bare = harness(ProbeOverlay(bareProbe, Drawing.NOTHING))
     val textProbe = Probe()
@@ -332,13 +333,13 @@ class DrawScopeSpoilerSegmentOverlayTest {
       probe: Probe,
     ): Int {
       var inked = 0
-      forEachPixelInside(test.boundsOf(requireNotNull(probe.created.single().segment))) { x, y ->
+      forEachPixelInside(test.boundsOf(requireNotNull(probe.created.single().slice))) { x, y ->
         if (AndroidColor.alpha(bitmap.getPixel(x, y)) > 0) inked++
       }
       return inked
     }
     assertEquals("A concealed spoiler draws no glyphs of its own", 0, inkIn(bare, bareBitmap, bareProbe))
-    assertTrue("drawSegmentText should put the glyphs in the segment", inkIn(throughOverlay, textBitmap, textProbe) > 0)
+    assertTrue("drawSliceText should put the glyphs in the slice", inkIn(throughOverlay, textBitmap, textProbe) > 0)
     assertFalse("Drawing them leaves the spoiler concealed", throughOverlay.span.revealed || throughOverlay.span.revealing)
   }
 

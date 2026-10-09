@@ -38,8 +38,8 @@ class MarkdownPluginsViewTest {
 
     composeRule.setContent {
       root = LocalView.current
-      outerPlugin {
-        innerPlugin {
+      MarkdownPlugins(outerPlugin) {
+        MarkdownPlugins(innerPlugin) {
           EnrichedMarkdownText(markdown = "")
         }
       }

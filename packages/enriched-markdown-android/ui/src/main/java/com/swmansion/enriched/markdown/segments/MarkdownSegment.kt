@@ -26,7 +26,7 @@ sealed interface MarkdownSegment {
 
 fun splitASTIntoSegments(
   root: MarkdownASTNode,
-  plugins: PluginSnapshot = PluginSnapshot.EMPTY,
+  plugins: PluginSnapshot,
 ): List<MarkdownSegment> {
   val segments = mutableListOf<MarkdownSegment>()
   val currentTextNodes = mutableListOf<MarkdownASTNode>()
