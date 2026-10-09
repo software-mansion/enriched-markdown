@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.compose.Md4cFlags
 import com.swmansion.enriched.markdown.math.LatexError
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
 
 @Composable
 fun TextScreen(
@@ -36,38 +35,34 @@ fun TextScreen(
         .verticalScroll(rememberScrollState())
         .padding(horizontal = 16.dp, vertical = 16.dp),
   ) {
-    // Highlighting ships as its own artifact; this scope enables it for the sample's code blocks, on
-    // top of the math plugin the activity's scope already enables.
-    SyntaxHighlightingPlugin {
-      EnrichedMarkdownText(
-        markdown = markdown,
-        modifier = Modifier.fillMaxWidth(),
-        style = CustomMarkdownStyle,
-        flags = Md4cFlags(superscript = true, subscript = true, highlight = true, admonitions = true, latexMath = true),
-        onLinkClick = { url ->
-          runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-          }
-        },
-        // Plugins report per-view problems here; the math plugin sends a LatexError for every
-        // expression it could not draw, once per distinct expression per view.
-        onPluginEvent = { event ->
-          if (event is LatexError) {
-            Log.w(
-              "ExampleLatex",
-              "LaTeX failed (displayMode=${event.displayMode}): ${event.source} - ${event.message}",
-            )
-          }
-        },
-        onTaskListItemToggle = { event ->
-          Toast
-            .makeText(
-              context,
-              "Task ${event.index} is now ${if (event.checked) "checked" else "unchecked"}: ${event.text}",
-              Toast.LENGTH_SHORT,
-            ).show()
-        },
-      )
-    }
+    EnrichedMarkdownText(
+      markdown = markdown,
+      modifier = Modifier.fillMaxWidth(),
+      style = CustomMarkdownStyle,
+      flags = Md4cFlags(superscript = true, subscript = true, highlight = true, admonitions = true, latexMath = true),
+      onLinkClick = { url ->
+        runCatching {
+          context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }
+      },
+      // Plugins report per-view problems here; the math plugin sends a LatexError for every
+      // expression it could not draw, once per distinct expression per view.
+      onPluginEvent = { event ->
+        if (event is LatexError) {
+          Log.w(
+            "ExampleLatex",
+            "LaTeX failed (displayMode=${event.displayMode}): ${event.source} - ${event.message}",
+          )
+        }
+      },
+      onTaskListItemToggle = { event ->
+        Toast
+          .makeText(
+            context,
+            "Task ${event.index} is now ${if (event.checked) "checked" else "unchecked"}: ${event.text}",
+            Toast.LENGTH_SHORT,
+          ).show()
+      },
+    )
   }
 }

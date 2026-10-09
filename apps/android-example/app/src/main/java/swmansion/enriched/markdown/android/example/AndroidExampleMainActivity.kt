@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.swmansion.enriched.markdown.compose.MarkdownTheme
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
+import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
 
 class AndroidExampleMainActivity : ComponentActivity() {
   @OptIn(ExperimentalMaterial3Api::class)
@@ -39,74 +40,76 @@ class AndroidExampleMainActivity : ComponentActivity() {
       var currentRoute by rememberSaveable { mutableStateOf(ExampleRoute.Home) }
 
       MaterialTheme {
-        // Math ships as its own artifact; this scope is what renders `$...$` / `$$...$$` for every
-        // EnrichedMarkdownText below that also sets `Md4cFlags(latexMath = true)`.
+        // Math and syntax highlighting ship as their own artifacts; these scopes enable them for every
+        // EnrichedMarkdownText below. Math also needs `Md4cFlags(latexMath = true)` on the instance.
         LatexMathPlugin {
-          MarkdownTheme {
-            Scaffold(
-              modifier = Modifier.fillMaxSize(),
-              containerColor = Color.White,
-              topBar = {
-              TopAppBar(
-                title = {
-                  Text(
-                    when (currentRoute) {
-                      ExampleRoute.Home -> "Enriched Markdown Examples"
-                      ExampleRoute.Playground -> "Playground"
-                      ExampleRoute.Text -> "Text"
-                      else -> currentRoute.name
+          SyntaxHighlightingPlugin {
+            MarkdownTheme {
+              Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = Color.White,
+                topBar = {
+                  TopAppBar(
+                    title = {
+                      Text(
+                        when (currentRoute) {
+                          ExampleRoute.Home -> "Enriched Markdown Examples"
+                          ExampleRoute.Playground -> "Playground"
+                          ExampleRoute.Text -> "Text"
+                          else -> currentRoute.name
+                        },
+                      )
                     },
+                    navigationIcon = {
+                      if (currentRoute != ExampleRoute.Home) {
+                        TextButton(onClick = { currentRoute = ExampleRoute.Home }) {
+                          Text("Back", color = Color(0xFF001A72))
+                        }
+                      }
+                    },
+                    colors =
+                      TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xFFBEEBD0),
+                        titleContentColor = Color(0xFF001A72),
+                        navigationIconContentColor = Color(0xFF001A72),
+                      ),
                   )
                 },
-                navigationIcon = {
-                  if (currentRoute != ExampleRoute.Home) {
-                    TextButton(onClick = { currentRoute = ExampleRoute.Home }) {
-                      Text("Back", color = Color(0xFF001A72))
-                    }
-                  }
-                },
-                colors =
-                  TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFBEEBD0),
-                    titleContentColor = Color(0xFF001A72),
-                    navigationIconContentColor = Color(0xFF001A72),
-                  ),
-              )
-            },
-          ) { innerPadding ->
-            when (currentRoute) {
-              ExampleRoute.Home ->
-                HomeScreen(
-                  modifier = Modifier.padding(innerPadding),
-                  onNavigate = { route ->
-                    when (route) {
-                      ExampleRoute.Playground -> currentRoute = ExampleRoute.Playground
-                      ExampleRoute.Text -> currentRoute = ExampleRoute.Text
-                      else ->
-                        Toast
-                          .makeText(
-                            this@AndroidExampleMainActivity,
-                            "${route.name} is not available on Android yet",
-                            Toast.LENGTH_SHORT,
-                          ).show()
-                    }
-                  },
-                )
+              ) { innerPadding ->
+                when (currentRoute) {
+                  ExampleRoute.Home ->
+                    HomeScreen(
+                      modifier = Modifier.padding(innerPadding),
+                      onNavigate = { route ->
+                        when (route) {
+                          ExampleRoute.Playground -> currentRoute = ExampleRoute.Playground
+                          ExampleRoute.Text -> currentRoute = ExampleRoute.Text
+                          else ->
+                            Toast
+                              .makeText(
+                                this@AndroidExampleMainActivity,
+                                "${route.name} is not available on Android yet",
+                                Toast.LENGTH_SHORT,
+                              ).show()
+                        }
+                      },
+                    )
 
-              ExampleRoute.Playground ->
-                PlaygroundScreen(
-                  modifier = Modifier.padding(innerPadding),
-                )
+                  ExampleRoute.Playground ->
+                    PlaygroundScreen(
+                      modifier = Modifier.padding(innerPadding),
+                    )
 
-              ExampleRoute.Text ->
-                TextScreen(
-                  markdown = sampleMarkdown,
-                  modifier = Modifier.padding(innerPadding),
-                )
+                  ExampleRoute.Text ->
+                    TextScreen(
+                      markdown = sampleMarkdown,
+                      modifier = Modifier.padding(innerPadding),
+                    )
 
-              else -> Unit
+                  else -> Unit
+                }
+              }
             }
-          }
           }
         }
       }
