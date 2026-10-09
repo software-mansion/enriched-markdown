@@ -1,16 +1,14 @@
 import UIKit
 
 final class ThematicBreakRenderer: NodeRenderer {
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfiguration) {
         self.config = config
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
-        if output.length > 0, !output.string.hasSuffix("\n") {
-            output.append(ParagraphStyleHelpers.newline)
-        }
+        ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
 
         let style = config.thematicBreak
         let attachment = ThematicBreakAttachment()

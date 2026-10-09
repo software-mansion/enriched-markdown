@@ -2,9 +2,9 @@ import UIKit
 
 final class CodeBlockRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
         self.factory = factory
         self.config = config
     }
@@ -61,7 +61,7 @@ final class CodeBlockRenderer: NodeRenderer {
 
         let baseStyle = ParagraphStyleHelpers.getOrCreateParagraphStyle(in: output, at: contentStart)
         baseStyle.baseWritingDirection = .leftToRight
-        baseStyle.alignment = .left
+        baseStyle.alignment = blockStyle.textAlignment ?? .left
         baseStyle.firstLineHeadIndent = padding
         baseStyle.headIndent = padding
         baseStyle.tailIndent = -padding

@@ -1,7 +1,7 @@
 import UIKit
 
 /// Verifies a candidate source slice against the selection it should
-/// represent: re-parsed with the render flags, the slice must carry exactly
+/// represent: re-parsed with the render options, the slice must carry exactly
 /// the selection's visible text (whitespace-insensitive; plugin attachments
 /// stand in for their literal text) and the same table/image/thematic-break
 /// structure. This is what turns every mapping or expansion defect in the
@@ -13,10 +13,10 @@ enum MarkdownSliceValidator {
         _ slice: String,
         toSelection selection: NSRange,
         in attributedText: NSAttributedString,
-        flags: Md4cFlags
+        options: MarkdownParsingOptions
     ) -> Bool {
         var parsed = ContentSummary()
-        summarize(Parser.shared.parseMarkdown(slice, flags: flags), into: &parsed)
+        summarize(Parser.shared.parseMarkdown(slice, options: options), into: &parsed)
         var selected = ContentSummary()
         summarizeSelection(selection, in: attributedText, into: &selected)
         return canonical(parsed.text) == canonical(selected.text)

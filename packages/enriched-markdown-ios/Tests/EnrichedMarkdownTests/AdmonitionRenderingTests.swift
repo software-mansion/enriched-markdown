@@ -4,18 +4,18 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class AdmonitionRenderingTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
-    private let flags = Md4cFlags(admonitions: true)
+    private var config: MarkdownStyleConfiguration!
+    private let options = MarkdownParsingOptions(admonitions: true)
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Helpers
 
-    private func render(_ markdown: String, config: MarkdownStyleConfig? = nil) -> NSAttributedString {
-        MarkdownRenderer.render(markdown, config: config ?? self.config, flags: flags)
+    private func render(_ markdown: String, config: MarkdownStyleConfiguration? = nil) -> NSAttributedString {
+        MarkdownRenderer.render(markdown, config: config ?? self.config, options: options)
     }
 
     private func attributes(onWord word: String, in text: NSAttributedString) -> [NSAttributedString.Key: Any] {
@@ -146,7 +146,7 @@ final class AdmonitionRenderingTests: XCTestCase {
     }
 
     func testFlagOffRendersMarkerAsPlainQuoteText() {
-        let result = MarkdownRenderer.render("> [!NOTE]\n> body", config: config, flags: .commonMark)
+        let result = MarkdownRenderer.render("> [!NOTE]\n> body", config: config, options: .commonMark)
 
         XCTAssertTrue(result.string.contains("[!NOTE]"))
         XCTAssertNil(attributes(onWord: "body", in: result)[MarkdownAttribute.admonitionHeader])
@@ -205,7 +205,7 @@ final class AdmonitionRenderingTests: XCTestCase {
                 .foregroundStyle(Color.red)
                 .background(Color.yellow)
         }
-        let resolved = MarkdownStyleConfig.resolve(layers: [.default, theme], traitCollection: .current)
+        let resolved = MarkdownStyleConfiguration.resolve(layers: [.default, theme], traitCollection: .current)
 
         // Theme colors resolve against the trait collection, so compare resolved values.
         XCTAssertEqual(resolved.blockquote.admonitions[.tip]?.color, UIColor(Color.red).resolvedColor(with: .current))
@@ -220,7 +220,7 @@ final class AdmonitionRenderingTests: XCTestCase {
         let theme = MarkdownTheme {
             Admonition(.caution).background(ThemeColorSpec.SemanticColor.quaternary)
         }
-        let resolved = MarkdownStyleConfig.resolve(layers: [.default, theme], traitCollection: .current)
+        let resolved = MarkdownStyleConfiguration.resolve(layers: [.default, theme], traitCollection: .current)
 
         XCTAssertEqual(resolved.blockquote.admonitions[.caution]?.color, config.blockquote.admonitions[.caution]?.color)
         XCTAssertNotNil(resolved.blockquote.admonitions[.caution]?.backgroundColor)

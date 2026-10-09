@@ -2,10 +2,10 @@ import UIKit
 
 final class ListRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
     private let isOrdered: Bool
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig, isOrdered: Bool) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration, isOrdered: Bool) {
         self.factory = factory
         self.config = config
         self.isOrdered = isOrdered
@@ -24,8 +24,8 @@ final class ListRenderer: NodeRenderer {
                 at: startLocation,
                 marginTop: config.list.marginTop ?? 0
             )
-        } else if output.length > 0, !output.string.hasSuffix("\n") {
-            output.append(ParagraphStyleHelpers.newline)
+        } else {
+            ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
         }
 
         context.listDepth = prevDepth + 1

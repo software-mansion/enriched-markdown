@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 import XCTest
 @testable import EnrichedMarkdown
@@ -11,8 +12,8 @@ final class SemanticColorTests: XCTestCase {
         let lightTraits = UITraitCollection(userInterfaceStyle: .light)
         let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
 
-        let lightConfig = MarkdownStyleConfig.resolve(layers: [theme], traitCollection: lightTraits)
-        let darkConfig = MarkdownStyleConfig.resolve(layers: [theme], traitCollection: darkTraits)
+        let lightConfig = MarkdownStyleConfiguration.resolve(layers: [theme], traitCollection: lightTraits)
+        let darkConfig = MarkdownStyleConfiguration.resolve(layers: [theme], traitCollection: darkTraits)
 
         XCTAssertEqual(
             lightConfig.paragraph.foregroundColor,
@@ -34,11 +35,31 @@ final class SemanticColorTests: XCTestCase {
         }
 
         let traits = UITraitCollection(userInterfaceStyle: .light)
-        let config = MarkdownStyleConfig.resolve(layers: [theme], traitCollection: traits)
+        let config = MarkdownStyleConfiguration.resolve(layers: [theme], traitCollection: traits)
 
         XCTAssertEqual(
             config.link.foregroundColor,
             UIColor.tintColor.resolvedColor(with: traits)
         )
+    }
+
+    // MARK: - Member-name resolution
+
+    func testSemanticMemberNamesResolveWithoutQualification() {
+        // `.secondary` exists on both Color and SemanticColor; the Color
+        // overloads are disfavored so the idiomatic SwiftUI line compiles.
+        let config = MarkdownStyleConfiguration.resolve(
+            layers: [MarkdownTheme {
+                Paragraph().foregroundStyle(.secondary)
+                Code().background(.tertiary)
+                Blockquote().border(.primary, width: 2)
+                Heading(1).foregroundStyle(Color(UIColor.systemRed))
+            }],
+            traitCollection: .current
+        )
+        XCTAssertEqual(config.paragraph.foregroundColor, UIColor.secondaryLabel.resolvedColor(with: .current))
+        XCTAssertEqual(config.code.backgroundColor, UIColor.tertiaryLabel.resolvedColor(with: .current))
+        XCTAssertEqual(config.blockquote.borderColor, UIColor.label.resolvedColor(with: .current))
+        XCTAssertEqual(config.heading1.foregroundColor, UIColor.systemRed.resolvedColor(with: .current))
     }
 }

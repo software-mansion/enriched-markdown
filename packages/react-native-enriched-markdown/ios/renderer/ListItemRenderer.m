@@ -19,6 +19,41 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
 @implementation ENRMListMarkerDescriptor
 @end
 
+// NSArray's -hash is its count, so plain one-marker arrays all collide in the
+// table that uniques attribute dictionaries, and each list item probes past
+// every earlier one. Hashing by the item's own marker keeps rendering linear.
+@interface ENRMListMarkerArray : NSArray
+@end
+
+@implementation ENRMListMarkerArray {
+  NSArray<ENRMListMarkerDescriptor *> *_markers;
+}
+
+- (instancetype)initWithMarkers:(NSArray<ENRMListMarkerDescriptor *> *)markers
+{
+  if (self = [super init]) {
+    _markers = [markers copy];
+  }
+  return self;
+}
+
+- (NSUInteger)count
+{
+  return _markers.count;
+}
+
+- (id)objectAtIndex:(NSUInteger)index
+{
+  return _markers[index];
+}
+
+- (NSUInteger)hash
+{
+  return _markers.lastObject.hash;
+}
+
+@end
+
 @interface ListItemRenderer ()
 - (void)applyCheckedDecorationsTo:(NSMutableAttributedString *)output
                             range:(NSRange)range
@@ -130,13 +165,14 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
     NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
     style.firstLineHeadIndent = totalIndent;
     style.headIndent = totalIndent;
-    if (lineHeightConfig > 0) {
-      style.minimumLineHeight = lineHeightConfig;
+    const CGFloat lineHeight = ENRMLineHeightWithLinkPills(output, range, lineHeightConfig);
+    if (lineHeight > 0) {
+      style.minimumLineHeight = lineHeight;
     }
     NSMutableDictionary *attributesToApply = [metadata mutableCopy];
     attributesToApply[NSParagraphStyleAttributeName] = style;
     [output addAttributes:attributesToApply range:range];
-    if (lineHeightConfig > 0) {
+    if (lineHeight > 0) {
       applyBaselineOffset(output, range);
     }
   };
@@ -184,7 +220,9 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
   NSArray *existingMarkers = [output attribute:ListItemMarkerStartAttribute atIndex:anchorLocation effectiveRange:NULL];
   NSArray *markers =
       [existingMarkers isKindOfClass:[NSArray class]] ? [existingMarkers arrayByAddingObject:marker] : @[ marker ];
-  [output addAttribute:ListItemMarkerStartAttribute value:markers range:anchorRange];
+  [output addAttribute:ListItemMarkerStartAttribute
+                 value:[[ENRMListMarkerArray alloc] initWithMarkers:markers]
+                 range:anchorRange];
 
   if (isTask && isChecked) {
     [self applyCheckedDecorationsTo:output range:itemRange nestingLevel:nestingLevel];

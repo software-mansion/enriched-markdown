@@ -60,6 +60,8 @@ class EnrichedMarkdownTextInputView(
   context: Context,
 ) : AppCompatEditText(context) {
   private var isComponentReady = false
+  private var lastEmittedSelectionStart = -1
+  private var lastEmittedSelectionEnd = -1
 
   val formattingStore = FormattingStore()
   val blockStore = BlockStore()
@@ -387,6 +389,7 @@ class EnrichedMarkdownTextInputView(
     } finally {
       editSession.exit()
     }
+    emitSelectionIfChanged()
   }
 
   override fun onSelectionChanged(
@@ -416,10 +419,31 @@ class EnrichedMarkdownTextInputView(
       syncEmptyListAnchor()
     }
 
-    eventEmitter.emitSelection(selStart, selEnd)
+    emitSelectionIfChanged()
     dispatchMentionUpdate()
     eventEmitter.emitState()
     eventEmitter.emitCaretRectChangeIfNeeded()
+  }
+
+  /**
+   * Sends the caret range to JS when it differs from the last range JS received.
+   *
+   * [onSelectionChanged] returns immediately while an edit phase is active, so
+   * a caret move from setValue, a programmatic insert, or anchor management is
+   * not reported there. Those callers invoke this once the edit phase has ended.
+   *
+   * This function then rereads the latest range at that point before emitting
+   * the selection.
+   */
+  private fun emitSelectionIfChanged() {
+    if (!isComponentReady) return
+    val start = selectionStart
+    val end = selectionEnd
+    if (start == lastEmittedSelectionStart && end == lastEmittedSelectionEnd) return
+    if (eventEmitter.emitSelection(start, end)) {
+      lastEmittedSelectionStart = start
+      lastEmittedSelectionEnd = end
+    }
   }
 
   /**
@@ -478,6 +502,7 @@ class EnrichedMarkdownTextInputView(
     } finally {
       editSession.exit()
     }
+    emitSelectionIfChanged()
   }
 
   fun applyFormatting() {
@@ -810,6 +835,11 @@ class EnrichedMarkdownTextInputView(
     return blockCoordinator.headingLevelAtPosition(editable, selectionStart)
   }
 
+  fun linkForSelection(
+    start: Int,
+    end: Int,
+  ): FormattingRange? = linkCoordinator.linkForSelection(start, end)
+
   /**
    * On empty text with a heading block, overrides text size to the heading's
    * font size so the cursor matches heading height. Hides the hint while
@@ -840,10 +870,15 @@ class EnrichedMarkdownTextInputView(
   }
 
   fun setLinkForSelection(url: String) {
-    val selStart = selectionStart
-    val selEnd = selectionEnd
-    if (selStart == selEnd) return
-    linkCoordinator.setLinkForRange(url, selStart, selEnd, text)
+    setLinkForRange(url, selectionStart, selectionEnd)
+  }
+
+  fun setLinkForRange(
+    url: String,
+    start: Int,
+    end: Int,
+  ) {
+    if (!linkCoordinator.setLinkUrl(url, start, end, text)) return
     applyFormattingAndEmit()
   }
 
@@ -901,7 +936,7 @@ class EnrichedMarkdownTextInputView(
   }
 
   fun removeLinkAtCursor() {
-    if (!linkCoordinator.removeLink(selectionStart)) return
+    if (!linkCoordinator.removeLink(selectionStart, selectionEnd)) return
     applyFormattingAndEmit()
   }
 
@@ -971,6 +1006,7 @@ class EnrichedMarkdownTextInputView(
     } finally {
       editSession.exit()
     }
+    emitSelectionIfChanged()
   }
 
   override fun setBackgroundColor(color: Int) {
@@ -1036,10 +1072,22 @@ class EnrichedMarkdownTextInputView(
     AutoCapitalizeUtils.apply(this, flagName)
   }
 
-  fun requestFocusProgrammatically() {
-    requestFocus()
-    inputMethodManager?.showSoftInput(this, 0)
-    setSelection(selectionStart.coerceAtLeast(0))
+  /**
+   * Programmatic focus for ref.focus() and for the focus command that the JS
+   * pressability onPress sends on finger-up (including after a long-press word
+   * select).
+   *
+   * Matches ReactEditText.requestFocusProgrammatically: request focus and show
+   * the keyboard without touching the selection, so a long-press word selection
+   * isn't collapsed:
+   * https://github.com/react/react-native/blob/v0.86.2/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L396-L402
+   */
+  fun requestFocusProgrammatically(): Boolean {
+    val focused = super.requestFocus(FOCUS_DOWN, null)
+    if (isInTouchMode && showSoftInputOnFocus) {
+      inputMethodManager?.showSoftInput(this, 0)
+    }
+    return focused
   }
 
   private fun showAutoFocusKeyboardIfPending() {
@@ -1072,15 +1120,6 @@ class EnrichedMarkdownTextInputView(
     if (start >= end) return
     val handler = formatter.handlers[styleType] ?: return
     formattingStore.toggleStyle(styleType, start, end, handler.mergingConfig.conflictingStyles)
-    applyFormattingAndEmit()
-  }
-
-  fun applyLinkToRange(
-    url: String,
-    start: Int,
-    end: Int,
-  ) {
-    linkCoordinator.addLinkDirect(url, start, end)
     applyFormattingAndEmit()
   }
 

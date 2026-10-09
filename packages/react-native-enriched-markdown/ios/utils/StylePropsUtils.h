@@ -561,7 +561,16 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
         const auto &oldVariant = oldStyle.linkVariants[i];
         if (newVariant.pattern != oldVariant.pattern || newVariant.color != oldVariant.color ||
             newVariant.underline != oldVariant.underline || newVariant.backgroundColor != oldVariant.backgroundColor ||
-            newVariant.fontFamily != oldVariant.fontFamily) {
+            newVariant.fontFamily != oldVariant.fontFamily || newVariant.pill.enabled != oldVariant.pill.enabled ||
+            newVariant.pill.label != oldVariant.pill.label || newVariant.pill.iconUri != oldVariant.pill.iconUri ||
+            newVariant.pill.iconTintColor != oldVariant.pill.iconTintColor ||
+            newVariant.pill.borderRadius != oldVariant.pill.borderRadius ||
+            newVariant.pill.paddingHorizontal != oldVariant.pill.paddingHorizontal ||
+            newVariant.pill.paddingVertical != oldVariant.pill.paddingVertical ||
+            newVariant.pill.lineHeight != oldVariant.pill.lineHeight ||
+            newVariant.pill.borderWidth != oldVariant.pill.borderWidth ||
+            newVariant.pill.borderColor != oldVariant.pill.borderColor ||
+            newVariant.pill.maxWidth != oldVariant.pill.maxWidth) {
           linkVariantsChanged = YES;
           break;
         }
@@ -575,6 +584,20 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
         variant.color = RCTUIColorFromSharedColor(entry.color);
         variant.underline = entry.underline;
         variant.fontFamily = [[NSString alloc] initWithUTF8String:entry.fontFamily.c_str()];
+        if (entry.pill.enabled) {
+          LinkPillConfig *pill = [[LinkPillConfig alloc] init];
+          pill.label = [[NSString alloc] initWithUTF8String:entry.pill.label.c_str()];
+          pill.iconUri = [[NSString alloc] initWithUTF8String:entry.pill.iconUri.c_str()];
+          pill.iconTintColor = entry.pill.iconTintColor ? RCTUIColorFromSharedColor(entry.pill.iconTintColor) : nil;
+          pill.borderRadius = entry.pill.borderRadius;
+          pill.paddingHorizontal = entry.pill.paddingHorizontal;
+          pill.paddingVertical = entry.pill.paddingVertical;
+          pill.lineHeight = entry.pill.lineHeight;
+          pill.borderWidth = entry.pill.borderWidth;
+          pill.borderColor = RCTUIColorFromSharedColor(entry.pill.borderColor);
+          pill.maxWidth = entry.pill.maxWidth;
+          variant.pill = pill;
+        }
         RCTUIColor *backgroundColor = RCTUIColorFromSharedColor(entry.backgroundColor);
         variant.backgroundColor = CGColorGetAlpha(backgroundColor.CGColor) > 0 ? backgroundColor : nil;
         [variants addObject:variant];

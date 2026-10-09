@@ -5,11 +5,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class RendererTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     func testPlainTextUsesParagraphFont() {
@@ -110,7 +110,7 @@ final class RendererTests: XCTestCase {
 
         var themedConfig = config!
         var theme = MarkdownTheme {
-            List().fontFamily("Montserrat-Regular", size: 16)
+            List().font(custom: "Montserrat-Regular", size: 16)
             Strong().foregroundStyle(Color(red: 17 / 255, green: 24 / 255, blue: 39 / 255))
             Emphasis().foregroundStyle(Color(red: 75 / 255, green: 85 / 255, blue: 99 / 255))
         }
@@ -244,8 +244,8 @@ final class RendererTests: XCTestCase {
     func testCustomThemeHeadingUsesBoldFontFamily() {
         var themedConfig = config!
         var theme = MarkdownTheme {
-            Heading(1).fontFamily("Helvetica-Bold", size: 30)
-            Heading(2).fontFamily("Helvetica-Bold", size: 24)
+            Heading(1).font(custom: "Helvetica-Bold", size: 30)
+            Heading(2).font(custom: "Helvetica-Bold", size: 24)
         }
         theme.apply(to: &themedConfig, traitCollection: .current)
 
@@ -757,5 +757,20 @@ final class RendererTests: XCTestCase {
 private extension String {
     subscript(range: NSRange) -> String {
         (self as NSString).substring(with: range)
+    }
+
+    // MARK: - CodeBlock as a MarkdownThemeElement
+
+    func testCodeBlockSharesTheElementModifiers() {
+        let config = MarkdownStyleConfiguration.resolve(
+            layers: [MarkdownTheme { CodeBlock().fontDesign(.serif).bold().multilineTextAlignment(.center) }],
+            traitCollection: .current
+        )
+        XCTAssertEqual(config.codeBlock.textAlignment, .center)
+        XCTAssertTrue(config.codeBlock.font?.fontDescriptor.symbolicTraits.contains(.traitBold) ?? false)
+
+        let rendered = MarkdownRenderer.render("```\ncode\n```", config: config)
+        let style = rendered.attribute(.paragraphStyle, at: 1, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertEqual(style?.alignment, .center)
     }
 }

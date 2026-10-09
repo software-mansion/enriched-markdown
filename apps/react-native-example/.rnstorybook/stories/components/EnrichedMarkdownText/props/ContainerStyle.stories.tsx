@@ -11,7 +11,7 @@ type ContainerStyleStoryExtra = {
   containerBackgroundColor: string;
 };
 
-const MARKDOWN = `First paragraph inside the container.
+const MARKDOWN = `First paragraph inside the container, long enough to wrap onto another line so the trailing edge padding stays visible.
 
 Second paragraph with the same wrapper styling.`;
 

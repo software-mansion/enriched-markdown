@@ -5,6 +5,7 @@
 #import "ENRMAtomicSize.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLatexErrorCoordinator.h"
+#import "ENRMLinkContextMenus.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTailFadeInAnimator.h"
 #import "ENRMTextInteractionUtils.h"
@@ -13,6 +14,8 @@
 #import "ENRMUIKit.h"
 #import "EditMenuUtils.h"
 #import "ImageRequestHeaderUtils.h"
+#import "LinkContextMenuUtils.h"
+#import "LinkPillContentUtils.h"
 
 #import "ENRMFeatureFlags.h"
 
@@ -80,6 +83,7 @@ static char kENRMSegmentFadeAnimatorKey;
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props;
 - (void)emitLinkPress:(NSString *)url;
 - (void)emitLinkLongPress:(NSString *)url;
+- (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitCopyPress:(NSString *)code language:(NSString *)language;
@@ -89,6 +93,11 @@ static char kENRMSegmentFadeAnimatorKey;
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
 @end
+
+#if !TARGET_OS_OSX
+@interface EnrichedMarkdown () <ENRMLinkContextMenuSource>
+@end
+#endif
 
 @implementation EnrichedMarkdown {
   ENRMMarkdownParser *_parser;
@@ -125,6 +134,7 @@ static char kENRMSegmentFadeAnimatorKey;
   size_t _renderedStyleFingerprint;
   size_t _pendingStyleFingerprint;
 
+  ENRMLinkContextMenus *_linkContextMenus;
   NSArray<NSString *> *_contextMenuItemTexts;
   NSArray<NSString *> *_contextMenuItemIcons;
   ENRMSelectionMenuConfig _selectionMenuConfig;
@@ -203,6 +213,12 @@ static char kENRMSegmentFadeAnimatorKey;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
     _dynamicBlockProps = [[ENRMDynamicBlockProps alloc] init];
+    _linkContextMenus = [[ENRMLinkContextMenus alloc] init];
+    __weak EnrichedMarkdown *weakMenuSelf = self;
+    _linkContextMenus.onPress = ^(NSString *url, NSString *pattern, NSString *itemText) {
+      [weakMenuSelf emitLinkContextMenuItemPress:itemText pattern:pattern url:url];
+    };
+    _dynamicBlockProps.linkContextMenus = _linkContextMenus;
     _streamingAnimation = NO;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
@@ -377,6 +393,7 @@ static char kENRMSegmentFadeAnimatorKey;
   view.allowFontScaling = _fontScaleObserver.allowFontScaling;
   view.lineBreakStrategy = _lineBreakStrategy;
   view.dynamicProps = _dynamicBlockProps;
+  view.accessibilityLabels = _accessibilityLabels;
 
   __weak EnrichedMarkdown *weakSelf = self;
   view.onCopyPress = ^(NSString *code, NSString *language) {
@@ -402,6 +419,32 @@ static char kENRMSegmentFadeAnimatorKey;
 
   [view applyBlockquoteNode:blockquoteSegment.blockquoteNode];
   return view;
+}
+
+/// The box the segments actually live in: the component frame inset by the
+/// `containerStyle` border and padding (`LayoutMetrics::getContentFrame`).
+///
+/// Yoga hands `measureContent` an available size that already excludes those
+/// insets and then adds them back to the frame it commits, so laying the
+/// segments out against `self.bounds` would stack them over the padding and
+/// across the border while the space Yoga reserved for the content stays blank
+/// at the bottom. Unlike `EnrichedMarkdownText`, the segments are attached to
+/// the component view itself rather than to `contentView`, so nothing applies
+/// the insets for us.
+///
+/// Taken from `_layoutMetrics` rather than recomputed off `self.bounds`:
+/// `prepareForRecycle` resets the metrics but leaves the bounds behind, so the
+/// two do not always agree. The box is empty both before the first layout
+/// metrics arrive and when the insets consume the whole component width; neither
+/// may fall back to `self.bounds`, which is the padded border box the segments
+/// must not be drawn across, so an over-constrained box clamps to zero and
+/// callers skip laying out at all.
+- (CGRect)contentBounds
+{
+  CGRect box = RCTCGRectFromRect(_layoutMetrics.getContentFrame());
+  box.size.width = MAX(box.size.width, 0);
+  box.size.height = MAX(box.size.height, 0);
+  return box;
 }
 
 - (CGSize)computeSegmentLayoutForWidth:(CGFloat)width applyFrames:(BOOL)applyFrames
@@ -435,6 +478,10 @@ static char kENRMSegmentFadeAnimatorKey;
   __block CGFloat yOffset = 0.0;
   __block CGFloat maxContentWidth = 0.0;
   const NSUInteger lastIndex = _segmentViews.count - 1;
+  // Frames are stacked in the component's own coordinate space, so the content
+  // origin (containerStyle border + padding) shifts every segment. yOffset stays
+  // content-relative because it doubles as the measured content height.
+  const CGPoint contentOrigin = applyFrames ? [self contentBounds].origin : CGPointZero;
 
   [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
     const BOOL isLast = (i == lastIndex);
@@ -480,16 +527,16 @@ static char kENRMSegmentFadeAnimatorKey;
 #endif
 
     if (applyFrames) {
-      CGFloat segmentX = 0;
+      CGFloat segmentX = contentOrigin.x;
       CGFloat segmentWidth = width;
       if (isTable) {
         CGFloat overhang = MAX(_config.tableHorizontalOverflow, 0);
         if (overhang > 0) {
-          segmentX = -overhang;
+          segmentX = contentOrigin.x - overhang;
           segmentWidth = width + overhang * 2;
         }
       }
-      CGRect segmentFrame = CGRectMake(segmentX, yOffset, segmentWidth, segmentHeight);
+      CGRect segmentFrame = CGRectMake(segmentX, contentOrigin.y + yOffset, segmentWidth, segmentHeight);
       segment.frame = segmentFrame;
 #if TARGET_OS_OSX
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
@@ -580,15 +627,21 @@ static char kENRMSegmentFadeAnimatorKey;
   }
 }
 
-/// Yoga-resolved direction inherited from any ancestor `direction` style.
-/// In FirstStrong mode this feeds the neutral-paragraph fallback, so a change
-/// requires segment recreation.
+/// Publishes the committed size to the streaming fast path's mailbox, and picks
+/// up the Yoga-resolved direction inherited from any ancestor `direction` style.
+/// In FirstStrong mode the direction feeds the neutral-paragraph fallback, so a
+/// change requires segment recreation.
+///
+/// The mailbox holds a content size, not the border box: `measureContent`
+/// returns it straight to Yoga, which adds the `containerStyle` insets back on
+/// top of whatever it gets, so storing `frame.size` would double-count them.
 - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
 
-  _lastCommittedSize.store(CGSizeMake(layoutMetrics.frame.size.width, layoutMetrics.frame.size.height));
+  const auto contentSize = layoutMetrics.getContentFrame().size;
+  _lastCommittedSize.store(CGSizeMake(contentSize.width, contentSize.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -625,6 +678,8 @@ static char kENRMSegmentFadeAnimatorKey;
       ((EnrichedMarkdownInternalText *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[TableContainerView class]]) {
       ((TableContainerView *)segment).accessibilityLabels = _accessibilityLabels;
+    } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      ((ENRMBlockquoteContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     }
 #if ENRICHED_MARKDOWN_MATH
     else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
@@ -649,10 +704,11 @@ static char kENRMSegmentFadeAnimatorKey;
     MeasurementCache::shared().removeMatchingMarkdown(std::string(_renderedMarkdown.UTF8String));
   }
 
-  if (self.bounds.size.width > 0) {
+  CGRect contentBounds = [self contentBounds];
+  if (contentBounds.size.width > 0) {
     [self setNeedsLayout];
-    CGSize measured = [self measureSize:self.bounds.size.width];
-    if (needsHeightUpdate(measured, self.bounds)) {
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (needsHeightUpdate(measured, contentBounds)) {
       [self requestHeightUpdate];
     }
   }
@@ -829,16 +885,17 @@ static char kENRMSegmentFadeAnimatorKey;
     }
   }];
 
-  if (self.bounds.size.width > 0) {
+  CGRect contentBounds = [self contentBounds];
+  if (contentBounds.size.width > 0) {
     [self setNeedsLayout];
 
     if (forceHeightUpdate || segmentTopologyChanged) {
-      [self computeSegmentLayoutForWidth:self.bounds.size.width applyFrames:YES];
+      [self computeSegmentLayoutForWidth:contentBounds.size.width applyFrames:YES];
       [self layoutIfNeeded];
       [self requestHeightUpdate];
     } else {
-      CGSize measured = [self measureSize:self.bounds.size.width];
-      if (needsHeightUpdate(measured, self.bounds)) {
+      CGSize measured = [self measureSize:contentBounds.size.width];
+      if (needsHeightUpdate(measured, contentBounds)) {
         [self requestHeightUpdate];
       }
     }
@@ -1012,7 +1069,10 @@ static char kENRMSegmentFadeAnimatorKey;
 - (void)layoutSubviews
 {
   [super layoutSubviews];
-  [self computeSegmentLayoutForWidth:self.bounds.size.width applyFrames:YES];
+  CGFloat contentWidth = [self contentBounds].size.width;
+  if (contentWidth > 0) {
+    [self computeSegmentLayoutForWidth:contentWidth applyFrames:YES];
+  }
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
@@ -1039,6 +1099,15 @@ static char kENRMSegmentFadeAnimatorKey;
 
   if (ENRMImageRequestHeadersChanged(oldViewProps.imageRequestHeaders, newViewProps.imageRequestHeaders)) {
     [_config setImageRequestHeaders:ENRMImageRequestHeadersFromProps(newViewProps.imageRequestHeaders)];
+    _dirtyFlags |= ENRMDirtyRender;
+    if (!markdownChanged) {
+      _dirtyFlags |= ENRMDirtyRecreateSegments;
+    }
+  }
+
+  // Pill labels change layout, so treat new content like a style change.
+  if (ENRMLinkPillContentChanged(oldViewProps.linkPillContent, newViewProps.linkPillContent)) {
+    [_config setLinkPillContent:ENRMLinkPillContentFromProps(newViewProps.linkPillContent)];
     _dirtyFlags |= ENRMDirtyRender;
     if (!markdownChanged) {
       _dirtyFlags |= ENRMDirtyRecreateSegments;
@@ -1100,6 +1169,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
   // Block gates: mutate the shared box in place. Every existing and future block
   // view reads it live at use-time, so no push into segments is needed.
+  _dynamicBlockProps.enableLinkPreview = newViewProps.enableLinkPreview;
   _dynamicBlockProps.enableBlockContextMenu = newViewProps.enableBlockContextMenu;
   _dynamicBlockProps.enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
@@ -1132,6 +1202,10 @@ static char kENRMSegmentFadeAnimatorKey;
     _codeBlockStreamingMode = [codeBlockModeStr isEqualToString:@"hidden"] ? ENRMCodeBlockStreamingModeHidden
                                                                            : ENRMCodeBlockStreamingModeProgressive;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
+  }
+
+  if (ENRMLinkContextMenuItemsChanged(oldViewProps.linkContextMenuItems, newViewProps.linkContextMenuItems)) {
+    _linkContextMenus.entries = ENRMLinkContextMenuEntriesFromProps(newViewProps.linkContextMenuItems);
   }
 
   if (ENRMContextMenuItemsChanged(oldViewProps.contextMenuItems, newViewProps.contextMenuItems)) {
@@ -1230,9 +1304,12 @@ static char kENRMSegmentFadeAnimatorKey;
       }
     }
 
-    CGSize measured = [self measureSize:self.bounds.size.width];
-    if (needsHeightUpdate(measured, self.bounds)) {
-      [self requestHeightUpdate];
+    CGRect contentBounds = [self contentBounds];
+    if (contentBounds.size.width > 0) {
+      CGSize measured = [self measureSize:contentBounds.size.width];
+      if (needsHeightUpdate(measured, contentBounds)) {
+        [self requestHeightUpdate];
+      }
     }
   }
 }
@@ -1271,6 +1348,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
   _renderedStyleFingerprint = 0;
   _pendingStyleFingerprint = 0;
+  _linkContextMenus.entries = @[];
   _contextMenuItemTexts = nil;
   _contextMenuItemIcons = nil;
   _fontScaleObserver.allowFontScaling = resetProps->allowFontScaling;
@@ -1378,6 +1456,16 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     emitter->onLinkLongPress({.url = std::string(url.UTF8String)});
 }
 
+- (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter) {
+    emitter->onLinkContextMenuItemPress({.url = std::string(url.UTF8String),
+                                         .pattern = std::string(pattern.UTF8String),
+                                         .itemText = std::string(itemText.UTF8String)});
+  }
+}
+
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text
 {
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
@@ -1483,6 +1571,20 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
                                    customActions, _selectionMenuConfig);
 }
 
+- (UITextItemMenuConfiguration *)textView:(UITextView *)textView
+             menuConfigurationForTextItem:(UITextItem *)textItem
+                              defaultMenu:(UIMenu *)defaultMenu API_AVAILABLE(ios(17.0))
+{
+  __weak EnrichedMarkdown *weakSelf = self;
+  return ENRMLinkMenuConfigurationForTextItem(textView, textItem, defaultMenu, _linkContextMenus, _enableLinkPreview,
+                                              ^(NSString *url) { [weakSelf emitLinkLongPress:url]; });
+}
+
+- (ENRMLinkContextMenus *)linkContextMenusForTextView:(UITextView *)textView
+{
+  return _linkContextMenus;
+}
+
 - (BOOL)textView:(UITextView *)textView
     shouldInteractWithURL:(NSURL *)URL
                   inRange:(NSRange)characterRange
@@ -1493,6 +1595,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   }
 
   NSString *urlString = linkURLAtRange(textView, characterRange);
+
+  // A link with a menu is presented by the iOS 17 callback above and must not be vetoed here.
+  if ([_linkContextMenus hasMenuForURL:urlString])
+    return YES;
 
   if (!urlString || _enableLinkPreview) {
     return YES;

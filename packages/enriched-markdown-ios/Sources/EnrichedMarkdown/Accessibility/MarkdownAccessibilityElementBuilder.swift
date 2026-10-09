@@ -77,7 +77,7 @@ struct MarkdownAccessibilityElementBuilder {
     private mutating func build() -> [MarkdownAccessibilityElementSpec] {
         var cursor = 0
         while cursor < string.length {
-            if let block = codeBlockRange(at: cursor) {
+            if let block = MarkdownAttributeValue.codeBlockRange(in: text, at: cursor) {
                 appendCodeBlockSpec(for: block)
                 cursor = block.location + block.length
                 continue
@@ -93,22 +93,6 @@ struct MarkdownAccessibilityElementBuilder {
     }
 
     // MARK: - Code blocks
-
-    /// The full range of the fenced code block that starts at `position`,
-    /// spacer lines included.
-    private func codeBlockRange(at position: Int) -> NSRange? {
-        guard MarkdownAttributeValue.boolValue(from: attribute(MarkdownAttribute.codeBlock, at: position)) else {
-            return nil
-        }
-        var range = NSRange()
-        _ = text.attribute(
-            MarkdownAttribute.codeBlock,
-            at: position,
-            longestEffectiveRange: &range,
-            in: NSRange(location: position, length: string.length - position)
-        )
-        return range
-    }
 
     private mutating func appendCodeBlockSpec(for range: NSRange) {
         guard let (visible, code) = visibleText(in: range) else { return }
@@ -355,10 +339,11 @@ struct MarkdownAccessibilityElementBuilder {
         let fullRange = NSRange(location: 0, length: text.length)
         var numberRun = NSRange()
         _ = text.attribute(MarkdownAttribute.listItemNumber, at: position, longestEffectiveRange: &numberRun, in: fullRange)
-        var depthRun = numberRun
-        _ = text.attribute(MarkdownAttribute.listDepth, at: position, longestEffectiveRange: &depthRun, in: fullRange)
+        // Depth only within the number run: across the whole text it spans
+        // every sibling, a walk over the list for each item.
+        var itemRange = NSRange()
+        _ = text.attribute(MarkdownAttribute.listDepth, at: position, longestEffectiveRange: &itemRange, in: numberRun)
 
-        let itemRange = NSIntersectionRange(numberRun, depthRun)
         let firstVisible = trimmedRange(of: itemRange)?.location ?? itemRange.location
         return position <= firstVisible + 1
     }

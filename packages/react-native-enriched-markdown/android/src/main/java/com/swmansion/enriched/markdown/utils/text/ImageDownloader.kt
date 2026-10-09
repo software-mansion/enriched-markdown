@@ -69,12 +69,19 @@ object ImageDownloader {
       inFlight[requestKey] = mutableListOf(callback)
     }
 
+    // OkHttp throws on a URL or header it cannot use; report that like any failed download.
     val request =
-      Request
-        .Builder()
-        .url(url)
-        .apply { headers.forEach { (name, value) -> addHeader(name, value) } }
-        .build()
+      try {
+        Request
+          .Builder()
+          .url(url)
+          .apply { headers.forEach { (name, value) -> addHeader(name, value) } }
+          .build()
+      } catch (e: IllegalArgumentException) {
+        Log.e(TAG, "Invalid image request: $url", e)
+        dispatchCallbacks(requestKey, null)
+        return
+      }
     getClient(context).newCall(request).enqueue(
       object : Callback {
         override fun onResponse(
@@ -113,10 +120,11 @@ object ImageDownloader {
   private fun decodeDownsampled(
     bytes: ByteArray,
     targetWidth: Int,
+    maxDimension: Int? = null,
   ): Bitmap? {
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-    return decodeWithSampleSize(opts, targetWidth) {
+    return decodeWithSampleSize(opts, targetWidth, maxDimension) {
       BitmapFactory.decodeByteArray(bytes, 0, bytes.size, it)
     }
   }
@@ -124,16 +132,18 @@ object ImageDownloader {
   fun decodeBytesDownsampled(
     context: Context,
     bytes: ByteArray,
-  ): Bitmap? = decodeDownsampled(bytes, context.resources.displayMetrics.widthPixels)
+    maxDimension: Int? = null,
+  ): Bitmap? = decodeDownsampled(bytes, context.resources.displayMetrics.widthPixels, maxDimension)
 
   fun decodeFileDownsampled(
     context: Context,
     path: String,
+    maxDimension: Int? = null,
   ): Bitmap? {
     val targetWidth = context.resources.displayMetrics.widthPixels
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(path, opts)
-    return decodeWithSampleSize(opts, targetWidth) {
+    return decodeWithSampleSize(opts, targetWidth, maxDimension) {
       BitmapFactory.decodeFile(path, it)
     }
   }
@@ -141,10 +151,19 @@ object ImageDownloader {
   private inline fun decodeWithSampleSize(
     opts: BitmapFactory.Options,
     targetWidth: Int,
+    maxDimension: Int?,
     decode: (BitmapFactory.Options) -> Bitmap?,
   ): Bitmap? {
     if (opts.outWidth <= 0 || opts.outHeight <= 0) return null
-    opts.inSampleSize = calculateInSampleSize(opts.outWidth, targetWidth)
+    opts.inSampleSize =
+      if (maxDimension == null) {
+        calculateInSampleSize(opts.outWidth, targetWidth)
+      } else {
+        var sample = 1
+        val limit = maxDimension.coerceAtLeast(1).toLong()
+        while (maxOf(opts.outWidth, opts.outHeight).toLong() > limit * sample) sample *= 2
+        sample
+      }
     opts.inJustDecodeBounds = false
     return decode(opts)
   }

@@ -13,6 +13,7 @@ import { indexTaskItems, markInlineImages } from './utils';
 import { loadKaTeX } from './katex';
 import type { KaTeXInstance } from './katex';
 import { ENRM_TEXT_CLASS, ENRM_SELECTION_BG_VAR } from './globalStyles';
+import { filterNativeOnlyProps } from './nativeProps';
 
 export const EnrichedMarkdownText = ({
   markdown,
@@ -29,6 +30,7 @@ export const EnrichedMarkdownText = ({
   selectable = true,
   dir,
   selectionColor,
+  testID,
   ...rest
 }: EnrichedMarkdownTextProps) => {
   const normalizedStyle = useMemo(
@@ -156,9 +158,17 @@ export const EnrichedMarkdownText = ({
     [containerStyle, selectable, selectionColor]
   );
 
+  const domProps = filterNativeOnlyProps(rest);
+
   if (parseError) {
     return (
-      <div className={ENRM_TEXT_CLASS} style={wrapperStyle} dir={dir} {...rest}>
+      <div
+        className={ENRM_TEXT_CLASS}
+        style={wrapperStyle}
+        dir={dir}
+        data-testid={testID}
+        {...domProps}
+      >
         <pre style={parseErrorFallbackStyle}>{markdown}</pre>
       </div>
     );
@@ -170,7 +180,13 @@ export const EnrichedMarkdownText = ({
   const lastIdx = children.length - 1;
 
   return (
-    <div className={ENRM_TEXT_CLASS} style={wrapperStyle} dir={dir} {...rest}>
+    <div
+      className={ENRM_TEXT_CLASS}
+      style={wrapperStyle}
+      dir={dir}
+      data-testid={testID}
+      {...domProps}
+    >
       {children.map((child, index) => (
         <RenderNode
           key={`${child.type}-${index}`}

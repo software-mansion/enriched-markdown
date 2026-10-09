@@ -2,10 +2,13 @@
 #import "ENRMAdmonitionIcons.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMLinkContextMenus.h"
 #import "ENRMSegmentHeightMeasurer.h"
+#import "ENRMTableIOSGridView.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
 #import "EnrichedMarkdownInternalText.h"
+#import "LinkTapUtils.h"
 #import "MarkdownASTNode.h"
 #import "MarkdownASTSerializer.h"
 #import "PasteboardUtils.h"
@@ -111,6 +114,11 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 @property (nonatomic, copy) NSString *cachedPlainText;
 @end
 
+#if !TARGET_OS_OSX
+@interface ENRMBlockquoteContainerView () <UITextViewDelegate, ENRMLinkContextMenuSource>
+@end
+#endif
+
 @implementation ENRMBlockquoteContainerView
 
 - (instancetype)initWithConfig:(StyleConfig *)config
@@ -152,6 +160,30 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 #endif
 }
 
+- (void)setAccessibilityLabels:(ENRMAccessibilityLabels *)accessibilityLabels
+{
+  if (_accessibilityLabels == accessibilityLabels) {
+    return;
+  }
+  _accessibilityLabels = accessibilityLabels;
+  // Children created before this point (or before a labels prop change) still
+  // hold the previous labels; nested quotes forward them to their own children.
+  for (RCTUIView *child in self.subviews) {
+    if ([child isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+      ((EnrichedMarkdownInternalText *)child).accessibilityLabels = accessibilityLabels;
+    } else if ([child isKindOfClass:[TableContainerView class]]) {
+      ((TableContainerView *)child).accessibilityLabels = accessibilityLabels;
+    } else if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
+      ((ENRMBlockquoteContainerView *)child).accessibilityLabels = accessibilityLabels;
+    }
+#if ENRICHED_MARKDOWN_MATH
+    else if ([child isKindOfClass:[ENRMMathContainerView class]]) {
+      ((ENRMMathContainerView *)child).accessibilityLabels = accessibilityLabels;
+    }
+#endif
+  }
+}
+
 // Child registry for this quote's own content. It reuses static creators for
 // every kind and, for a nested Blockquote, creates another
 // ENRMBlockquoteContainerView (the recursion). Streaming is static: no
@@ -172,6 +204,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                       EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:config];
                       view.lastElementMarginBottom = segment.textResult.lastElementMarginBottom;
                       view.accessibilityInfo = segment.textResult.accessibilityInfo;
+                      view.accessibilityLabels = strongSelf.accessibilityLabels;
                       [view applyAttributedText:segment.textResult.attributedText context:segment.textResult.context];
                       if (strongSelf) {
                         [strongSelf attachLinkTapToTextView:view];
@@ -195,6 +228,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             ENRMBlockquoteContainerView *strongSelf = weakSelf;
                             if (strongSelf) {
                               view.dynamicProps = strongSelf.dynamicProps;
+                              view.accessibilityLabels = strongSelf.accessibilityLabels;
                               view.onLinkPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onLinkPress && url)
@@ -252,6 +286,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                               view.allowFontScaling = strongSelf.allowFontScaling;
                               view.lineBreakStrategy = strongSelf.lineBreakStrategy;
                               view.dynamicProps = strongSelf.dynamicProps;
+                              view.accessibilityLabels = strongSelf.accessibilityLabels;
                               view.onCopyPress = strongSelf.onCopyPress;
                               view.onCodeBlockPress = strongSelf.onCodeBlockPress;
                               view.onLinkPress = ^(NSString *url) {
@@ -283,6 +318,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             ENRMMathContainerView *view = [[ENRMMathContainerView alloc] initWithConfig:config];
                             ENRMBlockquoteContainerView *strongSelf = weakSelf;
                             view.dynamicProps = strongSelf.dynamicProps;
+                            view.accessibilityLabels = strongSelf.accessibilityLabels;
                             [view applyLatex:segment.mathSegment.latex];
                             return view;
                           }
@@ -319,6 +355,9 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 {
   ENRMTapRecognizer *tap = [[ENRMTapRecognizer alloc] initWithTarget:self action:@selector(handleTextTap:)];
   [view.textView addGestureRecognizer:tap];
+#if !TARGET_OS_OSX
+  view.textView.delegate = self;
+#endif
 }
 
 - (void)handleTextTap:(ENRMTapRecognizer *)recognizer
@@ -475,9 +514,35 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 }
 
 #if !TARGET_OS_OSX
+- (UITextItemMenuConfiguration *)textView:(UITextView *)textView
+             menuConfigurationForTextItem:(UITextItem *)textItem
+                              defaultMenu:(UIMenu *)defaultMenu API_AVAILABLE(ios(17.0))
+{
+  return ENRMLinkMenuConfigurationForTextItem(textView, textItem, defaultMenu, self.dynamicProps.linkContextMenus,
+                                              self.dynamicProps.enableLinkPreview, self.onLinkLongPress);
+}
+
+- (ENRMLinkContextMenus *)linkContextMenusForTextView:(UITextView *)textView
+{
+  return self.dynamicProps.linkContextMenus;
+}
+
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
+  // Let the leaf interaction present a configured link menu, including nested tables.
+  UIView *hit = [interaction.view hitTest:location withEvent:nil];
+  while (hit && hit != interaction.view) {
+    CGPoint point = [interaction.view convertPoint:location toView:hit];
+    NSString *url = nil;
+    if ([hit isKindOfClass:[UITextView class]])
+      url = linkURLAtPoint((UITextView *)hit, point);
+    else if ([hit isKindOfClass:[ENRMTableIOSGridView class]])
+      url = [(ENRMTableIOSGridView *)hit linkAtPoint:point].url;
+    if ([self.dynamicProps.linkContextMenus hasMenuForURL:url])
+      return nil;
+    hit = hit.superview;
+  }
   if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }

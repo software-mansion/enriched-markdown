@@ -1,4 +1,5 @@
 import CoreText
+import OSLog
 import SwiftUI
 import UIKit
 
@@ -42,8 +43,9 @@ public enum ThemeColorSpec: Equatable, Sendable {
     public enum SemanticColor: Equatable, Sendable {
         case primary
         case secondary
-        case tint
+        case tertiary
         case quaternary
+        case tint
     }
 
     package func resolve(traitCollection: UITraitCollection) -> UIColor {
@@ -56,6 +58,8 @@ public enum ThemeColorSpec: Equatable, Sendable {
                 return UIColor.secondaryLabel.resolvedColor(with: traitCollection)
             case .tint:
                 return UIColor.tintColor.resolvedColor(with: traitCollection)
+            case .tertiary:
+                return UIColor.tertiaryLabel.resolvedColor(with: traitCollection)
             case .quaternary:
                 return UIColor.quaternaryLabel.resolvedColor(with: traitCollection)
             }
@@ -69,7 +73,10 @@ enum ThemeResolver {
     struct ResolvedFont {
         var spec: ThemeFontSpec?
         var design: Font.Design?
+        var weight: Font.Weight?
     }
+
+    private static let logger = Logger(subsystem: "com.swmansion.EnrichedMarkdown", category: "Theme")
 
     private static let contentSizeCategories: [DynamicTypeSize: UIContentSizeCategory] = [
         .xSmall: .extraSmall,
@@ -166,37 +173,55 @@ enum ThemeResolver {
         return .regular
     }
 
-    static func font(from font: Font, traitCollection: UITraitCollection) -> ThemeFontSpec {
-        resolveFont(from: font, traitCollection: traitCollection).spec ?? .textStyle(.body)
-    }
-
-    static func resolveFont(from font: Font, traitCollection: UITraitCollection) -> ResolvedFont {
-        if let resolved = resolveSystemFont(from: font) {
-            return resolved
-        }
-        if let resolved = resolveDirectTextStyle(from: font) {
-            return resolved
-        }
-        return ResolvedFont(spec: .textStyle(.body), design: nil)
-    }
-
-    private static func resolveSystemFont(from font: Font) -> ResolvedFont? {
-        for design in [Font.Design.default, .monospaced, .serif, .rounded] {
-            for (swiftStyle, uiStyle) in systemTextStylePairs where font == Font.system(swiftStyle, design: design) {
-                return ResolvedFont(
-                    spec: .textStyle(uiStyle),
-                    design: design == .default ? nil : design
-                )
+    /// Every `Font` a theme resolves without private API: the eleven text
+    /// styles plain (`.body`), by design, and by design and weight
+    /// (`Font.system(_:design:weight:)`), in both the iOS 13 and iOS 16
+    /// spellings. Built once; `Font` is `Hashable`.
+    private static let textStyleFonts: [Font: ResolvedFont] = {
+        var table: [Font: ResolvedFont] = [:]
+        let designs: [Font.Design?] = [nil, .default, .monospaced, .serif, .rounded]
+        let weights: [Font.Weight?] = [
+            nil, .ultraLight, .thin, .light, .regular, .medium, .semibold, .bold, .heavy, .black
+        ]
+        for (swiftStyle, uiStyle) in systemTextStylePairs {
+            table[Font.system(swiftStyle)] = ResolvedFont(spec: .textStyle(uiStyle))
+            for design in designs {
+                let resolvedDesign = design == .default ? nil : design
+                if let design {
+                    table[Font.system(swiftStyle, design: design)] = ResolvedFont(
+                        spec: .textStyle(uiStyle), design: resolvedDesign
+                    )
+                }
+                for weight in weights {
+                    table[Font.system(swiftStyle, design: design, weight: weight)] = ResolvedFont(
+                        spec: .textStyle(uiStyle), design: resolvedDesign, weight: weight
+                    )
+                }
             }
         }
-        return nil
-    }
-
-    private static func resolveDirectTextStyle(from font: Font) -> ResolvedFont? {
-        for (swiftFont, uiStyle) in directTextStyleMappings where font == swiftFont {
-            return ResolvedFont(spec: .textStyle(uiStyle), design: nil)
+        for (font, uiStyle) in directTextStyleMappings {
+            table[font] = ResolvedFont(spec: .textStyle(uiStyle))
         }
-        return nil
+        return table
+    }()
+
+    /// Point-sized, custom, and modified fonts (`.system(size:)`, `.custom`,
+    /// `.weight()`, `.italic()`) carry their values in SwiftUI's private
+    /// font box, so they cannot be read back; they log and fall back to
+    /// `.body`. `font(size:weight:design:)` and `font(custom:size:)` are the
+    /// explicit forms for those.
+    static func resolveFont(from font: Font, traitCollection: UITraitCollection) -> ResolvedFont {
+        if let resolved = textStyleFonts[font] {
+            return resolved
+        }
+        logger.warning(
+            """
+            EnrichedMarkdown: .font() only resolves text styles such as .body or \
+            .system(.title, design: .serif, weight: .bold); falling back to .body. \
+            Use .font(size:weight:design:) for a point size or .font(custom:size:) for a custom face.
+            """
+        )
+        return ResolvedFont(spec: .textStyle(.body))
     }
 
     static func color(from color: Color, traitCollection: UITraitCollection) -> ThemeColorSpec {
@@ -204,38 +229,50 @@ enum ThemeResolver {
         return .uiColor(uiColor)
     }
 
+    /// Resolves an element's font over `base`, the lower layer's font. With
+    /// no spec, the weight, design, and italic apply to `base` itself, so
+    /// `Heading(1).bold()` layers over the default theme. A custom face
+    /// takes only a bold weight (its family's bold face) and italic; design
+    /// is a system-font notion. `italic` nil leaves the slant alone, false
+    /// removes one a lower layer set.
     static func applyFont(
         spec: ThemeFontSpec?,
         weight: Font.Weight?,
         design: Font.Design?,
+        italic: Bool? = nil,
         to base: UIFont?,
         traitCollection: UITraitCollection
     ) -> UIFont? {
-        guard let spec else { return base }
-        if case .custom = spec {
-            return applyWeightToCustomFont(
-                spec.resolve(traitCollection: traitCollection),
-                weight: weight
-            )
+        guard var font = spec?.resolve(traitCollection: traitCollection) ?? base else { return nil }
+        let isCustomFace: Bool
+        if let spec {
+            if case .custom = spec { isCustomFace = true } else { isCustomFace = false }
+        } else {
+            isCustomFace = !font.isSystemFace
         }
 
-        var font = spec.resolve(traitCollection: traitCollection)
-
-        if let weight {
-            let uiWeight = uiFontWeight(from: weight)
-            font = font.withWeight(uiWeight)
-        }
-
-        if let design {
-            let uiDesign = uiFontDesign(from: design)
-            if uiDesign == .monospaced {
-                let uiWeight = weight.map(uiFontWeight(from:)) ?? .regular
-                font = UIFont.monospacedSystemFont(ofSize: font.pointSize, weight: uiWeight)
-            } else if let descriptor = font.fontDescriptor.withDesign(uiDesign) {
-                font = UIFont(descriptor: descriptor, size: font.pointSize)
+        if isCustomFace {
+            font = applyWeightToCustomFont(font, weight: weight)
+        } else {
+            if let weight {
+                font = font.withWeight(uiFontWeight(from: weight))
+            }
+            if let design {
+                let uiDesign = uiFontDesign(from: design)
+                if uiDesign == .monospaced {
+                    let uiWeight = weight.map(uiFontWeight(from:)) ?? font.weightTrait
+                    font = UIFont.monospacedSystemFont(ofSize: font.pointSize, weight: uiWeight)
+                } else if let descriptor = font.fontDescriptor.withDesign(uiDesign) {
+                    font = UIFont(descriptor: descriptor, size: font.pointSize)
+                }
             }
         }
 
+        switch italic {
+        case true?: font = FontHelpers.ensureItalic(font) ?? font
+        case false?: font = FontHelpers.removeItalic(font) ?? font
+        case nil: break
+        }
         return font
     }
 
@@ -273,6 +310,18 @@ enum ThemeResolver {
 }
 
 private extension UIFont {
+    /// System faces carry a leading dot in their family name (`.AppleSystemUIFont`).
+    var isSystemFace: Bool {
+        familyName.hasPrefix(".")
+    }
+
+    /// The weight the descriptor carries, `.regular` when it has none.
+    var weightTrait: UIFont.Weight {
+        let traits = fontDescriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any]
+        guard let raw = traits?[.weight] as? CGFloat else { return .regular }
+        return UIFont.Weight(rawValue: raw)
+    }
+
     func withWeight(_ weight: UIFont.Weight) -> UIFont {
         let traits: [UIFontDescriptor.TraitKey: Any] = [
             .weight: weight

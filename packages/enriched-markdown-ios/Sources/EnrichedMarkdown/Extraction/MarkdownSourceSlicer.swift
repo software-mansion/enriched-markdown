@@ -19,7 +19,7 @@ enum MarkdownSourceSlicer {
         for selection: NSRange,
         in attributedText: NSAttributedString,
         source: String,
-        flags: Md4cFlags
+        options: MarkdownParsingOptions
     ) -> String? {
         let bytes = Array(source.utf8)
         guard let runs = mappedRuns(in: selection, of: attributedText, sourceByteCount: bytes.count),
@@ -54,7 +54,7 @@ enum MarkdownSourceSlicer {
         guard start < end, end <= bytes.count,
               let slice = String(bytes: bytes[start..<end], encoding: .utf8),
               MarkdownSliceValidator.isFaithful(
-                slice, toSelection: selection, in: attributedText, flags: flags
+                slice, toSelection: selection, in: attributedText, options: options
               ) else {
             return nil
         }

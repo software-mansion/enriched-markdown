@@ -4,20 +4,20 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class AccessibilityElementBuilderTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        config = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
     }
 
     private func specs(
         for markdown: String,
         labels: MarkdownAccessibilityLabels = .default,
-        flags: Md4cFlags = .commonMark
+        options: MarkdownParsingOptions = .commonMark
     ) -> [MarkdownAccessibilityElementSpec] {
         MarkdownAccessibilityElementBuilder.specs(
-            for: MarkdownRenderer.render(markdown, config: config, flags: flags),
+            for: MarkdownRenderer.render(markdown, config: config, options: options),
             labels: labels
         )
     }
@@ -230,7 +230,7 @@ final class AccessibilityElementBuilderTests: XCTestCase {
     }
 
     func testAdmonitionReadsItsTitleThenContentAsBlockquote() {
-        let result = specs(for: "> [!NOTE]\n> quoted words", flags: Md4cFlags(admonitions: true))
+        let result = specs(for: "> [!NOTE]\n> quoted words", options: MarkdownParsingOptions(admonitions: true))
 
         XCTAssertEqual(result.map(\.label), ["Note", "quoted words"])
         XCTAssertEqual(result.map(\.value), ["Blockquote", "Blockquote"])
@@ -262,12 +262,12 @@ final class AccessibilityElementBuilderTests: XCTestCase {
 }
 
 final class MarkdownTextViewAccessibilityTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
     private var pasteboard: UIPasteboard!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        config = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
         // UIPasteboard.general is not accessible from a headless test process.
         pasteboard = UIPasteboard.withUniqueName()
     }

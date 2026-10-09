@@ -1,11 +1,14 @@
 import Foundation
 import UIKit
+import os
 
 final class AsyncRenderCoordinator {
     var blockAsyncRender = false
 
     private let queue: DispatchQueue
-    private var currentRenderId: UInt = 0
+    /// The newest schedule's id; a render checks it before starting, so one
+    /// superseded while queued is skipped rather than rendered and dropped.
+    private let latestRenderId = OSAllocatedUnfairLock<UInt>(initialState: 0)
 
     init(queueLabel: String = "com.swmansion.enriched.markdown.render") {
         queue = DispatchQueue(label: queueLabel)
@@ -19,20 +22,23 @@ final class AsyncRenderCoordinator {
             return
         }
 
-        currentRenderId += 1
-        let renderId = currentRenderId
+        let renderId = latestRenderId.withLock { id -> UInt in
+            id += 1
+            return id
+        }
 
         queue.async { [weak self] in
+            guard let self, renderId == self.latestRenderId.withLock({ $0 }) else { return }
             guard let result = render() else { return }
 
             DispatchQueue.main.async {
-                guard let self, renderId == self.currentRenderId else { return }
+                guard renderId == self.latestRenderId.withLock({ $0 }) else { return }
                 apply(result)
             }
         }
     }
 
     func invalidate() {
-        currentRenderId += 1
+        latestRenderId.withLock { $0 += 1 }
     }
 }

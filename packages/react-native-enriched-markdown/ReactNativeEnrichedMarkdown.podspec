@@ -87,7 +87,7 @@ Pod::Spec.new do |s|
         'Swift sources, the fonts, and the .stamp the vendor script writes on success). ' \
         'Reinstall to fetch them: `npm rebuild react-native-enriched-markdown`. ' \
         'To disable math, set "enriched-markdown".enableMath = false in your app package.json. ' \
-        'Troubleshooting: https://github.com/software-mansion/enriched-markdown/blob/main/docs/NATIVE_ASSETS.md'
+        'Troubleshooting: https://github.com/software-mansion/enriched-markdown/blob/main/docs-md/NATIVE_ASSETS.md'
     end
     EnrichedMarkdownConfig.warn_once(:math_disabled, '[ReactNativeEnrichedMarkdown] LaTeX math disabled: the vendored RaTeX ' \
       'assets were not found or are incomplete at ios/vendor. If this is unintended, re-run ' \
@@ -101,6 +101,8 @@ Pod::Spec.new do |s|
   # sources. Both compile into this pod's module only when math is enabled.
   exclude += ["ios/math/**/*.swift", "ios/vendor/*.swift"] unless enable_math
   s.exclude_files = exclude
+  # Bounded decoding of native pill icons.
+  s.frameworks = "ImageIO"
 
   # Video playback (AVKit, built into iOS — no external framework or vendored asset).
   # Default on: consumers opt out via "enriched-markdown".enableVideo = false in package.json.

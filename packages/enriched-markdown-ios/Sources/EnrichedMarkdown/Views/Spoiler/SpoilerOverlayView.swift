@@ -1,15 +1,18 @@
+import CoreText
 import UIKit
 
 /// One line segment of a concealed spoiler, layered over the transparent
 /// text. Subclass to draw a custom effect and return it from a
 /// `SpoilerOverlayProvider`.
 ///
-/// The text view sets the frame, adds the view above the text, and recreates
-/// it whenever its segment moves, so keep construction cheap. The view must
-/// be opaque: the text under it is transparent, but emoji and inline images
-/// ignore that. An effect that shows the text through draws `concealedText`
-/// itself. A reveal calls `animateReveal` and removes the view when it
-/// completes.
+/// The text view sets the frame and adds the view above the text. When a
+/// re-layout only moves the segment, the view moves with it and keeps its
+/// state; when its text, size or baseline changes, the view is replaced, so
+/// keep construction cheap. The view must be opaque: the text under it is
+/// transparent, but emoji and inline images ignore that. An effect that
+/// shows the text through draws `concealedTextImage()`. A reveal calls
+/// `animateReveal` on every segment of the spoiler at once and removes each
+/// view when it completes; `revealPoint` says where the reader tapped.
 open class SpoilerOverlayView: UIView {
     static let revealDuration: TimeInterval = 0.45
 
@@ -18,6 +21,19 @@ open class SpoilerOverlayView: UIView {
     /// This segment's slice of the spoiler, styled as it reveals, inline
     /// styling only. Set before the view is added to the text view.
     public internal(set) var concealedText = NSAttributedString()
+    /// The line's typographic baseline, from the top of the view, before any
+    /// per-run `.baselineOffset`: with a theme line height it can sit at the
+    /// very bottom, the offset lifting the glyphs above it.
+    public internal(set) var baseline: CGFloat = 0
+    /// This segment's place among the spoiler's segments, in reading order,
+    /// for effects that reveal a wrapped spoiler line by line.
+    public internal(set) var segmentIndex: Int = 0
+    public internal(set) var segmentCount: Int = 1
+    /// Where the reader tapped, in this view's coordinates, set just before
+    /// `animateReveal` is called. Nil for a programmatic reveal, and it can
+    /// lie outside the bounds when the tap landed on another segment of the
+    /// same spoiler.
+    public internal(set) var revealPoint: CGPoint?
     private(set) var isRevealing = false
 
     public init(charRange: NSRange) {
@@ -31,6 +47,51 @@ open class SpoilerOverlayView: UIView {
     @available(*, unavailable)
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    /// `concealedText`, or `text` in its place, on a transparent canvas the
+    /// size of the view with the glyphs where the text view draws them, so
+    /// nothing shifts when the view goes. `draw(at:)` on the slice would not
+    /// do: it uses the font's natural line height, not the theme's.
+    public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage {
+        guard !bounds.isEmpty else { return UIImage() }
+        let line = CTLineCreateWithAttributedString(coreTextAttributes(of: text ?? concealedText))
+        return UIGraphicsImageRenderer(bounds: bounds).image { context in
+            let cgContext = context.cgContext
+            cgContext.textMatrix = .identity
+            cgContext.translateBy(x: 0, y: bounds.height)
+            cgContext.scaleBy(x: 1, y: -1)
+            cgContext.textPosition = CGPoint(x: 0, y: bounds.height - baseline)
+            CTLineDraw(line, cgContext)
+        }
+    }
+
+    /// CoreText reads its own keys, not UIKit's, and CGColors, resolved for
+    /// this view's traits rather than `UITraitCollection.current`.
+    private func coreTextAttributes(of text: NSAttributedString) -> NSAttributedString {
+        let traits = traitCollection
+        let result = NSMutableAttributedString(attributedString: text)
+        result.enumerateAttributes(in: NSRange(location: 0, length: result.length)) { attributes, range, _ in
+            var converted: [NSAttributedString.Key: Any] = [:]
+            if let font = attributes[.font] as? UIFont {
+                converted[NSAttributedString.Key(kCTFontAttributeName as String)] = font
+            }
+            if let color = attributes[.foregroundColor] as? UIColor {
+                converted[NSAttributedString.Key(kCTForegroundColorAttributeName as String)] = color.resolvedColor(with: traits).cgColor
+            }
+            if let offset = attributes[.baselineOffset] as? NSNumber {
+                converted[NSAttributedString.Key(kCTBaselineOffsetAttributeName as String)] = offset
+            }
+            if let underline = attributes[.underlineStyle] as? NSNumber {
+                converted[NSAttributedString.Key(kCTUnderlineStyleAttributeName as String)] = underline
+            }
+            if let underlineColor = attributes[.underlineColor] as? UIColor {
+                converted[NSAttributedString.Key(kCTUnderlineColorAttributeName as String)] =
+                    underlineColor.resolvedColor(with: traits).cgColor
+            }
+            result.addAttributes(converted, range: range)
+        }
+        return result
     }
 
     /// Animates the view out, fading `alpha` by default. An override must
@@ -47,9 +108,12 @@ open class SpoilerOverlayView: UIView {
         }
     }
 
-    func reveal(completion: @escaping () -> Void) {
+    /// Starts the reveal once; a second call, such as another tap while the
+    /// animation runs, changes nothing, `revealPoint` included.
+    func reveal(from point: CGPoint?, completion: @escaping () -> Void) {
         guard !isRevealing else { return }
         isRevealing = true
+        revealPoint = point
         animateReveal { [self] in
             removeFromSuperview()
             completion()
@@ -58,12 +122,14 @@ open class SpoilerOverlayView: UIView {
 }
 
 final class SolidSpoilerOverlayView: SpoilerOverlayView {
-    static let defaultBorderRadius: CGFloat = 4
+    static let defaultCornerRadius: CGFloat = 4
 
-    init(style: SpoilerStyle, charRange: NSRange) {
+    /// The provider's radius wins; the theme's (set by the deprecated
+    /// `Spoiler().solidBorderRadius`) is the fallback.
+    init(style: SpoilerStyle, cornerRadius: CGFloat?, charRange: NSRange) {
         super.init(charRange: charRange)
         backgroundColor = style.color ?? .secondaryLabel
-        layer.cornerRadius = style.solidBorderRadius ?? Self.defaultBorderRadius
+        layer.cornerRadius = cornerRadius ?? style.solidCornerRadius ?? Self.defaultCornerRadius
     }
 }
 
@@ -107,10 +173,16 @@ final class ParticleSpoilerOverlayView: SpoilerOverlayView {
     }()
 
     private let style: SpoilerStyle
+    let density: CGFloat
+    let speed: CGFloat
     private var emitterLayer: CAEmitterLayer?
 
-    init(style: SpoilerStyle, charRange: NSRange) {
+    /// The provider's tuning wins; the theme's (set by the deprecated
+    /// `Spoiler().particleDensity` / `particleSpeed`) is the fallback.
+    init(style: SpoilerStyle, density: CGFloat?, speed: CGFloat?, charRange: NSRange) {
         self.style = style
+        self.density = density ?? style.particleDensity ?? Self.defaultDensity
+        self.speed = speed ?? style.particleSpeed ?? Self.defaultSpeed
         super.init(charRange: charRange)
         backgroundColor = style.backgroundColor ?? .systemBackground
     }
@@ -149,9 +221,6 @@ final class ParticleSpoilerOverlayView: SpoilerOverlayView {
     }
 
     private func makeCell(_ spec: Cell, area: CGFloat) -> CAEmitterCell {
-        let density = style.particleDensity ?? Self.defaultDensity
-        let speed = style.particleSpeed ?? Self.defaultSpeed
-
         let cell = CAEmitterCell()
         cell.name = spec.name
         cell.contents = Self.dotImage

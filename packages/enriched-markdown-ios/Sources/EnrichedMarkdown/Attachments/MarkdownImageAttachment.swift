@@ -61,7 +61,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
     /// caches, which hit synchronously.
     static func attachment(
         for url: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         isInline: Bool,
         altText: String,
         requestHeaders: [String: String] = [:],
@@ -80,7 +80,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
 
     private init(
         url: String,
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         isInline: Bool,
         altText: String,
         requestHeaders: [String: String],
@@ -97,7 +97,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
         // Inline images fill their square exactly.
         contentMode = isInline ? .stretch : (config.image.contentMode ?? sizing.defaultContentMode)
         cachedHeight = isInline ? (config.inlineImage.size ?? 20) : sizing.placeholderHeight
-        cachedBorderRadius = config.image.borderRadius ?? 0
+        cachedBorderRadius = config.image.cornerRadius ?? 0
         processedKeyPrefix = "\(requestKey)_r\(cachedBorderRadius)_m\(contentMode.rawValue)"
         super.init(data: nil, ofType: nil)
         accessibilityLabel = altText.isEmpty ? nil : altText
@@ -157,13 +157,18 @@ final class MarkdownImageAttachment: NSTextAttachment {
         return loadedImage ?? image
     }
 
-    private func setupPlaceholder() {
-        bounds = CGRect(x: 0, y: 0, width: cachedHeight, height: cachedHeight)
+    /// Shown until the image arrives; one bitmap for every attachment.
+    private static let placeholderImage: UIImage = {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
-        image = renderer.image { context in
+        return renderer.image { context in
             UIColor.systemGray5.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
         }
+    }()
+
+    private func setupPlaceholder() {
+        bounds = CGRect(x: 0, y: 0, width: cachedHeight, height: cachedHeight)
+        image = Self.placeholderImage
     }
 
     private func startDownloadingImage() {

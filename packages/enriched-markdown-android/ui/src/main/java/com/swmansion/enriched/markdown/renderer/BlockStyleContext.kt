@@ -130,6 +130,9 @@ class BlockStyleContext {
     }
   }
 
+  /** The enclosing block's style, or null outside any block. */
+  fun currentBlockStyleOrNull(): BlockStyle? = blockStyleStack.lastOrNull()?.blockStyle
+
   fun requireBlockStyle(): BlockStyle {
     val entry = blockStyleStack.lastOrNull()
     return entry?.blockStyle

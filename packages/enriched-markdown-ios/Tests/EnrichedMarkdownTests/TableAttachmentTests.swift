@@ -4,11 +4,11 @@ import XCTest
 
 @MainActor
 final class TableAttachmentTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     func testTableRendersAsSingleAttachment() {

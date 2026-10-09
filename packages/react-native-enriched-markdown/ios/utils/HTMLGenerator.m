@@ -3,6 +3,7 @@
 #import "CodeBackground.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillText.h"
 #import "HighlightRenderer.h"
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathInlineAttachment.h"
@@ -807,6 +808,8 @@ NSString *_Nullable generateHTML(NSAttributedString *attributedString, StyleConf
   if (!attributedString || attributedString.length == 0)
     return nil;
 
+  attributedString = ENRMAttributedStringByExpandingLinkPills(attributedString, NULL);
+
   CachedStyles *styles = cacheStyles(styleConfig);
 
   NSParagraphStyle *firstParagraphStyle = [attributedString attribute:NSParagraphStyleAttributeName
@@ -988,6 +991,8 @@ HTMLString _Nullable generateTableHTML(NSArray<NSArray<NSDictionary *> *> *rows,
       BOOL isHeaderCell = [cellInfo[@"isHeader"] boolValue];
       NSTextAlignment alignment = (NSTextAlignment)[cellInfo[@"alignment"] integerValue];
       NSAttributedString *attributedText = cellInfo[@"attributedText"];
+      if (attributedText)
+        attributedText = ENRMAttributedStringByExpandingLinkPills(attributedText, NULL);
 
       NSString *htmlTag = isHeaderCell ? @"th" : @"td";
       NSString *cellStyle = styleForCell(isHeaderCell, bodyRowIndex, styleConfig, alignment);

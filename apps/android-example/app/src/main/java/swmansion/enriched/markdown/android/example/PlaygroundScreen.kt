@@ -61,6 +61,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
   var rawInput by remember { mutableStateOf("") }
   var blockImageUri by remember { mutableStateOf<String?>(null) }
   var inlineImageUri by remember { mutableStateOf<String?>(null) }
+  var spoilerOverlay by remember { mutableStateOf(PlaygroundSpoilerOverlay.Particles) }
 
   LaunchedEffect(Unit) {
     blockImageUri = assetImageUri(context, "logo.png")
@@ -126,6 +127,24 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
       )
     }
 
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      PlaygroundButton(
+        label = "Insert Spoilers",
+        onClick = {
+          inlineImageUri?.let { uri -> markdown = spoilerSampleMarkdown(uri) }
+        },
+        testTag = "insert-spoilers-button",
+      )
+      PlaygroundButton(
+        label = "Spoiler: ${spoilerOverlay.label}",
+        onClick = { spoilerOverlay = spoilerOverlay.next },
+        testTag = "spoiler-overlay-button",
+      )
+    }
+
     Button(
       onClick = {
         rawInput = ""
@@ -186,8 +205,11 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               underline = underlineEnabled,
               superscript = true,
               subscript = true,
+              highlight = true,
               admonitions = true,
+              latexMath = true,
             ),
+          spoilerOverlay = spoilerOverlay.overlay,
           onLinkClick = { url ->
             Toast.makeText(context, "Link pressed: $url", Toast.LENGTH_SHORT).show()
           },

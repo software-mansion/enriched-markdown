@@ -1,13 +1,13 @@
 import UIKit
 
 final class AttributedRenderer {
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
     private let factory: RendererFactory
     /// Root-level plugin block node types and the margins each declares.
     private let rootBlockMargins: [NodeType: BlockMargins]
 
     init(
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         imageRequestHeaders: [String: String] = [:],
         plugins: [any MarkdownRenderPlugin] = [],
         writingDirection: MarkdownWritingDirection = .firstStrong,
@@ -50,7 +50,7 @@ final class AttributedRenderer {
         }
 
         context.clearBlockStyle()
-        BaselineShiftRenderer.applyShifts(to: output, config: config)
+        BaselineShiftRenderer.applyShifts(to: output, context: context, config: config)
         SpoilerConcealment.conceal(output, in: NSRange(location: 0, length: output.length))
         factory.applyWritingDirection(to: output)
         return output

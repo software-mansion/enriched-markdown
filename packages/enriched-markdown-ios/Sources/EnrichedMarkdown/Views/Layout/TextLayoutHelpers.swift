@@ -1,25 +1,15 @@
 import UIKit
 
-struct BlockDrawContext {
+/// What one decoration pass draws with: the paragraphs it covers, the text
+/// and layout they came from (for a drawer that must see past them), and
+/// where the container's origin sits in the drawing.
+struct DecorationDrawContext {
     let context: CGContext
+    let paragraphs: [ParagraphLayout]
     let textStorage: NSTextStorage
     let textLayoutManager: NSTextLayoutManager
-    let contentManager: NSTextContentManager
     let containerWidth: CGFloat
     let origin: CGPoint
-    let visibleCharacterRange: NSRange
-    let decorationConfig: BlockDecorationConfig
-}
-
-/// Drawing context for chrome placed beside a paragraph's first line (list
-/// markers, task checkboxes, admonition icons).
-struct MarkerDrawContext {
-    let context: CGContext
-    let textStorage: NSTextStorage
-    let textLayoutManager: NSTextLayoutManager
-    let contentManager: NSTextContentManager
-    let origin: CGPoint
-    let visibleCharacterRange: NSRange
     let decorationConfig: BlockDecorationConfig
 }
 
@@ -30,41 +20,29 @@ struct ParagraphMarkerLayout {
     let markerX: CGFloat
     let visualBaselineY: CGFloat
 
-    init(
-        paragraphRange: NSRange,
-        attrs: [NSAttributedString.Key: Any],
-        gap: CGFloat,
-        isRTL: Bool,
-        drawContext: MarkerDrawContext
-    ) {
+    init(paragraph: ParagraphLayout, gap: CGFloat, isRTL: Bool, origin: CGPoint) {
+        let attrs = paragraph.attributes
         let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle
         let textStartX = paragraphStyle?.headIndent ?? paragraphStyle?.firstLineHeadIndent ?? 0
         let font = (attrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
         var segmentFrame = CGRect(x: textStartX, y: 0, width: 0, height: 0)
         var baselineFromLineTop = font.ascender
 
-        if let textRange = TextLayoutHelpers.textRange(paragraphRange, in: drawContext.contentManager) {
-            drawContext.textLayoutManager.enumerateTextSegments(
-                in: textRange,
-                type: .standard,
-                options: []
-            ) { _, frame, baseline, _ in
-                segmentFrame = frame
-                baselineFromLineTop = baseline
-                return false
-            }
+        if let firstLine = paragraph.lines.first {
+            segmentFrame = firstLine.bounds
+            baselineFromLineTop = firstLine.baselineOffset
         }
 
-        let layoutBaselineY = drawContext.origin.y + segmentFrame.minY + baselineFromLineTop
+        let layoutBaselineY = origin.y + segmentFrame.minY + baselineFromLineTop
         let baselineOffset = CGFloat((attrs[.baselineOffset] as? NSNumber)?.doubleValue ?? 0)
         visualBaselineY = layoutBaselineY - baselineOffset
 
         if isRTL {
             let textEndX = max(segmentFrame.maxX, textStartX)
-            markerX = drawContext.origin.x + textEndX + gap
+            markerX = origin.x + textEndX + gap
         } else {
             let textOriginX = segmentFrame.width > 0 ? segmentFrame.minX : textStartX
-            markerX = drawContext.origin.x + textOriginX - gap
+            markerX = origin.x + textOriginX - gap
         }
     }
 
@@ -102,12 +80,13 @@ enum TextLayoutHelpers {
         return NSTextRange(location: startLocation, end: endLocation)
     }
 
-    /// Calls `body` with the view-space frame and character range of each
-    /// TextKit 2 segment of `range` (one per line piece), laying out on demand.
+    /// Calls `body` with the view-space frame, character range and baseline
+    /// (from the frame's top) of each TextKit 2 segment of `range`, one per
+    /// line piece in reading order, laying out on demand.
     static func enumerateSegmentFrames(
         of range: NSRange,
         in textView: UITextView,
-        _ body: (CGRect, NSRange) -> Void
+        _ body: (CGRect, NSRange, CGFloat) -> Void
     ) {
         guard let textLayoutManager = textView.textLayoutManager,
               let contentManager = textLayoutManager.textContentManager,
@@ -116,9 +95,9 @@ enum TextLayoutHelpers {
 
         let inset = textView.textContainerInset
         textLayoutManager.ensureLayout(for: textRange)
-        textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { segment, frame, _, _ in
+        textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { segment, frame, baseline, _ in
             guard let segment, let segmentRange = nsRange(segment, in: contentManager) else { return true }
-            body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange)
+            body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange, baseline)
             return true
         }
     }

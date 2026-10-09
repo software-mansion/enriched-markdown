@@ -2,6 +2,7 @@
 #import "AccessibilityInfo.h"
 #import "BlockquoteBorder.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMLinkPillAttachment.h"
 #include <TargetConditionals.h>
 
 typedef NS_ENUM(NSInteger, ElementType) { ElementTypeText, ElementTypeLink, ElementTypeImage };
@@ -114,6 +115,13 @@ static const CGFloat kFocusRectPadding = 2.0;
 
     BOOL isImg = item[@"altText"] != nil;
     NSString *label = isImg ? item[@"altText"] : [fullText substringWithRange:itemRange];
+    if (!isImg) {
+      id attachment = [textView.textStorage attribute:NSAttachmentAttributeName
+                                              atIndex:itemRange.location
+                                       effectiveRange:NULL];
+      if ([attachment isKindOfClass:ENRMLinkPillAttachment.class])
+        label = [(ENRMLinkPillAttachment *)attachment linkAccessibilityLabel];
+    }
     [elements addObject:[self createElementForRange:itemRange
                                                type:isImg ? ElementTypeImage : ElementTypeLink
                                                text:label
@@ -174,8 +182,10 @@ static const CGFloat kFocusRectPadding = 2.0;
   }
 
   NSMutableArray<NSString *> *valueParts = [NSMutableArray array];
-  if (listInfo && type != ElementTypeImage) {
-    [valueParts addObject:[self formatListAnnouncement:listInfo labels:labels]];
+  NSString *listAnnouncement =
+      (listInfo && type != ElementTypeImage) ? [self formatListAnnouncement:listInfo labels:labels] : nil;
+  if (listAnnouncement) {
+    [valueParts addObject:listAnnouncement];
   }
   NSString *blockquoteAnnouncement = [self blockquoteAnnouncementForRange:range textView:textView labels:labels];
   if (blockquoteAnnouncement) {
@@ -192,12 +202,11 @@ static const CGFloat kFocusRectPadding = 2.0;
                                     textView:(UITextView *)textView
                                       labels:(ENRMAccessibilityLabels *)labels
 {
-  if (textView.attributedText.length == 0 || range.location >= textView.attributedText.length)
+  NSTextStorage *storage = textView.textStorage;
+  if (storage.length == 0 || range.location >= storage.length)
     return nil;
   NSRange effective;
-  NSNumber *depth = [textView.attributedText attribute:BlockquoteDepthAttributeName
-                                               atIndex:range.location
-                                        effectiveRange:&effective];
+  NSNumber *depth = [storage attribute:BlockquoteDepthAttributeName atIndex:range.location effectiveRange:&effective];
   if (depth == nil)
     return nil;
   return depth.integerValue >= 1 ? labels.nestedBlockquote : labels.blockquote;
@@ -226,7 +235,7 @@ static const CGFloat kFocusRectPadding = 2.0;
 
 + (CGRect)frameForRange:(NSRange)range inTextView:(UITextView *)textView container:(id)container
 {
-  NSRange clamped = [self clampedRange:range forText:textView.attributedText.string];
+  NSRange clamped = [self clampedRange:range forText:textView.textStorage.string];
   if (clamped.location == NSNotFound)
     return CGRectZero;
 

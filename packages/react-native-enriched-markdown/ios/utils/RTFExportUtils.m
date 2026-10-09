@@ -1,6 +1,7 @@
 #import "RTFExportUtils.h"
 #import "BlockquoteBorder.h"
 #import "CodeBackground.h"
+#import "ENRMLinkPillText.h"
 #import "LastElementUtils.h"
 #import "ListItemRenderer.h"
 #import "RenderContext.h"
@@ -278,6 +279,7 @@ static void processThematicBreaks(NSMutableAttributedString *text)
 NSAttributedString *prepareAttributedStringForRTFExport(NSAttributedString *attributedString,
                                                         StyleConfig *_Nullable styleConfig)
 {
+  attributedString = ENRMAttributedStringByExpandingLinkPills(attributedString, NULL);
   if (!styleConfig)
     return attributedString;
 

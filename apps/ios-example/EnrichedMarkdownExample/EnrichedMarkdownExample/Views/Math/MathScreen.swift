@@ -36,12 +36,12 @@ Source that fails to typeset falls back to plain text: $\frac{1}{$
 /// to show the `MathBlock` / `InlineMath` modifiers.
 private let customMathTheme = MarkdownTheme {
     MathBlock()
-        .fontSize(24)
+        .font(size: 24)
         .foregroundStyle(Color.brandNavy)
         .background(Color.brandNavy.opacity(0.08))
         .padding(20)
         .marginBottom(24)
-        .textAlignment(.leading)
+        .multilineTextAlignment(.leading)
 
     InlineMath()
         .foregroundStyle(Color.brandNavy)

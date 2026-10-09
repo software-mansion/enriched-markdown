@@ -5,8 +5,8 @@ public enum MarkdownRenderer {
     /// character follow; pass the hosting view's resolved direction.
     public static func render(
         _ markdown: String,
-        config: MarkdownStyleConfig,
-        flags: Md4cFlags = .commonMark,
+        config: MarkdownStyleConfiguration,
+        options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
         writingDirection: MarkdownWritingDirection = .firstStrong,
         layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
@@ -14,7 +14,7 @@ public enum MarkdownRenderer {
         render(
             markdown,
             config: config,
-            flags: flags,
+            options: options,
             imageRequestHeaders: imageRequestHeaders,
             plugins: [],
             writingDirection: writingDirection,
@@ -24,14 +24,14 @@ public enum MarkdownRenderer {
 
     package static func render(
         _ markdown: String,
-        config: MarkdownStyleConfig,
-        flags: Md4cFlags,
+        config: MarkdownStyleConfiguration,
+        options: MarkdownParsingOptions,
         imageRequestHeaders: [String: String],
         plugins: [any MarkdownRenderPlugin],
         writingDirection: MarkdownWritingDirection = .firstStrong,
         layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
     ) -> NSAttributedString {
-        let ast = Parser.shared.parseMarkdown(markdown, flags: effectiveFlags(flags, plugins: plugins))
+        let ast = Parser.shared.parseMarkdown(markdown, options: effectiveParsingOptions(options, plugins: plugins))
         let annotated = SourceOffsetAnnotator.annotate(ast, source: markdown)
         let renderer = AttributedRenderer(
             config: config,
@@ -43,15 +43,15 @@ public enum MarkdownRenderer {
         return renderer.renderRoot(annotated)
     }
 
-    /// `flags` after every plugin's adjustments — what the document is
+    /// `options` after every plugin's adjustments — what the document is
     /// parsed with, and what a copied slice must be re-parsed with.
-    package static func effectiveFlags(
-        _ flags: Md4cFlags,
+    package static func effectiveParsingOptions(
+        _ options: MarkdownParsingOptions,
         plugins: [any MarkdownRenderPlugin]
-    ) -> Md4cFlags {
-        var adjusted = flags
+    ) -> MarkdownParsingOptions {
+        var adjusted = options
         for plugin in plugins {
-            plugin.adjustFlags(&adjusted)
+            plugin.adjustParsingOptions(&adjusted)
         }
         return adjusted
     }

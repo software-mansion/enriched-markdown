@@ -1,6 +1,6 @@
 {
   "name": "react-native-enriched-markdown",
-  "version": "1.0.2",
+  "version": "1.1.1",
   "description": "Markdown-based Rich Text solution for React Native",
   "main": "./lib/module/index",
   "module": "./lib/module/index",
@@ -27,6 +27,7 @@
     "!android/gradlew",
     "!android/gradlew.bat",
     "!android/local.properties",
+    "!android/src/test",
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",

@@ -15,16 +15,17 @@ struct TextScreen: View {
         ScrollView {
             EnrichedMarkdownText(
                 markdown,
-                flags: Md4cFlags(superscript: true, subscript: true, highlight: true, admonitions: true)
+                options: MarkdownParsingOptions(superscript: true, subscript: true, highlight: true, admonitions: true)
             )
                 .markdownTheme(CustomMarkdownTheme)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
-                .onLinkPress { url in
+                .environment(\.openURL, OpenURLAction { url in
                     pressedLink = url
                     linkAlertVisible = true
-                }
+                    return .handled
+                })
         }
         .background(Color.white)
         .markdownSelectionColor(Color.selectionPurple)

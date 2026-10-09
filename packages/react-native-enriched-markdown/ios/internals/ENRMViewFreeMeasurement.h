@@ -7,6 +7,7 @@
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
 #import "ImageRequestHeaderUtils.h"
+#import "LinkPillContentUtils.h"
 #import "MarkdownASTNode.h"
 #import "ParagraphStyleUtils.h"
 #import "RenderedMarkdownSegment.h"
@@ -113,6 +114,7 @@ static inline StyleConfig *ENRMStyleConfigFromProps(const PropsT &typedProps, CG
   [config setFontScaleMultiplier:fontScale];
   [config setMaxFontSizeMultiplier:typedProps.maxFontSizeMultiplier];
   [config setImageRequestHeaders:ENRMImageRequestHeadersFromProps(typedProps.imageRequestHeaders)];
+  [config setLinkPillContent:ENRMLinkPillContentFromProps(typedProps.linkPillContent)];
   return config;
 }
 

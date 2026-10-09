@@ -85,12 +85,12 @@ final class MathBlockViewTests: XCTestCase {
     /// attachment-side viewProvider override. The formula is wider than the
     /// text view, so the block must stay line-wide rather than widen with it.
     func testProviderViewIsInstalledInTextView() {
-        let config = MarkdownStyleConfig.baseline()
+        let config = MarkdownStyleConfiguration.baseline()
         let wide = MathTypesetResult(width: 1000, ascent: 12, descent: 4) { _ in }
         let rendered = MarkdownRenderer.render(
             "before\n\n$$E=mc^2$$\n\nafter",
             config: config,
-            flags: .commonMark,
+            options: .commonMark,
             imageRequestHeaders: [:],
             plugins: [LaTeXRenderPlugin(typeset: { _, _, _, _ in wide })]
         )

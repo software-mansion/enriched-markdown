@@ -2,9 +2,9 @@ import UIKit
 
 final class ParagraphRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
         self.factory = factory
         self.config = config
     }

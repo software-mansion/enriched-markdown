@@ -1,10 +1,10 @@
 import UIKit
 
 final class ImageRenderer: NodeRenderer {
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
     private let requestHeaders: [String: String]
 
-    init(config: MarkdownStyleConfig, requestHeaders: [String: String] = [:]) {
+    init(config: MarkdownStyleConfiguration, requestHeaders: [String: String] = [:]) {
         self.config = config
         self.requestHeaders = requestHeaders
     }

@@ -1,20 +1,18 @@
 import SwiftUI
 
-private typealias Semantic = ThemeColorSpec.SemanticColor
-
 enum DefaultMarkdownTheme {
     static func make() -> MarkdownTheme {
         MarkdownTheme {
             Paragraph()
                 .font(.body)
-                .foregroundStyle(Semantic.primary)
+                .foregroundStyle(.primary)
                 .lineHeight(26)
                 .marginBottom(16)
 
             headings()
 
             Link()
-                .foregroundStyle(Semantic.tint)
+                .foregroundStyle(.tint)
                 .underline()
 
             Strong()
@@ -28,32 +26,32 @@ enum DefaultMarkdownTheme {
             Highlight().background(Color(red: 254 / 255, green: 240 / 255, blue: 138 / 255))
 
             Spoiler()
-                .color(Semantic.secondary)
+                .foregroundStyle(.secondary)
                 .background(Color(UIColor.systemBackground))
 
             Code()
                 .fontDesign(.monospaced)
-                .foregroundStyle(Semantic.secondary)
-                .background(Semantic.quaternary)
+                .foregroundStyle(.secondary)
+                .background(.quaternary)
 
             BlockImage()
                 .height(200)
-                .borderRadius(8)
+                .cornerRadius(8)
                 .marginBottom(16)
 
             InlineImage()
                 .size(20)
 
             ThematicBreak()
-                .foregroundStyle(Semantic.secondary)
+                .foregroundStyle(.secondary)
                 .height(1)
                 .marginTop(24)
                 .marginBottom(24)
 
             CodeBlock()
                 .font(.system(.body, design: .monospaced))
-                .foregroundStyle(Semantic.primary)
-                .background(Semantic.quaternary)
+                .foregroundStyle(.primary)
+                .background(.quaternary)
                 .cornerRadius(8)
                 .padding(12)
                 .marginBottom(16)
@@ -62,31 +60,29 @@ enum DefaultMarkdownTheme {
 
             List()
                 .font(.body)
-                .foregroundStyle(Semantic.primary)
-                .bulletColor(Semantic.secondary)
-                .markerColor(Semantic.secondary)
+                .foregroundStyle(.primary)
+                .bulletColor(.secondary)
+                .markerColor(.secondary)
                 .gapWidth(12)
-                .marginLeft(24)
+                .marginLeading(24)
                 .marginBottom(16)
 
             TaskList()
-                .checkedColor(Semantic.tint)
-                .borderColor(Semantic.secondary)
+                .checkedColor(.tint)
+                .borderColor(.secondary)
                 .checkmarkColor(.white)
                 .checkboxSize(14)
-                .checkboxBorderRadius(3)
+                .checkboxCornerRadius(3)
 
             Table()
                 .lineHeight(20)
-                .foregroundStyle(Semantic.primary)
-                .headerTextColor(Semantic.primary)
+                .foregroundStyle(.primary)
+                .headerForegroundStyle(.primary)
                 .headerBackground(Color(UIColor.tertiarySystemFill))
                 .rowOddBackground(Color(UIColor.quaternarySystemFill))
-                .borderColor(Color(UIColor.separator))
-                .borderWidth(1)
+                .border(Color(UIColor.separator), width: 1)
                 .cornerRadius(6)
-                .cellPaddingHorizontal(12)
-                .cellPaddingVertical(8)
+                .cellPadding(horizontal: 12, vertical: 8)
                 .marginBottom(16)
         }
     }
@@ -97,9 +93,8 @@ enum DefaultMarkdownTheme {
         MarkdownThemeGroup(contents: [
             Blockquote()
                 .font(.body)
-                .foregroundStyle(Semantic.secondary)
-                .borderColor(Semantic.tint)
-                .borderWidth(3)
+                .foregroundStyle(.secondary)
+                .border(.tint, width: 3)
                 .gapWidth(16)
                 .marginBottom(16),
             Admonition(.note).foregroundStyle(rgb(0x09, 0x69, 0xDA)),
@@ -120,35 +115,35 @@ enum DefaultMarkdownTheme {
         Heading(1)
             .font(.largeTitle)
             .bold()
-            .foregroundStyle(Semantic.primary)
+            .foregroundStyle(.primary)
             .marginBottom(8)
 
         Heading(2)
             .font(.title)
             .bold()
-            .foregroundStyle(Semantic.primary)
+            .foregroundStyle(.primary)
             .marginBottom(8)
 
         Heading(3)
             .font(.title2)
             .bold()
-            .foregroundStyle(Semantic.primary)
+            .foregroundStyle(.primary)
             .marginBottom(8)
 
         Heading(4)
             .font(.title3)
             .bold()
-            .foregroundStyle(Semantic.primary)
+            .foregroundStyle(.primary)
             .marginBottom(8)
 
         Heading(5)
             .font(.headline)
-            .foregroundStyle(Semantic.primary)
+            .foregroundStyle(.primary)
             .marginBottom(8)
 
         Heading(6)
             .font(.subheadline)
-            .foregroundStyle(Semantic.secondary)
+            .foregroundStyle(.secondary)
             .marginBottom(8)
     }
 }

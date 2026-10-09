@@ -3,15 +3,15 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class HTMLGeneratorTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        config = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
     }
 
-    private func html(for markdown: String, flags: Md4cFlags = .commonMark) -> String {
-        let rendered = MarkdownRenderer.render(markdown, config: config, flags: flags)
+    private func html(for markdown: String, options: MarkdownParsingOptions = .commonMark) -> String {
+        let rendered = MarkdownRenderer.render(markdown, config: config, options: options)
         return MarkdownHTMLGenerator.generateHTML(
             from: rendered,
             in: NSRange(location: 0, length: rendered.length),
@@ -69,19 +69,19 @@ final class HTMLGeneratorTests: XCTestCase {
     }
 
     func testUnderlineEmitsU() {
-        let result = html(for: "__under__", flags: Md4cFlags(underline: true))
+        let result = html(for: "__under__", options: MarkdownParsingOptions(underline: true))
 
         XCTAssertTrue(result.contains("<u>under</u>"))
     }
 
     func testSuperscriptEmitsSup() {
-        let result = html(for: "x^2^", flags: Md4cFlags(superscript: true))
+        let result = html(for: "x^2^", options: MarkdownParsingOptions(superscript: true))
 
         XCTAssertTrue(result.contains("<sup>2</sup>"))
     }
 
     func testSubscriptEmitsSub() {
-        let result = html(for: "H~2~O", flags: Md4cFlags(subscript: true))
+        let result = html(for: "H~2~O", options: MarkdownParsingOptions(subscript: true))
 
         XCTAssertTrue(result.contains("<sub>2</sub>"))
     }
@@ -90,7 +90,7 @@ final class HTMLGeneratorTests: XCTestCase {
         config.highlight.backgroundColor = UIColor(red: 1, green: 0, blue: 0, alpha: 1)
         config.highlight.foregroundColor = nil
 
-        let result = html(for: "==marked==", flags: Md4cFlags(highlight: true))
+        let result = html(for: "==marked==", options: MarkdownParsingOptions(highlight: true))
 
         XCTAssertTrue(result.contains("<mark style=\"background-color: #FF0000;\">marked</mark>"))
     }
@@ -157,7 +157,7 @@ final class HTMLGeneratorTests: XCTestCase {
     }
 
     func testAdmonitionEmitsTintedCalloutWithIconHeader() {
-        let result = html(for: "> [!NOTE]\n> body", flags: Md4cFlags(admonitions: true))
+        let result = html(for: "> [!NOTE]\n> body", options: MarkdownParsingOptions(admonitions: true))
 
         XCTAssertEqual(result.components(separatedBy: "<blockquote").count - 1, 1)
         XCTAssertTrue(result.contains("border-inline-start: 3px solid #0969DA;"), result)
@@ -170,13 +170,13 @@ final class HTMLGeneratorTests: XCTestCase {
 
     func testAdmonitionBackgroundComesFromTheme() {
         config.blockquote.admonitions[.tip]?.backgroundColor = UIColor(red: 1, green: 0, blue: 0, alpha: 1)
-        let result = html(for: "> [!TIP]\n> body", flags: Md4cFlags(admonitions: true))
+        let result = html(for: "> [!TIP]\n> body", options: MarkdownParsingOptions(admonitions: true))
 
         XCTAssertTrue(result.contains("background-color: #FF0000; border-inline-start: 3px solid #1A7F37;"), result)
     }
 
     func testNestedAdmonitionOpensItsOwnCallout() {
-        let result = html(for: "> [!WARNING]\n> outer\n>\n> > [!TIP]\n> > inner", flags: Md4cFlags(admonitions: true))
+        let result = html(for: "> [!WARNING]\n> outer\n>\n> > [!TIP]\n> > inner", options: MarkdownParsingOptions(admonitions: true))
 
         XCTAssertEqual(result.components(separatedBy: "<blockquote").count - 1, 2)
         XCTAssertEqual(result.components(separatedBy: "</blockquote>").count - 1, 2)
@@ -186,7 +186,7 @@ final class HTMLGeneratorTests: XCTestCase {
     }
 
     func testAdmonitionAfterSiblingQuoteAtSameDepthStartsANewCallout() {
-        let result = html(for: "> [!NOTE]\n> a\n>\n> > plain\n>\n> > [!TIP]\n> > b", flags: Md4cFlags(admonitions: true))
+        let result = html(for: "> [!NOTE]\n> a\n>\n> > plain\n>\n> > [!TIP]\n> > b", options: MarkdownParsingOptions(admonitions: true))
 
         XCTAssertEqual(result.components(separatedBy: "<blockquote").count - 1, 3)
         XCTAssertTrue(result.contains("plain</p></blockquote><blockquote style=\"background-color: transparent;"), result)
@@ -318,12 +318,12 @@ final class HTMLGeneratorTests: XCTestCase {
 }
 
 final class MarkdownTextViewCopyTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
     private var pasteboard: UIPasteboard!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.resolve(layers: [.default], traitCollection: .current)
+        config = MarkdownStyleConfiguration.resolve(layers: [.default], traitCollection: .current)
         // UIPasteboard.general is not accessible from a headless test process.
         pasteboard = UIPasteboard.withUniqueName()
     }
