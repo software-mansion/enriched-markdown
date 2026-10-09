@@ -50,6 +50,7 @@ import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.InputParser
 import com.swmansion.enriched.markdown.input.layout.InputEventEmitter
 import com.swmansion.enriched.markdown.input.layout.InputLayoutManager
+import com.swmansion.enriched.markdown.input.layout.InputMeasurementStore
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
@@ -354,7 +355,13 @@ class EnrichedMarkdownTextInputView(
     y: Int,
   ) {
     if (!scrollEnabled) return
-    super.scrollTo(x, y)
+    // Pin to the top while the text fits the height Yoga allows: the view is
+    // about to grow to fit it, so scrolling to the caret now would show the text
+    // bottom-aligned for a frame until the resize lands.
+    val textHeight = layout?.height
+    val maxHeight = InputMeasurementStore.getMaxHeight(id)
+    val textFitsMaxHeight = textHeight != null && maxHeight != null && textHeight <= maxHeight
+    super.scrollTo(x, if (textFitsMaxHeight) 0 else y)
   }
 
   override fun canScrollVertically(direction: Int): Boolean = scrollEnabled && super.canScrollVertically(direction)
