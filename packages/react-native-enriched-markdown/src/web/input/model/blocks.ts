@@ -42,6 +42,10 @@ export function blockTypeForHeadingLevel(level: number): BlockType | null {
 // Maximum bullet-list nesting depth (0-based), so indent can't run away.
 export const MAX_LIST_DEPTH = 5;
 
+// A list line at depth d is indented (d + 1) * LIST_INDENT_PER_DEPTH px and
+// its marker draws in the last slot (mirrors kENRMListIndentPerDepth).
+export const LIST_INDENT_PER_DEPTH = 18;
+
 // `level` is a generic payload: headings keep the H-level (1-6), list items
 // their nesting depth. `ordinal` is the 1-based position of an ordered list
 // item among adjacent siblings at the same depth, recomputed by the store.
