@@ -1,6 +1,6 @@
 ---
 sidebar_label: LaTeX math
-sidebar_position: 3
+sidebar_position: 2
 ---
 
 import MathSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-formatting/latex-math/Math';

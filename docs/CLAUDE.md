@@ -53,12 +53,13 @@ react-native/         (40)  basics/ (10)        installation, your-first-project
                             api-reference/ (20) enriched-markdown-text,
                                                 enriched-markdown-text-input,
                                                 style-properties, element-structure
-                            guides/ (30)        markdown-flavors, web-support,
+                            guides/ (30)        markdown-flavors, link-pills,
+                                                link-menus, web-support,
                                                 image-caching, native-assets,
                                                 testing, macos
 rich-text-formatting/ (50)  code-highlighting, editor-style-text, latex-math,
-                            link-pills, markdown-streaming, mentions
-user-experience/      (55)  accessibility, rtl, copy-options, link-menus
+                            markdown-streaming, mentions
+user-experience/      (55)  accessibility, rtl, copy-options
 misc/                 (60)  compatibility.mdx, breaking-changes,
                             known-limitations, roadmap, contributing
 ```
@@ -100,7 +101,14 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
   The APIs are meant to converge, but the prose is written per tree - there is
   no global platform selector (an earlier prototype of one was removed).
   `rich-text-formatting/`, `user-experience/` and `misc/` are cross-platform and
-  sit at the top level. `user-experience/` holds how the rendered text behaves
+  sit at the top level, so a feature that exists in only one package does **not**
+  belong there - it goes in that package's own tree, with its API surface in that
+  tree's `api-reference/`. Link pills and link menus are the worked example: both
+  are RN-only, so they are `react-native/guides/` pages, `pill` is documented in
+  `react-native/api-reference/style-properties.md` and `linkPillContent` /
+  `linkContextMenuItems` in `enriched-markdown-text.md`, and the cross-platform
+  pages that need to mention them (mentions, supported features) link out rather
+  than explain. `user-experience/` holds how the rendered text behaves
   for the reader (accessibility, RTL, copy options); `misc/` is meta material
   about the project itself (compatibility, breaking changes, known
   limitations, roadmap, contributing). Web is (becoming) its own package - a

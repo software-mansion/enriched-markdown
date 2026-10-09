@@ -1,6 +1,6 @@
 ---
 sidebar_label: Editor-style text
-sidebar_position: 6
+sidebar_position: 5
 ---
 
 import EditorTextSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-formatting/editor-style-text/EditorText';

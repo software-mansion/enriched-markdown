@@ -1,10 +1,10 @@
 ---
 sidebar_label: Link menus
-sidebar_position: 4
+sidebar_position: 2
 ---
 
 import LivePreview from '@site/src/components/LivePreview';
-import LinkMenusSrc from '!!raw-loader!@site/src/examples/react-native/user-experience/link-menus/LinkMenus';
+import LinkMenusSrc from '!!raw-loader!@site/src/examples/react-native/guides/link-menus/LinkMenus';
 
 # Link menus
 
@@ -31,7 +31,7 @@ Each item has:
 - `icon` - an SF Symbol name, as in [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems).
 - `visible`, `disabled`, `destructive` - optional, all default to the obvious value. A hidden or disabled item is still part of the pattern's list, so toggling it does not change which pattern wins.
 
-The menu holds only your items. Its title is the link's text, or the pill's label when the link is a [link pill](/rich-text-formatting/link-pills).
+The menu holds only your items. Its title is the link's text, or the pill's label when the link is a [link pill](/react-native/guides/link-pills).
 
 ## Fallbacks
 
@@ -56,4 +56,4 @@ Menus work in CommonMark text and in GitHub-flavor text segments, including bloc
 
 - [`linkContextMenuItems`](/react-native/api-reference/enriched-markdown-text#linkcontextmenuitems) - the prop and the `LinkContextMenuItem` type.
 - [`onLinkLongPress`](/react-native/api-reference/enriched-markdown-text#onlinklongpress) and [`enableLinkPreview`](/react-native/api-reference/enriched-markdown-text#enablelinkpreview) - the fallbacks.
-- [Link pills](/rich-text-formatting/link-pills) - pills supply the menu title.
+- [Link pills](/react-native/guides/link-pills) - pills supply the menu title.

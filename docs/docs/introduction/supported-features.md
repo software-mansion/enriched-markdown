@@ -111,21 +111,25 @@ spoiler if the same Markdown is rendered on web. See
 
 ### Advanced features
 
-Each has its own page under **Rich text formatting**.
+Each has its own page - under **Rich text formatting**, or under the React Native
+**Guides** when the feature exists only in the React Native package.
 
 | Feature                 | React Native | Web | Learn more                                                         |
 | ----------------------- | :----------: | :-: | ------------------------------------------------------------------ |
 | LaTeX math              |     Yes      | Yes | [LaTeX math](/rich-text-formatting/latex-math)                     |
 | Mentions                |     Yes      | Yes | [Mentions](/rich-text-formatting/mentions)                         |
-| Link pills              |     Yes      | No  | [Link pills](/rich-text-formatting/link-pills)                     |
 | Code-block highlighting |     Yes      | No  | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
 | Markdown streaming      |     Yes      | No  | [Markdown streaming](/rich-text-formatting/markdown-streaming)     |
+| Link pills              |     Yes      | No  | [Link pills](/react-native/guides/link-pills)                      |
+| Link menus              |     Yes      | No  | [Link menus](/react-native/guides/link-menus)                      |
 
 LaTeX math on web needs the optional `katex` peer dependency; without it the
 formula falls back to its raw `$...$` source. Code-block highlighting on web
 renders a plain, uncolored `<pre><code>`. The two streaming props are stripped
 on web. Link pills are drawn by the native text stack, so on web those links
-render as ordinary links with the variant's colors.
+render as ordinary links with the variant's colors; custom link menus are an
+iOS 17+ feature, and a long press on web is the `contextmenu` event delivered
+to `onLinkLongPress`.
 
 ## EnrichedMarkdownTextInput
 
