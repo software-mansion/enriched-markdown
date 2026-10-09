@@ -721,7 +721,7 @@ The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `co
 
 The artifact compiles tree-sitter and the 14 grammars into one native library, `libenriched_markdown_highlight.so`: about 8 MB per ABI uncompressed, which is what an installed app carries since an APK stores native libraries uncompressed by default, and about 1.1 MB per ABI compressed, roughly what it adds to a download. It is opt-in only; `compose` never pulls it in.
 
-tree-sitter and every bundled grammar are MIT-licensed. Their notices are in [`code-highlight/LICENSE-tree-sitter`](code-highlight/LICENSE-tree-sitter) and [`code-highlight/LICENSE-grammars`](code-highlight/LICENSE-grammars); include them with your app's open-source notices.
+tree-sitter and every bundled grammar are MIT-licensed. Their notices ship inside the artifact, under `META-INF/enriched-markdown-code-highlight/`, as [`LICENSE-tree-sitter`](code-highlight/src/main/resources/META-INF/enriched-markdown-code-highlight/LICENSE-tree-sitter) and [`LICENSE-grammars`](code-highlight/src/main/resources/META-INF/enriched-markdown-code-highlight/LICENSE-grammars); include them with your app's open-source notices.
 
 ## Supported Markdown
 

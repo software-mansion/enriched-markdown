@@ -114,7 +114,7 @@ The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `co
 
 ## Licenses
 
-tree-sitter and every bundled grammar are MIT-licensed. Their notices ship next to the module's sources, as `LICENSE-tree-sitter` and `LICENSE-grammars` - include them with your app's open-source notices.
+tree-sitter and every bundled grammar are MIT-licensed. Their notices ship inside the artifact, under `META-INF/enriched-markdown-code-highlight/`, as `LICENSE-tree-sitter` and `LICENSE-grammars` - include them with your app's open-source notices.
 
 ## See also
 
