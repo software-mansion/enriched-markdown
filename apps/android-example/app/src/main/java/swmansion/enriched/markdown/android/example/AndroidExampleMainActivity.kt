@@ -82,7 +82,6 @@ class AndroidExampleMainActivity : ComponentActivity() {
                     when (route) {
                       ExampleRoute.Playground -> currentRoute = ExampleRoute.Playground
                       ExampleRoute.Text -> currentRoute = ExampleRoute.Text
-                      ExampleRoute.Code -> currentRoute = ExampleRoute.Code
                       else ->
                         Toast
                           .makeText(
@@ -102,11 +101,6 @@ class AndroidExampleMainActivity : ComponentActivity() {
               ExampleRoute.Text ->
                 TextScreen(
                   markdown = sampleMarkdown,
-                  modifier = Modifier.padding(innerPadding),
-                )
-
-              ExampleRoute.Code ->
-                CodeScreen(
                   modifier = Modifier.padding(innerPadding),
                 )
 
