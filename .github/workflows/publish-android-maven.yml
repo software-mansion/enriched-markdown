@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       # Holds secrets, so no caches here: android-benchmarks can write the Gradle one, and the
-      # dependency and grammar caches feed sources into the published AARs.
+      # dependency cache feeds sources into the published AARs.
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -36,10 +36,8 @@ jobs:
         run: yarn install --immutable
         working-directory: ${{ github.workspace }}
 
-      # The :code-highlight AAR compiles the gitignored tree-sitter grammars.
-      - name: Restore highlight vendor files
-        run: node vendor/vendor-grammars.mjs
-        working-directory: ${{ github.workspace }}
+      - name: Restore Android vendor files
+        uses: ./.github/actions/restore-android-vendor
 
       - name: Setup Android
         uses: ./.github/actions/setup-android
