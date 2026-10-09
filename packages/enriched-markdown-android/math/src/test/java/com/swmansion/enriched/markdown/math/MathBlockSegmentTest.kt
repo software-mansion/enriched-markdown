@@ -55,7 +55,7 @@ class MathBlockSegmentTest {
     val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
 
     assertEquals(1, segments.size)
-    val rendered = MarkdownSegmentRenderer.render(segments, defaultStyle, context).single()
+    val rendered = MarkdownSegmentRenderer.render(segments, defaultStyle, context, plugins = PluginSnapshot.EMPTY).single()
     assertTrue((rendered as RenderedSegment.Text).styledText.toString().contains("\$\$E = mc^2\$\$"))
   }
 

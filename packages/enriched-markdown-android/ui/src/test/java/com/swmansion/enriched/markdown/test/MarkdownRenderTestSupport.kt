@@ -6,6 +6,10 @@ import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.segments.MarkdownSegment
+import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
+import com.swmansion.enriched.markdown.segments.RenderedSegment
+import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.CodeStyle
 import com.swmansion.enriched.markdown.styles.HeadingStyle
@@ -36,6 +40,14 @@ object MarkdownRenderTestSupport {
     renderer.configure(style, context, plugins = plugins)
     return renderer.renderDocument(document, null, null)
   }
+
+  /** Renders [segments] with [defaultStyle] and no plugins. */
+  fun renderSegments(segments: List<MarkdownSegment>): List<RenderedSegment> =
+    MarkdownSegmentRenderer.render(segments, defaultStyle, context, plugins = PluginSnapshot.EMPTY)
+
+  /** Splits [document] into segments and renders them, both with no plugins. */
+  fun renderSegmentsOf(document: MarkdownASTNode): List<RenderedSegment> =
+    renderSegments(splitASTIntoSegments(document, PluginSnapshot.EMPTY))
 
   /** [defaultStyle] with only the inline line-decoration colors replaced. */
   fun styleWithDecorationColors(

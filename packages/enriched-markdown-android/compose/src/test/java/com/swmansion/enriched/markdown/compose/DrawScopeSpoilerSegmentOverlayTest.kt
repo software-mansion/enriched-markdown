@@ -18,6 +18,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spoiler.CustomSpoilerOverlay
@@ -163,7 +164,7 @@ class DrawScopeSpoilerSegmentOverlayTest {
       ).filter { it.type != NodeType.Text || it.content.isNotEmpty() }
     val document =
       MarkdownASTNode(NodeType.Document, children = listOf(MarkdownASTNode(NodeType.Paragraph, children = paragraph)))
-    val text = Renderer().apply { configure(style, context) }.renderDocument(document)
+    val text = Renderer().apply { configure(style, context, plugins = PluginSnapshot.EMPTY) }.renderDocument(document)
 
     val view = EnrichedMarkdownInternalText(context)
     view.layoutParams = ViewGroup.LayoutParams(WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)

@@ -84,7 +84,7 @@ class TableContainerView(
   fun applyTableNode(
     tableNode: MarkdownASTNode,
     imageRequestHeaders: Map<String, String> = emptyMap(),
-    plugins: PluginSnapshot = PluginSnapshot.EMPTY,
+    plugins: PluginSnapshot,
     onPluginEvent: PluginEventSink? = null,
   ) {
     rows =

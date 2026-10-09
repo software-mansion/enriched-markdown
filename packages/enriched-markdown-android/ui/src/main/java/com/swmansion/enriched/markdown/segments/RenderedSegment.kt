@@ -42,7 +42,7 @@ sealed interface RenderedSegment {
     val node: MarkdownASTNode,
     override val signature: Long,
     val imageRequestHeaders: Map<String, String> = emptyMap(),
-    val plugins: PluginSnapshot = PluginSnapshot.EMPTY,
+    val plugins: PluginSnapshot,
   ) : RenderedSegment
 
   /** Holds the plugin that produced [payload], so its view is built by that same plugin. */
@@ -73,7 +73,7 @@ object MarkdownSegmentRenderer {
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
     onPluginEvent: PluginEventSink? = null,
-    plugins: PluginSnapshot = PluginSnapshot.EMPTY,
+    plugins: PluginSnapshot,
   ): List<RenderedSegment> {
     // Task indices must stay document-global: each Text segment gets a fresh Renderer,
     // so the running count is threaded through explicitly rather than reset per segment.

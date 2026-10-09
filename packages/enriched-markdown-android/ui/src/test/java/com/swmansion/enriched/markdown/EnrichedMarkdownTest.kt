@@ -18,6 +18,7 @@ import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderAssertions.assertHasSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.renderSegmentsOf
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
@@ -94,7 +95,7 @@ class EnrichedMarkdownTest {
 
   @Test
   fun childAdoptsTheRenderedBufferWithoutCopyingIt() {
-    val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(mixedBlocks), defaultStyle, context)
+    val segments = renderSegmentsOf(mixedBlocks)
     val rendered = segments[0] as RenderedSegment.Text
 
     val container = EnrichedMarkdown(context)
@@ -110,7 +111,7 @@ class EnrichedMarkdownTest {
   @Test
   fun containerContributesNoStrayMarginToHeight() {
     documents.forEach { (document, _) ->
-      val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(document), defaultStyle, context)
+      val segments = renderSegmentsOf(document)
       val rendered = segments[0] as RenderedSegment.Text
 
       val standaloneTextView =
@@ -133,7 +134,7 @@ class EnrichedMarkdownTest {
   @Test
   fun allowTrailingMarginAddsTheLastBlocksMarginToHeight() {
     documents.forEach { (document, _) ->
-      val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(document), defaultStyle, context)
+      val segments = renderSegmentsOf(document)
       val lastMargin = (segments.last() as RenderedSegment.Text).lastElementMarginBottom.toInt()
       assertTrue("Document has no trailing margin to preserve", lastMargin > 0)
 
@@ -182,7 +183,7 @@ class EnrichedMarkdownTest {
     assertEquals("", container.currentMarkdown)
 
     // A reused view must not carry the previous owner's trailing margin over.
-    container.applyRenderedSegments(MarkdownSegmentRenderer.render(splitASTIntoSegments(mixedBlocks), defaultStyle, context))
+    container.applyRenderedSegments(renderSegmentsOf(mixedBlocks))
     layOut(container)
     val reusedHeight = container.measuredHeight
     val fresh = containerWithAppliedSegments(mixedBlocks)
@@ -192,7 +193,7 @@ class EnrichedMarkdownTest {
 
   @Test
   fun reconciliationKeepsTheChildInstanceWhenDocumentIsReappliedUnchanged() {
-    val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(mixedBlocks), defaultStyle, context)
+    val segments = renderSegmentsOf(mixedBlocks)
     val container = EnrichedMarkdown(context)
 
     container.applyRenderedSegments(segments)
@@ -228,10 +229,10 @@ class EnrichedMarkdownTest {
     val editedDoc = document(paragraph(text("Before, edited")), tableNode, paragraph(text("After")))
 
     val container = EnrichedMarkdown(context)
-    container.applyRenderedSegments(MarkdownSegmentRenderer.render(splitASTIntoSegments(doc), defaultStyle, context))
+    container.applyRenderedSegments(renderSegmentsOf(doc))
     val tableChildBeforeEdit = container.getChildAt(1)
 
-    container.applyRenderedSegments(MarkdownSegmentRenderer.render(splitASTIntoSegments(editedDoc), defaultStyle, context))
+    container.applyRenderedSegments(renderSegmentsOf(editedDoc))
     val tableChildAfterEdit = container.getChildAt(1)
 
     assertSame(tableChildBeforeEdit, tableChildAfterEdit)
@@ -288,7 +289,7 @@ class EnrichedMarkdownTest {
     )
 
   private fun containerWithAppliedSegments(document: MarkdownASTNode): EnrichedMarkdown {
-    val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(document), defaultStyle, context)
+    val segments = renderSegmentsOf(document)
     val container = EnrichedMarkdown(context)
     container.applyRenderedSegments(segments)
     return container

@@ -25,7 +25,7 @@ class Renderer {
     context: Context,
     imageRequestHeaders: Map<String, String> = emptyMap(),
     onPluginEvent: PluginEventSink? = null,
-    plugins: PluginSnapshot = PluginSnapshot.EMPTY,
+    plugins: PluginSnapshot,
   ) {
     if (cachedStyle === style &&
       cachedContext === context &&
