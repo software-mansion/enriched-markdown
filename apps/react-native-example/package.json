@@ -8,6 +8,7 @@
     "start": "react-native start",
     "build:android": "react-native build-android --extra-params \"--no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a\"",
     "build:ios": "react-native build-ios --mode Debug",
+    "build:ios:release": "xcodebuild build -workspace ios/EnrichedMarkdownExample.xcworkspace -scheme EnrichedMarkdownExample -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build -quiet CODE_SIGNING_ALLOWED=NO",
     "test:android": "cd android && ./gradlew :react-native-enriched-markdown:testDebugUnitTest --no-daemon --console=plain",
     "test:ios": "bash scripts/test-ios.sh"
   },
