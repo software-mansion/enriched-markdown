@@ -37,7 +37,7 @@ CodeHighlightPlugin {
 }
 ```
 
-Every `EnrichedMarkdownText` inside the scope highlights code - wrap one screen, or the whole app. Scopes nest with each other and independently of `MarkdownTheme`, so `LatexMathPlugin { CodeHighlightPlugin { ... } }` enables both. To choose the plugins for a single instance, pass them as `EnrichedMarkdownText(plugins = listOf(CodeHighlightPlugin))`.
+Every `EnrichedMarkdownText` inside the scope highlights code - wrap one screen, or the whole app. `CodeHighlightPlugin { ... }` is shorthand for `MarkdownPlugins(CodeHighlightPlugin) { ... }`; to enable it together with other plugins, list them in one scope: `MarkdownPlugins(LatexMathPlugin, CodeHighlightPlugin) { ... }`. Plugin scopes nest independently of `MarkdownTheme`. To choose the plugins for a single instance, pass them as `EnrichedMarkdownText(plugins = listOf(CodeHighlightPlugin))`.
 
 There is no parser flag. Without the plugin, fenced code renders exactly as before, in the [`codeBlock`](/android/api-reference/style-properties) color.
 

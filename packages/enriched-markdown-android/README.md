@@ -44,20 +44,19 @@ dependencies {
 
 An app that does not add a line pays nothing for that plugin — not the artifact, and not its native library. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run. `:code-highlight` adds about 8 MB per ABI to an installed app; see [Size and licenses](#size-and-licenses).
 
-Enable a plugin for every `EnrichedMarkdownText` in a subtree by wrapping it in the plugin's scope:
+Enable plugins for every `EnrichedMarkdownText` in a subtree by wrapping it in a `MarkdownPlugins` scope:
 
 ```kotlin
-import com.swmansion.enriched.markdown.math.LatexMathPlugin
 import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
+import com.swmansion.enriched.markdown.compose.MarkdownPlugins
+import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
-LatexMathPlugin {
-  CodeHighlightPlugin {
-    HomeScreen()
-  }
+MarkdownPlugins(LatexMathPlugin, CodeHighlightPlugin) {
+  HomeScreen()
 }
 ```
 
-`LatexMathPlugin { }` is shorthand for the general `MarkdownPlugins(LatexMathPlugin) { }`, which takes any number of plugins, so several can be enabled in one scope: `MarkdownPlugins(pluginA, pluginB) { }`.
+For a single plugin, its own scope is shorter: `LatexMathPlugin { }` is the same as `MarkdownPlugins(LatexMathPlugin) { }`, and `CodeHighlightPlugin { }` the same as `MarkdownPlugins(CodeHighlightPlugin) { }`.
 
 Scopes nest: an inner scope adds its plugins to those enabled outside, and a scope for a plugin already enabled replaces it and moves it last, so where two plugins claim the same Markdown element, the innermost scope wins. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes.
 
