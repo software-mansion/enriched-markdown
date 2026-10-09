@@ -25,17 +25,27 @@ jobs:
       - name: Check out
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Setup
-        uses: ./.github/actions/setup
+      # Holds secrets, so no caches here: android-benchmarks can write the Gradle one, and the
+      # dependency and grammar caches feed sources into the published AARs.
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        working-directory: ${{ github.workspace }}
 
       # The :syntax-highlighting AAR compiles the gitignored tree-sitter grammars.
       - name: Restore highlight vendor files
-        uses: ./.github/actions/restore-highlight-vendor
+        run: node vendor/vendor-grammars.mjs
+        working-directory: ${{ github.workspace }}
 
       - name: Setup Android
         uses: ./.github/actions/setup-android
         with:
           gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
+          cache: none
 
       - name: Publish to Maven Local (dry run)
         if: ${{ inputs.dry-run }}

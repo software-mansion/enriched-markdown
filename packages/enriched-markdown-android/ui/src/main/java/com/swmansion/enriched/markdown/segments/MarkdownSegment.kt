@@ -3,7 +3,6 @@
 package com.swmansion.enriched.markdown.segments
 
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginBlockSegment
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
@@ -27,7 +26,7 @@ sealed interface MarkdownSegment {
 
 fun splitASTIntoSegments(
   root: MarkdownASTNode,
-  plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
+  plugins: PluginSnapshot = PluginSnapshot.EMPTY,
 ): List<MarkdownSegment> {
   val segments = mutableListOf<MarkdownSegment>()
   val currentTextNodes = mutableListOf<MarkdownASTNode>()

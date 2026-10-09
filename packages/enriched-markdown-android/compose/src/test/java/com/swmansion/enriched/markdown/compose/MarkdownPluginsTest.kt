@@ -7,7 +7,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginRegistry
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,13 +20,13 @@ class MarkdownPluginsTest {
 
   @Test
   fun outsideEveryScopeNoPluginsAreProvided() {
-    var captured: List<MarkdownPlugin>? = emptyList()
+    var captured: List<MarkdownPlugin>? = null
 
     composeRule.setContent {
       captured = LocalMarkdownPlugins.current
     }
 
-    assertNull(captured)
+    assertEquals(emptyList<MarkdownPlugin>(), captured)
   }
 
   @Test

@@ -12,7 +12,6 @@ import androidx.annotation.VisibleForTesting
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.MarkdownPlugin
 import com.swmansion.enriched.markdown.plugin.PluginEvent
@@ -66,12 +65,11 @@ class EnrichedMarkdown(
     private set
 
   /** How unrevealed `||spoiler||` text is concealed. */
-  var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles
+  var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles()
     private set
 
-  /** Null defers to the app-wide [EnrichedMarkdownPlugins] registry. */
-  private var plugins: List<MarkdownPlugin>? = null
-  private var pluginSnapshot: PluginSnapshot? = null
+  private var plugins: List<MarkdownPlugin> = emptyList()
+  private var pluginSnapshot: PluginSnapshot = PluginSnapshot.EMPTY
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
   private var selectionColor: Int? = null
@@ -143,13 +141,13 @@ class EnrichedMarkdown(
   }
 
   /**
-   * The plugins this view renders with, or null for the ones installed app-wide through
-   * [EnrichedMarkdownPlugins]. Lists compare by value, so passing an equal list is a no-op.
+   * The plugins this view renders with; none by default. Lists compare by value, so passing an
+   * equal list is a no-op.
    */
-  fun setPlugins(plugins: List<MarkdownPlugin>?) {
+  fun setPlugins(plugins: List<MarkdownPlugin>) {
     if (this.plugins == plugins) return
     this.plugins = plugins
-    pluginSnapshot = plugins?.let { PluginSnapshot.of(*it.toTypedArray()) }
+    pluginSnapshot = PluginSnapshot.of(*plugins.toTypedArray())
     // As with a style change, the AST - and so every signature - is unchanged, so the reconciler
     // would otherwise keep views built by the previous plugins.
     needsSegmentReset = true
@@ -241,15 +239,12 @@ class EnrichedMarkdown(
     }
   }
 
-  /**
-   * Chooses the overlay that conceals unrevealed spoilers: drifting particles (the default) or
-   * a solid rounded block.
-   */
-  fun setSpoilerOverlay(mode: SpoilerOverlay) {
-    if (spoilerOverlay == mode) return
-    spoilerOverlay = mode
+  /** Chooses the overlay that conceals unrevealed spoilers. */
+  fun setSpoilerOverlay(overlay: SpoilerOverlay) {
+    if (spoilerOverlay == overlay) return
+    spoilerOverlay = overlay
     segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
-      it.spoilerOverlay = mode
+      it.spoilerOverlay = overlay
     }
   }
 
@@ -310,9 +305,9 @@ class EnrichedMarkdown(
     setOnTaskListItemPressCallback(null)
     setOnPluginEventCallback(null)
     setEnableTaskListItemToggle(true)
-    setSpoilerOverlay(SpoilerOverlay.Particles)
+    setSpoilerOverlay(SpoilerOverlay.Particles())
     setMarkdownContent("")
-    setPlugins(null)
+    setPlugins(emptyList())
     taskListToggles.clear()
     forgetReportedPluginEvents()
     pendingSegments = null
@@ -337,8 +332,7 @@ class EnrichedMarkdown(
   private fun scheduleRender() {
     val style = markdownStyle
     val markdown = currentMarkdown
-    // A view with plugins of its own never reads, and so never freezes, the app-wide registry.
-    val plugins = pluginSnapshot ?: EnrichedMarkdownPlugins.snapshot
+    val plugins = pluginSnapshot
     val onPluginEvent = renderPluginEventSink()
 
     warnIfMathPluginMissing(plugins)
@@ -518,8 +512,8 @@ class EnrichedMarkdown(
     Log.w(
       TAG,
       "Md4cFlags(latexMath = true) but no plugin renders math, so equations show as their raw " +
-        "source. Add the com.swmansion.enriched.markdown:math artifact and provide LatexMathPlugin " +
-        "through MarkdownTheme(plugins = ...) / setPlugins, or EnrichedMarkdownPlugins.install at startup.",
+        "source. Add the com.swmansion.enriched.markdown:math artifact and wrap the content in a " +
+        "LatexMathPlugin { ... } scope.",
     )
   }
 

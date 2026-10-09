@@ -60,6 +60,19 @@ static NSString *const kAppleColorEmojiFontName = @"AppleColorEmoji";
                                  CGPoint glyphLoc = [layoutManager locationForGlyphAtIndex:glyphRange.location];
                                  CGFloat baselineY = origin.y + rect.origin.y + glyphLoc.y;
 
+                                 // TextKit places an attachment glyph at the bottom edge of its
+                                 // bounds, not on the baseline. An item that starts with a link
+                                 // pill, an inline image or inline math would otherwise push its
+                                 // marker down by however far the attachment hangs below the text.
+                                 NSTextAttachment *attachment = attrs[NSAttachmentAttributeName];
+                                 if ([attachment isKindOfClass:[NSTextAttachment class]]) {
+                                   baselineY += [attachment attachmentBoundsForTextContainer:container
+                                                                        proposedLineFragment:rect
+                                                                               glyphPosition:glyphLoc
+                                                                              characterIndex:charRange.location]
+                                                    .origin.y;
+                                 }
+
                                  // When the anchor character is an emoji, NSFontAttributeName
                                  // returns AppleColorEmoji whose metrics (xHeight, capHeight)
                                  // differ widely from the text font and would misplace the

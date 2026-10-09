@@ -1320,7 +1320,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 - (void)setLink:(NSString *)url
 {
   NSRange selection = _textView.selectedRange;
-  if (![_linkCoordinator setLinkURL:url atCursor:selection.location selection:selection]) {
+  if (![_linkCoordinator setLinkURL:url forSelection:selection]) {
     return;
   }
   [self applyFormatting];
@@ -1385,7 +1385,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)removeLink
 {
-  if (![_linkCoordinator removeLinkAtPosition:_textView.selectedRange.location]) {
+  if (![_linkCoordinator removeLinkForSelection:_textView.selectedRange]) {
     return;
   }
   [self applyFormatting];
@@ -1394,7 +1394,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)showLinkPrompt
 {
-  ENRMFormattingRange *activeLink = [_linkCoordinator linkAtPosition:_textView.selectedRange.location];
+  ENRMFormattingRange *activeLink = [_linkCoordinator linkForSelection:_textView.selectedRange];
   NSString *existingURL = activeLink != nil ? activeLink.url : nil;
 
   __weak EnrichedMarkdownTextInput *weakSelf = self;
@@ -1493,6 +1493,11 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   return [_typingController isEffectiveStyleActive:type atPosition:position];
 }
 
+- (nullable ENRMFormattingRange *)linkForSelection:(NSRange)selection
+{
+  return [_linkCoordinator linkForSelection:selection];
+}
+
 #pragma mark - ENRMInputTypingAttributesDataSource
 
 - (BOOL)isStyleAdjacentBefore:(ENRMInputStyleType)type position:(NSUInteger)position
@@ -1550,22 +1555,20 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 }
 
+/// Handles backspace or delete on a link's text, or deleting a selection that
+/// starts in a link. Without this, UIKit removes only those characters and
+/// leaves a partial link still pointing at the old URL; with it, the whole link
+/// is deleted. Returns YES when it did so, and the caller rejects UIKit's edit.
 - (BOOL)deleteLinkForReplacementRange:(NSRange)range replacementText:(NSString *)text
 {
   if (text.length > 0) {
     return NO;
   }
 
-  NSUInteger lookupPosition;
-  if (range.length > 0) {
-    lookupPosition = range.location;
-  } else if (range.location > 0) {
-    lookupPosition = range.location - 1;
-  } else {
-    return NO;
-  }
-
-  ENRMFormattingRange *linkRange = [_linkCoordinator linkAtPosition:lookupPosition];
+  // linkForSelection: would match a caret at a link's start, so backspace at
+  // the start of the text would delete a link that follows it.
+  ENRMFormattingRange *linkRange = range.length > 0 ? [_linkCoordinator linkForSelection:range]
+                                                    : [_linkCoordinator linkRangeForDeletionAtPosition:range.location];
   if (linkRange == nil) {
     return NO;
   }

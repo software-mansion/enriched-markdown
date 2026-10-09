@@ -8,16 +8,14 @@ import com.swmansion.enriched.markdown.plugin.PluginRegistry
 
 /**
  * Tree-sitter syntax highlighting for fenced code blocks, by the fence's language. Enable it for a
- * view, a Compose subtree, or the whole app:
+ * Compose subtree with a scope, or pass it to a view directly:
  *
  * ```
- * markdownView.setPlugins(listOf(SyntaxHighlightingPlugin))
- *
  * SyntaxHighlightingPlugin {
  *   EnrichedMarkdownText(markdown)
  * }
  *
- * EnrichedMarkdownPlugins.install(SyntaxHighlightingPlugin)
+ * markdownView.setPlugins(listOf(SyntaxHighlightingPlugin))
  * ```
  *
  * Bash, C, CSS, Go, HTML, Java, JavaScript, JSON, Markdown, Python, Rust, TSX, TypeScript and YAML
@@ -30,7 +28,7 @@ object SyntaxHighlightingPlugin : MarkdownPlugin {
 
   override val id: String = ID
 
-  // One cache for the process: every view, and every registry this plugin is installed into.
+  // One cache for the process, shared by every view this plugin is enabled for.
   private val decorator = SyntaxHighlightDecorator(SyntaxTokenCache(NativeSyntaxTokenSource))
 
   override fun install(registry: PluginRegistry) {

@@ -1,6 +1,13 @@
 #import "ENRMTableIOSGridView.h"
+#import "LinkTapUtils.h"
 
 #if !TARGET_OS_OSX
+
+@interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate>
+@end
+
+@implementation ENRMTableIOSLinkHit
+@end
 
 @implementation ENRMTableIOSRowData
 @end
@@ -29,6 +36,7 @@
 
     UILongPressGestureRecognizer *longPress =
         [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPress:)];
+    longPress.delegate = self;
     [self addGestureRecognizer:longPress];
   }
   return self;
@@ -144,7 +152,7 @@
   return NO;
 }
 
-static NSString *linkInAttributedString(NSAttributedString *text, CGRect textRect, CGPoint point)
+static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGRect textRect, CGPoint point)
 {
   if (text.length == 0)
     return nil;
@@ -168,10 +176,24 @@ static NSString *linkInAttributedString(NSAttributedString *text, CGRect textRec
   if (charIndex >= text.length)
     return nil;
 
-  return [text attribute:@"linkURL" atIndex:charIndex effectiveRange:NULL];
+  NSRange linkRange;
+  NSString *url = [text attribute:@"linkURL"
+                          atIndex:charIndex
+            longestEffectiveRange:&linkRange
+                          inRange:NSMakeRange(0, text.length)];
+  if (!url)
+    return nil;
+  NSRange glyphRange = [layoutManager glyphRangeForCharacterRange:linkRange actualCharacterRange:NULL];
+  CGRect frame = [layoutManager boundingRectForGlyphRange:glyphRange inTextContainer:textContainer];
+
+  ENRMTableIOSLinkHit *hit = [[ENRMTableIOSLinkHit alloc] init];
+  hit.url = url;
+  hit.title = linkTitleAtIndex(text, charIndex);
+  hit.frame = CGRectOffset(frame, textRect.origin.x, textRect.origin.y);
+  return hit;
 }
 
-- (NSString *)linkURLAtPoint:(CGPoint)point
+- (ENRMTableIOSLinkHit *)linkAtPoint:(CGPoint)point
 {
   CGFloat rowY, rowH, colX, colW;
   NSAttributedString *text;
@@ -191,7 +213,7 @@ static NSString *linkInAttributedString(NSAttributedString *text, CGRect textRec
 - (void)handleLinkGesture:(UIGestureRecognizer *)recognizer block:(ENRMTableIOSLinkBlock)block
 {
   CGPoint point = [recognizer locationInView:self];
-  NSString *url = [self linkURLAtPoint:point];
+  NSString *url = [self linkAtPoint:point].url;
   if (url && block) {
     block(url);
   }
@@ -202,6 +224,15 @@ static NSString *linkInAttributedString(NSAttributedString *text, CGRect textRec
   if (recognizer.state == UIGestureRecognizerStateEnded) {
     [self handleLinkGesture:recognizer block:self.onLinkTap];
   }
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
+{
+  if (![gestureRecognizer isKindOfClass:[UILongPressGestureRecognizer class]])
+    return YES;
+  // Reject before recognition so the context-menu interaction can own this touch.
+  NSString *url = [self linkAtPoint:[touch locationInView:self]].url;
+  return !(url && self.hasLinkContextMenu && self.hasLinkContextMenu(url));
 }
 
 - (void)handleLongPress:(UILongPressGestureRecognizer *)recognizer

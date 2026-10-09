@@ -11,6 +11,7 @@ import type {
   InlineImageStyleControls,
   InlineMathStyleControls,
   LinkStyleControls,
+  LinkPillControls,
   LinkVariantFontControls,
   LinkVariantsDemoControls,
   ListStyleControls,
@@ -339,6 +340,36 @@ export function toLinkVariantsDemoStyle(
         color: channelVariantColor,
         underline: channelVariantUnderline,
         backgroundColor: channelVariantBackgroundColor,
+      },
+    },
+  };
+}
+
+export function toLinkPillStyle(
+  controls: LinkPillControls,
+  iconUri?: string
+): Pick<MarkdownStyle, 'linkVariants'> {
+  return {
+    linkVariants: {
+      '^https://example\\.com/': {
+        color: controls.color,
+        backgroundColor: controls.backgroundColor,
+        underline: false,
+        pill: controls.pill
+          ? {
+              label: controls.variantLabel,
+              iconUri,
+              iconTintColor: controls.tintIcon
+                ? controls.iconTintColor
+                : undefined,
+              borderColor: controls.borderColor,
+              borderWidth: controls.borderWidth,
+              borderRadius: controls.borderRadius,
+              paddingHorizontal: controls.paddingHorizontal,
+              paddingVertical: controls.paddingVertical,
+              maxWidth: controls.maxWidth,
+            }
+          : false,
       },
     },
   };

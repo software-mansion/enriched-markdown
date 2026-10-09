@@ -118,6 +118,9 @@ class StyleConfig(
     }
   }
 
+  /** Whether any variant can produce a pill; lets per-draw code skip pill lookups. */
+  val hasLinkPills: Boolean by lazy { linkVariants.any { it.pill != null } }
+
   val strongStyle: StrongStyle by lazy {
     val map =
       requireNotNull(style.getMap("strong")) {
@@ -167,6 +170,9 @@ class StyleConfig(
   }
 
   var imageRequestHeaders: Map<String, String> = emptyMap()
+
+  /** Per-link pill content keyed by exact URL; content, so it lives outside the style map. */
+  var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
   val videoStyle: VideoStyle by lazy {
     val map =
@@ -349,7 +355,8 @@ class StyleConfig(
       superscriptStyle == other.superscriptStyle &&
       subscriptStyle == other.subscriptStyle &&
       highlightStyle == other.highlightStyle &&
-      imageRequestHeaders == other.imageRequestHeaders
+      imageRequestHeaders == other.imageRequestHeaders &&
+      linkPillContent == other.linkPillContent
   }
 
   override fun hashCode(): Int {
@@ -378,6 +385,7 @@ class StyleConfig(
     result = 31 * result + subscriptStyle.hashCode()
     result = 31 * result + highlightStyle.hashCode()
     result = 31 * result + imageRequestHeaders.hashCode()
+    result = 31 * result + linkPillContent.hashCode()
     return result
   }
 }

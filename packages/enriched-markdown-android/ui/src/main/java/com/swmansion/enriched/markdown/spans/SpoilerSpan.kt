@@ -19,6 +19,12 @@ class SpoilerSpan(
   /** How much of the text shows through: 0 while concealed, rising to 1 as the reveal fades it in. */
   internal var textAlpha = 0f
 
+  /**
+   * Bumped when what the span covers changes without the text moving, as when an image under it
+   * loads, so overlays that cached the concealed content start over.
+   */
+  internal var contentVersion = 0
+
   fun markRevealing() {
     revealing = true
   }

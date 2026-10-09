@@ -3,7 +3,6 @@ package com.swmansion.enriched.markdown.renderer
 import android.content.Context
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.spans.ImageSpan
@@ -26,7 +25,7 @@ class Renderer {
     context: Context,
     imageRequestHeaders: Map<String, String> = emptyMap(),
     onPluginEvent: PluginEventSink? = null,
-    plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
+    plugins: PluginSnapshot = PluginSnapshot.EMPTY,
   ) {
     if (cachedStyle === style &&
       cachedContext === context &&

@@ -27,7 +27,7 @@ The `compose` artifact pulls in internal `ui` and `parser` modules transitively.
 
 ### Optional plugins
 
-Features with a heavy dependency of their own ship as separate artifacts, enabled at runtime. Today there are two: **math**, which renders LaTeX (see [LaTeX math](#latex-math)), and **syntax-highlighting**, which colors fenced code (see [Syntax highlighting](#syntax-highlighting)).
+Features with a heavy dependency of their own ship as separate artifacts that you enable where you need them. Today there are two: **math**, which renders LaTeX (see [LaTeX math](#latex-math)), and **syntax-highlighting**, which colors fenced code (see [Syntax highlighting](#syntax-highlighting)).
 
 > [!NOTE]
 > Neither artifact is on Maven Central yet. They will be published with the next release.
@@ -44,58 +44,25 @@ dependencies {
 
 An app that does not add a line pays nothing for that plugin — not the artifact, and not its native library. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run. `:syntax-highlighting` adds about 8 MB per ABI to an installed app; see [Size and licenses](#size-and-licenses).
 
-#### Enabling a plugin
-
-A plugin on the classpath does nothing until it is enabled. In Compose, call it as a scope around the part of the tree that needs it — one screen, or the whole app:
+Enable a plugin for every `EnrichedMarkdownText` in a subtree by wrapping it in the plugin's scope:
 
 ```kotlin
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
 import com.swmansion.enriched.markdown.compose.invoke
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
 
 LatexMathPlugin {
   SyntaxHighlightingPlugin {
-    MarkdownTheme {
-      HomeScreen()
-    }
+    HomeScreen()
   }
 }
 ```
 
-Every `EnrichedMarkdownText` inside renders with the plugins of all its enclosing scopes. Scopes nest independently of `MarkdownTheme`, and a scope for a plugin already enabled further out replaces it rather than adding a second. To choose the list for one instance instead, pass it as `EnrichedMarkdownText(plugins = ...)`; `emptyList()` turns every plugin off for that instance.
+Scopes nest: an inner scope adds its plugin to those enabled outside, and a scope for a plugin already enabled replaces it. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes.
 
-In a View-based screen, hand the `EnrichedMarkdown` view its list:
+Without a plugin nothing breaks: fenced code renders in the code block color, and `$...$` and `$$...$$` render as their raw source, delimiters included, with a single `EnrichedMarkdown` warning in logcat naming the missing math artifact and how to enable the plugin.
 
-```kotlin
-markdownView.setPlugins(listOf(LatexMathPlugin, SyntaxHighlightingPlugin))
-```
-
-Outside every scope, and for a view whose list was never set, the app-wide registry applies. It is a fallback: install into it once, at startup, before any markdown is rendered, since the first render freezes it and a later install is ignored with a warning.
-
-```kotlin
-import android.app.Application
-import com.swmansion.enriched.markdown.compose.EnrichedMarkdownPlugins
-import com.swmansion.enriched.markdown.math.LatexMathPlugin
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
-
-class MyApplication : Application() {
-  override fun onCreate() {
-    super.onCreate()
-    EnrichedMarkdownPlugins.install(LatexMathPlugin, SyntaxHighlightingPlugin)
-  }
-}
-```
-
-…registered in `AndroidManifest.xml`:
-
-```xml
-<application android:name=".MyApplication" …>
-```
-
-A plugin left disabled breaks nothing. Fenced code renders in the code block color, and `$...$` and `$$...$$` render as their raw source, delimiters included, with a single `EnrichedMarkdown` warning in logcat naming the missing math artifact.
-
-The math plugin and its parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, enabled plugin or not. Syntax highlighting has no flag: fenced code is always parsed with its language.
+The math plugin and its parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, plugin or not. Syntax highlighting has no flag: fenced code is always parsed with its language.
 
 ## Quick start
 
@@ -230,22 +197,14 @@ markdownStyle {
 
 Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
 
-`spoiler` styles the overlay that conceals `||spoiler||` text. `color` paints the particles and fills
-the solid block; `particles { density, speed }` only apply to `SpoilerOverlay.Particles` and are
-unitless multipliers over the defaults shown below, and `solid { cornerRadius }` only applies to
-`SpoilerOverlay.Solid`. The concealed text itself is drawn transparent, so the overlay works over any
-background without being told what that background is.
+`spoiler` colors the overlay that conceals `||spoiler||` text: `color` paints the particles and fills
+the solid block. The effect itself, and its tuning, is the `spoilerOverlay` parameter of
+`EnrichedMarkdownText` (see [Spoiler overlays](#spoiler-overlays)). The concealed text is drawn
+transparent, so the overlay works over any background without being told what that background is.
 
 ```kotlin
 markdownStyle {
-  spoiler {
-    color = Color(0xFF374151)
-    particles {
-      density = 8f
-      speed = 20f
-    }
-    solid { cornerRadius = 4.dp }
-  }
+  spoiler { color = Color(0xFF374151) }
 }
 ```
 
@@ -299,8 +258,8 @@ fun EnrichedMarkdownText(
   onLinkLongClick: (String) -> Unit = {},
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
-  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles,
-  plugins: List<MarkdownPlugin>? = LocalMarkdownPlugins.current,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
+  plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
   onPluginEvent: (PluginEvent) -> Unit = {},
 )
 ```
@@ -316,9 +275,9 @@ fun EnrichedMarkdownText(
 | `onLinkLongClick` | Called when a link is long-pressed |
 | `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
 | `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
-| `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles` (default) or `SpoilerOverlay.Solid` |
-| `plugins` | The plugins this instance renders with; defaults to those of the enclosing plugin scopes, and outside any to the app-wide registry (see [Enabling a plugin](#enabling-a-plugin)) |
-| `onPluginEvent` | Called when an installed plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
+| `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles()` (default), `SpoilerOverlay.Solid()`, or a `CustomSpoilerOverlay` (see [Spoiler overlays](#spoiler-overlays)) |
+| `plugins` | Plugins this instance renders with; defaults to those enabled by the enclosing plugin scopes (see [Optional plugins](#optional-plugins)) |
+| `onPluginEvent` | Called when an enabled plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
@@ -352,10 +311,218 @@ EnrichedMarkdownText(
 toggle and no `onTaskListItemToggle`. Text selection and links are unaffected
 either way.
 
+#### Spoiler overlays
+
+```kotlin
+package com.swmansion.enriched.markdown.spoiler
+
+sealed interface SpoilerOverlay {
+  data class Particles(val density: Float = 8f, val speed: Float = 20f) : SpoilerOverlay
+  data class Solid(val cornerRadius: Float = 4f) : SpoilerOverlay   // dp; Compose can pass a Dp
+}
+```
+
+The two built-in overlays take their colors from the `spoiler { }` style and their tuning from
+their own parameters. `density` and `speed` scale the particle field linearly from its defaults, so
+`density = 16f` puts in twice as many particles. `cornerRadius` is in dp; in Compose, pass a `Dp`
+instead, as `SpoilerOverlay.Solid(cornerRadius = 6.dp)`, with
+`import com.swmansion.enriched.markdown.compose.invoke`.
+
+```kotlin
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+
+EnrichedMarkdownText(
+  markdown = content,
+  spoilerOverlay = SpoilerOverlay.Particles(density = 12f, speed = 30f),
+)
+```
+
+##### Custom overlays
+
+Any effect can stand in for the built-ins. Implement `CustomSpoilerOverlay` to build a
+`SpoilerSegmentOverlay`, which draws the effect on the text view's canvas:
+
+```kotlin
+interface CustomSpoilerOverlay : SpoilerOverlay {
+  fun createSegmentOverlay(host: SpoilerOverlayHost, style: SpoilerStyle): SpoilerSegmentOverlay
+  val revealDurationMillis: Long  // default: 450
+}
+
+abstract class SpoilerSegmentOverlay {
+  abstract fun draw(canvas: Canvas, segment: SpoilerSegment)
+  open fun drawReveal(canvas: Canvas, segment: SpoilerSegment, progress: Float)  // default: draw() fading out
+  open val isAnimated: Boolean                                                   // default: false
+  open fun onRemoved()
+}
+
+class SpoilerSegment {
+  val width: Float
+  val height: Float
+  val baseline: Float                         // the line's baseline, from the segment's top
+  val spoilerStart: Int; val spoilerEnd: Int  // the whole spoiler, in the view's text
+  val start: Int; val end: Int                // this segment's slice of it
+  val text: CharSequence                      // the slice, styled as it looks once revealed
+  val index: Int; val count: Int              // this segment's place in the spoiler, reading order
+  val isRtl: Boolean                          // whether its paragraph runs right to left
+  val frameTimeMillis: Long
+  fun drawText(canvas: Canvas)                // the slice's glyphs, where the text view draws them
+}
+
+interface SpoilerOverlayHost {
+  val density: Float    // pixels per dp
+  val fontScale: Float  // the user's font scale; pixels per sp are density × fontScale
+  fun invalidate()      // one more draw, e.g. after an asset loads
+}
+```
+
+This one pixelates the hidden words:
+
+```kotlin
+data class PixelatedSpoiler(val blockSize: Float = 6f) : CustomSpoilerOverlay {
+  override fun createSegmentOverlay(host: SpoilerOverlayHost, style: SpoilerStyle) =
+    PixelatedSegment(blockSize * host.density)
+}
+
+class PixelatedSegment(private val blockSize: Float) : SpoilerSegmentOverlay() {
+  // Paint filters bitmaps by default since Android 10; turn it off so the blocks keep hard edges.
+  private val paint = Paint().apply { isFilterBitmap = false }
+  private val bounds = RectF()
+  private var pixels: Bitmap? = null
+
+  override fun draw(canvas: Canvas, segment: SpoilerSegment) {
+    val columns = (segment.width / blockSize).toInt().coerceAtLeast(1)
+    val rows = (segment.height / blockSize).toInt().coerceAtLeast(1)
+    val image = pixels?.takeIf { it.width == columns && it.height == rows }
+      ?: Bitmap.createBitmap(columns, rows, Bitmap.Config.ARGB_8888).also { bitmap ->
+        // The text, shrunk to one pixel per block.
+        Canvas(bitmap).apply {
+          scale(columns / segment.width, rows / segment.height)
+          segment.drawText(this)
+        }
+        pixels = bitmap
+      }
+    bounds.set(0f, 0f, segment.width, segment.height)
+    canvas.drawBitmap(image, null, bounds, paint)
+  }
+
+  override fun onRemoved() {
+    pixels = null
+  }
+}
+
+EnrichedMarkdownText(markdown = content, spoilerOverlay = PixelatedSpoiler())
+```
+
+A spoiler gets one segment overlay per line. The view creates it when the segment comes into view
+and removes it when the spoiler is revealed, when the text reflows onto different lines, when an
+image under the spoiler finishes loading, or when the overlay or the style changes, so keep
+`createSegmentOverlay` cheap. The canvas is moved to the segment's top-left corner and clipped to
+its size. The view rebuilds its overlays only when the new
+`spoilerOverlay` is not `==` to the old one, so make custom overlays data classes or objects, or
+`remember` them: a plain class created in every recomposition restarts every overlay each time.
+
+**Animation.** An overlay that moves on its own returns `true` from `isAnimated`, and the view then
+draws every frame while it is on screen. Advance the effect from `segment.frameTimeMillis`. `draw`
+then runs every frame for every segment on screen, so make paints, paths, shaders and brushes once,
+in the overlay's fields, and move or restyle them per frame instead of creating new ones.
+
+**Reveals.** The view runs the reveal over the overlay's `revealDurationMillis` (450 ms unless
+overridden) and calls `drawReveal` each frame with `progress` rising from 0 towards 1, fading the
+text in underneath on the same clock. The default draws `draw()` fading out; override it to shape
+the reveal (a burst, a wipe), and call `super` to keep the fade. Every segment of a spoiler reveals
+at once; for a line-by-line effect, stagger by `segment.index`. The duration follows the system's
+animator duration scale, like any `ValueAnimator`: a scale of 2× doubles it, and with animations
+turned off a reveal completes at once.
+
+**Showing the text through.** `drawText` draws the segment's text as it looks once revealed, each
+glyph where the text view draws it, so a blur, pixelation or scramble lines up with the real text as
+the overlay fades. It lays out the line each time, so cache what you make from it, as above. Call
+it on the main thread, as `draw` does: it lifts the spoiler's concealment while it draws, so a call
+from another thread could show the hidden text. For heavy work such as a blur, draw the text into a
+bitmap on the main thread, process the bitmap on another one, and call `host.invalidate()` when the
+result is ready.
+
+**No backdrop needed.** The concealed text is drawn transparent, emoji and inline images included,
+so an overlay can leave parts of the segment clear.
+
+##### Custom overlays with `DrawScope`
+
+To draw with Compose's `DrawScope`, `Color` and `Brush` instead, extend
+`DrawScopeSpoilerSegmentOverlay` from the `compose` module and pass it the host:
+
+```kotlin
+abstract class DrawScopeSpoilerSegmentOverlay(host: SpoilerOverlayHost) : SpoilerSegmentOverlay() {
+  abstract fun DrawScope.draw(segment: SpoilerSegment)
+  open fun DrawScope.drawReveal(segment: SpoilerSegment, progress: Float)  // default: drawFadingOut()
+  protected fun DrawScope.drawFadingOut(segment: SpoilerSegment, progress: Float)
+}
+
+fun DrawScope.drawSegmentText(segment: SpoilerSegment)  // segment.drawText(), through the scope
+```
+
+The scope's `size` is the segment's, its origin is the segment's top-left corner, its density is the
+display's (with the user's font scale), and its `layoutDirection` follows the segment's paragraph (`segment.isRtl`). `isAnimated`,
+`onRemoved`, reveals and everything else work as above. This one sweeps a band of light across a
+rounded box, and wipes the box away in reading order when revealed:
+
+```kotlin
+data class ShimmerSpoiler(val periodMillis: Long = 1_500) : CustomSpoilerOverlay {
+  override fun createSegmentOverlay(host: SpoilerOverlayHost, style: SpoilerStyle) =
+    ShimmerSegment(host, Color(style.color), periodMillis)
+}
+
+class ShimmerSegment(
+  host: SpoilerOverlayHost,
+  private val color: Color,
+  private val periodMillis: Long,
+) : DrawScopeSpoilerSegmentOverlay(host) {
+  // A band of light, made once and moved with translate(): a new Brush each frame is a new shader.
+  private val band = 32 * host.density
+  private val shine =
+    Brush.horizontalGradient(
+      listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent),
+      startX = -band,
+      endX = band,
+    )
+
+  override val isAnimated get() = true
+
+  override fun DrawScope.draw(segment: SpoilerSegment) {
+    drawRoundRect(color, cornerRadius = CornerRadius(4.dp.toPx()))
+    // The band sweeps across in reading order, once per period.
+    val phase = (segment.frameTimeMillis % periodMillis) / periodMillis.toFloat()
+    val travelled = -band + (size.width + 2 * band) * phase
+    val center = if (layoutDirection == LayoutDirection.Ltr) travelled else size.width - travelled
+    translate(left = center) {
+      drawRect(shine, topLeft = Offset(-band, 0f), size = Size(2 * band, size.height))
+    }
+  }
+
+  // Wipes the box away in reading order, instead of the default fade.
+  override fun DrawScope.drawReveal(segment: SpoilerSegment, progress: Float) {
+    val covered = size.width * (1f - progress)
+    val left = if (layoutDirection == LayoutDirection.Ltr) size.width - covered else 0f
+    clipRect(left = left, right = left + covered) { draw(segment) }
+  }
+}
+
+EnrichedMarkdownText(markdown = content, spoilerOverlay = ShimmerSpoiler())
+```
+
+To keep the fade and add to it, call `drawFadingOut(segment, progress)` from `drawReveal`. To show
+the text through, `drawSegmentText(segment)` draws the glyphs into the scope, under its current transform.
+
+`createSegmentOverlay` runs outside composition, so an overlay that needs a value from the
+composition, such as a theme color, takes it as a property, the way `ShimmerSpoiler` takes `periodMillis`, and is
+created with it in the composable. Since `EnrichedMarkdownText` rebuilds the overlays whenever `spoilerOverlay` is not `==` to the last
+one, keep such overlays data classes or objects, so each recomposition passes an equal value, or
+`remember` the instance. Don't build one from a lambda created during composition: two lambdas are
+never equal, so every recomposition would restart the overlay.
+
 #### LaTeX math
 
-With the `:math` artifact on the classpath, `LatexMathPlugin` enabled (see
-[Enabling a plugin](#enabling-a-plugin)), and `Md4cFlags(latexMath = true)` on the instance, `$...$` renders inline
+With the `:math` artifact on the classpath, the instance inside a `LatexMathPlugin { }` scope,
+and `Md4cFlags(latexMath = true)` on the instance, `$...$` renders inline
 within the text and `$$...$$` on its own line renders as a standalone, horizontally scrollable
 block. Long-press a block equation to copy its LaTeX source or copy it as Markdown. Display math
 that appears mid-line (`a $$x$$ b`) stays in the text flow rather than breaking the paragraph.
@@ -368,12 +535,12 @@ EnrichedMarkdownText(
 ```
 
 Miss any of the three and the math still reaches the screen, unrendered: with the flag off it is
-literal text, and with the flag on but the plugin not enabled it is its own raw source, delimiters
+literal text, and with the flag on but no plugin enabled it is its own raw source, delimiters
 included, plus one warning in logcat.
 
 #### `onPluginEvent` and `LatexError`
 
-Installed plugins report per-view problems through `onPluginEvent`, a single channel shared by
+Enabled plugins report per-view problems through `onPluginEvent`, a single channel shared by
 every plugin rather than one callback per feature. The math plugin sends a `LatexError` when
 the engine cannot draw an expression (an unsupported command, a syntax error); the expression then
 shows as its raw source.
@@ -499,7 +666,7 @@ SyntaxHighlightingPlugin {
 }
 ```
 
-…on an `EnrichedMarkdown` view, with `markdownView.setPlugins(listOf(SyntaxHighlightingPlugin))`, or app-wide, as a fallback, with `EnrichedMarkdownPlugins.install(SyntaxHighlightingPlugin)` at startup. See [Enabling a plugin](#enabling-a-plugin).
+…or pass it to one instance as `EnrichedMarkdownText(plugins = listOf(SyntaxHighlightingPlugin))`. See [Optional plugins](#optional-plugins).
 
 A fenced block is colored when its info string names one of the bundled languages; a block with no language, or one outside the list, keeps the `codeBlock` color. Only the text color changes, so a highlighted block measures exactly like a plain one.
 

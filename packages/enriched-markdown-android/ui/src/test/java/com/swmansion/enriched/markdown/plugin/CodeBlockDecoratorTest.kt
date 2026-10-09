@@ -24,12 +24,10 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -38,13 +36,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class CodeBlockDecoratorTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
-
-  // The registry is process-wide and the first render anywhere freezes it.
-  @Before
-  fun setUp() = EnrichedMarkdownPlugins.reset()
-
-  @After
-  fun tearDown() = EnrichedMarkdownPlugins.reset()
 
   @Test
   fun aTopLevelBlockIsDecoratedOverItsCodeWithItsLanguage() {
@@ -218,16 +209,6 @@ class CodeBlockDecoratorTest {
           ),
       ).describe(),
     )
-  }
-
-  @Test
-  fun aDecoratorInstalledAppWideIsUsed() {
-    val decorator = RecordingDecorator()
-    EnrichedMarkdownPlugins.install(DecoratingPlugin(decorator))
-
-    render(document(codeBlock(CODE, "kotlin")))
-
-    assertEquals(listOf(Decorated(CODE, "kotlin")), decorator.calls)
   }
 
   /** The view's render path takes this snapshot; the parser it also needs is native, so it is not run. */

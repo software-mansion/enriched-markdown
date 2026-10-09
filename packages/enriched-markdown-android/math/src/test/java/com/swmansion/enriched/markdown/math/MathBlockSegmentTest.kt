@@ -10,17 +10,15 @@ import com.swmansion.enriched.markdown.math.test.MathTestSupport.latexMathDispla
 import com.swmansion.enriched.markdown.math.test.MathTestSupport.paragraph
 import com.swmansion.enriched.markdown.math.test.MathTestSupport.text
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.segments.MarkdownSegment
 import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -33,19 +31,13 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
 class MathBlockSegmentTest {
-  // The registry is process-wide and the first render anywhere freezes it.
-  @Before
-  fun setUp() = EnrichedMarkdownPlugins.reset()
-
-  @After
-  fun tearDown() = EnrichedMarkdownPlugins.reset()
+  private val plugins = PluginSnapshot.of(LatexMathPlugin)
 
   @Test
-  fun documentLevelDisplayMathBecomesItsOwnSegmentOnceThePluginIsInstalled() {
-    EnrichedMarkdownPlugins.install(LatexMathPlugin)
+  fun documentLevelDisplayMathBecomesItsOwnSegmentWithThePlugin() {
     val doc = document(paragraph(text("Before")), latexMathDisplay("E = mc^2"), paragraph(text("After")))
 
-    val segments = splitASTIntoSegments(doc)
+    val segments = splitASTIntoSegments(doc, plugins)
 
     assertEquals(3, segments.size)
     assertTrue(segments[0] is MarkdownSegment.Text)
@@ -60,7 +52,7 @@ class MathBlockSegmentTest {
   fun withoutThePluginDisplayMathStaysRawTextInTheSurroundingSegment() {
     val doc = document(paragraph(text("Before")), latexMathDisplay("E = mc^2"))
 
-    val segments = splitASTIntoSegments(doc)
+    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
 
     assertEquals(1, segments.size)
     val rendered = MarkdownSegmentRenderer.render(segments, defaultStyle, context).single()
@@ -69,8 +61,6 @@ class MathBlockSegmentTest {
 
   @Test
   fun thePayloadCarriesTheLatexAsItsSignatureSource() {
-    EnrichedMarkdownPlugins.install(LatexMathPlugin)
-
     val rendered = renderSegmentsOf(document(latexMathDisplay("E = mc^2"))).single()
 
     assertEquals("E = mc^2", (rendered as RenderedSegment.Custom<*>).payload.signatureSource)
@@ -79,8 +69,6 @@ class MathBlockSegmentTest {
 
   @Test
   fun theSignatureFollowsTheLatexAndDiffersFromATextSegment() {
-    EnrichedMarkdownPlugins.install(LatexMathPlugin)
-
     val first = renderSegmentsOf(document(latexMathDisplay("x^2"))).single()
     val same = renderSegmentsOf(document(latexMathDisplay("x^2"))).single()
     val other = renderSegmentsOf(document(latexMathDisplay("x^3"))).single()
@@ -93,13 +81,11 @@ class MathBlockSegmentTest {
 
   @Test
   fun latexWithNoEquationInItFallsBackToShowingItsSource() {
-    EnrichedMarkdownPlugins.install(LatexMathPlugin)
-
     val rendered = renderSegmentsOf(document(latexMathDisplay("   "))).single()
 
     assertEquals("\$\$   \$\$", (rendered as RenderedSegment.Text).styledText.toString())
   }
 
   private fun renderSegmentsOf(doc: MarkdownASTNode): List<RenderedSegment> =
-    MarkdownSegmentRenderer.render(splitASTIntoSegments(doc), defaultStyle, context)
+    MarkdownSegmentRenderer.render(splitASTIntoSegments(doc, plugins), defaultStyle, context, plugins = plugins)
 }
