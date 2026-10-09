@@ -41,7 +41,9 @@ dependencies {
   // The Compose style DSL (`markdownStyle { math { ... } }`) ships as extension functions on
   // :compose types and the `LatexMathPlugin { ... }` scope as a composable, but math renders
   // through the View API alone. compileOnly keeps Compose out of the published POM, so an app
-  // that never uses :compose does not gain it by adding math.
+  // that never uses :compose does not gain it by adding math. The Compose compiler still
+  // annotates every class here with StabilityInferred, which such an app lacks;
+  // consumer-rules.pro tells R8 not to fail on that missing class.
   compileOnly(project(":compose"))
   compileOnly(composeBom)
   compileOnly("androidx.compose.ui:ui")
