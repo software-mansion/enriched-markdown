@@ -8,14 +8,12 @@ import com.swmansion.enriched.markdown.plugin.PluginRegistry
 
 /**
  * Tree-sitter syntax highlighting for fenced code blocks, by the fence's language. Enable it for a
- * Compose subtree with a scope, or pass it to a view directly:
+ * Compose subtree with a scope:
  *
  * ```
  * SyntaxHighlightingPlugin {
  *   EnrichedMarkdownText(markdown)
  * }
- *
- * markdownView.setPlugins(listOf(SyntaxHighlightingPlugin))
  * ```
  *
  * Bash, C, CSS, Go, HTML, Java, JavaScript, JSON, Markdown, Python, Rust, TSX, TypeScript and YAML

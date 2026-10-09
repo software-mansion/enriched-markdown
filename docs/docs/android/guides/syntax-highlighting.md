@@ -26,11 +26,10 @@ The artifact is not on Maven Central yet. It will be published with the next rel
 
 ## Turning it on
 
-A plugin on the classpath does nothing until it is enabled. In Compose, call it as a scope around the part of the tree that should highlight code:
+A plugin on the classpath does nothing until it is enabled. Call it as a scope around the part of the tree that should highlight code:
 
 ```kotlin
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.invoke
 import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
 
 SyntaxHighlightingPlugin {
@@ -39,23 +38,6 @@ SyntaxHighlightingPlugin {
 ```
 
 Every `EnrichedMarkdownText` inside the scope highlights code - wrap one screen, or the whole app. Scopes nest with each other and independently of `MarkdownTheme`, so `LatexMathPlugin { SyntaxHighlightingPlugin { ... } }` enables both. To choose the plugins for a single instance, pass them as `EnrichedMarkdownText(plugins = listOf(SyntaxHighlightingPlugin))`.
-
-In a View-based screen, hand the `EnrichedMarkdown` view its plugins:
-
-```kotlin
-markdownView.setPlugins(listOf(SyntaxHighlightingPlugin))
-```
-
-As a fallback for everything outside a scope, and for views whose list was never set, install it app-wide **once, at startup**, before any Markdown renders - the first render freezes the registry, and a later install is ignored with a warning:
-
-```kotlin
-class MyApplication : Application() {
-  override fun onCreate() {
-    super.onCreate()
-    EnrichedMarkdownPlugins.install(SyntaxHighlightingPlugin)
-  }
-}
-```
 
 There is no parser flag. Without the plugin, fenced code renders exactly as before, in the [`codeBlock`](/android/api-reference/style-properties) color.
 
@@ -110,8 +92,6 @@ Each of the 14 token types takes its color from the first of:
 | `tag` | `#7EE787` | `#116329` |
 | `operator`, `punctuation`, `variable`, `embedded` | `codeBlock` color | `codeBlock` color |
 
-### In Compose
-
 Set colors with the `syntaxHighlighting` block. It is an extension function shipped by the artifact, so it needs an import:
 
 ```kotlin
@@ -131,23 +111,6 @@ markdownStyle {
 ```
 
 The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute`, and `embedded`. Repeating the block merges into the earlier one, so `MarkdownStyle.merge { syntaxHighlighting { ... } }` layers over a base style like any built-in block.
-
-### With views
-
-Store a `SyntaxHighlightStyle` - ARGB ints - in the view's `StyleConfig`:
-
-```kotlin
-val tokenColors =
-  SyntaxHighlightStyle()
-    .with(SyntaxTokenType.KEYWORD, 0xFFC678DD.toInt())
-    .with(SyntaxTokenType.STRING, 0xFF98C379.toInt())
-
-markdownView.setMarkdownStyle(
-  StyleConfig.default(context).withExtension(SyntaxHighlightStyleKey, tokenColors),
-)
-```
-
-Unset types fall back the same way. To pin one palette whatever the background, store `SyntaxHighlightStyle.githubLight()` or `SyntaxHighlightStyle.githubDark()`.
 
 ## Licenses
 

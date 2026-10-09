@@ -47,7 +47,6 @@ An app that does not add a line pays nothing for that plugin — not the artifac
 Enable a plugin for every `EnrichedMarkdownText` in a subtree by wrapping it in the plugin's scope:
 
 ```kotlin
-import com.swmansion.enriched.markdown.compose.invoke
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
 
@@ -658,7 +657,6 @@ The optional `:syntax-highlighting` artifact (see [Optional plugins](#optional-p
 
 ```kotlin
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.invoke
 import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
 
 SyntaxHighlightingPlugin {
@@ -718,26 +716,6 @@ markdownStyle {
 ```
 
 The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute` and `embedded`; `this[SyntaxTokenType.KEYWORD] = color` sets a type chosen at runtime. Repeating the block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { syntaxHighlighting { … } }` layers over a base style.
-
-On an `EnrichedMarkdown` view, store a `SyntaxHighlightStyle` (ARGB ints) in its `StyleConfig`:
-
-```kotlin
-import com.swmansion.enriched.markdown.styles.StyleConfig
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightStyle
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightStyleKey
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxTokenType
-
-val tokenColors =
-  SyntaxHighlightStyle()
-    .with(SyntaxTokenType.KEYWORD, 0xFFC678DD.toInt())
-    .with(SyntaxTokenType.STRING, 0xFF98C379.toInt())
-
-markdownView.setMarkdownStyle(
-  StyleConfig.default(context).withExtension(SyntaxHighlightStyleKey, tokenColors),
-)
-```
-
-The same order applies: types the style leaves unset fall back to the palette, then to the block color. To pin a palette whatever the background, store `SyntaxHighlightStyle.githubLight()` or `SyntaxHighlightStyle.githubDark()`.
 
 ### Size and licenses
 
