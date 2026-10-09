@@ -22,9 +22,9 @@ def artifactMetadata = [
     name: "Enriched Markdown Math",
     description: "Optional RaTeX-backed LaTeX math plugin for the Enriched Markdown Android",
   ],
-  "syntax-highlighting": [
-    name: "Enriched Markdown Syntax Highlighting",
-    description: "Optional tree-sitter-backed code block syntax highlighting plugin for the Enriched Markdown Android",
+  "code-highlight": [
+    name: "Enriched Markdown Code Highlighting",
+    description: "Optional tree-sitter-backed code block highlighting plugin for the Enriched Markdown Android",
   ],
 ]
 

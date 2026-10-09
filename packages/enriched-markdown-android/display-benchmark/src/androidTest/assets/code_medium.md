@@ -1,6 +1,6 @@
 # Code document (medium)
 
-Fenced code blocks in every language the syntax highlighting plugin bundles.
+Fenced code blocks in every language the code highlighting plugin bundles.
 
 ## python 1
 

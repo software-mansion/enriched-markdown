@@ -20,6 +20,7 @@ import androidx.benchmark.junit4.measureRepeatedOnMainThread
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
@@ -27,7 +28,6 @@ import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.StyleConfig
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
 import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
@@ -53,7 +53,7 @@ import java.io.File
  * document can be attributed to one of them. They share the fixture and the parsed
  * AST with [full] and keep per-iteration setup out of the measured region.
  *
- * The `code_medium` cases render one document three ways, so the cost syntax highlighting adds to
+ * The `code_medium` cases render one document three ways, so the cost code highlighting adds to
  * the render can be read off against the plain case: `_highlighted` with the plugin's token cache
  * warm, as on a re-render, and `_highlighted_cold` with every block tokenized afresh, as on a
  * document's first render.
@@ -70,7 +70,7 @@ class DisplayBenchmark(
   private val fixture = document.substringBefore(HIGHLIGHTED_SUFFIX)
 
   private val plugins =
-    if (HIGHLIGHTED_SUFFIX in document) PluginSnapshot.of(SyntaxHighlightingPlugin) else PluginSnapshot.EMPTY
+    if (HIGHLIGHTED_SUFFIX in document) PluginSnapshot.of(CodeHighlightPlugin) else PluginSnapshot.EMPTY
 
   /**
    * The plugin caches tokens process-wide by block, so a cold case renders a document whose blocks

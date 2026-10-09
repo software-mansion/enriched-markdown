@@ -194,7 +194,7 @@ function complexSection(rnd, index) {
 }
 
 /**
- * One snippet per language the syntax highlighting plugin bundles, under the fence tag that selects
+ * One snippet per language the code highlighting plugin bundles, under the fence tag that selects
  * it. `{a}`, `{b}` and `{c}` become identifiers and `{n}` a number, picked per block, so no two
  * blocks are equal and a token cache cannot serve one block's tokens to another.
  */
@@ -425,7 +425,7 @@ for (const [size, bytes] of Object.entries(SIZES)) {
 
 DOCUMENTS['code_medium.md'] = grow(
   'Code document (medium)',
-  'Fenced code blocks in every language the syntax highlighting plugin bundles.',
+  'Fenced code blocks in every language the code highlighting plugin bundles.',
   SIZES.medium,
   0xD0C0_3000 + SIZES.medium,
   codeSection,

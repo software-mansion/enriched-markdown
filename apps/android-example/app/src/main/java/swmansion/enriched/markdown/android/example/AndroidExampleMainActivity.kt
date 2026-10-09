@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.swmansion.enriched.markdown.compose.MarkdownTheme
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
 
 class AndroidExampleMainActivity : ComponentActivity() {
   @OptIn(ExperimentalMaterial3Api::class)
@@ -40,10 +40,10 @@ class AndroidExampleMainActivity : ComponentActivity() {
       var currentRoute by rememberSaveable { mutableStateOf(ExampleRoute.Home) }
 
       MaterialTheme {
-        // Math and syntax highlighting ship as their own artifacts; these scopes enable them for every
+        // Math and code highlighting ship as their own artifacts; these scopes enable them for every
         // EnrichedMarkdownText below. Math also needs `Md4cFlags(latexMath = true)` on the instance.
         LatexMathPlugin {
-          SyntaxHighlightingPlugin {
+          CodeHighlightPlugin {
             MarkdownTheme {
               Scaffold(
                 modifier = Modifier.fillMaxSize(),

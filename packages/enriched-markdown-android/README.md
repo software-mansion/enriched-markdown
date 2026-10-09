@@ -27,7 +27,7 @@ The `compose` artifact pulls in internal `ui` and `parser` modules transitively.
 
 ### Optional plugins
 
-Features with a heavy dependency of their own ship as separate artifacts that you enable where you need them. Today there are two: **math**, which renders LaTeX (see [LaTeX math](#latex-math)), and **syntax-highlighting**, which colors fenced code (see [Syntax highlighting](#syntax-highlighting)).
+Features with a heavy dependency of their own ship as separate artifacts that you enable where you need them. Today there are two: **math**, which renders LaTeX (see [LaTeX math](#latex-math)), and **code-highlight**, which colors fenced code (see [Code highlighting](#code-highlighting)).
 
 > [!NOTE]
 > Neither artifact is on Maven Central yet. They will be published with the next release.
@@ -38,20 +38,20 @@ Once they are released, add the ones you need next to `compose`, using the same 
 dependencies {
   implementation("com.swmansion.enriched.markdown:compose:<version>")
   implementation("com.swmansion.enriched.markdown:math:<version>") // only if you render LaTeX
-  implementation("com.swmansion.enriched.markdown:syntax-highlighting:<version>") // only if you color code
+  implementation("com.swmansion.enriched.markdown:code-highlight:<version>") // only if you color code
 }
 ```
 
-An app that does not add a line pays nothing for that plugin — not the artifact, and not its native library. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run. `:syntax-highlighting` adds about 8 MB per ABI to an installed app; see [Size and licenses](#size-and-licenses).
+An app that does not add a line pays nothing for that plugin — not the artifact, and not its native library. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run. `:code-highlight` adds about 8 MB per ABI to an installed app; see [Size and licenses](#size-and-licenses).
 
 Enable a plugin for every `EnrichedMarkdownText` in a subtree by wrapping it in the plugin's scope:
 
 ```kotlin
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
 
 LatexMathPlugin {
-  SyntaxHighlightingPlugin {
+  CodeHighlightPlugin {
     HomeScreen()
   }
 }
@@ -61,7 +61,7 @@ Scopes nest: an inner scope adds its plugin to those enabled outside, and a scop
 
 Without a plugin nothing breaks: fenced code renders in the code block color, and `$...$` and `$$...$$` render as their raw source, delimiters included, with a single `EnrichedMarkdown` warning in logcat naming the missing math artifact and how to enable the plugin.
 
-The math plugin and its parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, plugin or not. Syntax highlighting has no flag: fenced code is always parsed with its language.
+The math plugin and its parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, plugin or not. Code highlighting has no flag: fenced code is always parsed with its language.
 
 ## Quick start
 
@@ -175,7 +175,7 @@ The `markdownStyle` builder supports these blocks:
 | `spoiler` | The overlay that conceals `\|\|spoiler\|\|` text |
 | `math` | Block LaTeX math (`$$...$$`; needs the `:math` artifact and `Md4cFlags(latexMath = true)`) |
 | `inlineMath` | Inline LaTeX math (`$...$`; same two requirements) |
-| `syntaxHighlighting` | Token colors in highlighted code blocks (needs the `:syntax-highlighting` artifact; see [Syntax highlighting](#colors)) |
+| `codeHighlight` | Token colors in highlighted code blocks (needs the `:code-highlight` artifact; see [Code highlighting](#colors)) |
 
 Use `MarkdownStyle.merge { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style. `a.merge(b)` and `a + b` layer a whole style on top of another the same way.
 
@@ -651,20 +651,20 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 Style scope constructors are `internal` — build scopes through the `markdownStyle { }` DSL, which is
 the only supported way to reach them.
 
-## Syntax highlighting
+## Code highlighting
 
-The optional `:syntax-highlighting` artifact (see [Optional plugins](#optional-plugins)) colors fenced code blocks with [tree-sitter](https://tree-sitter.github.io/), by the language on the opening fence. Enable it like any plugin, as a Compose scope:
+The optional `:code-highlight` artifact (see [Optional plugins](#optional-plugins)) colors fenced code blocks with [tree-sitter](https://tree-sitter.github.io/), by the language on the opening fence. Enable it like any plugin, as a Compose scope:
 
 ```kotlin
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.syntaxhighlighting.SyntaxHighlightingPlugin
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
 
-SyntaxHighlightingPlugin {
+CodeHighlightPlugin {
   EnrichedMarkdownText(markdown = content)
 }
 ```
 
-…or pass it to one instance as `EnrichedMarkdownText(plugins = listOf(SyntaxHighlightingPlugin))`. See [Optional plugins](#optional-plugins).
+…or pass it to one instance as `EnrichedMarkdownText(plugins = listOf(CodeHighlightPlugin))`. See [Optional plugins](#optional-plugins).
 
 A fenced block is colored when its info string names one of the bundled languages; a block with no language, or one outside the list, keeps the `codeBlock` color. Only the text color changes, so a highlighted block measures exactly like a plain one.
 
@@ -695,19 +695,19 @@ Each of the 14 token types takes its color from the first of:
 2. GitHub's palette, dark when the `codeBlock` `backgroundColor` is dark and light otherwise — the default code block is dark, so it gets the dark one;
 3. the `codeBlock` color. Operators, punctuation, variables and embedded code have no palette color, so they land here unless you set one.
 
-In Compose, set colors with the `syntaxHighlighting` style block. Like `math`, it is an extension function from the plugin's artifact, so it needs an import:
+In Compose, set colors with the `codeHighlight` style block. Like `math`, it is an extension function from the plugin's artifact, so it needs an import:
 
 ```kotlin
 import androidx.compose.ui.graphics.Color
 import com.swmansion.enriched.markdown.compose.markdownStyle
-import com.swmansion.enriched.markdown.syntaxhighlighting.compose.syntaxHighlighting
+import com.swmansion.enriched.markdown.codehighlight.compose.codeHighlight
 
 markdownStyle {
   codeBlock {
     color = Color(0xFFABB2BF)
     backgroundColor = Color(0xFF282C34)
   }
-  syntaxHighlighting {
+  codeHighlight {
     keyword = Color(0xFFC678DD)
     string = Color(0xFF98C379)
     comment = Color(0xFF7F848E)
@@ -715,20 +715,20 @@ markdownStyle {
 }
 ```
 
-The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute` and `embedded`; `this[SyntaxTokenType.KEYWORD] = color` sets a type chosen at runtime. Repeating the block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { syntaxHighlighting { … } }` layers over a base style.
+The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute` and `embedded`; `this[SyntaxTokenType.KEYWORD] = color` sets a type chosen at runtime. Repeating the block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { codeHighlight { … } }` layers over a base style.
 
 ### Size and licenses
 
 The artifact compiles tree-sitter and the 14 grammars into one native library, `libenriched_markdown_highlight.so`: about 8 MB per ABI uncompressed, which is what an installed app carries since an APK stores native libraries uncompressed by default, and about 1.1 MB per ABI compressed, roughly what it adds to a download. It is opt-in only; `compose` never pulls it in.
 
-tree-sitter and every bundled grammar are MIT-licensed. Their notices are in [`syntax-highlighting/LICENSE-tree-sitter`](syntax-highlighting/LICENSE-tree-sitter) and [`syntax-highlighting/LICENSE-grammars`](syntax-highlighting/LICENSE-grammars); include them with your app's open-source notices.
+tree-sitter and every bundled grammar are MIT-licensed. Their notices are in [`code-highlight/LICENSE-tree-sitter`](code-highlight/LICENSE-tree-sitter) and [`code-highlight/LICENSE-grammars`](code-highlight/LICENSE-grammars); include them with your app's open-source notices.
 
 ## Supported Markdown
 
 - Headings (`#`–`######`)
 - Paragraphs, line breaks
 - **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~, ^superscript^, ~subscript~, ==highlight==
-- Fenced code blocks, colored by language with the optional `:syntax-highlighting` artifact — see [Syntax highlighting](#syntax-highlighting)
+- Fenced code blocks, colored by language with the optional `:code-highlight` artifact — see [Code highlighting](#code-highlighting)
 - Block quotes
 - Ordered and unordered lists
 - Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemToggle`)
@@ -832,7 +832,7 @@ yarn workspace @enriched-markdown/android test:android-native
 yarn workspace @enriched-markdown/android lint:android-native
 ```
 
-`:syntax-highlighting` builds tree-sitter and its grammars from sources that are not checked in. On a fresh clone, restore them once from the repository root before building (`yarn prepare` does the same):
+`:code-highlight` builds tree-sitter and its grammars from sources that are not checked in. On a fresh clone, restore them once from the repository root before building (`yarn prepare` does the same):
 
 ```sh
 yarn install && node vendor/vendor-grammars.mjs

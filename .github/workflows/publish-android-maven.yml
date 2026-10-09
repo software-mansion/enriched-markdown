@@ -36,7 +36,7 @@ jobs:
         run: yarn install --immutable
         working-directory: ${{ github.workspace }}
 
-      # The :syntax-highlighting AAR compiles the gitignored tree-sitter grammars.
+      # The :code-highlight AAR compiles the gitignored tree-sitter grammars.
       - name: Restore highlight vendor files
         run: node vendor/vendor-grammars.mjs
         working-directory: ${{ github.workspace }}

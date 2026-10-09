@@ -366,7 +366,7 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # :syntax-highlighting fails Gradle configuration without the grammars.
+      # :code-highlight fails Gradle configuration without the grammars.
       - name: Restore highlight vendor files
         uses: ./.github/actions/restore-highlight-vendor
 
@@ -415,7 +415,7 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # :syntax-highlighting fails Gradle configuration without the grammars.
+      # :code-highlight fails Gradle configuration without the grammars.
       - name: Restore highlight vendor files
         uses: ./.github/actions/restore-highlight-vendor
 
@@ -463,7 +463,7 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # :syntax-highlighting fails Gradle configuration without the grammars.
+      # :code-highlight fails Gradle configuration without the grammars.
       - name: Restore highlight vendor files
         uses: ./.github/actions/restore-highlight-vendor
 
