@@ -38,8 +38,6 @@ android {
 
 dependencies {
   androidTestImplementation(project(":ui"))
-  // For the code_medium cases that render with code highlighting.
-  androidTestImplementation(project(":code-highlight"))
   androidTestImplementation("androidx.benchmark:benchmark-junit4:1.5.0")
   androidTestImplementation("androidx.test.ext:junit:1.2.1")
   androidTestImplementation("junit:junit:4.13.2")

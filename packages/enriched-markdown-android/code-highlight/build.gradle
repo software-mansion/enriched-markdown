@@ -4,16 +4,22 @@ plugins {
 }
 
 // The tree-sitter runtime, grammars and generated registry are gitignored and restored by the
-// vendor script, which writes grammars/.stamp once every grammar is in place. Fail at
-// configuration with the fix rather than deep inside CMake with a missing source.
-def highlightVendorDir = file("../../core/cpp/highlight/vendor")
-def highlightVendorStamp = new File(highlightVendorDir, "grammars/.stamp")
-if (!highlightVendorStamp.exists()) {
-  throw new GradleException(
-    "[code-highlight] tree-sitter grammar sources are missing (${highlightVendorStamp.path} not found). " +
-      "From the repository root run: yarn install && node vendor/vendor-grammars.mjs"
-  )
+// vendor script, which writes grammars/.stamp once every grammar is in place. Fail before the
+// build with the fix rather than deep inside CMake with a missing source. A task rather than a
+// configuration-time check, so builds that never compile this module (the benchmarks, :ui's
+// tests) run without the vendored sources.
+def highlightVendorStamp = file("../../core/cpp/highlight/vendor/grammars/.stamp")
+def checkHighlightVendor = tasks.register("checkHighlightVendor") {
+  doLast {
+    if (!highlightVendorStamp.exists()) {
+      throw new GradleException(
+        "[code-highlight] tree-sitter grammar sources are missing (${highlightVendorStamp.path} not found). " +
+          "From the repository root run: yarn install && node vendor/vendor-grammars.mjs"
+      )
+    }
+  }
 }
+tasks.named("preBuild") { dependsOn(checkHighlightVendor) }
 
 android {
   namespace = "com.swmansion.enriched.markdown.codehighlight"

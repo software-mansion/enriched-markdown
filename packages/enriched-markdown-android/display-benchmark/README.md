@@ -3,8 +3,7 @@
 Microbenchmarks of the time to display an **already-parsed** document on the first
 screen, plus a phase split that says which part of that time is spent where.
 
-This module is measurement scaffolding. It depends on `project(":ui")` (and on
-`project(":code-highlight")`, for the `code_medium` cases) directly, so an
+This module is measurement scaffolding. It depends on `project(":ui")` directly, so an
 optimisation can be measured without publishing anything, and it is never published
 itself: the root `subprojects` block applies the publish script only to `parser`, `ui`
 and `compose`, and `nmcpAggregation` does not list it. ktlint does apply here, as it
@@ -98,24 +97,8 @@ Both size ladders share byte targets (~2 KB / ~20 KB / ~100 KB), so a cost diffe
 between them comes from the markup rather than from the amount of text.
 
 `code_medium` (~20 KB) is a heading, a sentence and a fenced block per section, cycling
-through the 14 languages the `:code-highlight` plugin bundles, with no two blocks
-alike. It runs as three cases, all on the same fixture:
-
-| Case | Renders with |
-|---|---|
-| `code_medium` | No plugins: every block in the code block color |
-| `code_medium_highlighted` | `CodeHighlightPlugin`, its token cache warm, as when a document re-renders |
-| `code_medium_highlighted_cold` | `CodeHighlightPlugin`, every block tokenized afresh, as on a document's first render |
-
-The plugin caches tokens process-wide, so after the first iteration the warm case measures
-cache lookups and span application only. The cold case re-parses the fixture before each
-iteration, outside the measured region, with a whitespace-only line spelled from a
-counter after the first line of every block: every block is new to the cache, and every
-block is the same few characters longer in every iteration. It runs `full` and `render`
-only; `layout` and `draw` see the same spans as the warm case, so they are skipped. Read
-the highlighting cost off `render` (cold minus plain for a first render, warm minus plain
-for a re-render): that is the work the render thread does, off the main thread, in the
-real view.
+through 14 languages, with no two blocks alike. It renders with no plugins, so it measures
+the core's code blocks: every block in the code block color.
 
 `tools/generate-documents.mjs` generates them. It uses a fixed-seed PRNG, so it reproduces
 the committed files byte for byte. It writes to `<parent-of-tools>/fixtures`, i.e.
@@ -155,13 +138,6 @@ Subset while iterating:
 ```sh
 ANDROID_SERIAL=<serial> ./gradlew :display-benchmark:connectedReleaseAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.mdbench.documents=complex_large
-```
-
-The code highlighting comparison alone:
-
-```sh
-ANDROID_SERIAL=<serial> ./gradlew :display-benchmark:connectedReleaseAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.mdbench.documents=code_medium,code_medium_highlighted,code_medium_highlighted_cold
 ```
 
 Correctness-only check that skips measurement but still writes the screenshots:
