@@ -23,3 +23,7 @@ export function firstIndexReachingTarget(
   }
   return low;
 }
+
+export function isWhitespace(char: string): boolean {
+  return /\s/.test(char);
+}
