@@ -12,8 +12,9 @@ and by how each feature is enabled.
   iOS and Android. macOS runs the same iOS code with a few documented gaps - see
   [macOS support](/react-native/guides/macos).
 - The **Web** column is the same package's web build, a plain React renderer
-  that emits semantic HTML. It applies to `EnrichedMarkdownText` only, because
-  the editor has no web build yet. See the
+  that emits semantic HTML. The tables below cover `EnrichedMarkdownText`; the
+  editor's own web gaps are listed under
+  [EnrichedMarkdownTextInput](#enrichedmarkdowntextinput). See the
   [Web support](/react-native/guides/web-support) guide.
 
 **Yes** means the feature renders with no extra work beyond the switch named in
@@ -130,9 +131,11 @@ on web.
 The editor - produces a Markdown string as the user types.
 
 :::important
-The editor is **native only**: it runs on iOS, Android and macOS, and has no web
-build. Importing `EnrichedMarkdownTextInput` from the web entry point yields
-`undefined`.
+The editor runs on iOS, Android, macOS and web. On web the link and mention
+commands - `setLink`, `insertLink`, `removeLink`, `insertMention`,
+`startMention` - and `copyToClipboard` warn once and do nothing; everything
+else, including every inline and block command and all the `onChange*` events,
+works. See [Web support](/react-native/guides/web-support#not-supported-on-web).
 :::
 
 The editor is a **flat inline-formatting surface**: it supports inline styles

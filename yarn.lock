@@ -7787,6 +7787,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-dom@npm:^19.2.0":
+  version: 19.3.0
+  resolution: "@types/react-dom@npm:19.3.0"
+  peerDependencies:
+    "@types/react": ^19.3.0
+  checksum: 10c0/ce0066d28b62bc6afdd17ca84756b8fbe0f6ffc0c8b1e60739abc30e81510da2edbc1007e6ab3d974d30f5a8c25bb0f7de8d7ce09736c909fe84c0f9aed0b946
+  languageName: node
+  linkType: hard
+
 "@types/react-reconciler@npm:~0.33.0":
   version: 0.33.0
   resolution: "@types/react-reconciler@npm:0.33.0"
@@ -17380,12 +17389,14 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.0.0"
     "@types/react": "npm:^19.2.0"
+    "@types/react-dom": "npm:^19.2.0"
     babel-jest: "npm:^29.7.0"
     clang-format: "npm:^1.8.0"
     del-cli: "npm:^7.0.0"
     jest: "npm:^29.7.0"
     jest-environment-jsdom: "npm:^29.7.0"
     react: "npm:19.2.3"
+    react-dom: "npm:19.2.3"
     react-native: "npm:0.85.0"
     react-native-builder-bob: "npm:^0.41.0"
     test-renderer: "npm:^1.0.0"

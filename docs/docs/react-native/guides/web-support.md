@@ -20,11 +20,11 @@ WebAssembly. The WASM binary is inlined as base64 inside the JavaScript bundle
 and no build step is required by consumers.
 
 :::note
-Web support currently applies to `EnrichedMarkdownText` (the renderer).
-`EnrichedMarkdownTextInput` (the editor) is native-only today, with **web
-support coming soon** - see the [roadmap](/misc/roadmap). The
-[Feature support](/introduction/supported-features) overview has the full
-matrix.
+Web support covers `EnrichedMarkdownText` (the renderer) and
+`EnrichedMarkdownTextInput` (the editor). The editor's link and mention
+commands are **still coming** - see the [roadmap](/misc/roadmap) and the list
+below. The [Feature support](/introduction/supported-features) overview has the
+full matrix.
 :::
 
 ## Setup
@@ -365,7 +365,7 @@ gone, not concealed. Do not put content behind a spoiler if the same Markdown is
 rendered on web.
 :::
 
-- `EnrichedMarkdownTextInput` - native-only today; **web support is coming soon** (see the [roadmap](/misc/roadmap)). Importing it from the web entry point yields `undefined`.
+- `EnrichedMarkdownTextInput` link and mention commands - `setLink`, `insertLink`, `removeLink`, `insertMention`, `startMention` and `copyToClipboard` warn once and do nothing. Every other command, and the `onChange*` events, work (see the [roadmap](/misc/roadmap)).
 - Code-block syntax highlighting - fenced code blocks render as plain monospaced text with no per-token colors, no header bar and no copy button
 - Configurable link `target` - all links open in a new tab (`target="_blank" rel="noopener noreferrer"`). Use `onLinkPress` for custom navigation.
 - Videos - the published WebAssembly parser predates the feature, so a `<video>` tag produces no node and renders nothing
