@@ -21,7 +21,9 @@ val LocalMarkdownPlugins =
  * }
  * ```
  *
- * A plugin whose id is already enabled outside replaces that plugin rather than adding a second.
+ * A plugin whose id is already enabled outside replaces that plugin rather than adding a second,
+ * and moves to the end of the list: where several plugins claim the same node type the last one
+ * wins, so an inner scope always takes priority over the outer ones.
  *
  * Plugin artifacts can ship a scope named after the plugin that delegates here, so
  * `LatexMathPlugin { ... }` is the same as `MarkdownPlugins(LatexMathPlugin) { ... }`.

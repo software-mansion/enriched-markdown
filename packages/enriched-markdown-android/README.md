@@ -55,7 +55,7 @@ LatexMathPlugin {
 
 `LatexMathPlugin { }` is shorthand for the general `MarkdownPlugins(LatexMathPlugin) { }`, which takes any number of plugins, so several can be enabled in one scope: `MarkdownPlugins(pluginA, pluginB) { }`.
 
-Scopes nest: an inner scope adds its plugins to those enabled outside, and a scope for a plugin already enabled replaces it. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes.
+Scopes nest: an inner scope adds its plugins to those enabled outside, and a scope for a plugin already enabled replaces it and moves it last, so where two plugins claim the same Markdown element, the innermost scope wins. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes.
 
 Without the plugin nothing breaks: `$...$` and `$$...$$` render as their raw source, delimiters included, and logcat carries a single `EnrichedMarkdown` warning naming the missing artifact and how to enable the plugin.
 
