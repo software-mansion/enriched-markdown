@@ -35,11 +35,34 @@ export function paragraphBounds(
   return { start, end };
 }
 
+// The line containing `position`.
+export function lineAtPosition(position: number, text: string): RangeBounds {
+  return paragraphBounds(position, position, text);
+}
+
+// Bounds of every line the selection touches, first to last.
+export function linesTouching(
+  selection: RangeBounds,
+  text: string
+): RangeBounds[] {
+  const lines: RangeBounds[] = [];
+  const { end } = paragraphBounds(selection.start, selection.end, text);
+  let line = lineAtPosition(selection.start, text);
+  while (true) {
+    lines.push(line);
+    if (line.end >= end) {
+      return lines;
+    }
+    line = lineAtPosition(line.end + 1, text);
+  }
+}
+
 // Stores the block-level (line-scoped) ranges for the editor, mirroring
 // FormattingStore. Block ranges never overlap: at most one block covers any
 // paragraph, and ranges stay normalized to whole-line boundaries.
 export class BlockStore {
   private ranges: BlockRange[] = [];
+  private deferredRecomputes = 0;
 
   get allRanges(): BlockRange[] {
     return [...this.ranges];
@@ -54,6 +77,22 @@ export class BlockStore {
 
   clearAll(): void {
     this.ranges = [];
+  }
+
+  // Runs `writes` with the list-metadata pass held back until they are all in,
+  // then recomputes once. The ancestry clamp mutates `level` in place, so a
+  // pass over a half-written chain is destructive: it sees the gap where a
+  // line has not been written yet, flattens the item after it, and the
+  // finished chain can no longer tell what that depth was. Deferring also
+  // makes a multi-line write linear rather than one full pass per line.
+  batchWrites(writes: () => void): void {
+    this.deferredRecomputes++;
+    try {
+      writes();
+    } finally {
+      this.deferredRecomputes--;
+    }
+    this.recomputeListMetadata();
   }
 
   // Sets/replaces the block on every paragraph the given range touches,
@@ -127,7 +166,7 @@ export class BlockStore {
 
     let previousEnd = -1;
     this.ranges = this.ranges.filter((range) => {
-      const line = paragraphBounds(range.start, range.start, text);
+      const line = lineAtPosition(range.start, text);
       const isEmptyLine = line.end === line.start;
       if (
         (isEmptyLine && !ANCHORED_BLOCK_TYPES.has(range.type)) ||
@@ -153,6 +192,9 @@ export class BlockStore {
   // orphan nesting) and renumbers ordered items among their adjacent
   // same-depth, same-type run.
   private recomputeListMetadata(): void {
+    if (this.deferredRecomputes > 0) {
+      return;
+    }
     let prevEnd = -2;
     let prevDepth = -1;
     const counters = new Array<number>(MAX_LIST_DEPTH + 1).fill(0);
@@ -279,6 +321,11 @@ export class BlockStore {
     }
 
     this.ranges = ranges;
+  }
+
+  // The block on the line containing `position`, if any.
+  blockAt(position: number, text: string): BlockRange | null {
+    return this.blockStartingAt(lineAtPosition(position, text).start);
   }
 
   // Starts are unique (one block per paragraph), so the first range reaching

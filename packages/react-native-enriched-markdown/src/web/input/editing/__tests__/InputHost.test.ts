@@ -2,56 +2,109 @@
  * @jest-environment jsdom
  */
 import { InputHost, type InputHostOptions } from '../InputHost';
+import type { InputState } from '../InputState';
 
 function mount(options?: InputHostOptions) {
   const root = document.createElement('div');
   document.body.appendChild(root);
   const texts: string[] = [];
+  const states: InputState[] = [];
   const host = new InputHost(
     root,
-    { onChangeText: (text) => texts.push(text) },
+    {
+      onChangeText: (text) => texts.push(text),
+      onChangeState: (state) => states.push(state),
+    },
     options
   );
-  return { root, host, texts };
+  return { root, host, texts, states };
 }
 
-function caretAt(root: HTMLElement, offset: number): void {
-  // Walk the rendered lines to the text node holding `offset`, so the host
-  // reads the caret back out of the DOM the way a real one would.
+function lastState(states: InputState[]): InputState {
+  const state = states.at(-1);
+  if (state === undefined) {
+    throw new Error('no state was emitted');
+  }
+  return state;
+}
+
+function pressTab(root: HTMLElement, shiftKey = false): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', {
+    key: 'Tab',
+    shiftKey,
+    bubbles: true,
+    cancelable: true,
+  });
+  root.dispatchEvent(event);
+  return event;
+}
+
+// The text of every run carrying `style`, so a typing attribute can be read
+// back off the rendered DOM the way the user sees it.
+function styledText(root: HTMLElement, style: string): string[] {
+  return [...root.querySelectorAll(`.enrm-${style}`)].map(
+    (run) => run.textContent ?? ''
+  );
+}
+
+// The DOM point a model offset maps to, so the host reads a caret back out of
+// the DOM the way a real one would. Walks the lines, then the runs within the
+// line a styled range splits into several of.
+function domPointAt(
+  root: HTMLElement,
+  offset: number
+): { node: Node; offset: number } {
   let remaining = offset;
   for (const line of root.children) {
     const length = (line.textContent ?? '').length;
     if (remaining <= length) {
-      const text = line.firstElementChild?.firstChild;
-      const selection = document.getSelection()!;
-      if (text == null) {
-        selection.setBaseAndExtent(line, 0, line, 0);
-      } else {
-        selection.setBaseAndExtent(text, remaining, text, remaining);
+      const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      // An empty line holds a <br> and no text node.
+      if (node === null) {
+        return { node: line, offset: 0 };
       }
-      return;
+      while (remaining > (node.nodeValue ?? '').length) {
+        const next = walker.nextNode();
+        if (next === null) {
+          break;
+        }
+        remaining -= (node.nodeValue ?? '').length;
+        node = next;
+      }
+      return { node, offset: remaining };
     }
     remaining -= length + 1;
   }
+  return { node: root, offset: 0 };
+}
+
+function caretAt(root: HTMLElement, offset: number): void {
+  const point = domPointAt(root, offset);
+  document
+    .getSelection()!
+    .setBaseAndExtent(point.node, point.offset, point.node, point.offset);
 }
 
 function selectRange(root: HTMLElement, start: number, end: number): void {
-  const nodeAt = (offset: number) => {
-    let remaining = offset;
-    for (const line of root.children) {
-      const length = (line.textContent ?? '').length;
-      if (remaining <= length) {
-        return { node: line.firstElementChild?.firstChild ?? line, remaining };
-      }
-      remaining -= length + 1;
-    }
-    return { node: root, remaining: 0 };
-  };
-  const from = nodeAt(start);
-  const to = nodeAt(end);
+  const from = domPointAt(root, start);
+  const to = domPointAt(root, end);
   document
     .getSelection()!
-    .setBaseAndExtent(from.node, from.remaining, to.node, to.remaining);
+    .setBaseAndExtent(from.node, from.offset, to.node, to.offset);
+}
+
+// A toolbar command reads the model selection, which in a browser arrives
+// through `selectionchange` while the editor has focus. jsdom dispatches
+// neither, so both halves are done by hand.
+function selectRangeFocused(
+  root: HTMLElement,
+  start: number,
+  end: number
+): void {
+  root.focus();
+  selectRange(root, start, end);
+  document.dispatchEvent(new Event('selectionchange'));
 }
 
 function typeText(root: HTMLElement, data: string): void {
@@ -122,13 +175,7 @@ describe('InputHost', () => {
     const { root, host } = mount();
     typeText(root, 'ab');
 
-    for (const inputType of [
-      'insertParagraph',
-      'insertLineBreak',
-      'formatBold',
-      'historyUndo',
-      'insertFromDrop',
-    ]) {
+    for (const inputType of ['formatBold', 'historyUndo', 'insertFromDrop']) {
       const event = new InputEvent('beforeinput', {
         inputType,
         bubbles: true,
@@ -160,7 +207,6 @@ describe('InputHost', () => {
 
     it('joins the lines when a word delete has nowhere to go', () => {
       const { root, host } = mount();
-      // Enter is not wired yet, so the second line arrives by paste.
       sendClipboard(root, 'paste', 'ab\ncd');
       caretAt(root, 3);
       sendInput(root, 'deleteWordBackward');
@@ -271,6 +317,418 @@ describe('InputHost', () => {
       typeText(root, 'c');
 
       expect(host.value).toBe('abc');
+    });
+  });
+
+  describe('enter', () => {
+    it.each(['insertParagraph', 'insertLineBreak'])(
+      'inserts a line break for %s',
+      (inputType) => {
+        const { root, host } = mount();
+        typeText(root, 'ab');
+        sendInput(root, inputType);
+        typeText(root, 'c');
+
+        expect(host.value).toBe('ab\nc');
+      }
+    );
+
+    it('splits the line at the caret', () => {
+      const { root, host } = mount();
+      typeText(root, 'abcd');
+      caretAt(root, 2);
+      sendInput(root, 'insertParagraph');
+
+      expect(host.value).toBe('ab\ncd');
+    });
+
+    it('replaces the selection with the line break', () => {
+      const { root, host } = mount();
+      typeText(root, 'abcdef');
+      selectRange(root, 2, 4);
+      sendInput(root, 'insertParagraph');
+
+      expect(host.value).toBe('ab\nef');
+    });
+
+    it('continues a list item onto the new line', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleUnorderedList();
+      sendInput(root, 'insertParagraph');
+      typeText(root, 'b');
+
+      expect(host.value).toBe('a\nb');
+      expect(lastState(states).unorderedList).toEqual({
+        isActive: true,
+        depth: 0,
+      });
+    });
+
+    it('keeps both halves in the list when an item is split', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'ab');
+      host.toggleUnorderedList();
+      caretAt(root, 1);
+      sendInput(root, 'insertParagraph');
+
+      expect(host.value).toBe('a\nb');
+      // The caret lands on the second half, which stayed an item.
+      expect(lastState(states).unorderedList.isActive).toBe(true);
+    });
+
+    it('carries the depth onto the continued item', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleUnorderedList();
+      sendInput(root, 'insertParagraph');
+      typeText(root, 'b');
+      pressTab(root);
+      sendInput(root, 'insertParagraph');
+      typeText(root, 'c');
+
+      expect(host.value).toBe('a\nb\nc');
+      expect(lastState(states).unorderedList).toEqual({
+        isActive: true,
+        depth: 1,
+      });
+    });
+
+    // The way out of a list without reaching for the toolbar: Enter on an
+    // item with nothing in it un-lists that item rather than adding a line.
+    it('exits an empty list item instead of inserting a line', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleUnorderedList();
+      sendInput(root, 'insertParagraph');
+      expect(host.value).toBe('a\n');
+
+      sendInput(root, 'insertParagraph');
+
+      expect(host.value).toBe('a\n');
+      expect(lastState(states).unorderedList.isActive).toBe(false);
+    });
+
+    it('does not continue a heading', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleHeading(1);
+      sendInput(root, 'insertParagraph');
+      typeText(root, 'b');
+
+      expect(host.value).toBe('a\nb');
+      expect(lastState(states).heading.isActive).toBe(false);
+    });
+  });
+
+  describe('tab', () => {
+    // Tab never reaches beforeinput, so the editor has to claim the key or
+    // the browser moves focus out of it.
+    it('never leaves the editor', () => {
+      const { root } = mount();
+      typeText(root, 'a');
+
+      expect(pressTab(root).defaultPrevented).toBe(true);
+      expect(pressTab(root, true).defaultPrevented).toBe(true);
+    });
+
+    it('starts a list on a plain paragraph', () => {
+      const { root, states } = mount();
+      typeText(root, 'a');
+      pressTab(root);
+
+      expect(lastState(states).unorderedList).toEqual({
+        isActive: true,
+        depth: 0,
+      });
+    });
+
+    it('indents and outdents an item', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleUnorderedList();
+      sendInput(root, 'insertParagraph');
+      typeText(root, 'b');
+
+      pressTab(root);
+      expect(lastState(states).unorderedList.depth).toBe(1);
+
+      pressTab(root, true);
+      expect(lastState(states).unorderedList.depth).toBe(0);
+    });
+
+    it('outdenting at depth 0 leaves the list', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleUnorderedList();
+
+      pressTab(root, true);
+
+      expect(lastState(states).unorderedList.isActive).toBe(false);
+    });
+
+    it('leaves a heading alone', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleHeading(2);
+
+      pressTab(root);
+
+      expect(lastState(states).heading).toEqual({ isActive: true, level: 2 });
+      expect(lastState(states).unorderedList.isActive).toBe(false);
+    });
+
+    // The IME owns Tab while a composition is open; claiming it there would
+    // take the key away from the candidate list.
+    it('stands back during a composition', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleUnorderedList();
+      root.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+
+      expect(pressTab(root).defaultPrevented).toBe(false);
+      expect(lastState(states).unorderedList.depth).toBe(0);
+    });
+
+    it('ignores every other key', () => {
+      const { root } = mount();
+      const event = new KeyboardEvent('keydown', {
+        key: 'a',
+        bubbles: true,
+        cancelable: true,
+      });
+      root.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+    });
+  });
+
+  // Backspace at the start of an item walks it out of the list one step at a
+  // time before it is allowed to merge with the line above, so a press never
+  // silently destroys the line break.
+  describe('backspace at the start of a list item', () => {
+    function twoItemsWithCaretOnTheSecond() {
+      const mounted = mount();
+      const { root, host } = mounted;
+      typeText(root, 'a');
+      host.toggleUnorderedList();
+      sendInput(root, 'insertParagraph');
+      typeText(root, 'b');
+      pressTab(root);
+      caretAt(root, 2);
+      return mounted;
+    }
+
+    it('outdents first', () => {
+      const { root, host, states } = twoItemsWithCaretOnTheSecond();
+
+      sendInput(root, 'deleteContentBackward');
+
+      expect(host.value).toBe('a\nb');
+      expect(lastState(states).unorderedList).toEqual({
+        isActive: true,
+        depth: 0,
+      });
+    });
+
+    it('un-lists at depth 0', () => {
+      const { root, host, states } = twoItemsWithCaretOnTheSecond();
+
+      sendInput(root, 'deleteContentBackward');
+      caretAt(root, 2);
+      sendInput(root, 'deleteContentBackward');
+
+      expect(host.value).toBe('a\nb');
+      expect(lastState(states).unorderedList.isActive).toBe(false);
+    });
+
+    it('merges the lines once out of the list', () => {
+      const { root, host } = twoItemsWithCaretOnTheSecond();
+
+      sendInput(root, 'deleteContentBackward');
+      caretAt(root, 2);
+      sendInput(root, 'deleteContentBackward');
+      caretAt(root, 2);
+      sendInput(root, 'deleteContentBackward');
+
+      expect(host.value).toBe('ab');
+    });
+
+    it('deletes a character normally when the caret is not at the start', () => {
+      const { root, host, states } = twoItemsWithCaretOnTheSecond();
+      caretAt(root, 3);
+
+      sendInput(root, 'deleteContentBackward');
+
+      expect(host.value).toBe('a\n');
+      expect(lastState(states).unorderedList.depth).toBe(1);
+    });
+
+    it('removes a selection rather than outdenting', () => {
+      const { root, host } = twoItemsWithCaretOnTheSecond();
+      selectRange(root, 2, 3);
+
+      sendInput(root, 'deleteContentBackward');
+
+      expect(host.value).toBe('a\n');
+    });
+  });
+
+  describe('inline style commands', () => {
+    it('styles the characters typed after a caret toggle', () => {
+      const { root, host } = mount();
+      typeText(root, 'ab');
+      host.toggleBold();
+      typeText(root, 'cd');
+
+      expect(host.value).toBe('abcd');
+      expect(styledText(root, 'strong')).toEqual(['cd']);
+    });
+
+    it('styles the selection directly', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'abcd');
+      selectRangeFocused(root, 1, 3);
+      host.toggleBold();
+
+      expect(styledText(root, 'strong')).toEqual(['bc']);
+      expect(lastState(states).bold.isActive).toBe(true);
+    });
+
+    it('carries a pending removal into the next keystroke', () => {
+      const { root, host } = mount();
+      typeText(root, 'ab');
+      host.toggleBold();
+      typeText(root, 'cd');
+      host.toggleBold();
+      typeText(root, 'ef');
+
+      expect(styledText(root, 'strong')).toEqual(['cd']);
+    });
+
+    it.each([
+      ['toggleItalic', 'em'],
+      ['toggleUnderline', 'underline'],
+      ['toggleStrikethrough', 'strikethrough'],
+      ['toggleSpoiler', 'spoiler'],
+    ] as const)('%s styles the selection', (method, style) => {
+      const { root, host } = mount();
+      typeText(root, 'abcd');
+      selectRangeFocused(root, 1, 3);
+      host[method]();
+
+      expect(styledText(root, style)).toEqual(['bc']);
+    });
+
+    // A caret moved by the user abandons the toggle they never used; a caret
+    // moved by their own keystroke must not, or the pending style would be
+    // dropped before the character it was meant for arrives. The two are told
+    // apart by the post-edit grace period, so these drive the clock.
+    describe('a pending toggle across a selection change', () => {
+      let now: jest.SpyInstance<number, []>;
+
+      beforeEach(() => {
+        now = jest.spyOn(performance, 'now').mockReturnValue(0);
+      });
+
+      afterEach(() => {
+        now.mockRestore();
+      });
+
+      it('survives a selection change inside the grace period', () => {
+        const { root, host } = mount();
+        typeText(root, 'abcd');
+        host.toggleBold();
+        selectRangeFocused(root, 2, 2);
+        typeText(root, 'X');
+
+        expect(styledText(root, 'strong')).toEqual(['X']);
+      });
+
+      it('is abandoned by a selection change after it', () => {
+        const { root, host } = mount();
+        typeText(root, 'abcd');
+        host.toggleBold();
+        now.mockReturnValue(1000);
+        selectRangeFocused(root, 2, 2);
+        typeText(root, 'X');
+
+        expect(styledText(root, 'strong')).toEqual([]);
+      });
+
+      it('inherits the run the caret lands in', () => {
+        const { root, host } = mount();
+        typeText(root, 'abcd');
+        selectRangeFocused(root, 1, 3);
+        host.toggleBold();
+        now.mockReturnValue(1000);
+        selectRangeFocused(root, 3, 3);
+        typeText(root, 'X');
+
+        expect(styledText(root, 'strong')).toEqual(['bcX']);
+      });
+    });
+
+    it('reports the style in the state it emits', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'ab');
+      host.toggleBold();
+
+      expect(lastState(states).bold.isActive).toBe(true);
+    });
+  });
+
+  describe('the state event', () => {
+    it('reports a block command', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      host.toggleHeading(3);
+
+      expect(lastState(states).heading).toEqual({ isActive: true, level: 3 });
+
+      host.toggleHeading(3);
+      expect(lastState(states).heading).toEqual({ isActive: false, level: 0 });
+    });
+
+    it('reports a list command', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+
+      host.toggleOrderedList();
+      expect(lastState(states).orderedList.isActive).toBe(true);
+
+      host.toggleUnorderedList();
+      expect(lastState(states).orderedList.isActive).toBe(false);
+      expect(lastState(states).unorderedList.isActive).toBe(true);
+    });
+
+    // Every keystroke builds a state, so without the equality check a
+    // consumer would re-render on each character for a state that never
+    // changed.
+    it('fires only when the state actually changes', () => {
+      const { root, states } = mount();
+      typeText(root, 'a');
+      typeText(root, 'b');
+      typeText(root, 'c');
+
+      expect(states).toHaveLength(1);
+    });
+
+    it('fires again once the state differs', () => {
+      const { root, host, states } = mount();
+      typeText(root, 'a');
+      const before = states.length;
+
+      host.toggleBold();
+
+      expect(states.length).toBe(before + 1);
+    });
+
+    it('stays quiet through an import', async () => {
+      const { host, states } = mount();
+      await host.importValue('# hello');
+
+      expect(states).toEqual([]);
     });
   });
 
