@@ -86,7 +86,7 @@ asserts it is not blank, which catches a renderer that silently draws nothing.
 
 ## Fixtures
 
-Six generated documents live in `src/androidTest/assets/`. Numbers are only comparable
+Seven generated documents live in `src/androidTest/assets/`. Numbers are only comparable
 against identical inputs, so do not edit them by hand. They use plain CommonMark only:
 headings, paragraphs, emphasis, code spans, fenced and indented code blocks, block quotes,
 nested lists, thematic breaks, links and hard breaks. No tables, images, strikethrough,
@@ -96,6 +96,10 @@ autolinks, task lists or HTML.
 Both size ladders share byte targets (~2 KB / ~20 KB / ~100 KB), so a cost difference
 between them comes from the markup rather than from the amount of text.
 
+`code_medium` (~20 KB) is a heading, a sentence and a fenced block per section, cycling
+through 14 languages, with no two blocks alike. It renders with no plugins, so it measures
+the core's code blocks: every block in the code block color.
+
 `tools/generate-documents.mjs` generates them. It uses a fixed-seed PRNG, so it reproduces
 the committed files byte for byte. It writes to `<parent-of-tools>/fixtures`, i.e.
 `display-benchmark/fixtures/`, so regenerating means copying the result over the assets:
@@ -103,6 +107,7 @@ the committed files byte for byte. It writes to `<parent-of-tools>/fixtures`, i.
 ```sh
 node display-benchmark/tools/generate-documents.mjs
 cp display-benchmark/fixtures/{simple,complex}_{small,medium,large}.md \
+   display-benchmark/fixtures/code_medium.md \
    display-benchmark/src/androidTest/assets/
 ```
 

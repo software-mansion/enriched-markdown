@@ -193,6 +193,140 @@ function complexSection(rnd, index) {
   return parts.join('\n');
 }
 
+/**
+ * One snippet per language the code highlighting plugin bundles, under the fence tag that selects
+ * it. `{a}`, `{b}` and `{c}` become identifiers and `{n}` a number, picked per block, so no two
+ * blocks are equal and a token cache cannot serve one block's tokens to another.
+ */
+const CODE_SNIPPETS = [
+  ['python', `from dataclasses import dataclass
+
+@dataclass
+class {A}:
+    {a}: int = {n}
+
+    def {b}(self, {c}: "list[int]") -> int:
+        # Sum what is above the threshold
+        return sum(x for x in {c} if x > self.{a})`],
+  ['ts', `interface {A} {
+  {a}: number;
+  {b}?: string;
+}
+
+export function {c}(items: {A}[], limit = {n}): string[] {
+  return items.filter((it) => it.{a} < limit).map((it) => it.{b} ?? "none");
+}`],
+  ['tsx', `type Props = { {a}: number; on{A}: () => void };
+
+export function {A}View({ {a}, on{A} }: Props) {
+  const label = {a} > {n} ? "Many" : \`Only \${{a}}\`;
+  return <Button title={label} onPress={on{A}} />;
+}`],
+  ['js', `// Debounce {b} by {n} milliseconds
+export function {a}({b}, wait = {n}) {
+  let {c} = null;
+  return (...args) => {
+    clearTimeout({c});
+    {c} = setTimeout(() => {b}(...args), wait);
+  };
+}`],
+  ['json', `{
+  "{a}": {n},
+  "{b}": true,
+  "{c}": ["{a}", "{b}", null],
+  "nested": { "{a}": "{c}", "ratio": 0.{n} }
+}`],
+  ['sh', `#!/usr/bin/env bash
+set -euo pipefail
+# Copy every {a} into the {b} directory
+for {c} in ./{a}/*.md; do
+  cp "$\{c}" "./{b}/$(basename "$\{c}")"
+done
+echo "copied {n} files"`],
+  ['rust', `use std::collections::HashMap;
+
+pub fn {a}({b}: &str) -> HashMap<&str, usize> {
+    let mut {c} = HashMap::with_capacity({n});
+    for word in {b}.split_whitespace() {
+        *{c}.entry(word).or_insert(0) += 1;
+    }
+    {c}
+}`],
+  ['go', `package {a}
+
+// {A} counts what {b} returns
+func {A}({b} func(int) bool, {c} []int) int {
+	count := 0
+	for _, v := range {c} {
+		if {b}(v + {n}) {
+			count++
+		}
+	}
+	return count
+}`],
+  ['java', `public final class {A} {
+  private final int {a};
+
+  public {A}(int {a}) {
+    this.{a} = {a};
+  }
+
+  public int {b}(int {c}) {
+    return {c} > {n} ? {a} * {c} : -1; // clamp
+  }
+}`],
+  ['c', `#include <stddef.h>
+
+/* Sums the first {b} entries of {a}. */
+static long {c}(const int *{a}, size_t {b}) {
+    long total = {n};
+    for (size_t i = 0; i < {b}; i++) {
+        total += {a}[i];
+    }
+    return total;
+}`],
+  ['css', `.{a}-{b} {
+  display: flex;
+  gap: {n}px;
+  color: #1f2937;
+}
+
+.{a}-{b}:hover > .{c} {
+  opacity: 0.8 !important;
+}`],
+  ['html', `<section class="{a}" data-{b}="{n}">
+  <!-- {c} goes here -->
+  <h2 id="{b}">{A}</h2>
+  <button type="button" disabled>{c}</button>
+</section>`],
+  ['yaml', `{a}:
+  name: "{b}"
+  replicas: {n}
+  enabled: true
+  ports: [8080, 8443]
+  # {c} is optional
+  {c}: null`],
+  ['md', `# {A}
+
+Some *{a}* and **{b}** with a [link](https://example.com/{c}).
+
+- {a}
+- {b} {n}`],
+];
+
+/** A heading, a sentence and one fenced block, cycling through the bundled languages. */
+function codeSection(rnd, index) {
+  const [language, template] = CODE_SNIPPETS[(index - 1) % CODE_SNIPPETS.length];
+  const [a, b, c] = [pick(rnd, IDENTS), pick(rnd, IDENTS), pick(rnd, IDENTS)].map((w, i) => `${w}${index}${'abc'[i]}`);
+  const code = template
+    .replaceAll('{A}', capitalize(a))
+    .replaceAll('{a}', a)
+    .replaceAll('{b}', b)
+    .replaceAll('{c}', c)
+    .replaceAll('{n}', String(between(rnd, 2, 999)));
+  return [`## ${language} ${index}`, '', plainSentence(rnd), '', '```' + language, code, '```', '', ''].join('\n');
+}
+
 /** Appends whole sections until the document reaches the byte target. */
 function grow(title, intro, targetBytes, seed, section) {
   const rnd = makeRandom(seed);
@@ -288,6 +422,14 @@ for (const [size, bytes] of Object.entries(SIZES)) {
     complexSection,
   );
 }
+
+DOCUMENTS['code_medium.md'] = grow(
+  'Code document (medium)',
+  'Fenced code blocks in every language the code highlighting plugin bundles.',
+  SIZES.medium,
+  0xD0C0_3000 + SIZES.medium,
+  codeSection,
+);
 
 mkdirSync(OUT, { recursive: true });
 for (const [name, content] of Object.entries(DOCUMENTS)) {

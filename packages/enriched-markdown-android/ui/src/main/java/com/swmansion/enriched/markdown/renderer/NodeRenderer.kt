@@ -92,7 +92,7 @@ class RendererFactory internal constructor(
       // An admonition is a themed blockquote: same renderer, which reads the node type to decide
       // whether to reserve and paint a header.
       put(MarkdownASTNode.NodeType.Admonition, BlockquoteRenderer(config))
-      put(MarkdownASTNode.NodeType.CodeBlock, CodeBlockRenderer(config))
+      put(MarkdownASTNode.NodeType.CodeBlock, CodeBlockRenderer(config, plugins.codeBlockDecorators))
       put(MarkdownASTNode.NodeType.UnorderedList, ListRenderer(config, isOrdered = false))
       put(MarkdownASTNode.NodeType.OrderedList, ListRenderer(config, isOrdered = true))
       put(MarkdownASTNode.NodeType.ListItem, ListItemRenderer(config))

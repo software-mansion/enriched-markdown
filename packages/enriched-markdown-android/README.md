@@ -27,39 +27,42 @@ The `compose` artifact pulls in internal `ui` and `parser` modules transitively.
 
 ### Optional plugins
 
-Features with a heavy dependency of their own ship as separate artifacts that you enable where you need them. Today there is one: **math**.
+Features with a heavy dependency of their own ship as separate artifacts that you enable where you need them. Today there are two: **math**, which renders LaTeX (see [LaTeX math](#latex-math)), and **code-highlight**, which colors fenced code (see [Code highlighting](#code-highlighting)).
 
 > [!NOTE]
-> The `math` artifact is not on Maven Central yet. It will be published with the next release.
+> Neither artifact is on Maven Central yet. They will be published with the next release.
 
-Once it is released, add it next to `compose`, using the same version for both:
+Once they are released, add the ones you need next to `compose`, using the same version for all:
 
 ```kotlin
 dependencies {
   implementation("com.swmansion.enriched.markdown:compose:<version>")
   implementation("com.swmansion.enriched.markdown:math:<version>") // only if you render LaTeX
+  implementation("com.swmansion.enriched.markdown:code-highlight:<version>") // only if you color code
 }
 ```
 
-An app that renders no math does not add this line and pays nothing for it — not the artifact, and not its native LaTeX engine. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run.
+An app that does not add a line pays nothing for that plugin — not the artifact, and not its native library. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run. `:code-highlight` adds about 8 MB per ABI to an installed app; see [Size and licenses](#size-and-licenses).
 
-Enable the plugin for every `EnrichedMarkdownText` in a subtree by wrapping it in the plugin's scope:
+Enable plugins for every `EnrichedMarkdownText` in a subtree by wrapping it in a `MarkdownPlugins` scope:
 
 ```kotlin
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
+import com.swmansion.enriched.markdown.compose.MarkdownPlugins
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
-LatexMathPlugin {
+MarkdownPlugins(LatexMathPlugin, CodeHighlightPlugin) {
   HomeScreen()
 }
 ```
 
-`LatexMathPlugin { }` is shorthand for the general `MarkdownPlugins(LatexMathPlugin) { }`, which takes any number of plugins, so several can be enabled in one scope: `MarkdownPlugins(pluginA, pluginB) { }`.
+For a single plugin, its own scope is shorter: `LatexMathPlugin { }` is the same as `MarkdownPlugins(LatexMathPlugin) { }`, and `CodeHighlightPlugin { }` the same as `MarkdownPlugins(CodeHighlightPlugin) { }`.
 
 Scopes nest: an inner scope adds its plugins to those enabled outside, and a scope for a plugin already enabled replaces it and moves it last, so where two plugins claim the same Markdown element, the innermost scope wins. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes.
 
-Without the plugin nothing breaks: `$...$` and `$$...$$` render as their raw source, delimiters included, and logcat carries a single `EnrichedMarkdown` warning naming the missing artifact and how to enable the plugin.
+Without a plugin nothing breaks: fenced code renders in the code block color, and `$...$` and `$$...$$` render as their raw source, delimiters included, with a single `EnrichedMarkdown` warning in logcat naming the missing math artifact and how to enable the plugin.
 
-The plugin and the parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, plugin or not.
+The math plugin and its parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, plugin or not. Code highlighting has no flag: fenced code is always parsed with its language.
 
 ## Quick start
 
@@ -169,6 +172,7 @@ The `markdownStyle` builder supports these blocks:
 | `spoiler` | The overlay that conceals `\|\|spoiler\|\|` text |
 | `math` | Block LaTeX math (`$$...$$`; needs the `:math` artifact and `Md4cFlags(latexMath = true)`) |
 | `inlineMath` | Inline LaTeX math (`$...$`; same two requirements) |
+| `codeHighlight` | Token colors in highlighted code blocks (needs the `:code-highlight` artifact; see [Code highlighting](#colors)) |
 
 Use `MarkdownStyle.merge { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style. `a.merge(b)` and `a + b` layer a whole style on top of another the same way.
 
@@ -648,12 +652,84 @@ Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `Mat
 Style scope constructors are `internal` — build scopes through the `markdownStyle { }` DSL, which is
 the only supported way to reach them.
 
+## Code highlighting
+
+The optional `:code-highlight` artifact (see [Optional plugins](#optional-plugins)) colors fenced code blocks with [tree-sitter](https://tree-sitter.github.io/), by the language on the opening fence. Enable it like any plugin, as a Compose scope:
+
+```kotlin
+import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
+
+CodeHighlightPlugin {
+  EnrichedMarkdownText(markdown = content)
+}
+```
+
+…or pass it to one instance as `EnrichedMarkdownText(plugins = listOf(CodeHighlightPlugin))`. See [Optional plugins](#optional-plugins).
+
+A fenced block is colored when its info string names one of the bundled languages; a block with no language, or one outside the list, keeps the `codeBlock` color. Only the text color changes, so a highlighted block measures exactly like a plain one.
+
+| Language | Info strings |
+|----------|--------------|
+| Bash | `bash`, `sh`, `shell`, `zsh` |
+| C | `c` |
+| CSS | `css` |
+| Go | `go`, `golang` |
+| HTML | `html` |
+| Java | `java` |
+| JavaScript | `javascript`, `js`, `jsx` |
+| JSON | `json` |
+| Markdown | `markdown`, `md` |
+| Python | `python`, `py` |
+| Rust | `rust`, `rs` |
+| TSX | `tsx` |
+| TypeScript | `typescript`, `ts` |
+| YAML | `yaml`, `yml` |
+
+Info strings match case-insensitively. There is no Kotlin grammar, so a `kotlin` block renders plain. Highlighting runs with the render, off the main thread, and tokens are cached per block, so a re-render — a style change, or a streamed message growing below its code — does not parse an unchanged block again. A block over 50 KB or 2,000 lines is left plain.
+
+### Colors
+
+Each of the 14 token types takes its color from the first of:
+
+1. a color you set (below);
+2. GitHub's palette, dark when the `codeBlock` `backgroundColor` is dark and light otherwise — the default code block is dark, so it gets the dark one;
+3. the `codeBlock` color. Operators, punctuation, variables and embedded code have no palette color, so they land here unless you set one.
+
+In Compose, set colors with the `codeHighlight` style block. Like `math`, it is an extension function from the plugin's artifact, so it needs an import:
+
+```kotlin
+import androidx.compose.ui.graphics.Color
+import com.swmansion.enriched.markdown.compose.markdownStyle
+import com.swmansion.enriched.markdown.codehighlight.compose.codeHighlight
+
+markdownStyle {
+  codeBlock {
+    color = Color(0xFFABB2BF)
+    backgroundColor = Color(0xFF282C34)
+  }
+  codeHighlight {
+    keyword = Color(0xFFC678DD)
+    string = Color(0xFF98C379)
+    comment = Color(0xFF7F848E)
+  }
+}
+```
+
+The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute` and `embedded`; `this[SyntaxTokenType.KEYWORD] = color` sets a type chosen at runtime. Repeating the block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { codeHighlight { … } }` layers over a base style.
+
+### Size and licenses
+
+The artifact compiles tree-sitter and the 14 grammars into one native library, `libenriched_markdown_highlight.so`: about 8 MB per ABI uncompressed, which is what an installed app carries since an APK stores native libraries uncompressed by default, and about 1.1 MB per ABI compressed, roughly what it adds to a download. It is opt-in only; `compose` never pulls it in.
+
+tree-sitter and every bundled grammar are MIT-licensed. Their notices ship inside the artifact, under `META-INF/enriched-markdown-code-highlight/`, as [`LICENSE-tree-sitter`](code-highlight/src/main/resources/META-INF/enriched-markdown-code-highlight/LICENSE-tree-sitter) and [`LICENSE-grammars`](code-highlight/src/main/resources/META-INF/enriched-markdown-code-highlight/LICENSE-grammars); include them with your app's open-source notices.
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
 - Paragraphs, line breaks
 - **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~, ^superscript^, ~subscript~, ==highlight==
-- Fenced code blocks
+- Fenced code blocks, colored by language with the optional `:code-highlight` artifact — see [Code highlighting](#code-highlighting)
 - Block quotes
 - Ordered and unordered lists
 - Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemToggle`)
@@ -756,6 +832,14 @@ yarn workspace @enriched-markdown/android build
 yarn workspace @enriched-markdown/android test:android-native
 yarn workspace @enriched-markdown/android lint:android-native
 ```
+
+`:code-highlight` builds tree-sitter and its grammars from sources that are not checked in. On a fresh clone, restore them once from the repository root before building (`yarn prepare` does the same):
+
+```sh
+yarn install && node vendor/vendor-grammars.mjs
+```
+
+Without them, Gradle stops at configuration with that command in the error.
 
 ## Publishing
 

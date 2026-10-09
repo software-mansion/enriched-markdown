@@ -27,6 +27,7 @@ include ":parser"
 include ":ui"
 include ":compose"
 include ":math"
+include ":code-highlight"
 // Measurement only, never published: the root subprojects block applies the publish
 // script to parser/ui/compose/math alone, and this module is absent from nmcpAggregation.
 include ":display-benchmark"

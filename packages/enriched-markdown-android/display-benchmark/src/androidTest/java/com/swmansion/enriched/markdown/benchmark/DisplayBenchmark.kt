@@ -300,6 +300,7 @@ class DisplayBenchmark(
         "complex_small",
         "complex_medium",
         "complex_large",
+        "code_medium",
       )
 
     /** All documents, or those listed in the `mdbench.documents` instrumentation argument. */

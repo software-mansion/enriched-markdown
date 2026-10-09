@@ -1,9 +1,13 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.renderer
 
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PreservedColorSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
@@ -77,6 +81,29 @@ class ListItemRenderer(
 
     if (isChecked) {
       applyCheckedDecorations(builder, start, itemEnd, depth)
+    }
+
+    moveColorsAfterItemSpan(builder, start, itemEnd)
+  }
+
+  /**
+   * Character styles apply in insertion order and the item's span repaints every color it does not
+   * preserve, so a plugin's [PreservedColorSpan] is re-set to come after it. Nested items run
+   * first, so the outermost item leaves it last of all.
+   */
+  private fun moveColorsAfterItemSpan(
+    builder: SpannableStringBuilder,
+    itemStart: Int,
+    itemEnd: Int,
+  ) {
+    for (span in builder.getSpans(itemStart, itemEnd, PreservedColorSpan::class.java)) {
+      val spanStart = builder.getSpanStart(span)
+      val spanEnd = builder.getSpanEnd(span)
+      val flags = builder.getSpanFlags(span)
+      // Setting a span that is already attached updates it in place; only removing it first
+      // moves it to the end of the insertion order.
+      builder.removeSpan(span)
+      builder.setSpan(span, spanStart, spanEnd, flags)
     }
   }
 

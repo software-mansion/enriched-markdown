@@ -1,0 +1,13 @@
+name: Restore Android vendor files
+description: >-
+  Materializes the gitignored tree-sitter runtime, grammars and generated
+  registry that :code-highlight compiles; run after Setup and before any cache
+  key or build that reads packages/core/cpp/highlight/vendor.
+
+runs:
+  using: composite
+  steps:
+    - name: Restore tree-sitter vendor files
+      run: node vendor/vendor-grammars.mjs
+      shell: bash
+      working-directory: ${{ github.workspace }}

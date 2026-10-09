@@ -37,6 +37,7 @@ project.xcworkspace
 .classpath
 .cxx
 .gradle
+.kotlin
 .idea
 .project
 .settings
