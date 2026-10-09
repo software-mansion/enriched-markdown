@@ -41,7 +41,7 @@ The whole document renders into a **single native text view**, with block struct
 | Underline     | `_text_`, `__text__`         | Needs `Md4cFlags(underline = true)`, and **replaces** the italic/bold meaning of those markers    |
 | Strikethrough | `~~struck~~`                 |                                                                                                   |
 | Inline code   | `` `code` ``                 |                                                                                                   |
-| Link          | `[text](url)`                | Inert until you handle [`onLinkPress`](/android/api-reference/enriched-markdown-text#onlinkpress) |
+| Link          | `[text](url)`                | Inert until you handle [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) |
 | Autolink      | `<https://…>`, or a bare URL | Bare URLs need `permissiveAutolinks`, which is on by default                                      |
 | Inline image  | `![alt](url)` beside text    | See [below](#images-block-vs-inline)                                                              |
 | Superscript   | `^text^`                     | Needs `Md4cFlags(superscript = true)`                                                             |

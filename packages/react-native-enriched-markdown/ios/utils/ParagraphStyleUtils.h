@@ -44,6 +44,10 @@ BOOL ENRMParagraphIsRTL(NSParagraphStyle *_Nullable style);
 void ENRMApplyWritingDirectionMode(NSMutableAttributedString *output, ENRMWritingDirectionMode mode,
                                    NSWritingDirection layoutDirection);
 
+/// Sets lineHeight as a floor (minimumLineHeight) so a line can still grow to fit a taller run.
+/// No-op when lineHeight <= 0.
+void ENRMApplyLineHeightToParagraphStyle(NSMutableParagraphStyle *style, CGFloat lineHeight);
+
 NSMutableParagraphStyle *getOrCreateParagraphStyle(NSMutableAttributedString *output, NSUInteger index);
 void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger start, CGFloat marginBottom);
 NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRange range, CGFloat marginTop);
@@ -73,6 +77,7 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
 /// built through the node renderers; the two paths that assemble their own
 /// string (table cells, code block content) call it themselves.
 void ENRMPinLineMetricsToStyledFonts(NSMutableAttributedString *output, NSRange range);
+CGFloat calculateBaselineOffset(NSAttributedString *output, NSRange range);
 void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
 void applyTextAlignment(NSMutableAttributedString *output, NSRange range, NSTextAlignment textAlign);
 NSTextAlignment textAlignmentFromString(NSString *textAlign);

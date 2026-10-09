@@ -253,6 +253,7 @@ fun EnrichedMarkdownText(
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
+  includeLastBlockMargin: Boolean = false,
   plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
   onPluginEvent: (PluginEvent) -> Unit = {},
 )
@@ -270,6 +271,7 @@ fun EnrichedMarkdownText(
 | `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
 | `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
 | `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles()` (default), `SpoilerOverlay.Solid()`, or a `CustomSpoilerOverlay` (see [Spoiler overlays](#spoiler-overlays)) |
+| `includeLastBlockMargin` | Whether the last block's bottom margin counts toward the view's height (default `false`, so the view ends flush with its last line) |
 | `plugins` | Plugins this instance renders with; defaults to those enabled by the enclosing plugin scopes (see [Optional plugins](#optional-plugins)) |
 | `onPluginEvent` | Called when an enabled plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
 

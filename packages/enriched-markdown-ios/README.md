@@ -323,7 +323,7 @@ open class SpoilerOverlayView: UIView {
   public var segmentCount: Int
   public var revealPoint: CGPoint?                            // where the reader tapped, in the view's coordinates; nil if programmatic
   public init(charRange: NSRange)
-  public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage   // the slice drawn where the text view draws it
+  public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage   // the slice laid out and drawn as the text view does
   open func animateReveal(completion: @escaping () -> Void)   // default fades alpha; an override calls completion
 }
 ```
@@ -353,7 +353,7 @@ EnrichedMarkdownText(content)
 
 A spoiler gets one view per line segment. When a re-layout only moves a segment (an image above it finishes loading, the text view's insets change, a streamed chunk arrives), its view moves with it and keeps its state; when the segment's text, size or baseline changes (a rewrap, a font change), the view is replaced, so keep construction cheap. Overlays are rebuilt when the provider value or the `Spoiler()` style changes, so a provider with parameters should keep them in stored properties and let `Equatable` synthesis compare them.
 
-**Showing the text through.** An effect that reveals the words gradually (blur, pixelation, scrambled characters) draws `concealedTextImage()`, which puts the glyphs exactly where the text view draws them, so nothing jumps when the view is removed at the end of the reveal. Pass an attributed string to draw a variation of the slice with the same metrics, such as `concealedText` with some characters replaced. Drawing `concealedText` yourself with `draw(at: .zero)` sits above the real glyphs whenever the theme sets a line height taller than the font, because the slice carries inline styling only; `baseline` is there for effects that need the number.
+**Showing the text through.** An effect that reveals the words gradually (blur, pixelation, scrambled characters) draws `concealedTextImage()`, which lays the slice out as the text view does, so the glyphs and the inline code and highlight boxes sit exactly where the revealed text has them and nothing jumps when the view is removed at the end of the reveal. Pass an attributed string to draw a variation of the slice with the same metrics, such as `concealedText` with some characters replaced. Drawing `concealedText` yourself with `draw(at: .zero)` boxes inline code and highlights where NSStringDrawing puts them, not where the text view does; `baseline` is there for effects that need the number.
 
 **Opaque backdrops.** The view must be opaque, because emoji and inline images ignore the transparent foreground under it, so `Spoiler().background` has to match what is actually behind the text view or every overlay shows as a box. Watch for ancestors that tint the text view's area: a SwiftUI `.shadow` applied to a container that holds the text, for example, is composited over it; put the shadow on the background shape instead.
 

@@ -16,8 +16,8 @@ fun EnrichedMarkdownText(
   flags: Md4cFlags = Md4cFlags.DEFAULT,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
-  onLinkPress: ((String) -> Unit)? = null,
-  onLinkLongPress: ((String) -> Unit)? = null,
+  onLinkClick: (String) -> Unit = {},
+  onLinkLongClick: (String) -> Unit = {},
   onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
   enableTaskListItemToggle: Boolean = true,
 )
@@ -226,33 +226,33 @@ EnrichedMarkdownText(
 
 ## Callbacks
 
-### `onLinkPress`
+### `onLinkClick`
 
 Called with the URL when the reader taps a link. Links do nothing until you handle this - the library never opens a URL on your behalf.
 
-<PropInfo type="((String) -> Unit)?" default="null" />
+<PropInfo type="(String) -> Unit" default="{}" />
 
 ```kotlin
 val context = LocalContext.current
 
 EnrichedMarkdownText(
   markdown = content,
-  onLinkPress = { url ->
+  onLinkClick = { url ->
     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
   },
 )
 ```
 
-### `onLinkLongPress`
+### `onLinkLongClick`
 
 Called with the URL when the reader long-presses a link - the usual hook for a "copy link" or share sheet.
 
-<PropInfo type="((String) -> Unit)?" default="null" />
+<PropInfo type="(String) -> Unit" default="{}" />
 
 ```kotlin
 EnrichedMarkdownText(
   markdown = content,
-  onLinkLongPress = { url -> clipboard.setText(AnnotatedString(url)) },
+  onLinkLongClick = { url -> clipboard.setText(AnnotatedString(url)) },
 )
 ```
 

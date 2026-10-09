@@ -131,14 +131,63 @@ class EnrichedMarkdownTest {
   }
 
   @Test
+  fun allowTrailingMarginAddsTheLastBlocksMarginToHeight() {
+    documents.forEach { (document, _) ->
+      val segments = MarkdownSegmentRenderer.render(splitASTIntoSegments(document), defaultStyle, context)
+      val lastMargin = (segments.last() as RenderedSegment.Text).lastElementMarginBottom.toInt()
+      assertTrue("Document has no trailing margin to preserve", lastMargin > 0)
+
+      val container = EnrichedMarkdown(context)
+      container.applyRenderedSegments(segments)
+      layOut(container)
+      val flushHeight = container.measuredHeight
+
+      container.setAllowTrailingMargin(true)
+      layOut(container)
+      assertEquals(flushHeight + lastMargin, container.measuredHeight)
+
+      container.setAllowTrailingMargin(false)
+      layOut(container)
+      assertEquals(flushHeight, container.measuredHeight)
+    }
+  }
+
+  @Test
+  fun allowTrailingMarginKeepsMarginsBetweenSegmentsUnchanged() {
+    val first = textSegment("Alpha", 1L, lastElementMarginBottom = 10f)
+    val second = textSegment("Beta", 2L, lastElementMarginBottom = 20f)
+    val container = EnrichedMarkdown(context)
+    container.applyRenderedSegments(listOf(first, second))
+
+    layOut(container)
+    val secondTopFlush = container.getChildAt(1).top
+    val flushHeight = container.measuredHeight
+
+    container.setAllowTrailingMargin(true)
+    layOut(container)
+
+    assertEquals(secondTopFlush, container.getChildAt(1).top)
+    assertEquals(flushHeight + 20, container.measuredHeight)
+  }
+
+  @Test
   fun prepareForViewReuseResetsTheContainer() {
     val container = containerWithAppliedSegments(mixedBlocks)
     assertEquals(1, container.childCount)
+    container.setAllowTrailingMargin(true)
 
     container.prepareForViewReuse()
 
     assertEquals(0, container.childCount)
     assertEquals("", container.currentMarkdown)
+
+    // A reused view must not carry the previous owner's trailing margin over.
+    container.applyRenderedSegments(MarkdownSegmentRenderer.render(splitASTIntoSegments(mixedBlocks), defaultStyle, context))
+    layOut(container)
+    val reusedHeight = container.measuredHeight
+    val fresh = containerWithAppliedSegments(mixedBlocks)
+    layOut(fresh)
+    assertEquals(fresh.measuredHeight, reusedHeight)
   }
 
   @Test
@@ -228,12 +277,13 @@ class EnrichedMarkdownTest {
   private fun textSegment(
     text: String,
     signature: Long,
+    lastElementMarginBottom: Float = 0f,
   ): RenderedSegment.Text =
     RenderedSegment.Text(
       styledText = SpannableString(text),
       imageSpans = emptyList(),
       needsJustify = false,
-      lastElementMarginBottom = 0f,
+      lastElementMarginBottom = lastElementMarginBottom,
       signature = signature,
     )
 

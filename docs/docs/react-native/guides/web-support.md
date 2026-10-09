@@ -1,6 +1,6 @@
 ---
 sidebar_label: Web support
-sidebar_position: 1
+sidebar_position: 3
 ---
 
 import Tabs from '@theme/Tabs';
@@ -290,6 +290,7 @@ Most of `markdownStyle` applies, but these keys are accepted and ignored:
 | all of `spoiler` | Spoilers are not rendered at all - see [Not supported on web](#not-supported-on-web) |
 | `list.bulletColor`, `list.bulletSize`, `list.markerMinWidth`, `list.markerColor`, `list.markerFontWeight`, `list.gapWidth` | Web leaves list markers to the browser's `::marker`. Of the `list` keys only `fontSize`, `fontFamily`, `fontWeight`, `color`, `lineHeight`, `marginTop`, `marginBottom`, `marginLeft` and `itemSpacing` are read |
 | `table.horizontalOverflow` | Web tables are always `overflow-x: auto` |
+| `linkVariants[pattern].pill` | [Link pills](/react-native/guides/link-pills) are native-only; such links render as ordinary links with the variant's colors |
 | `taskList.borderColor`, `taskList.checkmarkColor` | The checkbox is the browser's native control, tinted through `accentColor` (`checkedColor`) only |
 
 ### Accessibility
@@ -337,6 +338,8 @@ it is exactly the native-only surface:
 | `streamingConfig`                            | Native-only streaming block handling. Not yet implemented on web.                                                                                                                                       |
 | `spoilerOverlay`                             | There is no spoiler renderer on web.                                                                                                                                                                    |
 | `contextMenuItems`                           | Not supported - browsers don't allow extending the native context menu.                                                                                                                                 |
+| `linkContextMenuItems`                       | iOS 17+ [link menus](/react-native/guides/link-menus). On web a link long press is the `contextmenu` event, delivered to `onLinkLongPress`.                                                                  |
+| `linkPillContent`                            | Per-link content for [link pills](/react-native/guides/link-pills), which are not rendered on web.                                                                                                     |
 | `selectionMenuConfig`                        | Not supported - native-only built-in selection menu actions.                                                                                                                                            |
 | `onCopyPress`                                | There is no code-block header or copy button on web, so it can never fire.                                                                                                                              |
 | `onLatexError`                               | Web renders math through KaTeX and does not report failures through this callback.                                                                                                                      |

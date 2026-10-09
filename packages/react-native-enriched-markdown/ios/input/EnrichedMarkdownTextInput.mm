@@ -25,11 +25,13 @@
 #import "ENRMStyleHandler.h"
 #import "ENRMStyleMergingConfig.h"
 #import "ENRMUIKit.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdownTextInput+Internal.h"
 #import "InputStylePropsUtils.h"
 #import "ParagraphStyleUtils.h"
 #import "PasteboardUtils.h"
 #import "SelectionColorUtils.h"
+#import "StyleConfig.h"
 #import <QuartzCore/CABase.h>
 #import <React/RCTI18nUtil.h>
 #if TARGET_OS_OSX
@@ -81,6 +83,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMEditSession *_editSession;
 
   ENRMPlaceholderLabel *_placeholderLabel;
+  NSString *_placeholderText;
 
   NSUInteger _lastTextLength;
   NSRange _lastSelectedRange;
@@ -217,6 +220,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 {
 #if !TARGET_OS_OSX
   _layoutManager = [[ENRMInputLayoutManager alloc] init];
+  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(0, CGFLOAT_MAX)];
   textContainer.widthTracksTextView = YES;
   [_layoutManager addTextContainer:textContainer];
@@ -228,6 +232,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #else
   ENRMInputTextView *inputTextView = [[ENRMInputTextView alloc] initWithFrame:CGRectZero];
   _layoutManager = [[ENRMInputLayoutManager alloc] init];
+  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   [inputTextView.textContainer replaceLayoutManager:_layoutManager];
 #endif
   inputTextView.markdownTextInput = self;
@@ -356,22 +361,13 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                                          attributes:_textView.typingAttributes]];
   }
 
-  // Trailing newlines are not counted by boundingRectWithSize — append
-  // a mock character so the extra line is included in the height.
-  if (measuredText.length > 0) {
-    unichar lastChar = [measuredText.string characterAtIndex:measuredText.length - 1];
-    if ([[NSCharacterSet newlineCharacterSet] characterIsMember:lastChar]) {
-      [measuredText appendAttributedString:[[NSAttributedString alloc] initWithString:@"I"
-                                                                           attributes:_textView.typingAttributes]];
-    }
-  }
-
-  CGRect boundingBox =
-      [measuredText boundingRectWithSize:CGSizeMake(maxWidth, CGFLOAT_MAX)
-                                 options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-                                 context:nil];
-
-  return CGSizeMake(maxWidth, ceil(boundingBox.size.height));
+  // Same TextKit path as the read-only view, with font leading off. The extra
+  // line fragment after a trailing newline is kept so that blank line counts
+  // toward the height, as in RN TextInput.
+  StyleConfig *config = [[StyleConfig alloc] init];
+  CGSize size = ENRMMeasureAttributedTextViewFree(measuredText, maxWidth, config, NO, 0, RCTScreenScale(), 0,
+                                                  NSLineBreakByWordWrapping, NO);
+  return CGSizeMake(maxWidth, size.height);
 }
 
 #pragma mark - Props
@@ -415,12 +411,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #endif
 
   if (newViewProps.placeholder != oldViewProps.placeholder) {
-    ENRMSetPlaceholderText(_placeholderLabel, [NSString stringWithUTF8String:newViewProps.placeholder.c_str()]);
+    _placeholderText = [NSString stringWithUTF8String:newViewProps.placeholder.c_str()];
+    [self updatePlaceholderText];
   }
 
   if (newViewProps.placeholderTextColor != oldViewProps.placeholderTextColor) {
     if (isColorMeaningful(newViewProps.placeholderTextColor)) {
       _placeholderLabel.textColor = RCTUIColorFromSharedColor(newViewProps.placeholderTextColor);
+      [self updatePlaceholderText];
     }
   }
 
@@ -523,14 +521,10 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 
   if (styleChanged) {
-    _placeholderLabel.font = _formatterStyle.baseFont;
+    [self updatePlaceholderText];
 
     [self resetBaseTypingAttributes];
-
-    if (_formattingStore.allRanges.count > 0) {
-      [self applyFormatting];
-    }
-
+    [self applyFormatting];
     [self requestHeightUpdate];
   } else if (writingDirectionChanged && _textView.textStorage.length > 0) {
     [self applyFormatting];
@@ -635,7 +629,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
     [self resetBaseTypingAttributes];
 
-    _placeholderLabel.font = _formatterStyle.baseFont;
+    [self updatePlaceholderText];
 
     [self applyFormatting];
     [self requestHeightUpdate];
@@ -656,6 +650,27 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 }
 
 #pragma mark - Placeholder
+
+/// Lays the placeholder out like a body paragraph: base font, and the body line
+/// height with the same baseline centering the formatter applies to typed text.
+- (void)updatePlaceholderText
+{
+  NSMutableDictionary *attrs = [@{
+    NSFontAttributeName : _formatterStyle.baseFont,
+    NSForegroundColorAttributeName : _placeholderLabel.textColor,
+  } mutableCopy];
+  if (_formatterStyle.baseLineHeight > 0) {
+    attrs[NSParagraphStyleAttributeName] = ENRMInputParagraphStyleWithLineHeight(_formatterStyle, nil);
+  }
+  NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:_placeholderText ?: @""
+                                                                           attributes:attrs];
+  NSRange fullRange = NSMakeRange(0, text.length);
+  CGFloat baselineOffset = calculateBaselineOffset(text, fullRange);
+  if (baselineOffset > 0) {
+    [text addAttribute:NSBaselineOffsetAttributeName value:@(baselineOffset) range:fullRange];
+  }
+  ENRMSetPlaceholderAttributedText(_placeholderLabel, text);
+}
 
 - (void)updatePlaceholderVisibility
 {
@@ -804,10 +819,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)resetBaseTypingAttributes
 {
-  ENRMSetDefaultTypingAttributes(_textView, @{
+  NSMutableDictionary *attrs = [@{
     NSFontAttributeName : _formatterStyle.baseFont,
     NSForegroundColorAttributeName : _formatterStyle.baseTextColor,
-  });
+  } mutableCopy];
+  if (_formatterStyle.baseLineHeight > 0) {
+    attrs[NSParagraphStyleAttributeName] = ENRMInputParagraphStyleWithLineHeight(_formatterStyle, nil);
+  }
+  ENRMSetDefaultTypingAttributes(_textView, attrs);
 }
 
 - (void)applyFormatting

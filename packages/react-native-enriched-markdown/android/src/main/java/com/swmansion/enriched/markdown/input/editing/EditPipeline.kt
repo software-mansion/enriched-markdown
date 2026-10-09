@@ -8,6 +8,7 @@ import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.layout.InputEventEmitter
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
+import com.swmansion.enriched.markdown.input.spans.ensureBodyLineHeightSpan
 
 /**
  * Zero-width space: anchors an empty bullet line so the marker draws and the
@@ -79,6 +80,10 @@ class EditPipeline(
 
     applyInlineFormatting()
     applyBlockFormatting(touchedNewline, context.editStart, context.insertedLength)
+    // formatter.bodyTextAttributes is the snapshot the view's applyFormatting()
+    // takes after every prop change, so it matches the line height that
+    // applyFormatting() and InputMeasurementStore use.
+    host.editable?.let { ensureBodyLineHeightSpan(it, formatter.bodyTextAttributes) }
     detectLinks(context)
 
     host.forceScrollToSelection()

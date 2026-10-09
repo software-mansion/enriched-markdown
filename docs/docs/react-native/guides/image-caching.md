@@ -1,6 +1,6 @@
 ---
 sidebar_label: Image caching
-sidebar_position: 2
+sidebar_position: 4
 ---
 
 # Image caching
