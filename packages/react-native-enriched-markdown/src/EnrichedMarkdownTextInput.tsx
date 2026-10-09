@@ -42,6 +42,7 @@ import type {
   ColorValue,
 } from 'react-native';
 import { Platform } from 'react-native';
+import { toHeadingLevel } from './headingLevel';
 import { normalizeMarkdownShortcuts } from './normalizeMarkdownShortcuts';
 import { normalizeMarkdownTextInputStyle } from './normalizeMarkdownTextInputStyle';
 import { normalizeMenuItem } from './normalizeMenuItem';
@@ -67,12 +68,6 @@ export type { HeadingLevel, StyleState, CaretRect };
 export type { HeadingStyle, LinkStyle, MarkdownTextInputStyle };
 export type EnrichedMarkdownTextInputInstance =
   MarkdownTextInputInstance<HostInstance>;
-
-const VALID_HEADING_LEVELS = new Set<number>([1, 2, 3, 4, 5, 6]);
-
-function toHeadingLevel(n: number): HeadingLevel {
-  return (VALID_HEADING_LEVELS.has(n) ? n : 1) as HeadingLevel;
-}
 
 export interface ContextMenuItem {
   text: string;

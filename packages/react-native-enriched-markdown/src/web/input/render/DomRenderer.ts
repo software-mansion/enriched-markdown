@@ -47,6 +47,17 @@ export class DomRenderer {
       : { start: paragraph.start, end: paragraph.end };
   }
 
+  // Drops the diff baseline, so the next `render` rebuilds every line from an
+  // empty root. The baseline describes what this renderer wrote, so when
+  // something else has written into those nodes - an IME committing into an
+  // editor that went read-only mid-composition - the model is unchanged and an
+  // ordinary render finds nothing to patch.
+  invalidate(): void {
+    this.renderedText = '';
+    this.renderedParagraphs = [];
+    this.root.replaceChildren();
+  }
+
   render(text: string, paragraphs: readonly ParagraphProjection[]): void {
     try {
       this.patch(text, paragraphs);
@@ -58,9 +69,7 @@ export class DomRenderer {
       if (__DEV__) {
         console.error(`${LOG_PREFIX} Patch failed; rebuilding the DOM`, error);
       }
-      this.renderedText = '';
-      this.renderedParagraphs = [];
-      this.root.replaceChildren();
+      this.invalidate();
       this.patch(text, paragraphs);
     }
   }

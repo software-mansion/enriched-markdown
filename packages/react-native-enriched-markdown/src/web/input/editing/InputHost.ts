@@ -15,6 +15,8 @@ import { SelectionMapper } from './SelectionMapper';
 import { TypingAttributesController } from './TypingAttributesController';
 import { buildInputState, sameInputState, type InputState } from './InputState';
 import {
+  clamp,
+  codePointBoundaryAtOrBefore,
   graphemeLengthBefore,
   graphemeLengthAfter,
   isCodePointBoundary,
@@ -56,7 +58,9 @@ export class InputHost {
   // Attributes this host set itself, and so the only ones it removes on
   // teardown: `role` and `aria-multiline` are set only when the node does not
   // already carry them, so a consumer's own value is never ours to undo.
-  private readonly ownedAttributes: string[] = [];
+  // `data-empty` is listed from the start because `render` toggles it rather
+  // than setting it, and teardown has to clear it either way.
+  private readonly ownedAttributes: string[] = ['data-empty'];
 
   private text = '';
   private selection: RangeBounds = { start: 0, end: 0 };
@@ -67,6 +71,7 @@ export class InputHost {
   private importGeneration = 0;
   private pendingImports = 0;
   private editable = true;
+  private markdownEmitEnabled = true;
   private lastEmittedState: InputState | null = null;
 
   constructor(
@@ -102,6 +107,7 @@ export class InputHost {
     root.addEventListener('keydown', this.handleKeyDown);
     root.addEventListener('compositionstart', this.handleCompositionStart);
     root.addEventListener('compositionend', this.handleCompositionEnd);
+    root.addEventListener('focus', this.handleFocus);
     root.addEventListener('blur', this.handleBlur);
     root.addEventListener('cut', this.handleCut);
     root.addEventListener('paste', this.handlePaste);
@@ -127,6 +133,7 @@ export class InputHost {
       this.handleCompositionStart
     );
     this.root.removeEventListener('compositionend', this.handleCompositionEnd);
+    this.root.removeEventListener('focus', this.handleFocus);
     this.root.removeEventListener('blur', this.handleBlur);
     this.root.removeEventListener('cut', this.handleCut);
     this.root.removeEventListener('paste', this.handlePaste);
@@ -169,9 +176,21 @@ export class InputHost {
     this.root.focus();
   }
 
+  // Writes the attribute rather than the `contentEditable` IDL property, which
+  // is how the constructor sets it in the first place - so the node's
+  // editability reads the same whether it was set at construction or flipped
+  // later. The name is already registered as ours, so teardown clears it.
   setEditable(editable: boolean): void {
     this.editable = editable;
-    this.root.contentEditable = editable ? 'true' : 'false';
+    this.root.setAttribute('contenteditable', editable ? 'true' : 'false');
+  }
+
+  // Mirrors native's `isOnChangeMarkdownSet` prop. Every edit would otherwise
+  // serialize the whole document, and a wrapper that forwards the event
+  // through a stable closure cannot be told apart from a real listener by
+  // inspecting the callback.
+  setMarkdownEmitEnabled(enabled: boolean): void {
+    this.markdownEmitEnabled = enabled;
   }
 
   caretRect(): CaretRect | null {
@@ -184,7 +203,7 @@ export class InputHost {
     const range = this.root.ownerDocument.createRange();
     range.setStart(position.node, position.offset);
     range.collapse(true);
-    const rect = range.getBoundingClientRect();
+    const rect = caretRectOfRange(range, position.node);
     const rootRect = this.root.getBoundingClientRect();
     return {
       x: rect.left - rootRect.left,
@@ -240,12 +259,19 @@ export class InputHost {
     return true;
   }
 
+  // Clamps the way iOS does - into the buffer, then `end` up to `start`, so a
+  // reversed range collapses rather than flipping - and additionally snaps off
+  // the seam inside a surrogate pair, which UIKit does for us there but which
+  // nothing here would catch before the next edit split the pair.
   setSelection(start: number, end: number): void {
     const max = this.text.length;
-    const clampedStart = Math.max(0, Math.min(start, max));
+    const clampedStart = clamp(start, 0, max);
     this.selection = {
-      start: clampedStart,
-      end: Math.max(clampedStart, Math.min(end, max)),
+      start: codePointBoundaryAtOrBefore(this.text, clampedStart),
+      end: codePointBoundaryAtOrBefore(
+        this.text,
+        clamp(end, clampedStart, max)
+      ),
     };
     this.render();
     this.resetTypingAfterSelectionMove();
@@ -408,7 +434,18 @@ export class InputHost {
 
   private readonly handleCompositionEnd = (): void => {
     this.session.endComposition();
-    this.readBackFromDom();
+    this.recoverComposition();
+  };
+
+  private readonly handleFocus = (): void => {
+    // The browser places its own caret when a contentEditable takes focus, and
+    // `writeSelectionToDom` declines to write while the editor is unfocused.
+    // Without this, a `setSelection` issued before the focus would be
+    // overwritten by that caret the moment the focus arrived.
+    if (this.destroyed) {
+      return;
+    }
+    this.session.scoped('formatting', () => this.writeSelectionToDom());
   };
 
   private readonly handleBlur = (): void => {
@@ -417,17 +454,32 @@ export class InputHost {
     // read-only: every `beforeinput` short-circuits.
     if (this.session.isComposing) {
       this.session.endComposition();
-      this.readBackFromDom();
+      this.recoverComposition();
     }
   };
+
+  // A composition that ends on a read-only editor - `editable` was flipped
+  // while the IME held the DOM - must not be read back as an edit, but the
+  // nodes the IME left behind still have to go, so the model is rendered over
+  // them instead.
+  private recoverComposition(): void {
+    if (this.editable) {
+      this.readBackFromDom();
+      return;
+    }
+    this.renderer.invalidate();
+    this.render();
+  }
 
   private readonly handleCut = (event: ClipboardEvent): void => {
     // The UA writes the clipboard and then performs the deletion, whose
     // `beforeinput` arrives as `deleteByCut` and gets cancelled. Taking over
     // both halves is what stops a cut from copying the text and leaving it
-    // in place.
+    // in place. On a read-only editor both halves stay cancelled, the way
+    // iOS and Android drop Cut from the menu and leave Copy, which is not
+    // intercepted here at all.
     event.preventDefault();
-    if (this.session.isComposing || this.pendingImports > 0) {
+    if (!this.editable || this.session.isComposing || this.pendingImports > 0) {
       return;
     }
     this.syncSelectionFromDom();
@@ -441,7 +493,7 @@ export class InputHost {
 
   private readonly handlePaste = (event: ClipboardEvent): void => {
     event.preventDefault();
-    if (this.session.isComposing || this.pendingImports > 0) {
+    if (!this.editable || this.session.isComposing || this.pendingImports > 0) {
       return;
     }
     // Plain text only. Pasting markdown as formatted content means running
@@ -490,6 +542,19 @@ export class InputHost {
       mapped.start === this.selection.start &&
       mapped.end === this.selection.end
     ) {
+      // The comparison has to be in model offsets rather than on node
+      // identity: a render replaces the nodes the selection pointed into, so
+      // the echo of our own write arrives pointing somewhere else entirely
+      // while describing the same offsets.
+      //
+      // Those offsets are not the whole story, though. The mapping is lossy
+      // over an empty line, whose only node is a `<br>`: both ends of a DOM
+      // range inside it map to the one model offset, so a stretched highlight
+      // reports as a collapsed caret. The model did not move, so nothing is
+      // emitted, but the DOM still shows the highlight and needs the write.
+      if (domSelection.isCollapsed !== (mapped.start === mapped.end)) {
+        this.render();
+      }
       return;
     }
     this.selection = mapped;
@@ -570,7 +635,6 @@ export class InputHost {
     );
     if (changed) {
       this.render();
-      this.emitState();
       this.emitFormattingChanged();
     }
   }
@@ -793,7 +857,11 @@ export class InputHost {
   }
 
   private emitMarkdown(): void {
-    if (this.session.shouldSuppressEvents || !this.callbacks.onChangeMarkdown) {
+    if (
+      this.session.shouldSuppressEvents ||
+      !this.markdownEmitEnabled ||
+      !this.callbacks.onChangeMarkdown
+    ) {
       return;
     }
     this.callbacks.onChangeMarkdown(this.getMarkdown());
@@ -815,6 +883,40 @@ export class InputHost {
     this.emitSelection();
     this.emitState();
   }
+}
+
+interface CaretBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+// The box of a collapsed range, with the empty-line case covered. A range
+// collapsed at an element boundary has no client rects in Blink or WebKit, and
+// `getBoundingClientRect` answers an all-zero box there rather than a
+// position - which is exactly where an empty line's caret sits, because the
+// line renders as a lone `<br>` and the mapper resolves it to the paragraph
+// element itself. Subtracting the root's position from that zero box reports
+// the negated root position, so the line's own box stands in instead.
+function caretRectOfRange(range: Range, node: Node): CaretBox {
+  const rect = range.getBoundingClientRect();
+  if (!isZeroBox(rect)) {
+    return rect;
+  }
+  const element =
+    node.nodeType === Node.ELEMENT_NODE
+      ? (node as Element)
+      : node.parentElement;
+  const line = element?.getBoundingClientRect();
+  if (line === undefined || isZeroBox(line)) {
+    return rect;
+  }
+  return { left: line.left, top: line.top, width: 0, height: line.height };
+}
+
+function isZeroBox(box: CaretBox): boolean {
+  return box.left === 0 && box.top === 0 && box.width === 0 && box.height === 0;
 }
 
 function setAttributeIfAbsent(

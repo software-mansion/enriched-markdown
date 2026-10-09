@@ -278,7 +278,11 @@ const styles = StyleSheet.create({
   },
   buttonActive: { backgroundColor: COLORS.active },
   buttonHovered: { backgroundColor: COLORS.hover },
-  buttonFocused: { outlineWidth: 2, outlineColor: COLORS.focusRing },
+  buttonFocused: {
+    outlineStyle: 'solid',
+    outlineWidth: 2,
+    outlineColor: COLORS.focusRing,
+  },
   buttonLabel: { fontSize: 13, fontWeight: '700' },
   editorArea: { flex: 1, paddingVertical: 20, paddingHorizontal: 24 },
   sourcePane: {

@@ -50,6 +50,19 @@ export function isCodePointBoundary(text: string, index: number): boolean {
   );
 }
 
+// Nearest code point boundary at or before `index`. A surrogate pair is two
+// units wide, so one step back always reaches a boundary. Every offset that
+// enters the model goes through this or through `graphemeLength*`: clamping an
+// offset into the buffer's bounds is not enough on its own, because the seam
+// inside a surrogate pair is in bounds, and an edit there splits the pair into
+// two lone surrogates.
+export function codePointBoundaryAtOrBefore(
+  text: string,
+  index: number
+): number {
+  return isCodePointBoundary(text, index) ? index : index - 1;
+}
+
 // `Intl.Segmenter` is the only API that segments by user-perceived character.
 // Typed as optional and resolved once: Chrome/Edge 87+, Safari 14.1+ and
 // Firefox 125+ have it; older runtimes fall back to code point stepping.

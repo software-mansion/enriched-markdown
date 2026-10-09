@@ -101,6 +101,76 @@ describe('buildInputState', () => {
     ]).toEqual([true, true, true, true, true]);
   });
 
+  // `rangeOfType` is end-exclusive, and a caret right after a link is where
+  // it lands once the link's last character is typed - the most common moment
+  // for a toolbar to ask. Both natives retry one position back
+  // (`ENRMLinkCoordinator.linkForSelection:`), so web does too, or a shared
+  // link toolbar would pre-fill on native and come up empty here.
+  it('reports the link a caret sits inside', () => {
+    const state = build(
+      { styles: [range('link', 0, 5, 'https://x.test')] },
+      {
+        start: 2,
+        end: 2,
+      }
+    );
+
+    expect(state.link).toEqual({
+      isActive: true,
+      destination: 'https://x.test',
+    });
+  });
+
+  it('reports the link a caret sits right after', () => {
+    const state = build(
+      { styles: [range('link', 0, 5, 'https://x.test')] },
+      {
+        start: 5,
+        end: 5,
+      }
+    );
+
+    expect(state.link).toEqual({
+      isActive: true,
+      destination: 'https://x.test',
+    });
+  });
+
+  it('reports no link for a caret one position further out', () => {
+    const state = build(
+      { styles: [range('link', 0, 5, 'https://x.test')] },
+      {
+        start: 6,
+        end: 6,
+      }
+    );
+
+    expect(state.link).toEqual({ isActive: false, destination: '' });
+  });
+
+  it('does not look behind the start of the buffer', () => {
+    const state = build({}, { start: 0, end: 0 });
+
+    expect(state.link).toEqual({ isActive: false, destination: '' });
+  });
+
+  // A selection keeps the whole-coverage rule the other inline styles follow,
+  // and reports the link under its first character either way.
+  it('reports a partially covered link as off, with its destination', () => {
+    const state = build(
+      { styles: [range('link', 0, 3, 'https://x.test')] },
+      {
+        start: 1,
+        end: 5,
+      }
+    );
+
+    expect(state.link).toEqual({
+      isActive: false,
+      destination: 'https://x.test',
+    });
+  });
+
   it('reports the heading level on the line', () => {
     const state = build(
       { blocks: [block('h3', 0, 5, 3)] },
