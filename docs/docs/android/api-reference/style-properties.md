@@ -67,9 +67,9 @@ markdownStyle {
 
 Leave it unset to keep bold following its surroundings.
 
-## Layering with `copy`
+## Layering with `merge`
 
-`MarkdownStyle.copy { }` adds a layer on top of an existing style rather than replacing it, so variants stay expressed as differences:
+`MarkdownStyle.merge { }` adds a layer on top of an existing style rather than replacing it, so variants stay expressed as differences:
 
 ```kotlin
 val Base = markdownStyle {
@@ -77,10 +77,10 @@ val Base = markdownStyle {
   link { underline = true }
 }
 
-val Compact = Base.copy { paragraph { marginBottom = 8.dp } }
+val Compact = Base.merge { paragraph { marginBottom = 8.dp } }
 ```
 
-See [`MarkdownStyle.copy`](/android/api-reference/markdown-theme#markdownstylecopy) for the details.
+See [`MarkdownStyle.merge`](/android/api-reference/markdown-theme#markdownstylemerge) for the details.
 
 ## Dark mode
 

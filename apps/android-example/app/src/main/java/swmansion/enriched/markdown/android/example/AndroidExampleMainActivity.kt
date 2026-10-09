@@ -20,7 +20,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
 class AndroidExampleMainActivity : ComponentActivity() {
@@ -42,11 +41,10 @@ class AndroidExampleMainActivity : ComponentActivity() {
         // Math ships as its own artifact; this scope is what renders `$...$` / `$$...$$` for every
         // EnrichedMarkdownText below that also sets `Md4cFlags(latexMath = true)`.
         LatexMathPlugin {
-          MarkdownTheme {
-            Scaffold(
-              modifier = Modifier.fillMaxSize(),
-              containerColor = Color.White,
-              topBar = {
+          Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.White,
+            topBar = {
               TopAppBar(
                 title = {
                   Text(
@@ -106,7 +104,6 @@ class AndroidExampleMainActivity : ComponentActivity() {
 
               else -> Unit
             }
-          }
           }
         }
       }

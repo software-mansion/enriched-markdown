@@ -56,14 +56,11 @@ dependencies {
 
 ```kotlin
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
 
-MarkdownTheme {
-  EnrichedMarkdownText(
-    markdown = "# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).",
-    onLinkClick = { url -> /* open url */ },
-  )
-}
+EnrichedMarkdownText(
+  markdown = "# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).",
+  onLinkClick = { url -> /* open url */ },
+)
 ```
 
 ### iOS

@@ -35,7 +35,7 @@ class MarkdownPluginsTest {
 
     composeRule.setContent {
       pluginA {
-        MarkdownTheme {
+        MarkdownTheme(style = MarkdownStyle.Default) {
           pluginB {
             captured = LocalMarkdownPlugins.current
           }
