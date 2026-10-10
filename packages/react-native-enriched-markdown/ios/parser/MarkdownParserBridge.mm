@@ -1,7 +1,9 @@
+#import "ENRMLinkRegexConfig.h"
 #import "ENRMMarkdownParser.h"
 #include "MD4CParser.hpp"
 #import "MarkdownASTNode.h"
 #include "MarkdownASTNode.hpp"
+#include "TextLinkRecognizer.hpp"
 #import <React/RCTLog.h>
 
 // Convert C++ AST node to Objective-C AST node
@@ -141,8 +143,62 @@ static MarkdownASTNode *convertCppASTToObjC(std::shared_ptr<Markdown::MarkdownAS
   return objcNode;
 }
 
-// Public function to parse markdown using C++ parser and convert to Objective-C AST
+static NSString *ENRMStringFromUTF8(std::string_view utf8)
+{
+  return [[NSString alloc] initWithBytes:utf8.data() length:utf8.size() encoding:NSUTF8StringEncoding] ?: @"";
+}
+
+// Host matchers for the core recognizer: NSRanges are UTF-16 units, which is what the core expects.
+static Markdown::TextLinkMatchers ENRMTextLinkMatchers(ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex)
+{
+  Markdown::TextLinkMatchers matchers;
+  NSRegularExpression *text = textRegex.parsedRegex;
+  if (text) {
+    matchers.text = [text](const std::vector<std::string_view> &runs) {
+      std::vector<std::vector<Markdown::TextRange>> all;
+      all.reserve(runs.size());
+      for (std::string_view run : runs) {
+        NSString *string = ENRMStringFromUTF8(run);
+        std::vector<Markdown::TextRange> ranges;
+        for (NSTextCheckingResult *match in [text matchesInString:string
+                                                          options:0
+                                                            range:NSMakeRange(0, string.length)]) {
+          if (match.range.length > 0)
+            ranges.push_back({match.range.location, NSMaxRange(match.range)});
+        }
+        all.push_back(std::move(ranges));
+      }
+      return all;
+    };
+  }
+  NSRegularExpression *code = codeRegex.parsedWholeSpanRegex;
+  if (code) {
+    matchers.inlineCode = [code](const std::vector<std::string_view> &spans) {
+      std::vector<uint8_t> matched;
+      matched.reserve(spans.size());
+      for (std::string_view span : spans) {
+        NSString *string = ENRMStringFromUTF8(span);
+        NSRange whole = NSMakeRange(0, string.length);
+        NSTextCheckingResult *match = [code firstMatchInString:string options:0 range:whole];
+        matched.push_back(match != nil && NSEqualRanges(match.range, whole));
+      }
+      return matched;
+    };
+  }
+  return matchers;
+}
+
+MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
+                                            ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex);
+
 MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM)
+{
+  return parseMarkdownWithCppParser(markdown, flags, isGFM, nil, nil);
+}
+
+// Parses with the C++ parser, runs text link recognition in the core, and converts to the Objective-C AST.
+MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
+                                            ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex)
 {
   if (markdown.length == 0) {
     return [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
@@ -170,6 +226,9 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
 
   Markdown::MD4CParser parser;
   auto cppAST = parser.parse(cppMarkdown, cppFlags, isGFM);
+  if (cppAST && (textRegex || codeRegex)) {
+    Markdown::recognizeTextLinks(*cppAST, ENRMTextLinkMatchers(textRegex, codeRegex));
+  }
 
   // Convert C++ AST to Objective-C AST
   return convertCppASTToObjC(cppAST);

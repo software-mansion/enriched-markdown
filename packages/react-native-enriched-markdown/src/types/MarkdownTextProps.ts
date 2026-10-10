@@ -11,6 +11,14 @@ import type {
   CodeBlockPressEvent,
 } from './events';
 
+/** Patterns for `linkRecognition`. An omitted key is off. */
+export interface LinkRecognition {
+  /** Matched inside plain-text runs. */
+  text?: RegExp;
+  /** Must match an inline-code span's whole content. */
+  inlineCode?: RegExp;
+}
+
 export interface LinkPillContent {
   label?: string;
   iconUri?: string;
@@ -412,6 +420,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android
    */
   linkPillContent?: Record<string, LinkPillContent>;
+  /**
+   * Turns regex matches in plain text (`text`) and whole inline-code spans
+   * (`inlineCode`) into links. The matched text is the URL; the source is unchanged.
+   *
+   * @example
+   * linkRecognition={{ text: /#\d+/, inlineCode: /[\w./-]+\.tsx?/ }}
+   * @platform ios, android, web
+   */
+  linkRecognition?: LinkRecognition;
   /**
    * Controls the built-in items added to the native text selection menu and
    * lets you localize their labels. Custom app-provided actions are controlled

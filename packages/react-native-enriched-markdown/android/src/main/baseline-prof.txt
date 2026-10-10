@@ -43,7 +43,7 @@ Lcom/swmansion/enriched/markdown/input/autolink/AutoDetectedLinkMarkerSpan;
 Lcom/swmansion/enriched/markdown/input/autolink/AutoDetectedLinkUnderlineSpan;
 Lcom/swmansion/enriched/markdown/input/autolink/AutoLinkDetector;
 Lcom/swmansion/enriched/markdown/input/autolink/AutoLinkDetectorKt;
-Lcom/swmansion/enriched/markdown/input/autolink/LinkRegexConfig;
+Lcom/swmansion/enriched/markdown/utils/common/LinkRegexConfig;
 
 # Input - Detection
 Lcom/swmansion/enriched/markdown/input/detection/DetectorPipeline;

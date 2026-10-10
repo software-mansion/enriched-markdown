@@ -12,6 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign, readonly) BOOL isDisabled;
 @property (nonatomic, assign, readonly) BOOL isDefault;
 @property (nonatomic, strong, readonly, nullable) NSRegularExpression *parsedRegex;
+@property (nonatomic, strong, readonly, nullable) NSRegularExpression *parsedWholeSpanRegex;
 
 - (instancetype)initWithPattern:(NSString *)pattern
                 caseInsensitive:(BOOL)caseInsensitive
@@ -19,7 +20,10 @@ NS_ASSUME_NONNULL_BEGIN
                      isDisabled:(BOOL)isDisabled
                       isDefault:(BOOL)isDefault;
 
-- (BOOL)isEqualToConfig:(ENRMLinkRegexConfig *)other;
+/// Shared instance per pattern and flags; the renderer's props go through here. Thread-safe.
++ (instancetype)cachedConfigWithPattern:(NSString *)pattern caseInsensitive:(BOOL)caseInsensitive dotAll:(BOOL)dotAll;
+
+- (BOOL)isEqualToConfig:(nullable ENRMLinkRegexConfig *)other;
 
 @end
 

@@ -24,6 +24,7 @@ class LinkRenderer(
     factory: RendererFactory,
   ) {
     val url = node.getAttribute("url") ?: return
+    val recognizedLink = node.getAttribute("recognizedLink") == "true"
 
     factory.renderWithSpan(builder, { factory.renderChildren(node, builder, onLinkPress, onLinkLongPress) }) { start, end, blockStyle ->
       val variant = factory.styleCache.resolvedVariantForUrl(url)
@@ -47,7 +48,16 @@ class LinkRenderer(
         factory.runAfterRender { text -> pill.resolveLeadingMargin(text, text.getSpanStart(pill), text.getSpanEnd(pill)) }
       }
       builder.setSpan(
-        LinkSpan(url, onLinkPress, onLinkLongPress, factory.styleCache, blockStyle, factory.context),
+        LinkSpan(
+          url,
+          onLinkPress,
+          onLinkLongPress,
+          factory.styleCache,
+          blockStyle,
+          factory.context,
+          recognizedLink = recognizedLink,
+          keepsCodeFont = recognizedLink && node.children.any { it.type == MarkdownASTNode.NodeType.Code },
+        ),
         start,
         end,
         SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,

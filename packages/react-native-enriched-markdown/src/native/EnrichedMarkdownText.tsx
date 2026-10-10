@@ -2,6 +2,11 @@ import { useMemo, useCallback, useRef, useEffect } from 'react';
 import EnrichedMarkdownTextNativeComponent from '../EnrichedMarkdownTextNativeComponent';
 import type { MarkdownStyleInternal } from '../EnrichedMarkdownTextNativeComponent';
 import EnrichedMarkdownNativeComponent from '../EnrichedMarkdownNativeComponent';
+import {
+  isLinkRecognitionEqual,
+  toNativeLinkRecognition,
+  type LinkRecognitionNative,
+} from '../utils/regexParser';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle';
 import {
   isLinkPillContentEqual,
@@ -155,6 +160,7 @@ export const EnrichedMarkdownText = ({
   linkContextMenuItems,
   imageRequestHeaders,
   linkPillContent,
+  linkRecognition,
   selectionMenuConfig,
   accessibilityLabels,
   selectionColor,
@@ -166,6 +172,18 @@ export const EnrichedMarkdownText = ({
   ellipsizeMode,
   ...rest
 }: EnrichedMarkdownTextProps) => {
+  // An equal config keeps the previous object, so an inline literal does not
+  // re-send the prop on every render.
+  const linkRecognitionRef = useRef<LinkRecognitionNative | undefined>(
+    undefined
+  );
+  const nativeLinkRecognition = useMemo(() => {
+    const next = toNativeLinkRecognition(linkRecognition);
+    if (!isLinkRecognitionEqual(linkRecognitionRef.current, next)) {
+      linkRecognitionRef.current = next;
+    }
+    return linkRecognitionRef.current!;
+  }, [linkRecognition]);
   const normalizedStyleRef = useRef<MarkdownStyleInternal | null>(null);
   const normalized = normalizeMarkdownStyle(markdownStyle);
   // normalizeMarkdownStyle returns cached objects for structurally equal inputs,
@@ -394,6 +412,7 @@ export const EnrichedMarkdownText = ({
 
   const sharedProps = {
     markdown,
+    linkRecognition: nativeLinkRecognition,
     markdownStyle: normalizedStyle,
     onLinkPress: handleLinkPress,
     onLinkLongPress: handleLinkLongPress,

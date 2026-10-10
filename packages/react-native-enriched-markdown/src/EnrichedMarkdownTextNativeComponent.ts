@@ -448,6 +448,14 @@ interface OnLinkContextMenuItemPressEvent {
   itemText: string;
 }
 
+interface TextLinkNativeRegex {
+  pattern: string;
+  caseInsensitive: boolean;
+  dotAll: boolean;
+  isDisabled: boolean;
+  isDefault: boolean;
+}
+
 export interface NativeProps extends ViewProps {
   /**
    * Markdown content to render.
@@ -620,6 +628,11 @@ export interface NativeProps extends ViewProps {
   imageRequestHeaders?: ReadonlyArray<Readonly<ImageRequestHeaderInternal>>;
   /** Per-link pill content (label, icon), one entry per exact link URL. */
   linkPillContent?: ReadonlyArray<Readonly<LinkPillContentInternal>>;
+  /** Opt-in text link recognition; see `EnrichedMarkdownTextProps.linkRecognition`. */
+  linkRecognition?: Readonly<{
+    text: Readonly<TextLinkNativeRegex>;
+    inlineCode: Readonly<TextLinkNativeRegex>;
+  }>;
   /** Link long-press menus (iOS 17+): item lists by URL pattern, in matching order. */
   linkContextMenuItems?: ReadonlyArray<Readonly<LinkContextMenuItemsConfig>>;
   onLinkContextMenuItemPress?: CodegenTypes.BubblingEventHandler<OnLinkContextMenuItemPressEvent>;

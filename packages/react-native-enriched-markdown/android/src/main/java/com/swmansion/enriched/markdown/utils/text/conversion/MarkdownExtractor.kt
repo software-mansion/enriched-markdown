@@ -300,7 +300,7 @@ object MarkdownExtractor {
     val baselineShiftSpans = spannable.getSpans(start, end, BaselineShiftSpan::class.java)
     val hasSuperscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUPERSCRIPT }
     val hasSubscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUBSCRIPT }
-    val linkSpans = spannable.getSpans(start, end, LinkSpan::class.java)
+    val linkSpans = spannable.getSpans(start, end, LinkSpan::class.java).filterNot { it.recognizedLink }
     val hasHighlight = spannable.getSpans(start, end, HighlightSpan::class.java).isNotEmpty()
 
     var result = text

@@ -29,6 +29,7 @@ import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
+import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListToggleUtils
@@ -151,6 +152,16 @@ class EnrichedMarkdownManager :
     value: Int?,
   ) {
     view?.setSelectionHandleColor(value)
+  }
+
+  @ReactProp(name = "linkRecognition")
+  override fun setLinkRecognition(
+    view: EnrichedMarkdown?,
+    value: ReadableMap?,
+  ) {
+    val recognition = parseLinkRecognition(value)
+    view?.setLinkRegex(recognition.text)
+    view?.setInlineCodeLinkRegex(recognition.inlineCode)
   }
 
   @ReactProp(name = "md4cFlags")

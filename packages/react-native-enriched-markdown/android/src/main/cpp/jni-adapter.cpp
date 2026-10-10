@@ -1,9 +1,11 @@
 #include "CodeBlockHighlighter.hpp"
 #include "CodeBlockLanguages.hpp"
 #include "MD4CParser.hpp"
+#include "TextLinkRecognizer.hpp"
 #include <android/log.h>
 #include <jni.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 using namespace Markdown;
@@ -192,10 +194,130 @@ static jobject createJavaNode(JNIEnv *env, std::shared_ptr<MarkdownASTNode> node
   return javaNode;
 }
 
+// UTF-16 via NewString, not NewStringUTF: the matcher's offsets must count the same units
+// the core maps back to bytes, and modified UTF-8 cannot carry 4-byte sequences.
+static std::u16string toUtf16(std::string_view utf8) {
+  std::u16string out;
+  out.reserve(utf8.size());
+  for (size_t i = 0; i < utf8.size();) {
+    unsigned char lead = static_cast<unsigned char>(utf8[i]);
+    size_t length = lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
+    if (i + length > utf8.size())
+      break;
+    uint32_t codePoint = length == 1   ? lead
+                         : length == 2 ? ((lead & 0x1Fu) << 6) | (utf8[i + 1] & 0x3Fu)
+                         : length == 3 ? ((lead & 0x0Fu) << 12) | ((utf8[i + 1] & 0x3Fu) << 6) | (utf8[i + 2] & 0x3Fu)
+                                       : ((lead & 0x07u) << 18) | ((utf8[i + 1] & 0x3Fu) << 12) |
+                                             ((utf8[i + 2] & 0x3Fu) << 6) | (utf8[i + 3] & 0x3Fu);
+    if (codePoint >= 0x10000) {
+      codePoint -= 0x10000;
+      out.push_back(static_cast<char16_t>(0xD800 + (codePoint >> 10)));
+      out.push_back(static_cast<char16_t>(0xDC00 + (codePoint & 0x3FF)));
+    } else {
+      out.push_back(static_cast<char16_t>(codePoint));
+    }
+    i += length;
+  }
+  return out;
+}
+
+static jobjectArray toJavaStrings(JNIEnv *env, const std::vector<std::string_view> &strings) {
+  jclass stringClass = env->FindClass("java/lang/String");
+  jobjectArray array = env->NewObjectArray(static_cast<jsize>(strings.size()), stringClass, nullptr);
+  for (size_t i = 0; i < strings.size(); i++) {
+    std::u16string utf16 = toUtf16(strings[i]);
+    jstring value = env->NewString(reinterpret_cast<const jchar *>(utf16.data()), static_cast<jsize>(utf16.size()));
+    env->SetObjectArrayElement(array, static_cast<jsize>(i), value);
+    env->DeleteLocalRef(value);
+  }
+  env->DeleteLocalRef(stringClass);
+  return array;
+}
+
+// A host exception must not leak into later JNI calls; recognition is dropped for that call.
+static bool clearHostException(JNIEnv *env) {
+  if (!env->ExceptionCheck())
+    return false;
+  env->ExceptionDescribe();
+  env->ExceptionClear();
+  return true;
+}
+
+// Host matchers for the core recognizer: one JNI round trip per kind per parse, into TextLinkMatching.
+// Capturing env is safe because the core invokes these synchronously, inside this native call.
+static Markdown::TextLinkMatchers makeTextLinkMatchers(JNIEnv *env, jobject textConfig, jobject codeConfig) {
+  Markdown::TextLinkMatchers matchers;
+  if (!textConfig && !codeConfig)
+    return matchers;
+  jclass matchingClass = env->FindClass("com/swmansion/enriched/markdown/parser/TextLinkMatching");
+  if (!matchingClass) {
+    clearHostException(env);
+    return matchers;
+  }
+  const char *configSig = "com/swmansion/enriched/markdown/utils/common/LinkRegexConfig";
+
+  if (textConfig) {
+    jmethodID method = env->GetStaticMethodID(matchingClass, "matchText",
+                                              ("([Ljava/lang/String;L" + std::string(configSig) + ";)[I").c_str());
+    if (!method) {
+      clearHostException(env);
+      return matchers;
+    }
+    matchers.text = [env, matchingClass, method, textConfig](const std::vector<std::string_view> &runs) {
+      std::vector<std::vector<Markdown::TextRange>> all(runs.size());
+      jobjectArray javaRuns = toJavaStrings(env, runs);
+      jintArray triples = (jintArray)env->CallStaticObjectMethod(matchingClass, method, javaRuns, textConfig);
+      env->DeleteLocalRef(javaRuns);
+      if (clearHostException(env))
+        return all;
+      if (triples) {
+        jsize count = env->GetArrayLength(triples);
+        jint *data = env->GetIntArrayElements(triples, nullptr);
+        for (jsize i = 0; i + 2 < count; i += 3) {
+          size_t run = static_cast<size_t>(data[i]);
+          if (run < all.size())
+            all[run].push_back({static_cast<size_t>(data[i + 1]), static_cast<size_t>(data[i + 2])});
+        }
+        env->ReleaseIntArrayElements(triples, data, JNI_ABORT);
+        env->DeleteLocalRef(triples);
+      }
+      return all;
+    };
+  }
+
+  if (codeConfig) {
+    jmethodID method = env->GetStaticMethodID(matchingClass, "matchWholeCode",
+                                              ("([Ljava/lang/String;L" + std::string(configSig) + ";)[Z").c_str());
+    if (!method) {
+      clearHostException(env);
+      return matchers;
+    }
+    matchers.inlineCode = [env, matchingClass, method, codeConfig](const std::vector<std::string_view> &spans) {
+      std::vector<uint8_t> matched(spans.size(), 0);
+      jobjectArray javaSpans = toJavaStrings(env, spans);
+      jbooleanArray flags = (jbooleanArray)env->CallStaticObjectMethod(matchingClass, method, javaSpans, codeConfig);
+      env->DeleteLocalRef(javaSpans);
+      if (clearHostException(env))
+        return matched;
+      if (flags) {
+        jsize count = env->GetArrayLength(flags);
+        jboolean *data = env->GetBooleanArrayElements(flags, nullptr);
+        for (jsize i = 0; i < count && static_cast<size_t>(i) < matched.size(); i++)
+          matched[i] = data[i] == JNI_TRUE ? 1 : 0;
+        env->ReleaseBooleanArrayElements(flags, data, JNI_ABORT);
+        env->DeleteLocalRef(flags);
+      }
+      return matched;
+    };
+  }
+  return matchers;
+}
+
 extern "C" {
 
 JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nativeParseMarkdown(
-    JNIEnv *env, jobject /* this */, jstring markdown, jobject flags, jboolean isGFM) {
+    JNIEnv *env, jobject /* this */, jstring markdown, jobject flags, jboolean isGFM, jobject textLinkRegex,
+    jobject inlineCodeLinkRegex) {
   if (!markdown) {
     LOGE("Markdown string is null");
     return nullptr;
@@ -261,6 +383,10 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
     if (!ast) {
       LOGE("Parser returned null AST");
       return nullptr;
+    }
+
+    if (textLinkRegex || inlineCodeLinkRegex) {
+      Markdown::recognizeTextLinks(*ast, makeTextLinkMatchers(env, textLinkRegex, inlineCodeLinkRegex));
     }
 
     // Convert C++ AST to Kotlin MarkdownASTNode object

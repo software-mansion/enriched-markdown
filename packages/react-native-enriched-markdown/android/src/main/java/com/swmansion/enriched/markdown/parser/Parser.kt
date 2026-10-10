@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.parser
 
 import android.util.Log
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 
 data class Md4cFlags(
   val underline: Boolean = false,
@@ -38,6 +39,8 @@ class Parser {
       markdown: String,
       flags: Md4cFlags,
       isGFM: Boolean,
+      textLinkRegex: LinkRegexConfig?,
+      inlineCodeLinkRegex: LinkRegexConfig?,
     ): MarkdownASTNode?
 
     /**
@@ -51,13 +54,23 @@ class Parser {
     markdown: String,
     flags: Md4cFlags = Md4cFlags.DEFAULT,
     isGFM: Boolean = true,
+    linkRegex: LinkRegexConfig? = null,
+    inlineCodeLinkRegex: LinkRegexConfig? = null,
   ): MarkdownASTNode? {
     if (markdown.isBlank()) {
       return null
     }
 
     try {
-      val ast = nativeParseMarkdown(markdown, flags, isGFM)
+      // Only active patterns cross JNI.
+      val ast =
+        nativeParseMarkdown(
+          markdown,
+          flags,
+          isGFM,
+          linkRegex?.takeIf { it.compiled != null },
+          inlineCodeLinkRegex?.takeIf { it.compiledWholeSpan != null },
+        )
 
       if (ast != null) {
         return ast

@@ -32,6 +32,7 @@ import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.getArrayOrNull
@@ -41,6 +42,7 @@ import com.swmansion.enriched.markdown.utils.common.getMapOrNull
 import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
 import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
+import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import java.util.concurrent.ConcurrentHashMap
@@ -332,6 +334,7 @@ object MeasurementStore {
     var result = markdown.hashCode()
     result = 31 * result + (styleMap?.hashCode() ?: 0)
     result = 31 * result + (md4cFlagsMap?.hashCode() ?: 0)
+    result = 31 * result + parseLinkRecognition(props.getMapOrNull("linkRecognition")).hashCode()
     result = 31 * result + fontScale.toBits()
     result = 31 * result + allowFontScaling.hashCode()
     result = 31 * result + maxFontSizeMultiplier.toBits()
@@ -400,6 +403,7 @@ object MeasurementStore {
     // 2. Render & Measure
     measurePaint.textSize = fontSize
     val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
+    val linkRecognition = parseLinkRecognition(props.getMapOrNull("linkRecognition"))
     val spannable =
       tryRenderMarkdown(
         markdown,
@@ -411,6 +415,8 @@ object MeasurementStore {
         maxFontSizeMultiplier,
         imageRequestHeaders,
         parseLinkPillContent(props.getArrayOrNull("linkPillContent")),
+        linkRecognition.text,
+        linkRecognition.inlineCode,
       )
     spannable?.replaceMathSpansWithPlaceholders(context)
     val textToMeasure = spannable ?: markdown
@@ -501,9 +507,17 @@ object MeasurementStore {
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
+    val linkRecognition = parseLinkRecognition(props.getMapOrNull("linkRecognition"))
+
     return try {
       val ast =
-        Parser.shared.parseMarkdown(markdown, md4cFlags, isGFM)
+        Parser.shared.parseMarkdown(
+          markdown,
+          md4cFlags,
+          isGFM,
+          linkRecognition.text,
+          linkRecognition.inlineCode,
+        )
           ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
@@ -654,11 +668,13 @@ object MeasurementStore {
     maxFontSizeMultiplier: Float,
     imageRequestHeaders: Map<String, String> = emptyMap(),
     linkPillContent: Map<String, LinkPillContent> = emptyMap(),
+    linkRegex: LinkRegexConfig? = null,
+    inlineCodeLinkRegex: LinkRegexConfig? = null,
   ): Spannable? {
     if (styleMap == null) return null
 
     return try {
-      val ast = Parser.shared.parseMarkdown(markdown, md4cFlags, isGFM) ?: return null
+      val ast = Parser.shared.parseMarkdown(markdown, md4cFlags, isGFM, linkRegex, inlineCodeLinkRegex) ?: return null
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
       style.imageRequestHeaders = imageRequestHeaders
       style.linkPillContent = linkPillContent

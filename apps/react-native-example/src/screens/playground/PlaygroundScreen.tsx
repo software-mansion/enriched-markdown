@@ -60,6 +60,7 @@ const INLINE_IMAGE_URI = Image.resolveAssetSource(
   require('../../assets/logo_icon.png')
 ).uri;
 
+const REFERENCE_REGEX = /ref:[a-z]+/;
 const DEFAULT_INPUT_LINE_HEIGHT = undefined;
 const TALL_INPUT_LINE_HEIGHT = 36;
 
@@ -73,6 +74,7 @@ export default function PlaygroundScreen() {
   const [underlineEnabled, setUnderlineEnabled] = useState(true);
   const [setMarkdownModalVisible, setSetMarkdownModalVisible] = useState(false);
   const [rawInput, setRawInput] = useState('');
+  const [recognitionMode, setRecognitionMode] = useState(0);
   const [inputLineHeight, setInputLineHeight] = useState<number | undefined>(
     DEFAULT_INPUT_LINE_HEIGHT
   );
@@ -268,12 +270,26 @@ export default function PlaygroundScreen() {
         <View style={styles.divider} />
 
         <Text style={styles.previewLabel}>Preview</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => setRecognitionMode((mode) => (mode + 1) % 3)}
+          testID="recognize-links-button"
+        >
+          <Text style={styles.buttonText}>
+            Reference links: {['Off', 'CommonMark', 'GitHub'][recognitionMode]}
+          </Text>
+        </TouchableOpacity>
         <View style={styles.previewContainer} testID="preview-container">
           {markdown.length > 0 ? (
             <EnrichedMarkdownText
               markdown={markdown}
               markdownStyle={MARKDOWN_STYLE}
-              flavor="github"
+              flavor={recognitionMode === 1 ? 'commonmark' : 'github'}
+              linkRecognition={
+                recognitionMode
+                  ? { text: REFERENCE_REGEX, inlineCode: REFERENCE_REGEX }
+                  : undefined
+              }
               spoilerOverlay="solid"
               md4cFlags={{
                 underline: underlineEnabled,
