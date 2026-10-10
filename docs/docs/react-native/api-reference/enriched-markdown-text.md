@@ -98,7 +98,7 @@ Opt-in link recognition for text that is not written as a Markdown link, such as
 | Key | Type | Matches |
 | --- | ---- | ------- |
 | `text` | `RegExp` | Every nonempty, non-overlapping match inside a plain-text run |
-| `inlineCode` | `RegExp` | An inline-code span whose whole content matches; the span keeps its code formatting |
+| `inlineCode` | `RegExp` | An inline-code span whose whole content matches becomes one link |
 
 A recognized link's URL is the matched text itself, so `linkVariants`, `linkPillContent`, `linkContextMenuItems`, `onLinkPress` and `onLinkLongPress` apply to it like to any other link. Existing links, autolinks, code blocks, images, video and math are never touched. The Markdown source is unchanged: copying, including Copy as Markdown, returns the original text without link syntax.
 

@@ -113,7 +113,7 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
                               newAttributes[NSUnderlineStyleAttributeName] = underlineStyle;
                             }
 
-                            if (linkFontFamily.length > 0 && (!recognizedLink || !attrs[CodeAttributeName])) {
+                            if (linkFontFamily.length > 0) {
                               UIFont *currentFont = attrs[NSFontAttributeName];
                               if (currentFont) {
                                 UIFont *linkFont = [RCTFont updateFont:currentFont
