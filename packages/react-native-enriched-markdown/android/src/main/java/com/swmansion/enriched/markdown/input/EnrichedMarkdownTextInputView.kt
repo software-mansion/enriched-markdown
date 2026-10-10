@@ -1079,6 +1079,7 @@ class EnrichedMarkdownTextInputView(
       // No invalidateLayout() needed: applyFormatting() already re-measures.
       lastProcessedText = text?.toString() ?: ""
     }
+    syncHintVisibility()
     emitSelectionIfChanged()
   }
 
