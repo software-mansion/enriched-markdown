@@ -11,16 +11,30 @@ import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCL
 /**
  * The latex a latex node carries. md4c hands it over either as the node's own content or split
  * across text children, with breaks that only mattered to the source layout.
+ *
+ * Whitespace against the delimiters is dropped: it is the line breaks of a `$$` block written on
+ * lines of its own, which TeX ignores but which would otherwise follow the source into error
+ * events, copies and the plain-text fallback.
  */
 @InternalPluginApi
-fun latexSourceOf(node: MarkdownASTNode): String {
-  if (node.content.isNotEmpty()) return node.content
-  return node.children.joinToString("") { child ->
-    when (child.type) {
-      MarkdownASTNode.NodeType.SoftBreak, MarkdownASTNode.NodeType.LineBreak -> " "
-      else -> child.content
+fun latexSourceOf(node: MarkdownASTNode): String = trimLatex(untrimmedLatexSourceOf(node))
+
+private fun untrimmedLatexSourceOf(node: MarkdownASTNode): String =
+  node.content.ifEmpty {
+    node.children.joinToString("") { child ->
+      when (child.type) {
+        MarkdownASTNode.NodeType.SoftBreak, MarkdownASTNode.NodeType.LineBreak -> " "
+        else -> child.content
+      }
     }
   }
+
+/** [String.trim], except that it keeps the space of a trailing control space (`\ `), which TeX typesets. */
+private fun trimLatex(source: String): String {
+  val trimmed = source.trim()
+  if (trimmed.length == source.length || !trimmed.endsWith('\\')) return trimmed
+  val trailingBackslashes = trimmed.length - trimmed.trimEnd('\\').length
+  return if (trailingBackslashes % 2 == 1) "$trimmed " else trimmed
 }
 
 /**
@@ -38,7 +52,8 @@ internal class LatexSourceRenderer(
     onLinkLongPress: ((String) -> Unit)?,
     factory: RendererFactory,
   ) {
-    val latex = latexSourceOf(node)
+    // A blank equation - a `$$` just opened mid-stream, say - is still shown rather than dropped.
+    val latex = latexSourceOf(node).ifEmpty { untrimmedLatexSourceOf(node) }
     if (latex.isEmpty()) return
 
     // Display math promoted to a top-level node has no enclosing block, so it becomes a paragraph

@@ -18,7 +18,6 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
-import com.swmansion.enriched.markdown.utils.text.view.toClipboardPlainText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -90,7 +89,7 @@ class PluginInlineSpanExportTest {
         setSpan(FakeInlineSpan("y"), 6, 7, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
       }
 
-    assertEquals("a plain:x^2 b plain:y c", text.toClipboardPlainText())
+    assertEquals("a plain:x^2 b plain:y c", text.readableText())
   }
 
   /** Renders [document] and lays a [FakeInlineSpan] over its one [PLACEHOLDER], as a plugin's renderer would. */

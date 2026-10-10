@@ -7,44 +7,36 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.graphics.Typeface
 import android.text.Layout
-import android.text.Spannable
-import android.text.StaticLayout
-import android.text.TextPaint
-import android.text.style.AlignmentSpan
-import android.text.style.MetricAffectingSpan
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
-import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.registerCodeBackgrounds
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableAlignment
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
-import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfigurable
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import kotlin.math.ceil
 import kotlin.math.max
-import kotlin.math.min
 
 class TableContainerView(
   context: Context,
   private val styleConfig: StyleConfig,
 ) : FrameLayout(context),
-  BlockSegmentView {
+  BlockSegmentView,
+  SelectionMenuConfigurable {
   internal val tableStyle: TableStyle = styleConfig.tableStyle
 
   override val segmentMarginTop: Int get() = tableStyle.marginTop.toInt()
@@ -54,7 +46,7 @@ class TableContainerView(
 
   var onLinkPress: ((String) -> Unit)? = null
   var onLinkLongPress: ((String) -> Unit)? = null
-  var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+  override var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
 
   private val scrollView =
     HorizontalScrollView(context).apply {
@@ -69,106 +61,47 @@ class TableContainerView(
     }
   private val gridContainer get() = scrollView.getChildAt(0) as GridContainerView
 
-  private var rows: List<List<TableCellData>> = emptyList()
-  private var columnCount = 0
-  private var columnWidths = emptyList<Float>()
-  private var rowHeights = emptyList<Float>()
+  private var table: RenderedTable? = null
+  private val rows: List<List<TableCellData>> get() = table?.rows.orEmpty()
   private var totalTableWidth = 0f
   private var totalTableHeight = 0f
-  private var tableMarkdown = ""
 
   init {
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
   }
 
+  /** Main thread: builds the grid for a table the render thread already rendered and measured. */
+  fun applyRenderedTable(renderedTable: RenderedTable) {
+    table?.links?.view = null
+    table = renderedTable
+    renderedTable.links.view = this
+    totalTableWidth = renderedTable.columnWidths.sum() + tableStyle.borderWidth
+    totalTableHeight = renderedTable.rowHeights.sum() + tableStyle.borderWidth
+
+    renderGrid(renderedTable)
+  }
+
+  /** Renders [tableNode] on the calling thread, then applies it. Core renders on the render thread instead. */
   fun applyTableNode(
     tableNode: MarkdownASTNode,
     imageRequestHeaders: Map<String, String> = emptyMap(),
     plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
     onPluginEvent: PluginEventSink? = null,
   ) {
-    rows =
-      tableNode.children.flatMap { section ->
-        val isSectionHead = section.type == NodeType.TableHead
-        section.children.filter { it.type == NodeType.TableRow }.map { row ->
-          row.children.map { cell ->
-            val isHeader = isSectionHead || cell.type == NodeType.TableHeaderCell
-            val sourceAlignment = cell.getAttribute("align")
-            val align = textAlignmentFromString(sourceAlignment)
-            TableCellData(
-              attributedText = renderCellNode(cell, isHeader, align, imageRequestHeaders, plugins, onPluginEvent),
-              plainText = extractPlainText(cell),
-              isHeader = isHeader,
-              alignment = align,
-              sourceAlignment = sourceAlignment,
-            )
-          }
-        }
-      }
-
-    columnCount = rows.maxOfOrNull { it.size } ?: 0
-    // AST-based, not row-based (RN's buildMarkdownFromRows): a right-aligned column resolves to a
-    // start-aligned Layout.Alignment in RTL, so reconstructing from rows would emit the wrong marker.
-    tableMarkdown = MarkdownASTSerializer.serializeTable(tableNode)
-
-    val (widths, heights) = computeTableDimensions(rows.map { row -> row.map { it.attributedText } }, styleConfig, context)
-    columnWidths = widths
-    rowHeights = heights
-    totalTableWidth = columnWidths.sum() + tableStyle.borderWidth
-    totalTableHeight = rowHeights.sum() + tableStyle.borderWidth
-
-    renderGrid()
+    applyRenderedTable(RenderedTable.render(tableNode, styleConfig, context, imageRequestHeaders, plugins, onPluginEvent))
   }
 
-  private fun renderCellNode(
-    node: MarkdownASTNode,
-    isHeader: Boolean,
-    alignment: Layout.Alignment,
-    imageRequestHeaders: Map<String, String>,
-    plugins: PluginSnapshot,
-    onPluginEvent: PluginEventSink?,
-  ): Spannable {
-    val paragraph = MarkdownASTNode(NodeType.Paragraph, children = node.children)
-    val cellParagraphStyle = styleConfig.tableCellParagraphStyle(isHeader)
-    return styleConfig
-      .withParagraphOverride(cellParagraphStyle) {
-        // LinkSpan captures its callbacks; resolve ours at tap time so later setOnLinkPress* calls still apply.
-        Renderer()
-          .apply { configure(styleConfig, context, imageRequestHeaders, onPluginEvent, plugins) }
-          .renderContent(listOf(paragraph), { url -> onLinkPress?.invoke(url) }, { url -> onLinkLongPress?.invoke(url) })
-      }.apply {
-        if (isNotEmpty()) {
-          if (isHeader) setSpan(HeaderTypefaceSpan(styleConfig.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD), 0, length, 33)
-          if (alignment != Layout.Alignment.ALIGN_NORMAL) setSpan(AlignmentSpan.Standard(alignment), 0, length, 33)
-        }
-      }
-  }
-
-  private fun extractPlainText(node: MarkdownASTNode): String =
-    when (node.type) {
-      // A space rather than a newline: plain-text copy is newline-separated per row.
-      NodeType.LineBreak, NodeType.SoftBreak -> " "
-
-      else -> node.content + node.children.joinToString("") { extractPlainText(it) }
-    }
-
-  private fun textAlignmentFromString(align: String?): Layout.Alignment =
-    when (align) {
-      "center" -> Layout.Alignment.ALIGN_CENTER
-      "right" -> if (isRtl) Layout.Alignment.ALIGN_NORMAL else Layout.Alignment.ALIGN_OPPOSITE
-      "left" -> if (isRtl) Layout.Alignment.ALIGN_OPPOSITE else Layout.Alignment.ALIGN_NORMAL
-      else -> Layout.Alignment.ALIGN_NORMAL
-    }
-
-  private fun renderGrid() {
+  private fun renderGrid(table: RenderedTable) {
+    val rowHeights = table.rowHeights
+    val columnWidths = table.columnWidths
     gridContainer.removeAllViews()
     gridContainer.configure(tableStyle)
 
     var yOffset = 0f
     var bodyRowIndex = 0
 
-    rows.forEachIndexed { rowIndex, row ->
+    table.rows.forEachIndexed { rowIndex, row ->
       val rowHeight = rowHeights[rowIndex]
       val isHeaderRow = row.firstOrNull()?.isHeader == true
       val rowBg =
@@ -179,7 +112,7 @@ class TableContainerView(
         }
 
       var xOffset = if (isRtl) totalTableWidth - tableStyle.borderWidth else 0f
-      for (col in 0 until columnCount) {
+      for (col in 0 until table.columnCount) {
         val columnWidth = columnWidths[col]
 
         val cellX =
@@ -366,74 +299,12 @@ class TableContainerView(
           ContextMenuPopup.Icon.DOCUMENT,
           selectionMenuConfig.resolvedCopyAsMarkdownLabel,
         ) {
+          val tableMarkdown = table?.markdown.orEmpty()
           if (tableMarkdown.isNotEmpty()) clipboard.setPrimaryClip(ClipData.newPlainText("Table", tableMarkdown))
         }
       }
     }
     return true
-  }
-
-  companion object {
-    private class HeaderTypefaceSpan(
-      private val typeface: Typeface,
-    ) : MetricAffectingSpan() {
-      override fun updateDrawState(paint: TextPaint) {
-        paint.typeface = typeface
-      }
-
-      override fun updateMeasureState(paint: TextPaint) {
-        paint.typeface = typeface
-      }
-    }
-
-    private fun computeTableDimensions(
-      texts: List<List<CharSequence>>,
-      config: StyleConfig,
-      context: Context,
-    ): Pair<List<Float>, List<Float>> {
-      val style = config.tableStyle
-      val density = context.resources.displayMetrics.density
-      val (minColumnWidth, maxColumnWidth) = 60f * density to 300f * density
-      val (horizontalPadding, verticalPadding) = style.cellPaddingHorizontal * 2 to style.cellPaddingVertical * 2
-      val paint =
-        TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-          textSize = style.fontSize
-          typeface = config.tableTypeface
-        }
-
-      val columnWidths = FloatArray(texts.maxOfOrNull { it.size } ?: 0)
-      texts.forEach { row ->
-        row.forEachIndexed { colIndex, cellText ->
-          val layout =
-            StaticLayout.Builder
-              .obtain(cellText, 0, cellText.length, paint, maxColumnWidth.toInt())
-              .setIncludePad(false)
-              .build()
-          val textWidth: Float = (0 until layout.lineCount).maxOfOrNull { line -> layout.getLineWidth(line) } ?: 0f
-          columnWidths[colIndex] =
-            max(columnWidths[colIndex], min(max(ceil(textWidth) + horizontalPadding, minColumnWidth), maxColumnWidth + horizontalPadding))
-        }
-      }
-
-      val rowHeights =
-        texts.map { row ->
-          row
-            .mapIndexed { colIndex, cellText ->
-              val layout =
-                StaticLayout.Builder
-                  .obtain(
-                    cellText,
-                    0,
-                    cellText.length,
-                    paint,
-                    (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1),
-                  ).setIncludePad(false)
-                  .build()
-              ceil(layout.height.toFloat()) + verticalPadding
-            }.maxOfOrNull { it } ?: 0f
-        }
-      return columnWidths.toList() to rowHeights
-    }
   }
 
   private class GridContainerView(
@@ -513,13 +384,4 @@ class TableContainerView(
       importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
   }
-
-  private data class TableCellData(
-    val attributedText: Spannable,
-    val plainText: String,
-    val isHeader: Boolean,
-    val alignment: Layout.Alignment,
-    /** The GFM `align` attribute; [alignment] is mirrored in RTL, so HTML export needs the original. */
-    val sourceAlignment: String?,
-  )
 }

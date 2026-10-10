@@ -29,26 +29,10 @@ class StyleConfig(
   val spoilerStyle: SpoilerStyle = SpoilerStyle(),
   val extensions: Map<StyleExtensionKey<*>, Any> = emptyMap(),
 ) {
-  private val paragraphStyleDefault: ParagraphStyle = paragraphStyleDefault
-  private var paragraphStyleOverride: ParagraphStyle? = null
-
-  val paragraphStyle: ParagraphStyle
-    get() = paragraphStyleOverride ?: paragraphStyleDefault
-
-  fun <T> withParagraphOverride(
-    override: ParagraphStyle,
-    block: () -> T,
-  ): T {
-    paragraphStyleOverride = override
-    try {
-      return block()
-    } finally {
-      paragraphStyleOverride = null
-    }
-  }
+  val paragraphStyle: ParagraphStyle = paragraphStyleDefault
 
   fun tableCellParagraphStyle(isHeader: Boolean): ParagraphStyle =
-    paragraphStyleDefault.copy(
+    paragraphStyle.copy(
       fontSize = tableStyle.fontSize,
       fontFamily =
         if (isHeader && tableStyle.headerFontFamily.isNotEmpty()) {
@@ -77,9 +61,17 @@ class StyleConfig(
   fun <T : Any> withExtension(
     key: StyleExtensionKey<T>,
     value: T,
+  ): StyleConfig = copy(extensions = extensions + (key to value))
+
+  /** A copy with [style] for paragraphs, as a table cell renders its text; never mutated in place, for the same reason. */
+  fun withParagraphStyle(style: ParagraphStyle): StyleConfig = copy(paragraphStyle = style)
+
+  private fun copy(
+    paragraphStyle: ParagraphStyle = this.paragraphStyle,
+    extensions: Map<StyleExtensionKey<*>, Any> = this.extensions,
   ): StyleConfig =
     StyleConfig(
-      paragraphStyleDefault = paragraphStyleDefault,
+      paragraphStyleDefault = paragraphStyle,
       headingStyles = headingStyles,
       headingTypefaces = headingTypefaces,
       linkStyle = linkStyle,
@@ -87,6 +79,7 @@ class StyleConfig(
       emphasisStyle = emphasisStyle,
       strikethroughStyle = strikethroughStyle,
       underlineStyle = underlineStyle,
+      highlightStyle = highlightStyle,
       superscriptStyle = superscriptStyle,
       subscriptStyle = subscriptStyle,
       codeStyle = codeStyle,
@@ -101,7 +94,7 @@ class StyleConfig(
       tableTypeface = tableTypeface,
       tableHeaderTypeface = tableHeaderTypeface,
       spoilerStyle = spoilerStyle,
-      extensions = extensions + (key to value),
+      extensions = extensions,
     )
 
   val needsJustify: Boolean
@@ -112,7 +105,7 @@ class StyleConfig(
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (other !is StyleConfig) return false
-    return paragraphStyleDefault == other.paragraphStyleDefault &&
+    return paragraphStyle == other.paragraphStyle &&
       headingStyles.contentEquals(other.headingStyles) &&
       linkStyle == other.linkStyle &&
       strongStyle == other.strongStyle &&
@@ -136,7 +129,7 @@ class StyleConfig(
   }
 
   override fun hashCode(): Int {
-    var result = paragraphStyleDefault.hashCode()
+    var result = paragraphStyle.hashCode()
     result = 31 * result + headingStyles.contentHashCode()
     result = 31 * result + linkStyle.hashCode()
     result = 31 * result + strongStyle.hashCode()

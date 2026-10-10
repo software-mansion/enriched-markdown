@@ -10,7 +10,6 @@ import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
-import io.ratex.RaTeXEngine
 import io.ratex.RaTeXFontLoader
 import io.ratex.RaTeXRenderer
 import kotlin.math.ceil
@@ -108,7 +107,7 @@ class MathInlineSpan private constructor(
         runRaTeX(
           onFailure = { error -> onPluginEvent?.emit(LatexError(latex, error.message, displayMode)) },
         ) {
-          val displayList = RaTeXEngine.parseBlocking(latex, displayMode = false, color = textColor)
+          val displayList = DisplayListCache.shared.get(latex, displayMode = false, color = textColor)
           RaTeXRenderer(displayList, fontSize) { RaTeXFontLoader.getTypeface(it) }
         } ?: return null
       return MathInlineSpan(latex, fontSize, displayMode, renderer)

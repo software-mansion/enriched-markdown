@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.NodeRenderer
 import com.swmansion.enriched.markdown.renderer.RendererFactory
+import com.swmansion.enriched.markdown.renderer.latexSourceOf
 import com.swmansion.enriched.markdown.spans.TextSpan
 import com.swmansion.enriched.markdown.test.FakePlugin
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
@@ -81,6 +82,26 @@ class PluginNodeRendererTest {
       )
 
     assertEquals("\$a b\$", render(document(paragraph(node))).toString())
+  }
+
+  /** `$$` on lines of its own: md4c hands the breaks after the opening and before the closing over too. */
+  @Test
+  fun breaksAgainstTheDelimitersAreNotPartOfTheLatex() {
+    val softBreak = MarkdownASTNode(MarkdownASTNode.NodeType.SoftBreak)
+    val node =
+      MarkdownASTNode(
+        type = MarkdownASTNode.NodeType.LatexMathDisplay,
+        children = listOf(softBreak, text("E=mc^2"), softBreak),
+      )
+
+    assertEquals("E=mc^2", latexSourceOf(node))
+    assertEquals("x", latexSourceOf(latexMathDisplay("  x\n")))
+  }
+
+  @Test
+  fun aTrailingControlSpaceKeepsItsSpace() {
+    assertEquals("a\\ ", latexSourceOf(latexMathInline("a\\ ")))
+    assertEquals("a\\\\", latexSourceOf(latexMathInline("a\\\\ ")))
   }
 
   @Test

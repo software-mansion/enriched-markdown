@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.segments
 
 import android.content.Context
+import android.text.Spanned
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -10,7 +11,10 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
+import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
+import com.swmansion.enriched.markdown.test.TestAstFactory.link
 import com.swmansion.enriched.markdown.test.TestAstFactory.table
 import com.swmansion.enriched.markdown.test.TestAstFactory.tableBody
 import com.swmansion.enriched.markdown.test.TestAstFactory.tableCell
@@ -216,6 +220,26 @@ class TableContainerViewTest {
     )
 
     assertTrue(view.measuredWidth > 0)
+  }
+
+  /** Links are rendered before the view exists, so a tap asks the view for its callback at tap time. */
+  @Test
+  fun aLinkInACellReachesTheCallbackTheViewHoldsWhenTapped() {
+    val linkTable =
+      table(
+        head = tableHead(tableRow(tableHeaderCell("default", text("Site")))),
+        body = tableBody(tableRow(tableCell("default", link("https://example.com", text("example"))))),
+      )
+    val rendered = RenderedTable.render(linkTable, defaultStyle, context, emptyMap(), PluginSnapshot.EMPTY, null)
+    val view = newTableView().apply { applyRenderedTable(rendered) }
+    val pressed = mutableListOf<String>()
+    view.onLinkPress = { pressed += it }
+
+    val cellText = textViewWithText(view, "example")
+    val linkSpan = (cellText.text as Spanned).getSpans(0, cellText.text.length, LinkSpan::class.java).single()
+    linkSpan.onClick(cellText)
+
+    assertEquals(listOf("https://example.com"), pressed)
   }
 
   private companion object {

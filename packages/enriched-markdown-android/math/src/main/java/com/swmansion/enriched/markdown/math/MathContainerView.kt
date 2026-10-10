@@ -16,6 +16,7 @@ import com.swmansion.enriched.markdown.segments.BlockSegmentView
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TextAlignment
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfigurable
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import io.ratex.RaTeXRenderer
 import kotlin.math.ceil
@@ -30,9 +31,10 @@ import kotlin.math.ceil
 class MathContainerView(
   context: Context,
   styleConfig: StyleConfig,
-  var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig(),
+  override var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig(),
 ) : FrameLayout(context),
-  BlockSegmentView {
+  BlockSegmentView,
+  SelectionMenuConfigurable {
   private val mathStyle: MathStyle = styleConfig.mathStyle(context)
   private val scrollView = HorizontalScrollView(context)
   private val mathView = RaTeXCanvasView(context)

@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.segments.SegmentSignature
 import com.swmansion.enriched.markdown.test.FakePayload
 import com.swmansion.enriched.markdown.test.FakePlugin
 import com.swmansion.enriched.markdown.test.FakeSegmentView
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
@@ -41,6 +42,18 @@ class PluginViewIntegrationTest {
     assertEquals(1, plugin.blockSegment.createdViews)
     assertEquals(1, plugin.blockSegment.updatedViews)
     assertEquals("fake:y^2", (view.getChildAt(0) as FakeSegmentView).text.toString())
+  }
+
+  /** Core rebuilds no view for a new menu config, so a plugin's view has to be handed it too. */
+  @Test
+  fun aNewSelectionMenuConfigReachesAPluginSegmentView() {
+    val view = EnrichedMarkdown(context)
+    view.applyRenderedSegments(listOf(customSegment(FakePlugin(), "x^2")))
+
+    val config = SelectionMenuConfig(copyAsMarkdown = false)
+    view.setSelectionMenuConfig(config)
+
+    assertEquals(config, (view.getChildAt(0) as FakeSegmentView).selectionMenuConfig)
   }
 
   /** A signature is a content hash for view reuse, not an identity: equal blocks each get a view. */

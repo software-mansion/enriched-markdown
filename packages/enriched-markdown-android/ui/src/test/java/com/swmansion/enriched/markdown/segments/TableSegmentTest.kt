@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.segments
 
 import android.content.Context
@@ -5,7 +7,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.spans.TaskListSpan
+import com.swmansion.enriched.markdown.test.FakePlugin
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
 import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
@@ -85,6 +90,29 @@ class TableSegmentTest {
 
     assertEquals(2, segments.size)
     assertTrue(segments.all { it is MarkdownSegment.Table })
+  }
+
+  /** Cells render with the segment, on the render thread, so a plugin's renderer in a cell never runs on the main thread. */
+  @Test
+  fun aTableSegmentArrivesWithItsCellsRenderedByTheInstalledPlugins() {
+    val node =
+      table(
+        head = tableHead(tableRow(tableHeaderCell("default", text("Formula")))),
+        body = tableBody(tableRow(tableCell("default", latexMathInline("x^2")))),
+      )
+
+    val rendered =
+      MarkdownSegmentRenderer.render(
+        listOf(MarkdownSegment.Table(node)),
+        defaultStyle,
+        context,
+        onPluginEvent = {},
+        plugins = PluginSnapshot.of(FakePlugin()),
+      )
+
+    val rows = (rendered.single() as RenderedSegment.Table).table.rows
+    assertEquals("Formula", rows[0].single().attributedText.toString())
+    assertEquals("[fake:x^2:sink=true]", rows[1].single().attributedText.toString())
   }
 
   @Test
