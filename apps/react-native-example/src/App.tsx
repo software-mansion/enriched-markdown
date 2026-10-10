@@ -7,6 +7,7 @@ import InputScreen from './screens/input/InputScreen';
 import StreamingMarkdownSimulator from './screens/streaming/StreamingMarkdownSimulator';
 import StorybookScreen from './screens/storybook/StorybookScreen';
 import TowerScreen from './screens/tower/TowerScreen';
+import AgentScreen from './screens/agent/AgentScreen';
 
 export default function App() {
   return (
@@ -57,6 +58,11 @@ export default function App() {
         <Stack.Screen
           name="Tower"
           component={TowerScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Agent"
+          component={AgentScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

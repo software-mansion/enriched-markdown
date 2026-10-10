@@ -58,6 +58,13 @@ const SCREENS: ScreenItem[] = [
     testID: 'home-block-tower',
     color: '#14532D',
   },
+  {
+    route: 'Agent',
+    label: 'Agent transcript',
+    subtext: "a coding agent's raw output, recognized",
+    testID: 'home-block-agent',
+    color: '#78350F',
+  },
 ];
 
 export default function HomeScreen({ navigation }: Props) {

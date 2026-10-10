@@ -8,6 +8,7 @@ export type RootStackParamList = {
   Stream: undefined;
   Storybook: undefined;
   Tower: undefined;
+  Agent: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =
