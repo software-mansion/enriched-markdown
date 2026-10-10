@@ -281,7 +281,6 @@ class EnrichedMarkdownTest {
   ): RenderedSegment.Text =
     RenderedSegment.Text(
       styledText = SpannableString(text),
-      imageSpans = emptyList(),
       needsJustify = false,
       lastElementMarginBottom = lastElementMarginBottom,
       signature = signature,

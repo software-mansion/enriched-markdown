@@ -13,7 +13,6 @@ import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSegmentPayload
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
-import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
 sealed interface RenderedSegment {
@@ -33,7 +32,6 @@ sealed interface RenderedSegment {
      * spans, and a result that changes as the user merely selects text.
      */
     val styledText: Spannable,
-    val imageSpans: List<ImageSpan>,
     val needsJustify: Boolean,
     val lastElementMarginBottom: Float,
     override val signature: Long,
@@ -154,7 +152,6 @@ object MarkdownSegmentRenderer {
     val rendered =
       RenderedSegment.Text(
         styledText = styledText,
-        imageSpans = renderer.getCollectedImageSpans().toList(),
         needsJustify = style.needsJustify,
         lastElementMarginBottom = renderer.getLastElementMarginBottom(),
         signature = signature,

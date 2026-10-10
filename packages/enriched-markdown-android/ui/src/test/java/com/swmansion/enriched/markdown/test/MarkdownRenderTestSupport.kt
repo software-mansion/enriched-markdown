@@ -45,8 +45,15 @@ object MarkdownRenderTestSupport {
       underlineStyle = UnderlineStyle(color = underlineColor),
     )
 
-  /** [defaultStyle] with only its [HighlightStyle] replaced. */
-  fun styleWithHighlight(highlightStyle: HighlightStyle): StyleConfig = copyOfDefault(highlightStyle = highlightStyle)
+  /** [defaultStyle] with its [HighlightStyle] replaced, and aligned like [styleWithTextAlign] when [textAlign] is given. */
+  fun styleWithHighlight(
+    highlightStyle: HighlightStyle,
+    textAlign: TextAlignment? = null,
+  ): StyleConfig {
+    if (textAlign == null) return copyOfDefault(highlightStyle = highlightStyle)
+    val aligned = styleWithTextAlign(textAlign)
+    return copyOfDefault(highlightStyle = highlightStyle, paragraphStyle = aligned.paragraphStyle, headingStyles = aligned.headingStyles)
+  }
 
   /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
   fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
