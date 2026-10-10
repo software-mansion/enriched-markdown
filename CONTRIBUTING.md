@@ -151,6 +151,18 @@ We use [TypeScript](https://www.typescriptlang.org/) for type checking and [ESLi
 
 Our pre-commit hooks verify that lint and typecheck pass when committing.
 
+### Argent Cloud PR testing
+
+Maintainers can hand a pull request to Argent Cloud, an experimental internal tool that runs an AI agent against a build of `apps/react-native-example` on a cloud simulator, screenshots every step and reports what it saw. Comment `/argent` on the pull request, or add the `argent: ios` label; while the label stays, every push re-runs it, so remove the label once you are done. A pull request from a fork runs only at a commit you have reviewed: `/argent <full head SHA>`. Both paths need write access to the repository.
+
+The agent's final report appears in the run summary. Its screenshots, that report (`output.log`) and its full running commentary (`stream.log`) are attached to the run as the `argent-cloud-pr-<number>` artifact for fourteen days - Argent's own copy of the screenshots expires twelve hours after the session. Each run spends Anthropic API credit, which is why it is on demand rather than on every pull request.
+
+The CLI is downloaded from [software-mansion-labs/argent-cloud-releases](https://github.com/software-mansion-labs/argent-cloud-releases) by [.github/argent-cloud/install-argent-cloud.sh](.github/argent-cloud/install-argent-cloud.sh), which follows the `latest` release. Set `ARGENT_CLOUD_VERSION` and `ARGENT_CLOUD_SHA256` in the workflow to pin and verify a specific build instead.
+
+The app is built in Release for the simulator (`yarn react-native-example build:ios:release`, which is also how to reproduce the bundle locally) so the JavaScript is embedded and the agent's simulator needs no Metro server.
+
+What the agent is told lives in [.github/argent-cloud/prompt.md](.github/argent-cloud/prompt.md). Edit that file to change what gets tested; the workflow around it should not need touching. The pull request's title and body are pasted into the prompt as fenced, clearly labelled untrusted data - keep them that way if you change the template.
+
 ### Publishing to npm
 
 We use [release-it](https://github.com/release-it/release-it) to make it easier to publish new versions. It handles common tasks like bumping version based on semver, creating tags and releases etc.
@@ -174,6 +186,7 @@ The `package.json` file contains various scripts for common tasks:
 - `yarn react-native-example start`: start the Metro server for the react-native-example app.
 - `yarn react-native-example android`: run the react-native-example app on Android.
 - `yarn react-native-example ios`: run the react-native-example app on iOS.
+- `yarn react-native-example build:ios:release`: build the react-native-example app in Release for the iOS simulator, with the JS bundle embedded. This is the bundle the Argent Cloud workflow ships.
 - `yarn test:e2e:ios`: run all E2E tests on iOS simulator.
 - `yarn test:e2e:android`: run all E2E tests on Android emulator.
 - `yarn test:e2e:mobile`: run all E2E tests on both platforms sequentially.

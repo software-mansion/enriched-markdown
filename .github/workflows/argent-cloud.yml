@@ -1,0 +1,546 @@
+name: Argent Cloud
+
+# Hand a pull request to Argent Cloud: an AI agent drives a build of the iOS
+# example app on a cloud simulator, screenshots every step, and reports what it
+# saw. Label a pull request `argent: ios` (later pushes re-run it while the label
+# stays), comment `/argent` on it, or start it from the Actions tab with the pull
+# request number. A pull request from a fork runs only at a commit a maintainer
+# named: `/argent <full head SHA>`.
+#
+# Each run spends Anthropic API credit, which is why it is on demand and why
+# write access to this repository is the gate on it. What the agent is told lives
+# in .github/argent-cloud/prompt.md - that file is the knob, and this one should
+# not need touching to change what gets tested.
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Pull request number
+        required: true
+        type: number
+      commit:
+        description: Full SHA of the head commit you reviewed (required for a pull request from a fork)
+        required: false
+        type: string
+      focus:
+        description: Optional note telling the agent what to concentrate on
+        required: false
+        type: string
+
+jobs:
+  # Runs no repository code at all, which is what lets it hold the only token in
+  # this workflow that can write to GitHub. The association test is a cheap
+  # prefilter; the permission call below decides. The label path skips forks,
+  # which have no reviewed commit to pin.
+  resolve:
+    if: >-
+      github.repository == 'software-mansion/enriched-markdown' && (
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (
+        (github.event.action == 'labeled' && github.event.label.name == 'argent: ios')
+        || (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'argent: ios'))))
+      || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/argent') && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+      || github.event_name == 'workflow_dispatch' )
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      number: ${{ steps.pr.outputs.number }}
+      head: ${{ steps.pr.outputs.head }}
+      base: ${{ steps.pr.outputs.base }}
+      url: ${{ steps.pr.outputs.url }}
+    steps:
+      # Labelling needs only triage access, so the labeller is checked too.
+      - name: Check the requester's permission
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTER: ${{ github.event.sender.login }}
+        run: |
+          set -euo pipefail
+          PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$REQUESTER/permission" --jq .permission)
+          # maintain reads as write here, and triage as read.
+          if [[ "$PERMISSION" != admin && "$PERMISSION" != write ]]; then
+            echo "::error::@$REQUESTER has $PERMISSION access; an Argent Cloud run needs write access"
+            exit 1
+          fi
+
+      - name: Acknowledge the comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -f content=rocket --silent || true
+
+      # Pins the commit, so a push during the run changes nothing. A fork is
+      # driven only at the commit the requester reviewed.
+      - name: Resolve the commit
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pull_request }}
+          BODY: ${{ github.event.comment.body }}
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          refuse() {
+            echo "::error::$1"
+            if [[ "$EVENT" == issue_comment ]]; then
+              gh api "repos/$GITHUB_REPOSITORY/issues/$NUMBER/comments" -f body="$1" --silent || true
+            fi
+            exit 1
+          }
+
+          # `/argent [commit]`, on the first line of the comment. The trigger
+          # above matches a prefix, so `/argentina` reaches this point and has to
+          # be refused by name here.
+          REQUESTED=$COMMIT
+          if [[ "$EVENT" == issue_comment ]]; then
+            read -r COMMAND REQUESTED _ <<< "$(head -n 1 <<< "$BODY" | tr -d '\r')"
+            if [[ "$COMMAND" != "/argent" ]]; then
+              echo "::error::'$COMMAND' is not the Argent Cloud command; it is \`/argent [<SHA>]\`"
+              exit 1
+            fi
+          fi
+          REQUESTED=${REQUESTED:-}
+          if [[ -n "$REQUESTED" && ! "$REQUESTED" =~ ^[0-9a-f]{40}$ ]]; then
+            refuse "Name the commit with its full 40-character SHA, as in \`/argent <SHA>\`."
+          fi
+
+          PR=$(gh pr view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefOid,isCrossRepository \
+            --jq '"\(.headRefOid) \(.isCrossRepository)"')
+          HEAD=${PR% *}
+          FORK=${PR#* }
+          BASE=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [[ -z "$HEAD" || -z "$BASE" ]]; then
+            echo "::error::Could not resolve the head of pull request #$NUMBER or the tip of main"
+            exit 1
+          fi
+          if [[ -z "$REQUESTED" && "$FORK" == true ]]; then
+            refuse "#$NUMBER comes from a fork, so the agent runs its code only at a commit you name. Review the head, then comment \`/argent $HEAD\`."
+          fi
+          if [[ -n "$REQUESTED" && "$REQUESTED" != "$HEAD" ]]; then
+            refuse "The head of #$NUMBER is now \`$HEAD\`, not the requested \`$REQUESTED\`. Review what changed, then ask again at the new head."
+          fi
+          {
+            echo "number=$NUMBER"
+            echo "head=$HEAD"
+            echo "base=$BASE"
+            echo "url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$NUMBER"
+          } >> "$GITHUB_OUTPUT"
+
+      # Applied so later pushes re-run the agent while the label stays. A label
+      # added with github.token does not itself fire `pull_request: labeled` -
+      # GitHub suppresses workflow runs from GITHUB_TOKEN events - so this does
+      # not start a second session alongside the one the comment started. Best
+      # effort: a missing label should not throw away a run that is otherwise
+      # ready to go.
+      - name: Label the pull request
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$NUMBER/labels" \
+            -f 'labels[]=argent: ios' --silent \
+            || echo "::warning::Could not add the 'argent: ios' label; create it in the repository settings."
+
+      # The prompt's untrusted inputs are produced here, by a job that runs no
+      # pull request code, and travel to the agent as a JSON file. They never
+      # pass through a job output or a `run:` interpolation, which is what makes
+      # a title of `"; curl evil` inert: gh writes JSON and node parses it, so no
+      # shell ever sees the text. A job output would need a heredoc delimiter the
+      # author of the pull request could forge.
+      - name: Capture the pull request text
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+          FOCUS: ${{ inputs.focus }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/context"
+          gh pr view "$NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --json number,title,body,url,isDraft,headRefOid \
+            > "$RUNNER_TEMP/context/pr-context.json"
+          jq -n --arg focus "${FOCUS:-}" '{focus: $focus}' > "$RUNNER_TEMP/context/operator.json"
+
+      - name: Upload the pull request text
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: argent-pr-context
+          path: ${{ runner.temp }}/context
+          retention-days: 1
+          if-no-files-found: error
+
+  # Runs the pull request's code - install scripts, the Podfile, Xcode script
+  # phases - so it holds no secrets and its token can only read.
+  build:
+    needs: resolve
+    runs-on: macos-latest-xlarge
+    timeout-minutes: 60
+    # A newer request cancels this one. Set on the job, not the workflow, so only
+    # a request that passed resolve can cancel.
+    concurrency:
+      group: argent-cloud-build-${{ needs.resolve.outputs.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    steps:
+      # Tooling comes from the base branch; the pull request's head is checked
+      # out detached over it, with no credentials persisted.
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.resolve.outputs.base }}
+          persist-credentials: false
+
+      # Pull requests from forks are only reachable through their pull ref.
+      - name: Check out the pull request
+        env:
+          NUMBER: ${{ needs.resolve.outputs.number }}
+          HEAD: ${{ needs.resolve.outputs.head }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "+refs/pull/$NUMBER/head:refs/remotes/pull/$NUMBER"
+          git cat-file -e "$HEAD^{commit}"
+          git checkout --detach "$HEAD"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      # Deliberately not ./.github/actions/setup. That action saves the yarn
+      # cache, and this job runs the pull request's install scripts: a pull
+      # request that leaves yarn.lock and every package.json alone hashes to the
+      # same key main uses, so a postinstall script could write into a cache main
+      # later restores. An uncached install is cheap next to the Xcode build
+      # below. Unsetting the Actions runtime variables stops the same tooling
+      # reaching the cache service directly, for the same reason.
+      - name: Install dependencies
+        run: env -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_RUNTIME_URL -u ACTIONS_CACHE_URL -u ACTIONS_RESULTS_URL yarn install --immutable
+
+      # Mandatory before any app build: vendors the tree-sitter grammars and the
+      # RaTeX XCFramework, and runs bob.
+      - name: Build the library
+        run: env -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_RUNTIME_URL -u ACTIONS_CACHE_URL -u ACTIONS_RESULTS_URL yarn prepare
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.3'
+
+      # Only the build folder. The committed Podfile.lock stays, so the cache key
+      # below hashes a file that exists and the pod versions stay reproducible.
+      - name: Reset the build folder
+        run: rm -rf apps/react-native-example/ios/build
+
+      # Restore only, never save: this job runs pull request code, and a cache it
+      # saved would reach later runs on main.
+      - name: Restore cocoapods
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            **/ios/Pods
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cocoapods-
+
+      - name: Install cocoapods
+        working-directory: apps/react-native-example/ios
+        env:
+          NO_FLIPPER: 1
+        run: env -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_RUNTIME_URL -u ACTIONS_CACHE_URL -u ACTIONS_RESULTS_URL pod install
+
+      # Raw xcodebuild, not `react-native build-ios --mode Release`: the CLI picks
+      # a simulator destination only for Debug, so --mode Release asks for
+      # `generic/platform=ios`, a device, and dies on code signing - and
+      # --destination only appends to that. Turbo is out too: its build:ios task
+      # declares no outputs, so a cache hit would leave us with no .app at all.
+      #
+      # Release is what we want regardless of the CLI. The "Bundle React Native
+      # code and images" phase runs react-native-xcode.sh, which skips bundling
+      # for the simulator only when the configuration matches *Debug*, so a
+      # Release build embeds the JavaScript and the Hermes bytecode in the binary
+      # and the agent's simulator needs no Metro server it could never reach.
+      #
+      # No simctl dance: `generic/platform=iOS Simulator` resolves without a
+      # concrete device, and nothing is launched on this runner, so the
+      # simulator-pick idiom the other iOS jobs use is not needed here.
+      - name: Build the example app for the simulator
+        timeout-minutes: 50
+        working-directory: apps/react-native-example
+        run: |
+          set -euo pipefail
+          env -u ACTIONS_RUNTIME_TOKEN -u ACTIONS_RUNTIME_URL -u ACTIONS_CACHE_URL -u ACTIONS_RESULTS_URL \
+            xcodebuild build \
+              -workspace ios/EnrichedMarkdownExample.xcworkspace \
+              -scheme EnrichedMarkdownExample \
+              -configuration Release \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath ios/build \
+              -quiet \
+              CODE_SIGNING_ALLOWED=NO
+
+      # The .app at the root of the archive, so argent-cloud has no path prefix
+      # to guess. -C rather than a path, so nothing above the bundle is included.
+      # A tarball rather than a plain directory artifact because upload-artifact
+      # zips what it is given, and that zip does not carry POSIX modes - the app
+      # binary would arrive without its executable bit. COPYFILE_DISABLE and
+      # --no-mac-metadata keep bsdtar from scattering ._ AppleDouble files
+      # through it. The guard on main.jsbundle is the one that matters: without
+      # it, a Release build that somehow skipped bundling would ship an app that
+      # sits at a red screen waiting for a Metro server it cannot reach.
+      - name: Package the app bundle
+        run: |
+          set -euo pipefail
+          PRODUCTS=apps/react-native-example/ios/build/Build/Products/Release-iphonesimulator
+          if [[ ! -d "$PRODUCTS/EnrichedMarkdownExample.app" ]]; then
+            echo "::error::No app bundle at $PRODUCTS; the Release build produced nothing to test"
+            exit 1
+          fi
+          if [[ ! -f "$PRODUCTS/EnrichedMarkdownExample.app/main.jsbundle" ]]; then
+            echo "::error::The app bundle has no main.jsbundle, so it would need a Metro server the agent's simulator cannot reach"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/bundle"
+          COPYFILE_DISABLE=1 tar --no-mac-metadata -czf \
+            "$RUNNER_TEMP/bundle/EnrichedMarkdownExample.tar.gz" \
+            -C "$PRODUCTS" EnrichedMarkdownExample.app
+          ls -lh "$RUNNER_TEMP/bundle"
+
+      # One day: a few hundred megabytes of build output with no diagnostic value
+      # once the session has run.
+      - name: Upload the app bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: argent-app-bundle
+          path: ${{ runner.temp }}/bundle/EnrichedMarkdownExample.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  # Holds the Argent Cloud and Anthropic keys, and so holds no pull request code.
+  # Its tooling is sparse-checked-out from the base branch; the app bundle and the
+  # pull request's text arrive as artifacts and are treated as data - the bundle
+  # is a path handed to a CLI, the text is JSON a script parses. Nothing from the
+  # pull request is executed, sourced or interpolated on this runner.
+  #
+  # The pull request's code does run, in Argent's simulator. Job isolation does
+  # not defend that, and it is not meant to: a malicious pull request can drive
+  # arbitrary app behaviour inside the other team's sandbox and spend Anthropic
+  # budget. The write-access check in resolve is the real control on both, which
+  # is why that check gates every path into this workflow.
+  argent:
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    # Above the step limit below it, for the reason the benchmark workflows give:
+    # a step that runs out of time fails, while a job that does is cancelled and
+    # would read as superseded.
+    timeout-minutes: 90
+    environment: argent-cloud
+    concurrency:
+      group: argent-cloud-session-${{ needs.resolve.outputs.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the Argent Cloud tooling
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.resolve.outputs.base }}
+          persist-credentials: false
+          sparse-checkout: |
+            .nvmrc
+            .github/argent-cloud
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Download the pull request text
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: argent-pr-context
+          path: ${{ runner.temp }}/context
+
+      - name: Download the app bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: argent-app-bundle
+          path: ${{ runner.temp }}/bundle
+
+      # Release, so the JavaScript is in the binary. The template still carries
+      # the debug case, because the renderer is the generic piece and a debug
+      # bundle is something we may want to drive from somewhere that can reach a
+      # bundler.
+      - name: Render the prompt
+        run: |
+          set -euo pipefail
+          node .github/argent-cloud/render-prompt.mjs \
+            --template .github/argent-cloud/prompt.md \
+            --pr-context "$RUNNER_TEMP/context/pr-context.json" \
+            --operator "$RUNNER_TEMP/context/operator.json" \
+            --build-type release \
+            --out "$RUNNER_TEMP/argent/prompt.md"
+
+      - name: Install argent-cloud
+        run: |
+          set -euo pipefail
+          .github/argent-cloud/install-argent-cloud.sh "$RUNNER_TEMP/argent"
+          test -x "$RUNNER_TEMP/argent/argent-cloud"
+
+      # Generous, and deliberately so: --ready-timeout alone defaults to 20
+      # minutes because a cold node boot takes minutes, and killing a session
+      # part-way still spends everything it has drawn so far.
+      - name: Run the agent against the app
+        id: session
+        timeout-minutes: 75
+        working-directory: ${{ runner.temp }}/argent
+        env:
+          SIM_ROUTER_API_KEY: ${{ secrets.SIM_ROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ARGENT_BACKEND_IP: ${{ secrets.ARGENT_BACKEND_IP }}
+          BUNDLE: ${{ runner.temp }}/bundle/EnrichedMarkdownExample.tar.gz
+        run: |
+          # No `set -e`: a failed session still has a log worth keeping, and an
+          # archive that may still exist, so the status is carried by hand to the
+          # end of the step. No `set -x` either - the three keys above are in this
+          # environment, and tracing is how one ends up somewhere it is not
+          # masked. PIPESTATUS, not $?, because tee always succeeds.
+          set -uo pipefail
+
+          # Not named `status`: harmless in bash, but that name is a read-only
+          # special in zsh and this block is the one most likely to be copied
+          # into a shell by hand while debugging a session.
+          # --stream=stream.log keeps the agent's running commentary, which is
+          # the only record of what it did between screenshots; the final report
+          # still goes to stdout, so output.log stays the short, readable one.
+          argent_status=0
+          ./argent-cloud \
+            --prompt-file=prompt.md \
+            --app-bundle="$BUNDLE" \
+            --stream=stream.log \
+            --log-usage \
+            | tee output.log || argent_status=${PIPESTATUS[0]}
+
+          # The last line is contracted to be exactly `session-id=<ID>`. Matched
+          # whole rather than grepped, so an id never comes from a line the agent
+          # happened to print, and constrained in shape because it becomes both a
+          # filename and an argument below.
+          SESSION_ID=$(tail -n 1 output.log 2>/dev/null | tr -d '\r' \
+            | sed -n 's/^session-id=\([A-Za-z0-9_.-]\{1,128\}\)$/\1/p')
+
+          if [[ -z "$SESSION_ID" ]]; then
+            echo "::warning::The last line of output.log is not a session id, so there are no archived screenshots to fetch. The log is still uploaded."
+          else
+            echo "session_id=$SESSION_ID" >> "$GITHUB_OUTPUT"
+            # --out rather than the default ./<session-id>.tar.gz, so the path
+            # the artifact step names is the path this writes, with no reliance
+            # on the working directory. Best effort: the archive lives twelve
+            # hours on Argent's storage, and a session that failed early may
+            # never have written one.
+            ./argent-cloud archives download "$SESSION_ID" --out "session-$SESSION_ID.tar.gz" \
+              || echo "::warning::Could not download the archive for session $SESSION_ID; it may have expired or never been written."
+          fi
+
+          exit "$argent_status"
+
+      # output.log is the agent's last message and it is short, so the verdict
+      # belongs where a maintainer sees it without downloading anything. Fenced,
+      # because it is a model's output shaped by the pull request's own text and
+      # the summary renders markdown; capped, because the summary has a 1 MB
+      # limit.
+      - name: Publish the agent's report
+        if: ${{ !cancelled() }}
+        env:
+          SESSION_ID: ${{ steps.session.outputs.session_id }}
+          NUMBER: ${{ needs.resolve.outputs.number }}
+        run: |
+          set -euo pipefail
+          LOG="$RUNNER_TEMP/argent/output.log"
+          {
+            echo "### Argent Cloud - #$NUMBER"
+            echo
+            echo "Session \`${SESSION_ID:-unknown}\`. The screenshots and the agent's full running commentary are in the \`argent-cloud-pr-$NUMBER\` artifact of this run; the copy on Argent's storage expires twelve hours after the session."
+            echo
+            if [[ -s "$LOG" ]]; then
+              echo '```text'
+              head -c 60000 "$LOG"
+              echo
+              echo '```'
+            else
+              echo "The agent produced no output; see the step log above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The final report, the running commentary and the screenshots. When a
+      # session failed before producing an id the archive path matches nothing,
+      # which `warn` tolerates, and the two logs upload on their own - the
+      # behaviour we want from a failed session. Fourteen days, because once
+      # Argent's twelve-hour window closes this is the only copy of the
+      # screenshots.
+      - name: Upload the transcript and the screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: argent-cloud-pr-${{ needs.resolve.outputs.number }}
+          path: |
+            ${{ runner.temp }}/argent/output.log
+            ${{ runner.temp }}/argent/stream.log
+            ${{ runner.temp }}/argent/session-*.tar.gz
+          retention-days: 14
+          if-no-files-found: warn
+
+  # Fires for every Argent Cloud run and no other, because it lives in this
+  # workflow - that is the whole reason it is a job here rather than a
+  # workflow_run listener. `always()` so a failed or cancelled session is still
+  # announced, gated on resolve succeeding because a request that never passed
+  # the permission check has no pull request to point at and is not news.
+  notify:
+    needs: [resolve, build, argent]
+    if: ${{ always() && needs.resolve.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Post the result to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_URL: ${{ needs.resolve.outputs.url }}
+          NUMBER: ${{ needs.resolve.outputs.number }}
+          BUILD: ${{ needs.build.result }}
+          SESSION: ${{ needs.argent.result }}
+        run: |
+          set -euo pipefail
+          case "$SESSION" in
+            success)   STATUS="finished" ;;
+            cancelled) STATUS="was cancelled, probably superseded by a newer request" ;;
+            skipped)   STATUS="never started: the app build $BUILD" ;;
+            *)         STATUS="failed" ;;
+          esac
+
+          # jq builds the body so it does the JSON escaping; interpolating into a
+          # JSON heredoc is how a quote in a value becomes a malformed payload or
+          # an injected field. The message carries the two links and the number
+          # and no text from the pull request: Slack renders <url|label> mrkdwn,
+          # so a title is a place to hide a link that is not the one it claims to
+          # be.
+          jq -n --arg text "Argent Cloud $STATUS for <$PR_URL|#$NUMBER> - <$RUN_URL|run, log and screenshots>" \
+            '{text: $text}' > payload.json
+
+          # The URL arrives on stdin rather than in argv. It is masked in the log
+          # either way, but there is no reason for a secret to sit in a process
+          # argument list.
+          printf 'url = "%s"\n' "$SLACK_WEBHOOK_URL" \
+            | curl -fsS --config - -X POST -H 'Content-Type: application/json' --data @payload.json
