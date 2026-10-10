@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 import XCTest
 @testable import EnrichedMarkdown
@@ -52,10 +53,49 @@ extension XCTestCase {
         textView.styleConfig = config
         textView.frame = CGRect(x: 0, y: 0, width: width, height: 100)
         textView.setMarkdownAttributedText(rendered)
-        let height = textView.sizeThatFits(CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)).height
-        textView.frame = CGRect(x: 0, y: 0, width: width, height: height)
+        textView.frame = CGRect(x: 0, y: 0, width: width, height: height(of: textView, width: width))
         textView.layoutIfNeeded()
         return textView
+    }
+
+    func height(of textView: MarkdownTextView, width: CGFloat = 200) -> CGFloat {
+        textView.sizeThatFits(CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)).height
+    }
+
+    func host(
+        _ representable: MarkdownTextViewRepresentable,
+        size: CGSize = CGSize(width: 300, height: 600)
+    ) throws -> (window: UIWindow, textView: MarkdownTextView) {
+        let host = UIHostingController(rootView: representable.fixedSize(horizontal: false, vertical: true))
+        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.layoutIfNeeded()
+        return (window, try XCTUnwrap(host.view.firstSubview(of: MarkdownTextView.self)))
+    }
+
+    func backgroundRows(of textView: MarkdownTextView, in rect: CGRect) throws -> [[UInt8]] {
+        let decorator = MarkdownViewportDecorator(
+            backgroundView: MarkdownDecorationView(),
+            foregroundView: MarkdownDecorationView()
+        )
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: rect.size, format: format).image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: rect.size))
+            decorator.draw(in: context.cgContext, textView: textView, tile: rect, pass: .background)
+        }
+        let cgImage = try XCTUnwrap(image.cgImage)
+        let data = try XCTUnwrap(cgImage.dataProvider?.data) as Data
+        return (0..<Int(rect.height)).map { row in
+            Array(data[(row * cgImage.bytesPerRow)..<(row * cgImage.bytesPerRow + Int(rect.width) * 4)])
+        }
+    }
+
+    func backgroundPixel(of textView: MarkdownTextView, at point: CGPoint) throws -> [UInt8] {
+        let column = Int(point.x) * 4
+        return Array(try backgroundRows(of: textView, in: textView.bounds)[Int(point.y)][column..<column + 4])
     }
 
     /// Lets the main queue drain, where a settled layout is announced.
@@ -68,6 +108,31 @@ extension XCTestCase {
         let drained = expectation(description: "main queue drained")
         DispatchQueue.main.async { drained.fulfill() }
         wait(for: [drained], timeout: 1)
+    }
+}
+
+extension MarkdownTextViewRepresentable {
+    static func fixture(
+        attributedText: NSAttributedString,
+        isBottomMarginEnabled: Bool = false,
+        openURL: @escaping (URL) -> Void = { _ in }
+    ) -> MarkdownTextViewRepresentable {
+        MarkdownTextViewRepresentable(
+            attributedText: attributedText,
+            source: nil,
+            isBottomMarginEnabled: isBottomMarginEnabled,
+            styleConfig: .baseline(),
+            openURL: openURL,
+            onLinkPress: nil,
+            onLinkLongPress: nil,
+            selectionMenuConfig: MarkdownSelectionMenu(),
+            isSelectionEnabled: true,
+            selectionColor: nil,
+            onTaskListItemTap: nil,
+            spoilerOverlay: ParticleSpoilerOverlayProvider(),
+            onSpoilerTap: nil,
+            accessibilityLabels: .default
+        )
     }
 }
 

@@ -471,6 +471,16 @@ Code blocks always render left-to-right. See [Right-to-left text](#right-to-left
 
 Outside SwiftUI, `MarkdownRenderer.render`, `renderLaTeX`, and `renderSyntaxHighlighted` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
 
+### `.markdownBottomMarginEnabled`
+
+```swift
+extension View {
+  func markdownBottomMarginEnabled(_ enabled: Bool) -> some View   // default false
+}
+```
+
+The last block's bottom margin is dropped by default, so the view ends at its last line and the container's own spacing decides what follows. `markdownBottomMarginEnabled(true)` keeps it, using the margin the theme gives that block (`Paragraph().marginBottom(_:)` for a trailing paragraph, and so on); where blocks nest, the largest margin ending the document wins. A code block ending the document keeps its bottom padding either way.
+
 ### Migrating from 0.1
 
 Every 0.1 name still compiles as a deprecated alias that forwards to its replacement, with an Xcode fix-it where the shape is unchanged. They will be removed in the next major version.

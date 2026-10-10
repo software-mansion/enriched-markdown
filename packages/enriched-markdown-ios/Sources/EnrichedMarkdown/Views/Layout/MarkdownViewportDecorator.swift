@@ -26,7 +26,7 @@ final class MarkdownViewportDecorator {
 
     /// Draws one pass for `tile`, the part of the text view the receiving
     /// decoration view covers, in that view's coordinates.
-    func draw(in context: CGContext, textView: UITextView, tile: CGRect, pass: MarkdownDecorationPass) {
+    func draw(in context: CGContext, textView: MarkdownTextView, tile: CGRect, pass: MarkdownDecorationPass) {
         guard let textLayoutManager = textView.textLayoutManager else { return }
 
         // A subview's frame is in the text view's bounds space, whatever the
@@ -40,7 +40,8 @@ final class MarkdownViewportDecorator {
             textLayoutManager: textLayoutManager,
             containerWidth: textView.textContainer.size.width,
             origin: CGPoint(x: inset.left - tile.minX, y: inset.top - tile.minY),
-            decorationConfig: config
+            decorationConfig: config,
+            trailingPadding: textView.trailingSpacing.padding
         )
 
         switch pass {
@@ -55,7 +56,7 @@ final class MarkdownViewportDecorator {
 }
 
 final class MarkdownDecorationView: UIView {
-    weak var textView: UITextView?
+    weak var textView: MarkdownTextView?
     var viewportDecorator: MarkdownViewportDecorator?
     var pass: MarkdownDecorationPass = .background
 

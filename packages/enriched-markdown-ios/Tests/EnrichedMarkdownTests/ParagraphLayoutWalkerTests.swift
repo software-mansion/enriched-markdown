@@ -37,33 +37,35 @@ final class ParagraphLayoutWalkerTests: XCTestCase {
     End.
     """
 
-    private func layOut(direction: MarkdownWritingDirection = .firstStrong) throws -> NSTextLayoutManager {
+    private func layOutTextView(direction: MarkdownWritingDirection = .firstStrong) -> MarkdownTextView {
         let rendered = MarkdownRenderer.render(
             Self.markdown,
             config: .baseline(),
             options: MarkdownParsingOptions(admonitions: true),
             writingDirection: direction
         )
-        return try XCTUnwrap(laidOutTextView(showing: rendered).textLayoutManager)
+        return laidOutTextView(showing: rendered)
+    }
+
+    private func layOut(direction: MarkdownWritingDirection = .firstStrong) throws -> NSTextLayoutManager {
+        try XCTUnwrap(layOutTextView(direction: direction).textLayoutManager)
     }
 
     /// The walker must report exactly the line frames and baselines that
-    /// `enumerateTextSegments` reports per paragraph; the drawers were
+    /// the segment enumeration reports per paragraph; the drawers were
     /// written against the latter.
     func testLinesMatchTextSegments() throws {
         for direction in [MarkdownWritingDirection.firstStrong, .rightToLeft] {
-            let textLayoutManager = try layOut(direction: direction)
-            let contentManager = try XCTUnwrap(textLayoutManager.textContentManager)
+            let textView = layOutTextView(direction: direction)
+            let textLayoutManager = try XCTUnwrap(textView.textLayoutManager)
             let paragraphs = ParagraphLayoutWalker.paragraphs(in: textLayoutManager)
             XCTAssertGreaterThan(paragraphs.count, 20)
 
             var comparedLines = 0
             for paragraph in paragraphs {
-                let textRange = try XCTUnwrap(TextLayoutHelpers.textRange(paragraph.range, in: contentManager))
                 var segments: [(frame: CGRect, baseline: CGFloat)] = []
-                textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { _, frame, baseline, _ in
+                TextLayoutHelpers.enumerateSegmentFrames(of: paragraph.range, in: textView) { frame, _, baseline in
                     segments.append((frame, baseline))
-                    return true
                 }
                 XCTAssertEqual(segments.count, paragraph.lines.count, "lines of \(paragraph.range)")
                 for (segment, line) in zip(segments, paragraph.lines) {

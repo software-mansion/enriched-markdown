@@ -209,8 +209,10 @@ final class ListItemRenderer: NodeRenderer {
             return true
         }
         // Read in place: bridging `output.string` copies the document.
-        return output.mutableString.rangeOfCharacter(from: Self.nonNewlines, options: [], range: range).location == NSNotFound
+        return output.mutableString.rangeOfCharacter(
+            from: ParagraphStyleHelpers.nonNewlines,
+            options: [],
+            range: range
+        ).location == NSNotFound
     }
-
-    private static let nonNewlines = CharacterSet.newlines.inverted
 }

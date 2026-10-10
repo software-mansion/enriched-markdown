@@ -50,6 +50,7 @@ final class AttributedRenderer {
         }
 
         context.clearBlockStyle()
+        TrailingSpacing.strip(from: output, codeBlockPadding: config.codeBlock.padding ?? 0)
         BaselineShiftRenderer.applyShifts(to: output, context: context, config: config)
         SpoilerConcealment.conceal(output, in: NSRange(location: 0, length: output.length))
         factory.applyWritingDirection(to: output)

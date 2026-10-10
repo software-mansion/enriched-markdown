@@ -154,12 +154,15 @@ final class MarkdownExtractorTests: XCTestCase {
         XCTAssertEqual(markdown, source)
     }
 
-    func testFullSelectionToleratesExcludedTrailingSpacers() {
-        let source = "# Title\n\nParagraph with **bold**."
-        let rendered = render(source)
+    func testFullSelectionToleratesExcludedLeadingSpacer() {
+        var spaced = MarkdownStyleConfiguration.baseline()
+        spaced.paragraph.marginTop = 12
+        let source = "Paragraph with **bold**."
+        let rendered = MarkdownRenderer.render(source, config: spaced)
+        XCTAssertTrue(rendered.string.hasPrefix("\n"))
 
         let markdown = MarkdownExtractor.markdown(
-            for: NSRange(location: 0, length: rendered.length - 1),
+            for: NSRange(location: 1, length: rendered.length - 1),
             in: rendered,
             sourceMarkdown: source
         )
@@ -442,7 +445,7 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsMultiLineCodeBlock() {
         let code = "func main() {\n  print(\"forest\")\n}\n"
-        let rendered = render("```\nfunc main() {\n  print(\"forest\")\n}\n```")
+        let rendered = render("```\nfunc main() {\n  print(\"forest\")\n}\n```\n\nafter")
         let range = (rendered.string as NSString).range(of: code)
         XCTAssertNotEqual(range.location, NSNotFound)
 
@@ -455,8 +458,16 @@ final class MarkdownExtractorTests: XCTestCase {
     func testExtractsCodeBlockWithoutClosingFenceWhenSelectionExcludesTrailingNewline() {
         let code = "let answer = 42"
         XCTAssertEqual(
-            extractSelecting(code, in: "```\nlet answer = 42\n```"),
+            extractSelecting(code, in: "```\nlet answer = 42\n```\n\nafter"),
             "```\n\(code)"
+        )
+    }
+
+    func testExtractsCodeBlockEndingTheDocumentWithItsClosingFence() {
+        let code = "let answer = 42"
+        XCTAssertEqual(
+            extractSelecting(code, in: "```\nlet answer = 42\n```"),
+            "```\n\(code)\n```\n"
         )
     }
 

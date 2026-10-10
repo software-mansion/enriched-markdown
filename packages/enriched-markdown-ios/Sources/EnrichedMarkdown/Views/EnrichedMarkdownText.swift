@@ -21,6 +21,7 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownSpoilerOverlay) private var spoilerOverlay
     @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
     @Environment(\.markdownWritingDirection) private var writingDirection
+    @Environment(\.markdownBottomMarginEnabled) private var isBottomMarginEnabled
     // The fallback for paragraphs with no strong directional character.
     @Environment(\.layoutDirection) private var layoutDirection
     @StateObject private var renderStore = MarkdownRenderStore()
@@ -57,6 +58,7 @@ public struct EnrichedMarkdownText: View {
         return MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,
             source: renderStore.source,
+            isBottomMarginEnabled: isBottomMarginEnabled,
             styleConfig: config,
             openURL: { openURL($0) },
             onLinkPress: onLinkPress,
