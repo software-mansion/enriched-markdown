@@ -10,6 +10,7 @@ import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_LIST_ITEM
 
 class ListItemRenderer(
   private val config: RendererConfig,
@@ -73,7 +74,7 @@ class ListItemRenderer(
         }
       }
 
-    builder.setSpan(span, start, itemEnd, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+    builder.setSpan(span, start, itemEnd, SPAN_FLAGS_LIST_ITEM)
 
     if (isChecked) {
       applyCheckedDecorations(builder, start, itemEnd, depth)

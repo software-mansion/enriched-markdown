@@ -137,8 +137,10 @@ object TaskListTapUtils {
     for (old in targetSpans) {
       val start = spannable.getSpanStart(old)
       val end = spannable.getSpanEnd(old)
+      // Keep the original flags so the list item priority survives the toggle
+      val flags = spannable.getSpanFlags(old)
       spannable.removeSpan(old)
-      spannable.setSpan(toggledCopy(old), start, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+      spannable.setSpan(toggledCopy(old), start, end, flags)
     }
 
     // The marker may be drawn by an anchor span wrapping an unattached copy

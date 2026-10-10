@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_LIST_ITEM
 
 class ListItemRenderer(
   private val config: RendererConfig,
@@ -109,7 +110,7 @@ class ListItemRenderer(
           if (isFirstSegment && plainAnchor) markerSpan else makeSpan(drawsMarker = false),
           pos,
           cbStart,
-          SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+          SPAN_FLAGS_LIST_ITEM,
         )
         isFirstSegment = false
       }
@@ -120,7 +121,7 @@ class ListItemRenderer(
         if (isFirstSegment && plainAnchor) markerSpan else makeSpan(drawsMarker = false),
         pos,
         itemEnd,
-        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+        SPAN_FLAGS_LIST_ITEM,
       )
     }
 

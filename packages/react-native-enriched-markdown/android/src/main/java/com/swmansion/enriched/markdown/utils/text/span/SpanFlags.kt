@@ -28,3 +28,15 @@ const val SPAN_FLAGS_CONTAINER_BACKGROUND =
  */
 const val SPAN_FLAGS_LINE_HEIGHT_PRIORITY =
   Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or Spanned.SPAN_PRIORITY
+
+/**
+ * `SPAN_EXCLUSIVE_EXCLUSIVE` with a span priority just above the default.
+ *
+ * List item spans are set after the item's children, so at the default
+ * priority they apply after inline spans such as `CodeSpan` and replace their
+ * font and size. This priority applies them first, while staying below
+ * [SPAN_FLAGS_CONTAINER_BACKGROUND] so a blockquote still draws its leading
+ * margin before a list's.
+ */
+const val SPAN_FLAGS_LIST_ITEM =
+  Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or (1 shl Spanned.SPAN_PRIORITY_SHIFT)

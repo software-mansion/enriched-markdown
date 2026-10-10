@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.renderer
 
 import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.style.AlignmentSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.HeadingSpan
@@ -41,6 +42,8 @@ class HeadingRenderer(
     val contentLength = end - start
 
     if (contentLength > 0) {
+      // Set after the children, so top priority makes it apply first and the
+      // inline spans inside the heading (code, links, strong, emphasis) win.
       builder.setSpan(
         HeadingSpan(
           level,
@@ -48,7 +51,7 @@ class HeadingRenderer(
         ),
         start,
         end,
-        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or Spanned.SPAN_PRIORITY,
       )
 
       builder.setSpan(
