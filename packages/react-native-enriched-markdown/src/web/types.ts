@@ -22,6 +22,7 @@ export type NodeType =
   | 'Emphasis'
   | 'Strikethrough'
   | 'Underline'
+  | 'Spoiler'
   | 'Superscript'
   | 'Subscript'
   | 'Highlight'
