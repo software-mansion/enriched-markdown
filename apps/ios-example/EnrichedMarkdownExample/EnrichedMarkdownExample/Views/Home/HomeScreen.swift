@@ -31,6 +31,27 @@ private let menuItems: [HomeMenuItem] = [
         accessibilityId: "home-block-math"
     ),
     HomeMenuItem(
+        route: .spoilers,
+        label: "Spoilers",
+        subtext: "custom overlay animations",
+        color: .tileIndigo,
+        accessibilityId: "home-block-spoilers"
+    ),
+    HomeMenuItem(
+        route: .blur,
+        label: "Blur",
+        subtext: "the README's custom overlay",
+        color: .tileSky,
+        accessibilityId: "home-block-blur"
+    ),
+    HomeMenuItem(
+        route: .hogwarts,
+        label: "Hogwarts",
+        subtext: "a spellbook of spoiler effects",
+        color: .tileBurgundy,
+        accessibilityId: "home-block-hogwarts"
+    ),
+    HomeMenuItem(
         route: .input,
         label: "Input",
         subtext: "chat-style rich text input",

@@ -10,6 +10,11 @@ enum ExampleFontRegistrar {
         "Montserrat-Italic",
         "Montserrat-BoldItalic",
         "CourierPrime-Regular",
+        "CinzelDecorative-Regular",
+        "CinzelDecorative-Bold",
+        "IMFellEnglish-Regular",
+        "IMFellEnglish-Italic",
+        "IMFellEnglishSC-Regular",
     ]
 
     /// Registers example fonts from the app bundle before any markdown is rendered.

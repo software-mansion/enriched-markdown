@@ -15,6 +15,7 @@
 		A10000010000000000000012 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000012 /* HomeScreen.swift */; };
 		A10000010000000000000013 /* HomeScreenButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000013 /* HomeScreenButton.swift */; };
 		A10000010000000000000014 /* TextScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000014 /* TextScreen.swift */; };
+		A10000010000000000000090 /* BlurScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000090 /* BlurScreen.swift */; };
 		A10000010000000000000050 /* MathScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000050 /* MathScreen.swift */; };
 		A10000010000000000000051 /* EnrichedMarkdownLaTeX in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000002 /* EnrichedMarkdownLaTeX */; };
 		A10000010000000000000015 /* PlaygroundScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000015 /* PlaygroundScreen.swift */; };
@@ -27,6 +28,40 @@
 		A10000010000000000000042 /* PlaygroundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000042 /* PlaygroundButton.swift */; };
 		A10000010000000000000046 /* PlaygroundSpoilerOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */; };
 		A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000043 /* SetMarkdownSheet.swift */; };
+		A10000010000000000000060 /* SpoilersScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000060 /* SpoilersScreen.swift */; };
+		A10000010000000000000061 /* SpoilerShowcaseOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000061 /* SpoilerShowcaseOverlay.swift */; };
+		A10000010000000000000062 /* SpoilerOverlayView+Reveal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000062 /* SpoilerOverlayView+Reveal.swift */; };
+		A10000010000000000000063 /* PixelateOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000063 /* PixelateOverlay.swift */; };
+		A10000010000000000000064 /* DecodeOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000064 /* DecodeOverlay.swift */; };
+		A10000010000000000000065 /* ShimmerOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000065 /* ShimmerOverlay.swift */; };
+		A10000010000000000000066 /* LiquidOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000066 /* LiquidOverlay.swift */; };
+		A10000010000000000000067 /* GlitchOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000067 /* GlitchOverlay.swift */; };
+		A10000010000000000000068 /* FrameAnimatedOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000068 /* FrameAnimatedOverlayView.swift */; };
+		A10000010000000000000069 /* ReelsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000069 /* ReelsOverlay.swift */; };
+		A1000001000000000000006A /* ScatterOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006A /* ScatterOverlay.swift */; };
+		A1000001000000000000006D /* GlassOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006D /* GlassOverlay.swift */; };
+		A1000001000000000000006E /* RevelioOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006E /* RevelioOverlay.swift */; };
+		A1000001000000000000006F /* MapOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006F /* MapOverlay.swift */; };
+		A10000010000000000000070 /* SnitchOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000070 /* SnitchOverlay.swift */; };
+		A10000010000000000000071 /* HowlerOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000071 /* HowlerOverlay.swift */; };
+		A10000010000000000000072 /* LumosOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000072 /* LumosOverlay.swift */; };
+		A10000010000000000000073 /* PatronusOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000073 /* PatronusOverlay.swift */; };
+		A10000010000000000000074 /* FiendfyreOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000074 /* FiendfyreOverlay.swift */; };
+		A10000010000000000000075 /* PortkeyOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000075 /* PortkeyOverlay.swift */; };
+		A10000010000000000000076 /* TimeTurnerOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000076 /* TimeTurnerOverlay.swift */; };
+		A10000010000000000000077 /* SortingHatOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000077 /* SortingHatOverlay.swift */; };
+		A10000010000000000000078 /* FlameTongues.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000078 /* FlameTongues.swift */; };
+		A1000001000000000000007B /* FlooOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000007B /* FlooOverlay.swift */; };
+		A1000001000000000000007C /* ApparitionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000007C /* ApparitionOverlay.swift */; };
+		A1000001000000000000007D /* FeathersOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000007D /* FeathersOverlay.swift */; };
+		A1000001000000000000007E /* RiddikulusOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000007E /* RiddikulusOverlay.swift */; };
+		A10000010000000000000080 /* ExpelliarmusOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000080 /* ExpelliarmusOverlay.swift */; };
+		A1000001000000000000007F /* HogwartsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000007F /* HogwartsScreen.swift */; };
+		A10000010000000000000081 /* GreatHallBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000081 /* GreatHallBackdrop.swift */; };
+		A10000010000000000000082 /* HogwartsStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000082 /* HogwartsStyle.swift */; };
+		A10000010000000000000083 /* HogwartsPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000083 /* HogwartsPages.swift */; };
+		A1000001000000000000006B /* TileOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006B /* TileOverlayView.swift */; };
+		A1000001000000000000006C /* RiverOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000006C /* RiverOverlay.swift */; };
 		A10000010000000000000020 /* sample_markdown.md in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000020 /* sample_markdown.md */; };
 		A10000010000000000000021 /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000021 /* logo.png */; };
 		A10000010000000000000022 /* logo_icon.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000022 /* logo_icon.png */; };
@@ -37,6 +72,11 @@
 		A10000010000000000000034 /* Montserrat-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000034 /* Montserrat-Italic.ttf */; };
 		A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000036 /* Montserrat-BoldItalic.ttf */; };
 		A10000010000000000000035 /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000035 /* CourierPrime-Regular.ttf */; };
+		A10000010000000000000037 /* CinzelDecorative-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000037 /* CinzelDecorative-Regular.ttf */; };
+		A10000010000000000000038 /* CinzelDecorative-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000038 /* CinzelDecorative-Bold.ttf */; };
+		A10000010000000000000039 /* IMFellEnglish-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000039 /* IMFellEnglish-Regular.ttf */; };
+		A1000001000000000000003A /* IMFellEnglish-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000003A /* IMFellEnglish-Italic.ttf */; };
+		A1000001000000000000003B /* IMFellEnglishSC-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000003B /* IMFellEnglishSC-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,6 +88,7 @@
 		A10000020000000000000012 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000013 /* HomeScreenButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenButton.swift; sourceTree = "<group>"; };
 		A10000020000000000000014 /* TextScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000090 /* BlurScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000050 /* MathScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000015 /* PlaygroundScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000016 /* ExampleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleMarkdownStyles.swift; sourceTree = "<group>"; };
@@ -59,6 +100,40 @@
 		A10000020000000000000042 /* PlaygroundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundButton.swift; sourceTree = "<group>"; };
 		A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundSpoilerOverlay.swift; sourceTree = "<group>"; };
 		A10000020000000000000043 /* SetMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetMarkdownSheet.swift; sourceTree = "<group>"; };
+		A10000020000000000000060 /* SpoilersScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpoilersScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000061 /* SpoilerShowcaseOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpoilerShowcaseOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000062 /* SpoilerOverlayView+Reveal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpoilerOverlayView+Reveal.swift"; sourceTree = "<group>"; };
+		A10000020000000000000063 /* PixelateOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelateOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000064 /* DecodeOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecodeOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000065 /* ShimmerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShimmerOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000066 /* LiquidOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000067 /* GlitchOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlitchOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000068 /* FrameAnimatedOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameAnimatedOverlayView.swift; sourceTree = "<group>"; };
+		A10000020000000000000069 /* ReelsOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReelsOverlay.swift; sourceTree = "<group>"; };
+		A1000002000000000000006A /* ScatterOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScatterOverlay.swift; sourceTree = "<group>"; };
+		A1000002000000000000006D /* GlassOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassOverlay.swift; sourceTree = "<group>"; };
+		A1000002000000000000006E /* RevelioOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevelioOverlay.swift; sourceTree = "<group>"; };
+		A1000002000000000000006F /* MapOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000070 /* SnitchOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnitchOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000071 /* HowlerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HowlerOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000072 /* LumosOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LumosOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000073 /* PatronusOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatronusOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000074 /* FiendfyreOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiendfyreOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000075 /* PortkeyOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortkeyOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000076 /* TimeTurnerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeTurnerOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000077 /* SortingHatOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortingHatOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000078 /* FlameTongues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlameTongues.swift; sourceTree = "<group>"; };
+		A1000002000000000000007B /* FlooOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlooOverlay.swift; sourceTree = "<group>"; };
+		A1000002000000000000007C /* ApparitionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApparitionOverlay.swift; sourceTree = "<group>"; };
+		A1000002000000000000007D /* FeathersOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeathersOverlay.swift; sourceTree = "<group>"; };
+		A1000002000000000000007E /* RiddikulusOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiddikulusOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000080 /* ExpelliarmusOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpelliarmusOverlay.swift; sourceTree = "<group>"; };
+		A1000002000000000000007F /* HogwartsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HogwartsScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000081 /* GreatHallBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreatHallBackdrop.swift; sourceTree = "<group>"; };
+		A10000020000000000000082 /* HogwartsStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HogwartsStyle.swift; sourceTree = "<group>"; };
+		A10000020000000000000083 /* HogwartsPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HogwartsPages.swift; sourceTree = "<group>"; };
+		A1000002000000000000006B /* TileOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TileOverlayView.swift; sourceTree = "<group>"; };
+		A1000002000000000000006C /* RiverOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverOverlay.swift; sourceTree = "<group>"; };
 		A10000020000000000000020 /* sample_markdown.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = sample_markdown.md; sourceTree = "<group>"; };
 		A10000020000000000000021 /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
 		A10000020000000000000022 /* logo_icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo_icon.png; sourceTree = "<group>"; };
@@ -69,6 +144,11 @@
 		A10000020000000000000034 /* Montserrat-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Italic.ttf"; sourceTree = "<group>"; };
 		A10000020000000000000036 /* Montserrat-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-BoldItalic.ttf"; sourceTree = "<group>"; };
 		A10000020000000000000035 /* CourierPrime-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-Regular.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000037 /* CinzelDecorative-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CinzelDecorative-Regular.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000038 /* CinzelDecorative-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CinzelDecorative-Bold.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000039 /* IMFellEnglish-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IMFellEnglish-Regular.ttf"; sourceTree = "<group>"; };
+		A1000002000000000000003A /* IMFellEnglish-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IMFellEnglish-Italic.ttf"; sourceTree = "<group>"; };
+		A1000002000000000000003B /* IMFellEnglishSC-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IMFellEnglishSC-Regular.ttf"; sourceTree = "<group>"; };
 		A10000030000000000000001 /* EnrichedMarkdownExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnrichedMarkdownExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -148,12 +228,23 @@
 			isa = PBXGroup;
 			children = (
 				A10000020000000000000010 /* AppShell.swift */,
+				A10000060000000000000063 /* Blur */,
 				A1000006000000000000000B /* Home */,
+				A10000060000000000000062 /* Hogwarts */,
 				A10000060000000000000050 /* Math */,
 				A1000006000000000000000C /* Playground */,
+				A10000060000000000000060 /* Spoilers */,
 				A1000006000000000000000D /* Text */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000063 /* Blur */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000090 /* BlurScreen.swift */,
+			);
+			path = Blur;
 			sourceTree = "<group>";
 		};
 		A1000006000000000000000B /* Home */ = {
@@ -182,6 +273,62 @@
 				A10000020000000000000014 /* TextScreen.swift */,
 			);
 			path = Text;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000062 /* Hogwarts */ = {
+			isa = PBXGroup;
+			children = (
+				A1000002000000000000007F /* HogwartsScreen.swift */,
+				A10000020000000000000081 /* GreatHallBackdrop.swift */,
+				A10000020000000000000082 /* HogwartsStyle.swift */,
+				A10000020000000000000083 /* HogwartsPages.swift */,
+			);
+			path = Hogwarts;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000060 /* Spoilers */ = {
+			isa = PBXGroup;
+			children = (
+				A10000060000000000000061 /* Overlays */,
+				A10000020000000000000060 /* SpoilersScreen.swift */,
+				A10000020000000000000061 /* SpoilerShowcaseOverlay.swift */,
+			);
+			path = Spoilers;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000061 /* Overlays */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000064 /* DecodeOverlay.swift */,
+				A10000020000000000000068 /* FrameAnimatedOverlayView.swift */,
+				A10000020000000000000067 /* GlitchOverlay.swift */,
+				A10000020000000000000063 /* PixelateOverlay.swift */,
+				A10000020000000000000069 /* ReelsOverlay.swift */,
+				A1000002000000000000006A /* ScatterOverlay.swift */,
+				A1000002000000000000006D /* GlassOverlay.swift */,
+				A1000002000000000000006E /* RevelioOverlay.swift */,
+				A1000002000000000000006F /* MapOverlay.swift */,
+				A10000020000000000000070 /* SnitchOverlay.swift */,
+				A10000020000000000000071 /* HowlerOverlay.swift */,
+				A10000020000000000000072 /* LumosOverlay.swift */,
+				A10000020000000000000073 /* PatronusOverlay.swift */,
+				A10000020000000000000074 /* FiendfyreOverlay.swift */,
+				A10000020000000000000075 /* PortkeyOverlay.swift */,
+				A10000020000000000000076 /* TimeTurnerOverlay.swift */,
+				A10000020000000000000077 /* SortingHatOverlay.swift */,
+				A10000020000000000000078 /* FlameTongues.swift */,
+				A1000002000000000000007B /* FlooOverlay.swift */,
+				A1000002000000000000007C /* ApparitionOverlay.swift */,
+				A1000002000000000000007D /* FeathersOverlay.swift */,
+				A1000002000000000000007E /* RiddikulusOverlay.swift */,
+				A10000020000000000000080 /* ExpelliarmusOverlay.swift */,
+				A1000002000000000000006B /* TileOverlayView.swift */,
+				A1000002000000000000006C /* RiverOverlay.swift */,
+				A10000020000000000000065 /* ShimmerOverlay.swift */,
+				A10000020000000000000062 /* SpoilerOverlayView+Reveal.swift */,
+				A10000020000000000000066 /* LiquidOverlay.swift */,
+			);
+			path = Overlays;
 			sourceTree = "<group>";
 		};
 		A10000060000000000000050 /* Math */ = {
@@ -221,6 +368,11 @@
 				A10000020000000000000034 /* Montserrat-Italic.ttf */,
 				A10000020000000000000036 /* Montserrat-BoldItalic.ttf */,
 				A10000020000000000000035 /* CourierPrime-Regular.ttf */,
+				A10000020000000000000037 /* CinzelDecorative-Regular.ttf */,
+				A10000020000000000000038 /* CinzelDecorative-Bold.ttf */,
+				A10000020000000000000039 /* IMFellEnglish-Regular.ttf */,
+				A1000002000000000000003A /* IMFellEnglish-Italic.ttf */,
+				A1000002000000000000003B /* IMFellEnglishSC-Regular.ttf */,
 			);
 			path = Fonts;
 			sourceTree = "<group>";
@@ -300,6 +452,11 @@
 				A10000010000000000000033 /* Montserrat-Medium.ttf in Resources */,
 				A10000010000000000000034 /* Montserrat-Italic.ttf in Resources */,
 				A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */,
+				A10000010000000000000037 /* CinzelDecorative-Regular.ttf in Resources */,
+				A10000010000000000000038 /* CinzelDecorative-Bold.ttf in Resources */,
+				A10000010000000000000039 /* IMFellEnglish-Regular.ttf in Resources */,
+				A1000001000000000000003A /* IMFellEnglish-Italic.ttf in Resources */,
+				A1000001000000000000003B /* IMFellEnglishSC-Regular.ttf in Resources */,
 				A10000010000000000000035 /* CourierPrime-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -317,6 +474,7 @@
 				A10000010000000000000012 /* HomeScreen.swift in Sources */,
 				A10000010000000000000013 /* HomeScreenButton.swift in Sources */,
 				A10000010000000000000014 /* TextScreen.swift in Sources */,
+				A10000010000000000000090 /* BlurScreen.swift in Sources */,
 				A10000010000000000000050 /* MathScreen.swift in Sources */,
 				A10000010000000000000015 /* PlaygroundScreen.swift in Sources */,
 				A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */,
@@ -328,6 +486,40 @@
 				A10000010000000000000042 /* PlaygroundButton.swift in Sources */,
 				A10000010000000000000046 /* PlaygroundSpoilerOverlay.swift in Sources */,
 				A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */,
+				A10000010000000000000060 /* SpoilersScreen.swift in Sources */,
+				A10000010000000000000061 /* SpoilerShowcaseOverlay.swift in Sources */,
+				A10000010000000000000062 /* SpoilerOverlayView+Reveal.swift in Sources */,
+				A10000010000000000000063 /* PixelateOverlay.swift in Sources */,
+				A10000010000000000000064 /* DecodeOverlay.swift in Sources */,
+				A10000010000000000000065 /* ShimmerOverlay.swift in Sources */,
+				A10000010000000000000066 /* LiquidOverlay.swift in Sources */,
+				A10000010000000000000067 /* GlitchOverlay.swift in Sources */,
+				A10000010000000000000068 /* FrameAnimatedOverlayView.swift in Sources */,
+				A10000010000000000000069 /* ReelsOverlay.swift in Sources */,
+				A1000001000000000000006A /* ScatterOverlay.swift in Sources */,
+				A1000001000000000000006D /* GlassOverlay.swift in Sources */,
+				A1000001000000000000006E /* RevelioOverlay.swift in Sources */,
+				A1000001000000000000006F /* MapOverlay.swift in Sources */,
+				A10000010000000000000070 /* SnitchOverlay.swift in Sources */,
+				A10000010000000000000071 /* HowlerOverlay.swift in Sources */,
+				A10000010000000000000072 /* LumosOverlay.swift in Sources */,
+				A10000010000000000000073 /* PatronusOverlay.swift in Sources */,
+				A10000010000000000000074 /* FiendfyreOverlay.swift in Sources */,
+				A10000010000000000000075 /* PortkeyOverlay.swift in Sources */,
+				A10000010000000000000076 /* TimeTurnerOverlay.swift in Sources */,
+				A10000010000000000000077 /* SortingHatOverlay.swift in Sources */,
+				A10000010000000000000078 /* FlameTongues.swift in Sources */,
+				A1000001000000000000007B /* FlooOverlay.swift in Sources */,
+				A1000001000000000000007C /* ApparitionOverlay.swift in Sources */,
+				A1000001000000000000007D /* FeathersOverlay.swift in Sources */,
+				A1000001000000000000007E /* RiddikulusOverlay.swift in Sources */,
+				A10000010000000000000080 /* ExpelliarmusOverlay.swift in Sources */,
+				A1000001000000000000007F /* HogwartsScreen.swift in Sources */,
+				A10000010000000000000081 /* GreatHallBackdrop.swift in Sources */,
+				A10000010000000000000082 /* HogwartsStyle.swift in Sources */,
+				A10000010000000000000083 /* HogwartsPages.swift in Sources */,
+				A1000001000000000000006B /* TileOverlayView.swift in Sources */,
+				A1000001000000000000006C /* RiverOverlay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

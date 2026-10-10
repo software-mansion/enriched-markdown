@@ -15,8 +15,13 @@ struct AppShell: View {
             HomeScreen(onNavigate: handleNavigate)
                 .brandedNavigationBar(title: ExampleRoute.home.title)
                 .navigationDestination(for: ExampleRoute.self) { route in
-                    destination(for: route)
-                        .brandedNavigationBar(title: route.title)
+                    if route.paintsOwnBackdrop {
+                        destination(for: route)
+                            .immersiveNavigationBar()
+                    } else {
+                        destination(for: route)
+                            .brandedNavigationBar(title: route.title)
+                    }
                 }
         }
         .tint(Color.brandNavy)
@@ -40,6 +45,12 @@ struct AppShell: View {
             TextScreen(markdown: sampleMarkdown)
         case .math:
             MathScreen()
+        case .spoilers:
+            SpoilersScreen()
+        case .blur:
+            BlurScreen()
+        case .hogwarts:
+            HogwartsScreen()
         case .home, .input, .stream, .storybook:
             EmptyView()
         }
@@ -49,7 +60,7 @@ struct AppShell: View {
 
     private func handleNavigate(_ target: ExampleRoute) {
         switch target {
-        case .playground, .text, .math:
+        case .playground, .text, .math, .spoilers, .blur, .hogwarts:
             path.append(target)
         case .input, .stream, .storybook:
             unavailableRouteName = target.title
@@ -64,3 +75,4 @@ struct AppShell: View {
 #Preview {
     AppShell()
 }
+
