@@ -41,6 +41,7 @@ export type {
   MarkdownShortcutsConfig,
   OnKeyPressEvent,
   OnLinkDetected,
+  OnLinkPressEvent,
   OnStartMentionEvent,
   OnChangeMentionEvent,
   OnEndMentionEvent,

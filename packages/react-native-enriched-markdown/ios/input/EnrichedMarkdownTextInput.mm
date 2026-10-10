@@ -24,6 +24,7 @@
 #import "ENRMMentionCoordinator.h"
 #import "ENRMStyleHandler.h"
 #import "ENRMStyleMergingConfig.h"
+#import "ENRMTextHitTest.h"
 #import "ENRMUIKit.h"
 #import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdownTextInput+Internal.h"
@@ -68,6 +69,11 @@ using namespace facebook::react;
 @end
 
 static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
+
+/// How long a consumed link press keeps suppressing the focus command. Long
+/// enough to cover the JS round trip that pressability's own onPress makes for
+/// the same tap, short enough that a later programmatic focus still lands.
+static const NSTimeInterval kENRMLinkPressFocusSuppressWindow = 0.5;
 
 @implementation EnrichedMarkdownTextInput {
   ENRMPlatformTextView *_textView;
@@ -114,6 +120,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMMentionCoordinator *_mentionCoordinator;
   ENRMLinkCoordinator *_linkCoordinator;
   ENRMClipboardCoordinator *_clipboardCoordinator;
+
+  BOOL _isOnLinkPressSet;
+  CFTimeInterval _linkPressConsumedTime;
+#if !TARGET_OS_OSX
+  CGPoint _touchDownPoint;
+  CFTimeInterval _touchDownTime;
+  BOOL _isLinkTapCandidate;
+#endif
 
   ENRMMarkdownShortcutsConfig _markdownShortcutsConfig;
   ENRMWritingDirectionMode _writingDirectionMode;
@@ -433,6 +447,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 
   _inputEventEmitter.emitMarkdown = newViewProps.isOnChangeMarkdownSet;
+  _isOnLinkPressSet = newViewProps.isOnLinkPressSet;
 
   {
     auto configFromProp = [](const auto &prop) {
@@ -913,8 +928,16 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 #pragma mark - Commands
 
+/// A tap consumed as an unfocused link press must not focus the input, but JS
+/// pressability still runs its own `onPress` for that same tap and calls
+/// TextInputState.focusTextInput, which lands here after the native veto has
+/// already passed. Suppressing for a short window after the press drops that
+/// one command without stranding later programmatic focus calls.
 - (void)focus
 {
+  if (_linkPressConsumedTime > 0 && CACurrentMediaTime() - _linkPressConsumedTime < kENRMLinkPressFocusSuppressWindow) {
+    return;
+  }
   ENRMFocusTextView(_textView);
 }
 
@@ -1627,6 +1650,84 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   return _typingController;
 }
 
+#pragma mark - Link press (unfocused input)
+
+- (nullable NSString *)linkURLForTapAtPoint:(CGPoint)point
+{
+  NSUInteger index = ENRMCharacterIndexAtPointStrict(_textView, point);
+  if (index == NSNotFound) {
+    return nil;
+  }
+  for (ENRMFormattingRange *range in [self allRangesIncludingTransient]) {
+    if (range.type == ENRMInputStyleTypeLink && NSLocationInRange(index, range.range) && range.url.length > 0) {
+      return range.url;
+    }
+  }
+  return nil;
+}
+
+- (void)emitOnLinkPress:(NSString *)url
+{
+  auto emitter = [self fabricEventEmitter];
+  if (emitter == nullptr) {
+    return;
+  }
+  emitter->onLinkPress({.url = std::string([url UTF8String] ?: "")});
+}
+
+#if !TARGET_OS_OSX
+
+- (void)trackTouchDownAtPoint:(CGPoint)point
+{
+  _touchDownPoint = point;
+  _touchDownTime = CACurrentMediaTime();
+  _isLinkTapCandidate = _isOnLinkPressSet && ![_textView isFirstResponder];
+  _linkPressConsumedTime = 0;
+}
+
+// UITextView's internal tap recognizers cannot be reliably beaten with gesture
+// failure requirements, so the unfocused link press is resolved at the one choke
+// point every focusing tap must pass: vetoing beginEditing is what keeps the
+// keyboard closed and the caret unmoved.
+- (BOOL)handleLinkPressInsteadOfBeginEditing
+{
+  if (!_isLinkTapCandidate) {
+    return NO;
+  }
+  _isLinkTapCandidate = NO;
+  // Past the long-press timeout this is a text-selection gesture, not a tap.
+  if (CACurrentMediaTime() - _touchDownTime >= 0.5) {
+    return NO;
+  }
+  NSString *url = [self linkURLForTapAtPoint:_touchDownPoint];
+  if (url == nil) {
+    return NO;
+  }
+  _linkPressConsumedTime = CACurrentMediaTime();
+  [self emitOnLinkPress:url];
+  return YES;
+}
+
+#else
+
+- (BOOL)handleLinkPressForMouseDownEvent:(NSEvent *)event
+{
+  _linkPressConsumedTime = 0;
+  if (!_isOnLinkPressSet) {
+    return NO;
+  }
+  CGPoint point = [_textView convertPoint:event.locationInWindow fromView:nil];
+  NSString *url = [self linkURLForTapAtPoint:point];
+  if (url == nil) {
+    return NO;
+  }
+  _linkPressConsumedTime = CACurrentMediaTime();
+  [self emitOnLinkPress:url];
+  return YES;
+}
+
+#endif
+
 #pragma mark - Text edit tracking
 
 /// Markdown shortcuts: when the user types a space after `#`…`######`,
@@ -1882,6 +1983,11 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   [_editSession exitPhase];
   [_editSession recordTextChange];
   _lastSelectedRange = textView.selectedRange;
+}
+
+- (BOOL)textViewShouldBeginEditing:(UITextView *)textView
+{
+  return ![self handleLinkPressInsteadOfBeginEditing];
 }
 
 - (void)textViewDidBeginEditing:(UITextView *)textView

@@ -227,6 +227,9 @@ export default function PlaygroundScreen() {
             onChangeState={setState}
             onChangeMarkdown={setMarkdown}
             onChangeSelection={(sel) => setHasSelection(sel.start !== sel.end)}
+            onLinkPress={({ url }) =>
+              Alert.alert('Link', url, [{ text: 'OK' }])
+            }
           />
           <FormattingToolbar
             state={state}
