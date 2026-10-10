@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { ScrollView, Text, StyleSheet } from 'react-native';
 import { HomeScreenButton } from './HomeScreenButton';
 import type {
   RootStackParamList,
@@ -51,11 +51,22 @@ const SCREENS: ScreenItem[] = [
     testID: 'home-block-storybook',
     color: '#FF2D55',
   },
+  {
+    route: 'Tower',
+    label: 'Tower',
+    subtext: 'raw ATC transcript, recognized live',
+    testID: 'home-block-tower',
+    color: '#14532D',
+  },
 ];
 
 export default function HomeScreen({ navigation }: Props) {
   return (
-    <View style={styles.container} testID="home-screen">
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.container}
+      testID="home-screen"
+    >
       <Text style={styles.title}>Enriched Markdown Examples</Text>
       <Text style={styles.subtitle}>
         Explore different markdown rendering and input capabilities
@@ -75,13 +86,17 @@ export default function HomeScreen({ navigation }: Props) {
           }
         />
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    backgroundColor: '#f5f5f5',
+  },
+  // Grows to the screen so a short list stays centered; a long one scrolls.
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,

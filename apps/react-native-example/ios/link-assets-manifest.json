@@ -2,8 +2,32 @@
   "migIndex": 1,
   "data": [
     {
+      "path": "assets/fonts/ChakraPetch-Bold.ttf",
+      "sha1": "892cb95adf1d10272a381cfade86857ce209ceac"
+    },
+    {
+      "path": "assets/fonts/ChakraPetch-Italic.ttf",
+      "sha1": "b12abbb5578f086baa57b9a7350d6c00aeda4a05"
+    },
+    {
+      "path": "assets/fonts/ChakraPetch-Medium.ttf",
+      "sha1": "3984af419bb425c32b3ad79c1dadec266035ac39"
+    },
+    {
+      "path": "assets/fonts/ChakraPetch-Regular.ttf",
+      "sha1": "b80f20abf3ad53f473fa24f951c31c20f76e81a0"
+    },
+    {
+      "path": "assets/fonts/ChakraPetch-SemiBold.ttf",
+      "sha1": "160db02f9ed5ad03147c296604b54e4865e77f24"
+    },
+    {
       "path": "assets/fonts/CourierPrime-Regular.ttf",
       "sha1": "f0e110c73ff02b2fc7f60bd96697c42ee9730ae2"
+    },
+    {
+      "path": "assets/fonts/Michroma-Regular.ttf",
+      "sha1": "0a7c420d18378e3fb797cfb3407ca743cc50cad9"
     },
     {
       "path": "assets/fonts/Montserrat-Bold.ttf",
@@ -40,6 +64,14 @@
     {
       "path": "assets/fonts/Poppins-SemiBold.ttf",
       "sha1": "622ca6ccbe2f22c5611dffa016b745bd26be154c"
+    },
+    {
+      "path": "assets/fonts/SpaceMono-Bold.ttf",
+      "sha1": "1eac97db6fe44c07e1acb8369099b14f340de4a2"
+    },
+    {
+      "path": "assets/fonts/SpaceMono-Regular.ttf",
+      "sha1": "2d6f2aad0983dbd94c546ff29e474f7b01a782f3"
     }
   ]
 }

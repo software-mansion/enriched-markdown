@@ -91,6 +91,14 @@
 		<string>Poppins-Regular.ttf</string>
 		<string>Poppins-SemiBold.ttf</string>
 		<string>Poppins-Italic.ttf</string>
+		<string>ChakraPetch-Regular.ttf</string>
+		<string>ChakraPetch-Bold.ttf</string>
+		<string>SpaceMono-Regular.ttf</string>
+		<string>ChakraPetch-Italic.ttf</string>
+		<string>SpaceMono-Bold.ttf</string>
+		<string>ChakraPetch-SemiBold.ttf</string>
+		<string>Michroma-Regular.ttf</string>
+		<string>ChakraPetch-Medium.ttf</string>
 	</array>
 </dict>
 </plist>
