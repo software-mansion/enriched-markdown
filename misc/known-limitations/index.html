@@ -11,7 +11,7 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.75a6cb1c.css">
-<script src="/enriched-markdown/assets/js/runtime~main.b2eb1529.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.4a044721.js" defer="defer"></script>
 <script src="/enriched-markdown/assets/js/main.ee38c27b.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -119,11 +119,11 @@ context-menu <strong>Copy</strong> action, and the VoiceOver copy action.</li>
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="images">Images<a href="#images" class="hash-link" aria-label="Direct link to Images" title="Direct link to Images" translate="no">​</a></h3>
 <ul>
-<li class=""><strong>The disk cache keys on URL alone.</strong> Memory tiers and request deduplication
-fold <a class="" href="/enriched-markdown/react-native/api-reference/enriched-markdown-text#imagerequestheaders"><code>imageRequestHeaders</code></a>
-into the cache identity, but the disk layer is managed by the HTTP stack
-(OkHttp / <code>NSURLCache</code>), so a response fetched with one set of headers can be
-served for a request with different ones. The library adds no <code>Vary</code> handling.
+<li class=""><strong>Header-bearing image requests are not disk-cached.</strong> The disk layer is
+managed by the HTTP stack (OkHttp / <code>NSURLCache</code>) and keys on URL alone, so
+requests carrying <a class="" href="/enriched-markdown/react-native/api-reference/enriched-markdown-text#imagerequestheaders"><code>imageRequestHeaders</code></a>
+bypass it and are fetched again after a relaunch. Memory tiers and request
+deduplication still fold the headers into the cache identity.
 See <a class="" href="/enriched-markdown/react-native/guides/image-caching#request-headers">Request headers</a>.</li>
 <li class=""><strong>The iOS disk cache ignores HTTP freshness.</strong> Its session runs with
 <code>NSURLRequestReturnCacheDataElseLoad</code>, so a cached response is served
