@@ -4,14 +4,68 @@ final class CodeBlockRenderer: NodeRenderer {
     private let factory: RendererFactory
     private let config: MarkdownStyleConfiguration
     private let plugins: [any MarkdownRenderPlugin]
+    private let layout: MarkdownCodeBlockLayout
 
-    init(factory: RendererFactory, config: MarkdownStyleConfiguration, plugins: [any MarkdownRenderPlugin]) {
+    init(
+        factory: RendererFactory,
+        config: MarkdownStyleConfiguration,
+        plugins: [any MarkdownRenderPlugin],
+        layout: MarkdownCodeBlockLayout = .wrapping
+    ) {
         self.factory = factory
         self.config = config
         self.plugins = plugins
+        self.layout = layout
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
+        switch layout {
+        case .wrapping:
+            renderWrapping(node: node, into: output, context: context)
+        case .scrollable:
+            renderScrollable(node: node, into: output)
+        }
+    }
+
+    /// The code lives in its own string, so the plugins color that one.
+    private func renderScrollable(node: MarkdownASTNode, into output: NSMutableAttributedString) {
+        let style = CodeBlockAttachmentStyle(config: config)
+        var code = node.flattenedText()
+        while code.hasSuffix("\n") {
+            code.removeLast()
+        }
+        let language = node.attribute("language").flatMap { $0.isEmpty ? nil : $0 }
+        let attributedCode = CodeBlockAttachment.attributedCode(code, style: style)
+        if let language {
+            let range = NSRange(location: 0, length: attributedCode.length)
+            for plugin in plugins {
+                plugin.styleCodeBlock(in: attributedCode, range: range, language: language, config: config)
+            }
+        }
+        let attachment = CodeBlockAttachment(
+            code: code,
+            language: language,
+            fenceCharacter: node.attribute("fenceChar") ?? "`",
+            attributedCode: attributedCode,
+            style: style
+        )
+
+        ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
+        if style.marginTop > 0 {
+            _ = ParagraphStyleHelpers.applyBlockSpacingBefore(
+                to: output,
+                at: output.length,
+                marginTop: style.marginTop
+            )
+        }
+        var attributes: [NSAttributedString.Key: Any] = [.attachment: attachment]
+        SourceOffsetAnnotator.tagSourceRange(in: &attributes, of: node)
+        output.append(NSAttributedString(string: "\u{FFFC}", attributes: attributes))
+        output.append(NSAttributedString(string: "\n"))
+        ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: style.marginBottom)
+    }
+
+    private func renderWrapping(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
         let blockStyle = config.codeBlock
         let font = blockStyle.font ?? UIFont.monospacedSystemFont(ofSize: 14, weight: .regular)
         let color = blockStyle.foregroundColor ?? UIColor.label
@@ -93,6 +147,7 @@ final class CodeBlockRenderer: NodeRenderer {
         }
 
         guard let language = node.attribute("language") else { return }
+        output.addAttribute(MarkdownAttribute.codeBlockLanguage, value: language, range: backgroundRange)
         for plugin in plugins {
             plugin.styleCodeBlock(in: output, range: contentRange, language: language, config: config)
         }

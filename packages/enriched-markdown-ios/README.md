@@ -195,7 +195,7 @@ Element-specific modifiers include:
 - **Link:** `.underline(_:)`
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
 - **CodeBlock / Blockquote / Table:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
-- **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock)
+- **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock), `.headerForegroundStyle` (CodeBlock: the scrollable panel's language label and copy button, see [Code blocks](#code-blocks))
 - **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeading`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxCornerRadius`, `.checkedTextColor`, `.checkedStrikethrough`
@@ -302,6 +302,27 @@ extension View {
 ```
 
 Tapping a task-list checkbox toggles its checked state in place (including the checked-item text decoration) and calls `onTaskListItemToggle` with the new state. The toggle is visual — the view never mutates your `markdown` string, so persist the change from the handler if you need it back. `markdownTaskListItemToggleEnabled(false)` makes checkbox taps fully inert: no visual toggle and no `onTaskListItemToggle`. Text selection and links are unaffected either way.
+
+### `.markdownCodeBlockLayout` / `.onCodeBlockCopy`
+
+```swift
+public enum MarkdownCodeBlockLayout: Equatable, Sendable {
+  case wrapping    // default: lines wrap, the code is selectable text
+  case scrollable  // a panel with a language header and copy button; lines scroll sideways
+}
+
+public struct CodeBlockCopy: Equatable, Sendable {
+  public let code: String
+  public let language: String?  // the fence's info string, nil when it named none
+}
+
+extension View {
+  func markdownCodeBlockLayout(_ layout: MarkdownCodeBlockLayout) -> some View
+  func onCodeBlockCopy(_ action: @escaping (CodeBlockCopy) -> Void) -> some View
+}
+```
+
+`.scrollable` lays each fenced block out as a panel: a header naming the language with a copy button, and below it the code with its lines kept whole, scrolling sideways when wider than the view — see [Code blocks](#code-blocks). `onCodeBlockCopy` is called after the panel's copy button, its long-press **Copy**, or the VoiceOver "Copy code" action (in either style) copies the code; not for Copy as Markdown.
 
 ### `.markdownSpoilerOverlay`
 
@@ -507,7 +528,7 @@ System **Copy** puts two flavors of the selection on the pasteboard: plain text 
 
 The selection menu additionally offers **Copy as Markdown** and **Copy Image URL(s)** — see `.markdownSelectionMenu` above.
 
-The HTML flavor carries one `dir` attribute, read from the first copied paragraph (`rtl`, or `auto` under `.markdownWritingDirection(.natural)`); see [Right-to-left text](#right-to-left-text).
+The HTML flavor carries one `dir` attribute, read from the first copied paragraph (`rtl`, or `auto` under `.markdownWritingDirection(.natural)`); see [Right-to-left text](#right-to-left-text). A `.scrollable` code block copies as its code in plain text and a `<pre>` in HTML; see [Code blocks](#code-blocks).
 
 ## Image sources
 
@@ -577,13 +598,45 @@ VoiceOver walks the rendered markdown as individual elements rather than one tex
 - List items announce their position ("Bullet point", "List item N", "Task, checked", with "Nested" variants)
 - Content inside a blockquote appends "Blockquote" or "Nested blockquote"; an admonition reads its title ("Note", "Tip", …) as its own element first
 - Tables read one element per row ("Row N: cell, cell"); the header row carries the heading trait
-- Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element)
+- Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element); a `.scrollable` panel reads the same way
 - Math from `EnrichedMarkdownLaTeX` reads an English form of the formula ("Math: x squared over 2", "integral from 0 to 1 of …"); `{latex}` in the label template gives the raw source instead, and a closure can plug in another converter
 - Rotors (two-finger twist) jump between Headings, Links, and Images
 
 Every spoken string can be localized with `.markdownAccessibilityLabels` (see the API reference); the math label is a parameter of `.markdownLaTeX`, either a template (`"Formel: {speech}"`, `{latex}` for the source) or a `(String) -> String` closure receiving the LaTeX source. The built-in reading (`LaTeXSpeech.spokenForm`) is English and covers fractions, roots, powers and indices, sums/products/integrals/limits with bounds, Greek letters, common relations and functions, decorations, and `\text`; unmapped commands are read by name. Element frames are resolved from the live layout on each query, so they stay correct inside a scrolling container and after Dynamic Type changes.
 
 Dynamic Type is supported throughout via text styles in the default theme.
+
+## Code blocks
+
+Fenced code blocks render as wrapping text by default: lines break at the
+view's width, and the code takes part in text selection like any paragraph.
+
+`.markdownCodeBlockLayout(.scrollable)` renders each block as a panel
+instead: a header with the language's name (`py` reads "Python"; an
+unknown info string is shown capitalized) and a copy button, above the
+code with its lines kept whole — a block wider than the view scrolls
+sideways in place. Long-pressing the panel offers **Copy** (the code) and
+**Copy as Markdown** (the block refenced with its language). Text selection
+treats the panel as a single character; copying a selection that spans one
+yields the code as plain text, a `<pre>` in the HTML flavor, and the fenced
+block in markdown-based copies. VoiceOver reads the panel as one element
+with the "Copy code" action, as it does a wrapping block. A rightward pan on a panel
+already at its left edge is left to the system, so a full-screen back
+gesture still works; tables and display math behave the same way.
+
+Both layouts take their font, colors, padding, corner radius, border, and
+margins from the `CodeBlock()` theme element. The panel's label, icon, and
+divider are tints of the block's foreground color unless
+`CodeBlock().headerForegroundStyle` sets them. Highlighting from
+`EnrichedMarkdownSyntaxHighlighting` applies to both.
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownCodeBlockLayout(.scrollable)
+  .onCodeBlockCopy { copy in
+    analytics.track("code_copied", language: copy.language)
+  }
+```
 
 ## Tables
 
@@ -755,7 +808,7 @@ Outside SwiftUI, `MarkdownRenderer.renderSyntaxHighlighted` mirrors
 - Subscript (`~text~` with `MarkdownParsingOptions(subscript: true)`)
 - Highlight (`==text==` with `MarkdownParsingOptions(highlight: true)`)
 - Spoilers (`||text||`, tap to reveal — see `.markdownSpoilerOverlay`)
-- Fenced code blocks, colored by language with the optional `EnrichedMarkdownSyntaxHighlighting` product — see [Syntax highlighting](#syntax-highlighting)
+- Fenced code blocks, as wrapping text or scrollable panels with a copy button (see [Code blocks](#code-blocks)), colored by language with the optional `EnrichedMarkdownSyntaxHighlighting` product — see [Syntax highlighting](#syntax-highlighting)
 - Block quotes
 - GitHub alerts / admonitions (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` with `MarkdownParsingOptions(admonitions: true)`): a tinted bar, icon, and title above the quoted content
 - Ordered and unordered lists

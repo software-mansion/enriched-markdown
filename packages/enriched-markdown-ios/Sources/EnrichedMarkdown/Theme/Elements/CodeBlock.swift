@@ -15,6 +15,7 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
     public var padding: CGFloat?
     public var cornerRadius: CGFloat?
     public var borderWidth: CGFloat?
+    public var headerForegroundColorSpec: ThemeColorSpec?
 
     public init() {}
 
@@ -32,6 +33,20 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
         return copy
     }
 
+    /// The scrollable panel's language label and copy button.
+    @_disfavoredOverload
+    public func headerForegroundStyle(_ color: Color) -> Self {
+        var copy = self
+        copy.headerForegroundColorSpec = ThemeColorModifiers.spec(from: color)
+        return copy
+    }
+
+    public func headerForegroundStyle(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
+        var copy = self
+        copy.headerForegroundColorSpec = ThemeColorModifiers.spec(from: semantic)
+        return copy
+    }
+
     public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyTextStyle(to: &config.codeBlock, traitCollection: traitCollection)
         applyBackgroundColor(to: &config.codeBlock.backgroundColor, traitCollection: traitCollection)
@@ -40,5 +55,8 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
         )
         if let padding { config.codeBlock.padding = padding }
         if let cornerRadius { config.codeBlock.cornerRadius = cornerRadius }
+        if let headerForegroundColorSpec {
+            config.codeBlock.headerForegroundColor = headerForegroundColorSpec.resolve(traitCollection: traitCollection)
+        }
     }
 }

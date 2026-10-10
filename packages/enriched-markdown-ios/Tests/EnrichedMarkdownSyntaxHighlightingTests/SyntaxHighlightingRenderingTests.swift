@@ -196,3 +196,22 @@ final class SyntaxHighlightingRenderingTests: XCTestCase {
         XCTAssertEqual(SyntaxTokenType.embedded.rawValue, 13)
     }
 }
+
+// MARK: - Scrollable blocks
+
+extension SyntaxHighlightingRenderingTests {
+    func testScrollableBlockIsColoredInItsOwnString() throws {
+        let config = highlightingConfig()
+        let colors = config.syntaxHighlight.colors
+        let rendered = MarkdownRenderer.renderSyntaxHighlighted(python, config: config, codeBlockLayout: .scrollable)
+
+        var attachment: CodeBlockAttachment?
+        rendered.enumerateAttribute(.attachment, in: NSRange(location: 0, length: rendered.length)) { value, _, _ in
+            if let code = value as? CodeBlockAttachment { attachment = code }
+        }
+        let code = try XCTUnwrap(attachment).attributedCode
+        XCTAssertEqual(code.foregroundColor(of: "def"), colors[.keyword])
+        XCTAssertEqual(code.foregroundColor(of: "# note"), colors[.comment])
+        XCTAssertEqual(code.foregroundColor(of: "+"), config.codeBlock.foregroundColor)
+    }
+}

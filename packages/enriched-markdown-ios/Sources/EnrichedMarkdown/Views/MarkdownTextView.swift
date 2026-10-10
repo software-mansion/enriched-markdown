@@ -52,6 +52,15 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     /// restoring the text (see `MarkdownRenderStore.revealSpoiler`).
     var onSpoilerTap: ((NSRange) -> Void)?
 
+    /// Fired after a code block's code is copied: by a scrollable block's
+    /// button or long-press Copy, or the VoiceOver copy action.
+    var onCodeBlockCopy: ((CodeBlockCopy) -> Void)?
+
+    func copyCode(_ code: String, language: String?) {
+        pasteboard.string = code
+        onCodeBlockCopy?(CodeBlockCopy(code: code, language: language))
+    }
+
     private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self, style: styleConfig.spoiler)
 
     /// Our tap recognizer must not steal touches from the text view's own
@@ -269,6 +278,8 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         attributedText.enumerateAttribute(.attachment, in: range) { value, runRange, _ in
             if let table = value as? TableAttachment {
                 plain += table.plainText()
+            } else if let code = value as? CodeBlockAttachment {
+                plain += code.code
             } else {
                 plain += (attributedText.string as NSString).substring(with: runRange)
             }
@@ -284,6 +295,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         // that re-evaluates at frame rate.
         if let renderedText, renderedText === attributedText { return }
         guard !(self.attributedText?.isEqual(to: attributedText) ?? false) else { return }
+        carryScrollOffsets(from: renderedText, to: attributedText)
         renderedText = attributedText
         cachedFit = nil
         self.attributedText = attributedText
@@ -295,6 +307,28 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         // A text change alone does not schedule a layout pass, which is
         // where spoiler overlays are reconciled.
         setNeedsLayout()
+    }
+
+    /// A re-render replaces every attachment, so a scrolled block would snap
+    /// back on each streamed chunk; blocks match their predecessor by ordinal.
+    private func carryScrollOffsets(from previous: NSAttributedString?, to next: NSAttributedString) {
+        guard let previous else { return }
+        let offsets = Self.scrollingAttachments(in: previous).map(\.preservedContentOffset)
+        guard offsets.contains(where: { $0 != .zero }) else { return }
+        for (attachment, offset) in zip(Self.scrollingAttachments(in: next), offsets) {
+            attachment.preservedContentOffset = offset
+        }
+    }
+
+    private static func scrollingAttachments(in text: NSAttributedString) -> [any HorizontallyScrollingAttachment] {
+        var found: [any HorizontallyScrollingAttachment] = []
+        let options: NSAttributedString.EnumerationOptions = .longestEffectiveRangeNotRequired
+        text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length), options: options) { value, _, _ in
+            if let attachment = value as? any HorizontallyScrollingAttachment {
+                found.append(attachment)
+            }
+        }
+        return found
     }
 
     /// Attachments that resize after loading have no other way to reach this view.
@@ -380,7 +414,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
 
     /// The scroll view this text view sits in, whose visible region the
     /// decoration views tile; nil leaves them covering the whole document.
-    private weak var enclosingScrollView: UIScrollView?
+    private(set) weak var enclosingScrollView: UIScrollView?
     private var scrollObservation: NSKeyValueObservation?
     /// The frame both decoration views have.
     private var decorationTile: CGRect = .zero
@@ -491,5 +525,16 @@ private extension MarkdownTextView {
     func setDecorationNeedsDisplay() {
         backgroundDecorationView.setNeedsDisplay()
         foregroundDecorationView.setNeedsDisplay()
+    }
+}
+
+extension UIView {
+    func enclosingMarkdownTextView() -> MarkdownTextView? {
+        var view: UIView? = superview
+        while let current = view {
+            if let textView = current as? MarkdownTextView { return textView }
+            view = current.superview
+        }
+        return nil
     }
 }

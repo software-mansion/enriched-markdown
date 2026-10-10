@@ -180,17 +180,13 @@ private extension MarkdownExtractor {
             return
         }
 
-        if let table = attrs[.attachment] as? TableAttachment {
-            appendBlockElement(table.markdownText(), to: &result, state: &state)
+        if let block = blockAttachmentMarkdown(in: attrs) {
+            appendBlockElement(block, to: &result, state: &state)
             return
         }
 
         var text = text
         if let attachment = attrs[.attachment] as? any MarkdownPluginAttachment {
-            if attachment.isBlock {
-                appendBlockElement(attachment.markdownText(), to: &result, state: &state)
-                return
-            }
             // Inline plugin attachments reconstruct like any other inline run.
             text = attachment.markdownText()
         }
@@ -249,6 +245,17 @@ private extension MarkdownExtractor {
         state.needsBlankLine = true
         state.blockquoteDepth = -1
         state.listDepth = -1
+    }
+
+    static func blockAttachmentMarkdown(in attrs: [NSAttributedString.Key: Any]) -> String? {
+        switch attrs[.attachment] {
+        case let table as TableAttachment:
+            return table.markdownText()
+        case let plugin as any MarkdownPluginAttachment where plugin.isBlock:
+            return plugin.markdownText()
+        default:
+            return nil
+        }
     }
 
     /// Emits a standalone block, leaving any heading, list, or blockquote context.

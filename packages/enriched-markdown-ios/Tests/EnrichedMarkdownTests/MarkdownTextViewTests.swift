@@ -269,6 +269,7 @@ final class MarkdownTextViewTests: XCTestCase {
             onTaskListItemTap: nil,
             spoilerOverlay: ParticleSpoilerOverlayProvider(),
             onSpoilerTap: nil,
+            onCodeBlockCopy: nil,
             accessibilityLabels: .default
         )
         .fixedSize(horizontal: false, vertical: true)

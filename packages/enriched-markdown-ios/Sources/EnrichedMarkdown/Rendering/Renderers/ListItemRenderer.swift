@@ -202,7 +202,7 @@ final class ListItemRenderer: NodeRenderer {
         if let depth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]), depth > nestingLevel {
             return true
         }
-        if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) {
+        if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) || attrs[.attachment] is CodeBlockAttachment {
             return true
         }
         if attrs[MarkdownAttribute.blockquoteDepth] != nil {

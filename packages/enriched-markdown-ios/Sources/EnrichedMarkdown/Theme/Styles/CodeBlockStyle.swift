@@ -13,6 +13,9 @@ public struct CodeBlockStyle: Equatable, Sendable {
     public var borderWidth: CGFloat?
     /// Code blocks always lay out left-to-right; nil aligns to the left.
     public var textAlignment: NSTextAlignment?
+    /// The scrollable panel's language label and copy button; nil tints
+    /// them from `foregroundColor`.
+    public var headerForegroundColor: UIColor?
 
     public init(
         font: UIFont? = nil,
@@ -25,7 +28,8 @@ public struct CodeBlockStyle: Equatable, Sendable {
         borderColor: UIColor? = nil,
         cornerRadius: CGFloat? = nil,
         borderWidth: CGFloat? = nil,
-        textAlignment: NSTextAlignment? = nil
+        textAlignment: NSTextAlignment? = nil,
+        headerForegroundColor: UIColor? = nil
     ) {
         self.font = font
         self.foregroundColor = foregroundColor
@@ -38,6 +42,7 @@ public struct CodeBlockStyle: Equatable, Sendable {
         self.cornerRadius = cornerRadius
         self.borderWidth = borderWidth
         self.textAlignment = textAlignment
+        self.headerForegroundColor = headerForegroundColor
     }
 
     public mutating func merge(_ other: CodeBlockStyle) {
@@ -52,5 +57,6 @@ public struct CodeBlockStyle: Equatable, Sendable {
         cornerRadius = other.cornerRadius ?? cornerRadius
         borderWidth = other.borderWidth ?? borderWidth
         textAlignment = other.textAlignment ?? textAlignment
+        headerForegroundColor = other.headerForegroundColor ?? headerForegroundColor
     }
 }
