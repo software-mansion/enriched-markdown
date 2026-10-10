@@ -11,7 +11,7 @@ struct MarkdownAccessibilityElementSpec: Equatable {
         /// `link` is the wrapping link's target for `[![alt](img)](url)`.
         case image(link: URL?)
         /// One fenced block; the label is the code itself.
-        case codeBlock(copyAction: String)
+        case codeBlock(copyAction: String, language: String?)
         case tableRow(offset: CGFloat, height: CGFloat, isHeader: Bool)
     }
 
@@ -96,8 +96,9 @@ struct MarkdownAccessibilityElementBuilder {
 
     private mutating func appendCodeBlockSpec(for range: NSRange) {
         guard let (visible, code) = visibleText(in: range) else { return }
+        let language = attribute(MarkdownAttribute.codeBlockLanguage, at: range.location) as? String
         specs.append(MarkdownAccessibilityElementSpec(
-            kind: .codeBlock(copyAction: labels.codeBlock.copy),
+            kind: .codeBlock(copyAction: labels.codeBlock.copy, language: language),
             label: code,
             range: visible,
             headingLevel: nil,
@@ -112,11 +113,13 @@ struct MarkdownAccessibilityElementBuilder {
         /// A plugin attachment that carries its own spoken label.
         case attachment(NSRange, label: String)
         case table(NSRange, TableAttachment)
+        case codeBlock(NSRange, CodeBlockAttachment)
         case link(NSRange, URL)
 
         var range: NSRange {
             switch self {
-            case .image(let range, _, _), .attachment(let range, _), .table(let range, _), .link(let range, _):
+            case .image(let range, _, _), .attachment(let range, _), .table(let range, _), .codeBlock(let range, _),
+                 .link(let range, _):
                 return range
             }
         }
@@ -169,6 +172,8 @@ struct MarkdownAccessibilityElementBuilder {
                 ))
             } else if let table = attachment as? TableAttachment {
                 attachments.append(.table(runRange, table))
+            } else if let code = attachment as? CodeBlockAttachment {
+                attachments.append(.codeBlock(runRange, code))
             } else if let label = attachment.accessibilityLabel, !label.isEmpty {
                 attachments.append(.attachment(runRange, label: label))
             }
@@ -211,6 +216,15 @@ struct MarkdownAccessibilityElementBuilder {
         switch run {
         case .table(let range, let table):
             appendTableRowSpecs(for: table, range: range)
+        case .codeBlock(let range, let code):
+            guard !code.code.isEmpty else { return }
+            specs.append(MarkdownAccessibilityElementSpec(
+                kind: .codeBlock(copyAction: labels.codeBlock.copy, language: code.language),
+                label: code.code,
+                range: range,
+                headingLevel: nil,
+                value: nil
+            ))
         case .image(let range, let label, let link):
             specs.append(MarkdownAccessibilityElementSpec(
                 kind: .image(link: link),

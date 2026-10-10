@@ -52,6 +52,7 @@ final class LinkRoutingTests: XCTestCase {
             onTaskListItemTap: nil,
             spoilerOverlay: ParticleSpoilerOverlayProvider(),
             onSpoilerTap: nil,
+            onCodeBlockCopy: nil,
             accessibilityLabels: .default
         )
         let host = UIHostingController(rootView: representable.fixedSize(horizontal: false, vertical: true))

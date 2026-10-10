@@ -16,6 +16,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
     let spoilerOverlay: any SpoilerOverlayProvider
     let onSpoilerTap: ((NSRange) -> Void)?
+    let onCodeBlockCopy: ((CodeBlockCopy) -> Void)?
     let accessibilityLabels: MarkdownAccessibilityLabels
 
     func makeCoordinator() -> Coordinator {
@@ -42,6 +43,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.onTaskListItemTap = onTaskListItemTap
         textView.spoilerOverlays.provider = spoilerOverlay
         textView.onSpoilerTap = onSpoilerTap
+        textView.onCodeBlockCopy = onCodeBlockCopy
         textView.accessibilityLabels = accessibilityLabels
         textView.setMarkdownAttributedText(attributedText)
     }
@@ -50,6 +52,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         uiView.delegate = nil
         uiView.onTaskListItemTap = nil
         uiView.onSpoilerTap = nil
+        uiView.onCodeBlockCopy = nil
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {

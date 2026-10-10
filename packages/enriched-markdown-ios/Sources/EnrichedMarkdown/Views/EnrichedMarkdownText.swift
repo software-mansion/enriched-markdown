@@ -21,6 +21,8 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownSpoilerOverlay) private var spoilerOverlay
     @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
     @Environment(\.markdownWritingDirection) private var writingDirection
+    @Environment(\.markdownCodeBlockLayout) private var codeBlockLayout
+    @Environment(\.markdownCodeBlockCopyHandler) private var onCodeBlockCopy
     // The fallback for paragraphs with no strong directional character.
     @Environment(\.layoutDirection) private var layoutDirection
     @StateObject private var renderStore = MarkdownRenderStore()
@@ -52,7 +54,8 @@ public struct EnrichedMarkdownText: View {
             imageRequestHeaders: imageRequestHeaders,
             plugins: RenderPluginList(values: renderPlugins),
             writingDirection: writingDirection,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            codeBlockLayout: codeBlockLayout
         )
         return MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,
@@ -75,6 +78,7 @@ public struct EnrichedMarkdownText: View {
             onSpoilerTap: { range in
                 renderStore.revealSpoiler(in: range)
             },
+            onCodeBlockCopy: onCodeBlockCopy,
             accessibilityLabels: accessibilityLabels
         )
         .fixedSize(horizontal: false, vertical: true)

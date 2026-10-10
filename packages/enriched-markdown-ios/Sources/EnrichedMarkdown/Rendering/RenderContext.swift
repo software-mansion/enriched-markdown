@@ -24,6 +24,8 @@ package struct BlockStyle {
 enum MarkdownAttribute {
     static let inlineCode = NSAttributedString.Key("EnrichedMarkdownInlineCode")
     static let codeBlock = NSAttributedString.Key("EnrichedMarkdownCodeBlock")
+    /// The fence's info string on a wrapping code block, for the VoiceOver copy action.
+    static let codeBlockLanguage = NSAttributedString.Key("EnrichedMarkdownCodeBlockLanguage")
     static let headingLevel = NSAttributedString.Key("EnrichedMarkdownHeadingLevel")
     static let strong = NSAttributedString.Key("EnrichedMarkdownStrong")
     static let emphasis = NSAttributedString.Key("EnrichedMarkdownEmphasis")

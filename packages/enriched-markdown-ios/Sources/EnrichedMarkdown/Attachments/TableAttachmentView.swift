@@ -39,7 +39,7 @@ final class TableAttachmentViewProvider: NSTextAttachmentViewProvider {
 }
 
 final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate {
-    private let scrollView = UIScrollView()
+    private let scrollView = HorizontalBlockScrollView()
     private let gridView: TableGridView
     private let attachment: TableAttachment
     private var didRestoreOffset = false
@@ -130,20 +130,11 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
     /// which the SwiftUI view sets to its `onLinkPress` or `openURL`; a
     /// text view outside SwiftUI with no handler opens the URL directly.
     func openLink(_ url: URL) {
-        if let onLinkPress = hostTextView()?.onLinkPress {
+        if let onLinkPress = enclosingMarkdownTextView()?.onLinkPress {
             onLinkPress(url)
         } else {
             UIApplication.shared.open(url)
         }
-    }
-
-    private func hostTextView() -> MarkdownTextView? {
-        var view: UIView? = superview
-        while let current = view {
-            if let textView = current as? MarkdownTextView { return textView }
-            view = current.superview
-        }
-        return nil
     }
 
     // MARK: - Copy menu

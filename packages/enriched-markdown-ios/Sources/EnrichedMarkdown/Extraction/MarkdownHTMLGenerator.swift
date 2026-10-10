@@ -362,7 +362,11 @@ enum MarkdownHTMLGenerator {
         while lines.last?.isEmpty == true { lines.removeLast() }
         state.codeBlockLines.removeAll()
         guard !lines.isEmpty else { return }
+        appendCodeBlock(lines.joined(separator: "\n"), into: &html, styles: styles)
+    }
 
+    /// `code` is already escaped.
+    private static func appendCodeBlock(_ code: String, into html: inout String, styles: CachedStyles) {
         html += "<pre dir=\"ltr\" style=\"background-color: \(styles.codeBlockBgColor); "
             + "padding: \(styles.codeBlockPadding)px; "
             + "border-radius: \(styles.codeBlockBorderRadius)px; "
@@ -371,7 +375,7 @@ enum MarkdownHTMLGenerator {
             + "<code style=\"font-family: \(Fixed.monospaceFamily); "
             + "font-size: \(styles.codeBlockFontSize)px; "
             + "color: \(styles.codeBlockColor);\">"
-        html += lines.joined(separator: "\n")
+        html += code
         html += "</code></pre>"
     }
 
@@ -414,6 +418,10 @@ enum MarkdownHTMLGenerator {
 
             if let table = attrs[.attachment] as? TableAttachment {
                 appendTable(table, into: &html)
+                return
+            }
+            if let code = attrs[.attachment] as? CodeBlockAttachment {
+                appendCodeBlock(escapeHTML(code.code), into: &html, styles: styles)
                 return
             }
             if attrs[.attachment] != nil || content == "\u{FFFC}" {
