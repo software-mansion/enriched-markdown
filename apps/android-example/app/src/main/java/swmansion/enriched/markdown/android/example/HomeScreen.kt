@@ -33,6 +33,13 @@ private val menuItems =
   listOf(
     HomeMenuItem(ExampleRoute.Playground, "Playground", "live editor with preview", Color(0xFF007AFF), "home-block-playground"),
     HomeMenuItem(ExampleRoute.Text, "Text", "static markdown rendering", Color(0xFF34C759), "home-block-text"),
+    HomeMenuItem(
+      ExampleRoute.MaterialTheme,
+      "Material Theme",
+      "material 3 colors, light and dark",
+      Color(0xFF6750A4),
+      "home-block-material-theme",
+    ),
     HomeMenuItem(ExampleRoute.Input, "Input", "chat-style rich text input", Color(0xFFFF9500), "home-block-input"),
     HomeMenuItem(ExampleRoute.Stream, "Stream", "streaming markdown with tables", Color(0xFFAF52DE), "home-block-stream"),
     HomeMenuItem(ExampleRoute.Storybook, "Storybook", "component stories", Color(0xFFFF2D55), "home-block-storybook"),
