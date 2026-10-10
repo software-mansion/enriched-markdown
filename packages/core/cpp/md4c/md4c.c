@@ -4541,17 +4541,24 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
             return;
     }
 
-    /* Scan for hostname segment. Hostname is mandatory and requires at least two
-     * components delimited with a dot. */
+    /* Hostnames are mandatory. Scheme links allow a single-label host; other
+     * permissive forms require at least two components delimited with a dot. */
     if(md_analyze_permissive_autolink_segment(ctx, end, line_end, &end, false,
-            _T('.'), NULL, _T("-_"), &right_cursor) < 2)
+            _T('.'), NULL, _T("-_"), &right_cursor) < (opener->ch == ':' ? 1 : 2))
         return;
+
+    /* Scheme links may point to single-label development hosts and ports. */
+    if(opener->ch == ':' && end + 1 < line_end && CH(end) == _T(':') && ISDIGIT(end + 1)) {
+        end++;
+        while(end < line_end && ISDIGIT(end))
+            end++;
+    }
 
     if(opener->ch != '@') {
         /* Scan for path segment. */
         if(end < line_end  &&  CH(end) == _T('/')) {
             if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('/'), _T(".+-_~%"), NULL, &right_cursor) < 0)
+                        _T('/'), (opener->ch == ':' ? _T(".+-_~%:()@&!,;") : _T(".+-_~%")), NULL, &right_cursor) < 0)
                 return;
 
             /* Path can also end with additional '/' if its a directory. */
@@ -4562,21 +4569,29 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
         /* Scan for query segment. */
         if(end < line_end  &&  CH(end) == _T('?')) {
             if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('&'), _T("._=()"), _T("+-"), &right_cursor) < 0)
+                        _T('&'), (opener->ch == ':' ? _T("._=():!~%,;@+-") : _T("._=()")),
+                        (opener->ch == ':' ? NULL : _T("+-")), &right_cursor) < 0)
                 return;
         }
 
         /* Scan for fragment segment. */
         if(end < line_end  &&  CH(end) == _T('#')) {
             if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('\0'), NULL, _T(".-+_"), &right_cursor) < 0)
+                        _T('\0'), (opener->ch == ':' ? _T(".-+_:%~") : NULL),
+                        (opener->ch == ':' ? NULL : _T(".-+_")), &right_cursor) < 0)
                 return;
         }
     }
 
+    /* Keep sentence punctuation outside scheme autolinks. */
+    if(opener->ch == ':') {
+        while(end > opener->end && ISANYOF(end - 1, _T("?!.,:*")))
+            end--;
+    }
+
     /* Verify there's line boundary, whitespace, allowed punctuation or
      * resolved closer mark just after the suspected autolink. */
-    if(end < line_end  &&  !ISUNICODEWHITESPACE(end)  &&  !ISANYOF(end, _T(")}].!?,;"))) {
+    if(end < line_end  &&  !ISUNICODEWHITESPACE(end)  &&  !ISANYOF(end, opener->ch == ':' ? _T(")}].!?,;:*_~\'\"`<>") : _T(")}].!?,;"))) {
         MD_MARK* mark;
 
         mark = md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor);

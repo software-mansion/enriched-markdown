@@ -80,6 +80,9 @@ jobs:
       - name: Run unit tests
         run: yarn test
 
+      - name: Test core autolinks
+        run: bash scripts/test-autolinks.sh
+
   rn-build-library:
     needs: changes
     if: needs.changes.outputs.react-native == 'true'
