@@ -3,10 +3,12 @@ import UIKit
 final class CodeBlockRenderer: NodeRenderer {
     private let factory: RendererFactory
     private let config: MarkdownStyleConfiguration
+    private let plugins: [any MarkdownRenderPlugin]
 
-    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration, plugins: [any MarkdownRenderPlugin]) {
         self.factory = factory
         self.config = config
+        self.plugins = plugins
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
@@ -88,6 +90,11 @@ final class CodeBlockRenderer: NodeRenderer {
 
         if marginBottom > 0 {
             ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: marginBottom)
+        }
+
+        guard let language = node.attribute("language") else { return }
+        for plugin in plugins {
+            plugin.styleCodeBlock(in: output, range: contentRange, language: language, config: config)
         }
     }
 }

@@ -50,6 +50,7 @@ public struct EnrichedMarkdownText: View {
             config: config,
             options: options,
             imageRequestHeaders: imageRequestHeaders,
+            plugins: RenderPluginList(values: renderPlugins),
             writingDirection: writingDirection,
             layoutDirection: layoutDirection
         )
@@ -78,12 +79,12 @@ public struct EnrichedMarkdownText: View {
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
-            renderStore.schedule(inputs, plugins: renderPlugins)
+            renderStore.schedule(inputs)
         }
         // Runs against the previous view value, so the render takes the
         // closure's inputs; the view's would be one update behind.
         .onChange(of: inputs) { newValue in
-            renderStore.schedule(newValue, plugins: renderPlugins)
+            renderStore.schedule(newValue)
         }
         .onDisappear {
             renderStore.invalidate()

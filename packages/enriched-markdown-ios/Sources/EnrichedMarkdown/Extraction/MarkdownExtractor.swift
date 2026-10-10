@@ -24,26 +24,50 @@ enum MarkdownExtractor {
     ) -> String? {
         guard let clamped = clampedRange(range, in: attributedText) else { return nil }
 
-        if let sourceMarkdown {
-            if isFullSelection(clamped, in: attributedText) {
-                return sourceMarkdown
-            }
-            if let slice = MarkdownSourceSlicer.slice(
-                for: clamped,
-                in: attributedText,
-                source: sourceMarkdown,
-                options: options
-            ) {
-                return slice
-            }
+        if let sourceMarkdown, isFullSelection(clamped, in: attributedText) {
+            return sourceMarkdown
         }
-        return extractMarkdown(from: attributedText, in: clamped)
+        let text = mergingCodeBlockRuns(in: attributedText, within: clamped)
+        if let sourceMarkdown,
+           let slice = MarkdownSourceSlicer.slice(for: clamped, in: text, source: sourceMarkdown, options: options) {
+            return slice
+        }
+        return reconstructMarkdown(from: text, in: clamped)
     }
 
     /// Best-effort markdown reconstruction for a partial selection.
     static func extractMarkdown(from attributedText: NSAttributedString, in range: NSRange) -> String? {
         guard let clamped = clampedRange(range, in: attributedText) else { return nil }
+        return reconstructMarkdown(from: mergingCodeBlockRuns(in: attributedText, within: clamped), in: clamped)
+    }
 
+    private static func mergingCodeBlockRuns(
+        in attributedText: NSAttributedString,
+        within range: NSRange
+    ) -> NSAttributedString {
+        var merged: NSMutableAttributedString?
+        attributedText.enumerateAttribute(MarkdownAttribute.codeBlock, in: range, options: []) { value, blockRange, _ in
+            guard MarkdownAttributeValue.boolValue(from: value), hasSeveralColors(attributedText, in: blockRange) else { return }
+            if merged == nil {
+                merged = NSMutableAttributedString(attributedString: attributedText)
+            }
+            merged?.removeAttribute(.foregroundColor, range: blockRange)
+        }
+        return merged ?? attributedText
+    }
+
+    /// Plain code carries one color; highlighting splits it per token.
+    private static func hasSeveralColors(_ attributedText: NSAttributedString, in range: NSRange) -> Bool {
+        var colors = 0
+        attributedText.enumerateAttribute(.foregroundColor, in: range, options: []) { value, _, stop in
+            guard value != nil else { return }
+            colors += 1
+            stop.pointee = ObjCBool(colors > 1)
+        }
+        return colors > 1
+    }
+
+    private static func reconstructMarkdown(from attributedText: NSAttributedString, in clamped: NSRange) -> String? {
         var result = ""
         var state = ExtractionState()
 

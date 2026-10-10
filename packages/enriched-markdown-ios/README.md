@@ -6,13 +6,13 @@
 
 # Enriched Markdown iOS
 
-Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package with two products: `EnrichedMarkdown`, and the optional `EnrichedMarkdownLaTeX` for math rendering.
+Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package with three products: `EnrichedMarkdown`, the optional `EnrichedMarkdownLaTeX` for math rendering, and the optional `EnrichedMarkdownSyntaxHighlighting` for colored code blocks.
 
 ## Installation
 
 Add the package via [Swift Package Manager](https://docs.swift.org/latest/documentation/packagemanagerdocs/). The `Package.swift` lives at the repository root.
 
-**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and the optional `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math)).
+**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and the optional `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math), or `EnrichedMarkdownSyntaxHighlighting` for code, see [Syntax highlighting](#syntax-highlighting)).
 
 **Package.swift:**
 
@@ -49,6 +49,18 @@ add `EnrichedMarkdownLaTeX` alongside it:
 ```
 
 Math is then enabled per view with `.markdownLaTeX()` — see [LaTeX math](#latex-math).
+
+Syntax highlighting is optional the same way: `EnrichedMarkdownSyntaxHighlighting`
+compiles tree-sitter and its grammars into the app, and without it fenced code
+renders in one color. The grammars are a fixed set of 14 languages, so the
+product always adds about 8 MB; there is no way to compile in only the
+languages an app needs. Add it next to the others:
+
+```swift
+.product(name: "EnrichedMarkdownSyntaxHighlighting", package: "enriched-markdown-ios"),
+```
+
+and enable it per view with `.markdownSyntaxHighlighting()` — see [Syntax highlighting](#syntax-highlighting).
 
 For local development, add a path dependency to a local checkout instead:
 
@@ -170,6 +182,7 @@ The `MarkdownTheme` builder supports these elements:
 | `ThematicBreak()` | Horizontal rules |
 | `MathBlock()` | Root-level `$$…$$` display math (`EnrichedMarkdownLaTeX`, see [LaTeX math](#latex-math)) |
 | `InlineMath()` | `$…$` math in running text (`EnrichedMarkdownLaTeX`) |
+| `SyntaxToken(.keyword)` | One token type in highlighted code (`EnrichedMarkdownSyntaxHighlighting`, see [Syntax highlighting](#syntax-highlighting)), one element per type |
 
 Common modifiers (available on most elements): `.font`, `.font(size:weight:design:)`, `.font(custom:size:)`, `.fontWeight`, `.bold`, `.italic`, `.fontDesign`, `.foregroundStyle`, `.marginTop`, `.marginBottom`, `.lineHeight`, `.multilineTextAlignment`.
 
@@ -194,6 +207,7 @@ Element-specific modifiers include:
 - **ThematicBreak:** `.foregroundStyle`, `.height`
 - **MathBlock:** `.font(size:)`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.multilineTextAlignment` — the only modifiers; the face is always KaTeX's
 - **InlineMath:** `.foregroundStyle` — the only modifier; size follows the surrounding text
+- **SyntaxToken:** `.foregroundStyle` — the only modifier; font and size follow `CodeBlock`
 
 ## API reference
 
@@ -455,7 +469,7 @@ extension View {
 
 Code blocks always render left-to-right. See [Right-to-left text](#right-to-left-text) for what follows a paragraph's direction.
 
-Outside SwiftUI, `MarkdownRenderer.render` and `renderLaTeX` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
+Outside SwiftUI, `MarkdownRenderer.render`, `renderLaTeX`, and `renderSyntaxHighlighted` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
 
 ### Migrating from 0.1
 
@@ -647,6 +661,89 @@ view itself. Font size and color left unset follow the paragraph. When
 resolving a `MarkdownStyleConfiguration` by hand for `renderLaTeX`, include that
 layer: `MarkdownStyleConfiguration.resolve(layers: [.default, .latexDefault, yours], traitCollection: …)`.
 
+## Syntax highlighting
+
+Code coloring lives in the optional `EnrichedMarkdownSyntaxHighlighting`
+product (see [Installation](#installation)). Import it and enable it per view:
+
+```swift
+import EnrichedMarkdown
+import EnrichedMarkdownSyntaxHighlighting
+
+EnrichedMarkdownText(content)
+  .markdownSyntaxHighlighting()
+```
+
+A fenced block is colored when its info string names one of the bundled
+languages; a block with no language, or one outside the list, keeps the
+`CodeBlock()` color. Only the text color changes, so a highlighted block
+measures exactly like a plain one.
+
+| Language | Info strings |
+|----------|--------------|
+| Bash | `bash`, `sh`, `shell`, `zsh` |
+| C | `c` |
+| CSS | `css` |
+| Go | `go`, `golang` |
+| HTML | `html` |
+| Java | `java` |
+| JavaScript | `javascript`, `js`, `jsx` |
+| JSON | `json` |
+| Markdown | `markdown`, `md` |
+| Python | `python`, `py` |
+| Rust | `rust`, `rs` |
+| TSX | `tsx` |
+| TypeScript | `typescript`, `ts` |
+| YAML | `yaml`, `yml` |
+
+Info strings match case-insensitively. The set is fixed: the package compiles
+these 14 grammars and no others, so unlike the React Native package's
+`codeHighlightLanguages` it can neither be trimmed to save app size nor
+extended with that package's opt-in grammars (C++, Swift, PHP, Ruby, C#).
+
+Highlighting runs with the render, off the main thread, and tokens are cached
+per block, so a block that has not changed is served from the cache on a
+re-render. A block whose closing fence has not arrived yet is re-highlighted
+in full on every update, so streaming a long block costs more per update as
+it grows, and the text of an unfinished multi-line string or comment takes
+its final color only once the closing delimiter arrives. A block over 50 KB
+or 2,000 lines is left plain.
+
+`markdownSyntaxHighlighting` takes a `Bool`, so a setting can drive it
+without rebuilding the view: `.markdownSyntaxHighlighting(isHighlightingOn)`.
+A streaming UI can pass `!isStreaming` to color code once the response is
+complete; until then every block in the view renders plain.
+
+Token colors come from `SyntaxToken` theme elements, one per token type:
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownSyntaxHighlighting()
+  .markdownTheme {
+    SyntaxToken(.keyword).foregroundStyle(.purple)
+    SyntaxToken(.string).foregroundStyle(Color(red: 152 / 255, green: 195 / 255, blue: 121 / 255))
+    SyntaxToken(.comment).foregroundStyle(.secondary)
+  }
+```
+
+The types are `.keyword`, `.operator`, `.punctuation`, `.string`, `.number`,
+`.constant`, `.comment`, `.function`, `.type`, `.variable`, `.property`,
+`.tag`, `.attribute`, and `.embedded`.
+
+`.markdownSyntaxHighlighting()` layers `MarkdownTheme.syntaxHighlightingDefault`
+— GitHub's palette, light or dark with the color scheme — directly above
+`MarkdownTheme.default`, so your own themes still win. Operators,
+punctuation, variables, and embedded code have no default color and stay in
+the `CodeBlock()` color, as does any type no theme layer sets. The palette
+expects a code block background that follows the color scheme, as the
+default one does; a theme that pins the block dark or light in both schemes
+should set its own token colors.
+
+Outside SwiftUI, `MarkdownRenderer.renderSyntaxHighlighted` mirrors
+`MarkdownRenderer.render` with highlighting on. When resolving a
+`MarkdownStyleConfiguration` by hand for it, include the default layer:
+`MarkdownStyleConfiguration.resolve(layers: [.default, .syntaxHighlightingDefault, yours], traitCollection: …)`.
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
@@ -658,7 +755,7 @@ layer: `MarkdownStyleConfiguration.resolve(layers: [.default, .latexDefault, you
 - Subscript (`~text~` with `MarkdownParsingOptions(subscript: true)`)
 - Highlight (`==text==` with `MarkdownParsingOptions(highlight: true)`)
 - Spoilers (`||text||`, tap to reveal — see `.markdownSpoilerOverlay`)
-- Fenced code blocks
+- Fenced code blocks, colored by language with the optional `EnrichedMarkdownSyntaxHighlighting` product — see [Syntax highlighting](#syntax-highlighting)
 - Block quotes
 - GitHub alerts / admonitions (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` with `MarkdownParsingOptions(admonitions: true)`): a tinted bar, icon, and title above the quoted content
 - Ordered and unordered lists
@@ -689,4 +786,4 @@ yarn workspace @enriched-markdown/ios bench:ios-native --base main
 
 Absolute numbers depend on the machine and on Debug builds; read the head/base ratio from one run. Each number is the median of XCTest's iterations, so a single stalled iteration does not move it. CI runs the same comparison on demand: label a pull request `benchmark: ios` (later pushes re-run it while the label stays), comment `/benchmark ios` on it, or start the "iOS benchmarks" workflow from the Actions tab. Each run posts the table as a new comment on the pull request, headed by the commit it measured, and the job fails only when a benchmark is twice as slow, since a shared runner cannot resolve smaller differences.
 
-In the monorepo, `core/md4c` and `core/parser` are symlinks into the shared C++ sources at `packages/core/cpp`. When syncing this folder to the standalone repository, dereference them so real files are copied (e.g. `rsync -a --copy-links`).
+In the monorepo, `core/md4c` and `core/parser` are symlinks into the shared C++ sources at `packages/core/cpp`, and so are the highlighting seam, the tree-sitter runtime, and the grammars under `highlight/`. The tree-sitter files are not checked in: after `yarn install`, `node vendor/vendor-grammars.mjs` (run from the monorepo root, also part of `yarn prepare`) restores them. When syncing this folder to the standalone repository, dereference the symlinks so real files are copied (e.g. `rsync -a --copy-links`).

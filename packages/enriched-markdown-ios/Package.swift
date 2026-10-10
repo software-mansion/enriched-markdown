@@ -1,6 +1,12 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
+let highlightGrammars: [(name: String, hasScanner: Bool)] = [
+    ("json", false), ("html", true), ("css", true), ("markdown", true), ("yaml", true),
+    ("go", false), ("java", false), ("javascript", true), ("python", true), ("c", false),
+    ("rust", true), ("bash", true), ("typescript", true), ("tsx", true)
+]
+
 let package = Package(
     name: "EnrichedMarkdown",
     platforms: [.iOS(.v16)],
@@ -8,7 +14,10 @@ let package = Package(
         .library(name: "EnrichedMarkdown", targets: ["EnrichedMarkdown"]),
         // Optional LaTeX math rendering — links the prebuilt RaTeX engine
         // (~3-5 MB of app size); without it, `$…$` stays plain text.
-        .library(name: "EnrichedMarkdownLaTeX", targets: ["EnrichedMarkdownLaTeX"])
+        .library(name: "EnrichedMarkdownLaTeX", targets: ["EnrichedMarkdownLaTeX"]),
+        // Optional syntax highlighting of fenced code blocks — compiles
+        // tree-sitter and its grammars (~8 MB of app size).
+        .library(name: "EnrichedMarkdownSyntaxHighlighting", targets: ["EnrichedMarkdownSyntaxHighlighting"])
     ],
     targets: [
         .target(
@@ -60,6 +69,35 @@ let package = Package(
             exclude: ["Vendor/LICENSE"],
             resources: [.copy("Fonts")]
         ),
+        // Symlinks into packages/core/cpp/highlight, restored by `node vendor/vendor-grammars.mjs`.
+        .target(
+            name: "EnrichedMarkdownTreeSitter",
+            path: "highlight",
+            sources: [
+                "SwiftHighlightShim.cpp",
+                "seam/CodeBlockHighlighter.cpp",
+                "seam/CodeBlockLanguages.cpp",
+                "generated/generated_registry.cpp",
+                "tree-sitter/src/lib.c"
+            ] + highlightGrammars.flatMap { grammar in
+                (grammar.hasScanner ? ["parser.c", "scanner.c"] : ["parser.c"]).map { "grammars/\(grammar.name)/\($0)" }
+            },
+            publicHeadersPath: "include",
+            cSettings: [
+                .headerSearchPath("tree-sitter/include")
+            ],
+            cxxSettings: [
+                .headerSearchPath("seam"),
+                .headerSearchPath("generated"),
+                .headerSearchPath("tree-sitter/include"),
+                .define("ENRICHED_MARKDOWN_CODE_HIGHLIGHT", to: "1")
+            ]
+        ),
+        .target(
+            name: "EnrichedMarkdownSyntaxHighlighting",
+            dependencies: ["EnrichedMarkdown", "EnrichedMarkdownTreeSitter"],
+            path: "Sources/EnrichedMarkdownSyntaxHighlighting"
+        ),
         .testTarget(
             name: "EnrichedMarkdownTests",
             dependencies: ["EnrichedMarkdown"],
@@ -69,6 +107,11 @@ let package = Package(
             name: "EnrichedMarkdownLaTeXTests",
             dependencies: ["EnrichedMarkdownLaTeX"],
             path: "Tests/EnrichedMarkdownLaTeXTests"
+        ),
+        .testTarget(
+            name: "EnrichedMarkdownSyntaxHighlightingTests",
+            dependencies: ["EnrichedMarkdownSyntaxHighlighting"],
+            path: "Tests/EnrichedMarkdownSyntaxHighlightingTests"
         )
     ]
 )

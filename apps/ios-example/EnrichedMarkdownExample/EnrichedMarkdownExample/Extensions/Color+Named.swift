@@ -18,6 +18,7 @@ extension Color {
     static var tileGreen: Color { Color(red: 52 / 255, green: 199 / 255, blue: 89 / 255) }
     static var tileOrange: Color { Color(red: 255 / 255, green: 149 / 255, blue: 0 / 255) }
     static var tileTeal: Color { Color(red: 48 / 255, green: 176 / 255, blue: 199 / 255) }
+    static var tileIndigo: Color { Color(red: 88 / 255, green: 86 / 255, blue: 214 / 255) }
     static var tilePurple: Color { Color(red: 175 / 255, green: 82 / 255, blue: 222 / 255) }
     static var tilePink: Color { Color(red: 255 / 255, green: 45 / 255, blue: 85 / 255) }
 
@@ -40,4 +41,17 @@ extension Color {
     static var selectionPurple: Color { Color(red: 90 / 255, green: 82 / 255, blue: 250 / 255) }
     static var codeViolet: Color { Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255) }
     static var codeVioletBackground: Color { Color(red: 245 / 255, green: 243 / 255, blue: 255 / 255) }
+
+    // MARK: - Code screen (One Dark)
+
+    static var oneDarkBackground: Color { Color(red: 40 / 255, green: 44 / 255, blue: 52 / 255) }
+    static var oneDarkText: Color { Color(red: 171 / 255, green: 178 / 255, blue: 191 / 255) }
+    static var oneDarkComment: Color { Color(red: 127 / 255, green: 132 / 255, blue: 142 / 255) }
+    static var oneDarkPurple: Color { Color(red: 198 / 255, green: 120 / 255, blue: 221 / 255) }
+    static var oneDarkGreen: Color { Color(red: 152 / 255, green: 195 / 255, blue: 121 / 255) }
+    static var oneDarkOrange: Color { Color(red: 209 / 255, green: 154 / 255, blue: 102 / 255) }
+    static var oneDarkBlue: Color { Color(red: 97 / 255, green: 175 / 255, blue: 239 / 255) }
+    static var oneDarkYellow: Color { Color(red: 229 / 255, green: 192 / 255, blue: 123 / 255) }
+    static var oneDarkRed: Color { Color(red: 224 / 255, green: 108 / 255, blue: 117 / 255) }
+    static var oneDarkCyan: Color { Color(red: 86 / 255, green: 182 / 255, blue: 194 / 255) }
 }

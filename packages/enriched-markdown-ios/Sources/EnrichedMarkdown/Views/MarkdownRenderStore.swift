@@ -10,15 +10,23 @@ struct RenderedSource: Equatable {
 }
 
 /// What a render depends on, as one value so a change to any of it
-/// schedules exactly one re-render. Plugins travel alongside: they are
-/// not `Equatable`.
+/// schedules exactly one re-render.
 struct MarkdownRenderInputs: Equatable {
     var markdown: String
     var config: MarkdownStyleConfiguration
     var options: MarkdownParsingOptions = .commonMark
     var imageRequestHeaders: [String: String] = [:]
+    var plugins = RenderPluginList()
     var writingDirection: MarkdownWritingDirection = .firstStrong
     var layoutDirection: LayoutDirection = .leftToRight
+}
+
+struct RenderPluginList: Equatable {
+    var values: [any MarkdownRenderPlugin] = []
+
+    static func == (lhs: RenderPluginList, rhs: RenderPluginList) -> Bool {
+        lhs.values.elementsEqual(rhs.values) { type(of: $0) == type(of: $1) }
+    }
 }
 
 @MainActor
@@ -45,7 +53,7 @@ final class MarkdownRenderStore: ObservableObject {
 
     private let coordinator = AsyncRenderCoordinator()
 
-    func schedule(_ inputs: MarkdownRenderInputs, plugins: [any MarkdownRenderPlugin] = []) {
+    func schedule(_ inputs: MarkdownRenderInputs) {
         let markdown = inputs.markdown
         if isBlank(markdown) {
             attributedText = NSAttributedString()
@@ -61,6 +69,7 @@ final class MarkdownRenderStore: ObservableObject {
         }
         baseMarkdown = markdown
         currentMarkdown = resolved
+        let plugins = inputs.plugins.values
         // render adjusts the options itself; the source keeps the adjusted ones for copying.
         let effectiveOptions = MarkdownRenderer.effectiveParsingOptions(inputs.options, plugins: plugins)
 

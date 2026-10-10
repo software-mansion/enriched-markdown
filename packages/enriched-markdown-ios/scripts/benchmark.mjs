@@ -24,6 +24,7 @@ import {
   existsSync,
   mkdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -92,14 +93,19 @@ function runBenchmarksAt(ref, options, udid) {
   git(['worktree', 'prune']);
   git(['worktree', 'add', '--detach', worktree, commit]);
   try {
-    // The LaTeX target's vendored sources are symlinks materialized by
-    // `yarn install`; a fresh worktree needs them restored.
-    const vendorScript = path.join(worktree, 'vendor', 'vendor-ratex.mjs');
-    if (existsSync(vendorScript)) {
-      execFileSync(process.execPath, [vendorScript], {
-        cwd: worktree,
-        stdio: 'inherit',
-      });
+    // The grammars copy out of the RN workspace's node_modules.
+    const rnModules = path.join('packages', 'react-native-enriched-markdown', 'node_modules');
+    if (existsSync(path.join(repoDir, rnModules))) {
+      symlinkSync(path.join(repoDir, rnModules), path.join(worktree, rnModules));
+    }
+    for (const script of ['vendor-ratex.mjs', 'vendor-grammars.mjs']) {
+      const vendorScript = path.join(worktree, 'vendor', script);
+      if (existsSync(vendorScript)) {
+        execFileSync(process.execPath, [vendorScript], {
+          cwd: worktree,
+          stdio: 'inherit',
+        });
+      }
     }
     // A base that predates the benchmarks runs the current ones.
     const baseBenchmark = path.join(worktree, packageRelative, benchmarkFile);

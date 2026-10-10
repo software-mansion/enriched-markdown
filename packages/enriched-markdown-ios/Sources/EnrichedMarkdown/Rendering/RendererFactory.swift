@@ -113,7 +113,7 @@ final class RendererFactory {
         case .blankLine:
             return BlankLineRenderer(config: config)
         case .codeBlock:
-            return CodeBlockRenderer(factory: self, config: config)
+            return CodeBlockRenderer(factory: self, config: config, plugins: plugins)
         case .blockquote, .admonition:
             return BlockquoteRenderer(factory: self, config: config)
         case .unorderedList:
