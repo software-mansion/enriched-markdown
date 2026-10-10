@@ -5,7 +5,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.renderer.NodeRenderer
 import com.swmansion.enriched.markdown.renderer.RendererConfig
 
-/** Apps pass plugins to [EnrichedMarkdownPlugins.install] freely; only implementing one needs opt-in. */
+/** Apps enable plugins freely; only implementing one needs opt-in. */
 interface MarkdownPlugin {
   /** Stable across releases: it identifies the plugin's registrations and its rendered segments. */
   val id: String

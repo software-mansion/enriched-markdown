@@ -1,11 +1,16 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.math.test
 
 import android.content.Context
 import android.text.SpannableStringBuilder
 import androidx.test.core.app.ApplicationProvider
+import com.swmansion.enriched.markdown.math.LatexMathPlugin
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
@@ -25,9 +30,10 @@ object MathTestSupport {
     document: MarkdownASTNode,
     style: StyleConfig = defaultStyle,
     onPluginEvent: PluginEventSink? = null,
+    plugins: PluginSnapshot = PluginSnapshot.of(LatexMathPlugin),
   ): SpannableStringBuilder {
     val renderer = Renderer()
-    renderer.configure(style, context, onPluginEvent = onPluginEvent)
+    renderer.configure(style, context, onPluginEvent = onPluginEvent, plugins = plugins)
     return renderer.renderDocument(document, null, null)
   }
 

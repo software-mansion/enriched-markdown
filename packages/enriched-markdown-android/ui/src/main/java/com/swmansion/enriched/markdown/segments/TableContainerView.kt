@@ -21,7 +21,6 @@ import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
@@ -85,7 +84,7 @@ class TableContainerView(
   fun applyTableNode(
     tableNode: MarkdownASTNode,
     imageRequestHeaders: Map<String, String> = emptyMap(),
-    plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
+    plugins: PluginSnapshot,
     onPluginEvent: PluginEventSink? = null,
   ) {
     rows =
