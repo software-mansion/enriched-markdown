@@ -1,0 +1,42 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - input
+  - unordered-list
+  - block
+  - markdown-shortcuts
+---
+# Regression for #950: an inline style typed into a new (empty) list item must
+# serialize on the characters it was typed over, not one character later.
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- tapOn:
+    id: focus-button
+- waitForAnimationToEnd
+
+# The "- " shortcut leaves the caret on an empty bullet item.
+- inputText: '- '
+- waitForAnimationToEnd
+
+- tapOn:
+    id: toolbar-italic
+- inputText: 'ital'
+- tapOn:
+    id: toolbar-italic
+- inputText: ' plain'
+- waitForAnimationToEnd
+
+- pressKey: Enter
+- waitForAnimationToEnd
+
+- inputText: 'next'
+- waitForAnimationToEnd
+
+- tapOn:
+    id: get-markdown-button
+
+# The serialized markdown is shown in the "Markdown" alert.
+- assertVisible: '- \*ital\* plain\n- next'
