@@ -112,7 +112,10 @@
         "package.json",
         "**/*.kt",
         "**/*.gradle",
-        "gradle/**"
+        "gradle/**",
+        "**/src/**/AndroidManifest.xml",
+        "**/src/**/res/**",
+        "**/lint.xml"
       ],
       "outputs": []
     },
