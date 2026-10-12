@@ -114,7 +114,7 @@ describe('postinstall consumer config', () => {
     expect(resolve(root).config).toEqual({});
   });
 
-  it('expands workspace globs, nested patterns and negations', () => {
+  it('subtracts negated workspace patterns', () => {
     write('package.json', {
       workspaces: ['apps/*', 'libs/**', '!apps/legacy', 'tools'],
     });
@@ -131,12 +131,70 @@ describe('postinstall consumer config', () => {
     }
     const dirs = resolve(root).workspaceDirs.map((d) => path.relative(root, d));
     expect(dirs.sort()).toEqual([
-      'apps/legacy',
       'apps/mobile',
       'libs',
       'libs/core',
       'libs/core/native',
       'tools',
     ]);
+  });
+
+  it('does not let an excluded package veto the opt-out', () => {
+    write('package.json', { workspaces: ['apps/*', '!apps/legacy'] });
+    write('apps/mobile/package.json', {
+      'dependencies': DEP,
+      'enriched-markdown': { enableMath: false },
+    });
+    write('apps/legacy/package.json', { dependencies: DEP });
+    expect(resolve(root).config).toEqual({ enableMath: false });
+  });
+
+  it('reads pnpm patterns with comments, quotes and flow style', () => {
+    write('apps/mobile/package.json', {
+      'dependencies': DEP,
+      'enriched-markdown': { enableMath: false },
+    });
+    write('package.json', { name: 'monorepo' });
+
+    write(
+      'pnpm-workspace.yaml',
+      '# members\npackages:\n  # apps\n  - apps/*  # the mobile apps\n\n  - "!apps/legacy"\n'
+    );
+    expect(resolve(root).config).toEqual({ enableMath: false });
+
+    write(
+      'pnpm-workspace.yaml',
+      'packages: [\'apps/*\', "!apps/legacy"] # flow\n'
+    );
+    expect(resolve(root).config).toEqual({ enableMath: false });
+  });
+
+  it('counts peer dependencies as consumers', () => {
+    write('package.json', { workspaces: ['packages/*'] });
+    write('packages/ui/package.json', {
+      'peerDependencies': DEP,
+      'enriched-markdown': { enableMath: false },
+    });
+    expect(resolve(root).config).toEqual({ enableMath: false });
+  });
+
+  it('merges every flag the consumers agree on and skips non-boolean keys', () => {
+    write('package.json', { workspaces: ['apps/*'] });
+    write('apps/mobile/package.json', {
+      'dependencies': DEP,
+      'enriched-markdown': {
+        enableMath: false,
+        enableVideo: false,
+        codeHighlightLanguages: ['swift'],
+      },
+    });
+    write('apps/tablet/package.json', {
+      'dependencies': DEP,
+      'enriched-markdown': { enableMath: false, enableVideo: false },
+    });
+    expect(resolve(root).config).toEqual({
+      enableMath: false,
+      enableVideo: false,
+    });
   });
 });

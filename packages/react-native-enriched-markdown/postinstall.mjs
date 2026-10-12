@@ -26,8 +26,6 @@ const LOG = '[react-native-enriched-markdown]';
 // consuming app opts out of it.
 
 const PACKAGE_NAME = 'react-native-enriched-markdown';
-const FLAGS = ['enableCodeHighlight', 'enableMath'];
-const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies'];
 const MAX_WALK_DEPTH = 6;
 
 function readJson(file) {
@@ -51,8 +49,14 @@ function configOf(pkg) {
   return config && typeof config === 'object' && !Array.isArray(config) ? config : null;
 }
 
+/** True for any `*ependencies` map (dependencies, devDependencies, peerDependencies, ...). */
 function dependsOnPackage(pkg) {
-  return DEPENDENCY_FIELDS.some((field) => Object.hasOwn(pkg?.[field] ?? {}, PACKAGE_NAME));
+  return Object.entries(pkg ?? {}).some(
+    ([field, value]) =>
+      /[dD]ependencies$/.test(field) &&
+      value && typeof value === 'object' && !Array.isArray(value) &&
+      Object.hasOwn(value, PACKAGE_NAME)
+  );
 }
 
 function subdirs(dir) {
@@ -98,7 +102,16 @@ function expand(root, pattern) {
   return dirs.filter(isDir);
 }
 
-/** The `packages:` list of pnpm-workspace.yaml, read without a YAML parser. */
+/** Strips a trailing `# comment` and surrounding quotes from one YAML scalar. */
+function yamlScalar(text) {
+  return text.replace(/\s+#.*$/, '').trim().replace(/^(['"])(.*)\1$/, '$2');
+}
+
+/**
+ * The `packages:` list of pnpm-workspace.yaml, read without a YAML parser. Covers
+ * the block form (`- apps/*`) and the one-line flow form (`packages: ["apps/*"]`),
+ * which is all pnpm's own docs use.
+ */
 function readPnpmWorkspacePatterns(root) {
   let text;
   try {
@@ -109,14 +122,21 @@ function readPnpmWorkspacePatterns(root) {
   const patterns = [];
   let inPackages = false;
   for (const line of text.split(/\r?\n/)) {
-    if (/^packages\s*:/.test(line)) {
+    const key = line.match(/^packages\s*:(.*)$/);
+    if (key) {
+      const flow = yamlScalar(key[1]).match(/^\[(.*)\]$/);
+      if (flow) {
+        return flow[1].split(',').map(yamlScalar).filter(Boolean);
+      }
       inPackages = true;
       continue;
     }
     if (!inPackages) continue;
-    const item = line.match(/^\s+-\s*(.+?)\s*$/);
+    if (/^\s*(#|$)/.test(line)) continue;
+    const item = line.match(/^\s+-\s*(.+)$/);
     if (item) {
-      patterns.push(item[1].replace(/^(['"])(.*)\1$/, '$2'));
+      const pattern = yamlScalar(item[1]);
+      if (pattern) patterns.push(pattern);
     } else if (/^\S/.test(line)) {
       break;
     }
@@ -133,11 +153,16 @@ function listWorkspaceDirs(root, rootPkg = readJson(path.join(root, 'package.jso
       ? declared.packages
       : [];
   const dirs = new Set();
+  const excluded = new Set();
   for (const pattern of [...patterns, ...readPnpmWorkspacePatterns(root)]) {
-    if (typeof pattern !== 'string' || pattern.startsWith('!')) continue;
-    for (const dir of expand(root, pattern)) dirs.add(dir);
+    if (typeof pattern !== 'string') continue;
+    if (pattern.startsWith('!')) {
+      for (const dir of expand(root, pattern.slice(1))) excluded.add(dir);
+    } else {
+      for (const dir of expand(root, pattern)) dirs.add(dir);
+    }
   }
-  return [...dirs];
+  return [...dirs].filter((dir) => !excluded.has(dir));
 }
 
 /**
@@ -156,9 +181,12 @@ function resolveConsumerConfig(initCwd) {
     .filter(dependsOnPackage);
   if (consumers.length === 0) return {};
 
+  // Only `=== false` merges, so non-boolean keys such as `codeHighlightLanguages`
+  // drop out on their own and new flags need no edit here.
   const merged = {};
-  for (const flag of FLAGS) {
-    if (consumers.every((pkg) => configOf(pkg)?.[flag] === false)) merged[flag] = false;
+  const keys = new Set(consumers.flatMap((pkg) => Object.keys(configOf(pkg) ?? {})));
+  for (const key of keys) {
+    if (consumers.every((pkg) => configOf(pkg)?.[key] === false)) merged[key] = false;
   }
   return merged;
 }

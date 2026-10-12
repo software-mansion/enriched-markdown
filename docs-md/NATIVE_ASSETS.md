@@ -64,6 +64,14 @@ node node_modules/react-native-enriched-markdown/postinstall.mjs
 
 Then re-run `pod install` (iOS) or rebuild (Android).
 
+To see what the postinstall decided without downloading anything, run it with `--resolve-config` from
+the same directory the install ran from. It prints the workspace members it found and the merged
+`enriched-markdown` block (`{}` means download everything):
+
+```sh
+INIT_CWD=$PWD node node_modules/react-native-enriched-markdown/postinstall.mjs --resolve-config
+```
+
 ## Package-manager notes
 
 - **npm / Yarn Classic / Yarn Berry (node-modules linker)**: works out of the box.
