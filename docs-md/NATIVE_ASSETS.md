@@ -76,7 +76,11 @@ Then re-run `pod install` (iOS) or rebuild (Android).
     - react-native-enriched-markdown
   ```
 
-  Without this the native build fails until you run the recovery command above.
+  Without this the native build fails until you run the recovery command above. pnpm also caches a
+  package's postinstall output (`sideEffectsCache`, on by default) keyed by package and platform, not by
+  your `enriched-markdown` block, so a project that opted out of an asset can leave the next project on
+  the same machine without it. If that happens, run the recovery command above or install with
+  `sideEffectsCache: false`.
 - **Yarn PnP** is not supported for this package — PnP stores dependencies as read-only archives, so
   the postinstall cannot write the vendored assets into the package. Use the `node-modules` linker
   (`nodeLinker: node-modules`), which is the norm for React Native projects anyway.
@@ -112,11 +116,13 @@ rebuild; re-enabling also needs a reinstall so the assets download again.
 > reliably rebuild the pod's static library when only its source list changes, so it can otherwise link a
 > stale copy that still contains the old code. Android reconfigures on every build and needs neither step.
 
-**Which `package.json`?** The *download* opt-out is read from wherever the install runs (via `INIT_CWD`)
-— in a monorepo that is the workspace root, and there is one shared `node_modules`, so the download
-opt-out is global. The *build* flag is read from the **app's** `package.json` (the one beside `ios/` /
-`android/`), so each app in a monorepo enables or disables features independently. Neither has any
-effect inside this repo's own monorepo development.
+**Which `package.json`?** The *download* opt-out is read from wherever the install runs (via `INIT_CWD`).
+In a monorepo that is the workspace root, and there is one shared `node_modules`, so the download
+decision is global: a block in the root `package.json` wins, and when the root has none the postinstall
+reads the workspace members (npm/yarn `workspaces` or `pnpm-workspace.yaml`) that depend on this package
+and skips an asset only when **every** one of them opts out. The *build* flag is read from the **app's**
+`package.json` (the one beside `ios/` / `android/`), so each app in a monorepo enables or disables
+features independently. Neither has any effect inside this repo's own monorepo development.
 
 ## Disabling the features at build time
 

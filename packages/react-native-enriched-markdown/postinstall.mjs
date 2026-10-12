@@ -14,6 +14,165 @@ import { spawnSync } from 'node:child_process';
 const PKG_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const LOG = '[react-native-enriched-markdown]';
 
+// ---------------------------------------------------------------------------
+// Consumer opt-out lookup. Kept in this file on purpose: downstream forks pack
+// the postinstall by name, so it must not import siblings.
+//
+// npm/yarn/pnpm set INIT_CWD to the directory the install ran from. For a plain app
+// that is the app itself. In a monorepo it is the workspace root, which usually has
+// no `enriched-markdown` block of its own, so the lookup continues into the
+// workspace members that depend on this package. A root block, when present, wins.
+// Workspaces share one node_modules, so an asset is skipped only when every
+// consuming app opts out of it.
+
+const PACKAGE_NAME = 'react-native-enriched-markdown';
+const FLAGS = ['enableCodeHighlight', 'enableMath'];
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies'];
+const MAX_WALK_DEPTH = 6;
+
+function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function isDir(dir) {
+  try {
+    return fs.statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function configOf(pkg) {
+  const config = pkg?.['enriched-markdown'];
+  return config && typeof config === 'object' && !Array.isArray(config) ? config : null;
+}
+
+function dependsOnPackage(pkg) {
+  return DEPENDENCY_FIELDS.some((field) => Object.hasOwn(pkg?.[field] ?? {}, PACKAGE_NAME));
+}
+
+function subdirs(dir) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((e) => e.isDirectory() && e.name !== 'node_modules' && !e.name.startsWith('.'))
+    .map((e) => path.join(dir, e.name));
+}
+
+function walk(dir, depth = 0) {
+  if (depth >= MAX_WALK_DEPTH) return [dir];
+  return [dir, ...subdirs(dir).flatMap((child) => walk(child, depth + 1))];
+}
+
+function segmentToRegExp(segment) {
+  const escaped = segment.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*');
+  return new RegExp(`^${escaped}$`);
+}
+
+/** Directories matched by one workspace pattern such as `apps/*` or `packages/**`. */
+function expand(root, pattern) {
+  const segments = pattern.split('/').filter((s) => s && s !== '.');
+  let dirs = [root];
+  for (const segment of segments) {
+    const next = [];
+    for (const dir of dirs) {
+      if (segment === '**') {
+        next.push(...walk(dir));
+      } else if (segment.includes('*')) {
+        const re = segmentToRegExp(segment);
+        next.push(...subdirs(dir).filter((d) => re.test(path.basename(d))));
+      } else {
+        next.push(path.join(dir, segment));
+      }
+    }
+    dirs = next;
+  }
+  return dirs.filter(isDir);
+}
+
+/** The `packages:` list of pnpm-workspace.yaml, read without a YAML parser. */
+function readPnpmWorkspacePatterns(root) {
+  let text;
+  try {
+    text = fs.readFileSync(path.join(root, 'pnpm-workspace.yaml'), 'utf8');
+  } catch {
+    return [];
+  }
+  const patterns = [];
+  let inPackages = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (/^packages\s*:/.test(line)) {
+      inPackages = true;
+      continue;
+    }
+    if (!inPackages) continue;
+    const item = line.match(/^\s+-\s*(.+?)\s*$/);
+    if (item) {
+      patterns.push(item[1].replace(/^(['"])(.*)\1$/, '$2'));
+    } else if (/^\S/.test(line)) {
+      break;
+    }
+  }
+  return patterns;
+}
+
+/** Workspace member directories declared by npm/yarn `workspaces` or pnpm-workspace.yaml. */
+function listWorkspaceDirs(root, rootPkg = readJson(path.join(root, 'package.json'))) {
+  const declared = rootPkg?.workspaces;
+  const patterns = Array.isArray(declared)
+    ? declared
+    : Array.isArray(declared?.packages)
+      ? declared.packages
+      : [];
+  const dirs = new Set();
+  for (const pattern of [...patterns, ...readPnpmWorkspacePatterns(root)]) {
+    if (typeof pattern !== 'string' || pattern.startsWith('!')) continue;
+    for (const dir of expand(root, pattern)) dirs.add(dir);
+  }
+  return [...dirs];
+}
+
+/**
+ * The `enriched-markdown` block that governs this install's downloads: the block of
+ * the directory the install ran from, else the flags every consuming workspace
+ * member agrees on. `{}` means download everything.
+ */
+function resolveConsumerConfig(initCwd) {
+  if (!initCwd) return {};
+  const rootPkg = readJson(path.join(initCwd, 'package.json'));
+  const rootConfig = configOf(rootPkg);
+  if (rootConfig) return rootConfig;
+
+  const consumers = listWorkspaceDirs(initCwd, rootPkg)
+    .map((dir) => readJson(path.join(dir, 'package.json')))
+    .filter(dependsOnPackage);
+  if (consumers.length === 0) return {};
+
+  const merged = {};
+  for (const flag of FLAGS) {
+    if (consumers.every((pkg) => configOf(pkg)?.[flag] === false)) merged[flag] = false;
+  }
+  return merged;
+}
+
+// `--resolve-config` prints the lookup result and exits, for tests and debugging.
+if (process.argv.includes('--resolve-config')) {
+  const initCwd = process.env.INIT_CWD;
+  console.log(JSON.stringify({
+    workspaceDirs: initCwd ? listWorkspaceDirs(initCwd) : [],
+    config: resolveConsumerConfig(initCwd),
+  }));
+  process.exit(0);
+}
+
 const grammarManifest = path.join(PKG_ROOT, 'cpp/highlight/grammar-versions.json');
 if (!fs.existsSync(grammarManifest)) {
   console.log(`${LOG} grammar-versions.json not found; skipping postinstall.`);
@@ -21,38 +180,23 @@ if (!fs.existsSync(grammarManifest)) {
   process.exit(0);
 }
 
-// Consumer opt-out. npm/yarn/pnpm set INIT_CWD to the project root running the
-// install, so the consumer declares which heavy native assets to skip downloading
-// via an `enriched-markdown` block in their own package.json:
+// Consumer opt-out. The consumer declares which heavy native assets to skip
+// downloading via an `enriched-markdown` block in package.json:
 //
 //   { "enriched-markdown": { "enableCodeHighlight": false, "enableMath": false } }
 //
-// Both features default to enabled (opt-out, not opt-in). Any resolution failure
-// (INIT_CWD unset, unreadable/malformed JSON, absent key) falls back to downloading
-// everything -- a skipped download is far cheaper to recover from than a silently
-// missing feature. In a monorepo INIT_CWD is the workspace root where the install
-// ran, so the download opt-out lives in the root package.json (one shared node_modules).
+// Both features default to enabled (opt-out, not opt-in). The block is read from
+// INIT_CWD (where the install ran) and, in a monorepo whose root has no block, from
+// the workspace members that depend on this package -- see the lookup above.
+// Any resolution failure falls back to downloading everything: a skipped download
+// is far cheaper to recover from than a silently missing feature.
 //
 // The native build reads the *app* package.json directly (via the podspec's
 // installation root / gradle's build root -- see the podspecs and android/build.gradle),
 // which is a separate per-app decision. It reconciles that flag with asset presence on
 // disk: an explicit opt-in with the asset missing fails loud, a default-on with it
 // missing degrades to a clean build.
-function resolveConsumerConfig() {
-  const initCwd = process.env.INIT_CWD;
-  if (!initCwd) {
-    return {};
-  }
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(initCwd, 'package.json'), 'utf8'));
-    const config = pkg['enriched-markdown'];
-    return config && typeof config === 'object' ? config : {};
-  } catch {
-    return {};
-  }
-}
-
-const consumerConfig = resolveConsumerConfig();
+const consumerConfig = resolveConsumerConfig(process.env.INIT_CWD);
 
 // This script only decides what to DOWNLOAD into node_modules. The native build
 // (podspec + build.gradle) reads the app package.json directly to decide what to

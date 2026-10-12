@@ -231,7 +231,11 @@ Then re-run `pod install` (iOS) or rebuild (Android).
 **Package managers.** npm and Yarn (node-modules linker) work out of the box.
 **pnpm** blocks dependency lifecycle scripts by default - allow this package to
 run its `postinstall` by adding it to `onlyBuiltDependencies`, either in
-`pnpm-workspace.yaml` or in the `"pnpm"` field of your `package.json`. **Yarn PnP** is
+`pnpm-workspace.yaml` or in the `"pnpm"` field of your `package.json`. pnpm also
+caches postinstall output (`sideEffectsCache`, on by default) by package and
+platform, not by your `enriched-markdown` block, so a project that opted out of
+an asset can leave the next project on the same machine without it; run the
+recovery command above if so. **Yarn PnP** is
 not supported: its read-only archives can't receive the vendored assets, so use
 the `node-modules` linker (the norm for React Native anyway). With
 **`--ignore-scripts`**, run the recovery command above after installing.
@@ -276,10 +280,13 @@ Android reconfigures on every build and needs neither step.
 :::
 
 **Which `package.json`?** The download opt-out is read from wherever the install
-runs (in a monorepo, the workspace root with the shared `node_modules`), so it is
-global. The build flag is read from the **app's** `package.json` (the one beside
-`ios/` and `android/`), so each app in a monorepo enables or disables features
-independently.
+runs. In a monorepo that is the workspace root with the shared `node_modules`, so
+the decision is global: a block in the root `package.json` wins, and when the root
+has none the postinstall reads the workspace members (npm/yarn `workspaces` or
+`pnpm-workspace.yaml`) that depend on this package and skips an asset only when
+every one of them opts out. The build flag is read from the **app's**
+`package.json` (the one beside `ios/` and `android/`), so each app in a monorepo
+enables or disables features independently.
 
 You can also narrow or disable a feature purely at build time (the assets stay
 downloaded but are never compiled) - for example trimming the code-highlighting

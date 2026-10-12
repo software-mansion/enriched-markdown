@@ -86,8 +86,8 @@ fallback but are deprecated, print a warning, and are ignored when the matching 
 
 In a monorepo the _build_ flag is read from the app's `package.json` (the one beside `ios/`/`android/`),
 so each app configures independently. The _download_ opt-out is read where the install runs — usually the
-workspace root — so put it in the root `package.json` to skip a download for the whole repo. See
-[Native assets](./NATIVE_ASSETS.md).
+workspace root — falling back to the workspace members that depend on the package when the root has no
+block. See [Native assets](./NATIVE_ASSETS.md).
 
 ### Explicitly enabling a feature whose assets are missing now fails the build
 

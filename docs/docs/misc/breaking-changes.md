@@ -65,7 +65,7 @@ The `enriched-markdown` block in your app's `package.json` is now the single sou
 | `ENV['ENRICHED_MARKDOWN_ENABLE_CODE_HIGHLIGHT']` / `enrichedMarkdown.enableCodeHighlight` | `enableCodeHighlight` |
 | `ENV['ENRICHED_MARKDOWN_CODE_HIGHLIGHT_LANGUAGES']` / `enrichedMarkdown.codeHighlightLanguages` | `codeHighlightLanguages` |
 
-In a monorepo the _build_ flag is read from the app's `package.json` (beside `ios/` / `android/`), so each app configures independently; the _download_ opt-out is read where the install runs (usually the workspace root). See [Native assets](/react-native/guides/native-assets#reducing-binary-size).
+In a monorepo the _build_ flag is read from the app's `package.json` (beside `ios/` / `android/`), so each app configures independently; the _download_ opt-out is read where the install runs (usually the workspace root), falling back to the workspace members that depend on the package when the root has no block. See [Native assets](/react-native/guides/native-assets#reducing-binary-size).
 
 ### Explicitly enabling a feature whose assets are missing now fails the build
 
