@@ -32,7 +32,6 @@ class RendererFactory internal constructor(
   private val config: RendererConfig,
   val context: Context,
   private val plugins: PluginSnapshot,
-  private val onImageSpanCreated: (ImageSpan) -> Unit,
 ) {
   val blockStyleContext = BlockStyleContext()
   val styleCache = SpanStyleCache(config.style, context)
@@ -128,10 +127,6 @@ class RendererFactory internal constructor(
   /** Core's renderer for [type], ignoring plugins; lets a plugin hand back a node it declines. */
   @InternalPluginApi
   fun builtInRenderer(type: MarkdownASTNode.NodeType): NodeRenderer? = builtInRenderers[type]
-
-  fun registerImageSpan(span: ImageSpan) {
-    onImageSpanCreated(span)
-  }
 
   fun getRenderer(node: MarkdownASTNode): NodeRenderer =
     renderers[node.type] ?: run {

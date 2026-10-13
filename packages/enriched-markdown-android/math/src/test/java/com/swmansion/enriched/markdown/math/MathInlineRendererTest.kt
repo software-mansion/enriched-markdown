@@ -10,15 +10,13 @@ import com.swmansion.enriched.markdown.math.test.MathTestSupport.paragraph
 import com.swmansion.enriched.markdown.math.test.MathTestSupport.render
 import com.swmansion.enriched.markdown.math.test.MathTestSupport.spoiler
 import com.swmansion.enriched.markdown.math.test.MathTestSupport.text
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spans.TextSpan
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -30,16 +28,6 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
 class MathInlineRendererTest {
-  // The registry is process-wide and the first render anywhere freezes it.
-  @Before
-  fun setUp() {
-    EnrichedMarkdownPlugins.reset()
-    EnrichedMarkdownPlugins.install(LatexMathPlugin)
-  }
-
-  @After
-  fun tearDown() = EnrichedMarkdownPlugins.reset()
-
   @Test
   fun aRejectedEquationIsCoresStyledSourceTextRatherThanASpan() {
     val styled = render(document(paragraph(text("Area: "), latexMathInline("\\pi r^2"))))
@@ -70,9 +58,7 @@ class MathInlineRendererTest {
 
   @Test
   fun withoutThePluginInlineMathStaysItsOwnSource() {
-    EnrichedMarkdownPlugins.reset()
-
-    val styled = render(document(paragraph(text("Area: "), latexMathInline("\\pi r^2"))))
+    val styled = render(document(paragraph(text("Area: "), latexMathInline("\\pi r^2"))), plugins = PluginSnapshot.EMPTY)
 
     assertEquals(0, styled.getSpans(0, styled.length, MathInlineSpan::class.java).size)
     assertEquals("Area: \$\\pi r^2\$", styled.toString())

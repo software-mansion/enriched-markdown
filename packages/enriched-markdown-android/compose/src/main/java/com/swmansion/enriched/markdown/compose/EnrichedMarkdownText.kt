@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
 import com.swmansion.enriched.markdown.TaskListItemToggle as TaskListItemToggleInternal
 import com.swmansion.enriched.markdown.parser.Md4cFlags as Md4cFlagsInternal
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins as EnrichedMarkdownPluginsInternal
+import com.swmansion.enriched.markdown.plugin.MarkdownPlugin as MarkdownPluginInternal
 import com.swmansion.enriched.markdown.plugin.PluginEvent as PluginEventInternal
 
 typealias Md4cFlags = Md4cFlagsInternal
@@ -28,7 +28,7 @@ typealias TaskListItemToggle = TaskListItemToggleInternal
 
 typealias PluginEvent = PluginEventInternal
 
-typealias EnrichedMarkdownPlugins = EnrichedMarkdownPluginsInternal
+typealias MarkdownPlugin = MarkdownPluginInternal
 
 /**
  * Renders [markdown] using the native markdown TextView inside Compose.
@@ -44,6 +44,8 @@ typealias EnrichedMarkdownPlugins = EnrichedMarkdownPluginsInternal
  * [includeLastBlockMargin] keeps the last block's bottom margin, so the view ends with the same
  * spacing that separates its blocks instead of flush with its last line. Turn it on when stacking
  * several of these one after another.
+ *
+ * [plugins] defaults to those enabled by the enclosing [MarkdownPlugins] scopes.
  *
  * [onPluginEvent] receives events reported by installed plugins (for example an expression a
  * plugin could not render), once per distinct event until [markdown] is replaced rather than
@@ -65,6 +67,7 @@ fun EnrichedMarkdownText(
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
   includeLastBlockMargin: Boolean = false,
+  plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
   onPluginEvent: (PluginEvent) -> Unit = {},
 ) {
   val context = LocalContext.current
@@ -101,6 +104,7 @@ fun EnrichedMarkdownText(
         setEnableTaskListItemToggle(taskListToggleEnabled)
         setSpoilerOverlay(spoilerOverlay)
         setAllowTrailingMargin(includeLastBlockMargin)
+        setPlugins(plugins)
         setMarkdownStyle(styleConfig)
         setMd4cFlags(flags)
         setIsSelectable(selectable)
@@ -116,6 +120,7 @@ fun EnrichedMarkdownText(
       view.setEnableTaskListItemToggle(taskListToggleEnabled)
       view.setSpoilerOverlay(spoilerOverlay)
       view.setAllowTrailingMargin(includeLastBlockMargin)
+      view.setPlugins(plugins)
       view.setMarkdownStyle(styleConfig)
       view.setMd4cFlags(flags)
       view.setIsSelectable(selectable)
