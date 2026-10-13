@@ -151,7 +151,22 @@ final class TrailingSpacingTests: XCTestCase {
     // MARK: - Layout
 
     func testEnvironmentDefault() {
-        XCTAssertFalse(EnvironmentValues().markdownBottomMarginEnabled)
+        XCTAssertEqual(EnvironmentValues().markdownBottomMarginVisibility, .automatic)
+    }
+
+    func testOnlyVisibleTurnsTheMarginOn() throws {
+        let cases: [(Visibility, Bool)] = [(.automatic, false), (.hidden, false), (.visible, true)]
+        for (visibility, isEnabled) in cases {
+            let host = UIHostingController(rootView: EnrichedMarkdownText("Para").markdownBottomMargin(visibility))
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 600))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            host.view.layoutIfNeeded()
+
+            let textView = try XCTUnwrap(host.view.firstSubview(of: MarkdownTextView.self))
+            XCTAssertEqual(textView.isBottomMarginEnabled, isEnabled, "\(visibility)")
+            window.isHidden = true
+        }
     }
 
     func testTheMarginIsAddedToTheHeightOnlyWhenEnabled() {

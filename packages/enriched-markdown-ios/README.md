@@ -492,19 +492,21 @@ Code blocks always render left-to-right. See [Right-to-left text](#right-to-left
 
 Outside SwiftUI, `MarkdownRenderer.render`, `renderLaTeX`, and `renderSyntaxHighlighted` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
 
-### `.markdownBottomMarginEnabled`
+### `.markdownBottomMargin`
 
 ```swift
 extension View {
-  func markdownBottomMarginEnabled(_ enabled: Bool) -> some View   // default false
+  func markdownBottomMargin(_ visibility: Visibility) -> some View   // default .automatic
 }
 ```
 
-The last block's bottom margin is dropped by default, so the view ends at its last line and the container's own spacing decides what follows. `markdownBottomMarginEnabled(true)` keeps it, using the margin the theme gives that block (`Paragraph().marginBottom(_:)` for a trailing paragraph, and so on); where blocks nest, the largest margin ending the document wins. A code block ending the document keeps its bottom padding either way.
+The last block's bottom margin is dropped by default, so the view ends at its last line and the container's own spacing decides what follows. `markdownBottomMargin(.visible)` keeps it, using the margin the theme gives that block (`Paragraph().marginBottom(_:)` for a trailing paragraph, and so on); where blocks nest, the largest margin ending the document wins. It takes SwiftUI's `Visibility`, and `.automatic` and `.hidden` both drop the margin. A code block ending the document keeps its bottom padding either way.
 
 ### Migrating from 0.1
 
 Every 0.1 name still compiles as a deprecated alias that forwards to its replacement, with an Xcode fix-it where the shape is unchanged. They will be removed in the next major version.
+
+One default changed as well: 0.1 always laid out the last block's bottom margin below the text. It is now dropped, so the view ends at its last line, and [`.markdownBottomMargin(.visible)`](#markdownbottommargin) brings it back.
 
 | 0.1 | Now |
 |-----|-----|

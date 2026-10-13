@@ -1,19 +1,18 @@
 import SwiftUI
 
-private struct MarkdownBottomMarginEnabledKey: EnvironmentKey {
-    static let defaultValue: Bool = false
+private struct MarkdownBottomMarginVisibilityKey: EnvironmentKey {
+    static let defaultValue: Visibility = .automatic
 }
 
 public extension EnvironmentValues {
-    var markdownBottomMarginEnabled: Bool {
-        get { self[MarkdownBottomMarginEnabledKey.self] }
-        set { self[MarkdownBottomMarginEnabledKey.self] = newValue }
+    var markdownBottomMarginVisibility: Visibility {
+        get { self[MarkdownBottomMarginVisibilityKey.self] }
+        set { self[MarkdownBottomMarginVisibilityKey.self] = newValue }
     }
 }
 
 public extension View {
-    /// Keeps the last block's bottom margin below the text; off by default.
-    func markdownBottomMarginEnabled(_ enabled: Bool) -> some View {
-        environment(\.markdownBottomMarginEnabled, enabled)
+    func markdownBottomMargin(_ visibility: Visibility) -> some View {
+        environment(\.markdownBottomMarginVisibility, visibility)
     }
 }

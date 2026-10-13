@@ -51,9 +51,6 @@ final class ParagraphLayoutWalkerTests: XCTestCase {
         try XCTUnwrap(layOutTextView(direction: direction).textLayoutManager)
     }
 
-    /// The walker must report exactly the line frames and baselines that
-    /// the segment enumeration reports per paragraph; the drawers were
-    /// written against the latter.
     func testLinesMatchTextSegments() throws {
         for direction in [MarkdownWritingDirection.firstStrong, .rightToLeft] {
             let textView = layOutTextView(direction: direction)

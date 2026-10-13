@@ -396,21 +396,23 @@ Headers take part in the cache key, so the same URL fetched with different heade
 
 ## Layout
 
-### `.markdownBottomMarginEnabled` {#markdownbottommarginenabled}
+### `.markdownBottomMargin` {#markdownbottommargin}
 
-Whether the last block's bottom margin is laid out below the text. Off by default: the view ends at its last line, so the gap between it and whatever follows is the container's to decide - a `VStack` spacing, a `padding`, a list row inset - rather than the theme's. Turn it on for a view that should hold its own gap, such as one ending a scrolling column.
+Whether the last block's bottom margin is laid out below the text. Hidden by default: the view ends at its last line, so the gap between it and whatever follows is the container's to decide - a `VStack` spacing, a `padding`, a list row inset - rather than the theme's. Show it for a view that should hold its own gap, such as one ending a scrolling column.
 
-<PropInfo type="Bool" default="false" />
+<PropInfo type="Visibility" default=".automatic" />
 
 ```swift
 VStack(spacing: 0) {
   EnrichedMarkdownText(intro)
-    .markdownBottomMarginEnabled(true)   // keeps the paragraph margin below the last line
+    .markdownBottomMargin(.visible)   // keeps the paragraph margin below the last line
   Divider()
 }
 ```
 
-The margin kept is the one the theme gives the block that ends the document - [`Paragraph().marginBottom(_:)`](/ios/api-reference/style-properties#paragraph) for a paragraph, `Heading(1).marginBottom(_:)` for a heading, and so on - so it matches the gap between blocks inside the document. Where blocks nest, the largest margin ending the document wins: a code block that closes a list item keeps the list's margin if that is the larger. A code block ending the document keeps its bottom padding either way; only the margin below it is in question.
+It takes SwiftUI's own `Visibility`, as `.listRowSeparator(_:)` and `.scrollContentBackground(_:)` do. `.automatic` and `.hidden` both end the view at its last line.
+
+The margin shown is the one the theme gives the block that ends the document - [`Paragraph().marginBottom(_:)`](/ios/api-reference/style-properties#paragraph) for a paragraph, `Heading(1).marginBottom(_:)` for a heading, and so on. For a top-level block that is the same gap the theme puts between blocks inside the document. Where blocks nest, the largest margin ending the document wins: a code block that closes a list item keeps the list's margin if that is the larger. A code block ending the document keeps its bottom padding either way; only the margin below it is in question.
 
 ## Accessibility
 
