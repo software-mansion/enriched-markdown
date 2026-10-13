@@ -33,7 +33,6 @@ public struct CodeBlock: MarkdownThemeElement, BackgroundThemeElement, BorderThe
         return copy
     }
 
-    /// The scrollable panel's language label and copy button.
     @_disfavoredOverload
     public func headerForegroundStyle(_ color: Color) -> Self {
         var copy = self

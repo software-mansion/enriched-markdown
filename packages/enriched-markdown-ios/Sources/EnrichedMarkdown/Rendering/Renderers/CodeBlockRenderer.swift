@@ -27,7 +27,6 @@ final class CodeBlockRenderer: NodeRenderer {
         }
     }
 
-    /// The code lives in its own string, so the plugins color that one.
     private func renderScrollable(node: MarkdownASTNode, into output: NSMutableAttributedString) {
         let style = CodeBlockAttachmentStyle(config: config)
         var code = node.flattenedText()

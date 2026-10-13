@@ -1,8 +1,6 @@
 import UIKit
 import UniformTypeIdentifiers
 
-/// Resolved from `MarkdownStyleConfiguration.codeBlock`, with the wrapping
-/// block's fallbacks.
 struct CodeBlockAttachmentStyle: Equatable {
     var font: UIFont = .monospacedSystemFont(ofSize: 14, weight: .regular)
     var textColor: UIColor = .label
@@ -52,12 +50,8 @@ struct CodeBlockAttachmentStyle: Equatable {
     }
 }
 
-/// Geometry shared by the attachment bounds and the view's layout. The
-/// code pane starts after the content inset and one header line; the
-/// divider sits halfway into the pane's top inset, so it adds no height.
 struct CodeBlockAttachmentLayout: Equatable {
     let codeSize: CGSize
-    /// Padding plus border: where the header label and the code start.
     let contentInset: CGFloat
     let headerHeight: CGFloat
 
@@ -65,8 +59,7 @@ struct CodeBlockAttachmentLayout: Equatable {
     var headerCenterY: CGFloat { (headerHeight + contentInset / 2) / 2 }
     var totalHeight: CGFloat { headerHeight + contentInset * 2 + codeSize.height }
 
-    /// Measured, not line count times line height: the baseline offset a
-    /// themed line height carries shortens each fragment under TextKit 2.
+    /// Measured: a themed line height's baseline offset shortens TextKit 2 fragments.
     static func compute(attributedCode: NSAttributedString, style: CodeBlockAttachmentStyle) -> CodeBlockAttachmentLayout {
         let bounding = attributedCode.boundingRect(
             with: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude),
@@ -83,8 +76,6 @@ struct CodeBlockAttachmentLayout: Equatable {
     }
 }
 
-/// A fenced code block embedded as a full-width block attachment whose view
-/// provider hosts the scrolling panel.
 final class CodeBlockAttachment: NSTextAttachment, MarkdownPluginAttachment, HorizontallyScrollingAttachment {
     /// Must be a resolvable UTI — NSTextAttachment silently drops any other
     /// string, which breaks the provider-class lookup.
@@ -101,9 +92,7 @@ final class CodeBlockAttachment: NSTextAttachment, MarkdownPluginAttachment, Hor
         )
     }()
 
-    /// The code without the fence's trailing newlines.
     let code: String
-    /// The info string as written, nil when the fence named none.
     let language: String?
     let fenceCharacter: String
     let attributedCode: NSAttributedString
@@ -112,9 +101,7 @@ final class CodeBlockAttachment: NSTextAttachment, MarkdownPluginAttachment, Hor
 
     var preservedContentOffset: CGPoint = .zero
 
-    /// TextKit 2 asks for a new provider on every layout pass, including the
-    /// ones UIKit runs while lifting the panel into a context menu; handing
-    /// back the same view keeps the lift's source alive.
+    /// Kept across provider recreations; a fresh view blanks the context-menu lift.
     var hostedView: CodeBlockAttachmentView?
 
     init(
@@ -148,8 +135,6 @@ final class CodeBlockAttachment: NSTextAttachment, MarkdownPluginAttachment, Hor
 
     var literalText: String { code }
 
-    /// The code refenced; the fence grows past any run of its character
-    /// inside the code.
     func markdownText() -> String {
         var fenceLength = 3
         var run = 0

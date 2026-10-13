@@ -86,9 +86,7 @@ final class CodeBlockAttachmentTests: XCTestCase {
         XCTAssertEqual(paragraph?.baseWritingDirection, .leftToRight)
 
         let layout = attachment.layout
-        // A fixed line height carries a baseline offset that shortens each fragment under TextKit 2,
-        // so the height is measured, not two times 22.
-        XCTAssertLessThanOrEqual(layout.codeSize.height, 44)
+        XCTAssertLessThanOrEqual(layout.codeSize.height, 44, "measured, not 2 x 22: a baseline offset shortens TextKit 2 fragments")
         XCTAssertGreaterThanOrEqual(layout.codeSize.height, 2 * attachment.style.font.lineHeight)
         XCTAssertEqual(layout.contentInset, 10 + attachment.style.borderWidth)
         XCTAssertEqual(layout.totalHeight, layout.headerHeight + layout.contentInset * 2 + layout.codeSize.height)
@@ -115,8 +113,6 @@ final class CodeBlockAttachmentTests: XCTestCase {
         XCTAssertGreaterThan(attachment.layout.codeSize.width, 1000)
     }
 
-    /// Without a themed line height a line takes its natural height, so a
-    /// fallback-font glyph taller than the code font is not clipped.
     func testNaturalLineHeightsFollowTheTallestGlyph() throws {
         let plain = try XCTUnwrap(attachments(in: render("```\nabc\nabc\n```")).first)
         let emoji = try XCTUnwrap(attachments(in: render("```\nabc\n\u{1F600}\u{1F600}\n```")).first)
@@ -163,11 +159,18 @@ final class CodeBlockAttachmentTests: XCTestCase {
         XCTAssertNil(bare?.displayLanguage)
     }
 
+    func testDisplayNamesComeFromTheSharedTable() {
+        XCTAssertEqual(CodeBlockLanguageNames.displayName(for: "cs"), "C#")
+        XCTAssertEqual(CodeBlockLanguageNames.displayName(for: "objectivec"), "Objective-C")
+        XCTAssertEqual(CodeBlockLanguageNames.displayName(for: "YML"), "YAML")
+        XCTAssertEqual(CodeBlockLanguageNames.displayName(for: "zig"), "Zig")
+        XCTAssertEqual(CodeBlockLanguageNames.displayName(for: ""), "")
+    }
+
     func testBlockInsideAListItemStaysAnAttachment() {
         let rendered = render("- item\n\n  ```js\n  let a = 1;\n  ```\n- next")
         XCTAssertEqual(attachments(in: rendered).first?.code, "let a = 1;")
         XCTAssertTrue(rendered.string.contains("next"))
-        // Like a wrapping block, the panel is not the item's text: no marker, no indent.
         let location = (rendered.string as NSString).range(of: "\u{FFFC}").location
         let attrs = rendered.attributes(at: location, effectiveRange: nil)
         XCTAssertNil(attrs[MarkdownAttribute.listItemNumber])
@@ -268,12 +271,13 @@ final class CodeBlockAttachmentTests: XCTestCase {
         return textView
     }
 
-    /// Breaks silently with an undeclared UTI, nil contents, or an
-    /// attachment-side viewProvider override.
     func testProviderViewIsInstalledAndSizedToTheLayout() throws {
         let rendered = render("before\n\n\(python)\n\nafter")
         let textView = laidOutTextView(showing: rendered)
-        let view = try XCTUnwrap(textView.firstSubview(of: CodeBlockAttachmentView.self))
+        let view = try XCTUnwrap(
+            textView.firstSubview(of: CodeBlockAttachmentView.self),
+            "an undeclared UTI, nil contents or a viewProvider override breaks the install silently"
+        )
         let attachment = try XCTUnwrap(attachments(in: rendered).first)
 
         XCTAssertEqual(view.bounds.width, 380)
@@ -322,8 +326,6 @@ final class CodeBlockAttachmentTests: XCTestCase {
         XCTAssertGreaterThan(scrollView.contentSize.width, scrollView.bounds.width)
     }
 
-    /// A long block draws a tile around the visible region that follows the
-    /// enclosing scroll view, not a bitmap its own height.
     func testLongBlockDrawsATileThatFollowsTheScrollView() throws {
         let code = (1...400).map { "line \($0)" }.joined(separator: "\n")
         let rendered = render("```\n\(code)\n```")
@@ -370,6 +372,24 @@ final class CodeBlockAttachmentTests: XCTestCase {
         XCTAssertEqual(attachments(in: rerendered).first?.preservedContentOffset.x, 120)
     }
 
+    func testScrollOffsetsCarryBetweenBlocksOfTheSameKind() throws {
+        let longLine = String(repeating: "x", count: 400)
+        let first = render("```\n\(longLine)\n```")
+        let scrolled = try XCTUnwrap(attachments(in: first).first)
+        scrolled.preservedContentOffset = CGPoint(x: 120, y: 0)
+        let textView = MarkdownTextView()
+        textView.setMarkdownAttributedText(first)
+
+        let second = render("| A | B |\n|---|---|\n| 1 | 2 |\n\n```\n\(longLine)\n```")
+        textView.setMarkdownAttributedText(second)
+        XCTAssertEqual(attachments(in: second).first?.preservedContentOffset.x, 120)
+        var table: TableAttachment?
+        second.enumerateAttribute(.attachment, in: NSRange(location: 0, length: second.length)) { value, _, _ in
+            if let found = value as? TableAttachment { table = found }
+        }
+        XCTAssertEqual(try XCTUnwrap(table).preservedContentOffset, .zero)
+    }
+
     func testOutwardPanYieldsOnlyWhenSettledAtTheLeadingEdge() {
         let yield = HorizontalBlockScrollView.shouldYieldOutwardPan
         XCTAssertTrue(yield(0, 0, false, CGPoint(x: 10, y: 2)))
@@ -394,5 +414,18 @@ final class CodeBlockAttachmentTests: XCTestCase {
 
         XCTAssertEqual(pasteboard.string, code)
         XCTAssertEqual(copies, [CodeBlockCopy(code: code, language: "python")])
+    }
+
+    func testCopyButtonAcceptsTapsAroundItsIcon() throws {
+        let textView = laidOutTextView(showing: render(python))
+        let view = try XCTUnwrap(textView.firstSubview(of: CodeBlockAttachmentView.self))
+        let button = try XCTUnwrap(view.firstSubview(of: UIButton.self))
+        XCTAssertLessThan(button.bounds.width, CodeBlockCopyButton.minimumTapTarget)
+        let beside = CGPoint(x: button.frame.minX - 4, y: button.frame.midY)
+        let below = CGPoint(x: button.frame.midX, y: button.frame.maxY + 4)
+        let far = CGPoint(x: button.frame.minX - 40, y: button.frame.midY)
+        XCTAssertTrue(view.hitTest(beside, with: nil) === button)
+        XCTAssertTrue(view.hitTest(below, with: nil) === button)
+        XCTAssertFalse(view.hitTest(far, with: nil) === button)
     }
 }

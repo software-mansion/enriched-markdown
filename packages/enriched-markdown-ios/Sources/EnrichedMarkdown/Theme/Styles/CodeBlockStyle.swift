@@ -13,8 +13,7 @@ public struct CodeBlockStyle: Equatable, Sendable {
     public var borderWidth: CGFloat?
     /// Code blocks always lay out left-to-right; nil aligns to the left.
     public var textAlignment: NSTextAlignment?
-    /// The scrollable panel's language label and copy button; nil tints
-    /// them from `foregroundColor`.
+    /// The scrollable panel's label and copy button; nil derives them from `foregroundColor`.
     public var headerForegroundColor: UIColor?
 
     public init(

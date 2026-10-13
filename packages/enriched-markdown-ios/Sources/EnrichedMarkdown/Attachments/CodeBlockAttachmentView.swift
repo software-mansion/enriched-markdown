@@ -1,7 +1,5 @@
 import UIKit
 
-/// TextKit 2 creates and destroys providers with viewport layout, so all
-/// state lives on the attachment.
 final class CodeBlockAttachmentViewProvider: NSTextAttachmentViewProvider {
     override init(
         textAttachment: NSTextAttachment,
@@ -40,8 +38,6 @@ final class CodeBlockAttachmentViewProvider: NSTextAttachmentViewProvider {
     }
 }
 
-/// A header bar (language name, copy button) above a horizontally scrolling,
-/// non-wrapping code pane.
 final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate {
     private weak var attachment: CodeBlockAttachment?
     private let style: CodeBlockAttachmentStyle
@@ -50,7 +46,7 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
     private let language: String?
     private let markdown: String
     private let languageLabel = UILabel()
-    private let copyButton = UIButton(type: .system)
+    private let copyButton = CodeBlockCopyButton(type: .system)
     private let divider = UIView()
     private let scrollView = HorizontalBlockScrollView()
     private let codeView: CodeBlockContentView
@@ -60,8 +56,6 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
     private weak var enclosingScrollView: UIScrollView?
     private var scrollObservation: NSKeyValueObservation?
 
-    /// Points drawn beyond the visible region on each side; a long block
-    /// backs a tile around what is on screen, not a bitmap its own height.
     static let tileMargin: CGFloat = 400
 
     init(attachment: CodeBlockAttachment) {
@@ -91,7 +85,6 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         copyButton.setImage(UIImage(systemName: "doc.on.doc", withConfiguration: symbolConfiguration), for: .normal)
         copyButton.tintColor = style.headerTextColor
         copyButton.addTarget(self, action: #selector(copyCode), for: .touchUpInside)
-        addSubview(copyButton)
 
         divider.backgroundColor = style.dividerColor
         addSubview(divider)
@@ -103,10 +96,10 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         scrollView.delegate = self
         scrollView.addSubview(codeView)
         addSubview(scrollView)
+        addSubview(copyButton)
 
         addInteraction(UIContextMenuInteraction(delegate: self))
-        // The hosting text view exposes the block as one element with the
-        // copy action, as it does a wrapping block.
+        // VoiceOver reads the block through the text view's own element.
         accessibilityElementsHidden = true
     }
 
@@ -286,10 +279,7 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         animator.addAnimations { [weak self] in self?.alpha = 1 }
     }
 
-    /// UIKit's own lift of this view comes up blank: the text view's canvas
-    /// re-lays out its fragment views on every commit while the menu opens,
-    /// and the lift loses its source each time. A leaf that draws the
-    /// panel's visible part lifts intact, with the panel hidden underneath.
+    /// UIKit's own lift comes up blank while the text canvas re-lays out, so a leaf draws the visible part.
     private func liftPreview() -> UITargetedPreview? {
         guard let window else { return nil }
         let visible = convert(window.bounds, from: window).intersection(bounds)
@@ -303,6 +293,16 @@ final class CodeBlockAttachmentView: UIView, UIScrollViewDelegate, UIContextMenu
         }
         let target = UIPreviewTarget(container: self, center: CGPoint(x: visible.midX, y: visible.midY))
         return UITargetedPreview(view: leaf, parameters: parameters, target: target)
+    }
+}
+
+final class CodeBlockCopyButton: UIButton {
+    static let minimumTapTarget: CGFloat = 44
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let horizontalInset = min((bounds.width - Self.minimumTapTarget) / 2, 0)
+        let verticalInset = min((bounds.height - Self.minimumTapTarget) / 2, 0)
+        return bounds.insetBy(dx: horizontalInset, dy: verticalInset).contains(point)
     }
 }
 
@@ -330,8 +330,7 @@ final class CodeBlockLiftView: UIView {
     }
 }
 
-/// Draws the fragments inside the dirty rect with its own TextKit 2 stack;
-/// a text view's lazily committed layers snapshot blank on the first lift.
+/// Its own TextKit 2 stack: the text view's lazily committed layers snapshot blank on the first lift.
 final class CodeBlockContentView: UIView {
     private let contentStorage = NSTextContentStorage()
     private let layoutManager = NSTextLayoutManager()

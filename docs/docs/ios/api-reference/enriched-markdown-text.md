@@ -336,6 +336,49 @@ Behavior worth knowing:
 - A link inside a concealed spoiler is not a link: no tap, no long press, no menu, and no VoiceOver link element until the spoiler is revealed.
 - Copying reproduces the `||` markers whether or not the spoiler was revealed, and VoiceOver reads spoiler text as ordinary text.
 
+## Code blocks
+
+### `.markdownCodeBlockLayout` {#markdowncodeblocklayout}
+
+Lays fenced code blocks out as wrapping text, or as panels with a language header and a copy button whose lines keep their length and scroll sideways.
+
+<PropInfo type="MarkdownCodeBlockLayout" default=".wrapping" />
+
+```swift
+public enum MarkdownCodeBlockLayout: Equatable, Sendable {
+  case wrapping    // lines break at the view's width; the code is selectable text
+  case scrollable  // a panel: language name and copy button above lines kept whole
+}
+
+EnrichedMarkdownText(content)
+  .markdownCodeBlockLayout(.scrollable)
+```
+
+A `.scrollable` panel names the language from the fence (`py` reads "Python"; an unknown info string is shown capitalized), and a block wider than the view scrolls sideways in place. Long-pressing a panel offers **Copy** and **Copy as Markdown**. Text selection treats the panel as one character: a selection spanning it copies the code as plain text and a `<pre>` in the HTML flavor, and Copy as Markdown restores the fence. VoiceOver reads the panel as one element with the "Copy code" action, as it does a wrapping block.
+
+A rightward pan on a panel already at its left edge is left to the system, so a full-width back gesture still works; tables and display math behave the same way.
+
+Both layouts take their font, colors, padding, corner radius, border and margins from the [`CodeBlock()`](/ios/api-reference/style-properties#codeblock) theme element; its `.headerForegroundStyle(_:)` tints the panel's label and copy button.
+
+### `.onCodeBlockCopy` {#oncodeblockcopy}
+
+Called after a code block's code is copied: by a panel's copy button, its long-press **Copy**, or the VoiceOver "Copy code" action in either layout. Not called for Copy as Markdown.
+
+<PropInfo type="(CodeBlockCopy) -> Void" default="none" />
+
+```swift
+public struct CodeBlockCopy: Equatable, Sendable {
+  public let code: String
+  public let language: String?  // the fence's info string, nil when it named none
+}
+
+EnrichedMarkdownText(content)
+  .markdownCodeBlockLayout(.scrollable)
+  .onCodeBlockCopy { copy in
+    analytics.track("code_copied", language: copy.language)
+  }
+```
+
 ## Images
 
 ### `.markdownImageRequestHeaders` {#markdownimagerequestheaders}

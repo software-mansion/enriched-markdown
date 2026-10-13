@@ -52,8 +52,6 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     /// restoring the text (see `MarkdownRenderStore.revealSpoiler`).
     var onSpoilerTap: ((NSRange) -> Void)?
 
-    /// Fired after a code block's code is copied: by a scrollable block's
-    /// button or long-press Copy, or the VoiceOver copy action.
     var onCodeBlockCopy: ((CodeBlockCopy) -> Void)?
 
     func copyCode(_ code: String, language: String?) {
@@ -309,23 +307,26 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         setNeedsLayout()
     }
 
-    /// A re-render replaces every attachment, so a scrolled block would snap
-    /// back on each streamed chunk; blocks match their predecessor by ordinal.
+    /// Without this a scrolled block snaps back on every streamed chunk.
     private func carryScrollOffsets(from previous: NSAttributedString?, to next: NSAttributedString) {
         guard let previous else { return }
-        let offsets = Self.scrollingAttachments(in: previous).map(\.preservedContentOffset)
-        guard offsets.contains(where: { $0 != .zero }) else { return }
-        for (attachment, offset) in zip(Self.scrollingAttachments(in: next), offsets) {
-            attachment.preservedContentOffset = offset
+        let predecessors = Self.scrollingAttachmentsByKind(in: previous)
+        guard predecessors.values.joined().contains(where: { $0.preservedContentOffset != .zero }) else { return }
+        for (kind, attachments) in Self.scrollingAttachmentsByKind(in: next) {
+            for (attachment, predecessor) in zip(attachments, predecessors[kind] ?? []) {
+                attachment.preservedContentOffset = predecessor.preservedContentOffset
+            }
         }
     }
 
-    private static func scrollingAttachments(in text: NSAttributedString) -> [any HorizontallyScrollingAttachment] {
-        var found: [any HorizontallyScrollingAttachment] = []
+    private static func scrollingAttachmentsByKind(
+        in text: NSAttributedString
+    ) -> [ObjectIdentifier: [any HorizontallyScrollingAttachment]] {
+        var found: [ObjectIdentifier: [any HorizontallyScrollingAttachment]] = [:]
         let options: NSAttributedString.EnumerationOptions = .longestEffectiveRangeNotRequired
         text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length), options: options) { value, _, _ in
             if let attachment = value as? any HorizontallyScrollingAttachment {
-                found.append(attachment)
+                found[ObjectIdentifier(type(of: attachment)), default: []].append(attachment)
             }
         }
         return found
