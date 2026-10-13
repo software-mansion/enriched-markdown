@@ -128,7 +128,7 @@ class TableContainerViewTest {
   @Test
   @Config(sdk = [27])
   fun tableRendersBelowApi28() {
-    val view = newTableView().apply { applyTableNode(threeByThreeTable) }
+    val view = newTableView().apply { applyTableNode(threeByThreeTable, plugins = PluginSnapshot.EMPTY) }
     layOut(view, CONTAINER_WIDTH)
 
     assertEquals(3, overlaysOf(view).size)
