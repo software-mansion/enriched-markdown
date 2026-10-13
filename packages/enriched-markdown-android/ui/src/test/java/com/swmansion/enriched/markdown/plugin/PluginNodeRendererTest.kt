@@ -15,11 +15,9 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.latexMathDisplay
 import com.swmansion.enriched.markdown.test.TestAstFactory.latexMathInline
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -27,18 +25,9 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
 class PluginNodeRendererTest {
-  // The registry is process-wide and the first render anywhere freezes it.
-  @Before
-  fun setUp() = EnrichedMarkdownPlugins.reset()
-
-  @After
-  fun tearDown() = EnrichedMarkdownPlugins.reset()
-
   @Test
   fun pluginNodeRendererOverridesTheBuiltIn() {
-    EnrichedMarkdownPlugins.install(FakePlugin())
-
-    val rendered = render(document(paragraph(latexMathInline("x^2")))).toString()
+    val rendered = render(document(paragraph(latexMathInline("x^2"))), plugins = PluginSnapshot.of(FakePlugin())).toString()
 
     assertTrue(rendered, rendered.contains("[fake:x^2:"))
     assertFalse(rendered, rendered.contains("\$x^2\$"))
@@ -84,63 +73,54 @@ class PluginNodeRendererTest {
   }
 
   @Test
-  fun reinstallingAnIdReplacesItsRegistrationsRatherThanAddingToThem() {
-    EnrichedMarkdownPlugins.install(FakePlugin(marker = "first"))
-    EnrichedMarkdownPlugins.install(FakePlugin(marker = "second"))
+  fun theLastPluginToClaimANodeTypeWins() {
+    val plugins = PluginSnapshot.of(FakePlugin(id = "a", marker = "a"), FakePlugin(id = "b", marker = "b"))
 
-    val rendered = render(document(paragraph(latexMathInline("x")))).toString()
-
-    assertTrue(rendered, rendered.contains("[second:x:"))
-    assertFalse(rendered, rendered.contains("first"))
+    assertTrue(render(document(paragraph(latexMathInline("x"))), plugins = plugins).toString().contains("[b:x:"))
   }
 
   @Test
-  fun theLastPluginToClaimANodeTypeWins() {
-    EnrichedMarkdownPlugins.install(FakePlugin(id = "a", marker = "a"))
-    EnrichedMarkdownPlugins.install(FakePlugin(id = "b", marker = "b"))
+  fun aLaterPluginWithTheSameIdDropsEverythingTheEarlierOneRegistered() {
+    val plugins =
+      PluginSnapshot.of(
+        FakePlugin(id = "claiming", marker = "a"),
+        ClaimingPlugin(MarkdownASTNode.NodeType.Spoiler) { _, builder, _ -> builder.append("[mine]") },
+      )
 
-    assertTrue(render(document(paragraph(latexMathInline("x")))).toString().contains("[b:x:"))
+    assertEquals("\$x\$", render(document(paragraph(latexMathInline("x"))), plugins = plugins).toString())
+  }
+
+  @Test
+  fun aPluginWithARepeatedIdTakesThePositionOfItsLastOccurrence() {
+    val plugins =
+      PluginSnapshot.of(
+        FakePlugin(id = "a", marker = "a"),
+        FakePlugin(id = "b", marker = "b"),
+        FakePlugin(id = "a", marker = "a2"),
+      )
+
+    assertTrue(render(document(paragraph(latexMathInline("x"))), plugins = plugins).toString().contains("[a2:x:"))
   }
 
   @Test
   fun aPluginCanClaimEveryCoreNodeTypeIncludingSpoilers() {
-    EnrichedMarkdownPlugins.install(ClaimingPlugin(MarkdownASTNode.NodeType.Spoiler) { _, builder, _ -> builder.append("[mine]") })
+    val plugins = PluginSnapshot.of(ClaimingPlugin(MarkdownASTNode.NodeType.Spoiler) { _, builder, _ -> builder.append("[mine]") })
 
     val spoiler = MarkdownASTNode(MarkdownASTNode.NodeType.Spoiler, children = listOf(text("hidden")))
 
-    assertEquals("[mine]", render(document(paragraph(spoiler))).toString())
+    assertEquals("[mine]", render(document(paragraph(spoiler)), plugins = plugins).toString())
   }
 
   @Test
   fun aPluginRendererCanHandANodeBackToCore() {
-    EnrichedMarkdownPlugins.install(
-      ClaimingPlugin(MarkdownASTNode.NodeType.LatexMathInline) { node, builder, factory ->
-        factory.builtInRenderer(node.type)!!.render(node, builder, null, null, factory)
-      },
-    )
+    val plugins =
+      PluginSnapshot.of(
+        ClaimingPlugin(MarkdownASTNode.NodeType.LatexMathInline) { node, builder, factory ->
+          factory.builtInRenderer(node.type)!!.render(node, builder, null, null, factory)
+        },
+      )
 
-    assertEquals("\$x\$", render(document(paragraph(latexMathInline("x")))).toString())
-  }
-
-  @Test
-  fun anInstallAfterTheFirstRenderIsIgnored() {
-    assertEquals("\$x\$", render(document(paragraph(latexMathInline("x")))).toString())
-
-    EnrichedMarkdownPlugins.install(FakePlugin())
-
-    assertFalse(EnrichedMarkdownPlugins.isInstalled(FakePlugin.ID))
-    assertEquals("\$x\$", render(document(paragraph(latexMathInline("x")))).toString())
-  }
-
-  @Test
-  fun resetLiftsTheFreeze() {
-    render(document(paragraph(latexMathInline("x"))))
-    EnrichedMarkdownPlugins.reset()
-
-    EnrichedMarkdownPlugins.install(FakePlugin())
-
-    assertTrue(EnrichedMarkdownPlugins.isInstalled(FakePlugin.ID))
-    assertTrue(render(document(paragraph(latexMathInline("x")))).toString().contains("[fake:x:"))
+    assertEquals("\$x\$", render(document(paragraph(latexMathInline("x"))), plugins = plugins).toString())
   }
 
   private class ClaimingPlugin(

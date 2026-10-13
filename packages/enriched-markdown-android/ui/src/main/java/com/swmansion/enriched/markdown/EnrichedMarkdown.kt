@@ -12,8 +12,8 @@ import androidx.annotation.VisibleForTesting
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.MarkdownPlugin
 import com.swmansion.enriched.markdown.plugin.PluginEvent
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
@@ -67,6 +67,9 @@ class EnrichedMarkdown(
   /** How unrevealed `||spoiler||` text is concealed. */
   var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles()
     private set
+
+  private var plugins: List<MarkdownPlugin> = emptyList()
+  private var pluginSnapshot: PluginSnapshot = PluginSnapshot.EMPTY
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
   private var selectionColor: Int? = null
@@ -133,6 +136,20 @@ class EnrichedMarkdown(
   fun setImageRequestHeaders(headers: Map<String, String>) {
     if (imageRequestHeaders == headers) return
     imageRequestHeaders = headers
+    needsSegmentReset = true
+    scheduleRenderIfNeeded()
+  }
+
+  /**
+   * The plugins this view renders with; none by default. Lists compare by value, so passing an
+   * equal list is a no-op.
+   */
+  fun setPlugins(plugins: List<MarkdownPlugin>) {
+    if (this.plugins == plugins) return
+    this.plugins = plugins
+    pluginSnapshot = PluginSnapshot.of(*plugins.toTypedArray())
+    // As with a style change, the AST - and so every signature - is unchanged, so the reconciler
+    // would otherwise keep views built by the previous plugins.
     needsSegmentReset = true
     scheduleRenderIfNeeded()
   }
@@ -299,6 +316,7 @@ class EnrichedMarkdown(
     setSpoilerOverlay(SpoilerOverlay.Particles())
     setAllowTrailingMargin(false)
     setMarkdownContent("")
+    setPlugins(emptyList())
     taskListToggles.clear()
     forgetReportedPluginEvents()
     pendingSegments = null
@@ -323,7 +341,7 @@ class EnrichedMarkdown(
   private fun scheduleRender() {
     val style = markdownStyle
     val markdown = currentMarkdown
-    val plugins = EnrichedMarkdownPlugins.snapshot
+    val plugins = pluginSnapshot
     val onPluginEvent = renderPluginEventSink()
 
     warnIfMathPluginMissing(plugins)
@@ -503,8 +521,9 @@ class EnrichedMarkdown(
     Log.w(
       TAG,
       "Md4cFlags(latexMath = true) but no plugin renders math, so equations show as their raw " +
-        "source. Add the com.swmansion.enriched.markdown:math artifact and call " +
-        "EnrichedMarkdownPlugins.install(LatexMathPlugin) at startup.",
+        "source. Add the com.swmansion.enriched.markdown:math artifact, then in Compose wrap the " +
+        "content in a LatexMathPlugin { ... } scope, or on a View call " +
+        "setPlugins(listOf(LatexMathPlugin)).",
     )
   }
 

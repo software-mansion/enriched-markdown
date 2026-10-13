@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
 import com.swmansion.enriched.markdown.test.TestAstFactory.table
 import com.swmansion.enriched.markdown.test.TestAstFactory.tableBody
@@ -86,7 +87,7 @@ class TableContainerViewTest {
 
   @Test
   fun gridHoldsOneOverlayPerRowAndOneCellPerCell() {
-    val view = newTableView().apply { applyTableNode(threeByThreeTable) }
+    val view = newTableView().apply { applyTableNode(threeByThreeTable, plugins = PluginSnapshot.EMPTY) }
     layOut(view, CONTAINER_WIDTH)
 
     val overlays = overlaysOf(view)
@@ -113,7 +114,7 @@ class TableContainerViewTest {
 
   @Test
   fun headerRowOverlayIsAnAccessibilityHeadingAndBodyRowsAreNot() {
-    val view = newTableView().apply { applyTableNode(threeByThreeTable) }
+    val view = newTableView().apply { applyTableNode(threeByThreeTable, plugins = PluginSnapshot.EMPTY) }
     layOut(view, CONTAINER_WIDTH)
 
     val overlays = overlaysOf(view).sortedBy { rowNumberOf(it) }
@@ -123,9 +124,19 @@ class TableContainerViewTest {
     assertFalse(ViewCompat.isAccessibilityHeading(overlays[2]))
   }
 
+  /** View.setScreenReaderFocusable exists only from API 28; calling it directly crashed every table render below that. */
+  @Test
+  @Config(sdk = [27])
+  fun tableRendersBelowApi28() {
+    val view = newTableView().apply { applyTableNode(threeByThreeTable, plugins = PluginSnapshot.EMPTY) }
+    layOut(view, CONTAINER_WIDTH)
+
+    assertEquals(3, overlaysOf(view).size)
+  }
+
   @Test
   fun cellTextUsesHeaderOrBodyColorAndCarriesTheExpectedString() {
-    val view = newTableView().apply { applyTableNode(threeByThreeTable) }
+    val view = newTableView().apply { applyTableNode(threeByThreeTable, plugins = PluginSnapshot.EMPTY) }
     layOut(view, CONTAINER_WIDTH)
 
     val headerCell = textViewWithText(view, "H2")
@@ -151,7 +162,7 @@ class TableContainerViewTest {
             ),
           ),
       )
-    val view = newTableView().apply { applyTableNode(node) }
+    val view = newTableView().apply { applyTableNode(node, plugins = PluginSnapshot.EMPTY) }
     layOut(view, CONTAINER_WIDTH)
 
     assertEquals(Gravity.CENTER_HORIZONTAL, horizontalGravityOf(textViewWithText(view, "Centered")))
@@ -165,7 +176,7 @@ class TableContainerViewTest {
     val shortText = "Hi"
     val node = table(body = tableBody(tableRow(tableCell("default", text(longText)), tableCell("default", text(shortText)))))
 
-    val view = newTableView().apply { applyTableNode(node) }
+    val view = newTableView().apply { applyTableNode(node, plugins = PluginSnapshot.EMPTY) }
 
     val cells = cellBackgroundsOf(view)
     assertEquals(2, cells.size)
@@ -193,8 +204,8 @@ class TableContainerViewTest {
       )
     val narrowTable = table(body = tableBody(tableRow(tableCell("default", text("A")), tableCell("default", text("B")))))
 
-    val wideView = newTableView().apply { applyTableNode(wideTable) }
-    val narrowView = newTableView().apply { applyTableNode(narrowTable) }
+    val wideView = newTableView().apply { applyTableNode(wideTable, plugins = PluginSnapshot.EMPTY) }
+    val narrowView = newTableView().apply { applyTableNode(narrowTable, plugins = PluginSnapshot.EMPTY) }
 
     layOut(wideView, SCROLL_TEST_WIDTH)
     layOut(narrowView, SCROLL_TEST_WIDTH)
@@ -208,7 +219,7 @@ class TableContainerViewTest {
 
   @Test
   fun unboundedWidthMeasuresToTheTablesOwnWidth() {
-    val view = newTableView().apply { applyTableNode(threeByThreeTable) }
+    val view = newTableView().apply { applyTableNode(threeByThreeTable, plugins = PluginSnapshot.EMPTY) }
 
     view.measure(
       View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),

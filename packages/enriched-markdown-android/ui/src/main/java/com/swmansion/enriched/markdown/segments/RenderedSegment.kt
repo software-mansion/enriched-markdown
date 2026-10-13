@@ -6,14 +6,12 @@ import android.content.Context
 import android.text.Spannable
 import android.view.View
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.plugin.EnrichedMarkdownPlugins
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginBlockSegment
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.plugin.PluginSegmentPayload
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
-import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
 sealed interface RenderedSegment {
@@ -33,7 +31,6 @@ sealed interface RenderedSegment {
      * spans, and a result that changes as the user merely selects text.
      */
     val styledText: Spannable,
-    val imageSpans: List<ImageSpan>,
     val needsJustify: Boolean,
     val lastElementMarginBottom: Float,
     override val signature: Long,
@@ -43,7 +40,7 @@ sealed interface RenderedSegment {
     val node: MarkdownASTNode,
     override val signature: Long,
     val imageRequestHeaders: Map<String, String> = emptyMap(),
-    val plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
+    val plugins: PluginSnapshot,
   ) : RenderedSegment
 
   /** Holds the plugin that produced [payload], so its view is built by that same plugin. */
@@ -74,7 +71,7 @@ object MarkdownSegmentRenderer {
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
     onPluginEvent: PluginEventSink? = null,
-    plugins: PluginSnapshot = EnrichedMarkdownPlugins.snapshot,
+    plugins: PluginSnapshot,
   ): List<RenderedSegment> {
     // Task indices must stay document-global: each Text segment gets a fresh Renderer,
     // so the running count is threaded through explicitly rather than reset per segment.
@@ -154,7 +151,6 @@ object MarkdownSegmentRenderer {
     val rendered =
       RenderedSegment.Text(
         styledText = styledText,
-        imageSpans = renderer.getCollectedImageSpans().toList(),
         needsJustify = style.needsJustify,
         lastElementMarginBottom = renderer.getLastElementMarginBottom(),
         signature = signature,

@@ -20,7 +20,6 @@ class SegmentReconcilerTest {
   private fun textSegment(signature: Long): RenderedSegment.Text =
     RenderedSegment.Text(
       styledText = SpannableString(""),
-      imageSpans = emptyList(),
       needsJustify = false,
       lastElementMarginBottom = 0f,
       signature = signature,

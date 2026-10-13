@@ -8,11 +8,13 @@ import com.swmansion.enriched.markdown.plugin.MarkdownPlugin
 import com.swmansion.enriched.markdown.plugin.PluginRegistry
 
 /**
- * RaTeX-backed LaTeX rendering for `$...$` and `$$...$$`. Install it once, at startup, before any
- * markdown is rendered:
+ * RaTeX-backed LaTeX rendering for `$...$` and `$$...$$`. Enable it for a Compose subtree with a
+ * scope:
  *
  * ```
- * EnrichedMarkdownPlugins.install(LatexMathPlugin)
+ * LatexMathPlugin {
+ *   EnrichedMarkdownText(markdown, flags = Md4cFlags(latexMath = true))
+ * }
  * ```
  *
  * Without it core echoes the source of both node types, delimiters included; parsing them at all
