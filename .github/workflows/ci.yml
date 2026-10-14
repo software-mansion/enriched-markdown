@@ -461,6 +461,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Restore Android vendor files
+        uses: ./.github/actions/restore-android-vendor
+
       - name: Cache turborepo for Android native lint
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
