@@ -11,6 +11,8 @@ When Markdown arrives incrementally - token by token from an LLM, for example - 
 
 :::note
 Streaming ships in the React Native package, on iOS and Android. Both props are stripped on web, where the current Markdown string renders without the fade-in animation or the incomplete-block handling below.
+
+The standalone iOS and Android packages have no streaming API. You can still hand them a growing Markdown string and each update renders it, but new text does not fade in and half-formed tables, code blocks and math are not held back.
 :::
 
 :::tip
@@ -56,10 +58,6 @@ It takes **two** conditions, not one: `streamingAnimation` must be on **and** th
 **Block math** has no mode key. An unterminated `$$` block is always withheld, truncated at the opening delimiter, until the closing `$$` arrives. On a page of LLM output that routinely contains LaTeX, this is the third incomplete-block case to expect.
 
 <LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS and Android only - <code>streamingAnimation</code> and <code>streamingConfig</code> are stripped on web.</>} />
-
-{/* UNRELEASED PLATFORMS: neither standalone SDK has any streaming API. When
-they ship, these sections need per-platform tabs rather than the ComingSoon
-placeholders they previously carried, which implied the feature existed. */}
 
 ## Reference
 

@@ -13,8 +13,12 @@ This guide is about what those flags do and when to reach for them. For the bare
 
 There is no single setting that flips the parser between [CommonMark](https://spec.commonmark.org/) and [GitHub Flavored Markdown](https://github.github.com/gfm/). Instead:
 
-- The **GitHub table, strikethrough, and task list** extensions are always on. There is nothing to enable and no way to turn them off - `~~struck~~` and `- [ ]` always mean what you expect.
+- The **GitHub table, strikethrough, and task list** extensions, and **spoilers**, are always on. There is nothing to enable and no way to turn them off - `~~struck~~`, `- [ ]` and `||hidden||` always mean what you expect.
 - **Everything else** is an individual flag you opt into.
+
+:::caution
+A table must sit at the top level of the document. A table nested inside a list item or a blockquote is **not rendered** - its content is missing from the page, not shown as text.
+:::
 
 So the question is never "which flavor am I in", only "is this particular piece of syntax enabled".
 
@@ -24,16 +28,26 @@ Parsing happens in C++, in [md4c](https://github.com/mity/md4c), reached through
 
 **Flags change parsing, not painting.** With a flag off, its syntax is never recognized as syntax - the characters stay ordinary text. `^2^` with `superscript` off is a literal caret, two, caret. Nothing is hidden or stripped; it simply was never markup.
 
-**Flags are per component and change the parse.** Passing a new `Md4cFlags` re-parses the document, so treat the value as part of your content rather than as a setting to toggle at speed:
+**Flags are per component and change the parse.** Passing a *different* `Md4cFlags` re-parses the document, so treat the value as part of your content rather than as a setting to toggle at speed. `Md4cFlags` is a data class, so an **equal** value is a no-op - building it inline, as below, does not re-parse on every recomposition:
 
 ```kotlin
-EnrichedMarkdownText(
-  markdown = content,
-  flags = Md4cFlags(underline = true, admonitions = true),
-)
+import androidx.compose.runtime.Composable
+import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.compose.Md4cFlags
+
+@Composable
+fun Article(content: String) {
+  EnrichedMarkdownText(
+    markdown = content,
+    flags = Md4cFlags(underline = true, admonitions = true),
+  )
+}
 ```
 
-Raw HTML is never parsed as HTML. `<b>bold</b>` in your source renders as literal text, on every flag combination.
+Raw HTML is never parsed as HTML, on every flag combination, and what happens to it depends on where it sits:
+
+- **Inline HTML** stays as literal text: `<b>bold</b>` in a sentence renders as those characters.
+- **Block HTML** - a line that opens with a tag such as `<div>` or `<details>`, or with an `<!-- comment -->` - is **dropped**, together with everything up to the next blank line. It is not shown as text.
 
 ## The extensions
 
@@ -47,7 +61,7 @@ This is a trade, not an addition. With the flag on you can still write italic an
 
 `Md4cFlags(superscript = true)` renders `^text^` raised; `Md4cFlags(subscript = true)` renders `~text~` lowered. They're independent flags, and worth enabling together for anything with formulas or footnote markers - `E = mc^2^`, `H~2~O`.
 
-One interaction to know: `subscript` claims a single tilde, while strikethrough uses two. `~x~` is a subscript and `~~x~~` is struck through, so the two coexist, but a lone tilde in prose stops being literal.
+One interaction to know: `subscript` **changes what a single tilde means**. Strikethrough is always on and accepts one tilde or two, so by default `~x~` and `~~x~~` are both struck through. With `subscript` on, a single tilde is claimed for subscripts: `~x~` is lowered, and only `~~x~~` strikes through. Turning the flag on therefore changes how existing `~x~` content renders.
 
 ### Admonitions
 
@@ -60,6 +74,12 @@ One interaction to know: `subscript` claims a single tilde, while strikethrough 
 
 Without the flag, `[!WARNING]` is just the first line of an ordinary quote. Style the result through the [`admonitions`](/android/api-reference/style-properties#admonitions) block.
 
+### Highlight
+
+`Md4cFlags(highlight = true)` renders `==text==` with a highlight band behind the glyphs. Exactly two equals signs form the marker, and it cannot open before a space or close after one, so `a == b` in prose stays literal.
+
+Without the flag, `==text==` is ordinary text. Style the band through the [`highlight`](/android/api-reference/style-properties#highlight) block.
+
 ### Line break handling
 
 Two flags control how whitespace in the source survives into the output, and both matter most for **user-authored** text.
@@ -70,17 +90,21 @@ Two flags control how whitespace in the source survives into the output, and bot
 
 ### Permissive autolinks
 
-`permissiveAutolinks` is the one extension that is **on** by default. It linkifies bare URLs, so `https://swmansion.com` becomes a link without being wrapped in `<>`. Turn it off if you need a stricter parse in which only explicit `[text](url)` links and `<bracketed>` autolinks are live.
+`permissiveAutolinks` is the one extension that is **on** by default. It linkifies bare URLs (`https://swmansion.com`), `www.` addresses (`www.swmansion.com`), and email addresses (`hello@swmansion.com`) without their being wrapped in `<>`. Turn it off if you need a stricter parse in which only explicit `[text](url)` links and `<bracketed>` autolinks are live.
 
-## One flag to leave off
+### LaTeX math
 
-`latexMath` parses, but the Android renderer has no drawing code for the nodes it produces.
+`Md4cFlags(latexMath = true)` makes `$…$` inline math and `$$…$$` display math. The flag only changes parsing; drawing the formulas takes the optional `math` artifact and its `LatexMathPlugin`. Without the plugin nothing is lost: each formula renders as its raw source, delimiters included, and Logcat carries a single warning naming the missing artifact.
 
-:::danger
-Enabling it **removes content from the page**. An unrendered node's text is dropped rather than shown unstyled, so `$E = mc^2$` renders as nothing at all, with a `No renderer for: …` warning in Logcat. Leave it off: the `$` then stays literal text, and your reader still sees the words.
+The flag also changes what a dollar sign means in prose. Setup, styling, error reporting, and that trade-off are covered in [LaTeX math](/android/guides/latex-math).
+
+## Spoilers
+
+Spoilers have no flag: `||text||` is **always** parsed and rendered hidden behind an overlay until the reader taps it. Pick the overlay with [`spoilerOverlay`](/android/api-reference/enriched-markdown-text#spoileroverlay) and color it with the [`spoiler`](/android/api-reference/style-properties#spoiler) block.
+
+:::caution
+Any two `||` in the same paragraph form a spoiler, with no rules about spaces around them, so `a || b` written twice in user-authored prose hides the text between them. Put such text in a code span, or escape a pipe (`\|`), where you control the source.
 :::
-
-The same is true of **spoilers**, which have no flag at all: they are parsed unconditionally but skipped at render time. Both renderers are in progress; see the [roadmap](/misc/roadmap).
 
 ## Reference
 
@@ -94,6 +118,6 @@ The same is true of **spoilers**, which have no flag at all: they are parsed unc
 | `hardSoftBreaks` | `false` | A single newline is a line break |
 | `preserveBlankLines` | `false` | Consecutive blank lines are kept |
 | `highlight` | `false` | `==text==` renders with a highlight band |
-| `latexMath` | `false` | Parses `$math$` - **no renderer, drops the text** |
+| `latexMath` | `false` | `$…$` / `$$…$$` parse as math - typeset by the [`math` plugin](/android/guides/latex-math), shown as source without it |
 
-Always on, with no flag: tables, strikethrough, task lists. Never on: raw HTML.
+Always on, with no flag: tables, strikethrough, task lists, spoilers. Never on: raw HTML.

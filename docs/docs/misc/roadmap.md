@@ -18,26 +18,36 @@ the next releases; **planned** means it is on the list without a timeline yet.
 
 ## Status at a glance
 
-The React Native package is what ships today, on iOS, Android, macOS and the
-web. The [web build](/react-native/guides/web-support) covers
-`EnrichedMarkdownText` only, and macOS runs the iOS code with a few gaps of its
-own.
+The React Native package ships on iOS, Android, macOS and the web - the
+**iOS / Android** column below is that package. The
+[web build](/react-native/guides/web-support) covers `EnrichedMarkdownText`
+only, and macOS runs the iOS code with a few gaps of its own. The standalone
+[iOS package](/ios/basics/installation) (0.4.0) and
+[Android package](/android/basics/installation) (0.3.0) are renderers for
+SwiftUI and Jetpack Compose apps, and have their own columns.
 
-| Area | iOS / Android | macOS | Web |
-| --- | :-: | :-: | :-: |
-| CommonMark | Yes | Yes | Yes |
-| GFM (tables, task lists, strikethrough, autolinks) | Yes | Yes | Yes |
-| [Admonitions](/react-native/api-reference/element-structure#admonitions) | Yes | Yes | Yes |
-| Extended Markdown (underline, superscript, subscript, highlight) | Yes | Yes | Yes |
-| Spoilers | Yes | Yes | Planned |
-| [Videos](/react-native/api-reference/element-structure#videos) | Yes | Yes | Planned |
-| [LaTeX math](/rich-text-formatting/latex-math) | Yes | Inline only | Yes |
-| [Code-block highlighting](/rich-text-formatting/code-highlighting) | Yes | Yes | Planned |
-| [Markdown streaming](/rich-text-formatting/markdown-streaming) | Yes | Instant reveal | Planned |
-| [Smart copy](/user-experience/copy-options) | Yes | Yes | Planned |
-| [Accessibility](/user-experience/accessibility) | Yes | Planned | Partial |
-| [RTL](/user-experience/rtl) | Yes | Yes | Container-level |
-| `EnrichedMarkdownTextInput` (editor) | Yes | Yes | Planned |
+| Area | iOS / Android | iOS package | Android package | macOS | Web |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| CommonMark | Yes | Yes | Yes | Yes | Yes |
+| GFM (tables, task lists, strikethrough, autolinks) | Yes | Yes | Yes | Yes | Yes |
+| [Admonitions](/react-native/api-reference/element-structure#admonitions) | Yes | Yes | Yes | Yes | Yes |
+| Extended Markdown (underline, superscript, subscript, highlight) | Yes | Yes | Yes | Yes | Yes |
+| Spoilers | Yes | Yes | Yes | Yes | Planned |
+| [Videos](/react-native/api-reference/element-structure#videos) | Yes | Planned | Planned | Yes | Planned |
+| [LaTeX math](/rich-text-formatting/latex-math) | Yes | Yes | Yes | Inline only | Yes |
+| [Code-block highlighting](/rich-text-formatting/code-highlighting) | Yes | Yes | Yes | Yes | Planned |
+| [Markdown streaming](/rich-text-formatting/markdown-streaming) | Yes | Planned | Planned | Instant reveal | Planned |
+| [Smart copy](/user-experience/copy-options) | Yes | Plain text + HTML | Yes | Yes | Planned |
+| [Accessibility](/user-experience/accessibility) | Yes | Yes | Partial | Planned | Partial |
+| [RTL](/user-experience/rtl) | Yes | Yes | Yes | Yes | Container-level |
+| `EnrichedMarkdownTextInput` (editor) | Yes | Planned | Planned | Yes | Planned |
+
+In the native columns, LaTeX math comes from an optional add-on - the
+`EnrichedMarkdownLaTeX` product on iOS, the `math` artifact on Android - and so
+does code-block highlighting: the `EnrichedMarkdownSyntaxHighlighting` product on
+iOS, the `code-highlight` artifact on Android. The iOS package's smart copy writes plain text and HTML, with no RTF
+or RTFD flavor. The Android package's accessibility strings are hard-coded
+English with no way to override them.
 
 ## In progress
 
@@ -62,6 +72,29 @@ container that can nest paragraphs, code, and further quotes. We want the same
 treatment for the other container types, so **all list kinds** (ordered,
 unordered, and task lists) render arbitrary block content in their items the way
 blockquotes do, on every target.
+
+### Native renderer parity {#native-renderer-parity}
+
+- **Block context menus.** Tables and block math have one on both native
+  packages and code blocks have one on iOS; Android code blocks still have
+  none, and neither package lets you add your own items.
+- **Nested blocks on Android.** The Android segment splitter emits only Text,
+  Table and Custom (plugin) segments, so a table inside a list item or
+  blockquote is not rendered. Lists and blockquotes should hold arbitrary block
+  content, as described under [Container blocks](#container-blocks).
+
+### The Compose API surface {#the-compose-api-surface}
+
+`EnrichedMarkdownText` on Android does not yet expose selection colors, font
+scaling, the copy actions, label localization or break strategy, and
+accessibility labels cannot be overridden at any layer.
+
+### The editor on native {#the-editor-on-native}
+
+Both native packages render Markdown but do not edit it; there is no editable
+rich text field on either yet. On React Native,
+[`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input)
+is available today.
 
 ### Web {#web}
 
@@ -89,32 +122,10 @@ come:
 
 ### Accessibility
 
-- **Task list items** have no accessibility handling on either native platform -
-  a checkbox is read as plain list text, with no state and no toggle action.
+- **Task list items** have no accessibility handling in the React Native
+  package, on either platform - a checkbox is read as plain list text, with no
+  state and no toggle action.
 - **Admonitions** carry no accessibility role.
-
-{/* UNRELEASED PLATFORMS: this page previously carried "In progress > Android
-renderer", "In progress > iOS", "Planned > Native renderer parity", "The Compose
-API surface" and "The editor on native", plus iOS and Android columns in the
-status table. Five of those headings were inbound anchor targets from the ios/
-and android/ trees (#android-renderer, #ios, #native-renderer-parity,
-#the-compose-api-surface, #the-editor-on-native); restore the headings with the
-same slugs when those trees are unhidden, or fix their inbound links in the same
-commit.
-
-Do not restore the old contents verbatim - several entries were stale:
-- Android tables shipped in 0.2.0 and the highlight renderer landed in #844;
-  LaTeX math and spoilers are the genuinely outstanding ones.
-- The iOS block-image-sizing and per-paragraph-writing-direction items both
-  landed.
-- "Smart copy (Markdown, HTML, RTF, RTFD) | iOS | Yes" was wrong: the standalone
-  iOS SDK writes plain text and HTML only, with no RTF or RTFD anywhere.
-- "Block context menu on code blocks, tables, and block math" is done for tables
-  on both packages and for block math on iOS; only code blocks and custom items
-  remain.
-- "Blockquotes already do this correctly on every package" was false for
-  standalone Android, whose segment splitter emits only Text and Table segments.
-- The page had no macOS column even though macOS is a shipped target. */}
 
 ## Asking for something
 

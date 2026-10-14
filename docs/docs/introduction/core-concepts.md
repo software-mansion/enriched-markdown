@@ -51,7 +51,7 @@ Inline formatting applies to a span of characters _inside_ a paragraph.
 Strikethrough (`~~text~~`) is **not** part of the CommonMark core - it is a GitHub Flavored Markdown extension, covered under [Markdown flavors](#markdown-flavors) below.
 
 :::caution
-With certain extensions enabled, the meaning of `__text__` and `_text_` may change. The `*` syntax never changes, so it is the safer choice. Learn more about [`md4cFlags`](/react-native/api-reference/enriched-markdown-text#md4cflags).
+With certain extensions enabled, the meaning of `__text__` and `_text_` may change. The `*` syntax never changes, so it is the safer choice. Learn more about the `underline` extension: the [`md4cFlags`](/react-native/api-reference/enriched-markdown-text#md4cflags) prop in React Native, [`MarkdownParsingOptions`](/ios/guides/parser-extensions#underline) on iOS, and [`Md4cFlags`](/android/guides/parser-extensions#underline) on Android.
 :::
 
 You can combine them - for example `***bold italic***` applies _**bold and italic together**_.
@@ -79,7 +79,7 @@ A link is link text in square brackets followed by a URL in parentheses.
 ```
 
 :::note
-In `EnrichedMarkdownText`, links are interactive - taps surface through the `onLinkPress` callback so you decide how to open them.
+Links in `EnrichedMarkdownText` are interactive, and you decide how to open them. In the React Native package, taps surface through the `onLinkPress` callback; on iOS they go through the SwiftUI [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) environment action; on Android they go to the [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) parameter.
 :::
 
 ### Lists
@@ -113,7 +113,7 @@ Prefix a line with `>` to quote it. Blockquotes can contain other Markdown and c
 
 ### Code blocks
 
-Fence a block of code with triple backticks. An optional language after the opening fence enables syntax highlighting in the React Native package on iOS and Android.
+Fence a block of code with triple backticks. An optional language after the opening fence enables syntax highlighting in the React Native package on iOS and Android. The standalone iOS package highlights code only when you add the optional `EnrichedMarkdownSyntaxHighlighting` product and apply [`.markdownSyntaxHighlighting()`](/ios/guides/syntax-highlighting), and the standalone Android package only when you add the optional `code-highlight` artifact and enable [`CodeHighlightPlugin`](/android/guides/code-highlighting).
 
 ````md
 ```tsx
@@ -135,7 +135,13 @@ Three or more `-`, `*`, or `_` on their own line render a divider.
 
 ## Markdown flavors
 
-There is a small CommonMark core that every Markdown parser agrees on (everything above), plus optional extensions layered on top. The React Native package exposes this through the `flavor` prop:
+There is a small CommonMark core that every Markdown parser agrees on (everything above), plus optional extensions layered on top. How you choose between them depends on the package:
+
+<CodeTabs groupId="platform">
+
+<Tab label="React Native">
+
+The React Native package exposes this through the `flavor` prop:
 
 - **CommonMark** (default) - the standard core syntax.
 - **GitHub Flavored Markdown (GFM)** - CommonMark plus **tables**, **task lists**, **strikethrough** and much more. Opt in with `flavor="github"`.
@@ -144,18 +150,44 @@ There is a small CommonMark core that every Markdown parser agrees on (everythin
 <EnrichedMarkdownText flavor="github" markdown={markdown} />
 ```
 
-{/* UNRELEASED PLATFORMS: the standalone iOS and Android SDKs have no `flavor`
-selector - GFM's tables, task lists and strikethrough are always on there, and
-the remaining extensions are individual parsing options
-(`MarkdownParsingOptions` / `Md4cFlags`). Restore these tabs, and the links to
-`/ios/guides/parser-extensions` and `/android/guides/parser-extensions`, when
-those packages ship. */}
+</Tab>
+<Tab label="iOS">
+
+The standalone iOS SDK has no `flavor` selector. GFM's **tables**, **task lists** and **strikethrough** are always on, and so are spoilers. The remaining extensions - underline, superscript, subscript, highlight, admonitions, hard soft breaks, preserved blank lines and permissive autolinks - are individual `MarkdownParsingOptions` (`Md4cFlags` is only a deprecated alias):
+
+```swift
+EnrichedMarkdownText(markdown, options: MarkdownParsingOptions(underline: true, admonitions: true))
+```
+
+LaTeX math is not a parsing option on iOS: adding the optional `EnrichedMarkdownLaTeX` product and applying `.markdownLaTeX()` turns parsing and rendering on together - see [LaTeX math](/ios/guides/latex-math).
+
+See [Parser extensions](/ios/guides/parser-extensions).
+
+</Tab>
+<Tab label="Android">
+
+The standalone Android SDK has no `flavor` selector either. GFM's **tables**, **task lists** and **strikethrough** are always on, and so are spoilers. The remaining extensions - underline, superscript, subscript, highlight, admonitions, hard soft breaks, preserved blank lines and permissive autolinks - are individual `Md4cFlags`:
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = markdown,
+  flags = Md4cFlags(underline = true, admonitions = true),
+)
+```
+
+LaTeX math takes both `Md4cFlags(latexMath = true)` and the optional `math` artifact's `LatexMathPlugin` - see [LaTeX math](/android/guides/latex-math).
+
+See [Parser extensions](/android/guides/parser-extensions).
+
+</Tab>
+
+</CodeTabs>
 
 :::note
 The web build has no `flavor` prop - it always parses GFM. See [Web support](/react-native/guides/web-support).
 :::
 
-Tables render with column alignment, rich text in cells, and header styling; task lists become interactive checkboxes you can respond to. See the [`EnrichedMarkdownText` reference](/react-native/api-reference/enriched-markdown-text) for the props that surface these.
+Tables render with column alignment, rich text in cells, and header styling; task lists become interactive checkboxes you can respond to. See the `EnrichedMarkdownText` reference for [React Native](/react-native/api-reference/enriched-markdown-text), [iOS](/ios/api-reference/enriched-markdown-text) or [Android](/android/api-reference/enriched-markdown-text) for the parameters that surface these.
 
 For an in-depth look at why flavors exist, everything GFM adds, and how extensions are enabled, see [Markdown flavors](/react-native/guides/markdown-flavors) in the React Native guides. Some of the extensions themselves are defined by the [GitHub Flavored Markdown spec](https://github.github.com/gfm/).
 

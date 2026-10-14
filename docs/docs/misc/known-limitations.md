@@ -9,8 +9,10 @@ This section covers the rough edges worth knowing about before you hit them.
 Deliberate behaviours, constraints imposed by the underlying text stacks, and a few things
 that are simply not wired up yet.
 
-This page covers `react-native-enriched-markdown` 1.1.1, including its web and
-macOS targets.
+Most of this page covers `react-native-enriched-markdown` 1.1.1, including its
+web and macOS targets. The standalone native packages have their own lists at
+the end: [iOS package](#ios-package) (0.4.0) and
+[Android package](#android-package) (0.3.0).
 
 :::note
 It describes the state today. For what is being worked on and what is merely
@@ -83,6 +85,8 @@ planned, see the [Roadmap](/misc/roadmap); for the full per-feature matrix,
   categories VoiceOver's rotor cycles through; TalkBack has no equivalent
   control, so those fields apply on iOS only and the rest of
   `accessibilityLabels` works the same on both platforms.
+- **Task list items have no accessibility handling** on either platform - a
+  checkbox is read as plain list text, with no state and no toggle action.
 - **The editor is a single VoiceOver element on iOS.** It reads its full plain
   text, is not announced with the native "text field" role, has no in-field
   cursor navigation or per-character echo, and refreshes its spoken value on
@@ -186,28 +190,57 @@ library's rendering. Its ref-method surface is type-checked against the real
 component; its **props** are not, and a few display props are already
 unforwarded. See [Testing](/react-native/guides/testing#limitations).
 
-{/* UNRELEASED PLATFORMS: the standalone iOS and Android limitation lists lived
-here and are NOT safe to restore verbatim - several entries went stale before
-this page was hidden. Re-verify each against the packages before unhiding:
+### iOS package
 
-iOS: block image sizing now has maxHeight/aspectRatio/resizeMode (ImageStyle),
-writing direction IS resolved per paragraph (WritingDirectionResolver), and a
-block context menu DOES exist on tables and block math (only code blocks and
-custom items are still missing). Still true: read-only, no container styling,
-no image tap callback, no link previews, no flavor selector, no public
-streaming API, no per-URL link variants or mentions, and no code-block syntax
-highlighting (there is no tree-sitter target in Package.swift at all - the old
-wording "optional and not compiled in" was misleading).
+These apply to the standalone Swift package,
+[`enriched-markdown-ios`](/ios/basics/installation) 0.4.0.
 
-Android: tables ARE implemented and shipped in 0.2.0, and the table view has a
-block context menu. Still true for the released version: spoilers, LaTeX math
-and highlight are parsed but not drawn; the Compose wrapper does not expose
-selection colors, font scaling, trailing margin, the copy actions, label
-localization or break strategy; accessibility labels are hardcoded with no
-override at any layer; the composable renders nothing in @Preview.
+- **Read-only.** There is no editor, only the renderer - see the
+  [Roadmap](/misc/roadmap#the-editor-on-native).
+- **No container styling** - no background, padding or border around the whole
+  view.
+- **No image tap callback, no link previews, no flavor selector, no public
+  streaming API, and no per-URL link variants or mentions.**
+- **Block context menus cannot be extended.** Code blocks, tables and block
+  math have one (Copy, Copy as Markdown), but you cannot add your own items.
+- **Block images always take the available width.** The theme sets only the
+  box height (`height`, `maxHeight` or `aspectRatio`) and how the bitmap fills
+  it (`contentMode`).
+- **`.font(custom:size:)` on inline elements is not applied.** It compiles on
+  `Link`, `Strong`, `Emphasis`, `Strikethrough`, `Underline` and `Highlight`,
+  but those runs keep the surrounding block's font. Set custom fonts on block
+  elements.
+- **Some defaults do not adapt to dark mode.** The default `Blockquote`
+  background and `CodeBlock` border are fixed colors; set them in your theme if
+  you support both appearances.
+- **An image at the start of a paragraph is laid out as a block image**, even
+  when text follows it on the same line.
 
-Also unrecorded anywhere: task-list accessibility is entirely absent from the
-React Native package on both platforms. */}
+### Android package
+
+These apply to the standalone Android library,
+[`enriched-markdown-android`](/android/basics/installation) 0.3.0.
+
+- **Read-only.** There is no editor, only the renderer - see the
+  [Roadmap](/misc/roadmap#the-editor-on-native).
+- **Code-block highlighting is opt-in and fixed.** Fenced code is colored only
+  with the optional `code-highlight` artifact and `CodeHighlightPlugin` (see
+  [Code highlighting](/android/guides/code-highlighting)); without them it
+  renders in one color. The 14 bundled grammars cannot be trimmed or extended,
+  the default token palette is made for a dark code block and does not follow
+  the system theme, and code blocks have no header or copy button.
+- **Nested tables are not rendered.** A table inside a list item or blockquote
+  is dropped; only top-level tables are drawn.
+- **An HTML `<video>` block makes the whole document render empty.** The shared
+  parser emits a video node that the Android parser has no node type for, so
+  parsing fails and the view shows nothing. Do not feed it one.
+- **The Compose wrapper does not expose** selection colors, font scaling, the
+  copy actions, label localization or break strategy.
+- **Accessibility labels are hard-coded English**, with no override at any
+  layer.
+- **Block context menus are partial.** Tables and block math have one, code
+  blocks do not, and you cannot add your own items.
+- **The composable renders nothing in an Android Studio `@Preview`.**
 
 ## Something missing?
 
