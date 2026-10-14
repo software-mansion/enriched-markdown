@@ -39,7 +39,7 @@ dependencies {
 }
 ```
 
-An app that renders no math does not add this line and pays nothing for it — not the artifact, and not its native LaTeX engine. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run.
+An app that renders no math does not add the math line and pays nothing for it — not the artifact, and not its native LaTeX engine. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run.
 
 Enable plugins for every `EnrichedMarkdownText` in a subtree by wrapping it in a `MarkdownPlugins` scope:
 
