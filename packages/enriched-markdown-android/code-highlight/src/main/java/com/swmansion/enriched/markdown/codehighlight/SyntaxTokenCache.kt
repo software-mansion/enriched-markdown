@@ -4,6 +4,7 @@ import android.util.Log
 import android.util.LruCache
 import java.nio.ByteBuffer
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Tokenizes UTF-8 code for a fence language into flat `(start, end, tokenType)` triplets, with
@@ -18,19 +19,21 @@ internal fun interface SyntaxTokenSource {
 
 /** The compiled grammars, or no tokens at all when the native library failed to load. */
 internal object NativeSyntaxTokenSource : SyntaxTokenSource {
-  @Volatile
-  private var unavailable = false
+  private val unavailable = AtomicBoolean(false)
 
   override fun tokenize(
     code: ByteArray,
     language: String,
   ): IntArray {
-    if (unavailable) return EMPTY
+    if (unavailable.get()) return EMPTY
     return try {
       CodeHighlighterNative.highlight(code, language)
-    } catch (e: UnsatisfiedLinkError) {
-      unavailable = true
-      Log.e("CodeHighlighter", "Native library unavailable, code blocks render unhighlighted", e)
+    } catch (e: LinkageError) {
+      // A library that fails to load arrives as ExceptionInInitializerError on the first call and
+      // NoClassDefFoundError on later ones; a missing symbol, as UnsatisfiedLinkError.
+      if (unavailable.compareAndSet(false, true)) {
+        Log.e("CodeHighlighter", "Native library unavailable, code blocks render unhighlighted", e)
+      }
       EMPTY
     }
   }

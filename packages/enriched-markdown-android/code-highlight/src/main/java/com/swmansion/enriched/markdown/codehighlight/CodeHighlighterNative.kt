@@ -1,7 +1,5 @@
 package com.swmansion.enriched.markdown.codehighlight
 
-import android.util.Log
-
 /**
  * JNI binding to the shared tree-sitter seam (`core/cpp/highlight/CodeBlockHighlighter.hpp`),
  * built into `libenriched_markdown_highlight.so` with a fixed set of 14 grammars.
@@ -14,11 +12,8 @@ internal object CodeHighlighterNative {
   const val TOKEN_TYPE_COUNT = 14
 
   init {
-    try {
-      System.loadLibrary("enriched_markdown_highlight")
-    } catch (e: UnsatisfiedLinkError) {
-      Log.e("CodeHighlighter", "Failed to load native library", e)
-    }
+    // Not caught here: the failure reaches the caller, which logs it once and stops calling.
+    System.loadLibrary("enriched_markdown_highlight")
   }
 
   /**
