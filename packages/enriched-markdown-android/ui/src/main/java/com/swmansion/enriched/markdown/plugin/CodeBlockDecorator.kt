@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.plugin
 
 import android.content.Context
 import android.text.SpannableStringBuilder
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
 /**
@@ -12,6 +13,10 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
  * builder rather than the AST. Core's own block spans are set by then, so a character style set
  * here applies after the block's and is not repainted with its text color. Enclosing blockquote
  * and list item spans take a higher priority, so they apply before both.
+ *
+ * Decorators run only from core's code block renderer. A plugin that claims [NodeType.CodeBlock],
+ * with a node renderer or a block segment, replaces that renderer for the blocks it takes, and no
+ * decorator runs on them.
  */
 @InternalPluginApi
 fun interface CodeBlockDecorator {
