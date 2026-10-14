@@ -206,7 +206,7 @@ class CodeBlockDecoratorTest {
     val view = EnrichedMarkdown(context)
     view.setPlugins(listOf(DecoratingPlugin(decorator)))
 
-    render(document(codeBlock(CODE, "kotlin")), plugins = view.pluginSnapshotForTest())
+    render(document(codeBlock(CODE, "kotlin")), plugins = view.pluginSnapshot)
 
     assertEquals(listOf(Decorated(CODE, "kotlin")), decorator.calls)
   }
@@ -228,12 +228,6 @@ class CodeBlockDecoratorTest {
       getSpans(0, length, Any::class.java).map {
         "${it::class.java.name} ${getSpanStart(it)}..${getSpanEnd(it)} ${getSpanFlags(it)}"
       }
-
-  private fun EnrichedMarkdown.pluginSnapshotForTest(): PluginSnapshot {
-    val field = EnrichedMarkdown::class.java.getDeclaredField("pluginSnapshot")
-    field.isAccessible = true
-    return field.get(this) as PluginSnapshot
-  }
 
   private data class Decorated(
     val code: String,

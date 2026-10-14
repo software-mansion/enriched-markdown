@@ -69,7 +69,11 @@ class EnrichedMarkdown(
     private set
 
   private var plugins: List<MarkdownPlugin> = emptyList()
-  private var pluginSnapshot: PluginSnapshot = PluginSnapshot.EMPTY
+
+  /** What the [setPlugins] plugins registered, as the render path takes it. */
+  @InternalPluginApi
+  var pluginSnapshot: PluginSnapshot = PluginSnapshot.EMPTY
+    private set
 
   private var imageRequestHeaders: Map<String, String> = emptyMap()
   private var selectionColor: Int? = null

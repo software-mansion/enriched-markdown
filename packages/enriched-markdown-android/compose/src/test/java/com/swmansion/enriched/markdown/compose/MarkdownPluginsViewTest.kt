@@ -11,7 +11,6 @@ import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.plugin.CodeBlockDecorator
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginRegistry
-import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +46,7 @@ class MarkdownPluginsViewTest {
     composeRule.waitForIdle()
 
     val view = root.findDescendant<EnrichedMarkdown>()
-    assertEquals(listOf(outer, inner), view.pluginSnapshot().codeBlockDecorators)
+    assertEquals(listOf(outer, inner), view.pluginSnapshot.codeBlockDecorators)
   }
 
   private class DecoratingPlugin(
@@ -67,10 +66,4 @@ class MarkdownPluginsViewTest {
         for (i in 0 until childCount) yieldAll(getChildAt(i).descendants())
       }
     }
-
-  private fun EnrichedMarkdown.pluginSnapshot(): PluginSnapshot {
-    val field = EnrichedMarkdown::class.java.getDeclaredField("pluginSnapshot")
-    field.isAccessible = true
-    return field.get(this) as PluginSnapshot
-  }
 }
