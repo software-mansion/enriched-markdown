@@ -172,7 +172,7 @@ final class AdmonitionRenderingTests: XCTestCase {
     func testPlainQuoteInsideListItemStartsOnItsOwnLine() {
         let result = render("- item\n\n  > quoted")
 
-        XCTAssertTrue(result.string.contains("item\nquoted\n"), result.string)
+        XCTAssertTrue(result.string.hasSuffix("item\nquoted"), result.string)
         XCTAssertNil(attributes(onWord: "quoted", in: result)[MarkdownAttribute.listDepth])
         XCTAssertNotNil(attributes(onWord: "quoted", in: result)[MarkdownAttribute.blockquoteBarOffset])
     }

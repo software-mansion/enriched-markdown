@@ -202,15 +202,17 @@ final class ListItemRenderer: NodeRenderer {
         if let depth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]), depth > nestingLevel {
             return true
         }
-        if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) {
+        if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) || attrs[.attachment] is CodeBlockAttachment {
             return true
         }
         if attrs[MarkdownAttribute.blockquoteDepth] != nil {
             return true
         }
         // Read in place: bridging `output.string` copies the document.
-        return output.mutableString.rangeOfCharacter(from: Self.nonNewlines, options: [], range: range).location == NSNotFound
+        return output.mutableString.rangeOfCharacter(
+            from: ParagraphStyleHelpers.nonNewlines,
+            options: [],
+            range: range
+        ).location == NSNotFound
     }
-
-    private static let nonNewlines = CharacterSet.newlines.inverted
 }

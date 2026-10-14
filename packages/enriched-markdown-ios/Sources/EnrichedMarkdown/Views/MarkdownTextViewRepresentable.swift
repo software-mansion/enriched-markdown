@@ -4,6 +4,7 @@ import UIKit
 struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let attributedText: NSAttributedString
     let source: RenderedSource?
+    let isBottomMarginEnabled: Bool
     let styleConfig: MarkdownStyleConfiguration
     /// The SwiftUI `openURL` action: where a tap goes when no legacy
     /// `onLinkPress` handler is installed.
@@ -16,6 +17,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
     let onTaskListItemTap: ((TaskListInteraction.Hit) -> Void)?
     let spoilerOverlay: any SpoilerOverlayProvider
     let onSpoilerTap: ((NSRange) -> Void)?
+    let onCodeBlockCopy: ((CodeBlockCopy) -> Void)?
     let accessibilityLabels: MarkdownAccessibilityLabels
 
     func makeCoordinator() -> Coordinator {
@@ -42,7 +44,9 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         textView.onTaskListItemTap = onTaskListItemTap
         textView.spoilerOverlays.provider = spoilerOverlay
         textView.onSpoilerTap = onSpoilerTap
+        textView.onCodeBlockCopy = onCodeBlockCopy
         textView.accessibilityLabels = accessibilityLabels
+        textView.isBottomMarginEnabled = isBottomMarginEnabled
         textView.setMarkdownAttributedText(attributedText)
     }
 
@@ -50,6 +54,7 @@ struct MarkdownTextViewRepresentable: UIViewRepresentable {
         uiView.delegate = nil
         uiView.onTaskListItemTap = nil
         uiView.onSpoilerTap = nil
+        uiView.onCodeBlockCopy = nil
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {

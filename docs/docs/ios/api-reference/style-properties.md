@@ -354,6 +354,7 @@ Fenced code blocks. This element does **not** take the shared set - these are al
 | `.border(width:)` | `CGFloat` | unset | Thickness alone, keeping the color a lower layer set |
 | `.lineHeight(_:)` | `CGFloat` | unset | Line height in points |
 | `.marginTop(_:)` / `.marginBottom(_:)` | `CGFloat` | unset / `16` | Space above and below |
+| `.headerForegroundStyle(_:)` | `Color \| semantic` | unset | Language label and copy button of a [scrollable panel](/ios/api-reference/enriched-markdown-text#markdowncodeblocklayout); unset tints them from the code color |
 
 ```swift
 MarkdownTheme {

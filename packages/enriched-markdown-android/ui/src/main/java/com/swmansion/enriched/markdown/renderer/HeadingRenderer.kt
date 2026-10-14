@@ -1,11 +1,11 @@
 package com.swmansion.enriched.markdown.renderer
 
 import android.text.SpannableStringBuilder
-import android.text.Spanned
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
 import com.swmansion.enriched.markdown.utils.text.span.applyTextAlignment
@@ -47,7 +47,7 @@ class HeadingRenderer(
         ),
         start,
         end,
-        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or Spanned.SPAN_PRIORITY,
+        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY,
       )
 
       builder.setSpan(

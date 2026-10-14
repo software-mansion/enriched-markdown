@@ -38,28 +38,12 @@ final class LinkRoutingTests: XCTestCase {
     }
 
     private func hostedTextView(_ markdown: String, openURL: @escaping (URL) -> Void) throws -> MarkdownTextView {
-        let config = MarkdownStyleConfiguration.baseline()
-        let representable = MarkdownTextViewRepresentable(
-            attributedText: MarkdownRenderer.render(markdown, config: config),
-            source: nil,
-            styleConfig: config,
-            openURL: openURL,
-            onLinkPress: nil,
-            onLinkLongPress: nil,
-            selectionMenuConfig: MarkdownSelectionMenu(),
-            isSelectionEnabled: true,
-            selectionColor: nil,
-            onTaskListItemTap: nil,
-            spoilerOverlay: ParticleSpoilerOverlayProvider(),
-            onSpoilerTap: nil,
-            accessibilityLabels: .default
+        let representable = MarkdownTextViewRepresentable.fixture(
+            attributedText: MarkdownRenderer.render(markdown, config: .baseline()),
+            openURL: openURL
         )
-        let host = UIHostingController(rootView: representable.fixedSize(horizontal: false, vertical: true))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 380, height: 800))
+        let (window, textView) = try host(representable, size: CGSize(width: 380, height: 800))
         self.window = window
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        host.view.layoutIfNeeded()
-        return try XCTUnwrap(host.view.firstSubview(of: MarkdownTextView.self))
+        return textView
     }
 }

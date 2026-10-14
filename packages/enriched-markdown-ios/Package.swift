@@ -23,7 +23,7 @@ let package = Package(
         .target(
             name: "EnrichedMarkdownCore",
             path: "core",
-            sources: ["md4c", "parser"],
+            sources: ["md4c", "parser", "highlight"],
             publicHeadersPath: "parser",
             cSettings: [
                 .define("MD4C_USE_UTF8", to: "1")
@@ -41,6 +41,7 @@ let package = Package(
             cxxSettings: [
                 .headerSearchPath("../core/md4c"),
                 .headerSearchPath("../core/parser"),
+                .headerSearchPath("../core/highlight"),
                 .define("MD4C_USE_UTF8", to: "1")
             ]
         ),
@@ -72,11 +73,11 @@ let package = Package(
         // Symlinks into packages/core/cpp/highlight, restored by `node vendor/vendor-grammars.mjs`.
         .target(
             name: "EnrichedMarkdownTreeSitter",
+            dependencies: ["EnrichedMarkdownCore"],
             path: "highlight",
             sources: [
                 "SwiftHighlightShim.cpp",
                 "seam/CodeBlockHighlighter.cpp",
-                "seam/CodeBlockLanguages.cpp",
                 "generated/generated_registry.cpp",
                 "tree-sitter/src/lib.c"
             ] + highlightGrammars.flatMap { grammar in

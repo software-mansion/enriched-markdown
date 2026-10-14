@@ -486,7 +486,7 @@ jobs:
         with:
           gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Run Kotlin lint
+      - name: Run ktlint and Android Lint
         run: yarn turbo run lint:android-native --filter=@enriched-markdown/android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   ios-build:

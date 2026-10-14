@@ -1,7 +1,10 @@
 #include "SwiftParserCAPI.h"
 
+#include "CodeBlockLanguages.hpp"
 #include "MD4CParser.hpp"
 
+#include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <new>
 #include <string>
@@ -132,6 +135,17 @@ int em_ast_node_attribute_iterator_next(EMASTAttributeIterator *iterator, const 
 
 void em_ast_node_attribute_iterator_release(EMASTAttributeIterator *iterator) {
   delete iterator;
+}
+
+char *em_code_block_language_display_name(const char *language) {
+  if (!language) {
+    return nullptr;
+  }
+  return strdup(Markdown::displayNameForLanguage(language).c_str());
+}
+
+void em_string_release(char *string) {
+  std::free(string);
 }
 
 } // extern "C"
