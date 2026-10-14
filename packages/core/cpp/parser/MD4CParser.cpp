@@ -1,12 +1,63 @@
 #include "MD4CParser.hpp"
 #include "enrmrkd.h"
+extern "C" {
+#include "entity.h"
+}
 #include <cctype>
+#include <charconv>
 #include <cstring>
 #include <vector>
 
 namespace Markdown {
 
 namespace {
+void appendCodepoint(std::string &output, unsigned int codepoint) {
+  if (codepoint < 0x80) {
+    output += static_cast<char>(codepoint);
+  } else if (codepoint < 0x800) {
+    output += static_cast<char>(0xC0 | (codepoint >> 6));
+    output += static_cast<char>(0x80 | (codepoint & 0x3F));
+  } else if (codepoint < 0x10000) {
+    output += static_cast<char>(0xE0 | (codepoint >> 12));
+    output += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+    output += static_cast<char>(0x80 | (codepoint & 0x3F));
+  } else {
+    output += static_cast<char>(0xF0 | (codepoint >> 18));
+    output += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+    output += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+    output += static_cast<char>(0x80 | (codepoint & 0x3F));
+  }
+}
+
+// Decode after syntax classification so encoded delimiters remain literal text.
+void appendCharacterReference(std::string &output, const char *text, size_t size) {
+  if (size < 4) {
+    output.append(text, size);
+    return;
+  }
+  if (text[1] != '#') {
+    const ENTITY *entity = entity_lookup(text, size);
+    if (!entity) {
+      output.append(text, size);
+      return;
+    }
+    appendCodepoint(output, entity->codepoints[0]);
+    if (entity->codepoints[1])
+      appendCodepoint(output, entity->codepoints[1]);
+    return;
+  }
+  const bool hex = text[2] == 'x' || text[2] == 'X';
+  const char *begin = text + (hex ? 3 : 2);
+  const char *end = text + size - 1;
+  unsigned int codepoint = 0;
+  const auto parsed = std::from_chars(begin, end, codepoint, hex ? 16 : 10);
+  if (parsed.ec != std::errc{} || parsed.ptr != end || codepoint == 0 || codepoint > 0x10FFFF ||
+      (codepoint >= 0xD800 && codepoint <= 0xDFFF)) {
+    codepoint = 0xFFFD;
+  }
+  appendCodepoint(output, codepoint);
+}
+
 struct HtmlTag {
   std::string name;
   std::unordered_map<std::string, std::string> attributes;
@@ -423,6 +474,11 @@ public:
       if (impl->inHtmlBlock) {
         impl->htmlBlockContent.append(text, size);
       }
+      return 0;
+    }
+
+    if (type == ENRMRKD_TEXT_ENTITY) {
+      appendCharacterReference(impl->currentText, text, size);
       return 0;
     }
 
