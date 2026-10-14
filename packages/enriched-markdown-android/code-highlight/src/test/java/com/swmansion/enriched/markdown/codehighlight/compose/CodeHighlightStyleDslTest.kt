@@ -95,6 +95,31 @@ class CodeHighlightStyleDslTest {
     assertEquals(0xFF22863A.toInt(), stored[SyntaxTokenType.TAG])
   }
 
+  /** Unlike within one builder, a null token in a merged layer keeps the base's color. */
+  @Test
+  fun aNullTokenInAMergedLayerKeepsTheBaseColor() {
+    val base =
+      markdownStyle {
+        codeHighlight {
+          keyword = Color(0xFFD73A49)
+          string = Color(0xFF032F62)
+        }
+      }
+    val derived =
+      base.merge {
+        codeHighlight {
+          string = null
+          comment = Color(0xFF6A737D)
+        }
+      }
+
+    val stored = requireNotNull(resolveConfig(derived)[CodeHighlightStyleKey])
+
+    assertEquals(0xFFD73A49.toInt(), stored[SyntaxTokenType.KEYWORD])
+    assertEquals(0xFF032F62.toInt(), stored[SyntaxTokenType.STRING])
+    assertEquals(0xFF6A737D.toInt(), stored[SyntaxTokenType.COMMENT])
+  }
+
   /** The default palette does not follow the code block background, so a light block keeps it too. */
   @Test
   fun dslColorsLayOverTheDefaultPalette() {

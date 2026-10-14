@@ -93,7 +93,9 @@ class CodeHighlightStyleScope internal constructor(
  * }
  * ```
  *
- * Repeating the block merges into the earlier one rather than replacing it.
+ * Repeating the block in one builder merges into the earlier one rather than replacing it, and a
+ * token set to null there drops the earlier block's color. Across `MarkdownStyle.merge` layers a
+ * null token is only unset, as in core's own blocks: it keeps the color the layer below gave it.
  *
  * This is the only part of the plugin that touches `:compose`, which is why the plugin depends on
  * it at compile time only: an app rendering through the View API never loads these.
