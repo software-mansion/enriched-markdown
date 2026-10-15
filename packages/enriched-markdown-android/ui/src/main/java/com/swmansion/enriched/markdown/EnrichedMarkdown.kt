@@ -9,6 +9,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.View
 import androidx.annotation.VisibleForTesting
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.MarkdownPlugin
@@ -353,13 +354,33 @@ class EnrichedMarkdown(
     }
   }
 
-  private fun scheduleRender() {
+  /**
+   * What the render thread does with a parsed document, over this view's style, plugins and code
+   * block layout as they are when it is called, so a render keeps the state it was scheduled with.
+   */
+  @VisibleForTesting
+  internal fun segmentRenderer(): (MarkdownASTNode) -> List<RenderedSegment> {
     val style = markdownStyle
-    val markdown = currentMarkdown
     val plugins = pluginSnapshot
-    val parserFlags = plugins.adjustParserFlags(options.toParserFlags())
     val codeBlockLayout = codeBlockLayout
+    val imageRequestHeaders = imageRequestHeaders
     val onPluginEvent = renderPluginEventSink()
+    return { ast ->
+      MarkdownSegmentRenderer.render(
+        splitASTIntoSegments(ast, plugins, codeBlockLayout),
+        style,
+        context,
+        imageRequestHeaders,
+        onPluginEvent = onPluginEvent,
+        plugins = plugins,
+      )
+    }
+  }
+
+  private fun scheduleRender() {
+    val markdown = currentMarkdown
+    val parserFlags = pluginSnapshot.adjustParserFlags(options.toParserFlags())
+    val renderSegments = segmentRenderer()
 
     val renderId = ++currentRenderId
     // Segments rendered while detached are superseded by this render.
@@ -386,16 +407,7 @@ class EnrichedMarkdown(
 
         if (renderId != currentRenderId) return@submit
 
-        val segments = splitASTIntoSegments(ast, plugins, codeBlockLayout)
-        val renderedSegments =
-          MarkdownSegmentRenderer.render(
-            segments,
-            style,
-            context,
-            imageRequestHeaders,
-            onPluginEvent = onPluginEvent,
-            plugins = plugins,
-          )
+        val renderedSegments = renderSegments(ast)
 
         if (renderId != currentRenderId) return@submit
 

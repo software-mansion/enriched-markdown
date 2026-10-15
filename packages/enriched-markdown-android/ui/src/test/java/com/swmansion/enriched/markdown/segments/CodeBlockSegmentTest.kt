@@ -162,6 +162,34 @@ class CodeBlockSegmentTest {
     assertEquals(TOKEN_COLOR, shown.getSpans(0, 3, ForegroundColorSpan::class.java).single().foregroundColor)
   }
 
+  /** Parsing is native, so this starts from the AST; from there it runs the view's own render and landing. */
+  @Test
+  fun aScrollingViewShowsItsTopLevelBlockDecoratedByItsPlugins() {
+    val decorator =
+      CodeBlockDecorator { builder, start, _, _, _, _ ->
+        builder.setSpan(ForegroundColorSpan(TOKEN_COLOR), start, start + 3, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    val view =
+      EnrichedMarkdown(context).apply {
+        setPlugins(
+          listOf(
+            object : MarkdownPlugin {
+              override val id = "decorating"
+
+              override fun install(registry: PluginRegistry) = registry.registerCodeBlockDecorator(decorator)
+            },
+          ),
+        )
+        setCodeBlockLayout(CodeBlockLayout.Scrollable)
+      }
+
+    view.applyRenderedSegments(view.segmentRenderer()(document(fencedCodeBlock("val x = 1\n", language = "kotlin"))))
+
+    val shown = textViewOf(view.getChildAt(0) as CodeBlockContainerView).text as Spanned
+    assertEquals("val x = 1", shown.toString())
+    assertEquals(TOKEN_COLOR, shown.getSpans(0, 3, ForegroundColorSpan::class.java).single().foregroundColor)
+  }
+
   @Test
   fun withNoPluginsTheBlockShowsItsPlainCode() {
     val segments = splitASTIntoSegments(document(fencedCodeBlock("val x = 1\n")), PluginSnapshot.EMPTY, CodeBlockLayout.Scrollable)
