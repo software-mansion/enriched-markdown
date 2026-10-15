@@ -2,11 +2,15 @@
 
 package com.swmansion.enriched.markdown.segments
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Looper
+import android.os.SystemClock
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.view.MotionEvent
 import android.view.View
 import android.widget.HorizontalScrollView
 import android.widget.ImageButton
@@ -39,6 +43,8 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
@@ -82,6 +88,29 @@ class CodeBlockSegmentTest {
   private fun languageViewOf(view: CodeBlockContainerView) = view.getChildAt(1) as TextView
 
   private fun copyButtonOf(view: CodeBlockContainerView) = view.getChildAt(2) as ImageButton
+
+  // A view posts its click on ACTION_UP, so it has to be attached for the click to run.
+  private fun attach(view: View) {
+    Robolectric
+      .buildActivity(Activity::class.java)
+      .setup()
+      .get()
+      .setContentView(view)
+  }
+
+  private fun tap(
+    view: View,
+    x: Float,
+    y: Float,
+  ) {
+    val time = SystemClock.uptimeMillis()
+    for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
+      val event = MotionEvent.obtain(time, time, action, x, y, 0)
+      view.dispatchTouchEvent(event)
+      event.recycle()
+    }
+    shadowOf(Looper.getMainLooper()).idle()
+  }
 
   private fun clipboardText(): String? =
     (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
@@ -373,6 +402,34 @@ class CodeBlockSegmentTest {
     copyButtonOf(view).performClick()
 
     assertEquals("line 1\nline 2", clipboardText())
+  }
+
+  @Test
+  fun copyButtonTakesTapsAroundItOverTheCode() {
+    val view = newView(fencedCodeBlock("line 1\nline 2\n", language = "kotlin"))
+    attach(view)
+    layOut(view, 1000)
+    val button = copyButtonOf(view)
+    val minTouchTarget = 48 * context.resources.displayMetrics.density
+    val belowButton = (button.top + button.bottom) / 2f + minTouchTarget / 2 - 1
+
+    assertTrue(belowButton > scrollViewOf(view).top)
+    tap(view, button.left + button.width / 2f, belowButton)
+
+    assertEquals("line 1\nline 2", clipboardText())
+  }
+
+  @Test
+  fun tapsAwayFromTheCopyButtonDoNotCopy() {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("Previous", "previous"))
+    val view = newView(fencedCodeBlock("line 1\nline 2\n", language = "kotlin"))
+    attach(view)
+    layOut(view, 1000)
+
+    tap(view, 10f, view.height - 10f)
+
+    assertEquals("previous", clipboardText())
   }
 
   @Test

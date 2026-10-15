@@ -9,6 +9,7 @@ import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -17,6 +18,8 @@ import android.text.SpannableStringBuilder
 import android.text.TextPaint
 import android.text.TextUtils
 import android.util.TypedValue
+import android.view.MotionEvent
+import android.view.TouchDelegate
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -64,6 +67,11 @@ class CodeBlockContainerView(
   // Distance from the box edge to the header content.
   private val inset = borderWidth + padding
   private val headerHeight = inset + headerLabelLineHeight(codeBlockStyle)
+
+  private val minTouchTarget = (MIN_TOUCH_TARGET_DP * resources.displayMetrics.density).roundToInt()
+
+  // The copy button grown to minTouchTarget around its center; it reaches over the code's top edge.
+  private val copyTouchArea = Rect()
 
   private var code: String = ""
   private var language: String? = null
@@ -210,6 +218,7 @@ class CodeBlockContainerView(
     val buttonLeft = (width - inset - copyButton.measuredWidth + iconSlack).coerceAtLeast(0)
     val buttonTop = (headerCenterY - copyButton.measuredHeight / 2f).roundToInt().coerceAtLeast(0)
     copyButton.layout(buttonLeft, buttonTop, buttonLeft + copyButton.measuredWidth, buttonTop + copyButton.measuredHeight)
+    updateCopyTouchArea()
 
     // Inside the border, so scrolled code never paints over it.
     scrollView.layout(borderWidth, headerHeight, width - borderWidth, bottom - top - borderWidth)
@@ -224,6 +233,21 @@ class CodeBlockContainerView(
   }
 
   private fun dividerY(): Float = headerHeight + padding / 2f
+
+  private fun updateCopyTouchArea() {
+    copyTouchArea.set(copyButton.left, copyButton.top, copyButton.right, copyButton.bottom)
+    copyTouchArea.inset(
+      -((minTouchTarget - copyTouchArea.width()) / 2).coerceAtLeast(0),
+      -((minTouchTarget - copyTouchArea.height()) / 2).coerceAtLeast(0),
+    )
+    touchDelegate = TouchDelegate(Rect(copyTouchArea), copyButton)
+  }
+
+  // The touch delegate only sees touches no child takes, and the scroll view takes every touch
+  // on the code, so a press in the grown area is claimed before it reaches the code.
+  override fun onInterceptTouchEvent(event: MotionEvent): Boolean =
+    (event.actionMasked == MotionEvent.ACTION_DOWN && copyTouchArea.contains(event.x.toInt(), event.y.toInt())) ||
+      super.onInterceptTouchEvent(event)
 
   private fun showContextMenu(anchor: View): Boolean {
     ContextMenuPopup.show(anchor, this) {
@@ -292,6 +316,9 @@ class CodeBlockContainerView(
     // Drawable box for the copy glyph, as a multiple of the code font size,
     // matching the React Native package's header.
     private const val HEADER_ICON_SCALE = 1.08f
+
+    // Material's minimum touch target; iOS's copy button grows its hit area to 44 pt the same way.
+    private const val MIN_TOUCH_TARGET_DP = 48
 
     private val headerTypeface: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 
