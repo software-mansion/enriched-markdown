@@ -41,6 +41,9 @@ class BlockStyleContext {
   var listDepth = 0
   var listType: ListType? = null
   var listItemNumber = 0
+  var listMarkerWidth = 0f
+  var ancestorMarkerOffset = 0f
+  var listItemMarkerExtra = 0f
   var taskItemCount = 0
 
   private val orderedListItemNumbers = ArrayDeque<Int>()
@@ -149,6 +152,9 @@ class BlockStyleContext {
     listDepth = 0
     listType = null
     listItemNumber = 0
+    listMarkerWidth = 0f
+    ancestorMarkerOffset = 0f
+    listItemMarkerExtra = 0f
     taskItemCount = 0
     orderedListItemNumbers.clear()
   }

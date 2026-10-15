@@ -20,6 +20,7 @@ class TaskListSpan(
   val taskIndex: Int,
   val isChecked: Boolean,
   drawsMarker: Boolean = true,
+  ancestorMarkerOffset: Float = 0f,
 ) : BaseListSpan(
     depth = depth,
     context = context,
@@ -34,6 +35,7 @@ class TaskListSpan(
     marginLeft = listStyle.marginLeft,
     gapWidth = listStyle.gapWidth,
     drawsMarker = drawsMarker,
+    ancestorMarkerOffset = ancestorMarkerOffset,
   ) {
   private val checkboxSize = taskStyle.checkboxSize
   private val markerColumnWidth = listStyle.effectiveMarkerWidth(checkboxSize)
@@ -76,7 +78,7 @@ class TaskListSpan(
     // Right-align the checkbox inside the reserved marker column so it hugs
     // the gap before the text. At the default (markerColumnWidth ==
     // checkboxSize) this is identical to the previous flush-left layout.
-    val centerX = x + (depth * marginLeft + markerColumnWidth - checkboxSize / HALF_DIVISOR) * dir
+    val centerX = x + (depth * marginLeft + ancestorMarkerOffset + markerColumnWidth - checkboxSize / HALF_DIVISOR) * dir
     val half = checkboxSize / HALF_DIVISOR
     rect.set(centerX - half, centerY - half, centerX + half, centerY + half)
 

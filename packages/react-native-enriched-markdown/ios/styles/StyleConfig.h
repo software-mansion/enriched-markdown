@@ -336,7 +336,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (UIFont *)listStyleFont;
 - (CGFloat)effectiveListGapWidth;
 - (CGFloat)effectiveListMarginLeftForBullet;
-- (CGFloat)effectiveListMarginLeftForNumber;
+- (CGFloat)effectiveListMarginLeftForNumber:(NSInteger)number;
 - (CGFloat)effectiveListMarginLeftForTask;
 // Code block properties
 - (CGFloat)codeBlockFontSize;

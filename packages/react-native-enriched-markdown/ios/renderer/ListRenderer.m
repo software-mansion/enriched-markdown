@@ -90,6 +90,25 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
   // ListItemRenderer pre-increments, so the counter starts one below the
   // first rendered number.
   context.listItemNumber = startNumber - 1;
+  const CGFloat defaultMarkerWidth = [_config effectiveListMarginLeftForNumber:99];
+  if (prevDepth > 0) {
+    context.listMarkerOffset += context.listItemMarkerExtra;
+  }
+  context.listMarkerWidth = defaultMarkerWidth;
+  if (_isOrdered) {
+    NSInteger number = startNumber;
+    for (MarkdownASTNode *item in node.children) {
+      if (item.type != MarkdownNodeTypeListItem)
+        continue;
+      // Keep the existing gutter for one- and two-digit markers.
+      if (number >= 100 && ![item.attributes[@"isTask"] isEqualToString:@"true"]) {
+        context.listMarkerWidth = MAX(context.listMarkerWidth, [_config effectiveListMarginLeftForNumber:number]);
+      }
+      number++;
+    }
+  }
+
+  context.listMarkerExtra = context.listMarkerWidth - defaultMarkerWidth;
 
   [context setBlockStyle:_isOrdered ? BlockTypeOrderedList : BlockTypeUnorderedList
                     font:_config.listStyleFont

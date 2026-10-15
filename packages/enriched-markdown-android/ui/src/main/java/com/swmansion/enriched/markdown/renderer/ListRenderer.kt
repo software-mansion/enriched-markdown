@@ -3,6 +3,8 @@ package com.swmansion.enriched.markdown.renderer
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
+import com.swmansion.enriched.markdown.spans.OrderedListSpan
+import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
@@ -24,6 +26,13 @@ class ListRenderer(
 
     val contextManager = ListContextManager(factory.blockStyleContext)
     val entryState = contextManager.enterList(listType, listStyle)
+    val styleContext = factory.blockStyleContext
+    val previousMarkerWidth = styleContext.listMarkerWidth
+    val previousMarkerOffset = styleContext.ancestorMarkerOffset
+    if (entryState.previousDepth > 0) {
+      styleContext.ancestorMarkerOffset += styleContext.listItemMarkerExtra
+    }
+    styleContext.listMarkerWidth = if (isOrdered) measureMarkerColumn(node, listStyle, factory) else 0f
 
     // For top-level lists, insert marginTop spacer before rendering content
     if (entryState.previousDepth == 0) {
@@ -41,12 +50,33 @@ class ListRenderer(
     try {
       factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
     } finally {
+      styleContext.listMarkerWidth = previousMarkerWidth
+      styleContext.ancestorMarkerOffset = previousMarkerOffset
       contextManager.exitList(entryState)
     }
 
     if (builder.length > contentStart) {
       applyListSpacing(builder, contentStart, entryState.previousDepth, listStyle)
     }
+  }
+
+  /** Widest marker this list draws; lists under 100 items keep the `99.` column. */
+  private fun measureMarkerColumn(
+    node: MarkdownASTNode,
+    listStyle: ListStyle,
+    factory: RendererFactory,
+  ): Float {
+    val marker = OrderedListSpan(listStyle, 0, factory.context, factory.styleCache)
+    var number = 1
+    var width = marker.measureMarkerWidth(99)
+    for (item in node.children) {
+      if (item.type != MarkdownASTNode.NodeType.ListItem) continue
+      if (number >= 100 && item.attributes["isTask"] != "true") {
+        width = maxOf(width, marker.measureMarkerWidth(number))
+      }
+      number++
+    }
+    return width
   }
 
   private fun applyListSpacing(

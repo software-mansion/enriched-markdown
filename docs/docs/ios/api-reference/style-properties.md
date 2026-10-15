@@ -256,7 +256,7 @@ Ordered and unordered lists, and their markers. Takes the [shared modifiers](#sh
 | `.bulletColor(_:)` | `Color \| semantic` | `.secondary` | The dot drawn for an unordered item |
 | `.bulletSize(_:)` | `CGFloat` | `6` | Diameter of that dot, in points |
 | `.markerColor(_:)` | `Color \| semantic` | `.secondary` | The `1.` `2.` `3.` of an ordered item |
-| `.markerMinWidth(_:)` | `CGFloat` | `0` | Minimum width reserved for the marker column, so numbers past `9.` do not shift the text. `0` sizes the column to each marker |
+| `.markerMinWidth(_:)` | `CGFloat` | `0` | Minimum width reserved for the marker column. An ordered list's column also grows to fit its widest number, so its markers are never clipped |
 | `.gapWidth(_:)` | `CGFloat` | `12` | Space between the marker and the item text. Clamped to a minimum of `4` |
 | `.marginLeading(_:)` | `CGFloat` | `24` | Indent added per nesting level |
 

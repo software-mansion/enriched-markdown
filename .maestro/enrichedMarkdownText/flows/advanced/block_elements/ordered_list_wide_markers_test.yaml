@@ -1,0 +1,163 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - block
+  - advanced
+  - list
+  - text
+---
+- launchApp:
+    permissions: {}
+
+- waitForAnimationToEnd
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- assertVisible:
+    id: playground-screen
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        1. First short item
+        2. Second short item
+        3. Third short item
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: blur-button
+          direction: UP
+          visibilityPercentage: 100
+      - tapOn:
+          id: blur-button
+
+- scrollUntilVisible:
+    element:
+      id: preview-container
+    direction: DOWN
+    visibilityPercentage: 100
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'ordered_list_wide_markers_short_control_display'
+
+- scrollUntilVisible:
+    element:
+      id: set-markdown-button
+    direction: UP
+    visibilityPercentage: 100
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        98. Before the boundary
+        99. Two-digit marker
+        100. Three-digit marker
+        101. After the boundary
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: blur-button
+          direction: UP
+          visibilityPercentage: 100
+      - tapOn:
+          id: blur-button
+
+- scrollUntilVisible:
+    element:
+      id: preview-container
+    direction: DOWN
+    visibilityPercentage: 100
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'ordered_list_wide_markers_hundreds_display'
+
+- scrollUntilVisible:
+    element:
+      id: set-markdown-button
+    direction: UP
+    visibilityPercentage: 100
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        998. Before the boundary
+        999. Three-digit marker
+        1000. Four-digit marker
+        1001. After the boundary
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: blur-button
+          direction: UP
+          visibilityPercentage: 100
+      - tapOn:
+          id: blur-button
+
+- scrollUntilVisible:
+    element:
+      id: preview-container
+    direction: DOWN
+    visibilityPercentage: 100
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'ordered_list_wide_markers_thousands_display'
+
+- scrollUntilVisible:
+    element:
+      id: set-markdown-button
+    direction: UP
+    visibilityPercentage: 100
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        1000. Wide parent
+              1. Nested first item
+                 1. Deeper nested item
+              2. Nested second item
+        1001. Next wide parent
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: blur-button
+          direction: UP
+          visibilityPercentage: 100
+      - tapOn:
+          id: blur-button
+
+- scrollUntilVisible:
+    element:
+      id: preview-container
+    direction: DOWN
+    visibilityPercentage: 100
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'ordered_list_wide_markers_nested_display'

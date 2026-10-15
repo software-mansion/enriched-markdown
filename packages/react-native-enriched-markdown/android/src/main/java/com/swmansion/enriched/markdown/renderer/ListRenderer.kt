@@ -4,6 +4,7 @@ import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.ListItemSpacingSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
+import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
@@ -33,6 +34,27 @@ class ListRenderer(
 
     val contextManager = ListContextManager(factory.blockStyleContext)
     val entryState = contextManager.enterList(listType, listStyle, startNumber)
+    val previousMarkerWidth = factory.blockStyleContext.listMarkerWidth
+    val previousMarkerOffset = factory.blockStyleContext.ancestorMarkerOffset
+    if (entryState.previousDepth > 0) {
+      factory.blockStyleContext.ancestorMarkerOffset += factory.blockStyleContext.listItemMarkerExtra
+    }
+    factory.blockStyleContext.listMarkerWidth =
+      if (isOrdered) {
+        val marker = OrderedListSpan(listStyle, 0, factory.context, factory.styleCache)
+        var number = startNumber
+        var width = marker.measureMarkerWidth(99)
+        for (item in node.children) {
+          if (item.type != MarkdownASTNode.NodeType.ListItem) continue
+          if (number >= 100 && item.attributes["isTask"] != "true") {
+            width = maxOf(width, marker.measureMarkerWidth(number))
+          }
+          number++
+        }
+        width
+      } else {
+        0f
+      }
 
     // For top-level lists, insert marginTop spacer before rendering content
     if (entryState.previousDepth == 0) {
@@ -50,6 +72,8 @@ class ListRenderer(
     try {
       factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
     } finally {
+      factory.blockStyleContext.listMarkerWidth = previousMarkerWidth
+      factory.blockStyleContext.ancestorMarkerOffset = previousMarkerOffset
       contextManager.exitList(entryState)
     }
 

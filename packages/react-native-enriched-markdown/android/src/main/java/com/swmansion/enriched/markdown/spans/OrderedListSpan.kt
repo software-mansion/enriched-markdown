@@ -19,6 +19,8 @@ class OrderedListSpan(
   context: Context,
   styleCache: SpanStyleCache,
   drawsMarker: Boolean = true,
+  private val markerWidth: Float = 0f,
+  ancestorMarkerOffset: Float = 0f,
 ) : BaseListSpan(
     depth = depth,
     context = context,
@@ -33,6 +35,7 @@ class OrderedListSpan(
     marginLeft = listStyle.marginLeft,
     gapWidth = listStyle.gapWidth,
     drawsMarker = drawsMarker,
+    ancestorMarkerOffset = ancestorMarkerOffset,
   ) {
   companion object {
     private val sharedMarkerPaint = TextPaint().apply { isAntiAlias = true }
@@ -52,10 +55,21 @@ class OrderedListSpan(
       typeface = markerTypeface
     }
 
-  override fun getMarkerWidth(): Float {
-    val paint = configureMarkerPaint()
-    return listStyle.effectiveMarkerWidth(paint.measureText("99."))
-  }
+  private val defaultMarkerWidth = measureMarkerWidth(99)
+  private val resolvedMarkerWidth = maxOf(markerWidth, defaultMarkerWidth)
+
+  internal val markerExtraWidth = resolvedMarkerWidth - defaultMarkerWidth
+
+  override fun getMarkerWidth(): Float = resolvedMarkerWidth
+
+  internal fun measureMarkerWidth(number: Int): Float = listStyle.effectiveMarkerWidth(configureMarkerPaint().measureText("$number."))
+
+  override fun getLeadingMargin(first: Boolean): Int =
+    if (depth > 0) {
+      (listStyle.marginLeft + markerExtraWidth).toInt()
+    } else {
+      super.getLeadingMargin(first)
+    }
 
   var itemNumber: Int = 1
     private set
@@ -75,7 +89,7 @@ class OrderedListSpan(
     val text = if (dir < 0) ".$itemNumber" else "$itemNumber."
     val textWidth = markerPaint.measureText(text)
 
-    val markerRightEdge = x + (depth * marginLeft + getMarkerWidth()) * dir
+    val markerRightEdge = x + (depth * marginLeft + ancestorMarkerOffset + getMarkerWidth()) * dir
     val markerX = if (dir > 0) markerRightEdge - textWidth else markerRightEdge
 
     canvas.drawText(text, markerX, baseline.toFloat(), markerPaint)
