@@ -1,6 +1,6 @@
 # Material 3 theme
 
-The markdown below takes its colors from the Material `ColorScheme`, except the note, tip, important and warning alerts, which keep GitHub's alert colors. Flip the switch above to move between the light and dark schemes.
+The markdown below takes its colors from the Material `ColorScheme`, except the note, tip, important and warning alerts, which keep GitHub's alert colors, and code blocks, which keep the default dark style. Flip the switch above to move between the light and dark schemes.
 
 ## Inline formatting
 
@@ -54,6 +54,27 @@ MaterialTheme(colorScheme = scheme) {
 }
 ```
 
+Kotlin has no grammar yet, so the block above stays plain. Java is highlighted:
+
+```java
+// Counts the words in a line of text.
+public final class WordCounter {
+  private static final String SEPARATOR = "\\s+";
+
+  @Override
+  public String toString() {
+    return "WordCounter";
+  }
+
+  public static int count(String line) {
+    if (line == null || line.isBlank()) {
+      return 0;
+    }
+    return line.trim().split(SEPARATOR).length;
+  }
+}
+```
+
 ---
 
 ## Table
@@ -62,5 +83,4 @@ MaterialTheme(colorScheme = scheme) {
 | --- | --- |
 | Paragraph | onSurface |
 | Link | primary |
-| Code block | surfaceContainer |
 | Divider | outlineVariant |

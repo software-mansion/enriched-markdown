@@ -30,8 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.swmansion.enriched.markdown.compose.CodeBlockLayout
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 import com.swmansion.enriched.markdown.compose.material3.rememberMaterialMarkdownStyle
 
 /**
@@ -75,12 +76,13 @@ fun MaterialThemeScreen(
             markdown = markdown,
             modifier = Modifier.fillMaxWidth(),
             style = rememberMaterialMarkdownStyle(),
-            flags = Md4cFlags(highlight = true, admonitions = true),
+            options = MarkdownOptions(highlight = true, admonitions = true),
             onLinkClick = { url ->
               runCatching {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
               }
             },
+            codeBlockLayout = CodeBlockLayout.Scrollable,
           )
         }
       }
