@@ -24,6 +24,7 @@ abstract class BaseListSpan(
   protected val gapWidth: Float,
   internal val drawsMarker: Boolean = true,
   internal val ancestorMarkerOffset: Float = 0f,
+  internal val parentMarkerWidth: Float? = null,
 ) : MetricAffectingSpan(),
   LeadingMarginSpan {
   private var cachedText: CharSequence? = null
@@ -42,17 +43,25 @@ abstract class BaseListSpan(
   /** How far an ordered list widened this item's column past the one short lists reserve. */
   internal open val markerExtraWidth: Float = 0f
 
+  /** This item's marker column without [markerExtraWidth]; a nested item measures its indent against it. */
+  internal open fun getBaselineMarkerWidth(): Float = getMarkerWidth()
+
   override fun updateMeasureState(textPaint: TextPaint) = applyTextStyle(textPaint)
 
   override fun updateDrawState(textPaint: TextPaint) = applyTextStyle(textPaint)
 
-  override fun getLeadingMargin(first: Boolean): Int =
-    if (depth == 0) {
-      val effectiveGap = gapWidth.coerceAtLeast(DEFAULT_MIN_GAP)
-      (getMarkerWidth() + effectiveGap).toInt()
-    } else {
-      (marginLeft + markerExtraWidth).toInt()
-    }
+  override fun getLeadingMargin(first: Boolean): Int {
+    val effectiveGap = gapWidth.coerceAtLeast(DEFAULT_MIN_GAP)
+    if (depth == 0) return (getMarkerWidth() + effectiveGap).toInt()
+
+    // Subtract truncated absolute indents, each measured from its own item's column, so neither mixed
+    // columns nor fractional margins accumulate rounding. The widenings are whole pixels and add unchanged.
+    val markerWidth = getBaselineMarkerWidth()
+    val parentWidth = parentMarkerWidth ?: markerWidth
+    val indent = (depth * marginLeft + markerWidth + effectiveGap).toInt()
+    val parentIndent = ((depth - 1) * marginLeft + parentWidth + effectiveGap).toInt()
+    return indent - parentIndent + markerExtraWidth.toInt()
+  }
 
   override fun drawLeadingMargin(
     canvas: Canvas,

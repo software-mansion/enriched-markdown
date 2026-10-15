@@ -19,11 +19,13 @@ data class DrawnMarker(
   val baseline: Float,
 )
 
-/** A drawn marker with the text edge and list depth of the paragraph it belongs to. */
+/** A drawn marker with the text edges, direction and list depth of the paragraph it belongs to. */
 data class MarkerGeometry(
   val marker: DrawnMarker,
   val paragraphLeft: Float,
   val depth: Int,
+  val paragraphRight: Float,
+  val direction: Int,
 )
 
 /** Records the list markers a layout draws instead of painting them. */
@@ -46,6 +48,18 @@ class MarkerCanvas : Canvas(Bitmap.createBitmap(LAYOUT_WIDTH, 1, Bitmap.Config.A
     val outerRadius = radius + paint.strokeWidth / 2f
     markers += DrawnMarker(cx - outerRadius, cx, cy)
     super.drawCircle(cx, cy, radius, paint)
+  }
+
+  override fun drawRect(
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float,
+    paint: Paint,
+  ) {
+    // Bullets from depth 2 on are squares, centered like the round ones.
+    markers += DrawnMarker(left, (left + right) / 2f, (top + bottom) / 2f)
+    super.drawRect(left, top, right, bottom, paint)
   }
 
   override fun drawRoundRect(
@@ -86,7 +100,7 @@ class MarkerCanvas : Canvas(Bitmap.createBitmap(LAYOUT_WIDTH, 1, Bitmap.Config.A
     fun drawMarkers(layout: Layout): List<DrawnMarker> =
       MarkerCanvas().also(layout::draw).markers.sortedWith(compareBy({ it.baseline }, { it.left }))
 
-    /** Every marker [layout] draws, with the text edge and depth of its paragraph. */
+    /** Every marker [layout] draws, with the text edges, direction and depth of its paragraph. */
     fun markerGeometry(
       text: Spanned,
       layout: Layout,
@@ -95,7 +109,13 @@ class MarkerCanvas : Canvas(Bitmap.createBitmap(LAYOUT_WIDTH, 1, Bitmap.Config.A
         val line = layout.getLineForVertical(marker.baseline.toInt())
         val start = layout.getLineStart(line)
         val depth = text.getSpans(start, start + 1, BaseListSpan::class.java).maxOf { it.depth }
-        MarkerGeometry(marker, layout.getParagraphLeft(line).toFloat(), depth)
+        MarkerGeometry(
+          marker,
+          layout.getParagraphLeft(line).toFloat(),
+          depth,
+          layout.getParagraphRight(line).toFloat(),
+          layout.getParagraphDirection(line),
+        )
       }
   }
 }

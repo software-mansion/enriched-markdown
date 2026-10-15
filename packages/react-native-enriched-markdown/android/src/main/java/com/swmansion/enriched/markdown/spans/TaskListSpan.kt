@@ -22,6 +22,7 @@ class TaskListSpan(
   drawsMarker: Boolean = true,
   ancestorMarkerOffset: Float = 0f,
   override val markerExtraWidth: Float = 0f,
+  parentMarkerWidth: Float? = null,
 ) : BaseListSpan(
     depth = depth,
     context = context,
@@ -37,9 +38,11 @@ class TaskListSpan(
     gapWidth = listStyle.gapWidth,
     drawsMarker = drawsMarker,
     ancestorMarkerOffset = ancestorMarkerOffset,
+    parentMarkerWidth = parentMarkerWidth,
   ) {
   private val checkboxSize = taskStyle.checkboxSize
-  private val markerColumnWidth = listStyle.effectiveMarkerWidth(checkboxSize) + markerExtraWidth
+  private val checkboxColumnWidth = listStyle.effectiveMarkerWidth(checkboxSize)
+  private val markerColumnWidth = checkboxColumnWidth + markerExtraWidth
   private val cornerRadius = taskStyle.checkboxBorderRadius
   private val rect = RectF()
   private val checkPath = Path()
@@ -62,6 +65,8 @@ class TaskListSpan(
     }
 
   override fun getMarkerWidth(): Float = markerColumnWidth
+
+  override fun getBaselineMarkerWidth(): Float = checkboxColumnWidth
 
   override fun drawMarker(
     canvas: Canvas,

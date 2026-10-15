@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown
 
 import android.graphics.Typeface
 import android.text.SpannableString
+import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -137,6 +138,146 @@ class ListRenderingTest {
     }
   }
 
+  @Test
+  fun mixedNestsStartTheirTextFromTheirOwnMarkerColumn() {
+    val style = mixedStyle()
+    for (parent in Kind.entries) {
+      for (child in Kind.entries.filter { it != parent }) {
+        for (checked in checkedStates(parent, child)) {
+          val markers = drawMarkers(style, list(parent, list(child, checked = checked), checked))
+          assertEquals(listOf(0, 1), markers.map { it.depth })
+          val expected = (24f + columnOf(style, child) + MIXED_GAP).toInt().toFloat()
+          assertEquals("$child under $parent", expected, markers.last().paragraphLeft, 0f)
+          assertMixedGaps(markers, "$child under $parent, checked=$checked")
+        }
+      }
+    }
+  }
+
+  @Test
+  fun topLevelAndSameTypeNestsKeepTheirGeometry() {
+    val style = mixedStyle()
+    for (kind in Kind.entries) {
+      val column = columnOf(style, kind)
+      val markers = drawMarkers(style, list(kind, list(kind, list(kind))))
+      assertEquals(listOf(0, 1, 2), markers.map { it.depth })
+      markers.forEach {
+        assertEquals("text for $kind at depth ${it.depth}", (column + MIXED_GAP).toInt() + it.depth * 24f, it.paragraphLeft, 0f)
+        assertEquals(column + it.depth * 24f, it.marker.right, 0.01f)
+      }
+    }
+  }
+
+  @Test
+  fun mixedColumnsUseAbsoluteIndentsWithoutFractionalDrift() {
+    val alternating = listOf(Kind.BULLET, Kind.ORDERED, Kind.BULLET, Kind.TASK)
+    val sameTypeRun = List(5) { Kind.BULLET } + Kind.TASK
+    for (margin in listOf(24f, 24.5f, 4f)) {
+      val style = mixedStyle(bulletSize = 6.5f, marginLeft = margin)
+      for (kinds in listOf(alternating, sameTypeRun)) {
+        val columns = kinds.map { columnOf(style, it) }
+        val tree = kinds.dropLast(1).foldRight(list(kinds.last())) { kind, child -> list(kind, child) }
+        val markers = drawMarkers(style, tree)
+        assertEquals(kinds.indices.toList(), markers.map { it.depth })
+        markers.forEach {
+          val expected = (it.depth * margin + columns[it.depth] + MIXED_GAP).toInt().toFloat()
+          assertEquals("absolute indent at depth ${it.depth} of $kinds, margin $margin", expected, it.paragraphLeft, 0f)
+          assertEquals(it.paragraphLeft - MIXED_GAP, it.marker.right, 0.99f)
+        }
+      }
+    }
+  }
+
+  @Test
+  fun mixedAncestorsAndFollowingSiblingsRestoreTheirOwnColumns() {
+    val style = mixedStyle()
+    for (parent in Kind.entries) {
+      val tree = list(parent).copy(children = Kind.entries.map { child -> item(parent, list(child, list(parent))) })
+      assertMixedGaps(drawMarkers(style, tree, list(Kind.BULLET), list(Kind.ORDERED), list(Kind.TASK)), "under $parent")
+    }
+  }
+
+  @Test
+  fun mixedNestsAroundWideNumberedListsKeepTheirMarkerGap() {
+    val style = mixedStyle()
+    val wide = numbered(101)
+    val wideWithTask = withChild(numbered(101), 1, list(Kind.TASK, list(Kind.BULLET)))
+    val shapes =
+      listOf(
+        withChild(wide, 0, list(Kind.BULLET)),
+        wideWithTask,
+        list(Kind.BULLET, wide),
+        list(Kind.TASK, wide),
+        withChild(numbered(1000), 999, withChild(wide, 0, list(Kind.BULLET))),
+        list(Kind.BULLET, withChild(wide, 1, list(Kind.TASK))),
+        orderedList(*numbered(101).children.toTypedArray(), item(Kind.TASK, list(Kind.BULLET))),
+      )
+    for ((index, shape) in shapes.withIndex()) {
+      assertMixedGaps(drawMarkers(style, shape), "shape $index")
+    }
+  }
+
+  @Test
+  fun wrappedLinesKeepTheChildsOwnColumn() {
+    val style = mixedStyle()
+    val wrapped = orderedList(listItem(paragraph(text("wrapped child text ".repeat(12)))))
+    val text = SpannableString(render(document(list(Kind.BULLET, wrapped)), style))
+    val layout = StaticLayout.Builder.obtain(text, 0, text.length, TextPaint(), 180).build()
+    val span = text.getSpans(0, text.length, OrderedListSpan::class.java).single()
+    val firstLine = layout.getLineForOffset(text.getSpanStart(span))
+    val lastLine = layout.getLineForOffset(text.getSpanEnd(span) - 1)
+    assertTrue(lastLine > firstLine)
+    val column = columnOf(style, Kind.ORDERED)
+    for (line in firstLine..lastLine) {
+      assertEquals((24f + column + MIXED_GAP).toInt(), layout.getParagraphLeft(line))
+    }
+    val markers = MarkerCanvas.drawMarkers(layout)
+    assertEquals(2, markers.size)
+    assertEquals(24f + column, markers.last().right, 0.01f)
+  }
+
+  @Test
+  fun rtlMixedNestsKeepTheirMarkerGapAtEveryDepth() {
+    fun rtl(node: MarkdownASTNode): MarkdownASTNode {
+      if (node.type == MarkdownASTNode.NodeType.Text) return node.copy(content = "\u05e4\u05e8\u05d9\u05d8")
+      return node.copy(children = node.children.map { rtl(it) })
+    }
+
+    val style = mixedStyle()
+    for (parent in Kind.entries) {
+      for (child in Kind.entries.filter { it != parent }) {
+        for (checked in checkedStates(parent, child)) {
+          val tree = list(parent, list(child, list(parent, checked = checked), checked), checked)
+          val text = SpannableString(render(document(rtl(tree)), style))
+          val markers = MarkerCanvas.markerGeometry(text, MarkerCanvas.layout(text, style.listStyle.fontSize, rtl = true))
+          assertEquals(listOf(0, 1, 2), markers.map { it.depth })
+          markers.forEach {
+            assertEquals("RTL paragraph at depth ${it.depth}", -1, it.direction)
+            // Bullets are centered on the column edge, so their recorded right is that edge in both directions.
+            val kind = if (it.depth == 1) child else parent
+            val edge = if (kind == Kind.BULLET) it.marker.right else it.marker.left
+            assertEquals("$child under $parent, checked=$checked, depth ${it.depth}", it.paragraphRight + MIXED_GAP, edge, 0.01f)
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  fun equalMinimumColumnsKeepTheirGeometryForMixedNests() {
+    val style = mixedStyle(markerMinWidth = 40f)
+    for (parent in Kind.entries) {
+      for (child in Kind.entries.filter { it != parent }) {
+        val markers = drawMarkers(style, list(parent, list(child, list(parent))))
+        assertEquals(listOf(0, 1, 2), markers.map { it.depth })
+        markers.forEach {
+          assertEquals("text for $child under $parent at depth ${it.depth}", 46f + it.depth * 24f, it.paragraphLeft, 0f)
+          assertEquals(40f + it.depth * 24f, it.marker.right, 0.01f)
+        }
+      }
+    }
+  }
+
   /** The rows [wide] shares with [short], tasks and their children included, all sit [wide]'s widening further right. */
   private fun assertEveryRowShiftsTogether(
     style: StyleConfig,
@@ -157,6 +298,16 @@ class ListRenderingTest {
         actual.paragraphLeft - actual.marker.right,
         0.01f,
       )
+    }
+  }
+
+  private fun assertMixedGaps(
+    markers: List<MarkerGeometry>,
+    shape: String,
+  ) {
+    assertTrue(markers.isNotEmpty())
+    markers.forEach {
+      assertEquals("marker gap at depth ${it.depth}, $shape", it.paragraphLeft - MIXED_GAP, it.marker.right, 0.01f)
     }
   }
 
@@ -226,5 +377,61 @@ class ListRenderingTest {
         marginLeft = 24f,
       ),
     )
+  }
+
+  private enum class Kind { ORDERED, BULLET, TASK }
+
+  private fun list(
+    kind: Kind,
+    child: MarkdownASTNode? = null,
+    checked: Boolean = false,
+  ): MarkdownASTNode {
+    val item = item(kind, child, checked)
+    return if (kind == Kind.ORDERED) orderedList(item) else unorderedList(item)
+  }
+
+  private fun item(
+    kind: Kind,
+    child: MarkdownASTNode? = null,
+    checked: Boolean = false,
+  ): MarkdownASTNode {
+    val children = listOfNotNull(paragraph(text("item")), child).toTypedArray()
+    return if (kind == Kind.TASK) taskListItem(checked, *children) else listItem(*children)
+  }
+
+  private fun checkedStates(
+    parent: Kind,
+    child: Kind,
+  ) = if (parent == Kind.TASK || child == Kind.TASK) listOf(false, true) else listOf(false)
+
+  /** The marker column [kind] reserves before any widening, read from a rendered top-level item. */
+  private fun columnOf(
+    style: StyleConfig,
+    kind: Kind,
+  ): Float {
+    val text = render(document(list(kind)), style)
+    return text.getSpans(0, text.length, BaseListSpan::class.java).single().getBaselineMarkerWidth()
+  }
+
+  private fun mixedStyle(
+    markerMinWidth: Float = 0f,
+    bulletSize: Float = 6f,
+    marginLeft: Float = 24f,
+  ): StyleConfig {
+    val base = MarkdownRenderTestSupport.defaultStyle
+    return MarkdownRenderTestSupport.styleWithList(
+      base.listStyle.copy(
+        fontSize = 16f,
+        bulletSize = bulletSize,
+        markerMinWidth = markerMinWidth,
+        gapWidth = MIXED_GAP,
+        marginLeft = marginLeft,
+      ),
+      base.taskListStyle.copy(checkboxSize = 14f),
+    )
+  }
+
+  private companion object {
+    const val MIXED_GAP = 6f
   }
 }
