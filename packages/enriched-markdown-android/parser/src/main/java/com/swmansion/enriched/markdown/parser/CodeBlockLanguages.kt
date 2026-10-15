@@ -1,7 +1,5 @@
 package com.swmansion.enriched.markdown.parser
 
-import android.util.Log
-
 /**
  * Display names for code block fence languages ("py" -> "Python"), from the
  * shared C++ core (cpp/highlight/CodeBlockLanguages.hpp) so every platform
@@ -9,12 +7,9 @@ import android.util.Log
  * raw fence string is shown instead.
  */
 object CodeBlockLanguages {
+  // The lookup lives in the parser's native library, which Parser loads.
   init {
-    try {
-      System.loadLibrary("enriched_markdown_parser")
-    } catch (e: UnsatisfiedLinkError) {
-      Log.e("CodeBlockLanguages", "Failed to load native library", e)
-    }
+    Parser.shared
   }
 
   @JvmStatic
