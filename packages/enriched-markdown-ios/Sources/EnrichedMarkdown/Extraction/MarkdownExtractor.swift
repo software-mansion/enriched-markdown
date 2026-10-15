@@ -74,7 +74,13 @@ enum MarkdownExtractor {
         attributedText.enumerateAttributes(in: clamped, options: []) { attrs, attrRange, _ in
             let text = (attributedText.string as NSString).substring(with: attrRange)
             guard !text.isEmpty else { return }
-            appendRun(text, attrs: attrs, to: &result, state: &state)
+            appendRun(
+                text,
+                attrs: attrs,
+                endsDocument: NSMaxRange(attrRange) == attributedText.length,
+                to: &result,
+                state: &state
+            )
         }
 
         flushHeading(&result, state: &state)
@@ -167,6 +173,7 @@ private extension MarkdownExtractor {
     static func appendRun(
         _ text: String,
         attrs: [NSAttributedString.Key: Any],
+        endsDocument: Bool,
         to result: inout String,
         state: inout ExtractionState
     ) {
@@ -180,17 +187,13 @@ private extension MarkdownExtractor {
             return
         }
 
-        if let table = attrs[.attachment] as? TableAttachment {
-            appendBlockElement(table.markdownText(), to: &result, state: &state)
+        if let block = blockAttachmentMarkdown(in: attrs) {
+            appendBlockElement(block, to: &result, state: &state)
             return
         }
 
         var text = text
         if let attachment = attrs[.attachment] as? any MarkdownPluginAttachment {
-            if attachment.isBlock {
-                appendBlockElement(attachment.markdownText(), to: &result, state: &state)
-                return
-            }
             // Inline plugin attachments reconstruct like any other inline run.
             text = attachment.markdownText()
         }
@@ -219,7 +222,7 @@ private extension MarkdownExtractor {
         flushHeading(&result, state: &state)
 
         if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) {
-            appendCodeBlockRun(text, to: &result, state: &state)
+            appendCodeBlockRun(text, endsDocument: endsDocument, to: &result, state: &state)
             return
         }
 
@@ -249,6 +252,17 @@ private extension MarkdownExtractor {
         state.needsBlankLine = true
         state.blockquoteDepth = -1
         state.listDepth = -1
+    }
+
+    static func blockAttachmentMarkdown(in attrs: [NSAttributedString.Key: Any]) -> String? {
+        switch attrs[.attachment] {
+        case let table as TableAttachment:
+            return table.markdownText()
+        case let plugin as any MarkdownPluginAttachment where plugin.isBlock:
+            return plugin.markdownText()
+        default:
+            return nil
+        }
     }
 
     /// Emits a standalone block, leaving any heading, list, or blockquote context.
@@ -350,7 +364,12 @@ private extension MarkdownExtractor {
         state.needsBlankLine = true
     }
 
-    static func appendCodeBlockRun(_ text: String, to result: inout String, state: inout ExtractionState) {
+    static func appendCodeBlockRun(
+        _ text: String,
+        endsDocument: Bool,
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
         if state.needsBlankLine {
             ensureBlankLine(&result)
             state.needsBlankLine = false
@@ -364,6 +383,9 @@ private extension MarkdownExtractor {
 
         if text.hasSuffix("\n") {
             result += "```\n"
+            state.needsBlankLine = true
+        } else if endsDocument {
+            result += "\n```\n"
             state.needsBlankLine = true
         }
     }

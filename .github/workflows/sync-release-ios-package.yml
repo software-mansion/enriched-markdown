@@ -45,13 +45,24 @@ jobs:
       - name: Restore iOS vendor files
         uses: ./.github/actions/restore-ios-vendor
 
-      # --copy-links dereferences the core/ and vendor symlinks so real files
-      # land in the standalone repo; .gitignore and LICENSE come from the
-      # monorepo root, so they are copied in after the sync.
+      # --copy-links dereferences the package's symlinks so real files land in
+      # the standalone repo; .gitignore and LICENSE come from the monorepo root.
       - name: Sync package files
         run: |
-          rsync -a --copy-links --delete --exclude=.git packages/enriched-markdown-ios/ target/
+          rsync -a --copy-links --delete --exclude=.git --exclude=.stamp packages/enriched-markdown-ios/ target/
           cp .gitignore LICENSE target/
+
+      - name: Verify synced tree
+        run: |
+          (cd packages/enriched-markdown-ios && find -L . -type f ! -name .stamp | sed 's|^\./||' | LC_ALL=C sort) > "$RUNNER_TEMP/expected.txt"
+          git -C target ls-files --cached --others --exclude-standard | LC_ALL=C sort -u > "$RUNNER_TEMP/synced.txt"
+          missing=$(comm -23 "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/synced.txt")
+          if [ -n "$missing" ]; then
+            echo "Missing from the standalone tree after the sync:"
+            echo "$missing"
+            exit 1
+          fi
+          echo "All $(wc -l < "$RUNNER_TEMP/expected.txt" | tr -d ' ') package files are in the standalone tree"
 
       - name: Commit and push
         working-directory: target

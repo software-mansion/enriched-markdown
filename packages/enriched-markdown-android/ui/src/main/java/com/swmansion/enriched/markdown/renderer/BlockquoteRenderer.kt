@@ -7,8 +7,8 @@ import android.text.style.LineHeightSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
-import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_CONTAINER_BACKGROUND
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
 import com.swmansion.enriched.markdown.utils.text.span.createLineHeightSpan
@@ -98,11 +98,12 @@ class BlockquoteRenderer(
         .sortedBy { it.first }
 
     // The accent bar / background span covers the full box, incl. the top spacer and the header.
+    // Top priority draws it first, so inline pill/chip backgrounds paint on top of its fill.
     builder.setSpan(
       BlockquoteSpan(style, depth, factory.context, factory.styleCache, headerSpan),
       start,
       end,
-      SPAN_FLAGS_CONTAINER_BACKGROUND,
+      SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY,
     )
 
     applySpansExcludingNested(builder, nestedRanges, contentStart, end, createLineHeightSpan(style.lineHeight))

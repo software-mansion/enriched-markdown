@@ -20,6 +20,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
+import com.swmansion.enriched.markdown.compose.MarkdownPlugins
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
 class AndroidExampleMainActivity : ComponentActivity() {
@@ -38,9 +40,9 @@ class AndroidExampleMainActivity : ComponentActivity() {
       var currentRoute by rememberSaveable { mutableStateOf(ExampleRoute.Home) }
 
       MaterialTheme {
-        // Math ships as its own artifact; this scope parses and renders `$...$` / `$$...$$` for every
-        // EnrichedMarkdownText below.
-        LatexMathPlugin {
+        // Math and code highlighting ship as their own artifacts; this scope enables both for every
+        // EnrichedMarkdownText below, and LatexMathPlugin also turns on `$...$` / `$$...$$` parsing.
+        MarkdownPlugins(LatexMathPlugin, CodeHighlightPlugin) {
           Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.White,

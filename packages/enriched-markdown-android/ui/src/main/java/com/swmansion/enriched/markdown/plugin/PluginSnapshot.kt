@@ -27,13 +27,16 @@ class PluginSnapshot internal constructor(
   val nodeRenderers: Map<NodeType, (RendererConfig, Context) -> NodeRenderer>,
   @property:InternalPluginApi
   val blockSegments: Map<NodeType, BlockSegmentRegistration>,
+  /** In plugin order, which is the order they run in. */
+  @property:InternalPluginApi
+  val codeBlockDecorators: List<CodeBlockDecorator>,
   private val parserFlagAdjusters: List<(Md4cFlags) -> Md4cFlags>,
 ) {
   /** [flags] as every installed plugin adjusts them, in plugin order. */
   internal fun adjustParserFlags(flags: Md4cFlags): Md4cFlags = parserFlagAdjusters.fold(flags) { adjusted, adjust -> adjust(adjusted) }
 
   companion object {
-    val EMPTY = PluginSnapshot(emptyMap(), emptyMap(), emptyList())
+    val EMPTY = PluginSnapshot(emptyMap(), emptyMap(), emptyList(), emptyList())
 
     /**
      * Later plugins win a node type that several claim. Of several plugins with the same id only
@@ -55,6 +58,7 @@ class PluginSnapshot internal constructor(
       val nodeRenderers = LinkedHashMap<NodeType, (RendererConfig, Context) -> NodeRenderer>()
       val nodeRendererOwners = HashMap<NodeType, String>()
       val blockSegments = LinkedHashMap<NodeType, BlockSegmentRegistration>()
+      val codeBlockDecorators = ArrayList<CodeBlockDecorator>()
 
       // Plugin order, so a later plugin wins a contested node type.
       for (registrations in installed) {
@@ -69,9 +73,11 @@ class PluginSnapshot internal constructor(
           warnOnConflict("block segment", type, blockSegments[type]?.pluginId, pluginId)
           blockSegments[type] = BlockSegmentRegistration(pluginId, segment)
         }
+
+        codeBlockDecorators += registrations.codeBlockDecorators
       }
 
-      return PluginSnapshot(nodeRenderers, blockSegments, installed.map { it.adjustParserFlags })
+      return PluginSnapshot(nodeRenderers, blockSegments, codeBlockDecorators, installed.map { it.adjustParserFlags })
     }
 
     private fun warnOnConflict(
@@ -93,6 +99,7 @@ class PluginSnapshot internal constructor(
   ) : PluginRegistry {
     val nodeRenderers = LinkedHashMap<NodeType, (RendererConfig, Context) -> NodeRenderer>()
     val blockSegments = LinkedHashMap<NodeType, PluginBlockSegment<*>>()
+    val codeBlockDecorators = ArrayList<CodeBlockDecorator>()
 
     override fun registerNodeRenderer(
       type: NodeType,
@@ -106,6 +113,10 @@ class PluginSnapshot internal constructor(
       segment: PluginBlockSegment<*>,
     ) {
       blockSegments[type] = segment
+    }
+
+    override fun registerCodeBlockDecorator(decorator: CodeBlockDecorator) {
+      codeBlockDecorators += decorator
     }
   }
 }
