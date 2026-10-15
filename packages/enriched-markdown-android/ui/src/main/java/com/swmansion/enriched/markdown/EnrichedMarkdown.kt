@@ -150,9 +150,7 @@ class EnrichedMarkdown(
     if (this.plugins == plugins) return
     this.plugins = plugins
     pluginSnapshot = PluginSnapshot.of(*plugins.toTypedArray())
-    // As with a style change, the AST - and so every signature - is unchanged, so the reconciler
-    // would otherwise keep views built by the previous plugins.
-    needsSegmentReset = true
+    needsSegmentReset = true // plugins change how nodes render, which the AST-based signatures don't capture
     scheduleRenderIfNeeded()
   }
 
