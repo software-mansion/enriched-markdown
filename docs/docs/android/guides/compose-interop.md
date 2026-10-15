@@ -51,7 +51,7 @@ Give each row a stable `key` as well, so Compose reuses views for the rows you m
 
 ## Selection is per component
 
-Each `EnrichedMarkdownText` is its own selection scope. Within one, a selection can run the whole document - headings, quotes, and code blocks included, since a document renders into a single text view. Across two, it cannot: there is no way to drag a selection from one component into the next, and Compose's `SelectionContainer` does not bridge them.
+Each `EnrichedMarkdownText` is its own selection scope. Within one, a selection can run across headings, paragraphs, lists, and quotes, which share one text view; tables, and top-level code blocks set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout), are views of their own, so a selection stops at them and a long-press copies them instead. Across two components, it cannot: there is no way to drag a selection from one component into the next, and Compose's `SelectionContainer` does not bridge them.
 
 So if a screen's text should be selectable as one unit, render it as **one** `EnrichedMarkdownText` with one Markdown string, rather than composing several.
 
@@ -66,7 +66,7 @@ Two habits keep that off your critical path:
 - **Hoist styles to file scope.** A style built inside a composable body is reallocated on every recomposition. Equal layers do compare equal, so nothing re-resolves - but `MarkdownTheme` is backed by a *static* composition local, where an unstable value recomposes the entire subtree rather than just its readers.
 - **Remember a style that reads `MaterialTheme`.** Read the color scheme first and build the style in `remember`, keyed on it, so it rebuilds on a color-scheme change and is reused otherwise. [`rememberMaterialMarkdownStyle`](/android/api-reference/markdown-theme#materialmarkdownstyle) does this for a style colored from the whole scheme.
 
-Changing `markdown` or [`flags`](/android/api-reference/enriched-markdown-text#flags) re-parses the document, so treat both as content rather than as values to churn per frame. A configuration change - rotation, theme switch, font-size change - re-renders too, because layout depends on the width and density it was measured at.
+Changing `markdown` or [`options`](/android/api-reference/enriched-markdown-text#options) re-parses the document, so treat both as content rather than as values to churn per frame. A configuration change - rotation, theme switch, font-size change - re-renders too, because layout depends on the width and density it was measured at.
 
 ## Accessibility
 

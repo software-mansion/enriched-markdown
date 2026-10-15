@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.renderer
 
 import android.graphics.Paint
@@ -5,6 +7,8 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.LineHeightSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.plugin.CodeBlockDecorator
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
@@ -12,6 +16,7 @@ import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
 
 class CodeBlockRenderer(
   private val config: RendererConfig,
+  private val decorators: List<CodeBlockDecorator> = emptyList(),
 ) : NodeRenderer {
   override fun render(
     node: MarkdownASTNode,
@@ -49,6 +54,15 @@ class CodeBlockRenderer(
       end,
       SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
     )
+
+    // After CodeBlockSpan: character styles apply in insertion order, and the block's span
+    // repaints every color it does not preserve, so a decorator's colors must come later.
+    if (decorators.isNotEmpty()) {
+      val language = node.getAttribute("language")?.takeIf { it.isNotBlank() }
+      for (decorator in decorators) {
+        decorator.decorate(builder, contentStart, end, language, config.style, factory.context)
+      }
+    }
 
     // Apply vertical padding via line height manipulation
     builder.setSpan(

@@ -11,7 +11,8 @@ final class AttributedRenderer {
         imageRequestHeaders: [String: String] = [:],
         plugins: [any MarkdownRenderPlugin] = [],
         writingDirection: MarkdownWritingDirection = .firstStrong,
-        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
+        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
     ) {
         self.config = config
         self.factory = RendererFactory(
@@ -19,7 +20,8 @@ final class AttributedRenderer {
             imageRequestHeaders: imageRequestHeaders,
             plugins: plugins,
             writingDirection: writingDirection,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            codeBlockLayout: codeBlockLayout
         )
         self.rootBlockMargins = plugins.reduce(into: [:]) { margins, plugin in
             for type in plugin.rootBlockNodeTypes where margins[type] == nil {
@@ -50,6 +52,7 @@ final class AttributedRenderer {
         }
 
         context.clearBlockStyle()
+        TrailingSpacing.strip(from: output, codeBlockPadding: config.codeBlock.padding ?? 0)
         BaselineShiftRenderer.applyShifts(to: output, context: context, config: config)
         SpoilerConcealment.conceal(output, in: NSRange(location: 0, length: output.length))
         factory.applyWritingDirection(to: output)

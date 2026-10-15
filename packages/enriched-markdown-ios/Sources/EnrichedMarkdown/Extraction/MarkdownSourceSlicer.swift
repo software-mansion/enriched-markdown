@@ -478,6 +478,7 @@ private extension MarkdownSourceSlicer {
 
     static func isCodeBlockRun(_ run: MappedRun) -> Bool {
         MarkdownAttributeValue.boolValue(from: run.attrs[MarkdownAttribute.codeBlock])
+            || run.attrs[.attachment] is CodeBlockAttachment
     }
 
     /// A fully-selected code block starts at its content's first byte; the

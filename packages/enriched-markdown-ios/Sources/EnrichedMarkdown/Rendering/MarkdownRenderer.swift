@@ -9,7 +9,8 @@ public enum MarkdownRenderer {
         options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
         writingDirection: MarkdownWritingDirection = .firstStrong,
-        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
+        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
     ) -> NSAttributedString {
         render(
             markdown,
@@ -18,7 +19,8 @@ public enum MarkdownRenderer {
             imageRequestHeaders: imageRequestHeaders,
             plugins: [],
             writingDirection: writingDirection,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            codeBlockLayout: codeBlockLayout
         )
     }
 
@@ -29,7 +31,8 @@ public enum MarkdownRenderer {
         imageRequestHeaders: [String: String],
         plugins: [any MarkdownRenderPlugin],
         writingDirection: MarkdownWritingDirection = .firstStrong,
-        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
+        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
     ) -> NSAttributedString {
         let ast = Parser.shared.parseMarkdown(markdown, options: effectiveParsingOptions(options, plugins: plugins))
         let annotated = SourceOffsetAnnotator.annotate(ast, source: markdown)
@@ -38,7 +41,8 @@ public enum MarkdownRenderer {
             imageRequestHeaders: imageRequestHeaders,
             plugins: plugins,
             writingDirection: writingDirection,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            codeBlockLayout: codeBlockLayout
         )
         return renderer.renderRoot(annotated)
     }

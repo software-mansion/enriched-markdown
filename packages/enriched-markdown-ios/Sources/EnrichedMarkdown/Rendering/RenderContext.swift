@@ -24,6 +24,7 @@ package struct BlockStyle {
 enum MarkdownAttribute {
     static let inlineCode = NSAttributedString.Key("EnrichedMarkdownInlineCode")
     static let codeBlock = NSAttributedString.Key("EnrichedMarkdownCodeBlock")
+    static let codeBlockLanguage = NSAttributedString.Key("EnrichedMarkdownCodeBlockLanguage")
     static let headingLevel = NSAttributedString.Key("EnrichedMarkdownHeadingLevel")
     static let strong = NSAttributedString.Key("EnrichedMarkdownStrong")
     static let emphasis = NSAttributedString.Key("EnrichedMarkdownEmphasis")
@@ -61,6 +62,7 @@ enum MarkdownAttribute {
     /// run (`NSValue`-wrapped `NSRange`; not a range into the rendered
     /// string). Absent when the run's text is not contiguous in the source.
     static let sourceRange = NSAttributedString.Key("EnrichedMarkdownSourceRange")
+    static let trailingSpacing = NSAttributedString.Key("EnrichedMarkdownTrailingSpacing")
 }
 
 package final class RenderContext {

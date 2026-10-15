@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.segments.RenderedSegment
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
+import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.styles.CodeStyle
 import com.swmansion.enriched.markdown.styles.HeadingStyle
 import com.swmansion.enriched.markdown.styles.HighlightStyle
@@ -72,6 +73,9 @@ object MarkdownRenderTestSupport {
   /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
   fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
 
+  /** [defaultStyle] with only its [CodeBlockStyle] replaced. */
+  fun styleWithCodeBlock(codeBlockStyle: CodeBlockStyle): StyleConfig = copyOfDefault(codeBlockStyle = codeBlockStyle)
+
   /** [defaultStyle] with its inline [CodeStyle] replaced, and aligned like [styleWithTextAlign] when [textAlign] is given. */
   fun styleWithCode(
     codeStyle: CodeStyle,
@@ -110,6 +114,7 @@ object MarkdownRenderTestSupport {
     taskListStyle: TaskListStyle? = null,
     blockquoteStyle: BlockquoteStyle? = null,
     codeStyle: CodeStyle? = null,
+    codeBlockStyle: CodeBlockStyle? = null,
     spoilerStyle: SpoilerStyle? = null,
     linkStyle: LinkStyle? = null,
     paragraphStyle: ParagraphStyle? = null,
@@ -134,7 +139,7 @@ object MarkdownRenderTestSupport {
       blockquoteStyle = blockquoteStyle ?: base.blockquoteStyle,
       listStyle = base.listStyle,
       taskListStyle = taskListStyle ?: base.taskListStyle,
-      codeBlockStyle = base.codeBlockStyle,
+      codeBlockStyle = codeBlockStyle ?: base.codeBlockStyle,
       thematicBreakStyle = base.thematicBreakStyle,
       tableStyle = base.tableStyle,
       tableTypeface = base.tableTypeface,

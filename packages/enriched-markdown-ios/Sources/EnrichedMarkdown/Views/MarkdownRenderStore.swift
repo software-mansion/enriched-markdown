@@ -19,6 +19,7 @@ struct MarkdownRenderInputs: Equatable {
     var plugins = RenderPluginList()
     var writingDirection: MarkdownWritingDirection = .firstStrong
     var layoutDirection: LayoutDirection = .leftToRight
+    var codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
 }
 
 struct RenderPluginList: Equatable {
@@ -81,7 +82,8 @@ final class MarkdownRenderStore: ObservableObject {
                 imageRequestHeaders: inputs.imageRequestHeaders,
                 plugins: plugins,
                 writingDirection: inputs.writingDirection,
-                layoutDirection: UIUserInterfaceLayoutDirection(inputs.layoutDirection)
+                layoutDirection: UIUserInterfaceLayoutDirection(inputs.layoutDirection),
+                codeBlockLayout: inputs.codeBlockLayout
             )
         } apply: { [weak self] result in
             guard let self else { return }

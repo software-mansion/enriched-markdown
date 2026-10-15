@@ -69,15 +69,16 @@ The library needs the Internet permission only if your Markdown references **rem
 
 ## What the artifact pulls in
 
-The package publishes three artifacts under the `com.swmansion.enriched.markdown` group:
+The package publishes four artifacts under the `com.swmansion.enriched.markdown` group:
 
 | Artifact | What it is | Depend on it directly? |
 | --- | --- | --- |
 | `compose` | The Jetpack Compose API: `EnrichedMarkdownText`, `MarkdownTheme`, the `markdownStyle` DSL | **Yes** - this is the one you declare |
 | `ui` | The view-based renderer underneath, a `TextView` subclass driven by spans | No - comes transitively |
 | `parser` | The native [md4c](https://github.com/mity/md4c) parser and its JNI bindings | No - comes transitively |
+| `math` | LaTeX math: `LatexMathPlugin`, which parses and renders `$...$` and `$$...$$` | Only if you render math |
 
-`compose` exposes both of the others as `api` dependencies, so declaring it is enough to get all three. Split them out only if you are embedding the renderer in a View-based screen with no Compose at all, which is outside what these docs cover.
+`compose` exposes `ui` and `parser` as `api` dependencies, so declaring it is enough to get all three; `math` is the optional extra. Split them out only if you are embedding the renderer in a View-based screen with no Compose at all, which is outside what these docs cover.
 
 ## R8 and ProGuard
 

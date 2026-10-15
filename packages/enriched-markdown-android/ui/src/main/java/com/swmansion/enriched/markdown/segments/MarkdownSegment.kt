@@ -2,6 +2,7 @@
 
 package com.swmansion.enriched.markdown.segments
 
+import com.swmansion.enriched.markdown.CodeBlockLayout
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.PluginBlockSegment
@@ -16,6 +17,10 @@ sealed interface MarkdownSegment {
     val node: MarkdownASTNode,
   ) : MarkdownSegment
 
+  data class CodeBlock(
+    val node: MarkdownASTNode,
+  ) : MarkdownSegment
+
   /** A node a plugin claimed as its own block segment. The payload is produced later, at render time. */
   data class Custom(
     val pluginId: String,
@@ -24,9 +29,11 @@ sealed interface MarkdownSegment {
   ) : MarkdownSegment
 }
 
+/** A top-level code block gets a segment of its own only under [CodeBlockLayout.Scrollable]. */
 fun splitASTIntoSegments(
   root: MarkdownASTNode,
   plugins: PluginSnapshot,
+  codeBlockLayout: CodeBlockLayout = CodeBlockLayout.Wrapping,
 ): List<MarkdownSegment> {
   val segments = mutableListOf<MarkdownSegment>()
   val currentTextNodes = mutableListOf<MarkdownASTNode>()
@@ -49,6 +56,14 @@ fun splitASTIntoSegments(
       child.type == MarkdownASTNode.NodeType.Table -> {
         flushTextNodes()
         segments.add(MarkdownSegment.Table(child))
+      }
+
+      // A plugin's own code block renderer only runs in a text segment.
+      child.type == MarkdownASTNode.NodeType.CodeBlock &&
+        codeBlockLayout == CodeBlockLayout.Scrollable &&
+        child.type !in plugins.nodeRenderers -> {
+        flushTextNodes()
+        segments.add(MarkdownSegment.CodeBlock(child))
       }
 
       else -> {

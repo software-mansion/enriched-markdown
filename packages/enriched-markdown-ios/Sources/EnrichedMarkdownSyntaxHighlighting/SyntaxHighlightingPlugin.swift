@@ -67,7 +67,8 @@ public extension MarkdownRenderer {
         options: MarkdownParsingOptions = .commonMark,
         imageRequestHeaders: [String: String] = [:],
         writingDirection: MarkdownWritingDirection = .firstStrong,
-        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
+        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
     ) -> NSAttributedString {
         render(
             markdown,
@@ -76,7 +77,8 @@ public extension MarkdownRenderer {
             imageRequestHeaders: imageRequestHeaders,
             plugins: [SyntaxHighlightingPlugin()],
             writingDirection: writingDirection,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            codeBlockLayout: codeBlockLayout
         )
     }
 }
