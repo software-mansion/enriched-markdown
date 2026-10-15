@@ -17,6 +17,7 @@ import android.widget.ImageButton
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.CodeBlockCopy
 import com.swmansion.enriched.markdown.CodeBlockLayout
 import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -437,10 +438,44 @@ class CodeBlockSegmentTest {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("Previous", "previous"))
     val view = newView(fencedCodeBlock(""))
+    val copies = mutableListOf<CodeBlockCopy>()
+    view.onCodeBlockCopy = { copies += it }
 
     copyButtonOf(view).performClick()
 
     assertEquals("previous", clipboardText())
+    assertEquals(emptyList<CodeBlockCopy>(), copies)
+  }
+
+  @Test
+  fun copyButtonReportsTheCodeAndTheFenceLanguage() {
+    val view = newView(fencedCodeBlock("line 1\nline 2\n", language = "kotlin"))
+    val copies = mutableListOf<CodeBlockCopy>()
+    view.onCodeBlockCopy = { copies += it }
+
+    copyButtonOf(view).performClick()
+    view.applyCodeBlockNode(fencedCodeBlock("x"))
+    copyButtonOf(view).performClick()
+
+    assertEquals(listOf(CodeBlockCopy("line 1\nline 2", "kotlin"), CodeBlockCopy("x", null)), copies)
+  }
+
+  @Test
+  fun theViewsCopyCallbackReachesBlocksRenderedBeforeAndAfterItIsSet() {
+    val view = EnrichedMarkdown(context).apply { setCodeBlockLayout(CodeBlockLayout.Scrollable) }
+    val render = view.segmentRenderer()
+    val before = mutableListOf<CodeBlockCopy>()
+    val after = mutableListOf<CodeBlockCopy>()
+
+    view.setOnCodeBlockCopyCallback { before += it }
+    view.applyRenderedSegments(render(document(fencedCodeBlock("a"))))
+    copyButtonOf(view.getChildAt(0) as CodeBlockContainerView).performClick()
+
+    view.setOnCodeBlockCopyCallback { after += it }
+    copyButtonOf(view.getChildAt(0) as CodeBlockContainerView).performClick()
+
+    assertEquals(listOf(CodeBlockCopy("a", null)), before)
+    assertEquals(listOf(CodeBlockCopy("a", null)), after)
   }
 
   @Test

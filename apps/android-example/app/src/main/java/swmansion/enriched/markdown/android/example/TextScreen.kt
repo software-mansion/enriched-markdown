@@ -65,6 +65,14 @@ fun TextScreen(
             Toast.LENGTH_SHORT,
           ).show()
       },
+      onCodeBlockCopy = { copy ->
+        Toast
+          .makeText(
+            context,
+            "Copied ${copy.language ?: "code"} (${copy.code.lines().size} lines)",
+            Toast.LENGTH_SHORT,
+          ).show()
+      },
     )
   }
 }

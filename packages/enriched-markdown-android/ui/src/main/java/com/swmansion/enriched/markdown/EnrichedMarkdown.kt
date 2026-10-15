@@ -89,6 +89,7 @@ class EnrichedMarkdown(
   private var onLinkPressCallback: ((String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((TaskListItemToggle) -> Unit)? = null
+  private var onCodeBlockCopyCallback: ((CodeBlockCopy) -> Unit)? = null
   private var onPluginEventCallback: ((PluginEvent) -> Unit)? = null
 
   /** Events already reported, kept while the markdown only grows (streaming) and bounded in size. */
@@ -199,6 +200,17 @@ class EnrichedMarkdown(
   }
 
   /**
+   * Called after a code block's code is copied, by its copy button or its long-press Copy; not
+   * for Copy as Markdown. Only [CodeBlockLayout.Scrollable] blocks have either.
+   */
+  fun setOnCodeBlockCopyCallback(callback: ((CodeBlockCopy) -> Unit)?) {
+    onCodeBlockCopyCallback = callback
+    segmentViews.filterIsInstance<CodeBlockContainerView>().forEach {
+      it.onCodeBlockCopy = callback
+    }
+  }
+
+  /**
    * Called when a plugin reports an event for this view, e.g. a LaTeX expression that failed to
    * render and fell back to its raw source. Fires once per distinct event until the markdown is
    * replaced (rather than appended to) or the view is recycled via [prepareForViewReuse].
@@ -285,6 +297,8 @@ class EnrichedMarkdown(
 
   fun setOnTaskListItemPressListener(listener: ((TaskListItemToggle) -> Unit)?) = setOnTaskListItemPressCallback(listener)
 
+  fun setOnCodeBlockCopyListener(listener: ((CodeBlockCopy) -> Unit)?) = setOnCodeBlockCopyCallback(listener)
+
   fun setOnPluginEventListener(listener: ((PluginEvent) -> Unit)?) = setOnPluginEventCallback(listener)
 
   fun setSelectionColor(color: Int?) {
@@ -327,6 +341,7 @@ class EnrichedMarkdown(
     setOnLinkPressCallback(null)
     setOnLinkLongPressCallback(null)
     setOnTaskListItemPressCallback(null)
+    setOnCodeBlockCopyCallback(null)
     setOnPluginEventCallback(null)
     setEnableTaskListItemToggle(true)
     setSpoilerOverlay(SpoilerOverlay.Particles())
@@ -534,6 +549,7 @@ class EnrichedMarkdown(
       onLinkPress = onLinkPressCallback,
       onLinkLongPress = onLinkLongPressCallback,
       onPluginEvent = pluginEventSink,
+      onCodeBlockCopy = onCodeBlockCopyCallback,
     )
 
   private inner class RootFactory : SegmentViewFactory {

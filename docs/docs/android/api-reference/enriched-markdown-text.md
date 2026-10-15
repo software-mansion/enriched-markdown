@@ -285,6 +285,27 @@ EnrichedMarkdownText(
 
 The toggle is **visual only**. The view never rewrites the `markdown` string you passed it, so persist the change from the handler if it has to survive a new source string. Re-supplying the *same* string on recomposition keeps the toggles as the reader left them.
 
+### `onCodeBlockCopy`
+
+Called after a code block's code is copied: by its copy button, or by **Copy** in its long-press menu. Not called for **Copy as Markdown**, or for a block with no code, which leaves the clipboard as it was. Only [`CodeBlockLayout.Scrollable`](#codeblocklayout) blocks have a copy button and menu; a wrapping block copies through the text selection, which does not call this.
+
+<PropInfo type="(CodeBlockCopy) -> Unit" default="{}" />
+
+```kotlin
+data class CodeBlockCopy(
+  val code: String,      // what went to the clipboard
+  val language: String?, // the fence's info string, null when it named none
+)
+```
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = content,
+  codeBlockLayout = CodeBlockLayout.Scrollable,
+  onCodeBlockCopy = { scope.launch { snackbarHostState.showSnackbar("Copied") } },
+)
+```
+
 ## See also
 
 - [Style properties](/android/api-reference/style-properties) - every styleable element and property.

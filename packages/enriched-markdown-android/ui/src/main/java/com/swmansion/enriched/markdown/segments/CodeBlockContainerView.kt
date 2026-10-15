@@ -26,6 +26,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
+import com.swmansion.enriched.markdown.CodeBlockCopy
 import com.swmansion.enriched.markdown.CodeBlockLayout
 import com.swmansion.enriched.markdown.parser.CodeBlockLanguages
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -60,6 +61,9 @@ class CodeBlockContainerView(
   override val segmentMarginBottom: Int get() = codeBlockStyle.marginBottom.toInt()
 
   var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+
+  /** Called after the copy button or the long-press Copy puts the code on the clipboard; not for Copy as Markdown. */
+  var onCodeBlockCopy: ((CodeBlockCopy) -> Unit)? = null
 
   private val borderWidth = ceil(codeBlockStyle.borderWidth).toInt()
   private val padding = ceil(codeBlockStyle.padding).toInt()
@@ -263,6 +267,7 @@ class CodeBlockContainerView(
   private fun copyCode() {
     if (code.isEmpty()) return
     copyToClipboard(code)
+    onCodeBlockCopy?.invoke(CodeBlockCopy(code, language))
   }
 
   private fun copyFencedMarkdown() {
