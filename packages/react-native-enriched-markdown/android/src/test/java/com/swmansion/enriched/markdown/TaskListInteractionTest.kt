@@ -38,21 +38,38 @@ class TaskListInteractionTest {
 
   @Test
   fun togglingATaskUnderAWideParentKeepsEveryMarginAndMarkerPosition() {
-    assertTaskToggleKeepsGeometry(opensWithSublist = false)
+    assertTaskToggleKeepsGeometry(wideParentTree(opensWithSublist = false), anchors = 0, markers = 4)
   }
 
   @Test
   fun togglingAnAnchoredTaskUnderAWideParentKeepsEveryMarginAndMarkerPosition() {
-    assertTaskToggleKeepsGeometry(opensWithSublist = true)
+    assertTaskToggleKeepsGeometry(wideParentTree(opensWithSublist = true), anchors = 1, markers = 4)
+  }
+
+  @Test
+  fun togglingATaskInAMixedNestKeepsEveryMarginAndMarkerPosition() {
+    // The task's indent depends on its parent's marker column, so the toggled copy has to keep it.
+    val tasks = unorderedList(taskListItem(checked = false, paragraph(text("item")), numbered(1)))
+    val parent = listItem(paragraph(text("item")), tasks)
+    for (tree in listOf(unorderedList(parent), orderedList(parent))) {
+      assertTaskToggleKeepsGeometry(tree, anchors = 0, markers = 3)
+    }
+  }
+
+  private fun wideParentTree(opensWithSublist: Boolean): MarkdownASTNode {
+    val taskChildren = if (opensWithSublist) arrayOf(numbered(1)) else arrayOf(paragraph(text("item")), numbered(1))
+    val task = taskListItem(checked = false, *taskChildren)
+    return orderedList(listItem(paragraph(text("item")), unorderedList(task)), item(), start = 100)
   }
 
   // Layout draws leading margins in span insertion order, so a toggle that re-adds only the
   // task's span would move its checkbox by its ancestors' margins.
-  private fun assertTaskToggleKeepsGeometry(opensWithSublist: Boolean) {
+  private fun assertTaskToggleKeepsGeometry(
+    tree: MarkdownASTNode,
+    anchors: Int,
+    markers: Int,
+  ) {
     val style = styleConfig(list = mapOf("fontFamily" to "monospace"))
-    val taskChildren = if (opensWithSublist) arrayOf(numbered(1)) else arrayOf(paragraph(text("item")), numbered(1))
-    val task = taskListItem(checked = false, *taskChildren)
-    val tree = orderedList(listItem(paragraph(text("item")), unorderedList(task)), item(), start = 100)
     val textView =
       object : AccessibleMarkdownTextView(context) {}.apply {
         layoutParams = ViewGroup.LayoutParams(MarkerCanvas.LAYOUT_WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -61,10 +78,10 @@ class TaskListInteractionTest {
     textView.setText(render(style, tree), TextView.BufferType.SPANNABLE)
     val initialText = textView.text as Spanned
     val taskIndex = initialText.getSpans(0, initialText.length, TaskListSpan::class.java).single().taskIndex
-    assertEquals(if (opensWithSublist) 1 else 0, initialText.getSpans(0, initialText.length, ListMarkerAnchorSpan::class.java).size)
+    assertEquals(anchors, initialText.getSpans(0, initialText.length, ListMarkerAnchorSpan::class.java).size)
     val initialMargins = listMargins(initialText)
     val initialMarkers = drawTextViewMarkers(textView)
-    assertEquals(4, initialMarkers.size)
+    assertEquals(markers, initialMarkers.size)
 
     for (checked in listOf(true, false)) {
       assertTrue(TaskListTapUtils.updateTaskListItemCheckedState(textView, taskIndex, checked, style))
