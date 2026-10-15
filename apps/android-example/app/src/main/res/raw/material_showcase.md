@@ -83,4 +83,7 @@ public final class WordCounter {
 | --- | --- |
 | Paragraph | onSurface |
 | Link | primary |
+| Inline code | tertiary on surfaceContainerHighest |
+| Highlight | onTertiaryContainer on tertiaryContainer |
+| Spoiler | onSurfaceVariant |
 | Divider | outlineVariant |
