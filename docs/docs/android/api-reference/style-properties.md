@@ -84,7 +84,7 @@ See [`MarkdownStyle.merge`](/android/api-reference/markdown-theme#markdownstylem
 
 ## Dark mode
 
-The defaults below are a **light palette** - the library does not swap them automatically. Supply the colors for the current theme yourself, either from the Material color scheme:
+The defaults below are a **light palette** - the library does not swap them automatically. If you're coming from iOS, where the default theme uses system colors and [adapts to dark mode by itself](/ios/api-reference/style-properties#adaptive-values), `rememberMaterialMarkdownStyle` is how you get the same behavior here. Supply the colors for the current theme yourself, either from the Material color scheme:
 
 ```kotlin
 MarkdownTheme(style = rememberMaterialMarkdownStyle()) {
