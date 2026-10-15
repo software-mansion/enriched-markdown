@@ -18,19 +18,20 @@ The whole document renders into a **single native text view**, with block struct
 
 ### Block elements
 
-| Element           | Markdown                           | Notes                                                                                                     |
-| ----------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Heading           | `# H1` … `###### H6`               | Six levels, each styled independently                                                                     |
-| Paragraph         | Text separated by a blank line     |                                                                                                           |
-| Blockquote        | `> quoted`                         | Nests                                                                                                     |
-| Admonition        | `> [!NOTE]`                        | Needs `MarkdownOptions(admonitions = true)` - see [below](#admonitions)                                   |
-| Unordered list    | `- item`                           | Nests                                                                                                     |
-| Ordered list      | `1. item`                          | Nests                                                                                                     |
-| Task list         | `- [ ]` / `- [x]`                  | Tappable - see [`onTaskListItemPress`](/android/api-reference/enriched-markdown-text#ontasklistitempress) |
-| Table             | GFM pipe table                     | Always enabled - see [below](#tables)                                                                     |
-| Fenced code block | ` ```kotlin `                      | Language label is parsed; no syntax highlighting                                                          |
-| Block image       | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline)                                                                      |
-| Thematic break    | `---`                              |                                                                                                           |
+| Element           | Markdown                           | Notes                                                                                                       |
+| ----------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Heading           | `# H1` … `###### H6`               | Six levels, each styled independently                                                                       |
+| Paragraph         | Text separated by a blank line     |                                                                                                             |
+| Blockquote        | `> quoted`                         | Nests                                                                                                       |
+| Admonition        | `> [!NOTE]`                        | Needs `MarkdownOptions(admonitions = true)` - see [below](#admonitions)                                     |
+| Unordered list    | `- item`                           | Nests                                                                                                       |
+| Ordered list      | `1. item`                          | Nests                                                                                                       |
+| Task list         | `- [ ]` / `- [x]`                  | Tappable - see [`onTaskListItemPress`](/android/api-reference/enriched-markdown-text#ontasklistitempress)   |
+| Table             | GFM pipe table                     | Always enabled - see [below](#tables)                                                                       |
+| Fenced code block | ` ```kotlin `                      | Colored by language with `CodeHighlightPlugin` - see [Code highlighting](/android/guides/code-highlighting) |
+| Block image       | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline)                                                                        |
+| Thematic break    | `---`                              |                                                                                                             |
+| Math block        | `$$...$$`                          | Needs `LatexMathPlugin` - see [Math](/android/guides/parser-extensions#math-is-not-an-option)               |
 
 ### Inline elements
 
@@ -47,6 +48,8 @@ The whole document renders into a **single native text view**, with block struct
 | Superscript   | `^text^`                     | Needs `MarkdownOptions(superscript = true)`                                                          |
 | Subscript     | `~text~`                     | Needs `MarkdownOptions(subscript = true)`                                                            |
 | Highlight     | `==text==`                   | Needs `MarkdownOptions(highlight = true)`                                                            |
+| Inline math   | `$...$`                      | Needs `LatexMathPlugin` - see [Math](/android/guides/parser-extensions#math-is-not-an-option)        |
+| Spoiler       | `\|\|text\|\|`               | Concealed until tapped; adjacent spoilers reveal together                                            |
 
 :::important
 The `_` markers are context-dependent. By default `_italic_` and `__bold__` mean the same as `*italic*` and `**bold**`, but `MarkdownOptions(underline = true)` reinterprets both `_text_` and `__text__` as underline, so under that option they no longer produce emphasis or strong. The asterisk markers `*` and `**` always mean emphasis and strong, whatever the option.
@@ -178,20 +181,3 @@ A second one, three blank lines later.
 Without the option those three blank lines collapse to one paragraph break; with it, the gap is kept.
 
 Both options are off by default, and both are set per instance through [`options`](/android/api-reference/enriched-markdown-text#options).
-
-## Not rendered yet
-
-LaTeX math is not listed here: it renders through `LatexMathPlugin` from the `math` artifact, which is also what turns on its parsing.
-
-The parser understands more than the renderer draws. These constructs parse without error but produce no special rendering today:
-
-| Element                       | Status                          |
-| ----------------------------- | ------------------------------- |
-| Spoilers                      | Renderer in progress            |
-| Code syntax highlighting      | Not yet built into this package |
-
-:::caution
-A construct with no renderer has its text **dropped from the output** rather than shown unstyled. Spoilers have no option to enable, so they are simply parsed and skipped.
-:::
-
-See the [roadmap](/misc/roadmap) for what is landing next.
