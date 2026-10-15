@@ -4,7 +4,7 @@ package com.swmansion.enriched.markdown.styles
  * Style for underline runs.
  *
  * Underline nodes are only produced when the parser runs with
- * [com.swmansion.enriched.markdown.Flags.underline] enabled — otherwise `_text_`
+ * [com.swmansion.enriched.markdown.MarkdownOptions.underline] enabled — otherwise `_text_`
  * and `__text__` stay emphasis and strong.
  *
  * [color] overrides the text color of the underlined run; `null` inherits the color of the

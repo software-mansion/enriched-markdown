@@ -153,13 +153,13 @@ The `markdownStyle` builder supports these blocks:
 | `strong` | Bold text |
 | `emphasis` | Italic text |
 | `strikethrough` | Struck-through text |
-| `underline` | Underlined text (requires `Flags(underline = true)`) |
-| `highlight` | Highlighted text `==text==` (requires `Flags(highlight = true)`) |
+| `underline` | Underlined text (requires `MarkdownOptions(underline = true)`) |
+| `highlight` | Highlighted text `==text==` (requires `MarkdownOptions(highlight = true)`) |
 | `superscript` | Superscript text (`^text^`) |
 | `subscript` | Subscript text (`~text~`) |
 | `code` | Inline code |
 | `codeBlock` | Fenced code blocks |
-| `blockquote` | Block quotes, and `admonitions { }` for GitHub alerts (requires `Flags(admonitions = true)`) |
+| `blockquote` | Block quotes, and `admonitions { }` for GitHub alerts (requires `MarkdownOptions(admonitions = true)`) |
 | `list` | Ordered and unordered lists |
 | `taskList` | Task list checkboxes |
 | `image` | Block images |
@@ -188,7 +188,7 @@ markdownStyle {
 }
 ```
 
-Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Flags`.
+Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `MarkdownOptions`.
 
 `spoiler` colors the overlay that conceals `||spoiler||` text: `color` paints the particles and fills
 the solid block. The effect itself, and its tuning, is the `spoilerOverlay` parameter of
@@ -244,7 +244,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Flags = Flags.Default,
+  options: MarkdownOptions = MarkdownOptions.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkClick: (String) -> Unit = {},
@@ -262,7 +262,7 @@ fun EnrichedMarkdownText(
 |-----------|-------------|
 | `markdown` | Markdown source string |
 | `style` | Per-instance style override |
-| `flags` | Optional syntax extensions (see `Flags`) |
+| `options` | Optional syntax extensions (see `MarkdownOptions`) |
 | `selectable` | Enable text selection |
 | `imageRequestHeaders` | HTTP headers attached to remote image requests (e.g. `Referer`) |
 | `onLinkClick` | Called when a link is tapped |
@@ -572,10 +572,10 @@ only appended to, so streamed content does not report the same failure on every 
 its failures are reported again; so does a recycled view. `PluginEvent` itself carries only
 `pluginId`, so check the type — as above — before reading a plugin's own fields.
 
-### `Flags`
+### `MarkdownOptions`
 
 ```kotlin
-data class Flags(
+data class MarkdownOptions(
   val underline: Boolean = false,           // _text_ and __text__ render underlined instead of italic and bold
   val superscript: Boolean = false,         // ^text^ renders raised above the baseline
   val subscript: Boolean = false,           // ~text~ renders lowered below the baseline
@@ -586,20 +586,20 @@ data class Flags(
   val admonitions: Boolean = false,         // `> [!NOTE]` blockquotes render as GitHub alerts
 ) {
   companion object {
-    val Default: Flags
+    val Default: MarkdownOptions
   }
 }
 ```
 
 
-Pass flags per instance:
+Pass options per instance:
 
 ```kotlin
-import com.swmansion.enriched.markdown.compose.Flags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 
 EnrichedMarkdownText(
   markdown = "_underlined_",
-  flags = Flags(underline = true),
+  options = MarkdownOptions(underline = true),
 )
 ```
 
@@ -739,7 +739,7 @@ tree-sitter and every bundled grammar are MIT-licensed. Their notices ship insid
 - Spoilers (`||hidden||`, tap to reveal). Adjacent spoilers reveal together. Concealment is visual
   only: screen readers read concealed text as ordinary text, and a plain Copy yields it too (Copy as
   Markdown keeps the `||` markers)
-- Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Flags(admonitions = true)`
+- Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `MarkdownOptions(admonitions = true)`
 - Tables (GFM), including per-column alignment
 - LaTeX math, inline (`$...$`) and block (`$$...$$`) — requires the `:math` artifact and its `LatexMathPlugin`
 
@@ -753,13 +753,13 @@ the usual blockquote geometry plus a header row with a tinted octicon and a bold
 > This action cannot be undone.
 ```
 
-Admonitions are an opt-in parser extension, so pass the flag to enable them; without it the marker
+Admonitions are an opt-in parser extension, so pass the option to enable them; without it the marker
 stays literal text inside an ordinary quote:
 
 ```kotlin
 EnrichedMarkdownText(
   markdown = content,
-  flags = Flags(admonitions = true),
+  options = MarkdownOptions(admonitions = true),
 )
 ```
 

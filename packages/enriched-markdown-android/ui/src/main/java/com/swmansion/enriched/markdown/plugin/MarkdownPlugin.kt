@@ -16,7 +16,7 @@ interface MarkdownPlugin {
 
   /**
    * The parser flags to use wherever this plugin is enabled, given those the view's
-   * [com.swmansion.enriched.markdown.Flags] map to. A plugin turns on the syntax that produces the
+   * [com.swmansion.enriched.markdown.MarkdownOptions] map to. A plugin turns on the syntax that produces the
    * nodes it renders, including syntax apps cannot turn on themselves, such as `latexMath`. Plugins
    * adjust in the order they are installed, each seeing the previous one's result.
    */

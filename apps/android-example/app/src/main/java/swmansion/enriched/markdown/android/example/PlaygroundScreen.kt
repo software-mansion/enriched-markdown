@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Flags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 import java.io.File
 
 private fun assetImageUri(
@@ -200,8 +200,8 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               .padding(14.dp)
               .testTag("preview-text"),
           style = PlaygroundMarkdownStyle,
-          flags =
-            Flags(
+          options =
+            MarkdownOptions(
               underline = underlineEnabled,
               superscript = true,
               subscript = true,

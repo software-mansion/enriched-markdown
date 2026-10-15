@@ -66,7 +66,7 @@ Two habits keep that off your critical path:
 - **Hoist styles to file scope.** A style built inside a composable body is reallocated on every recomposition. Equal layers do compare equal, so nothing re-resolves - but `MarkdownTheme` is backed by a *static* composition local, where an unstable value recomposes the entire subtree rather than just its readers.
 - **Use [`rememberMarkdownStyle`](/android/api-reference/markdown-theme#remembermarkdownstyle) when the style reads `MaterialTheme`.** It rebuilds on a color-scheme change and reuses the result otherwise.
 
-Changing `markdown` or [`flags`](/android/api-reference/enriched-markdown-text#flags) re-parses the document, so treat both as content rather than as values to churn per frame. A configuration change - rotation, theme switch, font-size change - re-renders too, because layout depends on the width and density it was measured at.
+Changing `markdown` or [`options`](/android/api-reference/enriched-markdown-text#options) re-parses the document, so treat both as content rather than as values to churn per frame. A configuration change - rotation, theme switch, font-size change - re-renders too, because layout depends on the width and density it was measured at.
 
 ## Accessibility
 

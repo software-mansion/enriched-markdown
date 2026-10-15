@@ -17,12 +17,12 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
-import com.swmansion.enriched.markdown.Flags as FlagsInternal
+import com.swmansion.enriched.markdown.MarkdownOptions as MarkdownOptionsInternal
 import com.swmansion.enriched.markdown.TaskListItemToggle as TaskListItemToggleInternal
 import com.swmansion.enriched.markdown.plugin.MarkdownPlugin as MarkdownPluginInternal
 import com.swmansion.enriched.markdown.plugin.PluginEvent as PluginEventInternal
 
-typealias Flags = FlagsInternal
+typealias MarkdownOptions = MarkdownOptionsInternal
 
 typealias TaskListItemToggle = TaskListItemToggleInternal
 
@@ -36,7 +36,7 @@ typealias MarkdownPlugin = MarkdownPluginInternal
  * Style defaults come from the nearest [MarkdownTheme]. Override per instance via the [style]
  * parameter, or nest [MarkdownTheme] to scope styles to a subtree.
  *
- * [flags] selects the optional syntax extensions. Math is not one of them: enabling a math plugin
+ * [options] selects the optional syntax extensions. Math is not one of them: enabling a math plugin
  * turns it on.
  *
  * [spoilerOverlay] picks how `||spoiler||` text is concealed until it is tapped. The overlays are
@@ -59,7 +59,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Flags = Flags.Default,
+  options: MarkdownOptions = MarkdownOptions.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkClick: (String) -> Unit = {},
@@ -107,7 +107,7 @@ fun EnrichedMarkdownText(
         setAllowTrailingMargin(includeLastBlockMargin)
         setPlugins(plugins)
         setMarkdownStyle(styleConfig)
-        setFlags(flags)
+        setOptions(options)
         setIsSelectable(selectable)
         setImageRequestHeaders(imageRequestHeaders)
         setMarkdownContent(markdown)
@@ -123,7 +123,7 @@ fun EnrichedMarkdownText(
       view.setAllowTrailingMargin(includeLastBlockMargin)
       view.setPlugins(plugins)
       view.setMarkdownStyle(styleConfig)
-      view.setFlags(flags)
+      view.setOptions(options)
       view.setIsSelectable(selectable)
       view.setImageRequestHeaders(imageRequestHeaders)
       view.setMarkdownContent(markdown)

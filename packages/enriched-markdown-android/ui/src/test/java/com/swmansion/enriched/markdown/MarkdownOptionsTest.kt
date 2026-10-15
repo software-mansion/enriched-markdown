@@ -6,11 +6,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 import java.lang.reflect.Modifier
 
-class FlagsTest {
+class MarkdownOptionsTest {
   @Test
   fun everyFlagReachesTheParserAsSet() {
-    val flags =
-      Flags(
+    val options =
+      MarkdownOptions(
         underline = true,
         superscript = true,
         subscript = true,
@@ -32,20 +32,20 @@ class FlagsTest {
         preserveBlankLines = true,
         admonitions = true,
       ),
-      flags.toParserFlags(),
+      options.toParserFlags(),
     )
   }
 
   @Test
   fun theDefaultsMatchTheParsersWithMathOff() {
-    assertEquals(Md4cFlags.Default.copy(latexMath = false), Flags.Default.toParserFlags())
-    assertFalse(Flags.Default.toParserFlags().latexMath)
+    assertEquals(Md4cFlags.Default.copy(latexMath = false), MarkdownOptions.Default.toParserFlags())
+    assertFalse(MarkdownOptions.Default.toParserFlags().latexMath)
   }
 
-  /** A parser flag added without a [Flags] counterpart would silently stay at its default. */
+  /** A parser flag added without a [MarkdownOptions] counterpart would silently stay at its default. */
   @Test
   fun flagsCoversEveryParserFlagButMath() {
-    assertEquals(fieldNames(Md4cFlags::class.java) - "latexMath", fieldNames(Flags::class.java))
+    assertEquals(fieldNames(Md4cFlags::class.java) - "latexMath", fieldNames(MarkdownOptions::class.java))
   }
 
   private fun fieldNames(type: Class<*>): Set<String> =

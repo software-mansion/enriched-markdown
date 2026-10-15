@@ -13,7 +13,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Flags = Flags.Default,
+  options: MarkdownOptions = MarkdownOptions.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkClick: (String) -> Unit = {},
@@ -31,7 +31,7 @@ The composable wraps a real Android `View` through `AndroidView`, so it renders 
 
 ### `markdown`
 
-The Markdown source to render. Which syntax is recognized depends on [`flags`](#flags) - see [Feature support](/introduction/supported-features) for the full matrix and [Element structure](/android/api-reference/element-structure) for what each element renders as.
+The Markdown source to render. Which syntax is recognized depends on [`options`](#options) - see [Feature support](/introduction/supported-features) for the full matrix and [Element structure](/android/api-reference/element-structure) for what each element renders as.
 
 <PropInfo type="String" required />
 
@@ -75,14 +75,14 @@ EnrichedMarkdownText(
 )
 ```
 
-### `flags`
+### `options`
 
-Toggles for the optional syntax extensions. Each one opts a piece of extra syntax in or out; pass only the flags you want to change and the rest keep their defaults.
+Toggles for the optional syntax extensions. Each one opts a piece of extra syntax in or out; pass only the options you want to change and the rest keep their defaults.
 
-<PropInfo type="Flags" default="Flags.Default" />
+<PropInfo type="MarkdownOptions" default="MarkdownOptions.Default" />
 
 ```kotlin
-data class Flags(
+data class MarkdownOptions(
   val underline: Boolean = false,
   val superscript: Boolean = false,
   val subscript: Boolean = false,
@@ -97,15 +97,15 @@ data class Flags(
 ```kotlin
 EnrichedMarkdownText(
   markdown = content,
-  flags = Flags(underline = true, admonitions = true),
+  options = MarkdownOptions(underline = true, admonitions = true),
 )
 ```
 
 :::note
-`Flags.Default` turns **everything off except `permissiveAutolinks`**.
+`MarkdownOptions.Default` turns **everything off except `permissiveAutolinks`**.
 :::
 
-LaTeX math has no flag. Enabling `LatexMathPlugin` from the `math` artifact turns on parsing `$...$` and `$$...$$` along with rendering them, so math is never parsed with nothing to draw it.
+LaTeX math has no option. Enabling `LatexMathPlugin` from the `math` artifact turns on parsing `$...$` and `$$...$$` along with rendering them, so math is never parsed with nothing to draw it.
 
 For a walkthrough of what each extension changes, see [Parser extensions](/android/guides/parser-extensions).
 
@@ -133,13 +133,13 @@ Renders `==text==` with a highlight band behind the glyphs. Style it through [`h
 
 <PropInfo type="Boolean" default="false" />
 
-With the flag off, the `==` markers stay literal text.
+With the option off, the `==` markers stay literal text.
 
 #### `permissiveAutolinks`
 
 Links bare URLs. Plain Markdown only autolinks a URL wrapped in angle brackets - `<https://swmansion.com>` - so with this off, a URL pasted on its own stays inert text. With it on, `https://swmansion.com` becomes a link as written.
 
-This is separate from `[text](url)`, which is an ordinary inline link and always works. The flag is the one extension that is **on** by default.
+This is separate from `[text](url)`, which is an ordinary inline link and always works. The option is the one extension that is **on** by default.
 
 <PropInfo type="Boolean" default="true" />
 

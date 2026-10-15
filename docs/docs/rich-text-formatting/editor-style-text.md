@@ -39,7 +39,7 @@ With this configuration, every newline and every blank line the user typed in th
 
 {/* UNRELEASED PLATFORMS: both flags also ship on the standalone SDKs, as
 `MarkdownParsingOptions(hardSoftBreaks:preserveBlankLines:)` on iOS and
-`Flags(hardSoftBreaks, preserveBlankLines)` on Android. Restore the tabs and
+`MarkdownOptions(hardSoftBreaks, preserveBlankLines)` on Android. Restore the tabs and
 the links to their parser-extensions / element-structure pages when those
 packages ship. */}
 

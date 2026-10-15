@@ -59,7 +59,7 @@ class EnrichedMarkdown(
   val currentMarkdown: String
     get() = TaskListToggleUtils.applyCheckedStates(baseMarkdown, taskListToggles)
 
-  var flags: Flags = Flags.Default
+  var options: MarkdownOptions = MarkdownOptions.Default
     private set
 
   /** How unrevealed `||spoiler||` text is concealed. */
@@ -156,9 +156,9 @@ class EnrichedMarkdown(
     scheduleRenderIfNeeded()
   }
 
-  fun setFlags(flags: Flags) {
-    if (this.flags == flags) return
-    this.flags = flags
+  fun setOptions(options: MarkdownOptions) {
+    if (this.options == options) return
+    this.options = options
     scheduleRenderIfNeeded()
   }
 
@@ -344,7 +344,7 @@ class EnrichedMarkdown(
     val style = markdownStyle
     val markdown = currentMarkdown
     val plugins = pluginSnapshot
-    val parserFlags = plugins.adjustParserFlags(flags.toParserFlags())
+    val parserFlags = plugins.adjustParserFlags(options.toParserFlags())
     val onPluginEvent = renderPluginEventSink()
 
     val renderId = ++currentRenderId

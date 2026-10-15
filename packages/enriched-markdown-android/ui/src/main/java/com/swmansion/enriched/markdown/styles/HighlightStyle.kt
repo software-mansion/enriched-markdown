@@ -4,7 +4,7 @@ package com.swmansion.enriched.markdown.styles
  * Style for `==highlight==` runs.
  *
  * Highlight nodes are only produced when the parser runs with
- * [com.swmansion.enriched.markdown.Flags.highlight] enabled — otherwise `==text==`
+ * [com.swmansion.enriched.markdown.MarkdownOptions.highlight] enabled — otherwise `==text==`
  * stays plain text.
  *
  * [color] overrides the text color of the highlighted run; `null` inherits the color of the

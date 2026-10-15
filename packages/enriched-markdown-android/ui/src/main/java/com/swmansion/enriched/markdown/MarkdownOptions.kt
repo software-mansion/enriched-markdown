@@ -6,7 +6,7 @@ import com.swmansion.enriched.markdown.parser.Md4cFlags
  * The optional Markdown syntax a view recognises on top of CommonMark and GitHub tables, task lists
  * and strikethrough.
  */
-data class Flags(
+data class MarkdownOptions(
   /** `_text_` and `__text__` underline instead of emphasising. */
   val underline: Boolean = false,
   /** `^text^` raises above the baseline. */
@@ -39,6 +39,6 @@ data class Flags(
     )
 
   companion object {
-    val Default = Flags()
+    val Default = MarkdownOptions()
   }
 }
