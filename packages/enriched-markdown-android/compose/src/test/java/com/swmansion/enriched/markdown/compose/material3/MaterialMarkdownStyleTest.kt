@@ -42,7 +42,6 @@ class MaterialMarkdownStyleTest {
     assertEquals(dark.onSurface.toArgb(), resolved.paragraphStyle.color)
     assertEquals(dark.onSurface.toArgb(), resolved.headingStyles[1]?.color)
     assertEquals(dark.primary.toArgb(), resolved.linkStyle.color)
-    assertEquals(dark.surfaceContainer.toArgb(), resolved.codeBlockStyle.backgroundColor)
     assertEquals(dark.surfaceContainerHigh.toArgb(), resolved.tableStyle.headerBackgroundColor)
     assertEquals(
       dark.error.toArgb(),
@@ -50,6 +49,16 @@ class MaterialMarkdownStyleTest {
         .getValue("caution")
         .color,
     )
+  }
+
+  /** The code highlighting palette is made for the default dark code block, so it stays in both schemes. */
+  @Test
+  fun codeBlocksKeepTheDefaultStyle() {
+    val context = resolveContext()
+    val default = MarkdownStyle.Default.resolve(context).codeBlockStyle
+
+    assertEquals(default, materialMarkdownStyle(light).resolve(context).codeBlockStyle)
+    assertEquals(default, materialMarkdownStyle(dark).resolve(context).codeBlockStyle)
   }
 
   /** Admonitions have no Material tokens, so their palette follows the scheme's brightness. */

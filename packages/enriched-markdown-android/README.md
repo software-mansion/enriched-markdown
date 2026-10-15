@@ -653,7 +653,8 @@ fun rememberMaterialMarkdownStyle(
 ```
 
 Builds a style colored from a Material 3 `ColorScheme`; the `remember` variant rebuilds it when the
-scheme changes. Only colors come from the scheme. Plugin styles are not set.
+scheme changes. Only colors come from the scheme. Fenced code blocks keep the default dark style,
+which the code highlighting palette is made for. Plugin styles are not set.
 
 `rememberMarkdownStyle { }` is deprecated: its block is not composable, so it cannot read
 `MaterialTheme`. Use `rememberMaterialMarkdownStyle()` or `remember(keys) { markdownStyle { } }`.

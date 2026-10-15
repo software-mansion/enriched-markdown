@@ -100,7 +100,7 @@ MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else li
 }
 ```
 
-Only colors come from the scheme - sizes, fonts and spacing keep the defaults. Material 3 has no tokens for the note, tip, important and warning admonitions, so they keep GitHub's alert colors for the scheme's brightness; caution uses `error`. Plugin styles, such as math, are not set.
+Only colors come from the scheme - sizes, fonts and spacing keep the defaults. Material 3 has no tokens for the note, tip, important and warning admonitions, so they keep GitHub's alert colors for the scheme's brightness; caution uses `error`. Fenced code blocks keep the default dark style in both schemes, since the code highlighting palette is made for it. Plugin styles, such as math, are not set.
 
 To change part of the mapping, layer your overrides on top with [`merge`](#markdownstylemerge), remembered on the scheme:
 

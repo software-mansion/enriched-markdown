@@ -12,7 +12,8 @@ import com.swmansion.enriched.markdown.compose.markdownStyle
 /**
  * A [MarkdownStyle] colored from a Material 3 [ColorScheme], so markdown matches the rest of the
  * app and follows it between light and dark schemes. Only colors come from the scheme; sizes,
- * fonts and spacing stay the library defaults.
+ * fonts and spacing stay the library defaults. Fenced code blocks keep the default dark style in
+ * both schemes, since the code highlighting palette is made for it.
  *
  * Provide it app-wide or pass it to a single view, and layer overrides on top with
  * [MarkdownStyle.merge]:
@@ -46,11 +47,6 @@ fun materialMarkdownStyle(colorScheme: ColorScheme): MarkdownStyle {
     code {
       color = colorScheme.tertiary
       backgroundColor = colorScheme.surfaceContainerHighest
-      borderColor = colorScheme.outlineVariant
-    }
-    codeBlock {
-      color = colorScheme.onSurface
-      backgroundColor = colorScheme.surfaceContainer
       borderColor = colorScheme.outlineVariant
     }
     blockquote {
