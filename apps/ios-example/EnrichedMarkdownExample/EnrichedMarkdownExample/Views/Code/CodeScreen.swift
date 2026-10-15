@@ -86,6 +86,7 @@ private let noOverrides = MarkdownTheme {}
 struct CodeScreen: View {
     @State private var highlightsSyntax: Bool = true
     @State private var usesCustomTheme: Bool = false
+    @State private var usesScrollablePanels: Bool = false
 
     var body: some View {
         ScrollView {
@@ -96,8 +97,12 @@ struct CodeScreen: View {
                 Toggle("Custom token colors", isOn: $usesCustomTheme)
                     .accessibilityIdentifier("code-custom-theme-toggle")
 
+                Toggle("Scrollable panels", isOn: $usesScrollablePanels)
+                    .accessibilityIdentifier("code-scrollable-panels-toggle")
+
                 EnrichedMarkdownText(sampleCodeMarkdown)
                     .markdownSyntaxHighlighting(highlightsSyntax)
+                    .markdownCodeBlockLayout(usesScrollablePanels ? .scrollable : .wrapping)
                     .markdownTheme(usesCustomTheme ? customSyntaxTheme : noOverrides)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

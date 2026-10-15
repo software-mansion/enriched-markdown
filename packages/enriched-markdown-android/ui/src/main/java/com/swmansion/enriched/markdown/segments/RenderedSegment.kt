@@ -45,6 +45,8 @@ sealed interface RenderedSegment {
 
   data class CodeBlock(
     val node: MarkdownASTNode,
+    /** The code with its decorators' spans, from [CodeBlockContainerView.buildCodeText]. */
+    val text: CharSequence,
     override val signature: Long,
   ) : RenderedSegment
 
@@ -112,7 +114,8 @@ object MarkdownSegmentRenderer {
 
         is MarkdownSegment.CodeBlock -> {
           val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.CODE_BLOCK_KIND_SALT
-          RenderedSegment.CodeBlock(segment.node, signature)
+          val text = CodeBlockContainerView.buildCodeText(segment.node, style, plugins.codeBlockDecorators, context)
+          RenderedSegment.CodeBlock(segment.node, text, signature)
         }
 
         is MarkdownSegment.Custom -> {

@@ -13,7 +13,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Md4cFlags = Md4cFlags.DEFAULT,
+  options: MarkdownOptions = MarkdownOptions.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkClick: (String) -> Unit = {},
@@ -31,7 +31,7 @@ The composable wraps a real Android `View` through `AndroidView`, so it renders 
 
 ### `markdown`
 
-The Markdown source to render. Which syntax is recognized depends on [`flags`](#flags) - see [Feature support](/introduction/supported-features) for the full matrix and [Element structure](/android/api-reference/element-structure) for what each element renders as.
+The Markdown source to render. Which syntax is recognized depends on [`options`](#options) - see [Feature support](/introduction/supported-features) for the full matrix and [Element structure](/android/api-reference/element-structure) for what each element renders as.
 
 <PropInfo type="String" required />
 
@@ -75,16 +75,15 @@ EnrichedMarkdownText(
 )
 ```
 
-### `flags`
+### `options`
 
-Toggles for md4c's parser extensions. Each one opts a piece of extra syntax in or out; pass only the flags you want to change and the rest keep their defaults.
+Toggles for the optional syntax extensions. Each one opts a piece of extra syntax in or out; pass only the options you want to change and the rest keep their defaults.
 
-<PropInfo type="Md4cFlags" default="Md4cFlags.DEFAULT" />
+<PropInfo type="MarkdownOptions" default="MarkdownOptions.Default" />
 
 ```kotlin
-data class Md4cFlags(
+data class MarkdownOptions(
   val underline: Boolean = false,
-  val latexMath: Boolean = false,
   val superscript: Boolean = false,
   val subscript: Boolean = false,
   val highlight: Boolean = false,
@@ -98,13 +97,15 @@ data class Md4cFlags(
 ```kotlin
 EnrichedMarkdownText(
   markdown = content,
-  flags = Md4cFlags(underline = true, admonitions = true),
+  options = MarkdownOptions(underline = true, admonitions = true),
 )
 ```
 
 :::note
-`Md4cFlags.DEFAULT` turns **everything off except `permissiveAutolinks`**.
+`MarkdownOptions.Default` turns **everything off except `permissiveAutolinks`**.
 :::
+
+LaTeX math has no option. Enabling `LatexMathPlugin` from the `math` artifact turns on parsing `$...$` and `$$...$$` along with rendering them, so math is never parsed with nothing to draw it.
 
 For a walkthrough of what each extension changes, see [Parser extensions](/android/guides/parser-extensions).
 
@@ -132,23 +133,13 @@ Renders `==text==` with a highlight band behind the glyphs. Style it through [`h
 
 <PropInfo type="Boolean" default="false" />
 
-With the flag off, the `==` markers stay literal text.
-
-#### `latexMath`
-
-Parses `$inline$` and `$$block$$` as math nodes.
-
-<PropInfo type="Boolean" default="false" />
-
-:::danger
-**Leave this off.** The parser emits the nodes, but Android has no math renderer, and an unrendered node's text is **dropped from the output** - so a formula renders as nothing at all, with a `No renderer for: LatexMathInline` warning in Logcat. With the flag off, the `$` stays literal text and the formula is at least readable. See the [roadmap](/misc/roadmap).
-:::
+With the option off, the `==` markers stay literal text.
 
 #### `permissiveAutolinks`
 
 Links bare URLs. Plain Markdown only autolinks a URL wrapped in angle brackets - `<https://swmansion.com>` - so with this off, a URL pasted on its own stays inert text. With it on, `https://swmansion.com` becomes a link as written.
 
-This is separate from `[text](url)`, which is an ordinary inline link and always works. The flag is the one extension that is **on** by default.
+This is separate from `[text](url)`, which is an ordinary inline link and always works. The option is the one extension that is **on** by default.
 
 <PropInfo type="Boolean" default="true" />
 
@@ -181,7 +172,7 @@ EnrichedMarkdownText(markdown = content, selectable = false)
 ```
 
 :::note
-A selection can run across headings, paragraphs, lists, and quotes, which share one text view. It stops at tables and top-level code blocks, which are views of their own - long-press one to copy it. Nor can a selection span **two** `EnrichedMarkdownText` composables: each one is its own selection scope.
+A selection can run across headings, paragraphs, lists, and quotes, which share one text view. It stops at tables, and at top-level code blocks set to [scroll](#codeblocklayout), which are views of their own - long-press one to copy it. Nor can a selection span **two** `EnrichedMarkdownText` composables: each one is its own selection scope.
 :::
 
 #### What copying produces {#copying}
@@ -194,6 +185,21 @@ The selection menu also carries two items of the library's own, both on by defau
 - **Copy Image URL** appears when the selection contains images with `http(s)` URLs, and copies them one per line.
 
 Neither can be hidden or relabeled from the Compose API yet - the view underneath takes a config for them, but `EnrichedMarkdownText` does not pass one through. See the [roadmap](/misc/roadmap) and [Copy options](/user-experience/copy-options).
+
+### `codeBlockLayout`
+
+Whether fenced code blocks wrap long lines or scroll them. With `CodeBlockLayout.Wrapping` a long line wraps, and the code is part of the text selection like any other text.
+
+`CodeBlockLayout.Scrollable` keeps lines intact: a code block at the top level of the document scrolls horizontally inside its box instead. Each such block is a view of its own, so a selection stops at it - long-press it to copy its code, or the code as fenced Markdown. A code block inside a list item or a quote wraps either way. See [Code blocks](/android/api-reference/element-structure#code-blocks).
+
+<PropInfo type="CodeBlockLayout" default="CodeBlockLayout.Wrapping" />
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = content,
+  codeBlockLayout = CodeBlockLayout.Scrollable,
+)
+```
 
 ### `imageRequestHeaders`
 

@@ -1,17 +1,28 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.segments
 
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.CodeBlockLayout
+import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.plugin.CodeBlockDecorator
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.MarkdownPlugin
+import com.swmansion.enriched.markdown.plugin.PluginRegistry
 import com.swmansion.enriched.markdown.plugin.PluginSnapshot
+import com.swmansion.enriched.markdown.renderer.CodeBlockRenderer
 import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.renderSegments
@@ -82,11 +93,19 @@ class CodeBlockSegmentTest {
   // A. Splitting and rendering
 
   @Test
+  fun byDefaultARootCodeBlockStaysInItsTextSegment() {
+    val doc = document(paragraph(text("Before")), codeBlock("val x = 1\n"), paragraph(text("After")))
+
+    assertTrue(splitASTIntoSegments(doc, PluginSnapshot.EMPTY).single() is MarkdownSegment.Text)
+    assertEquals(CodeBlockLayout.Wrapping, EnrichedMarkdown(context).codeBlockLayout)
+  }
+
+  @Test
   fun rootCodeBlockBecomesItsOwnSegmentInDocumentOrder() {
     val code = codeBlock("val x = 1\n")
     val doc = document(paragraph(text("Before")), code, paragraph(text("After")))
 
-    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY)
+    val segments = splitASTIntoSegments(doc, PluginSnapshot.EMPTY, CodeBlockLayout.Scrollable)
 
     assertEquals(3, segments.size)
     assertTrue(segments[0] is MarkdownSegment.Text)
@@ -99,8 +118,8 @@ class CodeBlockSegmentTest {
     val inList = document(unorderedList(listItem(paragraph(text("Item")), codeBlock("a\n"))))
     val inQuote = document(blockquote(codeBlock("b\n")))
 
-    assertTrue(splitASTIntoSegments(inList, PluginSnapshot.EMPTY).single() is MarkdownSegment.Text)
-    assertTrue(splitASTIntoSegments(inQuote, PluginSnapshot.EMPTY).single() is MarkdownSegment.Text)
+    assertTrue(splitASTIntoSegments(inList, PluginSnapshot.EMPTY, CodeBlockLayout.Scrollable).single() is MarkdownSegment.Text)
+    assertTrue(splitASTIntoSegments(inQuote, PluginSnapshot.EMPTY, CodeBlockLayout.Scrollable).single() is MarkdownSegment.Text)
   }
 
   @Test
@@ -114,6 +133,84 @@ class CodeBlockSegmentTest {
     assertEquals(signature, again)
     assertNotEquals(signature, changed)
     assertNotEquals(signature, asText)
+  }
+
+  @Test
+  fun aPluginsCodeBlockRendererKeepsTheBlockInItsTextSegment() {
+    val plugin =
+      object : MarkdownPlugin {
+        override val id = "code-renderer"
+
+        override fun install(registry: PluginRegistry) =
+          registry.registerNodeRenderer(NodeType.CodeBlock) { config, _ -> CodeBlockRenderer(config) }
+      }
+    val doc = document(paragraph(text("Before")), codeBlock("val x = 1\n"))
+
+    assertTrue(splitASTIntoSegments(doc, PluginSnapshot.of(plugin), CodeBlockLayout.Scrollable).single() is MarkdownSegment.Text)
+  }
+
+  @Test
+  fun aTopLevelBlockIsDecoratedOverItsCodeWithItsLanguage() {
+    val calls = mutableListOf<Pair<String, String?>>()
+    val decorator =
+      CodeBlockDecorator { builder, start, end, language, _, _ ->
+        calls += builder.subSequence(start, end).toString() to language
+        builder.setSpan(ForegroundColorSpan(TOKEN_COLOR), start, start + 3, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    val plugins =
+      PluginSnapshot.of(
+        object : MarkdownPlugin {
+          override val id = "decorating"
+
+          override fun install(registry: PluginRegistry) = registry.registerCodeBlockDecorator(decorator)
+        },
+      )
+    val segments =
+      splitASTIntoSegments(document(fencedCodeBlock("val x = 1\n", language = "kotlin")), plugins, CodeBlockLayout.Scrollable)
+
+    val rendered = MarkdownSegmentRenderer.render(segments, defaultStyle, context, plugins = plugins).single() as RenderedSegment.CodeBlock
+    val view = CodeBlockContainerView(context, defaultStyle).apply { applyCodeBlockNode(rendered.node, rendered.text) }
+
+    assertEquals(listOf("val x = 1" to "kotlin"), calls)
+    val shown = textViewOf(view).text as Spanned
+    assertEquals(TOKEN_COLOR, shown.getSpans(0, 3, ForegroundColorSpan::class.java).single().foregroundColor)
+  }
+
+  /** Parsing is native, so this starts from the AST; from there it runs the view's own render and landing. */
+  @Test
+  fun aScrollingViewShowsItsTopLevelBlockDecoratedByItsPlugins() {
+    val decorator =
+      CodeBlockDecorator { builder, start, _, _, _, _ ->
+        builder.setSpan(ForegroundColorSpan(TOKEN_COLOR), start, start + 3, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    val view =
+      EnrichedMarkdown(context).apply {
+        setPlugins(
+          listOf(
+            object : MarkdownPlugin {
+              override val id = "decorating"
+
+              override fun install(registry: PluginRegistry) = registry.registerCodeBlockDecorator(decorator)
+            },
+          ),
+        )
+        setCodeBlockLayout(CodeBlockLayout.Scrollable)
+      }
+
+    view.applyRenderedSegments(view.segmentRenderer()(document(fencedCodeBlock("val x = 1\n", language = "kotlin"))))
+
+    val shown = textViewOf(view.getChildAt(0) as CodeBlockContainerView).text as Spanned
+    assertEquals("val x = 1", shown.toString())
+    assertEquals(TOKEN_COLOR, shown.getSpans(0, 3, ForegroundColorSpan::class.java).single().foregroundColor)
+  }
+
+  @Test
+  fun withNoPluginsTheBlockShowsItsPlainCode() {
+    val segments = splitASTIntoSegments(document(fencedCodeBlock("val x = 1\n")), PluginSnapshot.EMPTY, CodeBlockLayout.Scrollable)
+    val rendered = renderSegments(segments).single() as RenderedSegment.CodeBlock
+
+    assertEquals("val x = 1", rendered.text.toString())
+    assertTrue((rendered.text as Spanned).getSpans(0, rendered.text.length, ForegroundColorSpan::class.java).isEmpty())
   }
 
   // B. Layout
@@ -300,5 +397,9 @@ class CodeBlockSegmentTest {
     val markdown = CodeBlockContainerView.fencedMarkdown("```\nnested\n```", "md", '`')
 
     assertEquals("````md\n```\nnested\n```\n````", markdown)
+  }
+
+  private companion object {
+    const val TOKEN_COLOR = 0xFF123456.toInt()
   }
 }

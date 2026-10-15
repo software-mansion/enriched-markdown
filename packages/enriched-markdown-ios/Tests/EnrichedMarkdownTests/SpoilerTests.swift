@@ -276,6 +276,7 @@ final class SpoilerTests: XCTestCase {
         let originalTop = try XCTUnwrap(before.first).frame.minY
 
         textView.textContainerInset.top += 40
+        textView.frame.size.height += 40
         textView.setNeedsLayout()
         textView.layoutIfNeeded()
 

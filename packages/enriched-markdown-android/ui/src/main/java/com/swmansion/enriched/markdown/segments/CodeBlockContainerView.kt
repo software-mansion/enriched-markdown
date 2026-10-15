@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.segments
 
 import android.content.ClipData
@@ -11,7 +13,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
-import android.text.SpannableString
+import android.text.SpannableStringBuilder
 import android.text.TextPaint
 import android.text.TextUtils
 import android.util.TypedValue
@@ -21,8 +23,11 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
+import com.swmansion.enriched.markdown.CodeBlockLayout
 import com.swmansion.enriched.markdown.parser.CodeBlockLanguages
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.plugin.CodeBlockDecorator
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.spans.LineHeightSpan
 import com.swmansion.enriched.markdown.styles.CodeBlockStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
@@ -35,14 +40,15 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
- * Block segment view for a root-level fenced code block: a fixed header bar (language
- * name, copy button) above code that never wraps and scrolls horizontally inside the
- * block's box instead. Code blocks nested in a list or blockquote stay in their text
- * segment, drawn by CodeBlockSpan, and wrap.
+ * Block segment view for a root-level fenced code block under [CodeBlockLayout.Scrollable]:
+ * a fixed header bar (language name, copy button) above code that never wraps and scrolls
+ * horizontally inside the block's box instead. Code blocks nested in a list or blockquote,
+ * and every block under [CodeBlockLayout.Wrapping], stay in their text segment, drawn by
+ * CodeBlockSpan, and wrap.
  */
 class CodeBlockContainerView(
   context: Context,
-  styleConfig: StyleConfig,
+  private val styleConfig: StyleConfig,
 ) : FrameLayout(context),
   BlockSegmentView {
   private val codeBlockStyle: CodeBlockStyle = styleConfig.codeBlockStyle
@@ -144,15 +150,19 @@ class CodeBlockContainerView(
     addView(copyButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
   }
 
-  fun applyCodeBlockNode(node: MarkdownASTNode) {
+  /** [text] is what [buildCodeText] made of [node], built off the main thread when it ran decorators. */
+  fun applyCodeBlockNode(
+    node: MarkdownASTNode,
+    text: CharSequence = buildCodeText(node, styleConfig, emptyList(), context),
+  ) {
     code = extractCode(node)
-    val newLanguage = node.getAttribute("language")?.takeIf { it.isNotEmpty() }
+    val newLanguage = languageOf(node)
     if (newLanguage != language) {
       language = newLanguage
       languageView.text = CodeBlockLanguages.displayName(newLanguage)
     }
     fenceChar = node.getAttribute("fenceChar")?.firstOrNull() ?: '`'
-    textView.text = buildCodeText(code, codeBlockStyle)
+    textView.text = text
   }
 
   override fun onMeasure(
@@ -322,13 +332,27 @@ class CodeBlockContainerView(
       return "$fence${language.orEmpty()}\n$code\n$fence"
     }
 
+    fun languageOf(node: MarkdownASTNode): String? = node.getAttribute("language")?.takeIf { it.isNotBlank() }
+
+    /**
+     * The block's code as the view displays it. [decorators] run here as they do in core's code
+     * block renderer for nested blocks, so this is meant for the render thread.
+     */
     fun buildCodeText(
-      code: String,
-      style: CodeBlockStyle,
-    ): SpannableString =
-      SpannableString(code).apply {
-        if (style.lineHeight > 0f && isNotEmpty()) {
-          setSpan(LineHeightSpan(style.lineHeight), 0, length, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+      node: MarkdownASTNode,
+      style: StyleConfig,
+      decorators: List<CodeBlockDecorator>,
+      context: Context,
+    ): SpannableStringBuilder =
+      SpannableStringBuilder(extractCode(node)).apply {
+        val lineHeight = style.codeBlockStyle.lineHeight
+        if (lineHeight > 0f && isNotEmpty()) {
+          setSpan(LineHeightSpan(lineHeight), 0, length, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+        }
+        // The text view paints the block's color, so a decorator's color spans override it.
+        val language = languageOf(node)
+        for (decorator in decorators) {
+          decorator.decorate(this, 0, length, language, style, context)
         }
       }
   }

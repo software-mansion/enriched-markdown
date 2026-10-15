@@ -40,10 +40,10 @@ The available blocks:
 | `strong`        | Bold text                                                                       |
 | `emphasis`      | Italic text                                                                     |
 | `strikethrough` | Struck-through text                                                             |
-| `underline`     | Underlined text (needs `Md4cFlags(underline = true)`)                           |
-| `superscript`   | Superscript (needs `Md4cFlags(superscript = true)`)                             |
-| `subscript`     | Subscript (needs `Md4cFlags(subscript = true)`)                                 |
-| `highlight`     | Highlighted text (needs `Md4cFlags(highlight = true)`)                          |
+| `underline`     | Underlined text (needs `MarkdownOptions(underline = true)`)                     |
+| `superscript`   | Superscript (needs `MarkdownOptions(superscript = true)`)                       |
+| `subscript`     | Subscript (needs `MarkdownOptions(subscript = true)`)                           |
+| `highlight`     | Highlighted text (needs `MarkdownOptions(highlight = true)`)                    |
 | `image`         | Block images                                                                    |
 | `inlineImage`   | Inline images                                                                   |
 | `thematicBreak` | Horizontal rules                                                                |
@@ -224,7 +224,7 @@ Default `color` per type, matching GitHub's alert palette:
 Types you omit keep their defaults, and within a type an omitted property falls back the same way. The title is always bold, whatever `fontWeight` the blockquote carries.
 
 :::note
-Requires [`Md4cFlags(admonitions = true)`](/android/api-reference/enriched-markdown-text#admonitions), which is **off** by default. Without it the marker is literal text in an ordinary quote and these styles do not apply.
+Requires [`MarkdownOptions(admonitions = true)`](/android/api-reference/enriched-markdown-text#admonitions), which is **off** by default. Without it the marker is literal text in an ordinary quote and these styles do not apply.
 :::
 
 ### `list`
@@ -422,7 +422,7 @@ markdownStyle {
 
 ### `highlight`
 
-`==text==` runs, drawn as a band behind the glyphs. Needs [`Md4cFlags(highlight = true)`](/android/api-reference/enriched-markdown-text#highlight).
+`==text==` runs, drawn as a band behind the glyphs. Needs [`MarkdownOptions(highlight = true)`](/android/api-reference/enriched-markdown-text#highlight).
 
 | Property          | Type    | Default    | Description                                           |
 | ----------------- | ------- | ---------- | ----------------------------------------------------- |

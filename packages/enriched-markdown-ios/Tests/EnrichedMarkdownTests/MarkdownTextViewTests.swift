@@ -77,12 +77,6 @@ final class MarkdownTextViewTests: XCTestCase {
         NSAttributedString(string: string, attributes: [.font: UIFont.systemFont(ofSize: size)])
     }
 
-    private static let measureWidth: CGFloat = 200
-
-    private func height(of textView: MarkdownTextView, width: CGFloat = measureWidth) -> CGFloat {
-        textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
-    }
-
     func testRepeatedMeasurementsAgree() {
         let textView = MarkdownTextView()
         textView.setMarkdownAttributedText(attributed("One line of text"))
@@ -224,18 +218,13 @@ final class MarkdownTextViewTests: XCTestCase {
     func testHostedViewShrinksOnceAMaxHeightImageSettles() throws {
         let downloader = DeferredImageDownloader()
         let document = imageDocument(BlockImage().maxHeight(150), downloader: downloader)
-        let host = UIHostingController(rootView: hostedRepresentable(document.text))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 600))
+        let (window, textView) = try host(.fixture(attributedText: document.text))
         self.window = window
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        host.view.layoutIfNeeded()
-        let textView = try XCTUnwrap(host.view.firstSubview(of: MarkdownTextView.self))
         let before = textView.frame.height
 
         downloader.complete(with: makeImage(width: 300, height: 100))
         awaitMainQueue()
-        host.view.layoutIfNeeded()
+        window.layoutIfNeeded()
 
         // 300 points wide at 3:1 fits in 100, half a cap of 150.
         XCTAssertEqual(before - textView.frame.height, 50, accuracy: 1)
@@ -253,25 +242,6 @@ final class MarkdownTextViewTests: XCTestCase {
         drainMainQueue()
 
         XCTAssertEqual(height(of: textView, width: 300), before)
-    }
-
-    private func hostedRepresentable(_ text: NSAttributedString) -> some View {
-        MarkdownTextViewRepresentable(
-            attributedText: text,
-            source: nil,
-            styleConfig: .baseline(),
-            openURL: { _ in },
-            onLinkPress: nil,
-            onLinkLongPress: nil,
-            selectionMenuConfig: MarkdownSelectionMenu(),
-            isSelectionEnabled: true,
-            selectionColor: nil,
-            onTaskListItemTap: nil,
-            spoilerOverlay: ParticleSpoilerOverlayProvider(),
-            onSpoilerTap: nil,
-            accessibilityLabels: .default
-        )
-        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -386,26 +356,6 @@ extension MarkdownTextViewTests {
         plain.addSubview(container)
         window.layoutIfNeeded()
         XCTAssertEqual(decorationFrames(of: textView), [textView.bounds, textView.bounds])
-    }
-
-    /// The background pass over `rect` of `textView`, as rows of RGBA bytes.
-    private func backgroundRows(of textView: MarkdownTextView, in rect: CGRect) throws -> [[UInt8]] {
-        let decorator = MarkdownViewportDecorator(
-            backgroundView: MarkdownDecorationView(),
-            foregroundView: MarkdownDecorationView()
-        )
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let image = UIGraphicsImageRenderer(size: rect.size, format: format).image { context in
-            UIColor.white.setFill()
-            context.fill(CGRect(origin: .zero, size: rect.size))
-            decorator.draw(in: context.cgContext, textView: textView, tile: rect, pass: .background)
-        }
-        let cgImage = try XCTUnwrap(image.cgImage)
-        let data = try XCTUnwrap(cgImage.dataProvider?.data) as Data
-        return (0..<Int(rect.height)).map { row in
-            Array(data[(row * cgImage.bytesPerRow)..<(row * cgImage.bytesPerRow + Int(rect.width) * 4)])
-        }
     }
 
     /// The decoration views are subviews of a scroll view, so their frames
