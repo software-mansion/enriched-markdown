@@ -30,17 +30,13 @@ static inline void ENRMDetachLayoutManager(ENRMPlatformTextView *textView)
   }
 }
 
-typedef struct {
-  BOOL hasSoftWrap;
-  CGFloat tightWidth;
-} ENRMLineFragmentScan;
-
-/// `tightWidth` adds each line's head and tail indent to its used rect, which
-/// TextKit leaves out; lists and code blocks re-wrap without them. Stops at
-/// the first soft wrap or once the width reaches maxWidth: both yield maxWidth.
-static inline ENRMLineFragmentScan ENRMScanLineFragments(NSLayoutManager *layoutManager, CGFloat maxWidth)
+/// Returns maxWidth for soft-wrapped content, otherwise the tight width of its
+/// lines, or fallbackWidth when no line fragment was laid out. The tight width
+/// adds each line's head and tail indent to its used rect, which TextKit leaves
+/// out; lists and code blocks re-wrap without them.
+static inline CGFloat ENRMContentWidth(NSLayoutManager *layoutManager, CGFloat maxWidth, CGFloat fallbackWidth)
 {
-  ENRMLineFragmentScan scan = {NO, 0};
+  CGFloat tightWidth = 0;
   NSTextStorage *storage = layoutManager.textStorage;
   NSString *string = storage.string;
   NSCharacterSet *newlines = [NSCharacterSet newlineCharacterSet];
@@ -63,21 +59,20 @@ static inline ENRMLineFragmentScan ENRMScanLineFragments(NSLayoutManager *layout
                                   effectiveRange:NULL];
     CGFloat headIndent = startsParagraph ? style.firstLineHeadIndent : style.headIndent;
     CGFloat tailInset = style.tailIndent < 0 ? -style.tailIndent : 0;
-    scan.tightWidth = MAX(scan.tightWidth, usedRect.size.width + headIndent + tailInset);
-    if (scan.tightWidth >= maxWidth) {
-      return scan;
+    tightWidth = MAX(tightWidth, usedRect.size.width + headIndent + tailInset);
+    if (tightWidth >= maxWidth) {
+      return maxWidth;
     }
 
     BOOL endsParagraph = [newlines characterIsMember:[string characterAtIndex:NSMaxRange(lineCharRange) - 1]];
     NSUInteger nextGlyphIndex = NSMaxRange(lineGlyphRange);
     if (nextGlyphIndex < glyphCount && !endsParagraph) {
-      scan.hasSoftWrap = YES;
-      return scan;
+      return maxWidth; // soft wrap
     }
     startsParagraph = endsParagraph;
     glyphIndex = nextGlyphIndex;
   }
-  return scan;
+  return tightWidth > 0 ? tightWidth : fallbackWidth;
 }
 
 /// Turns a raw TextKit layout pass into the final measured size. Shared by
@@ -103,15 +98,8 @@ static inline CGSize ENRMFinalizeMeasuredTextSize(ENRMTextLayoutResult layout, N
                                                   CGFloat lastElementMarginBottom, BOOL subtractExtraLineFragment,
                                                   CGFloat scale)
 {
-  CGFloat measuredWidth = layout.usedRect.size.width;
+  CGFloat measuredWidth = ENRMContentWidth(layoutManager, maxWidth, layout.usedRect.size.width);
   CGFloat measuredHeight = layout.usedRect.size.height;
-
-  ENRMLineFragmentScan scan = ENRMScanLineFragments(layoutManager, maxWidth);
-  if (scan.hasSoftWrap) {
-    measuredWidth = maxWidth;
-  } else if (scan.tightWidth > 0) {
-    measuredWidth = MIN(scan.tightWidth, maxWidth);
-  }
 
   if (subtractExtraLineFragment && !CGRectIsEmpty(layout.extraLineFragmentRect)) {
     measuredHeight -= layout.extraLineFragmentRect.size.height;
