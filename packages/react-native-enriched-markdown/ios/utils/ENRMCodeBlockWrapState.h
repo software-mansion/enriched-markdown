@@ -83,7 +83,7 @@ void ENRMCollectCodeBlockViews(NSArray<RCTUIView *> *segmentViews,
 // Pushes the wrapped set and the toggle onto the current code block views.
 - (void)sync;
 
-// Back to the initial state (toggle off, nothing wrapped) for a recycled view.
+// Back to the initial state (toggle on, nothing wrapped) for a recycled view.
 - (void)reset;
 
 @end

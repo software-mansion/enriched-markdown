@@ -145,7 +145,7 @@ export const EnrichedMarkdownText = ({
   onCopyPress,
   onLatexError,
   onCodeBlockPress,
-  enableCodeBlockWrapToggle = false,
+  enableCodeBlockWrapToggle = true,
   enableBlockContextMenu = true,
   enableLinkPreview,
   selectable = true,

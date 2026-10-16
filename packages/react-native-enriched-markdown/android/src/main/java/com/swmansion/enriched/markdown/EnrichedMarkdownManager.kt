@@ -245,7 +245,7 @@ class EnrichedMarkdownManager :
     view?.enableCodeBlockPress = enableCodeBlockPress
   }
 
-  @ReactProp(name = "enableCodeBlockWrapToggle", defaultBoolean = false)
+  @ReactProp(name = "enableCodeBlockWrapToggle", defaultBoolean = true)
   override fun setEnableCodeBlockWrapToggle(
     view: EnrichedMarkdown?,
     enableCodeBlockWrapToggle: Boolean,

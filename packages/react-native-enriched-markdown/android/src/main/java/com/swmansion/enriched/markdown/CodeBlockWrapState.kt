@@ -31,7 +31,8 @@ internal class CodeBlockWrapState(
   private val codeBlockViews: () -> Sequence<CodeBlockContainerView>,
   private val onHeightChanged: () -> Unit,
 ) {
-  var enabled: Boolean = false
+  // Matches the prop's default, for a host that never receives the prop.
+  var enabled: Boolean = true
     private set
 
   var indices: Set<Int> = emptySet()

@@ -490,7 +490,7 @@ object MeasurementStore {
         rawMarkdown
       }
     val wrapped =
-      if (props.getBooleanOrDefault("enableCodeBlockWrapToggle", false)) {
+      if (props.getBooleanOrDefault("enableCodeBlockWrapToggle", true)) {
         id?.let { wrappedCodeBlocks[it] } ?: emptySet()
       } else {
         emptySet()

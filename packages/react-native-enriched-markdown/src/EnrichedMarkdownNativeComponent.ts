@@ -532,7 +532,7 @@ export interface NativeProps extends ViewProps {
    * block headers. Each block starts unwrapped.
    * @default false
    */
-  enableCodeBlockWrapToggle?: CodegenTypes.WithDefault<boolean, false>;
+  enableCodeBlockWrapToggle?: CodegenTypes.WithDefault<boolean, true>;
   /**
    * Callback fired when a math expression cannot be parsed or rendered by the
    * LaTeX engine. Receives the raw LaTeX `source` of the failing inline span or

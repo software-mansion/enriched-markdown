@@ -119,7 +119,7 @@ Four sharp edges are worth knowing:
 - **Android** has no rotor concept, so `accessibilityLabels.rotor.*` is ignored there.
 - **Task list items** have no accessibility handling in the React Native package on either platform: a checkbox is read as plain list text, with no checked state announced and no toggle action exposed. There is no label key for it.
 - **Admonitions** carry no accessibility role; they are announced as the blockquote they are built from.
-- **Code blocks** are covered only partially - under `flavor="github"` the header copy button carries the resolved copy label and the optional wrap toggle (`enableCodeBlockWrapToggle`) speaks `codeBlock.wrap` / `codeBlock.unwrap`; iOS vends both as VoiceOver actions, but the block itself has no dedicated role.
+- **Code blocks** are covered only partially - under `flavor="github"` the header copy button carries the resolved copy label and the optional wrap toggle (`enableCodeBlockWrapToggle`) speaks `codeBlock.wrap` / `codeBlock.unwrap`, while iOS vends both as VoiceOver actions, but the block itself has no dedicated role.
 - The platform tabs above describe the renderer. The **editor** speaks neither heading level nor task state (see [Editor accessibility](#editor-accessibility)).
 
 ## Reference

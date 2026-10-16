@@ -48,6 +48,8 @@ void ENRMCollectCodeBlockViews(NSArray<RCTUIView *> *segmentViews,
   if (self = [super init]) {
     _codeBlockViews = [codeBlockViews copy];
     _onHeightChanged = [onHeightChanged copy];
+    // Matches the prop's default.
+    _enabled = YES;
     self.indices = [NSSet set];
   }
   return self;
@@ -115,7 +117,7 @@ void ENRMCollectCodeBlockViews(NSArray<RCTUIView *> *segmentViews,
 
 - (void)reset
 {
-  _enabled = NO;
+  _enabled = YES;
   self.indices = [NSSet set];
 }
 
