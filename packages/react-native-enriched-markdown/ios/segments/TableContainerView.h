@@ -38,7 +38,7 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 @property (nonatomic, assign) BOOL allowFontScaling;
 @property (nonatomic, assign) CGFloat maxFontSizeMultiplier;
 
-@property (nonatomic, copy, nullable) TableLinkPressBlock onLinkPress;
+@property (nonatomic, copy, nullable) void (^onLinkPress)(NSString *url, NSString *sourceType);
 @property (nonatomic, copy, nullable) TableLinkPressBlock onLinkLongPress;
 @property (nonatomic, copy, nullable) void (^onImagePress)(NSString *url, NSString *altText);
 

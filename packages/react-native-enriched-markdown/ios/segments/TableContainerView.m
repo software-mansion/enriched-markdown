@@ -315,10 +315,10 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 #else
   ENRMTableIOSGridView *iosGridView = [[ENRMTableIOSGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
-  iosGridView.onLinkTap = ^(NSString *url) {
+  iosGridView.onLinkTap = ^(NSString *url, NSString *sourceType) {
     TableContainerView *strongSelf = weakSelf;
     if (strongSelf && strongSelf.onLinkPress)
-      strongSelf.onLinkPress(url);
+      strongSelf.onLinkPress(url, sourceType);
   };
   iosGridView.onImageTap = ^(NSString *url, NSString *altText) {
     TableContainerView *strongSelf = weakSelf;

@@ -37,11 +37,12 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
 fun emitLinkPress(
   view: View,
   url: String,
+  sourceType: String,
 ) {
   val context = view.context as com.facebook.react.bridge.ReactContext
   val surfaceId = UIManagerHelper.getSurfaceId(context)
   val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
-  eventDispatcher?.dispatchEvent(LinkPressEvent(surfaceId, view.id, url))
+  eventDispatcher?.dispatchEvent(LinkPressEvent(surfaceId, view.id, url, sourceType))
 }
 
 fun emitLinkLongPress(

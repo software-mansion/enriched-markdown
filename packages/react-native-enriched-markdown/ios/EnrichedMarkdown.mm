@@ -82,7 +82,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
 @interface EnrichedMarkdown () <RCTEnrichedMarkdownViewProtocol, UITextViewDelegate, ENRMImageLayoutObserver>
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props;
-- (void)emitLinkPress:(NSString *)url;
+- (void)emitLinkPress:(NSString *)url sourceType:(NSString *)sourceType;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
@@ -411,10 +411,10 @@ static char kENRMSegmentFadeAnimatorKey;
     if (strongSelf)
       [strongSelf emitCodeBlockPress:code language:language];
   };
-  view.onLinkPress = ^(NSString *url) {
+  view.onLinkPress = ^(NSString *url, NSString *sourceType) {
     EnrichedMarkdown *strongSelf = weakSelf;
     if (strongSelf && url)
-      [strongSelf emitLinkPress:url];
+      [strongSelf emitLinkPress:url sourceType:sourceType];
   };
   view.onLinkLongPress = ^(NSString *url) {
     EnrichedMarkdown *strongSelf = weakSelf;
@@ -986,10 +986,10 @@ static char kENRMSegmentFadeAnimatorKey;
 
   __weak EnrichedMarkdown *weakSelf = self;
 
-  tableView.onLinkPress = ^(NSString *url) {
+  tableView.onLinkPress = ^(NSString *url, NSString *sourceType) {
     EnrichedMarkdown *strongSelf = weakSelf;
     if (strongSelf && url)
-      [strongSelf emitLinkPress:url];
+      [strongSelf emitLinkPress:url sourceType:sourceType];
   };
 
   tableView.onLinkLongPress = ^(NSString *url) {
@@ -1475,11 +1475,11 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 }
 #endif
 
-- (void)emitLinkPress:(NSString *)url
+- (void)emitLinkPress:(NSString *)url sourceType:(NSString *)sourceType
 {
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
   if (emitter)
-    emitter->onLinkPress({.url = std::string(url.UTF8String)});
+    emitter->onLinkPress({.url = std::string(url.UTF8String), .sourceType = std::string(sourceType.UTF8String)});
 }
 
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText
@@ -1575,7 +1575,9 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     }
   }
 
-  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) { [self emitLinkPress:url]; })) {
+  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url, NSString *sourceType) {
+        [self emitLinkPress:url sourceType:sourceType];
+      })) {
     return;
   }
 

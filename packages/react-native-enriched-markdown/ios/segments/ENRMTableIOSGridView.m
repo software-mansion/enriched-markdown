@@ -193,6 +193,7 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
   ENRMTableIOSItemHit *hit = [[ENRMTableIOSItemHit alloc] init];
   hit.kind = linkURL ? ENRMTableIOSItemKindLink : ENRMTableIOSItemKindImage;
   hit.url = linkURL ?: imageURL;
+  hit.sourceType = [text attribute:@"linkSourceType" atIndex:charIndex effectiveRange:NULL] ?: @"markdown";
   hit.title = linkURL ? linkTitleAtIndex(text, charIndex)
                       : [text attribute:@"imageAltText" atIndex:charIndex effectiveRange:NULL];
   hit.frame = CGRectOffset(frame, textRect.origin.x, textRect.origin.y);
@@ -240,7 +241,7 @@ static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGR
     return;
   if (hit.kind == ENRMTableIOSItemKindLink) {
     if (self.onLinkTap)
-      self.onLinkTap(hit.url);
+      self.onLinkTap(hit.url, hit.sourceType);
   } else if (self.onImageTap) {
     self.onImageTap(hit.url, hit.title ?: @"");
   }

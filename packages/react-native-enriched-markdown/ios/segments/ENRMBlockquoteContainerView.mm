@@ -229,10 +229,10 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                             if (strongSelf) {
                               view.dynamicProps = strongSelf.dynamicProps;
                               view.accessibilityLabels = strongSelf.accessibilityLabels;
-                              view.onLinkPress = ^(NSString *url) {
+                              view.onLinkPress = ^(NSString *url, NSString *sourceType) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onLinkPress && url)
-                                  s.onLinkPress(url);
+                                  s.onLinkPress(url, sourceType);
                               };
                               view.onLinkLongPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
@@ -299,10 +299,10 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                                 if (s.onImagePress && url)
                                   s.onImagePress(url, altText);
                               };
-                              view.onLinkPress = ^(NSString *url) {
+                              view.onLinkPress = ^(NSString *url, NSString *sourceType) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onLinkPress && url)
-                                  s.onLinkPress(url);
+                                  s.onLinkPress(url, sourceType);
                               };
                               view.onLinkLongPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
@@ -374,10 +374,10 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
   __weak ENRMBlockquoteContainerView *weakSelf = self;
-  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) {
+  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url, NSString *sourceType) {
         ENRMBlockquoteContainerView *strongSelf = weakSelf;
         if (strongSelf.onLinkPress && url)
-          strongSelf.onLinkPress(url);
+          strongSelf.onLinkPress(url, sourceType);
       })) {
     return;
   }

@@ -1,3 +1,4 @@
+import type { MarkdownRenderers } from './MarkdownRenderers';
 import type { LinkRecognition } from './MarkdownTextProps';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
@@ -23,6 +24,8 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform ios, android, web
    */
   markdown: string;
+  /** Custom block components. Ignored on native. @platform web */
+  renderers?: MarkdownRenderers;
   /**
    * Style configuration for markdown elements.
    * @platform ios, android, web

@@ -1,3 +1,7 @@
+export type {
+  MarkdownRenderers,
+  CodeBlockRendererProps,
+} from './types/MarkdownRenderers';
 export type { LinkVariantStyle, LinkPillStyle } from './types/MarkdownStyle';
 export type { LinkPillContent } from './types/MarkdownTextProps';
 export type {

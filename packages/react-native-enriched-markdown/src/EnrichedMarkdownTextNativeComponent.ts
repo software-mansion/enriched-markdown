@@ -276,6 +276,7 @@ export interface MarkdownStyleInternal {
 
 export interface LinkPressEvent {
   url: string;
+  sourceType: string;
 }
 
 export interface LinkLongPressEvent {

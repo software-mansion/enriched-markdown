@@ -10,11 +10,11 @@ import com.swmansion.enriched.markdown.events.ImagePressEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
 
-fun View.emitLinkPressEvent(url: String) {
+fun View.emitLinkPressEvent(url: String, sourceType: String) {
   val reactContext = context as? ReactContext ?: return
   val surfaceId = UIManagerHelper.getSurfaceId(reactContext)
   val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)
-  dispatcher?.dispatchEvent(LinkPressEvent(surfaceId, id, url))
+  dispatcher?.dispatchEvent(LinkPressEvent(surfaceId, id, url, sourceType))
 }
 
 fun View.emitImagePressEvent(

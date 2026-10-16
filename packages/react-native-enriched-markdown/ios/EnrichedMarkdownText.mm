@@ -62,7 +62,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 - (void)applyRenderedText:(NSMutableAttributedString *)attributedText;
 - (void)textTapped:(ENRMTapRecognizer *)recognizer;
 - (void)setupLayoutManager;
-- (void)emitLinkPress:(NSString *)url;
+- (void)emitLinkPress:(NSString *)url sourceType:(NSString *)sourceType;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
@@ -909,11 +909,11 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
   return [super touchEventEmitterAtPoint:point];
 }
 
-- (void)emitLinkPress:(NSString *)url
+- (void)emitLinkPress:(NSString *)url sourceType:(NSString *)sourceType
 {
   auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
   if (emitter)
-    emitter->onLinkPress({.url = std::string(url.UTF8String)});
+    emitter->onLinkPress({.url = std::string(url.UTF8String), .sourceType = std::string(sourceType.UTF8String)});
 }
 
 - (void)emitLinkLongPress:(NSString *)url
@@ -994,7 +994,9 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     return;
   }
 
-  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) { [self emitLinkPress:url]; })) {
+  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url, NSString *sourceType) {
+        [self emitLinkPress:url sourceType:sourceType];
+      })) {
     return;
   }
 

@@ -8,12 +8,14 @@ class LinkPressEvent(
   surfaceId: Int,
   viewId: Int,
   private val url: String,
+  private val sourceType: String,
 ) : Event<LinkPressEvent>(surfaceId, viewId) {
   override fun getEventName(): String = EVENT_NAME
 
   override fun getEventData(): WritableMap {
     val eventData: WritableMap = Arguments.createMap()
     eventData.putString("url", url)
+    eventData.putString("sourceType", sourceType)
     return eventData
   }
 

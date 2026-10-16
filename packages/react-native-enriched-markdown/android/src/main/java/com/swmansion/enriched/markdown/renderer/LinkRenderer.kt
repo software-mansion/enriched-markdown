@@ -19,7 +19,7 @@ class LinkRenderer(
   override fun render(
     node: MarkdownASTNode,
     builder: SpannableStringBuilder,
-    onLinkPress: ((String) -> Unit)?,
+    onLinkPress: ((String, String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
     factory: RendererFactory,
   ) {

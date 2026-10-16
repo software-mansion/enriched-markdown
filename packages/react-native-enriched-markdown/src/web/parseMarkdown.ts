@@ -15,6 +15,7 @@ type ParseFn = (
 
 // Caching the Promise (not the resolved value) means concurrent callers share
 // a single WASM initialization — no duplicate loading.
+let readyParser: ParseFn | null = null;
 let parserPromise: Promise<ParseFn> | null = null;
 
 // SINGLE_FILE=1 inlines the WASM binary as base64 inside md4c.js, so no
@@ -36,6 +37,10 @@ function initializeParser(): Promise<ParseFn> {
           'number',
         ])
       )
+      .then((parse) => {
+        readyParser = parse as ParseFn;
+        return parse;
+      })
       .catch((error) => {
         parserPromise = null;
         throw error;
@@ -53,7 +58,7 @@ function isASTNode(value: unknown): value is ASTNode {
   );
 }
 
-export async function parseMarkdown(
+export function parseMarkdownSync(
   markdown: string,
   {
     underline = false,
@@ -65,8 +70,9 @@ export async function parseMarkdown(
     preserveBlankLines = false,
     admonitions = true,
   }: Md4cFlags = {}
-): Promise<ASTNode> {
-  const parse = await initializeParser();
+): ASTNode | null {
+  const parse = readyParser;
+  if (!parse) return null;
 
   const result: unknown = JSON.parse(
     parse(
@@ -87,4 +93,12 @@ export async function parseMarkdown(
   }
 
   return result;
+}
+
+export async function parseMarkdown(
+  markdown: string,
+  flags: Md4cFlags = {}
+): Promise<ASTNode> {
+  await initializeParser();
+  return parseMarkdownSync(markdown, flags)!;
 }

@@ -307,6 +307,10 @@ public:
           if (!url.empty()) {
             node->setAttribute(ATTR_URL, url);
           }
+          const auto title = impl->getAttributeText(&linkDetail->title);
+          if (!title.empty()) {
+            node->setAttribute(ATTR_TITLE, title);
+          }
         }
         impl->pushNode(node);
         break;

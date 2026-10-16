@@ -18,6 +18,7 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
 @interface ENRMTableIOSItemHit : NSObject
 @property (nonatomic, assign) ENRMTableIOSItemKind kind;
 @property (nonatomic, copy) NSString *url;
+@property (nonatomic, copy) NSString *sourceType;
 /// The link's visible label, or an image's alt text.
 @property (nonatomic, copy, nullable) NSString *title;
 /// The item's frame in grid coordinates.
@@ -34,7 +35,7 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
 /// cause multi-second main-thread hangs on large tables.
 @interface ENRMTableIOSGridView : UIView
 
-@property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkTap;
+@property (nonatomic, copy, nullable) void (^onLinkTap)(NSString *url, NSString *sourceType);
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkLongTap;
 @property (nonatomic, copy, nullable) void (^onImageTap)(NSString *url, NSString *altText);
 /// Asked when a touch lands on a link: a link with a menu is left to the context-menu

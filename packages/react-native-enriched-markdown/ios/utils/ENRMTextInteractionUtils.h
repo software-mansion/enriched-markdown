@@ -11,7 +11,7 @@ extern "C" {
 /// If a link is found, calls onLinkPress and returns YES.
 /// If no link is found, calls ENRMClearSelection and returns NO.
 BOOL ENRMHandleTapOnTextView(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer,
-                             void (^onLinkPress)(NSString *url));
+                             void (^onLinkPress)(NSString *url, NSString *sourceType));
 
 #ifdef __cplusplus
 }

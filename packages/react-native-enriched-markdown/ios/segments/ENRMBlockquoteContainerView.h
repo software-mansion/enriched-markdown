@@ -68,7 +68,7 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 
 // Bridged up to the JS onLinkPress/onLinkLongPress events; propagated to nested
 // quotes so links at any depth fire.
-@property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkPress;
+@property (nonatomic, copy, nullable) void (^onLinkPress)(NSString *url, NSString *sourceType);
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkLongPress;
 @property (nonatomic, copy, nullable) void (^onImagePress)(NSString *url, NSString *altText);
 

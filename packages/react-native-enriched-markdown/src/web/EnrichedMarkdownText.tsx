@@ -12,7 +12,7 @@ import {
   parseErrorFallbackStyle,
   buildStyles,
 } from './styles';
-import { parseMarkdown } from './parseMarkdown';
+import { parseMarkdown, parseMarkdownSync } from './parseMarkdown';
 import { recognizeTextLinks } from './recognizeTextLinks';
 import { RenderNode } from './renderers';
 import type { ASTNode, RendererCallbacks, RenderCapabilities } from './types';
@@ -27,6 +27,7 @@ export const EnrichedMarkdownText = ({
   markdownStyle = {},
   md4cFlags = {},
   linkRecognition,
+  renderers,
   onLinkPress,
   onLinkLongPress,
   onImagePress,
@@ -46,7 +47,10 @@ export const EnrichedMarkdownText = ({
     [markdownStyle]
   );
 
-  const [ast, setAst] = useState<ASTNode | null>(null);
+  const [parsed, setParsed] = useState<{
+    ast: ASTNode;
+    markdown: string;
+  } | null>(null);
   const [katex, setKatex] = useState<KaTeXInstance | null>(null);
   const [parseError, setParseError] = useState<boolean>(false);
 
@@ -67,7 +71,53 @@ export const EnrichedMarkdownText = ({
   const textLinkKey = linkRecognition?.text?.toString() ?? null;
   const inlineCodeLinkKey = linkRecognition?.inlineCode?.toString() ?? null;
 
+  // Once WASM is ready, new/virtualized rows must have their text on the first
+  // commit. An effect-only parse briefly measures an empty row and moves readers.
+  const immediate = useMemo(() => {
+    try {
+      const result = parseMarkdownSync(markdown, {
+        underline,
+        latexMath,
+        superscript,
+        subscript,
+        highlight,
+        hardSoftBreaks,
+        preserveBlankLines,
+        admonitions,
+      });
+      if (!result) return null;
+      indexTaskItems(result);
+      markInlineImages(result);
+      return {
+        markdown,
+        ast: recognizeTextLinks(
+          result,
+          linkRecognitionRef.current?.text,
+          linkRecognitionRef.current?.inlineCode
+        ),
+      };
+    } catch {
+      return { markdown, ast: null };
+    }
+    // Regex keys track ref changes; parsed wakes this memo after WASM initialization.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    markdown,
+    underline,
+    latexMath,
+    superscript,
+    subscript,
+    highlight,
+    hardSoftBreaks,
+    preserveBlankLines,
+    admonitions,
+    textLinkKey,
+    inlineCodeLinkKey,
+    parsed,
+  ]);
+
   useEffect(() => {
+    if (immediate && (!latexMath || katex)) return;
     let cancelled = false;
 
     const katexPromise = latexMath ? loadKaTeX() : Promise.resolve(null);
@@ -92,13 +142,14 @@ export const EnrichedMarkdownText = ({
 
           setParseError(false);
           setKatex(katexInstance);
-          setAst(
-            recognizeTextLinks(
+          setParsed({
+            markdown,
+            ast: recognizeTextLinks(
               result,
               linkRecognitionRef.current?.text,
               linkRecognitionRef.current?.inlineCode
-            )
-          );
+            ),
+          });
         }
       })
       .catch((error) => {
@@ -108,7 +159,7 @@ export const EnrichedMarkdownText = ({
           }
 
           setParseError(true);
-          setAst(null);
+          setParsed(null);
           setKatex(null);
         }
       });
@@ -128,6 +179,8 @@ export const EnrichedMarkdownText = ({
     admonitions,
     textLinkKey,
     inlineCodeLinkKey,
+    immediate,
+    katex,
   ]);
 
   const callbacks = useMemo<RendererCallbacks>(
@@ -148,8 +201,8 @@ export const EnrichedMarkdownText = ({
   );
 
   const capabilities = useMemo<RenderCapabilities>(
-    () => ({ katex, enableTaskListItemToggle }),
-    [katex, enableTaskListItemToggle]
+    () => ({ katex, enableTaskListItemToggle, renderers }),
+    [katex, enableTaskListItemToggle, renderers]
   );
 
   const lastChildStyle = useMemo(
@@ -182,7 +235,8 @@ export const EnrichedMarkdownText = ({
 
   const domProps = filterNativeOnlyProps(rest);
 
-  if (parseError) {
+  const visibleParsed = immediate ?? parsed;
+  if (immediate ? immediate.ast === null : parseError) {
     return (
       <div
         className={ENRM_TEXT_CLASS}
@@ -196,13 +250,12 @@ export const EnrichedMarkdownText = ({
     );
   }
 
-  if (!ast) return null;
-
-  const children = ast.children ?? [];
+  const children = visibleParsed?.ast?.children ?? [];
   const lastIdx = children.length - 1;
 
   return (
     <div
+      aria-busy={visibleParsed?.markdown !== markdown}
       className={ENRM_TEXT_CLASS}
       style={wrapperStyle}
       dir={dir}

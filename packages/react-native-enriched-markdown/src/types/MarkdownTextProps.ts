@@ -1,3 +1,4 @@
+import type { MarkdownRenderers } from './MarkdownRenderers';
 import type { ColorValue, ViewProps, ViewStyle, TextStyle } from 'react-native';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type { AccessibilityLabels } from './AccessibilityLabels';
@@ -154,6 +155,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, web
    */
   markdown: string;
+  /** Custom block components. Ignored on native. @platform web */
+  renderers?: MarkdownRenderers;
   /**
    * Style configuration for markdown elements.
    * @platform ios, android, web

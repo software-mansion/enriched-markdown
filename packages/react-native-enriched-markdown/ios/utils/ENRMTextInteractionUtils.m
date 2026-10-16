@@ -2,7 +2,7 @@
 #import "LinkTapUtils.h"
 
 BOOL ENRMHandleTapOnTextView(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer,
-                             void (^onLinkPress)(NSString *url))
+                             void (^onLinkPress)(NSString *url, NSString *sourceType))
 {
   NSString *url = linkURLAtTapLocation(textView, recognizer);
   if (!url) {
@@ -10,6 +10,6 @@ BOOL ENRMHandleTapOnTextView(ENRMPlatformTextView *textView, ENRMTapRecognizer *
     return NO;
   }
   if (onLinkPress)
-    onLinkPress(url);
+    onLinkPress(url, linkSourceTypeAtTapLocation(textView, recognizer));
   return YES;
 }

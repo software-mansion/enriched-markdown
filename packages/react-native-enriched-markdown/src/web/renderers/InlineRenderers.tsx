@@ -67,7 +67,15 @@ function LinkRenderer({
   const handleClick = (event: MouseEvent) => {
     if (callbacks.onLinkPress) {
       event.preventDefault();
-      callbacks.onLinkPress({ url });
+      callbacks.onLinkPress({
+        url,
+        sourceType:
+          node.attributes?.recognizedLink === 'true'
+            ? node.children?.some((child) => child.type === 'Code')
+              ? 'inline-code'
+              : 'text'
+            : 'markdown',
+      });
     }
   };
 
@@ -81,6 +89,7 @@ function LinkRenderer({
   return (
     <a
       href={url}
+      title={node.attributes?.title}
       style={linkStyleForUrl(style, url)}
       target="_blank"
       rel="noopener noreferrer"

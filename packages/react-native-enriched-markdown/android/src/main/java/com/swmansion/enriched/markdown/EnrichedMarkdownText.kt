@@ -69,7 +69,7 @@ class EnrichedMarkdownText
     CodeBlockPressHost {
     private val parser = Parser.shared
     private val renderer = Renderer()
-    private var onLinkPressCallback: ((String) -> Unit)? = null
+    private var onLinkPressCallback: ((String, String) -> Unit)? = null
     private var onLinkLongPressCallback: ((String) -> Unit)? = null
     private var onLatexErrorCallback: LatexErrorReporter? = null
 
@@ -455,8 +455,8 @@ class EnrichedMarkdownText
       }
     }
 
-    fun emitOnLinkPress(url: String) {
-      emitLinkPressEvent(url)
+    fun emitOnLinkPress(url: String, sourceType: String) {
+      emitLinkPressEvent(url, sourceType)
     }
 
     fun emitOnLinkLongPress(url: String) {
@@ -491,7 +491,7 @@ class EnrichedMarkdownText
       codeBlockPressEnabled = enabled
     }
 
-    fun setOnLinkPressCallback(callback: (String) -> Unit) {
+    fun setOnLinkPressCallback(callback: (String, String) -> Unit) {
       onLinkPressCallback = callback
     }
 

@@ -67,7 +67,7 @@ data class SegmentViewConfig(
   val selectionHandleColor: Int?,
   val contextMenuItemTexts: List<String>,
   val dynamicProps: DynamicBlockProps,
-  val onLinkPress: ((String) -> Unit)?,
+  val onLinkPress: ((String, String) -> Unit)?,
   val onLinkLongPress: ((String) -> Unit)?,
   val onTaskListItemPress: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?,
   val onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)?,

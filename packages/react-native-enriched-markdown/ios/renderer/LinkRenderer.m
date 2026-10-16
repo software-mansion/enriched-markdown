@@ -96,6 +96,8 @@ static NSRange ENRMCollapseLinkIntoPill(NSMutableAttributedString *output, NSRan
                              options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
                           usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attrs, NSRange subrange, BOOL *stop) {
                             NSMutableDictionary *newAttributes = [NSMutableDictionary dictionary];
+                            newAttributes[@"linkSourceType"] =
+                                recognizedLink ? (attrs[CodeAttributeName] ? @"inline-code" : @"text") : @"markdown";
                             if (recognizedLink) {
                               newAttributes[ENRMRecognizedLinkAttributeName] = @YES;
                               newAttributes[ENRMRecognizedLinkOriginalUnderlineAttributeName] =

@@ -25,7 +25,14 @@ function ListRenderer({
     : hasTaskChild
       ? styles.listTask
       : styles.list;
-  return <ListTag style={resolvedStyle}>{renderChildren(node)}</ListTag>;
+  return (
+    <ListTag
+      start={ListTag === 'ol' ? Number(node.attributes?.start ?? 1) : undefined}
+      style={resolvedStyle}
+    >
+      {renderChildren(node)}
+    </ListTag>
+  );
 }
 
 function UnorderedListRenderer(props: RendererProps) {

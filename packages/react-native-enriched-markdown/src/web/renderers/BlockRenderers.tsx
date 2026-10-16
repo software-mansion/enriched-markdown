@@ -90,12 +90,19 @@ function AdmonitionRenderer({
 }
 
 function CodeBlockRenderer({
+  capabilities,
   node,
   styles,
   renderChildren,
   callbacks,
 }: RendererProps) {
   const language = node.attributes?.language;
+  const CustomCodeBlock = capabilities.renderers?.codeBlock;
+  if (CustomCodeBlock) {
+    return (
+      <CustomCodeBlock code={extractNodeText(node)} language={language ?? ''} />
+    );
+  }
   const label = language ? `Code block: ${language}` : 'Code block';
 
   if (callbacks.onCodeBlockPress == null) {

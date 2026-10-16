@@ -11,6 +11,9 @@ extern "C" {
 /// Returns the link URL at the tap location, or nil if no link was tapped.
 NSString *_Nullable linkURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer);
 
+/// Returns the syntax of the link at the tap location.
+NSString *linkSourceTypeAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer);
+
 /// Returns the original link URL at a point in text-view coordinates.
 NSString *_Nullable linkURLAtPoint(ENRMPlatformTextView *textView, CGPoint point);
 

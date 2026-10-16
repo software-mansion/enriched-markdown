@@ -10,7 +10,7 @@ import SyntaxColorsSrc from '!!raw-loader!@site/src/examples/react-native/rich-t
 Fenced code blocks are syntax-highlighted natively via [tree-sitter](https://tree-sitter.github.io/). Highlighting is **foreground-only** - it recolors tokens and never changes text metrics, so a code block's measured height always matches its drawn height. In the React Native package it is on by default on iOS and Android with a curated set of languages, and can be trimmed or disabled to reduce binary size.
 
 :::note
-Syntax highlighting is a native feature - it is not available on the web build, where code blocks render as plain (uncolored) monospaced text.
+Built-in syntax highlighting is native-only. On web, code blocks render as plain monospaced text unless you supply a custom code-block component through `renderers`.
 :::
 
 ## Usage
@@ -46,6 +46,20 @@ There are 14 token types, any of which you can color. Most of them ship with a c
 | `operator`, `punctuation`, `variable`, `embedded` | inherit `codeBlock.color` |
 
 Only those last four fall back to the normal code color when left unset; the other ten keep their palette default until you override them.
+
+## Custom web code blocks
+
+Pass `renderers={{ codeBlock: CodeBlock }}` to `EnrichedMarkdownText` to use your own web highlighter or copy controls. The component receives `code` (including trailing whitespace) and `language` (an empty string for unlabelled blocks):
+
+```tsx
+function CodeBlock({ code, language }: CodeBlockRendererProps) {
+  return <pre data-language={language}><code>{code}</code></pre>;
+}
+
+<EnrichedMarkdownText markdown={source} renderers={{ codeBlock: CodeBlock }} />;
+```
+
+Import `CodeBlockRendererProps` from `react-native-enriched-markdown`. The override owns its styling, accessibility and interactions; `markdownStyle.codeBlock` and `onCodeBlockPress` apply only to the default renderer. Native ignores `renderers` and keeps its built-in code blocks.
 
 ## Supported languages
 

@@ -24,7 +24,7 @@ class BlockquoteTextRenderer(
   fun render(
     renderer: Renderer,
     nodes: List<MarkdownASTNode>,
-    onLinkPress: ((String) -> Unit)?,
+    onLinkPress: ((String, String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
   ): SpannableStringBuilder = renderer.renderContent(nodes, onLinkPress, onLinkLongPress, block = this)
 

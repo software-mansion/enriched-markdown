@@ -13,6 +13,14 @@ NSString *_Nullable linkURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTap
   return [attrText attribute:@"linkURL" atIndex:characterIndex effectiveRange:NULL];
 }
 
+NSString *linkSourceTypeAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer)
+{
+  NSUInteger index = ENRMCharacterIndexForTap(textView, recognizer);
+  if (index == NSNotFound)
+    return @"markdown";
+  return [ENRMGetAttributedText(textView) attribute:@"linkSourceType" atIndex:index effectiveRange:NULL] ?: @"markdown";
+}
+
 NSString *_Nullable linkURLAtPoint(ENRMPlatformTextView *textView, CGPoint point)
 {
   NSUInteger index = ENRMCharacterIndexAtPoint(textView, point);

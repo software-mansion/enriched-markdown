@@ -1,5 +1,7 @@
 export interface LinkPressEvent {
   url: string;
+  /** Syntax of the tapped occurrence, independent of other links with the same URL. */
+  sourceType?: 'markdown' | 'text' | 'inline-code';
 }
 
 export interface LinkLongPressEvent {

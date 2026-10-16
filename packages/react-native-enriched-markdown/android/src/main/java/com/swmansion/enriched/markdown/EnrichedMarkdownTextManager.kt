@@ -47,8 +47,8 @@ class EnrichedMarkdownTextManager :
       emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd)
     }
 
-    view.setOnLinkPressCallback { url ->
-      emitLinkPress(view, url)
+    view.setOnLinkPressCallback { url, sourceType ->
+      emitLinkPress(view, url, sourceType)
     }
 
     view.setOnLinkLongPressCallback { url ->

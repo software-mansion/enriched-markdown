@@ -95,7 +95,7 @@ class EnrichedMarkdown(
   private var accessibilityLabels = AccessibilityLabels()
   private var textBreakStrategy: String = BreakStrategyUtils.DEFAULT_STRATEGY
 
-  private var onLinkPressCallback: ((String) -> Unit)? = null
+  private var onLinkPressCallback: ((String, String) -> Unit)? = null
   private var onLinkLongPressCallback: ((String) -> Unit)? = null
   private var onTaskListItemPressCallback: ((Int, Boolean, String) -> Unit)? = null
   private var onLatexErrorCallback: LatexErrorReporter? = null
@@ -296,7 +296,7 @@ class EnrichedMarkdown(
     }
   }
 
-  fun setOnLinkPressCallback(callback: (String) -> Unit) {
+  fun setOnLinkPressCallback(callback: (String, String) -> Unit) {
     onLinkPressCallback = callback
   }
 
