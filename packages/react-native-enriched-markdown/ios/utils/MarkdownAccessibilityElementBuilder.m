@@ -37,7 +37,8 @@ static const CGFloat kFocusRectPadding = 2.0;
     if (trimmed.length > 0) {
       NSArray *links = [self linksInRange:paragraphRange info:info];
       NSArray *images = [self imagesInRange:paragraphRange info:info];
-      NSArray *specials = [links arrayByAddingObjectsFromArray:images];
+      NSArray *math = [self mathInRange:paragraphRange inTextStorage:textView.textStorage];
+      NSArray *specials = [[links arrayByAddingObjectsFromArray:images] arrayByAddingObjectsFromArray:math];
 
       NSInteger level = [self headingLevelForRange:paragraphRange info:info];
       NSDictionary *list = [self listItemInfoForRange:paragraphRange info:info];
@@ -113,9 +114,16 @@ static const CGFloat kFocusRectPadding = 2.0;
       }
     }
 
-    BOOL isImg = item[@"altText"] != nil;
-    NSString *label = isImg ? item[@"altText"] : [fullText substringWithRange:itemRange];
-    if (!isImg) {
+    ElementType type = ElementTypeLink;
+    NSString *label;
+    if (item[@"altText"] != nil) {
+      type = ElementTypeImage;
+      label = item[@"altText"];
+    } else if (item[@"latex"] != nil) {
+      type = ElementTypeText;
+      label = [labels mathLabelForLatex:item[@"latex"]];
+    } else {
+      label = [fullText substringWithRange:itemRange];
       id attachment = [textView.textStorage attribute:NSAttachmentAttributeName
                                               atIndex:itemRange.location
                                        effectiveRange:NULL];
@@ -123,9 +131,9 @@ static const CGFloat kFocusRectPadding = 2.0;
         label = [(ENRMLinkPillAttachment *)attachment linkAccessibilityLabel];
     }
     [elements addObject:[self createElementForRange:itemRange
-                                               type:isImg ? ElementTypeImage : ElementTypeLink
+                                               type:type
                                                text:label
-                                           isLinked:isImg ? [item[@"isLinked"] boolValue] : YES
+                                           isLinked:[item[@"isLinked"] boolValue]
                                             heading:0
                                            listInfo:listInfo
                                              labels:labels
@@ -288,6 +296,19 @@ static const CGFloat kFocusRectPadding = 2.0;
     }
   }
   return images;
+}
+
++ (NSArray *)mathInRange:(NSRange)range inTextStorage:(NSTextStorage *)storage
+{
+  NSMutableArray *math = [NSMutableArray array];
+  [storage enumerateAttribute:@"mathLatex"
+                      inRange:range
+                      options:0
+                   usingBlock:^(NSString *latex, NSRange mathRange, BOOL *stop) {
+                     if (latex)
+                       [math addObject:@{@"range" : [NSValue valueWithRange:mathRange], @"latex" : latex}];
+                   }];
+  return math;
 }
 
 + (NSDictionary *)listItemInfoForRange:(NSRange)range info:(AccessibilityInfo *)info

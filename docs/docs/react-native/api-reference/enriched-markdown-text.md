@@ -469,7 +469,7 @@ With `flavor="github"`, `selection.start` / `selection.end` in menu callbacks ar
 
 ### `accessibilityLabels`
 
-Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{latex}`) are substituted natively at speak time and must be preserved in translations. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
+Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{speech}`, `{latex}`) are substituted natively at speak time and must be preserved in translations; `{speech}` is the formula read in English. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
 
 <PropInfo type="AccessibilityLabels" />
 
@@ -489,7 +489,7 @@ interface AccessibilityLabels {
     row?: string; // {n} is the 1-based row index, {content} the joined cell text
   };
   math?: {
-    equation?: string; // {latex} is the equation source
+    equation?: string; // {speech} reads the formula in English, {latex} is its source
   };
   rotor?: {
     // iOS only, Android has no rotor

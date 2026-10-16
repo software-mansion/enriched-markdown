@@ -9,9 +9,9 @@ The library ships native accessibility support so screen readers (VoiceOver on i
 
 ## How content is announced
 
-Plain paragraphs without inline links or images are announced as a single element per paragraph. Paragraphs containing links or images are split into text, link, and image parts so each stays independently navigable. List items follow the same logic. Whitespace-only segments are filtered out to avoid empty announcements.
+Plain paragraphs without inline links, images, or math are announced as a single element per paragraph. Paragraphs containing them are split into text, link, image, and math parts so each stays independently navigable. List items follow the same logic. Whitespace-only segments are filtered out to avoid empty announcements.
 
-Broadly, only actionable content (links, images) creates separate segments. Inline formatting - bold, italic, underline, strikethrough, inline code, spoiler - is deliberately **not** split into its own accessibility element; the paragraph is read as one element, matching how screen readers already ignore visual emphasis.
+Broadly, only links, images, and formulas create separate segments. Inline formatting - bold, italic, underline, strikethrough, inline code, spoiler - is deliberately **not** split into its own accessibility element; the paragraph is read as one element, matching how screen readers already ignore visual emphasis.
 
 ## Translating announcements
 
@@ -60,10 +60,10 @@ packages ship. */}
 | `blockquote.quote`                                | `"Blockquote"`                        | iOS + Android |
 | `blockquote.nestedQuote`                          | `"Nested blockquote"`                 | iOS + Android |
 | `table.row`                                       | `"Row {n}: {content}"`                | iOS + Android |
-| `math.equation`                                   | `"Math: {latex}"`                     | iOS + Android |
+| `math.equation`                                   | `"Math: {speech}"`                    | iOS + Android |
 | `rotor.headings` / `rotor.links` / `rotor.images` | `"Headings"` / `"Links"` / `"Images"` | iOS only      |
 
-Placeholders: `{n}` (1-based index), `{content}` (comma-joined cell texts), `{latex}` (equation source). Preserve placeholder names exactly in translations. Defaults use the no-plural cardinal form so a single template works in every language.
+Placeholders: `{n}` (1-based index), `{content}` (comma-joined cell texts), `{speech}` (the formula read in English), `{latex}` (equation source). Preserve placeholder names exactly in translations. Defaults use the no-plural cardinal form so a single template works in every language.
 
 ## Supported elements
 
@@ -75,13 +75,13 @@ Placeholders: `{n}` (1-based index), `{content}` (comma-joined cell texts), `{la
 | **List items**  | "Bullet point" / "List item N" added as the element's accessibility value               | Same string set as the element's `roleDescription`, which replaces the role |
 | **Blockquotes** | "Blockquote" / "Nested blockquote" added as the accessibility value                     | Same string set as `roleDescription`                                       |
 | **Table rows**  | One focusable element per row, `"Row N: <cells>"`; header row carries the heading trait | One focusable overlay per row, same template; header row marked as heading |
-| **Math**        | `"Math: <latex>"` (LaTeX read verbatim)                                                 | Same                                                                       |
+| **Math**        | Own element per formula, inline and block, read in English ("Math: x squared over 2") | Same                                                                       |
 
 A few element specifics:
 
 - **Headings** announce the text followed by "heading". The **level is dropped entirely** - it is neither spoken nor exposed to platform navigation controls, so VoiceOver's rotor and TalkBack's reading controls jump between headings without distinguishing an H1 from an H4.
 - **Images** with alt text announce it plus "image". An image **without** alt text behaves differently per platform: Android drops the element entirely, while iOS still creates a focusable, unlabeled element, so VoiceOver stops on it, says "image", and lists it in the Images rotor. Supply alt text in the Markdown either way.
-- **Math** is read as raw LaTeX; the library does not convert it to natural language. Plug in a LaTeX-to-speech step on the consumer side if you need spoken math.
+- **Math** is spoken in English: fractions, roots, powers and indices, sums, products, integrals and limits with their bounds, Greek letters, common relations and functions, decorations, and `\text` are read as words ("integral from 0 to 1 of x squared"), and a command the converter does not know is read by name. Put `{latex}` in `math.equation` to hear the source instead.
 
 On iOS, VoiceOver also exposes custom **rotors** for headings, links, and images (a two-finger twist cycles rotors; swipe up/down jumps between elements of that type).
 
