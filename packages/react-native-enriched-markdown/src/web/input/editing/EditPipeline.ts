@@ -1,4 +1,8 @@
-import { lineAtPosition, type BlockStore } from '../formatting/BlockStore';
+import {
+  lineAtPosition,
+  type BlockStore,
+  type BlockWriter,
+} from '../formatting/BlockStore';
 import type { FormattingStore } from '../formatting/FormattingStore';
 import { isListItem } from '../model/blocks';
 import {
@@ -39,28 +43,26 @@ export class EditPipeline {
       deletedText.length,
       insertedText.length
     );
-    this.blockStore.adjustForEdit(
-      editStart,
-      deletedText.length,
-      insertedText.length
-    );
-    // Deletions only, unlike the natives, which prune unconditionally. Their
-    // block ranges grow at the start on insert (`growsAtStartOnInsert`), so an
-    // anchor never leaves the line start by typing. Web deliberately lets it
-    // shift and relies on `normalizeToLineBounds` to snap it back over the
-    // typed characters (see `BlockStore.adjustForEdit`), so pruning on insert
-    // would delete the block on every keystroke at a line start.
-    if (deletedText.length > 0) {
-      this.blockStore.pruneOrphanedAnchors(text);
-    }
-    // Continuation must follow the prune and precede normalization: the fresh
-    // anchors sit on line starts, so the prune leaves them alone, and
-    // normalization is what snaps the split item back off the newline it
-    // briefly spans.
-    if (insertedText === '\n') {
-      this.continueBlockOnNewline(text, editStart);
-    }
-    this.blockStore.normalizeToLineBounds(text);
+    this.blockStore.edit(text, (blocks) => {
+      blocks.adjustForEdit(editStart, deletedText.length, insertedText.length);
+      // Deletions only, unlike the natives, which prune unconditionally. Their
+      // block ranges grow at the start on insert (`growsAtStartOnInsert`), so
+      // an anchor never leaves the line start by typing. Web deliberately lets
+      // it shift and relies on the normalize at the end of `edit` to snap it
+      // back over the typed characters (see `BlockStore.adjustForEdit`), so
+      // pruning on insert would delete the block on every keystroke at a line
+      // start.
+      if (deletedText.length > 0) {
+        blocks.pruneOrphanedAnchors();
+      }
+      // Continuation must follow the prune and precede normalization: the
+      // fresh anchors sit on line starts, so the prune leaves them alone, and
+      // normalization is what snaps the split item back off the newline it
+      // briefly spans.
+      if (insertedText === '\n') {
+        this.continueBlockOnNewline(blocks, text, editStart);
+      }
+    });
 
     if (insertedText.length > 0) {
       this.applyPendingStyles(context);
@@ -68,10 +70,12 @@ export class EditPipeline {
   }
 
   // Enter inside a list item continues the list on the new line; other
-  // blocks do not continue. Both halves are written in one batch so the
-  // ancestry clamp never sees the gap between them and flattens an item
-  // nested below the fresh line.
-  private continueBlockOnNewline(text: string, newlinePosition: number): void {
+  // blocks do not continue.
+  private continueBlockOnNewline(
+    blocks: BlockWriter,
+    text: string,
+    newlinePosition: number
+  ): void {
     // The inserted newline closes the line before it; take that line's block.
     const closedLine = lineAtPosition(newlinePosition, text);
     const closedBlock = this.blockStore.blockStartingAt(closedLine.start);
@@ -81,16 +85,8 @@ export class EditPipeline {
     const { type, level } = closedBlock;
     const lineStart = closedLine.start;
     const freshLineStart = newlinePosition + 1;
-    this.blockStore.batchWrites(() => {
-      this.blockStore.setBlock(type, level, lineStart, lineStart, text);
-      this.blockStore.setBlock(
-        type,
-        level,
-        freshLineStart,
-        freshLineStart,
-        text
-      );
-    });
+    blocks.setBlock(type, level, lineStart, lineStart);
+    blocks.setBlock(type, level, freshLineStart, freshLineStart);
   }
 
   private applyPendingStyles(context: EditContext): void {
