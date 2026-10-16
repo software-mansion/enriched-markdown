@@ -1,7 +1,5 @@
 export type EditPhase = 'idle' | 'processing' | 'formatting' | 'importing';
 
-const POST_EDIT_GRACE_PERIOD_MS = 100;
-
 // Tracks what our own code is currently doing, so handlers can tell a user
 // action from an echo of ours.
 //
@@ -14,10 +12,6 @@ const POST_EDIT_GRACE_PERIOD_MS = 100;
 export class EditSession {
   private composing = false;
   private currentPhase: EditPhase = 'idle';
-  // Not 0: `performance.now()` is 0 at the document's time origin, so a zero
-  // sentinel reads as a text change that just happened for the first
-  // millisecond of the page's life.
-  private lastTextChangeTime = Number.NEGATIVE_INFINITY;
 
   get phase(): EditPhase {
     return this.currentPhase;
@@ -43,16 +37,6 @@ export class EditSession {
     } finally {
       this.currentPhase = previous;
     }
-  }
-
-  recordTextChange(): void {
-    this.lastTextChangeTime = performance.now();
-  }
-
-  get isPostEditGracePeriod(): boolean {
-    return (
-      performance.now() - this.lastTextChangeTime < POST_EDIT_GRACE_PERIOD_MS
-    );
   }
 
   get shouldSuppressEvents(): boolean {

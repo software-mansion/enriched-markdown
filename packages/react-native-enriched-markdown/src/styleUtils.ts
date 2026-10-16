@@ -1,5 +1,6 @@
 import { Platform, processColor, type ColorValue } from 'react-native';
 import type { MarkdownStyle } from './types/MarkdownStyle';
+import { isDev } from './utils/isDev';
 
 export const normalizeColor = (
   color: string | undefined
@@ -8,7 +9,7 @@ export const normalizeColor = (
   if (Platform.OS === 'web') return color;
   const processed = processColor(color);
   if (processed === null || processed === undefined) {
-    if (__DEV__) {
+    if (isDev) {
       console.warn(
         `[MarkdownStyle] Ignoring invalid color value "${color}"; falling back to the default.`
       );

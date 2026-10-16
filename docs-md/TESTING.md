@@ -46,7 +46,8 @@ module.exports = {
   text so the programmatic value is observable, but emits **no** change events —
   matching the native component's suppression of emits for programmatic updates.
 - **Exposes every imperative method as a spy.** `toggleBold`, `insertMention`,
-  `setSelection`, and the rest are `jest.fn()`s you can assert against. The async
+  `setSelection`, `undo`, `redo`, and the rest are `jest.fn()`s you can assert
+  against. The async
   methods resolve sensible values: `getMarkdown()` resolves the current text and
   `getCaretRect()` resolves `{ x: 0, y: 0, width: 0, height: 0 }`.
 

@@ -14,6 +14,7 @@ import { loadKaTeX } from './katex';
 import type { KaTeXInstance } from './katex';
 import { ENRM_TEXT_CLASS, ENRM_SELECTION_BG_VAR } from './globalStyles';
 import { filterNativeOnlyProps } from './nativeProps';
+import { isDev } from '../utils/isDev';
 
 export const EnrichedMarkdownText = ({
   markdown,
@@ -83,7 +84,7 @@ export const EnrichedMarkdownText = ({
       })
       .catch((error) => {
         if (!cancelled) {
-          if (__DEV__) {
+          if (isDev) {
             console.error('[EnrichedMarkdownText] Parse failed:', error);
           }
 

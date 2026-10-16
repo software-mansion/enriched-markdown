@@ -11,6 +11,7 @@ import { toHeadingLevel } from './headingLevel';
 import type {
   CaretRect,
   HeadingLevel,
+  HistoryState,
   MarkdownTextInputInstance,
   MeasureCallback,
   MeasureInWindowCallback,
@@ -26,10 +27,18 @@ import {
   measureInWindow,
   measureLayout,
 } from './web/input/measureElement';
+import { preloadParser } from './web/parseMarkdown';
+
+// Warmed when the component is declared, not when it mounts: the mount starts
+// the `defaultValue` import in the same layout effect, so that would give no
+// head start, and the editor drops keystrokes while that parse is pending.
+// With the parser ready, the import settles before the next input event.
+preloadParser();
 
 export type {
   CaretRect,
   HeadingLevel,
+  HistoryState,
   MeasureCallback,
   MeasureInWindowCallback,
   MeasureLayoutCallback,
@@ -68,6 +77,7 @@ export interface EnrichedMarkdownTextInputProps extends ForwardedDomProps {
   onChangeSelection?: (selection: { start: number; end: number }) => void;
   onChangeState?: (state: StyleState) => void;
   onChangeMarkdown?: (markdown: string) => void;
+  onChangeHistoryState?: (state: HistoryState) => void;
   onFocus?: () => void;
   onBlur?: () => void;
 }
@@ -121,6 +131,7 @@ export const EnrichedMarkdownTextInput = forwardRef<
     onChangeSelection,
     onChangeState,
     onChangeMarkdown,
+    onChangeHistoryState,
     onFocus,
     onBlur,
     ...domProps
@@ -138,6 +149,7 @@ export const EnrichedMarkdownTextInput = forwardRef<
     onChangeSelection,
     onChangeState,
     onChangeMarkdown,
+    onChangeHistoryState,
     onFocus,
     onBlur,
   };
@@ -165,6 +177,8 @@ export const EnrichedMarkdownTextInput = forwardRef<
           callbacks.current.onChangeState?.(toStyleState(state)),
         onChangeMarkdown: (markdown) =>
           callbacks.current.onChangeMarkdown?.(markdown),
+        onChangeHistoryState: (state) =>
+          callbacks.current.onChangeHistoryState?.(state),
       },
       { spellCheck: initialSpellCheck }
     );
@@ -245,6 +259,8 @@ export const EnrichedMarkdownTextInput = forwardRef<
       toggleOrderedList: () => run(() => host.current?.toggleOrderedList()),
       indentList: () => run(() => host.current?.indentList()),
       outdentList: () => run(() => host.current?.outdentList()),
+      undo: () => run(() => host.current?.undo()),
+      redo: () => run(() => host.current?.redo()),
 
       setLink: notImplemented('setLink'),
       insertLink: notImplemented('insertLink'),

@@ -9,30 +9,45 @@ import type { RangeBounds } from '../model/rangeBounds';
 // imported ranges may touch — queries never assume coalesced input.
 export class FormattingStore {
   private ranges: FormattingRange[] = [];
+  private revision = 0;
 
-  get allRanges(): FormattingRange[] {
-    return [...this.ranges];
+  // Changes on every write, so a reader can tell the ranges moved on since it
+  // last looked without comparing them.
+  get version(): number {
+    return this.revision;
+  }
+
+  // A live view, as on Android: read it right away and don't keep it across a
+  // write - some writes change the array in place, others swap it.
+  get allRanges(): readonly FormattingRange[] {
+    return this.ranges;
   }
 
   setRanges(ranges: FormattingRange[]): void {
     this.ranges = [...ranges].sort((a, b) => a.start - b.start);
+    this.revision++;
   }
 
   clearAll(): void {
     this.ranges = [];
+    this.revision++;
   }
 
   rangesOfType(type: InputStyleType): FormattingRange[] {
     return this.ranges.filter((range) => range.type === type);
   }
 
+  // Sorted by start, so no range past `position` can cover it.
   rangeOfType(type: InputStyleType, position: number): FormattingRange | null {
-    return (
-      this.ranges.find(
-        (range) =>
-          range.type === type && position >= range.start && position < range.end
-      ) ?? null
-    );
+    for (const range of this.ranges) {
+      if (range.start > position) {
+        break;
+      }
+      if (range.type === type && position < range.end) {
+        return range;
+      }
+    }
+    return null;
   }
 
   isStyleActive(type: InputStyleType, position: number): boolean {
@@ -44,9 +59,15 @@ export class FormattingStore {
     start: number,
     end: number
   ): boolean {
-    return this.ranges.some(
-      (range) => range.type === type && range.start < end && range.end > start
-    );
+    for (const range of this.ranges) {
+      if (range.start >= end) {
+        break;
+      }
+      if (range.type === type && range.end > start) {
+        return true;
+      }
+    }
+    return false;
   }
 
   isStyleAdjacentBefore(type: InputStyleType, position: number): boolean {
@@ -93,6 +114,7 @@ export class FormattingStore {
       return true;
     });
 
+    this.revision++;
     this.insertSorted({
       type: newRange.type,
       start: mergedStart,
@@ -130,6 +152,7 @@ export class FormattingStore {
       return false;
     });
 
+    this.revision++;
     // Remainders are fragments of a just-removed range and cannot overlap others.
     for (const remainder of remainders) {
       this.insertSorted(remainder);
@@ -228,6 +251,7 @@ export class FormattingStore {
       insertedLength,
       (range) => range.type !== 'link'
     );
+    this.revision++;
     this.coalesceAdjacentSameTypeRanges();
   }
 
@@ -235,6 +259,7 @@ export class FormattingStore {
     const index = this.ranges.indexOf(range);
     if (index !== -1) {
       this.ranges.splice(index, 1);
+      this.revision++;
     }
   }
 

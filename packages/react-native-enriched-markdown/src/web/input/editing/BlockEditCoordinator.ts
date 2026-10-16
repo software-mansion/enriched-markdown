@@ -46,23 +46,16 @@ export class BlockEditCoordinator {
     const lines = linesTouching(selection, text);
     const depthsBefore = lines.map((line) => this.listDepthAt(line.start));
 
-    this.blockStore.batchWrites(() => {
-      for (const line of lines) {
-        const block = this.blockStore.blockStartingAt(line.start);
-        if (!isListItem(block)) {
-          continue;
-        }
-        const depth = clamp(block.level + delta, 0, MAX_LIST_DEPTH);
-        this.blockStore.setBlock(
-          block.type,
-          depth,
-          line.start,
-          line.start,
-          text
-        );
-      }
-    });
-    this.blockStore.normalizeToLineBounds(text);
+    this.blockStore.edit(text, (blocks) =>
+      blocks.rewriteLines(lines, (_line, existing) =>
+        isListItem(existing)
+          ? {
+              type: existing.type,
+              level: clamp(existing.level + delta, 0, MAX_LIST_DEPTH),
+            }
+          : existing
+      )
+    );
 
     return lines.some(
       (line, index) => this.listDepthAt(line.start) !== depthsBefore[index]
@@ -74,10 +67,11 @@ export class BlockEditCoordinator {
     return isListItem(block) ? block.level : null;
   }
 
-  toggleHeading(level: number, selection: RangeBounds, text: string): void {
+  // Returns false when `level` names no heading and nothing was touched.
+  toggleHeading(level: number, selection: RangeBounds, text: string): boolean {
     const type = blockTypeForHeadingLevel(level);
     if (type === null) {
-      return;
+      return false;
     }
     const startBlock = this.blockStore.blockAt(selection.start, text);
     const turningOff =
@@ -85,16 +79,12 @@ export class BlockEditCoordinator {
       startBlock.type === type &&
       startBlock.level === level;
 
-    this.blockStore.batchWrites(() => {
-      for (const line of linesTouching(selection, text)) {
-        if (turningOff) {
-          this.blockStore.removeBlock(line.start, line.start, text);
-        } else {
-          this.blockStore.setBlock(type, level, line.start, line.start, text);
-        }
-      }
-    });
-    this.blockStore.normalizeToLineBounds(text);
+    this.blockStore.edit(text, (blocks) =>
+      blocks.rewriteLines(linesTouching(selection, text), () =>
+        turningOff ? null : { type, level }
+      )
+    );
+    return true;
   }
 
   // Turns the list off when the item at the selection start already has
@@ -104,17 +94,13 @@ export class BlockEditCoordinator {
     const startBlock = this.blockStore.blockAt(selection.start, text);
     const turningOff = isListItem(startBlock) && startBlock.type === type;
 
-    this.blockStore.batchWrites(() => {
-      for (const line of linesTouching(selection, text)) {
+    this.blockStore.edit(text, (blocks) =>
+      blocks.rewriteLines(linesTouching(selection, text), (_line, existing) => {
         if (turningOff) {
-          this.blockStore.removeBlock(line.start, line.start, text);
-          continue;
+          return null;
         }
-        const existing = this.blockStore.blockStartingAt(line.start);
-        const depth = isListItem(existing) ? existing.level : 0;
-        this.blockStore.setBlock(type, depth, line.start, line.start, text);
-      }
-    });
-    this.blockStore.normalizeToLineBounds(text);
+        return { type, level: isListItem(existing) ? existing.level : 0 };
+      })
+    );
   }
 }

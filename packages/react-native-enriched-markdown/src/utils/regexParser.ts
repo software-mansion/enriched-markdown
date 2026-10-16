@@ -1,4 +1,5 @@
 import type { LinkNativeRegex } from '../EnrichedMarkdownTextInputNativeComponent';
+import { isDev } from './isDev';
 
 const DISABLED_REGEX: LinkNativeRegex = {
   pattern: '',
@@ -34,7 +35,7 @@ export const toNativeRegexConfig = (
   if (hasLookbehind) {
     const lookbehindContent = source.match(/\(\?<[=!](.*?)\)/)?.[1] || '';
     if (/[*+{]/.test(lookbehindContent)) {
-      if (__DEV__) {
+      if (isDev) {
         console.error(
           'Variable-width lookbehinds are not supported. Using default link regex.'
         );

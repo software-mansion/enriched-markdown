@@ -40,10 +40,12 @@ function mount() {
   const root = document.createElement('div');
   document.body.appendChild(root);
   const texts: string[] = [];
+  const markdowns: string[] = [];
   const host = new InputHost(root, {
     onChangeText: (text) => texts.push(text),
+    onChangeMarkdown: (markdown) => markdowns.push(markdown),
   });
-  return { root, host, texts };
+  return { root, host, texts, markdowns };
 }
 
 function typeText(root: HTMLElement, data: string): void {
@@ -89,6 +91,22 @@ describe('InputHost imports', () => {
     expect(texts).toEqual(['loaded']);
   });
 
+  it('setValue does not re-emit markdown the listener already has', async () => {
+    const { host, markdowns } = mount();
+    let finish = deferParse('loaded');
+    let setting = host.setValue('loaded');
+    await finish();
+    await setting;
+    expect(markdowns).toEqual(['loaded']);
+
+    finish = deferParse('loaded');
+    setting = host.setValue('loaded');
+    await finish();
+    await setting;
+
+    expect(markdowns).toEqual(['loaded']);
+  });
+
   it('renders the imported value and parks the caret at its end', async () => {
     const { root, host } = mount();
     const finish = deferParse('one\ntwo');
@@ -99,6 +117,24 @@ describe('InputHost imports', () => {
     expect(root.textContent).toBe('onetwo');
     expect(root.children).toHaveLength(2);
     expect(host.value).toBe('one\ntwo');
+  });
+
+  // A new value replaces every line, which the host tells the projector up
+  // front; the fallback for a change it was not told about stays quiet.
+  it('projects an imported value without the missed-hint fallback', async () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { root, host } = mount();
+      const finish = deferParse('one\ntwo');
+      const importing = host.importValue('one\ntwo');
+      await finish();
+      await importing;
+
+      expect(root.children).toHaveLength(2);
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
   });
 
   // The window the parse opens is the one that needs covering: an edit
@@ -146,5 +182,38 @@ describe('InputHost imports', () => {
     await finish();
     await expect(importing).resolves.toBeUndefined();
     expect(root.childNodes).toHaveLength(0);
+  });
+
+  // Rewriting every node under a running IME hands its leftovers to a
+  // read-back that diffs them against the new model.
+  it('an import that lands mid-composition waits for it to end', async () => {
+    const { root, host } = mount();
+    root.focus();
+    typeText(root, 'ab');
+    const finish = deferParse('loaded');
+    const importing = host.setValue('loaded');
+    root.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+    await finish();
+
+    expect(root.textContent).toBe('ab');
+    root.dispatchEvent(new Event('compositionend', { bubbles: true }));
+    await importing;
+    expect(host.value).toBe('loaded');
+    expect(root.textContent).toBe('loaded');
+  });
+
+  // The wrapper's import queue waits on this promise; a dropped one stalls
+  // every command and `getMarkdown` behind it.
+  it('an import waiting on a composition settles when the host is destroyed', async () => {
+    const { root, host } = mount();
+    root.focus();
+    const finish = deferParse('loaded');
+    const importing = host.setValue('loaded');
+    root.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+    await finish();
+    host.destroy();
+
+    await expect(importing).resolves.toBeUndefined();
+    expect(host.value).toBe('');
   });
 });

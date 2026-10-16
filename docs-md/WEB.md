@@ -71,6 +71,15 @@ forwarded to the root element and will produce React "unknown prop" warnings on
 web. Use the DOM equivalents (`aria-label`, `id`, CSS) instead. `testID` is the
 exception: it is mapped to `data-testid`.
 
+## Undo and redo
+
+`EnrichedMarkdownTextInput` keeps its own undo history on web rather than using the browser's. **Cmd+Z** / **Ctrl+Z**, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y**, the Edit and context menus, and the ref's `undo()` / `redo()` all step through it, and `onChangeHistoryState` reports whether either has a step to take.
+
+- One step is a run of typing (until a pause of half a second, a caret move or a newline), a run of Backspaces, a paste, a cut, a newline, an IME composition, or one formatting command.
+- Undo restores text, formatting and selection together. A new edit clears the redo history, and `setValue` clears both, since it loads a new document.
+- At most 100 steps are kept; the oldest are dropped first.
+- The browser's Edit menu decides on its own whether to show Undo as available, from the browser's own history, which this input does not use. After an edit that only changed formatting, such as a toolbar Bold, it can show Undo greyed out even though `undo()` and the keyboard shortcut still work. Drive your own controls from `onChangeHistoryState`.
+
 ## Not supported on web
 
 - `EnrichedMarkdownTextInput` link and mention commands — `setLink`, `insertLink`, `removeLink`, `insertMention`, `startMention` and `copyToClipboard` warn once and do nothing. The editor itself works on web.

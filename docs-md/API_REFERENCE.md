@@ -939,6 +939,14 @@ interface StyleState {
 }
 ```
 
+### `onChangeHistoryState`
+
+Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Web-only for now: iOS and Android never call it.
+
+| Type                                                         | Default Value | Platform |
+| ------------------------------------------------------------ | ------------- | -------- |
+| `(state: { canUndo: boolean; canRedo: boolean }) => void`    | -             | Web      |
+
 ### `onKeyPress`
 
 Fires on every keystroke, before the change is applied to the input content — mirroring React Native TextInput's `onKeyPress`. `nativeEvent.key` is the pressed character, or a named key: `Backspace`, `Enter`, `Tab` (iOS additionally reports `Escape`). On Android the key reported for soft keyboard input may lag actual typing when autocomplete suggestions are involved. Paste operations do not fire the event.
@@ -1310,6 +1318,14 @@ Parses the given string as Markdown and inserts it literally at the current curs
 Copies the input's full content to the system clipboard, matching the result of selecting all text and pressing the context menu's copy action. The selection is left unchanged, and calling it on an empty input is a no-op.
 
 On iOS and macOS the clipboard receives both plain text and a private Markdown pasteboard type, so pasting back into an `EnrichedMarkdownTextInput` restores the formatting; external apps receive plain text only. On Android the clipboard receives plain text only — inline styles are not preserved for any paste target.
+
+### `undo()`
+
+Steps back over the last edit: typing up to a pause or a caret move, a single Backspace run, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Web-only for now: a no-op on iOS and Android. On web, **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same.
+
+### `redo()`
+
+Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Web-only for now: a no-op on iOS and Android. On web, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same.
 
 ### `startMention(indicator: string)`
 

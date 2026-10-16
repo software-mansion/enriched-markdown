@@ -137,7 +137,8 @@ describe('serialize', () => {
 
   // The shape the block store produces: an emptied heading or list item keeps
   // its line as a zero-length range, the line itself holding no characters.
-  it('prefixes an empty heading anchor but leaves an empty list item bare', () => {
+  // Under paragraph text "-" is a setext underline and "1." more text.
+  it('prefixes an empty heading anchor but leaves an empty list item under text bare', () => {
     const anchorText = 'a\n\nb';
 
     expect(serialize(anchorText, [], [createBlockRange('h1', 2, 2, 1)])).toBe(
@@ -146,6 +147,38 @@ describe('serialize', () => {
     expect(
       serialize(anchorText, [], [createBlockRange('unordered-list-item', 2, 2)])
     ).toBe('a\n\nb');
+  });
+
+  it('marks an empty list item that follows an item at least as deep', () => {
+    const blocks = [
+      createBlockRange('unordered-list-item', 0, 1, 0),
+      createBlockRange('unordered-list-item', 2, 3, 1),
+      createBlockRange('unordered-list-item', 4, 4, 1),
+      createBlockRange('unordered-list-item', 5, 5, 0),
+    ];
+
+    expect(serialize('a\nb\n\n', [], blocks)).toBe('- a\n  - b\n  - \n- ');
+  });
+
+  it('marks an empty list item after a heading, an empty line, or at the start', () => {
+    const item = (at: number) => createBlockRange('ordered-list-item', at, at);
+
+    expect(
+      serialize('h\n', [], [createBlockRange('h1', 0, 1, 1), item(2)])
+    ).toBe('# h\n1. ');
+    expect(serialize('a\n\n', [], [item(3)])).toBe('a\n\n1. ');
+    expect(serialize('\nb', [], [item(0)])).toBe('1. \nb');
+  });
+
+  // "- a\n  -" makes "a" a setext heading inside the item.
+  it('leaves a first child bare when its parent has text', () => {
+    const blocks = [
+      createBlockRange('unordered-list-item', 0, 1, 0),
+      createBlockRange('unordered-list-item', 2, 2, 1),
+      createBlockRange('unordered-list-item', 3, 4, 1),
+    ];
+
+    expect(serialize('a\n\nc', [], blocks)).toBe('- a\n\n  - c');
   });
 
   // A line ending in a url used to reach the output verbatim, breaking the
@@ -176,6 +209,30 @@ describe('serialize', () => {
     // Three spaces clear "1. " but not "10. ", which would de-nest the child.
     expect(nested(1)).toBe('1. a\n   - b');
     expect(nested(10)).toBe('10. a\n    - b');
+  });
+
+  it('writes each marker ahead of the delimiters reopened on its line', () => {
+    const blocks = [
+      createBlockRange('unordered-list-item', 0, 2),
+      createBlockRange('h2', 3, 5, 2),
+    ];
+
+    expect(serialize('ab\ncd', [range('strong', 0, 5)], blocks)).toBe(
+      '- **ab**\n## **cd**'
+    );
+  });
+
+  // The store sorts its blocks, which lets `serialize` walk to each block's
+  // line instead of searching for it; any other caller still gets every
+  // marker on its own line.
+  it('prefixes blocks handed over out of order', () => {
+    const blocks = [
+      createBlockRange('h1', 13, 18, 1),
+      createBlockRange('unordered-list-item', 7, 12),
+      createBlockRange('h3', 0, 6, 3),
+    ];
+
+    expect(serialize(text, [], blocks)).toBe('### Rebase\n- fetch\n# merge');
   });
 
   it('anchors the trailing empty line after a final newline', () => {

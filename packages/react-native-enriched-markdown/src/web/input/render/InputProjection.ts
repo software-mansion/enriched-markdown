@@ -8,12 +8,18 @@ import {
   compareBoundaryEvents,
   type BoundaryEvent,
 } from '../model/boundaryEvents';
-import type { RangeBounds } from '../model/rangeBounds';
-import { clamp } from '../utils';
+import { clamp, firstIndexReachingTarget } from '../utils';
+import { isDev } from '../../../utils/isDev';
 
-// A maximal segment of text with one constant style set; renders as one
-// DOM element.
-export interface StyleRun extends RangeBounds {
+const LOG_PREFIX = '[EnrichedMarkdown - InputProjection]';
+
+// A maximal segment of one line with one constant style set; renders as one
+// DOM element. Offsets count from the line start, not the buffer start, so a
+// line's runs stay valid however the text before it changes; slice them out
+// of the line's own `text`.
+export interface StyleRun {
+  startInLine: number;
+  endInLine: number;
   styles: InputStyleType[];
   url?: string;
 }
@@ -33,36 +39,38 @@ export function sameRunStyle(
   );
 }
 
-// Flattens overlapping formatting ranges over [start, end) into disjoint
-// runs — DOM elements cannot partially overlap.
+// Flattens overlapping formatting ranges over the line [lineStart, lineEnd)
+// into disjoint runs, offset from `lineStart` - DOM elements cannot
+// partially overlap.
 export function computeStyleRuns(
   ranges: readonly FormattingRange[],
-  start: number,
-  end: number
+  lineStart: number,
+  lineEnd: number
 ): StyleRun[] {
-  if (end <= start) return [];
+  if (lineEnd <= lineStart) return [];
 
   const events: BoundaryEvent[] = [];
   for (const range of ranges) {
-    const rangeStart = clamp(range.start, start, end);
-    const rangeEnd = clamp(range.end, start, end);
+    const rangeStart = clamp(range.start, lineStart, lineEnd);
+    const rangeEnd = clamp(range.end, lineStart, lineEnd);
     if (rangeStart >= rangeEnd) continue;
 
     events.push({
-      position: rangeStart,
+      position: rangeStart - lineStart,
       isOpening: true,
       type: range.type,
       url: range.url,
     });
     events.push({
-      position: rangeEnd,
+      position: rangeEnd - lineStart,
       isOpening: false,
       type: range.type,
       url: range.url,
     });
   }
+  const lineLength = lineEnd - lineStart;
   if (events.length === 0) {
-    return [{ start, end, styles: [] }];
+    return [{ startInLine: 0, endInLine: lineLength, styles: [] }];
   }
 
   events.sort(compareBoundaryEvents);
@@ -72,7 +80,7 @@ export function computeStyleRuns(
   const activeCounts = new Map<InputStyleType, number>();
   const activeLinkUrls: (string | undefined)[] = [];
   const runs: StyleRun[] = [];
-  let segmentStart = start;
+  let segmentStart = 0;
 
   const emitRunUpTo = (segmentEnd: number) => {
     if (segmentEnd <= segmentStart) return;
@@ -84,12 +92,12 @@ export function computeStyleRuns(
 
     const previous = runs[runs.length - 1];
     if (previous && sameRunStyle(previous, styles, url)) {
-      previous.end = segmentEnd;
+      previous.endInLine = segmentEnd;
     } else {
       runs.push(
         url === undefined
-          ? { start: segmentStart, end: segmentEnd, styles }
-          : { start: segmentStart, end: segmentEnd, styles, url }
+          ? { startInLine: segmentStart, endInLine: segmentEnd, styles }
+          : { startInLine: segmentStart, endInLine: segmentEnd, styles, url }
       );
     }
     segmentStart = segmentEnd;
@@ -109,17 +117,28 @@ export function computeStyleRuns(
       }
     }
   }
-  emitRunUpTo(end);
+  emitRunUpTo(lineLength);
 
   return runs;
 }
 
-// One buffer line with its block metadata and style runs.
-export interface ParagraphProjection extends RangeBounds {
-  blockType: BlockType;
-  level: number;
-  ordinal: number;
-  runs: StyleRun[];
+// One buffer line: its text, block metadata and style runs. Holds no buffer
+// offsets, so a line the text around it shifts is still the same object;
+// where a line starts lives in `Projection.lineStarts`. Never mutated once
+// built: the projector and the renderer share these objects across renders.
+export interface ParagraphProjection {
+  readonly text: string;
+  readonly blockType: BlockType;
+  readonly level: number;
+  readonly ordinal: number;
+  readonly runs: readonly StyleRun[];
+}
+
+// Every line of the buffer, and the buffer offset each one starts at. Both
+// arrays are fresh per projection and never mutated after it.
+export interface Projection {
+  readonly paragraphs: readonly ParagraphProjection[];
+  readonly lineStarts: readonly number[];
 }
 
 // An emptied heading or list item keeps its block as a zero-length range
@@ -144,14 +163,16 @@ function blockCoversLine(
     : lineEnd >= block.start && lineStart < block.end;
 }
 
-// Splits the buffer into per-line paragraphs. Expects block ranges sorted
-// and line-normalized, as the store keeps them.
+// Splits the buffer into per-line paragraphs from scratch. Expects block
+// ranges sorted and line-normalized, as the store keeps them. The reference
+// the incremental `ParagraphProjector` is checked against.
 export function projectParagraphs(
   text: string,
   formattingRanges: readonly FormattingRange[],
   blockRanges: readonly BlockRange[]
-): ParagraphProjection[] {
+): Projection {
   const paragraphs: ParagraphProjection[] = [];
+  const lineStarts: number[] = [];
   let blockIndex = 0;
   let nextRange = 0;
   let activeRanges: FormattingRange[] = [];
@@ -181,9 +202,9 @@ export function projectParagraphs(
         ? candidate
         : undefined;
 
+    lineStarts.push(lineStart);
     paragraphs.push({
-      start: lineStart,
-      end: lineEnd,
+      text: line,
       blockType: block?.type ?? 'paragraph',
       level: block?.level ?? 0,
       ordinal: block?.ordinal ?? 1,
@@ -191,5 +212,192 @@ export function projectParagraphs(
     });
     lineStart = lineEnd + 1;
   }
-  return paragraphs;
+  return { paragraphs, lineStarts };
+}
+
+// The formatting side of the model, as the projector reads it. `version`
+// changes on every write, which is how the projector notices a write nobody
+// told it about.
+export interface ProjectedFormatting {
+  readonly allRanges: readonly FormattingRange[];
+  readonly version: number;
+}
+
+// Projects the buffer incrementally: only lines an edit or a style change
+// touched are cut and styled again; every other line keeps its paragraph
+// object. Text and style changes arrive as hints (`textEdited`,
+// `stylesChanged`) right after the model changes, in order, so the line
+// table always describes the current buffer. Block metadata is not hinted:
+// every projection re-reads it for every line from the block store, since a
+// block write anywhere can renumber a list below it.
+//
+// A missed hint costs speed, not correctness: a buffer or formatting version
+// the hints do not account for falls back to a full projection (and is
+// reported in development).
+export class ParagraphProjector {
+  private readonly formatting: ProjectedFormatting;
+  // Parallel to `lineStarts`; null marks a line to cut and style again.
+  private paragraphs: readonly (ParagraphProjection | null)[] = [];
+  private lineStarts: readonly number[] = [];
+  // The buffer and formatting version the line table describes; `text` null
+  // means nothing is known and the next projection starts over.
+  private text: string | null = null;
+  private formattingVersion = -1;
+
+  constructor(formatting: ProjectedFormatting) {
+    this.formatting = formatting;
+  }
+
+  // The next projection starts over: for changes that replace the model
+  // wholesale (an import, undo/redo), where a full pass is what it costs
+  // anyway.
+  invalidate(): void {
+    this.text = null;
+  }
+
+  // `text` with [editStart, editStart + deletedLength) of the previous
+  // buffer replaced by `insertedText`. Call after the stores followed the
+  // edit; their changes stay inside the edited lines.
+  textEdited(
+    editStart: number,
+    deletedLength: number,
+    insertedText: string,
+    text: string
+  ): void {
+    if (this.text === null) {
+      return;
+    }
+    const first = this.lineIndexAt(editStart);
+    const last = this.lineIndexAt(editStart + deletedLength);
+    const delta = insertedText.length - deletedLength;
+
+    const starts: number[] = this.lineStarts.slice(0, first + 1);
+    let newline = insertedText.indexOf('\n');
+    while (newline !== -1) {
+      starts.push(editStart + newline + 1);
+      newline = insertedText.indexOf('\n', newline + 1);
+    }
+    const freshLines = starts.length - first;
+    for (let i = last + 1; i < this.lineStarts.length; i++) {
+      starts.push(this.lineStarts[i]! + delta);
+    }
+
+    this.paragraphs = this.paragraphs
+      .slice(0, first)
+      .concat(
+        new Array<null>(freshLines).fill(null),
+        this.paragraphs.slice(last + 1)
+      );
+    this.lineStarts = starts;
+    this.text = text;
+    this.formattingVersion = this.formatting.version;
+  }
+
+  // Formatting over [start, end) of the current buffer changed.
+  stylesChanged(start: number, end: number): void {
+    if (this.text === null) {
+      return;
+    }
+    const first = this.lineIndexAt(start);
+    const last = this.lineIndexAt(end);
+    const paragraphs = this.paragraphs.slice();
+    paragraphs.fill(null, first, last + 1);
+    this.paragraphs = paragraphs;
+    this.formattingVersion = this.formatting.version;
+  }
+
+  project(text: string, blockRanges: readonly BlockRange[]): Projection {
+    if (
+      this.text !== text ||
+      this.formattingVersion !== this.formatting.version
+    ) {
+      if (isDev && this.text !== null) {
+        console.error(
+          `${LOG_PREFIX} the model changed without a projection hint; projecting every line`
+        );
+      }
+      this.startOver(text);
+    }
+
+    const ranges = this.formatting.allRanges;
+    const lineCount = this.lineStarts.length;
+    const paragraphs = new Array<ParagraphProjection>(lineCount);
+    let blockIndex = 0;
+    let nextRange = 0;
+    let activeRanges: FormattingRange[] = [];
+    for (let i = 0; i < lineCount; i++) {
+      const lineStart = this.lineStarts[i]!;
+      const lineEnd =
+        i + 1 < lineCount ? this.lineStarts[i + 1]! - 1 : text.length;
+
+      while (
+        blockIndex < blockRanges.length &&
+        blockEndsBeforeLine(blockRanges[blockIndex]!, lineStart)
+      ) {
+        blockIndex++;
+      }
+      const candidate = blockRanges[blockIndex];
+      const block =
+        candidate && blockCoversLine(candidate, lineStart, lineEnd)
+          ? candidate
+          : undefined;
+      const blockType = block?.type ?? 'paragraph';
+      const level = block?.level ?? 0;
+      const ordinal = block?.ordinal ?? 1;
+
+      const kept = this.paragraphs[i];
+      if (kept != null) {
+        paragraphs[i] =
+          kept.blockType === blockType &&
+          kept.level === level &&
+          kept.ordinal === ordinal
+            ? kept
+            : { ...kept, blockType, level, ordinal };
+        continue;
+      }
+
+      // Ranges are sorted by start; a kept line skips its ranges here and
+      // the next cut line drops the ones that ended before it.
+      activeRanges = activeRanges.filter((range) => range.end > lineStart);
+      while (nextRange < ranges.length && ranges[nextRange]!.start < lineEnd) {
+        const range = ranges[nextRange]!;
+        if (range.end > lineStart) {
+          activeRanges.push(range);
+        }
+        nextRange++;
+      }
+      paragraphs[i] = {
+        text: text.slice(lineStart, lineEnd),
+        blockType,
+        level,
+        ordinal,
+        runs: computeStyleRuns(activeRanges, lineStart, lineEnd),
+      };
+    }
+
+    this.paragraphs = paragraphs;
+    return { paragraphs, lineStarts: this.lineStarts };
+  }
+
+  private startOver(text: string): void {
+    const starts = [0];
+    let newline = text.indexOf('\n');
+    while (newline !== -1) {
+      starts.push(newline + 1);
+      newline = text.indexOf('\n', newline + 1);
+    }
+    this.lineStarts = starts;
+    this.paragraphs = new Array<null>(starts.length).fill(null);
+    this.text = text;
+    this.formattingVersion = this.formatting.version;
+  }
+
+  // The line holding `offset`; an offset on a newline belongs to the line
+  // the newline ends.
+  private lineIndexAt(offset: number): number {
+    const starts = this.lineStarts;
+    return (
+      firstIndexReachingTarget(offset + 1, starts.length, (i) => starts[i]!) - 1
+    );
+  }
 }

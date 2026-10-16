@@ -12,6 +12,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import {
   EnrichedMarkdownTextInput,
   type EnrichedMarkdownTextInputInstance,
+  type HistoryState,
   type StyleState,
 } from 'react-native-enriched-markdown';
 
@@ -32,10 +33,28 @@ interface Button {
   label?: string;
   active: (s: StyleState | null) => boolean;
   run: (input: Instance) => void;
-  disabled?: boolean;
+  disabled?: (history: HistoryState) => boolean;
 }
 
 const GROUPS: Button[][] = [
+  [
+    {
+      key: 'undo',
+      title: 'Undo',
+      icon: 'undo',
+      active: () => false,
+      run: (i) => i.undo(),
+      disabled: (h) => !h.canUndo,
+    },
+    {
+      key: 'redo',
+      title: 'Redo',
+      icon: 'redo',
+      active: () => false,
+      run: (i) => i.redo(),
+      disabled: (h) => !h.canRedo,
+    },
+  ],
   [
     {
       key: 'bold',
@@ -119,7 +138,7 @@ const GROUPS: Button[][] = [
       icon: 'add-link',
       active: (s) => !!s?.link.isActive,
       run: () => {},
-      disabled: true,
+      disabled: () => true,
     },
   ],
 ];
@@ -141,13 +160,15 @@ const COLORS = {
 function ToolbarButton({
   button,
   active,
+  disabled,
   onRun,
 }: {
   button: Button;
   active: boolean;
+  disabled: boolean;
   onRun: () => void;
 }) {
-  const color = button.disabled
+  const color = disabled
     ? COLORS.iconDisabled
     : active
       ? COLORS.iconOnActive
@@ -156,13 +177,13 @@ function ToolbarButton({
     <Pressable
       accessibilityLabel={button.title}
       aria-pressed={active}
-      disabled={button.disabled}
+      disabled={disabled}
       onPointerDown={(event) => event.preventDefault()}
       onPress={onRun}
       style={(state: WebPressableState) => [
         styles.button,
         active && styles.buttonActive,
-        !active && !button.disabled && state.hovered && styles.buttonHovered,
+        !active && !disabled && state.hovered && styles.buttonHovered,
         state.focused && styles.buttonFocused,
       ]}
     >
@@ -178,6 +199,10 @@ function ToolbarButton({
 export function InputEditor() {
   const inputRef = useRef<Instance>(null);
   const [state, setState] = useState<StyleState | null>(null);
+  const [history, setHistory] = useState<HistoryState>({
+    canUndo: false,
+    canRedo: false,
+  });
   const [markdown, setMarkdown] = useState(SAMPLE);
   const { height: windowHeight } = useWindowDimensions();
 
@@ -204,6 +229,7 @@ export function InputEditor() {
                     key={button.key}
                     button={button}
                     active={button.active(state)}
+                    disabled={button.disabled?.(history) ?? false}
                     onRun={() => {
                       if (inputRef.current) button.run(inputRef.current);
                     }}
@@ -219,6 +245,7 @@ export function InputEditor() {
               placeholder="Write markdown…"
               style={editorStyle}
               onChangeState={setState}
+              onChangeHistoryState={setHistory}
               onChangeMarkdown={setMarkdown}
             />
           </View>
