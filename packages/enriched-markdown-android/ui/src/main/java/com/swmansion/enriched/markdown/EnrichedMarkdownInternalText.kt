@@ -14,6 +14,7 @@ import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelpe
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListHitTestResult
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfigurable
 import com.swmansion.enriched.markdown.utils.text.view.applySelectableState
 import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionModeCallback
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
@@ -25,11 +26,12 @@ class EnrichedMarkdownInternalText
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
   ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
-    BlockSegmentView {
+    BlockSegmentView,
+    SelectionMenuConfigurable {
     var lastElementMarginBottom: Float = 0f
     override val segmentMarginBottom: Int get() = lastElementMarginBottom.toInt()
 
-    var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+    override var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
 
     internal var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
       private set

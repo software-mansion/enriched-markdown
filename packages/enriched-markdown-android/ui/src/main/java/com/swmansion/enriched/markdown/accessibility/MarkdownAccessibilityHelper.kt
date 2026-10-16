@@ -10,6 +10,8 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
+import com.swmansion.enriched.markdown.plugin.hasReadablePluginSpan
+import com.swmansion.enriched.markdown.plugin.readableText
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
@@ -155,7 +157,7 @@ class MarkdownAccessibilityHelper(
     while (paraStart < endLimit) {
       val newlineIdx = text.indexOf('\n', paraStart)
       val paraEnd = minOf(if (newlineIdx == -1) text.length else newlineIdx + 1, endLimit)
-      val trimmed = text.substring(paraStart, paraEnd).trim()
+      val trimmed = spanned.readableText(paraStart, paraEnd).trim()
 
       if (trimmed.isNotEmpty()) {
         val spansInParagraph =
@@ -177,7 +179,7 @@ class MarkdownAccessibilityHelper(
     addAdmonitionHeaderItems(result, spanned, endLimit)
 
     if (result.isEmpty()) {
-      val visibleText = text.substring(0, endLimit).trim()
+      val visibleText = spanned.readableText(0, endLimit).trim()
       if (visibleText.isEmpty()) return emptyList()
       return listOf(AccessibilityItem(0, visibleText, 0, endLimit))
     }
@@ -288,14 +290,14 @@ class MarkdownAccessibilityHelper(
 
       // Text before the span
       if (segmentPos < span.start) {
-        val beforeText = text.substring(segmentPos, span.start).trim()
-        if (beforeText.isNotEmpty() && beforeText.any { it.isLetterOrDigit() }) {
+        val beforeText = spanned.readableText(segmentPos, span.start).trim()
+        if (spanned.shouldCreateTextItem(beforeText, segmentPos, span.start)) {
           items.add(createTextItem(nextId++, beforeText, segmentPos, span.start, text, spanned))
         }
       }
 
       // The semantic span itself
-      val content = span.imageAltText?.ifEmpty { "Image" } ?: spanned.substring(span.start, span.end).trim()
+      val content = span.imageAltText?.ifEmpty { "Image" } ?: spanned.readableText(span.start, span.end).trim()
       if (content.isNotEmpty()) {
         items.add(createSpanItem(nextId++, content, span, spanned))
       }
@@ -304,14 +306,24 @@ class MarkdownAccessibilityHelper(
 
     // Text after the last span
     if (segmentPos < paraEnd) {
-      val afterText = text.substring(segmentPos, paraEnd).trim()
-      if (afterText.isNotEmpty() && afterText.any { it.isLetterOrDigit() }) {
+      val afterText = spanned.readableText(segmentPos, paraEnd).trim()
+      if (spanned.shouldCreateTextItem(afterText, segmentPos, paraEnd)) {
         items.add(createTextItem(nextId++, afterText, segmentPos, paraEnd, text, spanned))
       }
     }
 
     return nextId
   }
+
+  /**
+   * Whether text beside a semantic span gets an item of its own: words do, and so does a plugin
+   * span's label even when it is symbols alone (`$+$`), but ordinary punctuation does not.
+   */
+  private fun Spanned.shouldCreateTextItem(
+    readable: String,
+    start: Int,
+    end: Int,
+  ): Boolean = readable.isNotEmpty() && (readable.any { it.isLetterOrDigit() } || hasReadablePluginSpan(start, end))
 
   private fun createTextItem(
     id: Int,

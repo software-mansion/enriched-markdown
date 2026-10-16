@@ -12,7 +12,6 @@ import com.swmansion.enriched.markdown.plugin.PluginSegmentPayload
 import com.swmansion.enriched.markdown.renderer.latexSourceOf
 import com.swmansion.enriched.markdown.segments.SegmentViewConfig
 import com.swmansion.enriched.markdown.styles.StyleConfig
-import io.ratex.RaTeXEngine
 import io.ratex.RaTeXFontLoader
 import io.ratex.RaTeXRenderer
 
@@ -50,7 +49,7 @@ class MathBlockSegment : PluginBlockSegment<MathSegmentPayload> {
         onFailure = { error -> onPluginEvent?.emit(LatexError(latex, error.message, displayMode = true)) },
       ) {
         RaTeXFontLoader.ensureLoaded(context)
-        val displayList = RaTeXEngine.parseBlocking(latex, displayMode = true, color = mathStyle.color)
+        val displayList = DisplayListCache.shared.get(latex, displayMode = true, color = mathStyle.color)
         RaTeXRenderer(displayList, mathStyle.fontSize) { RaTeXFontLoader.getTypeface(it) }
       }
     return MathSegmentPayload(latex, renderer)
