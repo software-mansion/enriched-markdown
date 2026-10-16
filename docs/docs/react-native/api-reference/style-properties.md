@@ -254,7 +254,7 @@ Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#
 | ------------------ | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `bulletColor`      | `string` | `#6B7280` | Bullet point color                                                                                                                  |
 | `bulletSize`       | `number` | `6`       | Bullet point size                                                                                                                   |
-| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type)                                                  |
+| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type). An ordered list's column also grows to fit its widest number |
 | `markerColor`      | `string` | `#6B7280` | Number marker color                                                                                                                 |
 | `markerFontWeight` | `string` | `'500'`   | Number marker font weight                                                                                                           |
 | `gapWidth`         | `number` | `12`      | Gap between marker and text                                                                                                         |

@@ -42,7 +42,7 @@ final class ListItemRenderer: NodeRenderer {
         let marginLeading = config.list.marginLeading ?? 24
         let blockquoteIndent = CGFloat(context.blockquoteDepth) * blockquoteLevelSpacing()
         let totalIndent = blockquoteIndent + baseMarkerWidth + gapWidth + (CGFloat(nestingLevel) * marginLeading)
-            + context.listMarkerOffset
+            + context.ancestorMarkerOffset
         let lineHeight = config.list.lineHeight ?? 0
 
         let metadata: [NSAttributedString.Key: Any] = [
@@ -58,7 +58,7 @@ final class ListItemRenderer: NodeRenderer {
             metadata: metadata,
             indents: ItemIndents(
                 text: totalIndent,
-                quote: totalIndent - context.listMarkerOffset,
+                quote: totalIndent - context.ancestorMarkerOffset,
                 markerExtra: markerExtra
             ),
             lineHeight: lineHeight
@@ -79,24 +79,13 @@ final class ListItemRenderer: NodeRenderer {
     private func effectiveMarkerWidth(in context: RenderContext) -> CGFloat {
         context.listType == .ordered
             ? context.listMarkerWidth
-            : Self.defaultMarkerWidth(for: .unordered, config: config)
+            : config.list.defaultMarkerColumnWidth(for: .unordered)
     }
 
     /// The item's column before an ordered list widens it for its numbers.
     private func defaultColumnWidth(isTask: Bool, listType: ListType) -> CGFloat {
-        let markerWidth = Self.defaultMarkerWidth(for: listType, config: config)
+        let markerWidth = config.list.defaultMarkerColumnWidth(for: listType)
         return isTask ? max(markerWidth, config.taskList.checkboxSize ?? 14) : markerWidth
-    }
-
-    /// The marker column before an ordered list widens it for its numbers.
-    static func defaultMarkerWidth(for listType: ListType, config: MarkdownStyleConfiguration) -> CGFloat {
-        let minWidth = config.list.markerMinWidth ?? 0
-        switch listType {
-        case .ordered:
-            return max(minWidth, 20)
-        case .unordered:
-            return max(minWidth, config.list.bulletSize ?? 6)
-        }
     }
 
     /// The checkbox column is at least as wide as the list's marker column,
@@ -256,4 +245,17 @@ private struct ItemIndents {
     let quote: CGFloat
     /// How far a widened ordered list grew this item's marker column.
     let markerExtra: CGFloat
+}
+
+extension ListStyle {
+    /// The marker column before an ordered list widens it for its numbers.
+    func defaultMarkerColumnWidth(for listType: ListType) -> CGFloat {
+        let minWidth = markerMinWidth ?? 0
+        switch listType {
+        case .ordered:
+            return max(minWidth, 20)
+        case .unordered:
+            return max(minWidth, bulletSize ?? 6)
+        }
+    }
 }

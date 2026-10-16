@@ -16,8 +16,7 @@ final class ListRenderer: NodeRenderer {
         let prevType = context.listType
         let prevNumber = context.listItemNumber
         let prevMarkerWidth = context.listMarkerWidth
-        let prevMarkerExtra = context.listMarkerExtra
-        let prevMarkerOffset = context.listMarkerOffset
+        let prevMarkerOffset = context.ancestorMarkerOffset
         let startLocation = output.length
 
         if prevDepth == 0 {
@@ -35,11 +34,11 @@ final class ListRenderer: NodeRenderer {
         context.listType = isOrdered ? .ordered : .unordered
         context.listItemNumber = 0
         if prevDepth > 0 {
-            context.listMarkerOffset += context.listItemMarkerExtra
+            context.ancestorMarkerOffset += context.listItemMarkerExtra
         }
-        let defaultMarkerWidth = ListItemRenderer.defaultMarkerWidth(for: .ordered, config: config)
-        context.listMarkerWidth = isOrdered ? widestMarkerWidth(of: node, atLeast: defaultMarkerWidth) : 0
-        context.listMarkerExtra = isOrdered ? context.listMarkerWidth - defaultMarkerWidth : 0
+        context.listMarkerWidth = isOrdered
+            ? widestMarkerWidth(of: node, atLeast: config.list.defaultMarkerColumnWidth(for: .ordered))
+            : 0
 
         let font = config.list.font ?? UIFont.preferredFont(forTextStyle: .body)
         let color = config.list.foregroundColor ?? UIColor.label
@@ -55,8 +54,7 @@ final class ListRenderer: NodeRenderer {
         context.listType = prevType
         context.listItemNumber = prevNumber
         context.listMarkerWidth = prevMarkerWidth
-        context.listMarkerExtra = prevMarkerExtra
-        context.listMarkerOffset = prevMarkerOffset
+        context.ancestorMarkerOffset = prevMarkerOffset
 
         if prevDepth == 0 {
             context.clearBlockStyle()

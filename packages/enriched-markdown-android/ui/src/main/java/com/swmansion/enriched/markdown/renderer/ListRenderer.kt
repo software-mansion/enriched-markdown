@@ -24,15 +24,9 @@ class ListRenderer(
     val listStyle = config.style.listStyle
     val listType = if (isOrdered) BlockStyleContext.ListType.ORDERED else BlockStyleContext.ListType.UNORDERED
 
+    val markerExtraWidth = if (isOrdered) markerExtraWidth(node, listStyle, factory) else 0f
     val contextManager = ListContextManager(factory.blockStyleContext)
-    val entryState = contextManager.enterList(listType, listStyle)
-    val styleContext = factory.blockStyleContext
-    val previousMarkerWidth = styleContext.listMarkerWidth
-    val previousMarkerOffset = styleContext.ancestorMarkerOffset
-    if (entryState.previousDepth > 0) {
-      styleContext.ancestorMarkerOffset += styleContext.listItemMarkerExtra
-    }
-    styleContext.listMarkerWidth = if (isOrdered) measureMarkerColumn(node, listStyle, factory) else 0f
+    val entryState = contextManager.enterList(listType, listStyle, markerExtraWidth)
 
     // For top-level lists, insert marginTop spacer before rendering content
     if (entryState.previousDepth == 0) {
@@ -50,8 +44,6 @@ class ListRenderer(
     try {
       factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
     } finally {
-      styleContext.listMarkerWidth = previousMarkerWidth
-      styleContext.ancestorMarkerOffset = previousMarkerOffset
       contextManager.exitList(entryState)
     }
 
@@ -60,23 +52,20 @@ class ListRenderer(
     }
   }
 
-  /** Widest marker this list draws; lists under 100 items keep the `99.` column. */
-  private fun measureMarkerColumn(
+  /** Lists under 100 keep the `99.` column, so only numbers from 100 on widen it. Task items draw a checkbox. */
+  private fun markerExtraWidth(
     node: MarkdownASTNode,
     listStyle: ListStyle,
     factory: RendererFactory,
   ): Float {
-    val marker = OrderedListSpan(listStyle, 0, factory.context, factory.styleCache)
+    val wideNumbers = mutableListOf<Int>()
     var number = 1
-    var width = marker.measureMarkerWidth(99)
     for (item in node.children) {
       if (item.type != MarkdownASTNode.NodeType.ListItem) continue
-      if (number >= 100 && item.attributes["isTask"] != "true") {
-        width = maxOf(width, marker.measureMarkerWidth(number))
-      }
+      if (number >= 100 && item.attributes["isTask"] != "true") wideNumbers += number
       number++
     }
-    return width
+    return OrderedListSpan.measureExtraWidth(listStyle, factory.context, wideNumbers)
   }
 
   private fun applyListSpacing(

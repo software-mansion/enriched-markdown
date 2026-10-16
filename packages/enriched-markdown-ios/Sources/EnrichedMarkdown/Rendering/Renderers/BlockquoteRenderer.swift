@@ -29,12 +29,12 @@ final class BlockquoteRenderer: NodeRenderer {
         }
         // An enclosing list item shifts the whole quote by its own indent, which
         // already includes any widened marker column, so lists inside start fresh.
-        let prevMarkerOffset = context.listMarkerOffset
+        let prevMarkerOffset = context.ancestorMarkerOffset
         let prevItemMarkerExtra = context.listItemMarkerExtra
-        context.listMarkerOffset = 0
+        context.ancestorMarkerOffset = 0
         context.listItemMarkerExtra = 0
         factory.renderChildren(of: node, into: output, context: context)
-        context.listMarkerOffset = prevMarkerOffset
+        context.ancestorMarkerOffset = prevMarkerOffset
         context.listItemMarkerExtra = prevItemMarkerExtra
         context.clearBlockStyle()
         context.exitBlockquote()

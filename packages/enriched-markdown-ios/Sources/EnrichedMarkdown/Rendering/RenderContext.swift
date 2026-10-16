@@ -81,10 +81,8 @@ package final class RenderContext {
     var listItemNumber = 0
     /// Marker column of the current ordered list, sized to its widest number.
     var listMarkerWidth: CGFloat = 0
-    /// How far the current list's marker column exceeds the default one.
-    var listMarkerExtra: CGFloat = 0
     /// Extra marker width of the enclosing list items, carried into nested lists.
-    var listMarkerOffset: CGFloat = 0
+    var ancestorMarkerOffset: CGFloat = 0
     /// Extra marker width of the list item whose children are rendering.
     var listItemMarkerExtra: CGFloat = 0
     var taskItemIndex = 0

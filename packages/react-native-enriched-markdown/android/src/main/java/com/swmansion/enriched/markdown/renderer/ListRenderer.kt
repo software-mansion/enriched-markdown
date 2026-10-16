@@ -32,29 +32,9 @@ class ListRenderer(
         1
       }
 
+    val markerExtraWidth = if (isOrdered) markerExtraWidth(node, listStyle, startNumber, factory) else 0f
     val contextManager = ListContextManager(factory.blockStyleContext)
-    val entryState = contextManager.enterList(listType, listStyle, startNumber)
-    val previousMarkerWidth = factory.blockStyleContext.listMarkerWidth
-    val previousMarkerOffset = factory.blockStyleContext.ancestorMarkerOffset
-    if (entryState.previousDepth > 0) {
-      factory.blockStyleContext.ancestorMarkerOffset += factory.blockStyleContext.listItemMarkerExtra
-    }
-    factory.blockStyleContext.listMarkerWidth =
-      if (isOrdered) {
-        val marker = OrderedListSpan(listStyle, 0, factory.context, factory.styleCache)
-        var number = startNumber
-        var width = marker.measureMarkerWidth(99)
-        for (item in node.children) {
-          if (item.type != MarkdownASTNode.NodeType.ListItem) continue
-          if (number >= 100 && item.attributes["isTask"] != "true") {
-            width = maxOf(width, marker.measureMarkerWidth(number))
-          }
-          number++
-        }
-        width
-      } else {
-        0f
-      }
+    val entryState = contextManager.enterList(listType, listStyle, startNumber, markerExtraWidth)
 
     // For top-level lists, insert marginTop spacer before rendering content
     if (entryState.previousDepth == 0) {
@@ -72,14 +52,29 @@ class ListRenderer(
     try {
       factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
     } finally {
-      factory.blockStyleContext.listMarkerWidth = previousMarkerWidth
-      factory.blockStyleContext.ancestorMarkerOffset = previousMarkerOffset
       contextManager.exitList(entryState)
     }
 
     if (builder.length > contentStart) {
       applyListSpacing(builder, contentStart, entryState.previousDepth, listStyle, factory.blockStyleContext)
     }
+  }
+
+  /** Lists under 100 keep the `99.` column, so only numbers from 100 on widen it. Task items draw a checkbox. */
+  private fun markerExtraWidth(
+    node: MarkdownASTNode,
+    listStyle: ListStyle,
+    startNumber: Int,
+    factory: RendererFactory,
+  ): Float {
+    val wideNumbers = mutableListOf<Int>()
+    var number = startNumber
+    for (item in node.children) {
+      if (item.type != MarkdownASTNode.NodeType.ListItem) continue
+      if (number >= 100 && item.attributes["isTask"] != "true") wideNumbers += number
+      number++
+    }
+    return OrderedListSpan.measureExtraWidth(listStyle, factory.context, wideNumbers)
   }
 
   private fun applyListSpacing(

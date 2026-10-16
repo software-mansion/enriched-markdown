@@ -92,7 +92,7 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
   context.listItemNumber = startNumber - 1;
   const CGFloat defaultMarkerWidth = [_config effectiveListMarginLeftForNumber:99];
   if (prevDepth > 0) {
-    context.listMarkerOffset += context.listItemMarkerExtra;
+    context.ancestorMarkerOffset += context.listItemMarkerExtra;
   }
   context.listMarkerWidth = defaultMarkerWidth;
   if (_isOrdered) {
@@ -107,7 +107,6 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
       number++;
     }
   }
-
   context.listMarkerExtra = context.listMarkerWidth - defaultMarkerWidth;
 
   [context setBlockStyle:_isOrdered ? BlockTypeOrderedList : BlockTypeUnorderedList

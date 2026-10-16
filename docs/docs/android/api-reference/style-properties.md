@@ -236,7 +236,7 @@ Requires [`MarkdownOptions(admonitions = true)`](/android/api-reference/enriched
 | `bulletSize`       | `Dp`         | `6.dp`                    | Unordered list bullet size                   |
 | `markerColor`      | `Color`      | `#6B7280`                 | Ordered list number color                    |
 | `markerFontWeight` | `FontWeight` | `FontWeight.Medium` (500) | Ordered list number weight                   |
-| `markerMinWidth`   | `Dp`         | `0.dp`                    | Minimum width reserved for the marker column |
+| `markerMinWidth`   | `Dp`         | `0.dp`                    | Minimum width reserved for the marker column. An ordered list's column also grows to fit its widest number |
 | `gapWidth`         | `Dp`         | `12.dp`                   | Gap between the marker and the text          |
 | `marginLeft`       | `Dp`         | `24.dp`                   | Indent applied per nesting level             |
 

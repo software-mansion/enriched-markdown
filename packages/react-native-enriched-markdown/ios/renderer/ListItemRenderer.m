@@ -83,7 +83,8 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
 
   // currentDepth - 1 handles the horizontal offset for nested lists
   const NSInteger nestingLevel = currentDepth - 1;
-  const CGFloat baseMarkerWidth = isTask                                  ? [_config effectiveListMarginLeftForTask]
+  // A task in a widened ordered list moves with its numbered siblings.
+  const CGFloat baseMarkerWidth = isTask ? [_config effectiveListMarginLeftForTask] + context.listMarkerExtra
                                   : (context.listType == ListTypeOrdered) ? context.listMarkerWidth
                                                                           : [_config effectiveListMarginLeftForBullet];
 
@@ -91,13 +92,13 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
       blockquoteIndentForDepth(context.blockquoteDepth, [_config blockquoteBorderWidth] + [_config blockquoteGapWidth]);
 
   const CGFloat totalIndent = blockquoteIndent + baseMarkerWidth + [_config effectiveListGapWidth] +
-                              (nestingLevel * [_config listStyleMarginLeft]) + context.listMarkerOffset;
+                              (nestingLevel * [_config listStyleMarginLeft]) + context.ancestorMarkerOffset;
 
   const NSUInteger startLocation = output.length;
 
   // Manual save/restore — a scope snapshot would also roll back the listItemNumber increment
   const CGFloat prevMarkerExtra = context.listItemMarkerExtra;
-  context.listItemMarkerExtra = !isTask && context.listType == ListTypeOrdered ? context.listMarkerExtra : 0;
+  context.listItemMarkerExtra = context.listMarkerExtra;
   const CGFloat prevIndent = context.accumulatedIndent;
   context.accumulatedIndent = totalIndent;
   @try {

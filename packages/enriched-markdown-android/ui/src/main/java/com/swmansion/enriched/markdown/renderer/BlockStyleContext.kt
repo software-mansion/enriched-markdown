@@ -41,7 +41,7 @@ class BlockStyleContext {
   var listDepth = 0
   var listType: ListType? = null
   var listItemNumber = 0
-  var listMarkerWidth = 0f
+  var listMarkerExtra = 0f
   var ancestorMarkerOffset = 0f
   var listItemMarkerExtra = 0f
   var taskItemCount = 0
@@ -152,7 +152,7 @@ class BlockStyleContext {
     listDepth = 0
     listType = null
     listItemNumber = 0
-    listMarkerWidth = 0f
+    listMarkerExtra = 0f
     ancestorMarkerOffset = 0f
     listItemMarkerExtra = 0f
     taskItemCount = 0

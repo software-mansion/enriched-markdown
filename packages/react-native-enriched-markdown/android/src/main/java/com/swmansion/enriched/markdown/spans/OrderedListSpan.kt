@@ -12,6 +12,7 @@ import com.facebook.react.views.text.ReactTypefaceUtils.parseFontWeight
 import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
 import com.swmansion.enriched.markdown.styles.ListStyle
+import kotlin.math.ceil
 
 class OrderedListSpan(
   private val listStyle: ListStyle,
@@ -19,7 +20,7 @@ class OrderedListSpan(
   context: Context,
   styleCache: SpanStyleCache,
   drawsMarker: Boolean = true,
-  private val markerWidth: Float = 0f,
+  override val markerExtraWidth: Float = 0f,
   ancestorMarkerOffset: Float = 0f,
 ) : BaseListSpan(
     depth = depth,
@@ -39,37 +40,49 @@ class OrderedListSpan(
   ) {
   companion object {
     private val sharedMarkerPaint = TextPaint().apply { isAntiAlias = true }
+
+    /**
+     * How far the `99.` column every ordered list reserves must grow to fit each of [numbers].
+     * Whole pixels, so the Int leading margins and the float marker positions agree at every depth.
+     */
+    fun measureExtraWidth(
+      listStyle: ListStyle,
+      context: Context,
+      numbers: Iterable<Int>,
+    ): Float {
+      val paint = markerPaint(listStyle, markerTypeface(listStyle, context))
+      val default = paint.measureText("99.")
+      val widest = numbers.fold(default) { width, number -> maxOf(width, paint.measureText("$number.")) }
+      return ceil(listStyle.effectiveMarkerWidth(widest) - listStyle.effectiveMarkerWidth(default))
+    }
+
+    private fun markerTypeface(
+      listStyle: ListStyle,
+      context: Context,
+    ): Typeface =
+      applyStyles(
+        null,
+        ReactConstants.UNSET,
+        parseFontWeight(listStyle.markerFontWeight),
+        listStyle.fontFamily.takeIf { it.isNotEmpty() },
+        context.assets,
+      )
+
+    private fun markerPaint(
+      listStyle: ListStyle,
+      typeface: Typeface,
+    ): TextPaint =
+      sharedMarkerPaint.apply {
+        textSize = listStyle.fontSize
+        color = listStyle.markerColor
+        this.typeface = typeface
+      }
   }
 
-  private val markerTypeface: Typeface =
-    run {
-      val fontFamily = listStyle.fontFamily.takeIf { it.isNotEmpty() }
-      val fontWeight = parseFontWeight(listStyle.markerFontWeight)
-      applyStyles(null, ReactConstants.UNSET, fontWeight, fontFamily, context.assets)
-    }
+  private val markerTypeface = markerTypeface(listStyle, context)
+  private val defaultMarkerWidth = listStyle.effectiveMarkerWidth(markerPaint(listStyle, markerTypeface).measureText("99."))
 
-  private fun configureMarkerPaint(): TextPaint =
-    sharedMarkerPaint.apply {
-      textSize = listStyle.fontSize
-      color = listStyle.markerColor
-      typeface = markerTypeface
-    }
-
-  private val defaultMarkerWidth = measureMarkerWidth(99)
-  private val resolvedMarkerWidth = maxOf(markerWidth, defaultMarkerWidth)
-
-  internal val markerExtraWidth = resolvedMarkerWidth - defaultMarkerWidth
-
-  override fun getMarkerWidth(): Float = resolvedMarkerWidth
-
-  internal fun measureMarkerWidth(number: Int): Float = listStyle.effectiveMarkerWidth(configureMarkerPaint().measureText("$number."))
-
-  override fun getLeadingMargin(first: Boolean): Int =
-    if (depth > 0) {
-      (listStyle.marginLeft + markerExtraWidth).toInt()
-    } else {
-      super.getLeadingMargin(first)
-    }
+  override fun getMarkerWidth(): Float = defaultMarkerWidth + markerExtraWidth
 
   var itemNumber: Int = 1
     private set
@@ -85,7 +98,7 @@ class OrderedListSpan(
     layout: Layout?,
     start: Int,
   ) {
-    val markerPaint = configureMarkerPaint()
+    val markerPaint = markerPaint(listStyle, markerTypeface)
     val text = if (dir < 0) ".$itemNumber" else "$itemNumber."
     val textWidth = markerPaint.measureText(text)
 

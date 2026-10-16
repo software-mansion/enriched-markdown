@@ -54,7 +54,7 @@ typedef NS_ENUM(NSInteger, ListType) { ListTypeUnordered, ListTypeOrdered };
 @property (nonatomic, assign) NSInteger listItemNumber;
 @property (nonatomic, assign) CGFloat listMarkerWidth;
 @property (nonatomic, assign) CGFloat listMarkerExtra;
-@property (nonatomic, assign) CGFloat listMarkerOffset;
+@property (nonatomic, assign) CGFloat ancestorMarkerOffset;
 @property (nonatomic, assign) CGFloat listItemMarkerExtra;
 @property (nonatomic, assign) CGFloat accumulatedIndent;
 @property (nonatomic, assign) BOOL allowFontScaling;

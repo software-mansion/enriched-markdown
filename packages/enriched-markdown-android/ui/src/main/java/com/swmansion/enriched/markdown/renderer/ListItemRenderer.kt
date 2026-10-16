@@ -50,6 +50,7 @@ class ListItemRenderer(
           taskIndex = taskIndex,
           isChecked = isChecked,
           ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
+          markerExtraWidth = styleContext.listMarkerExtra,
         )
       } else {
         when (listType) {
@@ -59,7 +60,7 @@ class ListItemRenderer(
               depth,
               factory.context,
               factory.styleCache,
-              styleContext.ancestorMarkerOffset,
+              ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
             )
           }
 
@@ -69,8 +70,8 @@ class ListItemRenderer(
               depth,
               factory.context,
               factory.styleCache,
-              styleContext.listMarkerWidth,
-              styleContext.ancestorMarkerOffset,
+              markerExtraWidth = styleContext.listMarkerExtra,
+              ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
             ).apply {
               setItemNumber(styleContext.listItemNumber)
             }
@@ -80,7 +81,7 @@ class ListItemRenderer(
 
     // Nested lists inside this item shift by its extra marker width.
     val previousMarkerExtra = styleContext.listItemMarkerExtra
-    styleContext.listItemMarkerExtra = (span as? OrderedListSpan)?.markerExtraWidth ?: 0f
+    styleContext.listItemMarkerExtra = span.markerExtraWidth
     try {
       factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
     } finally {

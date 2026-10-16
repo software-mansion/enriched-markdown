@@ -132,6 +132,7 @@ object TaskListTapUtils {
         isChecked = newChecked,
         drawsMarker = old.drawsMarker,
         ancestorMarkerOffset = old.ancestorMarkerOffset,
+        markerExtraWidth = old.markerExtraWidth,
       )
 
     // Layout draws leading margins in insertion order, and a re-added span moves to the end of it.
