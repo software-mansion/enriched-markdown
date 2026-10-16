@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.spans
 
 import android.graphics.Canvas
@@ -6,15 +8,16 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.text.Spanned
 import android.text.style.LineBackgroundSpan
+import android.widget.TextView
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.spoiler.colorWithAlpha
 import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.StyleConfig
-import kotlin.math.max
-import kotlin.math.min
 
 class CodeBackgroundSpan(
   private val styleConfig: StyleConfig,
-) : LineBackgroundSpan {
+) : LineBackgroundSpan,
+  TextViewAwareSpan {
   companion object {
     private const val CORNER_RADIUS = 6.0f
     private const val BORDER_WIDTH = 1.0f
@@ -32,6 +35,7 @@ class CodeBackgroundSpan(
   // Reusable drawing objects per instance
   private val rect = RectF()
   private val path = Path()
+  private val geometry = InlineBackgroundGeometry()
 
   override fun drawBackground(
     canvas: Canvas,
@@ -62,30 +66,25 @@ class CodeBackgroundSpan(
     val isLast = spanEnd <= end
 
     // 2. Calculate coordinates
-    val finalBottom = adjustBottomForMargin(text, end, bottom)
-    val leadingMargin = InlineBackgroundGeometry.leadingMarginAt(text, start)
-    val startX =
-      if (isFirst) {
-        InlineBackgroundGeometry.horizontalOffset(text, start, end, spanStart, p, leadingMargin) + left
-      } else {
-        left.toFloat() + leadingMargin
-      }
-    val endX =
-      if (isLast) {
-        InlineBackgroundGeometry.horizontalOffset(text, start, end, spanEnd, p, leadingMargin) + left
-      } else {
-        right.toFloat()
-      }
-
-    rect.set(min(startX, endX), top.toFloat(), max(startX, endX), finalBottom.toFloat())
+    val ranges = geometry.ranges(text, lineNum, spanStart, spanEnd)
+    rect.top = top.toFloat()
+    rect.bottom = adjustBottomForMargin(text, end, bottom).toFloat()
 
     // 3. Apply Style
     val codeStyle = styleConfig.codeStyle
     sharedBackgroundPaint.color = colorWithAlpha(codeStyle.backgroundColor, visibility)
     sharedBorderPaint.color = colorWithAlpha(codeStyle.borderColor, visibility)
 
-    drawShapes(canvas, isFirst, isLast)
+    // Mixed-direction text can split the code into pieces, left open where split.
+    ranges.forEachIndexed { i, range ->
+      rect.left = range.left
+      rect.right = range.right
+      drawShapes(canvas, isFirst && i == 0, isLast && i == ranges.lastIndex)
+    }
   }
+
+  /** Positions the background from [view]'s layout. */
+  override fun registerTextView(view: TextView) = geometry.registerTextView(view)
 
   private fun drawShapes(
     canvas: Canvas,

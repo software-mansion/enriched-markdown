@@ -1,3 +1,4 @@
+import type { LinkRecognition } from './MarkdownTextProps';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type {
@@ -38,6 +39,12 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform ios, android, web
    */
   md4cFlags?: Md4cFlags;
+  /**
+   * Turns regex matches in plain text (`text`) and whole inline-code spans
+   * (`inlineCode`) into links. The matched text is the URL; the source is unchanged.
+   * @platform ios, android, web
+   */
+  linkRecognition?: LinkRecognition;
   /**
    * Callback fired when a link is pressed.
    * Receives the link URL directly.

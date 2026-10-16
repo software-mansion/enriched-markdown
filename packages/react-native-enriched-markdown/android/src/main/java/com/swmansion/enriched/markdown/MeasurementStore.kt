@@ -26,11 +26,13 @@ import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.MathMeasureRequest
 import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
+import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.getArrayOrNull
@@ -39,7 +41,10 @@ import com.swmansion.enriched.markdown.utils.common.getIntOrDefault
 import com.swmansion.enriched.markdown.utils.common.getMapOrNull
 import com.swmansion.enriched.markdown.utils.common.getStringOrDefault
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
+import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
+import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
+import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
 
@@ -325,14 +330,17 @@ object MeasurementStore {
     val md4cFlagsMap = props.getMapOrNull("md4cFlags")
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
+    val linkPillContent = parseLinkPillContent(props.getArrayOrNull("linkPillContent"))
     var result = markdown.hashCode()
     result = 31 * result + (styleMap?.hashCode() ?: 0)
     result = 31 * result + (md4cFlagsMap?.hashCode() ?: 0)
+    result = 31 * result + parseLinkRecognition(props.getMapOrNull("linkRecognition")).hashCode()
     result = 31 * result + fontScale.toBits()
     result = 31 * result + allowFontScaling.hashCode()
     result = 31 * result + maxFontSizeMultiplier.toBits()
     result = 31 * result + allowTrailingMargin.hashCode()
     result = 31 * result + imageRequestHeaders.hashCode()
+    result = 31 * result + linkPillContent.hashCode()
     result = 31 * result + props.getIntOrDefault("numberOfLines", 0)
     result = 31 * result + props.getStringOrDefault("ellipsizeMode", EllipsizeUtils.DEFAULT_MODE).hashCode()
     return result
@@ -395,6 +403,7 @@ object MeasurementStore {
     // 2. Render & Measure
     measurePaint.textSize = fontSize
     val imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
+    val linkRecognition = parseLinkRecognition(props.getMapOrNull("linkRecognition"))
     val spannable =
       tryRenderMarkdown(
         markdown,
@@ -405,6 +414,9 @@ object MeasurementStore {
         allowFontScaling,
         maxFontSizeMultiplier,
         imageRequestHeaders,
+        parseLinkPillContent(props.getArrayOrNull("linkPillContent")),
+        linkRecognition.text,
+        linkRecognition.inlineCode,
       )
     spannable?.replaceMathSpansWithPlaceholders(context)
     val textToMeasure = spannable ?: markdown
@@ -495,13 +507,22 @@ object MeasurementStore {
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
 
+    val linkRecognition = parseLinkRecognition(props.getMapOrNull("linkRecognition"))
+
     return try {
       val ast =
-        Parser.shared.parseMarkdown(markdown, md4cFlags, isGFM)
+        Parser.shared.parseMarkdown(
+          markdown,
+          md4cFlags,
+          isGFM,
+          linkRecognition.text,
+          linkRecognition.inlineCode,
+        )
           ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
       style.imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
+      style.linkPillContent = parseLinkPillContent(props.getArrayOrNull("linkPillContent"))
       val segments = splitASTIntoSegments(ast)
       val renderedSegments = MarkdownSegmentRenderer.render(segments, style, context, null, null)
 
@@ -614,18 +635,6 @@ object MeasurementStore {
     }
   }
 
-  private fun prepareImageSpansForMeasurement(
-    text: CharSequence?,
-    widthPx: Int,
-  ) {
-    // widthPx == 1 is the coerceAtLeast(1) fallback for a not-yet-measured view
-    if (widthPx <= 1) return
-    val spanned = text as? android.text.Spanned ?: return
-    spanned
-      .getSpans(0, spanned.length, com.swmansion.enriched.markdown.spans.ImageSpan::class.java)
-      .forEach { it.prepareForMeasurement(spanned, widthPx) }
-  }
-
   private fun createStaticLayout(
     text: CharSequence,
     fontSize: Float,
@@ -633,7 +642,7 @@ object MeasurementStore {
     viewId: Int?,
   ): StaticLayout {
     measurePaint.textSize = fontSize
-    prepareImageSpansForMeasurement(text, widthPx)
+    prepareWidthAwareSpans(text, widthPx)
     return StaticLayout.Builder
       .obtain(text, 0, text.length, measurePaint, widthPx)
       .setIncludePad(false)
@@ -658,13 +667,17 @@ object MeasurementStore {
     allowFontScaling: Boolean,
     maxFontSizeMultiplier: Float,
     imageRequestHeaders: Map<String, String> = emptyMap(),
+    linkPillContent: Map<String, LinkPillContent> = emptyMap(),
+    linkRegex: LinkRegexConfig? = null,
+    inlineCodeLinkRegex: LinkRegexConfig? = null,
   ): Spannable? {
     if (styleMap == null) return null
 
     return try {
-      val ast = Parser.shared.parseMarkdown(markdown, md4cFlags, isGFM) ?: return null
+      val ast = Parser.shared.parseMarkdown(markdown, md4cFlags, isGFM, linkRegex, inlineCodeLinkRegex) ?: return null
       val style = StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier)
       style.imageRequestHeaders = imageRequestHeaders
+      style.linkPillContent = linkPillContent
       measureRenderer.configure(style, context)
       measureRenderer.renderDocument(ast, null)
     } catch (e: Exception) {
@@ -716,7 +729,7 @@ object MeasurementStore {
   ): Long {
     val content = text ?: ""
     val safeWidth = ceil(maxWidth).toInt().coerceAtLeast(1)
-    prepareImageSpansForMeasurement(content, safeWidth)
+    prepareWidthAwareSpans(content, safeWidth)
 
     val builder =
       StaticLayout.Builder
@@ -822,7 +835,7 @@ object MeasurementStore {
   ): Pair<Long, StaticLayout> {
     val content = text ?: ""
     val widthPx = ceil(maxWidth).toInt().coerceAtLeast(1)
-    prepareImageSpansForMeasurement(content, widthPx)
+    prepareWidthAwareSpans(content, widthPx)
 
     val layout =
       StaticLayout.Builder

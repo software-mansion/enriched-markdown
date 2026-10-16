@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.renderer
 
 import android.content.Context
 import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.style.MetricAffectingSpan
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
@@ -38,14 +39,19 @@ class RendererFactory(
    * Spans registered here are applied after the full document tree is rendered, so they
    * always end up after block-level spans in the SpannableStringBuilder's internal array.
    * See [BaselineShiftRenderer] for the root cause and the proper long-term fix.
+   *
+   * The range is kept as offsets. A renderer that inserts text into the builder after
+   * its children rendered (the blockquote padding spacer) must report it through
+   * [shiftDeferredSpans], so the recorded ranges keep following their text.
    */
-  private data class DeferredSpan(
+  private class DeferredSpan(
     val span: MetricAffectingSpan,
-    val start: Int,
-    val end: Int,
+    var start: Int,
+    var end: Int,
   )
 
   private val deferredSpans = mutableListOf<DeferredSpan>()
+  private val afterRenderActions = mutableListOf<(Spanned) -> Unit>()
 
   fun registerDeferredSpan(
     span: MetricAffectingSpan,
@@ -55,16 +61,39 @@ class RendererFactory(
     deferredSpans.add(DeferredSpan(span, start, end))
   }
 
+  /** Runs [action] on the finished text, once every block-level span is in place. */
+  fun runAfterRender(action: (Spanned) -> Unit) {
+    afterRenderActions.add(action)
+  }
+
+  /** Call right after inserting [length] characters at [position] into the builder being rendered. */
+  fun shiftDeferredSpans(
+    position: Int,
+    length: Int,
+  ) {
+    // Spans are registered in document order, so only the most recent ones can lie at
+    // or after the insertion point.
+    for (index in deferredSpans.indices.reversed()) {
+      val deferred = deferredSpans[index]
+      if (deferred.end <= position) break
+      if (deferred.start >= position) deferred.start += length
+      deferred.end += length
+    }
+  }
+
   fun flushDeferredSpans(builder: SpannableStringBuilder) {
-    for ((span, start, end) in deferredSpans) {
-      builder.setSpan(span, start, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+    for (deferred in deferredSpans) {
+      builder.setSpan(deferred.span, deferred.start, deferred.end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
     }
     deferredSpans.clear()
+    afterRenderActions.forEach { it(builder) }
+    afterRenderActions.clear()
   }
 
   fun resetForNewRender() {
     blockStyleContext.resetForNewRender()
     deferredSpans.clear()
+    afterRenderActions.clear()
   }
 
   fun createImageSpan(

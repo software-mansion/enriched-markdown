@@ -45,6 +45,9 @@ jobs:
             android:
               - 'packages/enriched-markdown-android/**'
               - 'packages/core/**'
+              - 'vendor/vendor-grammars.mjs'
+              - 'vendor/gen-registry.mjs'
+              - 'vendor/grammar-versions.json'
               - 'apps/android-example/**'
               - 'package.json'
               - 'yarn.lock'
@@ -398,11 +401,14 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Restore Android vendor files
+        uses: ./.github/actions/restore-android-vendor
+
       - name: Cache turborepo for Android native
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'apps/android-example/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-android-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'apps/android-example/**', 'packages/core/cpp/**', 'vendor/vendor-grammars.mjs', 'vendor/gen-registry.mjs', 'vendor/grammar-versions.json') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-android-native-build-
 
@@ -443,11 +449,14 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Restore Android vendor files
+        uses: ./.github/actions/restore-android-vendor
+
       - name: Cache turborepo for Android native tests
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-android-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'packages/core/cpp/**', 'vendor/vendor-grammars.mjs', 'vendor/gen-registry.mjs', 'vendor/grammar-versions.json') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-android-native-test-
 
@@ -487,6 +496,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Restore Android vendor files
+        uses: ./.github/actions/restore-android-vendor
+
       - name: Cache turborepo for Android native lint
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -512,7 +524,7 @@ jobs:
         with:
           gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Run Kotlin lint
+      - name: Run ktlint and Android Lint
         run: yarn turbo run lint:android-native --filter=@enriched-markdown/android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   ios-build:
@@ -528,11 +540,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # EnrichedMarkdownLaTeX's Vendor/*.swift and Fonts are symlinks into the
-      # gitignored RN vendor tree; hashFiles() below fails on dangling symlinks
-      # and SwiftPM would silently compile the target without them.
-      - name: Restore RaTeX vendor files
-        run: node vendor/vendor-ratex.mjs
+      - name: Restore iOS vendor files
+        uses: ./.github/actions/restore-ios-vendor
 
       - name: Cache turborepo for iOS native build
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -589,11 +598,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # EnrichedMarkdownLaTeX's Vendor/*.swift and Fonts are symlinks into the
-      # gitignored RN vendor tree; hashFiles() below fails on dangling symlinks
-      # and SwiftPM would silently compile the target without them.
-      - name: Restore RaTeX vendor files
-        run: node vendor/vendor-ratex.mjs
+      - name: Restore iOS vendor files
+        uses: ./.github/actions/restore-ios-vendor
 
       - name: Cache turborepo for iOS native tests
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -650,11 +656,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # EnrichedMarkdownLaTeX's Vendor/*.swift and Fonts are symlinks into the
-      # gitignored RN vendor tree; hashFiles() below fails on dangling symlinks
-      # and SwiftPM would silently compile the target without them.
-      - name: Restore RaTeX vendor files
-        run: node vendor/vendor-ratex.mjs
+      - name: Restore iOS vendor files
+        uses: ./.github/actions/restore-ios-vendor
 
       - name: Cache turborepo for iOS native lint
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0

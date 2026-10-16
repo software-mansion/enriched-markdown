@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_LIST_ITEM
 
 class ListItemRenderer(
   private val config: RendererConfig,
@@ -49,15 +50,32 @@ class ListItemRenderer(
           taskIndex = taskIndex,
           isChecked = isChecked,
           drawsMarker = drawsMarker,
+          ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
+          markerExtraWidth = styleContext.listMarkerExtra,
         )
       } else {
         when (listType) {
           BlockStyleContext.ListType.UNORDERED -> {
-            UnorderedListSpan(listStyle, depth, factory.context, factory.styleCache, drawsMarker)
+            UnorderedListSpan(
+              listStyle,
+              depth,
+              factory.context,
+              factory.styleCache,
+              drawsMarker,
+              ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
+            )
           }
 
           BlockStyleContext.ListType.ORDERED -> {
-            OrderedListSpan(listStyle, depth, factory.context, factory.styleCache, drawsMarker).apply {
+            OrderedListSpan(
+              listStyle,
+              depth,
+              factory.context,
+              factory.styleCache,
+              drawsMarker,
+              markerExtraWidth = styleContext.listMarkerExtra,
+              ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
+            ).apply {
               setItemNumber(styleContext.listItemNumber)
             }
           }
@@ -66,12 +84,15 @@ class ListItemRenderer(
 
     val markerSpan = makeSpan(drawsMarker = true)
 
+    val previousMarkerExtra = styleContext.listItemMarkerExtra
+    styleContext.listItemMarkerExtra = markerSpan.markerExtraWidth
     val prevIndent = styleContext.accumulatedIndent
     styleContext.accumulatedIndent = prevIndent + markerSpan.getLeadingMargin(false)
     try {
       factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
     } finally {
       styleContext.accumulatedIndent = prevIndent
+      styleContext.listItemMarkerExtra = previousMarkerExtra
     }
 
     if (builder.length == start || builder.substring(start).isBlank()) return
@@ -109,7 +130,7 @@ class ListItemRenderer(
           if (isFirstSegment && plainAnchor) markerSpan else makeSpan(drawsMarker = false),
           pos,
           cbStart,
-          SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+          SPAN_FLAGS_LIST_ITEM,
         )
         isFirstSegment = false
       }
@@ -120,7 +141,7 @@ class ListItemRenderer(
         if (isFirstSegment && plainAnchor) markerSpan else makeSpan(drawsMarker = false),
         pos,
         itemEnd,
-        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+        SPAN_FLAGS_LIST_ITEM,
       )
     }
 

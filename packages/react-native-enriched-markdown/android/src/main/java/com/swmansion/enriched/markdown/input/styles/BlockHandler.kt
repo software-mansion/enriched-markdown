@@ -1,5 +1,6 @@
 package com.swmansion.enriched.markdown.input.styles
 
+import com.facebook.react.views.text.TextAttributes
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
@@ -40,6 +41,7 @@ interface BlockHandler {
   fun createSpans(
     blockRange: BlockRange,
     style: InputFormatterStyle,
+    bodyTextAttributes: TextAttributes,
   ): List<Any>
 
   /** Span classes this handler produces, for cleanup/identity (mirrors [StyleHandler.spanClasses]). */

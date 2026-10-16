@@ -147,7 +147,7 @@ There is a small CommonMark core that every Markdown parser agrees on (everythin
 {/* UNRELEASED PLATFORMS: the standalone iOS and Android SDKs have no `flavor`
 selector - GFM's tables, task lists and strikethrough are always on there, and
 the remaining extensions are individual parsing options
-(`MarkdownParsingOptions` / `Md4cFlags`). Restore these tabs, and the links to
+(`MarkdownParsingOptions` / `MarkdownOptions`). Restore these tabs, and the links to
 `/ios/guides/parser-extensions` and `/android/guides/parser-extensions`, when
 those packages ship. */}
 

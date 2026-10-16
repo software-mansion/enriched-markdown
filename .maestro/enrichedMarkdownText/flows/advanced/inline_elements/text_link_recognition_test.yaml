@@ -1,0 +1,65 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - advanced
+  - inline
+  - link
+  - text
+---
+# linkRecognition turns plain-text and whole-inline-code matches into links, leaves
+# existing links, fences and partial code matches alone, and keeps the trailing block
+# visible (measurement must see the same links the view renders).
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        See ref:one, `ref:two`, [ref:three](https://existing.invalid) and `prefix ref:four`.
+
+        ```
+        ref:five stays plain in a fence
+        ```
+
+        Last line: ref:six.
+
+- scrollUntilVisible:
+    element:
+      id: recognize-links-button
+    direction: DOWN
+
+# Off -> CommonMark -> GitHub
+- tapOn:
+    id: recognize-links-button
+- tapOn:
+    id: recognize-links-button
+
+- scrollUntilVisible:
+    element:
+      id: preview-container
+    direction: DOWN
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'text_link_recognition_display'
+
+# Recognition off again on unchanged Markdown: generated links disappear.
+- scrollUntilVisible:
+    element:
+      id: recognize-links-button
+    direction: UP
+- tapOn:
+    id: recognize-links-button
+
+- scrollUntilVisible:
+    element:
+      id: preview-container
+    direction: DOWN
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'text_link_recognition_off_display'

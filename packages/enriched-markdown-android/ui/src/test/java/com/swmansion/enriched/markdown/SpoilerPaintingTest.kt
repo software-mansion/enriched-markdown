@@ -1,12 +1,15 @@
 package com.swmansion.enriched.markdown
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.provider.Settings
 import android.text.Spannable
 import android.text.TextPaint
 import android.util.TypedValue
@@ -15,10 +18,12 @@ import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
+import com.swmansion.enriched.markdown.spans.registerWithSpans
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
-import com.swmansion.enriched.markdown.spoiler.computeSegmentRect
+import com.swmansion.enriched.markdown.spoiler.computeSliceRect
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
@@ -27,9 +32,11 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.code
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.heading
 import com.swmansion.enriched.markdown.test.TestAstFactory.highlight
+import com.swmansion.enriched.markdown.test.TestAstFactory.image
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.spoiler
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
+import com.swmansion.enriched.markdown.utils.text.ImageCache
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -40,19 +47,19 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowSystemClock
+import org.robolectric.util.ReflectionHelpers
+import org.robolectric.util.ReflectionHelpers.ClassParameter
 import java.time.Duration
 
 /**
  * Covers the geometry the overlay paints and the state machine a reveal walks through.
  *
- * Scope note: the particle field is driven by [android.view.Choreographer], which Robolectric only
- * advances through a paused looper, and its output is random by design. The animation *timing* is
- * therefore deliberately out of scope — what is asserted here is the static draw (one rect per
- * line of the span, in the styled color) and the transitions a span makes as it is revealed.
+ * Frames are drawn by hand with [ShadowSystemClock] as the clock, since Robolectric only advances
+ * [android.view.Choreographer] through a paused looper.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
-// Robolectric's legacy graphics report zero font metrics, which collapses every segment rect to
+// Robolectric's legacy graphics report zero font metrics, which collapses every slice rect to
 // zero height; the native runtime lays text out for real, which is what this geometry needs.
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SpoilerPaintingTest {
@@ -63,10 +70,11 @@ class SpoilerPaintingTest {
     const val OVERLAY = 0xFF884422.toInt()
   }
 
-  /** A [Canvas] that remembers the shapes drawn onto it, with the color each was painted in. */
+  /** Records the shapes drawn onto it, in view coordinates, with their colors. */
   private class RecordingCanvas(
-    bitmap: Bitmap,
+    val bitmap: Bitmap,
   ) : Canvas(bitmap) {
+    private val currentMatrix = Matrix()
     val roundRects = mutableListOf<Pair<RectF, Int>>()
     val rects = mutableListOf<Pair<RectF, Int>>()
     val pathColors = mutableListOf<Int>()
@@ -85,7 +93,7 @@ class SpoilerPaintingTest {
       ry: Float,
       paint: Paint,
     ) {
-      roundRects.add(RectF(rect) to paint.color)
+      roundRects.add(inViewCoordinates(RectF(rect)) to paint.color)
       super.drawRoundRect(rect, rx, ry, paint)
     }
 
@@ -96,8 +104,17 @@ class SpoilerPaintingTest {
       bottom: Float,
       paint: Paint,
     ) {
-      rects.add(RectF(left, top, right, bottom) to paint.color)
+      rects.add(inViewCoordinates(RectF(left, top, right, bottom)) to paint.color)
       super.drawRect(left, top, right, bottom, paint)
+    }
+
+    // Overlays draw in their slice's coordinates, under a translation. getMatrix is deprecated
+    // because a hardware canvas's matrix is implementation-defined; over a bitmap it is exact.
+    @Suppress("DEPRECATION")
+    private fun inViewCoordinates(rect: RectF): RectF {
+      getMatrix(currentMatrix)
+      currentMatrix.mapRect(rect)
+      return rect
     }
   }
 
@@ -113,6 +130,7 @@ class SpoilerPaintingTest {
     val textView = TextView(context)
     textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, style.paragraphStyle.fontSize)
     textView.text = rendered
+    textView.registerWithSpans(rendered)
     textView.layOutAt(WIDTH)
     return textView
   }
@@ -148,7 +166,7 @@ class SpoilerPaintingTest {
 
   private fun harness(
     document: MarkdownASTNode,
-    overlay: SpoilerOverlay = SpoilerOverlay.Solid,
+    overlay: SpoilerOverlay = SpoilerOverlay.Solid(),
     style: StyleConfig = styleWithOverlayColor(),
   ): Harness {
     val rendered = render(document, style)
@@ -160,10 +178,10 @@ class SpoilerPaintingTest {
     return Harness(textView, drawer, rendered)
   }
 
-  // MARK: Segment geometry
+  // MARK: Slice geometry
 
   @Test
-  fun aSingleLineSpoilerPaintsOneSegment() {
+  fun aSingleLineSpoilerPaintsOneOverlay() {
     val canvas = harness(document(paragraph(spoiler(text("secret"))))).draw()
 
     assertEquals(1, canvas.roundRects.size)
@@ -171,7 +189,7 @@ class SpoilerPaintingTest {
   }
 
   @Test
-  fun aWrappedSpoilerPaintsOneSegmentPerLine() {
+  fun aWrappedSpoilerPaintsOneOverlayPerLine() {
     val long = List(40) { "concealed" }.joinToString(" ")
     val test = harness(document(paragraph(spoiler(text(long)))))
 
@@ -186,21 +204,21 @@ class SpoilerPaintingTest {
   }
 
   @Test
-  fun eachSegmentSitsOnItsOwnLineBand() {
+  fun eachSliceSitsOnItsOwnBand() {
     val long = List(40) { "concealed" }.joinToString(" ")
     val test = harness(document(paragraph(spoiler(text(long)))))
     val canvas = test.draw()
 
     val tops = canvas.roundRects.map { it.first.top }
-    assertEquals("Segments must not share a band", tops.size, tops.toSet().size)
+    assertEquals("Slices must not share a band", tops.size, tops.toSet().size)
     canvas.roundRects.forEach { (rect, _) ->
-      assertTrue("Segment should have a positive area", rect.width() > 0f && rect.height() > 0f)
-      assertTrue("Segment should stay inside the view", rect.right <= WIDTH.toFloat() + 1f)
+      assertTrue("Slice should have a positive area", rect.width() > 0f && rect.height() > 0f)
+      assertTrue("Slice should stay inside the view", rect.right <= WIDTH.toFloat() + 1f)
     }
   }
 
   @Test
-  fun twoSpoilersPaintTwoSegments() {
+  fun twoSpoilersPaintTwoOverlays() {
     val canvas =
       harness(
         document(paragraph(spoiler(text("one")), text(" plain "), spoiler(text("two")))),
@@ -210,7 +228,7 @@ class SpoilerPaintingTest {
   }
 
   @Test
-  fun computeSegmentRectFollowsTheLayout() {
+  fun computeSliceRectFollowsTheLayout() {
     val test = harness(document(paragraph(spoiler(text("secret")))))
     val layout = requireNotNull(test.textView.layout)
     val span = test.spans.single()
@@ -218,11 +236,11 @@ class SpoilerPaintingTest {
     val end = test.rendered.getSpanEnd(span)
 
     val rect =
-      computeSegmentRect(
+      computeSliceRect(
         layout = layout,
         line = 0,
-        segmentStart = start,
-        segmentEnd = end,
+        start = start,
+        end = end,
         fontMetrics = layout.paint.fontMetrics,
         paddingLeft = 0f,
         paddingTop = 0f,
@@ -234,16 +252,16 @@ class SpoilerPaintingTest {
   }
 
   @Test
-  fun aZeroWidthSegmentIsSkipped() {
+  fun aZeroWidthSliceIsSkipped() {
     val test = harness(document(paragraph(spoiler(text("secret")))))
     val layout = requireNotNull(test.textView.layout)
 
     val rect =
-      computeSegmentRect(
+      computeSliceRect(
         layout = layout,
         line = 0,
-        segmentStart = 0,
-        segmentEnd = 0,
+        start = 0,
+        end = 0,
         fontMetrics = layout.paint.fontMetrics,
         paddingLeft = 0f,
         paddingTop = 0f,
@@ -253,7 +271,7 @@ class SpoilerPaintingTest {
   }
 
   @Test
-  fun aSegmentCoversTheSpansOwnFontSize() {
+  fun aSliceCoversTheSpansOwnFontSize() {
     val test = harness(document(heading(1, spoiler(text("secret")))))
     val span = test.spans.single()
     assertTrue(
@@ -278,7 +296,7 @@ class SpoilerPaintingTest {
   fun theParticleOverlayPaintsNoBackdrop() {
     val style = MarkdownRenderTestSupport.styleWithSpoiler(SpoilerStyle(color = OVERLAY))
     val canvas =
-      harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles, style).draw()
+      harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles(), style).draw()
 
     assertEquals("Particles never draw the solid block", 0, canvas.roundRects.size)
     assertEquals("The text is drawn transparent, so nothing covers it", 0, canvas.rects.size)
@@ -286,10 +304,10 @@ class SpoilerPaintingTest {
 
   @Test
   fun switchingModesRepaintsWithTheOtherStrategy() {
-    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles)
+    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles())
     assertEquals(0, test.draw().roundRects.size)
 
-    test.drawer.spoilerOverlay = SpoilerOverlay.Solid
+    test.drawer.spoilerOverlay = SpoilerOverlay.Solid()
 
     assertEquals(1, test.draw().roundRects.size)
   }
@@ -314,6 +332,74 @@ class SpoilerPaintingTest {
 
     assertTrue(test.drawText().pathColors.any { Color.alpha(it) > 0 })
   }
+
+  // Color glyphs take the paint's alpha like any other, so the concealment covers them.
+  @Test
+  fun anEmojiUnderAConcealedSpoilerDrawsNoInk() {
+    val test = harness(document(paragraph(spoiler(text("\uD83D\uDE00")))))
+
+    assertEquals(0, test.drawText().bitmap.inkedPixels())
+
+    test.spans.single().markRevealed()
+    assertTrue("The emoji should draw once revealed", test.drawText().bitmap.inkedPixels() > 0)
+  }
+
+  // A drawable ignores the paint, so an image has to be concealed explicitly.
+  @Test
+  fun anInlineImageUnderAConcealedSpoilerIsNotDrawn() {
+    val url = "test://spoiler-inline-image"
+    ImageCache.putOriginal(url, Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) })
+    val test = harness(document(paragraph(text("see "), spoiler(image(url)))))
+
+    assertEquals(0, test.drawText().bitmap.redPixels())
+
+    test.spans.single().textAlpha = 0.5f
+    val halfway = test.drawText().bitmap
+    assertTrue("The image should fade in with the text", halfway.redPixels() > 0)
+
+    test.spans.single().markRevealed()
+    assertTrue(test.drawText().bitmap.redPixels() > 0)
+  }
+
+  @Test
+  fun aSliceOverABlockImageCoversTheWholeImage() {
+    val url = "test://spoiler-block-image"
+    ImageCache.putOriginal(url, Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) })
+    val style = styleWithOverlayColor()
+    val rendered = render(document(paragraph(spoiler(image(url)))), style)
+    // A block image takes its width from the view it is registered with, as the segment views do,
+    // so the text is laid out again once it has one.
+    rendered
+      .getSpans(0, rendered.length, ImageSpan::class.java)
+      .single()
+      .registerTextView(laidOutTextView(rendered, style))
+    val textView = laidOutTextView(rendered, style)
+    val drawer = requireNotNull(SpoilerOverlayDrawer.setupIfNeeded(textView, rendered, null, SpoilerOverlay.Solid()))
+    val test = Harness(textView, drawer, rendered)
+    val imageHeight = style.imageStyle.height
+    val textMetrics = test.textView.paint.fontMetrics
+    assertTrue(
+      "The image must be taller than a line of text for this to be meaningful",
+      imageHeight > textMetrics.descent - textMetrics.ascent,
+    )
+
+    val rect =
+      test
+        .draw()
+        .roundRects
+        .single()
+        .first
+
+    val lineTop = requireNotNull(test.textView.layout).getLineTop(0) + test.textView.totalPaddingTop
+    assertEquals(lineTop.toFloat(), rect.top, 1f)
+    assertEquals(imageHeight, rect.height(), 1f)
+  }
+
+  private fun Bitmap.inkedPixels(): Int = pixels().count { Color.alpha(it) > 0 }
+
+  private fun Bitmap.redPixels(): Int = pixels().count { Color.alpha(it) > 0 && Color.red(it) > 128 && Color.green(it) < 64 }
+
+  private fun Bitmap.pixels(): IntArray = IntArray(width * height).also { getPixels(it, 0, width, 0, 0, width, height) }
 
   @Test
   fun highlightUnderAConcealedSpoilerPaintsNoBand() {
@@ -383,6 +469,73 @@ class SpoilerPaintingTest {
   }
 
   @Test
+  fun aRevealCompletesAtOnceWithAnimationsTurnedOff() {
+    val test = harness(document(paragraph(spoiler(text("secret")))))
+    test.draw()
+    val span = test.spans.single()
+    var completed = false
+
+    setAnimatorDurationScale(0f)
+    try {
+      test.drawer.revealSpan(span) { completed = true }
+      test.draw()
+    } finally {
+      setAnimatorDurationScale(1f)
+    }
+
+    assertTrue("Reveal should complete without waiting out its duration", completed)
+    assertTrue(span.revealed)
+  }
+
+  // Below API 33 the process scale can't be read back, so the setting is what the drawer follows.
+  @Test
+  fun aRevealStretchesWithTheAnimatorDurationScaleSetting() {
+    val test = harness(document(paragraph(spoiler(text("secret")))))
+    test.draw()
+    val span = test.spans.single()
+    var completed = false
+    Settings.Global.putFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 2f)
+
+    test.drawer.revealSpan(span) { completed = true }
+    ShadowSystemClock.advanceBy(Duration.ofMillis(600))
+    test.draw()
+    assertFalse("At 2×, a reveal is still running past its own duration", completed)
+
+    ShadowSystemClock.advanceBy(Duration.ofMillis(400))
+    test.draw()
+    assertTrue(completed)
+  }
+
+  @Test
+  @Config(sdk = [35])
+  fun aRevealFollowsTheProcessAnimatorDurationScale() {
+    val test = harness(document(paragraph(spoiler(text("secret")))))
+    test.draw()
+    val span = test.spans.single()
+    var completed = false
+
+    setAnimatorDurationScale(0.5f)
+    try {
+      test.drawer.revealSpan(span) { completed = true }
+      ShadowSystemClock.advanceBy(Duration.ofMillis(250))
+      test.draw()
+    } finally {
+      setAnimatorDurationScale(1f)
+    }
+
+    assertTrue("At 0.5×, a reveal ends in half its duration", completed)
+  }
+
+  // What the developer option "Animator duration scale" sets; the setter is hidden from the SDK.
+  private fun setAnimatorDurationScale(scale: Float) {
+    ReflectionHelpers.callStaticMethod<Unit>(
+      ValueAnimator::class.java,
+      "setDurationScale",
+      ClassParameter.from(Float::class.javaPrimitiveType, scale),
+    )
+  }
+
+  @Test
   fun aRevealedSpanIsNoLongerPainted() {
     val test = harness(document(paragraph(spoiler(text("one")), text(" "), spoiler(text("two")))))
     test.draw()
@@ -404,7 +557,7 @@ class SpoilerPaintingTest {
     var completed = false
     test.drawer.revealSpan(span) { completed = true }
 
-    test.drawer.spoilerOverlay = SpoilerOverlay.Particles
+    test.drawer.spoilerOverlay = SpoilerOverlay.Particles()
 
     assertTrue(completed)
     assertTrue(span.revealed)
@@ -423,7 +576,7 @@ class SpoilerPaintingTest {
     test.draw()
     test.drawer.revealSpan(span) {}
 
-    // Wide enough to pull the spoiler up onto the first line, so its old segment goes stale.
+    // Wide enough to pull the spoiler up onto the first line, so its old slice goes stale.
     test.textView.layOutAt(WIDTH * 20)
     test.draw()
 
@@ -433,7 +586,7 @@ class SpoilerPaintingTest {
 
   @Test
   fun stoppingMidRevealFinishesTheReveal() {
-    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles)
+    val test = harness(document(paragraph(spoiler(text("secret")))), SpoilerOverlay.Particles())
     test.draw()
     val span = test.spans.single()
     test.drawer.revealSpan(span) {}
@@ -473,6 +626,6 @@ class SpoilerPaintingTest {
     val rendered = render(document(paragraph(text("nothing hidden"))), style)
     val textView = laidOutTextView(rendered, style)
 
-    assertNull(SpoilerOverlayDrawer.setupIfNeeded(textView, rendered, null, SpoilerOverlay.Solid))
+    assertNull(SpoilerOverlayDrawer.setupIfNeeded(textView, rendered, null, SpoilerOverlay.Solid()))
   }
 }

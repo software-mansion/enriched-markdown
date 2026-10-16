@@ -40,6 +40,7 @@ typedef void (^TableLinkPressBlock)(NSString *url);
 
 @property (nonatomic, copy, nullable) TableLinkPressBlock onLinkPress;
 @property (nonatomic, copy, nullable) TableLinkPressBlock onLinkLongPress;
+@property (nonatomic, copy, nullable) void (^onImagePress)(NSString *url, NSString *altText);
 
 @property (nonatomic, assign) BOOL enableLinkPreview;
 

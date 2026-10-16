@@ -64,6 +64,26 @@ private struct StubPlugin: MarkdownRenderPlugin {
     var rootBlockNodeTypes: Set<NodeType> { [.latexMathDisplay] }
 }
 
+private final class CodeBlockStylingRecorder: MarkdownRenderPlugin {
+    struct Call: Equatable {
+        var code: String
+        var language: String
+    }
+
+    static let tint = UIColor.systemPink
+    private(set) var calls: [Call] = []
+
+    func styleCodeBlock(
+        in output: NSMutableAttributedString,
+        range: NSRange,
+        language: String,
+        config: MarkdownStyleConfiguration
+    ) {
+        calls.append(Call(code: output.mutableString.substring(with: range), language: language))
+        output.addAttribute(.foregroundColor, value: Self.tint, range: range)
+    }
+}
+
 final class RenderPluginTests: XCTestCase {
     private var config: MarkdownStyleConfiguration!
 
@@ -239,7 +259,9 @@ final class RenderPluginTests: XCTestCase {
             rendered.fulfill()
         }
 
-        store.schedule(MarkdownRenderInputs(markdown: "a $x$ b", config: config), plugins: [mathStubPlugin])
+        store.schedule(
+            MarkdownRenderInputs(markdown: "a $x$ b", config: config, plugins: RenderPluginList(values: [mathStubPlugin]))
+        )
         wait(for: [rendered], timeout: 5)
         subscription.cancel()
 
@@ -267,5 +289,53 @@ final class RenderPluginTests: XCTestCase {
     private func paragraphStyle(in rendered: NSAttributedString) -> NSParagraphStyle? {
         guard rendered.length > 0 else { return nil }
         return rendered.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+    }
+
+    // MARK: - Code block styling
+
+    private func foregroundColor(of substring: String, in rendered: NSAttributedString) -> UIColor? {
+        let location = (rendered.string as NSString).range(of: substring).location
+        guard location != NSNotFound else { return nil }
+        return rendered.attribute(.foregroundColor, at: location, effectiveRange: nil) as? UIColor
+    }
+
+    func testCodeBlockStylingReceivesLabeledBlocksOnly() {
+        let recorder = CodeBlockStylingRecorder()
+        let rendered = render(
+            "```python\nprint(1)\nprint(2)\n```\n\nBetween\n\n```\nplain\n```\n\n    indented",
+            plugins: [recorder]
+        )
+
+        XCTAssertEqual(recorder.calls, [.init(code: "print(1)\nprint(2)\n", language: "python")])
+        XCTAssertEqual(foregroundColor(of: "print(1)", in: rendered), CodeBlockStylingRecorder.tint)
+        XCTAssertNotEqual(foregroundColor(of: "plain", in: rendered), CodeBlockStylingRecorder.tint)
+        XCTAssertNotEqual(foregroundColor(of: "indented", in: rendered), CodeBlockStylingRecorder.tint)
+        XCTAssertEqual(foregroundColor(of: "Between", in: rendered), config.paragraph.foregroundColor)
+    }
+
+    func testCodeBlockStylingReachesNestedBlocks() {
+        let recorder = CodeBlockStylingRecorder()
+        _ = render("- item\n\n  ```js\n  let a\n  ```\n\n> ```rust\n> let b;\n> ```", plugins: [recorder])
+
+        XCTAssertEqual(recorder.calls, [
+            .init(code: "let a\n", language: "js"),
+            .init(code: "let b;\n", language: "rust")
+        ])
+    }
+
+    func testRenderInputsCompareInstalledPluginTypes() {
+        let bare = MarkdownRenderInputs(markdown: "a", config: config)
+        var installed = bare
+        installed.plugins = RenderPluginList(values: [mathStubPlugin])
+        var reconfigured = bare
+        reconfigured.plugins = RenderPluginList(
+            values: [StubPlugin(claimed: [.code], makeRenderer: { MarkerTextRenderer() })]
+        )
+        var swapped = bare
+        swapped.plugins = RenderPluginList(values: [CodeBlockStylingRecorder()])
+
+        XCTAssertNotEqual(bare, installed, "installing a plugin has to schedule a re-render")
+        XCTAssertEqual(installed, reconfigured, "plugins compare by type")
+        XCTAssertNotEqual(installed, swapped)
     }
 }

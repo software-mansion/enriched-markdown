@@ -19,6 +19,8 @@ import Md4cPreserveBlankLinesSrc from '!!raw-loader!@site/src/examples/react-nat
 import Md4cAdmonitionsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cAdmonitions';
 import OnLinkPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkPress';
 import OnLinkLongPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnLinkLongPress';
+import LinkPillContentSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/LinkPillContent';
+import LinkContextMenuItemsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/LinkContextMenuItems';
 import OnImagePressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnImagePress';
 import OnTaskListItemPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/OnTaskListItemPress';
 import EnableTaskListItemToggleSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/EnableTaskListItemToggle';
@@ -326,6 +328,49 @@ HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN
 
 <LivePreview src={ImageRequestHeadersSrc} unavailable unavailableReason={<>Not supported on web - browsers don't allow custom headers on <code>&lt;img&gt;</code> requests.</>} />
 
+### `linkPillContent`
+
+Per-link content for [link pills](/react-native/guides/link-pills): a label, icon and icon tint for one exact link URL. It only affects links whose `markdownStyle.linkVariants` entry enables `pill`, and wins over that variant's `pill.label`, `pill.iconUri` and `pill.iconTintColor`. This is content, not style: keep `markdownStyle` stable and change this map as links appear, and keep the object reference stable between renders when its content has not changed.
+
+<PropInfo type="Record<string, LinkPillContent>" />
+
+```ts
+interface LinkPillContent {
+  /** Replaces the pill's label. Falls back to the variant's `pill.label`, then the link text. */
+  label?: string;
+  /** Icon shown before the label - a bundled asset name, file path, `data:` or `http(s)` URI. */
+  iconUri?: string;
+  /** Tints this link's icon and keeps its alpha. Omit to keep the icon's own colors. */
+  iconTintColor?: string;
+}
+```
+
+<LivePreview src={LinkPillContentSrc} unavailable unavailableReason={<>iOS and Android only - pills are drawn by the native text stack.</>} />
+
+### `linkRecognition`
+
+Opt-in link recognition for text that is not written as a Markdown link, such as `#1234`, `@name`, `$skill` or a file path. Off by default. Works in both flavors on every platform.
+
+| Key | Type | Matches |
+| --- | ---- | ------- |
+| `text` | `RegExp` | Every nonempty, non-overlapping match inside a plain-text run |
+| `inlineCode` | `RegExp` | An inline-code span whose whole content matches becomes one link |
+
+A recognized link's URL is the matched text itself, so `linkVariants`, `linkPillContent`, `linkContextMenuItems`, `onLinkPress` and `onLinkLongPress` apply to it like to any other link. Existing links, autolinks, code blocks, images, video and math are never touched. The Markdown source is unchanged: copying, including Copy as Markdown, returns the original text without link syntax.
+
+Matching happens per parsed text run, after Markdown parsing, so a pattern cannot match across formatting. `__init__.py` as plain text is split by emphasis parsing and will not match, while `` `__init__.py` `` as inline code matches whole. With the `latexMath` flag on (the default), two `$` on one line form a math span, so `$deploy ... $test` is math, not two skills; turn the flag off or escape the `$` in such content.
+
+Only the regex source and the `i` and `s` flags are used. Patterns must be valid for `NSRegularExpression` and `java.util.regex.Pattern` as well as JavaScript; an invalid pattern turns that recognizer off. This is different from the input's `linkRegex`, which detects URLs and is on by default. Pass the object inline or hoisted as you like: an equal config does not re-send the prop.
+
+```tsx
+<EnrichedMarkdownText
+  markdown="Fixed in #1284, see `src/App.tsx`"
+  linkRecognition={{ text: /#\d+/, inlineCode: /[\w./-]+\.tsx?/ }}
+  markdownStyle={{ linkVariants: { '^#\\d+$': { pill: true } } }}
+  onLinkPress={({ url }) => openReference(url)}
+/>
+```
+
 ### `contextMenuItems`
 
 Custom items to add to the text selection context menu. Items appear before the system actions and are hidden when `visible: false`. On iOS this requires iOS 16+; on earlier versions the prop is ignored.
@@ -354,6 +399,37 @@ interface TextContextMenuItem {
 ```
 
 <LivePreview src={ContextMenuItemsSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - it customizes the native selection menu.</>} />
+
+### `linkContextMenuItems` <IosBadge /> {#linkcontextmenuitems}
+
+Items of the native menu shown when a link is long-pressed, on iOS 17 and later. Keys are URL regex patterns matched like `markdownStyle.linkVariants`: the longest pattern that matches a link's URL supplies its menu, so one entry covers every link of a kind, and a pattern anchored to one URL gives that link its own menu. See [Link menus](/react-native/guides/link-menus) for the full behavior.
+
+A link with a menu shows it instead of [`onLinkLongPress`](#onlinklongpress) and the system link preview. The menu holds only your items and is titled with the link's text, or its [pill](/react-native/guides/link-pills) label. A link that matches no pattern, or whose pattern has no visible items, keeps its existing long-press behavior. Android, macOS and iOS below 17 ignore this prop; keep `onLinkLongPress` for them.
+
+<PropInfo type="Record<string, LinkContextMenuItem[]>" />
+
+```ts
+interface LinkContextMenuItem {
+  /** Label shown in the menu. Identifies the item, so unique within one pattern. */
+  text: string;
+  /** SF Symbol name, as in `contextMenuItems`. */
+  icon?: string;
+  /** Receives the link's original URL, including relative paths. */
+  onPress: (event: { url: string }) => void;
+  /** When false, the item is not shown. Defaults to true. */
+  visible?: boolean;
+  /** Shown but not tappable. Defaults to false. */
+  disabled?: boolean;
+  /** Styled as a destructive action. Defaults to false. */
+  destructive?: boolean;
+}
+```
+
+:::note
+The library does not navigate or copy for these items; do that in `onPress`. A menu can stay open while the prop changes: a press on an item the current value no longer offers (removed, hidden or disabled) is ignored.
+:::
+
+<LivePreview src={LinkContextMenuItemsSrc} unavailable unavailableReason={<>iOS 17 and later only - the menu is the native link context menu.</>} />
 
 ### `selectionMenuConfig`
 
@@ -534,7 +610,7 @@ interface LinkPressEvent {
 
 ### `onLinkLongPress`
 
-Callback fired when a link is long-pressed. On iOS, providing this handler automatically disables the system link preview (see [`enableLinkPreview`](#enablelinkpreview)). On web, it maps to the `contextmenu` (right-click) event.
+Callback fired when a link is long-pressed. On iOS, providing this handler automatically disables the system link preview (see [`enableLinkPreview`](#enablelinkpreview)). On web, it maps to the `contextmenu` (right-click) event. On iOS 17+ a link that matches a [`linkContextMenuItems`](#linkcontextmenuitems) pattern shows that menu instead of calling this handler.
 
 <PropInfo type="(event: LinkLongPressEvent) => void" />
 
@@ -550,7 +626,7 @@ interface LinkLongPressEvent {
 
 Callback fired when a rendered image is tapped or clicked. Read the image URL from `event.url` and its Markdown alt text from `event.altText` (`""` when the image has no alt text) - use it to open a lightbox or full-screen viewer.
 
-Fires for block and inline images, including images inside headings, lists, and blockquotes. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both. Not fired for images inside GFM tables.
+Fires for block and inline images, including images inside headings, lists, blockquotes, and GFM table cells. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both.
 
 Setting this callback makes images interactive; leaving it unset keeps the default tap, text-selection, and long-press behavior unchanged. On web the image becomes focusable, exposes a button role for screen readers, and can be activated with Enter/Space, while the browser's right-click menu is preserved.
 
@@ -640,6 +716,8 @@ interface LatexErrorEvent {
 - [Element structure](/react-native/api-reference/element-structure) - every supported element, its syntax, block vs. inline categorization, and nesting behavior.
 - [Style properties](/react-native/api-reference/style-properties) - all styleable properties, including a [Dark mode](/react-native/api-reference/style-properties#dark-mode) recipe with `useColorScheme()`.
 - [Copy options](/user-experience/copy-options) - smart copy, copy as Markdown, and copy image URL.
+- [Link pills](/react-native/guides/link-pills) - presenting links as rounded chips with an icon and label.
+- [Link menus](/react-native/guides/link-menus) - what a long press on a link does, and custom menus per URL pattern.
 - [Accessibility](/user-experience/accessibility) - VoiceOver and TalkBack support, custom rotors, and semantic traits.
 - [Testing with Jest](/react-native/guides/testing) - the shipped Jest mock for rendering and asserting on the components in tests.
 - [RTL support](/user-experience/rtl) - right-to-left languages and per-element RTL behavior.

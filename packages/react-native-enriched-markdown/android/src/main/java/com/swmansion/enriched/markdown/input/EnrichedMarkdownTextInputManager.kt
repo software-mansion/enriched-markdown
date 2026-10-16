@@ -14,7 +14,6 @@ import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextInputManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextInputManagerInterface
 import com.facebook.yoga.YogaMeasureMode
-import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.editing.MarkdownShortcutsConfig
 import com.swmansion.enriched.markdown.input.events.OnCaretRectChangeEvent
 import com.swmansion.enriched.markdown.input.events.OnChangeMarkdownEvent
@@ -35,6 +34,7 @@ import com.swmansion.enriched.markdown.input.layout.InputMeasurementStore
 import com.swmansion.enriched.markdown.input.model.StyleType
 import com.swmansion.enriched.markdown.input.toolbar.FormatMenuConfig
 import com.swmansion.enriched.markdown.input.toolbar.InputSelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.input.BorderPropsApplicator
 import com.swmansion.enriched.markdown.utils.input.MarkdownStyleParser
 
@@ -218,11 +218,9 @@ class EnrichedMarkdownTextInputManager :
   ) {
     if (view == null || value == null) return
 
-    val style = MarkdownStyleParser.parse(value)
-    val changed = view.setMarkdownStyleFromProps(style)
-    if (changed) {
-      view.applyFormatting()
-    }
+    view.setMarkdownStyleFromProps(MarkdownStyleParser.parse(value))
+    // This call takes care of setting formattingDirty if needed, so we don't
+    // need to explicitly apply formatting or set it here separately
   }
 
   @ReactProp(name = "color", customType = "Color")
@@ -246,9 +244,7 @@ class EnrichedMarkdownTextInputManager :
     view: EnrichedMarkdownTextInputView?,
     value: Float,
   ) {
-    if (value > 0 && view != null) {
-      view.setLineSpacing(value - view.textSize, 1f)
-    }
+    view?.setLineHeightFromProps(value)
   }
 
   @ReactProp(name = "fontFamily")

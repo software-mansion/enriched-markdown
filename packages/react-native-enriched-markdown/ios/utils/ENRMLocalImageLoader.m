@@ -36,7 +36,7 @@ BOOL ENRMIsLocalImageURL(NSString *url)
   return parsed == nil || parsed.scheme.length == 0;
 }
 
-RCTUIImage *_Nullable ENRMLoadLocalImage(NSString *url)
+static NSDictionary<NSString *, NSString *> *ENRMLocalImageSourcePaths(NSString *url)
 {
   NSString *filePath = nil;
   NSString *imageName = nil;
@@ -60,9 +60,52 @@ RCTUIImage *_Nullable ENRMLoadLocalImage(NSString *url)
     }
   }
 
+  return @{@"filePath" : filePath ?: @"", @"imageName" : imageName ?: @""};
+}
+
+NSString *_Nullable ENRMResolveLocalImagePath(NSString *url)
+{
+  if (url.length == 0 || !ENRMIsLocalImageURL(url))
+    return nil;
+  NSDictionary *paths = ENRMLocalImageSourcePaths(url);
+  NSString *path = paths[@"filePath"];
+  if (path.length == 0)
+    return nil;
+  if (path.pathExtension.length == 0)
+    path = [path stringByAppendingPathExtension:@"png"];
+  NSMutableArray<NSString *> *candidates = [NSMutableArray new];
+  if ([paths[@"imageName"] length] > 0) {
+    NSString *stem = path.stringByDeletingPathExtension;
+    if (![stem hasSuffix:@"@2x"] && ![stem hasSuffix:@"@3x"]) {
+#if !TARGET_OS_OSX
+      NSInteger scale = MAX(1, MIN(3, (NSInteger)UIScreen.mainScreen.scale));
+#else
+      NSInteger scale = MAX(1, MIN(3, (NSInteger)NSScreen.mainScreen.backingScaleFactor));
+#endif
+      for (NSNumber *candidateScale in @[ @(scale), @3, @2 ]) {
+        if (candidateScale.integerValue > 1)
+          [candidates addObject:[[stem stringByAppendingFormat:@"@%@x", candidateScale]
+                                    stringByAppendingPathExtension:path.pathExtension]];
+      }
+    }
+  }
+  [candidates addObject:path];
+  for (NSString *candidate in candidates) {
+    BOOL directory = NO;
+    if ([NSFileManager.defaultManager fileExistsAtPath:candidate isDirectory:&directory] && !directory)
+      return [candidate stringByResolvingSymlinksInPath];
+  }
+  return nil;
+}
+
+RCTUIImage *_Nullable ENRMLoadLocalImage(NSString *url)
+{
+  NSDictionary *paths = ENRMLocalImageSourcePaths(url);
+  NSString *filePath = paths[@"filePath"];
+  NSString *imageName = paths[@"imageName"];
   RCTUIImage *image = imageName.length > 0 ? ENRMImageNamed(imageName) : nil;
   if (image == nil && filePath.length > 0) {
-    image = ENRMImageAtPath(filePath);
+    image = ENRMImageAtPath(ENRMResolveLocalImagePath(url) ?: filePath);
   }
   return image;
 }

@@ -26,6 +26,8 @@ class TaskListSpan(
    * moves it to the end of that order and shifts where its marker lands.
    */
   var isChecked: Boolean,
+  ancestorMarkerOffset: Float = 0f,
+  override val markerExtraWidth: Float = 0f,
 ) : BaseListSpan(
     depth = depth,
     context = context,
@@ -39,6 +41,7 @@ class TaskListSpan(
       ),
     marginLeft = listStyle.marginLeft,
     gapWidth = listStyle.gapWidth,
+    ancestorMarkerOffset = ancestorMarkerOffset,
   ) {
   companion object {
     private val boxPaint =
@@ -58,7 +61,7 @@ class TaskListSpan(
   }
 
   private val checkboxSize = taskStyle.checkboxSize
-  private val markerColumnWidth = listStyle.effectiveMarkerWidth(checkboxSize)
+  private val markerColumnWidth = listStyle.effectiveMarkerWidth(checkboxSize) + markerExtraWidth
   private val cornerRadius = taskStyle.checkboxBorderRadius
   private val rect = RectF()
   private val insetRect = RectF()
@@ -79,7 +82,7 @@ class TaskListSpan(
   ) {
     val capHeight = -markerFontMetrics.ascent * CAP_HEIGHT_RATIO
     val centerY = baseline - capHeight / HALF_DIVISOR
-    val centerX = x + (depth * marginLeft + markerColumnWidth - checkboxSize / HALF_DIVISOR) * dir
+    val centerX = x + (depth * marginLeft + ancestorMarkerOffset + markerColumnWidth - checkboxSize / HALF_DIVISOR) * dir
     val half = checkboxSize / HALF_DIVISOR
     rect.set(centerX - half, centerY - half, centerX + half, centerY + half)
 

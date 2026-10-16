@@ -23,6 +23,7 @@ abstract class BaseListSpan(
   protected val marginLeft: Float,
   protected val gapWidth: Float,
   internal val drawsMarker: Boolean = true,
+  internal val ancestorMarkerOffset: Float = 0f,
 ) : MetricAffectingSpan(),
   LeadingMarginSpan {
   private var cachedText: CharSequence? = null
@@ -38,6 +39,9 @@ abstract class BaseListSpan(
 
   protected abstract fun getMarkerWidth(): Float
 
+  /** How far an ordered list widened this item's column past the one short lists reserve. */
+  internal open val markerExtraWidth: Float = 0f
+
   override fun updateMeasureState(textPaint: TextPaint) = applyTextStyle(textPaint)
 
   override fun updateDrawState(textPaint: TextPaint) = applyTextStyle(textPaint)
@@ -47,7 +51,7 @@ abstract class BaseListSpan(
       val effectiveGap = gapWidth.coerceAtLeast(DEFAULT_MIN_GAP)
       (getMarkerWidth() + effectiveGap).toInt()
     } else {
-      marginLeft.toInt()
+      (marginLeft + markerExtraWidth).toInt()
     }
 
   override fun drawLeadingMargin(

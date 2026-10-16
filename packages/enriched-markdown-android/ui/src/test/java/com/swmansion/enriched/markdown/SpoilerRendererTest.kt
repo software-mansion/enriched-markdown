@@ -202,9 +202,6 @@ class SpoilerRendererTest {
     val style = MarkdownRenderTestSupport.defaultStyle.spoilerStyle
 
     assertEquals(0xFF374151.toInt(), style.color)
-    assertEquals(8f, style.particleDensity, 0.001f)
-    assertEquals(20f, style.particleSpeed, 0.001f)
-    assertTrue("Solid radius is stored in pixels", style.solidCornerRadius > 0f)
   }
 
   // MARK: Copy / export

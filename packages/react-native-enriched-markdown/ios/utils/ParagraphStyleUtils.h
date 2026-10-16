@@ -44,11 +44,20 @@ BOOL ENRMParagraphIsRTL(NSParagraphStyle *_Nullable style);
 void ENRMApplyWritingDirectionMode(NSMutableAttributedString *output, ENRMWritingDirectionMode mode,
                                    NSWritingDirection layoutDirection);
 
+/// Sets lineHeight as a floor (minimumLineHeight) so a line can still grow to fit a taller run.
+/// No-op when lineHeight <= 0.
+void ENRMApplyLineHeightToParagraphStyle(NSMutableParagraphStyle *style, CGFloat lineHeight);
+
 NSMutableParagraphStyle *getOrCreateParagraphStyle(NSMutableAttributedString *output, NSUInteger index);
 void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger start, CGFloat marginBottom);
 NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRange range, CGFloat marginTop);
 NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger insertionPoint, CGFloat marginTop);
 void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
+/// `lineHeight`, raised to the largest `pill.lineHeight` among the link pills in `range`.
+/// A line grows to fit a pill on its own, but only that line and only to the pill's box, so
+/// pills on consecutive lines touch. A style that sets `pill.lineHeight` gets a floor for
+/// the whole block instead, which keeps its lines even and the pills apart.
+CGFloat ENRMLineHeightWithLinkPills(NSAttributedString *text, NSRange range, CGFloat lineHeight);
 void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight);
 
 /// Stamps every styled run in `range` with `NSOriginalFont` set to its own
@@ -68,6 +77,7 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
 /// built through the node renderers; the two paths that assemble their own
 /// string (table cells, code block content) call it themselves.
 void ENRMPinLineMetricsToStyledFonts(NSMutableAttributedString *output, NSRange range);
+CGFloat calculateBaselineOffset(NSAttributedString *output, NSRange range);
 void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
 void applyTextAlignment(NSMutableAttributedString *output, NSRange range, NSTextAlignment textAlign);
 NSTextAlignment textAlignmentFromString(NSString *textAlign);

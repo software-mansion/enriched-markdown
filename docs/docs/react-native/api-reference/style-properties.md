@@ -254,7 +254,7 @@ Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#
 | ------------------ | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `bulletColor`      | `string` | `#6B7280` | Bullet point color                                                                                                                  |
 | `bulletSize`       | `number` | `6`       | Bullet point size                                                                                                                   |
-| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type)                                                  |
+| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type). An ordered list's column also grows to fit its widest number |
 | `markerColor`      | `string` | `#6B7280` | Number marker color                                                                                                                 |
 | `markerFontWeight` | `string` | `'500'`   | Number marker font weight                                                                                                           |
 | `gapWidth`         | `number` | `12`      | Gap between marker and text                                                                                                         |
@@ -339,6 +339,29 @@ Under the `code` key.
 You can also style links per URL pattern through the top-level `linkVariants` key: a `Record<string, LinkVariantStyle>` whose keys are regexes tested against the link URL. See [Mentions](/rich-text-formatting/mentions#styling-mentions-with-linkvariants).
 
 <LivePreview src={LinkSrc} />
+
+#### Link pills {#pill}
+
+A variant can also present its links as **pills** - rounded chips with an optional icon and label, wrapped as one unit - through its `pill` key. `pill: true` gives the default look; a `LinkPillStyle` object overrides it. The variant's `color`, `underline`, `backgroundColor` and `fontFamily` still apply, so a pill is styled the way its links already were.
+
+| Property            | Type     | Default            | Description                                                                                                                                      |
+| ------------------- | -------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `label`             | `string` | Original link text | Label shown by every link the pattern matches                                                                                                    |
+| `iconUri`           | `string` | No icon            | Icon shown by every link the pattern matches, drawn at the label's font size. See [Icon sources](/react-native/guides/link-pills#icon-sources)   |
+| `iconTintColor`     | `string` | No tint            | Tints this variant's own icon and keeps its alpha. An icon set per link through `linkPillContent` is not tinted by it                             |
+| `borderRadius`      | `number` | `8`                | Corner radius in points/DIP                                                                                                                      |
+| `paddingHorizontal` | `number` | `6`                | Horizontal inset in points/DIP                                                                                                                   |
+| `paddingVertical`   | `number` | `2`                | Vertical inset in points/DIP                                                                                                                     |
+| `borderWidth`       | `number` | `0`                | Border width in points/DIP                                                                                                                       |
+| `borderColor`       | `string` | `transparent`      | Border color                                                                                                                                     |
+| `maxWidth`          | `number` | `0`                | Positive maximum width in points/DIP. Zero uses the available text width                                                                         |
+| `lineHeight`        | `number` | Not set            | Minimum line height of a block that holds the pill, scaled with the system font size. See [Line height](/react-native/guides/link-pills#line-height) |
+
+Nonfinite dimensions fall back to their defaults and negative dimensions clamp to zero. Per-link labels, icons and tints are not style: they live in the [`linkPillContent`](/react-native/api-reference/enriched-markdown-text#linkpillcontent) prop and win over the three content fields above.
+
+:::note
+Pills are drawn by the native text stack, so `pill` applies on **iOS and Android only**. The web build and macOS render those links as ordinary links with the variant's colors and font. The [Link pills](/react-native/guides/link-pills) guide covers the rest: per-link content, line height, icon sources and behavior.
+:::
 
 ### Strong-specific
 

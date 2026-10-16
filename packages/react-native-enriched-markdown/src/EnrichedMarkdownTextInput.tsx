@@ -37,8 +37,8 @@ import type {
   NativeSyntheticEvent,
   TextInputProps,
   ViewProps,
-  ViewStyle,
   TextStyle,
+  StyleProp,
   ColorValue,
 } from 'react-native';
 import { Platform } from 'react-native';
@@ -113,7 +113,14 @@ export interface StyleState {
   underline: { isActive: boolean };
   strikethrough: { isActive: boolean };
   spoiler: { isActive: boolean };
-  link: { isActive: boolean };
+  /**
+   * The link at the selection: the one containing the first selected
+   * character, or, for a collapsed caret, the one the caret is inside or right
+   * after. `setLink` and `removeLink` act on this same link. `destination` is
+   * `""` when there is no link, and can also be `""` for a link with an empty
+   * URL.
+   */
+  link: { isActive: boolean; destination: string };
   heading: { isActive: boolean; level: HeadingLevel };
   unorderedList: { isActive: boolean; depth: number };
   orderedList: { isActive: boolean; depth: number };
@@ -247,7 +254,7 @@ export interface EnrichedMarkdownTextInputProps
   cursorColor?: ColorValue;
   selectionColor?: ColorValue;
   markdownStyle?: MarkdownTextInputStyle;
-  style?: ViewStyle | TextStyle;
+  style?: StyleProp<TextStyle>;
   onChangeText?: (text: string) => void;
   onChangeMarkdown?: (markdown: string) => void;
   onChangeSelection?: (selection: { start: number; end: number }) => void;

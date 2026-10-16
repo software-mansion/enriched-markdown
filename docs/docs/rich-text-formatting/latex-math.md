@@ -21,8 +21,9 @@ Math parsing is **on by default**. You can turn it off so `$` is treated as plai
 {/* UNRELEASED PLATFORMS: the standalone iOS SDK ships math as an optional
 `EnrichedMarkdownLaTeX` product enabled per view with `.markdownLaTeX()` and
 styled through `MathBlock()` / `InlineMath()`; display math there needs no
-flavor switch. The standalone Android SDK parses `$...$` but has no math
-renderer yet. Restore those tabs, and the links to /ios/guides/latex-math, when
+flavor switch. The standalone Android SDK ships math as an optional
+`math` artifact whose `LatexMathPlugin` both parses and renders it - there is
+no math flag. Restore those tabs, and the links to /ios/guides/latex-math, when
 those packages ship. */}
 
 Block equations render as standalone display elements with their own spacing and an optional background. The style key is `math` (not `mathBlock`) and it takes `fontSize`, `color`, `backgroundColor`, `padding`, `marginTop`, `marginBottom` and `textAlign`. Inline math inherits the surrounding block's typography and takes only a color, through `markdownStyle.inlineMath`. Under `flavor="commonmark"` **none** of the `math` keys apply, because the equation becomes an inline attachment coloured from `inlineMath`.

@@ -9,6 +9,7 @@ object SegmentSignature {
 
   internal const val TEXT_KIND_SALT = 0x7465787400000000L // "text"
   internal const val TABLE_KIND_SALT = 0x7461626C00000000L // "tabl"
+  internal const val CODE_BLOCK_KIND_SALT = 0x636F646500000000L // "code"
 
   private fun fnvMixByte(
     hash: Long,
@@ -64,6 +65,19 @@ object SegmentSignature {
     }
 
     return hash
+  }
+
+  /**
+   * A plugin segment's signature, salted by the owning plugin id so two plugins that emit the same
+   * bytes - and a Text or Table segment - cannot collide. Core computes it rather than the plugin:
+   * streamed updates diff by this value, so an unstable one recycles the wrong view per token.
+   */
+  fun signatureForPluginSegment(
+    pluginId: String,
+    signatureSource: String,
+  ): Long {
+    val salt = fnvMixString(FNV_OFFSET_BASIS, pluginId)
+    return fnvMixString(signatureForNode(null) xor salt, signatureSource)
   }
 
   fun signatureForNodes(nodes: List<MarkdownASTNode>): Long {

@@ -1,6 +1,7 @@
 #import "ParagraphStyleUtils.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillAttachment.h"
 #import "LastElementUtils.h"
 #import <React/RCTI18nUtil.h>
 
@@ -264,6 +265,23 @@ void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBot
   [output addAttribute:NSParagraphStyleAttributeName value:spacerStyle range:NSMakeRange(spacerLocation, 1)];
 }
 
+CGFloat ENRMLineHeightWithLinkPills(NSAttributedString *text, NSRange range, CGFloat lineHeight)
+{
+#if !TARGET_OS_OSX
+  __block CGFloat fitting = lineHeight;
+  [text enumerateAttribute:NSAttachmentAttributeName
+                   inRange:range
+                   options:0
+                usingBlock:^(id value, __unused NSRange subrange, __unused BOOL *stop) {
+                  if ([value isKindOfClass:ENRMLinkPillAttachment.class])
+                    fitting = MAX(fitting, ((ENRMLinkPillAttachment *)value).lineHeight);
+                }];
+  return fitting;
+#else
+  return lineHeight;
+#endif
+}
+
 // UIKit's own key for the pre-substitution font. Not exported by any SDK header, so it is spelled out
 // here; it is the same string UIKit writes into a UITextView's storage when it substitutes a font.
 static NSString *const ENRMOriginalFontAttributeName = @"NSOriginalFont";
@@ -285,30 +303,38 @@ void ENRMPinLineMetricsToStyledFonts(NSMutableAttributedString *output, NSRange 
 }
 
 // Floor, not clamp: minimumLineHeight keeps short lines at lineHeight, while maximumLineHeight = 0 lets
-// a line grow to fit a taller run (large inline code, math, images) instead of clipping it. We can
-// diverge from RN's clamp because we measure the real laid-out height, so grown lines are reserved.
-void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight)
+// a line grow to fit a taller run (large inline code, math, images) instead of clipping it, e.g.
+// https://github.com/software-mansion/enriched-markdown/issues/827. We can diverge from RN's clamp
+// because we measure the real laid-out height, so grown lines are reserved.
+void ENRMApplyLineHeightToParagraphStyle(NSMutableParagraphStyle *style, CGFloat lineHeight)
 {
   if (lineHeight <= 0) {
     return;
   }
 
-  NSMutableParagraphStyle *style = getOrCreateParagraphStyle(output, range.location);
-
   style.minimumLineHeight = lineHeight;
   style.maximumLineHeight = 0;
+}
+
+void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight)
+{
+  lineHeight = ENRMLineHeightWithLinkPills(output, range, lineHeight);
+  if (lineHeight <= 0) {
+    return;
+  }
+
+  NSMutableParagraphStyle *style = getOrCreateParagraphStyle(output, range.location);
+  ENRMApplyLineHeightToParagraphStyle(style, lineHeight);
 
   [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
 }
 
-// Centers text within its line height by offsetting the baseline by half the leading, matching how
-// Android's LineHeightSpan splits the extra leading evenly above and below the glyphs. Called per
-// block over its own range so blocks can keep different line heights. Ranges that already carry a
-// baseline offset are left untouched, keeping nesting (e.g. a blockquote wrapping list items) idempotent.
-void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
+// Calculates the offset needed to center the text within the line height. Returns 0
+// when the range has no minimum line height or its content already fills the line.
+CGFloat calculateBaselineOffset(NSAttributedString *output, NSRange range)
 {
   if (range.length == 0) {
-    return;
+    return 0;
   }
 
   // applyLineHeight floors lines with minimumLineHeight (maximumLineHeight is 0 for grown lines,
@@ -325,7 +351,7 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                   }];
 
   if (targetLineHeight <= 0) {
-    return;
+    return 0;
   }
 
   // Center on real text; on a math-only line center the math box instead of its font.
@@ -350,6 +376,17 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                           }];
 
   CGFloat contentLineHeight = textLineHeight;
+#if !TARGET_OS_OSX
+  __block CGFloat pillBoxHeight = 0;
+  [output enumerateAttribute:NSAttachmentAttributeName
+                     inRange:range
+                     options:0
+                  usingBlock:^(id value, NSRange subrange, BOOL *stop) {
+                    if ([value isKindOfClass:ENRMLinkPillAttachment.class])
+                      pillBoxHeight = MAX(pillBoxHeight, ((ENRMLinkPillAttachment *)value).boxHeight);
+                  }];
+  contentLineHeight = MAX(contentLineHeight, pillBoxHeight);
+#endif
 
 #if ENRICHED_MARKDOWN_MATH
   // Math only grows the content height, so measure it (parsing LaTeX) only when text
@@ -364,15 +401,26 @@ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
                         mathBoxHeight = MAX(((ENRMMathInlineAttachment *)value).boxHeight, mathBoxHeight);
                       }
                     }];
-    contentLineHeight = MAX(textLineHeight, mathBoxHeight);
+    contentLineHeight = MAX(contentLineHeight, mathBoxHeight);
   }
 #endif
 
   if (contentLineHeight <= 0 || targetLineHeight <= contentLineHeight) {
-    return;
+    return 0;
   }
 
-  CGFloat baseLineOffset = (targetLineHeight - contentLineHeight) / 2.0;
+  return (targetLineHeight - contentLineHeight) / 2.0;
+}
+
+// Centers text within its line height (see calculateBaselineOffset). Called per block over its
+// own range so blocks can keep different line heights. Ranges that already carry a baseline offset
+// are left untouched, keeping nesting (e.g. a blockquote wrapping list items) idempotent.
+void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
+{
+  CGFloat baseLineOffset = calculateBaselineOffset(output, range);
+  if (baseLineOffset <= 0) {
+    return;
+  }
 
   [output enumerateAttribute:NSBaselineOffsetAttributeName
                      inRange:range

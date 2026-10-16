@@ -38,13 +38,13 @@ The library uses a three-tier caching strategy on both platforms:
 
 - **Original cache** stores decoded images keyed by URL. On Android, large images are downsampled to screen width during decode to reduce peak memory.
 - **Processed cache** stores scaled and clipped variants keyed by URL + dimensions + border radius, so repeated layouts with the same geometry skip all image processing.
-- **Disk cache** persists raw HTTP responses across app launches, respecting standard HTTP cache headers.
+- **Disk cache** persists raw HTTP responses across app launches for requests without custom headers, respecting standard HTTP cache headers.
 
 ## Request Headers
 
-When `imageRequestHeaders` is set, the headers become part of the cache identity for both memory tiers and for request deduplication: the same URL requested with different headers is fetched and cached separately, and changing the prop re-fetches the images.
+When `imageRequestHeaders` is set, the headers become part of the cache identity for both memory tiers and for request deduplication: the same URL requested with different headers is fetched and cached separately, and changing the prop re-fetches the images. Header names are compared case-insensitively.
 
-One caveat: the disk cache is managed by the HTTP stack (OkHttp / `NSURLCache`) and keys responses by URL alone. A response fetched with one set of headers can be served from disk for a request with different headers, subject to standard HTTP caching semantics (`Cache-Control`, `Vary`).
+The disk cache is managed by the HTTP stack (OkHttp / `NSURLCache`) and keys responses by URL alone, so it cannot tell two header sets apart. Requests that carry custom headers bypass it on both platforms: they are served from the memory tiers while the process lives and fetched again after a restart or memory eviction. Requests without custom headers keep the disk cache.
 
 ## Request Deduplication
 

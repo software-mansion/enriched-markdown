@@ -14,7 +14,7 @@ A style reaches a component one of two ways: from the nearest enclosing `Markdow
 ```kotlin
 @Composable
 fun MarkdownTheme(
-  style: MarkdownStyle = LocalMarkdownStyle.current,
+  style: MarkdownStyle,
   content: @Composable () -> Unit,
 )
 ```
@@ -31,8 +31,6 @@ MarkdownTheme(style = appStyle) {
 }
 ```
 
-Omitting `style` inherits the enclosing theme's style, so a bare `MarkdownTheme { }` at the root is a no-op that simply establishes the default.
-
 ### `MarkdownTheme.style`
 
 ```kotlin
@@ -47,7 +45,7 @@ Reads the style currently in scope. This is what `EnrichedMarkdownText` uses as 
 ```kotlin
 EnrichedMarkdownText(
   markdown = content,
-  style = MarkdownTheme.style.copy { link { color = Color.Red } },
+  style = MarkdownTheme.style.merge { link { color = Color.Red } },
 )
 ```
 
@@ -78,41 +76,55 @@ val AppMarkdownStyle = markdownStyle {
 }
 ```
 
-Call it from a composable only when the values come from composition, such as `MaterialTheme` tokens - and in that case prefer [`rememberMarkdownStyle`](#remembermarkdownstyle).
+Call it from a composable only when the values come from composition, such as `MaterialTheme` tokens. The block is not a composable, so read those values first and build the style inside `remember`, keyed on them - see [Building styles cheaply](#building-styles-cheaply). For colors from the Material scheme, [`rememberMaterialMarkdownStyle`](#materialmarkdownstyle) does this for you.
 
-## `rememberMarkdownStyle`
+## `materialMarkdownStyle` / `rememberMaterialMarkdownStyle` {#materialmarkdownstyle}
 
 ```kotlin
+// com.swmansion.enriched.markdown.compose.material3
+fun materialMarkdownStyle(colorScheme: ColorScheme): MarkdownStyle
+
 @Composable
-fun rememberMarkdownStyle(
-  vararg keys: Any?,
-  block: MarkdownStyleBuilder.() -> Unit,
+fun rememberMaterialMarkdownStyle(
+  colorScheme: ColorScheme = MaterialTheme.colorScheme,
 ): MarkdownStyle
 ```
 
-Builds a style that tracks `MaterialTheme.colorScheme`: it remembers the result keyed on the color scheme plus any `keys` you pass, so the style is rebuilt when the Material theme changes - on a light/dark switch, for example - and reused otherwise.
+Builds a style colored from a Material 3 `ColorScheme`, so Markdown matches the rest of the app. `rememberMaterialMarkdownStyle` reads `MaterialTheme.colorScheme` and rebuilds only when the scheme changes - on a light/dark switch, for example - and reuses the result otherwise.
 
 ```kotlin
-MaterialTheme {
-  MarkdownTheme(
-    style = rememberMarkdownStyle {
-      paragraph { color = MaterialTheme.colorScheme.onSurface }
-      link { color = MaterialTheme.colorScheme.primary }
-    },
-  ) {
+MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
+  MarkdownTheme(style = rememberMaterialMarkdownStyle()) {
     NavHost(...)
   }
 }
 ```
 
-Pass extra `keys` for any other value the block reads, the way you would to `remember`. For static light/dark palettes with literal colors, hoist `markdownStyle` / `copy` to file scope instead - there is nothing to track.
+Only colors come from the scheme - sizes, fonts and spacing keep the defaults. Material 3 has no tokens for the note, tip, important and warning admonitions, so they keep GitHub's alert colors for the scheme's brightness; caution uses `error`. Fenced code blocks keep the default dark style in both schemes, since the code highlighting palette is made for it. Plugin styles, such as math, are not set.
+
+To change part of the mapping, layer your overrides on top with [`merge`](#markdownstylemerge), remembered on the scheme:
+
+```kotlin
+val colorScheme = MaterialTheme.colorScheme
+val style = remember(colorScheme) {
+  materialMarkdownStyle(colorScheme).merge {
+    link { color = colorScheme.secondary }
+  }
+}
+```
+
+:::note
+`rememberMarkdownStyle { … }` is deprecated. It remembers `markdownStyle { … }` keyed on `MaterialTheme.colorScheme`, but its block is not a composable, so it cannot read `MaterialTheme` itself - the scheme has to be read outside it, at which point a plain `remember` does the same job. Use `rememberMaterialMarkdownStyle` or `remember` + `markdownStyle` instead.
+:::
 
 ## `MarkdownStyle`
 
 ```kotlin
 @Immutable
 class MarkdownStyle {
-  fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(other: MarkdownStyle): MarkdownStyle
+  operator fun plus(other: MarkdownStyle): MarkdownStyle
 
   companion object {
     val Default: MarkdownStyle
@@ -126,13 +138,15 @@ An immutable, **layered** style. It holds a stack of override layers rather than
 
 The empty style - no layers, so every element keeps its platform default. It is what `LocalMarkdownStyle` starts out as, which is why `EnrichedMarkdownText` renders sensibly with no theme at all.
 
-### `MarkdownStyle.copy` {#markdownstylecopy}
+### `MarkdownStyle.merge` {#markdownstylemerge}
 
 ```kotlin
-fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+fun merge(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+fun merge(other: MarkdownStyle): MarkdownStyle
+operator fun plus(other: MarkdownStyle): MarkdownStyle
 ```
 
-Returns a new style with `block` **added as a layer on top**. It does not rebuild the style or replace what came before. Later layers win per property, and properties no layer sets keep their defaults. That makes `copy` the natural way to express variants:
+Returns a new style with `block` **added as a layer on top**. It does not rebuild the style or replace what came before. Later layers win per property, and properties no layer sets keep their defaults. That makes `merge` the natural way to express variants:
 
 ```kotlin
 val Base = markdownStyle {
@@ -140,13 +154,17 @@ val Base = markdownStyle {
   link { underline = true }
 }
 
-val Light = Base.copy { paragraph { color = Color(0xFF1A1A1A) } }
-val Dark = Base.copy { paragraph { color = Color(0xFFE0E0E0) } }
+val Light = Base.merge { paragraph { color = Color(0xFF1A1A1A) } }
+val Dark = Base.merge { paragraph { color = Color(0xFFE0E0E0) } }
 ```
 
 `Light` and `Dark` both keep the base font size and underlined links.
 
-`copy` takes a builder block only - there is no overload that layers one whole `MarkdownStyle` onto another, and no `+` operator. To combine two, re-open the blocks you want on top of the base.
+To layer one whole style onto another, pass it to `merge` or use `+`. The right-hand style's layers go on top, and anything it leaves unset keeps the left-hand style's value:
+
+```kotlin
+val Branded = Base + BrandColors // same as Base.merge(BrandColors)
+```
 
 Two styles are equal when their layers are equal, so a hoisted style stays equal across recompositions and does not retrigger work downstream.
 
@@ -161,7 +179,7 @@ That depends on the device configuration, so `EnrichedMarkdownText` re-resolves 
 Two consequences worth designing around:
 
 - **Hoist your styles.** Building a style inside a composable body allocates a new `MarkdownStyle` on every recomposition. Equal layers still compare equal, so nothing re-resolves - but it is free to avoid, and `LocalMarkdownStyle` being a static composition local makes an unstable theme value expensive.
-- **Use `rememberMarkdownStyle` when the values come from composition.** It is the supported way to read `MaterialTheme` tokens without rebuilding on every pass.
+- **Remember styles whose values come from composition.** Read the values in the composable, then build the style in `remember`, keyed on them, so it is rebuilt only when they change. For the Material color scheme, [`rememberMaterialMarkdownStyle`](#materialmarkdownstyle) does this for you.
 
 ```kotlin
 // Hoisted: allocated once for the whole process.
@@ -173,8 +191,9 @@ val AppMarkdownStyle = markdownStyle {
 @Composable
 fun Root() {
   // Read from composition, so it has to be remembered rather than hoisted.
-  val themed = rememberMarkdownStyle {
-    paragraph { color = MaterialTheme.colorScheme.onSurface }
+  val colorScheme = MaterialTheme.colorScheme
+  val themed = remember(colorScheme) {
+    AppMarkdownStyle.merge { paragraph { color = colorScheme.onSurface } }
   }
   MarkdownTheme(style = themed) { Content() }
 }

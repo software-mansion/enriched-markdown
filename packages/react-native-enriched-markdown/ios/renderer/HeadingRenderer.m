@@ -1,4 +1,5 @@
 #import "HeadingRenderer.h"
+#import "ENRMLinkPillText.h"
 #import "FontUtils.h"
 #import "ParagraphStyleUtils.h"
 #import "RenderContext.h"
@@ -58,7 +59,7 @@ static NSString *const kHeadingTypes[] = {nil,          @"heading-1", @"heading-
     return;
 
   // Register heading for accessibility
-  NSString *headingText = [[output attributedSubstringFromRange:range] string];
+  NSString *headingText = ENRMStringByExpandingLinkPills([output attributedSubstringFromRange:range]);
   [context registerHeadingRange:range level:level text:headingText];
 
   // Metadata attribute used for post-processing (e.g., Export to Markdown/HTML)

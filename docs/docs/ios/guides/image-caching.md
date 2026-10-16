@@ -68,7 +68,8 @@ EnrichedMarkdownText(content)
 
 The headers take part in the **cache key**, as a hash of the sorted `key:value` pairs appended to the URL. Two consequences:
 
-- The same URL fetched with different headers is cached and deduplicated separately, so one user's authorized image is never served to another's session.
+- The same URL fetched with different headers is cached and deduplicated separately, so one user's authorized image is never served to another's session. Header names are compared case-insensitively.
+- **Header-bearing responses are not persisted on disk.** `URLCache` keys responses by URL alone and cannot tell two header sets apart, so requests with custom headers bypass it. They are served from the memory caches while the process lives and fetched again after a relaunch. Requests without headers keep the disk cache.
 - **Rotating a token invalidates the cache for every image it covers.** The new header set produces a new key, so the images are fetched again. Keep the header dictionary stable while it does not need to change - rebuilding an identical dictionary is fine, since the key is computed from the contents.
 
 ## See also

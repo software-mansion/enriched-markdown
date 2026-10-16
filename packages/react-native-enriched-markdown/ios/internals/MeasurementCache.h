@@ -44,26 +44,30 @@ struct MeasurementCacheKey {
   bool md4cFlagsPreserveBlankLines;
   bool md4cFlagsAdmonitions;
   size_t styleFingerprint;
+  size_t linkPillContentFingerprint;
   CGFloat fontScale;
   MarkdownFlavor flavor;
   std::string lineBreakStrategyIOS;
   std::string writingDirection;
   int numberOfLines;
   std::string ellipsizeMode;
+  std::string linkRegexKey;
+  std::string inlineCodeLinkRegexKey;
 
   bool operator==(const MeasurementCacheKey &other) const
   {
     return std::tie(markdown, maxWidth, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
                     md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsHighlight,
                     md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, md4cFlagsPreserveBlankLines, md4cFlagsAdmonitions,
-                    styleFingerprint, fontScale, flavor, lineBreakStrategyIOS, writingDirection, numberOfLines,
-                    ellipsizeMode) ==
+                    styleFingerprint, linkPillContentFingerprint, fontScale, flavor, lineBreakStrategyIOS,
+                    writingDirection, numberOfLines, ellipsizeMode, linkRegexKey, inlineCodeLinkRegexKey) ==
            std::tie(other.markdown, other.maxWidth, other.allowTrailingMargin, other.allowFontScaling,
                     other.maxFontSizeMultiplier, other.md4cFlagsUnderline, other.md4cFlagsSuperscript,
                     other.md4cFlagsSubscript, other.md4cFlagsHighlight, other.md4cFlagsLatexMath,
                     other.md4cFlagsHardSoftBreaks, other.md4cFlagsPreserveBlankLines, other.md4cFlagsAdmonitions,
-                    other.styleFingerprint, other.fontScale, other.flavor, other.lineBreakStrategyIOS,
-                    other.writingDirection, other.numberOfLines, other.ellipsizeMode);
+                    other.styleFingerprint, other.linkPillContentFingerprint, other.fontScale, other.flavor,
+                    other.lineBreakStrategyIOS, other.writingDirection, other.numberOfLines, other.ellipsizeMode,
+                    other.linkRegexKey, other.inlineCodeLinkRegexKey);
   }
 };
 
@@ -85,12 +89,15 @@ struct MeasurementCacheKeyHash {
     HashUtils::hash_one(h, key.md4cFlagsPreserveBlankLines);
     HashUtils::hash_one(h, key.md4cFlagsAdmonitions);
     HashUtils::hash_one(h, key.styleFingerprint);
+    HashUtils::hash_one(h, key.linkPillContentFingerprint);
     HashUtils::hash_one(h, key.fontScale);
     HashUtils::hash_one(h, static_cast<uint8_t>(key.flavor));
     HashUtils::hash_one(h, key.lineBreakStrategyIOS);
     HashUtils::hash_one(h, key.writingDirection);
     HashUtils::hash_one(h, key.numberOfLines);
     HashUtils::hash_one(h, key.ellipsizeMode);
+    HashUtils::hash_one(h, key.linkRegexKey);
+    HashUtils::hash_one(h, key.inlineCodeLinkRegexKey);
     return h;
   }
 };
@@ -138,6 +145,12 @@ template <typename StyleStruct> inline size_t computeStyleFingerprint(const Styl
              s.codeBlock.borderWidth);
   hashFields(s.code.fontFamily, s.code.fontSize);
   hashFields(s.link.fontFamily, s.strong.fontFamily, s.strong.fontWeight, s.em.fontFamily, s.em.fontStyle);
+  // Variants change link metrics: a font family, or a pill box around the label.
+  for (const auto &variant : s.linkVariants) {
+    hashFields(variant.pattern, variant.fontFamily, variant.pill.enabled, variant.pill.label, variant.pill.iconUri,
+               variant.pill.paddingHorizontal, variant.pill.paddingVertical, variant.pill.lineHeight,
+               variant.pill.borderWidth, variant.pill.maxWidth);
+  }
   hashFields(s.highlight.backgroundColor, s.highlight.color);
 
   // Visual/Spacing Elements
@@ -155,6 +168,28 @@ template <typename StyleStruct> inline size_t computeStyleFingerprint(const Styl
   hashFields(s.taskList.checkboxSize, s.taskList.checkboxBorderRadius);
 
   return h;
+}
+
+// Pill labels and icons (the `linkPillContent` prop) change link widths.
+template <typename ContentVector> inline size_t computeLinkPillContentFingerprint(const ContentVector &content)
+{
+  size_t h = 0;
+  for (const auto &entry : content) {
+    HashUtils::hash_one(h, entry.url);
+    HashUtils::hash_one(h, entry.label);
+    HashUtils::hash_one(h, entry.iconUri);
+  }
+  return h;
+}
+
+template <typename RegexProps> inline std::string buildLinkRecognitionCacheKey(const RegexProps &props)
+{
+  std::string key;
+  key += props.caseInsensitive ? '1' : '0';
+  key += props.dotAll ? '1' : '0';
+  key += props.isDisabled ? '1' : '0';
+  key += props.isDefault ? '1' : '0';
+  return key + props.pattern;
 }
 
 template <typename PropsType>
@@ -176,12 +211,15 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .md4cFlagsPreserveBlankLines = props.md4cFlags.preserveBlankLines,
       .md4cFlagsAdmonitions = props.md4cFlags.admonitions,
       .styleFingerprint = computeStyleFingerprint(props.markdownStyle),
+      .linkPillContentFingerprint = computeLinkPillContentFingerprint(props.linkPillContent),
       .fontScale = fontScale,
       .flavor = flavor,
       .lineBreakStrategyIOS = props.lineBreakStrategyIOS,
       .writingDirection = props.writingDirection,
       .numberOfLines = props.numberOfLines,
       .ellipsizeMode = props.ellipsizeMode,
+      .linkRegexKey = buildLinkRecognitionCacheKey(props.linkRecognition.text),
+      .inlineCodeLinkRegexKey = buildLinkRecognitionCacheKey(props.linkRecognition.inlineCode),
   };
 }
 

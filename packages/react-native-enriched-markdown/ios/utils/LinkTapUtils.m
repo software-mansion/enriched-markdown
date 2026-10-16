@@ -1,4 +1,5 @@
 #import "LinkTapUtils.h"
+#import "ENRMLinkPillAttachment.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMTextHitTest.h"
 
@@ -12,6 +13,14 @@ NSString *_Nullable linkURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTap
   return [attrText attribute:@"linkURL" atIndex:characterIndex effectiveRange:NULL];
 }
 
+NSString *_Nullable linkURLAtPoint(ENRMPlatformTextView *textView, CGPoint point)
+{
+  NSUInteger index = ENRMCharacterIndexAtPoint(textView, point);
+  if (index == NSNotFound)
+    return nil;
+  return [ENRMGetAttributedText(textView) attribute:@"linkURL" atIndex:index effectiveRange:NULL];
+}
+
 NSString *_Nullable linkURLAtRange(ENRMPlatformTextView *textView, NSRange characterRange)
 {
   NSAttributedString *attrText = ENRMGetAttributedText(textView);
@@ -19,6 +28,20 @@ NSString *_Nullable linkURLAtRange(ENRMPlatformTextView *textView, NSRange chara
     return nil;
   }
   return [attrText attribute:@"linkURL" atIndex:characterRange.location effectiveRange:NULL];
+}
+
+NSString *_Nullable linkTitleAtIndex(NSAttributedString *text, NSUInteger index)
+{
+  if (index >= text.length)
+    return nil;
+#if !TARGET_OS_OSX
+  id attachment = [text attribute:NSAttachmentAttributeName atIndex:index effectiveRange:NULL];
+  if ([attachment isKindOfClass:ENRMLinkPillAttachment.class])
+    return ((ENRMLinkPillAttachment *)attachment).label;
+#endif
+  NSRange range;
+  id url = [text attribute:@"linkURL" atIndex:index longestEffectiveRange:&range inRange:NSMakeRange(0, text.length)];
+  return url ? [text.string substringWithRange:range] : nil;
 }
 
 NSDictionary<NSString *, NSString *> *_Nullable imageAtTapLocation(ENRMPlatformTextView *textView,

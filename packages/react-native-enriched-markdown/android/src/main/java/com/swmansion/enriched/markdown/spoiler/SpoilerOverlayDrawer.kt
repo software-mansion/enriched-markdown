@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.spoiler
 import android.graphics.Canvas
 import android.text.Spanned
 import android.widget.TextView
+import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import java.lang.ref.WeakReference
@@ -96,6 +97,7 @@ class SpoilerOverlayDrawer(
       return
     }
     span.markRevealing()
+    LinkPillSpan.redraw(ctx.textView, ctx.text.getSpanStart(span), ctx.text.getSpanEnd(span))
     strategy.revealSpan(span, ctx) {
       span.markRevealed()
       textViewReference.get()?.invalidate()

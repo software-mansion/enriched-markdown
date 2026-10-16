@@ -52,7 +52,24 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     /// restoring the text (see `MarkdownRenderStore.revealSpoiler`).
     var onSpoilerTap: ((NSRange) -> Void)?
 
+    var onCodeBlockCopy: ((CodeBlockCopy) -> Void)?
+
+    func copyCode(_ code: String, language: String?) {
+        pasteboard.string = code
+        onCodeBlockCopy?(CodeBlockCopy(code: code, language: language))
+    }
+
     private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self, style: styleConfig.spoiler)
+
+    private(set) var trailingSpacing = TrailingSpacing()
+
+    var isBottomMarginEnabled: Bool = false {
+        didSet {
+            if isBottomMarginEnabled != oldValue {
+                invalidateIntrinsicContentSize()
+            }
+        }
+    }
 
     /// Our tap recognizer must not steal touches from the text view's own
     /// recognizers (selection, links), so it observes simultaneously.
@@ -269,6 +286,8 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         attributedText.enumerateAttribute(.attachment, in: range) { value, runRange, _ in
             if let table = value as? TableAttachment {
                 plain += table.plainText()
+            } else if let code = value as? CodeBlockAttachment {
+                plain += code.code
             } else {
                 plain += (attributedText.string as NSString).substring(with: runRange)
             }
@@ -284,8 +303,10 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         // that re-evaluates at frame rate.
         if let renderedText, renderedText === attributedText { return }
         guard !(self.attributedText?.isEqual(to: attributedText) ?? false) else { return }
+        carryScrollOffsets(from: renderedText, to: attributedText)
         renderedText = attributedText
         cachedFit = nil
+        trailingSpacing = TrailingSpacing.read(from: attributedText)
         self.attributedText = attributedText
         adoptImageAttachments(in: attributedText)
         invalidateIntrinsicContentSize()
@@ -295,6 +316,31 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         // A text change alone does not schedule a layout pass, which is
         // where spoiler overlays are reconciled.
         setNeedsLayout()
+    }
+
+    /// Without this a scrolled block snaps back on every streamed chunk.
+    private func carryScrollOffsets(from previous: NSAttributedString?, to next: NSAttributedString) {
+        guard let previous else { return }
+        let predecessors = Self.scrollingAttachmentsByKind(in: previous)
+        guard predecessors.values.joined().contains(where: { $0.preservedContentOffset != .zero }) else { return }
+        for (kind, attachments) in Self.scrollingAttachmentsByKind(in: next) {
+            for (attachment, predecessor) in zip(attachments, predecessors[kind] ?? []) {
+                attachment.preservedContentOffset = predecessor.preservedContentOffset
+            }
+        }
+    }
+
+    private static func scrollingAttachmentsByKind(
+        in text: NSAttributedString
+    ) -> [ObjectIdentifier: [any HorizontallyScrollingAttachment]] {
+        var found: [ObjectIdentifier: [any HorizontallyScrollingAttachment]] = [:]
+        let options: NSAttributedString.EnumerationOptions = .longestEffectiveRangeNotRequired
+        text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length), options: options) { value, _, _ in
+            if let attachment = value as? any HorizontallyScrollingAttachment {
+                found[ObjectIdentifier(type(of: attachment)), default: []].append(attachment)
+            }
+        }
+        return found
     }
 
     /// Attachments that resize after loading have no other way to reach this view.
@@ -315,14 +361,15 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     }
 
     override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let trailingInset = trailingSpacing.inset(marginEnabled: isBottomMarginEnabled)
         if let cachedFit, cachedFit.width == size.width, cachedFit.text === renderedText {
-            return CGSize(width: size.width, height: cachedFit.height)
+            return CGSize(width: size.width, height: cachedFit.height + trailingInset)
         }
         let fitted = super.sizeThatFits(size)
         if let renderedText {
             cachedFit = CachedFit(width: size.width, text: renderedText, height: fitted.height)
         }
-        return fitted
+        return CGSize(width: fitted.width, height: fitted.height + trailingInset)
     }
 
     private func accessibilityTree() -> (elements: [MarkdownAccessibilityElement], rotors: [UIAccessibilityCustomRotor]) {
@@ -380,7 +427,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
 
     /// The scroll view this text view sits in, whose visible region the
     /// decoration views tile; nil leaves them covering the whole document.
-    private weak var enclosingScrollView: UIScrollView?
+    private(set) weak var enclosingScrollView: UIScrollView?
     private var scrollObservation: NSKeyValueObservation?
     /// The frame both decoration views have.
     private var decorationTile: CGRect = .zero
@@ -491,5 +538,16 @@ private extension MarkdownTextView {
     func setDecorationNeedsDisplay() {
         backgroundDecorationView.setNeedsDisplay()
         foregroundDecorationView.setNeedsDisplay()
+    }
+}
+
+extension UIView {
+    func enclosingMarkdownTextView() -> MarkdownTextView? {
+        var view: UIView? = superview
+        while let current = view {
+            if let textView = current as? MarkdownTextView { return textView }
+            view = current.superview
+        }
+        return nil
     }
 }

@@ -24,4 +24,6 @@ class BlockRange(
   var ordinal: Int = 1,
 ) : MutableRangeBounds {
   val length: Int get() = end - start
+
+  fun copy(): BlockRange = BlockRange(type, start, end, level, ordinal)
 }

@@ -9,6 +9,7 @@ endif()
 
 file(GLOB ENRMRKD_SOURCES "${CPP_ROOT}/enrmrkd/*.c")
 file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
+set(LANGUAGE_SOURCES "${CPP_ROOT}/highlight/CodeBlockLanguages.cpp")
 
 add_library(enrmrkd_lib STATIC ${ENRMRKD_SOURCES})
 target_include_directories(enrmrkd_lib PUBLIC "${CPP_ROOT}/enrmrkd")
@@ -22,6 +23,7 @@ add_library(
   enriched_markdown_parser
   SHARED
   ${PARSER_SOURCES}
+  ${LANGUAGE_SOURCES}
   jni/ParserJni.cpp
 )
 
@@ -31,6 +33,7 @@ target_include_directories(
   "${CMAKE_CURRENT_SOURCE_DIR}/jni"
   "${CPP_ROOT}/enrmrkd"
   "${CPP_ROOT}/parser"
+  "${CPP_ROOT}/highlight"
 )
 
 target_compile_definitions(enriched_markdown_parser PRIVATE ENRMRKD_USE_UTF8=1)

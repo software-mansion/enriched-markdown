@@ -21,15 +21,16 @@ import android.widget.HorizontalScrollView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.plugin.PluginEventSink
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
-import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.registerWithSpans
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableAlignment
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
-import com.swmansion.enriched.markdown.utils.text.view.DEFAULT_COPY_AS_MARKDOWN_LABEL
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
@@ -82,6 +83,8 @@ class TableContainerView(
   fun applyTableNode(
     tableNode: MarkdownASTNode,
     imageRequestHeaders: Map<String, String> = emptyMap(),
+    plugins: PluginSnapshot,
+    onPluginEvent: PluginEventSink? = null,
   ) {
     rows =
       tableNode.children.flatMap { section ->
@@ -92,7 +95,7 @@ class TableContainerView(
             val sourceAlignment = cell.getAttribute("align")
             val align = textAlignmentFromString(sourceAlignment)
             TableCellData(
-              attributedText = renderCellNode(cell, isHeader, align, imageRequestHeaders),
+              attributedText = renderCellNode(cell, isHeader, align, imageRequestHeaders, plugins, onPluginEvent),
               plainText = extractPlainText(cell),
               isHeader = isHeader,
               alignment = align,
@@ -121,6 +124,8 @@ class TableContainerView(
     isHeader: Boolean,
     alignment: Layout.Alignment,
     imageRequestHeaders: Map<String, String>,
+    plugins: PluginSnapshot,
+    onPluginEvent: PluginEventSink?,
   ): Spannable {
     val paragraph = MarkdownASTNode(NodeType.Paragraph, children = node.children)
     val cellParagraphStyle = styleConfig.tableCellParagraphStyle(isHeader)
@@ -128,7 +133,7 @@ class TableContainerView(
       .withParagraphOverride(cellParagraphStyle) {
         // LinkSpan captures its callbacks; resolve ours at tap time so later setOnLinkPress* calls still apply.
         Renderer()
-          .apply { configure(styleConfig, context, imageRequestHeaders) }
+          .apply { configure(styleConfig, context, imageRequestHeaders, onPluginEvent, plugins) }
           .renderContent(listOf(paragraph), { url -> onLinkPress?.invoke(url) }, { url -> onLinkLongPress?.invoke(url) })
       }.apply {
         if (isNotEmpty()) {
@@ -225,7 +230,7 @@ class TableContainerView(
         isClickable = false
         isLongClickable = false
         isFocusable = true
-        isScreenReaderFocusable = true
+        ViewCompat.setScreenReaderFocusable(this, true)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = description
         if (isHeaderRow) ViewCompat.setAccessibilityHeading(this, true)
@@ -276,9 +281,7 @@ class TableContainerView(
         topMargin = ceil(verticalPadding).toInt()
       },
     )
-    data.attributedText
-      .getSpans(0, data.attributedText.length, ImageSpan::class.java)
-      .forEach { it.registerTextView(cellTextView) }
+    cellTextView.registerWithSpans(data.attributedText)
   }
 
   override fun onMeasure(
@@ -356,7 +359,7 @@ class TableContainerView(
       if (selectionMenuConfig.copyAsMarkdown) {
         item(
           ContextMenuPopup.Icon.DOCUMENT,
-          selectionMenuConfig.copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL },
+          selectionMenuConfig.resolvedCopyAsMarkdownLabel,
         ) {
           if (tableMarkdown.isNotEmpty()) clipboard.setPrimaryClip(ClipData.newPlainText("Table", tableMarkdown))
         }

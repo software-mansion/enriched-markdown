@@ -6,13 +6,13 @@
 
 # Enriched Markdown iOS
 
-Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package with two products: `EnrichedMarkdown`, and the optional `EnrichedMarkdownLaTeX` for math rendering.
+Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package with three products: `EnrichedMarkdown`, the optional `EnrichedMarkdownLaTeX` for math rendering, and the optional `EnrichedMarkdownSyntaxHighlighting` for colored code blocks.
 
 ## Installation
 
 Add the package via [Swift Package Manager](https://docs.swift.org/latest/documentation/packagemanagerdocs/). The `Package.swift` lives at the repository root.
 
-**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and the optional `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math)).
+**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and the optional `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math), or `EnrichedMarkdownSyntaxHighlighting` for code, see [Syntax highlighting](#syntax-highlighting)).
 
 **Package.swift:**
 
@@ -49,6 +49,18 @@ add `EnrichedMarkdownLaTeX` alongside it:
 ```
 
 Math is then enabled per view with `.markdownLaTeX()` — see [LaTeX math](#latex-math).
+
+Syntax highlighting is optional the same way: `EnrichedMarkdownSyntaxHighlighting`
+compiles tree-sitter and its grammars into the app, and without it fenced code
+renders in one color. The grammars are a fixed set of 14 languages, so the
+product always adds about 8 MB; there is no way to compile in only the
+languages an app needs. Add it next to the others:
+
+```swift
+.product(name: "EnrichedMarkdownSyntaxHighlighting", package: "enriched-markdown-ios"),
+```
+
+and enable it per view with `.markdownSyntaxHighlighting()` — see [Syntax highlighting](#syntax-highlighting).
 
 For local development, add a path dependency to a local checkout instead:
 
@@ -170,6 +182,7 @@ The `MarkdownTheme` builder supports these elements:
 | `ThematicBreak()` | Horizontal rules |
 | `MathBlock()` | Root-level `$$…$$` display math (`EnrichedMarkdownLaTeX`, see [LaTeX math](#latex-math)) |
 | `InlineMath()` | `$…$` math in running text (`EnrichedMarkdownLaTeX`) |
+| `SyntaxToken(.keyword)` | One token type in highlighted code (`EnrichedMarkdownSyntaxHighlighting`, see [Syntax highlighting](#syntax-highlighting)), one element per type |
 
 Common modifiers (available on most elements): `.font`, `.font(size:weight:design:)`, `.font(custom:size:)`, `.fontWeight`, `.bold`, `.italic`, `.fontDesign`, `.foregroundStyle`, `.marginTop`, `.marginBottom`, `.lineHeight`, `.multilineTextAlignment`.
 
@@ -182,7 +195,7 @@ Element-specific modifiers include:
 - **Link:** `.underline(_:)`
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
 - **CodeBlock / Blockquote / Table:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
-- **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock)
+- **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock), `.headerForegroundStyle` (CodeBlock: the scrollable panel's language label and copy button, see [Code blocks](#code-blocks))
 - **Admonition:** `.foregroundStyle` (the accent bar, icon, and title tint) and `.background` / `.backgroundStyle` — the only modifiers; font, spacing, and geometry follow `Blockquote`. Types: `.note`, `.tip`, `.important`, `.warning`, `.caution`; the defaults are GitHub's palette with no fill
 - **List:** `.bulletColor`, `.markerColor`, `.bulletSize`, `.markerMinWidth`, `.gapWidth`, `.marginLeading`
 - **TaskList:** `.checkedColor`, `.borderColor`, `.checkmarkColor`, `.checkboxSize`, `.checkboxCornerRadius`, `.checkedTextColor`, `.checkedStrikethrough`
@@ -194,6 +207,7 @@ Element-specific modifiers include:
 - **ThematicBreak:** `.foregroundStyle`, `.height`
 - **MathBlock:** `.font(size:)`, `.foregroundStyle`, `.background` / `.backgroundStyle`, `.padding`, `.marginTop`, `.marginBottom`, `.multilineTextAlignment` — the only modifiers; the face is always KaTeX's
 - **InlineMath:** `.foregroundStyle` — the only modifier; size follows the surrounding text
+- **SyntaxToken:** `.foregroundStyle` — the only modifier; font and size follow `CodeBlock`
 
 ## API reference
 
@@ -289,6 +303,27 @@ extension View {
 
 Tapping a task-list checkbox toggles its checked state in place (including the checked-item text decoration) and calls `onTaskListItemToggle` with the new state. The toggle is visual — the view never mutates your `markdown` string, so persist the change from the handler if you need it back. `markdownTaskListItemToggleEnabled(false)` makes checkbox taps fully inert: no visual toggle and no `onTaskListItemToggle`. Text selection and links are unaffected either way.
 
+### `.markdownCodeBlockLayout` / `.onCodeBlockCopy`
+
+```swift
+public enum MarkdownCodeBlockLayout: Equatable, Sendable {
+  case wrapping    // default: lines wrap, the code is selectable text
+  case scrollable  // a panel with a language header and copy button; lines scroll sideways
+}
+
+public struct CodeBlockCopy: Equatable, Sendable {
+  public let code: String
+  public let language: String?  // the fence's info string, nil when it named none
+}
+
+extension View {
+  func markdownCodeBlockLayout(_ layout: MarkdownCodeBlockLayout) -> some View
+  func onCodeBlockCopy(_ action: @escaping (CodeBlockCopy) -> Void) -> some View
+}
+```
+
+`.scrollable` lays each fenced block out as a panel: a header naming the language with a copy button, and below it the code with its lines kept whole, scrolling sideways when wider than the view — see [Code blocks](#code-blocks). `onCodeBlockCopy` is called after the panel's copy button, its long-press **Copy**, or the VoiceOver "Copy code" action (in either style) copies the code; not for Copy as Markdown.
+
 ### `.markdownSpoilerOverlay`
 
 ```swift
@@ -323,7 +358,7 @@ open class SpoilerOverlayView: UIView {
   public var segmentCount: Int
   public var revealPoint: CGPoint?                            // where the reader tapped, in the view's coordinates; nil if programmatic
   public init(charRange: NSRange)
-  public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage   // the slice drawn where the text view draws it
+  public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage   // the slice laid out and drawn as the text view does
   open func animateReveal(completion: @escaping () -> Void)   // default fades alpha; an override calls completion
 }
 ```
@@ -353,7 +388,7 @@ EnrichedMarkdownText(content)
 
 A spoiler gets one view per line segment. When a re-layout only moves a segment (an image above it finishes loading, the text view's insets change, a streamed chunk arrives), its view moves with it and keeps its state; when the segment's text, size or baseline changes (a rewrap, a font change), the view is replaced, so keep construction cheap. Overlays are rebuilt when the provider value or the `Spoiler()` style changes, so a provider with parameters should keep them in stored properties and let `Equatable` synthesis compare them.
 
-**Showing the text through.** An effect that reveals the words gradually (blur, pixelation, scrambled characters) draws `concealedTextImage()`, which puts the glyphs exactly where the text view draws them, so nothing jumps when the view is removed at the end of the reveal. Pass an attributed string to draw a variation of the slice with the same metrics, such as `concealedText` with some characters replaced. Drawing `concealedText` yourself with `draw(at: .zero)` sits above the real glyphs whenever the theme sets a line height taller than the font, because the slice carries inline styling only; `baseline` is there for effects that need the number.
+**Showing the text through.** An effect that reveals the words gradually (blur, pixelation, scrambled characters) draws `concealedTextImage()`, which lays the slice out as the text view does, so the glyphs and the inline code and highlight boxes sit exactly where the revealed text has them and nothing jumps when the view is removed at the end of the reveal. Pass an attributed string to draw a variation of the slice with the same metrics, such as `concealedText` with some characters replaced. Drawing `concealedText` yourself with `draw(at: .zero)` boxes inline code and highlights where NSStringDrawing puts them, not where the text view does; `baseline` is there for effects that need the number.
 
 **Opaque backdrops.** The view must be opaque, because emoji and inline images ignore the transparent foreground under it, so `Spoiler().background` has to match what is actually behind the text view or every overlay shows as a box. Watch for ancestors that tint the text view's area: a SwiftUI `.shadow` applied to a container that holds the text, for example, is composited over it; put the shadow on the background shape instead.
 
@@ -455,11 +490,23 @@ extension View {
 
 Code blocks always render left-to-right. See [Right-to-left text](#right-to-left-text) for what follows a paragraph's direction.
 
-Outside SwiftUI, `MarkdownRenderer.render` and `renderLaTeX` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
+Outside SwiftUI, `MarkdownRenderer.render`, `renderLaTeX`, and `renderSyntaxHighlighted` take the same value as `writingDirection:`, plus `layoutDirection: UIUserInterfaceLayoutDirection` (default `.leftToRight`) in place of the SwiftUI `layoutDirection`; pass the hosting view's `effectiveUserInterfaceLayoutDirection`.
+
+### `.markdownBottomMargin`
+
+```swift
+extension View {
+  func markdownBottomMargin(_ visibility: Visibility) -> some View   // default .automatic
+}
+```
+
+The last block's bottom margin is dropped by default, so the view ends at its last line and the container's own spacing decides what follows. `markdownBottomMargin(.visible)` keeps it, using the margin the theme gives that block (`Paragraph().marginBottom(_:)` for a trailing paragraph, and so on); where blocks nest, the largest margin ending the document wins. It takes SwiftUI's `Visibility`, and `.automatic` and `.hidden` both drop the margin. A code block ending the document keeps its bottom padding either way.
 
 ### Migrating from 0.1
 
 Every 0.1 name still compiles as a deprecated alias that forwards to its replacement, with an Xcode fix-it where the shape is unchanged. They will be removed in the next major version.
+
+One default changed as well: 0.1 always laid out the last block's bottom margin below the text. It is now dropped, so the view ends at its last line, and [`.markdownBottomMargin(.visible)`](#markdownbottommargin) brings it back.
 
 | 0.1 | Now |
 |-----|-----|
@@ -493,7 +540,7 @@ System **Copy** puts two flavors of the selection on the pasteboard: plain text 
 
 The selection menu additionally offers **Copy as Markdown** and **Copy Image URL(s)** — see `.markdownSelectionMenu` above.
 
-The HTML flavor carries one `dir` attribute, read from the first copied paragraph (`rtl`, or `auto` under `.markdownWritingDirection(.natural)`); see [Right-to-left text](#right-to-left-text).
+The HTML flavor carries one `dir` attribute, read from the first copied paragraph (`rtl`, or `auto` under `.markdownWritingDirection(.natural)`); see [Right-to-left text](#right-to-left-text). A `.scrollable` code block copies as its code in plain text and a `<pre>` in HTML; see [Code blocks](#code-blocks).
 
 ## Image sources
 
@@ -563,13 +610,45 @@ VoiceOver walks the rendered markdown as individual elements rather than one tex
 - List items announce their position ("Bullet point", "List item N", "Task, checked", with "Nested" variants)
 - Content inside a blockquote appends "Blockquote" or "Nested blockquote"; an admonition reads its title ("Note", "Tip", …) as its own element first
 - Tables read one element per row ("Row N: cell, cell"); the header row carries the heading trait
-- Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element)
+- Fenced code blocks are one element each, with a "Copy code" custom action (swipe up/down on the element); a `.scrollable` panel reads the same way
 - Math from `EnrichedMarkdownLaTeX` reads an English form of the formula ("Math: x squared over 2", "integral from 0 to 1 of …"); `{latex}` in the label template gives the raw source instead, and a closure can plug in another converter
 - Rotors (two-finger twist) jump between Headings, Links, and Images
 
 Every spoken string can be localized with `.markdownAccessibilityLabels` (see the API reference); the math label is a parameter of `.markdownLaTeX`, either a template (`"Formel: {speech}"`, `{latex}` for the source) or a `(String) -> String` closure receiving the LaTeX source. The built-in reading (`LaTeXSpeech.spokenForm`) is English and covers fractions, roots, powers and indices, sums/products/integrals/limits with bounds, Greek letters, common relations and functions, decorations, and `\text`; unmapped commands are read by name. Element frames are resolved from the live layout on each query, so they stay correct inside a scrolling container and after Dynamic Type changes.
 
 Dynamic Type is supported throughout via text styles in the default theme.
+
+## Code blocks
+
+Fenced code blocks render as wrapping text by default: lines break at the
+view's width, and the code takes part in text selection like any paragraph.
+
+`.markdownCodeBlockLayout(.scrollable)` renders each block as a panel
+instead: a header with the language's name (`py` reads "Python"; an
+unknown info string is shown capitalized) and a copy button, above the
+code with its lines kept whole — a block wider than the view scrolls
+sideways in place. Long-pressing the panel offers **Copy** (the code) and
+**Copy as Markdown** (the block refenced with its language). Text selection
+treats the panel as a single character; copying a selection that spans one
+yields the code as plain text, a `<pre>` in the HTML flavor, and the fenced
+block in markdown-based copies. VoiceOver reads the panel as one element
+with the "Copy code" action, as it does a wrapping block. A rightward pan on a panel
+already at its left edge is left to the system, so a full-screen back
+gesture still works; tables and display math behave the same way.
+
+Both layouts take their font, colors, padding, corner radius, border, and
+margins from the `CodeBlock()` theme element. The panel's label, icon, and
+divider are tints of the block's foreground color unless
+`CodeBlock().headerForegroundStyle` sets them. Highlighting from
+`EnrichedMarkdownSyntaxHighlighting` applies to both.
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownCodeBlockLayout(.scrollable)
+  .onCodeBlockCopy { copy in
+    analytics.track("code_copied", language: copy.language)
+  }
+```
 
 ## Tables
 
@@ -647,6 +726,89 @@ view itself. Font size and color left unset follow the paragraph. When
 resolving a `MarkdownStyleConfiguration` by hand for `renderLaTeX`, include that
 layer: `MarkdownStyleConfiguration.resolve(layers: [.default, .latexDefault, yours], traitCollection: …)`.
 
+## Syntax highlighting
+
+Code coloring lives in the optional `EnrichedMarkdownSyntaxHighlighting`
+product (see [Installation](#installation)). Import it and enable it per view:
+
+```swift
+import EnrichedMarkdown
+import EnrichedMarkdownSyntaxHighlighting
+
+EnrichedMarkdownText(content)
+  .markdownSyntaxHighlighting()
+```
+
+A fenced block is colored when its info string names one of the bundled
+languages; a block with no language, or one outside the list, keeps the
+`CodeBlock()` color. Only the text color changes, so a highlighted block
+measures exactly like a plain one.
+
+| Language | Info strings |
+|----------|--------------|
+| Bash | `bash`, `sh`, `shell`, `zsh` |
+| C | `c` |
+| CSS | `css` |
+| Go | `go`, `golang` |
+| HTML | `html` |
+| Java | `java` |
+| JavaScript | `javascript`, `js`, `jsx` |
+| JSON | `json` |
+| Markdown | `markdown`, `md` |
+| Python | `python`, `py` |
+| Rust | `rust`, `rs` |
+| TSX | `tsx` |
+| TypeScript | `typescript`, `ts` |
+| YAML | `yaml`, `yml` |
+
+Info strings match case-insensitively. The set is fixed: the package compiles
+these 14 grammars and no others, so unlike the React Native package's
+`codeHighlightLanguages` it can neither be trimmed to save app size nor
+extended with that package's opt-in grammars (C++, Swift, PHP, Ruby, C#).
+
+Highlighting runs with the render, off the main thread, and tokens are cached
+per block, so a block that has not changed is served from the cache on a
+re-render. A block whose closing fence has not arrived yet is re-highlighted
+in full on every update, so streaming a long block costs more per update as
+it grows, and the text of an unfinished multi-line string or comment takes
+its final color only once the closing delimiter arrives. A block over 50 KB
+or 2,000 lines is left plain.
+
+`markdownSyntaxHighlighting` takes a `Bool`, so a setting can drive it
+without rebuilding the view: `.markdownSyntaxHighlighting(isHighlightingOn)`.
+A streaming UI can pass `!isStreaming` to color code once the response is
+complete; until then every block in the view renders plain.
+
+Token colors come from `SyntaxToken` theme elements, one per token type:
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownSyntaxHighlighting()
+  .markdownTheme {
+    SyntaxToken(.keyword).foregroundStyle(.purple)
+    SyntaxToken(.string).foregroundStyle(Color(red: 152 / 255, green: 195 / 255, blue: 121 / 255))
+    SyntaxToken(.comment).foregroundStyle(.secondary)
+  }
+```
+
+The types are `.keyword`, `.operator`, `.punctuation`, `.string`, `.number`,
+`.constant`, `.comment`, `.function`, `.type`, `.variable`, `.property`,
+`.tag`, `.attribute`, and `.embedded`.
+
+`.markdownSyntaxHighlighting()` layers `MarkdownTheme.syntaxHighlightingDefault`
+— GitHub's palette, light or dark with the color scheme — directly above
+`MarkdownTheme.default`, so your own themes still win. Operators,
+punctuation, variables, and embedded code have no default color and stay in
+the `CodeBlock()` color, as does any type no theme layer sets. The palette
+expects a code block background that follows the color scheme, as the
+default one does; a theme that pins the block dark or light in both schemes
+should set its own token colors.
+
+Outside SwiftUI, `MarkdownRenderer.renderSyntaxHighlighted` mirrors
+`MarkdownRenderer.render` with highlighting on. When resolving a
+`MarkdownStyleConfiguration` by hand for it, include the default layer:
+`MarkdownStyleConfiguration.resolve(layers: [.default, .syntaxHighlightingDefault, yours], traitCollection: …)`.
+
 ## Supported Markdown
 
 - Headings (`#`–`######`)
@@ -658,7 +820,7 @@ layer: `MarkdownStyleConfiguration.resolve(layers: [.default, .latexDefault, you
 - Subscript (`~text~` with `MarkdownParsingOptions(subscript: true)`)
 - Highlight (`==text==` with `MarkdownParsingOptions(highlight: true)`)
 - Spoilers (`||text||`, tap to reveal — see `.markdownSpoilerOverlay`)
-- Fenced code blocks
+- Fenced code blocks, as wrapping text or scrollable panels with a copy button (see [Code blocks](#code-blocks)), colored by language with the optional `EnrichedMarkdownSyntaxHighlighting` product — see [Syntax highlighting](#syntax-highlighting)
 - Block quotes
 - GitHub alerts / admonitions (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` with `MarkdownParsingOptions(admonitions: true)`): a tinted bar, icon, and title above the quoted content
 - Ordered and unordered lists
@@ -689,4 +851,4 @@ yarn workspace @enriched-markdown/ios bench:ios-native --base main
 
 Absolute numbers depend on the machine and on Debug builds; read the head/base ratio from one run. Each number is the median of XCTest's iterations, so a single stalled iteration does not move it. CI runs the same comparison on demand: label a pull request `benchmark: ios` (later pushes re-run it while the label stays), comment `/benchmark ios` on it, or start the "iOS benchmarks" workflow from the Actions tab. Each run posts the table as a new comment on the pull request, headed by the commit it measured, and the job fails only when a benchmark is twice as slow, since a shared runner cannot resolve smaller differences.
 
-In the monorepo, `core/md4c` and `core/parser` are symlinks into the shared C++ sources at `packages/core/cpp`. When syncing this folder to the standalone repository, dereference them so real files are copied (e.g. `rsync -a --copy-links`).
+In the monorepo, `core/md4c` and `core/parser` are symlinks into the shared C++ sources at `packages/core/cpp`, and so are the highlighting seam, the tree-sitter runtime, and the grammars under `highlight/`. The tree-sitter files are not checked in: after `yarn install`, `node vendor/vendor-grammars.mjs` (run from the monorepo root, also part of `yarn prepare`) restores them. When syncing this folder to the standalone repository, dereference the symlinks so real files are copied (e.g. `rsync -a --copy-links`).

@@ -11,6 +11,38 @@ import type {
   CodeBlockPressEvent,
 } from './events';
 
+/** Patterns for `linkRecognition`. An omitted key is off. */
+export interface LinkRecognition {
+  /** Matched inside plain-text runs. */
+  text?: RegExp;
+  /** Must match an inline-code span's whole content. */
+  inlineCode?: RegExp;
+}
+
+export interface LinkPillContent {
+  label?: string;
+  iconUri?: string;
+  /**
+   * Tint for this link's icon. The variant's `pill.iconTintColor` is not applied
+   * to an icon set here through `iconUri`.
+   */
+  iconTintColor?: string;
+}
+
+/**
+ * An item of a link's long-press menu. `text` identifies the item, so it must be
+ * unique within one pattern.
+ */
+export interface LinkContextMenuItem {
+  text: string;
+  /** SF Symbol name, as in `contextMenuItems`. */
+  icon?: string;
+  visible?: boolean;
+  disabled?: boolean;
+  destructive?: boolean;
+  onPress: (event: LinkPressEvent) => void;
+}
+
 /**
  * Public context menu item. Each item includes a JS-side `onPress` callback
  * that is called when the user taps the item in the selection context menu.
@@ -348,6 +380,23 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   contextMenuItems?: ContextMenuItem[];
   /**
+   * Items of the native menu shown when a link is long-pressed, keyed by a URL
+   * regex pattern like `markdownStyle.linkVariants`: the longest pattern that
+   * matches the link supplies its menu. A link with a menu shows it instead of
+   * the link preview and `onLinkLongPress`; other links keep their long-press
+   * behavior. Items with `visible: false` are left out, and a pattern with no
+   * visible items has no menu.
+   *
+   * @example
+   * linkContextMenuItems={{
+   *   '^https://example\\.com/files/': [
+   *     { text: 'Copy path', icon: 'doc.on.doc', onPress: ({ url }) => copy(url) },
+   *   ],
+   * }}
+   * @platform ios 17+
+   */
+  linkContextMenuItems?: Record<string, LinkContextMenuItem[]>;
+  /**
    * HTTP headers to attach to remote image requests, e.g. a `Referer`
    * required by CDN hotlink protection or an `Authorization` token.
    *
@@ -359,6 +408,27 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android
    */
   imageRequestHeaders?: Record<string, string>;
+  /**
+   * Label and icon for individual link pills, keyed by the exact link URL.
+   * Applies only to links whose `markdownStyle.linkVariants` entry enables `pill`.
+   * It is content, not style, so `markdownStyle` can stay stable while this changes.
+   *
+   * @example
+   * linkPillContent={{
+   *   'https://example.com/files/a/long/path/file.ts': { label: 'file.ts' },
+   * }}
+   * @platform ios, android
+   */
+  linkPillContent?: Record<string, LinkPillContent>;
+  /**
+   * Turns regex matches in plain text (`text`) and whole inline-code spans
+   * (`inlineCode`) into links. The matched text is the URL; the source is unchanged.
+   *
+   * @example
+   * linkRecognition={{ text: /#\d+/, inlineCode: /[\w./-]+\.tsx?/ }}
+   * @platform ios, android, web
+   */
+  linkRecognition?: LinkRecognition;
   /**
    * Controls the built-in items added to the native text selection menu and
    * lets you localize their labels. Custom app-provided actions are controlled

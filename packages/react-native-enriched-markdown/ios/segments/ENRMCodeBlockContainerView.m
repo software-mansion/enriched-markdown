@@ -1,6 +1,7 @@
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMCodeBlockContent.h"
 #import "ENRMCodeBlockHighlighter.h"
+#import "ENRMHorizontalScrollView.h"
 #import "MarkdownASTNode.h"
 #import "PasteboardUtils.h"
 #if TARGET_OS_OSX
@@ -172,7 +173,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
   _textStorage = [[NSTextStorage alloc] initWithAttributedString:attributedCode];
   _layoutManager = [[NSLayoutManager alloc] init];
-  _layoutManager.usesFontLeading = NO;
+  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   _textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)];
   _textContainer.lineFragmentPadding = 0;
   _textContainer.maximumNumberOfLines = 0;
@@ -214,7 +215,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   NSString *_cachedLanguage;
   NSString *_displayLanguage;
   NSString *_fenceChar;
-  RCTUIScrollView *_scrollView;
+  ENRMHorizontalScrollView *_scrollView;
   ENRMCodeBlockContentView *_codeContentView;
   CGSize _codeSize;
   CGFloat _headerLabelLineHeight;
@@ -302,13 +303,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
 - (void)setupScrollView
 {
-  _scrollView = [[RCTUIScrollView alloc] init];
+  _scrollView = [[ENRMHorizontalScrollView alloc] init];
   _scrollView.showsVerticalScrollIndicator = NO;
   _scrollView.showsHorizontalScrollIndicator = YES;
   _codeContentView = [[ENRMCodeBlockContentView alloc] initWithFrame:CGRectZero];
   BOOL darkBackground = ENRMColorIsDark([_config codeBlockBackgroundColor]);
 #if !TARGET_OS_OSX
-  _scrollView.bounces = YES;
   _scrollView.alwaysBounceHorizontal = NO;
   _scrollView.backgroundColor = [UIColor clearColor];
   _scrollView.isAccessibilityElement = NO;
@@ -349,11 +349,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 #endif
 }
 
-// Header is the top content inset plus one label line; the code text's own
-// top inset then forms the single gap below the label.
+// The code pane starts after the content inset and one header-label line.
 - (CGFloat)headerHeight
 {
   return [self contentInset] + _headerLabelLineHeight;
+}
+
+- (CGFloat)headerCenterY
+{
+  // The divider sits halfway into the code pane's top inset.
+  return ([self headerHeight] + [self contentInset] / 2) / 2;
 }
 
 - (void)layoutHeaderButton
@@ -365,8 +370,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
   CGFloat iconSlack = (headerH - iconWidth) / 2;
   CGFloat buttonLeft = MAX(self.bounds.size.width - [self contentInset] - headerH + iconSlack, 0);
-  CGFloat labelCenterY = headerH - _headerLabelLineHeight / 2;
-  CGFloat buttonTop = MAX(labelCenterY - headerH / 2, 0);
+  CGFloat buttonTop = MAX([self headerCenterY] - headerH / 2, 0);
   _copyButton.frame = CGRectMake(buttonLeft, buttonTop, headerH, headerH);
 }
 
@@ -529,7 +533,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
 
   if (_languageLabel.length > 0) {
-    [_languageLabel drawAtPoint:CGPointMake(inset, headerH - _languageLabelSize.height)];
+    [_languageLabel drawAtPoint:CGPointMake(inset, [self headerCenterY] - _languageLabelSize.height / 2)];
   }
 }
 

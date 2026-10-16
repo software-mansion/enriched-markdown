@@ -27,9 +27,11 @@ import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
+import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
@@ -102,6 +104,8 @@ class EnrichedMarkdownText
 
     var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
       private set
+    private var linkRegex: LinkRegexConfig? = null
+    private var inlineCodeLinkRegex: LinkRegexConfig? = null
     private var isGFM: Boolean = false
 
     private var lastKnownFontScale: Float = context.resources.configuration.fontScale
@@ -111,6 +115,7 @@ class EnrichedMarkdownText
     private var maxFontSizeMultiplier: Float = 0f
     private var allowTrailingMargin: Boolean = false
     private var imageRequestHeaders: Map<String, String> = emptyMap()
+    private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
     private var streamingAnimation: Boolean = false
     private var previousTextLength: Int = 0
@@ -157,6 +162,7 @@ class EnrichedMarkdownText
       updateMeasurementStoreFontScaling()
       val newStyle = style?.let { StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier) }
       newStyle?.imageRequestHeaders = imageRequestHeaders
+      newStyle?.linkPillContent = linkPillContent
       if (markdownStyle == newStyle) return
       markdownStyle = newStyle
       updateJustificationMode(newStyle)
@@ -167,6 +173,13 @@ class EnrichedMarkdownText
       if (imageRequestHeaders == headers) return
       imageRequestHeaders = headers
       markdownStyle?.imageRequestHeaders = headers
+      scheduleRenderIfNeeded()
+    }
+
+    fun setLinkPillContent(content: Map<String, LinkPillContent>) {
+      if (linkPillContent == content) return
+      linkPillContent = content
+      markdownStyle?.linkPillContent = content
       scheduleRenderIfNeeded()
     }
 
@@ -183,6 +196,18 @@ class EnrichedMarkdownText
         recreateStyleConfig()
         scheduleRenderIfNeeded()
       }
+    }
+
+    fun setLinkRegex(config: LinkRegexConfig?) {
+      if (linkRegex == config) return
+      linkRegex = config
+      scheduleRenderIfNeeded()
+    }
+
+    fun setInlineCodeLinkRegex(config: LinkRegexConfig?) {
+      if (inlineCodeLinkRegex == config) return
+      inlineCodeLinkRegex = config
+      scheduleRenderIfNeeded()
     }
 
     fun setMd4cFlags(flags: Md4cFlags) {
@@ -250,6 +275,7 @@ class EnrichedMarkdownText
         markdownStyle =
           StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier).also {
             it.imageRequestHeaders = imageRequestHeaders
+            it.linkPillContent = linkPillContent
           }
         updateJustificationMode(markdownStyle)
       }
@@ -271,12 +297,14 @@ class EnrichedMarkdownText
       val markdown = currentMarkdown
       if (markdown.isEmpty()) return
 
+      val textLinkRegex = linkRegex
+      val codeLinkRegex = inlineCodeLinkRegex
       val renderId = ++currentRenderId
 
       executor.execute {
         try {
           val ast =
-            parser.parseMarkdown(markdown, md4cFlags, isGFM) ?: run {
+            parser.parseMarkdown(markdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
               mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
               return@execute
             }

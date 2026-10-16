@@ -81,4 +81,4 @@ Design your hierarchy so it still reads with only two weights available, or carr
 
 ## Fonts follow the theme
 
-`fontFamily` is an ordinary style property, so it layers and overrides like any other - see [`MarkdownStyle.copy`](/android/api-reference/markdown-theme#markdownstylecopy). If your font choice depends on something read from composition, build the style with [`rememberMarkdownStyle`](/android/api-reference/markdown-theme#remembermarkdownstyle) so it is rebuilt when that changes.
+`fontFamily` is an ordinary style property, so it layers and overrides like any other - see [`MarkdownStyle.merge`](/android/api-reference/markdown-theme#markdownstylemerge). If your font choice depends on something read from composition, read it first and build the style in `remember`, keyed on it, so it is rebuilt when that changes - see [Building styles cheaply](/android/api-reference/markdown-theme#building-styles-cheaply).

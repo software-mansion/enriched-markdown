@@ -13,6 +13,7 @@ import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
 import com.swmansion.enriched.markdown.parser.Md4cFlags
+import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 
 fun markdownEventTypeConstants(): MutableMap<String, Any> {
@@ -151,6 +152,14 @@ fun parseImageRequestHeaders(value: ReadableArray?): Map<String, String> =
       val name = header.getString("name") ?: return@mapNotNull null
       val headerValue = header.getString("value") ?: return@mapNotNull null
       name to headerValue
+    }.toMap()
+
+fun parseLinkPillContent(value: ReadableArray?): Map<String, LinkPillContent> =
+  (0 until (value?.size() ?: 0))
+    .mapNotNull { index ->
+      val entry = value?.getMap(index) ?: return@mapNotNull null
+      val url = entry.getString("url") ?: return@mapNotNull null
+      url to LinkPillContent.fromReadableMap(entry)
     }.toMap()
 
 fun parseSelectionMenuConfig(value: ReadableMap?): SelectionMenuConfig {

@@ -36,6 +36,7 @@ import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCL
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import com.swmansion.enriched.markdown.views.CopyGlyph
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * Block segment view for fenced code blocks (see splitASTIntoSegments):
@@ -229,7 +230,9 @@ class CodeBlockContainerView(
     bottom: Int,
   ) {
     val width = right - left
-    val labelTop = headerH - languageView.measuredHeight
+    // The divider sits halfway into the code pane's top inset.
+    val headerCenterY = (headerH + inset / 2f) / 2f
+    val labelTop = (headerCenterY - languageView.measuredHeight / 2f).roundToInt()
     languageView.layout(
       inset,
       labelTop,
@@ -240,7 +243,7 @@ class CodeBlockContainerView(
     val iconWidth = copyButton.drawable?.intrinsicWidth ?: copyButton.measuredWidth
     val iconSlack = ((copyButton.measuredWidth - iconWidth) / 2).coerceAtLeast(0)
     val buttonLeft = (width - inset - copyButton.measuredWidth + iconSlack).coerceAtLeast(0)
-    val buttonTop = (headerH - languageView.measuredHeight / 2 - copyButton.measuredHeight / 2).coerceAtLeast(0)
+    val buttonTop = (headerCenterY - copyButton.measuredHeight / 2f).roundToInt().coerceAtLeast(0)
     copyButton.layout(
       buttonLeft,
       buttonTop,

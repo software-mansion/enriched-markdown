@@ -17,6 +17,8 @@
 - [Style properties](https://docs.swmansion.com/enriched-markdown/react-native/api-reference/style-properties): Every `markdownStyle` key and default, the base-block inheritance model, and a dark-mode recipe.
 - [Element structure](https://docs.swmansion.com/enriched-markdown/react-native/api-reference/element-structure): The catalog of every Markdown element, how elements nest, and what happens to an element a target cannot render.
 - [Markdown flavors](https://docs.swmansion.com/enriched-markdown/react-native/guides/markdown-flavors): The canonical description of what `flavor="github"` changes at parse time and render time, plus the `md4cFlags` parser extensions.
+- [Link pills](https://docs.swmansion.com/enriched-markdown/react-native/guides/link-pills): Presenting links as native chips with an icon and label - the `pill` variant key, per-link content through `linkPillContent`, line height, and icon sources.
+- [Link menus](https://docs.swmansion.com/enriched-markdown/react-native/guides/link-menus): What a long press on a link does per platform, and custom iOS 17+ menus per URL pattern with `linkContextMenuItems`.
 - [Web support](https://docs.swmansion.com/enriched-markdown/react-native/guides/web-support): Bundler setup for the web build, the WebAssembly parser, KaTeX, and everything the web target ignores or does not support.
 - [Image caching](https://docs.swmansion.com/enriched-markdown/react-native/guides/image-caching): Supported image sources, the three cache tiers, request headers and deduplication.
 - [Native assets](https://docs.swmansion.com/enriched-markdown/react-native/guides/native-assets): Bundling custom fonts and images, the assets downloaded at install time, and how to opt out to shrink your binary.

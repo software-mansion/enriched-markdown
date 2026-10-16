@@ -1,3 +1,5 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.utils.text.conversion
 
 import android.text.Spannable
@@ -5,6 +7,8 @@ import android.text.style.StrikethroughSpan
 import android.text.style.UnderlineSpan
 import android.widget.TextView
 import com.swmansion.enriched.markdown.EnrichedMarkdown
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BaselineShiftSpan
@@ -67,8 +71,10 @@ object MarkdownExtractor {
 
     var i = start
     while (i < end) {
-      val nextTransition = spannable.nextSpanTransition(i, end, Any::class.java)
-      val segmentText = spannable.subSequence(i, nextTransition).toString()
+      val nextTransition = nextSegmentEnd(spannable, i, end)
+      val segmentText =
+        pluginMarkdownSource(spannable, i, nextTransition)
+          ?: spannable.subSequence(i, nextTransition).toString()
 
       val handled =
         processSegment(
@@ -90,6 +96,33 @@ object MarkdownExtractor {
 
     headingAccumulator.flush(result, state)
     return result.toString()
+  }
+
+  /**
+   * A code block exports as its text alone, so spans inside it - a plugin's syntax token colors -
+   * must not split it: a piece that is only the "\n" ending a line would read as a paragraph break
+   * and drop the closing fence.
+   */
+  private fun nextSegmentEnd(
+    spannable: Spannable,
+    start: Int,
+    end: Int,
+  ): Int {
+    val block =
+      spannable
+        .getSpans(start, start + 1, CodeBlockSpan::class.java)
+        .firstOrNull { spannable.getSpanStart(it) <= start && spannable.getSpanEnd(it) > start }
+        ?: return spannable.nextSpanTransition(start, end, Any::class.java)
+    return minOf(end, spannable.getSpanEnd(block))
+  }
+
+  private fun pluginMarkdownSource(
+    spannable: Spannable,
+    start: Int,
+    end: Int,
+  ): String? {
+    if (end - start != 1 || spannable[start] != '\uFFFC') return null
+    return spannable.getSpans(start, end, PluginInlineSpan::class.java).firstOrNull()?.toMarkdownSource()
   }
 
   private fun processSegment(

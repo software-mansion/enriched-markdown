@@ -69,11 +69,54 @@ Callback when a link is long pressed. Access URL via `event.url`. On iOS, automa
 />
 ```
 
+### `linkContextMenuItems`
+
+Items of the native menu shown when a link is long-pressed, on iOS 17 and later.
+
+| Type                                    | Default Value | Platform |
+| --------------------------------------- | ------------- | -------- |
+| `Record<string, LinkContextMenuItem[]>` | -             | iOS 17+  |
+
+Keys are URL regex patterns, matched like `markdownStyle.linkVariants`: the longest pattern that matches a link's URL supplies its menu, so one entry covers every link of a kind. To give one link its own menu, use a pattern anchored to its URL.
+
+A link with a menu shows it instead of `onLinkLongPress` and the system link preview. The menu holds only your items and is titled with the link's text, or its pill label. A link that matches no pattern, or whose pattern has no visible items, keeps its existing long-press behavior.
+
+Each item has `text`, `onPress({ url })`, and optional `icon`, `visible`, `disabled` and `destructive` fields. `icon` is an SF Symbol name, as with `contextMenuItems`. `text` identifies the item, so it must be unique within one pattern.
+
+`onPress` receives the link's original URL, including relative paths. The library does not navigate or copy for these items; do that in JavaScript. A menu can stay open while the prop changes: a press on an item the current value no longer offers (removed, hidden or disabled) is ignored.
+
+```tsx
+<EnrichedMarkdownText
+  markdown="Open [README.md](https://example.com/files/README.md) or ask [@gregory](user:gregory)."
+  linkContextMenuItems={{
+    '^https://example\\.com/files/': [
+      {
+        text: 'Copy path',
+        icon: 'doc.on.doc',
+        onPress: ({ url }) => copyPath(url),
+      },
+      {
+        text: 'Delete',
+        icon: 'trash',
+        destructive: true,
+        onPress: ({ url }) => deleteFile(url),
+      },
+    ],
+    '^user:': [
+      { text: 'Mention', icon: 'at', onPress: ({ url }) => mention(url) },
+    ],
+  }}
+  onLinkLongPress={({ url }) => showFallbackMenu(url)}
+/>
+```
+
+Works in CommonMark text and GitHub-flavor text segments, including blockquotes and table cells. The text-selection menu stays controlled by `contextMenuItems` and `selectionMenuConfig`, and block copy menus by `enableBlockContextMenu`. Android, macOS and iOS below 17 ignore this prop; use `onLinkLongPress` there.
+
 ### `onImagePress`
 
 Callback when a rendered image is tapped or clicked. Access the image URL via `event.url` and its Markdown alt text via `event.altText` (`""` when the image has no alt text). Use it to open a lightbox or full-screen viewer.
 
-Fires for block and inline images, including images inside headings, lists, and blockquotes. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both. Not fired for images inside GFM tables.
+Fires for block and inline images, including images inside headings, lists, blockquotes, and GFM table cells. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both.
 
 Setting this callback makes images interactive on the native side; leaving it unset keeps the existing tap, text-selection, and long-press menu behavior unchanged. On web the image becomes focusable, exposes a button role for screen readers, and can be activated with Enter/Space, while the browser's right-click menu is preserved.
 
@@ -496,6 +539,54 @@ Headers participate in image cache identity, so the same URL requested with diff
 />
 ```
 
+### `linkPillContent`
+
+Per-link content for [link pills](./MENTIONS.md#native-link-pills): a label, icon and icon tint for one exact link URL. It only affects links whose `markdownStyle.linkVariants` entry enables `pill`, and wins over that variant's `pill.label`, `pill.iconUri` and `pill.iconTintColor`.
+
+| Type                                                                           | Default Value | Platform     |
+| ------------------------------------------------------------------------------ | ------------- | ------------ |
+| `Record<string, { label?: string; iconUri?: string; iconTintColor?: string }>` | -             | iOS, Android |
+
+This is content, not style: keep `markdownStyle` stable and change this map as links appear. Keep the object reference stable between renders when its content has not changed.
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  markdown={markdown}
+  markdownStyle={markdownStyle}
+  linkPillContent={{
+    'https://example.com/files/src/components/Button.tsx': {
+      label: 'Button.tsx',
+    },
+  }}
+/>
+```
+
+### `linkRecognition`
+
+Opt-in link recognition for text that is not written as a Markdown link, such as `#1234`, `@name`, `$skill` or a file path. Off by default. Works in both flavors on every platform.
+
+| Key | Type | Matches |
+| --- | ---- | ------- |
+| `text` | `RegExp` | Every nonempty, non-overlapping match inside a plain-text run |
+| `inlineCode` | `RegExp` | An inline-code span whose whole content matches becomes one link |
+
+A recognized link's URL is the matched text itself, so `linkVariants`, `linkPillContent`, `linkContextMenuItems`, `onLinkPress` and `onLinkLongPress` apply to it like to any other link. Existing links, autolinks, code blocks, images, video and math are never touched. The Markdown source is unchanged: copying, including Copy as Markdown, returns the original text without link syntax.
+
+Matching happens per parsed text run, after Markdown parsing, so a pattern cannot match across formatting. `__init__.py` as plain text is split by emphasis parsing and will not match, while `` `__init__.py` `` as inline code matches whole. With the `latexMath` flag on (the default), two `$` on one line form a math span, so `$deploy ... $test` is math, not two skills; turn the flag off or escape the `$` in such content.
+
+Only the regex source and the `i` and `s` flags are used. Patterns must be valid for `NSRegularExpression` and `java.util.regex.Pattern` as well as JavaScript; an invalid pattern turns that recognizer off. This is different from the input's `linkRegex`, which detects URLs and is on by default. Pass the object inline or hoisted as you like: an equal config does not re-send the prop.
+
+```tsx
+<EnrichedMarkdownText
+  markdown="Fixed in #1284, see `src/App.tsx`"
+  linkRecognition={{ text: /#\d+/, inlineCode: /[\w./-]+\.tsx?/ }}
+  markdownStyle={{ linkVariants: { '^#\\d+$': { pill: true } } }}
+  onLinkPress={({ url }) => openReference(url)}
+/>
+```
+
 ### `contextMenuItems`
 
 Custom items to add to the text selection context menu. Items appear before the system actions (Copy, etc.). Items with `visible: false` are hidden from the menu.
@@ -855,7 +946,12 @@ interface StyleState {
   underline: { isActive: boolean };
   strikethrough: { isActive: boolean };
   spoiler: { isActive: boolean };
-  link: { isActive: boolean };
+  // The link at the selection: the one containing the first selected
+  // character, or, for a collapsed caret, the one the caret is inside or
+  // right after. setLink and removeLink act on this same link. `destination`
+  // is "" when there is no link, and can also be "" for a link with an empty
+  // URL, so read `isActive` to tell whether there is a link.
+  link: { isActive: boolean; destination: string };
   // Heading level of the cursor's paragraph: 0 = none, 1-6 = H1-H6.
   heading: { isActive: boolean; level: number };
   // `depth` is the 0-based nesting level while `isActive` is true, and is
@@ -1032,7 +1128,7 @@ interface ContextMenuItem {
       underline: { isActive: boolean };
       strikethrough: { isActive: boolean };
       spoiler: { isActive: boolean };
-      link: { isActive: boolean };
+      link: { isActive: boolean; destination: string };
     };
   }) => void;
   /** When false, the item is not shown in the menu. Defaults to true. */
@@ -1219,7 +1315,7 @@ Lifts the current list item out one nesting level. Outdenting a depth-0 item rem
 
 ### `setLink(url: string)`
 
-Applies a link URL to the currently selected text.
+Updates the URL of the link at the selection if the selection lies within that link, or otherwise applies a link to the selected text. "The link at the selection" is the same one `onChangeState` reports: the link containing the first selected character, or, for a collapsed caret, the link the caret is inside or right after.
 
 ### `insertLink(text: string, url: string)`
 
@@ -1227,7 +1323,7 @@ Inserts a link with the given text and URL at the current cursor position. Usefu
 
 ### `removeLink()`
 
-Removes the link from the current selection.
+Removes the link at the selection (the same link `onChangeState` reports).
 
 ### `insertText(text: string)`
 

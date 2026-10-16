@@ -15,19 +15,48 @@ class LinkCoordinator(
       .replace("(", "%28")
       .replace(")", "%29")
 
-  fun linkAtPosition(position: Int): FormattingRange? = formattingStore.rangeOfType(StyleType.LINK, position)
+  /**
+   * The link a caret or selection refers to, shared by everything that acts on
+   * "the current link" (style state, removing it) so they always agree. For a
+   * selection it is the link containing the first selected character. For a
+   * collapsed caret it is the link the caret is inside or right after: ranges
+   * are half-open, and the caret often lands at `range.end` after tapping a
+   * link.
+   */
+  fun linkForSelection(
+    start: Int,
+    end: Int,
+  ): FormattingRange? =
+    formattingStore.rangeOfType(StyleType.LINK, start)
+      ?: if (start == end && start > 0) formattingStore.rangeOfType(StyleType.LINK, start - 1) else null
 
-  fun setLinkForRange(
+  /**
+   * Updates the URL of the link at the selection if the selection lies within
+   * it, or otherwise adds a link over a non-empty selection. Returns true if
+   * anything changed.
+   */
+  fun setLinkUrl(
     url: String,
     start: Int,
     end: Int,
     editable: Spannable?,
-  ) {
-    if (start == end) return
+  ): Boolean {
+    // Update the link if selection is entirely within link
+    linkForSelection(start, end)?.takeIf { start >= it.start && end <= it.end }?.let { link ->
+      link.url = url
+      if (editable != null) {
+        autoLinkDetector.clearAutoLinkInRange(editable, link.start, link.end)
+      }
+      return true
+    }
+
+    // Insert a link at the selection (removing any existing links that overlap)
+    if (start == end) return false
     if (editable != null) {
       autoLinkDetector.clearAutoLinkInRange(editable, start, end)
     }
     formattingStore.addRange(FormattingRange(StyleType.LINK, start, end, url))
+    return true
   }
 
   fun addLink(
@@ -43,17 +72,11 @@ class LinkCoordinator(
     formattingStore.addRange(FormattingRange(StyleType.LINK, start, end, sanitizeUrl(url)))
   }
 
-  fun addLinkDirect(
-    url: String,
+  fun removeLink(
     start: Int,
     end: Int,
-  ) {
-    if (start >= end) return
-    formattingStore.addRange(FormattingRange(StyleType.LINK, start, end, url))
-  }
-
-  fun removeLink(position: Int): Boolean {
-    val linkRange = formattingStore.rangeOfType(StyleType.LINK, position) ?: return false
+  ): Boolean {
+    val linkRange = linkForSelection(start, end) ?: return false
     formattingStore.removeRange(linkRange)
     return true
   }

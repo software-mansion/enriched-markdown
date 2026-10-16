@@ -48,6 +48,8 @@ export type NodeType =
 export interface NodeAttributes {
   level?: string;
   url?: string;
+  /** Stamped by recognizeTextLinks() — not present in the raw WASM output. */
+  recognizedLink?: string;
   title?: string;
   language?: string;
   fenceChar?: string;

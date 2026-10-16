@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.input.formatting
 
 import android.text.Spannable
 import android.text.style.CharacterStyle
+import com.facebook.react.views.text.TextAttributes
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
@@ -62,6 +63,9 @@ class InputFormatter(
   fun handlerForBlock(type: BlockType): BlockHandler? = blockHandlers[type]
 
   private var style: InputFormatterStyle? = null
+
+  /** Body TextInput fontSize/lineHeight (SP) for derived heading line heights. */
+  var bodyTextAttributes: TextAttributes = TextAttributes()
 
   fun updateStyle(newStyle: InputFormatterStyle): Boolean {
     if (newStyle == style) return false
@@ -201,7 +205,7 @@ class InputFormatter(
       // cursor height for that edge case.
       val anchorEnd = if (isAnchor && range.start < spannable.length) range.start + 1 else range.end
       val flags = if (isAnchor) Spannable.SPAN_INCLUSIVE_INCLUSIVE else Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-      for (span in handler.createSpans(range, currentStyle)) {
+      for (span in handler.createSpans(range, currentStyle, bodyTextAttributes)) {
         // A LineHeightSpan (list-item spacing) must cover only the item's first
         // character so it spaces just the first visual line, not wrapped lines.
         val spanEnd =
@@ -215,6 +219,18 @@ class InputFormatter(
       }
     }
   }
+
+  /**
+   * Copy that keeps the current style and body text attributes after this
+   * formatter changes them. Handlers are stateless, so only those are copied.
+   * [bodyTextAttributes] is only ever replaced, never mutated, so sharing the
+   * instance is safe.
+   */
+  internal fun copy(): InputFormatter =
+    InputFormatter(displayDensity).also {
+      it.style = style
+      it.bodyTextAttributes = bodyTextAttributes
+    }
 
   private data class SpanDescriptor(
     val start: Int,

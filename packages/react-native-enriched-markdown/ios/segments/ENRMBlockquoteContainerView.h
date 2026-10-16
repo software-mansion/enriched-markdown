@@ -70,6 +70,7 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // quotes so links at any depth fire.
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkPress;
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkLongPress;
+@property (nonatomic, copy, nullable) void (^onImagePress)(NSString *url, NSString *altText);
 
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;

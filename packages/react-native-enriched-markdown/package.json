@@ -27,11 +27,11 @@
     "!android/gradlew",
     "!android/gradlew.bat",
     "!android/local.properties",
+    "!android/src/test",
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",
-    "!**/.*",
-    "docs"
+    "!**/.*"
   ],
   "scripts": {
     "postinstall": "node postinstall.mjs",

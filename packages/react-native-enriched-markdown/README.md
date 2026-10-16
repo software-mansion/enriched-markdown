@@ -19,11 +19,13 @@
 - 📐 CommonMark standard compliant
 - 📊 GitHub Flavored Markdown (GFM)
 - 🧮 LaTeX math rendering (block `$$...$$` with `flavor="github"`, inline `$...$` in all flavors)
-- 🔀 [Markdown Streaming](../../docs/MARKDOWN_STREAMING.md) support (via [react-native-streamdown](https://github.com/software-mansion-labs/react-native-streamdown))
+- 🔀 [Markdown Streaming](../../docs-md/MARKDOWN_STREAMING.md) support (via [react-native-streamdown](https://github.com/software-mansion-labs/react-native-streamdown))
 - 🎨 Fully customizable styles for all elements
 - ✨ Text selection and copy support
 - 📌 Custom text selection context menu items
-- 🔗 Interactive link handling with [per-URL-pattern styling](../../docs/MENTIONS.md#link-variants-styling) (`linkVariants`)
+- 🔗 Interactive link handling with [per-URL-pattern styling](../../docs-md/MENTIONS.md#link-variants-styling) (`linkVariants`)
+- 💊 [Native link pills](../../docs-md/MENTIONS.md#native-link-pills) — links as rounded chips with an icon and label, per URL pattern or per link (iOS, Android)
+- 📎 [Long-press menus for links](../../docs-md/API_REFERENCE.md#linkcontextmenuitems) with your own items per URL pattern (`linkContextMenuItems`, iOS 17+)
 - 👤 Renders mentions as styled links (compatible with `EnrichedMarkdownTextInput` mention output)
 - 🙈 Spoiler text with animated particle overlay and tap-to-reveal
 - 🖼️ Native image interactions (iOS: Copy, Save to Camera Roll)
@@ -41,7 +43,7 @@
 - 🔗 Auto-link detection with customizable regex
 - 🔄 Smart copy/paste with Markdown preservation
 - 🎨 Customizable bold, italic, and link colors
-- 👤 [Mentions](../../docs/MENTIONS.md) with configurable indicators, suggestion lifecycle events, and per-pattern link styling
+- 👤 [Mentions](../../docs-md/MENTIONS.md) with configurable indicators, suggestion lifecycle events, and per-pattern link styling
 
 Since 2012 [Software Mansion](https://swmansion.com) is a software agency with experience in building web and mobile apps. We are Core React Native Contributors and experts in dealing with all kinds of React Native issues.
 We can help you build your next dream product –
@@ -51,30 +53,30 @@ We can help you build your next dream product –
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Native assets (install-time download)](../../docs/NATIVE_ASSETS.md)
+- [Native assets (install-time download)](../../docs-md/NATIVE_ASSETS.md)
 - [EnrichedMarkdownText](#enrichedmarkdowntext-1)
-  - [Usage](../../docs/TEXT.md#usage)
-  - [Supported Markdown Elements](../../docs/TEXT.md#supported-markdown-elements)
-  - [Copy Options](../../docs/TEXT.md#copy-options)
-  - [Accessibility](../../docs/TEXT.md#accessibility)
-  - [RTL Support](../../docs/TEXT.md#rtl-support)
-  - [Customizing Styles](../../docs/TEXT.md#customizing-styles)
-  - [LaTeX Math](../../docs/LATEX_MATH.md)
-  - [Image Caching](../../docs/IMAGE_CACHING.md)
-  - [Markdown Streaming](../../docs/MARKDOWN_STREAMING.md)
+  - [Usage](../../docs-md/TEXT.md#usage)
+  - [Supported Markdown Elements](../../docs-md/TEXT.md#supported-markdown-elements)
+  - [Copy Options](../../docs-md/TEXT.md#copy-options)
+  - [Accessibility](../../docs-md/TEXT.md#accessibility)
+  - [RTL Support](../../docs-md/TEXT.md#rtl-support)
+  - [Customizing Styles](../../docs-md/TEXT.md#customizing-styles)
+  - [LaTeX Math](../../docs-md/LATEX_MATH.md)
+  - [Image Caching](../../docs-md/IMAGE_CACHING.md)
+  - [Markdown Streaming](../../docs-md/MARKDOWN_STREAMING.md)
 - [EnrichedMarkdownTextInput](#enrichedmarkdowntextinput-1)
-  - [Usage](../../docs/INPUT.md#usage)
-  - [Inline Styles](../../docs/INPUT.md#inline-styles)
-  - [Links](../../docs/INPUT.md#links)
-  - [Auto-Link Detection](../../docs/INPUT.md#auto-link-detection)
-  - [Mentions](../../docs/MENTIONS.md)
-  - [Style Detection](../../docs/INPUT.md#style-detection)
-  - [Other Events](../../docs/INPUT.md#other-events)
-  - [Customizing Styles](../../docs/INPUT.md#customizing-enrichedmarkdowntextinput--styles)
+  - [Usage](../../docs-md/INPUT.md#usage)
+  - [Inline Styles](../../docs-md/INPUT.md#inline-styles)
+  - [Links](../../docs-md/INPUT.md#links)
+  - [Auto-Link Detection](../../docs-md/INPUT.md#auto-link-detection)
+  - [Mentions](../../docs-md/MENTIONS.md)
+  - [Style Detection](../../docs-md/INPUT.md#style-detection)
+  - [Other Events](../../docs-md/INPUT.md#other-events)
+  - [Customizing Styles](../../docs-md/INPUT.md#customizing-enrichedmarkdowntextinput--styles)
 - [API Reference](#api-reference)
-- [Testing with Jest](../../docs/TESTING.md)
-- [Web Support](../../docs/WEB.md)
-- [macOS Support](../../docs/MACOS.md)
+- [Testing with Jest](../../docs-md/TESTING.md)
+- [Web Support](../../docs-md/WEB.md)
+- [macOS Support](../../docs-md/MACOS.md)
 - [Compatibility Table](#compatibility-table)
 - [Contributing](#contributing)
 - [Future Plans](#future-plans)
@@ -107,7 +109,7 @@ npm install katex
 yarn add katex
 ```
 
-See [Web Support](../../docs/WEB.md) for full setup details, supported features, and prop behaviour.
+See [Web Support](../../docs-md/WEB.md) for full setup details, supported features, and prop behaviour.
 
 ### Bare React Native app (iOS / Android)
 
@@ -131,7 +133,7 @@ yarn add react-native-enriched-markdown
 > and iOS LaTeX math (kept out of the npm tarball to keep it ~1 MB). This needs network access to
 > `registry.npmjs.org` and `github.com`. If you install offline, with `--ignore-scripts`, or with
 > **pnpm** (which blocks dependency scripts by default), see
-> [Native assets](../../docs/NATIVE_ASSETS.md) for how to restore them.
+> [Native assets](../../docs-md/NATIVE_ASSETS.md) for how to restore them.
 
 #### Configuration
 
@@ -171,7 +173,7 @@ vars or `gradle.properties` edits needed. Changing a value takes effect on your 
 
 > [!TIP]
 > If you don't use a feature, disabling it skips the download **and** excludes it from the native build.
-> See [Skipping the download](../../docs/NATIVE_ASSETS.md#skipping-the-download-opt-out) for details.
+> See [Skipping the download](../../docs-md/NATIVE_ASSETS.md#skipping-the-download-opt-out) for details.
 
 > [!NOTE]
 > **Monorepos:** the native build reads the **app's** `package.json` (the one next to
@@ -181,7 +183,7 @@ vars or `gradle.properties` edits needed. Changing a value takes effect on your 
 
 > [!NOTE]
 > Migrating from the Expo config plugin or the `ENV` / `gradle.properties` build flags? See
-> [Breaking changes](../../docs/BREAKING_CHANGES.md).
+> [Breaking changes](../../docs-md/BREAKING_CHANGES.md).
 
 #### 2. Install iOS / macOS dependencies
 
@@ -216,7 +218,7 @@ npx expo prebuild
 
 > [!NOTE]
 > `npx expo install` runs the same `postinstall` asset download described under
-> [Native assets](../../docs/NATIVE_ASSETS.md); it needs network access and does not work with Yarn PnP.
+> [Native assets](../../docs-md/NATIVE_ASSETS.md); it needs network access and does not work with Yarn PnP.
 
 > [!IMPORTANT]
 > **iOS: Save to Camera Roll**
@@ -230,23 +232,23 @@ npx expo prebuild
 
 ## EnrichedMarkdownText
 
-See [EnrichedMarkdownText](../../docs/TEXT.md) for detailed documentation on usage examples, GFM tables, task lists, link handling, supported elements, copy options, accessibility, RTL support, and customizing styles. Mentions created by `EnrichedMarkdownTextInput` render as styled links — use [`linkVariants`](../../docs/MENTIONS.md#link-variants-styling) to customize their appearance.
+See [EnrichedMarkdownText](../../docs-md/TEXT.md) for detailed documentation on usage examples, GFM tables, task lists, link handling, supported elements, copy options, accessibility, RTL support, and customizing styles. Mentions created by `EnrichedMarkdownTextInput` render as styled links — use [`linkVariants`](../../docs-md/MENTIONS.md#link-variants-styling) to customize their appearance.
 
 ## EnrichedMarkdownTextInput
 
-See [EnrichedMarkdownTextInput](../../docs/INPUT.md) for detailed documentation on usage examples, inline styles, links, style detection, events, and customizing styles.
+See [EnrichedMarkdownTextInput](../../docs-md/INPUT.md) for detailed documentation on usage examples, inline styles, links, style detection, events, and customizing styles.
 
 ## API Reference
 
-See the [API Reference](../../docs/API_REFERENCE.md) for a detailed overview of all the props, methods, and events available.
+See the [API Reference](../../docs-md/API_REFERENCE.md) for a detailed overview of all the props, methods, and events available.
 
 ## Web Support
 
-See [Web Support](../../docs/WEB.md) for details on supported features, web-specific prop behaviour, and known limitations.
+See [Web Support](../../docs-md/WEB.md) for details on supported features, web-specific prop behaviour, and known limitations.
 
 ## macOS Support
 
-`react-native-enriched-markdown` supports macOS via [react-native-macos](https://github.com/microsoft/react-native-macos). See [macOS Support](../../docs/MACOS.md) for details on macOS-specific features, known limitations, and the example app.
+`react-native-enriched-markdown` supports macOS via [react-native-macos](https://github.com/microsoft/react-native-macos). See [macOS Support](../../docs-md/MACOS.md) for details on macOS-specific features, known limitations, and the example app.
 
 ## Future Plans
 

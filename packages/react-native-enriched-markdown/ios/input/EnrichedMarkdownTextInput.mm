@@ -25,11 +25,13 @@
 #import "ENRMStyleHandler.h"
 #import "ENRMStyleMergingConfig.h"
 #import "ENRMUIKit.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdownTextInput+Internal.h"
 #import "InputStylePropsUtils.h"
 #import "ParagraphStyleUtils.h"
 #import "PasteboardUtils.h"
 #import "SelectionColorUtils.h"
+#import "StyleConfig.h"
 #import <QuartzCore/CABase.h>
 #import <React/RCTI18nUtil.h>
 #if TARGET_OS_OSX
@@ -81,6 +83,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMEditSession *_editSession;
 
   ENRMPlaceholderLabel *_placeholderLabel;
+  NSString *_placeholderText;
 
   NSUInteger _lastTextLength;
   NSRange _lastSelectedRange;
@@ -217,6 +220,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 {
 #if !TARGET_OS_OSX
   _layoutManager = [[ENRMInputLayoutManager alloc] init];
+  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   NSTextContainer *textContainer = [[NSTextContainer alloc] initWithSize:CGSizeMake(0, CGFLOAT_MAX)];
   textContainer.widthTracksTextView = YES;
   [_layoutManager addTextContainer:textContainer];
@@ -228,6 +232,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #else
   ENRMInputTextView *inputTextView = [[ENRMInputTextView alloc] initWithFrame:CGRectZero];
   _layoutManager = [[ENRMInputLayoutManager alloc] init];
+  _layoutManager.usesFontLeading = ENRMLayoutManagerUsesFontLeading;
   [inputTextView.textContainer replaceLayoutManager:_layoutManager];
 #endif
   inputTextView.markdownTextInput = self;
@@ -356,22 +361,13 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
                                                                          attributes:_textView.typingAttributes]];
   }
 
-  // Trailing newlines are not counted by boundingRectWithSize — append
-  // a mock character so the extra line is included in the height.
-  if (measuredText.length > 0) {
-    unichar lastChar = [measuredText.string characterAtIndex:measuredText.length - 1];
-    if ([[NSCharacterSet newlineCharacterSet] characterIsMember:lastChar]) {
-      [measuredText appendAttributedString:[[NSAttributedString alloc] initWithString:@"I"
-                                                                           attributes:_textView.typingAttributes]];
-    }
-  }
-
-  CGRect boundingBox =
-      [measuredText boundingRectWithSize:CGSizeMake(maxWidth, CGFLOAT_MAX)
-                                 options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-                                 context:nil];
-
-  return CGSizeMake(maxWidth, ceil(boundingBox.size.height));
+  // Same TextKit path as the read-only view, with font leading off. The extra
+  // line fragment after a trailing newline is kept so that blank line counts
+  // toward the height, as in RN TextInput.
+  StyleConfig *config = [[StyleConfig alloc] init];
+  CGSize size = ENRMMeasureAttributedTextViewFree(measuredText, maxWidth, config, NO, 0, RCTScreenScale(), 0,
+                                                  NSLineBreakByWordWrapping, NO);
+  return CGSizeMake(maxWidth, size.height);
 }
 
 #pragma mark - Props
@@ -415,12 +411,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 #endif
 
   if (newViewProps.placeholder != oldViewProps.placeholder) {
-    ENRMSetPlaceholderText(_placeholderLabel, [NSString stringWithUTF8String:newViewProps.placeholder.c_str()]);
+    _placeholderText = [NSString stringWithUTF8String:newViewProps.placeholder.c_str()];
+    [self updatePlaceholderText];
   }
 
   if (newViewProps.placeholderTextColor != oldViewProps.placeholderTextColor) {
     if (isColorMeaningful(newViewProps.placeholderTextColor)) {
       _placeholderLabel.textColor = RCTUIColorFromSharedColor(newViewProps.placeholderTextColor);
+      [self updatePlaceholderText];
     }
   }
 
@@ -523,14 +521,10 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 
   if (styleChanged) {
-    _placeholderLabel.font = _formatterStyle.baseFont;
+    [self updatePlaceholderText];
 
     [self resetBaseTypingAttributes];
-
-    if (_formattingStore.allRanges.count > 0) {
-      [self applyFormatting];
-    }
-
+    [self applyFormatting];
     [self requestHeightUpdate];
   } else if (writingDirectionChanged && _textView.textStorage.length > 0) {
     [self applyFormatting];
@@ -635,7 +629,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
     [self resetBaseTypingAttributes];
 
-    _placeholderLabel.font = _formatterStyle.baseFont;
+    [self updatePlaceholderText];
 
     [self applyFormatting];
     [self requestHeightUpdate];
@@ -656,6 +650,27 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 }
 
 #pragma mark - Placeholder
+
+/// Lays the placeholder out like a body paragraph: base font, and the body line
+/// height with the same baseline centering the formatter applies to typed text.
+- (void)updatePlaceholderText
+{
+  NSMutableDictionary *attrs = [@{
+    NSFontAttributeName : _formatterStyle.baseFont,
+    NSForegroundColorAttributeName : _placeholderLabel.textColor,
+  } mutableCopy];
+  if (_formatterStyle.baseLineHeight > 0) {
+    attrs[NSParagraphStyleAttributeName] = ENRMInputParagraphStyleWithLineHeight(_formatterStyle, nil);
+  }
+  NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:_placeholderText ?: @""
+                                                                           attributes:attrs];
+  NSRange fullRange = NSMakeRange(0, text.length);
+  CGFloat baselineOffset = calculateBaselineOffset(text, fullRange);
+  if (baselineOffset > 0) {
+    [text addAttribute:NSBaselineOffsetAttributeName value:@(baselineOffset) range:fullRange];
+  }
+  ENRMSetPlaceholderAttributedText(_placeholderLabel, text);
+}
 
 - (void)updatePlaceholderVisibility
 {
@@ -804,10 +819,14 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)resetBaseTypingAttributes
 {
-  ENRMSetDefaultTypingAttributes(_textView, @{
+  NSMutableDictionary *attrs = [@{
     NSFontAttributeName : _formatterStyle.baseFont,
     NSForegroundColorAttributeName : _formatterStyle.baseTextColor,
-  });
+  } mutableCopy];
+  if (_formatterStyle.baseLineHeight > 0) {
+    attrs[NSParagraphStyleAttributeName] = ENRMInputParagraphStyleWithLineHeight(_formatterStyle, nil);
+  }
+  ENRMSetDefaultTypingAttributes(_textView, attrs);
 }
 
 - (void)applyFormatting
@@ -1320,7 +1339,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 - (void)setLink:(NSString *)url
 {
   NSRange selection = _textView.selectedRange;
-  if (![_linkCoordinator setLinkURL:url atCursor:selection.location selection:selection]) {
+  if (![_linkCoordinator setLinkURL:url forSelection:selection]) {
     return;
   }
   [self applyFormatting];
@@ -1385,7 +1404,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)removeLink
 {
-  if (![_linkCoordinator removeLinkAtPosition:_textView.selectedRange.location]) {
+  if (![_linkCoordinator removeLinkForSelection:_textView.selectedRange]) {
     return;
   }
   [self applyFormatting];
@@ -1394,7 +1413,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 
 - (void)showLinkPrompt
 {
-  ENRMFormattingRange *activeLink = [_linkCoordinator linkAtPosition:_textView.selectedRange.location];
+  ENRMFormattingRange *activeLink = [_linkCoordinator linkForSelection:_textView.selectedRange];
   NSString *existingURL = activeLink != nil ? activeLink.url : nil;
 
   __weak EnrichedMarkdownTextInput *weakSelf = self;
@@ -1493,6 +1512,11 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   return [_typingController isEffectiveStyleActive:type atPosition:position];
 }
 
+- (nullable ENRMFormattingRange *)linkForSelection:(NSRange)selection
+{
+  return [_linkCoordinator linkForSelection:selection];
+}
+
 #pragma mark - ENRMInputTypingAttributesDataSource
 
 - (BOOL)isStyleAdjacentBefore:(ENRMInputStyleType)type position:(NSUInteger)position
@@ -1550,22 +1574,20 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   }
 }
 
+/// Handles backspace or delete on a link's text, or deleting a selection that
+/// starts in a link. Without this, UIKit removes only those characters and
+/// leaves a partial link still pointing at the old URL; with it, the whole link
+/// is deleted. Returns YES when it did so, and the caller rejects UIKit's edit.
 - (BOOL)deleteLinkForReplacementRange:(NSRange)range replacementText:(NSString *)text
 {
   if (text.length > 0) {
     return NO;
   }
 
-  NSUInteger lookupPosition;
-  if (range.length > 0) {
-    lookupPosition = range.location;
-  } else if (range.location > 0) {
-    lookupPosition = range.location - 1;
-  } else {
-    return NO;
-  }
-
-  ENRMFormattingRange *linkRange = [_linkCoordinator linkAtPosition:lookupPosition];
+  // linkForSelection: would match a caret at a link's start, so backspace at
+  // the start of the text would delete a link that follows it.
+  ENRMFormattingRange *linkRange = range.length > 0 ? [_linkCoordinator linkForSelection:range]
+                                                    : [_linkCoordinator linkRangeForDeletionAtPosition:range.location];
   if (linkRange == nil) {
     return NO;
   }

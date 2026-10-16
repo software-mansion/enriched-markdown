@@ -109,11 +109,11 @@ The full announcement model is in
 
 ### Images
 
-- **The disk cache keys on URL alone.** Memory tiers and request deduplication
-  fold [`imageRequestHeaders`](/react-native/api-reference/enriched-markdown-text#imagerequestheaders)
-  into the cache identity, but the disk layer is managed by the HTTP stack
-  (OkHttp / `NSURLCache`), so a response fetched with one set of headers can be
-  served for a request with different ones. The library adds no `Vary` handling.
+- **Header-bearing image requests are not disk-cached.** The disk layer is
+  managed by the HTTP stack (OkHttp / `NSURLCache`) and keys on URL alone, so
+  requests carrying [`imageRequestHeaders`](/react-native/api-reference/enriched-markdown-text#imagerequestheaders)
+  bypass it and are fetched again after a relaunch. Memory tiers and request
+  deduplication still fold the headers into the cache identity.
   See [Request headers](/react-native/guides/image-caching#request-headers).
 - **The iOS disk cache ignores HTTP freshness.** Its session runs with
   `NSURLRequestReturnCacheDataElseLoad`, so a cached response is served
@@ -205,8 +205,7 @@ localization or break strategy; accessibility labels are hardcoded with no
 override at any layer; the composable renders nothing in @Preview.
 
 Also unrecorded anywhere: task-list accessibility is entirely absent from the
-React Native package on both platforms, and onImagePress does not fire for
-images inside GFM tables. */}
+React Native package on both platforms. */}
 
 ## Something missing?
 

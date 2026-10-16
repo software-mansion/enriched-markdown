@@ -1,7 +1,9 @@
 #import "TableContainerView.h"
 #import "AttributedRenderer.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMHorizontalScrollView.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillAttachment.h"
 #import "HTMLGenerator.h"
 #import "LinkTapUtils.h"
 #import "MarkdownASTNode.h"
@@ -86,6 +88,7 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
   NSMutableAttributedString *attributedText = [renderer renderNodes:cellNode.children context:context block:nil];
 
   [context applyLinkAttributesToString:attributedText];
+  [context applyImageAttributesToString:attributedText];
 
   ENRMPinLineMetricsToStyledFonts(attributedText, NSMakeRange(0, attributedText.length));
   ENRMApplyWritingDirectionMode(attributedText, writingDirectionMode, resolvedLayoutDirection);
@@ -125,6 +128,11 @@ static void ENRMTableWireImageRedraw(NSArray<NSArray<TableCellData *> *> *rows, 
                       if ([value isKindOfClass:[ENRMImageAttachment class]]) {
                         ((ENRMImageAttachment *)value).onImageLoaded = redraw;
                       }
+#if !TARGET_OS_OSX
+                      if ([value isKindOfClass:[ENRMLinkPillAttachment class]]) {
+                        ((ENRMLinkPillAttachment *)value).onIconLoaded = redraw;
+                      }
+#endif
                     }];
     }
   }
@@ -235,7 +243,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 #endif
 
 @implementation TableContainerView {
-  RCTUIScrollView *_scrollView;
+  ENRMHorizontalScrollView *_scrollView;
   RCTUIView *_gridContainer;
   NSArray<NSArray<TableCellData *> *> *_rows;
   NSUInteger _colCount;
@@ -250,6 +258,11 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSArray *_cachedAccessibilityElements;
 
   BOOL _imageRemeasurePending;
+  // Frame, in grid coordinates, of the link whose menu is being presented. Null for the table's own menu.
+  CGRect _linkMenuFrame;
+#if !TARGET_OS_OSX
+  ENRMLinkMenuLift *_linkMenuLift;
+#endif
 }
 
 - (instancetype)initWithConfig:(StyleConfig *)config
@@ -270,11 +283,10 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 
 - (void)setupScrollView
 {
-  _scrollView = [[RCTUIScrollView alloc] init];
+  _scrollView = [[ENRMHorizontalScrollView alloc] init];
   _scrollView.showsVerticalScrollIndicator = NO;
   _scrollView.showsHorizontalScrollIndicator = YES;
 #if !TARGET_OS_OSX
-  _scrollView.bounces = YES;
   _scrollView.alwaysBounceHorizontal = NO;
   _scrollView.isAccessibilityElement = NO;
   _scrollView.accessibilityElementsHidden = YES;
@@ -308,6 +320,13 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     if (strongSelf && strongSelf.onLinkPress)
       strongSelf.onLinkPress(url);
   };
+  iosGridView.onImageTap = ^(NSString *url, NSString *altText) {
+    TableContainerView *strongSelf = weakSelf;
+    if (strongSelf.onImagePress)
+      strongSelf.onImagePress(url, altText);
+  };
+  iosGridView.hasLinkContextMenu =
+      ^BOOL(NSString *url) { return [weakSelf.dynamicProps.linkContextMenus hasMenuForURL:url]; };
   iosGridView.onLinkLongTap = ^(NSString *url) {
     TableContainerView *strongSelf = weakSelf;
     if (strongSelf && strongSelf.onLinkLongPress)
@@ -490,7 +509,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 
 // A dynamic cell image (maxHeight / aspectRatio) resolves its box height only after
 // loading. Recompute this table's layout locally; if a row height actually changed
-// (the maxHeight fitted case), re-render and ask the host to re-measure its Fabric
+// (the maxHeight fitted case) or a column width did (a link pill whose icon failed gives
+// up its slot), re-render and ask the host to re-measure its Fabric
 // height, otherwise just repaint the freshly loaded pixels. The height guard makes this
 // a no-op once heights are stable, so a deterministic image never churns, and the host's
 // own needs-update guard stops the propagation from looping.
@@ -516,11 +536,17 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   if (_rows.count == 0) {
     return;
   }
+#if !TARGET_OS_OSX
+  // The grid is about to change under the lifted link's image.
+  [_linkMenuLift end];
+#endif
+  NSArray<NSNumber *> *oldColWidths = _colWidths;
   NSArray<NSNumber *> *oldRowHeights = _rowHeights;
   CGFloat oldTotalHeight = _totalTableHeight;
   [self computeLayout];
 
-  BOOL changed = ![_rowHeights isEqualToArray:oldRowHeights] || fabs(_totalTableHeight - oldTotalHeight) > 0.5;
+  BOOL changed = ![_colWidths isEqualToArray:oldColWidths] || ![_rowHeights isEqualToArray:oldRowHeights] ||
+                 fabs(_totalTableHeight - oldTotalHeight) > 0.5;
   if (!changed) {
 #if TARGET_OS_OSX
     _gridContainer.needsDisplay = YES;
@@ -537,9 +563,63 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 }
 
 #if !TARGET_OS_OSX
+/// A link's menu lifts only the link, see `ENRMLinkMenuLift`; the table's own menu (no link
+/// frame) lifts the whole grid.
+- (UITargetedPreview *)linkPreviewForInteraction:(UIContextMenuInteraction *)interaction
+{
+  UIView *grid = interaction.view;
+  if (CGRectIsNull(_linkMenuFrame))
+    return nil;
+  if (![_linkMenuLift isOverView:grid]) {
+    // A little of the cell around the link, so that the lifted image has the cell's background.
+    CGRect frame = CGRectIntersection(CGRectInset(_linkMenuFrame, -4, -2), grid.bounds);
+    if (grid.window == nil || CGRectIsEmpty(frame))
+      return nil;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:frame.size];
+    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+      CGContextTranslateCTM(context.CGContext, -frame.origin.x, -frame.origin.y);
+      [grid.layer renderInContext:context.CGContext];
+    }];
+    if (!_linkMenuLift)
+      _linkMenuLift = [[ENRMLinkMenuLift alloc] init];
+    [_linkMenuLift layImage:image atFrame:frame overView:grid];
+  }
+  return [_linkMenuLift previewWithCornerRadius:8 backgroundColor:nil];
+}
+
+- (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
+    previewForHighlightingMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
+{
+  return [self linkPreviewForInteraction:interaction];
+}
+
+- (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
+    previewForDismissingMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
+{
+  return [self linkPreviewForInteraction:interaction];
+}
+
+- (void)contextMenuInteraction:(UIContextMenuInteraction *)interaction
+       willEndForConfiguration:(UIContextMenuConfiguration *)configuration
+                      animator:(id<UIContextMenuInteractionAnimating>)animator
+{
+  [_linkMenuLift endWithAnimator:animator];
+}
+
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
+  ENRMTableIOSItemHit *link = [(ENRMTableIOSGridView *)_gridContainer linkAtPoint:location];
+  UIMenu *linkMenu = [self.dynamicProps.linkContextMenus menuForURL:link.url title:link.title];
+  [_linkMenuLift end];
+  // UIKit replaces a nil identifier with one of its own, so the frame tells the menus apart.
+  _linkMenuFrame = linkMenu ? link.frame : CGRectNull;
+  if (linkMenu) {
+    return [UIContextMenuConfiguration
+        configurationWithIdentifier:link.url
+                    previewProvider:nil
+                     actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) { return linkMenu; }];
+  }
   if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }

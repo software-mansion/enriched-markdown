@@ -52,6 +52,7 @@ export function mergeSubStyle<T extends Record<string, unknown>>(
   return result as T;
 }
 
+// Sub-styles nest (linkVariants -> variant -> pill), so compare structurally all the way down.
 function isSubStyleEqual(
   a: Record<string, unknown>,
   b: Record<string, unknown>
@@ -66,19 +67,12 @@ function isSubStyleEqual(
       typeof valueA === 'object' &&
       valueA !== null &&
       typeof valueB === 'object' &&
-      valueB !== null
+      valueB !== null &&
+      isSubStyleEqual(
+        valueA as Record<string, unknown>,
+        valueB as Record<string, unknown>
+      )
     ) {
-      const nestedKeysA = Object.keys(valueA);
-      const nestedKeysB = Object.keys(valueB);
-      if (nestedKeysA.length !== nestedKeysB.length) return false;
-      for (const nestedKey of nestedKeysA) {
-        if (
-          (valueA as Record<string, unknown>)[nestedKey] !==
-          (valueB as Record<string, unknown>)[nestedKey]
-        ) {
-          return false;
-        }
-      }
       continue;
     }
     return false;

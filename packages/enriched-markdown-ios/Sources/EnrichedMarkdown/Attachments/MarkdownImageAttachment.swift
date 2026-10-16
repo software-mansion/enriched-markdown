@@ -116,7 +116,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
         glyphPosition position: CGPoint,
         characterIndex charIndex: Int
     ) -> CGRect {
-        self.textContainer = textContainer
+        adopt(textContainer)
 
         if isInline {
             let size = cachedHeight
@@ -147,7 +147,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
         textContainer: NSTextContainer?,
         characterIndex charIndex: Int
     ) -> UIImage? {
-        self.textContainer = textContainer
+        adopt(textContainer)
 
         if let originalImage, imageBounds.width > 0 {
             bounds = imageBounds
@@ -275,6 +275,11 @@ final class MarkdownImageAttachment: NSTextAttachment {
         DispatchQueue.main.async { [weak layoutObserver] in
             layoutObserver?.attachmentDidInvalidateLayout()
         }
+    }
+
+    private func adopt(_ textContainer: NSTextContainer?) {
+        guard !(textContainer is SnapshotTextContainer) else { return }
+        self.textContainer = textContainer
     }
 
     private func refreshDisplay() {

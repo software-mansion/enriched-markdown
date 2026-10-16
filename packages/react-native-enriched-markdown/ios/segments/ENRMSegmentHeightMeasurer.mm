@@ -34,7 +34,7 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
       // GFM segments are never line-clamped (numberOfLines is a no-op for GFM).
       CGSize textSize = ENRMMeasureAttributedTextViewFree(
           segment.textResult.attributedText, contentWidth, config, shouldAddBottomMargin,
-          segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping);
+          segment.textResult.lastElementMarginBottom, pointScaleFactor, 0, NSLineBreakByWordWrapping, YES);
       totalHeight += textSize.height;
     } else if (segment.kind == ENRMSegmentKindTable && segment.tableSegment) {
       totalHeight += config.tableMarginTop;

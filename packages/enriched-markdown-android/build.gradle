@@ -27,6 +27,8 @@ dependencies {
   nmcpAggregation project(":parser")
   nmcpAggregation project(":ui")
   nmcpAggregation project(":compose")
+  nmcpAggregation project(":math")
+  nmcpAggregation project(":code-highlight")
 }
 
 ext {
@@ -39,7 +41,7 @@ ext {
 
 // Kept in sync with the nmcpAggregation list above: everything else is measurement
 // scaffolding, which is still linted but never published.
-ext.publishedProjects = ["parser", "ui", "compose"]
+ext.publishedProjects = ["parser", "ui", "compose", "math", "code-highlight"]
 
 subprojects { subproject ->
   subproject.plugins.withId("com.android.library") {

@@ -7,9 +7,9 @@ import android.text.method.ArrowKeyMovementMethod
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.widget.TextView
+import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
-import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import kotlin.math.abs
 
 /**
@@ -161,7 +161,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     buffer: Spannable,
     event: MotionEvent,
   ): SpoilerSpan? {
-    if ((widget as? SpoilerCapable)?.spoilerOverlayDrawer == null) return null
+    if ((widget as? EnrichedMarkdownInternalText)?.spoilerOverlayDrawer == null) return null
     val offset = charOffsetAt(widget, event) ?: return null
     return buffer
       .getSpans(offset, offset, SpoilerSpan::class.java)
@@ -173,7 +173,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     buffer: Spannable,
     tappedSpan: SpoilerSpan,
   ) {
-    val drawer = (widget as? SpoilerCapable)?.spoilerOverlayDrawer ?: return
+    val drawer = (widget as? EnrichedMarkdownInternalText)?.spoilerOverlayDrawer ?: return
     val spans = expandContiguousSpoilers(buffer, tappedSpan)
     val remaining = intArrayOf(spans.size)
 

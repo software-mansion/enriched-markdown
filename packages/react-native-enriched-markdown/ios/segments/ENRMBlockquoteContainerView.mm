@@ -2,10 +2,13 @@
 #import "ENRMAdmonitionIcons.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMLinkContextMenus.h"
 #import "ENRMSegmentHeightMeasurer.h"
+#import "ENRMTableIOSGridView.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
 #import "EnrichedMarkdownInternalText.h"
+#import "LinkTapUtils.h"
 #import "MarkdownASTNode.h"
 #import "MarkdownASTSerializer.h"
 #import "PasteboardUtils.h"
@@ -110,6 +113,11 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 @property (nonatomic, copy) NSString *cachedMarkdown;
 @property (nonatomic, copy) NSString *cachedPlainText;
 @end
+
+#if !TARGET_OS_OSX
+@interface ENRMBlockquoteContainerView () <UITextViewDelegate, ENRMLinkContextMenuSource>
+@end
+#endif
 
 @implementation ENRMBlockquoteContainerView
 
@@ -231,6 +239,11 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                                 if (s.onLinkLongPress && url)
                                   s.onLinkLongPress(url);
                               };
+                              view.onImagePress = ^(NSString *url, NSString *altText) {
+                                ENRMBlockquoteContainerView *s = weakSelf;
+                                if (s.onImagePress && url)
+                                  s.onImagePress(url, altText);
+                              };
                             }
                             [view applyTableNode:segment.tableSegment.tableNode];
                             return view;
@@ -281,6 +294,11 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                               view.accessibilityLabels = strongSelf.accessibilityLabels;
                               view.onCopyPress = strongSelf.onCopyPress;
                               view.onCodeBlockPress = strongSelf.onCodeBlockPress;
+                              view.onImagePress = ^(NSString *url, NSString *altText) {
+                                ENRMBlockquoteContainerView *s = weakSelf;
+                                if (s.onImagePress && url)
+                                  s.onImagePress(url, altText);
+                              };
                               view.onLinkPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onLinkPress && url)
@@ -347,17 +365,28 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 {
   ENRMTapRecognizer *tap = [[ENRMTapRecognizer alloc] initWithTarget:self action:@selector(handleTextTap:)];
   [view.textView addGestureRecognizer:tap];
+#if !TARGET_OS_OSX
+  view.textView.delegate = self;
+#endif
 }
 
 - (void)handleTextTap:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
   __weak ENRMBlockquoteContainerView *weakSelf = self;
-  ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) {
-    ENRMBlockquoteContainerView *strongSelf = weakSelf;
-    if (strongSelf.onLinkPress && url)
-      strongSelf.onLinkPress(url);
-  });
+  if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) {
+        ENRMBlockquoteContainerView *strongSelf = weakSelf;
+        if (strongSelf.onLinkPress && url)
+          strongSelf.onLinkPress(url);
+      })) {
+    return;
+  }
+
+  if (self.onImagePress) {
+    NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
+    if (image)
+      self.onImagePress(image[@"url"], image[@"altText"]);
+  }
 }
 
 - (CGFloat)measureHeight:(CGFloat)maxWidth
@@ -503,9 +532,35 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 }
 
 #if !TARGET_OS_OSX
+- (UITextItemMenuConfiguration *)textView:(UITextView *)textView
+             menuConfigurationForTextItem:(UITextItem *)textItem
+                              defaultMenu:(UIMenu *)defaultMenu API_AVAILABLE(ios(17.0))
+{
+  return ENRMLinkMenuConfigurationForTextItem(textView, textItem, defaultMenu, self.dynamicProps.linkContextMenus,
+                                              self.dynamicProps.enableLinkPreview, self.onLinkLongPress);
+}
+
+- (ENRMLinkContextMenus *)linkContextMenusForTextView:(UITextView *)textView
+{
+  return self.dynamicProps.linkContextMenus;
+}
+
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
+  // Let the leaf interaction present a configured link menu, including nested tables.
+  UIView *hit = [interaction.view hitTest:location withEvent:nil];
+  while (hit && hit != interaction.view) {
+    CGPoint point = [interaction.view convertPoint:location toView:hit];
+    NSString *url = nil;
+    if ([hit isKindOfClass:[UITextView class]])
+      url = linkURLAtPoint((UITextView *)hit, point);
+    else if ([hit isKindOfClass:[ENRMTableIOSGridView class]])
+      url = [(ENRMTableIOSGridView *)hit linkAtPoint:point].url;
+    if ([self.dynamicProps.linkContextMenus hasMenuForURL:url])
+      return nil;
+    hit = hit.superview;
+  }
   if (!self.dynamicProps.enableBlockContextMenu) {
     return nil;
   }

@@ -2,6 +2,7 @@ package swmansion.enriched.markdown.android.example
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -15,8 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.swmansion.enriched.markdown.compose.CodeBlockLayout
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
+import com.swmansion.enriched.markdown.math.LatexError
 
 @Composable
 fun TextScreen(
@@ -37,10 +40,21 @@ fun TextScreen(
       markdown = markdown,
       modifier = Modifier.fillMaxWidth(),
       style = CustomMarkdownStyle,
-      flags = Md4cFlags(superscript = true, subscript = true, highlight = true, admonitions = true),
+      options = MarkdownOptions(superscript = true, subscript = true, highlight = true, admonitions = true),
+      codeBlockLayout = CodeBlockLayout.Scrollable,
       onLinkClick = { url ->
         runCatching {
           context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }
+      },
+      // Plugins report per-view problems here; the math plugin sends a LatexError for every
+      // expression it could not draw, once per distinct expression per view.
+      onPluginEvent = { event ->
+        if (event is LatexError) {
+          Log.w(
+            "ExampleLatex",
+            "LaTeX failed (displayMode=${event.displayMode}): ${event.source} - ${event.message}",
+          )
         }
       },
       onTaskListItemToggle = { event ->
@@ -48,6 +62,14 @@ fun TextScreen(
           .makeText(
             context,
             "Task ${event.index} is now ${if (event.checked) "checked" else "unchecked"}: ${event.text}",
+            Toast.LENGTH_SHORT,
+          ).show()
+      },
+      onCodeBlockCopy = { copy ->
+        Toast
+          .makeText(
+            context,
+            "Copied ${copy.language ?: "code"} (${copy.code.lines().size} lines)",
             Toast.LENGTH_SHORT,
           ).show()
       },
