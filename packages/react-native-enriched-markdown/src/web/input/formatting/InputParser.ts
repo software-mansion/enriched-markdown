@@ -152,6 +152,10 @@ export function parseResultFromAst(
   };
 }
 
+function isListNode(node: ASTNode): boolean {
+  return node.type === 'UnorderedList' || node.type === 'OrderedList';
+}
+
 function walkNode(
   node: ASTNode,
   state: WalkState,
@@ -172,8 +176,7 @@ function walkNode(
   // A list node increments the nesting depth of its items, so an item's depth
   // is (enclosing list nodes - 1). Depth comes from this AST nesting, never
   // from counting leading spaces.
-  const isListContainer =
-    node.type === 'UnorderedList' || node.type === 'OrderedList';
+  const isListContainer = isListNode(node);
   const childListDepth = isListContainer ? listDepth + 1 : listDepth;
   const childOrdered = isListContainer
     ? node.type === 'OrderedList'
@@ -202,8 +205,11 @@ function walkNode(
     // md4c emits no separators, so a block that follows a sibling starts a
     // new line here. Between top-level blocks, replay the source's blank
     // lines (md4c drops them); inside a list, items, a sublist, or an item's
-    // further paragraphs each take a single newline.
-    if (index > 0 && BLOCK_NODE_TYPES.has(child.type)) {
+    // further paragraphs each take a single newline. An empty item's sublist
+    // is its first child but still starts below the item's own (empty) line.
+    const startsLine =
+      index > 0 || (node.type === 'ListItem' && isListNode(child));
+    if (startsLine && BLOCK_NODE_TYPES.has(child.type)) {
       if (childListDepth > 0) {
         append(state, '\n');
       } else if (state.text.length > 0) {

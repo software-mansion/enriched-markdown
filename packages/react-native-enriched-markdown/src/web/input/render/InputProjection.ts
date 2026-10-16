@@ -9,6 +9,7 @@ import {
   type BoundaryEvent,
 } from '../model/boundaryEvents';
 import { clamp, firstIndexReachingTarget } from '../utils';
+import { isDev } from '../../../utils/isDev';
 
 const LOG_PREFIX = '[EnrichedMarkdown - InputProjection]';
 
@@ -310,7 +311,7 @@ export class ParagraphProjector {
       this.text !== text ||
       this.formattingVersion !== this.formatting.version
     ) {
-      if (__DEV__ && this.text !== null) {
+      if (isDev && this.text !== null) {
         console.error(
           `${LOG_PREFIX} the model changed without a projection hint; projecting every line`
         );

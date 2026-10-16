@@ -1,4 +1,5 @@
 import { firstIndexReachingTarget } from '../utils';
+import { isDev } from '../../../utils/isDev';
 
 export interface DomPosition {
   node: Node;
@@ -38,7 +39,7 @@ const LOG_PREFIX = '[EnrichedMarkdown - SelectionMapper]';
 // handler - and development gets told, because otherwise users find these
 // instead of tests.
 function reportDesync(message: string): void {
-  if (__DEV__) {
+  if (isDev) {
     console.error(`${LOG_PREFIX} invariant violated: ${message}`);
   }
 }

@@ -5,6 +5,7 @@ import {
   type Projection,
   type StyleRun,
 } from './InputProjection';
+import { isDev } from '../../../utils/isDev';
 
 const LOG_PREFIX = '[EnrichedMarkdown - DomRenderer]';
 
@@ -104,7 +105,7 @@ export class DomRenderer {
       // unrecoverable: `changedWindow` would find no difference and patch
       // nothing, ever. Drop the cache and rebuild from an empty root, which
       // takes the all-inserts path and cannot hit a stale node.
-      if (__DEV__) {
+      if (isDev) {
         console.error(`${LOG_PREFIX} Patch failed; rebuilding the DOM`, error);
       }
       this.invalidate();

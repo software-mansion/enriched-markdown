@@ -230,6 +230,9 @@ export class InputHost {
   }
 
   focus(): void {
+    if (this.destroyed) {
+      return;
+    }
     this.root.focus();
   }
 
@@ -238,6 +241,9 @@ export class InputHost {
   // editability reads the same whether it was set at construction or flipped
   // later. The name is already registered as ours, so teardown clears it.
   setEditable(editable: boolean): void {
+    if (this.destroyed) {
+      return;
+    }
     this.editable = editable;
     this.root.setAttribute('contenteditable', editable ? 'true' : 'false');
   }
@@ -284,6 +290,9 @@ export class InputHost {
   }
 
   blur(): void {
+    if (this.destroyed) {
+      return;
+    }
     this.root.blur();
   }
 
@@ -351,17 +360,20 @@ export class InputHost {
   // nothing here would catch before the next edit split the pair.
   // Links are atomic, as on both natives.
   setSelection(start: number, end: number): void {
+    if (this.destroyed) {
+      return;
+    }
     this.settleNativeEdit();
     if (this.deferWhileComposing(() => this.setSelection(start, end))) {
       return;
     }
     const max = this.text.length;
-    const clampedStart = clamp(start, 0, max);
+    const clampedStart = clamp(toOffset(start), 0, max);
     const snapped = {
       start: codePointBoundaryAtOrBefore(this.text, clampedStart),
       end: codePointBoundaryAtOrBefore(
         this.text,
-        clamp(end, clampedStart, max)
+        clamp(toOffset(end), clampedStart, max)
       ),
     };
     this.selection =
@@ -447,8 +459,12 @@ export class InputHost {
   }
 
   // Mid-composition a command would rewrite the nodes under the IME, so it
-  // waits for the composition to end.
+  // waits for the composition to end. After teardown it does nothing: the
+  // node may still belong to the consumer, and nothing may write into it.
   private command(run: () => void): void {
+    if (this.destroyed) {
+      return;
+    }
     this.settleNativeEdit();
     if (!this.deferWhileComposing(run)) {
       run();
@@ -1645,6 +1661,12 @@ function isScrollContainer(element: HTMLElement): boolean {
     style !== undefined &&
     /(auto|scroll|overlay)/.test(`${style.overflowY} ${style.overflowX}`)
   );
+}
+
+// What the natives' Int32 command arguments receive: the fraction dropped,
+// NaN as 0 (Android's `getInt`). Infinities are left for the clamp.
+function toOffset(value: number): number {
+  return Number.isNaN(value) ? 0 : Math.trunc(value);
 }
 
 function isZeroBox(box: CaretBox): boolean {

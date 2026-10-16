@@ -228,6 +228,18 @@ export function serialize(
   const lineEnd = (line: number) =>
     line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : text.length;
   const linePrefixes: (string | undefined)[] = [];
+  // Per line: the depth of its list item, or Infinity for a heading; unset on
+  // a paragraph line. Blocks come in line order, so the previous line's entry
+  // is in place by the time a line reads it.
+  const lineDepths: number[] = [];
+  // md4c reads a marker-only line as an empty item unless the line right above
+  // holds paragraph text it would continue: "a\n-" is a setext underline,
+  // "a\n1." paragraph text, and "- a\n  -" an underline inside the item. An
+  // empty line, a heading, or an item at least as deep ends that text first.
+  const startsEmptyItem = (line: number, depth: number) =>
+    line === 0 ||
+    lineEnd(line - 1) === lineStarts[line - 1] ||
+    (lineDepths[line - 1] ?? -1) >= depth;
 
   // Content column of the last list item seen at each depth, so a nested item
   // can indent to its parent's marker width. The store clamps a depth to one
@@ -275,10 +287,14 @@ export function serialize(
       if (!overlaps) {
         break;
       }
-      // A marker-only list line ("- " with no content) re-parses as a setext
-      // underline for the previous line; emit an empty list line bare. An
-      // empty "# " heading is valid ATX and keeps its prefix.
-      if (isListItem && lineEnd(line) === lineStart) {
+      lineDepths[line] = isListItem ? depth : Infinity;
+      // An empty item md4c would not read back as one is left bare. An empty
+      // "# " heading is valid ATX and keeps its prefix.
+      if (
+        isListItem &&
+        lineEnd(line) === lineStart &&
+        !startsEmptyItem(line, depth)
+      ) {
         continue;
       }
       linePrefixes[line] = prefix + (linePrefixes[line] ?? '');

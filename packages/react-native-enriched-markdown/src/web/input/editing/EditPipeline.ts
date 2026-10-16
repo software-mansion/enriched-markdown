@@ -10,6 +10,7 @@ import {
   type PendingStyleType,
 } from '../model/inlineStyles';
 import type { TextEdit } from '../model/textEdit';
+import { isDev } from '../../../utils/isDev';
 
 export interface EditContext extends TextEdit {
   pendingStyles: readonly PendingStyleType[];
@@ -34,7 +35,7 @@ export class EditPipeline {
   processTextChange(text: string, context: EditContext): void {
     const { editStart, deletedText, insertedText } = context;
 
-    if (__DEV__) {
+    if (isDev) {
       assertContextDescribesEdit(text, context);
     }
 

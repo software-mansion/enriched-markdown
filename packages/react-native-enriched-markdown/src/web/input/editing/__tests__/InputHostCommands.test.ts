@@ -98,6 +98,28 @@ describe('setSelection', () => {
     expect(selections.at(-1)).toEqual({ start: 0, end: 2 });
   });
 
+  // The natives take Int32 arguments; a fractional offset would otherwise
+  // reach the stores and land an edit between characters of a range.
+  it('drops the fraction of an offset', () => {
+    const { host, root, selections } = mount();
+    typeText(root, 'abcd');
+
+    host.setSelection(1.7, 2.9);
+
+    expect(selections.at(-1)).toEqual({ start: 1, end: 2 });
+  });
+
+  it('reads NaN as 0', () => {
+    const { host, root, selections } = mount();
+    typeText(root, 'abcd');
+
+    host.setSelection(NaN, NaN);
+    expect(selections.at(-1)).toEqual({ start: 0, end: 0 });
+
+    host.insertText('X');
+    expect(host.value).toBe('Xabcd');
+  });
+
   it('leaves an offset that already sits on a boundary alone', () => {
     const { host, root, selections } = mount();
     typeText(root, 'ab\u{1F389}cd');
@@ -412,5 +434,36 @@ describe('destroy', () => {
     host.destroy();
 
     expect(root.hasAttribute('data-empty')).toBe(false);
+  });
+
+  // The wrapper drops its host on unmount; a direct user may keep calling
+  // into one whose node is now theirs again.
+  it('turns the commands into no-ops', () => {
+    const { host, root, texts, markdowns, selections, states } = mount();
+    typeText(root, 'ab');
+    host.destroy();
+    const emitted = [texts, markdowns, selections, states].map((e) => e.length);
+
+    host.toggleBold();
+    host.insertText('Z');
+    host.toggleHeading(1);
+    host.toggleUnorderedList();
+    host.setSelection(0, 1);
+    host.undo();
+
+    expect(root.childNodes).toHaveLength(0);
+    expect(host.value).toBe('ab');
+    expect([texts, markdowns, selections, states].map((e) => e.length)).toEqual(
+      emitted
+    );
+  });
+
+  it('keeps the node non-editable', () => {
+    const { host, root } = mount();
+    host.destroy();
+
+    host.setEditable(true);
+
+    expect(root.hasAttribute('contenteditable')).toBe(false);
   });
 });

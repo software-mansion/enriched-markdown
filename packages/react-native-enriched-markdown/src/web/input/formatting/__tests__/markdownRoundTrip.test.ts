@@ -37,6 +37,15 @@ const CANONICAL_FIXTURES = [
   '1. fetch\n   - nested',
   '1. fetch\n   1. nested',
   '- a\n  1. b\n     - c',
+  // An empty item keeps its marker wherever md4c reads it back as one.
+  '- a\n- \n- c',
+  '1. a\n2. \n3. c',
+  '- \n- b',
+  '- a\n- ',
+  '- a\n  - b\n- \n- d',
+  '- a\n  - b\n  - \n  - d',
+  '- \n  - b',
+  'a\n\n- \n- b',
   '1. fetch\n2. merge\n\nrebase\n\n1. push',
   'git fetch\n\n\n\ngit merge',
   // latexMath is off for the input dialect, so dollar delimiters are text.
