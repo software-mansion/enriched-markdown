@@ -148,12 +148,13 @@ function firstTargetRange(event: InputEvent): StaticRange | null {
 }
 
 // Whether the line's spans, with the edit applied, are exactly the model's
-// runs after it. This is the whole eligibility rule: pending styles, links,
-// run-boundary carets and emptied runs all fail it.
+// runs after it (`lineText` is that line of the edited buffer). This is the
+// whole eligibility rule: pending styles, links, run-boundary carets and
+// emptied runs all fail it.
 export function spansMatchRuns(
   edit: NativeEdit,
   runs: readonly StyleRun[],
-  text: string
+  lineText: string
 ): boolean {
   const spans = edit.line.childNodes;
   if (spans.length !== runs.length) {
@@ -171,7 +172,7 @@ export function spansMatchRuns(
     }
     const shown =
       span === edit.span ? edit.nodeText : (span.firstChild as Text).data;
-    if (shown !== text.slice(run.start, run.end)) {
+    if (shown !== lineText.slice(run.startInLine, run.endInLine)) {
       return false;
     }
   }

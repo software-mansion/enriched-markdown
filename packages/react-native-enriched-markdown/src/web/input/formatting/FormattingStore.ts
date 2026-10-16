@@ -9,6 +9,13 @@ import type { RangeBounds } from '../model/rangeBounds';
 // imported ranges may touch — queries never assume coalesced input.
 export class FormattingStore {
   private ranges: FormattingRange[] = [];
+  private revision = 0;
+
+  // Changes on every write, so a reader can tell the ranges moved on since it
+  // last looked without comparing them.
+  get version(): number {
+    return this.revision;
+  }
 
   // A live view, as on Android: read it right away and don't keep it across a
   // write - some writes change the array in place, others swap it.
@@ -18,10 +25,12 @@ export class FormattingStore {
 
   setRanges(ranges: FormattingRange[]): void {
     this.ranges = [...ranges].sort((a, b) => a.start - b.start);
+    this.revision++;
   }
 
   clearAll(): void {
     this.ranges = [];
+    this.revision++;
   }
 
   rangesOfType(type: InputStyleType): FormattingRange[] {
@@ -105,6 +114,7 @@ export class FormattingStore {
       return true;
     });
 
+    this.revision++;
     this.insertSorted({
       type: newRange.type,
       start: mergedStart,
@@ -142,6 +152,7 @@ export class FormattingStore {
       return false;
     });
 
+    this.revision++;
     // Remainders are fragments of a just-removed range and cannot overlap others.
     for (const remainder of remainders) {
       this.insertSorted(remainder);
@@ -240,6 +251,7 @@ export class FormattingStore {
       insertedLength,
       (range) => range.type !== 'link'
     );
+    this.revision++;
     this.coalesceAdjacentSameTypeRanges();
   }
 
@@ -247,6 +259,7 @@ export class FormattingStore {
     const index = this.ranges.indexOf(range);
     if (index !== -1) {
       this.ranges.splice(index, 1);
+      this.revision++;
     }
   }
 

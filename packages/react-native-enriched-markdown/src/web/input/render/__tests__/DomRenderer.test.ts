@@ -24,15 +24,11 @@ function project(lines: readonly Line[]) {
   const store = new BlockStore();
   store.setRanges(ranges);
   const joined = text.join('\n');
-  return {
-    text: joined,
-    paragraphs: projectParagraphs(joined, [], store.allRanges),
-  };
+  return projectParagraphs(joined, [], store.allRanges);
 }
 
 function render(renderer: DomRenderer, lines: readonly Line[]): void {
-  const { text, paragraphs } = project(lines);
-  renderer.render(text, paragraphs);
+  renderer.render(project(lines));
 }
 
 function describeLines(root: HTMLElement): string[] {

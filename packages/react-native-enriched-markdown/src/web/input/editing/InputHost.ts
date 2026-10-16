@@ -5,7 +5,10 @@ import { serialize } from '../formatting/MarkdownSerializer';
 import type { RangeBounds } from '../model/rangeBounds';
 import type { TextEdit } from '../model/textEdit';
 import { DomRenderer } from '../render/DomRenderer';
-import { computeStyleRuns, projectParagraphs } from '../render/InputProjection';
+import {
+  computeStyleRuns,
+  ParagraphProjector,
+} from '../render/InputProjection';
 import { ENRM_INPUT_CLASS, injectInputStyles } from '../render/inputStyles';
 import { isListItem, type BlockType } from '../model/blocks';
 import type { PendingStyleType } from '../model/inlineStyles';
@@ -63,6 +66,9 @@ export class InputHost {
   private readonly callbacks: InputHostCallbacks;
   private readonly formattingStore = new FormattingStore();
   private readonly blockStore = new BlockStore();
+  // Told about every text and style change as it happens (`applyModelEdit`,
+  // `toggleInlineStyle`), so a render re-projects only the touched lines.
+  private readonly projector = new ParagraphProjector(this.formattingStore);
   private readonly session = new EditSession();
   private readonly history = new EditHistory();
   private readonly pipeline: EditPipeline;
@@ -328,6 +334,7 @@ export class InputHost {
       this.text = plainText;
       this.formattingStore.setRanges(formattingRanges);
       this.blockStore.setRanges(blockRanges);
+      this.projector.invalidate();
       this.selection = { start: plainText.length, end: plainText.length };
       this.selectionBackward = false;
       // A new value is a new document, as native's `setText` makes it.
@@ -628,7 +635,7 @@ export class InputHost {
       line.start,
       line.end
     );
-    if (!spansMatchRuns(edit, runs, this.text)) {
+    if (!spansMatchRuns(edit, runs, this.text.slice(line.start, line.end))) {
       event.preventDefault();
       this.renderEdit();
       return true;
@@ -1079,6 +1086,9 @@ export class InputHost {
       const wasActive = this.session.scoped('processing', () =>
         this.formattingStore.toggleStyle(type, start, end)
       );
+      if (start !== end) {
+        this.projector.stylesChanged(start, end);
+      }
       this.typing.toggleStyle(type, wasActive, start !== end);
       if (start === end) {
         // A caret toggle only pends a style for the next keystroke; the
@@ -1278,6 +1288,12 @@ export class InputHost {
         pendingStyles: this.typing.styles,
         pendingStyleRemovals: this.typing.styleRemovals,
       });
+      this.projector.textEdited(
+        editStart,
+        deletedText.length,
+        insertedText,
+        this.text
+      );
       this.selection = { start: landing, end: landing };
       this.selectionBackward = false;
     });
@@ -1322,6 +1338,8 @@ export class InputHost {
       // Fresh objects from the history: the stores may mutate them.
       this.formattingStore.setRanges([...target.formatting]);
       this.blockStore.setRanges([...target.blocks]);
+      // The ranges come back wholesale, so any line may differ.
+      this.projector.invalidate();
       this.selection = { ...target.selection };
       this.selectionBackward = target.backward;
     });
@@ -1358,12 +1376,7 @@ export class InputHost {
         this.text.length === 0 && this.blockStore.isEmpty
       );
       this.renderer.render(
-        this.text,
-        projectParagraphs(
-          this.text,
-          this.formattingStore.allRanges,
-          this.blockStore.allRanges
-        )
+        this.projector.project(this.text, this.blockStore.allRanges)
       );
       this.writeSelectionToDom();
     });

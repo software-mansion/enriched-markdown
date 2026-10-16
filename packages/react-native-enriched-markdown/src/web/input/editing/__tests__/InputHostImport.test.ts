@@ -119,6 +119,24 @@ describe('InputHost imports', () => {
     expect(host.value).toBe('one\ntwo');
   });
 
+  // A new value replaces every line, which the host tells the projector up
+  // front; the fallback for a change it was not told about stays quiet.
+  it('projects an imported value without the missed-hint fallback', async () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { root, host } = mount();
+      const finish = deferParse('one\ntwo');
+      const importing = host.importValue('one\ntwo');
+      await finish();
+      await importing;
+
+      expect(root.children).toHaveLength(2);
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   // The window the parse opens is the one that needs covering: an edit
   // accepted here would be silently overwritten when the value lands.
   it('holds the editor inert while a parse is in flight', async () => {

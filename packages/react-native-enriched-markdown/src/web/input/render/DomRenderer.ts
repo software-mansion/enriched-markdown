@@ -2,6 +2,7 @@ import { LIST_ITEM_BLOCK_TYPES } from '../model/blocks';
 import {
   sameRunStyle,
   type ParagraphProjection,
+  type Projection,
   type StyleRun,
 } from './InputProjection';
 
@@ -16,13 +17,12 @@ const LOG_PREFIX = '[EnrichedMarkdown - DomRenderer]';
 // matches `lines` is rebuilt.
 export class DomRenderer {
   private readonly root: HTMLElement;
-  private renderedText = '';
   // The projection the DOM currently shows, and `changedWindow`'s diff
-  // baseline. Safe to hold by reference: the projection layer is a value-copy
-  // boundary over the stores (`projectParagraphs` allocates a fresh paragraph
-  // per line and `computeStyleRuns` fresh runs, reading stored ranges only for
-  // their numbers), so no later store mutation can reach it.
+  // baseline. Safe to hold by reference: projections are never mutated once
+  // built (see `ParagraphProjection`), and a paragraph the next projection
+  // kept is the same object, which is what makes the diff cheap.
   private renderedParagraphs: readonly ParagraphProjection[] = [];
+  private renderedLineStarts: readonly number[] = [];
   private lines: HTMLElement[] = [];
   // Line element -> index into `lines`, so the mapper resolves a DOM point's
   // line in O(1) instead of counting siblings.
@@ -49,11 +49,14 @@ export class DomRenderer {
   // Line offsets for the selection mapper, read straight off the baseline so
   // a binary search over them allocates nothing.
   lineStart(index: number): number {
-    return this.renderedParagraphs[index]?.start ?? 0;
+    return this.renderedLineStarts[index] ?? 0;
   }
 
   lineEnd(index: number): number {
-    return this.renderedParagraphs[index]?.end ?? 0;
+    const paragraph = this.renderedParagraphs[index];
+    return paragraph === undefined
+      ? 0
+      : this.renderedLineStarts[index]! + paragraph.text.length;
   }
 
   lineElement(index: number): HTMLElement | undefined {
@@ -85,17 +88,17 @@ export class DomRenderer {
   // editor that went read-only mid-composition - the model is unchanged and an
   // ordinary render finds nothing to patch.
   invalidate(): void {
-    this.renderedText = '';
     this.renderedParagraphs = [];
+    this.renderedLineStarts = [];
     this.lines = [];
     this.lineIndices = new WeakMap();
     this.dirtyLines.clear();
     this.root.replaceChildren();
   }
 
-  render(text: string, paragraphs: readonly ParagraphProjection[]): void {
+  render(projection: Projection): void {
     try {
-      this.patch(text, paragraphs);
+      this.patch(projection);
     } catch (error) {
       // A half-patched DOM whose cache still claims the pre-edit state is
       // unrecoverable: `changedWindow` would find no difference and patch
@@ -105,24 +108,17 @@ export class DomRenderer {
         console.error(`${LOG_PREFIX} Patch failed; rebuilding the DOM`, error);
       }
       this.invalidate();
-      this.patch(text, paragraphs);
+      this.patch(projection);
     }
   }
 
-  private patch(
-    text: string,
-    paragraphs: readonly ParagraphProjection[]
-  ): void {
+  private patch(projection: Projection): void {
+    const { paragraphs } = projection;
     const document = this.root.ownerDocument;
-    const window = changedWindow(
-      this.renderedText,
-      this.renderedParagraphs,
-      text,
-      paragraphs
-    );
+    const window = changedWindow(this.renderedParagraphs, paragraphs);
     if (!this.linesIntact(window.start, window.stalePairs)) {
       this.invalidate();
-      this.patch(text, paragraphs);
+      this.patch(projection);
       return;
     }
     const { start, stalePairs, freshPairs } = window;
@@ -131,12 +127,7 @@ export class DomRenderer {
     const inserted = freshPairs - patched;
 
     for (let i = 0; i < patched; i++) {
-      patchParagraph(
-        document,
-        this.lines[start + i]!,
-        text,
-        paragraphs[start + i]!
-      );
+      patchParagraph(document, this.lines[start + i]!, paragraphs[start + i]!);
     }
 
     const spliceAt = start + patched;
@@ -149,7 +140,7 @@ export class DomRenderer {
       const fragment = document.createDocumentFragment();
       const fresh: HTMLElement[] = [];
       for (let i = 0; i < inserted; i++) {
-        const line = createParagraph(document, text, paragraphs[spliceAt + i]!);
+        const line = createParagraph(document, paragraphs[spliceAt + i]!);
         fragment.appendChild(line);
         fresh.push(line);
       }
@@ -172,13 +163,13 @@ export class DomRenderer {
     for (const line of this.dirtyLines) {
       const index = this.indexOfLine(line);
       if (index !== -1) {
-        patchParagraph(document, line, text, paragraphs[index]!);
+        patchParagraph(document, line, paragraphs[index]!);
       }
     }
     this.dirtyLines.clear();
 
-    this.renderedText = text;
-    this.renderedParagraphs = [...paragraphs];
+    this.renderedParagraphs = paragraphs;
+    this.renderedLineStarts = projection.lineStarts;
   }
 
   // The window match ignores ordinals (Enter in a list would otherwise
@@ -232,9 +223,7 @@ export class DomRenderer {
 // prefix and suffix (by content, not offsets) and returns the window between
 // them: where it starts and how many old/new paragraphs fall inside.
 function changedWindow(
-  previousText: string,
   previous: readonly ParagraphProjection[],
-  text: string,
   next: readonly ParagraphProjection[]
 ): { start: number; stalePairs: number; freshPairs: number } {
   const maxShared = Math.min(previous.length, next.length);
@@ -242,7 +231,7 @@ function changedWindow(
   let prefix = 0;
   while (
     prefix < maxShared &&
-    sameParagraph(previousText, previous[prefix]!, text, next[prefix]!)
+    sameParagraph(previous[prefix]!, next[prefix]!)
   ) {
     prefix++;
   }
@@ -251,9 +240,7 @@ function changedWindow(
   while (
     suffix < maxShared - prefix &&
     sameParagraph(
-      previousText,
       previous[previous.length - 1 - suffix]!,
-      text,
       next[next.length - 1 - suffix]!
     )
   ) {
@@ -267,32 +254,29 @@ function changedWindow(
   };
 }
 
+// A paragraph the projector kept is the same object, so most lines match on
+// identity alone.
 function sameParagraph(
-  previousText: string,
   previous: ParagraphProjection,
-  text: string,
   next: ParagraphProjection
 ): boolean {
+  if (previous === next) {
+    return true;
+  }
   return (
     previous.blockType === next.blockType &&
     previous.level === next.level &&
+    previous.text === next.text &&
     previous.runs.length === next.runs.length &&
-    previous.runs.every((run, i) =>
-      sameRun(previousText, run, text, next.runs[i]!)
-    )
+    previous.runs.every((run, i) => sameRun(run, next.runs[i]!))
   );
 }
 
-function sameRun(
-  previousText: string,
-  previous: StyleRun,
-  text: string,
-  next: StyleRun
-): boolean {
+function sameRun(previous: StyleRun, next: StyleRun): boolean {
   return (
     sameRunStyle(previous, next.styles, next.url) &&
-    previousText.slice(previous.start, previous.end) ===
-      text.slice(next.start, next.end)
+    previous.startInLine === next.startInLine &&
+    previous.endInLine === next.endInLine
   );
 }
 
@@ -302,18 +286,16 @@ export function classNameFor(styles: StyleRun['styles']): string {
 
 function createParagraph(
   document: Document,
-  text: string,
   paragraph: ParagraphProjection
 ): HTMLElement {
   const element = document.createElement('div');
-  patchParagraph(document, element, text, paragraph);
+  patchParagraph(document, element, paragraph);
   return element;
 }
 
 function patchParagraph(
   document: Document,
   element: HTMLElement,
-  text: string,
   paragraph: ParagraphProjection
 ): void {
   patchBlockAttributes(element, paragraph);
@@ -345,9 +327,9 @@ function patchParagraph(
   paragraph.runs.forEach((run, index) => {
     const existing = element.children[index];
     if (existing === undefined) {
-      element.appendChild(createRun(document, text, run));
+      element.appendChild(createRun(document, paragraph.text, run));
     } else {
-      patchRun(existing as HTMLElement, text, run);
+      patchRun(existing as HTMLElement, paragraph.text, run);
     }
   });
 }
@@ -405,23 +387,23 @@ function setData(
 
 function createRun(
   document: Document,
-  text: string,
+  lineText: string,
   run: StyleRun
 ): HTMLElement {
   const span = document.createElement('span');
   span.appendChild(document.createTextNode(''));
-  patchRun(span, text, run);
+  patchRun(span, lineText, run);
   return span;
 }
 
-function patchRun(span: HTMLElement, text: string, run: StyleRun): void {
+function patchRun(span: HTMLElement, lineText: string, run: StyleRun): void {
   const className = classNameFor(run.styles);
   if (span.className !== className) {
     span.className = className;
   }
   setData(span, 'url', run.url);
 
-  const content = text.slice(run.start, run.end);
+  const content = lineText.slice(run.startInLine, run.endInLine);
   const textNode = span.firstChild as Text;
   const current = textNode.data;
   if (current !== content) {
