@@ -4,7 +4,6 @@ extern "C" {
 #include "entity.h"
 }
 #include <cctype>
-#include <charconv>
 #include <cstring>
 #include <vector>
 
@@ -53,9 +52,20 @@ void appendCharacterReference(std::string &output, const char *text, size_t size
   const char *begin = text + (hex ? 3 : 2);
   const char *end = text + size - 1;
   unsigned int codepoint = 0;
-  const auto parsed = std::from_chars(begin, end, codepoint, hex ? 16 : 10);
-  if (parsed.ec != std::errc{} || parsed.ptr != end) {
-    codepoint = 0;
+  for (const char *p = begin; p != end; ++p) {
+    unsigned int digit;
+    if (*p >= '0' && *p <= '9') {
+      digit = *p - '0';
+    } else if (hex && *p >= 'a' && *p <= 'f') {
+      digit = *p - 'a' + 10;
+    } else if (hex && *p >= 'A' && *p <= 'F') {
+      digit = *p - 'A' + 10;
+    } else {
+      codepoint = 0;
+      break;
+    }
+    // md4c caps numeric references at 7 decimal or 6 hex digits, so this cannot overflow.
+    codepoint = codepoint * (hex ? 16 : 10) + digit;
   }
   appendCodepoint(output, codepoint);
 }
