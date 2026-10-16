@@ -178,6 +178,30 @@ describe('serialize', () => {
     expect(nested(10)).toBe('10. a\n    - b');
   });
 
+  it('writes each marker ahead of the delimiters reopened on its line', () => {
+    const blocks = [
+      createBlockRange('unordered-list-item', 0, 2),
+      createBlockRange('h2', 3, 5, 2),
+    ];
+
+    expect(serialize('ab\ncd', [range('strong', 0, 5)], blocks)).toBe(
+      '- **ab**\n## **cd**'
+    );
+  });
+
+  // The store sorts its blocks, which lets `serialize` walk to each block's
+  // line instead of searching for it; any other caller still gets every
+  // marker on its own line.
+  it('prefixes blocks handed over out of order', () => {
+    const blocks = [
+      createBlockRange('h1', 13, 18, 1),
+      createBlockRange('unordered-list-item', 7, 12),
+      createBlockRange('h3', 0, 6, 3),
+    ];
+
+    expect(serialize(text, [], blocks)).toBe('### Rebase\n- fetch\n# merge');
+  });
+
   it('anchors the trailing empty line after a final newline', () => {
     expect(serialize('a\n', [], [createBlockRange('h1', 2, 2, 1)])).toBe(
       'a\n# '

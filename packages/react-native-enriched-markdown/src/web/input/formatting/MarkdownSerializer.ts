@@ -10,7 +10,6 @@ import {
   compareBoundaryEvents,
   type BoundaryEvent,
 } from '../model/boundaryEvents';
-import type { RangeBounds } from '../model/rangeBounds';
 
 const OPENING_DELIMITERS: Record<InputStyleType, string> = {
   strong: '**',
@@ -114,7 +113,14 @@ export function serializeInline(
   if (ranges.length === 0) {
     return text;
   }
+  return writeMarkdown(text, inlineEvents(text, ranges));
+}
 
+// The delimiters to write, in output order.
+function inlineEvents(
+  text: string,
+  ranges: readonly FormattingRange[]
+): BoundaryEvent[] {
   const events: BoundaryEvent[] = [];
   for (const range of splitRangesAtLineBreaks(ranges, text)) {
     let start = clamp(range.start, 0, text.length);
@@ -149,67 +155,88 @@ export function serializeInline(
   }
 
   events.sort((a, b) => compareBoundaryEvents(a, b, compareNestingPriority));
+  return events;
+}
 
+// Copies `text` with the events' delimiters and the lines' block markers
+// written in. `linePrefixes` is indexed like `lineStarts`, and a line with no
+// entry gets no marker. A marker lands in front of its line's first character,
+// and so in front of any delimiter opening there; no delimiter closes at a line
+// start, because a range is split into one segment per line and each segment
+// ends on its own line.
+function writeMarkdown(
+  text: string,
+  events: readonly BoundaryEvent[],
+  lineStarts: readonly number[] = [],
+  linePrefixes: readonly (string | undefined)[] = []
+): string {
   let markdown = '';
-  let lastPosition = 0;
-  for (const event of events) {
-    const position = Math.min(event.position, text.length);
-    if (position > lastPosition) {
-      markdown += text.slice(lastPosition, position);
-      lastPosition = position;
+  let written = 0;
+  let nextLine = 0;
+  const copyTo = (position: number) => {
+    for (
+      ;
+      nextLine < lineStarts.length && lineStarts[nextLine]! <= position;
+      nextLine++
+    ) {
+      const prefix = linePrefixes[nextLine];
+      if (prefix !== undefined) {
+        const lineStart = lineStarts[nextLine]!;
+        markdown += text.slice(written, lineStart) + prefix;
+        written = lineStart;
+      }
     }
+    if (position > written) {
+      markdown += text.slice(written, position);
+      written = position;
+    }
+  };
+
+  for (const event of events) {
+    copyTo(event.position);
     markdown += event.isOpening
       ? OPENING_DELIMITERS[event.type]
       : closingDelimiter(event.type, event.url);
   }
-  if (lastPosition < text.length) {
-    markdown += text.slice(lastPosition);
-  }
-
+  copyTo(text.length);
   return markdown;
 }
 
 // Block-aware serialization: serializes inline styles exactly as
-// serializeInline, then prepends each line's markdownLinePrefix marker (e.g.
-// "# ", "- "); a block whose marker is "" leaves its line unprefixed.
+// serializeInline, with each line's markdownLinePrefix marker (e.g. "# ",
+// "- ") in front of it; a block whose marker is "" leaves its line unprefixed.
+// Markers are written during the same sweep as the delimiters, so the output is
+// never split back into lines. That relies on delimiters never carrying a line
+// ending, which is why link destinations percent-encode theirs.
 export function serialize(
   text: string,
   ranges: readonly FormattingRange[],
   blockRanges: readonly BlockRange[]
 ): string {
-  const inlineMarkdown = serializeInline(text, ranges);
   if (blockRanges.length === 0) {
-    return inlineMarkdown;
+    return serializeInline(text, ranges);
   }
 
-  // Block prefixes attach per line. Inline serialization only inserts inline
-  // delimiters (never newlines), so the serialized output has the same line
-  // count as the plain text — we map a block's plain-text range to line
-  // indices and prefix the corresponding serialized lines. If the invariant
-  // ever breaks, prefixes would land on the wrong lines: log and fall back to
-  // inline-only output — a library must not crash the host app over lost
-  // block prefixes.
-  const plainLines = text.split('\n');
-  const markdownLines = inlineMarkdown.split('\n');
-  if (plainLines.length !== markdownLines.length) {
-    console.error(
-      `[EnrichedMarkdown - MarkdownSerializer] Block serialization line-count invariant violated: plain=${plainLines.length} markdown=${markdownLines.length}`
-    );
-    return inlineMarkdown;
+  const lineStarts = [0];
+  for (
+    let lineBreak = text.indexOf('\n');
+    lineBreak !== -1;
+    lineBreak = text.indexOf('\n', lineBreak + 1)
+  ) {
+    lineStarts.push(lineBreak + 1);
   }
-
-  const lineBounds: RangeBounds[] = [];
-  let runningOffset = 0;
-  for (const line of plainLines) {
-    lineBounds.push({ start: runningOffset, end: runningOffset + line.length });
-    runningOffset += line.length + 1; // +1 for the '\n' separator
-  }
+  const lineEnd = (line: number) =>
+    line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : text.length;
+  const linePrefixes: (string | undefined)[] = [];
 
   // Content column of the last list item seen at each depth, so a nested item
   // can indent to its parent's marker width. The store clamps a depth to one
   // more than the previous adjacent item's, so the parent's entry is always
   // already filled in by the time a child reads it.
   const listContentColumns: number[] = [];
+  // First line of the last block given a marker. The store keeps blocks sorted
+  // by start, so the next block's first line is found by walking on from here.
+  let cursor = 0;
 
   for (const block of blockRanges) {
     const isListItem = LIST_ITEM_BLOCK_TYPES.has(block.type);
@@ -227,18 +254,21 @@ export function serialize(
 
     const isZeroLength = block.end === block.start;
     // Line ends rise strictly, so the first line reaching the block's start is
-    // the block's own first line; its remaining lines follow it.
-    const firstLine = firstIndexReachingTarget(
-      block.start,
-      lineBounds.length,
-      (index) => lineBounds[index]!.end
-    );
-    for (
-      let lineIndex = firstLine;
-      lineIndex < lineBounds.length;
-      lineIndex++
-    ) {
-      const lineStart = lineBounds[lineIndex]!.start;
+    // the block's own first line; its remaining lines follow it. A block
+    // starting behind the cursor (callers other than the store need not sort)
+    // is looked up instead.
+    if (cursor > 0 && lineEnd(cursor - 1) >= block.start) {
+      cursor = firstIndexReachingTarget(
+        block.start,
+        lineStarts.length,
+        lineEnd
+      );
+    }
+    while (cursor < lineStarts.length && lineEnd(cursor) < block.start) {
+      cursor++;
+    }
+    for (let line = cursor; line < lineStarts.length; line++) {
+      const lineStart = lineStarts[line]!;
       const overlaps = isZeroLength
         ? lineStart === block.start
         : lineStart < block.end;
@@ -248,14 +278,19 @@ export function serialize(
       // A marker-only list line ("- " with no content) re-parses as a setext
       // underline for the previous line; emit an empty list line bare. An
       // empty "# " heading is valid ATX and keeps its prefix.
-      if (isListItem && plainLines[lineIndex] === '') {
+      if (isListItem && lineEnd(line) === lineStart) {
         continue;
       }
-      markdownLines[lineIndex] = prefix + markdownLines[lineIndex]!;
+      linePrefixes[line] = prefix + (linePrefixes[line] ?? '');
     }
   }
 
-  return markdownLines.join('\n');
+  return writeMarkdown(
+    text,
+    ranges.length === 0 ? [] : inlineEvents(text, ranges),
+    lineStarts,
+    linePrefixes
+  );
 }
 
 // Width of "- " or "1. ", the narrowest markers a list item can carry.
