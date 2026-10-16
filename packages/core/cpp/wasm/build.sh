@@ -40,12 +40,19 @@ emcc \
   -c "$CPP_ROOT/md4c/md4c.c" \
   -o "$OUT_DIR/md4c.o"
 
-# Compile C++ sources and link everything together
 emcc \
+  -I "$CPP_ROOT" \
+  -O2 \
+  -c "$CPP_ROOT/md4c/entity.c" \
+  -o "$OUT_DIR/entity.o"
+
+# Compile C++ sources and link everything together
+em++ \
   "$SCRIPT_DIR/md4c_wasm.cpp" \
   "$SCRIPT_DIR/ASTSerializer.cpp" \
   "$CPP_ROOT/parser/MD4CParser.cpp" \
   "$OUT_DIR/md4c.o" \
+  "$OUT_DIR/entity.o" \
   -I "$CPP_ROOT" \
   -I "$SCRIPT_DIR" \
   -O2 \
@@ -65,6 +72,6 @@ emcc \
   -s GROWABLE_ARRAYBUFFERS=0 \
   -o "$OUT_DIR/md4c.js"
 
-rm "$OUT_DIR/md4c.o"
+rm "$OUT_DIR/md4c.o" "$OUT_DIR/entity.o"
 
 echo "Done → $OUT_DIR/md4c.js"

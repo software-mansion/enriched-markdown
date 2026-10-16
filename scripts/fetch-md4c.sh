@@ -9,6 +9,8 @@ DEST_DIR="$(cd "$(dirname "$0")/.." && pwd)/packages/core/cpp/md4c"
 FILES=(
   "md4c.c"
   "md4c.h"
+  "entity.c"
+  "entity.h"
 )
 
 echo "Fetching md4c sources from github.com/${REPO} (branch: ${BRANCH})..."
