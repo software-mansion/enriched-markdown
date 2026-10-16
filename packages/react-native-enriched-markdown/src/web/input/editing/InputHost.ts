@@ -1,0 +1,1045 @@
+import { BlockStore, lineAtPosition } from '../formatting/BlockStore';
+import { FormattingStore } from '../formatting/FormattingStore';
+import { parseToPlainTextAndRanges } from '../formatting/InputParser';
+import { serialize } from '../formatting/MarkdownSerializer';
+import type { RangeBounds } from '../model/rangeBounds';
+import { DomRenderer } from '../render/DomRenderer';
+import { projectParagraphs } from '../render/InputProjection';
+import { ENRM_INPUT_CLASS, injectInputStyles } from '../render/inputStyles';
+import { isListItem, type BlockType } from '../model/blocks';
+import type { PendingStyleType } from '../model/inlineStyles';
+import { BlockEditCoordinator } from './BlockEditCoordinator';
+import { EditPipeline } from './EditPipeline';
+import { EditSession } from './EditSession';
+import { SelectionMapper } from './SelectionMapper';
+import { TypingAttributesController } from './TypingAttributesController';
+import { buildInputState, sameInputState, type InputState } from './InputState';
+import {
+  clamp,
+  codePointBoundaryAtOrBefore,
+  graphemeLengthBefore,
+  graphemeLengthAfter,
+  isCodePointBoundary,
+  isWhitespace,
+} from '../utils';
+
+export interface CaretRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface InputHostCallbacks {
+  onChangeText?: (text: string) => void;
+  onChangeSelection?: (selection: RangeBounds) => void;
+  onChangeState?: (state: InputState) => void;
+  onChangeMarkdown?: (markdown: string) => void;
+}
+
+export interface InputHostOptions {
+  // Left to the browser when unset, which is what native does too: the OS
+  // keyboard spellchecks normally there. `false` turns it off, along with the
+  // squiggles under anything markdown-ish.
+  spellCheck?: boolean;
+}
+
+export class InputHost {
+  private readonly root: HTMLElement;
+  private readonly callbacks: InputHostCallbacks;
+  private readonly formattingStore = new FormattingStore();
+  private readonly blockStore = new BlockStore();
+  private readonly session = new EditSession();
+  private readonly pipeline: EditPipeline;
+  private readonly blockCoordinator: BlockEditCoordinator;
+  private readonly typing: TypingAttributesController;
+  private readonly renderer: DomRenderer;
+  private readonly mapper: SelectionMapper;
+  // Attributes this host set itself, and so the only ones it removes on
+  // teardown: `role` and `aria-multiline` are set only when the node does not
+  // already carry them, so a consumer's own value is never ours to undo.
+  // `data-empty` is listed from the start because `render` toggles it rather
+  // than setting it, and teardown has to clear it either way.
+  private readonly ownedAttributes: string[] = ['data-empty'];
+
+  private text = '';
+  private selection: RangeBounds = { start: 0, end: 0 };
+  private destroyed = false;
+  // Bumped by every import, so one still parsing can tell that a later import
+  // has overtaken it. Only imports count: a user edit cannot race an import,
+  // because the editor is inert while one is parsing.
+  private importGeneration = 0;
+  private pendingImports = 0;
+  private editable = true;
+  private markdownEmitEnabled = true;
+  private lastEmittedState: InputState | null = null;
+
+  constructor(
+    root: HTMLElement,
+    callbacks: InputHostCallbacks = {},
+    options: InputHostOptions = {}
+  ) {
+    this.root = root;
+    this.callbacks = callbacks;
+    this.pipeline = new EditPipeline(this.formattingStore, this.blockStore);
+    this.blockCoordinator = new BlockEditCoordinator(this.blockStore);
+    this.typing = new TypingAttributesController(this.formattingStore);
+    this.renderer = new DomRenderer(root);
+    this.mapper = new SelectionMapper(root, this.renderer);
+
+    injectInputStyles();
+    root.classList.add(ENRM_INPUT_CLASS);
+    this.setOwnedAttribute('contenteditable', 'true');
+    // A consumer may be passing these through as props; theirs wins.
+    setAttributeIfAbsent(root, 'role', 'textbox');
+    setAttributeIfAbsent(root, 'aria-multiline', 'true');
+    if (options.spellCheck !== undefined) {
+      root.setAttribute('spellcheck', String(options.spellCheck));
+      this.ownedAttributes.push('spellcheck');
+    }
+    // Not configurable, unlike spellcheck: grammar and translation extensions
+    // rewrite the text nodes under us, and nothing in this model can see that
+    // happen.
+    this.setOwnedAttribute('data-gramm', 'false');
+    this.setOwnedAttribute('translate', 'no');
+
+    root.addEventListener('beforeinput', this.handleBeforeInput);
+    root.addEventListener('keydown', this.handleKeyDown);
+    root.addEventListener('compositionstart', this.handleCompositionStart);
+    root.addEventListener('compositionend', this.handleCompositionEnd);
+    root.addEventListener('focus', this.handleFocus);
+    root.addEventListener('blur', this.handleBlur);
+    root.addEventListener('cut', this.handleCut);
+    root.addEventListener('paste', this.handlePaste);
+    root.ownerDocument.addEventListener(
+      'selectionchange',
+      this.handleSelectionChange
+    );
+
+    this.render();
+  }
+
+  destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    this.session.endComposition();
+
+    this.root.removeEventListener('beforeinput', this.handleBeforeInput);
+    this.root.removeEventListener('keydown', this.handleKeyDown);
+    this.root.removeEventListener(
+      'compositionstart',
+      this.handleCompositionStart
+    );
+    this.root.removeEventListener('compositionend', this.handleCompositionEnd);
+    this.root.removeEventListener('focus', this.handleFocus);
+    this.root.removeEventListener('blur', this.handleBlur);
+    this.root.removeEventListener('cut', this.handleCut);
+    this.root.removeEventListener('paste', this.handlePaste);
+    this.root.ownerDocument.removeEventListener(
+      'selectionchange',
+      this.handleSelectionChange
+    );
+
+    // Leave nothing editable behind. A consumer that owns the node and keeps
+    // it would otherwise hand the user a contentEditable with no model
+    // underneath, which accepts typing and reports none of it.
+    for (const attribute of this.ownedAttributes) {
+      this.root.removeAttribute(attribute);
+    }
+    this.root.classList.remove(ENRM_INPUT_CLASS);
+    this.root.replaceChildren();
+  }
+
+  get value(): string {
+    return this.text;
+  }
+
+  getMarkdown(): string {
+    return serialize(
+      this.text,
+      this.formattingStore.allRanges,
+      this.blockStore.allRanges
+    );
+  }
+
+  // The prop path (`defaultValue` and friends): loads the markdown without
+  // reporting it back, because the app already has this value. Matches
+  // Android, which holds its importing phase across the whole import, and
+  // iOS, whose `importMarkdown` emits nothing.
+  async importValue(markdown: string): Promise<void> {
+    await this.loadValue(markdown);
+  }
+
+  focus(): void {
+    this.root.focus();
+  }
+
+  // Writes the attribute rather than the `contentEditable` IDL property, which
+  // is how the constructor sets it in the first place - so the node's
+  // editability reads the same whether it was set at construction or flipped
+  // later. The name is already registered as ours, so teardown clears it.
+  setEditable(editable: boolean): void {
+    this.editable = editable;
+    this.root.setAttribute('contenteditable', editable ? 'true' : 'false');
+  }
+
+  // Mirrors native's `isOnChangeMarkdownSet` prop. Every edit would otherwise
+  // serialize the whole document, and a wrapper that forwards the event
+  // through a stable closure cannot be told apart from a real listener by
+  // inspecting the callback.
+  setMarkdownEmitEnabled(enabled: boolean): void {
+    this.markdownEmitEnabled = enabled;
+  }
+
+  caretRect(): CaretRect | null {
+    const position = this.mapper.domPositionFromModelOffset(
+      this.selection.start
+    );
+    if (position === null) {
+      return null;
+    }
+    const range = this.root.ownerDocument.createRange();
+    range.setStart(position.node, position.offset);
+    range.collapse(true);
+    const rect = caretRectOfRange(range, position.node);
+    const rootRect = this.root.getBoundingClientRect();
+    return {
+      x: rect.left - rootRect.left,
+      y: rect.top - rootRect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  blur(): void {
+    this.root.blur();
+  }
+
+  // The imperative command path: loads the markdown and then reports it, the
+  // way iOS's `setValue:` command re-emits once the import returns. Keeping
+  // the two apart matters at the wrapper, where one `setValue` serving both
+  // would make mounting with a `defaultValue` fire `onChangeText` with the
+  // value the app just supplied.
+  async setValue(markdown: string): Promise<void> {
+    if (await this.loadValue(markdown)) {
+      this.emitTextEdited();
+    }
+  }
+
+  // Returns whether the import was applied: a second import started while
+  // this one was parsing supersedes it, and so does teardown.
+  private async loadValue(markdown: string): Promise<boolean> {
+    const generation = ++this.importGeneration;
+    // The parse is asynchronous, and the window it opens is the one that
+    // needs covering: the phase below only wraps the synchronous model write,
+    // which was never at risk. Holding the editor inert for the duration is
+    // what native does (its import owns the whole body) and means a keystroke
+    // cannot be silently overwritten by the value landing afterwards.
+    this.pendingImports++;
+    let parsed: Awaited<ReturnType<typeof parseToPlainTextAndRanges>>;
+    try {
+      parsed = await parseToPlainTextAndRanges(markdown);
+    } finally {
+      this.pendingImports--;
+    }
+    if (this.destroyed || generation !== this.importGeneration) {
+      return false;
+    }
+
+    const { plainText, formattingRanges, blockRanges } = parsed;
+    this.session.scoped('importing', () => {
+      this.text = plainText;
+      this.formattingStore.setRanges(formattingRanges);
+      this.blockStore.setRanges(blockRanges);
+      this.selection = { start: plainText.length, end: plainText.length };
+    });
+    this.render();
+    return true;
+  }
+
+  // Clamps the way iOS does - into the buffer, then `end` up to `start`, so a
+  // reversed range collapses rather than flipping - and additionally snaps off
+  // the seam inside a surrogate pair, which UIKit does for us there but which
+  // nothing here would catch before the next edit split the pair.
+  setSelection(start: number, end: number): void {
+    const max = this.text.length;
+    const clampedStart = clamp(start, 0, max);
+    this.selection = {
+      start: codePointBoundaryAtOrBefore(this.text, clampedStart),
+      end: codePointBoundaryAtOrBefore(
+        this.text,
+        clamp(end, clampedStart, max)
+      ),
+    };
+    this.render();
+    this.resetTypingAfterSelectionMove();
+    this.emitSelectionMoved();
+  }
+
+  indentList(): void {
+    this.changeListDepthBy(1);
+  }
+
+  outdentList(): void {
+    this.changeListDepthBy(-1);
+  }
+
+  toggleUnorderedList(): void {
+    this.toggleListType('unordered-list-item');
+  }
+
+  toggleOrderedList(): void {
+    this.toggleListType('ordered-list-item');
+  }
+
+  toggleBold(): void {
+    this.toggleInlineStyle('strong');
+  }
+
+  toggleItalic(): void {
+    this.toggleInlineStyle('em');
+  }
+
+  toggleUnderline(): void {
+    this.toggleInlineStyle('underline');
+  }
+
+  toggleStrikethrough(): void {
+    this.toggleInlineStyle('strikethrough');
+  }
+
+  toggleSpoiler(): void {
+    this.toggleInlineStyle('spoiler');
+  }
+
+  toggleHeading(level: number): void {
+    this.session.scoped('processing', () =>
+      this.blockCoordinator.toggleHeading(level, this.selection, this.text)
+    );
+    this.render();
+    this.emitFormattingChanged();
+  }
+
+  private readonly handleBeforeInput = (event: InputEvent): void => {
+    if (!this.editable) {
+      event.preventDefault();
+      return;
+    }
+    // The browser owns the DOM during a composition and `beforeinput` for
+    // `insertCompositionText` is not cancelable in every engine, so the model
+    // stays out of the way and reads the result back on `compositionend`.
+    if (event.isComposing || this.session.isComposing) {
+      return;
+    }
+    // Default-deny: unhandled input types become no-ops, never native edits.
+    event.preventDefault();
+    // An import is parsing: the value the app asked for is about to replace
+    // everything, so an edit now would be overwritten anyway.
+    if (this.pendingImports > 0) {
+      return;
+    }
+    this.syncSelectionFromDom();
+
+    switch (event.inputType) {
+      case 'insertText':
+        this.replaceSelection(event.data ?? '');
+        break;
+      // Autocorrect and spellcheck replacements address their own range
+      // rather than the selection.
+      case 'insertReplacementText':
+        this.replaceTargetRange(event, replacementTextOf(event));
+        break;
+      case 'insertParagraph':
+      case 'insertLineBreak':
+        this.insertNewline();
+        break;
+      case 'deleteContentBackward':
+        this.deleteBackwardTo(
+          this.selection.start -
+            graphemeLengthBefore(this.text, this.selection.start)
+        );
+        break;
+      case 'deleteContentForward':
+        this.deleteForwardTo(
+          this.selection.end +
+            graphemeLengthAfter(this.text, this.selection.end)
+        );
+        break;
+      case 'deleteWordBackward':
+        this.deleteBackwardTo(wordStartBefore(this.text, this.selection.start));
+        break;
+      case 'deleteWordForward':
+        this.deleteForwardTo(wordEndAfter(this.text, this.selection.end));
+        break;
+      case 'deleteSoftLineBackward':
+      case 'deleteHardLineBackward':
+        this.deleteBackwardTo(lineStartBefore(this.text, this.selection.start));
+        break;
+      case 'deleteSoftLineForward':
+      case 'deleteHardLineForward':
+        this.deleteForwardTo(lineEndAfter(this.text, this.selection.end));
+        break;
+      // `deleteByCut` is the second half of a cut, which `handleCut` has
+      // already performed; `insertFromPaste` likewise belongs to
+      // `handlePaste`. Cancelling them here is what keeps the browser from
+      // doing it a second time.
+      //
+      // Still deliberately denied, with nothing behind them yet:
+      // - `insertParagraph` / `insertLineBreak`: Enter, which has to continue
+      //   lists and split blocks. Lands with the formatting commands.
+      // - `formatBold` and friends: the commands own these, including the
+      //   keyboard shortcuts that raise them.
+      // - `historyUndo` / `historyRedo`: every model edit is a scripted
+      //   `nodeValue` write, so the browser's undo stack is empty and there is
+      //   nothing to diverge from - but there is no undo either until the
+      //   model keeps its own stack.
+      // - `insertFromDrop`: needs a caret-from-point mapping to know where the
+      //   drop landed. Denying it is inert rather than wrong.
+      default:
+        break;
+    }
+  };
+
+  private syncSelectionFromDom(): void {
+    const domSelection = this.root.ownerDocument.getSelection();
+    if (domSelection === null) {
+      return;
+    }
+    const mapped = this.mapper.modelSelectionFromDom(domSelection);
+    if (mapped !== null) {
+      this.selection = mapped;
+    }
+  }
+
+  // Tab never reaches beforeinput (the browser moves focus), so it is the
+  // one key handled here.
+  private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    if (!this.editable || event.key !== 'Tab' || this.session.isComposing) {
+      return;
+    }
+    event.preventDefault();
+    this.syncSelectionFromDom();
+    if (event.shiftKey) {
+      this.outdentList();
+    } else {
+      this.indentList();
+    }
+  };
+
+  private readonly handleCompositionStart = (): void => {
+    this.session.beginComposition();
+  };
+
+  private readonly handleCompositionEnd = (): void => {
+    this.session.endComposition();
+    this.recoverComposition();
+  };
+
+  private readonly handleFocus = (): void => {
+    // The browser places its own caret when a contentEditable takes focus, and
+    // `writeSelectionToDom` declines to write while the editor is unfocused.
+    // Without this, a `setSelection` issued before the focus would be
+    // overwritten by that caret the moment the focus arrived.
+    if (this.destroyed) {
+      return;
+    }
+    this.session.scoped('formatting', () => this.writeSelectionToDom());
+  };
+
+  private readonly handleBlur = (): void => {
+    // A composition abandoned by a blur does not always fire
+    // `compositionend`, and a latched composition flag makes the editor
+    // read-only: every `beforeinput` short-circuits.
+    if (this.session.isComposing) {
+      this.session.endComposition();
+      this.recoverComposition();
+    }
+  };
+
+  // A composition that ends on a read-only editor - `editable` was flipped
+  // while the IME held the DOM - must not be read back as an edit, but the
+  // nodes the IME left behind still have to go, so the model is rendered over
+  // them instead.
+  private recoverComposition(): void {
+    if (this.editable) {
+      this.readBackFromDom();
+      return;
+    }
+    this.renderer.invalidate();
+    this.render();
+  }
+
+  private readonly handleCut = (event: ClipboardEvent): void => {
+    // The UA writes the clipboard and then performs the deletion, whose
+    // `beforeinput` arrives as `deleteByCut` and gets cancelled. Taking over
+    // both halves is what stops a cut from copying the text and leaving it
+    // in place. On a read-only editor both halves stay cancelled, the way
+    // iOS and Android drop Cut from the menu and leave Copy, which is not
+    // intercepted here at all.
+    event.preventDefault();
+    if (!this.editable || this.session.isComposing || this.pendingImports > 0) {
+      return;
+    }
+    this.syncSelectionFromDom();
+    const { start, end } = this.selection;
+    if (start === end) {
+      return;
+    }
+    event.clipboardData?.setData('text/plain', this.text.slice(start, end));
+    this.applyEdit(start, this.text.slice(start, end), '');
+  };
+
+  private readonly handlePaste = (event: ClipboardEvent): void => {
+    event.preventDefault();
+    if (!this.editable || this.session.isComposing || this.pendingImports > 0) {
+      return;
+    }
+    // Plain text only. Pasting markdown as formatted content means running
+    // the parser and merging an import into the middle of the buffer, which
+    // is a separate concern from this shell.
+    const pasted = event.clipboardData?.getData('text/plain') ?? '';
+    if (pasted.length === 0) {
+      return;
+    }
+    this.syncSelectionFromDom();
+    this.replaceSelection(normalizeLineEndings(pasted));
+  };
+
+  private readonly handleSelectionChange = (): void => {
+    // This guard only catches a side effect delivered on the same stack as
+    // the write. `selectionchange` is queued on the user interaction task
+    // source instead, so by delivery time the render's scope has exited and
+    // the phase is back to idle. What actually swallows the echo of our own
+    // render is the offset comparison at the end: the mapper's round trip is
+    // lossless, so a caret we just restored maps back to the offset already
+    // held. Do not drop it as redundant.
+    if (
+      this.session.shouldSuppressSelectionSideEffects ||
+      this.session.isComposing ||
+      this.destroyed
+    ) {
+      return;
+    }
+    // A render dirties any selection inside the nodes it rewrites (replacing a
+    // text node's data collapses the live ranges within it), and
+    // `writeSelectionToDom` only puts it back while the editor has focus.
+    // Without this, that unrestored selection arrives here and reports a
+    // change for a document the user never touched.
+    if (!this.hasFocus()) {
+      return;
+    }
+    const domSelection = this.root.ownerDocument.getSelection();
+    if (domSelection === null) {
+      return;
+    }
+    const mapped = this.mapper.modelSelectionFromDom(domSelection);
+    if (mapped === null) {
+      return;
+    }
+    if (
+      mapped.start === this.selection.start &&
+      mapped.end === this.selection.end
+    ) {
+      // The comparison has to be in model offsets rather than on node
+      // identity: a render replaces the nodes the selection pointed into, so
+      // the echo of our own write arrives pointing somewhere else entirely
+      // while describing the same offsets.
+      //
+      // Those offsets are not the whole story, though. The mapping is lossy
+      // over an empty line, whose only node is a `<br>`: both ends of a DOM
+      // range inside it map to the one model offset, so a stretched highlight
+      // reports as a collapsed caret. The model did not move, so nothing is
+      // emitted, but the DOM still shows the highlight and needs the write.
+      if (domSelection.isCollapsed !== (mapped.start === mapped.end)) {
+        this.render();
+      }
+      return;
+    }
+    this.selection = mapped;
+    this.resetTypingAfterSelectionMove();
+    this.emitSelectionMoved();
+  };
+
+  private resetTypingAfterSelectionMove(): void {
+    if (!this.session.isPostEditGracePeriod) {
+      this.typing.resetForSelectionChange(this.selection);
+    }
+  }
+
+  // The browser owns the DOM through a composition, so the composed text
+  // lands without the model seeing it. This recovers it afterwards: read the
+  // text back out of the rendered nodes, diff it against the model to get the
+  // one edit the composition made, and run that edit through the ordinary
+  // path.
+  //
+  // Without this the two diverge permanently - the composed text stays on
+  // screen while `value` and `onChangeText` omit it, so the user saves and
+  // their text is not there - and whatever nodes the IME left behind go on
+  // confusing the selection mapping. The scope is wider than CJK: macOS dead
+  // keys, iOS Safari autocorrect and GBoard suggestions all compose.
+  private readBackFromDom(): void {
+    if (this.destroyed) {
+      return;
+    }
+    const domText = readTextFromDom(this.root);
+    if (domText === this.text) {
+      // Nothing to recover, but the IME may still have left non-canonical
+      // nodes behind; a render replaces them.
+      this.render();
+      return;
+    }
+    const { editStart, deletedText, insertedText } = diffEdit(
+      this.text,
+      domText
+    );
+    this.applyEdit(editStart, deletedText, insertedText);
+  }
+
+  private insertNewline(): void {
+    const { start, end } = this.selection;
+    if (start === end && this.unlistEmptyListItem(start)) {
+      return;
+    }
+    this.replaceSelection('\n');
+  }
+
+  private unlistEmptyListItem(caret: number): boolean {
+    const line = lineAtPosition(caret, this.text);
+    const block = this.blockStore.blockAt(caret, this.text);
+    if (line.start !== line.end || !isListItem(block)) {
+      return false;
+    }
+    this.toggleListType(block.type);
+    return true;
+  }
+
+  // Backspace at the start of a list item outdents it, or un-lists it at
+  // depth 0, instead of merging with the line above.
+  private outdentListAtLineStart(caret: number): boolean {
+    const line = lineAtPosition(caret, this.text);
+    if (
+      caret !== line.start ||
+      !isListItem(this.blockStore.blockAt(caret, this.text))
+    ) {
+      return false;
+    }
+    this.outdentList();
+    return true;
+  }
+
+  private changeListDepthBy(delta: number): void {
+    const changed = this.session.scoped('processing', () =>
+      this.blockCoordinator.changeListDepthBy(delta, this.selection, this.text)
+    );
+    if (changed) {
+      this.render();
+      this.emitFormattingChanged();
+    }
+  }
+
+  private toggleListType(type: BlockType): void {
+    this.session.scoped('processing', () =>
+      this.blockCoordinator.toggleListType(type, this.selection, this.text)
+    );
+    this.render();
+    this.emitFormattingChanged();
+  }
+
+  private toggleInlineStyle(type: PendingStyleType): void {
+    const { start, end } = this.selection;
+    const wasActive = this.session.scoped('processing', () =>
+      this.formattingStore.toggleStyle(type, start, end)
+    );
+    this.typing.toggleStyle(type, wasActive, start !== end);
+    this.render();
+    this.emitFormattingChanged();
+  }
+
+  insertText(text: string): void {
+    this.replaceSelection(text);
+  }
+
+  private replaceSelection(insertedText: string): void {
+    const { start, end } = this.selection;
+    this.applyEdit(start, this.text.slice(start, end), insertedText);
+  }
+
+  private replaceTargetRange(event: InputEvent, insertedText: string): void {
+    const target = this.modelRangeFromTargetRanges(event);
+    if (target === null) {
+      return;
+    }
+    this.applyEdit(
+      target.start,
+      this.text.slice(target.start, target.end),
+      insertedText
+    );
+  }
+
+  // The range an input type carries on the event rather than in the selection.
+  private modelRangeFromTargetRanges(event: InputEvent): RangeBounds | null {
+    if (typeof event.getTargetRanges !== 'function') {
+      return null;
+    }
+    const [target] = event.getTargetRanges();
+    if (target === undefined) {
+      return null;
+    }
+    const start = this.mapper.modelOffsetFromDom(
+      target.startContainer,
+      target.startOffset
+    );
+    const end = this.mapper.modelOffsetFromDom(
+      target.endContainer,
+      target.endOffset
+    );
+    if (start === null || end === null) {
+      return null;
+    }
+    return { start: Math.min(start, end), end: Math.max(start, end) };
+  }
+
+  // Deletes back to `target`. A target that makes no progress - a word or
+  // line delete with the caret already at a line start - falls back to one
+  // character, which is the newline, so the press joins the lines instead of
+  // doing nothing.
+  private deleteBackwardTo(target: number): void {
+    const { start, end } = this.selection;
+    if (start !== end) {
+      this.replaceSelection('');
+      return;
+    }
+    if (this.outdentListAtLineStart(start) || start === 0) {
+      return;
+    }
+    const from =
+      target < start ? target : start - graphemeLengthBefore(this.text, start);
+    this.applyEdit(from, this.text.slice(from, start), '');
+  }
+
+  private deleteForwardTo(target: number): void {
+    const { start, end } = this.selection;
+    if (start !== end) {
+      this.replaceSelection('');
+      return;
+    }
+    if (end >= this.text.length) {
+      return;
+    }
+    const to =
+      target > end ? target : end + graphemeLengthAfter(this.text, end);
+    this.applyEdit(end, this.text.slice(end, to), '');
+  }
+
+  // The native keystroke choreography: model phase, render phase, then
+  // events, in the iOS order.
+  private applyEdit(
+    editStart: number,
+    deletedText: string,
+    insertedText: string
+  ): void {
+    this.session.scoped('processing', () => {
+      this.text =
+        this.text.slice(0, editStart) +
+        insertedText +
+        this.text.slice(editStart + deletedText.length);
+      this.pipeline.processTextChange(this.text, {
+        editStart,
+        deletedText,
+        insertedText,
+        pendingStyles: this.typing.styles,
+        pendingStyleRemovals: this.typing.styleRemovals,
+      });
+      const caret = editStart + insertedText.length;
+      this.selection = { start: caret, end: caret };
+      this.session.recordTextChange();
+    });
+    this.render();
+    this.emitTextEdited();
+  }
+
+  private render(): void {
+    this.session.scoped('formatting', () => {
+      this.root.toggleAttribute(
+        'data-empty',
+        this.text.length === 0 && this.blockStore.allRanges.length === 0
+      );
+      this.renderer.render(
+        this.text,
+        projectParagraphs(
+          this.text,
+          this.formattingStore.allRanges,
+          this.blockStore.allRanges
+        )
+      );
+      this.writeSelectionToDom();
+    });
+  }
+
+  private writeSelectionToDom(): void {
+    if (!this.hasFocus()) {
+      return;
+    }
+    const domSelection = this.root.ownerDocument.getSelection();
+    if (domSelection === null) {
+      return;
+    }
+    const current = this.mapper.modelSelectionFromDom(domSelection);
+    const collapsed = this.selection.start === this.selection.end;
+    if (
+      current !== null &&
+      current.start === this.selection.start &&
+      current.end === this.selection.end &&
+      domSelection.isCollapsed === collapsed
+    ) {
+      return;
+    }
+    const start = this.mapper.domPositionFromModelOffset(this.selection.start);
+    const end =
+      this.selection.start === this.selection.end
+        ? start
+        : this.mapper.domPositionFromModelOffset(this.selection.end);
+    if (start === null || end === null) {
+      return;
+    }
+    domSelection.setBaseAndExtent(
+      start.node,
+      start.offset,
+      end.node,
+      end.offset
+    );
+  }
+
+  private hasFocus(): boolean {
+    return this.root.contains(this.root.ownerDocument.activeElement);
+  }
+
+  private setOwnedAttribute(name: string, value: string): void {
+    this.root.setAttribute(name, value);
+    this.ownedAttributes.push(name);
+  }
+
+  private emitText(): void {
+    if (this.session.shouldSuppressEvents) {
+      return;
+    }
+    this.callbacks.onChangeText?.(this.text);
+  }
+
+  private emitSelection(): void {
+    if (this.session.shouldSuppressEvents) {
+      return;
+    }
+    this.callbacks.onChangeSelection?.(this.selection);
+  }
+
+  private emitState(): void {
+    if (this.session.shouldSuppressEvents) {
+      return;
+    }
+    const state = buildInputState(
+      this.formattingStore,
+      this.blockStore,
+      this.typing,
+      this.selection,
+      this.text
+    );
+    if (
+      this.lastEmittedState !== null &&
+      sameInputState(state, this.lastEmittedState)
+    ) {
+      return;
+    }
+    this.lastEmittedState = state;
+    this.callbacks.onChangeState?.(state);
+  }
+
+  private emitMarkdown(): void {
+    if (
+      this.session.shouldSuppressEvents ||
+      !this.markdownEmitEnabled ||
+      !this.callbacks.onChangeMarkdown
+    ) {
+      return;
+    }
+    this.callbacks.onChangeMarkdown(this.getMarkdown());
+  }
+
+  private emitTextEdited(): void {
+    this.emitText();
+    this.emitSelection();
+    this.emitState();
+    this.emitMarkdown();
+  }
+
+  private emitFormattingChanged(): void {
+    this.emitState();
+    this.emitMarkdown();
+  }
+
+  private emitSelectionMoved(): void {
+    this.emitSelection();
+    this.emitState();
+  }
+}
+
+interface CaretBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+// The box of a collapsed range, with the empty-line case covered. A range
+// collapsed at an element boundary has no client rects in Blink or WebKit, and
+// `getBoundingClientRect` answers an all-zero box there rather than a
+// position - which is exactly where an empty line's caret sits, because the
+// line renders as a lone `<br>` and the mapper resolves it to the paragraph
+// element itself. Subtracting the root's position from that zero box reports
+// the negated root position, so the line's own box stands in instead.
+function caretRectOfRange(range: Range, node: Node): CaretBox {
+  const rect = range.getBoundingClientRect();
+  if (!isZeroBox(rect)) {
+    return rect;
+  }
+  const element =
+    node.nodeType === Node.ELEMENT_NODE
+      ? (node as Element)
+      : node.parentElement;
+  const line = element?.getBoundingClientRect();
+  if (line === undefined || isZeroBox(line)) {
+    return rect;
+  }
+  return { left: line.left, top: line.top, width: 0, height: line.height };
+}
+
+function isZeroBox(box: CaretBox): boolean {
+  return box.left === 0 && box.top === 0 && box.width === 0 && box.height === 0;
+}
+
+function setAttributeIfAbsent(
+  element: HTMLElement,
+  name: string,
+  value: string
+): void {
+  if (!element.hasAttribute(name)) {
+    element.setAttribute(name, value);
+  }
+}
+
+// `insertReplacementText` carries its text on `data` in some engines and in
+// the data transfer in others.
+function replacementTextOf(event: InputEvent): string {
+  return event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
+}
+
+// The buffer uses bare newlines, so a clipboard's line endings are converted
+// rather than stored as text.
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n?/g, '\n');
+}
+
+// Recovers the plain text the DOM currently shows, in the shape `render`
+// writes it: one line per element child of the root.
+function readTextFromDom(root: HTMLElement): string {
+  const lines: string[] = [];
+  for (const node of root.childNodes) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      lines.push(node.textContent ?? '');
+      continue;
+    }
+    // A text node an IME or an extension dropped directly under the root
+    // belongs to the line it was dropped beside, not to a line of its own.
+    const text = node.textContent ?? '';
+    if (text.length === 0) {
+      continue;
+    }
+    if (lines.length === 0) {
+      lines.push(text);
+    } else {
+      lines[lines.length - 1] += text;
+    }
+  }
+  return lines.join('\n');
+}
+
+// The one contiguous edit between two buffers, bounded by their shared prefix
+// and suffix. A composition commits as a single replacement, so one window is
+// all there is to find.
+function diffEdit(
+  previous: string,
+  next: string
+): { editStart: number; deletedText: string; insertedText: string } {
+  const maxShared = Math.min(previous.length, next.length);
+
+  let prefix = 0;
+  while (prefix < maxShared && previous[prefix] === next[prefix]) {
+    prefix++;
+  }
+  // The stores index code units, so a boundary inside a surrogate pair would
+  // leave half a character on each side of the edit.
+  while (prefix > 0 && !isCodePointBoundary(next, prefix)) {
+    prefix--;
+  }
+
+  let suffix = 0;
+  while (
+    suffix < maxShared - prefix &&
+    previous[previous.length - 1 - suffix] === next[next.length - 1 - suffix]
+  ) {
+    suffix++;
+  }
+  while (suffix > 0 && !isCodePointBoundary(next, next.length - suffix)) {
+    suffix--;
+  }
+
+  return {
+    editStart: prefix,
+    deletedText: previous.slice(prefix, previous.length - suffix),
+    insertedText: next.slice(prefix, next.length - suffix),
+  };
+}
+
+// Start of the word before `position`: the whitespace immediately before it,
+// then the run of non-whitespace before that. A line break bounds the scan,
+// so one press never reaches onto the previous line.
+function wordStartBefore(text: string, position: number): number {
+  let index = position;
+  while (index > 0 && isInlineWhitespace(text[index - 1]!)) {
+    index--;
+  }
+  while (index > 0 && isWordCharacter(text[index - 1]!)) {
+    index--;
+  }
+  return index;
+}
+
+function wordEndAfter(text: string, position: number): number {
+  let index = position;
+  while (index < text.length && isInlineWhitespace(text[index]!)) {
+    index++;
+  }
+  while (index < text.length && isWordCharacter(text[index]!)) {
+    index++;
+  }
+  return index;
+}
+
+function lineStartBefore(text: string, position: number): number {
+  return text.lastIndexOf('\n', position - 1) + 1;
+}
+
+function lineEndAfter(text: string, position: number): number {
+  const next = text.indexOf('\n', position);
+  return next === -1 ? text.length : next;
+}
+
+function isInlineWhitespace(char: string): boolean {
+  return char !== '\n' && isWhitespace(char);
+}
+
+function isWordCharacter(char: string): boolean {
+  return char !== '\n' && !isWhitespace(char);
+}
