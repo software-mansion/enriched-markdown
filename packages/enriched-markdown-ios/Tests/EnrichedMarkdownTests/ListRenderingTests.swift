@@ -2,7 +2,7 @@ import UIKit
 import XCTest
 @testable import EnrichedMarkdown
 
-final class OrderedListMarkerWidthTests: XCTestCase {
+final class ListRenderingTests: XCTestCase {
     private var config: MarkdownStyleConfiguration!
 
     override func setUp() {

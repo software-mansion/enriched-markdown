@@ -1,20 +1,17 @@
-package com.swmansion.enriched.markdown.spans
+package com.swmansion.enriched.markdown
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.Rect
-import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.SpannableString
-import android.text.StaticLayout
-import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.spans.BaseListSpan
+import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
+import com.swmansion.enriched.markdown.test.MarkerCanvas
+import com.swmansion.enriched.markdown.test.MarkerGeometry
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.orderedList
@@ -28,11 +25,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.ceil
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [28])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-class OrderedListMarkerWidthTest {
+class ListRenderingTest {
   @Test
   fun shortListsKeepTheirIndentAndLongListsShareTheirWidestGutter() {
     val style = styleConfig()
@@ -48,7 +46,7 @@ class OrderedListMarkerWidthTest {
     for (count in listOf(100, 101, 250, 1000)) {
       val spans = orderedSpans(style, numbered(count))
       val widest = maxOf(baseline, spans.maxOf { paint.measureText("${it.itemNumber}.") })
-      spans.forEach { assertEquals((widest + gap).toInt(), it.getLeadingMargin(false)) }
+      spans.forEach { assertEquals((baseline + ceil(widest - baseline) + gap).toInt(), it.getLeadingMargin(false)) }
       assertTrue(spans.first().getLeadingMargin(false) > short.first().getLeadingMargin(false))
     }
   }
@@ -102,7 +100,7 @@ class OrderedListMarkerWidthTest {
   }
 
   @Test
-  fun tasksDoNotPassTheWideListsNumericExtraToTheirChildren() {
+  fun tasksMoveWithTheirWideNumberedSiblings() {
     val style = styleConfig()
 
     fun tree(count: Int): MarkdownASTNode {
@@ -111,7 +109,7 @@ class OrderedListMarkerWidthTest {
       items[2] = listItem(paragraph(text("item")), numbered(1))
       return orderedList(*items.toTypedArray())
     }
-    assertNestedMarkerGapsUnchanged(style, tree(4), tree(1000))
+    assertEveryRowShiftsTogether(style, tree(4), tree(1000))
   }
 
   @Test
@@ -128,19 +126,37 @@ class OrderedListMarkerWidthTest {
   fun inheritedMarkerOffsetsFollowTheRtlDirection() {
     val style = styleConfig()
     val text = SpannableString(render(document(withChild(numbered(1000), 0, numbered(1))), style))
-    val layout =
-      StaticLayout.Builder
-        .obtain(text, 0, text.length, TextPaint(), LAYOUT_WIDTH)
-        .setTextDirection(TextDirectionHeuristics.RTL)
-        .build()
-    val canvas = MarkerCanvas()
-    layout.draw(canvas)
-    assertEquals(1001, canvas.markers.size)
-    canvas.markers.forEach { marker ->
+    val layout = MarkerCanvas.layout(text, style.listStyle.fontSize, rtl = true)
+    val markers = MarkerCanvas.drawMarkers(layout)
+    assertEquals(1001, markers.size)
+    markers.forEach { marker ->
       val line = layout.getLineForVertical(marker.baseline.toInt())
       assertEquals(-1, layout.getParagraphDirection(line))
       assertEquals(layout.getParagraphRight(line) + style.listStyle.gapWidth, marker.left, 0.01f)
       assertTrue(marker.right <= layout.width)
+    }
+  }
+
+  /** The rows [wide] shares with [short], tasks and their children included, all sit [wide]'s widening further right. */
+  private fun assertEveryRowShiftsTogether(
+    style: StyleConfig,
+    short: MarkdownASTNode,
+    wide: MarkdownASTNode,
+  ) {
+    val shortRows = drawMarkers(style, short)
+    val wideRows = drawMarkers(style, wide).take(shortRows.size)
+    assertEquals(shortRows.size, wideRows.size)
+    val shift = wideRows.first().paragraphLeft - shortRows.first().paragraphLeft
+    assertTrue(shift > 0f)
+    wideRows.zip(shortRows).forEach { (actual, control) ->
+      assertEquals(control.depth, actual.depth)
+      assertEquals("text shift at depth ${actual.depth}", shift, actual.paragraphLeft - control.paragraphLeft, 0.01f)
+      assertEquals(
+        "marker gap at depth ${actual.depth}",
+        control.paragraphLeft - control.marker.right,
+        actual.paragraphLeft - actual.marker.right,
+        0.01f,
+      )
     }
   }
 
@@ -170,18 +186,10 @@ class OrderedListMarkerWidthTest {
   ): List<MarkerGeometry> {
     // SpannableString reports spans in insertion order, as the text view does.
     val text = SpannableString(render(document(*lists), style))
-    val paint = TextPaint().apply { textSize = style.listStyle.fontSize }
-    val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, LAYOUT_WIDTH).build()
-    val canvas = MarkerCanvas()
-    layout.draw(canvas)
-    assertEquals(text.getSpans(0, text.length, BaseListSpan::class.java).size, canvas.markers.size)
-    return canvas.markers.map { marker ->
-      val line = layout.getLineForVertical(marker.baseline.toInt())
-      assertTrue("marker left ${marker.left} on line $line", marker.left >= 0f)
-      val start = layout.getLineStart(line)
-      val depth = text.getSpans(start, start + 1, BaseListSpan::class.java).maxOf { it.depth }
-      MarkerGeometry(marker, layout.getParagraphLeft(line).toFloat(), depth)
-    }
+    val geometry = MarkerCanvas.markerGeometry(text, MarkerCanvas.layout(text, style.listStyle.fontSize))
+    assertEquals(text.getSpans(0, text.length, BaseListSpan::class.java).size, geometry.size)
+    geometry.forEach { assertTrue("marker left ${it.marker.left} at depth ${it.depth}", it.marker.left >= 0f) }
+    return geometry
   }
 
   private fun orderedSpans(
@@ -192,61 +200,6 @@ class OrderedListMarkerWidthTest {
     return text
       .getSpans(0, text.length, OrderedListSpan::class.java)
       .sortedWith(compareBy({ text.getSpanStart(it) }, { it.depth }))
-  }
-
-  private data class MarkerGeometry(
-    val marker: DrawnMarker,
-    val paragraphLeft: Float,
-    val depth: Int,
-  )
-
-  private data class DrawnMarker(
-    val left: Float,
-    val right: Float,
-    val baseline: Float,
-  )
-
-  private class MarkerCanvas : Canvas(Bitmap.createBitmap(LAYOUT_WIDTH, 1, Bitmap.Config.ARGB_8888)) {
-    val markers = mutableListOf<DrawnMarker>()
-
-    // Layout draws only the lines inside the clip; report a clip tall enough for every list here.
-    override fun getClipBounds(bounds: Rect): Boolean {
-      bounds.set(0, 0, LAYOUT_WIDTH, Int.MAX_VALUE / 2)
-      return true
-    }
-
-    override fun drawCircle(
-      cx: Float,
-      cy: Float,
-      radius: Float,
-      paint: Paint,
-    ) {
-      // Bullets are centered on the reserved column edge, matching the iOS drawer.
-      val outerRadius = radius + paint.strokeWidth / 2f
-      markers += DrawnMarker(cx - outerRadius, cx, cy)
-      super.drawCircle(cx, cy, radius, paint)
-    }
-
-    override fun drawRoundRect(
-      rect: RectF,
-      rx: Float,
-      ry: Float,
-      paint: Paint,
-    ) {
-      val halfStroke = if (paint.style == Paint.Style.STROKE) paint.strokeWidth / 2f else 0f
-      markers += DrawnMarker(rect.left - halfStroke, rect.right + halfStroke, rect.centerY())
-      super.drawRoundRect(rect, rx, ry, paint)
-    }
-
-    override fun drawText(
-      text: String,
-      x: Float,
-      y: Float,
-      paint: Paint,
-    ) {
-      if (text.matches(Regex("(?:[0-9]+\\.|\\.[0-9]+)"))) markers += DrawnMarker(x, x + paint.measureText(text), y)
-      super.drawText(text, x, y, paint)
-    }
   }
 
   private fun item(): MarkdownASTNode = listItem(paragraph(text("item")))
@@ -273,9 +226,5 @@ class OrderedListMarkerWidthTest {
         marginLeft = 24f,
       ),
     )
-  }
-
-  private companion object {
-    const val LAYOUT_WIDTH = 2000
   }
 }
