@@ -95,8 +95,14 @@ export interface BlockWriter {
 export class BlockStore {
   private ranges: BlockRange[] = [];
 
-  get allRanges(): BlockRange[] {
-    return [...this.ranges];
+  // A live view, as on Android: read it right away and don't keep it across a
+  // write - some writes change the array in place, others swap it.
+  get allRanges(): readonly BlockRange[] {
+    return this.ranges;
+  }
+
+  get isEmpty(): boolean {
+    return this.ranges.length === 0;
   }
 
   // Incoming ranges are trusted to be non-overlapping and line-scoped — the

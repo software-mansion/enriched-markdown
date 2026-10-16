@@ -123,6 +123,18 @@ describe('BlockStore', () => {
     store = new BlockStore();
   });
 
+  // The empty-editor check: a zero-length anchor on an empty line still
+  // counts, so the placeholder does not cover its marker.
+  it('isEmpty is false while any block, even an anchor, remains', () => {
+    expect(store.isEmpty).toBe(true);
+
+    store.setRanges([block('unordered-list-item', 0, 0)]);
+    expect(store.isEmpty).toBe(false);
+
+    store.clearAll();
+    expect(store.isEmpty).toBe(true);
+  });
+
   it('blockAt finds the block from any position on its line', () => {
     store.setRanges([block('h1', 0, 9), block('unordered-list-item', 10, 16)]);
 

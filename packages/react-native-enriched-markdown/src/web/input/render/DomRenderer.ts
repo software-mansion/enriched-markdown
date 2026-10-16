@@ -144,13 +144,16 @@ export class DomRenderer {
       for (let i = 0; i < removed; i++) {
         this.lines[spliceAt + i]!.remove();
       }
-      const suffixAnchor = this.lines[spliceAt + removed] ?? null;
+      // Built off-document and attached in one insert: an import adds every
+      // line, and attaching each one to the live root costs per call.
+      const fragment = document.createDocumentFragment();
       const fresh: HTMLElement[] = [];
       for (let i = 0; i < inserted; i++) {
         const line = createParagraph(document, text, paragraphs[spliceAt + i]!);
-        this.root.insertBefore(line, suffixAnchor);
+        fragment.appendChild(line);
         fresh.push(line);
       }
+      this.root.insertBefore(fragment, this.lines[spliceAt + removed] ?? null);
       // Not `splice(..., ...fresh)`: an initial render inserts every line, and
       // spreading tens of thousands of arguments overflows the stack.
       this.lines = this.lines

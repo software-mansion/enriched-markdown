@@ -10,8 +10,10 @@ import type { RangeBounds } from '../model/rangeBounds';
 export class FormattingStore {
   private ranges: FormattingRange[] = [];
 
-  get allRanges(): FormattingRange[] {
-    return [...this.ranges];
+  // A live view, as on Android: read it right away and don't keep it across a
+  // write - some writes change the array in place, others swap it.
+  get allRanges(): readonly FormattingRange[] {
+    return this.ranges;
   }
 
   setRanges(ranges: FormattingRange[]): void {
@@ -26,13 +28,17 @@ export class FormattingStore {
     return this.ranges.filter((range) => range.type === type);
   }
 
+  // Sorted by start, so no range past `position` can cover it.
   rangeOfType(type: InputStyleType, position: number): FormattingRange | null {
-    return (
-      this.ranges.find(
-        (range) =>
-          range.type === type && position >= range.start && position < range.end
-      ) ?? null
-    );
+    for (const range of this.ranges) {
+      if (range.start > position) {
+        break;
+      }
+      if (range.type === type && position < range.end) {
+        return range;
+      }
+    }
+    return null;
   }
 
   isStyleActive(type: InputStyleType, position: number): boolean {
@@ -44,9 +50,15 @@ export class FormattingStore {
     start: number,
     end: number
   ): boolean {
-    return this.ranges.some(
-      (range) => range.type === type && range.start < end && range.end > start
-    );
+    for (const range of this.ranges) {
+      if (range.start >= end) {
+        break;
+      }
+      if (range.type === type && range.end > start) {
+        return true;
+      }
+    }
+    return false;
   }
 
   isStyleAdjacentBefore(type: InputStyleType, position: number): boolean {

@@ -1355,7 +1355,7 @@ export class InputHost {
     this.session.scoped('formatting', () => {
       this.root.toggleAttribute(
         'data-empty',
-        this.text.length === 0 && this.blockStore.allRanges.length === 0
+        this.text.length === 0 && this.blockStore.isEmpty
       );
       this.renderer.render(
         this.text,

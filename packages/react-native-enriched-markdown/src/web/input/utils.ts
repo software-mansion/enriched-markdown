@@ -4,8 +4,10 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 // Leftmost index whose value reaches `target`, or `size` when none does, over
-// a collection whose values rise with the index. The stores keep their ranges
-// sorted, so every lookup into them is one of these rather than a scan.
+// a collection whose values rise with the index: sorted insertion points and
+// BlockStore's line lookup. FormattingStore's queries scan instead - ranges of
+// other types interleave and a covering range can start far back - but stop
+// at the first range starting past the position.
 export function firstIndexReachingTarget(
   target: number,
   size: number,

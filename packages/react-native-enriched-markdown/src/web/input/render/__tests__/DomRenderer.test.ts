@@ -202,3 +202,27 @@ describe('DomRenderer list edits', () => {
     ]);
   });
 });
+
+describe('DomRenderer inserts', () => {
+  it('attaches the lines of a first render in one insert', () => {
+    const root = document.createElement('div');
+    const observer = new MutationObserver(() => {});
+    observer.observe(root, { childList: true });
+    render(new DomRenderer(root), items('ordered-list-item', 30));
+    const mutations = observer.takeRecords().map(summarize);
+    observer.disconnect();
+
+    expect(mutations).toEqual(['lines:+30-0']);
+    expect(describeLines(root)[29]).toBe('ordered-list-item:0:30:item 29');
+  });
+
+  it('attaches lines pasted mid-document in one insert, in order', () => {
+    const before = items('unordered-list-item', 10);
+    const pasted: Line[] = ['one', 'two', 'three'];
+    const after = [...before.slice(0, 5), ...pasted, ...before.slice(5)];
+    const { mutations, lines, expected } = rerender(before, after);
+
+    expect(lines).toEqual(expected);
+    expect(mutations).toEqual(['lines:+3-0']);
+  });
+});
