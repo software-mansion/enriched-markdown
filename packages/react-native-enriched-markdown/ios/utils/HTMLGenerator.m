@@ -395,7 +395,8 @@ static NSData *collectParagraphsData(NSAttributedString *attributedString, NSUIn
   NSUInteger count = 0;
 
   while (currentIndex < string.length) {
-    NSRange lineRange = [string lineRangeForRange:NSMakeRange(currentIndex, 0)];
+    // Hard breaks render as U+2028 and must stay inside their block, so split on paragraphs, not lines.
+    NSRange lineRange = [string paragraphRangeForRange:NSMakeRange(currentIndex, 0)];
 
     ParagraphData para = {
         .range = lineRange, .type = ParagraphTypeNormal, .depth = 0, .listNumber = 1, .isTaskChecked = NO};
