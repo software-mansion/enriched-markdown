@@ -156,7 +156,7 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
   layout.usedRect = [layoutManager usedRectForTextContainer:textContainer];
   layout.extraLineFragmentRect = layoutManager.extraLineFragmentRect;
 
-  return ENRMFinalizeMeasuredTextSize(layout, layoutManager, text, maxWidth, config, allowTrailingMargin,
+  return ENRMFinalizeMeasuredTextSize(layout, layoutManager, maxWidth, config, allowTrailingMargin,
                                       lastElementMarginBottom, subtractExtraLineFragment, pointScaleFactor);
 }
 

@@ -30,40 +30,54 @@ static inline void ENRMDetachLayoutManager(ENRMPlatformTextView *textView)
   }
 }
 
-static inline BOOL ENRMTextLayoutHasSoftWrap(NSLayoutManager *layoutManager, NSAttributedString *text)
-{
-  NSUInteger glyphCount = [layoutManager numberOfGlyphs];
-  if (glyphCount == 0) {
-    return NO;
-  }
+typedef struct {
+  BOOL hasSoftWrap;
+  CGFloat tightWidth;
+} ENRMLineFragmentScan;
 
-  NSString *string = text.string;
+/// `tightWidth` adds each line's head and tail indent to its used rect, which
+/// TextKit leaves out; lists and code blocks re-wrap without them. Stops at
+/// the first soft wrap or once the width reaches maxWidth: both yield maxWidth.
+static inline ENRMLineFragmentScan ENRMScanLineFragments(NSLayoutManager *layoutManager, CGFloat maxWidth)
+{
+  ENRMLineFragmentScan scan = {NO, 0};
+  NSTextStorage *storage = layoutManager.textStorage;
+  NSString *string = storage.string;
+  NSCharacterSet *newlines = [NSCharacterSet newlineCharacterSet];
+  NSUInteger glyphCount = [layoutManager numberOfGlyphs];
+  BOOL startsParagraph = YES;
   NSUInteger glyphIndex = 0;
   while (glyphIndex < glyphCount) {
     NSRange lineGlyphRange;
-    [layoutManager lineFragmentRectForGlyphAtIndex:glyphIndex effectiveRange:&lineGlyphRange];
-
-    NSUInteger nextGlyphIndex = NSMaxRange(lineGlyphRange);
-    if (nextGlyphIndex < glyphCount) {
-      NSUInteger nextCharacterIndex = [layoutManager characterIndexForGlyphAtIndex:nextGlyphIndex];
-      BOOL hardBreak = NO;
-      if (nextCharacterIndex > 0 && nextCharacterIndex <= string.length) {
-        unichar previousCharacter = [string characterAtIndex:nextCharacterIndex - 1];
-        hardBreak = previousCharacter == '\n' || previousCharacter == '\r' || previousCharacter == 0x2028 ||
-                    previousCharacter == 0x2029;
-      }
-      if (!hardBreak) {
-        return YES;
-      }
+    CGRect usedRect = [layoutManager lineFragmentUsedRectForGlyphAtIndex:glyphIndex effectiveRange:&lineGlyphRange];
+    if (lineGlyphRange.location == NSNotFound || NSMaxRange(lineGlyphRange) <= glyphIndex) {
+      break; // past a numberOfLines clamp: no fragment holds these glyphs
     }
-
-    if (nextGlyphIndex <= glyphIndex) {
+    NSRange lineCharRange = [layoutManager characterRangeForGlyphRange:lineGlyphRange actualGlyphRange:NULL];
+    if (lineCharRange.length == 0) {
       break;
     }
+
+    NSParagraphStyle *style = [storage attribute:NSParagraphStyleAttributeName
+                                         atIndex:lineCharRange.location
+                                  effectiveRange:NULL];
+    CGFloat headIndent = startsParagraph ? style.firstLineHeadIndent : style.headIndent;
+    CGFloat tailInset = style.tailIndent < 0 ? -style.tailIndent : 0;
+    scan.tightWidth = MAX(scan.tightWidth, usedRect.size.width + headIndent + tailInset);
+    if (scan.tightWidth >= maxWidth) {
+      return scan;
+    }
+
+    BOOL endsParagraph = [newlines characterIsMember:[string characterAtIndex:NSMaxRange(lineCharRange) - 1]];
+    NSUInteger nextGlyphIndex = NSMaxRange(lineGlyphRange);
+    if (nextGlyphIndex < glyphCount && !endsParagraph) {
+      scan.hasSoftWrap = YES;
+      return scan;
+    }
+    startsParagraph = endsParagraph;
     glyphIndex = nextGlyphIndex;
   }
-
-  return NO;
+  return scan;
 }
 
 /// Turns a raw TextKit layout pass into the final measured size. Shared by
@@ -71,9 +85,9 @@ static inline BOOL ENRMTextLayoutHasSoftWrap(NSLayoutManager *layoutManager, NSA
 /// (`ENRMMeasureMarkdownViewFree`) so both measure with one algorithm.
 ///
 /// Steps, in order:
-/// - Soft-wrap pin: returning a tight usedRect width after wrapping would let flexShrink
-///   narrow the view below maxWidth, re-wrapping at the narrower width and
-///   mismatching the measured height. Explicit line breaks retain their tight width.
+/// - Soft-wrapped content reports maxWidth: a tight width would let flexShrink
+///   narrow the view, re-wrapping it and mismatching the measured height.
+///   Content broken only by explicit newlines keeps its tight width.
 /// - Optionally subtract the extra line fragment (iOS counts a trailing
 ///   newline's empty line fragment into usedRect). Read-only markdown passes
 ///   YES; text input passes NO so trailing newlines keep a blank line (RN Text
@@ -85,22 +99,25 @@ static inline BOOL ENRMTextLayoutHasSoftWrap(NSLayoutManager *layoutManager, NSA
 ///   `RCTScreenScale()` dispatch_syncs to main on first use, which the
 ///   measure path must never do, see issue #550).
 static inline CGSize ENRMFinalizeMeasuredTextSize(ENRMTextLayoutResult layout, NSLayoutManager *layoutManager,
-                                                  NSAttributedString *text, CGFloat maxWidth, StyleConfig *config,
-                                                  BOOL allowTrailingMargin, CGFloat lastElementMarginBottom,
-                                                  BOOL subtractExtraLineFragment, CGFloat scale)
+                                                  CGFloat maxWidth, StyleConfig *config, BOOL allowTrailingMargin,
+                                                  CGFloat lastElementMarginBottom, BOOL subtractExtraLineFragment,
+                                                  CGFloat scale)
 {
   CGFloat measuredWidth = layout.usedRect.size.width;
   CGFloat measuredHeight = layout.usedRect.size.height;
 
-  if (ENRMTextLayoutHasSoftWrap(layoutManager, text)) {
+  ENRMLineFragmentScan scan = ENRMScanLineFragments(layoutManager, maxWidth);
+  if (scan.hasSoftWrap) {
     measuredWidth = maxWidth;
+  } else if (scan.tightWidth > 0) {
+    measuredWidth = MIN(scan.tightWidth, maxWidth);
   }
 
   if (subtractExtraLineFragment && !CGRectIsEmpty(layout.extraLineFragmentRect)) {
     measuredHeight -= layout.extraLineFragmentRect.size.height;
   }
 
-  if (isLastElementCodeBlock(text)) {
+  if (isLastElementCodeBlock(layoutManager.textStorage)) {
     measuredHeight += [config codeBlockPadding];
   }
 
@@ -120,7 +137,7 @@ static inline CGSize ENRMMeasureMarkdownText(ENRMPlatformTextView *textView, CGF
   }
 
   ENRMTextLayoutResult layout = ENRMMeasureTextLayout(textView, maxWidth);
-  return ENRMFinalizeMeasuredTextSize(layout, textView.layoutManager, text, maxWidth, config, allowTrailingMargin,
+  return ENRMFinalizeMeasuredTextSize(layout, textView.layoutManager, maxWidth, config, allowTrailingMargin,
                                       lastElementMarginBottom, YES, RCTScreenScale());
 }
 
