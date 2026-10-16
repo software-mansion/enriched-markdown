@@ -239,7 +239,7 @@ Works in both flavors: `flavor="github"` fires on the container-based code block
 
 ### `enableCodeBlockWrapToggle`
 
-Adds a line wrap toggle next to the copy button in each fenced code block header (`flavor="github"`). Blocks start unwrapped and scroll horizontally; tapping the toggle wraps that block's lines at the block width, and tapping again goes back to scrolling. The state belongs to the block's position in the document: it survives streaming appends and resets when the markdown is replaced rather than appended to. Code blocks inside blockquotes and admonitions have no toggle and keep scrolling. The toggle's spoken labels come from [`accessibilityLabels.codeBlock`](#accessibilitylabels). macOS accepts the prop but shows no toggle.
+Adds a line wrap toggle next to the copy button in each fenced code block header (`flavor="github"`). Blocks start unwrapped and scroll horizontally; tapping the toggle wraps that block's lines at the block width, and tapping again goes back to scrolling. The state belongs to the block's position in the document: it survives streaming appends and resets when the markdown is replaced rather than appended to. The toggle's spoken labels come from [`accessibilityLabels.codeBlock`](#accessibilitylabels). macOS accepts the prop but shows no toggle.
 
 | Type      | Default Value | Platform     |
 | --------- | ------------- | ------------ |

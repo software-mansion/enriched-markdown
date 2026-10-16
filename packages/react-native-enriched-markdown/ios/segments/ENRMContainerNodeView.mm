@@ -32,6 +32,11 @@
   return self;
 }
 
+- (NSArray<RCTUIView *> *)segmentViews
+{
+  return [_segmentViews copy];
+}
+
 #if TARGET_OS_OSX
 - (BOOL)isFlipped
 {

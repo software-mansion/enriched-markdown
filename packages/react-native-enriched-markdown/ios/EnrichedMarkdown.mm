@@ -28,6 +28,7 @@
 #endif
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
+#import "ENRMCodeBlockWrapState.h"
 #import "ENRMDynamicBlockProps.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
@@ -93,7 +94,6 @@ static char kENRMSegmentFadeAnimatorKey;
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
-@property (atomic, copy, readwrite) NSSet<NSNumber *> *wrappedCodeBlockIndices;
 @end
 
 #if !TARGET_OS_OSX
@@ -134,7 +134,7 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
   // Trailing code block whose closing fence hasn't streamed in yet, if any.
   ENRMCodeBlockSegment *_pendingCodeBlockSegment;
-  BOOL _enableCodeBlockWrapToggle;
+  ENRMCodeBlockWrapState *_codeBlockWrapState;
 
   size_t _renderedStyleFingerprint;
   size_t _pendingStyleFingerprint;
@@ -219,7 +219,21 @@ static char kENRMSegmentFadeAnimatorKey;
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
-    self.wrappedCodeBlockIndices = [NSSet set];
+    __weak EnrichedMarkdown *weakWrapSelf = self;
+    _codeBlockWrapState = [[ENRMCodeBlockWrapState alloc]
+        initWithCodeBlockViews:^{
+          NSMutableArray<ENRMCodeBlockContainerView *> *views = [NSMutableArray array];
+          EnrichedMarkdown *strongSelf = weakWrapSelf;
+          if (strongSelf) {
+            ENRMCollectCodeBlockViews(strongSelf->_segmentViews, views);
+          }
+          return views;
+        }
+        onHeightChanged:^{
+          EnrichedMarkdown *strongSelf = weakWrapSelf;
+          [strongSelf setNeedsLayout];
+          [strongSelf requestHeightUpdate];
+        }];
     _dynamicBlockProps = [[ENRMDynamicBlockProps alloc] init];
     _linkContextMenus = [[ENRMLinkContextMenus alloc] init];
     __weak EnrichedMarkdown *weakMenuSelf = self;
@@ -910,7 +924,7 @@ static char kENRMSegmentFadeAnimatorKey;
           self->_pendingCodeBlockSegment != nil && i == self->_segmentViews.count - 1;
     }
   }];
-  [self syncCodeBlockWrapState];
+  [_codeBlockWrapState sync];
 
   CGRect contentBounds = [self contentBounds];
   if (contentBounds.size.width > 0) {
@@ -1059,49 +1073,15 @@ static char kENRMSegmentFadeAnimatorKey;
     if (strongSelf)
       [strongSelf emitCodeBlockPress:code language:language];
   };
-  codeBlockView.onWrapToggle = ^(ENRMCodeBlockContainerView *view) { [weakSelf codeBlockDidToggleWrap:view]; };
 
   codeBlockView.pending = codeBlockSegment == _pendingCodeBlockSegment;
   [codeBlockView applyCodeBlockNode:codeBlockSegment.codeBlockNode];
   return codeBlockView;
 }
 
-// Pushes wrappedCodeBlockIndices onto the current code block views by position.
-- (void)syncCodeBlockWrapState
+- (NSSet<NSNumber *> *)wrappedCodeBlockIndices
 {
-  NSSet<NSNumber *> *wrapped = self.wrappedCodeBlockIndices;
-  NSUInteger codeBlockIndex = 0;
-  for (RCTUIView *segment in _segmentViews) {
-    if (![segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      continue;
-    }
-    ENRMCodeBlockContainerView *codeBlock = (ENRMCodeBlockContainerView *)segment;
-    codeBlock.showsWrapButton = _enableCodeBlockWrapToggle;
-    codeBlock.wrapped = _enableCodeBlockWrapToggle && [wrapped containsObject:@(codeBlockIndex)];
-    codeBlockIndex++;
-  }
-}
-
-- (void)codeBlockDidToggleWrap:(ENRMCodeBlockContainerView *)view
-{
-  NSUInteger codeBlockIndex = 0;
-  for (RCTUIView *segment in _segmentViews) {
-    if (segment == view) {
-      NSMutableSet<NSNumber *> *wrapped = [self.wrappedCodeBlockIndices mutableCopy];
-      if (view.wrapped) {
-        [wrapped addObject:@(codeBlockIndex)];
-      } else {
-        [wrapped removeObject:@(codeBlockIndex)];
-      }
-      self.wrappedCodeBlockIndices = wrapped;
-      [self setNeedsLayout];
-      [self requestHeightUpdate];
-      return;
-    }
-    if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
-      codeBlockIndex++;
-    }
-  }
+  return _codeBlockWrapState.indices;
 }
 
 - (void)animateBlockViewIfNeeded:(RCTUIView *)view
@@ -1156,20 +1136,11 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL markdownChanged = oldViewProps.markdown != newViewProps.markdown;
   if (markdownChanged) {
     _dirtyFlags |= ENRMDirtyRender;
-    // Wrap state is keyed by block position, so it only stays meaningful while
-    // the document grows in place. Streaming may rewrite its unfinished last line
-    // (an HTML tag closing, a link relabeled); anything earlier changing - a
-    // recycled cell, an edited message, a block inserted above - starts unwrapped.
     // A task toggle renders its result locally before JS echoes it back as a
-    // prop; that echo is the document already on screen, so the choice stands.
-    const bool echoesRendered =
-        _cachedMarkdown != nil && newViewProps.markdown == std::string(_cachedMarkdown.UTF8String);
-    const auto &previous = oldViewProps.markdown;
-    const auto lastNewline = previous.rfind('\n');
-    const auto stablePrefix = lastNewline == std::string::npos ? std::string() : previous.substr(0, lastNewline);
-    if (self.wrappedCodeBlockIndices.count > 0 && !echoesRendered &&
-        newViewProps.markdown.rfind(stablePrefix, 0) != 0) {
-      self.wrappedCodeBlockIndices = [NSSet set];
+    // prop, so the rendered document is handed over for the echo check.
+    if ([_codeBlockWrapState markdownPropDidChangeFrom:oldViewProps.markdown
+                                                    to:newViewProps.markdown
+                                              rendered:_cachedMarkdown]) {
       _dirtyFlags |= ENRMDirtyForceHeight;
     }
   }
@@ -1273,17 +1244,9 @@ static char kENRMSegmentFadeAnimatorKey;
   _dynamicBlockProps.enableBlockContextMenu = newViewProps.enableBlockContextMenu;
   _dynamicBlockProps.enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
-  if (_enableCodeBlockWrapToggle != newViewProps.enableCodeBlockWrapToggle) {
-    _enableCodeBlockWrapToggle = newViewProps.enableCodeBlockWrapToggle;
-    BOOL hadWrappedBlocks = self.wrappedCodeBlockIndices.count > 0;
-    if (!_enableCodeBlockWrapToggle) {
-      self.wrappedCodeBlockIndices = [NSSet set];
-    }
-    [self syncCodeBlockWrapState];
-    if (hadWrappedBlocks && !_enableCodeBlockWrapToggle) {
-      [self setNeedsLayout];
-      [self requestHeightUpdate];
-    }
+  if ([_codeBlockWrapState updateEnabled:newViewProps.enableCodeBlockWrapToggle]) {
+    [self setNeedsLayout];
+    [self requestHeightUpdate];
   }
 
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
@@ -1463,8 +1426,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _tableStreamingMode = ENRMTableStreamingModeProgressive;
   _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
   _pendingCodeBlockSegment = nil;
-  _enableCodeBlockWrapToggle = NO;
-  self.wrappedCodeBlockIndices = [NSSet set];
+  [_codeBlockWrapState reset];
   _lineBreakStrategy = NSLineBreakStrategyNone;
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
   _renderedStyleFingerprint = 0;

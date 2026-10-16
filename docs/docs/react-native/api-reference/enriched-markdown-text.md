@@ -219,7 +219,7 @@ Controls the long-press context menu on block views - fenced code blocks, tables
 
 ### `enableCodeBlockWrapToggle`
 
-Adds a line wrap toggle next to the copy button in each fenced code block header. Blocks start unwrapped and scroll horizontally; tapping the toggle wraps that block's lines at the block width, and tapping again goes back to scrolling. The state belongs to the block's position in the document: it survives streaming appends and resets when the Markdown is replaced rather than appended to. Code blocks inside blockquotes and admonitions have no toggle and keep scrolling. Needs [`flavor="github"`](#flavor); the toggle's spoken labels come from [`accessibilityLabels.codeBlock`](#accessibilitylabels). iOS and Android only; macOS accepts the prop but shows no toggle.
+Adds a line wrap toggle next to the copy button in each fenced code block header. Blocks start unwrapped and scroll horizontally; tapping the toggle wraps that block's lines at the block width, and tapping again goes back to scrolling. The state belongs to the block's position in the document: it survives streaming appends and resets when the Markdown is replaced rather than appended to. Needs [`flavor="github"`](#flavor); the toggle's spoken labels come from [`accessibilityLabels.codeBlock`](#accessibilitylabels). iOS and Android only; macOS accepts the prop but shows no toggle.
 
 <PropInfo type="boolean" default="false" />
 

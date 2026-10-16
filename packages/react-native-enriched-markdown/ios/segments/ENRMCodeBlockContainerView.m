@@ -466,6 +466,8 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
   _wrapButton.hidden = !showsWrapButton;
   [self setNeedsLayout];
+  // The language label's room shrinks by one button.
+  [self setNeedsDisplay];
 }
 
 - (void)updateWrapButtonAppearance
@@ -517,7 +519,6 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
 - (void)toggleWrap
 {
-  self.wrapped = !_wrapped;
   if (self.onWrapToggle) {
     self.onWrapToggle(self);
   }
@@ -703,7 +704,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   }
 
   if (_languageLabel.length > 0) {
-    [_languageLabel drawAtPoint:CGPointMake(inset, [self headerCenterY] - _languageLabelSize.height / 2)];
+    // Keep clear of the header buttons, as Android caps its label view; a long
+    // name is cut short with an ellipsis.
+    CGFloat headerButtonsWidth = _showsWrapButton ? headerH * 2 : headerH;
+    CGFloat labelMaxWidth = MAX(self.bounds.size.width - inset * 2 - headerButtonsWidth, 0);
+    CGRect labelRect = CGRectMake(inset, [self headerCenterY] - _languageLabelSize.height / 2,
+                                  MIN(_languageLabelSize.width, labelMaxWidth), _languageLabelSize.height);
+    [_languageLabel drawWithRect:labelRect
+                         options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
+                         context:nil];
   }
 }
 

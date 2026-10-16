@@ -89,7 +89,7 @@ object MeasurementStore {
 
   private val streamingCodeBlockModes = ConcurrentHashMap<Int, CodeBlockStreamingMode>()
 
-  // Top-level code blocks the user wrapped, by document-order index (see EnrichedMarkdown).
+  // Code blocks the user wrapped, by document-order index across nesting (see CodeBlockWrapState).
   private val wrappedCodeBlocks = ConcurrentHashMap<Int, Set<Int>>()
 
   private fun resolveFontScalingSettings(
@@ -575,7 +575,7 @@ object MeasurementStore {
       val lastIndex = renderedSegments.lastIndex
       var totalHeightPx = 0f
       var maxContentWidthPx = 0f
-      var codeBlockIndex = 0
+      val wrapCursor = CodeBlockWrapCursor(wrapped)
 
       for ((index, segment) in renderedSegments.withIndex()) {
         val isLastSegment = index == lastIndex
@@ -617,8 +617,7 @@ object MeasurementStore {
           is RenderedSegment.CodeBlock -> {
             totalHeightPx += style.codeBlockStyle.marginTop
             totalHeightPx +=
-              CodeBlockContainerView.measureCodeBlockNodeHeight(segment.node, style, context, width, codeBlockIndex in wrapped)
-            codeBlockIndex++
+              CodeBlockContainerView.measureCodeBlockNodeHeight(segment.node, style, context, width, wrapCursor.nextIsWrapped())
             maxContentWidthPx = width
             if (includeBottomMargin) {
               totalHeightPx += style.codeBlockStyle.marginBottom
@@ -627,7 +626,7 @@ object MeasurementStore {
 
           is RenderedSegment.Blockquote -> {
             totalHeightPx += style.blockquoteStyle.marginTop
-            totalHeightPx += BlockquoteContainerView.measureBlockquoteNodeHeight(segment.node, style, context, width)
+            totalHeightPx += BlockquoteContainerView.measureBlockquoteNodeHeight(segment.node, style, context, width, wrapCursor)
             maxContentWidthPx = width
             if (includeBottomMargin) {
               totalHeightPx += style.blockquoteStyle.marginBottom

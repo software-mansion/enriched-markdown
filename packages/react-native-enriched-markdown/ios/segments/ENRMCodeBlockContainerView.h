@@ -32,15 +32,16 @@ typedef void (^ENRMCodeBlockWrapToggleBlock)(ENRMCodeBlockContainerView *view);
 
 @property (nonatomic, strong) StyleConfig *config;
 
-// Header wrap toggle next to copy (iOS only); the root host sets it from
-// enableCodeBlockWrapToggle.
+// Header wrap toggle next to copy (iOS only); ENRMCodeBlockWrapState sets it
+// from enableCodeBlockWrapToggle.
 @property (nonatomic, assign) BOOL showsWrapButton;
 
-// Wraps long lines at the block width instead of scrolling horizontally.
+// Wraps long lines at the block width instead of scrolling horizontally. Only
+// ENRMCodeBlockWrapState writes it; the header toggle just asks through onWrapToggle.
 @property (nonatomic, assign) BOOL wrapped;
 
-// Fired after the header toggle or the VoiceOver action flips `wrapped`, so the
-// host can remember the choice and re-measure.
+// Fired when the header toggle or the VoiceOver action is used; the host flips
+// `wrapped` and re-measures.
 @property (nonatomic, copy, nullable) ENRMCodeBlockWrapToggleBlock onWrapToggle;
 
 // True until the closing fence arrives: highlighting is deferred and copying is

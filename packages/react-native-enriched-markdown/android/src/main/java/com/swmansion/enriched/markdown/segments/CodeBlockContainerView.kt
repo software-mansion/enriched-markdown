@@ -97,7 +97,7 @@ class CodeBlockContainerView(
       rebuildCodeText()
     }
 
-  // Header wrap toggle next to copy; the root host sets it from enableCodeBlockWrapToggle.
+  // Header wrap toggle next to copy; CodeBlockWrapState sets it from enableCodeBlockWrapToggle.
   var showsWrapButton: Boolean = false
     set(value) {
       if (field == value) return
@@ -106,7 +106,8 @@ class CodeBlockContainerView(
       requestLayout()
     }
 
-  // Wraps long lines at the block width instead of scrolling horizontally.
+  // Wraps long lines at the block width instead of scrolling horizontally. Only
+  // CodeBlockWrapState writes it; the header toggle just asks through onWrapToggle.
   var wrapped: Boolean = false
     set(value) {
       if (field == value) return
@@ -116,8 +117,7 @@ class CodeBlockContainerView(
       requestLayout()
     }
 
-  // Fired after the header toggle flips [wrapped], so the host can remember the
-  // choice and re-measure.
+  // Fired when the header toggle is pressed; the host flips [wrapped] and re-measures.
   var onWrapToggle: ((CodeBlockContainerView) -> Unit)? = null
 
   private val textView =
@@ -234,7 +234,6 @@ class CodeBlockContainerView(
   }
 
   private fun toggleWrap() {
-    wrapped = !wrapped
     onWrapToggle?.invoke(this)
   }
 

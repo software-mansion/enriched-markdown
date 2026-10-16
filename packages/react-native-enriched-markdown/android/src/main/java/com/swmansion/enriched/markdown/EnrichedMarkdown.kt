@@ -43,15 +43,6 @@ import java.util.EnumSet
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-// Code block wrap state is keyed by block position, so it only stays meaningful
-// while the document grows in place. Streaming may rewrite its unfinished last
-// line (an HTML tag closing, a link relabeled); anything earlier changing - a
-// recycled cell, an edited message, a block inserted above - starts unwrapped.
-internal fun keepsCodeBlockWrapState(
-  previous: String,
-  next: String,
-): Boolean = next.startsWith(previous.substringBeforeLast('\n', ""))
-
 class EnrichedMarkdown(
   context: Context,
 ) : ContainerNodeView(context),
@@ -59,6 +50,10 @@ class EnrichedMarkdown(
   private enum class DirtyFlag {
     RECREATE_SEGMENTS,
     FORCE_HEIGHT,
+
+    // Yoga already measured with inputs that changed after (the wrapped code
+    // blocks a prop reset cleared), so it has to be asked to measure again.
+    REMEASURE,
   }
 
   private val parser = Parser.shared
@@ -150,57 +145,31 @@ class EnrichedMarkdown(
       dynamicProps.enableCodeBlockPress = value
     }
 
-  // Document-order indexes of the wrapped top-level code blocks, kept across
-  // renders and mirrored into MeasurementStore for the Yoga measure pass.
-  private var wrappedCodeBlocks: Set<Int> = emptySet()
+  private val codeBlockWrapState =
+    CodeBlockWrapState(viewTag = { id }, codeBlockViews = ::codeBlockViews, onHeightChanged = ::onImageLayoutChanged)
 
-  var enableCodeBlockWrapToggle: Boolean = false
+  var enableCodeBlockWrapToggle: Boolean
+    get() = codeBlockWrapState.enabled
     set(value) {
-      if (field == value) return
-      field = value
-      val hadWrappedBlocks = wrappedCodeBlocks.isNotEmpty()
-      if (!value) setWrappedCodeBlocks(emptySet())
-      syncCodeBlockWrapState()
-      if (hadWrappedBlocks && !value) onImageLayoutChanged()
+      if (codeBlockWrapState.setEnabled(value)) onImageLayoutChanged()
     }
-
-  private fun setWrappedCodeBlocks(value: Set<Int>) {
-    wrappedCodeBlocks = value
-    MeasurementStore.updateWrappedCodeBlocks(id, value)
-  }
-
-  private fun syncCodeBlockWrapState() {
-    var codeBlockIndex = 0
-    segmentViews.forEach { view ->
-      if (view is CodeBlockContainerView) {
-        view.onWrapToggle = ::codeBlockDidToggleWrap
-        view.showsWrapButton = enableCodeBlockWrapToggle
-        view.wrapped = enableCodeBlockWrapToggle && codeBlockIndex in wrappedCodeBlocks
-        codeBlockIndex++
-      }
-    }
-  }
-
-  private fun codeBlockDidToggleWrap(view: CodeBlockContainerView) {
-    val codeBlockIndex = segmentViews.filterIsInstance<CodeBlockContainerView>().indexOf(view)
-    if (codeBlockIndex < 0) return
-    setWrappedCodeBlocks(if (view.wrapped) wrappedCodeBlocks + codeBlockIndex else wrappedCodeBlocks - codeBlockIndex)
-    onImageLayoutChanged()
-  }
 
   init {
     segmentViewFactory = RootFactory()
   }
 
+  // isTaskToggle marks a checkbox flip rendered locally ahead of the prop; it
+  // moves no code block, so it skips the wrap state's reset rule.
   fun setMarkdownContent(
     markdown: String,
-    keepWrapState: Boolean = false,
+    isTaskToggle: Boolean = false,
   ) {
-    if (currentMarkdown == markdown) return
-    if (!keepWrapState && wrappedCodeBlocks.isNotEmpty() && !keepsCodeBlockWrapState(currentMarkdown, markdown)) {
-      setWrappedCodeBlocks(emptySet())
-      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+    // The shadow node measures the new markdown before this setter runs, still
+    // with the old wrapped set, so a reset needs Yoga to measure again.
+    if (!isTaskToggle && codeBlockWrapState.onMarkdownProp(markdown, currentMarkdown)) {
+      dirtyFlags += DirtyFlag.REMEASURE
     }
+    if (currentMarkdown == markdown) return
     currentMarkdown = markdown
     renderPending = true
   }
@@ -414,7 +383,7 @@ class EnrichedMarkdown(
     segmentViews.filterIsInstance<TableContainerView>().forEach {
       it.accessibilityLabels = labels
     }
-    segmentViews.filterIsInstance<CodeBlockContainerView>().forEach {
+    codeBlockViews().forEach {
       it.accessibilityLabels = labels
     }
     mathContainerClass?.let { mathClass ->
@@ -515,6 +484,7 @@ class EnrichedMarkdown(
 
     val reset = DirtyFlag.RECREATE_SEGMENTS in dirtyFlags
     val forceHeight = DirtyFlag.FORCE_HEIGHT in dirtyFlags
+    val remeasure = DirtyFlag.REMEASURE in dirtyFlags
     dirtyFlags.clear()
 
     val topologyChanged = applySegments(renderedSegments, reset)
@@ -526,7 +496,7 @@ class EnrichedMarkdown(
         view.pending = pendingCodeBlockSegment != null && index == segmentViews.size - 1
       }
     }
-    syncCodeBlockWrapState()
+    codeBlockWrapState.sync()
 
     if (width > 0) {
       val heightBefore = computeSegmentsTotalHeight()
@@ -538,6 +508,7 @@ class EnrichedMarkdown(
         requestLayout()
       }
     }
+    if (remeasure) onImageLayoutChanged()
   }
 
   private fun isMathContainerView(view: View): Boolean = mathContainerClass?.isInstance(view) == true

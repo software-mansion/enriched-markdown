@@ -175,6 +175,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
       ((TableContainerView *)child).accessibilityLabels = accessibilityLabels;
     } else if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)child).accessibilityLabels = accessibilityLabels;
+    } else if ([child isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)child).accessibilityLabels = accessibilityLabels;
     }
 #if ENRICHED_MARKDOWN_MATH
     else if ([child isKindOfClass:[ENRMMathContainerView class]]) {
@@ -261,6 +263,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                       ENRMCodeBlockContainerView *view = [[ENRMCodeBlockContainerView alloc] initWithConfig:config];
                       ENRMBlockquoteContainerView *strongSelf = weakSelf;
                       view.dynamicProps = strongSelf.dynamicProps;
+                      view.accessibilityLabels = strongSelf.accessibilityLabels;
                       view.onCopyPress = ^(NSString *code, NSString *language) {
                         ENRMBlockquoteContainerView *s = weakSelf;
                         if (s.onCopyPress)
@@ -400,6 +403,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                          pointScaleFactor:(CGFloat)pointScaleFactor
                          allowFontScaling:(BOOL)allowFontScaling
                         lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
+                               wrapCursor:(ENRMCodeBlockWrapCursor *)wrapCursor
 {
   UIEdgeInsets insets = ENRMBlockquoteContentInsetsForNode(config, ENRMAdmonitionTypeForNode(node) != nil);
   CGFloat innerWidth = MAX(maxWidth - insets.left - insets.right, 1);
@@ -408,7 +412,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
       ENRMRenderBlockquoteChildren(node, config, allowFontScaling, lineBreakStrategy);
   CGFloat childrenHeight = ENRMMeasureSegmentsHeightViewFree(
       rendered, config, innerWidth, /*allowTrailingMargin*/ NO, pointScaleFactor, ENRMWritingDirectionModeFirstStrong,
-      NSWritingDirectionNatural, allowFontScaling, lineBreakStrategy);
+      NSWritingDirectionNatural, allowFontScaling, lineBreakStrategy, wrapCursor);
 
   return childrenHeight + insets.top + insets.bottom;
 }

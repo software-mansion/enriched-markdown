@@ -268,8 +268,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * header. Every block starts unwrapped (horizontal scroll) and toggles on its
    * own. The state belongs to the block's position in the document: it survives
    * streaming appends and resets when the markdown is replaced. Code blocks
-   * inside blockquotes and admonitions have no toggle and keep scrolling. The
-   * toggle's spoken labels come from `accessibilityLabels.codeBlock`.
+   * inside blockquotes and admonitions get the toggle too. The toggle's spoken
+   * labels come from `accessibilityLabels.codeBlock`.
    *
    * Only applies when `flavor="github"`.
    * @default false
