@@ -56,8 +56,8 @@ let package = Package(
         // so it should move under software-mansion-labs control before release.
         .binaryTarget(
             name: "RaTeX",
-            url: "https://github.com/erweixin/RaTeX/releases/download/v0.1.14/RaTeX.xcframework.zip",
-            checksum: "16b84a5e9b9f80ed4910c490f96dda047662e9bdd0934817ecf4464cf02581f2"
+            url: "https://github.com/erweixin/RaTeX/releases/download/v0.1.15/RaTeX.xcframework.zip",
+            checksum: "23e4dd2bfe5f81c8efe24e52195435723b0a86c61f100fca7b38068bbf9aae31"
         ),
         // Vendor/'s upstream RaTeX sources (see Vendor/LICENSE) and the KaTeX
         // Fonts are symlinks into the RN package's vendored files —
