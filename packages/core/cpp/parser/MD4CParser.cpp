@@ -12,6 +12,9 @@ namespace Markdown {
 
 namespace {
 void appendCodepoint(std::string &output, unsigned int codepoint) {
+  if (codepoint == 0 || codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF)) {
+    codepoint = 0xFFFD;
+  }
   if (codepoint < 0x80) {
     output += static_cast<char>(codepoint);
   } else if (codepoint < 0x800) {
@@ -51,9 +54,8 @@ void appendCharacterReference(std::string &output, const char *text, size_t size
   const char *end = text + size - 1;
   unsigned int codepoint = 0;
   const auto parsed = std::from_chars(begin, end, codepoint, hex ? 16 : 10);
-  if (parsed.ec != std::errc{} || parsed.ptr != end || codepoint == 0 || codepoint > 0x10FFFF ||
-      (codepoint >= 0xD800 && codepoint <= 0xDFFF)) {
-    codepoint = 0xFFFD;
+  if (parsed.ec != std::errc{} || parsed.ptr != end) {
+    codepoint = 0;
   }
   appendCodepoint(output, codepoint);
 }
