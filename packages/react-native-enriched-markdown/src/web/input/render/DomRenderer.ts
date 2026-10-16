@@ -164,6 +164,8 @@ export class DomRenderer {
       }
     }
 
+    this.renumberAfter(start + freshPairs, stalePairs - freshPairs, paragraphs);
+
     for (const line of this.dirtyLines) {
       const index = this.indexOfLine(line);
       if (index !== -1) {
@@ -174,6 +176,31 @@ export class DomRenderer {
 
     this.renderedText = text;
     this.renderedParagraphs = [...paragraphs];
+  }
+
+  // The window match ignores ordinals (Enter in a list would otherwise
+  // shift every later number and send the whole list through the patch), so
+  // the matched items after the window may still need a new `data-ordinal`.
+  // Walks the list run from `from` until an unchanged top-level item: the
+  // store's counters are back in step there, so nothing later differs.
+  private renumberAfter(
+    from: number,
+    shift: number,
+    paragraphs: readonly ParagraphProjection[]
+  ): void {
+    for (
+      let i = from;
+      i < paragraphs.length &&
+      LIST_ITEM_BLOCK_TYPES.has(paragraphs[i]!.blockType);
+      i++
+    ) {
+      const ordinal = ordinalAttribute(paragraphs[i]!);
+      if (ordinal !== ordinalAttribute(this.renderedParagraphs[i + shift]!)) {
+        setData(this.lines[i]!, 'ordinal', ordinal);
+      } else if (paragraphs[i]!.level === 0) {
+        break;
+      }
+    }
   }
 
   // Whether the patch can trust `lines`: the child count catches additions
@@ -246,7 +273,6 @@ function sameParagraph(
   return (
     previous.blockType === next.blockType &&
     previous.level === next.level &&
-    previous.ordinal === next.ordinal &&
     previous.runs.length === next.runs.length &&
     previous.runs.every((run, i) =>
       sameRun(previousText, run, text, next.runs[i]!)
@@ -352,13 +378,14 @@ function patchBlockAttributes(
     paragraph.blockType === 'paragraph' ? undefined : paragraph.blockType
   );
   setData(element, 'depth', isListItem ? String(paragraph.level) : undefined);
-  setData(
-    element,
-    'ordinal',
-    paragraph.blockType === 'ordered-list-item'
-      ? String(paragraph.ordinal)
-      : undefined
-  );
+  setData(element, 'ordinal', ordinalAttribute(paragraph));
+}
+
+// Only ordered items show their ordinal; the store numbers bullets too.
+function ordinalAttribute(paragraph: ParagraphProjection): string | undefined {
+  return paragraph.blockType === 'ordered-list-item'
+    ? String(paragraph.ordinal)
+    : undefined;
 }
 
 function setData(
