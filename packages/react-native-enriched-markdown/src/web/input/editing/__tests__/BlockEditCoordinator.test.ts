@@ -105,6 +105,33 @@ describe('BlockEditCoordinator', () => {
     expect(depths(store)).toEqual([['ordered-list-item', 0]]);
   });
 
+  it('toggles a list over an empty line as an anchor, and back off', () => {
+    // "a\n\nb": 0-1 | 2 (empty) | 3-4, with a heading after the selection.
+    const gapped = 'a\n\nb\nc';
+    const store = new BlockStore();
+    store.setRanges([block('h1', 5, 6, 1)]);
+    const coordinator = new BlockEditCoordinator(store);
+
+    coordinator.toggleListType(
+      'unordered-list-item',
+      { start: 0, end: 4 },
+      gapped
+    );
+    expect(store.allRanges.map((b) => [b.type, b.start, b.end])).toEqual([
+      ['unordered-list-item', 0, 1],
+      ['unordered-list-item', 2, 2],
+      ['unordered-list-item', 3, 4],
+      ['h1', 5, 6],
+    ]);
+
+    coordinator.toggleListType(
+      'unordered-list-item',
+      { start: 0, end: 4 },
+      gapped
+    );
+    expect(depths(store)).toEqual([['h1', 1]]);
+  });
+
   it('stops indenting at MAX_LIST_DEPTH', () => {
     // A ladder of items each one level deeper, so the last already sits at
     // the cap and the ancestry clamp is not what holds it there.

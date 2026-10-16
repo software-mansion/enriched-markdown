@@ -46,16 +46,16 @@ export class BlockEditCoordinator {
     const lines = linesTouching(selection, text);
     const depthsBefore = lines.map((line) => this.listDepthAt(line.start));
 
-    this.blockStore.edit(text, (blocks) => {
-      for (const line of lines) {
-        const block = this.blockStore.blockStartingAt(line.start);
-        if (!isListItem(block)) {
-          continue;
-        }
-        const depth = clamp(block.level + delta, 0, MAX_LIST_DEPTH);
-        blocks.setBlock(block.type, depth, line.start, line.start);
-      }
-    });
+    this.blockStore.edit(text, (blocks) =>
+      blocks.rewriteLines(lines, (_line, existing) =>
+        isListItem(existing)
+          ? {
+              type: existing.type,
+              level: clamp(existing.level + delta, 0, MAX_LIST_DEPTH),
+            }
+          : existing
+      )
+    );
 
     return lines.some(
       (line, index) => this.listDepthAt(line.start) !== depthsBefore[index]
@@ -79,15 +79,11 @@ export class BlockEditCoordinator {
       startBlock.type === type &&
       startBlock.level === level;
 
-    this.blockStore.edit(text, (blocks) => {
-      for (const line of linesTouching(selection, text)) {
-        if (turningOff) {
-          blocks.removeBlock(line.start, line.start);
-        } else {
-          blocks.setBlock(type, level, line.start, line.start);
-        }
-      }
-    });
+    this.blockStore.edit(text, (blocks) =>
+      blocks.rewriteLines(linesTouching(selection, text), () =>
+        turningOff ? null : { type, level }
+      )
+    );
     return true;
   }
 
@@ -98,16 +94,13 @@ export class BlockEditCoordinator {
     const startBlock = this.blockStore.blockAt(selection.start, text);
     const turningOff = isListItem(startBlock) && startBlock.type === type;
 
-    this.blockStore.edit(text, (blocks) => {
-      for (const line of linesTouching(selection, text)) {
+    this.blockStore.edit(text, (blocks) =>
+      blocks.rewriteLines(linesTouching(selection, text), (_line, existing) => {
         if (turningOff) {
-          blocks.removeBlock(line.start, line.start);
-          continue;
+          return null;
         }
-        const existing = this.blockStore.blockStartingAt(line.start);
-        const depth = isListItem(existing) ? existing.level : 0;
-        blocks.setBlock(type, depth, line.start, line.start);
-      }
-    });
+        return { type, level: isListItem(existing) ? existing.level : 0 };
+      })
+    );
   }
 }

@@ -1,6 +1,7 @@
 import {
   BlockStore,
   lineAtPosition,
+  type LineBlock,
   linesTouching,
   paragraphBounds,
 } from '../BlockStore';
@@ -233,6 +234,43 @@ describe('BlockStore', () => {
     store.edit(text, (w) => w.removeBlock(17, 17));
 
     expect(store.allRanges).toEqual([block('h1', 0, 9)]);
+  });
+
+  it('removeBlock leaves the anchors on the empty lines around its line', () => {
+    // "a\n\nb\n\nc": 0-1 | 2 (empty) | 3-4 | 5 (empty) | 6-7
+    const lines = 'a\n\nb\n\nc';
+    store.setRanges([
+      block('h1', 0, 1, 1),
+      block('h2', 2, 2, 2),
+      block('h1', 3, 4, 1),
+      block('h2', 5, 5, 2),
+      block('h1', 6, 7, 1),
+    ]);
+
+    store.edit(lines, (w) => w.removeBlock(3, 3));
+    expect(store.allRanges).toEqual([
+      block('h1', 0, 1, 1),
+      block('h2', 2, 2, 2),
+      block('h2', 5, 5, 2),
+      block('h1', 6, 7, 1),
+    ]);
+
+    store.edit(lines, (w) => w.removeBlock(2, 2));
+    expect(store.allRanges).toEqual([
+      block('h1', 0, 1, 1),
+      block('h2', 5, 5, 2),
+      block('h1', 6, 7, 1),
+    ]);
+  });
+
+  // Mid-edit, before the normalize: Enter continuing a list writes the fresh
+  // line while the split item still spans the newline.
+  it('setBlock replaces a block still reaching in from the line above', () => {
+    store.setRanges([block('unordered-list-item', 0, 4)]);
+
+    store.edit('ab\ncd', (w) => w.setBlock('h1', 1, 3, 3));
+
+    expect(store.allRanges).toEqual([block('h1', 3, 5, 1)]);
   });
 
   it('adjustForEdit grows the edited block and shifts the following ones', () => {
@@ -550,5 +588,192 @@ describe('BlockStore', () => {
     store.setRanges([block('paragraph', 6, 11), block('h1', 0, 5)]);
 
     expect(store.allRanges.map((r) => r.start)).toEqual([0, 6]);
+  });
+});
+
+describe('BlockStore.rewriteLines', () => {
+  let store: BlockStore;
+
+  beforeEach(() => {
+    store = new BlockStore();
+  });
+
+  it('keeps, replaces or clears each line and leaves the rest alone', () => {
+    const kept = block('unordered-list-item', 10, 16);
+    store.setRanges([
+      block('h1', 0, 9, 1),
+      kept,
+      block('h2', 17, 17, 2),
+      block('ordered-list-item', 18, 21),
+    ]);
+    const seen: (string | null)[] = [];
+
+    store.edit(text, (w) =>
+      w.rewriteLines(
+        linesTouching({ start: 12, end: 19 }, text),
+        (line, existing) => {
+          seen.push(existing?.type ?? null);
+          if (line.start === 10) {
+            return existing;
+          }
+          if (line.start === 17) {
+            return null;
+          }
+          return { type: 'unordered-list-item', level: 0 };
+        }
+      )
+    );
+
+    expect(seen).toEqual(['unordered-list-item', 'h2', 'ordered-list-item']);
+    expect(store.allRanges).toEqual([
+      block('h1', 0, 9, 1),
+      block('unordered-list-item', 10, 16),
+      block('unordered-list-item', 18, 21),
+    ]);
+    expect(store.allRanges[1]).toBe(kept);
+  });
+
+  it('writes an empty line as an anchor only for anchored types', () => {
+    const lines = linesTouching({ start: 10, end: 21 }, text);
+
+    store.edit(text, (w) =>
+      w.rewriteLines(lines, () => ({ type: 'paragraph', level: 0 }))
+    );
+    expect(store.allRanges.map((r) => [r.start, r.end])).toEqual([
+      [10, 16],
+      [18, 21],
+    ]);
+
+    store.edit(text, (w) =>
+      w.rewriteLines(lines, () => ({ type: 'h2', level: 2 }))
+    );
+    expect(store.allRanges).toEqual([
+      block('h2', 10, 16, 2),
+      block('h2', 17, 17, 2),
+      block('h2', 18, 21, 2),
+    ]);
+  });
+
+  it('rewrites a select-all far past the argument-spread limit', () => {
+    const many = Array.from({ length: 200_000 }, () => 'x').join('\n');
+
+    store.edit(many, (w) =>
+      w.rewriteLines(
+        linesTouching({ start: 0, end: many.length }, many),
+        () => ({
+          type: 'unordered-list-item',
+          level: 0,
+        })
+      )
+    );
+
+    expect(store.allRanges).toHaveLength(200_000);
+  });
+
+  // Seeded random documents: one block per line at most, so the expected
+  // result is the per-line decisions laid over the untouched lines.
+  // `setBlock`/`removeBlock` line by line must agree with it too.
+  it('agrees with a per-line model, as does setBlock/removeBlock per line', () => {
+    let seed = 1014;
+    const random = () => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31;
+      return seed / 2 ** 31;
+    };
+    const pick = <T>(options: readonly T[]): T =>
+      options[Math.floor(random() * options.length)]!;
+    const lineBlocks: readonly LineBlock[] = [
+      null,
+      { type: 'h2', level: 2 },
+      { type: 'paragraph', level: 0 },
+      { type: 'unordered-list-item', level: 0 },
+      { type: 'unordered-list-item', level: 1 },
+      { type: 'ordered-list-item', level: 2 },
+    ];
+    const choices: readonly ('keep' | LineBlock)[] = ['keep', ...lineBlocks];
+
+    for (let round = 0; round < 300; round++) {
+      const doc = Array.from({ length: 1 + Math.floor(random() * 20) }, () =>
+        random() < 0.25 ? '' : 'x'.repeat(1 + Math.floor(random() * 3))
+      ).join('\n');
+      const allLines = linesTouching({ start: 0, end: doc.length }, doc);
+      const drawn = new Map<number, LineBlock>();
+      for (const line of allLines) {
+        const choice = pick(lineBlocks);
+        if (
+          choice !== null &&
+          (line.end > line.start || choice.type !== 'paragraph')
+        ) {
+          drawn.set(line.start, choice);
+        }
+      }
+      const toRanges = (blocks: Map<number, LineBlock>) =>
+        allLines.flatMap((line) => {
+          const b = blocks.get(line.start);
+          return b ? [block(b.type, line.start, line.end, b.level)] : [];
+        });
+      // Start from the depths the ancestry clamp leaves: it overwrites them,
+      // so the drawn ones are gone once they are stored.
+      const seeded = new BlockStore();
+      seeded.setRanges(toRanges(drawn));
+      const initial = new Map<number, LineBlock>(
+        seeded.allRanges.map((r) => [r.start, { type: r.type, level: r.level }])
+      );
+
+      const a = Math.floor(random() * (doc.length + 1));
+      const b = Math.floor(random() * (doc.length + 1));
+      const selected = linesTouching(
+        { start: Math.min(a, b), end: Math.max(a, b) },
+        doc
+      );
+      const decisions = new Map(selected.map((l) => [l.start, pick(choices)]));
+
+      const expected = new Map(initial);
+      for (const [start, choice] of decisions) {
+        if (choice === 'keep') {
+          continue;
+        }
+        const line = selected.find((l) => l.start === start)!;
+        if (
+          choice === null ||
+          (line.end === line.start && choice.type === 'paragraph')
+        ) {
+          expected.delete(start);
+        } else {
+          expected.set(start, choice);
+        }
+      }
+      const model = new BlockStore();
+      model.setRanges(toRanges(expected));
+
+      const bulk = new BlockStore();
+      bulk.setRanges(toRanges(initial));
+      bulk.edit(doc, (w) =>
+        w.rewriteLines(selected, (line, existing) => {
+          const choice = decisions.get(line.start)!;
+          return choice === 'keep' ? existing : choice;
+        })
+      );
+
+      const perLine = new BlockStore();
+      perLine.setRanges(toRanges(initial));
+      perLine.edit(doc, (w) => {
+        for (const line of selected) {
+          const choice = decisions.get(line.start)!;
+          if (choice === null) {
+            w.removeBlock(line.start, line.start);
+          } else if (choice !== 'keep') {
+            w.setBlock(choice.type, choice.level, line.start, line.start);
+          }
+        }
+      });
+
+      const context = JSON.stringify({
+        doc,
+        initial: [...initial],
+        decisions: [...decisions],
+      });
+      expect([context, bulk.allRanges]).toEqual([context, model.allRanges]);
+      expect([context, perLine.allRanges]).toEqual([context, model.allRanges]);
+    }
   });
 });
