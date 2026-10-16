@@ -3,7 +3,7 @@
 #include <cctype>
 #include <cstdlib>
 extern "C" {
-#include "entity.h"
+#include "enrmrkd-entity.h"
 }
 #include <cstring>
 #include <vector>
@@ -39,7 +39,7 @@ void appendCharacterReference(std::string &output, const char *text, size_t size
     return;
   }
   if (text[1] != '#') {
-    const ENTITY *entity = entity_lookup(text, size);
+    const ENRMRKD_ENTITY *entity = enrmrkd_entity_lookup(text, size);
     if (!entity) {
       output.append(text, size);
       return;

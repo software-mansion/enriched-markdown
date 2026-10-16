@@ -50,8 +50,8 @@ emcc \
 emcc \
   -I "$CPP_ROOT" \
   -O2 \
-  -c "$CPP_ROOT/enrmrkd/entity.c" \
-  -o "$WORK/entity.o"
+  -c "$CPP_ROOT/enrmrkd/enrmrkd-entity.c" \
+  -o "$WORK/enrmrkd-entity.o"
 
 # Compile C++ sources and link everything together. em++, not emcc: emscripten
 # 6.0.6 turned DEFAULT_TO_CXX off, so emcc no longer links the C++ runtime.
@@ -60,7 +60,7 @@ em++ \
   "$SCRIPT_DIR/ASTSerializer.cpp" \
   "$CPP_ROOT/parser/MD4CParser.cpp" \
   "$WORK/enrmrkd.o" \
-  "$WORK/entity.o" \
+  "$WORK/enrmrkd-entity.o" \
   -I "$CPP_ROOT" \
   -I "$CPP_ROOT/enrmrkd" \
   -I "$SCRIPT_DIR" \

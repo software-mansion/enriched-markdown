@@ -1,8 +1,8 @@
 /*
  * MD4C: Markdown parser for C
- * (http://github.com/mity/md4c)
+ * (https://github.com/mity/md4c)
  *
- * Copyright (c) 2016-2024 Martin Mitáš
+ * Copyright (c) 2016-2026 Martin Mitáš
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,21 +23,21 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef MD4C_ENTITY_H
-#define MD4C_ENTITY_H
+#ifndef ENRMRKD_ENTITY_H
+#define ENRMRKD_ENTITY_H
 
 #include <stdlib.h>
 
 
 /* Most entities are formed by single Unicode codepoint, few by two codepoints.
  * Single-codepoint entities have codepoints[1] set to zero. */
-typedef struct ENTITY_tag ENTITY;
-struct ENTITY_tag {
+typedef struct ENRMRKD_ENTITY_tag ENRMRKD_ENTITY;
+struct ENRMRKD_ENTITY_tag {
     const char* name;
     unsigned codepoints[2];
 };
 
-const ENTITY* entity_lookup(const char* name, size_t name_size);
+const ENRMRKD_ENTITY* enrmrkd_entity_lookup(const char* name, size_t name_size);
 
 
-#endif  /* MD4C_ENTITY_H */
+#endif  /* ENRMRKD_ENTITY_H */

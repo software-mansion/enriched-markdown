@@ -44,16 +44,17 @@ trap 'rm -rf "$WORK"' EXIT
 
 echo "==> Building the vendored parser and the AST dumper"
 "$CC_BIN" -O1 -std=c99 -DENRMRKD_USE_UTF8=1 -c "$CPP_ROOT/enrmrkd/enrmrkd.c" -o "$WORK/enrmrkd.o"
+"$CC_BIN" -O1 -std=c99 -c "$CPP_ROOT/enrmrkd/enrmrkd-entity.c" -o "$WORK/enrmrkd-entity.o"
 "$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$CPP_ROOT/wasm" \
   "$TESTS_DIR/ast_dump.cpp" \
   "$CPP_ROOT/parser/MD4CParser.cpp" \
   "$CPP_ROOT/wasm/ASTSerializer.cpp" \
-  "$WORK/enrmrkd.o" -o "$WORK/ast-dump"
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/ast-dump"
 
 echo "==> Checking the vendored parser's exported symbols"
 if command -v nm >/dev/null 2>&1; then
   # Some platforms (e.g. MacOS) prefix C symbols with an underscore.
-  unexpected=$(nm -g --defined-only "$WORK/enrmrkd.o" \
+  unexpected=$(nm -g --defined-only "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" \
                | awk 'NF >= 3 { print $3 }' | grep -vE '^_?enrmrkd_' | sort -u || true)
   if [ -n "$unexpected" ]; then
     echo "FAIL: the vendored parser defines globals without the enrmrkd_ prefix:" >&2
@@ -64,7 +65,7 @@ if command -v nm >/dev/null 2>&1; then
     echo "repo's scripts/rename-upstream-symbols.pl and re-sync." >&2
     exit 1
   fi
-  nm -g --defined-only "$WORK/enrmrkd.o" | awk 'NF >= 3 { print "    " $3 }' | sort -u
+  nm -g --defined-only "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" | awk 'NF >= 3 { print "    " $3 }' | sort -u
 else
   echo "    nm not available, skipped"
 fi
@@ -96,7 +97,9 @@ echo "==> Linking beside another embedded MD4C copy (mity/md4c $UPSTREAM_MD4C_RE
 mkdir -p "$WORK/other"
 base="https://raw.githubusercontent.com/mity/md4c/$UPSTREAM_MD4C_REF/src"
 if ! curl -fsSL --retry 2 "$base/md4c.c" -o "$WORK/other/md4c.c" \
-  || ! curl -fsSL --retry 2 "$base/md4c.h" -o "$WORK/other/md4c.h"; then
+  || ! curl -fsSL --retry 2 "$base/md4c.h" -o "$WORK/other/md4c.h" \
+  || ! curl -fsSL --retry 2 "$base/entity.c" -o "$WORK/other/entity.c" \
+  || ! curl -fsSL --retry 2 "$base/entity.h" -o "$WORK/other/entity.h"; then
   if [ "${ENRM_SKIP_COEXISTENCE_CHECK:-0}" = "1" ] && [ -z "${CI:-}" ]; then
     echo "    could not fetch upstream MD4C; skipped by ENRM_SKIP_COEXISTENCE_CHECK"
     echo
@@ -153,10 +156,13 @@ int main() {
 }
 EOF
 "$CC_BIN" -O1 -std=c99 -c "$WORK/other/md4c.c" -o "$WORK/other.o"
+# md4c-html's entity table, which the other copy may ship beside its parser.
+"$CC_BIN" -O1 -std=c99 -c "$WORK/other/entity.c" -o "$WORK/other-entity.o"
 "$CXX_BIN" -O1 -std=c++17 -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -I "$WORK" \
   -DENRMRKD_USE_UTF8=1 -c "$WORK/coexist.cpp" -o "$WORK/coexist.o"
 "$CXX_BIN" -O1 -std=c++17 -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" -c "$CPP_ROOT/parser/MD4CParser.cpp" -o "$WORK/parser.o"
-"$CXX_BIN" "$WORK/other.o" "$WORK/enrmrkd.o" "$WORK/parser.o" "$WORK/coexist.o" -o "$WORK/coexist"
+"$CXX_BIN" "$WORK/other.o" "$WORK/other-entity.o" "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" \
+  "$WORK/parser.o" "$WORK/coexist.o" -o "$WORK/coexist"
 "$WORK/coexist"
 echo "    both parsers linked and ran in one binary"
 

@@ -13,6 +13,8 @@ DEST_DIR="$(cd "$(dirname "$0")/.." && pwd)/packages/core/cpp/enrmrkd"
 FILES=(
   "enrmrkd.c"
   "enrmrkd.h"
+  "enrmrkd-entity.c"
+  "enrmrkd-entity.h"
 )
 
 echo "Fetching parser sources from github.com/${REPO} (branch: ${BRANCH})..."
