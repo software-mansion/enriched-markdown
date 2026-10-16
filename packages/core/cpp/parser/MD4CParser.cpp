@@ -1,9 +1,10 @@
 #include "MD4CParser.hpp"
 #include "enrmrkd.h"
+#include <cctype>
+#include <cstdlib>
 extern "C" {
 #include "entity.h"
 }
-#include <cctype>
 #include <cstring>
 #include <vector>
 
@@ -31,7 +32,7 @@ void appendCodepoint(std::string &output, unsigned int codepoint) {
   }
 }
 
-// Decode after syntax classification so encoded delimiters remain literal text.
+// md4c has already classified syntax, so a decoded delimiter stays literal text.
 void appendCharacterReference(std::string &output, const char *text, size_t size) {
   if (size < 4) {
     output.append(text, size);
@@ -143,13 +144,25 @@ public:
     }
   }
 
+  // Attributes arrive as typed substrings; entity segments decode like text does.
   std::string getAttributeText(const ENRMRKD_ATTRIBUTE *attr) {
     if (!attr || attr->size == 0 || !attr->text)
       return {};
+    if (!attr->substr_types || !attr->substr_offsets)
+      return std::string(attr->text, attr->size);
 
-    // Use string constructor directly - let SSO handle small strings efficiently
-    // Empty return {} avoids allocating empty string object
-    return std::string(attr->text, attr->size);
+    std::string result;
+    result.reserve(attr->size);
+    for (size_t i = 0; attr->substr_offsets[i] < attr->size; i++) {
+      const char *start = attr->text + attr->substr_offsets[i];
+      const size_t length = attr->substr_offsets[i + 1] - attr->substr_offsets[i];
+      if (attr->substr_types[i] == ENRMRKD_TEXT_ENTITY) {
+        appendCharacterReference(result, start, length);
+      } else {
+        result.append(start, length);
+      }
+    }
+    return result;
   }
 
   static int enterBlock(ENRMRKD_BLOCKTYPE type, void *detail, void *userdata) {
