@@ -524,6 +524,12 @@ class EnrichedMarkdownTextInputView(
       applyFormattingAndEmit()
       eventEmitter.emitChangeText()
     }
+    // The scope above suppresses the text watcher, so the pipeline's own hint
+    // sync never ran. Without this, an insert into an empty editor (paste,
+    // insertText, insertLink, startMention) leaves the placeholder in place and
+    // the next selection change calls setHint from inside
+    // Editor.selectCurrentWordAndStartDrag, which crashes — same as setValue.
+    syncHintVisibility()
     emitSelectionIfChanged()
   }
 
@@ -771,7 +777,14 @@ class EnrichedMarkdownTextInputView(
     val target: CharSequence? = if (hasRealText || hasBlock) "" else styledHint
     // Compare as strings: setHint copies the hint, so the spanned copy is never
     // identical to target. A line-height change passes force instead.
-    if (force || hint?.toString() != target?.toString()) super.setHint(target)
+    if (!force && hint?.toString() == target?.toString()) return
+
+    super.setHint(target)
+    // An empty editor is measured with its hint, not its text (see
+    // InputMeasurementStore.getMeasureById), and the snapshot Yoga holds was
+    // taken before this change — re-measure so a hint that lays out taller than
+    // the text it replaced is not left clipped.
+    layoutManager.invalidateLayout()
   }
 
   fun setUserHint(value: CharSequence?) {
@@ -1081,6 +1094,7 @@ class EnrichedMarkdownTextInputView(
       // No invalidateLayout() needed: applyFormatting() already re-measures.
       lastProcessedText = text?.toString() ?: ""
     }
+    syncHintVisibility()
     emitSelectionIfChanged()
   }
 
