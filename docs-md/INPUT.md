@@ -120,6 +120,24 @@ The built-in native format bar also includes a link option that presents a URL p
 
 A complete example of a setup that supports both setting links on the selected text, as well as inserting them at the cursor position can be found in the example app code.
 
+### Pressing links
+
+By default, tapping anywhere in the input focuses it — links are edited, not opened. Providing the [`onLinkPress`](API_REFERENCE.md#onlinkpress-1) callback makes links pressable while the input is **not focused**, the way notes apps behave: reading opens links, editing edits them.
+
+```tsx
+<EnrichedMarkdownTextInput
+  defaultValue="Check out [React Native](https://reactnative.dev)!"
+  onLinkPress={({ url }) => {
+    Linking.openURL(url);
+  }}
+/>
+```
+
+- **Input not focused** — tapping a link fires `onLinkPress` and consumes the tap: the input does not focus and the keyboard does not open. Tapping anywhere else focuses the input as usual.
+- **Input focused** — taps behave natively (cursor placement, selection); links are inert until the input is blurred.
+
+The callback fires for manual links, mentions, and auto-detected links alike. Note that as soon as the keyboard is dismissed the input is unfocused, so links become pressable right away.
+
 ## Auto-Link Detection
 
 `EnrichedMarkdownTextInput` can automatically detect URLs as the user types and convert them into Markdown links. Detected links are visually styled in the input and serialized as `[text](url)` in the Markdown output.

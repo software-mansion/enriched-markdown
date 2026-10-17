@@ -33,6 +33,7 @@ import OnChangeStateSrc from '!!raw-loader!@site/src/examples/react-native/api-r
 import OnKeyPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/OnKeyPress';
 import OnCaretRectChangeSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/OnCaretRectChange';
 import OnLinkDetectedSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/OnLinkDetected';
+import OnLinkPressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/OnLinkPress';
 import FocusBlurSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/FocusBlur';
 import PressSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/Press';
 import SetValueSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/SetValue';
@@ -492,6 +493,30 @@ Fires when [auto-link detection](#linkregex) turns typed text into a link. Fires
 <PropInfo type="(event: { text: string; url: string; start: number; end: number }) => void" />
 
 <LivePreview src={OnLinkDetectedSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+
+### `onLinkPress`
+
+Fires when a link is tapped while the input is **not focused** - the notes-app model, where reading opens links and editing edits them. The tap is consumed, so the input does not focus and the keyboard does not open. While the input **is** focused, taps place the cursor as usual and links are inert.
+
+Providing the callback is what turns the behavior on; there is no separate prop. Omit it and every tap focuses the input, which stays the default.
+
+<PropInfo type="(event: OnLinkPressEvent) => void" />
+
+```ts
+interface OnLinkPressEvent {
+  url: string; // the tapped link's URL
+}
+```
+
+It fires for manual links ([`setLink`](#setlinkurl-string), [`insertLink`](#insertlinktext-string-url-string)), [mentions](/rich-text-formatting/mentions), and [auto-detected](#linkregex) links alike. Links with an empty URL are ignored.
+
+:::note
+A link only has to wait for the input to blur, not for the user to leave the screen, so dismissing the keyboard is enough to make links pressable again.
+
+[`onPress`](#onpress) still fires for a tap that `onLinkPress` consumes - it reports the touch, while `onLinkPress` reports what was under it. What the consumed tap skips is the focus that normally follows `onPress`.
+:::
+
+<LivePreview src={OnLinkPressSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
 
 ### `onStartMention`
 
