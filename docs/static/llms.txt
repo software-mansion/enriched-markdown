@@ -24,6 +24,7 @@
 - [Native assets](https://docs.swmansion.com/enriched-markdown/react-native/guides/native-assets): Bundling custom fonts and images, the assets downloaded at install time, and how to opt out to shrink your binary.
 - [Testing](https://docs.swmansion.com/enriched-markdown/react-native/guides/testing): The Jest mock the package ships, what it replaces, and what it cannot cover.
 - [macOS support](https://docs.swmansion.com/enriched-markdown/react-native/guides/macos): Requirements and the known differences from iOS, including silently dropped block math.
+- [Custom block renderers](https://docs.swmansion.com/enriched-markdown/react-native/guides/custom-block-renderers): Replacing standalone images and videos with your own React components through `renderers`, how the native host sizes them, and swapping an image's request with `resolveImageSource`.
 
 ## Rich text formatting
 

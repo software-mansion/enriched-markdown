@@ -53,6 +53,13 @@ It takes **two** conditions, not one: `streamingAnimation` must be on **and** th
 | `'progressive'` (default) | Streams the code line-by-line with a visible but non-interactive header (copying is disabled until the block completes); syntax highlighting is deferred until the closing fence so it does not flicker on every token. |
 | `'hidden'` | Withholds the whole block until its closing fence arrives, then shows it complete. |
 
+**Images and videos** (`mediaMode`)
+
+| Mode | Behavior |
+| --- | --- |
+| `'progressive'` (default) | Shows a trailing image paragraph, link paragraph or `<video>` block once its syntax is complete; the half-streamed `![alt](https://…` line is withheld instead of flashing as text, and a partial `<video` tag is not parsed as a video. A bare URL on its own line can always grow, so it is withheld until the next line arrives. |
+| `'hidden'` | Withholds the block until a blank line or another block follows it, like `tableMode: 'hidden'`. Applies to native images and to blocks drawn by [`renderers`](/react-native/guides/custom-block-renderers). |
+
 **Block math** has no mode key. An unterminated `$$` block is always withheld, truncated at the opening delimiter, until the closing `$$` arrives. On a page of LLM output that routinely contains LaTeX, this is the third incomplete-block case to expect.
 
 <LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS and Android only - <code>streamingAnimation</code> and <code>streamingConfig</code> are stripped on web.</>} />
@@ -64,6 +71,6 @@ placeholders they previously carried, which implied the feature existed. */}
 ## Reference
 
 - [`streamingAnimation`](/react-native/api-reference/enriched-markdown-text#streaminganimation) - fade in newly appended content. Defaults to `false`.
-- [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode` and `codeBlockMode`, each `'progressive'` or `'hidden'`. Needs `streamingAnimation` **and** `flavor="github"`.
+- [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`. Needs `streamingAnimation` **and** `flavor="github"`.
 - [Markdown flavors](/react-native/guides/markdown-flavors) - what else the flavor switch changes.
 - [`react-native-streamdown`](https://enriched.swmansion.com/streamdown) - sibling library for LLM output: incomplete-Markdown repair ([remend](https://www.npmjs.com/package/remend)) and off-thread processing (react-native-worklets Bundle Mode). Accepts every `EnrichedMarkdownText` prop plus a `remendConfig`: `<StreamdownText markdown={partial} />`. See the setup caveat above.

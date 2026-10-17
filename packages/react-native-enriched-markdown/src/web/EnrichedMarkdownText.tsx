@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   type CSSProperties,
+  type ReactNode,
 } from 'react';
 import type { EnrichedMarkdownTextProps } from '../types/MarkdownTextProps.web';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle.web';
@@ -17,6 +18,13 @@ import { recognizeTextLinks } from './recognizeTextLinks';
 import { RenderNode } from './renderers';
 import type { ASTNode, RendererCallbacks, RenderCapabilities } from './types';
 import { indexTaskItems, markInlineImages } from './utils';
+import { collectBlocks } from './blockSlots';
+import { useResolvedImageSources } from '../imageSources';
+import { renderBlock } from '../blockRenderers';
+import type {
+  MarkdownBlock,
+  MarkdownImageOccurrence,
+} from '../types/MarkdownTextProps';
 import { loadKaTeX } from './katex';
 import type { KaTeXInstance } from './katex';
 import { ENRM_TEXT_CLASS, ENRM_SELECTION_BG_VAR } from './globalStyles';
@@ -32,6 +40,8 @@ export const EnrichedMarkdownText = ({
   onImagePress,
   onTaskListItemPress,
   onCodeBlockPress,
+  renderers,
+  resolveImageSource,
   enableTaskListItemToggle = true,
   allowTrailingMargin = false,
   containerStyle,
@@ -47,6 +57,10 @@ export const EnrichedMarkdownText = ({
   );
 
   const [ast, setAst] = useState<ASTNode | null>(null);
+  const [collected, setCollected] = useState<{
+    blocks: MarkdownBlock[];
+    images: MarkdownImageOccurrence[];
+  }>({ blocks: [], images: [] });
   const [katex, setKatex] = useState<KaTeXInstance | null>(null);
   const [parseError, setParseError] = useState<boolean>(false);
 
@@ -89,6 +103,7 @@ export const EnrichedMarkdownText = ({
         if (!cancelled) {
           indexTaskItems(result);
           markInlineImages(result);
+          setCollected(collectBlocks(result));
 
           setParseError(false);
           setKatex(katexInstance);
@@ -147,9 +162,25 @@ export const EnrichedMarkdownText = ({
     ]
   );
 
+  const renderImage = renderers?.image;
+  const renderVideo = renderers?.video;
+  const renderLink = renderers?.link;
+  const blockSlots = useMemo(() => {
+    if (!renderImage && !renderVideo && !renderLink) return undefined;
+    const slots = new Map<string, ReactNode>();
+    const kinds = { image: renderImage, video: renderVideo, link: renderLink };
+    for (const block of collected.blocks) {
+      const element = renderBlock(kinds, block);
+      if (element != null) slots.set(block.id, element);
+    }
+    return slots;
+  }, [collected, renderImage, renderVideo, renderLink]);
+
+  const imageSources = useImageSources(collected.images, resolveImageSource);
+
   const capabilities = useMemo<RenderCapabilities>(
-    () => ({ katex, enableTaskListItemToggle }),
-    [katex, enableTaskListItemToggle]
+    () => ({ katex, enableTaskListItemToggle, blockSlots, imageSources }),
+    [katex, enableTaskListItemToggle, blockSlots, imageSources]
   );
 
   const lastChildStyle = useMemo(
@@ -211,7 +242,7 @@ export const EnrichedMarkdownText = ({
     >
       {children.map((child, index) => (
         <RenderNode
-          key={`${child.type}-${index}`}
+          key={child.attributes?.blockSlotId ?? `${child.type}-${index}`}
           node={child}
           style={index === lastIdx ? lastChildStyle : normalizedStyle}
           styles={index === lastIdx ? lastChildStyles : styles}
@@ -222,5 +253,27 @@ export const EnrichedMarkdownText = ({
     </div>
   );
 };
+
+/**
+ * The `imageSources` capability: resolved `src` by occurrence id, `null` while
+ * pending or without a usable uri, no entry for images that keep the Markdown
+ * URL. Headers cannot be honored by `<img>` and are dropped. See
+ * `useResolvedImageSources` for the resolution rules.
+ */
+function useImageSources(
+  images: MarkdownImageOccurrence[],
+  resolve: EnrichedMarkdownTextProps['resolveImageSource']
+): ReadonlyMap<string, string | null> | undefined {
+  const resolved = useResolvedImageSources(images, resolve, resolve != null);
+  return useMemo(() => {
+    if (!resolved) return undefined;
+    const result = new Map<string, string | null>();
+    for (const [id, source] of resolved) {
+      if (source === null) continue;
+      result.set(id, source === undefined ? null : source.uri || null);
+    }
+    return result;
+  }, [resolved]);
+}
 
 export default EnrichedMarkdownText;

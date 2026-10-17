@@ -13,6 +13,17 @@ export type {
   ContextMenuItem as TextContextMenuItem,
   SelectionMenuConfig as TextSelectionMenuConfig,
   SelectionMenuPluralLabels as TextSelectionMenuPluralLabels,
+  MarkdownBlockPlacement,
+  MarkdownSlotBlock,
+  MarkdownMediaBlock,
+  MarkdownImageBlock,
+  MarkdownVideoBlock,
+  MarkdownLinkBlock,
+  MarkdownBlock,
+  MarkdownRenderers,
+  MarkdownImagePlacement,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
 } from './native/EnrichedMarkdownText';
 export type {
   LinkPressEvent,

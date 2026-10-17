@@ -1,4 +1,9 @@
-import type { LinkRecognition } from './MarkdownTextProps';
+import type {
+  LinkRecognition,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
+  MarkdownRenderers,
+} from './MarkdownTextProps';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type {
@@ -139,4 +144,26 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform web
    */
   dir?: 'ltr' | 'rtl' | 'auto';
+  /**
+   * React replacements for block media, keyed by kind. Applies to a paragraph
+   * whose only content is an image and to `<video>` blocks, directly in the
+   * document, a blockquote or an admonition. Return `null`/`undefined` to keep
+   * the default rendering for a block.
+   * @platform ios, android, web
+   */
+  renderers?: MarkdownRenderers;
+  /**
+   * Chooses the `src` used for each image instead of its Markdown URL. Headers
+   * are ignored on web, where `<img>` requests cannot carry them. While a
+   * promise is pending, or when it rejects or resolves to an empty `uri`, the
+   * image renders without a source.
+   * @platform ios, android, web
+   */
+  resolveImageSource?: (
+    image: MarkdownImageOccurrence
+  ) =>
+    | MarkdownImageSource
+    | null
+    | undefined
+    | Promise<MarkdownImageSource | null | undefined>;
 }

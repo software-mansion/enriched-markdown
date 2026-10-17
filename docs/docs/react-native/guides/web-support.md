@@ -275,6 +275,8 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - `onLinkPress`, `onLinkLongPress` (mapped to the `contextmenu` event), `onImagePress`, `onTaskListItemPress` and `onCodeBlockPress`
 - `onCodeBlockPress` - makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role; it does not fire while code text is selected
 - `onImagePress` - makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
+- [`renderers`](/react-native/guides/custom-block-renderers) - React replacements for standalone images and `<video>` blocks, with the same block ids and placements as native; the element replaces the `<img>`/`<video>` in the DOM
+- `resolveImageSource` - swaps the `src` of every image occurrence, synchronously or from a promise; headers are dropped because `<img>` requests cannot carry them, and a pending or failed resolution renders the image without a source
 - `enableTaskListItemToggle` - set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and made pointer-inert rather than `disabled`, matching iOS and Android
 - `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`)
 - GitHub admonitions (`> [!NOTE]`) - rendered as callouts with the same icon set and `blockquote.admonitions` palette as native. There is no `flavor` prop on web, so they are always on unless `md4cFlags={{ admonitions: false }}`
