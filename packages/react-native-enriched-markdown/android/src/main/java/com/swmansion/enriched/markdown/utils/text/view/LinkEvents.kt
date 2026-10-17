@@ -47,6 +47,7 @@ fun TextView.cancelJSTouchForLinkTap(event: MotionEvent) {
   val currentMovementMethod = movementMethod
   if (currentMovementMethod is LinkLongPressMovementMethod && currentMovementMethod.isLinkTouchActive) {
     parent?.requestDisallowInterceptTouchEvent(true)
+    currentMovementMethod.disallowsParentIntercept = true
     NativeGestureUtil.notifyNativeGestureStarted(this, event)
   }
 }
@@ -56,12 +57,21 @@ fun TextView.cancelJSTouchForLinkTap(event: MotionEvent) {
  * touch is no longer active (slop exceeded, gesture ended, or cancelled).
  * This restores normal scrolling behavior for parent ScrollView/RecyclerView.
  *
+ * Only undoes the request made by [cancelJSTouchForLinkTap]. A long-press
+ * drag selection makes the framework Editor ask the parents not to intercept
+ * until ACTION_UP; re-allowing on every move let a scrolling parent steal
+ * that drag and cancel the selection before its handles and toolbar showed.
+ *
  * Must be called after [LinkLongPressMovementMethod.onTouchEvent] has
  * processed the event, since that is where [isLinkTouchActive] is updated.
  */
 fun TextView.reallowParentInterceptIfLinkReleased() {
   val currentMovementMethod = movementMethod
-  if (currentMovementMethod is LinkLongPressMovementMethod && !currentMovementMethod.isLinkTouchActive) {
+  if (currentMovementMethod is LinkLongPressMovementMethod &&
+    currentMovementMethod.disallowsParentIntercept &&
+    !currentMovementMethod.isLinkTouchActive
+  ) {
+    currentMovementMethod.disallowsParentIntercept = false
     parent?.requestDisallowInterceptTouchEvent(false)
   }
 }
