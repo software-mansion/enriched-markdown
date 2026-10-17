@@ -243,18 +243,19 @@ MediaLine classifyMediaLine(const std::string &line) {
 // or npos when the line ends cleanly. Escaped brackets and brackets inside code
 // spans are prose.
 size_t openInlineSyntaxStart(const std::string &line) {
-  size_t bracket = line.rfind('[');
-  while (bracket != std::string::npos &&
-         (InlineSyntax::isEscaped(line, bracket) || InlineSyntax::insideCodeSpan(line, bracket))) {
-    bracket = bracket == 0 ? std::string::npos : line.rfind('[', bracket - 1);
+  // Right to left over the `[` candidates: the innermost construct may have
+  // closed (`[![thumb](u)](https://e`) while an outer one is still typing.
+  for (size_t bracket = line.rfind('['); bracket != std::string::npos;
+       bracket = bracket == 0 ? std::string::npos : line.rfind('[', bracket - 1)) {
+    if (InlineSyntax::isEscaped(line, bracket) || InlineSyntax::insideCodeSpan(line, bracket))
+      continue;
+    if (InlineSyntax::state(line, bracket) != MediaLine::Open)
+      continue;
+    // An escaped `!` is literal text; the link after it is still a link.
+    bool image = bracket > 0 && line[bracket - 1] == '!' && !InlineSyntax::isEscaped(line, bracket - 1);
+    return image ? bracket - 1 : bracket;
   }
-  if (bracket == std::string::npos)
-    return std::string::npos;
-  if (InlineSyntax::state(line, bracket) != MediaLine::Open)
-    return std::string::npos;
-  // An escaped `!` is literal text; the link after it is still a link.
-  bool image = bracket > 0 && line[bracket - 1] == '!' && !InlineSyntax::isEscaped(line, bracket - 1);
-  return image ? bracket - 1 : bracket;
+  return std::string::npos;
 }
 
 // `terminated` says another block (an open code fence) follows the text, which

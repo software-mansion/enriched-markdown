@@ -45,8 +45,14 @@ namespace InlineSyntax {
 bool isEscaped(const std::string &text, size_t index);
 // Whether `index` falls inside a code span (backtick runs of equal length).
 bool insideCodeSpan(const std::string &text, size_t index);
-// The `)` closing a destination that opens at `openParen` (the `(` after `]`),
-// honouring balanced parentheses and escapes; npos when it has not arrived.
+// The `]` closing the label that opens at `bracket`, with nested brackets
+// balanced the way CommonMark reads them (`[![thumb](u)]`), skipping escapes
+// and code spans; npos when it has not arrived.
+size_t labelEnd(const std::string &text, size_t bracket);
+// The `)` closing a `(destination "title")` that opens at `openParen` (the `(`
+// after `]`): the destination may be `<pointy>` or hold balanced parentheses,
+// the optional title is quoted or parenthesised, and escapes are honoured
+// throughout; npos when it has not arrived.
 size_t destinationEnd(const std::string &text, size_t openParen);
 // How far a `[label](destination)` or `![alt](destination)` that starts at
 // `bracket` (the `[`) has streamed in: Open while its syntax can still close,

@@ -132,6 +132,29 @@ int main() {
   expect("Use `a` and [docs](https://e", "Use `a` and ", "closed code span before an open link");
   expect("Use `a[0](` and more", "Use `a[0](` and more", "single-backtick code span kept");
 
+  // Review cases: parentheses inside titles, pointy destinations, nested labels.
+  expect("[a](u \"t(\")", "[a](u \"t(\")", "title with an unmatched paren: complete");
+  expect("[a](u \"t(\")\n", "", "title with an unmatched paren: withheld (hidden)", H);
+  expect("[a](u \"t )", "", "title still open: cut");
+  expect("[a](u 't )", "", "single-quoted title still open: cut");
+  expect("[a](u (t )", "", "parenthesised title still open: cut");
+  expect("[a](u (t))", "[a](u (t))", "parenthesised title: complete");
+  expect("![a](u \"t(\")", "![a](u \"t(\")", "image title with an unmatched paren: complete");
+  expect("See [a](u \"t )", "See ", "inline link with an open title: cut");
+  expect("[a](<u v>)", "[a](<u v>)", "pointy destination with a space: complete");
+  expect("[a](<u v", "", "pointy destination still open: cut");
+  expect("[a](u \"t\") after", "[a](u \"t\") after", "titled link followed by prose is prose", H);
+  expect("[![thumb](u)](https://e", "", "outer link around a closed image still open: cut");
+  expect("See [![thumb](u)](https://e", "See ", "inline outer link around a closed image: cut");
+  expect("[![thumb](u)](v)", "[![thumb](u)](v)", "linked image: complete (progressive)");
+  expect("[![thumb](u)](v)\n", "", "linked image: withheld (hidden)", H);
+  expect("[a [b]](u)", "[a [b]](u)", "nested brackets in a label: complete");
+  expect("[a [b]](u)\n", "", "nested brackets in a label: withheld (hidden)", H);
+  expect("[a [b]](https://e", "", "nested brackets in an open label: cut");
+  expect("[a [b] c", "", "label with nested brackets still open: cut");
+  expect("[note] see [docs] here", "[note] see [docs] here", "two bracketed words are prose");
+  expect("[a `]` b](https://e", "", "bracket in a code span inside a label: still open");
+
   // Pre-existing rules keep their behaviour.
   expect("A\n\n| a | b |\n|---|---|\n| 1 |", "A\n\n| a | b |\n|---|---|\n", "incomplete table row trimmed");
   expect("A\n\n| a | b |\n|---|---|\n| 1 | 2 |", "A\n\n", "table withheld (hidden)", P, H);

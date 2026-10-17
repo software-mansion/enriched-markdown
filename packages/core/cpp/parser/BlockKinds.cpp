@@ -108,30 +108,102 @@ bool insideCodeSpan(const std::string &text, size_t index) {
   return openRun != 0;
 }
 
-size_t destinationEnd(const std::string &text, size_t openParen) {
+size_t labelEnd(const std::string &text, size_t bracket) {
   size_t depth = 0;
-  for (size_t i = openParen; i < text.size(); i++) {
+  for (size_t i = bracket; i < text.size(); i++) {
     char ch = text[i];
     if (ch == '\\') {
       i++; // the escaped character is literal
       continue;
     }
-    if (ch == '(') {
+    if (ch != '[' && ch != ']')
+      continue;
+    if (insideCodeSpan(text, i))
+      continue;
+    if (ch == '[') {
       depth++;
-    } else if (ch == ')') {
-      depth--;
-      if (depth == 0)
-        return i;
+    } else if (--depth == 0) {
+      return i;
     }
   }
   return std::string::npos;
 }
 
+namespace {
+
+bool isSpace(char ch) {
+  return ch == ' ' || ch == '\t';
+}
+
+// The index just past a title that opens at `i` with `open` (`"`, `'` or `(`),
+// or npos while its closing character has not arrived.
+size_t titleEnd(const std::string &text, size_t i, char open) {
+  char close = open == '(' ? ')' : open;
+  for (i++; i < text.size(); i++) {
+    if (text[i] == '\\') {
+      i++;
+      continue;
+    }
+    if (text[i] == close)
+      return i + 1;
+  }
+  return std::string::npos;
+}
+
+} // namespace
+
+size_t destinationEnd(const std::string &text, size_t openParen) {
+  const size_t n = text.size();
+  size_t i = openParen + 1;
+  while (i < n && isSpace(text[i]))
+    i++;
+  if (i < n && text[i] == '<') {
+    for (i++; i < n && text[i] != '>'; i++) {
+      if (text[i] == '\\')
+        i++;
+    }
+    if (i >= n)
+      return std::string::npos;
+    i++;
+  } else {
+    size_t depth = 0;
+    while (i < n) {
+      char ch = text[i];
+      if (ch == '\\') {
+        i += 2;
+        continue;
+      }
+      if (isSpace(ch) || (ch == ')' && depth == 0))
+        break;
+      if (ch == '(')
+        depth++;
+      else if (ch == ')')
+        depth--;
+      i++;
+    }
+  }
+  if (i >= n)
+    return std::string::npos; // still typing the destination
+  size_t afterDestination = i;
+  while (i < n && isSpace(text[i]))
+    i++;
+  if (i >= n)
+    return std::string::npos; // `[a](u ` may still get a title
+  if (text[i] == ')')
+    return i;
+  // A title needs whitespace before it and one of three delimiters.
+  if (i == afterDestination || (text[i] != '"' && text[i] != '\'' && text[i] != '('))
+    return std::string::npos;
+  i = titleEnd(text, i, text[i]);
+  if (i == std::string::npos)
+    return std::string::npos; // `[a](u "t` still typing the title
+  while (i < n && isSpace(text[i]))
+    i++;
+  return i < n && text[i] == ')' ? i : std::string::npos;
+}
+
 BlockLineState state(const std::string &text, size_t bracket) {
-  size_t close = bracket;
-  do {
-    close = text.find(']', close + 1);
-  } while (close != std::string::npos && isEscaped(text, close));
+  size_t close = labelEnd(text, bracket);
   if (close == std::string::npos)
     return BlockLineState::Open; // `[label` still typing
   if (isBlank(text.substr(close + 1)))
