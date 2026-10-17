@@ -87,6 +87,9 @@ object MarkdownRenderTestSupport {
     return copyOfDefault(codeStyle = codeStyle, paragraphStyle = aligned.paragraphStyle, headingStyles = aligned.headingStyles)
   }
 
+  /** [defaultStyle] with only its [CodeBlockStyle] replaced. */
+  fun styleWithCodeBlock(codeBlockStyle: CodeBlockStyle): StyleConfig = copyOfDefault(codeBlockStyle = codeBlockStyle)
+
   /** [defaultStyle] with only its [SpoilerStyle] replaced. */
   fun styleWithSpoiler(spoilerStyle: SpoilerStyle): StyleConfig = copyOfDefault(spoilerStyle = spoilerStyle)
 

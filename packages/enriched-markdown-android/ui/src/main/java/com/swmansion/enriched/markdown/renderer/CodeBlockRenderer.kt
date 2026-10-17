@@ -107,9 +107,9 @@ class CodeBlockRenderer(
         fm.top -= padding
       }
 
-      // Adjust descent/bottom for the last line (handling trailing newlines)
-      val isLastLine = endLine == spanEnd || (spanEnd <= endLine && text[spanEnd - 1] == '\n')
-      if (isLastLine) {
+      // Adjust descent/bottom for the last line. The span need not end with its own '\n': a list
+      // item trims trailing newlines, so its line can run past spanEnd on the item's terminator.
+      if (spanEnd <= endLine) {
         fm.descent += padding
         fm.bottom += padding
       }

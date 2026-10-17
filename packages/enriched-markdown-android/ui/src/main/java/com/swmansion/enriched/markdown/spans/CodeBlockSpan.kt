@@ -100,7 +100,9 @@ class CodeBlockSpan(
     if (spanStart !in 0 until spanEnd) return
 
     val isFirstLine = start == spanStart
-    val isLastLine = end == spanEnd || (spanEnd <= end && (spanEnd == text.length || text[spanEnd - 1] == '\n'))
+    // The line holding spanEnd is the last one even when the span lost its own '\n' (a list item
+    // trims trailing newlines), leaving the line to end on a terminator outside the span.
+    val isLastLine = spanEnd <= end
 
     val inset = codeBlockStyle.borderWidth / 2f
 
