@@ -141,9 +141,6 @@ class EnrichedMarkdownManager :
     super.onDropViewInstance(view)
     view.cleanup()
     MeasurementStore.release(view.id)
-    MeasurementStore.clearStreamingTableMode(view.id)
-    MeasurementStore.clearStreamingCodeBlockMode(view.id)
-    MeasurementStore.clearStreamingMediaMode(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
     MeasurementStore.clearFontScalingSettings(view.id)
   }

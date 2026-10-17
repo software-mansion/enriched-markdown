@@ -272,9 +272,6 @@ class EnrichedMarkdown(
   }
 
   fun commitProps() {
-    MeasurementStore.updateStreamingTableMode(id, tableStreamingMode)
-    MeasurementStore.updateStreamingCodeBlockMode(id, codeBlockStreamingMode)
-    MeasurementStore.updateStreamingMediaMode(id, mediaStreamingMode)
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     if (renderPending) {
       renderPending = false

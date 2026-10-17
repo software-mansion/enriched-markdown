@@ -90,12 +90,6 @@ object MeasurementStore {
 
   private val ellipsizeModeByViewId = ConcurrentHashMap<Int, String>()
 
-  private val streamingTableModes = ConcurrentHashMap<Int, TableStreamingMode>()
-
-  private val streamingCodeBlockModes = ConcurrentHashMap<Int, CodeBlockStreamingMode>()
-
-  private val streamingMediaModes = ConcurrentHashMap<Int, MediaStreamingMode>()
-
   // Code blocks the user wrapped, by document-order index across nesting (see CodeBlockWrapState).
   private val wrappedCodeBlocks = ConcurrentHashMap<Int, Set<Int>>()
 
@@ -286,39 +280,6 @@ object MeasurementStore {
   private fun resolveEllipsize(viewId: Int?): TruncateAt? =
     EllipsizeUtils.resolveTruncateAt(viewId?.let { ellipsizeModeByViewId[it] } ?: EllipsizeUtils.DEFAULT_MODE)
 
-  fun updateStreamingTableMode(
-    viewId: Int,
-    mode: TableStreamingMode,
-  ) {
-    streamingTableModes[viewId] = mode
-  }
-
-  fun clearStreamingTableMode(viewId: Int) {
-    streamingTableModes.remove(viewId)
-  }
-
-  fun updateStreamingCodeBlockMode(
-    viewId: Int,
-    mode: CodeBlockStreamingMode,
-  ) {
-    streamingCodeBlockModes[viewId] = mode
-  }
-
-  fun clearStreamingCodeBlockMode(viewId: Int) {
-    streamingCodeBlockModes.remove(viewId)
-  }
-
-  fun updateStreamingMediaMode(
-    viewId: Int,
-    mode: MediaStreamingMode,
-  ) {
-    streamingMediaModes[viewId] = mode
-  }
-
-  fun clearStreamingMediaMode(viewId: Int) {
-    streamingMediaModes.remove(viewId)
-  }
-
   private fun getMeasureByIdInternal(
     context: Context,
     id: Int?,
@@ -504,27 +465,24 @@ object MeasurementStore {
     val isStreaming = props.getBooleanOrDefault("streamingAnimation", false)
 
     val rawMarkdown = props.getStringOrDefault("markdown", "")
+    // The modes come with the props (conversions.h), so the first measurement and
+    // a measurement after a mode change filter exactly what the view will render.
+    val streamingConfig = props.getMapOrNull("streamingConfig")
     val tableMode =
-      if (isStreaming) {
-        id?.let {
-          streamingTableModes[it]
-        } ?: TableStreamingMode.PROGRESSIVE
+      if (isStreaming && streamingConfig.getStringOrDefault("tableMode", "") == "hidden") {
+        TableStreamingMode.HIDDEN
       } else {
         TableStreamingMode.PROGRESSIVE
       }
     val codeBlockMode =
-      if (isStreaming) {
-        id?.let {
-          streamingCodeBlockModes[it]
-        } ?: CodeBlockStreamingMode.PROGRESSIVE
+      if (isStreaming && streamingConfig.getStringOrDefault("codeBlockMode", "") == "hidden") {
+        CodeBlockStreamingMode.HIDDEN
       } else {
         CodeBlockStreamingMode.PROGRESSIVE
       }
     val mediaMode =
-      if (isStreaming) {
-        id?.let {
-          streamingMediaModes[it]
-        } ?: MediaStreamingMode.PROGRESSIVE
+      if (isStreaming && streamingConfig.getStringOrDefault("mediaMode", "") == "hidden") {
+        MediaStreamingMode.HIDDEN
       } else {
         MediaStreamingMode.PROGRESSIVE
       }

@@ -145,6 +145,9 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
     } else if ([segment isKindOfClass:[ENRMTableSegment class]]) {
       ENRMTableSegment *tableSegment = (ENRMTableSegment *)segment;
       uint64_t signature = ENRMSignatureForNode(tableSegment.tableNode) ^ kTableKindSalt;
+      if (imageSourceOverrides.count > 0) {
+        signature = ENRMMixImageSourceOverrides(signature, @[ tableSegment.tableNode ], imageSourceOverrides);
+      }
       [renderedSegments addObject:[ENRMRenderedSegment tableSegmentWithSegment:tableSegment signature:signature]];
     }
 #if ENRICHED_MARKDOWN_MATH
