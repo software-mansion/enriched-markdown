@@ -22,6 +22,8 @@ public:
 
   MarkdownTextShadowNode(ShadowNode const &sourceShadowNode, ShadowNodeFragment const &fragment)
       : ConcreteViewShadowNode(sourceShadowNode, fragment) {
+    forceHeightRecalculationCounter_ =
+        static_cast<const MarkdownTextShadowNode &>(sourceShadowNode).forceHeightRecalculationCounter_;
     dirtyLayoutIfNeeded();
   }
 
@@ -38,6 +40,10 @@ public:
   void dirtyLayoutIfNeeded();
 
   Size measureContent(const LayoutContext &layoutContext, const LayoutConstraints &layoutConstraints) const override;
+
+protected:
+  bool shouldNewRevisionDirtyMeasurement(const ShadowNode &sourceShadowNode,
+                                         const ShadowNodeFragment &fragment) const override;
 
 private:
   int forceHeightRecalculationCounter_{0};
