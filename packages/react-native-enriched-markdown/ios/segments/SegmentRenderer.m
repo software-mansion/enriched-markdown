@@ -4,6 +4,38 @@
 #import "MarkdownASTNode.h"
 #import "ParagraphStyleUtils.h"
 #import "RenderedMarkdownSegment.h"
+#import "StyleConfig.h"
+
+static inline uint64_t ENRMMixString(uint64_t hash, NSString *string)
+{
+  const char *utf8 = [string UTF8String];
+  while (utf8 && *utf8) {
+    hash ^= (uint8_t)*utf8++;
+    hash *= 1099511628211ULL;
+  }
+  return hash;
+}
+
+// The source an image loads comes from the `imageSources` prop, not the AST, so
+// it joins the signature: the reconciler keeps a view whose signature matches
+// as it is, and that view must not hold the previous source's attachment.
+static uint64_t ENRMMixImageSourceOverrides(uint64_t hash, NSArray<MarkdownASTNode *> *nodes,
+                                            NSDictionary<NSString *, ENRMImageSourceOverride *> *overrides)
+{
+  for (MarkdownASTNode *node in nodes) {
+    NSString *occurrenceId = node.attributes[@"imageOccurrenceId"];
+    ENRMImageSourceOverride *override = occurrenceId ? overrides[occurrenceId] : nil;
+    if (override) {
+      hash = ENRMMixString(hash, override.uri);
+      for (NSString *key in [override.headers.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        hash = ENRMMixString(hash, key);
+        hash = ENRMMixString(hash, override.headers[key]);
+      }
+    }
+    hash = ENRMMixImageSourceOverrides(hash, node.children, overrides);
+  }
+  return hash;
+}
 
 static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
 {
@@ -11,7 +43,20 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
   NSMutableArray *currentTextNodes = [NSMutableArray array];
 
   for (MarkdownASTNode *child in root.children) {
-    if (child.type == MarkdownNodeTypeTable) {
+    NSString *blockSlotId = child.attributes[@"blockSlotId"];
+    if (blockSlotId.length > 0) {
+      // A React child replaces this block (BlockSlots.hpp stamps only the ids the
+      // host asked for); the host reserves the slot and Fabric mounts the child.
+      if (currentTextNodes.count > 0) {
+        [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
+        [currentTextNodes removeAllObjects];
+      }
+      NSString *kindName = child.attributes[@"blockSlotKind"];
+      ENRMBlockSlotKind kind = [kindName isEqualToString:@"video"]  ? ENRMBlockSlotKindVideo
+                               : [kindName isEqualToString:@"link"] ? ENRMBlockSlotKindLink
+                                                                    : ENRMBlockSlotKindImage;
+      [segments addObject:[ENRMBlockSlotSegment segmentWithSlotId:blockSlotId kind:kind]];
+    } else if (child.type == MarkdownNodeTypeTable) {
       if (currentTextNodes.count > 0) {
         [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
         [currentTextNodes removeAllObjects];
@@ -81,6 +126,8 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
   static const uint64_t kCodeBlockKindSalt = 0x63626C6B00000000ULL;  // "cblk"
   static const uint64_t kBlockquoteKindSalt = 0x6271746500000000ULL; // "bqte"
   static const uint64_t kVideoKindSalt = 0x7669646F00000000ULL;      // "vido"
+  static const uint64_t kBlockSlotKindSalt = 0x626C736C00000000ULL;  // "blsl"
+  NSDictionary<NSString *, ENRMImageSourceOverride *> *imageSourceOverrides = config.imageSourceOverrides;
 
   for (id segment in segments) {
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
@@ -91,10 +138,16 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
                                        : ENRMRenderASTNodes(textSegment.nodes, config, allowTrailingMargin,
                                                             allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy);
       uint64_t signature = ENRMSignatureForNodes(textSegment.nodes) ^ kTextKindSalt;
+      if (imageSourceOverrides.count > 0) {
+        signature = ENRMMixImageSourceOverrides(signature, textSegment.nodes, imageSourceOverrides);
+      }
       [renderedSegments addObject:[ENRMRenderedSegment textSegmentWithResult:rendered signature:signature]];
     } else if ([segment isKindOfClass:[ENRMTableSegment class]]) {
       ENRMTableSegment *tableSegment = (ENRMTableSegment *)segment;
       uint64_t signature = ENRMSignatureForNode(tableSegment.tableNode) ^ kTableKindSalt;
+      if (imageSourceOverrides.count > 0) {
+        signature = ENRMMixImageSourceOverrides(signature, @[ tableSegment.tableNode ], imageSourceOverrides);
+      }
       [renderedSegments addObject:[ENRMRenderedSegment tableSegmentWithSegment:tableSegment signature:signature]];
     }
 #if ENRICHED_MARKDOWN_MATH
@@ -118,6 +171,9 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
     } else if ([segment isKindOfClass:[ENRMBlockquoteSegment class]]) {
       ENRMBlockquoteSegment *blockquoteSegment = (ENRMBlockquoteSegment *)segment;
       uint64_t signature = ENRMSignatureForNode(blockquoteSegment.blockquoteNode) ^ kBlockquoteKindSalt;
+      if (imageSourceOverrides.count > 0) {
+        signature = ENRMMixImageSourceOverrides(signature, @[ blockquoteSegment.blockquoteNode ], imageSourceOverrides);
+      }
       [renderedSegments addObject:[ENRMRenderedSegment blockquoteSegmentWithSegment:blockquoteSegment
                                                                           signature:signature]];
     }
@@ -128,6 +184,17 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
       [renderedSegments addObject:[ENRMRenderedSegment videoSegmentWithSegment:videoSegment signature:signature]];
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMBlockSlotSegment class]]) {
+      ENRMBlockSlotSegment *blockSlotSegment = (ENRMBlockSlotSegment *)segment;
+      uint64_t signature = kBlockSlotKindSalt;
+      const char *utf8 = [blockSlotSegment.slotId UTF8String];
+      while (utf8 && *utf8) {
+        signature ^= (uint8_t)*utf8++;
+        signature *= 1099511628211ULL;
+      }
+      [renderedSegments addObject:[ENRMRenderedSegment blockSlotSegmentWithSegment:blockSlotSegment
+                                                                         signature:signature]];
+    }
   }
 
   return renderedSegments;

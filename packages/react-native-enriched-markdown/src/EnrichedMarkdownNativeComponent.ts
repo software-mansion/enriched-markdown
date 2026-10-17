@@ -318,6 +318,12 @@ export interface ImageRequestHeaderInternal {
   value: string;
 }
 
+interface ImageSourceInternal {
+  id: string;
+  uri: string;
+  headers: ReadonlyArray<Readonly<ImageRequestHeaderInternal>>;
+}
+
 export interface LinkPillContentInternal {
   url: string;
   label: string;
@@ -432,6 +438,7 @@ export interface Md4cFlagsInternal {
 interface StreamingConfigInternal {
   tableMode: string;
   codeBlockMode: string;
+  mediaMode?: string;
 }
 
 interface LinkContextMenuItemConfig {
@@ -637,6 +644,12 @@ export interface NativeProps extends ViewProps {
    * HTTP headers attached to remote image requests, as name/value pairs.
    */
   imageRequestHeaders?: ReadonlyArray<Readonly<ImageRequestHeaderInternal>>;
+  /**
+   * Per-image request overrides keyed by image occurrence id (see
+   * `resolveImageSource`). An empty `uri` keeps the placeholder and skips the
+   * request; headers merge over `imageRequestHeaders`.
+   */
+  imageSources?: ReadonlyArray<Readonly<ImageSourceInternal>>;
   /** Per-link pill content (label, icon), one entry per exact link URL. */
   linkPillContent?: ReadonlyArray<Readonly<LinkPillContentInternal>>;
   /** Opt-in text link recognition; see `EnrichedMarkdownTextProps.linkRecognition`. */

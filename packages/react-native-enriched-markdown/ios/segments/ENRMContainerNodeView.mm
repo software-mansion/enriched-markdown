@@ -1,4 +1,5 @@
 #import "ENRMContainerNodeView.h"
+#import "ENRMBlockSlotSegmentView.h"
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMFeatureFlags.h"
@@ -74,6 +75,9 @@
   if ([view isKindOfClass:[TableContainerView class]]) {
     return _config.tableMarginTop;
   }
+  if ([view isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+    return ENRMBlockSlotMarginTop(((ENRMBlockSlotSegmentView *)view).kind, _config);
+  }
   if ([view isKindOfClass:[ENRMCodeBlockContainerView class]]) {
     return _config.codeBlockMarginTop;
   }
@@ -99,6 +103,9 @@
 {
   if ([view isKindOfClass:[TableContainerView class]]) {
     return _config.tableMarginBottom;
+  }
+  if ([view isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+    return ENRMBlockSlotMarginBottom(((ENRMBlockSlotSegmentView *)view).kind, _config);
   }
   if ([view isKindOfClass:[ENRMCodeBlockContainerView class]]) {
     return _config.codeBlockMarginBottom;
@@ -134,6 +141,9 @@
   }
   if ([view isKindOfClass:[ENRMBlockquoteContainerView class]]) {
     return [(ENRMBlockquoteContainerView *)view measureHeight:width];
+  }
+  if ([view isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+    return [(ENRMBlockSlotSegmentView *)view measureHeight:width];
   }
 #if ENRICHED_MARKDOWN_MATH
   if ([view isKindOfClass:[ENRMMathContainerView class]]) {

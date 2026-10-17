@@ -13,6 +13,7 @@ import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
 import com.swmansion.enriched.markdown.parser.Md4cFlags
+import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 
@@ -152,6 +153,20 @@ fun parseImageRequestHeaders(value: ReadableArray?): Map<String, String> =
       val name = header.getString("name") ?: return@mapNotNull null
       val headerValue = header.getString("value") ?: return@mapNotNull null
       name to headerValue
+    }.toMap()
+
+// Header names are lowercased so overrides and cache identity ignore HTTP header casing.
+fun parseImageSources(value: ReadableArray?): Map<String, ImageSourceOverride> =
+  (0 until (value?.size() ?: 0))
+    .mapNotNull { index ->
+      val entry = value?.getMap(index) ?: return@mapNotNull null
+      val id = entry.getString("id") ?: return@mapNotNull null
+      val headers =
+        parseImageRequestHeaders(entry.getArray("headers"))
+          .entries
+          .sortedBy { it.key }
+          .associate { it.key.lowercase() to it.value }
+      id to ImageSourceOverride(entry.getString("uri") ?: "", headers)
     }.toMap()
 
 fun parseLinkPillContent(value: ReadableArray?): Map<String, LinkPillContent> =

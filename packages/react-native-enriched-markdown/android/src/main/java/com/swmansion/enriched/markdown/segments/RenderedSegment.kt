@@ -57,6 +57,12 @@ sealed interface RenderedSegment {
     val node: MarkdownASTNode,
     override val signature: Long,
   ) : RenderedSegment
+
+  data class BlockSlot(
+    val slotId: String,
+    val kind: BlockSlotKind,
+    override val signature: Long,
+  ) : RenderedSegment
 }
 
 object MarkdownSegmentRenderer {
@@ -99,6 +105,13 @@ object MarkdownSegmentRenderer {
         is MarkdownSegment.Video -> {
           val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.VIDEO_KIND_SALT
           RenderedSegment.Video(segment.node, signature)
+        }
+
+        is MarkdownSegment.BlockSlot -> {
+          val signature =
+            SegmentSignature.fnvMixString(SegmentSignature.signatureForNode(null), segment.slotId) xor
+              SegmentSignature.BLOCK_SLOT_KIND_SALT
+          RenderedSegment.BlockSlot(segment.slotId, segment.kind, signature)
         }
       }
     }

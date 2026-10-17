@@ -9,11 +9,13 @@ import android.util.Log
 import android.view.View
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.StateWrapper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
+import com.swmansion.enriched.markdown.segments.BlockSlotSegmentView
 import com.swmansion.enriched.markdown.segments.BlockquoteContainerView
 import com.swmansion.enriched.markdown.segments.CodeBlockContainerView
 import com.swmansion.enriched.markdown.segments.ContainerNodeView
@@ -25,12 +27,15 @@ import com.swmansion.enriched.markdown.segments.SegmentViewCreators
 import com.swmansion.enriched.markdown.segments.SegmentViewFactory
 import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.slots.BlockSlotLayer
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
+import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
@@ -42,6 +47,7 @@ import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import java.util.EnumSet
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.ceil
 
 class EnrichedMarkdown(
   context: Context,
@@ -72,6 +78,7 @@ class EnrichedMarkdown(
 
   var tableStreamingMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE
   var codeBlockStreamingMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
+  var mediaStreamingMode: MediaStreamingMode = MediaStreamingMode.PROGRESSIVE
   private var renderPending: Boolean = false
 
   var currentMarkdown: String = ""
@@ -91,7 +98,16 @@ class EnrichedMarkdown(
   private var allowFontScaling: Boolean = true
   private var maxFontSizeMultiplier: Float = 0f
   private var imageRequestHeaders: Map<String, String> = emptyMap()
+  private var imageSourceOverrides: Map<String, ImageSourceOverride> = emptyMap()
   private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
+
+  // Fabric children (the React slot views) live here, above the segments, so the
+  // segment reconciler's child indices stay its own. Fabric positions them.
+  val slotLayer = BlockSlotLayer(context)
+
+  // From the shadow node's state: every slot child's id, and the heights of the placed ones (px).
+  private var activeBlockSlotIds: Set<String> = emptySet()
+  private var blockSlotHeights: Map<String, Int> = emptyMap()
   private var selectable: Boolean = true
   private var selectionColor: Int? = null
   private var selectionHandleColor: Int? = null
@@ -156,7 +172,18 @@ class EnrichedMarkdown(
 
   init {
     segmentViewFactory = RootFactory()
+    // The layer stays child 0 (the reconciler's segment indices start after it)
+    // and is drawn, and hit-tested, last via the drawing order below.
+    addView(slotLayer, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    isChildrenDrawingOrderEnabled = true
   }
+
+  override val segmentChildOffset: Int get() = 1
+
+  override fun getChildDrawingOrder(
+    childCount: Int,
+    drawingPosition: Int,
+  ): Int = if (drawingPosition == childCount - 1) 0 else drawingPosition + 1
 
   // isTaskToggle marks a checkbox flip rendered locally ahead of the prop; it
   // moves no code block, so it skips the wrap state's reset rule.
@@ -178,6 +205,7 @@ class EnrichedMarkdown(
     markdownStyleMap = style
     val newConfig = style?.let { StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier) }
     newConfig?.imageRequestHeaders = imageRequestHeaders
+    newConfig?.imageSourceOverrides = imageSourceOverrides
     newConfig?.linkPillContent = linkPillContent
     if (markdownStyle == newConfig) return
     markdownStyle = newConfig
@@ -194,6 +222,45 @@ class EnrichedMarkdown(
     renderPending = true
   }
 
+  fun setImageSources(sources: Map<String, ImageSourceOverride>) {
+    if (imageSourceOverrides == sources) return
+    imageSourceOverrides = sources
+    markdownStyle?.imageSourceOverrides = sources
+    dirtyFlags += DirtyFlag.RECREATE_SEGMENTS
+    renderPending = true
+  }
+
+  /**
+   * The shadow node's `slotPlacements` state: which slot children exist and how
+   * tall the placed ones are. New ids need a render that claims their blocks; new
+   * heights only restack the segments (Yoga already measured with them).
+   */
+  fun applySlotPlacements(state: ReadableMap?) {
+    val placements = state?.takeIf { it.hasKey("slotPlacements") }?.getArray("slotPlacements")
+    val ids = LinkedHashSet<String>()
+    val heights = HashMap<String, Int>()
+    for (index in 0 until (placements?.size() ?: 0)) {
+      val placement = placements?.getMap(index) ?: continue
+      val id = placement.getString("id") ?: continue
+      ids += id
+      if (placement.hasKey("placed") && placement.getBoolean("placed")) {
+        // The child is laid out at this height rounded up to the pixel grid.
+        heights[id] = ceil(PixelUtil.toPixelFromDIP(placement.getDouble("height").toFloat())).toInt()
+      }
+    }
+    blockSlotHeights = heights
+    if (applyBlockSlotHeights(heights) && width > 0) {
+      layoutSegments()
+      requestLayout()
+    }
+    if (activeBlockSlotIds != ids) {
+      activeBlockSlotIds = ids
+      // Rendered now, in this commit, not in commitProps nor one executor hop later.
+      renderPending = false
+      renderSynchronously()
+    }
+  }
+
   fun setLinkPillContent(content: Map<String, LinkPillContent>) {
     if (linkPillContent == content) return
     linkPillContent = content
@@ -205,8 +272,6 @@ class EnrichedMarkdown(
   }
 
   fun commitProps() {
-    MeasurementStore.updateStreamingTableMode(id, tableStreamingMode)
-    MeasurementStore.updateStreamingCodeBlockMode(id, codeBlockStreamingMode)
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     if (renderPending) {
       renderPending = false
@@ -411,6 +476,7 @@ class EnrichedMarkdown(
       markdownStyle =
         StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier).also { config ->
           config.imageRequestHeaders = imageRequestHeaders
+          config.imageSourceOverrides = imageSourceOverrides
           config.linkPillContent = linkPillContent
         }
     }
@@ -420,56 +486,102 @@ class EnrichedMarkdown(
     if (currentMarkdown.isNotEmpty()) scheduleRender()
   }
 
+  // Everything one render needs, captured on the main thread.
+  private class RenderJob(
+    val style: StyleConfig,
+    val markdown: String,
+    val isStreaming: Boolean,
+    val tableMode: TableStreamingMode,
+    val codeBlockMode: CodeBlockStreamingMode,
+    val mediaMode: MediaStreamingMode,
+    val textLinkRegex: LinkRegexConfig?,
+    val codeLinkRegex: LinkRegexConfig?,
+    val slotIds: Set<String>,
+    val annotateImages: Boolean,
+  )
+
+  private fun renderJob(): RenderJob? {
+    val style = markdownStyle ?: return null
+    val markdown = currentMarkdown.takeIf { it.isNotEmpty() } ?: return null
+    return RenderJob(
+      style,
+      markdown,
+      streamingAnimation,
+      tableStreamingMode,
+      codeBlockStreamingMode,
+      mediaStreamingMode,
+      linkRegex,
+      inlineCodeLinkRegex,
+      activeBlockSlotIds,
+      imageSourceOverrides.isNotEmpty(),
+    )
+  }
+
+  // Parses and renders off the main thread's state; safe on any thread.
+  private fun runRenderJob(job: RenderJob): Pair<List<RenderedSegment>, Boolean> {
+    val filtered =
+      if (job.isStreaming) {
+        StreamingMarkdownFilter.renderableMarkdownForStreaming(job.markdown, job.tableMode, job.codeBlockMode, job.mediaMode)
+      } else {
+        null
+      }
+    val renderableMarkdown = filtered?.markdown ?: job.markdown
+    val hasPendingCodeBlock = filtered?.endsInsideOpenCodeFence ?: false
+    if (renderableMarkdown.isEmpty()) return emptyList<RenderedSegment>() to false
+
+    val ast =
+      parser.parseMarkdown(
+        renderableMarkdown,
+        md4cFlags,
+        isGFM,
+        job.textLinkRegex,
+        job.codeLinkRegex,
+        job.slotIds,
+        job.annotateImages,
+      ) ?: return emptyList<RenderedSegment>() to false
+
+    val segments = splitASTIntoSegments(ast)
+    val renderedSegments =
+      MarkdownSegmentRenderer.render(
+        segments,
+        job.style,
+        context,
+        onLinkPressCallback,
+        onLinkLongPressCallback,
+        onLatexError = latexErrorReporter,
+      )
+    return renderedSegments to hasPendingCodeBlock
+  }
+
   private fun scheduleRender() {
-    val style = markdownStyle ?: return
-    val markdown = currentMarkdown.takeIf { it.isNotEmpty() } ?: return
-    val isStreaming = streamingAnimation
-    val tableMode = tableStreamingMode
-    val codeBlockMode = codeBlockStreamingMode
-
-    val textLinkRegex = linkRegex
-    val codeLinkRegex = inlineCodeLinkRegex
+    val job = renderJob() ?: return
     val renderId = ++currentRenderId
-
     executor.execute {
-      try {
-        val filtered =
-          if (isStreaming) {
-            StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, tableMode, codeBlockMode)
-          } else {
-            null
-          }
-        val renderableMarkdown = filtered?.markdown ?: markdown
-        val hasPendingCodeBlock = filtered?.endsInsideOpenCodeFence ?: false
-
-        if (renderableMarkdown.isEmpty()) {
-          postToMain(renderId) { applyRenderedSegments(emptyList(), false) }
-          return@execute
+      val (segments, pendingCodeBlock) =
+        try {
+          runRenderJob(job)
+        } catch (e: Exception) {
+          Log.e(TAG, "Render failed", e)
+          emptyList<RenderedSegment>() to false
         }
+      postToMain(renderId) { applyRenderedSegments(segments, pendingCodeBlock) }
+    }
+  }
 
-        val ast =
-          parser.parseMarkdown(renderableMarkdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
-            postToMain(renderId) { applyRenderedSegments(emptyList(), false) }
-            return@execute
-          }
-
-        val segments = splitASTIntoSegments(ast)
-        val renderedSegments =
-          MarkdownSegmentRenderer.render(
-            segments,
-            style,
-            context,
-            onLinkPressCallback,
-            onLinkLongPressCallback,
-            onLatexError = latexErrorReporter,
-          )
-
-        postToMain(renderId) { applyRenderedSegments(renderedSegments, hasPendingCodeBlock) }
+  // A slot id change arrives with the commit that mounts the React child, so the
+  // placeholder that reserves its space must land in the same frame: render inline
+  // instead of one executor hop later, and drop any render already in flight.
+  private fun renderSynchronously() {
+    val job = renderJob() ?: return
+    currentRenderId++
+    val (segments, pendingCodeBlock) =
+      try {
+        runRenderJob(job)
       } catch (e: Exception) {
         Log.e(TAG, "Render failed", e)
-        postToMain(renderId) { applyRenderedSegments(emptyList(), false) }
+        emptyList<RenderedSegment>() to false
       }
-    }
+    applyRenderedSegments(segments, pendingCodeBlock)
   }
 
   // Trailing code block whose closing fence hasn't streamed in yet, if any.
@@ -488,6 +600,7 @@ class EnrichedMarkdown(
     dirtyFlags.clear()
 
     val topologyChanged = applySegments(renderedSegments, reset)
+    applyBlockSlotHeights(blockSlotHeights)
 
     // A just-closed block has unchanged content, so the reconciler reuses it
     // without an update; sync pending here to trigger its deferred highlight.
@@ -554,6 +667,7 @@ class EnrichedMarkdown(
         is RenderedSegment.CodeBlock -> view is CodeBlockContainerView
         is RenderedSegment.Blockquote -> view is BlockquoteContainerView
         is RenderedSegment.Video -> isVideoContainerView(view)
+        is RenderedSegment.BlockSlot -> view is BlockSlotSegmentView
       }
 
     override fun createView(segment: RenderedSegment): View {
@@ -586,6 +700,12 @@ class EnrichedMarkdown(
 
         is RenderedSegment.Video -> {
           SegmentViewCreators.createVideoView(segment, config)
+        }
+
+        is RenderedSegment.BlockSlot -> {
+          SegmentViewCreators.createBlockSlotView(segment, config).apply {
+            slotHeight = blockSlotHeights[segment.slotId] ?: 0
+          }
         }
       }
     }
@@ -629,6 +749,10 @@ class EnrichedMarkdown(
         is RenderedSegment.Video -> {
           SegmentViewCreators.updateVideoView(view, segment)
         }
+
+        is RenderedSegment.BlockSlot -> {
+          SegmentViewCreators.updateBlockSlotView(view as BlockSlotSegmentView, segment)
+        }
       }
     }
 
@@ -646,6 +770,9 @@ class EnrichedMarkdown(
         is RenderedSegment.Blockquote,
         is RenderedSegment.Video,
         -> animateBlockViewFadeIn(view)
+
+        // The React child fades in on its own terms; the placeholder draws nothing.
+        is RenderedSegment.BlockSlot -> Unit
       }
     }
   }
@@ -688,6 +815,7 @@ class EnrichedMarkdown(
     b: Int,
   ) {
     layoutSegments()
+    slotLayer.layout(0, 0, width, height)
   }
 
   fun onImageLayoutChanged() {

@@ -47,6 +47,34 @@ open class ContainerNodeView(
     }
 
   /**
+   * Pushes the slot heights the shadow node measured into every placeholder,
+   * recursing into nested containers; a missing id collapses the slot. Returns
+   * whether any height changed.
+   */
+  internal fun applyBlockSlotHeights(heights: Map<String, Int>): Boolean {
+    var changed = false
+    segmentViews.forEach { view ->
+      when (view) {
+        is BlockSlotSegmentView -> {
+          val height = heights[view.slotId] ?: 0
+          if (view.slotHeight != height) {
+            view.slotHeight = height
+            changed = true
+          }
+        }
+
+        is ContainerNodeView -> {
+          if (view.applyBlockSlotHeights(heights)) changed = true
+        }
+      }
+    }
+    return changed
+  }
+
+  /** Children before the segments (a host's slot layer); the reconciler's indices start after them. */
+  protected open val segmentChildOffset: Int get() = 0
+
+  /**
    * Reconciles the current child views against renderedSegments, attaching and
    * removing views as needed and updating segmentViews/segmentSignatures.
    * Returns whether the topology changed (any view attached or removed).
@@ -78,9 +106,10 @@ open class ContainerNodeView(
     // without a detach-from-window pass, so a moved child keeps its selection, focus
     // and scroll state; each step fixes one index without disturbing the ones before it.
     result.views.forEachIndexed { index, view ->
-      if (getChildAt(index) !== view) {
+      val childIndex = index + segmentChildOffset
+      if (getChildAt(childIndex) !== view) {
         detachViewFromParent(view)
-        attachViewToParent(view, index, view.layoutParams)
+        attachViewToParent(view, childIndex, view.layoutParams)
       }
     }
 

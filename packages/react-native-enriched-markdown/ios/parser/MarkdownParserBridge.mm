@@ -1,3 +1,4 @@
+#include "BlockSlots.hpp"
 #import "ENRMLinkRegexConfig.h"
 #import "ENRMMarkdownParser.h"
 #include "MD4CParser.hpp"
@@ -190,15 +191,26 @@ static Markdown::TextLinkMatchers ENRMTextLinkMatchers(ENRMLinkRegexConfig *text
 
 MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
                                             ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex);
+MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
+                                            ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex,
+                                            NSSet<NSString *> *activeBlockSlotIds, BOOL annotateImages);
 
 MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM)
 {
   return parseMarkdownWithCppParser(markdown, flags, isGFM, nil, nil);
 }
 
-// Parses with the C++ parser, runs text link recognition in the core, and converts to the Objective-C AST.
 MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
                                             ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex)
+{
+  return parseMarkdownWithCppParser(markdown, flags, isGFM, textRegex, codeRegex, nil, NO);
+}
+
+// Parses with the C++ parser, runs text link recognition and the block slot /
+// image occurrence annotation in the core, and converts to the Objective-C AST.
+static MarkdownASTNode *parseMarkdownUncached(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
+                                              ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex,
+                                              NSSet<NSString *> *activeBlockSlotIds, BOOL annotateImages)
 {
   if (markdown.length == 0) {
     return [[MarkdownASTNode alloc] initWithType:MarkdownNodeTypeDocument];
@@ -226,10 +238,87 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
 
   Markdown::MD4CParser parser;
   auto cppAST = parser.parse(cppMarkdown, cppFlags, isGFM);
+  // Slots and image sources are GFM features (the CommonMark host lays nothing
+  // out for them); one walk stamps both. It runs before text-link recognition,
+  // which the JS collector never runs, so both count the same slots.
+  if (cppAST && isGFM && (activeBlockSlotIds.count > 0 || annotateImages)) {
+    std::unordered_set<std::string> ids;
+    for (NSString *slotId in activeBlockSlotIds) {
+      ids.insert(std::string(slotId.UTF8String ?: ""));
+    }
+    Markdown::annotate(*cppAST, ids, annotateImages);
+  }
   if (cppAST && (textRegex || codeRegex)) {
     Markdown::recognizeTextLinks(*cppAST, ENRMTextLinkMatchers(textRegex, codeRegex));
   }
 
   // Convert C++ AST to Objective-C AST
   return convertCppASTToObjC(cppAST);
+}
+
+// The view's render, the view-free measurement and a nested quote's static
+// measure parse the same document with the same options, one after the other and
+// on different threads; the last few results are kept so a streaming tick parses
+// once. Nothing mutates an AST after parsing, so sharing one is safe.
+static NSString *ENRMParseCacheKey(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM, ENRMLinkRegexConfig *textRegex,
+                                   ENRMLinkRegexConfig *codeRegex, NSSet<NSString *> *activeBlockSlotIds,
+                                   BOOL annotateImages)
+{
+  NSMutableString *key = [NSMutableString stringWithCapacity:markdown.length + 128];
+  [key appendFormat:@"%d%d%d%d%d%d%d%d|%d|", flags.underline, flags.latexMath, flags.superscript, flags.subscript,
+                    flags.highlight, flags.hardSoftBreaks, flags.preserveBlankLines, flags.admonitions, isGFM];
+  for (ENRMLinkRegexConfig *regex in @[ textRegex ?: (id)NSNull.null, codeRegex ?: (id)NSNull.null ]) {
+    if ([regex isKindOfClass:[ENRMLinkRegexConfig class]]) {
+      [key appendFormat:@"%d%d%d%d%@", regex.caseInsensitive, regex.dotAll, regex.isDisabled, regex.isDefault,
+                        regex.pattern];
+    }
+    [key appendString:@"|"];
+  }
+  for (NSString *slotId in [activeBlockSlotIds.allObjects sortedArrayUsingSelector:@selector(compare:)]) {
+    [key appendString:slotId];
+    [key appendString:@","];
+  }
+  [key appendFormat:@"|%d|", annotateImages];
+  [key appendString:markdown];
+  return key;
+}
+
+MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
+                                            ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex,
+                                            NSSet<NSString *> *activeBlockSlotIds, BOOL annotateImages)
+{
+  static NSLock *lock;
+  static NSMutableArray<NSString *> *keys;
+  static NSMutableArray<MarkdownASTNode *> *nodes;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    lock = [[NSLock alloc] init];
+    keys = [NSMutableArray array];
+    nodes = [NSMutableArray array];
+  });
+  // Render, measure and a nested quote's static measure of one document.
+  static const NSUInteger kRecentParses = 3;
+
+  NSString *key = ENRMParseCacheKey(markdown, flags, isGFM, textRegex, codeRegex, activeBlockSlotIds, annotateImages);
+  [lock lock];
+  NSUInteger index = [keys indexOfObject:key];
+  MarkdownASTNode *cached = index == NSNotFound ? nil : nodes[index];
+  [lock unlock];
+  if (cached) {
+    return cached;
+  }
+
+  MarkdownASTNode *ast =
+      parseMarkdownUncached(markdown, flags, isGFM, textRegex, codeRegex, activeBlockSlotIds, annotateImages);
+  if (ast) {
+    [lock lock];
+    [keys insertObject:key atIndex:0];
+    [nodes insertObject:ast atIndex:0];
+    while (keys.count > kRecentParses) {
+      [keys removeLastObject];
+      [nodes removeLastObject];
+    }
+    [lock unlock];
+  }
+  return ast;
 }

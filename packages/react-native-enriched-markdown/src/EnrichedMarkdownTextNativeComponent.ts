@@ -433,6 +433,7 @@ export interface Md4cFlagsInternal {
 interface StreamingConfigInternal {
   tableMode: string;
   codeBlockMode: string;
+  mediaMode?: string;
 }
 
 interface LinkContextMenuItemConfig {
