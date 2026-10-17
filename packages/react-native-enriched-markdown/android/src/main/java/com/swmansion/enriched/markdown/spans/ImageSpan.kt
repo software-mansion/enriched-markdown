@@ -268,7 +268,18 @@ class ImageSpan(
     start: Int,
     end: Int,
     fm: Paint.FontMetricsInt?,
-  ): Int = getDrawable().bounds.right
+  ): Int {
+    val bounds = getDrawable().bounds
+    // ReplacementSpan must report its height even when it is the only content
+    // on a line. Use the same metrics as Android's DynamicDrawableSpan.
+    if (fm != null) {
+      fm.ascent = -bounds.bottom
+      fm.descent = 0
+      fm.top = fm.ascent
+      fm.bottom = 0
+    }
+    return bounds.right
+  }
 
   override fun chooseHeight(
     text: CharSequence?,
