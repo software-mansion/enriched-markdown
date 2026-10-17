@@ -44,7 +44,7 @@ abstract class BaseListSpan(
   internal open val markerExtraWidth: Float = 0f
 
   /** This item's marker column without [markerExtraWidth]; a nested item measures its indent against it. */
-  internal open fun getBaselineMarkerWidth(): Float = getMarkerWidth()
+  internal open val baselineMarkerWidth: Float get() = getMarkerWidth()
 
   override fun updateMeasureState(textPaint: TextPaint) = applyTextStyle(textPaint)
 
@@ -56,7 +56,7 @@ abstract class BaseListSpan(
 
     // Subtract truncated absolute indents, each measured from its own item's column, so neither mixed
     // columns nor fractional margins accumulate rounding. The widenings are whole pixels and add unchanged.
-    val markerWidth = getBaselineMarkerWidth()
+    val markerWidth = baselineMarkerWidth
     val parentWidth = parentMarkerWidth ?: markerWidth
     val indent = (depth * marginLeft + markerWidth + effectiveGap).toInt()
     val parentIndent = ((depth - 1) * marginLeft + parentWidth + effectiveGap).toInt()

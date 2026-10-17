@@ -86,7 +86,7 @@ class OrderedListSpan(
 
   override fun getMarkerWidth(): Float = defaultMarkerWidth + markerExtraWidth
 
-  override fun getBaselineMarkerWidth(): Float = defaultMarkerWidth
+  override val baselineMarkerWidth: Float get() = defaultMarkerWidth
 
   var itemNumber: Int = 1
     private set

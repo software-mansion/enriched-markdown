@@ -72,7 +72,7 @@ class TaskListSpan(
 
   override fun getMarkerWidth(): Float = markerColumnWidth
 
-  override fun getBaselineMarkerWidth(): Float = checkboxColumnWidth
+  override val baselineMarkerWidth: Float get() = checkboxColumnWidth
 
   override fun drawMarker(
     canvas: Canvas,

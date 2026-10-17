@@ -435,7 +435,7 @@ class ListRenderingTest {
     kind: Kind,
   ): Float {
     val text = render(style, list(kind))
-    return text.getSpans(0, text.length, BaseListSpan::class.java).single().getBaselineMarkerWidth()
+    return text.getSpans(0, text.length, BaseListSpan::class.java).single().baselineMarkerWidth
   }
 
   private fun mixedStyle(
