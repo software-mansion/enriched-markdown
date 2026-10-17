@@ -45,10 +45,11 @@ export function useResolvedImageSources(
 
   // Every result so far and every promise in flight, by id. Refs rather than
   // state so sync results fold in during render and apply in the same commit
-  // as the markdown; the guard below makes the fill idempotent across React's
+  // as the markdown; the guard in the fill makes it idempotent across React's
   // dev double-render.
   const cacheRef = useRef(new Map<string, ResolvedImageSource>());
   const pendingRef = useRef(new Map<string, SourcePromise>());
+  const subscribedRef = useRef(new WeakSet<SourcePromise>());
   const [settledCount, setSettledCount] = useState(0);
 
   // A promise outlives the occurrence set that started it; its result must
@@ -61,13 +62,15 @@ export function useResolvedImageSources(
     };
   }, []);
 
-  // The promises this occurrence set started, for the effect to subscribe to.
-  const newPromises = useMemo(() => {
+  // Asks the resolver about every occurrence without an answer yet. A render
+  // may be thrown away before it commits (a sibling suspends), so this only
+  // records; the effect below subscribes to whatever is pending once a commit
+  // lands.
+  const active = useMemo(() => {
     const resolve = resolverRef.current;
-    if (!enabled || !resolve) return null;
+    if (!enabled || !resolve) return false;
     const cache = cacheRef.current;
     const pending = pendingRef.current;
-    const started = new Map<string, SourcePromise>();
     for (const image of occurrences) {
       if (cache.has(image.id) || pending.has(image.id)) continue;
       let result: ReturnType<ImageSourceResolver>;
@@ -85,17 +88,19 @@ export function useResolvedImageSources(
       }
       if (isPromise(result)) {
         pending.set(image.id, result);
-        started.set(image.id, result);
       } else {
         cache.set(image.id, result ?? null);
       }
     }
-    return started;
+    return true;
   }, [occurrences, enabled]);
 
+  // After every commit: subscribe to each pending promise exactly once.
   useEffect(() => {
-    if (!newPromises || newPromises.size === 0) return;
-    for (const [id, promise] of newPromises) {
+    const subscribed = subscribedRef.current;
+    for (const [id, promise] of pendingRef.current) {
+      if (subscribed.has(promise)) continue;
+      subscribed.add(promise);
       const settle = (source: ResolvedImageSource) => {
         // The cache outlives this effect: a result landing after the
         // occurrences changed is still the answer for that id, and the
@@ -118,11 +123,11 @@ export function useResolvedImageSources(
         }
       );
     }
-  }, [newPromises]);
+  });
 
   // The current occurrences' entries; a pending id maps to undefined.
   return useMemo(() => {
-    if (newPromises === null) return undefined;
+    if (!active) return undefined;
     const result = new Map<string, ResolvedImageSource>();
     for (const image of occurrences) {
       result.set(image.id, cacheRef.current.get(image.id));
@@ -130,5 +135,5 @@ export function useResolvedImageSources(
     return result;
     // settledCount is what re-runs this once an async result lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newPromises, occurrences, settledCount]);
+  }, [active, occurrences, settledCount]);
 }

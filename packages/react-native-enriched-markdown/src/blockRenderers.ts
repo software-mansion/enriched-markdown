@@ -1,4 +1,4 @@
-import { isValidElement } from 'react';
+import { Fragment, isValidElement } from 'react';
 import type { ReactNode } from 'react';
 import type {
   MarkdownBlock,
@@ -9,13 +9,15 @@ type AnyRenderer = (block: MarkdownBlock) => ReactNode;
 
 /**
  * Whether a renderer's result can be a child of a plain view: elements,
- * fragments, `null`, `undefined`, booleans, and arrays of those, at any depth.
- * Strings and numbers are not; a native view throws on them.
+ * `null`, `undefined`, booleans, and arrays or fragments of those, at any
+ * depth. Strings and numbers are not; a native view throws on them. Other
+ * elements are opaque: `<Text>` renders its own text.
  */
 function isRenderableChild(node: ReactNode): boolean {
   if (node == null || typeof node === 'boolean') return true;
   if (Array.isArray(node)) return node.every(isRenderableChild);
-  return isValidElement(node);
+  if (!isValidElement<{ children?: ReactNode }>(node)) return false;
+  return node.type !== Fragment || isRenderableChild(node.props.children);
 }
 
 /**

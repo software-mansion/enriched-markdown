@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { Suspense, act } from 'react';
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { createRoot } from 'test-renderer';
@@ -231,6 +231,29 @@ it('keeps the native block when an array result contains text', () => {
   warn.mockRestore();
 });
 
+it('keeps the native block when a fragment holds text, not elements', () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const root = render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      renderers={{
+        image: () => (
+          <>
+            <View testID="a" />
+            {null}
+          </>
+        ),
+        video: () => <>Loading…</>,
+      }}
+    />
+  );
+  expect(slots(root)).toHaveLength(1);
+  expect(slots(root)[0]!.props.slotId).toBe(IMAGE_BLOCK.id);
+  expect(warn).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
+});
+
 it('ignores renderers for the CommonMark flavor', () => {
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   const root = render(
@@ -438,4 +461,63 @@ it('applies a source that settles after the document changed', async () => {
     { id: 'image:c:0', uri: 'https://cdn/image:c:0', headers: [] },
     { id: 'image:d:0', uri: 'https://cdn/image:d:0', headers: [] },
   ]);
+});
+
+it('subscribes to a source started by an update render that was thrown away', async () => {
+  mockSlots = [];
+  mockImages = OCCURRENCES.slice(0, 1);
+  let release!: () => void;
+  let released = false;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  }).then(() => {
+    released = true;
+  });
+  // A sibling that suspends the update which first asks about image b.
+  function Suspender({ wait }: { wait: boolean }) {
+    if (wait && !released) throw gate;
+    return null;
+  }
+  let resolveB!: (source: { uri: string }) => void;
+  const pending = new Promise<{ uri: string }>((resolve) => {
+    resolveB = resolve;
+  });
+  const resolveImageSource = ({ id }: { id: string }) =>
+    id === 'image:b:0' ? pending : { uri: `https://cdn/${id}` };
+  const tree = (wait: boolean) => (
+    <Suspense fallback={null}>
+      <EnrichedMarkdownText
+        markdown={wait ? 'x more' : 'x'}
+        flavor="github"
+        resolveImageSource={resolveImageSource}
+      />
+      <Suspender wait={wait} />
+    </Suspense>
+  );
+  const root = render(tree(false));
+  expect(host(root).props.imageSources).toEqual([
+    { id: 'image:a:0', uri: 'https://cdn/image:a:0', headers: [] },
+  ]);
+
+  mockImages = OCCURRENCES.slice(0, 2);
+  act(() => root.render(tree(true)));
+  await act(async () => {
+    release();
+    await gate;
+  });
+  expect(host(root).props.imageSources[1]).toEqual({
+    id: 'image:b:0',
+    uri: '',
+    headers: [],
+  });
+
+  await act(async () => {
+    resolveB({ uri: 'https://cdn/b.png' });
+    await pending;
+  });
+  expect(host(root).props.imageSources[1]).toEqual({
+    id: 'image:b:0',
+    uri: 'https://cdn/b.png',
+    headers: [],
+  });
 });
