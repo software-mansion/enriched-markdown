@@ -1,4 +1,5 @@
 #pragma once
+#import "ENRMBackgroundFills.h"
 #import "ENRMUIKit.h"
 #import "StyleConfig.h"
 
@@ -16,6 +17,11 @@ static inline CGFloat blockquoteIndentForDepth(NSInteger depth, CGFloat levelSpa
 @interface BlockquoteBorder : NSObject
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
+
+/// Where the boxes go; see ENRMBackgroundFillMode. Defaults to painting them.
+@property (nonatomic) ENRMBackgroundFillMode fillMode;
+/// Receives the boxes in ENRMBackgroundFillModeCollect.
+@property (nonatomic, copy, nullable) ENRMBackgroundFillSink fillSink;
 - (void)drawBordersForGlyphRange:(NSRange)glyphsToShow
                    layoutManager:(NSLayoutManager *)layoutManager
                    textContainer:(NSTextContainer *)textContainer

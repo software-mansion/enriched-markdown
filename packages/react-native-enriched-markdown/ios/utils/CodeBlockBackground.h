@@ -1,4 +1,5 @@
 #pragma once
+#import "ENRMBackgroundFills.h"
 #import "ENRMUIKit.h"
 #import "StyleConfig.h"
 
@@ -7,6 +8,11 @@ NS_ASSUME_NONNULL_BEGIN
 @interface CodeBlockBackground : NSObject
 
 - (instancetype)initWithConfig:(StyleConfig *)config;
+
+/// Where the boxes go; see ENRMBackgroundFillMode. Defaults to painting them.
+@property (nonatomic) ENRMBackgroundFillMode fillMode;
+/// Receives the boxes in ENRMBackgroundFillModeCollect.
+@property (nonatomic, copy, nullable) ENRMBackgroundFillSink fillSink;
 - (void)drawBackgroundsForGlyphRange:(NSRange)glyphsToShow
                        layoutManager:(NSLayoutManager *)layoutManager
                        textContainer:(NSTextContainer *)textContainer

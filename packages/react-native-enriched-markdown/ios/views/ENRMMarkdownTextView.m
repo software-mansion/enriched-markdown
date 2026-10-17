@@ -4,9 +4,10 @@
 #import "ENRMTextHitTest.h"
 #import "LinkTapUtils.h"
 #import "PasteboardUtils.h"
+#import "TextViewLayoutManager.h"
 
 #if !TARGET_OS_OSX
-@interface ENRMMarkdownTextView () <UIContextMenuInteractionDelegate>
+@interface ENRMMarkdownTextView () <UIContextMenuInteractionDelegate, ENRMBackgroundFillsHost>
 @end
 
 @implementation ENRMMarkdownTextView {
@@ -15,6 +16,13 @@
   // stands in for it: it would show through that image.
   ENRMLinkPillAttachment *_liftedPill;
   NSUInteger _pillMenuIndex;
+  // Code block, inline code and blockquote boxes. UIKit draws the selection highlight
+  // beneath the text, so boxes painted with the text would hide it; these layers sit
+  // beneath the highlight instead.
+  CALayer *_backgroundFillsLayer;
+  BOOL _backgroundFillsNeedUpdate;
+  BOOL _updatingBackgroundFills;
+  CGSize _backgroundFillsSize;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame textContainer:(NSTextContainer *)textContainer
@@ -24,6 +32,9 @@
     __weak ENRMMarkdownTextView *weakSelf = self;
     _pillLift.onEnd = ^{ [weakSelf restoreLiftedPill]; };
     [self addInteraction:[[UIContextMenuInteraction alloc] initWithDelegate:self]];
+    _backgroundFillsLayer = [CALayer layer];
+    [self.layer insertSublayer:_backgroundFillsLayer atIndex:0];
+    _backgroundFillsNeedUpdate = YES;
   }
   return self;
 }
@@ -33,6 +44,90 @@
 {
   [_pillLift end];
   [super setAttributedText:attributedText];
+  [self setNeedsBackgroundFillsUpdate];
+}
+
+#pragma mark - Background fills
+
+- (nullable TextViewLayoutManager *)fillsLayoutManager
+{
+  NSLayoutManager *layoutManager = self.layoutManager;
+  return [layoutManager isKindOfClass:TextViewLayoutManager.class] ? (TextViewLayoutManager *)layoutManager : nil;
+}
+
+- (void)setNeedsBackgroundFillsUpdate
+{
+  if (_updatingBackgroundFills)
+    return;
+  _backgroundFillsNeedUpdate = YES;
+  [self setNeedsLayout];
+}
+
+/// UIKit adds the selection highlight's view lazily; keep the fills beneath it.
+- (void)didAddSubview:(UIView *)subview
+{
+  [super didAddSubview:subview];
+  if (_backgroundFillsLayer)
+    [self.layer insertSublayer:_backgroundFillsLayer atIndex:0];
+}
+
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  if (!CGSizeEqualToSize(self.bounds.size, _backgroundFillsSize))
+    _backgroundFillsNeedUpdate = YES;
+  if (_backgroundFillsNeedUpdate)
+    [self updateBackgroundFills];
+}
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
+{
+  [super traitCollectionDidChange:previousTraitCollection];
+  if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection])
+    [self setNeedsBackgroundFillsUpdate];
+}
+
+- (void)updateBackgroundFills
+{
+  _backgroundFillsNeedUpdate = NO;
+  _backgroundFillsSize = self.bounds.size;
+
+  TextViewLayoutManager *layoutManager = [self fillsLayoutManager];
+  layoutManager.backgroundFillsHost = self;
+
+  NSMutableArray<CALayer *> *fills = [NSMutableArray array];
+  UITraitCollection *traits = self.traitCollection;
+  UIEdgeInsets inset = self.textContainerInset;
+  _updatingBackgroundFills = YES;
+  [layoutManager
+      enumerateBackgroundFillsAtPoint:CGPointMake(inset.left, inset.top)
+                           usingBlock:^(UIBezierPath *path, UIColor *fillColor, UIColor *strokeColor) {
+                             if (!fillColor && !strokeColor)
+                               return;
+                             // A shape layer per piece keeps no bitmap, however tall the text.
+                             CGRect bounds = CGRectInset(path.bounds, -path.lineWidth, -path.lineWidth);
+                             UIBezierPath *localPath = [path copy];
+                             [localPath
+                                 applyTransform:CGAffineTransformMakeTranslation(-bounds.origin.x, -bounds.origin.y)];
+                             CAShapeLayer *piece = [CAShapeLayer layer];
+                             piece.frame = bounds;
+                             piece.path = localPath.CGPath;
+                             piece.fillColor = [fillColor resolvedColorWithTraitCollection:traits].CGColor;
+                             if (strokeColor) {
+                               piece.strokeColor = [strokeColor resolvedColorWithTraitCollection:traits].CGColor;
+                               piece.lineWidth = path.lineWidth;
+                               piece.lineCap = path.lineCapStyle == kCGLineCapRound ? kCALineCapRound : kCALineCapButt;
+                               piece.lineJoin =
+                                   path.lineJoinStyle == kCGLineJoinRound ? kCALineJoinRound : kCALineJoinMiter;
+                             }
+                             [fills addObject:piece];
+                           }];
+  _updatingBackgroundFills = NO;
+
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  _backgroundFillsLayer.sublayers = fills.count > 0 ? fills : nil;
+  [CATransaction commit];
 }
 
 /// The selection with pills expanded, or nil when `range` is not the selection or holds no pill.

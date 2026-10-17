@@ -167,6 +167,19 @@ static void collectNestedBoxes(NSArray<NSValue *> *runRanges, NSArray<NSNumber *
     blockRect.size.height += c.blockquotePadding;
   }
 
+  RCTUIColor *bgColor = [textStorage attribute:BlockquoteBackgroundColorAttributeName
+                                       atIndex:region.location
+                                effectiveRange:NULL]
+                            ?: defaultBgColor;
+  BOOL hasBackground = bgColor && bgColor != [RCTUIColor clearColor];
+
+  if (_fillMode == ENRMBackgroundFillModeCollect) {
+    if (hasBackground && _fillSink) {
+      _fillSink(UIBezierPathWithRoundedRect(blockRect, MAX(0, borderRadius)), bgColor, nil);
+    }
+    return;
+  }
+
   NSMutableArray<NSValue *> *boxRanges = [NSMutableArray array];
   NSMutableArray<NSNumber *> *boxLevels = [NSMutableArray array];
   NSMutableArray<UIBezierPath *> *boxStripePaths = [NSMutableArray array];
@@ -196,11 +209,7 @@ static void collectNestedBoxes(NSArray<NSValue *> *runRanges, NSArray<NSNumber *
     [boxPath addClip];
 
     // 1. Draw Background (Painter's algorithm: draw backgrounds before borders)
-    RCTUIColor *bgColor = [textStorage attribute:BlockquoteBackgroundColorAttributeName
-                                         atIndex:region.location
-                                  effectiveRange:NULL]
-                              ?: defaultBgColor;
-    if (bgColor && bgColor != [RCTUIColor clearColor]) {
+    if (hasBackground && _fillMode == ENRMBackgroundFillModePaint) {
       [bgColor setFill];
       CGContextFillRect(ctx, blockRect);
     }

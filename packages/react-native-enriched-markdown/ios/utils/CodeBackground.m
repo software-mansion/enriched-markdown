@@ -26,7 +26,7 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
                              atPoint:(CGPoint)origin
 {
   RCTUIColor *backgroundColor = _config.codeBackgroundColor;
-  if (!backgroundColor)
+  if (!backgroundColor || _fillMode == ENRMBackgroundFillModeSkip)
     return;
 
   NSTextStorage *textStorage = layoutManager.textStorage;
@@ -117,15 +117,27 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
                           isLast:(BOOL)isLast
 {
   UIBezierPath *path = [self pathForRect:rect isFirst:isFirst isLast:isLast];
-  [backgroundColor setFill];
-  [path fill];
-
+  UIBezierPath *strokePath = nil;
   if (borderColor) {
-    [borderColor setStroke];
-    UIBezierPath *strokePath =
-        (isFirst && isLast) ? path : [self openBorderPathForRect:rect isFirst:isFirst isLast:isLast];
+    strokePath = (isFirst && isLast) ? [path copy] : [self openBorderPathForRect:rect isFirst:isFirst isLast:isLast];
     strokePath.lineWidth = kCodeBackgroundBorderWidth;
     BezierPathSetRoundStyle(strokePath);
+  }
+
+  if (_fillMode == ENRMBackgroundFillModeCollect) {
+    if (_fillSink) {
+      _fillSink(path, backgroundColor, nil);
+      if (strokePath) {
+        _fillSink(strokePath, nil, borderColor);
+      }
+    }
+    return;
+  }
+
+  [backgroundColor setFill];
+  [path fill];
+  if (strokePath) {
+    [borderColor setStroke];
     [strokePath stroke];
   }
 }

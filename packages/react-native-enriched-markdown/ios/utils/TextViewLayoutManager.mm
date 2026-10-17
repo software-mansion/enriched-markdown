@@ -7,6 +7,14 @@
 #import "StyleConfig.h"
 #import <objc/runtime.h>
 
+// Holds the host weakly: the layout manager can outlive its text view (it is detached and
+// reattached as the view is recycled), and an associated object cannot be weak itself.
+@interface ENRMBackgroundFillsHostBox : NSObject
+@property (nonatomic, weak) id<ENRMBackgroundFillsHost> host;
+@end
+@implementation ENRMBackgroundFillsHostBox
+@end
+
 @implementation TextViewLayoutManager
 
 - (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(CGPoint)origin
@@ -30,14 +38,18 @@
   // 3. Draw specialized layers
   // We fetch the objects into local variables FIRST to ensure they don't
   // disappear mid-method if setConfig: is called on another thread.
+  ENRMBackgroundFillMode fillMode = self.backgroundFillsHost ? ENRMBackgroundFillModeSkip : ENRMBackgroundFillModePaint;
 
   CodeBackground *codeBg = [self getCodeBackgroundWithConfig:config];
+  codeBg.fillMode = fillMode;
   [codeBg drawBackgroundsForGlyphRange:glyphsToShow layoutManager:self textContainer:textContainer atPoint:origin];
 
   CodeBlockBackground *codeBlockBg = [self getCodeBlockBackgroundWithConfig:config];
+  codeBlockBg.fillMode = fillMode;
   [codeBlockBg drawBackgroundsForGlyphRange:glyphsToShow layoutManager:self textContainer:textContainer atPoint:origin];
 
   BlockquoteBorder *quoteBorder = [self getBlockquoteBorderWithConfig:config];
+  quoteBorder.fillMode = fillMode;
   [quoteBorder drawBordersForGlyphRange:glyphsToShow layoutManager:self textContainer:textContainer atPoint:origin];
 
   ListMarkerDrawer *markerDrawer = [self getListMarkerDrawerWithConfig:config];
@@ -165,6 +177,61 @@
 
   // Force a full redraw
   [self invalidateDisplayForCharacterRange:NSMakeRange(0, self.textStorage.length)];
+  [self.backgroundFillsHost setNeedsBackgroundFillsUpdate];
+}
+
+#pragma mark - Background fills
+
+static char kBackgroundFillsHostKey;
+
+- (id<ENRMBackgroundFillsHost>)backgroundFillsHost
+{
+  return ((ENRMBackgroundFillsHostBox *)objc_getAssociatedObject(self, &kBackgroundFillsHostKey)).host;
+}
+
+- (void)setBackgroundFillsHost:(id<ENRMBackgroundFillsHost>)host
+{
+  if (host == self.backgroundFillsHost)
+    return;
+  ENRMBackgroundFillsHostBox *box = [[ENRMBackgroundFillsHostBox alloc] init];
+  box.host = host;
+  objc_setAssociatedObject(self, &kBackgroundFillsHostKey, box, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  // The text pass starts or stops painting the fills.
+  [self invalidateDisplayForCharacterRange:NSMakeRange(0, self.textStorage.length)];
+}
+
+- (void)enumerateBackgroundFillsAtPoint:(CGPoint)origin usingBlock:(ENRMBackgroundFillSink)block
+{
+  NSTextContainer *textContainer = self.textContainers.firstObject;
+  StyleConfig *config = self.config;
+  if (!textContainer || !config || self.textStorage.length == 0)
+    return;
+
+  NSRange glyphRange = [self glyphRangeForTextContainer:textContainer];
+  if (glyphRange.length == 0)
+    return;
+
+  CodeBackground *codeBg = [self getCodeBackgroundWithConfig:config];
+  CodeBlockBackground *codeBlockBg = [self getCodeBlockBackgroundWithConfig:config];
+  BlockquoteBorder *quoteBorder = [self getBlockquoteBorderWithConfig:config];
+
+  codeBg.fillMode = codeBlockBg.fillMode = quoteBorder.fillMode = ENRMBackgroundFillModeCollect;
+  codeBg.fillSink = codeBlockBg.fillSink = quoteBorder.fillSink = block;
+
+  // Same order as drawBackgroundForGlyphRange:atPoint: paints them, so later fills stack on top.
+  [codeBg drawBackgroundsForGlyphRange:glyphRange layoutManager:self textContainer:textContainer atPoint:origin];
+  [codeBlockBg drawBackgroundsForGlyphRange:glyphRange layoutManager:self textContainer:textContainer atPoint:origin];
+  [quoteBorder drawBordersForGlyphRange:glyphRange layoutManager:self textContainer:textContainer atPoint:origin];
+
+  codeBg.fillSink = codeBlockBg.fillSink = quoteBorder.fillSink = nil;
+  codeBg.fillMode = codeBlockBg.fillMode = quoteBorder.fillMode = ENRMBackgroundFillModeSkip;
+}
+
+/// Images settling, streamed text and re-renders all invalidate layout through here.
+- (void)invalidateLayoutForCharacterRange:(NSRange)charRange actualCharacterRange:(NSRangePointer)actualCharRange
+{
+  [super invalidateLayoutForCharacterRange:charRange actualCharacterRange:actualCharRange];
+  [self.backgroundFillsHost setNeedsBackgroundFillsUpdate];
 }
 
 @end

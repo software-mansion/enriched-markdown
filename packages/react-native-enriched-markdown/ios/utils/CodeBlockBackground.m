@@ -25,6 +25,9 @@
                        textContainer:(NSTextContainer *)textContainer
                              atPoint:(CGPoint)origin
 {
+  if (_fillMode == ENRMBackgroundFillModeSkip)
+    return;
+
   NSTextStorage *textStorage = layoutManager.textStorage;
   NSRange charRange = [layoutManager characterRangeForGlyphRange:glyphsToShow actualGlyphRange:NULL];
 
@@ -84,6 +87,19 @@
 
   CGRect insetRect = CGRectInset(blockRect, inset, inset);
   UIBezierPath *path = UIBezierPathWithRoundedRect(insetRect, MAX(0, borderRadius - inset));
+  if (_fillMode == ENRMBackgroundFillModeCollect) {
+    if (!_fillSink) {
+      return;
+    }
+    _fillSink(path, [_config codeBlockBackgroundColor], nil);
+    if (borderWidth > 0) {
+      UIBezierPath *border = [path copy];
+      border.lineWidth = borderWidth;
+      BezierPathSetRoundStyle(border);
+      _fillSink(border, nil, [_config codeBlockBorderColor]);
+    }
+    return;
+  }
 
   CGContextRef ctx = UIGraphicsGetCurrentContext();
   CGContextSaveGState(ctx);
