@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -13,10 +19,13 @@ import {
   EnrichedMarkdownText,
   type MarkdownImageBlock,
   type MarkdownImageOccurrence,
+  type MarkdownLinkBlock,
   type MarkdownRenderers,
   type MarkdownVideoBlock,
 } from 'react-native-enriched-markdown';
-import { customMarkdownStyle } from '../../markdownStyles';
+import { storyMeta } from '../shared/storyMeta';
+import type { TextStory } from '../shared/storyTypes';
+import { customMarkdownStyle } from '../../../../../src/markdownStyles';
 
 const FOREST =
   'https://images.unsplash.com/photo-1448375240586-882707db888b?w=800';
@@ -37,13 +46,11 @@ const ELEPHANTS =
 const SINTEL =
   'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4';
 
-const HERO = `![Misty forest at sunrise](${FOREST} "Forest")`;
-
 // Every placement a renderer can see, every placement that must stay native,
 // and the identity edge cases, in one document.
-const buildMarkdown = (withHero: boolean) => `# Custom block renderers
+const MARKDOWN = `# Custom block renderers
 
-${withHero ? HERO : '*Hero image removed.*'}
+![Misty forest at sunrise](${FOREST} "Forest")
 
 The image above is a paragraph of its own. The inline ![leaf](${LEAF}) image, the list image, the linked image, the table image and the heading image below all stay native:
 
@@ -97,7 +104,22 @@ The paragraph after the videos keeps flowing natively, and the last block is a v
 <video src="${SINTEL}"></video>
 `;
 
+// A link on a line of its own is a block too; an assistant's answer is full of them.
+const LINKS_MARKDOWN = `Revenue grew **18%** quarter over quarter. The full breakdown is in the board deck:
+
+[Q3 board deck](https://example.com/finance/q3-board-deck.pdf "12 pages")
+
+The parser that produced these numbers lives here:
+
+https://github.com/software-mansion/enriched-markdown
+
+A link with prose around it stays an inline link: see [the docs](https://docs.swmansion.com/enriched-markdown) for the API.
+
+<https://reactnative.dev>
+`;
+
 type SourceMode = 'off' | 'signed' | 'pending' | 'reject';
+type MediaMode = 'progressive' | 'hidden';
 
 function Figure({
   block,
@@ -185,21 +207,77 @@ function VideoCard({ block }: { block: MarkdownVideoBlock }) {
   );
 }
 
+// A file gets its extension, a repository its path, anything else its host.
+function LinkCard({ block }: { block: MarkdownLinkBlock }) {
+  const index = block.id.slice(block.id.lastIndexOf(':') + 1);
+  const host = block.url.replace(/^https?:\/\//, '').split('/')[0] ?? '';
+  const file = /\.(pdf|docx?|xlsx?|pptx?|zip|csv)$/i.exec(block.url)?.[1];
+  const repo = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/?$/.exec(
+    block.url
+  )?.[1];
+  return (
+    <Pressable
+      style={styles.card}
+      onPress={() => Linking.openURL(block.url).catch(() => {})}
+      testID={`renderer-link-${block.placement}-${index}`}
+    >
+      <View style={styles.cardIcon}>
+        <Text style={styles.cardIconText}>
+          {file ? file.toUpperCase() : repo ? 'GH' : 'WWW'}
+        </Text>
+      </View>
+      <View style={styles.cardBody}>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {block.label || repo || host}
+        </Text>
+        <Text style={styles.cardMeta} numberOfLines={1}>
+          {block.title || block.url}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const STREAM_CHUNK = 48;
 const STREAM_INTERVAL_MS = 120;
 
-export default function RenderersScreen() {
-  const markdownStyle = useMemo(() => customMarkdownStyle, []);
-  const [replaceImages, setReplaceImages] = useState(true);
-  const [replaceVideos, setReplaceVideos] = useState(true);
-  const [skipQuoted, setSkipQuoted] = useState(false);
-  const [withHero, setWithHero] = useState(true);
-  const [trailingMargin, setTrailingMargin] = useState(false);
-  const [hideStreamingMedia, setHideStreamingMedia] = useState(true);
-  const [sourceMode, setSourceMode] = useState<SourceMode>('off');
-  const [lastPressed, setLastPressed] = useState<string | null>(null);
+type RenderersControls = {
+  replaceImages: boolean;
+  replaceVideos: boolean;
+  replaceLinks: boolean;
+  keepQuotedNative: boolean;
+  mediaMode: MediaMode;
+  sourceMode: SourceMode;
+  allowTrailingMargin: boolean;
+};
 
-  const fullMarkdown = useMemo(() => buildMarkdown(withHero), [withHero]);
+const defaultControls: RenderersControls = {
+  replaceImages: true,
+  replaceVideos: true,
+  replaceLinks: true,
+  keepQuotedNative: false,
+  mediaMode: 'hidden',
+  sourceMode: 'off',
+  allowTrailingMargin: false,
+};
+
+function RenderersStory({
+  title,
+  description,
+  markdown: fullMarkdown,
+  replaceImages,
+  replaceVideos,
+  replaceLinks,
+  keepQuotedNative,
+  mediaMode,
+  sourceMode,
+  allowTrailingMargin,
+}: RenderersControls & {
+  title: string;
+  description: string;
+  markdown: string;
+}) {
+  const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [streamed, setStreamed] = useState<string | null>(null);
   const streamTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -240,15 +318,17 @@ export default function RenderersScreen() {
     () => ({
       image: replaceImages
         ? (block) => {
-            if (skipQuoted && block.placement === 'blockquote') return null;
+            if (keepQuotedNative && block.placement === 'blockquote')
+              return null;
             if (block.altText === 'Natural size')
               return <NaturalImage block={block} />;
             return <Figure block={block} onPress={onImagePress} />;
           }
         : undefined,
       video: replaceVideos ? (block) => <VideoCard block={block} /> : undefined,
+      link: replaceLinks ? (block) => <LinkCard block={block} /> : undefined,
     }),
-    [replaceImages, replaceVideos, skipQuoted, onImagePress]
+    [replaceImages, replaceVideos, replaceLinks, keepQuotedNative, onImagePress]
   );
 
   const resolveImageSource = useMemo(() => {
@@ -284,91 +364,34 @@ export default function RenderersScreen() {
       contentContainerStyle={styles.content}
       testID="renderers-screen"
     >
-      <View style={styles.controls}>
-        <Toggle
-          label="Replace images"
-          value={replaceImages}
-          onValueChange={setReplaceImages}
-        />
-        <Toggle
-          label="Replace videos"
-          value={replaceVideos}
-          onValueChange={setReplaceVideos}
-        />
-        <Toggle
-          label="Keep quoted images native"
-          value={skipQuoted}
-          onValueChange={setSkipQuoted}
-        />
-        <Toggle
-          label="Hero image in document"
-          value={withHero}
-          onValueChange={setWithHero}
-        />
-        <Toggle
-          label="Trailing margin"
-          value={trailingMargin}
-          onValueChange={setTrailingMargin}
-        />
-        <Toggle
-          label="Hide media while streaming"
-          value={hideStreamingMedia}
-          onValueChange={setHideStreamingMedia}
-        />
-        <View style={styles.row}>
-          <Text style={styles.toggleLabel}>Image source</Text>
-          <View style={styles.segments}>
-            {(['off', 'signed', 'pending', 'reject'] as const).map((mode) => (
-              <Pressable
-                key={mode}
-                onPress={() => setSourceMode(mode)}
-                style={[
-                  styles.segment,
-                  sourceMode === mode && styles.segmentOn,
-                ]}
-                testID={`source-${mode}`}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    sourceMode === mode && styles.segmentTextOn,
-                  ]}
-                >
-                  {mode}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        <Pressable
-          onPress={streaming ? cancelStreaming : startStreaming}
-          style={styles.streamButton}
-          testID="stream-button"
-        >
-          <Text style={styles.streamButtonText}>
-            {streaming
-              ? `Streaming… ${streamed.length}/${fullMarkdown.length}`
-              : 'Stream the document'}
-          </Text>
-        </Pressable>
-        <Text style={styles.status} testID="renderer-status">
-          {lastPressed ? `Pressed: ${lastPressed}` : 'Tap a replaced image.'}
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.description}>{description}</Text>
+      <Pressable
+        onPress={streaming ? cancelStreaming : startStreaming}
+        style={styles.streamButton}
+        testID="stream-button"
+      >
+        <Text style={styles.streamButtonText}>
+          {streaming
+            ? `Streaming… ${streamed.length}/${fullMarkdown.length}`
+            : 'Stream the document'}
         </Text>
-      </View>
+      </Pressable>
+      <Text style={styles.status} testID="renderer-status">
+        {lastPressed ? `Pressed: ${lastPressed}` : 'Tap a replaced image.'}
+      </Text>
       <EnrichedMarkdownText
         // resolveImageSource is read once per image for the component's lifetime;
         // switching modes remounts so every image is asked again.
         key={sourceMode}
         flavor="github"
         markdown={streamed ?? fullMarkdown}
-        markdownStyle={markdownStyle}
+        markdownStyle={customMarkdownStyle}
         renderers={renderers}
         resolveImageSource={resolveImageSource}
         streamingAnimation={streaming}
-        streamingConfig={{
-          mediaMode: hideStreamingMedia ? 'hidden' : 'progressive',
-        }}
-        allowTrailingMargin={trailingMargin}
+        streamingConfig={{ mediaMode }}
+        allowTrailingMargin={allowTrailingMargin}
         onImagePress={({ url, altText }) =>
           setLastPressed(`${altText || url} (native)`)
         }
@@ -380,50 +403,91 @@ export default function RenderersScreen() {
   );
 }
 
-function Toggle({
-  label,
-  value,
-  onValueChange,
-}: {
-  label: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-}) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.toggleLabel}>{label}</Text>
-      <Switch value={value} onValueChange={onValueChange} />
-    </View>
-  );
-}
+const argTypes = {
+  replaceImages: {
+    control: { type: 'boolean' as const },
+    description: 'renderers.image set',
+  },
+  replaceVideos: {
+    control: { type: 'boolean' as const },
+    description: 'renderers.video set',
+  },
+  replaceLinks: {
+    control: { type: 'boolean' as const },
+    description: 'renderers.link set',
+  },
+  keepQuotedNative: {
+    control: { type: 'boolean' as const },
+    description: 'renderers.image returns null for blockquote placements',
+  },
+  mediaMode: {
+    options: ['progressive', 'hidden'] as const,
+    control: { type: 'select' as const },
+    description: 'streamingConfig.mediaMode while the stream button runs',
+  },
+  sourceMode: {
+    options: ['off', 'signed', 'pending', 'reject'] as const,
+    control: { type: 'select' as const },
+    description:
+      'resolveImageSource: off, a signed URL after 400ms, never settles, or rejects inline and list images',
+  },
+  allowTrailingMargin: {
+    control: { type: 'boolean' as const },
+    description: 'allowTrailingMargin',
+  },
+};
+
+export default storyMeta('Props', 'Renderers');
+
+export const Default: TextStory<RenderersControls> = {
+  args: { markdown: MARKDOWN, ...defaultControls },
+  argTypes,
+  render: ({ markdown, ...controls }) => (
+    <RenderersStory
+      title="Custom block renderers"
+      description="renderers.image and renderers.video replace standalone images and video blocks with React components, placed where the native layout reserved space. Stream the document to see blocks arrive."
+      markdown={markdown}
+      {...(controls as RenderersControls)}
+    />
+  ),
+};
+
+export const LinkCards: TextStory<RenderersControls> = {
+  args: { markdown: LINKS_MARKDOWN, ...defaultControls },
+  argTypes,
+  render: ({ markdown, ...controls }) => (
+    <RenderersStory
+      title="Link cards"
+      description="renderers.link replaces a link that stands alone in a paragraph: a bracketed link, an autolink or a bare URL. Links inside prose stay inline."
+      markdown={markdown}
+      {...(controls as RenderersControls)}
+    />
+  ),
+};
+
+export const ResolvedSources: TextStory<RenderersControls> = {
+  args: {
+    markdown: MARKDOWN,
+    ...defaultControls,
+    replaceImages: false,
+    sourceMode: 'signed',
+  },
+  argTypes,
+  render: ({ markdown, ...controls }) => (
+    <RenderersStory
+      title="Resolved image sources"
+      description="resolveImageSource decides what every image, native or replaced, loads: a signed URL with headers, a pending placeholder, or a rejection that keeps the placeholder."
+      markdown={markdown}
+      {...(controls as RenderersControls)}
+    />
+  ),
+};
 
 const styles = StyleSheet.create({
   scrollView: { paddingHorizontal: 16 },
-  content: { paddingVertical: 16 },
-  controls: {
-    gap: 8,
-    marginBottom: 16,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#F2F4F7',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  toggleLabel: { fontSize: 15, color: '#001A72' },
-  segments: { flexDirection: 'row', gap: 4 },
-  segment: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: '#E4E7EC',
-  },
-  segmentOn: { backgroundColor: '#001A72' },
-  segmentText: { fontSize: 12, color: '#001A72' },
-  segmentTextOn: { color: '#FFFFFF' },
+  content: { paddingVertical: 16, gap: 8 },
+  title: { fontSize: 20, fontWeight: '700' },
+  description: { fontSize: 14, color: '#555' },
   streamButton: {
     alignItems: 'center',
     paddingVertical: 8,
@@ -472,6 +536,26 @@ const styles = StyleSheet.create({
   videoTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   videoUrl: { color: '#BEEBD0', fontSize: 12 },
   videoHint: { color: '#C7CBE0', fontSize: 12 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F2F4F7',
+  },
+  cardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#001A72',
+  },
+  cardIconText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  cardBody: { flex: 1, gap: 2 },
+  cardTitle: { color: '#101828', fontSize: 15, fontWeight: '600' },
+  cardMeta: { color: '#5B6478', fontSize: 12 },
   footer: {
     marginTop: 8,
     padding: 12,
@@ -479,5 +563,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F4F7',
     alignItems: 'center',
   },
-  footerText: { color: '#5B6478', fontSize: 12 },
+  footerText: { color: '#5B6478', fontSize: 13 },
 });

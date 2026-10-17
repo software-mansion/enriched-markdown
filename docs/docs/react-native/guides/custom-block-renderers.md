@@ -61,14 +61,9 @@ While a promise is pending, and when it rejects or resolves to an empty `uri`, t
 
 ## Testing a renderer
 
-The example app ships a device regression flow for this feature. It streams the Renderers scenario document and fails if any native text frame intersects a replaced block, if a replaced block is missing, or if partial media syntax reaches the screen:
+The example app's Storybook has a `Renderers` story (`EnrichedMarkdownText / Props / Renderers`) that renders every placement a renderer can see next to every one that stays native, with a button that streams the document so you can watch blocks arrive, and controls for `streamingConfig.mediaMode` and `resolveImageSource`. Its `Link Cards` story does the same for standalone links. Drop your renderer into it to check placement, height and streaming before wiring it into an app.
 
-```bash
-argent flow run qa-renderers-streaming --platform ios --device <simulator udid>
-argent flow run qa-renderers-streaming --platform android --device <emulator serial>
-```
-
-The same tree check runs standalone with `node scripts/qa/check-block-slots.mjs [udid]` against whatever the booted device shows.
+In Jest, mock the parser module and assert on the slot children the component mounts; `__tests__/renderers.test.tsx` in the package shows the pattern, including a renderer that throws and an image source that settles after the document changed.
 
 ## Web
 
