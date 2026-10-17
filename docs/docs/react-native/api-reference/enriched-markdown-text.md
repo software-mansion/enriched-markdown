@@ -652,6 +652,23 @@ interface ImagePressEvent {
 
 <LivePreview src={OnImagePressSrc} />
 
+### `onTextPress`
+
+Callback fired when plain text is tapped, anywhere a link, image, checkbox or other interactive element doesn't take the tap. `index` is the UTF-16 index of the tapped character within `text`, the rendered text of the tapped block. It points into the rendered text, not the Markdown source, so map it back yourself if you need a source position (for example, to place a caret when switching to an editor).
+
+A tap in the empty space beside a line reports that line's nearest character. Taps that only clear a selection, and taps inside table cells, don't fire it.
+
+Setting this callback makes plain text interactive; leaving it unset keeps the default tap and text-selection behavior unchanged.
+
+<PropInfo type="(event: TextPressEvent) => void" />
+
+```ts
+interface TextPressEvent {
+  index: number; // UTF-16 index of the tapped character within `text`
+  text: string; // the rendered text of the tapped block
+}
+```
+
 ### `onTaskListItemPress`
 
 Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.

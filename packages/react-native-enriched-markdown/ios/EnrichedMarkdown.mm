@@ -9,6 +9,7 @@
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTailFadeInAnimator.h"
+#import "ENRMTextHitTest.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
@@ -87,6 +88,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitCopyPress:(NSString *)code language:(NSString *)language;
 - (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language;
@@ -129,6 +131,7 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
+  BOOL _enableTextPress;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
@@ -234,6 +237,7 @@ static char kENRMSegmentFadeAnimatorKey;
           [strongSelf setNeedsLayout];
           [strongSelf requestHeightUpdate];
         }];
+    _enableTextPress = NO;
     _dynamicBlockProps = [[ENRMDynamicBlockProps alloc] init];
     _linkContextMenus = [[ENRMLinkContextMenus alloc] init];
     __weak EnrichedMarkdown *weakMenuSelf = self;
@@ -1237,6 +1241,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
+  _enableTextPress = newViewProps.enableTextPress;
 
   // Block gates: mutate the shared box in place. Every existing and future block
   // view reads it live at use-time, so no push into segments is needed.
@@ -1492,7 +1497,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     BOOL isInsideView = CGRectContainsPoint(textSegment.textView.bounds, segmentPoint);
 #endif
     if (isInsideView) {
-      if (isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
+      if (_enableTextPress || isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
         return nil;
       }
       break;
@@ -1523,6 +1528,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onLinkPress({.url = std::string(url.UTF8String)});
+}
+
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onTextPress({.index = (int)index, .text = std::string(text.UTF8String ?: "")});
 }
 
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText
@@ -1626,6 +1638,17 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
     if (image) {
       [self emitImagePress:image[@"url"] altText:image[@"altText"]];
+      return;
+    }
+  }
+
+  // Skip while text is selected so the tap only clears the selection.
+  if (_enableTextPress && textView.selectedRange.length == 0) {
+    NSUInteger index = ENRMCharacterIndexForTap(textView, recognizer);
+    NSAttributedString *text = ENRMGetAttributedText(textView);
+    // An image's attachment character belongs to the image, even with image presses off.
+    if (index != NSNotFound && ![text attribute:@"imageURL" atIndex:index effectiveRange:NULL]) {
+      [self emitTextPress:index text:text.string ?: @""];
     }
   }
 }
