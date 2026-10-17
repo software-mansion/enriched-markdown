@@ -45,6 +45,8 @@ export function checkTree(description, { allowEmpty = false } = {}) {
   const texts = rows.filter(
     (r) =>
       !/id="renderer-/.test(r.line) &&
+      // The dev LogBox banner floats over the content; it is not layout.
+      !/Open debugger/.test(r.line) &&
       /(StaticText|AXGroup "|View ")/.test(r.line) &&
       r.w > 0.3
   );
@@ -90,7 +92,14 @@ export function checkDevices(options = {}) {
   const failures = [];
   for (const udid of udids) {
     const description = argent(['describe', '--udid', udid]).description ?? '';
-    if (!/id="renderers-screen"/.test(description)) continue;
+    // The iOS tree lists accessibility elements only, so the ScrollView's own
+    // id comes and goes; the controls and the replaced blocks carry stable ids.
+    if (
+      !/id="(renderers-screen|stream-button|renderers-footer|renderer-)/.test(
+        description
+      )
+    )
+      continue;
     checked++;
     const problems = checkTree(description, options);
     if (problems.length > 0)
