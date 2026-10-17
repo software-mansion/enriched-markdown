@@ -229,6 +229,14 @@ class EnrichedMarkdownManager :
     view?.setEnableImagePress(enableImagePress)
   }
 
+  @ReactProp(name = "enableTextPress", defaultBoolean = false)
+  override fun setEnableTextPress(
+    view: EnrichedMarkdown?,
+    enableTextPress: Boolean,
+  ) {
+    view?.setEnableTextPress(enableTextPress)
+  }
+
   @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
   override fun setEnableBlockContextMenu(
     view: EnrichedMarkdown?,
