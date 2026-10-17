@@ -51,6 +51,22 @@ echo "==> Building the vendored parser and the AST dumper"
   "$CPP_ROOT/wasm/ASTSerializer.cpp" \
   "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/ast-dump"
 
+echo "==> Checking the block slot collector"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" \
+  "$TESTS_DIR/block_slots_test.cpp" \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT/parser/BlockSlots.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/block-slots-test"
+"$WORK/block-slots-test" "$TESTS_DIR/fixtures/block_slot_ids.txt"
+
+echo "==> Checking the streaming filter"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/parser" \
+  "$TESTS_DIR/streaming_filter_test.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" -o "$WORK/streaming-filter-test"
+"$WORK/streaming-filter-test"
+
 echo "==> Checking the vendored parser's exported symbols"
 if command -v nm >/dev/null 2>&1; then
   # Some platforms (e.g. MacOS) prefix C symbols with an underscore.
