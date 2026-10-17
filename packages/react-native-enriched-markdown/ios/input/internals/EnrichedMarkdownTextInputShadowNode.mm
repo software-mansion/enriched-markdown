@@ -59,6 +59,7 @@ Size EnrichedMarkdownTextInputShadowNode::measureContent(const LayoutContext &la
 
   void (^measureBlock)(void) = ^{
     if (view) {
+      view.maxContentHeight = layoutConstraints.maximumSize.height;
       size = [view measureSize:maxWidth];
     } else {
       EnrichedMarkdownTextInput *mockView = setupMockInputView_(maxWidth);

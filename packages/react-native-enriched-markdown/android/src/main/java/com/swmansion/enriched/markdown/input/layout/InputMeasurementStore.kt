@@ -40,6 +40,9 @@ object InputMeasurementStore {
 
   private val data = ConcurrentHashMap<Int, MeasurementParams>()
 
+  // The largest content height, in px, that Yoga last allowed each input.
+  private val maxHeights = ConcurrentHashMap<Int, Float>()
+
   internal fun store(
     id: Int,
     text: Editable?,
@@ -73,7 +76,15 @@ object InputMeasurementStore {
 
   fun release(id: Int) {
     data.remove(id)
+    maxHeights.remove(id)
   }
+
+  /**
+   * The largest content height, in px, that Yoga allowed the input in its last
+   * measure: infinite when nothing constrains its height (it grows with its
+   * text), or the max/fixed height otherwise. Null before the first measure.
+   */
+  fun getMaxHeight(id: Int): Float? = maxHeights[id]
 
   fun getMeasureById(
     context: Context,
@@ -84,6 +95,9 @@ object InputMeasurementStore {
     props: ReadableMap?,
   ): Long {
     val size = getMeasureByIdInternal(context, id, width, props)
+    if (id != null) {
+      maxHeights[id] = if (heightMode == YogaMeasureMode.UNDEFINED) Float.POSITIVE_INFINITY else height
+    }
     if (heightMode !== YogaMeasureMode.AT_MOST) {
       return size
     }
