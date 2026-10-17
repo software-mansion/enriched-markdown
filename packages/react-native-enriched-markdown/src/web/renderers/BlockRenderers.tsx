@@ -1,6 +1,11 @@
-import type { CSSProperties, KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { extractNodeText, filenameFromUrl } from '../utils';
-import type { RendererProps, RendererMap } from '../types';
+import type {
+  ASTNode,
+  RenderCapabilities,
+  RendererProps,
+  RendererMap,
+} from '../types';
 import { toHeadingLevel } from '../styles';
 import { KaTeXRenderer } from './KaTeXRenderer';
 import {
@@ -15,8 +20,12 @@ function ParagraphRenderer({
   node,
   styles,
   parentType,
+  capabilities,
   renderChildren,
 }: RendererProps) {
+  const slot = blockSlotFor(node, capabilities);
+  if (slot !== undefined) return <>{slot}</>;
+
   const isImageOnly =
     node.children?.length === 1 && node.children[0]?.type === 'Image';
   if (isImageOnly) return <>{renderChildren(node)}</>;
@@ -162,9 +171,33 @@ function BlankLineRenderer({ node, style }: RendererProps) {
   );
 }
 
-function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
+// A block slot the app filled, or undefined to keep the default rendering.
+function blockSlotFor(
+  node: ASTNode,
+  capabilities: RenderCapabilities
+): ReactNode | undefined {
+  const id = node.attributes?.blockSlotId;
+  if (id === undefined) return undefined;
+  return capabilities.blockSlots?.get(id);
+}
+
+function ImageRenderer({
+  node,
+  styles,
+  parentType,
+  callbacks,
+  capabilities,
+}: RendererProps) {
   const url = node.attributes?.url;
   if (!url) return null;
+
+  const occurrenceId = node.attributes?.imageOccurrenceId;
+  const resolved =
+    occurrenceId !== undefined && capabilities.imageSources?.has(occurrenceId)
+      ? capabilities.imageSources.get(occurrenceId)
+      : url;
+  // A pending or failed resolution keeps the element, so layout holds, without a request.
+  const src = resolved === null || resolved === '' ? undefined : resolved;
 
   const title = node.attributes?.title;
   const markdownAlt = extractNodeText(node).trim();
@@ -179,7 +212,7 @@ function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
     parentType !== 'TableCell' &&
     parentType !== 'TableHeaderCell';
   if (!interactive) {
-    return <img src={url} alt={alt} title={title} style={imgStyle} />;
+    return <img src={src} alt={alt} title={title} style={imgStyle} />;
   }
 
   const press = () => callbacks.onImagePress?.({ url, altText: markdownAlt });
@@ -193,7 +226,7 @@ function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
 
   return (
     <img
-      src={url}
+      src={src}
       alt={alt}
       title={title}
       style={imgStyle}
@@ -223,9 +256,12 @@ function LatexMathDisplayRenderer({
   );
 }
 
-function VideoRenderer({ node, styles }: RendererProps) {
+function VideoRenderer({ node, styles, capabilities }: RendererProps) {
   const url = node.attributes?.url;
   if (!url) return null;
+
+  const slot = blockSlotFor(node, capabilities);
+  if (slot !== undefined) return <>{slot}</>;
 
   const title = node.attributes?.title;
   const alt = extractNodeText(node).trim();

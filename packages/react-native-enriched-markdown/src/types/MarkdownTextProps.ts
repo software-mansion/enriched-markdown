@@ -1,4 +1,5 @@
 import type { ColorValue, ViewProps, ViewStyle, TextStyle } from 'react-native';
+import type { ReactNode } from 'react';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type { AccessibilityLabels } from './AccessibilityLabels';
 import type {
@@ -124,6 +125,101 @@ export interface SelectionMenuConfig {
   };
 }
 
+/** The container a replaceable block sits in directly. */
+export type MarkdownBlockPlacement = 'root' | 'blockquote' | 'admonition';
+
+/**
+ * Shared by every block a `renderers` entry can replace. A future non-media kind
+ * extends this, not `MarkdownMediaBlock`.
+ */
+export interface MarkdownSlotBlock {
+  /**
+   * `<kind>:<hash>:<n>`: the kind, an FNV-1a 64 hash of the URL exactly as
+   * written in the Markdown (after entity decoding) and the index among blocks
+   * of the same kind and URL. Stable across streaming appends, edits elsewhere
+   * in the document and inline images being added or removed, so it is safe as
+   * a React key.
+   */
+  id: string;
+  placement: MarkdownBlockPlacement;
+}
+
+export interface MarkdownMediaBlock extends MarkdownSlotBlock {
+  url: string;
+}
+
+/** A paragraph whose only content is an image. */
+export interface MarkdownImageBlock extends MarkdownMediaBlock {
+  kind: 'image';
+  /** The Markdown alt text, `""` when there is none. */
+  altText: string;
+  /** The Markdown title, `""` when there is none. */
+  title: string;
+}
+
+/** A `<video src="...">` block. */
+export interface MarkdownVideoBlock extends MarkdownMediaBlock {
+  kind: 'video';
+}
+
+/**
+ * A paragraph whose only content is a link: `[label](url)`, an autolink or a
+ * bare URL on a line of its own. The hook for file cards, embeds and previews.
+ */
+export interface MarkdownLinkBlock extends MarkdownMediaBlock {
+  kind: 'link';
+  /** The link text, `""` for a bare URL or autolink. */
+  label: string;
+  /** The Markdown title, `""` when there is none. */
+  title: string;
+}
+
+/** Every block a `renderers` entry can replace. */
+export type MarkdownBlock =
+  | MarkdownImageBlock
+  | MarkdownVideoBlock
+  | MarkdownLinkBlock;
+
+/**
+ * React replacements for native blocks, keyed by block kind. Return a React
+ * element to render it in place of the native block, or `null`/`undefined` to
+ * keep the native rendering for that block.
+ */
+export interface MarkdownRenderers {
+  image?: (block: MarkdownImageBlock) => ReactNode;
+  video?: (block: MarkdownVideoBlock) => ReactNode;
+  link?: (block: MarkdownLinkBlock) => ReactNode;
+}
+
+/** Where an image is rendered; the first three mean a standalone image paragraph. */
+export type MarkdownImagePlacement =
+  | MarkdownBlockPlacement
+  | 'inline'
+  | 'list'
+  | 'table'
+  | 'link';
+
+/**
+ * One image in the document, in document order. The id is
+ * `image:<hash of the URL>:<n>` with n counting every earlier image of the same
+ * URL, so it is stable across streaming appends and edits elsewhere. A block
+ * image's occurrence id is distinct from its `MarkdownImageBlock` id.
+ */
+export interface MarkdownImageOccurrence {
+  id: string;
+  url: string;
+  altText: string;
+  title: string;
+  placement: MarkdownImagePlacement;
+}
+
+/** The request to make for an image instead of its Markdown URL. */
+export interface MarkdownImageSource {
+  uri: string;
+  /** Merged over `imageRequestHeaders`; header names are case-insensitive. */
+  headers?: Record<string, string>;
+}
+
 export interface StreamingConfig {
   /**
    * Controls how incomplete tables are handled during streaming.
@@ -146,6 +242,19 @@ export interface StreamingConfig {
    * @platform ios, android
    */
   codeBlockMode?: 'hidden' | 'progressive';
+  /**
+   * Controls how a trailing image paragraph or video block is handled during
+   * streaming. Applies to native images and to blocks drawn by `renderers`.
+   * - `'hidden'`: hide the block until a blank line follows it, so it never
+   *   appears before the chunk after it has arrived.
+   * - `'progressive'` (default): show the block as soon as its syntax is
+   *   complete (`)` for an image, `>` for a `<video>` tag); the partial line is
+   *   hidden until then instead of rendering as text.
+   * Only effective when `streamingAnimation` is `true`.
+   * @default 'progressive'
+   * @platform ios, android
+   */
+  mediaMode?: 'hidden' | 'progressive';
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
@@ -535,4 +644,56 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @default 'tail'
    */
   ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
+  /**
+   * React replacements for block media, keyed by kind. Each renderer receives the
+   * block and returns the element to show in its place, or `null`/`undefined` to
+   * keep the native rendering. The element is laid out by React at the block's
+   * width and must have an intrinsic height; the surrounding Markdown stays
+   * native and keeps its position, selection and accessibility.
+   *
+   * Applies to a paragraph whose only content is an image or a link, and to
+   * `<video>` blocks, directly in the document, a blockquote or an admonition
+   * outside any list. Images and links in lists, tables, headings and running
+   * text stay native. A link block keeps its native tappable link when no
+   * renderer claims it.
+   *
+   * A renderer runs again when the block list or the renderer function changes,
+   * so keep the functions stable with `useCallback`. A renderer that throws, or
+   * returns a string or number, keeps the native block (with a dev warning).
+   *
+   * Only applies when `flavor="github"`. Needs the New Architecture.
+   *
+   * @example
+   * renderers={{
+   *   image: ({ url, altText }) => <FastImage source={{ uri: url }} accessibilityLabel={altText} />,
+   *   video: ({ url }) => <Video source={{ uri: url }} />,
+   * }}
+   * @platform ios, android, web
+   */
+  renderers?: MarkdownRenderers;
+  /**
+   * Chooses the request made for each image instead of its Markdown URL, e.g. a
+   * signed URL or per-image headers. Called once per image occurrence id for
+   * the lifetime of the component, including images in lists, tables,
+   * blockquotes and links; a streaming append or an edit elsewhere only asks
+   * about the new images, and earlier results stay applied. Return a source, a
+   * promise of one, or `null`/`undefined` to load the original URL. While a
+   * promise is pending, and when it rejects or resolves to an empty `uri`, the
+   * image keeps its placeholder and the original URL is not requested.
+   *
+   * The function is read like an event handler: changing it does not resolve
+   * again. Remount the component with a `key` to start over (e.g. after a token
+   * refresh). Events, copy actions and `renderers` keep reporting the Markdown
+   * URL.
+   *
+   * Only applies when `flavor="github"`. Needs the New Architecture.
+   * @platform ios, android, web
+   */
+  resolveImageSource?: (
+    image: MarkdownImageOccurrence
+  ) =>
+    | MarkdownImageSource
+    | null
+    | undefined
+    | Promise<MarkdownImageSource | null | undefined>;
 }

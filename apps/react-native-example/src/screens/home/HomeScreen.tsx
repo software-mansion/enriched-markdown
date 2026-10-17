@@ -31,6 +31,20 @@ const SCREENS: ScreenItem[] = [
     color: '#34C759',
   },
   {
+    route: 'Renderers',
+    label: 'Renderers',
+    subtext: 'React components for images and videos',
+    testID: 'home-block-renderers',
+    color: '#5856D6',
+  },
+  {
+    route: 'Assistant',
+    label: 'Assistant',
+    subtext: 'an AI answer with rich blocks',
+    testID: 'home-block-assistant',
+    color: '#0A84FF',
+  },
+  {
     route: 'Input',
     label: 'Input',
     subtext: 'chat-style rich text input',
