@@ -202,12 +202,26 @@ std::string removePendingTableBlock(const std::string &markdown, const Lines &li
 
 // ---- media
 
-// The line without the quote markers a nested image paragraph sits behind.
+// The line without the quote markers a nested image paragraph sits behind. Up
+// to three spaces of indentation are stripped with them; four or more make the
+// line indented code, which stays as it is so no classifier matches it.
 std::string stripQuotePrefixes(const std::string &line) {
   size_t i = 0;
-  while (i < line.size() && (line[i] == ' ' || line[i] == '>'))
+  size_t spaces = 0;
+  while (i < line.size() && (line[i] == ' ' || line[i] == '>')) {
+    if (line[i] == '>') {
+      spaces = 0;
+    } else if (++spaces > 3) {
+      return line.substr(i - 3);
+    }
     i++;
+  }
   return line.substr(i);
+}
+
+bool isIndentedCode(const std::string &line) {
+  std::string body = stripQuotePrefixes(line);
+  return body.rfind("    ", 0) == 0 || body.rfind("\t", 0) == 0;
 }
 
 using MediaLine = BlockLineState;
@@ -226,30 +240,21 @@ MediaLine classifyMediaLine(const std::string &line) {
 
 // Where an inline image or link whose syntax is still open starts on the line
 // (`![alt](https://` or `[label](ur`, or a `[label]` the `(` may still follow),
-// or npos when the line ends cleanly. Brackets inside inline code are left alone.
+// or npos when the line ends cleanly. Escaped brackets and brackets inside code
+// spans are prose.
 size_t openInlineSyntaxStart(const std::string &line) {
-  size_t trimmedEnd = line.size();
-  while (trimmedEnd > 0 && isSpace(line[trimmedEnd - 1]))
-    trimmedEnd--;
-  size_t bracket = line.rfind('[', trimmedEnd == 0 ? 0 : trimmedEnd - 1);
+  size_t bracket = line.rfind('[');
+  while (bracket != std::string::npos &&
+         (InlineSyntax::isEscaped(line, bracket) || InlineSyntax::insideCodeSpan(line, bracket))) {
+    bracket = bracket == 0 ? std::string::npos : line.rfind('[', bracket - 1);
+  }
   if (bracket == std::string::npos)
     return std::string::npos;
-  size_t backticks = 0;
-  for (size_t i = 0; i < bracket; i++) {
-    if (line[i] == '`')
-      backticks++;
-  }
-  if (backticks % 2 == 1)
+  if (InlineSyntax::state(line, bracket) != MediaLine::Open)
     return std::string::npos;
-  size_t start = bracket > 0 && line[bracket - 1] == '!' ? bracket - 1 : bracket;
-  size_t close = line.find(']', bracket);
-  if (close == std::string::npos)
-    return start; // `[label` still typing
-  if (close + 1 >= trimmedEnd)
-    return start; // `[label]` and the `(` may be next
-  if (line[close + 1] != '(')
-    return std::string::npos; // plain brackets in prose
-  return line.find(')', close + 2) == std::string::npos ? start : std::string::npos;
+  // An escaped `!` is literal text; the link after it is still a link.
+  bool image = bracket > 0 && line[bracket - 1] == '!' && !InlineSyntax::isEscaped(line, bracket - 1);
+  return image ? bracket - 1 : bracket;
 }
 
 // `terminated` says another block (an open code fence) follows the text, which
@@ -264,8 +269,9 @@ std::string removePendingMediaBlock(const std::string &markdown, const Lines &li
   MediaLine state = classifyMediaLine(line);
   if (state == MediaLine::None) {
     // Not a block, but the paragraph may end in an image or link still being
-    // typed: cut that syntax so it never shows as literal text.
-    size_t open = terminated ? std::string::npos : openInlineSyntaxStart(line);
+    // typed: cut that syntax so it never shows as literal text. Indented code
+    // is left alone.
+    size_t open = terminated || isIndentedCode(line) ? std::string::npos : openInlineSyntaxStart(line);
     return open == std::string::npos ? markdown : markdown.substr(0, lineOffset + open);
   }
   if (state == MediaLine::Complete && (mode == StreamingBlockMode::Progressive || terminated))

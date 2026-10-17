@@ -38,4 +38,21 @@ extern const BlockKind kBlockKinds[kBlockKindCount];
 const BlockKind &blockKindFor(BlockSlotKind kind);
 const BlockKind *blockKindNamed(const std::string &name);
 
+// Inline syntax helpers shared by the line classifiers and the streaming
+// filter's tail scanner, so both read `[label](destination)` the same way.
+namespace InlineSyntax {
+// Whether the character at `index` is escaped by an odd run of backslashes.
+bool isEscaped(const std::string &text, size_t index);
+// Whether `index` falls inside a code span (backtick runs of equal length).
+bool insideCodeSpan(const std::string &text, size_t index);
+// The `)` closing a destination that opens at `openParen` (the `(` after `]`),
+// honouring balanced parentheses and escapes; npos when it has not arrived.
+size_t destinationEnd(const std::string &text, size_t openParen);
+// How far a `[label](destination)` or `![alt](destination)` that starts at
+// `bracket` (the `[`) has streamed in: Open while its syntax can still close,
+// Complete when it closed and only whitespace follows, None when it is prose
+// (`[INFO] done`, or text continuing after a closed link).
+BlockLineState state(const std::string &text, size_t bracket);
+} // namespace InlineSyntax
+
 } // namespace Markdown

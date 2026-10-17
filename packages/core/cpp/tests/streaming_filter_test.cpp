@@ -112,6 +112,26 @@ int main() {
          "a fence terminates the paragraph: nothing to cut");
   expect("> Quote ![q](https://e", "> Quote ", "quoted inline image cut");
 
+  // Review cases: prose that merely starts with brackets, nested parentheses,
+  // autolinks followed by text, indented code, escapes and code spans.
+  expect("[INFO] The operation completed", "[INFO] The operation completed", "bracketed prefix is prose", H);
+  expect("[INFO] The operation completed", "[INFO] The operation completed", "bracketed prefix is prose (prog)");
+  expect("![a](https://e.com/a(b)", "", "nested paren still open: cut");
+  expect("![a](https://e.com/a(b))", "![a](https://e.com/a(b))", "nested paren closed: complete (progressive)");
+  expect("![a](https://e.com/a(b))\n", "", "nested paren closed: withheld (hidden)", H);
+  expect("[a](https://e.com \"t (x)\")", "[a](https://e.com \"t (x)\")", "title with parens: complete");
+  expect("See [docs](https://e.com/a(b)", "See ", "nested paren in an open inline link: cut");
+  expect("See [docs](https://e.com/a(b)) now", "See [docs](https://e.com/a(b)) now", "closed nested inline link kept");
+  expect("<https://e.com> and more text", "<https://e.com> and more text", "autolink with prose is prose", H);
+  expect("Intro\n\n    ![a](https://e", "Intro\n\n    ![a](https://e", "indented code is not media");
+  expect("Intro\n\n    ![a](u)\n", "Intro\n\n    ![a](u)\n", "indented code is not media (hidden)", H);
+  expect(">     ![a](https://e", ">     ![a](https://e", "indented code inside a quote");
+  expect("Use \\[literal", "Use \\[literal", "escaped bracket is prose");
+  expect("Use \\![a](https://e", "Use \\!", "an escaped bang is text, the link after it is still open");
+  expect("Use ``a[0](`` here", "Use ``a[0](`` here", "double-backtick code span kept");
+  expect("Use `a` and [docs](https://e", "Use `a` and ", "closed code span before an open link");
+  expect("Use `a[0](` and more", "Use `a[0](` and more", "single-backtick code span kept");
+
   // Pre-existing rules keep their behaviour.
   expect("A\n\n| a | b |\n|---|---|\n| 1 |", "A\n\n| a | b |\n|---|---|\n", "incomplete table row trimmed");
   expect("A\n\n| a | b |\n|---|---|\n| 1 | 2 |", "A\n\n", "table withheld (hidden)", P, H);

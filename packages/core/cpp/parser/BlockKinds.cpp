@@ -12,17 +12,9 @@ bool isBlank(const std::string &text) {
   return true;
 }
 
-// `[label](url)` or `![alt](url)` from the start of body: Open while the syntax
-// has not closed, Complete when nothing but whitespace follows it, None when the
-// line goes on (a text paragraph that merely starts with a link or image).
+// `[label](url)` or `![alt](url)` at the start of body.
 BlockLineState bracketSyntaxState(const std::string &body) {
-  size_t open = body.find("](");
-  if (open == std::string::npos)
-    return BlockLineState::Open;
-  size_t close = body.find(')', open + 2);
-  if (close == std::string::npos)
-    return BlockLineState::Open;
-  return isBlank(body.substr(close + 1)) ? BlockLineState::Complete : BlockLineState::None;
+  return InlineSyntax::state(body, body[0] == '!' ? 1 : 0);
 }
 
 // A paragraph whose only child is `type`.
@@ -73,14 +65,86 @@ BlockLineState linkLineState(const std::string &body) {
   }
   // An `<autolink>` closes at `>`; a bare URL can always grow by another
   // character, so it stays open until something follows it.
-  if (body.rfind("<http", 0) == 0)
-    return body.find('>') == std::string::npos ? BlockLineState::Open : BlockLineState::Complete;
+  if (body.rfind("<http", 0) == 0) {
+    size_t close = body.find('>');
+    if (close == std::string::npos)
+      return BlockLineState::Open;
+    return isBlank(body.substr(close + 1)) ? BlockLineState::Complete : BlockLineState::None;
+  }
   if (body.rfind("http://", 0) == 0 || body.rfind("https://", 0) == 0 || body.rfind("www.", 0) == 0)
     return body.find_first_of(" \t") == std::string::npos ? BlockLineState::Open : BlockLineState::None;
   return BlockLineState::None;
 }
 
 } // namespace
+
+namespace InlineSyntax {
+
+bool isEscaped(const std::string &text, size_t index) {
+  size_t backslashes = 0;
+  while (index > backslashes && text[index - backslashes - 1] == '\\')
+    backslashes++;
+  return backslashes % 2 == 1;
+}
+
+bool insideCodeSpan(const std::string &text, size_t index) {
+  size_t openRun = 0; // length of the backtick run that opened the current span
+  size_t i = 0;
+  while (i < index) {
+    if (text[i] != '`') {
+      i++;
+      continue;
+    }
+    size_t run = 0;
+    while (i < text.size() && text[i] == '`') {
+      run++;
+      i++;
+    }
+    if (openRun == 0)
+      openRun = run;
+    else if (run == openRun)
+      openRun = 0;
+  }
+  return openRun != 0;
+}
+
+size_t destinationEnd(const std::string &text, size_t openParen) {
+  size_t depth = 0;
+  for (size_t i = openParen; i < text.size(); i++) {
+    char ch = text[i];
+    if (ch == '\\') {
+      i++; // the escaped character is literal
+      continue;
+    }
+    if (ch == '(') {
+      depth++;
+    } else if (ch == ')') {
+      depth--;
+      if (depth == 0)
+        return i;
+    }
+  }
+  return std::string::npos;
+}
+
+BlockLineState state(const std::string &text, size_t bracket) {
+  size_t close = bracket;
+  do {
+    close = text.find(']', close + 1);
+  } while (close != std::string::npos && isEscaped(text, close));
+  if (close == std::string::npos)
+    return BlockLineState::Open; // `[label` still typing
+  if (isBlank(text.substr(close + 1)))
+    return BlockLineState::Open; // `[label]`: the `(` may be next
+  if (text[close + 1] != '(')
+    return BlockLineState::None; // `[INFO] done`: prose
+  size_t end = destinationEnd(text, close + 1);
+  if (end == std::string::npos)
+    return BlockLineState::Open; // `[label](https://e` still typing
+  return isBlank(text.substr(end + 1)) ? BlockLineState::Complete : BlockLineState::None;
+}
+
+} // namespace InlineSyntax
 
 // Order matters where a node could match two kinds: none do today.
 const BlockKind kBlockKinds[kBlockKindCount] = {
