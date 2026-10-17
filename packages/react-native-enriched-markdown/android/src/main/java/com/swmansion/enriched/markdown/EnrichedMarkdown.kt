@@ -65,6 +65,14 @@ class EnrichedMarkdown(
   private var currentRenderId = 0L
   private val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
   var streamingAnimation: Boolean = false
+    set(value) {
+      if (field == value) return
+      field = value
+      // The streaming filter only applies while this is on, so re-render to
+      // show or hide the content it holds back.
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+      renderPending = true
+    }
 
   // used to force a Yoga re-measure when a block image resolves its box height
   var stateWrapper: StateWrapper? = null
