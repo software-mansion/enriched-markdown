@@ -4,6 +4,38 @@
 #import "MarkdownASTNode.h"
 #import "ParagraphStyleUtils.h"
 #import "RenderedMarkdownSegment.h"
+#import "StyleConfig.h"
+
+static inline uint64_t ENRMMixString(uint64_t hash, NSString *string)
+{
+  const char *utf8 = [string UTF8String];
+  while (utf8 && *utf8) {
+    hash ^= (uint8_t)*utf8++;
+    hash *= 1099511628211ULL;
+  }
+  return hash;
+}
+
+// The source an image loads comes from the `imageSources` prop, not the AST, so
+// it joins the signature: the reconciler keeps a view whose signature matches
+// as it is, and that view must not hold the previous source's attachment.
+static uint64_t ENRMMixImageSourceOverrides(uint64_t hash, NSArray<MarkdownASTNode *> *nodes,
+                                            NSDictionary<NSString *, ENRMImageSourceOverride *> *overrides)
+{
+  for (MarkdownASTNode *node in nodes) {
+    NSString *occurrenceId = node.attributes[@"imageOccurrenceId"];
+    ENRMImageSourceOverride *override = occurrenceId ? overrides[occurrenceId] : nil;
+    if (override) {
+      hash = ENRMMixString(hash, override.uri);
+      for (NSString *key in [override.headers.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        hash = ENRMMixString(hash, key);
+        hash = ENRMMixString(hash, override.headers[key]);
+      }
+    }
+    hash = ENRMMixImageSourceOverrides(hash, node.children, overrides);
+  }
+  return hash;
+}
 
 static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
 {
@@ -95,6 +127,7 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
   static const uint64_t kBlockquoteKindSalt = 0x6271746500000000ULL; // "bqte"
   static const uint64_t kVideoKindSalt = 0x7669646F00000000ULL;      // "vido"
   static const uint64_t kBlockSlotKindSalt = 0x626C736C00000000ULL;  // "blsl"
+  NSDictionary<NSString *, ENRMImageSourceOverride *> *imageSourceOverrides = config.imageSourceOverrides;
 
   for (id segment in segments) {
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
@@ -105,6 +138,9 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
                                        : ENRMRenderASTNodes(textSegment.nodes, config, allowTrailingMargin,
                                                             allowFontScaling, maxFontSizeMultiplier, lineBreakStrategy);
       uint64_t signature = ENRMSignatureForNodes(textSegment.nodes) ^ kTextKindSalt;
+      if (imageSourceOverrides.count > 0) {
+        signature = ENRMMixImageSourceOverrides(signature, textSegment.nodes, imageSourceOverrides);
+      }
       [renderedSegments addObject:[ENRMRenderedSegment textSegmentWithResult:rendered signature:signature]];
     } else if ([segment isKindOfClass:[ENRMTableSegment class]]) {
       ENRMTableSegment *tableSegment = (ENRMTableSegment *)segment;
@@ -132,6 +168,9 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
     } else if ([segment isKindOfClass:[ENRMBlockquoteSegment class]]) {
       ENRMBlockquoteSegment *blockquoteSegment = (ENRMBlockquoteSegment *)segment;
       uint64_t signature = ENRMSignatureForNode(blockquoteSegment.blockquoteNode) ^ kBlockquoteKindSalt;
+      if (imageSourceOverrides.count > 0) {
+        signature = ENRMMixImageSourceOverrides(signature, @[ blockquoteSegment.blockquoteNode ], imageSourceOverrides);
+      }
       [renderedSegments addObject:[ENRMRenderedSegment blockquoteSegmentWithSegment:blockquoteSegment
                                                                           signature:signature]];
     }

@@ -389,12 +389,10 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
       return nullptr;
     }
 
-    if (textLinkRegex || inlineCodeLinkRegex) {
-      Markdown::recognizeTextLinks(*ast, makeTextLinkMatchers(env, textLinkRegex, inlineCodeLinkRegex));
-    }
-
     // Slots and image overrides are GFM features (the CommonMark host lays nothing
     // out for them); one walk stamps both on the AST before it crosses to Kotlin.
+    // It runs before text-link recognition, which the JS collector never runs, so
+    // both count the same slots.
     if (isGFM == JNI_TRUE && (activeBlockSlotIds || annotateImages == JNI_TRUE)) {
       std::unordered_set<std::string> ids;
       jsize count = activeBlockSlotIds ? env->GetArrayLength(activeBlockSlotIds) : 0;
@@ -410,6 +408,10 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
         env->DeleteLocalRef(id);
       }
       Markdown::annotate(*ast, ids, annotateImages == JNI_TRUE);
+    }
+
+    if (textLinkRegex || inlineCodeLinkRegex) {
+      Markdown::recognizeTextLinks(*ast, makeTextLinkMatchers(env, textLinkRegex, inlineCodeLinkRegex));
     }
 
     // Convert C++ AST to Kotlin MarkdownASTNode object
@@ -455,12 +457,16 @@ Java_com_swmansion_enriched_markdown_utils_common_StreamingMarkdownFilter_native
   Markdown::StreamingFilterResult result = Markdown::renderableMarkdownForStreaming(std::string(chars), options);
   env->ReleaseStringUTFChars(markdown, chars);
 
+  // consumer-rules.pro keeps the class; a failed lookup leaves a pending
+  // exception that would throw in Kotlin instead of returning null.
   jclass resultClass = env->FindClass("com/swmansion/enriched/markdown/utils/common/StreamingFilterResult");
   if (!resultClass) {
+    env->ExceptionClear();
     return nullptr;
   }
   jmethodID constructor = env->GetMethodID(resultClass, "<init>", "(Ljava/lang/String;Z)V");
   if (!constructor) {
+    env->ExceptionClear();
     env->DeleteLocalRef(resultClass);
     return nullptr;
   }

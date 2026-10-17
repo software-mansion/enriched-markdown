@@ -124,9 +124,11 @@ void MarkdownContainerShadowNode::layout(LayoutContext layoutContext) {
   const auto layoutMetrics = getLayoutMetrics();
   const auto contentFrame = layoutMetrics.getContentFrame();
 
-  // Yoga may have skipped measureContent (exact size known), measured at another
-  // width, or the children changed under a same-count swap: measure again then.
-  bool stale = !slotMeasurement_.valid ||
+  // Yoga may have skipped measureContent (exact size known) after the document,
+  // the height counter or the children changed, or measured at another width:
+  // measure again then. The width tolerates the pixel rounding Yoga applies.
+  bool stale = !slotMeasurement_.valid || slotMeasurement_.props != getProps().get() ||
+               slotMeasurement_.counter != getStateData().getForceHeightRecalculationCounter() ||
                !sameWidth(slotMeasurement_.width, contentFrame.size.width, layoutMetrics.pointScaleFactor) ||
                slotMeasurement_.frames.size() != children.size();
   for (size_t i = 0; !stale && i < children.size(); i++) {

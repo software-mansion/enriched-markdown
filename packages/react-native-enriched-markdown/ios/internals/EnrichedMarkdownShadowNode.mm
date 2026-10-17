@@ -250,15 +250,10 @@ void EnrichedMarkdownShadowNode::layout(LayoutContext layoutContext)
                                       .maximumSize = contentFrame.size,
                                       .layoutDirection = layoutMetrics.layoutDirection};
 
-  // Yoga may have skipped measureContent (exact size known), measured at another
-  // width, or the children changed under a same-count swap: measure again then.
-  bool stale = slotMeasurement_.width != contentFrame.size.width || slotMeasurement_.frames.size() != slots.size();
-  for (size_t i = 0; !stale && i < slots.size(); i++) {
-    stale = slotMeasurement_.frames[i].id != slots[i].id;
-  }
-  if (stale) {
-    measureWithSlots(slots, layoutContext, layoutConstraints, contentFrame.size.width);
-  }
+  // Yoga may have skipped measureContent (exact size known) after the document,
+  // the height counter, the width or the children changed: the memoized measure
+  // checks every input and returns at once when none did.
+  measureWithSlots(slots, layoutContext, layoutConstraints, contentFrame.size.width);
 
   auto hostShadowNode = static_cast<EnrichedMarkdownShadowNode *>(this);
   auto hostOwningShadowNode = std::shared_ptr<ShadowNode>{};

@@ -146,6 +146,9 @@ static char kENRMSegmentFadeAnimatorKey;
   // Render requested during this mount transaction (props or slot ids), run once
   // in finalizeUpdates so a mutation that touches both parses once.
   NSString *_pendingRenderMarkdown;
+  // The slot ids changed: Fabric mounts or unmounts the React child in this
+  // transaction, so the native block it replaces must leave in the same one.
+  BOOL _pendingRenderSynchronously;
   // Slot heights changed in this transaction; compare against the committed
   // frame in finalizeUpdates, when the new layout metrics have landed.
   BOOL _pendingSlotHeightCheck;
@@ -740,9 +743,10 @@ static char kENRMSegmentFadeAnimatorKey;
   _blockSlotHeights = heights.count > 0 ? [heights copy] : nil;
   ENRMApplyBlockSlotHeights(_segmentViews, heights);
 
-  if (idsChanged && !_pendingRenderMarkdown && _cachedMarkdown.length > 0) {
+  if (idsChanged && (_pendingRenderMarkdown || _cachedMarkdown.length > 0)) {
     _dirtyFlags |= ENRMDirtyForceHeight;
-    _pendingRenderMarkdown = _cachedMarkdown;
+    _pendingRenderMarkdown = _pendingRenderMarkdown ?: _cachedMarkdown;
+    _pendingRenderSynchronously = YES;
   } else if (heightsChanged) {
     [self setNeedsLayout];
     _pendingSlotHeightCheck = YES;
@@ -755,9 +759,11 @@ static char kENRMSegmentFadeAnimatorKey;
 
   if (_pendingRenderMarkdown) {
     NSString *markdown = _pendingRenderMarkdown;
+    BOOL synchronously = _pendingRenderSynchronously;
     _pendingRenderMarkdown = nil;
+    _pendingRenderSynchronously = NO;
     _pendingSlotHeightCheck = NO;
-    [self renderMarkdownContent:markdown];
+    [self renderMarkdownContent:markdown synchronously:synchronously];
     return;
   }
   if (_pendingSlotHeightCheck) {
@@ -920,6 +926,15 @@ static char kENRMSegmentFadeAnimatorKey;
 
 - (void)renderMarkdownContent:(NSString *)markdownString
 {
+  [self renderMarkdownContent:markdownString synchronously:NO];
+}
+
+// Parses and lays the document out on the render queue and applies the result
+// on the main queue, unless `synchronously`: then both run here, in the current
+// mount transaction, and any render in flight is dropped (the Android host's
+// renderSynchronously). The parse memo keeps the inline parse cheap.
+- (void)renderMarkdownContent:(NSString *)markdownString synchronously:(BOOL)synchronously
+{
   if (_renderCoordinator.blockAsyncRender)
     return;
 
@@ -949,46 +964,53 @@ static char kENRMSegmentFadeAnimatorKey;
   __block NSString *renderableMarkdown = nil;
   __block BOOL endsInsideOpenCodeFence = NO;
 
-  [_renderCoordinator
-      scheduleRender:^BOOL {
-        renderableMarkdown =
-            streamingAnimation
-                ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode, codeBlockStreamingMode,
-                                                     mediaStreamingMode, &endsInsideOpenCodeFence)
-                : markdownString;
+  BOOL (^render)(void) = ^BOOL {
+    renderableMarkdown =
+        streamingAnimation
+            ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode, codeBlockStreamingMode,
+                                                 mediaStreamingMode, &endsInsideOpenCodeFence)
+            : markdownString;
 
-        if (renderableMarkdown.length == 0) {
-          renderedSegments = @[];
-          return YES;
-        }
+    if (renderableMarkdown.length == 0) {
+      renderedSegments = @[];
+      return YES;
+    }
 
-        MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown
-                                               flags:md4cFlags
-                                               isGFM:isGFM
-                                           linkRegex:linkRegex
-                                 inlineCodeLinkRegex:inlineCodeLinkRegex
-                                  activeBlockSlotIds:activeBlockSlotIds
-                                      annotateImages:annotateImages];
-        if (!ast)
-          return NO;
+    MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown
+                                           flags:md4cFlags
+                                           isGFM:isGFM
+                                       linkRegex:linkRegex
+                             inlineCodeLinkRegex:inlineCodeLinkRegex
+                              activeBlockSlotIds:activeBlockSlotIds
+                                  annotateImages:annotateImages];
+    if (!ast)
+      return NO;
 
-        renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
-                                                     maxFontSizeMultiplier, lineBreakStrategy,
-                                                     /*blockquoteContent*/ NO);
-        for (ENRMRenderedSegment *segment in renderedSegments) {
-          if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-            ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode,
-                                          resolvedLayoutDirection);
-          }
-        }
-        return YES;
+    renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
+                                                 maxFontSizeMultiplier, lineBreakStrategy,
+                                                 /*blockquoteContent*/ NO);
+    for (ENRMRenderedSegment *segment in renderedSegments) {
+      if (segment.kind == ENRMSegmentKindText && segment.textResult) {
+        ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);
       }
-      apply:^{
-        self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
-        [self applyRenderedSegments:renderedSegments
-                   renderedMarkdown:renderableMarkdown
-            endsInsideOpenCodeFence:endsInsideOpenCodeFence];
-      }];
+    }
+    return YES;
+  };
+  dispatch_block_t apply = ^{
+    self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
+    [self applyRenderedSegments:renderedSegments
+               renderedMarkdown:renderableMarkdown
+        endsInsideOpenCodeFence:endsInsideOpenCodeFence];
+  };
+
+  if (synchronously) {
+    [_renderCoordinator invalidate];
+    if (render()) {
+      apply();
+    }
+    return;
+  }
+  [_renderCoordinator scheduleRender:render apply:apply];
 }
 
 - (NSArray *)parseAndRenderSegments:(NSString *)markdownString
@@ -1356,7 +1378,10 @@ static char kENRMSegmentFadeAnimatorKey;
     }
   }
 
-  // Overridden sources decide which image loads, so its box height.
+  // Overridden sources decide which image loads, so its box height. With a
+  // markdown change in the same commit the reconciler decides per segment; the
+  // segment signature carries the sources (SegmentRenderer) so a reused one
+  // never keeps the previous attachment.
   if (ENRMImageSourcesChanged(oldViewProps.imageSources, newViewProps.imageSources)) {
     [_config setImageSourceOverrides:ENRMImageSourceOverridesFromProps(newViewProps.imageSources)];
     _dirtyFlags |= ENRMDirtyRender | ENRMDirtyForceHeight;

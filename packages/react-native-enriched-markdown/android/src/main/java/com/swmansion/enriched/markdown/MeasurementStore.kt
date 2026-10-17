@@ -544,13 +544,16 @@ object MeasurementStore {
       }
     // A Set's hashCode sums its elements, so {} and {0} would collide; the sorted list's doesn't.
     // Density joins the key: an app that handles density changes itself keeps the view
-    // alive while every px measurement below changes.
+    // alive while every px measurement below changes. So do the slot ids: a size
+    // measured with React children in place must not serve the slot-free document.
     val density = context.resources.displayMetrics.density
     val propsHash =
       31 * (
-        31 * computePropsHashForMarkdown(markdown, props, allowFontScaling, fontScale, maxFontSizeMultiplier) +
-          wrapped.sorted().hashCode()
-      ) + density.hashCode()
+        31 * (
+          31 * computePropsHashForMarkdown(markdown, props, allowFontScaling, fontScale, maxFontSizeMultiplier) +
+            wrapped.sorted().hashCode()
+        ) + density.hashCode()
+      ) + blockSlotIds.hashCode()
 
     // Streaming shortcut: reuse cached size when the filtered content and
     // width are unchanged. When the filter output changes (e.g. a table

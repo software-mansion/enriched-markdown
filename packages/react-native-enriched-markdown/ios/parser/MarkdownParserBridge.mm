@@ -238,17 +238,18 @@ static MarkdownASTNode *parseMarkdownUncached(NSString *markdown, ENRMMd4cFlags 
 
   Markdown::MD4CParser parser;
   auto cppAST = parser.parse(cppMarkdown, cppFlags, isGFM);
-  if (cppAST && (textRegex || codeRegex)) {
-    Markdown::recognizeTextLinks(*cppAST, ENRMTextLinkMatchers(textRegex, codeRegex));
-  }
   // Slots and image sources are GFM features (the CommonMark host lays nothing
-  // out for them); one walk stamps both.
+  // out for them); one walk stamps both. It runs before text-link recognition,
+  // which the JS collector never runs, so both count the same slots.
   if (cppAST && isGFM && (activeBlockSlotIds.count > 0 || annotateImages)) {
     std::unordered_set<std::string> ids;
     for (NSString *slotId in activeBlockSlotIds) {
       ids.insert(std::string(slotId.UTF8String ?: ""));
     }
     Markdown::annotate(*cppAST, ids, annotateImages);
+  }
+  if (cppAST && (textRegex || codeRegex)) {
+    Markdown::recognizeTextLinks(*cppAST, ENRMTextLinkMatchers(textRegex, codeRegex));
   }
 
   // Convert C++ AST to Objective-C AST
