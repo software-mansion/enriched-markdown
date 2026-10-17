@@ -1,0 +1,10 @@
+# url<TAB>fnv1a64 hex, both exactly as the collector sees the URL (after entity
+# decoding, no percent-encoding or normalisation). Shared by block_slots_test.cpp
+# and the web collector's Jest test (src/web/__tests__/blockSlots.test.ts), so the
+# id hash cannot drift between the C++ core and its web twin.
+	cbf29ce484222325
+a	af63dc4c8601ec8c
+https://e.com/a.png	e8d05e0390168677
+https://images.unsplash.com/photo-1448375240586-882707db888b?w=800	cce14cf577e3a104
+https://e.com/café.png	11e3a50d09608926
+https://e.com/a%20b.png	46918e290136a75a

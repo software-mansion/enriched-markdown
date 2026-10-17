@@ -6,6 +6,9 @@ on:
   pull_request:
     branches:
       - main
+      # The block renderers stack (#1026 → #1027 → #1028): its upper PRs target
+      # these branches until the one below merges. Drop once the stack is in.
+      - 'feat/block-renderers-*'
   merge_group:
     types:
       - checks_requested
