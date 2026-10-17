@@ -47,6 +47,8 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streamingAnimation"] = props.streamingAnimation;
+  // A `<video>` block only exists under GFM; CommonMark measures it as text.
+  serializedProps["isGFM"] = props.isGFM;
   // Wrapped code blocks measure at the block width; the indexes live in MeasurementStore.
   serializedProps["enableCodeBlockWrapToggle"] = props.enableCodeBlockWrapToggle;
 
@@ -55,6 +57,13 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
     imageRequestHeaders.push_back(toDynamic(header));
   }
   serializedProps["imageRequestHeaders"] = std::move(imageRequestHeaders);
+
+  // Image source overrides change which image loads, and so its measured box.
+  folly::dynamic imageSources = folly::dynamic::array();
+  for (const auto &source : props.imageSources) {
+    imageSources.push_back(toDynamic(source));
+  }
+  serializedProps["imageSources"] = std::move(imageSources);
 
   // Pill labels change text width, so measurement needs the same content the view renders.
   folly::dynamic linkPillContent = folly::dynamic::array();

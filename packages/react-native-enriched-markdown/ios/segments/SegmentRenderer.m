@@ -11,7 +11,20 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
   NSMutableArray *currentTextNodes = [NSMutableArray array];
 
   for (MarkdownASTNode *child in root.children) {
-    if (child.type == MarkdownNodeTypeTable) {
+    NSString *blockSlotId = child.attributes[@"blockSlotId"];
+    if (blockSlotId.length > 0) {
+      // A React child replaces this block (BlockSlots.hpp stamps only the ids the
+      // host asked for); the host reserves the slot and Fabric mounts the child.
+      if (currentTextNodes.count > 0) {
+        [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
+        [currentTextNodes removeAllObjects];
+      }
+      NSString *kindName = child.attributes[@"blockSlotKind"];
+      ENRMBlockSlotKind kind = [kindName isEqualToString:@"video"]  ? ENRMBlockSlotKindVideo
+                               : [kindName isEqualToString:@"link"] ? ENRMBlockSlotKindLink
+                                                                    : ENRMBlockSlotKindImage;
+      [segments addObject:[ENRMBlockSlotSegment segmentWithSlotId:blockSlotId kind:kind]];
+    } else if (child.type == MarkdownNodeTypeTable) {
       if (currentTextNodes.count > 0) {
         [segments addObject:[ENRMTextSegment segmentWithNodes:[currentTextNodes copy]]];
         [currentTextNodes removeAllObjects];
@@ -81,6 +94,7 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
   static const uint64_t kCodeBlockKindSalt = 0x63626C6B00000000ULL;  // "cblk"
   static const uint64_t kBlockquoteKindSalt = 0x6271746500000000ULL; // "bqte"
   static const uint64_t kVideoKindSalt = 0x7669646F00000000ULL;      // "vido"
+  static const uint64_t kBlockSlotKindSalt = 0x626C736C00000000ULL;  // "blsl"
 
   for (id segment in segments) {
     if ([segment isKindOfClass:[ENRMTextSegment class]]) {
@@ -128,6 +142,17 @@ NSArray<ENRMRenderedSegment *> *ENRMRenderSegmentsFromAST(MarkdownASTNode *ast, 
       [renderedSegments addObject:[ENRMRenderedSegment videoSegmentWithSegment:videoSegment signature:signature]];
     }
 #endif
+    else if ([segment isKindOfClass:[ENRMBlockSlotSegment class]]) {
+      ENRMBlockSlotSegment *blockSlotSegment = (ENRMBlockSlotSegment *)segment;
+      uint64_t signature = kBlockSlotKindSalt;
+      const char *utf8 = [blockSlotSegment.slotId UTF8String];
+      while (utf8 && *utf8) {
+        signature ^= (uint8_t)*utf8++;
+        signature *= 1099511628211ULL;
+      }
+      [renderedSegments addObject:[ENRMRenderedSegment blockSlotSegmentWithSegment:blockSlotSegment
+                                                                         signature:signature]];
+    }
   }
 
   return renderedSegments;

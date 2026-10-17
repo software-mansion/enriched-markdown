@@ -24,6 +24,8 @@ else()
 endif()
 
 set(ANDROID_CPP_DIR "${LIB_ANDROID_DIR}/src/main/cpp")
+# RN-specific C++ shared with iOS (the EnrichedMarkdownParser TurboModule).
+set(COMMON_CPP_DIR "${LIB_ANDROID_DIR}/../common")
 
 # Optional tree-sitter code highlighting. build.gradle writes this config during
 # configuration (enable flag, selected languages, generated registry dir); absent
@@ -57,6 +59,7 @@ add_library(
   ${PARSER_SOURCES}
   ${HIGHLIGHT_SOURCES}
   ${ANDROID_CPP_DIR}/jni-adapter.cpp
+  ${COMMON_CPP_DIR}/EnrichedMarkdownParser.cpp
 )
 
 target_include_directories(
@@ -65,7 +68,9 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/react/renderer/components/${LIB_LITERAL}
   ${LIB_ANDROID_GENERATED_JNI_DIR}
+  ${LIB_ANDROID_GENERATED_JNI_DIR}/react/renderer/components
   ${LIB_ANDROID_GENERATED_COMPONENTS_DIR}
+  ${COMMON_CPP_DIR}
   ${CPP_ROOT}/enrmrkd
   ${CPP_ROOT}/parser
   ${CPP_ROOT}/highlight

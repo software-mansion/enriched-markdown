@@ -1,4 +1,6 @@
 #import "ENRMSegmentHeightMeasurer.h"
+#import "ENRMBlockSlotMeasurer.h"
+#import "ENRMBlockSlotSegmentView.h"
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMCodeBlockWrapState.h"
@@ -17,7 +19,8 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                           CGFloat contentWidth, BOOL allowTrailingMargin, CGFloat pointScaleFactor,
                                           ENRMWritingDirectionMode writingDirectionMode,
                                           NSWritingDirection resolvedLayoutDirection, BOOL allowFontScaling,
-                                          NSLineBreakStrategy lineBreakStrategy, ENRMCodeBlockWrapCursor *wrapCursor)
+                                          NSLineBreakStrategy lineBreakStrategy, ENRMCodeBlockWrapCursor *wrapCursor,
+                                          ENRMBlockSlotMeasurer *slotMeasurer, CGPoint origin)
 {
   if (segments.count == 0) {
     return 0;
@@ -70,7 +73,18 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                                      pointScaleFactor:pointScaleFactor
                                                      allowFontScaling:allowFontScaling
                                                     lineBreakStrategy:lineBreakStrategy
-                                                           wrapCursor:wrapCursor];
+                                                           wrapCursor:wrapCursor
+                                                         slotMeasurer:slotMeasurer
+                                                               origin:CGPointMake(origin.x, origin.y + totalHeight)];
+    } else if (segment.kind == ENRMSegmentKindBlockSlot && segment.blockSlotSegment) {
+      ENRMBlockSlotSegment *slot = segment.blockSlotSegment;
+      totalHeight += ENRMBlockSlotMarginTop(slot.kind, config);
+      totalHeight += [slotMeasurer heightForSlot:slot.slotId
+                                           width:contentWidth
+                                          origin:CGPointMake(origin.x, origin.y + totalHeight)];
+      if (shouldAddBottomMargin) {
+        totalHeight += ENRMBlockSlotMarginBottom(slot.kind, config);
+      }
     }
 #if ENRICHED_MARKDOWN_MATH
     else if (segment.kind == ENRMSegmentKindMath && segment.mathSegment) {

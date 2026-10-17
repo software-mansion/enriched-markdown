@@ -27,7 +27,16 @@ sealed interface MarkdownSegment {
   data class Video(
     val node: MarkdownASTNode,
   ) : MarkdownSegment
+
+  /** A block a React slot child stands in for (an image paragraph or a video). */
+  data class BlockSlot(
+    val slotId: String,
+    val kind: BlockSlotKind,
+  ) : MarkdownSegment
 }
+
+const val BLOCK_SLOT_ID_ATTRIBUTE = "blockSlotId"
+const val BLOCK_SLOT_KIND_ATTRIBUTE = "blockSlotKind"
 
 fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
   val segments = mutableListOf<MarkdownSegment>()
@@ -41,6 +50,12 @@ fun splitASTIntoSegments(root: MarkdownASTNode): List<MarkdownSegment> {
   }
 
   for (child in root.children) {
+    val slotId = child.getAttribute(BLOCK_SLOT_ID_ATTRIBUTE)
+    if (slotId != null) {
+      flushTextNodes()
+      segments.add(MarkdownSegment.BlockSlot(slotId, BlockSlotKind.fromAttribute(child.getAttribute(BLOCK_SLOT_KIND_ATTRIBUTE))))
+      continue
+    }
     when (child.type) {
       MarkdownASTNode.NodeType.Table -> {
         flushTextNodes()

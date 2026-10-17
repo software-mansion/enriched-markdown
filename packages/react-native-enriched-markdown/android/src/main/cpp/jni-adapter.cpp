@@ -1,11 +1,15 @@
+#include "BlockSlotMeasureSession.h"
+#include "BlockSlots.hpp"
 #include "CodeBlockHighlighter.hpp"
 #include "CodeBlockLanguages.hpp"
 #include "MD4CParser.hpp"
+#include "StreamingFilter.hpp"
 #include "TextLinkRecognizer.hpp"
 #include <android/log.h>
 #include <jni.h>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 using namespace Markdown;
@@ -317,7 +321,7 @@ extern "C" {
 
 JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nativeParseMarkdown(
     JNIEnv *env, jobject /* this */, jstring markdown, jobject flags, jboolean isGFM, jobject textLinkRegex,
-    jobject inlineCodeLinkRegex) {
+    jobject inlineCodeLinkRegex, jobjectArray activeBlockSlotIds, jboolean annotateImages) {
   if (!markdown) {
     LOGE("Markdown string is null");
     return nullptr;
@@ -389,6 +393,25 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
       Markdown::recognizeTextLinks(*ast, makeTextLinkMatchers(env, textLinkRegex, inlineCodeLinkRegex));
     }
 
+    // Slots and image overrides are GFM features (the CommonMark host lays nothing
+    // out for them); one walk stamps both on the AST before it crosses to Kotlin.
+    if (isGFM == JNI_TRUE && (activeBlockSlotIds || annotateImages == JNI_TRUE)) {
+      std::unordered_set<std::string> ids;
+      jsize count = activeBlockSlotIds ? env->GetArrayLength(activeBlockSlotIds) : 0;
+      for (jsize i = 0; i < count; i++) {
+        jstring id = (jstring)env->GetObjectArrayElement(activeBlockSlotIds, i);
+        if (!id)
+          continue;
+        const char *chars = env->GetStringUTFChars(id, nullptr);
+        if (chars) {
+          ids.insert(chars);
+          env->ReleaseStringUTFChars(id, chars);
+        }
+        env->DeleteLocalRef(id);
+      }
+      Markdown::annotate(*ast, ids, annotateImages == JNI_TRUE);
+    }
+
     // Convert C++ AST to Kotlin MarkdownASTNode object
     jobject javaNode = createJavaNode(env, ast);
 
@@ -406,6 +429,65 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
     LOGE("Unknown exception during parsing");
     return nullptr;
   }
+}
+
+// The core's streaming filter (StreamingFilter.hpp), shared with iOS and the JS
+// block collector. Returns a StreamingFilterResult, or null if that class cannot
+// be constructed (the caller then renders the markdown unfiltered).
+JNIEXPORT jobject JNICALL
+Java_com_swmansion_enriched_markdown_utils_common_StreamingMarkdownFilter_nativeRenderableMarkdownForStreaming(
+    JNIEnv *env, jclass /* clazz */, jstring markdown, jboolean hideTables, jboolean hideCodeBlocks,
+    jboolean hideMedia) {
+  if (!markdown) {
+    return nullptr;
+  }
+  const char *chars = env->GetStringUTFChars(markdown, nullptr);
+  if (!chars) {
+    return nullptr;
+  }
+  Markdown::StreamingFilterOptions options;
+  options.tableMode =
+      hideTables == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
+  options.codeBlockMode =
+      hideCodeBlocks == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
+  options.mediaMode =
+      hideMedia == JNI_TRUE ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
+  Markdown::StreamingFilterResult result = Markdown::renderableMarkdownForStreaming(std::string(chars), options);
+  env->ReleaseStringUTFChars(markdown, chars);
+
+  jclass resultClass = env->FindClass("com/swmansion/enriched/markdown/utils/common/StreamingFilterResult");
+  if (!resultClass) {
+    return nullptr;
+  }
+  jmethodID constructor = env->GetMethodID(resultClass, "<init>", "(Ljava/lang/String;Z)V");
+  if (!constructor) {
+    env->DeleteLocalRef(resultClass);
+    return nullptr;
+  }
+  // Cuts land on line boundaries, so the bytes stay valid UTF-8.
+  jstring filtered = env->NewStringUTF(result.markdown.c_str());
+  jobject object =
+      env->NewObject(resultClass, constructor, filtered, result.endsInsideOpenCodeFence ? JNI_TRUE : JNI_FALSE);
+  env->DeleteLocalRef(filtered);
+  env->DeleteLocalRef(resultClass);
+  return object;
+}
+
+// Called by MeasurementStore's walk while the GFM shadow node measures; see
+// BlockSlotMeasureSession. Outside a measurement there is no session and no slot.
+JNIEXPORT jfloat JNICALL Java_com_swmansion_enriched_markdown_MeasurementStore_nativeMeasureBlockSlot(
+    JNIEnv *env, jclass /* clazz */, jstring slotId, jfloat x, jfloat y, jfloat width) {
+  auto *session = facebook::react::BlockSlotMeasureSession::current();
+  if (!session || !slotId) {
+    return 0;
+  }
+  const char *chars = env->GetStringUTFChars(slotId, nullptr);
+  if (!chars) {
+    return 0;
+  }
+  std::string id(chars);
+  env->ReleaseStringUTFChars(slotId, chars);
+  return session->measure(id, x, y, width);
 }
 
 JNIEXPORT jstring JNICALL Java_com_swmansion_enriched_markdown_utils_common_CodeBlockNode_nativeDisplayLanguageName(

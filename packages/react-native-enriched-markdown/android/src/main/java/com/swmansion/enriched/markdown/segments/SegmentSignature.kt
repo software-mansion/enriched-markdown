@@ -14,6 +14,7 @@ object SegmentSignature {
   internal const val CODE_BLOCK_KIND_SALT = 0x63626C6B00000000L // "cblk"
   internal const val BLOCKQUOTE_KIND_SALT = 0x6271746500000000L // "bqte"
   internal const val VIDEO_KIND_SALT = 0x7669646F00000000L // "video"
+  internal const val BLOCK_SLOT_KIND_SALT = 0x626C736C00000000L // "blsl"
 
   private fun fnvMixByte(
     hash: Long,

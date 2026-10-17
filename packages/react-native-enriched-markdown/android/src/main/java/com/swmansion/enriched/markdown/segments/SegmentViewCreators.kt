@@ -256,4 +256,19 @@ object SegmentViewCreators {
       ?.getMethod("applyVideoNode", MarkdownASTNode::class.java)
       ?.invoke(view, segment.node)
   }
+
+  fun createBlockSlotView(
+    segment: RenderedSegment.BlockSlot,
+    config: SegmentViewConfig,
+  ) = BlockSlotSegmentView(config.context, config.style, segment.slotId, segment.kind)
+
+  // A reused placeholder takes over the new slot's id, or the heights keyed by
+  // id never reach it and it reserves nothing.
+  fun updateBlockSlotView(
+    view: BlockSlotSegmentView,
+    segment: RenderedSegment.BlockSlot,
+  ) {
+    view.slotId = segment.slotId
+    view.kind = segment.kind
+  }
 }

@@ -19,6 +19,14 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) CGFloat maxWidth;
 @end
 
+/// The request made for one image instead of its Markdown URL (the `imageSources`
+/// prop), keyed by image occurrence id. An empty uri keeps the placeholder and
+/// requests nothing; headers are lowercased and merge over the document headers.
+@interface ENRMImageSourceOverride : NSObject
+@property (nonatomic, copy) NSString *uri;
+@property (nonatomic, copy) NSDictionary<NSString *, NSString *> *headers;
+@end
+
 /// What one specific link's pill shows (the `linkPillContent` prop), keyed by exact URL.
 @interface LinkPillContent : NSObject
 @property (nonatomic, copy) NSString *label;
@@ -251,6 +259,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setImageMarginBottom:(CGFloat)newValue;
 - (nullable NSDictionary<NSString *, NSString *> *)imageRequestHeaders;
 - (void)setImageRequestHeaders:(nullable NSDictionary<NSString *, NSString *> *)newValue;
+- (nullable NSDictionary<NSString *, ENRMImageSourceOverride *> *)imageSourceOverrides;
+- (void)setImageSourceOverrides:(nullable NSDictionary<NSString *, ENRMImageSourceOverride *> *)newValue;
 // Per-link pill content, keyed by exact URL
 - (nullable NSDictionary<NSString *, LinkPillContent *> *)linkPillContent;
 - (void)setLinkPillContent:(nullable NSDictionary<NSString *, LinkPillContent *> *)newValue;
