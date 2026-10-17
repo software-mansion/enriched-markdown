@@ -213,6 +213,24 @@ it('keeps the native block when a renderer throws or returns text', () => {
   warn.mockRestore();
 });
 
+it('keeps the native block when an array result contains text', () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const root = render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      renderers={{
+        image: () => [<View key="a" testID="a" />, null, [<View key="b" />]],
+        video: () => ['Loading…'] as unknown as ReactElement,
+      }}
+    />
+  );
+  expect(slots(root)).toHaveLength(1);
+  expect(slots(root)[0]!.props.slotId).toBe(IMAGE_BLOCK.id);
+  expect(warn).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
+});
+
 it('ignores renderers for the CommonMark flavor', () => {
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   const root = render(
@@ -359,5 +377,65 @@ it('sends sync image sources to native and keeps pending ones as empty uris', as
       ],
     },
     { id: 'image:b:0', uri: 'https://cdn/b.png', headers: [] },
+  ]);
+});
+
+it('applies a source that settles after the document changed', async () => {
+  mockSlots = [];
+  mockImages = OCCURRENCES;
+  let resolveB!: (source: { uri: string }) => void;
+  const pending = new Promise<{ uri: string }>((resolve) => {
+    resolveB = resolve;
+  });
+  const resolveImageSource = ({ id }: { id: string }) =>
+    id === 'image:b:0' ? pending : { uri: `https://cdn/${id}` };
+  const root = render(
+    <EnrichedMarkdownText
+      markdown="x"
+      flavor="github"
+      resolveImageSource={resolveImageSource}
+    />
+  );
+  expect(host(root).props.imageSources).toEqual([
+    { id: 'image:a:0', uri: 'https://cdn/image:a:0', headers: [] },
+    { id: 'image:b:0', uri: '', headers: [] },
+    { id: 'image:c:0', uri: 'https://cdn/image:c:0', headers: [] },
+  ]);
+
+  // A streaming append lands while b is still pending, then the stream ends.
+  mockImages = [
+    ...OCCURRENCES,
+    {
+      id: 'image:d:0',
+      url: 'https://e.com/d.png',
+      altText: '',
+      title: '',
+      placement: 'root',
+    },
+  ];
+  act(() =>
+    root.render(
+      <EnrichedMarkdownText
+        markdown="x more"
+        flavor="github"
+        resolveImageSource={resolveImageSource}
+      />
+    )
+  );
+  expect(host(root).props.imageSources[1]).toEqual({
+    id: 'image:b:0',
+    uri: '',
+    headers: [],
+  });
+
+  await act(async () => {
+    resolveB({ uri: 'https://cdn/b.png' });
+    await pending;
+  });
+  expect(host(root).props.imageSources).toEqual([
+    { id: 'image:a:0', uri: 'https://cdn/image:a:0', headers: [] },
+    { id: 'image:b:0', uri: 'https://cdn/b.png', headers: [] },
+    { id: 'image:c:0', uri: 'https://cdn/image:c:0', headers: [] },
+    { id: 'image:d:0', uri: 'https://cdn/image:d:0', headers: [] },
   ]);
 });

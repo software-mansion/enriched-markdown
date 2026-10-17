@@ -222,6 +222,12 @@ export default function RenderersScreen() {
     }, STREAM_INTERVAL_MS);
   }, [fullMarkdown, stopStreaming]);
 
+  // The button's stop: the full document comes back and the run can restart.
+  const cancelStreaming = useCallback(() => {
+    stopStreaming();
+    setStreamed(null);
+  }, [stopStreaming]);
+
   useEffect(() => stopStreaming, [stopStreaming]);
 
   const onImagePress = useCallback(
@@ -335,7 +341,7 @@ export default function RenderersScreen() {
           </View>
         </View>
         <Pressable
-          onPress={streaming ? stopStreaming : startStreaming}
+          onPress={streaming ? cancelStreaming : startStreaming}
           style={styles.streamButton}
           testID="stream-button"
         >

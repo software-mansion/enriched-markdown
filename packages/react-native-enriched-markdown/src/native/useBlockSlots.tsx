@@ -1,7 +1,8 @@
-import { isValidElement, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 import EnrichedMarkdownBlockSlotNativeComponent from '../EnrichedMarkdownBlockSlotNativeComponent';
+import { renderBlock } from '../blockRenderers';
 import NativeEnrichedMarkdownParser, {
   type NativeMd4cFlags,
   type NativeStreamingOptions,
@@ -113,45 +114,6 @@ export function useCollectedMarkdown(
       })),
     };
   }, [markdown, flags, isGFM, enabled, streaming]);
-}
-
-type AnyRenderer = (block: MarkdownBlock) => ReactNode;
-
-/**
- * Runs the renderer for the block's kind and validates the result. Elements,
- * fragments and arrays of elements render in the slot; `null`, `undefined` and
- * booleans keep the native block, like a React child would. Strings and numbers
- * are not valid children of a native view, so they keep the native block too,
- * with a dev warning; so does a renderer that throws.
- */
-function renderBlock(
-  renderers: MarkdownRenderers,
-  block: MarkdownBlock
-): ReactNode | null {
-  const render = (renderers as Record<string, AnyRenderer | undefined>)[
-    block.kind
-  ];
-  if (typeof render !== 'function') return null;
-  let element: ReactNode;
-  try {
-    element = render(block);
-  } catch (error) {
-    if (__DEV__) {
-      console.error(
-        `[EnrichedMarkdownText] renderers.${block.kind} threw for ${block.id}; keeping the native block.`,
-        error
-      );
-    }
-    return null;
-  }
-  if (element == null || typeof element === 'boolean') return null;
-  if (isValidElement(element) || Array.isArray(element)) return element;
-  if (__DEV__) {
-    console.warn(
-      `[EnrichedMarkdownText] renderers.${block.kind} returned a ${typeof element} for ${block.id}; wrap text in <Text>. Keeping the native block.`
-    );
-  }
-  return null;
 }
 
 /**

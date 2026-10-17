@@ -1,23 +1,28 @@
 # Streams the Renderers scenario document and proves the replaced blocks land
-# where the native layout reserved space for them. Structural checks name the
-# slots the screen must show; the script reads the accessibility tree and fails
-# on any text frame intersecting a card or any partial media syntax on screen.
+# where the native layout reserved space for them, while the stream runs and
+# after it ends. Structural checks name the slots the screen must show; the
+# script reads the accessibility tree and fails on any text frame intersecting
+# a card or any partial media syntax on screen.
 #
 #   argent flow run qa-renderers-streaming --platform ios --device <udid>
 #   argent flow run qa-renderers-streaming --platform android --device <serial>
 steps:
   - echo: Launch the example app; expect Home
   - launch: { native: swmansion.enriched.markdown.example }
-  - await: { visible: { id: home-block-renderers } }
+  # A cold start on the emulator loads the dev bundle first.
+  - await: { visible: { id: home-block-renderers }, timeout: 20000 }
   - await: { idle: true }
   - echo: Open Renderers
   - tap: { id: home-block-renderers }
   - await: { visible: { id: renderers-screen } }
   - await: { idle: true }
   - assert: { visible: { id: renderer-image-root-0 } }
-  - echo: Stream the document and wait for it to finish
+  - echo: Stream the document, sampling the layout while it streams
   - tap: { id: stream-button }
   - await: { text: { in: { id: stream-button }, contains: Streaming } }
+  - script: { path: ../../scripts/qa/check-block-slots-streaming.mjs }
+  - script: { path: ../../scripts/qa/check-block-slots-streaming.mjs }
+  - script: { path: ../../scripts/qa/check-block-slots-streaming.mjs }
   - await: { text: { in: { id: stream-button }, equals: Stream the document }, timeout: 30000 }
   - await: { idle: true }
   - echo: The hero block is back after the stream

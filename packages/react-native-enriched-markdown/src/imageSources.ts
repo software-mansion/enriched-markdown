@@ -51,6 +51,16 @@ export function useResolvedImageSources(
   const pendingRef = useRef(new Map<string, SourcePromise>());
   const [settledCount, setSettledCount] = useState(0);
 
+  // A promise outlives the occurrence set that started it; its result must
+  // still reach the component, so settling checks the mount, not the effect.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // The promises this occurrence set started, for the effect to subscribe to.
   const newPromises = useMemo(() => {
     const resolve = resolverRef.current;
@@ -85,15 +95,15 @@ export function useResolvedImageSources(
 
   useEffect(() => {
     if (!newPromises || newPromises.size === 0) return;
-    let active = true;
     for (const [id, promise] of newPromises) {
       const settle = (source: ResolvedImageSource) => {
         // The cache outlives this effect: a result landing after the
-        // occurrences changed is still the answer for that id.
+        // occurrences changed is still the answer for that id, and the
+        // component re-renders for it as long as it is mounted.
         if (pendingRef.current.get(id) !== promise) return;
         pendingRef.current.delete(id);
         cacheRef.current.set(id, source);
-        if (active) setSettledCount((count) => count + 1);
+        if (mountedRef.current) setSettledCount((count) => count + 1);
       };
       promise.then(
         (source) => settle(source ?? null),
@@ -108,9 +118,6 @@ export function useResolvedImageSources(
         }
       );
     }
-    return () => {
-      active = false;
-    };
   }, [newPromises]);
 
   // The current occurrences' entries; a pending id maps to undefined.

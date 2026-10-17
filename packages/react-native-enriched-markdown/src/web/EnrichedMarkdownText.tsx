@@ -20,6 +20,7 @@ import type { ASTNode, RendererCallbacks, RenderCapabilities } from './types';
 import { indexTaskItems, markInlineImages } from './utils';
 import { collectBlocks } from './blockSlots';
 import { useResolvedImageSources } from '../imageSources';
+import { renderBlock } from '../blockRenderers';
 import type {
   MarkdownBlock,
   MarkdownImageOccurrence,
@@ -167,27 +168,10 @@ export const EnrichedMarkdownText = ({
   const blockSlots = useMemo(() => {
     if (!renderImage && !renderVideo && !renderLink) return undefined;
     const slots = new Map<string, ReactNode>();
+    const kinds = { image: renderImage, video: renderVideo, link: renderLink };
     for (const block of collected.blocks) {
-      let element: ReactNode;
-      try {
-        element =
-          block.kind === 'image'
-            ? renderImage?.(block)
-            : block.kind === 'video'
-              ? renderVideo?.(block)
-              : renderLink?.(block);
-      } catch (error) {
-        if (__DEV__) {
-          console.error(
-            `[EnrichedMarkdownText] renderers.${block.kind} threw for ${block.id}; keeping the native block.`,
-            error
-          );
-        }
-        continue;
-      }
-      if (element != null && typeof element !== 'boolean') {
-        slots.set(block.id, element);
-      }
+      const element = renderBlock(kinds, block);
+      if (element != null) slots.set(block.id, element);
     }
     return slots;
   }, [collected, renderImage, renderVideo, renderLink]);
@@ -258,7 +242,7 @@ export const EnrichedMarkdownText = ({
     >
       {children.map((child, index) => (
         <RenderNode
-          key={`${child.type}-${index}`}
+          key={child.attributes?.blockSlotId ?? `${child.type}-${index}`}
           node={child}
           style={index === lastIdx ? lastChildStyle : normalizedStyle}
           styles={index === lastIdx ? lastChildStyles : styles}

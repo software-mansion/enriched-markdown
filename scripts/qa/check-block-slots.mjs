@@ -8,7 +8,11 @@
 // The flow runner does not hand scripts its device, so the script checks every
 // booted simulator and emulator and skips any whose screen is not the Renderers
 // screen. Pass a udid or serial as the first argument to check one device.
+//
+// check-block-slots-streaming.mjs runs the same check while the document is
+// still streaming, when no replaced block may exist yet.
 import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 function argent(args) {
   return JSON.parse(
@@ -29,7 +33,7 @@ function bootedDevices() {
     .filter(Boolean);
 }
 
-function checkTree(description) {
+export function checkTree(description, { allowEmpty = false } = {}) {
   const rows = [];
   for (const line of description.split('\n')) {
     const m = line.match(/\(([\d.]+), ([\d.]+), ([\d.]+), ([\d.]+)\)\s*$/);
@@ -45,7 +49,8 @@ function checkTree(description) {
       r.w > 0.3
   );
   const problems = [];
-  if (slots.length === 0) problems.push('no replaced block is on screen');
+  if (slots.length === 0 && !allowEmpty)
+    problems.push('no replaced block is on screen');
   for (const slot of slots) {
     for (const text of texts) {
       // A text frame fully inside the slot is the React child's own content
@@ -74,32 +79,38 @@ function checkTree(description) {
   return problems;
 }
 
-const udids = process.argv[2] ? [process.argv[2]] : bootedDevices();
-if (udids.length === 0) {
-  console.error('check-block-slots: no booted device');
-  process.exit(2);
+export function checkDevices(options = {}) {
+  const udids = process.argv[2] ? [process.argv[2]] : bootedDevices();
+  if (udids.length === 0) {
+    console.error('check-block-slots: no booted device');
+    process.exit(2);
+  }
+
+  let checked = 0;
+  const failures = [];
+  for (const udid of udids) {
+    const description = argent(['describe', '--udid', udid]).description ?? '';
+    if (!/id="renderers-screen"/.test(description)) continue;
+    checked++;
+    const problems = checkTree(description, options);
+    if (problems.length > 0)
+      failures.push(`${udid}:\n  ${problems.join('\n  ')}`);
+  }
+  if (checked === 0) {
+    console.error(
+      'check-block-slots: no booted device shows the Renderers screen'
+    );
+    process.exit(2);
+  }
+  if (failures.length > 0) {
+    console.error(failures.join('\n'));
+    process.exit(1);
+  }
+  console.log(
+    `block slots ok on ${checked} device(s): no overlap, no partial syntax`
+  );
 }
 
-let checked = 0;
-const failures = [];
-for (const udid of udids) {
-  const description = argent(['describe', '--udid', udid]).description ?? '';
-  if (!/id="renderers-screen"/.test(description)) continue;
-  checked++;
-  const problems = checkTree(description);
-  if (problems.length > 0)
-    failures.push(`${udid}:\n  ${problems.join('\n  ')}`);
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  checkDevices();
 }
-if (checked === 0) {
-  console.error(
-    'check-block-slots: no booted device shows the Renderers screen'
-  );
-  process.exit(2);
-}
-if (failures.length > 0) {
-  console.error(failures.join('\n'));
-  process.exit(1);
-}
-console.log(
-  `block slots ok on ${checked} device(s): no overlap, no partial syntax`
-);
