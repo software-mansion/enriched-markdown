@@ -876,6 +876,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _allowTrailingMargin = NO;
   _lineBreakStrategy = NSLineBreakStrategyNone;
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
+  _numberOfLines = 0;
+  _ellipsizeLineBreakMode = NSLineBreakByTruncatingTail;
+  [self applyLineClampToTextContainer];
   _renderedStyleFingerprint = 0;
   _pendingStyleFingerprint = 0;
   _linkContextMenus.entries = @[];
