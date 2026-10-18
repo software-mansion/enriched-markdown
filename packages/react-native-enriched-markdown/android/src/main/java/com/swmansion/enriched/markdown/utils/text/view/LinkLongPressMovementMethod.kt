@@ -37,10 +37,8 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
 
   var isLinkTouchActive: Boolean = false
     private set
-
-  /** True while the host view has asked its parents not to intercept for a link press. */
-  var disallowsParentIntercept: Boolean = false
   private var isTouchWithinTextBounds: Boolean = true
+  private var disallowsParentIntercept = false
 
   override fun onTouchEvent(
     widget: TextView,
@@ -74,6 +72,9 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         isLinkTouchActive = pressedLink != null || pressedImage != null || pressedCodeBlock != null
         isTouchWithinTextBounds = charOffsetAt(widget, event) != null || pressedCodeBlock != null
         pressedLink?.let { scheduleLongPress(widget, it) }
+        // Keeps RNGH Pressable and scrolling parents from stealing the press before ACTION_UP.
+        disallowsParentIntercept = isLinkTouchActive
+        if (isLinkTouchActive) widget.parent?.requestDisallowInterceptTouchEvent(true)
       }
 
       MotionEvent.ACTION_MOVE -> {
@@ -86,6 +87,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           pressedLink = null
           pressedImage = null
           pressedCodeBlock = null
+          releaseParentIntercept(widget)
         }
       }
 
@@ -98,6 +100,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         pressedLink = null
         pressedImage = null
         pressedCodeBlock = null
+        releaseParentIntercept(widget)
 
         if (handleSpoilerTap(widget, buffer, event)) {
           return true
@@ -128,6 +131,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         pressedLink = null
         pressedImage = null
         pressedCodeBlock = null
+        releaseParentIntercept(widget)
       }
     }
 
@@ -164,6 +168,14 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private fun cancelLongPress() {
     longPressRunnable?.let(handler::removeCallbacks)
     longPressRunnable = null
+  }
+
+  // Undo only our own request: a long-press drag selection relies on the Editor's
+  // request staying in place until ACTION_UP, or a scrolling parent steals the drag.
+  private fun releaseParentIntercept(widget: TextView) {
+    if (!disallowsParentIntercept) return
+    disallowsParentIntercept = false
+    widget.parent?.requestDisallowInterceptTouchEvent(false)
   }
 
   private fun charOffsetAt(
