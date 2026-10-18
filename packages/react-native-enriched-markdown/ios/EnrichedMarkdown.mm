@@ -27,6 +27,7 @@
 #import "ENRMVideoContainerView.h"
 #endif
 #import "ENRMBlockSlotLayerView.h"
+#import "ENRMBlockSlotRevealController.h"
 #import "ENRMBlockSlotSegmentView.h"
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
@@ -126,6 +127,7 @@ static char kENRMSegmentFadeAnimatorKey;
   RCTUIView *_slotLayer;
   NSSet<NSString *> *_activeBlockSlotIds;
   NSDictionary<NSString *, NSNumber *> *_blockSlotHeights;
+  ENRMBlockSlotRevealController *_blockSlotReveal;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
 
@@ -282,6 +284,8 @@ static char kENRMSegmentFadeAnimatorKey;
 
     _fontScaleObserver = [[FontScaleObserver alloc] init];
     __weak EnrichedMarkdown *weakSelf = self;
+    _blockSlotReveal =
+        [[ENRMBlockSlotRevealController alloc] initWithFrameHandler:^{ [weakSelf stepBlockSlotReveal]; }];
     _fontScaleObserver.onChange = ^{
       EnrichedMarkdown *strongSelf = weakSelf;
       if (!strongSelf)
@@ -602,7 +606,8 @@ static char kENRMSegmentFadeAnimatorKey;
     } else if ([segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
       ENRMBlockSlotSegmentView *slotView = (ENRMBlockSlotSegmentView *)segment;
       yOffset += ENRMBlockSlotMarginTop(slotView.kind, _config);
-      segmentHeight = [slotView measureHeight:width];
+      // Measurement reserves the full height; the stack follows the grow-in.
+      segmentHeight = applyFrames ? slotView.revealedHeight : [slotView measureHeight:width];
       maxContentWidth = width;
     }
 #if ENRICHED_MARKDOWN_VIDEO
@@ -741,8 +746,9 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL idsChanged = ![ids isEqualToSet:(_activeBlockSlotIds ?: [NSSet set])];
   BOOL heightsChanged = ![heights isEqualToDictionary:(_blockSlotHeights ?: @{})];
   _activeBlockSlotIds = ids.count > 0 ? [ids copy] : nil;
+  [_blockSlotReveal keepSlotIds:ids];
   _blockSlotHeights = heights.count > 0 ? [heights copy] : nil;
-  ENRMApplyBlockSlotHeights(_segmentViews, heights);
+  [self updateBlockSlotHeights:heights];
 
   if (idsChanged && (_pendingRenderMarkdown || _cachedMarkdown.length > 0)) {
     _dirtyFlags |= ENRMDirtyForceHeight;
@@ -788,6 +794,33 @@ static char kENRMSegmentFadeAnimatorKey;
     }
   }
   ENRMBindBlockSlotViews(_segmentViews, views);
+  // A child mounted mid grow-in is placed and clipped before it draws.
+  [self applyBlockSlotReveal];
+}
+
+// A root slot getting its first height while streaming grows into place
+// (ENRMBlockSlotRevealController) instead of pushing the text below it down at once.
+- (void)updateBlockSlotHeights:(NSDictionary<NSString *, NSNumber *> *)heights
+{
+  ENRMApplyBlockSlotHeights(_segmentViews, heights);
+  [_blockSlotReveal noteHeights:heights
+                     inSegments:_segmentViews
+                         reveal:_streamingAnimation && !ENRMShouldReduceMotion()];
+  [self applyBlockSlotReveal];
+}
+
+- (void)applyBlockSlotReveal
+{
+  [_blockSlotReveal applyToSegments:_segmentViews slotViews:_slotLayer.subviews];
+}
+
+- (void)stepBlockSlotReveal
+{
+  [self applyBlockSlotReveal];
+  const CGFloat width = [self contentBounds].size.width;
+  if (width > 0) {
+    [self computeSegmentLayoutForWidth:width applyFrames:YES];
+  }
 }
 
 - (void)mountChildComponentView:(RCTUIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
@@ -1089,7 +1122,7 @@ static char kENRMSegmentFadeAnimatorKey;
     [[self segmentContainer] addSubview:view];
   }
   [self bringSlotLayerToFront];
-  ENRMApplyBlockSlotHeights(_segmentViews, _blockSlotHeights ?: @{});
+  [self updateBlockSlotHeights:_blockSlotHeights ?: @{}];
   [self bindBlockSlotViews];
 }
 
@@ -1136,7 +1169,7 @@ static char kENRMSegmentFadeAnimatorKey;
   [self bringSlotLayerToFront];
   // Recreated placeholders (nested ones in particular) start at zero height; the
   // shadow node only republishes frames when they change, so reapply the last ones.
-  ENRMApplyBlockSlotHeights(_segmentViews, _blockSlotHeights ?: @{});
+  [self updateBlockSlotHeights:_blockSlotHeights ?: @{}];
   [self bindBlockSlotViews];
 
   // A just-closed block has unchanged content, so the reconciler reuses it
@@ -1488,6 +1521,9 @@ static char kENRMSegmentFadeAnimatorKey;
     _streamingAnimation = newViewProps.streamingAnimation;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
     if (!_streamingAnimation) {
+      [_blockSlotReveal cancel];
+      [self applyBlockSlotReveal];
+      [self setNeedsLayout];
       for (RCTUIView *segment in _segmentViews) {
         if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
           ENRMTailFadeInAnimator *animator = objc_getAssociatedObject(
@@ -1661,6 +1697,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _config = nil;
   _activeBlockSlotIds = nil;
   _blockSlotHeights = nil;
+  [_blockSlotReveal reset];
   _pendingRenderMarkdown = nil;
   _pendingRenderSynchronously = NO;
   _pendingSlotHeightCheck = NO;

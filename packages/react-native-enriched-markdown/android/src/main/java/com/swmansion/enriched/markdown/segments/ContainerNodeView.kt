@@ -129,6 +129,15 @@ open class ContainerNodeView(
     }
   }
 
+  internal fun forEachBlockSlot(action: (BlockSlotSegmentView) -> Unit) {
+    segmentViews.forEach { view ->
+      when (view) {
+        is BlockSlotSegmentView -> action(view)
+        is ContainerNodeView -> view.forEachBlockSlot(action)
+      }
+    }
+  }
+
   /**
    * Reconciles the current child views against renderedSegments, attaching and
    * removing views as needed and updating segmentViews/segmentSignatures.
@@ -250,7 +259,8 @@ open class ContainerNodeView(
     segmentViews.forEachIndexed { index, view ->
       val segment = view as? BlockSegmentView
       totalHeight += segment?.segmentMarginTop ?: 0
-      totalHeight += view.measuredHeight
+      // A slot growing into place takes its share in the layout only.
+      totalHeight += (view as? BlockSlotSegmentView)?.slotHeight ?: view.measuredHeight
       if (index != lastIndex || trailingMarginEnabled) {
         totalHeight += segment?.segmentMarginBottom ?: 0
       }

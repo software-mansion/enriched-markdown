@@ -12,6 +12,11 @@ import android.view.ViewGroup
 class BlockSlotLayer(
   context: Context,
 ) : ViewGroup(context) {
+  init {
+    // Slot shadows draw past the slot bounds.
+    clipChildren = false
+  }
+
   override fun onMeasure(
     widthMeasureSpec: Int,
     heightMeasureSpec: Int,

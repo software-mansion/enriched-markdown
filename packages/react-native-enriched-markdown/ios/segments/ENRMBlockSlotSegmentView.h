@@ -18,6 +18,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy) NSString *slotId;
 @property (nonatomic, assign) ENRMBlockSlotKind kind;
 @property (nonatomic, assign) CGFloat slotHeight;
+/// The share the stack lays out while the slot grows in; measurement keeps the full height.
+@property (nonatomic, assign) CGFloat revealFraction;
+@property (nonatomic, readonly) CGFloat reservedHeight;
+@property (nonatomic, readonly) CGFloat revealedHeight;
 
 /// The Fabric child mounted for this slot, so assistive technology reaches the
 /// React content in document order even inside a nested container.

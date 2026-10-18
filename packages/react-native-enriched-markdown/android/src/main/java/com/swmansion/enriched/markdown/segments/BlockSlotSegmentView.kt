@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.segments
 import android.content.Context
 import android.view.View
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import kotlin.math.roundToInt
 
 /**
  * Stand-in for a block a React slot child replaces. It only reserves the slot's
@@ -25,6 +26,17 @@ class BlockSlotSegmentView(
       requestLayout()
     }
 
+  /** The share the stack lays out while the slot grows in; measurement keeps the full height. */
+  var revealFraction: Float = 1f
+    set(value) {
+      if (field == value) return
+      field = value
+      requestLayout()
+    }
+
+  val revealedHeight: Int
+    get() = (slotHeight * revealFraction).roundToInt()
+
   override val segmentMarginTop: Int
     get() = kind.marginTop(style)
 
@@ -41,6 +53,6 @@ class BlockSlotSegmentView(
     widthMeasureSpec: Int,
     heightMeasureSpec: Int,
   ) {
-    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), slotHeight)
+    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), revealedHeight)
   }
 }

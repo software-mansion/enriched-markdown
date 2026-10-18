@@ -10,6 +10,7 @@
     _slotId = @"";
     _kind = ENRMBlockSlotKindImage;
     _slotHeight = 0;
+    _revealFraction = 1;
     self.backgroundColor = [RCTUIColor clearColor];
 #if !TARGET_OS_OSX
     self.userInteractionEnabled = NO;
@@ -21,10 +22,20 @@
 
 - (CGFloat)measureHeight:(CGFloat)maxWidth
 {
-  // The child is laid out at its height rounded up to the pixel grid; reserve
-  // exactly that so it never overlaps the next segment.
+  return self.reservedHeight;
+}
+
+- (CGFloat)reservedHeight
+{
+  // Exactly what the child is laid out at, so it never overlaps the next segment.
   CGFloat scale = RCTScreenScale();
   return ceil(MAX(_slotHeight, 0) * scale) / scale;
+}
+
+- (CGFloat)revealedHeight
+{
+  CGFloat scale = RCTScreenScale();
+  return round(self.reservedHeight * _revealFraction * scale) / scale;
 }
 
 - (NSArray *)accessibilityElements
