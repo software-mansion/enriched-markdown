@@ -287,6 +287,11 @@ export interface ImagePressEvent {
   altText: string;
 }
 
+export interface TextPressEvent {
+  index: CodegenTypes.Int32;
+  text: string;
+}
+
 export interface TaskListItemPressEvent {
   index: CodegenTypes.Int32;
   checked: boolean;
@@ -500,6 +505,19 @@ export interface NativeProps extends ViewProps {
    * @default false
    */
   enableImagePress?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * Callback fired when plain text is tapped (not a link, image, checkbox or
+   * other interactive element). Receives the UTF-16 index of the character
+   * under the tap within the tapped text block, and that block's rendered text.
+   */
+  onTextPress?: CodegenTypes.BubblingEventHandler<TextPressEvent>;
+  /**
+   * Gates native plain-text tap handling. Set automatically to `true` by the
+   * JS wrapper when `onTextPress` is provided.
+   *
+   * @default false
+   */
+  enableTextPress?: CodegenTypes.WithDefault<boolean, false>;
   /**
    * Callback fired when a task list checkbox is tapped.
    * Receives the 0-based task index, current checked state, and the item's plain text.
