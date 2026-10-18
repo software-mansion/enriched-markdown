@@ -109,9 +109,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     span: LinkSpan,
   ) {
     cancelLongPress()
-    // TextView posts its own long-press (text selection, block context menus) before the
-    // movement method sees ACTION_DOWN, with the same timeout as the runnable below. Cancel it
-    // now: the runnable's cancel only wins when it happens to run first, so both menus opened.
+    // The view's own long-press races the runnable below; cancel it so only the link fires.
     widget.cancelLongPress()
 
     longPressRunnable =
