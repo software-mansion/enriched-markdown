@@ -1,15 +1,13 @@
 package com.swmansion.enriched.markdown.slots
 
-import android.animation.ValueAnimator
-import android.os.Build
 import android.view.Choreographer
 
 /**
  * Linear progress per growing slot, with [onFrame] called every frame meanwhile.
- * Follows the system animator duration scale. Keep in step with
- * ENRMBlockSlotRevealAnimator (iOS).
+ * Keep in step with ENRMBlockSlotRevealAnimator (iOS).
  */
 class BlockSlotRevealAnimator(
+  private val durationScale: () -> Float,
   private val onFrame: () -> Unit,
 ) {
   private val starts = HashMap<String, Long>()
@@ -20,10 +18,7 @@ class BlockSlotRevealAnimator(
   private val frameCallback = Choreographer.FrameCallback { step(it) }
 
   private val durationNanos: Long
-    get() {
-      val scale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ValueAnimator.getDurationScale() else 1f
-      return (REVEAL_DURATION_MS * 1_000_000L * scale).toLong()
-    }
+    get() = (REVEAL_DURATION_MS * 1_000_000L * durationScale()).toLong()
 
   fun start(slotId: String) {
     starts[slotId] = System.nanoTime()

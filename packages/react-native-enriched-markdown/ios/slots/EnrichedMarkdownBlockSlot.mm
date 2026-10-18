@@ -80,6 +80,15 @@ using namespace facebook::react;
   ENRMApplyBlockSlotReveal(self.layer, _revealOffset, _revealClipHeight);
 }
 
+#if !TARGET_OS_OSX
+// A growing slot keeps its full height, overlapping the text below what shows,
+// so it takes no touches until it is in.
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+{
+  return _revealClipHeight == ENRMBlockSlotNoClip ? [super hitTest:point withEvent:event] : nil;
+}
+#endif
+
 @end
 
 Class<RCTComponentViewProtocol> EnrichedMarkdownBlockSlotCls(void)

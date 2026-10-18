@@ -21,9 +21,10 @@ interface BlockSlotRevealTarget {
  * ENRMBlockSlotRevealController (iOS).
  */
 class BlockSlotRevealController(
+  durationScale: () -> Float = { 1f },
   onFrame: () -> Unit,
 ) {
-  private val animator = BlockSlotRevealAnimator(onFrame)
+  private val animator = BlockSlotRevealAnimator(durationScale, onFrame)
   private val shownSlotIds = HashSet<String>()
 
   /** With [reveal], a root slot getting its first height starts growing. */

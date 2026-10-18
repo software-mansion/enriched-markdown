@@ -42,6 +42,7 @@ import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
+import com.swmansion.enriched.markdown.utils.common.animatorDurationScale
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
@@ -119,7 +120,8 @@ class EnrichedMarkdown(
   // From the shadow node's state: the placed slot children's ids and heights (px).
   private var activeBlockSlotIds: Set<String> = emptySet()
   private var blockSlotHeights: Map<String, Int> = emptyMap()
-  private val blockSlotReveal = BlockSlotRevealController { stepBlockSlotReveal() }
+  private val blockSlotReveal =
+    BlockSlotRevealController(durationScale = { animatorDurationScale(context) }) { stepBlockSlotReveal() }
   private var selectable: Boolean = true
   private var selectionColor: Int? = null
   private var selectionHandleColor: Int? = null
