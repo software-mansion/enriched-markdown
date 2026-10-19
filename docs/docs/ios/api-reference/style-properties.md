@@ -529,7 +529,7 @@ EnrichedMarkdownText(content)
   }
 ```
 
-The theme sets the spoiler's **colors**; how the overlay behaves is tuned on the overlay itself. Density and speed are arguments of [`.markdownSpoilerOverlay(.particles(density:speed:))`](/ios/api-reference/enriched-markdown-text#markdownspoileroverlay), **relative** to the defaults rather than absolute counts: `density: 16` is twice as dense as the default `8`, and `speed: 40` drifts twice as fast as the default `20`. The solid overlay's corner radius is an argument of `.solid(cornerRadius:)` and is an **absolute** value in points, `4` by default.
+The theme sets the spoiler's **colors**; how the overlay behaves is tuned on the overlay itself. Density and speed are arguments of [`.markdownSpoilerOverlay(.particles(density:speed:))`](/ios/api-reference/enriched-markdown-text#markdownspoileroverlay), in absolute units - particles per 100×100 pt and points per second - not multipliers: `density: 16` is twice as dense as the default `8`, and `speed: 40` drifts twice as fast as the default `20`. The solid overlay's corner radius is an argument of `.solid(cornerRadius:)` and is an **absolute** value in points, `4` by default.
 
 For an overlay of your own design, see [Custom spoiler overlays](/ios/api-reference/enriched-markdown-text#custom-spoiler-overlays); it receives the same `Spoiler()` colors.
 
@@ -557,9 +557,26 @@ MarkdownTheme {
 }
 ```
 
-The three sizing modifiers are **mutually exclusive**: a theme sets exactly one, the last one applied wins, and a layer that sets any sizing replaces the lower layer's.
+The box is always as wide as the available width - there is no width modifier - so the sizing modifiers decide only its **height**:
 
-`ImageContentMode` is `.fit`, `.fill`, `.stretch`, `.scaleDown`, `.original`, or `.fitWidth`. Left unset it follows the sizing: a fixed `height` box draws `.fitWidth`, and a `maxHeight` or `aspectRatio` box `.fill`.
+- `.height(_:)` - a fixed height, whatever the image's proportions. This is what the default theme sets, at `200`.
+- `.maxHeight(_:)` - the height that keeps the image's own proportions at the available width, capped at the value. Until the image has loaded, the box stands at the cap.
+- `.aspectRatio(_:)` - the available width divided by the ratio, so `16 / 9` gives a widescreen box. The `CGSize` overload takes `width / height` of the size you pass.
+
+The three are **mutually exclusive**: a theme sets exactly one, the last one applied wins, and a layer that sets any sizing replaces the lower layer's - a `.maxHeight(400)` layered over the default `.height(200)` leaves no fixed height behind.
+
+`.contentMode(_:)` places the bitmap inside that box. It takes an `ImageContentMode`:
+
+| Case | Draws the image |
+| --- | --- |
+| `.fit` | Scaled to fit inside the box, keeping its proportions. Never cropped |
+| `.fill` | Scaled to fill the box, keeping its proportions. Overflow is cropped |
+| `.stretch` | Stretched to fill the box exactly, ignoring its proportions |
+| `.scaleDown` | Centered at its own size, scaled down only when it is larger than the box |
+| `.original` | Centered at its own size, never scaled. Overflow is cropped |
+| `.fitWidth` | Scaled to the box's width and centered vertically. Overflow is cropped |
+
+Left unset it follows the sizing: a fixed `height` box draws `.fitWidth`, and a `maxHeight` or `aspectRatio` box `.fill`. Unlike SwiftUI's `.aspectRatio(_:contentMode:)`, the ratio here shapes the **box** and the mode places the image in it.
 
 ### `InlineImage()` {#inlineimage}
 

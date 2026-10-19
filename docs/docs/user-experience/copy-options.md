@@ -22,7 +22,7 @@ The standalone SDKs both write **Plain Text and HTML**: see what [iOS](/ios/api-
 
 ## Copy as Markdown
 
-A dedicated **Copy as Markdown** action copies only the Markdown source text - useful when you want to preserve the original syntax rather than rich formatting. It writes **plain text only** on both platforms, with no Markdown pasteboard type attached, so a receiving app sees it as ordinary text that happens to contain Markdown syntax. It also does **not** fire the React Native package's [`onCopyPress`](/react-native/api-reference/enriched-markdown-text#oncopypress), nor the standalone iOS SDK's [`.onCodeBlockCopy`](/ios/api-reference/enriched-markdown-text#oncodeblockcopy).
+A dedicated **Copy as Markdown** action copies only the Markdown source text - useful when you want to preserve the original syntax rather than rich formatting. It writes **plain text only** on both platforms, with no Markdown pasteboard type attached, so a receiving app sees it as ordinary text that happens to contain Markdown syntax. It also does **not** fire the React Native package's [`onCopyPress`](/react-native/api-reference/enriched-markdown-text#oncopypress), nor the standalone SDKs' [`.onCodeBlockCopy`](/ios/api-reference/enriched-markdown-text#oncodeblockcopy) (iOS) and [`onCodeBlockCopy`](/android/api-reference/enriched-markdown-text#oncodeblockcopy) (Android).
 
 ## Copy image URL
 
@@ -89,7 +89,7 @@ See [`.markdownSelectionMenu`](/ios/api-reference/enriched-markdown-text#markdow
 </Tab>
 <Tab label="Android">
 
-**Copy as Markdown** and **Copy Image URL** are added to the selection menu by default, and tables and display-math blocks offer a long-press menu (**Copy** / **Copy as Markdown**). None of it is configurable from Compose yet: the underlying view takes a `SelectionMenuConfig` with three fields - `copyAsMarkdown`, `copyImageUrl`, `copyAsMarkdownLabel` - which its table and math menus honour too, but the Compose `EnrichedMarkdownText` does not expose it, so Compose apps get the defaults. Code blocks have no copy action. See [`selectable`](/android/api-reference/enriched-markdown-text#selectable) and the [roadmap](/misc/roadmap).
+**Copy as Markdown** and **Copy Image URL** are added to the selection menu by default, and tables and display-math blocks offer a long-press menu (**Copy** / **Copy as Markdown**). None of it is configurable from Compose yet: the underlying view takes a `SelectionMenuConfig` with three fields - `copyAsMarkdown`, `copyImageUrl`, `copyAsMarkdownLabel` - which its table and math menus honour too, but the Compose `EnrichedMarkdownText` does not expose it, so Compose apps get the defaults. Code blocks get a copy button and the same long-press menu only with [`codeBlockLayout = CodeBlockLayout.Scrollable`](/android/api-reference/enriched-markdown-text#codeblocklayout); a wrapping code block is copied through the text selection. See [`selectable`](/android/api-reference/enriched-markdown-text#selectable) and the [roadmap](/misc/roadmap).
 
 </Tab>
 </CodeTabs>
@@ -183,6 +183,7 @@ Not localizable from Compose. The view underneath accepts a Copy as Markdown lab
 <Tab label="Android">
 
 - [`selectable`](/android/api-reference/enriched-markdown-text#selectable) - turn selection on or off. Copy writes **plain text and HTML**; Copy as Markdown and Copy Image URL are present with their English defaults and are not configurable from Compose.
+- [`onCodeBlockCopy`](/android/api-reference/enriched-markdown-text#oncodeblockcopy) - fires when a scrollable code block's code is copied.
 
 </Tab>
 </CodeTabs>

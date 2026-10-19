@@ -15,10 +15,12 @@ fun EnrichedMarkdownText(
   style: MarkdownStyle = MarkdownTheme.style,
   options: MarkdownOptions = MarkdownOptions.Default,
   selectable: Boolean = true,
+  codeBlockLayout: CodeBlockLayout = CodeBlockLayout.Wrapping,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkClick: (String) -> Unit = {},
   onLinkLongClick: (String) -> Unit = {},
   onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
+  onCodeBlockCopy: (CodeBlockCopy) -> Unit = {},
   taskListToggleEnabled: Boolean = true,
   spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
   includeLastBlockMargin: Boolean = false,
@@ -27,7 +29,7 @@ fun EnrichedMarkdownText(
 )
 ```
 
-`EnrichedMarkdownText`, `MarkdownStyle`, `MarkdownTheme`, `Md4cFlags`, `TaskListItemToggle`, `MarkdownPlugin`, `LocalMarkdownPlugins`, and `PluginEvent` all import from `com.swmansion.enriched.markdown.compose`. `SpoilerOverlay` imports from `com.swmansion.enriched.markdown.spoiler`.
+`EnrichedMarkdownText`, `MarkdownStyle`, `MarkdownTheme`, `MarkdownOptions`, `CodeBlockLayout`, `CodeBlockCopy`, `TaskListItemToggle`, `MarkdownPlugin`, `LocalMarkdownPlugins`, and `PluginEvent` all import from `com.swmansion.enriched.markdown.compose`. `SpoilerOverlay` imports from `com.swmansion.enriched.markdown.spoiler`.
 
 :::note
 The composable wraps a real Android `View` through `AndroidView`, so it renders **nothing** in `@Preview`. Run it on a device or emulator.
@@ -118,14 +120,14 @@ data class MarkdownOptions(
   val admonitions: Boolean = false,
 ) {
   companion object {
-    val Default = Md4cFlags()
+    val Default = MarkdownOptions()
   }
 }
 ```
 
 ```kotlin
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 
 EnrichedMarkdownText(
   markdown = "_underlined_\n\n> [!TIP]\n> Admonitions are on.",
@@ -210,7 +212,7 @@ EnrichedMarkdownText(markdown = "Not selectable.", selectable = false)
 :::note
 A document is laid out as a stack of segments: a text view for each run of ordinary blocks, and a separate view for each table, each top-level code block when [`codeBlockLayout`](#codeblocklayout) is `Scrollable`, and, with the [math plugin](#plugins), each display-math block on its own line. A selection can run across headings, quotes, lists, and code blocks inside one text segment, but it **stops at any of those separate views**, and it cannot span two `EnrichedMarkdownText` composables either.
 
-Those blocks are not text-selectable. Long-press one instead to copy it: a table copies as tab-separated plain text plus HTML, a formula copies as its LaTeX source.
+Those blocks are not text-selectable. Long-press one instead to copy it: a table copies as tab-separated plain text plus HTML, a code block as its code, a formula as its LaTeX source.
 :::
 
 #### What copying produces {#copying}
@@ -224,7 +226,7 @@ The selection menu also carries two items of the library's own, both on by defau
 
 Neither can be hidden or relabeled from the Compose API yet. See the [roadmap](/misc/roadmap) and [Copy options](/user-experience/copy-options).
 
-### `codeBlockLayout`
+### `codeBlockLayout` {#codeblocklayout}
 
 Whether fenced code blocks wrap long lines or scroll them. With `CodeBlockLayout.Wrapping` a long line wraps, and the code is part of the text selection like any other text.
 
@@ -233,6 +235,9 @@ Whether fenced code blocks wrap long lines or scroll them. With `CodeBlockLayout
 <PropInfo type="CodeBlockLayout" default="CodeBlockLayout.Wrapping" />
 
 ```kotlin
+import com.swmansion.enriched.markdown.compose.CodeBlockLayout
+import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+
 EnrichedMarkdownText(
   markdown = content,
   codeBlockLayout = CodeBlockLayout.Scrollable,
@@ -391,23 +396,19 @@ Wrap a subtree in `MarkdownPlugins(...)` to enable plugins for every `EnrichedMa
 ```kotlin
 import androidx.compose.runtime.Composable
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
 @Composable
 fun MathScreen() {
   LatexMathPlugin {
-    EnrichedMarkdownText(
-      markdown = "Euler: \$e^{i\\pi} + 1 = 0\$",
-      flags = Md4cFlags(latexMath = true),
-    )
+    EnrichedMarkdownText(markdown = "Euler: \$e^{i\\pi} + 1 = 0\$")
   }
 }
 ```
 
 Scopes nest independently of [`MarkdownTheme`](/android/api-reference/markdown-theme). A plugin enabled in an inner scope replaces one with the same id from an outer scope, and where several plugins claim the same node the innermost wins. Passing `plugins` directly overrides the scopes for that one view - `plugins = emptyList()` turns them all off.
 
-A plugin renders only what the parser produces, so math still needs [`latexMath`](#latexmath) in `flags`. See [LaTeX math](/android/guides/latex-math). Code highlighting needs no flag - fenced code is always parsed with its language. See [Code highlighting](/android/guides/code-highlighting).
+Enabling `LatexMathPlugin` is all math needs: it turns on parsing `$...$` and `$$...$$` for the views it reaches, so there is no option to set alongside it. See [LaTeX math](/android/guides/latex-math). Code highlighting needs no option either - fenced code is always parsed with its language. See [Code highlighting](/android/guides/code-highlighting).
 
 ## Callbacks
 
@@ -530,7 +531,6 @@ data class LatexError(
 import android.util.Log
 import androidx.compose.runtime.Composable
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
 import com.swmansion.enriched.markdown.math.LatexError
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
@@ -539,7 +539,6 @@ fun Answer(markdown: String) {
   LatexMathPlugin {
     EnrichedMarkdownText(
       markdown = markdown,
-      flags = Md4cFlags(latexMath = true),
       onPluginEvent = { event ->
         if (event is LatexError) Log.w("Answer", "Bad LaTeX: ${event.source} (${event.message})")
       },
@@ -550,7 +549,7 @@ fun Answer(markdown: String) {
 
 Events arrive on the main thread. Each distinct event is reported **once** per view while `markdown` only grows, so streamed text that re-renders the same broken formula on every token reports it a single time. Replacing `markdown` with a string that does not start with the previous one resets that, and the events are reported again.
 
-### `onCodeBlockCopy`
+### `onCodeBlockCopy` {#oncodeblockcopy}
 
 Called after a code block's code is copied: by its copy button, or by **Copy** in its long-press menu. Not called for **Copy as Markdown**, or for a block with no code, which leaves the clipboard as it was. Only [`CodeBlockLayout.Scrollable`](#codeblocklayout) blocks have a copy button and menu; a wrapping block copies through the text selection, which does not call this.
 
@@ -564,11 +563,23 @@ data class CodeBlockCopy(
 ```
 
 ```kotlin
-EnrichedMarkdownText(
-  markdown = content,
-  codeBlockLayout = CodeBlockLayout.Scrollable,
-  onCodeBlockCopy = { scope.launch { snackbarHostState.showSnackbar("Copied") } },
-)
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import com.swmansion.enriched.markdown.compose.CodeBlockLayout
+import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+import kotlinx.coroutines.launch
+
+@Composable
+fun Snippet(content: String, snackbarHostState: SnackbarHostState) {
+  val scope = rememberCoroutineScope()
+
+  EnrichedMarkdownText(
+    markdown = content,
+    codeBlockLayout = CodeBlockLayout.Scrollable,
+    onCodeBlockCopy = { scope.launch { snackbarHostState.showSnackbar("Copied") } },
+  )
+}
 ```
 
 ## See also

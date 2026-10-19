@@ -226,7 +226,7 @@ These apply to the standalone Android library,
   [Code highlighting](/android/guides/code-highlighting)); without them it
   renders in one color. The 14 bundled grammars cannot be trimmed or extended,
   the default token palette is made for a dark code block and does not follow
-  the system theme, and code blocks have no header or copy button.
+  the system theme.
 - **Nested tables are not rendered.** A table inside a list item or blockquote
   is dropped; only top-level tables are drawn.
 - **An HTML `<video>` block makes the whole document render empty.** The shared
@@ -236,8 +236,15 @@ These apply to the standalone Android library,
   copy actions, label localization or break strategy.
 - **Accessibility labels are hard-coded English**, with no override at any
   layer.
-- **Block context menus are partial.** Tables and block math have one, code
-  blocks do not, and you cannot add your own items.
+- **Code blocks have a header, copy button and long-press menu only when they
+  scroll.** With the default
+  [`CodeBlockLayout.Wrapping`](/android/api-reference/enriched-markdown-text#codeblocklayout)
+  a code block is plain text in the selection; `Scrollable` gives each
+  top-level block a language header, a copy button and a **Copy** / **Copy as
+  Markdown** menu, but a code block inside a list item or quote still wraps.
+  There is no per-block line-wrap toggle.
+- **Block context menus cannot be extended.** Tables, block math and scrollable
+  code blocks have one, but you cannot add your own items.
 - **The composable renders nothing in an Android Studio `@Preview`.**
 
 ## Something missing?

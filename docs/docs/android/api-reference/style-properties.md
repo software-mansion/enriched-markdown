@@ -307,6 +307,8 @@ markdownStyle {
 | `cornerRadius`    | `Dp`         | `8.dp`                 | Corner radius                         |
 | `padding`         | `Dp`         | `16.dp`                | Inner padding, the same on every side |
 
+A code block set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout) also has a header bar, with the language name and a copy button. The header has no properties of its own: the label and copy icon are drawn in `color` at reduced opacity, the label at 85% of `fontSize`, and the line under the header in a fainter `color`. `backgroundColor`, `borderColor`, `borderWidth`, and `cornerRadius` frame the header and code as one box.
+
 With the optional `code-highlight` artifact, tokens inside the block are recolored by language; `color` stays the color of everything the highlighter leaves uncolored. Token colors have their own [`codeHighlight`](/android/guides/code-highlighting#styling) block.
 
 ```kotlin
@@ -447,7 +449,7 @@ markdownStyle {
 
 ### `image`
 
-Block images - an image that is the whole paragraph.
+Block images - an image with nothing before it on its line. See [Images: block vs. inline](/android/api-reference/element-structure#images-block-vs-inline).
 
 | Property       | Type | Default  | Description                                  |
 | -------------- | ---- | -------- | -------------------------------------------- |

@@ -50,7 +50,7 @@ The flags are fields of [`options`](/ios/api-reference/enriched-markdown-text#op
 ```kotlin
 EnrichedMarkdownText(
   markdown = markdownFromEditor,
-  flags = Md4cFlags(hardSoftBreaks = true, preserveBlankLines = true),
+  options = MarkdownOptions(hardSoftBreaks = true, preserveBlankLines = true),
   style = MarkdownTheme.style.merge {
     paragraph {
       marginTop = 0.dp
@@ -60,7 +60,7 @@ EnrichedMarkdownText(
 )
 ```
 
-The flags are named arguments of [`Md4cFlags`](/android/api-reference/enriched-markdown-text#flags) - they are not its first two parameters, so pass them by name.
+The flags are named arguments of [`MarkdownOptions`](/android/api-reference/enriched-markdown-text#options) - they are not its first two parameters, so pass them by name.
 
 </Tab>
 </CodeTabs>
@@ -87,4 +87,4 @@ Both flags belong to the **read-only renderer**; they describe how it parses an 
 - [Line breaks](/react-native/api-reference/element-structure#line-breaks) and [Blank lines](/react-native/api-reference/element-structure#blank-lines) - the underlying newline and blank-line behavior.
 - [`markdownStyle.paragraph`](/react-native/api-reference/style-properties#paragraph-and-heading-specific-paragraph-h1-h6) - the margin defaults you are overriding.
 - **iOS** - [`options`](/ios/api-reference/enriched-markdown-text#options) (`MarkdownParsingOptions`), the [line-break and blank-line options](/ios/api-reference/element-structure#line-breaks), [Parser extensions](/ios/guides/parser-extensions), and [`Paragraph()`](/ios/api-reference/style-properties#paragraph) margins.
-- **Android** - [`flags`](/android/api-reference/enriched-markdown-text#flags) (`Md4cFlags`), the [line-break and blank-line flags](/android/api-reference/element-structure#line-breaks), [Parser extensions](/android/guides/parser-extensions#line-break-handling), and [`paragraph`](/android/api-reference/style-properties#block-styles-paragraph-h1-h6) margins.
+- **Android** - [`options`](/android/api-reference/enriched-markdown-text#options) (`MarkdownOptions`), the [line-break and blank-line options](/android/api-reference/element-structure#line-breaks), [Parser extensions](/android/guides/parser-extensions#line-break-handling), and [`paragraph`](/android/api-reference/style-properties#block-styles-paragraph-h1-h6) margins.

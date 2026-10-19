@@ -10,7 +10,7 @@ import TabItem from '@theme/TabItem';
 
 Code coloring is built on [tree-sitter](https://tree-sitter.github.io/) and 14 bundled grammars. It ships as a **separate artifact**, `code-highlight`, rather than as part of `compose`, so an app that never shows code does not carry a parser it will not use.
 
-Highlighting is **foreground-only**: it recolors tokens and changes nothing else, so a highlighted block measures exactly like a plain one. There is no parser flag to go with it - fenced code is always parsed with its language, so the plugin is the only switch.
+Highlighting is **foreground-only**: it recolors tokens and changes nothing else, so a highlighted block measures exactly like a plain one. There is no parser option to go with it - fenced code is always parsed with its language, so the plugin is the only switch.
 
 ## Installing the artifact {#installation}
 
@@ -207,7 +207,7 @@ fun EnrichedMarkdown.applyCodeColors(context: Context) {
 
 ## Copying and accessibility {#copying}
 
-Highlighting adds color and nothing else, so it changes nothing a reader copies or hears. **Copy** puts the code's plain text on the clipboard and its HTML in the `codeBlock` colors, without token colors; **Copy as Markdown** wraps the code in a plain ` ``` ` fence - the language tag is not carried over. TalkBack reads a highlighted block exactly as it reads a plain one.
+Highlighting adds color and nothing else, so it changes nothing a reader copies or hears. **Copy** puts the code's plain text on the clipboard and its HTML in the `codeBlock` colors, without token colors; **Copy as Markdown** from a text selection wraps the code in a plain ` ``` ` fence - the language tag is not carried over. A code block set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout) copies from its own long-press menu instead, and its **Copy as Markdown** keeps the language tag. TalkBack reads a highlighted block exactly as it reads a plain one.
 
 ## Licenses
 

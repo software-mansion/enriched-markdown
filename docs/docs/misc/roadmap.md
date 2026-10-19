@@ -75,9 +75,9 @@ blockquotes do, on every target.
 
 ### Native renderer parity {#native-renderer-parity}
 
-- **Block context menus.** Tables and block math have one on both native
-  packages and code blocks have one on iOS; Android code blocks still have
-  none, and neither package lets you add your own items.
+- **Block context menus.** Tables, block math and code blocks have one on
+  both native packages (on Android, code blocks only with the scrollable
+  layout), but neither package lets you add your own items.
 - **Nested blocks on Android.** The Android segment splitter emits only Text,
   Table and Custom (plugin) segments, so a table inside a list item or
   blockquote is not rendered. Lists and blockquotes should hold arbitrary block

@@ -332,6 +332,8 @@ EnrichedMarkdownText(content)
 | `.solid` | An opaque box with 4 pt corners |
 | `.solid(cornerRadius:)` | The same box with your corner radius, in points |
 
+The dot syntax builds the two public provider types, `ParticleSpoilerOverlayProvider(density:speed:)` and `SolidSpoilerOverlayProvider(cornerRadius:)`, whose `nil` arguments mean the defaults above.
+
 Spoiler syntax is always parsed - there is no option to enable. The provider chooses **which** overlay is drawn and how it behaves; its **colors** - the particles or box fill, and the backdrop under the particles - come from the [`Spoiler()`](/ios/api-reference/style-properties#spoiler) theme element. To draw an effect of your own, see [Custom spoiler overlays](#custom-spoiler-overlays).
 
 Behavior worth knowing:
@@ -343,7 +345,7 @@ Behavior worth knowing:
 
 ### Custom spoiler overlays {#custom-spoiler-overlays}
 
-A custom effect is two pieces: a `SpoilerOverlayProvider` that you pass to `.markdownSpoilerOverlay`, and the `SpoilerOverlayView` subclass it builds.
+A custom effect is two pieces: a `SpoilerOverlayProvider` that you pass to `.markdownSpoilerOverlay`, and the `SpoilerOverlayView` it builds - the base class as it is, or a subclass of your own.
 
 ```swift
 public protocol SpoilerOverlayProvider: Equatable, Sendable {
@@ -367,6 +369,29 @@ open class SpoilerOverlayView: UIView {
 ```
 
 The text view calls `makeOverlay` once per **line segment** of a spoiler - one that wraps onto three lines gets three views - then sets the view's frame and the properties above and adds it over the text. `style` is the resolved [`Spoiler()`](/ios/api-reference/style-properties#spoiler) theme element, so an effect can take its colors from the theme like the built-ins do.
+
+The provider is the only required piece. `SpoilerOverlayView` is a working view on its own - it fades out when revealed - so the smallest custom overlay returns one with a background:
+
+```swift
+import EnrichedMarkdown
+import SwiftUI
+import UIKit
+
+/// A flat box in the theme's spoiler color, with square corners.
+struct FlatSpoilerOverlay: SpoilerOverlayProvider {
+  @MainActor
+  func makeOverlay(charRange: NSRange, style: SpoilerStyle) -> SpoilerOverlayView {
+    let view = SpoilerOverlayView(charRange: charRange)
+    view.backgroundColor = style.color ?? .secondaryLabel   // opaque: see below
+    return view
+  }
+}
+
+EnrichedMarkdownText(content)
+  .markdownSpoilerOverlay(FlatSpoilerOverlay())
+```
+
+Subclass the view when the effect needs its own drawing or its own reveal animation. This one keeps its parameters in the provider and hands them to the view:
 
 ```swift
 import EnrichedMarkdown
@@ -421,7 +446,7 @@ The contract:
 
 - **The view must be opaque.** The text under a concealed spoiler is drawn transparent, but emoji and inline images ignore that and would show through a see-through overlay. Give the view a solid background, as the built-in particles do with their backdrop. An effect that should show the text through - a blur, a shimmer over the letters - draws `concealedTextImage()` itself: `concealedText` rendered on a transparent canvas the size of the view, positioned as the text view lays it out.
 - **`animateReveal(completion:)` must call `completion`.** A reveal calls it on every segment of the spoiler at once, and each view is removed from the text view only when its completion runs - one that never calls it stays on screen. The default fades `alpha` out; call `super` to keep that fade under your own animation. `revealPoint` says where the reader tapped, and is `nil` for a programmatic reveal and outside the bounds when the tap landed on another segment of the same spoiler. `segmentIndex` and `segmentCount` are what a wrapped spoiler needs to reveal in reading order.
-- **Keep the provider `Equatable` through its stored properties.** The text view rebuilds its overlays only when the provider value changes, so let Swift synthesize `==` from the parameters - a provider that compares equal while drawing something different is never rebuilt.
+- **Keep the provider `Equatable` through its stored properties.** The text view rebuilds its overlays only when the provider value or the resolved `Spoiler()` style changes, so let Swift synthesize `==` from the parameters - a provider that compares equal while drawing something different is never rebuilt.
 - **Keep construction cheap.** When a re-layout only moves a segment, its view moves with it and keeps its state; when the segment's text, size, or baseline changes, the view is thrown away and `makeOverlay` called again.
 
 ## Code blocks

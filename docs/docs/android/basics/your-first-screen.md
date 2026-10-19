@@ -11,7 +11,7 @@ With the library [installed](/android/basics/installation), let's get Markdown o
 
 `EnrichedMarkdownText` is a composable that takes a Markdown string and paints it as **fully native text** - no WebView, and no intermediate HTML. It parses with [md4c](https://github.com/mity/md4c) and renders through the platform's own text stack, so TalkBack and font scaling behave the way they do in any other `TextView`.
 
-It is not one `TextView`, though. The document is split into **segments**: each run of ordinary blocks becomes one native text view, while each table - and each block a plugin draws, such as a math equation - gets a view of its own, stacked in document order. For a document without tables or plugin blocks that is a single text view; when there are several, text selection stays within one segment.
+It is not one `TextView`, though. The document is split into **segments**: each run of ordinary blocks becomes one native text view, while each table - and each block a plugin draws, such as a math equation, or a code block set to [scroll horizontally](/android/api-reference/enriched-markdown-text#codeblocklayout) - gets a view of its own, stacked in document order. For a document without such blocks that is a single text view; when there are several, text selection stays within one segment.
 
 Call it from any composable:
 

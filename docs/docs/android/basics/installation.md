@@ -23,7 +23,7 @@ import TabItem from '@theme/TabItem';
 
 The library is compiled against SDK `36`. Keep your app's `compileSdk` at least that high: compiling against an older SDK than a dependency was built with is unsupported and can fail on classes and APIs your SDK doesn't have.
 
-The `compose` artifact depends on Compose UI and Material 3 through the Compose BOM `2026.06.00`. Gradle resolves each Compose library to the newer of your version and that one, so adding the dependency can **upgrade** the Compose in your app. Material 3 is an internal dependency of the library, not part of its API: if your own code uses `MaterialTheme` or other Material 3 components, declare `androidx.compose.material3:material3` yourself.
+The `compose` artifact depends on Compose UI and Material 3 through the Compose BOM `2026.06.00`. Gradle resolves each Compose library to the newer of your version and that one, so adding the dependency can **upgrade** the Compose in your app. Material 3 is an `implementation` dependency, so it does not reach your compile classpath: if your own code uses `MaterialTheme`, other Material 3 components, or [`rememberMaterialMarkdownStyle`](/android/api-reference/markdown-theme#materialmarkdownstyle) (which takes a Material `ColorScheme`), declare `androidx.compose.material3:material3` yourself.
 
 ## Add the dependency
 

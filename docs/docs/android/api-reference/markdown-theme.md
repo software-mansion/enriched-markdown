@@ -131,6 +131,13 @@ fun rememberMaterialMarkdownStyle(
 Builds a style colored from a Material 3 `ColorScheme`, so Markdown matches the rest of the app. `rememberMaterialMarkdownStyle` reads `MaterialTheme.colorScheme` and rebuilds only when the scheme changes - on a light/dark switch, for example - and reuses the result otherwise.
 
 ```kotlin
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import com.swmansion.enriched.markdown.compose.MarkdownTheme
+import com.swmansion.enriched.markdown.compose.material3.rememberMaterialMarkdownStyle
+
 MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
   MarkdownTheme(style = rememberMaterialMarkdownStyle()) {
     NavHost(...)
@@ -273,11 +280,11 @@ Two consequences worth designing around:
 ```kotlin
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.MarkdownTheme
 import com.swmansion.enriched.markdown.compose.markdownStyle
-import com.swmansion.enriched.markdown.compose.rememberMarkdownStyle
 
 // Hoisted: allocated once for the whole process.
 val AppMarkdownStyle = markdownStyle {

@@ -91,7 +91,7 @@ See the [iOS syntax highlighting guide](/ios/guides/syntax-highlighting) for the
 - The grammar set is fixed at the same 14 [default languages](#supported-languages) - there is nothing to trim or add, and the opt-in grammars are not available. Info strings match case-insensitively.
 - Token colors are set with the `codeHighlight { }` block of `markdownStyle`. The default palette is GitHub's dark one and does **not** follow light or dark mode: if you give `codeBlock` a light background, set the token colors too.
 - The tokens of each block are cached, so a re-render that leaves a block's code unchanged - a lazy list item scrolled back into view, a configuration change - does not parse it again. Blocks over 50 KB or 2,000 lines stay plain.
-- There is no code-block header or copy button: a highlighted block is drawn like a plain one, only recolored.
+- The header bar and copy button are independent of highlighting: [`codeBlockLayout = CodeBlockLayout.Scrollable`](/android/api-reference/enriched-markdown-text#codeblocklayout) renders each top-level block as a panel with a language header, a copy button and a long-press **Copy** / **Copy as Markdown** menu; the default `Wrapping` layout has none. [`onCodeBlockCopy`](/android/api-reference/enriched-markdown-text#oncodeblockcopy) fires for the button and the long-press **Copy** action, never for **Copy as Markdown**. There is no per-block line-wrap toggle.
 
 See the [Android code highlighting guide](/android/guides/code-highlighting) for the full setup.
 
@@ -126,6 +126,8 @@ Highlighting runs synchronously when a block is applied, with a size cap (roughl
 
 - [`CodeHighlightPlugin`](/android/guides/code-highlighting) - enable highlighting for a Compose subtree or a single instance.
 - [`codeHighlight { }`](/android/guides/code-highlighting) - the 14 token colors, set in `markdownStyle`.
+- [`codeBlockLayout`](/android/api-reference/enriched-markdown-text#codeblocklayout) - `Scrollable` adds the header bar and copy button.
+- [`onCodeBlockCopy`](/android/api-reference/enriched-markdown-text#oncodeblockcopy) - fires when code is copied.
 
 **Choosing languages / reducing binary size (React Native package)** - configure through the `enriched-markdown` block of your app's `package.json`:
 

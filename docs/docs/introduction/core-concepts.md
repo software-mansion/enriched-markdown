@@ -51,7 +51,7 @@ Inline formatting applies to a span of characters _inside_ a paragraph.
 Strikethrough (`~~text~~`) is **not** part of the CommonMark core - it is a GitHub Flavored Markdown extension, covered under [Markdown flavors](#markdown-flavors) below.
 
 :::caution
-With certain extensions enabled, the meaning of `__text__` and `_text_` may change. The `*` syntax never changes, so it is the safer choice. Learn more about the `underline` extension: the [`md4cFlags`](/react-native/api-reference/enriched-markdown-text#md4cflags) prop in React Native, [`MarkdownParsingOptions`](/ios/guides/parser-extensions#underline) on iOS, and [`Md4cFlags`](/android/guides/parser-extensions#underline) on Android.
+With certain extensions enabled, the meaning of `__text__` and `_text_` may change. The `*` syntax never changes, so it is the safer choice. Learn more about the `underline` extension: the [`md4cFlags`](/react-native/api-reference/enriched-markdown-text#md4cflags) prop in React Native, [`MarkdownParsingOptions`](/ios/guides/parser-extensions#underline) on iOS, and [`MarkdownOptions`](/android/guides/parser-extensions#underline) on Android.
 :::
 
 You can combine them - for example `***bold italic***` applies _**bold and italic together**_.

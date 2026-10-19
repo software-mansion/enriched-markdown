@@ -46,14 +46,11 @@ Style equations through the `MathBlock()` and `InlineMath()` theme elements. See
 </Tab>
 <Tab label="Android">
 
-Math is the optional `com.swmansion.enriched.markdown:math` artifact. It needs **both** the parser flag, `Md4cFlags(latexMath = true)`, and the `LatexMathPlugin` - with only the flag, `$...$` renders as raw source. Display math needs no flavor switch.
+Math is the optional `com.swmansion.enriched.markdown:math` artifact. Enabling `LatexMathPlugin` turns on parsing **and** rendering - there is no parsing option for math. Without the plugin, `$...$` is ordinary text. Display math needs no flavor switch.
 
 ```kotlin
 LatexMathPlugin {
-  EnrichedMarkdownText(
-    markdown = content,
-    flags = Md4cFlags(latexMath = true),
-  )
+  EnrichedMarkdownText(markdown = content)
 }
 ```
 
@@ -144,7 +141,7 @@ default (there is no macOS gate on the engine), it is just unvalidated. See
 
 **Android** - see the [LaTeX math guide](/android/guides/latex-math).
 
-- [`Md4cFlags(latexMath = true)`](/android/guides/latex-math#turning-it-on) plus [`LatexMathPlugin`](/android/api-reference/enriched-markdown-text#plugins) - both are needed to typeset math.
+- [`LatexMathPlugin`](/android/guides/latex-math#turning-it-on) - enables parsing and rendering, for a subtree (`LatexMathPlugin { }`) or one view (the [`plugins`](/android/api-reference/enriched-markdown-text#plugins) parameter).
 - [`math { }` and `inlineMath { }`](/android/guides/latex-math#styling) - display and inline equation styling.
 - [`onPluginEvent`](/android/guides/latex-math#errors) - render failures arrive as a `LatexError(source, message, displayMode)` event.
 - **Reduce app size** - omit the `math` artifact. It is also the only artifact without a 32-bit `x86` native library; see [Installing the artifact](/android/guides/latex-math#installation).

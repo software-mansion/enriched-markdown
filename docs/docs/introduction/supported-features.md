@@ -109,7 +109,7 @@ Toggled independently, not by the flavor, and most of them off by default:
 - **React Native and web** - the `md4cFlags` prop.
 - **iOS** - `MarkdownParsingOptions(...)`, passed as the view's `options:`
   argument. See [Parser extensions](/ios/guides/parser-extensions).
-- **Android** - `Md4cFlags(...)`, passed as the `flags` parameter. See
+- **Android** - `MarkdownOptions(...)`, passed as the `options` parameter. See
   [Parser extensions](/android/guides/parser-extensions).
 
 Two rows are **not** parsing switches on any target: **strikethrough color** is
@@ -164,9 +164,9 @@ On the standalone SDKs, the advanced features that render are optional add-ons:
 
 - **LaTeX math** - on iOS, add the optional `EnrichedMarkdownLaTeX` product and
   apply `.markdownLaTeX()` (see [iOS LaTeX math](/ios/guides/latex-math)); on
-  Android, add the optional `com.swmansion.enriched.markdown:math` artifact,
-  register `LatexMathPlugin` and set `Md4cFlags(latexMath = true)` (see
-  [Android LaTeX math](/android/guides/latex-math)).
+  Android, add the optional `com.swmansion.enriched.markdown:math` artifact
+  and register `LatexMathPlugin`, which turns on parsing and rendering
+  together (see [Android LaTeX math](/android/guides/latex-math)).
 - **Code-block highlighting** - on iOS, add the optional
   `EnrichedMarkdownSyntaxHighlighting` product and apply
   `.markdownSyntaxHighlighting()` (see

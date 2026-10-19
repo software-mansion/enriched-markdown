@@ -5,7 +5,7 @@ sidebar_position: 3
 
 # Compose interop
 
-`EnrichedMarkdownText` is a composable, but it is not *made of* composables. Underneath it is a native Android view hosted through [`AndroidView`](https://developer.android.com/develop/ui/compose/migrate/interoperability-apis): a container that stacks one child view per **segment** of the document. Runs of ordinary blocks - paragraphs, headings, lists, quotes, code blocks - render into a `TextView` segment, while each top-level table, and each block a plugin draws (such as display math), gets a view of its own between them. Markdown rendering leans on Android's span and text-layout machinery, which is also what buys you real text selection, TalkBack, and system font scaling for free.
+`EnrichedMarkdownText` is a composable, but it is not *made of* composables. Underneath it is a native Android view hosted through [`AndroidView`](https://developer.android.com/develop/ui/compose/migrate/interoperability-apis): a container that stacks one child view per **segment** of the document. Runs of ordinary blocks - paragraphs, headings, lists, quotes, code blocks - render into a `TextView` segment, while each top-level table, each top-level code block set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout), and each block a plugin draws (such as display math) gets a view of its own between them. Markdown rendering leans on Android's span and text-layout machinery, which is also what buys you real text selection, TalkBack, and system font scaling for free.
 
 That interop boundary is invisible most of the time. This guide covers the places it isn't.
 
@@ -82,7 +82,7 @@ Give each row a stable `key` as well, so a row's content stays matched to the ri
 
 ## Selection is per component
 
-A selection lives inside one `TextView` segment. Within a segment it can run freely across headings, quotes, lists, and code blocks. It **stops at a table, a display-math block, or a top-level code block set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout)**, which are separate views: a document with a table in the middle has one selectable run above the table and another below it, and a selection cannot be dragged across. Those blocks are not text-selectable at all - long-press one for a menu that copies it whole. Across two `EnrichedMarkdownText` components a selection cannot run either, and Compose's `SelectionContainer` does not bridge them.
+A selection lives inside one `TextView` segment. Within a segment it can run freely across headings, quotes, lists, and code blocks. It **stops at a table, a display-math block, or a top-level code block set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout)**, which are separate views: a document with a table in the middle has one selectable run above the table and another below it, and a selection cannot be dragged across. Those blocks are not text-selectable at all - long-press one for a menu that copies it whole.
 
 The same holds between components, only more so: there is no way to drag a selection from one `EnrichedMarkdownText` into the next, and Compose's `SelectionContainer` does not bridge them. So if a screen's text should be selectable as one unit, render it as **one** `EnrichedMarkdownText` with one Markdown string, rather than composing several.
 

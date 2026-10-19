@@ -10,10 +10,7 @@ import TabItem from '@theme/TabItem';
 
 Math rendering ships as a **separate artifact**, `math`, so an app that never shows a formula does not carry a typesetting engine it will not use. The artifact brings in [RaTeX](#engine), a native LaTeX engine with the KaTeX fonts, which is why it is opt-in rather than part of `compose`.
 
-Two switches have to be on before a formula is typeset, and they are independent:
-
-- **The parser flag**, `Md4cFlags(latexMath = true)`, makes `$…$` and `$$…$$` math syntax at all. With it off, a dollar sign is ordinary text, plugin or not.
-- **The plugin**, `LatexMathPlugin`, draws what the parser found. With the flag on and no plugin, every formula renders as its **raw source**, delimiters included - nothing is lost, and Logcat carries a single `EnrichedMarkdown` warning naming the missing artifact.
+One switch turns math on: **the plugin**, `LatexMathPlugin`. Where it is enabled, `$…$` and `$$…$$` are parsed as math and typeset. Where it is not, they are not math syntax at all - a dollar sign is ordinary text. There is no separate [option](/android/api-reference/enriched-markdown-text#options) to set alongside it.
 
 ## Installing the artifact {#installation}
 
@@ -50,21 +47,17 @@ RaTeX's native library ships for `arm64-v8a`, `armeabi-v7a` and `x86_64` only - 
 
 ## Turning it on
 
-Wrap the part of your UI that shows math in the plugin's scope, and enable the flag on each `EnrichedMarkdownText`:
+Wrap the part of your UI that shows math in the plugin's scope:
 
 ```kotlin
 import androidx.compose.runtime.Composable
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
 @Composable
 fun FormulaScreen(content: String) {
   LatexMathPlugin {
-    EnrichedMarkdownText(
-      markdown = content,
-      flags = Md4cFlags(latexMath = true),
-    )
+    EnrichedMarkdownText(markdown = content)
   }
 }
 ```
@@ -86,12 +79,10 @@ To choose the plugins of a single instance instead, pass them directly. This **r
 
 ```kotlin
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
 EnrichedMarkdownText(
   markdown = content,
-  flags = Md4cFlags(latexMath = true),
   plugins = listOf(LatexMathPlugin),
 )
 ```
@@ -104,11 +95,9 @@ The plugin renders through the View-based renderer, so it works on an `EnrichedM
 import android.content.Context
 import com.swmansion.enriched.markdown.EnrichedMarkdown
 import com.swmansion.enriched.markdown.math.LatexMathPlugin
-import com.swmansion.enriched.markdown.parser.Md4cFlags
 
 fun formulaView(context: Context, content: String): EnrichedMarkdown =
   EnrichedMarkdown(context).apply {
-    setMd4cFlags(Md4cFlags(latexMath = true))
     setPlugins(listOf(LatexMathPlugin))
     setMarkdownContent(content)
   }
@@ -135,9 +124,9 @@ A block has no text selection. Long-pressing it opens a menu with **Copy**, whic
 
 ### What `$` costs in prose {#dollar-signs}
 
-With the flag on, a `$` at the start of a word can open math, and the next `$` with the same count that ends a word - followed by a space, punctuation, or the end of the line - closes it. Everything between becomes a formula. Most prices survive, because `$5 and $10` has no closing `$`, but a document that also puts a dollar sign at the end of a word can lose a sentence to an accidental formula.
+Where the plugin is enabled, a `$` at the start of a word can open math, and the next `$` with the same count that ends a word - followed by a space, punctuation, or the end of the line - closes it. Everything between becomes a formula. Most prices survive, because `$5 and $10` has no closing `$`, but a document that also puts a dollar sign at the end of a word can lose a sentence to an accidental formula.
 
-Turn the flag on for content that is meant to contain math, and escape a literal dollar sign as `\$` where you control the source. Code spans are never parsed as math, so `` `echo $HOME` `` is safe either way.
+Enable the plugin around content that is meant to contain math - `plugins = emptyList()` turns it off for one view inside a scope - and escape a literal dollar sign as `\$` where you control the source. Code spans are never parsed as math, so `` `echo $HOME` `` is safe either way.
 
 ## Styling {#styling}
 
@@ -151,7 +140,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
 import com.swmansion.enriched.markdown.compose.MarkdownTheme
-import com.swmansion.enriched.markdown.compose.Md4cFlags
 import com.swmansion.enriched.markdown.math.compose.inlineMath
 import com.swmansion.enriched.markdown.math.compose.math
 
@@ -159,7 +147,6 @@ import com.swmansion.enriched.markdown.math.compose.math
 fun StyledFormula(content: String) {
   EnrichedMarkdownText(
     markdown = content,
-    flags = Md4cFlags(latexMath = true),
     style = MarkdownTheme.style.merge {
       math {
         fontSize = 22.sp
@@ -236,12 +223,10 @@ Each failure is also reported through [`onPluginEvent`](/android/api-reference/e
 ```kotlin
 import android.util.Log
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
 import com.swmansion.enriched.markdown.math.LatexError
 
 EnrichedMarkdownText(
   markdown = content,
-  flags = Md4cFlags(latexMath = true),
   onPluginEvent = { event ->
     if (event is LatexError) {
       Log.w("Math", "Could not render ${event.source}: ${event.message}")
@@ -275,6 +260,6 @@ An **inline** formula has no spoken form of its own: it is drawn over a single p
 
 ## See also
 
-- [Parser extensions](/android/guides/parser-extensions) - the other flags, and what each one changes about parsing.
+- [Parser extensions](/android/guides/parser-extensions) - the optional syntax in `MarkdownOptions`, and what each option changes about parsing.
 - [LaTeX math](/rich-text-formatting/latex-math) - the feature at large, including which syntax is supported.
 - [`EnrichedMarkdownText`](/android/api-reference/enriched-markdown-text#plugins) - the `plugins` and `onPluginEvent` parameters.

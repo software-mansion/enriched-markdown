@@ -29,7 +29,7 @@ The document renders into native text views, with block structure drawn by spans
 | Task list         | `- [ ]` / `- [x]`                  | Tappable - see [`onTaskListItemToggle`](/android/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
 | Table             | GFM pipe table                     | Always enabled - see [below](#tables)                                                                     |
 | Fenced code block | ` ```kotlin `                      | Long lines wrap or scroll; colored by language with `CodeHighlightPlugin` - see [below](#code-blocks)     |
-| Block image       | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline)                                                                      |
+| Block image       | `![alt](url)` first on its line    | See [below](#images-block-vs-inline)                                                                      |
 | Thematic break    | `---`                              |                                                                                                           |
 | Math block        | `$$...$$`                          | Needs `LatexMathPlugin` - see [Math](/android/guides/parser-extensions#math-is-not-an-option)             |
 
@@ -44,7 +44,7 @@ The document renders into native text views, with block structure drawn by spans
 | Inline code   | `` `code` ``                 |                                                                                                      |
 | Link          | `[text](url)`                | Inert until you handle [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick)    |
 | Autolink      | `<https://…>`, or a bare URL | Bare URLs need `permissiveAutolinks`, which is on by default                                         |
-| Inline image  | `![alt](url)` beside text    | See [below](#images-block-vs-inline)                                                                 |
+| Inline image  | `![alt](url)` after text     | See [below](#images-block-vs-inline)                                                                 |
 | Superscript   | `^text^`                     | Needs `MarkdownOptions(superscript = true)`                                                          |
 | Subscript     | `~text~`                     | Needs `MarkdownOptions(subscript = true)`                                                            |
 | Highlight     | `==text==`                   | Needs `MarkdownOptions(highlight = true)`                                                            |
@@ -153,10 +153,12 @@ In either layout the language label is parsed. To color code by it, add `CodeHig
 
 The same `![alt](url)` syntax renders two different ways, and which one you get depends on **where the image sits on its line**:
 
-- **Block image** - the image is at the start of a line. It is laid out on its own, at `image.height`, spanning the container width. This holds even when text follows it on the same line.
+- **Block image** - nothing comes before the image on its line: it opens a paragraph, or follows a hard line break. It is laid out on its own, at `image.height`, spanning the container width. This holds even when text follows it on the same line.
 - **Inline image** - text comes before it on the line. It is drawn in the text flow at `inlineImage.size`, sized to sit on the line like a large glyph.
 
-Markdown itself has no block image syntax; this is purely how the renderer lays the image out.
+:::note
+This differs from CommonMark, where every image is inline. Markdown has no block image syntax; the split is how this renderer lays images out.
+:::
 
 ```markdown
 ![A block image](https://example.com/hero.png)

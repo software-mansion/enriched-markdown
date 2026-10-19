@@ -86,6 +86,37 @@ then re-run `pod install` (iOS) / rebuild (Android).
 
 ### 0.2.0 to 0.3.0
 
+#### `Md4cFlags` became `MarkdownOptions`, and `latexMath` was removed
+
+The parsing switches moved from `Md4cFlags` to `MarkdownOptions`, and the
+`EnrichedMarkdownText` parameter was renamed from `flags` to `options` (#980).
+On the view, `setMd4cFlags(flags)` became `setOptions(options)`. There is no
+deprecated alias, so both are compile errors until migrated. The fields keep
+their names and defaults, except `latexMath`, which is gone: math is now
+parsed and rendered by `LatexMathPlugin` from the new `math` artifact, and
+only when that plugin is enabled. Drop the flag, and add the plugin if you
+want equations typeset - see [LaTeX math](/android/guides/latex-math).
+
+Before:
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = text,
+  flags = Md4cFlags(underline = true, latexMath = true),
+)
+```
+
+After:
+
+```kotlin
+LatexMathPlugin {
+  EnrichedMarkdownText(
+    markdown = text,
+    options = MarkdownOptions(underline = true),
+  )
+}
+```
+
 #### `MarkdownTheme` now requires a style
 
 `MarkdownTheme(style, content)` no longer defaults `style` to the enclosing

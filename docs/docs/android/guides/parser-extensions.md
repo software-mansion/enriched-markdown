@@ -32,8 +32,8 @@ Parsing happens in C++, in [md4c](https://github.com/mity/md4c), reached through
 
 ```kotlin
 import androidx.compose.runtime.Composable
-import com.swmansion.enriched.markdown.MarkdownOptions
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 
 @Composable
 fun Article(content: String) {
@@ -61,7 +61,7 @@ This is a trade, not an addition. With the option on you can still write italic 
 
 `MarkdownOptions(superscript = true)` renders `^text^` raised; `MarkdownOptions(subscript = true)` renders `~text~` lowered. They're independent options, and worth enabling together for anything with formulas or footnote markers - `E = mc^2^`, `H~2~O`.
 
-One interaction to know: `subscript` **changes what a single tilde means**. Strikethrough is always on and accepts one tilde or two, so by default `~x~` and `~~x~~` are both struck through. With `subscript` on, a single tilde is claimed for subscripts: `~x~` is lowered, and only `~~x~~` strikes through. Turning the flag on therefore changes how existing `~x~` content renders.
+One interaction to know: `subscript` **changes what a single tilde means**. Strikethrough is always on and accepts one tilde or two, so by default `~x~` and `~~x~~` are both struck through. With `subscript` on, a single tilde is claimed for subscripts: `~x~` is lowered, and only `~~x~~` strikes through. Turning the option on therefore changes how existing `~x~` content renders.
 
 ### Admonitions
 
@@ -76,9 +76,9 @@ Without the option, `[!WARNING]` is just the first line of an ordinary quote. St
 
 ### Highlight
 
-`Md4cFlags(highlight = true)` renders `==text==` with a highlight band behind the glyphs. Exactly two equals signs form the marker, and it cannot open before a space or close after one, so `a == b` in prose stays literal.
+`MarkdownOptions(highlight = true)` renders `==text==` with a highlight band behind the glyphs. Exactly two equals signs form the marker, and it cannot open before a space or close after one, so `a == b` in prose stays literal.
 
-Without the flag, `==text==` is ordinary text. Style the band through the [`highlight`](/android/api-reference/style-properties#highlight) block.
+Without the option, `==text==` is ordinary text. Style the band through the [`highlight`](/android/api-reference/style-properties#highlight) block.
 
 ### Line break handling
 
