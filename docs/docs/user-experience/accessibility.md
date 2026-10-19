@@ -95,6 +95,8 @@ The React Native package's `accessibilityLabels` defaults. The standalone iOS SD
 | `blockquote.nestedQuote`                          | `"Nested blockquote"`                 | iOS + Android |
 | `table.row`                                       | `"Row {n}: {content}"`                | iOS + Android |
 | `math.equation`                                   | `"Math: {latex}"`                     | iOS + Android |
+| `codeBlock.wrap`                                  | `"Wrap lines"`                        | iOS + Android |
+| `codeBlock.unwrap`                                | `"Disable line wrap"`                 | iOS + Android |
 | `rotor.headings` / `rotor.links` / `rotor.images` | `"Headings"` / `"Links"` / `"Images"` | iOS only      |
 
 Placeholders: `{n}` (1-based index), `{content}` (comma-joined cell texts), `{latex}` (equation source). Preserve placeholder names exactly in translations. Defaults use the no-plural cardinal form so a single template works in every language.
@@ -196,7 +198,7 @@ These apply to the React Native package; the standalone SDKs' behavior is in the
 - **Android** has no rotor concept, so `accessibilityLabels.rotor.*` is ignored there.
 - **Task list items** have no accessibility handling in the React Native package on either platform: a checkbox is read as plain list text, with no checked state announced and no toggle action exposed. There is no label key for it.
 - **Admonitions** carry no accessibility role; they are announced as the blockquote they are built from.
-- **Code blocks** are covered only partially - under `flavor="github"` the header copy button carries the resolved copy label, and iOS vends a VoiceOver copy action, but the block itself has no dedicated role.
+- **Code blocks** are covered only partially - under `flavor="github"` the header copy button carries the resolved copy label and the optional wrap toggle (`enableCodeBlockWrapToggle`) speaks `codeBlock.wrap` / `codeBlock.unwrap`, while iOS vends both as VoiceOver actions, but the block itself has no dedicated role.
 - The platform tabs above describe the renderer. The **editor** speaks neither heading level nor task state (see [Editor accessibility](#editor-accessibility)).
 
 ## Reference

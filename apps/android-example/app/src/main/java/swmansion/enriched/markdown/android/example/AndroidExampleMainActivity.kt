@@ -36,12 +36,18 @@ class AndroidExampleMainActivity : ComponentActivity() {
         .bufferedReader()
         .use { it.readText() }
 
+    val materialShowcaseMarkdown =
+      resources
+        .openRawResource(R.raw.material_showcase)
+        .bufferedReader()
+        .use { it.readText() }
+
     setContent {
       var currentRoute by rememberSaveable { mutableStateOf(ExampleRoute.Home) }
 
       MaterialTheme {
         // Math and code highlighting ship as their own artifacts; this scope enables both for every
-        // EnrichedMarkdownText below. Math also needs `Md4cFlags(latexMath = true)` on the instance.
+        // EnrichedMarkdownText below, and LatexMathPlugin also turns on `$...$` / `$$...$$` parsing.
         MarkdownPlugins(LatexMathPlugin, CodeHighlightPlugin) {
           Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -54,6 +60,7 @@ class AndroidExampleMainActivity : ComponentActivity() {
                       ExampleRoute.Home -> "Enriched Markdown Examples"
                       ExampleRoute.Playground -> "Playground"
                       ExampleRoute.Text -> "Text"
+                      ExampleRoute.MaterialTheme -> "Material Theme"
                       else -> currentRoute.name
                     },
                   )
@@ -82,6 +89,7 @@ class AndroidExampleMainActivity : ComponentActivity() {
                     when (route) {
                       ExampleRoute.Playground -> currentRoute = ExampleRoute.Playground
                       ExampleRoute.Text -> currentRoute = ExampleRoute.Text
+                      ExampleRoute.MaterialTheme -> currentRoute = ExampleRoute.MaterialTheme
                       else ->
                         Toast
                           .makeText(
@@ -101,6 +109,12 @@ class AndroidExampleMainActivity : ComponentActivity() {
               ExampleRoute.Text ->
                 TextScreen(
                   markdown = sampleMarkdown,
+                  modifier = Modifier.padding(innerPadding),
+                )
+
+              ExampleRoute.MaterialTheme ->
+                MaterialThemeScreen(
+                  markdown = materialShowcaseMarkdown,
                   modifier = Modifier.padding(innerPadding),
                 )
 

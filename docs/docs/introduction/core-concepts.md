@@ -166,16 +166,16 @@ See [Parser extensions](/ios/guides/parser-extensions).
 </Tab>
 <Tab label="Android">
 
-The standalone Android SDK has no `flavor` selector either. GFM's **tables**, **task lists** and **strikethrough** are always on, and so are spoilers. The remaining extensions - underline, superscript, subscript, highlight, admonitions, hard soft breaks, preserved blank lines and permissive autolinks - are individual `Md4cFlags`:
+The standalone Android SDK has no `flavor` selector either. GFM's **tables**, **task lists** and **strikethrough** are always on, and so are spoilers. The remaining extensions - underline, superscript, subscript, highlight, admonitions, hard soft breaks, preserved blank lines and permissive autolinks - are individual `MarkdownOptions`:
 
 ```kotlin
 EnrichedMarkdownText(
   markdown = markdown,
-  flags = Md4cFlags(underline = true, admonitions = true),
+  options = MarkdownOptions(underline = true, admonitions = true),
 )
 ```
 
-LaTeX math takes both `Md4cFlags(latexMath = true)` and the optional `math` artifact's `LatexMathPlugin` - see [LaTeX math](/android/guides/latex-math).
+LaTeX math is not a parsing option on Android either: enabling `LatexMathPlugin` from the optional `math` artifact turns parsing and rendering on together - see [LaTeX math](/android/guides/latex-math).
 
 See [Parser extensions](/android/guides/parser-extensions).
 

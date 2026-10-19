@@ -45,24 +45,34 @@ fun MarkdownTheme(
 }
 
 /**
- * Creates and remembers a [MarkdownStyle] that tracks [MaterialTheme.colorScheme] changes.
+ * Creates and remembers a [MarkdownStyle], rebuilt when [MaterialTheme.colorScheme] or any of
+ * [keys] changes.
  *
- * Use inside `MaterialTheme { ... }` when style values reference Material tokens:
+ * [block] is not composable, so it cannot read `MaterialTheme` itself. Read the scheme first and
+ * build the style in a plain `remember` keyed on it:
  *
  * ```
- * MaterialTheme {
- *   MarkdownTheme(style = rememberMarkdownStyle {
- *     paragraph { color = MaterialTheme.colorScheme.onSurface }
- *     link { color = MaterialTheme.colorScheme.primary }
- *   }) {
- *     NavHost(...)
- *   }
+ * val colorScheme = MaterialTheme.colorScheme
+ * val style = remember(colorScheme) {
+ *   markdownStyle { link { color = colorScheme.primary } }
  * }
  * ```
  *
- * For static light/dark styles with literal colors, hoist `markdownStyle` / [MarkdownStyle.copy]
- * at file scope instead.
+ * For a style colored from the whole scheme, use
+ * [com.swmansion.enriched.markdown.compose.material3.rememberMaterialMarkdownStyle].
  */
+@Deprecated(
+  message =
+    "Use rememberMaterialMarkdownStyle() for a style colored from the Material scheme, or " +
+      "remember(keys) { markdownStyle(block) } for any other style read from composition.",
+  replaceWith =
+    ReplaceWith(
+      "remember(MaterialTheme.colorScheme, *keys) { markdownStyle(block) }",
+      "androidx.compose.material3.MaterialTheme",
+      "androidx.compose.runtime.remember",
+      "com.swmansion.enriched.markdown.compose.markdownStyle",
+    ),
+)
 @Composable
 fun rememberMarkdownStyle(
   vararg keys: Any?,

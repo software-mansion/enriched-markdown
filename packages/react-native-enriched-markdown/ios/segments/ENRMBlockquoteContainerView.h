@@ -6,6 +6,7 @@
 
 @class MarkdownASTNode;
 @class ENRMAccessibilityLabels;
+@class ENRMCodeBlockWrapCursor;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -46,13 +47,17 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // sums the child segments at the reduced inner width and adds the vertical
 // inset, recursing into itself for nested quotes. pointScaleFactor is the layout
 // context's scale (the visible instance path uses RCTScreenScale), threaded so
-// the per-text-segment pixel rounding matches the laid-out height.
+// the per-text-segment pixel rounding matches the laid-out height. wrapCursor,
+// when given, says which code blocks the user wrapped and is shared down the
+// recursion so nested blocks keep counting in document order; wrapped ones lay
+// out at the inner width, as the views do.
 + (CGFloat)measureHeightForBlockquoteNode:(MarkdownASTNode *)node
                                    config:(StyleConfig *)config
                                  maxWidth:(CGFloat)maxWidth
                          pointScaleFactor:(CGFloat)pointScaleFactor
                          allowFontScaling:(BOOL)allowFontScaling
-                        lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy;
+                        lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
+                               wrapCursor:(nullable ENRMCodeBlockWrapCursor *)wrapCursor;
 
 // Consumer text props threaded into the quote's inner content so it honors them
 // the same way the root document path does, instead of assuming defaults. Set by

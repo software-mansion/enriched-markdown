@@ -361,6 +361,10 @@ export interface AccessibilityLabelsTableProps {
 export interface AccessibilityLabelsMathProps {
   equation: string;
 }
+export interface AccessibilityLabelsCodeBlockProps {
+  wrap: string;
+  unwrap: string;
+}
 export interface AccessibilityLabelsRotorProps {
   headings: string;
   links: string;
@@ -371,6 +375,7 @@ export interface AccessibilityLabelsProps {
   blockquote: Readonly<AccessibilityLabelsBlockquoteProps>;
   table: Readonly<AccessibilityLabelsTableProps>;
   math: Readonly<AccessibilityLabelsMathProps>;
+  codeBlock: Readonly<AccessibilityLabelsCodeBlockProps>;
   rotor: Readonly<AccessibilityLabelsRotorProps>;
 }
 

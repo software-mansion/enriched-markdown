@@ -13,7 +13,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Md4cFlags = Md4cFlags.Default,
+  options: MarkdownOptions = MarkdownOptions.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkClick: (String) -> Unit = {},
@@ -37,7 +37,7 @@ The composable wraps a real Android `View` through `AndroidView`, so it renders 
 
 ### `markdown`
 
-The Markdown source to render. Which syntax is recognized depends on [`flags`](#flags) - see [Feature support](/introduction/supported-features) for the full matrix and [Element structure](/android/api-reference/element-structure) for what each element renders as.
+The Markdown source to render. Which syntax is recognized depends on [`options`](#options) - see [Feature support](/introduction/supported-features) for the full matrix and [Element structure](/android/api-reference/element-structure) for what each element renders as.
 
 <PropInfo type="String" required />
 
@@ -100,16 +100,15 @@ fun RedLinks(message: String) {
 }
 ```
 
-### `flags` {#flags}
+### `options` {#options}
 
-Toggles for md4c's parser extensions. Each one opts a piece of extra syntax in or out; pass only the flags you want to change and the rest keep their defaults.
+Toggles for the optional syntax extensions. Each one opts a piece of extra syntax in or out; pass only the options you want to change and the rest keep their defaults.
 
-<PropInfo type="Md4cFlags" default="Md4cFlags.Default" />
+<PropInfo type="MarkdownOptions" default="MarkdownOptions.Default" />
 
 ```kotlin
-data class Md4cFlags(
+data class MarkdownOptions(
   val underline: Boolean = false,
-  val latexMath: Boolean = false,
   val superscript: Boolean = false,
   val subscript: Boolean = false,
   val highlight: Boolean = false,
@@ -130,15 +129,17 @@ import com.swmansion.enriched.markdown.compose.Md4cFlags
 
 EnrichedMarkdownText(
   markdown = "_underlined_\n\n> [!TIP]\n> Admonitions are on.",
-  flags = Md4cFlags(underline = true, admonitions = true),
+  options = MarkdownOptions(underline = true, admonitions = true),
 )
 ```
 
 :::note
-`Md4cFlags.Default` turns **everything off except `permissiveAutolinks`**.
+`MarkdownOptions.Default` turns **everything off except `permissiveAutolinks`**.
 :::
 
-Some syntax is always on and has no flag: tables, `~~strikethrough~~`, task lists (`- [ ]` / `- [x]`), and `||spoilers||`. A spoiler renders concealed until the reader taps it - see [`spoilerOverlay`](#spoileroverlay).
+Some syntax is always on and has no option: tables, `~~strikethrough~~`, task lists (`- [ ]` / `- [x]`), and `||spoilers||`. A spoiler renders concealed until the reader taps it - see [`spoilerOverlay`](#spoileroverlay).
+
+LaTeX math has no option either. Enabling [`LatexMathPlugin`](#plugins) from the `math` artifact turns on parsing `$...$` and `$$...$$` along with rendering them, so math is never parsed with nothing to draw it. Without the plugin, the `$` stays literal text. See [LaTeX math](/android/guides/latex-math).
 
 For a walkthrough of what each extension changes, see [Parser extensions](/android/guides/parser-extensions).
 
@@ -166,26 +167,13 @@ Renders `==text==` with a highlight band behind the glyphs. Style it through [`h
 
 <PropInfo type="Boolean" default="false" />
 
-With the flag off, the `==` markers stay literal text.
-
-#### `latexMath`
-
-Parses `$inline$` and `$$block$$` as math nodes.
-
-<PropInfo type="Boolean" default="false" />
-
-What the reader sees depends on whether a math plugin is installed:
-
-- **Without a plugin**, each formula is shown as its source, delimiters included - `$E = mc^2$` stays readable as text. Logcat gets one warning per process pointing at the missing plugin.
-- **With the `math` artifact** and [`LatexMathPlugin`](#plugins) enabled, formulas are typeset. Display math standing on its own line becomes a block of its own.
-
-See [LaTeX math](/android/guides/latex-math) for setup, styling, and error handling.
+With the option off, the `==` markers stay literal text.
 
 #### `permissiveAutolinks`
 
 Links bare URLs. Plain Markdown only autolinks a URL wrapped in angle brackets - `<https://swmansion.com>` - so with this off, a URL pasted on its own stays inert text. With it on, `https://swmansion.com` becomes a link as written.
 
-This is separate from `[text](url)`, which is an ordinary inline link and always works. The flag is the one extension that is **on** by default.
+This is separate from `[text](url)`, which is an ordinary inline link and always works. The option is the one extension that is **on** by default.
 
 <PropInfo type="Boolean" default="true" />
 
@@ -220,9 +208,9 @@ EnrichedMarkdownText(markdown = "Not selectable.", selectable = false)
 ```
 
 :::note
-A document is laid out as a stack of segments: a text view for each run of ordinary blocks, and a separate view for each table and, with the [math plugin](#plugins), each display-math block on its own line. A selection can run across headings, quotes, lists, and code blocks inside one text segment, but it **stops at a table or a display-math block**, and it cannot span two `EnrichedMarkdownText` composables either.
+A document is laid out as a stack of segments: a text view for each run of ordinary blocks, and a separate view for each table, each top-level code block when [`codeBlockLayout`](#codeblocklayout) is `Scrollable`, and, with the [math plugin](#plugins), each display-math block on its own line. A selection can run across headings, quotes, lists, and code blocks inside one text segment, but it **stops at any of those separate views**, and it cannot span two `EnrichedMarkdownText` composables either.
 
-Tables and display-math blocks are not text-selectable. Long-press one instead for a menu with **Copy** and **Copy as Markdown**: a table copies as tab-separated plain text plus HTML, a formula copies as its LaTeX source.
+Those blocks are not text-selectable. Long-press one instead to copy it: a table copies as tab-separated plain text plus HTML, a formula copies as its LaTeX source.
 :::
 
 #### What copying produces {#copying}
@@ -235,6 +223,21 @@ The selection menu also carries two items of the library's own, both on by defau
 - **Copy Image URL** appears when the selection contains images with `http(s)` URLs, and copies them one per line.
 
 Neither can be hidden or relabeled from the Compose API yet. See the [roadmap](/misc/roadmap) and [Copy options](/user-experience/copy-options).
+
+### `codeBlockLayout`
+
+Whether fenced code blocks wrap long lines or scroll them. With `CodeBlockLayout.Wrapping` a long line wraps, and the code is part of the text selection like any other text.
+
+`CodeBlockLayout.Scrollable` keeps lines intact: a code block at the top level of the document scrolls horizontally inside its box instead. Each such block is a view of its own, so a selection stops at it - long-press it to copy its code, or the code as fenced Markdown. A code block inside a list item or a quote wraps either way. See [Code blocks](/android/api-reference/element-structure#code-blocks).
+
+<PropInfo type="CodeBlockLayout" default="CodeBlockLayout.Wrapping" />
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = content,
+  codeBlockLayout = CodeBlockLayout.Scrollable,
+)
+```
 
 ### `imageRequestHeaders`
 
@@ -546,6 +549,27 @@ fun Answer(markdown: String) {
 ```
 
 Events arrive on the main thread. Each distinct event is reported **once** per view while `markdown` only grows, so streamed text that re-renders the same broken formula on every token reports it a single time. Replacing `markdown` with a string that does not start with the previous one resets that, and the events are reported again.
+
+### `onCodeBlockCopy`
+
+Called after a code block's code is copied: by its copy button, or by **Copy** in its long-press menu. Not called for **Copy as Markdown**, or for a block with no code, which leaves the clipboard as it was. Only [`CodeBlockLayout.Scrollable`](#codeblocklayout) blocks have a copy button and menu; a wrapping block copies through the text selection, which does not call this.
+
+<PropInfo type="(CodeBlockCopy) -> Unit" default="{}" />
+
+```kotlin
+data class CodeBlockCopy(
+  val code: String,      // what went to the clipboard
+  val language: String?, // the fence's info string, null when it named none
+)
+```
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = content,
+  codeBlockLayout = CodeBlockLayout.Scrollable,
+  onCodeBlockCopy = { scope.launch { snackbarHostState.showSnackbar("Copied") } },
+)
+```
 
 ## See also
 

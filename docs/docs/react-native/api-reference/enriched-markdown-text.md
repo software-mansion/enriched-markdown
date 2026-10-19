@@ -217,6 +217,12 @@ Controls the long-press context menu on block views - fenced code blocks, tables
 
 <LivePreview src={EnableBlockContextMenuSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the block context menu is a native interaction, and the web build renders blocks without one.</>} />
 
+### `enableCodeBlockWrapToggle`
+
+Shows a line wrap toggle next to the copy button in each fenced code block header; set it to `false` to hide the toggle. Blocks start unwrapped and scroll horizontally; tapping the toggle wraps that block's lines at the block width, and tapping again goes back to scrolling. The state belongs to the block's position in the document: it survives streaming appends and resets when the Markdown is replaced rather than appended to. Needs [`flavor="github"`](#flavor); the toggle's spoken labels come from [`accessibilityLabels.codeBlock`](#accessibilitylabels). iOS and Android only; macOS accepts the prop but shows no toggle.
+
+<PropInfo type="boolean" default="true" />
+
 ### `enableLinkPreview` <IosBadge /> {#enablelinkpreview}
 
 Controls the native link preview on long press. It is on by default, and supplying [`onLinkLongPress`](#onlinklongpress) turns it off - your handler owns the long press instead. That override cannot be undone from this prop: with `onLinkLongPress` set, even an explicit `enableLinkPreview={true}` is discarded. Setting [`selectable={false}`](#selectable) also suppresses the preview.
@@ -490,6 +496,11 @@ interface AccessibilityLabels {
   };
   math?: {
     equation?: string; // {latex} is the equation source
+  };
+  codeBlock?: {
+    // the enableCodeBlockWrapToggle header button
+    wrap?: string;
+    unwrap?: string;
   };
   rotor?: {
     // iOS only, Android has no rotor

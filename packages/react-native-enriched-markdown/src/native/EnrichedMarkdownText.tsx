@@ -145,6 +145,7 @@ export const EnrichedMarkdownText = ({
   onCopyPress,
   onLatexError,
   onCodeBlockPress,
+  enableCodeBlockWrapToggle = true,
   enableBlockContextMenu = true,
   enableLinkPreview,
   selectable = true,
@@ -455,7 +456,12 @@ export const EnrichedMarkdownText = ({
   };
 
   if (flavor === 'github') {
-    return <EnrichedMarkdownNativeComponent {...sharedProps} />;
+    return (
+      <EnrichedMarkdownNativeComponent
+        {...sharedProps}
+        enableCodeBlockWrapToggle={enableCodeBlockWrapToggle}
+      />
+    );
   }
 
   return <EnrichedMarkdownTextNativeComponent {...sharedProps} />;

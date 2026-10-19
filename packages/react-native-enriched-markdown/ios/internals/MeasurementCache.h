@@ -45,6 +45,8 @@ struct MeasurementCacheKey {
   bool md4cFlagsAdmonitions;
   size_t styleFingerprint;
   size_t linkPillContentFingerprint;
+  // Code blocks the user wrapped (view state, not props); 0 when none.
+  size_t wrappedCodeBlocksFingerprint;
   CGFloat fontScale;
   MarkdownFlavor flavor;
   std::string lineBreakStrategyIOS;
@@ -59,15 +61,16 @@ struct MeasurementCacheKey {
     return std::tie(markdown, maxWidth, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
                     md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsHighlight,
                     md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, md4cFlagsPreserveBlankLines, md4cFlagsAdmonitions,
-                    styleFingerprint, linkPillContentFingerprint, fontScale, flavor, lineBreakStrategyIOS,
-                    writingDirection, numberOfLines, ellipsizeMode, linkRegexKey, inlineCodeLinkRegexKey) ==
+                    styleFingerprint, linkPillContentFingerprint, wrappedCodeBlocksFingerprint, fontScale, flavor,
+                    lineBreakStrategyIOS, writingDirection, numberOfLines, ellipsizeMode, linkRegexKey,
+                    inlineCodeLinkRegexKey) ==
            std::tie(other.markdown, other.maxWidth, other.allowTrailingMargin, other.allowFontScaling,
                     other.maxFontSizeMultiplier, other.md4cFlagsUnderline, other.md4cFlagsSuperscript,
                     other.md4cFlagsSubscript, other.md4cFlagsHighlight, other.md4cFlagsLatexMath,
                     other.md4cFlagsHardSoftBreaks, other.md4cFlagsPreserveBlankLines, other.md4cFlagsAdmonitions,
-                    other.styleFingerprint, other.linkPillContentFingerprint, other.fontScale, other.flavor,
-                    other.lineBreakStrategyIOS, other.writingDirection, other.numberOfLines, other.ellipsizeMode,
-                    other.linkRegexKey, other.inlineCodeLinkRegexKey);
+                    other.styleFingerprint, other.linkPillContentFingerprint, other.wrappedCodeBlocksFingerprint,
+                    other.fontScale, other.flavor, other.lineBreakStrategyIOS, other.writingDirection,
+                    other.numberOfLines, other.ellipsizeMode, other.linkRegexKey, other.inlineCodeLinkRegexKey);
   }
 };
 
@@ -90,6 +93,7 @@ struct MeasurementCacheKeyHash {
     HashUtils::hash_one(h, key.md4cFlagsAdmonitions);
     HashUtils::hash_one(h, key.styleFingerprint);
     HashUtils::hash_one(h, key.linkPillContentFingerprint);
+    HashUtils::hash_one(h, key.wrappedCodeBlocksFingerprint);
     HashUtils::hash_one(h, key.fontScale);
     HashUtils::hash_one(h, static_cast<uint8_t>(key.flavor));
     HashUtils::hash_one(h, key.lineBreakStrategyIOS);
@@ -194,7 +198,7 @@ template <typename RegexProps> inline std::string buildLinkRecognitionCacheKey(c
 
 template <typename PropsType>
 inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFloat maxWidth, CGFloat fontScale,
-                                                    MarkdownFlavor flavor)
+                                                    MarkdownFlavor flavor, size_t wrappedCodeBlocksFingerprint = 0)
 {
   return MeasurementCacheKey{
       .markdown = props.markdown,
@@ -212,6 +216,7 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .md4cFlagsAdmonitions = props.md4cFlags.admonitions,
       .styleFingerprint = computeStyleFingerprint(props.markdownStyle),
       .linkPillContentFingerprint = computeLinkPillContentFingerprint(props.linkPillContent),
+      .wrappedCodeBlocksFingerprint = wrappedCodeBlocksFingerprint,
       .fontScale = fontScale,
       .flavor = flavor,
       .lineBreakStrategyIOS = props.lineBreakStrategyIOS,

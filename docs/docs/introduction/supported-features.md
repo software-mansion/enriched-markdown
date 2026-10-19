@@ -69,11 +69,11 @@ always on there.
 | Task lists                     |     Yes      | Yes |   Yes   | Yes |
 | Strikethrough                  |     Yes      | Yes |   Yes   | Yes |
 | Admonitions (`> [!NOTE]`)      |     Yes      | Yes |   Yes   | Yes |
-| Videos (`<video src="url" />`) |     Yes      | No  |   No    | No  |
+| Videos (`<video src="url" />`) |     Yes      | No  |   No    | Yes |
 
 On iOS and Android, **admonitions** are a parsing switch, off by default:
 `MarkdownParsingOptions(admonitions: true)` on iOS and
-`Md4cFlags(admonitions = true)` on Android - see
+`MarkdownOptions(admonitions = true)` on Android - see
 [iOS parser extensions](/ios/guides/parser-extensions#admonitions) and
 [Android parser extensions](/android/guides/parser-extensions#admonitions).
 On Android, a table nested inside a list item or blockquote is not rendered.
@@ -90,9 +90,9 @@ Two things commonly filed under GFM are **not** gated by the flavor:
   and on web. On iOS and Android they are the `permissiveAutolinks` parsing
   switch, on by default.
 - **Videos** are promoted from `<video>` HTML regardless of flavor, so
-  `flavor="commonmark"` parses them too. They do not render on web - the
-  published WebAssembly parser predates the feature, so the node never reaches
-  the web renderer.
+  `flavor="commonmark"` parses them too. On web there is no flavor to set and
+  no build flag to enable: the tag renders in the browser's own `<video>`
+  player.
 
 :::note
 The web renderer has no `flavor` prop - tables, task lists, strikethrough and

@@ -37,8 +37,9 @@ import org.robolectric.annotation.Config
 class CodeBlockDecoratorTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
 
+  /** A view shows a top-level block in a segment of its own; CodeBlockSegmentTest covers that path. */
   @Test
-  fun aTopLevelBlockIsDecoratedOverItsCodeWithItsLanguage() {
+  fun aTopLevelBlockRenderedAsTextIsDecoratedOverItsCodeWithItsLanguage() {
     val decorator = RecordingDecorator()
 
     render(document(paragraph(text("before")), codeBlock(CODE, "kotlin")), plugins = PluginSnapshot.of(DecoratingPlugin(decorator)))

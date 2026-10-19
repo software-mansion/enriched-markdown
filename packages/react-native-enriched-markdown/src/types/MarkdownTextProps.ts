@@ -264,6 +264,19 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   onCodeBlockPress?: (event: CodeBlockPressEvent) => void;
   /**
+   * Shows a line wrap toggle next to the copy button in each fenced code block
+   * header; set `false` to hide it. Every block starts unwrapped (horizontal scroll) and toggles on its
+   * own. The state belongs to the block's position in the document: it survives
+   * streaming appends and resets when the markdown is replaced. Code blocks
+   * inside blockquotes and admonitions get the toggle too. The toggle's spoken
+   * labels come from `accessibilityLabels.codeBlock`.
+   *
+   * Only applies when `flavor="github"`.
+   * @default true
+   * @platform ios, android
+   */
+  enableCodeBlockWrapToggle?: boolean;
+  /**
    * Controls the long-press context menu on block views (code blocks, tables,
    * and block math). When false, long-pressing a block does not open the copy
    * popup. Does not affect the code-block header copy button, the

@@ -38,4 +38,14 @@ struct JParser : facebook::jni::JavaClass<JParser> {
   static void registerNatives();
 };
 
+struct JCodeBlockLanguages : facebook::jni::JavaClass<JCodeBlockLanguages> {
+  static constexpr auto kJavaDescriptor = "Lcom/swmansion/enriched/markdown/parser/CodeBlockLanguages;";
+
+  static facebook::jni::local_ref<facebook::jni::JString>
+  nativeDisplayName(facebook::jni::alias_ref<facebook::jni::JClass> clazz,
+                    facebook::jni::alias_ref<facebook::jni::JString> language);
+
+  static void registerNatives();
+};
+
 } // namespace enriched::jni

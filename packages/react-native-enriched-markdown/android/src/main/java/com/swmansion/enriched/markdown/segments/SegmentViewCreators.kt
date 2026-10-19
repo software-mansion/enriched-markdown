@@ -145,6 +145,7 @@ object SegmentViewCreators {
     config: SegmentViewConfig,
   ) = CodeBlockContainerView(config.context, config.style).apply {
     dynamicProps = config.dynamicProps
+    accessibilityLabels = config.accessibilityLabels
     applyCodeBlockNode(segment.node)
   }
 

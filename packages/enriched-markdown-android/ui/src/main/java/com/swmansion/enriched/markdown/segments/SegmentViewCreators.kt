@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.segments
 
 import android.content.Context
 import android.util.TypedValue
+import com.swmansion.enriched.markdown.CodeBlockCopy
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.plugin.PluginEventSink
 import com.swmansion.enriched.markdown.spans.registerWithSpans
@@ -24,6 +25,7 @@ data class SegmentViewConfig(
   val onLinkPress: ((String) -> Unit)?,
   val onLinkLongPress: ((String) -> Unit)?,
   val onPluginEvent: PluginEventSink? = null,
+  val onCodeBlockCopy: ((CodeBlockCopy) -> Unit)? = null,
 )
 
 object SegmentViewCreators {
@@ -73,5 +75,22 @@ object SegmentViewCreators {
     config: SegmentViewConfig,
   ) {
     view.applyTableNode(segment.node, segment.imageRequestHeaders, segment.plugins, config.onPluginEvent)
+  }
+
+  fun createCodeBlockView(
+    segment: RenderedSegment.CodeBlock,
+    config: SegmentViewConfig,
+  ): CodeBlockContainerView =
+    CodeBlockContainerView(config.context, config.style).apply {
+      selectionMenuConfig = config.selectionMenuConfig
+      onCodeBlockCopy = config.onCodeBlockCopy
+      applyCodeBlockNode(segment.node, segment.text)
+    }
+
+  fun updateCodeBlockView(
+    view: CodeBlockContainerView,
+    segment: RenderedSegment.CodeBlock,
+  ) {
+    view.applyCodeBlockNode(segment.node, segment.text)
   }
 }

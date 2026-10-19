@@ -7,6 +7,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class ENRMCodeBlockWrapCursor;
+
 /**
  * View-free height summation for a vertical stack of already-rendered
  * segments at a fixed content width. This is the iOS counterpart of Android's
@@ -22,12 +24,14 @@ NS_ASSUME_NONNULL_BEGIN
  * +[ENRMBlockquoteContainerView measureHeightForBlockquoteNode:...] (recursion).
  * Per-kind margins come from the config exactly as computeSegmentLayout applies
  * them: marginTop before, marginBottom after unless it is the last segment and
- * trailing margins are disabled.
+ * trailing margins are disabled. Code blocks the user wrapped (wrapCursor,
+ * shared with nested quotes) measure at contentWidth.
  */
 CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segments, StyleConfig *config,
                                           CGFloat contentWidth, BOOL allowTrailingMargin, CGFloat pointScaleFactor,
                                           ENRMWritingDirectionMode writingDirectionMode,
                                           NSWritingDirection resolvedLayoutDirection, BOOL allowFontScaling,
-                                          NSLineBreakStrategy lineBreakStrategy);
+                                          NSLineBreakStrategy lineBreakStrategy,
+                                          ENRMCodeBlockWrapCursor *_Nullable wrapCursor);
 
 NS_ASSUME_NONNULL_END

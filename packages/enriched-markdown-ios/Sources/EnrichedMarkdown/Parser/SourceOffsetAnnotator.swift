@@ -100,8 +100,8 @@ package enum SourceOffsetAnnotator {
         /// Matches `needle` at `index`, letting a source backslash escape
         /// match its bare character, a line break plus its indentation match
         /// the single space the parser flattens them to inside spans, and an
-        /// entity reference match either nothing (the shared
-        /// core drops entity text) or one decoded scalar of the needle.
+        /// entity reference match the one or two scalars the shared core
+        /// decodes it to (or nothing, for a reference the core left out).
         private func matchFlexible(_ needle: [UInt8], at index: Int) -> Int? {
             matchRemainder(of: needle, from: 0, sourceIndex: index)
         }
@@ -133,22 +133,27 @@ package enum SourceOffsetAnnotator {
                     continue
                 }
                 if let entityEnd = entityEnd(startingAt: sourceIndex) {
-                    // A dropped entity is bridged only inside a match; a match
-                    // never starts on one, so the forward scan anchors the text
-                    // after a leading entity precisely. Entities are rare, so
-                    // trying both readings stays cheap.
-                    if needleIndex > 0,
-                       let end = matchRemainder(of: needle, from: needleIndex, sourceIndex: entityEnd) {
-                        return end
-                    }
-                    if let scalarLength = scalarLength(of: needle, at: needleIndex),
-                       let end = matchRemainder(of: needle, from: needleIndex + scalarLength, sourceIndex: entityEnd) {
-                        return end
-                    }
+                    return matchAcrossEntity(of: needle, from: needleIndex, entityEnd: entityEnd)
                 }
                 return nil
             }
             return sourceIndex
+        }
+
+        /// Resumes a match past an entity reference, which the shared core
+        /// decodes to one or two scalars of the needle. An omitted reference
+        /// is bridged only inside a match; a match never starts on one, so the
+        /// forward scan anchors text after a leading entity precisely.
+        private func matchAcrossEntity(of needle: [UInt8], from needleIndex: Int, entityEnd: Int) -> Int? {
+            if needleIndex > 0, let end = matchRemainder(of: needle, from: needleIndex, sourceIndex: entityEnd) {
+                return end
+            }
+            guard let first = scalarLength(of: needle, at: needleIndex) else { return nil }
+            if let end = matchRemainder(of: needle, from: needleIndex + first, sourceIndex: entityEnd) {
+                return end
+            }
+            guard let second = scalarLength(of: needle, at: needleIndex + first) else { return nil }
+            return matchRemainder(of: needle, from: needleIndex + first + second, sourceIndex: entityEnd)
         }
 
         private func isLineBreak(_ byte: UInt8) -> Bool {

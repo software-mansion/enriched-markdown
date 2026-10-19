@@ -360,6 +360,10 @@ export interface AccessibilityLabelsTableProps {
 export interface AccessibilityLabelsMathProps {
   equation: string;
 }
+export interface AccessibilityLabelsCodeBlockProps {
+  wrap: string;
+  unwrap: string;
+}
 export interface AccessibilityLabelsRotorProps {
   headings: string;
   links: string;
@@ -370,6 +374,7 @@ export interface AccessibilityLabelsProps {
   blockquote: Readonly<AccessibilityLabelsBlockquoteProps>;
   table: Readonly<AccessibilityLabelsTableProps>;
   math: Readonly<AccessibilityLabelsMathProps>;
+  codeBlock: Readonly<AccessibilityLabelsCodeBlockProps>;
   rotor: Readonly<AccessibilityLabelsRotorProps>;
 }
 
@@ -522,6 +527,12 @@ export interface NativeProps extends ViewProps {
    * @default false
    */
   enableCodeBlockPress?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * Shows a per-block line wrap toggle next to the copy button in fenced code
+   * block headers. Each block starts unwrapped.
+   * @default false
+   */
+  enableCodeBlockWrapToggle?: CodegenTypes.WithDefault<boolean, true>;
   /**
    * Callback fired when a math expression cannot be parsed or rendered by the
    * LaTeX engine. Receives the raw LaTeX `source` of the failing inline span or

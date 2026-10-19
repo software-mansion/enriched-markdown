@@ -100,7 +100,7 @@ The package publishes five artifacts under the `com.swmansion.enriched.markdown`
 | `compose` | The Jetpack Compose API: `EnrichedMarkdownText`, `MarkdownTheme`, the `markdownStyle` DSL | **Yes** - this is the one you declare |
 | `ui` | The view-based renderer underneath, which lays the document out in native views | No - comes transitively |
 | `parser` | The native [md4c](https://github.com/mity/md4c) parser and its JNI bindings | No - comes transitively |
-| `math` | Optional LaTeX math rendering, backed by the RaTeX engine (`io.github.erweixin:ratex-android`) | Only if you render math |
+| `math` | Optional LaTeX math: `LatexMathPlugin`, which parses and renders `$...$` and `$$...$$`, backed by the RaTeX engine (`io.github.erweixin:ratex-android`) | Only if you render math |
 | `code-highlight` | Optional syntax highlighting for fenced code blocks, backed by tree-sitter | Only if you color code |
 
 `compose` exposes `ui` as an `api` dependency, and `ui` does the same for `parser`, so declaring `compose` is enough to get all three. Split them out only if you are embedding the renderer in a View-based screen with no Compose at all, which is outside what these docs cover.
@@ -116,7 +116,7 @@ dependencies {
 }
 ```
 
-On an `x86` device or emulator, equations fall back to their raw source rather than crashing. Enabling the plugin and the parser flag that goes with it is covered in [LaTeX math](/android/guides/latex-math).
+On an `x86` device or emulator, equations fall back to their raw source rather than crashing. Enabling the plugin is covered in [LaTeX math](/android/guides/latex-math).
 
 ### Code highlighting is opt-in
 

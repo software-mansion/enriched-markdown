@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-  implementation("com.swmansion.enriched.markdown:compose:0.2.0")
+  implementation("com.swmansion.enriched.markdown:compose:0.3.0")
 }
 ```
 
@@ -57,9 +57,9 @@ For a single plugin, its own scope is shorter: `LatexMathPlugin { }` is the same
 
 Scopes nest: an inner scope adds its plugins to those enabled outside, and a scope for a plugin already enabled replaces it and moves it last, so where two plugins claim the same Markdown element, the innermost scope wins. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes.
 
-Without a plugin nothing breaks: fenced code renders in the code block color, and `$...$` and `$$...$$` render as their raw source, delimiters included, with a single `EnrichedMarkdown` warning in logcat naming the missing math artifact and how to enable the plugin.
+Without a plugin nothing breaks: fenced code renders in the code block color, and `$...$` and `$$...$$` render as their raw source, delimiters included.
 
-The math plugin and its parser flag are two separate switches. `Md4cFlags(latexMath = true)` is what makes the parser recognise math at all; the plugin is what draws it. With the flag off, `$...$` is just text, plugin or not. Code highlighting has no flag: fenced code is always parsed with its language.
+Enabling the math plugin is also what makes `$...$` and `$$...$$` parse as math at all. Code highlighting needs no parser switch: fenced code is always parsed with its language.
 
 ## Quick start
 
@@ -128,16 +128,22 @@ EnrichedMarkdownText(
 )
 ```
 
-When styles reference `MaterialTheme` tokens, use `rememberMarkdownStyle` so they update with theme changes:
+To color markdown from the Material 3 color scheme, use `rememberMaterialMarkdownStyle`. It rebuilds
+when the scheme changes, so it follows a light/dark switch:
 
 ```kotlin
-MarkdownTheme(
-  style = rememberMarkdownStyle {
-    paragraph { color = MaterialTheme.colorScheme.onSurface }
-    link { color = MaterialTheme.colorScheme.primary }
-  },
-) {
+MarkdownTheme(style = rememberMaterialMarkdownStyle()) {
   Content()
+}
+```
+
+For other values read from composition, read them first and build the style in `remember`, keyed on
+them:
+
+```kotlin
+val colorScheme = MaterialTheme.colorScheme
+val style = remember(colorScheme) {
+  AppMarkdownStyle.merge { link { color = colorScheme.secondary } }
 }
 ```
 
@@ -153,13 +159,13 @@ The `markdownStyle` builder supports these blocks:
 | `strong` | Bold text |
 | `emphasis` | Italic text |
 | `strikethrough` | Struck-through text |
-| `underline` | Underlined text (requires `Md4cFlags(underline = true)`) |
-| `highlight` | Highlighted text `==text==` (requires `Md4cFlags(highlight = true)`) |
+| `underline` | Underlined text (requires `MarkdownOptions(underline = true)`) |
+| `highlight` | Highlighted text `==text==` (requires `MarkdownOptions(highlight = true)`) |
 | `superscript` | Superscript text (`^text^`) |
 | `subscript` | Subscript text (`~text~`) |
 | `code` | Inline code |
 | `codeBlock` | Fenced code blocks |
-| `blockquote` | Block quotes, and `admonitions { }` for GitHub alerts (requires `Md4cFlags(admonitions = true)`) |
+| `blockquote` | Block quotes, and `admonitions { }` for GitHub alerts (requires `MarkdownOptions(admonitions = true)`) |
 | `list` | Ordered and unordered lists |
 | `taskList` | Task list checkboxes |
 | `image` | Block images |
@@ -167,7 +173,7 @@ The `markdownStyle` builder supports these blocks:
 | `thematicBreak` | Horizontal rules |
 | `table` | Tables |
 | `spoiler` | The overlay that conceals `\|\|spoiler\|\|` text |
-| `math` | Block LaTeX math (`$$...$$`; needs the `:math` artifact and `Md4cFlags(latexMath = true)`) |
+| `math` | Block LaTeX math (`$$...$$`; needs the `:math` artifact and its `LatexMathPlugin`) |
 | `inlineMath` | Inline LaTeX math (`$...$`; same two requirements) |
 | `codeHighlight` | Token colors in highlighted code blocks (needs the `:code-highlight` artifact; see [Code highlighting](#colors)) |
 
@@ -188,7 +194,7 @@ markdownStyle {
 }
 ```
 
-Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
+Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `MarkdownOptions`.
 
 `spoiler` colors the overlay that conceals `||spoiler||` text: `color` paints the particles and fills
 the solid block. The effect itself, and its tuning, is the `spoilerOverlay` parameter of
@@ -244,7 +250,7 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Md4cFlags = Md4cFlags.Default,
+  options: MarkdownOptions = MarkdownOptions.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
   onLinkClick: (String) -> Unit = {},
@@ -262,7 +268,7 @@ fun EnrichedMarkdownText(
 |-----------|-------------|
 | `markdown` | Markdown source string |
 | `style` | Per-instance style override |
-| `flags` | Optional parser extensions (see `Md4cFlags`) |
+| `options` | Optional syntax extensions (see `MarkdownOptions`) |
 | `selectable` | Enable text selection |
 | `imageRequestHeaders` | HTTP headers attached to remote image requests (e.g. `Referer`) |
 | `onLinkClick` | Called when a link is tapped |
@@ -518,22 +524,21 @@ never equal, so every recomposition would restart the overlay.
 
 #### LaTeX math
 
-With the `:math` artifact on the classpath, the instance inside a `LatexMathPlugin { }` scope,
-and `Md4cFlags(latexMath = true)` on the instance, `$...$` renders inline
+With the `:math` artifact on the classpath and the instance inside a `LatexMathPlugin { }` scope,
+`$...$` renders inline
 within the text and `$$...$$` on its own line renders as a standalone, horizontally scrollable
 block. Long-press a block equation to copy its LaTeX source or copy it as Markdown. Display math
 that appears mid-line (`a $$x$$ b`) stays in the text flow rather than breaking the paragraph.
 
 ```kotlin
-EnrichedMarkdownText(
-  markdown = "Mass-energy: \$E = mc^2\$\n\n\$\$\n\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}\n\$\$",
-  flags = Md4cFlags(latexMath = true),
-)
+LatexMathPlugin {
+  EnrichedMarkdownText(
+    markdown = "Mass-energy: \$E = mc^2\$\n\n\$\$\n\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}\n\$\$",
+  )
+}
 ```
 
-Miss any of the three and the math still reaches the screen, unrendered: with the flag off it is
-literal text, and with the flag on but no plugin enabled it is its own raw source, delimiters
-included, plus one warning in logcat.
+Without the plugin the math still reaches the screen, unrendered, as literal text.
 
 #### `onPluginEvent` and `LatexError`
 
@@ -544,16 +549,18 @@ shows as its raw source.
 
 ```kotlin
 import com.swmansion.enriched.markdown.math.LatexError
+import com.swmansion.enriched.markdown.math.LatexMathPlugin
 
-EnrichedMarkdownText(
-  markdown = content,
-  flags = Md4cFlags(latexMath = true),
-  onPluginEvent = { event ->
-    if (event is LatexError) {
-      Log.w("Latex", "${event.source} failed: ${event.message}")
-    }
-  },
-)
+LatexMathPlugin {
+  EnrichedMarkdownText(
+    markdown = content,
+    onPluginEvent = { event ->
+      if (event is LatexError) {
+        Log.w("Latex", "${event.source} failed: ${event.message}")
+      }
+    },
+  )
+}
 ```
 
 ```kotlin
@@ -571,33 +578,34 @@ only appended to, so streamed content does not report the same failure on every 
 its failures are reported again; so does a recycled view. `PluginEvent` itself carries only
 `pluginId`, so check the type — as above — before reading a plugin's own fields.
 
-### `Md4cFlags`
+### `MarkdownOptions`
 
 ```kotlin
-data class Md4cFlags(
-  val underline: Boolean = false,    // _text_ and __text__ render underlined instead of italic and bold
-  val superscript: Boolean = false,  // ^text^ renders raised above the baseline
-  val subscript: Boolean = false,    // ~text~ renders lowered below the baseline
-  val latexMath: Boolean = false,    // $...$ and $$...$$ parse as math nodes
-  val highlight: Boolean = false,    // ==text== renders with a highlight background
-  val admonitions: Boolean = false,  // `> [!NOTE]` blockquotes render as GitHub alerts
-  // … further md4c extensions
+data class MarkdownOptions(
+  val underline: Boolean = false,           // _text_ and __text__ render underlined instead of italic and bold
+  val superscript: Boolean = false,         // ^text^ renders raised above the baseline
+  val subscript: Boolean = false,           // ~text~ renders lowered below the baseline
+  val highlight: Boolean = false,           // ==text== renders with a highlight background
+  val permissiveAutolinks: Boolean = true,  // bare URLs, www. links and e-mail addresses become links
+  val hardSoftBreaks: Boolean = false,      // every line break inside a paragraph is kept
+  val preserveBlankLines: Boolean = false,  // each blank line renders as an empty line
+  val admonitions: Boolean = false,         // `> [!NOTE]` blockquotes render as GitHub alerts
 ) {
   companion object {
-    val Default: Md4cFlags
+    val Default: MarkdownOptions
   }
 }
 ```
 
 
-Pass flags per instance:
+Pass options per instance:
 
 ```kotlin
-import com.swmansion.enriched.markdown.compose.Md4cFlags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 
 EnrichedMarkdownText(
   markdown = "_underlined_",
-  flags = Md4cFlags(underline = true),
+  options = MarkdownOptions(underline = true),
 )
 ```
 
@@ -632,17 +640,24 @@ class MarkdownStyle {
 }
 ```
 
-### `rememberMarkdownStyle`
+### `materialMarkdownStyle` / `rememberMaterialMarkdownStyle`
 
 ```kotlin
+// com.swmansion.enriched.markdown.compose.material3
+fun materialMarkdownStyle(colorScheme: ColorScheme): MarkdownStyle
+
 @Composable
-fun rememberMarkdownStyle(
-  vararg keys: Any?,
-  block: MarkdownStyleBuilder.() -> Unit,
+fun rememberMaterialMarkdownStyle(
+  colorScheme: ColorScheme = MaterialTheme.colorScheme,
 ): MarkdownStyle
 ```
 
-Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `MaterialTheme { }`.
+Builds a style colored from a Material 3 `ColorScheme`; the `remember` variant rebuilds it when the
+scheme changes. Only colors come from the scheme. Fenced code blocks keep the default dark style,
+which the code highlighting palette is made for. Plugin styles are not set.
+
+`rememberMarkdownStyle { }` is deprecated: its block is not composable, so it cannot read
+`MaterialTheme`. Use `rememberMaterialMarkdownStyle()` or `remember(keys) { markdownStyle { } }`.
 
 `TextAlign.Unspecified` keeps the inherited alignment.
 
@@ -737,9 +752,9 @@ tree-sitter and every bundled grammar are MIT-licensed. Their notices ship insid
 - Spoilers (`||hidden||`, tap to reveal). Adjacent spoilers reveal together. Concealment is visual
   only: screen readers read concealed text as ordinary text, and a plain Copy yields it too (Copy as
   Markdown keeps the `||` markers)
-- Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
+- Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `MarkdownOptions(admonitions = true)`
 - Tables (GFM), including per-column alignment
-- LaTeX math, inline (`$...$`) and block (`$$...$$`) — requires `Md4cFlags(latexMath = true)` and the `:math` artifact
+- LaTeX math, inline (`$...$`) and block (`$$...$$`) — requires the `:math` artifact and its `LatexMathPlugin`
 
 ### Admonitions
 
@@ -751,13 +766,13 @@ the usual blockquote geometry plus a header row with a tinted octicon and a bold
 > This action cannot be undone.
 ```
 
-Admonitions are an opt-in parser extension, so pass the flag to enable them; without it the marker
+Admonitions are an opt-in parser extension, so pass the option to enable them; without it the marker
 stays literal text inside an ordinary quote:
 
 ```kotlin
 EnrichedMarkdownText(
   markdown = content,
-  flags = Md4cFlags(admonitions = true),
+  options = MarkdownOptions(admonitions = true),
 )
 ```
 

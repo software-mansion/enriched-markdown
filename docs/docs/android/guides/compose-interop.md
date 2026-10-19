@@ -82,7 +82,7 @@ Give each row a stable `key` as well, so a row's content stays matched to the ri
 
 ## Selection is per component
 
-A selection lives inside one `TextView` segment. Within a segment it can run freely across headings, quotes, lists, and code blocks. It **stops at a table or a plugin block**, which are separate views: a document with a table in the middle has one selectable run above the table and another below it, and a selection cannot be dragged across. Tables are not text-selectable at all - long-press one for a menu that copies the whole table.
+A selection lives inside one `TextView` segment. Within a segment it can run freely across headings, quotes, lists, and code blocks. It **stops at a table, a display-math block, or a top-level code block set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout)**, which are separate views: a document with a table in the middle has one selectable run above the table and another below it, and a selection cannot be dragged across. Those blocks are not text-selectable at all - long-press one for a menu that copies it whole. Across two `EnrichedMarkdownText` components a selection cannot run either, and Compose's `SelectionContainer` does not bridge them.
 
 The same holds between components, only more so: there is no way to drag a selection from one `EnrichedMarkdownText` into the next, and Compose's `SelectionContainer` does not bridge them. So if a screen's text should be selectable as one unit, render it as **one** `EnrichedMarkdownText` with one Markdown string, rather than composing several.
 
@@ -98,9 +98,9 @@ Resolving a [`MarkdownStyle`](/android/api-reference/markdown-theme) is real wor
 Two habits keep that off your critical path:
 
 - **Hoist styles to file scope.** A style built inside a composable body is reallocated on every recomposition. Equal layers do compare equal, so nothing re-resolves - but `MarkdownTheme` is backed by a *static* composition local, where an unstable value recomposes the entire subtree rather than just its readers.
-- **Use [`rememberMarkdownStyle`](/android/api-reference/markdown-theme#remembermarkdownstyle) when the style reads `MaterialTheme`.** It rebuilds on a color-scheme change and reuses the result otherwise.
+- **Remember a style that reads `MaterialTheme`.** Read the color scheme first and build the style in `remember`, keyed on it, so it rebuilds on a color-scheme change and is reused otherwise. [`rememberMaterialMarkdownStyle`](/android/api-reference/markdown-theme#materialmarkdownstyle) does this for a style colored from the whole scheme.
 
-Changing `markdown` or [`flags`](/android/api-reference/enriched-markdown-text#flags) re-parses the document, so treat both as content rather than as values to churn per frame. A configuration change - rotation, theme switch, font-size change - re-renders too, because layout depends on the width and density it was measured at.
+Changing `markdown` or [`options`](/android/api-reference/enriched-markdown-text#options) re-parses the document, so treat both as content rather than as values to churn per frame. A configuration change - rotation, theme switch, font-size change - re-renders too, because layout depends on the width and density it was measured at.
 
 ## Accessibility
 
