@@ -20,6 +20,7 @@ import com.swmansion.enriched.markdown.input.spans.applyBodyLineHeightSpan
 import com.swmansion.enriched.markdown.input.spans.bodyLineMinimumFontMetrics
 import com.swmansion.enriched.markdown.utils.input.MarkdownStyleParser
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 
 object InputMeasurementStore {
   private data class MeasurementInput(
@@ -40,8 +41,19 @@ object InputMeasurementStore {
 
   private val data = ConcurrentHashMap<Int, MeasurementParams>()
 
-  // The largest content height, in px, that Yoga last allowed each input.
-  private val maxHeights = ConcurrentHashMap<Int, Float>()
+  /**
+   * How Yoga last sized an input, in px. [laidOutHeight] is set when the committed
+   * layout differs from what [measuredHeight] asked for: Yoga sized the view
+   * without consulting measure (a fixed or stretched height), so [maxHeight] from
+   * an older measure is stale.
+   */
+  private data class HeightBounds(
+    val maxHeight: Float,
+    val measuredHeight: Float,
+    val laidOutHeight: Float? = null,
+  )
+
+  private val heightBounds = ConcurrentHashMap<Int, HeightBounds>()
 
   internal fun store(
     id: Int,
@@ -76,15 +88,30 @@ object InputMeasurementStore {
 
   fun release(id: Int) {
     data.remove(id)
-    maxHeights.remove(id)
+    heightBounds.remove(id)
   }
 
   /**
-   * The largest content height, in px, that Yoga allowed the input in its last
-   * measure: infinite when nothing constrains its height (it grows with its
-   * text), or the max/fixed height otherwise. Null before the first measure.
+   * The largest content height, in px, the input can grow to: infinite when
+   * nothing constrains its height (it grows with its text), or the max/fixed
+   * height otherwise. Null before the first measure.
    */
-  fun getMaxHeight(id: Int): Float? = maxHeights[id]
+  fun getMaxHeight(id: Int): Float? = heightBounds[id]?.let { it.laidOutHeight ?: it.maxHeight }
+
+  /**
+   * Records the content height, in px, Yoga committed for the input. When it
+   * doesn't match the last measure, Yoga sized the view on its own and won't ask
+   * again until the style or constraints change, so that height is the limit.
+   */
+  fun onLaidOut(
+    id: Int,
+    contentHeight: Float,
+  ) {
+    heightBounds.computeIfPresent(id) { _, bounds ->
+      val sizedByMeasure = abs(contentHeight - bounds.measuredHeight) <= LAYOUT_ROUNDING_TOLERANCE_PX
+      bounds.copy(laidOutHeight = if (sizedByMeasure) null else contentHeight)
+    }
+  }
 
   fun getMeasureById(
     context: Context,
@@ -95,17 +122,33 @@ object InputMeasurementStore {
     props: ReadableMap?,
   ): Long {
     val size = getMeasureByIdInternal(context, id, width, props)
+    val finalSize =
+      if (heightMode === YogaMeasureMode.AT_MOST) {
+        val calculatedHeight = YogaMeasureOutput.getHeight(size)
+        val atMostHeight = PixelUtil.toDIPFromPixel(height)
+        YogaMeasureOutput.make(YogaMeasureOutput.getWidth(size), calculatedHeight.coerceAtMost(atMostHeight))
+      } else {
+        size
+      }
     if (id != null) {
-      maxHeights[id] = if (heightMode == YogaMeasureMode.UNDEFINED) Float.POSITIVE_INFINITY else height
+      recordMeasure(id, heightMode, height, PixelUtil.toPixelFromDIP(YogaMeasureOutput.getHeight(finalSize)))
     }
-    if (heightMode !== YogaMeasureMode.AT_MOST) {
-      return size
-    }
+    return finalSize
+  }
 
-    val calculatedHeight = YogaMeasureOutput.getHeight(size)
-    val atMostHeight = PixelUtil.toDIPFromPixel(height)
-    val finalHeight = calculatedHeight.coerceAtMost(atMostHeight)
-    return YogaMeasureOutput.make(YogaMeasureOutput.getWidth(size), finalHeight)
+  private fun recordMeasure(
+    id: Int,
+    heightMode: YogaMeasureMode?,
+    height: Float,
+    measuredHeight: Float,
+  ) {
+    val maxHeight = if (heightMode == YogaMeasureMode.UNDEFINED) Float.POSITIVE_INFINITY else height
+    heightBounds.compute(id) { _, previous ->
+      // A new measured height means Yoga is sizing the view to its text again,
+      // so an older laid-out height no longer applies.
+      val laidOutHeight = previous?.laidOutHeight?.takeIf { previous.measuredHeight == measuredHeight }
+      HeightBounds(maxHeight, measuredHeight, laidOutHeight)
+    }
   }
 
   private fun getMeasureByIdInternal(
@@ -235,4 +278,8 @@ object InputMeasurementStore {
   private fun ReadableMap.positiveFloat(key: String): Float? = if (hasKey(key)) getDouble(key).toFloat().takeIf { it > 0f } else null
 
   private const val DEFAULT_FONT_SIZE_SP = 16f
+
+  // Yoga snaps layout to whole pixels, so a view sized by measure can differ
+  // from the measured height by up to a pixel.
+  private const val LAYOUT_ROUNDING_TOLERANCE_PX = 1f
 }

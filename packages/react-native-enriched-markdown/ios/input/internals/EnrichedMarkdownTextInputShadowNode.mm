@@ -55,16 +55,26 @@ Size EnrichedMarkdownTextInputShadowNode::measureContent(const LayoutContext &la
       (RCTInternalGenericWeakWrapper *)unwrapManagedObject(getStateData().getComponentViewRef());
   EnrichedMarkdownTextInput *view = weakWrapper ? (EnrichedMarkdownTextInput *)weakWrapper.object : nil;
 
-  __block CGSize size;
+  __block Float clampedWidth;
+  __block Float clampedHeight;
 
   void (^measureBlock)(void) = ^{
+    CGSize size;
     if (view) {
-      view.maxContentHeight = layoutConstraints.maximumSize.height;
       size = [view measureSize:maxWidth];
     } else {
       EnrichedMarkdownTextInput *mockView = setupMockInputView_(maxWidth);
       size = [mockView measureSize:maxWidth];
     }
+
+    clampedWidth = std::max((Float)size.width, layoutConstraints.minimumSize.width);
+    clampedWidth = std::min(clampedWidth, layoutConstraints.maximumSize.width);
+    clampedHeight = std::max((Float)size.height, layoutConstraints.minimumSize.height);
+    if (std::isfinite(layoutConstraints.maximumSize.height)) {
+      clampedHeight = std::min(clampedHeight, layoutConstraints.maximumSize.height);
+    }
+
+    [view didMeasureWithMaxHeight:layoutConstraints.maximumSize.height measuredHeight:clampedHeight];
   };
 
   if ([NSThread isMainThread]) {
@@ -73,12 +83,6 @@ Size EnrichedMarkdownTextInputShadowNode::measureContent(const LayoutContext &la
     dispatch_sync(dispatch_get_main_queue(), measureBlock);
   }
 
-  Float clampedWidth = std::max((Float)size.width, layoutConstraints.minimumSize.width);
-  clampedWidth = std::min(clampedWidth, layoutConstraints.maximumSize.width);
-  Float clampedHeight = std::max((Float)size.height, layoutConstraints.minimumSize.height);
-  if (std::isfinite(layoutConstraints.maximumSize.height)) {
-    clampedHeight = std::min(clampedHeight, layoutConstraints.maximumSize.height);
-  }
   return {clampedWidth, clampedHeight};
 }
 

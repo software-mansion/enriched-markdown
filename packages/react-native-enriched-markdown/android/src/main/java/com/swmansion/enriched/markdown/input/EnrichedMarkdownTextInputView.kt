@@ -364,6 +364,17 @@ class EnrichedMarkdownTextInputView(
     super.scrollTo(x, if (textFitsMaxHeight) 0 else y)
   }
 
+  override fun onLayout(
+    changed: Boolean,
+    left: Int,
+    top: Int,
+    right: Int,
+    bottom: Int,
+  ) {
+    super.onLayout(changed, left, top, right, bottom)
+    InputMeasurementStore.onLaidOut(id, (bottom - top - paddingTop - paddingBottom).toFloat())
+  }
+
   override fun canScrollVertically(direction: Int): Boolean = scrollEnabled && super.canScrollVertically(direction)
 
   override fun canScrollHorizontally(direction: Int): Boolean = scrollEnabled && super.canScrollHorizontally(direction)
