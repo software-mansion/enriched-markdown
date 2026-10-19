@@ -67,6 +67,19 @@ function initializeParser(): Promise<ParseFn> {
   return parserPromise;
 }
 
+// Starts the WASM load ahead of the first parse, so that parse settles in
+// microtasks. Skipped without a `window` (SSR), where no editor will mount.
+export function preloadParser(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve();
+  }
+  // A failure is left to the first real parse, which retries the load.
+  return initializeParser().then(
+    () => {},
+    () => {}
+  );
+}
+
 function isASTNode(value: unknown): value is ASTNode {
   return (
     typeof value === 'object' &&

@@ -17,7 +17,7 @@ function mount(
   const root = document.createElement('div');
   document.body.appendChild(root);
   const renderer = new DomRenderer(root);
-  renderer.render(text, projectParagraphs(text, formatting, blocks));
+  renderer.render(projectParagraphs(text, formatting, blocks));
   return { root, mapper: new SelectionMapper(root, renderer) };
 }
 

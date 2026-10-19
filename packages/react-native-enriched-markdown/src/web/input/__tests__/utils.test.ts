@@ -71,6 +71,18 @@ describe('grapheme stepping', () => {
     expect(graphemeLengthBefore('a\nb', 2)).toBe(1);
     expect(graphemeLengthAfter('a\nb', 1)).toBe(1);
   });
+
+  // Regional indicators pair from the start of the run, so after an odd one
+  // in front of seventeen flags the last indicator stands alone. Segmenting
+  // from a window start inside the run pairs them from the wrong end, and a
+  // Backspace then deletes half of each of two flags.
+  it('pairs a run of regional indicators from its start', () => {
+    const flag = '\u{1F1F5}\u{1F1F1}';
+    const text = 'x\u{1F1F5}' + flag.repeat(17);
+    expect(graphemeLengthBefore(text, text.length)).toBe(2);
+    expect(graphemeLengthBefore(text, 5)).toBe(4);
+    expect(graphemeLengthAfter(text, 5)).toBe(4);
+  });
 });
 
 // No lone surrogate on either end: a half pair is not text, and the stores

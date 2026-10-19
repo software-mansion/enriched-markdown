@@ -1,6 +1,7 @@
 import {
   BlockStore,
   lineAtPosition,
+  type LineBlock,
   linesTouching,
   paragraphBounds,
 } from '../BlockStore';
@@ -33,6 +34,22 @@ describe('paragraphBounds', () => {
   it('clamps out-of-range positions and handles empty text', () => {
     expect(paragraphBounds(-5, 999, text)).toEqual({ start: 0, end: 21 });
     expect(paragraphBounds(3, 3, '')).toEqual({ start: 0, end: 0 });
+  });
+
+  it('does not treat a leading newline as the end of a line before position 0', () => {
+    expect(paragraphBounds(0, 0, '\nab')).toEqual({ start: 0, end: 0 });
+    expect(paragraphBounds(1, 1, '\nab')).toEqual({ start: 1, end: 3 });
+  });
+
+  it('resolves positions between consecutive newlines to their empty lines', () => {
+    // 'a\n\n\nb': position 1 ends line "a"; 2 and 3 are the empty lines.
+    expect(paragraphBounds(1, 1, 'a\n\n\nb')).toEqual({ start: 0, end: 1 });
+    expect(paragraphBounds(2, 2, 'a\n\n\nb')).toEqual({ start: 2, end: 2 });
+    expect(paragraphBounds(3, 3, 'a\n\n\nb')).toEqual({ start: 3, end: 3 });
+  });
+
+  it('resolves the end of text after a trailing newline to the empty last line', () => {
+    expect(paragraphBounds(3, 3, 'ab\n')).toEqual({ start: 3, end: 3 });
   });
 });
 
@@ -107,6 +124,18 @@ describe('BlockStore', () => {
     store = new BlockStore();
   });
 
+  // The empty-editor check: a zero-length anchor on an empty line still
+  // counts, so the placeholder does not cover its marker.
+  it('isEmpty is false while any block, even an anchor, remains', () => {
+    expect(store.isEmpty).toBe(true);
+
+    store.setRanges([block('unordered-list-item', 0, 0)]);
+    expect(store.isEmpty).toBe(false);
+
+    store.clearAll();
+    expect(store.isEmpty).toBe(true);
+  });
+
   it('blockAt finds the block from any position on its line', () => {
     store.setRanges([block('h1', 0, 9), block('unordered-list-item', 10, 16)]);
 
@@ -119,6 +148,25 @@ describe('BlockStore', () => {
     store.setRanges([block('h1', 0, 9)]);
 
     expect(store.blockAt(19, text)).toBeNull();
+  });
+
+  it('blockAt finds an anchor on an empty line and the block at the end of text', () => {
+    store.setRanges([
+      block('unordered-list-item', 17, 17),
+      block('h2', 18, 21),
+    ]);
+
+    expect(store.blockAt(17, text)?.type).toBe('unordered-list-item');
+    expect(store.blockAt(21, text)?.type).toBe('h2');
+    expect(store.blockAt(999, text)?.type).toBe('h2');
+  });
+
+  it('blockAt at position 0 ignores a leading newline', () => {
+    store.setRanges([block('h1', 0, 0), block('h2', 1, 3)]);
+
+    expect(store.blockAt(0, '\nab')?.type).toBe('h1');
+    expect(store.blockAt(-3, '\nab')?.type).toBe('h1');
+    expect(store.blockAt(1, '\nab')?.type).toBe('h2');
   });
 
   it('blockStartingAt finds the block by its exact line start', () => {
@@ -138,7 +186,7 @@ describe('BlockStore', () => {
   });
 
   it('setBlock claims the whole line from a caret position', () => {
-    store.setBlock('h2', 2, 4, 4, text);
+    store.edit(text, (w) => w.setBlock('h2', 2, 4, 4));
 
     expect(store.allRanges).toEqual([block('h2', 0, 9, 2)]);
   });
@@ -146,7 +194,7 @@ describe('BlockStore', () => {
   it('setBlock replaces whatever block covered those lines', () => {
     store.setRanges([block('h1', 0, 9), block('unordered-list-item', 10, 16)]);
 
-    store.setBlock('ordered-list-item', 0, 12, 12, text);
+    store.edit(text, (w) => w.setBlock('ordered-list-item', 0, 12, 12));
 
     expect(store.allRanges).toEqual([
       block('h1', 0, 9),
@@ -155,11 +203,11 @@ describe('BlockStore', () => {
   });
 
   it('setBlock on an empty line creates an anchor only for anchored types', () => {
-    store.setBlock('h1', 1, 17, 17, text);
+    store.edit(text, (w) => w.setBlock('h1', 1, 17, 17));
     expect(store.allRanges).toEqual([block('h1', 17, 17, 1)]);
 
     store.clearAll();
-    store.setBlock('paragraph', 0, 17, 17, text);
+    store.edit(text, (w) => w.setBlock('paragraph', 0, 17, 17));
     expect(store.allRanges).toEqual([]);
   });
 
@@ -171,7 +219,7 @@ describe('BlockStore', () => {
     ]);
 
     // Caret in the middle of line 1 represents the whole line.
-    store.removeBlock(4, 4, text);
+    store.edit(text, (w) => w.removeBlock(4, 4));
 
     expect(store.allRanges).toEqual([
       block('unordered-list-item', 10, 16),
@@ -183,16 +231,53 @@ describe('BlockStore', () => {
     // Toggle-off on an empty heading: only the anchor exists there.
     store.setRanges([block('h1', 0, 9), block('h2', 17, 17)]);
 
-    store.removeBlock(17, 17, text);
+    store.edit(text, (w) => w.removeBlock(17, 17));
 
     expect(store.allRanges).toEqual([block('h1', 0, 9)]);
   });
 
+  it('removeBlock leaves the anchors on the empty lines around its line', () => {
+    // "a\n\nb\n\nc": 0-1 | 2 (empty) | 3-4 | 5 (empty) | 6-7
+    const lines = 'a\n\nb\n\nc';
+    store.setRanges([
+      block('h1', 0, 1, 1),
+      block('h2', 2, 2, 2),
+      block('h1', 3, 4, 1),
+      block('h2', 5, 5, 2),
+      block('h1', 6, 7, 1),
+    ]);
+
+    store.edit(lines, (w) => w.removeBlock(3, 3));
+    expect(store.allRanges).toEqual([
+      block('h1', 0, 1, 1),
+      block('h2', 2, 2, 2),
+      block('h2', 5, 5, 2),
+      block('h1', 6, 7, 1),
+    ]);
+
+    store.edit(lines, (w) => w.removeBlock(2, 2));
+    expect(store.allRanges).toEqual([
+      block('h1', 0, 1, 1),
+      block('h2', 5, 5, 2),
+      block('h1', 6, 7, 1),
+    ]);
+  });
+
+  // Mid-edit, before the normalize: Enter continuing a list writes the fresh
+  // line while the split item still spans the newline.
+  it('setBlock replaces a block still reaching in from the line above', () => {
+    store.setRanges([block('unordered-list-item', 0, 4)]);
+
+    store.edit('ab\ncd', (w) => w.setBlock('h1', 1, 3, 3));
+
+    expect(store.allRanges).toEqual([block('h1', 3, 5, 1)]);
+  });
+
   it('adjustForEdit grows the edited block and shifts the following ones', () => {
+    // "Title1\nitem2", two chars typed inside the heading.
     store.setRanges([block('h2', 0, 6), block('ordered-list-item', 7, 12)]);
 
-    // Two chars typed inside the heading.
-    store.adjustForEdit(3, 0, 2);
+    store.edit('TitXXle1\nitem2', (w) => w.adjustForEdit(3, 0, 2));
 
     expect(store.allRanges).toEqual([
       block('h2', 0, 8),
@@ -201,22 +286,21 @@ describe('BlockStore', () => {
   });
 
   it('adjustForEdit clips a block whose tail the delete eats into', () => {
+    // "abcd\nefgh" -> "ab\nefgh"
     store.setRanges([block('h1', 0, 4), block('h2', 5, 9)]);
 
-    store.adjustForEdit(2, 2, 0);
+    store.edit('ab\nefgh', (w) => w.adjustForEdit(2, 2, 0));
 
     expect(store.allRanges).toEqual([block('h1', 0, 2), block('h2', 3, 7)]);
   });
 
   it('a char typed at the line start joins the block once normalized', () => {
-    // The insert shifts the range off the line start; normalizeToLineBounds
-    // snaps it back over the typed char.
+    // The insert shifts the range off the line start; the normalize at the
+    // end of `edit` snaps it back over the typed char.
     store.setRanges([block('h2', 0, 5)]); // "Title" on line 1
 
-    store.adjustForEdit(0, 0, 1);
-    expect(store.allRanges).toEqual([block('h2', 1, 6)]);
+    store.edit('XTitle\nbody', (w) => w.adjustForEdit(0, 0, 1));
 
-    store.normalizeToLineBounds('XTitle\nbody');
     expect(store.allRanges).toEqual([block('h2', 0, 6)]);
   });
 
@@ -226,8 +310,7 @@ describe('BlockStore', () => {
     // shifts instead of growing the range.
     store.setRanges([block('h2', 0, 5)]);
 
-    store.adjustForEdit(0, 0, 1);
-    store.normalizeToLineBounds('\nTitle\nbody');
+    store.edit('\nTitle\nbody', (w) => w.adjustForEdit(0, 0, 1));
 
     expect(store.allRanges).toEqual([block('h2', 1, 6)]);
   });
@@ -236,13 +319,8 @@ describe('BlockStore', () => {
     // "aaaa\n\nbbbb": a paragraph on line 1, an empty heading anchor on line 2.
     store.setRanges([block('paragraph', 0, 4), block('h2', 5, 5)]);
 
-    store.adjustForEdit(5, 0, 1);
-    expect(store.allRanges).toEqual([
-      block('paragraph', 0, 4),
-      block('h2', 5, 5),
-    ]);
+    store.edit('aaaa\nX\nbbbb', (w) => w.adjustForEdit(5, 0, 1));
 
-    store.normalizeToLineBounds('aaaa\nX\nbbbb');
     expect(store.allRanges).toEqual([
       block('paragraph', 0, 4),
       block('h2', 5, 6),
@@ -253,7 +331,7 @@ describe('BlockStore', () => {
     // Autocorrect swaps the whole heading text for a same-length word.
     store.setRanges([block('h2', 0, 6)]);
 
-    store.adjustForEdit(0, 6, 6);
+    store.edit('Header', (w) => w.adjustForEdit(0, 6, 6));
 
     expect(store.allRanges).toEqual([block('h2', 0, 6)]);
   });
@@ -261,8 +339,9 @@ describe('BlockStore', () => {
   it('adjustForEdit collapses a block emptied exactly to its end into an anchor', () => {
     store.setRanges([block('h2', 0, 6), block('ordered-list-item', 7, 12)]);
 
-    // The whole list item content deleted; its line (the newline) survives.
-    store.adjustForEdit(7, 5, 0);
+    // "Title1\nitem2": the whole list item content deleted; its line (the
+    // newline) survives.
+    store.edit('Title1\n', (w) => w.adjustForEdit(7, 5, 0));
 
     expect(store.allRanges).toEqual([
       block('h2', 0, 6),
@@ -277,8 +356,9 @@ describe('BlockStore', () => {
       block('ordered-list-item', 20, 20),
     ]);
 
-    // Replace chars 8-15 with two chars (delta -5).
-    store.adjustForEdit(8, 7, 2);
+    // "\naaaaaaaa\n\nbbbbbbbb\n": empty lines at 0, 10 and 20. Replace chars
+    // 8-15 with two chars (delta -5), deleting the line at 10.
+    store.edit('\naaaaaaaXYbbbb\n', (w) => w.adjustForEdit(8, 7, 2));
 
     expect(store.allRanges).toEqual([
       block('h1', 0, 0),
@@ -286,54 +366,49 @@ describe('BlockStore', () => {
     ]);
   });
 
-  it('normalizeToLineBounds snaps ranges to their full lines', () => {
+  it('edit normalizes: snaps ranges to their full lines', () => {
     // Math left the heading covering only part of line 1 and leaking a char.
     store.setRanges([block('h2', 1, 5, 2)]);
 
-    store.normalizeToLineBounds(text);
+    store.edit(text, () => {});
 
     expect(store.allRanges).toEqual([block('h2', 0, 9, 2)]);
   });
 
-  it('normalizeToLineBounds clips a block split by a newline to its first line', () => {
+  it('edit normalizes: clips a block split by a newline to its first line', () => {
     // An Enter typed inside the heading stretched its range across two lines.
     store.setRanges([block('h1', 0, 14)]);
 
-    store.normalizeToLineBounds(text);
+    store.edit(text, () => {});
 
     expect(store.allRanges).toEqual([block('h1', 0, 9)]);
   });
 
-  it('normalizeToLineBounds drops the duplicate after a line join', () => {
+  it('edit normalizes: drops the duplicate after a line join', () => {
     // Backspace joined two heading lines: both ranges resolve to line 1.
     store.setRanges([block('h1', 0, 4), block('h2', 5, 9)]);
 
-    store.normalizeToLineBounds(text);
+    store.edit(text, () => {});
 
     expect(store.allRanges).toEqual([block('h1', 0, 9)]);
   });
 
-  it('normalizeToLineBounds resolves a shared start in favour of the earlier range', () => {
+  it('edit normalizes: resolves a shared start in favour of the earlier range', () => {
     // Forward-delete on an empty heading line pulls the next line up, so the
     // anchor and the paragraph briefly share a start. The anchor is spliced
     // after the paragraph, so the paragraph wins the dedup and the emptied
     // heading goes away rather than claiming the text it absorbed.
     store.setRanges([block('h2', 0, 0), block('paragraph', 1, 5)]);
 
-    store.adjustForEdit(0, 1, 0);
-    expect(store.allRanges).toEqual([
-      block('paragraph', 0, 4),
-      block('h2', 0, 0),
-    ]);
+    store.edit('bbbb', (w) => w.adjustForEdit(0, 1, 0));
 
-    store.normalizeToLineBounds('bbbb');
     expect(store.allRanges).toEqual([block('paragraph', 0, 4)]);
   });
 
-  it('normalizeToLineBounds keeps anchored empties and drops the rest', () => {
+  it('edit normalizes: keeps anchored empties and drops the rest', () => {
     store.setRanges([block('h1', 17, 17), block('paragraph', 17, 17)]);
 
-    store.normalizeToLineBounds(text);
+    store.edit(text, () => {});
 
     expect(store.allRanges).toEqual([block('h1', 17, 17)]);
   });
@@ -405,7 +480,7 @@ describe('BlockStore', () => {
   it('setBlock renumbers the ordered run it joins', () => {
     store.setRanges([block('ordered-list-item', 0, 9)]);
 
-    store.setBlock('ordered-list-item', 0, 10, 10, text);
+    store.edit(text, (w) => w.setBlock('ordered-list-item', 0, 10, 10));
 
     expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2]);
   });
@@ -420,7 +495,7 @@ describe('BlockStore', () => {
     ]);
     expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2, 3]);
 
-    store.removeBlock(1, 1, lines);
+    store.edit(lines, (w) => w.removeBlock(1, 1));
 
     expect(store.allRanges.map((r) => [r.start, r.ordinal])).toEqual([
       [4, 1],
@@ -430,89 +505,275 @@ describe('BlockStore', () => {
 
   // The ancestry clamp overwrites `level`, so a pass over a chain with a hole
   // in it is destructive: the depth it flattens cannot be recovered once the
-  // hole is filled. Writing the lines in one batch is what keeps the order of
-  // the writes from deciding the result.
-  describe('batchWrites', () => {
-    // "a\nb\nc": 0-1 | 2-3 | 4-5
-    const lines = 'a\nb\nc';
-
-    // The guarantee a batch buys: the order the lines are written in stops
-    // deciding the result. Unbatched, writing the earlier line first
-    // recomputes across the hole where the later one is still missing and
-    // flattens the item below it.
-    it('gives the same result whichever order the lines are written in', () => {
-      // "a\nb" nested, then Enter at the end of line 1 opens a hole at the
-      // fresh line - the state the edit pipeline hands to a continuation.
-      const held = 'a\n\nb';
-      const build = (freshLineFirst: boolean) => {
-        const subject = new BlockStore();
-        subject.setRanges([
-          block('unordered-list-item', 0, 1, 0),
-          block('unordered-list-item', 2, 3, 1),
-        ]);
-        subject.adjustForEdit(1, 0, 1);
-        const writes = [
-          () => subject.setBlock('unordered-list-item', 0, 0, 0, held),
-          () => subject.setBlock('unordered-list-item', 0, 2, 2, held),
-        ];
-        subject.batchWrites(() => {
-          for (const write of freshLineFirst ? writes.reverse() : writes) {
-            write();
-          }
-        });
-        subject.normalizeToLineBounds(held);
-        return subject.allRanges.map((r) => [r.start, r.level]);
-      };
-
-      expect(build(true)).toEqual(build(false));
-      expect(build(false)).toEqual([
-        [0, 0],
-        [2, 0],
-        [3, 1],
+  // hole is filled. `edit` runs it only once every write is in, so the order
+  // of the writes cannot decide the result.
+  it('edit gives the same result whichever order the lines are written in', () => {
+    // "a\nb" nested, then Enter at the end of line 1 opens a hole at the fresh
+    // line - the state the edit pipeline hands to a continuation.
+    const held = 'a\n\nb';
+    const build = (freshLineFirst: boolean) => {
+      const subject = new BlockStore();
+      subject.setRanges([
+        block('unordered-list-item', 0, 1, 0),
+        block('unordered-list-item', 2, 3, 1),
       ]);
-    });
-
-    it('renumbers once the batch is done', () => {
-      store.batchWrites(() => {
-        store.setBlock('ordered-list-item', 0, 0, 0, lines);
-        store.setBlock('ordered-list-item', 0, 2, 2, lines);
-        store.setBlock('ordered-list-item', 0, 4, 4, lines);
+      subject.edit(held, (w) => {
+        w.adjustForEdit(1, 0, 1);
+        const writes = [
+          () => w.setBlock('unordered-list-item', 0, 0, 0),
+          () => w.setBlock('unordered-list-item', 0, 2, 2),
+        ];
+        for (const write of freshLineFirst ? writes.reverse() : writes) {
+          write();
+        }
       });
+      return subject.allRanges.map((r) => [r.start, r.level]);
+    };
 
-      expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2, 3]);
+    expect(build(true)).toEqual(build(false));
+    expect(build(false)).toEqual([
+      [0, 0],
+      [2, 0],
+      [3, 1],
+    ]);
+  });
+
+  it('edit renumbers once all writes are in', () => {
+    // "a\nb\nc": 0-1 | 2-3 | 4-5
+    store.edit('a\nb\nc', (w) => {
+      w.setBlock('ordered-list-item', 0, 0, 0);
+      w.setBlock('ordered-list-item', 0, 2, 2);
+      w.setBlock('ordered-list-item', 0, 4, 4);
     });
 
-    it('recomputes once for the outermost batch only', () => {
-      store.batchWrites(() => {
-        store.setBlock('ordered-list-item', 0, 0, 0, lines);
-        store.batchWrites(() => {
-          store.setBlock('ordered-list-item', 0, 2, 2, lines);
-        });
-        store.setBlock('ordered-list-item', 0, 4, 4, lines);
-      });
+    expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2, 3]);
+  });
 
-      expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2, 3]);
-    });
+  it('pruneOrphanedAnchors drops anchored blocks left mid-line and keeps line starts', () => {
+    // "ab\ncd": a heading merged into line 1 at 1, a list item at text start
+    // and one right after the newline.
+    store.setRanges([
+      block('unordered-list-item', 0, 1),
+      block('h1', 1, 2),
+      block('ordered-list-item', 3, 5),
+    ]);
 
-    // A write that throws must not leave the store with its metadata pass
-    // switched off for the rest of the session.
-    it('restores the metadata pass when a write throws', () => {
-      expect(() =>
-        store.batchWrites(() => {
-          throw new Error('write failed');
-        })
-      ).toThrow('write failed');
+    store.edit('ab\ncd', (w) => w.pruneOrphanedAnchors());
 
-      store.setBlock('ordered-list-item', 0, 0, 0, lines);
-      store.setBlock('ordered-list-item', 0, 2, 2, lines);
+    expect(store.allRanges.map((r) => [r.type, r.start])).toEqual([
+      ['unordered-list-item', 0],
+      ['ordered-list-item', 3],
+    ]);
+  });
 
-      expect(store.allRanges.map((r) => r.ordinal)).toEqual([1, 2]);
-    });
+  it('pruneOrphanedAnchors leaves non-anchored blocks wherever they start', () => {
+    store.setRanges([block('paragraph', 1, 2)]);
+
+    store.edit('ab', (w) => w.pruneOrphanedAnchors());
+
+    expect(store.allRanges).toHaveLength(1);
+  });
+
+  it('pruneOrphanedAnchors judges an anchor past the text at the text end', () => {
+    store.setRanges([block('h1', 9, 9)]);
+    store.edit('ab\n', (w) => w.pruneOrphanedAnchors());
+    expect(store.allRanges).toHaveLength(1);
+
+    store.setRanges([block('h1', 9, 9)]);
+    store.edit('ab', (w) => w.pruneOrphanedAnchors());
+    expect(store.allRanges).toHaveLength(0);
   });
 
   it('setRanges sorts incoming blocks by start', () => {
     store.setRanges([block('paragraph', 6, 11), block('h1', 0, 5)]);
 
     expect(store.allRanges.map((r) => r.start)).toEqual([0, 6]);
+  });
+});
+
+describe('BlockStore.rewriteLines', () => {
+  let store: BlockStore;
+
+  beforeEach(() => {
+    store = new BlockStore();
+  });
+
+  it('keeps, replaces or clears each line and leaves the rest alone', () => {
+    const kept = block('unordered-list-item', 10, 16);
+    store.setRanges([
+      block('h1', 0, 9, 1),
+      kept,
+      block('h2', 17, 17, 2),
+      block('ordered-list-item', 18, 21),
+    ]);
+    const seen: (string | null)[] = [];
+
+    store.edit(text, (w) =>
+      w.rewriteLines(
+        linesTouching({ start: 12, end: 19 }, text),
+        (line, existing) => {
+          seen.push(existing?.type ?? null);
+          if (line.start === 10) {
+            return existing;
+          }
+          if (line.start === 17) {
+            return null;
+          }
+          return { type: 'unordered-list-item', level: 0 };
+        }
+      )
+    );
+
+    expect(seen).toEqual(['unordered-list-item', 'h2', 'ordered-list-item']);
+    expect(store.allRanges).toEqual([
+      block('h1', 0, 9, 1),
+      block('unordered-list-item', 10, 16),
+      block('unordered-list-item', 18, 21),
+    ]);
+    expect(store.allRanges[1]).toBe(kept);
+  });
+
+  it('writes an empty line as an anchor only for anchored types', () => {
+    const lines = linesTouching({ start: 10, end: 21 }, text);
+
+    store.edit(text, (w) =>
+      w.rewriteLines(lines, () => ({ type: 'paragraph', level: 0 }))
+    );
+    expect(store.allRanges.map((r) => [r.start, r.end])).toEqual([
+      [10, 16],
+      [18, 21],
+    ]);
+
+    store.edit(text, (w) =>
+      w.rewriteLines(lines, () => ({ type: 'h2', level: 2 }))
+    );
+    expect(store.allRanges).toEqual([
+      block('h2', 10, 16, 2),
+      block('h2', 17, 17, 2),
+      block('h2', 18, 21, 2),
+    ]);
+  });
+
+  it('rewrites a select-all far past the argument-spread limit', () => {
+    const many = Array.from({ length: 200_000 }, () => 'x').join('\n');
+
+    store.edit(many, (w) =>
+      w.rewriteLines(
+        linesTouching({ start: 0, end: many.length }, many),
+        () => ({
+          type: 'unordered-list-item',
+          level: 0,
+        })
+      )
+    );
+
+    expect(store.allRanges).toHaveLength(200_000);
+  });
+
+  // Seeded random documents: one block per line at most, so the expected
+  // result is the per-line decisions laid over the untouched lines.
+  // `setBlock`/`removeBlock` line by line must agree with it too.
+  it('agrees with a per-line model, as does setBlock/removeBlock per line', () => {
+    let seed = 1014;
+    const random = () => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31;
+      return seed / 2 ** 31;
+    };
+    const pick = <T>(options: readonly T[]): T =>
+      options[Math.floor(random() * options.length)]!;
+    const lineBlocks: readonly LineBlock[] = [
+      null,
+      { type: 'h2', level: 2 },
+      { type: 'paragraph', level: 0 },
+      { type: 'unordered-list-item', level: 0 },
+      { type: 'unordered-list-item', level: 1 },
+      { type: 'ordered-list-item', level: 2 },
+    ];
+    const choices: readonly ('keep' | LineBlock)[] = ['keep', ...lineBlocks];
+
+    for (let round = 0; round < 300; round++) {
+      const doc = Array.from({ length: 1 + Math.floor(random() * 20) }, () =>
+        random() < 0.25 ? '' : 'x'.repeat(1 + Math.floor(random() * 3))
+      ).join('\n');
+      const allLines = linesTouching({ start: 0, end: doc.length }, doc);
+      const drawn = new Map<number, LineBlock>();
+      for (const line of allLines) {
+        const choice = pick(lineBlocks);
+        if (
+          choice !== null &&
+          (line.end > line.start || choice.type !== 'paragraph')
+        ) {
+          drawn.set(line.start, choice);
+        }
+      }
+      const toRanges = (blocks: Map<number, LineBlock>) =>
+        allLines.flatMap((line) => {
+          const b = blocks.get(line.start);
+          return b ? [block(b.type, line.start, line.end, b.level)] : [];
+        });
+      // Start from the depths the ancestry clamp leaves: it overwrites them,
+      // so the drawn ones are gone once they are stored.
+      const seeded = new BlockStore();
+      seeded.setRanges(toRanges(drawn));
+      const initial = new Map<number, LineBlock>(
+        seeded.allRanges.map((r) => [r.start, { type: r.type, level: r.level }])
+      );
+
+      const a = Math.floor(random() * (doc.length + 1));
+      const b = Math.floor(random() * (doc.length + 1));
+      const selected = linesTouching(
+        { start: Math.min(a, b), end: Math.max(a, b) },
+        doc
+      );
+      const decisions = new Map(selected.map((l) => [l.start, pick(choices)]));
+
+      const expected = new Map(initial);
+      for (const [start, choice] of decisions) {
+        if (choice === 'keep') {
+          continue;
+        }
+        const line = selected.find((l) => l.start === start)!;
+        if (
+          choice === null ||
+          (line.end === line.start && choice.type === 'paragraph')
+        ) {
+          expected.delete(start);
+        } else {
+          expected.set(start, choice);
+        }
+      }
+      const model = new BlockStore();
+      model.setRanges(toRanges(expected));
+
+      const bulk = new BlockStore();
+      bulk.setRanges(toRanges(initial));
+      bulk.edit(doc, (w) =>
+        w.rewriteLines(selected, (line, existing) => {
+          const choice = decisions.get(line.start)!;
+          return choice === 'keep' ? existing : choice;
+        })
+      );
+
+      const perLine = new BlockStore();
+      perLine.setRanges(toRanges(initial));
+      perLine.edit(doc, (w) => {
+        for (const line of selected) {
+          const choice = decisions.get(line.start)!;
+          if (choice === null) {
+            w.removeBlock(line.start, line.start);
+          } else if (choice !== 'keep') {
+            w.setBlock(choice.type, choice.level, line.start, line.start);
+          }
+        }
+      });
+
+      const context = JSON.stringify({
+        doc,
+        initial: [...initial],
+        decisions: [...decisions],
+      });
+      expect([context, bulk.allRanges]).toEqual([context, model.allRanges]);
+      expect([context, perLine.allRanges]).toEqual([context, model.allRanges]);
+    }
   });
 });

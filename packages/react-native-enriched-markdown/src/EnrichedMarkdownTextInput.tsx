@@ -14,6 +14,7 @@ import EnrichedMarkdownTextInputNativeComponent, {
   type OnChangeMarkdownEvent,
   type OnChangeSelectionEvent,
   type OnChangeStateEvent,
+  type OnChangeHistoryStateEvent,
   type OnKeyPressEvent,
   type OnRequestMarkdownResultEvent,
   type OnRequestCaretRectResultEvent,
@@ -53,6 +54,7 @@ import type { RefObject } from 'react';
 import type {
   CaretRect,
   HeadingLevel,
+  HistoryState,
   MarkdownTextInputInstance,
   StyleState,
 } from './types/MarkdownTextInputInstance';
@@ -64,7 +66,7 @@ import type {
 
 type NativeRef = HostInstance;
 
-export type { HeadingLevel, StyleState, CaretRect };
+export type { HeadingLevel, HistoryState, StyleState, CaretRect };
 export type { HeadingStyle, LinkStyle, MarkdownTextInputStyle };
 export type EnrichedMarkdownTextInputInstance =
   MarkdownTextInputInstance<HostInstance>;
@@ -166,6 +168,11 @@ export interface EnrichedMarkdownTextInputProps
   onChangeMarkdown?: (markdown: string) => void;
   onChangeSelection?: (selection: { start: number; end: number }) => void;
   onChangeState?: (state: StyleState) => void;
+  /**
+   * Whether `undo()` and `redo()` have a step to take. Web-only for now:
+   * never called on iOS and Android.
+   */
+  onChangeHistoryState?: (state: HistoryState) => void;
   onKeyPress?: (e: NativeSyntheticEvent<OnKeyPressEvent>) => void;
   onCaretRectChange?: (rect: CaretRect) => void;
   onLinkDetected?: (event: OnLinkDetected) => void;
@@ -245,6 +252,7 @@ export const EnrichedMarkdownTextInput = ({
   onChangeMarkdown,
   onChangeSelection,
   onChangeState,
+  onChangeHistoryState,
   onKeyPress,
   onCaretRectChange,
   onLinkDetected,
@@ -455,6 +463,14 @@ export const EnrichedMarkdownTextInput = ({
     [onChangeState]
   );
 
+  const handleChangeHistoryState = useCallback(
+    (e: NativeSyntheticEvent<OnChangeHistoryStateEvent>) => {
+      const { canUndo, canRedo } = e.nativeEvent;
+      onChangeHistoryState?.({ canUndo, canRedo });
+    },
+    [onChangeHistoryState]
+  );
+
   const handleCaretRectChange = useCallback(
     (e: NativeSyntheticEvent<OnCaretRectChangeEvent>) => {
       const { x, y, width, height } = e.nativeEvent;
@@ -621,6 +637,8 @@ export const EnrichedMarkdownTextInput = ({
       startMention: (indicator) => Commands.startMention(commandRef, indicator),
       removeLink: () => Commands.removeLink(commandRef),
       copyToClipboard: () => Commands.copyToClipboard(commandRef),
+      undo: () => Commands.undo(commandRef),
+      redo: () => Commands.redo(commandRef),
       getMarkdown: () =>
         new Promise<string>((resolve, reject) => {
           const requestId = nextRequestId.current++;
@@ -662,6 +680,9 @@ export const EnrichedMarkdownTextInput = ({
         handleChangeSelection as NativeProps['onChangeSelection']
       }
       onChangeState={handleChangeState as NativeProps['onChangeState']}
+      onChangeHistoryState={
+        handleChangeHistoryState as NativeProps['onChangeHistoryState']
+      }
       onInputKeyPress={onKeyPress as NativeProps['onInputKeyPress']}
       onLinkDetected={handleLinkDetected as NativeProps['onLinkDetected']}
       onInputFocus={handleFocus as NativeProps['onInputFocus']}

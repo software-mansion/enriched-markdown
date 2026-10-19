@@ -1,6 +1,7 @@
 import type { LinkVariantStyle } from './types/MarkdownStyle';
 import type { LinkPillContent } from './types/MarkdownTextProps';
 import { normalizeColor } from './styleUtils';
+import { isDev } from './utils/isDev';
 
 type LinkPatternEntry<T> = [pattern: string, value: T];
 
@@ -34,7 +35,7 @@ export function normalizeLinkPatternEntries<T>(
       try {
         RegExp(pattern);
       } catch {
-        if (__DEV__) {
+        if (isDev) {
           console.warn(
             `${owner} pattern "${pattern}" is not a valid regex and will be ignored.`
           );
@@ -42,7 +43,7 @@ export function normalizeLinkPatternEntries<T>(
         return false;
       }
 
-      if (__DEV__) {
+      if (isDev) {
         warnAboutUnsafePattern(owner, pattern);
       }
       return true;

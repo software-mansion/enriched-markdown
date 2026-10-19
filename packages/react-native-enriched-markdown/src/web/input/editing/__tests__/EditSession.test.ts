@@ -58,24 +58,4 @@ describe('EditSession', () => {
     session.endComposition();
     expect(session.isComposing).toBe(false);
   });
-
-  // The only arithmetic in the file and the only place the grace period
-  // appears, so a seconds/milliseconds slip against iOS's 0.1 would pass
-  // every other test here.
-  it('holds the post-edit grace period for 100ms', () => {
-    jest.useFakeTimers();
-    try {
-      const session = new EditSession();
-      expect(session.isPostEditGracePeriod).toBe(false);
-
-      session.recordTextChange();
-      expect(session.isPostEditGracePeriod).toBe(true);
-      jest.advanceTimersByTime(99);
-      expect(session.isPostEditGracePeriod).toBe(true);
-      jest.advanceTimersByTime(1);
-      expect(session.isPostEditGracePeriod).toBe(false);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
 });

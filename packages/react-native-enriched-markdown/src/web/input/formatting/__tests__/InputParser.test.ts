@@ -120,6 +120,91 @@ describe('parseResultFromAst', () => {
 
     expect(parseResultFromAst(ast, 'pull\npush').plainText).toBe('pull\npush');
   });
+
+  it('starts a list on the top-level break without an extra newline', () => {
+    const ast = node('Document', [
+      node('Paragraph', [text('intro')]),
+      node('UnorderedList', [
+        node('ListItem', [node('Paragraph', [text('fetch')])]),
+        node('ListItem', [node('Paragraph', [text('merge')])]),
+      ]),
+      node('Paragraph', [text('done')]),
+    ]);
+
+    const result = parseResultFromAst(
+      ast,
+      'intro\n\n- fetch\n- merge\n\n\ndone'
+    );
+
+    expect(result.plainText).toBe('intro\n\nfetch\nmerge\n\n\ndone');
+    expect(result.blockRanges).toEqual([
+      block('unordered-list-item', 7, 12, 0),
+      block('unordered-list-item', 13, 18, 0),
+    ]);
+  });
+
+  it("puts an item's further paragraphs on their own lines", () => {
+    // - fetch
+    //
+    //   then rebase
+    // - push
+    const ast = node('Document', [
+      node('UnorderedList', [
+        node('ListItem', [
+          node('Paragraph', [text('fetch')]),
+          node('Paragraph', [text('then rebase')]),
+        ]),
+        node('ListItem', [node('Paragraph', [text('push')])]),
+      ]),
+    ]);
+
+    const result = parseResultFromAst(ast, '- fetch\n\n  then rebase\n- push');
+
+    expect(result.plainText).toBe('fetch\nthen rebase\npush');
+    expect(result.blockRanges).toEqual([
+      block('unordered-list-item', 0, 5, 0),
+      block('unordered-list-item', 18, 22, 0),
+    ]);
+  });
+
+  it("ends an item's range at a soft break inside its paragraph", () => {
+    // "- fetch\n then rebase": a lazy continuation of the item's paragraph.
+    const ast = node('Document', [
+      node('UnorderedList', [
+        node('ListItem', [
+          node('Paragraph', [
+            text('fetch'),
+            node('SoftBreak'),
+            text('then rebase'),
+          ]),
+        ]),
+      ]),
+    ]);
+
+    const result = parseResultFromAst(ast, '- fetch\n then rebase');
+
+    expect(result.plainText).toBe('fetch\nthen rebase');
+    expect(result.blockRanges).toEqual([block('unordered-list-item', 0, 5, 0)]);
+  });
+
+  it('keeps an empty item as a zero-length range on its own line', () => {
+    const ast = node('Document', [
+      node('OrderedList', [
+        node('ListItem', [node('Paragraph', [text('fetch')])]),
+        node('ListItem'),
+        node('ListItem', [node('Paragraph', [text('push')])]),
+      ]),
+    ]);
+
+    const result = parseResultFromAst(ast, '1. fetch\n2.\n3. push');
+
+    expect(result.plainText).toBe('fetch\n\npush');
+    expect(result.blockRanges).toEqual([
+      block('ordered-list-item', 0, 5, 0),
+      block('ordered-list-item', 6, 6, 0),
+      block('ordered-list-item', 7, 11, 0),
+    ]);
+  });
 });
 
 describe('parseToPlainTextAndRanges', () => {

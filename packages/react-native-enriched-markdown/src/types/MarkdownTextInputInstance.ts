@@ -19,6 +19,15 @@ export interface StyleState {
   orderedList: { isActive: boolean; depth: number };
 }
 
+/**
+ * Whether `undo()` and `redo()` have a step to take. Reported through
+ * `onChangeHistoryState`, which is web-only for now.
+ */
+export interface HistoryState {
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
 export interface CaretRect {
   x: number;
   y: number;
@@ -78,6 +87,10 @@ export interface MarkdownTextInputInstance<Node = unknown> {
   startMention: (indicator: string) => void;
   removeLink: () => void;
   copyToClipboard: () => void;
+  /** Web-only for now: a no-op on iOS and Android. */
+  undo: () => void;
+  /** Web-only for now: a no-op on iOS and Android. */
+  redo: () => void;
   getMarkdown: () => Promise<string>;
   getCaretRect: () => Promise<CaretRect>;
 }

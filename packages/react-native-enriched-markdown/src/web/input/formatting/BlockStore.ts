@@ -11,6 +11,8 @@ import { sortedInsertionIndex } from './rangeStoreUtils';
 import { clamp, firstIndexReachingTarget } from '../utils';
 import type { RangeBounds } from '../model/rangeBounds';
 
+const NEWLINE = 10;
+
 // Expands a selection to cover whole lines (line-scoped block boundaries).
 export function paragraphBounds(
   rangeStart: number,
@@ -24,15 +26,23 @@ export function paragraphBounds(
   const clampedStart = clamp(rangeStart, 0, text.length);
   const clampedEnd = clamp(rangeEnd, clampedStart, text.length);
 
-  let start = clampedStart;
-  while (start > 0 && text[start - 1] !== '\n') {
-    start--;
-  }
-  let end = clampedEnd;
-  while (end < text.length && text[end] !== '\n') {
-    end++;
-  }
-  return { start, end };
+  const nextNewline = text.indexOf('\n', clampedEnd);
+  return {
+    start: lineStartBefore(clampedStart, text),
+    end: nextNewline === -1 ? text.length : nextNewline,
+  };
+}
+
+// Start of the line holding `position`, which must already be in
+// [0, text.length]. Guarded at 0 because `lastIndexOf` clamps a negative
+// `fromIndex` to 0 and would match a leading newline.
+function lineStartBefore(position: number, text: string): number {
+  return position === 0 ? 0 : text.lastIndexOf('\n', position - 1) + 1;
+}
+
+// Whether `position` (in [0, text.length]) begins a line.
+function isLineStart(position: number, text: string): boolean {
+  return position === 0 || text.charCodeAt(position - 1) === NEWLINE;
 }
 
 // The line containing `position`.
@@ -57,15 +67,50 @@ export function linesTouching(
   }
 }
 
+// What `rewriteLines` puts on a line: a block (the existing one, returned as
+// is, stays untouched), or `null` for a plain paragraph.
+export type LineBlock = Pick<BlockRange, 'type' | 'level'> | null;
+
+// The writes available inside `BlockStore.edit`, all against the text that
+// call was given.
+export interface BlockWriter {
+  setBlock(
+    type: BlockType,
+    level: number,
+    paragraphStart: number,
+    paragraphEnd: number
+  ): void;
+  removeBlock(paragraphStart: number, paragraphEnd: number): void;
+  rewriteLines(
+    lines: readonly RangeBounds[],
+    blockFor: (line: RangeBounds, existing: BlockRange | null) => LineBlock
+  ): void;
+  adjustForEdit(
+    editLocation: number,
+    deletedLength: number,
+    insertedLength: number
+  ): void;
+  pruneOrphanedAnchors(): void;
+}
+
 // Stores the block-level (line-scoped) ranges for the editor, mirroring
 // FormattingStore. Block ranges never overlap: at most one block covers any
 // paragraph, and ranges stay normalized to whole-line boundaries.
+//
+// Every write goes through `edit`, which normalizes and recomputes list
+// metadata once all of them are in. The natives leave that normalize to each
+// caller; here it cannot be forgotten.
 export class BlockStore {
   private ranges: BlockRange[] = [];
-  private deferredRecomputes = 0;
 
-  get allRanges(): BlockRange[] {
-    return [...this.ranges];
+  // A live view, as on Android: read it right away and don't keep it across a
+  // write - some writes change the array in place, others swap it.
+  get allRanges(): readonly BlockRange[] {
+    return this.ranges;
+  }
+
+  get isEmpty(): boolean {
+    return this.ranges.length === 0;
   }
 
   // Incoming ranges are trusted to be non-overlapping and line-scoped — the
@@ -79,26 +124,33 @@ export class BlockStore {
     this.ranges = [];
   }
 
-  // Runs `writes` with the list-metadata pass held back until they are all in,
-  // then recomputes once. The ancestry clamp mutates `level` in place, so a
-  // pass over a half-written chain is destructive: it sees the gap where a
-  // line has not been written yet, flattens the item after it, and the
-  // finished chain can no longer tell what that depth was. Deferring also
-  // makes a multi-line write linear rather than one full pass per line.
-  batchWrites(writes: () => void): void {
-    this.deferredRecomputes++;
-    try {
-      writes();
-    } finally {
-      this.deferredRecomputes--;
-    }
-    this.recomputeListMetadata();
+  // Runs `writes` against `text` (the final buffer), then normalizes to line
+  // bounds and recomputes list metadata once. That pass runs only here and in
+  // `setRanges`: the ancestry clamp mutates `level` in place, so a pass over a
+  // half-written chain is destructive - it sees the gap where a line has not
+  // been written yet, or a merged block not yet stretched over its line,
+  // flattens the item after it, and the finished chain can no longer tell
+  // what that depth was. Reads (`blockAt`, `blockStartingAt`) are fine
+  // mid-edit, but list metadata is stale until `edit` returns. If a write
+  // throws, the normalize is skipped.
+  edit(text: string, writes: (writer: BlockWriter) => void): void {
+    writes({
+      setBlock: (type, level, paragraphStart, paragraphEnd) =>
+        this.setBlock(type, level, paragraphStart, paragraphEnd, text),
+      removeBlock: (paragraphStart, paragraphEnd) =>
+        this.removeBlock(paragraphStart, paragraphEnd, text),
+      rewriteLines: (lines, blockFor) => this.rewriteLines(lines, blockFor),
+      adjustForEdit: (editLocation, deletedLength, insertedLength) =>
+        this.adjustForEdit(editLocation, deletedLength, insertedLength),
+      pruneOrphanedAnchors: () => this.pruneOrphanedAnchors(text),
+    });
+    this.normalizeToLineBounds(text);
   }
 
   // Sets/replaces the block on every paragraph the given range touches,
   // expanding to whole-line boundaries. Removes any block previously covering
   // those paragraphs.
-  setBlock(
+  private setBlock(
     type: BlockType,
     level: number,
     paragraphStart: number,
@@ -106,27 +158,76 @@ export class BlockStore {
     text: string
   ): void {
     const { start, end } = paragraphBounds(paragraphStart, paragraphEnd, text);
-    this.removeBlocksOverlapping(start, end);
+    const [from, to] = this.overlapWindow(start, end);
     // An anchored block (heading, list item) on an empty line is kept as a
     // zero-length anchor; other blocks need real content. `paragraphBounds`
     // never returns an inverted range, so `end === start` is the empty line.
     if (end > start || ANCHORED_BLOCK_TYPES.has(type)) {
-      const block = createBlockRange(type, start, end, level);
-      this.ranges.splice(sortedInsertionIndex(this.ranges, start), 0, block);
+      this.ranges.splice(
+        from,
+        to - from,
+        createBlockRange(type, start, end, level)
+      );
+    } else {
+      this.ranges.splice(from, to - from);
     }
-    this.recomputeListMetadata();
   }
 
   // Clears any block on the paragraphs the given range touches, reverting
   // them to the implicit paragraph default.
-  removeBlock(
+  private removeBlock(
     paragraphStart: number,
     paragraphEnd: number,
     text: string
   ): void {
     const { start, end } = paragraphBounds(paragraphStart, paragraphEnd, text);
-    this.removeBlocksOverlapping(start, end);
-    this.recomputeListMetadata();
+    const [from, to] = this.overlapWindow(start, end);
+    this.ranges.splice(from, to - from);
+  }
+
+  // Rewrites the blocks over `lines` (consecutive, as `linesTouching` returns
+  // them) in one pass, for commands over a whole selection: `blockFor` says
+  // what each line carries, given the block starting there. Anything else
+  // the span overlaps goes, as with `setBlock` per line, which would copy or
+  // shift the array once per line.
+  private rewriteLines(
+    lines: readonly RangeBounds[],
+    blockFor: (line: RangeBounds, existing: BlockRange | null) => LineBlock
+  ): void {
+    const first = lines[0];
+    const last = lines[lines.length - 1];
+    if (first === undefined || last === undefined) {
+      return;
+    }
+    const [from, to] = this.overlapWindow(first.start, last.end);
+    const written: BlockRange[] = [];
+    let cursor = from;
+    for (const line of lines) {
+      while (cursor < to && this.ranges[cursor]!.start < line.start) {
+        cursor++;
+      }
+      const candidate = cursor < to ? this.ranges[cursor]! : null;
+      const existing = candidate?.start === line.start ? candidate : null;
+      const block = blockFor(line, existing);
+      if (block === null) {
+        continue;
+      }
+      if (block === existing) {
+        written.push(existing);
+      } else if (
+        line.end > line.start ||
+        ANCHORED_BLOCK_TYPES.has(block.type)
+      ) {
+        written.push(
+          createBlockRange(block.type, line.start, line.end, block.level)
+        );
+      }
+    }
+    // Not `splice(from, n, ...written)`: spreading a select-all's worth of
+    // blocks as arguments overflows the stack.
+    this.ranges = this.ranges
+      .slice(0, from)
+      .concat(written, this.ranges.slice(to));
   }
 
   // Drops anchored blocks (headings, list items) whose start is no longer at
@@ -139,19 +240,13 @@ export class BlockStore {
   // line it was merged into and spread it over that line's text, promoting a
   // plain paragraph into a heading or a bullet. Only the orphan goes - a
   // legitimate block on the merged-into line keeps its line.
-  pruneOrphanedAnchors(text: string): void {
-    const kept = this.ranges.filter((range) => {
+  private pruneOrphanedAnchors(text: string): void {
+    this.ranges = this.ranges.filter((range) => {
       if (!ANCHORED_BLOCK_TYPES.has(range.type)) {
         return true;
       }
-      const anchor = clamp(range.start, 0, text.length);
-      return paragraphBounds(anchor, anchor, text).start === anchor;
+      return isLineStart(clamp(range.start, 0, text.length), text);
     });
-    if (kept.length === this.ranges.length) {
-      return;
-    }
-    this.ranges = kept;
-    this.recomputeListMetadata();
   }
 
   // Snaps every stored range to the line bounds of its start position.
@@ -159,7 +254,7 @@ export class BlockStore {
   // duplicates. On an empty line an anchored block persists as a zero-length
   // anchor; any other collapsed range is dropped. Call after adjustForEdit
   // once `text` is final. Idempotent.
-  normalizeToLineBounds(text: string): void {
+  private normalizeToLineBounds(text: string): void {
     if (this.ranges.length === 0) {
       return;
     }
@@ -192,9 +287,6 @@ export class BlockStore {
   // orphan nesting) and renumbers ordered items among their adjacent
   // same-depth, same-type run.
   private recomputeListMetadata(): void {
-    if (this.deferredRecomputes > 0) {
-      return;
-    }
     let prevEnd = -2;
     let prevDepth = -1;
     const counters = new Array<number>(MAX_LIST_DEPTH + 1).fill(0);
@@ -237,19 +329,29 @@ export class BlockStore {
     }
   }
 
-  // Blocks never partially overlap, so a touched block is removed wholesale; a
-  // zero-length anchor is dropped when it sits within the bounds (so
-  // toggle-off clears an empty line).
-  private removeBlocksOverlapping(start: number, end: number): void {
-    this.ranges = this.ranges.filter(
-      (block) =>
-        !(
-          (block.end > start && block.start < end) ||
-          (block.end === block.start &&
-            block.start >= start &&
-            block.start <= end)
-        )
-    );
+  // The index window [from, to) of the blocks overlapping [start, end]: a
+  // block touching the bounds goes wholesale, and a zero-length anchor goes
+  // when it sits within them (so toggle-off clears an empty line). Blocks are
+  // sorted by start and never overlap, so the touched ones sit side by side,
+  // and only the one right before the first start at or past `start` can
+  // reach into the bounds from the left. Ends are not assumed line-snapped:
+  // mid-edit a block can still span the newline that just split its line.
+  private overlapWindow(start: number, end: number): [number, number] {
+    let from = sortedInsertionIndex(this.ranges, start - 1);
+    if (from > 0 && this.ranges[from - 1]!.end > start) {
+      from--;
+    }
+    let to = from;
+    while (to < this.ranges.length) {
+      const block = this.ranges[to]!;
+      const overlaps =
+        block.end === block.start ? block.start <= end : block.start < end;
+      if (!overlaps) {
+        break;
+      }
+      to++;
+    }
+    return [from, to];
   }
 
   // Shifts/clips block ranges to follow a text edit, with anchored-block
@@ -263,7 +365,7 @@ export class BlockStore {
   // character but breaks Enter at a line start: the block would stretch over
   // the new empty line, normalize to it, and strand the block as an empty
   // anchor while its own text on the next line lost the block.
-  adjustForEdit(
+  private adjustForEdit(
     editLocation: number,
     deletedLength: number,
     insertedLength: number
@@ -325,7 +427,9 @@ export class BlockStore {
 
   // The block on the line containing `position`, if any.
   blockAt(position: number, text: string): BlockRange | null {
-    return this.blockStartingAt(lineAtPosition(position, text).start);
+    return this.blockStartingAt(
+      lineStartBefore(clamp(position, 0, text.length), text)
+    );
   }
 
   // Starts are unique (one block per paragraph), so the first range reaching

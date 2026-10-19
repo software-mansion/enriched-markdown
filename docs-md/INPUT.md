@@ -231,6 +231,20 @@ The input's content can be copied to the system clipboard from a ref, without re
 
 On iOS and macOS the clipboard receives both plain text and a private Markdown pasteboard type, so pasting back into an `EnrichedMarkdownTextInput` restores the formatting; external apps receive plain text only. On Android the clipboard receives plain text only — inline styles are not preserved for any paste target.
 
+## Undo and Redo
+
+On web the input keeps its own undo history, and the ref's [`undo()`](API_REFERENCE.md#undo) and [`redo()`](API_REFERENCE.md#redo) step through it. [`onChangeHistoryState`](API_REFERENCE.md#onchangehistorystate) reports whether either has a step to take, so toolbar buttons can be disabled:
+
+```tsx
+const [history, setHistory] = useState({ canUndo: false, canRedo: false });
+
+<EnrichedMarkdownTextInput ref={ref} onChangeHistoryState={setHistory} />
+<Button title="Undo" disabled={!history.canUndo} onPress={() => ref.current?.undo()} />
+<Button title="Redo" disabled={!history.canRedo} onPress={() => ref.current?.redo()} />
+```
+
+Both methods and the event are web-only for now: on iOS and Android the methods do nothing and the event never fires. See [Web Support](WEB.md#undo-and-redo) for how the history behaves on web.
+
 ## Style Detection
 
 All of the above styles can be detected with the use of [onChangeState](API_REFERENCE.md#onchangestate) callback payload.

@@ -1451,6 +1451,16 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   copyItemsToPasteboard(items);
 }
 
+// TODO: model history (port of src/web/input/editing/EditHistory.ts). Until
+// then the commands do nothing and `onChangeHistoryState` is never emitted.
+- (void)undo
+{
+}
+
+- (void)redo
+{
+}
+
 - (void)requestMarkdown:(NSInteger)requestId
 {
   [_inputEventEmitter requestMarkdown:requestId];

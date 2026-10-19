@@ -1,18 +1,34 @@
-import type { RangeBounds } from '../model/rangeBounds';
 import { firstIndexReachingTarget } from '../utils';
+import { isDev } from '../../../utils/isDev';
 
 export interface DomPosition {
   node: Node;
   offset: number;
 }
 
-// The line offsets of the DOM as currently rendered. Supplied by the renderer
-// rather than copied here: `render` is the only thing that maintains the
-// correspondence between the lines and the nodes, so the copy that matches
-// the nodes is the one to index against.
-export interface LineOffsets {
+// A DOM selection in model offsets, direction kept so a backward selection
+// is not flipped on the next write.
+export interface ModelSelectionPoints {
+  anchor: number;
+  focus: number;
+}
+
+// The lines as currently rendered. Supplied by the renderer, the only thing
+// that keeps lines and nodes in step.
+export interface RenderedLines {
   readonly lineCount: number;
-  lineBounds(index: number): RangeBounds | undefined;
+  lineStart(index: number): number;
+  lineEnd(index: number): number;
+  lineElement(index: number): HTMLElement | undefined;
+  // -1 for a node that is not a rendered line.
+  indexOfLine(node: Node): number;
+}
+
+// Whether the DOM selection is a caret. Not `isCollapsed` alone: Cmd+A in an
+// empty line selects its `<br>`, which Chrome paints as a range while
+// exposing a collapsed one (`type` is 'Range').
+export function isCaret(selection: Selection): boolean {
+  return selection.isCollapsed && selection.type !== 'Range';
 }
 
 const LOG_PREFIX = '[EnrichedMarkdown - SelectionMapper]';
@@ -23,70 +39,46 @@ const LOG_PREFIX = '[EnrichedMarkdown - SelectionMapper]';
 // handler - and development gets told, because otherwise users find these
 // instead of tests.
 function reportDesync(message: string): void {
-  if (__DEV__) {
+  if (isDev) {
     console.error(`${LOG_PREFIX} invariant violated: ${message}`);
   }
 }
 
 // Translates DOM positions to buffer offsets and back over the renderer's
-// canonical DOM: one element child of the root per line, holding run spans or
-// a single <br>.
+// lines: one element per line, directly under the root.
 //
-// Only element children count, and every traversal here walks elements, which
-// is the same index space `DomRenderer` patches through. A foreign node under
-// the root therefore costs at most a wrong caret in its own vicinity instead
-// of shifting every line after it.
-// A run-boundary offset maps to the start of the following run.
+// Within a line both directions count text, not nodes, so split text nodes,
+// element-addressed points and foreign wrappers all map by what the line
+// shows. A run-boundary offset maps to the start of the following run.
 export class SelectionMapper {
   private readonly root: HTMLElement;
-  private readonly lines: LineOffsets;
+  private readonly lines: RenderedLines;
 
-  constructor(root: HTMLElement, lines: LineOffsets) {
+  constructor(root: HTMLElement, lines: RenderedLines) {
     this.root = root;
     this.lines = lines;
   }
 
   // Returns null for positions outside the editor, and for DOM the rendered
-  // line offsets do not describe.
+  // lines do not describe.
   modelOffsetFromDom(node: Node, offset: number): number | null {
     if (node === this.root) {
-      // The root addresses a position by child-node index; map it into the
-      // element index space the lines live in. An index one past the last
-      // line is the legitimate "after everything" position.
-      const index = elementIndexOfChildNode(this.root, offset);
-      if (index === this.lines.lineCount) {
-        return this.documentLength();
-      }
-      const line = this.lines.lineBounds(index);
-      if (line === undefined) {
-        reportDesync(
-          `the root has no line at element index ${index} of ${this.lines.lineCount}`
-        );
-        return null;
-      }
-      return line.start;
+      return this.offsetOfRootPoint(offset);
     }
 
-    const paragraph = this.paragraphContaining(node);
-    if (paragraph === null) {
+    const line = this.lineContaining(node);
+    if (line === null) {
       return null;
     }
-    const index = elementIndex(paragraph);
-    const line = this.lines.lineBounds(index);
-    if (line === undefined) {
-      reportDesync(
-        `line ${index} is rendered but not projected (${this.lines.lineCount} lines)`
-      );
-      return null;
-    }
-    const within = offsetWithinParagraph(paragraph, node, offset);
-    const lineLength = line.end - line.start;
+    const start = this.lines.lineStart(line.index);
+    const lineLength = this.lines.lineEnd(line.index) - start;
+    const within = textLengthBefore(line.element, node, offset);
     if (within > lineLength) {
       reportDesync(
-        `line ${index} holds a position ${within} units in, projected length is ${lineLength}`
+        `line ${line.index} holds a position ${within} units in, projected length is ${lineLength}`
       );
     }
-    return line.start + Math.min(within, lineLength);
+    return start + Math.min(within, lineLength);
   }
 
   // Offsets past the end clamp to the end of the document; that is the
@@ -104,46 +96,75 @@ export class SelectionMapper {
       reportDesync(`asked for a negative offset (${offset})`);
     }
     const clamped = Math.max(offset, 0);
-    const index = Math.min(
-      firstIndexReachingTarget(
-        clamped,
-        count,
-        (i) => this.lines.lineBounds(i)?.end ?? 0
-      ),
-      count - 1
-    );
-    const element = this.root.children[index];
-    const line = this.lines.lineBounds(index);
-    if (element === undefined || line === undefined) {
+    const index = this.lineIndexAt(clamped);
+    const element = this.lines.lineElement(index);
+    if (element === undefined) {
       reportDesync(`line ${index} of ${count} has no rendered element`);
       return null;
     }
-    if (clamped < line.start) {
+    const start = this.lines.lineStart(index);
+    if (clamped < start) {
       reportDesync(
-        `offset ${clamped} resolved to line ${index}, which starts at ${line.start}`
+        `offset ${clamped} resolved to line ${index}, which starts at ${start}`
       );
     }
     const within = Math.min(
-      Math.max(clamped - line.start, 0),
-      line.end - line.start
+      Math.max(clamped - start, 0),
+      this.lines.lineEnd(index) - start
     );
-    return positionInParagraph(element, within);
+    return positionInLine(element, within);
   }
 
-  modelSelectionFromDom(selection: Selection): RangeBounds | null {
+  // The rendered line holding model `offset`; an offset at a line's end
+  // belongs to that line, and one past the document to the last.
+  lineIndexAt(offset: number): number {
+    const count = this.lines.lineCount;
+    return Math.max(
+      Math.min(
+        firstIndexReachingTarget(offset, count, (i) => this.lines.lineEnd(i)),
+        count - 1
+      ),
+      0
+    );
+  }
+
+  modelSelectionFromDom(selection: Selection): ModelSelectionPoints | null {
     const { anchorNode, anchorOffset, focusNode, focusOffset } = selection;
     if (anchorNode === null || focusNode === null) {
       return null;
     }
     const anchor = this.modelOffsetFromDom(anchorNode, anchorOffset);
-    const focus = this.modelOffsetFromDom(focusNode, focusOffset);
-    if (anchor === null || focus === null) {
+    if (anchor === null) {
       return null;
     }
-    return { start: Math.min(anchor, focus), end: Math.max(anchor, focus) };
+    // A caret is the common case on every keystroke; map it once.
+    if (anchorNode === focusNode && anchorOffset === focusOffset) {
+      return { anchor, focus: anchor };
+    }
+    const focus = this.modelOffsetFromDom(focusNode, focusOffset);
+    return focus === null ? null : { anchor, focus };
   }
 
-  private paragraphContaining(node: Node): Element | null {
+  // A child-node index: past the last child is the document end, anything
+  // else the start of the line at or after it.
+  private offsetOfRootPoint(offset: number): number | null {
+    const children = this.root.childNodes;
+    if (offset >= children.length) {
+      return this.documentLength();
+    }
+    for (let i = Math.max(offset, 0); i < children.length; i++) {
+      const index = this.lines.indexOfLine(children[i]!);
+      if (index !== -1) {
+        return this.lines.lineStart(index);
+      }
+    }
+    reportDesync(`no rendered line at or after root child ${offset}`);
+    return this.documentLength();
+  }
+
+  private lineContaining(
+    node: Node
+  ): { element: Element; index: number } | null {
     let current: Node = node;
     while (current.parentNode !== this.root) {
       if (current.parentNode === null) {
@@ -151,104 +172,53 @@ export class SelectionMapper {
       }
       current = current.parentNode;
     }
-    if (!isElement(current)) {
+    const index = this.lines.indexOfLine(current);
+    if (index === -1) {
       reportDesync('a node that is not a line sits directly under the root');
       return null;
     }
-    return current;
+    return { element: current as Element, index };
   }
 
   private documentLength(): number {
-    return this.lines.lineBounds(this.lines.lineCount - 1)?.end ?? 0;
+    return this.lines.lineEnd(this.lines.lineCount - 1);
   }
 }
 
-// --- Line level: one element child of the root per line, in projection
-// order. ---
-
-function elementIndex(element: Element): number {
-  let index = 0;
-  for (
-    let sibling = element.previousElementSibling;
-    sibling !== null;
-    sibling = sibling.previousElementSibling
-  ) {
-    index++;
-  }
-  return index;
+// The length of the text in `line` before the point (`node`, `offset`). A
+// `<br>` holds no text, so an empty line is 0 throughout.
+function textLengthBefore(line: Element, node: Node, offset: number): number {
+  const range = line.ownerDocument.createRange();
+  range.setStart(line, 0);
+  range.setEnd(node, clampIndex(offset, maxOffset(node)));
+  return range.toString().length;
 }
 
-// A position inside an element is addressed by child-node index, while the
-// lines correspond to element children only. Counting the elements among the
-// preceding child nodes converts one to the other.
-function elementIndexOfChildNode(
-  parent: Element,
-  childNodeIndex: number
-): number {
-  const children = parent.childNodes;
-  const count = clampIndex(childNodeIndex, children.length);
-  let index = 0;
-  for (let i = 0; i < count; i++) {
-    if (isElement(children[i]!)) {
-      index++;
-    }
-  }
-  return index;
-}
-
-// --- Run level: spans within one line, nothing else. ---
-
-function offsetWithinParagraph(
-  paragraph: Element,
-  node: Node,
-  offset: number
-): number {
-  let position = isTextNode(node)
-    ? Math.min(Math.max(offset, 0), textLength(node))
-    : runLengthBeforeChild(node, offset);
-  for (let current: Node = node; current !== paragraph; ) {
-    position += runLengthBeforeSibling(current);
-    const parent = current.parentNode;
-    if (parent === null) {
-      // `paragraphContaining` already proved the ancestry.
-      return position;
-    }
-    current = parent;
-  }
-  return position;
-}
-
-// Walks a line's run spans to the DOM position `offset` units in. Returns
-// null when the line's DOM holds less text than the projection claims, rather
-// than the plausible-looking line start: a line-start answer reads as a real
-// position to every caller, and the caret belongs where the text is.
-function positionInParagraph(
-  paragraph: Element,
-  offset: number
-): DomPosition | null {
-  const runs = runSpans(paragraph);
-  if (runs.length === 0) {
-    // An empty line holds a <br>, not run spans: the caret sits in the line
-    // element itself, before the <br>. A line with no runs that is asked for
-    // a position inside text is a line whose spans went missing.
-    if (offset > 0) {
-      reportDesync(`a line with no run spans was asked for offset ${offset}`);
-      return null;
-    }
-    return { node: paragraph, offset: 0 };
-  }
+// The DOM position `offset` units into a line; null when the line holds less
+// text than projected, rather than a plausible but wrong line start.
+function positionInLine(line: Element, offset: number): DomPosition | null {
+  const walker = line.ownerDocument.createTreeWalker(
+    line,
+    NodeFilter.SHOW_TEXT
+  );
   let remaining = offset;
-  for (let i = 0; i < runs.length; i++) {
-    const run = runs[i]!;
-    const length = textLength(run);
-    const isLast = i === runs.length - 1;
-    if (remaining < length || (isLast && remaining === length)) {
-      const text = run.firstChild;
-      return text === null
-        ? { node: run, offset: 0 }
-        : { node: text, offset: remaining };
+  let last: Text | null = null;
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const text = node as Text;
+    if (remaining < text.length) {
+      return { node: text, offset: remaining };
     }
-    remaining -= length;
+    remaining -= text.length;
+    if (text.length > 0) {
+      last = text;
+    }
+  }
+  if (remaining === 0) {
+    // The end of the line: after its last character, or - for an empty line,
+    // which holds a <br> and no text - in the line element before the <br>.
+    return last === null
+      ? { node: line, offset: 0 }
+      : { node: last, offset: last.length };
   }
   reportDesync(
     `a line ${offset - remaining} units long was asked for offset ${offset}`
@@ -256,63 +226,12 @@ function positionInParagraph(
   return null;
 }
 
-// The run spans of a rendered line: its element children except a <br>, which
-// carries no projected text whether it belongs to an empty line or the
-// browser left it behind.
-function runSpans(paragraph: Element): Element[] {
-  return [...paragraph.children].filter((child) => !isLineBreak(child));
-}
-
-// Total text length of the run spans before `node` among its siblings.
-function runLengthBeforeSibling(node: Node): number {
-  let length = 0;
-  for (
-    let sibling = node.previousSibling;
-    sibling !== null;
-    sibling = sibling.previousSibling
-  ) {
-    if (isRunSpan(sibling)) {
-      length += textLength(sibling);
-    }
-  }
-  return length;
-}
-
-// Total text length of the run spans among the first `index` child nodes, for
-// an element-addressed position.
-function runLengthBeforeChild(parent: Node, index: number): number {
-  const children = parent.childNodes;
-  const count = clampIndex(index, children.length);
-  let length = 0;
-  for (let i = 0; i < count; i++) {
-    const child = children[i]!;
-    if (isRunSpan(child)) {
-      length += textLength(child);
-    }
-  }
-  return length;
-}
-
-function isRunSpan(node: Node): boolean {
-  return isElement(node) && !isLineBreak(node);
-}
-
-function isLineBreak(node: Node): boolean {
-  return node.nodeName === 'BR';
-}
-
-function isElement(node: Node): node is Element {
-  return node.nodeType === Node.ELEMENT_NODE;
-}
-
-function isTextNode(node: Node): boolean {
-  return node.nodeType === Node.TEXT_NODE;
+function maxOffset(node: Node): number {
+  return node.nodeType === Node.TEXT_NODE || node.nodeType === Node.COMMENT_NODE
+    ? (node as CharacterData).length
+    : node.childNodes.length;
 }
 
 function clampIndex(index: number, length: number): number {
   return Math.min(Math.max(index, 0), length);
-}
-
-function textLength(node: Node): number {
-  return (node.textContent ?? '').length;
 }

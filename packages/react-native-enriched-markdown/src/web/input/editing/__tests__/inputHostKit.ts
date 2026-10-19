@@ -2,6 +2,7 @@
 // the events a browser would raise by itself - `beforeinput`,
 // `selectionchange`, the clipboard pair - so each one is built here by hand,
 // in the shape the host reads it.
+import type { HistoryState } from '../EditHistory';
 import { InputHost, type InputHostOptions } from '../InputHost';
 import type { InputState } from '../InputState';
 import type { RangeBounds } from '../../model/rangeBounds';
@@ -13,6 +14,7 @@ export interface MountedHost {
   states: InputState[];
   selections: RangeBounds[];
   markdowns: string[];
+  histories: HistoryState[];
 }
 
 export function mount(options?: InputHostOptions): MountedHost {
@@ -22,6 +24,7 @@ export function mount(options?: InputHostOptions): MountedHost {
   const states: InputState[] = [];
   const selections: RangeBounds[] = [];
   const markdowns: string[] = [];
+  const histories: HistoryState[] = [];
   const host = new InputHost(
     root,
     {
@@ -29,10 +32,11 @@ export function mount(options?: InputHostOptions): MountedHost {
       onChangeState: (state) => states.push(state),
       onChangeSelection: (selection) => selections.push({ ...selection }),
       onChangeMarkdown: (markdown) => markdowns.push(markdown),
+      onChangeHistoryState: (state) => histories.push(state),
     },
     options
   );
-  return { root, host, texts, states, selections, markdowns };
+  return { root, host, texts, states, selections, markdowns, histories };
 }
 
 export function lastState(states: InputState[]): InputState {
@@ -47,6 +51,24 @@ export function pressTab(root: HTMLElement, shiftKey = false): KeyboardEvent {
   const event = new KeyboardEvent('keydown', {
     key: 'Tab',
     shiftKey,
+    bubbles: true,
+    cancelable: true,
+  });
+  root.dispatchEvent(event);
+  return event;
+}
+
+export function pressKey(
+  root: HTMLElement,
+  key: string,
+  modifiers: Pick<
+    KeyboardEventInit,
+    'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'
+  > = {}
+): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', {
+    key,
+    ...modifiers,
     bubbles: true,
     cancelable: true,
   });
@@ -126,7 +148,26 @@ export function selectRangeFocused(
   document.dispatchEvent(new Event('selectionchange'));
 }
 
+// Plays the browser's part too: plain typing inside a run is left to the
+// browser (see `NativeEdit`), and jsdom performs no edits, so an uncancelled
+// `beforeinput` is followed here by the insert and the `input` a browser
+// would make.
 export function typeText(root: HTMLElement, data: string): void {
+  const event = new InputEvent('beforeinput', {
+    inputType: 'insertText',
+    data,
+    bubbles: true,
+    cancelable: true,
+  });
+  root.dispatchEvent(event);
+  if (!event.defaultPrevented) {
+    insertAtCaretAsBrowser(root, data);
+  }
+}
+
+// The bare event, with no browser behind it: for asserting what the host does
+// with an event it should not act on.
+export function dispatchTyping(root: HTMLElement, data: string): void {
   root.dispatchEvent(
     new InputEvent('beforeinput', {
       inputType: 'insertText',
@@ -134,6 +175,24 @@ export function typeText(root: HTMLElement, data: string): void {
       bubbles: true,
       cancelable: true,
     })
+  );
+}
+
+function insertAtCaretAsBrowser(root: HTMLElement, data: string): void {
+  const selection = document.getSelection()!;
+  const node = selection.anchorNode as Text;
+  const offset = selection.anchorOffset;
+  node.insertData(offset, data);
+  // A browser leaves the caret after what it typed; `insertData` alone
+  // leaves a caret at the insertion point before it.
+  selection.setBaseAndExtent(
+    node,
+    offset + data.length,
+    node,
+    offset + data.length
+  );
+  root.dispatchEvent(
+    new InputEvent('input', { inputType: 'insertText', data, bubbles: true })
   );
 }
 

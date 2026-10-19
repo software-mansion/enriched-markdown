@@ -23,6 +23,39 @@ describe('FormattingStore', () => {
     expect(store.isStyleActive('em', 5)).toBe(false);
   });
 
+  it('finds a covering range that starts before ranges of other types', () => {
+    store.setRanges([
+      strong(0, 20),
+      range('em', 5, 6),
+      range('em', 8, 9),
+      range('em', 30, 40),
+    ]);
+
+    expect(store.rangeOfType('strong', 15)).toEqual(strong(0, 20));
+    expect(store.rangeOfType('em', 8)).toEqual(range('em', 8, 9));
+    expect(store.rangeOfType('em', 7)).toBeNull();
+    expect(store.rangeOfType('em', 29)).toBeNull();
+    expect(store.rangeOfType('em', 50)).toBeNull();
+    expect(store.isStyleActiveInRange('strong', 15, 16)).toBe(true);
+    expect(store.isStyleActiveInRange('em', 25, 30)).toBe(false);
+    expect(store.isStyleActiveInRange('em', 25, 31)).toBe(true);
+  });
+
+  it('finds the later of two touching imported ranges at their boundary', () => {
+    store.setRanges([strong(4, 8), strong(0, 4)]);
+
+    expect(store.rangeOfType('strong', 3)).toEqual(strong(0, 4));
+    expect(store.rangeOfType('strong', 4)).toEqual(strong(4, 8));
+    expect(store.rangeOfType('strong', 8)).toBeNull();
+  });
+
+  // Callers read it on every keystroke; a copy there costs an allocation each.
+  it('allRanges is the live store, not a copy', () => {
+    store.setRanges([strong(0, 4)]);
+
+    expect(store.allRanges).toBe(store.allRanges);
+  });
+
   it('addRange merges overlapping and touching ranges of the same type only', () => {
     store.addRange(strong(4, 9));
     store.addRange(strong(7, 12));
@@ -229,8 +262,8 @@ describe('FormattingStore', () => {
     expect(store.allRanges).toEqual([strong(0, 4)]);
   });
 
-  // allRanges is a shallow copy, so the elements it yields stay identical to
-  // the stored ones. Deep-copying there would silently break removeRange.
+  // allRanges is a live view, so the elements it yields are the stored ones.
+  // Deep-copying there would silently break removeRange.
   it('removeRange accepts a range taken from allRanges', () => {
     store.setRanges([strong(0, 4), strong(6, 10)]);
     store.removeRange(store.allRanges[1]!);

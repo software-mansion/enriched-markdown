@@ -171,6 +171,29 @@ describe('EditPipeline', () => {
       expect(blocks.allRanges).toEqual([{ ...block('h1', 0, 2), level: 1 }]);
     });
 
+    // The list metadata pass must not run between the prune and the
+    // normalize: "ab" is still only "a" wide then, so "c" is not adjacent to
+    // it and its depth gets clamped to 0 for good.
+    it('keeps the depth of the nested item after a merged one', () => {
+      // "a\nb\nc": "- a" with "b" and "c" nested; Delete at the end of "a".
+      const blocks = new BlockStore();
+      blocks.setRanges([
+        block('unordered-list-item', 0, 1, 0),
+        block('unordered-list-item', 2, 3, 1),
+        block('unordered-list-item', 4, 5, 1),
+      ]);
+
+      new EditPipeline(new FormattingStore(), blocks).processTextChange(
+        'ab\nc',
+        context({ editStart: 1, deletedText: '\n' })
+      );
+
+      expect(blocks.allRanges.map((r) => [r.start, r.end, r.level])).toEqual([
+        [0, 2, 0],
+        [3, 4, 1],
+      ]);
+    });
+
     // Web lets an insert at a line start shift the range off the line start
     // and relies on normalize to snap it back, so the prune has to stay out
     // of the way of inserts or it would delete the block on every keystroke

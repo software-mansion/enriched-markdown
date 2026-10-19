@@ -49,12 +49,13 @@ const STYLE_NODE_TYPES: Partial<Record<NodeType, InputStyleType>> = {
   Spoiler: 'spoiler',
 };
 
-const TOP_LEVEL_BLOCK_TYPES = new Set<NodeType>([
+const BLOCK_NODE_TYPES = new Set<NodeType>([
   'Paragraph',
   'Heading',
   'Blockquote',
   'UnorderedList',
   'OrderedList',
+  'ListItem',
   'CodeBlock',
   'ThematicBreak',
   'Table',
@@ -88,12 +89,37 @@ interface ActiveStyle {
   url: string | undefined;
 }
 
+// A list item's range covers its first line; the end is set when the walk
+// appends the first newline after the item starts.
+interface ItemLine {
+  lineEnd: number;
+}
+
+// The walk only ever appends to `text`, never reads it back: on V8, reading
+// (endsWith, indexOf) flattens the growing rope, and doing that per list item
+// made the walk quadratic. Positions come from `text.length` only.
 interface WalkState {
   text: string;
   formattingRanges: FormattingRange[];
   blockRanges: BlockRange[];
   activeStyles: ActiveStyle[];
   blankRuns: number[];
+  blankRunIndex: number;
+  // Open list items whose first line has not ended yet.
+  pendingItemLines: ItemLine[];
+}
+
+function append(state: WalkState, chunk: string): void {
+  // Scan the incoming chunk, not the accumulated text.
+  const newline = chunk.indexOf('\n');
+  if (newline >= 0 && state.pendingItemLines.length > 0) {
+    const lineEnd = state.text.length + newline;
+    for (const item of state.pendingItemLines) {
+      item.lineEnd = lineEnd;
+    }
+    state.pendingItemLines.length = 0;
+  }
+  state.text += chunk;
 }
 
 // Builds the input model from an already-parsed AST. Ordinals are left at
@@ -114,6 +140,8 @@ export function parseResultFromAst(
     blockRanges: [],
     activeStyles: [],
     blankRuns,
+    blankRunIndex: 0,
+    pendingItemLines: [],
   };
   walkNode(ast, state, 0, false);
 
@@ -122,6 +150,10 @@ export function parseResultFromAst(
     formattingRanges: state.formattingRanges,
     blockRanges: state.blockRanges,
   };
+}
+
+function isListNode(node: ASTNode): boolean {
+  return node.type === 'UnorderedList' || node.type === 'OrderedList';
 }
 
 function walkNode(
@@ -144,23 +176,17 @@ function walkNode(
   // A list node increments the nesting depth of its items, so an item's depth
   // is (enclosing list nodes - 1). Depth comes from this AST nesting, never
   // from counting leading spaces.
-  const isListContainer =
-    node.type === 'UnorderedList' || node.type === 'OrderedList';
+  const isListContainer = isListNode(node);
   const childListDepth = isListContainer ? listDepth + 1 : listDepth;
   const childOrdered = isListContainer
     ? node.type === 'OrderedList'
     : orderedContainer;
 
-  // Each list item starts on its own line; md4c emits no separator between
-  // sibling items or before a nested sublist.
-  if (
-    node.type === 'ListItem' &&
-    state.text.length > 0 &&
-    !state.text.endsWith('\n')
-  ) {
-    state.text += '\n';
-  }
   const itemStart = node.type === 'ListItem' ? state.text.length : -1;
+  const itemLine: ItemLine | null = itemStart >= 0 ? { lineEnd: -1 } : null;
+  if (itemLine !== null) {
+    state.pendingItemLines.push(itemLine);
+  }
 
   const parsedLevel = parseInt(node.attributes?.level ?? '', 10);
   const blockLevel = Number.isNaN(parsedLevel) ? 0 : parsedLevel;
@@ -168,46 +194,52 @@ function walkNode(
   const blockStartPosition = state.text.length;
 
   if (node.type === 'Text') {
-    state.text += node.content ?? '';
+    append(state, node.content ?? '');
   } else if (node.type === 'LineBreak' || node.type === 'SoftBreak') {
-    state.text += '\n';
+    append(state, '\n');
   }
 
   const children = node.children ?? [];
   for (let index = 0; index < children.length; index++) {
     const child = children[index]!;
-    // Keep the source's blank lines between genuinely top-level blocks
-    // (md4c drops them). Inside a list, items are separated by the single
-    // newline inserted above, not blank lines.
-    if (
-      index > 0 &&
-      listDepth === 0 &&
-      TOP_LEVEL_BLOCK_TYPES.has(child.type) &&
-      state.text.length > 0
-    ) {
-      state.text += '\n'.repeat(state.blankRuns.shift() ?? 2);
+    // md4c emits no separators, so a block that follows a sibling starts a
+    // new line here. Between top-level blocks, replay the source's blank
+    // lines (md4c drops them); inside a list, items, a sublist, or an item's
+    // further paragraphs each take a single newline. An empty item's sublist
+    // is its first child but still starts below the item's own (empty) line.
+    const startsLine =
+      index > 0 || (node.type === 'ListItem' && isListNode(child));
+    if (startsLine && BLOCK_NODE_TYPES.has(child.type)) {
+      if (childListDepth > 0) {
+        append(state, '\n');
+      } else if (state.text.length > 0) {
+        const run = state.blankRuns[state.blankRunIndex++];
+        append(state, '\n'.repeat(run ?? 2));
+      }
     }
     walkNode(child, state, childListDepth, childOrdered);
   }
 
   // A list item owns its own first line; a nested sublist lives on later
   // lines, so the item's range ends at the first newline after its start.
-  if (itemStart >= 0) {
-    let lineEnd = state.text.indexOf('\n', itemStart);
+  // An empty item keeps a zero-length range, BlockStore's empty-line anchor.
+  if (itemLine !== null) {
+    let lineEnd = itemLine.lineEnd;
     if (lineEnd < 0) {
+      // No newline since the item started: its nested items have already
+      // exited, so it is the last pending entry.
+      state.pendingItemLines.pop();
       lineEnd = state.text.length;
     }
-    if (lineEnd > itemStart) {
-      // The item sees listDepth already incremented by its enclosing list
-      // node, so its 0-based depth is listDepth - 1.
-      const depth = clamp(listDepth - 1, 0, MAX_LIST_DEPTH);
-      const itemType: BlockType = orderedContainer
-        ? 'ordered-list-item'
-        : 'unordered-list-item';
-      state.blockRanges.push(
-        createBlockRange(itemType, itemStart, lineEnd, depth)
-      );
-    }
+    // The item sees listDepth already incremented by its enclosing list
+    // node, so its 0-based depth is listDepth - 1.
+    const depth = clamp(listDepth - 1, 0, MAX_LIST_DEPTH);
+    const itemType: BlockType = orderedContainer
+      ? 'ordered-list-item'
+      : 'unordered-list-item';
+    state.blockRanges.push(
+      createBlockRange(itemType, itemStart, lineEnd, depth)
+    );
   }
 
   if (styleType !== null) {

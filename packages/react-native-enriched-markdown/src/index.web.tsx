@@ -5,6 +5,7 @@ export type {
   EnrichedMarkdownTextInputInstance,
   EnrichedMarkdownTextInputProps,
   StyleState,
+  HistoryState,
   HeadingLevel,
   MeasureCallback,
   MeasureInWindowCallback,
