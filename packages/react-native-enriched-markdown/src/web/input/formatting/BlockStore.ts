@@ -113,8 +113,9 @@ export class BlockStore {
     return this.ranges.length === 0;
   }
 
-  // Incoming ranges are trusted to be non-overlapping and line-scoped — the
-  // parser owns that invariant.
+  // Incoming ranges are trusted to be one per line and line-scoped: imports
+  // arrive normalized (`normalizeBlockRanges`), history restores what the
+  // store itself held.
   setRanges(newRanges: BlockRange[]): void {
     this.ranges = [...newRanges].sort((a, b) => a.start - b.start);
     this.recomputeListMetadata();

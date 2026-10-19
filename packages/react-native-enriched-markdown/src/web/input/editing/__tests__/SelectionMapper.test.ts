@@ -7,7 +7,7 @@ import { createBlockRange as block } from '../../model/blocks';
 import { createFormattingRange as range } from '../../model/inlineStyles';
 import type { BlockRange } from '../../model/blocks';
 import type { FormattingRange } from '../../model/inlineStyles';
-import { SelectionMapper } from '../SelectionMapper';
+import { SelectionMapper, textLengthBefore } from '../SelectionMapper';
 
 function mount(
   text: string,
@@ -157,5 +157,72 @@ describe('SelectionMapper', () => {
       expect(mapper.domPositionFromModelOffset(4)).toBeNull();
       expect(errors).toHaveBeenCalled();
     });
+  });
+});
+
+describe('textLengthBefore', () => {
+  // Every boundary point of a DOM with nested runs, split text nodes, an
+  // empty text node, a comment and a `<br>`.
+  function boundaryPoints(container: Node): Array<[Node, number]> {
+    const points: Array<[Node, number]> = [];
+    const visit = (node: Node) => {
+      const length =
+        node.nodeType === Node.ELEMENT_NODE
+          ? node.childNodes.length
+          : (node as CharacterData).length;
+      for (let offset = 0; offset <= length; offset++) {
+        points.push([node, offset]);
+      }
+      node.childNodes.forEach(visit);
+    };
+    visit(container);
+    return points;
+  }
+
+  it('counts what a Range over the same span would', () => {
+    const line = document.createElement('div');
+    line.innerHTML =
+      '<span>ab<b>c<i>de</i></b></span><!--x--><span>f</span><br><span></span>';
+    line.querySelector('span')!.appendChild(document.createTextNode(''));
+    line.lastElementChild!.append('g', 'hi');
+    document.body.appendChild(line);
+
+    for (const [node, offset] of boundaryPoints(line)) {
+      const reference = document.createRange();
+      reference.setStart(line, 0);
+      reference.setEnd(node, offset);
+      expect([
+        node.nodeName,
+        offset,
+        textLengthBefore(line, node, offset),
+      ]).toEqual([node.nodeName, offset, reference.toString().length]);
+    }
+  });
+
+  it('counts a point in a text node that is the container itself', () => {
+    const text = document.createTextNode('abc');
+
+    expect(textLengthBefore(text, text, 2)).toBe(2);
+    expect(textLengthBefore(text, text, 9)).toBe(3);
+  });
+
+  it('maps a whole session without creating a Range', () => {
+    const { root, mapper } = mount(
+      'one two three\n\nfour',
+      [range('strong', 4, 7)],
+      [block('unordered-list-item', 15, 19)]
+    );
+    const createRange = jest.spyOn(document, 'createRange');
+    try {
+      for (let offset = 0; offset <= 19; offset++) {
+        const position = mapper.domPositionFromModelOffset(offset)!;
+        mapper.modelOffsetFromDom(position.node, position.offset);
+        mapper.modelOffsetFromDom(root.firstElementChild!, 1);
+      }
+
+      expect(createRange).not.toHaveBeenCalled();
+    } finally {
+      createRange.mockRestore();
+    }
   });
 });

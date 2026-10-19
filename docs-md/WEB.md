@@ -80,6 +80,20 @@ exception: it is mapped to `data-testid`.
 - At most 100 steps are kept; the oldest are dropped first.
 - The browser's Edit menu decides on its own whether to show Undo as available, from the browser's own history, which this input does not use. After an edit that only changed formatting, such as a toolbar Bold, it can show Undo greyed out even though `undo()` and the keyboard shortcut still work. Drive your own controls from `onChangeHistoryState`.
 
+## Markdown output
+
+On web, `EnrichedMarkdownTextInput` backslash-escapes characters in typed text that markdown would read as formatting, so `getMarkdown()` and `onChangeMarkdown` give back the text the user wrote: `5 * 2` becomes `5 \* 2`, a typed `# not a heading` becomes `\# not a heading`, and `snake_case` becomes `snake\_case`. Any markdown renderer shows the escaped characters as plain text.
+
+Spaces at the start of a line are not kept, because markdown has no escape for them.
+
+A style is left out of the markdown where markdown can't express it at that spot. Examples are underline or strikethrough on part of a word, and bold ending on punctuation right before a letter (`**Note:**text`). The text itself is kept.
+
+## Hiding and unmounting
+
+`EnrichedMarkdownTextInput` keeps its text, selection and undo history when React hides it and shows it again, for example inside `<Activity mode="hidden">` or a Suspense boundary that suspends again. `defaultValue` and `autoFocus` apply only to the first mount, so showing the input again doesn't reload the initial text or take focus.
+
+A ref kept after the input unmounts still answers `getMarkdown()` with the last document, so you can save a draft from an unmount handler. `getCaretRect()` rejects with `Error('Component unmounted')`, and commands do nothing.
+
 ## Not supported on web
 
 - `EnrichedMarkdownTextInput` link and mention commands — `setLink`, `insertLink`, `removeLink`, `insertMention`, `startMention` and `copyToClipboard` warn once and do nothing. The editor itself works on web.

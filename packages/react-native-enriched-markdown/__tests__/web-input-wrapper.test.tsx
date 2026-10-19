@@ -6,7 +6,7 @@
 // usable. Most of what lives here is lifecycle ordering, which only a real
 // renderer reproduces, so this suite drives `react-dom` rather than the host
 // directly.
-import { act, useLayoutEffect, useRef } from 'react';
+import { Activity, act, StrictMode, useLayoutEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
   EnrichedMarkdownTextInput,
@@ -392,7 +392,7 @@ describe('the imperative handle', () => {
       handle.toggleSpoiler();
     });
 
-    await expect(handle.getMarkdown()).resolves.toBe('***_~~||text||~~_***');
+    await expect(handle.getMarkdown()).resolves.toBe('||***_~~text~~_***||');
   });
 
   it('forwards the list commands to the host', async () => {
@@ -545,5 +545,178 @@ describe('unmount', () => {
 
     expect(editor.hasAttribute('contenteditable')).toBe(false);
     expect(editor.hasAttribute('data-empty')).toBe(false);
+  });
+});
+
+// React tears the layout effect down and runs it again over the same node
+// without unmounting: an `<Activity>` hidden and shown, a Suspense boundary
+// suspending again, StrictMode's double run. The host is detached and
+// reattached there, never rebuilt, so nothing the user did is lost.
+describe('layout effect re-runs', () => {
+  function mountInActivity(props: EnrichedMarkdownTextInputProps = {}) {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const ref: { current: EnrichedMarkdownTextInputInstance | null } = {
+      current: null,
+    };
+    const render = (mode: 'visible' | 'hidden') =>
+      act(() => {
+        root.render(
+          <Activity mode={mode}>
+            <EnrichedMarkdownTextInput ref={ref} {...props} />
+          </Activity>
+        );
+      });
+    render('visible');
+    return {
+      editor: container.querySelector('.enrm-input') as HTMLElement,
+      ref,
+      hide: () => render('hidden'),
+      show: () => render('visible'),
+    };
+  }
+
+  it('keeps what was typed across an Activity hide and show', async () => {
+    parse.mockClear();
+    const onChangeText = jest.fn();
+    const { editor, ref, hide, show } = mountInActivity({
+      defaultValue: '**bold**',
+      onChangeText,
+    });
+    await act(async () => undefined);
+    act(() => {
+      ref.current!.setSelection(4, 4);
+      ref.current!.insertText(' and more');
+    });
+
+    hide();
+    show();
+    await act(async () => undefined);
+
+    expect(editor.textContent).toBe('bold and more');
+    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold and more**');
+    // The mount-time `defaultValue` was not imported a second time.
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(editor.getAttribute('contenteditable')).toBe('true');
+  });
+
+  it('keeps the undo history across a hide and show', async () => {
+    const { ref, hide, show } = mountInActivity();
+    act(() => ref.current!.insertText('one'));
+    act(() => ref.current!.insertText(' two'));
+
+    hide();
+    show();
+    act(() => ref.current!.undo());
+
+    await expect(ref.current!.getMarkdown()).resolves.toBe('one');
+  });
+
+  it('is not editable while hidden, and listens to nothing', () => {
+    const onChangeText = jest.fn();
+    const { editor, hide } = mountInActivity({ onChangeText });
+
+    hide();
+    editor.dispatchEvent(
+      new InputEvent('beforeinput', {
+        inputType: 'insertText',
+        data: 'x',
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+
+    expect(editor.hasAttribute('contenteditable')).toBe(false);
+    expect(onChangeText).not.toHaveBeenCalled();
+  });
+
+  it('takes autoFocus once, not on every reveal', () => {
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    const { editor, hide, show } = mountInActivity({ autoFocus: true });
+    expect(document.activeElement).toBe(editor);
+
+    outside.focus();
+    hide();
+    show();
+
+    expect(document.activeElement).toBe(outside);
+  });
+
+  it('imports defaultValue once under StrictMode', async () => {
+    parse.mockClear();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const ref: { current: EnrichedMarkdownTextInputInstance | null } = {
+      current: null,
+    };
+    act(() => {
+      root.render(
+        <StrictMode>
+          <EnrichedMarkdownTextInput ref={ref} defaultValue="**bold**" />
+        </StrictMode>
+      );
+    });
+    await act(async () => undefined);
+
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toBe('bold');
+    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold**');
+  });
+});
+
+// A handle the app kept past the unmount. Native rejects requests pending at
+// unmount; web still holds the document, so `getMarkdown` answers with it - a
+// "save the draft on unmount" flow saves what was typed - while anything that
+// needs the mounted node rejects, and writes do nothing.
+describe('a handle used after unmount', () => {
+  it('reads the document the input held', async () => {
+    const { ref, unmount } = mount();
+    act(() => ref.current!.insertText('draft'));
+    const handle = ref.current!;
+
+    unmount();
+
+    await expect(handle.getMarkdown()).resolves.toBe('draft');
+  });
+
+  it('answers a getMarkdown that was waiting on an import', async () => {
+    const { ref, unmount } = mount({ defaultValue: '**bold**' });
+    const handle = ref.current!;
+
+    const pending = handle.getMarkdown();
+    unmount();
+
+    await expect(pending).resolves.toBe('**bold**');
+  });
+
+  it('rejects a caret rect', async () => {
+    const { ref, unmount } = mount();
+    const handle = ref.current!;
+
+    unmount();
+
+    await expect(handle.getCaretRect()).rejects.toThrow('Component unmounted');
+  });
+
+  it('writes nothing and reports nothing', async () => {
+    const onChangeText = jest.fn();
+    const onChangeMarkdown = jest.fn();
+    const { ref, unmount } = mount({ onChangeText, onChangeMarkdown });
+    const handle = ref.current!;
+
+    unmount();
+    handle.insertText('late');
+    handle.toggleBold();
+    handle.setValue('**late**');
+    await act(async () => undefined);
+
+    expect(onChangeText).not.toHaveBeenCalled();
+    expect(onChangeMarkdown).not.toHaveBeenCalled();
+    await expect(handle.getMarkdown()).resolves.toBe('');
   });
 });

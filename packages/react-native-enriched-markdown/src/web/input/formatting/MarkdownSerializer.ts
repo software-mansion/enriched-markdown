@@ -6,10 +6,8 @@ import {
   type BlockRange,
 } from '../model/blocks';
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
-import {
-  compareBoundaryEvents,
-  type BoundaryEvent,
-} from '../model/boundaryEvents';
+import type { BoundaryEvent } from '../model/boundaryEvents';
+import { markdownEscapePositions } from './markdownEscape';
 
 const OPENING_DELIMITERS: Record<InputStyleType, string> = {
   strong: '**',
@@ -61,101 +59,347 @@ function closingDelimiter(
   return OPENING_DELIMITERS[type];
 }
 
-// Lower value = outermost wrapper. Font styles wrap around structural styles.
+// Among styles covering exactly the same text, lower is outermost. A link or
+// spoiler goes outside font styles: "[**docs**](u)s" parses, while
+// "**[docs](u)**s" does not - a closing "**" after ")" and before a letter is
+// not right-flanking.
 const NESTING_PRIORITY: Record<InputStyleType, number> = {
-  em: 0,
-  strong: 1,
-  underline: 2,
-  strikethrough: 3,
-  spoiler: 4,
-  link: 5,
+  link: 0,
+  spoiler: 1,
+  em: 2,
+  strong: 3,
+  underline: 4,
+  strikethrough: 5,
 };
 
-// Among openings: outer first (lower priority emitted first).
-// Among closings: inner first (higher priority emitted first) — LIFO order.
-// Delimiters have to nest, unlike the projection's runs, which is why this
-// sweep breaks ties where the shared comparator does not.
-function compareNestingPriority(a: BoundaryEvent, b: BoundaryEvent): number {
-  return a.isOpening
-    ? NESTING_PRIORITY[a.type] - NESTING_PRIORITY[b.type]
-    : NESTING_PRIORITY[b.type] - NESTING_PRIORITY[a.type];
+// The part of a range on one line, trimmed so its delimiters hug
+// non-whitespace: an opening "**" before a space or a closing one after it is
+// not flanking, and the parser would leave it as text.
+interface Segment {
+  type: InputStyleType;
+  url: string | undefined;
+  start: number;
+  end: number;
+}
+
+// Of two delimiters opening at one position, the one written first is the
+// outer one, so it has to be the one that closes last.
+function opensOutside(a: Segment, b: Segment): number {
+  return b.end - a.end || NESTING_PRIORITY[a.type] - NESTING_PRIORITY[b.type];
+}
+
+// Whitespace as `\s` matches it, without a regex call for the ASCII cases
+// that make up nearly all text.
+function isWhitespaceAt(text: string, index: number): boolean {
+  const code = text.charCodeAt(index);
+  if (code < 0x80) {
+    return code === 0x20 || (code >= 0x09 && code <= 0x0d);
+  }
+  return isWhitespace(text.charAt(index));
+}
+
+function lineStartsOf(text: string): number[] {
+  const lineStarts = [0];
+  for (
+    let lineBreak = text.indexOf('\n');
+    lineBreak !== -1;
+    lineBreak = text.indexOf('\n', lineBreak + 1)
+  ) {
+    lineStarts.push(lineBreak + 1);
+  }
+  return lineStarts;
 }
 
 // Every line is its own block (see BlockStore), and no inline run may cross a
 // block boundary: "- **a\n- b**" re-parses as two items carrying literal
 // asterisks rather than one bold run. Each range is therefore emitted once per
 // line it covers, which also splits a link spanning lines into one link per
-// line - the only form the block model can express.
-function splitRangesAtLineBreaks(
+// line - the only form the block model can express. Sorted by start.
+function lineSegments(
+  text: string,
   ranges: readonly FormattingRange[],
-  text: string
-): FormattingRange[] {
-  const segments: FormattingRange[] = [];
+  lineStarts: readonly number[]
+): Segment[] {
+  const lineEnd = (line: number) =>
+    line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : text.length;
+  const segments: Segment[] = [];
+  let sorted = true;
+  // The line of the last range's start. Ranges come sorted by start (the
+  // store keeps them so), so this walks forward through the lines once;
+  // only a range starting behind it is looked up.
+  let cursor = 0;
   for (const range of ranges) {
-    let start = range.start;
-    while (start < range.end) {
-      const lineBreak = text.indexOf('\n', start);
-      const end =
-        lineBreak === -1 || lineBreak >= range.end ? range.end : lineBreak;
-      if (end > start) {
-        segments.push({ ...range, start, end });
+    const rangeEnd = clamp(range.end, 0, text.length);
+    let start = clamp(range.start, 0, text.length);
+    if (start >= rangeEnd) {
+      continue;
+    }
+    if (start < lineStarts[cursor]!) {
+      cursor = lineAt(lineStarts, start);
+    }
+    while (lineEnd(cursor) < start) {
+      cursor++;
+    }
+    for (let line = cursor; start < rangeEnd; line++) {
+      const end = Math.min(lineEnd(line), rangeEnd);
+      let from = start;
+      let to = end;
+      while (from < to && isWhitespaceAt(text, from)) {
+        from++;
+      }
+      while (to > from && isWhitespaceAt(text, to - 1)) {
+        to--;
+      }
+      if (from < to) {
+        const previous = segments[segments.length - 1];
+        sorted &&= previous === undefined || previous.start <= from;
+        segments.push({
+          type: range.type,
+          url: range.url,
+          start: from,
+          end: to,
+        });
       }
       start = end + 1;
     }
   }
+  if (!sorted) {
+    // Only a range spanning lines puts a later line's segment ahead of the
+    // next range's.
+    segments.sort((a, b) => a.start - b.start);
+  }
   return segments;
+}
+
+// The line holding `position`.
+function lineAt(lineStarts: readonly number[], position: number): number {
+  return firstIndexReachingTarget(position + 1, lineStarts.length, (i) =>
+    i + 1 < lineStarts.length ? lineStarts[i + 1]! : Infinity
+  );
 }
 
 export function serializeInline(
   text: string,
   ranges: readonly FormattingRange[]
 ): string {
-  if (ranges.length === 0) {
-    return text;
-  }
-  return writeMarkdown(text, inlineEvents(text, ranges));
+  return writeMarkdown(
+    text,
+    ranges.length === 0 ? [] : inlineEvents(text, ranges, lineStartsOf(text))
+  );
 }
 
-// The delimiters to write, in output order.
+interface SegmentEvent extends BoundaryEvent {
+  segment: Segment;
+}
+
+// The delimiters to write, in output order. Ranges may overlap any way they
+// like, but delimiters have to nest, so this keeps a stack of open segments:
+// where one ends, everything opened inside it closes too, and the ones that
+// go on past it reopen right after - at the next non-whitespace character,
+// since a delimiter before a space does not open. Where several open at once,
+// the one closing last opens first.
+//
+// A segment whose delimiters md4c would not read as one - "**Note:**text",
+// underline over half a word - is dropped, and the rest written again without
+// it: losing a style beats writing its delimiters into the text, where every
+// reload would keep them.
 function inlineEvents(
   text: string,
-  ranges: readonly FormattingRange[]
+  ranges: readonly FormattingRange[],
+  lineStarts: readonly number[]
 ): BoundaryEvent[] {
-  const events: BoundaryEvent[] = [];
-  for (const range of splitRangesAtLineBreaks(ranges, text)) {
-    let start = clamp(range.start, 0, text.length);
-    let end = clamp(range.end, 0, text.length);
-    if (start >= end) {
-      continue;
+  let segments = lineSegments(text, ranges, lineStarts);
+  while (true) {
+    const events = nestedEvents(text, segments);
+    const unreadable = unflankedSegments(text, events);
+    if (unreadable.size === 0) {
+      return events;
     }
-
-    // Trim leading/trailing whitespace so delimiters hug non-whitespace content.
-    while (start < end && isWhitespace(text.charAt(start))) {
-      start++;
-    }
-    while (end > start && isWhitespace(text.charAt(end - 1))) {
-      end--;
-    }
-    if (start >= end) {
-      continue;
-    }
-
-    events.push({
-      position: start,
-      isOpening: true,
-      type: range.type,
-      url: range.url,
-    });
-    events.push({
-      position: end,
-      isOpening: false,
-      type: range.type,
-      url: range.url,
-    });
+    segments = segments.filter((segment) => !unreadable.has(segment));
   }
+}
 
-  events.sort((a, b) => compareBoundaryEvents(a, b, compareNestingPriority));
+function nestedEvents(
+  text: string,
+  segments: readonly Segment[]
+): SegmentEvent[] {
+  const events: SegmentEvent[] = [];
+  const stack: Segment[] = [];
+  const opening: Segment[] = [];
+  let next = 0;
+  while (next < segments.length || stack.length > 0) {
+    let position =
+      next < segments.length ? segments[next]!.start : Number.MAX_VALUE;
+    let deepest = -1;
+    for (let i = 0; i < stack.length; i++) {
+      const end = stack[i]!.end;
+      if (end < position) {
+        position = end;
+        deepest = i;
+      } else if (end === position && deepest === -1) {
+        deepest = i;
+      }
+    }
+
+    if (deepest !== -1) {
+      while (stack.length > deepest) {
+        const segment = stack.pop()!;
+        events.push({
+          position,
+          isOpening: false,
+          type: segment.type,
+          url: segment.url,
+          segment,
+        });
+        if (segment.end > position) {
+          opening.push(segment);
+        }
+      }
+    }
+    while (next < segments.length && segments[next]!.start === position) {
+      opening.push(segments[next++]!);
+    }
+    if (opening.length === 0) {
+      continue;
+    }
+
+    // A segment opening here starts on non-whitespace, so this only moves
+    // reopened ones, and nothing ends or starts in the whitespace skipped.
+    let openAt = position;
+    while (isWhitespaceAt(text, openAt)) {
+      openAt++;
+    }
+    opening.sort(opensOutside);
+    for (const segment of opening) {
+      stack.push(segment);
+      events.push({
+        position: openAt,
+        isOpening: true,
+        type: segment.type,
+        url: segment.url,
+        segment,
+      });
+    }
+    opening.length = 0;
+  }
   return events;
+}
+
+// What sits on one side of a delimiter in the output. A line's edge reads as
+// whitespace (a block marker ends in a space), and another delimiter as
+// punctuation, which every delimiter character is.
+type Neighbor = 'whitespace' | 'punctuation' | 'word';
+
+const UNICODE_PUNCTUATION_RE = /[\p{P}\p{S}]/u;
+
+// md4c's classes: CommonMark punctuation is Unicode P and S, so an emoji
+// counts as punctuation next to "**".
+function classify(char: string): Neighbor {
+  const code = char.charCodeAt(0);
+  if (code < 0x80) {
+    if (code === 0x20 || (code >= 0x09 && code <= 0x0d)) {
+      return 'whitespace';
+    }
+    const isAsciiPunctuation =
+      (code >= 0x21 && code <= 0x2f) ||
+      (code >= 0x3a && code <= 0x40) ||
+      (code >= 0x5b && code <= 0x60) ||
+      (code >= 0x7b && code <= 0x7e);
+    return isAsciiPunctuation ? 'punctuation' : 'word';
+  }
+  if (isWhitespace(char)) {
+    return 'whitespace';
+  }
+  return UNICODE_PUNCTUATION_RE.test(char) ? 'punctuation' : 'word';
+}
+
+function neighborBefore(
+  text: string,
+  events: readonly SegmentEvent[],
+  index: number
+): Neighbor {
+  const position = events[index]!.position;
+  if (index > 0 && events[index - 1]!.position === position) {
+    return 'punctuation';
+  }
+  if (position === 0 || text.charCodeAt(position - 1) === 0x0a) {
+    return 'whitespace';
+  }
+  const code = text.charCodeAt(position - 1);
+  // The whole code point, so an emoji is classified as one.
+  const isLowSurrogate = code >= 0xdc00 && code <= 0xdfff && position >= 2;
+  return classify(
+    text.slice(isLowSurrogate ? position - 2 : position - 1, position)
+  );
+}
+
+function neighborAfter(
+  text: string,
+  events: readonly SegmentEvent[],
+  index: number
+): Neighbor {
+  const position = events[index]!.position;
+  if (index + 1 < events.length && events[index + 1]!.position === position) {
+    return 'punctuation';
+  }
+  if (position === text.length || text.charCodeAt(position) === 0x0a) {
+    return 'whitespace';
+  }
+  return classify(String.fromCodePoint(text.codePointAt(position)!));
+}
+
+// Whether md4c reads a delimiter between `before` and `after` as the opening
+// (or the closing) it stands for. Measured against the parser rather than
+// taken from the spec, because "_" (underline here) and "~~" are extensions:
+// - "*" / "**": CommonMark flanking. An opener is left-flanking - not before
+//   whitespace, and not before punctuation unless whitespace or punctuation
+//   precedes it - and a closer the mirror image.
+// - "_" / "~~": an opener must not follow a letter or digit, nor a closer
+//   precede one: neither works inside a word.
+// - "||" and links take any neighbors.
+function isFlanking(
+  type: InputStyleType,
+  isOpening: boolean,
+  before: Neighbor,
+  after: Neighbor
+): boolean {
+  const [inner, outer] = isOpening ? [after, before] : [before, after];
+  switch (type) {
+    case 'em':
+    case 'strong':
+      return (
+        inner !== 'whitespace' && (inner !== 'punctuation' || outer !== 'word')
+      );
+    case 'underline':
+    case 'strikethrough':
+      return inner !== 'whitespace' && outer !== 'word';
+    case 'spoiler':
+    case 'link':
+      return true;
+  }
+}
+
+function unflankedSegments(
+  text: string,
+  events: readonly SegmentEvent[]
+): Set<Segment> {
+  const unflanked = new Set<Segment>();
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i]!;
+    if (
+      event.type !== 'link' &&
+      event.type !== 'spoiler' &&
+      !isFlanking(
+        event.type,
+        event.isOpening,
+        neighborBefore(text, events, i),
+        neighborAfter(text, events, i)
+      )
+    ) {
+      unflanked.add(event.segment);
+    }
+  }
+  return unflanked;
 }
 
 // Copies `text` with the events' delimiters and the lines' block markers
@@ -173,6 +417,23 @@ function writeMarkdown(
   let markdown = '';
   let written = 0;
   let nextLine = 0;
+  const escapes = markdownEscapePositions(text);
+  let nextEscape = 0;
+  const copyText = (end: number) => {
+    for (
+      ;
+      nextEscape < escapes.length && escapes[nextEscape]! < end;
+      nextEscape++
+    ) {
+      const at = escapes[nextEscape]!;
+      markdown += text.slice(written, at) + '\\';
+      written = at;
+    }
+    if (end > written) {
+      markdown += text.slice(written, end);
+      written = end;
+    }
+  };
   const copyTo = (position: number) => {
     for (
       ;
@@ -181,15 +442,11 @@ function writeMarkdown(
     ) {
       const prefix = linePrefixes[nextLine];
       if (prefix !== undefined) {
-        const lineStart = lineStarts[nextLine]!;
-        markdown += text.slice(written, lineStart) + prefix;
-        written = lineStart;
+        copyText(lineStarts[nextLine]!);
+        markdown += prefix;
       }
     }
-    if (position > written) {
-      markdown += text.slice(written, position);
-      written = position;
-    }
+    copyText(position);
   };
 
   for (const event of events) {
@@ -217,14 +474,7 @@ export function serialize(
     return serializeInline(text, ranges);
   }
 
-  const lineStarts = [0];
-  for (
-    let lineBreak = text.indexOf('\n');
-    lineBreak !== -1;
-    lineBreak = text.indexOf('\n', lineBreak + 1)
-  ) {
-    lineStarts.push(lineBreak + 1);
-  }
+  const lineStarts = lineStartsOf(text);
   const lineEnd = (line: number) =>
     line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : text.length;
   const linePrefixes: (string | undefined)[] = [];
@@ -303,7 +553,7 @@ export function serialize(
 
   return writeMarkdown(
     text,
-    ranges.length === 0 ? [] : inlineEvents(text, ranges),
+    ranges.length === 0 ? [] : inlineEvents(text, ranges, lineStarts),
     lineStarts,
     linePrefixes
   );

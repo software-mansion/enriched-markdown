@@ -185,13 +185,53 @@ export class SelectionMapper {
   }
 }
 
-// The length of the text in `line` before the point (`node`, `offset`). A
-// `<br>` holds no text, so an empty line is 0 throughout.
-function textLengthBefore(line: Element, node: Node, offset: number): number {
-  const range = line.ownerDocument.createRange();
-  range.setStart(line, 0);
-  range.setEnd(node, clampIndex(offset, maxOffset(node)));
-  return range.toString().length;
+// The length of the text in `container` before the point (`node`, `offset`),
+// which lies in it: what `Range.toString()` would count, without a `Range`.
+// A live `Range` stays registered on its document until it is collected, and
+// every DOM mutation updates each one, so a dropped `Range` per lookup slows
+// down later renders. A `TreeWalker` is not live. A `<br>` holds no text, so
+// an empty line is 0 throughout.
+export function textLengthBefore(
+  container: Node,
+  node: Node,
+  offset: number
+): number {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (
+      textLengthPreceding(container, node) +
+      clampIndex(offset, (node as Text).length)
+    );
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    // A point inside a comment or other non-text character data.
+    return textLengthPreceding(container, node);
+  }
+  const child = node.childNodes[Math.max(offset, 0)];
+  return child === undefined
+    ? textLengthPreceding(container, node) + (node.textContent ?? '').length
+    : textLengthPreceding(container, child);
+}
+
+// The length of the text nodes in `container` before `node` in document
+// order, not counting `node`'s own subtree.
+function textLengthPreceding(container: Node, node: Node): number {
+  if (node === container) {
+    return 0;
+  }
+  const walker = container.ownerDocument!.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT
+  );
+  walker.currentNode = node;
+  let length = 0;
+  for (
+    let text = walker.previousNode();
+    text !== null;
+    text = walker.previousNode()
+  ) {
+    length += (text as Text).length;
+  }
+  return length;
 }
 
 // The DOM position `offset` units into a line; null when the line holds less
@@ -224,12 +264,6 @@ function positionInLine(line: Element, offset: number): DomPosition | null {
     `a line ${offset - remaining} units long was asked for offset ${offset}`
   );
   return null;
-}
-
-function maxOffset(node: Node): number {
-  return node.nodeType === Node.TEXT_NODE || node.nodeType === Node.COMMENT_NODE
-    ? (node as CharacterData).length
-    : node.childNodes.length;
 }
 
 function clampIndex(index: number, length: number): number {

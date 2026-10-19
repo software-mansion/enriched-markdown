@@ -2,6 +2,8 @@ import { parseToPlainTextAndRanges } from '../InputParser';
 import { FormattingStore } from '../FormattingStore';
 import { BlockStore } from '../BlockStore';
 import { serialize } from '../MarkdownSerializer';
+import { createBlockRange } from '../../model/blocks';
+import { createFormattingRange } from '../../model/inlineStyles';
 
 async function roundTrip(markdown: string): Promise<string> {
   const { plainText, formattingRanges, blockRanges } =
@@ -50,6 +52,15 @@ const CANONICAL_FIXTURES = [
   'git fetch\n\n\n\ngit merge',
   // latexMath is off for the input dialect, so dollar delimiters are text.
   '$$x^2$$',
+  // Plain text that would read as markup is escaped on the way out.
+  '\\*not em\\*',
+  '\\# not a heading',
+  '2 \\*\\* 2',
+  'a \\|\\| b',
+  '# Use \\#',
+  '- \\- x',
+  '**bold \\* star**',
+  '[a\\]b](https://x.dev)',
 ];
 
 // Non-canonical input: one pass normalizes it into the expected form.
@@ -57,8 +68,8 @@ const NORMALIZATION_FIXTURES: Array<[before: string, after: string]> = [
   ['**force push', '**force push**'],
   ['~~drop ||squash', '~~drop ||squash||~~'],
   ['[changelog](https://git-scm', '[changelog](https://git-scm)'],
-  // Styles covering exactly the link text move outside the link.
-  ['[**docs**](https://x.dev)', '**[docs](https://x.dev)**'],
+  // Styles covering exactly the link text move inside the link.
+  ['**[docs](https://x.dev)**', '[**docs**](https://x.dev)'],
   // An empty heading is an editing-time anchor; import drops it (as native).
   ['# ', ''],
   // Headings are separated by a blank line on the way out.
@@ -85,27 +96,11 @@ const UNSUPPORTED_BLOCK_FIXTURES: Array<[before: string, after: string]> = [
   ['`inline code`', 'inline code'],
 ];
 
-// Known limitation: the serializer emits text verbatim, so a backslash escape
-// is dropped on import and the bare characters re-parse as markup next pass.
-// These settle in one pass because the text happens to serialize unchanged -
-// the semantics still shifted (plain text became emphasis, a heading).
-const DROPPED_ESCAPE_FIXTURES: Array<[before: string, after: string]> = [
-  ['\\*not em\\*', '*not em*'],
-  ['\\# not a heading', '# not a heading'],
-];
-
-// Inputs that need a second pass to settle, each for a different reason, and
-// both worth fixing rather than keeping:
-// - a dropped escape leaves a bare `**`/`||` that InputRemend then completes,
-//   so the text grows a closing delimiter (and `||` also loses a space to the
-//   serializer's whitespace trimming);
-// - a fenced code block's content carries the trailing newline md4c reports,
-//   which the next pass absorbs.
+// Inputs that need a second pass to settle: a fenced code block's content
+// carries the trailing newline md4c reports, which the next pass absorbs.
 const TWO_PASS_FIXTURES: Array<
   [source: string, firstPass: string, settled: string]
 > = [
-  ['2 \\*\\* 2', '2 ** 2', '2 ** 2**'],
-  ['a \\|\\| b', 'a || b', 'a  ||b||'],
   ['```\ncode\n```', 'code\n', 'code'],
   ['```js\nconst a = 1;\n```', 'const a = 1;\n', 'const a = 1;'],
 ];
@@ -113,7 +108,6 @@ const TWO_PASS_FIXTURES: Array<
 const ONE_PASS_FIXTURES = [
   ...NORMALIZATION_FIXTURES,
   ...UNSUPPORTED_BLOCK_FIXTURES,
-  ...DROPPED_ESCAPE_FIXTURES,
 ];
 
 describe('markdown round trip', () => {
@@ -138,13 +132,6 @@ describe('markdown round trip', () => {
     }
   );
 
-  it.each(DROPPED_ESCAPE_FIXTURES)(
-    'drops the escapes in %j, leaving %j',
-    async (before, after) => {
-      expect(await roundTrip(before)).toBe(after);
-    }
-  );
-
   it.each(TWO_PASS_FIXTURES)(
     'settles %j only on the second pass',
     async (source, firstPass, settled) => {
@@ -162,4 +149,113 @@ describe('markdown round trip', () => {
   ])('is idempotent for the settled form %j', async (markdown) => {
     expect(await roundTrip(markdown)).toBe(markdown);
   });
+});
+
+// Text the user typed, which carries no markup of its own, has to come back
+// as the same text with the same styles. Each case is serialized from the
+// model, not written as markdown, the way the editor saves it.
+const PLAIN_TEXT_CASES: string[] = [
+  '5 * 2 = 10',
+  'x = a_b',
+  'snake_case is fine',
+  'array[0',
+  'a]b',
+  'true || false',
+  'use ` here',
+  '&copy; 2024',
+  'Tom &amp; Jerry',
+  'AT&T and R&D',
+  '1984. A novel',
+  '3) third',
+  'a\n===',
+  'a\n---',
+  '- item typed as text',
+  '+ plus',
+  '# not a heading',
+  '###### six',
+  '> not a quote',
+  '~~ approx',
+  '~single~',
+  'back\\slash',
+  'line ends with \\',
+  '<div>hello</div>',
+  'a <b>c</b>',
+  '<https://x.dev>',
+  '![alt](img.png)',
+  '[x](y)',
+  '**not bold**',
+  '_under_',
+  '***',
+  '___',
+  '```',
+  '~~~',
+  '1. a\n2. b',
+  '#hashtag',
+  'ends with #',
+  'C# and F#',
+  '=',
+];
+
+async function modelOf(markdown: string) {
+  const { plainText, formattingRanges, blockRanges } =
+    await parseToPlainTextAndRanges(markdown);
+  const styles = new FormattingStore();
+  styles.setRanges(formattingRanges);
+  const blocks = new BlockStore();
+  blocks.setRanges(blockRanges);
+  return {
+    text: plainText,
+    ranges: styles.allRanges.map(({ type, start, end }) => ({
+      type,
+      start,
+      end,
+    })),
+    blocks: blocks.allRanges.map(({ type, start, end }) => ({
+      type,
+      start,
+      end,
+    })),
+  };
+}
+
+describe('plain text escaping', () => {
+  // Known limitation: md4c strips a line's leading whitespace and markdown
+  // has no escape for it (an entity would do, but the parser drops entities,
+  // review §2.5.5). The marker after it still stays text.
+  it('keeps an indented dash as text, losing the indent', async () => {
+    expect(await modelOf(serialize('  - indented dash', [], []))).toEqual({
+      text: '- indented dash',
+      ranges: [],
+      blocks: [],
+    });
+  });
+
+  it.each(PLAIN_TEXT_CASES)('keeps %j as plain text', async (text) => {
+    const markdown = serialize(text, [], []);
+
+    expect(await modelOf(markdown)).toEqual({ text, ranges: [], blocks: [] });
+  });
+
+  it.each(PLAIN_TEXT_CASES)(
+    'keeps %j as plain text inside a heading, a list item and bold',
+    async (text) => {
+      if (text.includes('\n')) {
+        return;
+      }
+      for (const block of ['h2', 'unordered-list-item'] as const) {
+        const blocks = [
+          {
+            ...createBlockRange(block, 0, text.length),
+            level: block === 'h2' ? 2 : 0,
+          },
+        ];
+        const ranges = [createFormattingRange('strong', 0, text.length)];
+        const markdown = serialize(text, ranges, blocks);
+        const model = await modelOf(markdown);
+
+        expect([markdown, model.text]).toEqual([markdown, text]);
+        expect(model.blocks.map((b) => b.type)).toEqual([block]);
+      }
+    }
+  );
 });

@@ -140,6 +140,8 @@ export const EnrichedMarkdownTextInput = forwardRef<
 ) {
   const rootRef = useRef<HTMLDivElement>(null);
   const host = useRef<InputHost | null>(null);
+  // The node `host` was built on. A host is reattached only to its own node.
+  const hostRoot = useRef<HTMLDivElement | null>(null);
   const [queue] = useState(() => new ImportQueue());
   const initialDefaultValue = useRef(defaultValue).current;
   const initialAutoFocus = useRef(autoFocus).current;
@@ -165,49 +167,65 @@ export const EnrichedMarkdownTextInput = forwardRef<
   // layout effect or from a ref callback would otherwise reach a handle whose
   // host is still null, and every command it issued would be dropped with no
   // diagnostic at all.
+  //
+  // React also runs this again over the same node without unmounting - an
+  // `<Activity>` hidden and shown, a Suspense boundary suspending again,
+  // StrictMode's double run - so the cleanup only detaches the host, and a
+  // re-run over the same node attaches it again with the user's text, caret
+  // and undo history intact. Only a new host imports `defaultValue` and takes
+  // `autoFocus`: re-importing would replace what the user typed with the
+  // mount-time value, and focusing would steal focus on every reveal.
   useLayoutEffect(() => {
     const root = rootRef.current!;
-    const instance = new InputHost(
-      root,
-      {
-        onChangeText: (text) => callbacks.current.onChangeText?.(text),
-        onChangeSelection: (selection) =>
-          callbacks.current.onChangeSelection?.(selection),
-        onChangeState: (state) =>
-          callbacks.current.onChangeState?.(toStyleState(state)),
-        onChangeMarkdown: (markdown) =>
-          callbacks.current.onChangeMarkdown?.(markdown),
-        onChangeHistoryState: (state) =>
-          callbacks.current.onChangeHistoryState?.(state),
-      },
-      { spellCheck: initialSpellCheck }
-    );
-    host.current = instance;
+    let instance = host.current;
+    const isNew = instance === null || hostRoot.current !== root;
+    if (isNew) {
+      instance?.destroy();
+      instance = new InputHost(
+        root,
+        {
+          onChangeText: (text) => callbacks.current.onChangeText?.(text),
+          onChangeSelection: (selection) =>
+            callbacks.current.onChangeSelection?.(selection),
+          onChangeState: (state) =>
+            callbacks.current.onChangeState?.(toStyleState(state)),
+          onChangeMarkdown: (markdown) =>
+            callbacks.current.onChangeMarkdown?.(markdown),
+          onChangeHistoryState: (state) =>
+            callbacks.current.onChangeHistoryState?.(state),
+        },
+        { spellCheck: initialSpellCheck }
+      );
+      host.current = instance;
+      hostRoot.current = root;
+    } else {
+      instance!.attach();
+    }
+    const attached = instance!;
     // Before the `autoFocus` below, which dispatches `focus` synchronously:
     // a listener added after it would never see the event.
     const handleFocus = () => callbacks.current.onFocus?.();
     const handleBlur = () => callbacks.current.onBlur?.();
     root.addEventListener('focus', handleFocus);
     root.addEventListener('blur', handleBlur);
-    instance.setEditable(latestEditable.current);
-    if (initialDefaultValue !== undefined) {
+    attached.setEditable(latestEditable.current);
+    if (isNew && initialDefaultValue !== undefined) {
       // `importValue`, not `setValue`: the app supplied this markdown, so
       // reporting it back would make `onChangeMarkdown` hand the app the
       // serializer's re-normalization of its own source string. Neither
       // native emits anything for a `defaultValue`.
       queue.startImport(
-        () => instance.importValue(initialDefaultValue),
+        () => attached.importValue(initialDefaultValue),
         logImportError
       );
     }
-    if (initialAutoFocus) {
-      instance.focus();
+    if (isNew && initialAutoFocus) {
+      attached.focus();
     }
     return () => {
       root.removeEventListener('focus', handleFocus);
       root.removeEventListener('blur', handleBlur);
-      instance.destroy();
-      host.current = null;
+      attached.detach();
     };
   }, [queue, initialDefaultValue, initialAutoFocus, initialSpellCheck]);
 
@@ -226,41 +244,53 @@ export const EnrichedMarkdownTextInput = forwardRef<
   useImperativeHandle(ref, () => {
     const root = rootRef.current!;
     const notImplemented = warnOnce();
+    // The host while it is attached. A detached one - unmounted, or hidden
+    // in an `<Activity>` - still holds the document, so reads answer from it,
+    // but nothing writes to it or makes it emit through a handle the app
+    // kept past the unmount.
+    const live = () => (host.current?.isAttached ? host.current : null);
     const run = (command: () => void) =>
       queue.runAfterImport(command, logCommandError);
     return {
-      focus: () => host.current?.focus(),
-      blur: () => host.current?.blur(),
+      focus: () => live()?.focus(),
+      blur: () => live()?.blur(),
       measure: (callback) => measure(root, callback),
       measureInWindow: (callback) => measureInWindow(root, callback),
       measureLayout: (relativeTo, onSuccess, onFail) =>
         measureLayout(root, relativeTo, onSuccess, onFail),
 
       setValue: (markdown) =>
-        queue.startImport(
-          () => host.current?.setValue(markdown),
-          logImportError
-        ),
-      setSelection: (start, end) =>
-        run(() => host.current?.setSelection(start, end)),
-      insertText: (text) => run(() => host.current?.insertText(text)),
+        queue.startImport(() => live()?.setValue(markdown), logImportError),
+      setSelection: (start, end) => run(() => live()?.setSelection(start, end)),
+      insertText: (text) => run(() => live()?.insertText(text)),
+      // Resolves with the document even once the input is gone, so a "save
+      // the draft on unmount" flow saves what was typed. Native rejects
+      // requests pending at unmount instead; web can answer them.
       getMarkdown: async () =>
         queue.afterImport(() => host.current?.getMarkdown() ?? ''),
+      // A caret needs a mounted, laid-out node; as on native, a request the
+      // input can no longer answer rejects rather than resolving to zeros.
       getCaretRect: async () =>
-        queue.afterImport(() => host.current?.caretRect() ?? EMPTY_CARET_RECT),
+        queue.afterImport(() => {
+          const attached = live();
+          if (attached === null) {
+            throw new Error('Component unmounted');
+          }
+          return attached.caretRect() ?? EMPTY_CARET_RECT;
+        }),
 
-      toggleBold: () => run(() => host.current?.toggleBold()),
-      toggleItalic: () => run(() => host.current?.toggleItalic()),
-      toggleUnderline: () => run(() => host.current?.toggleUnderline()),
-      toggleStrikethrough: () => run(() => host.current?.toggleStrikethrough()),
-      toggleSpoiler: () => run(() => host.current?.toggleSpoiler()),
-      toggleHeading: (level) => run(() => host.current?.toggleHeading(level)),
-      toggleUnorderedList: () => run(() => host.current?.toggleUnorderedList()),
-      toggleOrderedList: () => run(() => host.current?.toggleOrderedList()),
-      indentList: () => run(() => host.current?.indentList()),
-      outdentList: () => run(() => host.current?.outdentList()),
-      undo: () => run(() => host.current?.undo()),
-      redo: () => run(() => host.current?.redo()),
+      toggleBold: () => run(() => live()?.toggleBold()),
+      toggleItalic: () => run(() => live()?.toggleItalic()),
+      toggleUnderline: () => run(() => live()?.toggleUnderline()),
+      toggleStrikethrough: () => run(() => live()?.toggleStrikethrough()),
+      toggleSpoiler: () => run(() => live()?.toggleSpoiler()),
+      toggleHeading: (level) => run(() => live()?.toggleHeading(level)),
+      toggleUnorderedList: () => run(() => live()?.toggleUnorderedList()),
+      toggleOrderedList: () => run(() => live()?.toggleOrderedList()),
+      indentList: () => run(() => live()?.indentList()),
+      outdentList: () => run(() => live()?.outdentList()),
+      undo: () => run(() => live()?.undo()),
+      redo: () => run(() => live()?.redo()),
 
       setLink: notImplemented('setLink'),
       insertLink: notImplemented('insertLink'),

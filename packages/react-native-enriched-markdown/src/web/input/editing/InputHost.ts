@@ -27,7 +27,12 @@ import {
   spansMatchRuns,
   type NativeEdit,
 } from './NativeEdit';
-import { isCaret, SelectionMapper, type DomPosition } from './SelectionMapper';
+import {
+  isCaret,
+  SelectionMapper,
+  textLengthBefore,
+  type DomPosition,
+} from './SelectionMapper';
 import { TypingAttributesController } from './TypingAttributesController';
 import { buildInputState, sameInputState, type InputState } from './InputState';
 import {
@@ -98,6 +103,7 @@ export class InputHost {
   private pendingNativeEdit: { edit: NativeEdit; runCount: number } | null =
     null;
   private destroyed = false;
+  private attached = false;
   // Bumped by every import, so one still parsing can tell that a later import
   // has overtaken it. Only imports count: a user edit cannot race an import,
   // because the editor is inert while one is parsing.
@@ -142,6 +148,50 @@ export class InputHost {
     this.setOwnedAttribute('data-gramm', 'false');
     this.setOwnedAttribute('translate', 'no');
 
+    this.addListeners();
+    this.render();
+  }
+
+  // Stops listening, keeping the document, its DOM and the undo history, so
+  // that `attach` picks up where this left off. React tears a layout effect
+  // down and runs it again over the same node - an `<Activity>` hidden and
+  // shown, a Suspense boundary suspending again, StrictMode's double run -
+  // and destroying the host there would throw the user's text away.
+  detach(): void {
+    if (this.destroyed || !this.attached) {
+      return;
+    }
+    // Nothing will report these once the listeners are gone.
+    this.settleNativeEdit();
+    if (this.session.isComposing) {
+      this.endComposition();
+    }
+    this.pointerSelecting = false;
+    this.removeListeners();
+    // A node left in the page (hidden, or kept by whoever owns it) must not
+    // take typing that nothing would see. `attach` restores both.
+    this.root.removeAttribute('contenteditable');
+    this.root.removeAttribute('data-empty');
+  }
+
+  attach(): void {
+    if (this.destroyed || this.attached) {
+      return;
+    }
+    this.addListeners();
+    this.setEditable(this.editable);
+    // Whatever touched the DOM while nothing was listening is undone: the
+    // renderer rebuilds lines that no longer match what it rendered. This
+    // also puts `data-empty` back.
+    this.render();
+  }
+
+  get isAttached(): boolean {
+    return this.attached;
+  }
+
+  private addListeners(): void {
+    const root = this.root;
     root.addEventListener('beforeinput', this.handleBeforeInput);
     root.addEventListener('input', this.handleInput);
     root.addEventListener('keydown', this.handleKeyDown);
@@ -158,8 +208,31 @@ export class InputHost {
     );
     root.ownerDocument.addEventListener('pointerup', this.handlePointerUp);
     root.ownerDocument.addEventListener('pointercancel', this.handlePointerUp);
+    this.attached = true;
+  }
 
-    this.render();
+  private removeListeners(): void {
+    const root = this.root;
+    root.removeEventListener('beforeinput', this.handleBeforeInput);
+    root.removeEventListener('input', this.handleInput);
+    root.removeEventListener('keydown', this.handleKeyDown);
+    root.removeEventListener('pointerdown', this.handlePointerDown);
+    root.removeEventListener('compositionstart', this.handleCompositionStart);
+    root.removeEventListener('compositionend', this.handleCompositionEnd);
+    root.removeEventListener('focus', this.handleFocus);
+    root.removeEventListener('blur', this.handleBlur);
+    root.removeEventListener('cut', this.handleCut);
+    root.removeEventListener('paste', this.handlePaste);
+    root.ownerDocument.removeEventListener(
+      'selectionchange',
+      this.handleSelectionChange
+    );
+    root.ownerDocument.removeEventListener('pointerup', this.handlePointerUp);
+    root.ownerDocument.removeEventListener(
+      'pointercancel',
+      this.handlePointerUp
+    );
+    this.attached = false;
   }
 
   destroy(): void {
@@ -173,31 +246,9 @@ export class InputHost {
     // and returns false, so the import queue behind it does not stall.
     this.runDeferredCommands();
 
-    this.root.removeEventListener('beforeinput', this.handleBeforeInput);
-    this.root.removeEventListener('input', this.handleInput);
-    this.root.removeEventListener('keydown', this.handleKeyDown);
-    this.root.removeEventListener('pointerdown', this.handlePointerDown);
-    this.root.removeEventListener(
-      'compositionstart',
-      this.handleCompositionStart
-    );
-    this.root.removeEventListener('compositionend', this.handleCompositionEnd);
-    this.root.removeEventListener('focus', this.handleFocus);
-    this.root.removeEventListener('blur', this.handleBlur);
-    this.root.removeEventListener('cut', this.handleCut);
-    this.root.removeEventListener('paste', this.handlePaste);
-    this.root.ownerDocument.removeEventListener(
-      'selectionchange',
-      this.handleSelectionChange
-    );
-    this.root.ownerDocument.removeEventListener(
-      'pointerup',
-      this.handlePointerUp
-    );
-    this.root.ownerDocument.removeEventListener(
-      'pointercancel',
-      this.handlePointerUp
-    );
+    if (this.attached) {
+      this.removeListeners();
+    }
 
     // Leave nothing editable behind. A consumer that owns the node and keeps
     // it would otherwise hand the user a contentEditable with no model
@@ -1543,7 +1594,7 @@ interface CaretBox {
 // line's caret (before its lone `<br>`) has no rects in Blink or WebKit, so
 // the `<br>` stands in: it respects list indent and RTL, and has text height.
 function caretBoxAt(document: Document, position: DomPosition): CaretBox {
-  const range = document.createRange();
+  const range = measuringRange(document);
   range.setStart(position.node, position.offset);
   range.collapse(true);
   // Neither is implemented by every DOM (jsdom has neither).
@@ -1575,6 +1626,20 @@ function caretBoxAt(document: Document, position: DomPosition): CaretBox {
     }
   }
   return rect;
+}
+
+// One `Range` per document for caret measurements, reused rather than
+// dropped: every live `Range` is updated by each DOM mutation until it is
+// collected, so one per call slows later renders (see `textLengthBefore`).
+const measuringRanges = new WeakMap<Document, Range>();
+
+function measuringRange(document: Document): Range {
+  let range = measuringRanges.get(document);
+  if (range === undefined) {
+    range = document.createRange();
+    measuringRanges.set(document, range);
+  }
+  return range;
 }
 
 function lineBreakOf(line: Element): Element | null {
@@ -1756,7 +1821,7 @@ export function readTextFromDom(
       if (point.node === root && point.offset === i) {
         caret = nodeStart;
       } else if (point.node === node || node.contains(point.node)) {
-        caret = nodeStart + textLengthWithin(node, point);
+        caret = nodeStart + textLengthBefore(node, point.node, point.offset);
       }
     }
     if (!isLine && text.length === 0) {
@@ -1773,25 +1838,6 @@ export function readTextFromDom(
     caret = length;
   }
   return { text: lines.join('\n'), caret };
-}
-
-// The length of the text inside `container` before `point`, which lies in it.
-function textLengthWithin(container: Node, point: DomPosition): number {
-  if (point.node === container && point.node.nodeType === Node.TEXT_NODE) {
-    return Math.min(point.offset, (container as Text).length);
-  }
-  const range = container.ownerDocument!.createRange();
-  range.setStart(container, 0);
-  range.setEnd(
-    point.node,
-    Math.min(
-      point.offset,
-      point.node.nodeType === Node.TEXT_NODE
-        ? (point.node as Text).length
-        : point.node.childNodes.length
-    )
-  );
-  return range.toString().length;
 }
 
 // The one contiguous edit between two buffers, bounded by their shared prefix

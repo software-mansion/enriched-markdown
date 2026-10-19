@@ -3,10 +3,10 @@ import { sortedInsertionIndex } from './rangeStoreUtils';
 import type { FormattingRange, InputStyleType } from '../model/inlineStyles';
 import type { RangeBounds } from '../model/rangeBounds';
 
-// Invariants: ranges sorted by `start`; edit paths keep same-type ranges from
-// overlapping or touching, except links with different urls, which may touch
-// (adjacent `[a](x)[b](y)` must stay separate). `setRanges` only sorts, so
-// imported ranges may touch — queries never assume coalesced input.
+// Invariants: ranges sorted by `start`; same-type ranges never overlap or
+// touch, except links with different urls, which may touch (adjacent
+// `[a](x)[b](y)` must stay separate). Edit paths keep them so, and imports
+// arrive normalized (`normalizeFormattingRanges`); `setRanges` only sorts.
 export class FormattingStore {
   private ranges: FormattingRange[] = [];
   private revision = 0;

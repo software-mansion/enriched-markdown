@@ -2,6 +2,10 @@ import type { ASTNode, NodeType } from '../../types';
 import { parseMarkdown, type WebMd4cFlags } from '../../parseMarkdown';
 import { completeMarkdown } from './InputRemend';
 import {
+  normalizeBlockRanges,
+  normalizeFormattingRanges,
+} from './normalizeImport';
+import {
   blockTypeForHeadingLevel,
   createBlockRange,
   LIST_ITEM_BLOCK_TYPES,
@@ -147,8 +151,8 @@ export function parseResultFromAst(
 
   return {
     plainText: state.text,
-    formattingRanges: state.formattingRanges,
-    blockRanges: state.blockRanges,
+    formattingRanges: normalizeFormattingRanges(state.formattingRanges),
+    blockRanges: normalizeBlockRanges(state.text, state.blockRanges),
   };
 }
 
