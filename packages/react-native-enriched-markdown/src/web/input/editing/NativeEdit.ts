@@ -8,8 +8,8 @@ import { isCaret } from './SelectionMapper';
 // Every other edit is cancelled and rendered from the model, which then has
 // to restore the caret by script - most of a keystroke's cost on a long
 // document. For plain typing and single deletes inside a run the browser's
-// own edit already is the DOM the model would render, with the caret in
-// place and spellcheck markers kept.
+// own edit already is the DOM the model would render, and keeps spellcheck
+// markers.
 //
 // `nodeText` predicts the text node after the edit; it is checked against
 // the model's runs before the event is let through, and against the DOM on

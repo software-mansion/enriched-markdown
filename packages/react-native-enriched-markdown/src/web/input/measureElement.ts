@@ -1,16 +1,14 @@
-// RN's measurement commands in react-native-web's own terms, so a component
-// that measures an `EnrichedMarkdownTextInput` reads the same numbers off it
-// as off any other view on the page.
+// RN's measurement commands in react-native-web's own terms, so measuring an
+// `EnrichedMarkdownTextInput` gives the same numbers as any other view.
 //
-// Three details are react-native-web's rather than obvious. The geometry for
-// `measure` and `measureLayout` is walked up the `offsetParent` chain
-// (`offsetLeft` plus `clientLeft` minus `scrollLeft` at every step) instead of
-// read off `getBoundingClientRect`, which keeps transforms out of it the way
-// the native layout boxes do. `measure` answers `x`/`y` relative to the parent
-// element, with `pageX`/`pageY` in viewport coordinates and not document ones.
-// And all three are asynchronous and skip a node that has left the document,
-// so a measurement scheduled just before an unmount resolves to nothing
-// instead of throwing.
+// The geometry for `measure` and `measureLayout` is walked up the
+// `offsetParent` chain (`offsetLeft` plus `clientLeft` minus `scrollLeft` at
+// every step) instead of read off `getBoundingClientRect`, which keeps
+// transforms out of it the way the native layout boxes do. `measure` answers
+// `x`/`y` relative to the parent element, with `pageX`/`pageY` in viewport
+// coordinates and not document ones. All three are asynchronous and skip a
+// node that has left the document, so a measurement scheduled just before an
+// unmount resolves to nothing instead of throwing.
 import type {
   MeasureCallback,
   MeasureInWindowCallback,
@@ -49,8 +47,7 @@ let warnedAboutNodeHandle = false;
 // `relativeTo` is typed `number | Node` for the native platforms, where the
 // number is a view tag. react-native-web's `findNodeHandle` answers the DOM
 // node instead, so that is the form this can resolve: a number got here from
-// RN's own `findNodeHandle` and names a registry web does not have. It says so
-// once instead of measuring against something arbitrary.
+// RN's own `findNodeHandle` and names a registry web does not have.
 function relativeElementOf(relativeTo: number | Node): HTMLElement | null {
   if (relativeTo instanceof HTMLElement) {
     return relativeTo;

@@ -33,10 +33,9 @@ import {
 } from './web/input/measureElement';
 import { preloadParser } from './web/parseMarkdown';
 
-// Warmed when the component is declared, not when it mounts: the mount starts
-// the `defaultValue` import in the same layout effect, so that would give no
-// head start, and the editor drops keystrokes while that parse is pending.
-// With the parser ready, the import settles before the next input event.
+// Warmed at module load, not on mount: the mount starts the `defaultValue`
+// import in the same layout effect, so that would give no head start, and the
+// editor drops keystrokes while that parse is pending.
 preloadParser();
 
 export type {
@@ -51,12 +50,11 @@ export type {
 export type EnrichedMarkdownTextInputInstance =
   MarkdownTextInputInstance<Element>;
 
-// The DOM attributes this component passes through, minus the ones the host
-// owns outright. `children` and `dangerouslySetInnerHTML` would have React
-// reconcile against a subtree the renderer rewrites by index, which throws a
-// `NotFoundError` on the next update; `contentEditable` is re-applied by React
-// on every render and would silently undo `editable`. `spellCheck` is held
-// back here and offered again below, because the host sets it itself.
+// `children` and `dangerouslySetInnerHTML` would have React reconcile against
+// a subtree the renderer rewrites by index, which throws a `NotFoundError` on
+// the next update; `contentEditable` is re-applied by React on every render
+// and would silently undo `editable`. `spellCheck` is redeclared below because
+// the host sets it itself.
 type ForwardedDomProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   | 'style'
@@ -151,11 +149,10 @@ export const EnrichedMarkdownTextInput = forwardRef<
   },
   ref
 ) {
-  // Native-only props would otherwise reach the DOM (review §2.8.2).
   const domProps = filterNativeOnlyInputProps(rest);
   const rootRef = useRef<HTMLDivElement>(null);
   const host = useRef<InputHost | null>(null);
-  // The node `host` was built on. A host is reattached only to its own node.
+  // A host is reattached only to the node it was built on.
   const hostRoot = useRef<HTMLDivElement | null>(null);
   const [queue] = useState(() => new ImportQueue());
   const initialDefaultValue = useRef(defaultValue).current;
@@ -177,19 +174,16 @@ export const EnrichedMarkdownTextInput = forwardRef<
     latestEditable.current = editable;
   });
 
-  // A layout effect rather than a passive one: `useImperativeHandle` installs
-  // the handle in the layout phase, so a parent driving the input from its own
-  // layout effect or from a ref callback would otherwise reach a handle whose
-  // host is still null, and every command it issued would be dropped with no
-  // diagnostic at all.
+  // A layout effect, not a passive one: `useImperativeHandle` installs the
+  // handle in the layout phase, so a parent driving the input from its own
+  // layout effect or a ref callback would otherwise reach a null host and its
+  // commands would be silently dropped.
   //
-  // React also runs this again over the same node without unmounting - an
-  // `<Activity>` hidden and shown, a Suspense boundary suspending again,
-  // StrictMode's double run - so the cleanup only detaches the host, and a
-  // re-run over the same node attaches it again with the user's text, caret
-  // and undo history intact. Only a new host imports `defaultValue` and takes
-  // `autoFocus`: re-importing would replace what the user typed with the
-  // mount-time value, and focusing would steal focus on every reveal.
+  // React reruns this over the same node without unmounting (`<Activity>`,
+  // Suspense re-suspending, StrictMode), so the cleanup only detaches and a
+  // rerun reattaches with text, caret and undo history intact. Only a new host
+  // imports `defaultValue` and takes `autoFocus`: otherwise a rerun would
+  // overwrite what the user typed and steal focus on every reveal.
   useLayoutEffect(() => {
     const root = rootRef.current!;
     let instance = host.current;
@@ -225,10 +219,9 @@ export const EnrichedMarkdownTextInput = forwardRef<
     root.addEventListener('blur', handleBlur);
     attached.setEditable(latestEditable.current);
     if (isNew && initialDefaultValue !== undefined) {
-      // `importValue`, not `setValue`: the app supplied this markdown, so
-      // reporting it back would make `onChangeMarkdown` hand the app the
-      // serializer's re-normalization of its own source string. Neither
-      // native emits anything for a `defaultValue`.
+      // `importValue`, not `setValue`: reporting the app's own markdown back
+      // would hand it the serializer's re-normalization. Neither native emits
+      // anything for a `defaultValue`.
       queue.startImport(
         () => attached.importValue(initialDefaultValue),
         logImportError
@@ -248,9 +241,8 @@ export const EnrichedMarkdownTextInput = forwardRef<
     host.current?.setEditable(editable);
   }, [editable]);
 
-  // Serializing the document after every edit is only worth doing when
-  // something is listening, and the host cannot tell from the callback alone:
-  // the forwarding closure above is there whether or not the prop is.
+  // The host cannot tell whether anyone listens: the forwarding closure above
+  // exists whether or not the prop does, and serializing every edit is costly.
   const emitsMarkdown = onChangeMarkdown !== undefined;
   useLayoutEffect(() => {
     host.current?.setMarkdownEmitEnabled(emitsMarkdown);
@@ -259,10 +251,9 @@ export const EnrichedMarkdownTextInput = forwardRef<
   useImperativeHandle(ref, () => {
     const root = rootRef.current!;
     const notImplemented = warnOnce();
-    // The host while it is attached. A detached one - unmounted, or hidden
-    // in an `<Activity>` - still holds the document, so reads answer from it,
-    // but nothing writes to it or makes it emit through a handle the app
-    // kept past the unmount.
+    // A detached host (unmounted, or hidden in an `<Activity>`) still holds
+    // the document, so reads answer from it, but a handle kept past unmount
+    // must not write to it or make it emit.
     const live = () => (host.current?.isAttached ? host.current : null);
     const run = (command: () => void) =>
       queue.runAfterImport(command, logCommandError);
@@ -277,14 +268,12 @@ export const EnrichedMarkdownTextInput = forwardRef<
       setValue: (markdown) =>
         queue.startImport(() => live()?.setValue(markdown), logImportError),
       setSelection: (start, end) => run(() => live()?.setSelection(start, end)),
-      // Parsed like an import (natives treat it as markdown), so it holds
-      // the queue the same way: a command issued right after it acts on the
-      // inserted text.
+      // Parsed like an import (natives treat it as markdown), so it holds the
+      // queue: a command issued right after it acts on the inserted text.
       insertText: (text) =>
         queue.startImport(() => live()?.insertText(text), logCommandError),
-      // Resolves with the document even once the input is gone, so a "save
-      // the draft on unmount" flow saves what was typed. Native rejects
-      // requests pending at unmount instead; web can answer them.
+      // Resolves even once the input is gone, so a "save the draft on
+      // unmount" flow works. Native rejects requests pending at unmount.
       getMarkdown: async () =>
         queue.afterImport(() => host.current?.getMarkdown() ?? ''),
       // A caret needs a mounted, laid-out node; as on native, a request the
@@ -331,10 +320,9 @@ export const EnrichedMarkdownTextInput = forwardRef<
     <div
       {...domProps}
       ref={rootRef}
-      // React owns the class list, so the host's own `classList.add` is not
-      // enough: React remembers only the caller's value and rewrites the
-      // attribute wholesale the first time `className` changes, which would
-      // drop the class every style rule is scoped under.
+      // The host's own `classList.add` is not enough: React rewrites the
+      // attribute wholesale when `className` changes, dropping the class every
+      // style rule is scoped under.
       className={
         className === undefined
           ? ENRM_INPUT_CLASS

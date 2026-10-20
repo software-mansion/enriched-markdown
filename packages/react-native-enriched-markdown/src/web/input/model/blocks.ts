@@ -1,8 +1,7 @@
 import type { RangeBounds } from './rangeBounds';
 
-// Block-level (line-scoped) element types. A block covers whole lines, unlike
-// inline styles which cover character ranges. Every line is a paragraph until
-// a block handler claims it.
+// Line-scoped block types. Every line is a paragraph until a block handler
+// claims it.
 export type BlockType =
   | 'paragraph'
   | 'h1'
@@ -51,7 +50,7 @@ export function blockTypeForHeadingLevel(level: number): BlockType | null {
   return HEADING_BLOCK_TYPES[level - 1] ?? null;
 }
 
-// Maximum bullet-list nesting depth (0-based), so indent can't run away.
+// Maximum list nesting depth (0-based).
 export const MAX_LIST_DEPTH = 5;
 
 // A list line at depth d is indented (d + 1) * LIST_INDENT_PER_DEPTH px and

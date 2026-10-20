@@ -59,8 +59,7 @@ export class TypingAttributesController {
     }
   }
 
-  // Rebuilds the pending styles from the caret's surroundings after the
-  // selection moves: the styles a plain insert there would inherit.
+  // The styles a plain insert at the new selection would inherit.
   resetForSelectionChange(selection: RangeBounds): void {
     this.pendingStyles.clear();
     this.pendingStyleRemovals.clear();

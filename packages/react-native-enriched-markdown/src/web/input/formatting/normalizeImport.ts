@@ -5,14 +5,13 @@ import {
   type BlockType,
 } from '../model/blocks';
 import type { FormattingRange } from '../model/inlineStyles';
-import { firstIndexReachingTarget } from '../utils';
+import { firstIndexReachingTarget, lineEndOf, lineStartsOf } from '../utils';
 
 // The parser reports what md4c saw, which the stores' invariants do not
 // always admit: nested same-type spans ("**foo **bar** baz**"), a setext
 // heading over two lines, a heading inside a list item ("- # foo"). Edits
 // assume those invariants, so an import that breaks them goes wrong on the
-// first keystroke rather than at load. These passes restore them once, on
-// the way in.
+// first keystroke rather than at load.
 
 // Sorted by start, with same-type ranges that overlap or touch merged into
 // one, as edit paths keep them. Links merge only when their urls match:
@@ -64,16 +63,8 @@ export function normalizeBlockRanges(
   if (blocks.length === 0) {
     return [];
   }
-  const lineStarts = [0];
-  for (
-    let lineBreak = text.indexOf('\n');
-    lineBreak !== -1;
-    lineBreak = text.indexOf('\n', lineBreak + 1)
-  ) {
-    lineStarts.push(lineBreak + 1);
-  }
-  const lineEnd = (line: number) =>
-    line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : text.length;
+  const lineStarts = lineStartsOf(text);
+  const lineEnd = lineEndOf(text, lineStarts);
 
   // Indexed by line. Blocks arrive nearly sorted (a nested item is emitted
   // before its parent), so the line of each start is found walking from the

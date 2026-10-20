@@ -13,8 +13,7 @@ export interface ModelSelectionPoints {
   focus: number;
 }
 
-// The lines as currently rendered. Supplied by the renderer, the only thing
-// that keeps lines and nodes in step.
+// Supplied by the renderer, the only thing that keeps lines and nodes in step.
 export interface RenderedLines {
   readonly lineCount: number;
   lineStart(index: number): number;
@@ -24,32 +23,26 @@ export interface RenderedLines {
   indexOfLine(node: Node): number;
 }
 
-// Whether the DOM selection is a caret. Not `isCollapsed` alone: Cmd+A in an
-// empty line selects its `<br>`, which Chrome paints as a range while
-// exposing a collapsed one (`type` is 'Range').
+// Not `isCollapsed` alone: Cmd+A in an empty line selects its `<br>`, which
+// Chrome paints as a range while exposing a collapsed one (`type` is 'Range').
 export function isCaret(selection: Selection): boolean {
   return selection.isCollapsed && selection.type !== 'Range';
 }
 
 const LOG_PREFIX = '[EnrichedMarkdown - SelectionMapper]';
 
-// Reports a DOM that the rendered line offsets do not describe. Every caller
-// is a path reachable only once the two have diverged, so production keeps
-// its best-effort answer - a wrong caret beats throwing inside a keystroke
-// handler - and development gets told, because otherwise users find these
-// instead of tests.
+// Every caller is reachable only once the DOM and the rendered line offsets
+// have diverged. Production keeps its best-effort answer - a wrong caret beats
+// throwing inside a keystroke handler - and development logs.
 function reportDesync(message: string): void {
   if (isDev) {
     console.error(`${LOG_PREFIX} invariant violated: ${message}`);
   }
 }
 
-// Translates DOM positions to buffer offsets and back over the renderer's
-// lines: one element per line, directly under the root.
-//
-// Within a line both directions count text, not nodes, so split text nodes,
-// element-addressed points and foreign wrappers all map by what the line
-// shows. A run-boundary offset maps to the start of the following run.
+// Assumes one element per line, directly under the root. Within a line both
+// directions count text, not nodes, so split text nodes, element-addressed
+// points and foreign wrappers all map by what the line shows. A run-boundary offset maps to the start of the following run.
 export class SelectionMapper {
   private readonly root: HTMLElement;
   private readonly lines: RenderedLines;
@@ -81,9 +74,8 @@ export class SelectionMapper {
     return start + Math.min(within, lineLength);
   }
 
-  // Offsets past the end clamp to the end of the document; that is the
-  // documented contract, since a caret parked at the end outlives the text it
-  // was parked after.
+  // Offsets past the end clamp to the document end: a caret parked at the end
+  // outlives the text it was parked after.
   domPositionFromModelOffset(offset: number): DomPosition | null {
     const count = this.lines.lineCount;
     if (count === 0) {
@@ -185,12 +177,10 @@ export class SelectionMapper {
   }
 }
 
-// The length of the text in `container` before the point (`node`, `offset`),
-// which lies in it: what `Range.toString()` would count, without a `Range`.
-// A live `Range` stays registered on its document until it is collected, and
-// every DOM mutation updates each one, so a dropped `Range` per lookup slows
-// down later renders. A `TreeWalker` is not live. A `<br>` holds no text, so
-// an empty line is 0 throughout.
+// What `Range.toString()` would count, without a `Range`: a live `Range`
+// stays registered on its document until it is collected, and every DOM
+// mutation updates each one, so a dropped `Range` per lookup slows down later
+// renders. A `TreeWalker` is not live.
 export function textLengthBefore(
   container: Node,
   node: Node,
@@ -212,8 +202,7 @@ export function textLengthBefore(
     : textLengthPreceding(container, child);
 }
 
-// The length of the text nodes in `container` before `node` in document
-// order, not counting `node`'s own subtree.
+// Does not count `node`'s own subtree.
 function textLengthPreceding(container: Node, node: Node): number {
   if (node === container) {
     return 0;

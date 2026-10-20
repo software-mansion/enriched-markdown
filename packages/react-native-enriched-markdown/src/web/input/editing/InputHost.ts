@@ -52,15 +52,19 @@ import {
   isWhitespace,
 } from '../utils';
 
-// The clipboard flavor copy and cut write and paste prefers. Natives use a
-// private pasteboard type; on the web `text/markdown` is the standard one, so
-// other editors can read it too.
+// Natives use a private pasteboard type; on the web `text/markdown` is the
+// standard one, so other editors can read it too.
 const MARKDOWN_MIME_TYPE = 'text/markdown';
 
 // A paste is an event: nothing awaits its parse to take a failure.
 function reportPasteError(error: unknown): void {
   console.error('[EnrichedMarkdown - InputHost] paste failed', error);
 }
+
+// Typed per event, so a table entry cannot pair a handler with the wrong one.
+type ListenerEntry<EventMap> = {
+  [K in keyof EventMap & string]: [K, (event: EventMap[K]) => void];
+}[keyof EventMap & string];
 
 export interface CaretRect {
   x: number;
@@ -99,22 +103,20 @@ export class InputHost {
   private readonly typing: TypingAttributesController;
   private readonly renderer: DomRenderer;
   private readonly mapper: SelectionMapper;
-  // Attributes this host set itself, and so the only ones it removes on
-  // teardown: `role` and `aria-multiline` are set only when the node does not
-  // already carry them, so a consumer's own value is never ours to undo.
-  // `data-empty` is listed from the start because `render` toggles it rather
-  // than setting it, and teardown has to clear it either way.
+  // The only attributes teardown removes. `data-empty` is listed from the
+  // start because `render` toggles it rather than setting it.
   private readonly ownedAttributes: string[] = ['data-empty'];
+  private readonly rootListeners: ListenerEntry<HTMLElementEventMap>[];
+  private readonly documentListeners: ListenerEntry<DocumentEventMap>[];
 
   private text = '';
   private selection: RangeBounds = { start: 0, end: 0 };
-  // The DOM's anchor is `selection.end`.
   private selectionBackward = false;
   // Work that would write the DOM while an IME owns it - commands, imports,
   // imperative selection moves - waits here for the composition to end.
   private deferredUntilCompositionEnd: Array<() => void> = [];
-  // A pointer drag is selecting. Links snap only once it ends (as on iOS);
-  // rewriting the selection mid-drag fights the browser for its anchor.
+  // Links snap only once a drag ends (as on iOS); rewriting the selection
+  // mid-drag fights the browser for its anchor.
   private pointerSelecting = false;
   // An edit the browser was left to perform (see `NativeEdit`), already in
   // the model and waiting for its `input` to be checked and rendered.
@@ -122,9 +124,9 @@ export class InputHost {
     null;
   private destroyed = false;
   private attached = false;
-  // Bumped by every import, so one still parsing can tell that a later import
-  // has overtaken it. Only imports count: a user edit cannot race an import,
-  // because the editor is inert while one is parsing.
+  // Lets an import still parsing tell that a later one has overtaken it. Only
+  // imports count: a user edit cannot race an import, because the editor is
+  // inert while one is parsing.
   private importGeneration = 0;
   private pendingImports = 0;
   private editable = true;
@@ -149,13 +151,32 @@ export class InputHost {
     this.typing = new TypingAttributesController(this.formattingStore);
     this.renderer = new DomRenderer(root);
     this.mapper = new SelectionMapper(root, this.renderer);
+    // Built here rather than as field initializers: the handlers are fields
+    // declared further down, so they do not exist yet when those run.
+    this.rootListeners = [
+      ['beforeinput', this.handleBeforeInput],
+      ['input', this.handleInput],
+      ['keydown', this.handleKeyDown],
+      ['pointerdown', this.handlePointerDown],
+      ['compositionstart', this.handleCompositionStart],
+      ['compositionend', this.handleCompositionEnd],
+      ['focus', this.handleFocus],
+      ['blur', this.handleBlur],
+      ['copy', this.handleCopy],
+      ['cut', this.handleCut],
+      ['paste', this.handlePaste],
+    ];
+    this.documentListeners = [
+      ['selectionchange', this.handleSelectionChange],
+      ['pointerup', this.handlePointerUp],
+      ['pointercancel', this.handlePointerUp],
+    ];
 
     injectInputStyles();
     root.classList.add(ENRM_INPUT_CLASS);
     this.setOwnedAttribute('contenteditable', 'true');
-    // A consumer may be passing these through as props; theirs wins.
-    // Owned only when set here, so `destroy` takes back what it added and
-    // leaves what the consumer passed.
+    // A consumer may be passing these through as props; theirs wins, and
+    // `destroy` leaves it in place.
     if (setAttributeIfAbsent(root, 'role', 'textbox')) {
       this.ownedAttributes.push('role');
     }
@@ -176,11 +197,11 @@ export class InputHost {
     this.render();
   }
 
-  // Stops listening, keeping the document, its DOM and the undo history, so
-  // that `attach` picks up where this left off. React tears a layout effect
-  // down and runs it again over the same node - an `<Activity>` hidden and
-  // shown, a Suspense boundary suspending again, StrictMode's double run -
-  // and destroying the host there would throw the user's text away.
+  // Keeps the document, its DOM and the undo history, so that `attach` picks
+  // up where this left off. React tears a layout effect down and runs it
+  // again over the same node - an `<Activity>` hidden and shown, a Suspense
+  // boundary suspending again, StrictMode's double run - and destroying the
+  // host there would throw the user's text away.
   detach(): void {
     if (this.destroyed || !this.attached) {
       return;
@@ -216,48 +237,23 @@ export class InputHost {
 
   private addListeners(): void {
     const root = this.root;
-    root.addEventListener('beforeinput', this.handleBeforeInput);
-    root.addEventListener('input', this.handleInput);
-    root.addEventListener('keydown', this.handleKeyDown);
-    root.addEventListener('pointerdown', this.handlePointerDown);
-    root.addEventListener('compositionstart', this.handleCompositionStart);
-    root.addEventListener('compositionend', this.handleCompositionEnd);
-    root.addEventListener('focus', this.handleFocus);
-    root.addEventListener('blur', this.handleBlur);
-    root.addEventListener('copy', this.handleCopy);
-    root.addEventListener('cut', this.handleCut);
-    root.addEventListener('paste', this.handlePaste);
-    root.ownerDocument.addEventListener(
-      'selectionchange',
-      this.handleSelectionChange
-    );
-    root.ownerDocument.addEventListener('pointerup', this.handlePointerUp);
-    root.ownerDocument.addEventListener('pointercancel', this.handlePointerUp);
+    for (const [type, listener] of this.rootListeners) {
+      root.addEventListener(type, listener as EventListener);
+    }
+    for (const [type, listener] of this.documentListeners) {
+      root.ownerDocument.addEventListener(type, listener as EventListener);
+    }
     this.attached = true;
   }
 
   private removeListeners(): void {
     const root = this.root;
-    root.removeEventListener('beforeinput', this.handleBeforeInput);
-    root.removeEventListener('input', this.handleInput);
-    root.removeEventListener('keydown', this.handleKeyDown);
-    root.removeEventListener('pointerdown', this.handlePointerDown);
-    root.removeEventListener('compositionstart', this.handleCompositionStart);
-    root.removeEventListener('compositionend', this.handleCompositionEnd);
-    root.removeEventListener('focus', this.handleFocus);
-    root.removeEventListener('blur', this.handleBlur);
-    root.removeEventListener('copy', this.handleCopy);
-    root.removeEventListener('cut', this.handleCut);
-    root.removeEventListener('paste', this.handlePaste);
-    root.ownerDocument.removeEventListener(
-      'selectionchange',
-      this.handleSelectionChange
-    );
-    root.ownerDocument.removeEventListener('pointerup', this.handlePointerUp);
-    root.ownerDocument.removeEventListener(
-      'pointercancel',
-      this.handlePointerUp
-    );
+    for (const [type, listener] of this.rootListeners) {
+      root.removeEventListener(type, listener as EventListener);
+    }
+    for (const [type, listener] of this.documentListeners) {
+      root.ownerDocument.removeEventListener(type, listener as EventListener);
+    }
     this.attached = false;
   }
 
@@ -313,10 +309,9 @@ export class InputHost {
     this.root.focus();
   }
 
-  // Writes the attribute rather than the `contentEditable` IDL property, which
-  // is how the constructor sets it in the first place - so the node's
-  // editability reads the same whether it was set at construction or flipped
-  // later. The name is already registered as ours, so teardown clears it.
+  // Writes the attribute, as the constructor does, rather than the
+  // `contentEditable` IDL property, so the node reads the same whether set at
+  // construction or flipped later. Teardown already owns the name.
   setEditable(editable: boolean): void {
     if (this.destroyed) {
       return;
@@ -384,22 +379,23 @@ export class InputHost {
     }
   }
 
+  // Inert for the whole asynchronous parse, not just the synchronous model
+  // write after it, as native's import owns its whole body: a keystroke typed
+  // meanwhile would be silently overwritten by the value landing afterwards.
+  private async parseInert(markdown: string): Promise<ParseResult> {
+    this.pendingImports++;
+    try {
+      return await parseToPlainTextAndRanges(markdown);
+    } finally {
+      this.pendingImports--;
+    }
+  }
+
   // Returns whether the import was applied: a second import started while
   // this one was parsing supersedes it, and so does teardown.
   private async loadValue(markdown: string): Promise<boolean> {
     const generation = ++this.importGeneration;
-    // The parse is asynchronous, and the window it opens is the one that
-    // needs covering: the phase below only wraps the synchronous model write,
-    // which was never at risk. Holding the editor inert for the duration is
-    // what native does (its import owns the whole body) and means a keystroke
-    // cannot be silently overwritten by the value landing afterwards.
-    this.pendingImports++;
-    let parsed: Awaited<ReturnType<typeof parseToPlainTextAndRanges>>;
-    try {
-      parsed = await parseToPlainTextAndRanges(markdown);
-    } finally {
-      this.pendingImports--;
-    }
+    const parsed = await this.parseInert(markdown);
     if (this.destroyed || generation !== this.importGeneration) {
       return false;
     }
@@ -462,8 +458,7 @@ export class InputHost {
         snapped.end
       ) ?? snapped;
     this.selectionBackward = false;
-    // Nothing in the model changed, so there is nothing to render; only the
-    // DOM selection moves.
+    // Nothing in the model changed, so only the DOM selection moves.
     this.session.scoped('formatting', () => this.writeSelectionToDom());
     this.resetTypingAfterSelectionMove();
     this.emitSelectionMoved();
@@ -678,7 +673,7 @@ export class InputHost {
       // A paste or cut normally arrives as a ClipboardEvent, which
       // `handlePaste` / `handleCut` take and cancel, so these never follow.
       // With ClipboardEvents switched off (`dom.event.clipboardevents.enabled`
-      // in hardened Firefox) they are all there is (review §2.1.2).
+      // in hardened Firefox) they are all there is.
       case 'insertFromPaste':
         if (!this.clipboardEventHandled) {
           this.pasteFrom(event.dataTransfer);
@@ -689,7 +684,6 @@ export class InputHost {
           this.replaceTargetRange(event, '');
         }
         break;
-      //
       // Still deliberately denied: `insertFromDrop`, which needs a
       // caret-from-point mapping to know where the drop landed. Denying it
       // is inert rather than wrong.
@@ -831,10 +825,10 @@ export class InputHost {
   // Tab never reaches beforeinput (the browser moves focus). The history
   // shortcuts do as `historyUndo`/`historyRedo`, but not cancelably in every
   // engine, so they are taken here before the browser undoes anything itself.
-  // Decided 2026-10-20 (review §2.1.5): on a list line Tab / Shift+Tab
-  // change the depth; elsewhere Tab types a tab character, and Shift+Tab is
-  // left to the browser, so focus can always move backwards out of the
-  // editor. A modified Tab (Ctrl/Cmd/Alt) is never taken.
+  // On a list line Tab / Shift+Tab change the depth; elsewhere Tab types a
+  // tab character, and Shift+Tab is left to the browser, so focus can always
+  // move backwards out of the editor. A modified Tab (Ctrl/Cmd/Alt) is never
+  // taken.
   private handleTab(event: KeyboardEvent): void {
     if (
       event.defaultPrevented ||
@@ -873,9 +867,11 @@ export class InputHost {
       this.handleTab(event);
       return;
     }
-    const navigator = this.root.ownerDocument.defaultView?.navigator ?? null;
+    const apple = isApplePlatform(
+      this.root.ownerDocument.defaultView?.navigator ?? null
+    );
     const shortcut =
-      historyShortcut(event, navigator) ?? formatShortcut(event, navigator);
+      historyShortcut(event, apple) ?? formatShortcut(event, apple);
     if (shortcut === null) {
       return;
     }
@@ -1199,10 +1195,8 @@ export class InputHost {
   }
 
   // The browser owns the DOM through a composition, so the composed text
-  // lands without the model seeing it. This recovers it afterwards: read the
-  // text back out of the rendered nodes, diff it against the model to get the
-  // one edit the composition made, and run that edit through the ordinary
-  // path.
+  // lands without the model seeing it; this diffs the rendered text against
+  // the model and applies the one edit the composition made.
   //
   // Without this the two diverge permanently - the composed text stays on
   // screen while `value` and `onChangeText` omit it, so the user saves and
@@ -1337,8 +1331,6 @@ export class InputHost {
         this.projector.stylesChanged(start, end);
       }
       if (start === end) {
-        // A caret toggle only pends a style for the next keystroke; the
-        // stores, and so the DOM and the markdown, are unchanged.
         this.typing.toggleStyle(type, start);
         this.emitState();
         return;
@@ -1358,7 +1350,7 @@ export class InputHost {
   // styles and blocks, as one undo step, and takes no style pending at the
   // caret. Empty text is a no-op even over a selection. Asynchronous, like an
   // import: the editor is inert while the parse runs. A lone line break is
-  // Enter, exiting an empty list item as the key does (review §2.1.10).
+  // Enter, exiting an empty list item as the key does.
   async insertText(markdown: string): Promise<void> {
     if (this.destroyed || markdown.length === 0) {
       return;
@@ -1368,13 +1360,7 @@ export class InputHost {
       this.command(() => this.insertNewline());
       return;
     }
-    this.pendingImports++;
-    let parsed: Awaited<ReturnType<typeof parseToPlainTextAndRanges>>;
-    try {
-      parsed = await parseToPlainTextAndRanges(source);
-    } finally {
-      this.pendingImports--;
-    }
+    const parsed = await this.parseInert(source);
     if (this.destroyed) {
       return;
     }
@@ -1440,7 +1426,6 @@ export class InputHost {
     });
   }
 
-  // The event's target range, or the selection when it has none.
   private replaceTargetRange(event: InputEvent, insertedText: string): void {
     const target = this.modelRangeFromTargetRanges(event) ?? this.selection;
     if (insertedText.length === 0 && target.start === target.end) {
@@ -1466,7 +1451,6 @@ export class InputHost {
     );
   }
 
-  // The range an input type carries on the event rather than in the selection.
   private modelRangeFromTargetRanges(event: InputEvent): RangeBounds | null {
     if (typeof event.getTargetRanges !== 'function') {
       return null;
@@ -1508,12 +1492,7 @@ export class InputHost {
     if (this.outdentListAtLineStart(start) || start === 0) {
       return;
     }
-    if (this.deleteLinkBefore(start)) {
-      return;
-    }
-    const target = this.modelRangeFromTargetRanges(event);
-    if (target !== null && target.start < target.end) {
-      this.deleteRange(target, kind);
+    if (this.deleteLinkAt(start - 1) || this.deleteTargetRange(event, kind)) {
       return;
     }
     const from =
@@ -1536,17 +1515,21 @@ export class InputHost {
     if (end >= this.text.length) {
       return;
     }
-    if (this.deleteLinkAfter(end)) {
-      return;
-    }
-    const target = this.modelRangeFromTargetRanges(event);
-    if (target !== null && target.start < target.end) {
-      this.deleteRange(target, kind);
+    if (this.deleteLinkAt(end) || this.deleteTargetRange(event, kind)) {
       return;
     }
     const to =
       fallback > end ? fallback : end + graphemeLengthAfter(this.text, end);
     this.deleteRange({ start: end, end: to }, kind);
+  }
+
+  private deleteTargetRange(event: InputEvent, kind: EditKind): boolean {
+    const target = this.modelRangeFromTargetRanges(event);
+    if (target === null || target.start >= target.end) {
+      return false;
+    }
+    this.deleteRange(target, kind);
+    return true;
   }
 
   private deleteRange(
@@ -1563,20 +1546,11 @@ export class InputHost {
     );
   }
 
-  // Backspace into a link deletes all of it, as on both natives.
-  private deleteLinkBefore(caret: number): boolean {
-    const link = this.formattingStore.rangeOfType('link', caret - 1);
-    if (link === null) {
-      return false;
-    }
-    this.deleteRange(link);
-    return true;
-  }
-
-  // And so does a forward delete into one, as on iOS; deleting only its first
-  // character would leave the rest still linking to the url.
-  private deleteLinkAfter(caret: number): boolean {
-    const link = this.formattingStore.rangeOfType('link', caret);
+  // Deleting into a link deletes all of it: backspace as on both natives,
+  // forward delete as on iOS. Deleting one character would leave the rest
+  // still linking to the url.
+  private deleteLinkAt(position: number): boolean {
+    const link = this.formattingStore.rangeOfType('link', position);
     if (link === null) {
       return false;
     }
@@ -1805,7 +1779,7 @@ export class InputHost {
       return;
     }
     // Copies: a consumer keeping or mutating what it is handed must not
-    // reach into the host (review §2.2.8).
+    // reach into the host.
     this.callbacks.onChangeSelection?.({ ...this.selection });
   }
 
@@ -2038,7 +2012,6 @@ function isZeroBox(box: CaretBox): boolean {
   return box.left === 0 && box.top === 0 && box.width === 0 && box.height === 0;
 }
 
-// Whether it set the attribute.
 function setAttributeIfAbsent(
   element: HTMLElement,
   name: string,
@@ -2051,20 +2024,17 @@ function setAttributeIfAbsent(
   return true;
 }
 
-// Mod+Z undoes, Mod+Shift+Z redoes; Mod is Cmd on Apple platforms and Ctrl
-// elsewhere, where Ctrl+Y redoes too.
-function historyShortcut(
-  event: KeyboardEvent,
-  navigator: Navigator | null
-): 'undo' | 'redo' | null {
-  if (event.altKey) {
-    return null;
-  }
-  const apple = isApplePlatform(navigator);
-  const mod = apple
+function isModPressed(event: KeyboardEvent, apple: boolean): boolean {
+  return apple
     ? event.metaKey && !event.ctrlKey
     : event.ctrlKey && !event.metaKey;
-  if (!mod) {
+}
+
+function historyShortcut(
+  event: KeyboardEvent,
+  apple: boolean
+): 'undo' | 'redo' | null {
+  if (event.altKey || !isModPressed(event, apple)) {
     return null;
   }
   const key = event.key.toLowerCase();
@@ -2077,21 +2047,13 @@ function historyShortcut(
   return null;
 }
 
-// Mod+B / Mod+I / Mod+U, as every editor maps them (Mod = Cmd on Apple
-// platforms, Ctrl elsewhere). Taken on keydown because not every engine
-// raises a cancelable `formatBold` for them.
+// Taken on keydown because not every engine raises a cancelable
+// `formatBold` for these.
 function formatShortcut(
   event: KeyboardEvent,
-  navigator: Navigator | null
+  apple: boolean
 ): 'bold' | 'italic' | 'underline' | null {
-  if (event.altKey || event.shiftKey) {
-    return null;
-  }
-  const apple = isApplePlatform(navigator);
-  const mod = apple
-    ? event.metaKey && !event.ctrlKey
-    : event.ctrlKey && !event.metaKey;
-  if (!mod) {
+  if (event.altKey || event.shiftKey || !isModPressed(event, apple)) {
     return null;
   }
   switch (event.key.toLowerCase()) {
@@ -2123,8 +2085,6 @@ function insertedTextOf(event: InputEvent): string {
   );
 }
 
-// The buffer uses bare newlines, so a clipboard's line endings are converted
-// rather than stored as text.
 // md4c drops the whitespace around a document, which an inserted fragment
 // needs: `insertText(' and more')` keeps its space. Put back whatever the
 // parse dropped from either end of `source`, shifting the ranges past it.
@@ -2149,6 +2109,8 @@ function withEdgeWhitespace(source: string, parsed: ParseResult): ParseResult {
   };
 }
 
+// The buffer uses bare newlines, so a clipboard's line endings are converted
+// rather than stored as text.
 function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n?/g, '\n');
 }

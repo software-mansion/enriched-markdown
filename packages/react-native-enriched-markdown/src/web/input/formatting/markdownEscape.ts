@@ -1,8 +1,8 @@
 // Backslash escapes for plain text written into markdown, so the editor's
 // own output re-imports as the text the user typed. Runs on every serialize
 // (once per keystroke with `onChangeMarkdown`), so the positions are found in
-// one pass over the whole text - a native regex scan plus a few character
-// checks per line - and the writer drops a backslash in front of each.
+// one pass over the whole text: a native regex scan plus a few character
+// checks per line.
 //
 // A position does not depend on the delimiters written around it. That
 // over-escapes in places ("**\#**" where "**#**" would not have read as a
@@ -62,8 +62,8 @@ const INLINE_SPECIAL_RE = /[\\`*_~|[\]<&]/g;
 
 // Where a line starting at `start` would read as a block marker - a heading,
 // a bullet, a quote, a setext underline or an ordered item's "1." / "1)" -
-// the index of the character to escape; -1 otherwise. "*", "_", "`" and "~"
-// are escaped inline already. However deep the indent: import keeps a line's
+// the index of the character to escape. "*", "_", "`" and "~" are escaped
+// inline already. However deep the indent: import keeps a line's
 // leading whitespace as text only when no marker follows it (see
 // `protectLeadingWhitespace` in InputParser), so an indented marker the user
 // typed has to be escaped to stay text.
@@ -104,7 +104,7 @@ function lineStartMarkerAt(text: string, start: number, end: number): number {
 }
 
 // A closing sequence an ATX heading would strip - a "#" run ending the line,
-// after whitespace or alone - as the index of its first "#"; -1 otherwise.
+// after whitespace or alone - as the index of its first "#".
 function trailingHashesAt(text: string, start: number, end: number): number {
   let i = end;
   while (i > start && isBlank(text.charCodeAt(i - 1))) {

@@ -1,13 +1,10 @@
-// Kotlin's coerceIn: clamps `value` into [min, max].
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-// Leftmost index whose value reaches `target`, or `size` when none does, over
-// a collection whose values rise with the index: sorted insertion points and
-// BlockStore's line lookup. FormattingStore's queries scan instead - ranges of
-// other types interleave and a covering range can start far back - but stop
-// at the first range starting past the position.
+// Leftmost index whose value reaches `target`, or `size` when none does;
+// values must rise with the index. FormattingStore's queries scan instead:
+// ranges of other types interleave and a covering range can start far back.
 export function firstIndexReachingTarget(
   target: number,
   size: number,
@@ -26,25 +23,46 @@ export function firstIndexReachingTarget(
   return low;
 }
 
+export function isAsciiWhitespace(code: number): boolean {
+  return code === 0x20 || (code >= 0x09 && code <= 0x0d);
+}
+
+export function lineStartsOf(text: string): number[] {
+  const lineStarts = [0];
+  for (
+    let lineBreak = text.indexOf('\n');
+    lineBreak !== -1;
+    lineBreak = text.indexOf('\n', lineBreak + 1)
+  ) {
+    lineStarts.push(lineBreak + 1);
+  }
+  return lineStarts;
+}
+
+export function lineEndOf(
+  text: string,
+  lineStarts: readonly number[]
+): (line: number) => number {
+  return (line) =>
+    line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : text.length;
+}
+
 export function isWhitespace(char: string): boolean {
   return /\s/.test(char);
 }
 
-// Code points outside the 16-bit range (emoji, mostly) occupy two string
-// units: a high surrogate (0xD800-0xDBFF) followed by a low one
-// (0xDC00-0xDFFF). These ranges never encode standalone code points, so a
-// unit's value alone tells whether it is half of a pair.
+// Surrogate ranges never encode standalone code points, so a unit's value
+// alone tells whether it is half of a pair.
 function isHighSurrogate(code: number): boolean {
   return code >= 0xd800 && code <= 0xdbff;
 }
 
-function isLowSurrogate(code: number): boolean {
+export function isLowSurrogate(code: number): boolean {
   return code >= 0xdc00 && code <= 0xdfff;
 }
 
-// True when `index` is a code point boundary rather than the seam inside a
-// surrogate pair. Every offset the stores hold has to be one of these: half a
-// pair on each side of an edit is not text.
+// Every offset the stores hold has to be a code point boundary: half a
+// surrogate pair on each side of an edit is not text.
 export function isCodePointBoundary(text: string, index: number): boolean {
   return !(
     isLowSurrogate(text.charCodeAt(index)) &&
@@ -52,12 +70,11 @@ export function isCodePointBoundary(text: string, index: number): boolean {
   );
 }
 
-// Nearest code point boundary at or before `index`. A surrogate pair is two
-// units wide, so one step back always reaches a boundary. Every offset that
-// enters the model goes through this or through `graphemeLength*`: clamping an
-// offset into the buffer's bounds is not enough on its own, because the seam
-// inside a surrogate pair is in bounds, and an edit there splits the pair into
-// two lone surrogates.
+// A surrogate pair is two units wide, so one step back always reaches a
+// boundary. Every offset that enters the model goes through this or through
+// `graphemeLength*`: clamping into the buffer's bounds is not enough, because
+// the seam inside a surrogate pair is in bounds, and an edit there splits the
+// pair into two lone surrogates.
 export function codePointBoundaryAtOrBefore(
   text: string,
   index: number
@@ -66,8 +83,8 @@ export function codePointBoundaryAtOrBefore(
 }
 
 // `Intl.Segmenter` is the only API that segments by user-perceived character.
-// Typed as optional and resolved once: Chrome/Edge 87+, Safari 14.1+ and
-// Firefox 125+ have it; older runtimes fall back to code point stepping.
+// Chrome/Edge 87+, Safari 14.1+ and Firefox 125+ have it; older runtimes fall
+// back to code point stepping.
 interface GraphemeSegmenter {
   segment(input: string): Iterable<{ index: number }>;
 }
@@ -89,9 +106,6 @@ const graphemeSegmenter: GraphemeSegmenter | null = (() => {
   }
 })();
 
-// Length in UTF-16 units of the grapheme cluster before/after `position`, or
-// 0 at the respective end of the buffer.
-//
 // One delete step is one user-perceived character, which is a cluster and not
 // a code point: an emoji with a variation selector ("❤️"), a letter
 // with a combining mark, a flag's two regional indicators and a ZWJ sequence

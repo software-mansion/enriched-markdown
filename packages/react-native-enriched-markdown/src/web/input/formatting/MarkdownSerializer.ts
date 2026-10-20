@@ -1,4 +1,12 @@
-import { clamp, firstIndexReachingTarget, isWhitespace } from '../utils';
+import {
+  clamp,
+  firstIndexReachingTarget,
+  isAsciiWhitespace,
+  isLowSurrogate,
+  isWhitespace,
+  lineEndOf,
+  lineStartsOf,
+} from '../utils';
 import {
   HEADING_BLOCK_TYPES,
   LIST_ITEM_BLOCK_TYPES,
@@ -93,21 +101,9 @@ function opensOutside(a: Segment, b: Segment): number {
 function isWhitespaceAt(text: string, index: number): boolean {
   const code = text.charCodeAt(index);
   if (code < 0x80) {
-    return code === 0x20 || (code >= 0x09 && code <= 0x0d);
+    return isAsciiWhitespace(code);
   }
   return isWhitespace(text.charAt(index));
-}
-
-function lineStartsOf(text: string): number[] {
-  const lineStarts = [0];
-  for (
-    let lineBreak = text.indexOf('\n');
-    lineBreak !== -1;
-    lineBreak = text.indexOf('\n', lineBreak + 1)
-  ) {
-    lineStarts.push(lineBreak + 1);
-  }
-  return lineStarts;
 }
 
 // Every line is its own block (see BlockStore), and no inline run may cross a
@@ -120,13 +116,12 @@ function lineSegments(
   ranges: readonly FormattingRange[],
   lineStarts: readonly number[]
 ): Segment[] {
-  const lineEnd = (line: number) =>
-    line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : text.length;
+  const lineEnd = lineEndOf(text, lineStarts);
   const segments: Segment[] = [];
   let sorted = true;
-  // The line of the last range's start. Ranges come sorted by start (the
-  // store keeps them so), so this walks forward through the lines once;
-  // only a range starting behind it is looked up.
+  // The line of the last range's start. Ranges come sorted by start, so this
+  // walks forward through the lines once; only a range starting behind it is
+  // looked up.
   let cursor = 0;
   for (const range of ranges) {
     const rangeEnd = clamp(range.end, 0, text.length);
@@ -171,7 +166,6 @@ function lineSegments(
   return segments;
 }
 
-// The line holding `position`.
 function lineAt(lineStarts: readonly number[], position: number): number {
   return firstIndexReachingTarget(position + 1, lineStarts.length, (i) =>
     i + 1 < lineStarts.length ? lineStarts[i + 1]! : Infinity
@@ -298,7 +292,7 @@ const UNICODE_PUNCTUATION_RE = /[\p{P}\p{S}]/u;
 function classify(char: string): Neighbor {
   const code = char.charCodeAt(0);
   if (code < 0x80) {
-    if (code === 0x20 || (code >= 0x09 && code <= 0x0d)) {
+    if (isAsciiWhitespace(code)) {
       return 'whitespace';
     }
     const isAsciiPunctuation =
@@ -339,10 +333,8 @@ function neighborBefore(
   }
   const code = text.charCodeAt(position - 1);
   // The whole code point, so an emoji is classified as one.
-  const isLowSurrogate = code >= 0xdc00 && code <= 0xdfff && position >= 2;
-  return classify(
-    text.slice(isLowSurrogate ? position - 2 : position - 1, position)
-  );
+  const pairTail = isLowSurrogate(code) && position >= 2;
+  return classify(text.slice(pairTail ? position - 2 : position - 1, position));
 }
 
 function neighborAfter(
@@ -464,12 +456,11 @@ function withImageMarkerEscapes(
   return merged;
 }
 
-// Copies `text` with the events' delimiters and the lines' block markers
-// written in. `linePrefixes` is indexed like `lineStarts`, and a line with no
-// entry gets no marker. A marker lands in front of its line's first character,
-// and so in front of any delimiter opening there; no delimiter closes at a line
-// start, because a range is split into one segment per line and each segment
-// ends on its own line.
+// `linePrefixes` is indexed like `lineStarts`, and a line with no entry gets
+// no marker. A marker lands in front of its line's first character, and so in
+// front of any delimiter opening there; no delimiter closes at a line start,
+// because a range is split into one segment per line and each segment ends on
+// its own line.
 function writeMarkdown(
   text: string,
   events: readonly BoundaryEvent[],
@@ -525,9 +516,6 @@ function writeMarkdown(
   return markdown;
 }
 
-// Block-aware serialization: serializes inline styles exactly as
-// serializeInline, with each line's markdownLinePrefix marker (e.g. "# ",
-// "- ") in front of it; a block whose marker is "" leaves its line unprefixed.
 // Markers are written during the same sweep as the delimiters, so the output is
 // never split back into lines. That relies on delimiters never carrying a line
 // ending, which is why link destinations percent-encode theirs.
@@ -541,8 +529,7 @@ export function serialize(
   }
 
   const lineStarts = lineStartsOf(text);
-  const lineEnd = (line: number) =>
-    line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : text.length;
+  const lineEnd = lineEndOf(text, lineStarts);
   const linePrefixes: (string | undefined)[] = [];
   // Per line: the depth of its list item, or Infinity for a heading; unset on
   // a paragraph line. Blocks come in line order, so the previous line's entry
@@ -562,8 +549,7 @@ export function serialize(
   // more than the previous adjacent item's, so the parent's entry is always
   // already filled in by the time a child reads it.
   const listContentColumns: number[] = [];
-  // First line of the last block given a marker. The store keeps blocks sorted
-  // by start, so the next block's first line is found by walking on from here.
+  // First line of the last block given a marker.
   let cursor = 0;
 
   for (const block of blockRanges) {
@@ -646,8 +632,7 @@ function listIndent(
   return ' '.repeat(parentContentColumn ?? SINGLE_DIGIT_MARKER_WIDTH * depth);
 }
 
-// Per-line markdown marker for a block; paragraphs carry no marker. A
-// heading's level comes from its type rather than from `level`, so the two
+// A heading's level comes from its type rather than from `level`, so the two
 // cannot disagree. `parentContentColumn` is the content column of the list item
 // this one nests under, ignored by every type that cannot nest. There is
 // deliberately no `default` arm: a block type added to the model has to be

@@ -11,8 +11,6 @@ export class FormattingStore {
   private ranges: FormattingRange[] = [];
   private revision = 0;
 
-  // Changes on every write, so a reader can tell the ranges moved on since it
-  // last looked without comparing them.
   get version(): number {
     return this.revision;
   }
@@ -37,7 +35,6 @@ export class FormattingStore {
     return this.ranges.filter((range) => range.type === type);
   }
 
-  // Sorted by start, so no range past `position` can cover it.
   rangeOfType(type: InputStyleType, position: number): FormattingRange | null {
     for (const range of this.ranges) {
       if (range.start > position) {
@@ -83,8 +80,7 @@ export class FormattingStore {
   // Coverage may span several touching ranges; an empty range is fully active.
   // Given the text, line breaks need no coverage: no style shows on one, and
   // the serializer splits every range at them, so a select-all over
-  // "**a**\n\n**b**" is bold. A span holding only line breaks then has
-  // nothing to be styled, and reports inactive.
+  // "**a**\n\n**b**" is bold. A span of only line breaks reports inactive.
   isStyleFullyActive(
     type: InputStyleType,
     start: number,
@@ -170,12 +166,11 @@ export class FormattingStore {
     }
   }
 
-  // Toggles `type` on [start, end). Active means the WHOLE selection is
-  // covered; a partially covered selection gets the style applied everywhere.
-  // A caret (start == end) only reports state — pending styles mutate later.
-  // Returns whether the style was active.
-  // `text`, when given, keeps line breaks out of the coverage check (see
-  // `isStyleFullyActive`), so the toggle agrees with the state a toolbar shows.
+  // Active means the WHOLE selection is covered; a partially covered
+  // selection gets the style applied everywhere. A caret only reports state;
+  // pending styles mutate later. Returns whether the style was active.
+  // `text` keeps line breaks out of the coverage check, so the toggle agrees
+  // with the state a toolbar shows.
   toggleStyle(
     type: InputStyleType,
     start: number,
@@ -194,8 +189,7 @@ export class FormattingStore {
     return this.isStyleActive(type, start);
   }
 
-  // True when toggling `type` ON at `position` should be refused because a
-  // blocking style is active there; toggling OFF is never blocked.
+  // Toggling OFF is never blocked.
   isToggleBlocked(
     type: InputStyleType,
     position: number,
@@ -220,7 +214,6 @@ export class FormattingStore {
   // unless it came from that end (`previousCaret`, the caret before the
   // move), which is ArrowLeft stepping back into the link: snapping it to the
   // end again would pin it there, so it carries on to the start.
-  // Returns null when no adjustment is needed.
   selectionAdjustedForAtomicLinks(
     start: number,
     end: number,
@@ -278,10 +271,10 @@ export class FormattingStore {
     }
   }
 
-  // Merge same-type (and same-url) ranges left adjacent or overlapping by an
-  // edit — e.g. deleting the space in "**foo** **bar**" leaves two touching
-  // bold ranges that would serialize as "**foo****bar**". `addRange` keeps
-  // this invariant on insert; the edit path must too.
+  // Merges same-type (and same-url) ranges left adjacent or overlapping by an
+  // edit: deleting the space in "**foo** **bar**" leaves two touching bold
+  // ranges that would serialize as "**foo****bar**". `addRange` keeps this
+  // invariant on insert; the edit path must too.
   private coalesceAdjacentSameTypeRanges(): void {
     let idx = 0;
     while (idx < this.ranges.length) {

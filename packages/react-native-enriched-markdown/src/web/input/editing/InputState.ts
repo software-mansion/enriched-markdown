@@ -20,13 +20,11 @@ export interface InputState {
 // The link the state describes: the one covering the selection's first
 // character, or, for a caret, the one it sits inside or immediately after.
 //
-// `rangeOfType` is end-exclusive, so a caret at a link's tail - where it ends
-// up after typing the link's last character, the most common place for a
-// toolbar to ask - finds nothing there and has to look at the position
-// before it. Both natives do that retry (`ENRMLinkCoordinator`'s
-// `linkForSelection:` falls back to `location - 1`, and Android routes
-// through the same call), and without it a shared link toolbar pre-fills on
-// native and comes up empty on web.
+// `rangeOfType` is end-exclusive, so a caret at a link's tail - where typing
+// the link's last character leaves it - has to look one position back. Both
+// natives do that retry (`ENRMLinkCoordinator`'s `linkForSelection:` falls
+// back to `location - 1`, and Android routes through the same call); without
+// it a shared link toolbar pre-fills on native and comes up empty on web.
 function linkForSelection(
   formattingStore: FormattingStore,
   selection: RangeBounds
@@ -68,9 +66,8 @@ function inlineStates(
     strikethrough: { isActive: active('strikethrough') },
     spoiler: { isActive: active('spoiler') },
     // A caret reads its link off the same lookup the destination comes from,
-    // so the two agree. A selection keeps the whole-coverage rule every other
-    // style follows. The destination stays `""` with no link there, which is
-    // also what a link with an empty url reports.
+    // so the two agree; a selection keeps the whole-coverage rule. With no
+    // link the destination is `""`, as for a link with an empty url.
     link: {
       isActive:
         selection.start === selection.end ? link !== null : active('link'),
@@ -98,35 +95,38 @@ export function buildInputState(
   };
 }
 
+// `satisfies` makes the compiler reject a key missing from `InputState`, so a
+// field added there cannot be skipped by the comparison and go unreported.
+const INPUT_STATE_KEYS = Object.keys({
+  bold: true,
+  italic: true,
+  underline: true,
+  strikethrough: true,
+  spoiler: true,
+  link: true,
+  heading: true,
+  unorderedList: true,
+  orderedList: true,
+} satisfies Record<keyof InputState, true>) as (keyof InputState)[];
+
 export function sameInputState(a: InputState, b: InputState): boolean {
-  return (
-    a.bold.isActive === b.bold.isActive &&
-    a.italic.isActive === b.italic.isActive &&
-    a.underline.isActive === b.underline.isActive &&
-    a.strikethrough.isActive === b.strikethrough.isActive &&
-    a.spoiler.isActive === b.spoiler.isActive &&
-    a.link.isActive === b.link.isActive &&
-    a.link.destination === b.link.destination &&
-    a.heading.isActive === b.heading.isActive &&
-    a.heading.level === b.heading.level &&
-    a.unorderedList.isActive === b.unorderedList.isActive &&
-    a.unorderedList.depth === b.unorderedList.depth &&
-    a.orderedList.isActive === b.orderedList.isActive &&
-    a.orderedList.depth === b.orderedList.depth
-  );
+  for (const key of INPUT_STATE_KEYS) {
+    const before: Record<string, unknown> = a[key];
+    const after: Record<string, unknown> = b[key];
+    for (const field in before) {
+      if (before[field] !== after[field]) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 // A copy sharing nothing with `state`, for handing to a consumer.
 export function copyInputState(state: InputState): InputState {
-  return {
-    bold: { ...state.bold },
-    italic: { ...state.italic },
-    underline: { ...state.underline },
-    strikethrough: { ...state.strikethrough },
-    spoiler: { ...state.spoiler },
-    link: { ...state.link },
-    heading: { ...state.heading },
-    unorderedList: { ...state.unorderedList },
-    orderedList: { ...state.orderedList },
-  };
+  const copy = {} as Record<keyof InputState, unknown>;
+  for (const key of INPUT_STATE_KEYS) {
+    copy[key] = { ...state[key] };
+  }
+  return copy as InputState;
 }

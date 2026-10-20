@@ -9,9 +9,9 @@ import { isDev } from '../../../utils/isDev';
 
 const LOG_PREFIX = '[EnrichedMarkdown - DomRenderer]';
 
-// Writes the projection into the contentEditable DOM. The caret and IME sit
-// in these nodes, so existing nodes are mutated rather than replaced; nodes
-// are added or removed only when the paragraph/run structure changes.
+// The caret and IME sit in these nodes, so existing nodes are mutated rather
+// than replaced; nodes are added or removed only when the paragraph/run
+// structure changes.
 //
 // Lines are patched by reference through `lines`, not by position under the
 // root, which an IME or an extension can change. A root that no longer
@@ -38,7 +38,6 @@ export class DomRenderer {
     this.root.replaceChildren();
   }
 
-  // Whether some line awaits a rewrite the model alone would not trigger.
   get hasDirtyLines(): boolean {
     return this.dirtyLines.size > 0;
   }
@@ -64,8 +63,7 @@ export class DomRenderer {
     return this.lines[index];
   }
 
-  // The index of `node` among the rendered lines, or -1 when it is not one -
-  // including a line element that has since left the root.
+  // -1 also for a line element that has since left the root.
   indexOfLine(node: Node): number {
     const index = this.lineIndices.get(node);
     return index !== undefined &&
@@ -75,19 +73,15 @@ export class DomRenderer {
       : -1;
   }
 
-  // Lines [from, to] were written by someone else (an IME); the next render
-  // rewrites them even where the model did not change.
   markLinesDirty(from: number, to: number): void {
     for (let i = Math.max(from, 0); i <= to && i < this.lines.length; i++) {
       this.dirtyLines.add(this.lines[i]!);
     }
   }
 
-  // Drops the diff baseline, so the next `render` rebuilds every line from an
-  // empty root. The baseline describes what this renderer wrote, so when
-  // something else has written into those nodes - an IME committing into an
-  // editor that went read-only mid-composition - the model is unchanged and an
-  // ordinary render finds nothing to patch.
+  // For when something else has written into the rendered nodes - an IME
+  // committing into an editor that went read-only mid-composition: the model
+  // is unchanged, so an ordinary render finds nothing to patch.
   invalidate(): void {
     this.renderedParagraphs = [];
     this.renderedLineStarts = [];
@@ -312,11 +306,10 @@ function patchParagraph(
     return;
   }
 
-  // Drop every child that is not a reusable run span: the <br> a formerly
-  // empty line carried, and anything an IME or a browser extension left
-  // behind. The model is authoritative by the time a render runs, and keeping
-  // a foreign node would both break the index correspondence the mapper reads
-  // positions through and send `patchRun` at a node with no text child.
+  // Drops the <br> a formerly empty line carried and anything an IME or a
+  // browser extension left behind: a foreign node would break the index
+  // correspondence the mapper reads positions through and send `patchRun` at
+  // a node with no text child.
   for (const child of [...element.childNodes]) {
     if (!isReusableRun(child)) {
       child.remove();

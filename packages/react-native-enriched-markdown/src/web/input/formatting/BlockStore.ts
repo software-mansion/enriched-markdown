@@ -33,19 +33,17 @@ export function paragraphBounds(
   };
 }
 
-// Start of the line holding `position`, which must already be in
-// [0, text.length]. Guarded at 0 because `lastIndexOf` clamps a negative
-// `fromIndex` to 0 and would match a leading newline.
+// `position` must already be in [0, text.length]. Guarded at 0 because
+// `lastIndexOf` clamps a negative `fromIndex` to 0 and would match a leading
+// newline.
 function lineStartBefore(position: number, text: string): number {
   return position === 0 ? 0 : text.lastIndexOf('\n', position - 1) + 1;
 }
 
-// Whether `position` (in [0, text.length]) begins a line.
 function isLineStart(position: number, text: string): boolean {
   return position === 0 || text.charCodeAt(position - 1) === NEWLINE;
 }
 
-// The line containing `position`.
 export function lineAtPosition(position: number, text: string): RangeBounds {
   return paragraphBounds(position, position, text);
 }
@@ -102,9 +100,8 @@ export interface BlockWriter {
   pruneOrphanedAnchors(): void;
 }
 
-// Stores the block-level (line-scoped) ranges for the editor, mirroring
-// FormattingStore. Block ranges never overlap: at most one block covers any
-// paragraph, and ranges stay normalized to whole-line boundaries.
+// Block ranges never overlap: at most one block covers any paragraph, and
+// ranges stay normalized to whole-line boundaries.
 //
 // Every write goes through `edit`, which normalizes and recomputes list
 // metadata once all of them are in. The natives leave that normalize to each
@@ -157,9 +154,6 @@ export class BlockStore {
     this.normalizeToLineBounds(text);
   }
 
-  // Sets/replaces the block on every paragraph the given range touches,
-  // expanding to whole-line boundaries. Removes any block previously covering
-  // those paragraphs.
   private setBlock(
     type: BlockType,
     level: number,
@@ -183,8 +177,6 @@ export class BlockStore {
     }
   }
 
-  // Clears any block on the paragraphs the given range touches, reverting
-  // them to the implicit paragraph default.
   private removeBlock(
     paragraphStart: number,
     paragraphEnd: number,
@@ -195,11 +187,9 @@ export class BlockStore {
     this.ranges.splice(from, to - from);
   }
 
-  // Rewrites the blocks over `lines` (consecutive, as `linesTouching` returns
-  // them) in one pass, for commands over a whole selection: `blockFor` says
-  // what each line carries, given the block starting there. Anything else
-  // the span overlaps goes, as with `setBlock` per line, which would copy or
-  // shift the array once per line.
+  // `lines` must be consecutive, as `linesTouching` returns them. Anything
+  // else the span overlaps goes, as with `setBlock` per line, which would copy
+  // or shift the array once per line.
   private rewriteLines(
     lines: readonly RangeBounds[],
     blockFor: (line: RangeBounds, existing: BlockRange | null) => LineBlock
@@ -277,10 +267,8 @@ export class BlockStore {
         (isEmptyLine && !ANCHORED_BLOCK_TYPES.has(range.type)) ||
         line.start <= previousEnd
       ) {
-        // Dedup: drop a range that resolves to an already-claimed paragraph.
-        // This is a legitimate self-heal path (a heading anchor and the block
-        // it merges into can briefly share a start after a line-join), so it
-        // is deliberately silent.
+        // Deliberately silent: a heading anchor and the block it merges into
+        // can briefly share a start after a line-join.
         return false;
       }
       range.start = line.start;
@@ -435,7 +423,6 @@ export class BlockStore {
     this.ranges = ranges;
   }
 
-  // The block on the line containing `position`, if any.
   blockAt(position: number, text: string): BlockRange | null {
     return this.blockStartingAt(
       lineStartBefore(clamp(position, 0, text.length), text)

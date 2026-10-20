@@ -3,17 +3,14 @@ import type { EnrichedMarkdownTextInputProps as NativeInputProps } from '../../E
 import type { EnrichedMarkdownTextInputProps as WebInputProps } from '../../EnrichedMarkdownTextInput.web';
 
 /**
- * Props of the native (iOS/Android) EnrichedMarkdownTextInput API that have
- * no effect on web, dropped before the rest is spread onto the editor's
- * `<div>` (review §2.8.2): otherwise React warns about each one, and values
- * like `markdownstyle="[object Object]"` land in the DOM.
+ * Native-only props, dropped before the rest is spread onto the editor's
+ * `<div>`: otherwise React warns about each one, and values like
+ * `markdownstyle="[object Object]"` land in the DOM.
  *
- * As in `nativeProps.ts`, the set is derived rather than hand-maintained: the
- * native prop names minus those web implements and minus generic ViewProps, so
- * a native-only prop added to `EnrichedMarkdownTextInput.tsx` fails the build
- * here until it is listed. The React Native press props the native input takes
- * from TextInput fall in that set too; `hitSlop` (a ViewProp) is listed by hand
- * because it reaches the DOM as an invalid attribute just the same.
+ * The set is derived (native prop names minus web's and minus ViewProps), so a
+ * native-only prop added to `EnrichedMarkdownTextInput.tsx` fails the build
+ * here until it is listed. `hitSlop` (a ViewProp) is listed by hand because it
+ * reaches the DOM as an invalid attribute just the same.
  *
  * Every import here is type-only, so nothing from `react-native` reaches the
  * web bundle.
@@ -59,7 +56,6 @@ const NATIVE_ONLY_INPUT_PROPS = new Set<string>(
   Object.keys(NATIVE_ONLY_INPUT_PROP_NAMES)
 );
 
-// A shallow copy of `props` without the native-only ones.
 export function filterNativeOnlyInputProps<T extends object>(
   props: T
 ): Omit<T, NativeOnlyInputPropName | 'hitSlop'> {

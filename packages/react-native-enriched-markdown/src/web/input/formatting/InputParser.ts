@@ -61,11 +61,9 @@ const BLOCK_NODE_TYPES = new Set<NodeType>([
   'LatexMathDisplay',
 ]);
 
-// A heading maps to its per-level block type; an out-of-range level falls
-// back to paragraph so a malformed parse degrades gracefully rather than
-// dropping the line. List items are recognized here but emitted with their
-// own per-line bounds and AST-derived depth in the walk, not via the generic
-// emission.
+// An out-of-range heading level falls back to paragraph rather than dropping
+// the line. List items are emitted by the walk with their own per-line bounds
+// and AST-derived depth, not via the generic emission.
 function nodeTypeToBlockType(
   nodeType: NodeType,
   level: number
@@ -123,8 +121,8 @@ function append(state: WalkState, chunk: string): void {
   state.text += chunk;
 }
 
-// Builds the input model from an already-parsed AST. Ordinals are left at
-// their placeholder value — BlockStore.setRanges recomputes them.
+// Ordinals are left at their placeholder value; BlockStore.setRanges
+// recomputes them.
 export function parseResultFromAst(ast: ASTNode): ParseResult {
   const state: WalkState = {
     text: '',
@@ -184,9 +182,7 @@ function walkNode(
     });
   }
 
-  // A list node increments the nesting depth of its items, so an item's depth
-  // is (enclosing list nodes - 1). Depth comes from this AST nesting, never
-  // from counting leading spaces.
+  // Depth comes from AST nesting, never from counting leading spaces.
   const isListContainer = isListNode(node);
   const childListDepth = isListContainer ? listDepth + 1 : listDepth;
   const childOrdered = isListContainer
@@ -286,9 +282,8 @@ function walkNode(
     }
   }
 
-  // Emit the block range for handler-claimed block types only; paragraph
-  // (the implicit default) yields nothing, and list items were emitted above
-  // with their own line bounds.
+  // Paragraph is the implicit default; list items were emitted above with
+  // their own line bounds.
   if (
     blockType !== null &&
     blockType !== 'paragraph' &&
@@ -322,7 +317,6 @@ export async function parseToPlainTextAndRanges(
       INPUT_PARSE_FLAGS
     );
   } catch {
-    // A failed parse degrades to unformatted text rather than crashing.
     return { plainText: markdown, formattingRanges: [], blockRanges: [] };
   }
   const result = parseResultFromAst(ast);

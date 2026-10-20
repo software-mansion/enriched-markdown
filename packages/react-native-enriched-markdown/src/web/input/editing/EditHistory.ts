@@ -13,9 +13,8 @@ import {
 import type { RangeBounds } from '../model/rangeBounds';
 import type { TextEdit } from '../model/textEdit';
 
-// The ranges and selection around an entry, as the host hands them over and
-// gets them back. What `undo`/`redo` return is freshly built, so the caller
-// may hand it straight to the stores, which mutate their ranges in place.
+// What `undo`/`redo` return is freshly built, so the caller may hand it
+// straight to the stores, which mutate their ranges in place.
 export interface ModelSnapshot {
   formatting: readonly FormattingRange[];
   blocks: readonly BlockRange[];
@@ -23,9 +22,9 @@ export interface ModelSnapshot {
   backward: boolean;
 }
 
-// A snapshot as stored: the ranges packed into typed arrays rather than kept
-// as objects, a third of the size. Packing is also what copies them, so the
-// stores' in-place mutations cannot reach a stored snapshot.
+// Typed arrays rather than objects: a third of the size. Packing is also what
+// copies the ranges, so the stores' in-place mutations cannot reach a stored
+// snapshot.
 interface PackedSnapshot {
   // [type, start, end] per range.
   formatting: Int32Array;
@@ -135,9 +134,9 @@ function unpack(packed: PackedSnapshot): ModelSnapshot {
   };
 }
 
-// The model's undo and redo stacks. Text is kept as the edits themselves and
-// replayed backwards; ranges and selection as one snapshot per entry, taken
-// when the entry opens. Pure: the host captures and restores.
+// Text is kept as the edits themselves and replayed backwards; ranges and
+// selection as one snapshot per entry, taken when the entry opens. Pure: the
+// host captures and restores.
 //
 // Snapshots are whole, not scoped to the edit: an edit reaches ranges well
 // outside its own span (deleting a list item re-clamps the depth of every
@@ -239,8 +238,6 @@ export class EditHistory {
     this.open = false;
   }
 
-  // The entry to restore `before` from, with its `after` filled in by
-  // `captureAfter`; null when there is nothing to undo.
   undo(captureAfter: () => ModelSnapshot): {
     edits: readonly TextEdit[];
     target: ModelSnapshot;

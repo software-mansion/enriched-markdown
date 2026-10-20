@@ -1,8 +1,7 @@
 import type { InputStyleType } from './inlineStyles';
 
 // One end of a formatting range, for sweeps that walk ranges in document
-// order: both the projection's run flattening and the serializer's delimiter
-// emission.
+// order.
 export interface BoundaryEvent {
   position: number;
   isOpening: boolean;
@@ -11,9 +10,8 @@ export interface BoundaryEvent {
 }
 
 // Ascending by position, and at one position closings come before openings so
-// a range ending where another begins never interleaves. Callers that also
-// need a defined order among same-direction events at one position pass
-// `tieBreak`; those that do not are indifferent to it.
+// a range ending where another begins never interleaves. `tieBreak` orders
+// same-direction events at one position, for callers that need it.
 export function compareBoundaryEvents(
   a: BoundaryEvent,
   b: BoundaryEvent,

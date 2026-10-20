@@ -15,15 +15,11 @@ export class BlockEditCoordinator {
     this.blockStore = blockStore;
   }
 
-  // Returns whether the model actually changed, which is what tells the
-  // caller a re-render is worth doing.
-  //
-  // The requested depth is clamped twice: once here against MAX_LIST_DEPTH,
-  // then again by the store's ancestry pass, which holds an item at most one
-  // level below the item above it. A write that survives the first clamp can
-  // still land on the depth the item already had - indenting the first item
-  // of a list is the common case - so the answer is only knowable after the
-  // writes, by comparing the depths the lines ended up with.
+  // Returns whether the model actually changed. The depth is clamped here and
+  // again by the store's ancestry pass (at most one level below the item
+  // above), so a write can still land on the depth the item already had -
+  // indenting the first item of a list is the common case. Only comparing
+  // depths after the writes tells.
   changeListDepthBy(
     delta: number,
     selection: RangeBounds,
@@ -87,9 +83,6 @@ export class BlockEditCoordinator {
     return true;
   }
 
-  // Turns the list off when the item at the selection start already has
-  // `type`; otherwise makes every touched line an item of `type`, keeping an
-  // existing depth.
   toggleListType(type: BlockType, selection: RangeBounds, text: string): void {
     const startBlock = this.blockStore.blockAt(selection.start, text);
     const turningOff = isListItem(startBlock) && startBlock.type === type;

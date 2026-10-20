@@ -24,10 +24,8 @@ function classifyOverlap(
 }
 
 /**
- * Applies an edit that replaced the `deleted` span with `insertedLength`
- * characters to one range. A range the edit removes outright collapses to zero
- * length instead of being reported separately; the caller drops it when it
- * filters out empty ranges.
+ * A range the edit removes outright collapses to zero length; the caller
+ * drops it when it filters out empty ranges.
  *
  * `clipped-end` only classifies ranges starting before the deletion, so the
  * surviving head is never empty and the range always keeps its start.
@@ -98,10 +96,8 @@ function applyInsertion(
 }
 
 /**
- * Shift/clip logic applied to stored ranges after a text edit that replaced
- * `deletedLength` characters at `editLocation` with `insertedLength`
- * characters. Bounds are mutated in place; the returned array drops ranges
- * deleted outright or clipped to zero length.
+ * Bounds are mutated in place; the returned array drops ranges deleted
+ * outright or clipped to zero length.
  *
  * Insert-only edits at exactly `range.end` do NOT grow the range - whether
  * typed text continues a style is decided by the pending-styles layer, and

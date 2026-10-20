@@ -1,9 +1,8 @@
 import type { RangeBounds } from './rangeBounds';
 
 // Canonical order for a run's style list, so equal style sets compare equal.
-// Any stable order works, but it has to be total: a style missing here is
-// filtered out of every run, so the union is derived from it rather than
-// declared alongside it.
+// It has to be total: a style missing here is filtered out of every run, so
+// the union is derived from it.
 export const INPUT_STYLE_TYPES = [
   'strong',
   'em',
@@ -15,12 +14,10 @@ export const INPUT_STYLE_TYPES = [
 
 export type InputStyleType = (typeof INPUT_STYLE_TYPES)[number];
 
-// A style that can be armed at the caret and applied to the next insert. A
-// link cannot: it carries a url that a pending style has nowhere to keep, and
-// `FormattingStore.addRange` takes the new range's url, so a pending `link`
-// would strip the url from whatever it merged with. Android encodes the same
-// exclusion when it seeds its pending styles; expressing it in the type means
-// web cannot reach that state at all.
+// A style that can be armed at the caret. Not a link: a pending style has
+// nowhere to keep a url, and `FormattingStore.addRange` takes the new range's
+// url, so a pending `link` would strip the url from whatever it merged with.
+// Android encodes the same exclusion when it seeds its pending styles.
 export type PendingStyleType = Exclude<InputStyleType, 'link'>;
 
 export const TYPING_ATTRIBUTE_STYLES: readonly PendingStyleType[] = [

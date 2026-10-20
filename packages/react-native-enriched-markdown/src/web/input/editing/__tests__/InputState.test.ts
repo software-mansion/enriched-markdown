@@ -223,10 +223,9 @@ describe('sameInputState', () => {
     expect(sameInputState(base, build({}, { start: 0, end: 0 }))).toBe(true);
   });
 
-  // `sameInputState` is a hand-written field-by-field comparison and it gates
-  // `onChangeState`. A field added to `InputState` but left out of it would
-  // make the event stop firing whenever only that field changes, silently.
-  // This walks the state it is given, so a new field is covered on arrival.
+  // `sameInputState` gates `onChangeState`: a field it skipped would make the
+  // event stop firing whenever only that field changes, silently. This walks
+  // the state it is given, so a new field is covered on arrival.
   it('compares every field the state carries', () => {
     const groups = Object.entries(base) as [
       string,

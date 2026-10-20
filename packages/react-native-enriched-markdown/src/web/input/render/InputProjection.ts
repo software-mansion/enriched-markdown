@@ -25,8 +25,7 @@ export interface StyleRun {
 }
 
 // Element-wise comparison is valid because `INPUT_STYLE_TYPES` orders every
-// run's styles canonically. Shared with the DOM renderer, which asks the same
-// question when deciding whether a rendered run can be reused.
+// run's styles canonically.
 export function sameRunStyle(
   run: StyleRun,
   styles: InputStyleType[],
@@ -39,9 +38,7 @@ export function sameRunStyle(
   );
 }
 
-// Flattens overlapping formatting ranges over the line [lineStart, lineEnd)
-// into disjoint runs, offset from `lineStart` - DOM elements cannot
-// partially overlap.
+// Disjoint runs, because DOM elements cannot partially overlap.
 export function computeStyleRuns(
   ranges: readonly FormattingRange[],
   lineStart: number,
@@ -122,10 +119,9 @@ export function computeStyleRuns(
   return runs;
 }
 
-// One buffer line: its text, block metadata and style runs. Holds no buffer
-// offsets, so a line the text around it shifts is still the same object;
-// where a line starts lives in `Projection.lineStarts`. Never mutated once
-// built: the projector and the renderer share these objects across renders.
+// Holds no buffer offsets, so a line the text around it shifts is still the
+// same object. Never mutated once built: the projector and the renderer share
+// these objects across renders.
 export interface ParagraphProjection {
   readonly text: string;
   readonly blockType: BlockType;
@@ -134,8 +130,7 @@ export interface ParagraphProjection {
   readonly runs: readonly StyleRun[];
 }
 
-// Every line of the buffer, and the buffer offset each one starts at. Both
-// arrays are fresh per projection and never mutated after it.
+// Both arrays are fresh per projection and never mutated after it.
 export interface Projection {
   readonly paragraphs: readonly ParagraphProjection[];
   readonly lineStarts: readonly number[];
@@ -163,9 +158,8 @@ function blockCoversLine(
     : lineEnd >= block.start && lineStart < block.end;
 }
 
-// Splits the buffer into per-line paragraphs from scratch. Expects block
-// ranges sorted and line-normalized, as the store keeps them. The reference
-// the incremental `ParagraphProjector` is checked against.
+// Expects block ranges sorted and line-normalized, as the store keeps them.
+// The reference the incremental `ParagraphProjector` is checked against.
 export function projectParagraphs(
   text: string,
   formattingRanges: readonly FormattingRange[],
@@ -215,19 +209,17 @@ export function projectParagraphs(
   return { paragraphs, lineStarts };
 }
 
-// The formatting side of the model, as the projector reads it. `version`
-// changes on every write, which is how the projector notices a write nobody
-// told it about.
+// `version` changes on every write, which is how the projector notices a
+// write nobody told it about.
 export interface ProjectedFormatting {
   readonly allRanges: readonly FormattingRange[];
   readonly version: number;
 }
 
-// Projects the buffer incrementally: only lines an edit or a style change
-// touched are cut and styled again; every other line keeps its paragraph
-// object. Text and style changes arrive as hints (`textEdited`,
-// `stylesChanged`) right after the model changes, in order, so the line
-// table always describes the current buffer. Block metadata is not hinted:
+// Only lines an edit or a style change touched are cut and styled again;
+// every other line keeps its paragraph object. Text and style changes arrive
+// as hints (`textEdited`, `stylesChanged`) right after the model changes, in
+// order, so the line table always describes the current buffer. Block metadata is not hinted:
 // every projection re-reads it for every line from the block store, since a
 // block write anywhere can renumber a list below it.
 //
@@ -248,9 +240,8 @@ export class ParagraphProjector {
     this.formatting = formatting;
   }
 
-  // The next projection starts over: for changes that replace the model
-  // wholesale (an import, undo/redo), where a full pass is what it costs
-  // anyway.
+  // For changes that replace the model wholesale (an import, undo/redo),
+  // where a full pass is what it costs anyway.
   invalidate(): void {
     this.text = null;
   }
@@ -293,7 +284,6 @@ export class ParagraphProjector {
     this.formattingVersion = this.formatting.version;
   }
 
-  // Formatting over [start, end) of the current buffer changed.
   stylesChanged(start: number, end: number): void {
     if (this.text === null) {
       return;

@@ -28,10 +28,8 @@ export class EditPipeline {
     this.blockStore = blockStore;
   }
 
-  // Walks both stores through one text edit. `text` is the buffer after the
-  // edit and `context` describes that same edit; the caller must splice one
-  // to match the other before calling (checked in development only - see
-  // `assertContextDescribesEdit`).
+  // `text` is the buffer after the edit `context` describes; the caller must
+  // splice one to match the other before calling (checked in development).
   processTextChange(text: string, context: EditContext): void {
     const { editStart, deletedText, insertedText } = context;
 
@@ -48,11 +46,10 @@ export class EditPipeline {
       blocks.adjustForEdit(editStart, deletedText.length, insertedText.length);
       // Deletions only, unlike the natives, which prune unconditionally. Their
       // block ranges grow at the start on insert (`growsAtStartOnInsert`), so
-      // an anchor never leaves the line start by typing. Web deliberately lets
-      // it shift and relies on the normalize at the end of `edit` to snap it
-      // back over the typed characters (see `BlockStore.adjustForEdit`), so
-      // pruning on insert would delete the block on every keystroke at a line
-      // start.
+      // an anchor never leaves the line start by typing. Web lets it shift and
+      // relies on the normalize at the end of `edit` to snap it back (see
+      // `BlockStore.adjustForEdit`), so pruning on insert would delete the
+      // block on every keystroke at a line start.
       if (deletedText.length > 0) {
         blocks.pruneOrphanedAnchors();
       }
@@ -70,21 +67,20 @@ export class EditPipeline {
     }
   }
 
-  // Enter inside a list item continues the list on the new line; other
-  // blocks do not continue.
+  // Only list items continue onto the new line.
   private continueBlockOnNewline(
     blocks: BlockWriter,
     text: string,
     newlinePosition: number
   ): void {
-    // The inserted newline closes the line before it; take that line's block.
+    // The inserted newline closes the line before it.
     const closedLine = lineAtPosition(newlinePosition, text);
     const closedBlock = this.blockStore.blockStartingAt(closedLine.start);
     if (!isListItem(closedBlock)) {
       // Enter at the start of a list item: the item moved down with its
       // text, leaving an empty line above it. That line becomes an empty item
       // of the same list, as on iOS, Google Docs and Notion, instead of a
-      // blank line splitting the list in two (review §2.3.2).
+      // blank line splitting the list in two.
       if (closedLine.start === closedLine.end) {
         const moved = this.blockStore.blockStartingAt(newlinePosition + 1);
         if (isListItem(moved)) {
@@ -133,11 +129,9 @@ export class EditPipeline {
   }
 }
 
-// `text` and `context` describe the same edit twice and both stores trust
-// both. A caller that splices one without the other stamps ranges over a
-// buffer that no longer matches - the symptom surfaces much later as a wrong
-// caret or a lost style, never as an error here, so say so while there is
-// still a stack to say it on.
+// Both stores trust `text` and `context` to agree. When they do not, the
+// symptom surfaces much later as a wrong caret or a lost style, so report it
+// while there is still a stack.
 function assertContextDescribesEdit(text: string, context: EditContext): void {
   const { editStart, insertedText } = context;
   const insertEnd = editStart + insertedText.length;

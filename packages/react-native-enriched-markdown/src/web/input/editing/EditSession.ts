@@ -1,14 +1,11 @@
 export type EditPhase = 'idle' | 'processing' | 'formatting' | 'importing';
 
-// Tracks what our own code is currently doing, so handlers can tell a user
-// action from an echo of ours.
+// The phase lets handlers tell a user action from an echo of our own writes.
 //
-// Composition state lives alongside the phase because it describes the
-// browser's IME rather than our code. The authority on it is the event -
-// `InputEvent.isComposing` and `KeyboardEvent.isComposing` - and this latch
-// only covers the handlers that get no event to ask, so it has to be cleared
-// on every way out of a composition (commit, blur, teardown) or the editor
-// would stay read-only for the rest of its life.
+// The authority on composition is the event (`InputEvent.isComposing`,
+// `KeyboardEvent.isComposing`); this latch only covers handlers that get no
+// event to ask, so it has to be cleared on every way out of a composition
+// (commit, blur, teardown) or the editor would stay read-only for good.
 export class EditSession {
   private composing = false;
   private currentPhase: EditPhase = 'idle';

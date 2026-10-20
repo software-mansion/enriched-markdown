@@ -50,8 +50,8 @@ function listRules(): string {
     rules.push(
       `.${ENRM_INPUT_CLASS} [data-depth="${depth}"] { padding-left: ${indent}px; }`,
       `.${ENRM_INPUT_CLASS} [data-block="unordered-list-item"][data-depth="${depth}"]::before { left: ${markerLeft + 4}px; ${bulletShape(depth)} }`,
-      // The number ends where the old 14px box ended and grows leftward, as
-      // on native, so "10." and up no longer run into the text.
+      // The number grows leftward from a fixed end, as on native, so "10."
+      // and up do not run into the text.
       `.${ENRM_INPUT_CLASS} [data-block="ordered-list-item"][data-depth="${depth}"]::before { right: calc(100% - ${indent - ORDERED_MARKER_GAP}px); }`
     );
   }
