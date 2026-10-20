@@ -12,6 +12,10 @@ import {
 } from '../model/blocks';
 
 export const ENRM_INPUT_CLASS = 'enrm-input';
+// Set with `data-selection-color` by the `selectionColor` prop. Only then
+// does the `::selection` rule apply: an unset variable there would replace
+// the browser's own highlight with none.
+export const ENRM_INPUT_SELECTION_VAR = '--enrm-input-selection-bg';
 
 const defaults = DEFAULT_NORMALIZED_STYLE;
 
@@ -96,6 +100,9 @@ const INPUT_CSS = `
 }
 ${headingRules()}
 ${listRules()}
+.${ENRM_INPUT_CLASS}[data-selection-color] ::selection {
+  background-color: var(${ENRM_INPUT_SELECTION_VAR});
+}
 .${ENRM_INPUT_CLASS} .enrm-strong { font-weight: bold; }
 .${ENRM_INPUT_CLASS} .enrm-em { font-style: italic; }
 .${ENRM_INPUT_CLASS} .enrm-underline { text-decoration: underline; }

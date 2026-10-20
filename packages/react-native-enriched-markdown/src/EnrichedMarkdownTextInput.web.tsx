@@ -21,7 +21,11 @@ import type {
 import { ImportQueue } from './web/input/editing/ImportQueue';
 import { InputHost } from './web/input/editing/InputHost';
 import type { InputState } from './web/input/editing/InputState';
-import { ENRM_INPUT_CLASS } from './web/input/render/inputStyles';
+import {
+  ENRM_INPUT_CLASS,
+  ENRM_INPUT_SELECTION_VAR,
+} from './web/input/render/inputStyles';
+import { filterNativeOnlyInputProps } from './web/input/nativeInputProps';
 import {
   measure,
   measureInWindow,
@@ -80,6 +84,12 @@ export interface EnrichedMarkdownTextInputProps extends ForwardedDomProps {
   onChangeHistoryState?: (state: HistoryState) => void;
   onFocus?: () => void;
   onBlur?: () => void;
+  /** Rendered as `data-testid`, as `EnrichedMarkdownText` does. */
+  testID?: string;
+  /** Background of selected text (`::selection`). */
+  selectionColor?: string;
+  /** Color of the caret (`caret-color`). */
+  cursorColor?: string;
 }
 
 const EMPTY_CARET_RECT: CaretRect = { x: 0, y: 0, width: 0, height: 0 };
@@ -134,10 +144,15 @@ export const EnrichedMarkdownTextInput = forwardRef<
     onChangeHistoryState,
     onFocus,
     onBlur,
-    ...domProps
+    testID,
+    selectionColor,
+    cursorColor,
+    ...rest
   },
   ref
 ) {
+  // Native-only props would otherwise reach the DOM (review §2.8.2).
+  const domProps = filterNativeOnlyInputProps(rest);
   const rootRef = useRef<HTMLDivElement>(null);
   const host = useRef<InputHost | null>(null);
   // The node `host` was built on. A host is reattached only to its own node.
@@ -307,6 +322,10 @@ export const EnrichedMarkdownTextInput = forwardRef<
 
   const cssVariables = {
     '--enrm-placeholder-color': placeholderTextColor,
+    ...(selectionColor === undefined
+      ? {}
+      : { [ENRM_INPUT_SELECTION_VAR]: selectionColor }),
+    ...(cursorColor === undefined ? {} : { caretColor: cursorColor }),
   } as CSSProperties;
   return (
     <div
@@ -323,6 +342,8 @@ export const EnrichedMarkdownTextInput = forwardRef<
       }
       style={{ ...cssVariables, ...style }}
       data-placeholder={placeholder}
+      data-testid={testID}
+      data-selection-color={selectionColor === undefined ? undefined : ''}
       aria-disabled={!editable}
     />
   );

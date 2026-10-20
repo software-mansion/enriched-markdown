@@ -723,3 +723,55 @@ describe('a handle used after unmount', () => {
     await expect(handle.getMarkdown()).resolves.toBe('');
   });
 });
+
+// Review §2.8.2: cross-platform code passes native props; on web they used to
+// be spread onto the editor's div, with a React warning for each.
+describe('native-only props', () => {
+  it('keeps them off the DOM, without React warnings', () => {
+    const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const nativeOnly = {
+      markdownStyle: { paragraph: { fontSize: 18 } },
+      markdownShortcuts: true,
+      multiline: true,
+      scrollEnabled: false,
+      mentionIndicators: ['@'],
+      linkRegex: /x/,
+      contextMenuItems: [],
+      hitSlop: 4,
+      onPress: () => {},
+      onPressIn: () => {},
+      onCaretRectChange: () => {},
+      onLinkDetected: () => {},
+      onStartMention: () => {},
+    } as unknown as EnrichedMarkdownTextInputProps;
+
+    const { editor } = mount(nativeOnly);
+
+    expect(errors).not.toHaveBeenCalled();
+    const attributes = [...editor.attributes].map((a) => a.name);
+    for (const name of ['markdownstyle', 'multiline', 'hitslop', 'linkregex']) {
+      expect(attributes).not.toContain(name);
+    }
+  });
+
+  it('maps testID, selectionColor and cursorColor', () => {
+    const { editor } = mount({
+      testID: 'composer',
+      selectionColor: 'rgb(255, 0, 0)',
+      cursorColor: 'rgb(0, 0, 255)',
+    });
+
+    expect(editor.getAttribute('data-testid')).toBe('composer');
+    expect(editor.hasAttribute('data-selection-color')).toBe(true);
+    expect(editor.style.getPropertyValue('--enrm-input-selection-bg')).toBe(
+      'rgb(255, 0, 0)'
+    );
+    expect(editor.style.caretColor).toBe('rgb(0, 0, 255)');
+  });
+
+  it('leaves the browser selection highlight alone without selectionColor', () => {
+    const { editor } = mount();
+
+    expect(editor.hasAttribute('data-selection-color')).toBe(false);
+  });
+});

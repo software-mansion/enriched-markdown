@@ -71,6 +71,16 @@ forwarded to the root element and will produce React "unknown prop" warnings on
 web. Use the DOM equivalents (`aria-label`, `id`, CSS) instead. `testID` is the
 exception: it is mapped to `data-testid`.
 
+### `EnrichedMarkdownTextInput`
+
+The input strips its own native-only props the same way: `markdownStyle`, `markdownShortcuts`, `multiline`, `scrollEnabled`, `writingDirection`, `linkRegex`, `mentionIndicators`, `contextMenuItems`, `selectionMenuConfig`, `formatMenuConfig`, `onCaretRectChange`, `onLinkDetected`, the mention callbacks, and the React Native press props (`onPress`, `onPressIn`, `onPressOut`, `rejectResponderTermination`, `hitSlop`). Three of them are mapped instead:
+
+| Prop | On web |
+|---|---|
+| `testID` | `data-testid` on the editor element. |
+| `selectionColor` | Background of selected text. Without it the browser's own highlight is used. |
+| `cursorColor` | The caret's color (`caret-color`). |
+
 ## Undo and redo
 
 `EnrichedMarkdownTextInput` keeps its own undo history on web rather than using the browser's. **Cmd+Z** / **Ctrl+Z**, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y**, the Edit and context menus, and the ref's `undo()` / `redo()` all step through it, and `onChangeHistoryState` reports whether either has a step to take.
