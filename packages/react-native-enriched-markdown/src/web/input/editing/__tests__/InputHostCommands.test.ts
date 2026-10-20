@@ -7,6 +7,7 @@
 // supposed to refuse, which is why it sits apart from the keystroke suite.
 import {
   compose,
+  dispatchTyping,
   lastState,
   mount,
   pressKey,
@@ -594,5 +595,108 @@ describe('formatting shortcuts', () => {
     sendInput(root, 'formatStrikeThrough');
 
     expect(host.getMarkdown()).toBe('**one** ~~two~~');
+  });
+});
+
+// Review §2.3.2, decided 2026-10-20: Enter at the start of a non-empty item
+// opens an empty item above it, and the list stays one list.
+describe('Enter at the start of a list item', () => {
+  it.each([
+    ['1. a\n2. b', 2, '1. a\n2. \n3. b'],
+    ['- a\n- b', 2, '- a\n- \n- b'],
+    ['1. a', 0, '1. \n2. a'],
+  ])('%j at %i gives %j', async (markdown, caret, expected) => {
+    const { host, root, selections } = mount();
+    await host.setValue(markdown);
+    selectRangeFocused(root, caret, caret);
+
+    sendInput(root, 'insertParagraph');
+
+    expect(host.getMarkdown()).toBe(expected);
+    expect(selections.at(-1)).toEqual({ start: caret + 1, end: caret + 1 });
+  });
+
+  // Its markdown cannot say so - "  -" right under "- a" would read back as a
+  // setext underline, so the serializer writes the empty item bare (review
+  // §2.6.5) - but the model and the screen keep the nesting.
+  it('keeps the depth of a nested item on the empty item above it', async () => {
+    const { host, root } = mount();
+    await host.setValue('- a\n  - b');
+    selectRangeFocused(root, 2, 2);
+
+    sendInput(root, 'insertParagraph');
+
+    const lines = [...root.children] as HTMLElement[];
+    expect(
+      lines.map((line) => [line.dataset.block, line.dataset.depth])
+    ).toEqual([
+      ['unordered-list-item', '0'],
+      ['unordered-list-item', '1'],
+      ['unordered-list-item', '1'],
+    ]);
+  });
+
+  it('still opens a plain line above a paragraph', async () => {
+    const { host, root } = mount();
+    await host.setValue('- a\n\nb');
+    selectRangeFocused(root, 3, 3);
+
+    sendInput(root, 'insertParagraph');
+
+    expect(host.getMarkdown()).toBe('- a\n\n\nb');
+  });
+});
+
+// Review §2.1.10, decided 2026-10-20: a newline that is not the Enter key -
+// typed as text, pasted, inserted through the API - exits an empty item the
+// way Enter does.
+describe('a lone newline on an empty list item', () => {
+  const emptyItem = async () => {
+    const kit = mount();
+    await kit.host.setValue('- a\n- ');
+    selectRangeFocused(kit.root, 2, 2);
+    return kit;
+  };
+
+  // Enter un-lists the empty item in place, leaving an empty line.
+  const viaEnter = async () => {
+    const { host, root } = await emptyItem();
+    sendInput(root, 'insertParagraph');
+    return host.getMarkdown();
+  };
+
+  it('exits the list when typed as text', async () => {
+    const { host, root } = await emptyItem();
+    dispatchTyping(root, '\n');
+    expect(host.getMarkdown()).toBe(await viaEnter());
+    expect(host.getMarkdown()).toBe('- a\n');
+  });
+
+  it('exits the list when pasted', async () => {
+    const { host, root } = await emptyItem();
+    sendClipboard(root, 'paste', '\r\n');
+    expect(host.getMarkdown()).toBe(await viaEnter());
+  });
+
+  it('exits the list through insertText', async () => {
+    const { host } = await emptyItem();
+    host.insertText('\n');
+    expect(host.getMarkdown()).toBe(await viaEnter());
+  });
+
+  // The browser performs the edit itself when an event escapes
+  // `beforeinput` (a script's execCommand, some Android keyboards); the
+  // host reads the line it added back from the DOM.
+  it('exits the list when the browser inserted the line itself', async () => {
+    const { host, root } = await emptyItem();
+    const line = document.createElement('div');
+    line.appendChild(document.createElement('br'));
+    root.appendChild(line);
+    root.dispatchEvent(
+      new InputEvent('input', { inputType: 'insertParagraph', bubbles: true })
+    );
+
+    expect(host.getMarkdown()).toBe(await viaEnter());
+    expect(root.children).toHaveLength(2);
   });
 });

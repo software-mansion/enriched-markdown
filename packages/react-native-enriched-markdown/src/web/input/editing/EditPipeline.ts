@@ -81,6 +81,21 @@ export class EditPipeline {
     const closedLine = lineAtPosition(newlinePosition, text);
     const closedBlock = this.blockStore.blockStartingAt(closedLine.start);
     if (!isListItem(closedBlock)) {
+      // Enter at the start of a list item: the item moved down with its
+      // text, leaving an empty line above it. That line becomes an empty item
+      // of the same list, as on iOS, Google Docs and Notion, instead of a
+      // blank line splitting the list in two (review §2.3.2).
+      if (closedLine.start === closedLine.end) {
+        const moved = this.blockStore.blockStartingAt(newlinePosition + 1);
+        if (isListItem(moved)) {
+          blocks.setBlock(
+            moved.type,
+            moved.level,
+            closedLine.start,
+            closedLine.start
+          );
+        }
+      }
       return;
     }
     const { type, level } = closedBlock;

@@ -1003,7 +1003,7 @@ export class InputHost {
       return;
     }
     this.syncSelectionFromDom();
-    this.replaceSelection(normalizeLineEndings(pasted));
+    this.insertPlainText(normalizeLineEndings(pasted));
   };
 
   private readonly handleSelectionChange = (): void => {
@@ -1120,7 +1120,22 @@ export class InputHost {
       }
       return;
     }
-    this.applyEdit(diffEdit(this.text, domText, caret), {
+    const edit = diffEdit(this.text, domText, caret);
+    // A lone line break the browser inserted itself (an edit that escaped
+    // `beforeinput`) is Enter as well: on an empty list item it exits the
+    // list. The model keeps its text, so the line the browser added is only
+    // in the DOM, and the renderer rebuilds over it.
+    if (
+      edit.deletedText.length === 0 &&
+      edit.insertedText === '\n' &&
+      this.selection.start === this.selection.end &&
+      this.isEmptyListItemAt(this.selection.start)
+    ) {
+      this.renderer.invalidate();
+      this.unlistEmptyListItem(this.selection.start);
+      return;
+    }
+    this.applyEdit(edit, {
       caret: caret === null ? undefined : caret,
       render,
       kind,
@@ -1135,10 +1150,17 @@ export class InputHost {
     this.replaceSelection('\n');
   }
 
-  private unlistEmptyListItem(caret: number): boolean {
+  private isEmptyListItemAt(caret: number): boolean {
     const line = lineAtPosition(caret, this.text);
+    return (
+      line.start === line.end &&
+      isListItem(this.blockStore.blockAt(caret, this.text))
+    );
+  }
+
+  private unlistEmptyListItem(caret: number): boolean {
     const block = this.blockStore.blockAt(caret, this.text);
-    if (line.start !== line.end || !isListItem(block)) {
+    if (!this.isEmptyListItemAt(caret) || !isListItem(block)) {
       return false;
     }
     this.toggleListType(block.type);
@@ -1215,7 +1237,18 @@ export class InputHost {
     if (text.length === 0) {
       return;
     }
-    this.command(() => this.replaceSelection(text));
+    this.command(() => this.insertPlainText(normalizeLineEndings(text)));
+  }
+
+  // A lone line break is Enter, whichever way it arrives - typed, pasted or
+  // inserted through the API - so an empty list item exits its list the same
+  // way for all of them (review §2.1.10, decided 2026-10-20).
+  private insertPlainText(text: string): void {
+    if (text === '\n') {
+      this.insertNewline();
+    } else {
+      this.replaceSelection(text);
+    }
   }
 
   private replaceSelection(insertedText: string): void {
@@ -1231,6 +1264,14 @@ export class InputHost {
   private replaceTargetRange(event: InputEvent, insertedText: string): void {
     const target = this.modelRangeFromTargetRanges(event) ?? this.selection;
     if (insertedText.length === 0 && target.start === target.end) {
+      return;
+    }
+    if (
+      insertedText === '\n' &&
+      target.start === this.selection.start &&
+      target.end === this.selection.end
+    ) {
+      this.insertNewline();
       return;
     }
     const deletedText = this.text.slice(target.start, target.end);
