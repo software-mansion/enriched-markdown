@@ -591,16 +591,12 @@ jobs:
   # them is the backend's job rather than a branch of ours. The app has to be
   # installed on this repository with read and write access to contents.
   #
-  # The backend comments on a repository only for a caller whose token can push
-  # to it - that is what stops one Argent user posting as the app on someone
-  # else's pull request. `github.token` does not pass that check even with
-  # `contents: write` (the backend answers 403, "cannot push"), so the proof is
-  # ARGENT_GITHUB_TOKEN: a fine-grained personal access token with read and
-  # write access to contents on this repository, stored in the argent-cloud
-  # environment. It is only handed to the backend, never used to write here,
-  # which is why this job's own token stays read-only. The Anthropic key stays
-  # in the argent job: posting needs only the Argent Cloud key and the backend
-  # address.
+  # `contents: write` is not for anything this job writes itself. The backend
+  # will comment on a repository only for a caller whose token can push to it -
+  # that is what stops one Argent user posting as the app on someone else's
+  # pull request - and `github.token` with this scope is that proof. The
+  # Anthropic key stays in the argent job: posting needs only the Argent Cloud
+  # key and the backend address.
   report:
     needs: [resolve, argent]
     if: ${{ !cancelled() && needs.resolve.result == 'success' && needs.argent.result != 'skipped' }}
@@ -608,7 +604,7 @@ jobs:
     timeout-minutes: 10
     environment: argent-cloud
     permissions:
-      contents: read
+      contents: write
     outputs:
       comment: ${{ steps.post.outputs.url }}
     env:
@@ -670,13 +666,9 @@ jobs:
         env:
           SIM_ROUTER_API_KEY: ${{ secrets.SIM_ROUTER_API_KEY }}
           ARGENT_BACKEND_IP: ${{ secrets.ARGENT_BACKEND_IP }}
-          GITHUB_TOKEN: ${{ secrets.ARGENT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [[ -z "$GITHUB_TOKEN" ]]; then
-            echo "::error::ARGENT_GITHUB_TOKEN is not set in the argent-cloud environment. It needs a personal access token that can push to $GITHUB_REPOSITORY."
-            exit 1
-          fi
           SHOTS=$(find "$RUNNER_TEMP/session" -maxdepth 1 -name '*-screenshots.tar.gz' | head -n 1)
           if [[ -z "$SHOTS" ]]; then
             echo "::warning::The artifact has no screenshots archive, so the comment carries the report alone."
