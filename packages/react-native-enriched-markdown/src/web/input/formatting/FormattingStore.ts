@@ -216,11 +216,15 @@ export class FormattingStore {
   }
 
   // Links are atomic: a selection partially overlapping a link expands to
-  // cover it whole, and a caret strictly inside a link moves to its end.
+  // cover it whole, and a caret strictly inside a link moves to its end -
+  // unless it came from that end (`previousCaret`, the caret before the
+  // move), which is ArrowLeft stepping back into the link: snapping it to the
+  // end again would pin it there, so it carries on to the start.
   // Returns null when no adjustment is needed.
   selectionAdjustedForAtomicLinks(
     start: number,
-    end: number
+    end: number,
+    previousCaret: number | null = null
   ): RangeBounds | null {
     if (start !== end) {
       let newStart = start;
@@ -242,7 +246,8 @@ export class FormattingStore {
     }
     const link = this.rangeOfType('link', start);
     if (link !== null && start > link.start && start < link.end) {
-      return { start: link.end, end: link.end };
+      const to = previousCaret === link.end ? link.start : link.end;
+      return { start: to, end: to };
     }
     return null;
   }

@@ -7,8 +7,8 @@ import {
 import type { RangeBounds } from '../model/rangeBounds';
 
 // Holds the styles the caret carries into the next keystroke. With a
-// selection the store already changed, so nothing pends; with a caret a
-// toggle is remembered until the next character or selection move.
+// selection they mirror the store at its start; with a caret a toggle is
+// remembered until the next character or selection move.
 export class TypingAttributesController {
   private readonly formattingStore: FormattingStore;
   private readonly pendingStyles = new Set<PendingStyleType>();
@@ -41,18 +41,13 @@ export class TypingAttributesController {
     return this.formattingStore.isStyleActive(type, position);
   }
 
-  // With a selection the store has already flipped, so nothing pends. At a
-  // caret (`caret` is its offset) the toggle flips what the next keystroke
+  // A toggle at a caret (`caret` is its offset) flips what the next keystroke
   // would get - the effective style, pending sets included - rather than
   // undoing the last pending change: inside a bold run the caret already
   // carries a pending bold seeded from the run, and the first press has to
-  // unbold, not just drop that copy.
-  toggleStyle(type: PendingStyleType, caret: number | null): void {
-    if (caret === null) {
-      this.pendingStyles.delete(type);
-      this.pendingStyleRemovals.delete(type);
-      return;
-    }
+  // unbold, not just drop that copy. A toggle over a selection changes the
+  // store instead and is followed by `resetForSelectionChange`.
+  toggleStyle(type: PendingStyleType, caret: number): void {
     const wasActive = this.isEffectiveStyleActive(type, caret);
     this.pendingStyles.delete(type);
     this.pendingStyleRemovals.delete(type);

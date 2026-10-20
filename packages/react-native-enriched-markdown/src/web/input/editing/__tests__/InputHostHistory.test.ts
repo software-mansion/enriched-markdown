@@ -314,6 +314,44 @@ describe('InputHost history', () => {
     expect(host.getMarkdown()).toBe('see [docs](https://x.dev)');
   });
 
+  describe('the events a step reports', () => {
+    it('reports no text or selection change for a formatting-only step', () => {
+      const mounted = mount();
+      const { host, root, texts, selections, markdowns, states } = mounted;
+      root.focus();
+      typeText(root, 'hello world');
+      selectRangeFocused(root, 0, 5);
+      host.toggleBold();
+      const before = { texts: texts.length, selections: selections.length };
+
+      host.undo();
+      expect(texts).toHaveLength(before.texts);
+      expect(selections).toHaveLength(before.selections);
+      expect(markdowns.at(-1)).toBe('hello world');
+      expect(lastState(states).bold.isActive).toBe(false);
+
+      host.redo();
+      expect(texts).toHaveLength(before.texts);
+      expect(selections).toHaveLength(before.selections);
+      expect(markdowns.at(-1)).toBe('**hello** world');
+      expect(lastState(states).bold.isActive).toBe(true);
+    });
+
+    it('still reports the text and selection when a step changes them', () => {
+      const { host, root, texts, selections } = mount();
+      root.focus();
+      typeText(root, 'ab');
+      const before = { texts: texts.length, selections: selections.length };
+
+      host.undo();
+
+      expect(texts.slice(before.texts)).toEqual(['']);
+      expect(selections.slice(before.selections)).toEqual([
+        { start: 0, end: 0 },
+      ]);
+    });
+  });
+
   describe('entry points', () => {
     it('takes historyUndo and historyRedo from beforeinput', () => {
       jest.useFakeTimers();

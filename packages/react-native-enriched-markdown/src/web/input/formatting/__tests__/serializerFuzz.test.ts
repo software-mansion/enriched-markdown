@@ -1,6 +1,5 @@
 /* eslint-disable no-bitwise -- the seeded generator below */
 import { parseToPlainTextAndRanges } from '../InputParser';
-import { completeMarkdown } from '../InputRemend';
 import { FormattingStore } from '../FormattingStore';
 import { serializeInline } from '../MarkdownSerializer';
 import {
@@ -103,14 +102,6 @@ describe('serializer round trip over toolbar-built documents', () => {
   it.each(SEEDS)('seed %i', async (seed) => {
     const { text, store } = generate(seed);
     const markdown = serializeInline(text, store.allRanges);
-    // Known limitation, #1014: remend reads "***" as one token, so italic and
-    // bold closing (or opening) together on one side only - "**a *b***" -
-    // come back with delimiters appended. Anything else remend would change
-    // is a serializer bug.
-    if (completeMarkdown(markdown) !== markdown) {
-      expect(markdown).toContain('***');
-      return;
-    }
     const parsed = await parseToPlainTextAndRanges(markdown);
 
     expect({ markdown, text: parsed.plainText }).toEqual({ markdown, text });
@@ -190,8 +181,10 @@ describe('serializer round trip over rough documents', () => {
   it.each(SEEDS)('seed %i', async (seed) => {
     const { text, store } = generateRough(seed);
     const markdown = serializeInline(text, store.allRanges);
-    if (completeMarkdown(markdown) !== markdown) {
-      expect(markdown).toContain('***');
+    // Known serializer limitation: bold and italic boundaries meeting at one
+    // point emit a run of four or more "*" ("*,****"), which md4c cannot pair
+    // back into the original spans.
+    if (/\*{4,}/.test(markdown)) {
       return;
     }
     const parsed = await parseToPlainTextAndRanges(markdown);

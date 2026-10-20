@@ -22,8 +22,6 @@ const SPACE = 0x20;
 const TAB = 0x09;
 
 const MAX_ORDERED_MARKER_DIGITS = 9;
-// md4c strips up to three columns of indentation before a block marker.
-const MAX_MARKER_INDENT = 3;
 
 function isBlank(code: number): boolean {
   return code === SPACE || code === TAB;
@@ -56,22 +54,22 @@ function startsEntity(text: string, at: number, end: number): boolean {
 }
 
 // Characters that can open or close a span anywhere in a line. Escaped
-// wherever they appear: remend completes any unmatched one without md4c's
-// flanking rules, so even an intraword "_" or a lone "*" would come back with
-// a closer appended. "&" only where it starts an entity (`startsEntity`).
+// wherever they appear, md4c's flanking rules notwithstanding: the Android
+// input completes any unmatched one on import, so an unescaped lone "*" in
+// markdown this editor saved would come back there with a closer appended.
+// "&" only where it starts an entity (`startsEntity`).
 const INLINE_SPECIAL_RE = /[\\`*_~|[\]<&]/g;
 
 // Where a line starting at `start` would read as a block marker - a heading,
 // a bullet, a quote, a setext underline or an ordered item's "1." / "1)" -
 // the index of the character to escape; -1 otherwise. "*", "_", "`" and "~"
-// are escaped inline already.
+// are escaped inline already. However deep the indent: import keeps a line's
+// leading whitespace as text only when no marker follows it (see
+// `protectLeadingWhitespace` in InputParser), so an indented marker the user
+// typed has to be escaped to stay text.
 function lineStartMarkerAt(text: string, start: number, end: number): number {
   let i = start;
-  while (
-    i < end &&
-    i - start < MAX_MARKER_INDENT &&
-    isBlank(text.charCodeAt(i))
-  ) {
+  while (i < end && isBlank(text.charCodeAt(i))) {
     i++;
   }
   if (i === end) {

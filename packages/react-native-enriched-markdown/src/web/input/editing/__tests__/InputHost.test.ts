@@ -151,6 +151,17 @@ describe('InputHost', () => {
       expect(host.value).toBe('aX\nY\nZb');
     });
 
+    it('paste keeps a code block mid-line on that line', async () => {
+      // A code block is flattened to its lines; the newline md4c closes its
+      // last line with is no line break of its own.
+      const { root, host } = mount();
+      typeText(root, 'AB');
+      caretAt(root, 1);
+      await pasteText(root, '```\nfenced\n```');
+
+      expect(host.value).toBe('AfencedB');
+    });
+
     it('paste replaces the selection', async () => {
       const { root, host } = mount();
       typeText(root, 'abcdef');
