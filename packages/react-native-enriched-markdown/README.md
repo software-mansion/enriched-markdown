@@ -92,9 +92,9 @@ We can help you build your next dream product –
 
 **Web**
 
-- Requires [`react-native-web`](https://necolas.github.io/react-native-web/) and Metro (or another bundler with `.web.tsx` platform resolution)
+- Requires [`react-native-web`](https://necolas.github.io/react-native-web/) (or a `react-native` → `react-native-web` alias); the package's `browser` field points web bundlers at the web build
 - No New Architecture requirement — the web renderer runs entirely in JavaScript via WebAssembly
-- Only `EnrichedMarkdownText` is supported on web (`EnrichedMarkdownTextInput` is native-only)
+- `EnrichedMarkdownText` and `EnrichedMarkdownTextInput` both run on web; see [Web Support](../../docs-md/WEB.md) for what is not supported there
 - LaTeX math requires the optional [`katex`](https://katex.org/) peer dependency
 
 ## Installation
@@ -254,10 +254,10 @@ See [Web Support](../../docs-md/WEB.md) for details on supported features, web-s
 
 We're actively working on expanding the capabilities of `react-native-enriched-markdown`. Here's what's on the roadmap:
 
-- `EnrichedMarkdownTextInput`: headings, lists, blockquotes, code blocks, inline images
-- `EnrichedMarkdownTextInput` web support
+- `EnrichedMarkdownTextInput`: blockquotes, code blocks, inline images
+- `EnrichedMarkdownTextInput` on web: links and mentions
 - macOS: block math rendering, VoiceOver accessibility, tail fade-in animation
-- Web: spoiler text, streaming animation, configurable link `target`, copy options (Copy as Markdown, multi-format clipboard)
+- Web (`EnrichedMarkdownText`): spoiler text, streaming animation, configurable link `target`, copy options (Copy as Markdown, multi-format clipboard)
 
 ## Compatibility Table
 

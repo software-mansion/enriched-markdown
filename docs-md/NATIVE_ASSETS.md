@@ -16,7 +16,7 @@ idempotent — a `.stamp` fingerprint in each vendor directory makes repeated in
 |---|---|---|
 | tree-sitter runtime | GitHub release tarball (`github.com/tree-sitter/tree-sitter`) | code highlighting (iOS + Android) |
 | grammar sources (`parser.c`/`scanner.c`/`highlights.scm`) | npm registry (`registry.npmjs.org`) | code highlighting (iOS + Android) |
-| [RaTeX](https://ratex.lites.dev/) XCFramework + fonts | GitHub release | LaTeX math (iOS only) |
+| [RaTeX](https://ratex.lites.dev/) XCFramework + core Swift sources + fonts | GitHub release | LaTeX math (iOS only) |
 
 The pins live in `grammar-versions.json` and `ratex-version.json` inside the installed package. The
 pre-built highlight registry for the default language set **is** shipped in the tarball, so the only
@@ -40,7 +40,7 @@ and exits successfully. What the native build does when an asset is missing depe
 - **On by default** (no `enriched-markdown` entry for it): the build treats the feature as disabled —
   code highlighting compiles a no-op stub, iOS math is skipped with a CocoaPods warning — so the build
   stays green.
-- **Explicitly enabled** (`"enableMath": true` / `"enableCodeHighlight": true`): the build **fails with
+- **Explicitly enabled** (`"enableMath": true` on iOS / `"enableCodeHighlight": true` on either platform; Android math is a Maven dependency with no asset to miss): the build **fails with
   an actionable error** telling you to re-run postinstall, because you asked for a feature whose assets
   are not present.
 
@@ -115,8 +115,8 @@ rebuild; re-enabling also needs a reinstall so the assets download again.
 **Which `package.json`?** The *download* opt-out is read from wherever the install runs (via `INIT_CWD`)
 — in a monorepo that is the workspace root, and there is one shared `node_modules`, so the download
 opt-out is global. The *build* flag is read from the **app's** `package.json` (the one beside `ios/` /
-`android/`), so each app in a monorepo enables or disables features independently. Neither has any
-effect inside this repo's own monorepo development.
+`android/`), so each app in a monorepo enables or disables features independently. The download opt-out has
+no effect inside this repo's own monorepo development (vendoring is done by `prepare`).
 
 ## Disabling the features at build time
 

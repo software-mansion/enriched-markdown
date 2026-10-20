@@ -19,9 +19,10 @@ Markdown elements in `react-native-enriched-markdown` are organized into block a
 | Task Lists | `- [x] Done`, `- [ ] Todo` | `taskList` | Interactive checkboxes (requires `flavor="github"`) |
 | Thematic Break | `---`, `***`, or `___` | `thematicBreak` | Horizontal rule separator |
 | Images | `![alt](url)` | `image` | Block-level images with spacing |
-| Videos | `<video src="url">` | `video` | Native video player via HTML `<video>` tag (requires `flavor="github"` and `enableVideo`) |
+| Videos | `<video src="url">` | `video` | Native video player via HTML `<video>` tag (requires `flavor="github"`; on by default, excluded from the build with `"enriched-markdown": { "enableVideo": false }` in `package.json`) |
 | Tables | `| col | col |` | `table` | GFM tables with alignment support (requires `flavor="github"`) |
 | Math Block | `$$...$$` | `math` | Block-level LaTeX math (display equations) (requires `flavor="github"`) |
+| Admonitions | `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` | `blockquote.admonitions` | GitHub alert callouts (requires `flavor="github"`; `md4cFlags.admonitions`, on by default) |
 
 ### Inline Elements
 
@@ -29,8 +30,8 @@ Markdown elements in `react-native-enriched-markdown` are organized into block a
 |---------|--------|----------------|---------------|------|
 | Bold | `**text**` or `__text__` | `strong` | Parent block | Bold weight, optional color |
 | Italic | `*text*` or `_text_` | `em` | Parent block | Italic style, optional color |
-| Underline | `_text_` | `underline` | Parent block | Underline with custom color (iOS only; requires `md4cFlags`) |
-| Strikethrough | `~~text~~` | `strikethrough` | Parent block | Strike line with custom color (iOS only) |
+| Underline | `_text_` | `underline` | Parent block | Underline with custom color (color on iOS and web; requires `md4cFlags`) |
+| Strikethrough | `~~text~~` | `strikethrough` | Parent block | Strike line with custom color (color on iOS and web) |
 | Bold + Italic | `***text***`, `___text___`, etc. | `strong` + `em` | Parent block | Combined emphasis |
 | Links | `[text](url)` | `link` | Parent block | Optional font family, color, underline |
 | Inline Code | `` `code` `` | `code` | Parent block | Monospace font, background, optional fontSize |
@@ -39,6 +40,7 @@ Markdown elements in `react-native-enriched-markdown` are organized into block a
 | Spoiler | `\|\|text\|\|` | `spoiler` | Parent block | Text concealed behind animated particle overlay, tap to reveal. Can wrap inline text or entire blocks (e.g. a full paragraph) |
 | Superscript | `^text^` | `superscript` | Parent block | Raised text at a reduced font size (requires `md4cFlags={{ superscript: true }}`) |
 | Subscript | `~text~` | `subscript` | Parent block | Lowered text at a reduced font size (requires `md4cFlags={{ subscript: true }}`) |
+| Highlight | `==text==` | `highlight` | Parent block | Highlighted text (requires `md4cFlags={{ highlight: true }}`) |
 
 > **Note:** Spoiler syntax (`||text||`) is always enabled. Any double-pipe delimiters in your content will be parsed as spoilers — for example, `a || b || c` would render `b` as a spoiler span rather than plain text.
 

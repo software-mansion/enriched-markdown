@@ -24,7 +24,7 @@ This works in every environment: in dev the URI is a Metro dev-server URL, while
 | `asset://`, `res://`, `content://` | Yes | No |
 | `data:` (base64) | Yes | Yes |
 
-Local sources skip the HTTP layers below (disk cache, request headers, deduplication) but still use both memory cache tiers.
+Local sources skip the HTTP layers below (disk cache, request headers, deduplication) but still use both memory cache tiers. On iOS, `data:` URIs are not treated as local and go through the network loader.
 
 ## Cache Layers
 

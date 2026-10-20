@@ -36,8 +36,9 @@ def greet(name: str) -> str:
 
 Token colors are set through `codeBlock.syntaxColors`. The 14 token types are: `keyword`,
 `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`,
-`variable`, `property`, `tag`, `attribute`, `embedded`. Any type left unset is drawn in the normal
-code color.
+`variable`, `property`, `tag`, `attribute`, `embedded`. Any type left unset uses the built-in
+(GitHub-dark) palette; `operator`, `punctuation`, `variable` and `embedded` default to the code
+block's `color`.
 
 ## Copy button
 
@@ -64,8 +65,8 @@ derive from), so the table below tracks that manifest:
 |---|---|
 | json, html, css, markdown, yaml, go, java, javascript, python, c, rust, bash, typescript, tsx | cpp, swift, php, ruby, c-sharp |
 
-The default set is the smaller-footprint tier (~32 MB of grammar C source across the whole set).
-The opt-in grammars are larger (17-29 MB each) and are only compiled when you list them explicitly.
+Grammar sources are large (generated parsers run to several MB each); the opt-in grammars include
+the largest ones and are only compiled when you list them explicitly.
 A block whose language is not compiled in simply renders as plain (uncolored) code.
 
 ## Choosing languages / reducing binary size

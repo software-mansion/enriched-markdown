@@ -10,15 +10,16 @@ The web renderer uses semantic HTML elements (`<p>`, `<h1>`–`<h6>`, `<blockquo
 
 ## Supported features
 
-All core `EnrichedMarkdownText` features are supported on web, including:
+Most `EnrichedMarkdownText` features are supported on web (see [Not supported on web](#not-supported-on-web) for the exceptions), including:
 
-- Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline)
-- All `markdownStyle` customisation options
+- Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline), admonitions (`> [!NOTE]` and the other GitHub alerts)
+- Videos: `<video src>` renders as a `<video>` element with the browser's controls
+- All `markdownStyle` customisation options except `spoiler`
 - `onLinkPress`, `onLinkLongPress` (mapped to `contextmenu` event), `onImagePress`, `onTaskListItemPress`, `onCodeBlockPress` callbacks
 - `onImagePress` — makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
 - `onCodeBlockPress` — makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role, receiving the block's `code` and `language`; clicking while code text is selected does not fire
 - `enableTaskListItemToggle` — set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and pointer-inert rather than `disabled`, matching iOS and Android
-- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`)
+- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`)
 - RTL support via the `dir` prop (CSS logical properties automatically flip blockquote borders, list indentation, etc.)
 
 ### Accessibility
@@ -28,6 +29,7 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - Code blocks: `aria-label` with language when available (e.g. `"Code block: python"`)
 - Math (KaTeX fallback): `role="math"` and `aria-label` with the expression content
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
+- Videos: `aria-label` from the alt text, then `title`, then `"Video"`
 
 ### Web props
 
@@ -118,5 +120,6 @@ A ref kept after the input unmounts still answers `getMarkdown()` with the last 
 ## Not supported on web
 
 - `EnrichedMarkdownTextInput` link and mention commands — `setLink`, `insertLink`, `removeLink`, `insertMention`, `startMention` and `copyToClipboard` warn once and do nothing. The editor itself works on web.
+- Spoilers (`||text||`) — `EnrichedMarkdownText` does not render them on web yet, and the text inside a spoiler is currently left out.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
 - Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.
