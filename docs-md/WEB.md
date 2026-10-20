@@ -84,9 +84,14 @@ exception: it is mapped to `data-testid`.
 
 On web, `EnrichedMarkdownTextInput` backslash-escapes characters in typed text that markdown would read as formatting, so `getMarkdown()` and `onChangeMarkdown` give back the text the user wrote: `5 * 2` becomes `5 \* 2`, a typed `# not a heading` becomes `\# not a heading`, and `snake_case` becomes `snake\_case`. Any markdown renderer shows the escaped characters as plain text.
 
-Spaces at the start of a line are not kept, because markdown has no escape for them.
+Spaces and tabs at the start of a line are not kept, because markdown has no escape for them.
 
 A style is left out of the markdown where markdown can't express it at that spot. Examples are underline or strikethrough on part of a word, and bold ending on punctuation right before a letter (`**Note:**text`). The text itself is kept.
+
+## Keyboard
+
+- **Tab** / **Shift+Tab** on a list line indent and outdent the item. On any other line, Tab inserts a tab character, and Shift+Tab moves focus out of the editor as usual.
+- **Cmd+B / Cmd+I / Cmd+U** (Ctrl on Windows and Linux) toggle bold, italic and underline, and so do the browser's own formatting commands.
 
 ## Hiding and unmounting
 

@@ -9,6 +9,7 @@ import {
   dispatchTyping,
   lastState,
   mount,
+  pressKey,
   pressTab,
   selectRange,
   selectRangeFocused,
@@ -306,25 +307,51 @@ describe('InputHost', () => {
   });
 
   describe('tab', () => {
-    // Tab never reaches beforeinput, so the editor has to claim the key or
-    // the browser moves focus out of it.
-    it('never leaves the editor', () => {
-      const { root } = mount();
+    // Decided 2026-10-20 (review §2.1.5): Tab types a tab outside lists and
+    // never starts one; Shift+Tab there is the browser's, so focus can always
+    // move back out of the editor (WCAG 2.1.2, no keyboard trap).
+    it('types a tab on a plain paragraph, without starting a list', () => {
+      const { root, host, states } = mount();
       typeText(root, 'a');
+
+      expect(pressTab(root).defaultPrevented).toBe(true);
+
+      expect(host.value).toBe('a\t');
+      expect(lastState(states).unorderedList.isActive).toBe(false);
+    });
+
+    it('leaves Shift+Tab outside a list to the browser', () => {
+      const { root, host } = mount();
+      typeText(root, 'a');
+
+      expect(pressTab(root, true).defaultPrevented).toBe(false);
+      expect(host.value).toBe('a');
+    });
+
+    it('takes Tab and Shift+Tab on a list line', () => {
+      const { root, host } = mount();
+      typeText(root, 'a');
+      host.toggleUnorderedList();
 
       expect(pressTab(root).defaultPrevented).toBe(true);
       expect(pressTab(root, true).defaultPrevented).toBe(true);
     });
 
-    it('starts a list on a plain paragraph', () => {
-      const { root, states } = mount();
+    it('leaves a Tab an ancestor already handled, or a modified one', () => {
+      const { root, host } = mount();
       typeText(root, 'a');
-      pressTab(root);
+      root.parentElement!.addEventListener(
+        'keydown',
+        (event) => event.preventDefault(),
+        { capture: true, once: true }
+      );
 
-      expect(lastState(states).unorderedList).toEqual({
-        isActive: true,
-        depth: 0,
-      });
+      pressTab(root);
+      expect(pressKey(root, 'Tab', { ctrlKey: true }).defaultPrevented).toBe(
+        false
+      );
+
+      expect(host.value).toBe('a');
     });
 
     it('indents and outdents an item', () => {

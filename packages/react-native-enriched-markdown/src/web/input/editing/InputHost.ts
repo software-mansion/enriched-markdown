@@ -806,19 +806,46 @@ export class InputHost {
   // Tab never reaches beforeinput (the browser moves focus). The history
   // shortcuts do as `historyUndo`/`historyRedo`, but not cancelably in every
   // engine, so they are taken here before the browser undoes anything itself.
+  // Decided 2026-10-20 (review §2.1.5): on a list line Tab / Shift+Tab
+  // change the depth; elsewhere Tab types a tab character, and Shift+Tab is
+  // left to the browser, so focus can always move backwards out of the
+  // editor. A modified Tab (Ctrl/Cmd/Alt) is never taken.
+  private handleTab(event: KeyboardEvent): void {
+    if (
+      event.defaultPrevented ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    this.settleNativeEdit();
+    this.syncSelectionFromDom();
+    const onList = isListItem(
+      this.blockStore.blockAt(this.selection.start, this.text)
+    );
+    if (!onList && event.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    if (this.pendingImports > 0) {
+      return;
+    }
+    if (!onList) {
+      this.command(() => this.replaceSelection('\t'));
+    } else if (event.shiftKey) {
+      this.outdentList();
+    } else {
+      this.indentList();
+    }
+  }
+
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (!this.editable || event.isComposing || this.session.isComposing) {
       return;
     }
     if (event.key === 'Tab') {
-      event.preventDefault();
-      this.settleNativeEdit();
-      this.syncSelectionFromDom();
-      if (event.shiftKey) {
-        this.outdentList();
-      } else {
-        this.indentList();
-      }
+      this.handleTab(event);
       return;
     }
     const navigator = this.root.ownerDocument.defaultView?.navigator ?? null;
