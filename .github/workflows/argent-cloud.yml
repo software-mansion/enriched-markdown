@@ -54,14 +54,15 @@ env:
 
 jobs:
   # Runs no repository code at all, which is what lets it hold the only token in
-  # this workflow that can write to GitHub. The association test is a cheap
-  # prefilter; the permission call below decides. The label path skips forks,
+  # this workflow that can write to GitHub. The permission call below is the
+  # gate. author_association is no prefilter: it reports an org member whose
+  # membership is private as a plain contributor. The label path skips forks,
   # which have no reviewed commit to pin.
   resolve:
     if: >-
       github.repository == 'software-mansion/enriched-markdown' && (
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.label.name == 'argent: ios')
-      || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/argent') && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+      || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/argent'))
       || github.event_name == 'workflow_dispatch' )
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -219,11 +220,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD: ${{ steps.pr.outputs.head }}
+          BASE: ${{ steps.pr.outputs.base }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/context"
+          # The head is the one pinned above, not whatever the pull request
+          # points at by now.
           gh pr view "$NUMBER" --repo "$GITHUB_REPOSITORY" \
-            --json number,title,body,url,isDraft,headRefOid \
+            --json number,title,body,url,isDraft \
+            | jq --arg head "$HEAD" '. + {headRefOid: $head}' \
             > "$RUNNER_TEMP/context/pr-context.json"
           jq -n --rawfile focus "$RUNNER_TEMP/focus.txt" '{focus: $focus}' \
             > "$RUNNER_TEMP/context/operator.json"
@@ -239,7 +245,12 @@ jobs:
           # a diff too long to fit still arrives with a complete list of the files
           # it covers. `git apply --stat` parses the patch already on disk and
           # needs no repository, which is why it is used instead of a second call.
-          gh pr diff "$NUMBER" --repo "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/pr.patch"
+          #
+          # Between the pinned commits rather than `gh pr diff`, which follows
+          # the pull request's current head. Three dots, so it is the diff from
+          # the merge base, as the pull request shows it.
+          gh api "repos/$GITHUB_REPOSITORY/compare/$BASE...$HEAD" \
+            -H 'Accept: application/vnd.github.diff' > "$RUNNER_TEMP/pr.patch"
           {
             git apply --stat "$RUNNER_TEMP/pr.patch" 2>/dev/null \
               || echo "(the file list could not be parsed from the diff)"
@@ -542,7 +553,6 @@ jobs:
       - name: Publish the agent's report
         if: ${{ !cancelled() }}
         env:
-          SESSION_ID: ${{ steps.session.outputs.session_id }}
           NUMBER: ${{ needs.resolve.outputs.number }}
         run: |
           set -euo pipefail
@@ -550,7 +560,7 @@ jobs:
           {
             echo "### Argent Cloud - #$NUMBER"
             echo
-            echo "Session \`${SESSION_ID:-unknown}\`. The screenshots and the agent's full running commentary are in the \`argent-cloud-pr-$NUMBER\` artifact of this run; the copy on Argent's storage expires twelve hours after the session."
+            echo "The screenshots and the agent's full running commentary are in the \`argent-cloud-pr-$NUMBER\` artifact of this run; the copy on Argent's storage expires twelve hours after the session."
             echo
             if [[ -s "$LOG" ]]; then
               echo '```text'
