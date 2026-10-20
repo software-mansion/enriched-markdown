@@ -17,6 +17,7 @@ import {
   sendInput,
   styledText,
   typeText,
+  pasteText,
 } from './inputHostKit';
 
 describe('InputHost', () => {
@@ -90,9 +91,9 @@ describe('InputHost', () => {
       expect(host.value).toBe('hello brave ');
     });
 
-    it('joins the lines when a word delete has nowhere to go', () => {
+    it('joins the lines when a word delete has nowhere to go', async () => {
       const { root, host } = mount();
-      sendClipboard(root, 'paste', 'ab\ncd');
+      await pasteText(root, 'ab\ncd');
       caretAt(root, 3);
       sendInput(root, 'deleteWordBackward');
 
@@ -141,20 +142,20 @@ describe('InputHost', () => {
       expect(host.value).toBe('hello');
     });
 
-    it('paste inserts plain text and normalizes its line endings', () => {
+    it('paste inserts plain text and normalizes its line endings', async () => {
       const { root, host } = mount();
       typeText(root, 'ab');
       caretAt(root, 1);
-      sendClipboard(root, 'paste', 'X\r\nY\rZ');
+      await pasteText(root, 'X\r\nY\rZ');
 
       expect(host.value).toBe('aX\nY\nZb');
     });
 
-    it('paste replaces the selection', () => {
+    it('paste replaces the selection', async () => {
       const { root, host } = mount();
       typeText(root, 'abcdef');
       selectRange(root, 1, 5);
-      sendClipboard(root, 'paste', 'X');
+      await pasteText(root, 'X');
 
       expect(host.value).toBe('aXf');
     });

@@ -52,6 +52,16 @@ import {
   isWhitespace,
 } from '../utils';
 
+// The clipboard flavor copy and cut write and paste prefers. Natives use a
+// private pasteboard type; on the web `text/markdown` is the standard one, so
+// other editors can read it too.
+const MARKDOWN_MIME_TYPE = 'text/markdown';
+
+// A paste is an event: nothing awaits its parse to take a failure.
+function reportPasteError(error: unknown): void {
+  console.error('[EnrichedMarkdown - InputHost] paste failed', error);
+}
+
 export interface CaretRect {
   x: number;
   y: number;
@@ -214,6 +224,7 @@ export class InputHost {
     root.addEventListener('compositionend', this.handleCompositionEnd);
     root.addEventListener('focus', this.handleFocus);
     root.addEventListener('blur', this.handleBlur);
+    root.addEventListener('copy', this.handleCopy);
     root.addEventListener('cut', this.handleCut);
     root.addEventListener('paste', this.handlePaste);
     root.ownerDocument.addEventListener(
@@ -235,6 +246,7 @@ export class InputHost {
     root.removeEventListener('compositionend', this.handleCompositionEnd);
     root.removeEventListener('focus', this.handleFocus);
     root.removeEventListener('blur', this.handleBlur);
+    root.removeEventListener('copy', this.handleCopy);
     root.removeEventListener('cut', this.handleCut);
     root.removeEventListener('paste', this.handlePaste);
     root.ownerDocument.removeEventListener(
@@ -663,10 +675,20 @@ export class InputHost {
           lineEndAfter(this.text, this.selection.end)
         );
         break;
-      // `deleteByCut` is the second half of a cut, which `handleCut` has
-      // already performed; `insertFromPaste` likewise belongs to
-      // `handlePaste`. Cancelling them here is what keeps the browser from
-      // doing it a second time.
+      // A paste or cut normally arrives as a ClipboardEvent, which
+      // `handlePaste` / `handleCut` take and cancel, so these never follow.
+      // With ClipboardEvents switched off (`dom.event.clipboardevents.enabled`
+      // in hardened Firefox) they are all there is (review §2.1.2).
+      case 'insertFromPaste':
+        if (!this.clipboardEventHandled) {
+          this.pasteFrom(event.dataTransfer);
+        }
+        break;
+      case 'deleteByCut':
+        if (!this.clipboardEventHandled) {
+          this.replaceTargetRange(event, '');
+        }
+        break;
       //
       // Still deliberately denied: `insertFromDrop`, which needs a
       // caret-from-point mapping to know where the drop landed. Denying it
@@ -1011,7 +1033,10 @@ export class InputHost {
     if (start === end) {
       return;
     }
-    event.clipboardData?.setData('text/plain', this.text.slice(start, end));
+    if (event.clipboardData) {
+      this.writeClipboard(event.clipboardData, start, end);
+    }
+    this.markClipboardEventHandled();
     this.applyEdit({
       editStart: start,
       deletedText: this.text.slice(start, end),
@@ -1019,22 +1044,81 @@ export class InputHost {
     });
   };
 
+  // The browser would copy the rendered text only. Like both natives, the
+  // clipboard also gets the selection as markdown, which a paste into this
+  // editor (or any editor reading `text/markdown`) brings back formatted.
+  private readonly handleCopy = (event: ClipboardEvent): void => {
+    if (this.session.isComposing || event.clipboardData === null) {
+      return;
+    }
+    this.settleNativeEdit();
+    this.syncSelectionFromDom();
+    const { start, end } = this.selection;
+    if (start === end) {
+      return;
+    }
+    event.preventDefault();
+    this.writeClipboard(event.clipboardData, start, end);
+  };
+
+  private writeClipboard(data: DataTransfer, start: number, end: number): void {
+    data.setData('text/plain', this.text.slice(start, end));
+    data.setData(MARKDOWN_MIME_TYPE, this.serializeRange(start, end));
+  }
+
+  // The markdown of [start, end): ranges and blocks clipped to it, as iOS's
+  // `serializeSelectedRange` does, so a selection starting inside a heading
+  // still copies as a heading.
+  private serializeRange(start: number, end: number): string {
+    const clip = <T extends { start: number; end: number }>(range: T) =>
+      range.end <= start || range.start >= end
+        ? []
+        : [
+            {
+              ...range,
+              start: Math.max(range.start, start) - start,
+              end: Math.min(range.end, end) - start,
+            },
+          ];
+    return serialize(
+      this.text.slice(start, end),
+      this.formattingStore.allRanges.flatMap(clip),
+      this.blockStore.allRanges.flatMap(clip)
+    );
+  }
+
+  // A handled cut or paste is cancelled, so its `beforeinput` should never
+  // follow; if an engine raises one anyway, it must not apply the edit twice.
+  private clipboardEventHandled = false;
+
+  private markClipboardEventHandled(): void {
+    this.clipboardEventHandled = true;
+    setTimeout(() => {
+      this.clipboardEventHandled = false;
+    }, 0);
+  }
+
   private readonly handlePaste = (event: ClipboardEvent): void => {
     event.preventDefault();
     if (!this.editable || this.session.isComposing || this.pendingImports > 0) {
       return;
     }
     this.settleNativeEdit();
-    // Plain text only. Pasting markdown as formatted content means running
-    // the parser and merging an import into the middle of the buffer, which
-    // is a separate concern from this shell.
-    const pasted = event.clipboardData?.getData('text/plain') ?? '';
-    if (pasted.length === 0) {
-      return;
-    }
+    this.markClipboardEventHandled();
     this.syncSelectionFromDom();
-    this.insertPlainText(normalizeLineEndings(pasted));
+    this.pasteFrom(event.clipboardData);
   };
+
+  // The markdown flavor this editor (or another one) wrote, else the plain
+  // text - which is parsed as markdown too, as both natives do, so pasted
+  // "- item" or "**bold**" arrives formatted.
+  private pasteFrom(data: DataTransfer | null): void {
+    const pasted =
+      data?.getData(MARKDOWN_MIME_TYPE) || data?.getData('text/plain') || '';
+    if (pasted.length > 0) {
+      this.insertText(pasted).catch(reportPasteError);
+    }
+  }
 
   private readonly handleSelectionChange = (): void => {
     // This guard only catches a side effect delivered on the same stack as
@@ -1262,13 +1346,12 @@ export class InputHost {
     });
   }
 
-  // Empty text is a no-op even over a selection, as on the natives.
   // The argument is markdown, as the API documents and both natives do
   // (`pasteMarkdown`): it is parsed and inserted at the selection with its
   // styles and blocks, as one undo step, and takes no style pending at the
   // caret. Empty text is a no-op even over a selection. Asynchronous, like an
   // import: the editor is inert while the parse runs. A lone line break is
-  // Enter (see `insertPlainText`).
+  // Enter, exiting an empty list item as the key does (review §2.1.10).
   async insertText(markdown: string): Promise<void> {
     if (this.destroyed || markdown.length === 0) {
       return;
@@ -1281,7 +1364,7 @@ export class InputHost {
     this.pendingImports++;
     let parsed: Awaited<ReturnType<typeof parseToPlainTextAndRanges>>;
     try {
-      parsed = await parseToPlainTextAndRanges(source);
+      parsed = await parseToPlainTextAndRanges(source, { complete: false });
     } finally {
       this.pendingImports--;
     }
@@ -1339,17 +1422,6 @@ export class InputHost {
     });
     this.projector.invalidate();
     this.renderEdit();
-  }
-
-  // A lone line break is Enter, whichever way it arrives - typed, pasted or
-  // inserted through the API - so an empty list item exits its list the same
-  // way for all of them (review §2.1.10, decided 2026-10-20).
-  private insertPlainText(text: string): void {
-    if (text === '\n') {
-      this.insertNewline();
-    } else {
-      this.replaceSelection(text);
-    }
   }
 
   private replaceSelection(insertedText: string): void {

@@ -103,6 +103,10 @@ A style is left out of the markdown where markdown can't express it at that spot
 - **Tab** / **Shift+Tab** on a list line indent and outdent the item. On any other line, Tab inserts a tab character, and Shift+Tab moves focus out of the editor as usual.
 - **Cmd+B / Cmd+I / Cmd+U** (Ctrl on Windows and Linux) toggle bold, italic and underline, and so do the browser's own formatting commands.
 
+## Clipboard
+
+Copy and cut put the selection on the clipboard twice: as plain text and as `text/markdown`. Paste uses the `text/markdown` flavor when it's there, so formatting copied from this editor (or any app that writes that type) comes back intact. Otherwise the plain text is read as markdown, as on iOS and Android, so pasting `- item` gives a list item. Delimiters that don't pair up stay as typed (`snake_case`, `2 * 3`). Paste and cut also work in browsers that turn clipboard events off.
+
 ## Hiding and unmounting
 
 `EnrichedMarkdownTextInput` keeps its text, selection and undo history when React hides it and shows it again, for example inside `<Activity mode="hidden">` or a Suspense boundary that suspends again. `defaultValue` and `autoFocus` apply only to the first mount, so showing the input again doesn't reload the initial text or take focus.

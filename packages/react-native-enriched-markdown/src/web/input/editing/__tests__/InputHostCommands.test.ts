@@ -16,6 +16,7 @@ import {
   sendClipboard,
   sendInput,
   typeText,
+  pasteText,
 } from './inputHostKit';
 
 interface Box {
@@ -265,12 +266,12 @@ describe('a read-only editor', () => {
     expect([...written]).toEqual([]);
   });
 
-  it('refuses a paste', () => {
+  it('refuses a paste', async () => {
     const { host, root } = mount();
     typeText(root, 'hello');
 
     host.setEditable(false);
-    sendClipboard(root, 'paste', 'pasted');
+    await pasteText(root, 'pasted');
 
     expect(host.value).toBe('hello');
   });
@@ -674,7 +675,7 @@ describe('a lone newline on an empty list item', () => {
 
   it('exits the list when pasted', async () => {
     const { host, root } = await emptyItem();
-    sendClipboard(root, 'paste', '\r\n');
+    await pasteText(root, '\r\n');
     expect(host.getMarkdown()).toBe(await viaEnter());
   });
 
@@ -762,5 +763,93 @@ describe('insertText parses markdown', () => {
 
     expect(host.value).toBe('abc');
     expect(texts).toHaveLength(emitted);
+  });
+});
+
+// Review §2.1.2 / §2.1.3: the clipboard carries markdown both ways, as on
+// both natives, and works without ClipboardEvents.
+describe('the clipboard', () => {
+  function clipboardEvent(type: 'copy' | 'cut') {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    const written = new Map<string, string>();
+    Object.defineProperty(event, 'clipboardData', {
+      value: {
+        getData: () => '',
+        setData: (mime: string, value: string) => written.set(mime, value),
+      },
+    });
+    return { event, written };
+  }
+
+  it('copies the selection as text and as markdown', async () => {
+    const { host, root } = mount();
+    await host.setValue('# Big **news** today');
+    selectRangeFocused(root, 4, 12);
+    const { event, written } = clipboardEvent('copy');
+
+    root.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(written.get('text/plain')).toBe('news tod');
+    expect(written.get('text/markdown')).toBe('# **news** tod');
+    expect(host.value).toBe('Big news today');
+  });
+
+  it('cuts with both flavors and deletes once', async () => {
+    const { host, root } = mount();
+    await host.setValue('a **b** c');
+    selectRangeFocused(root, 2, 3);
+    const { event, written } = clipboardEvent('cut');
+
+    root.dispatchEvent(event);
+    // An engine raising the cut's beforeinput anyway must not delete again.
+    sendInput(root, 'deleteByCut');
+
+    expect(written.get('text/markdown')).toBe('**b**');
+    expect(host.value).toBe('a  c');
+  });
+
+  it('pastes the markdown flavor formatted', async () => {
+    const { host, root } = mount();
+    await host.setValue('ab');
+    selectRangeFocused(root, 1, 1);
+
+    await pasteText(root, '**x**', 'text/markdown');
+
+    expect(host.getMarkdown()).toBe('a**x**b');
+  });
+
+  it('parses pasted plain text as markdown, leaving lone delimiters alone', async () => {
+    const { host, root } = mount();
+
+    await pasteText(root, '- item with snake_case and 2 * 3');
+
+    expect(host.getMarkdown()).toBe('- item with snake\\_case and 2 \\* 3');
+  });
+
+  it('pastes and cuts through beforeinput when ClipboardEvents are off', async () => {
+    const { host, root } = mount();
+    await host.setValue('one two');
+    selectRangeFocused(root, 3, 7);
+
+    sendInput(root, 'deleteByCut');
+    expect(host.value).toBe('one');
+
+    const paste = new InputEvent('beforeinput', {
+      inputType: 'insertFromPaste',
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(paste, 'dataTransfer', {
+      value: {
+        getData: (mime: string) => (mime === 'text/plain' ? ' **2**' : ''),
+      },
+    });
+    root.dispatchEvent(paste);
+    for (let turn = 0; turn < 10; turn++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(host.getMarkdown()).toBe('one **2**');
   });
 });

@@ -9,13 +9,7 @@ import { projectParagraphs } from '../../render/InputProjection';
 import type { BlockStore } from '../../formatting/BlockStore';
 import type { FormattingStore } from '../../formatting/FormattingStore';
 import type { InputHost } from '../InputHost';
-import {
-  mount,
-  selectRangeFocused,
-  sendClipboard,
-  sendInput,
-  typeText,
-} from './inputHostKit';
+import { mount, selectRangeFocused, sendInput, typeText } from './inputHostKit';
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -74,16 +68,11 @@ describe('incremental projection', () => {
           selectRangeFocused(root, start, end);
 
           const action = pick([
-            // Pastes: literal text, unlike `insertText`, which parses
-            // markdown asynchronously.
-            () =>
-              sendClipboard(
-                root,
-                'paste',
-                pick(['x', 'ab', '\n', 'q\nr', 'one two'])
-              ),
-            () =>
-              sendClipboard(root, 'paste', pick(['word ', 'a\nb\nc', '\n\n'])),
+            // Typed text, applied literally and at once (`typeText` plays the
+            // browser where it is left to type); `insertText` and paste parse
+            // markdown, asynchronously.
+            () => typeText(root, pick(['x', 'ab', '\n', 'q\nr', 'one two'])),
+            () => typeText(root, pick(['word ', 'a\nb\nc', '\n\n'])),
             () => {
               if (start === end) typeText(root, 'k');
             },
