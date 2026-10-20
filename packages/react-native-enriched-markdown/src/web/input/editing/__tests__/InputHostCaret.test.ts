@@ -422,6 +422,39 @@ describe('links are atomic', () => {
     expect(selections.at(-1)).toEqual({ start: 4, end: 4 });
   });
 
+  // What the browser does for an arrow key: the DOM caret moves one place and
+  // a selectionchange reports it.
+  function moveDomCaret(root: HTMLElement, offset: number): void {
+    caretAt(root, offset);
+    document.dispatchEvent(new Event('selectionchange'));
+  }
+
+  it('lets ArrowLeft step back over a link from its end', async () => {
+    const { host, root, selections } = mount();
+    await host.setValue('ab [link](https://example.com) cd');
+    root.focus();
+    host.setSelection(8, 8);
+
+    moveDomCaret(root, 7);
+    expect(selections.at(-1)).toEqual({ start: 7, end: 7 });
+    // One more step lands inside the link: it carries on to the start
+    // instead of snapping back to the end the caret came from.
+    moveDomCaret(root, 6);
+    expect(selections.at(-1)).toEqual({ start: 3, end: 3 });
+    moveDomCaret(root, 2);
+    expect(selections.at(-1)).toEqual({ start: 2, end: 2 });
+  });
+
+  it('lets ArrowRight step over a link from its start', async () => {
+    const { host, root, selections } = mount();
+    await host.setValue('ab [link](https://example.com) cd');
+    root.focus();
+    host.setSelection(3, 3);
+
+    moveDomCaret(root, 4);
+    expect(selections.at(-1)).toEqual({ start: 7, end: 7 });
+  });
+
   it('widens a selection that cuts a link to cover it', async () => {
     const { host, selections } = await mountWithLink();
     host.setSelection(2, 6);
@@ -462,6 +495,33 @@ describe('links are atomic', () => {
 
     expect(host.value).toBe(' tail');
     expect(host.getMarkdown()).toBe(' tail');
+  });
+
+  it('forward Delete at the start of a link deletes all of it', async () => {
+    const { root, host } = await mountWithLink();
+    caretAt(root, 0);
+    sendInput(root, 'deleteContentForward');
+
+    expect(host.value).toBe(' tail');
+  });
+
+  it('forward Delete right before a link mid-line deletes all of it', async () => {
+    const { root, host } = mount();
+    await host.setValue('ab [link](https://example.com) cd');
+    root.focus();
+    caretAt(root, 3);
+    sendInput(root, 'deleteContentForward');
+
+    expect(host.value).toBe('ab  cd');
+    expect(host.getMarkdown()).toBe('ab  cd');
+  });
+
+  it('forward Delete before plain text after a link deletes one character', async () => {
+    const { root, host } = await mountWithLink();
+    caretAt(root, 4);
+    sendInput(root, 'deleteContentForward');
+
+    expect(host.getMarkdown()).toBe('[link](https://example.com)tail');
   });
 
   it('keeps a backward selection backward when widening it', async () => {

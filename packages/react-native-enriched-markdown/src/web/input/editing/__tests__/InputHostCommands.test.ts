@@ -505,7 +505,54 @@ describe('a caret toggle inside a styled run', () => {
 
     expect(host.getMarkdown()).toBe('ab**cd**X**ef**gh');
   });
+
+  it('keeps typing over a just-styled selection in that style', () => {
+    // The first character takes the replaced range; the ones after it read
+    // the caret's pending styles, which the toggle re-seeds from the store.
+    const { host, root, states } = mount();
+    root.focus();
+    typeText(root, 'hello world foo');
+    selectRangeFocused(root, 6, 11);
+    host.toggleBold();
+    host.toggleItalic();
+
+    typeText(root, 'X');
+    expect(lastState(states).bold.isActive).toBe(true);
+    expect(lastState(states).italic.isActive).toBe(true);
+    // A browser leaves the caret after "X" at the start of the plain run that
+    // follows, so the styles come from the pending set, not the DOM.
+    caretAtStartOfRunAfter(root, 'X');
+    typeText(root, 'YZ');
+
+    expect(host.getMarkdown()).toBe('hello ***XYZ*** foo');
+  });
+
+  it('keeps typing over a just-unstyled selection unstyled', () => {
+    const { host, root } = mount();
+    root.focus();
+    typeText(root, 'hello world foo');
+    selectRangeFocused(root, 6, 11);
+    host.toggleBold();
+    host.toggleBold();
+
+    typeText(root, 'X');
+    typeText(root, 'YZ');
+
+    expect(host.getMarkdown()).toBe('hello XYZ foo');
+  });
 });
+
+function caretAtStartOfRunAfter(root: HTMLElement, text: string): void {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    if (node.nodeValue?.endsWith(text)) {
+      const next = walker.nextNode()!;
+      document.getSelection()!.setBaseAndExtent(next, 0, next, 0);
+      return;
+    }
+  }
+  throw new Error(`no run ends with ${text}`);
+}
 
 describe('styles over line breaks', () => {
   // Review §2.4.3: select-all over two bold lines read as not bold (the line

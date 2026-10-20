@@ -1,6 +1,5 @@
 import type { ASTNode, NodeType } from '../../types';
 import { parseMarkdown, type WebMd4cFlags } from '../../parseMarkdown';
-import { completeMarkdown } from './InputRemend';
 import {
   normalizeBlockRanges,
   normalizeFormattingRanges,
@@ -26,13 +25,6 @@ export interface ParseResult {
   blockRanges: BlockRange[];
 }
 
-// A source paragraph break: a newline followed by one or more blank lines.
-const PARAGRAPH_BREAK_RE = /\n[ \t]*(?:\n[ \t]*)+/g;
-
-function countNewlines(text: string): number {
-  return text.split('\n').length - 1;
-}
-
 // Bare URLs stay plain text until the autolink layer claims them.
 const INPUT_PARSE_FLAGS: WebMd4cFlags = {
   underline: true,
@@ -41,6 +33,9 @@ const INPUT_PARSE_FLAGS: WebMd4cFlags = {
   subscript: false,
   highlight: false,
   hardSoftBreaks: false,
+  // Blank lines come back as BlankLine nodes where they stood, so each one
+  // replays as an empty line of its own (see `pendingBlankLines`).
+  preserveBlankLines: true,
   permissiveAutolinks: false,
 };
 
@@ -107,8 +102,10 @@ interface WalkState {
   formattingRanges: FormattingRange[];
   blockRanges: BlockRange[];
   activeStyles: ActiveStyle[];
-  blankRuns: number[];
-  blankRunIndex: number;
+  // Blank source lines seen since the last block, written out as empty lines
+  // when the next block starts. Deferred so trailing ones are dropped, as
+  // leading ones are, rather than leaving empty lines at the end.
+  pendingBlankLines: number;
   // Open list items whose first line has not ended yet.
   pendingItemLines: ItemLine[];
 }
@@ -128,23 +125,13 @@ function append(state: WalkState, chunk: string): void {
 
 // Builds the input model from an already-parsed AST. Ordinals are left at
 // their placeholder value — BlockStore.setRanges recomputes them.
-export function parseResultFromAst(
-  ast: ASTNode,
-  completedMarkdown: string
-): ParseResult {
-  // md4c collapses any blank-line run into a single break; re-read the real
-  // runs from the source so each break replays its original newline count.
-  const blankRuns = [
-    ...completedMarkdown.trim().matchAll(PARAGRAPH_BREAK_RE),
-  ].map((match) => countNewlines(match[0]));
-
+export function parseResultFromAst(ast: ASTNode): ParseResult {
   const state: WalkState = {
     text: '',
     formattingRanges: [],
     blockRanges: [],
     activeStyles: [],
-    blankRuns,
-    blankRunIndex: 0,
+    pendingBlankLines: 0,
     pendingItemLines: [],
   };
   walkNode(ast, state, 0, false);
@@ -158,6 +145,26 @@ export function parseResultFromAst(
 
 function isListNode(node: ASTNode): boolean {
   return node.type === 'UnorderedList' || node.type === 'OrderedList';
+}
+
+// A code block's text ends with the newline that closes its last line. The
+// input has no code block, so its lines are kept as plain lines, and that
+// newline would add one more: an empty line after the block on import, a line
+// split when one is pasted mid-line. Block boundaries are written by the walk.
+function withoutClosingNewline(children: ASTNode[]): ASTNode[] {
+  const last = children[children.length - 1];
+  if (last?.type !== 'Text' || !last.content?.endsWith('\n')) {
+    return children;
+  }
+  return [
+    ...children.slice(0, -1),
+    { ...last, content: last.content.slice(0, -1) },
+  ];
+}
+
+function blankLineCount(node: ASTNode): number {
+  const count = parseInt(node.attributes?.count ?? '', 10);
+  return Number.isNaN(count) ? 1 : count;
 }
 
 function walkNode(
@@ -203,23 +210,41 @@ function walkNode(
     append(state, '\n');
   }
 
-  const children = node.children ?? [];
+  const children =
+    node.type === 'CodeBlock'
+      ? withoutClosingNewline(node.children ?? [])
+      : (node.children ?? []);
   for (let index = 0; index < children.length; index++) {
     const child = children[index]!;
+    if (child.type === 'BlankLine') {
+      // An empty item reports its own line as a blank one, first in the item;
+      // only the lines past it are blank lines between blocks.
+      const ownLine = node.type === 'ListItem' && index === 0 ? 1 : 0;
+      state.pendingBlankLines += Math.max(0, blankLineCount(child) - ownLine);
+      continue;
+    }
     // md4c emits no separators, so a block that follows a sibling starts a
-    // new line here. Between top-level blocks, replay the source's blank
-    // lines (md4c drops them); inside a list, items, a sublist, or an item's
-    // further paragraphs each take a single newline. An empty item's sublist
-    // is its first child but still starts below the item's own (empty) line.
+    // new line here, after an empty line for each blank source line between
+    // them - top-level or inside a list alike, so "- a\n\n- b" keeps its
+    // blank line and every later one stays where it was. An empty item's
+    // sublist is its first child but still starts below the item's own
+    // (empty) line. Blank lines before the first block are dropped.
     const startsLine =
       index > 0 || (node.type === 'ListItem' && isListNode(child));
     if (startsLine && BLOCK_NODE_TYPES.has(child.type)) {
-      if (childListDepth > 0) {
-        append(state, '\n');
-      } else if (state.text.length > 0) {
-        const run = state.blankRuns[state.blankRunIndex++];
-        append(state, '\n'.repeat(run ?? 2));
+      // The block store clamps an item to one level below the item right
+      // above it, so an empty line above a nested item would de-nest it:
+      // the blank line is the smaller loss.
+      const startsNestedItem =
+        (child.type === 'ListItem' && childListDepth > 1) ||
+        (node.type === 'ListItem' && isListNode(child));
+      if (startsNestedItem) {
+        state.pendingBlankLines = 0;
       }
+      if (childListDepth > 0 || state.text.length > 0) {
+        append(state, '\n'.repeat(1 + state.pendingBlankLines));
+      }
+      state.pendingBlankLines = 0;
     }
     walkNode(child, state, childListDepth, childOrdered);
   }
@@ -278,25 +303,87 @@ function walkNode(
   }
 }
 
-// `complete: false` skips InputRemend's completion of unclosed delimiters,
-// which serves half-typed or truncated documents. A fragment being inserted
-// (`insertText`, a paste) is neither, and completing it would read the lone
-// `_` of `snake_case` as an opener and close it (#1014).
+// The markdown is parsed as given: an unclosed delimiter stays literal text.
+// Completing it first would turn the lone `_` of `snake_case`, the `*` of
+// `2*3` or a `[` into formatting or into text the caller never passed. iOS
+// completes but then drops every range whose closer it appended, which comes
+// to the same result.
 export async function parseToPlainTextAndRanges(
-  markdown: string,
-  { complete = true }: { complete?: boolean } = {}
+  markdown: string
 ): Promise<ParseResult> {
   if (markdown.length === 0) {
     return { plainText: '', formattingRanges: [], blockRanges: [] };
   }
 
-  const completed = complete ? completeMarkdown(markdown) : markdown;
   let ast: ASTNode;
   try {
-    ast = await parseMarkdown(completed, INPUT_PARSE_FLAGS);
+    ast = await parseMarkdown(
+      protectLeadingWhitespace(markdown),
+      INPUT_PARSE_FLAGS
+    );
   } catch {
     // A failed parse degrades to unformatted text rather than crashing.
     return { plainText: markdown, formattingRanges: [], blockRanges: [] };
   }
-  return parseResultFromAst(ast, completed);
+  const result = parseResultFromAst(ast);
+  return {
+    ...result,
+    plainText: restoreLeadingWhitespace(result.plainText),
+  };
+}
+
+// Leading whitespace is kept as text, as iOS does and as the serializer writes
+// it, instead of being dropped (up to three spaces) or opening an indented code
+// block (a tab or a fourth space). md4c has no switch for that, so each tab and
+// space of the run is swapped one for one with a private-use stand-in it reads
+// as text, and swapped back in the plain text afterwards: offsets never move.
+// Whitespace that is structure stays as it is - the indent in front of a list,
+// heading or quote marker - and so does the one separator after a list or
+// heading marker; whitespace past that is the line's text. A line of only
+// whitespace stays blank.
+const TAB_STAND_IN = '\uE000';
+const SPACE_STAND_IN = '\uE001';
+const STAND_IN_RUN_RE = /^[\uE000\uE001]+/gm;
+
+// `[indent][marker][separator][text]`: a bullet, an ordered "1." / "1)" or an
+// ATX "#", each needing a separator or the line end, or a quote's ">".
+const LINE_RE =
+  /^([ \t]*)(?:([-+*]|\d{1,9}[.)]|#{1,6})([ \t]|$)|(>))?([ \t]*)(.*)$/;
+
+function standIns(whitespace: string): string {
+  return whitespace.replace(/[ \t]/g, (c) =>
+    c === '\t' ? TAB_STAND_IN : SPACE_STAND_IN
+  );
+}
+
+function protectLeadingWhitespace(markdown: string): string {
+  if (!/(^|\n)[ \t]|[-+*#)>.][ \t][ \t]/.test(markdown)) {
+    return markdown;
+  }
+  return markdown
+    .split('\n')
+    .map((line) => {
+      const match = LINE_RE.exec(line);
+      if (match === null) {
+        return line;
+      }
+      const [, indent, marker, separator, quote, rest, content] = match;
+      if (content === '') {
+        return line;
+      }
+      if (marker === undefined && quote === undefined) {
+        return standIns(indent! + rest!) + content;
+      }
+      if (quote !== undefined) {
+        return line;
+      }
+      return indent! + marker + separator + standIns(rest!) + content;
+    })
+    .join('\n');
+}
+
+function restoreLeadingWhitespace(text: string): string {
+  return text.replace(STAND_IN_RUN_RE, (run) =>
+    run.replace(/./g, (c) => (c === TAB_STAND_IN ? '\t' : ' '))
+  );
 }

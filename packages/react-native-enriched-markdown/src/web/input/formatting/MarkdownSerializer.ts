@@ -287,7 +287,8 @@ function nestedEvents(
 
 // What sits on one side of a delimiter in the output. A line's edge reads as
 // whitespace (a block marker ends in a space), and another delimiter as
-// punctuation, which every delimiter character is.
+// punctuation, which every delimiter character is - except a "*" next to a
+// "*", which joins its run (see `isStarDelimiter`).
 type Neighbor = 'whitespace' | 'punctuation' | 'word';
 
 const UNICODE_PUNCTUATION_RE = /[\p{P}\p{S}]/u;
@@ -313,14 +314,25 @@ function classify(char: string): Neighbor {
   return UNICODE_PUNCTUATION_RE.test(char) ? 'punctuation' : 'word';
 }
 
+// "*" and "**" written side by side are one delimiter run to md4c, and a
+// run's flanking is decided by what is around the whole run, not by the "*"
+// next to each part: "***a***b" is bold italic "a". Any other delimiter in
+// between ends the run and is punctuation.
+function isStarDelimiter(type: InputStyleType): boolean {
+  return type === 'em' || type === 'strong';
+}
+
 function neighborBefore(
   text: string,
   events: readonly SegmentEvent[],
   index: number
 ): Neighbor {
   const position = events[index]!.position;
-  if (index > 0 && events[index - 1]!.position === position) {
-    return 'punctuation';
+  const star = isStarDelimiter(events[index]!.type);
+  for (let i = index - 1; i >= 0 && events[i]!.position === position; i--) {
+    if (!star || !isStarDelimiter(events[i]!.type)) {
+      return 'punctuation';
+    }
   }
   if (position === 0 || text.charCodeAt(position - 1) === 0x0a) {
     return 'whitespace';
@@ -339,8 +351,15 @@ function neighborAfter(
   index: number
 ): Neighbor {
   const position = events[index]!.position;
-  if (index + 1 < events.length && events[index + 1]!.position === position) {
-    return 'punctuation';
+  const star = isStarDelimiter(events[index]!.type);
+  for (
+    let i = index + 1;
+    i < events.length && events[i]!.position === position;
+    i++
+  ) {
+    if (!star || !isStarDelimiter(events[i]!.type)) {
+      return 'punctuation';
+    }
   }
   if (position === text.length || text.charCodeAt(position) === 0x0a) {
     return 'whitespace';
@@ -402,6 +421,49 @@ function unflankedSegments(
   return unflanked;
 }
 
+const EXCLAMATION = 0x21;
+
+// A "!" written right before a link's "[" turns the link into an image, which
+// re-imports as its bare text with the "!" and the url gone. Unlike the other
+// escapes this depends on the delimiters, so it is decided here: the "!" ahead
+// of a link opening is escaped unless another delimiter is written between
+// them ("!**[a](u)**" is no image). Merged into `escapes`, which stays sorted.
+function withImageMarkerEscapes(
+  escapes: number[],
+  text: string,
+  events: readonly BoundaryEvent[]
+): number[] {
+  const markers: number[] = [];
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i]!;
+    const at = event.position - 1;
+    if (
+      event.isOpening &&
+      event.type === 'link' &&
+      at >= 0 &&
+      text.charCodeAt(at) === EXCLAMATION &&
+      (i === 0 || events[i - 1]!.position !== event.position)
+    ) {
+      markers.push(at);
+    }
+  }
+  if (markers.length === 0) {
+    return escapes;
+  }
+  const merged: number[] = [];
+  let m = 0;
+  for (const at of escapes) {
+    for (; m < markers.length && markers[m]! < at; m++) {
+      merged.push(markers[m]!);
+    }
+    merged.push(at);
+  }
+  for (; m < markers.length; m++) {
+    merged.push(markers[m]!);
+  }
+  return merged;
+}
+
 // Copies `text` with the events' delimiters and the lines' block markers
 // written in. `linePrefixes` is indexed like `lineStarts`, and a line with no
 // entry gets no marker. A marker lands in front of its line's first character,
@@ -417,7 +479,11 @@ function writeMarkdown(
   let markdown = '';
   let written = 0;
   let nextLine = 0;
-  const escapes = markdownEscapePositions(text);
+  const escapes = withImageMarkerEscapes(
+    markdownEscapePositions(text),
+    text,
+    events
+  );
   let nextEscape = 0;
   const copyText = (end: number) => {
     for (

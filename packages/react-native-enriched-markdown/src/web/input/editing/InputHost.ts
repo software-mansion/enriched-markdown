@@ -1151,11 +1151,13 @@ export class InputHost {
     }
     // Links are atomic, as on both natives. A drag in progress is left alone;
     // `handlePointerUp` snaps it once it ends.
+    const previous = this.selection;
     const atomic = this.pointerSelecting
       ? null
       : this.formattingStore.selectionAdjustedForAtomicLinks(
           read.selection.start,
-          read.selection.end
+          read.selection.end,
+          previous.start === previous.end ? previous.start : null
         );
     const mapped = atomic ?? read.selection;
     if (
@@ -1334,13 +1336,18 @@ export class InputHost {
         );
         this.projector.stylesChanged(start, end);
       }
-      this.typing.toggleStyle(type, start === end ? start : null);
       if (start === end) {
         // A caret toggle only pends a style for the next keystroke; the
         // stores, and so the DOM and the markdown, are unchanged.
+        this.typing.toggleStyle(type, start);
         this.emitState();
         return;
       }
+      // The store just changed under the selection, so what typing over it
+      // carries is re-read from there: typing "XYZ" over a word bolded a
+      // moment ago keeps all of it bold, not only the "X" that took the
+      // replaced range.
+      this.typing.resetForSelectionChange(this.selection);
       this.render();
       this.emitFormattingChanged();
     });
@@ -1364,7 +1371,7 @@ export class InputHost {
     this.pendingImports++;
     let parsed: Awaited<ReturnType<typeof parseToPlainTextAndRanges>>;
     try {
-      parsed = await parseToPlainTextAndRanges(source, { complete: false });
+      parsed = await parseToPlainTextAndRanges(source);
     } finally {
       this.pendingImports--;
     }
@@ -1529,6 +1536,9 @@ export class InputHost {
     if (end >= this.text.length) {
       return;
     }
+    if (this.deleteLinkAfter(end)) {
+      return;
+    }
     const target = this.modelRangeFromTargetRanges(event);
     if (target !== null && target.start < target.end) {
       this.deleteRange(target, kind);
@@ -1556,6 +1566,17 @@ export class InputHost {
   // Backspace into a link deletes all of it, as on both natives.
   private deleteLinkBefore(caret: number): boolean {
     const link = this.formattingStore.rangeOfType('link', caret - 1);
+    if (link === null) {
+      return false;
+    }
+    this.deleteRange(link);
+    return true;
+  }
+
+  // And so does a forward delete into one, as on iOS; deleting only its first
+  // character would leave the rest still linking to the url.
+  private deleteLinkAfter(caret: number): boolean {
+    const link = this.formattingStore.rangeOfType('link', caret);
     if (link === null) {
       return false;
     }
@@ -1646,6 +1667,8 @@ export class InputHost {
     direction: 'undo' | 'redo',
     target: ModelSnapshot
   ): void {
+    const previousText = this.text;
+    const previousSelection = this.selection;
     this.session.scoped('processing', () => {
       let text = this.text;
       if (direction === 'undo') {
@@ -1676,7 +1699,19 @@ export class InputHost {
     this.typing.resetForSelectionChange(this.selection);
     this.render();
     this.scrollCaretIntoView();
-    this.emitTextEdited();
+    // A step that only restyled leaves the text, and often the selection, as
+    // they were: reporting them would tell `onChangeText` about a change that
+    // did not happen. State, markdown and history deduplicate themselves.
+    if (this.text !== previousText) {
+      this.emitText();
+    }
+    if (
+      this.selection.start !== previousSelection.start ||
+      this.selection.end !== previousSelection.end
+    ) {
+      this.emitSelection();
+    }
+    this.emitFormattingChanged();
   }
 
   private recordFormatting(): void {

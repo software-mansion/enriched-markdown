@@ -108,6 +108,63 @@ describe('serializeInline', () => {
     ).toBe('[foo](https://a.example)\n[bar](https://a.example)');
   });
 
+  it('escapes a "!" written right before a link', () => {
+    // "![docs](u)" is an image: it would re-import as "docs" with no link.
+    const link = range('link', 4, 8, 'u');
+
+    expect(serializeInline('Wow!docs', [link])).toBe('Wow\\![docs](u)');
+    // A literal backslash before the "!" stays escaped on its own.
+    expect(serializeInline('Wo\\!docs', [range('link', 4, 8, 'u')])).toBe(
+      'Wo\\\\\\![docs](u)'
+    );
+  });
+
+  it('leaves a "!" alone when anything is written between it and the link', () => {
+    expect(serializeInline('Wow! docs', [range('link', 5, 9, 'u')])).toBe(
+      'Wow! [docs](u)'
+    );
+    // A delimiter closing at the link start lands between the two.
+    expect(
+      serializeInline('Wow!docs', [
+        range('strong', 0, 4),
+        range('link', 4, 8, 'u'),
+      ])
+    ).toBe('**Wow!**[docs](u)');
+    // So does one opening there outside the link.
+    expect(
+      serializeInline('Wow!docs', [
+        range('strong', 4, 8),
+        range('link', 4, 6, 'u'),
+      ])
+    ).toBe('Wow!**[do](u)cs**');
+  });
+
+  it('keeps bold and italic meeting inside a word', () => {
+    // Adjacent "*" and "**" are one run to md4c, judged by what is around the
+    // whole run - so a run between two letters still reads.
+    expect(
+      serializeInline('abcd', [range('strong', 0, 1), range('em', 0, 1)])
+    ).toBe('***a***bcd');
+    expect(
+      serializeInline('abcd', [range('strong', 0, 2), range('em', 1, 2)])
+    ).toBe('**a*b***cd');
+    expect(
+      serializeInline('abcd', [range('strong', 1, 3), range('em', 1, 3)])
+    ).toBe('a***bc***d');
+  });
+
+  it('still treats a delimiter of another kind as punctuation', () => {
+    // "**~~ab~~**cd": the "~~" next to "**" is no part of its run, so the
+    // closing "**" follows punctuation and precedes a letter and cannot close,
+    // and neither can "~~" before a letter. Both are dropped, as before.
+    expect(
+      serializeInline('abcd', [
+        range('strong', 0, 2),
+        range('strikethrough', 0, 2),
+      ])
+    ).toBe('abcd');
+  });
+
   it('wraps a link destination that would end early', () => {
     const link = (url: string) =>
       serializeInline('docs', [range('link', 0, 4, url)]);

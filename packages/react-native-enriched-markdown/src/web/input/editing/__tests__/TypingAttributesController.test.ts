@@ -52,21 +52,6 @@ describe('TypingAttributesController', () => {
     expect(typing.isEffectiveStyleActive('strong', 4)).toBe(false);
   });
 
-  // With a selection the store has already been changed, so there is nothing
-  // for the next keystroke to carry and a leftover pending entry would apply
-  // the style twice.
-  it('pends nothing for a toggle over a selection', () => {
-    const typing = new TypingAttributesController(new FormattingStore());
-
-    typing.toggleStyle('strong', 7);
-    typing.toggleStyle('em', 7);
-    typing.toggleStyle('strong', null);
-    typing.toggleStyle('em', null);
-
-    expect(typing.styles).toEqual([]);
-    expect(typing.styleRemovals).toEqual([]);
-  });
-
   it('keeps pending styles apart per type', () => {
     const typing = new TypingAttributesController(new FormattingStore());
 

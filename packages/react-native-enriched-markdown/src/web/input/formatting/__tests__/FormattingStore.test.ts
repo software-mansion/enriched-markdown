@@ -242,6 +242,25 @@ describe('FormattingStore', () => {
     expect(store.selectionAdjustedForAtomicLinks(9, 9)).toBeNull();
   });
 
+  it('selectionAdjustedForAtomicLinks moves a caret leaving the end to the start', () => {
+    store.setRanges([link(4, 9, 'https://a.example')]);
+
+    // Coming from the end (ArrowLeft) it carries on to the start.
+    expect(store.selectionAdjustedForAtomicLinks(8, 8, 9)).toEqual({
+      start: 4,
+      end: 4,
+    });
+    // From anywhere else - the start, or a click from outside - to the end.
+    expect(store.selectionAdjustedForAtomicLinks(5, 5, 4)).toEqual({
+      start: 9,
+      end: 9,
+    });
+    expect(store.selectionAdjustedForAtomicLinks(6, 6, 12)).toEqual({
+      start: 9,
+      end: 9,
+    });
+  });
+
   it('removeType leaves other types and boundary-touching ranges untouched', () => {
     store.setRanges([strong(0, 4), strong(6, 10), range('em', 0, 10)]);
     store.removeType('strong', 4, 6);

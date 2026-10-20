@@ -18,6 +18,10 @@ const node = (
 
 const text = (content: string): ASTNode => ({ type: 'Text', content });
 
+// md4c's report of `count` blank source lines (`preserveBlankLines`).
+const blank = (count: number): ASTNode =>
+  node('BlankLine', [], { count: String(count) });
+
 describe('parseResultFromAst', () => {
   it('accumulates plain text and turns style nodes into ranges', () => {
     // "merge **fast** now" — delimiters live in the AST, not the text.
@@ -29,7 +33,7 @@ describe('parseResultFromAst', () => {
       ]),
     ]);
 
-    const result = parseResultFromAst(ast, 'merge **fast** now');
+    const result = parseResultFromAst(ast);
 
     expect(result.plainText).toBe('merge fast now');
     expect(result.formattingRanges).toEqual([range('strong', 6, 10)]);
@@ -44,7 +48,7 @@ describe('parseResultFromAst', () => {
       ]),
     ]);
 
-    const result = parseResultFromAst(ast, '[docs](https://git-scm.com)****');
+    const result = parseResultFromAst(ast);
 
     expect(result.formattingRanges).toEqual([
       range('link', 0, 4, 'https://git-scm.com'),
@@ -54,10 +58,11 @@ describe('parseResultFromAst', () => {
   it('emits heading blocks with their level, none for paragraphs', () => {
     const ast = node('Document', [
       node('Heading', [text('Rebase')], { level: '2' }),
+      blank(1),
       node('Paragraph', [text('fetch first')]),
     ]);
 
-    const result = parseResultFromAst(ast, '## Rebase\n\nfetch first');
+    const result = parseResultFromAst(ast);
 
     expect(result.plainText).toBe('Rebase\n\nfetch first');
     expect(result.blockRanges).toEqual([block('h2', 0, 6, 2)]);
@@ -68,7 +73,7 @@ describe('parseResultFromAst', () => {
       node('Heading', [text('broken')], { level: '9' }),
     ]);
 
-    const result = parseResultFromAst(ast, 'broken');
+    const result = parseResultFromAst(ast);
 
     expect(result.plainText).toBe('broken');
     expect(result.blockRanges).toEqual([]);
@@ -85,10 +90,11 @@ describe('parseResultFromAst', () => {
           node('UnorderedList', [node('ListItem', [text('review')])]),
         ]),
       ]),
+      blank(1),
       node('OrderedList', [node('ListItem', [text('merge')])]),
     ]);
 
-    const result = parseResultFromAst(ast, '- stack\n   - review\n\n1. merge');
+    const result = parseResultFromAst(ast);
 
     expect(result.plainText).toBe('stack\nreview\n\nmerge');
     // Ranges are emitted on node exit, so a nested item precedes its parent;
@@ -100,17 +106,91 @@ describe('parseResultFromAst', () => {
     ]);
   });
 
-  it('replays the source blank-line runs between top-level blocks', () => {
+  it('gives each blank source line an empty line between blocks', () => {
+    // Three blank lines after "a", one after "b", none before the heading.
     const ast = node('Document', [
       node('Paragraph', [text('a')]),
+      blank(3),
       node('Paragraph', [text('b')]),
+      blank(1),
+      node('Paragraph', [text('c')]),
+      node('Heading', [text('d')], { level: '1' }),
+    ]);
+
+    expect(parseResultFromAst(ast).plainText).toBe('a\n\n\n\nb\n\nc\nd');
+  });
+
+  it('drops blank lines before the first block and after the last', () => {
+    const ast = node('Document', [
+      blank(2),
+      node('Paragraph', [text('a')]),
+      blank(2),
+    ]);
+
+    expect(parseResultFromAst(ast).plainText).toBe('a');
+  });
+
+  it('keeps blank lines between list items where they stood', () => {
+    // - a
+    //
+    //
+    // - b
+    //
+    // c
+    const ast = node('Document', [
+      node('UnorderedList', [
+        node('ListItem', [node('Paragraph', [text('a')]), blank(2)]),
+        node('ListItem', [node('Paragraph', [text('b')]), blank(1)]),
+      ]),
       node('Paragraph', [text('c')]),
     ]);
 
-    // Three blank lines after "a", one after "b".
-    const result = parseResultFromAst(ast, 'a\n\n\n\nb\n\nc');
+    const result = parseResultFromAst(ast);
 
-    expect(result.plainText).toBe('a\n\n\n\nb\n\nc');
+    expect(result.plainText).toBe('a\n\n\nb\n\nc');
+    expect(result.blockRanges).toEqual([
+      block('unordered-list-item', 0, 1, 0),
+      block('unordered-list-item', 4, 5, 0),
+    ]);
+  });
+
+  it("does not count an empty item's own line as a blank one", () => {
+    // "- \n\n- b": md4c reports the empty item's line and the blank line
+    // after it as one run of two, first in the item.
+    const ast = node('Document', [
+      node('UnorderedList', [
+        node('ListItem', [blank(2)]),
+        node('ListItem', [node('Paragraph', [text('b')])]),
+      ]),
+    ]);
+
+    const result = parseResultFromAst(ast);
+
+    expect(result.plainText).toBe('\n\nb');
+    expect(result.blockRanges).toEqual([
+      block('unordered-list-item', 0, 0, 0),
+      block('unordered-list-item', 2, 3, 0),
+    ]);
+  });
+
+  it('drops a blank line above a nested item rather than de-nesting it', () => {
+    // - a
+    //   - b
+    //
+    //   - c
+    const ast = node('Document', [
+      node('UnorderedList', [
+        node('ListItem', [
+          node('Paragraph', [text('a')]),
+          node('UnorderedList', [
+            node('ListItem', [node('Paragraph', [text('b')]), blank(1)]),
+            node('ListItem', [node('Paragraph', [text('c')])]),
+          ]),
+        ]),
+      ]),
+    ]);
+
+    expect(parseResultFromAst(ast).plainText).toBe('a\nb\nc');
   });
 
   it('turns soft and hard breaks into newlines', () => {
@@ -118,23 +198,21 @@ describe('parseResultFromAst', () => {
       node('Paragraph', [text('pull'), node('SoftBreak'), text('push')]),
     ]);
 
-    expect(parseResultFromAst(ast, 'pull\npush').plainText).toBe('pull\npush');
+    expect(parseResultFromAst(ast).plainText).toBe('pull\npush');
   });
 
   it('starts a list on the top-level break without an extra newline', () => {
     const ast = node('Document', [
       node('Paragraph', [text('intro')]),
+      blank(1),
       node('UnorderedList', [
         node('ListItem', [node('Paragraph', [text('fetch')])]),
-        node('ListItem', [node('Paragraph', [text('merge')])]),
+        node('ListItem', [node('Paragraph', [text('merge')]), blank(2)]),
       ]),
       node('Paragraph', [text('done')]),
     ]);
 
-    const result = parseResultFromAst(
-      ast,
-      'intro\n\n- fetch\n- merge\n\n\ndone'
-    );
+    const result = parseResultFromAst(ast);
 
     expect(result.plainText).toBe('intro\n\nfetch\nmerge\n\n\ndone');
     expect(result.blockRanges).toEqual([
@@ -152,18 +230,19 @@ describe('parseResultFromAst', () => {
       node('UnorderedList', [
         node('ListItem', [
           node('Paragraph', [text('fetch')]),
+          blank(1),
           node('Paragraph', [text('then rebase')]),
         ]),
         node('ListItem', [node('Paragraph', [text('push')])]),
       ]),
     ]);
 
-    const result = parseResultFromAst(ast, '- fetch\n\n  then rebase\n- push');
+    const result = parseResultFromAst(ast);
 
-    expect(result.plainText).toBe('fetch\nthen rebase\npush');
+    expect(result.plainText).toBe('fetch\n\nthen rebase\npush');
     expect(result.blockRanges).toEqual([
       block('unordered-list-item', 0, 5, 0),
-      block('unordered-list-item', 18, 22, 0),
+      block('unordered-list-item', 19, 23, 0),
     ]);
   });
 
@@ -181,7 +260,7 @@ describe('parseResultFromAst', () => {
       ]),
     ]);
 
-    const result = parseResultFromAst(ast, '- fetch\n then rebase');
+    const result = parseResultFromAst(ast);
 
     expect(result.plainText).toBe('fetch\nthen rebase');
     expect(result.blockRanges).toEqual([block('unordered-list-item', 0, 5, 0)]);
@@ -196,7 +275,7 @@ describe('parseResultFromAst', () => {
       ]),
     ]);
 
-    const result = parseResultFromAst(ast, '1. fetch\n2.\n3. push');
+    const result = parseResultFromAst(ast);
 
     expect(result.plainText).toBe('fetch\n\npush');
     expect(result.blockRanges).toEqual([
@@ -223,8 +302,7 @@ describe('parseToPlainTextAndRanges', () => {
 
   it('degrades to unformatted text when the parser rejects', async () => {
     // A library must not crash the host app when the WASM parser is
-    // unavailable. The fallback reports the caller's markdown, not the
-    // delimiter-completed form, so nothing the user never typed survives.
+    // unavailable.
     parseMarkdownMock.mockRejectedValue(new Error('WASM unavailable'));
 
     await expect(parseToPlainTextAndRanges('**force push')).resolves.toEqual({
@@ -232,8 +310,16 @@ describe('parseToPlainTextAndRanges', () => {
       formattingRanges: [],
       blockRanges: [],
     });
+  });
+
+  it('hands the parser the markdown as given, without closing delimiters', async () => {
+    // An unclosed delimiter is literal text, not a half-typed span: closing
+    // it would turn "snake_case" into "snake_case_" and "2*3" into emphasis.
+    parseMarkdownMock.mockResolvedValue({ type: 'Document', children: [] });
+
+    await parseToPlainTextAndRanges('**force push');
     expect(parseMarkdownMock).toHaveBeenCalledWith(
-      '**force push**',
+      '**force push',
       expect.objectContaining({ permissiveAutolinks: false })
     );
   });
