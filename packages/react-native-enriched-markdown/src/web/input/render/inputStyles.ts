@@ -69,7 +69,12 @@ const INPUT_CSS = `
   pointer-events: none;
   white-space: pre-wrap;
 }
-.${ENRM_INPUT_CLASS} [data-block] {
+/* Every line, not only those with a block: a list or heading marker is
+   positioned against its line, and switching thousands of laid-out lines
+   from static to relative at once (select-all into a list, or its undo)
+   costs Blink seconds of layout - 2.5 s for 20k lines, against 0.14 s when
+   only the block attributes change. */
+.${ENRM_INPUT_CLASS} > * {
   position: relative;
 }
 .${ENRM_INPUT_CLASS} [data-block="unordered-list-item"]::before {
