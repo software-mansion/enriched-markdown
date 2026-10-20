@@ -287,7 +287,7 @@ describe('the imperative handle', () => {
   // then: a parent driving the input from its own layout effect or from a ref
   // callback runs after this component's, and a command issued there would
   // otherwise be dropped with no diagnostic at all.
-  it('works from a parent layout effect, before the first paint', () => {
+  it('works from a parent layout effect, before the first paint', async () => {
     const onChangeText = jest.fn();
 
     function Harness() {
@@ -304,7 +304,7 @@ describe('the imperative handle', () => {
     document.body.appendChild(container);
     const root = createRoot(container);
     roots.push(root);
-    act(() => root.render(<Harness />));
+    await act(async () => root.render(<Harness />));
 
     expect(onChangeText).toHaveBeenCalledWith('typed before paint');
   });
@@ -317,8 +317,8 @@ describe('the imperative handle', () => {
       ref.current!.insertText('!');
     });
 
-    // The caret lands after the run the import ends in, and continues it.
-    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold!**');
+    // Parsed markdown takes no style pending at the caret, as native paste.
+    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold**!');
   });
 
   it('answers getMarkdown after the import it was issued behind', async () => {
@@ -383,7 +383,7 @@ describe('the imperative handle', () => {
     const { ref } = mount();
     const handle = ref.current!;
 
-    act(() => {
+    await act(async () => {
       handle.insertText('text');
       handle.setSelection(0, 4);
       handle.toggleBold();
@@ -400,7 +400,7 @@ describe('the imperative handle', () => {
     const { ref } = mount();
     const handle = ref.current!;
 
-    act(() => {
+    await act(async () => {
       handle.insertText('item');
       handle.toggleUnorderedList();
       handle.indentList();
@@ -447,11 +447,11 @@ describe('onChangeState', () => {
   // The web model uses 0 for "no heading", and `StyleState.heading.level` is
   // typed 1..6 - so a consumer indexing a table by it, or switching
   // exhaustively, has no branch for 0. Native normalizes the same field.
-  it('normalizes the no-heading sentinel the way native does', () => {
+  it('normalizes the no-heading sentinel the way native does', async () => {
     const onChangeState = jest.fn();
     const { ref } = mount({ onChangeState });
 
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('plain');
     });
 
@@ -460,11 +460,11 @@ describe('onChangeState', () => {
     );
   });
 
-  it('reports a real heading level unchanged', () => {
+  it('reports a real heading level unchanged', async () => {
     const onChangeState = jest.fn();
     const { ref } = mount({ onChangeState });
 
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('head');
       ref.current!.toggleHeading(3);
     });
@@ -480,43 +480,43 @@ describe('onChangeMarkdown', () => {
   // from the callback alone: the wrapper's forwarding closure is there either
   // way. Without the switch, every consumer pays a full-document serialize per
   // keystroke to feed a callback nobody passed.
-  it('does not serialize the document while nobody is listening', () => {
+  it('does not serialize the document while nobody is listening', async () => {
     const { ref } = mount();
     serializeCalls.mockClear();
 
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('hi');
     });
 
     expect(serializeCalls).not.toHaveBeenCalled();
   });
 
-  it('serializes once a listener arrives, and stops when it leaves', () => {
+  it('serializes once a listener arrives, and stops when it leaves', async () => {
     const onChangeMarkdown = jest.fn();
     const { ref, render } = mount();
 
     render({ onChangeMarkdown });
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('hi');
     });
     expect(onChangeMarkdown).toHaveBeenCalledWith('hi');
 
     render({});
     serializeCalls.mockClear();
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('!');
     });
 
     expect(serializeCalls).not.toHaveBeenCalled();
   });
 
-  it('calls the latest callback the props carried', () => {
+  it('calls the latest callback the props carried', async () => {
     const first = jest.fn();
     const second = jest.fn();
     const { ref, render } = mount({ onChangeMarkdown: first });
 
     render({ onChangeMarkdown: second });
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('hi');
     });
 
@@ -587,7 +587,7 @@ describe('layout effect re-runs', () => {
       onChangeText,
     });
     await act(async () => undefined);
-    act(() => {
+    await act(async () => {
       ref.current!.setSelection(4, 4);
       ref.current!.insertText(' and more');
     });
@@ -597,16 +597,18 @@ describe('layout effect re-runs', () => {
     await act(async () => undefined);
 
     expect(editor.textContent).toBe('bold and more');
-    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold and more**');
+    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold** and more');
     // The mount-time `defaultValue` was not imported a second time.
-    expect(parse).toHaveBeenCalledTimes(1);
+    expect(
+      parse.mock.calls.filter(([source]) => source === '**bold**')
+    ).toHaveLength(1);
     expect(editor.getAttribute('contenteditable')).toBe('true');
   });
 
   it('keeps the undo history across a hide and show', async () => {
     const { ref, hide, show } = mountInActivity();
-    act(() => ref.current!.insertText('one'));
-    act(() => ref.current!.insertText(' two'));
+    await act(async () => ref.current!.insertText('one'));
+    await act(async () => ref.current!.insertText(' two'));
 
     hide();
     show();
@@ -677,7 +679,7 @@ describe('layout effect re-runs', () => {
 describe('a handle used after unmount', () => {
   it('reads the document the input held', async () => {
     const { ref, unmount } = mount();
-    act(() => ref.current!.insertText('draft'));
+    await act(async () => ref.current!.insertText('draft'));
     const handle = ref.current!;
 
     unmount();

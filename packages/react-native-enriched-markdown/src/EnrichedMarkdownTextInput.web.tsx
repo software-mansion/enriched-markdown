@@ -262,7 +262,11 @@ export const EnrichedMarkdownTextInput = forwardRef<
       setValue: (markdown) =>
         queue.startImport(() => live()?.setValue(markdown), logImportError),
       setSelection: (start, end) => run(() => live()?.setSelection(start, end)),
-      insertText: (text) => run(() => live()?.insertText(text)),
+      // Parsed like an import (natives treat it as markdown), so it holds
+      // the queue the same way: a command issued right after it acts on the
+      // inserted text.
+      insertText: (text) =>
+        queue.startImport(() => live()?.insertText(text), logCommandError),
       // Resolves with the document even once the input is gone, so a "save
       // the draft on unmount" flow saves what was typed. Native rejects
       // requests pending at unmount instead; web can answer them.

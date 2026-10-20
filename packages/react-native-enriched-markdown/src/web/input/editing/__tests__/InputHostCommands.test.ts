@@ -79,14 +79,14 @@ describe('setSelection', () => {
   // Clamping into the buffer is not enough on its own: the seam inside a
   // surrogate pair is in bounds, and an edit at an offset there would cut the
   // pair in half and leave two lone surrogates in the text the app reads back.
-  it('snaps an offset off the seam inside a surrogate pair', () => {
+  it('snaps an offset off the seam inside a surrogate pair', async () => {
     const { host, root, selections, texts } = mount();
     typeText(root, '\u{1F389}abc');
 
     host.setSelection(1, 1);
     expect(selections.at(-1)).toEqual({ start: 0, end: 0 });
 
-    host.insertText('X');
+    await host.insertText('X');
     expect(host.value).toBe('X\u{1F389}abc');
     expect(texts.at(-1)).toBe('X\u{1F389}abc');
   });
@@ -111,14 +111,14 @@ describe('setSelection', () => {
     expect(selections.at(-1)).toEqual({ start: 1, end: 2 });
   });
 
-  it('reads NaN as 0', () => {
+  it('reads NaN as 0', async () => {
     const { host, root, selections } = mount();
     typeText(root, 'abcd');
 
     host.setSelection(NaN, NaN);
     expect(selections.at(-1)).toEqual({ start: 0, end: 0 });
 
-    host.insertText('X');
+    await host.insertText('X');
     expect(host.value).toBe('Xabcd');
   });
 
@@ -131,9 +131,9 @@ describe('setSelection', () => {
     expect(selections.at(-1)).toEqual({ start: 2, end: 4 });
   });
 
-  it('reports the state of the line it moved to', () => {
+  it('reports the state of the line it moved to', async () => {
     const { host, states } = mount();
-    host.insertText('head\nbody');
+    await host.insertText('head\nbody');
     host.setSelection(0, 0);
     host.toggleHeading(1);
     expect(lastState(states).heading).toEqual({ isActive: true, level: 1 });
@@ -289,12 +289,12 @@ describe('a read-only editor', () => {
     expect(root.textContent).toBe('hello');
   });
 
-  it('still takes the imperative commands', () => {
+  it('still takes the imperative commands', async () => {
     const { host, root } = mount();
     typeText(root, 'hello');
 
     host.setEditable(false);
-    host.insertText('!');
+    await host.insertText('!');
 
     expect(host.value).toBe('hello!');
   });
@@ -303,24 +303,24 @@ describe('a read-only editor', () => {
 // A command that changes nothing must not look like an edit to the app: no
 // events, no render, and no undo entry to step through.
 describe('a command that changes nothing', () => {
-  it('insertText with empty text emits nothing at a caret', () => {
+  it('insertText with empty text emits nothing at a caret', async () => {
     const { host, root, texts, selections, markdowns } = mount();
     typeText(root, 'hi');
     const counts = [texts.length, selections.length, markdowns.length];
 
-    host.insertText('');
+    await host.insertText('');
 
     expect([texts.length, selections.length, markdowns.length]).toEqual(counts);
   });
 
   // The natives ignore it outright rather than deleting the selection.
-  it('insertText with empty text leaves a selection in place', () => {
+  it('insertText with empty text leaves a selection in place', async () => {
     const { host, root, texts } = mount();
     typeText(root, 'hello');
     host.setSelection(1, 4);
     const emitted = texts.length;
 
-    host.insertText('');
+    await host.insertText('');
 
     expect(host.value).toBe('hello');
     expect(texts).toHaveLength(emitted);
@@ -410,9 +410,9 @@ describe('an empty line the selection mapping cannot see into', () => {
   // occupies, so a DOM range stretched across it reports as a collapsed
   // caret. The model has not moved and nothing is emitted, but the browser is
   // still showing a highlight that has to be written back.
-  it('has its stretched dom selection rewritten', () => {
+  it('has its stretched dom selection rewritten', async () => {
     const { host, root, selections } = mount();
-    host.insertText('a\n\nb');
+    await host.insertText('a\n\nb');
     root.focus();
     host.setSelection(2, 2);
 
@@ -440,14 +440,14 @@ describe('destroy', () => {
 
   // The wrapper drops its host on unmount; a direct user may keep calling
   // into one whose node is now theirs again.
-  it('turns the commands into no-ops', () => {
+  it('turns the commands into no-ops', async () => {
     const { host, root, texts, markdowns, selections, states } = mount();
     typeText(root, 'ab');
     host.destroy();
     const emitted = [texts, markdowns, selections, states].map((e) => e.length);
 
     host.toggleBold();
-    host.insertText('Z');
+    await host.insertText('Z');
     host.toggleHeading(1);
     host.toggleUnorderedList();
     host.setSelection(0, 1);
@@ -473,9 +473,9 @@ describe('destroy', () => {
 describe('a selection ending at a line start', () => {
   // Chrome's triple-click on "one" maps to {0, 4}: through the next line's
   // start, holding nothing of it (review §2.3.3).
-  it('leaves the next line out of a block command', () => {
+  it('leaves the next line out of a block command', async () => {
     const { host } = mount();
-    host.insertText('one\ntwo');
+    await host.insertText('one\ntwo');
 
     host.setSelection(0, 4);
     host.toggleHeading(1);
@@ -510,9 +510,9 @@ describe('styles over line breaks', () => {
   // Review §2.4.3: select-all over two bold lines read as not bold (the line
   // breaks between them carry no range), so the first press re-bolded
   // everything with no visible change and only the second one unbolded.
-  it('reads bold over bold lines and unbolds on the first press', () => {
+  it('reads bold over bold lines and unbolds on the first press', async () => {
     const { host, root, states } = mount();
-    host.insertText('a\n\nb');
+    await host.insertText('a\n\nb');
     selectRangeFocused(root, 0, 1);
     host.toggleBold();
     selectRangeFocused(root, 3, 4);
@@ -536,7 +536,7 @@ describe('state around a load', () => {
     host.toggleBold();
 
     await host.setValue('xyz');
-    host.insertText('Q');
+    await host.insertText('Q');
 
     expect(host.getMarkdown()).toBe('xyzQ');
   });
@@ -557,9 +557,9 @@ describe('state around a load', () => {
 // Review §2.1.4: Mod+B/I/U and the browser's formatting commands used to be
 // cancelled and dropped.
 describe('formatting shortcuts', () => {
-  it('toggles bold, italic and underline from Mod+B/I/U', () => {
+  it('toggles bold, italic and underline from Mod+B/I/U', async () => {
     const { host, root } = mount();
-    host.insertText('one two six');
+    await host.insertText('one two six');
     selectRangeFocused(root, 0, 3);
 
     const bold = pressKey(root, 'b', { ctrlKey: true });
@@ -572,9 +572,9 @@ describe('formatting shortcuts', () => {
     expect(host.getMarkdown()).toBe('**one** *two* _six_');
   });
 
-  it('leaves shifted and alt variants to the browser', () => {
+  it('leaves shifted and alt variants to the browser', async () => {
     const { host, root } = mount();
-    host.insertText('one');
+    await host.insertText('one');
     selectRangeFocused(root, 0, 3);
 
     expect(
@@ -586,9 +586,9 @@ describe('formatting shortcuts', () => {
     expect(host.getMarkdown()).toBe('one');
   });
 
-  it('runs the browser formatting commands as toggles', () => {
+  it('runs the browser formatting commands as toggles', async () => {
     const { host, root } = mount();
-    host.insertText('one two');
+    await host.insertText('one two');
     selectRangeFocused(root, 0, 3);
     sendInput(root, 'formatBold');
     selectRangeFocused(root, 4, 7);
@@ -680,7 +680,7 @@ describe('a lone newline on an empty list item', () => {
 
   it('exits the list through insertText', async () => {
     const { host } = await emptyItem();
-    host.insertText('\n');
+    await host.insertText('\n');
     expect(host.getMarkdown()).toBe(await viaEnter());
   });
 
@@ -698,5 +698,69 @@ describe('a lone newline on an empty list item', () => {
 
     expect(host.getMarkdown()).toBe(await viaEnter());
     expect(root.children).toHaveLength(2);
+  });
+});
+
+// Review §2.2.1, decided 2026-10-20: `insertText` takes markdown, as the API
+// documents and both natives do.
+describe('insertText parses markdown', () => {
+  it('inserts styles and keeps the spaces around the fragment', async () => {
+    const { host, root } = mount();
+    await host.setValue('saythen');
+    selectRangeFocused(root, 3, 3);
+
+    await host.insertText(' **hi** ');
+
+    expect(host.getMarkdown()).toBe('say **hi** then');
+  });
+
+  it('brings blocks for lines it starts', async () => {
+    const { host } = mount();
+
+    await host.insertText('# Title\n\n- a\n- b');
+
+    expect(host.getMarkdown()).toBe('# Title\n\n- a\n- b');
+  });
+
+  it('leaves the block of a line it is inserted into mid-line', async () => {
+    const { host, root } = mount();
+    await host.setValue('- ab');
+    selectRangeFocused(root, 1, 1);
+
+    await host.insertText('# x');
+
+    expect(host.getMarkdown()).toBe('- axb');
+  });
+
+  it('takes no style pending at the caret, as native paste', async () => {
+    const { host, root } = mount();
+    root.focus();
+    host.toggleBold();
+
+    await host.insertText('plain');
+
+    expect(host.getMarkdown()).toBe('plain');
+  });
+
+  it('is one undo step', async () => {
+    const { host } = mount();
+    await host.insertText('one ');
+
+    await host.insertText('**two** three');
+    host.undo();
+
+    expect(host.value).toBe('one ');
+  });
+
+  it('does nothing for empty text, even over a selection', async () => {
+    const { host, root, texts } = mount();
+    await host.insertText('abc');
+    selectRangeFocused(root, 0, 3);
+    const emitted = texts.length;
+
+    await host.insertText('');
+
+    expect(host.value).toBe('abc');
+    expect(texts).toHaveLength(emitted);
   });
 });

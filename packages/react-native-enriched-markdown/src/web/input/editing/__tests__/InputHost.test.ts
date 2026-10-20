@@ -695,7 +695,7 @@ describe('InputHost', () => {
 
 // Review §2.2.8 and §2.1.6.
 describe('what the host hands out and leaves behind', () => {
-  it('emits copies a consumer can keep or change', () => {
+  it('emits copies a consumer can keep or change', async () => {
     const selections: Array<{ start: number; end: number }> = [];
     const states: InputState[] = [];
     const root = document.createElement('div');
@@ -704,11 +704,11 @@ describe('what the host hands out and leaves behind', () => {
       onChangeSelection: (selection) => selections.push(selection),
       onChangeState: (state) => states.push(state),
     });
-    host.insertText('abc');
+    await host.insertText('abc');
     host.setSelection(1, 1);
 
     selections.at(-1)!.start = 0;
-    host.insertText('X');
+    await host.insertText('X');
     states.at(-1)!.bold.isActive = true;
 
     expect(host.value).toBe('aXbc');

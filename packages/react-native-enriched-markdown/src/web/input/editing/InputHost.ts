@@ -1,6 +1,9 @@
 import { BlockStore, lineAtPosition } from '../formatting/BlockStore';
 import { FormattingStore } from '../formatting/FormattingStore';
-import { parseToPlainTextAndRanges } from '../formatting/InputParser';
+import {
+  parseToPlainTextAndRanges,
+  type ParseResult,
+} from '../formatting/InputParser';
 import { serialize } from '../formatting/MarkdownSerializer';
 import type { RangeBounds } from '../model/rangeBounds';
 import type { TextEdit } from '../model/textEdit';
@@ -1260,11 +1263,82 @@ export class InputHost {
   }
 
   // Empty text is a no-op even over a selection, as on the natives.
-  insertText(text: string): void {
-    if (text.length === 0) {
+  // The argument is markdown, as the API documents and both natives do
+  // (`pasteMarkdown`): it is parsed and inserted at the selection with its
+  // styles and blocks, as one undo step, and takes no style pending at the
+  // caret. Empty text is a no-op even over a selection. Asynchronous, like an
+  // import: the editor is inert while the parse runs. A lone line break is
+  // Enter (see `insertPlainText`).
+  async insertText(markdown: string): Promise<void> {
+    if (this.destroyed || markdown.length === 0) {
       return;
     }
-    this.command(() => this.insertPlainText(normalizeLineEndings(text)));
+    const source = normalizeLineEndings(markdown);
+    if (source === '\n') {
+      this.command(() => this.insertNewline());
+      return;
+    }
+    this.pendingImports++;
+    let parsed: Awaited<ReturnType<typeof parseToPlainTextAndRanges>>;
+    try {
+      parsed = await parseToPlainTextAndRanges(source);
+    } finally {
+      this.pendingImports--;
+    }
+    if (this.destroyed) {
+      return;
+    }
+    this.command(() => this.insertParsed(withEdgeWhitespace(source, parsed)));
+  }
+
+  private insertParsed({
+    plainText,
+    formattingRanges,
+    blockRanges,
+  }: ParseResult): void {
+    const { start, end } = this.selection;
+    if (plainText.length === 0 && start === end) {
+      return;
+    }
+    const atLineStart = start === 0 || this.text.charCodeAt(start - 1) === 10;
+    this.applyModelEdit(
+      {
+        editStart: start,
+        deletedText: this.text.slice(start, end),
+        insertedText: plainText,
+      },
+      'other',
+      undefined,
+      false
+    );
+    this.session.scoped('processing', () => {
+      for (const range of formattingRanges) {
+        this.formattingStore.addRange({
+          ...range,
+          start: range.start + start,
+          end: range.end + start,
+        });
+      }
+      // A block on the first inserted line only applies when that line
+      // starts there; inserted mid-line, the line keeps its own block.
+      const blocks = blockRanges.filter(
+        (block) => block.start > 0 || atLineStart
+      );
+      if (blocks.length > 0) {
+        this.blockStore.edit(this.text, (writer) => {
+          for (const block of blocks) {
+            writer.setBlock(
+              block.type,
+              block.level,
+              block.start + start,
+              block.start + start
+            );
+          }
+        });
+      }
+    });
+    this.projector.invalidate();
+    this.renderEdit();
   }
 
   // A lone line break is Enter, whichever way it arrives - typed, pasted or
@@ -1445,7 +1519,12 @@ export class InputHost {
 
   // Text, stores and caret only; no DOM, no events. The one place text
   // changes, and so the one place it is recorded.
-  private applyModelEdit(edit: TextEdit, kind: EditKind, caret?: number): void {
+  private applyModelEdit(
+    edit: TextEdit,
+    kind: EditKind,
+    caret?: number,
+    withPendingStyles = true
+  ): void {
     const { editStart, deletedText, insertedText } = edit;
     const text =
       this.text.slice(0, editStart) +
@@ -1462,8 +1541,10 @@ export class InputHost {
         editStart,
         deletedText,
         insertedText,
-        pendingStyles: this.typing.styles,
-        pendingStyleRemovals: this.typing.styleRemovals,
+        pendingStyles: withPendingStyles ? this.typing.styles : [],
+        pendingStyleRemovals: withPendingStyles
+          ? this.typing.styleRemovals
+          : [],
       });
       this.projector.textEdited(
         editStart,
@@ -1937,6 +2018,30 @@ function insertedTextOf(event: InputEvent): string {
 
 // The buffer uses bare newlines, so a clipboard's line endings are converted
 // rather than stored as text.
+// md4c drops the whitespace around a document, which an inserted fragment
+// needs: `insertText(' and more')` keeps its space. Put back whatever the
+// parse dropped from either end of `source`, shifting the ranges past it.
+function withEdgeWhitespace(source: string, parsed: ParseResult): ParseResult {
+  const leading = /^\s*/.exec(source)![0];
+  const trailing = /\s*$/.exec(source)![0];
+  if (leading.length === source.length) {
+    return { plainText: source, formattingRanges: [], blockRanges: [] };
+  }
+  const { plainText } = parsed;
+  const lead = plainText.startsWith(leading) ? '' : leading;
+  const trail = plainText.endsWith(trailing) ? '' : trailing;
+  const shift = <T extends { start: number; end: number }>(range: T): T => ({
+    ...range,
+    start: range.start + lead.length,
+    end: range.end + lead.length,
+  });
+  return {
+    plainText: lead + plainText + trail,
+    formattingRanges: parsed.formattingRanges.map(shift),
+    blockRanges: parsed.blockRanges.map(shift),
+  };
+}
+
 function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n?/g, '\n');
 }
