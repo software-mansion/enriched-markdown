@@ -44,7 +44,8 @@ class ImageSpan(
     imageUrl,
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ALIGN_CENTER else ALIGN_BASELINE,
   ),
-  AndroidLineHeightSpan {
+  AndroidLineHeightSpan,
+  TextViewAwareSpan {
   private var loadedDrawable: Drawable? = null
   private val height: Int = if (isInline) styleConfig.inlineImageStyle.size.toInt() else styleConfig.imageStyle.height.toInt()
   private val borderRadiusPx: Int = (styleConfig.imageStyle.borderRadius * context.resources.displayMetrics.density).toInt()
@@ -131,7 +132,7 @@ class ImageSpan(
     }
   }
 
-  fun registerTextView(view: TextView) {
+  override fun registerTextView(view: TextView) {
     viewRef = WeakReference(view)
     if (!isInline) {
       val availableWidth = getAvailableWidth(view)

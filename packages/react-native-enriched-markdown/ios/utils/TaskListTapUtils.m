@@ -137,7 +137,7 @@ NSString *toggleTaskListItemAtIndex(NSString *markdown, NSInteger targetIndex, B
   NSTextCheckingResult *match = matches[targetIndex];
   NSRange prefixRange = [match rangeAtIndex:1];
   NSString *prefix = [markdown substringWithRange:prefixRange];
-  NSString *replacement = [NSString stringWithFormat:@"%@[%@]", prefix, checked ? @" " : @"x"];
+  NSString *replacement = [NSString stringWithFormat:@"%@[%@]", prefix, checked ? @"x" : @" "];
 
   NSMutableString *result = [markdown mutableCopy];
   [result replaceCharactersInRange:match.range withString:replacement];

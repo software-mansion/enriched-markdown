@@ -1,6 +1,7 @@
 #import "ENRMSegmentHeightMeasurer.h"
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
+#import "ENRMCodeBlockWrapState.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMViewFreeMeasurement.h"
@@ -16,7 +17,7 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                           CGFloat contentWidth, BOOL allowTrailingMargin, CGFloat pointScaleFactor,
                                           ENRMWritingDirectionMode writingDirectionMode,
                                           NSWritingDirection resolvedLayoutDirection, BOOL allowFontScaling,
-                                          NSLineBreakStrategy lineBreakStrategy)
+                                          NSLineBreakStrategy lineBreakStrategy, ENRMCodeBlockWrapCursor *wrapCursor)
 {
   if (segments.count == 0) {
     return 0;
@@ -49,8 +50,12 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
       }
     } else if (segment.kind == ENRMSegmentKindCodeBlock && segment.codeBlockSegment) {
       totalHeight += config.codeBlockMarginTop;
-      totalHeight += [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:segment.codeBlockSegment.codeBlockNode
-                                                                        config:config];
+      MarkdownASTNode *codeBlockNode = segment.codeBlockSegment.codeBlockNode;
+      totalHeight += [wrapCursor nextIsWrapped]
+                         ? [ENRMCodeBlockContainerView measureWrappedHeightForCodeBlockNode:codeBlockNode
+                                                                                     config:config
+                                                                                   maxWidth:contentWidth]
+                         : [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:codeBlockNode config:config];
       if (shouldAddBottomMargin) {
         totalHeight += config.codeBlockMarginBottom;
       }
@@ -64,7 +69,8 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
                                                              maxWidth:contentWidth
                                                      pointScaleFactor:pointScaleFactor
                                                      allowFontScaling:allowFontScaling
-                                                    lineBreakStrategy:lineBreakStrategy];
+                                                    lineBreakStrategy:lineBreakStrategy
+                                                           wrapCursor:wrapCursor];
     }
 #if ENRICHED_MARKDOWN_MATH
     else if (segment.kind == ENRMSegmentKindMath && segment.mathSegment) {

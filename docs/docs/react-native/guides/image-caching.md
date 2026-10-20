@@ -48,7 +48,7 @@ The library uses a three-tier caching strategy on both platforms:
 
 - **Original cache** stores decoded images keyed by URL. On Android, large images are downsampled to screen width during decode to reduce peak memory.
 - **Processed cache** stores scaled and clipped variants keyed by URL + dimensions + border radius + resize mode, so repeated layouts with the same geometry skip all image processing.
-- **Disk cache** persists raw HTTP responses across app launches. On Android this is a stock OkHttp `Cache`, which honors `Cache-Control` normally. **On iOS and macOS it does not**: the session runs with `NSURLRequestReturnCacheDataElseLoad`, so a cached response is served regardless of its age or `max-age`, and the network is only hit when nothing is cached. A stale image stays stale until it is evicted.
+- **Disk cache** persists raw HTTP responses across app launches for requests without custom headers. On Android this is a stock OkHttp `Cache`, which honors `Cache-Control` normally. **On iOS and macOS it does not**: the session runs with `NSURLRequestReturnCacheDataElseLoad`, so a cached response is served regardless of its age or `max-age`, and the network is only hit when nothing is cached. A stale image stays stale until it is evicted.
 
 Two limits are not byte budgets and can evict earlier than the sizes above suggest: on iOS and macOS the originals cache holds at most 50 entries and the processed cache at most 100, and its `NSURLCache` also has a 10 MB in-memory capacity alongside the 100 MB on disk.
 
@@ -56,10 +56,10 @@ All of these are **process-global singletons** shared by every `EnrichedMarkdown
 
 ## Request headers
 
-When [`imageRequestHeaders`](/react-native/api-reference/enriched-markdown-text#imagerequestheaders) is set, the headers become part of the cache identity for both memory tiers and for request deduplication: the same URL requested with different headers is fetched and cached separately, and changing the prop re-fetches the images.
+When [`imageRequestHeaders`](/react-native/api-reference/enriched-markdown-text#imagerequestheaders) is set, the headers become part of the cache identity for both memory tiers and for request deduplication: the same URL requested with different headers is fetched and cached separately, and changing the prop re-fetches the images. Header names are compared case-insensitively.
 
-:::caution
-The disk cache is managed by the HTTP stack (OkHttp / `NSURLCache`) and keys responses **by URL alone**, with no `Vary` handling added by this library. A response fetched with one set of headers can therefore be served from disk for a request with different headers. If per-header isolation matters - a signed CDN URL, a per-user `Authorization` - make the difference part of the URL.
+:::note
+The disk cache is managed by the HTTP stack (OkHttp / `NSURLCache`) and keys responses **by URL alone**, so it cannot tell two header sets apart. Requests that carry custom headers therefore bypass it on both platforms: they are served from the memory tiers while the process lives and fetched again after a restart or memory eviction. Requests without custom headers keep the disk cache.
 :::
 
 ## Request deduplication

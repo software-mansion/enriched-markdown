@@ -167,7 +167,14 @@ final class MarkdownSourceSlicerTests: XCTestCase {
 
     func testFullySelectedCodeBlockIncludesFences() {
         XCTAssertEqual(
-            copyMarkdown(selecting: "let a = 1\n", in: "intro\n\n```\nlet a = 1\n```"),
+            copyMarkdown(selecting: "let a = 1\n", in: "intro\n\n```\nlet a = 1\n```\n\noutro"),
+            "```\nlet a = 1\n```"
+        )
+    }
+
+    func testFullySelectedCodeBlockEndingTheDocumentIncludesFences() {
+        XCTAssertEqual(
+            copyMarkdown(selecting: "let a = 1", in: "intro\n\n```\nlet a = 1\n```"),
             "```\nlet a = 1\n```"
         )
     }
@@ -201,9 +208,9 @@ final class MarkdownSourceSlicerTests: XCTestCase {
         )
     }
 
-    func testSelectionAcrossDroppedEntitySlicesVerbatim() {
+    func testSelectionAcrossDecodedEntitySlicesVerbatim() {
         XCTAssertEqual(
-            copyMarkdown(selecting: "an entity  2026", in: "next to an entity &copy; 2026 here"),
+            copyMarkdown(selecting: "an entity \u{A9} 2026", in: "next to an entity &copy; 2026 here"),
             "an entity &copy; 2026"
         )
     }

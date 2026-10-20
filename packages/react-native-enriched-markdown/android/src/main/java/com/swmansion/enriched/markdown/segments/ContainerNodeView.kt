@@ -34,6 +34,18 @@ open class ContainerNodeView(
 
   protected var trailingMarginEnabled: Boolean = false
 
+  // Code block views in document order, descending into nested blockquotes: the
+  // order CodeBlockWrapState indexes them in.
+  internal fun codeBlockViews(): Sequence<CodeBlockContainerView> =
+    sequence {
+      segmentViews.forEach { view ->
+        when (view) {
+          is CodeBlockContainerView -> yield(view)
+          is ContainerNodeView -> yieldAll(view.codeBlockViews())
+        }
+      }
+    }
+
   /**
    * Reconciles the current child views against renderedSegments, attaching and
    * removing views as needed and updating segmentViews/segmentSignatures.

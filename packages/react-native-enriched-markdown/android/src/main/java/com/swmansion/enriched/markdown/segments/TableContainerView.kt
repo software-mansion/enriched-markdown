@@ -37,7 +37,6 @@ import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWit
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForLinkTap
-import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import kotlin.math.ceil
 import kotlin.math.max
@@ -254,7 +253,7 @@ class TableContainerView(
         isClickable = false
         isLongClickable = false
         isFocusable = true
-        isScreenReaderFocusable = true
+        ViewCompat.setScreenReaderFocusable(this, true)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = description
         if (isHeaderRow) ViewCompat.setAccessibilityHeading(this, true)
@@ -621,10 +620,7 @@ class TableContainerView(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
       val result = super.onTouchEvent(event)
-      when (event.action) {
-        MotionEvent.ACTION_DOWN -> cancelJSTouchForLinkTap(event)
-        else -> reallowParentInterceptIfLinkReleased()
-      }
+      if (event.action == MotionEvent.ACTION_DOWN) cancelJSTouchForLinkTap(event)
       return result
     }
   }

@@ -31,6 +31,7 @@ import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
@@ -46,7 +47,6 @@ import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionMode
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
-import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
 import kotlin.math.ceil
@@ -103,6 +103,8 @@ class EnrichedMarkdownText
 
     var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
       private set
+    private var linkRegex: LinkRegexConfig? = null
+    private var inlineCodeLinkRegex: LinkRegexConfig? = null
     private var isGFM: Boolean = false
 
     private var lastKnownFontScale: Float = context.resources.configuration.fontScale
@@ -195,6 +197,18 @@ class EnrichedMarkdownText
       }
     }
 
+    fun setLinkRegex(config: LinkRegexConfig?) {
+      if (linkRegex == config) return
+      linkRegex = config
+      scheduleRenderIfNeeded()
+    }
+
+    fun setInlineCodeLinkRegex(config: LinkRegexConfig?) {
+      if (inlineCodeLinkRegex == config) return
+      inlineCodeLinkRegex = config
+      scheduleRenderIfNeeded()
+    }
+
     fun setMd4cFlags(flags: Md4cFlags) {
       if (md4cFlags == flags) return
       md4cFlags = flags
@@ -282,12 +296,14 @@ class EnrichedMarkdownText
       val markdown = currentMarkdown
       if (markdown.isEmpty()) return
 
+      val textLinkRegex = linkRegex
+      val codeLinkRegex = inlineCodeLinkRegex
       val renderId = ++currentRenderId
 
       executor.execute {
         try {
           val ast =
-            parser.parseMarkdown(markdown, md4cFlags, isGFM) ?: run {
+            parser.parseMarkdown(markdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
               mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
               return@execute
             }
@@ -603,10 +619,7 @@ class EnrichedMarkdownText
         return true
       }
       val result = super.onTouchEvent(event)
-      when (event.action) {
-        MotionEvent.ACTION_DOWN -> cancelJSTouchForLinkTap(event)
-        else -> reallowParentInterceptIfLinkReleased()
-      }
+      if (event.action == MotionEvent.ACTION_DOWN) cancelJSTouchForLinkTap(event)
       return result
     }
 

@@ -1,6 +1,7 @@
 #import "TableContainerView.h"
 #import "AttributedRenderer.h"
 #import "ENRMAccessibilityLabels.h"
+#import "ENRMHorizontalScrollView.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLinkPillAttachment.h"
 #import "HTMLGenerator.h"
@@ -87,6 +88,7 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
   NSMutableAttributedString *attributedText = [renderer renderNodes:cellNode.children context:context block:nil];
 
   [context applyLinkAttributesToString:attributedText];
+  [context applyImageAttributesToString:attributedText];
 
   ENRMPinLineMetricsToStyledFonts(attributedText, NSMakeRange(0, attributedText.length));
   ENRMApplyWritingDirectionMode(attributedText, writingDirectionMode, resolvedLayoutDirection);
@@ -241,7 +243,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 #endif
 
 @implementation TableContainerView {
-  RCTUIScrollView *_scrollView;
+  ENRMHorizontalScrollView *_scrollView;
   RCTUIView *_gridContainer;
   NSArray<NSArray<TableCellData *> *> *_rows;
   NSUInteger _colCount;
@@ -281,11 +283,10 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 
 - (void)setupScrollView
 {
-  _scrollView = [[RCTUIScrollView alloc] init];
+  _scrollView = [[ENRMHorizontalScrollView alloc] init];
   _scrollView.showsVerticalScrollIndicator = NO;
   _scrollView.showsHorizontalScrollIndicator = YES;
 #if !TARGET_OS_OSX
-  _scrollView.bounces = YES;
   _scrollView.alwaysBounceHorizontal = NO;
   _scrollView.isAccessibilityElement = NO;
   _scrollView.accessibilityElementsHidden = YES;
@@ -318,6 +319,11 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     TableContainerView *strongSelf = weakSelf;
     if (strongSelf && strongSelf.onLinkPress)
       strongSelf.onLinkPress(url);
+  };
+  iosGridView.onImageTap = ^(NSString *url, NSString *altText) {
+    TableContainerView *strongSelf = weakSelf;
+    if (strongSelf.onImagePress)
+      strongSelf.onImagePress(url, altText);
   };
   iosGridView.hasLinkContextMenu =
       ^BOOL(NSString *url) { return [weakSelf.dynamicProps.linkContextMenus hasMenuForURL:url]; };
@@ -603,7 +609,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  ENRMTableIOSLinkHit *link = [(ENRMTableIOSGridView *)_gridContainer linkAtPoint:location];
+  ENRMTableIOSItemHit *link = [(ENRMTableIOSGridView *)_gridContainer linkAtPoint:location];
   UIMenu *linkMenu = [self.dynamicProps.linkContextMenus menuForURL:link.url title:link.title];
   [_linkMenuLift end];
   // UIKit replaces a nil identifier with one of its own, so the frame tells the menus apart.

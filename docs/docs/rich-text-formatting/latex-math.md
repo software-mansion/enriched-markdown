@@ -10,22 +10,57 @@ import MathSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-form
 `EnrichedMarkdownText` renders LaTeX math natively, both inline and as block equations:
 
 - **Inline math** (`$...$`) flows within the surrounding text and works in either flavor.
-- **Block math** (`$$...$$`) renders as a standalone display equation. On iOS and Android a display block needs the segmented renderer, so it requires [`flavor="github"`](/react-native/guides/markdown-flavors) - in `commonmark`, a `$$...$$` on its own line falls back to inline typesetting. The web build has no `flavor` prop and always renders `$$` as a block.
+- **Block math** (`$$...$$`) renders as a standalone display equation. In the React Native package on iOS and Android, a display block needs the segmented renderer, so it requires [`flavor="github"`](/react-native/guides/markdown-flavors) - in `commonmark`, a `$$...$$` on its own line falls back to inline typesetting. The web build has no `flavor` prop and always renders `$$` as a block, and the standalone iOS and Android SDKs need no flavor switch either.
 
-Math parsing is **on by default**. You can turn it off so `$` is treated as plain text, and exclude the native math engine to shrink your binary - see [Reducing app size](#reducing-app-size).
+In the React Native package math parsing is **on by default**. You can turn it off so `$` is treated as plain text, and exclude the native math engine to shrink your binary - see [Reducing app size](#reducing-app-size). The standalone iOS and Android SDKs ship math as an optional add-on instead, off until you install and enable it.
 
 ## Usage
 
+<CodeTabs groupId="platform">
+<Tab label="React Native">
+
 <LivePreview src={MathSrc} />
 
-{/* UNRELEASED PLATFORMS: the standalone iOS SDK ships math as an optional
-`EnrichedMarkdownLaTeX` product enabled per view with `.markdownLaTeX()` and
-styled through `MathBlock()` / `InlineMath()`; display math there needs no
-flavor switch. The standalone Android SDK parses `$...$` but has no math
-renderer yet. Restore those tabs, and the links to /ios/guides/latex-math, when
-those packages ship. */}
+</Tab>
+<Tab label="iOS">
 
-Block equations render as standalone display elements with their own spacing and an optional background. The style key is `math` (not `mathBlock`) and it takes `fontSize`, `color`, `backgroundColor`, `padding`, `marginTop`, `marginBottom` and `textAlign`. Inline math inherits the surrounding block's typography and takes only a color, through `markdownStyle.inlineMath`. Under `flavor="commonmark"` **none** of the `math` keys apply, because the equation becomes an inline attachment coloured from `inlineMath`.
+Math is the optional `EnrichedMarkdownLaTeX` product. Add it alongside `EnrichedMarkdown`, then enable it per view with `.markdownLaTeX()` - that one modifier turns on parsing **and** rendering, as there is no parsing option for math. Display math needs no flavor switch.
+
+```swift
+import EnrichedMarkdown
+import EnrichedMarkdownLaTeX
+import SwiftUI
+
+struct FormulaView: View {
+  let content: String
+
+  var body: some View {
+    EnrichedMarkdownText(content)
+      .markdownLaTeX()
+  }
+}
+```
+
+Style equations through the `MathBlock()` and `InlineMath()` theme elements. See the [iOS LaTeX math guide](/ios/guides/latex-math) for setup, [styling](/ios/guides/latex-math#styling) and accessibility.
+
+</Tab>
+<Tab label="Android">
+
+Math is the optional `com.swmansion.enriched.markdown:math` artifact. Enabling `LatexMathPlugin` turns on parsing **and** rendering - there is no parsing option for math. Without the plugin, `$...$` is ordinary text. Display math needs no flavor switch.
+
+```kotlin
+LatexMathPlugin {
+  EnrichedMarkdownText(markdown = content)
+}
+```
+
+The `LatexMathPlugin { }` scope enables the plugin for everything beneath it; to enable it on a single instance, pass `plugins = listOf(LatexMathPlugin)` to that `EnrichedMarkdownText` instead. Style equations with `math { }` and `inlineMath { }` inside `markdownStyle { }`. See the [Android LaTeX math guide](/android/guides/latex-math) for installation and [styling](/android/guides/latex-math#styling).
+
+</Tab>
+</CodeTabs>
+
+
+Block equations render as standalone display elements with their own spacing and an optional background. In the React Native package the style key is `math` (not `mathBlock`) and it takes `fontSize`, `color`, `backgroundColor`, `padding`, `marginTop`, `marginBottom` and `textAlign`. Inline math inherits the surrounding block's typography and takes only a color, through `markdownStyle.inlineMath`. Under `flavor="commonmark"` **none** of the `math` keys apply, because the equation becomes an inline attachment coloured from `inlineMath`.
 
 :::important
 LaTeX commands use backslashes (`\frac`, `\alpha`). In regular JS strings and template literals a backslash is an escape character, so either double every backslash (`\\frac`, as the example above does) or wrap the string in `String.raw`. Block math (`$$...$$`) must be on its own line to render as a display element.
@@ -39,7 +74,7 @@ its raw source **with the delimiters put back** (`$\nosuchcommand$`); on web you
 get KaTeX's own error output instead, or the delimited source when `katex` is not
 installed. Pass
 [`onLatexError`](/react-native/api-reference/enriched-markdown-text#onlatexerror)
-to observe those failures, for example to report them to an error tracker:
+to observe those failures in the React Native package, for example to report them to an error tracker:
 
 ```tsx
 <EnrichedMarkdownText
@@ -75,12 +110,14 @@ content stays silent about a failure it has already reported. De-duplicate by
 `source` on your side if you aggregate these app-wide.
 :::
 
+On the standalone SDKs the fallback to the delimited source is the same. iOS has no error callback; Android reports each failure through `onPluginEvent` as a `LatexError` - see [Errors](/android/guides/latex-math#errors).
+
 ## Reducing app size
 
-Native LaTeX rendering relies on [RaTeX](https://ratex.lites.dev/), a KaTeX-compatible math engine that the React Native package bundles by default on iOS and Android. If you don't need math, you can stop parsing it or exclude the native engine entirely to shrink your binary - see the [Reference](#reference).
+Native LaTeX rendering relies on [RaTeX](https://ratex.lites.dev/), a KaTeX-compatible math engine that the React Native package bundles by default on iOS and Android. If you don't need math, you can stop parsing it or exclude the native engine entirely to shrink your binary - see the [Reference](#reference). On the standalone SDKs math is opt-in already: leave out the `EnrichedMarkdownLaTeX` product (iOS) or the `math` artifact (Android) and no engine ships.
 
 :::danger
-**Block math is silently dropped on macOS.** Inline `$...$` renders there, but a
+**Block math is silently dropped on macOS in the React Native package.** Inline `$...$` renders there, but a
 display `$$...$$` under `flavor="github"` produces no output and no fallback text -
 the equation simply disappears. Math is otherwise compiled into macOS builds by
 default (there is no macOS gate on the engine), it is just unvalidated. See
@@ -95,6 +132,17 @@ default (there is no macOS gate on the engine), it is just unvalidated. See
 - **Reduce app size** - set `md4cFlags={{ latexMath: false }}` to stop parsing, or `"enableMath": false` in the `enriched-markdown` block of your `package.json` to exclude the engine from the native build on both iOS and Android. See [Native assets](/react-native/guides/native-assets#reducing-binary-size) for the full opt-out.
 - **Web** - math renders through KaTeX, an optional peer dependency. Without it installed, equations fall back to their raw `$...$` source. See [Web support](/react-native/guides/web-support#math-katex).
 
-{/* UNRELEASED PLATFORMS: standalone iOS reference entries lived here -
-`.markdownLaTeX()`, `MathBlock()` / `InlineMath()`, no error callback, and
-"omit the EnrichedMarkdownLaTeX product" as the size opt-out. */}
+**iOS** - see the [LaTeX math guide](/ios/guides/latex-math).
+
+- [`.markdownLaTeX()`](/ios/guides/latex-math#turning-it-on) - enables parsing and rendering per view; its `accessibilityLabel:` parameter sets the [VoiceOver label](/ios/guides/latex-math#accessibility).
+- [`MathBlock()`](/ios/guides/latex-math#mathblock) and [`InlineMath()`](/ios/guides/latex-math#inlinemath) - display and inline equation styling.
+- **Errors** - there is no error callback; a formula that fails to typeset renders as its delimited source.
+- **Reduce app size** - omit the `EnrichedMarkdownLaTeX` product.
+
+**Android** - see the [LaTeX math guide](/android/guides/latex-math).
+
+- [`LatexMathPlugin`](/android/guides/latex-math#turning-it-on) - enables parsing and rendering, for a subtree (`LatexMathPlugin { }`) or one view (the [`plugins`](/android/api-reference/enriched-markdown-text#plugins) parameter).
+- [`math { }` and `inlineMath { }`](/android/guides/latex-math#styling) - display and inline equation styling.
+- [`onPluginEvent`](/android/guides/latex-math#errors) - render failures arrive as a `LatexError(source, message, displayMode)` event.
+- **Reduce app size** - omit the `math` artifact. It is also the only artifact without a 32-bit `x86` native library; see [Installing the artifact](/android/guides/latex-math#installation).
+

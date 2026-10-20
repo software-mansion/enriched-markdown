@@ -1,6 +1,7 @@
 #import "ENRMMathContainerView.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMHorizontalScrollView.h"
 #include <TargetConditionals.h>
 
 #if ENRICHED_MARKDOWN_MATH
@@ -52,7 +53,7 @@
 
 #if !TARGET_OS_OSX
 @interface ENRMMathContainerView () <UIContextMenuInteractionDelegate>
-@property (nonatomic, strong, readonly) RCTUIScrollView *scrollView;
+@property (nonatomic, strong, readonly) ENRMHorizontalScrollView *scrollView;
 #else
 @interface ENRMMathContainerView ()
 #endif
@@ -84,10 +85,9 @@
     _mathView.backgroundColor = [RCTUIColor clearColor];
 
 #if !TARGET_OS_OSX
-    _scrollView = [[RCTUIScrollView alloc] init];
+    _scrollView = [[ENRMHorizontalScrollView alloc] init];
     _scrollView.showsVerticalScrollIndicator = NO;
     _scrollView.showsHorizontalScrollIndicator = YES;
-    _scrollView.bounces = YES;
     _scrollView.alwaysBounceHorizontal = NO;
     _scrollView.scrollEnabled = NO;
     [self addSubview:_scrollView];

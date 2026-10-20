@@ -45,6 +45,17 @@ void EnrichedMarkdownShadowNode::dirtyLayoutIfNeeded()
   }
 }
 
+// Order-independent fingerprint of the wrapped set for the cache key; 0 for none,
+// and {0} still hashes apart from {}.
+static size_t ENRMWrappedCodeBlocksFingerprint(NSSet<NSNumber *> *wrappedCodeBlocks)
+{
+  size_t h = 0;
+  for (NSNumber *index in [wrappedCodeBlocks.allObjects sortedArrayUsingSelector:@selector(compare:)]) {
+    HashUtils::hash_one(h, index.unsignedLongValue);
+  }
+  return h;
+}
+
 Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutContext,
                                                 const LayoutConstraints &layoutConstraints) const
 {
@@ -57,13 +68,20 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
                                                    ? NSWritingDirectionRightToLeft
                                                    : NSWritingDirectionLeftToRight;
 
+  // Wrapped code blocks are view state, not props, so they join the cache key by fingerprint.
+  const auto componentViewRef = getStateData().getComponentViewRef();
+  RCTInternalGenericWeakWrapper *weakWrapper = (RCTInternalGenericWeakWrapper *)unwrapManagedObject(componentViewRef);
+  EnrichedMarkdown *view = weakWrapper ? (EnrichedMarkdown *)weakWrapper.object : nil;
+  NSSet<NSNumber *> *wrappedCodeBlocks = typedProps.enableCodeBlockWrapToggle ? view.wrappedCodeBlockIndices : nil;
+
   return ENRMMeasureMarkdownContent<EnrichedMarkdownProps, EnrichedMarkdown>(
-      typedProps, getStateData().getComponentViewRef(), receivedCounter, lastExactMeasurementCounter_,
-      lastExactMeasurementSize_, MarkdownFlavor::GitHub, layoutContext, layoutConstraints,
-      ^(EnrichedMarkdown *view, CGFloat maxWidth, CGFloat fontScale) {
+      typedProps, componentViewRef, receivedCounter, lastExactMeasurementCounter_, lastExactMeasurementSize_,
+      MarkdownFlavor::GitHub, layoutContext, layoutConstraints,
+      ^(EnrichedMarkdown *measuredView, CGFloat maxWidth, CGFloat fontScale) {
         return ENRMMeasureSegmentedMarkdownViewFree(*props, maxWidth, fontScale, pointScaleFactor,
-                                                    resolvedLayoutDirection);
-      });
+                                                    resolvedLayoutDirection, wrappedCodeBlocks);
+      },
+      ENRMWrappedCodeBlocksFingerprint(wrappedCodeBlocks));
 }
 
 } // namespace facebook::react

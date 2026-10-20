@@ -30,6 +30,7 @@ import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
@@ -49,6 +50,10 @@ class EnrichedMarkdown(
   private enum class DirtyFlag {
     RECREATE_SEGMENTS,
     FORCE_HEIGHT,
+
+    // Yoga already measured with inputs that changed after (the wrapped code
+    // blocks a prop reset cleared), so it has to be asked to measure again.
+    REMEASURE,
   }
 
   private val parser = Parser.shared
@@ -80,6 +85,8 @@ class EnrichedMarkdown(
 
   var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
     private set
+  private var linkRegex: LinkRegexConfig? = null
+  private var inlineCodeLinkRegex: LinkRegexConfig? = null
   private var isGFM: Boolean = true
   private var allowFontScaling: Boolean = true
   private var maxFontSizeMultiplier: Float = 0f
@@ -138,11 +145,30 @@ class EnrichedMarkdown(
       dynamicProps.enableCodeBlockPress = value
     }
 
+  private val codeBlockWrapState =
+    CodeBlockWrapState(viewTag = { id }, codeBlockViews = ::codeBlockViews, onHeightChanged = ::onImageLayoutChanged)
+
+  var enableCodeBlockWrapToggle: Boolean
+    get() = codeBlockWrapState.enabled
+    set(value) {
+      if (codeBlockWrapState.setEnabled(value)) onImageLayoutChanged()
+    }
+
   init {
     segmentViewFactory = RootFactory()
   }
 
-  fun setMarkdownContent(markdown: String) {
+  // isTaskToggle marks a checkbox flip rendered locally ahead of the prop; it
+  // moves no code block, so it skips the wrap state's reset rule.
+  fun setMarkdownContent(
+    markdown: String,
+    isTaskToggle: Boolean = false,
+  ) {
+    // The shadow node measures the new markdown before this setter runs, still
+    // with the old wrapped set, so a reset needs Yoga to measure again.
+    if (!isTaskToggle && codeBlockWrapState.onMarkdownProp(markdown, currentMarkdown)) {
+      dirtyFlags += DirtyFlag.REMEASURE
+    }
     if (currentMarkdown == markdown) return
     currentMarkdown = markdown
     renderPending = true
@@ -199,6 +225,18 @@ class EnrichedMarkdown(
       dirtyFlags += DirtyFlag.FORCE_HEIGHT
       scheduleRenderIfNeeded()
     }
+  }
+
+  fun setLinkRegex(config: LinkRegexConfig?) {
+    if (linkRegex == config) return
+    linkRegex = config
+    renderPending = true
+  }
+
+  fun setInlineCodeLinkRegex(config: LinkRegexConfig?) {
+    if (inlineCodeLinkRegex == config) return
+    inlineCodeLinkRegex = config
+    renderPending = true
   }
 
   fun setMd4cFlags(flags: Md4cFlags) {
@@ -345,6 +383,9 @@ class EnrichedMarkdown(
     segmentViews.filterIsInstance<TableContainerView>().forEach {
       it.accessibilityLabels = labels
     }
+    codeBlockViews().forEach {
+      it.accessibilityLabels = labels
+    }
     mathContainerClass?.let { mathClass ->
       segmentViews.filter { mathClass.isInstance(it) }.forEach { view ->
         runCatching {
@@ -386,6 +427,8 @@ class EnrichedMarkdown(
     val tableMode = tableStreamingMode
     val codeBlockMode = codeBlockStreamingMode
 
+    val textLinkRegex = linkRegex
+    val codeLinkRegex = inlineCodeLinkRegex
     val renderId = ++currentRenderId
 
     executor.execute {
@@ -405,7 +448,7 @@ class EnrichedMarkdown(
         }
 
         val ast =
-          parser.parseMarkdown(renderableMarkdown, md4cFlags, isGFM) ?: run {
+          parser.parseMarkdown(renderableMarkdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
             postToMain(renderId) { applyRenderedSegments(emptyList(), false) }
             return@execute
           }
@@ -441,6 +484,7 @@ class EnrichedMarkdown(
 
     val reset = DirtyFlag.RECREATE_SEGMENTS in dirtyFlags
     val forceHeight = DirtyFlag.FORCE_HEIGHT in dirtyFlags
+    val remeasure = DirtyFlag.REMEASURE in dirtyFlags
     dirtyFlags.clear()
 
     val topologyChanged = applySegments(renderedSegments, reset)
@@ -452,6 +496,7 @@ class EnrichedMarkdown(
         view.pending = pendingCodeBlockSegment != null && index == segmentViews.size - 1
       }
     }
+    codeBlockWrapState.sync()
 
     if (width > 0) {
       val heightBefore = computeSegmentsTotalHeight()
@@ -461,8 +506,14 @@ class EnrichedMarkdown(
       if (forceHeight || topologyChanged || heightBefore != heightAfter) {
         MeasurementStore.invalidate(id)
         requestLayout()
+        stateWrapper?.let {
+          val state = Arguments.createMap()
+          state.putInt("forceHeightRecalculationCounter", ++forceHeightRecalculationCounter)
+          it.updateState(state)
+        }
       }
     }
+    if (remeasure) onImageLayoutChanged()
   }
 
   private fun isMathContainerView(view: View): Boolean = mathContainerClass?.isInstance(view) == true

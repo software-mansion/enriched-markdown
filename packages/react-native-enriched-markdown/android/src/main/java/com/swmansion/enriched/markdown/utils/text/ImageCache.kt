@@ -11,11 +11,18 @@ object ImageCache {
   private val originalCache = bitmapLruCache(ORIGINAL_CACHE_SIZE)
   private val processedCache = bitmapLruCache(PROCESSED_CACHE_SIZE)
 
+  /** Header names lower-cased; sorted first so case aliases collapse deterministically. */
+  fun normalizedHeaders(headers: Map<String, String>): Map<String, String> =
+    headers.entries
+      .sortedBy { it.key }
+      .associate { it.key.lowercase() to it.value }
+
   /**
    * Cache identity for a remote image request. Returns the URL itself when no
    * headers are set; otherwise appends a SHA-256 digest of the sorted header
    * pairs, so the same URL fetched with different headers is cached and
    * deduplicated separately without embedding header values in the key.
+   * Header names are compared case-insensitively.
    */
   fun requestKey(
     url: String,
@@ -23,7 +30,8 @@ object ImageCache {
   ): String {
     if (headers.isEmpty()) return url
     val joined =
-      headers.entries
+      normalizedHeaders(headers)
+        .entries
         .sortedBy { it.key }
         .joinToString(separator = "\n") { "${it.key}:${it.value}" }
     val digest = MessageDigest.getInstance("SHA-256").digest(joined.toByteArray())

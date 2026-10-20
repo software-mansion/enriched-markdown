@@ -217,6 +217,12 @@ Controls the long-press context menu on block views - fenced code blocks, tables
 
 <LivePreview src={EnableBlockContextMenuSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the block context menu is a native interaction, and the web build renders blocks without one.</>} />
 
+### `enableCodeBlockWrapToggle`
+
+Shows a line wrap toggle next to the copy button in each fenced code block header; set it to `false` to hide the toggle. Blocks start unwrapped and scroll horizontally; tapping the toggle wraps that block's lines at the block width, and tapping again goes back to scrolling. The state belongs to the block's position in the document: it survives streaming appends and resets when the Markdown is replaced rather than appended to. Needs [`flavor="github"`](#flavor); the toggle's spoken labels come from [`accessibilityLabels.codeBlock`](#accessibilitylabels). iOS and Android only; macOS accepts the prop but shows no toggle.
+
+<PropInfo type="boolean" default="true" />
+
 ### `enableLinkPreview` <IosBadge /> {#enablelinkpreview}
 
 Controls the native link preview on long press. It is on by default, and supplying [`onLinkLongPress`](#onlinklongpress) turns it off - your handler owns the long press instead. That override cannot be undone from this prop: with `onLinkLongPress` set, even an explicit `enableLinkPreview={true}` is discarded. Setting [`selectable={false}`](#selectable) also suppresses the preview.
@@ -347,6 +353,30 @@ interface LinkPillContent {
 
 <LivePreview src={LinkPillContentSrc} unavailable unavailableReason={<>iOS and Android only - pills are drawn by the native text stack.</>} />
 
+### `linkRecognition`
+
+Opt-in link recognition for text that is not written as a Markdown link, such as `#1234`, `@name`, `$skill` or a file path. Off by default. Works in both flavors on every platform.
+
+| Key | Type | Matches |
+| --- | ---- | ------- |
+| `text` | `RegExp` | Every nonempty, non-overlapping match inside a plain-text run |
+| `inlineCode` | `RegExp` | An inline-code span whose whole content matches becomes one link |
+
+A recognized link's URL is the matched text itself, so `linkVariants`, `linkPillContent`, `linkContextMenuItems`, `onLinkPress` and `onLinkLongPress` apply to it like to any other link. Existing links, autolinks, code blocks, images, video and math are never touched. The Markdown source is unchanged: copying, including Copy as Markdown, returns the original text without link syntax.
+
+Matching happens per parsed text run, after Markdown parsing, so a pattern cannot match across formatting. `__init__.py` as plain text is split by emphasis parsing and will not match, while `` `__init__.py` `` as inline code matches whole. With the `latexMath` flag on (the default), two `$` on one line form a math span, so `$deploy ... $test` is math, not two skills; turn the flag off or escape the `$` in such content.
+
+Only the regex source and the `i` and `s` flags are used. Patterns must be valid for `NSRegularExpression` and `java.util.regex.Pattern` as well as JavaScript; an invalid pattern turns that recognizer off. This is different from the input's `linkRegex`, which detects URLs and is on by default. Pass the object inline or hoisted as you like: an equal config does not re-send the prop.
+
+```tsx
+<EnrichedMarkdownText
+  markdown="Fixed in #1284, see `src/App.tsx`"
+  linkRecognition={{ text: /#\d+/, inlineCode: /[\w./-]+\.tsx?/ }}
+  markdownStyle={{ linkVariants: { '^#\\d+$': { pill: true } } }}
+  onLinkPress={({ url }) => openReference(url)}
+/>
+```
+
 ### `contextMenuItems`
 
 Custom items to add to the text selection context menu. Items appear before the system actions and are hidden when `visible: false`. On iOS this requires iOS 16+; on earlier versions the prop is ignored.
@@ -466,6 +496,11 @@ interface AccessibilityLabels {
   };
   math?: {
     equation?: string; // {latex} is the equation source
+  };
+  codeBlock?: {
+    // the enableCodeBlockWrapToggle header button
+    wrap?: string;
+    unwrap?: string;
   };
   rotor?: {
     // iOS only, Android has no rotor
@@ -602,7 +637,7 @@ interface LinkLongPressEvent {
 
 Callback fired when a rendered image is tapped or clicked. Read the image URL from `event.url` and its Markdown alt text from `event.altText` (`""` when the image has no alt text) - use it to open a lightbox or full-screen viewer.
 
-Fires for block and inline images, including images inside headings, lists, and blockquotes. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both. Not fired for images inside GFM tables.
+Fires for block and inline images, including images inside headings, lists, blockquotes, and GFM table cells. An image that is also a link (`[![alt](img)](dest)`) keeps link behavior and fires [`onLinkPress`](#onlinkpress) instead, so a single tap never fires both.
 
 Setting this callback makes images interactive; leaving it unset keeps the default tap, text-selection, and long-press behavior unchanged. On web the image becomes focusable, exposes a button role for screen readers, and can be activated with Enter/Space, while the browser's right-click menu is preserved.
 

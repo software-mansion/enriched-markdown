@@ -3,6 +3,8 @@ package com.swmansion.enriched.markdown.renderer
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
+import com.swmansion.enriched.markdown.spans.OrderedListSpan
+import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
@@ -22,8 +24,9 @@ class ListRenderer(
     val listStyle = config.style.listStyle
     val listType = if (isOrdered) BlockStyleContext.ListType.ORDERED else BlockStyleContext.ListType.UNORDERED
 
+    val markerExtraWidth = if (isOrdered) markerExtraWidth(node, listStyle, factory) else 0f
     val contextManager = ListContextManager(factory.blockStyleContext)
-    val entryState = contextManager.enterList(listType, listStyle)
+    val entryState = contextManager.enterList(listType, listStyle, markerExtraWidth)
 
     // For top-level lists, insert marginTop spacer before rendering content
     if (entryState.previousDepth == 0) {
@@ -47,6 +50,22 @@ class ListRenderer(
     if (builder.length > contentStart) {
       applyListSpacing(builder, contentStart, entryState.previousDepth, listStyle)
     }
+  }
+
+  /** Lists under 100 keep the `99.` column, so only numbers from 100 on widen it. Task items draw a checkbox. */
+  private fun markerExtraWidth(
+    node: MarkdownASTNode,
+    listStyle: ListStyle,
+    factory: RendererFactory,
+  ): Float {
+    val wideNumbers = mutableListOf<Int>()
+    var number = 1
+    for (item in node.children) {
+      if (item.type != MarkdownASTNode.NodeType.ListItem) continue
+      if (number >= 100 && item.attributes["isTask"] != "true") wideNumbers += number
+      number++
+    }
+    return OrderedListSpan.measureExtraWidth(listStyle, factory.context, wideNumbers)
   }
 
   private fun applyListSpacing(

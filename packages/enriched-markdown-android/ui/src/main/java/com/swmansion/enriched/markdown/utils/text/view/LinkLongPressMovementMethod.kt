@@ -30,8 +30,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private var pressedLink: LinkSpan? = null
   private var pressedSpoiler: SpoilerSpan? = null
 
-  var isLinkTouchActive: Boolean = false
-    private set
+  private var isLinkTouchActive: Boolean = false
   private var isTouchWithinTextBounds: Boolean = true
 
   override fun onTouchEvent(
@@ -109,6 +108,8 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     span: LinkSpan,
   ) {
     cancelLongPress()
+    // The view's own long-press races the runnable below; cancel it so only the link fires.
+    widget.cancelLongPress()
 
     longPressRunnable =
       Runnable {

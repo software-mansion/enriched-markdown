@@ -6,7 +6,7 @@
 @interface ENRMTableIOSGridView () <UIGestureRecognizerDelegate>
 @end
 
-@implementation ENRMTableIOSLinkHit
+@implementation ENRMTableIOSItemHit
 @end
 
 @implementation ENRMTableIOSRowData
@@ -152,7 +152,7 @@
   return NO;
 }
 
-static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGRect textRect, CGPoint point)
+static ENRMTableIOSItemHit *itemInAttributedString(NSAttributedString *text, CGRect textRect, CGPoint point)
 {
   if (text.length == 0)
     return nil;
@@ -176,24 +176,30 @@ static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGR
   if (charIndex >= text.length)
     return nil;
 
-  NSRange linkRange;
-  NSString *url = [text attribute:@"linkURL"
-                          atIndex:charIndex
-            longestEffectiveRange:&linkRange
-                          inRange:NSMakeRange(0, text.length)];
-  if (!url)
+  NSRange itemRange;
+  NSRange whole = NSMakeRange(0, text.length);
+  NSString *linkURL = [text attribute:@"linkURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
+  NSString *imageURL =
+      linkURL ? nil : [text attribute:@"imageURL" atIndex:charIndex longestEffectiveRange:&itemRange inRange:whole];
+  if (!linkURL && !imageURL)
     return nil;
-  NSRange glyphRange = [layoutManager glyphRangeForCharacterRange:linkRange actualCharacterRange:NULL];
-  CGRect frame = [layoutManager boundingRectForGlyphRange:glyphRange inTextContainer:textContainer];
 
-  ENRMTableIOSLinkHit *hit = [[ENRMTableIOSLinkHit alloc] init];
-  hit.url = url;
-  hit.title = linkTitleAtIndex(text, charIndex);
+  NSRange glyphRange = [layoutManager glyphRangeForCharacterRange:itemRange actualCharacterRange:NULL];
+  CGRect frame = [layoutManager boundingRectForGlyphRange:glyphRange inTextContainer:textContainer];
+  // Links keep nearest-glyph hits; an image needs the tap inside its bounds.
+  if (imageURL && !CGRectContainsPoint(frame, local))
+    return nil;
+
+  ENRMTableIOSItemHit *hit = [[ENRMTableIOSItemHit alloc] init];
+  hit.kind = linkURL ? ENRMTableIOSItemKindLink : ENRMTableIOSItemKindImage;
+  hit.url = linkURL ?: imageURL;
+  hit.title = linkURL ? linkTitleAtIndex(text, charIndex)
+                      : [text attribute:@"imageAltText" atIndex:charIndex effectiveRange:NULL];
   hit.frame = CGRectOffset(frame, textRect.origin.x, textRect.origin.y);
   return hit;
 }
 
-- (ENRMTableIOSLinkHit *)linkAtPoint:(CGPoint)point
+- (ENRMTableIOSItemHit *)itemAtPoint:(CGPoint)point
 {
   CGFloat rowY, rowH, colX, colW;
   NSAttributedString *text;
@@ -205,7 +211,13 @@ static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGR
   if (!CGRectContainsPoint(textRect, point))
     return nil;
 
-  return linkInAttributedString(text, textRect, point);
+  return itemInAttributedString(text, textRect, point);
+}
+
+- (ENRMTableIOSItemHit *)linkAtPoint:(CGPoint)point
+{
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:point];
+  return hit.kind == ENRMTableIOSItemKindLink ? hit : nil;
 }
 
 #pragma mark - Gesture handlers
@@ -221,8 +233,16 @@ static ENRMTableIOSLinkHit *linkInAttributedString(NSAttributedString *text, CGR
 
 - (void)handleTap:(UITapGestureRecognizer *)recognizer
 {
-  if (recognizer.state == UIGestureRecognizerStateEnded) {
-    [self handleLinkGesture:recognizer block:self.onLinkTap];
+  if (recognizer.state != UIGestureRecognizerStateEnded)
+    return;
+  ENRMTableIOSItemHit *hit = [self itemAtPoint:[recognizer locationInView:self]];
+  if (!hit)
+    return;
+  if (hit.kind == ENRMTableIOSItemKindLink) {
+    if (self.onLinkTap)
+      self.onLinkTap(hit.url);
+  } else if (self.onImageTap) {
+    self.onImageTap(hit.url, hit.title ?: @"");
   }
 }
 

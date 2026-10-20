@@ -11,10 +11,11 @@ import type {
   CodeBlockPressEvent,
 } from './events';
 import type { LinkPillContent } from './linkPill';
+import type { LinkRecognition } from './linkRecognition';
 
-// Defined apart so code shared with web can import it: under a `.web`
+// Defined apart so code shared with web can import them: under a `.web`
 // module suffix this file resolves to `MarkdownTextProps.web.ts`.
-export type { LinkPillContent };
+export type { LinkPillContent, LinkRecognition };
 
 /**
  * An item of a link's long-press menu. `text` identifies the item, so it must be
@@ -251,6 +252,19 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   onCodeBlockPress?: (event: CodeBlockPressEvent) => void;
   /**
+   * Shows a line wrap toggle next to the copy button in each fenced code block
+   * header; set `false` to hide it. Every block starts unwrapped (horizontal scroll) and toggles on its
+   * own. The state belongs to the block's position in the document: it survives
+   * streaming appends and resets when the markdown is replaced. Code blocks
+   * inside blockquotes and admonitions get the toggle too. The toggle's spoken
+   * labels come from `accessibilityLabels.codeBlock`.
+   *
+   * Only applies when `flavor="github"`.
+   * @default true
+   * @platform ios, android
+   */
+  enableCodeBlockWrapToggle?: boolean;
+  /**
    * Controls the long-press context menu on block views (code blocks, tables,
    * and block math). When false, long-pressing a block does not open the copy
    * popup. Does not affect the code-block header copy button, the
@@ -407,6 +421,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android
    */
   linkPillContent?: Record<string, LinkPillContent>;
+  /**
+   * Turns regex matches in plain text (`text`) and whole inline-code spans
+   * (`inlineCode`) into links. The matched text is the URL; the source is unchanged.
+   *
+   * @example
+   * linkRecognition={{ text: /#\d+/, inlineCode: /[\w./-]+\.tsx?/ }}
+   * @platform ios, android, web
+   */
+  linkRecognition?: LinkRecognition;
   /**
    * Controls the built-in items added to the native text selection menu and
    * lets you localize their labels. Custom app-provided actions are controlled

@@ -29,7 +29,7 @@ ScrollView {
 ```
 
 :::note
-Parsing and rendering run **off the main thread**, and the result is applied when it lands. A view shows nothing for its first frame or two on a long document, and a superseded render is discarded rather than painted late.
+Parsing and rendering run **off the main thread**, and the result is applied when it lands. Every render goes this way, the first one included, so a new view is blank for its first frame or two however short the document is - longer on a long one. A superseded render is discarded rather than painted late.
 :::
 
 ## Parameters
@@ -98,7 +98,7 @@ Renders `~text~` lowered below the baseline. Style it through [`Subscript()`](/i
 <PropInfo type="Bool" default="false" />
 
 :::caution
-`subscript` and strikethrough share the tilde. With the option on, `~text~` is a subscript and `~~text~~` is still strikethrough - so a document that uses single tildes as decoration will render them as lowered text instead.
+`subscript` and strikethrough share the tilde. With the option off, a single-tilde `~text~` is **strikethrough**, the same as `~~text~~`. Turning it on changes what single tildes mean: `~text~` becomes a subscript and only `~~text~~` stays struck through - so a document that strikes text out with single tildes renders it lowered instead.
 :::
 
 #### `highlight`
@@ -264,7 +264,7 @@ public struct MarkdownSelectionMenu: Equatable, Sendable {
 
 #### `copyAsMarkdown`
 
-Adds an item that puts the selection on the pasteboard as **Markdown source**. A selection covering the whole document copies the original string verbatim; a partial selection is reconstructed from the rendered text, markers and all.
+Adds an item that puts the selection on the pasteboard as **Markdown source**. A selection covering the whole document copies the original string verbatim. A partial selection copies the matching **slice of your source** where it can - widened to take in the markers, list prefixes, and fences the selection visually includes, and checked by re-parsing it. Only when no slice matches is the Markdown reconstructed from the rendered text instead.
 
 <PropInfo type="Bool" default="true" />
 
@@ -315,26 +315,184 @@ Chooses how `||spoiler||` text is concealed until it is tapped.
 <PropInfo type="any SpoilerOverlayProvider" default=".particles" />
 
 ```swift
-extension View {
-  func markdownSpoilerOverlay(_ provider: any SpoilerOverlayProvider) -> some View
-}
+import EnrichedMarkdown
+import SwiftUI
 
-// The two built-in overlays, each tunable through its own arguments:
-.particles                              // the default - a drifting field of dots
-.particles(density: 12, speed: 30)      // density and drift, relative to the defaults 8 and 20
-.solid                                  // an opaque box with 4 pt corners
-.solid(cornerRadius: 6)
+EnrichedMarkdownText(content)
+  .markdownSpoilerOverlay(.solid)
+
+EnrichedMarkdownText(content)
+  .markdownSpoilerOverlay(.particles(density: 12, speed: 30))
 ```
 
-Spoiler syntax is always parsed - there is no option to enable. The provider chooses **which** overlay is drawn and how it behaves; its **colors** - the particles or box fill, and the backdrop under the particles - come from the [`Spoiler()`](/ios/api-reference/style-properties#spoiler) theme element.
+| Provider | Draws |
+| --- | --- |
+| `.particles` | The default: a field of drifting dots over an opaque backdrop |
+| `.particles(density:speed:)` | The same, tuned. `density` is particles per 100×100 pt (default `8`), `speed` is drift in points per second (default `20`) - absolute values, not multipliers |
+| `.solid` | An opaque box with 4 pt corners |
+| `.solid(cornerRadius:)` | The same box with your corner radius, in points |
 
-`SpoilerOverlayProvider` is public, so a custom effect is a provider of your own returning a `SpoilerOverlayView` subclass. Each view covers one line segment of a spoiler and is told its typographic `baseline` and its `segmentIndex` of `segmentCount`, which is what a wrapped spoiler needs to reveal in reading order. Keep the provider `Equatable` on its stored parameters - the text view rebuilds its overlays only when the provider value changes.
+The dot syntax builds the two public provider types, `ParticleSpoilerOverlayProvider(density:speed:)` and `SolidSpoilerOverlayProvider(cornerRadius:)`, whose `nil` arguments mean the defaults above.
+
+Spoiler syntax is always parsed - there is no option to enable. The provider chooses **which** overlay is drawn and how it behaves; its **colors** - the particles or box fill, and the backdrop under the particles - come from the [`Spoiler()`](/ios/api-reference/style-properties#spoiler) theme element. To draw an effect of your own, see [Custom spoiler overlays](#custom-spoiler-overlays).
 
 Behavior worth knowing:
 
-- One spoiler reveals at a time, and a revealed one **stays revealed** across a theme or Dynamic Type change. Changing the `markdown` string conceals them all again.
+- A tap reveals **only the spoiler under it**; the others stay concealed, and any number can be open at once. A revealed spoiler **stays revealed** across a theme or Dynamic Type change. Changing the `markdown` string conceals them all again.
 - A link inside a concealed spoiler is not a link: no tap, no long press, no menu, and no VoiceOver link element until the spoiler is revealed.
-- Copying reproduces the `||` markers whether or not the spoiler was revealed, and VoiceOver reads spoiler text as ordinary text.
+- The system **Copy** puts the spoiler's text on the pasteboard as ordinary text, concealed or not - a selection that spans a spoiler gives its content away. Only [Copy as Markdown](#markdownselectionmenu) keeps the `||` markers.
+- VoiceOver reads spoiler text as ordinary text.
+
+### Custom spoiler overlays {#custom-spoiler-overlays}
+
+A custom effect is two pieces: a `SpoilerOverlayProvider` that you pass to `.markdownSpoilerOverlay`, and the `SpoilerOverlayView` it builds - the base class as it is, or a subclass of your own.
+
+```swift
+public protocol SpoilerOverlayProvider: Equatable, Sendable {
+  @MainActor
+  func makeOverlay(charRange: NSRange, style: SpoilerStyle) -> SpoilerOverlayView
+}
+
+open class SpoilerOverlayView: UIView {
+  public init(charRange: NSRange)
+
+  public let charRange: NSRange                        // the whole spoiler, shared by its segments
+  public internal(set) var concealedText: NSAttributedString  // this segment's text, styled
+  public internal(set) var baseline: CGFloat           // the line's baseline, from the view's top
+  public internal(set) var segmentIndex: Int           // this segment, in reading order
+  public internal(set) var segmentCount: Int
+  public internal(set) var revealPoint: CGPoint?       // the tap, in this view's coordinates
+
+  public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage
+  open func animateReveal(completion: @escaping () -> Void)
+}
+```
+
+The text view calls `makeOverlay` once per **line segment** of a spoiler - one that wraps onto three lines gets three views - then sets the view's frame and the properties above and adds it over the text. `style` is the resolved [`Spoiler()`](/ios/api-reference/style-properties#spoiler) theme element, so an effect can take its colors from the theme like the built-ins do.
+
+The provider is the only required piece. `SpoilerOverlayView` is a working view on its own - it fades out when revealed - so the smallest custom overlay returns one with a background:
+
+```swift
+import EnrichedMarkdown
+import SwiftUI
+import UIKit
+
+/// A flat box in the theme's spoiler color, with square corners.
+struct FlatSpoilerOverlay: SpoilerOverlayProvider {
+  @MainActor
+  func makeOverlay(charRange: NSRange, style: SpoilerStyle) -> SpoilerOverlayView {
+    let view = SpoilerOverlayView(charRange: charRange)
+    view.backgroundColor = style.color ?? .secondaryLabel   // opaque: see below
+    return view
+  }
+}
+
+EnrichedMarkdownText(content)
+  .markdownSpoilerOverlay(FlatSpoilerOverlay())
+```
+
+Subclass the view when the effect needs its own drawing or its own reveal animation. This one keeps its parameters in the provider and hands them to the view:
+
+```swift
+import EnrichedMarkdown
+import SwiftUI
+import UIKit
+
+/// An opaque bar that slides away line by line when tapped.
+struct WipeSpoilerOverlay: SpoilerOverlayProvider {
+  var cornerRadius: CGFloat = 3
+  var lineDelay: TimeInterval = 0.12
+
+  @MainActor
+  func makeOverlay(charRange: NSRange, style: SpoilerStyle) -> SpoilerOverlayView {
+    WipeSpoilerOverlayView(
+      charRange: charRange,
+      color: style.color ?? .secondaryLabel,
+      cornerRadius: cornerRadius,
+      lineDelay: lineDelay
+    )
+  }
+}
+
+final class WipeSpoilerOverlayView: SpoilerOverlayView {
+  private let lineDelay: TimeInterval
+
+  init(charRange: NSRange, color: UIColor, cornerRadius: CGFloat, lineDelay: TimeInterval) {
+    self.lineDelay = lineDelay
+    super.init(charRange: charRange)
+    backgroundColor = color          // opaque: see below
+    layer.cornerRadius = cornerRadius
+  }
+
+  override func animateReveal(completion: @escaping () -> Void) {
+    UIView.animate(
+      withDuration: 0.3,
+      delay: lineDelay * Double(segmentIndex),
+      options: .curveEaseIn
+    ) {
+      self.transform = CGAffineTransform(translationX: self.bounds.width, y: 0)
+      self.alpha = 0
+    } completion: { _ in
+      completion()                   // required: the view is removed only now
+    }
+  }
+}
+
+EnrichedMarkdownText(content)
+  .markdownSpoilerOverlay(WipeSpoilerOverlay(lineDelay: 0.2))
+```
+
+The contract:
+
+- **The view must be opaque.** The text under a concealed spoiler is drawn transparent, but emoji and inline images ignore that and would show through a see-through overlay. Give the view a solid background, as the built-in particles do with their backdrop. An effect that should show the text through - a blur, a shimmer over the letters - draws `concealedTextImage()` itself: `concealedText` rendered on a transparent canvas the size of the view, positioned as the text view lays it out.
+- **`animateReveal(completion:)` must call `completion`.** A reveal calls it on every segment of the spoiler at once, and each view is removed from the text view only when its completion runs - one that never calls it stays on screen. The default fades `alpha` out; call `super` to keep that fade under your own animation. `revealPoint` says where the reader tapped, and is `nil` for a programmatic reveal and outside the bounds when the tap landed on another segment of the same spoiler. `segmentIndex` and `segmentCount` are what a wrapped spoiler needs to reveal in reading order.
+- **Keep the provider `Equatable` through its stored properties.** The text view rebuilds its overlays only when the provider value or the resolved `Spoiler()` style changes, so let Swift synthesize `==` from the parameters - a provider that compares equal while drawing something different is never rebuilt.
+- **Keep construction cheap.** When a re-layout only moves a segment, its view moves with it and keeps its state; when the segment's text, size, or baseline changes, the view is thrown away and `makeOverlay` called again.
+
+## Code blocks
+
+### `.markdownCodeBlockLayout` {#markdowncodeblocklayout}
+
+Lays fenced code blocks out as wrapping text, or as panels with a language header and a copy button whose lines keep their length and scroll sideways.
+
+<PropInfo type="MarkdownCodeBlockLayout" default=".wrapping" />
+
+```swift
+public enum MarkdownCodeBlockLayout: Equatable, Sendable {
+  case wrapping    // lines break at the view's width; the code is selectable text
+  case scrollable  // a panel: language name and copy button above lines kept whole
+}
+
+EnrichedMarkdownText(content)
+  .markdownCodeBlockLayout(.scrollable)
+```
+
+A `.scrollable` panel names the language from the fence (`py` reads "Python"; an unknown info string is shown capitalized), and a block wider than the view scrolls sideways in place. Long-pressing a panel offers **Copy** and **Copy as Markdown**. Text selection treats the panel as one character: a selection spanning it copies the code as plain text and a `<pre>` in the HTML flavor, and Copy as Markdown restores the fence. VoiceOver reads the panel as one element with the "Copy code" action, as it does a wrapping block.
+
+A rightward pan on a panel already at its left edge is left to the system, so a full-width back gesture still works; tables and display math behave the same way.
+
+Both layouts take their font, colors, padding, corner radius, border and margins from the [`CodeBlock()`](/ios/api-reference/style-properties#codeblock) theme element; its `.headerForegroundStyle(_:)` tints the panel's label and copy button.
+
+Code is drawn in one color by default. To color it by language, add the `EnrichedMarkdownSyntaxHighlighting` product and apply `.markdownSyntaxHighlighting()` - see [Syntax highlighting](/ios/guides/syntax-highlighting).
+
+### `.onCodeBlockCopy` {#oncodeblockcopy}
+
+Called after a code block's code is copied: by a panel's copy button, its long-press **Copy**, or the VoiceOver "Copy code" action in either layout. Not called for Copy as Markdown.
+
+<PropInfo type="(CodeBlockCopy) -> Void" default="none" />
+
+```swift
+public struct CodeBlockCopy: Equatable, Sendable {
+  public let code: String
+  public let language: String?  // the fence's info string, nil when it named none
+}
+
+EnrichedMarkdownText(content)
+  .markdownCodeBlockLayout(.scrollable)
+  .onCodeBlockCopy { copy in
+    print("Copied \(copy.code.count) characters of \(copy.language ?? "plain") code")
+  }
+```
 
 ## Images
 
@@ -350,6 +508,58 @@ EnrichedMarkdownText(content)
 ```
 
 Headers take part in the cache key, so the same URL fetched with different headers is cached and deduplicated separately - see [Images and caching](/ios/guides/image-caching).
+
+## Layout
+
+### `.markdownWritingDirection` {#markdownwritingdirection}
+
+Sets how each paragraph's base writing direction is resolved - which side its text starts from, and so which side its list marker, checkbox, and blockquote bar sit on. The default handles a document that mixes left-to-right and right-to-left paragraphs without any configuration.
+
+<PropInfo type="MarkdownWritingDirection" default=".firstStrong" />
+
+```swift
+public enum MarkdownWritingDirection: CaseIterable, Equatable, Sendable {
+  case firstStrong  // each paragraph follows its first strong directional character
+  case natural      // direction is left to TextKit
+  case leftToRight  // every paragraph left-to-right
+  case rightToLeft  // every paragraph right-to-left
+}
+```
+
+```swift
+import EnrichedMarkdown
+import SwiftUI
+
+EnrichedMarkdownText(content)
+  .markdownWritingDirection(.rightToLeft)
+```
+
+| Case | Each paragraph runs |
+| --- | --- |
+| `.firstStrong` | In the direction of its first strong character - a Hebrew or Arabic letter makes it right-to-left, a Latin one left-to-right. A paragraph with no strong character (only digits or punctuation) follows the SwiftUI `layoutDirection` environment value |
+| `.natural` | As TextKit decides. List markers, checkboxes, blockquote bars, and paragraphs with no strong character follow the app's interface direction rather than the paragraph's |
+| `.leftToRight` | Left-to-right, whatever its text |
+| `.rightToLeft` | Right-to-left, whatever its text |
+
+Under every case other than `.natural`, a paragraph's decorations follow that paragraph: a right-to-left list item has its marker or checkbox on the right, a right-to-left quote its bar on the right, even in a left-to-right app. An admonition's title takes the direction of the body it introduces. **Code blocks always render left-to-right**, whichever case is set.
+
+### `.markdownBottomMargin` {#markdownbottommargin}
+
+Whether the last block's bottom margin is laid out below the text. Hidden by default: the view ends at its last line, so the gap between it and whatever follows is the container's to decide - a `VStack` spacing, a `padding`, a list row inset - rather than the theme's. Show it for a view that should hold its own gap, such as one ending a scrolling column.
+
+<PropInfo type="Visibility" default=".automatic" />
+
+```swift
+VStack(spacing: 0) {
+  EnrichedMarkdownText(intro)
+    .markdownBottomMargin(.visible)   // keeps the paragraph margin below the last line
+  Divider()
+}
+```
+
+It takes SwiftUI's own `Visibility`, as `.listRowSeparator(_:)` and `.scrollContentBackground(_:)` do. `.automatic` and `.hidden` both end the view at its last line.
+
+The margin shown is the one the theme gives the block that ends the document - [`Paragraph().marginBottom(_:)`](/ios/api-reference/style-properties#paragraph) for a paragraph, `Heading(1).marginBottom(_:)` for a heading, and so on. For a top-level block that is the same gap the theme puts between blocks inside the document. Where blocks nest, the largest margin ending the document wins: a code block that closes a list item keeps the list's margin if that is the larger. A code block ending the document keeps its bottom padding either way; only the margin below it is in question.
 
 ## Accessibility
 
@@ -379,7 +589,10 @@ public struct MarkdownAccessibilityLabels: Equatable, Sendable {
 | `list.top.orderedItem` | `"List item {n}"` |
 | `list.top.checkedTask` | `"Task, checked"` |
 | `list.top.uncheckedTask` | `"Task, not checked"` |
-| `list.nested.*` | The same four, prefixed `"Nested "` |
+| `list.nested.bulletPoint` | `"Nested bullet point"` |
+| `list.nested.orderedItem` | `"Nested list item {n}"` |
+| `list.nested.checkedTask` | `"Nested task, checked"` |
+| `list.nested.uncheckedTask` | `"Nested task, not checked"` |
 | `blockquote.quote` | `"Blockquote"` |
 | `blockquote.nestedQuote` | `"Nested blockquote"` |
 | `table.row` | `"Row {n}: {content}"` |
@@ -408,6 +621,8 @@ For what VoiceOver announces for each element, see [Accessibility](/user-experie
 ### `.markdownTheme` {#markdowntheme}
 
 Provides a `MarkdownTheme` for the subtree. Themes layer, innermost last. It has its own page: [`MarkdownTheme`](/ios/api-reference/markdown-theme).
+
+<PropInfo type="MarkdownTheme" default="MarkdownTheme.default" />
 
 ```swift
 Content()

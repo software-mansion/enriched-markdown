@@ -361,6 +361,10 @@ export interface AccessibilityLabelsTableProps {
 export interface AccessibilityLabelsMathProps {
   equation: string;
 }
+export interface AccessibilityLabelsCodeBlockProps {
+  wrap: string;
+  unwrap: string;
+}
 export interface AccessibilityLabelsRotorProps {
   headings: string;
   links: string;
@@ -371,6 +375,7 @@ export interface AccessibilityLabelsProps {
   blockquote: Readonly<AccessibilityLabelsBlockquoteProps>;
   table: Readonly<AccessibilityLabelsTableProps>;
   math: Readonly<AccessibilityLabelsMathProps>;
+  codeBlock: Readonly<AccessibilityLabelsCodeBlockProps>;
   rotor: Readonly<AccessibilityLabelsRotorProps>;
 }
 
@@ -446,6 +451,14 @@ interface OnLinkContextMenuItemPressEvent {
   url: string;
   pattern: string;
   itemText: string;
+}
+
+interface TextLinkNativeRegex {
+  pattern: string;
+  caseInsensitive: boolean;
+  dotAll: boolean;
+  isDisabled: boolean;
+  isDefault: boolean;
 }
 
 export interface NativeProps extends ViewProps {
@@ -620,6 +633,11 @@ export interface NativeProps extends ViewProps {
   imageRequestHeaders?: ReadonlyArray<Readonly<ImageRequestHeaderInternal>>;
   /** Per-link pill content (label, icon), one entry per exact link URL. */
   linkPillContent?: ReadonlyArray<Readonly<LinkPillContentInternal>>;
+  /** Opt-in text link recognition; see `EnrichedMarkdownTextProps.linkRecognition`. */
+  linkRecognition?: Readonly<{
+    text: Readonly<TextLinkNativeRegex>;
+    inlineCode: Readonly<TextLinkNativeRegex>;
+  }>;
   /** Link long-press menus (iOS 17+): item lists by URL pattern, in matching order. */
   linkContextMenuItems?: ReadonlyArray<Readonly<LinkContextMenuItemsConfig>>;
   onLinkContextMenuItemPress?: CodegenTypes.BubblingEventHandler<OnLinkContextMenuItemPressEvent>;

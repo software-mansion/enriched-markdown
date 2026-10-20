@@ -21,6 +21,7 @@ jobs:
       react-native: ${{ steps.filter.outputs.react-native }}
       android: ${{ steps.filter.outputs.android }}
       ios: ${{ steps.filter.outputs.ios }}
+      core-cpp: ${{ steps.filter.outputs.core-cpp }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -45,6 +46,9 @@ jobs:
             android:
               - 'packages/enriched-markdown-android/**'
               - 'packages/core/**'
+              - 'vendor/vendor-grammars.mjs'
+              - 'vendor/gen-registry.mjs'
+              - 'vendor/grammar-versions.json'
               - 'apps/android-example/**'
               - 'package.json'
               - 'yarn.lock'
@@ -60,6 +64,40 @@ jobs:
               - '.nvmrc'
               - '.yarnrc.yml'
               - '.github/**'
+            core-cpp:
+              - 'packages/core/cpp/**'
+              - 'packages/react-native-enriched-markdown/src/web/wasm/**'
+              - 'scripts/fetch-md4c.sh'
+              - 'scripts/test-core-parser.sh'
+              - 'scripts/test-web-bundle.mjs'
+              - '.github/**'
+
+  # The parser is vendored from software-mansion-labs/md4c, so a sync can change
+  # how documents parse and can reintroduce a global symbol that collides with
+  # another embedded MD4C copy. Neither shows up in a native build.
+  core-parser:
+    needs: changes
+    if: needs.changes.outputs.core-cpp == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Check the vendored parser and the AST it produces
+        run: ./scripts/test-core-parser.sh
+
+      # The web bundle is a committed build artifact that nothing rebuilds on
+      # install, so it silently falls behind packages/core/cpp.
+      - name: Check the committed WASM bundle against the same AST
+        run: node scripts/test-web-bundle.mjs
+
+      # Nothing else gates these sources: the clang-format hook is local and
+      # can be bypassed, and no other job formats packages/core/cpp.
+      - name: Check formatting
+        run: yarn lint-clang:core-parser
 
   rn-lint:
     needs: changes
@@ -369,11 +407,14 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Restore Android vendor files
+        uses: ./.github/actions/restore-android-vendor
+
       - name: Cache turborepo for Android native
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'apps/android-example/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-android-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'apps/android-example/**', 'packages/core/cpp/**', 'vendor/vendor-grammars.mjs', 'vendor/gen-registry.mjs', 'vendor/grammar-versions.json') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-android-native-build-
 
@@ -414,11 +455,14 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Restore Android vendor files
+        uses: ./.github/actions/restore-android-vendor
+
       - name: Cache turborepo for Android native tests
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-android-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-android/**', 'packages/core/cpp/**', 'vendor/vendor-grammars.mjs', 'vendor/gen-registry.mjs', 'vendor/grammar-versions.json') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-android-native-test-
 
@@ -458,6 +502,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Restore Android vendor files
+        uses: ./.github/actions/restore-android-vendor
+
       - name: Cache turborepo for Android native lint
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -483,7 +530,7 @@ jobs:
         with:
           gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Run Kotlin lint
+      - name: Run ktlint and Android Lint
         run: yarn turbo run lint:android-native --filter=@enriched-markdown/android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   ios-build:
@@ -499,11 +546,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # EnrichedMarkdownLaTeX's Vendor/*.swift and Fonts are symlinks into the
-      # gitignored RN vendor tree; hashFiles() below fails on dangling symlinks
-      # and SwiftPM would silently compile the target without them.
-      - name: Restore RaTeX vendor files
-        run: node vendor/vendor-ratex.mjs
+      - name: Restore iOS vendor files
+        uses: ./.github/actions/restore-ios-vendor
 
       - name: Cache turborepo for iOS native build
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -560,11 +604,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # EnrichedMarkdownLaTeX's Vendor/*.swift and Fonts are symlinks into the
-      # gitignored RN vendor tree; hashFiles() below fails on dangling symlinks
-      # and SwiftPM would silently compile the target without them.
-      - name: Restore RaTeX vendor files
-        run: node vendor/vendor-ratex.mjs
+      - name: Restore iOS vendor files
+        uses: ./.github/actions/restore-ios-vendor
 
       - name: Cache turborepo for iOS native tests
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -621,11 +662,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # EnrichedMarkdownLaTeX's Vendor/*.swift and Fonts are symlinks into the
-      # gitignored RN vendor tree; hashFiles() below fails on dangling symlinks
-      # and SwiftPM would silently compile the target without them.
-      - name: Restore RaTeX vendor files
-        run: node vendor/vendor-ratex.mjs
+      - name: Restore iOS vendor files
+        uses: ./.github/actions/restore-ios-vendor
 
       - name: Cache turborepo for iOS native lint
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -661,6 +699,7 @@ jobs:
   ci-success:
     needs:
       - changes
+      - core-parser
       - rn-lint
       - rn-build-library
       - rn-build-android
@@ -681,6 +720,8 @@ jobs:
           REACT_NATIVE: ${{ needs.changes.outputs.react-native }}
           ANDROID: ${{ needs.changes.outputs.android }}
           IOS: ${{ needs.changes.outputs.ios }}
+          CORE_CPP: ${{ needs.changes.outputs.core-cpp }}
+          CORE_PARSER: ${{ needs.core-parser.result }}
           RN_LINT: ${{ needs.rn-lint.result }}
           RN_BUILD_LIBRARY: ${{ needs.rn-build-library.result }}
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
@@ -711,11 +752,12 @@ jobs:
             fi
           }
 
-          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" ]]; then
+          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" && "$CORE_CPP" != "true" ]]; then
             echo "No relevant changes detected - CI passed"
             exit 0
           fi
 
+          check_required "$CORE_CPP" "$CORE_PARSER" "core-parser"
           check_required "$REACT_NATIVE" "$RN_LINT" "rn-lint"
           check_required "$REACT_NATIVE" "$RN_BUILD_LIBRARY" "rn-build-library"
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"

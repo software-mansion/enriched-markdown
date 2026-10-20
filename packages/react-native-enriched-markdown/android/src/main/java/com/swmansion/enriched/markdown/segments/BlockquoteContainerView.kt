@@ -13,6 +13,7 @@ import android.view.View
 import androidx.core.graphics.withSave
 import com.facebook.react.common.ReactConstants
 import com.facebook.react.views.text.ReactTypefaceUtils.applyStyles
+import com.swmansion.enriched.markdown.CodeBlockWrapCursor
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
@@ -345,7 +346,8 @@ class BlockquoteContainerView(
      * The children are summed at the reduced inner width (outer minus horizontal
      * inset) and the vertical inset is added; nested quotes recurse through this
      * same function via SegmentHeightMeasurer. Math child heights use the shared
-     * estimate to avoid a main-thread measure from the layout pass.
+     * estimate to avoid a main-thread measure from the layout pass. Wrapped code
+     * blocks (wrapCursor) lay out at the inner width, as the views do.
      *
      * Potential win: this runs splitASTIntoSegments + render for measurement, and
      * applyBlockquoteNode runs them again for display, so each nesting level renders
@@ -359,6 +361,7 @@ class BlockquoteContainerView(
       config: StyleConfig,
       context: Context,
       width: Float,
+      wrapCursor: CodeBlockWrapCursor? = null,
     ): Float {
       val style = config.blockquoteStyle
       val leftInset = ceil(style.borderWidth + style.gapWidth + style.padding).toInt()
@@ -388,6 +391,7 @@ class BlockquoteContainerView(
           breakStrategy = breakStrategy,
           allowTrailingMargin = false,
           mathHeightForIndex = { estimateMathHeight(config) },
+          wrapCursor = wrapCursor,
         )
 
       return childrenHeight + verticalInset * 2f + headerReserved

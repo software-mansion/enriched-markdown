@@ -5,6 +5,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
 import com.swmansion.enriched.markdown.utils.text.span.applyTextAlignment
@@ -37,6 +38,8 @@ class HeadingRenderer(
     val contentLength = end - start
 
     if (contentLength > 0) {
+      // Set after the children, so top priority makes it apply first and the
+      // inline spans inside the heading (code, links, strong, emphasis) win.
       builder.setSpan(
         HeadingSpan(
           level,
@@ -44,7 +47,7 @@ class HeadingRenderer(
         ),
         start,
         end,
-        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
+        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY,
       )
 
       builder.setSpan(

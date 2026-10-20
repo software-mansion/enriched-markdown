@@ -15,9 +15,9 @@ set(LIB_ANDROID_GENERATED_COMPONENTS_DIR ${LIB_ANDROID_GENERATED_JNI_DIR}/react/
 set(CPP_IN_PACKAGE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../cpp")
 set(CPP_IN_MONOREPO "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../core/cpp")
 
-if(EXISTS "${CPP_IN_PACKAGE}/md4c/md4c.c")
+if(EXISTS "${CPP_IN_PACKAGE}/enrmrkd/enrmrkd.c")
   set(CPP_ROOT "${CPP_IN_PACKAGE}")
-elseif(EXISTS "${CPP_IN_MONOREPO}/md4c/md4c.c")
+elseif(EXISTS "${CPP_IN_MONOREPO}/enrmrkd/enrmrkd.c")
   set(CPP_ROOT "${CPP_IN_MONOREPO}")
 else()
   message(FATAL_ERROR "EnrichedMarkdown C++ sources not found. Expected cpp/ or packages/core/cpp.")
@@ -33,15 +33,15 @@ if(EXISTS "${HIGHLIGHT_CONFIG}")
   include("${HIGHLIGHT_CONFIG}")
 endif()
 
-file(GLOB MD4C_SOURCES "${CPP_ROOT}/md4c/*.c")
+file(GLOB ENRMRKD_SOURCES "${CPP_ROOT}/enrmrkd/*.c")
 file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
 file(GLOB HIGHLIGHT_SOURCES "${CPP_ROOT}/highlight/*.cpp")
 
-# md4c is C code, build as separate static library with C flags
-add_library(md4c_lib STATIC ${MD4C_SOURCES})
-target_include_directories(md4c_lib PUBLIC ${CPP_ROOT}/md4c)
-target_compile_definitions(md4c_lib PRIVATE MD4C_USE_UTF8=1)
-set_target_properties(md4c_lib PROPERTIES
+# The vendored parser is C code, build as separate static library with C flags
+add_library(enrmrkd_lib STATIC ${ENRMRKD_SOURCES})
+target_include_directories(enrmrkd_lib PUBLIC ${CPP_ROOT}/enrmrkd)
+target_compile_definitions(enrmrkd_lib PRIVATE ENRMRKD_USE_UTF8=1)
+set_target_properties(enrmrkd_lib PROPERTIES
   C_STANDARD 11
   C_STANDARD_REQUIRED ON
 )
@@ -66,12 +66,12 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/react/renderer/components/${LIB_LITERAL}
   ${LIB_ANDROID_GENERATED_JNI_DIR}
   ${LIB_ANDROID_GENERATED_COMPONENTS_DIR}
-  ${CPP_ROOT}/md4c
+  ${CPP_ROOT}/enrmrkd
   ${CPP_ROOT}/parser
   ${CPP_ROOT}/highlight
 )
 
-target_compile_definitions(${LIB_TARGET_NAME} PRIVATE MD4C_USE_UTF8=1)
+target_compile_definitions(${LIB_TARGET_NAME} PRIVATE ENRMRKD_USE_UTF8=1)
 
 find_package(fbjni REQUIRED CONFIG)
 find_package(ReactAndroid REQUIRED CONFIG)
@@ -80,7 +80,7 @@ find_library(LOG_LIB log)
 target_link_libraries(
   ${LIB_TARGET_NAME}
   ${LOG_LIB}
-  md4c_lib
+  enrmrkd_lib
   fbjni::fbjni
   ReactAndroid::jsi
   ReactAndroid::reactnative

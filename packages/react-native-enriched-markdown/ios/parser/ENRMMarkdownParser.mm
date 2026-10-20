@@ -1,7 +1,10 @@
 #import "ENRMMarkdownParser.h"
+#import "ENRMLinkRegexConfig.h"
 #import "MarkdownASTNode.h"
 
 extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM);
+extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
+                                                   ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex);
 
 @implementation ENRMMd4cFlags
 
@@ -56,6 +59,15 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
 - (MarkdownASTNode *)parseMarkdown:(NSString *)markdown flags:(ENRMMd4cFlags *)flags isGFM:(BOOL)isGFM
 {
   return parseMarkdownWithCppParser(markdown, flags, isGFM);
+}
+
+- (MarkdownASTNode *)parseMarkdown:(NSString *)markdown
+                             flags:(ENRMMd4cFlags *)flags
+                             isGFM:(BOOL)isGFM
+                         linkRegex:(ENRMLinkRegexConfig *)linkRegex
+               inlineCodeLinkRegex:(ENRMLinkRegexConfig *)inlineCodeLinkRegex
+{
+  return parseMarkdownWithCppParser(markdown, flags, isGFM, linkRegex, inlineCodeLinkRegex);
 }
 
 @end

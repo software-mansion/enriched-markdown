@@ -32,7 +32,6 @@ class RendererFactory internal constructor(
   private val config: RendererConfig,
   val context: Context,
   private val plugins: PluginSnapshot,
-  private val onImageSpanCreated: (ImageSpan) -> Unit,
 ) {
   val blockStyleContext = BlockStyleContext()
   val styleCache = SpanStyleCache(config.style, context)
@@ -92,7 +91,7 @@ class RendererFactory internal constructor(
       // An admonition is a themed blockquote: same renderer, which reads the node type to decide
       // whether to reserve and paint a header.
       put(MarkdownASTNode.NodeType.Admonition, BlockquoteRenderer(config))
-      put(MarkdownASTNode.NodeType.CodeBlock, CodeBlockRenderer(config))
+      put(MarkdownASTNode.NodeType.CodeBlock, CodeBlockRenderer(config, plugins.codeBlockDecorators))
       put(MarkdownASTNode.NodeType.UnorderedList, ListRenderer(config, isOrdered = false))
       put(MarkdownASTNode.NodeType.OrderedList, ListRenderer(config, isOrdered = true))
       put(MarkdownASTNode.NodeType.ListItem, ListItemRenderer(config))
@@ -128,10 +127,6 @@ class RendererFactory internal constructor(
   /** Core's renderer for [type], ignoring plugins; lets a plugin hand back a node it declines. */
   @InternalPluginApi
   fun builtInRenderer(type: MarkdownASTNode.NodeType): NodeRenderer? = builtInRenderers[type]
-
-  fun registerImageSpan(span: ImageSpan) {
-    onImageSpanCreated(span)
-  }
 
   fun getRenderer(node: MarkdownASTNode): NodeRenderer =
     renderers[node.type] ?: run {

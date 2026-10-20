@@ -21,6 +21,9 @@ public struct EnrichedMarkdownText: View {
     @Environment(\.markdownSpoilerOverlay) private var spoilerOverlay
     @Environment(\.markdownAccessibilityLabels) private var accessibilityLabels
     @Environment(\.markdownWritingDirection) private var writingDirection
+    @Environment(\.markdownCodeBlockLayout) private var codeBlockLayout
+    @Environment(\.markdownCodeBlockCopyHandler) private var onCodeBlockCopy
+    @Environment(\.markdownBottomMarginVisibility) private var bottomMarginVisibility
     // The fallback for paragraphs with no strong directional character.
     @Environment(\.layoutDirection) private var layoutDirection
     @StateObject private var renderStore = MarkdownRenderStore()
@@ -50,12 +53,15 @@ public struct EnrichedMarkdownText: View {
             config: config,
             options: options,
             imageRequestHeaders: imageRequestHeaders,
+            plugins: RenderPluginList(values: renderPlugins),
             writingDirection: writingDirection,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            codeBlockLayout: codeBlockLayout
         )
         return MarkdownTextViewRepresentable(
             attributedText: renderStore.attributedText,
             source: renderStore.source,
+            isBottomMarginEnabled: bottomMarginVisibility == .visible,
             styleConfig: config,
             openURL: { openURL($0) },
             onLinkPress: onLinkPress,
@@ -74,16 +80,17 @@ public struct EnrichedMarkdownText: View {
             onSpoilerTap: { range in
                 renderStore.revealSpoiler(in: range)
             },
+            onCodeBlockCopy: onCodeBlockCopy,
             accessibilityLabels: accessibilityLabels
         )
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
-            renderStore.schedule(inputs, plugins: renderPlugins)
+            renderStore.schedule(inputs)
         }
         // Runs against the previous view value, so the render takes the
         // closure's inputs; the view's would be one update behind.
         .onChange(of: inputs) { newValue in
-            renderStore.schedule(newValue, plugins: renderPlugins)
+            renderStore.schedule(newValue)
         }
         .onDisappear {
             renderStore.invalidate()

@@ -3,20 +3,22 @@
 package com.swmansion.enriched.markdown.math
 
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
+import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.plugin.MarkdownPlugin
 import com.swmansion.enriched.markdown.plugin.PluginRegistry
 
 /**
- * RaTeX-backed LaTeX rendering for `$...$` and `$$...$$`. Install it once, at startup, before any
- * markdown is rendered:
+ * RaTeX-backed LaTeX rendering for `$...$` and `$$...$$`. Enable it for a Compose subtree with a
+ * scope:
  *
  * ```
- * EnrichedMarkdownPlugins.install(LatexMathPlugin)
+ * LatexMathPlugin {
+ *   EnrichedMarkdownText(markdown)
+ * }
  * ```
  *
- * Without it core echoes the source of both node types, delimiters included; parsing them at all
- * still needs `Md4cFlags(latexMath = true)`.
+ * Enabling it is also what makes the parser recognise math.
  */
 object LatexMathPlugin : MarkdownPlugin {
   const val ID = "com.swmansion.enriched.markdown.math"
@@ -32,4 +34,6 @@ object LatexMathPlugin : MarkdownPlugin {
 
     registry.registerBlockSegment(NodeType.LatexMathDisplay, MathBlockSegment())
   }
+
+  override fun adjustParserFlags(flags: Md4cFlags): Md4cFlags = flags.copy(latexMath = true)
 }

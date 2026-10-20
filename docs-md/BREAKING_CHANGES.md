@@ -89,6 +89,13 @@ so each app configures independently. The _download_ opt-out is read where the i
 workspace root — so put it in the root `package.json` to skip a download for the whole repo. See
 [Native assets](./NATIVE_ASSETS.md).
 
+> [!CAUTION]
+> In 1.0.2 through 1.1.1 the download opt-out is read from the workspace root **only**: a block in a
+> workspace app's `package.json` disables the feature at build time but does not stop the install-time
+> download. Later releases also read the workspace members that depend on the package, so an app-level
+> block is enough when every consuming app opts out. See
+> [Which `package.json`?](./NATIVE_ASSETS.md#skipping-the-download-opt-out).
+
 ### Explicitly enabling a feature whose assets are missing now fails the build
 
 Previously, a missing native asset (the [RaTeX](https://ratex.lites.dev/) XCFramework, or the tree-sitter grammars) always silently

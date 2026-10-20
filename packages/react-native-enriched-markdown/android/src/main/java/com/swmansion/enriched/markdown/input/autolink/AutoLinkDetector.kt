@@ -7,6 +7,7 @@ import com.swmansion.enriched.markdown.input.formatting.FormattingStore
 import com.swmansion.enriched.markdown.input.model.FormattingRange
 import com.swmansion.enriched.markdown.input.model.InputFormatterStyle
 import com.swmansion.enriched.markdown.input.model.StyleType
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import java.util.regex.Pattern
 
 typealias OnLinkDetectedCallback = (text: String, url: String, start: Int, end: Int) -> Unit

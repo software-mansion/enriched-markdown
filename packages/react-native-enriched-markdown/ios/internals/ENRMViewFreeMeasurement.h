@@ -2,7 +2,9 @@
 
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
+#import "ENRMCodeBlockWrapState.h"
 #import "ENRMFeatureFlags.h"
+#import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
@@ -155,7 +157,7 @@ static inline CGSize ENRMMeasureAttributedTextViewFree(NSAttributedString *text,
   layout.usedRect = [layoutManager usedRectForTextContainer:textContainer];
   layout.extraLineFragmentRect = layoutManager.extraLineFragmentRect;
 
-  return ENRMFinalizeMeasuredTextSize(layout, layoutManager, text, maxWidth, config, allowTrailingMargin,
+  return ENRMFinalizeMeasuredTextSize(layout, layoutManager, maxWidth, config, allowTrailingMargin,
                                       lastElementMarginBottom, subtractExtraLineFragment, pointScaleFactor);
 }
 
@@ -181,7 +183,11 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
 
     ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(typedProps.md4cFlags);
     ENRMMarkdownParser *parser = [[ENRMMarkdownParser alloc] init];
-    MarkdownASTNode *ast = [parser parseMarkdown:markdown flags:flags isGFM:typedProps.isGFM];
+    MarkdownASTNode *ast = [parser parseMarkdown:markdown
+                                           flags:flags
+                                           isGFM:typedProps.isGFM
+                                       linkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.text)
+                             inlineCodeLinkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.inlineCode)];
     if (!ast) {
       return fallback;
     }
@@ -226,11 +232,16 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
  * same condition, tables report full width. Finishes with `measureSize:`'s
  * pixel rounding (width capped at maxWidth) and its
  * (maxWidth × system-16 line height) fallback for empty/failed content.
+ * `wrappedCodeBlocks` holds the document-order indexes, counted across nesting,
+ * of the code blocks the user wrapped (EnrichedMarkdown.wrappedCodeBlockIndices);
+ * those measure at the block width (a quote's inner width when nested) instead
+ * of their unwrapped height.
  */
 template <typename PropsT>
 static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedProps, CGFloat maxWidth, CGFloat fontScale,
                                                           CGFloat pointScaleFactor,
-                                                          NSWritingDirection resolvedLayoutDirection)
+                                                          NSWritingDirection resolvedLayoutDirection,
+                                                          NSSet<NSNumber *> *wrappedCodeBlocks = nil)
 {
   @autoreleasepool {
     CGSize fallback = CGSizeMake(maxWidth, UIFontLineHeight([UIFont systemFontOfSize:16.0]));
@@ -259,7 +270,11 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
 
     ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(typedProps.md4cFlags);
     ENRMMarkdownParser *parser = [[ENRMMarkdownParser alloc] init];
-    MarkdownASTNode *ast = [parser parseMarkdown:markdown flags:flags isGFM:typedProps.isGFM];
+    MarkdownASTNode *ast = [parser parseMarkdown:markdown
+                                           flags:flags
+                                           isGFM:typedProps.isGFM
+                                       linkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.text)
+                             inlineCodeLinkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.inlineCode)];
     if (!ast) {
       return fallback;
     }
@@ -285,6 +300,7 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
     CGFloat yOffset = 0.0;
     CGFloat maxContentWidth = 0.0;
     const NSUInteger lastIndex = segments.count - 1;
+    ENRMCodeBlockWrapCursor *wrapCursor = [[ENRMCodeBlockWrapCursor alloc] initWithWrapped:wrappedCodeBlocks];
 
     for (NSUInteger i = 0; i < segments.count; i++) {
       ENRMRenderedSegment *segment = segments[i];
@@ -311,8 +327,12 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
         }
       } else if (segment.kind == ENRMSegmentKindCodeBlock && segment.codeBlockSegment) {
         yOffset += config.codeBlockMarginTop;
-        yOffset += [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:segment.codeBlockSegment.codeBlockNode
-                                                                      config:config];
+        MarkdownASTNode *codeBlockNode = segment.codeBlockSegment.codeBlockNode;
+        yOffset += [wrapCursor nextIsWrapped]
+                       ? [ENRMCodeBlockContainerView measureWrappedHeightForCodeBlockNode:codeBlockNode
+                                                                                   config:config
+                                                                                 maxWidth:maxWidth]
+                       : [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:codeBlockNode config:config];
         maxContentWidth = maxWidth;
         if (shouldAddBottomMargin) {
           yOffset += config.codeBlockMarginBottom;
@@ -324,7 +344,8 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
                                                                       maxWidth:maxWidth
                                                               pointScaleFactor:pointScaleFactor
                                                               allowFontScaling:typedProps.allowFontScaling
-                                                             lineBreakStrategy:lineBreakStrategy];
+                                                             lineBreakStrategy:lineBreakStrategy
+                                                                    wrapCursor:wrapCursor];
         maxContentWidth = maxWidth;
         if (shouldAddBottomMargin) {
           yOffset += config.blockquoteMarginBottom;

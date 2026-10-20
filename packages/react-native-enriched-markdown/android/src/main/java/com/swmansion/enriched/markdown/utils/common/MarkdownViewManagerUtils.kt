@@ -181,6 +181,7 @@ fun parseAccessibilityLabels(value: ReadableMap?): AccessibilityLabels {
   val blockquote = value.getMap("blockquote")
   val table = value.getMap("table")
   val math = value.getMap("math")
+  val codeBlock = value.getMap("codeBlock")
   val rotor = value.getMap("rotor")
   return AccessibilityLabels(
     bulletPoint = list?.getString("bulletPoint") ?: "",
@@ -191,6 +192,8 @@ fun parseAccessibilityLabels(value: ReadableMap?): AccessibilityLabels {
     nestedBlockquote = blockquote?.getString("nestedQuote") ?: "",
     tableRow = table?.getString("row") ?: "",
     mathEquation = math?.getString("equation") ?: "",
+    codeBlockWrap = codeBlock?.getString("wrap") ?: "",
+    codeBlockUnwrap = codeBlock?.getString("unwrap") ?: "",
     rotorHeadings = rotor?.getString("headings") ?: "",
     rotorLinks = rotor?.getString("links") ?: "",
     rotorImages = rotor?.getString("images") ?: "",

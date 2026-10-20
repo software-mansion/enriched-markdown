@@ -14,7 +14,7 @@ The renderer sorts every element into one of two kinds, and the distinction driv
 - **Block elements** occupy their own vertical space and carry their own font, color, and margins. A paragraph, a heading, a list, a quote, a code block.
 - **Inline elements** live inside a line of text and modify a run of it. Bold, italic, links, inline code. They inherit size and line height from the block they sit in and override only what makes them distinct - see [Style inheritance](/ios/api-reference/style-properties#style-inheritance).
 
-The whole document renders into a **single native text view**. Block structure is carried by attributes and paragraph styles, and the decorations that are not text - list bullets, checkboxes, quote bars, code block fills, spoiler overlays - are drawn around it. That is why a selection can run from the first heading to the last list item without interruption.
+The whole document renders into a **single native text view**. Block structure is carried by attributes and paragraph styles, and the decorations that are not text - list bullets, checkboxes, quote bars, code block fills, spoiler overlays - are drawn around it. Elements that need their own view or drawing - images, tables, scrollable code blocks, thematic breaks, and math - sit in the text as attachments. That is why a selection can run from the first heading to the last list item without interruption.
 
 ## Supported elements
 
@@ -30,10 +30,10 @@ The whole document renders into a **single native text view**. Block structure i
 | Ordered list | `1. item` | Nests |
 | Task list | `- [ ]` / `- [x]` | Tappable - see [`.onTaskListItemToggle`](/ios/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
 | Table | GFM pipe table | Always enabled - see [below](#tables) |
-| Fenced code block | ```` ```swift ```` | Language label is parsed; no syntax highlighting |
+| Fenced code block | ```` ```swift ```` | Highlighted by language with `EnrichedMarkdownSyntaxHighlighting` - see [Syntax highlighting](/ios/guides/syntax-highlighting). The language is shown in the header of the [`.scrollable`](/ios/api-reference/enriched-markdown-text#markdowncodeblocklayout) layout |
 | Block image | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline) |
 | Thematic break | `---` | |
-| Display math | `$$…$$` on its own line | Needs `EnrichedMarkdownLaTeX` - see [LaTeX math](/ios/guides/latex-math) |
+| Display math | `$$…$$` on its own line | Needs the `EnrichedMarkdownLaTeX` product **and** its `.markdownLaTeX()` modifier - see [LaTeX math](/ios/guides/latex-math) |
 
 ### Inline elements
 
@@ -42,7 +42,7 @@ The whole document renders into a **single native text view**. Block structure i
 | Strong | `**bold**` | |
 | Emphasis | `*italic*` | |
 | Underline | `_text_`, `__text__` | Needs `MarkdownParsingOptions(underline: true)`, and **replaces** the italic/bold meaning of those markers |
-| Strikethrough | `~~struck~~` | Always enabled |
+| Strikethrough | `~~struck~~`, `~struck~` | Always enabled. The single-tilde form becomes subscript when `subscript` is on |
 | Inline code | `` `code` `` | |
 | Link | `[text](url)` | Tapping goes through [`openURL`](/ios/api-reference/enriched-markdown-text#openurl), which opens the URL with the system by default |
 | Autolink | `<https://…>`, or a bare URL | Bare URLs, `www.` hosts, and emails need `permissiveAutolinks`, which is on by default |
@@ -51,9 +51,9 @@ The whole document renders into a **single native text view**. Block structure i
 | Superscript | `^text^` | Needs `MarkdownParsingOptions(superscript: true)` |
 | Subscript | `~text~` | Needs `MarkdownParsingOptions(subscript: true)` |
 | Highlight | `==text==` | Needs `MarkdownParsingOptions(highlight: true)` |
-| Inline math | `$…$` | Needs `EnrichedMarkdownLaTeX` |
+| Inline math | `$…$` | Needs `EnrichedMarkdownLaTeX` and `.markdownLaTeX()` |
 
-Tables, task lists, strikethrough, and spoilers have no option - they are always on. Everything else marked "needs" is a [parser extension](/ios/guides/parser-extensions).
+Tables, task lists, strikethrough, and spoilers have no option - they are always on. Math is switched on by `.markdownLaTeX()` from the `EnrichedMarkdownLaTeX` product; everything else marked "needs" is a [parser extension](/ios/guides/parser-extensions).
 
 ## Nesting
 
@@ -133,7 +133,7 @@ GFM pipe tables render as live views inside the text rather than as monospaced A
 - Columns size to their content, and a long cell wraps rather than pushing the table wider.
 - A table wider than the view **scrolls horizontally in place**, without moving the rest of the document.
 - Cells take inline styling - bold, italic, inline code, strikethrough, and tappable links.
-- Alignment comes from the separator row (`:--`, `:-:`, `--:`); [`Table().align(_:)`](/ios/api-reference/style-properties#table) sets the default for columns that do not specify one.
+- Column alignment comes only from the separator row (`:--`, `:-:`, `--:`). [`Table().alignment(_:)`](/ios/api-reference/style-properties#table) does not touch columns: it places a table that is narrower than the view at the leading edge, center, or trailing edge.
 
 Long-pressing a table offers **Copy** (tab-separated text) and **Copy as Markdown** (the pipe table rebuilt with alignment separators and inline markers). To a text selection the whole table counts as a single character, so a selection that spans one copies it as tab-separated text in the plain flavor and as a real `<table>` in the HTML flavor. VoiceOver reads one element per row.
 
@@ -145,20 +145,18 @@ Long-pressing a table offers **Copy** (tab-separated text) and **Copy as Markdow
 The killer was ||the butler||.
 ```
 
-One spoiler reveals at a time, and a link inside a concealed one is not a link until it is revealed.
+A tap reveals only the spoiler it lands on, and that spoiler stays revealed until the content changes - a theme change does not hide it again. A link inside a concealed spoiler is not a link until the spoiler is revealed.
 
 ## Images: block vs. inline
 
 The same `![alt](url)` syntax renders two different ways, and which one you get depends on **what else is in the paragraph**:
 
-- **Block image** - the image is the only thing in its paragraph. It is laid out on its own, at `BlockImage().height`, spanning the container width.
+- **Block image** - the image is the only thing in its paragraph. It is laid out on its own, spanning the container width, with its height set by [`BlockImage()`](/ios/api-reference/style-properties#blockimage): a fixed `height`, a `maxHeight` cap on the image's own proportions, or an `aspectRatio`, with `contentMode` deciding how the image fills that box. The width is always the available width.
 - **Inline image** - anything else shares the line with it. It is drawn in the text flow at `InlineImage().size`, sized to sit on the line like a large glyph.
 
-:::important
-CommonMark has no block image. [`![alt](url)`](https://spec.commonmark.org/0.31.2/#images) is defined as an **inline** element wherever it appears, and the Supported elements table above lists "Block image" as a block only to describe what this renderer does with it.
+One edge case: an image that **starts** a paragraph is drawn block-sized even when text follows it on the same line. Only an image that comes after some text in its paragraph is drawn inline.
 
-The split is a rendering decision, not a parsing one: the parser emits the same inline image node in both cases, and `ParagraphRenderer` promotes the one that is its paragraph's only child. Anything reading the AST - your own traversal, or another CommonMark implementation - sees an inline image either way.
-:::
+CommonMark itself has no block image - the split is purely how this renderer lays the image out.
 
 ```markdown
 ![A block image](https://example.com/hero.png)
@@ -201,9 +199,13 @@ Both are off by default, and both are set per view through [`options`](/ios/api-
 
 ## Writing direction
 
-Paragraph text resolves its own base direction from the **first strong character**, the way any native text view does, so a document that mixes Arabic or Hebrew with Latin lays each paragraph out correctly with nothing to configure. There is no writing-direction modifier.
+How each paragraph picks its base direction is set by [`.markdownWritingDirection`](/ios/api-reference/enriched-markdown-text#markdownwritingdirection). The default, `.firstStrong`, resolves every paragraph from its **first strong character**, so a document that mixes Arabic or Hebrew with Latin lays each paragraph out correctly with nothing to configure. A paragraph with no strong character - only digits or punctuation - follows the SwiftUI layout direction.
 
-The decorations drawn around the text - list bullets and numbers, task checkboxes, blockquote and admonition bars - currently mirror with the **app's** layout direction rather than per paragraph, so an RTL paragraph in an LTR app keeps its markers on the left. Fenced code blocks are pinned left-to-right deliberately, so code reads as written. See [RTL support](/user-experience/rtl) for how right-to-left content behaves, and the [roadmap](/misc/roadmap) for per-paragraph decorations.
+The decorations drawn around the text - list bullets and numbers, task checkboxes, blockquote and admonition bars - follow **each paragraph's** direction, so an RTL paragraph in an LTR app gets its markers on the right. `.natural` leaves direction to TextKit instead, and the decorations then follow the app's interface direction; `.leftToRight` and `.rightToLeft` force every paragraph one way. Fenced code blocks are always left-to-right, so code reads as written.
+
+## Spacing between blocks
+
+Each block's `marginTop` and `marginBottom` come from its theme element, and the two **add up** rather than collapse: a paragraph's bottom margin followed by a heading's top margin gives a gap of both. The first block keeps its top margin, so a document that opens with a heading starts with that heading's `marginTop` above it. The last block's bottom margin is dropped, so the view ends at its last line - turn it back on with [`.markdownBottomMargin(.visible)`](/ios/api-reference/enriched-markdown-text#markdownbottommargin).
 
 ## Raw HTML
 
@@ -213,13 +215,8 @@ HTML in the source is **not** rendered. An inline tag stays literal text - `<b>b
 
 | Element | Status |
 | --- | --- |
-| Code syntax highlighting | Not built into this package - see [Code highlighting](/rich-text-formatting/code-highlighting) |
 | [Mentions](/rich-text-formatting/mentions) | No mention node or per-URL link variants |
 | [Markdown streaming](/rich-text-formatting/markdown-streaming) | No public streaming API |
-| Image tap callbacks, `maxHeight` / `aspectRatio` / `resizeMode` | Block images size by height and corner radius only |
-
-:::note
-Unlike a construct that is missing entirely, a node type with no renderer here still renders **its children**, so unsupported syntax loses its styling rather than its text. Nothing you write silently disappears from the document. In a `DEBUG` build the renderer also logs `No renderer for node type '…'; rendering its children only.` the first time it meets one.
-:::
+| Image tap callbacks | Tapping an image does nothing; there is no callback for it |
 
 See the [roadmap](/misc/roadmap) for what is landing next.

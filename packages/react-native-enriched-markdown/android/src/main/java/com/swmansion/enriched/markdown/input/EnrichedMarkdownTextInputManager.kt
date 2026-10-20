@@ -14,7 +14,6 @@ import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextInputManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextInputManagerInterface
 import com.facebook.yoga.YogaMeasureMode
-import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.editing.MarkdownShortcutsConfig
 import com.swmansion.enriched.markdown.input.events.OnCaretRectChangeEvent
 import com.swmansion.enriched.markdown.input.events.OnChangeMarkdownEvent
@@ -35,6 +34,7 @@ import com.swmansion.enriched.markdown.input.layout.InputMeasurementStore
 import com.swmansion.enriched.markdown.input.model.StyleType
 import com.swmansion.enriched.markdown.input.toolbar.FormatMenuConfig
 import com.swmansion.enriched.markdown.input.toolbar.InputSelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.input.BorderPropsApplicator
 import com.swmansion.enriched.markdown.utils.input.MarkdownStyleParser
 

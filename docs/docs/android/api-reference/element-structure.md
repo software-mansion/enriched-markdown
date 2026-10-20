@@ -14,7 +14,7 @@ The renderer sorts every element into one of two kinds, and the distinction driv
 - **Block elements** occupy their own vertical space and carry their own font, color, and margins. A paragraph, a heading, a list, a quote, a code block.
 - **Inline elements** live inside a line of text and modify a run of it. Bold, italic, links, inline code. They inherit size and line height from the block they sit in and override only what makes them distinct - see [Style inheritance](/android/api-reference/style-properties#style-inheritance).
 
-The whole document renders into a **single native text view**, with block structure drawn by spans rather than by separate views. That is why a selection can run from the first heading to the last list item without interruption.
+The document renders into native text views, with block structure drawn by spans rather than by separate views. Consecutive headings, paragraphs, lists, quotes, and code blocks share one text view, which is why a selection can run from the first heading to the last list item without interruption. A few blocks get a view of their own instead: tables, top-level code blocks set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout), and, with the [LaTeX math plugin](/android/guides/latex-math), display-math blocks. A selection stops at them, and you copy them with a long-press instead.
 
 ### Block elements
 
@@ -23,42 +23,47 @@ The whole document renders into a **single native text view**, with block struct
 | Heading           | `# H1` … `###### H6`               | Six levels, each styled independently                                                                     |
 | Paragraph         | Text separated by a blank line     |                                                                                                           |
 | Blockquote        | `> quoted`                         | Nests                                                                                                     |
-| Admonition        | `> [!NOTE]`                        | Needs `Md4cFlags(admonitions = true)` - see [below](#admonitions)                                         |
+| Admonition        | `> [!NOTE]`                        | Needs `MarkdownOptions(admonitions = true)` - see [below](#admonitions)                                   |
 | Unordered list    | `- item`                           | Nests                                                                                                     |
 | Ordered list      | `1. item`                          | Nests                                                                                                     |
-| Task list         | `- [ ]` / `- [x]`                  | Tappable - see [`onTaskListItemPress`](/android/api-reference/enriched-markdown-text#ontasklistitempress) |
+| Task list         | `- [ ]` / `- [x]`                  | Tappable - see [`onTaskListItemToggle`](/android/api-reference/enriched-markdown-text#ontasklistitemtoggle) |
 | Table             | GFM pipe table                     | Always enabled - see [below](#tables)                                                                     |
-| Fenced code block | ` ```kotlin `                      | Language label is parsed; no syntax highlighting                                                          |
-| Block image       | `![alt](url)` alone in a paragraph | See [below](#images-block-vs-inline)                                                                      |
+| Fenced code block | ` ```kotlin `                      | Long lines wrap or scroll; colored by language with `CodeHighlightPlugin` - see [below](#code-blocks)     |
+| Block image       | `![alt](url)` first on its line    | See [below](#images-block-vs-inline)                                                                      |
 | Thematic break    | `---`                              |                                                                                                           |
+| Math block        | `$$...$$`                          | Needs `LatexMathPlugin` - see [Math](/android/guides/parser-extensions#math-is-not-an-option)             |
 
 ### Inline elements
 
-| Element       | Markdown                     | Notes                                                                                             |
-| ------------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| Strong        | `**bold**`, `__bold__`       |                                                                                                   |
-| Emphasis      | `*italic*`, `_italic_`       |                                                                                                   |
-| Underline     | `_text_`, `__text__`         | Needs `Md4cFlags(underline = true)`, and **replaces** the italic/bold meaning of those markers    |
-| Strikethrough | `~~struck~~`                 |                                                                                                   |
-| Inline code   | `` `code` ``                 |                                                                                                   |
-| Link          | `[text](url)`                | Inert until you handle [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) |
-| Autolink      | `<https://…>`, or a bare URL | Bare URLs need `permissiveAutolinks`, which is on by default                                      |
-| Inline image  | `![alt](url)` beside text    | See [below](#images-block-vs-inline)                                                              |
-| Superscript   | `^text^`                     | Needs `Md4cFlags(superscript = true)`                                                             |
-| Subscript     | `~text~`                     | Needs `Md4cFlags(subscript = true)`                                                               |
-| Highlight     | `==text==`                   | Needs `Md4cFlags(highlight = true)`                                                               |
+| Element       | Markdown                     | Notes                                                                                                |
+| ------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Strong        | `**bold**`, `__bold__`       |                                                                                                      |
+| Emphasis      | `*italic*`, `_italic_`       |                                                                                                      |
+| Underline     | `_text_`, `__text__`         | Needs `MarkdownOptions(underline = true)`, and **replaces** the italic/bold meaning of those markers |
+| Strikethrough | `~~struck~~`, `~struck~`     | A single `~` means subscript instead when `MarkdownOptions(subscript = true)` is set                 |
+| Inline code   | `` `code` ``                 |                                                                                                      |
+| Link          | `[text](url)`                | Inert until you handle [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick)    |
+| Autolink      | `<https://…>`, or a bare URL | Bare URLs need `permissiveAutolinks`, which is on by default                                         |
+| Inline image  | `![alt](url)` after text     | See [below](#images-block-vs-inline)                                                                 |
+| Superscript   | `^text^`                     | Needs `MarkdownOptions(superscript = true)`                                                          |
+| Subscript     | `~text~`                     | Needs `MarkdownOptions(subscript = true)`                                                            |
+| Highlight     | `==text==`                   | Needs `MarkdownOptions(highlight = true)`                                                            |
+| Inline math   | `$...$`                      | Needs `LatexMathPlugin` - see [Math](/android/guides/parser-extensions#math-is-not-an-option)        |
+| Spoiler       | `\|\|text\|\|`               | Always parsed; concealed until tapped - see [`spoilerOverlay`](/android/api-reference/enriched-markdown-text#spoileroverlay) and [`spoiler`](/android/api-reference/style-properties#spoiler) |
+
+Raw HTML is not rendered: inline HTML such as `<b>` stays literal text, and HTML blocks are dropped from the output.
 
 :::important
-The `_` markers are context-dependent. By default `_italic_` and `__bold__` mean the same as `*italic*` and `**bold**`, but `Md4cFlags(underline = true)` reinterprets both `_text_` and `__text__` as underline, so under that flag they no longer produce emphasis or strong. The asterisk markers `*` and `**` always mean emphasis and strong, whatever the flag.
+The `_` markers are context-dependent. By default `_italic_` and `__bold__` mean the same as `*italic*` and `**bold**`, but `MarkdownOptions(underline = true)` reinterprets both `_text_` and `__text__` as underline, so under that option they no longer produce emphasis or strong. The asterisk markers `*` and `**` always mean emphasis and strong, whatever the option.
 :::
 
 ## Nesting
 
-Due to existence of [_container blocks_](https://spec.commonmark.org/0.31.2/#container-blocks), some of markdown allows for nesting other block markdown inside them.
+Some Markdown blocks are [_container blocks_](https://spec.commonmark.org/0.31.2/#container-blocks): lists and blockquotes can hold other blocks inside them.
 
 ### Nested lists
 
-Indent a list item to nest it. Each level adds `list.marginStart` of indent, and unordered levels alternate their bullet shape so depth stays readable:
+Indent a list item to nest it. Each level adds `list.marginStart` of indent, and unordered levels change their bullet shape so depth stays readable - a filled disc at the first level, a hollow circle at the second, and a square at the third and every level below:
 
 ```markdown
 - First level
@@ -80,7 +85,7 @@ A list item can hold more than one line. Indent the continuation to the item's t
 2. Second step
 ```
 
-Paragraphs, quotes, and code blocks all work as item content this way.
+Paragraphs, quotes, and code blocks all work as item content this way. Tables do not: a table inside a list item or a blockquote is **not rendered**. Keep tables at the top level of the document.
 
 ### Nested blockquotes
 
@@ -101,20 +106,20 @@ A blockquote whose **first line** is one of the five GitHub alert markers render
 > This action cannot be undone.
 ```
 
-The five types are `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]`. Colors come from the [`admonitions`](/android/api-reference/style-properties#admonitions) style block.
+The five types are `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]`. Colors come from the [`admonitions`](/android/api-reference/style-properties#admonitions) style block, which sits inside `blockquote { admonitions { } }`.
 
-This is an opt-in parser extension. Without `Md4cFlags(admonitions = true)` the marker stays **literal text** inside an ordinary quote.
+This is an opt-in parser extension. Without `MarkdownOptions(admonitions = true)` the marker stays **literal text** inside an ordinary quote.
 
 Two behaviors worth knowing:
 
-- **An admonition nested inside a list item falls back to a plain blockquote**, with no header. This is consistent across every platform the library targets, and a known limitations we want to target in the future.
+- **An admonition nested inside a list item falls back to a plain blockquote**, with no header. This is a known limitation.
 - **A body-less quote renders nothing at all**, admonition or not - a header with no text beneath it is not worth the vertical space.
 
 Copying a callout reproduces its `> [!NOTE]` marker, and TalkBack announces the header ahead of the body.
 
 ## Tables
 
-GFM pipe tables render as real views inside the text rather than as monospaced ASCII, and need no flag - they are always parsed:
+GFM pipe tables render as real views inside the text rather than as monospaced ASCII, and need no option - they are always parsed:
 
 ```markdown
 | Package                   | Platform |
@@ -122,24 +127,37 @@ GFM pipe tables render as real views inside the text rather than as monospaced A
 | enriched-markdown-android | Android  |
 ```
 
-- Columns size to their content, and a long cell wraps rather than pushing the table wider.
-- A table wider than the view **scrolls horizontally in place**, without moving the rest of the document. `table { horizontalOverflow }` controls how far it may bleed past the text column before it does.
-- Alignment comes from the separator row (`:--`, `:-:`, `--:`); `table { align }` sets the default for columns that do not specify one.
+- Each column sizes to its content, between 60dp and 300dp wide (plus cell padding). A cell longer than that wraps rather than pushing the column wider.
+- A table wider than the view **scrolls horizontally in place**, without moving the rest of the document. `table { horizontalOverflow }` lets the scrolling table extend that far past the text column on each side, for example to reach the screen edge.
+- Column alignment comes only from the separator row (`:--`, `:-:`, `--:`). `table { alignment }` is something else: it places a table that is narrower than the view at the start, center, or end of the line.
+- A table is its own segment, so a selection cannot run across it, and a table nested inside a list item or blockquote is not rendered.
 - Cells take inline styling - bold, italic, inline code, strikethrough, and tappable links.
 
 Colors, borders, padding and the header row are all styled through the [`table`](/android/api-reference/style-properties#table) block.
 
+## Code blocks
+
+By default, a fenced code block wraps its long lines, and its code is part of the text selection like any other text.
+
+Pass [`codeBlockLayout = CodeBlockLayout.Scrollable`](/android/api-reference/enriched-markdown-text#codeblocklayout) to keep lines intact instead:
+
+- A header bar above the code shows the fence's language name (` ```py ` reads "Python") and a **copy button** that copies the code.
+- Lines never wrap. A block wider than the view **scrolls horizontally in place**, inside its box, without moving the rest of the document.
+- This applies to code blocks at the top level of the document. A code block inside a list item or a quote still wraps its lines.
+- Long-press a scrolling code block to copy its code, or to copy it as fenced Markdown. It is not part of the text selection.
+- The block splits the text around it into separate selections, as a table does. **Select all** then **Copy as Markdown** copies only the text up to the nearest block, rebuilt from what is shown rather than the document's original Markdown, and leaves the code out. Long-press the block to copy the code itself.
+
+In either layout the language label is parsed. To color code by it, add `CodeHighlightPlugin` - see [Code highlighting](/android/guides/code-highlighting).
+
 ## Images: block vs. inline
 
-The same `![alt](url)` syntax renders two different ways, and which one you get depends on **what else is in the paragraph**:
+The same `![alt](url)` syntax renders two different ways, and which one you get depends on **where the image sits on its line**:
 
-- **Block image** - the image is the only thing in its paragraph. It is laid out on its own, at `image.height`, spanning the container width.
-- **Inline image** - anything else shares the line with it. It is drawn in the text flow at `inlineImage.size`, sized to sit on the line like a large glyph.
+- **Block image** - nothing comes before the image on its line: it opens a paragraph, or follows a hard line break. It is laid out on its own, at `image.height`, spanning the container width. This holds even when text follows it on the same line.
+- **Inline image** - text comes before it on the line. It is drawn in the text flow at `inlineImage.size`, sized to sit on the line like a large glyph.
 
-:::important
-CommonMark has no block image. [`![alt](url)`](https://spec.commonmark.org/0.31.2/#images) is defined as an **inline** element wherever it appears, and the Supported elements table above lists "Block image" as a block only to describe what this renderer does with it.
-
-The split is a rendering decision, not a parsing one: the parser emits the same inline image node in both cases, and the renderer sets an `isBlockImage` flag on the span when the image is its paragraph's only content. Anything reading the AST - your own traversal, or another CommonMark implementation - sees an inline image either way.
+:::note
+This differs from CommonMark, where every image is inline. Markdown has no block image syntax; the split is how this renderer lays images out.
 :::
 
 ```markdown
@@ -152,45 +170,35 @@ So putting an image on its own line is the whole gesture - there is no separate 
 
 ## Line breaks
 
-By default Markdown **reflows** text: a single newline inside a paragraph is treated as a space, and consecutive blank lines collapse into one paragraph separator. Two parser flags change that.
+By default Markdown **reflows** text: a single newline inside a paragraph is treated as a space, and consecutive blank lines collapse into one paragraph separator. Two options change that.
 
 ### Preserving single newlines
 
-`Md4cFlags(hardSoftBreaks = true)` turns every single newline into a real line break, so the lines you typed are the lines you get:
+`MarkdownOptions(hardSoftBreaks = true)` turns every single newline into a real line break, so the lines you typed are the lines you get:
 
 ```markdown
 Roses are red
 Violets are blue
 ```
 
-Without the flag that renders as one line. With it, two. This is the flag to reach for when you render user-authored text - chat messages, notes - where people expect Enter to mean Enter.
+Without the option that renders as one line. With it, two. This is the option to reach for when you render user-authored text - chat messages, notes - where people expect Enter to mean Enter.
 
 ### Blank lines
 
-`Md4cFlags(preserveBlankLines = true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output:
+`MarkdownOptions(preserveBlankLines = true)` keeps consecutive blank lines instead of collapsing them, so deliberate vertical whitespace in the source survives into the output:
 
-```markdown
+```text
 A first paragraph.
+
+
 
 A second one, three blank lines later.
 ```
 
-Without the flag those three blank lines collapse to one paragraph break; with it, the gap is kept.
+Without the option those three blank lines collapse to one paragraph break; with it, the gap is kept.
 
-Both flags are off by default, and both are set per instance through [`flags`](/android/api-reference/enriched-markdown-text#flags).
+Both options are off by default, and both are set per instance through [`options`](/android/api-reference/enriched-markdown-text#options).
 
-## Not rendered yet
+## Spacing
 
-The parser understands more than the renderer draws. These constructs parse without error but produce no special rendering today:
-
-| Element                       | Status                          |
-| ----------------------------- | ------------------------------- |
-| LaTeX math (inline and block) | Renderer in progress            |
-| Spoilers                      | Renderer in progress            |
-| Code syntax highlighting      | Not yet built into this package |
-
-:::caution
-A construct with no renderer has its text **dropped from the output** rather than shown unstyled, so enabling [`latexMath`](/android/api-reference/enriched-markdown-text#latexmath) makes that content vanish. The flag is off by default; leave it off until the renderer lands. Spoilers have no flag to enable, so they are simply parsed and skipped.
-:::
-
-See the [roadmap](/misc/roadmap) for what is landing next.
+Each block's `marginTop` and `marginBottom` add up: the gap between two blocks is the first one's `marginBottom` plus the next one's `marginTop`. The last block's `marginBottom` is trimmed, so the view ends at its content; pass [`includeLastBlockMargin = true`](/android/api-reference/enriched-markdown-text#includelastblockmargin) to keep it.

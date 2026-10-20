@@ -27,7 +27,6 @@ import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.views.text.ReactTypefaceUtils
 import com.facebook.react.views.text.TextAttributes
 import com.swmansion.enriched.markdown.input.autolink.AutoLinkDetector
-import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
 import com.swmansion.enriched.markdown.input.detection.DetectorPipeline
 import com.swmansion.enriched.markdown.input.editing.BlockEditCoordinator
 import com.swmansion.enriched.markdown.input.editing.ClipboardCoordinator
@@ -50,6 +49,7 @@ import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.InputParser
 import com.swmansion.enriched.markdown.input.layout.InputEventEmitter
 import com.swmansion.enriched.markdown.input.layout.InputLayoutManager
+import com.swmansion.enriched.markdown.input.layout.InputMeasurementStore
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
@@ -58,6 +58,7 @@ import com.swmansion.enriched.markdown.input.model.StyleType
 import com.swmansion.enriched.markdown.input.spans.applyBodyLineHeightSpan
 import com.swmansion.enriched.markdown.input.spans.bodyLineMinimumFontMetrics
 import com.swmansion.enriched.markdown.input.toolbar.InputContextMenu
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.input.AutoCapitalizeUtils
 import kotlin.math.ceil
 
@@ -354,7 +355,24 @@ class EnrichedMarkdownTextInputView(
     y: Int,
   ) {
     if (!scrollEnabled) return
-    super.scrollTo(x, y)
+    // Pin to the top while the text fits the height Yoga allows: the view is
+    // about to grow to fit it, so scrolling to the caret now would show the text
+    // bottom-aligned for a frame until the resize lands.
+    val textHeight = layout?.height
+    val maxHeight = InputMeasurementStore.getMaxHeight(id)
+    val textFitsMaxHeight = textHeight != null && maxHeight != null && textHeight <= maxHeight
+    super.scrollTo(x, if (textFitsMaxHeight) 0 else y)
+  }
+
+  override fun onLayout(
+    changed: Boolean,
+    left: Int,
+    top: Int,
+    right: Int,
+    bottom: Int,
+  ) {
+    super.onLayout(changed, left, top, right, bottom)
+    InputMeasurementStore.onLaidOut(id, (bottom - top - paddingTop - paddingBottom).toFloat())
   }
 
   override fun canScrollVertically(direction: Int): Boolean = scrollEnabled && super.canScrollVertically(direction)
@@ -720,6 +738,7 @@ class EnrichedMarkdownTextInputView(
             val isEmptyListLine = onlyZwsp && blockCoordinator.listBlockAtLineStart(ls) != null
             if (!isEmptyListLine) {
               runAsATransaction { editable.delete(i, i + 1) }
+              formattingStore.adjustForEdit(i, 1, 0)
               blockStore.adjustForEdit(i, 1, 0)
               anchorChanged = true
             } else {
@@ -738,6 +757,7 @@ class EnrichedMarkdownTextInputView(
         val block = blockCoordinator.listBlockAtLineStart(ls)
         if (block != null && le == ls) {
           runAsATransaction { editable.insert(ls, ZWSP.toString()) }
+          formattingStore.adjustForEdit(ls, 0, 1)
           blockStore.adjustForEdit(ls, 0, 1)
           blockStore.normalizeToLineBounds(editable)
           setSelection(ls + 1)

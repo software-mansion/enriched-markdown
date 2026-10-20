@@ -32,6 +32,9 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownTextProps &props) {
   }
   serializedProps["linkPillContent"] = std::move(linkPillContent);
 
+  // Recognition changes line wrapping, so measurement must parse with the view's patterns.
+  serializedProps["linkRecognition"] = toDynamic(props.linkRecognition);
+
   return serializedProps;
 }
 
@@ -44,6 +47,8 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streamingAnimation"] = props.streamingAnimation;
+  // Wrapped code blocks measure at the block width; the indexes live in MeasurementStore.
+  serializedProps["enableCodeBlockWrapToggle"] = props.enableCodeBlockWrapToggle;
 
   folly::dynamic imageRequestHeaders = folly::dynamic::array();
   for (const auto &header : props.imageRequestHeaders) {
@@ -57,6 +62,9 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
     linkPillContent.push_back(toDynamic(content));
   }
   serializedProps["linkPillContent"] = std::move(linkPillContent);
+
+  // Recognition changes line wrapping, so measurement must parse with the view's patterns.
+  serializedProps["linkRecognition"] = toDynamic(props.linkRecognition);
 
   return serializedProps;
 }

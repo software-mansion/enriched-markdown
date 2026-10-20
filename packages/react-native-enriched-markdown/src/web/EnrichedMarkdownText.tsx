@@ -1,4 +1,10 @@
-import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+} from 'react';
 import type { EnrichedMarkdownTextProps } from '../types/MarkdownTextProps.web';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle.web';
 import {
@@ -7,6 +13,7 @@ import {
   buildStyles,
 } from './styles';
 import { parseMarkdown } from './parseMarkdown';
+import { recognizeTextLinks } from './recognizeTextLinks';
 import { RenderNode } from './renderers';
 import type { ASTNode, RendererCallbacks, RenderCapabilities } from './types';
 import { indexTaskItems, markInlineImages } from './utils';
@@ -20,6 +27,7 @@ export const EnrichedMarkdownText = ({
   markdown,
   markdownStyle = {},
   md4cFlags = {},
+  linkRecognition,
   onLinkPress,
   onLinkLongPress,
   onImagePress,
@@ -54,6 +62,12 @@ export const EnrichedMarkdownText = ({
     admonitions = true,
   } = md4cFlags;
 
+  // A regex literal in JSX is a new object every render; re-parse only when its text changes.
+  const linkRecognitionRef = useRef(linkRecognition);
+  linkRecognitionRef.current = linkRecognition;
+  const textLinkKey = linkRecognition?.text?.toString() ?? null;
+  const inlineCodeLinkKey = linkRecognition?.inlineCode?.toString() ?? null;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -79,7 +93,13 @@ export const EnrichedMarkdownText = ({
 
           setParseError(false);
           setKatex(katexInstance);
-          setAst(result);
+          setAst(
+            recognizeTextLinks(
+              result,
+              linkRecognitionRef.current?.text,
+              linkRecognitionRef.current?.inlineCode
+            )
+          );
         }
       })
       .catch((error) => {
@@ -107,6 +127,8 @@ export const EnrichedMarkdownText = ({
     hardSoftBreaks,
     preserveBlankLines,
     admonitions,
+    textLinkKey,
+    inlineCodeLinkKey,
   ]);
 
   const callbacks = useMemo<RendererCallbacks>(

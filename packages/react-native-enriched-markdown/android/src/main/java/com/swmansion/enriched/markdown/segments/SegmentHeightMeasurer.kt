@@ -6,6 +6,7 @@ import android.os.Build
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import com.swmansion.enriched.markdown.CodeBlockWrapCursor
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
@@ -20,7 +21,9 @@ import kotlin.math.ceil
  * Math heights must be measured up front on the main thread by the caller and
  * supplied through mathHeightForIndex, because the summation runs off the main
  * thread. Blockquote children recurse through
- * BlockquoteContainerView.measureBlockquoteNodeHeight.
+ * BlockquoteContainerView.measureBlockquoteNodeHeight. wrapCursor, when given,
+ * says which code blocks the user wrapped; it is shared down the recursion so
+ * nested blocks keep counting in document order.
  */
 object SegmentHeightMeasurer {
   fun measureSegmentsHeight(
@@ -32,6 +35,7 @@ object SegmentHeightMeasurer {
     breakStrategy: Int,
     allowTrailingMargin: Boolean,
     mathHeightForIndex: (Int) -> Float,
+    wrapCursor: CodeBlockWrapCursor? = null,
   ): Float {
     val widthPx = ceil(contentWidthPx).toInt().coerceAtLeast(1)
     val lastIndex = segments.lastIndex
@@ -69,7 +73,14 @@ object SegmentHeightMeasurer {
 
         is RenderedSegment.CodeBlock -> {
           totalHeightPx += style.codeBlockStyle.marginTop
-          totalHeightPx += CodeBlockContainerView.measureCodeBlockNodeHeight(segment.node, style, context, contentWidthPx)
+          totalHeightPx +=
+            CodeBlockContainerView.measureCodeBlockNodeHeight(
+              segment.node,
+              style,
+              context,
+              contentWidthPx,
+              wrapCursor?.nextIsWrapped() ?: false,
+            )
           if (includeBottomMargin) {
             totalHeightPx += style.codeBlockStyle.marginBottom
           }
@@ -79,7 +90,14 @@ object SegmentHeightMeasurer {
           // A quote encountered here is always nested inside another quote, so it
           // carries no vertical margin (only the outermost quote does, added by
           // MeasurementStore); this mirrors BlockquoteContainerView.nested.
-          totalHeightPx += BlockquoteContainerView.measureBlockquoteNodeHeight(segment.node, style, context, contentWidthPx)
+          totalHeightPx +=
+            BlockquoteContainerView.measureBlockquoteNodeHeight(
+              segment.node,
+              style,
+              context,
+              contentWidthPx,
+              wrapCursor,
+            )
         }
 
         is RenderedSegment.Video -> {

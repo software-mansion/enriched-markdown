@@ -14,7 +14,7 @@ public extension EnrichedMarkdownText {
 }
 
 public extension MarkdownRenderer {
-    @available(*, deprecated, renamed: "render(_:config:options:imageRequestHeaders:writingDirection:layoutDirection:)")
+    @available(*, deprecated, renamed: "render(_:config:options:imageRequestHeaders:writingDirection:layoutDirection:codeBlockLayout:)")
     static func render(
         _ markdown: String,
         config: MarkdownStyleConfiguration,
