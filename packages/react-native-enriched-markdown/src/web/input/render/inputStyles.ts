@@ -12,6 +12,10 @@ import {
 } from '../model/blocks';
 
 export const ENRM_INPUT_CLASS = 'enrm-input';
+// Set with `data-selection-color` by the `selectionColor` prop. Only then
+// does the `::selection` rule apply: an unset variable there would replace
+// the browser's own highlight with none.
+export const ENRM_INPUT_SELECTION_VAR = '--enrm-input-selection-bg';
 
 const defaults = DEFAULT_NORMALIZED_STYLE;
 
@@ -35,6 +39,9 @@ function bulletShape(depth: number): string {
   }
 }
 
+// Space between an ordered marker's "." and the item's text.
+const ORDERED_MARKER_GAP = 4;
+
 function listRules(): string {
   const rules: string[] = [];
   for (let depth = 0; depth <= MAX_LIST_DEPTH; depth++) {
@@ -43,7 +50,9 @@ function listRules(): string {
     rules.push(
       `.${ENRM_INPUT_CLASS} [data-depth="${depth}"] { padding-left: ${indent}px; }`,
       `.${ENRM_INPUT_CLASS} [data-block="unordered-list-item"][data-depth="${depth}"]::before { left: ${markerLeft + 4}px; ${bulletShape(depth)} }`,
-      `.${ENRM_INPUT_CLASS} [data-block="ordered-list-item"][data-depth="${depth}"]::before { left: ${markerLeft}px; }`
+      // The number ends where the old 14px box ended and grows leftward, as
+      // on native, so "10." and up no longer run into the text.
+      `.${ENRM_INPUT_CLASS} [data-block="ordered-list-item"][data-depth="${depth}"]::before { right: calc(100% - ${indent - ORDERED_MARKER_GAP}px); }`
     );
   }
   return rules.join('\n');
@@ -54,6 +63,11 @@ const INPUT_CSS = `
   white-space: pre-wrap;
   position: relative;
   overflow-wrap: break-word;
+}
+/* Typography at zero specificity, so a consumer's className overrides it:
+   the stylesheet is injected after the app's, and a same-specificity rule
+   here would otherwise win. */
+:where(.${ENRM_INPUT_CLASS}) {
   font-family: ${defaults.paragraph.fontFamily};
   font-size: ${defaults.paragraph.fontSize}px;
   line-height: ${defaults.paragraph.lineHeight}px;
@@ -69,7 +83,12 @@ const INPUT_CSS = `
   pointer-events: none;
   white-space: pre-wrap;
 }
-.${ENRM_INPUT_CLASS} [data-block] {
+/* Every line, not only those with a block: a list or heading marker is
+   positioned against its line, and switching thousands of laid-out lines
+   from static to relative at once (select-all into a list, or its undo)
+   costs Blink seconds of layout - 2.5 s for 20k lines, against 0.14 s when
+   only the block attributes change. */
+.${ENRM_INPUT_CLASS} > * {
   position: relative;
 }
 .${ENRM_INPUT_CLASS} [data-block="unordered-list-item"]::before {
@@ -83,7 +102,6 @@ const INPUT_CSS = `
 .${ENRM_INPUT_CLASS} [data-block="ordered-list-item"]::before {
   content: attr(data-ordinal) '.';
   position: absolute;
-  width: 14px;
   text-align: right;
   white-space: nowrap;
   color: ${defaults.list.markerColor};
@@ -91,12 +109,16 @@ const INPUT_CSS = `
 }
 ${headingRules()}
 ${listRules()}
+.${ENRM_INPUT_CLASS}[data-selection-color] ::selection {
+  background-color: var(${ENRM_INPUT_SELECTION_VAR});
+}
 .${ENRM_INPUT_CLASS} .enrm-strong { font-weight: bold; }
 .${ENRM_INPUT_CLASS} .enrm-em { font-style: italic; }
 .${ENRM_INPUT_CLASS} .enrm-underline { text-decoration: underline; }
 .${ENRM_INPUT_CLASS} .enrm-strikethrough { color: ${defaults.strikethrough.color}; text-decoration: line-through; }
 .${ENRM_INPUT_CLASS} .enrm-underline.enrm-strikethrough { text-decoration: underline line-through; }
 .${ENRM_INPUT_CLASS} .enrm-link { color: ${DEFAULT_LINK_COLOR}; text-decoration: underline; }
+.${ENRM_INPUT_CLASS} .enrm-link.enrm-strikethrough { text-decoration: underline line-through; }
 .${ENRM_INPUT_CLASS} .enrm-spoiler { color: ${DEFAULT_SPOILER_COLOR}; background: ${DEFAULT_SPOILER_BG_COLOR}; border-radius: 4px; }
 `;
 

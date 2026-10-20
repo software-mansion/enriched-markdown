@@ -2,12 +2,14 @@
  * @jest-environment jsdom
  */
 import { InputHost } from '../InputHost';
+import type { InputState } from '../InputState';
 import {
   caretAt,
   compose,
   dispatchTyping,
   lastState,
   mount,
+  pressKey,
   pressTab,
   selectRange,
   selectRangeFocused,
@@ -15,6 +17,7 @@ import {
   sendInput,
   styledText,
   typeText,
+  pasteText,
 } from './inputHostKit';
 
 describe('InputHost', () => {
@@ -88,9 +91,9 @@ describe('InputHost', () => {
       expect(host.value).toBe('hello brave ');
     });
 
-    it('joins the lines when a word delete has nowhere to go', () => {
+    it('joins the lines when a word delete has nowhere to go', async () => {
       const { root, host } = mount();
-      sendClipboard(root, 'paste', 'ab\ncd');
+      await pasteText(root, 'ab\ncd');
       caretAt(root, 3);
       sendInput(root, 'deleteWordBackward');
 
@@ -139,20 +142,20 @@ describe('InputHost', () => {
       expect(host.value).toBe('hello');
     });
 
-    it('paste inserts plain text and normalizes its line endings', () => {
+    it('paste inserts plain text and normalizes its line endings', async () => {
       const { root, host } = mount();
       typeText(root, 'ab');
       caretAt(root, 1);
-      sendClipboard(root, 'paste', 'X\r\nY\rZ');
+      await pasteText(root, 'X\r\nY\rZ');
 
       expect(host.value).toBe('aX\nY\nZb');
     });
 
-    it('paste replaces the selection', () => {
+    it('paste replaces the selection', async () => {
       const { root, host } = mount();
       typeText(root, 'abcdef');
       selectRange(root, 1, 5);
-      sendClipboard(root, 'paste', 'X');
+      await pasteText(root, 'X');
 
       expect(host.value).toBe('aXf');
     });
@@ -305,25 +308,51 @@ describe('InputHost', () => {
   });
 
   describe('tab', () => {
-    // Tab never reaches beforeinput, so the editor has to claim the key or
-    // the browser moves focus out of it.
-    it('never leaves the editor', () => {
-      const { root } = mount();
+    // Decided 2026-10-20 (review §2.1.5): Tab types a tab outside lists and
+    // never starts one; Shift+Tab there is the browser's, so focus can always
+    // move back out of the editor (WCAG 2.1.2, no keyboard trap).
+    it('types a tab on a plain paragraph, without starting a list', () => {
+      const { root, host, states } = mount();
       typeText(root, 'a');
+
+      expect(pressTab(root).defaultPrevented).toBe(true);
+
+      expect(host.value).toBe('a\t');
+      expect(lastState(states).unorderedList.isActive).toBe(false);
+    });
+
+    it('leaves Shift+Tab outside a list to the browser', () => {
+      const { root, host } = mount();
+      typeText(root, 'a');
+
+      expect(pressTab(root, true).defaultPrevented).toBe(false);
+      expect(host.value).toBe('a');
+    });
+
+    it('takes Tab and Shift+Tab on a list line', () => {
+      const { root, host } = mount();
+      typeText(root, 'a');
+      host.toggleUnorderedList();
 
       expect(pressTab(root).defaultPrevented).toBe(true);
       expect(pressTab(root, true).defaultPrevented).toBe(true);
     });
 
-    it('starts a list on a plain paragraph', () => {
-      const { root, states } = mount();
+    it('leaves a Tab an ancestor already handled, or a modified one', () => {
+      const { root, host } = mount();
       typeText(root, 'a');
-      pressTab(root);
+      root.parentElement!.addEventListener(
+        'keydown',
+        (event) => event.preventDefault(),
+        { capture: true, once: true }
+      );
 
-      expect(lastState(states).unorderedList).toEqual({
-        isActive: true,
-        depth: 0,
-      });
+      pressTab(root);
+      expect(pressKey(root, 'Tab', { ctrlKey: true }).defaultPrevented).toBe(
+        false
+      );
+
+      expect(host.value).toBe('a');
     });
 
     it('indents and outdents an item', () => {
@@ -662,5 +691,46 @@ describe('InputHost', () => {
       expect(() => host.destroy()).not.toThrow();
       expect(root.hasAttribute('contenteditable')).toBe(false);
     });
+  });
+});
+
+// Review §2.2.8 and §2.1.6.
+describe('what the host hands out and leaves behind', () => {
+  it('emits copies a consumer can keep or change', async () => {
+    const selections: Array<{ start: number; end: number }> = [];
+    const states: InputState[] = [];
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const host = new InputHost(root, {
+      onChangeSelection: (selection) => selections.push(selection),
+      onChangeState: (state) => states.push(state),
+    });
+    await host.insertText('abc');
+    host.setSelection(1, 1);
+
+    selections.at(-1)!.start = 0;
+    await host.insertText('X');
+    states.at(-1)!.bold.isActive = true;
+
+    expect(host.value).toBe('aXbc');
+    // Were the emitted state the host's own record, the edit above would
+    // make a real "bold on" look already sent, and it would be swallowed.
+    const emitted = states.length;
+    host.toggleBold();
+    expect(states.length).toBe(emitted + 1);
+    expect(states.at(-1)!.bold.isActive).toBe(true);
+    host.destroy();
+  });
+
+  it('takes back role and aria-multiline only when it set them', () => {
+    const own = document.createElement('div');
+    new InputHost(own).destroy();
+    expect(own.hasAttribute('role')).toBe(false);
+    expect(own.hasAttribute('aria-multiline')).toBe(false);
+
+    const theirs = document.createElement('div');
+    theirs.setAttribute('role', 'combobox');
+    new InputHost(theirs).destroy();
+    expect(theirs.getAttribute('role')).toBe('combobox');
   });
 });

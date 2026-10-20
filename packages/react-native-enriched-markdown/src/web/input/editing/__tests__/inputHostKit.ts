@@ -233,3 +233,23 @@ export function compose(root: HTMLElement, composed: string): void {
   text.nodeValue = composed;
   root.dispatchEvent(new Event('compositionend', { bubbles: true }));
 }
+
+// A paste is parsed as markdown, asynchronously, like `insertText`: sends the
+// paste, then waits a few turns for the parse to land.
+export async function pasteText(
+  root: HTMLElement,
+  incoming: string,
+  mime = 'text/plain'
+): Promise<void> {
+  const event = new Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'clipboardData', {
+    value: {
+      getData: (type: string) => (type === mime ? incoming : ''),
+      setData: () => {},
+    },
+  });
+  root.dispatchEvent(event);
+  for (let turn = 0; turn < 10; turn++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}

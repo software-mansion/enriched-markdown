@@ -229,7 +229,7 @@ The input's content can be copied to the system clipboard from a ref, without re
 
 - [`copyToClipboard()`](API_REFERENCE.md#copytoclipboard) — copies the full content to the system clipboard, matching the result of selecting all text and pressing the context menu's copy action. The selection is left unchanged, and calling it on an empty input is a no-op.
 
-On iOS and macOS the clipboard receives both plain text and a private Markdown pasteboard type, so pasting back into an `EnrichedMarkdownTextInput` restores the formatting; external apps receive plain text only. On Android the clipboard receives plain text only — inline styles are not preserved for any paste target.
+On iOS, macOS and Android the clipboard receives both plain text and the Markdown source (a private pasteboard type on Apple platforms, a vendor MIME type on Android), so pasting back into an `EnrichedMarkdownTextInput` restores the formatting; external apps receive plain text only.
 
 ## Undo and Redo
 
@@ -300,7 +300,7 @@ No setup is required. Both platforms autodetect direction per paragraph out of t
 
 - **Placeholder** follows the host view's layout direction, not the prop. If you need an RTL placeholder, wrap the input in `<View style={{ direction: 'rtl' }}>` or set `I18nManager.forceRTL(true)`.
 - **Mixed paragraphs while typing** — newly inserted characters in an empty paragraph briefly inherit the previous paragraph's direction; the first-strong pass corrects this on the next input event.
-- **Code blocks, tables, blockquotes** are not supported in the input. Headings and bullet lists are; other block elements require [`EnrichedMarkdownText`](TEXT.md).
+- **Code blocks, tables, blockquotes** are not supported in the input. Headings and bullet and numbered lists are; other block elements require [`EnrichedMarkdownText`](TEXT.md).
 
 See [RTL Support](RTL.md) for the full per-element behavior on the rendered output side.
 
@@ -325,6 +325,9 @@ Available style properties:
 - `em.color` — text color for italic text (defaults to the input's text color).
 - `link.color` — text color for links (defaults to `#2563EB`).
 - `link.underline` — whether links are underlined (defaults to `true`).
-- `spoiler.color` — text color for spoiler text.
-- `spoiler.backgroundColor` — background color for spoiler text.
+- `link.backgroundColor` — background behind link text (defaults to `transparent`).
+- `linkVariants` — per-URL link styling; see [Link Variants](MENTIONS.md#link-variants-styling).
+- `spoiler.color` — text color for spoiler text (defaults to `#374151`).
+- `spoiler.backgroundColor` — background color for spoiler text (defaults to `#E5E7EB`).
 - `h1`–`h6` — per-level heading styling, each accepting `fontSize`, `fontWeight`, and `color`. Defaults match the read-only `EnrichedMarkdownText` renderer (sizes `30/24/20/18/16/14`, bold) so headings look the same in the editor and a rendered preview. Omitted levels (or fields) fall back to those defaults.
+- `list.itemSpacing` — vertical spacing (points) added above each list item, bullet and numbered alike (defaults to `0`).

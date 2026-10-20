@@ -92,10 +92,10 @@ describe('parseResultFromAst', () => {
 
     expect(result.plainText).toBe('stack\nreview\n\nmerge');
     // Ranges are emitted on node exit, so a nested item precedes its parent;
-    // BlockStore.setRanges sorts by start.
+    // the result is sorted by start on the way out.
     expect(result.blockRanges).toEqual([
-      block('unordered-list-item', 6, 12, 1),
       block('unordered-list-item', 0, 5, 0),
+      block('unordered-list-item', 6, 12, 1),
       block('ordered-list-item', 14, 19, 0),
     ]);
   });

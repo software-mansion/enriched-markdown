@@ -14,6 +14,7 @@ import {
   styledText,
   typeText,
   type MountedHost,
+  pasteText,
 } from './inputHostKit';
 import type { RangeBounds } from '../../model/rangeBounds';
 
@@ -249,7 +250,7 @@ describe('InputHost history', () => {
     const mounted = mountFocused();
     const { root } = mounted;
     typeText(root, 'a');
-    sendClipboard(root, 'paste', 'bc\nd');
+    await pasteText(root, 'bc\nd');
 
     await expectUndoRedo(
       mounted,

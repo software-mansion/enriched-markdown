@@ -2,6 +2,10 @@ import type { ASTNode, NodeType } from '../../types';
 import { parseMarkdown, type WebMd4cFlags } from '../../parseMarkdown';
 import { completeMarkdown } from './InputRemend';
 import {
+  normalizeBlockRanges,
+  normalizeFormattingRanges,
+} from './normalizeImport';
+import {
   blockTypeForHeadingLevel,
   createBlockRange,
   LIST_ITEM_BLOCK_TYPES,
@@ -147,8 +151,8 @@ export function parseResultFromAst(
 
   return {
     plainText: state.text,
-    formattingRanges: state.formattingRanges,
-    blockRanges: state.blockRanges,
+    formattingRanges: normalizeFormattingRanges(state.formattingRanges),
+    blockRanges: normalizeBlockRanges(state.text, state.blockRanges),
   };
 }
 
@@ -274,14 +278,19 @@ function walkNode(
   }
 }
 
+// `complete: false` skips InputRemend's completion of unclosed delimiters,
+// which serves half-typed or truncated documents. A fragment being inserted
+// (`insertText`, a paste) is neither, and completing it would read the lone
+// `_` of `snake_case` as an opener and close it (#1014).
 export async function parseToPlainTextAndRanges(
-  markdown: string
+  markdown: string,
+  { complete = true }: { complete?: boolean } = {}
 ): Promise<ParseResult> {
   if (markdown.length === 0) {
     return { plainText: '', formattingRanges: [], blockRanges: [] };
   }
 
-  const completed = completeMarkdown(markdown);
+  const completed = complete ? completeMarkdown(markdown) : markdown;
   let ast: ASTNode;
   try {
     ast = await parseMarkdown(completed, INPUT_PARSE_FLAGS);

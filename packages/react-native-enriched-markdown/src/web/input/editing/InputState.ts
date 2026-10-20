@@ -45,7 +45,8 @@ function linkForSelection(
 function inlineStates(
   formattingStore: FormattingStore,
   typing: TypingAttributesController,
-  selection: RangeBounds
+  selection: RangeBounds,
+  text: string
 ): Pick<
   InputState,
   'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'link'
@@ -56,7 +57,8 @@ function inlineStates(
       : formattingStore.isStyleFullyActive(
           type,
           selection.start,
-          selection.end
+          selection.end,
+          text
         );
   const link = linkForSelection(formattingStore, selection);
   return {
@@ -89,7 +91,7 @@ export function buildInputState(
   const unordered = block?.type === 'unordered-list-item';
   const ordered = block?.type === 'ordered-list-item';
   return {
-    ...inlineStates(formattingStore, typing, selection),
+    ...inlineStates(formattingStore, typing, selection, text),
     heading: { isActive: headingLevel > 0, level: headingLevel },
     unorderedList: { isActive: unordered, depth: unordered ? block.level : 0 },
     orderedList: { isActive: ordered, depth: ordered ? block.level : 0 },
@@ -112,4 +114,19 @@ export function sameInputState(a: InputState, b: InputState): boolean {
     a.orderedList.isActive === b.orderedList.isActive &&
     a.orderedList.depth === b.orderedList.depth
   );
+}
+
+// A copy sharing nothing with `state`, for handing to a consumer.
+export function copyInputState(state: InputState): InputState {
+  return {
+    bold: { ...state.bold },
+    italic: { ...state.italic },
+    underline: { ...state.underline },
+    strikethrough: { ...state.strikethrough },
+    spoiler: { ...state.spoiler },
+    link: { ...state.link },
+    heading: { ...state.heading },
+    unorderedList: { ...state.unorderedList },
+    orderedList: { ...state.orderedList },
+  };
 }

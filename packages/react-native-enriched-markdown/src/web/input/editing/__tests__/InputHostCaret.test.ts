@@ -558,3 +558,26 @@ describe('target ranges', () => {
     expect(host.value).toBe('the cat');
   });
 });
+
+describe('live ranges', () => {
+  // Every live Range is updated by each DOM mutation until it is collected,
+  // so the keystroke and caret paths must not leave one behind per call.
+  it('types, maps and measures the caret without a Range per call', () => {
+    const { root, host } = mount();
+    root.focus();
+    typeText(root, 'hello world');
+    const createRange = jest.spyOn(document, 'createRange');
+    try {
+      for (let i = 0; i < 20; i++) {
+        caretAt(root, i % 11);
+        document.dispatchEvent(new Event('selectionchange'));
+        typeText(root, 'x');
+        host.caretRect();
+      }
+
+      expect(createRange.mock.calls.length).toBeLessThanOrEqual(1);
+    } finally {
+      createRange.mockRestore();
+    }
+  });
+});

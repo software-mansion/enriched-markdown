@@ -70,12 +70,14 @@ This mirrors Android's first-strong fallback and lets you place an LTR app in an
 
 ## Copy-as-HTML caveat
 
-When you copy markdown content to the clipboard, the HTML representation carries a single `dir` attribute on `<html>` (or on `<table>` for table copies). That attribute is read from the document's first paragraph:
+When you copy markdown content to the clipboard, the HTML representation carries a single `dir` attribute on `<html>` (or on `<table>` for table copies). On iOS and macOS that attribute is read from the document's first paragraph:
 
 - `first-strong` document starting with Arabic → `<html dir="rtl">`
 - `first-strong` document starting with English → `<html dir="ltr">`
 - `'auto'` → `<html dir="auto">` (receivers do best-effort first-strong)
 - `'ltr'` / `'rtl'` → forced
+
+On Android the HTML carries `dir="rtl"` only when the app's layout direction is RTL; otherwise no `dir` is set, and table copies carry none.
 
 **Receivers (Gmail, Notes, Word, etc.) apply their own Bidi algorithm to the pasted HTML.** Mixed-direction documents may not visually reproduce the per-paragraph layout you see in-app — receivers can only honor what the markup encodes, and HTML's `dir` attribute is scoped to elements, not paragraphs within them. The plain-text and Markdown clipboard representations are unaffected and round-trip cleanly.
 

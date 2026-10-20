@@ -90,6 +90,24 @@ describe('linesTouching', () => {
     ]);
   });
 
+  // Chrome's triple-click on a line selects through the next line's start;
+  // nothing of that line is selected, so a block command must not reach it.
+  it('leaves out the line a selection ends at the start of', () => {
+    expect(linesTouching({ start: 0, end: 10 }, text)).toEqual([
+      { start: 0, end: 9 },
+    ]);
+    expect(linesTouching({ start: 4, end: 17 }, text)).toEqual([
+      { start: 0, end: 9 },
+      { start: 10, end: 16 },
+    ]);
+  });
+
+  it('keeps the line of a selection holding only a line break', () => {
+    expect(linesTouching({ start: 9, end: 10 }, text)).toEqual([
+      { start: 0, end: 9 },
+    ]);
+  });
+
   it('walks on from a selection starting on a newline', () => {
     expect(linesTouching({ start: 9, end: 12 }, text)).toEqual([
       { start: 0, end: 9 },

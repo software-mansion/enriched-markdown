@@ -68,8 +68,11 @@ describe('incremental projection', () => {
           selectRangeFocused(root, start, end);
 
           const action = pick([
-            () => host.insertText(pick(['x', 'ab', '\n', 'q\nr', 'one two'])),
-            () => host.insertText(pick(['word ', 'a\nb\nc', '\n\n'])),
+            // Typed text, applied literally and at once (`typeText` plays the
+            // browser where it is left to type); `insertText` and paste parse
+            // markdown, asynchronously.
+            () => typeText(root, pick(['x', 'ab', '\n', 'q\nr', 'one two'])),
+            () => typeText(root, pick(['word ', 'a\nb\nc', '\n\n'])),
             () => {
               if (start === end) typeText(root, 'k');
             },

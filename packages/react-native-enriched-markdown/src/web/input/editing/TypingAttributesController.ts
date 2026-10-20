@@ -41,25 +41,25 @@ export class TypingAttributesController {
     return this.formattingStore.isStyleActive(type, position);
   }
 
-  toggleStyle(
-    type: PendingStyleType,
-    wasActive: boolean,
-    hasSelection: boolean
-  ): void {
-    if (hasSelection) {
+  // With a selection the store has already flipped, so nothing pends. At a
+  // caret (`caret` is its offset) the toggle flips what the next keystroke
+  // would get - the effective style, pending sets included - rather than
+  // undoing the last pending change: inside a bold run the caret already
+  // carries a pending bold seeded from the run, and the first press has to
+  // unbold, not just drop that copy.
+  toggleStyle(type: PendingStyleType, caret: number | null): void {
+    if (caret === null) {
       this.pendingStyles.delete(type);
       this.pendingStyleRemovals.delete(type);
       return;
     }
-    if (this.pendingStyleRemovals.delete(type)) {
-      return;
-    }
-    if (this.pendingStyles.delete(type)) {
-      return;
-    }
-    if (wasActive) {
+    const wasActive = this.isEffectiveStyleActive(type, caret);
+    this.pendingStyles.delete(type);
+    this.pendingStyleRemovals.delete(type);
+    const storeActive = this.formattingStore.isStyleActive(type, caret);
+    if (wasActive && storeActive) {
       this.pendingStyleRemovals.add(type);
-    } else {
+    } else if (!wasActive && !storeActive) {
       this.pendingStyles.add(type);
     }
   }

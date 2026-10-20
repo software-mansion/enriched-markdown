@@ -1,6 +1,6 @@
 # Accessibility
 
-`react-native-enriched-markdown` provides comprehensive accessibility support for screen readers on both iOS and Android platforms.
+`react-native-enriched-markdown` provides comprehensive accessibility support for screen readers on iOS and Android, described below. On web it renders semantic HTML with `aria-*` attributes; see [Web Support](WEB.md#accessibility).
 
 ## Overview
 

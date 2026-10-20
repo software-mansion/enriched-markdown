@@ -16,7 +16,7 @@ function build(
   setup: {
     styles?: ReturnType<typeof range>[];
     blocks?: ReturnType<typeof block>[];
-    toggle?: { type: 'strong'; wasActive: boolean };
+    toggle?: { type: 'strong' };
   },
   selection: { start: number; end: number }
 ): InputState {
@@ -26,7 +26,7 @@ function build(
   blocks.setRanges(setup.blocks ?? []);
   const typing = new TypingAttributesController(formatting);
   if (setup.toggle) {
-    typing.toggleStyle(setup.toggle.type, setup.toggle.wasActive, false);
+    typing.toggleStyle(setup.toggle.type, selection.start);
   }
   return buildInputState(formatting, blocks, typing, selection, text);
 }
@@ -54,7 +54,7 @@ describe('buildInputState', () => {
 
   it('reads a caret through the pending typing attributes', () => {
     const pendingOn = build(
-      { toggle: { type: 'strong', wasActive: false } },
+      { toggle: { type: 'strong' } },
       { start: 2, end: 2 }
     );
     expect(pendingOn.bold.isActive).toBe(true);
@@ -62,7 +62,7 @@ describe('buildInputState', () => {
     const pendingOff = build(
       {
         styles: [range('strong', 0, 5)],
-        toggle: { type: 'strong', wasActive: true },
+        toggle: { type: 'strong' },
       },
       { start: 2, end: 2 }
     );
@@ -70,10 +70,7 @@ describe('buildInputState', () => {
   });
 
   it('reads a selection from the store, ignoring pending attributes', () => {
-    const state = build(
-      { toggle: { type: 'strong', wasActive: false } },
-      { start: 1, end: 4 }
-    );
+    const state = build({ toggle: { type: 'strong' } }, { start: 1, end: 4 });
 
     expect(state.bold.isActive).toBe(false);
   });

@@ -30,18 +30,51 @@ describe('serializeInline', () => {
     ).toBe('The [world](https://a.example) is big');
   });
 
-  it('nests overlapping styles by priority, font styles outermost', () => {
+  it('puts links and spoilers outside font styles over the same text', () => {
     const text = 'The world is big';
 
     expect(
       serializeInline(text, [range('spoiler', 4, 9), range('em', 4, 9)])
-    ).toBe('The *||world||* is big');
+    ).toBe('The ||*world*|| is big');
     expect(
       serializeInline(text, [
         range('link', 4, 9, 'https://a.example'),
         range('strong', 4, 9),
       ])
-    ).toBe('The **[world](https://a.example)** is big');
+    ).toBe('The [**world**](https://a.example) is big');
+  });
+
+  it('nests by containment, whatever the types', () => {
+    // A bold word inside a link, and the reverse: the longer range is outside.
+    expect(
+      serializeInline('click here', [
+        range('link', 0, 10, 'u'),
+        range('strong', 6, 10),
+      ])
+    ).toBe('[click **here**](u)');
+    expect(
+      serializeInline('click here', [
+        range('strong', 0, 5),
+        range('link', 0, 10, 'u'),
+      ])
+    ).toBe('[**click** here](u)');
+    expect(
+      serializeInline('a b', [range('spoiler', 0, 3), range('strong', 0, 1)])
+    ).toBe('||**a** b||');
+  });
+
+  it('closes and reopens a range crossing another', () => {
+    // Bold "ab cd", italic "cd ef": bold ends inside italic.
+    expect(
+      serializeInline('ab cd ef', [range('strong', 0, 5), range('em', 3, 8)])
+    ).toBe('**ab *cd*** *ef*');
+    // The reopened italic skips the space, where it could not open.
+    expect(
+      serializeInline('ab cd ef', [range('em', 0, 5), range('strong', 3, 8)])
+    ).toBe('*ab **cd*** **ef**');
+    expect(
+      serializeInline('ab cd', [range('link', 0, 2, 'u'), range('em', 0, 5)])
+    ).toBe('*[ab](u) cd*');
   });
 
   it('trims delimiters to hug non-whitespace content', () => {

@@ -10,7 +10,7 @@ The library provides sensible defaults optimized for each platform:
 |----------|-----|---------|
 | System Font | SF Pro | Roboto |
 | Monospace Font | Menlo | monospace |
-| Line Height | Tighter (0.75x multiplier) | Standard |
+| Line Height | Slightly smaller defaults (e.g. paragraph 24 vs 26) | Standard |
 
 ## Style Inheritance
 
@@ -58,29 +58,22 @@ Strong, emphasis, and inline code support an optional `fontFamily` property that
 By default, bold/italic traits are still applied on top of the custom font family. Use `fontWeight: 'normal'` or `fontStyle: 'normal'` to disable this and use the font face exactly as-is:
 
 ```tsx
+// Traits applied on top of the face (the defaults):
 markdownStyle={{
-  strong: {
-    // Bold trait is applied on top of Montserrat-Bold (default: fontWeight 'bold')
-    fontFamily: 'Montserrat-Bold',
-  },
-  strong: {
-    // Uses Montserrat-SemiBold as-is, no bold trait added
-    fontFamily: 'Montserrat-SemiBold',
-    fontWeight: 'normal',
-  },
-  em: {
-    // Italic trait is applied on top of Montserrat-Italic (default: fontStyle 'italic')
-    fontFamily: 'Montserrat-Italic',
-  },
-  em: {
-    // Uses Montserrat-Regular as-is, no italic trait added
-    fontFamily: 'Montserrat-Regular',
-    fontStyle: 'normal',
-  },
-  code: {
-    // Uses CutiveMono-Regular directly, no system monospace applied
-    fontFamily: 'CutiveMono-Regular',
-  },
+  // Bold trait is applied on top of Montserrat-Bold (default: fontWeight 'bold')
+  strong: { fontFamily: 'Montserrat-Bold' },
+  // Italic trait is applied on top of Montserrat-Italic (default: fontStyle 'italic')
+  em: { fontFamily: 'Montserrat-Italic' },
+}}
+
+// Faces used exactly as-is:
+markdownStyle={{
+  // Uses Montserrat-SemiBold as-is, no bold trait added
+  strong: { fontFamily: 'Montserrat-SemiBold', fontWeight: 'normal' },
+  // Uses Montserrat-Regular as-is, no italic trait added
+  em: { fontFamily: 'Montserrat-Regular', fontStyle: 'normal' },
+  // Uses CutiveMono-Regular directly, no system monospace applied
+  code: { fontFamily: 'CutiveMono-Regular' },
 }}
 ```
 
@@ -292,7 +285,7 @@ function App() {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `textAlign` | `'auto' \| 'left' \| 'right' \| 'center' \| 'justify'` | Text alignment (default: `'left'`) |
+| `textAlign` | `'auto' \| 'left' \| 'right' \| 'center' \| 'justify'` | Text alignment (default: `'auto'`) |
 
 ### Blockquote-specific
 
@@ -304,6 +297,7 @@ function App() {
 | `backgroundColor` | `string` | Background color |
 | `borderRadius` | `number` | Corner radius of the background box; accent borders are clipped to the rounded shape, nested quotes rounding against their own box (default: `0`) |
 | `padding` | `number` | Inner top/bottom padding between the background edges and content, applied at every nesting level — also applies to the trailing edge on iOS and web (default: `0`) |
+| `admonitions` | `object` | Colors for GitHub alerts, keyed by type (`note`, `tip`, `important`, `warning`, `caution`), each accepting `color` and `backgroundColor`. Admonitions keep the rest of the blockquote style. Requires `flavor="github"` and `md4cFlags.admonitions` (on by default) |
 
 ### List-specific
 
@@ -331,7 +325,7 @@ function App() {
 
 #### `syntaxColors`
 
-Per-token foreground colors for syntax highlighting, keyed on the highlight token type. Any key you omit falls back to the default GitHub-light palette; `operator`, `punctuation`, `variable`, and `embedded` default to the code block's base `color` (i.e. no visible recolor). Colors only take visible effect when the optional syntax highlighting module is compiled in; otherwise code blocks render uncolored.
+Per-token foreground colors for syntax highlighting, keyed on the highlight token type. Any key you omit falls back to the default GitHub-dark palette; `operator`, `punctuation`, `variable`, and `embedded` default to the code block's base `color` (i.e. no visible recolor). Colors only take visible effect when the optional syntax highlighting module is compiled in; otherwise code blocks render uncolored.
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -373,6 +367,9 @@ Per-token foreground colors for syntax highlighting, keyed on the highlight toke
 | `fontFamily` | `string` | Font family for links. Overrides the parent block's font family when set |
 | `color` | `string` | Link text color |
 | `underline` | `boolean` | Show underline |
+| `backgroundColor` | `string` | Background behind link text (default: `transparent`) |
+
+Per-URL link styling goes in `linkVariants`; see [Link Variants](MENTIONS.md#link-variants-styling).
 
 ### Strong-specific
 
@@ -442,7 +439,7 @@ Styles for highlighted text (`==text==`). Requires `md4cFlags={{ highlight: true
 
 ### Video-specific
 
-Styles for block-level videos embedded via the HTML `<video>` tag (e.g. `<video src="url"></video>`). Requires `flavor="github"` and the `enableVideo` opt-in in your app's `package.json`.
+Styles for block-level videos embedded via the HTML `<video>` tag (e.g. `<video src="url"></video>`). Requires `flavor="github"`. Video support is on by default; set `"enriched-markdown": { "enableVideo": false }` in your app's `package.json` to leave it out of the native build.
 
 | Property | Type | Description |
 |----------|------|-------------|

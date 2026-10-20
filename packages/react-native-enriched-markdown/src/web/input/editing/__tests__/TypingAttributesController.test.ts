@@ -3,13 +3,12 @@ import { FormattingStore } from '../../formatting/FormattingStore';
 import { createFormattingRange as range } from '../../model/inlineStyles';
 
 describe('TypingAttributesController', () => {
-  it('remembers a caret toggle as a three-way switch', () => {
+  it('flips a caret toggle on and back off', () => {
     const typing = new TypingAttributesController(new FormattingStore());
 
-    // Off -> pending add; toggled again -> back to nothing.
-    typing.toggleStyle('strong', false, false);
+    typing.toggleStyle('strong', 7);
     expect(typing.styles).toEqual(['strong']);
-    typing.toggleStyle('strong', false, false);
+    typing.toggleStyle('strong', 7);
     expect(typing.styles).toEqual([]);
     expect(typing.styleRemovals).toEqual([]);
   });
@@ -19,22 +18,38 @@ describe('TypingAttributesController', () => {
     store.setRanges([range('strong', 0, 4)]);
     const typing = new TypingAttributesController(store);
 
-    typing.toggleStyle('strong', true, false);
+    typing.toggleStyle('strong', 2);
     expect(typing.styleRemovals).toEqual(['strong']);
     expect(typing.isEffectiveStyleActive('strong', 2)).toBe(false);
   });
 
-  it('clears a pending removal rather than flipping it to an add', () => {
+  // Review §2.4.1: inside a run the caret already carries a pending copy of
+  // its style, seeded from the run. The first press has to unbold, not just
+  // drop that copy and leave the style on.
+  it('unbolds on the first press inside a run the caret inherited', () => {
     const store = new FormattingStore();
     store.setRanges([range('strong', 0, 4)]);
     const typing = new TypingAttributesController(store);
+    typing.resetForSelectionChange({ start: 2, end: 2 });
+    expect(typing.isEffectiveStyleActive('strong', 2)).toBe(true);
 
-    typing.toggleStyle('strong', true, false);
-    typing.toggleStyle('strong', true, false);
+    typing.toggleStyle('strong', 2);
+
+    expect(typing.isEffectiveStyleActive('strong', 2)).toBe(false);
+    typing.toggleStyle('strong', 2);
+    expect(typing.isEffectiveStyleActive('strong', 2)).toBe(true);
+  });
+
+  it('turns off a style inherited at the end of a run on the first press', () => {
+    const store = new FormattingStore();
+    store.setRanges([range('strong', 0, 4)]);
+    const typing = new TypingAttributesController(store);
+    typing.resetForSelectionChange({ start: 4, end: 4 });
+
+    typing.toggleStyle('strong', 4);
 
     expect(typing.styles).toEqual([]);
-    expect(typing.styleRemovals).toEqual([]);
-    expect(typing.isEffectiveStyleActive('strong', 2)).toBe(true);
+    expect(typing.isEffectiveStyleActive('strong', 4)).toBe(false);
   });
 
   // With a selection the store has already been changed, so there is nothing
@@ -43,10 +58,10 @@ describe('TypingAttributesController', () => {
   it('pends nothing for a toggle over a selection', () => {
     const typing = new TypingAttributesController(new FormattingStore());
 
-    typing.toggleStyle('strong', false, false);
-    typing.toggleStyle('em', true, false);
-    typing.toggleStyle('strong', false, true);
-    typing.toggleStyle('em', true, true);
+    typing.toggleStyle('strong', 7);
+    typing.toggleStyle('em', 7);
+    typing.toggleStyle('strong', null);
+    typing.toggleStyle('em', null);
 
     expect(typing.styles).toEqual([]);
     expect(typing.styleRemovals).toEqual([]);
@@ -55,9 +70,9 @@ describe('TypingAttributesController', () => {
   it('keeps pending styles apart per type', () => {
     const typing = new TypingAttributesController(new FormattingStore());
 
-    typing.toggleStyle('strong', false, false);
-    typing.toggleStyle('em', false, false);
-    typing.toggleStyle('strong', false, false);
+    typing.toggleStyle('strong', 7);
+    typing.toggleStyle('em', 7);
+    typing.toggleStyle('strong', 7);
 
     expect(typing.styles).toEqual(['em']);
   });
@@ -66,7 +81,7 @@ describe('TypingAttributesController', () => {
     it('reports a pending add active outside any stored run', () => {
       const typing = new TypingAttributesController(new FormattingStore());
 
-      typing.toggleStyle('strong', false, false);
+      typing.toggleStyle('strong', 7);
 
       expect(typing.isEffectiveStyleActive('strong', 7)).toBe(true);
     });
@@ -140,8 +155,8 @@ describe('TypingAttributesController', () => {
     it('drops whatever was pending before the selection moved', () => {
       const typing = new TypingAttributesController(new FormattingStore());
 
-      typing.toggleStyle('strong', false, false);
-      typing.toggleStyle('em', true, false);
+      typing.toggleStyle('strong', 7);
+      typing.toggleStyle('em', 7);
       typing.resetForSelectionChange({ start: 7, end: 7 });
 
       expect(typing.styles).toEqual([]);

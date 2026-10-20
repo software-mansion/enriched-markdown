@@ -6,7 +6,7 @@
 // usable. Most of what lives here is lifecycle ordering, which only a real
 // renderer reproduces, so this suite drives `react-dom` rather than the host
 // directly.
-import { act, useLayoutEffect, useRef } from 'react';
+import { Activity, act, StrictMode, useLayoutEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
   EnrichedMarkdownTextInput,
@@ -287,7 +287,7 @@ describe('the imperative handle', () => {
   // then: a parent driving the input from its own layout effect or from a ref
   // callback runs after this component's, and a command issued there would
   // otherwise be dropped with no diagnostic at all.
-  it('works from a parent layout effect, before the first paint', () => {
+  it('works from a parent layout effect, before the first paint', async () => {
     const onChangeText = jest.fn();
 
     function Harness() {
@@ -304,7 +304,7 @@ describe('the imperative handle', () => {
     document.body.appendChild(container);
     const root = createRoot(container);
     roots.push(root);
-    act(() => root.render(<Harness />));
+    await act(async () => root.render(<Harness />));
 
     expect(onChangeText).toHaveBeenCalledWith('typed before paint');
   });
@@ -317,6 +317,7 @@ describe('the imperative handle', () => {
       ref.current!.insertText('!');
     });
 
+    // Parsed markdown takes no style pending at the caret, as native paste.
     await expect(ref.current!.getMarkdown()).resolves.toBe('**bold**!');
   });
 
@@ -382,7 +383,7 @@ describe('the imperative handle', () => {
     const { ref } = mount();
     const handle = ref.current!;
 
-    act(() => {
+    await act(async () => {
       handle.insertText('text');
       handle.setSelection(0, 4);
       handle.toggleBold();
@@ -392,14 +393,14 @@ describe('the imperative handle', () => {
       handle.toggleSpoiler();
     });
 
-    await expect(handle.getMarkdown()).resolves.toBe('***_~~||text||~~_***');
+    await expect(handle.getMarkdown()).resolves.toBe('||***_~~text~~_***||');
   });
 
   it('forwards the list commands to the host', async () => {
     const { ref } = mount();
     const handle = ref.current!;
 
-    act(() => {
+    await act(async () => {
       handle.insertText('item');
       handle.toggleUnorderedList();
       handle.indentList();
@@ -446,11 +447,11 @@ describe('onChangeState', () => {
   // The web model uses 0 for "no heading", and `StyleState.heading.level` is
   // typed 1..6 - so a consumer indexing a table by it, or switching
   // exhaustively, has no branch for 0. Native normalizes the same field.
-  it('normalizes the no-heading sentinel the way native does', () => {
+  it('normalizes the no-heading sentinel the way native does', async () => {
     const onChangeState = jest.fn();
     const { ref } = mount({ onChangeState });
 
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('plain');
     });
 
@@ -459,11 +460,11 @@ describe('onChangeState', () => {
     );
   });
 
-  it('reports a real heading level unchanged', () => {
+  it('reports a real heading level unchanged', async () => {
     const onChangeState = jest.fn();
     const { ref } = mount({ onChangeState });
 
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('head');
       ref.current!.toggleHeading(3);
     });
@@ -479,43 +480,43 @@ describe('onChangeMarkdown', () => {
   // from the callback alone: the wrapper's forwarding closure is there either
   // way. Without the switch, every consumer pays a full-document serialize per
   // keystroke to feed a callback nobody passed.
-  it('does not serialize the document while nobody is listening', () => {
+  it('does not serialize the document while nobody is listening', async () => {
     const { ref } = mount();
     serializeCalls.mockClear();
 
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('hi');
     });
 
     expect(serializeCalls).not.toHaveBeenCalled();
   });
 
-  it('serializes once a listener arrives, and stops when it leaves', () => {
+  it('serializes once a listener arrives, and stops when it leaves', async () => {
     const onChangeMarkdown = jest.fn();
     const { ref, render } = mount();
 
     render({ onChangeMarkdown });
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('hi');
     });
     expect(onChangeMarkdown).toHaveBeenCalledWith('hi');
 
     render({});
     serializeCalls.mockClear();
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('!');
     });
 
     expect(serializeCalls).not.toHaveBeenCalled();
   });
 
-  it('calls the latest callback the props carried', () => {
+  it('calls the latest callback the props carried', async () => {
     const first = jest.fn();
     const second = jest.fn();
     const { ref, render } = mount({ onChangeMarkdown: first });
 
     render({ onChangeMarkdown: second });
-    act(() => {
+    await act(async () => {
       ref.current!.insertText('hi');
     });
 
@@ -545,5 +546,232 @@ describe('unmount', () => {
 
     expect(editor.hasAttribute('contenteditable')).toBe(false);
     expect(editor.hasAttribute('data-empty')).toBe(false);
+  });
+});
+
+// React tears the layout effect down and runs it again over the same node
+// without unmounting: an `<Activity>` hidden and shown, a Suspense boundary
+// suspending again, StrictMode's double run. The host is detached and
+// reattached there, never rebuilt, so nothing the user did is lost.
+describe('layout effect re-runs', () => {
+  function mountInActivity(props: EnrichedMarkdownTextInputProps = {}) {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const ref: { current: EnrichedMarkdownTextInputInstance | null } = {
+      current: null,
+    };
+    const render = (mode: 'visible' | 'hidden') =>
+      act(() => {
+        root.render(
+          <Activity mode={mode}>
+            <EnrichedMarkdownTextInput ref={ref} {...props} />
+          </Activity>
+        );
+      });
+    render('visible');
+    return {
+      editor: container.querySelector('.enrm-input') as HTMLElement,
+      ref,
+      hide: () => render('hidden'),
+      show: () => render('visible'),
+    };
+  }
+
+  it('keeps what was typed across an Activity hide and show', async () => {
+    parse.mockClear();
+    const onChangeText = jest.fn();
+    const { editor, ref, hide, show } = mountInActivity({
+      defaultValue: '**bold**',
+      onChangeText,
+    });
+    await act(async () => undefined);
+    await act(async () => {
+      ref.current!.setSelection(4, 4);
+      ref.current!.insertText(' and more');
+    });
+
+    hide();
+    show();
+    await act(async () => undefined);
+
+    expect(editor.textContent).toBe('bold and more');
+    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold** and more');
+    // The mount-time `defaultValue` was not imported a second time.
+    expect(
+      parse.mock.calls.filter(([source]) => source === '**bold**')
+    ).toHaveLength(1);
+    expect(editor.getAttribute('contenteditable')).toBe('true');
+  });
+
+  it('keeps the undo history across a hide and show', async () => {
+    const { ref, hide, show } = mountInActivity();
+    await act(async () => ref.current!.insertText('one'));
+    await act(async () => ref.current!.insertText(' two'));
+
+    hide();
+    show();
+    act(() => ref.current!.undo());
+
+    await expect(ref.current!.getMarkdown()).resolves.toBe('one');
+  });
+
+  it('is not editable while hidden, and listens to nothing', () => {
+    const onChangeText = jest.fn();
+    const { editor, hide } = mountInActivity({ onChangeText });
+
+    hide();
+    editor.dispatchEvent(
+      new InputEvent('beforeinput', {
+        inputType: 'insertText',
+        data: 'x',
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+
+    expect(editor.hasAttribute('contenteditable')).toBe(false);
+    expect(onChangeText).not.toHaveBeenCalled();
+  });
+
+  it('takes autoFocus once, not on every reveal', () => {
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    const { editor, hide, show } = mountInActivity({ autoFocus: true });
+    expect(document.activeElement).toBe(editor);
+
+    outside.focus();
+    hide();
+    show();
+
+    expect(document.activeElement).toBe(outside);
+  });
+
+  it('imports defaultValue once under StrictMode', async () => {
+    parse.mockClear();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const ref: { current: EnrichedMarkdownTextInputInstance | null } = {
+      current: null,
+    };
+    act(() => {
+      root.render(
+        <StrictMode>
+          <EnrichedMarkdownTextInput ref={ref} defaultValue="**bold**" />
+        </StrictMode>
+      );
+    });
+    await act(async () => undefined);
+
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toBe('bold');
+    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold**');
+  });
+});
+
+// A handle the app kept past the unmount. Native rejects requests pending at
+// unmount; web still holds the document, so `getMarkdown` answers with it - a
+// "save the draft on unmount" flow saves what was typed - while anything that
+// needs the mounted node rejects, and writes do nothing.
+describe('a handle used after unmount', () => {
+  it('reads the document the input held', async () => {
+    const { ref, unmount } = mount();
+    await act(async () => ref.current!.insertText('draft'));
+    const handle = ref.current!;
+
+    unmount();
+
+    await expect(handle.getMarkdown()).resolves.toBe('draft');
+  });
+
+  it('answers a getMarkdown that was waiting on an import', async () => {
+    const { ref, unmount } = mount({ defaultValue: '**bold**' });
+    const handle = ref.current!;
+
+    const pending = handle.getMarkdown();
+    unmount();
+
+    await expect(pending).resolves.toBe('**bold**');
+  });
+
+  it('rejects a caret rect', async () => {
+    const { ref, unmount } = mount();
+    const handle = ref.current!;
+
+    unmount();
+
+    await expect(handle.getCaretRect()).rejects.toThrow('Component unmounted');
+  });
+
+  it('writes nothing and reports nothing', async () => {
+    const onChangeText = jest.fn();
+    const onChangeMarkdown = jest.fn();
+    const { ref, unmount } = mount({ onChangeText, onChangeMarkdown });
+    const handle = ref.current!;
+
+    unmount();
+    handle.insertText('late');
+    handle.toggleBold();
+    handle.setValue('**late**');
+    await act(async () => undefined);
+
+    expect(onChangeText).not.toHaveBeenCalled();
+    expect(onChangeMarkdown).not.toHaveBeenCalled();
+    await expect(handle.getMarkdown()).resolves.toBe('');
+  });
+});
+
+// Review §2.8.2: cross-platform code passes native props; on web they used to
+// be spread onto the editor's div, with a React warning for each.
+describe('native-only props', () => {
+  it('keeps them off the DOM, without React warnings', () => {
+    const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const nativeOnly = {
+      markdownStyle: { paragraph: { fontSize: 18 } },
+      markdownShortcuts: true,
+      multiline: true,
+      scrollEnabled: false,
+      mentionIndicators: ['@'],
+      linkRegex: /x/,
+      contextMenuItems: [],
+      hitSlop: 4,
+      onPress: () => {},
+      onPressIn: () => {},
+      onCaretRectChange: () => {},
+      onLinkDetected: () => {},
+      onStartMention: () => {},
+    } as unknown as EnrichedMarkdownTextInputProps;
+
+    const { editor } = mount(nativeOnly);
+
+    expect(errors).not.toHaveBeenCalled();
+    const attributes = [...editor.attributes].map((a) => a.name);
+    for (const name of ['markdownstyle', 'multiline', 'hitslop', 'linkregex']) {
+      expect(attributes).not.toContain(name);
+    }
+  });
+
+  it('maps testID, selectionColor and cursorColor', () => {
+    const { editor } = mount({
+      testID: 'composer',
+      selectionColor: 'rgb(255, 0, 0)',
+      cursorColor: 'rgb(0, 0, 255)',
+    });
+
+    expect(editor.getAttribute('data-testid')).toBe('composer');
+    expect(editor.hasAttribute('data-selection-color')).toBe(true);
+    expect(editor.style.getPropertyValue('--enrm-input-selection-bg')).toBe(
+      'rgb(255, 0, 0)'
+    );
+    expect(editor.style.caretColor).toBe('rgb(0, 0, 255)');
+  });
+
+  it('leaves the browser selection highlight alone without selectionColor', () => {
+    const { editor } = mount();
+
+    expect(editor.hasAttribute('data-selection-color')).toBe(false);
   });
 });

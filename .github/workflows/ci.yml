@@ -36,6 +36,7 @@ jobs:
               - 'packages/react-native-enriched-markdown/**'
               - 'packages/core/**'
               - 'apps/react-native-example/**'
+              - 'apps/react-native-web-example/**'
               - 'package.json'
               - 'yarn.lock'
               - '.nvmrc'
@@ -76,6 +77,11 @@ jobs:
 
       - name: Typecheck files
         run: yarn typecheck
+
+      # The web example resolves the library's `.web` files (moduleSuffixes),
+      # which the library's own typecheck never sees.
+      - name: Typecheck the web example
+        run: yarn workspace react-native-enriched-markdown-web-example typecheck
 
       - name: Run unit tests
         run: yarn test
