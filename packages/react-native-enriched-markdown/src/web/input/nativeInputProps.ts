@@ -23,10 +23,15 @@ type NativeOnlyInputPropName = Exclude<
   keyof WebInputProps | keyof ViewProps
 >;
 
+// The index signature keeps this compiling where the native prop type cannot
+// be told apart from the web one: under a `.web` module suffix (an app's
+// tsconfig) the import above resolves to the web file and the derived set is
+// empty. The library's own build still requires every derived name.
 const NATIVE_ONLY_INPUT_PROP_NAMES: Record<
   NativeOnlyInputPropName | 'hitSlop',
   true
-> = {
+> &
+  Record<string, true> = {
   ref: true,
   scrollEnabled: true,
   markdownShortcuts: true,

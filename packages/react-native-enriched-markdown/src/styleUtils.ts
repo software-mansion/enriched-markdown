@@ -16,7 +16,10 @@ export const normalizeColor = (
     }
     return undefined;
   }
-  return processed;
+  // What native color props take. Typed as `ColorValue` for callers; some
+  // `react-native` type versions (react-native-web's among them) keep the
+  // processed number out of that union.
+  return processed as ColorValue;
 };
 
 export function mergeSubStyle<T extends Record<string, unknown>>(

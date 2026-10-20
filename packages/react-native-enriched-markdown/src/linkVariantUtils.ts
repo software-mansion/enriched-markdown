@@ -1,5 +1,5 @@
 import type { LinkVariantStyle } from './types/MarkdownStyle';
-import type { LinkPillContent } from './types/MarkdownTextProps';
+import type { LinkPillContent } from './types/linkPill';
 import { normalizeColor } from './styleUtils';
 import { isDev } from './utils/isDev';
 

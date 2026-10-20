@@ -1,6 +1,8 @@
 # Web Support
 
-`EnrichedMarkdownText` runs on web using plain React and DOM primitives — **no `react-native-web` dependency required**. It works in any React project (Next.js, Vite, Remix, CRA, etc.).
+`EnrichedMarkdownText` and `EnrichedMarkdownTextInput` run on web using plain React and DOM primitives. They work in any React project (Next.js, Vite, Remix, CRA, etc.).
+
+The package's `browser` field points web bundlers (webpack, Vite, Next.js, Expo web) at the web entry, so no extra resolver configuration is needed for that. One shared style module still imports `Platform` and `processColor` from `react-native`, so outside React Native the bundler has to resolve `react-native`: alias it to `react-native-web` (as most React Native web setups already do).
 
 Markdown parsing is handled by [md4c](https://github.com/mity/md4c) compiled to WebAssembly. The WASM binary is inlined as base64 inside the bundle (`SINGLE_FILE=1`), so there is no separate `.wasm` file to serve and no build step required by consumers — just import the component and it works.
 
