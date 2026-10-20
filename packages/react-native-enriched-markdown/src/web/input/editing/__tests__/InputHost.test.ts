@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 import { InputHost } from '../InputHost';
+import type { InputState } from '../InputState';
 import {
   caretAt,
   compose,
@@ -662,5 +663,46 @@ describe('InputHost', () => {
       expect(() => host.destroy()).not.toThrow();
       expect(root.hasAttribute('contenteditable')).toBe(false);
     });
+  });
+});
+
+// Review §2.2.8 and §2.1.6.
+describe('what the host hands out and leaves behind', () => {
+  it('emits copies a consumer can keep or change', () => {
+    const selections: Array<{ start: number; end: number }> = [];
+    const states: InputState[] = [];
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const host = new InputHost(root, {
+      onChangeSelection: (selection) => selections.push(selection),
+      onChangeState: (state) => states.push(state),
+    });
+    host.insertText('abc');
+    host.setSelection(1, 1);
+
+    selections.at(-1)!.start = 0;
+    host.insertText('X');
+    states.at(-1)!.bold.isActive = true;
+
+    expect(host.value).toBe('aXbc');
+    // Were the emitted state the host's own record, the edit above would
+    // make a real "bold on" look already sent, and it would be swallowed.
+    const emitted = states.length;
+    host.toggleBold();
+    expect(states.length).toBe(emitted + 1);
+    expect(states.at(-1)!.bold.isActive).toBe(true);
+    host.destroy();
+  });
+
+  it('takes back role and aria-multiline only when it set them', () => {
+    const own = document.createElement('div');
+    new InputHost(own).destroy();
+    expect(own.hasAttribute('role')).toBe(false);
+    expect(own.hasAttribute('aria-multiline')).toBe(false);
+
+    const theirs = document.createElement('div');
+    theirs.setAttribute('role', 'combobox');
+    new InputHost(theirs).destroy();
+    expect(theirs.getAttribute('role')).toBe('combobox');
   });
 });

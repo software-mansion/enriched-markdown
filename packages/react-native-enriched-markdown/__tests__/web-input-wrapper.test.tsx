@@ -317,7 +317,8 @@ describe('the imperative handle', () => {
       ref.current!.insertText('!');
     });
 
-    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold**!');
+    // The caret lands after the run the import ends in, and continues it.
+    await expect(ref.current!.getMarkdown()).resolves.toBe('**bold!**');
   });
 
   it('answers getMarkdown after the import it was issued behind', async () => {

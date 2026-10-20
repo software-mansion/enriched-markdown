@@ -50,13 +50,22 @@ export function lineAtPosition(position: number, text: string): RangeBounds {
   return paragraphBounds(position, position, text);
 }
 
-// Bounds of every line the selection touches, first to last.
+// Bounds of every line the selection touches, first to last. A selection
+// ending right after a line break - Chrome's triple-click, a drag to the
+// start of the next line - selects nothing of the line after it, so that
+// line is left out (Slate's `unhangRange`; iOS stops at the last selected
+// character's paragraph too).
 export function linesTouching(
   selection: RangeBounds,
   text: string
 ): RangeBounds[] {
   const lines: RangeBounds[] = [];
-  const { end } = paragraphBounds(selection.start, selection.end, text);
+  const selectionEnd =
+    selection.end > selection.start &&
+    text.charCodeAt(selection.end - 1) === NEWLINE
+      ? selection.end - 1
+      : selection.end;
+  const { end } = paragraphBounds(selection.start, selectionEnd, text);
   let line = lineAtPosition(selection.start, text);
   while (true) {
     lines.push(line);

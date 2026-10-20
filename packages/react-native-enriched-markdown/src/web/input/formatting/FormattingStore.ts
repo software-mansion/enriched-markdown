@@ -81,20 +81,31 @@ export class FormattingStore {
   }
 
   // Coverage may span several touching ranges; an empty range is fully active.
+  // Given the text, line breaks need no coverage: no style shows on one, and
+  // the serializer splits every range at them, so a select-all over
+  // "**a**\n\n**b**" is bold. A span holding only line breaks then has
+  // nothing to be styled, and reports inactive.
   isStyleFullyActive(
     type: InputStyleType,
     start: number,
-    end: number
+    end: number,
+    text?: string
   ): boolean {
     let position = start;
+    let covered = text === undefined || start === end;
     while (position < end) {
+      if (text !== undefined && text.charCodeAt(position) === 10) {
+        position++;
+        continue;
+      }
       const match = this.rangeOfType(type, position);
       if (match === null) {
         return false;
       }
+      covered = true;
       position = match.end;
     }
-    return true;
+    return covered;
   }
 
   // The merged range takes the new range's `url`.
@@ -163,20 +174,19 @@ export class FormattingStore {
   // covered; a partially covered selection gets the style applied everywhere.
   // A caret (start == end) only reports state — pending styles mutate later.
   // Returns whether the style was active.
+  // `text`, when given, keeps line breaks out of the coverage check (see
+  // `isStyleFullyActive`), so the toggle agrees with the state a toolbar shows.
   toggleStyle(
     type: InputStyleType,
     start: number,
     end: number,
-    conflictingStyles: ReadonlySet<InputStyleType> = new Set()
+    text?: string
   ): boolean {
     if (start < end) {
-      const wasActive = this.isStyleFullyActive(type, start, end);
+      const wasActive = this.isStyleFullyActive(type, start, end, text);
       if (wasActive) {
         this.removeType(type, start, end);
       } else {
-        for (const conflict of conflictingStyles) {
-          this.removeType(conflict, start, end);
-        }
         this.addRange({ type, start, end });
       }
       return wasActive;

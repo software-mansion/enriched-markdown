@@ -9,6 +9,7 @@ import {
   compose,
   lastState,
   mount,
+  pressKey,
   pressTab,
   selectRangeFocused,
   sendClipboard,
@@ -465,5 +466,133 @@ describe('destroy', () => {
     host.setEditable(true);
 
     expect(root.hasAttribute('contenteditable')).toBe(false);
+  });
+});
+
+describe('a selection ending at a line start', () => {
+  // Chrome's triple-click on "one" maps to {0, 4}: through the next line's
+  // start, holding nothing of it (review §2.3.3).
+  it('leaves the next line out of a block command', () => {
+    const { host } = mount();
+    host.insertText('one\ntwo');
+
+    host.setSelection(0, 4);
+    host.toggleHeading(1);
+    expect(host.getMarkdown()).toBe('# one\ntwo');
+
+    host.setSelection(0, 4);
+    host.toggleUnorderedList();
+    expect(host.getMarkdown()).toBe('- one\ntwo');
+  });
+});
+
+describe('a caret toggle inside a styled run', () => {
+  // Review §2.4.1: the caret inherits a pending bold from the run, and the
+  // first press used to drop only that copy, so typing stayed bold.
+  it('unbolds what is typed next on the first press', () => {
+    const { host, root, states } = mount();
+    root.focus();
+    typeText(root, 'abcdefgh');
+    selectRangeFocused(root, 2, 6);
+    host.toggleBold();
+    selectRangeFocused(root, 4, 4);
+
+    host.toggleBold();
+    expect(lastState(states).bold.isActive).toBe(false);
+    typeText(root, 'X');
+
+    expect(host.getMarkdown()).toBe('ab**cd**X**ef**gh');
+  });
+});
+
+describe('styles over line breaks', () => {
+  // Review §2.4.3: select-all over two bold lines read as not bold (the line
+  // breaks between them carry no range), so the first press re-bolded
+  // everything with no visible change and only the second one unbolded.
+  it('reads bold over bold lines and unbolds on the first press', () => {
+    const { host, root, states } = mount();
+    host.insertText('a\n\nb');
+    selectRangeFocused(root, 0, 1);
+    host.toggleBold();
+    selectRangeFocused(root, 3, 4);
+    host.toggleBold();
+    expect(host.getMarkdown()).toBe('**a**\n\n**b**');
+
+    selectRangeFocused(root, 0, 4);
+    expect(lastState(states).bold.isActive).toBe(true);
+    host.toggleBold();
+
+    expect(host.getMarkdown()).toBe('a\n\nb');
+  });
+});
+
+describe('state around a load', () => {
+  // Review §2.2.4: a style toggled at the caret before a load must not carry
+  // into the new document.
+  it('drops a pending style when a new value loads', async () => {
+    const { host, root } = mount();
+    root.focus();
+    host.toggleBold();
+
+    await host.setValue('xyz');
+    host.insertText('Q');
+
+    expect(host.getMarkdown()).toBe('xyzQ');
+  });
+
+  // Review §2.2.6: a load reports no state, so focusing the editor is where a
+  // toolbar first learns which block the caret sits in.
+  it('reports the state at the caret when the loaded editor is focused', async () => {
+    const { host, root, states } = mount();
+    await host.importValue('# Title');
+    expect(states).toEqual([]);
+
+    root.focus();
+
+    expect(states.at(-1)?.heading).toEqual({ isActive: true, level: 1 });
+  });
+});
+
+// Review §2.1.4: Mod+B/I/U and the browser's formatting commands used to be
+// cancelled and dropped.
+describe('formatting shortcuts', () => {
+  it('toggles bold, italic and underline from Mod+B/I/U', () => {
+    const { host, root } = mount();
+    host.insertText('one two six');
+    selectRangeFocused(root, 0, 3);
+
+    const bold = pressKey(root, 'b', { ctrlKey: true });
+    expect(bold.defaultPrevented).toBe(true);
+    selectRangeFocused(root, 4, 7);
+    pressKey(root, 'i', { ctrlKey: true });
+    selectRangeFocused(root, 8, 11);
+    pressKey(root, 'U', { ctrlKey: true });
+
+    expect(host.getMarkdown()).toBe('**one** *two* _six_');
+  });
+
+  it('leaves shifted and alt variants to the browser', () => {
+    const { host, root } = mount();
+    host.insertText('one');
+    selectRangeFocused(root, 0, 3);
+
+    expect(
+      pressKey(root, 'b', { ctrlKey: true, shiftKey: true }).defaultPrevented
+    ).toBe(false);
+    expect(
+      pressKey(root, 'b', { ctrlKey: true, altKey: true }).defaultPrevented
+    ).toBe(false);
+    expect(host.getMarkdown()).toBe('one');
+  });
+
+  it('runs the browser formatting commands as toggles', () => {
+    const { host, root } = mount();
+    host.insertText('one two');
+    selectRangeFocused(root, 0, 3);
+    sendInput(root, 'formatBold');
+    selectRangeFocused(root, 4, 7);
+    sendInput(root, 'formatStrikeThrough');
+
+    expect(host.getMarkdown()).toBe('**one** ~~two~~');
   });
 });

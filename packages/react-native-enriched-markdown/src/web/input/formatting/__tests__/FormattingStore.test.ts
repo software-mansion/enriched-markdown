@@ -182,14 +182,18 @@ describe('FormattingStore', () => {
     expect(store.allRanges).toEqual([strong(0, 2), strong(6, 10)]);
   });
 
-  it('toggleStyle strips conflicting styles before adding', () => {
-    store.setRanges([range('spoiler', 2, 8)]);
-    store.toggleStyle('link', 0, 6, new Set(['spoiler']));
+  // Review §2.4.3: a line break carries no style, so it must not make a
+  // select-all over bold lines read as partly unbold.
+  it('leaves line breaks out of the coverage when given the text', () => {
+    const text = 'a\n\nb';
+    store.setRanges([strong(0, 1), strong(3, 4)]);
 
-    expect(store.allRanges).toEqual([
-      range('link', 0, 6),
-      range('spoiler', 6, 8),
-    ]);
+    expect(store.isStyleFullyActive('strong', 0, 4)).toBe(false);
+    expect(store.isStyleFullyActive('strong', 0, 4, text)).toBe(true);
+    expect(store.isStyleFullyActive('strong', 1, 3, text)).toBe(false);
+
+    expect(store.toggleStyle('strong', 0, 4, text)).toBe(true);
+    expect(store.allRanges).toEqual([]);
   });
 
   it('toggleStyle at a caret reports state without mutating', () => {

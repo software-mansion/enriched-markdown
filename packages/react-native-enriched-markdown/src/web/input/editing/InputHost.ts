@@ -34,7 +34,12 @@ import {
   type DomPosition,
 } from './SelectionMapper';
 import { TypingAttributesController } from './TypingAttributesController';
-import { buildInputState, sameInputState, type InputState } from './InputState';
+import {
+  buildInputState,
+  copyInputState,
+  sameInputState,
+  type InputState,
+} from './InputState';
 import {
   clamp,
   codePointBoundaryAtOrBefore,
@@ -136,8 +141,14 @@ export class InputHost {
     root.classList.add(ENRM_INPUT_CLASS);
     this.setOwnedAttribute('contenteditable', 'true');
     // A consumer may be passing these through as props; theirs wins.
-    setAttributeIfAbsent(root, 'role', 'textbox');
-    setAttributeIfAbsent(root, 'aria-multiline', 'true');
+    // Owned only when set here, so `destroy` takes back what it added and
+    // leaves what the consumer passed.
+    if (setAttributeIfAbsent(root, 'role', 'textbox')) {
+      this.ownedAttributes.push('role');
+    }
+    if (setAttributeIfAbsent(root, 'aria-multiline', 'true')) {
+      this.ownedAttributes.push('aria-multiline');
+    }
     if (options.spellCheck !== undefined) {
       root.setAttribute('spellcheck', String(options.spellCheck));
       this.ownedAttributes.push('spellcheck');
@@ -400,6 +411,9 @@ export class InputHost {
       // A new value is a new document, as native's `setText` makes it.
       this.history.clear();
     });
+    // A style toggled at the caret before the load belongs to the old
+    // document; the next keystroke takes what the new caret sits next to.
+    this.typing.resetForSelectionChange(this.selection);
     this.render();
     this.emitHistoryState();
     return true;
@@ -588,6 +602,20 @@ export class InputHost {
       case 'insertLineBreak':
         this.insertNewline();
         break;
+      // The browser's own formatting commands - a menu, iOS's B/I/U bar, a
+      // shortcut the keydown handler did not take - run the model's toggles.
+      case 'formatBold':
+        this.toggleBold();
+        break;
+      case 'formatItalic':
+        this.toggleItalic();
+        break;
+      case 'formatUnderline':
+        this.toggleUnderline();
+        break;
+      case 'formatStrikeThrough':
+        this.toggleStrikethrough();
+        break;
       // Deletes prefer the platform's target range: word and visual-line
       // bounds depend on locale and layout. The scanners are the fallback.
       case 'deleteContentBackward':
@@ -637,13 +665,9 @@ export class InputHost {
       // `handlePaste`. Cancelling them here is what keeps the browser from
       // doing it a second time.
       //
-      // Still deliberately denied, with nothing behind them yet:
-      // - `insertParagraph` / `insertLineBreak`: Enter, which has to continue
-      //   lists and split blocks. Lands with the formatting commands.
-      // - `formatBold` and friends: the commands own these, including the
-      //   keyboard shortcuts that raise them.
-      // - `insertFromDrop`: needs a caret-from-point mapping to know where the
-      //   drop landed. Denying it is inert rather than wrong.
+      // Still deliberately denied: `insertFromDrop`, which needs a
+      // caret-from-point mapping to know where the drop landed. Denying it
+      // is inert rather than wrong.
       default:
         break;
     }
@@ -797,10 +821,9 @@ export class InputHost {
       }
       return;
     }
-    const shortcut = historyShortcut(
-      event,
-      this.root.ownerDocument.defaultView?.navigator ?? null
-    );
+    const navigator = this.root.ownerDocument.defaultView?.navigator ?? null;
+    const shortcut =
+      historyShortcut(event, navigator) ?? formatShortcut(event, navigator);
     if (shortcut === null) {
       return;
     }
@@ -808,10 +831,22 @@ export class InputHost {
     if (this.pendingImports > 0) {
       return;
     }
-    if (shortcut === 'undo') {
-      this.undo();
-    } else {
-      this.redo();
+    switch (shortcut) {
+      case 'undo':
+        this.undo();
+        break;
+      case 'redo':
+        this.redo();
+        break;
+      case 'bold':
+        this.toggleBold();
+        break;
+      case 'italic':
+        this.toggleItalic();
+        break;
+      case 'underline':
+        this.toggleUnderline();
+        break;
     }
   };
 
@@ -902,6 +937,9 @@ export class InputHost {
       return;
     }
     this.session.scoped('formatting', () => this.writeSelectionToDom());
+    // As natives emit on every selection callback, deduplicated: focusing a
+    // freshly loaded editor tells a toolbar what the caret sits in.
+    this.emitState();
   };
 
   private readonly handleBlur = (): void => {
@@ -1021,6 +1059,10 @@ export class InputHost {
       ) {
         this.session.scoped('formatting', () => this.writeSelectionToDom());
       }
+      // The caret did not move, but a load does not report state (natives
+      // emit nothing for a `defaultValue`), so the first click in the editor
+      // is where a toolbar learns about the line it lands on. Deduplicated.
+      this.emitState();
       return;
     }
     this.selection = mapped;
@@ -1150,13 +1192,13 @@ export class InputHost {
       } else {
         this.history.breakGroup();
       }
-      const wasActive = this.session.scoped('processing', () =>
-        this.formattingStore.toggleStyle(type, start, end)
-      );
       if (start !== end) {
+        this.session.scoped('processing', () =>
+          this.formattingStore.toggleStyle(type, start, end, this.text)
+        );
         this.projector.stylesChanged(start, end);
       }
-      this.typing.toggleStyle(type, wasActive, start !== end);
+      this.typing.toggleStyle(type, start === end ? start : null);
       if (start === end) {
         // A caret toggle only pends a style for the next keystroke; the
         // stores, and so the DOM and the markdown, are unchanged.
@@ -1506,7 +1548,9 @@ export class InputHost {
     if (this.session.shouldSuppressEvents) {
       return;
     }
-    this.callbacks.onChangeSelection?.(this.selection);
+    // Copies: a consumer keeping or mutating what it is handed must not
+    // reach into the host (review §2.2.8).
+    this.callbacks.onChangeSelection?.({ ...this.selection });
   }
 
   private emitState(): void {
@@ -1527,7 +1571,7 @@ export class InputHost {
       return;
     }
     this.lastEmittedState = state;
-    this.callbacks.onChangeState?.(state);
+    this.callbacks.onChangeState?.(copyInputState(state));
   }
 
   private emitMarkdown(): void {
@@ -1738,14 +1782,17 @@ function isZeroBox(box: CaretBox): boolean {
   return box.left === 0 && box.top === 0 && box.width === 0 && box.height === 0;
 }
 
+// Whether it set the attribute.
 function setAttributeIfAbsent(
   element: HTMLElement,
   name: string,
   value: string
-): void {
-  if (!element.hasAttribute(name)) {
-    element.setAttribute(name, value);
+): boolean {
+  if (element.hasAttribute(name)) {
+    return false;
   }
+  element.setAttribute(name, value);
+  return true;
 }
 
 // Mod+Z undoes, Mod+Shift+Z redoes; Mod is Cmd on Apple platforms and Ctrl
@@ -1772,6 +1819,35 @@ function historyShortcut(
     return 'redo';
   }
   return null;
+}
+
+// Mod+B / Mod+I / Mod+U, as every editor maps them (Mod = Cmd on Apple
+// platforms, Ctrl elsewhere). Taken on keydown because not every engine
+// raises a cancelable `formatBold` for them.
+function formatShortcut(
+  event: KeyboardEvent,
+  navigator: Navigator | null
+): 'bold' | 'italic' | 'underline' | null {
+  if (event.altKey || event.shiftKey) {
+    return null;
+  }
+  const apple = isApplePlatform(navigator);
+  const mod = apple
+    ? event.metaKey && !event.ctrlKey
+    : event.ctrlKey && !event.metaKey;
+  if (!mod) {
+    return null;
+  }
+  switch (event.key.toLowerCase()) {
+    case 'b':
+      return 'bold';
+    case 'i':
+      return 'italic';
+    case 'u':
+      return 'underline';
+    default:
+      return null;
+  }
 }
 
 function isApplePlatform(navigator: Navigator | null): boolean {
