@@ -641,11 +641,6 @@ jobs:
       - name: Render the comment
         run: |
           set -euo pipefail
-          # The session id is read back out of the report rather than passed
-          # along, so this job needs nothing from the one that held the keys
-          # beyond the artifact itself.
-          SESSION=$(tail -n 1 "$RUNNER_TEMP/session/output.log" 2>/dev/null | tr -d '\r' \
-            | sed -n 's/^session-id=\([A-Za-z0-9_.-]\{1,128\}\)$/\1/p')
           SHOTS=$(find "$RUNNER_TEMP/session" -maxdepth 1 -name '*-screenshots.tar.gz' | head -n 1)
           node .github/argent-cloud/render-comment.mjs \
             --report "$RUNNER_TEMP/session/output.log" \
@@ -653,7 +648,6 @@ jobs:
             --number "$NUMBER" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --artifact "$ARTIFACT" \
-            --session "${SESSION:-unknown}" \
             --out "$RUNNER_TEMP/comment.md"
 
       # --comment-file, so the body never passes through a shell argument or an
