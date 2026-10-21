@@ -49,7 +49,7 @@ on:
 # jobs install the CLI: the one that runs the session and the one that posts it.
 env:
   # Quoted: the tags are all digits, and a bare one is a YAML integer.
-  ARGENT_CLOUD_VERSION: "202610191521"
+  ARGENT_CLOUD_VERSION: "202610211750"
   ARGENT_CLOUD_SHA256: 63b5112b01f187fe327c62364fe89fbf0d07ab7d8d08f901772abaa093af1a50
 
 jobs:

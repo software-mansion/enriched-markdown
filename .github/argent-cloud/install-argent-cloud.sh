@@ -8,7 +8,7 @@
 #
 # Two environment variables decide which build runs, and the workflow sets both:
 #
-#   ARGENT_CLOUD_VERSION  a release tag, e.g. 202610191521
+#   ARGENT_CLOUD_VERSION  a release tag, e.g. 202610211750
 #   ARGENT_CLOUD_SHA256   that asset's sha256, e.g.
 #                         63b5112b01f187fe327c62364fe89fbf0d07ab7d8d08f901772abaa093af1a50
 #
