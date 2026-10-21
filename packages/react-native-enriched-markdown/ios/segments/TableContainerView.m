@@ -64,7 +64,7 @@ static StyleConfig *ENRMTableCellConfig(StyleConfig *config, BOOL isHeader)
   NSString *headerFamily =
       config.tableHeaderFontFamily.length > 0 ? config.tableHeaderFontFamily : config.tableFontFamily;
   [cellConfig setParagraphFontFamily:isHeader ? headerFamily : config.tableFontFamily];
-  [cellConfig setParagraphFontWeight:isHeader ? @"bold" : config.tableFontWeight];
+  [cellConfig setParagraphFontWeight:isHeader ? config.tableHeaderFontWeight : config.tableFontWeight];
   [cellConfig setParagraphColor:isHeader ? config.tableHeaderTextColor : config.tableColor];
   [cellConfig setParagraphLineHeight:config.tableLineHeight];
 
@@ -182,8 +182,26 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
   return [allRows copy];
 }
 
+static BOOL ENRMTableHasRowBorders(StyleConfig *config)
+{
+#if TARGET_OS_OSX
+  return NO;
+#else
+  return [config.tableBorders isEqualToString:@"row"];
+#endif
+}
+
+static BOOL ENRMTableFillsWidth(StyleConfig *config)
+{
+#if TARGET_OS_OSX
+  return NO;
+#else
+  return [config.tableLayout isEqualToString:@"fill"];
+#endif
+}
+
 static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NSUInteger colCount, StyleConfig *config,
-                                   CGFloat borderWidth, NSMutableArray<NSNumber *> *_Nullable *_Nullable outColWidths,
+                                   CGFloat borderWidth, CGFloat maxWidth, NSMutableArray<NSNumber *> *_Nullable *_Nullable outColWidths,
                                    NSMutableArray<NSNumber *> *_Nullable *_Nullable outRowHeights,
                                    CGFloat *_Nullable outTotalWidth, CGFloat *_Nullable outTotalHeight)
 {
@@ -210,6 +228,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     }
   }
 
+  const BOOL rowBorders = ENRMTableHasRowBorders(config);
+  const CGFloat outerBorders = borderWidth * (rowBorders ? 2 : 1);
+  const CGFloat naturalWidth = [[colWidths valueForKeyPath:@"@sum.self"] doubleValue];
+  if (ENRMTableFillsWidth(config) && colCount > 0 && maxWidth > naturalWidth + outerBorders) {
+    const CGFloat extraPerColumn = (maxWidth - outerBorders - naturalWidth) / colCount;
+    for (NSUInteger column = 0; column < colCount; column++) {
+      colWidths[column] = @([colWidths[column] doubleValue] + extraPerColumn);
+    }
+  }
+
   NSMutableArray<NSNumber *> *rowHeights = [NSMutableArray arrayWithCapacity:rows.count];
   for (NSArray<TableCellData *> *row in rows) {
     CGFloat maxHeight = 0;
@@ -221,6 +249,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
                        context:nil];
       maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
     }
+    // Row separators occupy space, rather than overlapping adjacent cell content.
+    if (rowBorders && rowHeights.count > 0) maxHeight += borderWidth;
     [rowHeights addObject:@(maxHeight)];
   }
 
@@ -229,9 +259,9 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   if (outRowHeights != NULL)
     *outRowHeights = rowHeights;
   if (outTotalWidth != NULL)
-    *outTotalWidth = [[colWidths valueForKeyPath:@"@sum.self"] doubleValue] + borderWidth;
+    *outTotalWidth = [[colWidths valueForKeyPath:@"@sum.self"] doubleValue] + outerBorders;
   if (outTotalHeight != NULL)
-    *outTotalHeight = [[rowHeights valueForKeyPath:@"@sum.self"] doubleValue] + borderWidth;
+    *outTotalHeight = [[rowHeights valueForKeyPath:@"@sum.self"] doubleValue] + outerBorders;
 }
 
 #if !TARGET_OS_OSX
@@ -245,6 +275,9 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 @implementation TableContainerView {
   ENRMHorizontalScrollView *_scrollView;
   RCTUIView *_gridContainer;
+#if !TARGET_OS_OSX
+  UIView *_tableBorderView;
+#endif
   NSArray<NSArray<TableCellData *> *> *_rows;
   NSUInteger _colCount;
 
@@ -252,6 +285,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSMutableArray<NSNumber *> *_rowHeights;
   CGFloat _totalTableWidth;
   CGFloat _totalTableHeight;
+  CGFloat _layoutWidth;
 
   NSString *_cachedMarkdown;
 
@@ -285,13 +319,19 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 {
   _scrollView = [[ENRMHorizontalScrollView alloc] init];
   _scrollView.showsVerticalScrollIndicator = NO;
-  _scrollView.showsHorizontalScrollIndicator = YES;
+  _scrollView.showsHorizontalScrollIndicator = self.config.tableShowsHorizontalScrollIndicator;
 #if !TARGET_OS_OSX
   _scrollView.alwaysBounceHorizontal = NO;
   _scrollView.isAccessibilityElement = NO;
   _scrollView.accessibilityElementsHidden = YES;
 #endif
   [self addSubview:_scrollView];
+#if !TARGET_OS_OSX
+  _tableBorderView = [[UIView alloc] initWithFrame:CGRectZero];
+  _tableBorderView.userInteractionEnabled = NO;
+  _tableBorderView.hidden = YES;
+  [self addSubview:_tableBorderView];
+#endif
 
 #if TARGET_OS_OSX
   // On macOS, use ENRMTableGridView as the NSScrollView documentView so that the
@@ -379,16 +419,18 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   NSMutableArray<NSNumber *> *rowHeights = nil;
   CGFloat totalWidth = 0;
   CGFloat totalHeight = 0;
-  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, &colWidths, &rowHeights,
+  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, self.bounds.size.width, &colWidths, &rowHeights,
                          &totalWidth, &totalHeight);
   _colWidths = colWidths;
   _rowHeights = rowHeights;
   _totalTableWidth = totalWidth;
   _totalTableHeight = totalHeight;
+  _layoutWidth = self.bounds.size.width;
 }
 
 + (CGFloat)measureHeightForTableNode:(MarkdownASTNode *)tableNode
                               config:(StyleConfig *)config
+                            maxWidth:(CGFloat)maxWidth
                     allowFontScaling:(BOOL)allowFontScaling
                maxFontSizeMultiplier:(CGFloat)maxFontSizeMultiplier
                 writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
@@ -402,7 +444,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
     return 0;
 
   CGFloat totalHeight = 0;
-  ENRMTableComputeLayout(rows, colCount, config, config.tableBorderWidth, NULL, NULL, NULL, &totalHeight);
+  ENRMTableComputeLayout(rows, colCount, config, config.tableBorderWidth, maxWidth, NULL, NULL, NULL, &totalHeight);
   return totalHeight;
 }
 
@@ -473,8 +515,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (void)renderGridIOS
 {
   _gridContainer.frame = CGRectMake(0, 0, _totalTableWidth, _totalTableHeight);
-  _gridContainer.layer.cornerRadius = self.config.tableBorderRadius;
-  _gridContainer.layer.masksToBounds = YES;
+  _gridContainer.layer.cornerRadius = ENRMTableHasRowBorders(self.config) ? 0 : self.config.tableBorderRadius;
+  _gridContainer.layer.masksToBounds = !ENRMTableHasRowBorders(self.config);
 
   NSUInteger bodyRowIndex = 0;
   NSMutableArray<ENRMTableIOSRowData *> *rowDataArray = [NSMutableArray arrayWithCapacity:_rows.count];
@@ -500,7 +542,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
                 borderWidth:self.config.tableBorderWidth
       horizontalCellPadding:self.config.tableCellPaddingHorizontal
         verticalCellPadding:self.config.tableCellPaddingVertical
-               cornerRadius:self.config.tableBorderRadius];
+               cornerRadius:self.config.tableBorderRadius
+             rowBordersOnly:ENRMTableHasRowBorders(self.config)];
 
   __weak TableContainerView *weakSelf = self;
   ENRMTableWireImageRedraw(_rows, ^{ [weakSelf handleCellImageResolved]; });
@@ -765,8 +808,12 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 {
   if (_rows.count == 0)
     return 0;
-  if (_rowHeights.count == 0)
+  if (ENRMTableFillsWidth(self.config)) {
+    ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, maxWidth,
+                           NULL, NULL, NULL, &_totalTableHeight);
+  } else if (_rowHeights.count == 0) {
     [self computeLayout];
+  }
   return _totalTableHeight;
 }
 
@@ -785,8 +832,38 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
 - (void)layoutSubviews
 {
   [super layoutSubviews];
+  _scrollView.showsHorizontalScrollIndicator = self.config.tableShowsHorizontalScrollIndicator;
   _scrollView.frame = self.bounds;
 #if !TARGET_OS_OSX
+  if (ENRMTableFillsWidth(self.config) && _layoutWidth != self.bounds.size.width) {
+    [self computeLayout];
+    [self renderGridIOS];
+  }
+  if (ENRMTableHasRowBorders(self.config)) {
+    CGFloat frameWidth = MIN(self.bounds.size.width, _totalTableWidth);
+    if (frameWidth <= 0 || _totalTableHeight <= 0) return;
+    CGFloat offset = [self alignOffsetForFreeSpace:self.bounds.size.width - frameWidth];
+    CGRect frame = CGRectMake(offset, 0, frameWidth, _totalTableHeight);
+    CGFloat borderWidth = self.config.tableBorderWidth;
+    _tableBorderView.hidden = NO;
+    _tableBorderView.frame = frame;
+    _tableBorderView.layer.borderColor = self.config.tableBorderColor.CGColor;
+    _tableBorderView.layer.borderWidth = borderWidth;
+    _tableBorderView.layer.cornerRadius = self.config.tableBorderRadius;
+    _scrollView.frame = CGRectInset(frame, borderWidth, borderWidth);
+    _scrollView.layer.cornerRadius = MAX(0, self.config.tableBorderRadius - borderWidth);
+    _scrollView.layer.masksToBounds = YES;
+    CGFloat contentWidth = MAX(0, _totalTableWidth - borderWidth * 2);
+    CGFloat contentHeight = MAX(0, _totalTableHeight - borderWidth * 2);
+    _scrollView.contentInset = UIEdgeInsetsZero;
+    _scrollView.contentSize = CGSizeMake(contentWidth, contentHeight);
+    _scrollView.scrollEnabled = contentWidth > _scrollView.bounds.size.width;
+    _gridContainer.frame = CGRectMake(0, 0, contentWidth, contentHeight);
+    return;
+  }
+  _tableBorderView.hidden = YES;
+  _scrollView.layer.cornerRadius = 0;
+  _scrollView.layer.masksToBounds = YES;
   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
   CGFloat containerWidth = self.bounds.size.width;
   BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
@@ -864,7 +941,9 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
       element.accessibilityLabel =
           [withN stringByReplacingOccurrencesOfString:@"{content}"
                                            withString:[cellTexts componentsJoinedByString:@", "]];
-      element.accessibilityFrameInContainerSpace = CGRectMake(0, yOffset, _totalTableWidth, rowHeight);
+      CGFloat frameBorder = ENRMTableHasRowBorders(self.config) ? self.config.tableBorderWidth : 0;
+      element.accessibilityFrameInContainerSpace =
+          CGRectMake(frameBorder, yOffset + frameBorder, _totalTableWidth - frameBorder * 2, rowHeight);
       element.accessibilityTraits =
           row.firstObject.isHeader ? UIAccessibilityTraitHeader : UIAccessibilityTraitStaticText;
       [elements addObject:element];

@@ -250,6 +250,16 @@ interface ThematicBreakStyle {
 
 interface TableStyle extends BaseBlockStyle {
   headerFontFamily?: string;
+  /** Header weight. Defaults to bold. @platform ios android */
+  headerFontWeight?: string;
+  /** Row separators and a rounded viewport border. Defaults to cell. @platform ios android */
+  borders?: 'cell' | 'row';
+  /** Expand content-sized columns to fill spare width. Defaults to intrinsic. @platform ios android */
+  layout?: 'intrinsic' | 'fill';
+  /** Show the horizontal scroll indicator. Defaults to true. @platform ios android */
+  showsHorizontalScrollIndicator?: boolean;
+  /** Include native font padding in table cells. Defaults to false. @platform android */
+  includeFontPadding?: boolean;
   headerBackgroundColor?: string;
   headerTextColor?: string;
   rowEvenBackgroundColor?: string;

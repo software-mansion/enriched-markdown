@@ -226,6 +226,10 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   CGFloat _tableLineHeight;
   ENRMFontSlot *_tableFont;
   NSString *_tableHeaderFontFamily;
+  NSString *_tableHeaderFontWeight;
+  NSString *_tableBorders;
+  NSString *_tableLayout;
+  BOOL _tableShowsHorizontalScrollIndicator;
   ENRMFontSlot *_tableHeaderFont;
   RCTUIColor *_tableHeaderBackgroundColor;
   RCTUIColor *_tableHeaderTextColor;
@@ -282,6 +286,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   _h5TextAlign = NSTextAlignmentNatural;
   _h6TextAlign = NSTextAlignmentNatural;
   _linkUnderline = YES;
+  _tableShowsHorizontalScrollIndicator = YES;
   _linkVariants = @[];
   _compiledVariantRegexes = @[];
   _primaryFont = [[ENRMFontSlot alloc] init];
@@ -517,6 +522,10 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_tableMarginBottom = _tableMarginBottom;
   copy->_tableLineHeight = _tableLineHeight;
   copy->_tableHeaderFontFamily = [_tableHeaderFontFamily copy];
+  copy->_tableHeaderFontWeight = [_tableHeaderFontWeight copy];
+  copy->_tableBorders = [_tableBorders copy];
+  copy->_tableLayout = [_tableLayout copy];
+  copy->_tableShowsHorizontalScrollIndicator = _tableShowsHorizontalScrollIndicator;
   copy->_tableHeaderBackgroundColor = [_tableHeaderBackgroundColor copy];
   copy->_tableHeaderTextColor = [_tableHeaderTextColor copy];
   copy->_tableRowEvenBackgroundColor = [_tableRowEvenBackgroundColor copy];
@@ -2387,6 +2396,19 @@ static const CGFloat kDefaultMinGap = 4.0;
   return _tableFont.cachedFont;
 }
 
+- (NSString *)tableHeaderFontWeight { return _tableHeaderFontWeight ?: @"bold"; }
+- (void)setTableHeaderFontWeight:(NSString *)newValue
+{
+  _tableHeaderFontWeight = [newValue copy];
+  [_tableHeaderFont invalidate];
+}
+- (NSString *)tableBorders { return _tableBorders ?: @"cell"; }
+- (void)setTableBorders:(NSString *)newValue { _tableBorders = [newValue copy]; }
+- (NSString *)tableLayout { return _tableLayout ?: @"intrinsic"; }
+- (void)setTableLayout:(NSString *)newValue { _tableLayout = [newValue copy]; }
+- (BOOL)tableShowsHorizontalScrollIndicator { return _tableShowsHorizontalScrollIndicator; }
+- (void)setTableShowsHorizontalScrollIndicator:(BOOL)newValue { _tableShowsHorizontalScrollIndicator = newValue; }
+
 - (NSString *)tableHeaderFontFamily
 {
   return _tableHeaderFontFamily;
@@ -2405,7 +2427,7 @@ static const CGFloat kDefaultMinGap = 4.0;
     _tableHeaderFont.cachedFont = [RCTFont updateFont:nil
                                            withFamily:family
                                                  size:@(_tableFontSize)
-                                               weight:normalizedFontWeight(@"bold")
+                                               weight:normalizedFontWeight(self.tableHeaderFontWeight)
                                                 style:nil
                                               variant:nil
                                       scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_tableFontSize]];

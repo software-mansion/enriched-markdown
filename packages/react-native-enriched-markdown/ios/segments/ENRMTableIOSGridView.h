@@ -49,7 +49,8 @@ typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
               borderWidth:(CGFloat)borderWidth
     horizontalCellPadding:(CGFloat)horizontalCellPadding
       verticalCellPadding:(CGFloat)verticalCellPadding
-             cornerRadius:(CGFloat)cornerRadius;
+             cornerRadius:(CGFloat)cornerRadius
+           rowBordersOnly:(BOOL)rowBordersOnly;
 
 - (void)fadeInRowsFrom:(NSUInteger)startRow duration:(NSTimeInterval)duration;
 

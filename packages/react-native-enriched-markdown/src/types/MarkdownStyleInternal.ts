@@ -186,6 +186,11 @@ interface ThematicBreakStyleInternal {
 
 interface TableStyleInternal extends BaseBlockStyleInternal {
   headerFontFamily: string;
+  headerFontWeight: string;
+  borders: string;
+  layout: string;
+  showsHorizontalScrollIndicator: boolean;
+  includeFontPadding: boolean;
   headerBackgroundColor: string;
   headerTextColor: string;
   rowEvenBackgroundColor: string;

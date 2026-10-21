@@ -317,6 +317,7 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
         yOffset += config.tableMarginTop;
         yOffset += [TableContainerView measureHeightForTableNode:segment.tableSegment.tableNode
                                                           config:config
+                                                        maxWidth:maxWidth
                                                 allowFontScaling:typedProps.allowFontScaling
                                            maxFontSizeMultiplier:typedProps.maxFontSizeMultiplier
                                             writingDirectionMode:writingDirectionMode

@@ -53,6 +53,16 @@ class TableContainerView(
   override val segmentMarginBottom: Int get() = tableStyle.marginBottom.toInt()
   private val density = resources.displayMetrics.density
   private val isRtl = resources.isLayoutRTL()
+  private val rowBorders get() = tableStyle.borders == "row"
+  private val outerBorderWidth get() = tableStyle.borderWidth * (if (rowBorders) 2 else 1)
+  private var availableWidth = 0f
+  private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    style = Paint.Style.STROKE
+    color = tableStyle.borderColor
+    strokeWidth = tableStyle.borderWidth
+  }
+  private val framePath = Path()
+  private val frameRect = RectF()
 
   var allowFontScaling = true
   var maxFontSizeMultiplier = 0f
@@ -142,13 +152,19 @@ class TableContainerView(
     columnCount = rows.maxOfOrNull { it.size } ?: 0
     tableMarkdown = buildMarkdownFromRows()
 
-    val (widths, heights) = computeTableDimensions(rows.map { row -> row.map { it.attributedText } }, styleConfig, context)
+    updateDimensions()
+    renderGrid()
+  }
+
+  private fun updateDimensions(): Boolean {
+    val (widths, heights) =
+      computeTableDimensions(rows.map { row -> row.map { it.attributedText } }, styleConfig, context, availableWidth)
+    if (widths == columnWidths && heights == rowHeights) return false
     columnWidths = widths
     rowHeights = heights
-    totalTableWidth = columnWidths.sum() + tableStyle.borderWidth
-    totalTableHeight = rowHeights.sum() + tableStyle.borderWidth
-
-    renderGrid()
+    totalTableWidth = columnWidths.sum() + outerBorderWidth
+    totalTableHeight = rowHeights.sum() + outerBorderWidth
+    return true
   }
 
   private fun renderCellNode(
@@ -196,7 +212,8 @@ class TableContainerView(
           else -> tableStyle.rowOddBackgroundColor
         }
 
-      var xOffset = if (isRtl) totalTableWidth - tableStyle.borderWidth else 0f
+      var xOffset = if (isRtl) columnWidths.sum() else 0f
+      val separator = if (rowBorders && rowIndex > 0) tableStyle.borderWidth else 0f
       for (col in 0 until columnCount) {
         val columnWidth = columnWidths[col]
 
@@ -210,20 +227,23 @@ class TableContainerView(
 
         val cellBg =
           CellBackgroundView(context).apply {
-            configure(rowBg, tableStyle.borderColor, tableStyle.borderWidth)
+            configure(rowBg, tableStyle.borderColor, tableStyle.borderWidth, rowBorders, separator)
             setOnLongClickListener { view -> showContextMenu(view) }
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
           }
 
         gridContainer.addView(
           cellBg,
-          LayoutParams(ceil(columnWidth + tableStyle.borderWidth).toInt(), ceil(rowHeight + tableStyle.borderWidth).toInt()).apply {
+          LayoutParams(
+            ceil(columnWidth + if (rowBorders) 0f else tableStyle.borderWidth).toInt(),
+            ceil(rowHeight + if (rowBorders) 0f else tableStyle.borderWidth).toInt(),
+          ).apply {
             leftMargin = ceil(cellX).toInt()
             topMargin = ceil(yOffset).toInt()
           },
         )
 
-        if (col < row.size) addTextToCell(cellBg, row[col], columnWidth, rowHeight)
+        if (col < row.size) addTextToCell(cellBg, row[col], columnWidth, rowHeight, separator)
         if (!isRtl) xOffset += columnWidth
       }
 
@@ -232,7 +252,10 @@ class TableContainerView(
       if (!isHeaderRow) bodyRowIndex++
       yOffset += rowHeight
     }
-    gridContainer.layoutParams = LayoutParams(ceil(totalTableWidth).toInt(), ceil(totalTableHeight).toInt())
+    gridContainer.layoutParams = LayoutParams(
+      ceil(if (rowBorders) columnWidths.sum() else totalTableWidth).toInt(),
+      ceil(if (rowBorders) rowHeights.sum() else totalTableHeight).toInt(),
+    )
   }
 
   private fun addRowAccessibilityOverlay(
@@ -262,8 +285,8 @@ class TableContainerView(
       overlay,
       0,
       LayoutParams(
-        ceil(totalTableWidth).toInt(),
-        ceil(rowHeight + tableStyle.borderWidth).toInt(),
+        ceil(if (rowBorders) columnWidths.sum() else totalTableWidth).toInt(),
+        ceil(rowHeight + if (rowBorders) 0f else tableStyle.borderWidth).toInt(),
       ).apply {
         leftMargin = 0
         topMargin = ceil(yOffset).toInt()
@@ -276,9 +299,11 @@ class TableContainerView(
     data: TableCellData,
     width: Float,
     height: Float,
+    separator: Float,
   ) {
     val cellTextView =
       CellTextView(context).apply {
+        includeFontPadding = tableStyle.includeFontPadding
         text = data.attributedText
         textSize = tableStyle.fontSize / resources.displayMetrics.scaledDensity
         typeface = if (data.isHeader) styleConfig.tableHeaderTypeface else styleConfig.tableTypeface
@@ -297,10 +322,10 @@ class TableContainerView(
       cellTextView,
       LayoutParams(
         (width - horizontalPadding * 2).toInt().coerceAtLeast(1),
-        (height - verticalPadding * 2).toInt().coerceAtLeast(1),
+        (height - verticalPadding * 2 - separator).toInt().coerceAtLeast(1),
       ).apply {
         leftMargin = ceil(horizontalPadding).toInt()
-        topMargin = ceil(verticalPadding).toInt()
+        topMargin = ceil(verticalPadding + separator).toInt()
       },
     )
 
@@ -323,14 +348,7 @@ class TableContainerView(
 
   private fun remeasureForImageLoad() {
     if (rows.isEmpty()) return
-    val (widths, heights) =
-      computeTableDimensions(rows.map { row -> row.map { it.attributedText } }, styleConfig, context)
-    if (widths == columnWidths && heights == rowHeights) return
-
-    columnWidths = widths
-    rowHeights = heights
-    totalTableWidth = columnWidths.sum() + tableStyle.borderWidth
-    totalTableHeight = rowHeights.sum() + tableStyle.borderWidth
+    if (!updateDimensions()) return
     renderGrid()
     requestLayout()
 
@@ -342,10 +360,20 @@ class TableContainerView(
     heightSpec: Int,
   ) {
     val measuredWidth = MeasureSpec.getSize(widthSpec)
+    if (tableStyle.layout == "fill" && availableWidth != measuredWidth.toFloat()) {
+      availableWidth = measuredWidth.toFloat()
+      if (updateDimensions()) renderGrid()
+    }
     val measuredHeight = ceil(totalTableHeight).toInt()
     scrollView.measure(
-      MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(
+        if (rowBorders) (min(totalTableWidth, measuredWidth.toFloat()) - outerBorderWidth).toInt().coerceAtLeast(0) else measuredWidth,
+        MeasureSpec.EXACTLY,
+      ),
+      MeasureSpec.makeMeasureSpec(
+        if (rowBorders) (measuredHeight - outerBorderWidth).toInt().coerceAtLeast(0) else measuredHeight,
+        MeasureSpec.EXACTLY,
+      ),
     )
     setMeasuredDimension(measuredWidth, measuredHeight)
   }
@@ -358,13 +386,38 @@ class TableContainerView(
     bottom: Int,
   ) {
     val viewWidth = right - left
+    if (rowBorders) {
+      val frameWidth = min(totalTableWidth, viewWidth.toFloat())
+      val freeSpace = max(viewWidth - frameWidth, 0f)
+      val frameLeft = when (tableStyle.align) {
+        "center" -> freeSpace / 2f
+        "right" -> freeSpace
+        else -> 0f
+      }
+      frameRect.set(frameLeft, 0f, frameLeft + frameWidth, (bottom - top).toFloat())
+      val inset = tableStyle.borderWidth
+      scrollView.setPadding(0, 0, 0, 0)
+      scrollView.clipToPadding = true
+      scrollView.isHorizontalScrollBarEnabled = tableStyle.showsHorizontalScrollIndicator && totalTableWidth > frameWidth
+      scrollView.layout(
+        ceil(frameLeft + inset).toInt(),
+        ceil(inset).toInt(),
+        ceil(frameLeft + frameWidth - inset).toInt(),
+        ceil(bottom - top - inset).toInt(),
+      )
+      gridContainer.translationX = 0f
+      if (isRtl && totalTableWidth > frameWidth) {
+        scrollView.scrollTo(ceil(totalTableWidth - frameWidth).toInt(), 0)
+      }
+      return
+    }
     val overhang = max(ceil(tableStyle.horizontalOverflow.toDouble()).toInt(), 0)
     val contentWidth = viewWidth - overhang * 2
     val tableOverflows = totalTableWidth > contentWidth
 
     scrollView.setPadding(overhang, 0, overhang, 0)
     scrollView.clipToPadding = !tableOverflows
-    scrollView.isHorizontalScrollBarEnabled = tableOverflows
+    scrollView.isHorizontalScrollBarEnabled = tableStyle.showsHorizontalScrollIndicator && tableOverflows
 
     scrollView.layout(0, 0, viewWidth, bottom - top)
 
@@ -388,6 +441,26 @@ class TableContainerView(
       if (totalTableWidth > effectiveWidth) {
         scrollView.scrollTo((totalTableWidth - effectiveWidth).toInt(), 0)
       }
+    }
+  }
+
+  override fun dispatchDraw(canvas: Canvas) {
+    if (!rowBorders) {
+      super.dispatchDraw(canvas)
+      return
+    }
+    val radius = tableStyle.borderRadius
+    framePath.reset()
+    framePath.addRoundRect(frameRect, radius, radius, Path.Direction.CW)
+    val saveCount = canvas.save()
+    canvas.clipPath(framePath)
+    super.dispatchDraw(canvas)
+    canvas.restoreToCount(saveCount)
+    if (tableStyle.borderWidth > 0f) {
+      val halfStroke = tableStyle.borderWidth / 2f
+      frameRect.inset(halfStroke, halfStroke)
+      canvas.drawRoundRect(frameRect, radius, radius, framePaint)
+      frameRect.inset(-halfStroke, -halfStroke)
     }
   }
 
@@ -453,6 +526,7 @@ class TableContainerView(
       texts: List<List<CharSequence>>,
       config: StyleConfig,
       context: Context,
+      availableWidth: Float = 0f,
     ): Pair<List<Float>, List<Float>> {
       val style = config.tableStyle
       val density = context.resources.displayMetrics.density
@@ -472,7 +546,7 @@ class TableContainerView(
           val layout =
             StaticLayout.Builder
               .obtain(cellText, 0, cellText.length, paint, maxColumnWidth.toInt())
-              .setIncludePad(false)
+              .setIncludePad(style.includeFontPadding)
               .build()
           val textWidth: Float = (0 until layout.lineCount).maxOfOrNull { line -> layout.getLineWidth(line) } ?: 0f
           val effectiveWidth = if (cellHasBlockImage(cellText)) maxColumnWidth else ceil(textWidth)
@@ -481,9 +555,18 @@ class TableContainerView(
         }
       }
 
+      if (style.layout == "fill" && columnWidths.isNotEmpty()) {
+        val outerBorders = style.borderWidth * (if (style.borders == "row") 2 else 1)
+        val spareWidth = availableWidth - outerBorders - columnWidths.sum()
+        if (spareWidth > 0f) {
+          val extra = spareWidth / columnWidths.size
+          columnWidths.indices.forEach { columnWidths[it] += extra }
+        }
+      }
+
       val rowHeights =
-        texts.map { row ->
-          row
+        texts.mapIndexed { rowIndex, row ->
+          val contentHeight = row
             .mapIndexed { colIndex, cellText ->
               val contentWidth = (columnWidths[colIndex] - horizontalPadding).toInt().coerceAtLeast(1)
               prepareWidthAwareSpans(cellText, contentWidth)
@@ -495,10 +578,11 @@ class TableContainerView(
                     cellText.length,
                     paint,
                     contentWidth,
-                  ).setIncludePad(false)
+                  ).setIncludePad(style.includeFontPadding)
                   .build()
               ceil(layout.height.toFloat()) + verticalPadding
             }.maxOfOrNull { it } ?: 0f
+          contentHeight + if (style.borders == "row" && rowIndex > 0) style.borderWidth else 0f
         }
       return columnWidths.toList() to rowHeights
     }
@@ -507,6 +591,7 @@ class TableContainerView(
       node: MarkdownASTNode,
       config: StyleConfig,
       context: Context,
+      availableWidth: Float = 0f,
     ): Float {
       val tableStyle = config.tableStyle
       val headerTypeface = config.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD
@@ -532,8 +617,8 @@ class TableContainerView(
           }
         }
       if (texts.isEmpty()) return 0f
-      val (_, heights) = computeTableDimensions(texts, config, context)
-      return heights.sum() + tableStyle.borderWidth
+      val (_, heights) = computeTableDimensions(texts, config, context, availableWidth)
+      return heights.sum() + tableStyle.borderWidth * (if (tableStyle.borders == "row") 2 else 1)
     }
   }
 
@@ -541,6 +626,7 @@ class TableContainerView(
     context: Context,
   ) : FrameLayout(context) {
     private var radius = 0f
+    private var rowBorders = false
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val path = Path()
     private val rect = RectF()
@@ -554,12 +640,17 @@ class TableContainerView(
       tableHeight: Float,
       style: TableStyle,
     ) {
-      radius = style.borderRadius
+      rowBorders = style.borders == "row"
+      radius = if (rowBorders) 0f else style.borderRadius
       paint.color = style.borderColor
-      paint.strokeWidth = style.borderWidth
+      paint.strokeWidth = if (style.borders == "row") 0f else style.borderWidth
     }
 
     override fun dispatchDraw(canvas: Canvas) {
+      if (rowBorders) {
+        super.dispatchDraw(canvas)
+        return
+      }
       rect.set(0f, 0f, width.toFloat(), height.toFloat())
       if (radius > 0f) {
         path.apply {
@@ -585,12 +676,18 @@ class TableContainerView(
   ) : FrameLayout(context) {
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private var rowBorders = false
+    private var separator = 0f
 
     fun configure(
       backgroundColor: Int,
       borderColor: Int,
       borderWidth: Float,
+      rowBorders: Boolean,
+      separator: Float,
     ) {
+      this.rowBorders = rowBorders
+      this.separator = separator
       backgroundPaint.color = backgroundColor
       borderPaint.color = borderColor
       borderPaint.strokeWidth = borderWidth
@@ -598,7 +695,12 @@ class TableContainerView(
 
     override fun dispatchDraw(canvas: Canvas) {
       canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backgroundPaint)
-      if (borderPaint.strokeWidth > 0f) {
+      if (rowBorders) {
+        if (separator > 0f) {
+          borderPaint.style = Paint.Style.FILL
+          canvas.drawRect(0f, 0f, width.toFloat(), separator, borderPaint)
+        }
+      } else if (borderPaint.strokeWidth > 0f) {
         val halfStroke = borderPaint.strokeWidth / 2
         canvas.drawRect(halfStroke, halfStroke, width.toFloat() - halfStroke, height.toFloat() - halfStroke, borderPaint)
       }

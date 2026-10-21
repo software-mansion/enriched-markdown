@@ -487,6 +487,13 @@ Table styles only apply when `flavor="github"` is set. Tables inherit the base b
 | `cellPaddingVertical` | `number` | Vertical padding inside cells |
 | `horizontalOverflow` | `number` | When set, scrollable tables extend beyond the markdown container by this amount on each side (edge-to-edge / "bleed" layout). Set to the parent's horizontal padding to make wide tables reach the screen edges. Has no effect on tables that fit within the container width. iOS, Android, and macOS only. Default: `0` |
 | `align` | `'left' \| 'center' \| 'right'` | Horizontal alignment of the whole table when it is narrower than the container. Tables that overflow and scroll ignore it — scrolling always starts at the table's beginning. On web, setting any value (including `'left'`) also makes the table shrink to fit its content instead of filling the container width. Default: unset — legacy start-aligned placement (full-width table on web) |
+| `headerFontWeight` | `string` | Header font weight. Default: `'bold'`. React Native iOS and Android. |
+| `borders` | `'cell' \| 'row'` | Cell grid (default) or horizontal row separators inside a fixed rounded outer border. React Native iOS and Android. |
+| `layout` | `'intrinsic' \| 'fill'` | Content-sized columns (default), or distribute spare container width equally. Wider tables retain horizontal scrolling. React Native iOS and Android. |
+| `showsHorizontalScrollIndicator` | `boolean` | Show the horizontal scrollbar (default: `true`) without changing scrolling. React Native iOS and Android. |
+| `includeFontPadding` | `boolean` | Include natural font top/bottom padding. Default: `false`. Android only; use `lineHeight: 0` for natural metrics. |
+
+Row borders keep the outer frame fixed while content scrolls. In row-border mode, `horizontalOverflow` bleed is not applied. Web and macOS parity is outside this proposal.
 
 ### Task List-specific
 

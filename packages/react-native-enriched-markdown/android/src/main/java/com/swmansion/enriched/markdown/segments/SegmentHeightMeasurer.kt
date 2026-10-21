@@ -57,7 +57,7 @@ object SegmentHeightMeasurer {
 
         is RenderedSegment.Table -> {
           totalHeightPx += style.tableStyle.marginTop
-          totalHeightPx += TableContainerView.measureTableNodeHeight(segment.node, style, context)
+          totalHeightPx += TableContainerView.measureTableNodeHeight(segment.node, style, context, contentWidthPx)
           if (includeBottomMargin) {
             totalHeightPx += style.tableStyle.marginBottom
           }
