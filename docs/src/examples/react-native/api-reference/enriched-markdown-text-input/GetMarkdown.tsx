@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { View, Button, Alert, StyleSheet } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Button, Text, StyleSheet } from 'react-native';
 import {
   EnrichedMarkdownTextInput,
   type EnrichedMarkdownTextInputInstance,
@@ -7,10 +7,10 @@ import {
 
 export default function App() {
   const ref = useRef<EnrichedMarkdownTextInputInstance>(null);
+  const [markdown, setMarkdown] = useState('');
 
   const showMarkdown = async () => {
-    const markdown = await ref.current?.getMarkdown();
-    if (markdown) Alert.alert('Markdown', markdown);
+    setMarkdown((await ref.current?.getMarkdown()) ?? '');
   };
 
   return (
@@ -21,6 +21,7 @@ export default function App() {
         style={styles.input}
       />
       <Button title="Get Markdown" onPress={showMarkdown} />
+      {markdown !== '' && <Text style={styles.output}>{markdown}</Text>}
     </View>
   );
 }
@@ -28,4 +29,5 @@ export default function App() {
 const styles = StyleSheet.create({
   container: { gap: 8 },
   input: { fontSize: 18, padding: 12, minHeight: 96, backgroundColor: '#eef0ff' },
+  output: { fontFamily: 'monospace' },
 });

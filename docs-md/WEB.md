@@ -2,6 +2,9 @@
 
 `EnrichedMarkdownText` and `EnrichedMarkdownTextInput` run on web using plain React and DOM primitives. They work in any React project (Next.js, Vite, Remix, CRA, etc.).
 
+> [!NOTE]
+> The web editor (`EnrichedMarkdownTextInput`) is [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](WEB_INPUT.md#experimental-status) and documented separately in [Web Editor](WEB_INPUT.md). This page covers `EnrichedMarkdownText` and the setup both share.
+
 The package's `browser` field points web bundlers (webpack, Vite, Next.js, Expo web) at the web entry, so no extra resolver configuration is needed for that. One shared style module still imports `Platform` and `processColor` from `react-native`, so outside React Native the bundler has to resolve `react-native`: alias it to `react-native-web` (as most React Native web setups already do).
 
 Markdown parsing is handled by [md4c](https://github.com/mity/md4c) compiled to WebAssembly. The WASM binary is inlined as base64 inside the bundle (`SINGLE_FILE=1`), so there is no separate `.wasm` file to serve and no build step required by consumers — just import the component and it works.
@@ -75,51 +78,9 @@ forwarded to the root element and will produce React "unknown prop" warnings on
 web. Use the DOM equivalents (`aria-label`, `id`, CSS) instead. `testID` is the
 exception: it is mapped to `data-testid`.
 
-### `EnrichedMarkdownTextInput`
-
-The input strips its own native-only props the same way: `markdownStyle`, `markdownShortcuts`, `multiline`, `scrollEnabled`, `writingDirection`, `linkRegex`, `mentionIndicators`, `contextMenuItems`, `selectionMenuConfig`, `formatMenuConfig`, `onCaretRectChange`, `onLinkDetected`, the mention callbacks, and the React Native press props (`onPress`, `onPressIn`, `onPressOut`, `rejectResponderTermination`, `hitSlop`). Three of them are mapped instead:
-
-| Prop | On web |
-|---|---|
-| `testID` | `data-testid` on the editor element. |
-| `selectionColor` | Background of selected text. Without it the browser's own highlight is used. |
-| `cursorColor` | The caret's color (`caret-color`). |
-
-## Undo and redo
-
-`EnrichedMarkdownTextInput` keeps its own undo history on web rather than using the browser's. **Cmd+Z** / **Ctrl+Z**, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y**, the Edit and context menus, and the ref's `undo()` / `redo()` all step through it, and `onChangeHistoryState` reports whether either has a step to take.
-
-- One step is a run of typing (until a pause of half a second, a caret move or a newline), a run of Backspaces, a paste, a cut, a newline, an IME composition, or one formatting command.
-- Undo restores text, formatting and selection together. A new edit clears the redo history, and `setValue` clears both, since it loads a new document.
-- At most 100 steps are kept; the oldest are dropped first.
-- The browser's Edit menu decides on its own whether to show Undo as available, from the browser's own history, which this input does not use. After an edit that only changed formatting, such as a toolbar Bold, it can show Undo greyed out even though `undo()` and the keyboard shortcut still work. Drive your own controls from `onChangeHistoryState`.
-
-## Markdown output
-
-On web, `EnrichedMarkdownTextInput` backslash-escapes characters in typed text that markdown would read as formatting, so `getMarkdown()` and `onChangeMarkdown` give back the text the user wrote: `5 * 2` becomes `5 \* 2`, a typed `# not a heading` becomes `\# not a heading`, and `snake_case` becomes `snake\_case`. Any markdown renderer shows the escaped characters as plain text.
-
-Spaces and tabs at the start of a line are not kept, because markdown has no escape for them.
-
-A style is left out of the markdown where markdown can't express it at that spot. Examples are underline or strikethrough on part of a word, and bold ending on punctuation right before a letter (`**Note:**text`). The text itself is kept.
-
-## Keyboard
-
-- **Tab** / **Shift+Tab** on a list line indent and outdent the item. On any other line, Tab inserts a tab character, and Shift+Tab moves focus out of the editor as usual.
-- **Cmd+B / Cmd+I / Cmd+U** (Ctrl on Windows and Linux) toggle bold, italic and underline, and so do the browser's own formatting commands.
-
-## Clipboard
-
-Copy and cut put the selection on the clipboard twice: as plain text and as `text/markdown`. Paste uses the `text/markdown` flavor when it's there, so formatting copied from this editor (or any app that writes that type) comes back intact. Otherwise the plain text is read as markdown, as on iOS and Android, so pasting `- item` gives a list item. Delimiters that don't pair up stay as typed (`snake_case`, `2 * 3`). Paste and cut also work in browsers that turn clipboard events off.
-
-## Hiding and unmounting
-
-`EnrichedMarkdownTextInput` keeps its text, selection and undo history when React hides it and shows it again, for example inside `<Activity mode="hidden">` or a Suspense boundary that suspends again. `defaultValue` and `autoFocus` apply only to the first mount, so showing the input again doesn't reload the initial text or take focus.
-
-A ref kept after the input unmounts still answers `getMarkdown()` with the last document, so you can save a draft from an unmount handler. `getCaretRect()` rejects with `Error('Component unmounted')`, and commands do nothing.
-
 ## Not supported on web
 
-- `EnrichedMarkdownTextInput` link and mention commands — `setLink`, `insertLink`, `removeLink`, `insertMention`, `startMention` and `copyToClipboard` warn once and do nothing. The editor itself works on web.
+- Editor features — see [Web Editor](WEB_INPUT.md#not-supported-on-web) for what `EnrichedMarkdownTextInput` does not support on web.
 - Spoilers (`||text||`) — `EnrichedMarkdownText` does not render them on web yet, and the text inside a spoiler is currently left out.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
 - Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.

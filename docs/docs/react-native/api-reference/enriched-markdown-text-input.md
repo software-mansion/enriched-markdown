@@ -5,6 +5,7 @@ sidebar_position: 2
 
 import InteractiveExample from '@site/src/components/InteractiveExample';
 import LivePreview from '@site/src/components/LivePreview';
+import Link from '@docusaurus/Link';
 import FirstEditorSrc from '!!raw-loader!@site/src/examples/react-native/basics/your-first-project/FirstEditor';
 
 import DefaultValueSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text-input/DefaultValue';
@@ -57,8 +58,12 @@ import StartMentionSrc from '!!raw-loader!@site/src/examples/react-native/api-re
 
 # EnrichedMarkdownTextInput
 
-export const soon = (
-<>The editable input is not yet available on web - the code is shown for reference.</>
+export const nativeOnly = (
+<>iOS and Android only for now - the <Link to="/react-native/guides/web-editor">experimental web editor</Link> does not support this yet, so the code is shown for reference.</>
+);
+
+export const focusOnLoad = (
+<>Runs on web, but a live preview would steal focus and scroll this page on load - the code is shown for reference.</>
 );
 
 `EnrichedMarkdownTextInput` is a native, [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) rich text editor whose content is Markdown: the user sees formatted text as they type - bold looks bold, not `**bold**` - while the value is stored as Markdown. Seed it with a Markdown string and read the edited content back as Markdown whenever you need it. Markdown is the source of truth on both sides of the edit, so content round-trips cleanly in and out. It renders with the platform's native text stack (`UITextView` on iOS, `EditText` on Android), and is an **uncontrolled** input - it does not hold its value in React state or props, but talks directly to the underlying native component, which keeps it fast and simple.
@@ -114,7 +119,7 @@ The example above shows the two patterns you will use everywhere:
 `EnrichedMarkdownTextInput` accepts every prop below. It also forwards the standard React Native [`View`](https://reactnative.dev/docs/view#props) props - such as `testID`, `onLayout`, `pointerEvents`, and the `accessibility*` props - to the underlying native view.
 
 :::note
-Props marked with a <IosBadge /> or <AndroidBadge /> badge only take effect on that platform - they are flagged with a matching colored dot in the table of contents. Unlike [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text), the editable input is **not yet available on web**, so each example shows its source now; a runnable live preview will follow once web support lands.
+Props marked with a <IosBadge />, <AndroidBadge /> or <WebBadge /> badge only take effect on that platform - they are flagged with a matching colored dot in the table of contents. The input also runs on web as an <ExperimentalBadge /> editor that supports a subset of this page - see [Web editor](/react-native/guides/web-editor) for which props and methods apply there. Examples for what the web editor supports run live below; the rest show their source.
 :::
 
 Every shape printed inline below is an exported type you can import from the package root: `MarkdownTextInputStyle`, `StyleState`, `HeadingLevel`, `ContextMenuItem`, `InputSelectionMenuConfig`, `FormatMenuConfig`, `MarkdownShortcutsConfig`, `CaretRect`, and the event payloads. Note that the unprefixed `ContextMenuItem` is **this** component's type; the renderer's equivalent is exported as `TextContextMenuItem`.
@@ -129,7 +134,7 @@ Initial Markdown content. It is parsed and formatting is applied on mount.
 Following React Native `TextInput` semantics, `defaultValue` is read **once, at mount** - later changes to it are ignored. To replace the content imperatively afterwards, call [`setValue`](#setvaluemarkdown-string) on the ref.
 :::
 
-<LivePreview src={DefaultValueSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={DefaultValueSrc} />
 
 ### `placeholder`
 
@@ -141,7 +146,7 @@ Text shown while the input is empty.
 The placeholder is plain text, not Markdown. Unlike [`defaultValue`](#defaultvalue), Markdown syntax here is shown literally - `**bold**` appears as those raw characters, never as bold text. It is drawn as a plain label, so it also ignores [`markdownStyle`](#markdownstyle); use [`placeholderTextColor`](#placeholdertextcolor) and the base `style` font to style it.
 :::
 
-<LivePreview src={PlaceholderSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={PlaceholderSrc} />
 
 ### `placeholderTextColor`
 
@@ -149,7 +154,7 @@ Color of the placeholder text.
 
 <PropInfo type="ColorValue" typeHref="https://reactnative.dev/docs/colors" />
 
-<LivePreview src={PlaceholderTextColorSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={PlaceholderTextColorSrc} />
 
 ### `editable`
 
@@ -157,7 +162,7 @@ Whether the input can be edited. On iOS and macOS, `false` leaves the content se
 
 <PropInfo type="boolean" default="true" />
 
-<LivePreview src={EditableSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={EditableSrc} />
 
 ### `autoFocus`
 
@@ -165,7 +170,7 @@ Whether the input focuses itself on mount.
 
 <PropInfo type="boolean" default="false" />
 
-<LivePreview src={AutoFocusSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={AutoFocusSrc} unavailable unavailableLabel="Preview disabled" unavailableReason={focusOnLoad} />
 
 ### `scrollEnabled`
 
@@ -173,7 +178,7 @@ Whether the input scrolls its own content when it overflows. Set to `false` when
 
 <PropInfo type="boolean" default="true" />
 
-<LivePreview src={ScrollEnabledSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ScrollEnabledSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `multiline`
 
@@ -181,7 +186,7 @@ Whether the input accepts multiple lines.
 
 <PropInfo type="boolean" default="true" />
 
-<LivePreview src={MultilineSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={MultilineSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `markdownShortcuts`
 
@@ -203,7 +208,7 @@ interface MarkdownShortcutsConfig {
 It is off by default because it is a user-visible behavior change: an app where `#` starts a tag, or `-` is just a dash, would otherwise see those characters disappear as the user types.
 :::
 
-<LivePreview src={MarkdownShortcutsSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={MarkdownShortcutsSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `autoCapitalize`
 
@@ -215,7 +220,7 @@ Auto-capitalization behavior, mirroring the [prop of the same name](https://reac
 The prop is typed as `string` so that future platform values do not break the type. Only the four values above are recognized; anything else silently falls back to `'none'` on Android.
 :::
 
-<LivePreview src={AutoCapitalizeSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={AutoCapitalizeSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `cursorColor`
 
@@ -229,7 +234,7 @@ On **Android** and **macOS**, `cursorColor` (the caret) and [`selectionColor`](#
 On **iOS** there is no separate caret color: both props map to the text view's single `tintColor`, which UIKit uses for the caret, selection, and handles together. If you set them to two different colors, **`selectionColor` wins** (it is applied last) - the caret, selection, and handles all take the `selectionColor`, and `cursorColor` has no visible effect. So on iOS, style the caret through `selectionColor` and leave `cursorColor` unset.
 :::
 
-<LivePreview src={CursorColorSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={CursorColorSrc} />
 
 ### `selectionColor`
 
@@ -237,7 +242,7 @@ Color of the text selection highlight. On Android and macOS it affects only the 
 
 <PropInfo type="ColorValue" typeHref="https://reactnative.dev/docs/colors" />
 
-<LivePreview src={SelectionColorSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={SelectionColorSrc} />
 
 ### `style`
 
@@ -249,7 +254,7 @@ Style for the input view. Accepts both [`ViewStyle`](https://reactnative.dev/doc
 The input uses the regular `style` prop directly, just like a native `TextInput`: here `TextStyle` values (`fontSize`, `color`, ...) really do set the base text appearance, so the name is honest. The read-only [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) renames its equivalent to `containerStyle` instead, because there `style` would only affect the wrapper box, not the rendered text. To restyle the formatted elements (bold, links, headings, ...), use [`markdownStyle`](#markdownstyle).
 :::
 
-<LivePreview src={StyleSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={StyleSrc} />
 
 ### `markdownStyle`
 
@@ -257,7 +262,7 @@ Overrides for how formatted text is painted inside the input. Its type, `Markdow
 
 <PropInfo type="MarkdownTextInputStyle" default="{}" />
 
-<LivePreview src={MarkdownStyleSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={MarkdownStyleSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `linkRegex`
 
@@ -271,7 +276,7 @@ By default, URLs like `google.com`, `www.google.com`, and `https://google.com` a
 When a manual link ([`setLink`](#setlinkurl-string) / [`insertLink`](#insertlinktext-string-url-string)) overlaps an auto-detected one, the manual link wins. Auto-link detection skips ranges that already contain a manual link.
 :::
 
-<LivePreview src={LinkRegexSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={LinkRegexSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `mentionIndicators`
 
@@ -283,7 +288,7 @@ Trigger characters that start a mention flow (e.g. `['@', '#']`). Typing one beg
 See the [Mentions guide](/rich-text-formatting/mentions) for the full setup: events, ref methods, and per-pattern styling with `markdownStyle.linkVariants`.
 :::
 
-<LivePreview src={MentionsSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={MentionsSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `contextMenuItems`
 
@@ -310,7 +315,7 @@ interface ContextMenuItem {
 }
 ```
 
-<LivePreview src={ContextMenuItemsSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ContextMenuItemsSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `selectionMenuConfig`
 
@@ -331,7 +336,7 @@ interface InputSelectionMenuConfig {
 System **Cut / Copy / Paste / Select All** come from the platform and are already localized by the device language - they are not exposed through this prop.
 :::
 
-<LivePreview src={SelectionMenuConfigSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={SelectionMenuConfigSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `formatMenuConfig`
 
@@ -356,7 +361,7 @@ interface FormatMenuConfig {
 }
 ```
 
-<LivePreview src={FormatMenuConfigSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={FormatMenuConfigSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `writingDirection` <IosBadge /> {#writingdirection}
 
@@ -376,7 +381,7 @@ Android's `EditText` resolves direction per paragraph via the platform Bidi heur
 The **placeholder** follows the host view's layout direction, not this prop. For an RTL placeholder, wrap the input in `<View style={{ direction: 'rtl' }}>` or set `I18nManager.forceRTL(true)`. See [RTL support](/user-experience/rtl) for the full behavior.
 :::
 
-<LivePreview src={WritingDirectionSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={WritingDirectionSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `hitSlop`
 
@@ -400,7 +405,7 @@ Fires when the plain text changes. Returns the text **without** Markdown syntax.
 
 <PropInfo type="(text: string) => void" />
 
-<LivePreview src={OnChangeTextSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={OnChangeTextSrc} />
 
 ### `onChangeMarkdown`
 
@@ -412,7 +417,7 @@ Fires when the Markdown representation changes. Returns the full Markdown string
 Producing the Markdown means rebuilding the whole document into a Markdown string on every change, which is not free. Unlike the other events - cheap byproducts of editing that always fire - this serialization runs **only when you pass the callback**, so omit it unless you actually need the Markdown live.
 :::
 
-<LivePreview src={OnChangeMarkdownSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={OnChangeMarkdownSrc} />
 
 ### `onChangeSelection`
 
@@ -420,7 +425,7 @@ Fires when the selection changes. Useful when applying [links](#setlinkurl-strin
 
 <PropInfo type="(selection: { start: number; end: number }) => void" />
 
-<LivePreview src={OnChangeSelectionSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={OnChangeSelectionSrc} />
 
 ### `onChangeState`
 
@@ -446,7 +451,13 @@ interface StyleState {
 }
 ```
 
-<LivePreview src={OnChangeStateSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={OnChangeStateSrc} />
+
+### `onChangeHistoryState` <WebBadge /> {#onchangehistorystate}
+
+Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Part of the [experimental web editor](/react-native/guides/web-editor#undo-and-redo); iOS and Android never call it.
+
+<PropInfo type="(state: { canUndo: boolean; canRedo: boolean }) => void" />
 
 ### `onKeyPress`
 
@@ -466,7 +477,7 @@ This is the one callback on this page that hands you the raw `NativeSyntheticEve
 On Android, the key reported for soft-keyboard input can lag actual typing when autocomplete suggestions are involved. Paste operations do not fire this event on **any** platform - paste is intercepted before the delegate that emits the key.
 :::
 
-<LivePreview src={OnKeyPressSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={OnKeyPressSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `onCaretRectChange`
 
@@ -483,7 +494,7 @@ interface CaretRect {
 }
 ```
 
-<LivePreview src={OnCaretRectChangeSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={OnCaretRectChangeSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `onLinkDetected`
 
@@ -491,7 +502,7 @@ Fires when [auto-link detection](#linkregex) turns typed text into a link. Fires
 
 <PropInfo type="(event: { text: string; url: string; start: number; end: number }) => void" />
 
-<LivePreview src={OnLinkDetectedSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={OnLinkDetectedSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `onStartMention`
 
@@ -503,7 +514,7 @@ Fires when a new mention flow starts (an indicator from [`mentionIndicators`](#m
 `onStartMention`, [`onChangeMention`](#onchangemention), and [`onEndMention`](#onendmention) are the events of the mention flow; the example below shows all three together. For general information about mentions - trigger setup, the suggestion UI, ref methods, and per-pattern styling - see the [Mentions guide](/rich-text-formatting/mentions).
 :::
 
-<LivePreview src={MentionsSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={MentionsSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `onChangeMention`
 
@@ -527,7 +538,7 @@ Fires when the input gains focus.
 
 <PropInfo type="() => void" />
 
-<LivePreview src={FocusBlurSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={FocusBlurSrc} />
 
 ### `onBlur`
 
@@ -549,7 +560,7 @@ Fire for taps on the input, like the same props on React Native [`TextInput`](ht
 
 Use these three, together with [`hitSlop`](#hitslop) and [`rejectResponderTermination`](#rejectrespondertermination), rather than the raw responder props: press handling overrides the `onStartShouldSetResponder` / `onResponderGrant` family that the forwarded [`View`](https://reactnative.dev/docs/view#props) props would otherwise give you, exactly as it does on `TextInput`.
 
-<LivePreview src={PressSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={PressSrc} unavailable unavailableReason={nativeOnly} />
 
 ## Ref methods
 
@@ -571,7 +582,7 @@ The inline `toggle*` methods act on the **current selection**, or - when nothing
 
 Focuses the input.
 
-<LivePreview src={FocusBlurSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={FocusBlurSrc} />
 
 ### `blur()`
 
@@ -581,19 +592,19 @@ Blurs the input. The [`focus()` example](#focus) above wires up both methods.
 
 Replaces the entire content by parsing `markdown` and applying its formatting. This is how you set content after mount (`defaultValue` is only read once).
 
-<LivePreview src={SetValueSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={SetValueSrc} />
 
 ### `getMarkdown(): Promise<string>`
 
 Returns the input's current content as a Markdown string. The result is a promise because the content is read from the native side.
 
-<LivePreview src={GetMarkdownSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={GetMarkdownSrc} />
 
 ### `insertText(text: string)`
 
 Parses `text` as Markdown and inserts it at the cursor, replacing the selection if there is one. Leading and trailing newlines are preserved, so wrap block content in newlines to keep it on its own lines - `insertText('\n- item\n')` in the middle of `test` yields `te`, a `- item` bullet, and `st` on separate lines. An empty string is a no-op.
 
-<LivePreview src={InsertTextSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={InsertTextSrc} />
 
 ### `copyToClipboard()`
 
@@ -603,49 +614,49 @@ Copies the full content to the system clipboard, as if the user selected all and
 Both platforms write a dual representation: clean plain text for external paste targets, plus the Markdown source under a private type (an extra pasteboard type on iOS and macOS, a vendor MIME type on Android). Pasting back into an `EnrichedMarkdownTextInput` therefore restores the formatting on either platform, while external apps receive plain text.
 :::
 
-<LivePreview src={CopyToClipboardSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={CopyToClipboardSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `setSelection(start: number, end: number)`
 
 Sets the selection range.
 
-<LivePreview src={SetSelectionSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={SetSelectionSrc} />
 
 ### `getCaretRect(): Promise<CaretRect>`
 
 Resolves with the caret's current pixel position relative to the input. For continuous tracking, prefer [`onCaretRectChange`](#oncaretrectchange).
 
-<LivePreview src={CaretSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={CaretSrc} />
 
 ### `toggleBold()`
 
 Toggles bold on the current selection or cursor.
 
-<LivePreview src={ToggleBoldSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ToggleBoldSrc} />
 
 ### `toggleItalic()`
 
 Toggles italic on the current selection or cursor.
 
-<LivePreview src={ToggleItalicSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ToggleItalicSrc} />
 
 ### `toggleUnderline()`
 
 Toggles underline on the current selection or cursor.
 
-<LivePreview src={ToggleUnderlineSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ToggleUnderlineSrc} />
 
 ### `toggleStrikethrough()`
 
 Toggles strikethrough on the current selection or cursor.
 
-<LivePreview src={ToggleStrikethroughSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ToggleStrikethroughSrc} />
 
 ### `toggleSpoiler()`
 
 Toggles spoiler on the current selection or cursor.
 
-<LivePreview src={ToggleSpoilerSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ToggleSpoilerSrc} />
 
 ### `toggleHeading(level: HeadingLevel)`
 
@@ -655,25 +666,25 @@ Toggles a heading of the given level (`1`-`6`, the `HeadingLevel` union) on the 
 Headings are single-line blocks. An emptied heading line stays a heading until you toggle it off, and pressing Enter at the end of a heading starts a regular paragraph (headings do not continue like list items).
 :::
 
-<LivePreview src={ToggleHeadingSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ToggleHeadingSrc} />
 
 ### `toggleUnorderedList()`
 
 Turns every paragraph the selection touches into bullet items, or back into regular paragraphs. Toggling one list type onto a line carrying the other replaces it, keeping the nesting depth.
 
-<LivePreview src={ToggleUnorderedListSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ToggleUnorderedListSrc} />
 
 ### `toggleOrderedList()`
 
 Same as above for numbered items. Numbering derives from each item's position among its adjacent same-depth siblings, so it stays correct as items are added, removed, or reordered.
 
-<LivePreview src={ToggleOrderedListSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={ToggleOrderedListSrc} />
 
 ### `indentList()`
 
 Nests the current item one level deeper, up to a maximum depth of 5. On a non-list paragraph it starts a bullet list. Equivalent to **Tab** on a hardware keyboard.
 
-<LivePreview src={IndentOutdentSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={IndentOutdentSrc} />
 
 ### `outdentList()`
 
@@ -683,35 +694,43 @@ Lifts the current item out one level. Outdenting a depth-0 item removes the bull
 Pressing **Return** inside an item starts a new item at the same depth; pressing it on an empty item exits the list. **Backspace** at the start of an item outdents it. List items are single-line: Markdown imported with multi-paragraph (loose) items keeps only each item's first line as a list item.
 :::
 
+### `undo()` <WebBadge /> {#undo}
+
+Steps back over the last edit: typing up to a pause or a caret move, a run of Backspaces, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Part of the [experimental web editor](/react-native/guides/web-editor#undo-and-redo), where **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same; a no-op on iOS and Android.
+
+### `redo()` <WebBadge /> {#redo}
+
+Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Part of the [experimental web editor](/react-native/guides/web-editor#undo-and-redo), where **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same; a no-op on iOS and Android.
+
 ### `setLink(url: string)`
 
 Applies a link URL to the currently selected text.
 
-<LivePreview src={SetLinkSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={SetLinkSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `insertLink(text: string, url: string)`
 
 Inserts a new link with the given text and URL at the cursor. Useful when there is no selection.
 
-<LivePreview src={InsertLinkSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={InsertLinkSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `removeLink()`
 
 Removes the link from the current selection.
 
-<LivePreview src={RemoveLinkSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={RemoveLinkSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `startMention(indicator: string)`
 
 Programmatically starts a mention flow by inserting `indicator` at the cursor. The indicator must be listed in [`mentionIndicators`](#mentionindicators). Useful for toolbar buttons.
 
-<LivePreview src={StartMentionSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={StartMentionSrc} unavailable unavailableReason={nativeOnly} />
 
 ### `insertMention(displayText: string, url: string)`
 
 Replaces the active mention token with a formatted link, serialized as `[displayText](url)`. It is a **no-op unless a mention flow is active** - for a "recent mentions" button outside a flow, use [`insertLink`](#insertlinktext-string-url-string) instead. A trailing space is appended unless the next character is already whitespace, and the caret is parked after it.
 
-<LivePreview src={MentionsSrc} unavailable unavailableLabel="Coming soon" unavailableReason={soon} />
+<LivePreview src={MentionsSrc} unavailable unavailableReason={nativeOnly} />
 
 ## See also
 

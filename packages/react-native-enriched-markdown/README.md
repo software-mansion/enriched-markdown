@@ -76,6 +76,7 @@ We can help you build your next dream product –
 - [API Reference](#api-reference)
 - [Testing with Jest](../../docs-md/TESTING.md)
 - [Web Support](../../docs-md/WEB.md)
+  - [Web Editor (experimental)](../../docs-md/WEB_INPUT.md)
 - [macOS Support](../../docs-md/MACOS.md)
 - [Compatibility Table](#compatibility-table)
 - [Contributing](#contributing)
@@ -94,7 +95,7 @@ We can help you build your next dream product –
 
 - Requires [`react-native-web`](https://necolas.github.io/react-native-web/) (or a `react-native` → `react-native-web` alias); the package's `browser` field points web bundlers at the web build
 - No New Architecture requirement — the web renderer runs entirely in JavaScript via WebAssembly
-- `EnrichedMarkdownText` and `EnrichedMarkdownTextInput` both run on web; see [Web Support](../../docs-md/WEB.md) for what is not supported there
+- `EnrichedMarkdownText` and `EnrichedMarkdownTextInput` both run on web; see [Web Support](../../docs-md/WEB.md) for what is not supported there. The web editor is [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](../../docs-md/WEB_INPUT.md#experimental-status); see [Web Editor](../../docs-md/WEB_INPUT.md)
 - LaTeX math requires the optional [`katex`](https://katex.org/) peer dependency
 
 ## Installation

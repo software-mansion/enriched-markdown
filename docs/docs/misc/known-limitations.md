@@ -152,7 +152,7 @@ The full announcement model is in
 
 ### Web
 
-The web build renders `EnrichedMarkdownText` only - there is no editor.
+The web editor is experimental and does not yet cover the native editor's surface - see [Web editor](/react-native/guides/web-editor#not-supported-on-web). The rest of this section is about the renderer.
 
 :::danger
 **Spoilers lose their content on web.** The parser emits a spoiler node, the web
