@@ -393,6 +393,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (CGFloat)tableLineHeight;
 - (void)setTableLineHeight:(CGFloat)newValue;
 - (UIFont *)tableFont;
+- (NSString *)tableHeaderFontWeight;
+- (void)setTableHeaderFontWeight:(NSString *)newValue;
+- (NSString *)tableBorders;
+- (void)setTableBorders:(NSString *)newValue;
+- (NSString *)tableLayout;
+- (void)setTableLayout:(NSString *)newValue;
 - (NSString *)tableHeaderFontFamily;
 - (void)setTableHeaderFontFamily:(NSString *)newValue;
 - (UIFont *)tableHeaderFont;

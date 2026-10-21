@@ -250,6 +250,12 @@ interface ThematicBreakStyle {
 
 interface TableStyle extends BaseBlockStyle {
   headerFontFamily?: string;
+  /** Header weight. Defaults to bold. @platform ios */
+  headerFontWeight?: string;
+  /** Row separators and a rounded viewport border. Defaults to cell. @platform ios */
+  borders?: 'cell' | 'row';
+  /** Expand content-sized columns to fill spare width. Defaults to intrinsic. @platform ios */
+  layout?: 'intrinsic' | 'fill';
   headerBackgroundColor?: string;
   headerTextColor?: string;
   rowEvenBackgroundColor?: string;

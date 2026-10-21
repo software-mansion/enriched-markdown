@@ -476,6 +476,9 @@ Table styles only apply when [`flavor="github"`](/react-native/api-reference/enr
 | Property                 | Type                            | Default               | Description                                                                                                                                                                  |
 | ------------------------ | ------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `headerFontFamily`       | `string`                        | Inherits `fontFamily` | Font family for header cells (falls back to `fontFamily` if not set)                                                                                                         |
+| `headerFontWeight` | `string` | `'bold'` | Header font weight. iOS only |
+| `borders` | `'cell' \| 'row'` | `'cell'` | Per-cell grid lines, or row separators inside a rounded outer frame that stays fixed while scrolling. iOS only |
+| `layout` | `'intrinsic' \| 'fill'` | `'intrinsic'` | Content-sized columns, or columns expanded equally to fill spare container width. Wider tables retain horizontal scrolling. iOS only |
 | `headerBackgroundColor`  | `string`                        | `#F3F4F6`             | Background color for the header row                                                                                                                                          |
 | `headerTextColor`        | `string`                        | `#111827`             | Text color for the header row                                                                                                                                                |
 | `rowEvenBackgroundColor` | `string`                        | `#FFFFFF`             | Background color for even data rows                                                                                                                                          |
@@ -487,6 +490,11 @@ Table styles only apply when [`flavor="github"`](/react-native/api-reference/enr
 | `cellPaddingVertical`    | `number`                        | `8`                   | Vertical padding inside cells                                                                                                                                                |
 | `horizontalOverflow`     | `number`                        | `0`                   | Extra width (points) a table may extend beyond the container edges, letting a wide table bleed into the surrounding padding as it scrolls. No effect on web                  |
 | `align`                  | `'left' \| 'center' \| 'right'` | unset                 | Horizontal alignment of the whole table within the container. Only applies when the table is narrower than the container; overflowing tables always start at their beginning |
+
+The three iOS options are opt-in; omitting them preserves existing table rendering.
+`layout: 'fill'` does not compress overflowing columns. In row-border mode the
+scrollable content clips to the rounded outer frame; `horizontalOverflow` does
+not extend this frame. Android, macOS and web retain their existing table layout.
 
 <LivePreview src={TableSrc} />
 

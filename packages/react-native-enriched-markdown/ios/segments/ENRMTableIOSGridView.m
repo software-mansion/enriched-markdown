@@ -20,6 +20,7 @@
   CGFloat _borderWidth;
   CGFloat _horizontalCellPadding;
   CGFloat _verticalCellPadding;
+  BOOL _rowBordersOnly;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -52,6 +53,7 @@
     horizontalCellPadding:(CGFloat)horizontalCellPadding
       verticalCellPadding:(CGFloat)verticalCellPadding
              cornerRadius:(CGFloat)cornerRadius
+           rowBordersOnly:(BOOL)rowBordersOnly
 {
   _tableRows = [rows copy];
   _columnWidths = [columnWidths copy];
@@ -60,6 +62,7 @@
   _borderWidth = borderWidth;
   _horizontalCellPadding = horizontalCellPadding;
   _verticalCellPadding = verticalCellPadding;
+  _rowBordersOnly = rowBordersOnly;
   [self setNeedsDisplay];
 }
 
@@ -91,26 +94,35 @@
     NSUInteger colCount = MIN(rowData.cellTexts.count, _columnWidths.count);
     for (NSUInteger c = 0; c < colCount; c++) {
       CGFloat columnWidth = [_columnWidths[c] doubleValue];
-      CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth + _borderWidth, rowHeight + _borderWidth);
+      CGFloat cellBorder = _rowBordersOnly ? 0 : _borderWidth;
+      CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth + cellBorder, rowHeight + cellBorder);
 
       [rowData.backgroundColor setFill];
       UIRectFill(cellRect);
 
-      [_borderColor setStroke];
-      UIBezierPath *border = [UIBezierPath bezierPathWithRect:cellRect];
-      border.lineWidth = _borderWidth;
-      [border stroke];
+      if (!_rowBordersOnly) {
+        [_borderColor setStroke];
+        UIBezierPath *border = [UIBezierPath bezierPathWithRect:cellRect];
+        border.lineWidth = _borderWidth;
+        [border stroke];
+      }
 
       NSAttributedString *text = rowData.cellTexts[c];
       if (text.length > 0) {
-        CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding, yOffset + _verticalCellPadding,
-                                     columnWidth - _horizontalCellPadding * 2, rowHeight - _verticalCellPadding * 2);
+        CGFloat separator = _rowBordersOnly && r > 0 ? _borderWidth : 0;
+        CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding, yOffset + separator + _verticalCellPadding,
+                                     columnWidth - _horizontalCellPadding * 2,
+                                     rowHeight - separator - _verticalCellPadding * 2);
         [text drawWithRect:textRect
                    options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                    context:nil];
       }
 
       xOffset += columnWidth;
+    }
+    if (_rowBordersOnly && r > 0 && _borderWidth > 0) {
+      [_borderColor setFill];
+      UIRectFill(CGRectMake(0, yOffset, xOffset, _borderWidth));
     }
     yOffset += rowHeight;
   }
@@ -136,8 +148,9 @@
           ENRMTableIOSRowData *rowData = _tableRows[r];
           if (c >= rowData.cellTexts.count)
             return NO;
-          *outRowY = rowY;
-          *outRowH = rh;
+          CGFloat separator = _rowBordersOnly && r > 0 ? _borderWidth : 0;
+          *outRowY = rowY + separator;
+          *outRowH = rh - separator;
           *outColX = colX;
           *outColW = cw;
           *outText = rowData.cellTexts[c];

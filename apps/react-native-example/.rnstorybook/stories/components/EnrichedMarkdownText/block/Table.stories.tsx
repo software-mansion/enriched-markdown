@@ -173,3 +173,38 @@ export const HorizontalOverflow: TextStory<TableStyleControls> = {
     );
   },
 };
+
+const ROW_BORDER_STYLE = {
+  ...toTableStyle(tableStyledDefaults),
+  headerFontWeight: '400',
+  borders: 'row' as const,
+  layout: 'fill' as const,
+  borderRadius: 16,
+  borderWidth: 1,
+};
+
+export const RowBordersFillWidth: TextStory = {
+  args: { markdown: NARROW_MARKDOWN, flavor: 'github' },
+  argTypes: githubFlavorArgTypes('Tables require flavor="github" (GFM).'),
+  render: (args) => (
+    <EnrichedMarkdownTextStory
+      title="Row borders and fill width"
+      description="iOS: content-sized columns share spare width inside a rounded outer border. Other platforms retain existing styling."
+      {...args}
+      style={{ table: ROW_BORDER_STYLE }}
+    />
+  ),
+};
+
+export const RowBordersHorizontalScroll: TextStory = {
+  args: { markdown: WIDE_MARKDOWN, flavor: 'github' },
+  argTypes: githubFlavorArgTypes('Tables require flavor="github" (GFM).'),
+  render: (args) => (
+    <EnrichedMarkdownTextStory
+      title="Row borders with horizontal scrolling"
+      description="iOS: wide content scrolls inside the fixed rounded outer border. Other platforms retain existing styling."
+      {...args}
+      style={{ table: ROW_BORDER_STYLE }}
+    />
+  ),
+};

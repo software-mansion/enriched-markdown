@@ -1066,6 +1066,19 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
     changed = YES;
   }
 
+  if (newStyle.table.headerFontWeight != oldStyle.table.headerFontWeight) {
+    [config setTableHeaderFontWeight:[NSString stringWithUTF8String:newStyle.table.headerFontWeight.c_str()]];
+    changed = YES;
+  }
+  if (newStyle.table.borders != oldStyle.table.borders) {
+    [config setTableBorders:[NSString stringWithUTF8String:newStyle.table.borders.c_str()]];
+    changed = YES;
+  }
+  if (newStyle.table.layout != oldStyle.table.layout) {
+    [config setTableLayout:[NSString stringWithUTF8String:newStyle.table.layout.c_str()]];
+    changed = YES;
+  }
+
   if (newStyle.table.headerFontFamily != oldStyle.table.headerFontFamily) {
     if (!newStyle.table.headerFontFamily.empty()) {
       NSString *fontFamily = [[NSString alloc] initWithUTF8String:newStyle.table.headerFontFamily.c_str()];

@@ -476,6 +476,9 @@ Table styles only apply when `flavor="github"` is set. Tables inherit the base b
 | Property | Type | Description |
 |----------|------|-------------|
 | `headerFontFamily` | `string` | Font family for header cells (falls back to `fontFamily` if not set) |
+| `headerFontWeight` | `string` | Header font weight. iOS only. Default: `'bold'` |
+| `borders` | `'cell' \| 'row'` | Per-cell grid lines, or horizontal row separators inside a rounded outer frame that stays fixed while scrolling. iOS only. Default: `'cell'` |
+| `layout` | `'intrinsic' \| 'fill'` | Content-sized columns, or content-sized columns expanded equally to fill spare container width. Wider tables keep horizontal scrolling. iOS only. Default: `'intrinsic'` |
 | `headerBackgroundColor` | `string` | Background color for the header row |
 | `headerTextColor` | `string` | Text color for the header row |
 | `rowEvenBackgroundColor` | `string` | Background color for even data rows |
@@ -487,6 +490,29 @@ Table styles only apply when `flavor="github"` is set. Tables inherit the base b
 | `cellPaddingVertical` | `number` | Vertical padding inside cells |
 | `horizontalOverflow` | `number` | When set, scrollable tables extend beyond the markdown container by this amount on each side (edge-to-edge / "bleed" layout). Set to the parent's horizontal padding to make wide tables reach the screen edges. Has no effect on tables that fit within the container width. iOS, Android, and macOS only. Default: `0` |
 | `align` | `'left' \| 'center' \| 'right'` | Horizontal alignment of the whole table when it is narrower than the container. Tables that overflow and scroll ignore it — scrolling always starts at the table's beginning. On web, setting any value (including `'left'`) also makes the table shrink to fit its content instead of filling the container width. Default: unset — legacy start-aligned placement (full-width table on web) |
+
+With no new options supplied, existing table layout and borders are unchanged.
+For a full-width table with row separators and regular-weight headers on iOS:
+
+```tsx
+<EnrichedMarkdownText
+  flavor="github"
+  markdown={markdown}
+  markdownStyle={{
+    table: {
+      headerFontWeight: '400',
+      borders: 'row',
+      layout: 'fill',
+      borderRadius: 16,
+      borderWidth: 1,
+    },
+  }}
+/>
+```
+
+`layout: 'fill'` does not compress overflowing columns. In row-border mode the
+outer frame clips the scrollable content to its rounded corners; `horizontalOverflow`
+does not extend this frame. Android, macOS and web retain their existing layout.
 
 ### Task List-specific
 
