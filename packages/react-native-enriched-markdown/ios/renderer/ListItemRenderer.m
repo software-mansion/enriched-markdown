@@ -83,6 +83,10 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
 
   // currentDepth - 1 handles the horizontal offset for nested lists
   const NSInteger nestingLevel = currentDepth - 1;
+  NSString *numberingPath = nil;
+  if ([_config.listStyleNumbering isEqualToString:@"hierarchical"] && context.listType == ListTypeOrdered) {
+    numberingPath = [[context.orderedListAncestors arrayByAddingObject:@(currentPosition)] componentsJoinedByString:@"."];
+  }
   // A task in a widened ordered list moves with its numbered siblings.
   const CGFloat baseMarkerWidth = isTask ? [_config effectiveListMarginLeftForTask] + context.listMarkerExtra
                                   : (context.listType == ListTypeOrdered) ? context.listMarkerWidth
@@ -200,6 +204,7 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
   marker.taskIndex = taskIndex;
   marker.listType = context.listType;
   marker.number = currentPosition;
+  marker.numberingPath = numberingPath;
   marker.depth = nestingLevel;
   marker.indent = totalIndent;
 

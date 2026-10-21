@@ -207,3 +207,33 @@ export const Mixed: TextStory<ListStyleControls> = {
       args
     ),
 };
+
+export const HierarchicalNumbering: TextStory = {
+  args: { markdown: NESTED_ORDERED_MARKDOWN },
+  render: (args) => (
+    <EnrichedMarkdownTextStory
+      title="Hierarchical Ordered List"
+      description="Native opt-in: ancestor-qualified markers, parent counter restoration, and full marker width."
+      {...args}
+      style={{ list: { numbering: 'hierarchical' } }}
+    />
+  ),
+};
+
+export const HierarchicalWrappedItems: TextStory = {
+  args: {
+    markdown: `9. Parent with a non-default start
+   1. A nested item with enough text to wrap across several lines in a narrow container and show continuation alignment.
+   2. Another nested item
+10. Next parent
+    1. Child of the next parent`,
+  },
+  render: (args) => (
+    <EnrichedMarkdownTextStory
+      title="Hierarchical Wrapped Items"
+      description="Native opt-in: long wrapped text and changing parent number widths."
+      {...args}
+      style={{ list: { numbering: 'hierarchical' } }}
+    />
+  ),
+};

@@ -309,6 +309,7 @@ function App() {
 
 | Property | Type | Description |
 |----------|------|-------------|
+| `numbering` | `'flat' \| 'hierarchical'` | Local counters (default), or ancestor-qualified ordered markers such as `1.2.`. React Native iOS and Android. |
 | `bulletColor` | `string` | Bullet point color |
 | `bulletSize` | `number` | Bullet point size |
 | `markerMinWidth` | `number` | Minimum reserved marker column width (floors the natural width of every list type) |
