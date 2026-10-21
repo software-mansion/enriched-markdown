@@ -33,7 +33,6 @@ const NATIVE_ONLY_INPUT_PROP_NAMES: Record<
   scrollEnabled: true,
   markdownShortcuts: true,
   multiline: true,
-  markdownStyle: true,
   onCaretRectChange: true,
   onLinkDetected: true,
   mentionIndicators: true,

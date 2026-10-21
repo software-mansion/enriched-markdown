@@ -185,7 +185,7 @@ The editor - produces a Markdown string as the user types.
 :::important
 The editor runs on iOS, Android and macOS. Its web build is
 <ExperimentalBadge /> and covers less: no Markdown shortcuts, link or mention
-commands, auto-link detection or `markdownStyle`. See
+commands, auto-link detection or `markdownStyle.linkVariants`. See
 [Web editor](/react-native/guides/web-editor).
 :::
 

@@ -58,7 +58,7 @@ describe('input stylesheet', () => {
       rulesFor(`.${ENRM_INPUT_CLASS} .enrm-link.enrm-strikethrough`).map(
         (rule) => rule.style.getPropertyValue('text-decoration')
       )
-    ).toEqual(['underline line-through']);
+    ).toEqual(['var(--enrm-link-struck-decoration, underline line-through)']);
   });
 
   // Review §2.7.3: a fixed 14px box let "10." run into the text.

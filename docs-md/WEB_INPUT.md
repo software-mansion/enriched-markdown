@@ -72,6 +72,7 @@ The parser is warmed up when the module loads, so the first `defaultValue` is re
 | `spellCheck` | Read once, on first mount. |
 | `style` | React `CSSProperties`, applied to the editor `<div>`. React Native style shorthands (`paddingHorizontal`, …) do not apply. |
 | `className` | Added next to the editor's own class. |
+| `markdownStyle` | Everything except `linkVariants`; see [Styling](#styling). |
 | `selectionColor` | Background of selected text. Without it the browser's own highlight is used. |
 | `cursorColor` | The caret's color (`caret-color`). |
 | `testID` | Rendered as `data-testid`. |
@@ -101,7 +102,16 @@ Any other DOM attribute (`id`, `aria-*`, `data-*`, DOM event handlers) is forwar
 
 ## Styling
 
-`markdownStyle` is ignored on web for now: headings, lists, links and spoilers use the same default look as `EnrichedMarkdownText`. Set the base font, size, line height and color through `style` or `className`; the editor's defaults have zero specificity, so a class of yours wins over them.
+`markdownStyle` works as on native, except `linkVariants`, which is ignored on web: per-URL link styling is not implemented there yet. Each key the web editor honors is set on the editor element as a CSS custom property, so every instance can carry its own theme, for example a light and a dark one:
+
+```tsx
+<EnrichedMarkdownTextInput
+  style={{ color: isDark ? '#e7eaf6' : '#232736' }}
+  markdownStyle={isDark ? darkInputStyle : lightInputStyle}
+/>
+```
+
+`markdownStyle` covers formatting only. Set the base font, size, line height, text color and background through `style` or `className`; the editor's own defaults have zero specificity, so a class of yours wins over them. Strikethrough and list-marker colors are not part of `markdownStyle` on any platform, and keep their defaults.
 
 ## Undo and redo
 
@@ -139,7 +149,7 @@ A ref kept after the input unmounts still answers `getMarkdown()` with the last 
 
 These props are stripped before the editor `<div>` is rendered, so they never reach the DOM or trigger React "unknown prop" warnings:
 
-`markdownStyle`, `markdownShortcuts`, `multiline`, `scrollEnabled`, `writingDirection`, `linkRegex`, `onLinkDetected`, `mentionIndicators`, `onStartMention`, `onChangeMention`, `onEndMention`, `contextMenuItems`, `selectionMenuConfig`, `formatMenuConfig`, `onCaretRectChange`, and the React Native press props (`onPress`, `onPressIn`, `onPressOut`, `rejectResponderTermination`, `hitSlop`).
+`markdownShortcuts`, `multiline`, `scrollEnabled`, `writingDirection`, `linkRegex`, `onLinkDetected`, `mentionIndicators`, `onStartMention`, `onChangeMention`, `onEndMention`, `contextMenuItems`, `selectionMenuConfig`, `formatMenuConfig`, `onCaretRectChange`, and the React Native press props (`onPress`, `onPressIn`, `onPressOut`, `rejectResponderTermination`, `hitSlop`).
 
 `onKeyPress` and `autoCapitalize` are not stripped: they share a name with DOM props and reach the `<div>` as those. `onKeyPress` is then the browser's `keypress` event, which does not fire for Backspace, Delete, arrow keys or IME input, so it is not a replacement for the native event.
 
@@ -150,5 +160,5 @@ These props are stripped before the editor `<div>` is rendered, so they never re
 - **Auto-link detection** — `linkRegex` and `onLinkDetected` are ignored.
 - **Mentions** — no mention flow; mention events never fire.
 - **Custom menus** — `contextMenuItems`, `selectionMenuConfig` and `formatMenuConfig` are ignored; the browser's own context menu is shown.
-- **`markdownStyle`** — see [Styling](#styling).
+- **`markdownStyle.linkVariants`** — see [Styling](#styling).
 - **`onCaretRectChange`** — use `getCaretRect()` instead.

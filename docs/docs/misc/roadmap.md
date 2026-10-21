@@ -104,7 +104,7 @@ come:
 - **A stable editor.** `EnrichedMarkdownTextInput` runs on web as an
   [experimental build](/react-native/guides/web-editor). Still missing there:
   Markdown shortcuts, link and mention commands, auto-link detection, custom
-  menus and `markdownStyle`.
+  menus and `markdownStyle.linkVariants`.
 - **Spoilers**, which are currently dropped along with their text - the most
   important gap on this list.
 - **Code-block highlighting**, including the header and copy button.

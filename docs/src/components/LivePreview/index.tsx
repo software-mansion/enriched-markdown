@@ -9,7 +9,11 @@ import ExampleControls, {
 } from '@site/src/components/ExampleControls';
 import lightCodeTheme from '@site/src/theme/CodeBlock/highlighting-light.js';
 import darkCodeTheme from '@site/src/theme/CodeBlock/highlighting-dark.js';
-import { defaultMarkdownStyle } from '@site/src/examples/_shared/markdownTheme';
+import {
+  defaultInputColors,
+  defaultInputMarkdownStyle,
+  defaultMarkdownStyle,
+} from '@site/src/examples/_shared/markdownTheme';
 import styles from './styles.module.css';
 
 // A live, editable playground: the code is shown in an editor and the Preview
@@ -207,6 +211,8 @@ function Playground({
       // Shared default palette used by the API-reference examples so each one
       // can start from a full theme in a single line and override via spread.
       defaultMarkdownStyle,
+      defaultInputMarkdownStyle,
+      defaultInputColors,
       ...scope,
     }),
     // Module requires are stable; only the caller-supplied `scope` can change.

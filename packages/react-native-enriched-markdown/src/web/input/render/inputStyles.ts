@@ -1,5 +1,6 @@
 import { DEFAULT_NORMALIZED_STYLE } from '../../../normalizeMarkdownStyle.web';
 import {
+  DEFAULT_LINK_BG_COLOR,
   DEFAULT_LINK_COLOR,
   DEFAULT_SPOILER_BG_COLOR,
   DEFAULT_SPOILER_COLOR,
@@ -10,6 +11,7 @@ import {
   LIST_INDENT_PER_DEPTH,
   MAX_LIST_DEPTH,
 } from '../model/blocks';
+import { inputStyleVar } from './inputStyleVariables';
 
 export const ENRM_INPUT_CLASS = 'enrm-input';
 // Set with `data-selection-color` by the `selectionColor` prop. Only then
@@ -22,7 +24,7 @@ const defaults = DEFAULT_NORMALIZED_STYLE;
 function headingRules(): string {
   return HEADING_BLOCK_TYPES.map((level) => {
     const { fontSize, lineHeight, color, fontWeight } = defaults[level];
-    return `.${ENRM_INPUT_CLASS} [data-block="${level}"] { font-size: ${fontSize}px; line-height: ${lineHeight}px; color: ${color}; font-weight: ${fontWeight}; }`;
+    return `.${ENRM_INPUT_CLASS} [data-block="${level}"] { font-size: var(${inputStyleVar.headingFontSize(level)}, ${fontSize}px); line-height: var(${inputStyleVar.headingLineHeight(level)}, ${lineHeight}px); color: var(${inputStyleVar.headingColor(level)}, ${color}); font-weight: var(${inputStyleVar.headingFontWeight(level)}, ${fontWeight}); }`;
   }).join('\n');
 }
 
@@ -91,6 +93,10 @@ const INPUT_CSS = `
 .${ENRM_INPUT_CLASS} > * {
   position: relative;
 }
+/* A margin, not padding: the markers are positioned inside the line's box. */
+.${ENRM_INPUT_CLASS} [data-block$="list-item"] {
+  margin-top: var(${inputStyleVar.listItemSpacing}, 0px);
+}
 .${ENRM_INPUT_CLASS} [data-block="unordered-list-item"]::before {
   content: '';
   position: absolute;
@@ -112,14 +118,16 @@ ${listRules()}
 .${ENRM_INPUT_CLASS}[data-selection-color] ::selection {
   background-color: var(${ENRM_INPUT_SELECTION_VAR});
 }
-.${ENRM_INPUT_CLASS} .enrm-strong { font-weight: bold; }
-.${ENRM_INPUT_CLASS} .enrm-em { font-style: italic; }
+/* With the variable unset, color is invalid at computed-value time and
+   inherits, so bold and italic keep the surrounding color by default. */
+.${ENRM_INPUT_CLASS} .enrm-strong { font-weight: bold; color: var(${inputStyleVar.strongColor}); }
+.${ENRM_INPUT_CLASS} .enrm-em { font-style: italic; color: var(${inputStyleVar.emColor}); }
 .${ENRM_INPUT_CLASS} .enrm-underline { text-decoration: underline; }
 .${ENRM_INPUT_CLASS} .enrm-strikethrough { color: ${defaults.strikethrough.color}; text-decoration: line-through; }
 .${ENRM_INPUT_CLASS} .enrm-underline.enrm-strikethrough { text-decoration: underline line-through; }
-.${ENRM_INPUT_CLASS} .enrm-link { color: ${DEFAULT_LINK_COLOR}; text-decoration: underline; }
-.${ENRM_INPUT_CLASS} .enrm-link.enrm-strikethrough { text-decoration: underline line-through; }
-.${ENRM_INPUT_CLASS} .enrm-spoiler { color: ${DEFAULT_SPOILER_COLOR}; background: ${DEFAULT_SPOILER_BG_COLOR}; border-radius: 4px; }
+.${ENRM_INPUT_CLASS} .enrm-link { color: var(${inputStyleVar.linkColor}, ${DEFAULT_LINK_COLOR}); background-color: var(${inputStyleVar.linkBackground}, ${DEFAULT_LINK_BG_COLOR}); text-decoration: var(${inputStyleVar.linkDecoration}, underline); }
+.${ENRM_INPUT_CLASS} .enrm-link.enrm-strikethrough { text-decoration: var(${inputStyleVar.linkStruckDecoration}, underline line-through); }
+.${ENRM_INPUT_CLASS} .enrm-spoiler { color: var(${inputStyleVar.spoilerColor}, ${DEFAULT_SPOILER_COLOR}); background: var(${inputStyleVar.spoilerBackground}, ${DEFAULT_SPOILER_BG_COLOR}); border-radius: 4px; }
 `;
 
 export function injectInputStyles(): void {

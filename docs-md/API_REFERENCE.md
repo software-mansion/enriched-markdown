@@ -893,6 +893,8 @@ Style configuration for formatted text in the input.
 | -------------------- | ------------- | -------- |
 | `MarkdownTextInputStyle` | `{}`          | Both     |
 
+On web, the [experimental web editor](WEB_INPUT.md#styling) honors every key except `linkVariants`.
+
 **Properties:**
 
 - `strong.color` — text color for bold text (defaults to the input's text color).

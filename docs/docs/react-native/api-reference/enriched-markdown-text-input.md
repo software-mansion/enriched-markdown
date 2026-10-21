@@ -262,7 +262,9 @@ Overrides for how formatted text is painted inside the input. Its type, `Markdow
 
 <PropInfo type="MarkdownTextInputStyle" default="{}" />
 
-<LivePreview src={MarkdownStyleSrc} unavailable unavailableReason={nativeOnly} />
+On web, the [experimental web editor](/react-native/guides/web-editor#styling) honors every key except `linkVariants`.
+
+<LivePreview src={MarkdownStyleSrc} />
 
 ### `linkRegex`
 
