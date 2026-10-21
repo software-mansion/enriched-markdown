@@ -1,3 +1,4 @@
+import type { LinkPillContentInternal } from './EnrichedMarkdownNativeComponent';
 import type { LinkVariantStyle } from './types/MarkdownStyle';
 import type { LinkPillContent } from './types/linkPill';
 import { normalizeColor } from './styleUtils';
@@ -86,7 +87,7 @@ export function normalizeLinkPillStyle(style: LinkVariantStyle) {
 /** Flattens `linkPillContent` for native; sorted so equal maps produce the same array. */
 export function normalizeLinkPillContent(
   content: Record<string, LinkPillContent> | undefined
-) {
+): LinkPillContentInternal[] | undefined {
   if (!content) return undefined;
   return Object.entries(content)
     .map(([url, { label, iconUri, iconTintColor }]) => ({
