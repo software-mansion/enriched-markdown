@@ -1,6 +1,6 @@
 # Enriched Markdown
 
-> Markdown-based rich text for React Native: `EnrichedMarkdownText`, a read-only renderer that paints Markdown with the platform's native text stack, and `EnrichedMarkdownTextInput`, a WYSIWYG editor that produces Markdown as the user types. Both run on iOS, Android and macOS; the renderer also has a plain React/DOM build for the web. Standalone native SDKs ship the renderer without React Native: a SwiftUI view in the `enriched-markdown-ios` Swift package, and a Jetpack Compose component on Maven Central (`com.swmansion.enriched.markdown:compose`).
+> Markdown-based rich text for React Native: `EnrichedMarkdownText`, a read-only renderer that paints Markdown with the platform's native text stack, and `EnrichedMarkdownTextInput`, a WYSIWYG editor that produces Markdown as the user types. Both run on iOS, Android and macOS; the renderer also has a plain React/DOM build for the web, and the editor an experimental one. Standalone native SDKs ship the renderer without React Native: a SwiftUI view in the `enriched-markdown-ios` Swift package, and a Jetpack Compose component on Maven Central (`com.swmansion.enriched.markdown:compose`).
 
 ## Introduction
 
@@ -50,6 +50,7 @@
 - [Link pills](https://docs.swmansion.com/enriched-markdown/react-native/guides/link-pills): Presenting links as native chips with an icon and label - the `pill` variant key, per-link content through `linkPillContent`, line height, and icon sources.
 - [Link menus](https://docs.swmansion.com/enriched-markdown/react-native/guides/link-menus): What a long press on a link does per platform, and custom iOS 17+ menus per URL pattern with `linkContextMenuItems`.
 - [Web support](https://docs.swmansion.com/enriched-markdown/react-native/guides/web-support): Bundler setup for the web build, the WebAssembly parser, KaTeX, and everything the web target ignores or does not support.
+- [Web editor](https://docs.swmansion.com/enriched-markdown/react-native/guides/web-editor): The experimental web build of EnrichedMarkdownTextInput - supported props, events and ref methods, undo history, Markdown escaping, clipboard, and what is not supported on web yet.
 - [Image caching](https://docs.swmansion.com/enriched-markdown/react-native/guides/image-caching): Supported image sources, the three cache tiers, request headers and deduplication.
 - [Native assets](https://docs.swmansion.com/enriched-markdown/react-native/guides/native-assets): Bundling custom fonts and images, the assets downloaded at install time, and how to opt out to shrink your binary.
 - [Testing](https://docs.swmansion.com/enriched-markdown/react-native/guides/testing): The Jest mock the package ships, what it replaces, and what it cannot cover.

@@ -20,8 +20,8 @@ the next releases; **planned** means it is on the list without a timeline yet.
 
 The React Native package ships on iOS, Android, macOS and the web - the
 **iOS / Android** column below is that package. The
-[web build](/react-native/guides/web-support) covers `EnrichedMarkdownText`
-only, and macOS runs the iOS code with a few gaps of its own. The standalone
+[web build](/react-native/guides/web-support) covers `EnrichedMarkdownText`,
+plus an [experimental editor](/react-native/guides/web-editor), and macOS runs the iOS code with a few gaps of its own. The standalone
 [iOS package](/ios/basics/installation) (0.4.0) and
 [Android package](/android/basics/installation) (0.3.0) are renderers for
 SwiftUI and Jetpack Compose apps, and have their own columns.
@@ -40,7 +40,7 @@ SwiftUI and Jetpack Compose apps, and have their own columns.
 | [Smart copy](/user-experience/copy-options) | Yes | Plain text + HTML | Yes | Yes | Planned |
 | [Accessibility](/user-experience/accessibility) | Yes | Yes | Partial | Planned | Partial |
 | [RTL](/user-experience/rtl) | Yes | Yes | Yes | Yes | Container-level |
-| `EnrichedMarkdownTextInput` (editor) | Yes | Planned | Planned | Yes | Planned |
+| `EnrichedMarkdownTextInput` (editor) | Yes | Planned | Planned | Yes | Experimental |
 
 In the native columns, LaTeX math comes from an optional add-on - the
 `EnrichedMarkdownLaTeX` product on iOS, the `math` artifact on Android - and so
@@ -101,7 +101,10 @@ is available today.
 The [web build](/react-native/guides/web-support) ships the renderer. Still to
 come:
 
-- **The editor.** `EnrichedMarkdownTextInput` has no web build at all.
+- **A stable editor.** `EnrichedMarkdownTextInput` runs on web as an
+  [experimental build](/react-native/guides/web-editor). Still missing there:
+  Markdown shortcuts, link and mention commands, auto-link detection, custom
+  menus and `markdownStyle.linkVariants`.
 - **Spoilers**, which are currently dropped along with their text - the most
   important gap on this list.
 - **Code-block highlighting**, including the header and copy button.

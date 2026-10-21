@@ -59,7 +59,7 @@ react-native/         (40)  basics/ (10)        installation, your-first-project
                                                 style-properties, element-structure
                             guides/ (30)        markdown-flavors, link-pills,
                                                 link-menus, web-support,
-                                                image-caching, native-assets,
+                                                web-editor, image-caching, native-assets,
                                                 testing, macos
 rich-text-formatting/ (50)  code-highlighting, editor-style-text, latex-math,
                             markdown-streaming, mentions
@@ -119,8 +119,12 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
   not dropped. It ships web
   support for `EnrichedMarkdownText` (a plain React/DOM renderer - no
   react-native-web primitives - plus md4c-wasm), documented
-  in `react-native/guides/web-support.md` (ported from `docs-md/WEB.md`); the
-  editor stays native-only.
+  in `react-native/guides/web-support.md` (ported from `docs-md/WEB.md`). The
+  editor also has an **experimental** web build, documented in
+  `react-native/guides/web-editor.md` (ported from `docs-md/WEB_INPUT.md`) and
+  marked with `<ExperimentalBadge />` plus `sidebar_class_name:
+  sidebar-experimental`; the API reference keeps native semantics and links
+  there for the web subset.
 
 ### `src/examples/` mirrors `docs/` 1:1 - keep it that way
 
@@ -260,7 +264,11 @@ The API-reference pages also use a few small MDX components registered in
 compact fixed-width table (`<PropInfo type="boolean" default="true" />`, or
 `required`) instead of a Markdown table. The same module exports
 `ComingSoonBadge`, an iconless amber badge for something documented but not
-released yet (currently unused).
+released yet (currently unused), and `ExperimentalBadge`, an iconless violet
+badge for a released feature whose API may still break, with an explanatory
+tooltip on hover/focus. Keep `ExperimentalBadge` out of `##`/`###` headings:
+its tooltip text would end up in the table of contents. The matching sidebar
+pill is the `sidebar-experimental` class in `src/css/overrides.css`.
 
 The examples render the library's **web build** in the browser -
 `docusaurus.config.js` aliases the bare `react-native-enriched-markdown`
@@ -287,10 +295,13 @@ example fails to resolve `react-native-enriched-markdown`. `react-live` and
 `react-native-web`/`raw-loader` are docs devDependencies that must be
 installed (`yarn`) for the interactive examples to build.
 
-The editable input (`EnrichedMarkdownTextInput`) is not web-ready yet. For
-input examples, import only the source via `raw-loader` and pass `comingSoon`
-so the Code tab still shows the code while the Preview shows a "coming soon"
-banner: `<InteractiveExample src={FirstEditorSrc} comingSoon />`.
+The editable input (`EnrichedMarkdownTextInput`) runs live through its
+experimental web build: it is in `LivePreview`'s scope, and an example that uses
+only what the web editor supports (see `react-native/guides/web-editor.md`)
+renders as a normal `<LivePreview src={...} />`. An example that needs a
+native-only prop or method stays `unavailable`, with the page's `nativeOnly`
+reason. `Alert` is a no-op on react-native-web, so input examples show results
+on screen instead.
 
 ## Site configuration (`docusaurus.config.js`)
 

@@ -2,6 +2,8 @@
 
 `EnrichedMarkdownTextInput` is a rich text input component that outputs Markdown. It is an uncontrolled input — it doesn't use any state or props to store its value, but instead directly interacts with the underlying platform-specific components. Thanks to this, the component is really performant and simple to use.
 
+It also runs on web, as an [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](WEB_INPUT.md#experimental-status) editor with a smaller feature set; see [Web Editor](WEB_INPUT.md).
+
 ## Usage
 
 Here's a simple example of an input that lets you toggle bold on its text and shows whether bold is currently active via the button color.
@@ -243,7 +245,7 @@ const [history, setHistory] = useState({ canUndo: false, canRedo: false });
 <Button title="Redo" disabled={!history.canRedo} onPress={() => ref.current?.redo()} />
 ```
 
-Both methods and the event are web-only for now: on iOS and Android the methods do nothing and the event never fires. See [Web Support](WEB.md#undo-and-redo) for how the history behaves on web.
+Both methods and the event are web-only for now: on iOS and Android the methods do nothing and the event never fires. See [Web Editor](WEB_INPUT.md#undo-and-redo) for how the history behaves on web.
 
 ## Style Detection
 

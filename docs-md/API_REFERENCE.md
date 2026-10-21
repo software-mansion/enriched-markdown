@@ -893,6 +893,8 @@ Style configuration for formatted text in the input.
 | -------------------- | ------------- | -------- |
 | `MarkdownTextInputStyle` | `{}`          | Both     |
 
+On web, the [experimental web editor](WEB_INPUT.md#styling) honors every key except `linkVariants`.
+
 **Properties:**
 
 - `strong.color` — text color for bold text (defaults to the input's text color).
@@ -1001,7 +1003,7 @@ interface StyleState {
 
 ### `onChangeHistoryState`
 
-Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Web-only for now: iOS and Android never call it.
+Fires when whether [`undo()`](#undo) or [`redo()`](#redo) has a step to take changes. It fires only when one of the two values flips, not on every edit, so it is cheap to drive toolbar buttons from. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): iOS and Android never call it.
 
 | Type                                                         | Default Value | Platform |
 | ------------------------------------------------------------ | ------------- | -------- |
@@ -1374,11 +1376,11 @@ On iOS, macOS and Android the clipboard receives both plain text and the Markdow
 
 ### `undo()`
 
-Steps back over the last edit: typing up to a pause or a caret move, a single Backspace run, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Web-only for now: a no-op on iOS and Android. On web, **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same.
+Steps back over the last edit: typing up to a pause or a caret move, a single Backspace run, a paste, a cut, a newline, an IME composition, or one formatting command. Text, formatting and selection all return to how they were before it. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Z** / **Ctrl+Z** and the browser's Edit menu do the same.
 
 ### `redo()`
 
-Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Web-only for now: a no-op on iOS and Android. On web, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same.
+Re-applies the last step `undo()` took back. Any new edit clears what is left to redo. Web-only for now, part of the [experimental web editor](WEB_INPUT.md): a no-op on iOS and Android. On web, **Cmd+Shift+Z** / **Ctrl+Shift+Z** / **Ctrl+Y** and the browser's Edit menu do the same.
 
 ### `startMention(indicator: string)`
 

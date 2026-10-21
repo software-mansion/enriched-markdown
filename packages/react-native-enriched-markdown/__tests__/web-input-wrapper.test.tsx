@@ -730,7 +730,6 @@ describe('native-only props', () => {
   it('keeps them off the DOM, without React warnings', () => {
     const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
     const nativeOnly = {
-      markdownStyle: { paragraph: { fontSize: 18 } },
       markdownShortcuts: true,
       multiline: true,
       scrollEnabled: false,
@@ -749,7 +748,7 @@ describe('native-only props', () => {
 
     expect(errors).not.toHaveBeenCalled();
     const attributes = [...editor.attributes].map((a) => a.name);
-    for (const name of ['markdownstyle', 'multiline', 'hitslop', 'linkregex']) {
+    for (const name of ['multiline', 'hitslop', 'linkregex']) {
       expect(attributes).not.toContain(name);
     }
   });
@@ -773,5 +772,49 @@ describe('native-only props', () => {
     const { editor } = mount();
 
     expect(editor.hasAttribute('data-selection-color')).toBe(false);
+  });
+});
+
+describe('markdownStyle', () => {
+  it('themes the formatting through custom properties on the editor', () => {
+    const { editor } = mount({
+      markdownStyle: {
+        strong: { color: 'rgb(1, 1, 1)' },
+        link: { color: 'rgb(2, 2, 2)', underline: false },
+        spoiler: { backgroundColor: 'rgb(3, 3, 3)' },
+        h1: { fontSize: 60, color: 'rgb(4, 4, 4)' },
+        list: { itemSpacing: 6 },
+      },
+    });
+
+    const read = (name: string) => editor.style.getPropertyValue(name);
+    expect(read('--enrm-strong-color')).toBe('rgb(1, 1, 1)');
+    expect(read('--enrm-link-color')).toBe('rgb(2, 2, 2)');
+    expect(read('--enrm-link-decoration')).toBe('none');
+    expect(read('--enrm-link-struck-decoration')).toBe('line-through');
+    expect(read('--enrm-spoiler-bg')).toBe('rgb(3, 3, 3)');
+    expect(read('--enrm-h1-font-size')).toBe('60px');
+    expect(read('--enrm-h1-line-height')).toBe('76px');
+    expect(read('--enrm-h1-color')).toBe('rgb(4, 4, 4)');
+    expect(read('--enrm-list-item-spacing')).toBe('6px');
+    expect(editor.hasAttribute('markdownstyle')).toBe(false);
+  });
+
+  it('sets nothing for the keys it is not given', () => {
+    const { editor } = mount({ markdownStyle: { em: { color: 'red' } } });
+
+    expect(editor.style.getPropertyValue('--enrm-em-color')).toBe('red');
+    expect(editor.style.getPropertyValue('--enrm-link-color')).toBe('');
+    expect(editor.style.getPropertyValue('--enrm-h2-color')).toBe('');
+  });
+
+  it('follows a new markdownStyle on rerender', () => {
+    const { editor, render } = mount({
+      markdownStyle: { link: { color: 'red' } },
+    });
+
+    render({ markdownStyle: { link: { color: 'blue' } } });
+
+    expect(editor.style.getPropertyValue('--enrm-link-color')).toBe('blue');
   });
 });

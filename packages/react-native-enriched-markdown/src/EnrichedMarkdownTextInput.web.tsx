@@ -18,6 +18,7 @@ import type {
   MeasureLayoutCallback,
   StyleState,
 } from './types/MarkdownTextInputInstance';
+import type { MarkdownTextInputStyle } from './types/MarkdownTextInputStyle';
 import { ImportQueue } from './web/input/editing/ImportQueue';
 import { InputHost } from './web/input/editing/InputHost';
 import type { InputState } from './web/input/editing/InputState';
@@ -25,6 +26,7 @@ import {
   ENRM_INPUT_CLASS,
   ENRM_INPUT_SELECTION_VAR,
 } from './web/input/render/inputStyles';
+import { inputStyleVariables } from './web/input/render/inputStyleVariables';
 import { filterNativeOnlyInputProps } from './web/input/nativeInputProps';
 import {
   measure,
@@ -75,6 +77,8 @@ export interface EnrichedMarkdownTextInputProps extends ForwardedDomProps {
   autoFocus?: boolean;
   spellCheck?: boolean;
   style?: CSSProperties;
+  /** Formatting colors and heading sizes. `linkVariants` is ignored on web. */
+  markdownStyle?: MarkdownTextInputStyle;
   onChangeText?: (text: string) => void;
   onChangeSelection?: (selection: { start: number; end: number }) => void;
   onChangeState?: (state: StyleState) => void;
@@ -134,6 +138,7 @@ export const EnrichedMarkdownTextInput = forwardRef<
     autoFocus = false,
     spellCheck,
     style,
+    markdownStyle,
     className,
     onChangeText,
     onChangeSelection,
@@ -310,6 +315,7 @@ export const EnrichedMarkdownTextInput = forwardRef<
   }, [queue]);
 
   const cssVariables = {
+    ...inputStyleVariables(markdownStyle),
     '--enrm-placeholder-color': placeholderTextColor,
     ...(selectionColor === undefined
       ? {}

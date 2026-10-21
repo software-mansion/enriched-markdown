@@ -19,9 +19,9 @@ and by how each feature is enabled.
   in the editor tables. See [iOS](/ios/basics/installation) and
   [Android](/android/basics/installation) installation.
 - The **Web** column is the same package's web build, a plain React renderer
-  that emits semantic HTML. It applies to `EnrichedMarkdownText` only, because
-  the editor has no web build yet. See the
-  [Web support](/react-native/guides/web-support) guide.
+  that emits semantic HTML. In the editor tables it is the experimental web
+  editor. See the [Web support](/react-native/guides/web-support) and
+  [Web editor](/react-native/guides/web-editor) guides.
 
 **Yes** means the feature renders with no extra work beyond the switch named in
 the section heading. **No** means it does not render on that target; the
@@ -183,9 +183,10 @@ On the standalone SDKs, the advanced features that render are optional add-ons:
 The editor - produces a Markdown string as the user types.
 
 :::important
-The editor is **native only**: it runs on iOS, Android and macOS, and has no web
-build. Importing `EnrichedMarkdownTextInput` from the web entry point yields
-`undefined`.
+The editor runs on iOS, Android and macOS. Its web build is
+<ExperimentalBadge /> and covers less: no Markdown shortcuts, link or mention
+commands, auto-link detection or `markdownStyle.linkVariants`. See
+[Web editor](/react-native/guides/web-editor).
 :::
 
 The editor is a **flat inline-formatting surface**: it supports inline styles
@@ -195,40 +196,43 @@ the input - for those, render with [`EnrichedMarkdownText`](/react-native/api-re
 
 ### CommonMark
 
-| Feature                     | React Native |
-| --------------------------- | :----------: |
-| Headings                    |     Yes      |
-| Bold / italic               |     Yes      |
-| Links                       |     Yes      |
-| Lists (ordered / unordered) |     Yes      |
-| Inline code                 |      No      |
-| Blockquotes                 |      No      |
-| Code blocks                 |      No      |
+| Feature                     | React Native |   Web   |
+| --------------------------- | :----------: | :-----: |
+| Headings                    |     Yes      |   Yes   |
+| Bold / italic               |     Yes      |   Yes   |
+| Links                       |     Yes      | Partial |
+| Lists (ordered / unordered) |     Yes      |   Yes   |
+| Inline code                 |      No      |   No    |
+| Blockquotes                 |      No      |   No    |
+| Code blocks                 |      No      |   No    |
+
+On web, links that arrive in the Markdown are kept and rendered, but there are
+no link commands to create or edit one.
 
 ### GitHub Flavored Markdown
 
-| Feature       | React Native |
-| ------------- | :----------: |
-| Strikethrough |     Yes      |
-| Tables        |      No      |
-| Task lists    |      No      |
+| Feature       | React Native | Web |
+| ------------- | :----------: | :-: |
+| Strikethrough |     Yes      | Yes |
+| Tables        |      No      | No  |
+| Task lists    |      No      | No  |
 
 ### Inline extensions
 
 Toggled through the editor's `toggle*` ref methods.
 
-| Feature                  | React Native |
-| ------------------------ | :----------: |
-| Underline                |     Yes      |
-| Spoiler (`\|\|text\|\|`) |     Yes      |
-| Superscript / subscript  |      No      |
-| Highlight                |      No      |
+| Feature                  | React Native | Web |
+| ------------------------ | :----------: | :-: |
+| Underline                |     Yes      | Yes |
+| Spoiler (`\|\|text\|\|`) |     Yes      | Yes |
+| Superscript / subscript  |      No      | No  |
+| Highlight                |      No      | No  |
 
 ### Advanced features
 
-| Feature  | React Native | Learn more                                 |
-| -------- | :----------: | ------------------------------------------ |
-| Mentions |     Yes      | [Mentions](/rich-text-formatting/mentions) |
+| Feature  | React Native | Web | Learn more                                 |
+| -------- | :----------: | :-: | ------------------------------------------ |
+| Mentions |     Yes      | No  | [Mentions](/rich-text-formatting/mentions) |
 
 Mentions are inserted as ordinary Markdown links (`[display](url)`) and styled
 per URL pattern via `linkVariants` - there is no dedicated mention token.

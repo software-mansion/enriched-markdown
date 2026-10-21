@@ -20,9 +20,10 @@ WebAssembly. The WASM binary is inlined inside the JavaScript bundle
 and no build step is required by consumers.
 
 :::note
-Web support currently applies to `EnrichedMarkdownText` (the renderer).
-`EnrichedMarkdownTextInput` (the editor) is native-only today, with **web
-support coming soon** - see the [roadmap](/misc/roadmap). The
+This page covers `EnrichedMarkdownText` (the renderer) and the setup it shares
+with the editor. `EnrichedMarkdownTextInput` also runs on web, as an
+<ExperimentalBadge /> editor with a smaller feature set - see
+[Web editor](/react-native/guides/web-editor). The
 [Feature support](/introduction/supported-features) overview has the full
 matrix.
 :::
@@ -370,7 +371,7 @@ gone, not concealed. Do not put content behind a spoiler if the same Markdown is
 rendered on web.
 :::
 
-- `EnrichedMarkdownTextInput` - native-only today; **web support is coming soon** (see the [roadmap](/misc/roadmap)). Importing it from the web entry point yields `undefined`.
+- Editor features - `EnrichedMarkdownTextInput` runs on web but is experimental and covers less than on native. See [Web editor](/react-native/guides/web-editor#not-supported-on-web).
 - Code-block syntax highlighting - fenced code blocks render as plain monospaced text with no per-token colors, no header bar and no copy button
 - Configurable link `target` - all links open in a new tab (`target="_blank" rel="noopener noreferrer"`). Use `onLinkPress` for custom navigation.
 - Line clamping - `numberOfLines` and `ellipsizeMode` are native-only and are not part of the web props type

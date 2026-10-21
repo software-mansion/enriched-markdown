@@ -13,6 +13,7 @@ export type {
 } from './EnrichedMarkdownTextInput.web';
 export type { EnrichedMarkdownTextProps } from './types/MarkdownTextProps.web';
 export type { MarkdownStyle, Md4cFlags } from './types/MarkdownStyle';
+export type { MarkdownTextInputStyle } from './types/MarkdownTextInputStyle';
 export type {
   LinkPressEvent,
   LinkLongPressEvent,
