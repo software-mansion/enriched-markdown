@@ -14,9 +14,7 @@ object MarkdownASTSerializer {
 
   fun serializeChildren(node: MarkdownASTNode): String {
     val buffer = StringBuilder()
-    for (child in node.children) {
-      appendNode(child, buffer)
-    }
+    appendChildren(node, buffer)
     return buffer.toString()
   }
 
@@ -235,6 +233,7 @@ object MarkdownASTSerializer {
   private fun appendNode(
     node: MarkdownASTNode,
     buffer: StringBuilder,
+    inTableCell: Boolean = false,
   ) {
     when (node.type) {
       NodeType.Text -> {
@@ -242,58 +241,58 @@ object MarkdownASTSerializer {
       }
 
       NodeType.LineBreak -> {
-        buffer.append("\\\n")
+        buffer.append(if (inTableCell) "<br>" else "\\\n")
       }
 
       NodeType.SoftBreak -> {
-        buffer.append("\n")
+        buffer.append(if (inTableCell) "<br>" else "\n")
       }
 
       NodeType.Strong -> {
         buffer.append("**")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("**")
       }
 
       NodeType.Emphasis -> {
         buffer.append("*")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("*")
       }
 
       NodeType.Strikethrough -> {
         buffer.append("~~")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("~~")
       }
 
       NodeType.Underline -> {
         buffer.append("__")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("__")
       }
 
       NodeType.Superscript -> {
         buffer.append("^")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("^")
       }
 
       NodeType.Subscript -> {
         buffer.append("~")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("~")
       }
 
       NodeType.Highlight -> {
         buffer.append("==")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("==")
       }
 
       NodeType.LatexMathInline -> {
         buffer.append("\$")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("\$")
       }
 
@@ -305,12 +304,12 @@ object MarkdownASTSerializer {
 
       NodeType.Link -> {
         if (node.getAttribute("recognizedLink") == "true") {
-          appendChildren(node, buffer)
+          appendChildren(node, buffer, inTableCell)
           return
         }
         val url = node.getAttribute("url") ?: ""
         buffer.append("[")
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
         buffer.append("](")
         buffer.append(url)
         buffer.append(")")
@@ -340,7 +339,7 @@ object MarkdownASTSerializer {
       }
 
       else -> {
-        appendChildren(node, buffer)
+        appendChildren(node, buffer, inTableCell)
       }
     }
   }
@@ -348,9 +347,12 @@ object MarkdownASTSerializer {
   private fun appendChildren(
     node: MarkdownASTNode,
     buffer: StringBuilder,
+    inTableCell: Boolean = false,
   ) {
+    // Both the table view and block exporters enter here with a cell node.
+    val tableCell = inTableCell || node.type == NodeType.TableCell || node.type == NodeType.TableHeaderCell
     for (child in node.children) {
-      appendNode(child, buffer)
+      appendNode(child, buffer, tableCell)
     }
   }
 }

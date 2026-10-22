@@ -14,7 +14,7 @@ extern "C" {
 NSString *markdownFromASTNode(MarkdownASTNode *node);
 
 /// Serializes only the children of a node to markdown (skipping the node itself).
-/// Useful for extracting the markdown content of a container node (e.g. a table cell).
+/// Table cells serialize break nodes as <br>, including inside inline formatting.
 NSString *markdownFromASTNodeChildren(MarkdownASTNode *node);
 
 /// Serializes a Blockquote or Admonition node to full markdown, including `> ` line

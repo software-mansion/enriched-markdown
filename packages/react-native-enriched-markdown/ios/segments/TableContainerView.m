@@ -49,6 +49,8 @@ static NSString *ENRMTablePlainTextFromNode(MarkdownASTNode *node)
 {
   if (!node)
     return @"";
+  if (node.type == MarkdownNodeTypeLineBreak || node.type == MarkdownNodeTypeSoftBreak)
+    return @"\n";
   NSMutableString *buffer = [node.content mutableCopy] ?: [NSMutableString string];
   for (MarkdownASTNode *child in node.children) {
     [buffer appendString:ENRMTablePlainTextFromNode(child)];
