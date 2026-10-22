@@ -161,7 +161,7 @@ The screenshots (`<session-id>-screenshots.tar.gz`), that report (`output.log`) 
 
 Each run spends Anthropic API credit, which is why it is on demand rather than on every pull request.
 
-The CLI is downloaded from [software-mansion-labs/argent-cloud-releases](https://github.com/software-mansion-labs/argent-cloud-releases) by [.github/argent-cloud/install-argent-cloud.sh](.github/argent-cloud/install-argent-cloud.sh). It is pinned to one release and verified against that asset's sha256; to move to a newer build, set `ARGENT_CLOUD_VERSION` and `ARGENT_CLOUD_SHA256` in the workflow's top-level `env` to the tag and checksum from the release page. Don't drop the pin and follow `latest` - GitHub resolves that pointer by `created_at`, and this channel cuts every release from one commit, so `latest` is a tiebreak rather than the newest build.
+The CLI is downloaded from [software-mansion-labs/argent-cloud-releases](https://github.com/software-mansion-labs/argent-cloud-releases) by [.github/argent-cloud/install-argent-cloud.sh](.github/argent-cloud/install-argent-cloud.sh). It always installs the `latest` release.
 
 The app is built in Release for the simulator (`yarn react-native-example build:ios:release`, which is also how to reproduce the bundle locally) so the JavaScript is embedded and the agent's simulator needs no Metro server.
 

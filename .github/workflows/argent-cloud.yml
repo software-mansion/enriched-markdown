@@ -40,18 +40,6 @@ on:
         required: false
         type: string
 
-# Pinned, not `latest`. Releases on that channel are cut from one commit and
-# share a created_at, which is the field GitHub's `latest` pointer sorts by, so
-# which build it serves is an arbitrary tiebreak rather than the newest one -
-# and old tags get deleted, so a pin is also what has to move when one goes.
-# Both values come from the release page; install-argent-cloud.sh refuses to run
-# an asset whose sha256 is not the one named here. Workflow-wide because two
-# jobs install the CLI: the one that runs the session and the one that posts it.
-env:
-  # Quoted: the tags are all digits, and a bare one is a YAML integer.
-  ARGENT_CLOUD_VERSION: "202610211750"
-  ARGENT_CLOUD_SHA256: 63b5112b01f187fe327c62364fe89fbf0d07ab7d8d08f901772abaa093af1a50
-
 jobs:
   # Runs no repository code at all, which is what lets it hold the only token in
   # this workflow that can write to GitHub. The permission call below is the
