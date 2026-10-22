@@ -43,16 +43,17 @@ planned, see the [Roadmap](/misc/roadmap); for the full per-feature matrix,
   promotes the text to `DynamicLayout`, which has no `maxLines` support - React
   Native's own `Text` behaves the same way. Both are restored once the clamp is
   removed, and iOS keeps selection and links while clamped.
-- **Raw HTML is not rendered.** Inline HTML is disabled and HTML tags in the
-  source are ignored. The one allowlisted exception is a block-level
+- **General raw HTML is not rendered.** Exact inline `br` tags produce line breaks.
+  Other inline HTML remains literal, and raw HTML blocks follow the existing policy.
+  The allowlisted block-level exception is a
   [`<video>`](/react-native/api-reference/element-structure#videos) tag, of which
   only `src` is read - all video styling comes from
   [`markdownStyle.video`](/react-native/api-reference/style-properties#video-specific).
-- **`<br>` does not force a line break.** It is raw HTML like any other tag: an
-  inline `<br>` stays in the output as literal text, and one on its own line is
-  dropped. Use a hard break (two trailing spaces or a backslash) or
-  [`hardSoftBreaks`](/react-native/api-reference/enriched-markdown-text#hardsoftbreaks).
-  Parser-level support is [planned](/misc/roadmap), but nothing in the parser touches it today.
+- **HTML line breaks support only exact inline tags.** `<br>`, `<br/>`, and `<br />`,
+  including ASCII case variants, produce breaks in paragraphs and GFM table cells.
+  Code spans, escaped tags, attributes and malformed tags stay literal. This does
+  not enable other inline HTML or change HTML-block parsing. A standalone HTML
+  block still follows the existing block policy.
 - **There is no `colorScheme` prop.** The library ships light-mode color
   defaults and leaves theming to you, exactly like React Native's `Text` - swap
   `markdownStyle` objects on `useColorScheme()`. See

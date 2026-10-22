@@ -406,6 +406,7 @@ typedef struct ENRMRKD_BLOCK_BLANK_DETAIL {
 #define ENRMRKD_FLAG_HIGHLIGHT                   0x200000 /* Enable ==highlight== spans. */
 #define ENRMRKD_FLAG_PRESERVEBLANKLINES          0x400000 /* Report blank line runs as ENRMRKD_BLOCK_BLANK. */
 #define ENRMRKD_FLAG_INSERT                      0x800000 /* Enable insert extension. */
+#define ENRMRKD_FLAG_HTMLBR                      0x1000000 /* Report exact inline <br>, <br/>, <br /> as ENRMRKD_TEXT_BR, even with NOHTMLSPANS. */
 
 #define ENRMRKD_FLAG_PERMISSIVEAUTOLINKS         (ENRMRKD_FLAG_PERMISSIVEEMAILAUTOLINKS | ENRMRKD_FLAG_PERMISSIVEURLAUTOLINKS | ENRMRKD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define ENRMRKD_FLAG_NOHTML                      (ENRMRKD_FLAG_NOHTMLBLOCKS | ENRMRKD_FLAG_NOHTMLSPANS)

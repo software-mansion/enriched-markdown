@@ -218,7 +218,7 @@ Quote the URL. An unquoted `src` ends at the first `/`, so `<video src=https://e
 :::
 
 :::note
-On native, requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the `enableVideo` build flag (on by default) - see [Optional native features](/react-native/guides/native-assets#optional-features). Web has neither knob and always renders the player. No other HTML is rendered on any target: inline HTML is disabled and any other tag is ignored.
+On native, requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) and the `enableVideo` build flag (on by default) - see [Optional native features](/react-native/guides/native-assets#optional-features). Web has neither knob and always renders the player. Exact inline `<br>` tags also produce line breaks, as described below. Other inline HTML remains disabled; HTML block handling is unchanged.
 :::
 
 A video inside a blockquote or an admonition renders normally. A video inside a **list item** is different: it is promoted out of the list and rendered as a standalone block above the remaining items, without a bullet or number, which splits the list in two. The promotion happens in the parser, so web behaves the same way.
@@ -230,7 +230,7 @@ Newlines follow standard CommonMark semantics by default:
 - **Blank line** - starts a new paragraph.
 - **Single newline (soft break)** - renders as a space; consecutive lines flow together into one wrapped paragraph, matching how GitHub and other CommonMark renderers display Markdown.
 - **Hard break** - end a line with two spaces or a backslash to force a line break within the paragraph.
-- **`<br>`** - not supported. Raw HTML is disabled, so an inline `<br>` stays in the output as literal text and one on its own line is dropped. Use a hard break, or [`hardSoftBreaks`](/react-native/api-reference/enriched-markdown-text#hardsoftbreaks) below, instead.
+- **Inline HTML breaks** - exact `<br>`, `<br/>`, and `<br />` tags, including ASCII case variants, force a line break within the paragraph or GFM table cell. Escaped tags, character references, code spans and fenced code stay literal. Tags with attributes, closing tags and other whitespace spellings stay literal. This narrow parser extension does not enable other inline HTML. HTML blocks, including a tag alone on its own line and video blocks, keep their existing behavior.
 
 ```markdown
 This line and

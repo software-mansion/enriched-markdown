@@ -3259,6 +3259,25 @@ md_is_autolink(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end, int* p_missing_mai
     return false;
 }
 
+/* This opt-in inline extension is independent of raw HTML tokenization.
+ * Match only these three spellings, within the current line. */
+static OFF
+md_html_br_end(MD_CTX* ctx, OFF beg, OFF end)
+{
+    OFF off = beg + 3;
+
+    if(end - beg < 4  ||  !ISANYOF2(beg+1, _T('b'), _T('B'))
+                         ||  !ISANYOF2(beg+2, _T('r'), _T('R')))
+        return 0;
+    if(CH(off) == _T('>'))
+        return off+1;
+    if(CH(off) == _T(' '))
+        off++;
+    if(off+1 < end  &&  CH(off) == _T('/')  &&  CH(off+1) == _T('>'))
+        return off+2;
+    return 0;
+}
+
 static int
 md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines, int table_mode)
 {
@@ -3267,6 +3286,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines, int ta
     MD_MARK* mark;
     OFF codespan_last_potential_closers[CODESPAN_MARK_MAXLEN] = { 0 };
     int codespan_scanned_till_paragraph_end = false;
+    OFF html_br_verbatim_end = 0;
 
     for(line_index = 0; line_index < n_lines; line_index++) {
         const MD_LINE* line = &lines[line_index];
@@ -3421,6 +3441,21 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines, int ta
                 int is_autolink;
                 OFF autolink_end;
                 int missing_mailto;
+
+                if((ctx->parser.flags & ENRMRKD_FLAG_HTMLBR)  &&  off >= html_br_verbatim_end) {
+                    OFF br_end = md_html_br_end(ctx, off, line->end);
+                    if(br_end != 0) {
+                        ADD_MARK(_T('B'), off, br_end, MD_MARK_RESOLVED);
+                        off = br_end;
+                        continue;
+                    }
+                    /* A br spelling inside another tag's attribute or a comment
+                     * is not an inline tag. With raw HTML disabled, only suppress
+                     * br recognition there; preserve all other inline parsing. */
+                    if(ctx->parser.flags & ENRMRKD_FLAG_NOHTMLSPANS)
+                        md_is_html_any(ctx, line, n_lines - line_index, off,
+                                       lines[n_lines-1].end, &html_br_verbatim_end);
+                }
 
                 if(!(ctx->parser.flags & ENRMRKD_FLAG_NOHTMLSPANS)) {
                     int is_html;
@@ -4998,6 +5033,10 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines)
                                     ENRMRKD_SPAN_A, dest, dest_size, true, NULL, 0));
                     break;
                 }
+
+                case 'B':       /* Exact inline HTML break. */
+                    ENRMRKD_TEXT(ENRMRKD_TEXT_BR, _T("\n"), 1);
+                    break;
 
                 case '&':       /* Entity. */
                     ENRMRKD_TEXT(ENRMRKD_TEXT_ENTITY, STR(mark->beg), mark->end - mark->beg);

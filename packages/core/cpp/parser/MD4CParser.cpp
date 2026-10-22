@@ -898,7 +898,7 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   impl_->reset(estimatedDepth);
   impl_->inputText = markdown.c_str();
 
-  unsigned flags = ENRMRKD_FLAG_NOHTMLSPANS | ENRMRKD_FLAG_SPOILERS;
+  unsigned flags = ENRMRKD_FLAG_NOHTMLSPANS | ENRMRKD_FLAG_HTMLBR | ENRMRKD_FLAG_SPOILERS;
   if (isGFM) {
     flags |= ENRMRKD_FLAG_TABLES | ENRMRKD_FLAG_STRIKETHROUGH | ENRMRKD_FLAG_TASKLISTS;
   }

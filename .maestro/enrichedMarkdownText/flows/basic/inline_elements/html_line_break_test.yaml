@@ -1,0 +1,40 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - inline
+  - html_line_break
+  - text
+---
+- launchApp
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        Pine<br>Oak<br/>Birch<BR />Elm
+
+        Code: `Pine<br>Oak`
+
+        Escaped: \<br>
+
+        Attributes: <br class="x">
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: '^Pine$'
+      - assertVisible: '^Oak$'
+      - assertVisible: '^Birch$'
+      - assertVisible: '^Elm$'
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          text: '(?s).*Pine\u2028Oak\u2028Birch\u2028Elm.*'
+- assertVisible:
+    text: '(?s).*Code: Pine<br>Oak.*'
+- assertVisible:
+    text: '(?s).*Escaped: <br>.*'
+- assertVisible:
+    text: '(?s).*Attributes: <br class="x">.*'
