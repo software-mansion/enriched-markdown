@@ -161,7 +161,7 @@ typedef enum ENRMRKD_SPANTYPE {
      */
     ENRMRKD_SPAN_DEL,
 
-    /* For recognizing inline ($) and display ($$) equations
+    /* For recognizing inline ($ or \( ... \)) and display ($$ or \[ ... \]) equations
      * Note: Recognized only when ENRMRKD_FLAG_LATEXMATHSPANS is enabled.
      */
     ENRMRKD_SPAN_LATEXMATH,
@@ -394,7 +394,7 @@ typedef struct ENRMRKD_BLOCK_BLANK_DETAIL {
 #define ENRMRKD_FLAG_STRIKETHROUGH               0x200    /* Enable strikethrough extension. */
 #define ENRMRKD_FLAG_PERMISSIVEWWWAUTOLINKS      0x400    /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
 #define ENRMRKD_FLAG_TASKLISTS                   0x800    /* Enable task list extension. */
-#define ENRMRKD_FLAG_LATEXMATHSPANS              0x1000   /* Enable $ and $$ containing LaTeX equations. */
+#define ENRMRKD_FLAG_LATEXMATHSPANS              0x1000   /* Enable $, $$, \( ... \), and \[ ... \] LaTeX equations. */
 #define ENRMRKD_FLAG_WIKILINKS                   0x2000   /* Enable wiki links extension. */
 #define ENRMRKD_FLAG_UNDERLINE                   0x4000   /* Enable underline extension (and disables '_' for normal emphasis). */
 #define ENRMRKD_FLAG_HARD_SOFT_BREAKS            0x8000   /* Force all soft breaks to act as hard breaks. */

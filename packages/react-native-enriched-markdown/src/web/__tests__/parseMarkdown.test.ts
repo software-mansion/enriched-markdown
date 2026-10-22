@@ -89,3 +89,48 @@ describe('parseMarkdown character references', () => {
     });
   });
 });
+
+describe('parseMarkdown LaTeX math', () => {
+  it('uses the same AST for bracket and dollar delimiters', async () => {
+    expect(await parseMarkdown(String.raw`Answer: \(x_1 + 1\).`)).toEqual(
+      await parseMarkdown('Answer: $x_1 + 1$.')
+    );
+    expect(await parseMarkdown(String.raw`\[x^2 + y^2 = z^2\]`)).toEqual(
+      await parseMarkdown('$$x^2 + y^2 = z^2$$')
+    );
+  });
+
+  it('disables every delimiter form with the existing math flag', async () => {
+    const ast = await parseMarkdown(String.raw`\(x\) \[y\] $z$ $$w$$`, {
+      latexMath: false,
+    });
+    expect(find(ast, 'LatexMathInline')).toBeUndefined();
+    expect(find(ast, 'LatexMathDisplay')).toBeUndefined();
+    expect(texts(ast)).toEqual(['(x) [y] $z$ $$w$$']);
+  });
+
+  it('keeps incomplete streamed delimiters as ordinary text', async () => {
+    for (const source of [
+      String.raw`\(x_1 + 1\)`,
+      String.raw`\[x^2 + y^2 = z^2\]`,
+    ]) {
+      for (let length = 1; length < source.length; length++) {
+        const ast = await parseMarkdown(source.slice(0, length));
+        expect(find(ast, 'LatexMathInline')).toBeUndefined();
+        expect(find(ast, 'LatexMathDisplay')).toBeUndefined();
+      }
+    }
+  });
+
+  it('preserves doubled backslashes and code while accepting mixed math', async () => {
+    for (const source of [String.raw`\\(x\\) \\[y\\]`, '\\']) {
+      const ast = await parseMarkdown(source);
+      expect(find(ast, 'LatexMathInline')).toBeUndefined();
+      expect(find(ast, 'LatexMathDisplay')).toBeUndefined();
+    }
+    const code = await parseMarkdown('`\\(x\\) \\[y\\]`');
+    expect(texts(code)).toEqual([String.raw`\(x\) \[y\]`]);
+    const mixed = await parseMarkdown(String.raw`$a$ \(b\) $$c$$ \[d\]`);
+    expect(mixed).toEqual(await parseMarkdown('$a$ $b$ $$c$$ $$d$$'));
+  });
+});

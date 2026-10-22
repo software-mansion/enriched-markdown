@@ -1,0 +1,26 @@
+appId: swmansion.enriched.markdown.android.example
+tags:
+  - math
+  - inline
+  - text
+---
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        Answer: \(x_1 + 1\).
+
+        \[x^2 + y^2 = z^2\]
+
+        Dollar $u_1 + 1$ still works.
+
+- assertVisible: 'Answer: .*'
+- assertNotVisible: 'Answer: \(x_1 \+ 1\)\.'
+- assertVisible: 'Math: x\^2 \+ y\^2 = z\^2'
+- assertVisible: '.*still works\.'

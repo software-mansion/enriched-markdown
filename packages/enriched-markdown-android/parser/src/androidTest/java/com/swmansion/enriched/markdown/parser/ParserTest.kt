@@ -13,6 +13,33 @@ class ParserTest {
   private val parser = Parser.shared
 
   @Test
+  fun bracketMathUsesExistingFlagAndCoexistsWithDollars() {
+    val source = """\(x_1 + 1\) \[x^2 + y^2 = z^2\] ${'$'}a${'$'} ${'$'}${'$'}b${'$'}${'$'}"""
+    val enabled = requireNotNull(parser.parseMarkdown(source, Md4cFlags(latexMath = true)))
+    assertEquals(2, enabled.allOfType(MarkdownASTNode.NodeType.LatexMathInline).size)
+    assertEquals(2, enabled.allOfType(MarkdownASTNode.NodeType.LatexMathDisplay).size)
+    val disabled = requireNotNull(parser.parseMarkdown(source))
+    assertTrue(disabled.allOfType(MarkdownASTNode.NodeType.LatexMathInline).isEmpty())
+    assertTrue(disabled.allOfType(MarkdownASTNode.NodeType.LatexMathDisplay).isEmpty())
+  }
+
+  @Test
+  fun bracketMathStreamingEscapesAndCodeStayLiteral() {
+    for (source in listOf("""\(x_1 + 1\)""", """\[x^2 + y^2 = z^2\]""")) {
+      for (length in 1 until source.length) {
+        val ast = requireNotNull(parser.parseMarkdown(source.take(length), Md4cFlags(latexMath = true)))
+        assertTrue(ast.allOfType(MarkdownASTNode.NodeType.LatexMathInline).isEmpty())
+        assertTrue(ast.allOfType(MarkdownASTNode.NodeType.LatexMathDisplay).isEmpty())
+      }
+    }
+    for (source in listOf("""\\(x\\) \\[y\\]""", """`\(x\) \[y\]`""", "```tex\n\\(x\\) \\[y\\]\n```")) {
+      val ast = requireNotNull(parser.parseMarkdown(source, Md4cFlags(latexMath = true)))
+      assertTrue(ast.allOfType(MarkdownASTNode.NodeType.LatexMathInline).isEmpty())
+      assertTrue(ast.allOfType(MarkdownASTNode.NodeType.LatexMathDisplay).isEmpty())
+    }
+  }
+
+  @Test
   fun blankInputReturnsNull() {
     assertNull(parser.parseMarkdown(""))
     assertNull(parser.parseMarkdown("   "))

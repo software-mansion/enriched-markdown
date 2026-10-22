@@ -9,8 +9,8 @@ import MathSrc from '!!raw-loader!@site/src/examples/react-native/rich-text-form
 
 `EnrichedMarkdownText` renders LaTeX math natively, both inline and as block equations:
 
-- **Inline math** (`$...$`) flows within the surrounding text and works in either flavor.
-- **Block math** (`$$...$$`) renders as a standalone display equation. In the React Native package on iOS and Android, a display block needs the segmented renderer, so it requires [`flavor="github"`](/react-native/guides/markdown-flavors) - in `commonmark`, a `$$...$$` on its own line falls back to inline typesetting. The web build has no `flavor` prop and always renders `$$` as a block, and the standalone iOS and Android SDKs need no flavor switch either.
+- **Inline math** (`$...$` or `\(...\)`) flows within the surrounding text and works in either flavor.
+- **Block math** (`$$...$$` or `\[...\]`) renders as a standalone display equation. In the React Native package on iOS and Android, a display block needs the segmented renderer, so it requires [`flavor="github"`](/react-native/guides/markdown-flavors) - in `commonmark`, a `$$...$$` on its own line falls back to inline typesetting. The web build has no `flavor` prop and always renders `$$` as a block, and the standalone iOS and Android SDKs need no flavor switch either.
 
 In the React Native package math parsing is **on by default**. You can turn it off so `$` is treated as plain text, and exclude the native math engine to shrink your binary - see [Reducing app size](#reducing-app-size). The standalone iOS and Android SDKs ship math as an optional add-on instead, off until you install and enable it.
 
@@ -63,6 +63,14 @@ The `LatexMathPlugin { }` scope enables the plugin for everything beneath it; to
 Block equations render as standalone display elements with their own spacing and an optional background. In the React Native package the style key is `math` (not `mathBlock`) and it takes `fontSize`, `color`, `backgroundColor`, `padding`, `marginTop`, `marginBottom` and `textAlign`. Inline math inherits the surrounding block's typography and takes only a color, through `markdownStyle.inlineMath`. Under `flavor="commonmark"` **none** of the `math` keys apply, because the equation becomes an inline attachment coloured from `inlineMath`.
 
 :::important
+Bracket delimiters use the same math parsing flag and native rendering plugin as dollar delimiters. Use a raw string to preserve the backslashes in JavaScript:
+
+```js
+String.raw`Answer: \(x_1 + 1\).`;
+```
+
+To show literal bracket delimiters, double their backslashes in the Markdown source. Unmatched delimiters follow ordinary Markdown escaping until the closing delimiter arrives.
+
 LaTeX commands use backslashes (`\frac`, `\alpha`). In regular JS strings and template literals a backslash is an escape character, so either double every backslash (`\\frac`, as the example above does) or wrap the string in `String.raw`. Block math (`$$...$$`) must be on its own line to render as a display element.
 :::
 

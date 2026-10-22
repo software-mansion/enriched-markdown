@@ -2810,6 +2810,7 @@ struct MD_MARK_tag {
 #define MD_MARK_EMPH_MOD3_1                 0x80
 #define MD_MARK_EMPH_MOD3_2                 (0x40 | 0x80)
 #define MD_MARK_EMPH_MOD3_MASK              (0x40 | 0x80)
+#define MD_MARK_LATEX_INLINE                0x20  /* For bracket math stored as dollar marks. */
 #define MD_MARK_AUTOLINK                    0x20  /* Distinguisher for '<', '>'. */
 #define MD_MARK_AUTOLINK_MISSING_MAILTO     0x40  /* For '@' */
 #define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For '@', ':', '.'. */
@@ -3154,6 +3155,37 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines, OFF beg
     return true;
 }
 
+/* Bracket math is verbatim, like a code span. Search only within the current
+ * block's lines so container prefixes cannot become part of a delimiter. */
+static int
+md_is_bracket_math(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines,
+                   OFF beg, OFF* p_end)
+{
+    CHAR closer = (CH(beg+1) == _T('(') ? _T(')') : _T(']'));
+    ENRMRKD_SIZE line_index;
+    OFF off = beg+2;
+
+    for(line_index = 0; line_index < n_lines; line_index++) {
+        const MD_LINE* line = &lines[line_index];
+
+        if(line_index > 0)
+            off = line->beg;
+        while(off+1 < line->end) {
+            if(CH(off) == _T('\\')) {
+                if(CH(off+1) == closer) {
+                    *p_end = off+2;
+                    return true;
+                }
+                /* In particular, a doubled backslash cannot close math. */
+                off += 2;
+            } else {
+                off++;
+            }
+        }
+    }
+    return false;
+}
+
 static int
 md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
 {
@@ -3267,6 +3299,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines, int ta
     MD_MARK* mark;
     OFF codespan_last_potential_closers[CODESPAN_MARK_MAXLEN] = { 0 };
     int codespan_scanned_till_paragraph_end = false;
+    int bracket_math_no_closer[2] = { false, false };
 
     for(line_index = 0; line_index < n_lines; line_index++) {
         const MD_LINE* line = &lines[line_index];
@@ -3300,6 +3333,28 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines, int ta
              * It can go beyond line->end as it may involve escaped new
              * line to form a hard break. */
             if(ch == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+                if((ctx->parser.flags & ENRMRKD_FLAG_LATEXMATHSPANS)  &&
+                   off+1 < line->end  &&  ISANYOF2(off+1, _T('('), _T('[')))
+                {
+                    int display = (CH(off+1) == _T('['));
+                    OFF math_end;
+
+                    if(!bracket_math_no_closer[display]  &&
+                       md_is_bracket_math(ctx, line, n_lines - line_index, off, &math_end))
+                    {
+                        unsigned flags = (display ? 0 : MD_MARK_LATEX_INLINE);
+                        ADD_MARK('$', off, off+2, flags);
+                        ADD_MARK('$', math_end-2, math_end, flags);
+                        md_resolve_range(ctx, ctx->n_marks-2, ctx->n_marks-1);
+                        off = math_end;
+                        if(off > line->end)
+                            line = md_lookup_line(off, lines, n_lines, &line_index);
+                        continue;
+                    }
+                    /* Later openers of this kind cannot have a closer either.
+                     * Avoid quadratic rescans of incomplete streamed input. */
+                    bracket_math_no_closer[display] = true;
+                }
                 /* Hard-break cannot be on the last line of the block. */
                 if(!ISNEWLINE(off+1)  ||  line_index+1 < n_lines)
                     ADD_MARK(ch, off, off+2, MD_MARK_RESOLVED);
@@ -4876,10 +4931,10 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines)
 
                 case '$':
                     if(mark->flags & MD_MARK_OPENER) {
-                        MD_ENTER_SPAN((mark->end - off) % 2 ? ENRMRKD_SPAN_LATEXMATH : ENRMRKD_SPAN_LATEXMATH_DISPLAY, NULL);
+                        MD_ENTER_SPAN(((mark->flags & MD_MARK_LATEX_INLINE) || (mark->end - off) % 2) ? ENRMRKD_SPAN_LATEXMATH : ENRMRKD_SPAN_LATEXMATH_DISPLAY, NULL);
                         text_type = ENRMRKD_TEXT_LATEXMATH;
                     } else {
-                        MD_LEAVE_SPAN((mark->end - off) % 2 ? ENRMRKD_SPAN_LATEXMATH : ENRMRKD_SPAN_LATEXMATH_DISPLAY, NULL);
+                        MD_LEAVE_SPAN(((mark->flags & MD_MARK_LATEX_INLINE) || (mark->end - off) % 2) ? ENRMRKD_SPAN_LATEXMATH : ENRMRKD_SPAN_LATEXMATH_DISPLAY, NULL);
                         text_type = ENRMRKD_TEXT_NORMAL;
                     }
                     break;

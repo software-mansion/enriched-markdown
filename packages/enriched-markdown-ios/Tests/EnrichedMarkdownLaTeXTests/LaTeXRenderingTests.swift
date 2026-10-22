@@ -49,6 +49,47 @@ final class LaTeXRenderingTests: XCTestCase {
         return MarkdownExtractor.markdown(for: range, in: rendered, sourceMarkdown: source, options: effectiveParsingOptions)
     }
 
+    func testBracketDelimitersRenderThroughRealParserAndEngine() {
+        let inline = mathAttachments(in: MarkdownRenderer.renderLaTeX(#"Answer: \(x_1 + 1\)."#, config: config))
+        XCTAssertEqual(inline.count, 1)
+        XCTAssertEqual(inline.first?.latex, "x_1 + 1")
+        XCTAssertEqual(inline.first?.isDisplay, false)
+        XCTAssertNotNil(inline.first?.formulaImage)
+
+        let display = mathAttachments(in: MarkdownRenderer.renderLaTeX(#"\[x^2 + y^2 = z^2\]"#, config: config))
+        XCTAssertEqual(display.count, 1)
+        XCTAssertEqual(display.first?.latex, "x^2 + y^2 = z^2")
+        XCTAssertEqual(display.first?.isDisplay, true)
+        XCTAssertNotNil(display.first?.formulaImage)
+    }
+
+    func testBracketMathStreamingAndDisabledPlugin() {
+        for source in [#"\(x_1 + 1\)"#, #"\[x^2 + y^2 = z^2\]"#] {
+            for length in 1..<source.count {
+                let prefix = String(source.prefix(length))
+                XCTAssertTrue(mathAttachments(in: MarkdownRenderer.renderLaTeX(prefix, config: config)).isEmpty, prefix)
+            }
+            let disabled = MarkdownRenderer.render(
+                source, config: config, options: .commonMark, imageRequestHeaders: [:], plugins: []
+            )
+            XCTAssertTrue(mathAttachments(in: disabled).isEmpty)
+            XCTAssertTrue(disabled.string.contains(source.contains("[") ? "[" : "("))
+        }
+    }
+
+    func testBracketMathEscapesCodeContainersAndDollarCoexistence() {
+        let source = #"$a$ \(b\) $$c$$ \[d\]"#
+        let mixed = mathAttachments(in: MarkdownRenderer.renderLaTeX(source, config: config))
+        XCTAssertEqual(mixed.map(\.latex), ["a", "b", "c", "d"])
+        XCTAssertEqual(mixed.map(\.isDisplay), [false, false, true, true])
+        for literal in [#"\\(x\\) \\[y\\]"#, #"`\(x\) \[y\]`"#, "```tex\n\\(x\\) \\[y\\]\n```"] {
+            XCTAssertTrue(mathAttachments(in: MarkdownRenderer.renderLaTeX(literal, config: config)).isEmpty)
+        }
+        let nested = "> [\\(x_1\\)](/math)\n\n- \\[y^2\\]"
+        let attachments = mathAttachments(in: MarkdownRenderer.renderLaTeX(nested, config: config))
+        XCTAssertEqual(attachments.map(\.latex), ["x_1", "y^2"])
+    }
+
     // MARK: - Real engine
 
     // Guards the Fonts resource wiring (a symlink in the monorepo): an
