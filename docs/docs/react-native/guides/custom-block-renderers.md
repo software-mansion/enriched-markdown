@@ -25,6 +25,8 @@ A renderer runs for a block when both of these hold:
   - a `<video src="...">` block.
 - It sits directly in the document, in a blockquote or in an admonition, and none of these is inside a list item.
 
+One exception: a list item that holds only a video is [moved out of its list by the parser](/react-native/api-reference/element-structure#videos), so that video counts as a block of the list's container and can be replaced.
+
 The block's `placement` tells you which container it is in: `root`, `blockquote` or `admonition`. Inside a quote or an admonition the block is narrower and indented, so you may want a smaller card there.
 
 Images in lists, tables, headings, links and running text are never replaced. They stay native so the text around them keeps flowing. `resolveImageSource` still applies to them.

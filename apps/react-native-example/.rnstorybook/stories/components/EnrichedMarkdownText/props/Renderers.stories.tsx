@@ -97,6 +97,8 @@ The image above is a paragraph of its own. The inline ![leaf](${LEAF}) image, th
 
 > <video src="${SINTEL}"></video>
 
+Unlike the list image, a list item that is only a video is moved out of its list by the parser, so the video below is replaced as a root block, without a bullet:
+
 - <video src="${BUNNY}"></video>
 
 The paragraph after the videos keeps flowing natively, and the last block is a video:
