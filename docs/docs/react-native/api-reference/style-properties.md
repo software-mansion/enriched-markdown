@@ -488,6 +488,14 @@ Table styles only apply when [`flavor="github"`](/react-native/api-reference/enr
 | `horizontalOverflow`     | `number`                        | `0`                   | Extra width (points) a table may extend beyond the container edges, letting a wide table bleed into the surrounding padding as it scrolls. No effect on web                  |
 | `align`                  | `'left' \| 'center' \| 'right'` | unset                 | Horizontal alignment of the whole table within the container. Only applies when the table is narrower than the container; overflowing tables always start at their beginning |
 
+| `headerFontWeight` | `string` | `'bold'` | Header weight on iOS and Android. |
+| `borders` | `'cell' \| 'row'` | `'cell'` | Cell grid, or horizontal separators inside a fixed rounded outer frame. iOS and Android. |
+| `layout` | `'intrinsic' \| 'fill'` | `'intrinsic'` | Distribute spare container width equally without compressing wider tables. iOS and Android. |
+| `showsHorizontalScrollIndicator` | `boolean` | `true` | Show the horizontal scrollbar without changing scrolling. iOS and Android. |
+| `includeFontPadding` | `boolean` | `false` | Natural font top/bottom padding. Android only; use `lineHeight: 0` for natural metrics. |
+
+Row-border mode keeps its rounded outer frame fixed during scrolling and does not apply `horizontalOverflow` bleed. These controls target React Native iOS and Android; web and macOS parity remains outside this proposal.
+
 <LivePreview src={TableSrc} />
 
 ### Task list-specific

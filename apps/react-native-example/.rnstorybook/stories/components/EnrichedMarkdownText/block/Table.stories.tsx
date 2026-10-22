@@ -173,3 +173,42 @@ export const HorizontalOverflow: TextStory<TableStyleControls> = {
     );
   },
 };
+
+export const FilledRowBorders: TextStory = {
+  args: { markdown: NARROW_MARKDOWN, flavor: 'github' },
+  render: (args) => (
+    <EnrichedMarkdownTextStory
+      title="Filled Table with Row Borders"
+      description="Native opt-in: full width, normal-weight header, rounded frame and row separators."
+      {...args}
+      style={{
+        table: {
+          layout: 'fill',
+          borders: 'row',
+          headerFontWeight: '400',
+          borderRadius: 16,
+          showsHorizontalScrollIndicator: false,
+        },
+      }}
+    />
+  ),
+};
+
+export const ScrollableRowBorders: TextStory = {
+  args: { markdown: WIDE_MARKDOWN, flavor: 'github' },
+  render: (args) => (
+    <EnrichedMarkdownTextStory
+      title="Scrollable Table with Fixed Row Borders"
+      description="Native opt-in: wide content scrolls inside a stationary rounded frame."
+      {...args}
+      style={{
+        table: {
+          layout: 'fill',
+          borders: 'row',
+          borderRadius: 16,
+          showsHorizontalScrollIndicator: true,
+        },
+      }}
+    />
+  ),
+};

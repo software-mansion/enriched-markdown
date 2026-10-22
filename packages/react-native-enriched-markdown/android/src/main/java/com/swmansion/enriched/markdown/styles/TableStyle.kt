@@ -22,6 +22,11 @@ data class TableStyle(
   val cellPaddingVertical: Float,
   val horizontalOverflow: Float,
   val align: String,
+  val headerFontWeight: String = "bold",
+  val borders: String = "cell",
+  val layout: String = "intrinsic",
+  val showsHorizontalScrollIndicator: Boolean = true,
+  val includeFontPadding: Boolean = false,
 ) : BaseBlockStyle {
   companion object {
     fun fromReadableMap(
@@ -69,6 +74,11 @@ data class TableStyle(
         cellPaddingVertical = cellPaddingVertical,
         horizontalOverflow = horizontalOverflow,
         align = align,
+        headerFontWeight = parser.parseString(map, "headerFontWeight", "bold"),
+        borders = parser.parseString(map, "borders", "cell"),
+        layout = parser.parseString(map, "layout", "intrinsic"),
+        showsHorizontalScrollIndicator = parser.parseBoolean(map, "showsHorizontalScrollIndicator", true),
+        includeFontPadding = parser.parseBoolean(map, "includeFontPadding", false),
       )
     }
   }

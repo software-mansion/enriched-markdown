@@ -56,7 +56,7 @@ class StyleConfig(
     paragraphStyleDefault.copy(
       fontSize = tableStyle.fontSize,
       fontFamily = if (isHeader && tableStyle.headerFontFamily.isNotEmpty()) tableStyle.headerFontFamily else tableStyle.fontFamily,
-      fontWeight = if (isHeader) "bold" else tableStyle.fontWeight,
+      fontWeight = if (isHeader) tableStyle.headerFontWeight else tableStyle.fontWeight,
       color = if (isHeader) tableStyle.headerTextColor else tableStyle.color,
       lineHeight = tableStyle.lineHeight,
       marginTop = 0f,
@@ -300,7 +300,7 @@ class StyleConfig(
     val headerFamily = tableStyle.headerFontFamily.takeIf { it.isNotEmpty() }
     val baseFamily = tableStyle.fontFamily.takeIf { it.isNotEmpty() }
 
-    when {
+    val defaultTypeface = when {
       // 1. Try Header font (specific variant)
       headerFamily != null -> {
         applyStyles(null, ReactConstants.UNSET, parseFontWeight("normal"), headerFamily, assets)
@@ -315,6 +315,11 @@ class StyleConfig(
       else -> {
         Typeface.DEFAULT_BOLD
       }
+    }
+    if (tableStyle.headerFontWeight == "bold") {
+      defaultTypeface
+    } else {
+      applyStyles(defaultTypeface, ReactConstants.UNSET, parseFontWeight(tableStyle.headerFontWeight), null, assets)
     }
   }
 

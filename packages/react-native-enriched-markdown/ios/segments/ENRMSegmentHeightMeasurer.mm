@@ -41,6 +41,7 @@ CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segmen
       totalHeight += config.tableMarginTop;
       totalHeight += [TableContainerView measureHeightForTableNode:segment.tableSegment.tableNode
                                                             config:config
+                                                          maxWidth:contentWidth
                                                   allowFontScaling:allowFontScaling
                                              maxFontSizeMultiplier:config.maxFontSizeMultiplier
                                               writingDirectionMode:writingDirectionMode

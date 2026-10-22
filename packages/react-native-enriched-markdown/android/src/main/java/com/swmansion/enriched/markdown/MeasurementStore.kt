@@ -598,7 +598,7 @@ object MeasurementStore {
 
           is RenderedSegment.Table -> {
             totalHeightPx += style.tableStyle.marginTop
-            totalHeightPx += TableContainerView.measureTableNodeHeight(segment.node, style, context)
+            totalHeightPx += TableContainerView.measureTableNodeHeight(segment.node, style, context, width)
             maxContentWidthPx = width
             if (includeBottomMargin) {
               totalHeightPx += style.tableStyle.marginBottom
