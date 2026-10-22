@@ -85,10 +85,6 @@ object MeasurementStore {
 
   private val ellipsizeModeByViewId = ConcurrentHashMap<Int, String>()
 
-  private val streamingTableModes = ConcurrentHashMap<Int, TableStreamingMode>()
-
-  private val streamingCodeBlockModes = ConcurrentHashMap<Int, CodeBlockStreamingMode>()
-
   // Code blocks the user wrapped, by document-order index across nesting (see CodeBlockWrapState).
   private val wrappedCodeBlocks = ConcurrentHashMap<Int, Set<Int>>()
 
@@ -263,28 +259,6 @@ object MeasurementStore {
 
   private fun resolveEllipsize(viewId: Int?): TruncateAt? =
     EllipsizeUtils.resolveTruncateAt(viewId?.let { ellipsizeModeByViewId[it] } ?: EllipsizeUtils.DEFAULT_MODE)
-
-  fun updateStreamingTableMode(
-    viewId: Int,
-    mode: TableStreamingMode,
-  ) {
-    streamingTableModes[viewId] = mode
-  }
-
-  fun clearStreamingTableMode(viewId: Int) {
-    streamingTableModes.remove(viewId)
-  }
-
-  fun updateStreamingCodeBlockMode(
-    viewId: Int,
-    mode: CodeBlockStreamingMode,
-  ) {
-    streamingCodeBlockModes[viewId] = mode
-  }
-
-  fun clearStreamingCodeBlockMode(viewId: Int) {
-    streamingCodeBlockModes.remove(viewId)
-  }
 
   private fun getMeasureByIdInternal(
     context: Context,
@@ -467,25 +441,15 @@ object MeasurementStore {
     val isStreaming = props.getBooleanOrDefault("streamingAnimation", false)
 
     val rawMarkdown = props.getStringOrDefault("markdown", "")
-    val tableMode =
-      if (isStreaming) {
-        id?.let {
-          streamingTableModes[it]
-        } ?: TableStreamingMode.PROGRESSIVE
-      } else {
-        TableStreamingMode.PROGRESSIVE
-      }
-    val codeBlockMode =
-      if (isStreaming) {
-        id?.let {
-          streamingCodeBlockModes[it]
-        } ?: CodeBlockStreamingMode.PROGRESSIVE
-      } else {
-        CodeBlockStreamingMode.PROGRESSIVE
-      }
     val markdown =
       if (isStreaming) {
-        StreamingMarkdownFilter.renderableMarkdownForStreaming(rawMarkdown, tableMode, codeBlockMode).markdown
+        val streamingConfig = props.getMapOrNull("streamingConfig")
+        StreamingMarkdownFilter
+          .renderableMarkdownForStreaming(
+            rawMarkdown,
+            TableStreamingMode.fromString(streamingConfig.getStringOrDefault("tableMode", "")),
+            CodeBlockStreamingMode.fromString(streamingConfig.getStringOrDefault("codeBlockMode", "")),
+          ).markdown
       } else {
         rawMarkdown
       }

@@ -65,13 +65,33 @@ class EnrichedMarkdown(
   private var currentRenderId = 0L
   private val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
   var streamingAnimation: Boolean = false
+    set(value) {
+      if (field == value) return
+      field = value
+      // The streaming filter only applies while this is on, so re-render to
+      // show or hide the content it holds back.
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+      renderPending = true
+    }
 
   // used to force a Yoga re-measure when a block image resolves its box height
   var stateWrapper: StateWrapper? = null
   private var forceHeightRecalculationCounter = 0
 
   var tableStreamingMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE
+    set(value) {
+      if (field == value) return
+      field = value
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+      renderPending = true
+    }
   var codeBlockStreamingMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
+    set(value) {
+      if (field == value) return
+      field = value
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+      renderPending = true
+    }
   private var renderPending: Boolean = false
 
   var currentMarkdown: String = ""
@@ -205,8 +225,6 @@ class EnrichedMarkdown(
   }
 
   fun commitProps() {
-    MeasurementStore.updateStreamingTableMode(id, tableStreamingMode)
-    MeasurementStore.updateStreamingCodeBlockMode(id, codeBlockStreamingMode)
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     if (renderPending) {
       renderPending = false

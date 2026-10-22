@@ -109,8 +109,6 @@ class EnrichedMarkdownManager :
     super.onDropViewInstance(view)
     view.cleanup()
     MeasurementStore.release(view.id)
-    MeasurementStore.clearStreamingTableMode(view.id)
-    MeasurementStore.clearStreamingCodeBlockMode(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
     MeasurementStore.clearFontScalingSettings(view.id)
   }
@@ -283,17 +281,8 @@ class EnrichedMarkdownManager :
     config: ReadableMap?,
   ) {
     if (view == null) return
-    val tableMode =
-      when (config?.getString("tableMode")) {
-        "hidden" -> TableStreamingMode.HIDDEN
-        else -> TableStreamingMode.PROGRESSIVE
-      }
-    view.tableStreamingMode = tableMode
-    view.codeBlockStreamingMode =
-      when (config?.getString("codeBlockMode")) {
-        "hidden" -> CodeBlockStreamingMode.HIDDEN
-        else -> CodeBlockStreamingMode.PROGRESSIVE
-      }
+    view.tableStreamingMode = TableStreamingMode.fromString(config?.getString("tableMode"))
+    view.codeBlockStreamingMode = CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode"))
   }
 
   @ReactProp(name = "spoilerOverlay")

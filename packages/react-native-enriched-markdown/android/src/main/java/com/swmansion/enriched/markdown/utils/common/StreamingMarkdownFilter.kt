@@ -3,11 +3,29 @@ package com.swmansion.enriched.markdown.utils.common
 enum class TableStreamingMode {
   HIDDEN,
   PROGRESSIVE,
+  ;
+
+  companion object {
+    fun fromString(value: String?): TableStreamingMode =
+      when (value) {
+        "hidden" -> HIDDEN
+        else -> PROGRESSIVE
+      }
+  }
 }
 
 enum class CodeBlockStreamingMode {
   HIDDEN,
   PROGRESSIVE,
+  ;
+
+  companion object {
+    fun fromString(value: String?): CodeBlockStreamingMode =
+      when (value) {
+        "hidden" -> HIDDEN
+        else -> PROGRESSIVE
+      }
+  }
 }
 
 /**

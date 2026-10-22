@@ -47,6 +47,8 @@ inline folly::dynamic toDynamic(const EnrichedMarkdownProps &props) {
   serializedProps["maxFontSizeMultiplier"] = props.maxFontSizeMultiplier;
   serializedProps["allowTrailingMargin"] = props.allowTrailingMargin;
   serializedProps["streamingAnimation"] = props.streamingAnimation;
+  // The streaming filter's modes decide which content gets measured.
+  serializedProps["streamingConfig"] = toDynamic(props.streamingConfig);
   // Wrapped code blocks measure at the block width; the indexes live in MeasurementStore.
   serializedProps["enableCodeBlockWrapToggle"] = props.enableCodeBlockWrapToggle;
 
