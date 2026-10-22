@@ -191,12 +191,33 @@ jobs:
           if [[ -n "$REQUESTED" && "$REQUESTED" != "$HEAD" ]]; then
             refuse "The head of #$NUMBER is now \`$HEAD\`, not the requested \`$REQUESTED\`. Review what changed, then ask again at the new head."
           fi
+          # The later jobs take their tooling from the base, so a base branch
+          # that has not yet merged the commit adding it fails here, before the
+          # build spends an hour on a session that cannot start.
+          for FILE in .nvmrc .github/argent-cloud/{prompt.md,render-prompt.mjs,render-comment.mjs,install-argent-cloud.sh}; do
+            if ! gh api "repos/$GITHUB_REPOSITORY/contents/$FILE?ref=$BASE" --silent 2>/dev/null; then
+              refuse "The base branch \`$BASE_REF\` (at \`$BASE\`) has no \`$FILE\`, which Argent Cloud takes from the base. Merge main into \`$BASE_REF\`, then ask again."
+            fi
+          done
           {
             echo "number=$NUMBER"
             echo "head=$HEAD"
             echo "base=$BASE"
             echo "url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$NUMBER"
           } >> "$GITHUB_OUTPUT"
+
+      # Marks a pull request started by comment or dispatch the same way the label
+      # path does. A label added with github.token starts no workflow run, so
+      # this does not trigger a second session.
+      - name: Label the pull request
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$NUMBER/labels" \
+            -f 'labels[]=argent: ios' --silent \
+            || echo "::warning::Could not add the 'argent: ios' label to #$NUMBER"
 
       # The prompt's untrusted inputs are produced here, by a job that runs no
       # pull request code, and travel to the agent as a JSON file. They never
