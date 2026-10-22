@@ -23,6 +23,8 @@ data class MarkdownOptions(
   val preserveBlankLines: Boolean = false,
   /** `> [!NOTE]` and the other GitHub alert blockquotes render as admonitions. */
   val admonitions: Boolean = false,
+  /** Disable indented code blocks. Fenced code remains supported. Defaults to false. */
+  val noIndentedCodeBlocks: Boolean = false,
 ) {
   /** What the parser runs with before plugins add the syntax they render. */
   internal fun toParserFlags(): Md4cFlags =
@@ -35,6 +37,7 @@ data class MarkdownOptions(
       permissiveAutolinks = permissiveAutolinks,
       hardSoftBreaks = hardSoftBreaks,
       preserveBlankLines = preserveBlankLines,
+      noIndentedCodeBlocks = noIndentedCodeBlocks,
       admonitions = admonitions,
     )
 

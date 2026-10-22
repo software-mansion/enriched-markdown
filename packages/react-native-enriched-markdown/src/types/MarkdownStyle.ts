@@ -476,6 +476,12 @@ export interface Md4cFlags {
    */
   preserveBlankLines?: boolean;
   /**
+   * Disable four-space/tab-indented code blocks. Indented content is parsed as
+   * normal Markdown; backtick and tilde fenced code blocks remain supported.
+   * @default false
+   */
+  noIndentedCodeBlocks?: boolean;
+  /**
    * Enable GitHub-style admonitions/alerts (`> [!NOTE]`, `> [!TIP]`,
    * `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`).
    * When enabled, such blockquotes render as themed callouts with an icon +

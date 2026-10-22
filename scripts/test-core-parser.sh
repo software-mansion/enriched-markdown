@@ -51,6 +51,12 @@ echo "==> Building the vendored parser and the AST dumper"
   "$CPP_ROOT/wasm/ASTSerializer.cpp" \
   "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/ast-dump"
 
+echo "==> Checking optional indented code blocks"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" \
+  "$TESTS_DIR/no_indented_code_blocks.cpp" "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/no-indented-code-blocks"
+"$WORK/no-indented-code-blocks"
+
 echo "==> Checking the vendored parser's exported symbols"
 if command -v nm >/dev/null 2>&1; then
   # Some platforms (e.g. MacOS) prefix C symbols with an underscore.

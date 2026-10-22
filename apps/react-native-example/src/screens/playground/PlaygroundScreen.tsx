@@ -75,6 +75,7 @@ export default function PlaygroundScreen() {
   const [setMarkdownModalVisible, setSetMarkdownModalVisible] = useState(false);
   const [rawInput, setRawInput] = useState('');
   const [recognitionMode, setRecognitionMode] = useState(0);
+  const [noIndentedCodeBlocks, setNoIndentedCodeBlocks] = useState(false);
   const [inputLineHeight, setInputLineHeight] = useState<number | undefined>(
     DEFAULT_INPUT_LINE_HEIGHT
   );
@@ -279,6 +280,15 @@ export default function PlaygroundScreen() {
             Reference links: {['Off', 'CommonMark', 'GitHub'][recognitionMode]}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => setNoIndentedCodeBlocks((enabled) => !enabled)}
+          testID="no-indented-code-blocks-toggle"
+        >
+          <Text style={styles.buttonText}>
+            Indented prose: {noIndentedCodeBlocks ? 'On' : 'Off'}
+          </Text>
+        </TouchableOpacity>
         <View style={styles.previewContainer} testID="preview-container">
           {markdown.length > 0 ? (
             <EnrichedMarkdownText
@@ -292,6 +302,7 @@ export default function PlaygroundScreen() {
               }
               spoilerOverlay="solid"
               md4cFlags={{
+                noIndentedCodeBlocks,
                 underline: underlineEnabled,
                 highlight: true,
                 superscript: true,

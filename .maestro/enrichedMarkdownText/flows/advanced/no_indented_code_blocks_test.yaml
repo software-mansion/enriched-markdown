@@ -1,0 +1,48 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - advanced
+  - text
+  - code
+---
+- launchApp
+- runFlow:
+    file: '../../../subflows/move_to_playground.yaml'
+- runFlow:
+    file: '../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |2
+            **Indented prose**
+
+        ```
+        Fenced control
+        ```
+- scrollUntilVisible:
+    element:
+      id: no-indented-code-blocks-toggle
+    direction: DOWN
+- assertVisible: 'Indented prose: Off'
+- assertVisible:
+    id: preview-container
+    containsDescendants:
+      - text: '\*\*Indented prose\*\*'
+      - text: 'Fenced control'
+- tapOn:
+    id: no-indented-code-blocks-toggle
+- assertVisible: 'Indented prose: On'
+- assertNotVisible:
+    id: preview-container
+    containsDescendants:
+      - text: '\*\*Indented prose\*\*'
+- assertVisible:
+    id: preview-container
+    containsDescendants:
+      - text: 'Indented prose'
+      - text: 'Fenced control'
+- tapOn:
+    id: no-indented-code-blocks-toggle
+- assertVisible: 'Indented prose: Off'
+- assertVisible:
+    id: preview-container
+    containsDescendants:
+      - text: '\*\*Indented prose\*\*'
+      - text: 'Fenced control'

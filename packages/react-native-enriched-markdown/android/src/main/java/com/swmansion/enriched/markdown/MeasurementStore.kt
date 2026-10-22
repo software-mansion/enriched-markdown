@@ -405,6 +405,7 @@ object MeasurementStore {
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
         hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
         preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
+        noIndentedCodeBlocks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("noIndentedCodeBlocks", false),
         admonitions = props.getMapOrNull("md4cFlags").getBooleanOrDefault("admonitions", true),
       )
     val isGFM = props.getBooleanOrDefault("isGFM", false)
@@ -522,6 +523,7 @@ object MeasurementStore {
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
         hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
         preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
+        noIndentedCodeBlocks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("noIndentedCodeBlocks", false),
         admonitions = props.getMapOrNull("md4cFlags").getBooleanOrDefault("admonitions", true),
       )
     val isGFM = props.getBooleanOrDefault("isGFM", true)

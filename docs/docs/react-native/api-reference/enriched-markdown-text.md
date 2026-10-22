@@ -127,13 +127,13 @@ Markdown flavor. `'commonmark'` (default) renders the whole document as a single
 
 ### `md4cFlags`
 
-Toggles for md4c's parser extensions; each opts a piece of extra inline syntax in or out. Pass only the flags you want to change; the rest keep their defaults below. Where a flag enables a new inline element, tune its appearance through the matching [style property](/react-native/api-reference/style-properties).
+Settings for md4c's parser extensions and block handling. Pass only the flags you want to change; the rest keep their defaults below. Where a flag enables a new inline element, tune its appearance through the matching [style property](/react-native/api-reference/style-properties).
 
-<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }" />
+<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, noIndentedCodeBlocks: false, admonitions: true }" />
 
 #### `underline`
 
-When `true`, the `_` character stops meaning emphasis entirely and starts meaning underline: `_text_` is underlined, and `__text__` becomes *doubly* underlined rather than bold. Only `*text*` and `**text**` still produce italic and bold, which is why the `*` forms are the safer ones to author with.
+When `true`, the `_` character stops meaning emphasis entirely and starts meaning underline: `_text_` is underlined, and `__text__` becomes _doubly_ underlined rather than bold. Only `*text*` and `**text**` still produce italic and bold, which is why the `*` forms are the safer ones to author with.
 
 <PropInfo type="boolean" default="false" />
 
@@ -186,6 +186,13 @@ When `true`, preserves runs of consecutive blank lines from the source instead o
 <PropInfo type="boolean" default="false" />
 
 <LivePreview src={Md4cPreserveBlankLinesSrc} />
+
+#### `noIndentedCodeBlocks`
+
+Defaults to `false`, preserving standard Markdown indented code blocks. Set
+`md4cFlags={{ noIndentedCodeBlocks: true }}` to parse four-space or tab-indented
+content as normal Markdown. Backtick and tilde fenced code blocks remain supported.
+This setting works with either flavor and can be changed on a mounted view.
 
 #### `admonitions`
 
@@ -357,9 +364,9 @@ interface LinkPillContent {
 
 Opt-in link recognition for text that is not written as a Markdown link, such as `#1234`, `@name`, `$skill` or a file path. Off by default. Works in both flavors on every platform.
 
-| Key | Type | Matches |
-| --- | ---- | ------- |
-| `text` | `RegExp` | Every nonempty, non-overlapping match inside a plain-text run |
+| Key          | Type     | Matches                                                          |
+| ------------ | -------- | ---------------------------------------------------------------- |
+| `text`       | `RegExp` | Every nonempty, non-overlapping match inside a plain-text run    |
 | `inlineCode` | `RegExp` | An inline-code span whose whole content matches becomes one link |
 
 A recognized link's URL is the matched text itself, so `linkVariants`, `linkPillContent`, `linkContextMenuItems`, `onLinkPress` and `onLinkLongPress` apply to it like to any other link. Existing links, autolinks, code blocks, images, video and math are never touched. The Markdown source is unchanged: copying, including Copy as Markdown, returns the original text without link syntax.

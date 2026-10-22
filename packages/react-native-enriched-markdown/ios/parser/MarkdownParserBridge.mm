@@ -222,6 +222,7 @@ MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *f
   cppFlags.highlight = flags.highlight;
   cppFlags.hardSoftBreaks = flags.hardSoftBreaks;
   cppFlags.preserveBlankLines = flags.preserveBlankLines;
+  cppFlags.noIndentedCodeBlocks = flags.noIndentedCodeBlocks;
   cppFlags.admonitions = flags.admonitions;
 
   Markdown::MD4CParser parser;

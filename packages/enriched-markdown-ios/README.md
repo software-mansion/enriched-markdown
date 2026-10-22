@@ -233,6 +233,7 @@ public struct MarkdownParsingOptions: Equatable, Sendable {
   public var underline: Bool            // __text__ renders underlined instead of bold
   public var hardSoftBreaks: Bool       // single newlines become visible line breaks
   public var preserveBlankLines: Bool   // consecutive blank lines render as extra empty lines
+  public var noIndentedCodeBlocks: Bool // false by default; fenced code remains supported
   public var permissiveAutolinks: Bool  // bare URLs become links (default true)
   public var superscript: Bool          // ^text^ renders as superscript
   public var subscript: Bool            // ~text~ renders as subscript
@@ -243,7 +244,7 @@ public struct MarkdownParsingOptions: Equatable, Sendable {
 }
 ```
 
-`underline`, `hardSoftBreaks`, `preserveBlankLines`, `permissiveAutolinks`, `superscript`, `subscript`, `highlight`, and `admonitions` affect rendering. Tables, task lists, strikethrough, and spoilers are always enabled and need no options.
+`underline`, `hardSoftBreaks`, `preserveBlankLines`, `noIndentedCodeBlocks`, `permissiveAutolinks`, `superscript`, `subscript`, `highlight`, and `admonitions` affect rendering. Tables, task lists, strikethrough, and spoilers are always enabled and need no options.
 
 ### `.markdownTheme`
 

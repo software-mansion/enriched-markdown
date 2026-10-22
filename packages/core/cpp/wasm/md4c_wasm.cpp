@@ -22,11 +22,12 @@ extern "C" {
  * @param preserveBlankLines 1 → report runs of blank lines as BlankLine nodes; 0 → collapse them.
  * @param admonitions 1 → enable GitHub-style admonitions/alerts; 0 → disable.
  * @param permissiveAutolinks 1 → autolink bare URLs/e-mails; 0 → explicit links only.
+ * @param noIndentedCodeBlocks 1 → disable indented code blocks; fenced code remains supported.
  * @return           Null-terminated UTF-8 JSON string, valid until the next call.
  */
 const char *parseMarkdown(const char *markdown, int underline, int latexMath, int superscript, int subscript,
                           int highlight, int hardSoftBreaks, int preserveBlankLines, int admonitions,
-                          int permissiveAutolinks) {
+                          int permissiveAutolinks, int noIndentedCodeBlocks) {
   if (!markdown) {
     g_resultBuffer = "{\"type\":\"Document\"}";
     return g_resultBuffer.c_str();
@@ -40,6 +41,7 @@ const char *parseMarkdown(const char *markdown, int underline, int latexMath, in
   flags.highlight = (highlight != 0);
   flags.hardSoftBreaks = (hardSoftBreaks != 0);
   flags.preserveBlankLines = (preserveBlankLines != 0);
+  flags.noIndentedCodeBlocks = (noIndentedCodeBlocks != 0);
   flags.admonitions = (admonitions != 0);
   flags.permissiveAutolinks = (permissiveAutolinks != 0);
 

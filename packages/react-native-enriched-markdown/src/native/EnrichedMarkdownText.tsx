@@ -130,6 +130,7 @@ const defaultMd4cFlags: Md4cFlags = {
   highlight: false,
   hardSoftBreaks: false,
   preserveBlankLines: false,
+  noIndentedCodeBlocks: false,
   admonitions: true,
 };
 
@@ -203,6 +204,7 @@ export const EnrichedMarkdownText = ({
       highlight: md4cFlags.highlight ?? false,
       hardSoftBreaks: md4cFlags.hardSoftBreaks ?? false,
       preserveBlankLines: md4cFlags.preserveBlankLines ?? false,
+      noIndentedCodeBlocks: md4cFlags.noIndentedCodeBlocks ?? false,
       // Admonitions are a GitHub-flavor feature; force them off in commonmark so
       // `> [!NOTE]` renders as a plain blockquote.
       admonitions:

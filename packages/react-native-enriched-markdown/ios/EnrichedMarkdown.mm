@@ -173,6 +173,7 @@ static char kENRMSegmentFadeAnimatorKey;
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;
   flags.preserveBlankLines = props.preserveBlankLines;
+  flags.noIndentedCodeBlocks = props.noIndentedCodeBlocks;
   flags.admonitions = props.admonitions;
   return flags;
 }
@@ -1224,6 +1225,7 @@ static char kENRMSegmentFadeAnimatorKey;
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
       newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||
       newViewProps.md4cFlags.preserveBlankLines != oldViewProps.md4cFlags.preserveBlankLines ||
+      newViewProps.md4cFlags.noIndentedCodeBlocks != oldViewProps.md4cFlags.noIndentedCodeBlocks ||
       newViewProps.md4cFlags.admonitions != oldViewProps.md4cFlags.admonitions) {
     _md4cFlags = [EnrichedMarkdown flagsFromProps:newViewProps.md4cFlags];
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;

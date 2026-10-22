@@ -6,6 +6,8 @@ public struct MarkdownParsingOptions: Sendable, Equatable {
     public var hardSoftBreaks: Bool
     public var permissiveAutolinks: Bool
     public var preserveBlankLines: Bool
+    /// Disable indented code blocks. Fenced code remains supported. Defaults to false.
+    public var noIndentedCodeBlocks: Bool
     public var admonitions: Bool
 
     /// Set only via `MarkdownRenderPlugin.adjustParsingOptions` (the
@@ -20,6 +22,7 @@ public struct MarkdownParsingOptions: Sendable, Equatable {
         hardSoftBreaks: Bool = false,
         permissiveAutolinks: Bool = true,
         preserveBlankLines: Bool = false,
+        noIndentedCodeBlocks: Bool = false,
         admonitions: Bool = false
     ) {
         self.underline = underline
@@ -29,6 +32,7 @@ public struct MarkdownParsingOptions: Sendable, Equatable {
         self.hardSoftBreaks = hardSoftBreaks
         self.permissiveAutolinks = permissiveAutolinks
         self.preserveBlankLines = preserveBlankLines
+        self.noIndentedCodeBlocks = noIndentedCodeBlocks
         self.admonitions = admonitions
     }
 

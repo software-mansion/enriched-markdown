@@ -926,6 +926,9 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   if (md4cFlags.preserveBlankLines) {
     flags |= ENRMRKD_FLAG_PRESERVEBLANKLINES;
   }
+  if (md4cFlags.noIndentedCodeBlocks) {
+    flags |= ENRMRKD_FLAG_NOINDENTEDCODEBLOCKS;
+  }
   if (md4cFlags.admonitions) {
     flags |= ENRMRKD_FLAG_ADMONITIONS;
   }

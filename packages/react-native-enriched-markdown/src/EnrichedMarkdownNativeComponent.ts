@@ -421,6 +421,7 @@ export interface Md4cFlagsInternal {
    * @default false
    */
   preserveBlankLines: boolean;
+  noIndentedCodeBlocks: boolean;
   /**
    * Enable GitHub-style admonitions/alerts extension.
    * Forced off for `flavor="commonmark"`.

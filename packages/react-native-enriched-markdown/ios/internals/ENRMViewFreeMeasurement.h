@@ -95,6 +95,7 @@ template <typename Md4cFlagsT> static inline ENRMMd4cFlags *ENRMMd4cFlagsFromPro
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;
   flags.preserveBlankLines = props.preserveBlankLines;
+  flags.noIndentedCodeBlocks = props.noIndentedCodeBlocks;
   flags.admonitions = props.admonitions;
   return flags;
 }

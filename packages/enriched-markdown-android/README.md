@@ -589,6 +589,7 @@ data class MarkdownOptions(
   val permissiveAutolinks: Boolean = true,  // bare URLs, www. links and e-mail addresses become links
   val hardSoftBreaks: Boolean = false,      // every line break inside a paragraph is kept
   val preserveBlankLines: Boolean = false,  // each blank line renders as an empty line
+  val noIndentedCodeBlocks: Boolean = false, // disable indented code; keep fenced code
   val admonitions: Boolean = false,         // `> [!NOTE]` blockquotes render as GitHub alerts
 ) {
   companion object {

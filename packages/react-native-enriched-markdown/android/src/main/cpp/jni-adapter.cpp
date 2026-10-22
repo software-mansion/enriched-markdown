@@ -367,6 +367,10 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
         if (preserveBlankLinesField) {
           md4cFlags.preserveBlankLines = env->GetBooleanField(flags, preserveBlankLinesField) == JNI_TRUE;
         }
+        jfieldID noIndentedCodeBlocksField = env->GetFieldID(flagsClass, "noIndentedCodeBlocks", "Z");
+        if (noIndentedCodeBlocksField) {
+          md4cFlags.noIndentedCodeBlocks = env->GetBooleanField(flags, noIndentedCodeBlocksField) == JNI_TRUE;
+        }
         jfieldID admonitionsField = env->GetFieldID(flagsClass, "admonitions", "Z");
         if (admonitionsField) {
           md4cFlags.admonitions = env->GetBooleanField(flags, admonitionsField) == JNI_TRUE;

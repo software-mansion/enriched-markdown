@@ -11,7 +11,8 @@ type ParseFn = (
   hardSoftBreaks: number,
   preserveBlankLines: number,
   admonitions: number,
-  permissiveAutolinks: number
+  permissiveAutolinks: number,
+  noIndentedCodeBlocks: number
 ) => string;
 
 /**
@@ -48,6 +49,7 @@ function initializeParser(): Promise<ParseFn> {
       .then((wasmModule) =>
         wasmModule.cwrap('parseMarkdown', 'string', [
           'string',
+          'number',
           'number',
           'number',
           'number',
@@ -99,6 +101,7 @@ export async function parseMarkdown(
     highlight = false,
     hardSoftBreaks = false,
     preserveBlankLines = false,
+    noIndentedCodeBlocks = false,
     admonitions = true,
     permissiveAutolinks = true,
   }: WebMd4cFlags = {}
@@ -116,7 +119,8 @@ export async function parseMarkdown(
       hardSoftBreaks ? 1 : 0,
       preserveBlankLines ? 1 : 0,
       admonitions ? 1 : 0,
-      permissiveAutolinks ? 1 : 0
+      permissiveAutolinks ? 1 : 0,
+      noIndentedCodeBlocks ? 1 : 0
     )
   );
 

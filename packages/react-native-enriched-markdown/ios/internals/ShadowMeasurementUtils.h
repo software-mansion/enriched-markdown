@@ -70,6 +70,7 @@ static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps
          oldProps.md4cFlags.highlight != newProps.md4cFlags.highlight ||
          oldProps.md4cFlags.hardSoftBreaks != newProps.md4cFlags.hardSoftBreaks ||
          oldProps.md4cFlags.preserveBlankLines != newProps.md4cFlags.preserveBlankLines ||
+         oldProps.md4cFlags.noIndentedCodeBlocks != newProps.md4cFlags.noIndentedCodeBlocks ||
          oldProps.isGFM != newProps.isGFM || oldProps.md4cFlags.admonitions != newProps.md4cFlags.admonitions ||
          computeStyleFingerprint(oldProps.markdownStyle) != computeStyleFingerprint(newProps.markdownStyle);
 }

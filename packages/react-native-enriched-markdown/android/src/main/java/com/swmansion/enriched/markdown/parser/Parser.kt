@@ -14,6 +14,7 @@ data class Md4cFlags(
   val hardSoftBreaks: Boolean = false,
   val preserveBlankLines: Boolean = false,
   val admonitions: Boolean = true,
+  val noIndentedCodeBlocks: Boolean = false,
 ) {
   companion object {
     val DEFAULT = Md4cFlags()

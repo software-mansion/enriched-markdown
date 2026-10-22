@@ -18,6 +18,7 @@ class MarkdownOptionsTest {
         permissiveAutolinks = false,
         hardSoftBreaks = true,
         preserveBlankLines = true,
+        noIndentedCodeBlocks = true,
         admonitions = true,
       )
 
@@ -30,6 +31,7 @@ class MarkdownOptionsTest {
         permissiveAutolinks = false,
         hardSoftBreaks = true,
         preserveBlankLines = true,
+        noIndentedCodeBlocks = true,
         admonitions = true,
       ),
       options.toParserFlags(),
