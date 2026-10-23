@@ -77,6 +77,13 @@ extern const char *const kImageOccurrenceIdAttribute; // on every Image node
 // shifts it. A code block keeps its id while its code changes.
 CollectedBlocks collect(const MarkdownASTNode &root);
 
+// False only for the code block a streamed document's open fence parses to, the
+// last one, since the fence runs to the end; `endsInsideOpenCodeFence` is the
+// streaming filter's flag for the markdown `blocks` came from. A fence inside an
+// HTML block is one the filter sees and the parser does not, so it marks the
+// code block before it instead.
+bool isSlotComplete(const CollectedBlocks &blocks, const BlockSlot &slot, bool endsInsideOpenCodeFence);
+
 // FNV-1a 64 of the bytes, as 16 lowercase hex digits; the web collector matches it.
 std::string fnv1a64Hex(const std::string &bytes);
 // What a slot or occurrence id hashes: the fields joined by U+001F.

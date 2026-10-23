@@ -147,6 +147,10 @@ CollectedBlocks collect(const MarkdownASTNode &root) {
   return std::move(visitor.collected);
 }
 
+bool isSlotComplete(const CollectedBlocks &blocks, const BlockSlot &slot, bool endsInsideOpenCodeFence) {
+  return !endsInsideOpenCodeFence || slot.node != blocks.lastCodeBlock;
+}
+
 std::string fnv1a64Hex(const std::string &bytes) {
   uint64_t hash = 14695981039346656037ULL;
   for (unsigned char byte : bytes) {

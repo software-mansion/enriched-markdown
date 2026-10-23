@@ -246,7 +246,10 @@ BlockScan scanBlocks(Lines &lines) {
     bool blank = isBlank(body);
     size_t lead = leadingSpaces(body);
     if (inFence) {
-      bool containerEnded = quoted.depth < fence.depth || (!blank && lead < fence.indent);
+      // A blank last line has not streamed its quote markers in yet, so it cannot
+      // end a quoted fence.
+      bool undecided = i + 1 == lines.size() && isBlank(lines[i].text);
+      bool containerEnded = !undecided && (quoted.depth < fence.depth || (!blank && lead < fence.indent));
       if (!containerEnded) {
         lines[i].code = true;
         FenceMarker marker;

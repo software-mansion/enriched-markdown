@@ -249,6 +249,33 @@ int main(int argc, char **argv) {
           std::string("a streaming fence has its final id: ") + tick);
   }
 
+  // Only the fence still streaming in is incomplete ('o'), in any container and at a line end.
+  auto completeness = [](const std::string &markdown) {
+    auto filtered = Markdown::renderableMarkdownForStreaming(markdown, {});
+    auto tree = parse(filtered.markdown);
+    auto blocks = Markdown::collect(*tree);
+    std::string states;
+    for (const auto &slot : blocks.slots)
+      states += Markdown::isSlotComplete(blocks, slot, filtered.endsInsideOpenCodeFence) ? 'c' : 'o';
+    return states;
+  };
+  const std::pair<const char *, const char *> completenessTicks[] = {
+      {"```py\nx\n```\n\n```js\nlet a", "co"},
+      {"```py\nx\n```\n\n```js\nlet a\n", "co"},
+      {"```py\nx\n```\n\n```js\nlet a\n```", "cc"},
+      {"> ```js\n> let a", "o"},
+      {"> ```js\n> let a\n", "o"},
+      {"> ```js\n> let a\n> ```\n", "c"},
+      {"> [!NOTE]\n> ```py\n> x\n", "o"},
+      {"```py\nx\n```\n\n- ```js\n  let a\n", "c"},
+  };
+  for (const auto &[tick, states] : completenessTicks) {
+    std::string got = completeness(tick);
+    check(got == states, std::string("completeness of ") + tick + ": expected " + states + ", got " + got);
+  }
+  check(fences.slots.empty() || Markdown::isSlotComplete(fences, fences.slots.back(), false),
+        "without an open fence even the last code block is complete");
+
   // The overlay adds only the active ids, on the block node, and image ids on demand.
   Markdown::ParsedDocument document{root, collected};
   std::unordered_set<std::string> active{slots[0].id, slots[4].id};

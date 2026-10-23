@@ -236,6 +236,12 @@ int main() {
   expect("A\n\n```", "A\n\n", "a bare opening fence waits for its info string");
   expect("A\n\n```mermaid\n", "A\n\n```mermaid\n", "an ended opening line shows the fence");
   expect("> ```js", "", "a quoted opening line waits");
+  // The line after a final newline has not streamed its `>` in yet, so it keeps a quoted fence open.
+  for (const char *quotedFence : {"> ```js\n> let a\n", "> [!NOTE]\n> ```py\n> x\n", "> ```js\n", "> ```js\r\n> a\r\n"})
+    check(Markdown::renderableMarkdownForStreaming(quotedFence, {}).endsInsideOpenCodeFence,
+          std::string("a quoted fence stays open at a line end: ") + quotedFence);
+  expect("> ```mermaid\n", "> ```mermaid\n", "a quoted fence shows once its opening line ends");
+  expect("A\n\n> ```js\n> let a\n", "A\n\n", "a quoted open fence is cut at a line end (hidden)", P, P, H);
   check(filter("See [docs](https://e\n| a |\n```js") == filter("See [docs](https://e\n| a |\n```js", P, P, H),
         "a waiting fence is cut as a hidden one would be");
   check(!Markdown::renderableMarkdownForStreaming("A\n\n```mer", {}).endsInsideOpenCodeFence,
