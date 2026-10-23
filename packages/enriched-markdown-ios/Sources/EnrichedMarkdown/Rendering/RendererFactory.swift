@@ -38,8 +38,8 @@ final class RendererFactory {
 
     /// Resolves paragraph directions; run on the document and on every
     /// table cell, which is drawn from its own string.
-    func applyWritingDirection(to output: NSMutableAttributedString) {
-        WritingDirectionResolver.apply(writingDirection, layoutDirection: layoutDirection, to: output)
+    func applyWritingDirection(to output: NSMutableAttributedString, in range: NSRange? = nil) {
+        WritingDirectionResolver.apply(writingDirection, layoutDirection: layoutDirection, to: output, in: range)
     }
 
     func renderChildren(

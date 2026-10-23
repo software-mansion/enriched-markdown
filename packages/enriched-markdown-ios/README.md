@@ -6,13 +6,13 @@
 
 # Enriched Markdown iOS
 
-Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package with three products: `EnrichedMarkdown`, the optional `EnrichedMarkdownLaTeX` for math rendering, and the optional `EnrichedMarkdownSyntaxHighlighting` for colored code blocks.
+Standalone SwiftUI library for rendering enriched Markdown on iOS. This package is separate from the React Native npm package and is distributed as a Swift Package with four products: `EnrichedMarkdown`, the optional `EnrichedMarkdownLaTeX` for math rendering, the optional `EnrichedMarkdownSyntaxHighlighting` for colored code blocks, and the optional `EnrichedMarkdownStreaming` for markdown that is still arriving.
 
 ## Installation
 
 Add the package via [Swift Package Manager](https://docs.swift.org/latest/documentation/packagemanagerdocs/). The `Package.swift` lives at the repository root.
 
-**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and the optional `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math), or `EnrichedMarkdownSyntaxHighlighting` for code, see [Syntax highlighting](#syntax-highlighting)).
+**Xcode:** File → Add Package Dependencies… → enter `https://github.com/software-mansion-labs/enriched-markdown-ios`, then select the `EnrichedMarkdown` product (and the optional `EnrichedMarkdownLaTeX` for math, see [LaTeX math](#latex-math), `EnrichedMarkdownSyntaxHighlighting` for code, see [Syntax highlighting](#syntax-highlighting), or `EnrichedMarkdownStreaming` for LLM output, see [Streaming](#streaming)).
 
 **Package.swift:**
 
@@ -61,6 +61,16 @@ languages an app needs. Add it next to the others:
 ```
 
 and enable it per view with `.markdownSyntaxHighlighting()` — see [Syntax highlighting](#syntax-highlighting).
+
+Streaming is optional too: `EnrichedMarkdownStreaming` shows markdown while it
+is still arriving, such as an LLM answer. It is pure Swift. Add it next to the
+others:
+
+```swift
+.product(name: "EnrichedMarkdownStreaming", package: "enriched-markdown-ios"),
+```
+
+and mark a view as streaming with `.markdownStreaming()` — see [Streaming](#streaming).
 
 For local development, add a path dependency to a local checkout instead:
 
@@ -151,7 +161,7 @@ struct RootView: View {
 }
 ```
 
-Prefer semantic colors (`.primary`, `.secondary`, `.tertiary`, `.quaternary`, `.tint`) when you want automatic light/dark adaptation; pass a concrete `Color` (or hex) for fixed branding.
+Prefer semantic colors (`.primary`, `.secondary`, `.tertiary`, `.quaternary`, `.tint`) when you want automatic light/dark adaptation; pass a concrete `Color` (or hex) for fixed branding. `.tint` stays dynamic and takes the tint of the view that draws the text, so a `.tint()` modifier above the view applies.
 
 ### Theme elements
 
@@ -771,16 +781,13 @@ extended with that package's opt-in grammars (C++, Swift, PHP, Ruby, C#).
 
 Highlighting runs with the render, off the main thread, and tokens are cached
 per block, so a block that has not changed is served from the cache on a
-re-render. A block whose closing fence has not arrived yet is re-highlighted
-in full on every update, so streaming a long block costs more per update as
-it grows, and the text of an unfinished multi-line string or comment takes
-its final color only once the closing delimiter arrives. A block over 50 KB
-or 2,000 lines is left plain.
+re-render. Under [`.markdownStreaming`](#streaming), a block whose closing
+fence has not arrived yet stays plain until the fence closes. Without it, such
+a block is re-highlighted on every update. A block over 50 KB or 2,000 lines
+is left plain.
 
 `markdownSyntaxHighlighting` takes a `Bool`, so a setting can drive it
 without rebuilding the view: `.markdownSyntaxHighlighting(isHighlightingOn)`.
-A streaming UI can pass `!isStreaming` to color code once the response is
-complete; until then every block in the view renders plain.
 
 Token colors come from `SyntaxToken` theme elements, one per token type:
 
@@ -811,6 +818,102 @@ Outside SwiftUI, `MarkdownRenderer.renderSyntaxHighlighted` mirrors
 `MarkdownRenderer.render` with highlighting on. When resolving a
 `MarkdownStyleConfiguration` by hand for it, include the default layer:
 `MarkdownStyleConfiguration.resolve(layers: [.default, .syntaxHighlightingDefault, yours], traitCollection: …)`.
+
+## Streaming
+
+Streaming lives in the optional `EnrichedMarkdownStreaming` product (see
+[Installation](#installation)). It is for markdown that is still arriving,
+such as an LLM answer. Pass the whole string on every update and keep the view
+marked as streaming until the answer is complete:
+
+```swift
+import EnrichedMarkdown
+import EnrichedMarkdownStreaming
+
+struct Answer: View {
+  @State private var markdown: String = ""
+  @State private var isStreaming: Bool = true
+
+  var body: some View {
+    EnrichedMarkdownText(markdown)
+      .markdownStreaming(isStreaming)
+      .task {
+        for await token in model.tokens() {
+          markdown += token
+        }
+        isStreaming = false
+      }
+  }
+}
+```
+
+While `isStreaming` is true:
+
+- Only the unfinished end of the text re-renders, so the text above keeps its
+  layout and selection, and updates stay fast as the answer grows.
+- Unfinished syntax such as `**bold` or `[text](ur` renders as if closed,
+  following the rules of [remend](https://www.npmjs.com/package/remend).
+- Unfinished tables and code blocks follow `tables` and `codeBlocks` below.
+  With LaTeX on, a formula stays hidden until it closes.
+- New text animates in, as set by `transition`. Reduce Motion turns this off.
+
+```swift
+extension View {
+  func markdownStreaming(
+    _ isStreaming: Bool = true,
+    tables: MarkdownStreamingOptions.TableMode = .progressive,
+    codeBlocks: MarkdownStreamingOptions.CodeBlockMode = .progressive,
+    transition: any MarkdownStreamingTransition = .opacity
+  ) -> some View
+}
+```
+
+| Parameter | `.progressive` (default) | `.hidden` |
+|-----------|--------------------------|-----------|
+| `tables` | Shows the table once its header and delimiter rows are in, then adds rows as they complete | Hides the table until a blank line follows it |
+| `codeBlocks` | Shows the code line by line; copy actions and highlighting wait for the closing fence | Hides the block until its closing fence arrives |
+
+`transition` is `.opacity` (a 0.2 s fade, the default), `.opacity(duration:)`,
+`.identity` (no animation), or a `MarkdownStreamingTransition` of your own:
+
+```swift
+public protocol MarkdownStreamingTransition: Equatable, Sendable {
+  @MainActor
+  func animate(_ view: UIView, completion: @escaping () -> Void)
+}
+```
+
+```swift
+struct RiseTransition: MarkdownStreamingTransition {
+  func animate(_ view: UIView, completion: @escaping () -> Void) {
+    view.alpha = 0
+    view.transform = CGAffineTransform(translationX: 0, y: 6)
+    UIView.animate(withDuration: 0.35, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+      view.alpha = 1
+      view.transform = .identity
+    } completion: { _ in
+      completion()
+    }
+  }
+}
+
+EnrichedMarkdownText(content)
+  .markdownStreaming(isStreaming, transition: RiseTransition())
+```
+
+`animate` runs once for each new line of text, each new table row and each new
+math block. `view` shows that content: set its starting state,
+animate it, and always call `completion`, since the real text underneath stays
+hidden until then. Keep it cheap, because a line that re-wraps is animated
+again, and keep any parameters in stored properties, because transitions are
+compared with `Equatable`.
+
+When `isStreaming` turns false, the markdown renders exactly as written,
+without a flash. Each update should extend the previous string; one that does
+not starts over. A document that ends with a link reference definition
+(`[label]: url`), or uses `preserveBlankLines`, re-renders in full on every
+update. The modifier sets the `markdownStreaming` environment value
+(`MarkdownStreamingOptions?`, nil when not streaming).
 
 ## Supported Markdown
 

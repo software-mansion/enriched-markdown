@@ -32,10 +32,7 @@ final class ThemeResolutionTests: XCTestCase {
             UIColor.label.resolvedColor(with: traitCollection)
         )
         XCTAssertEqual(config.heading1.font?.pointSize, 40)
-        XCTAssertEqual(
-            config.heading1.foregroundColor,
-            UIColor.tintColor.resolvedColor(with: traitCollection)
-        )
+        XCTAssertEqual(config.heading1.foregroundColor, UIColor.tintColor)
     }
 
     func testDefaultThemeResolvesAllCommonMarkElements() {

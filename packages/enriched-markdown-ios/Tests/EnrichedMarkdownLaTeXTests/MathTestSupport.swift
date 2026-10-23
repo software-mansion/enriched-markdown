@@ -1,6 +1,39 @@
 import UIKit
 import XCTest
+@testable import EnrichedMarkdown
 @testable import EnrichedMarkdownLaTeX
+
+extension XCTestCase {
+    @MainActor
+    func hostedTextView(config: MarkdownStyleConfiguration = .baseline(), width: CGFloat = 380) -> (window: UIWindow, textView: MarkdownTextView) {
+        let textView = MarkdownTextView()
+        textView.styleConfig = config
+        textView.frame = CGRect(x: 0, y: 0, width: width, height: 100)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 1000))
+        window.addSubview(textView)
+        window.isHidden = false
+        return (window, textView)
+    }
+
+    @MainActor
+    func settle(_ textView: MarkdownTextView) {
+        textView.frame.size.height = textView.sizeThatFits(CGSize(width: textView.bounds.width, height: .greatestFiniteMagnitude)).height
+        textView.layoutIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
+        textView.layoutIfNeeded()
+    }
+}
+
+extension UIView {
+    func firstSubview<T: UIView>(of type: T.Type) -> T? {
+        for subview in subviews {
+            if let match = subview as? T ?? subview.firstSubview(of: type) {
+                return match
+            }
+        }
+        return nil
+    }
+}
 
 extension XCTestCase {
     /// Deterministic typeset metrics standing in for RaTeX.

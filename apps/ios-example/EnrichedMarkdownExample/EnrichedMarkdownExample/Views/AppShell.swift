@@ -44,7 +44,9 @@ struct AppShell: View {
             CodeScreen()
         case .links:
             LinksScreen()
-        case .home, .input, .stream, .storybook:
+        case .stream:
+            StreamScreen()
+        case .home, .input, .storybook:
             EmptyView()
         }
     }
@@ -53,9 +55,9 @@ struct AppShell: View {
 
     private func handleNavigate(_ target: ExampleRoute) {
         switch target {
-        case .playground, .text, .math, .code, .links:
+        case .playground, .text, .math, .code, .links, .stream:
             path.append(target)
-        case .input, .stream, .storybook:
+        case .input, .storybook:
             unavailableRouteName = target.title
         case .home:
             path = []
