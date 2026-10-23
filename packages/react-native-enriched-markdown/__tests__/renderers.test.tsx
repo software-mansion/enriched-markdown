@@ -54,6 +54,9 @@ const IMAGE_BLOCK: NativeBlockSlot = {
   title: '',
   placement: 'root',
   occurrenceId: 'img:0123456789abcdef:0',
+  language: '',
+  code: '',
+  isComplete: true,
 };
 
 const VIDEO_BLOCK: NativeBlockSlot = {
@@ -64,6 +67,9 @@ const VIDEO_BLOCK: NativeBlockSlot = {
   title: '',
   placement: 'blockquote',
   occurrenceId: '',
+  language: '',
+  code: '',
+  isComplete: true,
 };
 
 function render(element: ReactElement): Root {

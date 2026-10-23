@@ -16,7 +16,7 @@ namespace facebook::react {
 
 using EnrichedMarkdownParserBlockSlot =
     NativeEnrichedMarkdownParserNativeBlockSlot<std::string, std::string, std::string, std::string, std::string,
-                                                std::string, std::string>;
+                                                std::string, std::string, std::string, std::string, bool>;
 template <>
 struct Bridging<EnrichedMarkdownParserBlockSlot>
     : NativeEnrichedMarkdownParserNativeBlockSlotBridging<EnrichedMarkdownParserBlockSlot> {};
