@@ -46,9 +46,11 @@ enum WritingDirectionResolver {
     static func apply(
         _ mode: MarkdownWritingDirection,
         layoutDirection: UIUserInterfaceLayoutDirection,
-        to output: NSMutableAttributedString
+        to output: NSMutableAttributedString,
+        in range: NSRange? = nil
     ) {
         let string = output.string as NSString
+        let range = range ?? NSRange(location: 0, length: string.length)
         let direction: ([NSAttributedString.Key: Any], NSRange) -> NSWritingDirection
         switch mode {
         case .natural:
@@ -67,10 +69,10 @@ enum WritingDirectionResolver {
             }
         }
 
-        for paragraphRange in paragraphRanges(in: string) {
+        for paragraphRange in paragraphRanges(in: string, from: range.location, to: NSMaxRange(range)) {
             let attrs = output.attributes(at: paragraphRange.location, effectiveRange: nil)
             guard !MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) else { continue }
-            stamp(direction(attrs, paragraphRange), on: paragraphRange, in: output)
+            stamp(direction(attrs, paragraphRange), on: NSIntersectionRange(paragraphRange, range), in: output)
         }
     }
 
@@ -101,10 +103,11 @@ enum WritingDirectionResolver {
         return .natural
     }
 
-    /// Paragraph ranges, terminators included, from `start` to the end.
-    private static func paragraphRanges(in string: NSString, from start: Int = 0) -> some Sequence<NSRange> {
-        sequence(state: start) { (position: inout Int) -> NSRange? in
-            guard position < string.length else { return nil }
+    /// Paragraph ranges, terminators included, from `start` to `end`.
+    private static func paragraphRanges(in string: NSString, from start: Int = 0, to end: Int? = nil) -> some Sequence<NSRange> {
+        let end = end ?? string.length
+        return sequence(state: start) { (position: inout Int) -> NSRange? in
+            guard position < end else { return nil }
             let range = string.paragraphRange(for: NSRange(location: position, length: 0))
             position = NSMaxRange(range)
             return range

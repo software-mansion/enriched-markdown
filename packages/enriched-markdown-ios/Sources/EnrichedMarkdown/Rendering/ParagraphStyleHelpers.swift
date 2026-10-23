@@ -1,9 +1,9 @@
 import CoreText
 import UIKit
 
-enum ParagraphStyleHelpers {
+package enum ParagraphStyleHelpers {
     static let newline = NSAttributedString(string: "\n")
-    static let nonNewlines = CharacterSet.newlines.inverted
+    package static let nonNewlines = CharacterSet.newlines.inverted
 
     @discardableResult
     static func applyParagraphSpacingBefore(

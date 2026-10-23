@@ -17,7 +17,8 @@ let package = Package(
         .library(name: "EnrichedMarkdownLaTeX", targets: ["EnrichedMarkdownLaTeX"]),
         // Optional syntax highlighting of fenced code blocks — compiles
         // tree-sitter and its grammars (~8 MB of app size).
-        .library(name: "EnrichedMarkdownSyntaxHighlighting", targets: ["EnrichedMarkdownSyntaxHighlighting"])
+        .library(name: "EnrichedMarkdownSyntaxHighlighting", targets: ["EnrichedMarkdownSyntaxHighlighting"]),
+        .library(name: "EnrichedMarkdownStreaming", targets: ["EnrichedMarkdownStreaming"])
     ],
     targets: [
         .target(
@@ -101,6 +102,11 @@ let package = Package(
             dependencies: ["EnrichedMarkdown", "EnrichedMarkdownTreeSitter"],
             path: "Sources/EnrichedMarkdownSyntaxHighlighting"
         ),
+        .target(
+            name: "EnrichedMarkdownStreaming",
+            dependencies: ["EnrichedMarkdown"],
+            path: "Sources/EnrichedMarkdownStreaming"
+        ),
         .testTarget(
             name: "EnrichedMarkdownTests",
             dependencies: ["EnrichedMarkdown"],
@@ -108,13 +114,18 @@ let package = Package(
         ),
         .testTarget(
             name: "EnrichedMarkdownLaTeXTests",
-            dependencies: ["EnrichedMarkdownLaTeX"],
+            dependencies: ["EnrichedMarkdownLaTeX", "EnrichedMarkdownStreaming"],
             path: "Tests/EnrichedMarkdownLaTeXTests"
         ),
         .testTarget(
             name: "EnrichedMarkdownSyntaxHighlightingTests",
-            dependencies: ["EnrichedMarkdownSyntaxHighlighting"],
+            dependencies: ["EnrichedMarkdownSyntaxHighlighting", "EnrichedMarkdownStreaming"],
             path: "Tests/EnrichedMarkdownSyntaxHighlightingTests"
+        ),
+        .testTarget(
+            name: "EnrichedMarkdownStreamingTests",
+            dependencies: ["EnrichedMarkdownStreaming"],
+            path: "Tests/EnrichedMarkdownStreamingTests"
         )
     ],
     cxxLanguageStandard: .cxx17

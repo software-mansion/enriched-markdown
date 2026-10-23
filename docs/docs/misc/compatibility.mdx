@@ -57,7 +57,7 @@ The standalone Swift package,
 | **UI framework** | SwiftUI - the package exports a `View` |
 | **Distribution** | Swift Package Manager (`software-mansion-labs/enriched-markdown-ios`) |
 
-It ships three [products](/ios/basics/installation#products):
+It ships four [products](/ios/basics/installation#products):
 
 - `EnrichedMarkdown` - the renderer.
 - `EnrichedMarkdownLaTeX` (optional) - adds `$...$` typesetting. It links the
@@ -67,6 +67,9 @@ It ships three [products](/ios/basics/installation#products):
   It compiles tree-sitter with all its grammars, about 8 MB of app size, with
   no way to compile in only some languages. See
   [Syntax highlighting](/ios/guides/syntax-highlighting).
+- `EnrichedMarkdownStreaming` (optional) - shows Markdown while it is still
+  arriving. Pure Swift, so it adds little to app size. See
+  [Markdown streaming](/ios/guides/markdown-streaming).
 
 ## Android package {#android-package}
 

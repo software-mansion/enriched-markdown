@@ -134,7 +134,7 @@ struct TableAttachmentLayout: Equatable {
 
 /// A GFM table embedded as a full-width block attachment whose view
 /// provider hosts the live grid view.
-final class TableAttachment: NSTextAttachment, HorizontallyScrollingAttachment {
+final class TableAttachment: NSTextAttachment, HostedBlockAttachment {
     /// Must be a resolvable UTI — NSTextAttachment silently drops any other
     /// string, which breaks the provider-class lookup.
     static let fileType: String = UTType(
@@ -154,7 +154,16 @@ final class TableAttachment: NSTextAttachment, HorizontallyScrollingAttachment {
     let layout: TableAttachmentLayout
     let style: TableAttachmentStyle
 
-    var preservedContentOffset: CGPoint = .zero
+    var hostedView: TableAttachmentView?
+
+    func makeHostedView() -> TableAttachmentView {
+        TableAttachmentView(attachment: self)
+    }
+
+    @MainActor
+    func update(_ view: TableAttachmentView, transition: (any ViewTransition)?) {
+        view.update(to: self, transition: transition)
+    }
 
     init(model: TableModel, style: TableAttachmentStyle) {
         self.model = model
