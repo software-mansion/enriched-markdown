@@ -335,8 +335,12 @@ object HTMLGenerator {
       return
     }
 
-    // A block's bottom-margin line inside a list item or a quote holds no content of its own.
-    if (paraText.isEmpty() && text.getSpans(para.start, para.start + 1, MarginBottomSpan::class.java).isNotEmpty()) return
+    // A block's bottom-margin line inside a list item or a quote holds no content of its own, but it
+    // still ends a code block, so the next one starts a <pre> of its own.
+    if (paraText.isEmpty() && text.getSpans(para.start, para.start + 1, MarginBottomSpan::class.java).isNotEmpty()) {
+      closeCodeBlockIfOpen(html, state, styles)
+      return
+    }
 
     // Get content range (trim trailing newline)
     val contentEnd = if (para.end > para.start && text[para.end - 1] == '\n') para.end - 1 else para.end
