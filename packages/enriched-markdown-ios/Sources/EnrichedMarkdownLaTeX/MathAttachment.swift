@@ -54,7 +54,7 @@ struct MathPanelStyle: Equatable {
 /// root-level display math (`panel != nil`) is hosted in a scrolling
 /// `MathBlockView`, or under TextKit 1, which installs no view, drawn as a
 /// panel image that clips the overflow.
-final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment, HorizontallyScrollingAttachment {
+final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment, HostedBlockAttachment {
     /// Must be a resolvable UTI, or NSTextAttachment silently drops it.
     static let fileType: String = UTType(
         filenameExtension: "enriched-markdown-math"
@@ -64,7 +64,7 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment, Horizont
     /// on the attachment breaks it.
     private static let providerRegistration: Void = {
         NSTextAttachment.registerViewProviderClass(
-            MathAttachmentViewProvider.self,
+            HostedBlockViewProvider.self,
             forFileType: MathAttachment.fileType
         )
     }()
@@ -75,7 +75,16 @@ final class MathAttachment: NSTextAttachment, MarkdownPluginAttachment, Horizont
     /// Set for root-level display math, which then spans the line.
     let panel: MathPanelStyle?
 
-    var preservedContentOffset: CGPoint = .zero
+    var hostedView: MathBlockView?
+
+    func makeHostedView() -> MathBlockView {
+        MathBlockView(attachment: self, panel: panel ?? MathPanelStyle())
+    }
+
+    @MainActor
+    func update(_ view: MathBlockView, transition: (any ViewTransition)?) {
+        view.update(to: self)
+    }
 
     private let result: MathTypesetResult
     private var panelImage: UIImage?

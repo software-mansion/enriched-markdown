@@ -38,12 +38,15 @@ final class BaselineShiftRenderer: NodeRenderer {
     /// full attribute walks.
     static func applyShifts(
         to output: NSMutableAttributedString,
+        in range: NSRange? = nil,
         context: RenderContext,
         config: MarkdownStyleConfiguration
     ) {
         guard context.hasBaselineShifts else { return }
+        let range = range ?? NSRange(location: 0, length: output.length)
         applyShift(
             to: output,
+            in: range,
             key: MarkdownAttribute.superscript,
             fontScale: config.superscript.fontScale ?? defaultFontScale,
             baselineOffsetScale: config.superscript.baselineOffsetScale
@@ -51,6 +54,7 @@ final class BaselineShiftRenderer: NodeRenderer {
         )
         applyShift(
             to: output,
+            in: range,
             key: MarkdownAttribute.subscript,
             fontScale: config.subscript.fontScale ?? defaultFontScale,
             baselineOffsetScale: -(config.subscript.baselineOffsetScale
@@ -60,12 +64,12 @@ final class BaselineShiftRenderer: NodeRenderer {
 
     private static func applyShift(
         to output: NSMutableAttributedString,
+        in range: NSRange,
         key: NSAttributedString.Key,
         fontScale: CGFloat,
         baselineOffsetScale: CGFloat
     ) {
-        let fullRange = NSRange(location: 0, length: output.length)
-        output.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
+        output.enumerateAttributes(in: range, options: []) { attributes, range, _ in
             guard MarkdownAttributeValue.boolValue(from: attributes[key]),
                   let font = attributes[.font] as? UIFont
             else { return }
