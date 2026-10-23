@@ -4,6 +4,7 @@
 #include "MarkdownASTNode.hpp"
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 namespace Markdown {
@@ -15,21 +16,48 @@ enum class BlockSlotPlacement { Root, Blockquote, Admonition };
 // and mean a standalone image paragraph a slot can replace.
 enum class ImagePlacement { Root, Blockquote, Admonition, Inline, List, Table, Link };
 
+// What each kind of slot carries, filled by its kBlockKinds entry.
+struct ImageSlotFields {
+  static constexpr BlockSlotKind kind = BlockSlotKind::Image;
+  std::string url;
+  std::string altText;
+  std::string title;
+  std::string occurrenceId; // the image's entry in CollectedBlocks::images
+};
+
+struct VideoSlotFields {
+  static constexpr BlockSlotKind kind = BlockSlotKind::Video;
+  std::string url;
+};
+
+struct LinkSlotFields {
+  static constexpr BlockSlotKind kind = BlockSlotKind::Link;
+  std::string url;
+  std::string label;
+  std::string title;
+};
+
+struct CodeSlotFields {
+  static constexpr BlockSlotKind kind = BlockSlotKind::Code;
+  std::string language; // empty when the block has none
+  std::string code;     // without trailing newlines
+};
+
+using BlockSlotFields = std::variant<ImageSlotFields, VideoSlotFields, LinkSlotFields, CodeSlotFields>;
+
 // A block-level node that a React element may stand in for (one of kBlockKinds
 // in BlockKinds.hpp), placed directly in the document, a blockquote or an
 // admonition that is not itself inside a list item (the hosts lay lists out as
 // text, so nothing inside one can be replaced).
 struct BlockSlot {
   std::string id;
-  BlockSlotKind kind;
-  std::string url;      // empty for code blocks
-  std::string altText;  // the image's alt text or the link's label; empty otherwise
-  std::string title;    // the image's or the link's title; empty otherwise
-  std::string language; // the code block's fence language, empty when it has none
-  std::string code;     // the code block's text without trailing newlines
   BlockSlotPlacement placement;
-  std::string occurrenceId;              // the image occurrence of an image block; empty otherwise
   const MarkdownASTNode *node = nullptr; // the paragraph, video or code block the slot replaces
+  BlockSlotFields fields;
+
+  BlockSlotKind kind() const {
+    return std::visit([](const auto &kindFields) { return kindFields.kind; }, fields);
+  }
 };
 
 struct ImageOccurrence {

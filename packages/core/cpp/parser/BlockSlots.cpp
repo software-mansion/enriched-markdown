@@ -80,12 +80,11 @@ struct Visitor {
   void recordSlot(const MarkdownASTNode &block, const BlockKind &kind, const MarkdownASTNode &media,
                   BlockSlotPlacement placement) {
     BlockSlot slot;
-    slot.kind = kind.kind;
     slot.placement = placement;
     slot.node = &block;
     slot.id = slotIds.next(kind.name, kind.fill(media, slot));
-    if (kind.isImageOccurrence)
-      slot.occurrenceId = recordImage(media, imagePlacement(placement)).id;
+    if (auto *image = std::get_if<ImageSlotFields>(&slot.fields))
+      image->occurrenceId = recordImage(media, imagePlacement(placement)).id;
     collected.slotByNode[&block] = collected.slots.size();
     collected.slots.push_back(std::move(slot));
   }

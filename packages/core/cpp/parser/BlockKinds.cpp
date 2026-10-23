@@ -22,14 +22,6 @@ void appendInlineText(const MarkdownASTNode &node, std::string &out) {
   }
 }
 
-// The URL, the text and the title, all part of the id.
-std::string mediaFields(const MarkdownASTNode &media, BlockSlot &slot) {
-  slot.url = nodeAttribute(media, kUrlAttribute);
-  slot.altText = inlineText(media);
-  slot.title = nodeAttribute(media, kTitleAttribute);
-  return blockIdentity(slot.url, slot.altText, slot.title);
-}
-
 // The stream may have stopped partway through `syntax` (`<vi` of `<video`).
 bool isPartial(std::string_view body, std::string_view syntax) {
   return !body.empty() && body.size() < syntax.size() && startsWith(syntax, body);
@@ -53,6 +45,17 @@ const MarkdownASTNode *imageMedia(const MarkdownASTNode &node) {
   return onlyChildOfParagraph(node, NodeType::Image);
 }
 
+// The URL, the alt text and the title, all part of the id.
+std::string imageFields(const MarkdownASTNode &image, BlockSlot &slot) {
+  ImageSlotFields fields;
+  fields.url = nodeAttribute(image, kUrlAttribute);
+  fields.altText = inlineText(image);
+  fields.title = nodeAttribute(image, kTitleAttribute);
+  std::string identity = blockIdentity(fields.url, fields.altText, fields.title);
+  slot.fields = std::move(fields);
+  return identity;
+}
+
 BlockLineState imageLineState(std::string_view body) {
   if (isPartial(body, "!["))
     return BlockLineState::Open;
@@ -66,8 +69,11 @@ const MarkdownASTNode *videoMedia(const MarkdownASTNode &node) {
 }
 
 std::string videoFields(const MarkdownASTNode &video, BlockSlot &slot) {
-  slot.url = nodeAttribute(video, kUrlAttribute);
-  return blockIdentity(slot.url, std::string(), std::string());
+  VideoSlotFields fields;
+  fields.url = nodeAttribute(video, kUrlAttribute);
+  std::string identity = blockIdentity(fields.url, std::string(), std::string());
+  slot.fields = std::move(fields);
+  return identity;
 }
 
 BlockLineState videoLineState(std::string_view body) {
@@ -82,6 +88,17 @@ BlockLineState videoLineState(std::string_view body) {
 
 const MarkdownASTNode *linkMedia(const MarkdownASTNode &node) {
   return onlyChildOfParagraph(node, NodeType::Link);
+}
+
+// The URL, the label and the title, all part of the id.
+std::string linkFields(const MarkdownASTNode &link, BlockSlot &slot) {
+  LinkSlotFields fields;
+  fields.url = nodeAttribute(link, kUrlAttribute);
+  fields.label = inlineText(link);
+  fields.title = nodeAttribute(link, kTitleAttribute);
+  std::string identity = blockIdentity(fields.url, fields.label, fields.title);
+  slot.fields = std::move(fields);
+  return identity;
 }
 
 BlockLineState linkLineState(std::string_view body) {
@@ -126,11 +143,14 @@ void appendCode(const MarkdownASTNode &node, std::string &out) {
 // The id hashes the language alone, so a fence keeps its id while its code
 // streams in and when it closes.
 std::string codeFields(const MarkdownASTNode &block, BlockSlot &slot) {
-  slot.language = nodeAttribute(block, kLanguageAttribute);
-  appendCode(block, slot.code);
-  while (!slot.code.empty() && slot.code.back() == '\n')
-    slot.code.pop_back();
-  return slot.language;
+  CodeSlotFields fields;
+  fields.language = nodeAttribute(block, kLanguageAttribute);
+  appendCode(block, fields.code);
+  while (!fields.code.empty() && fields.code.back() == '\n')
+    fields.code.pop_back();
+  std::string identity = fields.language;
+  slot.fields = std::move(fields);
+  return identity;
 }
 
 // The streaming filter cuts open fences by codeBlockMode, apart from mediaMode.
@@ -336,11 +356,11 @@ BlockLineState state(std::string_view text, size_t bracket) {
 
 // Order matters where a node could match two kinds: none do today.
 const BlockKind kBlockKinds[kBlockKindCount] = {
-    {BlockSlotKind::Image, "image", imageMedia, mediaFields, true, false, imageLineState},
-    {BlockSlotKind::Video, "video", videoMedia, videoFields, false, false, videoLineState},
+    {BlockSlotKind::Image, "image", imageMedia, imageFields, false, imageLineState},
+    {BlockSlotKind::Video, "video", videoMedia, videoFields, false, videoLineState},
     // The link's content (a linked image, say) still walks for image occurrences.
-    {BlockSlotKind::Link, "link", linkMedia, mediaFields, false, true, linkLineState},
-    {BlockSlotKind::Code, "code", codeMedia, codeFields, false, false, codeLineState},
+    {BlockSlotKind::Link, "link", linkMedia, linkFields, true, linkLineState},
+    {BlockSlotKind::Code, "code", codeMedia, codeFields, false, codeLineState},
 };
 
 const BlockKind &blockKindFor(BlockSlotKind kind) {

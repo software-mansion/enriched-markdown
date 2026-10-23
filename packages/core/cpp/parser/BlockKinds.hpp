@@ -18,9 +18,10 @@ enum class BlockSlotKind { Image, Video, Link, Code };
 enum class BlockLineState { None, Open, Complete };
 
 // Everything the core knows about one replaceable block kind. Adding a kind is
-// one entry in kBlockKinds (BlockKinds.cpp); the collector, the annotator, the
-// streaming filter and the name lookups all iterate the table. The hosts keep a
-// matching per-kind entry for the margins the placeholder takes.
+// one entry in kBlockKinds (BlockKinds.cpp) and its fields in BlockSlotFields
+// (BlockSlots.hpp); the collector, the annotator, the streaming filter and the
+// name lookups all iterate the table. The hosts keep a matching per-kind entry
+// for the margins the placeholder takes.
 struct BlockKind {
   BlockSlotKind kind;
   // The `blockSlotKind` attribute value and the id prefix.
@@ -28,11 +29,8 @@ struct BlockKind {
   // The node the slot's fields come from when `node` is a block of this kind,
   // else nullptr: the image or link of a paragraph, or the block itself.
   const MarkdownASTNode *(*media)(const MarkdownASTNode &node);
-  // Fills the slot's kind-specific fields from the media node and returns what
-  // its id hashes.
+  // Sets the slot's fields from the media node and returns what its id hashes.
   std::string (*fill)(const MarkdownASTNode &media, BlockSlot &slot);
-  // Whether the media node is also an image occurrence (resolveImageSource).
-  bool isImageOccurrence;
   // Whether the walk continues into the block's children (for occurrences inside it).
   bool walkChildren;
   // Classifies a streamed line whose quote markers are already stripped.

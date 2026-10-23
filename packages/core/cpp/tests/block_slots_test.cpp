@@ -48,6 +48,12 @@ std::string suffix(const std::string &id) {
   return id.substr(id.rfind(':'));
 }
 
+// A code slot's fields, empty for another kind.
+Markdown::CodeSlotFields codeOf(const Markdown::BlockSlot &slot) {
+  const auto *fields = std::get_if<Markdown::CodeSlotFields>(&slot.fields);
+  return fields ? *fields : Markdown::CodeSlotFields{};
+}
+
 size_t slotCount(const std::string &markdown) {
   return Markdown::collect(*parse(markdown)).slots.size();
 }
@@ -65,6 +71,8 @@ int main(int argc, char **argv) {
   using Markdown::BlockSlotKind;
   using Markdown::BlockSlotPlacement;
   using Markdown::ImagePlacement;
+  using Markdown::ImageSlotFields;
+  using Markdown::LinkSlotFields;
 
   const std::string doc =
       "# Title\n\n"
@@ -90,29 +98,29 @@ int main(int argc, char **argv) {
         "file link (got " +
             std::to_string(slots.size()) + ")");
   if (slots.size() == 6) {
-    check(slots[0].kind == BlockSlotKind::Image && slots[0].placement == BlockSlotPlacement::Root,
-          "slot 0 is the root image");
-    check(slots[0].altText == "Hero" && slots[0].title == "Hero title", "slot 0 carries alt and title");
-    check(slots[1].kind == BlockSlotKind::Link && slots[1].url == "https://e.com" && slots[1].altText == "linked",
+    const auto *hero = std::get_if<ImageSlotFields>(&slots[0].fields);
+    const auto *linked = std::get_if<LinkSlotFields>(&slots[1].fields);
+    const auto *quoted = std::get_if<ImageSlotFields>(&slots[2].fields);
+    const auto *file = std::get_if<LinkSlotFields>(&slots[5].fields);
+    check(hero && slots[0].placement == BlockSlotPlacement::Root, "slot 0 is the root image");
+    check(hero && hero->altText == "Hero" && hero->title == "Hero title", "slot 0 carries alt and title");
+    check(linked && linked->url == "https://e.com" && linked->label == "linked",
           "a linked image paragraph is a link block with the image's alt as label");
-    check(slots[2].kind == BlockSlotKind::Image && slots[2].placement == BlockSlotPlacement::Blockquote,
-          "slot 2 is the quoted image");
-    check(slots[3].kind == BlockSlotKind::Video && slots[3].placement == BlockSlotPlacement::Admonition,
+    check(quoted && slots[2].placement == BlockSlotPlacement::Blockquote, "slot 2 is the quoted image");
+    check(slots[3].kind() == BlockSlotKind::Video && slots[3].placement == BlockSlotPlacement::Admonition,
           "slot 3 is the admonition video");
-    check(slots[3].altText.empty() && slots[3].title.empty(), "videos carry no alt or title");
-    check(slots[4].kind == BlockSlotKind::Video && slots[4].placement == BlockSlotPlacement::Root,
+    check(slots[4].kind() == BlockSlotKind::Video && slots[4].placement == BlockSlotPlacement::Root,
           "slot 4 is the root video");
-    check(slots[5].kind == BlockSlotKind::Link && slots[5].altText == "Q3 report.pdf" &&
-              slots[5].title == "application/pdf" && slots[5].id.rfind("link:", 0) == 0,
+    check(file && file->label == "Q3 report.pdf" && file->title == "application/pdf" &&
+              slots[5].id.rfind("link:", 0) == 0,
           "the file link is a link block with label and title");
     check(slots[0].id.rfind("image:", 0) == 0 && suffix(slots[0].id) == ":0", "first a.png slot is 0");
     // The hash covers alt and title, so a.png with other text is another block.
     check(slots[2].id != slots[0].id && suffix(slots[2].id) == ":0",
           "quoted a.png has its own hash, got " + slots[2].id);
     check(suffix(slots[3].id) == ":0" && suffix(slots[4].id) == ":1", "identical videos count up");
-    check(slots[0].occurrenceId == images[0].id && slots[2].occurrenceId == images[4].id,
+    check(hero && quoted && hero->occurrenceId == images[0].id && quoted->occurrenceId == images[4].id,
           "image blocks name their occurrence");
-    check(slots[1].occurrenceId.empty() && slots[3].occurrenceId.empty(), "other blocks name no occurrence");
     check(collected.slotByNode.at(root->children[1].get()) == 0, "a slot is indexed by the paragraph it replaces");
   }
 
@@ -199,26 +207,24 @@ int main(int argc, char **argv) {
         "five code slots, none from the list (got " + std::to_string(fences.slots.size()) + ")");
   if (fences.slots.size() == 5) {
     const auto &code = fences.slots;
-    for (const auto &slot : code) {
-      check(slot.kind == BlockSlotKind::Code && slot.id.rfind("code:", 0) == 0, "a code block is a code slot");
-      check(slot.url.empty() && slot.altText.empty() && slot.title.empty() && slot.occurrenceId.empty(),
-            "code slots carry no url, text, title or occurrence");
-    }
+    for (const auto &slot : code)
+      check(slot.kind() == BlockSlotKind::Code && slot.id.rfind("code:", 0) == 0, "a code block is a code slot");
     check(code[0].id == "code:" + Markdown::fnv1a64Hex("js") + ":0",
           "a code id hashes the language, got " + code[0].id);
-    check(code[0].language == "js" && code[0].code == "let a;",
-          "trailing newlines are trimmed, got '" + code[0].code + "'");
+    check(codeOf(code[0]).language == "js" && codeOf(code[0]).code == "let a;",
+          "trailing newlines are trimmed, got '" + codeOf(code[0]).code + "'");
     check(code[0].placement == BlockSlotPlacement::Root && code[0].node == fencesRoot->children[0].get(),
           "the fence slot names its code block");
-    check(code[1].language.empty() && code[1].code == "indented", "an indented block has no language");
-    check(code[2].language.empty() && code[2].code == "plain", "a fence without a language");
+    check(codeOf(code[1]).language.empty() && codeOf(code[1]).code == "indented", "an indented block has no language");
+    check(codeOf(code[2]).language.empty() && codeOf(code[2]).code == "plain", "a fence without a language");
     check(suffix(code[1].id) == ":0" && suffix(code[2].id) == ":1" && code[1].id != code[2].id,
           "blocks without a language count up");
-    check(code[3].placement == BlockSlotPlacement::Blockquote && code[3].code == "quoted" &&
+    check(code[3].placement == BlockSlotPlacement::Blockquote && codeOf(code[3]).code == "quoted" &&
               suffix(code[3].id) == ":1" &&
               code[3].id.substr(0, code[3].id.rfind(':')) == code[0].id.substr(0, code[0].id.rfind(':')),
           "a quoted js block counts after the root one");
-    check(code[4].placement == BlockSlotPlacement::Admonition && code[4].language == "py" && code[4].code == "noted",
+    check(code[4].placement == BlockSlotPlacement::Admonition && codeOf(code[4]).language == "py" &&
+              codeOf(code[4]).code == "noted",
           "an admonition code block is a slot");
   }
   check(fences.lastCodeBlock != nullptr && fences.lastCodeBlock->type == Markdown::NodeType::CodeBlock &&
@@ -233,9 +239,9 @@ int main(int argc, char **argv) {
             openFence.slots[0].id == closedFence.slots[0].id,
         "a growing fence keeps its id");
   check(openFence.slots.size() == 1 && openFence.slots[0].node == openFence.lastCodeBlock &&
-            openFence.slots[0].code == "let a",
+            codeOf(openFence.slots[0]).code == "let a",
         "an open fence is the last code block");
-  check(closedFence.slots.size() == 1 && closedFence.slots[0].code == "let a = 1;\nlet b;", "multi-line code");
+  check(closedFence.slots.size() == 1 && codeOf(closedFence.slots[0]).code == "let a = 1;\nlet b;", "multi-line code");
 
   // Streamed, a fence shows once its opening line ends, so its id holds from the first tick it shows.
   auto streamed = [](const std::string &markdown) {
