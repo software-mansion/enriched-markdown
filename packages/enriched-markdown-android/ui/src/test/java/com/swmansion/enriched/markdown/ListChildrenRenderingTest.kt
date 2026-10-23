@@ -13,6 +13,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TaskListStyle
@@ -60,6 +61,27 @@ class ListChildrenRenderingTest {
     for (line in listOf("first line", "last line")) {
       assertEquals("code box left on \"$line\"", itemColumn, drawn.codeBoxOn(line).bounds.left, 0.01f)
       assertEquals("code text left on \"$line\"", itemColumn + CODE_PADDING, drawn.textLeft(line), 0.01f)
+    }
+  }
+
+  @Test
+  fun blockEndingAnItemLeavesNoBottomMarginBeforeTheNextItem() {
+    val endingBlocks =
+      mapOf(
+        "code block" to codeBlock(CODE),
+        "quote" to blockquote(paragraph(text("Quoted"))),
+        "quote ending with a code block" to blockquote(codeBlock(CODE)),
+      )
+    for ((name, block) in endingBlocks) {
+      val text = draw(itemsWithCode(block)).text
+      val lastLineEnd = text.indexOf("Next") - 1
+      val blockSpans =
+        text.getSpans(lastLineEnd, lastLineEnd + 1, CodeBlockSpan::class.java).size +
+          text.getSpans(lastLineEnd, lastLineEnd + 1, BlockquoteSpan::class.java).size
+
+      // The block's own last line, not a bottom-margin spacer after it, sits right above the next item.
+      assertEquals("line end before the next item after a $name", '\n', text[lastLineEnd])
+      assertTrue("the $name owns the line above the next item", blockSpans > 0)
     }
   }
 

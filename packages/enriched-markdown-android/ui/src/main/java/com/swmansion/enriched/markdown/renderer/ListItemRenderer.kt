@@ -6,6 +6,7 @@ import android.text.style.StrikethroughSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
+import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
@@ -106,6 +107,10 @@ class ListItemRenderer(
 
     if (builder.length == start || builder.substring(start).isBlank()) return
 
+    // A quote, heading or code block that ends the item leaves its bottom margin spacer; drop it, so the
+    // next item (or the list's own margin) follows as it does after a paragraph.
+    trimTrailingMarginSpacer(builder, start)
+
     if (builder.last() != '\n') {
       builder.append("\n")
     }
@@ -150,6 +155,24 @@ class ListItemRenderer(
     if (isChecked) {
       applyCheckedDecorations(builder, start, itemEnd, depth)
     }
+  }
+
+  /** Removes the trailing '\n' a block's MarginBottomSpan covers, leaving the block's own line ends. */
+  private fun trimTrailingMarginSpacer(
+    builder: SpannableStringBuilder,
+    itemStart: Int,
+  ) {
+    val spacerStart = builder.length - 1
+    if (spacerStart <= itemStart || builder[spacerStart] != '\n') return
+
+    val spacers =
+      builder
+        .getSpans(spacerStart, builder.length, MarginBottomSpan::class.java)
+        .filter { builder.getSpanStart(it) == spacerStart }
+    if (spacers.isEmpty()) return
+
+    spacers.forEach(builder::removeSpan)
+    builder.delete(spacerStart, builder.length)
   }
 
   private fun applyCheckedDecorations(
