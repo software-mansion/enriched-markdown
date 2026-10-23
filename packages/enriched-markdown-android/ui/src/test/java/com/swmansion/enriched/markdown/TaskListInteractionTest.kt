@@ -258,6 +258,34 @@ class TaskListInteractionTest {
   }
 
   @Test
+  fun togglesATaskThatOpensWithACodeBlockFromItsCheckboxLine() {
+    val style = decoratedStyle()
+    val task =
+      document(
+        unorderedList(
+          taskListItem(checked = false, codeBlock("val x = 1\n"), paragraph(text("After code"))),
+          taskListItem(checked = false, paragraph(text("Next task"))),
+        ),
+      )
+    val textView = laidOutTextView(render(task, style))
+    val text = textView.text as Spannable
+    val codeLine = textView.layout.getLineForOffset(text.indexOf("val x = 1"))
+
+    assertEquals("Both items draw a checkbox", 2, textView.checkboxCount())
+    val hit = TaskListTapUtils.hitTest(textView, rawX = 1f, rawY = lineCenterY(textView, codeLine))
+    assertNotNull("The checkbox beside the code block must be tappable", hit)
+    assertEquals(0, hit!!.taskIndex)
+    assertFalse(hit.checked)
+    assertTrue(TaskListTapUtils.updateTaskListItemCheckedState(textView, hit.span, newChecked = true, style))
+
+    assertEquals(true, TaskListTapUtils.hitTest(textView, rawX = 1f, rawY = lineCenterY(textView, codeLine))?.checked)
+    assertTrue(text.hasDecoration<AndroidStrikethroughSpan>("After code"))
+    assertFalse(text.hasDecoration<AndroidStrikethroughSpan>("val x = 1"))
+    assertFalse(text.taskSpanCovering("Next task").isChecked)
+    assertEquals("Both items still draw a checkbox", 2, textView.checkboxCount())
+  }
+
+  @Test
   fun reportsTheSpanChangeWhenTogglingSoTheViewRepaints() {
     val style = decoratedStyle()
     val textView = laidOutTextView(render(checklist(), style))
