@@ -74,14 +74,12 @@ EnrichedMarkdownParser::collect(jsi::Runtime &, std::string markdown, EnrichedMa
   }
   EnrichedMarkdownParserCollectedBlocks result;
   auto document = store.parse(markdown, toCoreFlags(flags), isGFM);
-  // An open fence is the document's last code block, a slot or not.
-  const Markdown::MarkdownASTNode *openCodeBlock = endsInsideOpenCodeFence ? document->blocks.lastCodeBlock : nullptr;
   for (const auto &slot : document->blocks.slots) {
     // useBlockSlots reads an unknown kind as an image, so code slots stay native
     // until it maps them.
     if (slot.kind() == Markdown::BlockSlotKind::Code)
       continue;
-    result.slots.push_back(nativeSlot(slot, openCodeBlock == nullptr || slot.node != openCodeBlock));
+    result.slots.push_back(nativeSlot(slot, Markdown::isSlotComplete(document->blocks, slot, endsInsideOpenCodeFence)));
   }
   for (const auto &image : document->blocks.images) {
     result.images.push_back(
