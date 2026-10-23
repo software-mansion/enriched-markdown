@@ -1,10 +1,34 @@
 #include "BlockKinds.hpp"
+#include "BlockSlots.hpp"
 #include "TextScan.hpp"
 #include <unordered_map>
 
 namespace Markdown {
 
 namespace {
+
+const std::string kUrlAttribute = "url";
+const std::string kTitleAttribute = "title";
+const std::string kLanguageAttribute = "language";
+
+void appendInlineText(const MarkdownASTNode &node, std::string &out) {
+  if (!node.content.empty()) {
+    out += node.content;
+  } else if (node.type == NodeType::SoftBreak || node.type == NodeType::LineBreak) {
+    out += ' ';
+  }
+  for (const auto &child : node.children) {
+    appendInlineText(*child, out);
+  }
+}
+
+// The URL, the text and the title, all part of the id.
+std::string mediaFields(const MarkdownASTNode &media, BlockSlot &slot) {
+  slot.url = nodeAttribute(media, kUrlAttribute);
+  slot.altText = inlineText(media);
+  slot.title = nodeAttribute(media, kTitleAttribute);
+  return blockIdentity(slot.url, slot.altText, slot.title);
+}
 
 // The stream may have stopped partway through `syntax` (`<vi` of `<video`).
 bool isPartial(std::string_view body, std::string_view syntax) {
@@ -39,6 +63,11 @@ BlockLineState imageLineState(std::string_view body) {
 
 const MarkdownASTNode *videoMedia(const MarkdownASTNode &node) {
   return node.type == NodeType::Video ? &node : nullptr;
+}
+
+std::string videoFields(const MarkdownASTNode &video, BlockSlot &slot) {
+  slot.url = nodeAttribute(video, kUrlAttribute);
+  return blockIdentity(slot.url, std::string(), std::string());
 }
 
 BlockLineState videoLineState(std::string_view body) {
@@ -81,7 +110,50 @@ BlockLineState linkLineState(std::string_view body) {
   return BlockLineState::None;
 }
 
+// ---- code: a fenced or indented code block
+
+const MarkdownASTNode *codeMedia(const MarkdownASTNode &node) {
+  return node.type == NodeType::CodeBlock ? &node : nullptr;
+}
+
+void appendCode(const MarkdownASTNode &node, std::string &out) {
+  out += node.content;
+  for (const auto &child : node.children) {
+    appendCode(*child, out);
+  }
+}
+
+// The id hashes the language alone, so a fence keeps its id while its code
+// streams in and when it closes.
+std::string codeFields(const MarkdownASTNode &block, BlockSlot &slot) {
+  slot.language = nodeAttribute(block, kLanguageAttribute);
+  appendCode(block, slot.code);
+  while (!slot.code.empty() && slot.code.back() == '\n')
+    slot.code.pop_back();
+  return slot.language;
+}
+
+// The streaming filter cuts open fences by codeBlockMode, apart from mediaMode.
+BlockLineState codeLineState(std::string_view) {
+  return BlockLineState::None;
+}
+
 } // namespace
+
+std::string nodeAttribute(const MarkdownASTNode &node, const std::string &key) {
+  auto it = node.attributes.find(key);
+  return it == node.attributes.end() ? std::string() : it->second;
+}
+
+std::string inlineText(const MarkdownASTNode &node) {
+  std::string text;
+  appendInlineText(node, text);
+  size_t start = text.find_first_not_of(" \t\r\n");
+  if (start == std::string::npos)
+    return std::string();
+  size_t end = text.find_last_not_of(" \t\r\n");
+  return text.substr(start, end - start + 1);
+}
 
 namespace InlineSyntax {
 
@@ -264,10 +336,11 @@ BlockLineState state(std::string_view text, size_t bracket) {
 
 // Order matters where a node could match two kinds: none do today.
 const BlockKind kBlockKinds[kBlockKindCount] = {
-    {BlockSlotKind::Image, "image", imageMedia, true, true, false, imageLineState},
-    {BlockSlotKind::Video, "video", videoMedia, false, false, false, videoLineState},
+    {BlockSlotKind::Image, "image", imageMedia, mediaFields, true, false, imageLineState},
+    {BlockSlotKind::Video, "video", videoMedia, videoFields, false, false, videoLineState},
     // The link's content (a linked image, say) still walks for image occurrences.
-    {BlockSlotKind::Link, "link", linkMedia, true, false, true, linkLineState},
+    {BlockSlotKind::Link, "link", linkMedia, mediaFields, false, true, linkLineState},
+    {BlockSlotKind::Code, "code", codeMedia, codeFields, false, false, codeLineState},
 };
 
 const BlockKind &blockKindFor(BlockSlotKind kind) {
