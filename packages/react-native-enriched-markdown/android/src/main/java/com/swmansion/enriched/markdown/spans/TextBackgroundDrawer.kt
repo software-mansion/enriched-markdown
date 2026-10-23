@@ -98,7 +98,7 @@ internal class TextBackgroundDrawer {
     }
     for (span in highlights) {
       forEachLine(layout, text, span, first, last) { line, lineStart, lineEnd, spanStart, spanEnd ->
-        span.drawLine(canvas, this, layout, line, lineStart, lineEnd, spanStart, spanEnd)
+        span.drawLine(canvas, this, layout, line, lineStart, lineEnd, spanStart, spanEnd, text)
       }
     }
     for (span in code) {

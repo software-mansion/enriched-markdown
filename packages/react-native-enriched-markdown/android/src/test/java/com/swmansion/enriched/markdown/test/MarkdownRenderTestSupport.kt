@@ -27,7 +27,7 @@ object MarkdownRenderTestSupport {
 
   /**
    * The style map the JS side sends, with [list], [taskList], [blockquote], [codeBlock], [image] and [highlight] entries replacing
-   * the defaults.
+   * the defaults, and [elements] merging entries into any other element (e.g. `"code" to mapOf("backgroundColor" to RED)`).
    * Sizes are Double, colors Int, as in a ReadableMap.
    */
   fun styleConfig(
@@ -37,6 +37,7 @@ object MarkdownRenderTestSupport {
     codeBlock: Map<String, Any> = emptyMap(),
     image: Map<String, Any> = emptyMap(),
     highlight: Map<String, Any> = emptyMap(),
+    elements: Map<String, Map<String, Any>> = emptyMap(),
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
@@ -74,6 +75,10 @@ object MarkdownRenderTestSupport {
     style.putMap("thematicBreak", JavaOnlyMap.of("color", Color.BLACK, "height", 1.0, "marginTop", 0.0, "marginBottom", 0.0))
     style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage + image) })
     style.putMap("inlineImage", JavaOnlyMap.of("size", 20.0))
+    for ((element, values) in elements) {
+      val map = style.getMap(element) as? JavaOnlyMap ?: JavaOnlyMap().also { style.putMap(element, it) }
+      map.putAll(values)
+    }
     return StyleConfig(style, context, false, 0f)
   }
 

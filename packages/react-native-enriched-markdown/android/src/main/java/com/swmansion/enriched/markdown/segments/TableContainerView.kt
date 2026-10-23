@@ -31,6 +31,9 @@ import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.spans.TextBackgroundDrawer
+import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
@@ -386,7 +389,7 @@ class TableContainerView(
   ) {
     val cellTextView =
       CellTextView(context).apply {
-        text = data.attributedText
+        applyCellText(data.attributedText, dynamicProps.spoilerOverlay)
         textSize = tableStyle.fontSize / resources.displayMetrics.scaledDensity
         typeface = if (data.isHeader) styleConfig.tableHeaderTypeface else styleConfig.tableTypeface
         setTextColor(if (data.isHeader) tableStyle.headerTextColor else tableStyle.color)
@@ -719,7 +722,33 @@ class TableContainerView(
 
   private class CellTextView(
     context: Context,
-  ) : androidx.appcompat.widget.AppCompatTextView(context) {
+  ) : androidx.appcompat.widget.AppCompatTextView(context),
+    SpoilerCapable {
+    override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
+      private set
+
+    override var spoilerOverlay: SpoilerOverlayMode = SpoilerOverlayMode.PARTICLES
+      set(value) {
+        if (field == value) return
+        field = value
+        spoilerOverlayDrawer?.overlayMode = value
+      }
+
+    fun applyCellText(
+      styledText: CharSequence,
+      overlay: SpoilerOverlayMode,
+    ) {
+      spoilerOverlay = overlay
+      text = styledText
+      spoilerOverlayDrawer = SpoilerOverlayDrawer.setupIfNeeded(this, styledText, spoilerOverlayDrawer, spoilerOverlay)
+    }
+
+    override fun onDetachedFromWindow() {
+      // Kept, not cleared: the next draw after reattaching picks the animation back up.
+      spoilerOverlayDrawer?.stop()
+      super.onDetachedFromWindow()
+    }
+
     init {
       setPadding(0, 0, 0, 0)
       includeFontPadding = false
@@ -751,6 +780,7 @@ class TableContainerView(
       val drawer = textBackgrounds ?: TextBackgroundDrawer().also { textBackgrounds = it }
       drawer.draw(canvas, this)
       super.onDraw(canvas)
+      spoilerOverlayDrawer?.draw(canvas)
     }
   }
 
