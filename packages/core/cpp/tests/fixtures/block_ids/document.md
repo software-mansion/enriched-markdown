@@ -15,3 +15,17 @@ https://e.com/😀/bare
 <video src="https://e.com/v.mp4"></video>
 
 [![thumb](https://e.com/t.png)](https://e.com/full.png)
+
+```mermaid
+graph TD
+```
+
+    indented
+
+> ```js
+> quoted
+> ```
+
+- ```js
+  listed
+  ```

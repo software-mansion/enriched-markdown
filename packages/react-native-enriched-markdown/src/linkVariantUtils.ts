@@ -22,6 +22,27 @@ function warnAboutUnsafePattern(owner: string, pattern: string): void {
 }
 
 /**
+ * `pattern` compiled with `flags`, or undefined with a dev warning when it is
+ * not a valid regex. `owner` names the prop in the warning.
+ */
+export function compilePattern(
+  pattern: string,
+  owner: string,
+  flags?: string
+): RegExp | undefined {
+  try {
+    return new RegExp(pattern, flags);
+  } catch {
+    if (isDev) {
+      console.warn(
+        `${owner} pattern "${pattern}" is not a valid regex and will be ignored.`
+      );
+    }
+    return undefined;
+  }
+}
+
+/**
  * Orders URL patterns the way native tries them: longest first, so the most
  * specific pattern wins. Patterns that are not valid regexes are dropped.
  * `owner` names the prop in warnings.
@@ -33,17 +54,7 @@ export function normalizeLinkPatternEntries<T>(
   return Object.entries(entries ?? {})
     .sort(([a], [b]) => b.length - a.length)
     .filter(([pattern]) => {
-      try {
-        RegExp(pattern);
-      } catch {
-        if (isDev) {
-          console.warn(
-            `${owner} pattern "${pattern}" is not a valid regex and will be ignored.`
-          );
-        }
-        return false;
-      }
-
+      if (compilePattern(pattern, owner) == null) return false;
       if (isDev) {
         warnAboutUnsafePattern(owner, pattern);
       }
