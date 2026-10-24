@@ -73,6 +73,10 @@ class EnrichedMarkdown(
   private val videoContainerClass: Class<*>? by lazy { SegmentViewCreators.videoContainerClass() }
 
   private var currentRenderId = 0L
+
+  // Set when React Native drops the view for good. Detaching from the window is
+  // not disposal: a view renders before its first attach and while detached.
+  private var isDisposed = false
   private val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
   var streamingAnimation: Boolean = false
     set(value) {
@@ -291,6 +295,7 @@ class EnrichedMarkdown(
   }
 
   fun commitProps() {
+    if (isDisposed) return
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     if (renderPending) {
       renderPending = false
@@ -573,6 +578,7 @@ class EnrichedMarkdown(
   }
 
   private fun scheduleRender() {
+    if (isDisposed) return
     val job = renderJob() ?: return
     val renderId = ++currentRenderId
     executor.execute {
@@ -591,6 +597,7 @@ class EnrichedMarkdown(
   // placeholder that reserves its space must land in the same frame: render inline
   // instead of one executor hop later, and drop any render already in flight.
   private fun renderSynchronously() {
+    if (isDisposed) return
     val job = renderJob() ?: return
     currentRenderId++
     val (segments, pendingCodeBlock) =
@@ -827,7 +834,7 @@ class EnrichedMarkdown(
     action: () -> Unit,
   ) {
     mainHandler.post {
-      if (renderId == currentRenderId) action()
+      if (!isDisposed && renderId == currentRenderId) action()
     }
   }
 
@@ -861,6 +868,7 @@ class EnrichedMarkdown(
   }
 
   fun onImageLayoutChanged() {
+    if (isDisposed) return
     if (width > 0) {
       layoutSegments()
       requestLayout()
@@ -872,9 +880,16 @@ class EnrichedMarkdown(
     wrapper.updateState(state)
   }
 
+  // Shutting the executor down does not cancel results it already posted, nor a
+  // render that ignores the interrupt and posts afterwards, so drop those here
+  // and refuse further work instead of applying it to a view React has dropped.
   fun cleanup() {
+    isDisposed = true
+    currentRenderId++
     blockSlotReveal.reset()
     executor.shutdownNow()
+    mainHandler.removeCallbacksAndMessages(null)
+    stateWrapper = null
   }
 
   companion object {
