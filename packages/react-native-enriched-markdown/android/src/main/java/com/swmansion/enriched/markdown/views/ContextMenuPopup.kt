@@ -105,15 +105,39 @@ object ContextMenuPopup {
     val screenW = context.resources.displayMetrics.widthPixels
     val margin = 8f.dp
 
-    val x =
-      (centerX - container.measuredWidth / 2)
-        .coerceIn(margin, screenW - container.measuredWidth - margin)
-    val y =
-      (topY - container.measuredHeight - margin)
-        .coerceAtLeast(margin)
+    val (x, y) =
+      popupPosition(
+        centerX = centerX,
+        topY = topY,
+        popupWidth = container.measuredWidth,
+        popupHeight = container.measuredHeight,
+        screenW = screenW,
+        margin = margin,
+      )
 
     activePopup = popup
     popup.showAtLocation(parent, Gravity.NO_GRAVITY, x, y)
+  }
+
+  // Centers the popup over the anchor and keeps it above it, inside the
+  // screen's margins.
+  internal fun popupPosition(
+    centerX: Int,
+    topY: Int,
+    popupWidth: Int,
+    popupHeight: Int,
+    screenW: Int,
+    margin: Int,
+  ): Pair<Int, Int> {
+    // Not coerceIn: a popup wider than the screen makes its max smaller than its min, which throws.
+    val x =
+      (centerX - popupWidth / 2)
+        .coerceAtMost(screenW - popupWidth - margin)
+        .coerceAtLeast(margin)
+    val y =
+      (topY - popupHeight - margin)
+        .coerceAtLeast(margin)
+    return x to y
   }
 
   private fun createMenuItemView(
