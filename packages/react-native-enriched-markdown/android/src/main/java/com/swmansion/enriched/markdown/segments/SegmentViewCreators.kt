@@ -209,7 +209,7 @@ object SegmentViewCreators {
     segment: RenderedSegment.Blockquote,
     config: SegmentViewConfig,
   ) = BlockquoteContainerView(config.context, config).apply {
-    applyBlockquoteNode(segment.node)
+    applyBlockquoteNode(segment.node, segment.taskIndexOffset)
   }
 
   private val cachedVideoContainerClass: Class<*>? by lazy {

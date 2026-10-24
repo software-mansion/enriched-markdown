@@ -767,7 +767,7 @@ class EnrichedMarkdown(
         }
 
         is RenderedSegment.Blockquote -> {
-          (view as BlockquoteContainerView).applyBlockquoteNode(segment.node)
+          (view as BlockquoteContainerView).applyBlockquoteNode(segment.node, segment.taskIndexOffset)
         }
 
         is RenderedSegment.Video -> {

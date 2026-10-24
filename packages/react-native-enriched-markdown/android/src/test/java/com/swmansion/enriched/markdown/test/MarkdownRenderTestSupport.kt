@@ -35,7 +35,8 @@ object MarkdownRenderTestSupport {
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
-    listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight")
+    // Headings are read by StyleConfig.needsJustify, which every segment render consults.
+    (listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight") + (1..6).map { "h$it" })
       .forEach { style.putMap(it, textElement()) }
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
