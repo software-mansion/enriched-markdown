@@ -39,6 +39,7 @@ The elements:
 | [`CodeBlock()`](#codeblock) | Fenced code blocks |
 | [`Code()`](#code) | Inline code |
 | [`Link()`](#link) | Links and autolinks |
+| [`Link(matching: "^user:")`](#link-matching) | Links whose URL matches a pattern, such as mentions |
 | [`Strong()`](#strong-emphasis-strikethrough) | Bold text |
 | [`Emphasis()`](#strong-emphasis-strikethrough) | Italic text |
 | [`Strikethrough()`](#strong-emphasis-strikethrough) | Struck-through text |
@@ -107,7 +108,7 @@ On `Link`, `Strong`, `Emphasis`, `Strikethrough`, `Underline`, and `Highlight`, 
 
 The elements that are not text blocks take their own modifiers instead, listed in their sections below: [`TaskList()`](#tasklist), [`Admonition()`](#admonition), [`Spoiler()`](#spoiler), [`BlockImage()`](#blockimage), [`InlineImage()`](#inlineimage), [`ThematicBreak()`](#thematicbreak), [`Superscript()` / `Subscript()`](#superscript--subscript), and [`SyntaxToken(_:)`](#syntaxtoken).
 
-Background modifiers - `.background(_:)` and its alias `.backgroundStyle(_:)` - are available on `Code`, `CodeBlock`, `Blockquote`, `Admonition`, `Highlight`, and `Spoiler` only; a paragraph or heading has no fill.
+Background modifiers - `.background(_:)` and its alias `.backgroundStyle(_:)` - are available on `Code`, `CodeBlock`, `Blockquote`, `Admonition`, `Highlight`, `Spoiler`, and `Link` only; a paragraph or heading has no fill.
 
 :::caution
 `.font(size:weight:design:)` and `.font(custom:size:)` take a point size, which **opts the element out of Dynamic Type**. Use `.font(.body)` and its siblings unless you have a reason not to; see [Custom fonts](/ios/guides/custom-fonts).
@@ -428,6 +429,7 @@ Links and autolinks. Takes the [shared modifiers](#shared-modifiers) plus:
 | --- | --- | --- | --- |
 | `.underline(_ enabled: Bool = true)` | `Bool` | `true` | Whether the link is underlined |
 | `.foregroundStyle(_:)` | `Color \| semantic` | `.tint` | Link color; everything else is inherited from the surrounding block |
+| `.background(_:)` | `Color \| semantic` | unset - no fill | Fill behind the link text. Inline code inside a link keeps its own background |
 
 ```swift
 MarkdownTheme {
@@ -437,7 +439,34 @@ MarkdownTheme {
 }
 ```
 
-A tapped link goes through the [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) environment action, which opens it with the system unless you install your own.
+A tapped link goes through the [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) environment action, which opens it with the system unless you install your own. To style some links differently from the rest, add a [`Link(matching:)`](#link-matching) element.
+
+### `Link(matching: String)` {#link-matching}
+
+Styles only the links whose URL matches a pattern, such as mentions like `[@Alice](user://alice)`. The pattern is a regular expression, tested against the URL as written in the Markdown. Anything you leave unset comes from [`Link()`](#link):
+
+| Modifier | Type | Default | Description |
+| --- | --- | --- | --- |
+| `.foregroundStyle(_:)` | `Color \| semantic` | the `Link()` color | Text color of the matching links |
+| `.background(_:)` | `Color \| semantic` | the `Link()` fill | Fill behind the matching links |
+| `.underline(_ enabled: Bool = true)` | `Bool` | the `Link()` setting | Whether the matching links are underlined |
+
+```swift
+MarkdownTheme {
+  Link().foregroundStyle(.blue)
+
+  Link(matching: "^user:")
+    .foregroundStyle(.indigo)
+    .background(Color.indigo.opacity(0.12))
+    .underline(false)
+
+  Link(matching: "^channel:")
+    .foregroundStyle(.green)
+    .underline(false)
+}
+```
+
+When several patterns match a link, the longest one wins. Patterns of the same length win in the order you declare them. A pattern that is not a valid regular expression is skipped. Layers that use the same pattern merge, like any other element. To route taps by URL scheme, see [Mentions](/rich-text-formatting/mentions).
 
 ### `Strong()`, `Emphasis()`, `Strikethrough()` {#strong-emphasis-strikethrough}
 

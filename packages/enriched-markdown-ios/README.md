@@ -162,6 +162,7 @@ The `MarkdownTheme` builder supports these elements:
 | `Paragraph()` | Body text |
 | `Heading(1)` … `Heading(6)` | Headings |
 | `Link()` | Links |
+| `Link(matching: "^user:")` | Links whose URL matches a pattern, such as mentions |
 | `Strong()` | Bold text |
 | `Emphasis()` | Italic text |
 | `Strikethrough()` | Struck-through text |
@@ -192,7 +193,7 @@ For custom families, `.bold()` and `.italic()` pick the matching face from the s
 
 Element-specific modifiers include:
 
-- **Link:** `.underline(_:)`
+- **Link:** `.underline(_:)`, `.background` / `.backgroundStyle`. `Link(matching: "^user:")` styles only links whose URL matches the pattern, such as mentions. The pattern is a regular expression. Anything left unset comes from `Link()`, and the longest matching pattern wins
 - **Code / CodeBlock / Blockquote / Highlight:** `.background` / `.backgroundStyle`
 - **CodeBlock / Blockquote / Table:** `.border(_:width:)` — color and width together, as SwiftUI's modifier; leave `width` out to recolor a border a lower layer sized, or use `.border(width:)` to resize one a lower layer colored
 - **CodeBlock / Blockquote:** `.padding` / `.gapWidth`, `.cornerRadius` (CodeBlock), `.headerForegroundStyle` (CodeBlock: the scrollable panel's language label and copy button, see [Code blocks](#code-blocks))
@@ -285,6 +286,8 @@ EnrichedMarkdownText(markdown)
 ```
 
 `onMarkdownLinkLongPress` is called when a link is long-pressed, replacing the system link menu. Without it the system menu stays. Scope either to a single view or a larger subtree.
+
+Mentions such as `[@Alice](user://alice)` are links too. Route them by switching on `url.scheme` in the action, and style them with `Link(matching: "^user:")` (see [Theme elements](#theme-elements)).
 
 ### `.onTaskListItemToggle` / `.markdownTaskListItemToggleEnabled`
 

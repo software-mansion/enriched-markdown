@@ -187,6 +187,7 @@ public struct MarkdownStyleConfiguration: Equatable, Sendable {
   public var heading1: ElementStyle   // … through heading6
   public var codeBlock: CodeBlockStyle
   public var blockquote: BlockquoteStyle
+  public var linkVariants: [LinkVariantStyle]   // one per Link(matching:) pattern
   // … one record per element: link, strong, emphasis, strikethrough, underline,
   // superscript, subscript, highlight, spoiler, code, image, inlineImage,
   // thematicBreak, list, taskList, table
