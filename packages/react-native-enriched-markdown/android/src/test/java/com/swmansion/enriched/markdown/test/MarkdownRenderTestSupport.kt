@@ -27,16 +27,21 @@ object MarkdownRenderTestSupport {
 
   /**
    * The style map the JS side sends, with [list] and [taskList] entries replacing the defaults.
-   * Sizes are Double, colors Int, as in a ReadableMap.
+   * Sizes are Double, colors Int, as in a ReadableMap. [textAlign], when given, is the JS
+   * `textAlign` value of the paragraph and every heading level.
    */
   fun styleConfig(
     list: Map<String, Any> = emptyMap(),
     taskList: Map<String, Any> = emptyMap(),
+    textAlign: String? = null,
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
-    listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight")
+    listOf("strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight")
       .forEach { style.putMap(it, textElement()) }
+    (listOf("paragraph") + (1..6).map { "h$it" }).forEach { key ->
+      style.putMap(key, textElement().apply { textAlign?.let { putString("textAlign", it) } })
+    }
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
       "linkVariants",
