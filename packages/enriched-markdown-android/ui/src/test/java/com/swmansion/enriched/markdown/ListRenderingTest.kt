@@ -278,6 +278,27 @@ class ListRenderingTest {
     }
   }
 
+  @Test
+  fun bulletsCenterOnTheListFontWhenTheBaseTextSizeDiffers() {
+    val style = styleWithListFontSize(4f * MarkdownRenderTestSupport.defaultStyle.paragraphStyle.fontSize)
+    val text = SpannableString(render(document(list(Kind.BULLET, list(Kind.BULLET, list(Kind.BULLET)))), style))
+    // The text view's own text size is the paragraph font size, and the layout hands that paint to drawLeadingMargin.
+    val layout = MarkerCanvas.layout(text, style.paragraphStyle.fontSize)
+    val listFont =
+      TextPaint()
+        .apply {
+          textSize = style.listStyle.fontSize
+          typeface = Typeface.create("monospace", Typeface.NORMAL)
+        }.fontMetrics
+    val markers = MarkerCanvas.markerGeometry(text, layout)
+    assertEquals(listOf(0, 1, 2), markers.map { it.depth })
+    markers.forEach {
+      val line = layout.getLineForVertical(it.marker.baseline.toInt())
+      val expected = layout.getLineBaseline(line) + (listFont.ascent + listFont.descent) / 2f
+      assertEquals("bullet center at depth ${it.depth}", expected, it.marker.baseline, 0.01f)
+    }
+  }
+
   /** The rows [wide] shares with [short], tasks and their children included, all sit [wide]'s widening further right. */
   private fun assertEveryRowShiftsTogether(
     style: StyleConfig,
@@ -378,6 +399,9 @@ class ListRenderingTest {
       ),
     )
   }
+
+  private fun styleWithListFontSize(fontSize: Float): StyleConfig =
+    MarkdownRenderTestSupport.styleWithList(styleConfig().listStyle.copy(fontSize = fontSize))
 
   private enum class Kind { ORDERED, BULLET, TASK }
 

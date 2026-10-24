@@ -68,8 +68,7 @@ class UnorderedListSpan(
     // visually flush-left when the column width equals the bullet radius
     // (the default).
     val bulletX = x + (depth * marginLeft + ancestorMarkerOffset + markerColumnWidth) * dir
-    val fontMetrics = paint.fontMetrics
-    val bulletY = baseline + (fontMetrics.ascent + fontMetrics.descent) / 2f
+    val bulletY = baseline + (markerFontMetrics.ascent + markerFontMetrics.descent) / 2f
 
     when (depth) {
       0 -> {
