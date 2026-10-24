@@ -9,6 +9,8 @@ import android.text.style.CharacterStyle
 import android.text.style.LineBackgroundSpan
 import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
+import com.swmansion.enriched.markdown.spoiler.colorWithAlpha
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import kotlin.math.max
 import kotlin.math.min
 
@@ -51,6 +53,11 @@ class HighlightSpan(
     val spanEnd = text.getSpanEnd(this)
     if (spanStart !in 0 until spanEnd) return
 
+    // A band under a concealed spoiler would outline the hidden text, so it fades in with the text
+    // instead.
+    val visibility = text.spoilerTextAlpha(maxOf(spanStart, start), minOf(spanEnd, end))
+    if (visibility <= 0f) return
+
     val isFirst = spanStart >= start
     val isLast = spanEnd <= end
 
@@ -74,7 +81,7 @@ class HighlightSpan(
     val bandTop = max(top.toFloat(), (baseline + metrics.ascent).toFloat())
     val bandBottom = min(bottom.toFloat(), (baseline + metrics.descent).toFloat())
 
-    backgroundPaint.color = backgroundColor
+    backgroundPaint.color = colorWithAlpha(backgroundColor, visibility)
     canvas.drawRect(min(startX, endX), bandTop, max(startX, endX), bandBottom, backgroundPaint)
   }
 }

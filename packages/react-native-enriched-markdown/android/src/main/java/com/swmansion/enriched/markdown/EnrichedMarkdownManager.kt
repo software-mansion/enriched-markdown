@@ -14,7 +14,7 @@ import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerInterface
 import com.facebook.yoga.YogaMeasureMode
-import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
@@ -336,7 +336,7 @@ class EnrichedMarkdownManager :
     view: EnrichedMarkdown?,
     mode: String?,
   ) {
-    view?.spoilerOverlay = SpoilerOverlay.fromString(mode)
+    view?.spoilerOverlay = SpoilerOverlayMode.fromString(mode)
   }
 
   @ReactProp(name = "textBreakStrategy")

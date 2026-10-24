@@ -10,6 +10,7 @@ import com.swmansion.enriched.markdown.renderer.SpanStyleCache
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.ListMarkerAnchorSpan
+import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
@@ -243,6 +244,23 @@ object TaskListTapUtils {
       } else {
         removeCheckedSpans(spannable, currentPos, spanEnd, styleConfig)
       }
+    }
+    keepSpoilersLast(spannable, spanStart, spanEnd)
+  }
+
+  // A spoiler conceals its text by fading the paint, so it has to run after every span that sets a
+  // color. The color spans just added come later in span order, so the spoilers move back behind them.
+  private fun keepSpoilersLast(
+    spannable: Spannable,
+    start: Int,
+    end: Int,
+  ) {
+    for (span in spannable.getSpans(start, end, SpoilerSpan::class.java)) {
+      val spanStart = spannable.getSpanStart(span)
+      val spanEnd = spannable.getSpanEnd(span)
+      val flags = spannable.getSpanFlags(span)
+      spannable.removeSpan(span)
+      spannable.setSpan(span, spanStart, spanEnd, flags)
     }
   }
 
