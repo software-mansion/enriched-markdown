@@ -1,16 +1,12 @@
 import EnrichedMarkdown
+import EnrichedMarkdownRepair
 import Foundation
 
 enum StreamingMarkdownRepair {
-    struct Syntax: Equatable {
-        var latexMath = false
-        var highlight = false
-    }
-
-    static func repair(_ markdown: String, syntax: Syntax = Syntax()) -> String {
+    static func repair(_ markdown: String, options: MarkdownParsingOptions) -> String {
         var text = Array(markdown.unicodeScalars)
         if let fence = FenceScan.openFence(in: text) {
-            return String(String.UnicodeScalarView(removingPartialCloser(of: fence, from: text)))
+            return string(removingPartialCloser(of: fence, from: text))
         }
 
         text = removingTrailingMarkerLine(text)
@@ -21,21 +17,27 @@ enum StreamingMarkdownRepair {
         }
 
         var scope = Array(text[scopeStart..<scopeEnd])
-        if syntax.latexMath {
+        if options.latexMathEnabled {
             scope = truncatingUnclosedMath(scope)
         }
-        scope = healingTrailingLinks(scope)
+        scope = unwrappingTrailingLabel(scope)
         scope = droppingTrailingOpeners(scope)
         while let last = scope.last, isWhitespace(last) {
             scope.removeLast()
         }
 
-        var result = String.UnicodeScalarView()
-        result.append(contentsOf: text[..<scopeStart])
-        result.append(contentsOf: scope)
-        result.append(contentsOf: closers(for: scope, syntax: syntax))
-        result.append(contentsOf: text[scopeEnd...])
-        return String(result)
+        return closingOpenSyntax(in: string(text[..<scopeStart] + scope), highlight: options.highlight)
+            + string(text[scopeEnd...])
+    }
+
+    private static func closingOpenSyntax(in markdown: String, highlight: Bool) -> String {
+        guard let repaired = em_repair_inline_markdown(markdown, highlight ? 1 : 0) else { return markdown }
+        defer { em_repair_release(repaired) }
+        return String(cString: repaired)
+    }
+
+    private static func string<S: Sequence>(_ scalars: S) -> String where S.Element == Unicode.Scalar {
+        String(String.UnicodeScalarView(scalars))
     }
 
     // MARK: - Block-level trimming
@@ -59,10 +61,18 @@ enum StreamingMarkdownRepair {
             isMarkerOnly = remainder.count <= limit
         } else if contentStart > lineStart, remainder.starts(with: "[!".unicodeScalars), !remainder.contains("]") {
             isMarkerOnly = true
+        } else if let length = listMarkerLength(remainder, at: 0) {
+            let rest = remainder[length...].drop(while: isWhitespace)
+            isMarkerOnly = rest.isEmpty || isOpenCheckbox(rest)
         } else {
-            isMarkerOnly = listMarkerLength(remainder, at: 0) == remainder.count
+            isMarkerOnly = false
         }
         return isMarkerOnly ? Array(text[..<lineStart]) : text
+    }
+
+    private static func isOpenCheckbox(_ rest: ArraySlice<Unicode.Scalar>) -> Bool {
+        guard rest.first == "[", rest.count <= 2 else { return false }
+        return rest.count == 1 || " xX".unicodeScalars.contains(rest[rest.startIndex + 1])
     }
 
     private static func removingPartialCloser(of fence: FenceScan.OpenFence, from text: [Unicode.Scalar]) -> [Unicode.Scalar] {
@@ -180,174 +190,121 @@ enum StreamingMarkdownRepair {
 }
 
 extension StreamingMarkdownRepair {
-    // MARK: - Closers
+    // MARK: - Inline trimming
 
-    private struct Closer {
-        let opener: Int
-        let text: String
-        let completesTrailingRun: Bool
+    static func truncatingUnclosedMath(_ text: [Unicode.Scalar]) -> [Unicode.Scalar] {
+        let spans = SpanScan(text)
+        var openers: [(index: Int, length: Int)] = []
+        var index = 0
+        while index < text.count {
+            guard text[index] == "$", spans.isProse(index), !isEscaped(text, index) else {
+                index += 1
+                continue
+            }
+            var end = index
+            while end < text.count, text[end] == "$" {
+                end += 1
+            }
+            let length = end - index
+            defer { index = end }
+            guard length <= 2 else { continue }
+
+            let canOpen = index == 0 || text[index - 1] == "\n"
+                || isWhitespace(text[index - 1]) || isPunctuation(text[index - 1])
+            let canClose = end == text.count || text[end] == "\n"
+                || isWhitespace(text[end]) || isPunctuation(text[end])
+            if canClose, let top = openers.last, top.length == length {
+                openers.removeAll()
+                continue
+            }
+            if canOpen {
+                openers.append((index, length))
+            }
+        }
+
+        guard let open = openers.last else { return text }
+        if open.length == 1 {
+            let next = open.index + 1
+            guard next < text.count, !isWhitespace(text[next]), !("0"..."9").contains(text[next]) else {
+                return text
+            }
+        }
+        return Array(text[..<open.index])
     }
 
-    private static func closers(for text: [Unicode.Scalar], syntax: Syntax) -> String.UnicodeScalarView {
-        var rules: [(InlineText) -> Closer?] = [
-            boldItalicCloser, boldCloser, doubleUnderscoreCloser, singleAsteriskCloser,
-            singleUnderscoreCloser, inlineCodeCloser,
-            { doubleMarkerCloser($0, marker: "~") },
-            { doubleMarkerCloser($0, marker: "|") }
-        ]
-        if syntax.highlight {
-            rules.append { doubleMarkerCloser($0, marker: "=") }
+    static func unwrappingTrailingLabel(_ text: [Unicode.Scalar]) -> [Unicode.Scalar] {
+        let close = text.count - 1
+        guard close > 0, text[close] == "]", !isEscaped(text, close),
+              let open = matchingOpeningBracket(in: text, closingAt: close),
+              !isEscaped(text, open), !isTaskCheckbox(text, open: open), !isAdmonitionMarker(text, open: open)
+        else { return text }
+        let spans = SpanScan(text)
+        guard spans.isProse(open), spans.isProse(close) else { return text }
+        if open > 0, text[open - 1] == "!" {
+            return Array(text[..<(open - 1)])
         }
-
-        var virtual = text
-        var inline = InlineText(virtual, latexMath: syntax.latexMath)
-        var closers: [Closer] = []
-        for rule in rules {
-            guard let closer = rule(inline) else { continue }
-            closers.append(closer)
-            virtual.append(contentsOf: closer.text.unicodeScalars)
-            inline = InlineText(virtual, latexMath: syntax.latexMath)
-        }
-
-        let ordered = closers.filter(\.completesTrailingRun)
-            + closers.filter { !$0.completesTrailingRun }.sorted { $0.opener > $1.opener }
-        var result = String.UnicodeScalarView()
-        for closer in ordered {
-            result.append(contentsOf: closer.text.unicodeScalars)
-        }
-        return result
+        return Array(text[..<open]) + Array(text[(open + 1)..<close])
     }
 
-    private static func boldItalicCloser(_ text: InlineText) -> Closer? {
-        let scalars = text.scalars
-        if scalars.count >= 4, scalars.allSatisfy({ $0 == "*" }) {
-            return nil
+    private static func matchingOpeningBracket(in text: [Unicode.Scalar], closingAt close: Int) -> Int? {
+        var depth = 1
+        var index = close - 1
+        while index >= 0 {
+            if text[index] == "]" {
+                depth += 1
+            } else if text[index] == "[" {
+                depth -= 1
+                if depth == 0 {
+                    return index
+                }
+            }
+            index -= 1
         }
-        guard let match = text.trailingRun(of: "*", length: 3),
-              text.isProse(match.marker),
-              !isMarkersOnly(scalars[match.content]),
-              !isWhitespace(scalars[match.marker + 3]),
-              !isHorizontalRule(scalars, markerIndex: match.marker, marker: "*"),
-              text.countTripleAsterisks() % 2 == 1
-        else { return nil }
-        if text.countDoublePairs(of: "*") % 2 == 0, text.countSingleAsterisks() % 2 == 0 {
-            return nil
-        }
-        return Closer(opener: match.marker, text: "***", completesTrailingRun: false)
+        return nil
     }
 
-    private static func boldCloser(_ text: InlineText) -> Closer? {
-        let scalars = text.scalars
-        if let match = text.halfCompleteRun(of: "*") {
-            guard text.isProse(match.marker),
-                  !shouldSkipCompletion(text, match: match, marker: "*"),
-                  text.countDoublePairs(of: "*") % 2 == 1
-            else { return nil }
-            return Closer(opener: match.marker, text: "*", completesTrailingRun: true)
+    private static func isTaskCheckbox(_ text: [Unicode.Scalar], open: Int) -> Bool {
+        guard text.count - open == 3, " xX".unicodeScalars.contains(text[open + 1]) else { return false }
+        let lineStart = (text[..<open].lastIndex(of: "\n") ?? -1) + 1
+        var index = skippingQuoteMarkers(in: text, from: lineStart)
+        while index < open, text[index] == " " {
+            index += 1
         }
-        let pairs = text.doublePairs(of: "*")
-        guard pairs.count % 2 == 1, let marker = pairs.last else { return nil }
-        let match = InlineText.Match(marker: marker, content: (marker + 2)..<scalars.count)
-        guard !shouldSkipCompletion(text, match: match, marker: "*") else { return nil }
-        return Closer(opener: marker, text: "**", completesTrailingRun: false)
+        guard index < open, let markerEnd = listMarkerEnd(text, at: index) else { return false }
+        return text[markerEnd..<open].allSatisfy(isWhitespace)
     }
 
-    private static func doubleUnderscoreCloser(_ text: InlineText) -> Closer? {
-        if let match = text.trailingRun(of: "_", length: 2) {
-            guard text.isProse(match.marker),
-                  !shouldSkipCompletion(text, match: match, marker: "_"),
-                  text.hasUnmatchedDoubleUnderscore()
-            else { return nil }
-            return Closer(opener: match.marker, text: "__", completesTrailingRun: false)
-        }
-        guard let match = text.halfCompleteRun(of: "_"),
-              text.isProse(match.marker),
-              text.hasUnmatchedDoubleUnderscore()
-        else { return nil }
-        return Closer(opener: match.marker, text: "_", completesTrailingRun: true)
+    private static func isAdmonitionMarker(_ text: [Unicode.Scalar], open: Int) -> Bool {
+        guard open + 1 < text.count, text[open + 1] == "!" else { return false }
+        let lineStart = (text[..<open].lastIndex(of: "\n") ?? -1) + 1
+        let content = skippingQuoteMarkers(in: text, from: lineStart)
+        return content > lineStart && text[content..<open].allSatisfy { $0 == " " }
     }
 
-    private static func singleAsteriskCloser(_ text: InlineText) -> Closer? {
-        let scalars = text.scalars
-        guard scalars.contains("*"),
-              let first = text.firstSingleAsteriskIndex(),
-              text.isProse(first),
-              !isMarkersOnly(scalars[(first + 1)...]),
-              text.countSingleAsterisks() % 2 == 1
-        else { return nil }
-        return Closer(opener: first, text: "*", completesTrailingRun: false)
+    static func droppingTrailingOpeners(_ text: [Unicode.Scalar]) -> [Unicode.Scalar] {
+        var start = text.count
+        while start > 0, "*_~`=|".unicodeScalars.contains(text[start - 1]) {
+            start -= 1
+        }
+        guard start < text.count, start == 0 || isWhitespace(text[start - 1]), !isFenceLine(text, from: start) else { return text }
+        let spans = SpanScan(text)
+        guard spans.isProse(start) || spans.openSpan?.start == start, !isEscaped(text, start) else { return text }
+        return Array(text[..<start])
     }
 
-    private static func singleUnderscoreCloser(_ text: InlineText) -> Closer? {
-        let scalars = text.scalars
-        guard scalars.contains("_"),
-              let first = text.firstSingleUnderscoreIndex(),
-              !isMarkersOnly(scalars[(first + 1)...]),
-              text.isProse(first),
-              text.countSingleUnderscores() % 2 == 1
-        else { return nil }
-        return Closer(opener: first, text: "_", completesTrailingRun: false)
-    }
-
-    private static func inlineCodeCloser(_ text: InlineText) -> Closer? {
-        guard let span = text.spans.openSpan else { return nil }
-        let scalars = text.scalars
-        guard !isMarkersOnly(scalars[(span.start + span.runLength)...]) else { return nil }
-        var trailingRun = 0
-        while trailingRun < scalars.count, scalars[scalars.count - 1 - trailingRun] == "`" {
-            trailingRun += 1
-        }
-        guard trailingRun < span.runLength else { return nil }
-        return Closer(
-            opener: span.start,
-            text: String(repeating: "`", count: span.runLength - trailingRun),
-            completesTrailingRun: trailingRun > 0
-        )
-    }
-
-    private static func doubleMarkerCloser(_ text: InlineText, marker: Unicode.Scalar) -> Closer? {
-        let scalars = text.scalars
-        if let match = text.trailingRun(of: marker, length: 2) {
-            guard !isMarkersOnly(scalars[match.content]),
-                  !isWhitespace(scalars[match.marker + 2]),
-                  text.isProse(match.marker),
-                  text.countDoublePairs(of: marker) % 2 == 1
-            else { return nil }
-            let closer = String(repeating: Character(marker), count: 2)
-            return Closer(opener: match.marker, text: closer, completesTrailingRun: false)
-        }
-        guard let match = text.halfCompleteRun(of: marker),
-              text.isProse(match.marker),
-              text.countDoublePairs(of: marker) % 2 == 1
-        else { return nil }
-        return Closer(opener: match.marker, text: String(Character(marker)), completesTrailingRun: true)
-    }
-
-    private static func shouldSkipCompletion(_ text: InlineText, match: InlineText.Match, marker: Unicode.Scalar) -> Bool {
-        let scalars = text.scalars
-        let content = scalars[match.content]
-        if isMarkersOnly(content) {
-            return true
-        }
-        if isWhitespace(scalars[match.content.lowerBound]) {
-            return true
-        }
-        let lineStart = (scalars[..<match.marker].lastIndex(of: "\n") ?? -1) + 1
-        let beforeMarker = scalars[lineStart..<match.marker]
-        if isBareListMarker(beforeMarker), content.contains("\n") {
-            return true
-        }
-        return isHorizontalRule(scalars, markerIndex: match.marker, marker: marker)
+    private static func isFenceLine(_ text: [Unicode.Scalar], from start: Int) -> Bool {
+        let run = text[start...]
+        guard run.count >= 3, let marker = run.first, marker == "`" || marker == "~",
+              run.allSatisfy({ $0 == marker })
+        else { return false }
+        let lineStart = (text[..<start].lastIndex(of: "\n") ?? -1) + 1
+        return text[lineStart..<start].allSatisfy { $0 == " " || $0 == "\t" || $0 == ">" }
     }
 
     // MARK: - Character classes
 
     static func isWhitespace(_ scalar: Unicode.Scalar) -> Bool {
         scalar == " " || scalar == "\t" || scalar == "\n" || scalar == "\r"
-    }
-
-    static func isWordCharacter(_ scalar: Unicode.Scalar) -> Bool {
-        scalar == "_" || scalar.properties.isAlphabetic || scalar.properties.numericType != nil
     }
 
     static func isPunctuation(_ scalar: Unicode.Scalar) -> Bool {
@@ -359,16 +316,6 @@ extension StreamingMarkdownRepair {
         default:
             return false
         }
-    }
-
-    private static func isMarkersOnly(_ content: ArraySlice<Unicode.Scalar>) -> Bool {
-        content.allSatisfy { isWhitespace($0) || "_~*`".unicodeScalars.contains($0) }
-    }
-
-    private static func isBareListMarker(_ line: ArraySlice<Unicode.Scalar>) -> Bool {
-        let scalars = Array(line.drop(while: isWhitespace))
-        guard let length = listMarkerLength(scalars, at: 0) else { return false }
-        return scalars.count > length && scalars[length...].allSatisfy(isWhitespace)
     }
 
     static func isHorizontalRule(_ text: [Unicode.Scalar], markerIndex: Int, marker: Unicode.Scalar) -> Bool {
@@ -393,23 +340,5 @@ extension StreamingMarkdownRepair {
             probe -= 1
         }
         return backslashes % 2 == 1
-    }
-
-    static func lastIndex(of first: Unicode.Scalar, then second: Unicode.Scalar, in text: [Unicode.Scalar]) -> Int? {
-        guard text.count >= 2 else { return nil }
-        var index = text.count - 2
-        while index >= 0 {
-            if text[index] == first, text[index + 1] == second {
-                return index
-            }
-            index -= 1
-        }
-        return nil
-    }
-}
-
-extension StreamingMarkdownRepair.Syntax {
-    init(options: MarkdownParsingOptions) {
-        self.init(latexMath: options.latexMathEnabled, highlight: options.highlight)
     }
 }
