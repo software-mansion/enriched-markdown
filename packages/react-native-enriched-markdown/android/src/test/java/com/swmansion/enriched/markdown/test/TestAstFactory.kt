@@ -8,6 +8,10 @@ object TestAstFactory {
 
   fun text(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Text, content = content)
 
+  fun code(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Code, children = listOf(text(content)))
+
+  fun highlight(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Highlight, children = children.toList())
+
   /** An ordered list; [start] is the first number, as md4c reports it. */
   fun orderedList(
     vararg items: MarkdownASTNode,

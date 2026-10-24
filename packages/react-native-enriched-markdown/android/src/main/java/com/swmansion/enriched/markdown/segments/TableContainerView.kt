@@ -27,6 +27,7 @@ import com.swmansion.enriched.markdown.parser.MarkdownASTNode.NodeType
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
+import com.swmansion.enriched.markdown.spans.registerWithSpans
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
@@ -308,6 +309,7 @@ class TableContainerView(
       .getSpans(0, data.attributedText.length, ImageSpan::class.java)
       .forEach { span -> span.registerTextView(cellTextView) { scheduleImageRemeasure() } }
     LinkPillSpan.registerView(data.attributedText, cellTextView) { scheduleImageRemeasure() }
+    cellTextView.registerWithSpans(data.attributedText)
   }
 
   private var imageRemeasurePending = false
