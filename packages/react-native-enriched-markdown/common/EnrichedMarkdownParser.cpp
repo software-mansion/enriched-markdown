@@ -28,11 +28,12 @@ Markdown::Md4cFlags toCoreFlags(const EnrichedMarkdownParserMd4cFlags &flags) {
 
 // The spec's slot is one flat struct for every kind, with "" for the fields a
 // kind lacks.
-EnrichedMarkdownParserBlockSlot nativeSlot(const Markdown::BlockSlot &slot) {
+EnrichedMarkdownParserBlockSlot nativeSlot(const Markdown::BlockSlot &slot, bool isComplete) {
   EnrichedMarkdownParserBlockSlot out{};
   out.id = slot.id;
   out.kind = Markdown::blockSlotKindName(slot.kind());
   out.placement = Markdown::blockSlotPlacementName(slot.placement);
+  out.isComplete = isComplete;
   if (const auto *image = std::get_if<Markdown::ImageSlotFields>(&slot.fields)) {
     out.url = image->url;
     out.altText = image->altText;
@@ -44,6 +45,9 @@ EnrichedMarkdownParserBlockSlot nativeSlot(const Markdown::BlockSlot &slot) {
     out.url = link->url;
     out.altText = link->label;
     out.title = link->title;
+  } else if (const auto *code = std::get_if<Markdown::CodeSlotFields>(&slot.fields)) {
+    out.language = code->language;
+    out.code = code->code;
   }
   return out;
 }
@@ -57,21 +61,24 @@ EnrichedMarkdownParserCollectedBlocks
 EnrichedMarkdownParser::collect(jsi::Runtime &, std::string markdown, EnrichedMarkdownParserMd4cFlags flags, bool isGFM,
                                 EnrichedMarkdownParserStreamingOptions streaming) {
   auto &store = Markdown::DocumentStore::shared();
+  bool endsInsideOpenCodeFence = false;
   if (streaming.enabled) {
     Markdown::StreamingFilterOptions options;
     options.tableMode = Markdown::streamingBlockModeFromName(streaming.tableMode);
     options.codeBlockMode = Markdown::streamingBlockModeFromName(streaming.codeBlockMode);
     options.mediaMode = Markdown::streamingBlockModeFromName(streaming.mediaMode);
-    markdown = store.filter(markdown, options).markdown;
+    auto filtered = store.filter(markdown, options);
+    markdown = std::move(filtered.markdown);
+    endsInsideOpenCodeFence = filtered.endsInsideOpenCodeFence;
   }
   EnrichedMarkdownParserCollectedBlocks result;
   auto document = store.parse(markdown, toCoreFlags(flags), isGFM);
   for (const auto &slot : document->blocks.slots) {
-    // The hosts and the JS mapping read an unknown kind as an image, so code
-    // slots stay native until they can place them.
+    // useBlockSlots reads an unknown kind as an image, so code slots stay native
+    // until it maps them.
     if (slot.kind() == Markdown::BlockSlotKind::Code)
       continue;
-    result.slots.push_back(nativeSlot(slot));
+    result.slots.push_back(nativeSlot(slot, Markdown::isSlotComplete(document->blocks, slot, endsInsideOpenCodeFence)));
   }
   for (const auto &image : document->blocks.images) {
     result.images.push_back(
