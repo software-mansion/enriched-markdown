@@ -67,6 +67,46 @@ class ListRenderingTest {
   }
 
   @Test
+  fun orderedListsCountFromTheirStartNumber() {
+    val style = styleConfig()
+    assertEquals(listOf(3, 4), orderedSpans(style, orderedList(3, item(), item())).map { it.itemNumber })
+    assertEquals(listOf(0, 1), orderedSpans(style, orderedList(0, item(), item())).map { it.itemNumber })
+  }
+
+  @Test
+  fun startNumbersFrom100WidenTheGutter() {
+    val style = styleConfig()
+    val paint =
+      TextPaint().apply {
+        textSize = style.listStyle.fontSize
+        typeface = Typeface.create("monospace", Typeface.NORMAL)
+      }
+    val baseline = paint.measureText("99.")
+    val gap = style.listStyle.gapWidth
+    val belowHundred = orderedSpans(style, orderedList(97, item(), item(), item()))
+    assertEquals(listOf(97, 98, 99), belowHundred.map { it.itemNumber })
+    belowHundred.forEach { assertEquals((baseline + gap).toInt(), it.getLeadingMargin(false)) }
+    val crossing = orderedSpans(style, orderedList(98, item(), item(), item()))
+    assertEquals(listOf(98, 99, 100), crossing.map { it.itemNumber })
+    val widened = (baseline + ceil(paint.measureText("100.") - baseline) + gap).toInt()
+    crossing.forEach { assertEquals(widened, it.getLeadingMargin(false)) }
+  }
+
+  @Test
+  fun nestedOrderedListsKeepTheirOwnStartNumbers() {
+    val style = styleConfig()
+    val outer =
+      orderedList(
+        5,
+        listItem(paragraph(text("item")), orderedList(10, item(), item())),
+        listItem(paragraph(text("item")), numbered(2)),
+        item(),
+      )
+    val numbers = orderedSpans(style, outer, numbered(1)).map { it.depth to it.itemNumber }
+    assertEquals(listOf(0 to 5, 1 to 10, 1 to 11, 0 to 6, 1 to 1, 1 to 2, 0 to 7, 0 to 1), numbers)
+  }
+
+  @Test
   fun markerMinimumWidthRemainsAFloor() {
     val style = styleConfig(minWidth = 200f)
     orderedSpans(style, numbered(101)).forEach {
