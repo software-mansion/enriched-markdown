@@ -1,28 +1,39 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.utils.text.view
 
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.text.Spannable
+import android.text.Spanned
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
+import android.view.ViewParent
 import android.widget.TextView
-import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.EnrichedMarkdown
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
 
 private const val MENU_ITEM_COPY_MARKDOWN = 1000
 private const val MENU_ITEM_COPY_IMAGE_URL = 1001
-private const val DEFAULT_COPY_AS_MARKDOWN_LABEL = "Copy as Markdown"
+
+internal const val DEFAULT_COPY_AS_MARKDOWN_LABEL = "Copy as Markdown"
 
 data class SelectionMenuConfig(
   val copyAsMarkdown: Boolean = true,
   val copyImageUrl: Boolean = true,
   val copyAsMarkdownLabel: String = "",
-)
+) {
+  val resolvedCopyAsMarkdownLabel: String
+    get() = copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL }
+}
 
 /**
  * Creates an ActionMode.Callback that adds custom copy options and
@@ -57,11 +68,7 @@ fun createSelectionActionModeCallback(
         textView.selectionStart >= 0 &&
         textView.selectionEnd > textView.selectionStart
       ) {
-        val label =
-          selectionMenuConfig.copyAsMarkdownLabel.ifEmpty {
-            DEFAULT_COPY_AS_MARKDOWN_LABEL
-          }
-        menu.add(Menu.NONE, MENU_ITEM_COPY_MARKDOWN, Menu.NONE, label)
+        menu.add(Menu.NONE, MENU_ITEM_COPY_MARKDOWN, Menu.NONE, selectionMenuConfig.resolvedCopyAsMarkdownLabel)
       }
 
       val imageUrls =
@@ -123,9 +130,9 @@ private fun TextView.copyWithHTML() {
 
   val spannable = text as? Spannable ?: return
   val selectedText = spannable.subSequence(start, end)
-  val plainText = selectedText.toString()
+  val plainText = (selectedText as? Spanned)?.toClipboardPlainText() ?: selectedText.toString()
 
-  val styleConfig = (this as? EnrichedMarkdownText)?.markdownStyle
+  val styleConfig = findParentMarkdownStyle()
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
   if (styleConfig != null && selectedText is Spannable) {
@@ -143,6 +150,28 @@ private fun TextView.copyWithHTML() {
   } else {
     clipboard.setPrimaryClip(ClipData.newPlainText("Text", plainText))
   }
+}
+
+/** Swaps each plugin span's object-replacement character for the span's own plain text. */
+internal fun Spanned.toClipboardPlainText(): String {
+  val pluginSpans = getSpans(0, length, PluginInlineSpan::class.java)
+  if (pluginSpans.isEmpty()) return toString()
+
+  val result = StringBuilder(this)
+  // Back to front, so replacing one span doesn't shift the offsets of those still to come.
+  pluginSpans.sortedByDescending { getSpanStart(it) }.forEach { span ->
+    result.replace(getSpanStart(span), getSpanEnd(span), span.toPlainText().orEmpty())
+  }
+  return result.toString()
+}
+
+private fun TextView.findParentMarkdownStyle(): StyleConfig? {
+  var current: ViewParent? = parent
+  while (current != null) {
+    if (current is EnrichedMarkdown) return current.markdownStyle
+    current = current.parent
+  }
+  return null
 }
 
 private fun TextView.copyMarkdownToClipboard() {

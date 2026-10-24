@@ -1,13 +1,19 @@
 package swmansion.enriched.markdown.android.example
 
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.MarkdownStyle
 import com.swmansion.enriched.markdown.compose.markdownStyle
+// `math` and `inlineMath` are extension functions shipped by the :math artifact, not members of
+// the style builder, so they have to be imported before they can be used below.
+import com.swmansion.enriched.markdown.math.compose.inlineMath
+import com.swmansion.enriched.markdown.math.compose.math
 
 private val MontserratRegular = FontFamily(Font(R.font.montserrat_regular))
 private val MontserratBold = FontFamily(Font(R.font.montserrat_bold))
@@ -100,7 +106,7 @@ val CustomMarkdownStyle: MarkdownStyle =
       markerColor = Color(0xFF6B7280)
       markerFontWeight = FontWeight.Medium
       gapWidth = 8.dp
-      marginLeft = 24.dp
+      marginStart = 24.dp
       marginBottom = 16.dp
     }
     taskList {
@@ -108,7 +114,7 @@ val CustomMarkdownStyle: MarkdownStyle =
       borderColor = Color(0xFF9E9E9E)
       checkmarkColor = Color(0xFFFFFFFF)
       checkboxSize = 14.dp
-      checkboxBorderRadius = 3.dp
+      checkboxCornerRadius = 3.dp
     }
     codeBlock {
       fontFamily = CourierPrimeRegular
@@ -130,7 +136,7 @@ val CustomMarkdownStyle: MarkdownStyle =
     link {
       fontFamily = MontserratBold
       color = Color(0xFF2563EB)
-      underline = true
+      textDecoration = TextDecoration.Underline
     }
     strong {
       color = Color(0xFF111827)
@@ -140,7 +146,7 @@ val CustomMarkdownStyle: MarkdownStyle =
     }
     image {
       height = 200.dp
-      borderRadius = 8.dp
+      cornerRadius = 8.dp
       marginBottom = 16.dp
     }
     inlineImage {
@@ -152,6 +158,36 @@ val CustomMarkdownStyle: MarkdownStyle =
       marginTop = 24.dp
       marginBottom = 24.dp
     }
+    math {
+      fontSize = 22.sp
+      color = Color(0xFF1F2937)
+      backgroundColor = Color(0xFFF5F3FF)
+      padding = 12.dp
+      marginBottom = 16.dp
+      alignment = Alignment.CenterHorizontally
+    }
+    inlineMath {
+      color = Color(0xFF7C3AED)
+    }
+    table {
+      fontFamily = MontserratRegular
+      fontSize = 14.sp
+      color = Color(0xFF1F2937)
+      lineHeight = 22.sp
+      marginBottom = 16.dp
+      headerFontFamily = MontserratBold
+      headerBackgroundColor = Color(0xFFF3F4F6)
+      headerTextColor = Color(0xFF111827)
+      rowEvenBackgroundColor = Color(0xFFFFFFFF)
+      rowOddBackgroundColor = Color(0xFFF9FAFB)
+      borderColor = Color(0xFFE5E7EB)
+      cornerRadius = 8.dp
+      cellPaddingHorizontal = 12.dp
+      cellPaddingVertical = 8.dp
+    }
+    spoiler {
+      color = Color(0xFF374151)
+    }
   }
 
 /**
@@ -161,7 +197,7 @@ val PlaygroundMarkdownStyle: MarkdownStyle =
   markdownStyle {
     link {
       color = Color(0xFF2563EB)
-      underline = true
+      textDecoration = TextDecoration.Underline
     }
     code {
       color = Color(0xFF7C3AED)
@@ -177,5 +213,12 @@ val PlaygroundMarkdownStyle: MarkdownStyle =
       borderColor = Color(0xFFD1D5DB)
       borderWidth = 3.dp
       gapWidth = 12.dp
+    }
+    math {
+      alignment = Alignment.Start
+      backgroundColor = Color(0xFFF9FAFB)
+    }
+    inlineMath {
+      color = Color(0xFF7C3AED)
     }
   }

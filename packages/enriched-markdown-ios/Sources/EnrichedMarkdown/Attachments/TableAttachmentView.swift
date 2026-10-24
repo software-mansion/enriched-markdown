@@ -39,7 +39,7 @@ final class TableAttachmentViewProvider: NSTextAttachmentViewProvider {
 }
 
 final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate {
-    private let scrollView = UIScrollView()
+    private let scrollView = HorizontalBlockScrollView()
     private let gridView: TableGridView
     private let attachment: TableAttachment
     private var didRestoreOffset = false
@@ -83,7 +83,7 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
         let fits = layout.totalWidth <= bounds.width
         let alignOffset: CGFloat
         if fits {
-            switch attachment.style.align {
+            switch attachment.style.alignment {
             case .leading: alignOffset = 0
             case .center: alignOffset = (bounds.width - layout.totalWidth) / 2
             case .trailing: alignOffset = bounds.width - layout.totalWidth
@@ -123,20 +123,18 @@ final class TableAttachmentView: UIView, UIScrollViewDelegate, UIContextMenuInte
 
     @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
         guard let url = gridView.linkURL(at: recognizer.location(in: gridView)) else { return }
-        if let onLinkPress = hostTextView()?.onLinkPress {
+        openLink(url)
+    }
+
+    /// Routes a tapped cell link through the host text view's handler,
+    /// which the SwiftUI view sets to its `onLinkPress` or `openURL`; a
+    /// text view outside SwiftUI with no handler opens the URL directly.
+    func openLink(_ url: URL) {
+        if let onLinkPress = enclosingMarkdownTextView()?.onLinkPress {
             onLinkPress(url)
         } else {
             UIApplication.shared.open(url)
         }
-    }
-
-    private func hostTextView() -> MarkdownTextView? {
-        var view: UIView? = superview
-        while let current = view {
-            if let textView = current as? MarkdownTextView { return textView }
-            view = current.superview
-        }
-        return nil
     }
 
     // MARK: - Copy menu

@@ -1,5 +1,6 @@
 import { Platform, processColor, type ColorValue } from 'react-native';
 import type { MarkdownStyle } from './types/MarkdownStyle';
+import { isDev } from './utils/isDev';
 
 export const normalizeColor = (
   color: string | undefined
@@ -8,14 +9,17 @@ export const normalizeColor = (
   if (Platform.OS === 'web') return color;
   const processed = processColor(color);
   if (processed === null || processed === undefined) {
-    if (__DEV__) {
+    if (isDev) {
       console.warn(
         `[MarkdownStyle] Ignoring invalid color value "${color}"; falling back to the default.`
       );
     }
     return undefined;
   }
-  return processed;
+  // What native color props take. Typed as `ColorValue` for callers; some
+  // `react-native` type versions (react-native-web's among them) keep the
+  // processed number out of that union.
+  return processed as ColorValue;
 };
 
 export function mergeSubStyle<T extends Record<string, unknown>>(
@@ -52,6 +56,7 @@ export function mergeSubStyle<T extends Record<string, unknown>>(
   return result as T;
 }
 
+// Sub-styles nest (linkVariants -> variant -> pill), so compare structurally all the way down.
 function isSubStyleEqual(
   a: Record<string, unknown>,
   b: Record<string, unknown>
@@ -66,19 +71,12 @@ function isSubStyleEqual(
       typeof valueA === 'object' &&
       valueA !== null &&
       typeof valueB === 'object' &&
-      valueB !== null
+      valueB !== null &&
+      isSubStyleEqual(
+        valueA as Record<string, unknown>,
+        valueB as Record<string, unknown>
+      )
     ) {
-      const nestedKeysA = Object.keys(valueA);
-      const nestedKeysB = Object.keys(valueB);
-      if (nestedKeysA.length !== nestedKeysB.length) return false;
-      for (const nestedKey of nestedKeysA) {
-        if (
-          (valueA as Record<string, unknown>)[nestedKey] !==
-          (valueB as Record<string, unknown>)[nestedKey]
-        ) {
-          return false;
-        }
-      }
       continue;
     }
     return false;

@@ -2,9 +2,9 @@ import UIKit
 
 final class ListItemRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
         self.factory = factory
         self.config = config
     }
@@ -22,20 +22,27 @@ final class ListItemRenderer: NodeRenderer {
             context.taskItemIndex += 1
         }
 
+        let baseMarkerWidth = isTask
+            ? effectiveTaskMarkerWidth(in: context)
+            : effectiveMarkerWidth(in: context)
+        // How far a widened ordered list grew this item's own column; nested lists move by it.
+        let markerExtra = baseMarkerWidth - defaultColumnWidth(isTask: isTask, listType: context.listType)
+
         let startLocation = output.length
+        let prevMarkerExtra = context.listItemMarkerExtra
+        context.listItemMarkerExtra = markerExtra
         factory.renderChildren(of: node, into: output, context: context)
+        context.listItemMarkerExtra = prevMarkerExtra
         ParagraphStyleHelpers.ensureTrailingNewline(in: output)
 
         let itemRange = NSRange(location: startLocation, length: output.length - startLocation)
         guard itemRange.length > 0 else { return }
 
-        let baseMarkerWidth = isTask
-            ? effectiveTaskMarkerWidth(for: context.listType)
-            : effectiveMarkerWidth(for: context.listType)
         let gapWidth = max(config.list.gapWidth ?? 12, 4)
-        let marginLeft = config.list.marginLeft ?? 24
+        let marginLeading = config.list.marginLeading ?? 24
         let blockquoteIndent = CGFloat(context.blockquoteDepth) * blockquoteLevelSpacing()
-        let totalIndent = blockquoteIndent + baseMarkerWidth + gapWidth + (CGFloat(nestingLevel) * marginLeft)
+        let totalIndent = blockquoteIndent + baseMarkerWidth + gapWidth + (CGFloat(nestingLevel) * marginLeading)
+            + context.ancestorMarkerOffset
         let lineHeight = config.list.lineHeight ?? 0
 
         let metadata: [NSAttributedString.Key: Any] = [
@@ -49,7 +56,11 @@ final class ListItemRenderer: NodeRenderer {
             itemRange: itemRange,
             nestingLevel: nestingLevel,
             metadata: metadata,
-            totalIndent: totalIndent,
+            indents: ItemIndents(
+                text: totalIndent,
+                quote: totalIndent - context.ancestorMarkerOffset,
+                markerExtra: markerExtra
+            ),
             lineHeight: lineHeight
         )
 
@@ -64,20 +75,23 @@ final class ListItemRenderer: NodeRenderer {
         }
     }
 
-    private func effectiveMarkerWidth(for listType: ListType) -> CGFloat {
-        let minWidth = config.list.markerMinWidth ?? 0
-        switch listType {
-        case .ordered:
-            return max(minWidth, 20)
-        case .unordered:
-            return max(minWidth, config.list.bulletSize ?? 6)
-        }
+    /// An ordered list's column is sized to its widest number by `ListRenderer`.
+    private func effectiveMarkerWidth(in context: RenderContext) -> CGFloat {
+        context.listType == .ordered
+            ? context.listMarkerWidth
+            : config.list.defaultMarkerColumnWidth(for: .unordered)
     }
 
-    /// The checkbox column is at least as wide as the list type's normal
-    /// marker column, so task items align with their non-task siblings.
-    private func effectiveTaskMarkerWidth(for listType: ListType) -> CGFloat {
-        max(effectiveMarkerWidth(for: listType), config.taskList.checkboxSize ?? 14)
+    /// The item's column before an ordered list widens it for its numbers.
+    private func defaultColumnWidth(isTask: Bool, listType: ListType) -> CGFloat {
+        let markerWidth = config.list.defaultMarkerColumnWidth(for: listType)
+        return isTask ? max(markerWidth, config.taskList.checkboxSize ?? 14) : markerWidth
+    }
+
+    /// The checkbox column is at least as wide as the list's marker column,
+    /// so task items align with their non-task siblings.
+    private func effectiveTaskMarkerWidth(in context: RenderContext) -> CGFloat {
+        max(effectiveMarkerWidth(in: context), config.taskList.checkboxSize ?? 14)
     }
 
     private func blockquoteLevelSpacing() -> CGFloat {
@@ -139,7 +153,7 @@ final class ListItemRenderer: NodeRenderer {
         itemRange: NSRange,
         nestingLevel: Int,
         metadata: [NSAttributedString.Key: Any],
-        totalIndent: CGFloat,
+        indents: ItemIndents,
         lineHeight: CGFloat
     ) {
         let string = output.string as NSString
@@ -153,7 +167,7 @@ final class ListItemRenderer: NodeRenderer {
             location = NSMaxRange(applyRange)
 
             if output.attribute(MarkdownAttribute.blockquoteDepth, at: applyRange.location, effectiveRange: nil) != nil {
-                shiftQuoteParagraph(in: output, range: applyRange, by: totalIndent)
+                shiftQuoteParagraph(in: output, range: applyRange, indents: indents)
                 continue
             }
             if shouldSkipListStyling(in: output, range: applyRange, nestingLevel: nestingLevel) {
@@ -161,8 +175,8 @@ final class ListItemRenderer: NodeRenderer {
             }
 
             let style = NSMutableParagraphStyle()
-            style.firstLineHeadIndent = totalIndent
-            style.headIndent = totalIndent
+            style.firstLineHeadIndent = indents.text
+            style.headIndent = indents.text
 
             if lineHeight > 0 {
                 style.minimumLineHeight = lineHeight
@@ -180,13 +194,20 @@ final class ListItemRenderer: NodeRenderer {
     }
 
     /// A quote inside the item keeps its own attributes and indent, moved
-    /// into the item's text column together with its bars.
-    private func shiftQuoteParagraph(in output: NSMutableAttributedString, range: NSRange, by offset: CGFloat) {
+    /// into the item's text column together with its bars. The bars also keep
+    /// the marker widening of any list item between this one and the quote.
+    private func shiftQuoteParagraph(in output: NSMutableAttributedString, range: NSRange, indents: ItemIndents) {
+        let innerExtra = output.attribute(MarkdownAttribute.blockquoteMarkerExtra, at: range.location, effectiveRange: nil)
+            as? CGFloat ?? 0
         let style = ParagraphStyleHelpers.getOrCreateParagraphStyle(in: output, at: range.location)
-        style.firstLineHeadIndent += offset
-        style.headIndent += offset
+        style.firstLineHeadIndent += indents.quote
+        style.headIndent += indents.quote
         output.addAttributes(
-            [.paragraphStyle: style, MarkdownAttribute.blockquoteBarOffset: offset],
+            [
+                .paragraphStyle: style,
+                MarkdownAttribute.blockquoteBarOffset: indents.quote + innerExtra,
+                MarkdownAttribute.blockquoteMarkerExtra: innerExtra + indents.markerExtra
+            ],
             range: range
         )
     }
@@ -202,12 +223,39 @@ final class ListItemRenderer: NodeRenderer {
         if let depth = MarkdownAttributeValue.intValue(from: attrs[MarkdownAttribute.listDepth]), depth > nestingLevel {
             return true
         }
-        if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) {
+        if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) || attrs[.attachment] is CodeBlockAttachment {
             return true
         }
         if attrs[MarkdownAttribute.blockquoteDepth] != nil {
             return true
         }
-        return (output.string as NSString).substring(with: range).allSatisfy(\.isNewline)
+        // Read in place: bridging `output.string` copies the document.
+        return output.mutableString.rangeOfCharacter(
+            from: ParagraphStyleHelpers.nonNewlines,
+            options: [],
+            range: range
+        ).location == NSNotFound
+    }
+}
+
+/// Where a list item moves its own paragraphs and the quotes inside it.
+private struct ItemIndents {
+    let text: CGFloat
+    /// Each enclosing item shifts a quote too, adding its own widened column then.
+    let quote: CGFloat
+    /// How far a widened ordered list grew this item's marker column.
+    let markerExtra: CGFloat
+}
+
+extension ListStyle {
+    /// The marker column before an ordered list widens it for its numbers.
+    func defaultMarkerColumnWidth(for listType: ListType) -> CGFloat {
+        let minWidth = markerMinWidth ?? 0
+        switch listType {
+        case .ordered:
+            return max(minWidth, 20)
+        case .unordered:
+            return max(minWidth, bulletSize ?? 6)
+        }
     }
 }

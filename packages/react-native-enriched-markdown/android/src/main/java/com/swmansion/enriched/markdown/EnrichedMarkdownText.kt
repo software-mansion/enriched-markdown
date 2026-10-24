@@ -11,8 +11,13 @@ import android.util.AttributeSet
 import android.util.Log
 import android.util.TypedValue
 import android.view.MotionEvent
+import android.view.View
+import android.view.View.MeasureSpec
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.uimanager.BackgroundStyleApplicator
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.StateWrapper
+import com.facebook.react.uimanager.style.LogicalEdge
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
@@ -22,9 +27,11 @@ import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
+import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
@@ -40,9 +47,10 @@ import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionMode
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
-import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * EnrichedMarkdownText that handles Markdown parsing and rendering on a background thread.
@@ -95,6 +103,8 @@ class EnrichedMarkdownText
 
     var md4cFlags: Md4cFlags = Md4cFlags.DEFAULT
       private set
+    private var linkRegex: LinkRegexConfig? = null
+    private var inlineCodeLinkRegex: LinkRegexConfig? = null
     private var isGFM: Boolean = false
 
     private var lastKnownFontScale: Float = context.resources.configuration.fontScale
@@ -104,6 +114,7 @@ class EnrichedMarkdownText
     private var maxFontSizeMultiplier: Float = 0f
     private var allowTrailingMargin: Boolean = false
     private var imageRequestHeaders: Map<String, String> = emptyMap()
+    private var linkPillContent: Map<String, LinkPillContent> = emptyMap()
 
     private var streamingAnimation: Boolean = false
     private var previousTextLength: Int = 0
@@ -121,6 +132,9 @@ class EnrichedMarkdownText
     private var selectionColor: Int? = null
     private var selectionHandleColor: Int? = null
     private var selectionMenuConfig = SelectionMenuConfig()
+    private var baseHorizontalPaddingLeft = 0
+    private var baseHorizontalPaddingRight = 0
+    private var applyingContentBoxInset = false
 
     init {
       setupAsMarkdownTextView()
@@ -147,6 +161,7 @@ class EnrichedMarkdownText
       updateMeasurementStoreFontScaling()
       val newStyle = style?.let { StyleConfig(it, context, allowFontScaling, maxFontSizeMultiplier) }
       newStyle?.imageRequestHeaders = imageRequestHeaders
+      newStyle?.linkPillContent = linkPillContent
       if (markdownStyle == newStyle) return
       markdownStyle = newStyle
       updateJustificationMode(newStyle)
@@ -157,6 +172,13 @@ class EnrichedMarkdownText
       if (imageRequestHeaders == headers) return
       imageRequestHeaders = headers
       markdownStyle?.imageRequestHeaders = headers
+      scheduleRenderIfNeeded()
+    }
+
+    fun setLinkPillContent(content: Map<String, LinkPillContent>) {
+      if (linkPillContent == content) return
+      linkPillContent = content
+      markdownStyle?.linkPillContent = content
       scheduleRenderIfNeeded()
     }
 
@@ -173,6 +195,18 @@ class EnrichedMarkdownText
         recreateStyleConfig()
         scheduleRenderIfNeeded()
       }
+    }
+
+    fun setLinkRegex(config: LinkRegexConfig?) {
+      if (linkRegex == config) return
+      linkRegex = config
+      scheduleRenderIfNeeded()
+    }
+
+    fun setInlineCodeLinkRegex(config: LinkRegexConfig?) {
+      if (inlineCodeLinkRegex == config) return
+      inlineCodeLinkRegex = config
+      scheduleRenderIfNeeded()
     }
 
     fun setMd4cFlags(flags: Md4cFlags) {
@@ -240,6 +274,7 @@ class EnrichedMarkdownText
         markdownStyle =
           StyleConfig(styleMap, context, allowFontScaling, maxFontSizeMultiplier).also {
             it.imageRequestHeaders = imageRequestHeaders
+            it.linkPillContent = linkPillContent
           }
         updateJustificationMode(markdownStyle)
       }
@@ -261,12 +296,14 @@ class EnrichedMarkdownText
       val markdown = currentMarkdown
       if (markdown.isEmpty()) return
 
+      val textLinkRegex = linkRegex
+      val codeLinkRegex = inlineCodeLinkRegex
       val renderId = ++currentRenderId
 
       executor.execute {
         try {
           val ast =
-            parser.parseMarkdown(markdown, md4cFlags, isGFM) ?: run {
+            parser.parseMarkdown(markdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
               mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
               return@execute
             }
@@ -482,6 +519,75 @@ class EnrichedMarkdownText
       fadeAnimator = null
     }
 
+    override fun setPadding(
+      left: Int,
+      top: Int,
+      right: Int,
+      bottom: Int,
+    ) {
+      if (!applyingContentBoxInset) {
+        baseHorizontalPaddingLeft = left
+        baseHorizontalPaddingRight = right
+      }
+      super.setPadding(left, top, right, bottom)
+    }
+
+    override fun onMeasure(
+      widthMeasureSpec: Int,
+      heightMeasureSpec: Int,
+    ) {
+      applyContentBoxInset(widthMeasureSpec)
+      super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
+
+    /**
+     * Fabric measures text at the content box (frame - padding - border) but the TextView's
+     * padding carries no border, so it wraps ~1dp wider and reserves a phantom trailing line
+     * under an unclamped box (#805). Fold the border into padding to match; restore the base
+     * padding when the cache or an exact frame is missing so no stale inset lingers.
+     */
+    private fun applyContentBoxInset(widthMeasureSpec: Int) {
+      val contentBox =
+        if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) {
+          MeasurementStore.contentBoxWidthPx(id)?.let { ceil(it).toInt() }?.takeIf { it > 0 }
+        } else {
+          null
+        }
+      val frame = MeasureSpec.getSize(widthMeasureSpec)
+      if (contentBox == null || frame <= 0) {
+        setHorizontalPadding(baseHorizontalPaddingLeft, baseHorizontalPaddingRight)
+        return
+      }
+
+      val totalInset = (frame - contentBox).coerceIn(0, frame)
+      val left = (baseHorizontalPaddingLeft + resolvedBorderPx(leftEdge = true)).coerceIn(0, totalInset)
+      val right = (totalInset - left).coerceAtLeast(0)
+      setHorizontalPadding(left, right)
+    }
+
+    // Physical border width (px); only the left/right split reads it, never the total inset.
+    private fun resolvedBorderPx(leftEdge: Boolean): Int {
+      val rtl = layoutDirection == View.LAYOUT_DIRECTION_RTL
+      val physical = if (leftEdge) LogicalEdge.LEFT else LogicalEdge.RIGHT
+      val logical = if (leftEdge != rtl) LogicalEdge.START else LogicalEdge.END
+      val dp =
+        BackgroundStyleApplicator.getBorderWidth(this, physical)
+          ?: BackgroundStyleApplicator.getBorderWidth(this, logical)
+          ?: BackgroundStyleApplicator.getBorderWidth(this, LogicalEdge.ALL)
+          ?: return 0
+      return PixelUtil.toPixelFromDIP(dp).roundToInt().coerceAtLeast(0)
+    }
+
+    private fun setHorizontalPadding(
+      left: Int,
+      right: Int,
+    ) {
+      if (left == paddingLeft && right == paddingRight) return
+      applyingContentBoxInset = true
+      super.setPadding(left, paddingTop, right, paddingBottom)
+      applyingContentBoxInset = false
+    }
+
     override fun onAttachedToWindow() {
       super.onAttachedToWindow()
       pendingStyledText?.let {
@@ -513,10 +619,7 @@ class EnrichedMarkdownText
         return true
       }
       val result = super.onTouchEvent(event)
-      when (event.action) {
-        MotionEvent.ACTION_DOWN -> cancelJSTouchForLinkTap(event)
-        else -> reallowParentInterceptIfLinkReleased()
-      }
+      if (event.action == MotionEvent.ACTION_DOWN) cancelJSTouchForLinkTap(event)
       return result
     }
 

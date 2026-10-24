@@ -5,10 +5,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.text.Spanned
-import android.text.StaticLayout
-import android.text.TextPaint
-import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
+import com.swmansion.enriched.markdown.spoiler.isConcealedBySpoiler
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlin.math.max
 import kotlin.math.min
@@ -53,47 +51,63 @@ class CodeBackgroundSpan(
     val spanEnd = text.getSpanEnd(this)
     if (spanStart !in 0 until spanEnd) return
 
-    // 1. Determine relative positioning
-    val isFirst = spanStart >= start
-    val isLast = spanEnd <= end
+    // The spoiler overlay only covers the text's glyph box, so a background drawn to the line's bounds
+    // would outline the hidden code around it.
+    if (text.isConcealedBySpoiler(maxOf(spanStart, start), minOf(spanEnd, end))) return
 
-    // 2. Calculate coordinates
-    val finalBottom = adjustBottomForMargin(text, end, bottom)
-    val leadingMargin = leadingMarginAt(text, start)
-    val startX = if (isFirst) getHorizontalOffset(text, start, end, spanStart, p, leadingMargin) + left else left.toFloat() + leadingMargin
-    val endX = if (isLast) getHorizontalOffset(text, start, end, spanEnd, p, leadingMargin) + left else right.toFloat()
+    // Keep CodeSpan and this background span intact for semantic extraction. Draw only
+    // portions outside replacement pills, including code surrounding a partially covered run.
+    fun drawUncoveredRange(
+      rangeStart: Int,
+      rangeEnd: Int,
+    ) {
+      if (max(rangeStart, start) >= min(rangeEnd, end)) return
+      // 1. Determine relative positioning
+      val isFirst = rangeStart >= start
+      val isLast = rangeEnd <= end
 
-    rect.set(min(startX, endX), top.toFloat(), max(startX, endX), finalBottom.toFloat())
+      // 2. Calculate coordinates
+      val finalBottom = adjustBottomForMargin(text, end, bottom)
+      val leadingMargin = InlineBackgroundGeometry.leadingMarginAt(text, start)
+      val startX =
+        if (isFirst) {
+          InlineBackgroundGeometry.horizontalOffset(text, start, end, rangeStart, p, leadingMargin) + left
+        } else {
+          left.toFloat() + leadingMargin
+        }
+      val endX =
+        if (isLast) {
+          InlineBackgroundGeometry.horizontalOffset(text, start, end, rangeEnd, p, leadingMargin) + left
+        } else {
+          right.toFloat()
+        }
 
-    // 3. Apply Style
-    val codeStyle = styleConfig.codeStyle
-    sharedBackgroundPaint.color = codeStyle.backgroundColor
-    sharedBorderPaint.color = codeStyle.borderColor
+      rect.set(min(startX, endX), top.toFloat(), max(startX, endX), finalBottom.toFloat())
 
-    drawShapes(canvas, isFirst, isLast)
-  }
+      // 3. Apply Style
+      val codeStyle = styleConfig.codeStyle
+      sharedBackgroundPaint.color = codeStyle.backgroundColor
+      sharedBorderPaint.color = codeStyle.borderColor
 
-  /**
-   * Returns the x position of [index] relative to the line's left edge, including any
-   * leading margin. The measuring StaticLayout is built from a subSequence that keeps
-   * all spans, so LeadingMarginSpans (lists, blockquotes) are already applied to
-   * getPrimaryHorizontal; adding the margin again on top would shift the background
-   * right by the indent. The margin is only added explicitly in the early-return case,
-   * where no layout is built.
-   */
-  private fun getHorizontalOffset(
-    text: CharSequence,
-    lineStart: Int,
-    lineEnd: Int,
-    index: Int,
-    paint: Paint,
-    leadingMargin: Int,
-  ): Float {
-    if (index <= lineStart) return leadingMargin.toFloat()
-    val lineText = text.subSequence(lineStart, lineEnd)
-    val textPaint = paint as? TextPaint ?: TextPaint(paint)
-    val layout = StaticLayout.Builder.obtain(lineText, 0, lineText.length, textPaint, 10000).build()
-    return layout.getPrimaryHorizontal(index - lineStart)
+      drawShapes(canvas, isFirst, isLast)
+    }
+
+    // Runs per code span, per line, per draw: only query for pills if the style can produce any.
+    val pills = if (styleConfig.hasLinkPills) text.getSpans(spanStart, spanEnd, LinkPillSpan::class.java) else emptyArray()
+    if (pills.isEmpty()) {
+      drawUncoveredRange(spanStart, spanEnd)
+      return
+    }
+    if (pills.size > 1) pills.sortBy { text.getSpanStart(it) }
+    var cursor = spanStart
+    for (pill in pills) {
+      val coveredStart = max(spanStart, text.getSpanStart(pill))
+      val coveredEnd = min(spanEnd, text.getSpanEnd(pill))
+      if (coveredStart >= coveredEnd) continue
+      if (cursor < coveredStart) drawUncoveredRange(cursor, coveredStart)
+      cursor = max(cursor, coveredEnd)
+    }
+    drawUncoveredRange(cursor, spanEnd)
   }
 
   private fun drawShapes(
@@ -173,19 +187,6 @@ class CodeBackgroundSpan(
     else -> {
       floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
     }
-  }
-
-  private fun leadingMarginAt(
-    text: Spanned,
-    lineStart: Int,
-  ): Int {
-    if (lineStart >= text.length) return 0
-    val spans = text.getSpans(lineStart, lineStart + 1, LeadingMarginSpan::class.java)
-    var margin = 0
-    for (span in spans) {
-      margin += span.getLeadingMargin(false)
-    }
-    return margin
   }
 
   private fun adjustBottomForMargin(

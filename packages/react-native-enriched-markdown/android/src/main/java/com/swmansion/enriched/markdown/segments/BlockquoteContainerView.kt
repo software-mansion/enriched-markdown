@@ -13,6 +13,7 @@ import android.view.View
 import androidx.core.graphics.withSave
 import com.facebook.react.common.ReactConstants
 import com.facebook.react.views.text.ReactTypefaceUtils.applyStyles
+import com.swmansion.enriched.markdown.CodeBlockWrapCursor
 import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
@@ -64,10 +65,6 @@ class BlockquoteContainerView(
 
   // Cached plain text for the "Copy" action.
   private var cachedPlainText: String = ""
-
-  var copyLabel: String = ""
-  var copyAsMarkdownLabel: String = ""
-  var enableBlockContextMenu: Boolean = true
 
   private val iconSizePx: Int = ceil(blockquoteStyle.fontSize).toInt()
 
@@ -148,15 +145,15 @@ class BlockquoteContainerView(
   }
 
   private fun showContextMenu(anchor: View): Boolean {
-    if (!enableBlockContextMenu) return false
+    if (!parentConfig.dynamicProps.enableBlockContextMenu) return false
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     ContextMenuPopup.show(anchor, this) {
-      item(ContextMenuPopup.Icon.COPY, copyLabel) {
+      item(ContextMenuPopup.Icon.COPY, parentConfig.dynamicProps.copyLabel) {
         if (cachedPlainText.isNotEmpty()) {
           clipboard.setPrimaryClip(ClipData.newPlainText("Blockquote", cachedPlainText))
         }
       }
-      item(ContextMenuPopup.Icon.DOCUMENT, copyAsMarkdownLabel) {
+      item(ContextMenuPopup.Icon.DOCUMENT, parentConfig.dynamicProps.copyAsMarkdownLabel) {
         if (cachedMarkdown.isNotEmpty()) {
           clipboard.setPrimaryClip(ClipData.newPlainText("Blockquote", cachedMarkdown))
         }
@@ -286,6 +283,7 @@ class BlockquoteContainerView(
         is RenderedSegment.CodeBlock -> view is CodeBlockContainerView
         is RenderedSegment.Blockquote -> view is BlockquoteContainerView
         is RenderedSegment.Video -> SegmentViewCreators.isVideoContainerView(view)
+        is RenderedSegment.BlockSlot -> view is BlockSlotSegmentView
       }
 
     override fun createView(segment: RenderedSegment): View =
@@ -313,6 +311,10 @@ class BlockquoteContainerView(
         is RenderedSegment.Video -> {
           SegmentViewCreators.createVideoView(segment, parentConfig)
         }
+
+        is RenderedSegment.BlockSlot -> {
+          SegmentViewCreators.createBlockSlotView(segment, parentConfig)
+        }
       }
 
     override fun updateView(
@@ -326,6 +328,7 @@ class BlockquoteContainerView(
         is RenderedSegment.CodeBlock -> (view as CodeBlockContainerView).applyCodeBlockNode(segment.node)
         is RenderedSegment.Blockquote -> (view as BlockquoteContainerView).applyBlockquoteNode(segment.node)
         is RenderedSegment.Video -> SegmentViewCreators.updateVideoView(view, segment)
+        is RenderedSegment.BlockSlot -> SegmentViewCreators.updateBlockSlotView(view as BlockSlotSegmentView, segment)
       }
     }
 
@@ -349,7 +352,8 @@ class BlockquoteContainerView(
      * The children are summed at the reduced inner width (outer minus horizontal
      * inset) and the vertical inset is added; nested quotes recurse through this
      * same function via SegmentHeightMeasurer. Math child heights use the shared
-     * estimate to avoid a main-thread measure from the layout pass.
+     * estimate to avoid a main-thread measure from the layout pass. Wrapped code
+     * blocks (wrapCursor) lay out at the inner width, as the views do.
      *
      * Potential win: this runs splitASTIntoSegments + render for measurement, and
      * applyBlockquoteNode runs them again for display, so each nesting level renders
@@ -363,6 +367,12 @@ class BlockquoteContainerView(
       config: StyleConfig,
       context: Context,
       width: Float,
+      wrapCursor: CodeBlockWrapCursor? = null,
+      // Slot children inside the quote report absolute origins: the quote's own
+      // origin (px, within the host content box) plus its insets.
+      slotMeasurer: BlockSlotMeasurer? = null,
+      originXPx: Float = 0f,
+      originYPx: Float = 0f,
     ): Float {
       val style = config.blockquoteStyle
       val leftInset = ceil(style.borderWidth + style.gapWidth + style.padding).toInt()
@@ -374,7 +384,10 @@ class BlockquoteContainerView(
         } else {
           0f
         }
-      val innerWidth = (width - leftInset - rightInset).coerceAtLeast(1f)
+      // The view lays its children out at integer pixels (measureSegmentChildren
+      // receives ceil(width)), so measure at the same rounded width or the two
+      // paths wrap long lines differently.
+      val innerWidth = (ceil(width) - leftInset - rightInset).coerceAtLeast(1f)
 
       val segments = splitASTIntoSegments(node)
       val rendered = MarkdownSegmentRenderer.render(segments, config, context, null, null, style)
@@ -392,6 +405,10 @@ class BlockquoteContainerView(
           breakStrategy = breakStrategy,
           allowTrailingMargin = false,
           mathHeightForIndex = { estimateMathHeight(config) },
+          wrapCursor = wrapCursor,
+          slotMeasurer = slotMeasurer,
+          originXPx = originXPx + leftInset,
+          originYPx = originYPx + verticalInset + headerReserved,
         )
 
       return childrenHeight + verticalInset * 2f + headerReserved

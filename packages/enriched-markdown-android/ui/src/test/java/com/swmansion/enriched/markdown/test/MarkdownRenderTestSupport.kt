@@ -1,29 +1,55 @@
 package com.swmansion.enriched.markdown.test
 
 import android.content.Context
-import android.text.SpannableString
+import android.text.Spannable
 import androidx.test.core.app.ApplicationProvider
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.renderer.Renderer
+import com.swmansion.enriched.markdown.segments.MarkdownSegment
+import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
+import com.swmansion.enriched.markdown.segments.RenderedSegment
+import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
+import com.swmansion.enriched.markdown.styles.CodeBlockStyle
+import com.swmansion.enriched.markdown.styles.CodeStyle
+import com.swmansion.enriched.markdown.styles.HeadingStyle
+import com.swmansion.enriched.markdown.styles.HighlightStyle
+import com.swmansion.enriched.markdown.styles.LinkStyle
+import com.swmansion.enriched.markdown.styles.ListStyle
+import com.swmansion.enriched.markdown.styles.ParagraphStyle
+import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StrikethroughStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TaskListStyle
+import com.swmansion.enriched.markdown.styles.TextAlignment
 import com.swmansion.enriched.markdown.styles.UnderlineStyle
 
 object MarkdownRenderTestSupport {
-  private val context: Context = ApplicationProvider.getApplicationContext()
+  // Resolved per call, not cached: a @Config qualifier (a locale, an RTL layout direction) is
+  // applied to the current test's context, and a singleton would pin the first test's one.
+  private val context: Context
+    get() = ApplicationProvider.getApplicationContext()
 
   val defaultStyle: StyleConfig get() = StyleConfig.default(context)
 
   fun render(
     document: MarkdownASTNode,
     style: StyleConfig = defaultStyle,
-  ): SpannableString {
+    plugins: PluginSnapshot = PluginSnapshot.EMPTY,
+  ): Spannable {
     val renderer = Renderer()
-    renderer.configure(style, context)
+    renderer.configure(style, context, plugins = plugins)
     return renderer.renderDocument(document, null, null)
   }
+
+  /** Renders [segments] with [defaultStyle] and no plugins. */
+  fun renderSegments(segments: List<MarkdownSegment>): List<RenderedSegment> =
+    MarkdownSegmentRenderer.render(segments, defaultStyle, context, plugins = PluginSnapshot.EMPTY)
+
+  /** Splits [document] into segments and renders them, both with no plugins. */
+  fun renderSegmentsOf(document: MarkdownASTNode): List<RenderedSegment> =
+    renderSegments(splitASTIntoSegments(document, PluginSnapshot.EMPTY))
 
   /** [defaultStyle] with only the inline line-decoration colors replaced. */
   fun styleWithDecorationColors(
@@ -35,8 +61,52 @@ object MarkdownRenderTestSupport {
       underlineStyle = UnderlineStyle(color = underlineColor),
     )
 
+  /** [defaultStyle] with its [HighlightStyle] replaced, and aligned like [styleWithTextAlign] when [textAlign] is given. */
+  fun styleWithHighlight(
+    highlightStyle: HighlightStyle,
+    textAlign: TextAlignment? = null,
+  ): StyleConfig {
+    if (textAlign == null) return copyOfDefault(highlightStyle = highlightStyle)
+    val aligned = styleWithTextAlign(textAlign)
+    return copyOfDefault(highlightStyle = highlightStyle, paragraphStyle = aligned.paragraphStyle, headingStyles = aligned.headingStyles)
+  }
+
   /** [defaultStyle] with only its [BlockquoteStyle] replaced. */
   fun styleWithBlockquote(blockquoteStyle: BlockquoteStyle): StyleConfig = copyOfDefault(blockquoteStyle = blockquoteStyle)
+
+  /** [defaultStyle] with only its [CodeBlockStyle] replaced. */
+  fun styleWithCodeBlock(codeBlockStyle: CodeBlockStyle): StyleConfig = copyOfDefault(codeBlockStyle = codeBlockStyle)
+
+  /** [defaultStyle] with its inline [CodeStyle] replaced, and aligned like [styleWithTextAlign] when [textAlign] is given. */
+  fun styleWithCode(
+    codeStyle: CodeStyle,
+    textAlign: TextAlignment? = null,
+  ): StyleConfig {
+    if (textAlign == null) return copyOfDefault(codeStyle = codeStyle)
+    val aligned = styleWithTextAlign(textAlign)
+    return copyOfDefault(codeStyle = codeStyle, paragraphStyle = aligned.paragraphStyle, headingStyles = aligned.headingStyles)
+  }
+
+  /** [defaultStyle] with only its [SpoilerStyle] replaced. */
+  fun styleWithSpoiler(spoilerStyle: SpoilerStyle): StyleConfig = copyOfDefault(spoilerStyle = spoilerStyle)
+
+  /** [defaultStyle] with only its [LinkStyle] replaced. */
+  fun styleWithLink(linkStyle: LinkStyle): StyleConfig = copyOfDefault(linkStyle = linkStyle)
+
+  /** [defaultStyle] with paragraphs and every heading aligned by [textAlign]. */
+  fun styleWithTextAlign(textAlign: TextAlignment): StyleConfig {
+    val base = defaultStyle
+    return copyOfDefault(
+      paragraphStyle = base.paragraphStyle.copy(textAlign = textAlign),
+      headingStyles = base.headingStyles.map { it?.copy(textAlign = textAlign) }.toTypedArray(),
+    )
+  }
+
+  /** [defaultStyle] with its [ListStyle] and, when given, its [TaskListStyle] replaced. */
+  fun styleWithList(
+    listStyle: ListStyle,
+    taskListStyle: TaskListStyle? = null,
+  ): StyleConfig = copyOfDefault(listStyle = listStyle, taskListStyle = taskListStyle)
 
   /** [defaultStyle] with only its [TaskListStyle] replaced. */
   fun styleWithTaskList(taskListStyle: TaskListStyle): StyleConfig = copyOfDefault(taskListStyle = taskListStyle)
@@ -47,29 +117,42 @@ object MarkdownRenderTestSupport {
   private fun copyOfDefault(
     strikethroughStyle: StrikethroughStyle? = null,
     underlineStyle: UnderlineStyle? = null,
+    highlightStyle: HighlightStyle? = null,
+    listStyle: ListStyle? = null,
     taskListStyle: TaskListStyle? = null,
     blockquoteStyle: BlockquoteStyle? = null,
+    codeStyle: CodeStyle? = null,
+    codeBlockStyle: CodeBlockStyle? = null,
+    spoilerStyle: SpoilerStyle? = null,
+    linkStyle: LinkStyle? = null,
+    paragraphStyle: ParagraphStyle? = null,
+    headingStyles: Array<HeadingStyle?>? = null,
   ): StyleConfig {
     val base = defaultStyle
     return StyleConfig(
-      paragraphStyleDefault = base.paragraphStyle,
-      headingStyles = base.headingStyles,
+      paragraphStyleDefault = paragraphStyle ?: base.paragraphStyle,
+      headingStyles = headingStyles ?: base.headingStyles,
       headingTypefaces = base.headingTypefaces,
-      linkStyle = base.linkStyle,
+      linkStyle = linkStyle ?: base.linkStyle,
       strongStyle = base.strongStyle,
       emphasisStyle = base.emphasisStyle,
       strikethroughStyle = strikethroughStyle ?: base.strikethroughStyle,
       underlineStyle = underlineStyle ?: base.underlineStyle,
+      highlightStyle = highlightStyle ?: base.highlightStyle,
       superscriptStyle = base.superscriptStyle,
       subscriptStyle = base.subscriptStyle,
-      codeStyle = base.codeStyle,
+      codeStyle = codeStyle ?: base.codeStyle,
       imageStyle = base.imageStyle,
       inlineImageStyle = base.inlineImageStyle,
       blockquoteStyle = blockquoteStyle ?: base.blockquoteStyle,
-      listStyle = base.listStyle,
+      listStyle = listStyle ?: base.listStyle,
       taskListStyle = taskListStyle ?: base.taskListStyle,
-      codeBlockStyle = base.codeBlockStyle,
+      codeBlockStyle = codeBlockStyle ?: base.codeBlockStyle,
       thematicBreakStyle = base.thematicBreakStyle,
+      tableStyle = base.tableStyle,
+      tableTypeface = base.tableTypeface,
+      tableHeaderTypeface = base.tableHeaderTypeface,
+      spoilerStyle = spoilerStyle ?: base.spoilerStyle,
     )
   }
 }

@@ -15,12 +15,14 @@ public struct MathBlock: MarkdownThemeContent {
     public init() {}
 
     /// Point size of the typeset formula; the face is always KaTeX's.
-    public func fontSize(_ size: CGFloat) -> Self {
+    /// The formula's point size; the face is always KaTeX's.
+    public func font(size: CGFloat) -> Self {
         var copy = self
         copy.fontSize = size
         return copy
     }
 
+    @_disfavoredOverload
     public func foregroundStyle(_ color: Color) -> Self {
         var copy = self
         copy.foregroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -33,6 +35,7 @@ public struct MathBlock: MarkdownThemeContent {
         return copy
     }
 
+    @_disfavoredOverload
     public func backgroundStyle(_ color: Color) -> Self {
         var copy = self
         copy.backgroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -45,6 +48,7 @@ public struct MathBlock: MarkdownThemeContent {
         return copy
     }
 
+    @_disfavoredOverload
     public func background(_ color: Color) -> Self {
         backgroundStyle(color)
     }
@@ -73,13 +77,13 @@ public struct MathBlock: MarkdownThemeContent {
     }
 
     /// Where the formula sits inside the panel when narrower than it.
-    public func textAlignment(_ alignment: TextAlignment) -> Self {
+    public func multilineTextAlignment(_ alignment: TextAlignment) -> Self {
         var copy = self
         copy.textAlignment = alignment
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         var style = config.mathBlock
         if let fontSize { style.fontSize = fontSize }
         if let foregroundColorSpec {
@@ -103,6 +107,7 @@ public struct InlineMath: MarkdownThemeContent {
 
     public init() {}
 
+    @_disfavoredOverload
     public func foregroundStyle(_ color: Color) -> Self {
         var copy = self
         copy.foregroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -115,8 +120,9 @@ public struct InlineMath: MarkdownThemeContent {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         guard let foregroundColorSpec else { return }
+
         var style = config.inlineMath
         style.foregroundColor = foregroundColorSpec.resolve(traitCollection: traitCollection)
         config.inlineMath = style
@@ -130,10 +136,10 @@ public extension MarkdownTheme {
     /// for `MarkdownRenderer.renderLaTeX`.
     static let latexDefault = MarkdownTheme {
         MathBlock()
-            .fontSize(20)
+            .font(size: 20)
             .background(ThemeColorSpec.SemanticColor.quaternary)
             .padding(12)
             .marginBottom(16)
-            .textAlignment(.center)
+            .multilineTextAlignment(.center)
     }
 }

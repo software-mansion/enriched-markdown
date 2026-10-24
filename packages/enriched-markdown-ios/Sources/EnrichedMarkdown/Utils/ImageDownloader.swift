@@ -2,6 +2,9 @@ import UIKit
 
 /// Abstraction over image fetching so consumers of attachments can inject
 /// a stub in tests and previews instead of hitting the network.
+///
+/// The completion runs on the main queue, except a cache hit, which completes
+/// synchronously on the calling queue.
 protocol ImageDownloading: AnyObject {
     func download(url: String, headers: [String: String], completion: @escaping (UIImage?) -> Void)
 }
@@ -10,19 +13,27 @@ final class ImageDownloader: ImageDownloading {
     static let shared = ImageDownloader()
 
     private let session: URLSession
+    /// No URL cache: it keys by URL alone and would mix header sets.
+    private let headerSession: URLSession
     private var inFlightRequests: [String: [(UIImage?) -> Void]] = [:]
     private let lock = NSLock()
 
     private init() {
-        let configuration = URLSessionConfiguration.default
-        configuration.urlCache = URLCache(
+        let cache = URLCache(
             memoryCapacity: 10 * 1024 * 1024,
             diskCapacity: 100 * 1024 * 1024
         )
+        session = URLSession(configuration: Self.makeConfiguration(cache: cache))
+        headerSession = URLSession(configuration: Self.makeConfiguration(cache: nil))
+    }
+
+    private static func makeConfiguration(cache: URLCache?) -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.default
+        configuration.urlCache = cache
         configuration.requestCachePolicy = .returnCacheDataElseLoad
         configuration.timeoutIntervalForRequest = 15
         configuration.timeoutIntervalForResource = 30
-        session = URLSession(configuration: configuration)
+        return configuration
     }
 
     func download(url: String, headers: [String: String], completion: @escaping (UIImage?) -> Void) {
@@ -31,6 +42,7 @@ final class ImageDownloader: ImageDownloading {
             return
         }
 
+        let headers = ImageCacheKey.normalizedHeaders(headers)
         let requestKey = ImageCacheKey.requestKey(url: url, headers: headers)
         if let cached = MarkdownImageAttachment.originalImageCache.object(forKey: requestKey as NSString) {
             completion(cached)
@@ -66,7 +78,8 @@ final class ImageDownloader: ImageDownloading {
             request.setValue(value, forHTTPHeaderField: field)
         }
 
-        session.dataTask(with: request) { [weak self] data, _, error in
+        let taskSession = headers.isEmpty ? session : headerSession
+        taskSession.dataTask(with: request) { [weak self] data, _, error in
             let image = (data != nil && error == nil) ? data.flatMap { ImageDecoder.decodeDownsampled($0) } : nil
             self?.cacheAndDispatch(image, for: requestKey)
         }.resume()
@@ -77,7 +90,7 @@ final class ImageDownloader: ImageDownloading {
             MarkdownImageAttachment.originalImageCache.setObject(
                 image,
                 forKey: requestKey as NSString,
-                cost: Self.byteCost(for: image)
+                cost: image.byteCost
             )
         }
         dispatchCallbacks(for: requestKey, image: image)
@@ -90,10 +103,5 @@ final class ImageDownloader: ImageDownloading {
         DispatchQueue.main.async {
             callbacks.forEach { $0(image) }
         }
-    }
-
-    private static func byteCost(for image: UIImage) -> Int {
-        guard let cgImage = image.cgImage else { return 0 }
-        return cgImage.bytesPerRow * cgImage.height
     }
 }

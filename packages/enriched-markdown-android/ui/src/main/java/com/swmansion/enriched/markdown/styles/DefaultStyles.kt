@@ -64,6 +64,29 @@ internal object DefaultStyles {
         }
       }
 
+    val tableStyle =
+      TableStyle(
+        fontSize = parser.toPixelFromSP(14f),
+        fontFamily = SYSTEM_FONT,
+        fontWeight = "",
+        color = parser.color("#1F2937"),
+        marginTop = parser.toPixelFromDIP(0f),
+        marginBottom = parser.toPixelFromDIP(16f),
+        lineHeight = parser.toPixelFromSP(22f),
+        headerFontFamily = "",
+        headerBackgroundColor = parser.color("#F3F4F6"),
+        headerTextColor = parser.color("#111827"),
+        rowEvenBackgroundColor = parser.color("#FFFFFF"),
+        rowOddBackgroundColor = parser.color("#F9FAFB"),
+        borderColor = parser.color("#E5E7EB"),
+        borderWidth = parser.toPixelFromDIP(1f),
+        borderRadius = parser.toPixelFromDIP(6f),
+        cellPaddingHorizontal = parser.toPixelFromDIP(12f),
+        cellPaddingVertical = parser.toPixelFromDIP(8f),
+        horizontalOverflow = parser.toPixelFromDIP(0f),
+        align = TableAlignment.AUTO,
+      )
+
     // The React Native package resolves this same palette in JavaScript
     // (src/admonitionDefaults.ts) and hands native a complete map; this package has no JS layer,
     // so it is baked in here.
@@ -91,6 +114,7 @@ internal object DefaultStyles {
       emphasisStyle = EmphasisStyle(fontFamily = "", fontStyle = "italic", color = null),
       strikethroughStyle = StrikethroughStyle(color = null),
       underlineStyle = UnderlineStyle(color = null),
+      highlightStyle = HighlightStyle(color = null, backgroundColor = HighlightStyle.DEFAULT_BACKGROUND_COLOR),
       superscriptStyle = SuperscriptStyle(),
       subscriptStyle = SubscriptStyle(),
       codeStyle =
@@ -168,6 +192,10 @@ internal object DefaultStyles {
           borderWidth = parser.toPixelFromDIP(1f),
           padding = parser.toPixelFromDIP(16f),
         ),
+      spoilerStyle =
+        SpoilerStyle(
+          color = parser.color("#374151"),
+        ),
       thematicBreakStyle =
         ThematicBreakStyle(
           color = parser.color("#E5E7EB"),
@@ -175,6 +203,9 @@ internal object DefaultStyles {
           marginTop = parser.toPixelFromDIP(24f),
           marginBottom = parser.toPixelFromDIP(24f),
         ),
+      tableStyle = tableStyle,
+      tableTypeface = TableStyle.bodyTypeface(context, tableStyle),
+      tableHeaderTypeface = TableStyle.headerTypeface(context, tableStyle),
     )
   }
 }

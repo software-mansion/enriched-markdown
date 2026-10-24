@@ -108,7 +108,7 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 {
   if (self = [super init]) {
     _config = config;
-    _enableBlockContextMenu = YES;
+    _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     self.userInteractionEnabled = YES;
 
     _hostController = [[ENRMVideoHostController alloc] init];
@@ -255,7 +255,7 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location
 {
-  if (!_enableBlockContextMenu || _currentURL.length == 0) {
+  if (!self.dynamicProps.enableBlockContextMenu || _currentURL.length == 0) {
     return nil;
   }
   return [UIContextMenuConfiguration
@@ -263,13 +263,13 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
                   previewProvider:nil
                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                      UIAction *copyURL =
-                         [UIAction actionWithTitle:self.copyLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyURLToPasteboard]; }];
 
                      UIAction *copyMarkdown =
-                         [UIAction actionWithTitle:self.copyAsMarkdownLabel
+                         [UIAction actionWithTitle:self.dynamicProps.menuCopyAsMarkdownLabel
                                              image:[RCTUIImage systemImageNamed:@"doc.text"]
                                         identifier:nil
                                            handler:^(__kindof UIAction *action) { [self copyMarkdownToPasteboard]; }];
@@ -305,7 +305,7 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 {
   if (self = [super init]) {
     _config = config;
-    _enableBlockContextMenu = YES;
+    _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     self.wantsLayer = YES;
 
     _playerView = [[AVPlayerView alloc] init];
@@ -397,12 +397,12 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 
 - (NSMenu *)menuForEvent:(NSEvent *)event
 {
-  if (!_enableBlockContextMenu || _currentURL.length == 0) {
+  if (!self.dynamicProps.enableBlockContextMenu || _currentURL.length == 0) {
     return [super menuForEvent:event];
   }
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
-  [menu addItem:ENRMCreateMenuItem(self.copyLabel, ^{ [self copyURLToPasteboard]; })];
-  [menu addItem:ENRMCreateMenuItem(self.copyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamicProps.menuCopyLabel, ^{ [self copyURLToPasteboard]; })];
+  [menu addItem:ENRMCreateMenuItem(self.dynamicProps.menuCopyAsMarkdownLabel, ^{ [self copyMarkdownToPasteboard]; })];
   return menu;
 }
 

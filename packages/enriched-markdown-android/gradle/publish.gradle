@@ -18,6 +18,14 @@ def artifactMetadata = [
     name: "Enriched Markdown Compose",
     description: "Jetpack Compose Markdown rendering for the Enriched Markdown Android",
   ],
+  math: [
+    name: "Enriched Markdown Math",
+    description: "Optional RaTeX-backed LaTeX math plugin for the Enriched Markdown Android",
+  ],
+  "code-highlight": [
+    name: "Enriched Markdown Code Highlighting",
+    description: "Optional tree-sitter-backed code block highlighting plugin for the Enriched Markdown Android",
+  ],
 ]
 
 def metadata = artifactMetadata[project.name]

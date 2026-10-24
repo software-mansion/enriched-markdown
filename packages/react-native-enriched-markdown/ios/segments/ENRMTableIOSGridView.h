@@ -9,6 +9,21 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef void (^ENRMTableIOSLinkBlock)(NSString *url);
 
+typedef NS_ENUM(NSInteger, ENRMTableIOSItemKind) {
+  ENRMTableIOSItemKindLink,
+  ENRMTableIOSItemKindImage,
+};
+
+/// An interactive item found under a point of the grid.
+@interface ENRMTableIOSItemHit : NSObject
+@property (nonatomic, assign) ENRMTableIOSItemKind kind;
+@property (nonatomic, copy) NSString *url;
+/// The link's visible label, or an image's alt text.
+@property (nonatomic, copy, nullable) NSString *title;
+/// The item's frame in grid coordinates.
+@property (nonatomic, assign) CGRect frame;
+@end
+
 @interface ENRMTableIOSRowData : NSObject
 @property (nonatomic, strong) NSArray<NSAttributedString *> *cellTexts;
 @property (nonatomic, strong) UIColor *backgroundColor;
@@ -21,6 +36,11 @@ typedef void (^ENRMTableIOSLinkBlock)(NSString *url);
 
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkTap;
 @property (nonatomic, copy, nullable) ENRMTableIOSLinkBlock onLinkLongTap;
+@property (nonatomic, copy, nullable) void (^onImageTap)(NSString *url, NSString *altText);
+/// Asked when a touch lands on a link: a link with a menu is left to the context-menu
+/// interaction, so the long-press recognizer must not take that touch.
+@property (nonatomic, copy, nullable) BOOL (^hasLinkContextMenu)(NSString *url);
+- (nullable ENRMTableIOSItemHit *)linkAtPoint:(CGPoint)point;
 
 - (void)updateWithRows:(NSArray<ENRMTableIOSRowData *> *)rows
              columnWidths:(NSArray<NSNumber *> *)columnWidths

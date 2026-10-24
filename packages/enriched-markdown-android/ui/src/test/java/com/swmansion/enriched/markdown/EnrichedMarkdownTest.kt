@@ -1,0 +1,309 @@
+package com.swmansion.enriched.markdown
+
+import android.content.Context
+import android.text.Spannable
+import android.text.SpannableString
+import android.util.TypedValue
+import android.view.View
+import android.view.ViewGroup
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.segments.MarkdownSegmentRenderer
+import com.swmansion.enriched.markdown.segments.RenderedSegment
+import com.swmansion.enriched.markdown.segments.TableContainerView
+import com.swmansion.enriched.markdown.segments.splitASTIntoSegments
+import com.swmansion.enriched.markdown.spans.HeadingSpan
+import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.test.MarkdownRenderAssertions.assertHasSpan
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultStyle
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
+import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.renderSegmentsOf
+import com.swmansion.enriched.markdown.test.TestAstFactory.blockquote
+import com.swmansion.enriched.markdown.test.TestAstFactory.document
+import com.swmansion.enriched.markdown.test.TestAstFactory.heading
+import com.swmansion.enriched.markdown.test.TestAstFactory.link
+import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
+import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
+import com.swmansion.enriched.markdown.test.TestAstFactory.strong
+import com.swmansion.enriched.markdown.test.TestAstFactory.table
+import com.swmansion.enriched.markdown.test.TestAstFactory.tableBody
+import com.swmansion.enriched.markdown.test.TestAstFactory.tableCell
+import com.swmansion.enriched.markdown.test.TestAstFactory.tableRow
+import com.swmansion.enriched.markdown.test.TestAstFactory.text
+import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [28, 35])
+class EnrichedMarkdownTest {
+  private val context: Context = ApplicationProvider.getApplicationContext()
+
+  private val plainParagraph = document(paragraph(text("Hello world")))
+
+  private val mixedBlocks =
+    document(
+      heading(1, text("Title")),
+      paragraph(text("A paragraph.")),
+      unorderedList(listItem(paragraph(text("An item")))),
+      blockquote(paragraph(text("A quote"))),
+    )
+
+  private val inlineFormattingWithLink =
+    document(
+      paragraph(
+        text("Value: "),
+        strong(text("42")),
+        text(" via "),
+        link("https://example.com", text("a link")),
+      ),
+    )
+
+  /** Each document with a span it is known to render, or null when it carries no distinctive span. */
+  private val documents =
+    listOf<Pair<MarkdownASTNode, Class<*>?>>(
+      plainParagraph to null,
+      mixedBlocks to HeadingSpan::class.java,
+      inlineFormattingWithLink to LinkSpan::class.java,
+    )
+
+  @Test
+  fun exactlyOneChildAfterApplyingRenderedSegments() {
+    documents.forEach { (document, _) ->
+      val container = containerWithAppliedSegments(document)
+
+      assertEquals(1, container.childCount)
+      assertTrue(container.getChildAt(0) is EnrichedMarkdownInternalText)
+    }
+  }
+
+  @Test
+  fun childTextMatchesPreContainerRenderOutput() {
+    documents.forEach { (document, spanClass) ->
+      val container = containerWithAppliedSegments(document)
+      val child = container.getChildAt(0) as EnrichedMarkdownInternalText
+
+      assertEquals(render(document).toString(), child.text.toString())
+      spanClass?.let { (child.text as Spannable).assertHasSpan(it) }
+    }
+  }
+
+  @Test
+  fun childAdoptsTheRenderedBufferWithoutCopyingIt() {
+    val segments = renderSegmentsOf(mixedBlocks)
+    val rendered = segments[0] as RenderedSegment.Text
+
+    val container = EnrichedMarkdown(context)
+    container.applyRenderedSegments(segments)
+    val child = container.getChildAt(0) as EnrichedMarkdownInternalText
+
+    // A span set through the view must land in the rendered buffer; a copy would leave it at -1.
+    val marker = Any()
+    (child.text as Spannable).setSpan(marker, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+    assertEquals(0, rendered.styledText.getSpanStart(marker))
+  }
+
+  @Test
+  fun containerContributesNoStrayMarginToHeight() {
+    documents.forEach { (document, _) ->
+      val segments = renderSegmentsOf(document)
+      val rendered = segments[0] as RenderedSegment.Text
+
+      val standaloneTextView =
+        EnrichedMarkdownInternalText(context).apply {
+          setTextSize(TypedValue.COMPLEX_UNIT_PX, defaultStyle.paragraphStyle.fontSize)
+          lastElementMarginBottom = rendered.lastElementMarginBottom
+          setJustificationMode(rendered.needsJustify)
+          applyStyledText(rendered.styledText)
+        }
+      layOut(standaloneTextView)
+
+      val container = EnrichedMarkdown(context)
+      container.applyRenderedSegments(segments)
+      layOut(container)
+
+      assertEquals(standaloneTextView.measuredHeight, container.measuredHeight)
+    }
+  }
+
+  @Test
+  fun allowTrailingMarginAddsTheLastBlocksMarginToHeight() {
+    documents.forEach { (document, _) ->
+      val segments = renderSegmentsOf(document)
+      val lastMargin = (segments.last() as RenderedSegment.Text).lastElementMarginBottom.toInt()
+      assertTrue("Document has no trailing margin to preserve", lastMargin > 0)
+
+      val container = EnrichedMarkdown(context)
+      container.applyRenderedSegments(segments)
+      layOut(container)
+      val flushHeight = container.measuredHeight
+
+      container.setAllowTrailingMargin(true)
+      layOut(container)
+      assertEquals(flushHeight + lastMargin, container.measuredHeight)
+
+      container.setAllowTrailingMargin(false)
+      layOut(container)
+      assertEquals(flushHeight, container.measuredHeight)
+    }
+  }
+
+  @Test
+  fun allowTrailingMarginKeepsMarginsBetweenSegmentsUnchanged() {
+    val first = textSegment("Alpha", 1L, lastElementMarginBottom = 10f)
+    val second = textSegment("Beta", 2L, lastElementMarginBottom = 20f)
+    val container = EnrichedMarkdown(context)
+    container.applyRenderedSegments(listOf(first, second))
+
+    layOut(container)
+    val secondTopFlush = container.getChildAt(1).top
+    val flushHeight = container.measuredHeight
+
+    container.setAllowTrailingMargin(true)
+    layOut(container)
+
+    assertEquals(secondTopFlush, container.getChildAt(1).top)
+    assertEquals(flushHeight + 20, container.measuredHeight)
+  }
+
+  @Test
+  fun prepareForViewReuseResetsTheContainer() {
+    val container = containerWithAppliedSegments(mixedBlocks)
+    assertEquals(1, container.childCount)
+    container.setAllowTrailingMargin(true)
+
+    container.prepareForViewReuse()
+
+    assertEquals(0, container.childCount)
+    assertEquals("", container.currentMarkdown)
+
+    // A reused view must not carry the previous owner's trailing margin over.
+    container.applyRenderedSegments(renderSegmentsOf(mixedBlocks))
+    layOut(container)
+    val reusedHeight = container.measuredHeight
+    val fresh = containerWithAppliedSegments(mixedBlocks)
+    layOut(fresh)
+    assertEquals(fresh.measuredHeight, reusedHeight)
+  }
+
+  @Test
+  fun reconciliationKeepsTheChildInstanceWhenDocumentIsReappliedUnchanged() {
+    val segments = renderSegmentsOf(mixedBlocks)
+    val container = EnrichedMarkdown(context)
+
+    container.applyRenderedSegments(segments)
+    val firstChild = container.getChildAt(0)
+
+    container.applyRenderedSegments(segments)
+    val secondChild = container.getChildAt(0)
+
+    assertSame(firstChild, secondChild)
+  }
+
+  @Test
+  fun paragraphTableParagraphProducesThreeChildrenInOrder() {
+    val doc =
+      document(
+        paragraph(text("Before")),
+        table(body = tableBody(tableRow(tableCell("default", text("Cell"))))),
+        paragraph(text("After")),
+      )
+
+    val container = containerWithAppliedSegments(doc)
+
+    assertEquals(3, container.childCount)
+    assertTrue(container.getChildAt(0) is EnrichedMarkdownInternalText)
+    assertTrue(container.getChildAt(1) is TableContainerView)
+    assertTrue(container.getChildAt(2) is EnrichedMarkdownInternalText)
+  }
+
+  @Test
+  fun tableViewInstanceSurvivesAnEditToTheSurroundingParagraph() {
+    val tableNode = table(body = tableBody(tableRow(tableCell("default", text("Cell")))))
+    val doc = document(paragraph(text("Before")), tableNode, paragraph(text("After")))
+    val editedDoc = document(paragraph(text("Before, edited")), tableNode, paragraph(text("After")))
+
+    val container = EnrichedMarkdown(context)
+    container.applyRenderedSegments(renderSegmentsOf(doc))
+    val tableChildBeforeEdit = container.getChildAt(1)
+
+    container.applyRenderedSegments(renderSegmentsOf(editedDoc))
+    val tableChildAfterEdit = container.getChildAt(1)
+
+    assertSame(tableChildBeforeEdit, tableChildAfterEdit)
+  }
+
+  @Test
+  fun unboundedParentWidthMeasuresChildrenAgainstTheirOwnWidth() {
+    val container = containerWithAppliedSegments(plainParagraph)
+
+    container.measure(
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+    )
+
+    val child = container.getChildAt(0)
+    assertTrue("Unbounded width collapsed the container to zero", container.measuredWidth > 0)
+    assertEquals(child.measuredWidth, container.measuredWidth)
+  }
+
+  /**
+   * The reconciler reuses both views on a swap, so nothing is attached or removed and
+   * only the explicit reorder keeps the child order in step with the segment order.
+   * Built from RenderedSegments directly because splitASTIntoSegments still collapses
+   * every document into a single Text segment.
+   */
+  @Test
+  fun childOrderFollowsSegmentOrderWhenSegmentsSwapPositions() {
+    val first = textSegment("Alpha", 1L)
+    val second = textSegment("Beta", 2L)
+    val container = EnrichedMarkdown(context)
+
+    container.applyRenderedSegments(listOf(first, second))
+    val firstView = container.getChildAt(0)
+    val secondView = container.getChildAt(1)
+
+    container.applyRenderedSegments(listOf(second, first))
+
+    assertEquals(2, container.childCount)
+    assertSame("Swapped segment left at its old child index", secondView, container.getChildAt(0))
+    assertSame(firstView, container.getChildAt(1))
+  }
+
+  private fun textSegment(
+    text: String,
+    signature: Long,
+    lastElementMarginBottom: Float = 0f,
+  ): RenderedSegment.Text =
+    RenderedSegment.Text(
+      styledText = SpannableString(text),
+      needsJustify = false,
+      lastElementMarginBottom = lastElementMarginBottom,
+      signature = signature,
+    )
+
+  private fun containerWithAppliedSegments(document: MarkdownASTNode): EnrichedMarkdown {
+    val segments = renderSegmentsOf(document)
+    val container = EnrichedMarkdown(context)
+    container.applyRenderedSegments(segments)
+    return container
+  }
+
+  private fun layOut(view: View) {
+    view.layoutParams = ViewGroup.LayoutParams(CONTAINER_WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
+    view.measure(
+      View.MeasureSpec.makeMeasureSpec(CONTAINER_WIDTH, View.MeasureSpec.EXACTLY),
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+    )
+    view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+  }
+
+  private companion object {
+    const val CONTAINER_WIDTH = 720
+  }
+}

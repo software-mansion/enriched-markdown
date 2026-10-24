@@ -1,11 +1,11 @@
 buildscript {
     ext {
-        buildToolsVersion = "36.0.0"
+        buildToolsVersion = "37.0.0"
         minSdkVersion = 24
-        compileSdkVersion = 36
+        compileSdkVersion = 37
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
-        kotlinVersion = "2.1.20"
+        kotlinVersion = "2.2.0"
     }
     repositories {
         google()
@@ -37,7 +37,7 @@ plugins {
 apply plugin: "com.facebook.react.rootproject"
 
 subprojects { subproject ->
-    if (subproject.name == "react-native-enriched-markdown") {
+    if (subproject.name in ["react-native-enriched-markdown", "display-benchmark"]) {
         subproject.apply plugin: "org.jlleitschuh.gradle.ktlint"
         subproject.ktlint {
             version = "1.8.0"

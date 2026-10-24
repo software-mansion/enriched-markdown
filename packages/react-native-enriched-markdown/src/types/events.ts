@@ -45,6 +45,27 @@ export interface LatexErrorEvent {
   displayMode: boolean;
 }
 
+/** A link menu item as sent to native: no callback, every field set. */
+export interface LinkContextMenuItemConfig {
+  text: string;
+  icon: string;
+  disabled: boolean;
+  destructive: boolean;
+}
+
+/** The menu items for links whose URL matches `pattern`. */
+export interface LinkContextMenuItemsConfig {
+  pattern: string;
+  items: ReadonlyArray<Readonly<LinkContextMenuItemConfig>>;
+}
+
+/** `pattern` is the entry that supplied the menu, so JS finds the item without matching again. */
+export interface OnLinkContextMenuItemPressEvent {
+  url: string;
+  pattern: string;
+  itemText: string;
+}
+
 /**
  * Native-level context menu item config sent to the native component.
  * Does not include the `onPress` callback — callbacks are managed on the JS side.

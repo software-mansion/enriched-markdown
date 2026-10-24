@@ -1,0 +1,560 @@
+---
+sidebar_label: Style properties
+sidebar_position: 3
+---
+
+# Style properties reference
+
+Every Markdown element is styled through the `markdownStyle { }` DSL. This page lists each block you can open and the properties it takes. For how a style reaches a component and how layering works, see [`MarkdownTheme`](/android/api-reference/markdown-theme).
+
+## The `markdownStyle` builder
+
+A style is a set of **overrides**. Open only the blocks you want to change, while everything else keeps the default listed below.
+
+```kotlin
+val AppMarkdownStyle = markdownStyle {
+  paragraph {
+    fontSize = 16.sp
+    lineHeight = 26.sp
+  }
+  h1 { color = Color(0xFF111827) }
+  codeBlock {
+    backgroundColor = Color(0xFF1F2937)
+    cornerRadius = 8.dp
+  }
+}
+```
+
+The available blocks:
+
+| Block           | Applies to                                                                      |
+| --------------- | ------------------------------------------------------------------------------- |
+| `paragraph`     | Body text                                                                       |
+| `h1` … `h6`     | Headings, each level styled independently                                       |
+| `blockquote`    | Block quotes, plus [`admonitions { }`](#admonitions) geometry for GitHub alerts |
+| `list`          | Ordered and unordered lists, including their markers                            |
+| `taskList`      | Task list checkboxes                                                            |
+| `codeBlock`     | Fenced code blocks                                                              |
+| `code`          | Inline code                                                                     |
+| `link`          | Links and autolinks                                                             |
+| `strong`        | Bold text                                                                       |
+| `emphasis`      | Italic text                                                                     |
+| `strikethrough` | Struck-through text                                                             |
+| `underline`     | Underlined text (needs `MarkdownOptions(underline = true)`)                     |
+| `superscript`   | Superscript (needs `MarkdownOptions(superscript = true)`)                       |
+| `subscript`     | Subscript (needs `MarkdownOptions(subscript = true)`)                           |
+| `highlight`     | Highlighted text (needs `MarkdownOptions(highlight = true)`)                    |
+| `image`         | Block images                                                                    |
+| `inlineImage`   | Inline images                                                                   |
+| `thematicBreak` | Horizontal rules                                                                |
+| `table`         | GFM tables, header row and cells                                                |
+| `spoiler`       | The overlay that hides spoiler text until it is tapped                          |
+
+Values use Compose types throughout: `Color`, `Dp` for lengths, `TextUnit` (`sp`) for text metrics, plus `FontFamily`, `FontWeight`, `FontStyle`, `TextAlign`, `TextDecoration`, and `Alignment.Horizontal`.
+
+The optional `math` artifact adds two more blocks, `math { }` and `inlineMath { }`, for LaTeX formulas. They are documented with the plugin in [LaTeX math](/android/guides/latex-math#styling). The optional `code-highlight` artifact adds `codeHighlight { }`, for the token colors of highlighted code blocks; see [Code highlighting](/android/guides/code-highlighting#styling).
+
+:::caution
+`fontSize` and `lineHeight` must be given in `sp`. A `TextUnit` of any other type (`em`, or `TextUnit.Unspecified`) makes the style throw an `IllegalArgumentException` when it is resolved.
+
+`FontWeight` is bucketed to the four weights the text layer draws: below `Medium` renders as normal (400), then `Medium` (500), `SemiBold` (600), and `Bold` and heavier as bold (700). `FontWeight.Light` and `FontWeight.Black` therefore look the same as `Normal` and `Bold`.
+:::
+
+## Style inheritance
+
+**Block styles** are self-contained: a `paragraph` and an `h1` each carry their own font size, color, line height, and margins, and one never falls back to the other.
+
+**Inline styles** are partial by design. `strong`, `emphasis`, `strikethrough`, `underline`, and `link` set only the handful of properties that make them distinct, and everything else - size, line height, and by default the color - is inherited from whatever block the text sits in. Bold text in a heading is therefore heading-sized, while bold text in a paragraph is paragraph-sized, with no configuration.
+
+That is why several inline properties default to "inherited" rather than a value. Setting one pins it everywhere the element appears:
+
+```kotlin
+markdownStyle {
+  strong { color = Color.Red } // bold is red in headings, paragraphs, quotes alike
+}
+```
+
+Leave it unset to keep bold following its surroundings.
+
+## Layering with `merge`
+
+`MarkdownStyle.merge { }` adds a layer on top of an existing style rather than replacing it, so variants stay expressed as differences:
+
+```kotlin
+val Base = markdownStyle {
+  paragraph { fontSize = 16.sp }
+  link { textDecoration = TextDecoration.None }
+}
+
+val Compact = Base.merge { paragraph { marginBottom = 8.dp } }
+```
+
+See [`MarkdownStyle.merge`](/android/api-reference/markdown-theme#markdownstylemerge) for the details.
+
+## Dark mode
+
+The defaults below are a **light palette** - the library does not swap them automatically. If you're coming from iOS, where the default theme uses system colors and [adapts to dark mode by itself](/ios/api-reference/style-properties#adaptive-values), `rememberMaterialMarkdownStyle` is how you get the same behavior here. Supply the colors for the current theme yourself, either from the Material color scheme:
+
+```kotlin
+MarkdownTheme(style = rememberMaterialMarkdownStyle()) {
+  Content()
+}
+```
+
+…or as two hoisted variants of one base style, picked by `isSystemInDarkTheme()`:
+
+```kotlin
+MarkdownTheme(style = if (isSystemInDarkTheme()) DarkMarkdownStyle else LightMarkdownStyle) {
+  Content()
+}
+```
+
+A code block that follows the theme needs its text `color` set alongside the background, since the default text color is made for the default dark block. With [code highlighting](/android/guides/code-highlighting#styling), the token palette is made for a dark block too, so a light code block needs `codeHighlight { }` colors as well.
+
+[`rememberMaterialMarkdownStyle`](/android/api-reference/markdown-theme#materialmarkdownstyle) rebuilds the style when the color scheme changes. If you pick your own tokens instead, read `MaterialTheme.colorScheme` first and build the style in `remember`, keyed on it.
+
+## Property reference
+
+### Block styles (`paragraph`, `h1`-`h6`)
+
+Shared by `paragraph` and every heading level.
+
+| Property       | Type            | Default                | Description                                                                                                                               |
+| -------------- | --------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `fontSize`     | `TextUnit`      | `16.sp`                | Text size                                                                                                                                 |
+| `fontFamily`   | `FontFamily`    | `FontFamily.SansSerif` | Typeface                                                                                                                                  |
+| `fontWeight`   | `FontWeight`    | `FontWeight.Normal`    | Weight                                                                                                                                    |
+| `color`        | `Color`         | `#1F2937`              | Text color                                                                                                                                |
+| `lineHeight`   | `TextUnit`      | `26.sp`                | Line height                                                                                                                               |
+| `marginTop`    | `Dp`            | `0.dp`                 | Space above the block                                                                                                                     |
+| `marginBottom` | `Dp`            | `16.dp`                | Space below the block                                                                                                                     |
+| `textAlign`    | `TextAlign`     | Unset                  | Compose's `TextAlign`: `Start`, `End`, `Left`, `Right`, `Center`, or `Justify`. Unset (or `TextAlign.Unspecified`) follows the reading direction |
+
+```kotlin
+markdownStyle {
+  paragraph {
+    fontSize = 16.sp
+    lineHeight = 28.sp
+    marginBottom = 20.dp
+  }
+  h1 {
+    fontSize = 32.sp
+    fontWeight = FontWeight.Bold
+    color = Color(0xFF111827)
+  }
+  h2 { textAlign = TextAlign.Center }
+}
+```
+
+The defaults above are the `paragraph` values. Each heading level overrides size, line height, color, and bottom margin:
+
+| Block | `fontSize` | `lineHeight` | `color`   | `marginBottom` |
+| ----- | ---------- | ------------ | --------- | -------------- |
+| `h1`  | `30.sp`    | `38.sp`      | `#111827` | `8.dp`         |
+| `h2`  | `24.sp`    | `32.sp`      | `#111827` | `8.dp`         |
+| `h3`  | `20.sp`    | `28.sp`      | `#111827` | `8.dp`         |
+| `h4`  | `18.sp`    | `26.sp`      | `#111827` | `8.dp`         |
+| `h5`  | `16.sp`    | `24.sp`      | `#374151` | `8.dp`         |
+| `h6`  | `14.sp`    | `22.sp`      | `#4B5563` | `8.dp`         |
+
+### `blockquote`
+
+Carries the full set of block properties, with its own defaults, plus the quote decoration.
+
+| Property          | Type         | Default                | Description                             |
+| ----------------- | ------------ | ---------------------- | --------------------------------------- |
+| `fontSize`        | `TextUnit`   | `16.sp`                | Text size                               |
+| `fontFamily`      | `FontFamily` | `FontFamily.SansSerif` | Typeface                                |
+| `fontWeight`      | `FontWeight` | `FontWeight.Normal`    | Weight                                  |
+| `color`           | `Color`      | `#4B5563`              | Text color                              |
+| `lineHeight`      | `TextUnit`   | `26.sp`                | Line height                             |
+| `marginTop`       | `Dp`         | `0.dp`                 | Space above                             |
+| `marginBottom`    | `Dp`         | `16.dp`                | Space below                             |
+| `borderColor`     | `Color`      | `#D1D5DB`              | Left accent bar color                   |
+| `borderWidth`     | `Dp`         | `3.dp`                 | Left accent bar width                   |
+| `gapWidth`        | `Dp`         | `16.dp`                | Gap between the bar and the text        |
+| `backgroundColor` | `Color`      | `#F9FAFB`              | Background fill                         |
+| `cornerRadius`    | `Dp`         | `0.dp`                 | Rounds the quote box                    |
+| `padding`         | `Dp`         | `0.dp`                 | Inset between the box edge and the text |
+
+```kotlin
+markdownStyle {
+  blockquote {
+    color = Color(0xFF4B5563)
+    borderColor = Color(0xFF2563EB)
+    borderWidth = 4.dp
+    gapWidth = 12.dp
+    backgroundColor = Color(0xFFF3F4F6)
+    cornerRadius = 6.dp
+    padding = 12.dp
+  }
+}
+```
+
+### `admonitions` {#admonitions}
+
+A blockquote opening with `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!CAUTION]` renders as a themed callout with a tinted icon and a bold title. Admonitions nest under `blockquote` because they **inherit its geometry** - border width, gap, font, and spacing all come from the block above - and override only colors.
+
+```kotlin
+markdownStyle {
+  blockquote {
+    admonitions {
+      warning {
+        color = Color(0xFF9A6700)
+        backgroundColor = Color(0xFFFFF8C5)
+      }
+      caution { color = Color(0xFFCF222E) }
+    }
+  }
+}
+```
+
+Each of `note`, `tip`, `important`, `warning`, and `caution` takes:
+
+| Property          | Type    | Default         | Description                                                |
+| ----------------- | ------- | --------------- | ---------------------------------------------------------- |
+| `color`           | `Color` | Per type, below | Tints the accent bar, the title, and the icon              |
+| `backgroundColor` | `Color` | Unset           | Background fill. Unset means the callout is drawn unfilled |
+
+Default `color` per type, matching GitHub's alert palette:
+
+| Type        | Default color |
+| ----------- | ------------- |
+| `note`      | `#0969DA`     |
+| `tip`       | `#1A7F37`     |
+| `important` | `#8250DF`     |
+| `warning`   | `#9A6700`     |
+| `caution`   | `#CF222E`     |
+
+Types you omit keep their defaults, and within a type an omitted property falls back the same way. The title is always bold, whatever `fontWeight` the blockquote carries.
+
+:::note
+Requires [`MarkdownOptions(admonitions = true)`](/android/api-reference/enriched-markdown-text#admonitions), which is **off** by default. Without it the marker is literal text in an ordinary quote and these styles do not apply.
+:::
+
+### `list`
+
+| Property           | Type         | Default                   | Description                                  |
+| ------------------ | ------------ | ------------------------- | -------------------------------------------- |
+| `fontSize`         | `TextUnit`   | `16.sp`                   | Text size                                    |
+| `fontFamily`       | `FontFamily` | `FontFamily.SansSerif`    | Typeface                                     |
+| `fontWeight`       | `FontWeight` | `FontWeight.Normal`       | Weight                                       |
+| `color`            | `Color`      | `#1F2937`                 | Text color                                   |
+| `lineHeight`       | `TextUnit`   | `26.sp`                   | Line height                                  |
+| `marginTop`        | `Dp`         | `0.dp`                    | Space above the list                         |
+| `marginBottom`     | `Dp`         | `16.dp`                   | Space below the list                         |
+| `bulletColor`      | `Color`      | `#6B7280`                 | Unordered list bullet color                  |
+| `bulletSize`       | `Dp`         | `6.dp`                    | Unordered list bullet size                   |
+| `markerColor`      | `Color`      | `#6B7280`                 | Ordered list number color                    |
+| `markerFontWeight` | `FontWeight` | `FontWeight.Medium` (500) | Ordered list number weight                   |
+| `markerMinWidth`   | `Dp`         | `0.dp`                    | Minimum width reserved for the marker column. An ordered list's column also grows to fit its widest number |
+| `gapWidth`         | `Dp`         | `12.dp`                   | Gap between the marker and the text          |
+| `marginStart`      | `Dp`         | `24.dp`                   | Indent applied per nesting level, on the reading-direction start side |
+
+```kotlin
+markdownStyle {
+  list {
+    bulletColor = Color(0xFF2563EB)
+    bulletSize = 8.dp
+    markerColor = Color(0xFF2563EB)
+    markerMinWidth = 24.dp   // keeps text aligned past "9."
+    gapWidth = 10.dp
+    marginStart = 20.dp
+  }
+}
+```
+
+### `taskList`
+
+Styles the checkbox drawn for `- [ ]` and `- [x]` items. The item's text is styled by `list`.
+
+| Property               | Type      | Default   | Description                                                |
+| ---------------------- | --------- | --------- | ---------------------------------------------------------- |
+| `checkedColor`         | `Color`   | `#2196F3` | Fill of a checked box                                      |
+| `borderColor`          | `Color`   | `#9E9E9E` | Border of an unchecked box                                 |
+| `checkboxSize`         | `Dp`      | `14.dp`   | Box size                                                   |
+| `checkboxCornerRadius` | `Dp`      | `3.dp`    | Box corner radius                                          |
+| `checkmarkColor`       | `Color`   | `#FFFFFF` | Checkmark color                                            |
+| `checkedTextColor`     | `Color`   | Unset     | Text color of a checked item. Unset keeps the `list` color |
+| `checkedStrikethrough` | `Boolean` | `false`   | Strike through the text of a checked item                  |
+
+```kotlin
+markdownStyle {
+  taskList {
+    checkboxSize = 18.dp
+    checkboxCornerRadius = 9.dp
+    checkedColor = Color(0xFF16A34A)
+    checkedTextColor = Color(0xFF9CA3AF)
+    checkedStrikethrough = true
+  }
+}
+```
+
+### `codeBlock`
+
+| Property          | Type         | Default                | Description                           |
+| ----------------- | ------------ | ---------------------- | ------------------------------------- |
+| `fontSize`        | `TextUnit`   | `14.sp`                | Text size                             |
+| `fontFamily`      | `FontFamily` | `FontFamily.Monospace` | Typeface                              |
+| `fontWeight`      | `FontWeight` | `FontWeight.Normal`    | Weight                                |
+| `color`           | `Color`      | `#F3F4F6`              | Text color                            |
+| `lineHeight`      | `TextUnit`   | `22.sp`                | Line height                           |
+| `marginTop`       | `Dp`         | `0.dp`                 | Space above                           |
+| `marginBottom`    | `Dp`         | `16.dp`                | Space below                           |
+| `backgroundColor` | `Color`      | `#1F2937`              | Background fill                       |
+| `borderColor`     | `Color`      | `#374151`              | Border color                          |
+| `borderWidth`     | `Dp`         | `1.dp`                 | Border width                          |
+| `cornerRadius`    | `Dp`         | `8.dp`                 | Corner radius                         |
+| `padding`         | `Dp`         | `16.dp`                | Inner padding, the same on every side |
+
+A code block set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout) also has a header bar, with the language name and a copy button. The header has no properties of its own: the label and copy icon are drawn in `color` at reduced opacity, the label at 85% of `fontSize`, and the line under the header in a fainter `color`. `backgroundColor`, `borderColor`, `borderWidth`, and `cornerRadius` frame the header and code as one box.
+
+With the optional `code-highlight` artifact, tokens inside the block are recolored by language; `color` stays the color of everything the highlighter leaves uncolored. Token colors have their own [`codeHighlight`](/android/guides/code-highlighting#styling) block.
+
+```kotlin
+markdownStyle {
+  codeBlock {
+    fontSize = 13.sp
+    backgroundColor = Color(0xFF0D1117)
+    borderColor = Color(0xFF30363D)
+    cornerRadius = 10.dp
+    padding = 14.dp
+  }
+}
+```
+
+### `code`
+
+Inline code. `fontSize` and `fontFamily` are unset by default: inline code takes the size of the text around it, and is drawn in the system monospace face. Setting `fontFamily` replaces the monospace face.
+
+| Property          | Type         | Default   | Description     |
+| ----------------- | ------------ | --------- | --------------- |
+| `fontFamily`      | `FontFamily` | Monospace | Typeface        |
+| `fontSize`        | `TextUnit`   | Inherited | Text size       |
+| `color`           | `Color`      | `#E01E5A` | Text color      |
+| `backgroundColor` | `Color`      | `#FDF2F4` | Background fill |
+| `borderColor`     | `Color`      | `#F8D7DA` | Border color    |
+
+```kotlin
+markdownStyle {
+  code {
+    color = Color(0xFFBE185D)
+    backgroundColor = Color(0xFFFDF2F8)
+    borderColor = Color(0xFFFBCFE8)
+  }
+}
+```
+
+### `link`
+
+| Property          | Type             | Default                    | Description                                                                                                  |
+| ----------------- | ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `fontFamily`      | `FontFamily`     | Inherited                  | Typeface                                                                                                     |
+| `color`           | `Color`          | `#2563EB`                  | Text color                                                                                                   |
+| `textDecoration`  | `TextDecoration` | `TextDecoration.Underline` | `Underline`, `LineThrough`, both combined with `TextDecoration.combine(...)`, or `TextDecoration.None` |
+| `backgroundColor` | `Color`          | `Color.Transparent`        | Background fill                                                                                              |
+
+```kotlin
+markdownStyle {
+  link {
+    color = Color(0xFF1D4ED8)
+    textDecoration = TextDecoration.None
+  }
+}
+```
+
+### `strong`
+
+| Property     | Type         | Default           | Description |
+| ------------ | ------------ | ----------------- | ----------- |
+| `fontFamily` | `FontFamily` | Inherited         | Typeface    |
+| `fontWeight` | `FontWeight` | `FontWeight.Bold` | Weight      |
+| `color`      | `Color`      | Inherited         | Text color  |
+
+### `emphasis`
+
+| Property     | Type         | Default            | Description |
+| ------------ | ------------ | ------------------ | ----------- |
+| `fontFamily` | `FontFamily` | Inherited          | Typeface    |
+| `fontStyle`  | `FontStyle`  | `FontStyle.Italic` | Slant       |
+| `color`      | `Color`      | Inherited          | Text color  |
+
+### `strikethrough`
+
+| Property | Type    | Default   | Description                              |
+| -------- | ------- | --------- | ---------------------------------------- |
+| `color`  | `Color` | Inherited | Colors both the text and its strike line |
+
+### `underline`
+
+| Property | Type    | Default   | Description                            |
+| -------- | ------- | --------- | -------------------------------------- |
+| `color`  | `Color` | Inherited | Colors both the text and its underline |
+
+```kotlin
+markdownStyle {
+  strong { color = Color(0xFF111827) }
+  emphasis { fontStyle = FontStyle.Italic }
+  strikethrough { color = Color(0xFF9CA3AF) }
+  underline { color = Color(0xFF2563EB) }
+}
+```
+
+### `superscript`
+
+Takes unitless `Float`s rather than `Dp`/`sp`, because both are expressed relative to the surrounding text.
+
+| Property              | Type    | Default | Description                                       |
+| --------------------- | ------- | ------- | ------------------------------------------------- |
+| `fontScale`           | `Float` | `0.65f` | Text size as a fraction of the surrounding text   |
+| `baselineOffsetScale` | `Float` | `0.35f` | Baseline shift **up**, as a fraction of text size |
+
+### `subscript`
+
+| Property              | Type    | Default | Description                                         |
+| --------------------- | ------- | ------- | --------------------------------------------------- |
+| `fontScale`           | `Float` | `0.65f` | Text size as a fraction of the surrounding text     |
+| `baselineOffsetScale` | `Float` | `0.2f`  | Baseline shift **down**, as a fraction of text size |
+
+```kotlin
+markdownStyle {
+  superscript {
+    fontScale = 0.7f
+    baselineOffsetScale = 0.4f
+  }
+  subscript {
+    fontScale = 0.7f
+    baselineOffsetScale = 0.25f
+  }
+}
+```
+
+### `highlight`
+
+`==text==` runs, drawn as a band behind the glyphs. Needs [`MarkdownOptions(highlight = true)`](/android/api-reference/enriched-markdown-text#highlight).
+
+| Property          | Type    | Default    | Description                                           |
+| ----------------- | ------- | ---------- | ----------------------------------------------------- |
+| `color`           | `Color` | Inherited  | Text color of the highlighted run                     |
+| `backgroundColor` | `Color` | `#FEF08A`  | Band fill; a fully transparent color draws no band    |
+
+```kotlin
+markdownStyle {
+  highlight {
+    color = Color(0xFF713F12)
+    backgroundColor = Color(0xFFFDE68A)
+  }
+}
+```
+
+### `image`
+
+Block images - an image with nothing before it on its line. See [Images: block vs. inline](/android/api-reference/element-structure#images-block-vs-inline).
+
+| Property       | Type | Default  | Description                                  |
+| -------------- | ---- | -------- | -------------------------------------------- |
+| `height`       | `Dp` | `200.dp` | Rendered height; width follows the container |
+| `cornerRadius` | `Dp` | `8.dp`   | Corner radius                                |
+| `marginTop`    | `Dp` | `0.dp`   | Space above                                  |
+| `marginBottom` | `Dp` | `16.dp`  | Space below                                  |
+
+```kotlin
+markdownStyle {
+  image {
+    height = 240.dp
+    cornerRadius = 12.dp
+    marginBottom = 24.dp
+  }
+}
+```
+
+### `inlineImage`
+
+An image sitting inside a line of text, sized to the line rather than the container.
+
+| Property | Type | Default | Description                          |
+| -------- | ---- | ------- | ------------------------------------ |
+| `size`   | `Dp` | `20.dp` | Width and height of the inline image |
+
+```kotlin
+markdownStyle {
+  inlineImage { size = 24.dp }
+}
+```
+
+### `thematicBreak`
+
+| Property       | Type    | Default   | Description    |
+| -------------- | ------- | --------- | -------------- |
+| `color`        | `Color` | `#E5E7EB` | Rule color     |
+| `height`       | `Dp`    | `1.dp`    | Rule thickness |
+| `marginTop`    | `Dp`    | `24.dp`   | Space above    |
+| `marginBottom` | `Dp`    | `24.dp`   | Space below    |
+
+```kotlin
+markdownStyle {
+  thematicBreak {
+    color = Color(0xFFD1D5DB)
+    height = 2.dp
+    marginTop = 32.dp
+    marginBottom = 32.dp
+  }
+}
+```
+
+### `table`
+
+GFM pipe tables - the body text, the header row, and the grid.
+
+Header cells ignore `fontWeight` and are bold by default: they use the cell `fontFamily` in bold (the system bold face when no family is set). `headerFontFamily` replaces that face and is used as given, so pass a bold family if you want the header to stay bold.
+
+| Property                 | Type             | Default                | Description                                                                                                           |
+| ------------------------ | ---------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `fontSize`               | `TextUnit`       | `14.sp`                | Cell text size                                                                                                        |
+| `fontFamily`             | `FontFamily`     | `FontFamily.SansSerif` | Cell typeface                                                                                                         |
+| `fontWeight`             | `FontWeight`     | `FontWeight.Normal`    | Cell weight                                                                                                           |
+| `color`                  | `Color`          | `#1F2937`              | Cell text color                                                                                                       |
+| `lineHeight`             | `TextUnit`       | `22.sp`                | Cell line height                                                                                                      |
+| `marginTop`              | `Dp`             | `0.dp`                 | Space above the table                                                                                                 |
+| `marginBottom`           | `Dp`             | `16.dp`                | Space below the table                                                                                                 |
+| `headerFontFamily`       | `FontFamily`     | The cell typeface, bold | Header row typeface alone, used as given                                                                             |
+| `headerTextColor`        | `Color`          | `#111827`              | Header row text color                                                                                                 |
+| `headerBackgroundColor`  | `Color`          | `#F3F4F6`              | Header row fill                                                                                                       |
+| `rowEvenBackgroundColor` | `Color`          | `#FFFFFF`              | Even body rows background                                                                                             |
+| `rowOddBackgroundColor`  | `Color`          | `#F9FAFB`              | Odd body rows background                                                                                              |
+| `borderColor`            | `Color`          | `#E5E7EB`              | Grid and outer border color                                                                                           |
+| `borderWidth`            | `Dp`             | `1.dp`                 | Grid and outer border width                                                                                           |
+| `cornerRadius`           | `Dp`             | `6.dp`                 | Rounds the outer border                                                                                               |
+| `cellPaddingHorizontal`  | `Dp`             | `12.dp`                | Inset inside a cell, left and right                                                                                   |
+| `cellPaddingVertical`    | `Dp`             | `8.dp`                 | Inset inside a cell, top and bottom                                                                                   |
+| `horizontalOverflow`     | `Dp`             | `0.dp`                 | How far a table wider than the text column scrolls past the column on each side. At rest the table starts at the column edge; while scrolling, it stays visible this far beyond it, e.g. out to the screen edge. `0.dp` clips scrolling at the column |
+| `alignment`              | `Alignment.Horizontal` | `Alignment.Start` | Where a table **narrower** than the text column sits in it. `Alignment.Start`, `CenterHorizontally`, and `End` follow the reading direction; `AbsoluteAlignment.Left` / `Right` pin a side. Column alignment comes from the Markdown separator row, not from this |
+
+```kotlin
+markdownStyle {
+  table {
+    headerTextColor = Color(0xFF111827)
+    headerBackgroundColor = Color(0xFFF3F4F6)
+    rowOddBackgroundColor = Color(0xFFF9FAFB)
+    borderColor = Color(0xFFE5E7EB)
+    cornerRadius = 8.dp
+    cellPaddingHorizontal = 14.dp
+    cellPaddingVertical = 10.dp
+    alignment = Alignment.CenterHorizontally
+  }
+}
+```
+
+### `spoiler` {#spoiler}
+
+The overlay that hides `||spoiler||` text until the reader taps it. The block sets only its color; which effect is drawn (animated particles or a solid fill) and its tuning are picked with the [`spoilerOverlay`](/android/api-reference/enriched-markdown-text#spoileroverlay) parameter of `EnrichedMarkdownText`.
+
+| Property | Type    | Default   | Description                                                      |
+| -------- | ------- | --------- | ---------------------------------------------------------------- |
+| `color`  | `Color` | `#374151` | Color of the particles, or the fill of the solid overlay         |
+
+```kotlin
+markdownStyle {
+  spoiler { color = Color(0xFF6B7280) }
+}
+```

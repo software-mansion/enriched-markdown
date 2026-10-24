@@ -5,4 +5,5 @@ data class LinkStyle(
   val color: Int,
   val underline: Boolean,
   val backgroundColor: Int,
+  val strikethrough: Boolean = false,
 )

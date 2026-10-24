@@ -11,7 +11,7 @@ struct MarkdownAccessibilityElementSpec: Equatable {
         /// `link` is the wrapping link's target for `[![alt](img)](url)`.
         case image(link: URL?)
         /// One fenced block; the label is the code itself.
-        case codeBlock(copyAction: String)
+        case codeBlock(copyAction: String, language: String?)
         case tableRow(offset: CGFloat, height: CGFloat, isHeader: Bool)
     }
 
@@ -77,7 +77,7 @@ struct MarkdownAccessibilityElementBuilder {
     private mutating func build() -> [MarkdownAccessibilityElementSpec] {
         var cursor = 0
         while cursor < string.length {
-            if let block = codeBlockRange(at: cursor) {
+            if let block = MarkdownAttributeValue.codeBlockRange(in: text, at: cursor) {
                 appendCodeBlockSpec(for: block)
                 cursor = block.location + block.length
                 continue
@@ -94,26 +94,11 @@ struct MarkdownAccessibilityElementBuilder {
 
     // MARK: - Code blocks
 
-    /// The full range of the fenced code block that starts at `position`,
-    /// spacer lines included.
-    private func codeBlockRange(at position: Int) -> NSRange? {
-        guard MarkdownAttributeValue.boolValue(from: attribute(MarkdownAttribute.codeBlock, at: position)) else {
-            return nil
-        }
-        var range = NSRange()
-        _ = text.attribute(
-            MarkdownAttribute.codeBlock,
-            at: position,
-            longestEffectiveRange: &range,
-            in: NSRange(location: position, length: string.length - position)
-        )
-        return range
-    }
-
     private mutating func appendCodeBlockSpec(for range: NSRange) {
         guard let (visible, code) = visibleText(in: range) else { return }
+        let language = attribute(MarkdownAttribute.codeBlockLanguage, at: range.location) as? String
         specs.append(MarkdownAccessibilityElementSpec(
-            kind: .codeBlock(copyAction: labels.codeBlock.copy),
+            kind: .codeBlock(copyAction: labels.codeBlock.copy, language: language),
             label: code,
             range: visible,
             headingLevel: nil,
@@ -128,11 +113,13 @@ struct MarkdownAccessibilityElementBuilder {
         /// A plugin attachment that carries its own spoken label.
         case attachment(NSRange, label: String)
         case table(NSRange, TableAttachment)
+        case codeBlock(NSRange, CodeBlockAttachment)
         case link(NSRange, URL)
 
         var range: NSRange {
             switch self {
-            case .image(let range, _, _), .attachment(let range, _), .table(let range, _), .link(let range, _):
+            case .image(let range, _, _), .attachment(let range, _), .table(let range, _), .codeBlock(let range, _),
+                 .link(let range, _):
                 return range
             }
         }
@@ -185,6 +172,8 @@ struct MarkdownAccessibilityElementBuilder {
                 ))
             } else if let table = attachment as? TableAttachment {
                 attachments.append(.table(runRange, table))
+            } else if let code = attachment as? CodeBlockAttachment {
+                attachments.append(.codeBlock(runRange, code))
             } else if let label = attachment.accessibilityLabel, !label.isEmpty {
                 attachments.append(.attachment(runRange, label: label))
             }
@@ -227,6 +216,15 @@ struct MarkdownAccessibilityElementBuilder {
         switch run {
         case .table(let range, let table):
             appendTableRowSpecs(for: table, range: range)
+        case .codeBlock(let range, let code):
+            guard !code.code.isEmpty else { return }
+            specs.append(MarkdownAccessibilityElementSpec(
+                kind: .codeBlock(copyAction: labels.codeBlock.copy, language: code.language),
+                label: code.code,
+                range: range,
+                headingLevel: nil,
+                value: nil
+            ))
         case .image(let range, let label, let link):
             specs.append(MarkdownAccessibilityElementSpec(
                 kind: .image(link: link),
@@ -355,10 +353,11 @@ struct MarkdownAccessibilityElementBuilder {
         let fullRange = NSRange(location: 0, length: text.length)
         var numberRun = NSRange()
         _ = text.attribute(MarkdownAttribute.listItemNumber, at: position, longestEffectiveRange: &numberRun, in: fullRange)
-        var depthRun = numberRun
-        _ = text.attribute(MarkdownAttribute.listDepth, at: position, longestEffectiveRange: &depthRun, in: fullRange)
+        // Depth only within the number run: across the whole text it spans
+        // every sibling, a walk over the list for each item.
+        var itemRange = NSRange()
+        _ = text.attribute(MarkdownAttribute.listDepth, at: position, longestEffectiveRange: &itemRange, in: numberRun)
 
-        let itemRange = NSIntersectionRange(numberRun, depthRun)
         let firstVisible = trimmedRange(of: itemRange)?.location ?? itemRange.location
         return position <= firstVisible + 1
     }

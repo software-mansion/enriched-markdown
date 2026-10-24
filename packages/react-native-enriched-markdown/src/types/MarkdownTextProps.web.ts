@@ -1,3 +1,9 @@
+import type { LinkRecognition } from './linkRecognition';
+import type {
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
+  MarkdownRenderers,
+} from './markdownBlocks';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type {
@@ -12,6 +18,11 @@ export interface EnrichedMarkdownTextProps extends Omit<
   HTMLAttributes<HTMLDivElement>,
   'style' | 'dir'
 > {
+  /**
+   * Test identifier applied to the root element as `data-testid`.
+   * @platform web
+   */
+  testID?: string;
   /**
    * Markdown content to render.
    * @platform ios, android, web
@@ -33,6 +44,12 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform ios, android, web
    */
   md4cFlags?: Md4cFlags;
+  /**
+   * Turns regex matches in plain text (`text`) and whole inline-code spans
+   * (`inlineCode`) into links. The matched text is the URL; the source is unchanged.
+   * @platform ios, android, web
+   */
+  linkRecognition?: LinkRecognition;
   /**
    * Callback fired when a link is pressed.
    * Receives the link URL directly.
@@ -121,10 +138,32 @@ export interface EnrichedMarkdownTextProps extends Omit<
    */
   allowTrailingMargin?: boolean;
   /**
-   * Sets the text direction on the root container.
-   * Useful for RTL languages — CSS logical properties in the renderers
-   * automatically flip blockquote borders, list indentation, etc.
+   * Text direction. By default (or `'auto'`) each paragraph, heading, list,
+   * blockquote and table cell resolves its own direction from its first
+   * strong character, so mixed Arabic/English documents lay out per paragraph.
+   * `'ltr'` / `'rtl'` force one direction for the whole document.
    * @platform web
    */
   dir?: 'ltr' | 'rtl' | 'auto';
+  /**
+   * React replacements for blocks, keyed by kind: a paragraph whose only
+   * content is an image or a link, and `<video>` blocks, directly in the
+   * document, a blockquote or an admonition, outside any list. Return nothing
+   * (`undefined`) to keep the default rendering for a block.
+   * @platform ios, android, web
+   */
+  renderers?: MarkdownRenderers;
+  /**
+   * Chooses the `src` used for each image instead of its Markdown URL. Headers
+   * are ignored on web, where `<img>` requests cannot carry them. Until it
+   * answers, and when a promise rejects or resolves to an empty `uri`, the
+   * image renders without a source.
+   * @platform ios, android, web
+   */
+  resolveImageSource?: (
+    image: MarkdownImageOccurrence
+  ) =>
+    | MarkdownImageSource
+    | undefined
+    | Promise<MarkdownImageSource | undefined>;
 }

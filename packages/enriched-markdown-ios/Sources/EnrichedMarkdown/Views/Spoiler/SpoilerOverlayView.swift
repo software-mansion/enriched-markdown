@@ -1,34 +1,82 @@
 import UIKit
 
 /// One line segment of a concealed spoiler, layered over the transparent
-/// text. Subclasses draw the particles or the solid box; the base handles
-/// the reveal fade and reports which characters it covers.
-class SpoilerOverlayView: UIView {
+/// text. Subclass to draw a custom effect and return it from a
+/// `SpoilerOverlayProvider`.
+///
+/// The text view sets the frame and adds the view above the text. When a
+/// re-layout only moves the segment, the view moves with it and keeps its
+/// state; when its text, size or baseline changes, the view is replaced, so
+/// keep construction cheap. The view must be opaque: the text under it is
+/// transparent, but emoji and inline images ignore that. An effect that
+/// shows the text through draws `concealedTextImage()`. A reveal calls
+/// `animateReveal` on every segment of the spoiler at once and removes each
+/// view when it completes; `revealPoint` says where the reader tapped.
+open class SpoilerOverlayView: UIView {
     static let revealDuration: TimeInterval = 0.45
 
-    let charRange: NSRange
+    /// The whole spoiler's range, shared by all of its segment views.
+    public let charRange: NSRange
+    /// This segment's slice of the spoiler, styled as it reveals. Set before
+    /// the view is added to the text view.
+    public internal(set) var concealedText = NSAttributedString()
+    /// The line's typographic baseline, from the top of the view, before any
+    /// per-run `.baselineOffset`: with a theme line height it can sit at the
+    /// very bottom, the offset lifting the glyphs above it.
+    public internal(set) var baseline: CGFloat = 0
+    /// This segment's place among the spoiler's segments, in reading order,
+    /// for effects that reveal a wrapped spoiler line by line.
+    public internal(set) var segmentIndex: Int = 0
+    public internal(set) var segmentCount: Int = 1
+    /// Where the reader tapped, in this view's coordinates, set just before
+    /// `animateReveal` is called. Nil for a programmatic reveal, and it can
+    /// lie outside the bounds when the tap landed on another segment of the
+    /// same spoiler.
+    public internal(set) var revealPoint: CGPoint?
     private(set) var isRevealing = false
 
-    init(charRange: NSRange) {
+    public init(charRange: NSRange) {
         self.charRange = charRange
         super.init(frame: .zero)
+        // Reveal taps are hit-tested from overlay frames and must reach the text view.
         isUserInteractionEnabled = false
         clipsToBounds = true
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// Hook for subclasses to speed up or stop their effect as the fade starts.
-    func prepareRevealAnimation() {}
+    /// `concealedText`, or `text` in its place, on a transparent canvas the
+    /// size of the view, laid out as the text view lays the segment out.
+    public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage {
+        guard !bounds.isEmpty else { return UIImage() }
+        let contentStorage = NSTextContentStorage()
+        let layoutManager = NSTextLayoutManager()
+        contentStorage.addTextLayoutManager(layoutManager)
+        let container = SnapshotTextContainer(size: CGSize(width: bounds.width, height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        layoutManager.textContainer = container
+        contentStorage.attributedString = text ?? concealedText
+        layoutManager.ensureLayout(for: layoutManager.documentRange)
+        let renderer = UIGraphicsImageRenderer(bounds: bounds)
+        guard let fragment = layoutManager.textLayoutFragment(for: layoutManager.documentRange.location),
+              let line = fragment.textLineFragments.first
+        else { return renderer.image { _ in } }
 
-    func animateReveal(completion: @escaping () -> Void) {
-        guard !isRevealing else { return }
-        isRevealing = true
-        prepareRevealAnimation()
+        let lineBaseline = fragment.layoutFragmentFrame.minY + line.typographicBounds.minY + line.glyphOrigin.y
+        return renderer.image { context in
+            // Dynamic colors resolve for this view's traits, whoever calls.
+            traitCollection.performAsCurrent {
+                fragment.draw(at: CGPoint(x: 0, y: baseline - lineBaseline), in: context.cgContext)
+            }
+        }
+    }
 
+    /// Animates the view out, fading `alpha` by default. An override must
+    /// call `completion` when done; call `super` to keep the fade.
+    open func animateReveal(completion: @escaping () -> Void) {
         UIView.animate(
             withDuration: Self.revealDuration,
             delay: 0,
@@ -36,19 +84,32 @@ class SpoilerOverlayView: UIView {
         ) {
             self.alpha = 0
         } completion: { _ in
-            self.removeFromSuperview()
+            completion()
+        }
+    }
+
+    /// Starts the reveal once; a second call, such as another tap while the
+    /// animation runs, changes nothing, `revealPoint` included.
+    func reveal(from point: CGPoint?, completion: @escaping () -> Void) {
+        guard !isRevealing else { return }
+        isRevealing = true
+        revealPoint = point
+        animateReveal { [self] in
+            removeFromSuperview()
             completion()
         }
     }
 }
 
 final class SolidSpoilerOverlayView: SpoilerOverlayView {
-    static let defaultBorderRadius: CGFloat = 4
+    static let defaultCornerRadius: CGFloat = 4
 
-    init(style: SpoilerStyle, charRange: NSRange) {
+    /// The provider's radius wins; the theme's (set by the deprecated
+    /// `Spoiler().solidBorderRadius`) is the fallback.
+    init(style: SpoilerStyle, cornerRadius: CGFloat?, charRange: NSRange) {
         super.init(charRange: charRange)
         backgroundColor = style.color ?? .secondaryLabel
-        layer.cornerRadius = style.solidBorderRadius ?? Self.defaultBorderRadius
+        layer.cornerRadius = cornerRadius ?? style.solidCornerRadius ?? Self.defaultCornerRadius
     }
 }
 
@@ -92,10 +153,16 @@ final class ParticleSpoilerOverlayView: SpoilerOverlayView {
     }()
 
     private let style: SpoilerStyle
+    let density: CGFloat
+    let speed: CGFloat
     private var emitterLayer: CAEmitterLayer?
 
-    init(style: SpoilerStyle, charRange: NSRange) {
+    /// The provider's tuning wins; the theme's (set by the deprecated
+    /// `Spoiler().particleDensity` / `particleSpeed`) is the fallback.
+    init(style: SpoilerStyle, density: CGFloat?, speed: CGFloat?, charRange: NSRange) {
         self.style = style
+        self.density = density ?? style.particleDensity ?? Self.defaultDensity
+        self.speed = speed ?? style.particleSpeed ?? Self.defaultSpeed
         super.init(charRange: charRange)
         backgroundColor = style.backgroundColor ?? .systemBackground
     }
@@ -112,7 +179,12 @@ final class ParticleSpoilerOverlayView: SpoilerOverlayView {
         emitterLayer.emitterSize = bounds.size
     }
 
-    override func prepareRevealAnimation() {
+    override func animateReveal(completion: @escaping () -> Void) {
+        burstParticles()
+        super.animateReveal(completion: completion)
+    }
+
+    private func burstParticles() {
         guard let emitterLayer else { return }
         emitterLayer.birthRate = 0
         for cell in emitterLayer.emitterCells ?? [] {
@@ -129,9 +201,6 @@ final class ParticleSpoilerOverlayView: SpoilerOverlayView {
     }
 
     private func makeCell(_ spec: Cell, area: CGFloat) -> CAEmitterCell {
-        let density = style.particleDensity ?? Self.defaultDensity
-        let speed = style.particleSpeed ?? Self.defaultSpeed
-
         let cell = CAEmitterCell()
         cell.name = spec.name
         cell.contents = Self.dotImage

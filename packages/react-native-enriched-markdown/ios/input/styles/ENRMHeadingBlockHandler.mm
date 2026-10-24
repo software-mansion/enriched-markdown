@@ -1,4 +1,5 @@
 #import "ENRMHeadingBlockHandler.h"
+#import "ParagraphStyleUtils.h"
 
 @implementation ENRMHeadingBlockHandler
 
@@ -23,6 +24,8 @@
   if (headingColor) {
     attributes[NSForegroundColorAttributeName] = headingColor;
   }
+
+  ENRMApplyLineHeightToParagraphStyle(paragraphStyle, [style derivedLineHeightForHeadingLevel:level]);
 }
 
 - (NSString *)markdownLinePrefixForBlockRange:(ENRMBlockRange *)blockRange

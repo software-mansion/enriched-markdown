@@ -7,21 +7,26 @@
 
 #define CACHE_KEY_PROCESSED(url, w, h, r, m) [NSString stringWithFormat:@"%@_w%.1f_h%.1f_r%.1f_m%@", url, w, h, r, m]
 
-static inline NSUInteger ENRMImageByteCost(RCTUIImage *image)
-{
-  CGImageRef cgImage = image.CGImage;
-  if (!cgImage)
-    return 0;
-  return CGImageGetBytesPerRow(cgImage) * CGImageGetHeight(cgImage);
-}
-
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
-static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
+
+@implementation RCTUIView (ENRMImageLayoutObserver)
+
+- (id<ENRMImageLayoutObserver>)enrm_imageLayoutObserver
+{
+  RCTUIView *view = self;
+  while (view && ![view conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
+    view = view.superview;
+  }
+  return (id<ENRMImageLayoutObserver>)view;
+}
+
+@end
 
 @interface ENRMImageAttachment ()
 
 @property (nonatomic, copy) NSString *imageURL;
+@property (nonatomic, copy) NSString *requestURL;
 @property (nonatomic, copy, nullable) NSDictionary<NSString *, NSString *> *requestHeaders;
 @property (nonatomic, copy) NSString *cacheKey;
 @property (nonatomic, assign) BOOL isInline;
@@ -63,38 +68,34 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
   return _processedImageCache;
 }
 
-+ (NSMapTable<NSString *, ENRMImageAttachment *> *)attachmentRegistry
-{
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{ _attachmentRegistry = [NSMapTable strongToWeakObjectsMapTable]; });
-  return _attachmentRegistry;
-}
-
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
 {
-  NSString *key =
-      [NSString stringWithFormat:@"%@_%d", ENRMImageCacheKey(imageURL, [config imageRequestHeaders]), isInline];
-  ENRMImageAttachment *existing = [[self attachmentRegistry] objectForKey:key];
-  if (existing && existing.loadedImage) {
-    return existing;
-  }
-  ENRMImageAttachment *attachment = [[self alloc] initWithImageURL:imageURL config:config isInline:isInline];
-  [[self attachmentRegistry] setObject:attachment forKey:key];
-  return attachment;
+  return [self attachmentForURL:imageURL source:nil config:config isInline:isInline];
 }
 
-+ (void)clearAttachmentRegistry
++ (instancetype)attachmentForURL:(NSString *)imageURL
+                          source:(ENRMImageSourceOverride *)source
+                          config:(StyleConfig *)config
+                        isInline:(BOOL)isInline
 {
-  [[self attachmentRegistry] removeAllObjects];
+  // Always a fresh instance, never shared across positions: the table renderer can draw
+  // the same image URL at a different width than a copy outside the table, and a shared
+  // NSTextAttachment would thrash its single last-processed width into a redraw loop. The
+  // image caches keep fresh instances cheap (no re-fetch or re-scale).
+  return [[self alloc] initWithImageURL:imageURL source:source config:config isInline:isInline];
 }
 
-- (instancetype)initWithImageURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
+- (instancetype)initWithImageURL:(NSString *)imageURL
+                          source:(ENRMImageSourceOverride *)source
+                          config:(StyleConfig *)config
+                        isInline:(BOOL)isInline
 {
   self = [super init];
   if (self) {
     _imageURL = imageURL;
-    _requestHeaders = [[config imageRequestHeaders] copy];
-    _cacheKey = ENRMImageCacheKey(imageURL, _requestHeaders);
+    _requestURL = source ? ([source.uri copy] ?: @"") : imageURL;
+    _requestHeaders = ENRMMergeImageRequestHeaders([config imageRequestHeaders], source.headers);
+    _cacheKey = ENRMImageCacheKey(_requestURL, _requestHeaders);
     _isInline = isInline;
 
     _cachedHeight = isInline ? [config inlineImageSize] : [config imageHeight];
@@ -324,17 +325,24 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
 
 - (void)startDownloadingImage
 {
-  if (self.imageURL.length == 0)
+  // An overridden source with an empty uri keeps the placeholder on purpose.
+  if (self.requestURL.length == 0)
     return;
 
   __weak typeof(self) weakSelf = self;
-  [[ENRMImageDownloader shared] downloadURL:self.imageURL
+  [[ENRMImageDownloader shared] downloadURL:self.requestURL
                                     headers:self.requestHeaders
                                  completion:^(RCTUIImage *image) { [weakSelf handleLoadedImage:image]; }];
 }
 
 - (void)refreshDisplay
 {
+  // Notify self-drawing hosts (e.g. a table grid) that rasterize us via
+  // -drawWithRect: and have no live text view for the invalidation below to reach.
+  if (self.onImageLoaded) {
+    self.onImageLoaded();
+  }
+
   UITextView *textView = [self fetchAssociatedTextView];
   if (!textView)
     return;
@@ -361,14 +369,10 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
   if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0)
     return;
 
-  RCTUIView *candidate = textView;
-  while (candidate && ![candidate conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
-    candidate = candidate.superview;
-  }
-  if (!candidate)
+  id<ENRMImageLayoutObserver> observer = [textView enrm_imageLayoutObserver];
+  if (!observer)
     return;
 
-  id<ENRMImageLayoutObserver> observer = (id<ENRMImageLayoutObserver>)candidate;
   dispatch_async(dispatch_get_main_queue(), ^{ [observer imageAttachmentDidResolveLayout]; });
 }
 

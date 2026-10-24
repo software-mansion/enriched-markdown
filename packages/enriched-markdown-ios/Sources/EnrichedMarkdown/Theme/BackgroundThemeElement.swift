@@ -5,6 +5,7 @@ public protocol BackgroundThemeElement: MarkdownThemeContent {
 }
 
 public extension BackgroundThemeElement {
+    @_disfavoredOverload
     func backgroundStyle(_ color: Color) -> Self {
         var copy = self
         copy.backgroundColorSpec = ThemeColorModifiers.spec(from: color)
@@ -17,6 +18,7 @@ public extension BackgroundThemeElement {
         return copy
     }
 
+    @_disfavoredOverload
     func background(_ color: Color) -> Self {
         backgroundStyle(color)
     }

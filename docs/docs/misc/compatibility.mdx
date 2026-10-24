@@ -1,0 +1,99 @@
+---
+sidebar_label: Compatibility
+sidebar_position: 1
+---
+
+# Compatibility
+
+The table below shows which versions of `react-native-enriched-markdown`
+support which React Native versions. The standalone native packages have their
+own sections: [iOS package](#ios-package) and [Android package](#android-package).
+
+<EnrichedCompatibility />
+
+The `nightly` row is the automated build published from `main` every day. It is
+ahead of every numbered release, so treat it as a preview rather than a
+supported version - see [Nightly builds](/react-native/basics/installation#nightly-builds).
+
+## Platform requirements
+
+The React Native package also needs these minimum platform versions:
+
+| Platform | Minimum |
+| --- | --- |
+| Android | `minSdk 24` (Android 7.0) |
+| iOS | React Native's minimum deployment target; [`contextMenuItems`](/react-native/api-reference/enriched-markdown-text#contextmenuitems), `selectionMenuConfig` and `formatMenuConfig` additionally require iOS 16+ |
+| macOS | 14.0, via [react-native-macos](https://github.com/microsoft/react-native-macos) |
+| Web | Any browser with WebAssembly; MathML rendering for [LaTeX math](/rich-text-formatting/latex-math) needs Chrome 109+, Firefox, or Safari |
+
+The React Native package also requires the [New Architecture (Fabric)](https://reactnative.dev/architecture/landing-page).
+
+:::note
+The macOS row is the deployment target, not a `react-native-macos` version. The
+library's own macOS example app is built against `react-native-macos` 0.81,
+which trails the React Native versions in the table above. See
+[macOS support](/react-native/guides/macos).
+:::
+
+## Dependencies
+
+| | |
+| --- | --- |
+| **Runtime dependencies** | None |
+| **Peer dependencies** | `react`, `react-native` (no version floor declared beyond the table above) |
+| **Optional peer dependency** | [`katex`](https://katex.org/) `>=0.16.0`, used only by the web build to typeset LaTeX |
+| **Expo** | Supported through `npx expo install` and a [development build](https://docs.expo.dev/develop/development-builds/introduction/). The library's compile-time settings cannot apply in Expo Go. There is no config plugin - see [Installation](/react-native/basics/installation#expo). |
+
+## iOS package {#ios-package}
+
+The standalone Swift package,
+[`enriched-markdown-ios`](/ios/basics/installation), versions 0.4.0 and newer.
+
+| | |
+| --- | --- |
+| **Deployment target** | iOS 16.0 |
+| **Platforms** | iOS only. The package declares `platforms: [.iOS(.v16)]` and its sources import UIKit, so a macOS, watchOS or tvOS target cannot depend on it |
+| **Swift tools** | 5.9 (Xcode 15 or newer) |
+| **UI framework** | SwiftUI - the package exports a `View` |
+| **Distribution** | Swift Package Manager (`software-mansion-labs/enriched-markdown-ios`) |
+
+It ships three [products](/ios/basics/installation#products):
+
+- `EnrichedMarkdown` - the renderer.
+- `EnrichedMarkdownLaTeX` (optional) - adds `$...$` typesetting. It links the
+  prebuilt RaTeX engine plus the KaTeX fonts, about 3-5 MB of app size. See
+  [LaTeX math](/ios/guides/latex-math).
+- `EnrichedMarkdownSyntaxHighlighting` (optional) - colors fenced code blocks.
+  It compiles tree-sitter with all its grammars, about 8 MB of app size, with
+  no way to compile in only some languages. See
+  [Syntax highlighting](/ios/guides/syntax-highlighting).
+
+## Android package {#android-package}
+
+The standalone Android library,
+[`enriched-markdown-android`](/android/basics/installation), versions 0.3.0 and
+newer.
+
+| | |
+| --- | --- |
+| **Min SDK** | `24` (Android 7.0) |
+| **Compile SDK** | `36` or newer - a floor, not a suggestion: AGP fails the build when a dependency was compiled against a newer SDK than the consumer |
+| **Java** | 11 as the bytecode target. Running Gradle for AGP 9.x and Kotlin 2.4 needs JDK 17 (what CI uses) |
+| **Kotlin** | 2.3 or newer, with the Compose compiler plugin. The library is built with Kotlin 2.4.0 - see [Requirements](/android/basics/installation#requirements) |
+| **UI toolkit** | Jetpack Compose with Material 3 |
+| **AndroidX** | Required |
+
+It is published to Maven Central under the `com.swmansion.enriched.markdown`
+group as five [artifacts](/android/basics/installation#artifacts): `parser`,
+`ui`, `compose` (the one apps depend on; it pulls in `ui` and `parser`) and two
+optional ones that `compose` never pulls in:
+
+- `math` - renders LaTeX; new in 0.3.0. See
+  [LaTeX math](/android/guides/latex-math). The math engine ships no 32-bit
+  `x86` library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so only apps
+  that add `math` take on that ABI limit.
+- `code-highlight` - colors fenced code blocks. It compiles tree-sitter and its
+  14 grammars into one native library for all four ABIs (`arm64-v8a`,
+  `armeabi-v7a`, `x86` and `x86_64`): about 8 MB per ABI uncompressed and about
+  1.1 MB per ABI compressed, with no way to compile in only some languages. See
+  [Code highlighting](/android/guides/code-highlighting).

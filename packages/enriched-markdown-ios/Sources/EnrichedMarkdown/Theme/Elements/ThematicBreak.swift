@@ -8,20 +8,17 @@ public struct ThematicBreak: MarkdownThemeContent {
 
     public init() {}
 
-    public func color(_ color: Color) -> Self {
+    @_disfavoredOverload
+    public func foregroundStyle(_ color: Color) -> Self {
         var copy = self
-        copy.colorSpec = ThemeResolver.color(from: color, traitCollection: .current)
-        return copy
-    }
-
-    public func color(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
-        var copy = self
-        copy.colorSpec = ThemeColorModifiers.spec(from: semantic)
+        copy.colorSpec = ThemeColorModifiers.spec(from: color)
         return copy
     }
 
     public func foregroundStyle(_ semantic: ThemeColorSpec.SemanticColor) -> Self {
-        color(semantic)
+        var copy = self
+        copy.colorSpec = ThemeColorModifiers.spec(from: semantic)
+        return copy
     }
 
     public func height(_ value: CGFloat) -> Self {
@@ -42,7 +39,7 @@ public struct ThematicBreak: MarkdownThemeContent {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         if let colorSpec {
             config.thematicBreak.color = colorSpec.resolve(traitCollection: traitCollection)
         }

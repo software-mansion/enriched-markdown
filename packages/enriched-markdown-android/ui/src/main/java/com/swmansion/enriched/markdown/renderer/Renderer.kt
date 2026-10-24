@@ -1,10 +1,10 @@
 package com.swmansion.enriched.markdown.renderer
 
 import android.content.Context
-import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
-import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.plugin.PluginEventSink
+import com.swmansion.enriched.markdown.plugin.PluginSnapshot
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
@@ -13,54 +13,86 @@ class Renderer {
   private var cachedStyle: StyleConfig? = null
   private var cachedContext: Context? = null
   private var cachedImageRequestHeaders: Map<String, String> = emptyMap()
+  private var cachedOnPluginEvent: PluginEventSink? = null
+  private var cachedPlugins: PluginSnapshot? = null
 
-  private val collectedImageSpans = mutableListOf<ImageSpan>()
   private var lastElementMarginBottom: Float = 0f
 
   fun configure(
     style: StyleConfig,
     context: Context,
     imageRequestHeaders: Map<String, String> = emptyMap(),
+    onPluginEvent: PluginEventSink? = null,
+    plugins: PluginSnapshot,
   ) {
-    if (cachedStyle === style && cachedContext === context && cachedImageRequestHeaders == imageRequestHeaders) return
+    if (cachedStyle === style &&
+      cachedContext === context &&
+      cachedImageRequestHeaders == imageRequestHeaders &&
+      cachedOnPluginEvent === onPluginEvent &&
+      cachedPlugins === plugins
+    ) {
+      return
+    }
 
     cachedStyle = style
     cachedContext = context
     cachedImageRequestHeaders = imageRequestHeaders
+    cachedOnPluginEvent = onPluginEvent
+    cachedPlugins = plugins
     cachedFactory =
       RendererFactory(
-        RendererConfig(style, imageRequestHeaders),
+        RendererConfig(style, imageRequestHeaders, onPluginEvent),
         context,
-      ) { span -> reportImageSpan(span) }
+        plugins,
+      )
   }
 
   fun renderDocument(
     document: MarkdownASTNode,
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
-  ): SpannableString {
+  ): SpannableStringBuilder = renderContent(document.children, onLinkPress, onLinkLongPress)
+
+  /**
+   * Renders [nodes] into a fresh buffer and hands over ownership of it.
+   *
+   * The builder is returned as-is rather than frozen into a `SpannableString`:
+   * the markdown text view adopts it verbatim (see `NoCopySpannableFactory`),
+   * and converting it would cost a quadratic span copy for no benefit. Each call
+   * builds its own buffer, so callers must not mutate one they have passed on.
+   */
+  fun renderContent(
+    nodes: List<MarkdownASTNode>,
+    onLinkPress: ((String) -> Unit)? = null,
+    onLinkLongPress: ((String) -> Unit)? = null,
+    startingTaskIndex: Int = 0,
+  ): SpannableStringBuilder {
     val factory =
       requireNotNull(cachedFactory) {
-        "Renderer must be configured with a style before calling renderDocument."
+        "Renderer must be configured with a style before rendering."
       }
 
     factory.resetForNewRender()
-    collectedImageSpans.clear()
+    // Must run after resetForNewRender, which zeroes taskItemCount.
+    factory.blockStyleContext.taskItemCount = startingTaskIndex
     lastElementMarginBottom = 0f
 
     val builder = SpannableStringBuilder()
 
-    renderNode(document, builder, onLinkPress, onLinkLongPress, factory)
+    factory.renderNodes(nodes, builder, onLinkPress, onLinkLongPress)
 
     // Remove trailing margin from last block element
     removeTrailingMargin(builder)
 
-    // Flush deferred spans (e.g. BaselineShiftSpan) after all block-level spans are set.
+    // Flush deferred spans (e.g. BaselineShiftSpan, SpoilerSpan) after all block-level spans are set.
     // See BaselineShiftRenderer for context and the proper long-term fix.
     factory.flushDeferredSpans(builder)
 
-    return SpannableString(builder)
+    return builder
   }
+
+  /** Task-list items rendered by the last [renderContent], continuing from its `startingTaskIndex`. */
+  fun getTaskItemCount(): Int = cachedFactory?.blockStyleContext?.taskItemCount ?: 0
 
   /** Removes trailing newlines and captures the margin of the final element. */
   private fun removeTrailingMargin(builder: SpannableStringBuilder) {
@@ -91,26 +123,4 @@ class Renderer {
    * and can be used in MeasurementStore to adjust the measured height.
    */
   fun getLastElementMarginBottom(): Float = lastElementMarginBottom
-
-  private fun renderNode(
-    node: MarkdownASTNode,
-    builder: SpannableStringBuilder,
-    onLinkPress: ((String) -> Unit)?,
-    onLinkLongPress: ((String) -> Unit)?,
-    factory: RendererFactory,
-  ) {
-    factory.getRenderer(node).render(node, builder, onLinkPress, onLinkLongPress, factory)
-  }
-
-  /**
-   * Internal helper used by the Factory's lambda to collect spans.
-   */
-  private fun reportImageSpan(span: ImageSpan) {
-    collectedImageSpans.add(span)
-  }
-
-  /**
-   * Provides the EnrichedMarkdownText with the exact list of spans that need registration.
-   */
-  fun getCollectedImageSpans(): List<ImageSpan> = collectedImageSpans
 }

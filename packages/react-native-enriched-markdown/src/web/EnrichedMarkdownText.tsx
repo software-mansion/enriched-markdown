@@ -1,4 +1,11 @@
-import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { EnrichedMarkdownTextProps } from '../types/MarkdownTextProps.web';
 import { normalizeMarkdownStyle } from '../normalizeMarkdownStyle.web';
 import {
@@ -7,28 +14,41 @@ import {
   buildStyles,
 } from './styles';
 import { parseMarkdown } from './parseMarkdown';
+import { recognizeTextLinks } from './recognizeTextLinks';
 import { RenderNode } from './renderers';
 import type { ASTNode, RendererCallbacks, RenderCapabilities } from './types';
 import { indexTaskItems, markInlineImages } from './utils';
+import { collectBlocks, type CollectedBlocks } from './blockSlots';
+import { useResolvedImageSources } from '../imageSources';
+import { hasRenderers, useRenderedBlocks } from '../blockRenderers';
+import type { MarkdownImageOccurrence } from '../types/markdownBlocks';
 import { loadKaTeX } from './katex';
 import type { KaTeXInstance } from './katex';
 import { ENRM_TEXT_CLASS, ENRM_SELECTION_BG_VAR } from './globalStyles';
+import { filterNativeOnlyProps } from './nativeProps';
+import { isDev } from '../utils/isDev';
+
+const EMPTY: CollectedBlocks = { blocks: [], images: [] };
 
 export const EnrichedMarkdownText = ({
   markdown,
   markdownStyle = {},
   md4cFlags = {},
+  linkRecognition,
   onLinkPress,
   onLinkLongPress,
   onImagePress,
   onTaskListItemPress,
   onCodeBlockPress,
+  renderers,
+  resolveImageSource,
   enableTaskListItemToggle = true,
   allowTrailingMargin = false,
   containerStyle,
   selectable = true,
   dir,
   selectionColor,
+  testID,
   ...rest
 }: EnrichedMarkdownTextProps) => {
   const normalizedStyle = useMemo(
@@ -37,6 +57,10 @@ export const EnrichedMarkdownText = ({
   );
 
   const [ast, setAst] = useState<ASTNode | null>(null);
+  const [collected, setCollected] = useState<CollectedBlocks>(EMPTY);
+  const renderersEnabled = hasRenderers(renderers);
+  // Collecting hashes every image and link: only when something reads it.
+  const collectEnabled = renderersEnabled || resolveImageSource != null;
   const [katex, setKatex] = useState<KaTeXInstance | null>(null);
   const [parseError, setParseError] = useState<boolean>(false);
 
@@ -50,6 +74,12 @@ export const EnrichedMarkdownText = ({
     preserveBlankLines = false,
     admonitions = true,
   } = md4cFlags;
+
+  // A regex literal in JSX is a new object every render; re-parse only when its text changes.
+  const linkRecognitionRef = useRef(linkRecognition);
+  linkRecognitionRef.current = linkRecognition;
+  const textLinkKey = linkRecognition?.text?.toString() ?? null;
+  const inlineCodeLinkKey = linkRecognition?.inlineCode?.toString() ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -73,15 +103,22 @@ export const EnrichedMarkdownText = ({
         if (!cancelled) {
           indexTaskItems(result);
           markInlineImages(result);
+          setCollected(collectEnabled ? collectBlocks(result) : EMPTY);
 
           setParseError(false);
           setKatex(katexInstance);
-          setAst(result);
+          setAst(
+            recognizeTextLinks(
+              result,
+              linkRecognitionRef.current?.text,
+              linkRecognitionRef.current?.inlineCode
+            )
+          );
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          if (__DEV__) {
+          if (isDev) {
             console.error('[EnrichedMarkdownText] Parse failed:', error);
           }
 
@@ -104,6 +141,9 @@ export const EnrichedMarkdownText = ({
     hardSoftBreaks,
     preserveBlankLines,
     admonitions,
+    textLinkKey,
+    inlineCodeLinkKey,
+    collectEnabled,
   ]);
 
   const callbacks = useMemo<RendererCallbacks>(
@@ -123,9 +163,28 @@ export const EnrichedMarkdownText = ({
     ]
   );
 
+  const renderedBlocks = useRenderedBlocks(collected.blocks, renderers);
+  const blockSlots = useMemo(() => {
+    if (!renderersEnabled) return undefined;
+    const slots = new Map<string, ReactNode>();
+    for (const { block, element } of renderedBlocks) {
+      slots.set(block.id, element);
+    }
+    return slots;
+  }, [renderersEnabled, renderedBlocks]);
+
+  const imageSources = useImageSources(collected.images, resolveImageSource);
+
+  const blockDir = dir === 'ltr' || dir === 'rtl' ? undefined : 'auto';
   const capabilities = useMemo<RenderCapabilities>(
-    () => ({ katex, enableTaskListItemToggle }),
-    [katex, enableTaskListItemToggle]
+    () => ({
+      katex,
+      enableTaskListItemToggle,
+      blockSlots,
+      imageSources,
+      blockDir,
+    }),
+    [katex, enableTaskListItemToggle, blockSlots, imageSources, blockDir]
   );
 
   const lastChildStyle = useMemo(
@@ -156,9 +215,17 @@ export const EnrichedMarkdownText = ({
     [containerStyle, selectable, selectionColor]
   );
 
+  const domProps = filterNativeOnlyProps(rest);
+
   if (parseError) {
     return (
-      <div className={ENRM_TEXT_CLASS} style={wrapperStyle} dir={dir} {...rest}>
+      <div
+        className={ENRM_TEXT_CLASS}
+        style={wrapperStyle}
+        dir={dir}
+        data-testid={testID}
+        {...domProps}
+      >
         <pre style={parseErrorFallbackStyle}>{markdown}</pre>
       </div>
     );
@@ -170,10 +237,16 @@ export const EnrichedMarkdownText = ({
   const lastIdx = children.length - 1;
 
   return (
-    <div className={ENRM_TEXT_CLASS} style={wrapperStyle} dir={dir} {...rest}>
+    <div
+      className={ENRM_TEXT_CLASS}
+      style={wrapperStyle}
+      dir={dir}
+      data-testid={testID}
+      {...domProps}
+    >
       {children.map((child, index) => (
         <RenderNode
-          key={`${child.type}-${index}`}
+          key={child.attributes?.blockSlotId ?? `${child.type}-${index}`}
           node={child}
           style={index === lastIdx ? lastChildStyle : normalizedStyle}
           styles={index === lastIdx ? lastChildStyles : styles}
@@ -184,5 +257,30 @@ export const EnrichedMarkdownText = ({
     </div>
   );
 };
+
+/**
+ * The `imageSources` capability: resolved `src` by occurrence id, `null` while
+ * pending or without a usable uri, no entry for images that keep the Markdown
+ * URL. Headers cannot be honored by `<img>` and are dropped. See
+ * `useResolvedImageSources` for the resolution rules.
+ */
+function useImageSources(
+  images: MarkdownImageOccurrence[],
+  resolve: EnrichedMarkdownTextProps['resolveImageSource']
+): ReadonlyMap<string, string | null> | undefined {
+  const resolved = useResolvedImageSources(images, resolve, resolve != null);
+  return useMemo(() => {
+    if (!resolved) return undefined;
+    const result = new Map<string, string | null>();
+    for (const [id, resolution] of resolved) {
+      if (resolution.state === 'markdown') continue;
+      result.set(
+        id,
+        resolution.state === 'resolved' ? resolution.source.uri || null : null
+      );
+    }
+    return result;
+  }, [resolved]);
+}
 
 export default EnrichedMarkdownText;

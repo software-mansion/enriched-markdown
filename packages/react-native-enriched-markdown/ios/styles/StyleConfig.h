@@ -3,12 +3,47 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/// Pill presentation of a link variant: geometry plus the variant-wide default label and icon.
+@interface LinkPillConfig : NSObject
+@property (nonatomic, copy) NSString *label;
+@property (nonatomic, copy) NSString *iconUri;
+/// Nil keeps the icon's own colors.
+@property (nonatomic, strong, nullable) RCTUIColor *iconTintColor;
+@property (nonatomic, assign) CGFloat borderRadius;
+@property (nonatomic, assign) CGFloat paddingHorizontal;
+@property (nonatomic, assign) CGFloat paddingVertical;
+/// Minimum line height of a block that holds the pill; 0 when unset.
+@property (nonatomic, assign) CGFloat lineHeight;
+@property (nonatomic, assign) CGFloat borderWidth;
+@property (nonatomic, strong) RCTUIColor *borderColor;
+@property (nonatomic, assign) CGFloat maxWidth;
+@end
+
+/// The request made for one image instead of its Markdown URL (the `imageSources`
+/// prop), keyed by image occurrence id. An empty uri keeps the placeholder and
+/// requests nothing; headers are lowercased and merge over the document headers.
+@interface ENRMImageSourceOverride : NSObject
+@property (nonatomic, copy) NSString *uri;
+@property (nonatomic, copy) NSDictionary<NSString *, NSString *> *headers;
+@end
+
+/// What one specific link's pill shows (the `linkPillContent` prop), keyed by exact URL.
+@interface LinkPillContent : NSObject
+@property (nonatomic, copy) NSString *label;
+@property (nonatomic, copy) NSString *iconUri;
+/// Tint for this link's icon; nil means none was set for the link.
+@property (nonatomic, strong, nullable) RCTUIColor *iconTintColor;
+@end
+
 /**
  * Resolved style for a single URL-pattern variant (e.g. "^user:", "^channel:", "app\\.example\\.com/user/").
  * The `pattern` field is a regex tested against the full URL in normalized order.
  * Populated from the JS `linkVariants` map by StylePropsUtils and consumed by LinkRenderer.
  */
 @interface LinkVariantConfig : NSObject
+@property (nonatomic, copy) NSString *fontFamily;
+/// Pill presentation for links matching this variant; nil when disabled.
+@property (nonatomic, strong, nullable) LinkPillConfig *pill;
 @property (nonatomic, copy) NSString *pattern;
 @property (nonatomic, strong) RCTUIColor *color;
 @property (nonatomic, assign) BOOL underline;
@@ -18,6 +53,8 @@ NS_ASSUME_NONNULL_BEGIN
 @interface StyleConfig : NSObject <NSCopying>
 - (instancetype)init;
 - (CGFloat)fontScaleMultiplier;
+/// `pill.lineHeight`, scaled with the font like the blocks' own line heights.
+- (CGFloat)lineHeightForLinkPill:(LinkPillConfig *)pill;
 - (void)setFontScaleMultiplier:(CGFloat)newValue;
 - (CGFloat)maxFontSizeMultiplier;
 - (void)setMaxFontSizeMultiplier:(CGFloat)newValue;
@@ -222,6 +259,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setImageMarginBottom:(CGFloat)newValue;
 - (nullable NSDictionary<NSString *, NSString *> *)imageRequestHeaders;
 - (void)setImageRequestHeaders:(nullable NSDictionary<NSString *, NSString *> *)newValue;
+- (nullable NSDictionary<NSString *, ENRMImageSourceOverride *> *)imageSourceOverrides;
+- (void)setImageSourceOverrides:(nullable NSDictionary<NSString *, ENRMImageSourceOverride *> *)newValue;
+// Per-link pill content, keyed by exact URL
+- (nullable NSDictionary<NSString *, LinkPillContent *> *)linkPillContent;
+- (void)setLinkPillContent:(nullable NSDictionary<NSString *, LinkPillContent *> *)newValue;
 // Video properties
 - (CGFloat)videoMarginTop;
 - (void)setVideoMarginTop:(CGFloat)newValue;
@@ -304,7 +346,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (UIFont *)listStyleFont;
 - (CGFloat)effectiveListGapWidth;
 - (CGFloat)effectiveListMarginLeftForBullet;
-- (CGFloat)effectiveListMarginLeftForNumber;
+- (CGFloat)effectiveListMarginLeftForNumber:(NSInteger)number;
 - (CGFloat)effectiveListMarginLeftForTask;
 // Code block properties
 - (CGFloat)codeBlockFontSize;

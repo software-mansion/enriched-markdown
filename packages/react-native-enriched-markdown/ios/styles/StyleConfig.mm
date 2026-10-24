@@ -18,6 +18,15 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   return fontWeight;
 }
 
+@implementation LinkPillConfig
+@end
+
+@implementation ENRMImageSourceOverride
+@end
+
+@implementation LinkPillContent
+@end
+
 @implementation LinkVariantConfig
 @end
 
@@ -145,6 +154,8 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   CGFloat _imageMarginTop;
   CGFloat _imageMarginBottom;
   NSDictionary<NSString *, NSString *> *_imageRequestHeaders;
+  NSDictionary<NSString *, ENRMImageSourceOverride *> *_imageSourceOverrides;
+  NSDictionary<NSString *, LinkPillContent *> *_linkPillContent;
   // Video properties
   CGFloat _videoMarginTop;
   CGFloat _videoMarginBottom;
@@ -312,6 +323,14 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   return _allowFontScaling ? RCTFontSizeMultiplier() : 1.0;
 }
 
+- (CGFloat)lineHeightForLinkPill:(LinkPillConfig *)pill
+{
+  if (_allowFontScaling && pill.lineHeight > 0) {
+    return pill.lineHeight * RCTFontSizeMultiplierWithMax(_maxFontSizeMultiplier);
+  }
+  return pill.lineHeight;
+}
+
 - (void)setFontScaleMultiplier:(CGFloat)newValue
 {
   BOOL newAllowFontScaling = (newValue != 1.0);
@@ -438,6 +457,8 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_imageMarginTop = _imageMarginTop;
   copy->_imageMarginBottom = _imageMarginBottom;
   copy->_imageRequestHeaders = [_imageRequestHeaders copy];
+  copy->_imageSourceOverrides = [_imageSourceOverrides copy];
+  copy->_linkPillContent = [_linkPillContent copy];
   copy->_videoMarginTop = _videoMarginTop;
   copy->_videoMarginBottom = _videoMarginBottom;
   copy->_videoBorderRadius = _videoBorderRadius;
@@ -1617,6 +1638,26 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   _imageRequestHeaders = [newValue copy];
 }
 
+- (NSDictionary<NSString *, ENRMImageSourceOverride *> *)imageSourceOverrides
+{
+  return _imageSourceOverrides;
+}
+
+- (void)setImageSourceOverrides:(NSDictionary<NSString *, ENRMImageSourceOverride *> *)newValue
+{
+  _imageSourceOverrides = [newValue copy];
+}
+
+- (NSDictionary<NSString *, LinkPillContent *> *)linkPillContent
+{
+  return _linkPillContent;
+}
+
+- (void)setLinkPillContent:(NSDictionary<NSString *, LinkPillContent *> *)newValue
+{
+  _linkPillContent = [newValue copy];
+}
+
 - (CGFloat)videoMarginTop
 {
   return _videoMarginTop;
@@ -2053,11 +2094,13 @@ static const CGFloat kDefaultMinGap = 4.0;
   return MAX(_listStyleMarkerMinWidth, _listStyleBulletSize / 2.0);
 }
 
-- (CGFloat)effectiveListMarginLeftForNumber
+- (CGFloat)effectiveListMarginLeftForNumber:(NSInteger)number
 {
   UIFont *font = [self listMarkerFont];
   CGFloat natural =
-      [@"99." sizeWithAttributes:@{NSFontAttributeName : font ?: [UIFont systemFontOfSize:_listStyleFontSize]}].width;
+      [[NSString stringWithFormat:@"%ld.", (long)number]
+          sizeWithAttributes:@{NSFontAttributeName : font ?: [UIFont systemFontOfSize:_listStyleFontSize]}]
+          .width;
   return MAX(_listStyleMarkerMinWidth, natural);
 }
 

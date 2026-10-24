@@ -82,6 +82,7 @@ export const EnrichedMarkdownTextInput = ({
   selectionMenuConfig: _selectionMenuConfig,
   formatMenuConfig: _formatMenuConfig,
   linkRegex: _linkRegex,
+  markdownShortcuts: _markdownShortcuts,
   writingDirection: _writingDirection,
 }: EnrichedMarkdownTextInputProps) => {
   const [text, setText] = useState(defaultValue ?? '');
@@ -127,6 +128,8 @@ export const EnrichedMarkdownTextInput = ({
       insertMention: spy((_displayText: string, _url: string) => {}),
       startMention: spy((_indicator: string) => {}),
       removeLink: spy(() => {}),
+      undo: spy(() => {}),
+      redo: spy(() => {}),
       copyToClipboard: spy(() => {}),
       getMarkdown: spy(() => Promise.resolve(textRef.current)),
       getCaretRect: spy(() => Promise.resolve(EMPTY_CARET_RECT)),
@@ -308,7 +311,11 @@ export const EnrichedMarkdownText = ({
   streamingConfig: _streamingConfig,
   spoilerOverlay: _spoilerOverlay,
   contextMenuItems: _contextMenuItems,
+  linkContextMenuItems: _linkContextMenuItems,
   imageRequestHeaders: _imageRequestHeaders,
+  renderers: _renderers,
+  resolveImageSource: _resolveImageSource,
+  linkPillContent: _linkPillContent,
   selectionMenuConfig: _selectionMenuConfig,
   accessibilityLabels: _accessibilityLabels,
   selectionColor: _selectionColor,

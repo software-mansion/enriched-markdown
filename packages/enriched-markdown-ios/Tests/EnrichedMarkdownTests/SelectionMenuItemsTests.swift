@@ -3,11 +3,11 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class SelectionMenuItemsTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     private func render(_ markdown: String) -> NSAttributedString {
@@ -25,10 +25,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let range = (rendered.string as NSString).range(of: "31%")
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(),
+            config: MarkdownSelectionMenu(),
             selectedRange: range,
             attributedText: rendered,
-            source: RenderedSource(markdown: "Forests cover **31%** of land.", flags: .commonMark)
+            source: RenderedSource(markdown: "Forests cover **31%** of land.", options: .commonMark)
         )
 
         XCTAssertEqual(specs.count, 1)
@@ -44,10 +44,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let rendered = render(source)
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(),
+            config: MarkdownSelectionMenu(),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            source: RenderedSource(markdown: source, flags: .commonMark)
+            source: RenderedSource(markdown: source, options: .commonMark)
         )
 
         XCTAssertEqual(specs.first?.pasteboardString, source)
@@ -57,10 +57,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let rendered = render("Hello world")
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(copyAsMarkdown: false),
+            config: MarkdownSelectionMenu(copyAsMarkdown: false),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            source: RenderedSource(markdown: "Hello world", flags: .commonMark)
+            source: RenderedSource(markdown: "Hello world", options: .commonMark)
         )
 
         XCTAssertTrue(specs.isEmpty)
@@ -70,10 +70,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let rendered = render("Hello world")
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(copyAsMarkdownLabel: "Kopiuj jako Markdown"),
+            config: MarkdownSelectionMenu(copyAsMarkdownLabel: "Kopiuj jako Markdown"),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            source: RenderedSource(markdown: "Hello world", flags: .commonMark)
+            source: RenderedSource(markdown: "Hello world", options: .commonMark)
         )
 
         XCTAssertEqual(specs.first?.title, "Kopiuj jako Markdown")
@@ -83,10 +83,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let rendered = render("Hello world")
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(),
+            config: MarkdownSelectionMenu(),
             selectedRange: NSRange(location: 0, length: 0),
             attributedText: rendered,
-            source: RenderedSource(markdown: "Hello world", flags: .commonMark)
+            source: RenderedSource(markdown: "Hello world", options: .commonMark)
         )
 
         XCTAssertTrue(specs.isEmpty)
@@ -98,10 +98,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let rendered = render("No images here.")
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(),
+            config: MarkdownSelectionMenu(),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            source: RenderedSource(markdown: "No images here.", flags: .commonMark)
+            source: RenderedSource(markdown: "No images here.", options: .commonMark)
         )
 
         XCTAssertEqual(specs.map(\.kind), [.copyMarkdown])
@@ -112,10 +112,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let rendered = render(source)
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(),
+            config: MarkdownSelectionMenu(),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            source: RenderedSource(markdown: source, flags: .commonMark)
+            source: RenderedSource(markdown: source, options: .commonMark)
         )
 
         let imageSpec = specs.first { $0.kind == .copyImageURLs }
@@ -130,10 +130,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let rendered = render(source)
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(),
+            config: MarkdownSelectionMenu(),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            source: RenderedSource(markdown: source, flags: .commonMark)
+            source: RenderedSource(markdown: source, options: .commonMark)
         )
 
         let imageSpec = specs.first { $0.kind == .copyImageURLs }
@@ -146,10 +146,10 @@ final class SelectionMenuItemsTests: XCTestCase {
         let rendered = render(source)
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(copyImageUrl: false),
+            config: MarkdownSelectionMenu(copyImageURL: false),
             selectedRange: fullRange(of: rendered),
             attributedText: rendered,
-            source: RenderedSource(markdown: source, flags: .commonMark)
+            source: RenderedSource(markdown: source, options: .commonMark)
         )
 
         XCTAssertFalse(specs.contains { $0.kind == .copyImageURLs })

@@ -1,7 +1,11 @@
 #import "MarkdownExtractor.h"
+#import "BaselineShiftTextAttributes.h"
 #import "BlockquoteBorder.h"
+#import "CodeBackground.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillText.h"
+#import "ENRMTextLinkAttributes.h"
 #import "ENRMUIKit.h"
 #import "HighlightRenderer.h"
 #include <TargetConditionals.h>
@@ -126,6 +130,7 @@ NSString *_Nullable extractMarkdownFromAttributedString(NSAttributedString *attr
   }
 
   range.length = MIN(range.length, attributedText.length - range.location);
+  attributedText = ENRMAttributedStringByExpandingLinkPills(attributedText, &range);
 
   NSMutableString *result = [NSMutableString string];
 
@@ -294,18 +299,25 @@ NSString *_Nullable extractMarkdownFromAttributedString(NSAttributedString *attr
 
                         // Inline formatting
                         BOOL isBold, isItalic, isMonospace;
+                        BOOL recognizedLink = [attrs[ENRMRecognizedLinkAttributeName] boolValue];
                         extractFontTraits(attrs, &isBold, &isItalic, &isMonospace);
+                        if (recognizedLink)
+                          isMonospace = [attrs[CodeAttributeName] boolValue];
 
                         NSNumber *strikethroughStyle = attrs[NSStrikethroughStyleAttributeName];
                         BOOL isStrikethrough = (strikethroughStyle != nil && [strikethroughStyle integerValue] != 0);
-                        NSNumber *underlineStyle = attrs[NSUnderlineStyleAttributeName];
+                        NSNumber *underlineStyle = recognizedLink
+                                                       ? attrs[ENRMRecognizedLinkOriginalUnderlineAttributeName]
+                                                       : attrs[NSUnderlineStyleAttributeName];
                         BOOL isUnderline = (underlineStyle != nil && [underlineStyle integerValue] != 0);
-                        NSNumber *baselineOffset = attrs[NSBaselineOffsetAttributeName];
-                        BOOL isSuperscript = baselineOffset != nil && [baselineOffset doubleValue] > 0;
-                        BOOL isSubscript = baselineOffset != nil && [baselineOffset doubleValue] < 0;
+                        // Line-height alignment also shifts baselines. Only semantic script spans
+                        // should produce superscript/subscript Markdown on the clipboard.
+                        NSString *script = attrs[ENRMScriptAttributeName];
+                        BOOL isSuperscript = [script isEqualToString:ENRMScriptValueSuperscript];
+                        BOOL isSubscript = [script isEqualToString:ENRMScriptValueSubscript];
 
                         BOOL isHighlight = [attrs[HighlightAttributeName] boolValue];
-                        NSString *linkURL = attrs[NSLinkAttributeName];
+                        NSString *linkURL = recognizedLink ? nil : attrs[NSLinkAttributeName];
                         NSString *segment =
                             applyInlineFormatting(text, isBold, isItalic, isMonospace, isStrikethrough, isUnderline,
                                                   isSuperscript, isSubscript, isHighlight, linkURL);

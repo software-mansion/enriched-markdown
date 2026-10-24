@@ -1,0 +1,37 @@
+appId: swmansion.enriched.markdown.example
+tags:
+  - block
+  - advanced
+  - list
+  - paragraph
+  - text
+  - ios-only
+---
+# Continuation paragraphs keep their spacing without repeating the item marker.
+- launchApp
+
+- runFlow:
+    file: '../../../../subflows/move_to_playground.yaml'
+
+- runFlow:
+    file: '../../../subflows/set_enriched_text_value.yaml'
+    env:
+      VALUE: |
+        1. First ordered paragraph.
+
+           Same ordered item, second paragraph.
+
+        2. Next ordered item.
+
+        Unordered:
+
+        - First bullet paragraph.
+
+          Same bullet item, second paragraph.
+
+        - Next bullet item.
+
+- runFlow:
+    file: '../../../subflows/capture_or_assert_screenshot.yaml'
+    env:
+      SCREENSHOT_NAME: 'list_multiple_paragraphs_display'

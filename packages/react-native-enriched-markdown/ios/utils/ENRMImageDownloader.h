@@ -3,6 +3,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/// Decoded pixel cost, shared by native image caches.
+FOUNDATION_EXPORT NSUInteger ENRMImageByteCost(RCTUIImage *image);
+
 typedef void (^ENRMImageDownloadCompletion)(RCTUIImage *_Nullable image);
 
 /**
@@ -10,8 +13,15 @@ typedef void (^ENRMImageDownloadCompletion)(RCTUIImage *_Nullable image);
  * headers are set; otherwise appends a SHA-256 digest of the sorted header
  * pairs, so the same URL fetched with different headers is cached and
  * deduplicated separately without embedding header values in the key.
+ * Header names are compared case-insensitively.
  */
 NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> *_Nullable headers);
+
+/// Document headers under per-image headers, names lowercased so the override and
+/// the cache identity are independent of header casing.
+NSDictionary<NSString *, NSString *> *
+ENRMMergeImageRequestHeaders(NSDictionary<NSString *, NSString *> *_Nullable documentHeaders,
+                             NSDictionary<NSString *, NSString *> *_Nullable sourceHeaders);
 
 @interface ENRMImageDownloader : NSObject
 

@@ -24,6 +24,7 @@ package struct BlockStyle {
 enum MarkdownAttribute {
     static let inlineCode = NSAttributedString.Key("EnrichedMarkdownInlineCode")
     static let codeBlock = NSAttributedString.Key("EnrichedMarkdownCodeBlock")
+    static let codeBlockLanguage = NSAttributedString.Key("EnrichedMarkdownCodeBlockLanguage")
     static let headingLevel = NSAttributedString.Key("EnrichedMarkdownHeadingLevel")
     static let strong = NSAttributedString.Key("EnrichedMarkdownStrong")
     static let emphasis = NSAttributedString.Key("EnrichedMarkdownEmphasis")
@@ -42,6 +43,9 @@ enum MarkdownAttribute {
     /// Leading inset of a quote's bars and fill, set on quote paragraphs
     /// that sit inside a list item (the item's text column).
     static let blockquoteBarOffset = NSAttributedString.Key("EnrichedMarkdownBlockquoteBarOffset")
+    /// Marker widening already applied to a quote paragraph by the list items
+    /// it sits in, so an enclosing item's bar offset keeps it.
+    static let blockquoteMarkerExtra = NSAttributedString.Key("EnrichedMarkdownBlockquoteMarkerExtra")
     /// Present on blockquote paragraphs inside a GitHub admonition: the bar
     /// color of each nesting level, outermost first.
     static let blockquoteBarColors = NSAttributedString.Key("EnrichedMarkdownBlockquoteBarColors")
@@ -61,6 +65,7 @@ enum MarkdownAttribute {
     /// run (`NSValue`-wrapped `NSRange`; not a range into the rendered
     /// string). Absent when the run's text is not contiguous in the source.
     static let sourceRange = NSAttributedString.Key("EnrichedMarkdownSourceRange")
+    static let trailingSpacing = NSAttributedString.Key("EnrichedMarkdownTrailingSpacing")
 }
 
 package final class RenderContext {
@@ -74,31 +79,21 @@ package final class RenderContext {
     var listDepth = 0
     var listType: ListType = .unordered
     var listItemNumber = 0
+    /// Marker column of the current ordered list, sized to its widest number.
+    var listMarkerWidth: CGFloat = 0
+    /// Extra marker width of the enclosing list items, carried into nested lists.
+    var ancestorMarkerOffset: CGFloat = 0
+    /// Extra marker width of the list item whose children are rendering.
+    var listItemMarkerExtra: CGFloat = 0
     var taskItemIndex = 0
     var rendersBlockImage = false
+    /// Set once a superscript or subscript run is rendered, so the post-pass
+    /// that scales them runs only on documents that have any.
+    var hasBaselineShifts = false
     /// Set while rendering the synthetic paragraph around a bare root-level
     /// plugin block node (see `MarkdownRenderPlugin.rootBlockNodeTypes`).
     var pluginBlockMargins: BlockMargins?
     package var rendersPluginBlock: Bool { pluginBlockMargins != nil }
-
-    private static let blockSpacerTemplate: NSParagraphStyle = {
-        let style = NSMutableParagraphStyle()
-        style.minimumLineHeight = 1
-        style.maximumLineHeight = 1
-        return style
-    }()
-
-    func reset() {
-        currentBlockType = .none
-        currentBlockStyle = nil
-        blockquoteLevels = []
-        listDepth = 0
-        listType = .unordered
-        listItemNumber = 0
-        taskItemIndex = 0
-        rendersBlockImage = false
-        pluginBlockMargins = nil
-    }
 
     func setBlockStyle(
         font: UIFont,
@@ -135,16 +130,6 @@ package final class RenderContext {
             .font: blockStyle.font,
             .foregroundColor: blockStyle.color
         ]
-    }
-
-    func spacerStyle(height: CGFloat, spacing: CGFloat = 0) -> NSMutableParagraphStyle {
-        guard let style = Self.blockSpacerTemplate.mutableCopy() as? NSMutableParagraphStyle else {
-            return NSMutableParagraphStyle()
-        }
-        style.minimumLineHeight = height
-        style.maximumLineHeight = height
-        style.paragraphSpacing = spacing
-        return style
     }
 
     static func shouldPreserveColors(_ attributes: [NSAttributedString.Key: Any]) -> Bool {

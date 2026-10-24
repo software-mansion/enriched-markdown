@@ -1,3 +1,9 @@
+export type { LinkVariantStyle, LinkPillStyle } from './types/MarkdownStyle';
+export type { LinkPillContent } from './types/MarkdownTextProps';
+export type {
+  LinkContextMenuItem,
+  LinkRecognition,
+} from './types/MarkdownTextProps';
 export { default as EnrichedMarkdownText } from './native/EnrichedMarkdownText';
 export type {
   EnrichedMarkdownTextProps,
@@ -7,6 +13,17 @@ export type {
   ContextMenuItem as TextContextMenuItem,
   SelectionMenuConfig as TextSelectionMenuConfig,
   SelectionMenuPluralLabels as TextSelectionMenuPluralLabels,
+  MarkdownBlockPlacement,
+  MarkdownSlotBlock,
+  MarkdownMediaBlock,
+  MarkdownImageBlock,
+  MarkdownVideoBlock,
+  MarkdownLinkBlock,
+  MarkdownBlock,
+  MarkdownRenderers,
+  MarkdownImagePlacement,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
 } from './native/EnrichedMarkdownText';
 export type {
   LinkPressEvent,
@@ -32,9 +49,11 @@ export type {
   EnrichedMarkdownTextInputInstance,
   MarkdownTextInputStyle,
   StyleState,
+  HistoryState,
   ContextMenuItem,
   InputSelectionMenuConfig,
   FormatMenuConfig,
+  MarkdownShortcutsConfig,
   OnKeyPressEvent,
   OnLinkDetected,
   OnStartMentionEvent,

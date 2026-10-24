@@ -291,6 +291,12 @@ object MarkdownASTSerializer {
         buffer.append("==")
       }
 
+      NodeType.LatexMathInline -> {
+        buffer.append("\$")
+        appendChildren(node, buffer)
+        buffer.append("\$")
+      }
+
       NodeType.Code -> {
         buffer.append("`")
         appendChildren(node, buffer)
@@ -298,6 +304,10 @@ object MarkdownASTSerializer {
       }
 
       NodeType.Link -> {
+        if (node.getAttribute("recognizedLink") == "true") {
+          appendChildren(node, buffer)
+          return
+        }
         val url = node.getAttribute("url") ?: ""
         buffer.append("[")
         appendChildren(node, buffer)

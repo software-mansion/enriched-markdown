@@ -5,14 +5,31 @@ public protocol MarkdownThemeElement: MarkdownThemeContent {
     var fontSpec: ThemeFontSpec? { get set }
     var fontWeight: Font.Weight? { get set }
     var fontDesign: Font.Design? { get set }
+    var isItalic: Bool? { get set }
     var foregroundColorSpec: ThemeColorSpec? { get set }
     var marginTop: CGFloat? { get set }
     var marginBottom: CGFloat? { get set }
     var lineHeight: CGFloat? { get set }
     var textAlignment: TextAlignment? { get set }
+    /// The design an element's own font takes when `fontDesign` is not set;
+    /// code elements answer `.monospaced`. It never touches a lower layer's
+    /// font, so `CodeBlock().foregroundStyle(.red)` keeps a serif code font.
+    var defaultFontDesign: Font.Design? { get }
 }
 
 public extension MarkdownThemeElement {
+    /// Elements written before `italic()` existed have nowhere to keep it.
+    var isItalic: Bool? {
+        get { nil }
+        set { _ = newValue }
+    }
+
+    var defaultFontDesign: Font.Design? { nil }
+
+    /// A SwiftUI text style in any spelling (`.body`, `.system(.title,
+    /// design: .serif, weight: .bold)`), tracking Dynamic Type. Point-sized
+    /// and custom fonts take `font(size:weight:design:)` and
+    /// `font(custom:size:)`; any other `Font` logs and renders as `.body`.
     func font(_ font: Font) -> Self {
         var copy = self
         let resolved = ThemeResolver.resolveFont(from: font, traitCollection: .current)
@@ -20,25 +37,48 @@ public extension MarkdownThemeElement {
         if let design = resolved.design {
             copy.fontDesign = design
         }
+        if let weight = resolved.weight {
+            copy.fontWeight = weight
+        }
         return copy
     }
 
-    func fontFamily(_ name: String, size: CGFloat) -> Self {
+    /// A fixed point size, as `Font.system(size:weight:design:)`. A nil
+    /// design keeps the element's current one.
+    func font(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design? = nil) -> Self {
+        var copy = self
+        copy.fontSpec = .system(size: size, weight: .regular, design: .default)
+        copy.fontWeight = weight
+        if let design {
+            copy.fontDesign = design
+        }
+        return copy
+    }
+
+    /// A custom face by PostScript name, as `Font.custom(_:size:)`. Faces
+    /// bundled as `<name>.ttf` / `.otf` (optionally under `Fonts/`) are
+    /// registered on first use.
+    func font(custom name: String, size: CGFloat) -> Self {
         var copy = self
         copy.fontSpec = .custom(name: name, size: size)
         return copy
     }
 
-    func fontSize(_ size: CGFloat, weight: Font.Weight = .regular) -> Self {
+    func fontWeight(_ weight: Font.Weight) -> Self {
         var copy = self
-        copy.fontSpec = .system(size: size, weight: .regular, design: .default)
         copy.fontWeight = weight
         return copy
     }
 
     func bold() -> Self {
+        fontWeight(.bold)
+    }
+
+    /// Italicizes with the family's italic face, or a synthesized slant
+    /// when it has none; `italic(false)` removes an italic a lower layer set.
+    func italic(_ isActive: Bool = true) -> Self {
         var copy = self
-        copy.fontWeight = .bold
+        copy.isItalic = isActive
         return copy
     }
 
@@ -48,9 +88,10 @@ public extension MarkdownThemeElement {
         return copy
     }
 
+    @_disfavoredOverload
     func foregroundStyle(_ color: Color) -> Self {
         var copy = self
-        copy.foregroundColorSpec = ThemeResolver.color(from: color, traitCollection: .current)
+        copy.foregroundColorSpec = ThemeColorModifiers.spec(from: color)
         return copy
     }
 
@@ -78,7 +119,7 @@ public extension MarkdownThemeElement {
         return copy
     }
 
-    func textAlignment(_ alignment: TextAlignment) -> Self {
+    func multilineTextAlignment(_ alignment: TextAlignment) -> Self {
         var copy = self
         copy.textAlignment = alignment
         return copy
@@ -88,11 +129,37 @@ public extension MarkdownThemeElement {
         to style: inout ElementStyle,
         traitCollection: UITraitCollection
     ) {
-        if fontSpec != nil || fontWeight != nil || fontDesign != nil {
+        applyTextStyle(to: &style, traitCollection: traitCollection)
+    }
+
+    /// Writes the set font, color, margins, and line height into any style record.
+    package func applyTextStyle<Style: TextStyleRecord>(
+        to style: inout Style,
+        traitCollection: UITraitCollection
+    ) {
+        applyBaseTextStyle(to: &style, traitCollection: traitCollection)
+    }
+
+    /// `applyTextStyle` plus the alignment, for records that carry one.
+    package func applyTextStyle<Style: AlignableTextStyleRecord>(
+        to style: inout Style,
+        traitCollection: UITraitCollection
+    ) {
+        applyBaseTextStyle(to: &style, traitCollection: traitCollection)
+        if let textAlignment { style.textAlignment = NSTextAlignment(textAlignment) }
+    }
+
+    private func applyBaseTextStyle<Style: TextStyleRecord>(
+        to style: inout Style,
+        traitCollection: UITraitCollection
+    ) {
+        let design = fontDesign ?? (fontSpec != nil ? defaultFontDesign : nil)
+        if fontSpec != nil || fontWeight != nil || design != nil || isItalic != nil {
             style.font = ThemeResolver.applyFont(
                 spec: fontSpec,
                 weight: fontWeight,
-                design: fontDesign,
+                design: design,
+                italic: isItalic,
                 to: style.font,
                 traitCollection: traitCollection
             )
@@ -103,7 +170,6 @@ public extension MarkdownThemeElement {
         if let marginTop { style.marginTop = marginTop }
         if let marginBottom { style.marginBottom = marginBottom }
         if let lineHeight { style.lineHeight = lineHeight }
-        if let textAlignment { style.textAlignment = NSTextAlignment(textAlignment) }
     }
 }
 

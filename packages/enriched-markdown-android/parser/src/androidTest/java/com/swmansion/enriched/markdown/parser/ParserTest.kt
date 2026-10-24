@@ -29,6 +29,40 @@ class ParserTest {
   }
 
   @Test
+  fun decodesNamedCharacterReferencesWithoutReparsingSyntax() {
+    val ast = requireNotNull(parser.parseMarkdown("&amp; &copy; &CounterClockwiseContourIntegral; &NotEqualTilde;"))
+    assertEquals(
+      "& © ∳ ≂̸",
+      ast.assertHasChildType(MarkdownASTNode.NodeType.Paragraph).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+    val citation = requireNotNull(parser.parseMarkdown("&#91;1&#93;\n\n[1]: https://example.test"))
+    assertEquals(
+      "[1]",
+      citation.assertHasChildType(MarkdownASTNode.NodeType.Paragraph).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+    assertNull(citation.firstOfType(MarkdownASTNode.NodeType.Link))
+  }
+
+  @Test
+  fun decodesNumericCharacterReferencesAndKeepsCodeLiteral() {
+    val ast = requireNotNull(parser.parseMarkdown("&#91;1&#93; &#x1F600; &#0; &#xD800; &#x110000;"))
+    assertEquals(
+      "[1] 😀 � � �",
+      ast.assertHasChildType(MarkdownASTNode.NodeType.Paragraph).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+    val code = requireNotNull(parser.parseMarkdown("`&amp;`"))
+    assertEquals(
+      "&amp;",
+      requireNotNull(code.firstOfType(MarkdownASTNode.NodeType.Code)).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+    val unknown = requireNotNull(parser.parseMarkdown("&bogus;"))
+    assertEquals(
+      "&bogus;",
+      unknown.assertHasChildType(MarkdownASTNode.NodeType.Paragraph).assertHasChildType(MarkdownASTNode.NodeType.Text).content,
+    )
+  }
+
+  @Test
   fun parsesStrongAndEmphasis() {
     val ast = requireNotNull(parser.parseMarkdown("**bold** and *italic*"))
 
@@ -123,6 +157,38 @@ class ParserTest {
     requireNotNull(ast.firstOfType(MarkdownASTNode.NodeType.TableBody))
     requireNotNull(ast.firstOfType(MarkdownASTNode.NodeType.TableRow))
     requireNotNull(ast.firstOfType(MarkdownASTNode.NodeType.TableCell))
+  }
+
+  // MarkdownASTSerializer.serializeTable writes the delimiter row after each TableHead row, so it
+  // relies on md4c emitting exactly one head row holding every header cell, even for odd input.
+  @Test
+  fun tableHeadAlwaysHasExactlyOneRow() {
+    val inputs =
+      listOf(
+        "| H1 | H2 |\n|----|----|\n| a  | b  |",
+        // Header only, no body.
+        "| H1 | H2 |\n|----|----|",
+        // A second delimiter-looking row stays in the body.
+        "| H1 | H2 |\n|----|----|\n|----|----|\n| a  | b  |",
+        // Body rows with fewer and more cells than the header.
+        "| H1 | H2 |\n|----|----|\n| a |\n| a | b | c |",
+        // No leading or trailing pipes.
+        "H1 | H2\n--- | ---\na | b",
+      )
+
+    inputs.forEach { markdown ->
+      val ast = requireNotNull(parser.parseMarkdown(markdown))
+      val table = requireNotNull(ast.firstOfType(MarkdownASTNode.NodeType.Table)) { "No table for: $markdown" }
+
+      val heads = table.children.filter { it.type == MarkdownASTNode.NodeType.TableHead }
+      assertEquals("Head sections for: $markdown", 1, heads.size)
+      assertEquals("Head rows for: $markdown", 1, heads.single().children.count { it.type == MarkdownASTNode.NodeType.TableRow })
+      assertEquals(
+        "Header cells outside head for: $markdown",
+        heads.single().allOfType(MarkdownASTNode.NodeType.TableHeaderCell).size,
+        table.allOfType(MarkdownASTNode.NodeType.TableHeaderCell).size,
+      )
+    }
   }
 
   @Test

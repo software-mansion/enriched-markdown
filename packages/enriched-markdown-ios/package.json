@@ -8,6 +8,7 @@
     "test": "swift test",
     "test:ios-native": "xcodebuild test -scheme EnrichedMarkdown-Package -destination \"platform=iOS Simulator,id=${IOS_SIMULATOR_UDID:-booted}\"",
     "lint:ios-native": "swiftlint lint --strict",
+    "bench:ios-native": "node scripts/benchmark.mjs",
     "clean": "swift package clean"
   }
 }

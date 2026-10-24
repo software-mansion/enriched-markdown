@@ -6,6 +6,9 @@
 -keep class com.swmansion.enriched.markdown.parser.MarkdownASTNode { *; }
 -keep class com.swmansion.enriched.markdown.parser.MarkdownASTNode$NodeType { *; }
 -keep class com.swmansion.enriched.markdown.parser.Md4cFlags { *; }
+-keep class com.swmansion.enriched.markdown.parser.TextLinkMatching { *; }
+-keep class com.swmansion.enriched.markdown.utils.common.LinkRegexConfig { *; }
+-keep class com.swmansion.enriched.markdown.utils.common.StreamingFilterResult { *; }
 
 # Reflection: Math classes loaded via Class.forName when enableMath=true.
 -keep class com.swmansion.enriched.markdown.spans.MathInlineSpan { *; }

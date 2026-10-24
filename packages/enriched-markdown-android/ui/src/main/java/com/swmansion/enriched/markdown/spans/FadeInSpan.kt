@@ -1,16 +1,20 @@
 package com.swmansion.enriched.markdown.spans
 
+import android.os.Build
 import android.text.TextPaint
 import android.text.style.CharacterStyle
 import androidx.annotation.FloatRange
 
 class FadeInSpan : CharacterStyle() {
-  @set:FloatRange(from = 0.0, to = 1.0)
+  @setparam:FloatRange(from = 0.0, to = 1.0)
   var alpha: Float = 0f
 
   override fun updateDrawState(tp: TextPaint) {
     tp.color = multiplyAlpha(tp.color, alpha)
-    tp.underlineColor = multiplyAlpha(tp.underlineColor, alpha)
+    // Public from API 29; below that, underlines are drawn in `color`, which is already faded.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      tp.underlineColor = multiplyAlpha(tp.underlineColor, alpha)
+    }
   }
 
   private fun multiplyAlpha(

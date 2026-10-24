@@ -5,6 +5,9 @@
 #import "StyleConfig.h"
 
 @class MarkdownASTNode;
+@class ENRMAccessibilityLabels;
+@class ENRMCodeBlockWrapCursor;
+@class ENRMBlockSlotMeasurer;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -45,13 +48,21 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // sums the child segments at the reduced inner width and adds the vertical
 // inset, recursing into itself for nested quotes. pointScaleFactor is the layout
 // context's scale (the visible instance path uses RCTScreenScale), threaded so
-// the per-text-segment pixel rounding matches the laid-out height.
+// the per-text-segment pixel rounding matches the laid-out height. wrapCursor,
+// when given, says which code blocks the user wrapped and is shared down the
+// recursion so nested blocks keep counting in document order; wrapped ones lay
+// out at the inner width, as the views do. slotMeasurer sizes the block slots a
+// React child stands in for and records their frames; origin is this quote's
+// top-left in the host's content box, so the frames come out absolute.
 + (CGFloat)measureHeightForBlockquoteNode:(MarkdownASTNode *)node
                                    config:(StyleConfig *)config
                                  maxWidth:(CGFloat)maxWidth
                          pointScaleFactor:(CGFloat)pointScaleFactor
                          allowFontScaling:(BOOL)allowFontScaling
-                        lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy;
+                        lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
+                               wrapCursor:(nullable ENRMCodeBlockWrapCursor *)wrapCursor
+                             slotMeasurer:(nullable ENRMBlockSlotMeasurer *)slotMeasurer
+                                   origin:(CGPoint)origin;
 
 // Consumer text props threaded into the quote's inner content so it honors them
 // the same way the root document path does, instead of assuming defaults. Set by
@@ -69,27 +80,21 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // quotes so links at any depth fire.
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkPress;
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkLongPress;
+@property (nonatomic, copy, nullable) void (^onImagePress)(NSString *url, NSString *altText);
 
-// Copy-menu titles and copy callback propagated to block children (code block,
-// table, math) inside the quote, recursing into nested quotes. Renamed getters
-// avoid the Cocoa `copy` method family, matching ENRMCodeBlockContainerView.
-@property (nonatomic, copy, nullable, getter=menuCopyLabel) NSString *copyLabel;
-@property (nonatomic, copy, nullable, getter=menuCopyAsMarkdownLabel) NSString *copyAsMarkdownLabel;
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
-
-// Code block tap gate + callback, propagated to code block children (mirrors onCopyPress).
-@property (nonatomic, assign) BOOL enableCodeBlockPress;
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;
 
-// Block-level context menu (Copy / Copy as Markdown) on long press.
-@property (nonatomic, assign) BOOL enableBlockContextMenu;
+// Shared, runtime-mutable block props (context-menu gate, code-block tap gate,
+// copy labels) read live at use-time. Set to the root's shared instance at
+// creation and handed unchanged to this quote's children, so a child added after
+// a toggle is born current with no per-toggle push. See ENRMDynamicBlockProps.
+@property (nonatomic, strong) ENRMDynamicBlockProps *dynamicProps;
 
-// Re-applies the current copy labels and onCopyPress to already-created
-// children when the labels change without a remount.
-- (void)pushCopyLabelsToChildren;
-
-// Re-applies the tap gate to existing code block children when it toggles.
-- (void)pushCodeBlockPressEnabledToChildren:(BOOL)enabled;
+// Resolved VoiceOver strings (list, quote, table and math announcements). Set by
+// the host at creation and pushed to this quote's children, recursing into
+// nested quotes, so they are labelled the same way top-level segments are.
+@property (nonatomic, strong, nullable) ENRMAccessibilityLabels *accessibilityLabels;
 
 @end
 

@@ -2,10 +2,10 @@ import UIKit
 
 final class ListRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
     private let isOrdered: Bool
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig, isOrdered: Bool) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration, isOrdered: Bool) {
         self.factory = factory
         self.config = config
         self.isOrdered = isOrdered
@@ -15,6 +15,8 @@ final class ListRenderer: NodeRenderer {
         let prevDepth = context.listDepth
         let prevType = context.listType
         let prevNumber = context.listItemNumber
+        let prevMarkerWidth = context.listMarkerWidth
+        let prevMarkerOffset = context.ancestorMarkerOffset
         let startLocation = output.length
 
         if prevDepth == 0 {
@@ -24,13 +26,19 @@ final class ListRenderer: NodeRenderer {
                 at: startLocation,
                 marginTop: config.list.marginTop ?? 0
             )
-        } else if output.length > 0, !output.string.hasSuffix("\n") {
-            output.append(ParagraphStyleHelpers.newline)
+        } else {
+            ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
         }
 
         context.listDepth = prevDepth + 1
         context.listType = isOrdered ? .ordered : .unordered
         context.listItemNumber = 0
+        if prevDepth > 0 {
+            context.ancestorMarkerOffset += context.listItemMarkerExtra
+        }
+        context.listMarkerWidth = isOrdered
+            ? widestMarkerWidth(of: node, atLeast: config.list.defaultMarkerColumnWidth(for: .ordered))
+            : 0
 
         let font = config.list.font ?? UIFont.preferredFont(forTextStyle: .body)
         let color = config.list.foregroundColor ?? UIColor.label
@@ -45,6 +53,8 @@ final class ListRenderer: NodeRenderer {
         context.listDepth = prevDepth
         context.listType = prevType
         context.listItemNumber = prevNumber
+        context.listMarkerWidth = prevMarkerWidth
+        context.ancestorMarkerOffset = prevMarkerOffset
 
         if prevDepth == 0 {
             context.clearBlockStyle()
@@ -52,5 +62,22 @@ final class ListRenderer: NodeRenderer {
                 ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: marginBottom)
             }
         }
+    }
+
+    /// Widens the marker column to the list's widest number, so markers are
+    /// never drawn past the column's leading edge. Task items draw a checkbox
+    /// instead of a number and do not count.
+    private func widestMarkerWidth(of node: MarkdownASTNode, atLeast minimumWidth: CGFloat) -> CGFloat {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: config.list.font ?? BlockDecorationConfig.defaultListMarkerFont
+        ]
+        var width = minimumWidth
+        var number = 0
+        for item in node.children where item.type == .listItem {
+            number += 1
+            guard item.attribute("isTask") != "true" else { continue }
+            width = max(width, ("\(number)." as NSString).size(withAttributes: attributes).width)
+        }
+        return width
     }
 }

@@ -8,6 +8,7 @@ import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.layout.InputEventEmitter
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
+import com.swmansion.enriched.markdown.input.spans.ensureBodyLineHeightSpan
 
 /**
  * Zero-width space: anchors an empty bullet line so the marker draws and the
@@ -37,6 +38,9 @@ interface EditPipelineHost {
   fun runAsATransaction(block: () -> Unit)
 
   fun setViewSelection(position: Int)
+
+  /** Which typed markdown prefixes (`# `, `- `, `1. `) convert into blocks. */
+  val markdownShortcuts: MarkdownShortcutsConfig
 }
 
 /**
@@ -64,6 +68,7 @@ class EditPipeline(
     adjustStores(context)
     pruneOrphanedAnchors()
     continueBlocks(context)
+    convertMarkdownShortcut(context)
     host.editable?.let { blockStore.normalizeToLineBounds(it) }
     applyPendingStyles(context)
 
@@ -75,6 +80,10 @@ class EditPipeline(
 
     applyInlineFormatting()
     applyBlockFormatting(touchedNewline, context.editStart, context.insertedLength)
+    // formatter.bodyTextAttributes is the snapshot the view's applyFormatting()
+    // takes after every prop change, so it matches the line height that
+    // applyFormatting() and InputMeasurementStore use.
+    host.editable?.let { ensureBodyLineHeightSpan(it, formatter.bodyTextAttributes) }
     detectLinks(context)
 
     host.forceScrollToSelection()
@@ -146,6 +155,50 @@ class EditPipeline(
 
     val newLineStart = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
     blockStore.setBlock(prevBlock.type, prevBlock.level, newLineStart, newLineStart, editable)
+  }
+
+  /**
+   * Markdown shortcuts: a space typed after `#`…`######`, `-`/`*`/`+` or
+   * `1.`/`1)` at the start of a plain paragraph drops the prefix and makes the
+   * paragraph that block. Mirrors [continueBlocks]: mutate inside a transaction,
+   * then re-adjust the stores for the deletion before normalization stamps spans.
+   */
+  private fun convertMarkdownShortcut(context: EditContext) {
+    val config = host.markdownShortcuts
+    if (!config.isEnabled) return
+    val editable = host.editable ?: return
+    if (context.deletedLength != 0 || context.insertedLength <= 0) return
+
+    // The trigger is the first space in the inserted run, and a line break ends
+    // the search so the converted line is always the one the insertion started
+    // on. The line start itself is scanned the way [BlockStore] bounds a
+    // paragraph, or the lookup below would miss the block.
+    val insertedEnd = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
+    val spaceIndex =
+      (context.editStart until insertedEnd)
+        .asSequence()
+        .takeWhile { !editable[it].isLineBreak() }
+        .firstOrNull { editable[it] == ' ' } ?: return
+
+    var lineStart = spaceIndex
+    while (lineStart > 0 && editable[lineStart - 1] != '\n') lineStart--
+    if (spaceIndex == lineStart || blockStore.blockStartingAt(lineStart) != null) return
+
+    val match =
+      MarkdownShortcutMatcher.match(
+        editable.subSequence(lineStart, spaceIndex),
+        config,
+      ) ?: return
+
+    val deleteEnd = spaceIndex + 1
+    val deletedLength = deleteEnd - lineStart
+    host.runAsATransaction { editable.delete(lineStart, deleteEnd) }
+    formattingStore.adjustForEdit(lineStart, deletedLength, 0)
+    blockStore.adjustForEdit(lineStart, deletedLength, 0)
+    blockStore.setBlock(match.type, match.level, lineStart, lineStart, editable)
+
+    val caret = (context.editStart + context.insertedLength - deletedLength).coerceIn(0, editable.length)
+    host.setViewSelection(caret)
   }
 
   private fun applyPendingStyles(context: EditContext) {

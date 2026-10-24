@@ -12,7 +12,7 @@ public struct MarkdownTheme: Sendable {
         self.content = content
     }
 
-    func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         content.apply(to: &config, traitCollection: traitCollection)
     }
 

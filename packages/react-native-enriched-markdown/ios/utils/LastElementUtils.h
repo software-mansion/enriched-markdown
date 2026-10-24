@@ -1,4 +1,5 @@
 #pragma once
+#import "ENRMLinkPillAttachment.h"
 #import "ENRMUIKit.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -85,6 +86,11 @@ static inline BOOL isLastElementImage(NSAttributedString *text)
     return NO;
 
   id attachment = [text attribute:NSAttachmentAttributeName atIndex:lastContent.location effectiveRange:nil];
+#if !TARGET_OS_OSX
+  // A link pill sits on the text baseline like a word; it needs no image compensation.
+  if ([attachment isKindOfClass:[ENRMLinkPillAttachment class]])
+    return NO;
+#endif
   return attachment != nil;
 }
 

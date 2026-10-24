@@ -20,7 +20,7 @@ enum SelectionMenuItems {
     static let copyImageURLIdentifier = "com.swmansion.enriched.markdown.copyImageURL"
 
     static func build(
-        config: MarkdownSelectionMenuConfig,
+        config: MarkdownSelectionMenu,
         selectedRange: NSRange,
         attributedText: NSAttributedString,
         source: RenderedSource?
@@ -32,7 +32,7 @@ enum SelectionMenuItems {
                for: selectedRange,
                in: attributedText,
                sourceMarkdown: source?.markdown,
-               flags: source?.flags ?? .commonMark
+               options: source?.options ?? .commonMark
            ),
            !markdown.isEmpty {
             specs.append(
@@ -46,7 +46,7 @@ enum SelectionMenuItems {
             )
         }
 
-        if config.copyImageUrl {
+        if config.copyImageURL {
             let urls = MarkdownExtractor.imageURLs(in: attributedText, range: selectedRange)
             if !urls.isEmpty {
                 specs.append(

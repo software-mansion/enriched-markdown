@@ -10,6 +10,44 @@ import type {
   LatexErrorEvent,
   CodeBlockPressEvent,
 } from './events';
+import type { LinkPillContent } from './linkPill';
+import type { LinkRecognition } from './linkRecognition';
+import type {
+  MarkdownRenderers,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
+} from './markdownBlocks';
+
+// Defined apart so code shared with web can import them: under a `.web`
+// module suffix this file resolves to `MarkdownTextProps.web.ts`.
+export type { LinkPillContent, LinkRecognition };
+export type {
+  MarkdownBlockPlacement,
+  MarkdownSlotBlock,
+  MarkdownMediaBlock,
+  MarkdownImageBlock,
+  MarkdownVideoBlock,
+  MarkdownLinkBlock,
+  MarkdownBlock,
+  MarkdownRenderers,
+  MarkdownImagePlacement,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
+} from './markdownBlocks';
+
+/**
+ * An item of a link's long-press menu. `text` identifies the item, so it must be
+ * unique within one pattern.
+ */
+export interface LinkContextMenuItem {
+  text: string;
+  /** SF Symbol name, as in `contextMenuItems`. */
+  icon?: string;
+  visible?: boolean;
+  disabled?: boolean;
+  destructive?: boolean;
+  onPress: (event: LinkPressEvent) => void;
+}
 
 /**
  * Public context menu item. Each item includes a JS-side `onPress` callback
@@ -114,6 +152,19 @@ export interface StreamingConfig {
    * @platform ios, android
    */
   codeBlockMode?: 'hidden' | 'progressive';
+  /**
+   * Controls how a trailing image paragraph or video block is handled during
+   * streaming. Applies to native images and to blocks drawn by `renderers`.
+   * - `'hidden'`: hide the block until a blank line follows it, so it never
+   *   appears before the chunk after it has arrived.
+   * - `'progressive'` (default): show the block as soon as its syntax is
+   *   complete (`)` for an image, `>` for a `<video>` tag); the partial line is
+   *   hidden until then instead of rendering as text.
+   * Only effective when `streamingAnimation` is `true`.
+   * @default 'progressive'
+   * @platform ios, android
+   */
+  mediaMode?: 'hidden' | 'progressive';
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
@@ -147,8 +198,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
   /**
    * Callback fired when a link is long pressed.
    * Receives the link URL directly.
-   * - iOS: When provided, automatically disables the system link preview
-   *   (unless `enableLinkPreview` is explicitly set to `true`).
+   * - iOS: When provided, disables the system link preview unconditionally -
+   *   an explicit `enableLinkPreview={true}` does not win.
    * - Android: Handles long press gestures on links.
    * - Web: Mapped to the `contextmenu` event (right-click).
    * @platform ios, android, web
@@ -232,6 +283,19 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   onCodeBlockPress?: (event: CodeBlockPressEvent) => void;
   /**
+   * Shows a line wrap toggle next to the copy button in each fenced code block
+   * header; set `false` to hide it. Every block starts unwrapped (horizontal scroll) and toggles on its
+   * own. The state belongs to the block's position in the document: it survives
+   * streaming appends and resets when the markdown is replaced. Code blocks
+   * inside blockquotes and admonitions get the toggle too. The toggle's spoken
+   * labels come from `accessibilityLabels.codeBlock`.
+   *
+   * Only applies when `flavor="github"`.
+   * @default true
+   * @platform ios, android
+   */
+  enableCodeBlockWrapToggle?: boolean;
+  /**
    * Controls the long-press context menu on block views (code blocks, tables,
    * and block math). When false, long-pressing a block does not open the copy
    * popup. Does not affect the code-block header copy button, the
@@ -246,8 +310,10 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * When `true`, long-pressing a link shows the native iOS link preview.
    * When `false`, the system preview is suppressed.
    *
-   * Defaults to `true`, but automatically becomes `false` when `onLinkLongPress`
-   * is provided. Set explicitly to override the automatic behavior.
+   * Defaults to `true`, but is forced to `false` whenever `onLinkLongPress` is
+   * provided - your handler owns the long press instead. That override cannot
+   * be undone from here: with `onLinkLongPress` set, an explicit `true` is
+   * discarded (see the resolution in `native/EnrichedMarkdownText.tsx`).
    *
    * @default true
    * @platform ios
@@ -346,6 +412,23 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   contextMenuItems?: ContextMenuItem[];
   /**
+   * Items of the native menu shown when a link is long-pressed, keyed by a URL
+   * regex pattern like `markdownStyle.linkVariants`: the longest pattern that
+   * matches the link supplies its menu. A link with a menu shows it instead of
+   * the link preview and `onLinkLongPress`; other links keep their long-press
+   * behavior. Items with `visible: false` are left out, and a pattern with no
+   * visible items has no menu.
+   *
+   * @example
+   * linkContextMenuItems={{
+   *   '^https://example\\.com/files/': [
+   *     { text: 'Copy path', icon: 'doc.on.doc', onPress: ({ url }) => copy(url) },
+   *   ],
+   * }}
+   * @platform ios 17+
+   */
+  linkContextMenuItems?: Record<string, LinkContextMenuItem[]>;
+  /**
    * HTTP headers to attach to remote image requests, e.g. a `Referer`
    * required by CDN hotlink protection or an `Authorization` token.
    *
@@ -357,6 +440,27 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android
    */
   imageRequestHeaders?: Record<string, string>;
+  /**
+   * Label and icon for individual link pills, keyed by the exact link URL.
+   * Applies only to links whose `markdownStyle.linkVariants` entry enables `pill`.
+   * It is content, not style, so `markdownStyle` can stay stable while this changes.
+   *
+   * @example
+   * linkPillContent={{
+   *   'https://example.com/files/a/long/path/file.ts': { label: 'file.ts' },
+   * }}
+   * @platform ios, android
+   */
+  linkPillContent?: Record<string, LinkPillContent>;
+  /**
+   * Turns regex matches in plain text (`text`) and whole inline-code spans
+   * (`inlineCode`) into links. The matched text is the URL; the source is unchanged.
+   *
+   * @example
+   * linkRecognition={{ text: /#\d+/, inlineCode: /[\w./-]+\.tsx?/ }}
+   * @platform ios, android, web
+   */
+  linkRecognition?: LinkRecognition;
   /**
    * Controls the built-in items added to the native text selection menu and
    * lets you localize their labels. Custom app-provided actions are controlled
@@ -450,4 +554,62 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @default 'tail'
    */
   ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
+  /**
+   * React replacements for block media, keyed by kind. Each renderer receives the
+   * block and returns the element to show in its place, or nothing (`undefined`)
+   * to keep the native rendering. The element is laid out by React at the block's
+   * width and must have an intrinsic height; the surrounding Markdown stays
+   * native and keeps its position, selection and accessibility.
+   *
+   * Applies to a paragraph whose only content is an image or a link, and to
+   * `<video>` blocks, directly in the document, a blockquote or an admonition
+   * outside any list. Images and links in lists, tables, headings and running
+   * text stay native. A link block keeps its native tappable link when no
+   * renderer claims it.
+   *
+   * A renderer runs once per block and again only when that block or any
+   * renderer function changes, so a streaming append does not re-render the
+   * blocks already shown. Keep the functions stable with `useCallback`. It is a
+   * plain function, not a component: return an element and keep hooks and
+   * state inside the component it returns. A renderer that throws, or returns
+   * text, keeps the native block (with a dev warning) until it runs again.
+   *
+   * A replaced block's element owns its presses: `onImagePress`,
+   * `onLinkPress`, `onLinkLongPress` and the link menu do not fire for it.
+   *
+   * Only applies when `flavor="github"`.
+   *
+   * @example
+   * renderers={{
+   *   image: ({ url, altText }) => <FastImage source={{ uri: url }} accessibilityLabel={altText} />,
+   *   video: ({ url }) => <Video source={{ uri: url }} />,
+   * }}
+   * @platform ios, android, web
+   */
+  renderers?: MarkdownRenderers;
+  /**
+   * Chooses the request made for each image instead of its Markdown URL, e.g. a
+   * signed URL or per-image headers. Called once per image while it stays in
+   * the document, including images in lists, tables, blockquotes and links; a
+   * streaming append or an edit elsewhere only asks about the new images, and
+   * earlier results stay applied. Return a source, a promise of one, or nothing
+   * (`undefined`) to load the original URL. Until it answers, and when a promise
+   * rejects or resolves to an empty `uri`, the image keeps its placeholder and
+   * the original URL is not requested.
+   *
+   * It is called after rendering, never during it, so it may start a request
+   * or update other state. The function is read like an event handler:
+   * changing it does not resolve again. Remount the component with a `key` to
+   * start over (e.g. after a token refresh). Events, copy actions and
+   * `renderers` keep reporting the Markdown URL.
+   *
+   * Only applies when `flavor="github"`.
+   * @platform ios, android, web
+   */
+  resolveImageSource?: (
+    image: MarkdownImageOccurrence
+  ) =>
+    | MarkdownImageSource
+    | undefined
+    | Promise<MarkdownImageSource | undefined>;
 }

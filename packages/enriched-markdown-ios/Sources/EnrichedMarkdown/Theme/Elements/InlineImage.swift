@@ -11,7 +11,7 @@ public struct InlineImage: MarkdownThemeContent {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         if let size { config.inlineImage.size = size }
     }
 }

@@ -3,19 +3,33 @@ package com.swmansion.enriched.markdown.styles
 import android.text.Layout
 
 enum class TextAlignment(
-  val layoutAlignment: Layout.Alignment,
-  val needsJustify: Boolean,
+  val needsJustify: Boolean = false,
 ) {
-  LEFT(Layout.Alignment.ALIGN_NORMAL, false),
-  CENTER(Layout.Alignment.ALIGN_CENTER, false),
-  RIGHT(Layout.Alignment.ALIGN_OPPOSITE, false),
-  JUSTIFY(Layout.Alignment.ALIGN_NORMAL, true),
-  AUTO(Layout.Alignment.ALIGN_NORMAL, false),
+  /** Follows the reading direction: left-aligned in LTR, right-aligned in RTL. */
+  START,
+  LEFT,
+  CENTER,
+  RIGHT,
+
+  /** Opposite the reading direction: right-aligned in LTR, left-aligned in RTL. */
+  END,
+  JUSTIFY(needsJustify = true),
+  AUTO,
   ;
 
   /**
-   * Whether an AlignmentSpan is needed.
-   * Only CENTER and RIGHT need explicit spans; LEFT/AUTO use default, JUSTIFY is handled at TextView level.
+   * The layout alignment for a paragraph whose direction is [isRtl], or null when the default
+   * (start) alignment already applies. Justify is handled at the TextView level.
    */
-  val needsAlignmentSpan: Boolean get() = this == CENTER || this == RIGHT
+  fun layoutAlignment(isRtl: Boolean): Layout.Alignment? =
+    when (this) {
+      START, JUSTIFY, AUTO -> null
+      CENTER -> Layout.Alignment.ALIGN_CENTER
+      END -> Layout.Alignment.ALIGN_OPPOSITE
+      LEFT -> if (isRtl) Layout.Alignment.ALIGN_OPPOSITE else Layout.Alignment.ALIGN_NORMAL
+      RIGHT -> if (isRtl) Layout.Alignment.ALIGN_NORMAL else Layout.Alignment.ALIGN_OPPOSITE
+    }
+
+  /** Whether the alignment pins a physical side, so it depends on each paragraph's direction. */
+  val isAbsolute: Boolean get() = this == LEFT || this == RIGHT
 }

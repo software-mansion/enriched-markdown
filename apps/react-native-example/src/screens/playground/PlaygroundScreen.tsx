@@ -9,7 +9,6 @@ import {
   Platform,
   Alert,
   Image,
-  Modal,
   TextInput,
   Keyboard,
 } from 'react-native';
@@ -61,6 +60,10 @@ const INLINE_IMAGE_URI = Image.resolveAssetSource(
   require('../../assets/logo_icon.png')
 ).uri;
 
+const REFERENCE_REGEX = /ref:[a-z]+/;
+const DEFAULT_INPUT_LINE_HEIGHT = undefined;
+const TALL_INPUT_LINE_HEIGHT = 36;
+
 export default function PlaygroundScreen() {
   const headerHeight = useHeaderHeight();
   const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
@@ -71,6 +74,10 @@ export default function PlaygroundScreen() {
   const [underlineEnabled, setUnderlineEnabled] = useState(true);
   const [setMarkdownModalVisible, setSetMarkdownModalVisible] = useState(false);
   const [rawInput, setRawInput] = useState('');
+  const [recognitionMode, setRecognitionMode] = useState(0);
+  const [inputLineHeight, setInputLineHeight] = useState<number | undefined>(
+    DEFAULT_INPUT_LINE_HEIGHT
+  );
   const handleGetMarkdown = useCallback(async () => {
     const md = await inputRef.current?.getMarkdown();
     Alert.alert('Markdown', md ?? '(empty)', [{ text: 'OK' }]);
@@ -157,6 +164,30 @@ export default function PlaygroundScreen() {
         </View>
         <View style={styles.buttonRow}>
           <TouchableOpacity
+            style={[
+              styles.button,
+              inputLineHeight === TALL_INPUT_LINE_HEIGHT && styles.buttonActive,
+            ]}
+            onPress={() =>
+              setInputLineHeight((current) =>
+                current === TALL_INPUT_LINE_HEIGHT
+                  ? DEFAULT_INPUT_LINE_HEIGHT
+                  : TALL_INPUT_LINE_HEIGHT
+              )
+            }
+            testID="line-height-toggle"
+          >
+            <Text
+              style={[
+                styles.buttonText,
+                inputLineHeight === TALL_INPUT_LINE_HEIGHT &&
+                  styles.buttonTextActive,
+              ]}
+            >
+              Line height {inputLineHeight ?? 'auto'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.button}
             onPress={async () => {
               const current = (await inputRef.current?.getMarkdown()) ?? '';
@@ -185,14 +216,15 @@ export default function PlaygroundScreen() {
 
         <View style={styles.editorContainer} testID="editor-container">
           <EnrichedMarkdownTextInput
+            markdownShortcuts
             ref={inputRef}
             placeholder="Type markdown here..."
             placeholderTextColor="#9CA3AF"
-            style={
-              sizeMode === 'max'
-                ? { ...styles.input, ...styles.inputMax }
-                : styles.input
-            }
+            style={[
+              styles.input,
+              sizeMode === 'max' && styles.inputMax,
+              inputLineHeight != null && { lineHeight: inputLineHeight },
+            ]}
             markdownStyle={MARKDOWN_STYLE}
             onChangeState={setState}
             onChangeMarkdown={setMarkdown}
@@ -238,14 +270,33 @@ export default function PlaygroundScreen() {
         <View style={styles.divider} />
 
         <Text style={styles.previewLabel}>Preview</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => setRecognitionMode((mode) => (mode + 1) % 3)}
+          testID="recognize-links-button"
+        >
+          <Text style={styles.buttonText}>
+            Reference links: {['Off', 'CommonMark', 'GitHub'][recognitionMode]}
+          </Text>
+        </TouchableOpacity>
         <View style={styles.previewContainer} testID="preview-container">
           {markdown.length > 0 ? (
             <EnrichedMarkdownText
               markdown={markdown}
               markdownStyle={MARKDOWN_STYLE}
-              flavor="github"
+              flavor={recognitionMode === 1 ? 'commonmark' : 'github'}
+              linkRecognition={
+                recognitionMode
+                  ? { text: REFERENCE_REGEX, inlineCode: REFERENCE_REGEX }
+                  : undefined
+              }
               spoilerOverlay="solid"
-              md4cFlags={{ underline: underlineEnabled, highlight: true }}
+              md4cFlags={{
+                underline: underlineEnabled,
+                highlight: true,
+                superscript: true,
+                subscript: true,
+              }}
               onLinkPress={({ url }) =>
                 Alert.alert('Link', url, [{ text: 'OK' }])
               }
@@ -266,15 +317,10 @@ export default function PlaygroundScreen() {
         </View>
       </ScrollView>
 
-      <Modal
-        visible={setMarkdownModalVisible}
-        animationType={Platform.OS === 'android' ? 'fade' : 'slide'}
-        transparent
-        onRequestClose={() => setSetMarkdownModalVisible(false)}
-      >
+      {setMarkdownModalVisible && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={[StyleSheet.absoluteFill, styles.modalOverlay]}
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Set Raw Markdown</Text>
@@ -310,7 +356,7 @@ export default function PlaygroundScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -409,12 +455,12 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     padding: 16,
     gap: 12,
   },

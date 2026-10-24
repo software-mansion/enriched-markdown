@@ -1,0 +1,65 @@
+name: docs build
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-build.yml'
+  workflow_dispatch:
+
+jobs:
+  # Fast, dependency-free structural checks that the Docusaurus build cannot
+  # catch: src/examples/ must stay 1:1 with docs/, and the hand-written
+  # static/llms.txt must list every page. Runs in parallel with the build so
+  # drift fails the PR in seconds rather than after a full build - see
+  # docs/scripts/check-examples.mjs and docs/scripts/check-llms.mjs.
+  docs-examples-parity:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # Invoked directly rather than through `yarn check-examples` so the job
+      # needs no install at all; the script has no dependencies.
+      - name: Check examples mirror the docs tree
+        run: node scripts/check-examples.mjs
+
+      - name: Check llms.txt lists every page
+        run: node scripts/check-llms.mjs
+
+  docs-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up workspace
+        uses: ./.github/actions/setup
+
+      - name: Build the library
+        working-directory: .
+        run: yarn prepare
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: docs/yarn.lock
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build docs
+        run: yarn build

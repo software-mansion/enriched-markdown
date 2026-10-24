@@ -6,9 +6,9 @@ import UIKit
 // surrounding paragraphs. Any extra block spacing is left to the caller to
 // configure.
 final class BlankLineRenderer: NodeRenderer {
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfiguration) {
         self.config = config
     }
 
@@ -16,9 +16,7 @@ final class BlankLineRenderer: NodeRenderer {
         let count = Int(node.attribute("count") ?? "0") ?? 0
         guard count > 0 else { return }
 
-        if output.length > 0, !output.string.hasSuffix("\n") {
-            output.append(ParagraphStyleHelpers.newline)
-        }
+        ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
 
         let paragraph = config.paragraph
         let font = paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)

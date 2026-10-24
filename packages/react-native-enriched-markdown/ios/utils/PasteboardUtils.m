@@ -1,5 +1,6 @@
 #import "PasteboardUtils.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillText.h"
 #import "HTMLGenerator.h"
 #import "MarkdownExtractor.h"
 #import "RTFExportUtils.h"
@@ -89,6 +90,9 @@ void copyAttributedStringToPasteboard(NSAttributedString *attributedString, NSSt
 {
   if (!attributedString || attributedString.length == 0)
     return;
+
+  // Expanded once here for the plain-text flavor; the exporters below then have nothing left to expand.
+  attributedString = ENRMAttributedStringByExpandingLinkPills(attributedString, NULL);
 
   NSMutableDictionary *items = [NSMutableDictionary dictionary];
 

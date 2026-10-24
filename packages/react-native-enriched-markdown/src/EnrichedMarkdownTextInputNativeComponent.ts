@@ -63,6 +63,11 @@ export interface OnChangeTextEvent {
   value: string;
 }
 
+export interface OnChangeHistoryStateEvent {
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
 export interface OnChangeMarkdownEvent {
   value: string;
 }
@@ -82,7 +87,7 @@ export interface OnChangeStateEvent {
   underline: { isActive: boolean };
   strikethrough: { isActive: boolean };
   spoiler: { isActive: boolean };
-  link: { isActive: boolean };
+  link: { isActive: boolean; destination: string };
   heading: { isActive: boolean; level: CodegenTypes.Int32 };
   unorderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
   orderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
@@ -163,6 +168,12 @@ export interface FormatMenuConfigInternal {
   linkLabel: string;
 }
 
+export interface MarkdownShortcutsConfigInternal {
+  heading: boolean;
+  unorderedList: boolean;
+  orderedList: boolean;
+}
+
 export interface OnContextMenuItemPressEvent {
   itemText: string;
   selectedText: string;
@@ -174,7 +185,7 @@ export interface OnContextMenuItemPressEvent {
     underline: { isActive: boolean };
     strikethrough: { isActive: boolean };
     spoiler: { isActive: boolean };
-    link: { isActive: boolean };
+    link: { isActive: boolean; destination: string };
     heading: { isActive: boolean; level: CodegenTypes.Int32 };
     unorderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
     orderedList: { isActive: boolean; depth: CodegenTypes.Int32 };
@@ -209,6 +220,12 @@ export interface NativeProps extends ViewProps {
    * @default true
    */
   scrollEnabled?: boolean;
+  /**
+   * Which markdown block prefixes typed at a paragraph start convert into the
+   * matching block. Always complete — the JS side normalizes the public
+   * `boolean | MarkdownShortcutsConfig` form before it gets here.
+   */
+  markdownShortcuts: Readonly<MarkdownShortcutsConfigInternal>;
   /**
    * Auto-capitalization behavior.
    */
@@ -302,6 +319,7 @@ export interface NativeProps extends ViewProps {
   onStartMention?: CodegenTypes.DirectEventHandler<OnStartMentionEvent>;
   onChangeMention?: CodegenTypes.DirectEventHandler<OnChangeMentionEvent>;
   onEndMention?: CodegenTypes.DirectEventHandler<OnEndMentionEvent>;
+  onChangeHistoryState?: CodegenTypes.DirectEventHandler<OnChangeHistoryStateEvent>;
 }
 
 type ComponentType = HostComponent<NativeProps>;
@@ -349,6 +367,8 @@ interface NativeCommands {
   ) => void;
   removeLink: (viewRef: React.ElementRef<ComponentType>) => void;
   copyToClipboard: (viewRef: React.ElementRef<ComponentType>) => void;
+  undo: (viewRef: React.ElementRef<ComponentType>) => void;
+  redo: (viewRef: React.ElementRef<ComponentType>) => void;
   requestMarkdown: (
     viewRef: React.ElementRef<ComponentType>,
     requestId: CodegenTypes.Int32
@@ -382,6 +402,8 @@ export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
     'startMention',
     'removeLink',
     'copyToClipboard',
+    'undo',
+    'redo',
     'requestMarkdown',
     'requestCaretRect',
   ],

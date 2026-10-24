@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import okhttp3.Cache
+import okhttp3.CacheControl
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -25,6 +26,10 @@ object ImageDownloader {
 
   @Volatile
   private var client: OkHttpClient? = null
+
+  // No disk cache: it keys by URL alone and would mix header sets.
+  @Volatile
+  private var headerClient: OkHttpClient? = null
   private var maxTargetWidth: Int = 0
 
   private val inFlight = HashMap<String, MutableList<(Bitmap?) -> Unit>>()
@@ -35,6 +40,15 @@ object ImageDownloader {
         client = it
         maxTargetWidth = context.applicationContext.resources.displayMetrics.widthPixels
       }
+    }
+
+  private fun getHeaderClient(context: Context): OkHttpClient =
+    headerClient ?: synchronized(this) {
+      headerClient ?: getClient(context)
+        .newBuilder()
+        .cache(null)
+        .build()
+        .also { headerClient = it }
     }
 
   private fun buildClient(context: Context): OkHttpClient {
@@ -53,6 +67,7 @@ object ImageDownloader {
     headers: Map<String, String> = emptyMap(),
     callback: (Bitmap?) -> Unit,
   ) {
+    val headers = ImageCache.normalizedHeaders(headers)
     val requestKey = ImageCache.requestKey(url, headers)
 
     ImageCache.getOriginal(requestKey)?.let {
@@ -69,13 +84,33 @@ object ImageDownloader {
       inFlight[requestKey] = mutableListOf(callback)
     }
 
+    // OkHttp throws on a URL or header it cannot use; report that like any failed download.
     val request =
-      Request
-        .Builder()
-        .url(url)
-        .apply { headers.forEach { (name, value) -> addHeader(name, value) } }
-        .build()
-    getClient(context).newCall(request).enqueue(
+      try {
+        Request
+          .Builder()
+          .url(url)
+          .apply {
+            headers.forEach { (name, value) -> addHeader(name, value) }
+            // The HTTP cache keys by URL and server Vary, which may omit the headers
+            // that make this request distinct; keep header-bearing responses out of it.
+            if (headers.isNotEmpty()) {
+              cacheControl(
+                CacheControl
+                  .Builder()
+                  .noCache()
+                  .noStore()
+                  .build(),
+              )
+            }
+          }.build()
+      } catch (e: IllegalArgumentException) {
+        Log.e(TAG, "Invalid image request: $url", e)
+        dispatchCallbacks(requestKey, null)
+        return
+      }
+    val client = if (headers.isEmpty()) getClient(context) else getHeaderClient(context)
+    client.newCall(request).enqueue(
       object : Callback {
         override fun onResponse(
           call: Call,
@@ -113,10 +148,11 @@ object ImageDownloader {
   private fun decodeDownsampled(
     bytes: ByteArray,
     targetWidth: Int,
+    maxDimension: Int? = null,
   ): Bitmap? {
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-    return decodeWithSampleSize(opts, targetWidth) {
+    return decodeWithSampleSize(opts, targetWidth, maxDimension) {
       BitmapFactory.decodeByteArray(bytes, 0, bytes.size, it)
     }
   }
@@ -124,16 +160,18 @@ object ImageDownloader {
   fun decodeBytesDownsampled(
     context: Context,
     bytes: ByteArray,
-  ): Bitmap? = decodeDownsampled(bytes, context.resources.displayMetrics.widthPixels)
+    maxDimension: Int? = null,
+  ): Bitmap? = decodeDownsampled(bytes, context.resources.displayMetrics.widthPixels, maxDimension)
 
   fun decodeFileDownsampled(
     context: Context,
     path: String,
+    maxDimension: Int? = null,
   ): Bitmap? {
     val targetWidth = context.resources.displayMetrics.widthPixels
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(path, opts)
-    return decodeWithSampleSize(opts, targetWidth) {
+    return decodeWithSampleSize(opts, targetWidth, maxDimension) {
       BitmapFactory.decodeFile(path, it)
     }
   }
@@ -141,10 +179,19 @@ object ImageDownloader {
   private inline fun decodeWithSampleSize(
     opts: BitmapFactory.Options,
     targetWidth: Int,
+    maxDimension: Int?,
     decode: (BitmapFactory.Options) -> Bitmap?,
   ): Bitmap? {
     if (opts.outWidth <= 0 || opts.outHeight <= 0) return null
-    opts.inSampleSize = calculateInSampleSize(opts.outWidth, targetWidth)
+    opts.inSampleSize =
+      if (maxDimension == null) {
+        calculateInSampleSize(opts.outWidth, targetWidth)
+      } else {
+        var sample = 1
+        val limit = maxDimension.coerceAtLeast(1).toLong()
+        while (maxOf(opts.outWidth, opts.outHeight).toLong() > limit * sample) sample *= 2
+        sample
+      }
     opts.inJustDecodeBounds = false
     return decode(opts)
   }

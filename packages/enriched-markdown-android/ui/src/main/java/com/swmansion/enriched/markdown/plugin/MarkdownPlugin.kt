@@ -1,0 +1,54 @@
+package com.swmansion.enriched.markdown.plugin
+
+import android.content.Context
+import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.parser.Md4cFlags
+import com.swmansion.enriched.markdown.renderer.NodeRenderer
+import com.swmansion.enriched.markdown.renderer.RendererConfig
+
+/** Apps enable plugins freely; only implementing one needs opt-in. */
+interface MarkdownPlugin {
+  /** Stable across releases: it identifies the plugin's registrations and its rendered segments. */
+  val id: String
+
+  @InternalPluginApi
+  fun install(registry: PluginRegistry)
+
+  /**
+   * The parser flags to use wherever this plugin is enabled, given those the view's
+   * [com.swmansion.enriched.markdown.MarkdownOptions] map to. A plugin turns on the syntax that produces the
+   * nodes it renders, including syntax apps cannot turn on themselves, such as `latexMath`. Plugins
+   * adjust in the order they are installed, each seeing the previous one's result.
+   */
+  @InternalPluginApi
+  fun adjustParserFlags(flags: Md4cFlags): Md4cFlags = flags
+}
+
+@InternalPluginApi
+interface PluginRegistry {
+  /**
+   * Claim a node type outright; the plugin renders it into the spannable instead of core.
+   *
+   * The factory runs once per [com.swmansion.enriched.markdown.renderer.RendererFactory], not per
+   * node, so a renderer may cache whatever its config and context allow.
+   */
+  fun registerNodeRenderer(
+    type: MarkdownASTNode.NodeType,
+    factory: (RendererConfig, Context) -> NodeRenderer,
+  )
+
+  /**
+   * Claim a node type as its own block segment with its own View. Only top-level nodes become
+   * segments; nested ones still go through the type's node renderer.
+   */
+  fun registerBlockSegment(
+    type: MarkdownASTNode.NodeType,
+    segment: PluginBlockSegment<*>,
+  )
+
+  /**
+   * Decorate every code block after core renders it. Decorators stack rather than replace each
+   * other: each one enabled runs, in plugin order.
+   */
+  fun registerCodeBlockDecorator(decorator: CodeBlockDecorator)
+}

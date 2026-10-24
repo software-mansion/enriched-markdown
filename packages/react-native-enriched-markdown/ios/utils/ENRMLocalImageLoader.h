@@ -24,6 +24,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// scheme-less string (bare bundle-relative asset name or absolute path).
 BOOL ENRMIsLocalImageURL(NSString *url);
 
+/// Resolves a local file or file-backed bundle asset, including scale suffixes.
+/// Does not decode pixels. Asset-catalog-only names have no file path and return nil.
+FOUNDATION_EXPORT NSString *_Nullable ENRMResolveLocalImagePath(NSString *url);
+
 /// Synchronously loads a local image; returns nil when the source cannot be
 /// resolved. Safe to call off the main thread.
 RCTUIImage *_Nullable ENRMLoadLocalImage(NSString *url);

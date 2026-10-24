@@ -11,8 +11,14 @@ extern "C" {
 /// Returns the link URL at the tap location, or nil if no link was tapped.
 NSString *_Nullable linkURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer);
 
+/// Returns the original link URL at a point in text-view coordinates.
+NSString *_Nullable linkURLAtPoint(ENRMPlatformTextView *textView, CGPoint point);
+
 /// Returns the link URL at the given character range, or nil if none found.
 NSString *_Nullable linkURLAtRange(ENRMPlatformTextView *textView, NSRange characterRange);
+
+/// What the user sees the link at `index` as: its pill label, or its text. Nil when there is no link.
+NSString *_Nullable linkTitleAtIndex(NSAttributedString *text, NSUInteger index);
 
 /// Returns the tapped image as @{@"url": ..., @"altText": ...}, or nil if the
 /// tap did not land on an image. A linked image resolves to its link (the

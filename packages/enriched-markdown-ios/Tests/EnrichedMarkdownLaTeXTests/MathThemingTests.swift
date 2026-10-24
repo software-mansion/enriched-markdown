@@ -20,15 +20,15 @@ final class MathThemingTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func config(@MarkdownThemeBuilder _ content: () -> MarkdownThemeGroup) -> MarkdownStyleConfig {
-        MarkdownStyleConfig.resolve(layers: [.default, MarkdownTheme(content)], traitCollection: .current)
+    private func config(@MarkdownThemeBuilder _ content: () -> MarkdownThemeGroup) -> MarkdownStyleConfiguration {
+        MarkdownStyleConfiguration.resolve(layers: [.default, MarkdownTheme(content)], traitCollection: .current)
     }
 
-    private func render(_ markdown: String, config: MarkdownStyleConfig, typesets: Bool = true) -> NSAttributedString {
+    private func render(_ markdown: String, config: MarkdownStyleConfiguration, typesets: Bool = true) -> NSAttributedString {
         MarkdownRenderer.render(
             markdown,
             config: config,
-            flags: .commonMark,
+            options: .commonMark,
             imageRequestHeaders: [:],
             plugins: [LaTeXRenderPlugin(typeset: { _, _, fontSize, color in
                 self.typesetCalls.append(TypesetCall(fontSize: fontSize, color: color))
@@ -37,7 +37,7 @@ final class MathThemingTests: XCTestCase {
         )
     }
 
-    private func paragraphFontSize(in config: MarkdownStyleConfig) -> CGFloat {
+    private func paragraphFontSize(in config: MarkdownStyleConfiguration) -> CGFloat {
         (config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)).pointSize
     }
 
@@ -53,15 +53,15 @@ final class MathThemingTests: XCTestCase {
     // MARK: - Theme elements
 
     func testMathBlockThemeElementAppliesToConfig() {
-        var config = MarkdownStyleConfig()
+        var config = MarkdownStyleConfiguration()
         MathBlock()
-            .fontSize(24)
+            .font(size: 24)
             .foregroundStyle(Color(UIColor.systemRed))
             .background(Color(UIColor.systemBlue))
             .padding(10)
             .marginTop(4)
             .marginBottom(20)
-            .textAlignment(.trailing)
+            .multilineTextAlignment(.trailing)
             .apply(to: &config, traitCollection: .current)
 
         XCTAssertEqual(config.mathBlock.fontSize, 24)
@@ -74,7 +74,7 @@ final class MathThemingTests: XCTestCase {
     }
 
     func testInlineMathThemeElementAppliesToConfig() {
-        var config = MarkdownStyleConfig()
+        var config = MarkdownStyleConfiguration()
         XCTAssertNil(config.inlineMath.foregroundColor)
 
         InlineMath().foregroundStyle(.tint).apply(to: &config, traitCollection: .current)
@@ -82,7 +82,7 @@ final class MathThemingTests: XCTestCase {
     }
 
     func testLatexDefaultMatchesReactNativeDefaults() {
-        let config = MarkdownStyleConfig.resolve(layers: [.default, .latexDefault], traitCollection: .current)
+        let config = MarkdownStyleConfiguration.resolve(layers: [.default, .latexDefault], traitCollection: .current)
 
         XCTAssertEqual(config.mathBlock.fontSize, 20)
         XCTAssertNil(config.mathBlock.foregroundColor, "block color inherits the paragraph's")
@@ -95,8 +95,8 @@ final class MathThemingTests: XCTestCase {
     }
 
     func testLaterThemeLayersOverrideOnlySetMathProperties() {
-        let config = MarkdownStyleConfig.resolve(
-            layers: [.default, .latexDefault, MarkdownTheme { MathBlock().padding(4).textAlignment(.leading) }],
+        let config = MarkdownStyleConfiguration.resolve(
+            layers: [.default, .latexDefault, MarkdownTheme { MathBlock().padding(4).multilineTextAlignment(.leading) }],
             traitCollection: .current
         )
 
@@ -110,7 +110,7 @@ final class MathThemingTests: XCTestCase {
 
     func testBlockMathTypesetsWithBlockStyle() {
         let config = config {
-            MathBlock().fontSize(24).foregroundStyle(Color(UIColor.systemRed)).background(.quaternary).padding(6)
+            MathBlock().font(size: 24).foregroundStyle(Color(UIColor.systemRed)).background(.quaternary).padding(6)
         }
         let rendered = render("$$E=mc^2$$", config: config)
 
@@ -122,7 +122,7 @@ final class MathThemingTests: XCTestCase {
     }
 
     func testBlockMathWithoutThemeInheritsParagraph() {
-        let config = MarkdownStyleConfig.baseline()
+        let config = MarkdownStyleConfiguration.baseline()
         let rendered = render("$$E=mc^2$$", config: config)
 
         XCTAssertEqual(typesetCalls, [TypesetCall(fontSize: paragraphFontSize(in: config), color: config.paragraph.foregroundColor!)])
@@ -131,7 +131,7 @@ final class MathThemingTests: XCTestCase {
 
     func testInlineMathKeepsParagraphSizeAndUsesInlineColor() {
         let config = config {
-            MathBlock().fontSize(24).foregroundStyle(Color(UIColor.systemRed))
+            MathBlock().font(size: 24).foregroundStyle(Color(UIColor.systemRed))
             InlineMath().foregroundStyle(Color(UIColor.systemBlue))
         }
         let rendered = render("a $x$ and $$y$$ b", config: config)
@@ -155,7 +155,7 @@ final class MathThemingTests: XCTestCase {
     }
 
     func testTypesetFailureInBlockUsesBlockStyle() {
-        let config = config { MathBlock().fontSize(24).foregroundStyle(Color(UIColor.systemRed)) }
+        let config = config { MathBlock().font(size: 24).foregroundStyle(Color(UIColor.systemRed)) }
         let rendered = render("$$\\frac{1}{$$", config: config, typesets: false)
 
         let index = (rendered.string as NSString).range(of: "$$").location

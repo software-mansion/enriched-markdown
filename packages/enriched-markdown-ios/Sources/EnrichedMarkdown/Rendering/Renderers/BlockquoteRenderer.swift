@@ -5,9 +5,9 @@ import UIKit
 /// indent reserves a column for the icon the decoration view draws.
 final class BlockquoteRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
         self.factory = factory
         self.config = config
     }
@@ -16,7 +16,6 @@ final class BlockquoteRenderer: NodeRenderer {
         let admonition = Self.admonitionType(of: node)
         context.enterBlockquote(admonition: admonition)
         let levels = context.blockquoteLevels
-        let depth = levels.count - 1
 
         let blockStyle = config.blockquote
         let font = blockStyle.font ?? UIFont.preferredFont(forTextStyle: .body)
@@ -28,11 +27,22 @@ final class BlockquoteRenderer: NodeRenderer {
         if let admonition {
             appendHeader(for: admonition, font: font, to: output)
         }
+        // An enclosing list item shifts the whole quote by its own indent, which
+        // already includes any widened marker column, so lists inside start fresh.
+        let prevMarkerOffset = context.ancestorMarkerOffset
+        let prevItemMarkerExtra = context.listItemMarkerExtra
+        context.ancestorMarkerOffset = 0
+        context.listItemMarkerExtra = 0
         factory.renderChildren(of: node, into: output, context: context)
+        context.ancestorMarkerOffset = prevMarkerOffset
+        context.listItemMarkerExtra = prevItemMarkerExtra
         context.clearBlockStyle()
         context.exitBlockquote()
 
         guard output.length > start else { return }
+        // Bars share one offset per paragraph, so widening from lists inside this
+        // quote must not move this quote's own bar when an outer item shifts it.
+        output.removeAttribute(MarkdownAttribute.blockquoteMarkerExtra, range: NSRange(location: start, length: output.length - start))
 
         applyStylingAndSpacing(to: output, start: start, end: output.length, levels: levels)
     }

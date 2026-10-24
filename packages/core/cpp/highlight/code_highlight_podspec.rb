@@ -127,7 +127,7 @@ module EnrichedMarkdownCodeHighlight
         raise '[ReactNativeEnrichedMarkdown] code highlighting is enabled but the tree-sitter ' \
           'grammars are not installed. Reinstall to fetch them: `npm rebuild react-native-enriched-markdown`. ' \
           'To disable, set "enriched-markdown".enableCodeHighlight = false in your app package.json. ' \
-          'Troubleshooting: https://github.com/software-mansion/enriched-markdown/blob/main/docs/NATIVE_ASSETS.md'
+          'Troubleshooting: https://github.com/software-mansion/enriched-markdown/blob/main/docs-md/NATIVE_ASSETS.md'
       end
       return disabled
     end

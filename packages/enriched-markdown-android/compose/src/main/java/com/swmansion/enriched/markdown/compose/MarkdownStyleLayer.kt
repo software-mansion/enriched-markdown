@@ -1,11 +1,36 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.compose
 
 import androidx.compose.runtime.Immutable
+import com.swmansion.enriched.markdown.compose.patches.BlockquoteStylePatch
+import com.swmansion.enriched.markdown.compose.patches.CodeBlockStylePatch
+import com.swmansion.enriched.markdown.compose.patches.CodeStylePatch
+import com.swmansion.enriched.markdown.compose.patches.EmphasisStylePatch
+import com.swmansion.enriched.markdown.compose.patches.HighlightStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ImageStylePatch
+import com.swmansion.enriched.markdown.compose.patches.InlineImageStylePatch
+import com.swmansion.enriched.markdown.compose.patches.LinkStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ListStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SpoilerStylePatch
+import com.swmansion.enriched.markdown.compose.patches.StrikethroughStylePatch
+import com.swmansion.enriched.markdown.compose.patches.StrongStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SubscriptStylePatch
+import com.swmansion.enriched.markdown.compose.patches.SuperscriptStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TableStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TaskListStylePatch
+import com.swmansion.enriched.markdown.compose.patches.TextStylePatch
+import com.swmansion.enriched.markdown.compose.patches.ThematicBreakStylePatch
+import com.swmansion.enriched.markdown.compose.patches.UnderlineStylePatch
+import com.swmansion.enriched.markdown.compose.style.PluginStylePatch
+import com.swmansion.enriched.markdown.compose.style.PluginStyleUnits
 import com.swmansion.enriched.markdown.compose.style.StyleConfigMerger
 import com.swmansion.enriched.markdown.compose.style.StylePatch
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.compose.style.StyleUnits
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.styles.StyleExtensionKey
 
 @Immutable
 internal data class MarkdownStyleLayer(
@@ -16,6 +41,7 @@ internal data class MarkdownStyleLayer(
   val emphasis: EmphasisStylePatch? = null,
   val strikethrough: StrikethroughStylePatch? = null,
   val underline: UnderlineStylePatch? = null,
+  val highlight: HighlightStylePatch? = null,
   val superscript: SuperscriptStylePatch? = null,
   val subscript: SubscriptStylePatch? = null,
   val code: CodeStylePatch? = null,
@@ -26,6 +52,10 @@ internal data class MarkdownStyleLayer(
   val image: ImageStylePatch? = null,
   val inlineImage: InlineImageStylePatch? = null,
   val thematicBreak: ThematicBreakStylePatch? = null,
+  val table: TableStylePatch? = null,
+  /** Pending edits owned by plugins, keyed by the [StyleExtensionKey] each plugin declares. */
+  val pluginPatches: Map<StyleExtensionKey<*>, PluginStylePatch<*>> = emptyMap(),
+  val spoiler: SpoilerStylePatch? = null,
 ) {
   fun apply(
     resolveContext: StyleResolveContext,
@@ -39,6 +69,14 @@ internal data class MarkdownStyleLayer(
         }.toMap()
         .takeIf { it.isNotEmpty() }
 
+    val extensions =
+      if (pluginPatches.isEmpty()) {
+        null
+      } else {
+        val pluginUnits = PluginStyleUnits(resolveContext.context, units)
+        pluginPatches.mapValues { (key, patch) -> applyPluginPatch(patch, base.extensions[key], pluginUnits) }
+      }
+
     return StyleConfigMerger.merge(
       resolveContext = resolveContext,
       base = base,
@@ -51,6 +89,7 @@ internal data class MarkdownStyleLayer(
           emphasisStyle = emphasis?.apply(base.emphasisStyle, resolveContext, units),
           strikethroughStyle = strikethrough?.apply(base.strikethroughStyle, units),
           underlineStyle = underline?.apply(base.underlineStyle, units),
+          highlightStyle = highlight?.apply(base.highlightStyle, units),
           superscriptStyle = superscript?.apply(base.superscriptStyle),
           subscriptStyle = subscript?.apply(base.subscriptStyle),
           codeStyle = code?.apply(base.codeStyle, resolveContext, units),
@@ -61,7 +100,22 @@ internal data class MarkdownStyleLayer(
           imageStyle = image?.apply(base.imageStyle, units),
           inlineImageStyle = inlineImage?.apply(base.inlineImageStyle, units),
           thematicBreakStyle = thematicBreak?.apply(base.thematicBreakStyle, units),
+          tableStyle = table?.apply(base.tableStyle, resolveContext, units),
+          spoilerStyle = spoiler?.apply(base.spoilerStyle, units),
+          extensions = extensions,
         ),
     )
   }
+
+  /**
+   * The cast only erases the patch's own style type, which its stored value already matches:
+   * [MarkdownStyleBuilder.updatePluginPatch] is the only writer and keys the patch by the very
+   * [StyleExtensionKey] whose value [base] came from.
+   */
+  @Suppress("UNCHECKED_CAST")
+  private fun applyPluginPatch(
+    patch: PluginStylePatch<*>,
+    base: Any?,
+    units: PluginStyleUnits,
+  ): Any = (patch as PluginStylePatch<Any>).apply(base, units)
 }

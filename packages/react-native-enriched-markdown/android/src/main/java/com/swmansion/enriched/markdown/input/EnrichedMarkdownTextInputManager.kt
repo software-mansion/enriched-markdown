@@ -14,7 +14,7 @@ import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextInputManagerDelegate
 import com.facebook.react.viewmanagers.EnrichedMarkdownTextInputManagerInterface
 import com.facebook.yoga.YogaMeasureMode
-import com.swmansion.enriched.markdown.input.autolink.LinkRegexConfig
+import com.swmansion.enriched.markdown.input.editing.MarkdownShortcutsConfig
 import com.swmansion.enriched.markdown.input.events.OnCaretRectChangeEvent
 import com.swmansion.enriched.markdown.input.events.OnChangeMarkdownEvent
 import com.swmansion.enriched.markdown.input.events.OnChangeMentionEvent
@@ -34,6 +34,7 @@ import com.swmansion.enriched.markdown.input.layout.InputMeasurementStore
 import com.swmansion.enriched.markdown.input.model.StyleType
 import com.swmansion.enriched.markdown.input.toolbar.FormatMenuConfig
 import com.swmansion.enriched.markdown.input.toolbar.InputSelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.input.BorderPropsApplicator
 import com.swmansion.enriched.markdown.utils.input.MarkdownStyleParser
 
@@ -158,6 +159,24 @@ class EnrichedMarkdownTextInputManager :
     view?.isVerticalScrollBarEnabled = value
   }
 
+  @ReactProp(name = "markdownShortcuts")
+  override fun setMarkdownShortcuts(
+    view: EnrichedMarkdownTextInputView?,
+    value: ReadableMap?,
+  ) {
+    if (view == null) return
+    view.markdownShortcuts =
+      if (value == null) {
+        MarkdownShortcutsConfig()
+      } else {
+        MarkdownShortcutsConfig(
+          heading = value.getBoolean("heading"),
+          unorderedList = value.getBoolean("unorderedList"),
+          orderedList = value.getBoolean("orderedList"),
+        )
+      }
+  }
+
   @ReactProp(name = "autoCapitalize")
   override fun setAutoCapitalize(
     view: EnrichedMarkdownTextInputView?,
@@ -199,11 +218,9 @@ class EnrichedMarkdownTextInputManager :
   ) {
     if (view == null || value == null) return
 
-    val style = MarkdownStyleParser.parse(value)
-    val changed = view.setMarkdownStyleFromProps(style)
-    if (changed) {
-      view.applyFormatting()
-    }
+    view.setMarkdownStyleFromProps(MarkdownStyleParser.parse(value))
+    // This call takes care of setting formattingDirty if needed, so we don't
+    // need to explicitly apply formatting or set it here separately
   }
 
   @ReactProp(name = "color", customType = "Color")
@@ -227,9 +244,7 @@ class EnrichedMarkdownTextInputManager :
     view: EnrichedMarkdownTextInputView?,
     value: Float,
   ) {
-    if (value > 0 && view != null) {
-      view.setLineSpacing(value - view.textSize, 1f)
-    }
+    view?.setLineHeightFromProps(value)
   }
 
   @ReactProp(name = "fontFamily")
@@ -500,6 +515,12 @@ class EnrichedMarkdownTextInputManager :
   override fun copyToClipboard(view: EnrichedMarkdownTextInputView?) {
     view?.copyToClipboard()
   }
+
+  // TODO: model history (port of src/web/input/editing/EditHistory.ts). Until
+  // then the commands do nothing and `onChangeHistoryState` is never emitted.
+  override fun undo(view: EnrichedMarkdownTextInputView?) = Unit
+
+  override fun redo(view: EnrichedMarkdownTextInputView?) = Unit
 
   override fun requestMarkdown(
     view: EnrichedMarkdownTextInputView?,

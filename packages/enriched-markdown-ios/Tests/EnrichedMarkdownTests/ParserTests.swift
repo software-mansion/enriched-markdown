@@ -24,6 +24,24 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(text?.content, "Hello world")
     }
 
+    func testDecodesNamedCharacterReferencesWithoutReparsingSyntax() {
+        let ast = parser.parseMarkdown("&amp; &copy; &CounterClockwiseContourIntegral; &NotEqualTilde;")
+        XCTAssertEqual(ast.child(ofType: .paragraph)?.child(ofType: .text)?.content, "& © ∳ ≂̸")
+
+        let citation = parser.parseMarkdown("&#91;1&#93;\n\n[1]: https://example.test")
+        XCTAssertEqual(citation.child(ofType: .paragraph)?.child(ofType: .text)?.content, "[1]")
+        XCTAssertNil(citation.first(ofType: .link))
+    }
+
+    func testDecodesNumericCharacterReferencesAndKeepsCodeLiteral() {
+        let ast = parser.parseMarkdown("&#91;1&#93; &#x1F600; &#0; &#xD800; &#x110000;")
+        XCTAssertEqual(ast.child(ofType: .paragraph)?.child(ofType: .text)?.content, "[1] 😀 � � �")
+        let code = parser.parseMarkdown("`&amp;`")
+        XCTAssertEqual(code.first(ofType: .code)?.child(ofType: .text)?.content, "&amp;")
+        let unknown = parser.parseMarkdown("&bogus;")
+        XCTAssertEqual(unknown.child(ofType: .paragraph)?.child(ofType: .text)?.content, "&bogus;")
+    }
+
     func testParsesStrongAndEmphasis() {
         let ast = parser.parseMarkdown("**bold** and *italic*")
 
@@ -119,7 +137,7 @@ final class ParserTests: XCTestCase {
     func testParsesSoftBreakAsLineBreakWithHardSoftBreaksFlag() {
         let ast = parser.parseMarkdown(
             "line one\nline two",
-            flags: Md4cFlags(hardSoftBreaks: true)
+            options: MarkdownParsingOptions(hardSoftBreaks: true)
         )
 
         let paragraph = ast.child(ofType: .paragraph)
@@ -135,7 +153,7 @@ final class ParserTests: XCTestCase {
     func testPreservesBlankLinesWithFlag() {
         let ast = parser.parseMarkdown(
             "one\n\n\n\ntwo",
-            flags: Md4cFlags(preserveBlankLines: true)
+            options: MarkdownParsingOptions(preserveBlankLines: true)
         )
 
         let blankLine = ast.child(ofType: .blankLine)

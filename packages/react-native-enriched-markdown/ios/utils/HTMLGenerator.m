@@ -3,6 +3,7 @@
 #import "CodeBackground.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLinkPillText.h"
 #import "HighlightRenderer.h"
 #if ENRICHED_MARKDOWN_MATH
 #import "ENRMMathInlineAttachment.h"
@@ -166,7 +167,7 @@ static NSString *colorToCSS(RCTUIColor *color)
 
 #pragma mark - HTML Escaping
 
-static void appendEscapedHTML(NSMutableString *output, NSString *text)
+static void appendEscapedHTML(NSMutableString *output, NSString *text, BOOL preserveLineBreaks)
 {
   NSUInteger length = text.length;
   if (length == 0)
@@ -190,6 +191,18 @@ static void appendEscapedHTML(NSMutableString *output, NSString *text)
       case '\'':
         [output appendString:@"&#39;"];
         break;
+      case '\r':
+      case '\n':
+      case 0x2028:
+      case 0x2029:
+        if (preserveLineBreaks) {
+          if (c == '\r' && i + 1 < length && [text characterAtIndex:i + 1] == '\n')
+            i++;
+          [output appendString:@"<br>"];
+        } else {
+          [output appendFormat:@"%C", c];
+        }
+        break;
       default:
         [output appendFormat:@"%C", c];
         break;
@@ -197,19 +210,23 @@ static void appendEscapedHTML(NSMutableString *output, NSString *text)
   }
 }
 
-static NSString *escapeHTML(NSString *text)
+static NSString *escapeHTML(NSString *text, BOOL preserveLineBreaks)
 {
   // Fast path: skip if no special chars
   static NSCharacterSet *escapeChars = nil;
+  static NSCharacterSet *inlineEscapeChars = nil;
   static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{ escapeChars = [NSCharacterSet characterSetWithCharactersInString:@"&<>\"'"]; });
+  dispatch_once(&onceToken, ^{
+    escapeChars = [NSCharacterSet characterSetWithCharactersInString:@"&<>\"'"];
+    inlineEscapeChars = [NSCharacterSet characterSetWithCharactersInString:@"&<>\"'\n\r\u2028\u2029"];
+  });
 
-  if ([text rangeOfCharacterFromSet:escapeChars].location == NSNotFound) {
+  if ([text rangeOfCharacterFromSet:preserveLineBreaks ? inlineEscapeChars : escapeChars].location == NSNotFound) {
     return text;
   }
 
   NSMutableString *escaped = [NSMutableString stringWithCapacity:text.length + 16];
-  appendEscapedHTML(escaped, text);
+  appendEscapedHTML(escaped, text, preserveLineBreaks);
   return escaped;
 }
 
@@ -378,7 +395,8 @@ static NSData *collectParagraphsData(NSAttributedString *attributedString, NSUIn
   NSUInteger count = 0;
 
   while (currentIndex < string.length) {
-    NSRange lineRange = [string lineRangeForRange:NSMakeRange(currentIndex, 0)];
+    // Hard breaks render as U+2028 and must stay inside their block, so split on paragraphs, not lines.
+    NSRange lineRange = [string paragraphRangeForRange:NSMakeRange(currentIndex, 0)];
 
     ParagraphData para = {
         .range = lineRange, .type = ParagraphTypeNormal, .depth = 0, .listNumber = 1, .isTaskChecked = NO};
@@ -495,7 +513,7 @@ static void generateInlineHTML(NSMutableString *html, NSAttributedString *attrib
                                         @"padding: %.0fpx %.0fpx; border-radius: %.0fpx; "
                                         @"font-size: 1em; font-family: Menlo, Monaco, Consolas, monospace;\">%@</code>",
                                         styles.codeBackgroundColor, styles.codeColor, kCodePadding, kCodePadding * 2,
-                                        kCodeBorderRadius, escapeHTML(math.latex)];
+                                        kCodeBorderRadius, escapeHTML(math.latex, NO)];
                             }
 #endif
                           }
@@ -534,11 +552,11 @@ static void generateInlineHTML(NSMutableString *html, NSAttributedString *attrib
                           if (styles.linkFontFamily.length > 0) {
                             [html appendFormat:
                                       @"<a href=\"%@\" style=\"color: %@; text-decoration: %@; font-family: '%@';\">",
-                                      escapeHTML(href), styles.linkColor, styles.linkUnderline ? @"underline" : @"none",
-                                      styles.linkFontFamily];
+                                      escapeHTML(href, NO), styles.linkColor,
+                                      styles.linkUnderline ? @"underline" : @"none", styles.linkFontFamily];
                           } else {
                             [html appendFormat:@"<a href=\"%@\" style=\"color: %@; text-decoration: %@;\">",
-                                               escapeHTML(href), styles.linkColor,
+                                               escapeHTML(href, NO), styles.linkColor,
                                                styles.linkUnderline ? @"underline" : @"none"];
                           }
                         }
@@ -583,7 +601,7 @@ static void generateInlineHTML(NSMutableString *html, NSAttributedString *attrib
                           }
                         }
 
-                        [html appendString:escapeHTML(text)];
+                        [html appendString:escapeHTML(text, !isCodeBlock)];
 
                         // Reverse order
                         if ([underline integerValue] > 0 && !linkAttr)
@@ -807,6 +825,8 @@ NSString *_Nullable generateHTML(NSAttributedString *attributedString, StyleConf
   if (!attributedString || attributedString.length == 0)
     return nil;
 
+  attributedString = ENRMAttributedStringByExpandingLinkPills(attributedString, NULL);
+
   CachedStyles *styles = cacheStyles(styleConfig);
 
   NSParagraphStyle *firstParagraphStyle = [attributedString attribute:NSParagraphStyleAttributeName
@@ -988,6 +1008,8 @@ HTMLString _Nullable generateTableHTML(NSArray<NSArray<NSDictionary *> *> *rows,
       BOOL isHeaderCell = [cellInfo[@"isHeader"] boolValue];
       NSTextAlignment alignment = (NSTextAlignment)[cellInfo[@"alignment"] integerValue];
       NSAttributedString *attributedText = cellInfo[@"attributedText"];
+      if (attributedText)
+        attributedText = ENRMAttributedStringByExpandingLinkPills(attributedText, NULL);
 
       NSString *htmlTag = isHeaderCell ? @"th" : @"td";
       NSString *cellStyle = styleForCell(isHeaderCell, bodyRowIndex, styleConfig, alignment);

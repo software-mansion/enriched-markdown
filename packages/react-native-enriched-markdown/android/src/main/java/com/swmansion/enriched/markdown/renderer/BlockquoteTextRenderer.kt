@@ -1,6 +1,5 @@
 package com.swmansion.enriched.markdown.renderer
 
-import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.styles.BlockquoteStyle
@@ -10,7 +9,7 @@ import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingIm
 /**
  * Renders a GFM blockquote's own prose content - the nodes left after nested
  * quotes, code blocks and other block segments have been split out - into a
- * standalone SpannableString styled as blockquote text.
+ * standalone buffer styled as blockquote text.
  *
  * It decorates a generic [Renderer.renderContent] pass rather than owning the
  * render envelope itself: [push] enters the blockquote block style so text picks
@@ -27,7 +26,7 @@ class BlockquoteTextRenderer(
     nodes: List<MarkdownASTNode>,
     onLinkPress: ((String) -> Unit)?,
     onLinkLongPress: ((String) -> Unit)?,
-  ): SpannableString = renderer.renderContent(nodes, onLinkPress, onLinkLongPress, block = this)
+  ): SpannableStringBuilder = renderer.renderContent(nodes, onLinkPress, onLinkLongPress, block = this)
 
   fun push(context: BlockStyleContext) {
     context.blockquoteDepth += 1

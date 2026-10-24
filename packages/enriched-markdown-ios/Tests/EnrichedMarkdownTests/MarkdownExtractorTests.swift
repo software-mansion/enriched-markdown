@@ -3,27 +3,27 @@ import XCTest
 @testable import EnrichedMarkdown
 
 final class MarkdownExtractorTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     // MARK: - Helpers
 
-    private func render(_ markdown: String, flags: Md4cFlags = .commonMark) -> NSAttributedString {
-        MarkdownRenderer.render(markdown, config: config, flags: flags)
+    private func render(_ markdown: String, options: MarkdownParsingOptions = .commonMark) -> NSAttributedString {
+        MarkdownRenderer.render(markdown, config: config, options: options)
     }
 
     private func extractSelecting(
         _ substring: String,
         in markdown: String,
-        flags: Md4cFlags = .commonMark,
+        options: MarkdownParsingOptions = .commonMark,
         file: StaticString = #filePath,
         line: UInt = #line
     ) -> String? {
-        let rendered = render(markdown, flags: flags)
+        let rendered = render(markdown, options: options)
         let range = (rendered.string as NSString).range(of: substring)
         XCTAssertNotEqual(
             range.location, NSNotFound,
@@ -34,8 +34,8 @@ final class MarkdownExtractorTests: XCTestCase {
         return MarkdownExtractor.extractMarkdown(from: rendered, in: range)
     }
 
-    private func extractFullRange(_ markdown: String, flags: Md4cFlags = .commonMark) -> String? {
-        let rendered = render(markdown, flags: flags)
+    private func extractFullRange(_ markdown: String, options: MarkdownParsingOptions = .commonMark) -> String? {
+        let rendered = render(markdown, options: options)
         return MarkdownExtractor.extractMarkdown(
             from: rendered,
             in: NSRange(location: 0, length: rendered.length)
@@ -73,7 +73,7 @@ final class MarkdownExtractorTests: XCTestCase {
     /// the excluded head is invisible, so the original source comes back
     /// verbatim (exact separator dashes included).
     func testSelectionAfterLeadingSpacerReturnsSourceVerbatim() {
-        var spacedConfig = MarkdownStyleConfig.baseline()
+        var spacedConfig = MarkdownStyleConfiguration.baseline()
         spacedConfig.paragraph.marginTop = 12
         let source = "intro\n\n| A | B |\n|:--------|------:|\n| one | two |\n\nafter"
         let rendered = MarkdownRenderer.render(source, config: spacedConfig)
@@ -111,7 +111,7 @@ final class MarkdownExtractorTests: XCTestCase {
         let range = (rendered.string as NSString).range(of: "\u{FFFC}")
 
         let specs = SelectionMenuItems.build(
-            config: MarkdownSelectionMenuConfig(),
+            config: MarkdownSelectionMenu(),
             selectedRange: range,
             attributedText: rendered,
             source: nil
@@ -154,12 +154,15 @@ final class MarkdownExtractorTests: XCTestCase {
         XCTAssertEqual(markdown, source)
     }
 
-    func testFullSelectionToleratesExcludedTrailingSpacers() {
-        let source = "# Title\n\nParagraph with **bold**."
-        let rendered = render(source)
+    func testFullSelectionToleratesExcludedLeadingSpacer() {
+        var spaced = MarkdownStyleConfiguration.baseline()
+        spaced.paragraph.marginTop = 12
+        let source = "Paragraph with **bold**."
+        let rendered = MarkdownRenderer.render(source, config: spaced)
+        XCTAssertTrue(rendered.string.hasPrefix("\n"))
 
         let markdown = MarkdownExtractor.markdown(
-            for: NSRange(location: 0, length: rendered.length - 1),
+            for: NSRange(location: 1, length: rendered.length - 1),
             in: rendered,
             sourceMarkdown: source
         )
@@ -189,6 +192,50 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsBoldText() {
         XCTAssertEqual(extractSelecting("31%", in: "Forests cover **31%** of land."), "**31%**")
+    }
+
+    func testTypographyBaselineOffsetsDoNotProduceScriptMarkdown() {
+        for offset in [-4.0, 0.0, 4.0] {
+            for (source, word, expected) in [
+                ("before plain after", "plain", "plain"),
+                ("before **bold** after", "bold", "**bold**")
+            ] {
+                let rendered = NSMutableAttributedString(attributedString: render(source))
+                let range = (rendered.string as NSString).range(of: word)
+                XCTAssertNotEqual(range.location, NSNotFound)
+                guard range.location != NSNotFound else { continue }
+                rendered.addAttribute(.baselineOffset, value: offset, range: range)
+
+                XCTAssertEqual(
+                    MarkdownExtractor.extractMarkdown(from: rendered, in: range),
+                    expected,
+                    "Typography baseline \(offset) for \(source)"
+                )
+            }
+        }
+    }
+
+    func testScriptMarkdownDoesNotDependOnVisualBaselineSign() {
+        let options = MarkdownParsingOptions(superscript: true, subscript: true)
+        for offset in [-4.0, 0.0, 4.0] {
+            for (source, word, expected) in [
+                ("before ^super^ after", "super", "^super^"),
+                ("before ~sub~ after", "sub", "~sub~"),
+                ("before **^bold^** after", "bold", "**^bold^**")
+            ] {
+                let rendered = NSMutableAttributedString(attributedString: render(source, options: options))
+                let range = (rendered.string as NSString).range(of: word)
+                XCTAssertNotEqual(range.location, NSNotFound)
+                guard range.location != NSNotFound else { continue }
+                rendered.addAttribute(.baselineOffset, value: offset, range: range)
+
+                XCTAssertEqual(
+                    MarkdownExtractor.extractMarkdown(from: rendered, in: range),
+                    expected,
+                    "Semantic script with visual baseline \(offset) for \(source)"
+                )
+            }
+        }
     }
 
     func testExtractsItalicText() {
@@ -228,7 +275,7 @@ final class MarkdownExtractorTests: XCTestCase {
             extractSelecting(
                 "underlined",
                 in: "Some _underlined_ text.",
-                flags: Md4cFlags(underline: true)
+                options: MarkdownParsingOptions(underline: true)
             ),
             "<u>underlined</u>"
         )
@@ -236,21 +283,21 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsSuperscript() {
         XCTAssertEqual(
-            extractSelecting("2", in: "x^2^ equals four", flags: Md4cFlags(superscript: true)),
+            extractSelecting("2", in: "x^2^ equals four", options: MarkdownParsingOptions(superscript: true)),
             "^2^"
         )
     }
 
     func testExtractsSubscript() {
         XCTAssertEqual(
-            extractSelecting("2", in: "Water is H~2~O", flags: Md4cFlags(subscript: true)),
+            extractSelecting("2", in: "Water is H~2~O", options: MarkdownParsingOptions(subscript: true)),
             "~2~"
         )
     }
 
     func testExtractsHighlight() {
         XCTAssertEqual(
-            extractSelecting("marked", in: "Some ==marked== text.", flags: Md4cFlags(highlight: true)),
+            extractSelecting("marked", in: "Some ==marked== text.", options: MarkdownParsingOptions(highlight: true)),
             "==marked=="
         )
     }
@@ -319,7 +366,7 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsAdmonitionWithItsMarkerInsteadOfTheTitle() {
         XCTAssertEqual(
-            extractSelecting("Note\nbody text", in: "> [!NOTE]\n> body text", flags: Md4cFlags(admonitions: true)),
+            extractSelecting("Note\nbody text", in: "> [!NOTE]\n> body text", options: MarkdownParsingOptions(admonitions: true)),
             "> [!NOTE]\n> body text"
         )
     }
@@ -327,7 +374,7 @@ final class MarkdownExtractorTests: XCTestCase {
     func testExtractsAdmonitionAfterParagraph() {
         // The trailing newlines are the quote's bottom-margin spacer.
         XCTAssertEqual(
-            extractFullRange("intro\n\n> [!TIP]\n> body", flags: Md4cFlags(admonitions: true))?
+            extractFullRange("intro\n\n> [!TIP]\n> body", options: MarkdownParsingOptions(admonitions: true))?
                 .trimmingCharacters(in: .newlines),
             "intro\n\n> [!TIP]\n> body"
         )
@@ -338,7 +385,7 @@ final class MarkdownExtractorTests: XCTestCase {
             extractSelecting(
                 "Tip\ninner",
                 in: "> [!WARNING]\n> outer\n>\n> > [!TIP]\n> > inner",
-                flags: Md4cFlags(admonitions: true)
+                options: MarkdownParsingOptions(admonitions: true)
             ),
             "> > [!TIP]\n> > inner"
         )
@@ -346,7 +393,7 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsAdmonitionBodyWithoutTitleAsPlainQuote() {
         XCTAssertEqual(
-            extractSelecting("body", in: "> [!NOTE]\n> body", flags: Md4cFlags(admonitions: true)),
+            extractSelecting("body", in: "> [!NOTE]\n> body", options: MarkdownParsingOptions(admonitions: true)),
             "> body"
         )
     }
@@ -398,7 +445,7 @@ final class MarkdownExtractorTests: XCTestCase {
 
     func testExtractsMultiLineCodeBlock() {
         let code = "func main() {\n  print(\"forest\")\n}\n"
-        let rendered = render("```\nfunc main() {\n  print(\"forest\")\n}\n```")
+        let rendered = render("```\nfunc main() {\n  print(\"forest\")\n}\n```\n\nafter")
         let range = (rendered.string as NSString).range(of: code)
         XCTAssertNotEqual(range.location, NSNotFound)
 
@@ -411,8 +458,16 @@ final class MarkdownExtractorTests: XCTestCase {
     func testExtractsCodeBlockWithoutClosingFenceWhenSelectionExcludesTrailingNewline() {
         let code = "let answer = 42"
         XCTAssertEqual(
-            extractSelecting(code, in: "```\nlet answer = 42\n```"),
+            extractSelecting(code, in: "```\nlet answer = 42\n```\n\nafter"),
             "```\n\(code)"
+        )
+    }
+
+    func testExtractsCodeBlockEndingTheDocumentWithItsClosingFence() {
+        let code = "let answer = 42"
+        XCTAssertEqual(
+            extractSelecting(code, in: "```\nlet answer = 42\n```"),
+            "```\n\(code)\n```\n"
         )
     }
 

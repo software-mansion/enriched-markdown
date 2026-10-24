@@ -6,7 +6,10 @@ import type {
   MarkdownStyleInternal,
 } from './types/MarkdownStyleInternal';
 import { isStyleEqual, mergeSubStyle } from './styleUtils';
-import { normalizeLinkVariantEntries } from './linkVariantUtils';
+import {
+  normalizeLinkVariantEntries,
+  normalizeLinkPillStyle,
+} from './linkVariantUtils';
 import { resolveAdmonitionColors } from './admonitionDefaults';
 import {
   DEFAULT_HEADING_FONT_WEIGHT,
@@ -34,7 +37,7 @@ const baseHeader: {
   textAlign: 'auto',
 };
 
-const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
+export const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
   paragraph: {
     fontSize: 16,
     fontFamily: SYSTEM_FONT,
@@ -291,6 +294,8 @@ export const normalizeMarkdownStyle = (
     ([pattern, override]): LinkVariantEntryInternal => {
       return {
         pattern,
+        pill: normalizeLinkPillStyle(override),
+        fontFamily: override.fontFamily ?? linkBase.fontFamily,
         color: override.color ?? linkBase.color,
         underline: override.underline ?? linkBase.underline,
         backgroundColor: override.backgroundColor ?? 'transparent',

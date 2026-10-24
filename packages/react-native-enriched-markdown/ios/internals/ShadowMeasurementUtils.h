@@ -70,8 +70,7 @@ static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps
          oldProps.md4cFlags.highlight != newProps.md4cFlags.highlight ||
          oldProps.md4cFlags.hardSoftBreaks != newProps.md4cFlags.hardSoftBreaks ||
          oldProps.md4cFlags.preserveBlankLines != newProps.md4cFlags.preserveBlankLines ||
-         oldProps.isGFM != newProps.isGFM ||
-         oldProps.md4cFlags.admonitions != newProps.md4cFlags.admonitions ||
+         oldProps.isGFM != newProps.isGFM || oldProps.md4cFlags.admonitions != newProps.md4cFlags.admonitions ||
          computeStyleFingerprint(oldProps.markdownStyle) != computeStyleFingerprint(newProps.markdownStyle);
 }
 
@@ -86,14 +85,17 @@ static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps
  * `ENRMMeasureSegmentedMarkdownViewFree`); the resolved view is still handed
  * to the block for strategies that can use it. `fontScale` handed to the
  * block is the real multiplier even when streaming skips the cache —
- * rendering must always use it.
+ * rendering must always use it. `wrappedCodeBlocksFingerprint` folds view
+ * state outside the props that changes the size (code blocks the user wrapped)
+ * into the cache key.
  */
 template <typename PropsT, typename ViewT>
 static inline Size
 ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void> &componentViewRef, int receivedCounter,
                            int &lastExactMeasurementCounter, CGSize &lastExactMeasurementSize, MarkdownFlavor flavor,
                            const LayoutContext &layoutContext, const LayoutConstraints &layoutConstraints,
-                           CGSize (^measureUncached)(ViewT *view, CGFloat maxWidth, CGFloat fontScale))
+                           CGSize (^measureUncached)(ViewT *view, CGFloat maxWidth, CGFloat fontScale),
+                           size_t wrappedCodeBlocksFingerprint = 0)
 {
   CGFloat maxWidth = layoutConstraints.maximumSize.width;
 
@@ -118,7 +120,7 @@ ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void>
   CGFloat fontScale = ENRMFontScaleForMeasurement(typedProps.allowFontScaling, layoutContext);
 
   if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {
-    auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor);
+    auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor, wrappedCodeBlocksFingerprint);
     CachedSize cached;
     if (MeasurementCache::shared().get(cacheKey, cached)) {
       return ENRMClampMeasuredSize(CGSizeMake(cached.width, cached.height), layoutConstraints);
@@ -128,7 +130,7 @@ ENRMMeasureMarkdownContent(const PropsT &typedProps, const std::shared_ptr<void>
   CGSize size = measureUncached(view, maxWidth, fontScale);
 
   if (shouldUseMeasurementCache && !typedProps.markdown.empty()) {
-    auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor);
+    auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor, wrappedCodeBlocksFingerprint);
     MeasurementCache::shared().set(cacheKey, {size.width, size.height});
   }
 

@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-  implementation("com.swmansion.enriched.markdown:compose:0.1.0")
+  implementation("com.swmansion.enriched.markdown:compose:0.3.0")
 }
 ```
 
@@ -25,24 +25,56 @@ Requirements: `minSdk 24`, AndroidX.
 
 The `compose` artifact pulls in internal `ui` and `parser` modules transitively. Consumers should depend only on `compose`.
 
-## Quick start
+### Optional plugins
 
-Wrap your app (or a screen) in `MarkdownTheme`, then render markdown with `EnrichedMarkdownText`:
+Features with a heavy dependency of their own ship as separate artifacts that you enable where you need them. Today there are two: **math**, which renders LaTeX (see [LaTeX math](#latex-math)), and **code-highlight**, which colors fenced code (see [Code highlighting](#code-highlighting)).
+
+Add the ones you need next to `compose`, using the same version for all:
 
 ```kotlin
-import androidx.compose.material3.MaterialTheme
-import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.MarkdownTheme
-
-MaterialTheme {
-  MarkdownTheme {
-    EnrichedMarkdownText(
-      markdown = "# Hello\n\nThis is **enriched** markdown.",
-      onLinkPress = { url -> /* open url */ },
-    )
-  }
+dependencies {
+  implementation("com.swmansion.enriched.markdown:compose:<version>")
+  implementation("com.swmansion.enriched.markdown:math:<version>") // only if you render LaTeX
+  implementation("com.swmansion.enriched.markdown:code-highlight:<version>") // only if you color code
 }
 ```
+
+An app that renders no math does not add the math line and pays nothing for it — not the artifact, and not its native LaTeX engine. That matters beyond download size: the engine behind `:math` ships no 32-bit `x86` native library (`arm64-v8a`, `armeabi-v7a` and `x86_64` only), so depending on it would otherwise constrain where the whole library can run.
+
+Enable plugins for every `EnrichedMarkdownText` in a subtree by wrapping it in a `MarkdownPlugins` scope:
+
+```kotlin
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
+import com.swmansion.enriched.markdown.compose.MarkdownPlugins
+import com.swmansion.enriched.markdown.math.LatexMathPlugin
+
+MarkdownPlugins(LatexMathPlugin, CodeHighlightPlugin) {
+  HomeScreen()
+}
+```
+
+For a single plugin, its own scope is shorter: `LatexMathPlugin { }` is the same as `MarkdownPlugins(LatexMathPlugin) { }`, and `CodeHighlightPlugin { }` the same as `MarkdownPlugins(CodeHighlightPlugin) { }`.
+
+Scopes nest: an inner scope adds its plugins to those enabled outside, and a scope for a plugin already enabled replaces it and moves it last, so where two plugins claim the same Markdown element, the innermost scope wins. To choose the plugins of one instance, pass `plugins = listOf(LatexMathPlugin)` to `EnrichedMarkdownText`, which overrides the enclosing scopes.
+
+Without a plugin nothing breaks: fenced code renders in the code block color, and `$...$` and `$$...$$` render as their raw source, delimiters included.
+
+Enabling the math plugin is also what makes `$...$` and `$$...$$` parse as math at all. Code highlighting needs no parser switch: fenced code is always parsed with its language.
+
+## Quick start
+
+Render markdown with `EnrichedMarkdownText`:
+
+```kotlin
+import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+
+EnrichedMarkdownText(
+  markdown = "# Hello\n\nThis is **enriched** markdown.",
+  onLinkClick = { url -> /* open url */ },
+)
+```
+
+With no style provided, it renders with `MarkdownStyle.Default`. See [Styling](#styling) to customize it.
 
 See the full example in [`apps/android-example`](../../apps/android-example).
 
@@ -52,6 +84,7 @@ Build styles with `markdownStyle { }` and pass them to `MarkdownTheme` or per-co
 
 ```kotlin
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.enriched.markdown.compose.MarkdownStyle
@@ -70,7 +103,7 @@ val AppMarkdownStyle: MarkdownStyle = markdownStyle {
   }
   link {
     color = Color(0xFF2563EB)
-    underline = true
+    textDecoration = TextDecoration.Underline
   }
   codeBlock {
     fontSize = 14.sp
@@ -89,22 +122,28 @@ MarkdownTheme(style = AppMarkdownStyle) {
 // Per-instance override
 EnrichedMarkdownText(
   markdown = content,
-  style = AppMarkdownStyle.copy {
+  style = AppMarkdownStyle.merge {
     link { color = Color.Red }
   },
 )
 ```
 
-When styles reference `MaterialTheme` tokens, use `rememberMarkdownStyle` so they update with theme changes:
+To color markdown from the Material 3 color scheme, use `rememberMaterialMarkdownStyle`. It rebuilds
+when the scheme changes, so it follows a light/dark switch:
 
 ```kotlin
-MarkdownTheme(
-  style = rememberMarkdownStyle {
-    paragraph { color = MaterialTheme.colorScheme.onSurface }
-    link { color = MaterialTheme.colorScheme.primary }
-  },
-) {
+MarkdownTheme(style = rememberMaterialMarkdownStyle()) {
   Content()
+}
+```
+
+For other values read from composition, read them first and build the style in `remember`, keyed on
+them:
+
+```kotlin
+val colorScheme = MaterialTheme.colorScheme
+val style = remember(colorScheme) {
+  AppMarkdownStyle.merge { link { color = colorScheme.secondary } }
 }
 ```
 
@@ -120,19 +159,25 @@ The `markdownStyle` builder supports these blocks:
 | `strong` | Bold text |
 | `emphasis` | Italic text |
 | `strikethrough` | Struck-through text |
-| `underline` | Underlined text (requires `Md4cFlags(underline = true)`) |
+| `underline` | Underlined text (requires `MarkdownOptions(underline = true)`) |
+| `highlight` | Highlighted text `==text==` (requires `MarkdownOptions(highlight = true)`) |
 | `superscript` | Superscript text (`^text^`) |
 | `subscript` | Subscript text (`~text~`) |
 | `code` | Inline code |
 | `codeBlock` | Fenced code blocks |
-| `blockquote` | Block quotes, and `admonitions { }` for GitHub alerts (requires `Md4cFlags(admonitions = true)`) |
+| `blockquote` | Block quotes, and `admonitions { }` for GitHub alerts (requires `MarkdownOptions(admonitions = true)`) |
 | `list` | Ordered and unordered lists |
 | `taskList` | Task list checkboxes |
 | `image` | Block images |
 | `inlineImage` | Inline images |
 | `thematicBreak` | Horizontal rules |
+| `table` | Tables |
+| `spoiler` | The overlay that conceals `\|\|spoiler\|\|` text |
+| `math` | Block LaTeX math (`$$...$$`; needs the `:math` artifact and its `LatexMathPlugin`) |
+| `inlineMath` | Inline LaTeX math (`$...$`; same two requirements) |
+| `codeHighlight` | Token colors in highlighted code blocks (needs the `:code-highlight` artifact; see [Code highlighting](#colors)) |
 
-Use `MarkdownStyle.copy { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style.
+Use `MarkdownStyle.merge { }` to layer overrides (e.g. light/dark variants) without rebuilding the full style. `a.merge(b)` and `a + b` layer a whole style on top of another the same way.
 
 `superscript` and `subscript` take unitless floats instead of `Dp`/`sp`/`Color`: `fontScale` shrinks the text size relative to its surrounding text, and `baselineOffsetScale` shifts the baseline (as a fraction of text size) up for superscript and down for subscript.
 
@@ -149,7 +194,51 @@ markdownStyle {
 }
 ```
 
-Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `Md4cFlags` when parsing.
+Rendering `^text^`/`~text~` as superscript/subscript nodes requires enabling the corresponding `MarkdownOptions`.
+
+`spoiler` colors the overlay that conceals `||spoiler||` text: `color` paints the particles and fills
+the solid block. The effect itself, and its tuning, is the `spoilerOverlay` parameter of
+`EnrichedMarkdownText` (see [Spoiler overlays](#spoiler-overlays)). The concealed text is drawn
+transparent, so the overlay works over any background without being told what that background is.
+
+```kotlin
+markdownStyle {
+  spoiler { color = Color(0xFF374151) }
+}
+```
+
+### Math style blocks
+
+`math` and `inlineMath` come from the `:math` artifact, not from the builder itself: they are extension functions on `MarkdownStyleBuilder`, so they need an import before they resolve.
+
+```kotlin
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.swmansion.enriched.markdown.compose.markdownStyle
+import com.swmansion.enriched.markdown.math.compose.inlineMath
+import com.swmansion.enriched.markdown.math.compose.math
+
+markdownStyle {
+  math {
+    fontSize = 20.sp
+    color = Color(0xFF1F2937)
+    backgroundColor = Color(0xFFF3F4F6)
+    padding = 12.dp
+    marginTop = 0.dp
+    marginBottom = 16.dp
+    alignment = Alignment.CenterHorizontally
+  }
+  inlineMath {
+    color = Color(0xFF7C3AED)
+  }
+}
+```
+
+`math` styles standalone equations: `fontSize`, `color`, `backgroundColor`, `padding`, `marginTop`, `marginBottom`, and `alignment`, which places the equation like the table's `alignment` does: `Alignment.Start`, `Alignment.CenterHorizontally` (the default) or `Alignment.End` follow the reading direction, and `AbsoluteAlignment.Left` / `AbsoluteAlignment.Right` pin a side. `inlineMath` takes a `color` only; its size follows the surrounding text.
+
+Properties you leave unset keep the plugin's own defaults, which live in `:math` rather than in core. Repeating either block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { math { … } }` layers over a base style.
 
 ## API reference
 
@@ -161,13 +250,17 @@ fun EnrichedMarkdownText(
   markdown: String,
   modifier: Modifier = Modifier,
   style: MarkdownStyle = MarkdownTheme.style,
-  flags: Md4cFlags = Md4cFlags.DEFAULT,
+  options: MarkdownOptions = MarkdownOptions.Default,
   selectable: Boolean = true,
   imageRequestHeaders: Map<String, String> = emptyMap(),
-  onLinkPress: ((String) -> Unit)? = null,
-  onLinkLongPress: ((String) -> Unit)? = null,
-  onTaskListItemPress: ((TaskListItemPressEvent) -> Unit)? = null,
-  enableTaskListItemToggle: Boolean = true,
+  onLinkClick: (String) -> Unit = {},
+  onLinkLongClick: (String) -> Unit = {},
+  onTaskListItemToggle: (TaskListItemToggle) -> Unit = {},
+  taskListToggleEnabled: Boolean = true,
+  spoilerOverlay: SpoilerOverlay = SpoilerOverlay.Particles(),
+  includeLastBlockMargin: Boolean = false,
+  plugins: List<MarkdownPlugin> = LocalMarkdownPlugins.current,
+  onPluginEvent: (PluginEvent) -> Unit = {},
 )
 ```
 
@@ -175,13 +268,17 @@ fun EnrichedMarkdownText(
 |-----------|-------------|
 | `markdown` | Markdown source string |
 | `style` | Per-instance style override |
-| `flags` | Optional parser extensions (see `Md4cFlags`) |
+| `options` | Optional syntax extensions (see `MarkdownOptions`) |
 | `selectable` | Enable text selection |
 | `imageRequestHeaders` | HTTP headers attached to remote image requests (e.g. `Referer`) |
-| `onLinkPress` | Called when a link is tapped |
-| `onLinkLongPress` | Called when a link is long-pressed |
-| `onTaskListItemPress` | Called after a task list checkbox tap toggles the item |
-| `enableTaskListItemToggle` | Whether a checkbox tap toggles the item (default `true`) |
+| `onLinkClick` | Called when a link is tapped |
+| `onLinkLongClick` | Called when a link is long-pressed |
+| `onTaskListItemToggle` | Called after a task list checkbox tap toggles the item |
+| `taskListToggleEnabled` | Whether a checkbox tap toggles the item (default `true`) |
+| `spoilerOverlay` | How `\|\|spoiler\|\|` text is concealed: `SpoilerOverlay.Particles()` (default), `SpoilerOverlay.Solid()`, or a `CustomSpoilerOverlay` (see [Spoiler overlays](#spoiler-overlays)) |
+| `includeLastBlockMargin` | Whether the last block's bottom margin counts toward the view's height (default `false`, so the view ends flush with its last line) |
+| `plugins` | Plugins this instance renders with; defaults to those enabled by the enclosing plugin scopes (see [Optional plugins](#optional-plugins)) |
+| `onPluginEvent` | Called when an enabled plugin reports a problem, e.g. a LaTeX expression it could not draw (see below) |
 
 Style defaults come from the nearest `MarkdownTheme`.
 
@@ -190,7 +287,7 @@ Style defaults come from the nearest `MarkdownTheme`.
 #### Task list checkboxes
 
 ```kotlin
-data class TaskListItemPressEvent(
+data class TaskListItemToggle(
   val index: Int,     // 0-based, in document order
   val checked: Boolean, // state after the toggle
   val text: String,   // first line of the item's plain text
@@ -199,7 +296,7 @@ data class TaskListItemPressEvent(
 
 Tapping anywhere in a task item's checkbox margin toggles its checked state in
 place — checkbox and checked-item text decoration alike — and calls
-`onTaskListItemPress` with the new state. The toggle is visual: the view never
+`onTaskListItemToggle` with the new state. The toggle is visual: the view never
 rewrites the `markdown` string you pass it, so persist the change from the
 handler if it has to survive a new source string. Re-supplying the *same*
 string on recomposition keeps the toggles.
@@ -207,39 +304,308 @@ string on recomposition keeps the toggles.
 ```kotlin
 EnrichedMarkdownText(
   markdown = checklist,
-  onTaskListItemPress = { (index, checked, _) -> store.setDone(index, checked) },
+  onTaskListItemToggle = { (index, checked, _) -> store.setDone(index, checked) },
 )
 ```
 
-`enableTaskListItemToggle = false` makes checkbox taps fully inert: no visual
-toggle and no `onTaskListItemPress`. Text selection and links are unaffected
+`taskListToggleEnabled = false` makes checkbox taps fully inert: no visual
+toggle and no `onTaskListItemToggle`. Text selection and links are unaffected
 either way.
 
-### `Md4cFlags`
+#### Spoiler overlays
 
 ```kotlin
-data class Md4cFlags(
-  val underline: Boolean = false,    // _text_ and __text__ render underlined instead of italic and bold
-  val superscript: Boolean = false,  // ^text^ renders raised above the baseline
-  val subscript: Boolean = false,    // ~text~ renders lowered below the baseline
-  val admonitions: Boolean = false,  // `> [!NOTE]` blockquotes render as GitHub alerts
-  // … further md4c extensions
+package com.swmansion.enriched.markdown.spoiler
+
+sealed interface SpoilerOverlay {
+  data class Particles(val density: Float = 8f, val speed: Float = 20f) : SpoilerOverlay
+  data class Solid(val cornerRadius: Float = 4f) : SpoilerOverlay   // dp; Compose can pass a Dp
+}
+```
+
+The two built-in overlays take their colors from the `spoiler { }` style and their tuning from
+their own parameters. `density` and `speed` scale the particle field linearly from its defaults, so
+`density = 16f` puts in twice as many particles. `cornerRadius` is in dp; in Compose, pass a `Dp`
+instead, as `SpoilerOverlay.Solid(cornerRadius = 6.dp)`, with
+`import com.swmansion.enriched.markdown.compose.invoke`.
+
+```kotlin
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
+
+EnrichedMarkdownText(
+  markdown = content,
+  spoilerOverlay = SpoilerOverlay.Particles(density = 12f, speed = 30f),
+)
+```
+
+##### Custom overlays
+
+Any effect can stand in for the built-ins. Implement `CustomSpoilerOverlay` to build a
+`SpoilerSliceOverlay` for each slice of a spoiler, which draws the effect on the text view's canvas:
+
+```kotlin
+interface CustomSpoilerOverlay : SpoilerOverlay {
+  fun createSliceOverlay(host: SpoilerOverlayHost, style: SpoilerStyle): SpoilerSliceOverlay
+  val revealDurationMillis: Long  // default: 450
+}
+
+abstract class SpoilerSliceOverlay {
+  abstract fun draw(canvas: Canvas, slice: SpoilerSlice)
+  open fun drawReveal(canvas: Canvas, slice: SpoilerSlice, progress: Float)  // default: draw() fading out
+  open val isAnimated: Boolean                                                   // default: false
+  open fun onRemoved()
+}
+
+class SpoilerSlice {
+  val width: Float
+  val height: Float
+  val baseline: Float                         // the text's baseline, from the top
+  val spoilerStart: Int; val spoilerEnd: Int  // the whole spoiler, in the view's text
+  val start: Int; val end: Int                // this slice of it
+  val text: CharSequence                      // the slice, styled as it looks once revealed
+  val index: Int; val count: Int              // this slice's place in the spoiler, reading order
+  val isRtl: Boolean                          // whether its paragraph runs right to left
+  val frameTimeMillis: Long
+  fun drawText(canvas: Canvas)                // the slice's glyphs, where the text view draws them
+}
+
+interface SpoilerOverlayHost {
+  val density: Float    // pixels per dp
+  val fontScale: Float  // the user's font scale; pixels per sp are density × fontScale
+  fun invalidate()      // one more draw, e.g. after an asset loads
+}
+```
+
+This one pixelates the hidden words:
+
+```kotlin
+data class PixelatedSpoiler(val blockSize: Float = 6f) : CustomSpoilerOverlay {
+  override fun createSliceOverlay(host: SpoilerOverlayHost, style: SpoilerStyle) =
+    PixelatedSlice(blockSize * host.density)
+}
+
+class PixelatedSlice(private val blockSize: Float) : SpoilerSliceOverlay() {
+  // Paint filters bitmaps by default since Android 10; turn it off so the blocks keep hard edges.
+  private val paint = Paint().apply { isFilterBitmap = false }
+  private val bounds = RectF()
+  private var pixels: Bitmap? = null
+
+  override fun draw(canvas: Canvas, slice: SpoilerSlice) {
+    val columns = (slice.width / blockSize).toInt().coerceAtLeast(1)
+    val rows = (slice.height / blockSize).toInt().coerceAtLeast(1)
+    val image = pixels?.takeIf { it.width == columns && it.height == rows }
+      ?: Bitmap.createBitmap(columns, rows, Bitmap.Config.ARGB_8888).also { bitmap ->
+        // The text, shrunk to one pixel per block.
+        Canvas(bitmap).apply {
+          scale(columns / slice.width, rows / slice.height)
+          slice.drawText(this)
+        }
+        pixels = bitmap
+      }
+    bounds.set(0f, 0f, slice.width, slice.height)
+    canvas.drawBitmap(image, null, bounds, paint)
+  }
+
+  override fun onRemoved() {
+    pixels = null
+  }
+}
+
+EnrichedMarkdownText(markdown = content, spoilerOverlay = PixelatedSpoiler())
+```
+
+A `SpoilerSlice` is the part of a spoiler on one line of text: a wrapped spoiler has one slice per
+line, and one that starts or ends mid-line covers only part of its line. Each gets its own overlay,
+which the view creates when the slice comes into view and removes when the spoiler is revealed, when
+the text reflows onto different lines, when an image under the spoiler finishes loading, or when the
+overlay or the style changes, so keep `createSliceOverlay` cheap. The canvas is moved to the slice's
+top-left corner and clipped to its size. The view rebuilds its overlays only when the new
+`spoilerOverlay` is not `==` to the old one, so make custom overlays data classes or objects, or
+`remember` them: a plain class created in every recomposition restarts every overlay each time.
+
+**Animation.** An overlay that moves on its own returns `true` from `isAnimated`, and the view then
+draws every frame while it is on screen. Advance the effect from `slice.frameTimeMillis`. `draw`
+then runs every frame for every slice on screen, so make paints, paths, shaders and brushes once,
+in the overlay's fields, and move or restyle them per frame instead of creating new ones.
+
+**Reveals.** The view runs the reveal over the overlay's `revealDurationMillis` (450 ms unless
+overridden) and calls `drawReveal` each frame with `progress` rising from 0 towards 1, fading the
+text in underneath on the same clock. The default draws `draw()` fading out; override it to shape
+the reveal (a burst, a wipe), and call `super` to keep the fade. Every slice of a spoiler reveals
+at once; for a line-by-line effect, stagger by `slice.index`. The duration follows the system's
+animator duration scale, like any `ValueAnimator`: a scale of 2× doubles it, and with animations
+turned off a reveal completes at once.
+
+**Showing the text through.** `drawText` draws the slice's text as it looks once revealed, each
+glyph where the text view draws it, so a blur, pixelation or scramble lines up with the real text as
+the overlay fades. It lays out the line each time, so cache what you make from it, as above. Call
+it on the main thread, as `draw` does: it lifts the spoiler's concealment while it draws, so a call
+from another thread could show the hidden text. For heavy work such as a blur, draw the text into a
+bitmap on the main thread, process the bitmap on another one, and call `host.invalidate()` when the
+result is ready.
+
+**No backdrop needed.** The concealed text is drawn transparent, emoji and inline images included,
+so an overlay can leave parts of the slice clear.
+
+##### Custom overlays with `DrawScope`
+
+To draw with Compose's `DrawScope`, `Color` and `Brush` instead, extend
+`DrawScopeSpoilerSliceOverlay` from the `compose` module and pass it the host:
+
+```kotlin
+abstract class DrawScopeSpoilerSliceOverlay(host: SpoilerOverlayHost) : SpoilerSliceOverlay() {
+  abstract fun DrawScope.draw(slice: SpoilerSlice)
+  open fun DrawScope.drawReveal(slice: SpoilerSlice, progress: Float)  // default: drawFadingOut()
+  protected fun DrawScope.drawFadingOut(slice: SpoilerSlice, progress: Float)
+}
+
+fun DrawScope.drawSliceText(slice: SpoilerSlice)  // slice.drawText(), through the scope
+```
+
+The scope's `size` is the slice's, its origin is the slice's top-left corner, its density is the
+display's (with the user's font scale), and its `layoutDirection` follows the slice's paragraph
+(`slice.isRtl`). `isAnimated`,
+`onRemoved`, reveals and everything else work as above. This one sweeps a band of light across a
+rounded box, and wipes the box away in reading order when revealed:
+
+```kotlin
+data class ShimmerSpoiler(val periodMillis: Long = 1_500) : CustomSpoilerOverlay {
+  override fun createSliceOverlay(host: SpoilerOverlayHost, style: SpoilerStyle) =
+    ShimmerSlice(host, Color(style.color), periodMillis)
+}
+
+class ShimmerSlice(
+  host: SpoilerOverlayHost,
+  private val color: Color,
+  private val periodMillis: Long,
+) : DrawScopeSpoilerSliceOverlay(host) {
+  // A band of light, made once and moved with translate(): a new Brush each frame is a new shader.
+  private val band = 32 * host.density
+  private val shine =
+    Brush.horizontalGradient(
+      listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent),
+      startX = -band,
+      endX = band,
+    )
+
+  override val isAnimated get() = true
+
+  override fun DrawScope.draw(slice: SpoilerSlice) {
+    drawRoundRect(color, cornerRadius = CornerRadius(4.dp.toPx()))
+    // The band sweeps across in reading order, once per period.
+    val phase = (slice.frameTimeMillis % periodMillis) / periodMillis.toFloat()
+    val travelled = -band + (size.width + 2 * band) * phase
+    val center = if (layoutDirection == LayoutDirection.Ltr) travelled else size.width - travelled
+    translate(left = center) {
+      drawRect(shine, topLeft = Offset(-band, 0f), size = Size(2 * band, size.height))
+    }
+  }
+
+  // Wipes the box away in reading order, instead of the default fade.
+  override fun DrawScope.drawReveal(slice: SpoilerSlice, progress: Float) {
+    val covered = size.width * (1f - progress)
+    val left = if (layoutDirection == LayoutDirection.Ltr) size.width - covered else 0f
+    clipRect(left = left, right = left + covered) { draw(slice) }
+  }
+}
+
+EnrichedMarkdownText(markdown = content, spoilerOverlay = ShimmerSpoiler())
+```
+
+To keep the fade and add to it, call `drawFadingOut(slice, progress)` from `drawReveal`. To show
+the text through, `drawSliceText(slice)` draws the glyphs into the scope, under its current transform.
+
+`createSliceOverlay` runs outside composition, so an overlay that needs a value from the
+composition, such as a theme color, takes it as a property, the way `ShimmerSpoiler` takes `periodMillis`, and is
+created with it in the composable. Since `EnrichedMarkdownText` rebuilds the overlays whenever `spoilerOverlay` is not `==` to the last
+one, keep such overlays data classes or objects, so each recomposition passes an equal value, or
+`remember` the instance. Don't build one from a lambda created during composition: two lambdas are
+never equal, so every recomposition would restart the overlay.
+
+#### LaTeX math
+
+With the `:math` artifact on the classpath and the instance inside a `LatexMathPlugin { }` scope,
+`$...$` renders inline
+within the text and `$$...$$` on its own line renders as a standalone, horizontally scrollable
+block. Long-press a block equation to copy its LaTeX source or copy it as Markdown. Display math
+that appears mid-line (`a $$x$$ b`) stays in the text flow rather than breaking the paragraph.
+
+```kotlin
+LatexMathPlugin {
+  EnrichedMarkdownText(
+    markdown = "Mass-energy: \$E = mc^2\$\n\n\$\$\n\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}\n\$\$",
+  )
+}
+```
+
+Without the plugin the math still reaches the screen, unrendered, as literal text.
+
+#### `onPluginEvent` and `LatexError`
+
+Enabled plugins report per-view problems through `onPluginEvent`, a single channel shared by
+every plugin rather than one callback per feature. The math plugin sends a `LatexError` when
+the engine cannot draw an expression (an unsupported command, a syntax error); the expression then
+shows as its raw source.
+
+```kotlin
+import com.swmansion.enriched.markdown.math.LatexError
+import com.swmansion.enriched.markdown.math.LatexMathPlugin
+
+LatexMathPlugin {
+  EnrichedMarkdownText(
+    markdown = content,
+    onPluginEvent = { event ->
+      if (event is LatexError) {
+        Log.w("Latex", "${event.source} failed: ${event.message}")
+      }
+    },
+  )
+}
+```
+
+```kotlin
+data class LatexError(
+  val source: String,       // the whole failing expression, without $ / $$ delimiters
+  val message: String?,     // the engine's error, when it gave one
+  val displayMode: Boolean, // false for inline $...$, true for block $$...$$
+  val pluginId: String,     // LatexMathPlugin.ID
+) : PluginEvent
+```
+
+Each view reports a distinct event at most once, by event equality, for as long as `markdown` is
+only appended to, so streamed content does not report the same failure on every update. Replacing
+`markdown` with anything that does not extend it starts a new document with an empty record, so
+its failures are reported again; so does a recycled view. `PluginEvent` itself carries only
+`pluginId`, so check the type — as above — before reading a plugin's own fields.
+
+### `MarkdownOptions`
+
+```kotlin
+data class MarkdownOptions(
+  val underline: Boolean = false,           // _text_ and __text__ render underlined instead of italic and bold
+  val superscript: Boolean = false,         // ^text^ renders raised above the baseline
+  val subscript: Boolean = false,           // ~text~ renders lowered below the baseline
+  val highlight: Boolean = false,           // ==text== renders with a highlight background
+  val permissiveAutolinks: Boolean = true,  // bare URLs, www. links and e-mail addresses become links
+  val hardSoftBreaks: Boolean = false,      // every line break inside a paragraph is kept
+  val preserveBlankLines: Boolean = false,  // each blank line renders as an empty line
+  val admonitions: Boolean = false,         // `> [!NOTE]` blockquotes render as GitHub alerts
 ) {
   companion object {
-    val DEFAULT: Md4cFlags
+    val Default: MarkdownOptions
   }
 }
 ```
 
 
-Pass flags per instance:
+Pass options per instance:
 
 ```kotlin
-import com.swmansion.enriched.markdown.compose.Md4cFlags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 
 EnrichedMarkdownText(
   markdown = "_underlined_",
-  flags = Md4cFlags(underline = true),
+  options = MarkdownOptions(underline = true),
 )
 ```
 
@@ -248,7 +614,7 @@ EnrichedMarkdownText(
 ```kotlin
 @Composable
 fun MarkdownTheme(
-  style: MarkdownStyle = LocalMarkdownStyle.current,
+  style: MarkdownStyle,
   content: @Composable () -> Unit,
 )
 
@@ -257,7 +623,7 @@ object MarkdownTheme {
 }
 ```
 
-Provides a default `MarkdownStyle` for a subtree. Nest themes to scope styles to part of the UI.
+Provides `style` as the default `MarkdownStyle` for a subtree. Nest themes to scope styles to part of the UI.
 
 ### `markdownStyle` / `MarkdownStyle`
 
@@ -265,37 +631,130 @@ Provides a default `MarkdownStyle` for a subtree. Nest themes to scope styles to
 fun markdownStyle(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
 
 class MarkdownStyle {
-  fun copy(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(block: MarkdownStyleBuilder.() -> Unit): MarkdownStyle
+  fun merge(other: MarkdownStyle): MarkdownStyle
+  operator fun plus(other: MarkdownStyle): MarkdownStyle
   companion object {
     val Default: MarkdownStyle
   }
 }
 ```
 
-### `rememberMarkdownStyle`
+### `materialMarkdownStyle` / `rememberMaterialMarkdownStyle`
 
 ```kotlin
+// com.swmansion.enriched.markdown.compose.material3
+fun materialMarkdownStyle(colorScheme: ColorScheme): MarkdownStyle
+
 @Composable
-fun rememberMarkdownStyle(
-  vararg keys: Any?,
-  block: MarkdownStyleBuilder.() -> Unit,
+fun rememberMaterialMarkdownStyle(
+  colorScheme: ColorScheme = MaterialTheme.colorScheme,
 ): MarkdownStyle
 ```
 
-Creates a style that tracks `MaterialTheme.colorScheme` changes. Use inside `MaterialTheme { }`.
+Builds a style colored from a Material 3 `ColorScheme`; the `remember` variant rebuilds it when the
+scheme changes. Only colors come from the scheme. Fenced code blocks keep the default dark style,
+which the code highlighting palette is made for. Plugin styles are not set.
+
+`rememberMarkdownStyle { }` is deprecated: its block is not composable, so it cannot read
+`MaterialTheme`. Use `rememberMaterialMarkdownStyle()` or `remember(keys) { markdownStyle { } }`.
+
+`TextAlign.Unspecified` keeps the inherited alignment.
+
+Style scope constructors are `internal` — build scopes through the `markdownStyle { }` DSL, which is
+the only supported way to reach them.
+
+## Code highlighting
+
+The optional `:code-highlight` artifact (see [Optional plugins](#optional-plugins)) colors fenced code blocks with [tree-sitter](https://tree-sitter.github.io/), by the language on the opening fence. Enable it like any plugin, as a Compose scope:
+
+```kotlin
+import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.codehighlight.CodeHighlightPlugin
+
+CodeHighlightPlugin {
+  EnrichedMarkdownText(markdown = content)
+}
+```
+
+…or pass it to one instance as `EnrichedMarkdownText(plugins = listOf(CodeHighlightPlugin))`. See [Optional plugins](#optional-plugins).
+
+A fenced block is colored when its info string names one of the bundled languages; a block with no language, or one outside the list, keeps the `codeBlock` color. Only the text color changes, so a highlighted block measures exactly like a plain one.
+
+| Language | Info strings |
+|----------|--------------|
+| Bash | `bash`, `sh`, `shell`, `zsh` |
+| C | `c` |
+| CSS | `css` |
+| Go | `go`, `golang` |
+| HTML | `html` |
+| Java | `java` |
+| JavaScript | `javascript`, `js`, `jsx` |
+| JSON | `json` |
+| Markdown | `markdown`, `md` |
+| Python | `python`, `py` |
+| Rust | `rust`, `rs` |
+| TSX | `tsx` |
+| TypeScript | `typescript`, `ts` |
+| YAML | `yaml`, `yml` |
+
+Info strings match case-insensitively.
+
+### Colors
+
+Each of the 14 token types takes its color from the first of:
+
+1. a color you set (below);
+2. GitHub's dark palette, made for the default dark code block;
+3. the `codeBlock` color. Operators, punctuation, variables and embedded code have no palette color, so they land here unless you set one.
+
+The palette does not change with the code block's background. If you give `codeBlock` a light `backgroundColor`, set the token colors too.
+
+In Compose, set colors with the `codeHighlight` style block. Like `math`, it is an extension function from the plugin's artifact, so it needs an import:
+
+```kotlin
+import androidx.compose.ui.graphics.Color
+import com.swmansion.enriched.markdown.compose.markdownStyle
+import com.swmansion.enriched.markdown.codehighlight.compose.codeHighlight
+
+markdownStyle {
+  codeBlock {
+    color = Color(0xFFABB2BF)
+    backgroundColor = Color(0xFF282C34)
+  }
+  codeHighlight {
+    keyword = Color(0xFFC678DD)
+    string = Color(0xFF98C379)
+    comment = Color(0xFF7F848E)
+  }
+}
+```
+
+The properties are `keyword`, `operator`, `punctuation`, `string`, `number`, `constant`, `comment`, `function`, `type`, `variable`, `property`, `tag`, `attribute` and `embedded`; `this[SyntaxTokenType.KEYWORD] = color` sets a type chosen at runtime. Repeating the block merges into the earlier one, exactly like the built-in blocks, so `MarkdownStyle.merge { codeHighlight { … } }` layers over a base style.
+
+### Size and licenses
+
+The artifact compiles tree-sitter and the 14 grammars into one native library, `libenriched_markdown_highlight.so`: about 8 MB per ABI uncompressed, which is what an installed app carries since an APK stores native libraries uncompressed by default, and about 1.1 MB per ABI compressed, roughly what it adds to a download. It is opt-in only; `compose` never pulls it in.
+
+tree-sitter and every bundled grammar are MIT-licensed. Their notices ship inside the artifact, under `META-INF/enriched-markdown-code-highlight/`, as [`LICENSE-tree-sitter`](code-highlight/src/main/resources/META-INF/enriched-markdown-code-highlight/LICENSE-tree-sitter) and [`LICENSE-grammars`](code-highlight/src/main/resources/META-INF/enriched-markdown-code-highlight/LICENSE-grammars); include them with your app's open-source notices.
 
 ## Supported Markdown
 
 - Headings (`#`–`######`)
 - Paragraphs, line breaks
-- **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~, ^superscript^, ~subscript~
-- Fenced code blocks
+- **Bold**, *italic*, `inline code`, __underline__, ~~strikethrough~~, ^superscript^, ~subscript~, ==highlight==
+- Fenced code blocks, colored by language with the optional `:code-highlight` artifact — see [Code highlighting](#code-highlighting)
 - Block quotes
 - Ordered and unordered lists
-- Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemPress`)
+- Task lists (`- [ ]` / `- [x]`, tap to toggle — see `onTaskListItemToggle`)
 - Links and images (block and inline)
 - Thematic breaks (`---`)
-- Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `Md4cFlags(admonitions = true)`
+- Spoilers (`||hidden||`, tap to reveal). Adjacent spoilers reveal together. Concealment is visual
+  only: screen readers read concealed text as ordinary text, and a plain Copy yields it too (Copy as
+  Markdown keeps the `||` markers)
+- Admonitions / GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`) — requires `MarkdownOptions(admonitions = true)`
+- Tables (GFM), including per-column alignment
+- LaTeX math, inline (`$...$`) and block (`$$...$$`) — requires the `:math` artifact and its `LatexMathPlugin`
 
 ### Admonitions
 
@@ -307,13 +766,13 @@ the usual blockquote geometry plus a header row with a tinted octicon and a bold
 > This action cannot be undone.
 ```
 
-Admonitions are an opt-in parser extension, so pass the flag to enable them; without it the marker
+Admonitions are an opt-in parser extension, so pass the option to enable them; without it the marker
 stays literal text inside an ordinary quote:
 
 ```kotlin
 EnrichedMarkdownText(
   markdown = content,
-  flags = Md4cFlags(admonitions = true),
+  options = MarkdownOptions(admonitions = true),
 )
 ```
 
@@ -346,6 +805,40 @@ An admonition nested inside a list item falls back to a plain blockquote with no
 matches the React Native renderers on both platforms, so the same document looks the same
 everywhere.
 
+### Tables
+
+A table is rendered as its own scrollable child view rather than as text, so it can be styled
+independently of the surrounding body text:
+
+```kotlin
+markdownStyle {
+  table {
+    fontSize = 14.sp
+    color = Color(0xFF1F2937)
+    headerBackgroundColor = Color(0xFFF3F4F6)
+    headerTextColor = Color(0xFF111827)
+    rowEvenBackgroundColor = Color.White
+    rowOddBackgroundColor = Color(0xFFF9FAFB)
+    borderColor = Color(0xFFE5E7EB)
+    borderWidth = 1.dp
+    cornerRadius = 6.dp
+    cellPaddingHorizontal = 12.dp
+    cellPaddingVertical = 8.dp
+    alignment = Alignment.CenterHorizontally
+  }
+}
+```
+
+A column is sized to its widest cell, within 60dp-300dp. A table wider than the space available keeps
+those widths and scrolls sideways, with a horizontal scrollbar. `alignment` places a table that is
+narrower than the available width; it defaults to `Alignment.Start`. `Alignment.Start` / `.End`
+follow the reading direction, while `AbsoluteAlignment.Left` / `.Right` pin a side regardless of it.
+`horizontalOverflow` lets a table bleed that far past the container's content box on each side, so it
+can reach the screen edge while the body text stays inset.
+
+Long-pressing a table offers **Copy** (rich text) and **Copy as Markdown**.
+
+
 ## Development
 
 ```sh
@@ -353,6 +846,14 @@ yarn workspace @enriched-markdown/android build
 yarn workspace @enriched-markdown/android test:android-native
 yarn workspace @enriched-markdown/android lint:android-native
 ```
+
+`:code-highlight` builds tree-sitter and its grammars from sources that are not checked in. On a fresh clone, restore them once from the repository root before building (`yarn prepare` does the same):
+
+```sh
+yarn install && node vendor/vendor-grammars.mjs
+```
+
+Without them, Gradle stops at configuration with that command in the error.
 
 ## Publishing
 

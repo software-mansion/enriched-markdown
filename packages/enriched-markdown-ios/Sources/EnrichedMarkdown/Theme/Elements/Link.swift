@@ -4,6 +4,7 @@ public struct Link: MarkdownThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
+    public var isItalic: Bool?
     public var foregroundColorSpec: ThemeColorSpec?
     public var marginTop: CGFloat?
     public var marginBottom: CGFloat?
@@ -19,7 +20,7 @@ public struct Link: MarkdownThemeElement {
         return copy
     }
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyElementStyle(to: &config.link, traitCollection: traitCollection)
         if let underline {
             config.link.underline = underline

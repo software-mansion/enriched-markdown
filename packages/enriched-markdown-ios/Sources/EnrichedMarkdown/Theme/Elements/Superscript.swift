@@ -6,7 +6,7 @@ public struct Superscript: BaselineShiftThemeElement {
 
     public init() {}
 
-    public func apply(to config: inout MarkdownStyleConfig, traitCollection: UITraitCollection) {
+    public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         applyBaselineShiftStyle(to: &config.superscript)
     }
 }

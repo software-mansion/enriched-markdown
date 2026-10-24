@@ -13,6 +13,9 @@ data class LinkVariantEntry(
   val color: Int,
   val underline: Boolean,
   val backgroundColor: Int,
+  val fontFamily: String = "",
+  /** Pill presentation for links matching this variant; null renders an ordinary link. */
+  val pill: LinkPillStyle? = null,
 ) {
   companion object {
     fun fromReadableMap(
@@ -24,6 +27,8 @@ data class LinkVariantEntry(
         color = parser.parseColor(map, "color"),
         underline = parser.parseBoolean(map, "underline"),
         backgroundColor = parser.parseColor(map, "backgroundColor"),
+        fontFamily = parser.parseString(map, "fontFamily"),
+        pill = map.getMap("pill")?.let { LinkPillStyle.fromReadableMap(it, parser) },
       )
   }
 }

@@ -1,6 +1,7 @@
 package swmansion.enriched.markdown.android.example
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -35,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.swmansion.enriched.markdown.compose.EnrichedMarkdownText
-import com.swmansion.enriched.markdown.compose.Md4cFlags
+import com.swmansion.enriched.markdown.compose.MarkdownOptions
 import java.io.File
 
 private fun assetImageUri(
@@ -60,6 +61,7 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
   var rawInput by remember { mutableStateOf("") }
   var blockImageUri by remember { mutableStateOf<String?>(null) }
   var inlineImageUri by remember { mutableStateOf<String?>(null) }
+  var spoilerOverlay by remember { mutableStateOf(PlaygroundSpoilerOverlay.Particles) }
 
   LaunchedEffect(Unit) {
     blockImageUri = assetImageUri(context, "logo.png")
@@ -125,6 +127,24 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
       )
     }
 
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      PlaygroundButton(
+        label = "Insert Spoilers",
+        onClick = {
+          inlineImageUri?.let { uri -> markdown = spoilerSampleMarkdown(uri) }
+        },
+        testTag = "insert-spoilers-button",
+      )
+      PlaygroundButton(
+        label = "Spoiler: ${spoilerOverlay.label}",
+        onClick = { spoilerOverlay = spoilerOverlay.next },
+        testTag = "spoiler-overlay-button",
+      )
+    }
+
     Button(
       onClick = {
         rawInput = ""
@@ -180,13 +200,18 @@ fun PlaygroundScreen(modifier: Modifier = Modifier) {
               .padding(14.dp)
               .testTag("preview-text"),
           style = PlaygroundMarkdownStyle,
-          flags =
-            Md4cFlags(
+          options =
+            MarkdownOptions(
               underline = underlineEnabled,
               superscript = true,
               subscript = true,
+              highlight = true,
               admonitions = true,
             ),
+          spoilerOverlay = spoilerOverlay.overlay,
+          onLinkClick = { url ->
+            Toast.makeText(context, "Link pressed: $url", Toast.LENGTH_SHORT).show()
+          },
         )
       }
     }

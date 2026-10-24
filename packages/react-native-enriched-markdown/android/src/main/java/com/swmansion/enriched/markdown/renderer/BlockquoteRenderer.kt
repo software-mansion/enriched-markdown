@@ -6,8 +6,8 @@ import android.text.Spanned
 import android.text.style.LineHeightSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
-import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_CONTAINER_BACKGROUND
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_LINE_HEIGHT_PRIORITY
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
@@ -50,6 +50,7 @@ class BlockquoteRenderer(
     var contentStart = start
     if (padding > 0) {
       builder.insert(start, "\n")
+      factory.shiftDeferredSpans(start, 1)
       builder.setSpan(
         BlockquotePaddingSpacerSpan(padding),
         start,
@@ -69,11 +70,12 @@ class BlockquoteRenderer(
         .sortedBy { it.first }
 
     // The accent bar / background span covers the full box, incl. the top spacer.
+    // Top priority draws it first, so inline pill/chip backgrounds paint on top of its fill.
     builder.setSpan(
       BlockquoteSpan(style, depth, factory.context, factory.styleCache),
       start,
       end,
-      SPAN_FLAGS_CONTAINER_BACKGROUND,
+      SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY,
     )
 
     applyLineHeightExcludingNested(builder, nestedRanges, contentStart, end, style.lineHeight)

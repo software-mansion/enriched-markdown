@@ -20,37 +20,67 @@ enum MarkdownExtractor {
         for range: NSRange,
         in attributedText: NSAttributedString,
         sourceMarkdown: String?,
-        flags: Md4cFlags = .commonMark
+        options: MarkdownParsingOptions = .commonMark
     ) -> String? {
         guard let clamped = clampedRange(range, in: attributedText) else { return nil }
 
-        if let sourceMarkdown {
-            if isFullSelection(clamped, in: attributedText) {
-                return sourceMarkdown
-            }
-            if let slice = MarkdownSourceSlicer.slice(
-                for: clamped,
-                in: attributedText,
-                source: sourceMarkdown,
-                flags: flags
-            ) {
-                return slice
-            }
+        if let sourceMarkdown, isFullSelection(clamped, in: attributedText) {
+            return sourceMarkdown
         }
-        return extractMarkdown(from: attributedText, in: clamped)
+        let text = mergingCodeBlockRuns(in: attributedText, within: clamped)
+        if let sourceMarkdown,
+           let slice = MarkdownSourceSlicer.slice(for: clamped, in: text, source: sourceMarkdown, options: options) {
+            return slice
+        }
+        return reconstructMarkdown(from: text, in: clamped)
     }
 
     /// Best-effort markdown reconstruction for a partial selection.
     static func extractMarkdown(from attributedText: NSAttributedString, in range: NSRange) -> String? {
         guard let clamped = clampedRange(range, in: attributedText) else { return nil }
+        return reconstructMarkdown(from: mergingCodeBlockRuns(in: attributedText, within: clamped), in: clamped)
+    }
 
+    private static func mergingCodeBlockRuns(
+        in attributedText: NSAttributedString,
+        within range: NSRange
+    ) -> NSAttributedString {
+        var merged: NSMutableAttributedString?
+        attributedText.enumerateAttribute(MarkdownAttribute.codeBlock, in: range, options: []) { value, blockRange, _ in
+            guard MarkdownAttributeValue.boolValue(from: value), hasSeveralColors(attributedText, in: blockRange) else { return }
+            if merged == nil {
+                merged = NSMutableAttributedString(attributedString: attributedText)
+            }
+            merged?.removeAttribute(.foregroundColor, range: blockRange)
+        }
+        return merged ?? attributedText
+    }
+
+    /// Plain code carries one color; highlighting splits it per token.
+    private static func hasSeveralColors(_ attributedText: NSAttributedString, in range: NSRange) -> Bool {
+        var colors = 0
+        attributedText.enumerateAttribute(.foregroundColor, in: range, options: []) { value, _, stop in
+            guard value != nil else { return }
+            colors += 1
+            stop.pointee = ObjCBool(colors > 1)
+        }
+        return colors > 1
+    }
+
+    private static func reconstructMarkdown(from attributedText: NSAttributedString, in clamped: NSRange) -> String? {
         var result = ""
         var state = ExtractionState()
 
         attributedText.enumerateAttributes(in: clamped, options: []) { attrs, attrRange, _ in
             let text = (attributedText.string as NSString).substring(with: attrRange)
             guard !text.isEmpty else { return }
-            appendRun(text, attrs: attrs, to: &result, state: &state)
+            appendRun(
+                text,
+                attrs: attrs,
+                endsDocument: NSMaxRange(attrRange) == attributedText.length,
+                to: &result,
+                state: &state
+            )
         }
 
         flushHeading(&result, state: &state)
@@ -143,6 +173,7 @@ private extension MarkdownExtractor {
     static func appendRun(
         _ text: String,
         attrs: [NSAttributedString.Key: Any],
+        endsDocument: Bool,
         to result: inout String,
         state: inout ExtractionState
     ) {
@@ -156,17 +187,13 @@ private extension MarkdownExtractor {
             return
         }
 
-        if let table = attrs[.attachment] as? TableAttachment {
-            appendBlockElement(table.markdownText(), to: &result, state: &state)
+        if let block = blockAttachmentMarkdown(in: attrs) {
+            appendBlockElement(block, to: &result, state: &state)
             return
         }
 
         var text = text
         if let attachment = attrs[.attachment] as? any MarkdownPluginAttachment {
-            if attachment.isBlock {
-                appendBlockElement(attachment.markdownText(), to: &result, state: &state)
-                return
-            }
             // Inline plugin attachments reconstruct like any other inline run.
             text = attachment.markdownText()
         }
@@ -195,7 +222,7 @@ private extension MarkdownExtractor {
         flushHeading(&result, state: &state)
 
         if MarkdownAttributeValue.boolValue(from: attrs[MarkdownAttribute.codeBlock]) {
-            appendCodeBlockRun(text, to: &result, state: &state)
+            appendCodeBlockRun(text, endsDocument: endsDocument, to: &result, state: &state)
             return
         }
 
@@ -225,6 +252,17 @@ private extension MarkdownExtractor {
         state.needsBlankLine = true
         state.blockquoteDepth = -1
         state.listDepth = -1
+    }
+
+    static func blockAttachmentMarkdown(in attrs: [NSAttributedString.Key: Any]) -> String? {
+        switch attrs[.attachment] {
+        case let table as TableAttachment:
+            return table.markdownText()
+        case let plugin as any MarkdownPluginAttachment where plugin.isBlock:
+            return plugin.markdownText()
+        default:
+            return nil
+        }
     }
 
     /// Emits a standalone block, leaving any heading, list, or blockquote context.
@@ -326,7 +364,12 @@ private extension MarkdownExtractor {
         state.needsBlankLine = true
     }
 
-    static func appendCodeBlockRun(_ text: String, to result: inout String, state: inout ExtractionState) {
+    static func appendCodeBlockRun(
+        _ text: String,
+        endsDocument: Bool,
+        to result: inout String,
+        state: inout ExtractionState
+    ) {
         if state.needsBlankLine {
             ensureBlankLine(&result)
             state.needsBlankLine = false
@@ -340,6 +383,9 @@ private extension MarkdownExtractor {
 
         if text.hasSuffix("\n") {
             result += "```\n"
+            state.needsBlankLine = true
+        } else if endsDocument {
+            result += "\n```\n"
             state.needsBlankLine = true
         }
     }

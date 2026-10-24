@@ -109,6 +109,22 @@ export interface LinkVariantEntryInternal {
   color: string;
   underline: boolean;
   backgroundColor: string;
+  fontFamily: string;
+  pill: LinkPillInternal;
+}
+
+export interface LinkPillInternal {
+  enabled: boolean;
+  label: string;
+  iconUri: string;
+  iconTintColor?: string;
+  borderRadius: number;
+  paddingHorizontal: number;
+  paddingVertical: number;
+  lineHeight: number;
+  borderWidth: number;
+  borderColor: string;
+  maxWidth: number;
 }
 
 interface StrongStyleInternal {

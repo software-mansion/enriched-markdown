@@ -122,10 +122,38 @@ export interface LinkStyle {
   backgroundColor?: string;
 }
 
-export interface LinkVariantStyle {
-  color?: string;
-  underline?: boolean;
-  backgroundColor?: string;
+export type LinkVariantStyle = LinkStyle & {
+  /** Native atomic presentation. True uses defaults; an object enables overrides. */
+  pill?: boolean | LinkPillStyle;
+};
+
+export interface LinkPillStyle {
+  /** Visible text, also included in the accessible name alongside original link text. */
+  label?: string;
+  /** Local file, bundled asset or `http(s)` URL. A source that fails shows no icon. */
+  iconUri?: string;
+  /**
+   * Tints this variant's icon, keeping its alpha. Omit to keep the image's own colors.
+   * Icons set per link through `linkPillContent` are not tinted by it.
+   */
+  iconTintColor?: string;
+  borderRadius?: number;
+  paddingHorizontal?: number;
+  paddingVertical?: number;
+  /**
+   * Minimum line height of a block (paragraph, list item, heading, quote) that holds
+   * this pill. It applies to every line of that block and only ever raises the block's
+   * own `lineHeight`; it does not size the pill. Use it to keep pills on consecutive
+   * lines apart without loosening text that has no pills. Unset by default.
+   *
+   * For streamed text prefer the block's own `lineHeight`: this one takes effect when a
+   * link completes and becomes a pill, which moves the text around it.
+   */
+  lineHeight?: number;
+  borderWidth?: number;
+  borderColor?: string;
+  /** Maximum width in points/DIP. 0 uses the available text width. */
+  maxWidth?: number;
 }
 
 interface StrongStyle {
@@ -153,7 +181,7 @@ interface EmphasisStyle {
 interface StrikethroughStyle {
   /**
    * Color of the strikethrough line.
-   * @platform iOS
+   * @platform iOS, web
    */
   color?: string;
 }
@@ -161,7 +189,7 @@ interface StrikethroughStyle {
 interface UnderlineStyle {
   /**
    * Color of the underline.
-   * @platform iOS
+   * @platform iOS, web
    */
   color?: string;
 }
@@ -358,7 +386,8 @@ export interface MarkdownStyle {
    *
    * `color` and `underline` inherit from the base `link` style when omitted.
    * `backgroundColor` defaults to `transparent`.
-   * `fontFamily` always follows the base `link` style and cannot be overridden per-variant.
+   * `fontFamily` inherits the base `link` family and can be overridden per variant.
+   * `pill: true` enables atomic native presentation with optional label, icon, and geometry.
    *
    * @example
    * linkVariants: {
@@ -395,7 +424,7 @@ export interface MarkdownStyle {
  */
 export interface Md4cFlags {
   /**
-   * Enable underline syntax support (__text__).
+   * Enable underline syntax support (_text_).
    * When enabled, underscores are treated as underline markers.
    * When disabled, underscores are treated as emphasis markers (same as asterisks).
    * @default false

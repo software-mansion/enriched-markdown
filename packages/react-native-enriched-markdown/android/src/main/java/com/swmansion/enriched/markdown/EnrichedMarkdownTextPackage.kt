@@ -5,6 +5,7 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 import com.swmansion.enriched.markdown.input.EnrichedMarkdownTextInputManager
+import com.swmansion.enriched.markdown.slots.EnrichedMarkdownBlockSlotManager
 import java.util.ArrayList
 
 class EnrichedMarkdownTextPackage : ReactPackage {
@@ -13,6 +14,7 @@ class EnrichedMarkdownTextPackage : ReactPackage {
     viewManagers.add(EnrichedMarkdownTextManager())
     viewManagers.add(EnrichedMarkdownManager())
     viewManagers.add(EnrichedMarkdownTextInputManager())
+    viewManagers.add(EnrichedMarkdownBlockSlotManager())
     return viewManagers
   }
 

@@ -10,6 +10,7 @@ using namespace facebook::jni;
 namespace facebook::react {
 
 Size MarkdownContainerMeasurementManager::measure(SurfaceId surfaceId, int viewTag, const EnrichedMarkdownProps &props,
+                                                  const std::vector<std::string> &blockSlotIds,
                                                   LayoutConstraints layoutConstraints) const {
   const jni::global_ref<jobject> &fabricUIManager = contextContainer_->at<jni::global_ref<jobject>>("FabricUIManager");
 
@@ -23,9 +24,14 @@ Size MarkdownContainerMeasurementManager::measure(SurfaceId surfaceId, int viewT
 
   local_ref<JString> componentName = make_jstring("EnrichedMarkdown");
 
-  // Prepare extraData map with viewTag
+  // Prepare extraData map with viewTag and the slot children to measure
   folly::dynamic extraData = folly::dynamic::object();
   extraData["viewTag"] = viewTag;
+  folly::dynamic slotIds = folly::dynamic::array();
+  for (const auto &id : blockSlotIds) {
+    slotIds.push_back(id);
+  }
+  extraData["blockSlotIds"] = std::move(slotIds);
   local_ref<ReadableNativeMap::javaobject> extraDataRNM = ReadableNativeMap::newObjectCxxArgs(extraData);
   local_ref<ReadableMap::javaobject> extraDataRM =
       make_local(reinterpret_cast<ReadableMap::javaobject>(extraDataRNM.get()));

@@ -4,11 +4,11 @@ import XCTest
 
 @MainActor
 final class TableAttachmentTests: XCTestCase {
-    private var config: MarkdownStyleConfig!
+    private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
         super.setUp()
-        config = MarkdownStyleConfig.baseline()
+        config = MarkdownStyleConfiguration.baseline()
     }
 
     func testTableRendersAsSingleAttachment() {
@@ -83,15 +83,7 @@ final class TableAttachmentTests: XCTestCase {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
         textView.layoutIfNeeded()
 
-        XCTAssertNotNil(findTableView(in: textView))
+        XCTAssertNotNil(textView.firstSubview(of: TableAttachmentView.self))
         window.isHidden = true
-    }
-
-    private func findTableView(in view: UIView) -> TableAttachmentView? {
-        if let table = view as? TableAttachmentView { return table }
-        for subview in view.subviews {
-            if let found = findTableView(in: subview) { return found }
-        }
-        return nil
     }
 }

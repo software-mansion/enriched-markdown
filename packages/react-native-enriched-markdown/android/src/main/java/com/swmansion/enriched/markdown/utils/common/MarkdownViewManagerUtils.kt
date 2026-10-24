@@ -13,6 +13,8 @@ import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
 import com.swmansion.enriched.markdown.parser.Md4cFlags
+import com.swmansion.enriched.markdown.styles.ImageSourceOverride
+import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 
 fun markdownEventTypeConstants(): MutableMap<String, Any> {
@@ -153,6 +155,28 @@ fun parseImageRequestHeaders(value: ReadableArray?): Map<String, String> =
       name to headerValue
     }.toMap()
 
+// Header names are lowercased so overrides and cache identity ignore HTTP header casing.
+fun parseImageSources(value: ReadableArray?): Map<String, ImageSourceOverride> =
+  (0 until (value?.size() ?: 0))
+    .mapNotNull { index ->
+      val entry = value?.getMap(index) ?: return@mapNotNull null
+      val id = entry.getString("id") ?: return@mapNotNull null
+      val headers =
+        parseImageRequestHeaders(entry.getArray("headers"))
+          .entries
+          .sortedBy { it.key }
+          .associate { it.key.lowercase() to it.value }
+      id to ImageSourceOverride(entry.getString("uri") ?: "", headers)
+    }.toMap()
+
+fun parseLinkPillContent(value: ReadableArray?): Map<String, LinkPillContent> =
+  (0 until (value?.size() ?: 0))
+    .mapNotNull { index ->
+      val entry = value?.getMap(index) ?: return@mapNotNull null
+      val url = entry.getString("url") ?: return@mapNotNull null
+      url to LinkPillContent.fromReadableMap(entry)
+    }.toMap()
+
 fun parseSelectionMenuConfig(value: ReadableMap?): SelectionMenuConfig {
   if (value == null) return SelectionMenuConfig()
   return SelectionMenuConfig(
@@ -172,6 +196,7 @@ fun parseAccessibilityLabels(value: ReadableMap?): AccessibilityLabels {
   val blockquote = value.getMap("blockquote")
   val table = value.getMap("table")
   val math = value.getMap("math")
+  val codeBlock = value.getMap("codeBlock")
   val rotor = value.getMap("rotor")
   return AccessibilityLabels(
     bulletPoint = list?.getString("bulletPoint") ?: "",
@@ -182,6 +207,8 @@ fun parseAccessibilityLabels(value: ReadableMap?): AccessibilityLabels {
     nestedBlockquote = blockquote?.getString("nestedQuote") ?: "",
     tableRow = table?.getString("row") ?: "",
     mathEquation = math?.getString("equation") ?: "",
+    codeBlockWrap = codeBlock?.getString("wrap") ?: "",
+    codeBlockUnwrap = codeBlock?.getString("unwrap") ?: "",
     rotorHeadings = rotor?.getString("headings") ?: "",
     rotorLinks = rotor?.getString("links") ?: "",
     rotorImages = rotor?.getString("images") ?: "",

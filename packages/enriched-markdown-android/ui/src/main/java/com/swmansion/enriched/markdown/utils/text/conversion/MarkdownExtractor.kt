@@ -1,10 +1,14 @@
+@file:OptIn(InternalPluginApi::class)
+
 package com.swmansion.enriched.markdown.utils.text.conversion
 
 import android.text.Spannable
 import android.text.style.StrikethroughSpan
 import android.text.style.UnderlineSpan
 import android.widget.TextView
-import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.EnrichedMarkdown
+import com.swmansion.enriched.markdown.plugin.InternalPluginApi
+import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
 import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.BaselineShiftSpan
@@ -13,9 +17,11 @@ import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.CodeSpan
 import com.swmansion.enriched.markdown.spans.EmphasisSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
+import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
+import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.ThematicBreakSpan
@@ -36,12 +42,21 @@ object MarkdownExtractor {
     val spannable = textView.text as? Spannable ?: return null
 
     val isFullSelection = start == 0 && end >= textView.text.length - 1
-    if (isFullSelection && textView is EnrichedMarkdownText) {
-      val original = textView.currentMarkdown
-      if (original.isNotEmpty()) return original
+    if (isFullSelection) {
+      val original = textView.owningSingleSegmentContainer()?.currentMarkdown
+      if (!original.isNullOrEmpty()) return original
     }
 
     return extractFromSpannable(spannable, start, end)
+  }
+
+  /**
+   * Only valid while this TextView is the container's sole child: selecting all of one
+   * segment equals selecting the whole document only when that segment IS the document.
+   */
+  private fun TextView.owningSingleSegmentContainer(): EnrichedMarkdown? {
+    val container = parent as? EnrichedMarkdown ?: return null
+    return container.takeIf { it.childCount == 1 && it.getChildAt(0) === this }
   }
 
   /** Extracts markdown from a Spannable within a given range. */
@@ -56,8 +71,10 @@ object MarkdownExtractor {
 
     var i = start
     while (i < end) {
-      val nextTransition = spannable.nextSpanTransition(i, end, Any::class.java)
-      val segmentText = spannable.subSequence(i, nextTransition).toString()
+      val nextTransition = nextSegmentEnd(spannable, i, end)
+      val segmentText =
+        pluginMarkdownSource(spannable, i, nextTransition)
+          ?: spannable.subSequence(i, nextTransition).toString()
 
       val handled =
         processSegment(
@@ -79,6 +96,33 @@ object MarkdownExtractor {
 
     headingAccumulator.flush(result, state)
     return result.toString()
+  }
+
+  /**
+   * A code block exports as its text alone, so spans inside it - a plugin's syntax token colors -
+   * must not split it: a piece that is only the "\n" ending a line would read as a paragraph break
+   * and drop the closing fence.
+   */
+  private fun nextSegmentEnd(
+    spannable: Spannable,
+    start: Int,
+    end: Int,
+  ): Int {
+    val block =
+      spannable
+        .getSpans(start, start + 1, CodeBlockSpan::class.java)
+        .firstOrNull { spannable.getSpanStart(it) <= start && spannable.getSpanEnd(it) > start }
+        ?: return spannable.nextSpanTransition(start, end, Any::class.java)
+    return minOf(end, spannable.getSpanEnd(block))
+  }
+
+  private fun pluginMarkdownSource(
+    spannable: Spannable,
+    start: Int,
+    end: Int,
+  ): String? {
+    if (end - start != 1 || spannable[start] != '\uFFFC') return null
+    return spannable.getSpans(start, end, PluginInlineSpan::class.java).firstOrNull()?.toMarkdownSource()
   }
 
   private fun processSegment(
@@ -326,6 +370,8 @@ object MarkdownExtractor {
     val hasSuperscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUPERSCRIPT }
     val hasSubscript = baselineShiftSpans.any { it.spanType == BaselineShiftSpan.SpanType.SUBSCRIPT }
     val linkSpans = spannable.getSpans(start, end, LinkSpan::class.java)
+    val hasHighlight = spannable.getSpans(start, end, HighlightSpan::class.java).isNotEmpty()
+    val hasSpoiler = spannable.getSpans(start, end, SpoilerSpan::class.java).isNotEmpty()
 
     var result = text
 
@@ -352,6 +398,14 @@ object MarkdownExtractor {
     }
     if (linkSpans.isNotEmpty()) {
       result = "[$result](${linkSpans[0].url})"
+    }
+    if (hasHighlight) {
+      result = "==$result=="
+    }
+    // Outermost, matching the iOS package: copying a spoiler keeps it concealed in the markdown
+    // even though the selection itself reads the revealed text.
+    if (hasSpoiler) {
+      result = "||$result||"
     }
 
     return result

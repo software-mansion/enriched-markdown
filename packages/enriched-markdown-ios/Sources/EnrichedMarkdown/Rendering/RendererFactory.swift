@@ -1,20 +1,29 @@
 import UIKit
 
 final class RendererFactory {
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
     private let imageRequestHeaders: [String: String]
     private let plugins: [any MarkdownRenderPlugin]
+    private let writingDirection: MarkdownWritingDirection
+    private let layoutDirection: UIUserInterfaceLayoutDirection
+    private let codeBlockLayout: MarkdownCodeBlockLayout
     private var cache: [NodeType: NodeRenderer] = [:]
     private lazy var childrenOnlyRenderer = ChildrenOnlyRenderer(factory: self)
 
     init(
-        config: MarkdownStyleConfig,
+        config: MarkdownStyleConfiguration,
         imageRequestHeaders: [String: String] = [:],
-        plugins: [any MarkdownRenderPlugin] = []
+        plugins: [any MarkdownRenderPlugin] = [],
+        writingDirection: MarkdownWritingDirection = .firstStrong,
+        layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,
+        codeBlockLayout: MarkdownCodeBlockLayout = .wrapping
     ) {
         self.config = config
         self.imageRequestHeaders = imageRequestHeaders
         self.plugins = plugins
+        self.writingDirection = writingDirection
+        self.layoutDirection = layoutDirection
+        self.codeBlockLayout = codeBlockLayout
     }
 
     func renderer(for type: NodeType) -> NodeRenderer {
@@ -25,6 +34,12 @@ final class RendererFactory {
         let renderer = createRenderer(for: type)
         cache[type] = renderer
         return renderer
+    }
+
+    /// Resolves paragraph directions; run on the document and on every
+    /// table cell, which is drawn from its own string.
+    func applyWritingDirection(to output: NSMutableAttributedString) {
+        WritingDirectionResolver.apply(writingDirection, layoutDirection: layoutDirection, to: output)
     }
 
     func renderChildren(
@@ -101,7 +116,7 @@ final class RendererFactory {
         case .blankLine:
             return BlankLineRenderer(config: config)
         case .codeBlock:
-            return CodeBlockRenderer(factory: self, config: config)
+            return CodeBlockRenderer(factory: self, config: config, plugins: plugins, layout: codeBlockLayout)
         case .blockquote, .admonition:
             return BlockquoteRenderer(factory: self, config: config)
         case .unorderedList:

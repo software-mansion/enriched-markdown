@@ -3,24 +3,28 @@ package com.swmansion.enriched.markdown.test
 import android.content.Context
 import android.text.Selection
 import android.text.Spannable
-import android.text.SpannableString
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
-import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.EnrichedMarkdown
+import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.segments.RenderedSegment
+import com.swmansion.enriched.markdown.segments.SegmentSignature
 
 object MarkdownTextViewTestSupport {
   private val context: Context = ApplicationProvider.getApplicationContext()
 
-  fun render(document: MarkdownASTNode): SpannableString = MarkdownRenderTestSupport.render(document)
+  fun render(document: MarkdownASTNode): Spannable = MarkdownRenderTestSupport.render(document)
 
   fun createTextViewWithSelection(
-    spannable: SpannableString,
+    spannable: Spannable,
     selectionStart: Int,
     selectionEnd: Int,
   ): TextView {
     val textView = TextView(context)
-    applySelection(textView, spannable, selectionStart, selectionEnd)
+    textView.setTextIsSelectable(true)
+    textView.setText(spannable, TextView.BufferType.SPANNABLE)
+    Selection.setSelection(textView.text as Spannable, selectionStart, selectionEnd)
     return textView
   }
 
@@ -30,7 +34,7 @@ object MarkdownTextViewTestSupport {
     selectionEnd: Int,
   ): TextView = createTextViewWithSelection(render(document), selectionStart, selectionEnd)
 
-  fun createTextViewWithFullSelection(spannable: SpannableString): TextView = createTextViewWithSelection(spannable, 0, spannable.length)
+  fun createTextViewWithFullSelection(spannable: Spannable): TextView = createTextViewWithSelection(spannable, 0, spannable.length)
 
   fun createTextViewWithFullSelection(document: MarkdownASTNode): TextView {
     val spannable = render(document)
@@ -46,41 +50,64 @@ object MarkdownTextViewTestSupport {
     return createTextViewWithSelection(spannable, start, start + selectedText.length)
   }
 
+  /**
+   * Builds a fresh [EnrichedMarkdown] container, attaches [spannable] as its sole
+   * child the production way (via `applyRenderedSegments`), and applies the given
+   * selection to that child. Returns the child, which is left attached to the
+   * container so the parent-walking production code (`SelectionActionMode`,
+   * `MarkdownExtractor`) sees a real ancestor.
+   */
   fun createEnrichedMarkdownTextWithSelection(
-    spannable: SpannableString,
+    spannable: Spannable,
     selectionStart: Int,
     selectionEnd: Int,
-  ): EnrichedMarkdownText {
-    val textView = EnrichedMarkdownText(context)
-    applySelection(textView, spannable, selectionStart, selectionEnd)
+  ): EnrichedMarkdownInternalText {
+    val textView = attachSoleChild(spannable)
+    Selection.setSelection(textView.text as Spannable, selectionStart, selectionEnd)
     return textView
   }
 
   fun createEnrichedMarkdownTextSelectingText(
     document: MarkdownASTNode,
     selectedText: String,
-  ): EnrichedMarkdownText {
+  ): EnrichedMarkdownInternalText {
     val spannable = render(document)
     val start = indexOf(spannable, selectedText)
     return createEnrichedMarkdownTextWithSelection(spannable, start, start + selectedText.length)
   }
 
-  fun createEnrichedMarkdownTextWithFullSelection(document: MarkdownASTNode): EnrichedMarkdownText {
+  fun createEnrichedMarkdownTextWithFullSelection(document: MarkdownASTNode): EnrichedMarkdownInternalText {
     val spannable = render(document)
     return createEnrichedMarkdownTextWithSelection(spannable, 0, spannable.length)
   }
 
   fun createEnrichedMarkdownTextWithStoredMarkdown(
     originalMarkdown: String,
-    rendered: SpannableString,
-  ): EnrichedMarkdownText {
+    rendered: Spannable,
+  ): EnrichedMarkdownInternalText {
     val textView = createEnrichedMarkdownTextWithSelection(rendered, 0, rendered.length)
-    setCurrentMarkdown(textView, originalMarkdown)
+    setCurrentMarkdown(textView.parent as EnrichedMarkdown, originalMarkdown)
     return textView
   }
 
+  /**
+   * Same as [createEnrichedMarkdownTextWithStoredMarkdown], but returns the
+   * container instead of its sole child, for tests that need the
+   * document-level API (`setMarkdownContent`, `currentMarkdown`,
+   * `setOnTaskListItemPressCallback`, ...).
+   */
+  fun createContainerWithStoredMarkdown(
+    originalMarkdown: String,
+    rendered: Spannable,
+  ): EnrichedMarkdown {
+    val textView = createEnrichedMarkdownTextWithSelection(rendered, 0, rendered.length)
+    val container = textView.parent as EnrichedMarkdown
+    setCurrentMarkdown(container, originalMarkdown)
+    return container
+  }
+
   fun selectedRange(
-    spannable: SpannableString,
+    spannable: Spannable,
     start: Int,
     end: Int,
   ): Spannable = spannable.subSequence(start, end) as Spannable
@@ -94,28 +121,26 @@ object MarkdownTextViewTestSupport {
     return index
   }
 
-  private fun applySelection(
-    textView: TextView,
-    spannable: SpannableString,
-    selectionStart: Int,
-    selectionEnd: Int,
-  ) {
-    textView.setTextIsSelectable(true)
-    if (textView is EnrichedMarkdownText) {
-      textView.text = spannable
-    } else {
-      textView.setText(spannable, TextView.BufferType.SPANNABLE)
-    }
-    Selection.setSelection(textView.text as Spannable, selectionStart, selectionEnd)
+  private fun attachSoleChild(spannable: Spannable): EnrichedMarkdownInternalText {
+    val container = EnrichedMarkdown(context)
+    val segment =
+      RenderedSegment.Text(
+        styledText = spannable,
+        needsJustify = false,
+        lastElementMarginBottom = 0f,
+        signature = SegmentSignature.signatureForNodes(emptyList()) xor SegmentSignature.TEXT_KIND_SALT,
+      )
+    container.applyRenderedSegments(listOf(segment))
+    return container.getChildAt(0) as EnrichedMarkdownInternalText
   }
 
-  /** Mirrors what [EnrichedMarkdownText.setMarkdownContent] stores, without the async render. */
+  /** Mirrors what [EnrichedMarkdown.setMarkdownContent] stores, without the async render. */
   private fun setCurrentMarkdown(
-    textView: EnrichedMarkdownText,
+    container: EnrichedMarkdown,
     markdown: String,
   ) {
-    val field = EnrichedMarkdownText::class.java.getDeclaredField("baseMarkdown")
+    val field = EnrichedMarkdown::class.java.getDeclaredField("baseMarkdown")
     field.isAccessible = true
-    field.set(textView, markdown)
+    field.set(container, markdown)
   }
 }

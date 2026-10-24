@@ -1,13 +1,14 @@
 package com.swmansion.enriched.markdown
 
 import android.content.Context
+import android.view.View
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.ReactStylesDiffMap
-import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.ThemedReactContext
+import com.facebook.react.uimanager.ViewGroupManager
 import com.facebook.react.uimanager.ViewManagerDelegate
 import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.EnrichedMarkdownManagerDelegate
@@ -15,6 +16,7 @@ import com.facebook.react.viewmanagers.EnrichedMarkdownManagerInterface
 import com.facebook.yoga.YogaMeasureMode
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
+import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.applyReactBorderProps
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
@@ -28,13 +30,18 @@ import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
 import com.swmansion.enriched.markdown.utils.common.parseContextMenuItems
 import com.swmansion.enriched.markdown.utils.common.parseImageRequestHeaders
+import com.swmansion.enriched.markdown.utils.common.parseImageSources
+import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
+import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.common.parseMd4cFlags
 import com.swmansion.enriched.markdown.utils.common.parseSelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.interaction.TaskListToggleUtils
 
+// A ViewGroupManager because the React slot children (`renderers`) mount into the
+// host; they go to its slot layer, never between the segment views.
 @ReactModule(name = EnrichedMarkdownManager.NAME)
 class EnrichedMarkdownManager :
-  SimpleViewManager<EnrichedMarkdown>(),
+  ViewGroupManager<EnrichedMarkdown>(),
   EnrichedMarkdownManagerInterface<EnrichedMarkdown> {
   private val mDelegate: ViewManagerDelegate<EnrichedMarkdown> = EnrichedMarkdownManagerDelegate(this)
 
@@ -59,7 +66,8 @@ class EnrichedMarkdownManager :
     view.setOnTaskListItemPressCallback { taskIndex, checked, itemText ->
       val newChecked = !checked
       val updatedMarkdown = TaskListToggleUtils.toggleAtIndex(view.currentMarkdown, taskIndex, newChecked)
-      view.setMarkdownContent(updatedMarkdown)
+      // A checkbox flip keeps every code block where it was, so keep their wrap state too.
+      view.setMarkdownContent(updatedMarkdown, isTaskToggle = true)
       view.commitProps()
       emitTaskListItemPress(view, taskIndex, newChecked, itemText)
     }
@@ -99,15 +107,40 @@ class EnrichedMarkdownManager :
     stateWrapper: StateWrapper?,
   ): Any? {
     view.stateWrapper = stateWrapper
+    view.applySlotPlacements(stateWrapper?.stateData)
     return super.updateState(view, props, stateWrapper)
+  }
+
+  override fun addView(
+    parent: EnrichedMarkdown,
+    child: View,
+    index: Int,
+  ) {
+    parent.slotLayer.addView(child, index.coerceIn(0, parent.slotLayer.childCount))
+  }
+
+  override fun getChildCount(parent: EnrichedMarkdown): Int = parent.slotLayer.childCount
+
+  override fun getChildAt(
+    parent: EnrichedMarkdown,
+    index: Int,
+  ): View? = parent.slotLayer.getChildAt(index)
+
+  override fun removeViewAt(
+    parent: EnrichedMarkdown,
+    index: Int,
+  ) {
+    parent.slotLayer.removeViewAt(index)
+  }
+
+  override fun removeAllViews(parent: EnrichedMarkdown) {
+    parent.slotLayer.removeAllViews()
   }
 
   override fun onDropViewInstance(view: EnrichedMarkdown) {
     super.onDropViewInstance(view)
     view.cleanup()
     MeasurementStore.release(view.id)
-    MeasurementStore.clearStreamingTableMode(view.id)
-    MeasurementStore.clearStreamingCodeBlockMode(view.id)
     MeasurementStore.clearBreakStrategy(view.id)
     MeasurementStore.clearFontScalingSettings(view.id)
   }
@@ -150,6 +183,16 @@ class EnrichedMarkdownManager :
     value: Int?,
   ) {
     view?.setSelectionHandleColor(value)
+  }
+
+  @ReactProp(name = "linkRecognition")
+  override fun setLinkRecognition(
+    view: EnrichedMarkdown?,
+    value: ReadableMap?,
+  ) {
+    val recognition = parseLinkRecognition(value)
+    view?.setLinkRegex(recognition.text)
+    view?.setInlineCodeLinkRegex(recognition.inlineCode)
   }
 
   @ReactProp(name = "md4cFlags")
@@ -232,6 +275,14 @@ class EnrichedMarkdownManager :
     view?.enableCodeBlockPress = enableCodeBlockPress
   }
 
+  @ReactProp(name = "enableCodeBlockWrapToggle", defaultBoolean = true)
+  override fun setEnableCodeBlockWrapToggle(
+    view: EnrichedMarkdown?,
+    enableCodeBlockWrapToggle: Boolean,
+  ) {
+    view?.enableCodeBlockWrapToggle = enableCodeBlockWrapToggle
+  }
+
   @ReactProp(name = "lineBreakStrategyIOS")
   override fun setLineBreakStrategyIOS(
     view: EnrichedMarkdown?,
@@ -273,6 +324,11 @@ class EnrichedMarkdownManager :
         "hidden" -> CodeBlockStreamingMode.HIDDEN
         else -> CodeBlockStreamingMode.PROGRESSIVE
       }
+    view.mediaStreamingMode =
+      when (config?.getString("mediaMode")) {
+        "hidden" -> MediaStreamingMode.HIDDEN
+        else -> MediaStreamingMode.PROGRESSIVE
+      }
   }
 
   @ReactProp(name = "spoilerOverlay")
@@ -307,6 +363,14 @@ class EnrichedMarkdownManager :
     // No-op for GFM — see setNumberOfLines.
   }
 
+  @ReactProp(name = "linkContextMenuItems")
+  override fun setLinkContextMenuItems(
+    view: EnrichedMarkdown?,
+    value: ReadableArray?,
+  ) {
+    // Link menus are iOS-only for now; onLinkLongPress is the Android hook.
+  }
+
   @ReactProp(name = "contextMenuItems")
   override fun setContextMenuItems(
     view: EnrichedMarkdown?,
@@ -323,6 +387,24 @@ class EnrichedMarkdownManager :
   ) {
     if (view == null) return
     view.setImageRequestHeaders(parseImageRequestHeaders(value))
+  }
+
+  @ReactProp(name = "imageSources")
+  override fun setImageSources(
+    view: EnrichedMarkdown?,
+    value: ReadableArray?,
+  ) {
+    if (view == null) return
+    view.setImageSources(parseImageSources(value))
+  }
+
+  @ReactProp(name = "linkPillContent")
+  override fun setLinkPillContent(
+    view: EnrichedMarkdown?,
+    value: ReadableArray?,
+  ) {
+    if (view == null) return
+    view.setLinkPillContent(parseLinkPillContent(value))
   }
 
   @ReactProp(name = "selectionMenuConfig")
@@ -366,7 +448,19 @@ class EnrichedMarkdownManager :
     attachmentsPositions: FloatArray?,
   ): Long {
     val id = localData?.getInt("viewTag")
-    return MeasurementStore.getMeasureById(context, id, width, widthMode, height, heightMode, props, splitTableSegments = true)
+    val slotIds = localData?.takeIf { it.hasKey("blockSlotIds") }?.getArray("blockSlotIds")
+    val blockSlotIds = (0 until (slotIds?.size() ?: 0)).mapNotNull { slotIds?.getString(it) }
+    return MeasurementStore.getMeasureById(
+      context,
+      id,
+      width,
+      widthMode,
+      height,
+      heightMode,
+      props,
+      splitTableSegments = true,
+      blockSlotIds = blockSlotIds,
+    )
   }
 
   companion object {

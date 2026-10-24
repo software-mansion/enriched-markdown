@@ -91,12 +91,28 @@ interface LinkStyleInternal {
   backgroundColor: ColorValue;
 }
 
+interface LinkPillInternal {
+  enabled: boolean;
+  label: string;
+  iconUri: string;
+  iconTintColor?: ColorValue;
+  borderRadius: CodegenTypes.Float;
+  paddingHorizontal: CodegenTypes.Float;
+  paddingVertical: CodegenTypes.Float;
+  lineHeight: CodegenTypes.Float;
+  borderWidth: CodegenTypes.Float;
+  borderColor: ColorValue;
+  maxWidth: CodegenTypes.Float;
+}
+
 // Mirrors EnrichedMarkdownTextNativeComponent.ts — kept in sync manually (codegen spec files must be self-contained).
 interface LinkVariantEntryInternal {
   pattern: string;
   color: ColorValue;
   underline: boolean;
   backgroundColor: ColorValue;
+  fontFamily: string;
+  pill: LinkPillInternal;
 }
 
 interface StrongStyleInternal {
@@ -302,6 +318,19 @@ export interface ImageRequestHeaderInternal {
   value: string;
 }
 
+interface ImageSourceInternal {
+  id: string;
+  uri: string;
+  headers: ReadonlyArray<Readonly<ImageRequestHeaderInternal>>;
+}
+
+export interface LinkPillContentInternal {
+  url: string;
+  label: string;
+  iconUri: string;
+  iconTintColor?: ColorValue;
+}
+
 export interface SelectionMenuConfig {
   copyAsMarkdown: boolean;
   copyImageUrl: boolean;
@@ -337,6 +366,10 @@ export interface AccessibilityLabelsTableProps {
 export interface AccessibilityLabelsMathProps {
   equation: string;
 }
+export interface AccessibilityLabelsCodeBlockProps {
+  wrap: string;
+  unwrap: string;
+}
 export interface AccessibilityLabelsRotorProps {
   headings: string;
   links: string;
@@ -347,6 +380,7 @@ export interface AccessibilityLabelsProps {
   blockquote: Readonly<AccessibilityLabelsBlockquoteProps>;
   table: Readonly<AccessibilityLabelsTableProps>;
   math: Readonly<AccessibilityLabelsMathProps>;
+  codeBlock: Readonly<AccessibilityLabelsCodeBlockProps>;
   rotor: Readonly<AccessibilityLabelsRotorProps>;
 }
 
@@ -404,6 +438,33 @@ export interface Md4cFlagsInternal {
 interface StreamingConfigInternal {
   tableMode: string;
   codeBlockMode: string;
+  mediaMode?: string;
+}
+
+interface LinkContextMenuItemConfig {
+  text: string;
+  icon: string;
+  disabled: boolean;
+  destructive: boolean;
+}
+
+interface LinkContextMenuItemsConfig {
+  pattern: string;
+  items: ReadonlyArray<Readonly<LinkContextMenuItemConfig>>;
+}
+
+interface OnLinkContextMenuItemPressEvent {
+  url: string;
+  pattern: string;
+  itemText: string;
+}
+
+interface TextLinkNativeRegex {
+  pattern: string;
+  caseInsensitive: boolean;
+  dotAll: boolean;
+  isDisabled: boolean;
+  isDefault: boolean;
 }
 
 export interface NativeProps extends ViewProps {
@@ -473,6 +534,12 @@ export interface NativeProps extends ViewProps {
    * @default false
    */
   enableCodeBlockPress?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * Shows a per-block line wrap toggle next to the copy button in fenced code
+   * block headers. Each block starts unwrapped.
+   * @default false
+   */
+  enableCodeBlockWrapToggle?: CodegenTypes.WithDefault<boolean, true>;
   /**
    * Callback fired when a math expression cannot be parsed or rendered by the
    * LaTeX engine. Receives the raw LaTeX `source` of the failing inline span or
@@ -577,6 +644,22 @@ export interface NativeProps extends ViewProps {
    * HTTP headers attached to remote image requests, as name/value pairs.
    */
   imageRequestHeaders?: ReadonlyArray<Readonly<ImageRequestHeaderInternal>>;
+  /**
+   * Per-image request overrides keyed by image occurrence id (see
+   * `resolveImageSource`). An empty `uri` keeps the placeholder and skips the
+   * request; headers merge over `imageRequestHeaders`.
+   */
+  imageSources?: ReadonlyArray<Readonly<ImageSourceInternal>>;
+  /** Per-link pill content (label, icon), one entry per exact link URL. */
+  linkPillContent?: ReadonlyArray<Readonly<LinkPillContentInternal>>;
+  /** Opt-in text link recognition; see `EnrichedMarkdownTextProps.linkRecognition`. */
+  linkRecognition?: Readonly<{
+    text: Readonly<TextLinkNativeRegex>;
+    inlineCode: Readonly<TextLinkNativeRegex>;
+  }>;
+  /** Link long-press menus (iOS 17+): item lists by URL pattern, in matching order. */
+  linkContextMenuItems?: ReadonlyArray<Readonly<LinkContextMenuItemsConfig>>;
+  onLinkContextMenuItemPress?: CodegenTypes.BubblingEventHandler<OnLinkContextMenuItemPressEvent>;
   /**
    * Built-in items to show in the text selection context menu.
    */

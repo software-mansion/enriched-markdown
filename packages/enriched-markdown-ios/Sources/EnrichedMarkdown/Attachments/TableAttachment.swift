@@ -18,7 +18,7 @@ struct TableModel: Equatable {
     let columnAlignments: [String?]
 }
 
-/// Style values resolved from `MarkdownStyleConfig.table`, with RN-parity
+/// Style values resolved from `MarkdownStyleConfiguration.table`, with RN-parity
 /// fallbacks for unset keys.
 struct TableAttachmentStyle: Equatable {
     static let `default` = TableAttachmentStyle()
@@ -39,14 +39,14 @@ struct TableAttachmentStyle: Equatable {
     var cellPaddingVertical: CGFloat = 8
     var marginTop: CGFloat = 0
     var marginBottom: CGFloat = 16
-    var align: TableAlignment = .leading
+    var alignment: TableAlignment = .leading
 
     static let minColumnWidth: CGFloat = 60
     static let maxColumnWidth: CGFloat = 300
 
     init() {}
 
-    init(config: MarkdownStyleConfig) {
+    init(config: MarkdownStyleConfiguration) {
         applyColors(from: config.table)
         applyMetrics(from: config.table)
     }
@@ -68,12 +68,12 @@ struct TableAttachmentStyle: Equatable {
         if let value = table.headerFont { headerFont = value }
         if let value = table.lineHeight { lineHeight = value }
         if let value = table.borderWidth { borderWidth = value }
-        if let value = table.borderRadius { cornerRadius = value }
+        if let value = table.cornerRadius { cornerRadius = value }
         if let value = table.cellPaddingHorizontal { cellPaddingHorizontal = value }
         if let value = table.cellPaddingVertical { cellPaddingVertical = value }
         if let value = table.marginTop { marginTop = value }
         if let value = table.marginBottom { marginBottom = value }
-        if let value = table.align { align = value }
+        if let value = table.alignment { alignment = value }
     }
 }
 
@@ -134,7 +134,7 @@ struct TableAttachmentLayout: Equatable {
 
 /// A GFM table embedded as a full-width block attachment whose view
 /// provider hosts the live grid view.
-final class TableAttachment: NSTextAttachment {
+final class TableAttachment: NSTextAttachment, HorizontallyScrollingAttachment {
     /// Must be a resolvable UTI — NSTextAttachment silently drops any other
     /// string, which breaks the provider-class lookup.
     static let fileType: String = UTType(
@@ -154,8 +154,6 @@ final class TableAttachment: NSTextAttachment {
     let layout: TableAttachmentLayout
     let style: TableAttachmentStyle
 
-    /// TextKit 2 recreates the provider view whenever the table re-enters
-    /// the viewport; the horizontal scroll position survives here.
     var preservedContentOffset: CGPoint = .zero
 
     init(model: TableModel, style: TableAttachmentStyle) {

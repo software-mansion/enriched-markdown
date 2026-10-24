@@ -2,9 +2,9 @@ import UIKit
 
 final class StrongRenderer: NodeRenderer {
     private let factory: RendererFactory
-    private let config: MarkdownStyleConfig
+    private let config: MarkdownStyleConfiguration
 
-    init(factory: RendererFactory, config: MarkdownStyleConfig) {
+    init(factory: RendererFactory, config: MarkdownStyleConfiguration) {
         self.factory = factory
         self.config = config
     }
@@ -29,7 +29,7 @@ final class StrongRenderer: NodeRenderer {
             let currentFont = (attributes[.font] as? UIFont) ?? FontHelpers.cachedFont(from: blockStyle)
             let resolvedFont = FontHelpers.ensureBold(currentFont) ?? currentFont
 
-            if let currentFont, resolvedFont != currentFont {
+            if let currentFont, let resolvedFont, resolvedFont != currentFont {
                 output.addAttribute(.font, value: resolvedFont, range: subrange)
             }
 

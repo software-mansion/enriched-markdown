@@ -19,9 +19,14 @@ object TestAstFactory {
 
   fun underline(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Underline, children = children.toList())
 
+  fun highlight(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Highlight, children = children.toList())
+
   fun superscript(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Superscript, children = children.toList())
 
   fun subscript(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Subscript, children = children.toList())
+
+  /** Concealed inline text, `||like this||`. */
+  fun spoiler(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Spoiler, children = children.toList())
 
   fun link(
     url: String,
@@ -45,7 +50,16 @@ object TestAstFactory {
 
   fun code(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Code, children = listOf(text(content)))
 
-  fun codeBlock(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.CodeBlock, children = listOf(text(content)))
+  /** A fenced code block; [language] is the info string's first word, as md4c reports it. */
+  fun codeBlock(
+    content: String,
+    language: String? = null,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.CodeBlock,
+      attributes = language?.let { mapOf("language" to it) }.orEmpty(),
+      children = listOf(text(content)),
+    )
 
   fun blockquote(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Blockquote, children = children.toList())
 
@@ -88,6 +102,41 @@ object TestAstFactory {
     )
 
   fun thematicBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.ThematicBreak)
+
+  fun table(
+    head: MarkdownASTNode? = null,
+    body: MarkdownASTNode? = null,
+  ): MarkdownASTNode = MarkdownASTNode(NodeType.Table, children = listOfNotNull(head, body))
+
+  fun tableHead(vararg rows: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.TableHead, children = rows.toList())
+
+  fun tableBody(vararg rows: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.TableBody, children = rows.toList())
+
+  fun tableRow(vararg cells: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.TableRow, children = cells.toList())
+
+  fun tableHeaderCell(
+    align: String = "default",
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.TableHeaderCell,
+      attributes = mapOf("align" to align),
+      children = children.toList(),
+    )
+
+  fun tableCell(
+    align: String = "default",
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.TableCell,
+      attributes = mapOf("align" to align),
+      children = children.toList(),
+    )
+
+  fun latexMathInline(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.LatexMathInline, content = content)
+
+  fun latexMathDisplay(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.LatexMathDisplay, content = content)
 
   fun softBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.SoftBreak)
 
