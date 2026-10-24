@@ -18,6 +18,7 @@
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
 #import "ENRMUIKit.h"
+#import "ENRMWordMajority.h"
 #import "EditMenuUtils.h"
 #import "FontScaleObserver.h"
 #import "FontUtils.h"
@@ -467,6 +468,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
                                  inlineCodeLinkRegex:inlineCodeLinkRegex];
         if (!ast)
           return NO;
+        if (writingDirectionMode == ENRMWritingDirectionModeWordMajority)
+          ast = ENRMWordMajorityAST(ast, config);
 
         result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
                                     lineBreakStrategy);
@@ -492,6 +495,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (!ast) {
     return nil;
   }
+  if (_writingDirectionMode == ENRMWritingDirectionModeWordMajority)
+    ast = ENRMWordMajorityAST(ast, _config);
 
   ENRMRenderResult *result =
       ENRMRenderASTNodes(ast.children, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling,

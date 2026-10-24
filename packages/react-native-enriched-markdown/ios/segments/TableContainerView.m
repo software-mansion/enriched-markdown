@@ -4,6 +4,7 @@
 #import "ENRMHorizontalScrollView.h"
 #import "ENRMImageAttachment.h"
 #import "ENRMLinkPillAttachment.h"
+#import "ENRMWordMajority.h"
 #import "HTMLGenerator.h"
 #import "LinkTapUtils.h"
 #import "MarkdownASTNode.h"
@@ -91,9 +92,18 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
   [context applyImageAttributesToString:attributedText];
 
   ENRMPinLineMetricsToStyledFonts(attributedText, NSMakeRange(0, attributedText.length));
-  ENRMApplyWritingDirectionMode(attributedText, writingDirectionMode, resolvedLayoutDirection);
+  // writingDirection="word-majority" resolves each cell from its own words.
+  NSString *proseDirection = cellNode.attributes[ENRMProseDirectionKey];
+  if (!proseDirection) {
+    ENRMApplyWritingDirectionMode(attributedText, writingDirectionMode, resolvedLayoutDirection);
+  }
+  // An RTL cell starts on the right, so an explicit `:---` left alignment has to be set.
+  BOOL setAlignment =
+      alignment != NSTextAlignmentLeft || (proseDirection && [cellNode.attributes[@"align"] isEqualToString:@"left"]);
 
-  if (alignment != NSTextAlignmentLeft && attributedText.length > 0) {
+  if ((setAlignment || proseDirection) && attributedText.length > 0) {
+    NSWritingDirection direction =
+        [proseDirection isEqualToString:@"rtl"] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
     NSRange fullRange = NSMakeRange(0, attributedText.length);
     [attributedText
         enumerateAttribute:NSParagraphStyleAttributeName
@@ -102,7 +112,10 @@ static NSMutableAttributedString *ENRMTableRenderCellNode(MarkdownASTNode *cellN
                 usingBlock:^(NSParagraphStyle *paragraphStyle, NSRange range, BOOL *stop) {
                   NSMutableParagraphStyle *mutableStyle =
                       paragraphStyle ? [paragraphStyle mutableCopy] : [[NSMutableParagraphStyle alloc] init];
-                  mutableStyle.alignment = alignment;
+                  if (setAlignment)
+                    mutableStyle.alignment = alignment;
+                  if (proseDirection)
+                    mutableStyle.baseWritingDirection = direction;
                   [attributedText addAttribute:NSParagraphStyleAttributeName value:mutableStyle range:range];
                 }];
   }
@@ -299,8 +312,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
   // a single drawRect: pass (no subview / layer compositing issues).
   ENRMTableGridView *gridView = [[ENRMTableGridView alloc] initWithFrame:CGRectZero];
   __weak TableContainerView *weakSelf = self;
-  gridView.menuProvider = ^NSMenu *
-  {
+  gridView.menuProvider = ^NSMenu * {
     TableContainerView *strongSelf = weakSelf;
     if (!strongSelf || !strongSelf.dynamicProps.enableBlockContextMenu)
       return nil;

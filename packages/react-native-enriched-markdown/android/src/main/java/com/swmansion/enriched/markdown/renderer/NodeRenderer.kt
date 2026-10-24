@@ -4,11 +4,14 @@ import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.MetricAffectingSpan
+import android.text.style.ParagraphStyle
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
+import com.swmansion.enriched.markdown.utils.text.DirectionControlSpan
+import com.swmansion.enriched.markdown.utils.text.PROSE_DIRECTION
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 
 interface NodeRenderer {
@@ -196,7 +199,40 @@ class RendererFactory(
     onLinkLongPress: ((String) -> Unit)?,
   ) {
     nodes.forEach { node ->
+      val start = builder.length
       getRenderer(node).render(node, builder, onLinkPress, onLinkLongPress, this)
+      node.attributes[PROSE_DIRECTION]?.let { markProseDirection(node, it, builder, start) }
+    }
+  }
+
+  /**
+   * writingDirection="word-majority": StaticLayout picks each paragraph's direction from its
+   * first strong character, not from spans, so start every line of the block with an RLM/LRM.
+   * Code blocks always get LRM. The marks carry [DirectionControlSpan] so copy drops them.
+   */
+  private fun markProseDirection(
+    node: MarkdownASTNode,
+    direction: String,
+    builder: SpannableStringBuilder,
+    start: Int,
+  ) {
+    val marker =
+      when (node.type) {
+        MarkdownASTNode.NodeType.CodeBlock -> '\u200E'
+        MarkdownASTNode.NodeType.Paragraph, MarkdownASTNode.NodeType.Heading -> if (direction == "rtl") '\u200F' else '\u200E'
+        else -> return
+      }
+    // Walk backwards so earlier line starts don't move while inserting.
+    for (index in (builder.length - 1) downTo start) {
+      if (index != start && builder[index - 1] != '\n') continue
+      val lineEnd = builder.indexOf('\n', index).let { if (it < 0) builder.length else it }
+      if (builder.subSequence(index, lineEnd).isBlank()) continue
+      // Paragraph spans (list indent, code padding) must keep starting at the line start.
+      val startingSpans = builder.getSpans(index, index, ParagraphStyle::class.java).filter { builder.getSpanStart(it) == index }
+      builder.insert(index, marker.toString())
+      startingSpans.forEach { builder.setSpan(it, index, builder.getSpanEnd(it), builder.getSpanFlags(it)) }
+      shiftDeferredSpans(index, 1)
+      builder.setSpan(DirectionControlSpan(), index, index + 1, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
     }
   }
 

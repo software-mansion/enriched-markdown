@@ -49,6 +49,7 @@ import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
+import com.swmansion.enriched.markdown.utils.text.wordMajorityAST
 import java.util.EnumSet
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -290,6 +291,16 @@ class EnrichedMarkdown(
     renderPending = true
   }
 
+  private var writingDirection: String? = null
+
+  fun setWritingDirection(value: String?) {
+    if (writingDirection == value) return
+    writingDirection = value
+    dirtyFlags += DirtyFlag.RECREATE_SEGMENTS
+    dirtyFlags += DirtyFlag.FORCE_HEIGHT
+    renderPending = true
+  }
+
   fun commitProps() {
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     if (renderPending) {
@@ -517,6 +528,7 @@ class EnrichedMarkdown(
     val codeLinkRegex: LinkRegexConfig?,
     val slotIds: Set<String>,
     val annotateImages: Boolean,
+    val writingDirection: String?,
   )
 
   private fun renderJob(): RenderJob? {
@@ -533,6 +545,7 @@ class EnrichedMarkdown(
       inlineCodeLinkRegex,
       activeBlockSlotIds,
       imageSourceOverrides.isNotEmpty(),
+      writingDirection,
     )
   }
 
@@ -559,7 +572,7 @@ class EnrichedMarkdown(
         job.annotateImages,
       ) ?: return emptyList<RenderedSegment>() to false
 
-    val segments = splitASTIntoSegments(ast)
+    val segments = splitASTIntoSegments(wordMajorityAST(ast, job.style, job.writingDirection))
     val renderedSegments =
       MarkdownSegmentRenderer.render(
         segments,

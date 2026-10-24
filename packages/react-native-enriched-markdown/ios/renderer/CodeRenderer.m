@@ -1,6 +1,7 @@
 #import "CodeRenderer.h"
 #import "CodeBackground.h"
 #import "ENRMUIKit.h"
+#import "ENRMWordMajority.h"
 #import "FontUtils.h"
 #import "MarkdownASTNode.h"
 #import "RenderContext.h"
@@ -61,6 +62,14 @@
 
     // Store block line height directly for CodeBackground to use
     codeAttributes[@"BlockLineHeight"] = @(UIFontLineHeight(blockFont));
+
+    // writingDirection="word-majority": embed inline code LTR so `fetch()` inside
+    // an RTL line doesn't read as `()fetch`. An attribute, not inserted bidi
+    // controls, so copied text stays unchanged.
+    if (node.attributes[ENRMProseDirectionKey]) {
+      codeAttributes[NSWritingDirectionAttributeName] =
+          @[ @(NSWritingDirectionLeftToRight | NSWritingDirectionEmbedding) ];
+    }
 
     [output setAttributes:codeAttributes range:range];
   }

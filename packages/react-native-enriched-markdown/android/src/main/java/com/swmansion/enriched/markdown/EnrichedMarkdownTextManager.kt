@@ -254,7 +254,8 @@ class EnrichedMarkdownTextManager :
     view: EnrichedMarkdownText?,
     value: String?,
   ) {
-    // No-op on Android — first-strong per-paragraph resolution is the platform default
+    // Android is first-strong per paragraph by default; only "word-majority" changes rendering.
+    view?.setWritingDirection(value)
   }
 
   @ReactProp(name = "streamingAnimation", defaultBoolean = false)

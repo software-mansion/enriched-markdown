@@ -37,6 +37,7 @@
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMUTF8.h"
+#import "ENRMWordMajority.h"
 #import "EnrichedMarkdownBlockSlot.h"
 #import "EnrichedMarkdownInternalText.h"
 #import "FontScaleObserver.h"
@@ -1028,6 +1029,8 @@ static char kENRMSegmentFadeAnimatorKey;
                                   annotateImages:annotateImages];
     if (!ast)
       return NO;
+    if (writingDirectionMode == ENRMWritingDirectionModeWordMajority)
+      ast = ENRMWordMajorityAST(ast, config);
 
     renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
                                                  maxFontSizeMultiplier, lineBreakStrategy,
@@ -1068,6 +1071,8 @@ static char kENRMSegmentFadeAnimatorKey;
   if (!ast) {
     return nil;
   }
+  if (_writingDirectionMode == ENRMWritingDirectionModeWordMajority)
+    ast = ENRMWordMajorityAST(ast, _config);
 
   NSArray<ENRMRenderedSegment *> *segments =
       ENRMRenderSegmentsFromAST(ast, _config, _allowTrailingMargin, _fontScaleObserver.allowFontScaling,

@@ -50,6 +50,7 @@ import com.swmansion.enriched.markdown.utils.common.parseLinkPillContent
 import com.swmansion.enriched.markdown.utils.common.parseLinkRecognition
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
+import com.swmansion.enriched.markdown.utils.text.wordMajorityAST
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
 
@@ -365,6 +366,7 @@ object MeasurementStore {
     result = 31 * result + linkPillContent.hashCode()
     result = 31 * result + props.getIntOrDefault("numberOfLines", 0)
     result = 31 * result + props.getStringOrDefault("ellipsizeMode", EllipsizeUtils.DEFAULT_MODE).hashCode()
+    result = 31 * result + props.getStringOrDefault("writingDirection", "").hashCode()
     return result
   }
 
@@ -439,6 +441,7 @@ object MeasurementStore {
         parseLinkPillContent(props.getArrayOrNull("linkPillContent")),
         linkRecognition.text,
         linkRecognition.inlineCode,
+        props.getStringOrDefault("writingDirection", ""),
       )
     spannable?.replaceMathSpansWithPlaceholders(context)
     val textToMeasure = spannable ?: markdown
@@ -576,7 +579,7 @@ object MeasurementStore {
       style.imageRequestHeaders = parseImageRequestHeaders(props.getArrayOrNull("imageRequestHeaders"))
       style.imageSourceOverrides = imageSources
       style.linkPillContent = parseLinkPillContent(props.getArrayOrNull("linkPillContent"))
-      val segments = splitASTIntoSegments(ast)
+      val segments = splitASTIntoSegments(wordMajorityAST(ast, style, props.getStringOrDefault("writingDirection", "")))
       val renderedSegments = MarkdownSegmentRenderer.render(segments, style, context, null, null)
 
       val mathHeightByIndex = HashMap<Int, Float>()
@@ -672,6 +675,7 @@ object MeasurementStore {
     linkPillContent: Map<String, LinkPillContent> = emptyMap(),
     linkRegex: LinkRegexConfig? = null,
     inlineCodeLinkRegex: LinkRegexConfig? = null,
+    writingDirection: String = "",
   ): Spannable? {
     if (styleMap == null) return null
 
@@ -681,7 +685,7 @@ object MeasurementStore {
       style.imageRequestHeaders = imageRequestHeaders
       style.linkPillContent = linkPillContent
       measureRenderer.configure(style, context)
-      measureRenderer.renderDocument(ast, null)
+      measureRenderer.renderDocument(wordMajorityAST(ast, style, writingDirection), null)
     } catch (e: Exception) {
       Log.w(TAG, "Failed to render markdown for measurement, falling back to raw text", e)
       null

@@ -69,14 +69,20 @@ class CodeBackgroundSpan(
       // 2. Calculate coordinates
       val finalBottom = adjustBottomForMargin(text, end, bottom)
       val leadingMargin = InlineBackgroundGeometry.leadingMarginAt(text, start)
+      val rtlBounds =
+        InlineBackgroundGeometry.rtlRunBounds(text, start, end, max(rangeStart, start), min(rangeEnd, end), p, right - left)
       val startX =
-        if (isFirst) {
+        if (rtlBounds != null) {
+          rtlBounds.first + left
+        } else if (isFirst) {
           InlineBackgroundGeometry.horizontalOffset(text, start, end, rangeStart, p, leadingMargin) + left
         } else {
           left.toFloat() + leadingMargin
         }
       val endX =
-        if (isLast) {
+        if (rtlBounds != null) {
+          rtlBounds.second + left
+        } else if (isLast) {
           InlineBackgroundGeometry.horizontalOffset(text, start, end, rangeEnd, p, leadingMargin) + left
         } else {
           right.toFloat()
