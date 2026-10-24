@@ -51,10 +51,14 @@ class OrderedListSpan(
       listStyle: ListStyle,
       context: Context,
       numbers: Iterable<Int>,
+      prefix: List<Int> = emptyList(),
     ): Float {
       val paint = markerPaint(listStyle, markerTypeface(listStyle, context))
       val default = paint.measureText("99.")
-      val widest = numbers.fold(default) { width, number -> maxOf(width, paint.measureText("$number.")) }
+      val widest = numbers.fold(default) { width, number ->
+        val label = (prefix + number).joinToString(".") + "."
+        maxOf(width, paint.measureText(label))
+      }
       return ceil(listStyle.effectiveMarkerWidth(widest) - listStyle.effectiveMarkerWidth(default))
     }
 
@@ -88,6 +92,12 @@ class OrderedListSpan(
 
   override val baselineMarkerWidth: Float get() = defaultMarkerWidth
 
+  private var numberingPath: String? = null
+
+  fun setNumberingPath(path: List<Int>) {
+    numberingPath = path.joinToString(".")
+  }
+
   var itemNumber: Int = 1
     private set
 
@@ -103,7 +113,8 @@ class OrderedListSpan(
     start: Int,
   ) {
     val markerPaint = markerPaint(listStyle, markerTypeface)
-    val text = if (dir < 0) ".$itemNumber" else "$itemNumber."
+    val label = numberingPath ?: itemNumber.toString()
+    val text = if (dir < 0) ".$label" else "$label."
     val textWidth = markerPaint.measureText(text)
 
     val markerRightEdge = x + (depth * marginLeft + ancestorMarkerOffset + getMarkerWidth()) * dir

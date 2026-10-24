@@ -80,6 +80,15 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
     [output appendAttributedString:kNewlineAttributedString];
   }
 
+  const BOOL hierarchical = [_config.listStyleNumbering isEqualToString:@"hierarchical"];
+  if (hierarchical) {
+    if (prevDepth == 0) {
+      context.orderedListAncestors = @[];
+    } else if (context.listType == ListTypeOrdered) {
+      context.orderedListAncestors = [context.orderedListAncestors arrayByAddingObject:@(context.listItemNumber)];
+    }
+  }
+
   context.listDepth = prevDepth + 1;
   context.listType = _isOrdered ? ListTypeOrdered : ListTypeUnordered;
   NSInteger startNumber = 1;
@@ -101,8 +110,16 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
       if (item.type != MarkdownNodeTypeListItem)
         continue;
       // Keep the existing gutter for one- and two-digit markers.
-      if (number >= 100 && ![item.attributes[@"isTask"] isEqualToString:@"true"]) {
-        context.listMarkerWidth = MAX(context.listMarkerWidth, [_config effectiveListMarginLeftForNumber:number]);
+      if (![item.attributes[@"isTask"] isEqualToString:@"true"]) {
+        if (hierarchical) {
+          NSArray<NSNumber *> *path = [context.orderedListAncestors arrayByAddingObject:@(number)];
+          NSString *label = [[path componentsJoinedByString:@"."] stringByAppendingString:@"."];
+          UIFont *font = [_config listMarkerFont] ?: [UIFont systemFontOfSize:_config.listStyleFontSize];
+          CGFloat width = [label sizeWithAttributes:@{NSFontAttributeName : font}].width;
+          context.listMarkerWidth = MAX(context.listMarkerWidth, width);
+        } else if (number >= 100) {
+          context.listMarkerWidth = MAX(context.listMarkerWidth, [_config effectiveListMarginLeftForNumber:number]);
+        }
       }
       number++;
     }
