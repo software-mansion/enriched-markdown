@@ -1,6 +1,6 @@
 import UIKit
 
-final class AttributedRenderer {
+package final class AttributedRenderer {
     private let config: MarkdownStyleConfiguration
     private let factory: RendererFactory
     /// Root-level plugin block node types and the margins each declares.
@@ -31,14 +31,25 @@ final class AttributedRenderer {
     }
 
     func renderRoot(_ root: MarkdownASTNode) -> NSMutableAttributedString {
-        let context = RenderContext()
+        let context = makeRootContext()
         let output = NSMutableAttributedString()
+        renderBlocks(root.children, into: output, context: context)
+        context.clearBlockStyle()
+        TrailingSpacing.strip(from: output, codeBlockPadding: config.codeBlock.padding ?? 0)
+        finishBlocks(in: output, range: NSRange(location: 0, length: output.length), context: context)
+        return output
+    }
 
+    package func makeRootContext() -> RenderContext {
+        let context = RenderContext()
         let paragraphFont = config.paragraph.font ?? UIFont.preferredFont(forTextStyle: .body)
         let paragraphColor = config.paragraph.foregroundColor ?? UIColor.label
         context.setBlockStyle(font: paragraphFont, color: paragraphColor)
+        return context
+    }
 
-        for child in root.children {
+    package func renderBlocks(_ blocks: [MarkdownASTNode], into output: NSMutableAttributedString, context: RenderContext) {
+        for child in blocks {
             // A synthetic paragraph gives bare plugin block nodes their
             // block margins and alignment.
             if let margins = rootBlockMargins[child.type] {
@@ -50,12 +61,24 @@ final class AttributedRenderer {
             }
             factory.renderer(for: child.type).render(node: child, into: output, context: context)
         }
+    }
 
-        context.clearBlockStyle()
-        TrailingSpacing.strip(from: output, codeBlockPadding: config.codeBlock.padding ?? 0)
-        BaselineShiftRenderer.applyShifts(to: output, context: context, config: config)
-        SpoilerConcealment.conceal(output, in: NSRange(location: 0, length: output.length))
-        factory.applyWritingDirection(to: output)
-        return output
+    package func finishBlocks(in output: NSMutableAttributedString, range: NSRange, context: RenderContext) {
+        BaselineShiftRenderer.applyShifts(to: output, in: range, context: context, config: config)
+        SpoilerConcealment.conceal(output, in: range)
+        factory.applyWritingDirection(to: output, in: range)
+    }
+}
+
+extension AttributedRenderer {
+    package convenience init(inputs: MarkdownRenderInputs) {
+        self.init(
+            config: inputs.config,
+            imageRequestHeaders: inputs.imageRequestHeaders,
+            plugins: inputs.plugins.values,
+            writingDirection: inputs.writingDirection,
+            layoutDirection: UIUserInterfaceLayoutDirection(inputs.layoutDirection),
+            codeBlockLayout: inputs.codeBlockLayout
+        )
     }
 }

@@ -23,6 +23,7 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -37,7 +38,16 @@ const packageDir = path.resolve(
 );
 const repoDir = path.resolve(packageDir, '..', '..');
 const packageRelative = path.relative(repoDir, packageDir);
-const benchmarkFile = 'Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift';
+const benchmarkSuites = [
+  {
+    target: 'EnrichedMarkdownTests',
+    file: 'Tests/EnrichedMarkdownTests/PerformanceBenchmarks.swift',
+  },
+  {
+    target: 'EnrichedMarkdownStreamingTests',
+    file: 'Tests/EnrichedMarkdownStreamingTests/PerformanceBenchmarks.swift',
+  },
+];
 const workDir = path.join(tmpdir(), 'enriched-markdown-ios-benchmark');
 // Build products live outside the temp dir, which macOS prunes piecemeal.
 const cacheDir = path.join(
@@ -108,9 +118,11 @@ function runBenchmarksAt(ref, options, udid) {
       }
     }
     // A base that predates the benchmarks runs the current ones.
-    const baseBenchmark = path.join(worktree, packageRelative, benchmarkFile);
-    if (!existsSync(baseBenchmark)) {
-      copyFileSync(path.join(packageDir, benchmarkFile), baseBenchmark);
+    for (const suite of benchmarkSuites) {
+      const baseBenchmark = path.join(worktree, packageRelative, suite.file);
+      if (!existsSync(baseBenchmark) && existsSync(path.dirname(baseBenchmark))) {
+        copyFileSync(path.join(packageDir, suite.file), baseBenchmark);
+      }
     }
     return runBenchmarks(
       path.join(worktree, packageRelative),
@@ -123,10 +135,27 @@ function runBenchmarksAt(ref, options, udid) {
   }
 }
 
+function benchmarkTests(dir, options) {
+  const present = benchmarkSuites.filter((suite) =>
+    existsSync(path.join(dir, suite.file))
+  );
+  if (!options.only) {
+    return present.map((suite) => `${suite.target}/PerformanceBenchmarks`);
+  }
+  const owner = present.find((suite) =>
+    readFileSync(path.join(dir, suite.file), 'utf8').includes(
+      `func ${options.only}(`
+    )
+  );
+  if (!owner) {
+    console.error(`no PerformanceBenchmarks test named ${options.only} in ${dir}`);
+    process.exit(2);
+  }
+  return [`${owner.target}/PerformanceBenchmarks/${options.only}`];
+}
+
 function runBenchmarks(dir, label, options, udid) {
-  const suite = options.only
-    ? `EnrichedMarkdownTests/PerformanceBenchmarks/${options.only}`
-    : 'EnrichedMarkdownTests/PerformanceBenchmarks';
+  const tests = benchmarkTests(dir, options);
   const derivedData = path.join(
     cacheDir,
     `derived-${label.startsWith('base') ? 'base' : 'head'}`
@@ -145,7 +174,7 @@ function runBenchmarks(dir, label, options, udid) {
         'EnrichedMarkdown-Package',
         '-destination',
         `platform=iOS Simulator,id=${udid}`,
-        `-only-testing:${suite}`,
+        ...tests.map((test) => `-only-testing:${test}`),
         '-derivedDataPath',
         derivedData,
       ],

@@ -542,11 +542,6 @@ final class SpoilerTests: XCTestCase {
         laidOutTextView(showing: MarkdownRenderer.render(markdown, config: config, options: options), width: width, config: config)
     }
 
-    @MainActor
-    private func snapshot(of view: UIView) -> UIImage {
-        UIGraphicsImageRenderer(bounds: view.bounds).image { context in view.layer.render(in: context.cgContext) }
-    }
-
     /// Gives every layer its backing store, as a frame does. Without one,
     /// `snapshot` draws a fragment afresh and hides a missed invalidation.
     @MainActor
@@ -581,52 +576,6 @@ final class SpoilerTests: XCTestCase {
             text.addAttribute(.attachment, value: attachment, range: range)
         }
         return text
-    }
-
-    /// Bounding box, in points relative to `rect`'s origin, of the pixels in
-    /// `rect` that are more than faintly opaque; nil when there are none.
-    private func inkBounds(of image: UIImage, in rect: CGRect, matching color: UIColor? = nil) -> CGRect? {
-        guard let cgImage = image.cgImage else { return nil }
-        let scale = image.scale
-        let width = cgImage.width, height = cgImage.height
-        var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
-            guard let context = CGContext(
-                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else { return false }
-            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-            return true
-        }
-        guard drawn else { return nil }
-
-        let target = color.map { color -> [Int] in
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0
-            color.getRed(&red, green: &green, blue: &blue, alpha: nil)
-            return [red, green, blue].map { Int($0 * 255) }
-        }
-        func isInk(_ index: Int) -> Bool {
-            guard pixels[index + 3] > 64 else { return false }
-            guard let target else { return true }
-            return (0..<3).allSatisfy { abs(Int(pixels[index + $0]) - target[$0]) <= 60 }
-        }
-
-        let columns = max(0, Int(rect.minX * scale))..<min(width, Int(rect.maxX * scale))
-        let rows = max(0, Int(rect.minY * scale))..<min(height, Int(rect.maxY * scale))
-        var minX = Int.max, maxX = -1, minY = Int.max, maxY = -1
-        for row in rows {
-            for column in columns where isInk((row * width + column) * 4) {
-                minX = min(minX, column); maxX = max(maxX, column)
-                minY = min(minY, row); maxY = max(maxY, row)
-            }
-        }
-        guard maxX >= 0 else { return nil }
-        return CGRect(
-            x: (CGFloat(minX) - rect.minX * scale) / scale,
-            y: (CGFloat(minY) - rect.minY * scale) / scale,
-            width: CGFloat(maxX - minX + 1) / scale,
-            height: CGFloat(maxY - minY + 1) / scale
-        )
     }
 
     @MainActor
