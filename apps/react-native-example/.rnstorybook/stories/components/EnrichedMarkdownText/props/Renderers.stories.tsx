@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,12 +18,15 @@ import {
 } from 'react-native';
 import {
   EnrichedMarkdownText,
+  type MarkdownCodeBlock,
+  type MarkdownCodeRenderers,
   type MarkdownImageBlock,
   type MarkdownImageOccurrence,
   type MarkdownLinkBlock,
   type MarkdownRenderers,
   type MarkdownVideoBlock,
 } from 'react-native-enriched-markdown';
+import { numberControl } from '../shared/storybookMarkdownStyles';
 import { storyMeta } from '../shared/storyMeta';
 import type { TextStory } from '../shared/storyTypes';
 import { customMarkdownStyle } from '../../../../../src/markdownStyles';
@@ -120,8 +124,72 @@ A link with prose around it stays an inline link: see [the docs](https://docs.sw
 <https://reactnative.dev>
 `;
 
+// Code blocks at every placement a renderer sees, one in a list that stays
+// native, native blocks with long lines around the replaced ones (for the wrap
+// toggle), and a code block as the last block.
+const CODE_MARKDOWN = `# Code block renderers
+
+A \`mermaid\` fence becomes a diagram card and a \`diff\` fence a diff card. Every other language takes the default card, unless that control is off:
+
+\`\`\`mermaid
+graph TD
+  Prompt --> Model
+  Model --> Answer
+\`\`\`
+
+\`\`\`ts
+export function retry<T>(attempt: () => Promise<T>, times = 3): Promise<T> { return attempt().catch((error) => (times > 1 ? retry(attempt, times - 1) : Promise.reject(error))); }
+\`\`\`
+
+\`\`\`diff
+- const timeoutMs = 1000;
++ const timeoutMs = 5000;
+\`\`\`
+
+\`\`\`sh
+yarn add react-native-enriched-markdown
+\`\`\`
+
+An indented block has no language:
+
+    plain indented code
+
+> A quoted fence is replaced at the quote's inner width:
+>
+> \`\`\`json
+> { "quoted": true }
+> \`\`\`
+
+> [!NOTE]
+> \`\`\`mermaid
+> graph LR
+>   Note --> Card
+> \`\`\`
+
+- A code block in a list stays native:
+
+  \`\`\`ts
+  const listed = true;
+  \`\`\`
+
+\`\`\`py
+def stream(chunks):
+    for chunk in chunks:
+        yield chunk  # a long line so the native wrap toggle has something to wrap, well past the edge
+\`\`\`
+
+The document ends with a code block:
+
+\`\`\`mermaid
+graph TD
+  Stream --> Fence
+  Fence --> Complete
+\`\`\`
+`;
+
 type SourceMode = 'off' | 'signed' | 'pending' | 'reject';
 type MediaMode = 'progressive' | 'hidden';
+type CodeBlockMode = 'progressive' | 'hidden';
 
 function Figure({
   block,
@@ -240,7 +308,102 @@ function LinkCard({ block }: { block: MarkdownLinkBlock }) {
   );
 }
 
-const STREAM_CHUNK = 48;
+function codeIndex(block: MarkdownCodeBlock) {
+  return block.id.slice(block.id.lastIndexOf(':') + 1);
+}
+
+function CodeStatus({ block }: { block: MarkdownCodeBlock }) {
+  return (
+    <Text style={styles.codeStatus}>
+      {`${block.placement} #${codeIndex(block)} · ${
+        block.isComplete ? 'complete' : 'streaming…'
+      }`}
+    </Text>
+  );
+}
+
+function CodeCard({ block }: { block: MarkdownCodeBlock }) {
+  return (
+    <View
+      style={styles.codeCard}
+      testID={`renderer-code-${block.placement}-${block.language || 'none'}-${codeIndex(block)}`}
+    >
+      <Text style={styles.codeLanguage}>{block.language || 'text'}</Text>
+      <Text style={styles.code}>{block.code}</Text>
+      <CodeStatus block={block} />
+    </View>
+  );
+}
+
+// Draws the `A --> B` edges once the fence closes, the point where a real
+// diagram library could parse the source.
+function MermaidCard({ block }: { block: MarkdownCodeBlock }) {
+  const edges = block.code
+    .split('\n')
+    .map((line) => /^\s*(\w+)\s*-->\s*(\w+)/.exec(line))
+    .filter((match): match is RegExpExecArray => match != null);
+  return (
+    <View
+      style={[styles.codeCard, styles.mermaidCard]}
+      testID={`renderer-mermaid-${block.placement}-${codeIndex(block)}`}
+    >
+      <Text style={styles.codeLanguage}>diagram</Text>
+      {block.isComplete ? (
+        edges.map(([, from, to], index) => (
+          <Text key={index} style={styles.code}>
+            {`[${from}] ──▶ [${to}]`}
+          </Text>
+        ))
+      ) : (
+        <Text
+          style={styles.code}
+        >{`drawing… ${edges.length} edges so far`}</Text>
+      )}
+      <CodeStatus block={block} />
+    </View>
+  );
+}
+
+function DiffCard({ block }: { block: MarkdownCodeBlock }) {
+  return (
+    <View
+      style={styles.codeCard}
+      testID={`renderer-diff-${block.placement}-${codeIndex(block)}`}
+    >
+      <Text style={styles.codeLanguage}>diff</Text>
+      {block.code.split('\n').map((line, index) => (
+        <Text
+          key={index}
+          style={[
+            styles.code,
+            line.startsWith('+') && styles.diffAdded,
+            line.startsWith('-') && styles.diffRemoved,
+          ]}
+        >
+          {line}
+        </Text>
+      ))}
+      <CodeStatus block={block} />
+    </View>
+  );
+}
+
+const CARD_LANGUAGES: MarkdownCodeRenderers['languages'] = {
+  mermaid: {
+    pattern: '^mermaid$',
+    content: (block) => <MermaidCard block={block} />,
+  },
+  diff: {
+    pattern: /^(diff|patch)$/i,
+    content: (block) => <DiffCard block={block} />,
+  },
+};
+
+// A matched renderer that declines keeps the native block; default is not tried.
+const DECLINED_SHELL: MarkdownCodeRenderers['languages'] = {
+  shell: { pattern: '^(sh|bash)$', content: () => undefined },
+};
+
 const STREAM_INTERVAL_MS = 120;
 
 type RenderersControls = {
@@ -251,16 +414,41 @@ type RenderersControls = {
   mediaMode: MediaMode;
   sourceMode: SourceMode;
   allowTrailingMargin: boolean;
+  streamSpeed: number;
+  replaceCode: boolean;
+  codeDefault: boolean;
+  codeLanguages: boolean;
+  declineShell: boolean;
+  codeBlockMode: CodeBlockMode;
 };
 
-const defaultControls: RenderersControls = {
+// Storybook shows a control for every arg, so a story's args hold only its
+// own controls and the rest keep these defaults.
+const mediaControls = {
   replaceImages: true,
   replaceVideos: true,
   replaceLinks: true,
   keepQuotedNative: false,
-  mediaMode: 'hidden',
-  sourceMode: 'off',
+  mediaMode: 'hidden' as MediaMode,
+  sourceMode: 'off' as SourceMode,
   allowTrailingMargin: false,
+  streamSpeed: 400,
+};
+
+const codeControls = {
+  replaceCode: true,
+  codeDefault: true,
+  codeLanguages: true,
+  declineShell: false,
+  codeBlockMode: 'progressive' as CodeBlockMode,
+  allowTrailingMargin: false,
+  streamSpeed: 400,
+};
+
+const defaultControls: RenderersControls = {
+  ...mediaControls,
+  ...codeControls,
+  replaceCode: false,
 };
 
 function RenderersStory({
@@ -274,6 +462,12 @@ function RenderersStory({
   mediaMode,
   sourceMode,
   allowTrailingMargin,
+  streamSpeed,
+  replaceCode,
+  codeDefault,
+  codeLanguages,
+  declineShell,
+  codeBlockMode,
 }: RenderersControls & {
   title: string;
   description: string;
@@ -291,16 +485,20 @@ function RenderersStory({
   const startStreaming = useCallback(() => {
     stopStreaming();
     let shown = 0;
+    const chunk = Math.max(
+      1,
+      Math.round((streamSpeed * STREAM_INTERVAL_MS) / 1000)
+    );
     setStreamed('');
     streamTimer.current = setInterval(() => {
-      shown = Math.min(fullMarkdown.length, shown + STREAM_CHUNK);
+      shown = Math.min(fullMarkdown.length, shown + chunk);
       setStreamed(fullMarkdown.slice(0, shown));
       if (shown >= fullMarkdown.length) {
         stopStreaming();
         setStreamed(null);
       }
     }, STREAM_INTERVAL_MS);
-  }, [fullMarkdown, stopStreaming]);
+  }, [fullMarkdown, streamSpeed, stopStreaming]);
 
   // The button's stop: the full document comes back and the run can restart.
   const cancelStreaming = useCallback(() => {
@@ -329,8 +527,29 @@ function RenderersStory({
         : undefined,
       video: replaceVideos ? (block) => <VideoCard block={block} /> : undefined,
       link: replaceLinks ? (block) => <LinkCard block={block} /> : undefined,
+      code: replaceCode
+        ? {
+            default: codeDefault
+              ? (block) => <CodeCard block={block} />
+              : undefined,
+            languages: {
+              ...(codeLanguages && CARD_LANGUAGES),
+              ...(declineShell && DECLINED_SHELL),
+            },
+          }
+        : undefined,
     }),
-    [replaceImages, replaceVideos, replaceLinks, keepQuotedNative, onImagePress]
+    [
+      replaceImages,
+      replaceVideos,
+      replaceLinks,
+      keepQuotedNative,
+      onImagePress,
+      replaceCode,
+      codeDefault,
+      codeLanguages,
+      declineShell,
+    ]
   );
 
   const resolveImageSource = useMemo(() => {
@@ -392,7 +611,7 @@ function RenderersStory({
         renderers={renderers}
         resolveImageSource={resolveImageSource}
         streamingAnimation={streaming}
-        streamingConfig={{ mediaMode }}
+        streamingConfig={{ mediaMode, codeBlockMode }}
         allowTrailingMargin={allowTrailingMargin}
         onImagePress={({ url, altText }) =>
           setLastPressed(`${altText || url} (native)`)
@@ -437,40 +656,88 @@ const argTypes = {
     control: { type: 'boolean' as const },
     description: 'allowTrailingMargin',
   },
+  streamSpeed: numberControl(
+    'Characters per second the stream button appends, read when a stream starts',
+    { min: 10, max: 2000, step: 10 }
+  ),
+};
+
+const codeArgTypes = {
+  replaceCode: {
+    control: { type: 'boolean' as const },
+    description: 'renderers.code set',
+  },
+  codeDefault: {
+    control: { type: 'boolean' as const },
+    description:
+      'renderers.code.default set: off, a language without an entry stays native',
+  },
+  codeLanguages: {
+    control: { type: 'boolean' as const },
+    description: 'renderers.code.languages has the mermaid and diff entries',
+  },
+  declineShell: {
+    control: { type: 'boolean' as const },
+    description:
+      'a shell entry that returns undefined: sh stays native even with a default',
+  },
+  codeBlockMode: {
+    options: ['progressive', 'hidden'] as const,
+    control: { type: 'select' as const },
+    description: 'streamingConfig.codeBlockMode while the stream button runs',
+  },
+  allowTrailingMargin: argTypes.allowTrailingMargin,
+  streamSpeed: argTypes.streamSpeed,
 };
 
 export default storyMeta('Props', 'Renderers');
 
-export const Default: TextStory<RenderersControls> = {
-  args: { markdown: MARKDOWN, ...defaultControls },
+export const Default: TextStory<Partial<RenderersControls>> = {
+  args: { markdown: MARKDOWN, ...mediaControls },
   argTypes,
   render: ({ markdown, ...controls }) => (
     <RenderersStory
       title="Custom block renderers"
       description="renderers.image and renderers.video replace standalone images and video blocks with React components, placed where the native layout reserved space. Stream the document to see blocks arrive."
       markdown={markdown}
-      {...(controls as RenderersControls)}
+      {...defaultControls}
+      {...controls}
     />
   ),
 };
 
-export const LinkCards: TextStory<RenderersControls> = {
-  args: { markdown: LINKS_MARKDOWN, ...defaultControls },
+export const LinkCards: TextStory<Partial<RenderersControls>> = {
+  args: { markdown: LINKS_MARKDOWN, ...mediaControls },
   argTypes,
   render: ({ markdown, ...controls }) => (
     <RenderersStory
       title="Link cards"
       description="renderers.link replaces a link that stands alone in a paragraph: a bracketed link, an autolink or a bare URL. Links inside prose stay inline."
       markdown={markdown}
-      {...(controls as RenderersControls)}
+      {...defaultControls}
+      {...controls}
     />
   ),
 };
 
-export const ResolvedSources: TextStory<RenderersControls> = {
+export const CodeBlocks: TextStory<Partial<RenderersControls>> = {
+  args: { markdown: CODE_MARKDOWN, ...codeControls },
+  argTypes: codeArgTypes,
+  render: ({ markdown, ...controls }) => (
+    <RenderersStory
+      title="Code block renderers"
+      description="renderers.code replaces code blocks: the longest matching language pattern, else default, else the native block. Stream the document to see a fence grow in place and turn complete at its closing fence."
+      markdown={markdown}
+      {...defaultControls}
+      {...controls}
+    />
+  ),
+};
+
+export const ResolvedSources: TextStory<Partial<RenderersControls>> = {
   args: {
     markdown: MARKDOWN,
-    ...defaultControls,
+    ...mediaControls,
     replaceImages: false,
     sourceMode: 'signed',
   },
@@ -480,7 +747,8 @@ export const ResolvedSources: TextStory<RenderersControls> = {
       title="Resolved image sources"
       description="resolveImageSource decides what every image, native or replaced, loads: a signed URL with headers, a pending placeholder, or a rejection that keeps the placeholder."
       markdown={markdown}
-      {...(controls as RenderersControls)}
+      {...defaultControls}
+      {...controls}
     />
   ),
 };
@@ -566,4 +834,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerText: { color: '#5B6478', fontSize: 13 },
+  codeCard: {
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+    backgroundColor: '#101828',
+  },
+  mermaidCard: { backgroundColor: '#001A72' },
+  codeLanguage: {
+    color: '#BEEBD0',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  code: {
+    color: '#E4E7EC',
+    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+    fontSize: 13,
+  },
+  codeStatus: { color: '#98A2B3', fontSize: 11 },
+  diffAdded: { color: '#7EE2A8' },
+  diffRemoved: { color: '#FF8F8F' },
 });

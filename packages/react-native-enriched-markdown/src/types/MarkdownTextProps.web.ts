@@ -147,9 +147,9 @@ export interface EnrichedMarkdownTextProps extends Omit<
   dir?: 'ltr' | 'rtl' | 'auto';
   /**
    * React replacements for blocks, keyed by kind: a paragraph whose only
-   * content is an image or a link, and `<video>` blocks, directly in the
-   * document, a blockquote or an admonition, outside any list. Return nothing
-   * (`undefined`) to keep the default rendering for a block.
+   * content is an image or a link, `<video>` blocks and code blocks, directly
+   * in the document, a blockquote or an admonition, outside any list. Return
+   * nothing (`undefined`) to keep the default rendering for a block.
    * @platform ios, android, web
    */
   renderers?: MarkdownRenderers;

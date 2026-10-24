@@ -28,8 +28,12 @@ export type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
+  MarkdownCodeBlockRenderer,
+  MarkdownCodeLanguageRenderer,
+  MarkdownCodeRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
@@ -555,17 +559,23 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
   /**
-   * React replacements for block media, keyed by kind. Each renderer receives the
+   * React replacements for blocks, keyed by kind. Each renderer receives the
    * block and returns the element to show in its place, or nothing (`undefined`)
    * to keep the native rendering. The element is laid out by React at the block's
    * width and must have an intrinsic height; the surrounding Markdown stays
    * native and keeps its position, selection and accessibility.
    *
-   * Applies to a paragraph whose only content is an image or a link, and to
-   * `<video>` blocks, directly in the document, a blockquote or an admonition
-   * outside any list. Images and links in lists, tables, headings and running
-   * text stay native. A link block keeps its native tappable link when no
-   * renderer claims it.
+   * Applies to a paragraph whose only content is an image or a link, to
+   * `<video>` blocks and to code blocks, directly in the document, a blockquote
+   * or an admonition outside any list. Images, links and code blocks in lists,
+   * tables, headings and running text stay native. A link block keeps its
+   * native tappable link when no renderer claims it.
+   *
+   * `code` takes one renderer for every code block, or a `default` plus
+   * renderers by language, matched against the fence language by regex (the
+   * longest matching pattern wins). With no match and no `default`, the code
+   * block stays native. While a fence streams in, the same element re-renders
+   * with the growing `code`, and `isComplete` turns `true` at the closing fence.
    *
    * A renderer runs once per block and again only when that block or any
    * renderer function changes, so a streaming append does not re-render the
@@ -575,7 +585,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * text, keeps the native block (with a dev warning) until it runs again.
    *
    * A replaced block's element owns its presses: `onImagePress`,
-   * `onLinkPress`, `onLinkLongPress` and the link menu do not fire for it.
+   * `onLinkPress`, `onLinkLongPress`, `onCodeBlockPress` and the link menu do
+   * not fire for it.
    *
    * Only applies when `flavor="github"`.
    *
@@ -583,6 +594,11 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * renderers={{
    *   image: ({ url, altText }) => <FastImage source={{ uri: url }} accessibilityLabel={altText} />,
    *   video: ({ url }) => <Video source={{ uri: url }} />,
+   *   code: {
+   *     languages: {
+   *       mermaid: { pattern: '^mermaid$', content: ({ code }) => <Mermaid source={code} /> },
+   *     },
+   *   },
    * }}
    * @platform ios, android, web
    */
