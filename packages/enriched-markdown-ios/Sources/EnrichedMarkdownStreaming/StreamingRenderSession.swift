@@ -81,7 +81,7 @@ final class StreamingRenderSession: MarkdownStreamingSession {
             options: options,
             latexMath: parsingOptions.latexMathEnabled
         )
-        return StreamingMarkdownRepair.repair(filtered, syntax: StreamingMarkdownRepair.Syntax(options: parsingOptions))
+        return StreamingMarkdownRepair.repair(filtered, options: parsingOptions)
     }
 
     private func render(

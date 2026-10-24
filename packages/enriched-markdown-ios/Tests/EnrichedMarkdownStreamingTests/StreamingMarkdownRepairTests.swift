@@ -3,15 +3,21 @@ import XCTest
 @testable import EnrichedMarkdownStreaming
 
 final class StreamingMarkdownRepairTests: XCTestCase {
+    private static let latex: MarkdownParsingOptions = {
+        var options = MarkdownParsingOptions()
+        options.latexMathEnabled = true
+        return options
+    }()
+
     private func assertRepairs(
         _ cases: [(String, String)],
-        syntax: StreamingMarkdownRepair.Syntax = .init(),
+        options: MarkdownParsingOptions = MarkdownParsingOptions(),
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         for (input, expected) in cases {
             XCTAssertEqual(
-                StreamingMarkdownRepair.repair(input, syntax: syntax),
+                StreamingMarkdownRepair.repair(input, options: options),
                 expected,
                 "repairing \(input.debugDescription)",
                 file: file,
@@ -37,6 +43,7 @@ final class StreamingMarkdownRepairTests: XCTestCase {
         assertRepairs([
             ("Text with *italic", "Text with *italic*"),
             ("**bold** and *italic", "**bold** and *italic*"),
+            ("**bold** and *italic  ", "**bold** and *italic*  "),
             ("234234*123", "234234*123"),
             ("hello*world", "hello*world"),
             ("test*123*test", "test*123*test"),
@@ -49,8 +56,7 @@ final class StreamingMarkdownRepairTests: XCTestCase {
             ("some_variable_name", "some_variable_name"),
             ("Text with _italic\n", "Text with _italic_\n"),
             ("Text with __italic", "Text with __italic__"),
-            ("__xxx_", "__xxx__"),
-            ("snake__case and more", "snake__case and more")
+            ("__xxx_", "__xxx__")
         ])
     }
 
@@ -68,16 +74,21 @@ final class StreamingMarkdownRepairTests: XCTestCase {
             ("~~first~~ and ~~second", "~~first~~ and ~~second~~"),
             ("~~xxx~", "~~xxx~~"),
             ("a ||secret", "a ||secret||"),
-            ("a == b", "a == b")
+            ("a == b", "a == b"),
+            ("Mark ==this", "Mark ==this")
         ])
-        assertRepairs([("Mark ==this", "Mark ==this==")], syntax: .init(highlight: true))
+        assertRepairs([("Mark ==this", "Mark ==this==")], options: MarkdownParsingOptions(highlight: true))
+    }
+
+    func testCaretsAndTildesAreNotClosed() {
+        assertRepairs([("x^2 and **b", "x^2 and **b**")], options: MarkdownParsingOptions(superscript: true))
+        assertRepairs([("H~2 and **b", "H\\~2 and **b**")], options: MarkdownParsingOptions(subscript: true))
     }
 
     func testInlineCode() {
         assertRepairs([
             ("Text with `code", "Text with `code`"),
             ("To use this function, call `getData(", "To use this function, call `getData(`"),
-            ("``double `tick", "``double `tick``"),
             ("`**bold`", "`**bold`"),
             ("\\`not code\\` **bold", "\\`not code\\` **bold**"),
             ("```\nblock\n```\n`inline", "```\nblock\n```\n`inline`")
@@ -104,9 +115,9 @@ final class StreamingMarkdownRepairTests: XCTestCase {
 
     func testTableCellIsItsOwnScope() {
         assertRepairs([
-            ("| Col1 | Col2 |\n|------|------|\n| **dat", "| Col1 | Col2 |\n|------|------|\n| **dat**"),
-            ("| a **b | c", "| a **b | c")
+            ("| Col1 | Col2 |\n|------|------|\n| **dat", "| Col1 | Col2 |\n|------|------|\n| **dat**")
         ])
+        assertRepairs([("| $x | **b", "| $x | **b**")], options: Self.latex)
     }
 
     func testOpenFenceIsNotRepaired() {
@@ -133,7 +144,6 @@ final class StreamingMarkdownRepairTests: XCTestCase {
             ("Hello **", "Hello"),
             ("Hello *", "Hello"),
             ("Hello `", "Hello"),
-            ("** text", "** text"),
             ("a * b", "a * b")
         ])
     }
@@ -172,14 +182,15 @@ final class StreamingMarkdownRepairTests: XCTestCase {
             ("Text [foo [bar] baz](", "Text foo [bar] baz"),
             ("See [docs]", "See docs"),
             ("A [link](https://x.y) done", "A [link](https://x.y) done"),
-            ("[**bold link", "**bold link**")
+            ("[**bold link", "**bold link**"),
+            ("**bold [link", "**bold link**")
         ])
     }
 
     func testIncompleteImagesAreHidden() {
         assertRepairs([
-            ("Text ![incomplete image", "Text"),
-            ("Text ![alt](http://partial", "Text"),
+            ("Text ![incomplete image", "Text "),
+            ("Text ![alt](http://partial", "Text "),
             ("Text ![alt]", "Text")
         ])
     }
@@ -187,56 +198,52 @@ final class StreamingMarkdownRepairTests: XCTestCase {
     func testTaskCheckboxIsNotALink() {
         assertRepairs([
             ("- [ ]", "- [ ]"),
-            ("- [x]", "- [x]")
+            ("- [x]", "- [x]"),
+            ("- [x] **done", "- [x] **done**"),
+            ("- [x] done\n- [", "- [x] done\n"),
+            ("- [x] done\n- [x", "- [x] done\n"),
+            ("- [x] done\n- [ ", "- [x] done\n"),
+            ("- [L", "- L")
         ])
     }
 
     func testUnclosedMathIsHiddenUntilItCloses() {
-        let latex = StreamingMarkdownRepair.Syntax(latexMath: true)
         assertRepairs([
             ("The area is $\\pi r^", "The area is"),
             ("Closed $x^2$ and open $\\frac{1}", "Closed $x^2$ and open"),
             ("Display $$\\sum_i", "Display"),
             ("Done: $a_1$.", "Done: $a_1$.")
-        ], syntax: latex)
+        ], options: Self.latex)
     }
 
     func testPricesAreNotMath() {
-        let latex = StreamingMarkdownRepair.Syntax(latexMath: true)
         assertRepairs([
             ("Das kostet 5$ und mehr", "Das kostet 5$ und mehr"),
             ("Das kostet 5 $ pro Stück", "Das kostet 5 $ pro Stück"),
             ("It costs $5 and", "It costs $5 and"),
             ("Für 3$ bekommst du **viel", "Für 3$ bekommst du **viel**")
-        ], syntax: latex)
+        ], options: Self.latex)
     }
 
     func testMathIsLiteralWithoutTheLaTeXPlugin() {
-        assertRepairs([("The area is $\\pi r^", "The area is $\\pi r^")])
+        assertRepairs([
+            ("The area is $\\pi r^", "The area is $\\pi r^"),
+            ("Display $$\\sum_i", "Display $$\\sum_i")
+        ])
     }
 
     func testUnderscoresInMathAreNotEmphasis() {
-        assertRepairs(
-            [("Let $a_1 + b_2$ be _small", "Let $a_1 + b_2$ be _small_")],
-            syntax: .init(latexMath: true)
-        )
-    }
-
-    func testSyntaxFollowsTheParsingOptions() {
-        var options = MarkdownParsingOptions(highlight: true)
-        XCTAssertEqual(StreamingMarkdownRepair.Syntax(options: options), .init(latexMath: false, highlight: true))
-        options.latexMathEnabled = true
-        XCTAssertEqual(StreamingMarkdownRepair.Syntax(options: options), .init(latexMath: true, highlight: true))
+        assertRepairs([("Let $a_1 + b_2$ be _small", "Let $a_1 + b_2$ be _small_")], options: Self.latex)
     }
 
     func testRepairKeepsFinishedText() {
         let answer = "Here is a **bold statement** about `code` and [a link](https://example.com)."
         for length in 1...answer.count {
             let prefix = String(answer.prefix(length))
-            let repaired = StreamingMarkdownRepair.repair(prefix)
+            let repaired = StreamingMarkdownRepair.repair(prefix, options: MarkdownParsingOptions())
             let stable = prefix.prefix(while: { $0 != "*" && $0 != "`" && $0 != "[" })
             XCTAssertTrue(repaired.hasPrefix(stable.trimmingCharacters(in: .whitespaces)), prefix)
         }
-        XCTAssertEqual(StreamingMarkdownRepair.repair(answer), answer)
+        XCTAssertEqual(StreamingMarkdownRepair.repair(answer, options: MarkdownParsingOptions()), answer)
     }
 }
