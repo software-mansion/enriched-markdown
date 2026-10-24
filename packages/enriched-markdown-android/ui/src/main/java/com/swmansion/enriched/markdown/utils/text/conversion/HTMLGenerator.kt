@@ -21,6 +21,7 @@ import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
@@ -333,6 +334,9 @@ object HTMLGenerator {
       state.previousWasBlockquote = false
       return
     }
+
+    // A block's bottom-margin line inside a list item or a quote holds no content of its own.
+    if (paraText.isEmpty() && text.getSpans(para.start, para.start + 1, MarginBottomSpan::class.java).isNotEmpty()) return
 
     // Get content range (trim trailing newline)
     val contentEnd = if (para.end > para.start && text[para.end - 1] == '\n') para.end - 1 else para.end

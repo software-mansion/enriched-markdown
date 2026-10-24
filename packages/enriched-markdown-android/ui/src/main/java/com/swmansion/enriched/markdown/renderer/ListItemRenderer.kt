@@ -39,7 +39,8 @@ class ListItemRenderer(
 
     val depth = styleContext.listDepth - 1
     val listStyle = config.style.listStyle
-    val span =
+
+    fun makeSpan(drawsMarker: Boolean): BaseListSpan =
       if (isTask) {
         TaskListSpan(
           taskStyle = config.style.taskListStyle,
@@ -49,6 +50,7 @@ class ListItemRenderer(
           styleCache = factory.styleCache,
           taskIndex = taskIndex,
           isChecked = isChecked,
+          drawsMarker = drawsMarker,
           ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
           markerExtraWidth = styleContext.listMarkerExtra,
           parentMarkerWidth = styleContext.listItemMarkerWidth,
@@ -61,6 +63,7 @@ class ListItemRenderer(
               depth,
               factory.context,
               factory.styleCache,
+              drawsMarker,
               ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
               parentMarkerWidth = styleContext.listItemMarkerWidth,
             )
@@ -72,6 +75,7 @@ class ListItemRenderer(
               depth,
               factory.context,
               factory.styleCache,
+              drawsMarker,
               markerExtraWidth = styleContext.listMarkerExtra,
               ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
               parentMarkerWidth = styleContext.listItemMarkerWidth,
@@ -82,27 +86,66 @@ class ListItemRenderer(
         }
       }
 
+    val markerSpan = makeSpan(drawsMarker = true)
+
     // Nested lists inside this item shift by its extra marker width and measure their indent from its column.
+    // Code blocks inside it start at its text column, since the item's spans leave their lines (see below).
     val previousMarkerExtra = styleContext.listItemMarkerExtra
-    styleContext.listItemMarkerExtra = span.markerExtraWidth
+    styleContext.listItemMarkerExtra = markerSpan.markerExtraWidth
     val previousMarkerWidth = styleContext.listItemMarkerWidth
-    styleContext.listItemMarkerWidth = span.baselineMarkerWidth
+    styleContext.listItemMarkerWidth = markerSpan.baselineMarkerWidth
+    val previousIndent = styleContext.accumulatedIndent
+    styleContext.accumulatedIndent = previousIndent + markerSpan.getLeadingMargin(false)
     try {
       factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
     } finally {
+      styleContext.accumulatedIndent = previousIndent
       styleContext.listItemMarkerExtra = previousMarkerExtra
       styleContext.listItemMarkerWidth = previousMarkerWidth
     }
 
     if (builder.length == start || builder.substring(start).isBlank()) return
 
-    while (builder.length > start && builder.last() == '\n') {
-      builder.delete(builder.length - 1, builder.length)
+    if (builder.last() != '\n') {
+      builder.append("\n")
     }
-    builder.append("\n")
 
     val itemEnd = builder.length
-    builder.setSpan(span, start, itemEnd, SPAN_FLAGS_LIST_ITEM)
+
+    val codeBlocks = builder.getSpans(start, itemEnd, CodeBlockSpan::class.java)
+    // Nested items render first, so a code block keeps the innermost item that holds it.
+    for (block in codeBlocks) {
+      if (block.listItem == null) block.listItem = markerSpan
+    }
+
+    val codeBlockRanges =
+      codeBlocks
+        .map { builder.getSpanStart(it) to builder.getSpanEnd(it) }
+        .filter { it.first < it.second }
+        .sortedBy { it.first }
+
+    var segmentStart = start
+    var isFirstSegment = true
+    for ((codeStart, codeEnd) in codeBlockRanges) {
+      if (segmentStart < codeStart) {
+        builder.setSpan(
+          if (isFirstSegment) markerSpan else makeSpan(drawsMarker = false),
+          segmentStart,
+          codeStart,
+          SPAN_FLAGS_LIST_ITEM,
+        )
+        isFirstSegment = false
+      }
+      segmentStart = maxOf(segmentStart, codeEnd)
+    }
+    if (segmentStart < itemEnd) {
+      builder.setSpan(
+        if (isFirstSegment) markerSpan else makeSpan(drawsMarker = false),
+        segmentStart,
+        itemEnd,
+        SPAN_FLAGS_LIST_ITEM,
+      )
+    }
 
     if (isChecked) {
       applyCheckedDecorations(builder, start, itemEnd, depth)

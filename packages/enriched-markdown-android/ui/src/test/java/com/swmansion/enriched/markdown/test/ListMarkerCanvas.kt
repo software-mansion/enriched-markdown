@@ -28,8 +28,13 @@ data class MarkerGeometry(
   val direction: Int,
 )
 
-/** Records the list markers a layout draws instead of painting them. */
-class MarkerCanvas : Canvas(Bitmap.createBitmap(LAYOUT_WIDTH, 1, Bitmap.Config.ARGB_8888)) {
+/**
+ * Records the list markers a layout draws instead of painting them. Rectangles in [ignoredColors]
+ * are not markers: a quote bar or a strikethrough drawn in that color.
+ */
+class MarkerCanvas(
+  private val ignoredColors: Set<Int> = emptySet(),
+) : Canvas(Bitmap.createBitmap(LAYOUT_WIDTH, 1, Bitmap.Config.ARGB_8888)) {
   val markers = mutableListOf<DrawnMarker>()
 
   // Layout draws only the lines inside the clip; report one tall enough for every list.
@@ -58,7 +63,7 @@ class MarkerCanvas : Canvas(Bitmap.createBitmap(LAYOUT_WIDTH, 1, Bitmap.Config.A
     paint: Paint,
   ) {
     // Bullets from depth 2 on are squares, centered like the round ones.
-    markers += DrawnMarker(left, (left + right) / 2f, (top + bottom) / 2f)
+    if (paint.color !in ignoredColors) markers += DrawnMarker(left, (left + right) / 2f, (top + bottom) / 2f)
     super.drawRect(left, top, right, bottom, paint)
   }
 
@@ -96,9 +101,11 @@ class MarkerCanvas : Canvas(Bitmap.createBitmap(LAYOUT_WIDTH, 1, Bitmap.Config.A
         .apply { if (rtl) setTextDirection(TextDirectionHeuristics.RTL) }
         .build()
 
-    /** The markers [layout] draws, top to bottom. */
-    fun drawMarkers(layout: Layout): List<DrawnMarker> =
-      MarkerCanvas().also(layout::draw).markers.sortedWith(compareBy({ it.baseline }, { it.left }))
+    /** The markers [layout] draws, top to bottom, leaving out rectangles in [ignoredColors]. */
+    fun drawMarkers(
+      layout: Layout,
+      ignoredColors: Set<Int> = emptySet(),
+    ): List<DrawnMarker> = MarkerCanvas(ignoredColors).also(layout::draw).markers.sortedWith(compareBy({ it.baseline }, { it.left }))
 
     /** Every marker [layout] draws, with the text edges, direction and depth of its paragraph. */
     fun markerGeometry(

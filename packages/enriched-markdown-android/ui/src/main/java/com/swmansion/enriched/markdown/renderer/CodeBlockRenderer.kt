@@ -25,6 +25,10 @@ class CodeBlockRenderer(
     onLinkLongPress: ((String) -> Unit)?,
     factory: RendererFactory,
   ) {
+    if (builder.isNotEmpty() && builder.last() != '\n') {
+      builder.append("\n")
+    }
+
     val start = builder.length
     val style = config.style.codeBlockStyle
     val context = factory.blockStyleContext
@@ -49,7 +53,7 @@ class CodeBlockRenderer(
 
     // Apply background, borders, and horizontal padding to content only
     builder.setSpan(
-      CodeBlockSpan(style, factory.context, factory.styleCache),
+      CodeBlockSpan(style, factory.context, factory.styleCache, context.accumulatedIndent),
       contentStart,
       end,
       SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,

@@ -22,6 +22,8 @@ import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultTas
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithTaskList
 import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.createContainerWithStoredMarkdown
+import com.swmansion.enriched.markdown.test.MarkerCanvas
+import com.swmansion.enriched.markdown.test.TestAstFactory.codeBlock
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
@@ -224,6 +226,35 @@ class TaskListInteractionTest {
     // one's margin, so reordering them moves where a marker is painted.
     assertEquals("Toggling must not reorder the list markers", before, textView.leadingMarginSpans())
     assertTrue((textView.text as Spannable).taskSpanCovering("Second nested").isChecked)
+  }
+
+  @Test
+  fun togglesTheWholeTaskAroundItsCodeBlock() {
+    val style = decoratedStyle()
+    val task =
+      document(
+        unorderedList(
+          taskListItem(checked = false, paragraph(text("Open task")), codeBlock("val x = 1\n"), paragraph(text("After code"))),
+          taskListItem(checked = false, paragraph(text("Next task"))),
+        ),
+      )
+    val textView = laidOutTextView(render(task, style))
+    val text = textView.text as Spannable
+    val before = textView.leadingMarginSpans()
+    val hit = TaskListTapUtils.hitTest(textView, rawX = 1f, rawY = lineCenterY(textView, line = 0))
+
+    assertEquals(0, hit!!.taskIndex)
+    assertEquals("Open task", hit.itemText)
+    assertTrue(TaskListTapUtils.updateTaskListItemCheckedState(textView, hit.span, newChecked = true, style))
+
+    assertEquals("Toggling must not reorder the list markers", before, textView.leadingMarginSpans())
+    val afterLine = textView.layout.getLineForOffset(text.indexOf("After code"))
+    assertEquals(true, TaskListTapUtils.hitTest(textView, rawX = 1f, rawY = lineCenterY(textView, afterLine))?.checked)
+    assertTrue(text.hasDecoration<AndroidStrikethroughSpan>("Open task"))
+    assertTrue("The text after the code block is part of the item", text.hasDecoration<AndroidStrikethroughSpan>("After code"))
+    assertFalse("Code blocks keep their own styling", text.hasDecoration<AndroidStrikethroughSpan>("val x = 1"))
+    assertFalse(text.hasDecoration<AndroidStrikethroughSpan>("Next task"))
+    assertFalse(text.taskSpanCovering("Next task").isChecked)
   }
 
   @Test
@@ -528,6 +559,10 @@ class TaskListInteractionTest {
     x: Float,
     y: Float,
   ): MotionEvent = MotionEvent.obtain(0L, 0L, action, x, y, 0)
+
+  /** The markers drawn in a line's leading margin; a checked item's strikethrough is drawn past it. */
+  private fun TextView.checkboxCount(): Int =
+    MarkerCanvas.drawMarkers(layout).count { it.right <= layout.getParagraphLeft(layout.getLineForVertical(it.baseline.toInt())) }
 
   private fun TextView.leadingMarginSpans(): List<LeadingMarginSpan> {
     val spanned = text as Spanned

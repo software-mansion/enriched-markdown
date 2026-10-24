@@ -108,6 +108,20 @@ object MarkdownRenderTestSupport {
     taskListStyle: TaskListStyle? = null,
   ): StyleConfig = copyOfDefault(listStyle = listStyle, taskListStyle = taskListStyle)
 
+  /** [defaultStyle] with its [ListStyle] and [CodeBlockStyle] and, when given, its [TaskListStyle] and [BlockquoteStyle] replaced. */
+  fun styleWithListAndCodeBlock(
+    listStyle: ListStyle,
+    codeBlockStyle: CodeBlockStyle,
+    taskListStyle: TaskListStyle? = null,
+    blockquoteStyle: BlockquoteStyle? = null,
+  ): StyleConfig =
+    copyOfDefault(
+      listStyle = listStyle,
+      codeBlockStyle = codeBlockStyle,
+      taskListStyle = taskListStyle,
+      blockquoteStyle = blockquoteStyle,
+    )
+
   /** [defaultStyle] with only its [TaskListStyle] replaced. */
   fun styleWithTaskList(taskListStyle: TaskListStyle): StyleConfig = copyOfDefault(taskListStyle = taskListStyle)
 

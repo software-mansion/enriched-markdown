@@ -46,6 +46,7 @@ class BlockStyleContext {
   var listItemMarkerExtra = 0f
   var listItemMarkerWidth: Float? = null
   var taskItemCount = 0
+  var accumulatedIndent = 0
 
   private val orderedListItemNumbers = ArrayDeque<Int>()
 
@@ -158,6 +159,7 @@ class BlockStyleContext {
     listItemMarkerExtra = 0f
     listItemMarkerWidth = null
     taskItemCount = 0
+    accumulatedIndent = 0
     orderedListItemNumbers.clear()
   }
 }
