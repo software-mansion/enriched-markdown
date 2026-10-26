@@ -25,8 +25,8 @@ import com.swmansion.enriched.markdown.parser.Md4cFlags
 import com.swmansion.enriched.markdown.parser.Parser
 import com.swmansion.enriched.markdown.renderer.Renderer
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
-import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
@@ -121,7 +121,14 @@ class EnrichedMarkdownText
     private var fadeAnimator: TailFadeInAnimator? = null
     override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
       private set
-    var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
+
+    /** How unrevealed `||spoiler||` text is concealed. */
+    override var spoilerOverlay: SpoilerOverlayMode = SpoilerOverlayMode.PARTICLES
+      set(value) {
+        if (field == value) return
+        field = value
+        spoilerOverlayDrawer?.overlayMode = value
+      }
 
     private var pendingStyledText: CharSequence? = null
 
@@ -334,6 +341,7 @@ class EnrichedMarkdownText
         setTextSize(TypedValue.COMPLEX_UNIT_PX, it)
       }
 
+      SpoilerOverlayDrawer.carryOverReveals(text, styledText)
       text = styledText
 
       applyInteractivity()
@@ -597,18 +605,15 @@ class EnrichedMarkdownText
     }
 
     override fun onDetachedFromWindow() {
-      stopSpoilerAnimations()
+      // Kept, not cleared: the text stays concealed, and the next draw after reattaching picks the
+      // animation back up.
+      spoilerOverlayDrawer?.stop()
       super.onDetachedFromWindow()
     }
 
     override fun onDraw(canvas: Canvas) {
       super.onDraw(canvas)
       spoilerOverlayDrawer?.draw(canvas)
-    }
-
-    private fun stopSpoilerAnimations() {
-      spoilerOverlayDrawer?.stop()
-      spoilerOverlayDrawer = null
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

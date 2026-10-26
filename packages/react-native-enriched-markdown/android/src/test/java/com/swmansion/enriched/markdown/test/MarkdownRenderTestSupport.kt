@@ -26,12 +26,14 @@ object MarkdownRenderTestSupport {
   }
 
   /**
-   * The style map the JS side sends, with [list] and [taskList] entries replacing the defaults.
+   * The style map the JS side sends, with [list] and [taskList] entries replacing the defaults, and
+   * [elements] merging entries into any other element (e.g. `"code" to mapOf("backgroundColor" to RED)`).
    * Sizes are Double, colors Int, as in a ReadableMap.
    */
   fun styleConfig(
     list: Map<String, Any> = emptyMap(),
     taskList: Map<String, Any> = emptyMap(),
+    elements: Map<String, Map<String, Any>> = emptyMap(),
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
@@ -61,8 +63,15 @@ object MarkdownRenderTestSupport {
         putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0))
       },
     )
+    (1..6).forEach { level -> style.putMap("h$level", textElement().apply { putDouble("fontSize", 32.0 - level * 2) }) }
+    style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage) })
+    style.putMap("inlineImage", JavaOnlyMap.of("size", 16.0))
     style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })
     style.putMap("list", textElement().apply { putAll(defaultList + list) })
+    for ((element, values) in elements) {
+      val map = style.getMap(element) as? JavaOnlyMap ?: JavaOnlyMap().also { style.putMap(element, it) }
+      map.putAll(values)
+    }
     return StyleConfig(style, context, false, 0f)
   }
 
@@ -76,6 +85,17 @@ object MarkdownRenderTestSupport {
       "gapWidth" to 8.0,
       "marginLeft" to 24.0,
       "itemSpacing" to 0.0,
+    )
+
+  private val defaultImage: Map<String, Any> =
+    mapOf(
+      "height" to 120.0,
+      "maxHeight" to 0.0,
+      "aspectRatio" to 0.0,
+      "resizeMode" to "",
+      "borderRadius" to 0.0,
+      "marginTop" to 0.0,
+      "marginBottom" to 0.0,
     )
 
   private val defaultTaskList: Map<String, Any> =

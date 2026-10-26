@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import com.facebook.react.common.ReactConstants
 import com.facebook.react.views.text.ReactTypefaceUtils.applyStyles
 import com.swmansion.enriched.markdown.styles.LinkVariantEntry
+import com.swmansion.enriched.markdown.styles.SpoilerStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 
 /** Shared style cache for spans to avoid redundant calculations. */
@@ -41,10 +42,7 @@ class SpanStyleCache(
   val codeFontFamily: String = style.codeStyle.fontFamily
   val codeFontSize: Float = style.codeStyle.fontSize
   val codeColor: Int = style.codeStyle.color
-  val spoilerColor: Int = style.spoilerStyle.color
-  val spoilerParticleDensity: Float = style.spoilerStyle.particleDensity
-  val spoilerParticleSpeed: Float = style.spoilerStyle.particleSpeed
-  val spoilerSolidBorderRadius: Float = style.spoilerStyle.solidBorderRadius
+  val spoilerStyle: SpoilerStyle = style.spoilerStyle
   val superscriptFontScale: Float = style.superscriptStyle.fontScale
   val superscriptBaselineOffsetScale: Float = style.superscriptStyle.baselineOffsetScale
   val subscriptFontScale: Float = style.subscriptStyle.fontScale

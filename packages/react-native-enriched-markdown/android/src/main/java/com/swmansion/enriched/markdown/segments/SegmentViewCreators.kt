@@ -10,6 +10,7 @@ import com.swmansion.enriched.markdown.EnrichedMarkdownInternalText
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
+import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayMode
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
@@ -39,6 +40,10 @@ class DynamicBlockProps {
   var copyAsMarkdownLabel: String = ""
   var onCopyPress: ((code: String, language: String) -> Unit)? = null
   var onCodeBlockPress: ((code: String, language: String) -> Unit)? = null
+
+  // The one draw-time prop here: views read it when they are created, and the root also pushes a
+  // change into the existing ones (EnrichedMarkdown.spoilerOverlay), since the tree is not rebuilt.
+  var spoilerOverlay: SpoilerOverlayMode = SpoilerOverlayMode.PARTICLES
 }
 
 /**
@@ -99,6 +104,7 @@ object SegmentViewCreators {
         justificationMode = Layout.JUSTIFICATION_MODE_INTER_WORD
       }
       lastElementMarginBottom = segment.lastElementMarginBottom
+      spoilerOverlay = config.dynamicProps.spoilerOverlay
       applyStyledText(segment.styledText)
       segment.imageSpans.forEach { it.registerTextView(this) }
 

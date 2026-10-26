@@ -6,7 +6,8 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.text.Spanned
 import android.text.style.LineBackgroundSpan
-import com.swmansion.enriched.markdown.spoiler.isConcealedBySpoiler
+import com.swmansion.enriched.markdown.spoiler.colorWithAlpha
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlin.math.max
 import kotlin.math.min
@@ -51,9 +52,10 @@ class CodeBackgroundSpan(
     val spanEnd = text.getSpanEnd(this)
     if (spanStart !in 0 until spanEnd) return
 
-    // The spoiler overlay only covers the text's glyph box, so a background drawn to the line's bounds
-    // would outline the hidden code around it.
-    if (text.isConcealedBySpoiler(maxOf(spanStart, start), minOf(spanEnd, end))) return
+    // A background under a concealed spoiler would outline the hidden code, so it fades in with
+    // the text instead.
+    val visibility = text.spoilerTextAlpha(maxOf(spanStart, start), minOf(spanEnd, end))
+    if (visibility <= 0f) return
 
     // Keep CodeSpan and this background span intact for semantic extraction. Draw only
     // portions outside replacement pills, including code surrounding a partially covered run.
@@ -86,8 +88,8 @@ class CodeBackgroundSpan(
 
       // 3. Apply Style
       val codeStyle = styleConfig.codeStyle
-      sharedBackgroundPaint.color = codeStyle.backgroundColor
-      sharedBorderPaint.color = codeStyle.borderColor
+      sharedBackgroundPaint.color = colorWithAlpha(codeStyle.backgroundColor, visibility)
+      sharedBorderPaint.color = colorWithAlpha(codeStyle.borderColor, visibility)
 
       drawShapes(canvas, isFirst, isLast)
     }

@@ -8,6 +8,24 @@ object TestAstFactory {
 
   fun text(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Text, content = content)
 
+  fun spoiler(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Spoiler, children = children.toList())
+
+  fun highlight(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.Highlight, children = children.toList())
+
+  fun code(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Code, children = listOf(text(content)))
+
+  fun link(
+    url: String,
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode = MarkdownASTNode(NodeType.Link, attributes = mapOf("url" to url), children = children.toList())
+
+  fun heading(
+    level: Int,
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode = MarkdownASTNode(NodeType.Heading, attributes = mapOf("level" to level.toString()), children = children.toList())
+
+  fun image(url: String): MarkdownASTNode = MarkdownASTNode(NodeType.Image, attributes = mapOf("url" to url))
+
   /** An ordered list; [start] is the first number, as md4c reports it. */
   fun orderedList(
     vararg items: MarkdownASTNode,

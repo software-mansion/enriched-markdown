@@ -3,7 +3,7 @@ package com.swmansion.enriched.markdown.renderer
 import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned
-import android.text.style.MetricAffectingSpan
+import android.text.style.CharacterStyle
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.ImageSpan
@@ -45,7 +45,7 @@ class RendererFactory(
    * [shiftDeferredSpans], so the recorded ranges keep following their text.
    */
   private class DeferredSpan(
-    val span: MetricAffectingSpan,
+    val span: CharacterStyle,
     var start: Int,
     var end: Int,
   )
@@ -54,12 +54,19 @@ class RendererFactory(
   private val afterRenderActions = mutableListOf<(Spanned) -> Unit>()
 
   fun registerDeferredSpan(
-    span: MetricAffectingSpan,
+    span: CharacterStyle,
     start: Int,
     end: Int,
   ) {
     deferredSpans.add(DeferredSpan(span, start, end))
   }
+
+  /** Whether a deferred span of [type] overlaps `[start, end)`; such spans are not in the builder until the render ends. */
+  fun hasDeferredSpan(
+    type: Class<out CharacterStyle>,
+    start: Int,
+    end: Int,
+  ): Boolean = deferredSpans.any { type.isInstance(it.span) && it.start < end && it.end > start }
 
   /** Runs [action] on the finished text, once every block-level span is in place. */
   fun runAfterRender(action: (Spanned) -> Unit) {

@@ -4,12 +4,16 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.text.Spanned
 import android.text.style.ReplacementSpan
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
+import com.swmansion.enriched.markdown.spoiler.colorWithAlpha
+import com.swmansion.enriched.markdown.spoiler.spoilerTextAlpha
 import io.ratex.RaTeXEngine
 import io.ratex.RaTeXFontLoader
 import io.ratex.RaTeXRenderer
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 class MathInlineSpan(
   private val context: Context,
@@ -98,18 +102,26 @@ class MathInlineSpan(
     bottom: Int,
     paint: Paint,
   ) {
+    // The platform gives a replacement span a paint without the spoiler's transparency applied,
+    // so concealment is read from the text instead.
+    val visibility = (text as? Spanned)?.spoilerTextAlpha(start, end) ?: 1f
+    if (visibility <= 0f) return
+
     prepareResources()
 
     val bitmap = cachedBitmap
     if (bitmap != null) {
       val bitmapY = y - ceil(mathAscent)
+      val originalAlpha = paint.alpha
+      paint.alpha = (originalAlpha * visibility).roundToInt()
       canvas.drawBitmap(bitmap, x, bitmapY, paint)
+      paint.alpha = originalAlpha
       return
     }
 
     fallbackText?.let { fallback ->
       val originalColor = paint.color
-      paint.color = textColor
+      paint.color = colorWithAlpha(textColor, visibility)
       canvas.drawText(fallback, x, y.toFloat(), paint)
       paint.color = originalColor
     }
