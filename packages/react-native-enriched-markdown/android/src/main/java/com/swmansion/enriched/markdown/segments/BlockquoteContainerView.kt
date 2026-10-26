@@ -20,6 +20,7 @@ import com.swmansion.enriched.markdown.styles.BlockquoteStyle
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
+import com.swmansion.enriched.markdown.utils.text.PROSE_DIRECTION
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import kotlin.math.ceil
 import kotlin.math.max
@@ -59,6 +60,9 @@ class BlockquoteContainerView(
   // Set from the applied node: null for a plain quote, the admonition type
   // ("note"/"tip"/…) otherwise. Drives the header + per-type theming.
   private var admonitionType: String? = null
+
+  // writingDirection="word-majority" resolved this quote RTL: border and insets flip.
+  private var proseRTL = false
 
   // Cached markdown source for the "Copy as Markdown" action.
   private var cachedMarkdown: String = ""
@@ -123,8 +127,10 @@ class BlockquoteContainerView(
       } else {
         null
       }
+    proseRTL = node.attributes[PROSE_DIRECTION] == "rtl"
     // Reserve the header band above the body by enlarging the top padding.
-    setPadding(leftInset, verticalInset + reservedHeaderHeight(), rightInset, verticalInset)
+    val (startInset, endInset) = if (proseRTL) rightInset to leftInset else leftInset to rightInset
+    setPadding(startInset, verticalInset + reservedHeaderHeight(), endInset, verticalInset)
 
     cachedMarkdown = MarkdownASTSerializer.serializeBlockquote(node)
     cachedPlainText = MarkdownASTSerializer.plainText(node)
@@ -221,13 +227,14 @@ class BlockquoteContainerView(
 
     // Clip the accent bar to the rounded box so its top-left/bottom-left corners
     // follow the border radius instead of poking past the background as squares.
+    val barLeft = if (proseRTL) width - borderWidthPx else 0f
     if (hasRadius) {
       canvas.withSave {
         clipPath(path)
-        drawRect(0f, 0f, borderWidthPx, height.toFloat(), borderPaint)
+        drawRect(barLeft, 0f, barLeft + borderWidthPx, height.toFloat(), borderPaint)
       }
     } else {
-      canvas.drawRect(0f, 0f, borderWidthPx, height.toFloat(), borderPaint)
+      canvas.drawRect(barLeft, 0f, barLeft + borderWidthPx, height.toFloat(), borderPaint)
     }
 
     if (type != null) {

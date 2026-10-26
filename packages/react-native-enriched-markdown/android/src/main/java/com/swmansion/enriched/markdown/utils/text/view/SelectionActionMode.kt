@@ -16,6 +16,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.conversion.MarkdownExtractor
+import com.swmansion.enriched.markdown.utils.text.withoutDirectionControls
 
 private const val MENU_ITEM_COPY_MARKDOWN = 1000
 private const val MENU_ITEM_COPY_IMAGE_URL = 1001
@@ -152,7 +153,8 @@ fun createSelectionActionModeCallback(
       if (customIndex in customItems.indices) {
         val start = textView.selectionStart
         val end = textView.selectionEnd
-        val selectedText = if (start >= 0 && end > start) textView.text.substring(start, end) else ""
+        val selectedText =
+          if (start >= 0 && end > start) withoutDirectionControls(textView.text.subSequence(start, end)).toString() else ""
         onCustomItemPress(customItems[customIndex], selectedText, start, end)
         mode?.finish()
         return true
@@ -171,7 +173,7 @@ private fun TextView.copyWithHTML() {
   if (start < 0 || end < 0 || start >= end) return
 
   val spannable = text as? Spannable ?: return
-  val selectedText = spannable.subSequence(start, end)
+  val selectedText = withoutDirectionControls(spannable.subSequence(start, end))
   val plainText = selectedText.toString()
 
   val styleConfig =

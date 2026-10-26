@@ -62,6 +62,9 @@ ENRMWritingDirectionMode ENRMResolveWritingDirectionMode(NSString *value)
   if ([value isEqualToString:@"auto"]) {
     return ENRMWritingDirectionModeAuto;
   }
+  if ([value isEqualToString:@"word-majority"]) {
+    return ENRMWritingDirectionModeWordMajority;
+  }
   return ENRMWritingDirectionModeFirstStrong;
 }
 
@@ -120,6 +123,9 @@ void ENRMApplyWritingDirectionMode(NSMutableAttributedString *output, ENRMWritin
       break;
     case ENRMWritingDirectionModeFirstStrong:
       ENRMApplyFirstStrongParagraphDirections(output, layoutDirection);
+      break;
+    case ENRMWritingDirectionModeWordMajority:
+      // Resolved on the AST before rendering (ENRMWordMajorityAST).
       break;
   }
 }

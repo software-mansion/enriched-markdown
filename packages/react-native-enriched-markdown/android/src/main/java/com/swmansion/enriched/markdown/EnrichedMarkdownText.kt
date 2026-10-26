@@ -48,6 +48,7 @@ import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
+import com.swmansion.enriched.markdown.utils.text.wordMajorityAST
 import java.util.concurrent.Executors
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -263,6 +264,14 @@ class EnrichedMarkdownText
       MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     }
 
+    private var writingDirection: String? = null
+
+    fun setWritingDirection(value: String?) {
+      if (writingDirection == value) return
+      writingDirection = value
+      scheduleRenderIfNeeded()
+    }
+
     private fun scheduleRenderIfNeeded() {
       if (currentMarkdown.isNotEmpty()) {
         scheduleRender()
@@ -298,6 +307,7 @@ class EnrichedMarkdownText
 
       val textLinkRegex = linkRegex
       val codeLinkRegex = inlineCodeLinkRegex
+      val direction = writingDirection
       val renderId = ++currentRenderId
 
       executor.execute {
@@ -309,7 +319,8 @@ class EnrichedMarkdownText
             }
 
           renderer.configure(style, context, latexErrorReporter)
-          val styledText = renderer.renderDocument(ast, onLinkPressCallback, onLinkLongPressCallback)
+          val styledText =
+            renderer.renderDocument(wordMajorityAST(ast, style, direction), onLinkPressCallback, onLinkLongPressCallback)
 
           mainHandler.post {
             if (renderId == currentRenderId) {

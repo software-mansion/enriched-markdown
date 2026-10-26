@@ -32,6 +32,7 @@ import com.swmansion.enriched.markdown.styles.TableStyle
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
+import com.swmansion.enriched.markdown.utils.text.PROSE_DIRECTION
 import com.swmansion.enriched.markdown.utils.text.conversion.HTMLGenerator
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
@@ -53,6 +54,9 @@ class TableContainerView(
   override val segmentMarginBottom: Int get() = tableStyle.marginBottom.toInt()
   private val density = resources.displayMetrics.density
   private val isRtl = resources.isLayoutRTL()
+
+  // writingDirection="word-majority": each cell takes its own direction instead of the locale's.
+  private var wordMajority = false
 
   var allowFontScaling = true
   var maxFontSizeMultiplier = 0f
@@ -121,13 +125,15 @@ class TableContainerView(
   }
 
   fun applyTableNode(tableNode: MarkdownASTNode) {
+    wordMajority = PROSE_DIRECTION in tableNode.attributes
     rows =
       tableNode.children.flatMap { section ->
         val isSectionHead = section.type == NodeType.TableHead
         section.children.filter { it.type == NodeType.TableRow }.map { row ->
           row.children.map { cell ->
             val isHeader = isSectionHead || cell.type == NodeType.TableHeaderCell
-            val align = textAlignmentFromString(cell.getAttribute("align"))
+            val cellRtl = if (wordMajority) cell.attributes[PROSE_DIRECTION] == "rtl" else isRtl
+            val align = textAlignmentFromString(cell.getAttribute("align"), cellRtl)
             TableCellData(
               attributedText = renderCellNode(cell, isHeader, align),
               plainText = extractPlainText(cell),
@@ -156,7 +162,8 @@ class TableContainerView(
     isHeader: Boolean,
     alignment: Layout.Alignment,
   ): Spannable {
-    val paragraph = MarkdownASTNode(NodeType.Paragraph, children = node.children)
+    // The cell's direction moves onto its paragraph so the renderer marks its lines.
+    val paragraph = MarkdownASTNode(NodeType.Paragraph, attributes = node.attributes, children = node.children)
     val cellParagraphStyle = styleConfig.tableCellParagraphStyle(tableStyle, isHeader)
     return styleConfig
       .withParagraphOverride(cellParagraphStyle) {
@@ -171,11 +178,14 @@ class TableContainerView(
 
   private fun extractPlainText(node: MarkdownASTNode): String = node.content + node.children.joinToString("") { extractPlainText(it) }
 
-  private fun textAlignmentFromString(align: String?): Layout.Alignment =
+  private fun textAlignmentFromString(
+    align: String?,
+    rtl: Boolean,
+  ): Layout.Alignment =
     when (align) {
       "center" -> Layout.Alignment.ALIGN_CENTER
-      "right" -> if (isRtl) Layout.Alignment.ALIGN_NORMAL else Layout.Alignment.ALIGN_OPPOSITE
-      "left" -> if (isRtl) Layout.Alignment.ALIGN_OPPOSITE else Layout.Alignment.ALIGN_NORMAL
+      "right" -> if (rtl) Layout.Alignment.ALIGN_NORMAL else Layout.Alignment.ALIGN_OPPOSITE
+      "left" -> if (rtl) Layout.Alignment.ALIGN_OPPOSITE else Layout.Alignment.ALIGN_NORMAL
       else -> Layout.Alignment.ALIGN_NORMAL
     }
 
@@ -279,6 +289,8 @@ class TableContainerView(
   ) {
     val cellTextView =
       CellTextView(context).apply {
+        // Let each cell's leading RLM/LRM decide its direction.
+        if (wordMajority) textDirection = View.TEXT_DIRECTION_FIRST_STRONG_LTR
         text = data.attributedText
         textSize = tableStyle.fontSize / resources.displayMetrics.scaledDensity
         typeface = if (data.isHeader) styleConfig.tableHeaderTypeface else styleConfig.tableTypeface

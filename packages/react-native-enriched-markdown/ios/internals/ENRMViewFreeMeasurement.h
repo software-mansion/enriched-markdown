@@ -10,6 +10,7 @@
 #import "ENRMMarkdownParser.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
+#import "ENRMWordMajority.h"
 #import "ImageRequestHeaderUtils.h"
 #import "LinkPillContentUtils.h"
 #import "MarkdownASTNode.h"
@@ -198,6 +199,10 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
     if (!ast) {
       return fallback;
     }
+    ENRMWritingDirectionMode writingDirectionMode =
+        ENRMResolveWritingDirectionMode([[NSString alloc] initWithUTF8String:typedProps.writingDirection.c_str()]);
+    if (writingDirectionMode == ENRMWritingDirectionModeWordMajority)
+      ast = ENRMWordMajorityAST(ast, config);
 
     NSLineBreakStrategy lineBreakStrategy =
         ENRMResolveLineBreakStrategy([[NSString alloc] initWithUTF8String:typedProps.lineBreakStrategyIOS.c_str()]);
@@ -209,8 +214,6 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
       return fallback;
     }
 
-    ENRMWritingDirectionMode writingDirectionMode =
-        ENRMResolveWritingDirectionMode([[NSString alloc] initWithUTF8String:typedProps.writingDirection.c_str()]);
     ENRMApplyWritingDirectionMode(text, writingDirectionMode, resolvedLayoutDirection);
 
     NSInteger numberOfLines = (NSInteger)typedProps.numberOfLines;
@@ -299,6 +302,8 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
         ENRMResolveLineBreakStrategy([[NSString alloc] initWithUTF8String:typedProps.lineBreakStrategyIOS.c_str()]);
     ENRMWritingDirectionMode writingDirectionMode =
         ENRMResolveWritingDirectionMode([[NSString alloc] initWithUTF8String:typedProps.writingDirection.c_str()]);
+    if (writingDirectionMode == ENRMWritingDirectionModeWordMajority)
+      ast = ENRMWordMajorityAST(ast, config);
 
     NSArray<ENRMRenderedSegment *> *segments =
         ENRMRenderSegmentsFromAST(ast, config, typedProps.allowTrailingMargin, typedProps.allowFontScaling,

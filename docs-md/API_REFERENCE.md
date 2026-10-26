@@ -435,15 +435,16 @@ Controls iOS line-breaking refinements. Mirrors the prop of the same name on Rea
 
 ### `writingDirection`
 
-Paragraph writing direction. iOS only — Android already resolves direction per paragraph via the platform Bidi heuristic and is unaffected by this prop.
+Paragraph writing direction. iOS only, except `'word-majority'` — Android already resolves direction per paragraph via the platform Bidi heuristic and ignores the other values.
 
-| Type                                            | Default Value    | Platform |
-| ----------------------------------------------- | ---------------- | -------- |
-| `'auto' \| 'ltr' \| 'rtl' \| 'first-strong'`    | `'first-strong'` | iOS      |
+| Type                                                                | Default Value    | Platform                                   |
+| ------------------------------------------------------------------- | ---------------- | ------------------------------------------ |
+| `'auto' \| 'ltr' \| 'rtl' \| 'first-strong' \| 'word-majority'`   | `'first-strong'` | iOS (`'word-majority'`: iOS, Android)      |
 
 - **`'first-strong'`** (default): library extension. Each paragraph resolves its base direction from its first strong directional character — mixed Arabic/Hebrew/English documents render correctly out of the box. Paragraphs with no strong character (numbers, punctuation, block spacers) fall back to the view's Yoga-resolved layout direction, which inherits from any ancestor `<View style={{ direction: 'rtl' }}>` (defaults to `I18nManager.isRTL`). Mirrors Android's `TEXT_DIRECTION_FIRST_STRONG`.
 - **`'auto'`**: React Native parity (matches `<Text writingDirection="auto">`). TextKit follows the app's `userInterfaceLayoutDirection`; mixed-direction paragraphs do not auto-resolve.
 - **`'ltr'` / `'rtl'`**: forces the base direction on every paragraph in the document.
+- **`'word-majority'`** (iOS and Android): each block takes the direction of most of its words, so `StrictMode: يعيد العرض مرتين` reads right to left. Inline code and link pills don't vote; lists and quotes share one direction; table cells resolve on their own; inline code stays LTR inside RTL lines. See [RTL Support](RTL.md#word-majority).
 
 Code blocks are always rendered left-to-right regardless of this prop. Per-paragraph direction also drives list markers, blockquote borders, task-list tap targets, and the `dir` attribute emitted when copying as HTML. See [RTL Support](RTL.md) for the full behavior matrix and the copy-as-HTML caveat for mixed-direction documents.
 

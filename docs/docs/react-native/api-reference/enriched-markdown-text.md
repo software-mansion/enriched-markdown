@@ -675,16 +675,17 @@ Controls iOS line-breaking refinements. Mirrors the prop of the same name on Rea
 Paragraph writing direction.
 
 :::important
-Android resolves direction per paragraph via the platform Bidi heuristic (`TEXT_DIRECTION_FIRST_STRONG`) and is unaffected by this prop.
+Android resolves direction per paragraph via the platform Bidi heuristic (`TEXT_DIRECTION_FIRST_STRONG`) and ignores every value except `'word-majority'`.
 :::
 
-<PropInfo type="'auto' | 'ltr' | 'rtl' | 'first-strong'" default="'first-strong'" />
+<PropInfo type="'auto' | 'ltr' | 'rtl' | 'first-strong' | 'word-majority'" default="'first-strong'" />
 
 <LivePreview src={WritingDirectionSrc} unavailable unavailableReason={<>iOS only - Android resolves direction automatically; use <code>dir</code> on web.</>} />
 
 - `'first-strong'` **(default)**: library extension. Each paragraph resolves its base direction from its first strong directional character, so mixed Arabic/Hebrew/English documents render correctly out of the box. Neutral-only paragraphs fall back to the view's Yoga-resolved layout direction.
 - `'auto'`: React Native parity. TextKit follows the app's `userInterfaceLayoutDirection`; mixed-direction paragraphs do not auto-resolve.
 - `'ltr'` / `'rtl'`: force the base direction on every paragraph. Code blocks always render left-to-right regardless of this prop.
+- `'word-majority'` (iOS and Android): each block takes the direction of most of its words, so an Arabic paragraph that starts with an English word still reads right to left. Inline code stays LTR inside RTL lines. See [Word majority](/user-experience/rtl#word-majority).
 
 :::note
 See [RTL support](/user-experience/rtl) for the full behavior information.

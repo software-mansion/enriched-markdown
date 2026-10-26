@@ -30,10 +30,22 @@ Each top-level block gets `dir="auto"`, so the browser resolves it from its firs
 | `'auto'` | React Native parity. TextKit follows the app's `userInterfaceLayoutDirection`; mixed-direction documents do not auto-resolve. |
 | `'ltr'` | Forces LTR on every paragraph. |
 | `'rtl'` | Forces RTL on every paragraph. |
+| `'word-majority'` | iOS and Android. Each block takes the direction of most of its words. See [Word majority](#word-majority). |
 
 Code blocks always render LTR regardless of this prop.
 
-Android ignores the prop; it always uses first-strong via the platform.
+Android ignores every value except `'word-majority'`; otherwise it uses first-strong via the platform.
+
+### Word majority
+
+First-strong decides from the first letter, so `StrictMode: يعيد العرض مرتين في التطوير` turns LTR because of one English word. `writingDirection="word-majority"` counts words instead:
+
+- Each word votes by its first letter; a tie goes to the first word. Inline code, code blocks, math, images and link pills don't vote.
+- A list or quote takes one direction for all its lines. Table cells resolve on their own; column order doesn't change.
+- Code blocks stay LTR, and inline code stays LTR inside RTL lines (`fetch()` doesn't become `()fetch`).
+- Explicit table alignment stays physical left/right.
+
+On Android the renderer inserts an invisible RLM/LRM at the start of each line and LRI/PDI around inline code. Copy drops them; the selection offsets passed to `onContextMenuItemPress` still count them. iOS inserts nothing.
 
 ```tsx
 // Default — mixed Arabic/English document renders each paragraph correctly.

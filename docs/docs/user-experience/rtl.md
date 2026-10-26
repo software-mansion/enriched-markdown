@@ -56,8 +56,24 @@ In the React Native package, the iOS `writingDirection` prop selects how each pa
 | `'auto'` | React Native parity: TextKit follows the app's `userInterfaceLayoutDirection`; mixed-direction documents do not auto-resolve. |
 | `'ltr'` | Forces LTR on every paragraph. |
 | `'rtl'` | Forces RTL on every paragraph. |
+| `'word-majority'` | iOS **and Android**. Each block takes the direction of most of its words, so an Arabic or Hebrew paragraph that starts with an English word (`StrictMode: يعيد العرض مرتين`) still reads right to left. See [Word majority](#word-majority). |
 
-Android ignores the prop (it always uses the platform first-strong heuristic); on web, use the `dir` prop instead. Code blocks always render LTR regardless.
+Android ignores every value except `'word-majority'` (it otherwise uses the platform first-strong heuristic); on web, use the `dir` prop instead. Code blocks always render LTR regardless.
+
+#### Word majority {#word-majority}
+
+First-strong decides from the first letter, so a paragraph like `StrictMode: يعيد العرض مرتين في التطوير` turns left to right because of one English word. `writingDirection="word-majority"` counts words instead:
+
+- Each word votes by its first letter; a tie goes to the first word. Inline code, code blocks, math, images and link pills don't vote.
+- A list or quote takes one direction for all its lines, so bullets and the quote bar stay on one side. Table cells resolve on their own; column order doesn't change.
+- Code blocks stay LTR, and inline code is kept LTR inside an RTL line, so `fetch()` doesn't show as `()fetch`.
+- Explicit table alignment (`:---`, `---:`) stays physical left/right.
+
+```tsx
+<EnrichedMarkdownText writingDirection="word-majority" markdown={reply} />
+```
+
+On Android the renderer puts an invisible RLM/LRM at the start of each line, because the platform picks paragraph direction from text, not spans, and wraps inline code in LRI/PDI. Copy (plain text, HTML, Markdown) and `onContextMenuItemPress`'s `selectedText` drop them; the selection offsets passed to `onContextMenuItemPress` still count them. iOS uses paragraph styles and a writing-direction attribute, so nothing is inserted.
 
 </Tab>
 <Tab label="iOS">
@@ -157,7 +173,7 @@ The standalone SDKs:
 <CodeTabs groupId="platform">
 <Tab label="React Native">
 
-- [`writingDirection`](/react-native/api-reference/enriched-markdown-text#writingdirection) - iOS base-direction mode (`'first-strong'` default). Android ignores it; it is stripped on web.
+- [`writingDirection`](/react-native/api-reference/enriched-markdown-text#writingdirection) - iOS base-direction mode (`'first-strong'` default). Android only acts on `'word-majority'`; it is stripped on web.
 - [`dir`](/react-native/api-reference/enriched-markdown-text#dir) - base direction on web.
 - Editor equivalent: [`EnrichedMarkdownTextInput`](/react-native/api-reference/enriched-markdown-text-input#writingdirection).
 

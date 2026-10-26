@@ -20,11 +20,13 @@ NSLineBreakMode ENRMResolveEllipsizeLineBreakMode(NSString *_Nullable mode);
 /// Auto/LTR/RTL match React Native's writingDirection prop.
 /// FirstStrong is the library extension: resolve each paragraph from its first strong
 /// directional character (matches Android's TEXT_DIRECTION_FIRST_STRONG).
+/// WordMajority resolves each block from most of its words; see ENRMWordMajority.h.
 typedef NS_ENUM(NSInteger, ENRMWritingDirectionMode) {
   ENRMWritingDirectionModeAuto,
   ENRMWritingDirectionModeLTR,
   ENRMWritingDirectionModeRTL,
   ENRMWritingDirectionModeFirstStrong,
+  ENRMWritingDirectionModeWordMajority,
 };
 
 ENRMWritingDirectionMode ENRMResolveWritingDirectionMode(NSString *_Nullable value);

@@ -8,6 +8,7 @@
 #import "ENRMTableIOSGridView.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
+#import "ENRMWordMajority.h"
 #import "EnrichedMarkdownInternalText.h"
 #import "LinkTapUtils.h"
 #import "MarkdownASTNode.h"
@@ -111,6 +112,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 #endif
 // nil for a plain blockquote; the admonition type string otherwise.
 @property (nonatomic, copy, nullable) NSString *admonitionType;
+// writingDirection="word-majority" resolved this quote RTL: border and insets flip.
+@property (nonatomic, assign) BOOL proseRTL;
 @property (nonatomic, copy) NSString *cachedMarkdown;
 @property (nonatomic, copy) NSString *cachedPlainText;
 @end
@@ -148,7 +151,9 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 - (void)applyBlockquoteNode:(MarkdownASTNode *)node
 {
   self.admonitionType = ENRMAdmonitionTypeForNode(node);
-  self.contentInsets = ENRMBlockquoteContentInsetsForNode(self.config, self.admonitionType != nil);
+  self.proseRTL = [node.attributes[ENRMProseDirectionKey] isEqualToString:@"rtl"];
+  UIEdgeInsets insets = ENRMBlockquoteContentInsetsForNode(self.config, self.admonitionType != nil);
+  self.contentInsets = self.proseRTL ? UIEdgeInsetsMake(insets.top, insets.right, insets.bottom, insets.left) : insets;
   self.cachedMarkdown = markdownFromBlockquoteNode(node);
   self.cachedPlainText = plainTextFromASTNode(node);
   NSArray<ENRMRenderedSegment *> *rendered =
@@ -468,7 +473,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
     RCTUIColor *borderColor =
         admonitionType ? [config admonitionColorForType:admonitionType] : config.blockquoteBorderColor;
     if (borderColor) {
-      CGRect barRect = CGRectMake(0, 0, borderWidth, bounds.size.height);
+      CGRect barRect =
+          CGRectMake(self.proseRTL ? bounds.size.width - borderWidth : 0, 0, borderWidth, bounds.size.height);
       [borderColor setFill];
 #if !TARGET_OS_OSX
       CGContextRef ctx = UIGraphicsGetCurrentContext();

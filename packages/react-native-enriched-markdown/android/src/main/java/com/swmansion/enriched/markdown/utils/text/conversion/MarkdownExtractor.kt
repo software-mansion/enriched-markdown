@@ -20,6 +20,7 @@ import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.ThematicBreakSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
+import com.swmansion.enriched.markdown.utils.text.withoutDirectionControls
 
 /** Extracts markdown from styled text (Spannable). */
 object MarkdownExtractor {
@@ -39,6 +40,11 @@ object MarkdownExtractor {
       val original = textView.currentMarkdown
       if (original.isNotEmpty()) return original
     }
+
+    // Drop the bidi marks writingDirection="word-majority" inserted before extracting.
+    val selection = spannable.subSequence(start, end)
+    val clean = withoutDirectionControls(selection)
+    if (clean !== selection && clean is Spannable) return extractFromSpannable(clean, 0, clean.length)
 
     return extractFromSpannable(spannable, start, end)
   }
