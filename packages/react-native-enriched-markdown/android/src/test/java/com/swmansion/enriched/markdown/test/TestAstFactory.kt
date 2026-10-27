@@ -8,6 +8,18 @@ object TestAstFactory {
 
   fun text(content: String): MarkdownASTNode = MarkdownASTNode(NodeType.Text, content = content)
 
+  fun heading(
+    level: Int,
+    vararg children: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      type = NodeType.Heading,
+      attributes = mapOf("level" to level.toString()),
+      children = children.toList(),
+    )
+
+  fun lineBreak(): MarkdownASTNode = MarkdownASTNode(NodeType.LineBreak)
+
   /** An ordered list; [start] is the first number, as md4c reports it. */
   fun orderedList(
     vararg items: MarkdownASTNode,
