@@ -6,6 +6,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.text.Spanned
 import android.text.style.LineBackgroundSpan
+import android.widget.TextView
 import com.swmansion.enriched.markdown.spoiler.isConcealedBySpoiler
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import kotlin.math.max
@@ -13,7 +14,8 @@ import kotlin.math.min
 
 class CodeBackgroundSpan(
   private val styleConfig: StyleConfig,
-) : LineBackgroundSpan {
+) : LineBackgroundSpan,
+  TextViewAwareSpan {
   companion object {
     private const val CORNER_RADIUS = 6.0f
     private const val BORDER_WIDTH = 1.0f
@@ -31,6 +33,7 @@ class CodeBackgroundSpan(
   // Reusable drawing objects per instance
   private val rect = RectF()
   private val path = Path()
+  private val geometry = InlineBackgroundGeometry()
 
   override fun drawBackground(
     canvas: Canvas,
@@ -67,29 +70,21 @@ class CodeBackgroundSpan(
       val isLast = rangeEnd <= end
 
       // 2. Calculate coordinates
-      val finalBottom = adjustBottomForMargin(text, end, bottom)
-      val leadingMargin = InlineBackgroundGeometry.leadingMarginAt(text, start)
-      val startX =
-        if (isFirst) {
-          InlineBackgroundGeometry.horizontalOffset(text, start, end, rangeStart, p, leadingMargin) + left
-        } else {
-          left.toFloat() + leadingMargin
-        }
-      val endX =
-        if (isLast) {
-          InlineBackgroundGeometry.horizontalOffset(text, start, end, rangeEnd, p, leadingMargin) + left
-        } else {
-          right.toFloat()
-        }
-
-      rect.set(min(startX, endX), top.toFloat(), max(startX, endX), finalBottom.toFloat())
+      val ranges = geometry.ranges(text, lineNum, rangeStart, rangeEnd)
+      rect.top = top.toFloat()
+      rect.bottom = adjustBottomForMargin(text, end, bottom).toFloat()
 
       // 3. Apply Style
       val codeStyle = styleConfig.codeStyle
       sharedBackgroundPaint.color = codeStyle.backgroundColor
       sharedBorderPaint.color = codeStyle.borderColor
 
-      drawShapes(canvas, isFirst, isLast)
+      // Mixed-direction text can split the code into pieces, left open where split.
+      ranges.forEachIndexed { i, range ->
+        rect.left = range.left
+        rect.right = range.right
+        drawShapes(canvas, isFirst && i == 0, isLast && i == ranges.lastIndex)
+      }
     }
 
     // Runs per code span, per line, per draw: only query for pills if the style can produce any.
@@ -109,6 +104,9 @@ class CodeBackgroundSpan(
     }
     drawUncoveredRange(cursor, spanEnd)
   }
+
+  /** Positions the background from [view]'s layout. */
+  override fun registerTextView(view: TextView) = geometry.registerTextView(view)
 
   private fun drawShapes(
     canvas: Canvas,

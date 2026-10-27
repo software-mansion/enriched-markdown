@@ -26,17 +26,23 @@ object MarkdownRenderTestSupport {
   }
 
   /**
-   * The style map the JS side sends, with [list] and [taskList] entries replacing the defaults.
-   * Sizes are Double, colors Int, as in a ReadableMap.
+   * The style map the JS side sends, with [list], [taskList], [paragraph], [code] and [highlight]
+   * entries replacing the defaults. Sizes are Double, colors Int, as in a ReadableMap.
    */
   fun styleConfig(
     list: Map<String, Any> = emptyMap(),
     taskList: Map<String, Any> = emptyMap(),
+    paragraph: Map<String, Any> = emptyMap(),
+    code: Map<String, Any> = emptyMap(),
+    highlight: Map<String, Any> = emptyMap(),
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
-    listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight")
+    listOf("strong", "em", "strikethrough", "superscript", "subscript")
       .forEach { style.putMap(it, textElement()) }
+    style.putMap("paragraph", textElement().apply { putAll(paragraph) })
+    style.putMap("code", textElement().apply { putAll(code) })
+    style.putMap("highlight", textElement().apply { putAll(highlight) })
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
       "linkVariants",

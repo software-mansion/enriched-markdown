@@ -7,6 +7,7 @@ import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.CharacterStyle
 import android.text.style.LineBackgroundSpan
+import android.widget.TextView
 import com.swmansion.enriched.markdown.renderer.BlockStyle
 import com.swmansion.enriched.markdown.renderer.SpanStyleCache
 import kotlin.math.max
@@ -22,9 +23,11 @@ class HighlightSpan(
   private val styleCache: SpanStyleCache,
   private val blockStyle: BlockStyle,
 ) : CharacterStyle(),
-  LineBackgroundSpan {
+  LineBackgroundSpan,
+  TextViewAwareSpan {
   private val foregroundColor = styleCache.getHighlightColorFor(blockStyle.color)
   private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+  private val geometry = InlineBackgroundGeometry()
 
   override fun updateDrawState(textPaint: TextPaint) {
     textPaint.color = foregroundColor
@@ -51,22 +54,7 @@ class HighlightSpan(
     val spanEnd = text.getSpanEnd(this)
     if (spanStart !in 0 until spanEnd) return
 
-    val isFirst = spanStart >= start
-    val isLast = spanEnd <= end
-
-    val leadingMargin = InlineBackgroundGeometry.leadingMarginAt(text, start)
-    val startX =
-      if (isFirst) {
-        InlineBackgroundGeometry.horizontalOffset(text, start, end, spanStart, p, leadingMargin) + left
-      } else {
-        left.toFloat() + leadingMargin
-      }
-    val endX =
-      if (isLast) {
-        InlineBackgroundGeometry.horizontalOffset(text, start, end, spanEnd, p, leadingMargin) + left
-      } else {
-        right.toFloat()
-      }
+    val ranges = geometry.ranges(text, lineNum, spanStart, spanEnd)
 
     // Bound by the glyphs' ascent/descent, clamped to the line box so a tall line height never
     // lets the band bleed into its neighbours.
@@ -75,6 +63,9 @@ class HighlightSpan(
     val bandBottom = min(bottom.toFloat(), (baseline + metrics.descent).toFloat())
 
     backgroundPaint.color = backgroundColor
-    canvas.drawRect(min(startX, endX), bandTop, max(startX, endX), bandBottom, backgroundPaint)
+    for (range in ranges) canvas.drawRect(range.left, bandTop, range.right, bandBottom, backgroundPaint)
   }
+
+  /** Positions the band from [view]'s layout. */
+  override fun registerTextView(view: TextView) = geometry.registerTextView(view)
 }

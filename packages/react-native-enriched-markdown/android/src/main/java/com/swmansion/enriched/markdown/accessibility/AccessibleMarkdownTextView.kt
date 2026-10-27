@@ -7,6 +7,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
+import com.swmansion.enriched.markdown.spans.registerWithSpans
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 
 /** AppCompatTextView with built-in TalkBack support via MarkdownAccessibilityHelper. */
@@ -28,6 +29,8 @@ abstract class AccessibleMarkdownTextView
       val contentWidth = width - compoundPaddingLeft - compoundPaddingRight
       if (contentWidth > 0) prepareWidthAwareSpans(text, contentWidth, includeImages = false)
       LinkPillSpan.registerView(text, this)
+      // Inline code and highlight backgrounds position themselves from this view's layout.
+      registerWithSpans(text)
       super.setText(text, type)
     }
 
