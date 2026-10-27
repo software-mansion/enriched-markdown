@@ -688,7 +688,7 @@ jobs:
   ios-swift-lint:
     needs: changes
     if: needs.changes.outputs.ios == 'true'
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     env:
       TURBO_CACHE_DIR: .turbo/ios-native
       SWIFTLINT_VERSION: 0.65.0
@@ -725,7 +725,7 @@ jobs:
         if: env.turbo_cache_hit != 1
         run: |
           curl -fsSL -o "$RUNNER_TEMP/swiftlint.zip" \
-            "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
+            "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_amd64.zip"
           mkdir -p "$RUNNER_TEMP/swiftlint"
           unzip -oq "$RUNNER_TEMP/swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
           echo "$RUNNER_TEMP/swiftlint" >> $GITHUB_PATH
