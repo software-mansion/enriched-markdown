@@ -5,6 +5,10 @@
   "tasks": {
     "build:android": {
       "env": ["ANDROID_HOME", "ORG_GRADLE_PROJECT_newArchEnabled"],
+      "passThroughEnv": [
+        "CMAKE_C_COMPILER_LAUNCHER",
+        "CMAKE_CXX_COMPILER_LAUNCHER"
+      ],
       "inputs": [
         "package.json",
         "android/**",
@@ -85,6 +89,10 @@
     },
     "build:android-native": {
       "env": ["ANDROID_HOME"],
+      "passThroughEnv": [
+        "CMAKE_C_COMPILER_LAUNCHER",
+        "CMAKE_CXX_COMPILER_LAUNCHER"
+      ],
       "inputs": [
         "package.json",
         "app/**",
