@@ -137,6 +137,20 @@ class TaskIndexAcrossSegmentsTest {
     assertEquals(markdown, TaskListToggleUtils.toggleAtIndex(markdown, 6, true))
   }
 
+  @Test
+  fun toggleAtIndexSkipsCheckboxNotFollowedByWhitespace() {
+    val markdown =
+      """
+      1. [ ]not-a-task
+      > - [ ]not-a-task
+
+      - [ ] task
+      """.trimIndent()
+
+    assertEquals(markdown.replace("- [ ] task", "- [x] task"), TaskListToggleUtils.toggleAtIndex(markdown, 0, true))
+    assertEquals(markdown, TaskListToggleUtils.toggleAtIndex(markdown, 1, true))
+  }
+
   private fun render(document: MarkdownASTNode): List<RenderedSegment> =
     MarkdownSegmentRenderer.render(splitASTIntoSegments(document), style, context, null, null)
 
