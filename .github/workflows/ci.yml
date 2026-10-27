@@ -215,12 +215,8 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
-        with:
-          gradle-wrapper-properties: apps/react-native-example/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Build example for Android
-        env:
-          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   rn-build-ios:
@@ -335,8 +331,6 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
-        with:
-          gradle-wrapper-properties: apps/react-native-example/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Cache Robolectric
         if: env.turbo_cache_hit != 1
@@ -348,8 +342,6 @@ jobs:
             ${{ runner.os }}-robolectric-
 
       - name: Run RN Android unit tests
-        env:
-          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: yarn test:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   rn-ios-unit-tests:
@@ -478,12 +470,8 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
-        with:
-          gradle-wrapper-properties: apps/android-example/gradle/wrapper/gradle-wrapper.properties
 
       - name: Build Android example
-        env:
-          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: yarn turbo run build:android-native --filter=enriched-markdown-android-example --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   android-unit-tests:
@@ -525,8 +513,6 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
-        with:
-          gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Cache Robolectric
         if: env.turbo_cache_hit != 1
@@ -538,8 +524,6 @@ jobs:
             ${{ runner.os }}-robolectric-
 
       - name: Run Android unit tests
-        env:
-          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: yarn test:android-native --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   android-kotlin-lint:
@@ -582,8 +566,6 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
-        with:
-          gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Run ktlint and Android Lint
         run: yarn turbo run lint:android-native --filter=@enriched-markdown/android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
