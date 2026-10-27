@@ -278,7 +278,8 @@ jobs:
         with:
           path: |
             **/ios/Pods
-          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile.lock') }}
+            ~/Library/Caches/ReactNative
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile', 'yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-cocoapods-
 
@@ -296,6 +297,7 @@ jobs:
         with:
           path: |
             **/ios/Pods
+            ~/Library/Caches/ReactNative
           key: ${{ steps.cocoapods-cache.outputs.cache-primary-key }}
 
       - name: Build example for iOS
@@ -402,7 +404,8 @@ jobs:
         with:
           path: |
             **/ios/Pods
-          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile.lock') }}
+            ~/Library/Caches/ReactNative
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile', 'yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-cocoapods-
 
@@ -420,6 +423,7 @@ jobs:
         with:
           path: |
             **/ios/Pods
+            ~/Library/Caches/ReactNative
           key: ${{ steps.cocoapods-cache.outputs.cache-primary-key }}
 
       - name: Select iOS simulator
