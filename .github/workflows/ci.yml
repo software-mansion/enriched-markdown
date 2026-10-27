@@ -338,6 +338,15 @@ jobs:
         with:
           gradle-wrapper-properties: apps/react-native-example/android/gradle/wrapper/gradle-wrapper.properties
 
+      - name: Cache Robolectric
+        if: env.turbo_cache_hit != 1
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ runner.os }}-robolectric-${{ hashFiles('packages/enriched-markdown-android/*/build.gradle', 'packages/react-native-enriched-markdown/android/build.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-robolectric-
+
       - name: Run RN Android unit tests
         env:
           JAVA_OPTS: '-XX:MaxHeapSize=6g'
@@ -518,6 +527,15 @@ jobs:
         uses: ./.github/actions/setup-android
         with:
           gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Cache Robolectric
+        if: env.turbo_cache_hit != 1
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ runner.os }}-robolectric-${{ hashFiles('packages/enriched-markdown-android/*/build.gradle', 'packages/react-native-enriched-markdown/android/build.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-robolectric-
 
       - name: Run Android unit tests
         env:
