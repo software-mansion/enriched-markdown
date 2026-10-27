@@ -51,7 +51,7 @@ sealed interface RenderedSegment {
   data class Blockquote(
     val node: MarkdownASTNode,
     override val signature: Long,
-    /** Document-global index of the quote's first task-list item, see [MarkdownSegmentRenderer.render]. */
+    /** Document-global index of the quote's first task-list item. */
     val taskIndexOffset: Int = 0,
   ) : RenderedSegment
 
@@ -68,12 +68,6 @@ sealed interface RenderedSegment {
 }
 
 object MarkdownSegmentRenderer {
-  /**
-   * Task indices are document-global ([startingTaskIndex] is the index of the first task in
-   * [segments]): the task toggle rewrites the Nth task of the whole markdown source. Each Text
-   * segment gets a fresh Renderer, and a blockquote renders its own children later, so the
-   * running count is threaded through explicitly rather than reset per segment.
-   */
   fun render(
     segments: List<MarkdownSegment>,
     style: StyleConfig,
