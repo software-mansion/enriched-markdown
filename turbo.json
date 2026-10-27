@@ -25,6 +25,7 @@
       "outputs": []
     },
     "build:ios": {
+      "passThroughEnv": ["CCACHE_DIR", "CCACHE_MAXSIZE", "XCODE_XCCONFIG_FILE"],
       "env": [
         "RCT_NEW_ARCH_ENABLED",
         "RCT_REMOVE_LEGACY_ARCH",
@@ -64,7 +65,7 @@
       "outputs": []
     },
     "test:ios": {
-      "passThroughEnv": ["IOS_SIMULATOR_UDID"],
+      "passThroughEnv": ["IOS_SIMULATOR_UDID", "CCACHE_DIR", "CCACHE_MAXSIZE", "XCODE_XCCONFIG_FILE"],
       "env": [
         "RCT_NEW_ARCH_ENABLED",
         "RCT_REMOVE_LEGACY_ARCH",

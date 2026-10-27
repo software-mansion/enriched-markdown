@@ -234,6 +234,8 @@ jobs:
     runs-on: macos-latest-xlarge
     env:
       TURBO_CACHE_DIR: .turbo/ios
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -282,6 +284,26 @@ jobs:
           key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile', 'yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-cocoapods-
+
+      - name: Set up ccache
+        if: env.turbo_cache_hit != 1
+        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        with:
+          key: rn-ios
+          max-size: 2G
+          save: false
+
+      - name: Point Xcode at ccache
+        if: env.turbo_cache_hit != 1
+        run: |
+          ccache=$(command -v ccache)
+          conf=$GITHUB_WORKSPACE/apps/react-native-example/node_modules/react-native/scripts/xcode/ccache.conf
+          for tool in clang clang++; do
+            printf '#!/bin/sh\nexport CCACHE_CONFIGPATH=%s\nexport CCACHE_DIR=%s\nexport CCACHE_MAXSIZE=%s\nexec %s %s "$@"\n' "$conf" "$CCACHE_DIR" "$CCACHE_MAXSIZE" "$ccache" "$tool" > "$RUNNER_TEMP/ccache-$tool"
+            chmod +x "$RUNNER_TEMP/ccache-$tool"
+          done
+          printf 'CC = %s\nCXX = %s\n' "$RUNNER_TEMP/ccache-clang" "$RUNNER_TEMP/ccache-clang++" > "$RUNNER_TEMP/ccache.xcconfig"
+          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ccache.xcconfig" >> $GITHUB_ENV
 
       - name: Install cocoapods
         if: env.turbo_cache_hit != 1
@@ -361,6 +383,8 @@ jobs:
     runs-on: macos-latest-xlarge
     env:
       TURBO_CACHE_DIR: .turbo/rn-ios-test
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -408,6 +432,26 @@ jobs:
           key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile', 'yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-cocoapods-
+
+      - name: Set up ccache
+        if: env.turbo_cache_hit != 1
+        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        with:
+          key: rn-ios
+          max-size: 2G
+          save: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Point Xcode at ccache
+        if: env.turbo_cache_hit != 1
+        run: |
+          ccache=$(command -v ccache)
+          conf=$GITHUB_WORKSPACE/apps/react-native-example/node_modules/react-native/scripts/xcode/ccache.conf
+          for tool in clang clang++; do
+            printf '#!/bin/sh\nexport CCACHE_CONFIGPATH=%s\nexport CCACHE_DIR=%s\nexport CCACHE_MAXSIZE=%s\nexec %s %s "$@"\n' "$conf" "$CCACHE_DIR" "$CCACHE_MAXSIZE" "$ccache" "$tool" > "$RUNNER_TEMP/ccache-$tool"
+            chmod +x "$RUNNER_TEMP/ccache-$tool"
+          done
+          printf 'CC = %s\nCXX = %s\n' "$RUNNER_TEMP/ccache-clang" "$RUNNER_TEMP/ccache-clang++" > "$RUNNER_TEMP/ccache.xcconfig"
+          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ccache.xcconfig" >> $GITHUB_ENV
 
       - name: Install cocoapods
         if: env.turbo_cache_hit != 1
