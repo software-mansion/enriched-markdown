@@ -121,6 +121,11 @@ Words operator+(Words left, const char *word) {
   return left;
 }
 
+Words &operator+=(Words &left, const Words &right) {
+  left.insert(left.end(), right.begin(), right.end());
+  return left;
+}
+
 struct Environment {
   const char *open;
   const char *row;
@@ -289,7 +294,7 @@ public:
     while (position_ < tokens_.size() && (!closer || tokens_[position_] != *closer)) {
       Argument member = item();
       if (!member.words.empty()) {
-        result.words = result.words + member.words;
+        result.words += member.words;
         result.items++;
         result.nested = result.nested || member.nested;
       }
@@ -501,9 +506,9 @@ private:
     auto found = kBigOperators.find(name);
     Words words{found == kBigOperators.end() ? name : found->second};
     if (lower)
-      words = words + (name == "lim" ? "as" : "from") + lower->words;
+      words += Words{name == "lim" ? "as" : "from"} + lower->words;
     if (upper)
-      words = words + "to" + upper->words;
+      words += Words{"to"} + upper->words;
     return words + "of";
   }
 
