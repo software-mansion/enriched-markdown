@@ -26,12 +26,18 @@
 #if ENRICHED_MARKDOWN_VIDEO
 #import "ENRMVideoContainerView.h"
 #endif
+#import "ENRMBlockSlotLayerView.h"
+#import "ENRMBlockSlotRevealController.h"
+#import "ENRMBlockSlotSegmentView.h"
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
+#import "ENRMCodeBlockWrapState.h"
 #import "ENRMDynamicBlockProps.h"
 #import "ENRMSpoilerCapable.h"
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
+#import "ENRMUTF8.h"
+#import "EnrichedMarkdownBlockSlot.h"
 #import "EnrichedMarkdownInternalText.h"
 #import "FontScaleObserver.h"
 #import "FontUtils.h"
@@ -115,6 +121,14 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMSegmentViewRegistry *_segmentViewRegistry;
   ENRMDirtyFlags _dirtyFlags;
 
+  // Fabric children (React replacements for blocks) live here, above the
+  // segments, so the segment reconciler's subview indices stay its own. The
+  // shadow node publishes which slots exist and where they landed through state.
+  RCTUIView *_slotLayer;
+  NSSet<NSString *> *_activeBlockSlotIds;
+  NSDictionary<NSString *, NSNumber *> *_blockSlotHeights;
+  ENRMBlockSlotRevealController *_blockSlotReveal;
+
   ENRMAsyncRenderCoordinator *_renderCoordinator;
 
   EnrichedMarkdownShadowNode::ConcreteState::Shared _state;
@@ -131,8 +145,19 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
+  ENRMMediaStreamingMode _mediaStreamingMode;
+  // Render requested during this mount transaction (props or slot ids), run once
+  // in finalizeUpdates so a mutation that touches both parses once.
+  NSString *_pendingRenderMarkdown;
+  // The slot ids changed: Fabric mounts or unmounts the React child in this
+  // transaction, so the native block it replaces must leave in the same one.
+  BOOL _pendingRenderSynchronously;
+  // Slot heights changed in this transaction; compare against the committed
+  // frame in finalizeUpdates, when the new layout metrics have landed.
+  BOOL _pendingSlotHeightCheck;
   // Trailing code block whose closing fence hasn't streamed in yet, if any.
   ENRMCodeBlockSegment *_pendingCodeBlockSegment;
+  ENRMCodeBlockWrapState *_codeBlockWrapState;
 
   size_t _renderedStyleFingerprint;
   size_t _pendingStyleFingerprint;
@@ -189,6 +214,14 @@ static char kENRMSegmentFadeAnimatorKey;
     _inlineCodeLinkRegex = ENRMLinkRegexConfigFromProps(defaultProps->linkRecognition.inlineCode);
     _segmentViews = [NSMutableArray array];
     _segmentSignatures = [NSMutableArray array];
+    _slotLayer = [[ENRMBlockSlotLayerView alloc] initWithFrame:self.bounds];
+    _slotLayer.backgroundColor = [RCTUIColor clearColor];
+#if !TARGET_OS_OSX
+    _slotLayer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+#else
+    _slotLayer.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+#endif
+    [self addSubview:_slotLayer];
     __weak __typeof(self) weakLatexSelf = self;
     _latexErrorCoordinator =
         [[ENRMLatexErrorCoordinator alloc] initWithEmit:^BOOL(NSString *source, NSString *message, BOOL displayMode) {
@@ -217,6 +250,21 @@ static char kENRMSegmentFadeAnimatorKey;
     _enableLinkPreview = YES;
     _enableTaskListItemToggle = YES;
     _enableImagePress = NO;
+    __weak EnrichedMarkdown *weakWrapSelf = self;
+    _codeBlockWrapState = [[ENRMCodeBlockWrapState alloc]
+        initWithCodeBlockViews:^{
+          NSMutableArray<ENRMCodeBlockContainerView *> *views = [NSMutableArray array];
+          EnrichedMarkdown *strongSelf = weakWrapSelf;
+          if (strongSelf) {
+            ENRMCollectCodeBlockViews(strongSelf->_segmentViews, views);
+          }
+          return views;
+        }
+        onHeightChanged:^{
+          EnrichedMarkdown *strongSelf = weakWrapSelf;
+          [strongSelf setNeedsLayout];
+          [strongSelf requestHeightUpdate];
+        }];
     _dynamicBlockProps = [[ENRMDynamicBlockProps alloc] init];
     _linkContextMenus = [[ENRMLinkContextMenus alloc] init];
     __weak EnrichedMarkdown *weakMenuSelf = self;
@@ -227,6 +275,7 @@ static char kENRMSegmentFadeAnimatorKey;
     _streamingAnimation = NO;
     _tableStreamingMode = ENRMTableStreamingModeProgressive;
     _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
+    _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
     _selectionMenuConfig = (ENRMSelectionMenuConfig){.copyAsMarkdown = YES, .copyImageURL = YES};
     _lineBreakStrategy = NSLineBreakStrategyNone;
     _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
@@ -235,6 +284,8 @@ static char kENRMSegmentFadeAnimatorKey;
 
     _fontScaleObserver = [[FontScaleObserver alloc] init];
     __weak EnrichedMarkdown *weakSelf = self;
+    _blockSlotReveal =
+        [[ENRMBlockSlotRevealController alloc] initWithFrameHandler:^{ [weakSelf stepBlockSlotReveal]; }];
     _fontScaleObserver.onChange = ^{
       EnrichedMarkdown *strongSelf = weakSelf;
       if (!strongSelf)
@@ -362,6 +413,30 @@ static char kENRMSegmentFadeAnimatorKey;
                           updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
                             [(ENRMBlockquoteContainerView *)view
                                 applyBlockquoteNode:segment.blockquoteSegment.blockquoteNode];
+                          }]];
+
+  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockSlot
+                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            return [view isKindOfClass:[ENRMBlockSlotSegmentView class]];
+                          }
+                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
+                            ENRMBlockSlotSegmentView *view = [[ENRMBlockSlotSegmentView alloc] init];
+                            view.slotId = segment.blockSlotSegment.slotId;
+                            view.kind = segment.blockSlotSegment.kind;
+                            EnrichedMarkdown *strongSelf = weakSelf;
+                            if (strongSelf) {
+                              view.slotHeight = strongSelf->_blockSlotHeights[view.slotId].doubleValue;
+                            }
+                            return view;
+                          }
+                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            ENRMBlockSlotSegmentView *slotView = (ENRMBlockSlotSegmentView *)view;
+                            slotView.slotId = segment.blockSlotSegment.slotId;
+                            slotView.kind = segment.blockSlotSegment.kind;
+                            EnrichedMarkdown *strongSelf = weakSelf;
+                            if (strongSelf) {
+                              slotView.slotHeight = strongSelf->_blockSlotHeights[slotView.slotId].doubleValue;
+                            }
                           }]];
 
 #if ENRICHED_MARKDOWN_VIDEO
@@ -528,6 +603,12 @@ static char kENRMSegmentFadeAnimatorKey;
       yOffset += _config.blockquoteMarginTop;
       segmentHeight = [(ENRMBlockquoteContainerView *)segment measureHeight:width];
       maxContentWidth = width;
+    } else if ([segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+      ENRMBlockSlotSegmentView *slotView = (ENRMBlockSlotSegmentView *)segment;
+      yOffset += ENRMBlockSlotMarginTop(slotView.kind, _config);
+      // Measurement reserves the full height; the stack follows the grow-in.
+      segmentHeight = applyFrames ? slotView.revealedHeight : [slotView measureHeight:width];
+      maxContentWidth = width;
     }
 #if ENRICHED_MARKDOWN_VIDEO
     else if ([segment isKindOfClass:[ENRMVideoContainerView class]]) {
@@ -574,6 +655,8 @@ static char kENRMSegmentFadeAnimatorKey;
       yOffset += _config.codeBlockMarginBottom;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]] && shouldAddBottomMargin) {
       yOffset += _config.blockquoteMarginBottom;
+    } else if ([segment isKindOfClass:[ENRMBlockSlotSegmentView class]] && shouldAddBottomMargin) {
+      yOffset += ENRMBlockSlotMarginBottom(((ENRMBlockSlotSegmentView *)segment).kind, _config);
     }
 #if ENRICHED_MARKDOWN_VIDEO
     else if ([segment isKindOfClass:[ENRMVideoContainerView class]] && shouldAddBottomMargin) {
@@ -636,6 +719,163 @@ static char kENRMSegmentFadeAnimatorKey;
   if (oldState == nullptr) {
     [self requestHeightUpdate];
   }
+  [self applyBlockSlotPlacementsFromState];
+}
+
+// The shadow node says which slot children exist and how tall each placed one
+// is. New ids need a parse that stamps them; new heights only need a relayout.
+// Both are deferred to finalizeUpdates: the parse so it coalesces with the one
+// updateProps asked for in the same transaction, the height check so it runs
+// against the layout metrics this transaction delivers right after the state.
+- (void)applyBlockSlotPlacementsFromState
+{
+  if (!_state) {
+    return;
+  }
+  const auto &placements = _state->getData().getSlotPlacements();
+  NSMutableSet<NSString *> *ids = [NSMutableSet setWithCapacity:placements.size()];
+  NSMutableDictionary<NSString *, NSNumber *> *heights = [NSMutableDictionary dictionaryWithCapacity:placements.size()];
+  for (const auto &placement : placements) {
+    NSString *slotId = @(placement.id.c_str());
+    [ids addObject:slotId];
+    if (placement.placed) {
+      heights[slotId] = @(placement.height);
+    }
+  }
+
+  BOOL idsChanged = ![ids isEqualToSet:(_activeBlockSlotIds ?: [NSSet set])];
+  BOOL heightsChanged = ![heights isEqualToDictionary:(_blockSlotHeights ?: @{})];
+  _activeBlockSlotIds = ids.count > 0 ? [ids copy] : nil;
+  [_blockSlotReveal keepSlotIds:ids];
+  _blockSlotHeights = heights.count > 0 ? [heights copy] : nil;
+  [self updateBlockSlotHeights:heights];
+
+  if (idsChanged && (_pendingRenderMarkdown || _cachedMarkdown.length > 0)) {
+    _dirtyFlags |= ENRMDirtyForceHeight;
+    _pendingRenderMarkdown = _pendingRenderMarkdown ?: _cachedMarkdown;
+    _pendingRenderSynchronously = YES;
+  } else if (heightsChanged) {
+    [self setNeedsLayout];
+    _pendingSlotHeightCheck = YES;
+  }
+}
+
+- (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+{
+  [super finalizeUpdates:updateMask];
+
+  if (_pendingRenderMarkdown) {
+    NSString *markdown = _pendingRenderMarkdown;
+    BOOL synchronously = _pendingRenderSynchronously;
+    _pendingRenderMarkdown = nil;
+    _pendingRenderSynchronously = NO;
+    _pendingSlotHeightCheck = NO;
+    [self renderMarkdownContent:markdown synchronously:synchronously];
+    return;
+  }
+  if (_pendingSlotHeightCheck) {
+    _pendingSlotHeightCheck = NO;
+    CGRect contentBounds = [self contentBounds];
+    if (contentBounds.size.width > 0) {
+      CGSize measured = [self measureSize:contentBounds.size.width];
+      if (needsHeightUpdate(measured, contentBounds)) {
+        [self requestHeightUpdate];
+      }
+    }
+  }
+}
+
+- (void)bindBlockSlotViews
+{
+  NSMutableDictionary<NSString *, RCTUIView *> *views = [NSMutableDictionary dictionary];
+  for (RCTUIView *child in _slotLayer.subviews) {
+    if ([child isKindOfClass:[EnrichedMarkdownBlockSlot class]]) {
+      views[((EnrichedMarkdownBlockSlot *)child).slotId] = child;
+    }
+  }
+  ENRMBindBlockSlotViews(_segmentViews, views);
+  // A child mounted mid grow-in is placed and clipped before it draws.
+  [self applyBlockSlotReveal];
+}
+
+// A root slot getting its first height while streaming grows into place
+// (ENRMBlockSlotRevealController) instead of pushing the text below it down at once.
+- (void)updateBlockSlotHeights:(NSDictionary<NSString *, NSNumber *> *)heights
+{
+  ENRMApplyBlockSlotHeights(_segmentViews, heights);
+  [_blockSlotReveal noteHeights:heights
+                     inSegments:_segmentViews
+                         reveal:_streamingAnimation && !ENRMShouldReduceMotion()];
+  [self applyBlockSlotReveal];
+}
+
+- (void)applyBlockSlotReveal
+{
+  [_blockSlotReveal applyToSegments:_segmentViews slotViews:_slotLayer.subviews];
+}
+
+- (void)stepBlockSlotReveal
+{
+  [self applyBlockSlotReveal];
+  const CGFloat width = [self contentBounds].size.width;
+  if (width > 0) {
+    [self computeSegmentLayoutForWidth:width applyFrames:YES];
+  }
+}
+
+- (void)mountChildComponentView:(RCTUIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  NSInteger clamped = MAX(0, MIN(index, (NSInteger)_slotLayer.subviews.count));
+#if !TARGET_OS_OSX
+  [_slotLayer insertSubview:childComponentView atIndex:clamped];
+#else
+  if (clamped >= (NSInteger)_slotLayer.subviews.count) {
+    [_slotLayer addSubview:childComponentView];
+  } else {
+    [_slotLayer addSubview:childComponentView
+                positioned:NSWindowBelow
+                relativeTo:_slotLayer.subviews[(NSUInteger)clamped]];
+  }
+#endif
+  [self bindBlockSlotViews];
+}
+
+- (void)unmountChildComponentView:(RCTUIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  [childComponentView removeFromSuperview];
+  [self bindBlockSlotViews];
+}
+
+// Where segments live: beside the slot layer. RCTViewComponentView moves its
+// subviews into a container view for some styles (overflow with a shadow,
+// filters), and the slot layer moves with them.
+- (RCTUIView *)segmentContainer
+{
+  return (RCTUIView *)_slotLayer.superview ?: self;
+}
+
+- (void)bringSlotLayerToFront
+{
+  RCTUIView *container = [self segmentContainer];
+#if !TARGET_OS_OSX
+  [container bringSubviewToFront:_slotLayer];
+#else
+  if (container.subviews.lastObject != _slotLayer) {
+    [_slotLayer removeFromSuperviewWithoutNeedingDisplay];
+    [container addSubview:_slotLayer];
+  }
+#endif
+}
+
+- (nullable RCTUIView *)mountedBlockSlotViewForId:(NSString *)slotId
+{
+  for (RCTUIView *child in _slotLayer.subviews) {
+    if ([child isKindOfClass:[EnrichedMarkdownBlockSlot class]] &&
+        [((EnrichedMarkdownBlockSlot *)child).slotId isEqualToString:slotId]) {
+      return child;
+    }
+  }
+  return nil;
 }
 
 /// Publishes the committed size to the streaming fast path's mailbox, and picks
@@ -691,6 +931,8 @@ static char kENRMSegmentFadeAnimatorKey;
       ((TableContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     } else if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)segment).accessibilityLabels = _accessibilityLabels;
+    } else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)segment).accessibilityLabels = _accessibilityLabels;
     }
 #if ENRICHED_MARKDOWN_MATH
     else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
@@ -727,6 +969,15 @@ static char kENRMSegmentFadeAnimatorKey;
 
 - (void)renderMarkdownContent:(NSString *)markdownString
 {
+  [self renderMarkdownContent:markdownString synchronously:NO];
+}
+
+// Parses and lays the document out on the render queue and applies the result
+// on the main queue, unless `synchronously`: then both run here, in the current
+// mount transaction, and any render in flight is dropped (the Android host's
+// renderSynchronously). The parse memo keeps the inline parse cheap.
+- (void)renderMarkdownContent:(NSString *)markdownString synchronously:(BOOL)synchronously
+{
   if (_renderCoordinator.blockAsyncRender)
     return;
 
@@ -745,51 +996,64 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL streamingAnimation = _streamingAnimation;
   ENRMTableStreamingMode tableStreamingMode = _tableStreamingMode;
   ENRMCodeBlockStreamingMode codeBlockStreamingMode = _codeBlockStreamingMode;
+  ENRMMediaStreamingMode mediaStreamingMode = _mediaStreamingMode;
   NSLineBreakStrategy lineBreakStrategy = _lineBreakStrategy;
   ENRMWritingDirectionMode writingDirectionMode = _writingDirectionMode;
   NSWritingDirection resolvedLayoutDirection = _resolvedLayoutDirection;
+  NSSet<NSString *> *activeBlockSlotIds = _activeBlockSlotIds;
+  BOOL annotateImages = config.imageSourceOverrides.count > 0;
 
   __block NSArray<ENRMRenderedSegment *> *renderedSegments = nil;
   __block NSString *renderableMarkdown = nil;
   __block BOOL endsInsideOpenCodeFence = NO;
 
-  [_renderCoordinator
-      scheduleRender:^BOOL {
-        renderableMarkdown = streamingAnimation
-                                 ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode,
-                                                                      codeBlockStreamingMode, &endsInsideOpenCodeFence)
-                                 : markdownString;
+  BOOL (^render)(void) = ^BOOL {
+    renderableMarkdown =
+        streamingAnimation
+            ? ENRMRenderableMarkdownForStreaming(markdownString, tableStreamingMode, codeBlockStreamingMode,
+                                                 mediaStreamingMode, &endsInsideOpenCodeFence)
+            : markdownString;
 
-        if (renderableMarkdown.length == 0) {
-          renderedSegments = @[];
-          return YES;
-        }
+    if (renderableMarkdown.length == 0) {
+      renderedSegments = @[];
+      return YES;
+    }
 
-        MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown
-                                               flags:md4cFlags
-                                               isGFM:isGFM
-                                           linkRegex:linkRegex
-                                 inlineCodeLinkRegex:inlineCodeLinkRegex];
-        if (!ast)
-          return NO;
+    MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown
+                                           flags:md4cFlags
+                                           isGFM:isGFM
+                                       linkRegex:linkRegex
+                             inlineCodeLinkRegex:inlineCodeLinkRegex
+                              activeBlockSlotIds:activeBlockSlotIds
+                                  annotateImages:annotateImages];
+    if (!ast)
+      return NO;
 
-        renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
-                                                     maxFontSizeMultiplier, lineBreakStrategy,
-                                                     /*blockquoteContent*/ NO);
-        for (ENRMRenderedSegment *segment in renderedSegments) {
-          if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-            ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode,
-                                          resolvedLayoutDirection);
-          }
-        }
-        return YES;
+    renderedSegments = ENRMRenderSegmentsFromAST(ast, config, allowTrailingMargin, allowFontScaling,
+                                                 maxFontSizeMultiplier, lineBreakStrategy,
+                                                 /*blockquoteContent*/ NO);
+    for (ENRMRenderedSegment *segment in renderedSegments) {
+      if (segment.kind == ENRMSegmentKindText && segment.textResult) {
+        ENRMApplyWritingDirectionMode(segment.textResult.attributedText, writingDirectionMode, resolvedLayoutDirection);
       }
-      apply:^{
-        self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
-        [self applyRenderedSegments:renderedSegments
-                   renderedMarkdown:renderableMarkdown
-            endsInsideOpenCodeFence:endsInsideOpenCodeFence];
-      }];
+    }
+    return YES;
+  };
+  dispatch_block_t apply = ^{
+    self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
+    [self applyRenderedSegments:renderedSegments
+               renderedMarkdown:renderableMarkdown
+        endsInsideOpenCodeFence:endsInsideOpenCodeFence];
+  };
+
+  if (synchronously) {
+    [_renderCoordinator invalidate];
+    if (render()) {
+      apply();
+    }
+    return;
+  }
+  [_renderCoordinator scheduleRender:render apply:apply];
 }
 
 - (NSArray *)parseAndRenderSegments:(NSString *)markdownString
@@ -798,7 +1062,9 @@ static char kENRMSegmentFadeAnimatorKey;
                                           flags:_md4cFlags
                                           isGFM:_isGFM
                                       linkRegex:_linkRegex
-                            inlineCodeLinkRegex:_inlineCodeLinkRegex];
+                            inlineCodeLinkRegex:_inlineCodeLinkRegex
+                             activeBlockSlotIds:_activeBlockSlotIds
+                                 annotateImages:_config.imageSourceOverrides.count > 0];
   if (!ast) {
     return nil;
   }
@@ -831,9 +1097,10 @@ static char kENRMSegmentFadeAnimatorKey;
   _cachedMarkdown = [markdownString copy];
   BOOL endsInsideOpenCodeFence = NO;
   NSString *renderableMarkdown =
-      _streamingAnimation ? ENRMRenderableMarkdownForStreaming(markdownString, _tableStreamingMode,
-                                                               _codeBlockStreamingMode, &endsInsideOpenCodeFence)
-                          : markdownString;
+      _streamingAnimation
+          ? ENRMRenderableMarkdownForStreaming(markdownString, _tableStreamingMode, _codeBlockStreamingMode,
+                                               _mediaStreamingMode, &endsInsideOpenCodeFence)
+          : markdownString;
   _renderedMarkdown = [renderableMarkdown copy];
   _renderedStyleFingerprint = _pendingStyleFingerprint;
 
@@ -852,8 +1119,11 @@ static char kENRMSegmentFadeAnimatorKey;
     RCTUIView *view = [_segmentViewRegistry createViewForSegment:segment];
     [_segmentViews addObject:view];
     [_segmentSignatures addObject:@(segment.signature)];
-    [self addSubview:view];
+    [[self segmentContainer] addSubview:view];
   }
+  [self bringSlotLayerToFront];
+  [self updateBlockSlotHeights:_blockSlotHeights ?: @{}];
+  [self bindBlockSlotViews];
 }
 
 - (void)updatePendingCodeBlockSegment:(BOOL)endsInsideOpenCodeFence segments:(NSArray<ENRMRenderedSegment *> *)segments
@@ -886,7 +1156,7 @@ static char kENRMSegmentFadeAnimatorKey;
       updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
         [self->_segmentViewRegistry updateView:view withSegment:segment];
       }
-      attachView:^(RCTUIView *view) { [self addSubview:view]; }
+      attachView:^(RCTUIView *view) { [[self segmentContainer] addSubview:view]; }
       removeView:^(RCTUIView *view) { [view removeFromSuperview]; }
       matchesKind:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
         return [self->_segmentViewRegistry view:view matchesSegment:segment];
@@ -896,6 +1166,11 @@ static char kENRMSegmentFadeAnimatorKey;
 
   _segmentViews = result.views;
   _segmentSignatures = result.signatures;
+  [self bringSlotLayerToFront];
+  // Recreated placeholders (nested ones in particular) start at zero height; the
+  // shadow node only republishes frames when they change, so reapply the last ones.
+  [self updateBlockSlotHeights:_blockSlotHeights ?: @{}];
+  [self bindBlockSlotViews];
 
   // A just-closed block has unchanged content, so the reconciler reuses it
   // without an update; sync pending here to trigger its deferred highlight.
@@ -905,6 +1180,7 @@ static char kENRMSegmentFadeAnimatorKey;
           self->_pendingCodeBlockSegment != nil && i == self->_segmentViews.count - 1;
     }
   }];
+  [_codeBlockWrapState sync];
 
   CGRect contentBounds = [self contentBounds];
   if (contentBounds.size.width > 0) {
@@ -1040,6 +1316,7 @@ static char kENRMSegmentFadeAnimatorKey;
 {
   ENRMCodeBlockContainerView *codeBlockView = [[ENRMCodeBlockContainerView alloc] initWithConfig:_config];
   codeBlockView.dynamicProps = _dynamicBlockProps;
+  codeBlockView.accessibilityLabels = _accessibilityLabels;
 
   __weak EnrichedMarkdown *weakSelf = self;
   codeBlockView.onCopyPress = ^(NSString *code, NSString *language) {
@@ -1056,6 +1333,11 @@ static char kENRMSegmentFadeAnimatorKey;
   codeBlockView.pending = codeBlockSegment == _pendingCodeBlockSegment;
   [codeBlockView applyCodeBlockNode:codeBlockSegment.codeBlockNode];
   return codeBlockView;
+}
+
+- (NSSet<NSNumber *> *)wrappedCodeBlockIndices
+{
+  return _codeBlockWrapState.indices;
 }
 
 - (void)animateBlockViewIfNeeded:(RCTUIView *)view
@@ -1110,6 +1392,13 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL markdownChanged = oldViewProps.markdown != newViewProps.markdown;
   if (markdownChanged) {
     _dirtyFlags |= ENRMDirtyRender;
+    // A task toggle renders its result locally before JS echoes it back as a
+    // prop, so the rendered document is handed over for the echo check.
+    if ([_codeBlockWrapState markdownPropDidChangeFrom:oldViewProps.markdown
+                                                    to:newViewProps.markdown
+                                              rendered:_cachedMarkdown]) {
+      _dirtyFlags |= ENRMDirtyForceHeight;
+    }
   }
 
   if (_config == nil) {
@@ -1127,6 +1416,18 @@ static char kENRMSegmentFadeAnimatorKey;
   if (ENRMImageRequestHeadersChanged(oldViewProps.imageRequestHeaders, newViewProps.imageRequestHeaders)) {
     [_config setImageRequestHeaders:ENRMImageRequestHeadersFromProps(newViewProps.imageRequestHeaders)];
     _dirtyFlags |= ENRMDirtyRender;
+    if (!markdownChanged) {
+      _dirtyFlags |= ENRMDirtyRecreateSegments;
+    }
+  }
+
+  // Overridden sources decide which image loads, so its box height. With a
+  // markdown change in the same commit the reconciler decides per segment; the
+  // segment signature carries the sources (SegmentRenderer) so a reused one
+  // never keeps the previous attachment.
+  if (ENRMImageSourcesChanged(oldViewProps.imageSources, newViewProps.imageSources)) {
+    [_config setImageSourceOverrides:ENRMImageSourceOverridesFromProps(newViewProps.imageSources)];
+    _dirtyFlags |= ENRMDirtyRender | ENRMDirtyForceHeight;
     if (!markdownChanged) {
       _dirtyFlags |= ENRMDirtyRecreateSegments;
     }
@@ -1211,10 +1512,18 @@ static char kENRMSegmentFadeAnimatorKey;
   _dynamicBlockProps.enableBlockContextMenu = newViewProps.enableBlockContextMenu;
   _dynamicBlockProps.enableCodeBlockPress = newViewProps.enableCodeBlockPress;
 
+  if ([_codeBlockWrapState updateEnabled:newViewProps.enableCodeBlockWrapToggle]) {
+    [self setNeedsLayout];
+    [self requestHeightUpdate];
+  }
+
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
     _streamingAnimation = newViewProps.streamingAnimation;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
     if (!_streamingAnimation) {
+      [_blockSlotReveal cancel];
+      [self applyBlockSlotReveal];
+      [self setNeedsLayout];
       for (RCTUIView *segment in _segmentViews) {
         if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
           ENRMTailFadeInAnimator *animator = objc_getAssociatedObject(
@@ -1239,6 +1548,13 @@ static char kENRMSegmentFadeAnimatorKey;
         [[NSString alloc] initWithUTF8String:newViewProps.streamingConfig.codeBlockMode.c_str()];
     _codeBlockStreamingMode = [codeBlockModeStr isEqualToString:@"hidden"] ? ENRMCodeBlockStreamingModeHidden
                                                                            : ENRMCodeBlockStreamingModeProgressive;
+    _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
+  }
+
+  if (newViewProps.streamingConfig.mediaMode != oldViewProps.streamingConfig.mediaMode) {
+    NSString *mediaModeStr = [[NSString alloc] initWithUTF8String:newViewProps.streamingConfig.mediaMode.c_str()];
+    _mediaStreamingMode =
+        [mediaModeStr isEqualToString:@"hidden"] ? ENRMMediaStreamingModeHidden : ENRMMediaStreamingModeProgressive;
     _dirtyFlags |= ENRMDirtyForceHeight | ENRMDirtyRender;
   }
 
@@ -1278,6 +1594,10 @@ static char kENRMSegmentFadeAnimatorKey;
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.table.row.c_str()];
     _accessibilityLabels.mathEquation =
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.math.equation.c_str()];
+    _accessibilityLabels.codeBlockWrap =
+        [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.codeBlock.wrap.c_str()];
+    _accessibilityLabels.codeBlockUnwrap =
+        [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.codeBlock.unwrap.c_str()];
     _accessibilityLabels.rotorHeadings =
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.rotor.headings.c_str()];
     _accessibilityLabels.rotorLinks =
@@ -1322,8 +1642,9 @@ static char kENRMSegmentFadeAnimatorKey;
   if (_dirtyFlags & ENRMDirtyRender) {
     _pendingStyleFingerprint =
         computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
-    NSString *markdownString = [[NSString alloc] initWithUTF8String:newViewProps.markdown.c_str()];
-    [self renderMarkdownContent:markdownString];
+    // Rendered in finalizeUpdates, once per transaction (see
+    // applyBlockSlotPlacementsFromState).
+    _pendingRenderMarkdown = ENRMStringFromUTF8(newViewProps.markdown);
     _dirtyFlags &= ~ENRMDirtyRender;
   }
 
@@ -1374,6 +1695,12 @@ static char kENRMSegmentFadeAnimatorKey;
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;
   _config = nil;
+  _activeBlockSlotIds = nil;
+  _blockSlotHeights = nil;
+  [_blockSlotReveal reset];
+  _pendingRenderMarkdown = nil;
+  _pendingRenderSynchronously = NO;
+  _pendingSlotHeightCheck = NO;
   _md4cFlags = [EnrichedMarkdown flagsFromProps:resetProps->md4cFlags];
   _isGFM = resetProps->isGFM;
   _linkRegex = ENRMLinkRegexConfigFromProps(resetProps->linkRecognition.text);
@@ -1383,7 +1710,9 @@ static char kENRMSegmentFadeAnimatorKey;
   _streamingAnimation = NO;
   _tableStreamingMode = ENRMTableStreamingModeProgressive;
   _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
+  _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
   _pendingCodeBlockSegment = nil;
+  [_codeBlockWrapState reset];
   _lineBreakStrategy = NSLineBreakStrategyNone;
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
   _renderedStyleFingerprint = 0;
@@ -1414,6 +1743,11 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 
   for (RCTUIView *segment in _segmentViews) {
     if (CGRectContainsPoint(segment.frame, point)) {
+      return YES;
+    }
+  }
+  for (RCTUIView *slot in _slotLayer.subviews) {
+    if (CGRectContainsPoint(slot.frame, point)) {
       return YES;
     }
   }
@@ -1654,9 +1988,22 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   return NO;
 }
 
+// Each placeholder stands in for the React child mounted in the slot layer, so
+// VoiceOver reads the child in document order instead of an empty view.
 - (NSArray *)accessibilityElements
 {
-  return _segmentViews;
+  NSMutableArray *elements = [NSMutableArray arrayWithCapacity:_segmentViews.count];
+  for (RCTUIView *segment in _segmentViews) {
+    if ([segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+      RCTUIView *slot = [self mountedBlockSlotViewForId:((ENRMBlockSlotSegmentView *)segment).slotId];
+      if (slot) {
+        [elements addObject:slot];
+      }
+      continue;
+    }
+    [elements addObject:segment];
+  }
+  return elements;
 }
 
 - (NSInteger)accessibilityElementCount

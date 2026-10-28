@@ -1,0 +1,362 @@
+import {
+  markdownLinePrefix,
+  serialize,
+  serializeInline,
+} from '../MarkdownSerializer';
+import { createBlockRange, MAX_LIST_DEPTH } from '../../model/blocks';
+import { createFormattingRange as range } from '../../model/inlineStyles';
+
+describe('serializeInline', () => {
+  it('wraps each style in its dialect delimiters', () => {
+    const text = 'The world is big';
+
+    expect(serializeInline(text, [range('strong', 4, 9)])).toBe(
+      'The **world** is big'
+    );
+    expect(serializeInline(text, [range('em', 4, 9)])).toBe(
+      'The *world* is big'
+    );
+    expect(serializeInline(text, [range('underline', 4, 9)])).toBe(
+      'The _world_ is big'
+    );
+    expect(serializeInline(text, [range('strikethrough', 4, 9)])).toBe(
+      'The ~~world~~ is big'
+    );
+    expect(serializeInline(text, [range('spoiler', 4, 9)])).toBe(
+      'The ||world|| is big'
+    );
+    expect(
+      serializeInline(text, [range('link', 4, 9, 'https://a.example')])
+    ).toBe('The [world](https://a.example) is big');
+  });
+
+  it('puts links and spoilers outside font styles over the same text', () => {
+    const text = 'The world is big';
+
+    expect(
+      serializeInline(text, [range('spoiler', 4, 9), range('em', 4, 9)])
+    ).toBe('The ||*world*|| is big');
+    expect(
+      serializeInline(text, [
+        range('link', 4, 9, 'https://a.example'),
+        range('strong', 4, 9),
+      ])
+    ).toBe('The [**world**](https://a.example) is big');
+  });
+
+  it('nests by containment, whatever the types', () => {
+    // A bold word inside a link, and the reverse: the longer range is outside.
+    expect(
+      serializeInline('click here', [
+        range('link', 0, 10, 'u'),
+        range('strong', 6, 10),
+      ])
+    ).toBe('[click **here**](u)');
+    expect(
+      serializeInline('click here', [
+        range('strong', 0, 5),
+        range('link', 0, 10, 'u'),
+      ])
+    ).toBe('[**click** here](u)');
+    expect(
+      serializeInline('a b', [range('spoiler', 0, 3), range('strong', 0, 1)])
+    ).toBe('||**a** b||');
+  });
+
+  it('closes and reopens a range crossing another', () => {
+    // Bold "ab cd", italic "cd ef": bold ends inside italic.
+    expect(
+      serializeInline('ab cd ef', [range('strong', 0, 5), range('em', 3, 8)])
+    ).toBe('**ab *cd*** *ef*');
+    // The reopened italic skips the space, where it could not open.
+    expect(
+      serializeInline('ab cd ef', [range('em', 0, 5), range('strong', 3, 8)])
+    ).toBe('*ab **cd*** **ef**');
+    expect(
+      serializeInline('ab cd', [range('link', 0, 2, 'u'), range('em', 0, 5)])
+    ).toBe('*[ab](u) cd*');
+  });
+
+  it('trims delimiters to hug non-whitespace content', () => {
+    // The range covers " world " including both spaces.
+    expect(serializeInline('The world is big', [range('strong', 3, 10)])).toBe(
+      'The **world** is big'
+    );
+    // A whitespace-only range serializes no delimiters at all.
+    expect(serializeInline('a b', [range('strong', 1, 2)])).toBe('a b');
+  });
+
+  it('closes before opening at a shared boundary instead of nesting', () => {
+    // "ab" with bold on "a" and underline on "b" — adjacent, not nested.
+    expect(
+      serializeInline('ab', [range('strong', 0, 1), range('underline', 1, 2)])
+    ).toBe('**a**_b_');
+  });
+
+  it('closes and reopens a range on each line it covers', () => {
+    // Delimiters may not cross a line: every line is its own block, so a
+    // run left open would re-parse as literal asterisks.
+    expect(serializeInline('foo\nbar', [range('strong', 0, 7)])).toBe(
+      '**foo**\n**bar**'
+    );
+    // A blank line in the middle contributes no delimiters of its own.
+    expect(serializeInline('foo\n\nbar', [range('em', 0, 8)])).toBe(
+      '*foo*\n\n*bar*'
+    );
+    expect(
+      serializeInline('foo\nbar', [range('link', 0, 7, 'https://a.example')])
+    ).toBe('[foo](https://a.example)\n[bar](https://a.example)');
+  });
+
+  it('escapes a "!" written right before a link', () => {
+    // "![docs](u)" is an image: it would re-import as "docs" with no link.
+    const link = range('link', 4, 8, 'u');
+
+    expect(serializeInline('Wow!docs', [link])).toBe('Wow\\![docs](u)');
+    // A literal backslash before the "!" stays escaped on its own.
+    expect(serializeInline('Wo\\!docs', [range('link', 4, 8, 'u')])).toBe(
+      'Wo\\\\\\![docs](u)'
+    );
+  });
+
+  it('leaves a "!" alone when anything is written between it and the link', () => {
+    expect(serializeInline('Wow! docs', [range('link', 5, 9, 'u')])).toBe(
+      'Wow! [docs](u)'
+    );
+    // A delimiter closing at the link start lands between the two.
+    expect(
+      serializeInline('Wow!docs', [
+        range('strong', 0, 4),
+        range('link', 4, 8, 'u'),
+      ])
+    ).toBe('**Wow!**[docs](u)');
+    // So does one opening there outside the link.
+    expect(
+      serializeInline('Wow!docs', [
+        range('strong', 4, 8),
+        range('link', 4, 6, 'u'),
+      ])
+    ).toBe('Wow!**[do](u)cs**');
+  });
+
+  it('keeps bold and italic meeting inside a word', () => {
+    // Adjacent "*" and "**" are one run to md4c, judged by what is around the
+    // whole run - so a run between two letters still reads.
+    expect(
+      serializeInline('abcd', [range('strong', 0, 1), range('em', 0, 1)])
+    ).toBe('***a***bcd');
+    expect(
+      serializeInline('abcd', [range('strong', 0, 2), range('em', 1, 2)])
+    ).toBe('**a*b***cd');
+    expect(
+      serializeInline('abcd', [range('strong', 1, 3), range('em', 1, 3)])
+    ).toBe('a***bc***d');
+  });
+
+  it('still treats a delimiter of another kind as punctuation', () => {
+    // "**~~ab~~**cd": the "~~" next to "**" is no part of its run, so the
+    // closing "**" follows punctuation and precedes a letter and cannot close,
+    // and neither can "~~" before a letter. Both are dropped, as before.
+    expect(
+      serializeInline('abcd', [
+        range('strong', 0, 2),
+        range('strikethrough', 0, 2),
+      ])
+    ).toBe('abcd');
+  });
+
+  it('wraps a link destination that would end early', () => {
+    const link = (url: string) =>
+      serializeInline('docs', [range('link', 0, 4, url)]);
+
+    expect(link('https://a.example/a b')).toBe(
+      '[docs](<https://a.example/a b>)'
+    );
+    expect(link('https://a.example/a(b')).toBe(
+      '[docs](<https://a.example/a(b>)'
+    );
+    // Balanced parens parse fine bare, so they stay bare.
+    expect(link('https://a.example/a(b)c')).toBe(
+      '[docs](https://a.example/a(b)c)'
+    );
+  });
+
+  it('doubles a backslash in a link destination in both forms', () => {
+    const link = (url: string) =>
+      serializeInline('docs', [range('link', 0, 4, url)]);
+
+    // Left bare, the trailing "\" would escape the closing ">".
+    expect(link('https://a.example/a b\\')).toBe(
+      '[docs](<https://a.example/a b\\\\>)'
+    );
+    // Bare destinations resolve escapes too, so "\*" would come back as "*".
+    expect(link('https://a.example/a\\*b')).toBe(
+      '[docs](https://a.example/a\\\\*b)'
+    );
+  });
+
+  it('percent-encodes a line ending in a link destination', () => {
+    expect(
+      serializeInline('docs', [range('link', 0, 4, 'https://a.example/a\nb')])
+    ).toBe('[docs](https://a.example/a%0Ab)');
+    expect(
+      serializeInline('docs', [range('link', 0, 4, 'https://a.example/a\r\nb')])
+    ).toBe('[docs](https://a.example/a%0D%0Ab)');
+  });
+});
+
+describe('serialize', () => {
+  const text = 'Rebase\nfetch\nmerge';
+
+  it('prefixes each block line with its marker', () => {
+    const blocks = [
+      createBlockRange('h2', 0, 6, 2),
+      createBlockRange('ordered-list-item', 7, 12),
+      { ...createBlockRange('ordered-list-item', 13, 18), ordinal: 2 },
+    ];
+
+    expect(serialize(text, [], blocks)).toBe('## Rebase\n1. fetch\n2. merge');
+  });
+
+  it('combines block prefixes with inline delimiters', () => {
+    const blocks = [createBlockRange('ordered-list-item', 7, 12)];
+    const bold = [{ type: 'strong' as const, start: 7, end: 12 }];
+
+    expect(serialize(text, bold, blocks)).toBe('Rebase\n1. **fetch**\nmerge');
+  });
+
+  // The shape the block store produces: an emptied heading or list item keeps
+  // its line as a zero-length range, the line itself holding no characters.
+  // Under paragraph text "-" is a setext underline and "1." more text.
+  it('prefixes an empty heading anchor but leaves an empty list item under text bare', () => {
+    const anchorText = 'a\n\nb';
+
+    expect(serialize(anchorText, [], [createBlockRange('h1', 2, 2, 1)])).toBe(
+      'a\n# \nb'
+    );
+    expect(
+      serialize(anchorText, [], [createBlockRange('unordered-list-item', 2, 2)])
+    ).toBe('a\n\nb');
+  });
+
+  it('marks an empty list item that follows an item at least as deep', () => {
+    const blocks = [
+      createBlockRange('unordered-list-item', 0, 1, 0),
+      createBlockRange('unordered-list-item', 2, 3, 1),
+      createBlockRange('unordered-list-item', 4, 4, 1),
+      createBlockRange('unordered-list-item', 5, 5, 0),
+    ];
+
+    expect(serialize('a\nb\n\n', [], blocks)).toBe('- a\n  - b\n  - \n- ');
+  });
+
+  it('marks an empty list item after a heading, an empty line, or at the start', () => {
+    const item = (at: number) => createBlockRange('ordered-list-item', at, at);
+
+    expect(
+      serialize('h\n', [], [createBlockRange('h1', 0, 1, 1), item(2)])
+    ).toBe('# h\n1. ');
+    expect(serialize('a\n\n', [], [item(3)])).toBe('a\n\n1. ');
+    expect(serialize('\nb', [], [item(0)])).toBe('1. \nb');
+  });
+
+  // "- a\n  -" makes "a" a setext heading inside the item.
+  it('leaves a first child bare when its parent has text', () => {
+    const blocks = [
+      createBlockRange('unordered-list-item', 0, 1, 0),
+      createBlockRange('unordered-list-item', 2, 2, 1),
+      createBlockRange('unordered-list-item', 3, 4, 1),
+    ];
+
+    expect(serialize('a\n\nc', [], blocks)).toBe('- a\n\n  - c');
+  });
+
+  // A line ending in a url used to reach the output verbatim, breaking the
+  // line-count invariant and dropping every block prefix in the document.
+  it('keeps block prefixes when a link url carries a line ending', () => {
+    const blocks = [
+      createBlockRange('h1', 0, 6, 1),
+      createBlockRange('unordered-list-item', 7, 12),
+    ];
+    const link = [range('link', 7, 12, 'https://a.example/a\nb')];
+
+    expect(serialize(text, link, blocks)).toBe(
+      '# Rebase\n- [fetch](https://a.example/a%0Ab)\nmerge'
+    );
+  });
+
+  it('indents a nested item under a multi-digit ordered marker', () => {
+    const nested = (ordinal: number) =>
+      serialize(
+        'a\nb',
+        [],
+        [
+          { ...createBlockRange('ordered-list-item', 0, 1), ordinal },
+          createBlockRange('unordered-list-item', 2, 3, 1),
+        ]
+      );
+
+    // Three spaces clear "1. " but not "10. ", which would de-nest the child.
+    expect(nested(1)).toBe('1. a\n   - b');
+    expect(nested(10)).toBe('10. a\n    - b');
+  });
+
+  it('writes each marker ahead of the delimiters reopened on its line', () => {
+    const blocks = [
+      createBlockRange('unordered-list-item', 0, 2),
+      createBlockRange('h2', 3, 5, 2),
+    ];
+
+    expect(serialize('ab\ncd', [range('strong', 0, 5)], blocks)).toBe(
+      '- **ab**\n## **cd**'
+    );
+  });
+
+  // The store sorts its blocks, which lets `serialize` walk to each block's
+  // line instead of searching for it; any other caller still gets every
+  // marker on its own line.
+  it('prefixes blocks handed over out of order', () => {
+    const blocks = [
+      createBlockRange('h1', 13, 18, 1),
+      createBlockRange('unordered-list-item', 7, 12),
+      createBlockRange('h3', 0, 6, 3),
+    ];
+
+    expect(serialize(text, [], blocks)).toBe('### Rebase\n- fetch\n# merge');
+  });
+
+  it('anchors the trailing empty line after a final newline', () => {
+    expect(serialize('a\n', [], [createBlockRange('h1', 2, 2, 1)])).toBe(
+      'a\n# '
+    );
+  });
+});
+
+describe('markdownLinePrefix', () => {
+  // With no parent content column passed, nesting falls back to assuming
+  // single-digit markers all the way up; `serialize` passes the real width.
+  it('builds heading, bullet and numbered markers', () => {
+    expect(markdownLinePrefix(createBlockRange('h3', 0, 5, 3))).toBe('### ');
+    expect(markdownLinePrefix(createBlockRange('paragraph', 0, 5))).toBe('');
+    expect(
+      markdownLinePrefix(createBlockRange('unordered-list-item', 0, 5, 1))
+    ).toBe('   - ');
+    expect(
+      markdownLinePrefix({
+        ...createBlockRange('ordered-list-item', 0, 5, 2),
+        ordinal: 3,
+      })
+    ).toBe('      3. ');
+  });
+
+  it('takes the heading level from the type, not from level', () => {
+    expect(markdownLinePrefix(createBlockRange('h3', 0, 5))).toBe('### ');
+    expect(markdownLinePrefix(createBlockRange('h6', 0, 5, 2))).toBe('###### ');
+  });
+
+  it('clamps list indentation to the deepest nesting the store allows', () => {
+    expect(
+      markdownLinePrefix(createBlockRange('unordered-list-item', 0, 5, 9))
+    ).toBe('   '.repeat(MAX_LIST_DEPTH) + '- ');
+  });
+});

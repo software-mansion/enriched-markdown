@@ -8,9 +8,14 @@
 #include "MarkdownTextShadowNode.h"
 
 #include <react/renderer/componentregistry/ComponentDescriptorProviderRegistry.h>
+#include <react/renderer/components/EnrichedMarkdownTextSpec/ShadowNodes.h>
 #include <react/renderer/core/ConcreteComponentDescriptor.h>
 
 namespace facebook::react {
+
+// This header shadows the generated ComponentDescriptors.h, so the slot
+// component's generated descriptor is declared here as codegen would.
+using EnrichedMarkdownBlockSlotComponentDescriptor = ConcreteComponentDescriptor<EnrichedMarkdownBlockSlotShadowNode>;
 
 class EnrichedMarkdownComponentDescriptor final : public ConcreteComponentDescriptor<MarkdownContainerShadowNode> {
 public:

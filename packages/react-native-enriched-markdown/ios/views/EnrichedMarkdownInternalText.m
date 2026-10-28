@@ -128,7 +128,7 @@
 {
   [_spoilerManager setNeedsUpdate];
   [_spoilerManager updateIfNeeded];
-  [[(RCTUIView *)self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
+  [[self.superview enrm_imageLayoutObserver] imageAttachmentDidResolveLayout];
 }
 
 #pragma mark - Accessibility

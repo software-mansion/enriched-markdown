@@ -8,11 +8,15 @@ pre-commit:
       glob: '*.{js,ts,jsx,tsx}'
       run: yarn typecheck
     clang-format:
-      glob: '*.{h,m,mm,cpp}'
+      glob: '*.{h,hpp,m,mm,cpp}'
       exclude:
         - '**/Pods/**'
         - '**/build/**'
         - '**/node_modules/**'
+        # Vendored verbatim from software-mansion-labs/md4c by
+        # scripts/fetch-md4c.sh. Formatting it here would rewrite the sync'd
+        # copy on every commit and break byte-identity with the fork.
+        - 'packages/core/cpp/enrmrkd/**'
       run: npx clang-format -i {staged_files}
       stage_fixed: true
     ktlint-react-native:

@@ -1,6 +1,6 @@
 # Accessibility
 
-`react-native-enriched-markdown` provides comprehensive accessibility support for screen readers on both iOS and Android platforms.
+`react-native-enriched-markdown` provides comprehensive accessibility support for screen readers on iOS and Android, described below. On web it renders semantic HTML with `aria-*` attributes; see [Web Support](WEB.md#accessibility).
 
 ## Overview
 
@@ -55,6 +55,8 @@ Every field is optional. Any field you omit falls back to the English default be
 | `blockquote.nestedQuote` | `"Nested blockquote"` | iOS + Android |
 | `table.row` | `"Row {n}: {content}"` | iOS + Android |
 | `math.equation` | `"Math: {latex}"` | iOS + Android |
+| `codeBlock.wrap` | `"Wrap lines"` | iOS + Android |
+| `codeBlock.unwrap` | `"Disable line wrap"` | iOS + Android |
 | `rotor.headings` | `"Headings"` | iOS only |
 | `rotor.links` | `"Links"` | iOS only |
 | `rotor.images` | `"Images"` | iOS only |

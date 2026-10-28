@@ -1,5 +1,15 @@
+import { useColorScheme } from 'react-native';
 import { EnrichedMarkdownTextInput } from 'react-native-enriched-markdown';
+import { defaultInputColors, defaultInputMarkdownStyle } from './theme';
 
 export default function App() {
-  return <EnrichedMarkdownTextInput cursorColor="#EF4444" autoFocus />;
+  const isDark = useColorScheme() === 'dark';
+  return (
+    <EnrichedMarkdownTextInput
+      markdownStyle={defaultInputMarkdownStyle(isDark)}
+      style={defaultInputColors(isDark)}
+      cursorColor="#EF4444"
+      placeholder="Tap here to see the caret color"
+    />
+  );
 }

@@ -14,6 +14,7 @@ import EnrichedMarkdownTextInputNativeComponent, {
   type OnChangeMarkdownEvent,
   type OnChangeSelectionEvent,
   type OnChangeStateEvent,
+  type OnChangeHistoryStateEvent,
   type OnKeyPressEvent,
   type OnRequestMarkdownResultEvent,
   type OnRequestCaretRectResultEvent,
@@ -42,6 +43,7 @@ import type {
   ColorValue,
 } from 'react-native';
 import { Platform } from 'react-native';
+import { toHeadingLevel } from './headingLevel';
 import { normalizeMarkdownShortcuts } from './normalizeMarkdownShortcuts';
 import { normalizeMarkdownTextInputStyle } from './normalizeMarkdownTextInputStyle';
 import { normalizeMenuItem } from './normalizeMenuItem';
@@ -49,82 +51,25 @@ import { toNativeRegexConfig } from './utils/regexParser';
 import { TextInputState } from './utils/textInputState';
 import { usePressability } from './utils/usePressability';
 import type { RefObject } from 'react';
+import type {
+  CaretRect,
+  HeadingLevel,
+  HistoryState,
+  MarkdownTextInputInstance,
+  StyleState,
+} from './types/MarkdownTextInputInstance';
+import type {
+  HeadingStyle,
+  LinkStyle,
+  MarkdownTextInputStyle,
+} from './types/MarkdownTextInputStyle';
 
 type NativeRef = HostInstance;
 
-export interface LinkStyle {
-  color?: string;
-  underline?: boolean;
-  backgroundColor?: string;
-}
-
-export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
-
-const VALID_HEADING_LEVELS = new Set<number>([1, 2, 3, 4, 5, 6]);
-
-function toHeadingLevel(n: number): HeadingLevel {
-  return (VALID_HEADING_LEVELS.has(n) ? n : 1) as HeadingLevel;
-}
-
-export interface HeadingStyle {
-  fontSize?: number;
-  fontWeight?: string;
-  color?: string;
-}
-
-export interface MarkdownTextInputStyle {
-  strong?: {
-    color?: string;
-  };
-  em?: {
-    color?: string;
-  };
-  link?: LinkStyle;
-  linkVariants?: Record<string, LinkStyle>;
-  spoiler?: {
-    color?: string;
-    backgroundColor?: string;
-  };
-  /**
-   * Per-level heading styling for the editor, mirroring the readonly
-   * renderer's `markdownStyle` h1..h6. Omitted levels fall back to defaults
-   * (font sizes 30/24/20/18/16/14).
-   */
-  h1?: HeadingStyle;
-  h2?: HeadingStyle;
-  h3?: HeadingStyle;
-  h4?: HeadingStyle;
-  h5?: HeadingStyle;
-  h6?: HeadingStyle;
-  /** List styling shared by bullet and numbered lists. */
-  list?: {
-    /**
-     * Vertical spacing (points) added above each list item so items read as
-     * separate rows. iOS uses `paragraphSpacingBefore`; Android a `LineHeightSpan`.
-     * @default 0
-     */
-    itemSpacing?: number;
-  };
-}
-
-export interface StyleState {
-  bold: { isActive: boolean };
-  italic: { isActive: boolean };
-  underline: { isActive: boolean };
-  strikethrough: { isActive: boolean };
-  spoiler: { isActive: boolean };
-  /**
-   * The link at the selection: the one containing the first selected
-   * character, or, for a collapsed caret, the one the caret is inside or right
-   * after. `setLink` and `removeLink` act on this same link. `destination` is
-   * `""` when there is no link, and can also be `""` for a link with an empty
-   * URL.
-   */
-  link: { isActive: boolean; destination: string };
-  heading: { isActive: boolean; level: HeadingLevel };
-  unorderedList: { isActive: boolean; depth: number };
-  orderedList: { isActive: boolean; depth: number };
-}
+export type { HeadingLevel, HistoryState, StyleState, CaretRect };
+export type { HeadingStyle, LinkStyle, MarkdownTextInputStyle };
+export type EnrichedMarkdownTextInputInstance =
+  MarkdownTextInputInstance<HostInstance>;
 
 export interface ContextMenuItem {
   text: string;
@@ -135,42 +80,6 @@ export interface ContextMenuItem {
   }) => void;
   icon?: string;
   visible?: boolean;
-}
-
-export interface CaretRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface EnrichedMarkdownTextInputInstance {
-  focus: () => void;
-  blur: () => void;
-  measure: HostInstance['measure'];
-  measureInWindow: HostInstance['measureInWindow'];
-  measureLayout: HostInstance['measureLayout'];
-  setValue: (markdown: string) => void;
-  setSelection: (start: number, end: number) => void;
-  toggleBold: () => void;
-  toggleItalic: () => void;
-  toggleUnderline: () => void;
-  toggleStrikethrough: () => void;
-  toggleSpoiler: () => void;
-  toggleHeading: (level: HeadingLevel) => void;
-  toggleUnorderedList: () => void;
-  toggleOrderedList: () => void;
-  indentList: () => void;
-  outdentList: () => void;
-  setLink: (url: string) => void;
-  insertLink: (text: string, url: string) => void;
-  insertText: (text: string) => void;
-  insertMention: (displayText: string, url: string) => void;
-  startMention: (indicator: string) => void;
-  removeLink: () => void;
-  copyToClipboard: () => void;
-  getMarkdown: () => Promise<string>;
-  getCaretRect: () => Promise<CaretRect>;
 }
 
 /**
@@ -259,6 +168,11 @@ export interface EnrichedMarkdownTextInputProps
   onChangeMarkdown?: (markdown: string) => void;
   onChangeSelection?: (selection: { start: number; end: number }) => void;
   onChangeState?: (state: StyleState) => void;
+  /**
+   * Whether `undo()` and `redo()` have a step to take. Web-only for now:
+   * never called on iOS and Android.
+   */
+  onChangeHistoryState?: (state: HistoryState) => void;
   onKeyPress?: (e: NativeSyntheticEvent<OnKeyPressEvent>) => void;
   onCaretRectChange?: (rect: CaretRect) => void;
   onLinkDetected?: (event: OnLinkDetected) => void;
@@ -338,6 +252,7 @@ export const EnrichedMarkdownTextInput = ({
   onChangeMarkdown,
   onChangeSelection,
   onChangeState,
+  onChangeHistoryState,
   onKeyPress,
   onCaretRectChange,
   onLinkDetected,
@@ -548,6 +463,14 @@ export const EnrichedMarkdownTextInput = ({
     [onChangeState]
   );
 
+  const handleChangeHistoryState = useCallback(
+    (e: NativeSyntheticEvent<OnChangeHistoryStateEvent>) => {
+      const { canUndo, canRedo } = e.nativeEvent;
+      onChangeHistoryState?.({ canUndo, canRedo });
+    },
+    [onChangeHistoryState]
+  );
+
   const handleCaretRectChange = useCallback(
     (e: NativeSyntheticEvent<OnCaretRectChangeEvent>) => {
       const { x, y, width, height } = e.nativeEvent;
@@ -714,6 +637,8 @@ export const EnrichedMarkdownTextInput = ({
       startMention: (indicator) => Commands.startMention(commandRef, indicator),
       removeLink: () => Commands.removeLink(commandRef),
       copyToClipboard: () => Commands.copyToClipboard(commandRef),
+      undo: () => Commands.undo(commandRef),
+      redo: () => Commands.redo(commandRef),
       getMarkdown: () =>
         new Promise<string>((resolve, reject) => {
           const requestId = nextRequestId.current++;
@@ -755,6 +680,9 @@ export const EnrichedMarkdownTextInput = ({
         handleChangeSelection as NativeProps['onChangeSelection']
       }
       onChangeState={handleChangeState as NativeProps['onChangeState']}
+      onChangeHistoryState={
+        handleChangeHistoryState as NativeProps['onChangeHistoryState']
+      }
       onInputKeyPress={onKeyPress as NativeProps['onInputKeyPress']}
       onLinkDetected={handleLinkDetected as NativeProps['onLinkDetected']}
       onInputFocus={handleFocus as NativeProps['onInputFocus']}

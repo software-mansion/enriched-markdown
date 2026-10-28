@@ -8,12 +8,13 @@
 -keep class com.swmansion.enriched.markdown.parser.Md4cFlags { *; }
 -keep class com.swmansion.enriched.markdown.parser.TextLinkMatching { *; }
 -keep class com.swmansion.enriched.markdown.utils.common.LinkRegexConfig { *; }
+-keep class com.swmansion.enriched.markdown.utils.common.StreamingFilterResult { *; }
 
 # Reflection: Math classes loaded via Class.forName when enableMath=true.
 -keep class com.swmansion.enriched.markdown.spans.MathInlineSpan { *; }
 -keep class com.swmansion.enriched.markdown.spans.MathInlinePlaceholderSpan { *; }
 -keep class com.swmansion.enriched.markdown.spans.MathMeasureHelper { *; }
--keep class com.swmansion.enriched.markdown.views.MathContainerView { *; }
+-keep class com.swmansion.enriched.markdown.segments.MathContainerView { *; }
 -keep class com.swmansion.enriched.markdown.renderer.MathInlineRenderer { *; }
 
 # Reflection: Video container loaded via Class.forName when enableVideo=true.

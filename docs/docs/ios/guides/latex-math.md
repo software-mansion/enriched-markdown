@@ -11,7 +11,7 @@ The consequence to know up front: without the product, `$…$` is not math synta
 
 ## Turning it on
 
-Add the `EnrichedMarkdownLaTeX` product alongside `EnrichedMarkdown` (see [Installation](/ios/basics/installation#the-two-products)), then enable it per view:
+Add the `EnrichedMarkdownLaTeX` product alongside `EnrichedMarkdown` (see [The products](/ios/basics/installation#products)), then enable it per view:
 
 ```swift
 import EnrichedMarkdown
@@ -19,6 +19,8 @@ import EnrichedMarkdownLaTeX
 import SwiftUI
 
 struct FormulaView: View {
+  let content: String
+
   var body: some View {
     EnrichedMarkdownText(content)
       .markdownLaTeX()
@@ -31,7 +33,8 @@ Like every other modifier, it reads from the environment, so applying it to a co
 ## What renders
 
 - **`$…$`** typesets inline, at the size of the surrounding text.
-- **`$$…$$`** on its own line renders as a full-width panel. A formula wider than the line **scrolls horizontally in place**, and keeps its scroll position across re-renders.
+- **`$$…$$`** on its own line - or at the start or end of a line, with text on one side only - renders as a full-width panel, styled by [`MathBlock()`](#mathblock). A formula wider than the line **scrolls horizontally in place**, and keeps its scroll position across re-renders. The formula can sit inside a paragraph - the text around it is split off into paragraphs of its own - but only at the top level of the document.
+- **`$$…$$` with text on both sides of it on the same line** (`where $$x^2$$ is…`), or anywhere inside a list item, blockquote, or table, stays **inline**: it is typeset in display style but sits in the text flow at the surrounding size, styled by [`InlineMath()`](#inlinemath) rather than `MathBlock()` - no panel, padding, or background.
 
 ```markdown
 The area is $\pi r^2$, and the general form is:
@@ -41,7 +44,7 @@ $$
 $$
 ```
 
-Source that fails to typeset falls back to the **delimited text** - `$\frac{1}{}$` renders as that literal string rather than vanishing - so a typo in one formula never blanks a paragraph.
+Source that fails to typeset falls back to the **delimited text** - `$\frac{1}{$` renders as that literal string rather than vanishing - so a typo in one formula never blanks a paragraph.
 
 ## The engine and its fonts {#engine}
 
@@ -76,15 +79,16 @@ Display math (`$$…$$`). Takes `.font(size:)`, `.foregroundStyle(_:)`, `.backgr
 | Property | Default |
 | --- | --- |
 | Font size | `20` |
-| Background | `.quaternary` |
+| Background | `.quaternary` (`UIColor.quaternaryLabel`) |
 | Padding | `12` |
+| Margin top | follows the paragraph |
 | Margin bottom | `16` |
 | Text alignment | `.center` |
 | Color | follows the paragraph |
 
 ### `InlineMath()` {#inlinemath}
 
-Inline math (`$…$`). Takes `.foregroundStyle(_:)` and nothing else - the size follows the surrounding text, which is what keeps a formula in a heading heading-sized.
+Inline math (`$…$`, and `$$…$$` that stays in the text flow). Takes `.foregroundStyle(_:)` and nothing else - the size follows the surrounding text, which is what keeps a formula in a heading heading-sized.
 
 ### Where the math defaults sit in the stack
 
@@ -113,15 +117,30 @@ The closure receives the raw source and runs on the render queue, so keep it che
 
 ## Rendering without a view {#rendering-without-a-view}
 
-`MarkdownRenderer.renderLaTeX` mirrors [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed:
+`MarkdownRenderer.renderLaTeX` is [`MarkdownRenderer.render`](/ios/api-reference/markdown-theme#markdownrenderer) with math installed. It takes the same `config:`, `options:`, `imageRequestHeaders:`, `writingDirection:`, and `layoutDirection:` parameters plus `accessibilityLabel:` - a template string or a closure, exactly as on [`.markdownLaTeX`](#accessibility). It has **no `codeBlockLayout:` parameter**, so code blocks in its output are always laid out `.wrapping`.
 
 ```swift
+import EnrichedMarkdown
+import EnrichedMarkdownLaTeX
+import UIKit
+
+let myTheme = MarkdownTheme {
+  InlineMath()
+    .foregroundStyle(.tint)
+}
+
+let content = "The area is $\\pi r^2$."
+
 let config = MarkdownStyleConfiguration.resolve(
   layers: [.default, .latexDefault, myTheme],
   traitCollection: .current
 )
 
-let text = MarkdownRenderer.renderLaTeX(content, config: config)
+let text = MarkdownRenderer.renderLaTeX(
+  content,
+  config: config,
+  accessibilityLabel: "Formula: {speech}"
+)
 ```
 
 :::caution

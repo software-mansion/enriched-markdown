@@ -1,0 +1,14 @@
+# The ids the core collects from document.md: blocks, then image occurrences.
+# Asserted by block_slots_test.cpp and the web collector's Jest test.
+image:8c7d6fcab010788c:0
+image:8c7d6fcab010788c:1
+link:dd7e73539246a60e:0
+link:fe424c710eaf93a5:0
+image:009f6a0c6075c9b5:0
+video:def4b155e595949c:0
+link:f881da7c22ca8ead:0
+img:8c7d6fcab010788c:0
+img:a75be246fdd70542:0
+img:8c7d6fcab010788c:1
+img:009f6a0c6075c9b5:0
+img:dda67cb79bd35884:0

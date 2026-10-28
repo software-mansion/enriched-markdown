@@ -27,11 +27,22 @@ final class BlockquoteRenderer: NodeRenderer {
         if let admonition {
             appendHeader(for: admonition, font: font, to: output)
         }
+        // An enclosing list item shifts the whole quote by its own indent, which
+        // already includes any widened marker column, so lists inside start fresh.
+        let prevMarkerOffset = context.ancestorMarkerOffset
+        let prevItemMarkerExtra = context.listItemMarkerExtra
+        context.ancestorMarkerOffset = 0
+        context.listItemMarkerExtra = 0
         factory.renderChildren(of: node, into: output, context: context)
+        context.ancestorMarkerOffset = prevMarkerOffset
+        context.listItemMarkerExtra = prevItemMarkerExtra
         context.clearBlockStyle()
         context.exitBlockquote()
 
         guard output.length > start else { return }
+        // Bars share one offset per paragraph, so widening from lists inside this
+        // quote must not move this quote's own bar when an outer item shifts it.
+        output.removeAttribute(MarkdownAttribute.blockquoteMarkerExtra, range: NSRange(location: start, length: output.length - start))
 
         applyStylingAndSpacing(to: output, start: start, end: output.length, levels: levels)
     }

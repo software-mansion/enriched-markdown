@@ -1,5 +1,6 @@
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMAdmonitionIcons.h"
+#import "ENRMBlockSlotSegmentView.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMFeatureFlags.h"
 #import "ENRMLinkContextMenus.h"
@@ -175,6 +176,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
       ((TableContainerView *)child).accessibilityLabels = accessibilityLabels;
     } else if ([child isKindOfClass:[ENRMBlockquoteContainerView class]]) {
       ((ENRMBlockquoteContainerView *)child).accessibilityLabels = accessibilityLabels;
+    } else if ([child isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+      ((ENRMCodeBlockContainerView *)child).accessibilityLabels = accessibilityLabels;
     }
 #if ENRICHED_MARKDOWN_MATH
     else if ([child isKindOfClass:[ENRMMathContainerView class]]) {
@@ -261,6 +264,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                       ENRMCodeBlockContainerView *view = [[ENRMCodeBlockContainerView alloc] initWithConfig:config];
                       ENRMBlockquoteContainerView *strongSelf = weakSelf;
                       view.dynamicProps = strongSelf.dynamicProps;
+                      view.accessibilityLabels = strongSelf.accessibilityLabels;
                       view.onCopyPress = ^(NSString *code, NSString *language) {
                         ENRMBlockquoteContainerView *s = weakSelf;
                         if (s.onCopyPress)
@@ -338,6 +342,22 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 #endif
 #endif
 
+  [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindBlockSlot
+                          matchesView:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            return [view isKindOfClass:[ENRMBlockSlotSegmentView class]];
+                          }
+                          createView:^RCTUIView *(ENRMRenderedSegment *segment) {
+                            ENRMBlockSlotSegmentView *view = [[ENRMBlockSlotSegmentView alloc] init];
+                            view.slotId = segment.blockSlotSegment.slotId;
+                            view.kind = segment.blockSlotSegment.kind;
+                            return view;
+                          }
+                          updateView:^(RCTUIView *view, ENRMRenderedSegment *segment) {
+                            ENRMBlockSlotSegmentView *slotView = (ENRMBlockSlotSegmentView *)view;
+                            slotView.slotId = segment.blockSlotSegment.slotId;
+                            slotView.kind = segment.blockSlotSegment.kind;
+                          }]];
+
 #if ENRICHED_MARKDOWN_VIDEO
   __weak ENRMBlockquoteContainerView *weakBQ = self;
   [handlers addObject:[ENRMSegmentViewHandler handlerWithKind:ENRMSegmentKindVideo
@@ -400,6 +420,9 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                          pointScaleFactor:(CGFloat)pointScaleFactor
                          allowFontScaling:(BOOL)allowFontScaling
                         lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
+                               wrapCursor:(ENRMCodeBlockWrapCursor *)wrapCursor
+                             slotMeasurer:(ENRMBlockSlotMeasurer *)slotMeasurer
+                                   origin:(CGPoint)origin
 {
   UIEdgeInsets insets = ENRMBlockquoteContentInsetsForNode(config, ENRMAdmonitionTypeForNode(node) != nil);
   CGFloat innerWidth = MAX(maxWidth - insets.left - insets.right, 1);
@@ -408,7 +431,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
       ENRMRenderBlockquoteChildren(node, config, allowFontScaling, lineBreakStrategy);
   CGFloat childrenHeight = ENRMMeasureSegmentsHeightViewFree(
       rendered, config, innerWidth, /*allowTrailingMargin*/ NO, pointScaleFactor, ENRMWritingDirectionModeFirstStrong,
-      NSWritingDirectionNatural, allowFontScaling, lineBreakStrategy);
+      NSWritingDirectionNatural, allowFontScaling, lineBreakStrategy, wrapCursor, slotMeasurer,
+      CGPointMake(origin.x + insets.left, origin.y + insets.top));
 
   return childrenHeight + insets.top + insets.bottom;
 }

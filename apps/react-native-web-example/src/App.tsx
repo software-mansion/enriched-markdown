@@ -1,6 +1,14 @@
 import { useCallback, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, View, Text } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  Text,
+} from 'react-native';
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
+import { InputEditor } from './InputEditor';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
@@ -96,6 +104,27 @@ console.log(greet("العالم"));
 \`\`\`
 `.trim();
 
+const mixedMarkdown = `
+## Mixed direction
+
+This paragraph is English, so it reads left to right.
+
+هذه الفقرة باللغة العربية، لذلك يجب أن تبدأ من اليمين.
+
+> اقتباس عربي: يجب أن يظهر الحد على الجانب الأيمن.
+
+- عنصر أول في القائمة
+- عنصر ثانٍ مع \`code\`
+
+1. First English step
+2. Second English step
+
+| الاسم | Role |
+| ----- | ---- |
+| أحمد | Developer |
+| Sara | مصمّمة |
+`.trim();
+
 interface EventLog {
   kind: 'link' | 'linkLong' | 'image' | 'task';
   label: string;
@@ -110,6 +139,7 @@ const KIND_COLOR: Record<EventLog['kind'], string> = {
 };
 
 export default function App() {
+  const [screen, setScreen] = useState<'input' | 'renderer'>('input');
   const [lastEvent, setLastEvent] = useState<EventLog | null>(null);
 
   const onLinkPress = useCallback(({ url }: LinkPressEvent) => {
@@ -146,40 +176,69 @@ export default function App() {
         <Text style={styles.headerText}>
           react-native-enriched-markdown — web example
         </Text>
+        <View style={styles.segmented}>
+          {(['input', 'renderer'] as const).map((key) => (
+            <Pressable
+              key={key}
+              onPress={() => setScreen(key)}
+              style={[styles.segment, screen === key && styles.segmentActive]}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  screen === key && styles.segmentTextActive,
+                ]}
+              >
+                {key === 'input' ? 'Input' : 'Renderer'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <SectionLabel>LaTeX</SectionLabel>
-        <EnrichedMarkdownText markdown={latexMarkdown} />
+      {screen === 'input' ? (
+        <ScrollView style={styles.scroll}>
+          <InputEditor />
+        </ScrollView>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <SectionLabel>LaTeX</SectionLabel>
+          <EnrichedMarkdownText markdown={latexMarkdown} />
 
-        <View style={styles.divider} />
+          <View style={styles.divider} />
 
-        <SectionLabel>LTR</SectionLabel>
-        <EnrichedMarkdownText
-          markdown={sampleMarkdown}
-          onLinkPress={onLinkPress}
-          onLinkLongPress={onLinkLongPress}
-          onImagePress={onImagePress}
-          onTaskListItemPress={onTaskListItemPress}
-          selectionColor="#DCDDFE"
-          md4cFlags={{
-            superscript: true,
-            subscript: true,
-          }}
-        />
+          <SectionLabel>LTR</SectionLabel>
+          <EnrichedMarkdownText
+            markdown={sampleMarkdown}
+            onLinkPress={onLinkPress}
+            onLinkLongPress={onLinkLongPress}
+            onImagePress={onImagePress}
+            onTaskListItemPress={onTaskListItemPress}
+            selectionColor="#DCDDFE"
+            md4cFlags={{
+              superscript: true,
+              subscript: true,
+            }}
+          />
 
-        <View style={styles.divider} />
+          <View style={styles.divider} />
 
-        <SectionLabel>RTL</SectionLabel>
-        <EnrichedMarkdownText
-          markdown={rtlMarkdown}
-          dir="rtl"
-          onTaskListItemPress={onTaskListItemPress}
-        />
-      </ScrollView>
+          <SectionLabel>RTL</SectionLabel>
+          <EnrichedMarkdownText
+            markdown={rtlMarkdown}
+            dir="rtl"
+            onTaskListItemPress={onTaskListItemPress}
+          />
+
+          <View style={styles.divider} />
+
+          <SectionLabel>MIXED (NO DIR PROP)</SectionLabel>
+          <EnrichedMarkdownText markdown={mixedMarkdown} />
+        </ScrollView>
+      )}
 
       {lastEvent && (
         <View style={styles.eventBar}>
@@ -217,12 +276,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#F9FAFB',
   },
+  segmented: {
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: 9,
+    backgroundColor: '#E9EBEF',
+  },
+  segment: {
+    minWidth: 92,
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+  },
+  segmentActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  segmentText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  segmentTextActive: { color: '#111827' },
   headerText: {
     fontSize: 14,
     fontWeight: '600',

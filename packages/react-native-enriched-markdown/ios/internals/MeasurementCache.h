@@ -7,6 +7,7 @@
 #include <react/renderer/graphics/Float.h>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
 
 namespace facebook::react {
@@ -45,6 +46,10 @@ struct MeasurementCacheKey {
   bool md4cFlagsAdmonitions;
   size_t styleFingerprint;
   size_t linkPillContentFingerprint;
+  // Overridden image sources change block image heights (maxHeight/aspectRatio sizing).
+  size_t imageSourcesFingerprint;
+  // Code blocks the user wrapped (view state, not props); 0 when none.
+  size_t wrappedCodeBlocksFingerprint;
   CGFloat fontScale;
   MarkdownFlavor flavor;
   std::string lineBreakStrategyIOS;
@@ -59,15 +64,17 @@ struct MeasurementCacheKey {
     return std::tie(markdown, maxWidth, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
                     md4cFlagsUnderline, md4cFlagsSuperscript, md4cFlagsSubscript, md4cFlagsHighlight,
                     md4cFlagsLatexMath, md4cFlagsHardSoftBreaks, md4cFlagsPreserveBlankLines, md4cFlagsAdmonitions,
-                    styleFingerprint, linkPillContentFingerprint, fontScale, flavor, lineBreakStrategyIOS,
-                    writingDirection, numberOfLines, ellipsizeMode, linkRegexKey, inlineCodeLinkRegexKey) ==
+                    styleFingerprint, linkPillContentFingerprint, imageSourcesFingerprint, wrappedCodeBlocksFingerprint,
+                    fontScale, flavor, lineBreakStrategyIOS, writingDirection, numberOfLines, ellipsizeMode,
+                    linkRegexKey, inlineCodeLinkRegexKey) ==
            std::tie(other.markdown, other.maxWidth, other.allowTrailingMargin, other.allowFontScaling,
                     other.maxFontSizeMultiplier, other.md4cFlagsUnderline, other.md4cFlagsSuperscript,
                     other.md4cFlagsSubscript, other.md4cFlagsHighlight, other.md4cFlagsLatexMath,
                     other.md4cFlagsHardSoftBreaks, other.md4cFlagsPreserveBlankLines, other.md4cFlagsAdmonitions,
-                    other.styleFingerprint, other.linkPillContentFingerprint, other.fontScale, other.flavor,
-                    other.lineBreakStrategyIOS, other.writingDirection, other.numberOfLines, other.ellipsizeMode,
-                    other.linkRegexKey, other.inlineCodeLinkRegexKey);
+                    other.styleFingerprint, other.linkPillContentFingerprint, other.imageSourcesFingerprint,
+                    other.wrappedCodeBlocksFingerprint, other.fontScale, other.flavor, other.lineBreakStrategyIOS,
+                    other.writingDirection, other.numberOfLines, other.ellipsizeMode, other.linkRegexKey,
+                    other.inlineCodeLinkRegexKey);
   }
 };
 
@@ -90,6 +97,8 @@ struct MeasurementCacheKeyHash {
     HashUtils::hash_one(h, key.md4cFlagsAdmonitions);
     HashUtils::hash_one(h, key.styleFingerprint);
     HashUtils::hash_one(h, key.linkPillContentFingerprint);
+    HashUtils::hash_one(h, key.imageSourcesFingerprint);
+    HashUtils::hash_one(h, key.wrappedCodeBlocksFingerprint);
     HashUtils::hash_one(h, key.fontScale);
     HashUtils::hash_one(h, static_cast<uint8_t>(key.flavor));
     HashUtils::hash_one(h, key.lineBreakStrategyIOS);
@@ -182,6 +191,21 @@ template <typename ContentVector> inline size_t computeLinkPillContentFingerprin
   return h;
 }
 
+// Overridden image sources (the `imageSources` prop) decide which image loads, so its box height.
+template <typename SourceVector> inline size_t computeImageSourcesFingerprint(const SourceVector &sources)
+{
+  size_t h = 0;
+  for (const auto &source : sources) {
+    HashUtils::hash_one(h, source.id);
+    HashUtils::hash_one(h, source.uri);
+    for (const auto &header : source.headers) {
+      HashUtils::hash_one(h, header.name);
+      HashUtils::hash_one(h, header.value);
+    }
+  }
+  return h;
+}
+
 template <typename RegexProps> inline std::string buildLinkRecognitionCacheKey(const RegexProps &props)
 {
   std::string key;
@@ -192,9 +216,25 @@ template <typename RegexProps> inline std::string buildLinkRecognitionCacheKey(c
   return key + props.pattern;
 }
 
+// Only EnrichedMarkdown (the segmented host) carries imageSources; the
+// EnrichedMarkdownText props hash 0 here. Consumed by ENRMStyleConfigFromProps too.
+template <typename PropsType, typename = void> struct ENRMHasImageSources : std::false_type {};
+template <typename PropsType>
+struct ENRMHasImageSources<PropsType, std::void_t<decltype(std::declval<PropsType>().imageSources)>> : std::true_type {
+};
+
+template <typename PropsType> inline size_t ENRMImageSourcesFingerprintForProps(const PropsType &props)
+{
+  if constexpr (ENRMHasImageSources<PropsType>::value) {
+    return computeImageSourcesFingerprint(props.imageSources);
+  } else {
+    return 0;
+  }
+}
+
 template <typename PropsType>
 inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFloat maxWidth, CGFloat fontScale,
-                                                    MarkdownFlavor flavor)
+                                                    MarkdownFlavor flavor, size_t wrappedCodeBlocksFingerprint = 0)
 {
   return MeasurementCacheKey{
       .markdown = props.markdown,
@@ -212,6 +252,8 @@ inline MeasurementCacheKey buildMeasurementCacheKey(const PropsType &props, CGFl
       .md4cFlagsAdmonitions = props.md4cFlags.admonitions,
       .styleFingerprint = computeStyleFingerprint(props.markdownStyle),
       .linkPillContentFingerprint = computeLinkPillContentFingerprint(props.linkPillContent),
+      .imageSourcesFingerprint = ENRMImageSourcesFingerprintForProps(props),
+      .wrappedCodeBlocksFingerprint = wrappedCodeBlocksFingerprint,
       .fontScale = fontScale,
       .flavor = flavor,
       .lineBreakStrategyIOS = props.lineBreakStrategyIOS,

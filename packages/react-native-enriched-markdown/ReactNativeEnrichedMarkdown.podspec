@@ -21,13 +21,14 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => min_ios_version_supported, :osx => '14.0' }
   s.source       = { :git => "https://github.com/software-mansion/enriched-markdown.git", :tag => "#{s.version}" }
 
+  # common/ holds RN-specific C++ shared with Android (the EnrichedMarkdownParser TurboModule).
   if monorepo
-    s.private_header_files = "ios/**/*.h"
-    s.source_files = "ios/**/*.{h,m,mm,cpp,swift}"
+    s.private_header_files = "ios/**/*.h", "common/**/*.h"
+    s.source_files = "ios/**/*.{h,m,mm,cpp,swift}", "common/**/*.{h,cpp}"
     s.dependency "EnrichedMarkdownCore"
   else
-    s.private_header_files = "ios/**/*.h", "cpp/**/*.{h,hpp}"
-    s.source_files = ["ios/**/*.{h,m,mm,cpp,swift}", "cpp/md4c/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"] + code_highlight[:source_files]
+    s.private_header_files = "ios/**/*.h", "common/**/*.h", "cpp/**/*.{h,hpp}"
+    s.source_files = ["ios/**/*.{h,m,mm,cpp,swift}", "common/**/*.{h,cpp}", "cpp/enrmrkd/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"] + code_highlight[:source_files]
     s.preserve_paths = "cpp/highlight/vendor/**/*" if code_highlight[:enabled]
   end
 
@@ -108,7 +109,7 @@ Pod::Spec.new do |s|
   # Default on: consumers opt out via "enriched-markdown".enableVideo = false in package.json.
   enable_video = config.key?('enableVideo') ? config['enableVideo'] != false : true
 
-  preprocessor_defs = "$(inherited) MD4C_USE_UTF8=1#{code_highlight[:defines]}"
+  preprocessor_defs = "$(inherited) ENRMRKD_USE_UTF8=1#{code_highlight[:defines]}"
   if enable_video
     preprocessor_defs += ' ENRICHED_MARKDOWN_VIDEO=1'
   end
@@ -130,8 +131,9 @@ Pod::Spec.new do |s|
 
   pod_xcconfig = {
     'HEADER_SEARCH_PATHS' => ([
-      "\"#{cpp_root}/md4c\"", "\"#{cpp_root}/parser\"", "\"#{cpp_root}/highlight\"",
-      "\"$(PODS_TARGET_SRCROOT)/ios/internals\"", "\"$(PODS_TARGET_SRCROOT)/ios/input/internals\""
+      "\"#{cpp_root}/enrmrkd\"", "\"#{cpp_root}/parser\"", "\"#{cpp_root}/highlight\"",
+      "\"$(PODS_TARGET_SRCROOT)/ios/internals\"", "\"$(PODS_TARGET_SRCROOT)/ios/input/internals\"",
+      "\"$(PODS_TARGET_SRCROOT)/common\"", "\"$(PODS_TARGET_SRCROOT)/ios/generated/ReactCodegen\""
     ] + code_highlight[:header_paths].map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }).join(" "),
     'GCC_PREPROCESSOR_DEFINITIONS' => preprocessor_defs,
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',

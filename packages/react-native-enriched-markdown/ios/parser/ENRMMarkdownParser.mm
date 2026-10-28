@@ -5,6 +5,9 @@
 extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM);
 extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
                                                    ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex);
+extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cFlags *flags, BOOL isGFM,
+                                                   ENRMLinkRegexConfig *textRegex, ENRMLinkRegexConfig *codeRegex,
+                                                   NSSet<NSString *> *activeBlockSlotIds, BOOL annotateImages);
 
 @implementation ENRMMd4cFlags
 
@@ -68,6 +71,18 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
                inlineCodeLinkRegex:(ENRMLinkRegexConfig *)inlineCodeLinkRegex
 {
   return parseMarkdownWithCppParser(markdown, flags, isGFM, linkRegex, inlineCodeLinkRegex);
+}
+
+- (MarkdownASTNode *)parseMarkdown:(NSString *)markdown
+                             flags:(ENRMMd4cFlags *)flags
+                             isGFM:(BOOL)isGFM
+                         linkRegex:(ENRMLinkRegexConfig *)linkRegex
+               inlineCodeLinkRegex:(ENRMLinkRegexConfig *)inlineCodeLinkRegex
+                activeBlockSlotIds:(NSSet<NSString *> *)activeBlockSlotIds
+                    annotateImages:(BOOL)annotateImages
+{
+  return parseMarkdownWithCppParser(markdown, flags, isGFM, linkRegex, inlineCodeLinkRegex, activeBlockSlotIds,
+                                    annotateImages);
 }
 
 @end

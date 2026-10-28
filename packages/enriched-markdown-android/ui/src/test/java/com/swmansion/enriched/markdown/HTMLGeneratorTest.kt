@@ -31,6 +31,7 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.underline
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -316,6 +317,25 @@ class HTMLGeneratorTest {
       )
 
     html.assertContainsHtmlInOrder("<ol", "<li", "First item", "</li>", "</ol>")
+    assertFalse(html.contains("start="))
+  }
+
+  @Test
+  fun generatesOrderedListsFromTheirStartNumbers() {
+    val html =
+      generateHTML(
+        render(
+          document(
+            orderedList(
+              3,
+              listItem(paragraph(text("three")), orderedList(0, listItem(paragraph(text("zero"))))),
+              listItem(paragraph(text("four")), orderedList(listItem(paragraph(text("one"))))),
+            ),
+          ),
+        ),
+      )
+
+    html.assertContainsHtmlInOrder("<ol start=\"3\"", "three", "<ol start=\"0\"", "zero", "</ol>", "four", "<ol style", "one")
   }
 
   @Test

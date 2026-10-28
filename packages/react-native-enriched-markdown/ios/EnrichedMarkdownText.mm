@@ -760,6 +760,10 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.table.row.c_str()];
     _accessibilityLabels.mathEquation =
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.math.equation.c_str()];
+    _accessibilityLabels.codeBlockWrap =
+        [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.codeBlock.wrap.c_str()];
+    _accessibilityLabels.codeBlockUnwrap =
+        [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.codeBlock.unwrap.c_str()];
     _accessibilityLabels.rotorHeadings =
         [[NSString alloc] initWithUTF8String:newViewProps.accessibilityLabels.rotor.headings.c_str()];
     _accessibilityLabels.rotorLinks =
@@ -872,6 +876,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _allowTrailingMargin = NO;
   _lineBreakStrategy = NSLineBreakStrategyNone;
   _writingDirectionMode = ENRMWritingDirectionModeFirstStrong;
+  _numberOfLines = 0;
+  _ellipsizeLineBreakMode = NSLineBreakByTruncatingTail;
+  [self applyLineClampToTextContainer];
   _renderedStyleFingerprint = 0;
   _pendingStyleFingerprint = 0;
   _linkContextMenus.entries = @[];

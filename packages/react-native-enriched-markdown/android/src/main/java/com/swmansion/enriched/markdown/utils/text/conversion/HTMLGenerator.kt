@@ -848,7 +848,7 @@ object HTMLGenerator {
       }
     }
 
-    escapeHTMLTo(html, content.trimEnd('\n'))
+    escapeHTMLTo(html, content.trimEnd('\n'), preserveLineBreaks = !isCodeBlock)
 
     if (isUnderline && link == null) html.append("</u>")
     if (isStrikethrough) html.append("</s>")
@@ -1001,7 +1001,7 @@ object HTMLGenerator {
             if (cellText is Spannable) {
               append(generateInlineHTML(cellText, 0, cellText.length, cachedStyles, false))
             } else {
-              escapeHTMLTo(this, cellText.toString())
+              escapeHTMLTo(this, cellText.toString(), preserveLineBreaks = true)
             }
           }
 
@@ -1042,6 +1042,7 @@ object HTMLGenerator {
   private fun escapeHTMLTo(
     output: StringBuilder,
     text: String,
+    preserveLineBreaks: Boolean = false,
   ) {
     val len = text.length
 
@@ -1049,7 +1050,9 @@ object HTMLGenerator {
     var needsEscape = false
     for (i in 0 until len) {
       val c = text[i]
-      if (c == '&' || c == '<' || c == '>' || c == '"' || c == '\'') {
+      if (c == '&' || c == '<' || c == '>' || c == '"' || c == '\'' ||
+        (preserveLineBreaks && (c == '\r' || c == '\n' || c == '\u2028' || c == '\u2029'))
+      ) {
         needsEscape = true
         break
       }
@@ -1059,8 +1062,15 @@ object HTMLGenerator {
       return
     }
 
-    for (i in 0 until len) {
-      when (val c = text[i]) {
+    var index = 0
+    while (index < len) {
+      val c = text[index++]
+      if (preserveLineBreaks && (c == '\r' || c == '\n' || c == '\u2028' || c == '\u2029')) {
+        if (c == '\r' && index < len && text[index] == '\n') index++
+        output.append("<br>")
+        continue
+      }
+      when (c) {
         '&' -> output.append("&amp;")
         '<' -> output.append("&lt;")
         '>' -> output.append("&gt;")

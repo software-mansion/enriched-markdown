@@ -33,8 +33,8 @@ The project is a monorepo managed with [Yarn workspaces](https://yarnpkg.com/fea
 |---|---|
 | `packages/react-native-enriched-markdown/` | The React Native library published to npm - the JS API, its iOS and Android bridging code, and the web build. |
 | `packages/core/` | The shared C++ core: the [md4c](https://github.com/mity/md4c) parser and the Markdown AST. Every other package compiles these same sources - there is exactly one parser in the repository. |
-| `packages/enriched-markdown-ios/` | The standalone iOS package - a SwiftPM package wrapping the core in a Swift API, plus an optional LaTeX target. |
-| `packages/enriched-markdown-android/` | The standalone Android package - Gradle modules for the span-based `ui` renderer and its `compose` wrapper, over a `parser` module that is a JNI binding to the core. |
+| `packages/enriched-markdown-ios/` | The standalone iOS package - a SwiftPM package wrapping the core in a Swift API, plus two optional products: `EnrichedMarkdownLaTeX` for math and `EnrichedMarkdownSyntaxHighlighting` for code-block highlighting. |
+| `packages/enriched-markdown-android/` | The standalone Android package - Gradle modules for the span-based `ui` renderer and its `compose` wrapper, over a `parser` module that is a JNI binding to the core, plus two optional modules: `math`, which renders LaTeX, and `code-highlight`, which colors fenced code blocks. |
 
 The two native packages are standalone libraries for native iOS and Android apps. They render with their own platform text stack but parse through the same core as the React Native package, so a parser fix lands for every platform at once. They trail React Native in features, so parity work is always welcome.
 
@@ -93,7 +93,7 @@ The project relies on Yarn workspaces, so you cannot use `npm` for development w
 
 ## Running the examples
 
-Every package has its own example app, and each one builds against the local sources - so your change shows up without publishing anything. Run `yarn prepare` in the repository root first; the React Native build and the iOS package's vendored LaTeX assets both come from it.
+Every package has its own example app, and each one builds against the local sources - so your change shows up without publishing anything. Run `yarn prepare` in the repository root first; the React Native build, the iOS package's vendored LaTeX and tree-sitter sources and the Android `code-highlight` module's tree-sitter sources all come from it.
 
 ### React Native
 
@@ -136,12 +136,12 @@ yarn workspace @enriched-markdown/ios lint:ios-native   # swiftlint lint --stric
 ```
 
 :::note
-The optional `EnrichedMarkdownLaTeX` target reaches the RaTeX engine's Swift sources and the KaTeX fonts through symlinks into the React Native package's `ios/vendor/`, which is gitignored and restored on demand. `yarn prepare` restores it; `node vendor/vendor-ratex.mjs` does it directly. CI runs that script before every iOS job - build, tests, and lint - so do the same before building the package with a fresh checkout. (The RaTeX binary itself is a `binaryTarget` SwiftPM downloads from its pinned release, not a vendored file.)
+Both optional products build from gitignored sources that are restored on demand. `EnrichedMarkdownLaTeX` reaches the RaTeX engine's Swift sources and the KaTeX fonts through symlinks into the React Native package's `ios/vendor/`, restored by `node vendor/vendor-ratex.mjs`. `EnrichedMarkdownSyntaxHighlighting` compiles tree-sitter and its grammars through symlinks into `packages/core/cpp/highlight/vendor/`, restored by `node vendor/vendor-grammars.mjs`. `yarn prepare` runs both. CI runs both scripts before every iOS job - build, tests, and lint - so do the same before building the package with a fresh checkout. (The RaTeX binary itself is a `binaryTarget` SwiftPM downloads from its pinned release, not a vendored file.)
 :::
 
 ### Android package
 
-`apps/android-example/` is a plain Android app whose `settings.gradle` includes the package's `ui`, `compose`, and `parser` modules straight from `packages/enriched-markdown-android/`, so the app always builds the sources in your working tree.
+`apps/android-example/` is a plain Android app whose `settings.gradle` includes the package's `ui`, `compose`, `parser`, `math`, and `code-highlight` modules straight from `packages/enriched-markdown-android/`, so the app always builds the sources in your working tree.
 
 ```sh
 yarn android-example   # install the debug build and launch it on a device or emulator
@@ -153,8 +153,12 @@ Tests and lint run from the package itself:
 
 ```sh
 yarn workspace @enriched-markdown/android test:android-native   # ./gradlew testDebugUnitTest
-yarn workspace @enriched-markdown/android lint:android-native   # ./gradlew ktlintCheck
+yarn workspace @enriched-markdown/android lint:android-native   # ./gradlew ktlintCheck lintDebug
 ```
+
+:::note
+The `code-highlight` module compiles tree-sitter and its grammars from gitignored sources under `packages/core/cpp/highlight/vendor/` - the same ones the iOS package uses - restored by `node vendor/vendor-grammars.mjs` (`yarn prepare` runs it). Without them, the module's build stops at its `checkHighlightVendor` task with that command in the error. CI restores them, through the `restore-android-vendor` action, before every Android package job - build, tests, and lint - so do the same before building with a fresh checkout.
+:::
 
 ## Checks before you push
 
@@ -181,7 +185,7 @@ yarn test:ios         # XCTest unit tests for the package's iOS code
 
 ### Swift (iOS package)
 
-The test task needs Xcode and a booted simulator (or `IOS_SIMULATOR_UDID`), and the vendored RaTeX files restored - see [the note above](#ios-package). The lint task is `swiftlint lint --strict` and needs neither.
+The test task needs Xcode and a booted simulator (or `IOS_SIMULATOR_UDID`), and the vendored RaTeX and tree-sitter files restored - see [the note above](#ios-package). The lint task is `swiftlint lint --strict` and needs neither.
 
 ```sh
 yarn workspace @enriched-markdown/ios lint:ios-native   # swiftlint lint --strict
@@ -193,13 +197,15 @@ yarn test:ios-native                                    # root alias, what CI ru
 ### Kotlin (Android package)
 
 ```sh
-yarn workspace @enriched-markdown/android lint:android-native   # ./gradlew ktlintCheck
+yarn workspace @enriched-markdown/android lint:android-native   # ./gradlew ktlintCheck lintDebug
 yarn workspace @enriched-markdown/android test:android-native   # ./gradlew testDebugUnitTest
 
 yarn test:android-native                                        # root alias, what CI runs (hits the turbo cache)
 ```
 
-The commit hook already *formats* staged Kotlin in both trees (it has a separate `ktlint-android` command rooted at `packages/enriched-markdown-android/`). `ktlintCheck` is the verifying pass, and it is what CI runs.
+Both tasks need the vendored tree-sitter files restored - see [the note above](#android-package).
+
+The commit hook already *formats* staged Kotlin in both trees (it has a separate `ktlint-android` command rooted at `packages/enriched-markdown-android/`). `lint:android-native` is the verifying pass - `ktlintCheck` for formatting plus `lintDebug` for Android Lint - and it is what CI runs.
 
 ### End-to-end tests
 
@@ -272,7 +278,7 @@ So a one-line change in the shared C++ core has to pass every platform's checks,
 | React Native | `rn-ios-unit-tests` | App-hosted XCTest unit tests for the package's iOS sources, on a headless simulator. |
 | Android | `android-build` | Builds `apps/android-example/` against the package's Gradle modules. |
 | Android | `android-unit-tests` | `./gradlew testDebugUnitTest` |
-| Android | `android-kotlin-lint` | `./gradlew ktlintCheck` |
+| Android | `android-kotlin-lint` | `./gradlew ktlintCheck lintDebug` (ktlint and Android Lint) |
 | iOS | `ios-build` | Builds `apps/ios-example/` against the local Swift package. |
 | iOS | `ios-unit-tests` | `xcodebuild test` against a simulator. |
 | iOS | `ios-swift-lint` | `swiftlint lint --strict` |

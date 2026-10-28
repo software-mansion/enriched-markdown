@@ -1,6 +1,11 @@
 # Web Support
 
-`EnrichedMarkdownText` runs on web using plain React and DOM primitives — **no `react-native-web` dependency required**. It works in any React project (Next.js, Vite, Remix, CRA, etc.).
+`EnrichedMarkdownText` and `EnrichedMarkdownTextInput` run on web using plain React and DOM primitives. They work in any React project (Next.js, Vite, Remix, CRA, etc.).
+
+> [!NOTE]
+> The web editor (`EnrichedMarkdownTextInput`) is [![Experimental](https://img.shields.io/badge/-experimental-orange "Experimental: this feature is still taking shape and may get breaking changes, including in nightly releases.")](WEB_INPUT.md#experimental-status) and documented separately in [Web Editor](WEB_INPUT.md). This page covers `EnrichedMarkdownText` and the setup both share.
+
+The package's `browser` field points web bundlers (webpack, Vite, Next.js, Expo web) at the web entry, so no extra resolver configuration is needed for that. One shared style module still imports `Platform` and `processColor` from `react-native`, so outside React Native the bundler has to resolve `react-native`: alias it to `react-native-web` (as most React Native web setups already do).
 
 Markdown parsing is handled by [md4c](https://github.com/mity/md4c) compiled to WebAssembly. The WASM binary is inlined as base64 inside the bundle (`SINGLE_FILE=1`), so there is no separate `.wasm` file to serve and no build step required by consumers — just import the component and it works.
 
@@ -8,16 +13,17 @@ The web renderer uses semantic HTML elements (`<p>`, `<h1>`–`<h6>`, `<blockquo
 
 ## Supported features
 
-All core `EnrichedMarkdownText` features are supported on web, including:
+Most `EnrichedMarkdownText` features are supported on web (see [Not supported on web](#not-supported-on-web) for the exceptions), including:
 
-- Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline)
-- All `markdownStyle` customisation options
+- Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline), admonitions (`> [!NOTE]` and the other GitHub alerts)
+- Videos: `<video src>` renders as a `<video>` element with the browser's controls
+- All `markdownStyle` customisation options except `spoiler`
 - `onLinkPress`, `onLinkLongPress` (mapped to `contextmenu` event), `onImagePress`, `onTaskListItemPress`, `onCodeBlockPress` callbacks
 - `onImagePress` — makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
 - `onCodeBlockPress` — makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role, receiving the block's `code` and `language`; clicking while code text is selected does not fire
 - `enableTaskListItemToggle` — set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and pointer-inert rather than `disabled`, matching iOS and Android
-- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`)
-- RTL support via the `dir` prop (CSS logical properties automatically flip blockquote borders, list indentation, etc.)
+- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`)
+- RTL and mixed-direction (bidi) content, resolved per block as on native — see [RTL Support](RTL.md)
 
 ### Accessibility
 
@@ -26,12 +32,13 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - Code blocks: `aria-label` with language when available (e.g. `"Code block: python"`)
 - Math (KaTeX fallback): `role="math"` and `aria-label` with the expression content
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
+- Videos: `aria-label` from the alt text, then `title`, then `"Video"`
 
 ### Web props
 
 | Prop | Description |
 |---|---|
-| `dir` | Web-only. Sets the text direction on the root container (`'ltr'`, `'rtl'`, or `'auto'`). CSS logical properties in the renderers automatically flip layout for RTL. |
+| `dir` | Web-only. Text direction (`'ltr'`, `'rtl'`, or `'auto'`). Unset or `'auto'` resolves each block from its content; `'ltr'` / `'rtl'` force the whole document. |
 | `testID` | Standard React Native prop; on web it is applied to the root container as `data-testid`. |
 
 All of these are part of the exported `EnrichedMarkdownTextProps` type for web.
@@ -73,6 +80,7 @@ exception: it is mapped to `data-testid`.
 
 ## Not supported on web
 
-- `EnrichedMarkdownTextInput` — native-only
+- Editor features — see [Web Editor](WEB_INPUT.md#not-supported-on-web) for what `EnrichedMarkdownTextInput` does not support on web.
+- Spoilers (`||text||`) — `EnrichedMarkdownText` does not render them on web yet, and the text inside a spoiler is currently left out.
 - Configurable link `target` — all links open in a new tab (`target="_blank"`). Use `onLinkPress` for custom navigation.
 - Link pills — `linkVariants[pattern].pill` is ignored; such links render as ordinary links with the variant's colors and font.

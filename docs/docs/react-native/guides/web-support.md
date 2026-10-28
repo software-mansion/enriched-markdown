@@ -15,14 +15,15 @@ accessible and lets browser features (text selection, the native context menu,
 OS font scaling) work on their own.
 
 Markdown parsing is handled by [md4c](https://github.com/mity/md4c) compiled to
-WebAssembly. The WASM binary is inlined as base64 inside the JavaScript bundle
+WebAssembly. The WASM binary is inlined inside the JavaScript bundle
 (`SINGLE_FILE=1`), so there is no separate `.wasm` asset to host or configure
 and no build step is required by consumers.
 
 :::note
-Web support currently applies to `EnrichedMarkdownText` (the renderer).
-`EnrichedMarkdownTextInput` (the editor) is native-only today, with **web
-support coming soon** - see the [roadmap](/misc/roadmap). The
+This page covers `EnrichedMarkdownText` (the renderer) and the setup it shares
+with the editor. `EnrichedMarkdownTextInput` also runs on web, as an
+<ExperimentalBadge /> editor with a smaller feature set - see
+[Web editor](/react-native/guides/web-editor). The
 [Feature support](/introduction/supported-features) overview has the full
 matrix.
 :::
@@ -270,14 +271,17 @@ development.
 All core `EnrichedMarkdownText` features are supported on web, including:
 
 - Full GFM: tables (with horizontal scroll), task lists (with checkbox interaction), strikethrough, links, images (block and inline), code blocks, LaTeX math (block and inline)
+- [Videos](/react-native/api-reference/element-structure#videos) - a block-level `<video src="url" />` tag renders as the browser's own `<video>` element with `controls`, `playsInline` and `preload="metadata"`. All five [`markdownStyle.video`](/react-native/api-reference/style-properties#video-specific) keys apply. Neither `flavor` nor the native `enableVideo` build flag exists here, so the player is always on
 - Most `markdownStyle` options - see [Ignored style keys](#ignored-style-keys) for the exceptions
 - `onLinkPress`, `onLinkLongPress` (mapped to the `contextmenu` event), `onImagePress`, `onTaskListItemPress` and `onCodeBlockPress`
 - `onCodeBlockPress` - makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role; it does not fire while code text is selected
 - `onImagePress` - makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
+- [`renderers`](/react-native/guides/custom-block-renderers) - React replacements for standalone images, standalone links and `<video>` blocks, with the same block ids and placements as native; the element replaces the block in the DOM and keeps its spacing
+- `resolveImageSource` - swaps the `src` of every image occurrence, synchronously or from a promise; headers are dropped because `<img>` requests cannot carry them, and a pending or failed resolution renders the image without a source
 - `enableTaskListItemToggle` - set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and made pointer-inert rather than `disabled`, matching iOS and Android
 - `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`)
 - GitHub admonitions (`> [!NOTE]`) - rendered as callouts with the same icon set and `blockquote.admonitions` palette as native. There is no `flavor` prop on web, so they are always on unless `md4cFlags={{ admonitions: false }}`
-- RTL support via the `dir` prop (CSS logical properties automatically flip blockquote borders, list indentation, etc.)
+- [RTL and mixed-direction (bidi) content](/user-experience/rtl), resolved per block as on native
 - Arbitrary DOM attributes, which pass through to the root `<div>`
 
 ### Ignored style keys
@@ -300,6 +304,7 @@ Most of `markdownStyle` applies, but these keys are accepted and ignored:
 - Code blocks: `aria-label` with language when available (e.g. `"Code block: python"`)
 - Math: `role="math"` and `aria-label` with the expression source, on both the KaTeX MathML output and the plain-text fallback
 - Task list checkboxes: `aria-label` with the task text (e.g. `"Task: Buy groceries"`)
+- Videos: `aria-label` from the tag's text content, falling back to `title`, then `"Video"`
 
 :::caution
 Every one of those strings is **hard-coded English** on web, and
@@ -313,7 +318,7 @@ the `<pre>` / `<img>`, which replaces their code and image semantics.
 
 | Prop     | Description                                                                                                                                               |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dir`    | Sets the text direction on the root container (`'ltr'`, `'rtl'`, or `'auto'`). CSS logical properties in the renderers automatically flip layout for RTL. |
+| `dir`    | Text direction (`'ltr'`, `'rtl'`, or `'auto'`). Unset or `'auto'` resolves each block from its content; `'ltr'` / `'rtl'` force the whole document. |
 | `testID` | Rendered as `data-testid`, so DOM testing libraries can query it.                                                                                         |
 
 The web entry point exports its own `EnrichedMarkdownTextProps` type. It drops
@@ -368,9 +373,8 @@ gone, not concealed. Do not put content behind a spoiler if the same Markdown is
 rendered on web.
 :::
 
-- `EnrichedMarkdownTextInput` - native-only today; **web support is coming soon** (see the [roadmap](/misc/roadmap)). Importing it from the web entry point yields `undefined`.
+- Editor features - `EnrichedMarkdownTextInput` runs on web but is experimental and covers less than on native. See [Web editor](/react-native/guides/web-editor#not-supported-on-web).
 - Code-block syntax highlighting - fenced code blocks render as plain monospaced text with no per-token colors, no header bar and no copy button
 - Configurable link `target` - all links open in a new tab (`target="_blank" rel="noopener noreferrer"`). Use `onLinkPress` for custom navigation.
-- Videos - the published WebAssembly parser predates the feature, so a `<video>` tag produces no node and renders nothing
 - Line clamping - `numberOfLines` and `ellipsizeMode` are native-only and are not part of the web props type
 - Clipboard integration - the web build never writes to the clipboard, so none of the [copy options](/user-experience/copy-options) apply
