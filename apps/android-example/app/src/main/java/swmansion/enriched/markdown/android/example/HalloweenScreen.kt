@@ -1,13 +1,20 @@
 package swmansion.enriched.markdown.android.example
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +27,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,7 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -138,21 +148,24 @@ private fun guestBookStyle(room: Room): MarkdownStyle =
       fontSize = 18.sp
       color = CreamSoft
       lineHeight = 27.sp
-      backgroundColor = Page
+      // Clear, not the page color: overlays read the words' alpha for their glows.
+      backgroundColor = Color.Transparent
       borderColor = room.accent
       borderWidth = 3.dp
       gapWidth = 14.dp
       marginBottom = 12.dp
     }
+    // Ink on the page rather than chips: the room's name and the marked phrase in its color.
     code {
-      fontFamily = FellSmallCaps
-      fontSize = 17.sp
+      fontFamily = Pirata
+      fontSize = 19.sp
       color = room.accent
-      backgroundColor = room.accent.copy(alpha = 0.14f)
+      backgroundColor = Color.Transparent
+      borderColor = Color.Transparent
     }
     highlight {
-      color = Color.White
-      backgroundColor = Color(0xFF7C3AED).copy(alpha = 0.45f)
+      color = room.accent
+      backgroundColor = Color.Transparent
     }
     strikethrough {
       color = CreamSoft
@@ -179,10 +192,9 @@ fun HalloweenScreen(
   modifier: Modifier = Modifier,
 ) {
   var room by rememberSaveable { mutableStateOf(Room.Attic) }
-  // Bumped on every chip tap, so the page is rebuilt concealed.
+  // Bumped on every chip tap, so the page comes back concealed.
   var generation by rememberSaveable { mutableIntStateOf(0) }
   val haptics = LocalHapticFeedback.current
-  val style = remember(room) { guestBookStyle(room) }
 
   Box(
     modifier =
@@ -204,14 +216,15 @@ fun HalloweenScreen(
     ) {
       Header(room)
 
-      Row(
-        modifier =
-          Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+      // Keeps the picked room in view, with its neighbour on the left showing there is more.
+      val chips = rememberLazyListState()
+      LaunchedEffect(room) { chips.animateScrollToItem((room.ordinal - 1).coerceAtLeast(0)) }
+      LazyRow(
+        state = chips,
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        Room.entries.forEach { item ->
+        items(Room.entries) { item ->
           RoomChip(
             room = item,
             selected = item == room,
@@ -224,21 +237,21 @@ fun HalloweenScreen(
         }
       }
 
-      // Revealed spoilers survive a text update, so a repeated tap rebuilds the page instead.
+      // The page swaps in place, its spoilers already hidden; only the header moves, as on iOS.
       GuestBookPage(room) {
-        key(generation) {
-          EnrichedMarkdownText(
-            markdown = HalloweenPages.markdown(room),
-            modifier =
-              Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 22.dp, vertical = 18.dp),
-            style = style,
-            options = MarkdownOptions(highlight = true),
-            selectable = false,
-            spoilerOverlay = room.overlay,
-          )
-        }
+        EnrichedMarkdownText(
+          // Reveals carry over while the text is unchanged, so a repeated tap on the same room
+          // alternates an invisible zero-width space to conceal the page again.
+          markdown = HalloweenPages.markdown(room) + if (generation % 2 == 1) "\u200B" else "",
+          modifier =
+            Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 22.dp, vertical = 18.dp),
+          style = remember(room) { guestBookStyle(room) },
+          options = MarkdownOptions(highlight = true),
+          selectable = false,
+          spoilerOverlay = room.overlay,
+        )
       }
 
       Snippet(room)
@@ -261,8 +274,9 @@ fun HalloweenScreen(
 
 @Composable
 private fun Header(room: Room) {
-  Crossfade(targetState = room, label = "room-header") { current ->
-    Column {
+  // The kicker and tagline cross-fade and the title rolls up, all on one spring.
+  Column(Modifier.clipToBounds()) {
+    Crossfade(room, animationSpec = RoomSpring, label = "kicker") { current ->
       Text(
         text = current.kicker,
         fontFamily = Fell,
@@ -270,6 +284,16 @@ private fun Header(room: Room) {
         letterSpacing = 3.sp,
         color = current.accent,
       )
+    }
+    AnimatedContent(
+      targetState = room,
+      transitionSpec = {
+        (slideInVertically(spring(0.8f, 200f)) { it } + fadeIn(RoomSpring))
+          .togetherWith(slideOutVertically(spring(0.8f, 200f)) { -it } + fadeOut(RoomSpring))
+          .using(SizeTransform(clip = true))
+      },
+      label = "title",
+    ) { current ->
       Text(
         text = "The ${current.title}",
         fontFamily = Pirata,
@@ -278,6 +302,8 @@ private fun Header(room: Room) {
         color = Cream,
         modifier = Modifier.padding(top = 2.dp),
       )
+    }
+    Crossfade(room, animationSpec = RoomSpring, label = "tagline") { current ->
       Text(
         text = current.tagline,
         fontFamily = FellItalic,
@@ -328,7 +354,7 @@ private fun GuestBookPage(
   room: Room,
   content: @Composable () -> Unit,
 ) {
-  val accent by animateColorAsState(room.accent, tween(700), label = "page-accent")
+  val accent by animateColorAsState(room.accent, spring(0.8f, 200f), label = "page-accent")
   Box(Modifier.fillMaxWidth()) {
     Surface(
       modifier =
@@ -361,12 +387,14 @@ private fun GuestBookPage(
             letterSpacing = 3.sp,
             color = Gold,
           )
-          Text(
-            text = "No. ${room.ordinal + 1} · ${room.title.uppercase()}",
-            fontFamily = Mono,
-            fontSize = 11.sp,
-            color = CreamSoft,
-          )
+          Crossfade(room, animationSpec = RoomSpring, label = "page-number") { current ->
+            Text(
+              text = "No. ${current.ordinal + 1} · ${current.title.uppercase()}",
+              fontFamily = Mono,
+              fontSize = 11.sp,
+              color = CreamSoft,
+            )
+          }
         }
         content()
       }
@@ -382,7 +410,9 @@ private fun GuestBookPage(
           .size(46.dp),
       contentAlignment = Alignment.Center,
     ) {
-      Text(room.emoji, fontSize = 22.sp)
+      Crossfade(room, animationSpec = RoomSpring, label = "seal") { current ->
+        Text(current.emoji, fontSize = 22.sp)
+      }
     }
   }
 }
@@ -395,17 +425,22 @@ private fun Snippet(room: Room) {
     border = BorderStroke(1.dp, Gold.copy(alpha = 0.25f)),
     modifier = Modifier.fillMaxWidth(),
   ) {
-    Text(
-      text = "EnrichedMarkdownText(\n  markdown,\n  ${room.snippet},\n)",
-      fontFamily = FontFamily.Monospace,
-      fontWeight = FontWeight.Medium,
-      fontSize = 12.5.sp,
-      lineHeight = 18.sp,
-      color = Cream.copy(alpha = 0.92f),
-      modifier = Modifier.padding(14.dp),
-    )
+    Crossfade(room, animationSpec = RoomSpring, label = "snippet") { current ->
+      Text(
+        text = "EnrichedMarkdownText(\n  markdown,\n  ${current.snippet},\n)",
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.5.sp,
+        lineHeight = 18.sp,
+        color = Cream.copy(alpha = 0.92f),
+        modifier = Modifier.padding(14.dp),
+      )
+    }
   }
 }
+
+/** The one spring every room change runs on, the same as the iOS Hogwarts screen's. */
+private val RoomSpring = spring<Float>(dampingRatio = 0.8f, stiffness = 200f)
 
 // The night
 
