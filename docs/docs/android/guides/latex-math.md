@@ -250,9 +250,26 @@ A half-arrived block - an opening `$$` whose formula is still empty - is not an 
 
 ## Accessibility {#accessibility}
 
-TalkBack reads a formula as an English rendering of the source - "x squared over 2", "integral from 0 to 1 of …" - rather than spelling out LaTeX. A math **block** is a single focusable element labeled `"Math: "` followed by that rendering, and an **inline** formula becomes an element of its own inside its paragraph with the same label. A formula inside a link is read as part of the link text.
+TalkBack reads a formula as an English rendering of the source - "x squared over 2", "integral from 0 to 1 of …" - rather than spelling out LaTeX. A math **block** is a single focusable element, and an **inline** formula becomes an element of its own inside its paragraph. A formula inside a link is read as part of the link text. The label is a parameter of the plugin, because the `math` artifact owns it:
 
-The conversion is the one the iOS and React Native packages use, from the shared C++ core: it covers fractions, roots, powers and indices, sums, products, integrals and limits with their bounds, matrices and cases, Greek letters, common relations and functions, decorations, and `\text`. A command it does not know is read by name. The label is English only and not configurable. `LatexSpeech.spokenForm(latex)` in the `parser` artifact exposes the same conversion to your own code.
+```kotlin
+LatexMathPlugin(accessibilityLabel = "Formel: {speech}") {
+  EnrichedMarkdownText(markdown = content)
+}
+```
+
+- **`{speech}`** is replaced by the spoken form. The default template is `"Math: {speech}"`.
+- **`{latex}`** is replaced by the raw source instead, for apps that would rather read the markup.
+
+The built-in conversion (`LatexSpeech.spokenForm(latex)` in the `parser` artifact, which is public) is **English** and is the one the iOS and React Native packages use, from the shared C++ core: it covers fractions, roots, powers and indices, sums, products, integrals and limits with their bounds, matrices and cases, Greek letters, common relations and functions, decorations, and `\text`. A command it does not know is read by name. To localize a formula, or to plug in your own converter, pass a lambda instead of a template:
+
+```kotlin
+LatexMathPlugin(accessibilityLabel = { latex -> myLocalizedSpeech(latex) }) {
+  EnrichedMarkdownText(markdown = content)
+}
+```
+
+The lambda receives the raw source and runs on the main thread, so keep it cheap. Define it once rather than inline in a composable: a new lambda is a new plugin, and the text re-renders. Outside a scope, `LatexMathPlugin("Formel: {speech}")` and `LatexMathPlugin { latex -> myLocalizedSpeech(latex) }` build the same plugins for the [`plugins`](/android/api-reference/enriched-markdown-text#plugins) parameter or `setPlugins`.
 
 ## The engine {#engine}
 

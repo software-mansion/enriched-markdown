@@ -76,7 +76,7 @@ The full defaults table is under [`.markdownAccessibilityLabels`](/ios/api-refer
 </Tab>
 <Tab label="Android">
 
-Not localizable. The standalone Android SDK has no label API at any layer and ships no string resources: everything TalkBack hears from it - `"bullet point"`, `"list item {n}"`, `"task, checked"` / `"task, not checked"` and their `"nested"` variants, `"heading level {n}"`, `"Row {n}: {content}"`, `"Math: "` followed by the formula read in English, `"Image"`, and the `"link"`, `"image"` and `"alert"` role descriptions - is hard-coded English. See the [roadmap](/misc/roadmap).
+Only the formula label is localizable, as a template or a lambda on `LatexMathPlugin(accessibilityLabel = …)` - see [LaTeX math](/android/guides/latex-math#accessibility). The standalone Android SDK has no other label API and ships no string resources: everything else TalkBack hears from it - `"bullet point"`, `"list item {n}"`, `"task, checked"` / `"task, not checked"` and their `"nested"` variants, `"heading level {n}"`, `"Row {n}: {content}"`, `"Image"`, and the `"link"`, `"image"` and `"alert"` role descriptions - is hard-coded English. See the [roadmap](/misc/roadmap).
 
 </Tab>
 </CodeTabs>
@@ -157,7 +157,7 @@ VoiceOver also gets custom **rotors** for headings, links, and images (a two-fin
 | **Blockquotes** | No announcement - a quote is read as its text |
 | **Admonitions** | The header is its own node with the role description "alert", announced ahead of the body |
 | **Table rows** | One focusable element per row, `"Row N: <cells>"` |
-| **Math** | A display-math block reads `"Math: <latex>"`, the raw source. An inline formula is not read |
+| **Math** | Own element per formula, inline and block, read in English (`"Math: x squared over 2"`); the label is a parameter of `LatexMathPlugin` |
 
 All of these strings are hard-coded English; see [Translating announcements](#translating-announcements). Math is covered in [LaTeX math](/android/guides/latex-math#accessibility).
 
@@ -220,7 +220,7 @@ These apply to the React Native package; the standalone SDKs' behavior is in the
 <Tab label="Android">
 
 - No label API - every spoken string is hard-coded English. See the [roadmap](/misc/roadmap).
-- [LaTeX math accessibility](/android/guides/latex-math#accessibility) - what TalkBack reads for a formula.
+- [LaTeX math accessibility](/android/guides/latex-math#accessibility) - what TalkBack reads for a formula, and the `accessibilityLabel` template or lambda that changes it.
 
 </Tab>
 </CodeTabs>
