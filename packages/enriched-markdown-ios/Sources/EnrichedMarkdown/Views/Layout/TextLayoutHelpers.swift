@@ -93,19 +93,29 @@ enum TextLayoutHelpers {
         in textView: UITextView,
         _ body: (CGRect, NSRange, CGFloat) -> Void
     ) {
-        guard let textLayoutManager = textView.textLayoutManager,
-              let contentManager = textLayoutManager.textContentManager,
+        guard let textLayoutManager = textView.textLayoutManager else { return }
+        let inset = textView.textContainerInset
+        enumerateSegmentFrames(of: range, in: textLayoutManager) { frame, segmentRange, baseline in
+            body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange, baseline)
+        }
+    }
+
+    static func enumerateSegmentFrames(
+        of range: NSRange,
+        in textLayoutManager: NSTextLayoutManager,
+        _ body: (CGRect, NSRange, CGFloat) -> Void
+    ) {
+        guard let contentManager = textLayoutManager.textContentManager,
               let textRange = textRange(range, in: contentManager)
         else { return }
 
-        let inset = textView.textContainerInset
         var previous: NSRange?
         textLayoutManager.ensureLayout(for: textRange)
         textLayoutManager.enumerateTextSegments(in: textRange, type: .standard, options: []) { segment, frame, baseline, _ in
             guard let segment, let segmentRange = nsRange(segment, in: contentManager), segmentRange != previous
             else { return true }
             previous = segmentRange
-            body(frame.offsetBy(dx: inset.left, dy: inset.top), segmentRange, baseline)
+            body(frame, segmentRange, baseline)
             return true
         }
     }

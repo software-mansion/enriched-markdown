@@ -6,6 +6,24 @@ struct LineLayout {
     let bounds: CGRect
     /// The baseline, measured down from `bounds.minY`.
     let baselineOffset: CGFloat
+    let range: NSRange
+    private let fragment: NSTextLineFragment
+    private let elementStart: Int
+
+    init(fragment: NSTextLineFragment, origin: CGPoint, elementStart: Int) {
+        self.fragment = fragment
+        self.elementStart = elementStart
+        bounds = fragment.typographicBounds.offsetBy(dx: origin.x, dy: origin.y)
+        baselineOffset = fragment.glyphOrigin.y
+        range = NSRange(
+            location: elementStart + fragment.characterRange.location,
+            length: fragment.characterRange.length
+        )
+    }
+
+    func caretX(at offset: Int) -> CGFloat {
+        bounds.minX + fragment.locationForCharacter(at: offset - elementStart).x
+    }
 }
 
 /// One paragraph as TextKit 2 laid it out.
@@ -128,10 +146,7 @@ enum ParagraphLayoutWalker {
                 range: range,
                 attributes: textStorage.attributes(at: range.location, effectiveRange: nil),
                 lines: fragment.textLineFragments.map { line in
-                    LineLayout(
-                        bounds: line.typographicBounds.offsetBy(dx: origin.x, dy: origin.y),
-                        baselineOffset: line.glyphOrigin.y
-                    )
+                    LineLayout(fragment: line, origin: origin, elementStart: range.location)
                 }
             )
         }

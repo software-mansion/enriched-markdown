@@ -62,6 +62,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     private(set) lazy var spoilerOverlays = SpoilerOverlayManager(textView: self, style: styleConfig.spoiler)
 
     private(set) var trailingSpacing = TrailingSpacing()
+    private(set) var hasInlineBackgrounds = false
 
     var isBottomMarginEnabled: Bool = false {
         didSet {
@@ -307,6 +308,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         renderedText = attributedText
         cachedFit = nil
         trailingSpacing = TrailingSpacing.read(from: attributedText)
+        hasInlineBackgrounds = InlineBackground.isPresent(in: attributedText)
         self.attributedText = attributedText
         adoptImageAttachments(in: attributedText)
         invalidateIntrinsicContentSize()

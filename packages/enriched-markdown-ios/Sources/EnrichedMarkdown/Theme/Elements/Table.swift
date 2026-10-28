@@ -1,7 +1,7 @@
 import OSLog
 import SwiftUI
 
-public struct Table: MarkdownThemeElement, BorderThemeElement {
+public struct Table: MarkdownThemeElement, BorderThemeElement, CornerRadiusThemeElement {
     public var fontSpec: ThemeFontSpec?
     public var fontWeight: Font.Weight?
     public var fontDesign: Font.Design?
@@ -95,12 +95,6 @@ public struct Table: MarkdownThemeElement, BorderThemeElement {
         return copy
     }
 
-    public func cornerRadius(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.cornerRadius = value
-        return copy
-    }
-
     /// Inset of every cell; a nil side keeps what a lower theme layer set.
     public func cellPadding(horizontal: CGFloat? = nil, vertical: CGFloat? = nil) -> Self {
         var copy = self
@@ -156,7 +150,7 @@ public struct Table: MarkdownThemeElement, BorderThemeElement {
                 traitCollection: traitCollection
             )
         }
-        if let cornerRadius { config.table.cornerRadius = cornerRadius }
+        applyCornerRadius(to: &config.table.cornerRadius)
         if let cellPaddingHorizontal { config.table.cellPaddingHorizontal = cellPaddingHorizontal }
         if let cellPaddingVertical { config.table.cellPaddingVertical = cellPaddingVertical }
         if let alignment { config.table.alignment = alignment }

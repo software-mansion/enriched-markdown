@@ -19,6 +19,7 @@ final class LinkRenderer: NodeRenderer {
         let url = node.attribute("url") ?? ""
         let style = styles.resolve(url)
         let underlineStyle = (style.underline ?? true) ? NSUnderlineStyle.single.rawValue : 0
+        let drawnBackground = InlineBackground(style: style)
 
         let linkValue: Any = URL(string: url) ?? url
         output.addAttribute(.link, value: linkValue, range: range)
@@ -29,8 +30,15 @@ final class LinkRenderer: NodeRenderer {
                 output.addAttribute(.underlineColor, value: color, range: subrange)
             }
             output.addAttribute(.underlineStyle, value: underlineStyle, range: subrange)
-            if let background = style.backgroundColor, attributes[MarkdownAttribute.inlineCode] == nil {
-                output.addAttribute(.backgroundColor, value: background, range: subrange)
+
+            let isInlineCode = attributes[MarkdownAttribute.inlineCode] != nil
+            if let drawnBackground {
+                output.addAttribute(MarkdownAttribute.inlineBackground, value: drawnBackground, range: subrange)
+                if drawnBackground.fillColor != nil, !isInlineCode, attributes[.backgroundColor] != nil {
+                    output.removeAttribute(.backgroundColor, range: subrange)
+                }
+            } else if let fill = style.backgroundColor, !isInlineCode {
+                output.addAttribute(.backgroundColor, value: fill, range: subrange)
             }
         }
     }

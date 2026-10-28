@@ -48,9 +48,15 @@ final class MarkdownViewportDecorator {
         case .background:
             CodeBlockBackgroundDrawer.draw(in: drawContext)
             BlockquoteBorderDrawer.drawBackgrounds(in: drawContext)
+            if textView.hasInlineBackgrounds {
+                InlineBackgroundDrawer.drawFills(in: drawContext)
+            }
         case .foreground:
             BlockquoteBorderDrawer.drawBorders(in: drawContext)
             ParagraphMarkerDrawer.draw(in: drawContext)
+            if textView.hasInlineBackgrounds {
+                InlineBackgroundDrawer.drawBorders(in: drawContext)
+            }
         }
     }
 }

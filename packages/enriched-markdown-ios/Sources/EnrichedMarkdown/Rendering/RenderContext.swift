@@ -31,6 +31,7 @@ enum MarkdownAttribute {
     static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
     static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
     static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
+    static let inlineBackground = NSAttributedString.Key("EnrichedMarkdownInlineBackground")
     /// `true` on concealed `||spoiler||` text, `false` once revealed.
     static let spoiler = NSAttributedString.Key("EnrichedMarkdownSpoiler")
     /// Colors a concealed run had, restored on reveal.
@@ -134,6 +135,12 @@ package final class RenderContext {
 
     static func shouldPreserveColors(_ attributes: [NSAttributedString.Key: Any]) -> Bool {
         MarkdownAttributeValue.sourceLink(in: attributes) != nil || attributes[MarkdownAttribute.inlineCode] != nil
+    }
+
+    static func shouldPreserveBackground(_ attributes: [NSAttributedString.Key: Any]) -> Bool {
+        attributes[MarkdownAttribute.inlineCode] != nil
+            || attributes[.backgroundColor] != nil
+            || (attributes[MarkdownAttribute.inlineBackground] as? InlineBackground)?.fillColor != nil
     }
 
     /// Recolors `range` to `color`, leaving links and inline code on their own colors.

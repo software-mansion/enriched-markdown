@@ -102,7 +102,9 @@ extension MarkdownHTMLGenerator {
                 [
                     "color: \(cssColor(link.foregroundColor));",
                     "text-decoration: \((link.underline ?? true) ? "underline" : "none");",
-                    link.backgroundColor.map { "background-color: \(cssColor($0));" }
+                    link.backgroundColor.map { "background-color: \(cssColor($0));" },
+                    link.cornerRadius.flatMap { $0 > 0 ? "border-radius: \(cssLength($0));" : nil },
+                    borderCSS(of: link)
                 ].compactMap { $0 }.joined(separator: " ")
             }
 
@@ -128,6 +130,15 @@ extension MarkdownHTMLGenerator {
         func admonitionTint(_ type: AdmonitionType) -> String {
             admonitionTints[type] ?? blockquoteBorderColor
         }
+    }
+
+    private static func borderCSS(of style: ElementStyle) -> String? {
+        guard let width = style.borderWidth, width > 0, let color = style.borderColor else { return nil }
+        return "border: \(cssLength(width)) solid \(cssColor(color));"
+    }
+
+    private static func cssLength(_ points: CGFloat) -> String {
+        String(format: "%gpx", points)
     }
 
     private static func cssColor(_ color: UIColor?) -> String {

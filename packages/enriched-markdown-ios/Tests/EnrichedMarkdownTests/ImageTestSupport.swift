@@ -58,6 +58,12 @@ extension XCTestCase {
         return textView
     }
 
+    func frame(of range: NSRange, in textView: MarkdownTextView) -> CGRect {
+        var union = CGRect.null
+        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: textView) { segment, _, _ in union = union.union(segment) }
+        return union
+    }
+
     func height(of textView: MarkdownTextView, width: CGFloat = 200) -> CGFloat {
         textView.sizeThatFits(CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)).height
     }
@@ -74,7 +80,11 @@ extension XCTestCase {
         return (window, try XCTUnwrap(host.view.firstSubview(of: MarkdownTextView.self)))
     }
 
-    func backgroundRows(of textView: MarkdownTextView, in rect: CGRect) throws -> [[UInt8]] {
+    func backgroundRows(
+        of textView: MarkdownTextView,
+        in rect: CGRect,
+        pass: MarkdownDecorationPass = .background
+    ) throws -> [[UInt8]] {
         let decorator = MarkdownViewportDecorator(
             backgroundView: MarkdownDecorationView(),
             foregroundView: MarkdownDecorationView()
@@ -84,7 +94,7 @@ extension XCTestCase {
         let image = UIGraphicsImageRenderer(size: rect.size, format: format).image { context in
             UIColor.white.setFill()
             context.fill(CGRect(origin: .zero, size: rect.size))
-            decorator.draw(in: context.cgContext, textView: textView, tile: rect, pass: .background)
+            decorator.draw(in: context.cgContext, textView: textView, tile: rect, pass: pass)
         }
         let cgImage = try XCTUnwrap(image.cgImage)
         let data = try XCTUnwrap(cgImage.dataProvider?.data) as Data
@@ -93,9 +103,13 @@ extension XCTestCase {
         }
     }
 
-    func backgroundPixel(of textView: MarkdownTextView, at point: CGPoint) throws -> [UInt8] {
+    func backgroundPixel(
+        of textView: MarkdownTextView,
+        at point: CGPoint,
+        pass: MarkdownDecorationPass = .background
+    ) throws -> [UInt8] {
         let column = Int(point.x) * 4
-        return Array(try backgroundRows(of: textView, in: textView.bounds)[Int(point.y)][column..<column + 4])
+        return Array(try backgroundRows(of: textView, in: textView.bounds, pass: pass)[Int(point.y)][column..<column + 4])
     }
 
     /// Lets the main queue drain, where a settled layout is announced.

@@ -6,6 +6,7 @@ import XCTest
 final class LinkVariantTests: XCTestCase {
     private let markdown = "Ask [alice](user://alice) or [bob](user://bob), or read the [docs](https://swmansion.com)."
     private let traitCollection = UITraitCollection(userInterfaceStyle: .light)
+    private let highlightOptions = MarkdownParsingOptions(highlight: true)
     private var config: MarkdownStyleConfiguration!
 
     override func setUp() {
@@ -61,6 +62,23 @@ final class LinkVariantTests: XCTestCase {
 
         XCTAssertEqual(resolved.link.backgroundColor, UIColor.quaternaryLabel.resolvedColor(with: traitCollection))
         XCTAssertTrue(resolved.linkVariants.isEmpty)
+    }
+
+    func testCornerRadiusAndBorderModifiersReachTheConfiguration() {
+        let resolved = MarkdownStyleConfiguration.resolve(
+            layers: [MarkdownTheme {
+                Link().cornerRadius(4).border(ThemeColorSpec.SemanticColor.secondary, width: 1)
+                Link(matching: "^user:").cornerRadius(8).border(width: 2)
+            }],
+            traitCollection: traitCollection
+        )
+
+        XCTAssertEqual(resolved.link.cornerRadius, 4)
+        XCTAssertEqual(resolved.link.borderWidth, 1)
+        XCTAssertEqual(resolved.link.borderColor, UIColor.secondaryLabel.resolvedColor(with: traitCollection))
+        XCTAssertEqual(resolved.linkVariants, [
+            LinkVariantStyle(pattern: "^user:", style: ElementStyle(borderWidth: 2, cornerRadius: 8))
+        ])
     }
 
     // MARK: - Rendering
@@ -152,6 +170,102 @@ final class LinkVariantTests: XCTestCase {
         XCTAssertEqual(foregroundColor(onWord: "alice", in: around), .systemRed)
     }
 
+    func testRoundedOrBorderedLinksAreDrawnInsteadOfBoxedByTextKit() {
+        config.linkVariants = [LinkVariantStyle(
+            pattern: "^user:",
+            style: ElementStyle(backgroundColor: .systemYellow, cornerRadius: 4)
+        )]
+        let result = MarkdownRenderer.render(markdown, config: config)
+
+        let drawn = drawnBackground(onWord: "alice", in: result)
+        XCTAssertEqual(drawn?.fillColor, .systemYellow)
+        XCTAssertEqual(drawn?.cornerRadius, 4)
+        XCTAssertNil(drawn?.border)
+        XCTAssertNil(backgroundColor(onWord: "alice", in: result))
+        XCTAssertNil(drawnBackground(onWord: "docs", in: result))
+    }
+
+    func testBaseLinkBorderReachesEveryLinkWithoutAFill() {
+        config.link.borderColor = .systemRed
+        config.link.borderWidth = 1
+        let result = MarkdownRenderer.render(markdown, config: config)
+
+        for word in ["alice", "docs"] {
+            let drawn = drawnBackground(onWord: word, in: result)
+            XCTAssertEqual(drawn?.border, InlineBackground.Border(color: .systemRed, width: 1), word)
+            XCTAssertNil(drawn?.fillColor, word)
+            XCTAssertNil(backgroundColor(onWord: word, in: result), word)
+        }
+    }
+
+    func testCornerRadiusWithoutAFillAndBorderColorWithoutAWidthDrawNothing() {
+        config.link.cornerRadius = 4
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(borderColor: .systemRed))]
+        let result = MarkdownRenderer.render(markdown, config: config)
+
+        XCTAssertNil(drawnBackground(onWord: "alice", in: result))
+        XCTAssertNil(drawnBackground(onWord: "docs", in: result))
+        XCTAssertNil(backgroundColor(onWord: "alice", in: result))
+    }
+
+    func testInlineCodeInsideADrawnLinkKeepsItsChipOverTheSameBox() {
+        config.code.backgroundColor = .systemGray
+        config.linkVariants = [LinkVariantStyle(
+            pattern: "^user:",
+            style: ElementStyle(backgroundColor: .systemYellow, cornerRadius: 4)
+        )]
+        let result = MarkdownRenderer.render("[`alice` profile](user://alice)", config: config)
+
+        XCTAssertEqual(backgroundColor(onWord: "alice", in: result), .systemGray)
+        XCTAssertNotNil(drawnBackground(onWord: "alice", in: result))
+        XCTAssertNil(backgroundColor(onWord: "profile", in: result))
+        XCTAssertNotNil(drawnBackground(onWord: "profile", in: result))
+    }
+
+    // MARK: - Highlight
+
+    func testALinkFillWinsOverTheHighlightInEitherOrder() {
+        config.highlight.backgroundColor = .systemYellow
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(backgroundColor: .systemRed))]
+
+        for markdown in ["==[alice](user://alice)==", "[==alice==](user://alice)"] {
+            let result = MarkdownRenderer.render(markdown, config: config, options: highlightOptions)
+            XCTAssertEqual(backgroundColor(onWord: "alice", in: result), .systemRed, markdown)
+        }
+    }
+
+    func testADrawnLinkFillReplacesTheHighlightInEitherOrder() {
+        config.highlight.backgroundColor = .systemYellow
+        config.linkVariants = [LinkVariantStyle(
+            pattern: "^user:",
+            style: ElementStyle(backgroundColor: .systemRed, cornerRadius: 4)
+        )]
+
+        for markdown in ["==[alice](user://alice)==", "[==alice==](user://alice)"] {
+            let result = MarkdownRenderer.render(markdown, config: config, options: highlightOptions)
+            XCTAssertNil(backgroundColor(onWord: "alice", in: result), markdown)
+            XCTAssertEqual(drawnBackground(onWord: "alice", in: result)?.fillColor, .systemRed, markdown)
+        }
+    }
+
+    func testALinkWithoutAFillShowsTheHighlightInEitherOrder() {
+        config.highlight.backgroundColor = .systemYellow
+        config.linkVariants = [LinkVariantStyle(
+            pattern: "^user:",
+            style: ElementStyle(borderColor: .systemRed, borderWidth: 1)
+        )]
+
+        for markdown in [
+            "==[alice](user://alice) and [docs](https://swmansion.com)==",
+            "[==alice==](user://alice) and [==docs==](https://swmansion.com)"
+        ] {
+            let result = MarkdownRenderer.render(markdown, config: config, options: highlightOptions)
+            XCTAssertEqual(backgroundColor(onWord: "alice", in: result), .systemYellow, markdown)
+            XCTAssertEqual(backgroundColor(onWord: "docs", in: result), .systemYellow, markdown)
+            XCTAssertEqual(drawnBackground(onWord: "alice", in: result)?.border?.color, .systemRed, markdown)
+        }
+    }
+
     // MARK: - Copy as HTML
 
     func testCopiedHTMLCarriesTheVariantStyle() {
@@ -173,6 +287,26 @@ final class LinkVariantTests: XCTestCase {
         XCTAssertTrue(html.contains("text-decoration: underline;\">docs</a>"), html)
     }
 
+    func testCopiedHTMLCarriesTheCornerRadiusAndBorder() {
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(
+            backgroundColor: UIColor(red: 0, green: 0, blue: 1, alpha: 1),
+            borderColor: UIColor(red: 0, green: 1, blue: 0, alpha: 1),
+            borderWidth: 1.5,
+            cornerRadius: 6
+        ))]
+        let rendered = MarkdownRenderer.render(markdown, config: config)
+        let html = MarkdownHTMLGenerator.generateHTML(
+            from: rendered,
+            in: NSRange(location: 0, length: rendered.length),
+            config: config
+        )
+
+        XCTAssertTrue(html.contains(
+            "background-color: #0000FF; border-radius: 6px; border: 1.5px solid #00FF00;\">alice</a>"
+        ), html)
+        XCTAssertTrue(html.contains("text-decoration: underline;\">docs</a>"), html)
+    }
+
     // MARK: - Helpers
 
     private func attribute(_ key: NSAttributedString.Key, onWord word: String, in attributed: NSAttributedString) -> Any? {
@@ -187,6 +321,10 @@ final class LinkVariantTests: XCTestCase {
 
     private func backgroundColor(onWord word: String, in attributed: NSAttributedString) -> UIColor? {
         attribute(.backgroundColor, onWord: word, in: attributed) as? UIColor
+    }
+
+    private func drawnBackground(onWord word: String, in attributed: NSAttributedString) -> InlineBackground? {
+        attribute(MarkdownAttribute.inlineBackground, onWord: word, in: attributed) as? InlineBackground
     }
 
     private func underlineStyle(onWord word: String, in attributed: NSAttributedString) -> Int? {

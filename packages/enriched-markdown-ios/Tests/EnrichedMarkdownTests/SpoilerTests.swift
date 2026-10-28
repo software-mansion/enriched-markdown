@@ -558,13 +558,6 @@ final class SpoilerTests: XCTestCase {
         display(view.layer)
     }
 
-    @MainActor
-    private func frame(of range: NSRange, in textView: MarkdownTextView) -> CGRect {
-        var union = CGRect.null
-        TextLayoutHelpers.enumerateSegmentFrames(of: range, in: textView) { segment, _, _ in union = union.union(segment) }
-        return union
-    }
-
     private func spoilerWithImage(downloadedBy downloader: ImageDownloading) -> NSAttributedString {
         let text = NSMutableAttributedString(
             attributedString: MarkdownRenderer.render("||hidden ![alt](data:image/png;base64,AA==) image||", config: config)

@@ -19,9 +19,8 @@ final class HighlightRenderer: NodeRenderer {
         output.addAttribute(MarkdownAttribute.highlight, value: true, range: range)
 
         if let backgroundColor = config.highlight.backgroundColor {
-            // Inline code keeps its own background box; links still sit on the highlight.
-            output.enumerateAttribute(MarkdownAttribute.inlineCode, in: range, options: []) { value, subrange, _ in
-                guard value == nil else { return }
+            output.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
+                guard !RenderContext.shouldPreserveBackground(attributes) else { return }
                 output.addAttribute(.backgroundColor, value: backgroundColor, range: subrange)
             }
         }

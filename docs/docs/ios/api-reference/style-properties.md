@@ -430,6 +430,8 @@ Links and autolinks. Takes the [shared modifiers](#shared-modifiers) plus:
 | `.underline(_ enabled: Bool = true)` | `Bool` | `true` | Whether the link is underlined |
 | `.foregroundStyle(_:)` | `Color \| semantic` | `.tint` | Link color; everything else is inherited from the surrounding block |
 | `.background(_:)` | `Color \| semantic` | unset - no fill | Fill behind the link text. Inline code inside a link keeps its own background |
+| `.cornerRadius(_ value: CGFloat)` | `CGFloat` | `0` | Rounds the corners of the fill and border |
+| `.border(_ color: Color, width: CGFloat? = nil)` | `Color \| semantic` | unset - no border | Outline around the link text, as `CodeBlock()` takes it. `.border(width:)` resizes one a lower layer colored |
 
 ```swift
 MarkdownTheme {
@@ -438,6 +440,8 @@ MarkdownTheme {
     .underline(false)
 }
 ```
+
+A fill or border with rounded corners is drawn behind each line of the link, as tall as its text. Inside a `==highlight==`, a link with a fill of its own keeps it, whichever of the two wraps the other; a link without one sits on the highlight.
 
 A tapped link goes through the [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) environment action, which opens it with the system unless you install your own. To style some links differently from the rest, add a [`Link(matching:)`](#link-matching) element.
 
@@ -450,6 +454,8 @@ Styles only the links whose URL matches a pattern, such as mentions like `[@Alic
 | `.foregroundStyle(_:)` | `Color \| semantic` | the `Link()` color | Text color of the matching links |
 | `.background(_:)` | `Color \| semantic` | the `Link()` fill | Fill behind the matching links |
 | `.underline(_ enabled: Bool = true)` | `Bool` | the `Link()` setting | Whether the matching links are underlined |
+| `.cornerRadius(_ value: CGFloat)` | `CGFloat` | the `Link()` radius | Rounds the corners of the fill and border |
+| `.border(_ color: Color, width: CGFloat? = nil)` | `Color \| semantic` | the `Link()` border | Outline around the matching links |
 
 ```swift
 MarkdownTheme {
@@ -458,6 +464,7 @@ MarkdownTheme {
   Link(matching: "^user:")
     .foregroundStyle(.indigo)
     .background(Color.indigo.opacity(0.12))
+    .cornerRadius(4)
     .underline(false)
 
   Link(matching: "^channel:")
@@ -535,6 +542,8 @@ MarkdownTheme {
     .foregroundStyle(.primary)     // set both, so dark mode stays readable
 }
 ```
+
+Inline code inside a highlight keeps its own chip, and a link keeps a fill of its own; everything else in the span takes the highlight.
 
 :::caution
 The default highlight background is a **fixed** light yellow and does not adapt to dark mode, where the surrounding text color may leave it unreadable. If you enable the option, set both a background and a foreground for the appearance you support.
