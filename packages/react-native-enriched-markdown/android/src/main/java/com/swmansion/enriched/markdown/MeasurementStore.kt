@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown
 
 import android.content.Context
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
 import android.text.Spannable
@@ -110,7 +111,9 @@ object MeasurementStore {
     )
   }
 
-  private val measurePaint = TextPaint()
+  // TextView paints with ANTI_ALIAS_FLAG. On older Android a bare TextPaint lacks it, and the
+  // glyph hinting that differs between the two moves text widths by a few pixels.
+  private val measurePaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
   private val measureRenderer = Renderer()
 
   // Measures a slot child through the GFM shadow node's current measure session
@@ -718,6 +721,7 @@ object MeasurementStore {
     viewId: Int?,
   ): Long {
     measurePaint.reset()
+    measurePaint.isAntiAlias = true
     measurePaint.typeface = paintParams.typeface
     measurePaint.textSize = paintParams.fontSize
     return measure(maxWidth, text, measurePaint, viewId)
@@ -733,9 +737,28 @@ object MeasurementStore {
     val safeWidth = ceil(maxWidth).toInt().coerceAtLeast(1)
     prepareWidthAwareSpans(content, safeWidth)
 
+    val layout = buildMeasureLayout(content, paint, safeWidth, viewId)
+    val visibleLineCount = visibleLineCount(layout, viewId)
+    val measuredHeight = truncatedHeight(layout, visibleLineCount, content)
+
+    // Calculate actual content width (widest visible line)
+    val measuredWidth = (0 until visibleLineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
+
+    return YogaMeasureOutput.make(
+      PixelUtil.toDIPFromPixel(ceil(measuredWidth)),
+      PixelUtil.toDIPFromPixel(measuredHeight),
+    )
+  }
+
+  private fun buildMeasureLayout(
+    content: CharSequence,
+    paint: TextPaint,
+    widthPx: Int,
+    viewId: Int?,
+  ): StaticLayout {
     val builder =
       StaticLayout.Builder
-        .obtain(content, 0, content.length, paint, safeWidth)
+        .obtain(content, 0, content.length, paint, widthPx)
         .setIncludePad(false)
         .setLineSpacing(0f, 1f)
 
@@ -748,19 +771,19 @@ object MeasurementStore {
       builder.setUseLineSpacingFromFallbacks(true)
     }
 
+    applyUseBoundsForWidth(builder)
     applyLineLimit(builder, viewId)
+    return builder.build()
+  }
 
-    val layout = builder.build()
-    val visibleLineCount = visibleLineCount(layout, viewId)
-    val measuredHeight = truncatedHeight(layout, visibleLineCount, content)
-
-    // Calculate actual content width (widest visible line)
-    val measuredWidth = (0 until visibleLineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
-
-    return YogaMeasureOutput.make(
-      PixelUtil.toDIPFromPixel(ceil(measuredWidth)),
-      PixelUtil.toDIPFromPixel(measuredHeight),
-    )
+  // The markdown text views lay lines out by glyph bounds (see setupAsMarkdownTextView in
+  // TextViewSetup.kt), so a line ending on an overhanging glyph, like italic, is wider than its
+  // advances. Measure the same way, or the view comes out a pixel or two narrow and wraps a line
+  // it has no room for.
+  internal fun applyUseBoundsForWidth(builder: StaticLayout.Builder) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+      builder.setUseBoundsForWidth(true)
+    }
   }
 
   // Applies the per-view numberOfLines / ellipsizeMode clamp to a builder, matching
@@ -839,21 +862,7 @@ object MeasurementStore {
     val widthPx = ceil(maxWidth).toInt().coerceAtLeast(1)
     prepareWidthAwareSpans(content, widthPx)
 
-    val layout =
-      StaticLayout.Builder
-        .obtain(content, 0, content.length, paint, widthPx)
-        .setIncludePad(false)
-        .setLineSpacing(0f, 1f)
-        .apply {
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            @Suppress("WrongConstant")
-            setBreakStrategy(resolveBreakStrategy(viewId))
-          }
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            setUseLineSpacingFromFallbacks(true)
-          }
-          applyLineLimit(this, viewId)
-        }.build()
+    val layout = buildMeasureLayout(content, paint, widthPx, viewId)
 
     val visibleLineCount = visibleLineCount(layout, viewId)
 
