@@ -27,9 +27,9 @@ open class LatexMathPlugin(
     accessibilityLabel: String = MathAccessibilityLabel.DEFAULT_TEMPLATE,
   ) : this(MathAccessibilityLabel.template(accessibilityLabel))
 
-  override val id: String = ID
+  final override val id: String = ID
 
-  override fun install(registry: PluginRegistry) {
+  final override fun install(registry: PluginRegistry) {
     registry.registerNodeRenderer(NodeType.LatexMathInline) { config, context -> MathInlineRenderer(config, context, accessibilityLabel) }
     // Display math standing on its own line is promoted to a top-level node by the parser and
     // claimed below as a segment of its own. What still reaches a node renderer is genuinely
@@ -39,11 +39,11 @@ open class LatexMathPlugin(
     registry.registerBlockSegment(NodeType.LatexMathDisplay, MathBlockSegment(accessibilityLabel))
   }
 
-  override fun adjustParserFlags(flags: Md4cFlags): Md4cFlags = flags.copy(latexMath = true)
+  final override fun adjustParserFlags(flags: Md4cFlags): Md4cFlags = flags.copy(latexMath = true)
 
-  override fun equals(other: Any?): Boolean = other is LatexMathPlugin && other.accessibilityLabel == accessibilityLabel
+  final override fun equals(other: Any?): Boolean = other is LatexMathPlugin && other.accessibilityLabel == accessibilityLabel
 
-  override fun hashCode(): Int = accessibilityLabel.hashCode()
+  final override fun hashCode(): Int = accessibilityLabel.hashCode()
 
   companion object Default : LatexMathPlugin() {
     const val ID = "com.swmansion.enriched.markdown.math"
