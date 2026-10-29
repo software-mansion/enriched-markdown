@@ -744,3 +744,275 @@ it('subscribes to a source started by an update render that was thrown away', as
     headers: [],
   });
 });
+
+describe('code renderers', () => {
+  const codeSlot = (
+    language: string,
+    overrides: Partial<NativeBlockSlot> = {}
+  ): NativeBlockSlot => ({
+    id: `code:${language || 'none'}:0`,
+    kind: 'code',
+    url: '',
+    altText: '',
+    title: '',
+    placement: 'root',
+    occurrenceId: '',
+    language,
+    code: `${language} source`,
+    isComplete: true,
+    ...overrides,
+  });
+
+  const slotIds = (root: Root) => slots(root).map((slot) => slot.props.slotId);
+
+  it('runs the language renderer whose pattern matches the fence language', () => {
+    mockSlots = [
+      codeSlot('mermaid', { placement: 'blockquote' }),
+      codeSlot('ts'),
+    ];
+    const mermaid = jest.fn(() => <View testID="diagram" />);
+    const root = render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{
+          code: {
+            languages: { mermaid: { pattern: '^mermaid$', content: mermaid } },
+          },
+        }}
+      />
+    );
+    expect(mermaid).toHaveBeenCalledTimes(1);
+    expect(mermaid).toHaveBeenCalledWith({
+      kind: 'code',
+      id: 'code:mermaid:0',
+      language: 'mermaid',
+      code: 'mermaid source',
+      isComplete: true,
+      placement: 'blockquote',
+    });
+    expect(slotIds(root)).toEqual(['code:mermaid:0']);
+  });
+
+  it('prefers the longest matching pattern', () => {
+    mockSlots = [codeSlot('tsx')];
+    const loose = jest.fn(() => <View />);
+    const exact = jest.fn(() => <View />);
+    render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{
+          code: {
+            languages: {
+              loose: { pattern: 'ts', content: loose },
+              exact: { pattern: /^tsx$/i, content: exact },
+            },
+          },
+        }}
+      />
+    );
+    expect(exact).toHaveBeenCalledTimes(1);
+    expect(loose).not.toHaveBeenCalled();
+  });
+
+  it('falls back to default, and keeps the native block without one', () => {
+    mockSlots = [codeSlot('mermaid'), codeSlot('ts'), codeSlot('')];
+    const fallback = jest.fn(() => <View />);
+    const mermaid = () => <View />;
+    const withDefault = render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{
+          code: {
+            default: fallback,
+            languages: { mermaid: { pattern: '^mermaid$', content: mermaid } },
+          },
+        }}
+      />
+    );
+    expect(fallback).toHaveBeenCalledTimes(2);
+    expect(slotIds(withDefault)).toEqual([
+      'code:mermaid:0',
+      'code:ts:0',
+      'code:none:0',
+    ]);
+
+    const withoutDefault = render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{
+          code: {
+            languages: { mermaid: { pattern: '^mermaid$', content: mermaid } },
+          },
+        }}
+      />
+    );
+    expect(slotIds(withoutDefault)).toEqual(['code:mermaid:0']);
+  });
+
+  it('keeps the native block when the matched language renderer declines, without trying default', () => {
+    mockSlots = [codeSlot('mermaid')];
+    const fallback = jest.fn(() => <View />);
+    const root = render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{
+          code: {
+            default: fallback,
+            languages: {
+              mermaid: { pattern: '^mermaid$', content: () => undefined },
+            },
+          },
+        }}
+      />
+    );
+    expect(slots(root)).toHaveLength(0);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('takes one function for every code block', () => {
+    mockSlots = [codeSlot('ts'), codeSlot('')];
+    const code = jest.fn(() => <View />);
+    const root = render(
+      <EnrichedMarkdownText markdown="x" flavor="github" renderers={{ code }} />
+    );
+    expect(code).toHaveBeenCalledTimes(2);
+    expect(slotIds(root)).toEqual(['code:ts:0', 'code:none:0']);
+  });
+
+  it('does not collect blocks for a code entry with nothing to render', () => {
+    render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{ code: { languages: {} } }}
+      />
+    );
+    expect(mockCollect).not.toHaveBeenCalled();
+  });
+
+  it('ignores an invalid pattern with a warning', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockSlots = [codeSlot('mermaid')];
+    const broken = jest.fn(() => <View />);
+    const fallback = jest.fn(() => <View />);
+    render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{
+          code: {
+            default: fallback,
+            languages: { broken: { pattern: '(mermaid', content: broken } },
+          },
+        }}
+      />
+    );
+    expect(broken).not.toHaveBeenCalled();
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('renderers.code.languages.broken');
+    warn.mockRestore();
+  });
+
+  it('matches every block with a global pattern', () => {
+    mockSlots = [codeSlot('sh'), codeSlot('sh', { id: 'code:sh:1' })];
+    const shell = jest.fn(() => <View />);
+    const root = render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{
+          code: { languages: { shell: { pattern: /^sh$/g, content: shell } } },
+        }}
+      />
+    );
+    expect(slotIds(root)).toEqual(['code:sh:0', 'code:sh:1']);
+  });
+
+  it('names the language entry when its renderer throws', () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockSlots = [codeSlot('mermaid')];
+    const root = render(
+      <EnrichedMarkdownText
+        markdown="x"
+        flavor="github"
+        renderers={{
+          code: {
+            languages: {
+              mermaid: {
+                pattern: '^mermaid$',
+                content: () => {
+                  throw new Error('boom');
+                },
+              },
+            },
+          },
+        }}
+      />
+    );
+    expect(slots(root)).toHaveLength(0);
+    expect(error.mock.calls[0]![0]).toContain(
+      'renderers.code.languages.mermaid threw for code:mermaid:0'
+    );
+    error.mockRestore();
+  });
+
+  it('does not render unchanged blocks again for an inline renderers literal', () => {
+    mockSlots = [codeSlot('mermaid'), codeSlot('ts')];
+    const mermaid = jest.fn(() => <View />);
+    const fallback = jest.fn(() => <View />);
+    const tree = (markdown: string, pattern: string | RegExp = '^mermaid$') => (
+      <EnrichedMarkdownText
+        markdown={markdown}
+        flavor="github"
+        renderers={{
+          code: {
+            default: fallback,
+            languages: { mermaid: { pattern, content: mermaid } },
+          },
+        }}
+      />
+    );
+    const root = render(tree('a'));
+    act(() => root.render(tree('ab')));
+    act(() => root.render(tree('abc', /^mermaid$/)));
+    act(() => root.render(tree('abcd', /^mermaid$/)));
+    expect(mermaid).toHaveBeenCalledTimes(2);
+    expect(fallback).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-renders a streaming fence in place until it completes', () => {
+    mockSlots = [codeSlot('ts', { code: 'let', isComplete: false })];
+    const code = jest.fn(() => <View />);
+    const renderers = { code };
+    const root = render(
+      <EnrichedMarkdownText
+        markdown="a"
+        flavor="github"
+        renderers={renderers}
+      />
+    );
+    const first = slots(root)[0]!;
+
+    mockSlots = [codeSlot('ts', { code: 'let a;', isComplete: true })];
+    act(() =>
+      root.render(
+        <EnrichedMarkdownText
+          markdown="ab"
+          flavor="github"
+          renderers={renderers}
+        />
+      )
+    );
+    expect(code).toHaveBeenCalledTimes(2);
+    expect(code).toHaveBeenLastCalledWith(
+      expect.objectContaining({ code: 'let a;', isComplete: true })
+    );
+    expect(slots(root)[0]).toBe(first);
+  });
+});

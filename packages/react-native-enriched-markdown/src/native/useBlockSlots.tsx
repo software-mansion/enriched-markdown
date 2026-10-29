@@ -46,7 +46,7 @@ export function useCollectedMarkdown(
       if (__DEV__ && !warnedAboutFlavor) {
         warnedAboutFlavor = true;
         console.warn(
-          '[EnrichedMarkdownText] `renderers` and `resolveImageSource` only apply to flavor="github"; the CommonMark renderer keeps native images and videos.'
+          '[EnrichedMarkdownText] `renderers` and `resolveImageSource` only apply to flavor="github"; the CommonMark renderer keeps native images, videos and code blocks.'
         );
       }
       return EMPTY;
@@ -55,7 +55,7 @@ export function useCollectedMarkdown(
       if (__DEV__ && !warnedAboutModule) {
         warnedAboutModule = true;
         console.warn(
-          '[EnrichedMarkdownText] `renderers` and `resolveImageSource` need the EnrichedMarkdownParser TurboModule, which is not registered; rebuild the native app. Images, videos and links render natively meanwhile.'
+          '[EnrichedMarkdownText] `renderers` and `resolveImageSource` need the EnrichedMarkdownParser TurboModule, which is not registered; rebuild the native app. Images, videos, links and code blocks render natively meanwhile.'
         );
       }
       return EMPTY;
@@ -79,6 +79,15 @@ export function useCollectedMarkdown(
               url: slot.url,
               label: slot.altText,
               title: slot.title,
+              placement,
+            };
+          case 'code':
+            return {
+              kind: 'code',
+              id: slot.id,
+              language: slot.language,
+              code: slot.code,
+              isComplete: slot.isComplete,
               placement,
             };
           default:

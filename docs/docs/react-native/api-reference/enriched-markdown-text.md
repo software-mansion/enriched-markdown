@@ -309,7 +309,7 @@ interface StreamingConfig {
   - `'progressive'` **(default)** renders the table row-by-row as content arrives (incomplete trailing rows are trimmed).
   - `'hidden'` withholds the table until it is complete.
 - `codeBlockMode`
-  - `'progressive'` **(default)** streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives.
+  - `'progressive'` **(default)** shows the block once the line opening the fence has ended, then streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives. A block drawn by [`renderers.code`](#renderers) re-renders as the code grows, with `isComplete: false`.
   - `'hidden'` withholds the block until it is complete.
 - `mediaMode`
   - `'progressive'` **(default)** shows a trailing image paragraph, link paragraph or `<video>` block as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
@@ -344,11 +344,12 @@ HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN
 
 Functions that return React elements to stand in for whole blocks, keyed by kind. The guide [Custom block renderers](/react-native/guides/custom-block-renderers) explains layout, streaming and examples.
 
-- **Which blocks:** a paragraph that is only an image (`image`), a paragraph that is only a link, autolink or bare URL (`link`), and a `<video src="...">` block (`video`). The block must sit directly in the document, a blockquote or an admonition, not in a list. A list item that holds only a video is an exception: the parser [moves that video out of the list](/react-native/api-reference/element-structure#videos), so it is replaced in the list's container. Images and links elsewhere stay native.
+- **Which blocks:** a paragraph that is only an image (`image`), a paragraph that is only a link, autolink or bare URL (`link`), a `<video src="...">` block (`video`), and a fenced or indented code block (`code`). The block must sit directly in the document, a blockquote or an admonition, not in a list. A list item that holds only a video is an exception: the parser [moves that video out of the list](/react-native/api-reference/element-structure#videos), so it is replaced in the list's container. Images, links and code blocks elsewhere stay native.
+- **Code blocks:** `code` is one function for every code block, or `{ default, languages }`. Each `languages` entry has a regex `pattern` (a string or a `RegExp`) matched against the fence language; the longest matching pattern wins, then `default`, then the native code block. The picked renderer is final: returning `undefined` keeps the native block and does not fall back to `default`. See [Code blocks](/react-native/guides/custom-block-renderers#code-blocks).
 - **Return value:** an element replaces the block; `undefined` (or no return) keeps the native block. A renderer that throws, or returns text, keeps the native block and warns in development.
 - **Size:** the element needs an intrinsic height; the host sets the width. See [Sizing your element](/react-native/guides/custom-block-renderers#sizing-your-element).
 - **Calls:** once per block, and again only when that block or a renderer function changes. Keep the functions stable with `useCallback`. A renderer is a plain function, not a component, so keep hooks inside the component it returns.
-- **Presses:** the element handles its own. [`onImagePress`](#onimagepress), [`onLinkPress`](#onlinkpress), [`onLinkLongPress`](#onlinklongpress) and the [link menu](#linkcontextmenuitems) do not fire for a replaced block.
+- **Presses:** the element handles its own. [`onImagePress`](#onimagepress), [`onLinkPress`](#onlinkpress), [`onLinkLongPress`](#onlinklongpress), [`onCodeBlockPress`](#oncodeblockpress) and the [link menu](#linkcontextmenuitems) do not fire for a replaced block.
 - **Flavor:** `flavor="github"` only.
 
 <PropInfo type="MarkdownRenderers" />
@@ -358,6 +359,19 @@ interface MarkdownRenderers {
   image?: (block: MarkdownImageBlock) => ReactElement | undefined;
   video?: (block: MarkdownVideoBlock) => ReactElement | undefined;
   link?: (block: MarkdownLinkBlock) => ReactElement | undefined;
+  code?: MarkdownCodeBlockRenderer | MarkdownCodeRenderers;
+}
+
+type MarkdownCodeBlockRenderer = (block: MarkdownCodeBlock) => ReactElement | undefined;
+
+interface MarkdownCodeRenderers {
+  default?: MarkdownCodeBlockRenderer; // for code blocks no language entry matches
+  languages?: Record<string, MarkdownCodeLanguageRenderer>; // keyed by a name used in warnings
+}
+
+interface MarkdownCodeLanguageRenderer {
+  pattern: string | RegExp; // matched against the fence language; anchor it to match the whole name
+  content: MarkdownCodeBlockRenderer;
 }
 
 // The container the block sits in. Inside a blockquote or an admonition the
@@ -390,8 +404,17 @@ interface MarkdownLinkBlock {
   placement: MarkdownBlockPlacement;
 }
 
-// Any of the three, for code that handles every kind.
-type MarkdownBlock = MarkdownImageBlock | MarkdownVideoBlock | MarkdownLinkBlock;
+interface MarkdownCodeBlock {
+  kind: 'code';
+  id: string; // depends on the language only, so it holds while the code streams in
+  language: string; // the fence language; "" for an indented block or a fence without one
+  code: string; // without trailing newlines
+  isComplete: boolean; // false while the closing fence has not streamed in yet
+  placement: MarkdownBlockPlacement;
+}
+
+// Any of the four, for code that handles every kind.
+type MarkdownBlock = MarkdownImageBlock | MarkdownVideoBlock | MarkdownLinkBlock | MarkdownCodeBlock;
 ```
 
 <LivePreview src={RenderersSrc} />

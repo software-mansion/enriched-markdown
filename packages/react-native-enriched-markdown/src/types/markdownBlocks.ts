@@ -8,10 +8,7 @@ import type { ReactElement } from 'react';
  */
 export type MarkdownBlockPlacement = 'root' | 'blockquote' | 'admonition';
 
-/**
- * Shared by every block a `renderers` entry can replace. A future non-media kind
- * extends this, not `MarkdownMediaBlock`.
- */
+/** Shared by every block a `renderers` entry can replace. */
 export interface MarkdownSlotBlock {
   /**
    * An opaque string, the same on every platform. It stays the same while the
@@ -58,11 +55,54 @@ export interface MarkdownLinkBlock extends MarkdownMediaBlock {
   title: string;
 }
 
+/**
+ * A fenced or indented code block. Its id depends on the language only, so it
+ * stays the same while the code streams in and when the fence closes; the
+ * element re-renders in place with the new `code`.
+ */
+export interface MarkdownCodeBlock extends MarkdownSlotBlock {
+  kind: 'code';
+  /** The fence's language (` ```ts ` gives `"ts"`), `""` when it has none. */
+  language: string;
+  /** The code, without trailing newlines. */
+  code: string;
+  /**
+   * `false` while the closing fence has not streamed in yet (with
+   * `streamingAnimation` and `codeBlockMode: 'progressive'`), `true` otherwise.
+   */
+  isComplete: boolean;
+}
+
 /** Every block a `renderers` entry can replace, for code that handles any kind. */
 export type MarkdownBlock =
   | MarkdownImageBlock
   | MarkdownVideoBlock
-  | MarkdownLinkBlock;
+  | MarkdownLinkBlock
+  | MarkdownCodeBlock;
+
+export type MarkdownCodeBlockRenderer = (
+  block: MarkdownCodeBlock
+) => ReactElement | undefined;
+
+/** A renderer for the code blocks whose language matches `pattern`. */
+export interface MarkdownCodeLanguageRenderer {
+  /**
+   * Matched against the fence language. A string is compiled with
+   * `new RegExp(pattern)`; anchor it (`'^mermaid$'`) to match the whole name.
+   */
+  pattern: string | RegExp;
+  content: MarkdownCodeBlockRenderer;
+}
+
+export interface MarkdownCodeRenderers {
+  /** For code blocks no `languages` entry matches. */
+  default?: MarkdownCodeBlockRenderer;
+  /**
+   * Renderers by language, keyed by a name of your choosing (used only in
+   * warnings). When several patterns match, the longest pattern wins.
+   */
+  languages?: Record<string, MarkdownCodeLanguageRenderer>;
+}
 
 /**
  * React replacements for native blocks, keyed by block kind. Return a React
@@ -73,6 +113,14 @@ export interface MarkdownRenderers {
   image?: (block: MarkdownImageBlock) => ReactElement | undefined;
   video?: (block: MarkdownVideoBlock) => ReactElement | undefined;
   link?: (block: MarkdownLinkBlock) => ReactElement | undefined;
+  /**
+   * One renderer for every code block, or a `default` plus renderers by
+   * language. The matching language renderer runs, else `default`; with
+   * neither, the block keeps the native code block. The renderer picked is
+   * final: returning `undefined` keeps the native block, it does not fall back
+   * to `default`.
+   */
+  code?: MarkdownCodeBlockRenderer | MarkdownCodeRenderers;
 }
 
 /**
