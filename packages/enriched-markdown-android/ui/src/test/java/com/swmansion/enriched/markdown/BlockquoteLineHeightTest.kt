@@ -17,6 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.ceil
 
 /** A quote's line height applies to its own text, around nested quotes and code blocks. */
 @RunWith(AndroidJUnit4::class)
@@ -28,18 +29,17 @@ class BlockquoteLineHeightTest {
     val quote =
       blockquote(
         paragraph(text("Intro")),
-        codeBlock("first line\nlast line\n"),
+        codeBlock("first line\nmiddle line\nlast line\n"),
         paragraph(text("Next")),
         paragraph(text("Last")),
       )
-    val natural = layout(quote, quoteLineHeight = 0f)
     val tall = layout(quote, quoteLineHeight = TALL_LINE_HEIGHT)
+    val codeLineHeight = MarkdownRenderTestSupport.defaultStyle.codeBlockStyle.lineHeight
 
     // The layout's first and last lines add their font's padding, so check one in between.
     assertEquals("the quote's own text takes the line height", TALL_LINE_HEIGHT.toInt(), tall.height("Next"))
-    for (line in listOf("first line", "last line")) {
-      assertEquals("height of \"$line\"", natural.height(line), tall.height(line))
-    }
+    // Only the code's middle line: the block's padding grows its first and last lines.
+    assertEquals("the code takes its own line height", ceil(codeLineHeight).toInt(), tall.height("middle line"))
   }
 
   @Test
