@@ -39,9 +39,22 @@ Most `EnrichedMarkdownText` features are supported on web (see [Not supported on
 | Prop | Description |
 |---|---|
 | `dir` | Web-only. Text direction (`'ltr'`, `'rtl'`, or `'auto'`). Unset or `'auto'` resolves each block from its content; `'ltr'` / `'rtl'` force the whole document. |
+| `suspense` | Web-only. Suspends until the WASM parser has loaded instead of rendering nothing; see [Server-side rendering](#server-side-rendering). |
 | `testID` | Standard React Native prop; on web it is applied to the root container as `data-testid`. |
 
 All of these are part of the exported `EnrichedMarkdownTextProps` type for web.
+
+## Server-side rendering
+
+The WASM parser loads asynchronously, and until it has, `EnrichedMarkdownText` renders nothing: a server render (SSR) emits no markdown, and the content appears once parsed in the browser, shifting the page. Set `suspense` to suspend until the parser has loaded instead:
+
+```tsx
+<Suspense fallback={null}>
+  <EnrichedMarkdownText markdown={markdown} suspense />
+</Suspense>
+```
+
+A streaming server render (`renderToPipeableStream`, `renderToReadableStream`, or a framework built on them) then waits for the parser and renders the markdown, and hydration keeps the server's HTML until the parser has loaded in the browser too, so the first paint already has the text. It needs React 19 (`use`). On the client, the boundary shows its fallback while the parser loads, only before the first load: later instances render the markdown in their first commit either way.
 
 ## Ignored props (native-only)
 
