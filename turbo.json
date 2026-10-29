@@ -153,6 +153,7 @@
         "cpp/**",
         "core/**",
         "highlight/**",
+        "repair/**",
         "Package.swift",
         "$TURBO_ROOT$/packages/core/cpp/**"
       ],
