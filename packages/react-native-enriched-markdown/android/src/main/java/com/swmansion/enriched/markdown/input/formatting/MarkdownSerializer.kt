@@ -52,7 +52,8 @@ object MarkdownSerializer {
     val plainLines = text.split("\n")
     val markdownLines = inlineMarkdown.split("\n").toMutableList()
 
-    // Inline delimiters never cross a newline, so the line partition is preserved.
+    // Inline ranges are split at every newline, so delimiters never cross one and
+    // the line partition is preserved.
     // If this ever breaks, prefixes would land on the wrong lines. Contract on
     // both platforms: log and fall back to inline-only output — a library must
     // not crash the host app over lost block prefixes.
@@ -100,19 +101,20 @@ object MarkdownSerializer {
 
     val events = ArrayList<BoundaryEvent>(ranges.size * 2)
     for (range in ranges) {
-      var start = range.start.coerceIn(0, text.length)
-      var end = range.end.coerceIn(0, text.length)
+      val rangeStart = range.start.coerceIn(0, text.length)
+      val rangeEnd = range.end.coerceIn(0, text.length)
 
-      if (start >= end) continue
-
-      // Trim leading/trailing whitespace so delimiters hug non-whitespace content
-      while (start < end && text[start].isWhitespace()) start++
-      while (end > start && text[end - 1].isWhitespace()) end--
-
-      if (start >= end) continue
-
-      events.add(BoundaryEvent(start, true, range.type, range.url))
-      events.add(BoundaryEvent(end, false, range.type, range.url))
+      // One delimiter pair per line. Block prefixes ("- ", "# ") attach per line,
+      // so a span that crosses a newline crosses a block boundary: "- **One\n- Two**"
+      // re-parses as two items with literal asterisks. Inside a single paragraph
+      // the split is harmless — "**a**\n**b**" renders the same as "**a\nb**".
+      var segmentStart = rangeStart
+      while (segmentStart < rangeEnd) {
+        val newline = text.indexOf('\n', segmentStart)
+        val segmentEnd = if (newline in segmentStart until rangeEnd) newline else rangeEnd
+        addSegmentEvents(events, text, segmentStart, segmentEnd, range)
+        segmentStart = segmentEnd + 1
+      }
     }
 
     events.sortWith(BOUNDARY_COMPARATOR)
@@ -141,6 +143,30 @@ object MarkdownSerializer {
 
     return markdown.toString()
   }
+
+  private fun addSegmentEvents(
+    events: MutableList<BoundaryEvent>,
+    text: String,
+    segmentStart: Int,
+    segmentEnd: Int,
+    range: FormattingRange,
+  ) {
+    var start = segmentStart
+    var end = segmentEnd
+
+    // Trim leading/trailing whitespace so delimiters hug non-whitespace content.
+    // The empty-bullet ZWSP anchor is trimmed too: once stripped it would leave a
+    // bare "****", which re-parses as a thematic break.
+    while (start < end && isTrimmable(text[start])) start++
+    while (end > start && isTrimmable(text[end - 1])) end--
+
+    if (start >= end) return
+
+    events.add(BoundaryEvent(start, true, range.type, range.url))
+    events.add(BoundaryEvent(end, false, range.type, range.url))
+  }
+
+  private fun isTrimmable(char: Char): Boolean = char.isWhitespace() || char == ZWSP[0] // ZWSP is a one character string
 
   private fun openingDelimiter(type: StyleType): String =
     when (type) {
