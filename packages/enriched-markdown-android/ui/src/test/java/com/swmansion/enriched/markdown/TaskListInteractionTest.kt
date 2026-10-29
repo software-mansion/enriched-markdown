@@ -22,7 +22,6 @@ import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.defaultTas
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleWithTaskList
 import com.swmansion.enriched.markdown.test.MarkdownTextViewTestSupport.createContainerWithStoredMarkdown
-import com.swmansion.enriched.markdown.test.MarkerCanvas
 import com.swmansion.enriched.markdown.test.TestAstFactory.codeBlock
 import com.swmansion.enriched.markdown.test.TestAstFactory.document
 import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
@@ -559,10 +558,6 @@ class TaskListInteractionTest {
     x: Float,
     y: Float,
   ): MotionEvent = MotionEvent.obtain(0L, 0L, action, x, y, 0)
-
-  /** The markers drawn in a line's leading margin; a checked item's strikethrough is drawn past it. */
-  private fun TextView.checkboxCount(): Int =
-    MarkerCanvas.drawMarkers(layout).count { it.right <= layout.getParagraphLeft(layout.getLineForVertical(it.baseline.toInt())) }
 
   private fun TextView.leadingMarginSpans(): List<LeadingMarginSpan> {
     val spanned = text as Spanned

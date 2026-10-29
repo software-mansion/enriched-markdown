@@ -106,6 +106,9 @@ class ListItemRenderer(
 
     if (builder.length == start || builder.substring(start).isBlank()) return
 
+    // A block that ends the item keeps its bottom spacer line (a quote's used to be trimmed). Spacer
+    // lines inside the item take the list's line height instead of the block's margin, so each one
+    // leaves a full-line gap.
     if (builder.last() != '\n') {
       builder.append("\n")
     }
