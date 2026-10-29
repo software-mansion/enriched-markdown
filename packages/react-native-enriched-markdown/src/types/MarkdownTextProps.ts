@@ -486,6 +486,17 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   dir?: 'ltr' | 'rtl' | 'auto';
   /**
+   * Suspends until the WASM parser has loaded, instead of rendering nothing
+   * until then, so that the first commit already has the markdown: on the
+   * server (SSR), which then renders it, and while hydrating, which keeps the
+   * server's HTML until the parser has loaded. Needs React 19 and a
+   * `<Suspense>` boundary above. A parser that fails to load renders the raw
+   * markdown in the browser, as without it, and leaves the boundary to the
+   * browser on the server.
+   * @platform web
+   */
+  suspense?: boolean;
+  /**
    * Sets the text break strategy on Android (API 23+).
    * - `'simple'`: no hyphenation, minimal line-break work.
    * - `'highQuality'` (default): full paragraph optimization with hyphenation.

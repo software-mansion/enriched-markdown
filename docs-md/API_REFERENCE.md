@@ -36,6 +36,14 @@ Text direction on web. Unset or `'auto'`, each block resolves its own direction 
 | ---------------------------- | ------------- | -------- |
 | `'ltr' \| 'rtl' \| 'auto'` | -             | Web      |
 
+### `suspense`
+
+Suspends until the WASM parser has loaded, instead of rendering nothing until then, so that the first commit already has the markdown: a server render (SSR) includes it, and hydration keeps the server's HTML until the parser has loaded in the browser. Needs React 19 (`use`) and a `<Suspense>` boundary above the component. See [Server-side rendering](WEB.md#server-side-rendering).
+
+| Type      | Default Value | Platform |
+| --------- | ------------- | -------- |
+| `boolean` | `false`       | Web      |
+
 ### `onLinkPress`
 
 Callback when a link is pressed. Access URL via `event.url`.

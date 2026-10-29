@@ -1,4 +1,5 @@
 import {
+  use,
   useState,
   useEffect,
   useMemo,
@@ -18,6 +19,7 @@ import {
   loadParser,
   parseMarkdownSync,
   subscribeParserReady,
+  waitForParser,
 } from './parseMarkdown';
 import { recognizeTextLinks } from './recognizeTextLinks';
 import { RenderNode } from './renderers';
@@ -41,7 +43,8 @@ interface ParseResult {
   error: unknown;
 }
 
-// The server never loads the WASM, so hydration starts from "not ready" too.
+// Without `suspense`, the server never waits for the WASM, so hydration starts
+// from "not ready" too.
 const isParserReadyOnServer = () => false;
 
 export const EnrichedMarkdownText = ({
@@ -63,6 +66,7 @@ export const EnrichedMarkdownText = ({
   dir,
   selectionColor,
   testID,
+  suspense = false,
   ...rest
 }: EnrichedMarkdownTextProps) => {
   const normalizedStyle = useMemo(
@@ -92,10 +96,21 @@ export const EnrichedMarkdownText = ({
   const textLinkKey = textLinkRegex?.toString() ?? null;
   const inlineCodeLinkKey = inlineCodeLinkRegex?.toString() ?? null;
 
+  // With `suspense`, the first load suspends instead, so that the first commit
+  // has the markdown: on the server, which then renders it, and while
+  // hydrating, which keeps the server's HTML until the WASM has loaded.
+  if (suspense && !isParserReady()) {
+    if (typeof use !== 'function') {
+      throw new Error('[EnrichedMarkdownText] `suspense` needs React 19');
+    }
+    use(waitForParser());
+  }
+
   const parserReady = useSyncExternalStore(
     subscribeParserReady,
     isParserReady,
-    isParserReadyOnServer
+    // With `suspense`, the server (and so hydration) waited for the WASM.
+    suspense ? isParserReady : isParserReadyOnServer
   );
 
   // Only the first load waits; once the WASM is up, every render parses the

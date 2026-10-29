@@ -81,6 +81,31 @@ export function loadParser(): Promise<void> {
   return initializeParser().then(() => {});
 }
 
+// The same promise on every render, as React's `use` needs it.
+let parserSettledPromise: Promise<void> | null = null;
+
+/**
+ * Resolves once the first WASM load has finished, for a component that
+ * suspends on it. In the browser, a failed load resolves too, and is kept: the
+ * component renders its fallback instead of suspending again. On the server, it
+ * rejects, which leaves the Suspense boundary to the browser, and the next
+ * render retries the load.
+ */
+export function waitForParser(): Promise<void> {
+  if (!parserSettledPromise) {
+    parserSettledPromise = initializeParser().then(
+      () => {},
+      (error: unknown) => {
+        if (typeof window === 'undefined') {
+          parserSettledPromise = null;
+          throw error;
+        }
+      }
+    );
+  }
+  return parserSettledPromise;
+}
+
 /** Whether {@link parseMarkdownSync} can run. */
 export function isParserReady(): boolean {
   return loadedParser !== null;
@@ -101,10 +126,7 @@ export function preloadParser(): Promise<void> {
     return Promise.resolve();
   }
   // A failure is left to the first real parse, which retries the load.
-  return initializeParser().then(
-    () => {},
-    () => {}
-  );
+  return waitForParser();
 }
 
 function isASTNode(value: unknown): value is ASTNode {
