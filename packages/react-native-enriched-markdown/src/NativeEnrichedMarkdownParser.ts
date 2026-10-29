@@ -14,17 +14,24 @@ export interface NativeMd4cFlags {
 
 export interface NativeBlockSlot {
   id: string;
-  /** 'image' | 'video' | 'link' */
+  /** 'image' | 'video' | 'link' | 'code' */
   kind: string;
+  /** `""` for code blocks. */
   url: string;
-  /** `""` for videos. */
+  /** The image's alt text or the link's label, `""` for other kinds. */
   altText: string;
-  /** `""` for videos. */
+  /** `""` for videos and code blocks. */
   title: string;
   /** 'root' | 'blockquote' | 'admonition' */
   placement: string;
   /** The image occurrence of an image block, `""` for other kinds. */
   occurrenceId: string;
+  /** The code block's fence language, `""` when it has none or for other kinds. */
+  language: string;
+  /** The code block's text without trailing newlines, `""` for other kinds. */
+  code: string;
+  /** False only for the code block whose closing fence has not streamed in yet. */
+  isComplete: boolean;
 }
 
 export interface NativeImageOccurrence {

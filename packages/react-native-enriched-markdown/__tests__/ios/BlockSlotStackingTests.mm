@@ -113,6 +113,27 @@ static NSString *ENRMFirstSlotId(NSString *markdown)
   XCTAssertEqualWithAccuracy(measurer.frames[slotId].CGRectValue.origin.y, config.paragraphMarginTop, 0.5);
 }
 
+- (void)testCodeSlotTakesCodeBlockMargins
+{
+  StyleConfig *config = [[StyleConfig alloc] init];
+  NSString *markdown = @"```mermaid\ngraph TD\n```\n";
+  NSString *slotId = ENRMFirstSlotId(markdown);
+  XCTAssertTrue([slotId hasPrefix:@"code:"]);
+  NSArray *segments = [self segmentsFor:markdown config:config slotIds:[NSSet setWithObject:slotId]];
+  XCTAssertEqual(segments.count, 1u);
+  XCTAssertEqual(((ENRMRenderedSegment *)segments[0]).kind, ENRMSegmentKindBlockSlot,
+                 @"the stamped code block is a slot, not a native code block");
+  XCTAssertEqual(((ENRMRenderedSegment *)segments[0]).blockSlotSegment.kind, ENRMBlockSlotKindCode);
+  ENRMBlockSlotMeasurer *measurer =
+      [[ENRMBlockSlotMeasurer alloc] initWithSlotIds:[NSSet setWithObject:slotId]
+                                             measure:^CGFloat(NSString *id, CGFloat w) { return 50; }];
+  CGFloat height = ENRMMeasureSegmentsHeightViewFree(segments, config, 320, YES, 2, ENRMWritingDirectionModeFirstStrong,
+                                                     NSWritingDirectionLeftToRight, YES, NSLineBreakStrategyStandard,
+                                                     nil, measurer, CGPointZero);
+  XCTAssertEqualWithAccuracy(height, config.codeBlockMarginTop + 50 + config.codeBlockMarginBottom, 0.5);
+  XCTAssertEqualWithAccuracy(measurer.frames[slotId].CGRectValue.origin.y, config.codeBlockMarginTop, 0.5);
+}
+
 - (CGFloat)heightOf:(NSString *)markdown config:(StyleConfig *)config width:(CGFloat)width
 {
   NSArray *segments = [self segmentsFor:markdown config:config slotIds:[NSSet set]];
