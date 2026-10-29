@@ -231,6 +231,21 @@ int main() {
         "open fence flagged (progressive)");
   check(!Markdown::renderableMarkdownForStreaming("A\n```js\nlet a\n```\n", {}).endsInsideOpenCodeFence,
         "closed fence not flagged");
+  // An opening line still streaming in may grow its language: the fence waits for its newline.
+  expect("A\n\n```mer", "A\n\n", "a fence whose opening line has not ended waits");
+  expect("A\n\n```", "A\n\n", "a bare opening fence waits for its info string");
+  expect("A\n\n```mermaid\n", "A\n\n```mermaid\n", "an ended opening line shows the fence");
+  expect("> ```js", "", "a quoted opening line waits");
+  // The line after a final newline has not streamed its `>` in yet, so it keeps a quoted fence open.
+  for (const char *quotedFence : {"> ```js\n> let a\n", "> [!NOTE]\n> ```py\n> x\n", "> ```js\n", "> ```js\r\n> a\r\n"})
+    check(Markdown::renderableMarkdownForStreaming(quotedFence, {}).endsInsideOpenCodeFence,
+          std::string("a quoted fence stays open at a line end: ") + quotedFence);
+  expect("> ```mermaid\n", "> ```mermaid\n", "a quoted fence shows once its opening line ends");
+  expect("A\n\n> ```js\n> let a\n", "A\n\n", "a quoted open fence is cut at a line end (hidden)", P, P, H);
+  check(filter("See [docs](https://e\n| a |\n```js") == filter("See [docs](https://e\n| a |\n```js", P, P, H),
+        "a waiting fence is cut as a hidden one would be");
+  check(!Markdown::renderableMarkdownForStreaming("A\n\n```mer", {}).endsInsideOpenCodeFence,
+        "a waiting fence is not flagged");
   expect("", "", "empty input");
   expect("\r\n" + img + "\r\n", "\r\n" + img + "\r\n", "CRLF: complete image kept (progressive)");
   expect("\r\n" + img + "\r\n\r", "\r\n", "CRLF: trailing CR line is blank, image still open (hidden)", H);

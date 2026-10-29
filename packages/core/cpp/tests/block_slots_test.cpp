@@ -7,6 +7,7 @@
 #include "AstOverlay.hpp"
 #include "BlockSlots.hpp"
 #include "MD4CParser.hpp"
+#include "StreamingFilter.hpp"
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -47,6 +48,12 @@ std::string suffix(const std::string &id) {
   return id.substr(id.rfind(':'));
 }
 
+// A code slot's fields, empty for another kind.
+Markdown::CodeSlotFields codeOf(const Markdown::BlockSlot &slot) {
+  const auto *fields = std::get_if<Markdown::CodeSlotFields>(&slot.fields);
+  return fields ? *fields : Markdown::CodeSlotFields{};
+}
+
 size_t slotCount(const std::string &markdown) {
   return Markdown::collect(*parse(markdown)).slots.size();
 }
@@ -57,6 +64,8 @@ int main(int argc, char **argv) {
   using Markdown::BlockSlotKind;
   using Markdown::BlockSlotPlacement;
   using Markdown::ImagePlacement;
+  using Markdown::ImageSlotFields;
+  using Markdown::LinkSlotFields;
 
   const std::string doc =
       "# Title\n\n"
@@ -82,29 +91,29 @@ int main(int argc, char **argv) {
         "file link (got " +
             std::to_string(slots.size()) + ")");
   if (slots.size() == 6) {
-    check(slots[0].kind == BlockSlotKind::Image && slots[0].placement == BlockSlotPlacement::Root,
-          "slot 0 is the root image");
-    check(slots[0].altText == "Hero" && slots[0].title == "Hero title", "slot 0 carries alt and title");
-    check(slots[1].kind == BlockSlotKind::Link && slots[1].url == "https://e.com" && slots[1].altText == "linked",
+    const auto *hero = std::get_if<ImageSlotFields>(&slots[0].fields);
+    const auto *linked = std::get_if<LinkSlotFields>(&slots[1].fields);
+    const auto *quoted = std::get_if<ImageSlotFields>(&slots[2].fields);
+    const auto *file = std::get_if<LinkSlotFields>(&slots[5].fields);
+    check(hero && slots[0].placement == BlockSlotPlacement::Root, "slot 0 is the root image");
+    check(hero && hero->altText == "Hero" && hero->title == "Hero title", "slot 0 carries alt and title");
+    check(linked && linked->url == "https://e.com" && linked->label == "linked",
           "a linked image paragraph is a link block with the image's alt as label");
-    check(slots[2].kind == BlockSlotKind::Image && slots[2].placement == BlockSlotPlacement::Blockquote,
-          "slot 2 is the quoted image");
-    check(slots[3].kind == BlockSlotKind::Video && slots[3].placement == BlockSlotPlacement::Admonition,
+    check(quoted && slots[2].placement == BlockSlotPlacement::Blockquote, "slot 2 is the quoted image");
+    check(slots[3].kind() == BlockSlotKind::Video && slots[3].placement == BlockSlotPlacement::Admonition,
           "slot 3 is the admonition video");
-    check(slots[3].altText.empty() && slots[3].title.empty(), "videos carry no alt or title");
-    check(slots[4].kind == BlockSlotKind::Video && slots[4].placement == BlockSlotPlacement::Root,
+    check(slots[4].kind() == BlockSlotKind::Video && slots[4].placement == BlockSlotPlacement::Root,
           "slot 4 is the root video");
-    check(slots[5].kind == BlockSlotKind::Link && slots[5].altText == "Q3 report.pdf" &&
-              slots[5].title == "application/pdf" && slots[5].id.rfind("link:", 0) == 0,
+    check(file && file->label == "Q3 report.pdf" && file->title == "application/pdf" &&
+              slots[5].id.rfind("link:", 0) == 0,
           "the file link is a link block with label and title");
     check(slots[0].id.rfind("image:", 0) == 0 && suffix(slots[0].id) == ":0", "first a.png slot is 0");
     // The hash covers alt and title, so a.png with other text is another block.
     check(slots[2].id != slots[0].id && suffix(slots[2].id) == ":0",
           "quoted a.png has its own hash, got " + slots[2].id);
     check(suffix(slots[3].id) == ":0" && suffix(slots[4].id) == ":1", "identical videos count up");
-    check(slots[0].occurrenceId == images[0].id && slots[2].occurrenceId == images[4].id,
+    check(hero && quoted && hero->occurrenceId == images[0].id && quoted->occurrenceId == images[4].id,
           "image blocks name their occurrence");
-    check(slots[1].occurrenceId.empty() && slots[3].occurrenceId.empty(), "other blocks name no occurrence");
     check(collected.slotByNode.at(root->children[1].get()) == 0, "a slot is indexed by the paragraph it replaces");
   }
 
@@ -158,6 +167,94 @@ int main(int argc, char **argv) {
   check(slotCount("See [docs](https://e.com)\n") == 0, "a link inside text is no slot");
   check(slotCount("- [docs](https://e.com)\n") == 0, "a link in a list item is no slot");
 
+  // Code blocks, fenced or indented, are slots outside lists; the id hashes the language alone.
+  auto fencesRoot = parse(
+      "```js\nlet a;\n\n```\n\n"
+      "    indented\n\n"
+      "```\nplain\n```\n\n"
+      "> ```js\n> quoted\n> ```\n\n"
+      "> [!NOTE]\n> ```py\n> noted\n> ```\n\n"
+      "- ```js\n  listed\n  ```\n");
+  auto fences = Markdown::collect(*fencesRoot);
+  check(fences.slots.size() == 5,
+        "five code slots, none from the list (got " + std::to_string(fences.slots.size()) + ")");
+  if (fences.slots.size() == 5) {
+    const auto &code = fences.slots;
+    for (const auto &slot : code)
+      check(slot.kind() == BlockSlotKind::Code && slot.id.rfind("code:", 0) == 0, "a code block is a code slot");
+    check(code[0].id == "code:" + Markdown::fnv1a64Hex("js") + ":0",
+          "a code id hashes the language, got " + code[0].id);
+    check(codeOf(code[0]).language == "js" && codeOf(code[0]).code == "let a;",
+          "trailing newlines are trimmed, got '" + codeOf(code[0]).code + "'");
+    check(code[0].placement == BlockSlotPlacement::Root && code[0].node == fencesRoot->children[0].get(),
+          "the fence slot names its code block");
+    check(codeOf(code[1]).language.empty() && codeOf(code[1]).code == "indented", "an indented block has no language");
+    check(codeOf(code[2]).language.empty() && codeOf(code[2]).code == "plain", "a fence without a language");
+    check(suffix(code[1].id) == ":0" && suffix(code[2].id) == ":1" && code[1].id != code[2].id,
+          "blocks without a language count up");
+    check(code[3].placement == BlockSlotPlacement::Blockquote && codeOf(code[3]).code == "quoted" &&
+              suffix(code[3].id) == ":1" &&
+              code[3].id.substr(0, code[3].id.rfind(':')) == code[0].id.substr(0, code[0].id.rfind(':')),
+          "a quoted js block counts after the root one");
+    check(code[4].placement == BlockSlotPlacement::Admonition && codeOf(code[4]).language == "py" &&
+              codeOf(code[4]).code == "noted",
+          "an admonition code block is a slot");
+  }
+  check(fences.lastCodeBlock != nullptr && fences.lastCodeBlock->type == Markdown::NodeType::CodeBlock &&
+            fences.slotByNode.count(fences.lastCodeBlock) == 0,
+        "the last code block is the one in the list, which is no slot");
+  check(Markdown::collect(*parse("Text\n")).lastCodeBlock == nullptr, "no code block, no last code block");
+
+  // A fence keeps its id while its code streams in and when it closes.
+  auto openFence = Markdown::collect(*parse("Intro\n\n```js\nlet a"));
+  auto closedFence = Markdown::collect(*parse("Intro\n\n```js\nlet a = 1;\nlet b;\n```\n"));
+  check(openFence.slots.size() == 1 && closedFence.slots.size() == 1 &&
+            openFence.slots[0].id == closedFence.slots[0].id,
+        "a growing fence keeps its id");
+  check(openFence.slots.size() == 1 && openFence.slots[0].node == openFence.lastCodeBlock &&
+            codeOf(openFence.slots[0]).code == "let a",
+        "an open fence is the last code block");
+  check(closedFence.slots.size() == 1 && codeOf(closedFence.slots[0]).code == "let a = 1;\nlet b;", "multi-line code");
+
+  // Streamed, a fence shows once its opening line ends, so its id holds from the first tick it shows.
+  auto streamed = [](const std::string &markdown) {
+    return Markdown::collect(*parse(Markdown::renderableMarkdownForStreaming(markdown, {}).markdown)).slots;
+  };
+  auto final = Markdown::collect(*parse("Intro\n\n```mermaid\ngraph TD\n```\n")).slots;
+  check(streamed("Intro\n\n```mer").empty(), "a fence whose language is still streaming is no slot yet");
+  for (const char *tick : {"Intro\n\n```mermaid\n", "Intro\n\n```mermaid\ngra", "Intro\n\n```mermaid\ngraph TD\n``"}) {
+    auto slots = streamed(tick);
+    check(slots.size() == 1 && final.size() == 1 && slots[0].id == final[0].id,
+          std::string("a streaming fence has its final id: ") + tick);
+  }
+
+  // Only the fence still streaming in is incomplete ('o'), in any container and at a line end.
+  auto completeness = [](const std::string &markdown) {
+    auto filtered = Markdown::renderableMarkdownForStreaming(markdown, {});
+    auto tree = parse(filtered.markdown);
+    auto blocks = Markdown::collect(*tree);
+    std::string states;
+    for (const auto &slot : blocks.slots)
+      states += Markdown::isSlotComplete(blocks, slot, filtered.endsInsideOpenCodeFence) ? 'c' : 'o';
+    return states;
+  };
+  const std::pair<const char *, const char *> completenessTicks[] = {
+      {"```py\nx\n```\n\n```js\nlet a", "co"},
+      {"```py\nx\n```\n\n```js\nlet a\n", "co"},
+      {"```py\nx\n```\n\n```js\nlet a\n```", "cc"},
+      {"> ```js\n> let a", "o"},
+      {"> ```js\n> let a\n", "o"},
+      {"> ```js\n> let a\n> ```\n", "c"},
+      {"> [!NOTE]\n> ```py\n> x\n", "o"},
+      {"```py\nx\n```\n\n- ```js\n  let a\n", "c"},
+  };
+  for (const auto &[tick, states] : completenessTicks) {
+    std::string got = completeness(tick);
+    check(got == states, std::string("completeness of ") + tick + ": expected " + states + ", got " + got);
+  }
+  check(fences.slots.empty() || Markdown::isSlotComplete(fences, fences.slots.back(), false),
+        "without an open fence even the last code block is complete");
+
   // The overlay adds only the active ids, on the block node, and image ids on demand.
   Markdown::ParsedDocument document{root, collected};
   std::unordered_set<std::string> active{slots[0].id, slots[4].id};
@@ -194,6 +291,14 @@ int main(int argc, char **argv) {
   std::unordered_set<std::string> linkActive{linkDocument.blocks.slots[0].id};
   auto linkAdded = overlaid(*linkRoot, Markdown::AstOverlay(linkDocument, linkActive, false, {}));
   check(linkAdded[linkRoot->children[0].get()][Markdown::kBlockSlotKindAttribute] == "link", "link kind attribute");
+
+  // A code block adds "code" on the CodeBlock node itself.
+  Markdown::ParsedDocument fenceDocument{fencesRoot, fences};
+  std::unordered_set<std::string> fenceActive{fences.slots[0].id};
+  auto fenceAdded = overlaid(*fencesRoot, Markdown::AstOverlay(fenceDocument, fenceActive, false, {}));
+  check(fenceAdded.size() == 1 &&
+            fenceAdded[fencesRoot->children[0].get()][Markdown::kBlockSlotKindAttribute] == "code",
+        "code kind attribute on the code block");
 
   // Recognized links replace the text they cover only in the overlay's view.
   auto textRoot = parse("Ticket TICKET-1 is open\n");

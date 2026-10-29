@@ -26,6 +26,28 @@ Markdown::Md4cFlags toCoreFlags(const EnrichedMarkdownParserMd4cFlags &flags) {
   return core;
 }
 
+// The spec's slot is one flat struct for every kind, with "" for the fields a
+// kind lacks.
+EnrichedMarkdownParserBlockSlot nativeSlot(const Markdown::BlockSlot &slot) {
+  EnrichedMarkdownParserBlockSlot out{};
+  out.id = slot.id;
+  out.kind = Markdown::blockSlotKindName(slot.kind());
+  out.placement = Markdown::blockSlotPlacementName(slot.placement);
+  if (const auto *image = std::get_if<Markdown::ImageSlotFields>(&slot.fields)) {
+    out.url = image->url;
+    out.altText = image->altText;
+    out.title = image->title;
+    out.occurrenceId = image->occurrenceId;
+  } else if (const auto *video = std::get_if<Markdown::VideoSlotFields>(&slot.fields)) {
+    out.url = video->url;
+  } else if (const auto *link = std::get_if<Markdown::LinkSlotFields>(&slot.fields)) {
+    out.url = link->url;
+    out.altText = link->label;
+    out.title = link->title;
+  }
+  return out;
+}
+
 } // namespace
 
 EnrichedMarkdownParser::EnrichedMarkdownParser(std::shared_ptr<CallInvoker> jsInvoker)
@@ -45,8 +67,11 @@ EnrichedMarkdownParser::collect(jsi::Runtime &, std::string markdown, EnrichedMa
   EnrichedMarkdownParserCollectedBlocks result;
   auto document = store.parse(markdown, toCoreFlags(flags), isGFM);
   for (const auto &slot : document->blocks.slots) {
-    result.slots.push_back({slot.id, Markdown::blockSlotKindName(slot.kind), slot.url, slot.altText, slot.title,
-                            Markdown::blockSlotPlacementName(slot.placement), slot.occurrenceId});
+    // The hosts and the JS mapping read an unknown kind as an image, so code
+    // slots stay native until they can place them.
+    if (slot.kind() == Markdown::BlockSlotKind::Code)
+      continue;
+    result.slots.push_back(nativeSlot(slot));
   }
   for (const auto &image : document->blocks.images) {
     result.images.push_back(
