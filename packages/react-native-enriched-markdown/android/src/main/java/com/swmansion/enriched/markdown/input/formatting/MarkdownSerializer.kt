@@ -109,12 +109,13 @@ object MarkdownSerializer {
       // re-parses as two items with literal asterisks. Inside a single paragraph
       // the split is harmless — "**a**\n**b**" renders the same as "**a\nb**".
       var segmentStart = rangeStart
-      while (segmentStart < rangeEnd) {
-        val newline = text.indexOf('\n', segmentStart)
-        val segmentEnd = if (newline in segmentStart until rangeEnd) newline else rangeEnd
-        addSegmentEvents(events, text, segmentStart, segmentEnd, range)
-        segmentStart = segmentEnd + 1
+      for (index in rangeStart until rangeEnd) {
+        if (text[index] == '\n') {
+          addSegmentEvents(events, text, segmentStart, index, range)
+          segmentStart = index + 1
+        }
       }
+      addSegmentEvents(events, text, segmentStart, rangeEnd, range)
     }
 
     events.sortWith(BOUNDARY_COMPARATOR)
