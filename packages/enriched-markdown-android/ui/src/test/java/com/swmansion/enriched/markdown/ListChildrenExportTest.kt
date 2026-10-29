@@ -98,6 +98,30 @@ class ListChildrenExportTest {
   }
 
   @Test
+  fun keepsConsecutiveCodeBlocksApartInHtml() {
+    val documents =
+      listOf(
+        document(unorderedList(listItem(paragraph(text("Item")), codeBlock("one\n"), codeBlock("two\n")))),
+        document(unorderedList(listItem(paragraph(text("Item")), codeBlock("one\n")), listItem(codeBlock("two\n")))),
+        document(blockquote(codeBlock("one\n"), codeBlock("two\n"))),
+      )
+    for (document in documents) {
+      val html = generateHTML(render(document))
+
+      html.assertContainsHtmlInOrder("<pre", "one", "</pre>", "<pre", "two", "</pre>")
+      assertFalse("Empty list item in $html", Regex("<li[^>]*></li>").containsMatchIn(html))
+      assertFalse("Empty paragraph in $html", Regex("<p[^>]*></p>").containsMatchIn(html))
+    }
+  }
+
+  @Test
+  fun keepsTheQuoteOfAQuoteThatOpensWithCodeInHtml() {
+    val html = generateHTML(render(document(blockquote(codeBlock("one\n")), paragraph(text("Outside")))))
+
+    html.assertContainsHtmlInOrder("<blockquote", "</blockquote>", "Outside")
+  }
+
+  @Test
   fun announcesOnlyTheLineThatDrawsAnItemsMarkerAsAListItem() {
     val roles = accessibilityRoles(codeMidItem())
 
