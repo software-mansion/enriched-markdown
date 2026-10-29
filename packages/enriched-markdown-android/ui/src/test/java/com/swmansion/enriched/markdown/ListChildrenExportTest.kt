@@ -131,6 +131,23 @@ class ListChildrenExportTest {
     assertEquals("list item 2", roles["Next"])
   }
 
+  @Test
+  fun announcesTheCodeLineThatOpensAnItemAsThatItem() {
+    val roles =
+      accessibilityRoles(
+        document(
+          unorderedList(
+            taskListItem(checked = true, codeBlock("val x = 1\n"), paragraph(text("After code"))),
+            taskListItem(checked = false, paragraph(text("Next"))),
+          ),
+        ),
+      )
+
+    assertEquals("task, checked", roles["val x = 1"])
+    assertEquals(null, roles["After code"])
+    assertEquals("task, not checked", roles["Next"])
+  }
+
   private fun codeMidItem(): MarkdownASTNode =
     document(
       orderedList(

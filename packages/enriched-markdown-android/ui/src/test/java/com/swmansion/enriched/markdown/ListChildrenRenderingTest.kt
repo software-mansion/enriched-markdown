@@ -64,6 +64,61 @@ class ListChildrenRenderingTest {
   }
 
   @Test
+  fun itemOpeningWithACodeBlockDrawsItsMarkerInTheGutter() {
+    val drawn =
+      draw(
+        unorderedList(
+          listItem(codeBlock(CODE)),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+
+    assertEquals(2, drawn.markers.size)
+    val marker = drawn.markers.first()
+    assertEquals("marker sits on the code's first line", drawn.line("first line"), drawn.lineOf(marker))
+    val box = drawn.codeBoxOn("first line").bounds
+    assertTrue("marker right ${marker.right} overlaps the code box at ${box.left}", marker.right <= box.left)
+    assertEquals("code box starts at the item text column", drawn.textLeft("Next"), box.left, 0.01f)
+  }
+
+  @Test
+  fun itemOpeningWithACodeBlockInsideAQuoteDrawsItsMarkerPastTheQuoteBar() {
+    val drawn =
+      draw(
+        blockquote(
+          unorderedList(
+            listItem(codeBlock(CODE)),
+            listItem(paragraph(text("Next"))),
+          ),
+        ),
+      )
+
+    assertEquals(2, drawn.markers.size)
+    val (anchored, plain) = drawn.markers
+    assertEquals(drawn.line("first line"), drawn.lineOf(anchored))
+    assertEquals("both markers share the item column", plain.right, anchored.right, 0.01f)
+    assertTrue(anchored.left > drawn.quoteBarsOn("first line").max())
+  }
+
+  @Test
+  fun itemOpeningWithASublistDrawsBothMarkers() {
+    val drawn =
+      draw(
+        unorderedList(
+          listItem(unorderedList(listItem(paragraph(text("nested"))))),
+          listItem(paragraph(text("Next"))),
+        ),
+      )
+
+    assertEquals(3, drawn.markers.size)
+    val (outer, inner) = drawn.markers.take(2)
+    assertEquals(drawn.line("nested"), drawn.lineOf(outer))
+    assertEquals("both markers share the line", outer.baseline, inner.baseline, 0.01f)
+    assertTrue("outer marker ${outer.right} must sit left of the inner ${inner.left}", outer.right < inner.left)
+    assertEquals("outer marker shares the next item's column", drawn.markers.last().right, outer.right, 0.01f)
+  }
+
+  @Test
   fun blockquoteInsideAnItemKeepsTheMarkersAndIndent() {
     val drawn =
       draw(

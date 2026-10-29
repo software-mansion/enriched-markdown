@@ -15,6 +15,7 @@ import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.ListMarkerAnchorSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 
@@ -565,16 +566,22 @@ class MarkdownAccessibilityHelper(
     position: Int,
     requireStart: Boolean,
   ): ListItemInfo? {
-    val deepest =
+    // An item that opens with a code block or a sublist has its marker drawn by an anchor on that line.
+    val anchor =
+      spanned
+        .getSpans(position, position + 1, ListMarkerAnchorSpan::class.java)
+        .maxByOrNull { it.marker.depth }
+    val listSpan =
       spanned
         .getSpans(position, position + 1, BaseListSpan::class.java)
-        .maxByOrNull { it.depth } ?: return null
+        .maxByOrNull { it.depth }
+    val deepest = listOfNotNull(anchor?.marker, listSpan).maxByOrNull { it.depth } ?: return null
 
     if (requireStart) {
       // An item split around a code block starts only where its marker is drawn: the segments after
       // the code block continue it.
-      if (!deepest.drawsMarker) return null
-      val spanStart = spanned.getSpanStart(deepest)
+      if (deepest === listSpan && !deepest.drawsMarker) return null
+      val spanStart = if (deepest === listSpan) spanned.getSpanStart(deepest) else spanned.getSpanStart(anchor)
       val firstChar =
         (spanStart until minOf(spanStart + 10, spanned.length))
           .firstOrNull { !spanned[it].isWhitespace() } ?: spanStart

@@ -28,3 +28,14 @@ const val SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY =
  */
 const val SPAN_FLAGS_LIST_ITEM =
   Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or (1 shl Spanned.SPAN_PRIORITY_SHIFT)
+
+/**
+ * `SPAN_EXCLUSIVE_EXCLUSIVE` with a span priority just above [SPAN_FLAGS_LIST_ITEM].
+ *
+ * For `ListMarkerAnchorSpan`: it draws a list marker on a line its item's own
+ * spans do not own, from the `x` Layout hands it. Ordered ahead of every list
+ * span and code block span on the line, that `x` is past the enclosing
+ * blockquotes only, the same origin the item's own span draws from.
+ */
+const val SPAN_FLAGS_LIST_MARKER_ANCHOR =
+  Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or (2 shl Spanned.SPAN_PRIORITY_SHIFT)
