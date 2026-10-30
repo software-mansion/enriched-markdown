@@ -1,6 +1,8 @@
 package com.swmansion.enriched.markdown.input
 
 import com.swmansion.enriched.markdown.input.editing.ZWSP
+import com.swmansion.enriched.markdown.input.formatting.MarkdownSerializer
+import com.swmansion.enriched.markdown.input.model.StyleType
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,6 +33,13 @@ class ListItemReturnTest {
       prefix + line.replace(ZWSP.toString(), "")
     }
   }
+
+  private fun markdown(): String =
+    MarkdownSerializer.serialize(
+      view.text.toString(),
+      view.allFormattingRangesForSerialization(),
+      view.blockStore.allRanges,
+    ) { block -> view.formatter.handlerForBlock(block.type)?.markdownLinePrefix(block) ?: "" }
 
   private fun lineAt(index: Int): String = view.text.toString().split('\n')[index]
 
@@ -110,5 +119,56 @@ class ListItemReturnTest {
     type("apples\n\n")
 
     assertEquals(listOf("- apples", ""), lines())
+  }
+
+  @Test
+  fun exitsTheListOnReturnBeforeTheAnchorOfAnEmptyItem() {
+    view.toggleUnorderedList()
+    type("apples\n")
+
+    view.setSelection(view.text.toString().indexOf(ZWSP))
+    type("\n")
+
+    assertEquals(listOf("- apples", ""), lines())
+    assertEquals("apples\n", view.text.toString())
+  }
+
+  @Test
+  fun insertsTwoAnchoredItemsOnTwoReturnsAtTheStartOfAnItem() {
+    view.toggleUnorderedList()
+    type("apples\nbananas")
+
+    returnBefore("bananas")
+    type("\n")
+
+    assertEquals(listOf("- apples", "- ", "- ", "- bananas"), lines())
+    assertEquals(ZWSP.toString(), lineAt(1))
+    assertEquals(ZWSP.toString(), lineAt(2))
+  }
+
+  @Test
+  fun keepsTheNestingLevelOnTheInsertedItem() {
+    view.toggleUnorderedList()
+    type("apples\nbananas")
+    view.indentList()
+
+    returnBefore("bananas")
+
+    assertEquals(listOf(0, 1, 1), view.blockStore.allRanges.map { it.level })
+  }
+
+  @Test
+  fun keepsTheItemsInlineStyleOffTheInsertedItem() {
+    view.toggleUnorderedList()
+    type("apples\n")
+    view.toggleInlineStyle(StyleType.BOLD)
+    type("bananas")
+    view.toggleInlineStyle(StyleType.BOLD)
+
+    returnBefore("bananas")
+    view.setSelection(view.text.toString().indexOf(ZWSP) + 1)
+    type("cherries")
+
+    assertEquals("- apples\n- cherries\n- **bananas**", markdown())
   }
 }

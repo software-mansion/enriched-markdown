@@ -150,6 +150,9 @@ class EditPipeline(
     val prevBlock = blockStore.blockStartingAt(prevLineStart) ?: return null
     val handler = formatter.handlerForBlock(prevBlock.type) ?: return null
     if (!handler.continuesOnNewline) return null
+    // An Enter at or before the item's content grew the item over the inserted
+    // newline; clip it back to its own line before reading or changing blocks.
+    blockStore.normalizeToLineBounds(editable)
 
     val newLineStart = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
     var newLineEnd = newLineStart
@@ -170,11 +173,6 @@ class EditPipeline(
     }
 
     blockStore.setBlock(prevBlock.type, prevBlock.level, newLineStart, newLineStart, editable)
-    // An Enter inside the item grew prevBlock over the inserted newline, so the
-    // call above dropped it; give the line before the caret its block back.
-    if (blockStore.blockStartingAt(prevLineStart) == null) {
-      blockStore.setBlock(prevBlock.type, prevBlock.level, prevLineStart, prevLineEnd, editable)
-    }
     return if (prevContentLength == 0) prevLineStart else null
   }
 

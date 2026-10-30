@@ -732,8 +732,8 @@ class EnrichedMarkdownTextInputView(
     if (editSession.shouldSuppressAnchorSync) return false
     val editable = text ?: return false
     return editSession.scoped(EditPhase.ManagingAnchors) {
-      // Before the strip, which can shift text after it. The editor moves the caret
-      // past the inserted ZWSP itself, since the caret sits on a later line.
+      // Before the strip, which can shift text after it. The caret sits on a later
+      // line, so the selection shifts past the inserted ZWSP on its own.
       var anchorChanged = anchorLineStart != null && insertEmptyListAnchor(editable, anchorLineStart)
       // Strip every stale ZWSP first (a line that gained content or stopped being a
       // list). Skip the full-document scan when we've inserted no anchors — there is
