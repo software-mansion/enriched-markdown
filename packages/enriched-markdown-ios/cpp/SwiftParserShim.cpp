@@ -3,6 +3,7 @@
 #include "CodeBlockLanguages.hpp"
 #include "LatexSpeech.hpp"
 #include "MD4CParser.hpp"
+#include "StreamingFilter.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -150,6 +151,25 @@ char *em_latex_spoken_form(const char *latex) {
     return nullptr;
   }
   return strdup(Markdown::spokenLatex(latex).c_str());
+}
+
+char *em_renderable_markdown_for_streaming(const char *markdown, int hideTables, int hideCodeBlocks,
+                                           int *endsInsideOpenCodeFence) {
+  if (!markdown) {
+    return nullptr;
+  }
+
+  Markdown::StreamingFilterOptions options;
+  options.tableMode =
+      hideTables != 0 ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
+  options.codeBlockMode =
+      hideCodeBlocks != 0 ? Markdown::StreamingBlockMode::Hidden : Markdown::StreamingBlockMode::Progressive;
+
+  Markdown::StreamingFilterResult result = Markdown::renderableMarkdownForStreaming(markdown, options);
+  if (endsInsideOpenCodeFence) {
+    *endsInsideOpenCodeFence = result.endsInsideOpenCodeFence ? 1 : 0;
+  }
+  return strdup(result.markdown.c_str());
 }
 
 void em_string_release(char *string) {
