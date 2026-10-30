@@ -35,14 +35,12 @@ final class StreamingBlockSplitterTests: XCTestCase {
         XCTAssertEqual(lastCut("```\ncode\n\nmore\n```\n\nAfter"), "After")
     }
 
-    func testOpenFenceStartIsItsLineStart() {
-        XCTAssertEqual(scan("Para\n\n```swift\ncode").openFenceStart, 6)
-        XCTAssertEqual(scan("- item\n\n  ```\n  code").openFenceStart, 8)
-        XCTAssertEqual(scan("> ```\n> code").openFenceStart, 0)
-        XCTAssertEqual(scan("```\ncode\n``` info\n").openFenceStart, 0)
-        XCTAssertEqual(scan("````\ncode\n```\n").openFenceStart, 0)
-        XCTAssertNil(scan("```\ncode\n```").openFenceStart)
-        XCTAssertNil(scan("~~~\ncode\n~~~\n\nAfter").openFenceStart)
+    func testFenceClosesOnlyOnALongEnoughBareRun() {
+        XCTAssertNil(lastCut("```\ncode\n``` info\n\nAfter"))
+        XCTAssertNil(lastCut("````\ncode\n```\n\nAfter"))
+        XCTAssertNil(lastCut("~~~\ncode\n```\n\nAfter"))
+        XCTAssertEqual(lastCut("~~~\ncode\n~~~\n\nAfter"), "After")
+        XCTAssertEqual(lastCut("> ```\n> code\n> ```\n\nAfter"), "After")
     }
 
     func testRawHTMLStopsCutting() {

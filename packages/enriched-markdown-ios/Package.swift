@@ -115,7 +115,7 @@ let package = Package(
         ),
         .target(
             name: "EnrichedMarkdownStreaming",
-            dependencies: ["EnrichedMarkdown", "EnrichedMarkdownRepair"],
+            dependencies: ["EnrichedMarkdown", "EnrichedMarkdownCppShim", "EnrichedMarkdownRepair"],
             path: "Sources/EnrichedMarkdownStreaming"
         ),
         .testTarget(
