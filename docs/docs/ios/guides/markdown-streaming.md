@@ -93,8 +93,8 @@ To animate it your own way, see [Custom transitions](#custom-transitions).
 ## While the answer arrives
 
 - **Finished text stays put.** Each update re-renders only the unfinished end of the answer. The text above it keeps its layout and selection, and tables and code blocks keep their scroll position. Updates stay fast however long the answer gets.
-- **Unfinished syntax never shows raw.** `**bold`, `` `code`` and `[text](ur` render as if they were already closed. A lone `**` at the very end waits for the next token. The rules follow [remend](https://www.npmjs.com/package/remend).
-- **Unfinished blocks wait**, as set by [`tables`](#tables) and [`codeBlocks`](#codeblocks). With [LaTeX math](/ios/guides/latex-math) on, a formula stays hidden until its closing `$` or `$$` arrives. A `$` next to a digit or a space is a price, not math.
+- **Unfinished syntax never shows raw.** `**bold` and `` `code`` render as if they were already closed. A lone `**` at the very end waits for the next token. The rules follow [remend](https://www.npmjs.com/package/remend). A link or image still being typed, such as `[text](ur`, waits until it closes.
+- **Unfinished blocks wait**, as set by [`tables`](#tables) and [`codeBlocks`](#codeblocks). A `$$` block stays hidden until its closing `$$` arrives. With [LaTeX math](/ios/guides/latex-math) on, a formula inside a line stays hidden until it closes too. A `$` next to a digit or a space is a price, not math.
 - **New text animates in**, as set by [`transition`](#transition). Selection and VoiceOver are not affected. With Reduce Motion on, new text appears at once.
 
 Each update should extend the previous string. A string that does not, such as a regenerated answer, starts over. A document that ends with a link reference definition (`[label]: url`), or one parsed with [`preserveBlankLines`](/ios/api-reference/enriched-markdown-text#preserveblanklines), re-renders in full on every update.

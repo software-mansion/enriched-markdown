@@ -106,11 +106,7 @@ final class StreamingRenderSessionTests: XCTestCase {
         let session = StreamingFixtures.session()
         for prefix in StreamingFixtures.chunks(of: StreamingFixtures.answer, sizes: [1]) {
             let text = session.render(prefix, options: streaming).text.string
-            var raw = ["**", "`", "~~", "|", "\n-\n", "\n=\n"]
-            if !prefix.hasSuffix("]") {
-                raw += ["[", "]"]
-            }
-            for syntax in raw {
+            for syntax in ["**", "`", "~~", "|", "[", "]", "\n-\n", "\n=\n"] {
                 XCTAssertFalse(text.contains(syntax), "\(syntax.debugDescription) shows raw after \(prefix.suffix(30).debugDescription)")
             }
         }

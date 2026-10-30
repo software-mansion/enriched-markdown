@@ -851,10 +851,12 @@ While `isStreaming` is true:
 
 - Only the unfinished end of the text re-renders, so the text above keeps its
   layout and selection, and updates stay fast as the answer grows.
-- Unfinished syntax such as `**bold` or `[text](ur` renders as if closed,
-  following the rules of [remend](https://www.npmjs.com/package/remend).
+- Unfinished syntax such as `**bold` renders as if closed, following the
+  rules of [remend](https://www.npmjs.com/package/remend). A link or image
+  still being typed waits until it closes.
 - Unfinished tables and code blocks follow `tables` and `codeBlocks` below.
-  With LaTeX on, a formula stays hidden until it closes.
+  A `$$` block stays hidden until it closes; with LaTeX on, so does a formula
+  inside a line.
 - New text animates in, as set by `transition`. Reduce Motion turns this off.
 
 ```swift

@@ -40,11 +40,9 @@ final class StreamingRenderSession: MarkdownStreamingSession {
         }
         let cut = rendersWhole ? 0 : (scan.lastCut ?? 0)
         let finished = String(bytes: bytes[..<cut], encoding: .utf8) ?? ""
-        let tail = renderable(
-            String(bytes: bytes[cut...], encoding: .utf8) ?? "",
-            openFenceStart: scan.openFenceStart.map { $0 - cut },
-            options: options
-        )
+        let unfinished = String(bytes: bytes[cut...], encoding: .utf8) ?? ""
+        let filtered = StreamingMarkdownFilter.renderable(unfinished, options: options)
+        let tail = StreamingMarkdownRepair.repair(filtered.markdown, options: parsingOptions)
         let source = stableSource + finished + tail
 
         let text = NSMutableAttributedString(attributedString: stableOutput)
@@ -61,7 +59,7 @@ final class StreamingRenderSession: MarkdownStreamingSession {
             into: text,
             context: context,
             byteOffset: stableSource.utf8.count + finished.utf8.count,
-            markingPendingCodeBlock: options.codeBlocks == .progressive && scan.openFenceStart != nil
+            markingPendingCodeBlock: filtered.endsInsideOpenCodeFence
         )
         renderer.finishBlocks(in: text, range: NSRange(location: stableLength, length: text.length - stableLength), context: context)
 
@@ -72,16 +70,6 @@ final class StreamingRenderSession: MarkdownStreamingSession {
         }
         TrailingSpacing.strip(from: text, codeBlockPadding: key.config.codeBlock.padding ?? 0)
         return StreamingRenderResult(text: text, source: source, lineage: StreamingLineage(session: id, stableLength: stableOutput.length))
-    }
-
-    private func renderable(_ tail: String, openFenceStart: Int?, options: MarkdownStreamingOptions) -> String {
-        let filtered = StreamingMarkdownFilter.renderable(
-            tail,
-            openFenceStart: openFenceStart,
-            options: options,
-            latexMath: parsingOptions.latexMathEnabled
-        )
-        return StreamingMarkdownRepair.repair(filtered, options: parsingOptions)
     }
 
     private func render(

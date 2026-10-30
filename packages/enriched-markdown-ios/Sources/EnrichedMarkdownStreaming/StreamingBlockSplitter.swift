@@ -4,7 +4,6 @@ import Foundation
 enum StreamingBlockSplitter {
     struct Scan: Equatable {
         var lastCut: Int?
-        var openFenceStart: Int?
         var hasLinkReferenceDefinition = false
     }
 
@@ -21,7 +20,6 @@ enum StreamingBlockSplitter {
             if let open = fence {
                 if let marker = fenceMarker(in: line), marker.closes(open) {
                     fence = nil
-                    result.openFenceStart = nil
                 }
                 previousLineBlank = false
                 lineStart = lineEnd + 1
@@ -37,10 +35,7 @@ enum StreamingBlockSplitter {
             if lineStart > 0, previousLineBlank, canStartIndependentBlock(line) {
                 result.lastCut = lineStart
             }
-            if let marker = fenceMarker(in: line) {
-                fence = marker
-                result.openFenceStart = lineStart
-            }
+            fence = fenceMarker(in: line)
             previousLineBlank = isBlank(line)
             lineStart = lineEnd + 1
         }
