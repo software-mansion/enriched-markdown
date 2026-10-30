@@ -14,7 +14,6 @@
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMTailFadeInAnimator.h"
-#import "ENRMTextHitTest.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
@@ -913,7 +912,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 {
   if (_textView) {
     CGPoint textViewPoint = [self convertPoint:point toView:_textView];
-    if (_enableTextPress ||
+    // Only where textTapped would emit, so a parent Pressable still gets the rest, as on Android.
+    BOOL isTextPress = _enableTextPress && _textView.selectedRange.length == 0 &&
+                       textPressIndexAtPoint(_textView, textViewPoint) != NSNotFound;
+    if (isTextPress ||
         isPointOnInteractiveElement(_textView, textViewPoint, _enableImagePress, _enableCodeBlockPress)) {
       return nil;
     }
@@ -999,6 +1001,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 - (void)textTapped:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
+  // Read before the link check below clears the selection.
+  BOOL hadSelection = textView.selectedRange.length > 0;
 
   if (_enableTaskListItemToggle &&
       handleTaskListTapWithSharedLogic(
@@ -1036,14 +1040,11 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     }
   }
 
-  // Like code block presses, skip while text is selected so the tap only clears the selection.
-  if (_enableTextPress && textView.selectedRange.length == 0) {
-    NSUInteger index = ENRMCharacterIndexForTap(textView, recognizer);
-    NSAttributedString *text = ENRMGetAttributedText(textView);
-    // An image's attachment character belongs to the image, even with image presses off.
-    if (index != NSNotFound && ![text attribute:@"imageURL" atIndex:index effectiveRange:NULL]) {
-      [self emitTextPress:index text:text.string ?: @""];
-    }
+  // Skip while text is selected so the tap only clears the selection.
+  if (_enableTextPress && !hadSelection) {
+    NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
+    if (index != NSNotFound)
+      [self emitTextPress:index text:ENRMGetAttributedText(textView).string];
   }
 }
 

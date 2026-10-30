@@ -9,7 +9,6 @@
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMTailFadeInAnimator.h"
-#import "ENRMTextHitTest.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
@@ -505,6 +504,11 @@ static char kENRMSegmentFadeAnimatorKey;
     EnrichedMarkdown *strongSelf = weakSelf;
     if (strongSelf && strongSelf->_enableImagePress && url)
       [strongSelf emitImagePress:url altText:altText];
+  };
+  view.onTextPress = ^(NSInteger index, NSString *text) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (strongSelf && strongSelf->_enableTextPress)
+      [strongSelf emitTextPress:index text:text];
   };
 
   [view applyBlockquoteNode:blockquoteSegment.blockquoteNode];
@@ -1788,7 +1792,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     BOOL isInsideView = CGRectContainsPoint(textSegment.textView.bounds, segmentPoint);
 #endif
     if (isInsideView) {
-      if (_enableTextPress || isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
+      // Only where textTapped would emit, so a parent Pressable still gets the rest, as on Android.
+      BOOL isTextPress = _enableTextPress && textSegment.textView.selectedRange.length == 0 &&
+                         textPressIndexAtPoint(textSegment.textView, segmentPoint) != NSNotFound;
+      if (isTextPress || isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
         return nil;
       }
       break;
@@ -1899,6 +1906,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 - (void)textTapped:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
+  // Read before the link check below clears the selection.
+  BOOL hadSelection = textView.selectedRange.length > 0;
 
   if (_enableTaskListItemToggle &&
       handleTaskListTapWithSharedLogic(
@@ -1934,13 +1943,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   }
 
   // Skip while text is selected so the tap only clears the selection.
-  if (_enableTextPress && textView.selectedRange.length == 0) {
-    NSUInteger index = ENRMCharacterIndexForTap(textView, recognizer);
-    NSAttributedString *text = ENRMGetAttributedText(textView);
-    // An image's attachment character belongs to the image, even with image presses off.
-    if (index != NSNotFound && ![text attribute:@"imageURL" atIndex:index effectiveRange:NULL]) {
-      [self emitTextPress:index text:text.string ?: @""];
-    }
+  if (_enableTextPress && !hadSelection) {
+    NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
+    if (index != NSNotFound)
+      [self emitTextPress:index text:ENRMGetAttributedText(textView).string];
   }
 }
 

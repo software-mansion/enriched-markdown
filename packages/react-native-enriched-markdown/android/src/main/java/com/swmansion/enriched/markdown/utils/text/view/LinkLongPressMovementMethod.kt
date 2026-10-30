@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.utils.text.view
 
 import android.os.Handler
 import android.os.Looper
+import android.text.Layout
 import android.text.Spannable
 import android.text.method.ArrowKeyMovementMethod
 import android.view.MotionEvent
@@ -232,8 +233,9 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   }
 
   /**
-   * Like [charOffsetAt], but a tap in the empty space beside a line snaps to its nearest character,
-   * matching iOS. Only taps on plain text use it; links and images keep the stricter check.
+   * The index of the character under the tap, like iOS's characterIndexForPoint. Unlike
+   * [charOffsetAt], a tap in the empty space beside a line snaps to its nearest character.
+   * Only taps on plain text use it; links and images keep the stricter check.
    */
   private fun nearestCharOffset(
     widget: TextView,
@@ -245,7 +247,21 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     if (y < 0f || y > layout.height) {
       return null
     }
-    return layout.getOffsetForHorizontal(layout.getLineForVertical(y.toInt()), x)
+    val line = layout.getLineForVertical(y.toInt())
+    val lineStart = layout.getLineStart(line)
+    // A line's trailing newline isn't drawn, so taps past the line end go to the character before it.
+    var lineLast = layout.getLineEnd(line) - 1
+    if (lineLast > lineStart && layout.text[lineLast] == '\n') lineLast--
+    if (lineLast < lineStart) return null
+
+    // getOffsetForHorizontal returns the nearest cursor position, which lands after the
+    // tapped character when the tap is on its trailing half, so step back onto it.
+    val cursor = layout.getOffsetForHorizontal(line, x)
+    val cursorX = layout.getPrimaryHorizontal(cursor)
+    val isRtl = layout.getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT
+    val isBeforeCursor = if (isRtl) x > cursorX else x < cursorX
+    val offset = if (cursor > lineStart && isBeforeCursor) cursor - 1 else cursor
+    return offset.coerceIn(lineStart, lineLast)
   }
 
   /** A tap that snaps onto a link or image belongs to that element, not to the plain text around it. */
@@ -253,8 +269,9 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     buffer: Spannable,
     offset: Int,
   ): Boolean =
-    buffer.getSpans(offset, offset, LinkSpan::class.java).isNotEmpty() ||
-      buffer.getSpans(offset, offset, ImageSpan::class.java).isNotEmpty()
+    // A one-character range, since an empty one also matches a span that ends at offset.
+    buffer.getSpans(offset, offset + 1, LinkSpan::class.java).isNotEmpty() ||
+      buffer.getSpans(offset, offset + 1, ImageSpan::class.java).isNotEmpty()
 
   private fun findLinkSpan(
     widget: TextView,
