@@ -27,7 +27,14 @@ interface EditPipelineHost {
   val editable: Editable?
   val emitMarkdown: Boolean
 
-  fun syncEmptyListAnchor(restamp: Boolean): Boolean
+  /**
+   * Anchors the caret's empty list line and strips stale anchors. [anchorLineStart]
+   * names one more empty list line to anchor, away from the caret.
+   */
+  fun syncEmptyListAnchor(
+    restamp: Boolean,
+    anchorLineStart: Int? = null,
+  ): Boolean
 
   fun forceScrollToSelection()
 
@@ -67,7 +74,7 @@ class EditPipeline(
   fun processTextChange(context: EditContext) {
     adjustStores(context)
     pruneOrphanedAnchors()
-    continueBlocks(context)
+    val emptyItemLineStart = continueBlocks(context)
     convertMarkdownShortcut(context)
     host.editable?.let { blockStore.normalizeToLineBounds(it) }
     applyPendingStyles(context)
@@ -75,7 +82,7 @@ class EditPipeline(
     // Settle the ZWSP anchor BEFORE stamping spans, so block formatting runs
     // exactly once over the final text/ranges — otherwise a pre-ZWSP and
     // post-ZWSP span would both land on the empty line ("double bullet" bug).
-    val anchorChanged = host.syncEmptyListAnchor(restamp = false)
+    val anchorChanged = host.syncEmptyListAnchor(restamp = false, anchorLineStart = emptyItemLineStart)
     val touchedNewline = anchorChanged || editTouchedNewline(context)
 
     applyInlineFormatting()
@@ -125,36 +132,50 @@ class EditPipeline(
    * [continuesOnNewline][com.swmansion.enriched.markdown.input.styles.BlockHandler.continuesOnNewline]
    * onto the new line as a sibling at the same depth, or exits the block when
    * the emptied item gets a second Enter.
+   *
+   * Returns the line start of an empty item the Enter left behind (Enter at the
+   * start of a non-empty item), so the caller can anchor it; null otherwise.
    */
-  private fun continueBlocks(context: EditContext) {
-    val editable = host.editable ?: return
-    if (context.deletedLength != 0 || context.insertedLength <= 0) return
+  private fun continueBlocks(context: EditContext): Int? {
+    val editable = host.editable ?: return null
+    if (context.deletedLength != 0 || context.insertedLength <= 0) return null
     val insertedEnd = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
     val insertedNewline = (context.editStart until insertedEnd).any { editable[it] == '\n' }
-    if (!insertedNewline) return
+    if (!insertedNewline) return null
 
     val prevLineEnd = context.editStart
     var prevLineStart = prevLineEnd
     while (prevLineStart > 0 && editable[prevLineStart - 1] != '\n') prevLineStart--
 
-    val prevBlock = blockStore.blockStartingAt(prevLineStart) ?: return
-    val handler = formatter.handlerForBlock(prevBlock.type) ?: return
-    if (!handler.continuesOnNewline) return
+    val prevBlock = blockStore.blockStartingAt(prevLineStart) ?: return null
+    val handler = formatter.handlerForBlock(prevBlock.type) ?: return null
+    if (!handler.continuesOnNewline) return null
 
+    val newLineStart = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
+    var newLineEnd = newLineStart
+    while (newLineEnd < editable.length && editable[newLineEnd] != '\n') newLineEnd++
+
+    // The item is empty only when neither side of the caret has content. Enter at
+    // the start of a non-empty item leaves an empty line above it instead.
     val prevContentLength = (prevLineStart until prevLineEnd).count { editable[it] != ZWSP }
-    if (prevContentLength == 0) {
+    val newContentLength = (newLineStart until newLineEnd).count { editable[it] != ZWSP }
+    if (prevContentLength == 0 && newContentLength == 0) {
       // Exit: clear the block AND delete the just-inserted newline so the empty
       // item collapses in place instead of leaving an extra indented blank line.
       blockStore.removeBlock(prevLineStart, prevLineEnd, editable)
-      val newlineEnd = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
-      host.runAsATransaction { editable.delete(context.editStart, newlineEnd) }
+      host.runAsATransaction { editable.delete(context.editStart, newLineStart) }
       blockStore.adjustForEdit(context.editStart, context.insertedLength, 0)
       host.setViewSelection(prevLineStart.coerceAtMost(editable.length))
-      return
+      return null
     }
 
-    val newLineStart = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
     blockStore.setBlock(prevBlock.type, prevBlock.level, newLineStart, newLineStart, editable)
+    // An Enter inside the item grew prevBlock over the inserted newline, so the
+    // call above dropped it; give the line before the caret its block back.
+    if (blockStore.blockStartingAt(prevLineStart) == null) {
+      blockStore.setBlock(prevBlock.type, prevBlock.level, prevLineStart, prevLineEnd, editable)
+    }
+    return if (prevContentLength == 0) prevLineStart else null
   }
 
   /**
