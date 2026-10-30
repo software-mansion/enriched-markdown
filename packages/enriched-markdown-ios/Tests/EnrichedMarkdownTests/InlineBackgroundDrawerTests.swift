@@ -288,7 +288,7 @@ final class InlineBackgroundDrawerTests: XCTestCase {
         let font = try XCTUnwrap(rendered.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont)
         let inkTop = try XCTUnwrap(rows.indices.first { row in
             (Int(linkFrame.minX)..<Int(linkFrame.maxX)).contains { column in
-                rows[row][(column * 4)..<(column * 4 + 3)].allSatisfy { $0 < 100 }
+                pixel(in: rows, column: column, row: row).prefix(3).allSatisfy { $0 < 100 }
             }
         })
 
@@ -351,16 +351,16 @@ final class InlineBackgroundDrawerTests: XCTestCase {
         XCTAssertEqual(textView.textContainer.lineFragmentPadding, 2, "the widest border pads the lines")
         textView.layer.displayIfNeeded()
         let rows = try renderedRows(size: textView.bounds.size) { textView.layer.render(in: $0) }
-        let pixel = { (point: CGPoint) in Array(rows[Int(point.y)][(Int(point.x) * 4)..<(Int(point.x) * 4 + 4)]).sorted() }
+        func sortedPixel(at point: CGPoint) -> [UInt8] { pixel(in: rows, column: Int(point.x), row: Int(point.y)).sorted() }
 
         let boxes = try boxes(of: textView)
         XCTAssertEqual(boxes.count, 2)
         guard boxes.count == 2 else { return }
         XCTAssertGreaterThanOrEqual(boxes[0].rect.minX, 2, "the first chip starts after the padding")
-        assertNear(pixel(CGPoint(x: boxes[0].rect.minX - 1, y: boxes[0].rect.midY)), red, "left stroke at the margin")
-        assertNear(pixel(CGPoint(x: boxes[1].rect.minX - 1, y: boxes[1].rect.midY)), red, "left stroke inside the highlight")
-        assertNear(pixel(CGPoint(x: boxes[1].rect.maxX + 1, y: boxes[1].rect.midY)), red, "right stroke inside the highlight")
-        assertNear(pixel(CGPoint(x: boxes[1].rect.minX - 8, y: boxes[1].rect.midY)), [0, 204, 255, 255], "the highlight is still painted")
+        assertNear(sortedPixel(at: CGPoint(x: boxes[0].rect.minX - 1, y: boxes[0].rect.midY)), red, "left stroke at the margin")
+        assertNear(sortedPixel(at: CGPoint(x: boxes[1].rect.minX - 1, y: boxes[1].rect.midY)), red, "left stroke inside the highlight")
+        assertNear(sortedPixel(at: CGPoint(x: boxes[1].rect.maxX + 1, y: boxes[1].rect.midY)), red, "right stroke inside the highlight")
+        assertNear(sortedPixel(at: CGPoint(x: boxes[1].rect.minX - 8, y: boxes[1].rect.midY)), [0, 204, 255, 255], "the highlight is still painted")
     }
 
     private func assertNear(_ pixel: [UInt8], _ expected: [UInt8], _ label: String, file: StaticString = #filePath, line: UInt = #line) {

@@ -121,13 +121,17 @@ extension XCTestCase {
         }
     }
 
+    func pixel(in rows: [[UInt8]], column: Int, row: Int) -> [UInt8] {
+        let start: Int = column * 4
+        return Array(rows[row][start..<(start + 4)])
+    }
+
     func backgroundPixel(
         of textView: MarkdownTextView,
         at point: CGPoint,
         pass: MarkdownDecorationPass = .background
     ) throws -> [UInt8] {
-        let column = Int(point.x) * 4
-        return Array(try backgroundRows(of: textView, in: textView.bounds, pass: pass)[Int(point.y)][column..<column + 4])
+        pixel(in: try backgroundRows(of: textView, in: textView.bounds, pass: pass), column: Int(point.x), row: Int(point.y))
     }
 
     /// Lets the main queue drain, where a settled layout is announced.

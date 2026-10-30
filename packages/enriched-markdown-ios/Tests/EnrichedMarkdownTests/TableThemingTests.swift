@@ -279,20 +279,29 @@ final class TableThemingTests: XCTestCase {
         gridView.frame = CGRect(x: 0, y: 0, width: table.layout.totalWidth, height: table.layout.totalHeight)
 
         let rows = try renderedRows(size: gridView.bounds.size) { _ in gridView.draw(gridView.bounds) }
-        let cell = CGRect(x: 0, y: table.layout.rowHeights[0], width: table.layout.columnWidths[0], height: table.layout.rowHeights[1])
-        let pixels = (Int(cell.minY)..<Int(cell.maxY)).flatMap { row in
-            (Int(cell.minX)..<Int(cell.maxX)).map { column in Array(rows[row][(column * 4)..<(column * 4 + 4)]) }
+        let cellTop: Int = Int(table.layout.rowHeights[0])
+        let cellBottom: Int = cellTop + Int(table.layout.rowHeights[1])
+        let cellWidth: Int = Int(table.layout.columnWidths[0])
+        var pixels: [[UInt8]] = []
+        for row in cellTop..<cellBottom {
+            for column in 0..<cellWidth {
+                pixels.append(pixel(in: rows, column: column, row: row))
+            }
         }
 
-        let fill = try XCTUnwrap(pixels.first { $0.sorted() == [51, 102, 153, 255] }, "the chip fill")
+        let chipFill: [UInt8] = [51, 102, 153, 255]
+        let fill = try XCTUnwrap(pixels.first { $0.sorted() == chipFill }, "the chip fill")
         let red = try XCTUnwrap(fill.firstIndex(of: 51))
         let blue = try XCTUnwrap(fill.firstIndex(of: 153))
         let green = try XCTUnwrap(fill.firstIndex(of: 102))
-        XCTAssertTrue(
-            pixels.contains { $0[red] >= 200 && $0[green] <= 100 && $0[blue] <= 100 },
-            "the link color, which string drawing paints blue on its own"
-        )
-        XCTAssertFalse(pixels.contains { $0[blue] >= 200 && $0[red] <= 100 && $0[green] <= 160 }, "system blue")
+        func isLinkRed(_ rgba: [UInt8]) -> Bool {
+            rgba[red] >= 200 && rgba[green] <= 100 && rgba[blue] <= 100
+        }
+        func isSystemBlue(_ rgba: [UInt8]) -> Bool {
+            rgba[blue] >= 200 && rgba[red] <= 100 && rgba[green] <= 160
+        }
+        XCTAssertTrue(pixels.contains(where: isLinkRed), "the link color, which string drawing paints blue on its own")
+        XCTAssertFalse(pixels.contains(where: isSystemBlue), "system blue")
     }
 
     func testAThickBorderedLinkGrowsItsCellLine() throws {
@@ -328,16 +337,19 @@ final class TableThemingTests: XCTestCase {
         let gridView = TableGridView(model: table.model, layout: table.layout, style: table.style)
         gridView.frame = CGRect(x: 0, y: 0, width: table.layout.totalWidth, height: table.layout.totalHeight)
         let rows = try renderedRows(size: gridView.bounds.size) { _ in gridView.draw(gridView.bounds) }
-        let textRect = CGRect(
-            x: table.style.cellPaddingHorizontal, y: table.layout.rowHeights[0] + table.style.cellPaddingVertical,
-            width: table.layout.columnWidths[0] - 2 * table.style.cellPaddingHorizontal, height: 0
-        )
-        let box = try XCTUnwrap(InlineBackgroundDrawer.layout(of: cell.attributedText, width: textRect.width).boxes.first)
-            .rect.offsetBy(dx: textRect.minX, dy: textRect.minY)
+        let textX: CGFloat = table.style.cellPaddingHorizontal
+        let textY: CGFloat = table.layout.rowHeights[0] + table.style.cellPaddingVertical
+        let textWidth: CGFloat = table.layout.columnWidths[0] - 2 * table.style.cellPaddingHorizontal
+        let layout = InlineBackgroundDrawer.layout(of: cell.attributedText, width: textWidth)
+        let box = try XCTUnwrap(layout.boxes.first).rect.offsetBy(dx: textX, dy: textY)
 
-        let isRed = { (pixel: ArraySlice<UInt8>) in pixel.max() ?? 0 >= 200 && pixel.sorted()[1] <= 100 }
-        let inkRows = rows.indices.filter { row in
-            (Int(box.minX)..<Int(box.maxX)).contains { column in isRed(rows[row][(column * 4)..<(column * 4 + 3)]) }
+        func isRed(_ rgba: [UInt8]) -> Bool {
+            let channels: [UInt8] = rgba.prefix(3).sorted()
+            return channels[2] >= 200 && channels[1] <= 100
+        }
+        let columns: Range<Int> = Int(box.minX)..<Int(box.maxX)
+        let inkRows: [Int] = rows.indices.filter { row in
+            columns.contains { column in isRed(pixel(in: rows, column: column, row: row)) }
         }
         let inkTop = try XCTUnwrap(inkRows.first)
         let inkBottom = try XCTUnwrap(inkRows.last)

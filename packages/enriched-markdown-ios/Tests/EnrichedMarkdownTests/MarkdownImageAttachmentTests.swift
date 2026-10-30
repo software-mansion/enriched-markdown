@@ -81,8 +81,8 @@ final class MarkdownImageAttachmentTests: XCTestCase {
         let displayed = try XCTUnwrap(attachment.image(forBounds: box, textContainer: nil, characterIndex: 0))
         XCTAssertEqual(displayed.size, box.size)
         let rows = try renderedRows(size: box.size) { _ in displayed.draw(at: .zero) }
-        XCTAssertEqual(Array(rows[1][4..<8]), [255, 255, 255, 255], "the padding is transparent")
-        XCTAssertEqual(Array(rows[13][52..<56]).sorted(), [0, 0, 255, 255], "the image fills the box inside the padding")
+        XCTAssertEqual(pixel(in: rows, column: 1, row: 1), [255, 255, 255, 255], "the padding is transparent")
+        XCTAssertEqual(pixel(in: rows, column: 13, row: 13).sorted(), [0, 0, 255, 255], "the image fills the box inside the padding")
     }
 
     func testAttachmentExposesAltTextAsAccessibilityLabel() {
