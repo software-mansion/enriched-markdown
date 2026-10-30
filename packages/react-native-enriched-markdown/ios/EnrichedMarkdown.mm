@@ -92,6 +92,7 @@ static char kENRMSegmentFadeAnimatorKey;
 - (void)emitLinkLongPress:(NSString *)url;
 - (void)emitLinkContextMenuItemPress:(NSString *)itemText pattern:(NSString *)pattern url:(NSString *)url;
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText;
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text;
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text;
 - (void)emitCopyPress:(NSString *)code language:(NSString *)language;
 - (void)emitCodeBlockPress:(NSString *)code language:(NSString *)language;
@@ -142,6 +143,7 @@ static char kENRMSegmentFadeAnimatorKey;
   BOOL _enableLinkPreview;
   BOOL _enableTaskListItemToggle;
   BOOL _enableImagePress;
+  BOOL _enableTextPress;
   BOOL _streamingAnimation;
   ENRMTableStreamingMode _tableStreamingMode;
   ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
@@ -265,6 +267,7 @@ static char kENRMSegmentFadeAnimatorKey;
           [strongSelf setNeedsLayout];
           [strongSelf requestHeightUpdate];
         }];
+    _enableTextPress = NO;
     _dynamicBlockProps = [[ENRMDynamicBlockProps alloc] init];
     _linkContextMenus = [[ENRMLinkContextMenus alloc] init];
     __weak EnrichedMarkdown *weakMenuSelf = self;
@@ -501,6 +504,11 @@ static char kENRMSegmentFadeAnimatorKey;
     EnrichedMarkdown *strongSelf = weakSelf;
     if (strongSelf && strongSelf->_enableImagePress && url)
       [strongSelf emitImagePress:url altText:altText];
+  };
+  view.onTextPress = ^(NSInteger index, NSString *text) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (strongSelf && strongSelf->_enableTextPress)
+      [strongSelf emitTextPress:index text:text];
   };
 
   [view applyBlockquoteNode:blockquoteSegment.blockquoteNode];
@@ -1505,6 +1513,7 @@ static char kENRMSegmentFadeAnimatorKey;
   _enableLinkPreview = newViewProps.enableLinkPreview;
   _enableTaskListItemToggle = newViewProps.enableTaskListItemToggle;
   _enableImagePress = newViewProps.enableImagePress;
+  _enableTextPress = newViewProps.enableTextPress;
 
   // Block gates: mutate the shared box in place. Every existing and future block
   // view reads it live at use-time, so no push into segments is needed.
@@ -1783,7 +1792,10 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     BOOL isInsideView = CGRectContainsPoint(textSegment.textView.bounds, segmentPoint);
 #endif
     if (isInsideView) {
-      if (isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
+      // Only where textTapped would emit, so a parent Pressable still gets the rest, as on Android.
+      BOOL isTextPress = _enableTextPress && textSegment.textView.selectedRange.length == 0 &&
+                         textPressIndexAtPoint(textSegment.textView, segmentPoint) != NSNotFound;
+      if (isTextPress || isPointOnInteractiveElement(textSegment.textView, segmentPoint, _enableImagePress, NO)) {
         return nil;
       }
       break;
@@ -1814,6 +1826,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
   auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
   if (emitter)
     emitter->onLinkPress({.url = std::string(url.UTF8String)});
+}
+
+- (void)emitTextPress:(NSInteger)index text:(NSString *)text
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onTextPress({.index = (int)index, .text = std::string(text.UTF8String ?: "")});
 }
 
 - (void)emitImagePress:(NSString *)url altText:(NSString *)altText
@@ -1887,6 +1906,8 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 - (void)textTapped:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
+  // Read before the link check below clears the selection.
+  BOOL hadSelection = textView.selectedRange.length > 0;
 
   if (_enableTaskListItemToggle &&
       handleTaskListTapWithSharedLogic(
@@ -1917,7 +1938,15 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
     if (image) {
       [self emitImagePress:image[@"url"] altText:image[@"altText"]];
+      return;
     }
+  }
+
+  // Skip while text is selected so the tap only clears the selection.
+  if (_enableTextPress && !hadSelection) {
+    NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
+    if (index != NSNotFound)
+      [self emitTextPress:index text:ENRMGetAttributedText(textView).string];
   }
 }
 

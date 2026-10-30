@@ -5,6 +5,7 @@ import type {
   LinkPressEvent,
   LinkLongPressEvent,
   ImagePressEvent,
+  TextPressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   LatexErrorEvent,
@@ -221,6 +222,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos, web
    */
   onImagePress?: (event: ImagePressEvent) => void;
+  /**
+   * Callback fired when plain text is tapped, anywhere a link, image, checkbox
+   * or other interactive element doesn't take the tap. Receives the UTF-16
+   * index of the character under the tap within the tapped text block, and
+   * that block's rendered text (which differs from the Markdown source). A tap
+   * beside a line reports its nearest character; table cells don't fire it.
+   * @platform ios, android
+   */
+  onTextPress?: (event: TextPressEvent) => void;
   /**
    * Callback fired when a task list checkbox is tapped.
    *

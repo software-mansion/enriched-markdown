@@ -141,6 +141,18 @@ Setting this callback makes images interactive on the native side; leaving it un
 />
 ```
 
+### `onTextPress`
+
+Callback when plain text is tapped, anywhere a link, image, checkbox or other interactive element doesn't take the tap. Receives `index`, the UTF-16 index of the tapped character, and `text`, the rendered text of the tapped block. `index` points into `text`, which is the rendered text rather than the Markdown source, so map it back yourself if you need a source position (for example, to place a caret when switching to an editor).
+
+A tap in the empty space beside a line reports that line's nearest character. Taps that only clear a selection, and taps inside table cells, don't fire it.
+
+Setting this callback makes plain text interactive on the native side; leaving it unset keeps the existing tap and text-selection behavior unchanged.
+
+| Type                                  | Default Value | Platform |
+| ------------------------------------- | ------------- | -------- |
+| `(event: TextPressEvent) => void`     | -             | Both     |
+
 ### `onTaskListItemPress`
 
 Callback when a task list checkbox is tapped. Receives `index` (0-based), `checked` (new state after toggling), and `text` (item text).

@@ -47,8 +47,10 @@ import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
+import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import java.util.EnumSet
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -56,7 +58,8 @@ import java.util.concurrent.Executors
 class EnrichedMarkdown(
   context: Context,
 ) : ContainerNodeView(context),
-  ImagePressHost {
+  ImagePressHost,
+  TextPressHost {
   private enum class DirtyFlag {
     RECREATE_SEGMENTS,
     FORCE_HEIGHT,
@@ -455,6 +458,20 @@ class EnrichedMarkdown(
 
   fun setEnableImagePress(enabled: Boolean) {
     imagePressEnabled = enabled
+  }
+
+  override var textPressEnabled: Boolean = false
+    private set
+
+  override fun emitOnTextPress(
+    index: Int,
+    text: String,
+  ) {
+    emitTextPressEvent(index, text)
+  }
+
+  fun setEnableTextPress(enabled: Boolean) {
+    textPressEnabled = enabled
   }
 
   fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {

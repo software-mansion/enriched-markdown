@@ -303,6 +303,11 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                                 if (s.onImagePress && url)
                                   s.onImagePress(url, altText);
                               };
+                              view.onTextPress = ^(NSInteger index, NSString *text) {
+                                ENRMBlockquoteContainerView *s = weakSelf;
+                                if (s.onTextPress)
+                                  s.onTextPress(index, text);
+                              };
                               view.onLinkPress = ^(NSString *url) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onLinkPress && url)
@@ -393,6 +398,8 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 - (void)handleTextTap:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
+  // Read before the link check below clears the selection.
+  BOOL hadSelection = textView.selectedRange.length > 0;
   __weak ENRMBlockquoteContainerView *weakSelf = self;
   if (ENRMHandleTapOnTextView(textView, recognizer, ^(NSString *url) {
         ENRMBlockquoteContainerView *strongSelf = weakSelf;
@@ -404,8 +411,17 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
 
   if (self.onImagePress) {
     NSDictionary<NSString *, NSString *> *image = imageAtTapLocation(textView, recognizer);
-    if (image)
+    if (image) {
       self.onImagePress(image[@"url"], image[@"altText"]);
+      return;
+    }
+  }
+
+  // Skip while text is selected so the tap only clears the selection.
+  if (self.onTextPress && !hadSelection) {
+    NSUInteger index = textPressIndexAtTapLocation(textView, recognizer);
+    if (index != NSNotFound)
+      self.onTextPress(index, ENRMGetAttributedText(textView).string);
   }
 }
 
