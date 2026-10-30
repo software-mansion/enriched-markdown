@@ -78,6 +78,17 @@ object TestAstFactory {
 
   fun orderedList(vararg items: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.OrderedList, children = items.toList())
 
+  /** The parser only sets `start` when the first number isn't 1. */
+  fun orderedList(
+    start: Int,
+    vararg items: MarkdownASTNode,
+  ): MarkdownASTNode =
+    MarkdownASTNode(
+      NodeType.OrderedList,
+      children = items.toList(),
+      attributes = if (start != 1) mapOf("start" to start.toString()) else emptyMap(),
+    )
+
   fun listItem(vararg children: MarkdownASTNode): MarkdownASTNode = MarkdownASTNode(NodeType.ListItem, children = children.toList())
 
   /** A GFM task-list item — what md4c produces for `- [ ]` / `- [x]`. */

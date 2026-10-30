@@ -41,6 +41,8 @@ extension Color {
     static var selectionPurple: Color { Color(red: 90 / 255, green: 82 / 255, blue: 250 / 255) }
     static var codeViolet: Color { Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255) }
     static var codeVioletBackground: Color { Color(red: 245 / 255, green: 243 / 255, blue: 255 / 255) }
+    static var userMentionBackground: Color { Color(red: 194 / 255, green: 226 / 255, blue: 255 / 255) }
+    static var channelMentionBackground: Color { Color(red: 170 / 255, green: 211 / 255, blue: 255 / 255) }
 
     // MARK: - Code screen (One Dark)
 

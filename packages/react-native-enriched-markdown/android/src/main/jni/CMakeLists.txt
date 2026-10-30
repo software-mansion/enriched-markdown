@@ -24,10 +24,13 @@ else()
 endif()
 
 set(ANDROID_CPP_DIR "${LIB_ANDROID_DIR}/src/main/cpp")
+# RN-specific C++ shared with iOS (the EnrichedMarkdownParser TurboModule).
+set(COMMON_CPP_DIR "${LIB_ANDROID_DIR}/../common")
 
-# Optional tree-sitter code highlighting. build.gradle writes this config during
-# configuration (enable flag, selected languages, generated registry dir); absent
-# on a bare CMake invocation, in which case highlighting stays compiled out.
+# Optional tree-sitter code highlighting and the math flag. build.gradle writes
+# this config during configuration (enable flags, selected languages, generated
+# registry dir); absent on a bare CMake invocation, in which case highlighting
+# stays compiled out and math stays on.
 set(HIGHLIGHT_CONFIG "${LIB_ANDROID_DIR}/build/generated/highlight/highlight-config.cmake")
 if(EXISTS "${HIGHLIGHT_CONFIG}")
   include("${HIGHLIGHT_CONFIG}")
@@ -36,6 +39,7 @@ endif()
 file(GLOB ENRMRKD_SOURCES "${CPP_ROOT}/enrmrkd/*.c")
 file(GLOB PARSER_SOURCES "${CPP_ROOT}/parser/*.cpp")
 file(GLOB HIGHLIGHT_SOURCES "${CPP_ROOT}/highlight/*.cpp")
+file(GLOB LATEX_SOURCES "${CPP_ROOT}/latex/*.cpp")
 
 # The vendored parser is C code, build as separate static library with C flags
 add_library(enrmrkd_lib STATIC ${ENRMRKD_SOURCES})
@@ -56,7 +60,9 @@ add_library(
   ${LIB_CUSTOM_JNI_SRCS}
   ${PARSER_SOURCES}
   ${HIGHLIGHT_SOURCES}
+  ${LATEX_SOURCES}
   ${ANDROID_CPP_DIR}/jni-adapter.cpp
+  ${COMMON_CPP_DIR}/EnrichedMarkdownParser.cpp
 )
 
 target_include_directories(
@@ -65,10 +71,13 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/react/renderer/components/${LIB_LITERAL}
   ${LIB_ANDROID_GENERATED_JNI_DIR}
+  ${LIB_ANDROID_GENERATED_JNI_DIR}/react/renderer/components
   ${LIB_ANDROID_GENERATED_COMPONENTS_DIR}
+  ${COMMON_CPP_DIR}
   ${CPP_ROOT}/enrmrkd
   ${CPP_ROOT}/parser
   ${CPP_ROOT}/highlight
+  ${CPP_ROOT}/latex
 )
 
 target_compile_definitions(${LIB_TARGET_NAME} PRIVATE ENRMRKD_USE_UTF8=1)
@@ -93,6 +102,11 @@ target_include_directories(
 )
 
 target_compile_reactnative_options(${LIB_TARGET_NAME} PRIVATE)
+
+# Math off in the build: the JS block collector parses without it, like the host.
+if(DEFINED ENRICHED_MARKDOWN_MATH AND NOT ENRICHED_MARKDOWN_MATH)
+  target_compile_definitions(${LIB_TARGET_NAME} PRIVATE ENRICHED_MARKDOWN_MATH_DISABLED=1)
+endif()
 
 # --- Code-block syntax highlighting (tree-sitter) ---
 # CodeBlockHighlighter.cpp / CodeBlockLanguages.cpp are already in the target via

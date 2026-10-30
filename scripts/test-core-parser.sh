@@ -51,6 +51,71 @@ echo "==> Building the vendored parser and the AST dumper"
   "$CPP_ROOT/wasm/ASTSerializer.cpp" \
   "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/ast-dump"
 
+echo "==> Checking the block slot collector"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" \
+  "$TESTS_DIR/block_slots_test.cpp" \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT/parser/BlockSlots.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$CPP_ROOT/parser/DocumentStore.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/TextLinkRecognizer.cpp" \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/block-slots-test"
+"$WORK/block-slots-test" "$TESTS_DIR/fixtures/block_slot_ids.txt" \
+  "$TESTS_DIR/fixtures/block_ids/document.md" "$TESTS_DIR/fixtures/block_ids/ids.txt"
+
+echo "==> Checking the shared document store"
+# Under the thread sanitizer where its runtime starts; some macOS releases crash
+# it before main, and the store test then runs without it.
+store_objects=("$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o")
+tsan_flag=""
+if "$CXX_BIN" -fsanitize=thread -x c++ -o "$WORK/tsan-probe" - <<< 'int main(){}' 2>/dev/null \
+  && { "$WORK/tsan-probe"; } >/dev/null 2>&1; then
+  tsan_flag="-fsanitize=thread"
+  "$CC_BIN" -O1 -std=c99 -DENRMRKD_USE_UTF8=1 $tsan_flag -c "$CPP_ROOT/enrmrkd/enrmrkd.c" -o "$WORK/enrmrkd-tsan.o"
+  "$CC_BIN" -O1 -std=c99 $tsan_flag -c "$CPP_ROOT/enrmrkd/enrmrkd-entity.c" -o "$WORK/enrmrkd-entity-tsan.o"
+  store_objects=("$WORK/enrmrkd-tsan.o" "$WORK/enrmrkd-entity-tsan.o")
+  echo "    with the thread sanitizer"
+else
+  echo "    thread sanitizer unavailable here; running without it"
+fi
+"$CXX_BIN" -O1 -std=c++17 -Wall $tsan_flag -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" \
+  "$TESTS_DIR/document_store_test.cpp" \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT/parser/BlockSlots.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$CPP_ROOT/parser/DocumentStore.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "${store_objects[@]}" -lpthread -o "$WORK/document-store-test"
+"$WORK/document-store-test"
+
+echo "==> Checking the host string conversions"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/parser" "$TESTS_DIR/utf16_test.cpp" -o "$WORK/utf16-test"
+"$WORK/utf16-test"
+
+echo "==> Checking the streaming filter"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/parser" \
+  "$TESTS_DIR/streaming_filter_test.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" -o "$WORK/streaming-filter-test"
+"$WORK/streaming-filter-test"
+
+echo "==> Streaming every fixture through the filter and md4c"
+"$CXX_BIN" -O1 -std=c++17 -Wall -I "$CPP_ROOT/enrmrkd" -I "$CPP_ROOT/parser" \
+  "$TESTS_DIR/streaming_filter_fuzz.cpp" \
+  "$CPP_ROOT/parser/MD4CParser.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" \
+  "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/streaming-filter-fuzz"
+"$WORK/streaming-filter-fuzz" "$TESTS_DIR"/fixtures/*.md
+
+echo "==> Checking the streaming filter's cost per tick"
+"$CXX_BIN" -O2 -std=c++17 -Wall -I "$CPP_ROOT/parser" \
+  "$TESTS_DIR/streaming_filter_bench.cpp" \
+  "$CPP_ROOT/parser/StreamingFilter.cpp" \
+  "$CPP_ROOT/parser/BlockKinds.cpp" -o "$WORK/streaming-filter-bench"
+"$WORK/streaming-filter-bench"
+
 echo "==> Checking the vendored parser's exported symbols"
 if command -v nm >/dev/null 2>&1; then
   # Some platforms (e.g. MacOS) prefix C symbols with an underscore.

@@ -40,6 +40,7 @@
   if (currentFont) {
     [attachmentString addAttribute:NSFontAttributeName value:currentFont range:NSMakeRange(0, attachmentString.length)];
   }
+  [attachmentString addAttribute:@"mathLatex" value:latex range:NSMakeRange(0, attachmentString.length)];
   [output appendAttributedString:attachmentString];
 }
 

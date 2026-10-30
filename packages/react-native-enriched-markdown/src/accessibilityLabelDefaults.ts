@@ -23,7 +23,7 @@ export const DEFAULT_ACCESSIBILITY_LABELS: ResolvedAccessibilityLabels = {
     row: 'Row {n}: {content}',
   },
   math: {
-    equation: 'Math: {latex}',
+    equation: 'Math: {speech}',
   },
   codeBlock: {
     wrap: 'Wrap lines',

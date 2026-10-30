@@ -1,6 +1,6 @@
 # Accessibility
 
-`react-native-enriched-markdown` provides comprehensive accessibility support for screen readers on both iOS and Android platforms.
+`react-native-enriched-markdown` provides comprehensive accessibility support for screen readers on iOS and Android, described below. On web it renders semantic HTML with `aria-*` attributes; see [Web Support](WEB.md#accessibility).
 
 ## Overview
 
@@ -8,7 +8,7 @@ The library implements native accessibility features that enable screen readers 
 
 ## Text Announcements
 
-Plain text paragraphs without inline links or images are announced as a single VoiceOver element per paragraph. Paragraphs containing links or images are segmented into text, link, and image parts so that each remains independently navigable. List items follow the same logic — a list item without inline specials is a single element, while one containing a link is split accordingly. Whitespace-only segments between elements are filtered out to avoid empty announcements.
+Plain text paragraphs without inline links, images, or math are announced as a single VoiceOver element per paragraph. Paragraphs containing them are segmented into text, link, image, and math parts so that each remains independently navigable. List items follow the same logic — a list item without inline specials is a single element, while one containing a link is split accordingly. Whitespace-only segments between elements are filtered out to avoid empty announcements.
 
 ## Translating announcements — `accessibilityLabels`
 
@@ -31,7 +31,7 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
       nestedQuote: 'Eingebettetes Zitat',
     },
     table: { row: 'Zeile {n}: {content}' },
-    math: { equation: 'Formel: {latex}' },
+    math: { equation: 'Formel: {speech}' },
     rotor: {
       headings: 'Überschriften',
       links: 'Links',
@@ -54,7 +54,7 @@ Every field is optional. Any field you omit falls back to the English default be
 | `blockquote.quote` | `"Blockquote"` | iOS + Android |
 | `blockquote.nestedQuote` | `"Nested blockquote"` | iOS + Android |
 | `table.row` | `"Row {n}: {content}"` | iOS + Android |
-| `math.equation` | `"Math: {latex}"` | iOS + Android |
+| `math.equation` | `"Math: {speech}"` | iOS + Android |
 | `codeBlock.wrap` | `"Wrap lines"` | iOS + Android |
 | `codeBlock.unwrap` | `"Disable line wrap"` | iOS + Android |
 | `rotor.headings` | `"Headings"` | iOS only |
@@ -65,6 +65,7 @@ Every field is optional. Any field you omit falls back to the English default be
 
 - `{n}` — 1-based index (list item number, table row index). Substituted at speak time.
 - `{content}` — comma-joined cell texts for a table row.
+- `{speech}` — the formula read in English.
 - `{latex}` — math equation source.
 
 Placeholder names must be preserved in translations exactly. Defaults intentionally use the no-plural cardinal form (`"List item 2"`, `"Row 2"`) instead of ordinals or count-aware variants — a single template works in every language without per-locale plural rules.
@@ -80,7 +81,7 @@ Placeholder names must be preserved in translations exactly. Defaults intentiona
 | **Ordered list items** | "List item N" / "Nested list item N" appended | Same string appended via `roleDescription` |
 | **Blockquote content** | "Blockquote" / "Nested blockquote" appended | Same string appended via `roleDescription` |
 | **Table rows** | One focusable element per row, `"Row N: <cells>"` label, header row carries `UIAccessibilityTraitHeader` | One focusable overlay per row, same template, header row carries `setAccessibilityHeading(true)` |
-| **Math equations** | `"Math: <latex>"` (latex read verbatim — no TTS engine) | Same |
+| **Math equations** | Own element per formula (inline and block), read in English: `"Math: x squared over 2"` | Same |
 
 ## Architecture
 
@@ -114,7 +115,7 @@ List, blockquote and table row labels are exposed via `accessibilityValue` so Vo
 - List items: `CollectionItemInfoCompat` is set so TalkBack also announces position-in-collection; the localized label is appended via `roleDescription`
 - Blockquote content: localized label appended via `roleDescription` (combined with link/list role when nested)
 - Table rows: one transparent overlay per row exposes the row's joined content via `contentDescription`; header rows additionally call `ViewCompat.setAccessibilityHeading(true)`
-- Math: `MathContainerView` exposes the full equation via `contentDescription` (`"Math: <latex>"` template)
+- Math: `MathContainerView` exposes a block formula via `contentDescription`, and an inline formula is a virtual node of its own; both use the `math.equation` template
 
 ## Element Details
 
@@ -164,7 +165,7 @@ Tables expose one focusable element per row (header included), labeled with the 
 
 ### Math
 
-Each math block exposes a single focusable element labeled `"Math: <latex>"`. The library does **not** convert LaTeX to natural language — the screen reader reads the raw LaTeX source. If you need spoken math, plug in a LaTeX→speech library on the consumer side and translate the labels accordingly.
+Each formula exposes a focusable element labeled with the `math.equation` template. `{speech}` is an English reading of the LaTeX ("x squared over 2", "integral from 0 to 1 of …"): fractions, roots, powers and indices, big operators with bounds, matrices and cases, Greek letters, relations, functions, decorations and `\text` are spoken as words, and a command the converter does not know is read by name; `{latex}` reads the source instead.
 
 ## Text input (`EnrichedMarkdownTextInput`)
 

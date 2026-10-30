@@ -9,9 +9,9 @@ import com.swmansion.enriched.markdown.spans.AdmonitionHeaderSpan
 import com.swmansion.enriched.markdown.spans.BlockquoteSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY
+import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginBottom
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
-import com.swmansion.enriched.markdown.utils.text.span.createLineHeightSpan
 
 class BlockquoteRenderer(
   private val config: RendererConfig,
@@ -106,7 +106,7 @@ class BlockquoteRenderer(
       SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE_PRIORITY,
     )
 
-    applySpansExcludingNested(builder, nestedRanges, contentStart, end, createLineHeightSpan(style.lineHeight))
+    applyLineHeightExcludingNested(builder, nestedRanges, contentStart, end, style.lineHeight)
 
     if (padding > 0) {
       builder.setSpan(
@@ -185,22 +185,22 @@ class BlockquoteRenderer(
     }
   }
 
-  private fun applySpansExcludingNested(
+  private fun applyLineHeightExcludingNested(
     builder: SpannableStringBuilder,
     nestedRanges: List<Pair<Int, Int>>,
     start: Int,
     end: Int,
-    span: Any,
+    lineHeight: Float,
   ) {
     var currentPos = start
     for ((nestedStart, nestedEnd) in nestedRanges) {
       if (currentPos < nestedStart) {
-        builder.setSpan(span, currentPos, nestedStart, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+        applyLineHeightSkippingImages(builder, currentPos, nestedStart, lineHeight)
       }
       currentPos = nestedEnd
     }
     if (currentPos < end) {
-      builder.setSpan(span, currentPos, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
+      applyLineHeightSkippingImages(builder, currentPos, end, lineHeight)
     }
   }
 }

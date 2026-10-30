@@ -16,7 +16,7 @@ idempotent — a `.stamp` fingerprint in each vendor directory makes repeated in
 |---|---|---|
 | tree-sitter runtime | GitHub release tarball (`github.com/tree-sitter/tree-sitter`) | code highlighting (iOS + Android) |
 | grammar sources (`parser.c`/`scanner.c`/`highlights.scm`) | npm registry (`registry.npmjs.org`) | code highlighting (iOS + Android) |
-| [RaTeX](https://ratex.lites.dev/) XCFramework + fonts | GitHub release | LaTeX math (iOS only) |
+| [RaTeX](https://ratex.lites.dev/) XCFramework + core Swift sources + fonts | GitHub release | LaTeX math (iOS only) |
 
 The pins live in `grammar-versions.json` and `ratex-version.json` inside the installed package. The
 pre-built highlight registry for the default language set **is** shipped in the tarball, so the only
@@ -40,7 +40,7 @@ and exits successfully. What the native build does when an asset is missing depe
 - **On by default** (no `enriched-markdown` entry for it): the build treats the feature as disabled —
   code highlighting compiles a no-op stub, iOS math is skipped with a CocoaPods warning — so the build
   stays green.
-- **Explicitly enabled** (`"enableMath": true` / `"enableCodeHighlight": true`): the build **fails with
+- **Explicitly enabled** (`"enableMath": true` on iOS / `"enableCodeHighlight": true` on either platform; Android math is a Maven dependency with no asset to miss): the build **fails with
   an actionable error** telling you to re-run postinstall, because you asked for a feature whose assets
   are not present.
 

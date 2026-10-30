@@ -18,6 +18,9 @@ import {
   normalizeLinkContextMenuItems,
 } from '../linkContextMenuUtils';
 import { resolveAccessibilityLabels } from '../accessibilityLabelDefaults';
+import { useBlockSlots, useCollectedMarkdown } from './useBlockSlots';
+import { hasRenderers } from '../blockRenderers';
+import { useImageSources } from './useImageSources';
 import {
   normalizeMenuItem,
   normalizeLegacyBooleanMenuItem,
@@ -30,6 +33,17 @@ import type {
   ContextMenuItem,
   SelectionMenuConfig,
   SelectionMenuPluralLabels,
+  MarkdownBlockPlacement,
+  MarkdownSlotBlock,
+  MarkdownMediaBlock,
+  MarkdownImageBlock,
+  MarkdownVideoBlock,
+  MarkdownLinkBlock,
+  MarkdownBlock,
+  MarkdownRenderers,
+  MarkdownImagePlacement,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
 } from '../types/MarkdownTextProps';
 import type {
   LinkPressEvent,
@@ -51,6 +65,17 @@ export type {
   ContextMenuItem,
   SelectionMenuConfig,
   SelectionMenuPluralLabels,
+  MarkdownBlockPlacement,
+  MarkdownSlotBlock,
+  MarkdownMediaBlock,
+  MarkdownImageBlock,
+  MarkdownVideoBlock,
+  MarkdownLinkBlock,
+  MarkdownBlock,
+  MarkdownRenderers,
+  MarkdownImagePlacement,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
 };
 export type {
   LinkPressEvent,
@@ -123,6 +148,8 @@ const buildPluralTemplates = (
   return templates;
 };
 
+const NO_BLOCKS: ReadonlyArray<MarkdownBlock> = [];
+
 const defaultMd4cFlags: Md4cFlags = {
   underline: false,
   superscript: false,
@@ -162,6 +189,8 @@ export const EnrichedMarkdownText = ({
   contextMenuItems,
   linkContextMenuItems,
   imageRequestHeaders,
+  renderers,
+  resolveImageSource,
   linkPillContent,
   linkRecognition,
   selectionMenuConfig,
@@ -196,21 +225,40 @@ export const EnrichedMarkdownText = ({
   }
   const normalizedStyle = normalizedStyleRef.current!;
 
+  // Keyed on the flag values, not the object, so an inline `md4cFlags` literal
+  // neither re-sends the prop nor re-parses for `renderers` on every render.
+  const underline = md4cFlags.underline ?? false;
+  const superscript = md4cFlags.superscript ?? false;
+  const subscript = md4cFlags.subscript ?? false;
+  const latexMath = md4cFlags.latexMath ?? true;
+  const highlight = md4cFlags.highlight ?? false;
+  const hardSoftBreaks = md4cFlags.hardSoftBreaks ?? false;
+  const preserveBlankLines = md4cFlags.preserveBlankLines ?? false;
+  // Admonitions are a GitHub-flavor feature; force them off in commonmark so
+  // `> [!NOTE]` renders as a plain blockquote.
+  const admonitions =
+    flavor === 'github' ? (md4cFlags.admonitions ?? true) : false;
   const normalizedMd4cFlags = useMemo(
     () => ({
-      underline: md4cFlags.underline ?? false,
-      superscript: md4cFlags.superscript ?? false,
-      subscript: md4cFlags.subscript ?? false,
-      latexMath: md4cFlags.latexMath ?? true,
-      highlight: md4cFlags.highlight ?? false,
-      hardSoftBreaks: md4cFlags.hardSoftBreaks ?? false,
-      preserveBlankLines: md4cFlags.preserveBlankLines ?? false,
-      // Admonitions are a GitHub-flavor feature; force them off in commonmark so
-      // `> [!NOTE]` renders as a plain blockquote.
-      admonitions:
-        flavor === 'github' ? (md4cFlags.admonitions ?? true) : false,
+      underline,
+      superscript,
+      subscript,
+      latexMath,
+      highlight,
+      hardSoftBreaks,
+      preserveBlankLines,
+      admonitions,
     }),
-    [md4cFlags, flavor]
+    [
+      underline,
+      superscript,
+      subscript,
+      latexMath,
+      highlight,
+      hardSoftBreaks,
+      preserveBlankLines,
+      admonitions,
+    ]
   );
 
   const contextMenuCallbacksRef = useRef<
@@ -365,9 +413,10 @@ export const EnrichedMarkdownText = ({
 
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
+  const mediaMode = streamingConfig?.mediaMode ?? 'progressive';
   const normalizedStreamingConfig = useMemo(
-    () => ({ tableMode, codeBlockMode }),
-    [tableMode, codeBlockMode]
+    () => ({ tableMode, codeBlockMode, mediaMode }),
+    [tableMode, codeBlockMode, mediaMode]
   );
   const normalizedSelectionMenuConfig = useMemo(() => {
     // The boolean acceptance is confined to this wrapper boundary via a single
@@ -421,6 +470,37 @@ export const EnrichedMarkdownText = ({
     [accessibilityLabels]
   );
 
+  // One parse on the JS thread serves both: the slot children land in the same
+  // commit as the markdown they describe, the image sources before it is drawn.
+  const isGFM = flavor === 'github';
+  const renderersEnabled = hasRenderers(renderers);
+  const collectEnabled = renderersEnabled || resolveImageSource != null;
+  const collectStreaming = useMemo(
+    () => ({
+      enabled: streamingAnimation,
+      tableMode,
+      codeBlockMode,
+      mediaMode,
+    }),
+    [streamingAnimation, tableMode, codeBlockMode, mediaMode]
+  );
+  const collected = useCollectedMarkdown(
+    markdown,
+    normalizedMd4cFlags,
+    isGFM,
+    collectEnabled,
+    collectStreaming
+  );
+  const slotChildren = useBlockSlots(
+    renderersEnabled ? collected.blocks : NO_BLOCKS,
+    renderers
+  );
+  const imageSources = useImageSources(
+    collected.images,
+    resolveImageSource,
+    resolveImageSource != null && isGFM
+  );
+
   const sharedProps = {
     markdown,
     linkRecognition: nativeLinkRecognition,
@@ -441,7 +521,7 @@ export const EnrichedMarkdownText = ({
     enableLinkPreview: onLinkLongPress == null && (enableLinkPreview ?? true),
     selectable,
     md4cFlags: normalizedMd4cFlags,
-    isGFM: flavor === 'github',
+    isGFM,
     allowFontScaling,
     maxFontSizeMultiplier,
     allowTrailingMargin,
@@ -467,12 +547,15 @@ export const EnrichedMarkdownText = ({
     ...rest,
   };
 
-  if (flavor === 'github') {
+  if (isGFM) {
     return (
       <EnrichedMarkdownNativeComponent
         {...sharedProps}
         enableCodeBlockWrapToggle={enableCodeBlockWrapToggle}
-      />
+        imageSources={imageSources}
+      >
+        {slotChildren}
+      </EnrichedMarkdownNativeComponent>
     );
   }
 

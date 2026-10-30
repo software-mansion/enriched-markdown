@@ -6,3 +6,4 @@
 -keep class com.swmansion.enriched.markdown.parser.Md4cFlags { *; }
 -keep class com.swmansion.enriched.markdown.parser.Parser { *; }
 -keep class com.swmansion.enriched.markdown.parser.CodeBlockLanguages { *; }
+-keep class com.swmansion.enriched.markdown.parser.LatexSpeech { *; }

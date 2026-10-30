@@ -27,6 +27,7 @@ class MathInlineSpan private constructor(
   /** Whether the source was `$$...$$`; the equation is typeset inline either way. */
   val displayMode: Boolean,
   private val renderer: RaTeXRenderer,
+  private val accessibilityLabel: MathAccessibilityLabel,
 ) : ReplacementSpan(),
   PluginInlineSpan {
   private val mathAscent = ceil(renderer.heightPx).toInt()
@@ -43,6 +44,8 @@ class MathInlineSpan private constructor(
 
   /** Bare latex, matching what the display-math segment's plain copy puts on the clipboard. */
   override fun toPlainText(): String = latex
+
+  override fun toAccessibilityLabel(): String = accessibilityLabel.resolve(latex)
 
   override fun getSize(
     paint: Paint,
@@ -103,6 +106,7 @@ class MathInlineSpan private constructor(
       textColor: Int,
       displayMode: Boolean = false,
       onPluginEvent: PluginEventSink? = null,
+      accessibilityLabel: MathAccessibilityLabel = MathAccessibilityLabel.Default,
     ): MathInlineSpan? {
       val renderer =
         runRaTeX(
@@ -111,7 +115,7 @@ class MathInlineSpan private constructor(
           val displayList = RaTeXEngine.parseBlocking(latex, displayMode = false, color = textColor)
           RaTeXRenderer(displayList, fontSize) { RaTeXFontLoader.getTypeface(it) }
         } ?: return null
-      return MathInlineSpan(latex, fontSize, displayMode, renderer)
+      return MathInlineSpan(latex, fontSize, displayMode, renderer, accessibilityLabel)
     }
   }
 }

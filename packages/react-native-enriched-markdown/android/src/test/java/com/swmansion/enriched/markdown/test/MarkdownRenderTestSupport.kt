@@ -35,7 +35,8 @@ object MarkdownRenderTestSupport {
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
-    listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight")
+    // Headings are read by StyleConfig.needsJustify, which every segment render consults.
+    (listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight") + (1..6).map { "h$it" })
       .forEach { style.putMap(it, textElement()) }
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
@@ -53,6 +54,12 @@ object MarkdownRenderTestSupport {
       textElement().apply {
         putMap("particles", JavaOnlyMap.of("density", 0.5, "speed", 1.0))
         putMap("solid", JavaOnlyMap.of("borderRadius", 0.0))
+      },
+    )
+    style.putMap(
+      "blockquote",
+      textElement().apply {
+        putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0))
       },
     )
     style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })

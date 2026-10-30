@@ -29,7 +29,9 @@ class MathSegmentPayload internal constructor(
  * Display math standing on its own: core gives it a segment of its own, and this gives that
  * segment a [MathContainerView].
  */
-class MathBlockSegment : PluginBlockSegment<MathSegmentPayload> {
+class MathBlockSegment(
+  internal val accessibilityLabel: MathAccessibilityLabel = MathAccessibilityLabel.Default,
+) : PluginBlockSegment<MathSegmentPayload> {
   /**
    * Lays out here rather than in the view; RaTeX's own async API runs the same parse off the main
    * thread. A failure is reported here too, so it is reported again for every new document, as an
@@ -60,7 +62,7 @@ class MathBlockSegment : PluginBlockSegment<MathSegmentPayload> {
     payload: MathSegmentPayload,
     config: SegmentViewConfig,
   ): View =
-    MathContainerView(config.context, config.style, config.selectionMenuConfig).apply {
+    MathContainerView(config.context, config.style, config.selectionMenuConfig, accessibilityLabel).apply {
       applyPayload(payload)
     }
 
@@ -71,6 +73,7 @@ class MathBlockSegment : PluginBlockSegment<MathSegmentPayload> {
   ) {
     (view as MathContainerView).apply {
       selectionMenuConfig = config.selectionMenuConfig
+      accessibilityLabel = this@MathBlockSegment.accessibilityLabel
       applyPayload(payload)
     }
   }

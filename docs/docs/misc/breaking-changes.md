@@ -9,9 +9,9 @@ sidebar_position: 2
 Looking for the full release notes? See the [changelog](https://swmansion.com/changelog/react-native-enriched-markdown/). This page covers only breaking changes and how to migrate.
 :::
 
-This page tracks breaking changes to the React Native package and how to migrate for each, newest first. Deprecations (things that still work but are slated for removal) are noted alongside the change that introduces them.
+This page tracks breaking changes and how to migrate for each, newest first, for the React Native package and the standalone [Android](#android-package) and [iOS](#ios-package) packages. Each package is versioned on its own. Deprecations (things that still work but are slated for removal) are noted alongside the change that introduces them.
 
-The current release is **1.1.1**, a patch over 1.1.0; neither introduced breaking changes.
+The React Native sections come first. Its current release is **1.1.1**, a patch over 1.1.0; neither introduced breaking changes.
 
 ## v1.0.2
 
@@ -81,3 +81,142 @@ node node_modules/react-native-enriched-markdown/postinstall.mjs
 ```
 
 then re-run `pod install` (iOS) / rebuild (Android).
+
+## Android package {#android-package}
+
+### 0.2.0 to 0.3.0
+
+#### `Md4cFlags` became `MarkdownOptions`, and `latexMath` was removed
+
+The parsing switches moved from `Md4cFlags` to `MarkdownOptions`, and the
+`EnrichedMarkdownText` parameter was renamed from `flags` to `options` (#980).
+On the view, `setMd4cFlags(flags)` became `setOptions(options)`. There is no
+deprecated alias, so both are compile errors until migrated. The fields keep
+their names and defaults, except `latexMath`, which is gone: math is now
+parsed and rendered by `LatexMathPlugin` from the new `math` artifact, and
+only when that plugin is enabled. Drop the flag, and add the plugin if you
+want equations typeset - see [LaTeX math](/android/guides/latex-math).
+
+Before:
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = text,
+  flags = Md4cFlags(underline = true, latexMath = true),
+)
+```
+
+After:
+
+```kotlin
+LatexMathPlugin {
+  EnrichedMarkdownText(
+    markdown = text,
+    options = MarkdownOptions(underline = true),
+  )
+}
+```
+
+#### `MarkdownTheme` now requires a style
+
+`MarkdownTheme(style, content)` no longer defaults `style` to the enclosing
+theme (#948), so `MarkdownTheme { ... }` with no argument stops compiling.
+Pass the style you want the subtree to use. `EnrichedMarkdownText` with no
+theme around it still renders with `MarkdownStyle.Default`, so a
+`MarkdownTheme` that only wrapped content to get the defaults can be removed.
+
+Before:
+
+```kotlin
+MarkdownTheme {
+  EnrichedMarkdownText(markdown = text)
+}
+```
+
+After:
+
+```kotlin
+MarkdownTheme(style = appMarkdownStyle) {
+  EnrichedMarkdownText(markdown = text)
+}
+```
+
+#### Style DSL scope types moved package
+
+The builder scopes (`TextStyleScope`, `LinkStyleScope`, `CodeBlockStyleScope`,
+`TableStyleScope` and the rest, plus the `ParagraphStyleScope` /
+`HeadingStyleScope` aliases) moved from `com.swmansion.enriched.markdown.compose`
+to `com.swmansion.enriched.markdown.compose.patches` (#900). Code that only
+writes `markdownStyle { paragraph { ... } }` is unaffected; code that names a
+scope type, for example in an extension function, needs its import updated.
+
+#### `ui` module rendering internals
+
+`Renderer.getCollectedImageSpans()` and `RenderedSegment.Text.imageSpans` were
+removed from the `ui` module (#926); spans that need the hosting `TextView` now
+register through `TextViewAwareSpan`. These are rendering internals that
+`compose` re-exports only transitively - apps that use `EnrichedMarkdownText`
+are unaffected.
+
+### 0.1.0 to 0.2.0
+
+0.2.0 aligned the Compose API with Compose naming conventions (#872). These are
+hard renames with no deprecated aliases, so each is a compile error until
+migrated:
+
+| 0.1.0 | 0.2.0 |
+|---|---|
+| `onLinkPress: ((String) -> Unit)?` | `onLinkClick: (String) -> Unit` (defaults to `{}`, no longer nullable) |
+| `onLinkLongPress: ((String) -> Unit)?` | `onLinkLongClick: (String) -> Unit` |
+| `MarkdownStyle.copy { ... }` | `MarkdownStyle.merge { ... }` (also `merge(other)` and `+`) |
+| `link { underline = true }` | `link { textDecoration = TextDecoration.Underline }` |
+| `textAlign = TextAlignment.X` (library enum) | `textAlign = TextAlign.X` (Compose's `TextAlign`) |
+| `list { marginLeft = ... }` | `list { marginStart = ... }` |
+| `image { borderRadius = ... }` | `image { cornerRadius = ... }` |
+| `Md4cFlags.DEFAULT` | `Md4cFlags.Default` |
+
+The style scopes also gained `internal` constructors, so they can only be
+reached through the `markdownStyle { }` builder. Task lists, tables and the
+`flags` parameter first shipped in 0.2.0, so their names
+(`onTaskListItemToggle`, `taskListToggleEnabled`, `table { alignment = ... }`)
+have nothing to migrate from in a 0.1.0 app.
+
+## iOS package {#ios-package}
+
+### 0.1 to 0.4.0
+
+0.4.0 aligned the public API with SwiftUI conventions. Every 0.1 name still
+compiles as a deprecated alias that forwards to its replacement (most with an
+Xcode fix-it); they will be removed in the next major version.
+
+| 0.1 | 0.4.0 |
+|---|---|
+| `Md4cFlags`, `EnrichedMarkdownText(_:flags:)`, `MarkdownRenderer.render(_:config:flags:)`, `Parser.parseMarkdown(_:flags:)` | `MarkdownParsingOptions`, `options:` |
+| `.onLinkPress { url in ... }` | `.environment(\.openURL, OpenURLAction { url in ...; return .handled })` |
+| `.onLinkLongPress` | `.onMarkdownLinkLongPress` |
+| `.onTaskListItemPress`, `TaskListItemPressEvent(index:checked:text:)`, `.checked` | `.onTaskListItemToggle`, `TaskListItemToggle(index:isChecked:text:)`, `.isChecked` |
+| `.markdownSelectable(false)` | `.markdownTextSelection(.disabled)` |
+| `MarkdownSelectionMenuConfig(copyImageUrl:)` | `MarkdownSelectionMenu(copyImageURL:)` |
+| `rememberMarkdownTheme(colorScheme:dynamicTypeSize:) { ... }` | `MarkdownTheme { ... }` built in `body` (the old parameters were ignored) |
+| `.textAlignment(_:)` | `.multilineTextAlignment(_:)` |
+| `.borderRadius(_:)` on `BlockImage`, `CodeBlock`, `Table` | `.cornerRadius(_:)` |
+| `TaskList().checkboxBorderRadius(_:)` | `.checkboxCornerRadius(_:)` |
+| `List().marginLeft(_:)` | `.marginLeading(_:)` |
+| `Table().align(_: TableAlignment)` | `.alignment(_: HorizontalAlignment)` |
+| `ThematicBreak().color(_:)`, `Spoiler().color(_:)` | `.foregroundStyle(_:)` |
+| `.borderColor(_:)` + `.borderWidth(_:)` on `CodeBlock`, `Blockquote`, `Table` | `.border(_:width:)` |
+| `Table().cellPaddingHorizontal(_:)` / `.cellPaddingVertical(_:)` | `.cellPadding(horizontal:vertical:)` |
+| `Spoiler().particleDensity(_:)` / `.particleSpeed(_:)` / `.solidBorderRadius(_:)` | `.markdownSpoilerOverlay(.particles(density:speed:))` / `.markdownSpoilerOverlay(.solid(cornerRadius:))` |
+| `.fontSize(_:weight:)`, `.fontFamily(_:size:)` | `.font(size:weight:design:)`, `.font(custom:size:)` |
+| `Table().headerFontFamily(_:size:)`, `.headerTextColor(_:)` | `.headerFont(custom:size:)`, `.headerForegroundStyle(_:)` |
+| `MarkdownStyleConfig` | `MarkdownStyleConfiguration` (the `config:` label is unchanged) |
+| `CodeBlockStyle.borderRadius`, `ImageStyle.borderRadius`, `TableStyle.borderRadius` / `.align`, `TaskListStyle.checkboxBorderRadius`, `ListStyle.marginLeft`, `SpoilerStyle.solidBorderRadius` | `cornerRadius`, `alignment`, `checkboxCornerRadius`, `marginLeading`, `solidCornerRadius` (fields and init labels) |
+
+Two changes have no alias:
+
+- **The last block's bottom margin is dropped by default.** 0.1 always laid it
+  out below the text; the view now ends at its last line. Add
+  `.markdownBottomMargin(.visible)` to bring it back.
+- **The `EnrichedMarkdown` namespace enum was removed.** It shadowed the
+  module name, so `EnrichedMarkdown.List()` now resolves as a module-qualified
+  lookup.

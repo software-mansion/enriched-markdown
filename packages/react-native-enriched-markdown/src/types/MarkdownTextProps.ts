@@ -11,24 +11,30 @@ import type {
   LatexErrorEvent,
   CodeBlockPressEvent,
 } from './events';
+import type { LinkPillContent } from './linkPill';
+import type { LinkRecognition } from './linkRecognition';
+import type {
+  MarkdownRenderers,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
+} from './markdownBlocks';
 
-/** Patterns for `linkRecognition`. An omitted key is off. */
-export interface LinkRecognition {
-  /** Matched inside plain-text runs. */
-  text?: RegExp;
-  /** Must match an inline-code span's whole content. */
-  inlineCode?: RegExp;
-}
-
-export interface LinkPillContent {
-  label?: string;
-  iconUri?: string;
-  /**
-   * Tint for this link's icon. The variant's `pill.iconTintColor` is not applied
-   * to an icon set here through `iconUri`.
-   */
-  iconTintColor?: string;
-}
+// Defined apart so code shared with web can import them: under a `.web`
+// module suffix this file resolves to `MarkdownTextProps.web.ts`.
+export type { LinkPillContent, LinkRecognition };
+export type {
+  MarkdownBlockPlacement,
+  MarkdownSlotBlock,
+  MarkdownMediaBlock,
+  MarkdownImageBlock,
+  MarkdownVideoBlock,
+  MarkdownLinkBlock,
+  MarkdownBlock,
+  MarkdownRenderers,
+  MarkdownImagePlacement,
+  MarkdownImageOccurrence,
+  MarkdownImageSource,
+} from './markdownBlocks';
 
 /**
  * An item of a link's long-press menu. `text` identifies the item, so it must be
@@ -147,6 +153,19 @@ export interface StreamingConfig {
    * @platform ios, android
    */
   codeBlockMode?: 'hidden' | 'progressive';
+  /**
+   * Controls how a trailing image paragraph or video block is handled during
+   * streaming. Applies to native images and to blocks drawn by `renderers`.
+   * - `'hidden'`: hide the block until a blank line follows it, so it never
+   *   appears before the chunk after it has arrived.
+   * - `'progressive'` (default): show the block as soon as its syntax is
+   *   complete (`)` for an image, `>` for a `<video>` tag); the partial line is
+   *   hidden until then instead of rendering as text.
+   * Only effective when `streamingAnimation` is `true`.
+   * @default 'progressive'
+   * @platform ios, android
+   */
+  mediaMode?: 'hidden' | 'progressive';
 }
 
 export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
@@ -545,4 +564,62 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @default 'tail'
    */
   ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
+  /**
+   * React replacements for block media, keyed by kind. Each renderer receives the
+   * block and returns the element to show in its place, or nothing (`undefined`)
+   * to keep the native rendering. The element is laid out by React at the block's
+   * width and must have an intrinsic height; the surrounding Markdown stays
+   * native and keeps its position, selection and accessibility.
+   *
+   * Applies to a paragraph whose only content is an image or a link, and to
+   * `<video>` blocks, directly in the document, a blockquote or an admonition
+   * outside any list. Images and links in lists, tables, headings and running
+   * text stay native. A link block keeps its native tappable link when no
+   * renderer claims it.
+   *
+   * A renderer runs once per block and again only when that block or any
+   * renderer function changes, so a streaming append does not re-render the
+   * blocks already shown. Keep the functions stable with `useCallback`. It is a
+   * plain function, not a component: return an element and keep hooks and
+   * state inside the component it returns. A renderer that throws, or returns
+   * text, keeps the native block (with a dev warning) until it runs again.
+   *
+   * A replaced block's element owns its presses: `onImagePress`,
+   * `onLinkPress`, `onLinkLongPress` and the link menu do not fire for it.
+   *
+   * Only applies when `flavor="github"`.
+   *
+   * @example
+   * renderers={{
+   *   image: ({ url, altText }) => <FastImage source={{ uri: url }} accessibilityLabel={altText} />,
+   *   video: ({ url }) => <Video source={{ uri: url }} />,
+   * }}
+   * @platform ios, android, web
+   */
+  renderers?: MarkdownRenderers;
+  /**
+   * Chooses the request made for each image instead of its Markdown URL, e.g. a
+   * signed URL or per-image headers. Called once per image while it stays in
+   * the document, including images in lists, tables, blockquotes and links; a
+   * streaming append or an edit elsewhere only asks about the new images, and
+   * earlier results stay applied. Return a source, a promise of one, or nothing
+   * (`undefined`) to load the original URL. Until it answers, and when a promise
+   * rejects or resolves to an empty `uri`, the image keeps its placeholder and
+   * the original URL is not requested.
+   *
+   * It is called after rendering, never during it, so it may start a request
+   * or update other state. The function is read like an event handler:
+   * changing it does not resolve again. Remount the component with a `key` to
+   * start over (e.g. after a token refresh). Events, copy actions and
+   * `renderers` keep reporting the Markdown URL.
+   *
+   * Only applies when `flavor="github"`.
+   * @platform ios, android, web
+   */
+  resolveImageSource?: (
+    image: MarkdownImageOccurrence
+  ) =>
+    | MarkdownImageSource
+    | undefined
+    | Promise<MarkdownImageSource | undefined>;
 }

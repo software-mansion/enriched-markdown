@@ -1,6 +1,7 @@
 #include "SwiftParserCAPI.h"
 
 #include "CodeBlockLanguages.hpp"
+#include "LatexSpeech.hpp"
 #include "MD4CParser.hpp"
 
 #include <cstdlib>
@@ -142,6 +143,13 @@ char *em_code_block_language_display_name(const char *language) {
     return nullptr;
   }
   return strdup(Markdown::displayNameForLanguage(language).c_str());
+}
+
+char *em_latex_spoken_form(const char *latex) {
+  if (!latex) {
+    return nullptr;
+  }
+  return strdup(Markdown::spokenLatex(latex).c_str());
 }
 
 void em_string_release(char *string) {

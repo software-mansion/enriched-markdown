@@ -24,9 +24,16 @@ class ListRenderer(
     val listStyle = config.style.listStyle
     val listType = if (isOrdered) BlockStyleContext.ListType.ORDERED else BlockStyleContext.ListType.UNORDERED
 
-    val markerExtraWidth = if (isOrdered) markerExtraWidth(node, listStyle, factory) else 0f
+    val startNumber =
+      if (isOrdered) {
+        node.getAttribute("start")?.toIntOrNull()?.coerceAtLeast(0) ?: 1
+      } else {
+        1
+      }
+
+    val markerExtraWidth = if (isOrdered) markerExtraWidth(node, listStyle, startNumber, factory) else 0f
     val contextManager = ListContextManager(factory.blockStyleContext)
-    val entryState = contextManager.enterList(listType, listStyle, markerExtraWidth)
+    val entryState = contextManager.enterList(listType, listStyle, startNumber, markerExtraWidth)
 
     // For top-level lists, insert marginTop spacer before rendering content
     if (entryState.previousDepth == 0) {
@@ -56,10 +63,11 @@ class ListRenderer(
   private fun markerExtraWidth(
     node: MarkdownASTNode,
     listStyle: ListStyle,
+    startNumber: Int,
     factory: RendererFactory,
   ): Float {
     val wideNumbers = mutableListOf<Int>()
-    var number = 1
+    var number = startNumber
     for (item in node.children) {
       if (item.type != MarkdownASTNode.NodeType.ListItem) continue
       if (number >= 100 && item.attributes["isTask"] != "true") wideNumbers += number

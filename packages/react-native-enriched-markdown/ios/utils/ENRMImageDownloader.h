@@ -17,6 +17,12 @@ typedef void (^ENRMImageDownloadCompletion)(RCTUIImage *_Nullable image);
  */
 NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> *_Nullable headers);
 
+/// Document headers under per-image headers, names lowercased so the override and
+/// the cache identity are independent of header casing.
+NSDictionary<NSString *, NSString *> *
+ENRMMergeImageRequestHeaders(NSDictionary<NSString *, NSString *> *_Nullable documentHeaders,
+                             NSDictionary<NSString *, NSString *> *_Nullable sourceHeaders);
+
 @interface ENRMImageDownloader : NSObject
 
 + (instancetype)shared;

@@ -37,7 +37,8 @@ static const CGFloat kFocusRectPadding = 2.0;
     if (trimmed.length > 0) {
       NSArray *links = [self linksInRange:paragraphRange info:info];
       NSArray *images = [self imagesInRange:paragraphRange info:info];
-      NSArray *specials = [links arrayByAddingObjectsFromArray:images];
+      NSArray *math = [self mathInRange:paragraphRange info:info inTextStorage:textView.textStorage];
+      NSArray *specials = [[links arrayByAddingObjectsFromArray:images] arrayByAddingObjectsFromArray:math];
 
       NSInteger level = [self headingLevelForRange:paragraphRange info:info];
       NSDictionary *list = [self listItemInfoForRange:paragraphRange info:info];
@@ -113,9 +114,16 @@ static const CGFloat kFocusRectPadding = 2.0;
       }
     }
 
-    BOOL isImg = item[@"altText"] != nil;
-    NSString *label = isImg ? item[@"altText"] : [fullText substringWithRange:itemRange];
-    if (!isImg) {
+    ElementType type = ElementTypeLink;
+    NSString *label;
+    if (item[@"altText"] != nil) {
+      type = ElementTypeImage;
+      label = item[@"altText"];
+    } else if (item[@"latex"] != nil) {
+      type = ElementTypeText;
+      label = [labels mathLabelForLatex:item[@"latex"]];
+    } else {
+      label = [self spokenTextInRange:itemRange textStorage:textView.textStorage labels:labels];
       id attachment = [textView.textStorage attribute:NSAttachmentAttributeName
                                               atIndex:itemRange.location
                                        effectiveRange:NULL];
@@ -123,9 +131,9 @@ static const CGFloat kFocusRectPadding = 2.0;
         label = [(ENRMLinkPillAttachment *)attachment linkAccessibilityLabel];
     }
     [elements addObject:[self createElementForRange:itemRange
-                                               type:isImg ? ElementTypeImage : ElementTypeLink
+                                               type:type
                                                text:label
-                                           isLinked:isImg ? [item[@"isLinked"] boolValue] : YES
+                                           isLinked:[item[@"isLinked"] boolValue]
                                             heading:0
                                            listInfo:listInfo
                                              labels:labels
@@ -290,6 +298,42 @@ static const CGFloat kFocusRectPadding = 2.0;
   return images;
 }
 
++ (NSArray *)mathInRange:(NSRange)range info:(AccessibilityInfo *)info inTextStorage:(NSTextStorage *)storage
+{
+  NSMutableArray *math = [NSMutableArray array];
+  [storage enumerateAttribute:@"mathLatex"
+                      inRange:range
+                      options:0
+                   usingBlock:^(NSString *latex, NSRange mathRange, BOOL *stop) {
+                     if (latex && ![self range:mathRange isInsideAnyOf:info.linkRanges])
+                       [math addObject:@{@"range" : [NSValue valueWithRange:mathRange], @"latex" : latex}];
+                   }];
+  return math;
+}
+
++ (BOOL)range:(NSRange)range isInsideAnyOf:(NSArray<NSValue *> *)ranges
+{
+  for (NSValue *value in ranges)
+    if (NSEqualRanges(NSIntersectionRange(range, value.rangeValue), range))
+      return YES;
+  return NO;
+}
+
++ (NSString *)spokenTextInRange:(NSRange)range
+                    textStorage:(NSTextStorage *)storage
+                         labels:(ENRMAccessibilityLabels *)labels
+{
+  NSMutableString *text = [NSMutableString string];
+  [storage enumerateAttribute:@"mathLatex"
+                      inRange:range
+                      options:0
+                   usingBlock:^(NSString *latex, NSRange runRange, BOOL *stop) {
+                     [text appendString:latex ? [labels mathLabelForLatex:latex]
+                                              : [storage.string substringWithRange:runRange]];
+                   }];
+  return text;
+}
+
 + (NSDictionary *)listItemInfoForRange:(NSRange)range info:(AccessibilityInfo *)info
 {
   if (!info)
@@ -359,6 +403,32 @@ static const CGFloat kFocusRectPadding = 2.0;
 + (UIAccessibilityCustomRotor *)createImageRotorWithElements:(NSArray *)elements name:(NSString *)name
 {
   return [self createRotorWithName:name elements:elements];
+}
+
++ (void)collectLeafElementsFrom:(NSArray *)elements into:(NSMutableArray *)leaves
+{
+  for (id element in elements) {
+    if ([element isKindOfClass:[UIView class]] &&
+        (((UIView *)element).hidden || [element accessibilityElementsHidden])) {
+      continue;
+    }
+    if ([element isAccessibilityElement]) {
+      [leaves addObject:element];
+      continue;
+    }
+    NSArray *children = [element accessibilityElements];
+    if (children == nil && [element isKindOfClass:[UIView class]]) {
+      children = ((UIView *)element).subviews;
+    }
+    [self collectLeafElementsFrom:children into:leaves];
+  }
+}
+
++ (NSArray *)collectLeafElementsFromElements:(NSArray *)elements
+{
+  NSMutableArray *leaves = [NSMutableArray array];
+  [self collectLeafElementsFrom:elements into:leaves];
+  return leaves;
 }
 
 + (NSArray<UIAccessibilityCustomRotor *> *)buildRotorsFromElements:(NSArray<UIAccessibilityElement *> *)elements

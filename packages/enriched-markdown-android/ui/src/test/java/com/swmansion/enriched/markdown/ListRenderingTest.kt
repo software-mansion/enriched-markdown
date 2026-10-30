@@ -67,6 +67,46 @@ class ListRenderingTest {
   }
 
   @Test
+  fun orderedListsCountFromTheirStartNumber() {
+    val style = styleConfig()
+    assertEquals(listOf(3, 4), orderedSpans(style, orderedList(3, item(), item())).map { it.itemNumber })
+    assertEquals(listOf(0, 1), orderedSpans(style, orderedList(0, item(), item())).map { it.itemNumber })
+  }
+
+  @Test
+  fun startNumbersFrom100WidenTheGutter() {
+    val style = styleConfig()
+    val paint =
+      TextPaint().apply {
+        textSize = style.listStyle.fontSize
+        typeface = Typeface.create("monospace", Typeface.NORMAL)
+      }
+    val baseline = paint.measureText("99.")
+    val gap = style.listStyle.gapWidth
+    val belowHundred = orderedSpans(style, orderedList(97, item(), item(), item()))
+    assertEquals(listOf(97, 98, 99), belowHundred.map { it.itemNumber })
+    belowHundred.forEach { assertEquals((baseline + gap).toInt(), it.getLeadingMargin(false)) }
+    val crossing = orderedSpans(style, orderedList(98, item(), item(), item()))
+    assertEquals(listOf(98, 99, 100), crossing.map { it.itemNumber })
+    val widened = (baseline + ceil(paint.measureText("100.") - baseline) + gap).toInt()
+    crossing.forEach { assertEquals(widened, it.getLeadingMargin(false)) }
+  }
+
+  @Test
+  fun nestedOrderedListsKeepTheirOwnStartNumbers() {
+    val style = styleConfig()
+    val outer =
+      orderedList(
+        5,
+        listItem(paragraph(text("item")), orderedList(10, item(), item())),
+        listItem(paragraph(text("item")), numbered(2)),
+        item(),
+      )
+    val numbers = orderedSpans(style, outer, numbered(1)).map { it.depth to it.itemNumber }
+    assertEquals(listOf(0 to 5, 1 to 10, 1 to 11, 0 to 6, 1 to 1, 1 to 2, 0 to 7, 0 to 1), numbers)
+  }
+
+  @Test
   fun markerMinimumWidthRemainsAFloor() {
     val style = styleConfig(minWidth = 200f)
     orderedSpans(style, numbered(101)).forEach {
@@ -278,6 +318,27 @@ class ListRenderingTest {
     }
   }
 
+  @Test
+  fun bulletsCenterOnTheListFontWhenTheBaseTextSizeDiffers() {
+    val style = styleWithListFontSize(4f * MarkdownRenderTestSupport.defaultStyle.paragraphStyle.fontSize)
+    val text = SpannableString(render(document(list(Kind.BULLET, list(Kind.BULLET, list(Kind.BULLET)))), style))
+    // The text view's own text size is the paragraph font size, and the layout hands that paint to drawLeadingMargin.
+    val layout = MarkerCanvas.layout(text, style.paragraphStyle.fontSize)
+    val listFont =
+      TextPaint()
+        .apply {
+          textSize = style.listStyle.fontSize
+          typeface = Typeface.create("monospace", Typeface.NORMAL)
+        }.fontMetrics
+    val markers = MarkerCanvas.markerGeometry(text, layout)
+    assertEquals(listOf(0, 1, 2), markers.map { it.depth })
+    markers.forEach {
+      val line = layout.getLineForVertical(it.marker.baseline.toInt())
+      val expected = layout.getLineBaseline(line) + (listFont.ascent + listFont.descent) / 2f
+      assertEquals("bullet center at depth ${it.depth}", expected, it.marker.baseline, 0.01f)
+    }
+  }
+
   /** The rows [wide] shares with [short], tasks and their children included, all sit [wide]'s widening further right. */
   private fun assertEveryRowShiftsTogether(
     style: StyleConfig,
@@ -378,6 +439,9 @@ class ListRenderingTest {
       ),
     )
   }
+
+  private fun styleWithListFontSize(fontSize: Float): StyleConfig =
+    MarkdownRenderTestSupport.styleWithList(styleConfig().listStyle.copy(fontSize = fontSize))
 
   private enum class Kind { ORDERED, BULLET, TASK }
 

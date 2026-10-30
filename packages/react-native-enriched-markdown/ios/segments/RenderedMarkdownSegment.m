@@ -61,6 +61,17 @@
 }
 @end
 
+@implementation ENRMBlockSlotSegment
++ (instancetype)segmentWithSlotId:(NSString *)slotId kind:(ENRMBlockSlotKind)kind
+{
+  NSParameterAssert(slotId != nil);
+  ENRMBlockSlotSegment *segment = [[ENRMBlockSlotSegment alloc] init];
+  segment.slotId = slotId;
+  segment.kind = kind;
+  return segment;
+}
+@end
+
 @implementation ENRMRenderedSegment
 + (instancetype)textSegmentWithResult:(ENRMRenderResult *)result signature:(uint64_t)signature
 {
@@ -118,6 +129,16 @@
   ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
   segment.kind = ENRMSegmentKindVideo;
   segment.videoSegment = videoSegment;
+  segment.signature = signature;
+  return segment;
+}
+
++ (instancetype)blockSlotSegmentWithSegment:(ENRMBlockSlotSegment *)blockSlotSegment signature:(uint64_t)signature
+{
+  NSParameterAssert(blockSlotSegment != nil);
+  ENRMRenderedSegment *segment = [[ENRMRenderedSegment alloc] init];
+  segment.kind = ENRMSegmentKindBlockSlot;
+  segment.blockSlotSegment = blockSlotSegment;
   segment.signature = signature;
   return segment;
 }

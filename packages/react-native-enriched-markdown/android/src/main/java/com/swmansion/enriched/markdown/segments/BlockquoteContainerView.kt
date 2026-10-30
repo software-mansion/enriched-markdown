@@ -116,7 +116,11 @@ class BlockquoteContainerView(
     setOnLongClickListener { view -> showContextMenu(view) }
   }
 
-  fun applyBlockquoteNode(node: MarkdownASTNode) {
+  /** [taskIndexOffset] is the document-global index of the quote's first task-list item. */
+  fun applyBlockquoteNode(
+    node: MarkdownASTNode,
+    taskIndexOffset: Int = 0,
+  ) {
     admonitionType =
       if (node.type == MarkdownASTNode.NodeType.Admonition) {
         node.getAttribute("admonitionType")?.takeIf { it.isNotEmpty() } ?: "note"
@@ -139,6 +143,7 @@ class BlockquoteContainerView(
         parentConfig.onLinkLongPress,
         blockquoteStyle,
         onLatexError = parentConfig.onLatexError,
+        startingTaskIndex = taskIndexOffset,
       )
     applySegments(rendered, reset = false)
     requestLayout()
@@ -283,6 +288,7 @@ class BlockquoteContainerView(
         is RenderedSegment.CodeBlock -> view is CodeBlockContainerView
         is RenderedSegment.Blockquote -> view is BlockquoteContainerView
         is RenderedSegment.Video -> SegmentViewCreators.isVideoContainerView(view)
+        is RenderedSegment.BlockSlot -> view is BlockSlotSegmentView
       }
 
     override fun createView(segment: RenderedSegment): View =
@@ -310,6 +316,10 @@ class BlockquoteContainerView(
         is RenderedSegment.Video -> {
           SegmentViewCreators.createVideoView(segment, parentConfig)
         }
+
+        is RenderedSegment.BlockSlot -> {
+          SegmentViewCreators.createBlockSlotView(segment, parentConfig)
+        }
       }
 
     override fun updateView(
@@ -321,8 +331,9 @@ class BlockquoteContainerView(
         is RenderedSegment.Table -> (view as TableContainerView).applyTableNode(segment.node)
         is RenderedSegment.Math -> SegmentViewCreators.updateMathView(view, segment)
         is RenderedSegment.CodeBlock -> (view as CodeBlockContainerView).applyCodeBlockNode(segment.node)
-        is RenderedSegment.Blockquote -> (view as BlockquoteContainerView).applyBlockquoteNode(segment.node)
+        is RenderedSegment.Blockquote -> (view as BlockquoteContainerView).applyBlockquoteNode(segment.node, segment.taskIndexOffset)
         is RenderedSegment.Video -> SegmentViewCreators.updateVideoView(view, segment)
+        is RenderedSegment.BlockSlot -> SegmentViewCreators.updateBlockSlotView(view as BlockSlotSegmentView, segment)
       }
     }
 
@@ -362,6 +373,11 @@ class BlockquoteContainerView(
       context: Context,
       width: Float,
       wrapCursor: CodeBlockWrapCursor? = null,
+      // Slot children inside the quote report absolute origins: the quote's own
+      // origin (px, within the host content box) plus its insets.
+      slotMeasurer: BlockSlotMeasurer? = null,
+      originXPx: Float = 0f,
+      originYPx: Float = 0f,
     ): Float {
       val style = config.blockquoteStyle
       val leftInset = ceil(style.borderWidth + style.gapWidth + style.padding).toInt()
@@ -373,7 +389,10 @@ class BlockquoteContainerView(
         } else {
           0f
         }
-      val innerWidth = (width - leftInset - rightInset).coerceAtLeast(1f)
+      // The view lays its children out at integer pixels (measureSegmentChildren
+      // receives ceil(width)), so measure at the same rounded width or the two
+      // paths wrap long lines differently.
+      val innerWidth = (ceil(width) - leftInset - rightInset).coerceAtLeast(1f)
 
       val segments = splitASTIntoSegments(node)
       val rendered = MarkdownSegmentRenderer.render(segments, config, context, null, null, style)
@@ -392,6 +411,9 @@ class BlockquoteContainerView(
           allowTrailingMargin = false,
           mathHeightForIndex = { estimateMathHeight(config) },
           wrapCursor = wrapCursor,
+          slotMeasurer = slotMeasurer,
+          originXPx = originXPx + leftInset,
+          originYPx = originYPx + verticalInset + headerReserved,
         )
 
       return childrenHeight + verticalInset * 2f + headerReserved

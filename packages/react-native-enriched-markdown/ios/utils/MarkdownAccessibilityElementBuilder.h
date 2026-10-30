@@ -22,6 +22,9 @@ NS_ASSUME_NONNULL_BEGIN
                                                        name:(NSString *)name;
 + (UIAccessibilityCustomRotor *)createImageRotorWithElements:(NSArray<UIAccessibilityElement *> *)elements
                                                         name:(NSString *)name;
+// Accessibility elements reached through containers, in reading order, for
+// views whose own accessibilityElements are segment views.
++ (NSArray *)collectLeafElementsFromElements:(NSArray *)elements;
 + (NSArray<UIAccessibilityCustomRotor *> *)buildRotorsFromElements:(NSArray<UIAccessibilityElement *> *)elements
                                                             labels:(ENRMAccessibilityLabels *)labels;
 #else

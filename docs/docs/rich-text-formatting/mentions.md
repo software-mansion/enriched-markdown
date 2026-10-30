@@ -13,7 +13,7 @@ A mention is just a Markdown link with a custom URL scheme - `[@Alice](user://al
 
 Because a mention is an ordinary link, everything the library already does with links applies:
 
-- **Styling** is per URL scheme, through `linkVariants` in `markdownStyle` - a map of URL-pattern to style. Give each mention type its own scheme (`user://`, `channel://`) so you can style them apart from each other and from regular links:
+- **Styling** in the React Native package is per URL scheme, through `linkVariants` in `markdownStyle` - a map of URL-pattern to style. Give each mention type its own scheme (`user://`, `channel://`) so you can style them apart from each other and from regular links:
 
 ```tsx
 markdownStyle={{
@@ -29,6 +29,8 @@ Each key is a regex tested against the link URL; the first match wins, unspecifi
 
 Both components accept a `linkVariants` key, so the same config styles mentions in the renderer and the editor. The two types are not quite interchangeable, though: the renderer's `LinkVariantStyle` has a `fontFamily` field and the editor's does not, so an object you intend to share must leave `fontFamily` unset to typecheck as `MarkdownTextInputStyle`.
 
+On iOS, a [`Link(matching:)`](/ios/api-reference/style-properties#link-matching) theme element per pattern does the same.
+
 - **Interaction** is through the usual link callbacks - a mention tap is a link tap, delivered with the mention's URL.
 
 :::caution
@@ -39,17 +41,63 @@ Both components accept a `linkVariants` key, so the same config styles mentions 
 
 Rendering content that already contains mentions needs nothing special: pass the Markdown to the display component, style the schemes with `linkVariants`, and route taps by scheme in `onLinkPress`.
 
+<CodeTabs groupId="platform">
+<Tab label="React Native">
+
 <LivePreview src={DisplayMentionsSrc} />
 
-{/* UNRELEASED PLATFORMS: the standalone iOS and Android SDKs display mentions
-(a mention tap is an ordinary link tap, routed by scheme through the SwiftUI
-`openURL` action / Compose `onLinkClick`), but neither has a `linkVariants`
-equivalent, so a mention cannot be styled apart from a regular link there.
-Restore those tabs, and the links to /ios/api-reference/style-properties#link
-and /android/api-reference/enriched-markdown-text#onlinkclick, when those
-packages ship. */}
+</Tab>
+<Tab label="iOS">
 
-That is the whole story for read-only surfaces - message lists, comment threads, previews. It works on web too. The rest of this page is about letting users _write_ mentions in the editor, which is **native only** - there is no web editor, so none of the authoring API below exists on web.
+Style each scheme with a [`Link(matching:)`](/ios/api-reference/style-properties#link-matching) theme element, and route taps by scheme in an [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) action:
+
+```swift
+EnrichedMarkdownText(content)
+  .markdownTheme {
+    Link(matching: "^user:")
+      .foregroundStyle(.blue)
+      .background(Color.blue.opacity(0.12))
+      .underline(false)
+    Link(matching: "^channel:")
+      .foregroundStyle(.green)
+      .background(Color.green.opacity(0.12))
+      .underline(false)
+  }
+  .environment(\.openURL, OpenURLAction { url in
+    switch url.scheme {
+    case "user":
+      openProfile(url.host)
+      return .handled
+    default:
+      return .systemAction
+    }
+  })
+```
+
+When several patterns match, the longest one wins. So `^user://alice` can sit next to `^user:`.
+
+</Tab>
+<Tab label="Android">
+
+In the Android package, [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) hands you the mention's URL and you route by scheme. There is no per-URL styling, so every link - mention or not - uses the single [`link`](/android/api-reference/style-properties#link) style.
+
+```kotlin
+EnrichedMarkdownText(
+  markdown = content,
+  onLinkClick = { url ->
+    val uri = Uri.parse(url)
+    when (uri.scheme) {
+      "user" -> openProfile(uri.host)
+      else -> openInBrowser(url)
+    }
+  },
+)
+```
+
+</Tab>
+</CodeTabs>
+
+That is the whole story for read-only surfaces - message lists, comment threads, previews. In the React Native package it works on web too. The rest of this page is about letting users _write_ mentions in the editor, `EnrichedMarkdownTextInput`, which ships only in the React Native package and only on iOS and Android - there is no web editor, and the standalone iOS and Android packages render Markdown but do not edit it, so none of the authoring API below exists there.
 
 ## Authoring mentions
 
@@ -156,10 +204,17 @@ export default function Composer() {
 ```
 
 </Tab>
-</CodeTabs>
+<Tab label="iOS">
 
-{/* UNRELEASED PLATFORMS: neither standalone SDK has an editor, so there is no
-mention-authoring equivalent on iOS or Android today. */}
+The iOS package renders Markdown but has no editor, so there is no mention-authoring flow to wire up. Mentions in content you display work as shown in [Displaying mentions](#displaying-mentions).
+
+</Tab>
+<Tab label="Android">
+
+The Android package renders Markdown but has no editor, so there is no mention-authoring flow to wire up. Mentions in content you display work as shown in [Displaying mentions](#displaying-mentions).
+
+</Tab>
+</CodeTabs>
 
 ### Building the matching engine
 
@@ -222,12 +277,28 @@ Indicator matching is **first-in-array, not longest-match**: the first entry of 
 
 Displaying mentions uses ordinary display-component styling (`linkVariants` and the link-press callback); authoring adds the mention surface on the editor: a `mentionIndicators` prop, the start/change/end mention events, the `startMention` / `insertMention` ref methods, and a caret-rect change event for positioning.
 
+<CodeTabs groupId="platform">
+<Tab label="React Native">
+
 - Prop [`mentionIndicators`](/react-native/api-reference/enriched-markdown-text-input#mentionindicators) - the trigger strings that start a flow.
 - Events [`onStartMention`](/react-native/api-reference/enriched-markdown-text-input#onstartmention) `{ indicator }`, [`onChangeMention`](/react-native/api-reference/enriched-markdown-text-input#onchangemention) `{ indicator, text }`, [`onEndMention`](/react-native/api-reference/enriched-markdown-text-input#onendmention) `{ indicator }`.
 - Ref methods [`startMention(indicator)`](/react-native/api-reference/enriched-markdown-text-input#startmentionindicator-string) and [`insertMention(displayText, url)`](/react-native/api-reference/enriched-markdown-text-input#insertmentiondisplaytext-string-url-string).
 - [`onCaretRectChange`](/react-native/api-reference/enriched-markdown-text-input#oncaretrectchange) - caret geometry for positioning.
 - Displaying: [`EnrichedMarkdownText`](/react-native/api-reference/enriched-markdown-text) with `markdownStyle.linkVariants` and `onLinkPress`.
 
-{/* UNRELEASED PLATFORMS: half of this reference exists natively - the
-standalone SDKs can display and route mentions - but neither has an editor or a
-`linkVariants` equivalent. Restore the iOS/Android tabs when they ship. */}
+</Tab>
+<Tab label="iOS">
+
+- Routing taps: the [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) environment action.
+- Styling: one [`Link(matching:)`](/ios/api-reference/style-properties#link-matching) theme element per URL pattern, falling back to [`Link()`](/ios/api-reference/style-properties#link).
+- Authoring: none - the iOS package has no editor.
+
+</Tab>
+<Tab label="Android">
+
+- Routing taps: [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick).
+- Styling: the single [`link`](/android/api-reference/style-properties#link) style - there is no per-URL variant.
+- Authoring: none - the Android package has no editor.
+
+</Tab>
+</CodeTabs>

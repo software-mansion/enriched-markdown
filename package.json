@@ -13,6 +13,8 @@
     "android-example": "yarn workspace enriched-markdown-android-example start",
     "ios-example": "yarn workspace enriched-markdown-ios-example start",
     "build:wasm": "yarn workspace react-native-enriched-markdown build:wasm",
+    "core:build": "yarn workspace @enriched-markdown/core build",
+    "core:test": "yarn workspace @enriched-markdown/core test",
     "android:build:release": "cd apps/react-native-example && npx react-native build-android --mode=release",
     "android:test:release": "cd apps/react-native-example && yarn android --mode release",
     "test:e2e:mobile": ".maestro/scripts/run-all-tests.sh",

@@ -4,7 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace Markdown {
@@ -22,7 +24,13 @@ struct TextLinkMatchers {
   std::function<std::vector<uint8_t>(const std::vector<std::string_view> &spans)> inlineCode;
 };
 
-// In place. Existing links, code blocks, media and math are not entered.
-void recognizeTextLinks(MarkdownASTNode &root, const TextLinkMatchers &matchers);
+// The children that stand in for a Text or Code node of the parsed tree, keyed by
+// that node.
+using TextLinkReplacements = std::unordered_map<const MarkdownASTNode *, std::vector<std::shared_ptr<MarkdownASTNode>>>;
+
+// The recognized links as replacements; the tree is left as parsed, so one
+// document can be shared and each host applies them while converting it.
+// Existing links, code blocks, media and math are not entered.
+TextLinkReplacements recognizeTextLinks(const MarkdownASTNode &root, const TextLinkMatchers &matchers);
 
 } // namespace Markdown

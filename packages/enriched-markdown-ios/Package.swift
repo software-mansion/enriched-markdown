@@ -23,14 +23,15 @@ let package = Package(
         .target(
             name: "EnrichedMarkdownCore",
             path: "core",
-            sources: ["enrmrkd", "parser", "highlight"],
+            sources: ["enrmrkd", "parser", "highlight", "latex"],
             publicHeadersPath: "parser",
             cSettings: [
                 .define("ENRMRKD_USE_UTF8", to: "1")
             ],
             cxxSettings: [
                 .headerSearchPath("enrmrkd"),
-                .headerSearchPath("parser")
+                .headerSearchPath("parser"),
+                .headerSearchPath("latex")
             ]
         ),
         .target(
@@ -42,6 +43,7 @@ let package = Package(
                 .headerSearchPath("../core/enrmrkd"),
                 .headerSearchPath("../core/parser"),
                 .headerSearchPath("../core/highlight"),
+                .headerSearchPath("../core/latex"),
                 .define("ENRMRKD_USE_UTF8", to: "1")
             ]
         ),
@@ -65,7 +67,7 @@ let package = Package(
         // and dereferenced into real files when the standalone repo is synced.
         .target(
             name: "EnrichedMarkdownLaTeX",
-            dependencies: ["EnrichedMarkdown", "RaTeX"],
+            dependencies: ["EnrichedMarkdown", "EnrichedMarkdownCppShim", "RaTeX"],
             path: "Sources/EnrichedMarkdownLaTeX",
             exclude: ["Vendor/LICENSE"],
             resources: [.copy("Fonts")]
@@ -114,5 +116,6 @@ let package = Package(
             dependencies: ["EnrichedMarkdownSyntaxHighlighting"],
             path: "Tests/EnrichedMarkdownSyntaxHighlightingTests"
         )
-    ]
+    ],
+    cxxLanguageStandard: .cxx17
 )

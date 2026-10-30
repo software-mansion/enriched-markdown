@@ -61,14 +61,14 @@ std::vector<size_t> utf16BoundariesToBytes(const std::string &text) {
 }
 
 struct Candidate {
-  MarkdownASTNode *parent;
+  const MarkdownASTNode *parent;
   size_t index;
 };
 
-void collect(MarkdownASTNode &node, bool wantText, bool wantCode, std::vector<Candidate> &texts,
+void collect(const MarkdownASTNode &node, bool wantText, bool wantCode, std::vector<Candidate> &texts,
              std::vector<Candidate> &codes) {
   for (size_t i = 0; i < node.children.size(); i++) {
-    MarkdownASTNode &child = *node.children[i];
+    const MarkdownASTNode &child = *node.children[i];
     if (isOpaque(child.type))
       continue;
     if (child.type == NodeType::Text) {
@@ -90,9 +90,7 @@ std::string codeContent(const MarkdownASTNode &code) {
   return content;
 }
 
-using Replacements = std::unordered_map<const MarkdownASTNode *, NodeList>;
-
-void splitText(const NodePtr &textNode, const std::vector<TextRange> &ranges, Replacements &out) {
+void splitText(const NodePtr &textNode, const std::vector<TextRange> &ranges, TextLinkReplacements &out) {
   const std::string &content = textNode->content;
   std::vector<size_t> bytes = utf16BoundariesToBytes(content);
   NodeList pieces;
@@ -117,48 +115,20 @@ void splitText(const NodePtr &textNode, const std::vector<TextRange> &ranges, Re
   out[textNode.get()] = std::move(pieces);
 }
 
-void applyReplacements(MarkdownASTNode &node, const Replacements &replacements) {
-  bool changed = false;
-  for (const auto &child : node.children) {
-    if (replacements.count(child.get())) {
-      changed = true;
-      break;
-    }
-  }
-  if (changed) {
-    NodeList children;
-    children.reserve(node.children.size());
-    for (const auto &child : node.children) {
-      auto it = replacements.find(child.get());
-      if (it == replacements.end()) {
-        children.push_back(child);
-      } else {
-        children.insert(children.end(), it->second.begin(), it->second.end());
-      }
-    }
-    node.children = std::move(children);
-  }
-  for (const auto &child : node.children) {
-    if (!isOpaque(child->type))
-      applyReplacements(*child, replacements);
-  }
-}
-
 } // namespace
 
-void recognizeTextLinks(MarkdownASTNode &root, const TextLinkMatchers &matchers) {
+TextLinkReplacements recognizeTextLinks(const MarkdownASTNode &root, const TextLinkMatchers &matchers) {
+  TextLinkReplacements replacements;
   const bool wantText = static_cast<bool>(matchers.text);
   const bool wantCode = static_cast<bool>(matchers.inlineCode);
   if (!wantText && !wantCode)
-    return;
+    return replacements;
 
   std::vector<Candidate> texts;
   std::vector<Candidate> codes;
   collect(root, wantText, wantCode, texts, codes);
   if (texts.empty() && codes.empty())
-    return;
-
-  Replacements replacements;
+    return replacements;
 
   if (!texts.empty()) {
     std::vector<std::string_view> runs;
@@ -187,8 +157,7 @@ void recognizeTextLinks(MarkdownASTNode &root, const TextLinkMatchers &matchers)
     }
   }
 
-  if (!replacements.empty())
-    applyReplacements(root, replacements);
+  return replacements;
 }
 
 } // namespace Markdown

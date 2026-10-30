@@ -16,6 +16,13 @@ struct Md4cFlags {
   bool hardSoftBreaks = false;
   bool preserveBlankLines = false;
   bool admonitions = true;
+
+  bool operator==(const Md4cFlags &other) const {
+    return underline == other.underline && latexMath == other.latexMath && superscript == other.superscript &&
+           subscript == other.subscript && highlight == other.highlight &&
+           permissiveAutolinks == other.permissiveAutolinks && hardSoftBreaks == other.hardSoftBreaks &&
+           preserveBlankLines == other.preserveBlankLines && admonitions == other.admonitions;
+  }
 };
 
 class MD4CParser {

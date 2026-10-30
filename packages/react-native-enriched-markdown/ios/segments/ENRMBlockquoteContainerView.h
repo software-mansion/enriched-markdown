@@ -7,6 +7,7 @@
 @class MarkdownASTNode;
 @class ENRMAccessibilityLabels;
 @class ENRMCodeBlockWrapCursor;
+@class ENRMBlockSlotMeasurer;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -50,14 +51,18 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 // the per-text-segment pixel rounding matches the laid-out height. wrapCursor,
 // when given, says which code blocks the user wrapped and is shared down the
 // recursion so nested blocks keep counting in document order; wrapped ones lay
-// out at the inner width, as the views do.
+// out at the inner width, as the views do. slotMeasurer sizes the block slots a
+// React child stands in for and records their frames; origin is this quote's
+// top-left in the host's content box, so the frames come out absolute.
 + (CGFloat)measureHeightForBlockquoteNode:(MarkdownASTNode *)node
                                    config:(StyleConfig *)config
                                  maxWidth:(CGFloat)maxWidth
                          pointScaleFactor:(CGFloat)pointScaleFactor
                          allowFontScaling:(BOOL)allowFontScaling
                         lineBreakStrategy:(NSLineBreakStrategy)lineBreakStrategy
-                               wrapCursor:(nullable ENRMCodeBlockWrapCursor *)wrapCursor;
+                               wrapCursor:(nullable ENRMCodeBlockWrapCursor *)wrapCursor
+                             slotMeasurer:(nullable ENRMBlockSlotMeasurer *)slotMeasurer
+                                   origin:(CGPoint)origin;
 
 // Consumer text props threaded into the quote's inner content so it honors them
 // the same way the root document path does, instead of assuming defaults. Set by

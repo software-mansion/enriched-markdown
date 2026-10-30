@@ -9,10 +9,10 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewParent
 import android.widget.TextView
+import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
-import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.spans.SpoilerSpan
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import kotlin.math.abs
@@ -40,6 +40,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   var isLinkTouchActive: Boolean = false
     private set
   private var isTouchWithinTextBounds: Boolean = true
+  private var disallowsParentIntercept = false
 
   override fun onTouchEvent(
     widget: TextView,
@@ -85,6 +86,9 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         isLinkTouchActive = pressedLink != null || pressedImage != null || pressedCodeBlock != null || pressedTextOffset != null
         isTouchWithinTextBounds = charOffsetAt(widget, event) != null || pressedCodeBlock != null || pressedTextOffset != null
         pressedLink?.let { scheduleLongPress(widget, it) }
+        // Keeps RNGH Pressable and scrolling parents from stealing the press before ACTION_UP.
+        disallowsParentIntercept = isLinkTouchActive
+        if (isLinkTouchActive) widget.parent?.requestDisallowInterceptTouchEvent(true)
       }
 
       MotionEvent.ACTION_MOVE -> {
@@ -98,6 +102,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           pressedImage = null
           pressedCodeBlock = null
           pressedTextOffset = null
+          releaseParentIntercept(widget)
         }
       }
 
@@ -112,6 +117,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         pressedImage = null
         pressedCodeBlock = null
         pressedTextOffset = null
+        releaseParentIntercept(widget)
 
         if (handleSpoilerTap(widget, buffer, event)) {
           return true
@@ -148,6 +154,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         pressedImage = null
         pressedCodeBlock = null
         pressedTextOffset = null
+        releaseParentIntercept(widget)
       }
     }
 
@@ -167,6 +174,8 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     span: LinkSpan,
   ) {
     cancelLongPress()
+    // The view's own long-press races the runnable below; cancel it so only the link fires.
+    widget.cancelLongPress()
 
     longPressRunnable =
       Runnable {
@@ -184,6 +193,14 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private fun cancelLongPress() {
     longPressRunnable?.let(handler::removeCallbacks)
     longPressRunnable = null
+  }
+
+  // Undo only our own request: a long-press drag selection relies on the Editor's
+  // request staying in place until ACTION_UP, or a scrolling parent steals the drag.
+  private fun releaseParentIntercept(widget: TextView) {
+    if (!disallowsParentIntercept) return
+    disallowsParentIntercept = false
+    widget.parent?.requestDisallowInterceptTouchEvent(false)
   }
 
   private fun charOffsetAt(

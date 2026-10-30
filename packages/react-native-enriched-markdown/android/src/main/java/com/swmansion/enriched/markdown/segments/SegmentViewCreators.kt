@@ -209,7 +209,7 @@ object SegmentViewCreators {
     segment: RenderedSegment.Blockquote,
     config: SegmentViewConfig,
   ) = BlockquoteContainerView(config.context, config).apply {
-    applyBlockquoteNode(segment.node)
+    applyBlockquoteNode(segment.node, segment.taskIndexOffset)
   }
 
   private val cachedVideoContainerClass: Class<*>? by lazy {
@@ -255,5 +255,20 @@ object SegmentViewCreators {
     videoContainerClass()
       ?.getMethod("applyVideoNode", MarkdownASTNode::class.java)
       ?.invoke(view, segment.node)
+  }
+
+  fun createBlockSlotView(
+    segment: RenderedSegment.BlockSlot,
+    config: SegmentViewConfig,
+  ) = BlockSlotSegmentView(config.context, config.style, segment.slotId, segment.kind)
+
+  // A reused placeholder takes over the new slot's id, or the heights keyed by
+  // id never reach it and it reserves nothing.
+  fun updateBlockSlotView(
+    view: BlockSlotSegmentView,
+    segment: RenderedSegment.BlockSlot,
+  ) {
+    view.slotId = segment.slotId
+    view.kind = segment.kind
   }
 }

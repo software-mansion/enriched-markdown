@@ -17,6 +17,7 @@ import io.ratex.RaTeXFontLoader
 class MathInlineRenderer(
   private val config: RendererConfig,
   private val context: Context,
+  private val accessibilityLabel: MathAccessibilityLabel = MathAccessibilityLabel.Default,
 ) : NodeRenderer {
   // One renderer serves one render, so the style is resolved once rather than per equation.
   private val blockFontSize by lazy { config.style.mathStyle(context).fontSize }
@@ -52,6 +53,7 @@ class MathInlineRenderer(
         textColor = textColor,
         displayMode = node.type == MarkdownASTNode.NodeType.LatexMathDisplay,
         onPluginEvent = config.onPluginEvent,
+        accessibilityLabel = accessibilityLabel,
       )
     if (span == null) {
       renderSource(node, builder, onLinkPress, onLinkLongPress, factory)

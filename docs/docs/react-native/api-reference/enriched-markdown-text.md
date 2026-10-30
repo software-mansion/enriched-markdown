@@ -39,6 +39,8 @@ import StreamingAnimationSrc from '!!raw-loader!@site/src/examples/react-native/
 import StreamingConfigSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/StreamingConfig';
 import SpoilerOverlaySrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/SpoilerOverlay';
 import ImageRequestHeadersSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/ImageRequestHeaders';
+import RenderersSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Renderers';
+import ResolveImageSourceSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/ResolveImageSource';
 import ContextMenuItemsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/ContextMenuItems';
 import SelectionMenuConfigSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/SelectionMenuConfig';
 import AccessibilityLabelsSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/AccessibilityLabels';
@@ -289,14 +291,15 @@ When `true`, newly appended content fades in during streaming updates. Only the 
 
 ### `streamingConfig`
 
-Fine-grained control over how incomplete tables and fenced code blocks are handled while streaming. Two conditions must both hold for it to do anything: `streamingAnimation` must be `true`, **and** the flavor must be `github` - the filter runs only on the segmented renderer, so under `flavor="commonmark"` you get the tail fade and nothing else.
+Fine-grained control over how incomplete tables, fenced code blocks and media blocks are handled while streaming. Two conditions must both hold for it to do anything: `streamingAnimation` must be `true`, **and** the flavor must be `github` - the filter runs only on the segmented renderer, so under `flavor="commonmark"` you get the tail fade and nothing else.
 
-<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive' }" />
+<PropInfo type="StreamingConfig" default="{ tableMode: 'progressive', codeBlockMode: 'progressive', mediaMode: 'progressive' }" />
 
 ```ts
 interface StreamingConfig {
   tableMode?: 'hidden' | 'progressive';
   codeBlockMode?: 'hidden' | 'progressive';
+  mediaMode?: 'hidden' | 'progressive';
 }
 ```
 
@@ -308,6 +311,9 @@ interface StreamingConfig {
 - `codeBlockMode`
   - `'progressive'` **(default)** streams the code in with a visible but non-interactive header and defers syntax highlighting until the closing fence arrives.
   - `'hidden'` withholds the block until it is complete.
+- `mediaMode`
+  - `'progressive'` **(default)** shows a trailing image paragraph, link paragraph or `<video>` block as soon as its syntax is complete (the closing `)` or `>`); until then the partial line is withheld instead of rendering as text. A bare URL on its own line can always grow, so it is withheld until the next line arrives.
+  - `'hidden'` withholds the block until a blank line or another block follows it, like `tableMode: 'hidden'`, so it never appears before the content after it. Applies to native images and to blocks drawn by [`renderers`](#renderers) alike.
 
 An unterminated block-math (`$$`) block is also withheld until its closing `$$` arrives. That behavior is unconditional and has no key here.
 
@@ -333,6 +339,97 @@ HTTP headers attached to remote image requests, e.g. a `Referer` required by CDN
 <PropInfo type="Record<string, string>" />
 
 <LivePreview src={ImageRequestHeadersSrc} unavailable unavailableReason={<>Not supported on web - browsers don't allow custom headers on <code>&lt;img&gt;</code> requests.</>} />
+
+### `renderers`
+
+Functions that return React elements to stand in for whole blocks, keyed by kind. The guide [Custom block renderers](/react-native/guides/custom-block-renderers) explains layout, streaming and examples.
+
+- **Which blocks:** a paragraph that is only an image (`image`), a paragraph that is only a link, autolink or bare URL (`link`), and a `<video src="...">` block (`video`). The block must sit directly in the document, a blockquote or an admonition, not in a list. A list item that holds only a video is an exception: the parser [moves that video out of the list](/react-native/api-reference/element-structure#videos), so it is replaced in the list's container. Images and links elsewhere stay native.
+- **Return value:** an element replaces the block; `undefined` (or no return) keeps the native block. A renderer that throws, or returns text, keeps the native block and warns in development.
+- **Size:** the element needs an intrinsic height; the host sets the width. See [Sizing your element](/react-native/guides/custom-block-renderers#sizing-your-element).
+- **Calls:** once per block, and again only when that block or a renderer function changes. Keep the functions stable with `useCallback`. A renderer is a plain function, not a component, so keep hooks inside the component it returns.
+- **Presses:** the element handles its own. [`onImagePress`](#onimagepress), [`onLinkPress`](#onlinkpress), [`onLinkLongPress`](#onlinklongpress) and the [link menu](#linkcontextmenuitems) do not fire for a replaced block.
+- **Flavor:** `flavor="github"` only.
+
+<PropInfo type="MarkdownRenderers" />
+
+```ts
+interface MarkdownRenderers {
+  image?: (block: MarkdownImageBlock) => ReactElement | undefined;
+  video?: (block: MarkdownVideoBlock) => ReactElement | undefined;
+  link?: (block: MarkdownLinkBlock) => ReactElement | undefined;
+}
+
+// The container the block sits in. Inside a blockquote or an admonition the
+// block is narrower and indented.
+type MarkdownBlockPlacement = 'root' | 'blockquote' | 'admonition';
+
+interface MarkdownImageBlock {
+  kind: 'image';
+  id: string; // opaque, stable while the block is unchanged; safe as a React key
+  url: string;
+  altText: string; // "" when there is none
+  title: string; // "" when there is none
+  placement: MarkdownBlockPlacement;
+  occurrenceId: string; // this image's MarkdownImageOccurrence id (resolveImageSource)
+}
+
+interface MarkdownVideoBlock {
+  kind: 'video';
+  id: string;
+  url: string;
+  placement: MarkdownBlockPlacement;
+}
+
+interface MarkdownLinkBlock {
+  kind: 'link';
+  id: string;
+  url: string;
+  label: string; // the link text; "" for a bare URL or autolink
+  title: string; // the Markdown title, e.g. a MIME type or size; "" when there is none
+  placement: MarkdownBlockPlacement;
+}
+
+// Any of the three, for code that handles every kind.
+type MarkdownBlock = MarkdownImageBlock | MarkdownVideoBlock | MarkdownLinkBlock;
+```
+
+<LivePreview src={RenderersSrc} />
+
+### `resolveImageSource`
+
+Chooses the request made for an image instead of its Markdown URL, such as a signed URL or per-image headers. See [Signed and authenticated images](/react-native/guides/custom-block-renderers#signed-and-authenticated-images) for an example.
+
+- **Which images:** every image, including those in lists, tables, blockquotes and links.
+- **Return value:** a source, a promise of one, or `undefined` (or no return) to load the Markdown URL. Until it answers, and when a promise rejects or resolves to an empty `uri`, the image keeps its placeholder and the Markdown URL is not requested.
+- **Calls:** once per image while it stays in the document, after rendering, never during it. A streaming append only asks about new images; an edited image, or one whose placement changed, is asked about again and keeps its current source until the answer lands. Passing a new function does not resolve again, so an inline arrow is fine. Remount with a `key` to start over, for example after a token refresh.
+- **Headers:** merge over [`imageRequestHeaders`](#imagerequestheaders) (case-insensitive names) and take part in the [image cache identity](/react-native/guides/image-caching).
+- **Unchanged elsewhere:** events, copy actions and [`renderers`](#renderers) keep reporting the Markdown URL.
+- **Flavor:** `flavor="github"` only.
+
+<PropInfo type="(image: MarkdownImageOccurrence) => MarkdownImageSource | undefined | Promise<MarkdownImageSource | undefined>" />
+
+```ts
+interface MarkdownImageOccurrence {
+  id: string; // opaque, stable while the image is unchanged; never equal to a block id
+  url: string;
+  altText: string;
+  title: string;
+  placement: MarkdownImagePlacement;
+}
+
+// root, blockquote, admonition: an image paragraph (a block `renderers` can replace).
+// inline: inside running text. list: inside a list item. table: in a table cell.
+// link: the content of a link, as in [![thumb](a)](b).
+type MarkdownImagePlacement = MarkdownBlockPlacement | 'inline' | 'list' | 'table' | 'link';
+
+interface MarkdownImageSource {
+  uri: string;
+  headers?: Record<string, string>;
+}
+```
+
+<LivePreview src={ResolveImageSourceSrc} />
 
 ### `linkPillContent`
 
@@ -475,7 +572,7 @@ With `flavor="github"`, `selection.start` / `selection.end` in menu callbacks ar
 
 ### `accessibilityLabels`
 
-Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{latex}`) are substituted natively at speak time and must be preserved in translations. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
+Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{speech}`, `{latex}`) are substituted natively at speak time and must be preserved in translations; `{speech}` is the formula read in English. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
 
 <PropInfo type="AccessibilityLabels" />
 
@@ -495,7 +592,7 @@ interface AccessibilityLabels {
     row?: string; // {n} is the 1-based row index, {content} the joined cell text
   };
   math?: {
-    equation?: string; // {latex} is the equation source
+    equation?: string; // {speech} reads the formula in English, {latex} is its source
   };
   codeBlock?: {
     // the enableCodeBlockWrapToggle header button
@@ -595,7 +692,7 @@ See [RTL support](/user-experience/rtl) for the full behavior information.
 
 ### `dir` <WebBadge /> {#dir}
 
-Sets the text direction on the root container on web. The web renderers use CSS logical properties, so this flips blockquote borders, list indentation, and other directional layout automatically. It is the web counterpart to [`writingDirection`](#writingdirection) (iOS) - on iOS and Android it is a no-op, as those platforms resolve direction per paragraph.
+Text direction on web. Unset or `'auto'`, each block resolves its own direction from its content, as on native; `'ltr'` or `'rtl'` forces that direction on the whole document. See [RTL support](/user-experience/rtl) for how each element follows it. It is the web counterpart to [`writingDirection`](#writingdirection) (iOS) - on iOS and Android it is a no-op.
 
 <PropInfo type="'ltr' | 'rtl' | 'auto'" />
 

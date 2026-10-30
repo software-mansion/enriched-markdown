@@ -8,6 +8,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class ENRMCodeBlockWrapCursor;
+@class ENRMBlockSlotMeasurer;
 
 /**
  * View-free height summation for a vertical stack of already-rendered
@@ -25,13 +26,17 @@ NS_ASSUME_NONNULL_BEGIN
  * Per-kind margins come from the config exactly as computeSegmentLayout applies
  * them: marginTop before, marginBottom after unless it is the last segment and
  * trailing margins are disabled. Code blocks the user wrapped (wrapCursor,
- * shared with nested quotes) measure at contentWidth.
+ * shared with nested quotes) measure at contentWidth. Block slots take their
+ * height from slotMeasurer, which also records where each slot lands: origin is
+ * the content area's top-left in the host's content box, so nested quotes report
+ * absolute positions.
  */
 CGFloat ENRMMeasureSegmentsHeightViewFree(NSArray<ENRMRenderedSegment *> *segments, StyleConfig *config,
                                           CGFloat contentWidth, BOOL allowTrailingMargin, CGFloat pointScaleFactor,
                                           ENRMWritingDirectionMode writingDirectionMode,
                                           NSWritingDirection resolvedLayoutDirection, BOOL allowFontScaling,
                                           NSLineBreakStrategy lineBreakStrategy,
-                                          ENRMCodeBlockWrapCursor *_Nullable wrapCursor);
+                                          ENRMCodeBlockWrapCursor *_Nullable wrapCursor,
+                                          ENRMBlockSlotMeasurer *_Nullable slotMeasurer, CGPoint origin);
 
 NS_ASSUME_NONNULL_END

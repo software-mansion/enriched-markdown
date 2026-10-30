@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown.utils.text.span
 
 import android.text.SpannableStringBuilder
+import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LineHeightSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
@@ -11,9 +12,10 @@ fun createLineHeightSpan(lineHeight: Float): AndroidLineHeightSpan = LineHeightS
 
 /**
  * Applies [LineHeightSpan] to [start]..[end] but skips ranges occupied by
- * block [ImageSpan]s (and their trailing '\n'). Without this, the fixed line
- * height would re-clamp the metrics that [ImageSpan.chooseHeight] expanded,
- * causing the image to overflow downward and overlap subsequent content.
+ * block [ImageSpan]s and [CodeBlockSpan]s (and their trailing '\n'). Without
+ * this, the fixed line height would re-clamp the metrics that
+ * [ImageSpan.chooseHeight] expanded, causing the image to overflow downward and
+ * overlap subsequent content, and override a code block's own line metrics.
  */
 fun applyLineHeightSkippingImages(
   builder: SpannableStringBuilder,
@@ -26,19 +28,25 @@ fun applyLineHeightSkippingImages(
       .getSpans(start, end, ImageSpan::class.java)
       .filter { !it.isInline }
       .map { builder.getSpanStart(it) to builder.getSpanEnd(it) }
-      .sortedBy { it.first }
+
+  val codeBlockRanges =
+    builder
+      .getSpans(start, end, CodeBlockSpan::class.java)
+      .map { builder.getSpanStart(it) to builder.getSpanEnd(it) }
+
+  val excludedRanges = (blockImageRanges + codeBlockRanges).sortedBy { it.first }
 
   var pos = start
-  for ((imgStart, imgEnd) in blockImageRanges) {
-    if (pos < imgStart) {
+  for ((exStart, exEnd) in excludedRanges) {
+    if (pos < exStart) {
       builder.setSpan(
         createLineHeightSpan(lineHeight),
         pos,
-        imgStart,
+        exStart,
         SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
       )
     }
-    val skipEnd = if (imgEnd < end && builder[imgEnd] == '\n') imgEnd + 1 else imgEnd
+    val skipEnd = if (exEnd < end && builder[exEnd] == '\n') exEnd + 1 else exEnd
     pos = maxOf(pos, skipEnd)
   }
   if (pos < end) {

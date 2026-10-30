@@ -21,6 +21,9 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 @implementation LinkPillConfig
 @end
 
+@implementation ENRMImageSourceOverride
+@end
+
 @implementation LinkPillContent
 @end
 
@@ -151,6 +154,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   CGFloat _imageMarginTop;
   CGFloat _imageMarginBottom;
   NSDictionary<NSString *, NSString *> *_imageRequestHeaders;
+  NSDictionary<NSString *, ENRMImageSourceOverride *> *_imageSourceOverrides;
   NSDictionary<NSString *, LinkPillContent *> *_linkPillContent;
   // Video properties
   CGFloat _videoMarginTop;
@@ -453,6 +457,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_imageMarginTop = _imageMarginTop;
   copy->_imageMarginBottom = _imageMarginBottom;
   copy->_imageRequestHeaders = [_imageRequestHeaders copy];
+  copy->_imageSourceOverrides = [_imageSourceOverrides copy];
   copy->_linkPillContent = [_linkPillContent copy];
   copy->_videoMarginTop = _videoMarginTop;
   copy->_videoMarginBottom = _videoMarginBottom;
@@ -1631,6 +1636,16 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (void)setImageRequestHeaders:(NSDictionary<NSString *, NSString *> *)newValue
 {
   _imageRequestHeaders = [newValue copy];
+}
+
+- (NSDictionary<NSString *, ENRMImageSourceOverride *> *)imageSourceOverrides
+{
+  return _imageSourceOverrides;
+}
+
+- (void)setImageSourceOverrides:(NSDictionary<NSString *, ENRMImageSourceOverride *> *)newValue
+{
+  _imageSourceOverrides = [newValue copy];
 }
 
 - (NSDictionary<NSString *, LinkPillContent *> *)linkPillContent

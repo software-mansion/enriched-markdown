@@ -1,6 +1,7 @@
 #include "JavaTypes.h"
 
 #include "CodeBlockLanguages.hpp"
+#include "LatexSpeech.hpp"
 #include "MD4CParser.hpp"
 
 #include <android/log.h>
@@ -140,11 +141,22 @@ void JCodeBlockLanguages::registerNatives() {
   });
 }
 
+local_ref<JString> JLatexSpeech::nativeSpokenForm(alias_ref<JClass> /* clazz */, alias_ref<JString> latex) {
+  return make_jstring(spokenLatex(latex ? latex->toStdString() : std::string()));
+}
+
+void JLatexSpeech::registerNatives() {
+  javaClassStatic()->registerNatives({
+      makeNativeMethod("nativeSpokenForm", JLatexSpeech::nativeSpokenForm),
+  });
+}
+
 } // namespace enriched::jni
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *) {
   return facebook::jni::initialize(vm, [] {
     enriched::jni::JParser::registerNatives();
     enriched::jni::JCodeBlockLanguages::registerNatives();
+    enriched::jni::JLatexSpeech::registerNatives();
   });
 }

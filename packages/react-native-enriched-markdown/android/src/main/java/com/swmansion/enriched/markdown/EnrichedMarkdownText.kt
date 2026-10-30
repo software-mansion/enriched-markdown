@@ -37,19 +37,18 @@ import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
 import com.swmansion.enriched.markdown.utils.text.view.CodeBlockPressHost
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
-import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
 import com.swmansion.enriched.markdown.utils.text.view.applySelectableState
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForCheckboxTap
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForLinkTap
 import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionModeCallback
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
-import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
-import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
+import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
 import kotlin.math.ceil
@@ -637,10 +636,7 @@ class EnrichedMarkdownText
         return true
       }
       val result = super.onTouchEvent(event)
-      when (event.action) {
-        MotionEvent.ACTION_DOWN -> cancelJSTouchForLinkTap(event)
-        else -> reallowParentInterceptIfLinkReleased()
-      }
+      if (event.action == MotionEvent.ACTION_DOWN) cancelJSTouchForLinkTap(event)
       return result
     }
 

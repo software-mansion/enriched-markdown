@@ -6,6 +6,9 @@ on:
   pull_request:
     branches:
       - main
+      # The block renderers stack (#1026 → #1027 → #1028): its upper PRs target
+      # these branches until the one below merges. Drop once the stack is in.
+      - 'feat/block-renderers-*'
   merge_group:
     types:
       - checks_requested
@@ -21,6 +24,7 @@ jobs:
       react-native: ${{ steps.filter.outputs.react-native }}
       android: ${{ steps.filter.outputs.android }}
       ios: ${{ steps.filter.outputs.ios }}
+      core: ${{ steps.filter.outputs.core }}
       core-cpp: ${{ steps.filter.outputs.core-cpp }}
     steps:
       - name: Checkout
@@ -33,10 +37,15 @@ jobs:
         id: filter
         with:
           filters: |
+            core:
+              - 'packages/core/**'
+              - 'package.json'
+              - '.github/**'
             react-native:
               - 'packages/react-native-enriched-markdown/**'
               - 'packages/core/**'
               - 'apps/react-native-example/**'
+              - 'apps/react-native-web-example/**'
               - 'package.json'
               - 'yarn.lock'
               - '.nvmrc'
@@ -98,6 +107,35 @@ jobs:
       - name: Check formatting
         run: yarn lint-clang:core-parser
 
+  core-tests:
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - build_type: RelWithDebInfo
+            sanitize: ''
+          - build_type: Debug
+            sanitize: ''
+          - build_type: Debug
+            sanitize: address,undefined
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Lint C++ core formatting
+        if: matrix.build_type == 'RelWithDebInfo'
+        run: yarn workspace @enriched-markdown/core lint-clang
+
+      - name: Build and run C++ core tests (${{ matrix.build_type }}${{ matrix.sanitize && ', sanitized' || '' }})
+        env:
+          CORE_CMAKE_ARGS: -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCORE_SANITIZE=${{ matrix.sanitize }}
+        run: yarn core:test
+
   rn-lint:
     needs: changes
     if: needs.changes.outputs.react-native == 'true'
@@ -114,6 +152,11 @@ jobs:
 
       - name: Typecheck files
         run: yarn typecheck
+
+      # The web example resolves the library's `.web` files (moduleSuffixes),
+      # which the library's own typecheck never sees.
+      - name: Typecheck the web example
+        run: yarn workspace react-native-enriched-markdown-web-example typecheck
 
       - name: Run unit tests
         run: yarn test
@@ -694,6 +737,7 @@ jobs:
     needs:
       - changes
       - core-parser
+      - core-tests
       - rn-lint
       - rn-build-library
       - rn-build-android
@@ -716,6 +760,8 @@ jobs:
           IOS: ${{ needs.changes.outputs.ios }}
           CORE_CPP: ${{ needs.changes.outputs.core-cpp }}
           CORE_PARSER: ${{ needs.core-parser.result }}
+          CORE: ${{ needs.changes.outputs.core }}
+          CORE_TESTS: ${{ needs.core-tests.result }}
           RN_LINT: ${{ needs.rn-lint.result }}
           RN_BUILD_LIBRARY: ${{ needs.rn-build-library.result }}
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
@@ -746,12 +792,13 @@ jobs:
             fi
           }
 
-          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" && "$CORE_CPP" != "true" ]]; then
+          if [[ "$REACT_NATIVE" != "true" && "$ANDROID" != "true" && "$IOS" != "true" && "$CORE_CPP" != "true" && "$CORE" != "true" ]]; then
             echo "No relevant changes detected - CI passed"
             exit 0
           fi
 
           check_required "$CORE_CPP" "$CORE_PARSER" "core-parser"
+          check_required "$CORE" "$CORE_TESTS" "core-tests"
           check_required "$REACT_NATIVE" "$RN_LINT" "rn-lint"
           check_required "$REACT_NATIVE" "$RN_BUILD_LIBRARY" "rn-build-library"
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"

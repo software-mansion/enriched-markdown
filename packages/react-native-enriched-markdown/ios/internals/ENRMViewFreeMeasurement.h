@@ -1,5 +1,7 @@
 #pragma once
 
+#import "ENRMBlockSlotMeasurer.h"
+#import "ENRMBlockSlotSegmentView.h"
 #import "ENRMBlockquoteContainerView.h"
 #import "ENRMCodeBlockContainerView.h"
 #import "ENRMCodeBlockWrapState.h"
@@ -8,9 +10,11 @@
 #import "ENRMMarkdownParser.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
+#import "ENRMUTF8.h"
 #import "ImageRequestHeaderUtils.h"
 #import "LinkPillContentUtils.h"
 #import "MarkdownASTNode.h"
+#import "MeasurementCache.h"
 #import "ParagraphStyleUtils.h"
 #import "RenderedMarkdownSegment.h"
 #import "SegmentRenderer.h"
@@ -117,6 +121,9 @@ static inline StyleConfig *ENRMStyleConfigFromProps(const PropsT &typedProps, CG
   [config setMaxFontSizeMultiplier:typedProps.maxFontSizeMultiplier];
   [config setImageRequestHeaders:ENRMImageRequestHeadersFromProps(typedProps.imageRequestHeaders)];
   [config setLinkPillContent:ENRMLinkPillContentFromProps(typedProps.linkPillContent)];
+  if constexpr (facebook::react::ENRMHasImageSources<PropsT>::value) {
+    [config setImageSourceOverrides:ENRMImageSourceOverridesFromProps(typedProps.imageSources)];
+  }
   return config;
 }
 
@@ -178,7 +185,7 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
       return fallback;
     }
 
-    NSString *markdown = [[NSString alloc] initWithUTF8String:typedProps.markdown.c_str()];
+    NSString *markdown = ENRMStringFromUTF8(typedProps.markdown);
     StyleConfig *config = ENRMStyleConfigFromProps(typedProps, fontScale);
 
     ENRMMd4cFlags *flags = ENRMMd4cFlagsFromProps(typedProps.md4cFlags);
@@ -235,13 +242,16 @@ static inline CGSize ENRMMeasureMarkdownViewFree(const PropsT &typedProps, CGFlo
  * `wrappedCodeBlocks` holds the document-order indexes, counted across nesting,
  * of the code blocks the user wrapped (EnrichedMarkdown.wrappedCodeBlockIndices);
  * those measure at the block width (a quote's inner width when nested) instead
- * of their unwrapped height.
+ * of their unwrapped height. `slotMeasurer`, when given, names the block slots
+ * whose React children are mounted (the parse stamps them), sizes each one and
+ * records its frame in the content box for the shadow node to place it.
  */
 template <typename PropsT>
 static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedProps, CGFloat maxWidth, CGFloat fontScale,
                                                           CGFloat pointScaleFactor,
                                                           NSWritingDirection resolvedLayoutDirection,
-                                                          NSSet<NSNumber *> *wrappedCodeBlocks = nil)
+                                                          NSSet<NSNumber *> *wrappedCodeBlocks = nil,
+                                                          ENRMBlockSlotMeasurer *slotMeasurer = nil)
 {
   @autoreleasepool {
     CGSize fallback = CGSizeMake(maxWidth, UIFontLineHeight([UIFont systemFontOfSize:16.0]));
@@ -249,7 +259,7 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
       return fallback;
     }
 
-    NSString *markdown = [[NSString alloc] initWithUTF8String:typedProps.markdown.c_str()];
+    NSString *markdown = ENRMStringFromUTF8(typedProps.markdown);
 
     if (typedProps.streamingAnimation) {
       NSString *tableModeStr = [[NSString alloc] initWithUTF8String:typedProps.streamingConfig.tableMode.c_str()];
@@ -260,7 +270,11 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
       ENRMCodeBlockStreamingMode codeBlockStreamingMode = [codeBlockModeStr isEqualToString:@"hidden"]
                                                               ? ENRMCodeBlockStreamingModeHidden
                                                               : ENRMCodeBlockStreamingModeProgressive;
-      markdown = ENRMRenderableMarkdownForStreaming(markdown, tableStreamingMode, codeBlockStreamingMode, NULL);
+      NSString *mediaModeStr = [[NSString alloc] initWithUTF8String:typedProps.streamingConfig.mediaMode.c_str()];
+      ENRMMediaStreamingMode mediaStreamingMode =
+          [mediaModeStr isEqualToString:@"hidden"] ? ENRMMediaStreamingModeHidden : ENRMMediaStreamingModeProgressive;
+      markdown = ENRMRenderableMarkdownForStreaming(markdown, tableStreamingMode, codeBlockStreamingMode,
+                                                    mediaStreamingMode, NULL);
       if (markdown.length == 0) {
         return fallback;
       }
@@ -274,7 +288,9 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
                                            flags:flags
                                            isGFM:typedProps.isGFM
                                        linkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.text)
-                             inlineCodeLinkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.inlineCode)];
+                             inlineCodeLinkRegex:ENRMLinkRegexConfigFromProps(typedProps.linkRecognition.inlineCode)
+                              activeBlockSlotIds:slotMeasurer.slotIds
+                                  annotateImages:config.imageSourceOverrides.count > 0];
     if (!ast) {
       return fallback;
     }
@@ -345,10 +361,20 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
                                                               pointScaleFactor:pointScaleFactor
                                                               allowFontScaling:typedProps.allowFontScaling
                                                              lineBreakStrategy:lineBreakStrategy
-                                                                    wrapCursor:wrapCursor];
+                                                                    wrapCursor:wrapCursor
+                                                                  slotMeasurer:slotMeasurer
+                                                                        origin:CGPointMake(0, yOffset)];
         maxContentWidth = maxWidth;
         if (shouldAddBottomMargin) {
           yOffset += config.blockquoteMarginBottom;
+        }
+      } else if (segment.kind == ENRMSegmentKindBlockSlot && segment.blockSlotSegment) {
+        ENRMBlockSlotSegment *slot = segment.blockSlotSegment;
+        yOffset += ENRMBlockSlotMarginTop(slot.kind, config);
+        yOffset += [slotMeasurer heightForSlot:slot.slotId width:maxWidth origin:CGPointMake(0, yOffset)];
+        maxContentWidth = maxWidth;
+        if (shouldAddBottomMargin) {
+          yOffset += ENRMBlockSlotMarginBottom(slot.kind, config);
         }
       }
 #if ENRICHED_MARKDOWN_MATH

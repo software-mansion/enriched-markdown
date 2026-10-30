@@ -12,11 +12,11 @@ export default function App() {
     <EnrichedMarkdownText
       markdown={markdown}
       // Translates the strings VoiceOver / TalkBack speak. Placeholders like
-      // {n} and {latex} are substituted natively and must be kept.
+      // {n}, {speech} and {latex} are substituted natively and must be kept.
       accessibilityLabels={{
         list: { bulletPoint: 'Punkt', orderedItem: 'Element {n}' },
         blockquote: { quote: 'Zitat' },
-        math: { equation: 'Formel: {latex}' },
+        math: { equation: 'Formel: {speech}' },
       }}
     />
   );

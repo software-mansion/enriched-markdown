@@ -52,6 +52,9 @@ class Renderer {
    * content as e.g. blockquote text without this class knowing anything
    * block-specific. See [BlockquoteTextRenderer].
    *
+   * Task-list items are numbered from [startingTaskIndex], so a caller rendering a
+   * document in several passes keeps their indices document-global.
+   *
    * The builder is returned as-is rather than frozen into a `SpannableString`:
    * the markdown text view adopts it verbatim (see `NoCopySpannableFactory`),
    * and converting it would cost a quadratic span copy for no benefit. Each call
@@ -62,6 +65,7 @@ class Renderer {
     onLinkPress: ((String) -> Unit)? = null,
     onLinkLongPress: ((String) -> Unit)? = null,
     block: BlockquoteTextRenderer? = null,
+    startingTaskIndex: Int = 0,
   ): SpannableStringBuilder {
     val factory =
       requireNotNull(cachedFactory) {
@@ -69,6 +73,8 @@ class Renderer {
       }
 
     factory.resetForNewRender()
+    // Must run after resetForNewRender, which zeroes taskItemCount.
+    factory.blockStyleContext.taskItemCount = startingTaskIndex
     collectedImageSpans.clear()
     lastElementMarginBottom = 0f
 
@@ -87,6 +93,9 @@ class Renderer {
 
     return builder
   }
+
+  /** Task-list items rendered by the last [renderContent], continuing from its `startingTaskIndex`. */
+  fun getTaskItemCount(): Int = cachedFactory?.blockStyleContext?.taskItemCount ?: 0
 
   /** Removes trailing newlines and captures the margin of the final element. */
   private fun removeTrailingMargin(builder: SpannableStringBuilder) {
