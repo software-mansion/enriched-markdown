@@ -171,4 +171,17 @@ class ListItemReturnTest {
 
     assertEquals("- apples\n- cherries\n- **bananas**", markdown())
   }
+
+  @Test
+  fun keepsAFollowingNestedItemNestedOnReturnAtTheEndOfANestedItem() {
+    view.toggleUnorderedList()
+    type("apples\nbananas")
+    view.indentList()
+    type("\ncherries")
+
+    view.setSelection(view.text.toString().indexOf("bananas") + "bananas".length)
+    type("\n")
+
+    assertEquals(listOf(0, 1, 1, 1), view.blockStore.allRanges.map { it.level })
+  }
 }

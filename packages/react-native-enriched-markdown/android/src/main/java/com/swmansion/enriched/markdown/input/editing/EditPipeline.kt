@@ -152,7 +152,7 @@ class EditPipeline(
     if (!handler.continuesOnNewline) return null
     // An Enter at or before the item's content grew the item over the inserted
     // newline; clip it back to its own line before reading or changing blocks.
-    blockStore.normalizeToLineBounds(editable)
+    blockStore.clipToLine(prevLineStart, editable)
 
     val newLineStart = (context.editStart + context.insertedLength).coerceAtMost(editable.length)
     var newLineEnd = newLineStart
