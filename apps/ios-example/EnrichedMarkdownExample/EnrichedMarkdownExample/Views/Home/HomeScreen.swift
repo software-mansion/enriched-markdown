@@ -38,6 +38,13 @@ private let menuItems: [HomeMenuItem] = [
         accessibilityId: "home-block-code"
     ),
     HomeMenuItem(
+        route: .links,
+        label: "Links",
+        subtext: "mention chips and link styling",
+        color: .tileTeal,
+        accessibilityId: "home-block-links"
+    ),
+    HomeMenuItem(
         route: .input,
         label: "Input",
         subtext: "chat-style rich text input",
