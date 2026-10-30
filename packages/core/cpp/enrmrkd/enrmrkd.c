@@ -4769,6 +4769,8 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, ENRMRKD_SIZE n_lines)
                 case '\\':      /* Backslash escape. */
                     if(ISNEWLINE(mark->beg+1))
                         enforce_hardbreak = 1;
+                    else if((ctx->parser.flags & ENRMRKD_FLAG_ESCAPEDTEXT)  &&  text_type == ENRMRKD_TEXT_NORMAL)
+                        ENRMRKD_TEXT(ENRMRKD_TEXT_ESCAPED, STR(mark->beg+1), 1);
                     else
                         ENRMRKD_TEXT(text_type, STR(mark->beg+1), 1);
                     break;

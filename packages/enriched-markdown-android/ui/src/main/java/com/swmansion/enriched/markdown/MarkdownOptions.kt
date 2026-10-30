@@ -21,6 +21,8 @@ data class MarkdownOptions(
   val hardSoftBreaks: Boolean = false,
   /** Each blank line renders as an empty line instead of collapsing into one paragraph break. */
   val preserveBlankLines: Boolean = false,
+  /** Backslashes separating a Windows drive path (`C:\\Users\\me\\.config`) stay instead of acting as escapes. */
+  val preserveWindowsPaths: Boolean = false,
   /** `> [!NOTE]` and the other GitHub alert blockquotes render as admonitions. */
   val admonitions: Boolean = false,
 ) {
@@ -35,6 +37,7 @@ data class MarkdownOptions(
       permissiveAutolinks = permissiveAutolinks,
       hardSoftBreaks = hardSoftBreaks,
       preserveBlankLines = preserveBlankLines,
+      preserveWindowsPaths = preserveWindowsPaths,
       admonitions = admonitions,
     )
 

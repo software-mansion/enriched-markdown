@@ -415,6 +415,7 @@ object MeasurementStore {
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
         hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
         preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
+        preserveWindowsPaths = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveWindowsPaths", false),
         admonitions = props.getMapOrNull("md4cFlags").getBooleanOrDefault("admonitions", true),
       )
     val isGFM = props.getBooleanOrDefault("isGFM", false)
@@ -550,6 +551,7 @@ object MeasurementStore {
         highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
         hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
         preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
+        preserveWindowsPaths = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveWindowsPaths", false),
         admonitions = props.getMapOrNull("md4cFlags").getBooleanOrDefault("admonitions", true),
       )
     val isGFM = props.getBooleanOrDefault("isGFM", true)

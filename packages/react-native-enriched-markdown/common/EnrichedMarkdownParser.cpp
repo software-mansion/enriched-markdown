@@ -22,6 +22,7 @@ Markdown::Md4cFlags toCoreFlags(const EnrichedMarkdownParserMd4cFlags &flags) {
   core.highlight = flags.highlight;
   core.hardSoftBreaks = flags.hardSoftBreaks;
   core.preserveBlankLines = flags.preserveBlankLines;
+  core.preserveWindowsPaths = flags.preserveWindowsPaths;
   core.admonitions = flags.admonitions;
   return core;
 }

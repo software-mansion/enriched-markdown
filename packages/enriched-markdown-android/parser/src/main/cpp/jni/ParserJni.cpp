@@ -76,6 +76,7 @@ Md4cFlags JMd4cFlags::toCppFlags() const {
   static const auto permissiveAutolinksField = javaClassStatic()->getField<jboolean>("permissiveAutolinks");
   static const auto hardSoftBreaksField = javaClassStatic()->getField<jboolean>("hardSoftBreaks");
   static const auto preserveBlankLinesField = javaClassStatic()->getField<jboolean>("preserveBlankLines");
+  static const auto preserveWindowsPathsField = javaClassStatic()->getField<jboolean>("preserveWindowsPaths");
   static const auto admonitionsField = javaClassStatic()->getField<jboolean>("admonitions");
 
   Md4cFlags flags;
@@ -87,6 +88,7 @@ Md4cFlags JMd4cFlags::toCppFlags() const {
   flags.permissiveAutolinks = getFieldValue(permissiveAutolinksField) == JNI_TRUE;
   flags.hardSoftBreaks = getFieldValue(hardSoftBreaksField) == JNI_TRUE;
   flags.preserveBlankLines = getFieldValue(preserveBlankLinesField) == JNI_TRUE;
+  flags.preserveWindowsPaths = getFieldValue(preserveWindowsPathsField) == JNI_TRUE;
   flags.admonitions = getFieldValue(admonitionsField) == JNI_TRUE;
   return flags;
 }

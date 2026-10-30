@@ -1,11 +1,13 @@
 #include "MD4CParser.hpp"
 #include "enrmrkd.h"
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 extern "C" {
 #include "enrmrkd-entity.h"
 }
 #include <cstring>
+#include <string_view>
 #include <vector>
 
 namespace Markdown {
@@ -71,6 +73,48 @@ void appendCharacterReference(std::string &output, const char *text, size_t size
   appendCodepoint(output, codepoint);
 }
 
+bool isPathWhitespace(const std::string &text, size_t at) {
+  const auto c = static_cast<unsigned char>(text[at]);
+  if (c < 128)
+    return c == ' ' || (c >= '\t' && c <= '\r');
+  if (c != 0xC2 && c != 0xE1 && c != 0xE2 && c != 0xE3 && c != 0xEF)
+    return false;
+  // Match JavaScript's \s, including non-ASCII spaces in decoded prose.
+  static const std::string_view spaces[] = {"\u00a0", "\u1680", "\u2000", "\u2001", "\u2002", "\u2003", "\u2004",
+                                            "\u2005", "\u2006", "\u2007", "\u2008", "\u2009", "\u200a", "\u2028",
+                                            "\u2029", "\u202f", "\u205f", "\u3000", "\ufeff"};
+  for (const auto space : spaces)
+    if (text.compare(at, space.size(), space) == 0)
+      return true;
+  return false;
+}
+
+bool isDriveLetter(unsigned char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+bool isWordCharacter(unsigned char c) {
+  return isDriveLetter(c) || (c >= '0' && c <= '9') || c == '_';
+}
+
+// A drive path can run through formatting, as in `C:/Users/**me**\.config`.
+bool carriesWindowsPath(NodeType type) {
+  switch (type) {
+    case NodeType::Strong:
+    case NodeType::Emphasis:
+    case NodeType::Underline:
+    case NodeType::Strikethrough:
+    case NodeType::Spoiler:
+    case NodeType::Superscript:
+    case NodeType::Subscript:
+    case NodeType::Highlight:
+    case NodeType::Link:
+      return true;
+    default:
+      return false;
+  }
+}
+
 struct HtmlTag {
   std::string name;
   std::unordered_map<std::string, std::string> attributes;
@@ -84,6 +128,11 @@ public:
   std::shared_ptr<MarkdownASTNode> root;
   std::vector<std::shared_ptr<MarkdownASTNode>> nodeStack;
   std::string currentText;
+  bool trackWindowsPaths = false;
+  size_t pathScanned = 0;
+  bool inWindowsPath = false;
+  // The last three bytes scanned, newest first; 0 before any.
+  unsigned char pathTail[3] = {0, 0, 0};
   const char *inputText = nullptr;
   bool inHtmlBlock = false;
   std::string htmlBlockContent;
@@ -108,12 +157,16 @@ public:
     nodeStack.reserve(std::min(estimatedDepth, static_cast<size_t>(128)));
     nodeStack.push_back(root);
     currentText.clear();
+    resetWindowsPath();
     currentText.reserve(256);
     inHtmlBlock = false;
     htmlBlockContent.clear();
   }
 
   void flushText() {
+    if (trackWindowsPaths)
+      scanWindowsPath();
+    pathScanned = 0;
     if (!currentText.empty() && !nodeStack.empty()) {
       auto textNode = std::make_shared<MarkdownASTNode>(NodeType::Text);
       textNode->content = std::move(currentText);
@@ -122,8 +175,40 @@ public:
     }
   }
 
+  void resetWindowsPath() {
+    pathScanned = 0;
+    inWindowsPath = false;
+    pathTail[0] = pathTail[1] = pathTail[2] = 0;
+  }
+
+  // Inspects only text appended since the last scan, so many escapes cannot rescan a paragraph.
+  void scanWindowsPath() {
+    for (; pathScanned < currentText.size(); ++pathScanned) {
+      const auto c = static_cast<unsigned char>(currentText[pathScanned]);
+      if (isPathWhitespace(currentText, pathScanned)) {
+        inWindowsPath = false;
+      } else if (!inWindowsPath && (c == '/' || c == '\\') && endsInDrive()) {
+        inWindowsPath = true;
+      }
+      pathTail[2] = pathTail[1];
+      pathTail[1] = pathTail[0];
+      pathTail[0] = c;
+    }
+  }
+
+  bool endsInDrive() const {
+    return pathTail[0] == ':' && isDriveLetter(pathTail[1]) && !isWordCharacter(pathTail[2]);
+  }
+
+  bool endsInWindowsPath() {
+    scanWindowsPath();
+    return inWindowsPath || endsInDrive();
+  }
+
   void pushNode(std::shared_ptr<MarkdownASTNode> node) {
     flushText();
+    if (!node || !carriesWindowsPath(node->type))
+      resetWindowsPath();
     if (node && !nodeStack.empty()) {
       nodeStack.back()->addChild(node);
       nodeStack.push_back(std::move(node));
@@ -132,6 +217,8 @@ public:
 
   void popNode() {
     flushText();
+    if (nodeStack.empty() || !carriesWindowsPath(nodeStack.back()->type))
+      resetWindowsPath();
     if (nodeStack.size() > 1) {
       nodeStack.pop_back();
     }
@@ -139,6 +226,7 @@ public:
 
   void addInlineNode(std::shared_ptr<MarkdownASTNode> node) {
     flushText();
+    resetWindowsPath();
     if (node && !nodeStack.empty()) {
       nodeStack.back()->addChild(node);
     }
@@ -510,6 +598,15 @@ public:
 
     if (type == ENRMRKD_TEXT_ENTITY) {
       appendCharacterReference(impl->currentText, text, size);
+      return 0;
+    }
+
+    if (type == ENRMRKD_TEXT_ESCAPED) {
+      const bool inImage = std::any_of(impl->nodeStack.begin(), impl->nodeStack.end(),
+                                       [](const auto &node) { return node->type == NodeType::Image; });
+      if (!inImage && impl->endsInWindowsPath())
+        impl->currentText += '\\';
+      impl->currentText.append(text, size);
       return 0;
     }
 
@@ -903,6 +1000,7 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
 
   impl_->reset(estimatedDepth);
   impl_->inputText = markdown.c_str();
+  impl_->trackWindowsPaths = md4cFlags.preserveWindowsPaths;
 
   unsigned flags = ENRMRKD_FLAG_NOHTMLSPANS | ENRMRKD_FLAG_SPOILERS;
   if (isGFM) {
@@ -934,6 +1032,9 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   }
   if (md4cFlags.admonitions) {
     flags |= ENRMRKD_FLAG_ADMONITIONS;
+  }
+  if (md4cFlags.preserveWindowsPaths) {
+    flags |= ENRMRKD_FLAG_ESCAPEDTEXT;
   }
 
   // Configure MD4C parser with callbacks

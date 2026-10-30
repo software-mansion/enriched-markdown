@@ -279,7 +279,7 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - [`renderers`](/react-native/guides/custom-block-renderers) - React replacements for standalone images, standalone links and `<video>` blocks, with the same block ids and placements as native; the element replaces the block in the DOM and keeps its spacing
 - `resolveImageSource` - swaps the `src` of every image occurrence, synchronously or from a promise; headers are dropped because `<img>` requests cannot carry them, and a pending or failed resolution renders the image without a source
 - `enableTaskListItemToggle` - set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and made pointer-inert rather than `disabled`, matching iOS and Android
-- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`)
+- `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `preserveWindowsPaths`, `admonitions`)
 - GitHub admonitions (`> [!NOTE]`) - rendered as callouts with the same icon set and `blockquote.admonitions` palette as native. There is no `flavor` prop on web, so they are always on unless `md4cFlags={{ admonitions: false }}`
 - [RTL and mixed-direction (bidi) content](/user-experience/rtl), resolved per block as on native
 - Arbitrary DOM attributes, which pass through to the root `<div>`

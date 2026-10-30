@@ -117,6 +117,7 @@ data class MarkdownOptions(
   val permissiveAutolinks: Boolean = true,
   val hardSoftBreaks: Boolean = false,
   val preserveBlankLines: Boolean = false,
+  val preserveWindowsPaths: Boolean = false,
   val admonitions: Boolean = false,
 ) {
   companion object {
@@ -188,6 +189,12 @@ Treats a single newline as a hard line break, so lines inside one paragraph keep
 #### `preserveBlankLines`
 
 Keeps consecutive blank lines instead of collapsing them, so vertical whitespace in the source survives into the output.
+
+<PropInfo type="Boolean" default="false" />
+
+#### `preserveWindowsPaths`
+
+When `true`, a backslash that separates a Windows drive path stays in the text instead of acting as an escape, so `C:\Users\me\.config` keeps every separator. CommonMark would render it as `C:\Users\me.config`. Escapes outside such a path, code spans, and link destinations are unchanged.
 
 <PropInfo type="Boolean" default="false" />
 

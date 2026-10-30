@@ -9,6 +9,7 @@ export interface NativeMd4cFlags {
   highlight: boolean;
   hardSoftBreaks: boolean;
   preserveBlankLines: boolean;
+  preserveWindowsPaths: boolean;
   admonitions: boolean;
 }
 

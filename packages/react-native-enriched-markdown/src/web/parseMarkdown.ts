@@ -11,7 +11,8 @@ type ParseFn = (
   hardSoftBreaks: number,
   preserveBlankLines: number,
   admonitions: number,
-  permissiveAutolinks: number
+  permissiveAutolinks: number,
+  preserveWindowsPaths: number
 ) => string;
 
 /**
@@ -99,6 +100,7 @@ export async function parseMarkdown(
     highlight = false,
     hardSoftBreaks = false,
     preserveBlankLines = false,
+    preserveWindowsPaths = false,
     admonitions = true,
     permissiveAutolinks = true,
   }: WebMd4cFlags = {}
@@ -116,7 +118,8 @@ export async function parseMarkdown(
       hardSoftBreaks ? 1 : 0,
       preserveBlankLines ? 1 : 0,
       admonitions ? 1 : 0,
-      permissiveAutolinks ? 1 : 0
+      permissiveAutolinks ? 1 : 0,
+      preserveWindowsPaths ? 1 : 0
     )
   );
 

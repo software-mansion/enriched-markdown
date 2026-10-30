@@ -131,7 +131,7 @@ Markdown flavor. `'commonmark'` (default) renders the whole document as a single
 
 Toggles for md4c's parser extensions; each opts a piece of extra inline syntax in or out. Pass only the flags you want to change; the rest keep their defaults below. Where a flag enables a new inline element, tune its appearance through the matching [style property](/react-native/api-reference/style-properties).
 
-<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }" />
+<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, preserveWindowsPaths: false, admonitions: true }" />
 
 #### `underline`
 
@@ -188,6 +188,12 @@ When `true`, preserves runs of consecutive blank lines from the source instead o
 <PropInfo type="boolean" default="false" />
 
 <LivePreview src={Md4cPreserveBlankLinesSrc} />
+
+#### `preserveWindowsPaths`
+
+When `true`, a backslash that separates a Windows drive path stays in the text instead of acting as an escape, so `C:\Users\me\.config` keeps every separator. CommonMark would render it as `C:\Users\me.config`. Escapes outside such a path, code spans, and link destinations are unchanged.
+
+<PropInfo type="boolean" default="false" />
 
 #### `admonitions`
 

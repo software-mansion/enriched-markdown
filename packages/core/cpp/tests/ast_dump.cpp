@@ -37,6 +37,7 @@ Markdown::Md4cFlags allEnabled() {
   flags.hardSoftBreaks = true;
   flags.preserveBlankLines = true;
   flags.admonitions = true;
+  flags.preserveWindowsPaths = true;
   return flags;
 }
 

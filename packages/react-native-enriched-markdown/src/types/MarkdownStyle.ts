@@ -476,6 +476,12 @@ export interface Md4cFlags {
    */
   preserveBlankLines?: boolean;
   /**
+   * Keep backslashes that separate a Windows drive path (`C:\Users\me\.config`)
+   * instead of treating them as escapes. Off by default; CommonMark drops them.
+   * @default false
+   */
+  preserveWindowsPaths?: boolean;
+  /**
    * Enable GitHub-style admonitions/alerts (`> [!NOTE]`, `> [!TIP]`,
    * `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`).
    * When enabled, such blockquotes render as themed callouts with an icon +

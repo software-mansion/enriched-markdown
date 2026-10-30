@@ -16,12 +16,15 @@ struct Md4cFlags {
   bool hardSoftBreaks = false;
   bool preserveBlankLines = false;
   bool admonitions = true;
+  // Keeps the backslash in prose such as `C:\Users\me\.config`, where CommonMark reads `\.` as an escape.
+  bool preserveWindowsPaths = false;
 
   bool operator==(const Md4cFlags &other) const {
     return underline == other.underline && latexMath == other.latexMath && superscript == other.superscript &&
            subscript == other.subscript && highlight == other.highlight &&
            permissiveAutolinks == other.permissiveAutolinks && hardSoftBreaks == other.hardSoftBreaks &&
-           preserveBlankLines == other.preserveBlankLines && admonitions == other.admonitions;
+           preserveBlankLines == other.preserveBlankLines && admonitions == other.admonitions &&
+           preserveWindowsPaths == other.preserveWindowsPaths;
   }
 };
 

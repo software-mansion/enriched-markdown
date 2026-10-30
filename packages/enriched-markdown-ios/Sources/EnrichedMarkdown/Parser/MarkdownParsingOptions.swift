@@ -6,6 +6,9 @@ public struct MarkdownParsingOptions: Sendable, Equatable {
     public var hardSoftBreaks: Bool
     public var permissiveAutolinks: Bool
     public var preserveBlankLines: Bool
+    /// Keeps backslashes that separate a Windows drive path (`C:\\Users\\me\\.config`)
+    /// instead of treating them as escapes. Off by default; CommonMark drops them.
+    public var preserveWindowsPaths: Bool
     public var admonitions: Bool
 
     /// Set only via `MarkdownRenderPlugin.adjustParsingOptions` (the
@@ -20,6 +23,7 @@ public struct MarkdownParsingOptions: Sendable, Equatable {
         hardSoftBreaks: Bool = false,
         permissiveAutolinks: Bool = true,
         preserveBlankLines: Bool = false,
+        preserveWindowsPaths: Bool = false,
         admonitions: Bool = false
     ) {
         self.underline = underline
@@ -29,6 +33,7 @@ public struct MarkdownParsingOptions: Sendable, Equatable {
         self.hardSoftBreaks = hardSoftBreaks
         self.permissiveAutolinks = permissiveAutolinks
         self.preserveBlankLines = preserveBlankLines
+        self.preserveWindowsPaths = preserveWindowsPaths
         self.admonitions = admonitions
     }
 

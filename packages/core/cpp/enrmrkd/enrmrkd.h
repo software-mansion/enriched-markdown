@@ -244,7 +244,12 @@ typedef enum ENRMRKD_TEXTTYPE {
 
     /* Text is inside an equation. This is processed the same way as inlined code
      * spans (`code`). */
-    ENRMRKD_TEXT_LATEXMATH
+    ENRMRKD_TEXT_LATEXMATH,
+
+    /* Character escaped by a backslash (e.g. "\\*"), without the backslash.
+     * Sent only with ENRMRKD_FLAG_ESCAPEDTEXT, and only where the escaped character
+     * would otherwise be ENRMRKD_TEXT_NORMAL. */
+    ENRMRKD_TEXT_ESCAPED
 } ENRMRKD_TEXTTYPE;
 
 
@@ -406,6 +411,7 @@ typedef struct ENRMRKD_BLOCK_BLANK_DETAIL {
 #define ENRMRKD_FLAG_HIGHLIGHT                   0x200000 /* Enable ==highlight== spans. */
 #define ENRMRKD_FLAG_PRESERVEBLANKLINES          0x400000 /* Report blank line runs as ENRMRKD_BLOCK_BLANK. */
 #define ENRMRKD_FLAG_INSERT                      0x800000 /* Enable insert extension. */
+#define ENRMRKD_FLAG_ESCAPEDTEXT                 0x2000000 /* Report backslash-escaped characters as ENRMRKD_TEXT_ESCAPED. */
 
 #define ENRMRKD_FLAG_PERMISSIVEAUTOLINKS         (ENRMRKD_FLAG_PERMISSIVEEMAILAUTOLINKS | ENRMRKD_FLAG_PERMISSIVEURLAUTOLINKS | ENRMRKD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define ENRMRKD_FLAG_NOHTML                      (ENRMRKD_FLAG_NOHTMLBLOCKS | ENRMRKD_FLAG_NOHTMLSPANS)

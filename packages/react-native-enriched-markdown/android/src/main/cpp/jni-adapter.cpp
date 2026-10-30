@@ -353,6 +353,10 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
         if (preserveBlankLinesField) {
           md4cFlags.preserveBlankLines = env->GetBooleanField(flags, preserveBlankLinesField) == JNI_TRUE;
         }
+        jfieldID preserveWindowsPathsField = env->GetFieldID(flagsClass, "preserveWindowsPaths", "Z");
+        if (preserveWindowsPathsField) {
+          md4cFlags.preserveWindowsPaths = env->GetBooleanField(flags, preserveWindowsPathsField) == JNI_TRUE;
+        }
         jfieldID admonitionsField = env->GetFieldID(flagsClass, "admonitions", "Z");
         if (admonitionsField) {
           md4cFlags.admonitions = env->GetBooleanField(flags, admonitionsField) == JNI_TRUE;

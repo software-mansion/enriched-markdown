@@ -13,6 +13,7 @@ data class Md4cFlags(
   val permissiveAutolinks: Boolean = true,
   val hardSoftBreaks: Boolean = false,
   val preserveBlankLines: Boolean = false,
+  val preserveWindowsPaths: Boolean = false,
   val admonitions: Boolean = true,
 ) {
   companion object {

@@ -50,6 +50,26 @@ it('forwards md4cFlags.preserveBlankLines to native when enabled', () => {
   expect(nativeView.props.md4cFlags.preserveBlankLines).toBe(true);
 });
 
+it('defaults md4cFlags.preserveWindowsPaths to false on the native prop', () => {
+  const nativeView = renderNative(
+    <EnrichedMarkdownText markdown={'C:\\Users\\me\\.config'} flavor="github" />
+  );
+
+  expect(nativeView.props.md4cFlags.preserveWindowsPaths).toBe(false);
+});
+
+it('forwards md4cFlags.preserveWindowsPaths to native when enabled', () => {
+  const nativeView = renderNative(
+    <EnrichedMarkdownText
+      markdown={'C:\\Users\\me\\.config'}
+      flavor="github"
+      md4cFlags={{ preserveWindowsPaths: true }}
+    />
+  );
+
+  expect(nativeView.props.md4cFlags.preserveWindowsPaths).toBe(true);
+});
+
 it('disables GFM extensions for the commonmark flavor', () => {
   const nativeView = renderNative(
     <EnrichedMarkdownText
