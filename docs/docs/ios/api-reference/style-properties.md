@@ -441,7 +441,7 @@ MarkdownTheme {
 }
 ```
 
-A fill or border with rounded corners is drawn behind each line of the link, as tall as its text. Inside a `==highlight==`, a link with a fill of its own keeps it, whichever of the two wraps the other; a link without one sits on the highlight.
+A fill is drawn behind each line of the link, as tall as its text and any inline image, with no padding. A border runs around that box, outside the text. When the line height leaves no room for it, the lines of that paragraph grow to fit and the text is centered again, and every line is inset by the widest border so a link at the edge keeps its outline. An inline image inside a bordered link reserves the border's width around itself. Links in table cells draw the same box. Inside a `==highlight==`, a link with a fill of its own keeps it, whichever of the two wraps the other; a link without one sits on the highlight.
 
 A tapped link goes through the [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) environment action, which opens it with the system unless you install your own. To style some links differently from the rest, add a [`Link(matching:)`](#link-matching) element.
 

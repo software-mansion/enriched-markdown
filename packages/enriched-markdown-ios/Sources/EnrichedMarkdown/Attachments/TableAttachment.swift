@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct TableCellModel: Equatable {
     let attributedText: NSAttributedString
+    let drawnText: NSAttributedString
     let plainText: String
     /// Cell content with inline markdown markers restored (bold, code,
     /// links, …), for Copy as Markdown.

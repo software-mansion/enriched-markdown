@@ -19,9 +19,20 @@ final class HighlightRenderer: NodeRenderer {
         output.addAttribute(MarkdownAttribute.highlight, value: true, range: range)
 
         if let backgroundColor = config.highlight.backgroundColor {
+            var holdsBorder = false
+            output.enumerateAttribute(MarkdownAttribute.inlineBackground, in: range, options: []) { value, _, stop in
+                holdsBorder = (value as? InlineBackground)?.style.border != nil
+                stop.pointee = ObjCBool(holdsBorder)
+            }
+            let fillKey = holdsBorder ? MarkdownAttribute.drawnHighlight : .backgroundColor
             output.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
-                guard !RenderContext.shouldPreserveBackground(attributes) else { return }
-                output.addAttribute(.backgroundColor, value: backgroundColor, range: subrange)
+                if let drawn = attributes[MarkdownAttribute.inlineBackground] as? InlineBackground {
+                    output.addAttribute(
+                        MarkdownAttribute.inlineBackground, value: drawn.beneath(highlight: backgroundColor), range: subrange
+                    )
+                } else if attributes[MarkdownAttribute.inlineCode] == nil, attributes[.backgroundColor] == nil {
+                    output.addAttribute(fillKey, value: backgroundColor, range: subrange)
+                }
             }
         }
 

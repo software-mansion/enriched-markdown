@@ -19,7 +19,7 @@ final class LinkRenderer: NodeRenderer {
         let url = node.attribute("url") ?? ""
         let style = styles.resolve(url)
         let underlineStyle = (style.underline ?? true) ? NSUnderlineStyle.single.rawValue : 0
-        let drawnBackground = InlineBackground(style: style)
+        let drawnStyle = InlineBackground.Style(style)
 
         let linkValue: Any = URL(string: url) ?? url
         output.addAttribute(.link, value: linkValue, range: range)
@@ -32,10 +32,18 @@ final class LinkRenderer: NodeRenderer {
             output.addAttribute(.underlineStyle, value: underlineStyle, range: subrange)
 
             let isInlineCode = attributes[MarkdownAttribute.inlineCode] != nil
-            if let drawnBackground {
-                output.addAttribute(MarkdownAttribute.inlineBackground, value: drawnBackground, range: subrange)
-                if drawnBackground.fillColor != nil, !isInlineCode, attributes[.backgroundColor] != nil {
-                    output.removeAttribute(.backgroundColor, range: subrange)
+            if let drawnStyle {
+                let existing = attributes[.backgroundColor] as? UIColor
+                let kept = (isInlineCode || drawnStyle.fillColor == nil) ? existing : nil
+                output.addAttribute(
+                    MarkdownAttribute.inlineBackground,
+                    value: InlineBackground(style: drawnStyle, linkStart: start, underlay: kept),
+                    range: subrange
+                )
+                output.removeAttribute(.backgroundColor, range: subrange)
+                if let width = drawnStyle.border?.width,
+                   let image = attributes[.attachment] as? MarkdownImageAttachment, image.isInline {
+                    image.padding = width
                 }
             } else if let fill = style.backgroundColor, !isInlineCode {
                 output.addAttribute(.backgroundColor, value: fill, range: subrange)

@@ -63,6 +63,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
 
     private(set) var trailingSpacing = TrailingSpacing()
     private(set) var hasInlineBackgrounds = false
+    private(set) var borderOverhang: CGFloat = 0
 
     var isBottomMarginEnabled: Bool = false {
         didSet {
@@ -309,6 +310,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         cachedFit = nil
         trailingSpacing = TrailingSpacing.read(from: attributedText)
         hasInlineBackgrounds = InlineBackground.isPresent(in: attributedText)
+        textContainer.lineFragmentPadding = InlineBackground.borderRoom(in: attributedText)
         self.attributedText = attributedText
         adoptImageAttachments(in: attributedText)
         invalidateIntrinsicContentSize()
@@ -368,10 +370,20 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
             return CGSize(width: size.width, height: cachedFit.height + trailingInset)
         }
         let fitted = super.sizeThatFits(size)
+        borderOverhang = max(0, inlineBorderBottom() - fitted.height)
+        let height = fitted.height + borderOverhang
         if let renderedText {
-            cachedFit = CachedFit(width: size.width, text: renderedText, height: fitted.height)
+            cachedFit = CachedFit(width: size.width, text: renderedText, height: height)
         }
-        return CGSize(width: fitted.width, height: fitted.height + trailingInset)
+        return CGSize(width: fitted.width, height: height + trailingInset)
+    }
+
+    private func inlineBorderBottom() -> CGFloat {
+        guard hasInlineBackgrounds, let textLayoutManager,
+              let last = ParagraphLayoutWalker.paragraph(containing: textStorage.length - 1, in: textLayoutManager)
+        else { return 0 }
+        let boxes = InlineBackgroundDrawer.layout(of: [last], in: textStorage, textLayoutManager: textLayoutManager).boxes
+        return (boxes.map(\.strokedRect.maxY).max() ?? 0) + textContainerInset.top
     }
 
     private func accessibilityTree() -> (elements: [MarkdownAccessibilityElement], rotors: [UIAccessibilityCustomRotor]) {

@@ -39,8 +39,7 @@ struct ParagraphMarkerLayout {
         }
 
         let layoutBaselineY = origin.y + segmentFrame.minY + baselineFromLineTop
-        let baselineOffset = CGFloat((attrs[.baselineOffset] as? NSNumber)?.doubleValue ?? 0)
-        visualBaselineY = layoutBaselineY - baselineOffset
+        visualBaselineY = layoutBaselineY - MarkdownAttributeValue.baselineOffset(in: attrs)
 
         if isRTL {
             let textEndX = max(segmentFrame.maxX, textStartX)
@@ -57,6 +56,20 @@ struct ParagraphMarkerLayout {
         let originX = isRTL ? markerX : markerX - size
         let centerY = visualBaselineY - font.capHeight / 2
         return CGRect(x: originX, y: centerY - size / 2, width: size, height: size)
+    }
+}
+
+struct TextKit1Stack {
+    let storage: NSTextStorage
+    let layoutManager = NSLayoutManager()
+    let container: NSTextContainer
+
+    init(text: NSAttributedString, size: CGSize) {
+        storage = NSTextStorage(attributedString: text)
+        container = NSTextContainer(size: size)
+        container.lineFragmentPadding = 0
+        layoutManager.addTextContainer(container)
+        storage.addLayoutManager(layoutManager)
     }
 }
 

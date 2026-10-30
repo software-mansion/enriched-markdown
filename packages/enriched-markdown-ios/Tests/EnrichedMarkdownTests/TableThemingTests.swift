@@ -263,6 +263,89 @@ final class TableThemingTests: XCTestCase {
         XCTAssertNil(gridView.linkURL(at: CGPoint(x: 5, y: 5)))
     }
 
+    // MARK: - Link boxes
+
+    func testCellLinksDrawTheirBoxAndTakeTheLinkColor() throws {
+        var config = MarkdownStyleConfiguration.baseline()
+        config.table.font = UIFont.systemFont(ofSize: 40)
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(
+            foregroundColor: UIColor(red: 1, green: 0, blue: 0, alpha: 1),
+            backgroundColor: UIColor(red: 0.2, green: 0.4, blue: 0.6, alpha: 1),
+            underline: false,
+            cornerRadius: 4
+        ))]
+        let table = try XCTUnwrap(attachment(for: "| Who |\n|---|\n| [alice](user://alice) |", config: config))
+        let gridView = TableGridView(model: table.model, layout: table.layout, style: table.style)
+        gridView.frame = CGRect(x: 0, y: 0, width: table.layout.totalWidth, height: table.layout.totalHeight)
+
+        let rows = try renderedRows(size: gridView.bounds.size) { _ in gridView.draw(gridView.bounds) }
+        let cell = CGRect(x: 0, y: table.layout.rowHeights[0], width: table.layout.columnWidths[0], height: table.layout.rowHeights[1])
+        let pixels = (Int(cell.minY)..<Int(cell.maxY)).flatMap { row in
+            (Int(cell.minX)..<Int(cell.maxX)).map { column in Array(rows[row][(column * 4)..<(column * 4 + 4)]) }
+        }
+
+        let fill = try XCTUnwrap(pixels.first { $0.sorted() == [51, 102, 153, 255] }, "the chip fill")
+        let red = try XCTUnwrap(fill.firstIndex(of: 51))
+        let blue = try XCTUnwrap(fill.firstIndex(of: 153))
+        let green = try XCTUnwrap(fill.firstIndex(of: 102))
+        XCTAssertTrue(
+            pixels.contains { $0[red] >= 200 && $0[green] <= 100 && $0[blue] <= 100 },
+            "the link color, which string drawing paints blue on its own"
+        )
+        XCTAssertFalse(pixels.contains { $0[blue] >= 200 && $0[red] <= 100 && $0[green] <= 160 }, "system blue")
+    }
+
+    func testAThickBorderedLinkGrowsItsCellLine() throws {
+        var thin = MarkdownStyleConfiguration.baseline()
+        thin.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(borderColor: .systemRed, borderWidth: 1))]
+        var thick = thin
+        thick.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(borderColor: .systemRed, borderWidth: 4))]
+        let markdown = "| Who |\n|---|\n| [alice](user://alice) |"
+        let thinTable = try XCTUnwrap(attachment(for: markdown, config: thin))
+        let thickTable = try XCTUnwrap(attachment(for: markdown, config: thick))
+
+        let cell = thickTable.model.rows[1][0].attributedText
+        let font = try XCTUnwrap(cell.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+        let style = try XCTUnwrap(cell.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertGreaterThanOrEqual(style.minimumLineHeight, ParagraphStyleHelpers.typographicLineHeight(for: font) + 8)
+        let thinStyle = thinTable.model.rows[1][0].attributedText.attribute(.paragraphStyle, at: 0, effectiveRange: nil)
+        XCTAssertEqual((thinStyle as? NSParagraphStyle)?.minimumLineHeight, 20)
+        XCTAssertGreaterThan(thickTable.layout.rowHeights[1], thinTable.layout.rowHeights[1])
+    }
+
+    func testAThickBorderedChipWrapsItsRaisedCellText() throws {
+        var config = MarkdownStyleConfiguration.baseline()
+        config.table.font = UIFont.systemFont(ofSize: 40)
+        config.linkVariants = [LinkVariantStyle(pattern: "^user:", style: ElementStyle(
+            foregroundColor: UIColor(red: 1, green: 0, blue: 0, alpha: 1), underline: false,
+            borderColor: UIColor(red: 0, green: 0.6, blue: 0.2, alpha: 1), borderWidth: 4, cornerRadius: 6
+        ))]
+        let table = try XCTUnwrap(attachment(for: "| Who |\n|---|\n| [alice](user://alice) |", config: config))
+        let cell = table.model.rows[1][0]
+        let raise = MarkdownAttributeValue.baselineOffset(in: cell.attributedText.attributes(at: 0, effectiveRange: nil))
+        XCTAssertGreaterThan(raise, 0, "the thick border raised the cell's line")
+
+        let gridView = TableGridView(model: table.model, layout: table.layout, style: table.style)
+        gridView.frame = CGRect(x: 0, y: 0, width: table.layout.totalWidth, height: table.layout.totalHeight)
+        let rows = try renderedRows(size: gridView.bounds.size) { _ in gridView.draw(gridView.bounds) }
+        let textRect = CGRect(
+            x: table.style.cellPaddingHorizontal, y: table.layout.rowHeights[0] + table.style.cellPaddingVertical,
+            width: table.layout.columnWidths[0] - 2 * table.style.cellPaddingHorizontal, height: 0
+        )
+        let box = try XCTUnwrap(InlineBackgroundDrawer.layout(of: cell.attributedText, width: textRect.width).boxes.first)
+            .rect.offsetBy(dx: textRect.minX, dy: textRect.minY)
+
+        let isRed = { (pixel: ArraySlice<UInt8>) in pixel.max() ?? 0 >= 200 && pixel.sorted()[1] <= 100 }
+        let inkRows = rows.indices.filter { row in
+            (Int(box.minX)..<Int(box.maxX)).contains { column in isRed(rows[row][(column * 4)..<(column * 4 + 3)]) }
+        }
+        let inkTop = try XCTUnwrap(inkRows.first)
+        let inkBottom = try XCTUnwrap(inkRows.last)
+        XCTAssertGreaterThanOrEqual(CGFloat(inkTop), box.minY - 0.5, "ink above the box")
+        XCTAssertLessThanOrEqual(CGFloat(inkBottom), box.maxY + 0.5, "ink below the box")
+        XCTAssertGreaterThan(inkBottom - inkTop, 20, "the glyphs were found")
+    }
+
     // MARK: - Align placement
 
     func testCenterAlignPositionsGridWhenTableFits() {

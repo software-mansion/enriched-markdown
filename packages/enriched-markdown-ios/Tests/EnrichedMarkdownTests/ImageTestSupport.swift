@@ -89,17 +89,35 @@ extension XCTestCase {
             backgroundView: MarkdownDecorationView(),
             foregroundView: MarkdownDecorationView()
         )
+        return try renderedRows(size: rect.size) { context in
+            decorator.draw(in: context, textView: textView, tile: rect, pass: pass)
+        }
+    }
+
+    func renderedRows(size: CGSize, draw: (CGContext) -> Void) throws -> [[UInt8]] {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
-        let image = UIGraphicsImageRenderer(size: rect.size, format: format).image { context in
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
             UIColor.white.setFill()
-            context.fill(CGRect(origin: .zero, size: rect.size))
-            decorator.draw(in: context.cgContext, textView: textView, tile: rect, pass: pass)
+            context.fill(CGRect(origin: .zero, size: size))
+            draw(context.cgContext)
         }
-        let cgImage = try XCTUnwrap(image.cgImage)
+        return try rgbaRows(of: try XCTUnwrap(image.cgImage))
+    }
+
+    func rgbaRows(of cgImage: CGImage) throws -> [[UInt8]] {
         let data = try XCTUnwrap(cgImage.dataProvider?.data) as Data
-        return (0..<Int(rect.height)).map { row in
-            Array(data[(row * cgImage.bytesPerRow)..<(row * cgImage.bytesPerRow + Int(rect.width) * 4)])
+        let bytesPerPixel = cgImage.bitsPerPixel / 8
+        return (0..<cgImage.height).map { row in
+            (0..<cgImage.width).flatMap { column -> [UInt8] in
+                let offset = row * cgImage.bytesPerRow + column * bytesPerPixel
+                let pixel = Array(data[offset..<offset + bytesPerPixel])
+                switch bytesPerPixel {
+                case 4: return pixel
+                case 2: return [pixel[0], pixel[0], pixel[0], pixel[1]]
+                default: return [pixel[0], pixel[0], pixel[0], 255]
+                }
+            }
         }
     }
 
