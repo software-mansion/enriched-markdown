@@ -31,6 +31,9 @@ enum MarkdownAttribute {
     static let superscript = NSAttributedString.Key("EnrichedMarkdownSuperscript")
     static let `subscript` = NSAttributedString.Key("EnrichedMarkdownSubscript")
     static let highlight = NSAttributedString.Key("EnrichedMarkdownHighlight")
+    static let inlineBackground = NSAttributedString.Key("EnrichedMarkdownInlineBackground")
+    static let drawnHighlight = NSAttributedString.Key("EnrichedMarkdownDrawnHighlight")
+    static let inlineBorderWidth = NSAttributedString.Key("EnrichedMarkdownInlineBorderWidth")
     /// `true` on concealed `||spoiler||` text, `false` once revealed.
     static let spoiler = NSAttributedString.Key("EnrichedMarkdownSpoiler")
     /// Colors a concealed run had, restored on reveal.

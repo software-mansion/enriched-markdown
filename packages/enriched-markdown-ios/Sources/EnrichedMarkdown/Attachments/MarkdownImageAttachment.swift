@@ -28,8 +28,8 @@ final class MarkdownImageAttachment: NSTextAttachment {
     let imageURL: String
     let requestHeaders: [String: String]
     let isInline: Bool
-    /// Inline images are a square of this size. For a block image it is the
-    /// box height used until the container width is known.
+    /// Inline images are a square of this size plus `padding` on each side.
+    /// For a block image it is the box height used until the container width is known.
     let cachedHeight: CGFloat
     let cachedBorderRadius: CGFloat
     /// How this image's box height is derived. Inline images ignore it.
@@ -38,6 +38,17 @@ final class MarkdownImageAttachment: NSTextAttachment {
     let contentMode: ImageContentMode
 
     weak var layoutObserver: MarkdownAttachmentLayoutObserver?
+    var padding: CGFloat = 0 {
+        didSet {
+            if padding > 0, loadedImage == nil {
+                image = Self.paddedPlaceholder(box: inlineBox, padding: padding)
+            }
+        }
+    }
+
+    private var inlineBox: CGSize {
+        CGSize(width: cachedHeight + 2 * padding, height: cachedHeight + 2 * padding)
+    }
 
     private let requestKey: String
     /// The processed-cache key less the box, which is all that varies per pass.
@@ -133,7 +144,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
             } else {
                 verticalOffset = (lineFragmentRect.height - size) / 2
             }
-            return CGRect(x: 0, y: verticalOffset, width: size, height: size)
+            return CGRect(origin: CGPoint(x: 0, y: verticalOffset - padding), size: inlineBox)
         }
 
         let width = lineFragmentRect.width > 0 ? lineFragmentRect.width : cachedHeight
@@ -166,6 +177,21 @@ final class MarkdownImageAttachment: NSTextAttachment {
         }
     }()
 
+    private static var paddedPlaceholders: [String: UIImage] = [:]
+
+    private static func paddedPlaceholder(box: CGSize, padding: CGFloat) -> UIImage {
+        let key = "\(box.width)x\(box.height)_p\(padding)"
+        if let cached = paddedPlaceholders[key] {
+            return cached
+        }
+        let rendered = UIGraphicsImageRenderer(size: box).image { context in
+            UIColor.systemGray5.setFill()
+            context.fill(CGRect(origin: .zero, size: box).insetBy(dx: padding, dy: padding))
+        }
+        paddedPlaceholders[key] = rendered
+        return rendered
+    }
+
     private func setupPlaceholder() {
         bounds = CGRect(x: 0, y: 0, width: cachedHeight, height: cachedHeight)
         image = Self.placeholderImage
@@ -187,7 +213,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
         originalImage = image
 
         if isInline {
-            processAndApplyImage(image, box: CGSize(width: cachedHeight, height: cachedHeight))
+            processAndApplyImage(image, box: inlineBox)
             return
         }
 
@@ -212,7 +238,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
         if box == lastProcessedBox { return }
         lastProcessedBox = box
 
-        let key = "\(processedKeyPrefix)_w\(box.width)_h\(box.height)"
+        let key = "\(processedKeyPrefix)_w\(box.width)_h\(box.height)_p\(padding)"
 
         if let cached = Self.processedImageCache.object(forKey: key as NSString) {
             loadedImage = cached
@@ -223,12 +249,14 @@ final class MarkdownImageAttachment: NSTextAttachment {
             return
         }
 
+        let padding = self.padding
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             let processed = self.createScaledImage(
                 image,
                 box: box,
-                borderRadius: self.cachedBorderRadius
+                borderRadius: self.cachedBorderRadius,
+                padding: padding
             )
 
             if let processed {
@@ -241,7 +269,7 @@ final class MarkdownImageAttachment: NSTextAttachment {
                 self.loadedImage = processed
                 if self.isInline {
                     self.image = processed
-                    self.bounds = CGRect(x: 0, y: 0, width: self.cachedHeight, height: self.cachedHeight)
+                    self.bounds = CGRect(origin: .zero, size: self.inlineBox)
                 } else {
                     self.image = image
                 }
@@ -253,15 +281,18 @@ final class MarkdownImageAttachment: NSTextAttachment {
     private func createScaledImage(
         _ image: UIImage,
         box: CGSize,
-        borderRadius: CGFloat
+        borderRadius: CGFloat,
+        padding: CGFloat
     ) -> UIImage? {
         guard image.size.width > 0, image.size.height > 0 else { return nil }
 
-        let drawingRect = ImageDrawing.rect(mode: contentMode, source: image.size, box: box)
+        let content = CGRect(origin: .zero, size: box).insetBy(dx: padding, dy: padding)
+        let drawingRect = ImageDrawing.rect(mode: contentMode, source: image.size, box: content.size)
+            .offsetBy(dx: content.minX, dy: content.minY)
         let renderer = UIGraphicsImageRenderer(size: box)
         return renderer.image { _ in
             if borderRadius > 0 {
-                let clippingRect = drawingRect.intersection(CGRect(origin: .zero, size: box))
+                let clippingRect = drawingRect.intersection(content)
                 UIBezierPath(roundedRect: clippingRect, cornerRadius: borderRadius).addClip()
             }
             image.draw(in: drawingRect)
