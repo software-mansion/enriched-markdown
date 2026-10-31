@@ -1,10 +1,7 @@
 name: Setup Android
-description: Install JDK, accept Android SDK licenses, and restore Gradle cache
+description: Install JDK, accept Android SDK licenses, and set up Gradle with its cache
 
 inputs:
-  gradle-wrapper-properties:
-    description: Path to gradle-wrapper.properties used for the Gradle cache key
-    required: true
   cache:
     description: >-
       How to use the Gradle cache: read-write, restore (restore it but never
@@ -25,7 +22,7 @@ runs:
     - name: Install JDK
       uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
       with:
-        distribution: zulu
+        distribution: temurin
         java-version: '17'
 
     - name: Finalize Android SDK
@@ -39,24 +36,20 @@ runs:
         exit 1
       shell: bash
 
-    - name: Cache Gradle
-      if: inputs.cache == 'read-write'
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-      with:
-        path: |
-          ~/.gradle/wrapper
-          ~/.gradle/caches
-        key: ${{ runner.os }}-gradle-${{ hashFiles(inputs.gradle-wrapper-properties) }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+    - name: Configure Gradle
+      run: |
+        mkdir -p ~/.gradle
+        cat >> ~/.gradle/gradle.properties <<'EOF'
+        org.gradle.caching=true
+        org.gradle.parallel=true
+        org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g
+        EOF
+      shell: bash
 
-    - name: Restore Gradle
-      if: inputs.cache == 'restore'
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@b9bee63ef481cc545e4517ec730544a4d8b1dfa0 # v6.4.0
       with:
-        path: |
-          ~/.gradle/wrapper
-          ~/.gradle/caches
-        key: ${{ runner.os }}-gradle-${{ hashFiles(inputs.gradle-wrapper-properties) }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+        cache-disabled: ${{ inputs.cache == 'none' }}
+        cache-read-only: ${{ inputs.cache == 'restore' || github.ref != 'refs/heads/main' }}
+        add-job-summary: on-failure
+        validate-wrappers: false

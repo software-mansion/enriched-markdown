@@ -42,7 +42,6 @@ jobs:
       - name: Setup Android
         uses: ./.github/actions/setup-android
         with:
-          gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
           cache: none
 
       - name: Publish to Maven Local (dry run)

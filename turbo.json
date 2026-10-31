@@ -5,6 +5,10 @@
   "tasks": {
     "build:android": {
       "env": ["ANDROID_HOME", "ORG_GRADLE_PROJECT_newArchEnabled"],
+      "passThroughEnv": [
+        "CMAKE_C_COMPILER_LAUNCHER",
+        "CMAKE_CXX_COMPILER_LAUNCHER"
+      ],
       "inputs": [
         "package.json",
         "android/**",
@@ -21,6 +25,7 @@
       "outputs": []
     },
     "build:ios": {
+      "passThroughEnv": ["CCACHE_DIR", "CCACHE_MAXSIZE"],
       "env": [
         "RCT_NEW_ARCH_ENABLED",
         "RCT_REMOVE_LEGACY_ARCH",
@@ -60,7 +65,7 @@
       "outputs": []
     },
     "test:ios": {
-      "passThroughEnv": ["IOS_SIMULATOR_UDID"],
+      "passThroughEnv": ["IOS_SIMULATOR_UDID", "CCACHE_DIR", "CCACHE_MAXSIZE"],
       "env": [
         "RCT_NEW_ARCH_ENABLED",
         "RCT_REMOVE_LEGACY_ARCH",
@@ -84,7 +89,11 @@
       "outputs": []
     },
     "build:android-native": {
-      "env": ["ANDROID_HOME"],
+      "env": ["ANDROID_HOME", "ORG_GRADLE_PROJECT_enrichedMarkdownArchitectures"],
+      "passThroughEnv": [
+        "CMAKE_C_COMPILER_LAUNCHER",
+        "CMAKE_CXX_COMPILER_LAUNCHER"
+      ],
       "inputs": [
         "package.json",
         "app/**",

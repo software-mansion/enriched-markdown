@@ -183,6 +183,8 @@ jobs:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       TURBO_CACHE_DIR: .turbo/android
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -215,20 +217,115 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
+
+      - name: Set up ccache
+        if: env.turbo_cache_hit != 1
+        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
         with:
-          gradle-wrapper-properties: apps/react-native-example/android/gradle/wrapper/gradle-wrapper.properties
+          key: ${{ github.job }}
+          save: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build example for Android
-        env:
-          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
-  rn-build-ios:
+  ios-cache:
     needs: changes
-    if: needs.changes.outputs.react-native == 'true'
+    if: needs.changes.outputs.react-native == 'true' || needs.changes.outputs.ios == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      rn-build-ios: ${{ steps.rn-build-ios.outputs.status }}
+      rn-ios-unit-tests: ${{ steps.rn-ios-unit-tests.outputs.status }}
+      ios-build: ${{ steps.ios-build.outputs.status }}
+      ios-unit-tests: ${{ steps.ios-unit-tests.outputs.status }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build library
+        run: yarn prepare
+
+      - name: Reset pods
+        run: rm -f apps/react-native-example/ios/Podfile.lock
+
+      - name: Restore turborepo for iOS
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .turbo/ios
+          key: macOS-turborepo-ios-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**') }}
+          restore-keys: |
+            macOS-turborepo-ios-
+
+      - name: Restore turborepo for RN iOS unit tests
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .turbo/rn-ios-test
+          key: macOS-turborepo-rn-ios-test-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/react-native-enriched-markdown/__tests__/ios/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**') }}
+          restore-keys: |
+            macOS-turborepo-rn-ios-test-
+
+      - name: Restore turborepo for iOS native build
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .turbo/ios-native
+          key: macOS-turborepo-ios-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'apps/ios-example/**', 'packages/core/cpp/**') }}
+          restore-keys: |
+            macOS-turborepo-ios-native-build-
+
+      - name: Restore turborepo for iOS native tests
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .turbo/ios-native
+          key: macOS-turborepo-ios-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'packages/core/cpp/**') }}
+          restore-keys: |
+            macOS-turborepo-ios-native-test-
+
+      - name: Check turborepo cache for iOS
+        id: rn-build-ios
+        if: needs.changes.outputs.react-native == 'true'
+        run: |
+          echo "status=$(yarn turbo run build:ios \
+            --filter=react-native-enriched-markdown-example \
+            --cache-dir=.turbo/ios \
+            --dry=json | jq -r '.tasks[0].cache.status')" >> $GITHUB_OUTPUT
+
+      - name: Check turborepo cache for RN iOS unit tests
+        id: rn-ios-unit-tests
+        if: needs.changes.outputs.react-native == 'true'
+        run: |
+          echo "status=$(yarn test:ios \
+            --cache-dir=.turbo/rn-ios-test \
+            --dry=json | jq -r '.tasks[0].cache.status')" >> $GITHUB_OUTPUT
+
+      - name: Check turborepo cache for iOS native build
+        id: ios-build
+        if: needs.changes.outputs.ios == 'true'
+        run: |
+          echo "status=$(yarn turbo run build:ios-native \
+            --filter=enriched-markdown-ios-example \
+            --cache-dir=.turbo/ios-native \
+            --dry=json | jq -r '.tasks[0].cache.status')" >> $GITHUB_OUTPUT
+
+      - name: Check turborepo cache for iOS native tests
+        id: ios-unit-tests
+        if: needs.changes.outputs.ios == 'true'
+        run: |
+          echo "status=$(yarn test:ios-native \
+            --cache-dir=.turbo/ios-native \
+            --dry=json | jq -r '.tasks[0].cache.status')" >> $GITHUB_OUTPUT
+
+  rn-build-ios:
+    needs:
+      - changes
+      - ios-cache
+    if: ${{ !cancelled() && needs.changes.outputs.react-native == 'true' && needs.ios-cache.outputs.rn-build-ios != 'HIT' }}
     runs-on: macos-latest-xlarge
     env:
       TURBO_CACHE_DIR: .turbo/ios
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 500M
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -273,9 +370,17 @@ jobs:
         with:
           path: |
             **/ios/Pods
-          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile.lock') }}
+            ~/Library/Caches/ReactNative
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile', 'yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-cocoapods-
+
+      - name: Set up ccache
+        if: env.turbo_cache_hit != 1
+        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        with:
+          key: ${{ github.job }}
+          save: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cocoapods
         if: env.turbo_cache_hit != 1
@@ -284,6 +389,7 @@ jobs:
           pod install
         env:
           NO_FLIPPER: 1
+          USE_CCACHE: 1
 
       - name: Cache cocoapods
         if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
@@ -291,6 +397,7 @@ jobs:
         with:
           path: |
             **/ios/Pods
+            ~/Library/Caches/ReactNative
           key: ${{ steps.cocoapods-cache.outputs.cache-primary-key }}
 
       - name: Build example for iOS
@@ -335,20 +442,29 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
+
+      - name: Cache Robolectric
+        if: env.turbo_cache_hit != 1
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          gradle-wrapper-properties: apps/react-native-example/android/gradle/wrapper/gradle-wrapper.properties
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ runner.os }}-robolectric-${{ hashFiles('packages/enriched-markdown-android/*/build.gradle', 'packages/react-native-enriched-markdown/android/build.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-robolectric-
 
       - name: Run RN Android unit tests
-        env:
-          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: yarn test:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   rn-ios-unit-tests:
-    needs: changes
-    if: needs.changes.outputs.react-native == 'true'
+    needs:
+      - changes
+      - ios-cache
+    if: ${{ !cancelled() && needs.changes.outputs.react-native == 'true' && needs.ios-cache.outputs.rn-ios-unit-tests != 'HIT' }}
     runs-on: macos-latest-xlarge
     env:
       TURBO_CACHE_DIR: .turbo/rn-ios-test
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 500M
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -392,9 +508,17 @@ jobs:
         with:
           path: |
             **/ios/Pods
-          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile.lock') }}
+            ~/Library/Caches/ReactNative
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile', 'yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-cocoapods-
+
+      - name: Set up ccache
+        if: env.turbo_cache_hit != 1
+        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        with:
+          key: ${{ github.job }}
+          save: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cocoapods
         if: env.turbo_cache_hit != 1
@@ -403,6 +527,7 @@ jobs:
           pod install
         env:
           NO_FLIPPER: 1
+          USE_CCACHE: 1
 
       - name: Cache cocoapods
         if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
@@ -410,6 +535,7 @@ jobs:
         with:
           path: |
             **/ios/Pods
+            ~/Library/Caches/ReactNative
           key: ${{ steps.cocoapods-cache.outputs.cache-primary-key }}
 
       - name: Select iOS simulator
@@ -437,6 +563,9 @@ jobs:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       TURBO_CACHE_DIR: .turbo/android-native
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      ORG_GRADLE_PROJECT_enrichedMarkdownArchitectures: arm64-v8a
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -469,12 +598,15 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
+
+      - name: Set up ccache
+        if: env.turbo_cache_hit != 1
+        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
         with:
-          gradle-wrapper-properties: apps/android-example/gradle/wrapper/gradle-wrapper.properties
+          key: ${{ github.job }}
+          save: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build Android example
-        env:
-          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: yarn turbo run build:android-native --filter=enriched-markdown-android-example --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   android-unit-tests:
@@ -516,12 +648,17 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
+
+      - name: Cache Robolectric
+        if: env.turbo_cache_hit != 1
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ runner.os }}-robolectric-${{ hashFiles('packages/enriched-markdown-android/*/build.gradle', 'packages/react-native-enriched-markdown/android/build.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-robolectric-
 
       - name: Run Android unit tests
-        env:
-          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: yarn test:android-native --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   android-kotlin-lint:
@@ -564,15 +701,15 @@ jobs:
       - name: Setup Android
         if: env.turbo_cache_hit != 1
         uses: ./.github/actions/setup-android
-        with:
-          gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Run ktlint and Android Lint
         run: yarn turbo run lint:android-native --filter=@enriched-markdown/android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   ios-build:
-    needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    needs:
+      - changes
+      - ios-cache
+    if: ${{ !cancelled() && needs.changes.outputs.ios == 'true' && needs.ios-cache.outputs.ios-build != 'HIT' }}
     runs-on: macos-latest-xlarge
     env:
       TURBO_CACHE_DIR: .turbo/ios-native
@@ -629,8 +766,10 @@ jobs:
         run: yarn turbo run build:ios-native --filter=enriched-markdown-ios-example --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   ios-unit-tests:
-    needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    needs:
+      - changes
+      - ios-cache
+    if: ${{ !cancelled() && needs.changes.outputs.ios == 'true' && needs.ios-cache.outputs.ios-unit-tests != 'HIT' }}
     runs-on: macos-latest
     env:
       TURBO_CACHE_DIR: .turbo/ios-native
@@ -688,7 +827,7 @@ jobs:
   ios-swift-lint:
     needs: changes
     if: needs.changes.outputs.ios == 'true'
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     env:
       TURBO_CACHE_DIR: .turbo/ios-native
       SWIFTLINT_VERSION: 0.65.0
@@ -725,7 +864,7 @@ jobs:
         if: env.turbo_cache_hit != 1
         run: |
           curl -fsSL -o "$RUNNER_TEMP/swiftlint.zip" \
-            "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
+            "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_amd64.zip"
           mkdir -p "$RUNNER_TEMP/swiftlint"
           unzip -oq "$RUNNER_TEMP/swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
           echo "$RUNNER_TEMP/swiftlint" >> $GITHUB_PATH
@@ -736,6 +875,7 @@ jobs:
   ci-success:
     needs:
       - changes
+      - ios-cache
       - core-parser
       - core-tests
       - rn-lint
@@ -775,6 +915,10 @@ jobs:
           IOS_UNIT_TESTS: ${{ needs.ios-unit-tests.result }}
           IOS_SWIFT_LINT: ${{ needs.ios-swift-lint.result }}
           CHANGES: ${{ needs.changes.result }}
+          RN_BUILD_IOS_CACHE: ${{ needs.ios-cache.outputs.rn-build-ios }}
+          RN_IOS_UNIT_TESTS_CACHE: ${{ needs.ios-cache.outputs.rn-ios-unit-tests }}
+          IOS_BUILD_CACHE: ${{ needs.ios-cache.outputs.ios-build }}
+          IOS_UNIT_TESTS_CACHE: ${{ needs.ios-cache.outputs.ios-unit-tests }}
         run: |
           if [[ "$CHANGES" != "success" ]]; then
             echo "changes job failed"
@@ -785,6 +929,11 @@ jobs:
             local flag=$1
             local result=$2
             local name=$3
+            local cache=${4:-}
+
+            if [[ "$flag" == "true" && "$result" == "skipped" && "$cache" == "HIT" ]]; then
+              return
+            fi
 
             if [[ "$flag" == "true" && "$result" != "success" ]]; then
               echo "Required job $name has result $result (expected success)"
@@ -802,14 +951,14 @@ jobs:
           check_required "$REACT_NATIVE" "$RN_LINT" "rn-lint"
           check_required "$REACT_NATIVE" "$RN_BUILD_LIBRARY" "rn-build-library"
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"
-          check_required "$REACT_NATIVE" "$RN_BUILD_IOS" "rn-build-ios"
+          check_required "$REACT_NATIVE" "$RN_BUILD_IOS" "rn-build-ios" "$RN_BUILD_IOS_CACHE"
           check_required "$REACT_NATIVE" "$RN_ANDROID_UNIT_TESTS" "rn-android-unit-tests"
-          check_required "$REACT_NATIVE" "$RN_IOS_UNIT_TESTS" "rn-ios-unit-tests"
+          check_required "$REACT_NATIVE" "$RN_IOS_UNIT_TESTS" "rn-ios-unit-tests" "$RN_IOS_UNIT_TESTS_CACHE"
           check_required "$ANDROID" "$ANDROID_BUILD" "android-build"
           check_required "$ANDROID" "$ANDROID_UNIT_TESTS" "android-unit-tests"
           check_required "$ANDROID" "$ANDROID_KOTLIN_LINT" "android-kotlin-lint"
-          check_required "$IOS" "$IOS_BUILD" "ios-build"
-          check_required "$IOS" "$IOS_UNIT_TESTS" "ios-unit-tests"
+          check_required "$IOS" "$IOS_BUILD" "ios-build" "$IOS_BUILD_CACHE"
+          check_required "$IOS" "$IOS_UNIT_TESTS" "ios-unit-tests" "$IOS_UNIT_TESTS_CACHE"
           check_required "$IOS" "$IOS_SWIFT_LINT" "ios-swift-lint"
 
           echo "All required checks passed"

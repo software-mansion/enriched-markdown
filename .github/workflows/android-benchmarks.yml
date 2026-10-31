@@ -159,7 +159,6 @@ jobs:
       - name: Setup Android
         uses: ./.github/actions/setup-android
         with:
-          gradle-wrapper-properties: packages/enriched-markdown-android/gradle/wrapper/gradle-wrapper.properties
           cache: restore
 
       - name: Enable KVM
