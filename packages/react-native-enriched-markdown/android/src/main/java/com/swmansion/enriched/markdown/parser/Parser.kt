@@ -9,6 +9,7 @@ data class Md4cFlags(
   val latexMath: Boolean = FeatureFlags.IS_MATH_ENABLED,
   val superscript: Boolean = false,
   val subscript: Boolean = false,
+  val strikethrough: Boolean = false,
   val highlight: Boolean = false,
   val permissiveAutolinks: Boolean = true,
   val hardSoftBreaks: Boolean = false,

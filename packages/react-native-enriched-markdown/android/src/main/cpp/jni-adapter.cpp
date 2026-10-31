@@ -337,6 +337,10 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
         if (subscriptField) {
           md4cFlags.subscript = env->GetBooleanField(flags, subscriptField) == JNI_TRUE;
         }
+        jfieldID strikethroughField = env->GetFieldID(flagsClass, "strikethrough", "Z");
+        if (strikethroughField) {
+          md4cFlags.strikethrough = env->GetBooleanField(flags, strikethroughField) == JNI_TRUE;
+        }
         jfieldID highlightField = env->GetFieldID(flagsClass, "highlight", "Z");
         if (highlightField) {
           md4cFlags.highlight = env->GetBooleanField(flags, highlightField) == JNI_TRUE;

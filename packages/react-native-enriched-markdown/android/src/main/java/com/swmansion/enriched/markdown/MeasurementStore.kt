@@ -329,6 +329,21 @@ object MeasurementStore {
     return cached.cachedSize
   }
 
+  private fun md4cFlagsFromProps(props: ReadableMap?): Md4cFlags {
+    val flags = props.getMapOrNull("md4cFlags")
+    return Md4cFlags(
+      underline = flags.getBooleanOrDefault("underline", false),
+      latexMath = FeatureFlags.IS_MATH_ENABLED && flags.getBooleanOrDefault("latexMath", true),
+      superscript = flags.getBooleanOrDefault("superscript", false),
+      subscript = flags.getBooleanOrDefault("subscript", false),
+      strikethrough = flags.getBooleanOrDefault("strikethrough", false),
+      highlight = flags.getBooleanOrDefault("highlight", false),
+      hardSoftBreaks = flags.getBooleanOrDefault("hardSoftBreaks", false),
+      preserveBlankLines = flags.getBooleanOrDefault("preserveBlankLines", false),
+      admonitions = flags.getBooleanOrDefault("admonitions", true),
+    )
+  }
+
   private fun computePropsHash(
     props: ReadableMap?,
     allowFontScaling: Boolean,
@@ -406,17 +421,7 @@ object MeasurementStore {
     // 1. Extract Props & Setup
     val markdown = props.getStringOrDefault("markdown", "")
     val styleMap = props.getMapOrNull("markdownStyle")
-    val md4cFlags =
-      Md4cFlags(
-        underline = props.getMapOrNull("md4cFlags").getBooleanOrDefault("underline", false),
-        latexMath = FeatureFlags.IS_MATH_ENABLED && props.getMapOrNull("md4cFlags").getBooleanOrDefault("latexMath", true),
-        superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
-        subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
-        highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
-        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
-        preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
-        admonitions = props.getMapOrNull("md4cFlags").getBooleanOrDefault("admonitions", true),
-      )
+    val md4cFlags = md4cFlagsFromProps(props)
     val isGFM = props.getBooleanOrDefault("isGFM", false)
 
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -541,17 +546,7 @@ object MeasurementStore {
       props.getMapOrNull("markdownStyle")
         ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
-    val md4cFlags =
-      Md4cFlags(
-        underline = props.getMapOrNull("md4cFlags").getBooleanOrDefault("underline", false),
-        latexMath = FeatureFlags.IS_MATH_ENABLED && props.getMapOrNull("md4cFlags").getBooleanOrDefault("latexMath", true),
-        superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
-        subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
-        highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
-        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
-        preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
-        admonitions = props.getMapOrNull("md4cFlags").getBooleanOrDefault("admonitions", true),
-      )
+    val md4cFlags = md4cFlagsFromProps(props)
     val isGFM = props.getBooleanOrDefault("isGFM", true)
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)

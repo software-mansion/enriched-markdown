@@ -53,7 +53,7 @@ Inline elements inherit the typography of their parent block and add their own s
 | Bold | `**text**` (or `__text__`) | `strong` | Bold weight, optional color |
 | Italic | `*text*` (or `_text_`) | `em` | Italic style, optional color |
 | Underline | `_text_` | `underline` | Underline; custom underline color on iOS and web, Android always underlines in the text color (requires [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline)) |
-| Strikethrough | `~~text~~` | `strikethrough` | Strike line; custom line color on iOS and web, Android always strikes in the text color (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor)) |
+| Strikethrough | `~~text~~` (or `~text~`) | `strikethrough` | Strike line; custom line color on iOS and web, Android always strikes in the text color (requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) or [`md4cFlags={{ strikethrough: true }}`](/react-native/api-reference/enriched-markdown-text#strikethrough)) |
 | Bold + italic | `***text***` (or `___text___`) | `strong` + `em` | Combined emphasis |
 | Links | `[text](url)` | `link` | Optional font family, color, background color, underline. Bare URLs autolink too, in both flavors. Per-URL overrides go through `linkVariants` |
 | Inline code | `` `code` `` | `code` | Monospace font, background, optional fontSize |
@@ -68,7 +68,7 @@ Inline elements inherit the typography of their parent block and add their own s
 Some delimiters are ambiguous, and how they parse depends on your [`md4cFlags`](/react-native/api-reference/enriched-markdown-text#md4cflags):
 
 - **Underscores** (`__text__`, `_text_`) mean bold/italic by default. Enabling [`md4cFlags={{ underline: true }}`](/react-native/api-reference/enriched-markdown-text#underline) takes `_` away from emphasis **entirely**: `_text_` becomes underline and `__text__` becomes doubly underlined rather than bold. The `*` forms are unaffected, which is why they are the safer ones to author with - and why the "(or `__text__`)" / "(or `___text___`)" alternatives in the table above do not hold with the flag on.
-- **Single tildes** (`~text~`) mean nothing by default. Enable [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) to parse them as subscript. Double tildes (`~~text~~`) are strikethrough, but only under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) - under `commonmark` they render literally.
+- **Tildes** (`~text~`, `~~text~~`) are both strikethrough under [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) or with [`md4cFlags={{ strikethrough: true }}`](/react-native/api-reference/enriched-markdown-text#strikethrough). Otherwise, CommonMark renders them literally. Enabling [`md4cFlags={{ subscript: true }}`](/react-native/api-reference/enriched-markdown-text#subscript) takes single tildes for subscript, in either case; double tildes keep their meaning.
 - **Double pipes** (`||text||`) are always parsed as spoilers, so `a || b || c` renders `b` as a spoiler span rather than plain text.
 :::
 

@@ -6,6 +6,7 @@ export interface NativeMd4cFlags {
   latexMath: boolean;
   superscript: boolean;
   subscript: boolean;
+  strikethrough: boolean;
   highlight: boolean;
   hardSoftBreaks: boolean;
   preserveBlankLines: boolean;

@@ -28,7 +28,7 @@ struct Bridging<EnrichedMarkdownParserImageOccurrence>
     : NativeEnrichedMarkdownParserNativeImageOccurrenceBridging<EnrichedMarkdownParserImageOccurrence> {};
 
 using EnrichedMarkdownParserMd4cFlags =
-    NativeEnrichedMarkdownParserNativeMd4cFlags<bool, bool, bool, bool, bool, bool, bool, bool>;
+    NativeEnrichedMarkdownParserNativeMd4cFlags<bool, bool, bool, bool, bool, bool, bool, bool, bool>;
 template <>
 struct Bridging<EnrichedMarkdownParserMd4cFlags>
     : NativeEnrichedMarkdownParserNativeMd4cFlagsBridging<EnrichedMarkdownParserMd4cFlags> {};

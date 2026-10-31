@@ -738,3 +738,21 @@ it('subscribes to a source started by an update render that was thrown away', as
     headers: [],
   });
 });
+
+it('does not recollect when strikethrough changes under github', () => {
+  const image = () => undefined;
+  const tree = (strikethrough: boolean) => (
+    <EnrichedMarkdownText
+      markdown="~~struck~~"
+      flavor="github"
+      md4cFlags={{ strikethrough }}
+      renderers={{ image }}
+    />
+  );
+  const root = render(tree(false));
+  act(() => root.render(tree(true)));
+  expect(mockCollect).toHaveBeenCalledTimes(1);
+  expect(mockCollect.mock.calls[0]![1]).toEqual(
+    expect.objectContaining({ strikethrough: false })
+  );
+});
