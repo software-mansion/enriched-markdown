@@ -38,6 +38,9 @@ export type WebMd4cFlags = Md4cFlags & {
 // Caching the Promise (not the resolved value) means concurrent callers share
 // a single WASM initialization — no duplicate loading.
 let parserPromise: Promise<ParseFn> | null = null;
+// Set once the WASM is up, so later parses can run synchronously in render.
+let loadedParser: ParseFn | null = null;
+const parserReadyListeners = new Set<() => void>();
 
 // SINGLE_FILE=1 inlines the WASM binary as base64 inside md4c.js, so no
 // network fetch is needed — only a one-time decode + compile on first call.
@@ -59,12 +62,36 @@ function initializeParser(): Promise<ParseFn> {
           'number',
         ])
       )
+      .then((wrapped) => {
+        const parse = wrapped as ParseFn;
+        loadedParser = parse;
+        parserReadyListeners.forEach((listener) => listener());
+        return parse;
+      })
       .catch((error) => {
         parserPromise = null;
         throw error;
       }) as Promise<ParseFn>;
   }
   return parserPromise;
+}
+
+/** Starts the WASM load, or retries one that failed. */
+export function loadParser(): Promise<void> {
+  return initializeParser().then(() => {});
+}
+
+/** Whether {@link parseMarkdownSync} can run. */
+export function isParserReady(): boolean {
+  return loadedParser !== null;
+}
+
+/** Calls `listener` once the WASM load finishes. */
+export function subscribeParserReady(listener: () => void): () => void {
+  parserReadyListeners.add(listener);
+  return () => {
+    parserReadyListeners.delete(listener);
+  };
 }
 
 // Starts the WASM load ahead of the first parse, so that parse settles in
@@ -91,6 +118,28 @@ function isASTNode(value: unknown): value is ASTNode {
 
 export async function parseMarkdown(
   markdown: string,
+  flags: WebMd4cFlags = {}
+): Promise<ASTNode> {
+  return runParser(await initializeParser(), markdown, flags);
+}
+
+/**
+ * Parses without waiting, for callers that render the result in the same
+ * pass. Throws when the WASM has not loaded yet: check {@link isParserReady}.
+ */
+export function parseMarkdownSync(
+  markdown: string,
+  flags: WebMd4cFlags = {}
+): ASTNode {
+  if (!loadedParser) {
+    throw new Error('WASM parser is not loaded');
+  }
+  return runParser(loadedParser, markdown, flags);
+}
+
+function runParser(
+  parse: ParseFn,
+  markdown: string,
   {
     underline = false,
     latexMath = true,
@@ -101,10 +150,8 @@ export async function parseMarkdown(
     preserveBlankLines = false,
     admonitions = true,
     permissiveAutolinks = true,
-  }: WebMd4cFlags = {}
-): Promise<ASTNode> {
-  const parse = await initializeParser();
-
+  }: WebMd4cFlags
+): ASTNode {
   const result: unknown = JSON.parse(
     parse(
       markdown,
