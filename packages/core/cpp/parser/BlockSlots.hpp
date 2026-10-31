@@ -38,9 +38,19 @@ struct ImageOccurrence {
   ImagePlacement placement;
 };
 
+// A Link node anywhere in the parsed document: inline links, autolinks and bare
+// URLs in paragraphs, headings, lists, tables and quotes. Links that the hosts'
+// text recognizers add at render time are not in the parsed tree.
+struct LinkOccurrence {
+  std::string url;
+  std::string label; // the link's text; for a bare URL or autolink, the URL as written
+  std::string title;
+};
+
 struct CollectedBlocks {
   std::vector<BlockSlot> slots;
   std::vector<ImageOccurrence> images;
+  std::vector<LinkOccurrence> links;
   // Indexes into slots and images by the node they describe (the paragraph or
   // video a slot replaces, the Image node), valid while the tree lives.
   std::unordered_map<const MarkdownASTNode *, size_t> slotByNode;

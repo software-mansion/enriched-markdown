@@ -36,6 +36,12 @@ export interface NativeImageOccurrence {
   placement: string;
 }
 
+export interface NativeLinkOccurrence {
+  url: string;
+  label: string;
+  title: string;
+}
+
 /** The host's streaming filter settings, applied before collecting when `enabled`. */
 export interface NativeStreamingOptions {
   enabled: boolean;
@@ -47,6 +53,7 @@ export interface NativeStreamingOptions {
 export interface NativeCollectedBlocks {
   slots: ReadonlyArray<NativeBlockSlot>;
   images: ReadonlyArray<NativeImageOccurrence>;
+  links: ReadonlyArray<NativeLinkOccurrence>;
 }
 
 /**

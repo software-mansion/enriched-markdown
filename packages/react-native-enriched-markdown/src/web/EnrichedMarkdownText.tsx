@@ -20,6 +20,7 @@ import type { ASTNode, RendererCallbacks, RenderCapabilities } from './types';
 import { indexTaskItems, markInlineImages } from './utils';
 import { collectBlocks, type CollectedBlocks } from './blockSlots';
 import { useResolvedImageSources } from '../imageSources';
+import { useLinksChange } from '../linkOccurrences';
 import { hasRenderers, useRenderedBlocks } from '../blockRenderers';
 import type { MarkdownImageOccurrence } from '../types/markdownBlocks';
 import { loadKaTeX } from './katex';
@@ -28,7 +29,7 @@ import { ENRM_TEXT_CLASS, ENRM_SELECTION_BG_VAR } from './globalStyles';
 import { filterNativeOnlyProps } from './nativeProps';
 import { isDev } from '../utils/isDev';
 
-const EMPTY: CollectedBlocks = { blocks: [], images: [] };
+const EMPTY: CollectedBlocks = { blocks: [], images: [], links: [] };
 
 export const EnrichedMarkdownText = ({
   markdown,
@@ -42,6 +43,7 @@ export const EnrichedMarkdownText = ({
   onCodeBlockPress,
   renderers,
   resolveImageSource,
+  onLinksChange,
   enableTaskListItemToggle = true,
   allowTrailingMargin = false,
   containerStyle,
@@ -60,7 +62,8 @@ export const EnrichedMarkdownText = ({
   const [collected, setCollected] = useState<CollectedBlocks>(EMPTY);
   const renderersEnabled = hasRenderers(renderers);
   // Collecting hashes every image and link: only when something reads it.
-  const collectEnabled = renderersEnabled || resolveImageSource != null;
+  const collectEnabled =
+    renderersEnabled || resolveImageSource != null || onLinksChange != null;
   const [katex, setKatex] = useState<KaTeXInstance | null>(null);
   const [parseError, setParseError] = useState<boolean>(false);
 
@@ -174,6 +177,8 @@ export const EnrichedMarkdownText = ({
   }, [renderersEnabled, renderedBlocks]);
 
   const imageSources = useImageSources(collected.images, resolveImageSource);
+  // Nothing is known before the first parse.
+  useLinksChange(collected.links, onLinksChange, collected !== EMPTY);
 
   const blockDir = dir === 'ltr' || dir === 'rtl' ? undefined : 'auto';
   const capabilities = useMemo<RenderCapabilities>(

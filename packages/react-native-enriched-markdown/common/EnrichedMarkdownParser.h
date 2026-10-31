@@ -27,6 +27,12 @@ template <>
 struct Bridging<EnrichedMarkdownParserImageOccurrence>
     : NativeEnrichedMarkdownParserNativeImageOccurrenceBridging<EnrichedMarkdownParserImageOccurrence> {};
 
+using EnrichedMarkdownParserLinkOccurrence =
+    NativeEnrichedMarkdownParserNativeLinkOccurrence<std::string, std::string, std::string>;
+template <>
+struct Bridging<EnrichedMarkdownParserLinkOccurrence>
+    : NativeEnrichedMarkdownParserNativeLinkOccurrenceBridging<EnrichedMarkdownParserLinkOccurrence> {};
+
 using EnrichedMarkdownParserMd4cFlags =
     NativeEnrichedMarkdownParserNativeMd4cFlags<bool, bool, bool, bool, bool, bool, bool, bool>;
 template <>
@@ -41,7 +47,8 @@ struct Bridging<EnrichedMarkdownParserStreamingOptions>
 
 using EnrichedMarkdownParserCollectedBlocks =
     NativeEnrichedMarkdownParserNativeCollectedBlocks<std::vector<EnrichedMarkdownParserBlockSlot>,
-                                                      std::vector<EnrichedMarkdownParserImageOccurrence>>;
+                                                      std::vector<EnrichedMarkdownParserImageOccurrence>,
+                                                      std::vector<EnrichedMarkdownParserLinkOccurrence>>;
 template <>
 struct Bridging<EnrichedMarkdownParserCollectedBlocks>
     : NativeEnrichedMarkdownParserNativeCollectedBlocksBridging<EnrichedMarkdownParserCollectedBlocks> {};

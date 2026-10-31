@@ -52,6 +52,9 @@ EnrichedMarkdownParser::collect(jsi::Runtime &, std::string markdown, EnrichedMa
     result.images.push_back(
         {image.id, image.url, image.altText, image.title, Markdown::imagePlacementName(image.placement)});
   }
+  for (const auto &link : document->blocks.links) {
+    result.links.push_back({link.url, link.label, link.title});
+  }
   return result;
 }
 

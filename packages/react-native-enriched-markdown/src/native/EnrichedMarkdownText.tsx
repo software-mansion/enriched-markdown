@@ -18,9 +18,14 @@ import {
   normalizeLinkContextMenuItems,
 } from '../linkContextMenuUtils';
 import { resolveAccessibilityLabels } from '../accessibilityLabelDefaults';
-import { useBlockSlots, useCollectedMarkdown } from './useBlockSlots';
+import {
+  NOT_COLLECTED,
+  useBlockSlots,
+  useCollectedMarkdown,
+} from './useBlockSlots';
 import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
+import { useLinksChange } from '../linkOccurrences';
 import {
   normalizeMenuItem,
   normalizeLegacyBooleanMenuItem,
@@ -44,6 +49,7 @@ import type {
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from '../types/MarkdownTextProps';
 import type {
   LinkPressEvent,
@@ -76,6 +82,7 @@ export type {
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 };
 export type {
   LinkPressEvent,
@@ -191,6 +198,7 @@ export const EnrichedMarkdownText = ({
   imageRequestHeaders,
   renderers,
   resolveImageSource,
+  onLinksChange,
   linkPillContent,
   linkRecognition,
   selectionMenuConfig,
@@ -474,7 +482,8 @@ export const EnrichedMarkdownText = ({
   // commit as the markdown they describe, the image sources before it is drawn.
   const isGFM = flavor === 'github';
   const renderersEnabled = hasRenderers(renderers);
-  const collectEnabled = renderersEnabled || resolveImageSource != null;
+  const collectEnabled =
+    renderersEnabled || resolveImageSource != null || onLinksChange != null;
   const collectStreaming = useMemo(
     () => ({
       enabled: streamingAnimation,
@@ -500,6 +509,7 @@ export const EnrichedMarkdownText = ({
     resolveImageSource,
     resolveImageSource != null && isGFM
   );
+  useLinksChange(collected.links, onLinksChange, collected !== NOT_COLLECTED);
 
   const sharedProps = {
     markdown,

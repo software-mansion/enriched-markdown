@@ -17,6 +17,7 @@ import type {
   MarkdownRenderers,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './markdownBlocks';
 
 // Defined apart so code shared with web can import them: under a `.web`
@@ -34,6 +35,7 @@ export type {
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './markdownBlocks';
 
 /**
@@ -622,4 +624,21 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
     | MarkdownImageSource
     | undefined
     | Promise<MarkdownImageSource | undefined>;
+  /**
+   * Called with the document's links whenever they change, and once with the
+   * first ones: every inline link, autolink and bare URL in document order,
+   * including those in lists, tables, headings and quotes. Use it to set
+   * `linkPillContent`, `markdownStyle.linkVariants` or `linkContextMenuItems`
+   * for the links a document contains; a state update made here lands before
+   * the frame is drawn. Links that `linkRecognition` adds are not reported,
+   * since recognition runs as the text is drawn.
+   *
+   * It is read like an event handler: changing the function does not report
+   * again. While streaming, it sees the links the streaming options let
+   * through, including a bare URL still being written, reported again as it grows.
+   *
+   * Only applies when `flavor="github"`.
+   * @platform ios, android, web
+   */
+  onLinksChange?: (links: MarkdownLinkOccurrence[]) => void;
 }
