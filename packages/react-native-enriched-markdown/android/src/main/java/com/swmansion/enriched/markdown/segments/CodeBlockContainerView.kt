@@ -11,6 +11,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.text.Layout
 import android.text.SpannableString
 import android.text.StaticLayout
@@ -34,6 +36,7 @@ import com.swmansion.enriched.markdown.utils.common.CodeBlockHighlighter
 import com.swmansion.enriched.markdown.utils.common.CodeBlockNode
 import com.swmansion.enriched.markdown.utils.text.extensions.applyCodeBlockTextStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.views.CheckmarkGlyph
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import com.swmansion.enriched.markdown.views.CopyGlyph
 import com.swmansion.enriched.markdown.views.WrapGlyph
@@ -92,6 +95,7 @@ class CodeBlockContainerView(
       if (field == value) return
       field = value
       copyButton.isEnabled = !value
+      if (value) resetCopyFeedback()
       // The reconciler can reuse an unchanged block without re-applying the
       // node, so re-derive here to pick up highlighting once the block closes.
       rebuildCodeText()
@@ -160,6 +164,18 @@ class CodeBlockContainerView(
       setTextColor(secondaryColor(codeBlockStyle.color))
     }
 
+  private val copyIcon =
+    CopyIconDrawable(
+      secondaryColor(codeBlockStyle.color),
+      ceil(codeBlockStyle.fontSize * HEADER_ICON_SCALE).toInt(),
+    )
+
+  // A main-looper handler rather than View.postDelayed, which defers work until attach.
+  private val copyFeedbackHandler = Handler(Looper.getMainLooper())
+  private val endCopyFeedback = Runnable { resetCopyFeedback() }
+
+  internal val showsCopyFeedback: Boolean get() = copyIcon.showsCheckmark
+
   // contentDescription reads the shared label live so a runtime label change is
   // reflected for TalkBack without a push (mirrors the live block-menu reads).
   private val copyButton =
@@ -168,12 +184,7 @@ class CodeBlockContainerView(
     }.apply {
       background = null
       scaleType = ImageView.ScaleType.CENTER
-      setImageDrawable(
-        CopyIconDrawable(
-          secondaryColor(codeBlockStyle.color),
-          ceil(codeBlockStyle.fontSize * HEADER_ICON_SCALE).toInt(),
-        ),
-      )
+      setImageDrawable(copyIcon)
       setOnClickListener { copyCode() }
     }
 
@@ -238,10 +249,12 @@ class CodeBlockContainerView(
   }
 
   fun applyCodeBlockNode(node: MarkdownASTNode) {
-    code = CodeBlockNode.extractCode(node)
+    val newCode = CodeBlockNode.extractCode(node)
+    val newLanguage = CodeBlockNode.language(node)
+    if (newCode != code || newLanguage != language) resetCopyFeedback()
+    code = newCode
     fenceChar = CodeBlockNode.fenceChar(node)
 
-    val newLanguage = CodeBlockNode.language(node)
     if (newLanguage != language) {
       language = newLanguage
       languageView.text = CodeBlockNode.displayLanguageName(newLanguage)
@@ -344,7 +357,24 @@ class CodeBlockContainerView(
   private fun copyCode() {
     if (pending || code.isEmpty()) return
     copyToClipboard(code)
+    showCopyFeedback()
     dynamicProps.onCopyPress?.invoke(code, language ?: "")
+  }
+
+  private fun showCopyFeedback() {
+    copyFeedbackHandler.removeCallbacks(endCopyFeedback)
+    copyIcon.showsCheckmark = true
+    copyFeedbackHandler.postDelayed(endCopyFeedback, COPY_FEEDBACK_DURATION_MS)
+  }
+
+  private fun resetCopyFeedback() {
+    copyFeedbackHandler.removeCallbacks(endCopyFeedback)
+    copyIcon.showsCheckmark = false
+  }
+
+  override fun onDetachedFromWindow() {
+    super.onDetachedFromWindow()
+    resetCopyFeedback()
   }
 
   private fun handleCodeBlockPress() {
@@ -392,9 +422,21 @@ class CodeBlockContainerView(
       }
 
     private val glyph = CopyGlyph()
+    private val checkmarkGlyph = CheckmarkGlyph()
+
+    var showsCheckmark = false
+      set(value) {
+        if (field == value) return
+        field = value
+        invalidateSelf()
+      }
 
     override fun draw(canvas: Canvas) {
-      glyph.draw(canvas, bounds.width().toFloat(), paint)
+      if (showsCheckmark) {
+        checkmarkGlyph.draw(canvas, bounds.width().toFloat(), paint)
+      } else {
+        glyph.draw(canvas, bounds.width().toFloat(), paint)
+      }
     }
 
     override fun getIntrinsicWidth() = size
@@ -458,6 +500,7 @@ class CodeBlockContainerView(
 
   companion object {
     private const val HEADER_LABEL_SCALE = 0.85f
+    internal const val COPY_FEEDBACK_DURATION_MS = 1500L
 
     // Drawable box for the copy glyph, as a multiple of the code font size.
     // iOS sizes the SF Symbol by point size (kENRMHeaderIconScale = 0.72) but

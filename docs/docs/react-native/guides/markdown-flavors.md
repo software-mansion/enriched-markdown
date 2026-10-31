@@ -45,7 +45,7 @@ In `commonmark` these stay literal - `~~text~~` renders as tildes and a `| a | b
 | Feature | What you get |
 |---|---|
 | **Tables** | Column alignment, rich text in cells, header styling, horizontal scrolling |
-| **Code blocks** | A block component with a header bar, language label and copy button, plus [`onCopyPress`](/react-native/api-reference/enriched-markdown-text#oncopypress) |
+| **Code blocks** | A block component with a header bar, language label and copy button (it shows a checkmark for a moment after a copy), plus [`onCopyPress`](/react-native/api-reference/enriched-markdown-text#oncopypress) |
 | **Block math** | `$$...$$` as a standalone, scrollable display equation rather than an inline attachment |
 | **Videos** | The `<video>` player (the tag itself is parsed in both flavors) |
 | **Blockquote containers** | Blockquotes and admonitions as real container views, with a block context menu |
