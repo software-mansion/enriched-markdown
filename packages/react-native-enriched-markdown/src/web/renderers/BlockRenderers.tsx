@@ -7,6 +7,7 @@ import type {
   RendererMap,
 } from '../types';
 import { toHeadingLevel } from '../styles';
+import { withPillLineHeight } from '../linkPills';
 import { KaTeXRenderer } from './KaTeXRenderer';
 import {
   ADMONITION_ICON_PATHS,
@@ -18,6 +19,7 @@ import { ENRM_ADMONITION_CLASS } from '../globalStyles';
 
 function ParagraphRenderer({
   node,
+  style,
   styles,
   parentType,
   capabilities,
@@ -40,15 +42,35 @@ function ParagraphRenderer({
   if (isImageOnly) return <>{renderChildren(node)}</>;
 
   if (inQuote) {
-    return <p style={styles.paragraphInBlockquote}>{renderChildren(node)}</p>;
+    return (
+      <p
+        style={withPillLineHeight(
+          styles.paragraphInBlockquote,
+          style,
+          node,
+          style.blockquote.lineHeight
+        )}
+      >
+        {renderChildren(node)}
+      </p>
+    );
   }
 
+  // The list item raises its own line height for pills.
   if (parentType === 'ListItem') {
     return <span>{renderChildren(node)}</span>;
   }
 
   return (
-    <p style={styles.paragraph} dir={capabilities.blockDir}>
+    <p
+      style={withPillLineHeight(
+        styles.paragraph,
+        style,
+        node,
+        style.paragraph.lineHeight
+      )}
+      dir={capabilities.blockDir}
+    >
       {renderChildren(node)}
     </p>
   );
@@ -56,13 +78,22 @@ function ParagraphRenderer({
 
 function HeadingRenderer({
   node,
+  style,
   styles,
   capabilities,
   renderChildren,
 }: RendererProps) {
   const Tag = toHeadingLevel(node.attributes?.level ?? '1');
   return (
-    <Tag style={styles[Tag]} dir={capabilities.blockDir}>
+    <Tag
+      style={withPillLineHeight(
+        styles[Tag],
+        style,
+        node,
+        style[Tag].lineHeight
+      )}
+      dir={capabilities.blockDir}
+    >
       {renderChildren(node)}
     </Tag>
   );

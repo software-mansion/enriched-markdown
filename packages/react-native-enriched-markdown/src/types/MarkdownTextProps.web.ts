@@ -1,3 +1,4 @@
+import type { LinkPillContent } from './linkPill';
 import type { LinkRecognition } from './linkRecognition';
 import type {
   MarkdownImageOccurrence,
@@ -50,6 +51,12 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform ios, android, web
    */
   linkRecognition?: LinkRecognition;
+  /**
+   * Label and icon for individual link pills, keyed by the exact link URL.
+   * Applies only to links whose `markdownStyle.linkVariants` entry enables `pill`.
+   * @platform ios, android, web
+   */
+  linkPillContent?: Record<string, LinkPillContent>;
   /**
    * Callback fired when a link is pressed.
    * Receives the link URL directly.

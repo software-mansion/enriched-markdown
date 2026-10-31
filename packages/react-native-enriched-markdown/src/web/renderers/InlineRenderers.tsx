@@ -1,8 +1,14 @@
-import type { MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import type { RendererProps, RendererMap } from '../types';
 import { extractNodeText } from '../utils';
 import { KaTeXRenderer } from './KaTeXRenderer';
-import { linkStyleForUrl } from '../styles';
+import {
+  linkPillIconStyle,
+  linkPillLabelStyle,
+  linkPillStyle,
+  linkStyleForUrl,
+} from '../styles';
+import { iconFailedRecently, linkPillFor, markIconFailed } from '../linkPills';
 
 function TextRenderer({ node }: RendererProps) {
   return <>{node.content ?? ''}</>;
@@ -54,10 +60,59 @@ function CodeRenderer({ node, styles, renderChildren }: RendererProps) {
   );
 }
 
+/**
+ * Like native, the icon keeps its slot while it loads and gives it up if the
+ * source fails, and a source that failed is skipped for 30 seconds. A tint is a
+ * CSS mask, which cannot report failure, so the source is probed with an Image.
+ * Keyed by `iconUri`, so a new source starts over.
+ */
+function LinkPillIcon({
+  iconUri,
+  tintColor,
+}: {
+  iconUri: string;
+  tintColor: string | undefined;
+}) {
+  const [failed, setFailed] = useState(() => iconFailedRecently(iconUri));
+  const fail = () => {
+    markIconFailed(iconUri);
+    setFailed(true);
+  };
+
+  useEffect(() => {
+    if (!tintColor || failed) return undefined;
+    let active = true;
+    const probe = new Image();
+    probe.onerror = () => {
+      if (!active) return;
+      markIconFailed(iconUri);
+      setFailed(true);
+    };
+    probe.src = iconUri;
+    return () => {
+      active = false;
+    };
+  }, [iconUri, tintColor, failed]);
+
+  if (failed) return null;
+  if (tintColor) {
+    return <span aria-hidden style={linkPillIconStyle(iconUri, tintColor)} />;
+  }
+  return (
+    <img
+      alt=""
+      src={iconUri}
+      style={linkPillIconStyle(iconUri, undefined)}
+      onError={fail}
+    />
+  );
+}
+
 function LinkRenderer({
   node,
   style,
   callbacks,
+  capabilities,
   renderChildren,
 }: RendererProps) {
   const url = node.attributes?.url;
@@ -77,6 +132,45 @@ function LinkRenderer({
       callbacks.onLinkLongPress({ url });
     }
   };
+
+  const variant = linkPillFor(style, node);
+  if (variant) {
+    const { pill } = variant;
+    const content = capabilities.linkPillContent?.[url];
+    const originalText = extractNodeText(node);
+    const label = content?.label || pill.label || undefined;
+    const iconUri = content?.iconUri || pill.iconUri;
+    // A per-link icon keeps its colors unless its own entry tints it.
+    const iconTintColor =
+      content?.iconTintColor ??
+      (content?.iconUri ? undefined : pill.iconTintColor);
+    const accessibleName =
+      label && label !== originalText ? `${label}, ${originalText}` : undefined;
+
+    return (
+      <a
+        href={url}
+        style={{
+          ...linkStyleForUrl(style, url),
+          ...linkPillStyle(pill, variant.backgroundColor),
+        }}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={accessibleName}
+        onClick={handleClick}
+        onContextMenu={handleContextMenu}
+      >
+        {iconUri ? (
+          <LinkPillIcon
+            key={iconUri}
+            iconUri={iconUri}
+            tintColor={iconTintColor ? String(iconTintColor) : undefined}
+          />
+        ) : null}
+        <span style={linkPillLabelStyle}>{label ?? renderChildren(node)}</span>
+      </a>
+    );
+  }
 
   return (
     <a

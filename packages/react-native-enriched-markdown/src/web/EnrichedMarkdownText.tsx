@@ -35,6 +35,7 @@ export const EnrichedMarkdownText = ({
   markdownStyle = {},
   md4cFlags = {},
   linkRecognition,
+  linkPillContent,
   onLinkPress,
   onLinkLongPress,
   onImagePress,
@@ -183,8 +184,16 @@ export const EnrichedMarkdownText = ({
       blockSlots,
       imageSources,
       blockDir,
+      linkPillContent,
     }),
-    [katex, enableTaskListItemToggle, blockSlots, imageSources, blockDir]
+    [
+      katex,
+      enableTaskListItemToggle,
+      blockSlots,
+      imageSources,
+      blockDir,
+      linkPillContent,
+    ]
   );
 
   const lastChildStyle = useMemo(

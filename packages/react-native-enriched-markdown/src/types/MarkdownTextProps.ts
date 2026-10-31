@@ -459,7 +459,7 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * linkPillContent={{
    *   'https://example.com/files/a/long/path/file.ts': { label: 'file.ts' },
    * }}
-   * @platform ios, android
+   * @platform ios, android, web
    */
   linkPillContent?: Record<string, LinkPillContent>;
   /**
