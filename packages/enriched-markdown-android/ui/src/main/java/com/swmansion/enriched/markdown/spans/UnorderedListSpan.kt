@@ -13,6 +13,7 @@ class UnorderedListSpan(
   depth: Int,
   context: Context,
   styleCache: SpanStyleCache,
+  drawsMarker: Boolean = true,
   ancestorMarkerOffset: Float = 0f,
   parentMarkerWidth: Float? = null,
 ) : BaseListSpan(
@@ -28,6 +29,7 @@ class UnorderedListSpan(
       ),
     marginLeft = listStyle.marginLeft,
     gapWidth = listStyle.gapWidth,
+    drawsMarker = drawsMarker,
     ancestorMarkerOffset = ancestorMarkerOffset,
     parentMarkerWidth = parentMarkerWidth,
   ) {

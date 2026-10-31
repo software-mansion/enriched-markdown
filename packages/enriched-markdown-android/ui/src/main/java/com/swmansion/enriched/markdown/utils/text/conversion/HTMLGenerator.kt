@@ -21,6 +21,7 @@ import com.swmansion.enriched.markdown.spans.HeadingSpan
 import com.swmansion.enriched.markdown.spans.HighlightSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
+import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.StrongSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
@@ -336,6 +337,17 @@ object HTMLGenerator {
       return
     }
 
+    // A block's bottom-margin line inside a list item or a quote holds no content of its own, but it
+    // still ends a code block, and in a quote that opens with code it is the first line to open the quote.
+    if (paraText.isEmpty() && text.getSpans(para.start, para.start + 1, MarginBottomSpan::class.java).isNotEmpty()) {
+      closeCodeBlockIfOpen(html, state, styles)
+      if (para.type == TYPE_BLOCKQUOTE) {
+        openBlockquotesTo(html, para, styles, state)
+        state.previousWasBlockquote = true
+      }
+      return
+    }
+
     // Get content range (trim trailing newline)
     val contentEnd = if (para.end > para.start && text[para.end - 1] == '\n') para.end - 1 else para.end
     val isCodeBlock = para.type == TYPE_CODE_BLOCK
@@ -395,15 +407,13 @@ object HTMLGenerator {
     html.append("</code></pre>")
   }
 
-  private fun handleBlockquote(
+  /** Closes and opens quotes until as many are open as [para] is deep. */
+  private fun openBlockquotesTo(
     html: StringBuilder,
-    content: String,
     para: ParagraphInfo,
     styles: CachedStyles,
     state: GeneratorState,
   ) {
-    closeCodeBlockIfOpen(html, state, styles)
-
     val depth = para.depth
 
     // Reset if coming from non-blockquote content
@@ -455,6 +465,18 @@ object HTMLGenerator {
           .append(";\">")
       }
     }
+  }
+
+  private fun handleBlockquote(
+    html: StringBuilder,
+    content: String,
+    para: ParagraphInfo,
+    styles: CachedStyles,
+    state: GeneratorState,
+  ) {
+    closeCodeBlockIfOpen(html, state, styles)
+
+    openBlockquotesTo(html, para, styles, state)
 
     // The spacer paragraph that opens an admonition holds no text of its own: it becomes the
     // header row rather than an empty <p>. The octicon is left out — a tinted bold title carries

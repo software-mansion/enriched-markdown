@@ -28,6 +28,10 @@ class BlockquoteRenderer(
     onLinkLongPress: ((String) -> Unit)?,
     factory: RendererFactory,
   ) {
+    if (builder.isNotEmpty() && builder.last() != '\n') {
+      builder.append("\n")
+    }
+
     val start = builder.length
     val style = config.style.blockquoteStyle
     val context = factory.blockStyleContext
