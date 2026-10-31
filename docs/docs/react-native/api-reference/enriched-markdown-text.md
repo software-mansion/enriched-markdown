@@ -698,6 +698,12 @@ Text direction on web. Unset or `'auto'`, each block resolves its own direction 
 
 <LivePreview src={DirSrc} />
 
+### `suspense` <WebBadge /> {#suspense}
+
+Suspends until the WASM parser has loaded, instead of rendering nothing until then, so that the first commit already has the markdown: a server render (SSR) includes it, and hydration keeps the server's HTML until the parser has loaded in the browser. Needs React 19 (`use`) and a `<Suspense>` boundary above the component. On iOS and Android it is a no-op.
+
+<PropInfo type="boolean" default="false" />
+
 ## Events
 
 Callback props fired in response to native interactions. Each has a live playground like the props above.

@@ -146,6 +146,17 @@ export interface EnrichedMarkdownTextProps extends Omit<
    */
   dir?: 'ltr' | 'rtl' | 'auto';
   /**
+   * Suspends until the WASM parser has loaded, instead of rendering nothing
+   * until then, so that the first commit already has the markdown: on the
+   * server (SSR), which then renders it, and while hydrating, which keeps the
+   * server's HTML until the parser has loaded. Needs React 19 and a
+   * `<Suspense>` boundary above. A parser that fails to load renders the raw
+   * markdown in the browser, as without it, and leaves the boundary to the
+   * browser on the server.
+   * @platform web
+   */
+  suspense?: boolean;
+  /**
    * React replacements for blocks, keyed by kind: a paragraph whose only
    * content is an image or a link, and `<video>` blocks, directly in the
    * document, a blockquote or an admonition, outside any list. Return nothing

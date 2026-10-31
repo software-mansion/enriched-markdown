@@ -38,6 +38,9 @@ export type WebMd4cFlags = Md4cFlags & {
 // Caching the Promise (not the resolved value) means concurrent callers share
 // a single WASM initialization — no duplicate loading.
 let parserPromise: Promise<ParseFn> | null = null;
+// Set once the WASM is up, so later parses can run synchronously in render.
+let loadedParser: ParseFn | null = null;
+const parserReadyListeners = new Set<() => void>();
 
 // SINGLE_FILE=1 inlines the WASM binary as base64 inside md4c.js, so no
 // network fetch is needed — only a one-time decode + compile on first call.
@@ -59,12 +62,61 @@ function initializeParser(): Promise<ParseFn> {
           'number',
         ])
       )
+      .then((wrapped) => {
+        const parse = wrapped as ParseFn;
+        loadedParser = parse;
+        parserReadyListeners.forEach((listener) => listener());
+        return parse;
+      })
       .catch((error) => {
         parserPromise = null;
         throw error;
       }) as Promise<ParseFn>;
   }
   return parserPromise;
+}
+
+/** Starts the WASM load, or retries one that failed. */
+export function loadParser(): Promise<void> {
+  return initializeParser().then(() => {});
+}
+
+// The same promise on every render, as React's `use` needs it.
+let parserSettledPromise: Promise<void> | null = null;
+
+/**
+ * Resolves once the first WASM load has finished, for a component that
+ * suspends on it. In the browser, a failed load resolves too, and is kept: the
+ * component renders its fallback instead of suspending again. On the server, it
+ * rejects, which leaves the Suspense boundary to the browser, and the next
+ * render retries the load.
+ */
+export function waitForParser(): Promise<void> {
+  if (!parserSettledPromise) {
+    parserSettledPromise = initializeParser().then(
+      () => {},
+      (error: unknown) => {
+        if (typeof window === 'undefined') {
+          parserSettledPromise = null;
+          throw error;
+        }
+      }
+    );
+  }
+  return parserSettledPromise;
+}
+
+/** Whether {@link parseMarkdownSync} can run. */
+export function isParserReady(): boolean {
+  return loadedParser !== null;
+}
+
+/** Calls `listener` once the WASM load finishes. */
+export function subscribeParserReady(listener: () => void): () => void {
+  parserReadyListeners.add(listener);
+  return () => {
+    parserReadyListeners.delete(listener);
+  };
 }
 
 // Starts the WASM load ahead of the first parse, so that parse settles in
@@ -74,10 +126,7 @@ export function preloadParser(): Promise<void> {
     return Promise.resolve();
   }
   // A failure is left to the first real parse, which retries the load.
-  return initializeParser().then(
-    () => {},
-    () => {}
-  );
+  return waitForParser();
 }
 
 function isASTNode(value: unknown): value is ASTNode {
@@ -91,6 +140,28 @@ function isASTNode(value: unknown): value is ASTNode {
 
 export async function parseMarkdown(
   markdown: string,
+  flags: WebMd4cFlags = {}
+): Promise<ASTNode> {
+  return runParser(await initializeParser(), markdown, flags);
+}
+
+/**
+ * Parses without waiting, for callers that render the result in the same
+ * pass. Throws when the WASM has not loaded yet: check {@link isParserReady}.
+ */
+export function parseMarkdownSync(
+  markdown: string,
+  flags: WebMd4cFlags = {}
+): ASTNode {
+  if (!loadedParser) {
+    throw new Error('WASM parser is not loaded');
+  }
+  return runParser(loadedParser, markdown, flags);
+}
+
+function runParser(
+  parse: ParseFn,
+  markdown: string,
   {
     underline = false,
     latexMath = true,
@@ -101,10 +172,8 @@ export async function parseMarkdown(
     preserveBlankLines = false,
     admonitions = true,
     permissiveAutolinks = true,
-  }: WebMd4cFlags = {}
-): Promise<ASTNode> {
-  const parse = await initializeParser();
-
+  }: WebMd4cFlags
+): ASTNode {
   const result: unknown = JSON.parse(
     parse(
       markdown,
