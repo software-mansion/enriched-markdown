@@ -169,7 +169,11 @@ class TableContainerView(
       }
   }
 
-  private fun extractPlainText(node: MarkdownASTNode): String = node.content + node.children.joinToString("") { extractPlainText(it) }
+  private fun extractPlainText(node: MarkdownASTNode): String =
+    when (node.type) {
+      NodeType.LineBreak, NodeType.SoftBreak -> "\n"
+      else -> node.content + node.children.joinToString("") { extractPlainText(it) }
+    }
 
   private fun textAlignmentFromString(align: String?): Layout.Alignment =
     when (align) {
