@@ -7,6 +7,7 @@
 #import "PasteboardUtils.h"
 #import <AVKit/AVKit.h>
 #if TARGET_OS_OSX
+#import "ENRMHorizontalScrollView.h"
 #import "ENRMMenuAction.h"
 #endif
 
@@ -296,8 +297,25 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
 
 // ===== macOS implementation =====
 
+// AVPlayerView seeks on any scroll-wheel motion; keep vertical motion for the page.
+@interface ENRMPlayerView : AVPlayerView
+@end
+
+@implementation ENRMPlayerView
+
+- (void)scrollWheel:(NSEvent *)event
+{
+  if (ENRMIsPredominantlyVerticalScroll(event.scrollingDeltaX, event.scrollingDeltaY)) {
+    [self.nextResponder scrollWheel:event];
+    return;
+  }
+  [super scrollWheel:event];
+}
+
+@end
+
 @implementation ENRMVideoContainerView {
-  AVPlayerView *_playerView;
+  ENRMPlayerView *_playerView;
   NSString *_currentURL;
 }
 
@@ -308,7 +326,7 @@ static RCTUIView *ENRMCreatePlayIconOverlay(void)
     _dynamicProps = [[ENRMDynamicBlockProps alloc] init];
     self.wantsLayer = YES;
 
-    _playerView = [[AVPlayerView alloc] init];
+    _playerView = [[ENRMPlayerView alloc] init];
     _playerView.controlsStyle = AVPlayerViewControlsStyleInline;
     _playerView.wantsLayer = YES;
     _playerView.layer.masksToBounds = YES;
