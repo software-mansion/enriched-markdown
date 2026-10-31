@@ -117,6 +117,11 @@ class BlockStyleContext {
     listItemNumber = startNumber - 1
   }
 
+  fun orderedListNumberPath(): List<Int> = orderedListItemNumbers.toList() + listItemNumber
+
+  fun orderedListChildPrefix(): List<Int> =
+    orderedListItemNumbers.toList() + if (listType == ListType.ORDERED) listOf(listItemNumber) else emptyList()
+
   fun pushOrderedListItemNumber() {
     orderedListItemNumbers.addLast(listItemNumber)
   }

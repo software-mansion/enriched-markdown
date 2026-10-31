@@ -18,6 +18,7 @@ data class ListStyle(
   val gapWidth: Float,
   val marginLeft: Float,
   val itemSpacing: Float,
+  val numbering: String = "flat",
 ) : BaseBlockStyle {
   fun effectiveMarkerWidth(naturalWidth: Float): Float = naturalWidth.coerceAtLeast(markerMinWidth)
 
@@ -59,6 +60,7 @@ data class ListStyle(
         gapWidth,
         marginLeft,
         itemSpacing,
+        parser.parseString(map, "numbering", "flat"),
       )
     }
   }

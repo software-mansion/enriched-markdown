@@ -113,6 +113,7 @@ static NSString *const kAppleColorEmojiFontName = @"AppleColorEmoji";
                                    } else {
                                      [self drawOrderedMarkerAtX:markerX
                                                          number:marker.number
+                                                  numberingPath:marker.numberingPath
                                                       baselineY:baselineY
                                                           isRTL:isRTL];
                                    }
@@ -198,10 +199,10 @@ static NSString *const kAppleColorEmojiFontName = @"AppleColorEmoji";
                    y:y];
 }
 
-- (void)drawOrderedMarkerAtX:(CGFloat)boundaryX number:(NSInteger)number baselineY:(CGFloat)baselineY isRTL:(BOOL)isRTL
+- (void)drawOrderedMarkerAtX:(CGFloat)boundaryX number:(NSInteger)number numberingPath:(NSString *)numberingPath baselineY:(CGFloat)baselineY isRTL:(BOOL)isRTL
 {
-  NSString *text =
-      isRTL ? [NSString stringWithFormat:@".%ld", (long)number] : [NSString stringWithFormat:@"%ld.", (long)number];
+  NSString *label = numberingPath ?: [@(number) stringValue];
+  NSString *text = isRTL ? [@"." stringByAppendingString:label] : [label stringByAppendingString:@"."];
   UIFont *font = [_config listMarkerFont] ?: [self defaultFont];
 
   NSDictionary *mAttrs = @{NSFontAttributeName : font, NSForegroundColorAttributeName : [_config listStyleMarkerColor]};
