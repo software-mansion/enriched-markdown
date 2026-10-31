@@ -30,6 +30,8 @@ void em_ast_node_attribute_iterator_release(EMASTAttributeIterator *iterator);
 // Caller releases with em_string_release.
 char *em_code_block_language_display_name(const char *language);
 char *em_latex_spoken_form(const char *latex);
+char *em_renderable_markdown_for_streaming(const char *markdown, int hideTables, int hideCodeBlocks,
+                                           int *endsInsideOpenCodeFence);
 void em_string_release(char *string);
 
 #ifdef __cplusplus

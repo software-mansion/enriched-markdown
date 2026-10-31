@@ -27,6 +27,8 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     /// as an identity token — reading it to compare would copy the whole
     /// document. This can.
     private var renderedText: NSAttributedString?
+    private var renderedLineage: StreamingLineage?
+    private(set) lazy var streamingTransitions = StreamingTransitionManager(textView: self)
 
     private struct CachedFit {
         let width: CGFloat
@@ -271,7 +273,8 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         let html = MarkdownHTMLGenerator.generateHTML(
             from: attributedText,
             in: clamped,
-            config: styleConfig
+            config: styleConfig,
+            traitCollection: traitCollection
         )
         pasteboard.items = [[
             "public.utf8-plain-text": plain,
@@ -295,20 +298,58 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         return plain
     }
 
-    func setMarkdownAttributedText(_ attributedText: NSAttributedString) {
+    func setMarkdownAttributedText(_ attributedText: NSAttributedString, lineage: StreamingLineage? = nil) {
         // Identity first, and not as an optimization: the round trip through
         // `attributedText` does not compare equal to what was set, so the
         // guard below lets every update through and re-assigns the whole
         // document — measured at 30 re-assignments a second under a parent
         // that re-evaluates at frame rate.
         if let renderedText, renderedText === attributedText { return }
+        if let lineage, let renderedText {
+            let unchangedPrefix = renderedLineage.map { $0.session == lineage.session ? min($0.stableLength, lineage.stableLength) : 0 } ?? 0
+            applyStreamingEdit(from: renderedText, to: attributedText, unchangedPrefix: unchangedPrefix)
+            renderedLineage = lineage
+            return
+        }
+        renderedLineage = lineage
         guard !(self.attributedText?.isEqual(to: attributedText) ?? false) else { return }
-        carryScrollOffsets(from: renderedText, to: attributedText)
+        streamingTransitions.discard()
+        carryHostedViews(from: textStorage, to: attributedText)
         renderedText = attributedText
-        cachedFit = nil
-        trailingSpacing = TrailingSpacing.read(from: attributedText)
         self.attributedText = attributedText
         adoptImageAttachments(in: attributedText)
+        textDidChange()
+        if lineage != nil {
+            streamingTransitions.insert(NSRange(location: 0, length: attributedText.length))
+        }
+    }
+
+    private func applyStreamingEdit(from old: NSAttributedString, to new: NSAttributedString, unchangedPrefix: Int) {
+        let diff = AttributedTextDiff(from: old, to: new, unchangedPrefix: unchangedPrefix)
+        renderedText = new
+        guard !diff.isEmpty else {
+            cachedFit = cachedFit.map { CachedFit(width: $0.width, text: new, height: $0.height) }
+            return
+        }
+        carryHostedViews(
+            from: textStorage,
+            in: diff.replacedRange,
+            to: new,
+            in: diff.replacementRange,
+            transition: streamingTransitions.activeTransition
+        )
+        textStorage.beginEditing()
+        streamingTransitions.textWillChange(from: diff.replacedRange.location)
+        textStorage.replaceCharacters(in: diff.replacedRange, with: new.attributedSubstring(from: diff.replacementRange))
+        streamingTransitions.insert(diff.insertedRange)
+        textStorage.endEditing()
+        adoptImageAttachments(in: new, range: diff.replacementRange)
+        textDidChange()
+    }
+
+    private func textDidChange() {
+        cachedFit = nil
+        trailingSpacing = TrailingSpacing.read(from: renderedText ?? NSAttributedString())
         invalidateIntrinsicContentSize()
         setDecorationNeedsDisplay()
         accessibilityTreeIsStale = true
@@ -318,25 +359,29 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         setNeedsLayout()
     }
 
-    /// Without this a scrolled block snaps back on every streamed chunk.
-    private func carryScrollOffsets(from previous: NSAttributedString?, to next: NSAttributedString) {
-        guard let previous else { return }
-        let predecessors = Self.scrollingAttachmentsByKind(in: previous)
-        guard predecessors.values.joined().contains(where: { $0.preservedContentOffset != .zero }) else { return }
-        for (kind, attachments) in Self.scrollingAttachmentsByKind(in: next) {
-            for (attachment, predecessor) in zip(attachments, predecessors[kind] ?? []) {
-                attachment.preservedContentOffset = predecessor.preservedContentOffset
+    private func carryHostedViews(
+        from previous: NSAttributedString,
+        in previousRange: NSRange? = nil,
+        to next: NSAttributedString,
+        in nextRange: NSRange? = nil,
+        transition: (any ViewTransition)? = nil
+    ) {
+        let predecessors = Self.hostedBlockAttachmentsByKind(in: previous, range: previousRange)
+        guard !predecessors.isEmpty else { return }
+        for (kind, attachments) in Self.hostedBlockAttachmentsByKind(in: next, range: nextRange) {
+            for (attachment, predecessor) in zip(attachments, predecessors[kind] ?? []) where attachment !== predecessor {
+                attachment.adoptView(from: predecessor, transition: transition)
             }
         }
     }
 
-    private static func scrollingAttachmentsByKind(
-        in text: NSAttributedString
-    ) -> [ObjectIdentifier: [any HorizontallyScrollingAttachment]] {
-        var found: [ObjectIdentifier: [any HorizontallyScrollingAttachment]] = [:]
-        let options: NSAttributedString.EnumerationOptions = .longestEffectiveRangeNotRequired
-        text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length), options: options) { value, _, _ in
-            if let attachment = value as? any HorizontallyScrollingAttachment {
+    private static func hostedBlockAttachmentsByKind(
+        in text: NSAttributedString,
+        range: NSRange?
+    ) -> [ObjectIdentifier: [any HostedBlockAttachment]] {
+        var found: [ObjectIdentifier: [any HostedBlockAttachment]] = [:]
+        text.enumerateAttribute(.attachment, in: range ?? NSRange(location: 0, length: text.length)) { value, _, _ in
+            if let attachment = value as? any HostedBlockAttachment, attachment.allowsTextAttachmentView {
                 found[ObjectIdentifier(type(of: attachment)), default: []].append(attachment)
             }
         }
@@ -344,11 +389,8 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
     }
 
     /// Attachments that resize after loading have no other way to reach this view.
-    /// One attribute walk per assignment, negligible next to the assignment itself.
-    private func adoptImageAttachments(in attributedText: NSAttributedString) {
-        let full = NSRange(location: 0, length: attributedText.length)
-        let options: NSAttributedString.EnumerationOptions = .longestEffectiveRangeNotRequired
-        attributedText.enumerateAttribute(.attachment, in: full, options: options) { value, _, _ in
+    private func adoptImageAttachments(in attributedText: NSAttributedString, range: NSRange? = nil) {
+        attributedText.enumerateAttribute(.attachment, in: range ?? NSRange(location: 0, length: attributedText.length)) { value, _, _ in
             (value as? MarkdownImageAttachment)?.layoutObserver = self
         }
     }
@@ -402,6 +444,7 @@ final class MarkdownTextView: UITextView, SelectionHandleTouchReporting, Markdow
         trackEnclosingScrollView()
         setDecorationNeedsDisplay()
         spoilerOverlays.update()
+        streamingTransitions.update()
     }
 
     override func didMoveToWindow() {

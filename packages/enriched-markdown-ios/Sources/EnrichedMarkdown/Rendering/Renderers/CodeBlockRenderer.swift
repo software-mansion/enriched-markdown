@@ -19,15 +19,16 @@ final class CodeBlockRenderer: NodeRenderer {
     }
 
     func render(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
+        let isPending = node.attribute("pending") == "true"
         switch layout {
         case .wrapping:
-            renderWrapping(node: node, into: output, context: context)
+            renderWrapping(node: node, into: output, context: context, isPending: isPending)
         case .scrollable:
-            renderScrollable(node: node, into: output)
+            renderScrollable(node: node, into: output, isPending: isPending)
         }
     }
 
-    private func renderScrollable(node: MarkdownASTNode, into output: NSMutableAttributedString) {
+    private func renderScrollable(node: MarkdownASTNode, into output: NSMutableAttributedString, isPending: Bool) {
         let style = CodeBlockAttachmentStyle(config: config)
         var code = node.flattenedText()
         while code.hasSuffix("\n") {
@@ -35,7 +36,7 @@ final class CodeBlockRenderer: NodeRenderer {
         }
         let language = node.attribute("language").flatMap { $0.isEmpty ? nil : $0 }
         let attributedCode = CodeBlockAttachment.attributedCode(code, style: style)
-        if let language {
+        if let language, !isPending {
             let range = NSRange(location: 0, length: attributedCode.length)
             for plugin in plugins {
                 plugin.styleCodeBlock(in: attributedCode, range: range, language: language, config: config)
@@ -46,7 +47,8 @@ final class CodeBlockRenderer: NodeRenderer {
             language: language,
             fenceCharacter: node.attribute("fenceChar") ?? "`",
             attributedCode: attributedCode,
-            style: style
+            style: style,
+            isPending: isPending
         )
 
         ParagraphStyleHelpers.ensureStartingOnNewLine(in: output)
@@ -64,7 +66,12 @@ final class CodeBlockRenderer: NodeRenderer {
         ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: style.marginBottom)
     }
 
-    private func renderWrapping(node: MarkdownASTNode, into output: NSMutableAttributedString, context: RenderContext) {
+    private func renderWrapping(
+        node: MarkdownASTNode,
+        into output: NSMutableAttributedString,
+        context: RenderContext,
+        isPending: Bool
+    ) {
         let blockStyle = config.codeBlock
         let font = blockStyle.font ?? UIFont.monospacedSystemFont(ofSize: 14, weight: .regular)
         let color = blockStyle.foregroundColor ?? UIColor.label
@@ -140,6 +147,9 @@ final class CodeBlockRenderer: NodeRenderer {
 
         let backgroundRange = NSRange(location: blockStart, length: output.length - blockStart)
         output.addAttribute(MarkdownAttribute.codeBlock, value: true, range: backgroundRange)
+        if isPending {
+            output.addAttribute(MarkdownAttribute.codeBlockPending, value: true, range: backgroundRange)
+        }
 
         if marginBottom > 0 {
             ParagraphStyleHelpers.applyBlockSpacingAfter(to: output, marginBottom: marginBottom)
@@ -147,6 +157,7 @@ final class CodeBlockRenderer: NodeRenderer {
 
         guard let language = node.attribute("language") else { return }
         output.addAttribute(MarkdownAttribute.codeBlockLanguage, value: language, range: backgroundRange)
+        guard !isPending else { return }
         for plugin in plugins {
             plugin.styleCodeBlock(in: output, range: contentRange, language: language, config: config)
         }

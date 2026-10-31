@@ -3,32 +3,24 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		50FFA119308B922B007C9AD5 /* EnrichedMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = 50FFA118308B922B007C9AD5 /* EnrichedMarkdown */; };
+		50FFA11B308B922B007C9AD5 /* EnrichedMarkdownLaTeX in Frameworks */ = {isa = PBXBuildFile; productRef = 50FFA11A308B922B007C9AD5 /* EnrichedMarkdownLaTeX */; };
+		50FFA11D308B922B007C9AD5 /* EnrichedMarkdownStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = 50FFA11C308B922B007C9AD5 /* EnrichedMarkdownStreaming */; };
+		50FFA11F308B922B007C9AD5 /* EnrichedMarkdownSyntaxHighlighting in Frameworks */ = {isa = PBXBuildFile; productRef = 50FFA11E308B922B007C9AD5 /* EnrichedMarkdownSyntaxHighlighting */; };
 		A10000010000000000000001 /* EnrichedMarkdownExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000001 /* EnrichedMarkdownExampleApp.swift */; };
 		A10000010000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000003 /* Assets.xcassets */; };
-		A10000010000000000000004 /* EnrichedMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000001 /* EnrichedMarkdown */; };
 		A10000010000000000000010 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000010 /* AppShell.swift */; };
 		A10000010000000000000011 /* ExampleRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000011 /* ExampleRoute.swift */; };
 		A10000010000000000000012 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000012 /* HomeScreen.swift */; };
 		A10000010000000000000013 /* HomeScreenButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000013 /* HomeScreenButton.swift */; };
 		A10000010000000000000014 /* TextScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000014 /* TextScreen.swift */; };
-		A10000010000000000000050 /* MathScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000050 /* MathScreen.swift */; };
-		A10000010000000000000051 /* EnrichedMarkdownLaTeX in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000002 /* EnrichedMarkdownLaTeX */; };
-		A10000010000000000000060 /* CodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000060 /* CodeScreen.swift */; };
-		A10000010000000000000061 /* EnrichedMarkdownSyntaxHighlighting in Frameworks */ = {isa = PBXBuildFile; productRef = A10000050000000000000003 /* EnrichedMarkdownSyntaxHighlighting */; };
 		A10000010000000000000015 /* PlaygroundScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000015 /* PlaygroundScreen.swift */; };
 		A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000016 /* ExampleMarkdownStyles.swift */; };
 		A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000017 /* ExampleFontRegistrar.swift */; };
-		A10000010000000000000040 /* Color+Named.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000040 /* Color+Named.swift */; };
-		A10000010000000000000041 /* Bundle+Resources.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000041 /* Bundle+Resources.swift */; };
-		A10000010000000000000044 /* ButtonStyle+Pill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000044 /* ButtonStyle+Pill.swift */; };
-		A10000010000000000000045 /* View+BrandedNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000045 /* View+BrandedNavigationBar.swift */; };
-		A10000010000000000000042 /* PlaygroundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000042 /* PlaygroundButton.swift */; };
-		A10000010000000000000046 /* PlaygroundSpoilerOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */; };
-		A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000043 /* SetMarkdownSheet.swift */; };
 		A10000010000000000000020 /* sample_markdown.md in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000020 /* sample_markdown.md */; };
 		A10000010000000000000021 /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000021 /* logo.png */; };
 		A10000010000000000000022 /* logo_icon.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000022 /* logo_icon.png */; };
@@ -37,8 +29,19 @@
 		A10000010000000000000032 /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000032 /* Montserrat-SemiBold.ttf */; };
 		A10000010000000000000033 /* Montserrat-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000033 /* Montserrat-Medium.ttf */; };
 		A10000010000000000000034 /* Montserrat-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000034 /* Montserrat-Italic.ttf */; };
-		A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000036 /* Montserrat-BoldItalic.ttf */; };
 		A10000010000000000000035 /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000035 /* CourierPrime-Regular.ttf */; };
+		A10000010000000000000036 /* Montserrat-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000036 /* Montserrat-BoldItalic.ttf */; };
+		A10000010000000000000040 /* Color+Named.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000040 /* Color+Named.swift */; };
+		A10000010000000000000041 /* Bundle+Resources.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000041 /* Bundle+Resources.swift */; };
+		A10000010000000000000042 /* PlaygroundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000042 /* PlaygroundButton.swift */; };
+		A10000010000000000000043 /* SetMarkdownSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000043 /* SetMarkdownSheet.swift */; };
+		A10000010000000000000044 /* ButtonStyle+Pill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000044 /* ButtonStyle+Pill.swift */; };
+		A10000010000000000000045 /* View+BrandedNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000045 /* View+BrandedNavigationBar.swift */; };
+		A10000010000000000000046 /* PlaygroundSpoilerOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */; };
+		A10000010000000000000050 /* MathScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000050 /* MathScreen.swift */; };
+		A10000010000000000000060 /* CodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000060 /* CodeScreen.swift */; };
+		A10000010000000000000070 /* StreamScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000070 /* StreamScreen.swift */; };
+		A10000010000000000000071 /* StreamTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000071 /* StreamTransition.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,18 +53,9 @@
 		A10000020000000000000012 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000013 /* HomeScreenButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenButton.swift; sourceTree = "<group>"; };
 		A10000020000000000000014 /* TextScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScreen.swift; sourceTree = "<group>"; };
-		A10000020000000000000050 /* MathScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathScreen.swift; sourceTree = "<group>"; };
-		A10000020000000000000060 /* CodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000015 /* PlaygroundScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundScreen.swift; sourceTree = "<group>"; };
 		A10000020000000000000016 /* ExampleMarkdownStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleMarkdownStyles.swift; sourceTree = "<group>"; };
 		A10000020000000000000017 /* ExampleFontRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleFontRegistrar.swift; sourceTree = "<group>"; };
-		A10000020000000000000040 /* Color+Named.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Named.swift"; sourceTree = "<group>"; };
-		A10000020000000000000041 /* Bundle+Resources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bundle+Resources.swift"; sourceTree = "<group>"; };
-		A10000020000000000000044 /* ButtonStyle+Pill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ButtonStyle+Pill.swift"; sourceTree = "<group>"; };
-		A10000020000000000000045 /* View+BrandedNavigationBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+BrandedNavigationBar.swift"; sourceTree = "<group>"; };
-		A10000020000000000000042 /* PlaygroundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundButton.swift; sourceTree = "<group>"; };
-		A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundSpoilerOverlay.swift; sourceTree = "<group>"; };
-		A10000020000000000000043 /* SetMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetMarkdownSheet.swift; sourceTree = "<group>"; };
 		A10000020000000000000020 /* sample_markdown.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = sample_markdown.md; sourceTree = "<group>"; };
 		A10000020000000000000021 /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
 		A10000020000000000000022 /* logo_icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo_icon.png; sourceTree = "<group>"; };
@@ -70,8 +64,19 @@
 		A10000020000000000000032 /* Montserrat-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-SemiBold.ttf"; sourceTree = "<group>"; };
 		A10000020000000000000033 /* Montserrat-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Medium.ttf"; sourceTree = "<group>"; };
 		A10000020000000000000034 /* Montserrat-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Italic.ttf"; sourceTree = "<group>"; };
-		A10000020000000000000036 /* Montserrat-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-BoldItalic.ttf"; sourceTree = "<group>"; };
 		A10000020000000000000035 /* CourierPrime-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-Regular.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000036 /* Montserrat-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-BoldItalic.ttf"; sourceTree = "<group>"; };
+		A10000020000000000000040 /* Color+Named.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Named.swift"; sourceTree = "<group>"; };
+		A10000020000000000000041 /* Bundle+Resources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bundle+Resources.swift"; sourceTree = "<group>"; };
+		A10000020000000000000042 /* PlaygroundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundButton.swift; sourceTree = "<group>"; };
+		A10000020000000000000043 /* SetMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetMarkdownSheet.swift; sourceTree = "<group>"; };
+		A10000020000000000000044 /* ButtonStyle+Pill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ButtonStyle+Pill.swift"; sourceTree = "<group>"; };
+		A10000020000000000000045 /* View+BrandedNavigationBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+BrandedNavigationBar.swift"; sourceTree = "<group>"; };
+		A10000020000000000000046 /* PlaygroundSpoilerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundSpoilerOverlay.swift; sourceTree = "<group>"; };
+		A10000020000000000000050 /* MathScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000060 /* CodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000070 /* StreamScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamScreen.swift; sourceTree = "<group>"; };
+		A10000020000000000000071 /* StreamTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamTransition.swift; sourceTree = "<group>"; };
 		A10000030000000000000001 /* EnrichedMarkdownExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnrichedMarkdownExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -80,9 +85,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000010000000000000004 /* EnrichedMarkdown in Frameworks */,
-				A10000010000000000000051 /* EnrichedMarkdownLaTeX in Frameworks */,
-				A10000010000000000000061 /* EnrichedMarkdownSyntaxHighlighting in Frameworks */,
+				50FFA11F308B922B007C9AD5 /* EnrichedMarkdownSyntaxHighlighting in Frameworks */,
+				50FFA11B308B922B007C9AD5 /* EnrichedMarkdownLaTeX in Frameworks */,
+				50FFA11D308B922B007C9AD5 /* EnrichedMarkdownStreaming in Frameworks */,
+				50FFA119308B922B007C9AD5 /* EnrichedMarkdown in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -111,6 +117,39 @@
 				A10000020000000000000004 /* Info.plist */,
 			);
 			path = EnrichedMarkdownExample;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000030000000000000001 /* EnrichedMarkdownExample.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000004 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000060000000000000005 /* Fonts */,
+				A10000020000000000000020 /* sample_markdown.md */,
+				A10000020000000000000021 /* logo.png */,
+				A10000020000000000000022 /* logo_icon.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A10000060000000000000005 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000030 /* Montserrat-Regular.ttf */,
+				A10000020000000000000031 /* Montserrat-Bold.ttf */,
+				A10000020000000000000032 /* Montserrat-SemiBold.ttf */,
+				A10000020000000000000033 /* Montserrat-Medium.ttf */,
+				A10000020000000000000034 /* Montserrat-Italic.ttf */,
+				A10000020000000000000036 /* Montserrat-BoldItalic.ttf */,
+				A10000020000000000000035 /* CourierPrime-Regular.ttf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 		A10000060000000000000006 /* Extensions */ = {
@@ -156,6 +195,7 @@
 				A1000006000000000000000B /* Home */,
 				A10000060000000000000050 /* Math */,
 				A1000006000000000000000C /* Playground */,
+				A10000060000000000000070 /* Stream */,
 				A1000006000000000000000D /* Text */,
 			);
 			path = Views;
@@ -205,37 +245,13 @@
 			path = Code;
 			sourceTree = "<group>";
 		};
-		A10000060000000000000003 /* Products */ = {
+		A10000060000000000000070 /* Stream */ = {
 			isa = PBXGroup;
 			children = (
-				A10000030000000000000001 /* EnrichedMarkdownExample.app */,
+				A10000020000000000000070 /* StreamScreen.swift */,
+				A10000020000000000000071 /* StreamTransition.swift */,
 			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		A10000060000000000000004 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				A10000060000000000000005 /* Fonts */,
-				A10000020000000000000020 /* sample_markdown.md */,
-				A10000020000000000000021 /* logo.png */,
-				A10000020000000000000022 /* logo_icon.png */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
-		A10000060000000000000005 /* Fonts */ = {
-			isa = PBXGroup;
-			children = (
-				A10000020000000000000030 /* Montserrat-Regular.ttf */,
-				A10000020000000000000031 /* Montserrat-Bold.ttf */,
-				A10000020000000000000032 /* Montserrat-SemiBold.ttf */,
-				A10000020000000000000033 /* Montserrat-Medium.ttf */,
-				A10000020000000000000034 /* Montserrat-Italic.ttf */,
-				A10000020000000000000036 /* Montserrat-BoldItalic.ttf */,
-				A10000020000000000000035 /* CourierPrime-Regular.ttf */,
-			);
-			path = Fonts;
+			path = Stream;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -255,9 +271,10 @@
 			);
 			name = EnrichedMarkdownExample;
 			packageProductDependencies = (
-				A10000050000000000000001 /* EnrichedMarkdown */,
-				A10000050000000000000002 /* EnrichedMarkdownLaTeX */,
-				A10000050000000000000003 /* EnrichedMarkdownSyntaxHighlighting */,
+				50FFA118308B922B007C9AD5 /* EnrichedMarkdown */,
+				50FFA11A308B922B007C9AD5 /* EnrichedMarkdownLaTeX */,
+				50FFA11C308B922B007C9AD5 /* EnrichedMarkdownStreaming */,
+				50FFA11E308B922B007C9AD5 /* EnrichedMarkdownSyntaxHighlighting */,
 			);
 			productName = EnrichedMarkdownExample;
 			productReference = A10000030000000000000001 /* EnrichedMarkdownExample.app */;
@@ -288,7 +305,7 @@
 			);
 			mainGroup = A10000060000000000000001;
 			packageReferences = (
-				A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */,
+				50FFA117308B922B007C9AD5 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */,
 			);
 			productRefGroup = A10000060000000000000003 /* Products */;
 			projectDirPath = "";
@@ -333,6 +350,8 @@
 				A10000010000000000000014 /* TextScreen.swift in Sources */,
 				A10000010000000000000050 /* MathScreen.swift in Sources */,
 				A10000010000000000000060 /* CodeScreen.swift in Sources */,
+				A10000010000000000000070 /* StreamScreen.swift in Sources */,
+				A10000010000000000000071 /* StreamTransition.swift in Sources */,
 				A10000010000000000000015 /* PlaygroundScreen.swift in Sources */,
 				A10000010000000000000016 /* ExampleMarkdownStyles.swift in Sources */,
 				A10000010000000000000017 /* ExampleFontRegistrar.swift in Sources */,
@@ -468,26 +487,27 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */ = {
+		50FFA117308B922B007C9AD5 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../packages/enriched-markdown-ios;
+			relativePath = "../../../packages/enriched-markdown-ios";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A10000050000000000000001 /* EnrichedMarkdown */ = {
+		50FFA118308B922B007C9AD5 /* EnrichedMarkdown */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */;
 			productName = EnrichedMarkdown;
 		};
-		A10000050000000000000002 /* EnrichedMarkdownLaTeX */ = {
+		50FFA11A308B922B007C9AD5 /* EnrichedMarkdownLaTeX */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */;
 			productName = EnrichedMarkdownLaTeX;
 		};
-		A10000050000000000000003 /* EnrichedMarkdownSyntaxHighlighting */ = {
+		50FFA11C308B922B007C9AD5 /* EnrichedMarkdownStreaming */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A100000D0000000000000001 /* XCLocalSwiftPackageReference "../../../packages/enriched-markdown-ios" */;
+			productName = EnrichedMarkdownStreaming;
+		};
+		50FFA11E308B922B007C9AD5 /* EnrichedMarkdownSyntaxHighlighting */ = {
+			isa = XCSwiftPackageProductDependency;
 			productName = EnrichedMarkdownSyntaxHighlighting;
 		};
 /* End XCSwiftPackageProductDependency section */

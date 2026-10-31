@@ -197,8 +197,7 @@ These apply to the standalone Swift package,
   [Roadmap](/misc/roadmap#the-editor-on-native).
 - **No container styling** - no background, padding or border around the whole
   view.
-- **No image tap callback, no link previews, no flavor selector, and no public
-  streaming API.**
+- **No image tap callback, no link previews and no flavor selector.**
 - **Block context menus cannot be extended.** Code blocks, tables and block
   math have one (Copy, Copy as Markdown), but you cannot add your own items.
 - **Block images always take the available width.** The theme sets only the

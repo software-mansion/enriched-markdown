@@ -46,7 +46,7 @@ final class LinkVariantTests: XCTestCase {
 
         XCTAssertEqual(resolved.linkVariants, [
             LinkVariantStyle(pattern: "^user:", style: ElementStyle(
-                foregroundColor: UIColor.tintColor.resolvedColor(with: traitCollection),
+                foregroundColor: UIColor.tintColor,
                 underline: false
             )),
             LinkVariantStyle(pattern: "^channel:", style: ElementStyle(underline: false))

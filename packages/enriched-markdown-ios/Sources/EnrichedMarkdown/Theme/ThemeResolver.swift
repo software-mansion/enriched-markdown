@@ -45,6 +45,7 @@ public enum ThemeColorSpec: Equatable, Sendable {
         case secondary
         case tertiary
         case quaternary
+        /// Stays `UIColor.tintColor`: the view drawing the text resolves it, so `.tint()` applies.
         case tint
     }
 
@@ -57,7 +58,7 @@ public enum ThemeColorSpec: Equatable, Sendable {
             case .secondary:
                 return UIColor.secondaryLabel.resolvedColor(with: traitCollection)
             case .tint:
-                return UIColor.tintColor.resolvedColor(with: traitCollection)
+                return UIColor.tintColor
             case .tertiary:
                 return UIColor.tertiaryLabel.resolvedColor(with: traitCollection)
             case .quaternary:
