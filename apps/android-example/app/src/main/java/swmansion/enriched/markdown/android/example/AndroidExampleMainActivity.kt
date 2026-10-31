@@ -3,6 +3,7 @@ package swmansion.enriched.markdown.android.example
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,33 +55,35 @@ class AndroidExampleMainActivity : ComponentActivity() {
             modifier = Modifier.fillMaxSize(),
             containerColor = if (currentRoute.paintsOwnBackdrop) Color(0xFF0E0818) else Color.White,
             topBar = {
-              TopAppBar(
-                title = {
-                  Text(
-                    when (currentRoute) {
-                      ExampleRoute.Home -> "Enriched Markdown Examples"
-                      ExampleRoute.Playground -> "Playground"
-                      ExampleRoute.Text -> "Text"
-                      ExampleRoute.MaterialTheme -> "Material Theme"
-                      ExampleRoute.Halloween -> "Halloween"
-                      else -> currentRoute.name
-                    },
-                  )
-                },
-                navigationIcon = {
-                  if (currentRoute != ExampleRoute.Home) {
-                    TextButton(onClick = { currentRoute = ExampleRoute.Home }) {
-                      Text("Back", color = barContent)
+              // The Halloween demo is recorded full-screen, so it has no bar; system back leaves it.
+              if (currentRoute != ExampleRoute.Halloween) {
+                TopAppBar(
+                  title = {
+                    Text(
+                      when (currentRoute) {
+                        ExampleRoute.Home -> "Enriched Markdown Examples"
+                        ExampleRoute.Playground -> "Playground"
+                        ExampleRoute.Text -> "Text"
+                        ExampleRoute.MaterialTheme -> "Material Theme"
+                        else -> currentRoute.name
+                      },
+                    )
+                  },
+                  navigationIcon = {
+                    if (currentRoute != ExampleRoute.Home) {
+                      TextButton(onClick = { currentRoute = ExampleRoute.Home }) {
+                        Text("Back", color = barContent)
+                      }
                     }
-                  }
-                },
-                colors =
-                  TopAppBarDefaults.topAppBarColors(
-                    containerColor = if (currentRoute.paintsOwnBackdrop) Color.Transparent else Color(0xFFBEEBD0),
-                    titleContentColor = barContent,
-                    navigationIconContentColor = barContent,
-                  ),
-              )
+                  },
+                  colors =
+                    TopAppBarDefaults.topAppBarColors(
+                      containerColor = if (currentRoute.paintsOwnBackdrop) Color.Transparent else Color(0xFFBEEBD0),
+                      titleContentColor = barContent,
+                      navigationIconContentColor = barContent,
+                    ),
+                )
+              }
             },
           ) { innerPadding ->
             when (currentRoute) {
@@ -121,8 +124,10 @@ class AndroidExampleMainActivity : ComponentActivity() {
                   modifier = Modifier.padding(innerPadding),
                 )
 
-              // The night runs under the bar; only the content steps below it.
-              ExampleRoute.Halloween -> HalloweenScreen(contentPadding = innerPadding)
+              ExampleRoute.Halloween -> {
+                BackHandler { currentRoute = ExampleRoute.Home }
+                HalloweenScreen(contentPadding = innerPadding)
+              }
 
               else -> Unit
             }
