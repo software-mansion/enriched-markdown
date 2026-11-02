@@ -19,7 +19,6 @@ import {
 import {
   EnrichedMarkdownText,
   type MarkdownCodeBlock,
-  type MarkdownCodeRenderers,
   type MarkdownImageBlock,
   type MarkdownImageOccurrence,
   type MarkdownLinkBlock,
@@ -388,21 +387,12 @@ function DiffCard({ block }: { block: MarkdownCodeBlock }) {
   );
 }
 
-const CARD_LANGUAGES: MarkdownCodeRenderers['languages'] = {
-  mermaid: {
-    pattern: '^mermaid$',
-    content: (block) => <MermaidCard block={block} />,
-  },
-  diff: {
-    pattern: /^(diff|patch)$/i,
-    content: (block) => <DiffCard block={block} />,
-  },
-};
-
-// A matched renderer that declines keeps the native block; default is not tried.
-const DECLINED_SHELL: MarkdownCodeRenderers['languages'] = {
-  shell: { pattern: '^(sh|bash)$', content: () => undefined },
-};
+// The card for a language, or undefined for one without a card.
+function languageCard(block: MarkdownCodeBlock) {
+  if (block.language === 'mermaid') return <MermaidCard block={block} />;
+  if (/^(diff|patch)$/i.test(block.language)) return <DiffCard block={block} />;
+  return undefined;
+}
 
 const STREAM_INTERVAL_MS = 120;
 
@@ -528,14 +518,12 @@ function RenderersStory({
       video: replaceVideos ? (block) => <VideoCard block={block} /> : undefined,
       link: replaceLinks ? (block) => <LinkCard block={block} /> : undefined,
       code: replaceCode
-        ? {
-            default: codeDefault
-              ? (block) => <CodeCard block={block} />
-              : undefined,
-            languages: {
-              ...(codeLanguages && CARD_LANGUAGES),
-              ...(declineShell && DECLINED_SHELL),
-            },
+        ? (block) => {
+            if (declineShell && /^(sh|bash)$/.test(block.language))
+              return undefined;
+            const card = codeLanguages ? languageCard(block) : undefined;
+            if (card !== undefined) return card;
+            return codeDefault ? <CodeCard block={block} /> : undefined;
           }
         : undefined,
     }),
@@ -669,17 +657,16 @@ const codeArgTypes = {
   },
   codeDefault: {
     control: { type: 'boolean' as const },
-    description:
-      'renderers.code.default set: off, a language without an entry stays native',
+    description: 'a card for every other language: off, those stay native',
   },
   codeLanguages: {
     control: { type: 'boolean' as const },
-    description: 'renderers.code.languages has the mermaid and diff entries',
+    description: 'mermaid and diff blocks get their own cards',
   },
   declineShell: {
     control: { type: 'boolean' as const },
     description:
-      'a shell entry that returns undefined: sh stays native even with a default',
+      'renderers.code returns undefined for sh and bash: they stay native',
   },
   codeBlockMode: {
     options: ['progressive', 'hidden'] as const,
@@ -726,7 +713,7 @@ export const CodeBlocks: TextStory<Partial<RenderersControls>> = {
   render: ({ markdown, ...controls }) => (
     <RenderersStory
       title="Code block renderers"
-      description="renderers.code replaces code blocks: the longest matching language pattern, else default, else the native block. Stream the document to see a fence grow in place and turn complete at its closing fence."
+      description="renderers.code replaces code blocks by language and returns undefined to keep the native block. Stream the document to see a fence grow in place and turn complete at its closing fence."
       markdown={markdown}
       {...defaultControls}
       {...controls}

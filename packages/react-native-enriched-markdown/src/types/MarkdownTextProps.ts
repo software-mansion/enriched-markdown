@@ -33,9 +33,6 @@ export type {
   MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
-  MarkdownCodeBlockRenderer,
-  MarkdownCodeLanguageRenderer,
-  MarkdownCodeRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
@@ -583,11 +580,10 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * tables, headings and running text stay native. A link block keeps its
    * native tappable link when no renderer claims it.
    *
-   * `code` takes one renderer for every code block, or a `default` plus
-   * renderers by language, matched against the fence language by regex (the
-   * longest matching pattern wins). With no match and no `default`, the code
-   * block stays native. While a fence streams in, the same element re-renders
-   * with the growing `code`, and `isComplete` turns `true` at the closing fence.
+   * `code` receives every code block with its fence `language`; return
+   * `undefined` for the languages that should stay native. While a fence
+   * streams in, the same element re-renders with the growing `code`, and
+   * `isComplete` turns `true` at the closing fence.
    *
    * A renderer runs once per block and again only when that block or any
    * renderer function changes, so a streaming append does not re-render the
@@ -606,11 +602,7 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * renderers={{
    *   image: ({ url, altText }) => <FastImage source={{ uri: url }} accessibilityLabel={altText} />,
    *   video: ({ url }) => <Video source={{ uri: url }} />,
-   *   code: {
-   *     languages: {
-   *       mermaid: { pattern: '^mermaid$', content: ({ code }) => <Mermaid source={code} /> },
-   *     },
-   *   },
+   *   code: ({ language, code }) => (language === 'mermaid' ? <Mermaid source={code} /> : undefined),
    * }}
    * @platform ios, android, web
    */

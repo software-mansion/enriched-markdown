@@ -1,8 +1,5 @@
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
-import type {
-  MarkdownCodeBlock,
-  MarkdownCodeRenderers,
-} from 'react-native-enriched-markdown';
+import type { MarkdownCodeBlock } from 'react-native-enriched-markdown';
 import { StyleSheet, Text, View } from 'react-native';
 import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
@@ -32,7 +29,7 @@ export const retries = 3;
   \`\`\`
 `;
 
-// The fallback for every code block no language entry claims.
+// For every other language.
 function CodeCard({ block }: { block: MarkdownCodeBlock }) {
   return (
     <View style={styles.card}>
@@ -68,17 +65,21 @@ function Terminal({ block }: { block: MarkdownCodeBlock }) {
   );
 }
 
-// Defined once, outside the component, so the renderers keep their identity.
-const code: MarkdownCodeRenderers = {
-  default: block => <CodeCard block={block} />,
-  languages: {
-    diff: { pattern: '^diff$', content: block => <Diff block={block} /> },
-    shell: {
-      pattern: /^(sh|bash|zsh|shell)$/i,
-      content: block => <Terminal block={block} />,
-    },
-  },
-};
+// Defined once, outside the component, so the renderer keeps its identity.
+// Return undefined for a language to keep the native code block.
+function code(block: MarkdownCodeBlock) {
+  switch (block.language) {
+    case 'diff':
+      return <Diff block={block} />;
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+    case 'shell':
+      return <Terminal block={block} />;
+    default:
+      return <CodeCard block={block} />;
+  }
+}
 
 export default function App() {
   const isDark = useColorScheme() === 'dark';

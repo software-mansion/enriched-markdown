@@ -59,19 +59,16 @@ A renderer runs again only when its block changes or when you pass a new rendere
 
 ## Code blocks
 
-`renderers.code` takes either one function for every code block, or an object with a `default` and renderers by language. A language entry has a name of your choosing, a `pattern` and a `content` renderer. The pattern is a regex, given as a string or a `RegExp`, matched against the fence language: ` ```bash ` has the language `bash`, and an indented block or a fence without one has `""`. Anchor a string pattern (`'^diff$'`) to match the whole name.
+`renderers.code` receives every code block. Pick what to draw from its `language`: ` ```bash ` has the language `bash`, and an indented block or a fence without one has `""`. Return `undefined` for a language to keep the native code block, with its header, copy button and syntax highlighting.
 
-The renderer for a block is picked once, by these rules:
-
-1. The `languages` entry whose pattern matches. When several match, the longest pattern wins, as with [`linkVariants`](/rich-text-formatting/mentions#styling-mentions-with-linkvariants).
-2. Otherwise `default`.
-3. Otherwise the native code block, with its header, copy button and syntax highlighting.
-
-The picked renderer's result is final. If a language renderer returns `undefined`, the block stays native; `default` is not tried. An invalid pattern is ignored with a warning in development.
+```tsx
+const code = (block: MarkdownCodeBlock) =>
+  block.language === 'mermaid' ? <Mermaid source={block.code} /> : undefined;
+```
 
 The block carries `language`, `code` (without trailing newlines) and `isComplete`. A replaced block has no native header, so copying, wrapping and [`onCodeBlockPress`](/react-native/api-reference/enriched-markdown-text#oncodeblockpress) are up to your element.
 
-Define the object outside the component, or memoize it, as you would any renderer. An inline object literal also works: as long as its functions and patterns are the same, the blocks already shown are not rendered again.
+A code block's id is its language and a count of the earlier blocks with that language. Adding or removing an earlier block with the same language moves the ids after it along, so an element's state (an expanded panel, a loaded web view) stays with the position, not with the code.
 
 <LivePreview src={CodeCardsSrc} />
 
