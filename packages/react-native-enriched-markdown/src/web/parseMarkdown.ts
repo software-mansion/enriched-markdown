@@ -101,10 +101,7 @@ export function preloadParser(): Promise<void> {
     return Promise.resolve();
   }
   // A failure is left to the first real parse, which retries the load.
-  return initializeParser().then(
-    () => {},
-    () => {}
-  );
+  return loadParser().catch(() => {});
 }
 
 function isASTNode(value: unknown): value is ASTNode {

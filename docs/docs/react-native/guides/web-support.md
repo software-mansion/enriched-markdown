@@ -256,10 +256,12 @@ warnings. Use `id`, `aria-*` and CSS instead.
 :::
 
 :::note
-Parsing is asynchronous: the component returns `null` until the first parse
-resolves. That means one empty frame on mount, and nothing at all emitted during
-server-side rendering - wrap it in a client-only boundary if your framework
-pre-renders. (Style injection itself is SSR-safe.)
+The WASM parser loads once per page, starting when the package is imported. An
+instance mounted before that load finishes renders nothing until it does. From
+then on, every render shows the markdown it was given in the same commit.
+Nothing is emitted during server-side rendering - wrap the component in a
+client-only boundary if your framework pre-renders. (Style injection itself is
+SSR-safe.)
 :::
 
 If parsing fails, the component does not crash: it renders the raw `markdown`

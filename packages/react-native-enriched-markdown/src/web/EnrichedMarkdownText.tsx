@@ -110,7 +110,7 @@ export const EnrichedMarkdownText = ({
     loadParser().catch((error) => {
       if (cancelled) return;
       if (isDev) {
-        console.error('[EnrichedMarkdownText] Parse failed:', error);
+        console.error('[EnrichedMarkdownText] Parser failed to load:', error);
       }
       setLoadFailed(true);
     });
