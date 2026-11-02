@@ -167,7 +167,7 @@ object MarkdownSerializer {
     events.add(BoundaryEvent(end, false, range.type, range.url))
   }
 
-  private fun isTrimmable(char: Char): Boolean = char.isWhitespace() || char == ZWSP[0] // ZWSP is a one character string
+  private fun isTrimmable(char: Char): Boolean = char.isWhitespace() || char == ZWSP.single()
 
   private fun openingDelimiter(type: StyleType): String =
     when (type) {

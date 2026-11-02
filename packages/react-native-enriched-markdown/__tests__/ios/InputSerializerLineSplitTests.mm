@@ -31,23 +31,20 @@
                                 }];
 }
 
-- (void)testBoldAcrossListItemsClosesInEachItem
-{
-  NSString *markdown = [self serialize:@"One\nTwo"
-                            boldRanges:@[ [NSValue valueWithRange:NSMakeRange(0, 7)] ]
-                           blockRanges:@[
-                             [ENRMBlockRange rangeWithType:ENRMInputBlockTypeUnorderedListItem range:NSMakeRange(0, 3)],
-                             [ENRMBlockRange rangeWithType:ENRMInputBlockTypeUnorderedListItem range:NSMakeRange(4, 3)],
-                           ]];
-  XCTAssertEqualObjects(markdown, @"- **One**\n- **Two**");
-}
-
 - (NSArray<ENRMBlockRange *> *)twoBulletItems
 {
   return @[
     [ENRMBlockRange rangeWithType:ENRMInputBlockTypeUnorderedListItem range:NSMakeRange(0, 3)],
     [ENRMBlockRange rangeWithType:ENRMInputBlockTypeUnorderedListItem range:NSMakeRange(4, 3)],
   ];
+}
+
+- (void)testBoldAcrossListItemsClosesInEachItem
+{
+  NSString *markdown = [self serialize:@"One\nTwo"
+                            boldRanges:@[ [NSValue valueWithRange:NSMakeRange(0, 7)] ]
+                           blockRanges:[self twoBulletItems]];
+  XCTAssertEqualObjects(markdown, @"- **One**\n- **Two**");
 }
 
 - (void)testEveryInlineStyleAcrossListItemsClosesInEachItem
@@ -106,10 +103,7 @@
 {
   NSString *markdown = [self serialize:@"One\nTwo"
                             boldRanges:@[ [NSValue valueWithRange:NSMakeRange(4, 3)] ]
-                           blockRanges:@[
-                             [ENRMBlockRange rangeWithType:ENRMInputBlockTypeUnorderedListItem range:NSMakeRange(0, 3)],
-                             [ENRMBlockRange rangeWithType:ENRMInputBlockTypeUnorderedListItem range:NSMakeRange(4, 3)],
-                           ]];
+                           blockRanges:[self twoBulletItems]];
   XCTAssertEqualObjects(markdown, @"- One\n- **Two**");
 }
 
