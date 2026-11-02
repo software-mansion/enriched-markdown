@@ -406,8 +406,8 @@ type RenderersControls = {
   allowTrailingMargin: boolean;
   streamSpeed: number;
   replaceCode: boolean;
-  codeDefault: boolean;
-  codeLanguages: boolean;
+  codeFallbackCard: boolean;
+  codeLanguageCards: boolean;
   declineShell: boolean;
   codeBlockMode: CodeBlockMode;
 };
@@ -427,8 +427,8 @@ const mediaControls = {
 
 const codeControls = {
   replaceCode: true,
-  codeDefault: true,
-  codeLanguages: true,
+  codeFallbackCard: true,
+  codeLanguageCards: true,
   declineShell: false,
   codeBlockMode: 'progressive' as CodeBlockMode,
   allowTrailingMargin: false,
@@ -454,8 +454,8 @@ function RenderersStory({
   allowTrailingMargin,
   streamSpeed,
   replaceCode,
-  codeDefault,
-  codeLanguages,
+  codeFallbackCard,
+  codeLanguageCards,
   declineShell,
   codeBlockMode,
 }: RenderersControls & {
@@ -521,9 +521,9 @@ function RenderersStory({
         ? (block) => {
             if (declineShell && /^(sh|bash)$/.test(block.language))
               return undefined;
-            const card = codeLanguages ? languageCard(block) : undefined;
+            const card = codeLanguageCards ? languageCard(block) : undefined;
             if (card !== undefined) return card;
-            return codeDefault ? <CodeCard block={block} /> : undefined;
+            return codeFallbackCard ? <CodeCard block={block} /> : undefined;
           }
         : undefined,
     }),
@@ -534,8 +534,8 @@ function RenderersStory({
       keepQuotedNative,
       onImagePress,
       replaceCode,
-      codeDefault,
-      codeLanguages,
+      codeFallbackCard,
+      codeLanguageCards,
       declineShell,
     ]
   );
@@ -655,11 +655,11 @@ const codeArgTypes = {
     control: { type: 'boolean' as const },
     description: 'renderers.code set',
   },
-  codeDefault: {
+  codeFallbackCard: {
     control: { type: 'boolean' as const },
     description: 'a card for every other language: off, those stay native',
   },
-  codeLanguages: {
+  codeLanguageCards: {
     control: { type: 'boolean' as const },
     description: 'mermaid and diff blocks get their own cards',
   },
