@@ -54,6 +54,7 @@ static NSArray *ENRMSplitASTIntoSegments(MarkdownASTNode *root)
       NSString *kindName = child.attributes[@"blockSlotKind"];
       ENRMBlockSlotKind kind = [kindName isEqualToString:@"video"]  ? ENRMBlockSlotKindVideo
                                : [kindName isEqualToString:@"link"] ? ENRMBlockSlotKindLink
+                               : [kindName isEqualToString:@"code"] ? ENRMBlockSlotKindCode
                                                                     : ENRMBlockSlotKindImage;
       [segments addObject:[ENRMBlockSlotSegment segmentWithSlotId:blockSlotId kind:kind]];
     } else if (child.type == MarkdownNodeTypeTable) {

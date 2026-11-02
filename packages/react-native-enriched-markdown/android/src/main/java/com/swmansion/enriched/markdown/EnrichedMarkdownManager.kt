@@ -259,6 +259,14 @@ class EnrichedMarkdownManager :
     view?.setEnableImagePress(enableImagePress)
   }
 
+  @ReactProp(name = "enableTextPress", defaultBoolean = false)
+  override fun setEnableTextPress(
+    view: EnrichedMarkdown?,
+    enableTextPress: Boolean,
+  ) {
+    view?.setEnableTextPress(enableTextPress)
+  }
+
   @ReactProp(name = "enableBlockContextMenu", defaultBoolean = true)
   override fun setEnableBlockContextMenu(
     view: EnrichedMarkdown?,
@@ -313,22 +321,9 @@ class EnrichedMarkdownManager :
     config: ReadableMap?,
   ) {
     if (view == null) return
-    val tableMode =
-      when (config?.getString("tableMode")) {
-        "hidden" -> TableStreamingMode.HIDDEN
-        else -> TableStreamingMode.PROGRESSIVE
-      }
-    view.tableStreamingMode = tableMode
-    view.codeBlockStreamingMode =
-      when (config?.getString("codeBlockMode")) {
-        "hidden" -> CodeBlockStreamingMode.HIDDEN
-        else -> CodeBlockStreamingMode.PROGRESSIVE
-      }
-    view.mediaStreamingMode =
-      when (config?.getString("mediaMode")) {
-        "hidden" -> MediaStreamingMode.HIDDEN
-        else -> MediaStreamingMode.PROGRESSIVE
-      }
+    view.tableStreamingMode = TableStreamingMode.fromString(config?.getString("tableMode"))
+    view.codeBlockStreamingMode = CodeBlockStreamingMode.fromString(config?.getString("codeBlockMode"))
+    view.mediaStreamingMode = MediaStreamingMode.fromString(config?.getString("mediaMode"))
   }
 
   @ReactProp(name = "spoilerOverlay")

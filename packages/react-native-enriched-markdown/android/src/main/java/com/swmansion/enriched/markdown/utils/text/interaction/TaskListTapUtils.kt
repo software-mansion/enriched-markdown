@@ -21,7 +21,11 @@ data class TaskListHitTestResult(
 )
 
 object TaskListToggleUtils {
-  private val TASK_PATTERN = Regex("""^([ \t]*[-*+][ \t]+)\[[ xX]]""", RegexOption.MULTILINE)
+  // A task item's line: any blockquote markers (`>`), then a bullet or ordered-list marker, then
+  // the checkbox, then whitespace or the line end. It must find every task the renderer numbers,
+  // in document order, or [toggleAtIndex] rewrites a different item than the one tapped.
+  private val TASK_PATTERN =
+    Regex("""^((?:[ \t]*>)*[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+)\[[ xX]](?=[ \t\r]|$)""", RegexOption.MULTILINE)
 
   fun toggleAtIndex(
     markdown: String,

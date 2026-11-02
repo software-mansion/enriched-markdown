@@ -26,16 +26,20 @@ object MarkdownRenderTestSupport {
   }
 
   /**
-   * The style map the JS side sends, with [list] and [taskList] entries replacing the defaults.
+   * The style map the JS side sends, with [list], [taskList], [blockquote] and [codeBlock] entries replacing the
+   * defaults.
    * Sizes are Double, colors Int, as in a ReadableMap.
    */
   fun styleConfig(
     list: Map<String, Any> = emptyMap(),
     taskList: Map<String, Any> = emptyMap(),
+    blockquote: Map<String, Any> = emptyMap(),
+    codeBlock: Map<String, Any> = emptyMap(),
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
-    listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight")
+    // Headings are read by StyleConfig.needsJustify, which every segment render consults.
+    (listOf("paragraph", "strong", "em", "strikethrough", "code", "superscript", "subscript", "highlight") + (1..6).map { "h$it" })
       .forEach { style.putMap(it, textElement()) }
     style.putMap("link", textElement().apply { putString("fontFamily", "serif") })
     style.putArray(
@@ -58,11 +62,12 @@ object MarkdownRenderTestSupport {
     style.putMap(
       "blockquote",
       textElement().apply {
-        putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0))
+        putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0) + blockquote)
       },
     )
     style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })
     style.putMap("list", textElement().apply { putAll(defaultList + list) })
+    style.putMap("codeBlock", textElement().apply { putAll(defaultCodeBlock + codeBlock) })
     return StyleConfig(style, context, false, 0f)
   }
 
@@ -77,6 +82,9 @@ object MarkdownRenderTestSupport {
       "marginLeft" to 24.0,
       "itemSpacing" to 0.0,
     )
+
+  private val defaultCodeBlock: Map<String, Any> =
+    mapOf("borderRadius" to 0.0, "borderWidth" to 0.0, "padding" to 0.0)
 
   private val defaultTaskList: Map<String, Any> =
     mapOf(

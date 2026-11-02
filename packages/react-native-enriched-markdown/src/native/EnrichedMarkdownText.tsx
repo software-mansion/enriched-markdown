@@ -18,9 +18,14 @@ import {
   normalizeLinkContextMenuItems,
 } from '../linkContextMenuUtils';
 import { resolveAccessibilityLabels } from '../accessibilityLabelDefaults';
-import { useBlockSlots, useCollectedMarkdown } from './useBlockSlots';
+import {
+  NOT_COLLECTED,
+  useBlockSlots,
+  useCollectedMarkdown,
+} from './useBlockSlots';
 import { hasRenderers } from '../blockRenderers';
 import { useImageSources } from './useImageSources';
+import { useLinksChange } from '../linkOccurrences';
 import {
   normalizeMenuItem,
   normalizeLegacyBooleanMenuItem,
@@ -39,16 +44,19 @@ import type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from '../types/MarkdownTextProps';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
   ImagePressEvent,
+  TextPressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   LatexErrorEvent,
@@ -70,11 +78,13 @@ export type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 };
 export type {
   LinkPressEvent,
@@ -153,6 +163,7 @@ const defaultMd4cFlags: Md4cFlags = {
   underline: false,
   superscript: false,
   subscript: false,
+  strikethrough: false,
   latexMath: true,
   highlight: false,
   hardSoftBreaks: false,
@@ -167,6 +178,7 @@ export const EnrichedMarkdownText = ({
   onLinkPress,
   onLinkLongPress,
   onImagePress,
+  onTextPress,
   onTaskListItemPress,
   enableTaskListItemToggle = true,
   onCopyPress,
@@ -189,6 +201,7 @@ export const EnrichedMarkdownText = ({
   imageRequestHeaders,
   renderers,
   resolveImageSource,
+  onLinksChange,
   linkPillContent,
   linkRecognition,
   selectionMenuConfig,
@@ -236,11 +249,16 @@ export const EnrichedMarkdownText = ({
   // `> [!NOTE]` renders as a plain blockquote.
   const admonitions =
     flavor === 'github' ? (md4cFlags.admonitions ?? true) : false;
+  // GitHub flavor always parses strikethrough, so the flag cannot change the
+  // result there; force it off so toggling it does not invalidate anything.
+  const strikethrough =
+    flavor === 'github' ? false : (md4cFlags.strikethrough ?? false);
   const normalizedMd4cFlags = useMemo(
     () => ({
       underline,
       superscript,
       subscript,
+      strikethrough,
       latexMath,
       highlight,
       hardSoftBreaks,
@@ -251,6 +269,7 @@ export const EnrichedMarkdownText = ({
       underline,
       superscript,
       subscript,
+      strikethrough,
       latexMath,
       highlight,
       hardSoftBreaks,
@@ -369,6 +388,14 @@ export const EnrichedMarkdownText = ({
     [onImagePress]
   );
 
+  const handleTextPress = useCallback(
+    (e: NativeSyntheticEvent<TextPressEvent>) => {
+      const { index, text } = e.nativeEvent;
+      onTextPress?.({ index, text });
+    },
+    [onTextPress]
+  );
+
   const handleTaskListItemPress = useCallback(
     (e: NativeSyntheticEvent<TaskListItemPressEvent>) => {
       const { index, checked, text } = e.nativeEvent;
@@ -464,7 +491,8 @@ export const EnrichedMarkdownText = ({
   // commit as the markdown they describe, the image sources before it is drawn.
   const isGFM = flavor === 'github';
   const renderersEnabled = hasRenderers(renderers);
-  const collectEnabled = renderersEnabled || resolveImageSource != null;
+  const collectEnabled =
+    renderersEnabled || resolveImageSource != null || onLinksChange != null;
   const collectStreaming = useMemo(
     () => ({
       enabled: streamingAnimation,
@@ -490,6 +518,7 @@ export const EnrichedMarkdownText = ({
     resolveImageSource,
     resolveImageSource != null && isGFM
   );
+  useLinksChange(collected.links, onLinksChange, collected !== NOT_COLLECTED);
 
   const sharedProps = {
     markdown,
@@ -499,6 +528,8 @@ export const EnrichedMarkdownText = ({
     onLinkLongPress: handleLinkLongPress,
     onImagePress: handleImagePress,
     enableImagePress: onImagePress != null,
+    onTextPress: handleTextPress,
+    enableTextPress: onTextPress != null,
     onTaskListItemPress: handleTaskListItemPress,
     enableTaskListItemToggle,
     onCopyPress: handleCopyPress,

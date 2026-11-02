@@ -14,7 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)imageAttachmentDidResolveLayout;
 @end
 
-@interface RCTUIView (ENRMImageLayoutObserver)
+@interface RCTPlatformView (ENRMImageLayoutObserver)
 /**
  * Nearest ancestor (self included) adopting ENRMImageLayoutObserver, walking up
  * the superview chain. Returns nil when none is found.

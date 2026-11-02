@@ -148,6 +148,10 @@ Use ==double equals== to highlight text, and ==**combine it** with other styles=
 
 ---
 
+## Mentions
+
+A mention is a link with its own URL scheme, so it can be styled apart from ordinary links. Ask [@Alice](user://alice) or [@Bob](user://bob) in [#forest-watch](channel://forest-watch), or read the [field guide](https://example.com/forests/guide).
+
 ## Admonitions
 
 GitHub-style alerts are blockquotes that open with a type marker:

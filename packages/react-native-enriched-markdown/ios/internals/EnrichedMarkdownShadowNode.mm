@@ -218,7 +218,7 @@ CGSize EnrichedMarkdownShadowNode::measureWithSlots(const std::vector<SlotChild>
   for (const auto &slot : slots) {
     NSValue *frame = frames[@(slot.id.c_str())];
     if (frame) {
-      CGRect rect = frame.CGRectValue;
+      CGRect rect = ENRMUnboxRect(frame);
       slotFrames.push_back(
           {slot.id, (Float)rect.origin.x, (Float)rect.origin.y, (Float)rect.size.width, (Float)rect.size.height, true});
     } else {

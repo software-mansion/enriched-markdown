@@ -19,11 +19,13 @@ export type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './types/markdownBlocks';
 export type { MarkdownStyle, Md4cFlags } from './types/MarkdownStyle';
 export type { MarkdownTextInputStyle } from './types/MarkdownTextInputStyle';

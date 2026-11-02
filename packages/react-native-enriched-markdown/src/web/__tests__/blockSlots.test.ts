@@ -171,3 +171,95 @@ it('treats a link-only paragraph as a link block and mixed images as text', () =
   expect(blocks[1]).toMatchObject({ title: 'application/pdf' });
   expect(images.map((i) => i.placement)).toEqual(['link', 'inline']);
 });
+
+it('collects the pinned links from the shared document', async () => {
+  // Both fixtures are asserted by packages/core/cpp/tests/block_slots_test.cpp.
+  const dir = join(__dirname, '../../../../core/cpp/tests/fixtures/block_ids');
+  const doc = await parseMarkdown(
+    readFileSync(join(dir, 'document.md'), 'utf8'),
+    {}
+  );
+  const expected = readFileSync(join(dir, 'links.txt'), 'utf8')
+    .split('\n')
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
+  expect(
+    collectBlocks(doc).links.map(
+      (link) => `${link.url}\t${link.label}\t${link.title}`
+    )
+  ).toEqual(expected);
+});
+
+it('reports every link in document order', async () => {
+  const doc = await parseMarkdown(
+    '# [h](https://e.com/h)\n\nSee [docs](https://e.com/d "Docs") and https://e.com/bare here\n\n' +
+      '- <https://e.com/auto>\n\n| a |\n|---|\n| [cell](https://e.com/t) |\n\n' +
+      '> www.example.com\n\n`https://e.com/code`\n',
+    {}
+  );
+  const { links } = collectBlocks(doc);
+  expect(links.map((link) => link.url)).toEqual([
+    'https://e.com/h',
+    'https://e.com/d',
+    'https://e.com/bare',
+    'https://e.com/auto',
+    'https://e.com/t',
+    'http://www.example.com',
+  ]);
+  expect(links[1]).toEqual({
+    url: 'https://e.com/d',
+    label: 'docs',
+    title: 'Docs',
+  });
+  expect(links[5]).toMatchObject({ label: 'www.example.com' });
+});
+
+it('collects code blocks outside lists, with an id from the language alone', async () => {
+  const doc = await parseMarkdown(
+    [
+      '```mermaid\ngraph TD\n\n```',
+      '    indented',
+      '> ```js\n> quoted\n> ```',
+      '> [!NOTE]\n> ```mermaid\n> other\n> ```',
+      '- ```js\n  listed\n  ```',
+    ].join('\n\n'),
+    {}
+  );
+  const { blocks } = collectBlocks(doc);
+  const id = (language: string, n: number) =>
+    `code:${fnv1a64Hex(language)}:${n}`;
+  expect(blocks).toEqual([
+    {
+      kind: 'code',
+      id: id('mermaid', 0),
+      language: 'mermaid',
+      code: 'graph TD',
+      isComplete: true,
+      placement: 'root',
+    },
+    {
+      kind: 'code',
+      id: id('', 0),
+      language: '',
+      code: 'indented',
+      isComplete: true,
+      placement: 'root',
+    },
+    {
+      kind: 'code',
+      id: id('js', 0),
+      language: 'js',
+      code: 'quoted',
+      isComplete: true,
+      placement: 'blockquote',
+    },
+    {
+      kind: 'code',
+      id: id('mermaid', 1),
+      language: 'mermaid',
+      code: 'other',
+      isComplete: true,
+      placement: 'admonition',
+    },
+  ]);
+  expect(doc.children![0]!.attributes?.blockSlotId).toBe(blocks[0]!.id);
+});

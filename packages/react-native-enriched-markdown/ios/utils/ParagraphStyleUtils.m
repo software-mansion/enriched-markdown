@@ -11,6 +11,8 @@
 
 NSAttributedString *kNewlineAttributedString;
 static NSParagraphStyle *kBlockSpacerTemplate;
+static NSCharacterSet *kLetterCharacterSet;
+static NSCharacterSet *kNonBaseCharacterSet;
 
 NSLineBreakStrategy ENRMResolveLineBreakStrategy(NSString *strategy)
 {
@@ -44,6 +46,9 @@ __attribute__((constructor)) static void initParagraphStyleUtils(void)
   template.minimumLineHeight = 1;
   template.maximumLineHeight = 1;
   kBlockSpacerTemplate = [template copy];
+
+  kLetterCharacterSet = [NSCharacterSet letterCharacterSet];
+  kNonBaseCharacterSet = [NSCharacterSet nonBaseCharacterSet];
 }
 
 ENRMWritingDirectionMode ENRMResolveWritingDirectionMode(NSString *value)
@@ -60,21 +65,34 @@ ENRMWritingDirectionMode ENRMResolveWritingDirectionMode(NSString *value)
   return ENRMWritingDirectionModeFirstStrong;
 }
 
-static BOOL ENRMIsStrongRTLChar(unichar c)
+// Hebrew through Arabic Extended-A, the presentation forms, and the two Plane 1
+// ranges Unicode reserves for right-to-left scripts.
+static BOOL ENRMIsRightToLeftScalar(UTF32Char scalar)
 {
-  return (c >= 0x0590 && c <= 0x08FF) || (c >= 0xFB1D && c <= 0xFDFF) || (c >= 0xFE70 && c <= 0xFEFF);
+  return (scalar >= 0x0590 && scalar <= 0x08FF) || (scalar >= 0xFB1D && scalar <= 0xFDFF) ||
+         (scalar >= 0xFE70 && scalar <= 0xFEFF) || (scalar >= 0x10800 && scalar <= 0x10FFF) ||
+         (scalar >= 0x1E800 && scalar <= 0x1EFFF);
 }
 
 NSWritingDirection ENRMFirstStrongDirection(NSString *text)
 {
-  NSCharacterSet *letters = [NSCharacterSet letterCharacterSet];
   NSUInteger length = text.length;
   for (NSUInteger i = 0; i < length; i++) {
-    unichar c = [text characterAtIndex:i];
-    if (![letters characterIsMember:c]) {
-      continue;
+    unichar unit = [text characterAtIndex:i];
+    UTF32Char scalar = unit;
+    if (CFStringIsSurrogateHighCharacter(unit) && i + 1 < length &&
+        CFStringIsSurrogateLowCharacter([text characterAtIndex:i + 1])) {
+      scalar = CFStringGetLongCharacterForSurrogatePair(unit, [text characterAtIndex:++i]);
     }
-    return ENRMIsStrongRTLChar(c) ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
+    if (scalar == 0x200E) {
+      return NSWritingDirectionLeftToRight;
+    }
+    if (scalar == 0x200F || scalar == 0x061C) {
+      return NSWritingDirectionRightToLeft;
+    }
+    if ([kLetterCharacterSet longCharacterIsMember:scalar] && ![kNonBaseCharacterSet longCharacterIsMember:scalar]) {
+      return ENRMIsRightToLeftScalar(scalar) ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
+    }
   }
   return NSWritingDirectionNatural;
 }

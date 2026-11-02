@@ -28,7 +28,7 @@ public:
       if (slot != blocks_.slotByNode.end() && activeSlotIds_.count(blocks_.slots[slot->second].id) != 0) {
         const BlockSlot &block = blocks_.slots[slot->second];
         f(kBlockSlotIdAttribute, block.id);
-        f(kBlockSlotKindAttribute, std::string(blockSlotKindName(block.kind)));
+        f(kBlockSlotKindAttribute, std::string(blockSlotKindName(block.kind())));
       }
     }
     if (annotateImages_ && node.type == NodeType::Image) {

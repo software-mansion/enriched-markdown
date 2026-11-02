@@ -87,7 +87,8 @@ blockquotes do, on every target.
 
 `EnrichedMarkdownText` on Android does not yet expose selection colors, font
 scaling, the copy actions, label localization or break strategy, and
-accessibility labels cannot be overridden at any layer.
+accessibility labels other than the formula label cannot be overridden at any
+layer.
 
 ### The editor on native {#the-editor-on-native}
 

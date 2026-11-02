@@ -3,6 +3,7 @@
 #include "CodeBlockHighlighter.hpp"
 #include "CodeBlockLanguages.hpp"
 #include "DocumentStore.hpp"
+#include "LatexSpeech.hpp"
 #include "TextLinkRecognizer.hpp"
 #include "Utf16.hpp"
 #include <android/log.h>
@@ -336,6 +337,10 @@ JNIEXPORT jobject JNICALL Java_com_swmansion_enriched_markdown_parser_Parser_nat
         if (subscriptField) {
           md4cFlags.subscript = env->GetBooleanField(flags, subscriptField) == JNI_TRUE;
         }
+        jfieldID strikethroughField = env->GetFieldID(flagsClass, "strikethrough", "Z");
+        if (strikethroughField) {
+          md4cFlags.strikethrough = env->GetBooleanField(flags, strikethroughField) == JNI_TRUE;
+        }
         jfieldID highlightField = env->GetFieldID(flagsClass, "highlight", "Z");
         if (highlightField) {
           md4cFlags.highlight = env->GetBooleanField(flags, highlightField) == JNI_TRUE;
@@ -471,6 +476,12 @@ JNIEXPORT jstring JNICALL Java_com_swmansion_enriched_markdown_utils_common_Code
   std::string display = displayNameForLanguage(languageStr);
   env->ReleaseStringUTFChars(language, languageStr);
   return env->NewStringUTF(display.c_str());
+}
+
+JNIEXPORT jstring JNICALL Java_com_swmansion_enriched_markdown_math_LatexSpeech_nativeSpokenForm(JNIEnv *env,
+                                                                                                 jobject /* this */,
+                                                                                                 jstring latex) {
+  return javaString(env, spokenLatex(utf8String(env, latex)));
 }
 
 // Returns highlight tokens as (start, end, type) int triplets with UTF-16

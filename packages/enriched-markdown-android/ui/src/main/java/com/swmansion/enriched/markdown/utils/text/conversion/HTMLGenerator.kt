@@ -278,6 +278,8 @@ object HTMLGenerator {
      */
     val admonitionType: String? = null,
     val isTaskChecked: Boolean = false,
+    /** The number an ordered list item draws; the item that opens an `<ol>` sets its `start`. */
+    val itemNumber: Int = 1,
   )
 
   fun generateHTML(
@@ -530,8 +532,15 @@ object HTMLGenerator {
         }
 
       if (isOrdered) {
+        html.append("<ol ")
+        if (state.listDepth == depth && para.itemNumber != 1) {
+          html
+            .append("start=\"")
+            .append(para.itemNumber)
+            .append("\" ")
+        }
         html
-          .append("<ol style=\"")
+          .append("style=\"")
           .append(marginStyle)
           .append("padding-inline-start: ")
           .append(styles.listMarginLeft)
@@ -945,6 +954,7 @@ object HTMLGenerator {
           depth = depth,
           admonitionType = admonitionType,
           isTaskChecked = isTaskChecked,
+          itemNumber = (listSpan as? OrderedListSpan)?.itemNumber ?: 1,
         ),
       )
       currentIndex = lineEnd

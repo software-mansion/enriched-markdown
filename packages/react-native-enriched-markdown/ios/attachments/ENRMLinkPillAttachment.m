@@ -288,7 +288,7 @@ static CGFloat ENRMLinkPillLabelWidth(NSString *label, UIFont *font)
     self.onIconLoaded();
 
   NSTextContainer *container = _textContainer;
-  UITextView *textView = container ? objc_getAssociatedObject(container, kTextViewKey) : nil;
+  ENRMPlatformTextView *textView = container ? objc_getAssociatedObject(container, kTextViewKey) : nil;
   if (!textView)
     return;
   NSRange range = [self rangeInText:textView.textStorage];

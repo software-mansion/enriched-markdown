@@ -5,6 +5,7 @@ import type {
   LinkPressEvent,
   LinkLongPressEvent,
   ImagePressEvent,
+  TextPressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   LatexErrorEvent,
@@ -16,6 +17,7 @@ import type {
   MarkdownRenderers,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './markdownBlocks';
 
 // Defined apart so code shared with web can import them: under a `.web`
@@ -28,11 +30,13 @@ export type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './markdownBlocks';
 
 /**
@@ -221,6 +225,15 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, macos, web
    */
   onImagePress?: (event: ImagePressEvent) => void;
+  /**
+   * Callback fired when plain text is tapped, anywhere a link, image, checkbox
+   * or other interactive element doesn't take the tap. Receives the UTF-16
+   * index of the character under the tap within the tapped text block, and
+   * that block's rendered text (which differs from the Markdown source). A tap
+   * beside a line reports its nearest character; table cells don't fire it.
+   * @platform ios, android
+   */
+  onTextPress?: (event: TextPressEvent) => void;
   /**
    * Callback fired when a task list checkbox is tapped.
    *
@@ -555,17 +568,22 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    */
   ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
   /**
-   * React replacements for block media, keyed by kind. Each renderer receives the
+   * React replacements for blocks, keyed by kind. Each renderer receives the
    * block and returns the element to show in its place, or nothing (`undefined`)
    * to keep the native rendering. The element is laid out by React at the block's
    * width and must have an intrinsic height; the surrounding Markdown stays
    * native and keeps its position, selection and accessibility.
    *
-   * Applies to a paragraph whose only content is an image or a link, and to
-   * `<video>` blocks, directly in the document, a blockquote or an admonition
-   * outside any list. Images and links in lists, tables, headings and running
-   * text stay native. A link block keeps its native tappable link when no
-   * renderer claims it.
+   * Applies to a paragraph whose only content is an image or a link, to
+   * `<video>` blocks and to code blocks, directly in the document, a blockquote
+   * or an admonition outside any list. Images, links and code blocks in lists,
+   * tables, headings and running text stay native. A link block keeps its
+   * native tappable link when no renderer claims it.
+   *
+   * `code` receives every code block with its fence `language`; return
+   * `undefined` for the languages that should stay native. While a fence
+   * streams in, the same element re-renders with the growing `code`, and
+   * `isComplete` turns `true` at the closing fence.
    *
    * A renderer runs once per block and again only when that block or any
    * renderer function changes, so a streaming append does not re-render the
@@ -575,7 +593,8 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * text, keeps the native block (with a dev warning) until it runs again.
    *
    * A replaced block's element owns its presses: `onImagePress`,
-   * `onLinkPress`, `onLinkLongPress` and the link menu do not fire for it.
+   * `onLinkPress`, `onLinkLongPress`, `onCodeBlockPress` and the link menu do
+   * not fire for it.
    *
    * Only applies when `flavor="github"`.
    *
@@ -583,6 +602,7 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * renderers={{
    *   image: ({ url, altText }) => <FastImage source={{ uri: url }} accessibilityLabel={altText} />,
    *   video: ({ url }) => <Video source={{ uri: url }} />,
+   *   code: ({ language, code }) => (language === 'mermaid' ? <Mermaid source={code} /> : undefined),
    * }}
    * @platform ios, android, web
    */
@@ -612,4 +632,21 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
     | MarkdownImageSource
     | undefined
     | Promise<MarkdownImageSource | undefined>;
+  /**
+   * Called with the document's links whenever they change, and once with the
+   * first ones: every inline link, autolink and bare URL in document order,
+   * including those in lists, tables, headings and quotes. Use it to set
+   * `linkPillContent`, `markdownStyle.linkVariants` or `linkContextMenuItems`
+   * for the links a document contains; a state update made here lands before
+   * the frame is drawn. Links that `linkRecognition` adds are not reported,
+   * since recognition runs as the text is drawn.
+   *
+   * It is read like an event handler: changing the function does not report
+   * again. While streaming, it sees the links the streaming options let
+   * through, including a bare URL still being written, reported again as it grows.
+   *
+   * Only applies when `flavor="github"`.
+   * @platform ios, android, web
+   */
+  onLinksChange?: (links: MarkdownLinkOccurrence[]) => void;
 }

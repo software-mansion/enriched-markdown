@@ -27,8 +27,8 @@ struct StreamingFilterResult {
 //   * block math: an unterminated `$$` block is cut at its opening delimiter;
 //   * tables: Hidden withholds a trailing table until a blank line follows it,
 //     Progressive trims an incomplete trailing row;
-//   * fenced code: Hidden cuts an open fence, Progressive keeps it and filters
-//     only the text before it;
+//   * fenced code: Hidden cuts an open fence, Progressive keeps it once its
+//     opening line has ended and filters only the text before it;
 //   * media (a trailing image paragraph, link-only paragraph or `<video>`
 //     block, the blocks a renderer can replace): Hidden withholds it
 //     until a blank line or another block follows, Progressive withholds it only

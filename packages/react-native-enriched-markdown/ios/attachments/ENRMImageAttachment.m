@@ -10,11 +10,11 @@
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
-@implementation RCTUIView (ENRMImageLayoutObserver)
+@implementation RCTPlatformView (ENRMImageLayoutObserver)
 
 - (id<ENRMImageLayoutObserver>)enrm_imageLayoutObserver
 {
-  RCTUIView *view = self;
+  RCTPlatformView *view = self;
   while (view && ![view conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
     view = view.superview;
   }
@@ -343,7 +343,7 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     self.onImageLoaded();
   }
 
-  UITextView *textView = [self fetchAssociatedTextView];
+  ENRMPlatformTextView *textView = [self fetchAssociatedTextView];
   if (!textView)
     return;
 
@@ -362,7 +362,7 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 // pre-load fallback. Notify the hosting component so it can re-measure.
 // Dispatched async: refreshDisplay can run mid-layout (imageForBounds) and
 // re-measuring would re-enter the layout manager.
-- (void)notifyImageLayoutObserver:(UITextView *)textView
+- (void)notifyImageLayoutObserver:(ENRMPlatformTextView *)textView
 {
   // Only maxHeight/aspectRatio boxes can change height after load; a fixed
   // height box (legacy or explicit resizeMode) never needs a re-measure.

@@ -28,7 +28,7 @@ Pod::Spec.new do |s|
     s.dependency "EnrichedMarkdownCore"
   else
     s.private_header_files = "ios/**/*.h", "common/**/*.h", "cpp/**/*.{h,hpp}"
-    s.source_files = ["ios/**/*.{h,m,mm,cpp,swift}", "common/**/*.{h,cpp}", "cpp/enrmrkd/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}"] + code_highlight[:source_files]
+    s.source_files = ["ios/**/*.{h,m,mm,cpp,swift}", "common/**/*.{h,cpp}", "cpp/enrmrkd/*.{c,h}", "cpp/parser/*.{hpp,cpp}", "cpp/highlight/*.{hpp,cpp}", "cpp/latex/*.{hpp,cpp}"] + code_highlight[:source_files]
     s.preserve_paths = "cpp/highlight/vendor/**/*" if code_highlight[:enabled]
   end
 
@@ -131,7 +131,7 @@ Pod::Spec.new do |s|
 
   pod_xcconfig = {
     'HEADER_SEARCH_PATHS' => ([
-      "\"#{cpp_root}/enrmrkd\"", "\"#{cpp_root}/parser\"", "\"#{cpp_root}/highlight\"",
+      "\"#{cpp_root}/enrmrkd\"", "\"#{cpp_root}/parser\"", "\"#{cpp_root}/highlight\"", "\"#{cpp_root}/latex\"",
       "\"$(PODS_TARGET_SRCROOT)/ios/internals\"", "\"$(PODS_TARGET_SRCROOT)/ios/input/internals\"",
       "\"$(PODS_TARGET_SRCROOT)/common\"", "\"$(PODS_TARGET_SRCROOT)/ios/generated/ReactCodegen\""
     ] + code_highlight[:header_paths].map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }).join(" "),

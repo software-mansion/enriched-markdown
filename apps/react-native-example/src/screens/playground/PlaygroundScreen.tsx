@@ -21,6 +21,16 @@ import {
 } from 'react-native-enriched-markdown';
 import { FormattingToolbar } from '../../components/FormattingToolbar';
 
+// The word around a tapped character, for showing what onTextPress reported.
+const wordAt = (text: string, index: number) => {
+  const start = text.slice(0, index + 1).search(/\S+$/);
+  const end = text.slice(index).search(/\s/);
+  return text.slice(
+    start === -1 ? index : start,
+    end === -1 ? text.length : index + end
+  );
+};
+
 const MARKDOWN_STYLE = {
   link: { color: '#2563EB', underline: true as const },
   code: { color: '#7c3aed', backgroundColor: '#f5f3ff' },
@@ -69,6 +79,7 @@ export default function PlaygroundScreen() {
   const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
   const [state, setState] = useState<StyleState | null>(null);
   const [markdown, setMarkdown] = useState('');
+  const [tappedWord, setTappedWord] = useState<string | null>(null);
   const [sizeMode, setSizeMode] = useState<'base' | 'max'>('base');
   const [hasSelection, setHasSelection] = useState(false);
   const [underlineEnabled, setUnderlineEnabled] = useState(true);
@@ -307,6 +318,9 @@ export default function PlaygroundScreen() {
                   [{ text: 'OK' }]
                 )
               }
+              onTextPress={({ index, text }) =>
+                setTappedWord(wordAt(text, index))
+              }
               testID="preview-text"
             />
           ) : (
@@ -315,6 +329,11 @@ export default function PlaygroundScreen() {
             </Text>
           )}
         </View>
+        {tappedWord !== null && (
+          <Text style={styles.tappedWord} testID="text-press-result">
+            Tapped: {tappedWord}
+          </Text>
+        )}
       </ScrollView>
 
       {setMarkdownModalVisible && (
@@ -446,6 +465,11 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     padding: 14,
     minHeight: 80,
+  },
+  tappedWord: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 8,
   },
   previewEmpty: {
     fontSize: 14,

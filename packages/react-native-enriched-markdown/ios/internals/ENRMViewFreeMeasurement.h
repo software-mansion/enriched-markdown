@@ -10,6 +10,7 @@
 #import "ENRMMarkdownParser.h"
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
+#import "ENRMUTF8.h"
 #import "ImageRequestHeaderUtils.h"
 #import "LinkPillContentUtils.h"
 #import "MarkdownASTNode.h"
@@ -25,7 +26,6 @@
 #import "ENRMMathContainerView.h"
 #endif
 #if ENRICHED_MARKDOWN_VIDEO
-#import "ENRMUTF8.h"
 #import "ENRMVideoContainerView.h"
 #endif
 
@@ -95,6 +95,7 @@ template <typename Md4cFlagsT> static inline ENRMMd4cFlags *ENRMMd4cFlagsFromPro
   flags.underline = props.underline;
   flags.superscript = props.superscript;
   flags.subscript = props.subscript;
+  flags.strikethrough = props.strikethrough;
   flags.latexMath = props.latexMath;
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;

@@ -38,6 +38,26 @@
   return [_segmentViews copy];
 }
 
+#if !TARGET_OS_OSX
+// Subviews are in attach order, which drifts from document order once the
+// reconciler reuses views; _segmentViews is the document order.
+- (NSArray *)accessibilityElements
+{
+  NSMutableArray *elements = [NSMutableArray arrayWithCapacity:_segmentViews.count];
+  for (RCTUIView *segment in _segmentViews) {
+    if ([segment isKindOfClass:[ENRMBlockSlotSegmentView class]]) {
+      RCTUIView *mounted = ((ENRMBlockSlotSegmentView *)segment).mountedView;
+      if (mounted) {
+        [elements addObject:mounted];
+      }
+      continue;
+    }
+    [elements addObject:segment];
+  }
+  return elements;
+}
+#endif
+
 #if TARGET_OS_OSX
 - (BOOL)isFlipped
 {

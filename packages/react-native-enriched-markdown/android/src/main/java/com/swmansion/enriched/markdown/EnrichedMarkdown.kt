@@ -47,8 +47,10 @@ import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
+import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import java.util.EnumSet
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -56,7 +58,8 @@ import java.util.concurrent.Executors
 class EnrichedMarkdown(
   context: Context,
 ) : ContainerNodeView(context),
-  ImagePressHost {
+  ImagePressHost,
+  TextPressHost {
   private enum class DirtyFlag {
     RECREATE_SEGMENTS,
     FORCE_HEIGHT,
@@ -73,10 +76,19 @@ class EnrichedMarkdown(
   private val videoContainerClass: Class<*>? by lazy { SegmentViewCreators.videoContainerClass() }
 
   private var currentRenderId = 0L
+
+  // Set when React Native drops the view for good. Detaching from the window is
+  // not disposal: a view renders before its first attach and while detached.
+  private var isDisposed = false
   private val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
   var streamingAnimation: Boolean = false
     set(value) {
+      if (field == value) return
       field = value
+      // The streaming filter only applies while this is on, so re-render to
+      // show or hide the content it holds back.
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+      renderPending = true
       if (!value) {
         blockSlotReveal.cancel()
         applyBlockSlotReveal()
@@ -89,8 +101,26 @@ class EnrichedMarkdown(
   private var forceHeightRecalculationCounter = 0
 
   var tableStreamingMode: TableStreamingMode = TableStreamingMode.PROGRESSIVE
+    set(value) {
+      if (field == value) return
+      field = value
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+      renderPending = true
+    }
   var codeBlockStreamingMode: CodeBlockStreamingMode = CodeBlockStreamingMode.PROGRESSIVE
+    set(value) {
+      if (field == value) return
+      field = value
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+      renderPending = true
+    }
   var mediaStreamingMode: MediaStreamingMode = MediaStreamingMode.PROGRESSIVE
+    set(value) {
+      if (field == value) return
+      field = value
+      dirtyFlags += DirtyFlag.FORCE_HEIGHT
+      renderPending = true
+    }
   private var renderPending: Boolean = false
 
   var currentMarkdown: String = ""
@@ -291,6 +321,7 @@ class EnrichedMarkdown(
   }
 
   fun commitProps() {
+    if (isDisposed) return
     MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     if (renderPending) {
       renderPending = false
@@ -427,6 +458,20 @@ class EnrichedMarkdown(
 
   fun setEnableImagePress(enabled: Boolean) {
     imagePressEnabled = enabled
+  }
+
+  override var textPressEnabled: Boolean = false
+    private set
+
+  override fun emitOnTextPress(
+    index: Int,
+    text: String,
+  ) {
+    emitTextPressEvent(index, text)
+  }
+
+  fun setEnableTextPress(enabled: Boolean) {
+    textPressEnabled = enabled
   }
 
   fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {
@@ -573,6 +618,7 @@ class EnrichedMarkdown(
   }
 
   private fun scheduleRender() {
+    if (isDisposed) return
     val job = renderJob() ?: return
     val renderId = ++currentRenderId
     executor.execute {
@@ -591,6 +637,7 @@ class EnrichedMarkdown(
   // placeholder that reserves its space must land in the same frame: render inline
   // instead of one executor hop later, and drop any render already in flight.
   private fun renderSynchronously() {
+    if (isDisposed) return
     val job = renderJob() ?: return
     currentRenderId++
     val (segments, pendingCodeBlock) =
@@ -767,7 +814,7 @@ class EnrichedMarkdown(
         }
 
         is RenderedSegment.Blockquote -> {
-          (view as BlockquoteContainerView).applyBlockquoteNode(segment.node)
+          (view as BlockquoteContainerView).applyBlockquoteNode(segment.node, segment.taskIndexOffset)
         }
 
         is RenderedSegment.Video -> {
@@ -827,7 +874,7 @@ class EnrichedMarkdown(
     action: () -> Unit,
   ) {
     mainHandler.post {
-      if (renderId == currentRenderId) action()
+      if (!isDisposed && renderId == currentRenderId) action()
     }
   }
 
@@ -861,6 +908,7 @@ class EnrichedMarkdown(
   }
 
   fun onImageLayoutChanged() {
+    if (isDisposed) return
     if (width > 0) {
       layoutSegments()
       requestLayout()
@@ -872,9 +920,16 @@ class EnrichedMarkdown(
     wrapper.updateState(state)
   }
 
+  // Shutting the executor down does not cancel results it already posted, nor a
+  // render that ignores the interrupt and posts afterwards, so drop those here
+  // and refuse further work instead of applying it to a view React has dropped.
   fun cleanup() {
+    isDisposed = true
+    currentRenderId++
     blockSlotReveal.reset()
     executor.shutdownNow()
+    mainHandler.removeCallbacksAndMessages(null)
+    stateWrapper = null
   }
 
   companion object {

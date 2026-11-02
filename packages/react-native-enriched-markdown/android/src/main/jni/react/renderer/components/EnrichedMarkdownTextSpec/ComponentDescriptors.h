@@ -6,9 +6,9 @@
 #include "MarkdownTextInputShadowNode.h"
 #include "MarkdownTextMeasurementManager.h"
 #include "MarkdownTextShadowNode.h"
-#include "ShadowNodes.h"
 
 #include <react/renderer/componentregistry/ComponentDescriptorProviderRegistry.h>
+#include <react/renderer/components/EnrichedMarkdownTextSpec/ShadowNodes.h>
 #include <react/renderer/core/ConcreteComponentDescriptor.h>
 
 namespace facebook::react {

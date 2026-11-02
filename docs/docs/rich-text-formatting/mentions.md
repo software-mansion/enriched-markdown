@@ -29,6 +29,8 @@ Each key is a regex tested against the link URL; the first match wins, unspecifi
 
 Both components accept a `linkVariants` key, so the same config styles mentions in the renderer and the editor. The two types are not quite interchangeable, though: the renderer's `LinkVariantStyle` has a `fontFamily` field and the editor's does not, so an object you intend to share must leave `fontFamily` unset to typecheck as `MarkdownTextInputStyle`.
 
+On iOS, a [`Link(matching:)`](/ios/api-reference/style-properties#link-matching) theme element per pattern does the same.
+
 - **Interaction** is through the usual link callbacks - a mention tap is a link tap, delivered with the mention's URL.
 
 :::caution
@@ -47,10 +49,20 @@ Rendering content that already contains mentions needs nothing special: pass the
 </Tab>
 <Tab label="iOS">
 
-Half of this works in the iOS package. A mention is an ordinary link, so routing a tap by scheme needs nothing special - install an [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) action and switch on the URL's scheme:
+Style each scheme with a [`Link(matching:)`](/ios/api-reference/style-properties#link-matching) theme element, and route taps by scheme in an [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) action:
 
 ```swift
 EnrichedMarkdownText(content)
+  .markdownTheme {
+    Link(matching: "^user:")
+      .foregroundStyle(.blue)
+      .background(Color.blue.opacity(0.12))
+      .underline(false)
+    Link(matching: "^channel:")
+      .foregroundStyle(.green)
+      .background(Color.green.opacity(0.12))
+      .underline(false)
+  }
   .environment(\.openURL, OpenURLAction { url in
     switch url.scheme {
     case "user":
@@ -62,12 +74,12 @@ EnrichedMarkdownText(content)
   })
 ```
 
-What is missing is the **styling**: the iOS package has no `linkVariants` equivalent, so every link - mention or not - uses the single [`Link()`](/ios/api-reference/style-properties#link) style.
+When several patterns match, the longest one wins. So `^user://alice` can sit next to `^user:`.
 
 </Tab>
 <Tab label="Android">
 
-The same split applies in the Android package: [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) hands you the mention's URL and you route by scheme, but there is no `linkVariants` equivalent, so every link - mention or not - uses the single [`link`](/android/api-reference/style-properties#link) style.
+In the Android package, [`onLinkClick`](/android/api-reference/enriched-markdown-text#onlinkclick) hands you the mention's URL and you route by scheme. There is no per-URL styling, so every link - mention or not - uses the single [`link`](/android/api-reference/style-properties#link) style.
 
 ```kotlin
 EnrichedMarkdownText(
@@ -278,7 +290,7 @@ Displaying mentions uses ordinary display-component styling (`linkVariants` and 
 <Tab label="iOS">
 
 - Routing taps: the [`openURL`](/ios/api-reference/enriched-markdown-text#openurl) environment action.
-- Styling: the single [`Link()`](/ios/api-reference/style-properties#link) style - there is no per-URL variant.
+- Styling: one [`Link(matching:)`](/ios/api-reference/style-properties#link-matching) theme element per URL pattern, falling back to [`Link()`](/ios/api-reference/style-properties#link).
 - Authoring: none - the iOS package has no editor.
 
 </Tab>

@@ -146,7 +146,7 @@ Each has its own page - under **Rich text formatting**, or under the React Nativ
 | Feature                 | React Native | iOS | Android | Web | Learn more                                                         |
 | ----------------------- | :----------: | :-: | :-----: | :-: | ------------------------------------------------------------------ |
 | LaTeX math              |     Yes      | Yes |   Yes   | Yes | [LaTeX math](/rich-text-formatting/latex-math)                     |
-| Mentions                |     Yes      | No  |   No    | Yes | [Mentions](/rich-text-formatting/mentions)                         |
+| Mentions                |     Yes      | Yes |   No    | Yes | [Mentions](/rich-text-formatting/mentions)                         |
 | Code-block highlighting |     Yes      | Yes |   Yes   | No  | [Code-block highlighting](/rich-text-formatting/code-highlighting) |
 | Markdown streaming      |     Yes      | No  |   No    | No  | [Markdown streaming](/rich-text-formatting/markdown-streaming)     |
 | Link pills              |     Yes      | No  |   No    | No  | [Link pills](/react-native/guides/link-pills)                      |
@@ -174,9 +174,13 @@ On the standalone SDKs, the advanced features that render are optional add-ons:
   optional `com.swmansion.enriched.markdown:code-highlight` artifact and
   register `CodeHighlightPlugin` (see
   [Android code highlighting](/android/guides/code-highlighting)).
-- **Mentions** - there is no mention support in either SDK, but mention links
-  written as ordinary Markdown links (`[display](url)`) still render and are
-  tappable like any other link.
+- **Mentions** - built into the iOS package, with no add-on: style each URL
+  scheme with a
+  [`Link(matching:)`](/ios/api-reference/style-properties#link-matching) theme
+  element and route taps in `openURL` (see
+  [Mentions](/rich-text-formatting/mentions#displaying-mentions)). On Android,
+  mentions render and respond to taps like any other link, but cannot be styled
+  apart.
 
 ## EnrichedMarkdownTextInput
 

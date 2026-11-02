@@ -5,11 +5,29 @@ import com.swmansion.enriched.markdown.parser.Parser
 enum class TableStreamingMode {
   HIDDEN,
   PROGRESSIVE,
+  ;
+
+  companion object {
+    fun fromString(value: String?): TableStreamingMode =
+      when (value) {
+        "hidden" -> HIDDEN
+        else -> PROGRESSIVE
+      }
+  }
 }
 
 enum class CodeBlockStreamingMode {
   HIDDEN,
   PROGRESSIVE,
+  ;
+
+  companion object {
+    fun fromString(value: String?): CodeBlockStreamingMode =
+      when (value) {
+        "hidden" -> HIDDEN
+        else -> PROGRESSIVE
+      }
+  }
 }
 
 /**
@@ -20,6 +38,15 @@ enum class CodeBlockStreamingMode {
 enum class MediaStreamingMode {
   HIDDEN,
   PROGRESSIVE,
+  ;
+
+  companion object {
+    fun fromString(value: String?): MediaStreamingMode =
+      when (value) {
+        "hidden" -> HIDDEN
+        else -> PROGRESSIVE
+      }
+  }
 }
 
 /**

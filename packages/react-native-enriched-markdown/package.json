@@ -34,7 +34,8 @@
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",
-    "!**/.*"
+    "!**/.*",
+    "!cpp/tests"
   ],
   "scripts": {
     "postinstall": "node postinstall.mjs",
