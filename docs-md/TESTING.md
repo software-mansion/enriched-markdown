@@ -38,7 +38,7 @@ module.exports = {
 
 - **Renders a real `TextInput`.** React Native Testing Library queries
   (`getByTestId`, `getByPlaceholderText`, …) and `fireEvent.changeText` work out
-  of the box. `EnrichedMarkdownText` renders its `markdown` prop as plain text.
+  of the box. `EnrichedMarkdownText` renders its `markdown` prop as plain text, except that with `onLinkPress` / `onLinkLongPress` links become pressable `Text` with the `link` role, and with `onTaskListItemPress` task items become pressable checkboxes.
 - **Emits change events on user input.** Typing fires `onChangeText` and, when a
   handler is provided, `onChangeMarkdown`. The mock cannot parse markdown, so it
   forwards the raw text to `onChangeMarkdown` as a stand-in.
@@ -46,13 +46,14 @@ module.exports = {
   text so the programmatic value is observable, but emits **no** change events —
   matching the native component's suppression of emits for programmatic updates.
 - **Exposes every imperative method as a spy.** `toggleBold`, `insertMention`,
-  `setSelection`, and the rest are `jest.fn()`s you can assert against. The async
+  `setSelection`, `undo`, `redo`, and the rest are `jest.fn()`s you can assert
+  against. The async
   methods resolve sensible values: `getMarkdown()` resolves the current text and
   `getCaretRect()` resolves `{ x: 0, y: 0, width: 0, height: 0 }`.
 
 The mock is authored against the library's real public types, so it is
 type-checked against the actual component API on every release and cannot
-silently fall behind when methods or props are added.
+silently fall behind when imperative methods are added.
 
 ## Examples
 

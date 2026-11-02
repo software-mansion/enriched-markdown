@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import styles from './styles.module.css';
 
 function AndroidIcon() {
@@ -75,6 +75,28 @@ export function ComingSoonBadge({ children }: PlatformBadgeProps) {
   return (
     <span className={`${styles.badge} ${styles.comingSoon}`}>
       {children ?? 'Coming soon'}
+    </span>
+  );
+}
+
+const EXPERIMENTAL_NOTE =
+  'Experimental: this feature is still taking shape and may get breaking ' +
+  'changes, including in nightly releases.';
+
+// Marks a released feature whose API may still break. The explanation sits in
+// a tooltip so the badge stays small in headings; it opens on focus as well as
+// hover so keyboard and touch readers can reach it.
+export function ExperimentalBadge({ children }: PlatformBadgeProps) {
+  const tooltipId = useId();
+  return (
+    <span
+      className={`${styles.badge} ${styles.experimental}`}
+      tabIndex={0}
+      aria-describedby={tooltipId}>
+      {children ?? 'Experimental'}
+      <span id={tooltipId} role="tooltip" className={styles.tooltip}>
+        {EXPERIMENTAL_NOTE}
+      </span>
     </span>
   );
 }

@@ -8,6 +8,7 @@
 #define RCTUIColor UIColor
 #define RCTUIImage UIImage
 #define RCTUIView UIView
+#define RCTPlatformView UIView
 #define RCTUIScrollView UIScrollView
 #define RCTUIGraphicsImageRenderer UIGraphicsImageRenderer
 #define RCTUIGraphicsImageRendererContext UIGraphicsImageRendererContext

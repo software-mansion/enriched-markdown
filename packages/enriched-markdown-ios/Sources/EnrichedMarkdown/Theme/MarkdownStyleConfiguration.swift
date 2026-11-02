@@ -9,6 +9,7 @@ public struct MarkdownStyleConfiguration: Equatable, Sendable {
     public var heading5: ElementStyle
     public var heading6: ElementStyle
     public var link: ElementStyle
+    public var linkVariants: [LinkVariantStyle]
     public var strong: ElementStyle
     public var emphasis: ElementStyle
     public var strikethrough: ElementStyle
@@ -55,7 +56,8 @@ public struct MarkdownStyleConfiguration: Equatable, Sendable {
         blockquote: BlockquoteStyle = BlockquoteStyle(),
         list: ListStyle = ListStyle(),
         taskList: TaskListStyle = TaskListStyle(),
-        table: TableStyle = TableStyle()
+        table: TableStyle = TableStyle(),
+        linkVariants: [LinkVariantStyle] = []
     ) {
         self.paragraph = paragraph
         self.heading1 = heading1
@@ -82,6 +84,7 @@ public struct MarkdownStyleConfiguration: Equatable, Sendable {
         self.list = list
         self.taskList = taskList
         self.table = table
+        self.linkVariants = linkVariants
     }
 
     public mutating func merge(_ other: MarkdownStyleConfiguration) {
@@ -93,6 +96,11 @@ public struct MarkdownStyleConfiguration: Equatable, Sendable {
         heading5.merge(other.heading5)
         heading6.merge(other.heading6)
         link.merge(other.link)
+        for variant in other.linkVariants {
+            var style = linkVariant(for: variant.pattern) ?? ElementStyle()
+            style.merge(variant.style)
+            setLinkVariant(style, for: variant.pattern)
+        }
         strong.merge(other.strong)
         emphasis.merge(other.emphasis)
         strikethrough.merge(other.strikethrough)
@@ -137,4 +145,15 @@ public struct MarkdownStyleConfiguration: Equatable, Sendable {
         }
     }
 
+    public func linkVariant(for pattern: String) -> ElementStyle? {
+        linkVariants.first { $0.pattern == pattern }?.style
+    }
+
+    public mutating func setLinkVariant(_ style: ElementStyle, for pattern: String) {
+        if let index = linkVariants.firstIndex(where: { $0.pattern == pattern }) {
+            linkVariants[index].style = style
+        } else {
+            linkVariants.append(LinkVariantStyle(pattern: pattern, style: style))
+        }
+    }
 }

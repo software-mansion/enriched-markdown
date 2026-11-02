@@ -23,14 +23,15 @@ let package = Package(
         .target(
             name: "EnrichedMarkdownCore",
             path: "core",
-            sources: ["md4c", "parser", "highlight"],
+            sources: ["enrmrkd", "parser", "highlight", "latex"],
             publicHeadersPath: "parser",
             cSettings: [
-                .define("MD4C_USE_UTF8", to: "1")
+                .define("ENRMRKD_USE_UTF8", to: "1")
             ],
             cxxSettings: [
-                .headerSearchPath("md4c"),
-                .headerSearchPath("parser")
+                .headerSearchPath("enrmrkd"),
+                .headerSearchPath("parser"),
+                .headerSearchPath("latex")
             ]
         ),
         .target(
@@ -39,10 +40,11 @@ let package = Package(
             path: "cpp",
             publicHeadersPath: ".",
             cxxSettings: [
-                .headerSearchPath("../core/md4c"),
+                .headerSearchPath("../core/enrmrkd"),
                 .headerSearchPath("../core/parser"),
                 .headerSearchPath("../core/highlight"),
-                .define("MD4C_USE_UTF8", to: "1")
+                .headerSearchPath("../core/latex"),
+                .define("ENRMRKD_USE_UTF8", to: "1")
             ]
         ),
         .target(
@@ -56,8 +58,8 @@ let package = Package(
         // so it should move under software-mansion-labs control before release.
         .binaryTarget(
             name: "RaTeX",
-            url: "https://github.com/erweixin/RaTeX/releases/download/v0.1.14/RaTeX.xcframework.zip",
-            checksum: "16b84a5e9b9f80ed4910c490f96dda047662e9bdd0934817ecf4464cf02581f2"
+            url: "https://github.com/erweixin/RaTeX/releases/download/v0.1.15/RaTeX.xcframework.zip",
+            checksum: "23e4dd2bfe5f81c8efe24e52195435723b0a86c61f100fca7b38068bbf9aae31"
         ),
         // Vendor/'s upstream RaTeX sources (see Vendor/LICENSE) and the KaTeX
         // Fonts are symlinks into the RN package's vendored files —
@@ -65,7 +67,7 @@ let package = Package(
         // and dereferenced into real files when the standalone repo is synced.
         .target(
             name: "EnrichedMarkdownLaTeX",
-            dependencies: ["EnrichedMarkdown", "RaTeX"],
+            dependencies: ["EnrichedMarkdown", "EnrichedMarkdownCppShim", "RaTeX"],
             path: "Sources/EnrichedMarkdownLaTeX",
             exclude: ["Vendor/LICENSE"],
             resources: [.copy("Fonts")]
@@ -114,5 +116,6 @@ let package = Package(
             dependencies: ["EnrichedMarkdownSyntaxHighlighting"],
             path: "Tests/EnrichedMarkdownSyntaxHighlightingTests"
         )
-    ]
+    ],
+    cxxLanguageStandard: .cxx17
 )

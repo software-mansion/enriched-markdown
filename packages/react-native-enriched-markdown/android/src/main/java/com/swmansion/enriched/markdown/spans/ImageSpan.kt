@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
@@ -19,6 +20,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
 import com.swmansion.enriched.markdown.EnrichedMarkdownText
+import com.swmansion.enriched.markdown.styles.ImageSourceOverride
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.text.ImageCache
@@ -26,6 +28,8 @@ import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
+import kotlin.math.ceil
+import kotlin.math.floor
 import android.text.style.ImageSpan as AndroidImageSpan
 import android.text.style.LineHeightSpan as AndroidLineHeightSpan
 
@@ -35,6 +39,9 @@ class ImageSpan(
   styleConfig: StyleConfig,
   val isInline: Boolean = false,
   val altText: String = "",
+  // `resolveImageSource` result for this occurrence; imageUrl stays the Markdown
+  // URL for press, copy and alt text, this decides what is requested.
+  private val sourceOverride: ImageSourceOverride? = null,
 ) : AndroidImageSpan(
     Color.TRANSPARENT.toDrawable(),
     imageUrl,
@@ -61,17 +68,24 @@ class ImageSpan(
       else -> height
     }
 
-  private val requestHeaders: Map<String, String> = styleConfig.imageRequestHeaders
-  private val requestKey: String = ImageCache.requestKey(imageUrl, requestHeaders)
+  private val requestUrl: String = sourceOverride?.uri ?: imageUrl
+  private val requestHeaders: Map<String, String> =
+    if (sourceOverride == null) {
+      styleConfig.imageRequestHeaders
+    } else {
+      ImageCache.normalizedHeaders(styleConfig.imageRequestHeaders) + sourceOverride.headers
+    }
+  private val requestKey: String = ImageCache.requestKey(requestUrl, requestHeaders)
 
   private var cachedWidth: Int = 0
+  private val capBounds = Rect()
   private var viewRef: WeakReference<TextView>? = null
   private var sourceDrawable: Drawable? = null
   private var onBoxHeightChanged: (() -> Unit)? = null
 
   private fun intrinsicImageSize(): Pair<Int, Int> {
     sourceDrawable?.let { return it.intrinsicWidth to it.intrinsicHeight }
-    val cached = ImageCache.getOriginal(imageUrl) ?: return 0 to 0
+    val cached = ImageCache.getOriginal(requestKey) ?: return 0 to 0
     return cached.width to cached.height
   }
 
@@ -107,19 +121,21 @@ class ImageSpan(
   }
 
   private fun loadImage() {
-    val scheme = Uri.parse(imageUrl).scheme?.lowercase()
+    // A pending or rejected resolution keeps the placeholder and requests nothing.
+    if (requestUrl.isEmpty()) return
+    val scheme = Uri.parse(requestUrl).scheme?.lowercase()
     if (scheme == "http" || scheme == "https") {
-      ImageDownloader.download(context, imageUrl, requestHeaders) { bitmap ->
+      ImageDownloader.download(context, requestUrl, requestHeaders) { bitmap ->
         if (bitmap != null) {
           sourceDrawable = bitmap.toDrawable(context.resources)
           wrapAndAssignDrawable()
         }
       }
     } else {
-      val cached = ImageCache.getOriginal(imageUrl)
-      val bitmap = cached ?: LocalImageLoader.load(context, imageUrl)
+      val cached = ImageCache.getOriginal(requestKey)
+      val bitmap = cached ?: LocalImageLoader.load(context, requestUrl)
       if (bitmap != null) {
-        if (cached == null) ImageCache.putOriginal(imageUrl, bitmap)
+        if (cached == null) ImageCache.putOriginal(requestKey, bitmap)
         sourceDrawable = bitmap.toDrawable(context.resources)
         wrapAndAssignDrawable()
       }
@@ -268,7 +284,24 @@ class ImageSpan(
     start: Int,
     end: Int,
     fm: Paint.FontMetricsInt?,
-  ): Int = getDrawable().bounds.right
+  ): Int {
+    if (isInline && fm != null) {
+      // The line grows to fit a tall image, as iOS grows it for an attachment.
+      paint.getFontMetricsInt(fm)
+      val imageTop = inlineImageTop(paint)
+      fm.ascent = minOf(fm.ascent, floor(imageTop).toInt())
+      fm.top = minOf(fm.top, fm.ascent)
+      fm.descent = maxOf(fm.descent, ceil(imageTop + height).toInt())
+      fm.bottom = maxOf(fm.bottom, fm.descent)
+    }
+    return getDrawable().bounds.right
+  }
+
+  /** The inline image's top relative to the baseline: centered on the cap height, as iOS places inline attachments. */
+  private fun inlineImageTop(paint: Paint): Float {
+    paint.getTextBounds("H", 0, 1, capBounds)
+    return -(capBounds.height() + height) / 2f
+  }
 
   override fun chooseHeight(
     text: CharSequence?,
@@ -301,8 +334,7 @@ class ImageSpan(
     val drawable = getDrawable()
     canvas.withSave {
       if (isInline) {
-        val imageHeight = drawable.bounds.height()
-        translate(x, (y - imageHeight + (imageHeight * 0.1f)))
+        translate(x, y + inlineImageTop(paint))
       } else {
         translate(x, top.toFloat())
       }

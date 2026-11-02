@@ -34,7 +34,7 @@ android {
 dependencies {
   api(project(":ui"))
   // LaTeX math rendering (KaTeX-compatible native engine + KaTeX fonts).
-  implementation("io.github.erweixin:ratex-android:0.1.14")
+  implementation("io.github.erweixin:ratex-android:0.1.15")
 
   def composeBom = platform("androidx.compose:compose-bom:2026.06.00")
 

@@ -1,6 +1,11 @@
-import type { CSSProperties, KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { extractNodeText, filenameFromUrl } from '../utils';
-import type { RendererProps, RendererMap } from '../types';
+import type {
+  ASTNode,
+  RenderCapabilities,
+  RendererProps,
+  RendererMap,
+} from '../types';
 import { toHeadingLevel } from '../styles';
 import { KaTeXRenderer } from './KaTeXRenderer';
 import {
@@ -15,13 +20,26 @@ function ParagraphRenderer({
   node,
   styles,
   parentType,
+  capabilities,
   renderChildren,
 }: RendererProps) {
   const isImageOnly =
     node.children?.length === 1 && node.children[0]?.type === 'Image';
+  const inQuote = parentType === 'Blockquote' || parentType === 'Admonition';
+
+  const slot = blockSlotFor(node, capabilities);
+  if (slot !== undefined) {
+    const spacing = isImageOnly
+      ? styles.image
+      : inQuote
+        ? styles.paragraphInBlockquote
+        : styles.paragraph;
+    return <div style={slotSpacing(spacing)}>{slot}</div>;
+  }
+
   if (isImageOnly) return <>{renderChildren(node)}</>;
 
-  if (parentType === 'Blockquote' || parentType === 'Admonition') {
+  if (inQuote) {
     return <p style={styles.paragraphInBlockquote}>{renderChildren(node)}</p>;
   }
 
@@ -29,17 +47,37 @@ function ParagraphRenderer({
     return <span>{renderChildren(node)}</span>;
   }
 
-  return <p style={styles.paragraph}>{renderChildren(node)}</p>;
-}
-
-function HeadingRenderer({ node, styles, renderChildren }: RendererProps) {
-  const Tag = toHeadingLevel(node.attributes?.level ?? '1');
-  return <Tag style={styles[Tag]}>{renderChildren(node)}</Tag>;
-}
-
-function BlockquoteRenderer({ node, styles, renderChildren }: RendererProps) {
   return (
-    <blockquote style={styles.blockquote}>{renderChildren(node)}</blockquote>
+    <p style={styles.paragraph} dir={capabilities.blockDir}>
+      {renderChildren(node)}
+    </p>
+  );
+}
+
+function HeadingRenderer({
+  node,
+  styles,
+  capabilities,
+  renderChildren,
+}: RendererProps) {
+  const Tag = toHeadingLevel(node.attributes?.level ?? '1');
+  return (
+    <Tag style={styles[Tag]} dir={capabilities.blockDir}>
+      {renderChildren(node)}
+    </Tag>
+  );
+}
+
+function BlockquoteRenderer({
+  node,
+  styles,
+  capabilities,
+  renderChildren,
+}: RendererProps) {
+  return (
+    <blockquote style={styles.blockquote} dir={capabilities.blockDir}>
+      {renderChildren(node)}
+    </blockquote>
   );
 }
 
@@ -47,6 +85,7 @@ function AdmonitionRenderer({
   node,
   style,
   styles,
+  capabilities,
   renderChildren,
 }: RendererProps) {
   const type = (node.attributes?.admonitionType ?? 'note') as AdmonitionType;
@@ -71,7 +110,11 @@ function AdmonitionRenderer({
     lineHeight: 1.2,
   };
   return (
-    <div className={ENRM_ADMONITION_CLASS} style={boxStyle}>
+    <div
+      className={ENRM_ADMONITION_CLASS}
+      style={boxStyle}
+      dir={capabilities.blockDir}
+    >
       <div style={headerStyle}>
         <svg
           width={iconSize}
@@ -82,7 +125,8 @@ function AdmonitionRenderer({
         >
           <path d={ADMONITION_ICON_PATHS[type]} />
         </svg>
-        <span>{ADMONITION_TITLES[type]}</span>
+        {/* The English title must not decide the box's direction. */}
+        <span dir="ltr">{ADMONITION_TITLES[type]}</span>
       </div>
       {renderChildren(node)}
     </div>
@@ -100,7 +144,7 @@ function CodeBlockRenderer({
 
   if (callbacks.onCodeBlockPress == null) {
     return (
-      <pre style={styles.codeBlock} aria-label={label}>
+      <pre style={styles.codeBlock} dir="ltr" aria-label={label}>
         <code style={styles.codeBlockFont}>{renderChildren(node)}</code>
       </pre>
     );
@@ -131,6 +175,7 @@ function CodeBlockRenderer({
   return (
     <pre
       style={{ ...styles.codeBlock, cursor: 'pointer' }}
+      dir="ltr"
       aria-label={label}
       role="button"
       tabIndex={0}
@@ -162,9 +207,39 @@ function BlankLineRenderer({ node, style }: RendererProps) {
   );
 }
 
-function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
+// A replacement keeps the vertical spacing of the block it stands in for, as the
+// native hosts give its placeholder the block's margins.
+function slotSpacing(style: CSSProperties): CSSProperties {
+  return { marginTop: style.marginTop, marginBottom: style.marginBottom };
+}
+
+// A block slot the app filled, or undefined to keep the default rendering.
+function blockSlotFor(
+  node: ASTNode,
+  capabilities: RenderCapabilities
+): ReactNode | undefined {
+  const id = node.attributes?.blockSlotId;
+  if (id === undefined) return undefined;
+  return capabilities.blockSlots?.get(id);
+}
+
+function ImageRenderer({
+  node,
+  styles,
+  parentType,
+  callbacks,
+  capabilities,
+}: RendererProps) {
   const url = node.attributes?.url;
   if (!url) return null;
+
+  const occurrenceId = node.attributes?.imageOccurrenceId;
+  const resolved =
+    occurrenceId !== undefined && capabilities.imageSources?.has(occurrenceId)
+      ? capabilities.imageSources.get(occurrenceId)
+      : url;
+  // A pending or failed resolution keeps the element, so layout holds, without a request.
+  const src = resolved === null || resolved === '' ? undefined : resolved;
 
   const title = node.attributes?.title;
   const markdownAlt = extractNodeText(node).trim();
@@ -179,7 +254,7 @@ function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
     parentType !== 'TableCell' &&
     parentType !== 'TableHeaderCell';
   if (!interactive) {
-    return <img src={url} alt={alt} title={title} style={imgStyle} />;
+    return <img src={src} alt={alt} title={title} style={imgStyle} />;
   }
 
   const press = () => callbacks.onImagePress?.({ url, altText: markdownAlt });
@@ -193,7 +268,7 @@ function ImageRenderer({ node, styles, parentType, callbacks }: RendererProps) {
 
   return (
     <img
-      src={url}
+      src={src}
       alt={alt}
       title={title}
       style={imgStyle}
@@ -223,7 +298,12 @@ function LatexMathDisplayRenderer({
   );
 }
 
-function VideoRenderer({ node, styles }: RendererProps) {
+function VideoRenderer({ node, styles, capabilities }: RendererProps) {
+  const slot = blockSlotFor(node, capabilities);
+  if (slot !== undefined) {
+    return <div style={slotSpacing(styles.video)}>{slot}</div>;
+  }
+
   const url = node.attributes?.url;
   if (!url) return null;
 

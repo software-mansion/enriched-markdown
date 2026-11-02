@@ -30,4 +30,17 @@ class LatexMathPluginScopeTest {
 
     assertEquals(listOf(LatexMathPlugin), captured)
   }
+
+  @Test
+  fun theScopeTakesTheFormulaLabel() {
+    var captured: List<MarkdownPlugin>? = null
+
+    composeRule.setContent {
+      LatexMathPlugin(accessibilityLabel = "Formel: {latex}") {
+        captured = LocalMarkdownPlugins.current
+      }
+    }
+
+    assertEquals(listOf(LatexMathPlugin("Formel: {latex}")), captured)
+  }
 }

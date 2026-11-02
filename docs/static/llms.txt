@@ -1,12 +1,42 @@
 # Enriched Markdown
 
-> Markdown-based rich text for React Native: `EnrichedMarkdownText`, a read-only renderer that paints Markdown with the platform's native text stack, and `EnrichedMarkdownTextInput`, a WYSIWYG editor that produces Markdown as the user types. Both run on iOS, Android and macOS; the renderer also has a plain React/DOM build for the web. Standalone native SDKs for iOS and Android are in development and not documented here yet.
+> Markdown-based rich text for React Native: `EnrichedMarkdownText`, a read-only renderer that paints Markdown with the platform's native text stack, and `EnrichedMarkdownTextInput`, a WYSIWYG editor that produces Markdown as the user types. Both run on iOS, Android and macOS; the renderer also has a plain React/DOM build for the web, and the editor an experimental one. Standalone native SDKs ship the renderer without React Native: a SwiftUI view in the `enriched-markdown-ios` Swift package, and a Jetpack Compose component on Maven Central (`com.swmansion.enriched.markdown:compose`).
 
 ## Introduction
 
 - [Getting started](https://docs.swmansion.com/enriched-markdown/getting-started): What the library is, the two components, and how these docs are organized.
 - [Core concepts](https://docs.swmansion.com/enriched-markdown/introduction/core-concepts): A primer on the Markdown syntax both components speak, block vs. inline elements, and the CommonMark/GitHub flavor split.
 - [Feature support](https://docs.swmansion.com/enriched-markdown/introduction/supported-features): Which features each target renders, organized by component and by the switch that enables them.
+
+## iOS
+
+- [Installation](https://docs.swmansion.com/enriched-markdown/ios/basics/installation): Swift Package Manager setup, version pinning for a 0.x package, and the three products (renderer, optional LaTeX, optional syntax highlighting) with their size cost.
+- [Your first markdown screen](https://docs.swmansion.com/enriched-markdown/ios/basics/your-first-screen): Rendering Markdown in SwiftUI, handling links through `openURL`, and a first theme.
+- [EnrichedMarkdownText](https://docs.swmansion.com/enriched-markdown/ios/api-reference/enriched-markdown-text): The initializer, parsing options, and every view modifier - links, task lists, selection and copy, spoilers and custom spoiler overlays, code blocks, images, writing direction, bottom margin, accessibility labels.
+- [MarkdownTheme](https://docs.swmansion.com/enriched-markdown/ios/api-reference/markdown-theme): How themes layer through the environment, reusing theme fragments, adaptive values, `MarkdownStyleConfiguration`, and `MarkdownRenderer` for rendering without a view.
+- [Style properties](https://docs.swmansion.com/enriched-markdown/ios/api-reference/style-properties): Every theme element and modifier with defaults, which modifiers each element actually honors, and the `SyntaxToken` palette.
+- [Element structure](https://docs.swmansion.com/enriched-markdown/ios/api-reference/element-structure): Every Markdown element the renderer draws, nesting, block vs. inline images, tables, writing direction, and spacing between blocks.
+- [Parser extensions](https://docs.swmansion.com/enriched-markdown/ios/guides/parser-extensions): The `MarkdownParsingOptions` switches, what is always on, and which options change the meaning of existing markers (`_`, `~`).
+- [LaTeX math](https://docs.swmansion.com/enriched-markdown/ios/guides/latex-math): The optional `EnrichedMarkdownLaTeX` product - enabling it, inline vs. display math, styling, VoiceOver labels, and rendering without a view.
+- [Syntax highlighting](https://docs.swmansion.com/enriched-markdown/ios/guides/syntax-highlighting): The optional `EnrichedMarkdownSyntaxHighlighting` product - supported languages and aliases, token theming and the default palette, the scrollable code-block panel, and caching.
+- [Images and caching](https://docs.swmansion.com/enriched-markdown/ios/guides/image-caching): Supported image sources and bundle lookup, block image sizing and content mode, the three caches, and request headers.
+- [Custom fonts](https://docs.swmansion.com/enriched-markdown/ios/guides/custom-fonts): How a font name resolves, which elements take a custom family, bold and italic faces, and Dynamic Type scaling.
+- [UIKit interop](https://docs.swmansion.com/enriched-markdown/ios/guides/uikit-interop): Hosting the SwiftUI view in UIKit and cells, sizing, rendering to `NSAttributedString` with `MarkdownRenderer`, and walking the parsed AST.
+
+## Android
+
+- [Installation](https://docs.swmansion.com/enriched-markdown/android/basics/installation): Gradle setup, requirements, the artifacts (including the optional `math` and `code-highlight`), native libraries and ABIs, the Internet permission, and R8.
+- [Your first markdown screen](https://docs.swmansion.com/enriched-markdown/android/basics/your-first-screen): Rendering Markdown in Compose, handling link clicks, a first style, and how a per-component style relates to the theme.
+- [EnrichedMarkdownText](https://docs.swmansion.com/enriched-markdown/android/api-reference/enriched-markdown-text): Every composable parameter - flags, selection and copy, links, task lists, spoiler overlays, plugins and plugin events, last-block margin.
+- [MarkdownTheme](https://docs.swmansion.com/enriched-markdown/android/api-reference/markdown-theme): Providing a style to a subtree, building and merging `MarkdownStyle` layers, `rememberMarkdownStyle` with Material 3, and dark mode.
+- [Style properties](https://docs.swmansion.com/enriched-markdown/android/api-reference/style-properties): Every `markdownStyle` block and property with types and defaults, inheritance, and the unit and font-weight rules.
+- [Element structure](https://docs.swmansion.com/enriched-markdown/android/api-reference/element-structure): Every Markdown element the renderer draws, nesting, how tables and display math split the document into segments, images, and spacing.
+- [Parser extensions](https://docs.swmansion.com/enriched-markdown/android/guides/parser-extensions): The `Md4cFlags` switches, what is always on (including spoilers), and which flags change the meaning of existing markers.
+- [LaTeX math](https://docs.swmansion.com/enriched-markdown/android/guides/latex-math): The optional `math` artifact and `LatexMathPlugin` - enabling it, dollar-sign rules, styling, error events, and TalkBack.
+- [Code highlighting](https://docs.swmansion.com/enriched-markdown/android/guides/code-highlighting): The optional `code-highlight` artifact and `CodeHighlightPlugin` - enabling it, supported languages, token colors, and what it costs.
+- [Images and caching](https://docs.swmansion.com/enriched-markdown/android/guides/image-caching): Supported image sources, downsampling, the memory and disk caches, and why requests with headers skip the disk cache.
+- [Custom fonts](https://docs.swmansion.com/enriched-markdown/android/guides/custom-fonts): Using `FontFamily` resources, why a multi-file family collapses to one face, and how font weights are rounded.
+- [Compose interop](https://docs.swmansion.com/enriched-markdown/android/guides/compose-interop): What the hosted view means for previews, sizing, lazy lists and view recycling, selection, and recomposition.
 
 ## React Native
 
@@ -20,10 +50,12 @@
 - [Link pills](https://docs.swmansion.com/enriched-markdown/react-native/guides/link-pills): Presenting links as native chips with an icon and label - the `pill` variant key, per-link content through `linkPillContent`, line height, and icon sources.
 - [Link menus](https://docs.swmansion.com/enriched-markdown/react-native/guides/link-menus): What a long press on a link does per platform, and custom iOS 17+ menus per URL pattern with `linkContextMenuItems`.
 - [Web support](https://docs.swmansion.com/enriched-markdown/react-native/guides/web-support): Bundler setup for the web build, the WebAssembly parser, KaTeX, and everything the web target ignores or does not support.
+- [Web editor](https://docs.swmansion.com/enriched-markdown/react-native/guides/web-editor): The experimental web build of EnrichedMarkdownTextInput - supported props, events and ref methods, undo history, Markdown escaping, clipboard, and what is not supported on web yet.
 - [Image caching](https://docs.swmansion.com/enriched-markdown/react-native/guides/image-caching): Supported image sources, the three cache tiers, request headers and deduplication.
 - [Native assets](https://docs.swmansion.com/enriched-markdown/react-native/guides/native-assets): Bundling custom fonts and images, the assets downloaded at install time, and how to opt out to shrink your binary.
 - [Testing](https://docs.swmansion.com/enriched-markdown/react-native/guides/testing): The Jest mock the package ships, what it replaces, and what it cannot cover.
 - [macOS support](https://docs.swmansion.com/enriched-markdown/react-native/guides/macos): Requirements and the known differences from iOS, including silently dropped block math.
+- [Custom block renderers](https://docs.swmansion.com/enriched-markdown/react-native/guides/custom-block-renderers): Replacing standalone images, standalone links and videos with your own React components through `renderers`, how the native host sizes them, block ids, and swapping an image's request with `resolveImageSource`.
 
 ## Rich text formatting
 

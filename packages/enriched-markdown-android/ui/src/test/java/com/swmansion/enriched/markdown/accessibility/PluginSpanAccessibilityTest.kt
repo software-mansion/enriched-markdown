@@ -59,6 +59,14 @@ class PluginSpanAccessibilityTest {
     assertEquals(listOf("docs", "="), accessibilityTextsOf(text))
   }
 
+  /** Without a label, a plugin span inside a link reads its plain text rather than the object-replacement character. */
+  @Test
+  fun anUnlabelledPluginSpanInsideALinkReadsItsPlainText() {
+    val text = render(document(paragraph(link("https://example.com", text("￼ docs"))))).withSymbolSpan("+")
+
+    assertEquals(listOf("+ docs"), accessibilityTextsOf(text))
+  }
+
   /** Punctuation beside a link, unlike a plugin span's label, still gets no item of its own. */
   @Test
   fun punctuationBesideALinkIsNotReadOnItsOwn() {

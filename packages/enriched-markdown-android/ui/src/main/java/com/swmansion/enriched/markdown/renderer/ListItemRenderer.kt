@@ -37,18 +37,8 @@ class ListItemRenderer(
     // indices, matching the top-down order of `- [ ]` markers in the source.
     val taskIndex = if (isTask) styleContext.taskItemCount++ else -1
 
-    factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
-
-    if (builder.length == start || builder.substring(start).isBlank()) return
-
-    while (builder.length > start && builder.last() == '\n') {
-      builder.delete(builder.length - 1, builder.length)
-    }
-    builder.append("\n")
-
     val depth = styleContext.listDepth - 1
     val listStyle = config.style.listStyle
-    val itemEnd = builder.length
     val span =
       if (isTask) {
         TaskListSpan(
@@ -59,21 +49,59 @@ class ListItemRenderer(
           styleCache = factory.styleCache,
           taskIndex = taskIndex,
           isChecked = isChecked,
+          ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
+          markerExtraWidth = styleContext.listMarkerExtra,
+          parentMarkerWidth = styleContext.listItemMarkerWidth,
         )
       } else {
         when (listType) {
           BlockStyleContext.ListType.UNORDERED -> {
-            UnorderedListSpan(listStyle, depth, factory.context, factory.styleCache)
+            UnorderedListSpan(
+              listStyle,
+              depth,
+              factory.context,
+              factory.styleCache,
+              ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
+              parentMarkerWidth = styleContext.listItemMarkerWidth,
+            )
           }
 
           BlockStyleContext.ListType.ORDERED -> {
-            OrderedListSpan(listStyle, depth, factory.context, factory.styleCache).apply {
+            OrderedListSpan(
+              listStyle,
+              depth,
+              factory.context,
+              factory.styleCache,
+              markerExtraWidth = styleContext.listMarkerExtra,
+              ancestorMarkerOffset = styleContext.ancestorMarkerOffset,
+              parentMarkerWidth = styleContext.listItemMarkerWidth,
+            ).apply {
               setItemNumber(styleContext.listItemNumber)
             }
           }
         }
       }
 
+    // Nested lists inside this item shift by its extra marker width and measure their indent from its column.
+    val previousMarkerExtra = styleContext.listItemMarkerExtra
+    styleContext.listItemMarkerExtra = span.markerExtraWidth
+    val previousMarkerWidth = styleContext.listItemMarkerWidth
+    styleContext.listItemMarkerWidth = span.baselineMarkerWidth
+    try {
+      factory.renderChildren(node, builder, onLinkPress, onLinkLongPress)
+    } finally {
+      styleContext.listItemMarkerExtra = previousMarkerExtra
+      styleContext.listItemMarkerWidth = previousMarkerWidth
+    }
+
+    if (builder.length == start || builder.substring(start).isBlank()) return
+
+    while (builder.length > start && builder.last() == '\n') {
+      builder.delete(builder.length - 1, builder.length)
+    }
+    builder.append("\n")
+
+    val itemEnd = builder.length
     builder.setSpan(span, start, itemEnd, SPAN_FLAGS_LIST_ITEM)
 
     if (isChecked) {

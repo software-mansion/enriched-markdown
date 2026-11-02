@@ -115,7 +115,7 @@ When text is selected, `react-native-enriched-markdown` provides enhanced copy f
 
 ## Accessibility
 
-`react-native-enriched-markdown` provides comprehensive accessibility support for screen readers on both platforms. See [Accessibility](ACCESSIBILITY.md) for detailed information about VoiceOver and TalkBack support, custom rotors, semantic traits, and best practices.
+`react-native-enriched-markdown` provides comprehensive accessibility support for screen readers on iOS, Android and web. See [Accessibility](ACCESSIBILITY.md) for detailed information about VoiceOver and TalkBack support, custom rotors, semantic traits, and best practices.
 
 ## RTL Support
 

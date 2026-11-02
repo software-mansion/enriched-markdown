@@ -16,9 +16,10 @@ Deployed to `https://docs.swmansion.com/enriched-markdown/` via GitHub Pages (`b
 
 - Pages live in `docs/`, served at the site root (`routeBasePath: '/'`). The
   homepage is `docs/introduction/getting-started.mdx` (`slug: /getting-started`).
-  It is an orientation page, not a quick start: it deliberately carries no
-  install command or package name and routes the reader to
-  `react-native/basics/installation` for those. The bare root `/`
+  It is an orientation page, not a quick start: it carries no install command
+  and routes the reader to `react-native/basics/installation`,
+  `ios/basics/installation` or `android/basics/installation` for that (it names
+  the native packages only so a reader can tell the three apart). The bare root `/`
   is a redirect to it (`src/pages/index.tsx`). Do NOT give a real doc `slug: /`:
   t-rex-ui treats the exact root URL as a marketing "landing" page and hides the
   mobile hamburger + doc sidebar there (`usePageType` keys off
@@ -41,21 +42,24 @@ ios/                  (20)  basics/ (10)        installation, your-first-screen
                                                 markdown-theme, style-properties,
                                                 element-structure
                             guides/ (30)        parser-extensions, latex-math,
+                                                syntax-highlighting,
                                                 image-caching, custom-fonts,
                                                 uikit-interop
 android/              (30)  basics/ (10)        installation, your-first-screen
                             api-reference/ (20) enriched-markdown-text,
                                                 markdown-theme, style-properties,
                                                 element-structure
-                            guides/ (30)        parser-extensions, image-caching,
-                                                custom-fonts, compose-interop
+                            guides/ (30)        parser-extensions, latex-math,
+                                                code-highlighting,
+                                                image-caching, custom-fonts,
+                                                compose-interop
 react-native/         (40)  basics/ (10)        installation, your-first-project
                             api-reference/ (20) enriched-markdown-text,
                                                 enriched-markdown-text-input,
                                                 style-properties, element-structure
                             guides/ (30)        markdown-flavors, link-pills,
                                                 link-menus, web-support,
-                                                image-caching, native-assets,
+                                                web-editor, image-caching, native-assets,
                                                 testing, macos
 rich-text-formatting/ (50)  code-highlighting, editor-style-text, latex-math,
                             markdown-streaming, mentions
@@ -64,19 +68,13 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
                             known-limitations, roadmap, contributing
 ```
 
-  **iOS and Android are currently hidden from the build.** The two packages are
-  not released yet, so `docusaurus.config.js` excludes `ios/**` and
-  `android/**` from the docs plugin unless `SHOW_UNRELEASED_PLATFORMS=1` is
-  set. The page sources stay in the tree, untouched. Everything the released
-  sections used to say about those packages - platform tabs, table columns,
-  cross-links - is commented out in place with `{/* ... */}` and tagged
-  `UNRELEASED PLATFORMS`; several of those comments also record where the
-  hidden prose had gone stale, so read them before restoring anything. To bring
-  the trees back: drop the two globs from `exclude`, then
-  `grep -rn "UNRELEASED PLATFORMS" docs/` and work through each site.
-  `onBrokenLinks: 'throw'` is what keeps the two states honest - a leftover
-  link into either tree fails the build. On the homepage the two bullets stay
-  visible but unlinked, marked with `<ComingSoonBadge />`.
+  **iOS and Android are always built.** They used to be hidden behind a
+  `SHOW_UNRELEASED_PLATFORMS` switch until the standalone packages shipped; the
+  switch is gone, and so are the `UNRELEASED PLATFORMS` comments that held the
+  native prose in the shared sections. When a native package ships a feature,
+  update both its own tree and the shared pages that compare platforms
+  (supported-features, compatibility, known-limitations, roadmap, and the
+  per-platform notes in rich-text-formatting/ and user-experience/).
 
   iOS and Android are **standalone native packages** with their own doc trees
   (native devs install them directly); `react-native/` documents the RN package.
@@ -91,13 +89,18 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
   a consumer cannot parse Markdown in a JVM test; on iOS `Parser` and
   `MarkdownRenderer.render` are public, and that story is covered by the
   `uikit-interop` guide rather than a testing page. The two trees deliberately
-  diverge where the packages do: the iOS package renders tables, spoilers,
-  highlight and LaTeX (a separate `EnrichedMarkdownLaTeX` product) and exposes
-  behavior through SwiftUI view modifiers rather than composable parameters, so
-  it gets a `latex-math` and a `uikit-interop` guide where Android gets
-  `compose-interop`. Its fallback renderer emits a node's **children**, so
-  unsupported syntax loses styling, not text - the opposite of Android's, and
-  the reason no iOS page carries Android's `:::danger` about vanishing content.
+  diverge where the packages do. Both render tables, spoilers, highlight and
+  LaTeX (iOS through the optional `EnrichedMarkdownLaTeX` product, Android
+  through the optional `math` artifact and its `LatexMathPlugin`), so both have
+  a `latex-math` guide. Both ship code-block syntax highlighting as an
+  optional add-on with its own guide: iOS as the
+  `EnrichedMarkdownSyntaxHighlighting` product (`ios/guides/syntax-highlighting`),
+  Android as the `code-highlight` artifact (`android/guides/code-highlighting`). iOS exposes behavior through SwiftUI view
+  modifiers rather than composable parameters, so it gets a `uikit-interop`
+  guide where Android gets `compose-interop`. iOS's fallback renderer emits a
+  node's **children**, so unsupported syntax loses styling, not text; Android's
+  emits only a node's own text, which today bites only a table nested inside a
+  list item or blockquote (it is not rendered).
   The APIs are meant to converge, but the prose is written per tree - there is
   no global platform selector (an earlier prototype of one was removed).
   `rich-text-formatting/`, `user-experience/` and `misc/` are cross-platform and
@@ -116,8 +119,12 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
   not dropped. It ships web
   support for `EnrichedMarkdownText` (a plain React/DOM renderer - no
   react-native-web primitives - plus md4c-wasm), documented
-  in `react-native/guides/web-support.md` (ported from `docs-md/WEB.md`); the
-  editor stays native-only.
+  in `react-native/guides/web-support.md` (ported from `docs-md/WEB.md`). The
+  editor also has an **experimental** web build, documented in
+  `react-native/guides/web-editor.md` (ported from `docs-md/WEB_INPUT.md`) and
+  marked with `<ExperimentalBadge />` plus `sidebar_class_name:
+  sidebar-experimental`; the API reference keeps native semantics and links
+  there for the web subset.
 
 ### `src/examples/` mirrors `docs/` 1:1 - keep it that way
 
@@ -182,9 +189,8 @@ say what the page settles, not just what it is named.
 Because nothing generates it, **`yarn check-llms`** (`scripts/check-llms.mjs`,
 zero dependencies) is what keeps it honest: it fails on a doc page with no entry
 and on an entry pointing at a page that does not exist. It reads the `docs/`
-tree rather than the build output, so it needs no build and no install, and it
-honours `SHOW_UNRELEASED_PLATFORMS` so it does not demand `ios/` and `android/`
-lines while those trees are hidden. Add a page, add its line.
+tree rather than the build output, so it needs no build and no install. Add a
+page, add its line.
 
 Note the ceiling on what an LLM actually gets from the linked HTML: a
 `<LivePreview>` without `unavailable` renders inside `BrowserOnly`, so its
@@ -258,8 +264,11 @@ The API-reference pages also use a few small MDX components registered in
 compact fixed-width table (`<PropInfo type="boolean" default="true" />`, or
 `required`) instead of a Markdown table. The same module exports
 `ComingSoonBadge`, an iconless amber badge for something documented but not
-released yet - used on the homepage next to the hidden iOS and Android
-sections.
+released yet (currently unused), and `ExperimentalBadge`, an iconless violet
+badge for a released feature whose API may still break, with an explanatory
+tooltip on hover/focus. Keep `ExperimentalBadge` out of `##`/`###` headings:
+its tooltip text would end up in the table of contents. The matching sidebar
+pill is the `sidebar-experimental` class in `src/css/overrides.css`.
 
 The examples render the library's **web build** in the browser -
 `docusaurus.config.js` aliases the bare `react-native-enriched-markdown`
@@ -286,10 +295,13 @@ example fails to resolve `react-native-enriched-markdown`. `react-live` and
 `react-native-web`/`raw-loader` are docs devDependencies that must be
 installed (`yarn`) for the interactive examples to build.
 
-The editable input (`EnrichedMarkdownTextInput`) is not web-ready yet. For
-input examples, import only the source via `raw-loader` and pass `comingSoon`
-so the Code tab still shows the code while the Preview shows a "coming soon"
-banner: `<InteractiveExample src={FirstEditorSrc} comingSoon />`.
+The editable input (`EnrichedMarkdownTextInput`) runs live through its
+experimental web build: it is in `LivePreview`'s scope, and an example that uses
+only what the web editor supports (see `react-native/guides/web-editor.md`)
+renders as a normal `<LivePreview src={...} />`. An example that needs a
+native-only prop or method stays `unavailable`, with the page's `nativeOnly`
+reason. `Alert` is a no-op on react-native-web, so input examples show results
+on screen instead.
 
 ## Site configuration (`docusaurus.config.js`)
 

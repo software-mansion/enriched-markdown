@@ -47,6 +47,8 @@ typedef struct {
 - (void)toggleOrderedList;
 - (void)indentList;
 - (void)outdentList;
+- (void)undo;
+- (void)redo;
 - (BOOL)handleBackspaceAtDocumentStart;
 - (void)showLinkPrompt;
 

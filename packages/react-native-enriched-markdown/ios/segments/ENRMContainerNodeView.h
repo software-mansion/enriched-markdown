@@ -39,6 +39,9 @@ NS_ASSUME_NONNULL_BEGIN
 // Whether the last child contributes its trailing bottom margin.
 @property (nonatomic, assign) BOOL allowTrailingMargin;
 
+// The current child views in document order.
+@property (nonatomic, readonly) NSArray<RCTUIView *> *segmentViews;
+
 // Reconciles the current child views against renderedSegments, attaching and
 // removing subviews as needed. Requests a re-layout.
 - (void)applySegments:(NSArray<ENRMRenderedSegment *> *)renderedSegments reset:(BOOL)reset;

@@ -208,9 +208,9 @@ final class MarkdownSourceSlicerTests: XCTestCase {
         )
     }
 
-    func testSelectionAcrossDroppedEntitySlicesVerbatim() {
+    func testSelectionAcrossDecodedEntitySlicesVerbatim() {
         XCTAssertEqual(
-            copyMarkdown(selecting: "an entity  2026", in: "next to an entity &copy; 2026 here"),
+            copyMarkdown(selecting: "an entity \u{A9} 2026", in: "next to an entity &copy; 2026 here"),
             "an entity &copy; 2026"
         )
     }

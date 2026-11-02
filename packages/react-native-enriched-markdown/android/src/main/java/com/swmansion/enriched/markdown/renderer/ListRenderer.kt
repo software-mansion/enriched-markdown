@@ -4,8 +4,10 @@ import android.text.SpannableStringBuilder
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.ListItemSpacingSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
+import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.styles.ListStyle
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_LINE_HEIGHT_PRIORITY
 import com.swmansion.enriched.markdown.utils.text.span.applyLineHeightSkippingImages
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
 
@@ -31,8 +33,9 @@ class ListRenderer(
         1
       }
 
+    val markerExtraWidth = if (isOrdered) markerExtraWidth(node, listStyle, startNumber, factory) else 0f
     val contextManager = ListContextManager(factory.blockStyleContext)
-    val entryState = contextManager.enterList(listType, listStyle, startNumber)
+    val entryState = contextManager.enterList(listType, listStyle, startNumber, markerExtraWidth)
 
     // For top-level lists, insert marginTop spacer before rendering content
     if (entryState.previousDepth == 0) {
@@ -58,6 +61,23 @@ class ListRenderer(
     }
   }
 
+  /** Lists under 100 keep the `99.` column, so only numbers from 100 on widen it. Task items draw a checkbox. */
+  private fun markerExtraWidth(
+    node: MarkdownASTNode,
+    listStyle: ListStyle,
+    startNumber: Int,
+    factory: RendererFactory,
+  ): Float {
+    val wideNumbers = mutableListOf<Int>()
+    var number = startNumber
+    for (item in node.children) {
+      if (item.type != MarkdownASTNode.NodeType.ListItem) continue
+      if (number >= 100 && item.attributes["isTask"] != "true") wideNumbers += number
+      number++
+    }
+    return OrderedListSpan.measureExtraWidth(listStyle, factory.context, wideNumbers)
+  }
+
   private fun applyListSpacing(
     builder: SpannableStringBuilder,
     start: Int,
@@ -68,7 +88,11 @@ class ListRenderer(
     // TODO: LineHeightSpan may also clip superscript/subscript glyphs that extend
     // outside the normal line bounds. A similar "skip" strategy as for images may
     // be needed here once super/subscript usage in practice is better understood.
-    applyLineHeightSkippingImages(builder, start, builder.length, style.lineHeight)
+    // Priority flag so this list-wide line height iterates before the children's
+    // MarginBottomSpans in both the measuring StaticLayout and the TextView's copy
+    // of the text (see SPAN_FLAGS_LINE_HEIGHT_PRIORITY). The span is added after the
+    // children, so without the flag the two disagree on which runs last.
+    applyLineHeightSkippingImages(builder, start, builder.length, style.lineHeight, SPAN_FLAGS_LINE_HEIGHT_PRIORITY)
 
     // Item spacing and external bottom margin are only handled by the root-level list
     if (depth == 0) {

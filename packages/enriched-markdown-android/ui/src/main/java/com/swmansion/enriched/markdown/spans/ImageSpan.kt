@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
@@ -28,6 +29,8 @@ import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import android.text.style.ImageSpan as AndroidImageSpan
 import android.text.style.LineHeightSpan as AndroidLineHeightSpan
@@ -52,6 +55,7 @@ class ImageSpan(
   private val requestKey: String = ImageCache.requestKey(imageUrl, requestHeaders)
 
   private var cachedWidth: Int = 0
+  private val capBounds = Rect()
   private var viewRef: WeakReference<TextView>? = null
   private var sourceDrawable: Drawable? = null
 
@@ -184,7 +188,24 @@ class ImageSpan(
     start: Int,
     end: Int,
     fm: Paint.FontMetricsInt?,
-  ): Int = getDrawable().bounds.right
+  ): Int {
+    if (isInline && fm != null) {
+      // The line grows to fit a tall image, as iOS grows it for an attachment.
+      paint.getFontMetricsInt(fm)
+      val imageTop = inlineImageTop(paint)
+      fm.ascent = minOf(fm.ascent, floor(imageTop).toInt())
+      fm.top = minOf(fm.top, fm.ascent)
+      fm.descent = maxOf(fm.descent, ceil(imageTop + height).toInt())
+      fm.bottom = maxOf(fm.bottom, fm.descent)
+    }
+    return getDrawable().bounds.right
+  }
+
+  /** The inline image's top relative to the baseline: centered on the cap height, as iOS places inline attachments. */
+  private fun inlineImageTop(paint: Paint): Float {
+    paint.getTextBounds("H", 0, 1, capBounds)
+    return -(capBounds.height() + height) / 2f
+  }
 
   override fun chooseHeight(
     text: CharSequence?,
@@ -221,8 +242,7 @@ class ImageSpan(
     val drawable = getDrawable()
     canvas.withSave {
       if (isInline) {
-        val imageHeight = drawable.bounds.height()
-        translate(x, (y - imageHeight + (imageHeight * 0.1f)))
+        translate(x, y + inlineImageTop(paint))
       } else {
         translate(x, top.toFloat())
       }

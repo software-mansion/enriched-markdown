@@ -20,6 +20,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// Backed by a single lock-free atomic, so the pair can't tear. Returns
 /// CGSizeZero until the first layout is committed.
 - (CGSize)lastCommittedLayoutSize;
+
+/// Document-order indexes, counted across nesting, of the code blocks the user
+/// wrapped with the header toggle (see ENRMCodeBlockWrapState). Written on main,
+/// read by the shadow-node measure pass on any thread (atomic copy), so the
+/// measured height follows the wrapped blocks.
+@property (nonatomic, copy, readonly) NSSet<NSNumber *> *wrappedCodeBlockIndices;
 @end
 
 NS_ASSUME_NONNULL_END

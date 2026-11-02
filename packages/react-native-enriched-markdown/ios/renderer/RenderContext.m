@@ -24,6 +24,10 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
       @"listDepth",
       @"listType",
       @"listItemNumber",
+      @"listMarkerWidth",
+      @"listMarkerExtra",
+      @"ancestorMarkerOffset",
+      @"listItemMarkerExtra",
       @"accumulatedIndent",
     ];
   });
@@ -313,6 +317,10 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
   _listDepth = 0;
   _listType = ListTypeUnordered;
   _listItemNumber = 0;
+  _listMarkerWidth = 0;
+  _listMarkerExtra = 0;
+  _ancestorMarkerOffset = 0;
+  _listItemMarkerExtra = 0;
   _accumulatedIndent = 0;
   _taskItemCount = 0;
 

@@ -81,6 +81,10 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
   ENRMInputTypingAttributesController *_typingController;
   ENRMInputEventEmitter *_inputEventEmitter;
   ENRMEditSession *_editSession;
+  // How Yoga last sized the input; see -maxContentHeight.
+  CGFloat _measureMaxHeight;
+  CGFloat _measuredHeight;
+  CGFloat _laidOutHeight; // NAN while the committed layout matches the last measure
 
   ENRMPlaceholderLabel *_placeholderLabel;
   NSString *_placeholderText;
@@ -171,6 +175,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
     _formatMenuConfig = (ENRMFormatMenuConfig){
         .bold = YES, .italic = YES, .underline = YES, .strikethrough = YES, .spoiler = YES, .link = YES};
 
+    _laidOutHeight = NAN;
     [self setupTextView];
     _editSession = [[ENRMEditSession alloc] initWithTextView:_textView];
     _typingController = [[ENRMInputTypingAttributesController alloc] initWithTextView:_textView
@@ -332,6 +337,13 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
 
+  // When the committed height doesn't match the last measure, Yoga sized the
+  // view on its own (a fixed or stretched height) and won't measure again until
+  // the style or constraints change, so that height is the limit.
+  CGFloat contentHeight = layoutMetrics.getContentFrame().size.height;
+  BOOL sizedByMeasure = fabs(contentHeight - _measuredHeight) <= 1.0 / RCTScreenScale();
+  _laidOutHeight = sizedByMeasure ? NAN : contentHeight;
+
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
     resolved = NSWritingDirectionRightToLeft;
@@ -348,6 +360,22 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 }
 
 #pragma mark - Measurement
+
+- (void)didMeasureWithMaxHeight:(CGFloat)maxHeight measuredHeight:(CGFloat)measuredHeight
+{
+  // A new measured height means Yoga is sizing the view to its text again, so
+  // an older laid-out height no longer applies.
+  if (measuredHeight != _measuredHeight) {
+    _laidOutHeight = NAN;
+  }
+  _measureMaxHeight = maxHeight;
+  _measuredHeight = measuredHeight;
+}
+
+- (CGFloat)maxContentHeight
+{
+  return isnan(_laidOutHeight) ? _measureMaxHeight : _laidOutHeight;
+}
 
 - (CGSize)measureSize:(CGFloat)maxWidth
 {
@@ -1449,6 +1477,16 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
     items[kENRMMarkdownPasteboardType] = markdown;
   }
   copyItemsToPasteboard(items);
+}
+
+// TODO: model history (port of src/web/input/editing/EditHistory.ts). Until
+// then the commands do nothing and `onChangeHistoryState` is never emitted.
+- (void)undo
+{
+}
+
+- (void)redo
+{
 }
 
 - (void)requestMarkdown:(NSInteger)requestId

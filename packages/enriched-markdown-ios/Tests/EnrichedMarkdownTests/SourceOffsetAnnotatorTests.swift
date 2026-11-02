@@ -102,26 +102,39 @@ final class SourceOffsetAnnotatorTests: XCTestCase {
         XCTAssertEqual(range(of: text)?.end, 4)
     }
 
-    /// Recognized entities never reach the AST (the shared core drops
-    /// MD_TEXT_ENTITY), so the text after one must still anchor past the
-    /// reference instead of derailing.
-    func testDroppedEntityDoesNotDerailFollowingText() {
+    /// The shared core decodes an entity into its scalar, so a text node that
+    /// starts with one anchors at the reference, not after it.
+    func testDecodedEntityAtTextStartAnchorsOnTheReference() {
         let ast = annotate("&copy; 2026")
 
-        let text = ast.all(ofType: .text).first { $0.content == " 2026" }
-        XCTAssertEqual(range(of: text)?.start, 6)
+        let text = ast.all(ofType: .text).first { $0.content == "\u{A9} 2026" }
+        XCTAssertNotNil(text)
+        XCTAssertEqual(range(of: text)?.start, 0)
         XCTAssertEqual(range(of: text)?.end, 11)
     }
 
-    /// The core keeps the text around a dropped entity in one node, so the
-    /// node's range must span the reference it no longer contains.
-    func testDroppedEntityInsideTextNodeStillAnnotates() {
+    /// A decoded entity inside a text node is bridged back to its reference,
+    /// so the node's range spans the source form.
+    func testDecodedEntityInsideTextNodeStillAnnotates() {
         let ast = annotate("an entity &copy; 2026.")
 
-        let text = ast.all(ofType: .text).first { $0.content == "an entity  2026." }
+        let text = ast.all(ofType: .text).first { $0.content == "an entity \u{A9} 2026." }
         XCTAssertNotNil(text)
         XCTAssertEqual(range(of: text)?.start, 0)
         XCTAssertEqual(range(of: text)?.end, 22)
+    }
+
+    /// Numeric references and two-scalar entities bridge the same way.
+    func testNumericAndTwoScalarEntitiesStillAnnotate() {
+        let numeric = annotate("a &#169; b")
+        let numericText = numeric.all(ofType: .text).first { $0.content == "a \u{A9} b" }
+        XCTAssertEqual(range(of: numericText)?.start, 0)
+        XCTAssertEqual(range(of: numericText)?.end, 10)
+
+        let twoScalar = annotate("x &NotNestedGreaterGreater; y")
+        let twoScalarText = twoScalar.all(ofType: .text).first { $0.content == "x \u{2AA2}\u{338} y" }
+        XCTAssertEqual(range(of: twoScalarText)?.start, 0)
+        XCTAssertEqual(range(of: twoScalarText)?.end, 29)
     }
 
     func testThematicBreakIsAnnotatedStructurally() {

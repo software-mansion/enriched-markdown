@@ -28,7 +28,7 @@ A dedicated **Copy as Markdown** option is available in the context menu on both
 
 ## Copy Image URL
 
-When selecting text that contains images, a **Copy Image URL** option appears to copy the image's source URL. On Android, if multiple images are selected, all URLs are copied (one per line).
+When selecting text that contains images, a **Copy Image URL** option appears to copy the image's source URL. If multiple images are selected, all URLs are copied (one per line).
 
 ## Controlling Built-in Menu Items
 
@@ -46,7 +46,7 @@ Use `selectionMenuConfig` to hide built-in selection menu actions while keeping 
 ```
 
 On iOS, Android, and macOS, `enableBlockContextMenu={false}` disables the
-long-press popup on code blocks, tables, block math, and blockquotes/admonitions.
+long-press popup on code blocks, tables, block math, blockquotes/admonitions, and video blocks.
 It leaves the code-block header copy button, accessibility copy action, and system
 text-selection menu unchanged.
 

@@ -79,9 +79,10 @@ import EnrichedMarkdown
 import SwiftUI
 
 EnrichedMarkdownText("# Hello\n\nThis is **enriched** [markdown](https://commonmark.org).")
-  .onLinkPress { url in
+  .environment(\.openURL, OpenURLAction { url in
     UIApplication.shared.open(url)
-  }
+    return .handled
+  })
 ```
 
 ## Contributing

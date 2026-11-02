@@ -10,6 +10,17 @@ private enum ExampleFonts {
     static let courierPrimeRegular = "CourierPrime-Regular"
 }
 
+private let mentionLinks = MarkdownThemeGroup(contents: [
+    Link(matching: "^user:")
+        .foregroundStyle(Color.brandNavy)
+        .background(Color.userMentionBackground)
+        .underline(false),
+    Link(matching: "^channel:")
+        .foregroundStyle(Color.brandNavy)
+        .background(Color.channelMentionBackground)
+        .underline(false)
+])
+
 /// Optional layered override with explicit hex colors matching Android `ExampleMarkdownStyles.kt`.
 /// The library's `.default` theme uses semantic SwiftUI colors instead; apply this theme to
 /// demonstrate cross-platform hex parity or custom branding.
@@ -101,6 +112,8 @@ let CustomMarkdownTheme = MarkdownTheme {
         .foregroundStyle(Color.linkBlue)
         .underline(true)
 
+    mentionLinks
+
     Strong()
         .foregroundStyle(Color.gray900)
 
@@ -136,6 +149,8 @@ let PlaygroundMarkdownTheme = MarkdownTheme {
     Link()
         .foregroundStyle(Color.linkBlue)
         .underline(true)
+
+    mentionLinks
 
     Code()
         .foregroundStyle(Color.codeViolet)

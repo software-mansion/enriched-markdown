@@ -525,6 +525,22 @@ class MarkdownExtractorTest {
   }
 
   @Test
+  fun extractsOrderedListFromItsStartNumber() {
+    val markdown =
+      extractFromFullSelection(
+        document(
+          orderedList(
+            3,
+            listItem(paragraph(text("three"))),
+            listItem(paragraph(text("four"))),
+          ),
+        ),
+      )
+
+    assertEquals("3. three\n4. four", markdown)
+  }
+
+  @Test
   fun extractsBlockquoteWithFormattedText() {
     val spannable =
       render(

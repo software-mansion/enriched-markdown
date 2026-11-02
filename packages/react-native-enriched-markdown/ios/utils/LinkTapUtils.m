@@ -79,6 +79,36 @@ NSDictionary<NSString *, NSString *> *_Nullable codeBlockAtTapLocation(ENRMPlatf
   return @{@"code" : code, @"language" : language ?: @""};
 }
 
+NSUInteger textPressIndexAtPoint(ENRMPlatformTextView *textView, CGPoint point)
+{
+  // characterIndexForPoint snaps a point above or below the text onto the first
+  // or last line. Android drops those taps, so drop them here too.
+  CGRect usedRect = [textView.layoutManager usedRectForTextContainer:textView.textContainer];
+  CGFloat y = point.y - textView.textContainerInset.top;
+  if (y < CGRectGetMinY(usedRect) || y > CGRectGetMaxY(usedRect))
+    return NSNotFound;
+
+  NSUInteger index = ENRMCharacterIndexAtPoint(textView, point);
+  if (index == NSNotFound)
+    return NSNotFound;
+
+  // A tap past a line's end lands on its newline; report the line's last character
+  // instead, as on Android. An empty line keeps its newline.
+  NSAttributedString *text = ENRMGetAttributedText(textView);
+  NSCharacterSet *newlines = [NSCharacterSet newlineCharacterSet];
+  if (index > 0 && [newlines characterIsMember:[text.string characterAtIndex:index]] &&
+      ![newlines characterIsMember:[text.string characterAtIndex:index - 1]])
+    index--;
+
+  // An image's attachment character belongs to the image, even with image presses off.
+  return [text attribute:@"imageURL" atIndex:index effectiveRange:NULL] ? NSNotFound : index;
+}
+
+NSUInteger textPressIndexAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer)
+{
+  return textPressIndexAtPoint(textView, [recognizer locationInView:textView]);
+}
+
 BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point, BOOL includeImages,
                                  BOOL includeCodeBlock)
 {

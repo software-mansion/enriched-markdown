@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.utils.common
 import android.animation.ValueAnimator
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 
 /**
  * Returns true when the user has asked the system to minimise motion.
@@ -16,3 +17,11 @@ fun isReducedMotionEnabled(context: Context): Boolean {
   if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
   return !ValueAnimator.areAnimatorsEnabled()
 }
+
+/** The system animator duration scale; public on [ValueAnimator] only from API 33. */
+fun animatorDurationScale(context: Context): Float =
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    ValueAnimator.getDurationScale()
+  } else {
+    Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+  }

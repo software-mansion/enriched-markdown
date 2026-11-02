@@ -25,6 +25,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
+import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.LineHeightSpan
 import com.swmansion.enriched.markdown.styles.CodeBlockStyle
@@ -35,6 +36,7 @@ import com.swmansion.enriched.markdown.utils.text.extensions.applyCodeBlockTextS
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.views.ContextMenuPopup
 import com.swmansion.enriched.markdown.views.CopyGlyph
+import com.swmansion.enriched.markdown.views.WrapGlyph
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -47,8 +49,9 @@ import kotlin.math.roundToInt
  *
  * measureCodeBlockNodeHeight must stay in sync with the view: it builds the
  * same styled text, paint, and header metrics, so the height reported to
- * Yoga matches the laid-out height. Since lines never wrap, the height is
- * independent of the available width.
+ * Yoga matches the laid-out height. Unless the block is wrapped (the optional
+ * header wrap toggle), lines never wrap and the height is independent of the
+ * available width.
  */
 class CodeBlockContainerView(
   context: Context,
@@ -69,9 +72,18 @@ class CodeBlockContainerView(
   // created later see the same current values. See DynamicBlockProps.
   var dynamicProps: DynamicBlockProps = DynamicBlockProps()
 
+  // Wrap toggle labels (see AccessibilityLabels); the copy label lives on dynamicProps.
+  var accessibilityLabels: AccessibilityLabels = AccessibilityLabels()
+    set(value) {
+      if (field == value) return
+      field = value
+      updateWrapButtonAppearance()
+    }
+
   private var code: String = ""
   private var language: String? = null
   private var fenceChar: String = "`"
+  private var appliedTextMaxWidth = Int.MAX_VALUE
 
   // True until the closing fence arrives: highlighting is deferred and copying
   // is disabled, while the header stays visible.
@@ -84,6 +96,29 @@ class CodeBlockContainerView(
       // node, so re-derive here to pick up highlighting once the block closes.
       rebuildCodeText()
     }
+
+  // Header wrap toggle next to copy; CodeBlockWrapState sets it from enableCodeBlockWrapToggle.
+  var showsWrapButton: Boolean = false
+    set(value) {
+      if (field == value) return
+      field = value
+      wrapButton.visibility = if (value) View.VISIBLE else View.GONE
+      requestLayout()
+    }
+
+  // Wraps long lines at the block width instead of scrolling horizontally. Only
+  // CodeBlockWrapState writes it; the header toggle just asks through onWrapToggle.
+  var wrapped: Boolean = false
+    set(value) {
+      if (field == value) return
+      field = value
+      updateWrapButtonAppearance()
+      if (value) scrollView.scrollTo(0, 0)
+      requestLayout()
+    }
+
+  // Fired when the header toggle is pressed; the host flips [wrapped] and re-measures.
+  var onWrapToggle: ((CodeBlockContainerView) -> Unit)? = null
 
   private val textView =
     AppCompatTextView(context).apply {
@@ -142,6 +177,17 @@ class CodeBlockContainerView(
       setOnClickListener { copyCode() }
     }
 
+  private val wrapIcon = WrapIconDrawable(codeBlockStyle.color, ceil(codeBlockStyle.fontSize * HEADER_ICON_SCALE).toInt())
+
+  private val wrapButton =
+    AppCompatImageButton(context).apply {
+      background = null
+      scaleType = ImageView.ScaleType.CENTER
+      visibility = View.GONE
+      setImageDrawable(wrapIcon)
+      setOnClickListener { toggleWrap() }
+    }
+
   private val dividerPaint =
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
       color = dividerColor(codeBlockStyle.color)
@@ -155,7 +201,7 @@ class CodeBlockContainerView(
         override fun onDown(e: MotionEvent): Boolean = true
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
-          if (isPointInsideCopyButton(e.x, e.y)) return false
+          if (isPointInsideHeaderButton(e.x, e.y)) return false
           handleCodeBlockPress()
           return false
         }
@@ -177,6 +223,18 @@ class CodeBlockContainerView(
     addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     addView(languageView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
     addView(copyButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+    addView(wrapButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+    updateWrapButtonAppearance()
+  }
+
+  private fun updateWrapButtonAppearance() {
+    // Full-strength tint marks the toggle as on; off matches the copy button.
+    wrapIcon.setColor(if (wrapped) codeBlockStyle.color else secondaryColor(codeBlockStyle.color))
+    wrapButton.contentDescription = if (wrapped) accessibilityLabels.codeBlockUnwrap else accessibilityLabels.codeBlockWrap
+  }
+
+  private fun toggleWrap() {
+    onWrapToggle?.invoke(this)
   }
 
   fun applyCodeBlockNode(node: MarkdownASTNode) {
@@ -206,15 +264,22 @@ class CodeBlockContainerView(
     heightSpec: Int,
   ) {
     val measuredWidth = MeasureSpec.getSize(widthSpec)
+    val paneWidth = (measuredWidth - borderW * 2).coerceAtLeast(0)
+    // The scroll view measures its child unbounded; a max width makes the text wrap inside the pane.
+    val textMaxWidth = if (wrapped) paneWidth.coerceAtLeast(1) else Int.MAX_VALUE
+    if (textMaxWidth != appliedTextMaxWidth) {
+      appliedTextMaxWidth = textMaxWidth
+      textView.maxWidth = textMaxWidth
+    }
     scrollView.measure(
-      MeasureSpec.makeMeasureSpec((measuredWidth - borderW * 2).coerceAtLeast(0), MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(paneWidth, MeasureSpec.EXACTLY),
       MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
     )
-    copyButton.measure(
-      MeasureSpec.makeMeasureSpec(headerH, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(headerH, MeasureSpec.EXACTLY),
-    )
-    val labelMaxWidth = (measuredWidth - inset * 2 - headerH).coerceAtLeast(0)
+    val buttonSpec = MeasureSpec.makeMeasureSpec(headerH, MeasureSpec.EXACTLY)
+    copyButton.measure(buttonSpec, buttonSpec)
+    wrapButton.measure(buttonSpec, buttonSpec)
+    val headerButtonsWidth = if (showsWrapButton) headerH * 2 else headerH
+    val labelMaxWidth = (measuredWidth - inset * 2 - headerButtonsWidth).coerceAtLeast(0)
     languageView.measure(
       MeasureSpec.makeMeasureSpec(labelMaxWidth, MeasureSpec.AT_MOST),
       MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
@@ -250,6 +315,8 @@ class CodeBlockContainerView(
       buttonLeft + copyButton.measuredWidth,
       buttonTop + copyButton.measuredHeight,
     )
+    val wrapLeft = (buttonLeft - wrapButton.measuredWidth).coerceAtLeast(0)
+    wrapButton.layout(wrapLeft, buttonTop, wrapLeft + wrapButton.measuredWidth, buttonTop + wrapButton.measuredHeight)
 
     scrollView.layout(borderW, headerH, width - borderW, bottom - top - borderW)
   }
@@ -290,10 +357,16 @@ class CodeBlockContainerView(
     return super.dispatchTouchEvent(ev)
   }
 
-  private fun isPointInsideCopyButton(
+  private fun isPointInsideHeaderButton(
     x: Float,
     y: Float,
-  ): Boolean = x >= copyButton.left && x < copyButton.right && y >= copyButton.top && y < copyButton.bottom
+  ): Boolean = isPointInside(copyButton, x, y) || (wrapButton.visibility == View.VISIBLE && isPointInside(wrapButton, x, y))
+
+  private fun isPointInside(
+    view: View,
+    x: Float,
+    y: Float,
+  ): Boolean = x >= view.left && x < view.right && y >= view.top && y < view.bottom
 
   private fun copyFencedMarkdown() {
     if (code.isEmpty()) return
@@ -322,6 +395,49 @@ class CodeBlockContainerView(
 
     override fun draw(canvas: Canvas) {
       glyph.draw(canvas, bounds.width().toFloat(), paint)
+    }
+
+    override fun getIntrinsicWidth() = size
+
+    override fun getIntrinsicHeight() = size
+
+    override fun setAlpha(alpha: Int) {
+      paint.alpha = alpha
+    }
+
+    override fun setColorFilter(colorFilter: ColorFilter?) {
+      paint.colorFilter = colorFilter
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity() = PixelFormat.TRANSLUCENT
+  }
+
+  // Material "wrap_text" glyph, stroked like the copy glyph at the same size.
+  private class WrapIconDrawable(
+    color: Int,
+    private val size: Int,
+  ) : Drawable() {
+    private val paint =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = size / 20f
+        strokeJoin = Paint.Join.ROUND
+        strokeCap = Paint.Cap.ROUND
+        this.color = color
+      }
+    private val glyph = WrapGlyph()
+
+    fun setColor(color: Int) {
+      paint.color = color
+      invalidateSelf()
+    }
+
+    override fun draw(canvas: Canvas) {
+      val saved = canvas.save()
+      canvas.translate(bounds.left.toFloat(), bounds.top.toFloat())
+      glyph.draw(canvas, bounds.width().toFloat(), paint)
+      canvas.restoreToCount(saved)
     }
 
     override fun getIntrinsicWidth() = size
@@ -389,14 +505,16 @@ class CodeBlockContainerView(
         }
       }
 
-    // Lines never wrap (the code pane scrolls horizontally), so the layout is
-    // built at the text's desired width and the result is independent of the
-    // available width.
+    // Unwrapped lines never wrap (the code pane scrolls horizontally), so the
+    // layout is built at the text's desired width and the result is independent
+    // of the available width. A wrapped block lays out at the pane's text width
+    // instead, the same width the view caps its text view at.
     fun measureCodeBlockNodeHeight(
       node: MarkdownASTNode,
       config: StyleConfig,
       context: Context,
-      @Suppress("unused") width: Float,
+      width: Float,
+      wrapped: Boolean = false,
     ): Float {
       val style = config.codeBlockStyle
       val inset = contentInset(style)
@@ -404,7 +522,16 @@ class CodeBlockContainerView(
       val text = buildCodeText(CodeBlockNode.extractCode(node), style)
       if (text.isEmpty()) return headerH + inset * 2f
       val paint = createCodePaint(style, context)
-      val contentWidth = ceil(Layout.getDesiredWidth(text, paint)).toInt().coerceAtLeast(1)
+      val layoutWidth =
+        if (wrapped) {
+          val borderW = borderPx(style)
+          val horizontalPad = (inset - borderW).coerceAtLeast(0)
+          // Mirrors onMeasure: the text view is capped at the pane width (at least 1px), padding included.
+          (ceil(width).toInt() - borderW * 2).coerceAtLeast(1) - horizontalPad * 2
+        } else {
+          ceil(Layout.getDesiredWidth(text, paint)).toInt()
+        }
+      val contentWidth = layoutWidth.coerceAtLeast(1)
       val layout =
         StaticLayout.Builder
           .obtain(text, 0, text.length, paint, contentWidth)

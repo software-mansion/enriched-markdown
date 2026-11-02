@@ -254,7 +254,7 @@ Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#
 | ------------------ | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `bulletColor`      | `string` | `#6B7280` | Bullet point color                                                                                                                  |
 | `bulletSize`       | `number` | `6`       | Bullet point size                                                                                                                   |
-| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type)                                                  |
+| `markerMinWidth`   | `number` | `0`       | Minimum reserved marker column width (floors the natural width of every list type). An ordered list's column also grows to fit its widest number |
 | `markerColor`      | `string` | `#6B7280` | Number marker color                                                                                                                 |
 | `markerFontWeight` | `string` | `'500'`   | Number marker font weight                                                                                                           |
 | `gapWidth`         | `number` | `12`      | Gap between marker and text                                                                                                         |
@@ -432,7 +432,7 @@ Sizing precedence is `aspectRatio` > `maxHeight` > `height`: the first one set w
 
 ### Video-specific
 
-Styles block-level videos embedded with the HTML `<video>` tag. [Element structure](/react-native/api-reference/element-structure#videos) owns the authoring rules - the two tag forms, the quoted-`src` trap, and what happens to a video inside a list. Because only `src` is read, every attribute of the video's appearance comes from the keys below. Playback controls come from the platform player (`AVPlayerViewController` on iOS, ExoPlayer on Android).
+Styles block-level videos embedded with the HTML `<video>` tag. [Element structure](/react-native/api-reference/element-structure#videos) owns the authoring rules - the two tag forms, the quoted-`src` trap, and what happens to a video inside a list. Because only `src` is read, every attribute of the video's appearance comes from the keys below. Playback controls come from the platform player (`AVPlayerViewController` on iOS, ExoPlayer on Android, the browser's built-in `<video>` controls on web).
 
 | Property          | Type     | Default   | Description                                                                                                        |
 | ----------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -445,10 +445,10 @@ Styles block-level videos embedded with the HTML `<video>` tag. [Element structu
 Unlike [images](#image-specific), there is no `height` or `maxHeight` knob - `aspectRatio` is the only sizing control.
 
 :::note
-Requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) for native segment rendering, and the `enableVideo` build flag (on by default) in your app's `package.json` `enriched-markdown` block - see [Optional native features](/react-native/guides/native-assets#optional-features).
+On native, requires [`flavor="github"`](/react-native/api-reference/enriched-markdown-text#flavor) for native segment rendering, and the `enableVideo` build flag (on by default) in your app's `package.json` `enriched-markdown` block - see [Optional native features](/react-native/guides/native-assets#optional-features). Web needs neither, and reads all five keys below.
 :::
 
-<LivePreview src={VideoSrc} unavailable unavailableReason={<>iOS, Android, and macOS only - the published WebAssembly parser predates the <code>&lt;video&gt;</code> tag, so nothing renders on web.</>} />
+<LivePreview src={VideoSrc} />
 
 ### Inline image-specific
 

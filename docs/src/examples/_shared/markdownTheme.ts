@@ -1,4 +1,7 @@
-import type { MarkdownStyle } from 'react-native-enriched-markdown';
+import type {
+  MarkdownStyle,
+  MarkdownTextInputStyle,
+} from 'react-native-enriched-markdown';
 
 // A full default palette shared by the docs examples. Pass the current color
 // scheme and spread the result into `markdownStyle`, then override just the
@@ -74,4 +77,54 @@ export function defaultMarkdownStyle(isDark: boolean): MarkdownStyle {
       headerBackgroundColor: surface,
     },
   };
+}
+
+// The editor's counterpart, for `EnrichedMarkdownTextInput` examples. Its
+// `markdownStyle` covers only formatting, so the box itself - text color and
+// background - comes from `defaultInputColors`, spread into `style`:
+//
+//   markdownStyle={defaultInputMarkdownStyle(isDark)}
+//   style={{ ...styles.input, ...defaultInputColors(isDark) }}
+//
+// Both return the same object for a given scheme, so passing them inline does
+// not hand the input a new style on every render.
+const inputMarkdownStyles = {
+  light: buildInputMarkdownStyle(false),
+  dark: buildInputMarkdownStyle(true),
+};
+
+function buildInputMarkdownStyle(isDark: boolean): MarkdownTextInputStyle {
+  const text = isDark ? '#e7eaf6' : '#232736';
+  const muted = isDark ? '#aeb6d4' : '#5b6479';
+  const accent = isDark ? '#57b495' : '#3f9e82';
+  return {
+    strong: { color: text },
+    em: { color: text },
+    link: { color: accent },
+    spoiler: {
+      color: text,
+      backgroundColor: isDark ? '#3a4360' : '#d7dbe8',
+    },
+    h1: { color: text },
+    h2: { color: text },
+    h3: { color: text },
+    h4: { color: text },
+    h5: { color: text },
+    h6: { color: muted },
+  };
+}
+
+export function defaultInputMarkdownStyle(
+  isDark: boolean
+): MarkdownTextInputStyle {
+  return isDark ? inputMarkdownStyles.dark : inputMarkdownStyles.light;
+}
+
+const inputColors = {
+  light: { color: '#232736', backgroundColor: '#eef0ff' },
+  dark: { color: '#e7eaf6', backgroundColor: '#2a3045' },
+};
+
+export function defaultInputColors(isDark: boolean) {
+  return isDark ? inputColors.dark : inputColors.light;
 }

@@ -34,12 +34,13 @@ const normalizeTextAlign = (
   value: BlockTextAlign
 ): CSSProperties['textAlign'] => (value === 'auto' ? undefined : value);
 
-// 'default' is an AST sentinel for "unspecified column alignment".
+// 'default' is an AST sentinel for "unspecified column alignment"; it follows
+// the cell's direction so RTL cells right-align.
 function resolveColumnAlign(
   align: 'left' | 'center' | 'right' | 'default' | undefined
-): 'left' | 'center' | 'right' {
-  if (align === 'center' || align === 'right') return align;
-  return 'left';
+): 'left' | 'center' | 'right' | 'start' {
+  if (align === 'center' || align === 'right' || align === 'left') return align;
+  return 'start';
 }
 
 export function zeroTrailingMargins(

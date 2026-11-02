@@ -23,6 +23,20 @@ static NSDictionary<NSString *, NSString *> *ENRMNormalizedImageHeaders(NSDictio
   return normalized;
 }
 
+NSDictionary<NSString *, NSString *> *
+ENRMMergeImageRequestHeaders(NSDictionary<NSString *, NSString *> *documentHeaders,
+                             NSDictionary<NSString *, NSString *> *sourceHeaders)
+{
+  NSMutableDictionary<NSString *, NSString *> *merged = [NSMutableDictionary dictionary];
+  for (NSString *name in documentHeaders) {
+    merged[name.lowercaseString] = documentHeaders[name];
+  }
+  for (NSString *name in sourceHeaders) {
+    merged[name.lowercaseString] = sourceHeaders[name];
+  }
+  return merged;
+}
+
 NSString *ENRMImageCacheKey(NSString *url, NSDictionary<NSString *, NSString *> *headers)
 {
   if (headers.count == 0) {

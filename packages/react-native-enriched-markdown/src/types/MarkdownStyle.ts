@@ -181,7 +181,7 @@ interface EmphasisStyle {
 interface StrikethroughStyle {
   /**
    * Color of the strikethrough line.
-   * @platform iOS
+   * @platform iOS, web
    */
   color?: string;
 }
@@ -189,7 +189,7 @@ interface StrikethroughStyle {
 interface UnderlineStyle {
   /**
    * Color of the underline.
-   * @platform iOS
+   * @platform iOS, web
    */
   color?: string;
 }

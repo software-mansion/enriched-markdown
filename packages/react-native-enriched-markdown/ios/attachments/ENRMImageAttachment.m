@@ -10,11 +10,11 @@
 static NSCache<NSString *, RCTUIImage *> *_originalImageCache;
 static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
-@implementation RCTUIView (ENRMImageLayoutObserver)
+@implementation RCTPlatformView (ENRMImageLayoutObserver)
 
 - (id<ENRMImageLayoutObserver>)enrm_imageLayoutObserver
 {
-  RCTUIView *view = self;
+  RCTPlatformView *view = self;
   while (view && ![view conformsToProtocol:@protocol(ENRMImageLayoutObserver)]) {
     view = view.superview;
   }
@@ -26,6 +26,7 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 @interface ENRMImageAttachment ()
 
 @property (nonatomic, copy) NSString *imageURL;
+@property (nonatomic, copy) NSString *requestURL;
 @property (nonatomic, copy, nullable) NSDictionary<NSString *, NSString *> *requestHeaders;
 @property (nonatomic, copy) NSString *cacheKey;
 @property (nonatomic, assign) BOOL isInline;
@@ -69,20 +70,32 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
 + (instancetype)attachmentForURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
 {
+  return [self attachmentForURL:imageURL source:nil config:config isInline:isInline];
+}
+
++ (instancetype)attachmentForURL:(NSString *)imageURL
+                          source:(ENRMImageSourceOverride *)source
+                          config:(StyleConfig *)config
+                        isInline:(BOOL)isInline
+{
   // Always a fresh instance, never shared across positions: the table renderer can draw
   // the same image URL at a different width than a copy outside the table, and a shared
   // NSTextAttachment would thrash its single last-processed width into a redraw loop. The
   // image caches keep fresh instances cheap (no re-fetch or re-scale).
-  return [[self alloc] initWithImageURL:imageURL config:config isInline:isInline];
+  return [[self alloc] initWithImageURL:imageURL source:source config:config isInline:isInline];
 }
 
-- (instancetype)initWithImageURL:(NSString *)imageURL config:(StyleConfig *)config isInline:(BOOL)isInline
+- (instancetype)initWithImageURL:(NSString *)imageURL
+                          source:(ENRMImageSourceOverride *)source
+                          config:(StyleConfig *)config
+                        isInline:(BOOL)isInline
 {
   self = [super init];
   if (self) {
     _imageURL = imageURL;
-    _requestHeaders = [[config imageRequestHeaders] copy];
-    _cacheKey = ENRMImageCacheKey(imageURL, _requestHeaders);
+    _requestURL = source ? ([source.uri copy] ?: @"") : imageURL;
+    _requestHeaders = ENRMMergeImageRequestHeaders([config imageRequestHeaders], source.headers);
+    _cacheKey = ENRMImageCacheKey(_requestURL, _requestHeaders);
     _isInline = isInline;
 
     _cachedHeight = isInline ? [config inlineImageSize] : [config imageHeight];
@@ -312,11 +325,12 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 
 - (void)startDownloadingImage
 {
-  if (self.imageURL.length == 0)
+  // An overridden source with an empty uri keeps the placeholder on purpose.
+  if (self.requestURL.length == 0)
     return;
 
   __weak typeof(self) weakSelf = self;
-  [[ENRMImageDownloader shared] downloadURL:self.imageURL
+  [[ENRMImageDownloader shared] downloadURL:self.requestURL
                                     headers:self.requestHeaders
                                  completion:^(RCTUIImage *image) { [weakSelf handleLoadedImage:image]; }];
 }
@@ -329,7 +343,7 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
     self.onImageLoaded();
   }
 
-  UITextView *textView = [self fetchAssociatedTextView];
+  ENRMPlatformTextView *textView = [self fetchAssociatedTextView];
   if (!textView)
     return;
 
@@ -348,7 +362,7 @@ static NSCache<NSString *, RCTUIImage *> *_processedImageCache;
 // pre-load fallback. Notify the hosting component so it can re-measure.
 // Dispatched async: refreshDisplay can run mid-layout (imageForBounds) and
 // re-measuring would re-enter the layout manager.
-- (void)notifyImageLayoutObserver:(UITextView *)textView
+- (void)notifyImageLayoutObserver:(ENRMPlatformTextView *)textView
 {
   // Only maxHeight/aspectRatio boxes can change height after load; a fixed
   // height box (legacy or explicit resizeMode) never needs a re-measure.

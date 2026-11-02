@@ -16,6 +16,8 @@ interface PluginInlineSpan {
 
   /** Text standing in for the span in a plain-text copy. Null omits it. */
   fun toPlainText(): String?
+
+  fun toAccessibilityLabel(): String? = null
 }
 
 /**
@@ -26,6 +28,20 @@ interface PluginInlineSpan {
 internal fun Spanned.readableText(
   start: Int = 0,
   end: Int = length,
+): String = replacePluginSpans(start, end) { it.toPlainText() }
+
+/** [readableText] for a screen reader: a span's [PluginInlineSpan.toAccessibilityLabel] wins over its plain text. */
+@OptIn(InternalPluginApi::class)
+internal fun Spanned.spokenText(
+  start: Int = 0,
+  end: Int = length,
+): String = replacePluginSpans(start, end) { it.toAccessibilityLabel() ?: it.toPlainText() }
+
+@OptIn(InternalPluginApi::class)
+private inline fun Spanned.replacePluginSpans(
+  start: Int,
+  end: Int,
+  replacement: (PluginInlineSpan) -> String?,
 ): String {
   val pluginSpans =
     getSpans(start, end, PluginInlineSpan::class.java)
@@ -35,7 +51,7 @@ internal fun Spanned.readableText(
   val result = StringBuilder(subSequence(start, end))
   // Back to front, so replacing one span doesn't shift the offsets of those still to come.
   pluginSpans.sortedByDescending { getSpanStart(it) }.forEach { span ->
-    result.replace(getSpanStart(span) - start, getSpanEnd(span) - start, span.toPlainText().orEmpty())
+    result.replace(getSpanStart(span) - start, getSpanEnd(span) - start, replacement(span).orEmpty())
   }
   return result.toString()
 }

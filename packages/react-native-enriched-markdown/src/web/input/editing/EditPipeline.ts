@@ -1,0 +1,149 @@
+import {
+  lineAtPosition,
+  type BlockStore,
+  type BlockWriter,
+} from '../formatting/BlockStore';
+import type { FormattingStore } from '../formatting/FormattingStore';
+import { isListItem } from '../model/blocks';
+import {
+  createFormattingRange,
+  type PendingStyleType,
+} from '../model/inlineStyles';
+import type { TextEdit } from '../model/textEdit';
+import { isDev } from '../../../utils/isDev';
+
+export interface EditContext extends TextEdit {
+  pendingStyles: readonly PendingStyleType[];
+  pendingStyleRemovals: readonly PendingStyleType[];
+}
+
+const LOG_PREFIX = '[EnrichedMarkdown - EditPipeline]';
+
+export class EditPipeline {
+  private readonly formattingStore: FormattingStore;
+  private readonly blockStore: BlockStore;
+
+  constructor(formattingStore: FormattingStore, blockStore: BlockStore) {
+    this.formattingStore = formattingStore;
+    this.blockStore = blockStore;
+  }
+
+  // `text` is the buffer after the edit `context` describes; the caller must
+  // splice one to match the other before calling (checked in development).
+  processTextChange(text: string, context: EditContext): void {
+    const { editStart, deletedText, insertedText } = context;
+
+    if (isDev) {
+      assertContextDescribesEdit(text, context);
+    }
+
+    this.formattingStore.adjustForEdit(
+      editStart,
+      deletedText.length,
+      insertedText.length
+    );
+    this.blockStore.edit(text, (blocks) => {
+      blocks.adjustForEdit(editStart, deletedText.length, insertedText.length);
+      // Deletions only, unlike the natives, which prune unconditionally. Their
+      // block ranges grow at the start on insert (`growsAtStartOnInsert`), so
+      // an anchor never leaves the line start by typing. Web lets it shift and
+      // relies on the normalize at the end of `edit` to snap it back (see
+      // `BlockStore.adjustForEdit`), so pruning on insert would delete the
+      // block on every keystroke at a line start.
+      if (deletedText.length > 0) {
+        blocks.pruneOrphanedAnchors();
+      }
+      // Continuation must follow the prune and precede normalization: the
+      // fresh anchors sit on line starts, so the prune leaves them alone, and
+      // normalization is what snaps the split item back off the newline it
+      // briefly spans.
+      if (insertedText === '\n') {
+        this.continueBlockOnNewline(blocks, text, editStart);
+      }
+    });
+
+    if (insertedText.length > 0) {
+      this.applyPendingStyles(context);
+    }
+  }
+
+  // Only list items continue onto the new line.
+  private continueBlockOnNewline(
+    blocks: BlockWriter,
+    text: string,
+    newlinePosition: number
+  ): void {
+    // The inserted newline closes the line before it.
+    const closedLine = lineAtPosition(newlinePosition, text);
+    const closedBlock = this.blockStore.blockStartingAt(closedLine.start);
+    if (!isListItem(closedBlock)) {
+      // Enter at the start of a list item: the item moved down with its
+      // text, leaving an empty line above it. That line becomes an empty item
+      // of the same list, as on iOS, Google Docs and Notion, instead of a
+      // blank line splitting the list in two.
+      if (closedLine.start === closedLine.end) {
+        const moved = this.blockStore.blockStartingAt(newlinePosition + 1);
+        if (isListItem(moved)) {
+          blocks.setBlock(
+            moved.type,
+            moved.level,
+            closedLine.start,
+            closedLine.start
+          );
+        }
+      }
+      return;
+    }
+    const { type, level } = closedBlock;
+    const lineStart = closedLine.start;
+    const freshLineStart = newlinePosition + 1;
+    blocks.setBlock(type, level, lineStart, lineStart);
+    blocks.setBlock(type, level, freshLineStart, freshLineStart);
+  }
+
+  private applyPendingStyles(context: EditContext): void {
+    const { editStart, insertedText, pendingStyles, pendingStyleRemovals } =
+      context;
+    const insertEnd = editStart + insertedText.length;
+
+    // Pending styles stop at the first newline in the insert. A range over a
+    // bare newline corrupts `isStyleActive` at the line boundary, which is why
+    // both natives skip a newline-only insertion; clipping rather than
+    // skipping also keeps a multi-unit insert - paste, dictation, autocorrect
+    // - from carrying a caret-level style onto the lines after the first.
+    const firstNewline = insertedText.indexOf('\n');
+    const styledEnd =
+      firstNewline === -1 ? insertEnd : editStart + firstNewline;
+    if (styledEnd > editStart) {
+      for (const type of pendingStyles) {
+        this.formattingStore.addRange(
+          createFormattingRange(type, editStart, styledEnd)
+        );
+      }
+    }
+    // Removals cover the whole insert, newlines included: the new text must
+    // not inherit a style from either side of the edit.
+    for (const type of pendingStyleRemovals) {
+      this.formattingStore.removeType(type, editStart, insertEnd);
+    }
+  }
+}
+
+// Both stores trust `text` and `context` to agree. When they do not, the
+// symptom surfaces much later as a wrong caret or a lost style, so report it
+// while there is still a stack.
+function assertContextDescribesEdit(text: string, context: EditContext): void {
+  const { editStart, insertedText } = context;
+  const insertEnd = editStart + insertedText.length;
+  if (editStart < 0 || insertEnd > text.length) {
+    console.error(
+      `${LOG_PREFIX} invariant violated: insert [${editStart}, ${insertEnd}) falls outside the ${text.length}-unit buffer`
+    );
+    return;
+  }
+  if (text.slice(editStart, insertEnd) !== insertedText) {
+    console.error(
+      `${LOG_PREFIX} invariant violated: the buffer does not hold \`insertedText\` at ${editStart}`
+    );
+  }
+}

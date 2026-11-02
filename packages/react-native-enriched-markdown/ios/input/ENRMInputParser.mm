@@ -1,7 +1,7 @@
 #import "ENRMInputParser.h"
 #import "ENRMFormattingRange.h"
 #import "ENRMInputRemend.h"
-#include "md4c.h"
+#include "enrmrkd.h"
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -20,18 +20,18 @@ namespace {
 static const size_t kByteOffsetUnset = SIZE_MAX;
 
 struct SpanTypeMapping {
-  MD_SPANTYPE md4cType;
+  ENRMRKD_SPANTYPE md4cType;
   ENRMInputStyleType styleType;
 };
 
 static const SpanTypeMapping kSupportedSpans[] = {
-    {MD_SPAN_STRONG, ENRMInputStyleTypeStrong}, {MD_SPAN_EM, ENRMInputStyleTypeEmphasis},
-    {MD_SPAN_U, ENRMInputStyleTypeUnderline},   {MD_SPAN_DEL, ENRMInputStyleTypeStrikethrough},
-    {MD_SPAN_A, ENRMInputStyleTypeLink},        {MD_SPAN_SPOILER, ENRMInputStyleTypeSpoiler},
+    {ENRMRKD_SPAN_STRONG, ENRMInputStyleTypeStrong}, {ENRMRKD_SPAN_EM, ENRMInputStyleTypeEmphasis},
+    {ENRMRKD_SPAN_U, ENRMInputStyleTypeUnderline},   {ENRMRKD_SPAN_DEL, ENRMInputStyleTypeStrikethrough},
+    {ENRMRKD_SPAN_A, ENRMInputStyleTypeLink},        {ENRMRKD_SPAN_SPOILER, ENRMInputStyleTypeSpoiler},
 };
 static const size_t kSupportedSpanCount = sizeof(kSupportedSpans) / sizeof(kSupportedSpans[0]);
 
-static bool isSupportedSpan(MD_SPANTYPE md4cType, ENRMInputStyleType &outStyleType)
+static bool isSupportedSpan(ENRMRKD_SPANTYPE md4cType, ENRMInputStyleType &outStyleType)
 {
   for (size_t index = 0; index < kSupportedSpanCount; index++) {
     if (kSupportedSpans[index].md4cType == md4cType) {
@@ -44,23 +44,23 @@ static bool isSupportedSpan(MD_SPANTYPE md4cType, ENRMInputStyleType &outStyleTy
 
 // Block-type mapping mirrors kSupportedSpans for the inline pipeline. A block
 // handler extends recognition by adding its md4c block here and, if leveled,
-// reading its detail in resolveBlockLevel below. MD_BLOCK_P maps to the
+// reading its detail in resolveBlockLevel below. ENRMRKD_BLOCK_P maps to the
 // implicit Paragraph default and produces no stored block range.
 struct BlockTypeMapping {
-  MD_BLOCKTYPE md4cType;
+  ENRMRKD_BLOCKTYPE md4cType;
   ENRMInputBlockType blockType;
 };
 
 static const BlockTypeMapping kSupportedBlocks[] = {
-    {MD_BLOCK_P, ENRMInputBlockTypeParagraph},
-    // MD_BLOCK_H maps to a representative heading type; onEnterBlock resolves the
+    {ENRMRKD_BLOCK_P, ENRMInputBlockTypeParagraph},
+    // ENRMRKD_BLOCK_H maps to a representative heading type; onEnterBlock resolves the
     // level (via resolveBlockLevel) and rewrites the type to the level-specific
     // ENRMInputBlockTypeHeadingN.
-    {MD_BLOCK_H, ENRMInputBlockTypeHeading1},
+    {ENRMRKD_BLOCK_H, ENRMInputBlockTypeHeading1},
 };
 static const size_t kSupportedBlockCount = sizeof(kSupportedBlocks) / sizeof(kSupportedBlocks[0]);
 
-static bool isSupportedBlock(MD_BLOCKTYPE md4cType, ENRMInputBlockType &outBlockType)
+static bool isSupportedBlock(ENRMRKD_BLOCKTYPE md4cType, ENRMInputBlockType &outBlockType)
 {
   for (size_t index = 0; index < kSupportedBlockCount; index++) {
     if (kSupportedBlocks[index].md4cType == md4cType) {
@@ -72,12 +72,12 @@ static bool isSupportedBlock(MD_BLOCKTYPE md4cType, ENRMInputBlockType &outBlock
 }
 
 // Per-block integer payload (heading level, list depth). md4c exposes this in
-// the block's MD_BLOCK_*_DETAIL struct. Headings read MD_BLOCK_H_DETAIL.level
+// the block's ENRMRKD_BLOCK_*_DETAIL struct. Headings read ENRMRKD_BLOCK_H_DETAIL.level
 // (1-6); other blocks have no level and return 0.
-static NSInteger resolveBlockLevel(MD_BLOCKTYPE blockType, void *detail)
+static NSInteger resolveBlockLevel(ENRMRKD_BLOCKTYPE blockType, void *detail)
 {
-  if (blockType == MD_BLOCK_H && detail) {
-    return (NSInteger)(static_cast<MD_BLOCK_H_DETAIL *>(detail)->level);
+  if (blockType == ENRMRKD_BLOCK_H && detail) {
+    return (NSInteger)(static_cast<ENRMRKD_BLOCK_H_DETAIL *>(detail)->level);
   }
   return 0;
 }
@@ -178,21 +178,21 @@ static size_t closingDelimiterEndByte(const ParseContext &context, const InlineS
 // text offset into the currently open block(s). On leave_block the block is
 // resolved with whatever text range it accumulated; empty blocks (no text) are
 // discarded later when building results.
-static int onEnterBlock(MD_BLOCKTYPE blockType, void *detail, void *userdata)
+static int onEnterBlock(ENRMRKD_BLOCKTYPE blockType, void *detail, void *userdata)
 {
   auto *context = static_cast<ParseContext *>(userdata);
 
   // List nesting is tracked by the container stack, not stored as its own
   // block: the UL/OL container only frames the items that read it.
-  if (blockType == MD_BLOCK_UL || blockType == MD_BLOCK_OL) {
-    context->listContainerStack.push_back(blockType == MD_BLOCK_OL);
+  if (blockType == ENRMRKD_BLOCK_UL || blockType == ENRMRKD_BLOCK_OL) {
+    context->listContainerStack.push_back(blockType == ENRMRKD_BLOCK_OL);
     return 0;
   }
 
-  // Tag the item itself, not its inner paragraph: md4c emits MD_BLOCK_P inside
+  // Tag the item itself, not its inner paragraph: md4c emits ENRMRKD_BLOCK_P inside
   // items only for *loose* lists, so a tight list has no paragraph to tag. The
   // item's range is clipped back to its own first line when building results.
-  if (blockType == MD_BLOCK_LI) {
+  if (blockType == ENRMRKD_BLOCK_LI) {
     BlockInfo blockInfo;
     BOOL ordered = !context->listContainerStack.empty() && context->listContainerStack.back();
     blockInfo.type = ordered ? ENRMInputBlockTypeOrderedListItem : ENRMInputBlockTypeUnorderedListItem;
@@ -215,16 +215,16 @@ static int onEnterBlock(MD_BLOCKTYPE blockType, void *detail, void *userdata)
   blockInfo.level = resolveBlockLevel(blockType, detail);
   // Headings share one md4c block type but split into six ENRMInputBlockTypes by
   // level; map the resolved level onto the concrete heading type.
-  blockInfo.type = (blockType == MD_BLOCK_H) ? ENRMBlockTypeForHeadingLevel(blockInfo.level) : mappedType;
+  blockInfo.type = (blockType == ENRMRKD_BLOCK_H) ? ENRMBlockTypeForHeadingLevel(blockInfo.level) : mappedType;
   context->openBlockStack.push_back(blockInfo);
   return 0;
 }
 
-static int onLeaveBlock(MD_BLOCKTYPE blockType, void *, void *userdata)
+static int onLeaveBlock(ENRMRKD_BLOCKTYPE blockType, void *, void *userdata)
 {
   auto *context = static_cast<ParseContext *>(userdata);
 
-  if (blockType == MD_BLOCK_UL || blockType == MD_BLOCK_OL) {
+  if (blockType == ENRMRKD_BLOCK_UL || blockType == ENRMRKD_BLOCK_OL) {
     if (!context->listContainerStack.empty()) {
       context->listContainerStack.pop_back();
     }
@@ -233,7 +233,7 @@ static int onLeaveBlock(MD_BLOCKTYPE blockType, void *, void *userdata)
 
   // List items are tagged in onEnterBlock (not via isSupportedBlock); resolve
   // them here the same way as supported blocks.
-  if (blockType == MD_BLOCK_LI) {
+  if (blockType == ENRMRKD_BLOCK_LI) {
     if (!context->openBlockStack.empty()) {
       context->resolvedBlocks.push_back(context->openBlockStack.back());
       context->openBlockStack.pop_back();
@@ -255,7 +255,7 @@ static int onLeaveBlock(MD_BLOCKTYPE blockType, void *, void *userdata)
   return 0;
 }
 
-static int onEnterSpan(MD_SPANTYPE spanType, void *detail, void *userdata)
+static int onEnterSpan(ENRMRKD_SPANTYPE spanType, void *detail, void *userdata)
 {
   ENRMInputStyleType styleType;
   if (!isSupportedSpan(spanType, styleType)) {
@@ -267,8 +267,8 @@ static int onEnterSpan(MD_SPANTYPE spanType, void *detail, void *userdata)
   spanInfo.type = styleType;
   spanInfo.openingDelimiterByteOffset = context->lastTextEnd;
 
-  if (spanType == MD_SPAN_A && detail) {
-    auto *linkDetail = static_cast<MD_SPAN_A_DETAIL *>(detail);
+  if (spanType == ENRMRKD_SPAN_A && detail) {
+    auto *linkDetail = static_cast<ENRMRKD_SPAN_A_DETAIL *>(detail);
     if (linkDetail->href.text && linkDetail->href.size > 0) {
       spanInfo.linkURL = std::string(linkDetail->href.text, linkDetail->href.size);
     }
@@ -278,7 +278,7 @@ static int onEnterSpan(MD_SPANTYPE spanType, void *detail, void *userdata)
   return 0;
 }
 
-static int onLeaveSpan(MD_SPANTYPE spanType, void *, void *userdata)
+static int onLeaveSpan(ENRMRKD_SPANTYPE spanType, void *, void *userdata)
 {
   ENRMInputStyleType styleType;
   if (!isSupportedSpan(spanType, styleType)) {
@@ -295,7 +295,7 @@ static int onLeaveSpan(MD_SPANTYPE spanType, void *, void *userdata)
   return 0;
 }
 
-static int onText(MD_TEXTTYPE, const MD_CHAR *text, MD_SIZE size, void *userdata)
+static int onText(ENRMRKD_TEXTTYPE, const ENRMRKD_CHAR *text, ENRMRKD_SIZE size, void *userdata)
 {
   if (!text || size == 0) {
     return 0;
@@ -303,7 +303,7 @@ static int onText(MD_TEXTTYPE, const MD_CHAR *text, MD_SIZE size, void *userdata
   auto *context = static_cast<ParseContext *>(userdata);
 
   // md4c passes pointers outside the input buffer for synthetic tokens
-  // (e.g. MD_TEXT_SOFTBR, MD_TEXT_BR use a string literal "\n").
+  // (e.g. ENRMRKD_TEXT_SOFTBR, ENRMRKD_TEXT_BR use a string literal "\n").
   // Pointer arithmetic against context->buffer would underflow, corrupting offsets.
   //
   // Skipping out-of-buffer tokens means lastTextEnd doesn't advance past
@@ -349,9 +349,9 @@ static bool runMd4cParse(NSString *markdown, ParseContext &context)
   context.bufferLength = completedLength;
   context.originalLength = originalLength;
 
-  MD_PARSER parser = {
+  ENRMRKD_PARSER parser = {
       .abi_version = 0,
-      .flags = MD_FLAG_NOHTML | MD_FLAG_UNDERLINE | MD_FLAG_STRIKETHROUGH | MD_FLAG_SPOILERS,
+      .flags = ENRMRKD_FLAG_NOHTML | ENRMRKD_FLAG_UNDERLINE | ENRMRKD_FLAG_STRIKETHROUGH | ENRMRKD_FLAG_SPOILERS,
       .enter_block = onEnterBlock,
       .leave_block = onLeaveBlock,
       .enter_span = onEnterSpan,
@@ -361,7 +361,7 @@ static bool runMd4cParse(NSString *markdown, ParseContext &context)
       .syntax = nullptr,
   };
 
-  return md_parse(completedUTF8, (MD_SIZE)completedLength, &parser, &context) == 0;
+  return enrmrkd_parse(completedUTF8, (ENRMRKD_SIZE)completedLength, &parser, &context) == 0;
 }
 
 // Builds inline styled ranges (raw-markdown UTF-16 coords) from a completed

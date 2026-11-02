@@ -100,6 +100,7 @@ class RendererFactory(
     imageUrl: String,
     isInline: Boolean,
     altText: String,
+    occurrenceId: String? = null,
   ): ImageSpan =
     ImageSpan(
       context = context,
@@ -107,6 +108,7 @@ class RendererFactory(
       styleConfig = config.style,
       isInline = isInline,
       altText = altText,
+      sourceOverride = occurrenceId?.let { config.style.imageSourceOverrides[it] },
     )
 
   private val textRenderer = TextRenderer()

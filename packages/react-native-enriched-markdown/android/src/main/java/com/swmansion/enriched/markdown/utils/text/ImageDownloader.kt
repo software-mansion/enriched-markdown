@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import okhttp3.Cache
+import okhttp3.CacheControl
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -89,8 +90,20 @@ object ImageDownloader {
         Request
           .Builder()
           .url(url)
-          .apply { headers.forEach { (name, value) -> addHeader(name, value) } }
-          .build()
+          .apply {
+            headers.forEach { (name, value) -> addHeader(name, value) }
+            // The HTTP cache keys by URL and server Vary, which may omit the headers
+            // that make this request distinct; keep header-bearing responses out of it.
+            if (headers.isNotEmpty()) {
+              cacheControl(
+                CacheControl
+                  .Builder()
+                  .noCache()
+                  .noStore()
+                  .build(),
+              )
+            }
+          }.build()
       } catch (e: IllegalArgumentException) {
         Log.e(TAG, "Invalid image request: $url", e)
         dispatchCallbacks(requestKey, null)

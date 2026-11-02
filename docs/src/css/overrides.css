@@ -195,3 +195,24 @@ nav[class*='navbarLanding'] {
   background-color: var(--swm-blue-dark-100);
   border-color: var(--swm-blue-dark-100);
 }
+
+/* Sidebar pill for experimental pages (frontmatter
+   `sidebar_class_name: sidebar-experimental`); matches ExperimentalBadge. */
+.sidebar-experimental > .menu__link::after {
+  content: 'experimental';
+  margin-left: 0.5rem;
+  padding: 0 0.375rem;
+  border: 1px solid #c9b5ef;
+  border-radius: 4rem;
+  background-color: #f3eefc;
+  color: #5b3a9e;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+[data-theme='dark'] .sidebar-experimental > .menu__link::after {
+  border-color: #6f58a0;
+  background-color: rgba(201, 181, 239, 0.14);
+  color: #d4c4f3;
+}

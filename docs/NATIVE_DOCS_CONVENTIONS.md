@@ -62,11 +62,14 @@ The single biggest source of value, and of errors.
   the code twice (a style property that isn't exposed; a property renamed in
   the public DSL).
 - **Defaults come from the defaults file**, transcribed - not remembered.
-- **Check that a flag has a renderer**, not just a parser. Android parses
-  `highlight` and `latexMath` and draws neither, and the fallback renderer emits
-  only a node's own text - so enabling them *deletes the content* instead of
-  showing it unstyled. That is a `:::danger`, not a footnote. Confirm the
-  equivalent iOS fallback before repeating the claim.
+- **Check that a flag has a renderer**, not just a parser. When this tree was
+  first written, Android parsed `highlight` and `latexMath` and drew neither,
+  and its fallback renderer emits only a node's own text, so a construct with
+  no renderer *deletes its content* instead of showing it unstyled. Both have
+  renderers now (LaTeX echoes its source unless the `math` plugin is in
+  scope), but the fallback still drops a table nested in a list item or quote.
+  Content loss is a `:::danger`/`:::caution`, not a footnote. iOS's fallback
+  renders a node's children, so the same mistake costs styling, not text.
 - When something is WIP, say what actually happens today, not what it will do.
 - `truth_docs.csv` is the starting map, not the evidence. It's per-row and
   sometimes phrased for RN; confirm each row you rely on in the platform's code.
@@ -95,7 +98,7 @@ Ask what breaks without it. The Android four:
 
 | Guide | Exists because |
 | --- | --- |
-| Parser extensions | Flags change *parsing*, and two of them delete content |
+| Parser extensions | Flags change *parsing*: `_`, `~` and `$` change meaning, and `\|\|` always hides text |
 | Images and caching | Far more URL schemes work than you'd guess; caches are invisible |
 | Custom fonts | A multi-file `FontFamily` silently collapses to one file |
 | Compose interop | View recycling resets in-view state; nothing renders in previews |

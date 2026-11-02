@@ -18,16 +18,10 @@ const DOCS = path.join(ROOT, 'docs');
 const LLMS = path.join(ROOT, 'static', 'llms.txt');
 const SITE = 'https://docs.swmansion.com/enriched-markdown';
 
-// Mirrors the `exclude` in docusaurus.config.js: the standalone native trees are
-// not built unless SHOW_UNRELEASED_PLATFORMS is set, so they are not listed.
-const HIDDEN = process.env.SHOW_UNRELEASED_PLATFORMS ? [] : ['ios', 'android'];
-
 function walk(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      return HIDDEN.includes(path.relative(DOCS, full)) ? [] : walk(full);
-    }
+    if (entry.isDirectory()) return walk(full);
     return /\.mdx?$/.test(entry.name) && !entry.name.startsWith('_') ? [full] : [];
   });
 }

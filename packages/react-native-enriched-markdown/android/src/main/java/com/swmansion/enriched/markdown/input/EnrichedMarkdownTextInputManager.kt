@@ -516,6 +516,12 @@ class EnrichedMarkdownTextInputManager :
     view?.copyToClipboard()
   }
 
+  // TODO: model history (port of src/web/input/editing/EditHistory.ts). Until
+  // then the commands do nothing and `onChangeHistoryState` is never emitted.
+  override fun undo(view: EnrichedMarkdownTextInputView?) = Unit
+
+  override fun redo(view: EnrichedMarkdownTextInputView?) = Unit
+
   override fun requestMarkdown(
     view: EnrichedMarkdownTextInputView?,
     requestId: Int,

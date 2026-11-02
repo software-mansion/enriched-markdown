@@ -49,6 +49,7 @@ import com.swmansion.enriched.markdown.input.formatting.InputFormatter
 import com.swmansion.enriched.markdown.input.formatting.InputParser
 import com.swmansion.enriched.markdown.input.layout.InputEventEmitter
 import com.swmansion.enriched.markdown.input.layout.InputLayoutManager
+import com.swmansion.enriched.markdown.input.layout.InputMeasurementStore
 import com.swmansion.enriched.markdown.input.model.BlockRange
 import com.swmansion.enriched.markdown.input.model.BlockType
 import com.swmansion.enriched.markdown.input.model.FormattingRange
@@ -354,7 +355,24 @@ class EnrichedMarkdownTextInputView(
     y: Int,
   ) {
     if (!scrollEnabled) return
-    super.scrollTo(x, y)
+    // Pin to the top while the text fits the height Yoga allows: the view is
+    // about to grow to fit it, so scrolling to the caret now would show the text
+    // bottom-aligned for a frame until the resize lands.
+    val textHeight = layout?.height
+    val maxHeight = InputMeasurementStore.getMaxHeight(id)
+    val textFitsMaxHeight = textHeight != null && maxHeight != null && textHeight <= maxHeight
+    super.scrollTo(x, if (textFitsMaxHeight) 0 else y)
+  }
+
+  override fun onLayout(
+    changed: Boolean,
+    left: Int,
+    top: Int,
+    right: Int,
+    bottom: Int,
+  ) {
+    super.onLayout(changed, left, top, right, bottom)
+    InputMeasurementStore.onLaidOut(id, (bottom - top - paddingTop - paddingBottom).toFloat())
   }
 
   override fun canScrollVertically(direction: Int): Boolean = scrollEnabled && super.canScrollVertically(direction)
@@ -524,6 +542,12 @@ class EnrichedMarkdownTextInputView(
       applyFormattingAndEmit()
       eventEmitter.emitChangeText()
     }
+    // The scope above suppresses the text watcher, so the pipeline's own hint
+    // sync never ran. Without this, an insert into an empty editor (paste,
+    // insertText, insertLink, startMention) leaves the placeholder in place and
+    // the next selection change calls setHint from inside
+    // Editor.selectCurrentWordAndStartDrag, which crashes — same as setValue.
+    syncHintVisibility()
     emitSelectionIfChanged()
   }
 
@@ -771,7 +795,14 @@ class EnrichedMarkdownTextInputView(
     val target: CharSequence? = if (hasRealText || hasBlock) "" else styledHint
     // Compare as strings: setHint copies the hint, so the spanned copy is never
     // identical to target. A line-height change passes force instead.
-    if (force || hint?.toString() != target?.toString()) super.setHint(target)
+    if (!force && hint?.toString() == target?.toString()) return
+
+    super.setHint(target)
+    // An empty editor is measured with its hint, not its text (see
+    // InputMeasurementStore.getMeasureById), and the snapshot Yoga holds was
+    // taken before this change — re-measure so a hint that lays out taller than
+    // the text it replaced is not left clipped.
+    layoutManager.invalidateLayout()
   }
 
   fun setUserHint(value: CharSequence?) {
@@ -1081,6 +1112,7 @@ class EnrichedMarkdownTextInputView(
       // No invalidateLayout() needed: applyFormatting() already re-measures.
       lastProcessedText = text?.toString() ?: ""
     }
+    syncHintVisibility()
     emitSelectionIfChanged()
   }
 

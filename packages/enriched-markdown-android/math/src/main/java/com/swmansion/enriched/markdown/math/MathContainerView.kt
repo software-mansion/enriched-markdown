@@ -32,6 +32,7 @@ class MathContainerView(
   context: Context,
   styleConfig: StyleConfig,
   override var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig(),
+  accessibilityLabel: MathAccessibilityLabel = MathAccessibilityLabel.Default,
 ) : FrameLayout(context),
   BlockSegmentView,
   SelectionMenuConfigurable {
@@ -41,6 +42,12 @@ class MathContainerView(
 
   var latex: String = ""
     private set
+
+  var accessibilityLabel: MathAccessibilityLabel = accessibilityLabel
+    set(value) {
+      field = value
+      updateAccessibilityLabel()
+    }
 
   override val segmentMarginTop: Int get() = mathStyle.marginTop.toInt()
   override val segmentMarginBottom: Int get() = mathStyle.marginBottom.toInt()
@@ -115,7 +122,7 @@ class MathContainerView(
   }
 
   private fun updateAccessibilityLabel() {
-    contentDescription = "Math: $latex"
+    contentDescription = accessibilityLabel.resolve(latex)
   }
 
   private fun showContextMenu(anchor: View): Boolean {

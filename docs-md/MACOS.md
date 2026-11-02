@@ -8,7 +8,7 @@ The macOS implementation supports the same rendering elements as iOS — CommonM
 
 These will be addressed in upcoming releases:
 
-- **LaTeX math** (both inline and block) is not available on macOS. The math engine ([RaTeX](https://ratex.lites.dev/)) is distributed as a Swift Package, which requires `use_frameworks!` in CocoaPods. `react-native-macos` does not currently support `use_frameworks!` due to circular dependencies between `React-Core` and `React-RCTText` ([microsoft/react-native-macos#1969](https://github.com/microsoft/react-native-macos/issues/1969)). Math will be enabled once this upstream issue is resolved.
+- **LaTeX math** (both inline and block) is not yet validated on macOS. RaTeX is now a vendored XCFramework with a macOS slice, so the former `use_frameworks!` blocker no longer applies and math is compiled in by default; the macOS example app disables it. Set `"enableMath": false` in your app's `package.json` to leave it out. See [LaTeX Math](LATEX_MATH.md).
 - **Link pills** (`linkVariants[pattern].pill`, `linkPillContent`) are not rendered; such links appear as ordinary links with the variant's colors and font.
 - **Tail fade-in animation** falls back to instant reveal (no `CADisplayLink` on macOS)
 - **VoiceOver** accessibility is stubbed (pending `NSAccessibility` implementation)

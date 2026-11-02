@@ -1,7 +1,6 @@
 #pragma once
+#include "ENRMReactHeaders.h"
 #include "EnrichedMarkdownTextInputShadowNode.h"
-#include <react/debug/react_native_assert.h>
-#include <react/renderer/core/ConcreteComponentDescriptor.h>
 
 namespace facebook::react {
 

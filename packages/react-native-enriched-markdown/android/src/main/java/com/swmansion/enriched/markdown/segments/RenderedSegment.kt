@@ -51,10 +51,18 @@ sealed interface RenderedSegment {
   data class Blockquote(
     val node: MarkdownASTNode,
     override val signature: Long,
+    /** Document-global index of the quote's first task-list item. */
+    val taskIndexOffset: Int = 0,
   ) : RenderedSegment
 
   data class Video(
     val node: MarkdownASTNode,
+    override val signature: Long,
+  ) : RenderedSegment
+
+  data class BlockSlot(
+    val slotId: String,
+    val kind: BlockSlotKind,
     override val signature: Long,
   ) : RenderedSegment
 }
@@ -68,11 +76,26 @@ object MarkdownSegmentRenderer {
     onLinkLongPress: ((String) -> Unit)?,
     blockquoteStyle: BlockquoteStyle? = null,
     onLatexError: LatexErrorReporter? = null,
-  ): List<RenderedSegment> =
-    segments.map { segment ->
+    startingTaskIndex: Int = 0,
+  ): List<RenderedSegment> {
+    var taskIndexOffset = startingTaskIndex
+
+    return segments.map { segment ->
       when (segment) {
         is MarkdownSegment.Text -> {
-          renderTextSegment(segment.nodes, style, context, onLinkPress, onLinkLongPress, blockquoteStyle, onLatexError)
+          val (rendered, taskItemCount) =
+            renderTextSegment(
+              segment.nodes,
+              style,
+              context,
+              onLinkPress,
+              onLinkLongPress,
+              blockquoteStyle,
+              onLatexError,
+              taskIndexOffset,
+            )
+          taskIndexOffset = taskItemCount
+          rendered
         }
 
         is MarkdownSegment.Table -> {
@@ -92,16 +115,41 @@ object MarkdownSegmentRenderer {
         }
 
         is MarkdownSegment.Blockquote -> {
-          val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.BLOCKQUOTE_KIND_SALT
-          RenderedSegment.Blockquote(segment.node, signature)
+          val taskItemCount = countTaskItems(segment.node)
+          val signature =
+            SegmentSignature.withTaskIndexOffset(
+              SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.BLOCKQUOTE_KIND_SALT,
+              taskIndexOffset,
+              hasTasks = taskItemCount > 0,
+            )
+          RenderedSegment.Blockquote(segment.node, signature, taskIndexOffset).also {
+            taskIndexOffset += taskItemCount
+          }
         }
 
         is MarkdownSegment.Video -> {
           val signature = SegmentSignature.signatureForNode(segment.node) xor SegmentSignature.VIDEO_KIND_SALT
           RenderedSegment.Video(segment.node, signature)
         }
+
+        is MarkdownSegment.BlockSlot -> {
+          val signature =
+            SegmentSignature.fnvMixString(SegmentSignature.signatureForNode(null), segment.slotId) xor
+              SegmentSignature.BLOCK_SLOT_KIND_SALT
+          RenderedSegment.BlockSlot(segment.slotId, segment.kind, signature)
+        }
       }
     }
+  }
+
+  /**
+   * Task-list items in [node]'s subtree, counted as ListItemRenderer numbers them. Used for a
+   * blockquote, whose children render only when its container view applies the node.
+   */
+  private fun countTaskItems(node: MarkdownASTNode): Int {
+    val own = if (node.type == MarkdownASTNode.NodeType.ListItem && node.getAttribute("isTask") == "true") 1 else 0
+    return own + node.children.sumOf { countTaskItems(it) }
+  }
 
   private fun renderTextSegment(
     nodes: List<MarkdownASTNode>,
@@ -111,23 +159,34 @@ object MarkdownSegmentRenderer {
     onLinkLongPress: ((String) -> Unit)?,
     blockquoteStyle: BlockquoteStyle?,
     onLatexError: LatexErrorReporter?,
-  ): RenderedSegment.Text {
+    startingTaskIndex: Int,
+  ): Pair<RenderedSegment.Text, Int> {
     val renderer = Renderer().apply { configure(style, context, onLatexError) }
-    val signature = SegmentSignature.signatureForNodes(nodes) xor SegmentSignature.TEXT_KIND_SALT
 
     val styledText =
       if (blockquoteStyle != null) {
-        BlockquoteTextRenderer(blockquoteStyle).render(renderer, nodes, onLinkPress, onLinkLongPress)
+        BlockquoteTextRenderer(blockquoteStyle).render(renderer, nodes, onLinkPress, onLinkLongPress, startingTaskIndex)
       } else {
-        renderer.renderContent(nodes, onLinkPress, onLinkLongPress)
+        renderer.renderContent(nodes, onLinkPress, onLinkLongPress, startingTaskIndex = startingTaskIndex)
       }
 
-    return RenderedSegment.Text(
-      styledText = styledText,
-      imageSpans = renderer.getCollectedImageSpans().toList(),
-      needsJustify = style.needsJustify,
-      lastElementMarginBottom = renderer.getLastElementMarginBottom(),
-      signature = signature,
-    )
+    val taskItemCount = renderer.getTaskItemCount()
+    val signature =
+      SegmentSignature.withTaskIndexOffset(
+        SegmentSignature.signatureForNodes(nodes) xor SegmentSignature.TEXT_KIND_SALT,
+        startingTaskIndex,
+        hasTasks = taskItemCount > startingTaskIndex,
+      )
+
+    val rendered =
+      RenderedSegment.Text(
+        styledText = styledText,
+        imageSpans = renderer.getCollectedImageSpans().toList(),
+        needsJustify = style.needsJustify,
+        lastElementMarginBottom = renderer.getLastElementMarginBottom(),
+        signature = signature,
+      )
+
+    return rendered to taskItemCount
   }
 }

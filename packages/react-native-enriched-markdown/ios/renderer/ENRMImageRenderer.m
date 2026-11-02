@@ -20,7 +20,13 @@ static const unichar kZeroWidthSpace = 0x200B;
   }
 
   BOOL isInline = [self isInlineImageInOutput:output];
-  ENRMImageAttachment *attachment = [ENRMImageAttachment attachmentForURL:imageURL config:_config isInline:isInline];
+  // Stamped by the parser only while image sources are overridden (BlockSlots.hpp).
+  NSString *occurrenceId = node.attributes[@"imageOccurrenceId"];
+  ENRMImageSourceOverride *source = occurrenceId ? _config.imageSourceOverrides[occurrenceId] : nil;
+  ENRMImageAttachment *attachment = [ENRMImageAttachment attachmentForURL:imageURL
+                                                                   source:source
+                                                                   config:_config
+                                                                 isInline:isInline];
 
   NSUInteger startIndex = output.length;
 

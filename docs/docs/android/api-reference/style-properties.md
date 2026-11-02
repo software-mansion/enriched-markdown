@@ -48,8 +48,17 @@ The available blocks:
 | `inlineImage`   | Inline images                                                                   |
 | `thematicBreak` | Horizontal rules                                                                |
 | `table`         | GFM tables, header row and cells                                                |
+| `spoiler`       | The overlay that hides spoiler text until it is tapped                          |
 
-Values use Compose types throughout: `Color`, `Dp` for lengths, `TextUnit` (`sp`) for text metrics, plus `FontFamily`, `FontWeight`, and `FontStyle`.
+Values use Compose types throughout: `Color`, `Dp` for lengths, `TextUnit` (`sp`) for text metrics, plus `FontFamily`, `FontWeight`, `FontStyle`, `TextAlign`, `TextDecoration`, and `Alignment.Horizontal`.
+
+The optional `math` artifact adds two more blocks, `math { }` and `inlineMath { }`, for LaTeX formulas. They are documented with the plugin in [LaTeX math](/android/guides/latex-math#styling). The optional `code-highlight` artifact adds `codeHighlight { }`, for the token colors of highlighted code blocks; see [Code highlighting](/android/guides/code-highlighting#styling).
+
+:::caution
+`fontSize` and `lineHeight` must be given in `sp`. A `TextUnit` of any other type (`em`, or `TextUnit.Unspecified`) makes the style throw an `IllegalArgumentException` when it is resolved.
+
+`FontWeight` is bucketed to the four weights the text layer draws: below `Medium` renders as normal (400), then `Medium` (500), `SemiBold` (600), and `Bold` and heavier as bold (700). `FontWeight.Light` and `FontWeight.Black` therefore look the same as `Normal` and `Bold`.
+:::
 
 ## Style inheritance
 
@@ -74,7 +83,7 @@ Leave it unset to keep bold following its surroundings.
 ```kotlin
 val Base = markdownStyle {
   paragraph { fontSize = 16.sp }
-  link { underline = true }
+  link { textDecoration = TextDecoration.None }
 }
 
 val Compact = Base.merge { paragraph { marginBottom = 8.dp } }
@@ -100,6 +109,8 @@ MarkdownTheme(style = if (isSystemInDarkTheme()) DarkMarkdownStyle else LightMar
 }
 ```
 
+A code block that follows the theme needs its text `color` set alongside the background, since the default text color is made for the default dark block. With [code highlighting](/android/guides/code-highlighting#styling), the token palette is made for a dark block too, so a light code block needs `codeHighlight { }` colors as well.
+
 [`rememberMaterialMarkdownStyle`](/android/api-reference/markdown-theme#materialmarkdownstyle) rebuilds the style when the color scheme changes. If you pick your own tokens instead, read `MaterialTheme.colorScheme` first and build the style in `remember`, keyed on it.
 
 ## Property reference
@@ -117,7 +128,7 @@ Shared by `paragraph` and every heading level.
 | `lineHeight`   | `TextUnit`      | `26.sp`                | Line height                                                                                                                               |
 | `marginTop`    | `Dp`            | `0.dp`                 | Space above the block                                                                                                                     |
 | `marginBottom` | `Dp`            | `16.dp`                | Space below the block                                                                                                                     |
-| `textAlign`    | `TextAlignment` | `TextAlignment.AUTO`   | `LEFT`, `CENTER`, `RIGHT`, `JUSTIFY`, or `AUTO` - the package's own enum, not Compose's `TextAlign`. `AUTO` follows the reading direction |
+| `textAlign`    | `TextAlign`     | Unset                  | Compose's `TextAlign`: `Start`, `End`, `Left`, `Right`, `Center`, or `Justify`. Unset (or `TextAlign.Unspecified`) follows the reading direction |
 
 ```kotlin
 markdownStyle {
@@ -131,7 +142,7 @@ markdownStyle {
     fontWeight = FontWeight.Bold
     color = Color(0xFF111827)
   }
-  h2 { textAlign = TextAlignment.CENTER }
+  h2 { textAlign = TextAlign.Center }
 }
 ```
 
@@ -163,7 +174,7 @@ Carries the full set of block properties, with its own defaults, plus the quote 
 | `borderWidth`     | `Dp`         | `3.dp`                 | Left accent bar width                   |
 | `gapWidth`        | `Dp`         | `16.dp`                | Gap between the bar and the text        |
 | `backgroundColor` | `Color`      | `#F9FAFB`              | Background fill                         |
-| `borderRadius`    | `Dp`         | `0.dp`                 | Rounds the quote box                    |
+| `cornerRadius`    | `Dp`         | `0.dp`                 | Rounds the quote box                    |
 | `padding`         | `Dp`         | `0.dp`                 | Inset between the box edge and the text |
 
 ```kotlin
@@ -174,7 +185,7 @@ markdownStyle {
     borderWidth = 4.dp
     gapWidth = 12.dp
     backgroundColor = Color(0xFFF3F4F6)
-    borderRadius = 6.dp
+    cornerRadius = 6.dp
     padding = 12.dp
   }
 }
@@ -236,9 +247,9 @@ Requires [`MarkdownOptions(admonitions = true)`](/android/api-reference/enriched
 | `bulletSize`       | `Dp`         | `6.dp`                    | Unordered list bullet size                   |
 | `markerColor`      | `Color`      | `#6B7280`                 | Ordered list number color                    |
 | `markerFontWeight` | `FontWeight` | `FontWeight.Medium` (500) | Ordered list number weight                   |
-| `markerMinWidth`   | `Dp`         | `0.dp`                    | Minimum width reserved for the marker column |
+| `markerMinWidth`   | `Dp`         | `0.dp`                    | Minimum width reserved for the marker column. An ordered list's column also grows to fit its widest number |
 | `gapWidth`         | `Dp`         | `12.dp`                   | Gap between the marker and the text          |
-| `marginLeft`       | `Dp`         | `24.dp`                   | Indent applied per nesting level             |
+| `marginStart`      | `Dp`         | `24.dp`                   | Indent applied per nesting level, on the reading-direction start side |
 
 ```kotlin
 markdownStyle {
@@ -248,7 +259,7 @@ markdownStyle {
     markerColor = Color(0xFF2563EB)
     markerMinWidth = 24.dp   // keeps text aligned past "9."
     gapWidth = 10.dp
-    marginLeft = 20.dp
+    marginStart = 20.dp
   }
 }
 ```
@@ -262,7 +273,7 @@ Styles the checkbox drawn for `- [ ]` and `- [x]` items. The item's text is styl
 | `checkedColor`         | `Color`   | `#2196F3` | Fill of a checked box                                      |
 | `borderColor`          | `Color`   | `#9E9E9E` | Border of an unchecked box                                 |
 | `checkboxSize`         | `Dp`      | `14.dp`   | Box size                                                   |
-| `checkboxBorderRadius` | `Dp`      | `3.dp`    | Box corner radius                                          |
+| `checkboxCornerRadius` | `Dp`      | `3.dp`    | Box corner radius                                          |
 | `checkmarkColor`       | `Color`   | `#FFFFFF` | Checkmark color                                            |
 | `checkedTextColor`     | `Color`   | Unset     | Text color of a checked item. Unset keeps the `list` color |
 | `checkedStrikethrough` | `Boolean` | `false`   | Strike through the text of a checked item                  |
@@ -271,7 +282,7 @@ Styles the checkbox drawn for `- [ ]` and `- [x]` items. The item's text is styl
 markdownStyle {
   taskList {
     checkboxSize = 18.dp
-    checkboxBorderRadius = 9.dp
+    checkboxCornerRadius = 9.dp
     checkedColor = Color(0xFF16A34A)
     checkedTextColor = Color(0xFF9CA3AF)
     checkedStrikethrough = true
@@ -296,6 +307,10 @@ markdownStyle {
 | `cornerRadius`    | `Dp`         | `8.dp`                 | Corner radius                         |
 | `padding`         | `Dp`         | `16.dp`                | Inner padding, the same on every side |
 
+A code block set to [scroll](/android/api-reference/enriched-markdown-text#codeblocklayout) also has a header bar, with the language name and a copy button. The header has no properties of its own: the label and copy icon are drawn in `color` at reduced opacity, the label at 85% of `fontSize`, and the line under the header in a fainter `color`. `backgroundColor`, `borderColor`, `borderWidth`, and `cornerRadius` frame the header and code as one box.
+
+With the optional `code-highlight` artifact, tokens inside the block are recolored by language; `color` stays the color of everything the highlighter leaves uncolored. Token colors have their own [`codeHighlight`](/android/guides/code-highlighting#styling) block.
+
 ```kotlin
 markdownStyle {
   codeBlock {
@@ -310,11 +325,11 @@ markdownStyle {
 
 ### `code`
 
-Inline code. `fontSize` and `fontFamily` are unset by default, so inline code takes the size of the text around it.
+Inline code. `fontSize` and `fontFamily` are unset by default: inline code takes the size of the text around it, and is drawn in the system monospace face. Setting `fontFamily` replaces the monospace face.
 
 | Property          | Type         | Default   | Description     |
 | ----------------- | ------------ | --------- | --------------- |
-| `fontFamily`      | `FontFamily` | Inherited | Typeface        |
+| `fontFamily`      | `FontFamily` | Monospace | Typeface        |
 | `fontSize`        | `TextUnit`   | Inherited | Text size       |
 | `color`           | `Color`      | `#E01E5A` | Text color      |
 | `backgroundColor` | `Color`      | `#FDF2F4` | Background fill |
@@ -332,18 +347,18 @@ markdownStyle {
 
 ### `link`
 
-| Property          | Type         | Default             | Description                    |
-| ----------------- | ------------ | ------------------- | ------------------------------ |
-| `fontFamily`      | `FontFamily` | Inherited           | Typeface                       |
-| `color`           | `Color`      | `#2563EB`           | Text color                     |
-| `underline`       | `Boolean`    | `true`              | Whether the link is underlined |
-| `backgroundColor` | `Color`      | `Color.Transparent` | Background fill                |
+| Property          | Type             | Default                    | Description                                                                                                  |
+| ----------------- | ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `fontFamily`      | `FontFamily`     | Inherited                  | Typeface                                                                                                     |
+| `color`           | `Color`          | `#2563EB`                  | Text color                                                                                                   |
+| `textDecoration`  | `TextDecoration` | `TextDecoration.Underline` | `Underline`, `LineThrough`, both combined with `TextDecoration.combine(...)`, or `TextDecoration.None` |
+| `backgroundColor` | `Color`          | `Color.Transparent`        | Background fill                                                                                              |
 
 ```kotlin
 markdownStyle {
   link {
     color = Color(0xFF1D4ED8)
-    underline = false
+    textDecoration = TextDecoration.None
   }
 }
 ```
@@ -434,12 +449,12 @@ markdownStyle {
 
 ### `image`
 
-Block images - an image that is the whole paragraph.
+Block images - an image with nothing before it on its line. See [Images: block vs. inline](/android/api-reference/element-structure#images-block-vs-inline).
 
 | Property       | Type | Default  | Description                                  |
 | -------------- | ---- | -------- | -------------------------------------------- |
 | `height`       | `Dp` | `200.dp` | Rendered height; width follows the container |
-| `borderRadius` | `Dp` | `8.dp`   | Corner radius                                |
+| `cornerRadius` | `Dp` | `8.dp`   | Corner radius                                |
 | `marginTop`    | `Dp` | `0.dp`   | Space above                                  |
 | `marginBottom` | `Dp` | `16.dp`  | Space below                                  |
 
@@ -447,7 +462,7 @@ Block images - an image that is the whole paragraph.
 markdownStyle {
   image {
     height = 240.dp
-    borderRadius = 12.dp
+    cornerRadius = 12.dp
     marginBottom = 24.dp
   }
 }
@@ -491,6 +506,8 @@ markdownStyle {
 
 GFM pipe tables - the body text, the header row, and the grid.
 
+Header cells ignore `fontWeight` and are bold by default: they use the cell `fontFamily` in bold (the system bold face when no family is set). `headerFontFamily` replaces that face and is used as given, so pass a bold family if you want the header to stay bold.
+
 | Property                 | Type             | Default                | Description                                                                                                           |
 | ------------------------ | ---------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `fontSize`               | `TextUnit`       | `14.sp`                | Cell text size                                                                                                        |
@@ -500,7 +517,7 @@ GFM pipe tables - the body text, the header row, and the grid.
 | `lineHeight`             | `TextUnit`       | `22.sp`                | Cell line height                                                                                                      |
 | `marginTop`              | `Dp`             | `0.dp`                 | Space above the table                                                                                                 |
 | `marginBottom`           | `Dp`             | `16.dp`                | Space below the table                                                                                                 |
-| `headerFontFamily`       | `FontFamily`     | The cell typeface      | Header row typeface alone                                                                                             |
+| `headerFontFamily`       | `FontFamily`     | The cell typeface, bold | Header row typeface alone, used as given                                                                             |
 | `headerTextColor`        | `Color`          | `#111827`              | Header row text color                                                                                                 |
 | `headerBackgroundColor`  | `Color`          | `#F3F4F6`              | Header row fill                                                                                                       |
 | `rowEvenBackgroundColor` | `Color`          | `#FFFFFF`              | Even body rows background                                                                                             |
@@ -510,8 +527,8 @@ GFM pipe tables - the body text, the header row, and the grid.
 | `cornerRadius`           | `Dp`             | `6.dp`                 | Rounds the outer border                                                                                               |
 | `cellPaddingHorizontal`  | `Dp`             | `12.dp`                | Inset inside a cell, left and right                                                                                   |
 | `cellPaddingVertical`    | `Dp`             | `8.dp`                 | Inset inside a cell, top and bottom                                                                                   |
-| `horizontalOverflow`     | `Dp`             | `0.dp`                 | How far a wide table may bleed past the text column on each side before it scrolls. `0.dp` keeps it inside the column |
-| `align`                  | `TableAlignment` | `TableAlignment.AUTO`  | Default column alignment where the Markdown separator row does not specify one. `AUTO`, `LEFT`, `CENTER`, `RIGHT`     |
+| `horizontalOverflow`     | `Dp`             | `0.dp`                 | How far a table wider than the text column scrolls past the column on each side. At rest the table starts at the column edge; while scrolling, it stays visible this far beyond it, e.g. out to the screen edge. `0.dp` clips scrolling at the column |
+| `alignment`              | `Alignment.Horizontal` | `Alignment.Start` | Where a table **narrower** than the text column sits in it. `Alignment.Start`, `CenterHorizontally`, and `End` follow the reading direction; `AbsoluteAlignment.Left` / `Right` pin a side. Column alignment comes from the Markdown separator row, not from this |
 
 ```kotlin
 markdownStyle {
@@ -523,7 +540,21 @@ markdownStyle {
     cornerRadius = 8.dp
     cellPaddingHorizontal = 14.dp
     cellPaddingVertical = 10.dp
-    align = TableAlignment.LEFT
+    alignment = Alignment.CenterHorizontally
   }
+}
+```
+
+### `spoiler` {#spoiler}
+
+The overlay that hides `||spoiler||` text until the reader taps it. The block sets only its color; which effect is drawn (animated particles or a solid fill) and its tuning are picked with the [`spoilerOverlay`](/android/api-reference/enriched-markdown-text#spoileroverlay) parameter of `EnrichedMarkdownText`.
+
+| Property | Type    | Default   | Description                                                      |
+| -------- | ------- | --------- | ---------------------------------------------------------------- |
+| `color`  | `Color` | `#374151` | Color of the particles, or the fill of the solid overlay         |
+
+```kotlin
+markdownStyle {
+  spoiler { color = Color(0xFF6B7280) }
 }
 ```

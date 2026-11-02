@@ -39,6 +39,7 @@ import com.swmansion.enriched.markdown.utils.text.view.CodeBlockPressHost
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
 import com.swmansion.enriched.markdown.utils.text.view.applySelectableState
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForCheckboxTap
@@ -47,7 +48,7 @@ import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionMode
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
-import com.swmansion.enriched.markdown.utils.text.view.reallowParentInterceptIfLinkReleased
+import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
 import kotlin.math.ceil
@@ -66,6 +67,7 @@ class EnrichedMarkdownText
   ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
     SpoilerCapable,
     ImagePressHost,
+    TextPressHost,
     CodeBlockPressHost {
     private val parser = Parser.shared
     private val renderer = Renderer()
@@ -477,6 +479,20 @@ class EnrichedMarkdownText
       imagePressEnabled = enabled
     }
 
+    override var textPressEnabled: Boolean = false
+      private set
+
+    override fun emitOnTextPress(
+      index: Int,
+      text: String,
+    ) {
+      emitTextPressEvent(index, text)
+    }
+
+    fun setEnableTextPress(enabled: Boolean) {
+      textPressEnabled = enabled
+    }
+
     override var codeBlockPressEnabled: Boolean = false
       private set
 
@@ -620,10 +636,7 @@ class EnrichedMarkdownText
         return true
       }
       val result = super.onTouchEvent(event)
-      when (event.action) {
-        MotionEvent.ACTION_DOWN -> cancelJSTouchForLinkTap(event)
-        else -> reallowParentInterceptIfLinkReleased()
-      }
+      if (event.action == MotionEvent.ACTION_DOWN) cancelJSTouchForLinkTap(event)
       return result
     }
 

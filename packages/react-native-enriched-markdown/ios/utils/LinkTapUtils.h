@@ -31,6 +31,15 @@ NSDictionary<NSString *, NSString *> *_Nullable imageAtTapLocation(ENRMPlatformT
 NSDictionary<NSString *, NSString *> *_Nullable codeBlockAtTapLocation(ENRMPlatformTextView *textView,
                                                                        ENRMTapRecognizer *recognizer);
 
+/// Returns the index of the plain-text character at a point (in textView
+/// coordinates) for onTextPress, or NSNotFound when the point is above or below
+/// the text or lands on an image. A point beside a line snaps to its nearest
+/// character, as on Android.
+NSUInteger textPressIndexAtPoint(ENRMPlatformTextView *textView, CGPoint point);
+
+/// textPressIndexAtPoint for the tap location.
+NSUInteger textPressIndexAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer);
+
 /// Returns YES if the point (in textView coordinates) is on a link or task list
 /// checkbox. When `includeImages` is YES, images also count as interactive
 /// (used to stop a parent press handler once `onImagePress` is enabled), and

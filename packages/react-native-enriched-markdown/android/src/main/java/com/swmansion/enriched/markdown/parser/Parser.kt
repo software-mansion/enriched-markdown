@@ -41,6 +41,8 @@ class Parser {
       isGFM: Boolean,
       textLinkRegex: LinkRegexConfig?,
       inlineCodeLinkRegex: LinkRegexConfig?,
+      activeBlockSlotIds: Array<String>?,
+      annotateImages: Boolean,
     ): MarkdownASTNode?
 
     /**
@@ -48,7 +50,27 @@ class Parser {
      * across all EnrichedMarkdownText instances to avoid unnecessary allocations.
      */
     val shared: Parser = Parser()
+
+    // Render, measure and a nested quote's static measure of one document.
+    private const val RECENT_PARSES = 3
   }
+
+  // The measurement pass and the render pass parse the same document with the
+  // same options, one after the other and often on different threads; the last
+  // few results are kept so a streaming tick parses once. Nothing mutates an AST
+  // after parsing, so sharing one is safe.
+  private data class ParseKey(
+    val markdown: String,
+    val flags: Md4cFlags,
+    val isGFM: Boolean,
+    val linkRegex: LinkRegexConfig?,
+    val inlineCodeLinkRegex: LinkRegexConfig?,
+    val activeBlockSlotIds: Set<String>,
+    val annotateImages: Boolean,
+  )
+
+  private val recentParses = ArrayDeque<Pair<ParseKey, MarkdownASTNode>>()
+  private val recentParsesLock = Any()
 
   fun parseMarkdown(
     markdown: String,
@@ -56,11 +78,39 @@ class Parser {
     isGFM: Boolean = true,
     linkRegex: LinkRegexConfig? = null,
     inlineCodeLinkRegex: LinkRegexConfig? = null,
+    // Block slots the host has React children for: their nodes get `blockSlotId`
+    // and `blockSlotKind` stamped (see core BlockSlots.hpp).
+    activeBlockSlotIds: Set<String> = emptySet(),
+    // Stamps `imageOccurrenceId` on every image for `imageSources` lookups.
+    annotateImages: Boolean = false,
   ): MarkdownASTNode? {
     if (markdown.isBlank()) {
       return null
     }
 
+    val key = ParseKey(markdown, flags, isGFM, linkRegex, inlineCodeLinkRegex, activeBlockSlotIds, annotateImages)
+    synchronized(recentParsesLock) {
+      recentParses.firstOrNull { it.first == key }?.let { return it.second }
+    }
+    val ast = parseUncached(markdown, flags, isGFM, linkRegex, inlineCodeLinkRegex, activeBlockSlotIds, annotateImages)
+    if (ast != null) {
+      synchronized(recentParsesLock) {
+        recentParses.addFirst(key to ast)
+        while (recentParses.size > RECENT_PARSES) recentParses.removeLast()
+      }
+    }
+    return ast
+  }
+
+  private fun parseUncached(
+    markdown: String,
+    flags: Md4cFlags,
+    isGFM: Boolean,
+    linkRegex: LinkRegexConfig?,
+    inlineCodeLinkRegex: LinkRegexConfig?,
+    activeBlockSlotIds: Set<String>,
+    annotateImages: Boolean,
+  ): MarkdownASTNode? {
     try {
       // Only active patterns cross JNI.
       val ast =
@@ -70,6 +120,8 @@ class Parser {
           isGFM,
           linkRegex?.takeIf { it.compiled != null },
           inlineCodeLinkRegex?.takeIf { it.compiledWholeSpan != null },
+          activeBlockSlotIds.takeIf { it.isNotEmpty() }?.toTypedArray(),
+          annotateImages,
         )
 
       if (ast != null) {
