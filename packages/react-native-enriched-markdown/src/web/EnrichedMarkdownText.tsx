@@ -211,6 +211,11 @@ export const EnrichedMarkdownText = ({
     () => ({
       display: 'flex',
       flexDirection: 'column',
+      // Break a word longer than the line (usually a URL) instead of letting
+      // it overflow, as native does. `anywhere`, unlike `break-word`, also
+      // lowers the min-content width, so the text still wraps in a `flex: 1`
+      // item or a content-sized bubble.
+      overflowWrap: 'anywhere',
       ...(containerStyle as CSSProperties),
       ...(selectable ? undefined : { userSelect: 'none' }),
       ...(selectionColor
