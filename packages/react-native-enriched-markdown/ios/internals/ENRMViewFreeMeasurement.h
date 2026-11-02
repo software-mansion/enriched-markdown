@@ -95,6 +95,7 @@ template <typename Md4cFlagsT> static inline ENRMMd4cFlags *ENRMMd4cFlagsFromPro
   flags.underline = props.underline;
   flags.superscript = props.superscript;
   flags.subscript = props.subscript;
+  flags.strikethrough = props.strikethrough;
   flags.latexMath = props.latexMath;
   flags.highlight = props.highlight;
   flags.hardSoftBreaks = props.hardSoftBreaks;

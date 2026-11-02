@@ -19,6 +19,7 @@ Markdown::Md4cFlags toCoreFlags(const EnrichedMarkdownParserMd4cFlags &flags) {
 #endif
   core.superscript = flags.superscript;
   core.subscript = flags.subscript;
+  core.strikethrough = flags.strikethrough;
   core.highlight = flags.highlight;
   core.hardSoftBreaks = flags.hardSoftBreaks;
   core.preserveBlankLines = flags.preserveBlankLines;
@@ -51,6 +52,9 @@ EnrichedMarkdownParser::collect(jsi::Runtime &, std::string markdown, EnrichedMa
   for (const auto &image : document->blocks.images) {
     result.images.push_back(
         {image.id, image.url, image.altText, image.title, Markdown::imagePlacementName(image.placement)});
+  }
+  for (const auto &link : document->blocks.links) {
+    result.links.push_back({link.url, link.label, link.title});
   }
   return result;
 }

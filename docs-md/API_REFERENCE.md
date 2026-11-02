@@ -141,6 +141,18 @@ Setting this callback makes images interactive on the native side; leaving it un
 />
 ```
 
+### `onTextPress`
+
+Callback when plain text is tapped, anywhere a link, image, checkbox or other interactive element doesn't take the tap. Receives `index`, the UTF-16 index of the tapped character, and `text`, the rendered text of the tapped block. `index` points into `text`, which is the rendered text rather than the Markdown source, so map it back yourself if you need a source position (for example, to place a caret when switching to an editor).
+
+A tap in the empty space beside a line reports that line's nearest character. Taps that only clear a selection, and taps inside table cells, don't fire it.
+
+Setting this callback makes plain text interactive on the native side; leaving it unset keeps the existing tap and text-selection behavior unchanged.
+
+| Type                                  | Default Value | Platform |
+| ------------------------------------- | ------------- | -------- |
+| `(event: TextPressEvent) => void`     | -             | Both     |
+
 ### `onTaskListItemPress`
 
 Callback when a task list checkbox is tapped. Receives `index` (0-based), `checked` (new state after toggling), and `text` (item text).
@@ -321,13 +333,14 @@ Configuration for md4c parser extension flags.
 
 | Type          | Default Value            | Platform |
 | ------------- | ------------------------ | -------- |
-| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }` | Both |
+| `Md4cFlags`   | `{ underline: false, superscript: false, subscript: false, strikethrough: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }` | Both |
 
 **Properties:**
 
 - **`underline`**: When `true`, treats `_text_` as underline instead of emphasis. When enabled, only `*text*` works for italic emphasis.
 - **`superscript`**: When `true`, parses `^text^` as superscript. Visual appearance can be tuned with the `superscript` style prop — see [Superscript-specific](./STYLES.md#superscript-specific).
-- **`subscript`**: When `true`, parses `~text~` as subscript. When disabled, single and double tildes remain strikethrough markers. Visual appearance can be tuned with the `subscript` style prop — see [Subscript-specific](./STYLES.md#subscript-specific).
+- **`subscript`**: When `true`, parses `~text~` as subscript. When disabled, single and double tildes are strikethrough markers under `flavor="github"` or with `strikethrough` enabled, and plain text otherwise. Visual appearance can be tuned with the `subscript` style prop — see [Subscript-specific](./STYLES.md#subscript-specific).
+- **`strikethrough`**: When `true`, enables `~~text~~` and single-tilde `~text~` strikethrough under `flavor="commonmark"`, without enabling tables or task lists or changing the rendering flavor. With `subscript` also on, `~text~` is subscript and only `~~text~~` strikes. `flavor="github"` always enables strikethrough, so the flag has no effect there. Web always parses GFM and ignores it.
 - **`highlight`**: When `true`, parses `==text==` as highlighted spans. When disabled, double equals signs are treated as plain text. Visual appearance can be tuned with the `highlight` style prop — see [Highlight-specific](./STYLES.md#highlight-specific).
 - **`latexMath`**: When `true`, parses `$...$` and `$$...$$` as LaTeX math spans.
 - **`hardSoftBreaks`**: When `true`, treats single newlines (soft breaks) as hard breaks, rendering them as visible line breaks instead of collapsing them to spaces. Useful when displaying content authored in `EnrichedMarkdownTextInput`, where pressing Enter produces a single newline. See [Line Breaks](./ELEMENTS_STRUCTURE.md#line-breaks) for details.
@@ -750,7 +763,7 @@ interface AccessibilityLabels {
     row?: string;                  // "Row {n}: {content}"
   };
   math?: {
-    equation?: string;             // "Math: {latex}"
+    equation?: string;             // "Math: {speech}"
   };
   codeBlock?: {                    // enableCodeBlockWrapToggle
     wrap?: string;                 // "Wrap lines"
@@ -764,7 +777,7 @@ interface AccessibilityLabels {
 }
 ```
 
-Placeholders (`{n}`, `{content}`, `{latex}`) are substituted on the native side at speak time and must be preserved in translations.
+Placeholders (`{n}`, `{content}`, `{speech}`, `{latex}`) are substituted on the native side at speak time and must be preserved in translations; `{speech}` reads the formula in English.
 
 **Example:**
 
@@ -774,7 +787,7 @@ Placeholders (`{n}`, `{content}`, `{latex}`) are substituted on the native side 
   accessibilityLabels={{
     list: { bulletPoint: 'Punkt', orderedItem: 'Element {n}' },
     blockquote: { quote: 'Zitat' },
-    math: { equation: 'Formel: {latex}' },
+    math: { equation: 'Formel: {speech}' },
   }}
 />
 ```

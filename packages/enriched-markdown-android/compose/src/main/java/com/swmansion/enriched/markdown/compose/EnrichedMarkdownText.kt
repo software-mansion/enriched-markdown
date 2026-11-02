@@ -2,7 +2,6 @@ package com.swmansion.enriched.markdown.compose
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -13,9 +12,6 @@ import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.viewinterop.AndroidView
 import com.swmansion.enriched.markdown.compose.style.StyleResolveContext
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
-import com.swmansion.enriched.markdown.styles.StyleConfig
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.swmansion.enriched.markdown.CodeBlockCopy as CodeBlockCopyInternal
 import com.swmansion.enriched.markdown.CodeBlockLayout as CodeBlockLayoutInternal
 import com.swmansion.enriched.markdown.EnrichedMarkdown as NativeMarkdownView
@@ -90,19 +86,10 @@ fun EnrichedMarkdownText(
   val configuration = LocalConfiguration.current
   val density = LocalDensity.current
   val fontFamilyResolver = LocalFontFamilyResolver.current
-  val defaultStyle = remember(context) { StyleConfig.default(context) }
-  val styleConfig by produceState(defaultStyle, style, configuration, density, fontFamilyResolver) {
-    val resolveContext =
-      StyleResolveContext(
-        context = context,
-        density = density,
-        fontFamilyResolver = fontFamilyResolver,
-      )
-    value =
-      withContext(Dispatchers.Default) {
-        style.resolve(resolveContext)
-      }
-  }
+  val styleConfig =
+    remember(style, configuration, context, density, fontFamilyResolver) {
+      style.resolve(StyleResolveContext(context, density, fontFamilyResolver))
+    }
 
   val onLinkClickState by rememberUpdatedState(onLinkClick)
   val onLinkLongClickState by rememberUpdatedState(onLinkLongClick)

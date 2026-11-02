@@ -87,7 +87,7 @@ struct Ancestors {
   bool inList = false;
 };
 
-// Walks the tree once, collecting slots and image occurrences.
+// Walks the tree once, collecting slots and image and link occurrences.
 struct Visitor {
   IdCounter slotIds;
   IdCounter imageIds;
@@ -143,6 +143,7 @@ struct Visitor {
     Ancestors childAncestors = ancestors;
     switch (node.type) {
       case NodeType::Link:
+        collected.links.push_back({attribute(node, kUrlAttribute), altText(node), attribute(node, kTitleAttribute)});
         childAncestors.inLink = true;
         break;
       case NodeType::Table:

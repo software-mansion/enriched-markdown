@@ -1,0 +1,5 @@
+# The links the core collects from document.md: url, label and title, tab-separated.
+# Asserted by block_slots_test.cpp and the web collector's Jest test.
+https://e.com/doc.pdf	See code here	application/pdf
+https://e.com/auto	https://e.com/auto	
+https://e.com/full.png	thumb	

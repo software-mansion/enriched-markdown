@@ -9,8 +9,8 @@ project(enriched_markdown_core_tests CXX)
 #
 # or simply `yarn core:test` from the repo root.
 #
-# Layout: one subdirectory per area of the core (repair/, later parser/,
-# highlight/ ...), each compiled into its own test executable by
+# Layout: one subdirectory per area of the core (repair/, latex/, later
+# parser/, highlight/ ...), each compiled into its own test executable by
 # add_core_test() below, all sharing TestMain.cpp.
 
 set(CMAKE_CXX_STANDARD 17)
@@ -68,6 +68,12 @@ add_library(enriched_markdown_repair STATIC ${REPAIR_SOURCES})
 target_include_directories(enriched_markdown_repair PUBLIC "${CPP_ROOT}/repair")
 target_compile_options(enriched_markdown_repair PRIVATE -Wall -Wextra -Wpedantic)
 
+file(GLOB LATEX_SOURCES CONFIGURE_DEPENDS "${CPP_ROOT}/latex/*.cpp")
+add_library(enriched_markdown_latex STATIC ${LATEX_SOURCES})
+target_include_directories(enriched_markdown_latex PUBLIC "${CPP_ROOT}/latex")
+target_compile_options(enriched_markdown_latex PRIVATE -Wall -Wextra -Wpedantic)
+
 # --- Test areas --------------------------------------------------------------
 
 add_core_test(repair enriched_markdown_repair)
+add_core_test(latex enriched_markdown_latex)

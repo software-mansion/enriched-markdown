@@ -12,22 +12,29 @@ import type {
   MarkdownBlockPlacement,
   MarkdownImageOccurrence,
   MarkdownImagePlacement,
+  MarkdownLinkOccurrence,
   MarkdownRenderers,
 } from '../types/MarkdownTextProps';
 
 export interface CollectedMarkdown {
   blocks: ReadonlyArray<MarkdownBlock>;
   images: ReadonlyArray<MarkdownImageOccurrence>;
+  links: ReadonlyArray<MarkdownLinkOccurrence>;
 }
 
-const EMPTY: CollectedMarkdown = { blocks: [], images: [] };
+export const NOT_COLLECTED: CollectedMarkdown = {
+  blocks: [],
+  images: [],
+  links: [],
+};
 
 let warnedAboutModule = false;
 let warnedAboutFlavor = false;
 
 /**
- * The blocks `renderers` may replace and the image occurrences
- * `resolveImageSource` is asked about, in document order, from one parse by
+ * The blocks `renderers` may replace, the image occurrences
+ * `resolveImageSource` is asked about and the links `onLinksChange` reports,
+ * in document order, from one parse by
  * the C++ core. While streaming, the core applies the host's streaming filter
  * first, so nothing is collected for a block the host is not rendering yet.
  * Empty when disabled, when the module is unavailable (old architecture, web,
@@ -41,24 +48,24 @@ export function useCollectedMarkdown(
   streaming: NativeStreamingOptions
 ): CollectedMarkdown {
   return useMemo(() => {
-    if (!enabled) return EMPTY;
+    if (!enabled) return NOT_COLLECTED;
     if (!isGFM) {
       if (__DEV__ && !warnedAboutFlavor) {
         warnedAboutFlavor = true;
         console.warn(
-          '[EnrichedMarkdownText] `renderers` and `resolveImageSource` only apply to flavor="github"; the CommonMark renderer keeps native images and videos.'
+          '[EnrichedMarkdownText] `renderers`, `resolveImageSource` and `onLinksChange` only apply to flavor="github"; the CommonMark renderer keeps native images and videos.'
         );
       }
-      return EMPTY;
+      return NOT_COLLECTED;
     }
     if (NativeEnrichedMarkdownParser == null) {
       if (__DEV__ && !warnedAboutModule) {
         warnedAboutModule = true;
         console.warn(
-          '[EnrichedMarkdownText] `renderers` and `resolveImageSource` need the EnrichedMarkdownParser TurboModule, which is not registered; rebuild the native app. Images, videos and links render natively meanwhile.'
+          '[EnrichedMarkdownText] `renderers`, `resolveImageSource` and `onLinksChange` need the EnrichedMarkdownParser TurboModule, which is not registered; rebuild the native app. Images, videos and links render natively meanwhile.'
         );
       }
-      return EMPTY;
+      return NOT_COLLECTED;
     }
     const collected = NativeEnrichedMarkdownParser.collect(
       markdown,
@@ -100,6 +107,7 @@ export function useCollectedMarkdown(
         title: image.title,
         placement: image.placement as MarkdownImagePlacement,
       })),
+      links: collected.links,
     };
   }, [markdown, flags, isGFM, enabled, streaming]);
 }

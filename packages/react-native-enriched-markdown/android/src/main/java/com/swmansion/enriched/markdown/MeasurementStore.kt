@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown
 
 import android.content.Context
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
 import android.text.Spannable
@@ -31,6 +32,7 @@ import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
@@ -110,7 +112,9 @@ object MeasurementStore {
     )
   }
 
-  private val measurePaint = TextPaint()
+  // TextView paints with ANTI_ALIAS_FLAG. On older Android a bare TextPaint lacks it, and the
+  // glyph hinting that differs between the two moves text widths by a few pixels.
+  private val measurePaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
   private val measureRenderer = Renderer()
 
   // Measures a slot child through the GFM shadow node's current measure session
@@ -329,6 +333,21 @@ object MeasurementStore {
     return cached.cachedSize
   }
 
+  private fun md4cFlagsFromProps(props: ReadableMap?): Md4cFlags {
+    val flags = props.getMapOrNull("md4cFlags")
+    return Md4cFlags(
+      underline = flags.getBooleanOrDefault("underline", false),
+      latexMath = FeatureFlags.IS_MATH_ENABLED && flags.getBooleanOrDefault("latexMath", true),
+      superscript = flags.getBooleanOrDefault("superscript", false),
+      subscript = flags.getBooleanOrDefault("subscript", false),
+      strikethrough = flags.getBooleanOrDefault("strikethrough", false),
+      highlight = flags.getBooleanOrDefault("highlight", false),
+      hardSoftBreaks = flags.getBooleanOrDefault("hardSoftBreaks", false),
+      preserveBlankLines = flags.getBooleanOrDefault("preserveBlankLines", false),
+      admonitions = flags.getBooleanOrDefault("admonitions", true),
+    )
+  }
+
   private fun computePropsHash(
     props: ReadableMap?,
     allowFontScaling: Boolean,
@@ -406,17 +425,7 @@ object MeasurementStore {
     // 1. Extract Props & Setup
     val markdown = props.getStringOrDefault("markdown", "")
     val styleMap = props.getMapOrNull("markdownStyle")
-    val md4cFlags =
-      Md4cFlags(
-        underline = props.getMapOrNull("md4cFlags").getBooleanOrDefault("underline", false),
-        latexMath = FeatureFlags.IS_MATH_ENABLED && props.getMapOrNull("md4cFlags").getBooleanOrDefault("latexMath", true),
-        superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
-        subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
-        highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
-        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
-        preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
-        admonitions = props.getMapOrNull("md4cFlags").getBooleanOrDefault("admonitions", true),
-      )
+    val md4cFlags = md4cFlagsFromProps(props)
     val isGFM = props.getBooleanOrDefault("isGFM", false)
 
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -541,17 +550,7 @@ object MeasurementStore {
       props.getMapOrNull("markdownStyle")
         ?: return YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(width), 0f)
 
-    val md4cFlags =
-      Md4cFlags(
-        underline = props.getMapOrNull("md4cFlags").getBooleanOrDefault("underline", false),
-        latexMath = FeatureFlags.IS_MATH_ENABLED && props.getMapOrNull("md4cFlags").getBooleanOrDefault("latexMath", true),
-        superscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("superscript", false),
-        subscript = props.getMapOrNull("md4cFlags").getBooleanOrDefault("subscript", false),
-        highlight = props.getMapOrNull("md4cFlags").getBooleanOrDefault("highlight", false),
-        hardSoftBreaks = props.getMapOrNull("md4cFlags").getBooleanOrDefault("hardSoftBreaks", false),
-        preserveBlankLines = props.getMapOrNull("md4cFlags").getBooleanOrDefault("preserveBlankLines", false),
-        admonitions = props.getMapOrNull("md4cFlags").getBooleanOrDefault("admonitions", true),
-      )
+    val md4cFlags = md4cFlagsFromProps(props)
     val isGFM = props.getBooleanOrDefault("isGFM", true)
     val allowTrailingMargin = props.getBooleanOrDefault("allowTrailingMargin", false)
     val fontSize = getInitialFontSize(styleMap, context, allowFontScaling, fontScale, maxFontSizeMultiplier)
@@ -718,6 +717,7 @@ object MeasurementStore {
     viewId: Int?,
   ): Long {
     measurePaint.reset()
+    measurePaint.isAntiAlias = true
     measurePaint.typeface = paintParams.typeface
     measurePaint.textSize = paintParams.fontSize
     return measure(maxWidth, text, measurePaint, viewId)
@@ -733,9 +733,28 @@ object MeasurementStore {
     val safeWidth = ceil(maxWidth).toInt().coerceAtLeast(1)
     prepareWidthAwareSpans(content, safeWidth)
 
+    val layout = buildMeasureLayout(content, paint, safeWidth, viewId)
+    val visibleLineCount = visibleLineCount(layout, viewId)
+    val measuredHeight = truncatedHeight(layout, visibleLineCount, content)
+
+    // Calculate actual content width (widest visible line)
+    val measuredWidth = (0 until visibleLineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
+
+    return YogaMeasureOutput.make(
+      PixelUtil.toDIPFromPixel(ceil(measuredWidth)),
+      PixelUtil.toDIPFromPixel(measuredHeight),
+    )
+  }
+
+  private fun buildMeasureLayout(
+    content: CharSequence,
+    paint: TextPaint,
+    widthPx: Int,
+    viewId: Int?,
+  ): StaticLayout {
     val builder =
       StaticLayout.Builder
-        .obtain(content, 0, content.length, paint, safeWidth)
+        .obtain(content, 0, content.length, paint, widthPx)
         .setIncludePad(false)
         .setLineSpacing(0f, 1f)
 
@@ -748,19 +767,9 @@ object MeasurementStore {
       builder.setUseLineSpacingFromFallbacks(true)
     }
 
+    BoundsForWidthUtils.applyTo(builder)
     applyLineLimit(builder, viewId)
-
-    val layout = builder.build()
-    val visibleLineCount = visibleLineCount(layout, viewId)
-    val measuredHeight = truncatedHeight(layout, visibleLineCount, content)
-
-    // Calculate actual content width (widest visible line)
-    val measuredWidth = (0 until visibleLineCount).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
-
-    return YogaMeasureOutput.make(
-      PixelUtil.toDIPFromPixel(ceil(measuredWidth)),
-      PixelUtil.toDIPFromPixel(measuredHeight),
-    )
+    return builder.build()
   }
 
   // Applies the per-view numberOfLines / ellipsizeMode clamp to a builder, matching
@@ -839,21 +848,7 @@ object MeasurementStore {
     val widthPx = ceil(maxWidth).toInt().coerceAtLeast(1)
     prepareWidthAwareSpans(content, widthPx)
 
-    val layout =
-      StaticLayout.Builder
-        .obtain(content, 0, content.length, paint, widthPx)
-        .setIncludePad(false)
-        .setLineSpacing(0f, 1f)
-        .apply {
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            @Suppress("WrongConstant")
-            setBreakStrategy(resolveBreakStrategy(viewId))
-          }
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            setUseLineSpacingFromFallbacks(true)
-          }
-          applyLineLimit(this, viewId)
-        }.build()
+    val layout = buildMeasureLayout(content, paint, widthPx, viewId)
 
     val visibleLineCount = visibleLineCount(layout, viewId)
 

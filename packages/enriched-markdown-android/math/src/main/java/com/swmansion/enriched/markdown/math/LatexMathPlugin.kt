@@ -20,20 +20,32 @@ import com.swmansion.enriched.markdown.plugin.PluginRegistry
  *
  * Enabling it is also what makes the parser recognise math.
  */
-object LatexMathPlugin : MarkdownPlugin {
-  const val ID = "com.swmansion.enriched.markdown.math"
+open class LatexMathPlugin(
+  private val accessibilityLabel: MathAccessibilityLabel,
+) : MarkdownPlugin {
+  constructor(
+    accessibilityLabel: String = MathAccessibilityLabel.DEFAULT_TEMPLATE,
+  ) : this(MathAccessibilityLabel.template(accessibilityLabel))
 
-  override val id: String = ID
+  final override val id: String = ID
 
-  override fun install(registry: PluginRegistry) {
-    registry.registerNodeRenderer(NodeType.LatexMathInline) { config, context -> MathInlineRenderer(config, context) }
+  final override fun install(registry: PluginRegistry) {
+    registry.registerNodeRenderer(NodeType.LatexMathInline) { config, context -> MathInlineRenderer(config, context, accessibilityLabel) }
     // Display math standing on its own line is promoted to a top-level node by the parser and
     // claimed below as a segment of its own. What still reaches a node renderer is genuinely
     // mid-line display math (`a $$x$$ b`), which belongs in the text flow like inline math.
-    registry.registerNodeRenderer(NodeType.LatexMathDisplay) { config, context -> MathInlineRenderer(config, context) }
+    registry.registerNodeRenderer(NodeType.LatexMathDisplay) { config, context -> MathInlineRenderer(config, context, accessibilityLabel) }
 
-    registry.registerBlockSegment(NodeType.LatexMathDisplay, MathBlockSegment())
+    registry.registerBlockSegment(NodeType.LatexMathDisplay, MathBlockSegment(accessibilityLabel))
   }
 
-  override fun adjustParserFlags(flags: Md4cFlags): Md4cFlags = flags.copy(latexMath = true)
+  final override fun adjustParserFlags(flags: Md4cFlags): Md4cFlags = flags.copy(latexMath = true)
+
+  final override fun equals(other: Any?): Boolean = other is LatexMathPlugin && other.accessibilityLabel == accessibilityLabel
+
+  final override fun hashCode(): Int = accessibilityLabel.hashCode()
+
+  companion object Default : LatexMathPlugin() {
+    const val ID = "com.swmansion.enriched.markdown.math"
+  }
 }

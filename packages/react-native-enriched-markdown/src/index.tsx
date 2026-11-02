@@ -24,11 +24,13 @@ export type {
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './native/EnrichedMarkdownText';
 export type {
   LinkPressEvent,
   LinkLongPressEvent,
   ImagePressEvent,
+  TextPressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
   LatexErrorEvent,

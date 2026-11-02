@@ -5,7 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.text.style.ReplacementSpan
+import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
+import com.swmansion.enriched.markdown.accessibility.SpokenSpan
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
+import com.swmansion.enriched.markdown.math.mathLabel
 import io.ratex.RaTeXEngine
 import io.ratex.RaTeXFontLoader
 import io.ratex.RaTeXRenderer
@@ -17,7 +20,8 @@ class MathInlineSpan(
   internal val fontSize: Float,
   private val textColor: Int,
   private val onLatexError: LatexErrorReporter? = null,
-) : ReplacementSpan() {
+) : ReplacementSpan(),
+  SpokenSpan {
   private var cachedBitmap: Bitmap? = null
   private var cachedWidth = 0
   private var mathAscent = 0f
@@ -25,6 +29,8 @@ class MathInlineSpan(
   private var renderFailed = false
 
   private var fallbackText: String? = null
+
+  override fun accessibilityLabel(labels: AccessibilityLabels): String = labels.mathLabel(latex)
 
   private fun prepareResources() {
     if (cachedBitmap != null && !cachedBitmap!!.isRecycled) return

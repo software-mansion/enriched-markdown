@@ -18,6 +18,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy) NSString *rotorLinks;
 @property (nonatomic, copy) NSString *rotorImages;
 
+/// `mathEquation` with `{speech}` replaced by the English reading of the formula and `{latex}` by its source.
+- (nullable NSString *)mathLabelForLatex:(NSString *)latex;
+
 @end
 
 NS_ASSUME_NONNULL_END

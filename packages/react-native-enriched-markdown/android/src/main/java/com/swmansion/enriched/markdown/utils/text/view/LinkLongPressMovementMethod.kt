@@ -2,6 +2,7 @@ package com.swmansion.enriched.markdown.utils.text.view
 
 import android.os.Handler
 import android.os.Looper
+import android.text.Layout
 import android.text.Spannable
 import android.text.method.ArrowKeyMovementMethod
 import android.view.MotionEvent
@@ -9,6 +10,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewParent
 import android.widget.TextView
+import com.swmansion.enriched.markdown.segments.TableContainerView
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkSpan
@@ -34,6 +36,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
   private var pressedLink: LinkSpan? = null
   private var pressedImage: ImageSpan? = null
   private var pressedCodeBlock: CodeBlockSpan? = null
+  private var pressedTextOffset: Int? = null
 
   var isLinkTouchActive: Boolean = false
     private set
@@ -69,8 +72,20 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           } else {
             null
           }
-        isLinkTouchActive = pressedLink != null || pressedImage != null || pressedCodeBlock != null
-        isTouchWithinTextBounds = charOffsetAt(widget, event) != null || pressedCodeBlock != null
+        pressedTextOffset =
+          if (pressedLink == null &&
+            pressedImage == null &&
+            pressedCodeBlock == null &&
+            // Like code block presses, a tap that only clears a selection doesn't count.
+            !widget.hasSelection() &&
+            textPressHost(widget)?.textPressEnabled == true
+          ) {
+            nearestCharOffset(widget, event)?.takeUnless { isOnInteractiveSpan(buffer, it) }
+          } else {
+            null
+          }
+        isLinkTouchActive = pressedLink != null || pressedImage != null || pressedCodeBlock != null || pressedTextOffset != null
+        isTouchWithinTextBounds = charOffsetAt(widget, event) != null || pressedCodeBlock != null || pressedTextOffset != null
         pressedLink?.let { scheduleLongPress(widget, it) }
         // Keeps RNGH Pressable and scrolling parents from stealing the press before ACTION_UP.
         disallowsParentIntercept = isLinkTouchActive
@@ -87,6 +102,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           pressedLink = null
           pressedImage = null
           pressedCodeBlock = null
+          pressedTextOffset = null
           releaseParentIntercept(widget)
         }
       }
@@ -96,10 +112,12 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         val tappedLink = pressedLink
         val tappedImage = pressedImage
         val tappedCodeBlock = pressedCodeBlock
+        val tappedTextOffset = pressedTextOffset
         isLinkTouchActive = false
         pressedLink = null
         pressedImage = null
         pressedCodeBlock = null
+        pressedTextOffset = null
         releaseParentIntercept(widget)
 
         if (handleSpoilerTap(widget, buffer, event)) {
@@ -123,6 +141,11 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
           codeBlockPressHost(widget)?.emitOnCodeBlockPress(tappedCodeBlock.code, tappedCodeBlock.language)
           return true
         }
+
+        if (tappedTextOffset != null && nearestCharOffset(widget, event) != null) {
+          textPressHost(widget)?.emitOnTextPress(tappedTextOffset, buffer.toString())
+          return true
+        }
       }
 
       MotionEvent.ACTION_CANCEL -> {
@@ -131,6 +154,7 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
         pressedLink = null
         pressedImage = null
         pressedCodeBlock = null
+        pressedTextOffset = null
         releaseParentIntercept(widget)
       }
     }
@@ -208,6 +232,47 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     return layout.getOffsetForHorizontal(line, x)
   }
 
+  /**
+   * The index of the character under the tap, like iOS's characterIndexForPoint. Unlike
+   * [charOffsetAt], a tap in the empty space beside a line snaps to its nearest character.
+   * Only taps on plain text use it; links and images keep the stricter check.
+   */
+  private fun nearestCharOffset(
+    widget: TextView,
+    event: MotionEvent,
+  ): Int? {
+    val x = event.x - widget.totalPaddingLeft + widget.scrollX
+    val y = event.y - widget.totalPaddingTop + widget.scrollY
+    val layout = widget.layout ?: return null
+    if (y < 0f || y > layout.height) {
+      return null
+    }
+    val line = layout.getLineForVertical(y.toInt())
+    val lineStart = layout.getLineStart(line)
+    // A line's trailing newline isn't drawn, so taps past the line end go to the character before it.
+    var lineLast = layout.getLineEnd(line) - 1
+    if (lineLast > lineStart && layout.text[lineLast] == '\n') lineLast--
+    if (lineLast < lineStart) return null
+
+    // getOffsetForHorizontal returns the nearest cursor position, which lands after the
+    // tapped character when the tap is on its trailing half, so step back onto it.
+    val cursor = layout.getOffsetForHorizontal(line, x)
+    val cursorX = layout.getPrimaryHorizontal(cursor)
+    val isRtl = layout.getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT
+    val isBeforeCursor = if (isRtl) x > cursorX else x < cursorX
+    val offset = if (cursor > lineStart && isBeforeCursor) cursor - 1 else cursor
+    return offset.coerceIn(lineStart, lineLast)
+  }
+
+  /** A tap that snaps onto a link or image belongs to that element, not to the plain text around it. */
+  private fun isOnInteractiveSpan(
+    buffer: Spannable,
+    offset: Int,
+  ): Boolean =
+    // A one-character range, since an empty one also matches a span that ends at offset.
+    buffer.getSpans(offset, offset + 1, LinkSpan::class.java).isNotEmpty() ||
+      buffer.getSpans(offset, offset + 1, ImageSpan::class.java).isNotEmpty()
+
   private fun findLinkSpan(
     widget: TextView,
     buffer: Spannable,
@@ -249,6 +314,17 @@ class LinkLongPressMovementMethod : ArrowKeyMovementMethod() {
     val lineStart = layout.getLineStart(line)
     val lineEnd = layout.getLineEnd(line)
     return buffer.getSpans(lineStart, lineEnd, CodeBlockSpan::class.java).firstOrNull()
+  }
+
+  private fun textPressHost(widget: View): TextPressHost? {
+    if (widget is TextPressHost) return widget
+    var parent: ViewParent? = widget.parent
+    while (parent != null && parent !is TextPressHost) {
+      // Table cells don't report text taps, matching iOS, where tables draw their cells in a grid view.
+      if (parent is TableContainerView) return null
+      parent = parent.parent
+    }
+    return parent as? TextPressHost
   }
 
   private fun codeBlockPressHost(widget: View): CodeBlockPressHost? {

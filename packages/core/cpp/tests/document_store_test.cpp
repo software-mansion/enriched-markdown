@@ -51,6 +51,62 @@ int main() {
         "the flags are part of the key");
   check(store.parse("", flags, true)->ast == nullptr, "an empty document has no tree");
 
+  // Strikethrough is an additive opt-in; the option also separates cached trees.
+  for (bool gfm : {false, true}) {
+    auto defaults = store.parse("~~struck~~", {}, gfm);
+    for (bool enabled : {false, true, false}) {
+      Markdown::Md4cFlags strikeFlags;
+      strikeFlags.strikethrough = enabled;
+      auto document = store.parse("~~struck~~", strikeFlags, gfm);
+      auto span = document->ast->children.at(0)->children.at(0);
+      bool strikes = gfm || enabled;
+      check(span->type == (strikes ? Markdown::NodeType::Strikethrough : Markdown::NodeType::Text),
+            "strikethrough follows flavor or explicit opt-in");
+      check((strikes ? span->children.at(0)->content : span->content) == (strikes ? "struck" : "~~struck~~"),
+            "only enabled strikethrough removes delimiters");
+      check((document == defaults) == !enabled, "strikethrough cache separation and reuse");
+    }
+  }
+
+  Markdown::Md4cFlags strikeFlags;
+  strikeFlags.strikethrough = true;
+  // Compare the complete inline tree with the existing GFM delimiter behavior.
+  for (bool subscript : {false, true}) {
+    strikeFlags.subscript = subscript;
+    for (const std::string &markdown : {"~~*nested*~~", "~~one~~ and ~~two~~", "\\~\\~escaped~~", "`~~code~~`",
+                                        "~~unmatched", "", "~sub~ ~~struck~~"}) {
+      auto common = store.parse(markdown, strikeFlags, false)->ast;
+      auto github = store.parse(markdown, strikeFlags, true)->ast;
+      std::vector<std::pair<decltype(common), decltype(github)>> pending{{common, github}};
+      while (!pending.empty()) {
+        auto nodes = pending.back();
+        pending.pop_back();
+        if (!nodes.first || !nodes.second) {
+          check(nodes.first == nodes.second, "empty trees match");
+          continue;
+        }
+        check(nodes.first->type == nodes.second->type && nodes.first->content == nodes.second->content &&
+                  nodes.first->attributes == nodes.second->attributes &&
+                  nodes.first->children.size() == nodes.second->children.size(),
+              "enabled CommonMark matches GFM inline parsing: " + markdown);
+        for (size_t i = 0; i < nodes.first->children.size() && i < nodes.second->children.size(); i++)
+          pending.emplace_back(nodes.first->children[i], nodes.second->children[i]);
+      }
+    }
+  }
+  // Single tildes strike as well, unless subscript claims them.
+  for (bool subscript : {false, true}) {
+    strikeFlags.subscript = subscript;
+    auto paragraph = store.parse("the ~draft~ version", strikeFlags, false)->ast->children.at(0);
+    check(paragraph->children.at(1)->type ==
+              (subscript ? Markdown::NodeType::Subscript : Markdown::NodeType::Strikethrough),
+          "a single tilde follows the subscript flag");
+  }
+  auto table = store.parse("| A | B |\n|---|---|\n| a | b |", strikeFlags, false)->ast;
+  check(table->children.at(0)->type == Markdown::NodeType::Paragraph, "strikethrough does not enable tables");
+  auto task = store.parse("- [x] task", strikeFlags, false)->ast->children.at(0)->children.at(0);
+  check(task->children.at(0)->children.at(0)->content == "[x] task", "strikethrough does not enable task lists");
+
   // Old entries go, the one in use stays alive.
   for (int i = 0; i < 40; i++)
     store.parse("doc " + std::to_string(i), flags, true);

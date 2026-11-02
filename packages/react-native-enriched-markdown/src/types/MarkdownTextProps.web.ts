@@ -2,6 +2,7 @@ import type { LinkRecognition } from './linkRecognition';
 import type {
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
   MarkdownRenderers,
 } from './markdownBlocks';
 import type { CSSProperties, HTMLAttributes } from 'react';
@@ -166,4 +167,11 @@ export interface EnrichedMarkdownTextProps extends Omit<
     | MarkdownImageSource
     | undefined
     | Promise<MarkdownImageSource | undefined>;
+  /**
+   * Called with the document's links whenever they change, and once with the
+   * first ones: every inline link, autolink and bare URL in document order.
+   * Links that `linkRecognition` adds are not reported.
+   * @platform ios, android, web
+   */
+  onLinksChange?: (links: MarkdownLinkOccurrence[]) => void;
 }

@@ -408,7 +408,7 @@ fun MathScreen() {
 
 Scopes nest independently of [`MarkdownTheme`](/android/api-reference/markdown-theme). A plugin enabled in an inner scope replaces one with the same id from an outer scope, and where several plugins claim the same node the innermost wins. Passing `plugins` directly overrides the scopes for that one view - `plugins = emptyList()` turns them all off.
 
-Enabling `LatexMathPlugin` is all math needs: it turns on parsing `$...$` and `$$...$$` for the views it reaches, so there is no option to set alongside it. See [LaTeX math](/android/guides/latex-math). Code highlighting needs no option either - fenced code is always parsed with its language. See [Code highlighting](/android/guides/code-highlighting).
+Enabling `LatexMathPlugin` is all math needs: it turns on parsing `$...$` and `$$...$$` for the views it reaches, so there is no option to set alongside it. `LatexMathPlugin(accessibilityLabel = …)` is the same plugin with a different TalkBack label for formulas - see [Accessibility](/android/guides/latex-math#accessibility). See [LaTeX math](/android/guides/latex-math). Code highlighting needs no option either - fenced code is always parsed with its language. See [Code highlighting](/android/guides/code-highlighting).
 
 ## Callbacks
 

@@ -39,6 +39,7 @@ import com.swmansion.enriched.markdown.utils.text.view.CodeBlockPressHost
 import com.swmansion.enriched.markdown.utils.text.view.ImagePressHost
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
+import com.swmansion.enriched.markdown.utils.text.view.TextPressHost
 import com.swmansion.enriched.markdown.utils.text.view.applySelectableState
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
 import com.swmansion.enriched.markdown.utils.text.view.cancelJSTouchForCheckboxTap
@@ -47,6 +48,7 @@ import com.swmansion.enriched.markdown.utils.text.view.createSelectionActionMode
 import com.swmansion.enriched.markdown.utils.text.view.emitImagePressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkLongPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.emitLinkPressEvent
+import com.swmansion.enriched.markdown.utils.text.view.emitTextPressEvent
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import java.util.concurrent.Executors
 import kotlin.math.ceil
@@ -65,6 +67,7 @@ class EnrichedMarkdownText
   ) : AccessibleMarkdownTextView(context, attrs, defStyleAttr),
     SpoilerCapable,
     ImagePressHost,
+    TextPressHost,
     CodeBlockPressHost {
     private val parser = Parser.shared
     private val renderer = Renderer()
@@ -474,6 +477,20 @@ class EnrichedMarkdownText
 
     fun setEnableImagePress(enabled: Boolean) {
       imagePressEnabled = enabled
+    }
+
+    override var textPressEnabled: Boolean = false
+      private set
+
+    override fun emitOnTextPress(
+      index: Int,
+      text: String,
+    ) {
+      emitTextPressEvent(index, text)
+    }
+
+    fun setEnableTextPress(enabled: Boolean) {
+      textPressEnabled = enabled
     }
 
     override var codeBlockPressEnabled: Boolean = false

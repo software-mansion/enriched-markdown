@@ -51,6 +51,13 @@ size_t slotCount(const std::string &markdown) {
   return Markdown::collect(*parse(markdown)).slots.size();
 }
 
+std::vector<std::string> linkUrls(const std::string &markdown) {
+  std::vector<std::string> urls;
+  for (const auto &link : Markdown::collect(*parse(markdown)).links)
+    urls.push_back(link.url);
+  return urls;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -158,6 +165,26 @@ int main(int argc, char **argv) {
   check(slotCount("See [docs](https://e.com)\n") == 0, "a link inside text is no slot");
   check(slotCount("- [docs](https://e.com)\n") == 0, "a link in a list item is no slot");
 
+  // Every Link node is a link occurrence, in document order, block or not.
+  const auto &links = collected.links;
+  check(links.size() == 2, "two link occurrences (got " + std::to_string(links.size()) + ")");
+  if (links.size() == 2) {
+    check(links[0].url == "https://e.com" && links[0].label == "linked", "a linked image is a link occurrence");
+    check(links[1].url == "https://e.com/q3.pdf" && links[1].label == "Q3 report.pdf" &&
+              links[1].title == "application/pdf",
+          "a link block is also a link occurrence, with label and title");
+  }
+  check(linkUrls("# [h](https://e.com/h)\n\nSee [docs](https://e.com/d \"Docs\") and https://e.com/bare here\n\n"
+                 "- <https://e.com/auto>\n\n| a |\n|---|\n| [cell](https://e.com/t) |\n\n"
+                 "> www.example.com\n") == std::vector<std::string>{"https://e.com/h", "https://e.com/d",
+                                                                    "https://e.com/bare", "https://e.com/auto",
+                                                                    "https://e.com/t", "http://www.example.com"},
+        "links in headings, text, lists, tables and quotes, with autolinks and bare urls");
+  check(Markdown::collect(*parse("www.example.com\n")).links.at(0).label == "www.example.com",
+        "a bare url's label is the url as written");
+  check(linkUrls("`https://e.com/code`\n\n```\nhttps://e.com/fence\n```\n").empty(), "code holds no links");
+  check(linkUrls("[a](https://e.com/x) [a](https://e.com/x)\n").size() == 2, "repeated links are each reported");
+
   // The overlay adds only the active ids, on the block node, and image ids on demand.
   Markdown::ParsedDocument document{root, collected};
   std::unordered_set<std::string> active{slots[0].id, slots[4].id};
@@ -255,7 +282,7 @@ int main(int argc, char **argv) {
   }
 
   // A shared document pins whole ids, text extraction included, for the web twin.
-  if (argc > 3) {
+  if (argc > 4) {
     std::ifstream document(argv[2]);
     std::stringstream markdown;
     markdown << document.rdbuf();
@@ -272,6 +299,17 @@ int main(int argc, char **argv) {
         expected.push_back(line);
     }
     check(!expected.empty() && got == expected, "the shared document collects the pinned ids");
+
+    std::vector<std::string> gotLinks;
+    for (const auto &link : shared.links)
+      gotLinks.push_back(link.url + '\t' + link.label + '\t' + link.title);
+    std::ifstream linksFile(argv[4]);
+    std::vector<std::string> expectedLinks;
+    for (std::string line; std::getline(linksFile, line);) {
+      if (!line.empty() && line[0] != '#')
+        expectedLinks.push_back(line);
+    }
+    check(!expectedLinks.empty() && gotLinks == expectedLinks, "the shared document collects the pinned links");
   }
 
   if (failures == 0) {

@@ -906,7 +906,10 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
 
   unsigned flags = ENRMRKD_FLAG_NOHTMLSPANS | ENRMRKD_FLAG_SPOILERS;
   if (isGFM) {
-    flags |= ENRMRKD_FLAG_TABLES | ENRMRKD_FLAG_STRIKETHROUGH | ENRMRKD_FLAG_TASKLISTS;
+    flags |= ENRMRKD_FLAG_TABLES | ENRMRKD_FLAG_TASKLISTS;
+  }
+  if (isGFM || md4cFlags.strikethrough) {
+    flags |= ENRMRKD_FLAG_STRIKETHROUGH;
   }
   if (md4cFlags.permissiveAutolinks) {
     flags |= ENRMRKD_FLAG_PERMISSIVEAUTOLINKS;

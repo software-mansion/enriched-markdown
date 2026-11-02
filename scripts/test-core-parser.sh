@@ -62,7 +62,8 @@ echo "==> Checking the block slot collector"
   "$CPP_ROOT/parser/TextLinkRecognizer.cpp" \
   "$WORK/enrmrkd.o" "$WORK/enrmrkd-entity.o" -o "$WORK/block-slots-test"
 "$WORK/block-slots-test" "$TESTS_DIR/fixtures/block_slot_ids.txt" \
-  "$TESTS_DIR/fixtures/block_ids/document.md" "$TESTS_DIR/fixtures/block_ids/ids.txt"
+  "$TESTS_DIR/fixtures/block_ids/document.md" "$TESTS_DIR/fixtures/block_ids/ids.txt" \
+  "$TESTS_DIR/fixtures/block_ids/links.txt"
 
 echo "==> Checking the shared document store"
 # Under the thread sanitizer where its runtime starts; some macOS releases crash

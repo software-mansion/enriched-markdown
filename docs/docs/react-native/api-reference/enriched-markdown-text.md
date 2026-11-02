@@ -12,6 +12,7 @@ import FlavorSrc from '!!raw-loader!@site/src/examples/react-native/api-referenc
 import Md4cUnderlineSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cUnderline';
 import Md4cSuperscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cSuperscript';
 import Md4cSubscriptSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cSubscript';
+import Md4cStrikethroughSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cStrikethrough';
 import Md4cHighlightSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHighlight';
 import Md4cLatexMathSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cLatexMath';
 import Md4cHardSoftBreaksSrc from '!!raw-loader!@site/src/examples/react-native/api-reference/enriched-markdown-text/Md4cHardSoftBreaks';
@@ -131,7 +132,7 @@ Markdown flavor. `'commonmark'` (default) renders the whole document as a single
 
 Toggles for md4c's parser extensions; each opts a piece of extra inline syntax in or out. Pass only the flags you want to change; the rest keep their defaults below. Where a flag enables a new inline element, tune its appearance through the matching [style property](/react-native/api-reference/style-properties).
 
-<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }" />
+<PropInfo type="Md4cFlags" default="{ underline: false, superscript: false, subscript: false, strikethrough: false, highlight: false, latexMath: true, hardSoftBreaks: false, preserveBlankLines: false, admonitions: true }" />
 
 #### `underline`
 
@@ -151,11 +152,23 @@ When `true`, parses `^text^` as superscript.
 
 #### `subscript`
 
-When `true`, parses `~text~` as subscript. When disabled, `~` means nothing on its own; `~~text~~` is strikethrough, but only under [`flavor="github"`](#flavor) - under `commonmark` the tildes render literally.
+When `true`, parses `~text~` as subscript. When disabled, `~text~` and `~~text~~` are both strikethrough under [`flavor="github"`](#flavor) or with [`md4cFlags={{ strikethrough: true }}`](#strikethrough). Otherwise, CommonMark renders the tildes literally. Double tildes stay strikethrough when this flag is on.
 
 <PropInfo type="boolean" default="false" />
 
 <LivePreview src={Md4cSubscriptSrc} />
+
+#### `strikethrough`
+
+When `true`, enables strikethrough under `flavor="commonmark"`, for both `~~text~~` and single-tilde `~text~`. If [`subscript`](#subscript) is also on, `~text~` is subscript instead and only `~~text~~` strikes.
+
+Under `flavor="github"` strikethrough is always on, so this flag has no effect there, and setting it to `false` does not turn strikethrough off. The web build always parses GitHub extensions, so it ignores this flag too.
+
+Use this flag to display strikethrough emitted by `EnrichedMarkdownTextInput` while keeping CommonMark's single text view, cross-block selection, and `numberOfLines` / `ellipsizeMode` support. It does not enable tables or task lists or change the rendering flavor.
+
+<PropInfo type="boolean" default="false" />
+
+<LivePreview src={Md4cStrikethroughSrc} unavailable unavailableReason={<>iOS and Android only - the web build always parses GitHub extensions, so there is no strikethrough switch.</>} />
 
 #### `highlight`
 
@@ -385,7 +398,7 @@ interface MarkdownLinkBlock {
   kind: 'link';
   id: string;
   url: string;
-  label: string; // the link text; "" for a bare URL or autolink
+  label: string; // the link text; for a bare URL or autolink, the URL as written
   title: string; // the Markdown title, e.g. a MIME type or size; "" when there is none
   placement: MarkdownBlockPlacement;
 }
@@ -572,7 +585,7 @@ With `flavor="github"`, `selection.start` / `selection.end` in menu callbacks ar
 
 ### `accessibilityLabels`
 
-Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{latex}`) are substituted natively at speak time and must be preserved in translations. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
+Translations for every string spoken by VoiceOver (iOS) and TalkBack (Android): list items, table rows, math, and the iOS rotor. All fields are optional; omitted fields fall back to the English defaults. Placeholders (`{n}`, `{content}`, `{speech}`, `{latex}`) are substituted natively at speak time and must be preserved in translations; `{speech}` is the formula read in English. See the [Accessibility guide](/user-experience/accessibility) for the full defaults table.
 
 <PropInfo type="AccessibilityLabels" />
 
@@ -592,7 +605,7 @@ interface AccessibilityLabels {
     row?: string; // {n} is the 1-based row index, {content} the joined cell text
   };
   math?: {
-    equation?: string; // {latex} is the equation source
+    equation?: string; // {speech} reads the formula in English, {latex} is its source
   };
   codeBlock?: {
     // the enableCodeBlockWrapToggle header button
@@ -749,6 +762,23 @@ interface ImagePressEvent {
 
 <LivePreview src={OnImagePressSrc} />
 
+### `onTextPress`
+
+Callback fired when plain text is tapped, anywhere a link, image, checkbox or other interactive element doesn't take the tap. `index` is the UTF-16 index of the tapped character within `text`, the rendered text of the tapped block. It points into the rendered text, not the Markdown source, so map it back yourself if you need a source position (for example, to place a caret when switching to an editor).
+
+A tap in the empty space beside a line reports that line's nearest character. Taps that only clear a selection, and taps inside table cells, don't fire it.
+
+Setting this callback makes plain text interactive; leaving it unset keeps the default tap and text-selection behavior unchanged.
+
+<PropInfo type="(event: TextPressEvent) => void" />
+
+```ts
+interface TextPressEvent {
+  index: number; // UTF-16 index of the tapped character within `text`
+  text: string; // the rendered text of the tapped block
+}
+```
+
 ### `onTaskListItemPress`
 
 Callback fired when a task list checkbox is tapped. The checkbox is toggled natively. Only fires when `flavor="github"`.
@@ -818,6 +848,25 @@ interface LatexErrorEvent {
 ```
 
 <LivePreview src={OnLatexErrorSrc} unavailable unavailableReason={<>iOS and Android only - the web build renders math with KaTeX and does not report failures through this callback.</>} />
+
+### `onLinksChange`
+
+Callback fired with the document's links: once when they are first known, then whenever they change. Use it to fill `markdownStyle.linkVariants`, [`linkPillContent`](#linkpillcontent) (iOS and Android) or [`linkContextMenuItems`](#linkcontextmenuitems) (iOS) for the links a document actually contains, such as a label and icon per file link.
+
+- **Which links:** every inline link, autolink and bare URL, in document order, including those in headings, lists, tables, blockquotes and link blocks. A URL that appears twice is reported twice. Links that [`linkRecognition`](#linkrecognition) adds are not reported, since recognition runs as the text is drawn.
+- **Calls:** after rendering, in a layout effect, so a state update made in it lands before the frame is drawn. A streaming tick that leaves the links unchanged reports nothing. Passing a new function does not report again.
+- **Streaming:** reports the links the [`streamingConfig`](#streamingconfig) filter lets through. A bare URL still being written counts as a change on every tick that extends it, so the handler sees partial URLs (`https://example.c`, then `https://example.com`).
+- **Flavor:** on iOS and Android, `flavor="github"` only. Other flavors report nothing.
+
+<PropInfo type="(links: MarkdownLinkOccurrence[]) => void" />
+
+```ts
+interface MarkdownLinkOccurrence {
+  url: string;
+  label: string; // the link text; for a bare URL or autolink, the URL as written
+  title: string; // the Markdown title, "" when there is none
+}
+```
 
 ## See also
 

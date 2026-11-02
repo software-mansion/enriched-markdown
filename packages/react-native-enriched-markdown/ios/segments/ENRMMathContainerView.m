@@ -297,8 +297,7 @@
 
 - (NSString *)accessibilityLabel
 {
-  return [_accessibilityLabels.mathEquation stringByReplacingOccurrencesOfString:@"{latex}"
-                                                                      withString:_cachedLatex ?: @""];
+  return [_accessibilityLabels mathLabelForLatex:_cachedLatex ?: @""];
 }
 
 #if !TARGET_OS_OSX

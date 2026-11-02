@@ -13,6 +13,7 @@ import com.swmansion.enriched.markdown.spans.CodeBlockSpan
 import com.swmansion.enriched.markdown.spans.MarginBottomSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.applyMarginTop
+import com.swmansion.enriched.markdown.utils.text.span.createLineHeightSpan
 
 class CodeBlockRenderer(
   private val config: RendererConfig,
@@ -62,6 +63,12 @@ class CodeBlockRenderer(
       for (decorator in decorators) {
         decorator.decorate(builder, contentStart, end, language, config.style, factory.context)
       }
+    }
+
+    // Before the padding span: line height spans apply in order, and the line height would
+    // swallow the padding that span adds to the first and last lines.
+    if (style.lineHeight > 0f) {
+      builder.setSpan(createLineHeightSpan(style.lineHeight), contentStart, end, SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE)
     }
 
     // Apply vertical padding via line height manipulation

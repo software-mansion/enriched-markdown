@@ -204,6 +204,7 @@ static Markdown::Md4cFlags ENRMCoreFlags(ENRMMd4cFlags *flags)
   cppFlags.latexMath = flags.latexMath;
   cppFlags.superscript = flags.superscript;
   cppFlags.subscript = flags.subscript;
+  cppFlags.strikethrough = flags.strikethrough;
   cppFlags.highlight = flags.highlight;
   cppFlags.hardSoftBreaks = flags.hardSoftBreaks;
   cppFlags.preserveBlankLines = flags.preserveBlankLines;

@@ -24,6 +24,7 @@ export type {
   MarkdownImagePlacement,
   MarkdownImageOccurrence,
   MarkdownImageSource,
+  MarkdownLinkOccurrence,
 } from './types/markdownBlocks';
 export type { MarkdownStyle, Md4cFlags } from './types/MarkdownStyle';
 export type { MarkdownTextInputStyle } from './types/MarkdownTextInputStyle';

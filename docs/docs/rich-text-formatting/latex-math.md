@@ -141,7 +141,7 @@ default (there is no macOS gate on the engine), it is just unvalidated. See
 
 **Android** - see the [LaTeX math guide](/android/guides/latex-math).
 
-- [`LatexMathPlugin`](/android/guides/latex-math#turning-it-on) - enables parsing and rendering, for a subtree (`LatexMathPlugin { }`) or one view (the [`plugins`](/android/api-reference/enriched-markdown-text#plugins) parameter).
+- [`LatexMathPlugin`](/android/guides/latex-math#turning-it-on) - enables parsing and rendering, for a subtree (`LatexMathPlugin { }`) or one view (the [`plugins`](/android/api-reference/enriched-markdown-text#plugins) parameter); its `accessibilityLabel` parameter sets the [TalkBack label](/android/guides/latex-math#accessibility).
 - [`math { }` and `inlineMath { }`](/android/guides/latex-math#styling) - display and inline equation styling.
 - [`onPluginEvent`](/android/guides/latex-math#errors) - render failures arrive as a `LatexError(source, message, displayMode)` event.
 - **Reduce app size** - omit the `math` artifact. It is also the only artifact without a 32-bit `x86` native library; see [Installing the artifact](/android/guides/latex-math#installation).

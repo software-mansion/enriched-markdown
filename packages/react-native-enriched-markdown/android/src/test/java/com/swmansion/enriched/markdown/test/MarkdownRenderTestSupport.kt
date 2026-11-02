@@ -26,12 +26,13 @@ object MarkdownRenderTestSupport {
   }
 
   /**
-   * The style map the JS side sends, with [list] and [taskList] entries replacing the defaults.
+   * The style map the JS side sends, with [list], [taskList] and [blockquote] entries replacing the defaults.
    * Sizes are Double, colors Int, as in a ReadableMap.
    */
   fun styleConfig(
     list: Map<String, Any> = emptyMap(),
     taskList: Map<String, Any> = emptyMap(),
+    blockquote: Map<String, Any> = emptyMap(),
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
@@ -59,7 +60,7 @@ object MarkdownRenderTestSupport {
     style.putMap(
       "blockquote",
       textElement().apply {
-        putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0))
+        putAll(mapOf("borderWidth" to 3.0, "gapWidth" to 8.0, "borderRadius" to 0.0, "padding" to 0.0) + blockquote)
       },
     )
     style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })

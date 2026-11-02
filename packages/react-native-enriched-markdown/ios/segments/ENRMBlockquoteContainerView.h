@@ -81,6 +81,8 @@ typedef void (^ENRMBlockquoteLinkBlock)(NSString *url);
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkPress;
 @property (nonatomic, copy, nullable) ENRMBlockquoteLinkBlock onLinkLongPress;
 @property (nonatomic, copy, nullable) void (^onImagePress)(NSString *url, NSString *altText);
+// Plain-text taps on the quote's prose, bridged up to the JS onTextPress event.
+@property (nonatomic, copy, nullable) void (^onTextPress)(NSInteger index, NSString *text);
 
 @property (nonatomic, copy, nullable) ENRMCodeBlockCopyBlock onCopyPress;
 @property (nonatomic, copy, nullable) ENRMCodeBlockPressBlock onCodeBlockPress;

@@ -11,6 +11,13 @@ export interface ImagePressEvent {
   altText: string;
 }
 
+export interface TextPressEvent {
+  /** UTF-16 index of the tapped character within `text`. */
+  index: number;
+  /** The rendered text of the tapped block. */
+  text: string;
+}
+
 export interface TaskListItemPressEvent {
   index: number;
   checked: boolean;
