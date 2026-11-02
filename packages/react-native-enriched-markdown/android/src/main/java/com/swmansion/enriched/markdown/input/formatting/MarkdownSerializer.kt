@@ -92,46 +92,68 @@ object MarkdownSerializer {
     return markdownLines.joinToString("\n")
   }
 
+  // A range md4c would not read back (underline over half a word) is dropped: losing
+  // a style beats writing its delimiters into the text, where every reload keeps them.
   fun serialize(
     text: String,
     ranges: List<FormattingRange>,
   ): String {
     if (ranges.isEmpty()) return text
 
-    val events = ArrayList<BoundaryEvent>(ranges.size * 2)
+    var segments = trimmedSegments(text, ranges)
+    while (true) {
+      val events = boundaryEvents(segments)
+      val unreadable = unflankedSegments(text, events)
+      if (unreadable.isEmpty()) return writeMarkdown(text, events)
+      segments = segments.filterNot { it in unreadable }
+    }
+  }
+
+  private fun trimmedSegments(
+    text: String,
+    ranges: List<FormattingRange>,
+  ): List<Segment> {
+    val segments = ArrayList<Segment>(ranges.size)
     for (range in ranges) {
       var start = range.start.coerceIn(0, text.length)
       var end = range.end.coerceIn(0, text.length)
-
-      if (start >= end) continue
 
       // Trim leading/trailing whitespace so delimiters hug non-whitespace content
       while (start < end && text[start].isWhitespace()) start++
       while (end > start && text[end - 1].isWhitespace()) end--
 
-      if (start >= end) continue
-
-      events.add(BoundaryEvent(start, true, range.type, range.url))
-      events.add(BoundaryEvent(end, false, range.type, range.url))
+      if (start < end) segments.add(Segment(start, end, range.type, range.url))
     }
+    return segments
+  }
 
+  private fun boundaryEvents(segments: List<Segment>): List<BoundaryEvent> {
+    val events = ArrayList<BoundaryEvent>(segments.size * 2)
+    for (segment in segments) {
+      events.add(BoundaryEvent(segment.start, true, segment))
+      events.add(BoundaryEvent(segment.end, false, segment))
+    }
     events.sortWith(BOUNDARY_COMPARATOR)
+    return events
+  }
 
+  private fun writeMarkdown(
+    text: String,
+    events: List<BoundaryEvent>,
+  ): String {
     val markdown = StringBuilder(text.length + events.size * 4)
     var lastPosition = 0
 
     for (event in events) {
-      val position = event.position.coerceAtMost(text.length)
-
-      if (position > lastPosition) {
-        markdown.append(text, lastPosition, position)
-        lastPosition = position
+      if (event.position > lastPosition) {
+        markdown.append(text, lastPosition, event.position)
+        lastPosition = event.position
       }
 
       if (event.isOpening) {
         markdown.append(openingDelimiter(event.type))
       } else {
-        markdown.append(closingDelimiter(event.type, event.url))
+        markdown.append(closingDelimiter(event.type, event.segment.url))
       }
     }
 
@@ -140,6 +162,109 @@ object MarkdownSerializer {
     }
 
     return markdown.toString()
+  }
+
+  private fun unflankedSegments(
+    text: String,
+    events: List<BoundaryEvent>,
+  ): Set<Segment> {
+    val unflanked = HashSet<Segment>()
+    for (i in events.indices) {
+      val event = events[i]
+      if (!isFlanking(event.type, event.isOpening, neighborBefore(text, events, i), neighborAfter(text, events, i))) {
+        unflanked.add(event.segment)
+      }
+    }
+    return unflanked
+  }
+
+  // A line's edge reads as whitespace (a block marker ends in a space), and another
+  // delimiter as punctuation, except a "*" next to a "*", which joins its run.
+  private enum class Neighbor { WHITESPACE, PUNCTUATION, WORD }
+
+  // md4c's classes: CommonMark punctuation is Unicode P and S, so an emoji
+  // counts as punctuation next to "**".
+  private fun classify(codePoint: Int): Neighbor =
+    when {
+      Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) -> Neighbor.WHITESPACE
+      Character.getType(codePoint).toByte() in PUNCTUATION_TYPES -> Neighbor.PUNCTUATION
+      else -> Neighbor.WORD
+    }
+
+  private val PUNCTUATION_TYPES =
+    setOf(
+      Character.CONNECTOR_PUNCTUATION,
+      Character.DASH_PUNCTUATION,
+      Character.START_PUNCTUATION,
+      Character.END_PUNCTUATION,
+      Character.INITIAL_QUOTE_PUNCTUATION,
+      Character.FINAL_QUOTE_PUNCTUATION,
+      Character.OTHER_PUNCTUATION,
+      Character.MATH_SYMBOL,
+      Character.CURRENCY_SYMBOL,
+      Character.MODIFIER_SYMBOL,
+      Character.OTHER_SYMBOL,
+    )
+
+  // "*" and "**" side by side are one delimiter run to md4c, flanked by what is
+  // around the whole run: "***a***b" is bold italic "a".
+  private fun isStarDelimiter(type: StyleType): Boolean = type == StyleType.BOLD || type == StyleType.ITALIC
+
+  private fun neighborBefore(
+    text: String,
+    events: List<BoundaryEvent>,
+    index: Int,
+  ): Neighbor {
+    val position = events[index].position
+    val star = isStarDelimiter(events[index].type)
+    var i = index - 1
+    while (i >= 0 && events[i].position == position) {
+      if (!star || !isStarDelimiter(events[i].type)) return Neighbor.PUNCTUATION
+      i--
+    }
+    if (position == 0 || text[position - 1] == '\n') return Neighbor.WHITESPACE
+    return classify(text.codePointBefore(position))
+  }
+
+  private fun neighborAfter(
+    text: String,
+    events: List<BoundaryEvent>,
+    index: Int,
+  ): Neighbor {
+    val position = events[index].position
+    val star = isStarDelimiter(events[index].type)
+    var i = index + 1
+    while (i < events.size && events[i].position == position) {
+      if (!star || !isStarDelimiter(events[i].type)) return Neighbor.PUNCTUATION
+      i++
+    }
+    if (position == text.length || text[position] == '\n') return Neighbor.WHITESPACE
+    return classify(text.codePointAt(position))
+  }
+
+  // Measured against md4c, since "_" (underline) and "~~" are extensions:
+  // "*"/"**" follow CommonMark flanking; "_"/"~~" don't work inside a word.
+  private fun isFlanking(
+    type: StyleType,
+    isOpening: Boolean,
+    before: Neighbor,
+    after: Neighbor,
+  ): Boolean {
+    val inner = if (isOpening) after else before
+    val outer = if (isOpening) before else after
+    return when (type) {
+      StyleType.BOLD, StyleType.ITALIC -> {
+        inner != Neighbor.WHITESPACE && (inner != Neighbor.PUNCTUATION || outer != Neighbor.WORD)
+      }
+
+      StyleType.UNDERLINE, StyleType.STRIKETHROUGH -> {
+        inner != Neighbor.WHITESPACE && outer != Neighbor.WORD
+      }
+
+      StyleType.LINK, StyleType.SPOILER -> {
+        true
+      }
+    }
   }
 
   private fun openingDelimiter(type: StyleType): String =
@@ -176,12 +301,21 @@ object MarkdownSerializer {
       StyleType.LINK -> 5
     }
 
-  private data class BoundaryEvent(
-    val position: Int,
-    val isOpening: Boolean,
+  // Identity, not value, equality: two equal ranges are still two segments to drop.
+  private class Segment(
+    val start: Int,
+    val end: Int,
     val type: StyleType,
     val url: String?,
   )
+
+  private class BoundaryEvent(
+    val position: Int,
+    val isOpening: Boolean,
+    val segment: Segment,
+  ) {
+    val type: StyleType get() = segment.type
+  }
 
   private val BOUNDARY_COMPARATOR =
     Comparator<BoundaryEvent> { a, b ->

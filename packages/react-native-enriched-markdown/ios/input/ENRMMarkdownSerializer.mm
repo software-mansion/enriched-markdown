@@ -66,6 +66,7 @@ typedef struct {
   BOOL isOpening;
   ENRMInputStyleType type;
   NSString *__unsafe_unretained url;
+  NSUInteger segment;
 } BoundaryEvent;
 
 static int compareBoundaryEvents(const void *first, const void *second)
@@ -142,26 +143,98 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
   return result;
 }
 
-@implementation ENRMMarkdownSerializer
+typedef NS_ENUM(NSInteger, ENRMNeighbor) {
+  ENRMNeighborWhitespace,
+  ENRMNeighborPunctuation,
+  ENRMNeighborWord,
+};
 
-+ (NSString *)serializePlainText:(NSString *)text ranges:(NSArray<ENRMFormattingRange *> *)ranges
+// md4c's classes: CommonMark punctuation is Unicode P and S, so an emoji
+// counts as punctuation next to "**".
+static ENRMNeighbor classifyCharacters(NSString *characters)
 {
-  if (ranges.count == 0) {
-    return text;
+  static NSCharacterSet *punctuation;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    NSMutableCharacterSet *set = [NSMutableCharacterSet punctuationCharacterSet];
+    [set formUnionWithCharacterSet:[NSCharacterSet symbolCharacterSet]];
+    punctuation = [set copy];
+  });
+  if ([characters rangeOfCharacterFromSet:whitespaceSet()].location != NSNotFound) {
+    return ENRMNeighborWhitespace;
   }
+  return [characters rangeOfCharacterFromSet:punctuation].location != NSNotFound ? ENRMNeighborPunctuation
+                                                                                 : ENRMNeighborWord;
+}
 
-  NSArray<ENRMFormattingRange *> *splitRanges = splitRangesAtParagraphBreaks(ranges, text);
+// "*" and "**" side by side are one delimiter run to md4c, flanked by what is
+// around the whole run: "***a***b" is bold italic "a".
+static BOOL isStarDelimiter(ENRMInputStyleType type)
+{
+  return type == ENRMInputStyleTypeStrong || type == ENRMInputStyleTypeEmphasis;
+}
 
-  NSUInteger textLength = text.length;
-  NSUInteger eventCount = splitRanges.count * 2;
+// A line's edge reads as whitespace (a block marker ends in a space), and another
+// delimiter as punctuation, except a "*" next to a "*", which joins its run.
+static ENRMNeighbor neighborBefore(NSString *text, const BoundaryEvent *events, NSUInteger index)
+{
+  NSUInteger position = events[index].position;
+  BOOL star = isStarDelimiter(events[index].type);
+  for (NSUInteger i = index; i > 0 && events[i - 1].position == position; i--) {
+    if (!star || !isStarDelimiter(events[i - 1].type)) {
+      return ENRMNeighborPunctuation;
+    }
+  }
+  if (position == 0 || [text characterAtIndex:position - 1] == '\n') {
+    return ENRMNeighborWhitespace;
+  }
+  return classifyCharacters([text substringWithRange:[text rangeOfComposedCharacterSequenceAtIndex:position - 1]]);
+}
 
-  BoundaryEvent *events = (BoundaryEvent *)malloc(sizeof(BoundaryEvent) * eventCount);
-  if (!events)
-    return text;
+static ENRMNeighbor neighborAfter(NSString *text, const BoundaryEvent *events, NSUInteger count, NSUInteger index)
+{
+  NSUInteger position = events[index].position;
+  BOOL star = isStarDelimiter(events[index].type);
+  for (NSUInteger i = index + 1; i < count && events[i].position == position; i++) {
+    if (!star || !isStarDelimiter(events[i].type)) {
+      return ENRMNeighborPunctuation;
+    }
+  }
+  if (position == text.length || [text characterAtIndex:position] == '\n') {
+    return ENRMNeighborWhitespace;
+  }
+  return classifyCharacters([text substringWithRange:[text rangeOfComposedCharacterSequenceAtIndex:position]]);
+}
 
+// Measured against md4c, since "_" (underline) and "~~" are extensions:
+// "*"/"**" follow CommonMark flanking; "_"/"~~" don't work inside a word.
+static BOOL isFlanking(ENRMInputStyleType type, BOOL isOpening, ENRMNeighbor before, ENRMNeighbor after)
+{
+  ENRMNeighbor inner = isOpening ? after : before;
+  ENRMNeighbor outer = isOpening ? before : after;
+  switch (type) {
+    case ENRMInputStyleTypeStrong:
+    case ENRMInputStyleTypeEmphasis:
+      return inner != ENRMNeighborWhitespace && (inner != ENRMNeighborPunctuation || outer != ENRMNeighborWord);
+    case ENRMInputStyleTypeUnderline:
+    case ENRMInputStyleTypeStrikethrough:
+      return inner != ENRMNeighborWhitespace && outer != ENRMNeighborWord;
+    default:
+      return YES;
+  }
+}
+
+static NSUInteger collectBoundaryEvents(NSString *text, NSArray<ENRMFormattingRange *> *segments, const BOOL *dropped,
+                                        BoundaryEvent *events)
+{
   NSCharacterSet *ws = whitespaceSet();
+  NSUInteger textLength = text.length;
   NSUInteger eventIndex = 0;
-  for (ENRMFormattingRange *formattingRange in splitRanges) {
+  for (NSUInteger segment = 0; segment < segments.count; segment++) {
+    if (dropped[segment]) {
+      continue;
+    }
+    ENRMFormattingRange *formattingRange = segments[segment];
     NSUInteger start = MIN(formattingRange.range.location, textLength);
     NSUInteger end = MIN(NSMaxRange(formattingRange.range), textLength);
 
@@ -181,21 +254,41 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
         .isOpening = YES,
         .type = formattingRange.type,
         .url = formattingRange.url,
+        .segment = segment,
     };
     events[eventIndex++] = (BoundaryEvent){
         .position = end,
         .isOpening = NO,
         .type = formattingRange.type,
         .url = formattingRange.url,
+        .segment = segment,
     };
   }
 
   qsort(events, eventIndex, sizeof(BoundaryEvent), compareBoundaryEvents);
+  return eventIndex;
+}
 
-  NSMutableString *markdown = [NSMutableString stringWithCapacity:textLength + eventCount * 4];
+static BOOL dropUnflankedSegments(NSString *text, const BoundaryEvent *events, NSUInteger count, BOOL *dropped)
+{
+  BOOL droppedAny = NO;
+  for (NSUInteger i = 0; i < count; i++) {
+    if (!isFlanking(events[i].type, events[i].isOpening, neighborBefore(text, events, i),
+                    neighborAfter(text, events, count, i))) {
+      dropped[events[i].segment] = YES;
+      droppedAny = YES;
+    }
+  }
+  return droppedAny;
+}
+
+static NSString *writeMarkdown(NSString *text, const BoundaryEvent *events, NSUInteger count)
+{
+  NSUInteger textLength = text.length;
+  NSMutableString *markdown = [NSMutableString stringWithCapacity:textLength + count * 4];
   NSUInteger lastPosition = 0;
 
-  for (NSUInteger currentEvent = 0; currentEvent < eventIndex; currentEvent++) {
+  for (NSUInteger currentEvent = 0; currentEvent < count; currentEvent++) {
     BoundaryEvent event = events[currentEvent];
     NSUInteger position = MIN(event.position, textLength);
 
@@ -214,8 +307,37 @@ static NSArray<ENRMFormattingRange *> *splitRangesAtParagraphBreaks(NSArray<ENRM
   if (lastPosition < textLength) {
     [markdown appendString:[text substringFromIndex:lastPosition]];
   }
+  return markdown;
+}
 
+@implementation ENRMMarkdownSerializer
+
+// A range md4c would not read back (underline over half a word) is dropped: losing
+// a style beats writing its delimiters into the text, where every reload keeps them.
++ (NSString *)serializePlainText:(NSString *)text ranges:(NSArray<ENRMFormattingRange *> *)ranges
+{
+  if (ranges.count == 0) {
+    return text;
+  }
+
+  NSArray<ENRMFormattingRange *> *segments = splitRangesAtParagraphBreaks(ranges, text);
+
+  BoundaryEvent *events = (BoundaryEvent *)malloc(sizeof(BoundaryEvent) * segments.count * 2);
+  BOOL *dropped = (BOOL *)calloc(segments.count, sizeof(BOOL));
+  if (!events || !dropped) {
+    free(events);
+    free(dropped);
+    return text;
+  }
+
+  NSUInteger count;
+  do {
+    count = collectBoundaryEvents(text, segments, dropped, events);
+  } while (dropUnflankedSegments(text, events, count, dropped));
+
+  NSString *markdown = writeMarkdown(text, events, count);
   free(events);
+  free(dropped);
   return markdown;
 }
 
