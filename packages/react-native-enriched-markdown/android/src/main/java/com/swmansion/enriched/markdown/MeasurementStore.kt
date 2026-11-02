@@ -32,6 +32,7 @@ import com.swmansion.enriched.markdown.spans.MathMetrics
 import com.swmansion.enriched.markdown.spans.MathRenderMode
 import com.swmansion.enriched.markdown.styles.LinkPillContent
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
@@ -771,19 +772,9 @@ object MeasurementStore {
       builder.setUseLineSpacingFromFallbacks(true)
     }
 
-    applyUseBoundsForWidth(builder)
+    BoundsForWidthUtils.applyTo(builder)
     applyLineLimit(builder, viewId)
     return builder.build()
-  }
-
-  // The markdown text views lay lines out by glyph bounds (see setupAsMarkdownTextView in
-  // TextViewSetup.kt), so a line ending on an overhanging glyph, like italic, is wider than its
-  // advances. Measure the same way, or the view comes out a pixel or two narrow and wraps a line
-  // it has no room for.
-  internal fun applyUseBoundsForWidth(builder: StaticLayout.Builder) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-      builder.setUseBoundsForWidth(true)
-    }
   }
 
   // Applies the per-view numberOfLines / ellipsizeMode clamp to a builder, matching
