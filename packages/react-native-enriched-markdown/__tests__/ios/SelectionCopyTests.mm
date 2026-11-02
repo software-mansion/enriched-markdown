@@ -1,3 +1,4 @@
+#import "../../ios/attachments/ENRMImageAttachment.h"
 #import "../../ios/parser/ENRMMarkdownParser.h"
 #import "../../ios/parser/MarkdownASTNode.h"
 #import "../../ios/segments/ENRMBlockquoteContainerView.h"
@@ -5,6 +6,7 @@
 #import "../../ios/utils/ENRMAccessibilityLabels.h"
 #import "../../ios/utils/ENRMTextRenderer.h"
 #import "../../ios/utils/EditMenuUtils.h"
+#import "../../ios/utils/PasteboardUtils.h"
 #import "../../ios/views/EnrichedMarkdownInternalText.h"
 #import <XCTest/XCTest.h>
 
@@ -115,6 +117,87 @@ static void ENRMPerform(UIAction *action)
   [text.textView copy:nil];
 
   XCTAssertEqualObjects(_copies, (@[ ENRMCopy(@"quoted", ENRMSelectionCopyFormatPlain, NSMakeRange(0, 6)) ]));
+}
+
+- (void)testCopyKeyCommandInNestedBlockquoteReportsThroughTheOuterQuote
+{
+  StyleConfig *config = [[StyleConfig alloc] init];
+  ENRMBlockquoteContainerView *quote = [[ENRMBlockquoteContainerView alloc] initWithConfig:config];
+  quote.accessibilityLabels = [ENRMAccessibilityLabels new];
+  quote.frame = CGRectMake(0, 0, 320, 1000);
+  quote.onSelectionCopy = [self recorder];
+  [quote applyBlockquoteNode:ENRMParse(@"> > nested text\n").children.firstObject];
+
+  ENRMBlockquoteContainerView *nested = nil;
+  for (RCTUIView *segment in quote.segmentViews) {
+    if ([segment isKindOfClass:[ENRMBlockquoteContainerView class]])
+      nested = (ENRMBlockquoteContainerView *)segment;
+  }
+  XCTAssertNotNil(nested);
+  EnrichedMarkdownInternalText *text = nil;
+  for (RCTUIView *segment in nested.segmentViews) {
+    if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]])
+      text = (EnrichedMarkdownInternalText *)segment;
+  }
+  XCTAssertNotNil(text);
+  text.textView.selectedRange = NSMakeRange(0, 6);
+
+  [text.textView copy:nil];
+
+  XCTAssertEqualObjects(_copies, (@[ ENRMCopy(@"nested", ENRMSelectionCopyFormatPlain, NSMakeRange(0, 6)) ]));
+}
+
+- (void)testCopyKeyCommandKeepsTheRichClipboardTypes
+{
+  EnrichedMarkdownInternalText *view = [self segmentView];
+  view.textView.selectedRange = NSMakeRange(7, 2);
+
+  [view.textView copy:nil];
+
+  NSArray<NSString *> *types = [UIPasteboard generalPasteboard].pasteboardTypes;
+  XCTAssertTrue([types containsObject:kUTIPlainText], @"%@", types);
+  XCTAssertTrue([types containsObject:kUTIHTML], @"%@", types);
+  XCTAssertTrue([types containsObject:@"public.rtf"], @"%@", types);
+}
+
+- (void)testMenuCopyKeepsTheRichClipboardTypes API_AVAILABLE(ios(16.0))
+{
+  EnrichedMarkdownInternalText *view = [self segmentView];
+  ENRMSelectionMenuConfig menuConfig = {.copyLabel = @"Copy"};
+  UIMenu *menu = buildEditMenuForSelection(view.textView.attributedText, NSMakeRange(7, 2), @"Value: **42**",
+                                           view.config, @[], nil, menuConfig, [self recorder]);
+
+  ENRMPerform(ENRMFindAction(menu, @"com.swmansion.enriched.markdown.copy"));
+
+  NSArray<NSString *> *types = [UIPasteboard generalPasteboard].pasteboardTypes;
+  XCTAssertTrue([types containsObject:kUTIHTML], @"%@", types);
+  XCTAssertTrue([types containsObject:kUTIMarkdown], @"%@", types);
+  XCTAssertTrue([types containsObject:@"public.rtf"], @"%@", types);
+}
+
+- (void)testMenuCopyImageURLReportsTheURL API_AVAILABLE(ios(16.0))
+{
+  StyleConfig *config = [[StyleConfig alloc] init];
+  NSString *url = @"https://example.com/forest.png";
+  // The test bundle links its own copy of the library, and the menu checks for the app's class.
+  Class attachmentClass = NSClassFromString(@"ENRMImageAttachment");
+  NSTextAttachment *image = [attachmentClass attachmentForURL:url config:config isInline:YES];
+  NSAttributedString *text = [NSAttributedString attributedStringWithAttachment:image];
+  NSRange range = NSMakeRange(0, text.length);
+  ENRMSelectionMenuConfig menuConfig = {
+      .copyImageURL = YES,
+      .copyImageUrlLabel = @"Copy Image URL",
+  };
+  UIMenu *menu = buildEditMenuForSelection(text, range, nil, config, @[], nil, menuConfig, [self recorder]);
+
+  UIAction *action = ENRMFindAction(menu, @"com.swmansion.enriched.markdown.copyImageURL");
+  XCTAssertNotNil(action);
+  if (!action)
+    return;
+  ENRMPerform(action);
+
+  XCTAssertEqualObjects(_copies, (@[ ENRMCopy(url, ENRMSelectionCopyFormatImageURLs, range) ]));
+  XCTAssertEqualObjects([UIPasteboard generalPasteboard].string, url);
 }
 
 - (void)testMenuItemsReportTheirFormat API_AVAILABLE(ios(16.0))

@@ -815,7 +815,7 @@ interface CopyPressEvent {
 
 Callback fired after a text selection is copied - from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item. `text` is what was put on the clipboard as plain text. Code copied from a code block's header button or long-press menu is reported by [`onCopyPress`](#oncopypress) instead.
 
-The `selection` offsets index the rendered text, not the Markdown source. With `flavor="github"` they are relative to the block the selection is in.
+The `selection` offsets index the rendered text, not the Markdown source. With `flavor="github"` they restart at each block that renders as its own view, such as a table, code block or quote, so consecutive paragraphs count as one run of text.
 
 <PropInfo type="(event: SelectionCopyEvent) => void" />
 

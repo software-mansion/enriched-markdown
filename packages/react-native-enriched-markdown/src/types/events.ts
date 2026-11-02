@@ -48,7 +48,9 @@ export interface SelectionCopyEvent {
   format: 'plain' | 'markdown' | 'imageUrls';
   /**
    * The copied range, in UTF-16 offsets of the rendered text. With
-   * `flavor="github"` the offsets are relative to the block the selection is in.
+   * `flavor="github"` the offsets restart at each block that renders as its own
+   * view, such as a table, code block or quote, so consecutive paragraphs count
+   * as one run of text.
    */
   selection: { start: number; end: number };
 }

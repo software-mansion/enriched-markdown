@@ -43,10 +43,12 @@
 }
 
 /// The menu's Copy is already replaced by the library's own item; this covers the key command.
+/// The handler copies one range, so a discontinuous selection stays with the system, unreported.
 - (void)copy:(id)sender
 {
   NSRange selected = self.selectedRange;
-  if (self.copySelectionHandler && selected.location != NSNotFound && selected.length > 0) {
+  if (self.copySelectionHandler && self.selectedRanges.count == 1 && selected.location != NSNotFound &&
+      selected.length > 0) {
     self.copySelectionHandler(selected);
     return;
   }
