@@ -102,6 +102,13 @@ target_include_directories(
 )
 
 target_compile_reactnative_options(${LIB_TARGET_NAME} PRIVATE)
+# The generated/ code is pre-generated at publish time against one RN version;
+# newer RN deprecates APIs it calls (e.g. invokeJavaMethod with cachedMethodId),
+# which -Werror would otherwise turn into a build failure for consumers.
+# TODO: Remove when the minimum supported RN is 0.89 and generated/ is
+# regenerated with its codegen. Must happen before RN removes the deprecated
+# invokeJavaMethod overload, which this flag can't work around.
+target_compile_options(${LIB_TARGET_NAME} PRIVATE -Wno-error=deprecated-declarations)
 
 # Math off in the build: the JS block collector parses without it, like the host.
 if(DEFINED ENRICHED_MARKDOWN_MATH AND NOT ENRICHED_MARKDOWN_MATH)
