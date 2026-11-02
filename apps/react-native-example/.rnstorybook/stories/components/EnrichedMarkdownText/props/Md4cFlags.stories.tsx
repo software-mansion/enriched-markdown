@@ -17,6 +17,7 @@ type Md4cFlagsStoryExtra = {
   underline: boolean;
   superscript: boolean;
   subscript: boolean;
+  strikethrough: boolean;
   highlight: boolean;
   latexMath: boolean;
   hardSoftBreaks: boolean;
@@ -29,6 +30,8 @@ const MARKDOWN = `_underline_
 text^superscript^
 
 text~subscript~
+
+~~strikethrough~~
 
 ==highlight==
 
@@ -60,6 +63,11 @@ const argTypes = {
     description:
       'md4cFlags.subscript — ~text~ parsing (disables single-tilde strikethrough).',
   },
+  strikethrough: {
+    control: 'boolean',
+    description:
+      'md4cFlags.strikethrough — ~~text~~ and ~text~ parsing under flavor="commonmark" (with subscript on, only ~~text~~). No effect under flavor="github", which always enables it.',
+  },
   highlight: {
     control: 'boolean',
     description: 'md4cFlags.highlight — ==text== parsing.',
@@ -90,6 +98,7 @@ export const Default: TextStory<Md4cFlagsStoryExtra> = {
     underline: true,
     superscript: true,
     subscript: true,
+    strikethrough: true,
     highlight: true,
     latexMath: true,
     hardSoftBreaks: false,
@@ -101,6 +110,7 @@ export const Default: TextStory<Md4cFlagsStoryExtra> = {
     underline,
     superscript,
     subscript,
+    strikethrough,
     highlight,
     latexMath,
     hardSoftBreaks,
@@ -115,6 +125,7 @@ export const Default: TextStory<Md4cFlagsStoryExtra> = {
         underline,
         superscript,
         subscript,
+        strikethrough,
         highlight,
         latexMath,
         hardSoftBreaks,

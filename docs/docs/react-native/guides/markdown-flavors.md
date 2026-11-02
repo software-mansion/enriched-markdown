@@ -36,9 +36,9 @@ This is the canonical list of everything `flavor="github"` changes. The other pa
 |---|---|
 | **Tables** | `\| col \| col \|`<br />`\| --- \| --- \|` |
 | **Task lists** | `- [x] done`, `- [ ] todo` |
-| **Strikethrough** | `~~text~~` |
+| **Strikethrough** | `~~text~~`, `~text~` |
 
-In `commonmark` these stay literal - `~~text~~` renders as tildes and a `| a | b |` line is just text. A fourth parser flag, [`admonitions`](/react-native/api-reference/enriched-markdown-text#admonitions), is on by default but **forced off** under `commonmark`, so `> [!NOTE]` is a GitHub-only callout in practice too.
+In `commonmark` these stay literal by default - `~~text~~` renders as tildes and a `| a | b |` line is just text. Strikethrough can be enabled separately with `md4cFlags={{ strikethrough: true }}`. Another parser flag, [`admonitions`](/react-native/api-reference/enriched-markdown-text#admonitions), is on by default but **forced off** under `commonmark`, so `> [!NOTE]` is a GitHub-only callout in practice too.
 
 **At render time**, `github` additionally unlocks:
 
@@ -80,9 +80,12 @@ A second set of inline extensions is toggled independently of the flavor, throug
 - `underline` - `_text_`
 - `superscript` - `^text^`
 - `subscript` - `~text~`
+- `strikethrough` - `~~text~~` and `~text~` (already enabled by GitHub flavor, so it has no effect there)
 - `highlight` - `==text==`
 
 <LivePreview src={FlagsSrc} />
+
+To display `~~text~~` emitted by the editor while retaining CommonMark's single text view, line limits, and cross-block selection, set `md4cFlags={{ strikethrough: true }}`. This also makes single-tilde `~text~` strike, unless `subscript` is on. It enables only the parser extension; it does not switch the native rendering flavor or enable tables and task lists. The flag defaults to `false`, which leaves CommonMark unchanged and never disables GitHub strikethrough. Web keeps its always-GFM parsing.
 
 The flag set also carries `latexMath` and `admonitions` (both on by default) and the newline options `hardSoftBreaks` and `preserveBlankLines`. See the [`md4cFlags` reference](/react-native/api-reference/enriched-markdown-text#md4cflags) for what each flag enables and its default.
 
@@ -93,8 +96,8 @@ The flag set also carries `latexMath` and `admonitions` (both on by default) and
 Putting it together, three layers decide which syntax the parser recognizes:
 
 1. **CommonMark core** - always parsed: headings, emphasis, lists, links, blockquotes, code, and images (everything in [Core concepts](/introduction/core-concepts)), plus two always-on extras: bare-URL autolinks and spoilers.
-2. **The flavor** - `flavor="github"` adds the GFM extensions above (tables, task lists, strikethrough); `flavor="commonmark"` leaves them off.
-3. **`md4cFlags`** - layer extra inline extensions on top of either flavor (underline, superscript, subscript, highlight) and tune math, admonitions and newline handling (`latexMath`, `admonitions`, `hardSoftBreaks`, `preserveBlankLines`). `admonitions` is the exception to "on top of either flavor": it is forced off under `commonmark`.
+2. **The flavor** - `flavor="github"` adds the GFM extensions above (tables, task lists, strikethrough); `flavor="commonmark"` leaves them off by default.
+3. **`md4cFlags`** - layer extra inline extensions on top of either flavor (underline, superscript, subscript, strikethrough, highlight) and tune math, admonitions and newline handling (`latexMath`, `admonitions`, `hardSoftBreaks`, `preserveBlankLines`). `admonitions` is the exception to "on top of either flavor": it is forced off under `commonmark`.
 
 For a given `(flavor, md4cFlags)` pair the same string always parses the same way - those are the only inputs that change which syntax is recognized.
 
@@ -102,7 +105,8 @@ For a given `(flavor, md4cFlags)` pair the same string always parses the same wa
 
 Mapping the rich text features back to the three layers above - what each one needs to be switched on:
 
-- **Tables, task lists, strikethrough** - the GFM extensions covered above; `flavor="github"`.
+- **Tables, task lists** - require `flavor="github"`.
+- **Strikethrough** - enabled by `flavor="github"` or `md4cFlags={{ strikethrough: true }}`.
 - **Admonitions** - the `admonitions` flag (on by default) **and** `flavor="github"`.
 - [**LaTeX math**](/rich-text-formatting/latex-math) - the `latexMath` flag (on by default); block equations also need `flavor="github"`. Rendering additionally needs the native math engine, which the `enableMath` [build flag](/react-native/guides/native-assets#optional-features) includes by default.
 - [**Editor-style text**](/rich-text-formatting/editor-style-text) - the `hardSoftBreaks` and `preserveBlankLines` flags.

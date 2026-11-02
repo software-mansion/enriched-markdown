@@ -161,6 +161,7 @@ const defaultMd4cFlags: Md4cFlags = {
   underline: false,
   superscript: false,
   subscript: false,
+  strikethrough: false,
   latexMath: true,
   highlight: false,
   hardSoftBreaks: false,
@@ -246,11 +247,16 @@ export const EnrichedMarkdownText = ({
   // `> [!NOTE]` renders as a plain blockquote.
   const admonitions =
     flavor === 'github' ? (md4cFlags.admonitions ?? true) : false;
+  // GitHub flavor always parses strikethrough, so the flag cannot change the
+  // result there; force it off so toggling it does not invalidate anything.
+  const strikethrough =
+    flavor === 'github' ? false : (md4cFlags.strikethrough ?? false);
   const normalizedMd4cFlags = useMemo(
     () => ({
       underline,
       superscript,
       subscript,
+      strikethrough,
       latexMath,
       highlight,
       hardSoftBreaks,
@@ -261,6 +267,7 @@ export const EnrichedMarkdownText = ({
       underline,
       superscript,
       subscript,
+      strikethrough,
       latexMath,
       highlight,
       hardSoftBreaks,

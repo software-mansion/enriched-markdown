@@ -18,6 +18,7 @@
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
 #import "ENRMUIKit.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EditMenuUtils.h"
 #import "FontScaleObserver.h"
 #import "FontUtils.h"
@@ -154,16 +155,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownTextMd4cFlagsStruct &)props
 {
-  ENRMMd4cFlags *flags = [ENRMMd4cFlags defaultFlags];
-  flags.underline = props.underline;
-  flags.superscript = props.superscript;
-  flags.subscript = props.subscript;
-  flags.latexMath = props.latexMath;
-  flags.highlight = props.highlight;
-  flags.hardSoftBreaks = props.hardSoftBreaks;
-  flags.preserveBlankLines = props.preserveBlankLines;
-  flags.admonitions = props.admonitions;
-  return flags;
+  return ENRMMd4cFlagsFromProps(props);
 }
 
 #pragma mark - Measuring and State
@@ -710,6 +702,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (newViewProps.md4cFlags.underline != oldViewProps.md4cFlags.underline ||
       newViewProps.md4cFlags.superscript != oldViewProps.md4cFlags.superscript ||
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
+      newViewProps.md4cFlags.strikethrough != oldViewProps.md4cFlags.strikethrough ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
       newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||

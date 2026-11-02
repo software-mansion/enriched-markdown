@@ -37,6 +37,7 @@
 #import "ENRMSpoilerOverlayView.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMUTF8.h"
+#import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdownBlockSlot.h"
 #import "EnrichedMarkdownInternalText.h"
 #import "FontScaleObserver.h"
@@ -190,16 +191,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
 + (ENRMMd4cFlags *)flagsFromProps:(const EnrichedMarkdownMd4cFlagsStruct &)props
 {
-  ENRMMd4cFlags *flags = [ENRMMd4cFlags defaultFlags];
-  flags.underline = props.underline;
-  flags.superscript = props.superscript;
-  flags.subscript = props.subscript;
-  flags.latexMath = props.latexMath;
-  flags.highlight = props.highlight;
-  flags.hardSoftBreaks = props.hardSoftBreaks;
-  flags.preserveBlankLines = props.preserveBlankLines;
-  flags.admonitions = props.admonitions;
-  return flags;
+  return ENRMMd4cFlagsFromProps(props);
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -1496,6 +1488,7 @@ static char kENRMSegmentFadeAnimatorKey;
   if (newViewProps.md4cFlags.underline != oldViewProps.md4cFlags.underline ||
       newViewProps.md4cFlags.superscript != oldViewProps.md4cFlags.superscript ||
       newViewProps.md4cFlags.subscript != oldViewProps.md4cFlags.subscript ||
+      newViewProps.md4cFlags.strikethrough != oldViewProps.md4cFlags.strikethrough ||
       newViewProps.md4cFlags.latexMath != oldViewProps.md4cFlags.latexMath ||
       newViewProps.md4cFlags.highlight != oldViewProps.md4cFlags.highlight ||
       newViewProps.md4cFlags.hardSoftBreaks != oldViewProps.md4cFlags.hardSoftBreaks ||

@@ -137,6 +137,7 @@ fun parseMd4cFlags(flags: ReadableMap?): Md4cFlags =
     latexMath = FeatureFlags.IS_MATH_ENABLED && (flags?.getBoolean("latexMath") ?: true),
     superscript = flags?.getBoolean("superscript") ?: false,
     subscript = flags?.getBoolean("subscript") ?: false,
+    strikethrough = flags?.getBoolean("strikethrough") ?: false,
     highlight = flags?.getBoolean("highlight") ?: false,
     hardSoftBreaks = flags?.getBoolean("hardSoftBreaks") ?: false,
     preserveBlankLines = flags?.getBoolean("preserveBlankLines") ?: false,

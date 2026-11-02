@@ -18,6 +18,7 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
     _latexMath = YES;
     _superscript = NO;
     _subscript = NO;
+    _strikethrough = NO;
     _highlight = NO;
     _hardSoftBreaks = NO;
     _preserveBlankLines = NO;
@@ -38,6 +39,7 @@ extern MarkdownASTNode *parseMarkdownWithCppParser(NSString *markdown, ENRMMd4cF
   copy.latexMath = self.latexMath;
   copy.superscript = self.superscript;
   copy.subscript = self.subscript;
+  copy.strikethrough = self.strikethrough;
   copy.highlight = self.highlight;
   copy.hardSoftBreaks = self.hardSoftBreaks;
   copy.preserveBlankLines = self.preserveBlankLines;

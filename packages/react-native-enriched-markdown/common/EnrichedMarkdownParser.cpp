@@ -19,6 +19,7 @@ Markdown::Md4cFlags toCoreFlags(const EnrichedMarkdownParserMd4cFlags &flags) {
 #endif
   core.superscript = flags.superscript;
   core.subscript = flags.subscript;
+  core.strikethrough = flags.strikethrough;
   core.highlight = flags.highlight;
   core.hardSoftBreaks = flags.hardSoftBreaks;
   core.preserveBlankLines = flags.preserveBlankLines;
