@@ -37,6 +37,8 @@ Images in lists, tables, headings, links and running text are never replaced, an
 
 Each block has an `id`: an opaque string, the same on every platform. It stays the same while the block is unchanged, even as the document streams in or changes elsewhere, so React keeps your element mounted. Use it as a key for per-block state, such as a video's playback position.
 
+A code block's id comes from its language, not its code, so it holds while the code streams in. Adding or removing an earlier code block with the same language changes the ids after it, so per-block state there follows the block's position.
+
 An image block also has an `occurrenceId`. That is the id `resolveImageSource` sees for the same image, so you can match a block to its resolved source. Block ids and occurrence ids are never equal.
 
 ## Sizing your element
@@ -61,14 +63,7 @@ A renderer runs again only when its block changes or when you pass a new rendere
 
 `renderers.code` receives every code block. Pick what to draw from its `language`: ` ```bash ` has the language `bash`, and an indented block or a fence without one has `""`. Return `undefined` for a language to keep the native code block, with its header, copy button and syntax highlighting.
 
-```tsx
-const code = (block: MarkdownCodeBlock) =>
-  block.language === 'mermaid' ? <Mermaid source={block.code} /> : undefined;
-```
-
 The block carries `language`, `code` (without trailing newlines) and `isComplete`. A replaced block has no native header, so copying, wrapping and [`onCodeBlockPress`](/react-native/api-reference/enriched-markdown-text#oncodeblockpress) are up to your element.
-
-A code block's id is its language and a count of the earlier blocks with that language. Adding or removing an earlier block with the same language moves the ids after it along, so an element's state (an expanded panel, a loaded web view) stays with the position, not with the code.
 
 <LivePreview src={CodeCardsSrc} />
 
