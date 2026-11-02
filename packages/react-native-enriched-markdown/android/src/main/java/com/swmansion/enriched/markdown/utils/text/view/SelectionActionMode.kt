@@ -34,6 +34,18 @@ data class SelectionMenuConfig(
   val copyImageUrlPluralTemplates: List<String> = emptyList(),
 )
 
+/** What a selection copy put on the clipboard; [value] is the JS `format`. */
+enum class SelectionCopyFormat(
+  val value: String,
+) {
+  PLAIN("plain"),
+  MARKDOWN("markdown"),
+  IMAGE_URLS("imageUrls"),
+}
+
+/** Reports a selection copy: the copied plain text, its format, and the copied range. */
+typealias OnSelectionCopy = (text: String, format: SelectionCopyFormat, selectionStart: Int, selectionEnd: Int) -> Unit
+
 /**
  * Resolves the "Copy Image URL(s)" menu title for the given image count. Uses the
  * precomputed plural templates when present (counts > 100 use the "other" form),
@@ -59,6 +71,7 @@ fun createSelectionActionModeCallback(
   getSelectionMenuConfig: () -> SelectionMenuConfig = { SelectionMenuConfig() },
   onCustomItemPress: (itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit =
     { _, _, _, _ -> },
+  onSelectionCopy: OnSelectionCopy? = null,
 ): ActionMode.Callback =
   object : ActionMode.Callback {
     override fun onCreateActionMode(
@@ -127,24 +140,17 @@ fun createSelectionActionModeCallback(
     ): Boolean {
       val itemId = item?.itemId ?: return false
 
-      when (itemId) {
-        android.R.id.copy -> {
-          textView.copyWithHTML()
-          mode?.finish()
-          return true
+      val copyFormat =
+        when (itemId) {
+          android.R.id.copy -> SelectionCopyFormat.PLAIN
+          MENU_ITEM_COPY_MARKDOWN -> SelectionCopyFormat.MARKDOWN
+          MENU_ITEM_COPY_IMAGE_URL -> SelectionCopyFormat.IMAGE_URLS
+          else -> null
         }
-
-        MENU_ITEM_COPY_MARKDOWN -> {
-          textView.copyMarkdownToClipboard()
-          mode?.finish()
-          return true
-        }
-
-        MENU_ITEM_COPY_IMAGE_URL -> {
-          textView.copyImageUrlsToClipboard()
-          mode?.finish()
-          return true
-        }
+      if (copyFormat != null) {
+        textView.copySelection(copyFormat, onSelectionCopy)
+        mode?.finish()
+        return true
       }
 
       val customItems = getCustomItemTexts()
@@ -164,13 +170,34 @@ fun createSelectionActionModeCallback(
     override fun onDestroyActionMode(mode: ActionMode?) {}
   }
 
-/** Copies selection as both plain text and HTML with inline styles. */
-private fun TextView.copyWithHTML() {
-  val start = selectionStart
-  val end = selectionEnd
-  if (start < 0 || end < 0 || start >= end) return
+/**
+ * Copies the selection in [format] and reports it to [onSelectionCopy]. Shared by
+ * the selection menu and the keyboard shortcut, which reaches the view through
+ * `onTextContextMenuItem(android.R.id.copy)` without passing the menu callback.
+ */
+fun TextView.copySelection(
+  format: SelectionCopyFormat,
+  onSelectionCopy: OnSelectionCopy?,
+) {
+  val start = minOf(selectionStart, selectionEnd)
+  val end = maxOf(selectionStart, selectionEnd)
+  val copied =
+    when (format) {
+      SelectionCopyFormat.PLAIN -> copyWithHTML()
+      SelectionCopyFormat.MARKDOWN -> copyMarkdownToClipboard()
+      SelectionCopyFormat.IMAGE_URLS -> copyImageUrlsToClipboard()
+    } ?: return
+  onSelectionCopy?.invoke(copied, format, start, end)
+}
 
-  val spannable = text as? Spannable ?: return
+/** Copies selection as both plain text and HTML with inline styles. Returns the plain text. */
+private fun TextView.copyWithHTML(): String? {
+  // A keyboard selection made backwards has its start after its end.
+  val start = minOf(selectionStart, selectionEnd)
+  val end = maxOf(selectionStart, selectionEnd)
+  if (start < 0 || start >= end) return null
+
+  val spannable = text as? Spannable ?: return null
   val selectedText = spannable.subSequence(start, end)
   val plainText = selectedText.toString()
 
@@ -195,12 +222,14 @@ private fun TextView.copyWithHTML() {
   } else {
     clipboard.setPrimaryClip(ClipData.newPlainText("Text", plainText))
   }
+  return plainText
 }
 
-private fun TextView.copyMarkdownToClipboard() {
-  val markdown = MarkdownExtractor.getMarkdownForSelection(this) ?: return
+private fun TextView.copyMarkdownToClipboard(): String? {
+  val markdown = MarkdownExtractor.getMarkdownForSelection(this) ?: return null
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
   clipboard.setPrimaryClip(ClipData.newPlainText("Markdown", markdown))
+  return markdown
 }
 
 /** Returns remote image URLs (http/https only) from the current selection. */
@@ -216,12 +245,14 @@ private fun TextView.getImageUrlsInSelection(): List<String> {
     .filter { it.startsWith("http://") || it.startsWith("https://") }
 }
 
-private fun TextView.copyImageUrlsToClipboard() {
+private fun TextView.copyImageUrlsToClipboard(): String? {
   val urls = getImageUrlsInSelection()
-  if (urls.isEmpty()) return
+  if (urls.isEmpty()) return null
 
+  val joined = urls.joinToString("\n")
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-  clipboard.setPrimaryClip(ClipData.newPlainText("Image URLs", urls.joinToString("\n")))
+  clipboard.setPrimaryClip(ClipData.newPlainText("Image URLs", joined))
+  return joined
 }
 
 private fun TextView.findParentMarkdownStyle(): StyleConfig? {

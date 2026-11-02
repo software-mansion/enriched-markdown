@@ -19,6 +19,7 @@ import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
 import com.swmansion.enriched.markdown.utils.common.emitLatexError
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
+import com.swmansion.enriched.markdown.utils.common.emitSelectionCopy
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
 import com.swmansion.enriched.markdown.utils.common.markdownEventTypeConstants
 import com.swmansion.enriched.markdown.utils.common.parseAccessibilityLabels
@@ -45,6 +46,9 @@ class EnrichedMarkdownTextManager :
     val view = EnrichedMarkdownText(reactContext)
     view.onContextMenuItemPressCallback = { itemText, selectedText, selectionStart, selectionEnd ->
       emitContextMenuItemPress(view, itemText, selectedText, selectionStart, selectionEnd)
+    }
+    view.onSelectionCopyCallback = { text, format, selectionStart, selectionEnd ->
+      emitSelectionCopy(view, text, format, selectionStart, selectionEnd)
     }
 
     view.setOnLinkPressCallback { url ->

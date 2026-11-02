@@ -74,6 +74,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
+- (ENRMSelectionCopyHandler)selectionCopyHandler;
 @end
 
 #if !TARGET_OS_OSX
@@ -358,21 +359,25 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (void)setupTextView
 {
-#if !TARGET_OS_OSX
-  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
   __weak EnrichedMarkdownText *weakCopyOwner = self;
-  markdownTextView.copySelectionHandler = ^(NSRange range) {
+  void (^copySelectionHandler)(NSRange) = ^(NSRange range) {
     EnrichedMarkdownText *owner = weakCopyOwner;
     if (!owner)
       return;
     NSAttributedString *text = owner->_textView.textStorage;
-    copyAttributedStringToPasteboard([text attributedSubstringFromRange:range],
-                                     markdownForRange(text, range, owner->_cachedMarkdown), owner -> _config);
+    ENRMCopySelection([text attributedSubstringFromRange:range], range,
+                      markdownForRange(text, range, owner->_cachedMarkdown), owner -> _config,
+                      [owner selectionCopyHandler]);
   };
+#if !TARGET_OS_OSX
+  ENRMMarkdownTextView *markdownTextView = [[ENRMMarkdownTextView alloc] init];
+  markdownTextView.copySelectionHandler = copySelectionHandler;
   _textView = markdownTextView;
   _textView.text = @"";
 #else
-  _textView = [[ENRMContextMenuTextView alloc] init];
+  ENRMContextMenuTextView *contextMenuTextView = [[ENRMContextMenuTextView alloc] init];
+  contextMenuTextView.copySelectionHandler = copySelectionHandler;
+  _textView = contextMenuTextView;
   _textView.string = @"";
 #endif
   ENRMConfigureMarkdownTextView(_textView);
@@ -398,7 +403,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, strongSelf->_cachedMarkdown,
                                      strongSelf->_config, @[ baseMenu ], customItems,
-                                     strongSelf -> _selectionMenuConfig);
+                                     strongSelf -> _selectionMenuConfig, [strongSelf selectionCopyHandler]);
   };
 #endif
 
@@ -985,6 +990,24 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     });
 }
 
+- (ENRMSelectionCopyHandler)selectionCopyHandler
+{
+  __weak EnrichedMarkdownText *weakSelf = self;
+  return ^(NSString *text, NSString *format, NSRange range) {
+    EnrichedMarkdownText *strongSelf = weakSelf;
+    if (!strongSelf)
+      return;
+    auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(strongSelf->_eventEmitter);
+    if (emitter)
+      emitter->onSelectionCopy({
+          .text = std::string(text.UTF8String ?: ""),
+          .format = std::string(format.UTF8String),
+          .selectionStart = (int)range.location,
+          .selectionEnd = (int)NSMaxRange(range),
+      });
+  };
+}
+
 - (void)updateEventEmitter:(const facebook::react::EventEmitter::Shared &)eventEmitter
 {
   [super updateEventEmitter:eventEmitter];
@@ -1102,7 +1125,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
       ENRMBuildContextMenuActions(_contextMenuItemTexts, _contextMenuItemIcons, textView, range, handler);
 
   return buildEditMenuForSelection(textView.attributedText, range, _cachedMarkdown, _config, suggestedActions,
-                                   customActions, _selectionMenuConfig);
+                                   customActions, _selectionMenuConfig, [self selectionCopyHandler]);
 }
 #endif
 

@@ -42,6 +42,17 @@
   }
 }
 
+/// The menu's Copy is already replaced by the library's own item; this covers the key command.
+- (void)copy:(id)sender
+{
+  NSRange selected = self.selectedRange;
+  if (self.copySelectionHandler && selected.location != NSNotFound && selected.length > 0) {
+    self.copySelectionHandler(selected);
+    return;
+  }
+  [super copy:sender];
+}
+
 - (void)rightMouseDown:(NSEvent *)event
 {
   [self deselectAllInContainer];

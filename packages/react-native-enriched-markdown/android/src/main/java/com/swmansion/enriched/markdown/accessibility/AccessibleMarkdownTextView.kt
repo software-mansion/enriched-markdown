@@ -8,6 +8,9 @@ import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
+import com.swmansion.enriched.markdown.utils.text.view.OnSelectionCopy
+import com.swmansion.enriched.markdown.utils.text.view.SelectionCopyFormat
+import com.swmansion.enriched.markdown.utils.text.view.copySelection
 
 /** AppCompatTextView with built-in TalkBack support via MarkdownAccessibilityHelper. */
 abstract class AccessibleMarkdownTextView
@@ -18,6 +21,16 @@ abstract class AccessibleMarkdownTextView
     defStyleAttr: Int = 0,
   ) : AppCompatTextView(context, attrs, defStyleAttr) {
     val accessibilityHelper = MarkdownAccessibilityHelper(this)
+    var onSelectionCopyCallback: OnSelectionCopy? = null
+
+    // Ctrl+C (and TalkBack's copy action) call this directly, without the selection menu callback.
+    override fun onTextContextMenuItem(id: Int): Boolean {
+      if (id == android.R.id.copy) {
+        copySelection(SelectionCopyFormat.PLAIN, onSelectionCopyCallback)
+        return true
+      }
+      return super.onTextContextMenuItem(id)
+    }
 
     override fun setText(
       text: CharSequence?,

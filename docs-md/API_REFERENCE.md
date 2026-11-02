@@ -206,6 +206,25 @@ Only fires when `flavor="github"` — the copy button is part of the GitHub flav
 />
 ```
 
+### `onSelectionCopy`
+
+Callback after a text selection is copied, from the selection menu's **Copy**, **Copy as Markdown**, or **Copy Image URL** item. Receives `text` (the copied plain text), `format` (`'plain'`, `'markdown'`, or `'imageUrls'`), and `selection` (`{ start, end }` in the rendered text; with `flavor="github"`, relative to the block the selection is in). Code block copies are reported by `onCopyPress` instead.
+
+| Type                                    | Default Value | Platform    |
+| --------------------------------------- | ------------- | ----------- |
+| `(event: SelectionCopyEvent) => void`   | -             | Both, macOS |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  markdown="Select some of this **text** and copy it."
+  onSelectionCopy={({ text, format }) => {
+    console.log(`Copied ${format}:`, text);
+  }}
+/>
+```
+
 ### `onLatexError`
 
 Callback when a math expression cannot be parsed or rendered by the LaTeX engine. Receives `source` (the raw LaTeX of the failing expression, without `$`/`$$` delimiters), `message` (the engine's error message, or `undefined` when the engine provides none), and `displayMode` (`false` for inline `$...$`, `true` for block `$$...$$`).
