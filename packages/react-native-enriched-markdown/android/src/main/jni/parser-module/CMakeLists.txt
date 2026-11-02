@@ -17,7 +17,7 @@ target_include_directories(
   EnrichedMarkdownParser
   PUBLIC
   ${LIB_ANDROID_DIR}/../common
-  ${LIB_ANDROID_DIR}/generated/jni/react/renderer/components
+  ${LIB_ANDROID_DIR}/build/generated/source/codegen/jni/react/renderer/components
 )
 
 # Plain signature: React Native links its common flags into this target the same way.

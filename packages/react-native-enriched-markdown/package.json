@@ -132,7 +132,6 @@
     "source": "src",
     "output": "lib",
     "targets": [
-      "codegen",
       [
         "module",
         {
@@ -151,10 +150,6 @@
     "name": "EnrichedMarkdownTextSpec",
     "type": "all",
     "jsSrcsDir": "src",
-    "outputDir": {
-      "ios": "ios/generated",
-      "android": "android/generated"
-    },
     "android": {
       "javaPackageName": "com.swmansion.enriched.markdown"
     },
@@ -176,8 +171,7 @@
       "modulesProvider": {
         "EnrichedMarkdownParser": "EnrichedMarkdownParserProvider"
       }
-    },
-    "includesGeneratedCode": true
+    }
   },
   "create-react-native-library": {
     "type": "fabric-view",
