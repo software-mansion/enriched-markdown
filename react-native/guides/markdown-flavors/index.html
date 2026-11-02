@@ -11,8 +11,8 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.9863f435.css">
-<script src="/enriched-markdown/assets/js/runtime~main.b47a6d13.js" defer="defer"></script>
-<script src="/enriched-markdown/assets/js/main.d8503a5d.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.e4ed63b4.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/main.1f3fc4ea.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
 <svg style="display: none;"><defs>
@@ -35,8 +35,8 @@
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-gfm-adds">What GFM adds<a href="#what-gfm-adds" class="hash-link" aria-label="Direct link to What GFM adds" title="Direct link to What GFM adds" translate="no">​</a></h2>
 <p>This is the canonical list of everything <code>flavor=&quot;github&quot;</code> changes. The other pages link here rather than repeating it.</p>
 <p><strong>At parse time</strong>, three extensions switch on:</p>
-<table><thead><tr><th>Feature</th><th>Syntax</th></tr></thead><tbody><tr><td><strong>Tables</strong></td><td><code>| col | col |</code><br><code>| --- | --- |</code></td></tr><tr><td><strong>Task lists</strong></td><td><code>- [x] done</code>, <code>- [ ] todo</code></td></tr><tr><td><strong>Strikethrough</strong></td><td><code>~~text~~</code></td></tr></tbody></table>
-<p>In <code>commonmark</code> these stay literal - <code>~~text~~</code> renders as tildes and a <code>| a | b |</code> line is just text. A fourth parser flag, <a class="" href="/enriched-markdown/react-native/api-reference/enriched-markdown-text#admonitions"><code>admonitions</code></a>, is on by default but <strong>forced off</strong> under <code>commonmark</code>, so <code>&gt; [!NOTE]</code> is a GitHub-only callout in practice too.</p>
+<table><thead><tr><th>Feature</th><th>Syntax</th></tr></thead><tbody><tr><td><strong>Tables</strong></td><td><code>| col | col |</code><br><code>| --- | --- |</code></td></tr><tr><td><strong>Task lists</strong></td><td><code>- [x] done</code>, <code>- [ ] todo</code></td></tr><tr><td><strong>Strikethrough</strong></td><td><code>~~text~~</code>, <code>~text~</code></td></tr></tbody></table>
+<p>In <code>commonmark</code> these stay literal by default - <code>~~text~~</code> renders as tildes and a <code>| a | b |</code> line is just text. Strikethrough can be enabled separately with <code>md4cFlags={{ strikethrough: true }}</code>. Another parser flag, <a class="" href="/enriched-markdown/react-native/api-reference/enriched-markdown-text#admonitions"><code>admonitions</code></a>, is on by default but <strong>forced off</strong> under <code>commonmark</code>, so <code>&gt; [!NOTE]</code> is a GitHub-only callout in practice too.</p>
 <p><strong>At render time</strong>, <code>github</code> additionally unlocks:</p>
 <table><thead><tr><th>Feature</th><th>What you get</th></tr></thead><tbody><tr><td><strong>Tables</strong></td><td>Column alignment, rich text in cells, header styling, horizontal scrolling</td></tr><tr><td><strong>Code blocks</strong></td><td>A block component with a header bar, language label and copy button, plus <a class="" href="/enriched-markdown/react-native/api-reference/enriched-markdown-text#oncopypress"><code>onCopyPress</code></a></td></tr><tr><td><strong>Block math</strong></td><td><code>$$...$$</code> as a standalone, scrollable display equation rather than an inline attachment</td></tr><tr><td><strong>Videos</strong></td><td>The <code>&lt;video&gt;</code> player (the tag itself is parsed in both flavors)</td></tr><tr><td><strong>Blockquote containers</strong></td><td>Blockquotes and admonitions as real container views, with a block context menu</td></tr><tr><td><strong>Task list toggling</strong></td><td>Interactive checkboxes, reported through <a class="" href="/enriched-markdown/react-native/api-reference/enriched-markdown-text#ontasklistitempress"><code>onTaskListItemPress</code></a></td></tr></tbody></table>
 <p><strong>And two things you give up</strong> under <code>github</code>:</p>
@@ -59,23 +59,26 @@
 <li class=""><code>underline</code> - <code>_text_</code></li>
 <li class=""><code>superscript</code> - <code>^text^</code></li>
 <li class=""><code>subscript</code> - <code>~text~</code></li>
+<li class=""><code>strikethrough</code> - <code>~~text~~</code> and <code>~text~</code> (already enabled by GitHub flavor, so it has no effect there)</li>
 <li class=""><code>highlight</code> - <code>==text==</code></li>
 </ul>
 <div class="container_e_iJ">Loading…</div>
+<p>To display <code>~~text~~</code> emitted by the editor while retaining CommonMark&#x27;s single text view, line limits, and cross-block selection, set <code>md4cFlags={{ strikethrough: true }}</code>. This also makes single-tilde <code>~text~</code> strike, unless <code>subscript</code> is on. It enables only the parser extension; it does not switch the native rendering flavor or enable tables and task lists. The flag defaults to <code>false</code>, which leaves CommonMark unchanged and never disables GitHub strikethrough. Web keeps its always-GFM parsing.</p>
 <p>The flag set also carries <code>latexMath</code> and <code>admonitions</code> (both on by default) and the newline options <code>hardSoftBreaks</code> and <code>preserveBlankLines</code>. See the <a class="" href="/enriched-markdown/react-native/api-reference/enriched-markdown-text#md4cflags"><code>md4cFlags</code> reference</a> for what each flag enables and its default.</p>
 <p><code>admonitions</code> is the one flag gated by <strong>both</strong> layers: the flag must be on <em>and</em> the flavor must be <code>github</code>, because <code>commonmark</code> forces it off.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-parsing-model">The parsing model<a href="#the-parsing-model" class="hash-link" aria-label="Direct link to The parsing model" title="Direct link to The parsing model" translate="no">​</a></h2>
 <p>Putting it together, three layers decide which syntax the parser recognizes:</p>
 <ol>
 <li class=""><strong>CommonMark core</strong> - always parsed: headings, emphasis, lists, links, blockquotes, code, and images (everything in <a class="" href="/enriched-markdown/introduction/core-concepts">Core concepts</a>), plus two always-on extras: bare-URL autolinks and spoilers.</li>
-<li class=""><strong>The flavor</strong> - <code>flavor=&quot;github&quot;</code> adds the GFM extensions above (tables, task lists, strikethrough); <code>flavor=&quot;commonmark&quot;</code> leaves them off.</li>
-<li class=""><strong><code>md4cFlags</code></strong> - layer extra inline extensions on top of either flavor (underline, superscript, subscript, highlight) and tune math, admonitions and newline handling (<code>latexMath</code>, <code>admonitions</code>, <code>hardSoftBreaks</code>, <code>preserveBlankLines</code>). <code>admonitions</code> is the exception to &quot;on top of either flavor&quot;: it is forced off under <code>commonmark</code>.</li>
+<li class=""><strong>The flavor</strong> - <code>flavor=&quot;github&quot;</code> adds the GFM extensions above (tables, task lists, strikethrough); <code>flavor=&quot;commonmark&quot;</code> leaves them off by default.</li>
+<li class=""><strong><code>md4cFlags</code></strong> - layer extra inline extensions on top of either flavor (underline, superscript, subscript, strikethrough, highlight) and tune math, admonitions and newline handling (<code>latexMath</code>, <code>admonitions</code>, <code>hardSoftBreaks</code>, <code>preserveBlankLines</code>). <code>admonitions</code> is the exception to &quot;on top of either flavor&quot;: it is forced off under <code>commonmark</code>.</li>
 </ol>
 <p>For a given <code>(flavor, md4cFlags)</code> pair the same string always parses the same way - those are the only inputs that change which syntax is recognized.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabling-each-feature">Enabling each feature<a href="#enabling-each-feature" class="hash-link" aria-label="Direct link to Enabling each feature" title="Direct link to Enabling each feature" translate="no">​</a></h2>
 <p>Mapping the rich text features back to the three layers above - what each one needs to be switched on:</p>
 <ul>
-<li class=""><strong>Tables, task lists, strikethrough</strong> - the GFM extensions covered above; <code>flavor=&quot;github&quot;</code>.</li>
+<li class=""><strong>Tables, task lists</strong> - require <code>flavor=&quot;github&quot;</code>.</li>
+<li class=""><strong>Strikethrough</strong> - enabled by <code>flavor=&quot;github&quot;</code> or <code>md4cFlags={{ strikethrough: true }}</code>.</li>
 <li class=""><strong>Admonitions</strong> - the <code>admonitions</code> flag (on by default) <strong>and</strong> <code>flavor=&quot;github&quot;</code>.</li>
 <li class=""><a class="" href="/enriched-markdown/rich-text-formatting/latex-math"><strong>LaTeX math</strong></a> - the <code>latexMath</code> flag (on by default); block equations also need <code>flavor=&quot;github&quot;</code>. Rendering additionally needs the native math engine, which the <code>enableMath</code> <a class="" href="/enriched-markdown/react-native/guides/native-assets#optional-features">build flag</a> includes by default.</li>
 <li class=""><a class="" href="/enriched-markdown/rich-text-formatting/editor-style-text"><strong>Editor-style text</strong></a> - the <code>hardSoftBreaks</code> and <code>preserveBlankLines</code> flags.</li>
