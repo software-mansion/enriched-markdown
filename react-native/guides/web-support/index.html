@@ -11,8 +11,8 @@
 
 <link rel="icon" type="image/png" href="/enriched-markdown/img/favicon.png">
 <script>!function(){try{var e=location.pathname;if([].some(function(t){return e===t||0===e.indexOf(t+"/")}))return;var t=localStorage.getItem("swm.topbarbanner.v1.enriched-topbar-1.ea15c4216158c4097b65fe6504a4b3b7");if(!t)return;var r=JSON.parse(t);if(!r||"number"!=typeof r.height||r.height<5)return;if(Date.now()-r.timestamp>=2592e6)return;var n=document.documentElement;n.style.setProperty("--banner-height-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.height+"px"),"string"==typeof r.bgColor&&n.style.setProperty("--banner-bg-enriched-topbar-1-ea15c4216158c4097b65fe6504a4b3b7",r.bgColor)}catch(e){}}()</script><link rel="stylesheet" href="/enriched-markdown/assets/css/styles.9863f435.css">
-<script src="/enriched-markdown/assets/js/runtime~main.e4ed63b4.js" defer="defer"></script>
-<script src="/enriched-markdown/assets/js/main.1f3fc4ea.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/runtime~main.2c729728.js" defer="defer"></script>
+<script src="/enriched-markdown/assets/js/main.f43835dd.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
 <svg style="display: none;"><defs>
@@ -131,7 +131,7 @@ development.</p>
 <li class=""><code>onLinkPress</code>, <code>onLinkLongPress</code> (mapped to the <code>contextmenu</code> event), <code>onImagePress</code>, <code>onTaskListItemPress</code> and <code>onCodeBlockPress</code></li>
 <li class=""><code>onCodeBlockPress</code> - makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role; it does not fire while code text is selected</li>
 <li class=""><code>onImagePress</code> - makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser&#x27;s right-click menu is preserved</li>
-<li class=""><a class="" href="/enriched-markdown/react-native/guides/custom-block-renderers"><code>renderers</code></a> - React replacements for standalone images, standalone links and <code>&lt;video&gt;</code> blocks, with the same block ids and placements as native; the element replaces the block in the DOM and keeps its spacing</li>
+<li class=""><a class="" href="/enriched-markdown/react-native/guides/custom-block-renderers"><code>renderers</code></a> - React replacements for standalone images, standalone links, <code>&lt;video&gt;</code> blocks and code blocks, with the same block ids and placements as native; the element replaces the block in the DOM and keeps its spacing</li>
 <li class=""><code>resolveImageSource</code> - swaps the <code>src</code> of every image occurrence, synchronously or from a promise; headers are dropped because <code>&lt;img&gt;</code> requests cannot carry them, and a pending or failed resolution renders the image without a source</li>
 <li class=""><code>enableTaskListItemToggle</code> - set to <code>false</code> to render task list checkboxes read-only (the click is fully inert: no toggle, no <code>onTaskListItemPress</code>). The checkbox keeps its normal appearance, marked <code>readOnly</code> / <code>aria-disabled</code> and made pointer-inert rather than <code>disabled</code>, matching iOS and Android</li>
 <li class=""><code>allowTrailingMargin</code>, <code>containerStyle</code>, <code>selectable</code>, <code>selectionColor</code>, <code>md4cFlags</code> (<code>underline</code>, <code>superscript</code>, <code>subscript</code>, <code>strikethrough</code>, <code>latexMath</code>, <code>highlight</code>, <code>hardSoftBreaks</code>, <code>preserveBlankLines</code>, <code>admonitions</code>; <code>strikethrough</code> is accepted but has no effect, because web always parses GFM)</li>
