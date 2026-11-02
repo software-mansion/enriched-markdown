@@ -10,6 +10,8 @@ import android.view.textclassifier.TextClassifier
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.ViewCompat
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
+import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
+import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 
 /**
  * Adopts the renderer's buffer instead of copying it: the default factory's copy is
@@ -89,6 +91,10 @@ fun AccessibleMarkdownTextView.setupAsMarkdownTextView() {
   setBackgroundColor(Color.TRANSPARENT)
   setSpannableFactory(NoCopySpannableFactory)
   includeFontPadding = false
+  // The textBreakStrategy setter runs only when the prop is passed, while MeasurementStore
+  // resolves a missing value to HIGH_QUALITY. Start from that value so both break lines alike.
+  breakStrategy = BreakStrategyUtils.resolveBreakStrategy(null)
+  BoundsForWidthUtils.applyTo(this)
   movementMethod = LinkLongPressMovementMethod.createInstance()
   setTextIsSelectable(true)
   customSelectionActionModeCallback = createSelectionActionModeCallback(this)

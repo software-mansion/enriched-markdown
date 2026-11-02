@@ -8,6 +8,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import com.swmansion.enriched.markdown.CodeBlockWrapCursor
 import com.swmansion.enriched.markdown.styles.StyleConfig
+import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
 import com.swmansion.enriched.markdown.utils.text.extensions.replaceMathSpansWithPlaceholders
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import kotlin.math.ceil
@@ -229,6 +230,7 @@ object SegmentHeightMeasurer {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
           setUseLineSpacingFromFallbacks(true)
         }
+        BoundsForWidthUtils.applyTo(this)
       }.build()
   }
 }
