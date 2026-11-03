@@ -152,6 +152,7 @@ class ImageSpan(
         available.coerceAtLeast(0)
       }
 
+    val previousBoxHeight = boxHeight
     boxHeight = resolveBoxHeight(targetWidth)
 
     val cachedBitmap = ImageCache.getProcessed(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode)
@@ -174,22 +175,27 @@ class ImageSpan(
           cacheKey = CacheKey(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode),
         )
     }
-    requestReflow()
+    requestReflow(boxHeightChanged = boxHeight != previousBoxHeight)
   }
 
-  private fun requestReflow() {
+  private fun requestReflow(boxHeightChanged: Boolean = false) {
     val view = viewRef?.get() ?: return
     val text = view.text
     if (text is Spannable) {
       val start = text.getSpanStart(this)
       val end = text.getSpanEnd(this)
       if (start != -1 && end != -1) {
-        text.setSpan(this, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        if (boxHeightChanged) {
+          // setSpan() alone keeps TextView's cached Layout and its old line heights;
+          // re-setting the text rebuilds it.
+          view.text = text
+        } else {
+          text.setSpan(this, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
       }
-    } else {
-      view.invalidate()
-      view.requestLayout()
     }
+    view.invalidate()
+    view.requestLayout()
     notifyBoxHeightMayHaveChanged(view)
   }
 
@@ -242,7 +248,7 @@ class ImageSpan(
       val newBoxHeight = resolveBoxHeight(newWidth)
       if (newBoxHeight != boxHeight) {
         boxHeight = newBoxHeight
-        requestReflow()
+        requestReflow(boxHeightChanged = true)
       }
     }
   }
