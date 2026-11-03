@@ -23,10 +23,10 @@ abstract class AccessibleMarkdownTextView
       text: CharSequence?,
       type: BufferType?,
     ) {
-      // Prime pills before the layout for the new text is built, and register for icons
+      // Prime pills and images before the layout for the new text is built, and register for icons
       // that load later. Runs from the TextView constructor too: use nothing initialized after it.
       val contentWidth = width - compoundPaddingLeft - compoundPaddingRight
-      if (contentWidth > 0) prepareWidthAwareSpans(text, contentWidth, includeImages = false)
+      if (contentWidth > 0) prepareWidthAwareSpans(text, contentWidth)
       LinkPillSpan.registerView(text, this)
       super.setText(text, type)
     }
@@ -38,7 +38,7 @@ abstract class AccessibleMarkdownTextView
       if (MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED) {
         val width = (MeasureSpec.getSize(widthMeasureSpec) - compoundPaddingLeft - compoundPaddingRight).coerceAtLeast(1)
         // TextView keeps its layout when the new width still fits the old lines.
-        if (prepareWidthAwareSpans(text, width, includeImages = false) && layout != null) dropTextLayout()
+        if (prepareWidthAwareSpans(text, width) && layout != null) dropTextLayout()
       }
       super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }

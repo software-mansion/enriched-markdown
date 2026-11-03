@@ -3,9 +3,11 @@ package com.swmansion.enriched.markdown.utils.text.view
 import android.graphics.Color
 import android.os.Build
 import android.text.GetChars
+import android.text.SpanWatcher
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
+import android.text.style.UpdateLayout
 import android.view.textclassifier.TextClassifier
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.view.ViewCompat
@@ -36,6 +38,10 @@ private object NoCopySpannableFactory : Spannable.Factory() {
  * path the framework reserves for builders. The `layout` benchmark in the example app's
  * `display-benchmark` covers that cost, so it is already accounted for. Do not
  * "optimise" this wrapper away.
+ *
+ * The builder also names itself to its span watchers, and `DynamicLayout` ignores changes
+ * from any text but the one it was built over. [setSpan] reports the change again as this
+ * wrapper, so that setting a span again still reflows its line.
  */
 private class InsertionOrderedSpannable(
   private val buffer: SpannableStringBuilder,
@@ -80,7 +86,15 @@ private class InsertionOrderedSpannable(
     start: Int,
     end: Int,
     flags: Int,
-  ) = buffer.setSpan(what, start, end, flags)
+  ) {
+    val oldStart = buffer.getSpanStart(what)
+    val oldEnd = buffer.getSpanEnd(what)
+    buffer.setSpan(what, start, end, flags)
+    if (what !is UpdateLayout || oldStart < 0) return
+    buffer
+      .getSpans(minOf(oldStart, start), minOf(maxOf(oldEnd, end), length), SpanWatcher::class.java)
+      .forEach { it.onSpanChanged(this, what, oldStart, oldEnd, start, end) }
+  }
 
   override fun removeSpan(what: Any) = buffer.removeSpan(what)
 

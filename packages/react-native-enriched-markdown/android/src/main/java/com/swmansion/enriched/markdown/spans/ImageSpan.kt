@@ -78,6 +78,8 @@ class ImageSpan(
   private val requestKey: String = ImageCache.requestKey(requestUrl, requestHeaders)
 
   private var cachedWidth: Int = 0
+  private var lineAfterImage: Int = -1
+  private var addedLineHeight: Int = 0
   private val capBounds = Rect()
   private var viewRef: WeakReference<TextView>? = null
   private var sourceDrawable: Drawable? = null
@@ -107,13 +109,19 @@ class ImageSpan(
     return height
   }
 
+  /** Sizes a block image for a layout about to be built over [text]; returns true when its width changed. */
   fun prepareForMeasurement(
     text: Spanned,
     widthPx: Int,
-  ) {
-    if (!dynamicBoxHeight || widthPx <= 0) return
+  ): Boolean {
+    if (isInline || widthPx <= 0) return false
     val available = availableWidthIn(text, widthPx)
-    if (available > 0) boxHeight = resolveBoxHeight(available)
+    if (available <= 0) return false
+    val changed = available != cachedWidth
+    cachedWidth = available
+    if (dynamicBoxHeight) boxHeight = resolveBoxHeight(available)
+    if (changed) assignLoadedDrawable(available)
+    return changed
   }
 
   init {
@@ -143,15 +151,20 @@ class ImageSpan(
   }
 
   private fun wrapAndAssignDrawable() {
-    val base = sourceDrawable ?: return
     val targetWidth =
       if (isInline) {
         height
       } else {
-        val available = viewRef?.get()?.let { getAvailableWidth(it) } ?: cachedWidth
-        available.coerceAtLeast(0)
+        // A view that has no size yet keeps the width the image was prepared with.
+        cachedWidth = viewRef?.get()?.let { getAvailableWidth(it) }?.takeIf { it > 0 } ?: cachedWidth
+        cachedWidth
       }
+    assignLoadedDrawable(targetWidth)
+    requestReflow()
+  }
 
+  private fun assignLoadedDrawable(targetWidth: Int) {
+    val base = sourceDrawable ?: return
     boxHeight = resolveBoxHeight(targetWidth)
 
     val cachedBitmap = ImageCache.getProcessed(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode)
@@ -174,7 +187,6 @@ class ImageSpan(
           cacheKey = CacheKey(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode),
         )
     }
-    requestReflow()
   }
 
   private fun requestReflow() {
@@ -238,17 +250,13 @@ class ImageSpan(
       wrapAndAssignDrawable()
       return
     }
-    if (dynamicBoxHeight) {
-      val newBoxHeight = resolveBoxHeight(newWidth)
-      if (newBoxHeight != boxHeight) {
-        boxHeight = newBoxHeight
-        requestReflow()
-      }
-    }
+    if (dynamicBoxHeight) boxHeight = resolveBoxHeight(newWidth)
+    // The placeholder takes up the same width as the image, so the lines change here too.
+    requestReflow()
   }
 
   private fun getAvailableWidth(view: TextView): Int {
-    val baseWidth = (view.layout?.width ?: view.width).coerceAtLeast(0)
+    val baseWidth = (view.layout?.width ?: (view.width - view.compoundPaddingLeft - view.compoundPaddingRight)).coerceAtLeast(0)
     val text = view.text as? Spanned ?: return baseWidth
     return availableWidthIn(text, baseWidth)
   }
@@ -312,12 +320,22 @@ class ImageSpan(
     fm: Paint.FontMetricsInt?,
   ) {
     if (fm == null || isInline) return
-    val currentLineHeight = fm.descent - fm.ascent
-    if (boxHeight > currentLineHeight) {
-      val extraHeight = boxHeight - currentLineHeight
-      fm.descent += extraHeight
-      fm.bottom += extraHeight
+    // Text after the image shares its paragraph, so this runs for those lines too. When a
+    // text run continues past the line break, StaticLayout starts the next line from this
+    // line's metrics, so the height added for the image has to come off again there. A
+    // block image always opens its paragraph, so its line sets these fields first.
+    if (start == lineAfterImage) {
+      if (fm.descent - fm.ascent >= boxHeight) {
+        fm.descent -= addedLineHeight
+        fm.bottom -= addedLineHeight
+      }
+      return
     }
+    if ((text as? Spanned)?.getSpanStart(this) !in start until end) return
+    addedLineHeight = (boxHeight - (fm.descent - fm.ascent)).coerceAtLeast(0)
+    fm.descent += addedLineHeight
+    fm.bottom += addedLineHeight
+    lineAfterImage = end
   }
 
   override fun draw(
