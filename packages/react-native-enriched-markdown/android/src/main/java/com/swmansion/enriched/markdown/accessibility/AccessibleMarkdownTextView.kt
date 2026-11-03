@@ -27,7 +27,7 @@ abstract class AccessibleMarkdownTextView
     /** The selection toolbar while it is showing, kept up to date by the selection menu callback. */
     internal var selectionActionMode: ActionMode? = null
 
-    // Ctrl+C (and TalkBack's copy action) call this directly, without the selection menu callback.
+    // The selection menu's Copy ends up here, and Ctrl+C (and TalkBack's copy action) call this directly.
     override fun onTextContextMenuItem(id: Int): Boolean {
       if (id == android.R.id.copy) {
         // The platform's copy is what tells the user when the clipboard refuses the clip.

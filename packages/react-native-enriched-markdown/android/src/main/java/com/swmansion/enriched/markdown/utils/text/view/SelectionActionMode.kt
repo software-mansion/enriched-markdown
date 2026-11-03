@@ -146,16 +146,17 @@ fun createSelectionActionModeCallback(
     ): Boolean {
       val itemId = item?.itemId ?: return false
 
+      // Unhandled items go to onTextContextMenuItem, which is where Copy is handled for Ctrl+C too.
+      if (itemId == android.R.id.copy) return false
+
       val copyFormat =
         when (itemId) {
-          android.R.id.copy -> SelectionCopyFormat.PLAIN
           MENU_ITEM_COPY_MARKDOWN -> SelectionCopyFormat.MARKDOWN
           MENU_ITEM_COPY_IMAGE_URL -> SelectionCopyFormat.IMAGE_URLS
           else -> null
         }
       if (copyFormat != null) {
-        textView.copySelection(copyFormat, onSelectionCopy)
-        mode?.finish()
+        if (textView.copySelection(copyFormat, onSelectionCopy)) mode?.finish()
         return true
       }
 
@@ -180,8 +181,8 @@ fun createSelectionActionModeCallback(
 
 /**
  * Copies the selection in [format] and reports it to [onSelectionCopy]. Shared by
- * the selection menu and the keyboard shortcut, which reaches the view through
- * `onTextContextMenuItem(android.R.id.copy)` without passing the menu callback.
+ * the selection menu's copy items and `onTextContextMenuItem(android.R.id.copy)`,
+ * which handles the menu's plain Copy and the keyboard shortcut.
  * Returns whether anything reached the clipboard.
  */
 fun TextView.copySelection(

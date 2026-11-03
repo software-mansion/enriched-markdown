@@ -14,6 +14,8 @@ class SelectionCopyEvent(
 ) : Event<SelectionCopyEvent>(surfaceId, viewId) {
   override fun getEventName(): String = EVENT_NAME
 
+  override fun canCoalesce(): Boolean = false
+
   override fun getEventData(): WritableMap =
     Arguments.createMap().apply {
       putString("text", text)

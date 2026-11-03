@@ -81,16 +81,18 @@ class SelectionCopyTest {
   }
 
   // The system adds Copy; the callback adds the rest in onPrepareActionMode.
+  // Like the platform's Editor, sends what the callback doesn't handle to onTextContextMenuItem.
   private fun clickMenuItem(
     view: android.widget.TextView,
     title: String,
+    toolbar: ActionMode? = null,
   ) {
     val menu = MenuBuilder(context)
     menu.add(Menu.NONE, android.R.id.copy, Menu.NONE, "Copy")
     val callback = view.customSelectionActionModeCallback!!
-    callback.onPrepareActionMode(null, menu)
+    callback.onPrepareActionMode(toolbar, menu)
     val item = (0 until menu.size()).map(menu::getItem).first { it.title == title }
-    assertTrue(callback.onActionItemClicked(null, item))
+    assertTrue(callback.onActionItemClicked(toolbar, item) || view.onTextContextMenuItem(item.itemId))
   }
 
   private fun pressCtrlC(view: android.widget.TextView): Boolean =
@@ -231,6 +233,21 @@ class SelectionCopyTest {
   }
 
   @Test
+  fun menuItemsCloseTheSelectionToolbar() {
+    val (view, _) = segmentSelecting(7, 9)
+    view.selectionMenuConfig = SelectionMenuConfig(copyAsMarkdownLabel = "Copy as Markdown")
+
+    for (title in listOf("Copy", "Copy as Markdown")) {
+      val toolbar = FakeActionMode()
+      view.customSelectionActionModeCallback!!.onCreateActionMode(toolbar, MenuBuilder(context))
+
+      clickMenuItem(view, title, toolbar)
+
+      assertTrue(title, toolbar.finished)
+    }
+  }
+
+  @Test
   fun ctrlCLeavesAFinishedToolbarAlone() {
     val (view, _) = segmentSelecting(7, 9)
     val toolbar = FakeActionMode()
@@ -276,11 +293,14 @@ class SelectionCopyTest {
     RefusingClipboard.refuses = { true }
     val (view, copies) = segmentSelecting(7, 9)
     view.selectionMenuConfig = SelectionMenuConfig(copyAsMarkdownLabel = "Copy as Markdown")
+    val toolbar = FakeActionMode()
+    view.customSelectionActionModeCallback!!.onCreateActionMode(toolbar, MenuBuilder(context))
 
-    clickMenuItem(view, "Copy")
-    clickMenuItem(view, "Copy as Markdown")
+    clickMenuItem(view, "Copy", toolbar)
+    clickMenuItem(view, "Copy as Markdown", toolbar)
 
     assertEquals(emptyList<Copy>(), copies)
+    assertFalse(toolbar.finished)
   }
 }
 
