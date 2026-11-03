@@ -44,7 +44,7 @@ private object NoCopySpannableFactory : Spannable.Factory() {
  * wrapper, so that setting a span again still reflows its line.
  */
 private class InsertionOrderedSpannable(
-  private val buffer: SpannableStringBuilder,
+  val buffer: SpannableStringBuilder,
 ) : Spannable,
   GetChars {
   override val length: Int get() = buffer.length
@@ -99,6 +99,19 @@ private class InsertionOrderedSpannable(
   override fun removeSpan(what: Any) = buffer.removeSpan(what)
 
   override fun toString(): String = buffer.toString()
+}
+
+/**
+ * Repaints [what] without laying the text out again, for a span whose size did not change.
+ * Invalidating is not enough: a selectable TextView draws from display lists that only a
+ * span change records again. The buffer's own report reaches the view but not its
+ * `DynamicLayout`, see [InsertionOrderedSpannable].
+ */
+fun Spannable.repaintSpan(what: Any) {
+  val start = getSpanStart(what)
+  if (start < 0) return
+  val target = (this as? InsertionOrderedSpannable)?.buffer ?: this
+  target.setSpan(what, start, getSpanEnd(what), getSpanFlags(what))
 }
 
 fun AccessibleMarkdownTextView.setupAsMarkdownTextView() {

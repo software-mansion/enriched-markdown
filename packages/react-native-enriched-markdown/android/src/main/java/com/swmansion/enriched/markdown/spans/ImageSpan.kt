@@ -26,6 +26,7 @@ import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.LocalImageLoader
+import com.swmansion.enriched.markdown.utils.text.view.repaintSpan
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 import kotlin.math.ceil
@@ -151,6 +152,7 @@ class ImageSpan(
   }
 
   private fun wrapAndAssignDrawable() {
+    val placeholderSize = currentSize()
     val targetWidth =
       if (isInline) {
         height
@@ -160,8 +162,12 @@ class ImageSpan(
         cachedWidth
       }
     assignLoadedDrawable(targetWidth)
-    requestReflow()
+    // Laying out a paragraph measures all of its images, so one that fills the box its
+    // placeholder held only repaints. Otherwise a paragraph of N images is quadratic in N.
+    if (currentSize() == placeholderSize) requestRepaint() else requestReflow()
   }
+
+  private fun currentSize(): Pair<Int, Int> = getDrawable().bounds.right to boxHeight
 
   private fun assignLoadedDrawable(targetWidth: Int) {
     val base = sourceDrawable ?: return
@@ -187,6 +193,11 @@ class ImageSpan(
           cacheKey = CacheKey(requestKey, targetWidth, boxHeight, borderRadiusPx, resizeMode),
         )
     }
+  }
+
+  private fun requestRepaint() {
+    val view = viewRef?.get() ?: return
+    (view.text as? Spannable)?.repaintSpan(this) ?: view.invalidate()
   }
 
   private fun requestReflow() {
@@ -247,10 +258,10 @@ class ImageSpan(
     if (newWidth <= 0 || cachedWidth == newWidth) return
     cachedWidth = newWidth
     if (sourceDrawable != null) {
-      wrapAndAssignDrawable()
-      return
+      assignLoadedDrawable(newWidth)
+    } else if (dynamicBoxHeight) {
+      boxHeight = resolveBoxHeight(newWidth)
     }
-    if (dynamicBoxHeight) boxHeight = resolveBoxHeight(newWidth)
     // The placeholder takes up the same width as the image, so the lines change here too.
     requestReflow()
   }

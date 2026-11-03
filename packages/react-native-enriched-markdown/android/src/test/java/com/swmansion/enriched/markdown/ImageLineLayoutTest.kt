@@ -1,6 +1,7 @@
 package com.swmansion.enriched.markdown
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.text.Layout
@@ -15,6 +16,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleConfig
 import com.swmansion.enriched.markdown.test.TestAstFactory.image
@@ -22,6 +24,7 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
+import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
 import org.junit.Assert.assertEquals
@@ -132,6 +135,79 @@ class ImageLineLayoutTest {
     assertEquals(2, view.layout.lineCount)
   }
 
+  @Test
+  fun aLoadedInlineImageDoesNotLayTheTextOutAgain() {
+    val (span, finishLoading) = pendingImage("https://example.com/inline.png", styleConfig(), isInline = true)
+    val (view, neighbour) = viewShowing(span)
+
+    finishLoading(bitmap(40, 40))
+
+    assertEquals(0, neighbour.sizeQueries)
+    assertEquals(1, view.layout.lineCount)
+  }
+
+  @Test
+  fun aLoadedBlockImageFillingItsBoxDoesNotLayTheTextOutAgain() {
+    val (span, finishLoading) = pendingImage("https://example.com/block.png", styleConfig())
+    val (_, neighbour) = viewShowing(span)
+
+    finishLoading(bitmap(800, 100))
+
+    assertEquals(0, neighbour.sizeQueries)
+  }
+
+  @Test
+  fun aLoadedImageOfAnotherHeightLaysTheTextOutAgain() {
+    val style = styleConfig(image = mapOf("maxHeight" to IMAGE_HEIGHT.toDouble(), "resizeMode" to "contain"))
+    val (span, finishLoading) = pendingImage("https://example.com/short.png", style)
+    val (view, neighbour) = viewShowing(span)
+    assertEquals(IMAGE_HEIGHT, lineHeight(view.layout, 0))
+
+    finishLoading(bitmap(800, 100))
+
+    assertTrue(neighbour.sizeQueries > 0)
+    assertEquals(WIDTH * 100 / 800, lineHeight(view.layout, 0))
+  }
+
+  /** An image whose download is in flight, and what finishes that download. */
+  @Suppress("UNCHECKED_CAST")
+  private fun pendingImage(
+    url: String,
+    style: StyleConfig,
+    isInline: Boolean = false,
+  ): Pair<ImageSpan, (Bitmap) -> Unit> {
+    val inFlight =
+      ImageDownloader::class.java
+        .getDeclaredField("inFlight")
+        .apply { isAccessible = true }
+        .get(ImageDownloader) as MutableMap<String, MutableList<(Bitmap?) -> Unit>>
+    inFlight[url] = mutableListOf()
+    val span = ImageSpan(context, url, style, isInline)
+    val callbacks = inFlight.remove(url).orEmpty()
+    return span to { bitmap -> callbacks.forEach { it(bitmap) } }
+  }
+
+  /** A laid out view with [span] and a span that counts how often the paragraph is measured. */
+  private fun viewShowing(span: ImageSpan): Pair<TextView, ResizableSpan> {
+    val neighbour = ResizableSpan(width = 0)
+    val text =
+      SpannableStringBuilder("￼ words ￼").apply {
+        setSpan(span, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        setSpan(neighbour, length - 1, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    val view = textView()
+    view.setText(text, TextView.BufferType.SPANNABLE)
+    measure(view)
+    span.registerTextView(view)
+    neighbour.sizeQueries = 0
+    return view to neighbour
+  }
+
+  private fun bitmap(
+    width: Int,
+    height: Int,
+  ) = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+
   private fun textView() =
     object : AccessibleMarkdownTextView(context) {}.apply {
       layoutParams = ViewGroup.LayoutParams(WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -181,13 +257,18 @@ class ImageLineLayoutTest {
   private class ResizableSpan(
     var width: Int,
   ) : ReplacementSpan() {
+    var sizeQueries = 0
+
     override fun getSize(
       paint: Paint,
       text: CharSequence?,
       start: Int,
       end: Int,
       fm: Paint.FontMetricsInt?,
-    ): Int = width
+    ): Int {
+      sizeQueries++
+      return width
+    }
 
     override fun draw(
       canvas: Canvas,

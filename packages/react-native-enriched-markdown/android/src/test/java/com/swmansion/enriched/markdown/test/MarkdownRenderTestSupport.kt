@@ -70,6 +70,7 @@ object MarkdownRenderTestSupport {
     style.putMap("list", textElement().apply { putAll(defaultList + list) })
     style.putMap("codeBlock", textElement().apply { putAll(defaultCodeBlock + codeBlock) })
     style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage + image) })
+    style.putMap("inlineImage", JavaOnlyMap.of("size", 20.0))
     return StyleConfig(style, context, false, 0f)
   }
 
