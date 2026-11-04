@@ -337,11 +337,15 @@ object HTMLGenerator {
 
     // A block's bottom-margin line inside a list item or a quote holds no content of its own, but it
     // still ends a code block, and in a quote that opens with code it is the first line to open the quote.
+    // A root quote's own margin line sits outside its span, so outside a quote this line ends any open one.
     if (paraText.isEmpty() && text.getSpans(para.start, para.start + 1, MarginBottomSpan::class.java).isNotEmpty()) {
       closeCodeBlockIfOpen(html, state, styles)
       if (para.type == TYPE_BLOCKQUOTE) {
         openBlockquotesTo(html, para, styles, state)
         state.previousWasBlockquote = true
+      } else {
+        closeAllBlockquotes(html, state)
+        state.previousWasBlockquote = false
       }
       return
     }

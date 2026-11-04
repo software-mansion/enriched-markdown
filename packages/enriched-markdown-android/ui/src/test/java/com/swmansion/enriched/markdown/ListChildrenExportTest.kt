@@ -115,6 +115,23 @@ class ListChildrenExportTest {
   }
 
   @Test
+  fun closesAQuoteBeforeTheCodeBlockThatFollowsItInAnItemInHtml() {
+    val html =
+      generateHTML(
+        render(
+          document(
+            unorderedList(
+              listItem(paragraph(text("Item")), blockquote(paragraph(text("Quoted"))), codeBlock("one\n")),
+              listItem(paragraph(text("Next"))),
+            ),
+          ),
+        ),
+      )
+
+    html.assertContainsHtmlInOrder("Quoted", "</blockquote>", "<pre", "one", "</pre>", "Next")
+  }
+
+  @Test
   fun keepsTheQuoteOfAQuoteThatOpensWithCodeInHtml() {
     val html = generateHTML(render(document(blockquote(codeBlock("one\n")), paragraph(text("Outside")))))
 
