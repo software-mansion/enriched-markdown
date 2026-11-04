@@ -29,6 +29,7 @@ import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.spans.LinkPillSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.styles.TableStyle
+import com.swmansion.enriched.markdown.utils.common.BoundsForWidthUtils
 import com.swmansion.enriched.markdown.utils.common.findEnrichedMarkdownAncestor
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
 import com.swmansion.enriched.markdown.utils.common.serialization.MarkdownASTSerializer
@@ -473,6 +474,7 @@ class TableContainerView(
             StaticLayout.Builder
               .obtain(cellText, 0, cellText.length, paint, maxColumnWidth.toInt())
               .setIncludePad(false)
+              .apply { BoundsForWidthUtils.applyTo(this) }
               .build()
           val textWidth: Float = (0 until layout.lineCount).maxOfOrNull { line -> layout.getLineWidth(line) } ?: 0f
           val effectiveWidth = if (cellHasBlockImage(cellText)) maxColumnWidth else ceil(textWidth)
@@ -496,6 +498,7 @@ class TableContainerView(
                     paint,
                     contentWidth,
                   ).setIncludePad(false)
+                  .apply { BoundsForWidthUtils.applyTo(this) }
                   .build()
               ceil(layout.height.toFloat()) + verticalPadding
             }.maxOfOrNull { it } ?: 0f
@@ -612,6 +615,7 @@ class TableContainerView(
     init {
       setPadding(0, 0, 0, 0)
       includeFontPadding = false
+      BoundsForWidthUtils.applyTo(this)
       movementMethod = LinkLongPressMovementMethod.createInstance()
       layoutDirection = View.LAYOUT_DIRECTION_LOCALE
       textDirection = View.TEXT_DIRECTION_LOCALE

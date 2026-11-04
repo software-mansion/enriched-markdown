@@ -74,6 +74,17 @@ object MarkdownRenderTestSupport {
     return StyleConfig(style, context, false, 0f)
   }
 
+  private val defaultImage: Map<String, Any> =
+    mapOf(
+      "height" to 100.0,
+      "maxHeight" to 0.0,
+      "aspectRatio" to 0.0,
+      "resizeMode" to "",
+      "borderRadius" to 0.0,
+      "marginTop" to 0.0,
+      "marginBottom" to 0.0,
+    )
+
   private val defaultList: Map<String, Any> =
     mapOf(
       "fontFamily" to "",
@@ -88,17 +99,6 @@ object MarkdownRenderTestSupport {
 
   private val defaultCodeBlock: Map<String, Any> =
     mapOf("borderRadius" to 0.0, "borderWidth" to 0.0, "padding" to 0.0)
-
-  private val defaultImage: Map<String, Any> =
-    mapOf(
-      "height" to 100.0,
-      "maxHeight" to 0.0,
-      "aspectRatio" to 0.0,
-      "resizeMode" to "",
-      "borderRadius" to 0.0,
-      "marginTop" to 0.0,
-      "marginBottom" to 0.0,
-    )
 
   private val defaultTaskList: Map<String, Any> =
     mapOf(

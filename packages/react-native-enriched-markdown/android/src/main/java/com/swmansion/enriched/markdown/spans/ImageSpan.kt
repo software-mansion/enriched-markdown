@@ -164,7 +164,12 @@ class ImageSpan(
     assignLoadedDrawable(targetWidth)
     // Laying out a paragraph measures all of its images, so one that fills the box its
     // placeholder held only repaints. Otherwise a paragraph of N images is quadratic in N.
-    if (currentSize() == placeholderSize) requestRepaint() else requestReflow()
+    val loadedSize = currentSize()
+    if (loadedSize == placeholderSize) {
+      requestRepaint()
+    } else {
+      requestReflow(boxHeightChanged = loadedSize.second != placeholderSize.second)
+    }
   }
 
   private fun currentSize(): Pair<Int, Int> = getDrawable().bounds.right to boxHeight
@@ -200,19 +205,24 @@ class ImageSpan(
     (view.text as? Spannable)?.repaintSpan(this) ?: view.invalidate()
   }
 
-  private fun requestReflow() {
+  private fun requestReflow(boxHeightChanged: Boolean = false) {
     val view = viewRef?.get() ?: return
     val text = view.text
     if (text is Spannable) {
       val start = text.getSpanStart(this)
       val end = text.getSpanEnd(this)
       if (start != -1 && end != -1) {
-        text.setSpan(this, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        if (boxHeightChanged) {
+          // setSpan() alone keeps TextView's cached Layout and its old line heights;
+          // re-setting the text rebuilds it.
+          view.text = text
+        } else {
+          text.setSpan(this, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
       }
-    } else {
-      view.invalidate()
-      view.requestLayout()
     }
+    view.invalidate()
+    view.requestLayout()
     notifyBoxHeightMayHaveChanged(view)
   }
 
@@ -257,13 +267,14 @@ class ImageSpan(
   private fun updateWidthAndRecreate(newWidth: Int) {
     if (newWidth <= 0 || cachedWidth == newWidth) return
     cachedWidth = newWidth
+    val previousBoxHeight = boxHeight
     if (sourceDrawable != null) {
       assignLoadedDrawable(newWidth)
     } else if (dynamicBoxHeight) {
       boxHeight = resolveBoxHeight(newWidth)
     }
     // The placeholder takes up the same width as the image, so the lines change here too.
-    requestReflow()
+    requestReflow(boxHeightChanged = boxHeight != previousBoxHeight)
   }
 
   private fun getAvailableWidth(view: TextView): Int {
