@@ -85,6 +85,7 @@ class ImageSpan(
   private var viewRef: WeakReference<TextView>? = null
   private var sourceDrawable: Drawable? = null
   private var onBoxHeightChanged: (() -> Unit)? = null
+  private var boxHeightReported = false
 
   private fun intrinsicImageSize(): Pair<Int, Int> {
     sourceDrawable?.let { return it.intrinsicWidth to it.intrinsicHeight }
@@ -167,6 +168,8 @@ class ImageSpan(
     val loadedSize = currentSize()
     if (loadedSize == placeholderSize) {
       requestRepaint()
+      // onMeasure may have fitted the box already, but the component's height can predate that.
+      viewRef?.get()?.let { notifyBoxHeightMayHaveChanged(it) }
     } else {
       requestReflow(boxHeightChanged = loadedSize.second != placeholderSize.second)
     }
@@ -232,6 +235,7 @@ class ImageSpan(
   // re-measure; it only propagates when the stored height actually changed.
   private fun notifyBoxHeightMayHaveChanged(view: TextView) {
     if (!dynamicBoxHeight) return
+    boxHeightReported = true
     // A self-measuring host (e.g. a table cell) sizes the image box itself and drives
     // its own re-layout, so bubbling up to the component would churn it and orphan this
     // freshly registered view. Let the host re-measure locally instead.
@@ -260,6 +264,9 @@ class ImageSpan(
       view.post {
         val postWidth = getAvailableWidth(view)
         if (postWidth != cachedWidth) updateWidthAndRecreate(postWidth)
+        // onMeasure may have fitted the box without a new width to report here, and the
+        // component may have measured before the image was cached.
+        if (!boxHeightReported) notifyBoxHeightMayHaveChanged(view)
       }
     }
   }

@@ -102,10 +102,9 @@ class ImageLineLayoutTest {
   fun aCachedImageIsLaidOutAtItsFittedHeightFromTheFirstLayout() {
     val url = "test://issue-932"
     ImageCache.putOriginal(ImageCache.requestKey(url, emptyMap()), bitmap(800, 100))
-    val style = styleConfig(image = mapOf("maxHeight" to IMAGE_HEIGHT.toDouble(), "resizeMode" to "contain"))
     val text =
       SpannableStringBuilder("￼\nafter").apply {
-        setSpan(ImageSpan(context, url, style), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        setSpan(ImageSpan(context, url, fittedImageStyle()), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
       }
     val view = textView()
     view.setText(text, TextView.BufferType.SPANNABLE)
@@ -179,8 +178,7 @@ class ImageLineLayoutTest {
 
   @Test
   fun aLoadedImageOfAnotherHeightLaysTheTextOutAgain() {
-    val style = styleConfig(image = mapOf("maxHeight" to IMAGE_HEIGHT.toDouble(), "resizeMode" to "contain"))
-    val (span, finishLoading) = pendingImage("https://example.com/short.png", style)
+    val (span, finishLoading) = pendingImage("https://example.com/short.png", fittedImageStyle())
     val (view, neighbour) = viewShowing(span)
     assertEquals(IMAGE_HEIGHT, lineHeight(view.layout, 0))
 
@@ -188,6 +186,91 @@ class ImageLineLayoutTest {
 
     assertTrue(neighbour.sizeQueries > 0)
     assertEquals(WIDTH * 100 / 800, lineHeight(view.layout, 0))
+  }
+
+  // Issue #932: the component measures with its own spans. When that happens before the image
+  // is cached it reports maxHeight, and only the displayed image can ask it to measure again.
+  // These follow the order seen on a device: register, image available, onMeasure, posted check.
+  @Test
+  fun anImageLoadedBeforeItsViewHasAWidthAsksForARemeasure() {
+    val (span, finishLoading) = pendingImage("https://example.com/before-width.png", fittedImageStyle())
+    val view = viewAwaitingLayout(span)
+    var remeasures = 0
+    span.registerTextView(view) { remeasures++ }
+
+    finishLoading(bitmap(800, 100))
+    measure(view)
+    view.runPostedActions()
+
+    assertEquals(1, remeasures)
+  }
+
+  @Test
+  fun aCachedImageAsksForARemeasureOnceItsViewHasAWidth() {
+    val url = "test://issue-932-remeasure"
+    ImageCache.putOriginal(ImageCache.requestKey(url, emptyMap()), bitmap(800, 100))
+    val span = ImageSpan(context, url, fittedImageStyle())
+    val view = viewAwaitingLayout(span)
+    var remeasures = 0
+    span.registerTextView(view) { remeasures++ }
+
+    measure(view)
+    view.runPostedActions()
+
+    assertEquals(1, remeasures)
+  }
+
+  @Test
+  fun anImageFittedBeforeItsLoadFinishesAsksForARemeasure() {
+    val url = "https://example.com/fitted-early.png"
+    val (span, finishLoading) = pendingImage(url, fittedImageStyle())
+    val view = viewAwaitingLayout(span)
+    var remeasures = 0
+    span.registerTextView(view) { remeasures++ }
+    measure(view)
+    view.runPostedActions()
+    remeasures = 0
+
+    // The download caches the image before its callback reaches the main thread.
+    val image = bitmap(800, 100)
+    ImageCache.putOriginal(ImageCache.requestKey(url, emptyMap()), image)
+    view.requestLayout()
+    measure(view)
+    finishLoading(image)
+
+    assertEquals(1, remeasures)
+  }
+
+  @Test
+  fun anImageAsksForARemeasureOnlyOnceWhenRegisteredAgain() {
+    val url = "test://issue-932-registered-again"
+    ImageCache.putOriginal(ImageCache.requestKey(url, emptyMap()), bitmap(800, 100))
+    val span = ImageSpan(context, url, fittedImageStyle())
+    val view = viewAwaitingLayout(span)
+    var remeasures = 0
+    span.registerTextView(view) { remeasures++ }
+    measure(view)
+    view.runPostedActions()
+
+    span.registerTextView(view) { remeasures++ }
+    view.runPostedActions()
+
+    assertEquals(1, remeasures)
+  }
+
+  private fun fittedImageStyle() = styleConfig(image = mapOf("maxHeight" to IMAGE_HEIGHT.toDouble(), "resizeMode" to "contain"))
+
+  /** A view showing [span] that has not been measured yet, as one is when it is created. */
+  private fun viewAwaitingLayout(span: ImageSpan): PostHoldingTextView {
+    val text =
+      SpannableStringBuilder("￼\nafter").apply {
+        setSpan(span, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    return PostHoldingTextView(context).apply {
+      layoutParams = ViewGroup.LayoutParams(WIDTH, ViewGroup.LayoutParams.WRAP_CONTENT)
+      setupAsMarkdownTextView()
+      setText(text, TextView.BufferType.SPANNABLE)
+    }
   }
 
   /** An image whose download is in flight, and what finishes that download. */
@@ -274,6 +357,21 @@ class ImageLineLayoutTest {
       .subSequence(layout.getLineStart(line), layout.getLineEnd(line))
       .toString()
       .trim()
+
+  /** Holds what is posted to it, because a view outside a window would never run it. */
+  private class PostHoldingTextView(
+    context: Context,
+  ) : AccessibleMarkdownTextView(context) {
+    private val posted = mutableListOf<Runnable>()
+
+    override fun post(action: Runnable): Boolean = posted.add(action)
+
+    fun runPostedActions() {
+      val actions = posted.toList()
+      posted.clear()
+      actions.forEach { it.run() }
+    }
+  }
 
   private class ResizableSpan(
     var width: Int,
