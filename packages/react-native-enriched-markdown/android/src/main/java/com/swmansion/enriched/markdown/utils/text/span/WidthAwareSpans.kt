@@ -9,7 +9,7 @@ import com.swmansion.enriched.markdown.spans.LinkPillSpan
  * before building any layout over [text]. Pass false for [includeImages] when [widthPx]
  * is only an upper bound, not the width the text will be laid out at.
  *
- * Returns true when a span's width changed, i.e. an existing layout is stale.
+ * Returns true when a span's size changed, i.e. an existing layout is stale.
  */
 fun prepareWidthAwareSpans(
   text: CharSequence?,

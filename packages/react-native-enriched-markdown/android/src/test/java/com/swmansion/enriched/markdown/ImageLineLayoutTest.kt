@@ -3,7 +3,9 @@ package com.swmansion.enriched.markdown
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.text.Layout
 import android.text.Spannable
 import android.text.SpannableStringBuilder
@@ -16,6 +18,11 @@ import android.view.ViewGroup
 import android.widget.TextView
 import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.spans.ImageSpan
+import com.swmansion.enriched.markdown.spans.LinkPillIconCache
+import com.swmansion.enriched.markdown.spans.LinkPillSpan
+import com.swmansion.enriched.markdown.styles.LinkPillContent
+import com.swmansion.enriched.markdown.styles.LinkPillStyle
+import com.swmansion.enriched.markdown.styles.LinkVariantEntry
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.render
 import com.swmansion.enriched.markdown.test.MarkdownRenderTestSupport.styleConfig
@@ -188,6 +195,33 @@ class ImageLineLayoutTest {
     assertEquals(WIDTH * 100 / 800, lineHeight(view.layout, 0))
   }
 
+  @Test
+  fun aLoadedPillIconDoesNotLayTheTextOutAgain() {
+    val (_, neighbour, finishLoading) = viewShowingPendingPill("https://example.com/icon-loaded.png")
+
+    finishLoading(bitmap(8, 8))
+
+    assertEquals(0, neighbour.sizeQueries)
+  }
+
+  @Test
+  fun aFailedPillIconLaysTheTextOutAgain() {
+    val (_, neighbour, finishLoading) = viewShowingPendingPill("https://example.com/icon-failed.png")
+
+    finishLoading(null)
+
+    assertTrue(neighbour.sizeQueries > 0)
+  }
+
+  @Test
+  fun redrawingAPillDoesNotLayTheTextOutAgain() {
+    val (view, neighbour, _) = viewShowingPendingPill("https://example.com/icon-redrawn.png")
+
+    LinkPillSpan.redraw(view, 0, view.text.length)
+
+    assertEquals(0, neighbour.sizeQueries)
+  }
+
   // Issue #932: the component measures with its own spans. When that happens before the image
   // is cached it reports maxHeight, and only the displayed image can ask it to measure again.
   // These follow the order seen on a device: register, image available, onMeasure, posted check.
@@ -239,6 +273,7 @@ class ImageLineLayoutTest {
     finishLoading(image)
 
     assertEquals(1, remeasures)
+    assertEquals(WIDTH * 100 / 800, lineHeight(view.layout, 0))
   }
 
   @Test
@@ -305,6 +340,37 @@ class ImageLineLayoutTest {
     span.registerTextView(view)
     neighbour.sizeQueries = 0
     return view to neighbour
+  }
+
+  /** A laid out view with a pill whose icon is downloading, a span that counts paragraph measures, and what ends the download. */
+  private fun viewShowingPendingPill(iconUrl: String): Triple<TextView, ResizableSpan, (Bitmap?) -> Unit> {
+    var finishLoading: (Bitmap?) -> Unit = {}
+    val realLoader = LinkPillIconCache.remoteLoader
+    LinkPillIconCache.remoteLoader = { _, _, _, onLoaded -> finishLoading = onLoaded }
+    val pill =
+      try {
+        LinkPillSpan(
+          LinkVariantEntry("", Color.BLACK, false, Color.TRANSPARENT, pill = LinkPillStyle()),
+          Typeface.DEFAULT,
+          14f,
+          "pill",
+          context,
+          LinkPillContent(iconUri = iconUrl),
+        )
+      } finally {
+        LinkPillIconCache.remoteLoader = realLoader
+      }
+    val neighbour = ResizableSpan(width = 0)
+    val text =
+      SpannableStringBuilder("pill words ￼").apply {
+        setSpan(pill, 0, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        setSpan(neighbour, length - 1, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    val view = textView()
+    view.setText(text, TextView.BufferType.SPANNABLE)
+    measure(view)
+    neighbour.sizeQueries = 0
+    return Triple(view, neighbour, finishLoading)
   }
 
   private fun bitmap(

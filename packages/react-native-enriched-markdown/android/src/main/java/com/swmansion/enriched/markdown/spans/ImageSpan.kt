@@ -111,7 +111,7 @@ class ImageSpan(
     return height
   }
 
-  /** Sizes a block image for a layout about to be built over [text]; returns true when its width changed. */
+  /** Sizes a block image for a layout about to be built over [text]; returns true when its size changed. */
   fun prepareForMeasurement(
     text: Spanned,
     widthPx: Int,
@@ -119,9 +119,11 @@ class ImageSpan(
     if (isInline || widthPx <= 0) return false
     val available = availableWidthIn(text, widthPx)
     if (available <= 0) return false
-    val changed = available != cachedWidth
+    // The height can change at the same width: a download caches the image before its callback runs.
+    val fittedHeight = if (dynamicBoxHeight) resolveBoxHeight(available) else boxHeight
+    val changed = available != cachedWidth || fittedHeight != boxHeight
     cachedWidth = available
-    if (dynamicBoxHeight) boxHeight = resolveBoxHeight(available)
+    boxHeight = fittedHeight
     if (changed) assignLoadedDrawable(available)
     return changed
   }
