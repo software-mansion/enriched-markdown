@@ -246,6 +246,47 @@ int main() {
         "a waiting fence is cut as a hidden one would be");
   check(!Markdown::renderableMarkdownForStreaming("A\n\n```mer", {}).endsInsideOpenCodeFence,
         "a waiting fence is not flagged");
+  // The first characters of a delimiter are withheld until the next one decides (#1130): the result
+  // is the one before they arrived (indent included), so they never show as prose or code and then disappear.
+  for (const char *partial : {"`", "``", "~", "~~", "   ``", "$", "  $"}) {
+    for (const char *before : {"", "Intro\n\n", "Intro\n", "- item\n\n", "> quote\n> ", "- ", "1. one\n   ", "> ",
+                               "See [docs](https://e\n"}) {
+      std::string head = before;
+      if (std::string(partial).find('$') != std::string::npos && (head == "- " || head == "1. one\n   "))
+        continue; // `$$` is read as block math only outside list items
+      std::string indent(std::string(partial).find_first_not_of(' '), ' ');
+      for (StreamingBlockMode mode : {P, H})
+        check(filter(head + partial, mode, mode, mode) == filter(head + indent, mode, mode, mode),
+              "partial delimiter [" + std::string(partial) + "] after [" + head + "] withheld");
+    }
+  }
+  expect("Intro\n\n``", "Intro\n\n", "two backticks of an opener withheld");
+  expect("Intro\n\n```", "Intro\n\n", "the third backtick hands over to the waiting opener");
+  expect("Intro\n\n``x", "Intro\n\n``x", "a character that is not a fence one releases the line");
+  expect("Intro\n\n``\n", "Intro\n\n``\n", "an ended line of backticks is text");
+  expect("Intro\n\n`code` and", "Intro\n\n`code` and", "an inline code span at a line start shows");
+  expect("Intro\n\n~~gone~~", "Intro\n\n~~gone~~", "strikethrough at a line start shows");
+  expect("Intro\n\n    ``", "Intro\n\n    ``", "four spaces of indent is indented code, not a fence");
+  expect("Intro\n\n`~", "Intro\n\n`~", "mixed fence characters are text");
+  expect("Intro\n\n$5", "Intro\n\n$5", "a dollar amount shows");
+  expect("Intro\n\nA `", "Intro\n\nA `", "a backtick after text is not a fence");
+  // The start of the closing fence waits too, instead of showing as a line of code.
+  expect("```js\nlet a\n`", "```js\nlet a\n", "first character of a closing fence withheld");
+  expect("```js\nlet a\n``", "```js\nlet a\n", "two characters of a closing fence withheld");
+  expect("```js\nlet a\n```", "```js\nlet a\n```", "a complete closing fence closes");
+  check(!Markdown::renderableMarkdownForStreaming("```js\nlet a\n```", {}).endsInsideOpenCodeFence,
+        "a complete closing fence is not flagged");
+  check(Markdown::renderableMarkdownForStreaming("```js\nlet a\n``", {}).endsInsideOpenCodeFence,
+        "a withheld closing fence is still open");
+  expect("````md\n```\n``", "````md\n```\n", "a longer fence withholds up to one short of its length");
+  expect("```js\nlet a\n~~", "```js\nlet a\n~~", "the other fence character is code");
+  expect("~~~py\nx\n~~", "~~~py\nx\n", "a tilde closing fence withheld");
+  expect("```js\nlet a\n``x", "```js\nlet a\n``x", "a line that cannot close shows as code");
+  expect("```js\nlet a\n    ``", "```js\nlet a\n    ``", "an over-indented closer prefix is code");
+  expect("> ```js\n> let a\n> ``", "> ```js\n> let a\n> ", "a quoted closing fence withheld");
+  expect("- ```js\n  let a\n  ``", "- ```js\n  let a\n  ", "a listed closing fence withheld");
+  expect("A\n\n$$\nx\n$", "A\n\n", "an open math block stays cut while its closer arrives");
+  expect("A\n\n$$\nx\n$$\n\n$", "A\n\n$$\nx\n$$\n\n", "a lone dollar after closed math withheld");
   expect("", "", "empty input");
   expect("\r\n" + img + "\r\n", "\r\n" + img + "\r\n", "CRLF: complete image kept (progressive)");
   expect("\r\n" + img + "\r\n\r", "\r\n", "CRLF: trailing CR line is blank, image still open (hidden)", H);

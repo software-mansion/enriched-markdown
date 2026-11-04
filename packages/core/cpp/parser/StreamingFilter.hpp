@@ -35,6 +35,9 @@ struct StreamingFilterResult {
 //     while its syntax is still open;
 //   * an inline image or link still being typed at the end of the last
 //     paragraph (`text ![alt](https://`) is cut so it never shows as text.
+//   * the first characters of a delimiter still being typed on the last line
+//     (one or two of a fence opener, the start of an open fence's closing
+//     fence, a lone `$` before `$$`) are withheld until the next one decides.
 StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown,
                                                      const StreamingFilterOptions &options);
 

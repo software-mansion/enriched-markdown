@@ -70,6 +70,11 @@ size_t leadingSpaces(std::string_view text) {
 
 // ---- containers
 
+// Where `part`, a view into `line`, starts in it.
+size_t offsetIn(std::string_view line, std::string_view part) {
+  return static_cast<size_t>(part.data() - line.data());
+}
+
 // A line without its blockquote markers.
 struct Quoted {
   std::string_view body;
@@ -195,6 +200,20 @@ bool parseFenceMarker(std::string_view line, FenceMarker &out) {
   return true;
 }
 
+// Whether `line` is so far only the first `maxRun` or fewer characters of a
+// fence marker: up to three spaces, then a run of one fence character (`ch`, or
+// either kind when it is 0) and nothing after it. On the last line of a stream
+// the next character decides whether it is a fence or text.
+bool isFenceMarkerPrefix(std::string_view line, char ch, size_t maxRun) {
+  size_t i = leadingSpaces(line);
+  if (i > 3 || i >= line.size())
+    return false;
+  char mark = line[i];
+  if ((mark != '`' && mark != '~') || (ch != 0 && mark != ch))
+    return false;
+  return line.size() - i <= maxRun && line.find_first_not_of(mark, i) == npos;
+}
+
 // Reference labels match case-insensitively with whitespace runs collapsed.
 std::string normalizeLabel(std::string_view label) {
   std::string normalized;
@@ -224,6 +243,12 @@ void recordDefinition(std::string_view content, std::unordered_set<std::string> 
 
 struct BlockScan {
   size_t openFence = npos; // the opening line of a fence still open at the end
+  // Where the last line's characters start when they are only the beginning of
+  // a block delimiter: one or two characters of a fence opener, the start of
+  // the closing fence of an open block, or the first `$` of a `$$` line. The
+  // filter withholds them until the next character decides, so they never show
+  // as text or as a line of code that then disappears (#1130).
+  size_t pendingDelimiter = npos;
   std::unordered_set<std::string> definitions;
 };
 
@@ -253,9 +278,12 @@ BlockScan scanBlocks(Lines &lines) {
       if (!containerEnded) {
         lines[i].code = true;
         FenceMarker marker;
-        if (!blank && parseFenceMarker(body.substr(fence.indent), marker) && marker.ch == fence.ch &&
-            marker.length >= fence.length && isBlank(marker.info))
+        std::string_view inner = blank ? std::string_view() : body.substr(fence.indent);
+        if (!blank && parseFenceMarker(inner, marker) && marker.ch == fence.ch && marker.length >= fence.length &&
+            isBlank(marker.info))
           inFence = false;
+        else if (!blank && i + 1 == lines.size() && isFenceMarkerPrefix(inner, fence.ch, fence.length - 1))
+          scan.pendingDelimiter = lines[i].offset + offsetIn(lines[i].text, inner) + leadingSpaces(inner);
         continue;
       }
       inFence = false;
@@ -280,6 +308,12 @@ BlockScan scanBlocks(Lines &lines) {
       lines[i].code = true;
       scan.openFence = i;
       continue;
+    }
+    if (i + 1 == lines.size()) {
+      if (isFenceMarkerPrefix(content, 0, 2))
+        scan.pendingDelimiter = lines[i].offset + offsetIn(lines[i].text, content) + leadingSpaces(content);
+      else if (trim(body) == "$") // the block math rule reads `$$` lines the same way
+        scan.pendingDelimiter = lines[i].offset + offsetIn(lines[i].text, body) + leadingSpaces(body);
     }
     recordDefinition(content, scan.definitions);
   }
@@ -588,6 +622,10 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
   std::string_view text(markdown);
   Lines lines = splitLines(text);
   BlockScan scan = scanBlocks(lines);
+  // The characters of a delimiter still being typed are withheld: the result is
+  // the one the stream had before they arrived.
+  if (scan.pendingDelimiter != npos)
+    return renderableMarkdownForStreaming(markdown.substr(0, scan.pendingDelimiter), options);
   if (scan.openFence == npos)
     return {std::string(removePendingBlocks({text, std::move(lines)}, options, false, scan)), false};
 
