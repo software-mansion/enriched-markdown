@@ -220,7 +220,7 @@ jobs:
 
       - name: Set up ccache
         if: env.turbo_cache_hit != 1
-        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: ${{ github.job }}
           save: ${{ github.ref == 'refs/heads/main' }}
@@ -346,7 +346,7 @@ jobs:
 
       - name: Set up ccache
         if: env.turbo_cache_hit != 1
-        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: rn-ios
           max-size: 2G
@@ -498,7 +498,7 @@ jobs:
 
       - name: Set up ccache
         if: env.turbo_cache_hit != 1
-        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: rn-ios
           max-size: 2G
@@ -596,7 +596,7 @@ jobs:
 
       - name: Set up ccache
         if: env.turbo_cache_hit != 1
-        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: ${{ github.job }}
           save: ${{ github.ref == 'refs/heads/main' }}

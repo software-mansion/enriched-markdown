@@ -47,7 +47,7 @@ runs:
       shell: bash
 
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@b9bee63ef481cc545e4517ec730544a4d8b1dfa0 # v6.4.0
+      uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       with:
         cache-disabled: ${{ inputs.cache == 'none' }}
         cache-read-only: ${{ inputs.cache == 'restore' || github.ref != 'refs/heads/main' }}
