@@ -85,6 +85,21 @@ abstract class BaseListSpan(
     // but only the line at the span start should get a bullet/number.
     if (text is Spanned && text.getSpanStart(this) != start) return
 
+    drawMarkerAt(canvas, paint, x, dir, top, baseline, bottom, layout, start)
+  }
+
+  /** Draws this item's marker for a line whose leading margins start at [x]; [ListMarkerAnchorSpan] calls it too. */
+  fun drawMarkerAt(
+    canvas: Canvas,
+    paint: Paint,
+    x: Int,
+    dir: Int,
+    top: Int,
+    baseline: Int,
+    bottom: Int,
+    layout: Layout?,
+    start: Int,
+  ) {
     val originalStyle = paint.style
     val originalColor = paint.color
     drawMarker(canvas, paint, x, dir, top, baseline, bottom, layout, start)

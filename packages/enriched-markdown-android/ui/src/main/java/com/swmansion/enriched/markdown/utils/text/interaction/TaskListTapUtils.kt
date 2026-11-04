@@ -8,11 +8,16 @@ import android.text.style.StrikethroughSpan
 import android.widget.TextView
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
+import com.swmansion.enriched.markdown.spans.ListMarkerAnchorSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 
-/** The task item under a tap: the span drawing it, its state *before* the tap, and its first line of text. */
+/**
+ * The task item under a tap: the span drawing it, its state *before* the tap, and its first line of text.
+ * For an item that opens with a code block or a sublist, [span] is the marker its [ListMarkerAnchorSpan]
+ * draws, which is not attached to the text itself.
+ */
 data class TaskListHitTestResult(
   val span: TaskListSpan,
   val checked: Boolean,
@@ -72,16 +77,22 @@ object TaskListTapUtils {
       if (y < 0 || y > layout.height) return null
 
       val line = layout.getLineForVertical(y)
+      val lineStart = layout.getLineStart(line)
+      val lineEnd = layout.getLineEnd(line)
 
       // The innermost list span owns the line's margin, so a tap in a nested
       // plain item's indent belongs to that item, not to its task-list parent.
+      // A code block line inside an item has no list span; when the item opens
+      // with that code block, its checkbox is drawn there by an anchor span.
+      val listSpans = spannable.getSpans(lineStart, lineEnd, BaseListSpan::class.java)
       val taskSpan =
-        spannable
-          .getSpans(
-            layout.getLineStart(line),
-            layout.getLineEnd(line),
-            BaseListSpan::class.java,
-          ).maxByOrNull { it.depth } as? TaskListSpan ?: return null
+        if (listSpans.isNotEmpty()) {
+          listSpans.maxBy { it.depth } as? TaskListSpan
+        } else {
+          spannable
+            .getSpans(lineStart, lineEnd, ListMarkerAnchorSpan::class.java)
+            .firstNotNullOfOrNull { it.marker as? TaskListSpan }
+        } ?: return null
 
       val isRtl = layout.getParagraphDirection(line) == Layout.DIR_RIGHT_TO_LEFT
       if (isRtl) {
@@ -127,11 +138,18 @@ object TaskListTapUtils {
   ): Boolean {
     val spannable = textView.text as? Spannable ?: return false
 
-    // An item split around its code blocks has a span per segment.
+    // An item split around its code blocks has a span per segment, and one that
+    // opens with a code block or a sublist has its marker drawn by an anchor.
     val segments = spannable.getSpans(0, spannable.length, TaskListSpan::class.java).filter { it.taskIndex == span.taskIndex }
-    if (span !in segments) return false
+    val anchors =
+      spannable
+        .getSpans(0, spannable.length, ListMarkerAnchorSpan::class.java)
+        .filter { (it.marker as? TaskListSpan)?.taskIndex == span.taskIndex }
+    if (span !in segments && anchors.none { it.marker === span }) return false
 
-    if (segments.all { it.isChecked == newChecked }) return true
+    if (segments.all { it.isChecked == newChecked } && anchors.all { (it.marker as TaskListSpan).isChecked == newChecked }) {
+      return true
+    }
 
     // Flip each span in place, then re-set it over the range it already holds.
     // Re-setting an attached span keeps its slot in the buffer's span array —
@@ -144,6 +162,10 @@ object TaskListTapUtils {
     for (segment in segments) {
       segment.isChecked = newChecked
       spannable.resetSpan(segment)
+    }
+    for (anchor in anchors) {
+      (anchor.marker as TaskListSpan).isChecked = newChecked
+      spannable.resetSpan(anchor)
     }
 
     val (itemStart, itemEnd) = spannable.itemRange(span.taskIndex) ?: return true
@@ -175,7 +197,9 @@ object TaskListTapUtils {
 
   /** The range a task item covers: from its first segment's start to its last one's end, code blocks between included. */
   private fun Spanned.itemRange(taskIndex: Int): Pair<Int, Int>? {
-    val spans = getSpans(0, length, TaskListSpan::class.java).filter { it.taskIndex == taskIndex }
+    val spans =
+      getSpans(0, length, TaskListSpan::class.java).filter { it.taskIndex == taskIndex } +
+        getSpans(0, length, ListMarkerAnchorSpan::class.java).filter { (it.marker as? TaskListSpan)?.taskIndex == taskIndex }
     if (spans.isEmpty()) return null
     return spans.minOf { getSpanStart(it) } to spans.maxOf { getSpanEnd(it) }
   }

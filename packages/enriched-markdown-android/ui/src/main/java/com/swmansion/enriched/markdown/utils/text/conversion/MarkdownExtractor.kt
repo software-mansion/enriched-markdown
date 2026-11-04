@@ -322,12 +322,7 @@ object MarkdownExtractor {
     val needsFence = result.isEmpty() || result.endsWith("\n\n") || opensBlock
     if (needsFence) {
       if (!result.isAtLineStart()) result.append("\n")
-      if (opensItem) {
-        result.append(listMarker(item))
-        state.itemOpenedByCode = item
-      } else {
-        result.append(indent)
-      }
+      result.append(if (opensItem) listMarker(item) else indent)
       result.append("```\n")
     }
 
@@ -380,8 +375,7 @@ object MarkdownExtractor {
     state.listDepth = listSpan.depth
 
     // Text after a code block continues its item rather than starting a new one.
-    val continuesItem = !listSpan.drawsMarker || listSpan === state.itemOpenedByCode
-    return if (continuesItem) contentIndent(listSpan) else listMarker(listSpan)
+    return if (listSpan.drawsMarker) listMarker(listSpan) else contentIndent(listSpan)
   }
 
   private fun listMarker(listSpan: BaseListSpan): String {
@@ -469,7 +463,6 @@ object MarkdownExtractor {
     var blockquoteDepth: Int = -1,
     var listDepth: Int = -1,
     var needsBlankLine: Boolean = false,
-    var itemOpenedByCode: BaseListSpan? = null,
   )
 
   private class HeadingAccumulator {

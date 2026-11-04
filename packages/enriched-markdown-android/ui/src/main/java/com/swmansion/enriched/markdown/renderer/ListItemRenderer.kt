@@ -6,11 +6,13 @@ import android.text.style.StrikethroughSpan
 import com.swmansion.enriched.markdown.parser.MarkdownASTNode
 import com.swmansion.enriched.markdown.spans.BaseListSpan
 import com.swmansion.enriched.markdown.spans.CodeBlockSpan
+import com.swmansion.enriched.markdown.spans.ListMarkerAnchorSpan
 import com.swmansion.enriched.markdown.spans.OrderedListSpan
 import com.swmansion.enriched.markdown.spans.TaskListSpan
 import com.swmansion.enriched.markdown.spans.UnorderedListSpan
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE
 import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_LIST_ITEM
+import com.swmansion.enriched.markdown.utils.text.span.SPAN_FLAGS_LIST_MARKER_ANCHOR
 
 class ListItemRenderer(
   private val config: RendererConfig,
@@ -115,6 +117,16 @@ class ListItemRenderer(
 
     val itemEnd = builder.length
 
+    // Anchor the marker on the first content character, so an item that opens with a code block or a
+    // nested sublist still gets its marker, drawn by a ListMarkerAnchorSpan on that line.
+    var anchor = start
+    while (anchor < itemEnd && builder[anchor].isWhitespace()) anchor++
+    if (anchor == itemEnd) anchor = start
+
+    val plainAnchor =
+      builder.getSpans(anchor, anchor + 1, CodeBlockSpan::class.java).isEmpty() &&
+        builder.getSpans(anchor, anchor + 1, BaseListSpan::class.java).none { it.depth > depth }
+
     val codeBlocks = builder.getSpans(start, itemEnd, CodeBlockSpan::class.java)
     // Nested items render first, so a code block keeps the innermost item that holds it.
     for (block in codeBlocks) {
@@ -132,7 +144,7 @@ class ListItemRenderer(
     for ((codeStart, codeEnd) in codeBlockRanges) {
       if (segmentStart < codeStart) {
         builder.setSpan(
-          if (isFirstSegment) markerSpan else makeSpan(drawsMarker = false),
+          if (isFirstSegment && plainAnchor) markerSpan else makeSpan(drawsMarker = false),
           segmentStart,
           codeStart,
           SPAN_FLAGS_LIST_ITEM,
@@ -143,11 +155,15 @@ class ListItemRenderer(
     }
     if (segmentStart < itemEnd) {
       builder.setSpan(
-        if (isFirstSegment) markerSpan else makeSpan(drawsMarker = false),
+        if (isFirstSegment && plainAnchor) markerSpan else makeSpan(drawsMarker = false),
         segmentStart,
         itemEnd,
         SPAN_FLAGS_LIST_ITEM,
       )
+    }
+
+    if (!plainAnchor) {
+      builder.setSpan(ListMarkerAnchorSpan(markerSpan), anchor, anchor + 1, SPAN_FLAGS_LIST_MARKER_ANCHOR)
     }
 
     if (isChecked) {
