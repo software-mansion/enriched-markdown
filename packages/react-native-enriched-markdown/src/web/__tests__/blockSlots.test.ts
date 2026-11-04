@@ -212,3 +212,54 @@ it('reports every link in document order', async () => {
   });
   expect(links[5]).toMatchObject({ label: 'www.example.com' });
 });
+
+it('collects code blocks outside lists, with an id from the language alone', async () => {
+  const doc = await parseMarkdown(
+    [
+      '```mermaid\ngraph TD\n\n```',
+      '    indented',
+      '> ```js\n> quoted\n> ```',
+      '> [!NOTE]\n> ```mermaid\n> other\n> ```',
+      '- ```js\n  listed\n  ```',
+    ].join('\n\n'),
+    {}
+  );
+  const { blocks } = collectBlocks(doc);
+  const id = (language: string, n: number) =>
+    `code:${fnv1a64Hex(language)}:${n}`;
+  expect(blocks).toEqual([
+    {
+      kind: 'code',
+      id: id('mermaid', 0),
+      language: 'mermaid',
+      code: 'graph TD',
+      isComplete: true,
+      placement: 'root',
+    },
+    {
+      kind: 'code',
+      id: id('', 0),
+      language: '',
+      code: 'indented',
+      isComplete: true,
+      placement: 'root',
+    },
+    {
+      kind: 'code',
+      id: id('js', 0),
+      language: 'js',
+      code: 'quoted',
+      isComplete: true,
+      placement: 'blockquote',
+    },
+    {
+      kind: 'code',
+      id: id('mermaid', 1),
+      language: 'mermaid',
+      code: 'other',
+      isComplete: true,
+      placement: 'admonition',
+    },
+  ]);
+  expect(doc.children![0]!.attributes?.blockSlotId).toBe(blocks[0]!.id);
+});

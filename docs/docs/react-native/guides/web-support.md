@@ -256,10 +256,12 @@ warnings. Use `id`, `aria-*` and CSS instead.
 :::
 
 :::note
-Parsing is asynchronous: the component returns `null` until the first parse
-resolves. That means one empty frame on mount, and nothing at all emitted during
-server-side rendering - wrap it in a client-only boundary if your framework
-pre-renders. (Style injection itself is SSR-safe.)
+The WASM parser loads once per page, starting when the package is imported. An
+instance mounted before that load finishes renders nothing until it does. From
+then on, every render shows the markdown it was given in the same commit.
+Nothing is emitted during server-side rendering - wrap the component in a
+client-only boundary if your framework pre-renders. (Style injection itself is
+SSR-safe.)
 :::
 
 If parsing fails, the component does not crash: it renders the raw `markdown`
@@ -276,7 +278,7 @@ All core `EnrichedMarkdownText` features are supported on web, including:
 - `onLinkPress`, `onLinkLongPress` (mapped to the `contextmenu` event), `onImagePress`, `onTaskListItemPress` and `onCodeBlockPress`
 - `onCodeBlockPress` - makes fenced code blocks clickable and keyboard-activatable (Enter/Space) with a button role; it does not fire while code text is selected
 - `onImagePress` - makes rendered images focusable and keyboard-activatable (Enter/Space) with a button role; the browser's right-click menu is preserved
-- [`renderers`](/react-native/guides/custom-block-renderers) - React replacements for standalone images, standalone links and `<video>` blocks, with the same block ids and placements as native; the element replaces the block in the DOM and keeps its spacing
+- [`renderers`](/react-native/guides/custom-block-renderers) - React replacements for standalone images, standalone links, `<video>` blocks and code blocks, with the same block ids and placements as native; the element replaces the block in the DOM and keeps its spacing
 - `resolveImageSource` - swaps the `src` of every image occurrence, synchronously or from a promise; headers are dropped because `<img>` requests cannot carry them, and a pending or failed resolution renders the image without a source
 - `enableTaskListItemToggle` - set to `false` to render task list checkboxes read-only (the click is fully inert: no toggle, no `onTaskListItemPress`). The checkbox keeps its normal appearance, marked `readOnly` / `aria-disabled` and made pointer-inert rather than `disabled`, matching iOS and Android
 - `allowTrailingMargin`, `containerStyle`, `selectable`, `selectionColor`, `md4cFlags` (`underline`, `superscript`, `subscript`, `strikethrough`, `latexMath`, `highlight`, `hardSoftBreaks`, `preserveBlankLines`, `admonitions`; `strikethrough` is accepted but has no effect, because web always parses GFM)

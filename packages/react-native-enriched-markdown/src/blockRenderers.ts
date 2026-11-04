@@ -69,7 +69,8 @@ export function hasRenderers(
   return (
     typeof renderers?.image === 'function' ||
     typeof renderers?.video === 'function' ||
-    typeof renderers?.link === 'function'
+    typeof renderers?.link === 'function' ||
+    typeof renderers?.code === 'function'
   );
 }
 
@@ -102,10 +103,11 @@ export function useRenderedBlocks(
   const image = enabled ? renderers?.image : undefined;
   const video = enabled ? renderers?.video : undefined;
   const link = enabled ? renderers?.link : undefined;
+  const code = enabled ? renderers?.code : undefined;
   const cache = useMemo(
     () => new Map<string, RenderedBlock>(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one cache per renderer set
-    [image, video, link]
+    [image, video, link, code]
   );
   return useMemo(() => {
     if (!enabled) return NO_BLOCKS;
@@ -114,7 +116,10 @@ export function useRenderedBlocks(
     for (const block of blocks) {
       let entry = cache.get(block.id);
       if (entry == null || !sameBlock(entry.block, block)) {
-        entry = { block, element: renderBlock({ image, video, link }, block) };
+        entry = {
+          block,
+          element: renderBlock({ image, video, link, code }, block),
+        };
         cache.set(block.id, entry);
       }
       seen.add(block.id);
@@ -124,5 +129,5 @@ export function useRenderedBlocks(
       if (!seen.has(id)) cache.delete(id);
     }
     return rendered;
-  }, [blocks, cache, enabled, image, video, link]);
+  }, [blocks, cache, enabled, image, video, link, code]);
 }

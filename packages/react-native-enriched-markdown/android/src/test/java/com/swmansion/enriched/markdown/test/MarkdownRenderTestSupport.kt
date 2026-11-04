@@ -26,13 +26,16 @@ object MarkdownRenderTestSupport {
   }
 
   /**
-   * The style map the JS side sends, with [list], [taskList] and [blockquote] entries replacing the defaults.
+   * The style map the JS side sends, with [list], [taskList], [blockquote] and [codeBlock] entries replacing the
+   * defaults.
    * Sizes are Double, colors Int, as in a ReadableMap.
    */
   fun styleConfig(
     list: Map<String, Any> = emptyMap(),
     taskList: Map<String, Any> = emptyMap(),
     blockquote: Map<String, Any> = emptyMap(),
+    codeBlock: Map<String, Any> = emptyMap(),
+    image: Map<String, Any> = emptyMap(),
   ): StyleConfig {
     DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(context)
     val style = JavaOnlyMap()
@@ -65,6 +68,8 @@ object MarkdownRenderTestSupport {
     )
     style.putMap("taskList", JavaOnlyMap().apply { putAll(defaultTaskList + taskList) })
     style.putMap("list", textElement().apply { putAll(defaultList + list) })
+    style.putMap("codeBlock", textElement().apply { putAll(defaultCodeBlock + codeBlock) })
+    style.putMap("image", JavaOnlyMap().apply { putAll(defaultImage + image) })
     return StyleConfig(style, context, false, 0f)
   }
 
@@ -169,6 +174,17 @@ object MarkdownRenderTestSupport {
     return style
   }
 
+  private val defaultImage: Map<String, Any> =
+    mapOf(
+      "height" to 100.0,
+      "maxHeight" to 0.0,
+      "aspectRatio" to 0.0,
+      "resizeMode" to "",
+      "borderRadius" to 0.0,
+      "marginTop" to 0.0,
+      "marginBottom" to 0.0,
+    )
+
   private val defaultList: Map<String, Any> =
     mapOf(
       "fontFamily" to "",
@@ -180,6 +196,9 @@ object MarkdownRenderTestSupport {
       "marginLeft" to 24.0,
       "itemSpacing" to 0.0,
     )
+
+  private val defaultCodeBlock: Map<String, Any> =
+    mapOf("borderRadius" to 0.0, "borderWidth" to 0.0, "padding" to 0.0)
 
   private val defaultTaskList: Map<String, Any> =
     mapOf(
