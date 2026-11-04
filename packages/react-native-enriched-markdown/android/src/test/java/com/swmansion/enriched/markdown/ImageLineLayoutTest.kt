@@ -24,6 +24,7 @@ import com.swmansion.enriched.markdown.test.TestAstFactory.listItem
 import com.swmansion.enriched.markdown.test.TestAstFactory.paragraph
 import com.swmansion.enriched.markdown.test.TestAstFactory.text
 import com.swmansion.enriched.markdown.test.TestAstFactory.unorderedList
+import com.swmansion.enriched.markdown.utils.text.ImageCache
 import com.swmansion.enriched.markdown.utils.text.ImageDownloader
 import com.swmansion.enriched.markdown.utils.text.span.prepareWidthAwareSpans
 import com.swmansion.enriched.markdown.utils.text.view.setupAsMarkdownTextView
@@ -92,6 +93,26 @@ class ImageLineLayoutTest {
     measure(view)
 
     assertEquals("list picture", lineText(view.layout, 1))
+  }
+
+  // Issue #932: a block image with maxHeight is as tall as maxHeight until the view's width
+  // is known. The first layout must use its fitted height, or the image line keeps maxHeight
+  // and the text after it overflows the component.
+  @Test
+  fun aCachedImageIsLaidOutAtItsFittedHeightFromTheFirstLayout() {
+    val url = "test://issue-932"
+    ImageCache.putOriginal(ImageCache.requestKey(url, emptyMap()), bitmap(800, 100))
+    val style = styleConfig(image = mapOf("maxHeight" to IMAGE_HEIGHT.toDouble(), "resizeMode" to "contain"))
+    val text =
+      SpannableStringBuilder("￼\nafter").apply {
+        setSpan(ImageSpan(context, url, style), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    val view = textView()
+    view.setText(text, TextView.BufferType.SPANNABLE)
+
+    measure(view)
+
+    assertEquals(WIDTH * 100 / 800, lineHeight(view.layout, 0))
   }
 
   @Test
