@@ -27,7 +27,7 @@
   CGFloat codeFontSize = _config.codeFontSize > 0 ? _config.codeFontSize : blockStyle.fontSize;
 
   // Both sizes above are unscaled; apply the same multiplier as the surrounding block font.
-  CGFloat fontScale = context.allowFontScaling ? RCTFontSizeMultiplierWithMax(context.maxFontSizeMultiplier) : 1.0;
+  CGFloat fontScale = [context effectiveFontScale];
 
   NSString *codeFontFamily = _config.codeFontFamily;
   UIFont *codeFont;

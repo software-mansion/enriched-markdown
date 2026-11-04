@@ -13,9 +13,9 @@ UIFont *cachedFontFromBlockStyle(BlockStyle *blockStyle, RenderContext *context)
   return [context cachedFontForSize:blockStyle.fontSize family:blockStyle.fontFamily weight:blockStyle.fontWeight];
 }
 
-CGFloat RCTFontSizeMultiplierWithMax(CGFloat maxFontSizeMultiplier)
+CGFloat ENRMCapFontScale(CGFloat fontScale, CGFloat maxFontSizeMultiplier)
 {
-  CGFloat multiplier = RCTFontSizeMultiplier();
+  CGFloat multiplier = fontScale;
 
   // Apply maxFontSizeMultiplier cap if >= 1.0
   // Values < 1.0 (including 0 and NaN) mean no cap is applied

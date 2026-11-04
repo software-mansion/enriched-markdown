@@ -43,6 +43,7 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
 - (instancetype)init
 {
   if (self = [super init]) {
+    _fontScale = 1.0;
     _linkRanges = [NSMutableArray array];
     _linkURLs = [NSMutableArray array];
     _headingRanges = [NSMutableArray array];
@@ -75,9 +76,14 @@ static NSArray<NSString *> *ENRMScopedKeyPaths(void)
 
 #pragma mark - Font Cache
 
+- (CGFloat)effectiveFontScale
+{
+  return _allowFontScaling ? ENRMCapFontScale(_fontScale, _maxFontSizeMultiplier) : 1.0;
+}
+
 - (UIFont *)cachedFontForSize:(CGFloat)fontSize family:(NSString *)fontFamily weight:(NSString *)fontWeight
 {
-  CGFloat effectiveMultiplier = _allowFontScaling ? RCTFontSizeMultiplierWithMax(_maxFontSizeMultiplier) : 1.0;
+  CGFloat effectiveMultiplier = [self effectiveFontScale];
 
   NSString *weightKey = (fontWeight.length > 0) ? fontWeight : @"";
   NSString *key =
