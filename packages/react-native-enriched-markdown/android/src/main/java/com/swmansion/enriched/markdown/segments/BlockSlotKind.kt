@@ -9,6 +9,7 @@ enum class BlockSlotKind(
   IMAGE("image"),
   VIDEO("video"),
   LINK("link"),
+  CODE("code"),
   ;
 
   fun marginTop(style: StyleConfig): Int =
@@ -16,6 +17,7 @@ enum class BlockSlotKind(
       IMAGE -> style.imageStyle.marginTop.toInt()
       VIDEO -> style.videoStyle.marginTop.toInt()
       LINK -> style.paragraphStyle.marginTop.toInt()
+      CODE -> style.codeBlockStyle.marginTop.toInt()
     }
 
   fun marginBottom(style: StyleConfig): Int =
@@ -23,6 +25,7 @@ enum class BlockSlotKind(
       IMAGE -> style.imageStyle.marginBottom.toInt()
       VIDEO -> style.videoStyle.marginBottom.toInt()
       LINK -> style.paragraphStyle.marginBottom.toInt()
+      CODE -> style.codeBlockStyle.marginBottom.toInt()
     }
 
   companion object {

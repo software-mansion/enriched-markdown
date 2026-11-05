@@ -10,6 +10,7 @@ import type {
   NativeLinkOccurrence,
   NativeStreamingOptions,
 } from '../src/NativeEnrichedMarkdownParser';
+import type { MarkdownCodeBlock } from '../src/types/markdownBlocks';
 
 type CollectArgs = [string, unknown, boolean, NativeStreamingOptions];
 let mockSlots: ReadonlyArray<NativeBlockSlot> = [];
@@ -54,6 +55,9 @@ const IMAGE_BLOCK: NativeBlockSlot = {
   title: '',
   placement: 'root',
   occurrenceId: 'img:0123456789abcdef:0',
+  language: '',
+  code: '',
+  isComplete: true,
 };
 
 const VIDEO_BLOCK: NativeBlockSlot = {
@@ -64,6 +68,9 @@ const VIDEO_BLOCK: NativeBlockSlot = {
   title: '',
   placement: 'blockquote',
   occurrenceId: '',
+  language: '',
+  code: '',
+  isComplete: true,
 };
 
 function render(element: ReactElement): Root {
@@ -839,4 +846,103 @@ it('does not recollect when strikethrough changes under github', () => {
   expect(mockCollect.mock.calls[0]![1]).toEqual(
     expect.objectContaining({ strikethrough: false })
   );
+});
+
+describe('code renderers', () => {
+  const codeSlot = (
+    language: string,
+    overrides: Partial<NativeBlockSlot> = {}
+  ): NativeBlockSlot => ({
+    id: `code:${language || 'none'}:0`,
+    kind: 'code',
+    url: '',
+    altText: '',
+    title: '',
+    placement: 'root',
+    occurrenceId: '',
+    language,
+    code: `${language} source`,
+    isComplete: true,
+    ...overrides,
+  });
+
+  const slotIds = (root: Root) => slots(root).map((slot) => slot.props.slotId);
+
+  it('passes the block and keeps the native block for an undefined result', () => {
+    mockSlots = [
+      codeSlot('mermaid', { placement: 'blockquote' }),
+      codeSlot('ts'),
+    ];
+    const code = jest.fn((block: MarkdownCodeBlock) =>
+      block.language === 'mermaid' ? <View testID="diagram" /> : undefined
+    );
+    const root = render(
+      <EnrichedMarkdownText markdown="x" flavor="github" renderers={{ code }} />
+    );
+    expect(code).toHaveBeenCalledTimes(2);
+    expect(code).toHaveBeenCalledWith({
+      kind: 'code',
+      id: 'code:mermaid:0',
+      language: 'mermaid',
+      code: 'mermaid source',
+      isComplete: true,
+      placement: 'blockquote',
+    });
+    expect(slotIds(root)).toEqual(['code:mermaid:0']);
+  });
+
+  it('takes one function for every code block', () => {
+    mockSlots = [codeSlot('ts'), codeSlot('')];
+    const code = jest.fn(() => <View />);
+    const root = render(
+      <EnrichedMarkdownText markdown="x" flavor="github" renderers={{ code }} />
+    );
+    expect(code).toHaveBeenCalledTimes(2);
+    expect(slotIds(root)).toEqual(['code:ts:0', 'code:none:0']);
+  });
+
+  it('does not render unchanged blocks again', () => {
+    mockSlots = [codeSlot('mermaid'), codeSlot('ts')];
+    const code = jest.fn(() => <View />);
+    const tree = (markdown: string) => (
+      <EnrichedMarkdownText
+        markdown={markdown}
+        flavor="github"
+        renderers={{ code }}
+      />
+    );
+    const root = render(tree('a'));
+    act(() => root.render(tree('ab')));
+    expect(code).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-renders a streaming fence in place until it completes', () => {
+    mockSlots = [codeSlot('ts', { code: 'let', isComplete: false })];
+    const code = jest.fn(() => <View />);
+    const renderers = { code };
+    const root = render(
+      <EnrichedMarkdownText
+        markdown="a"
+        flavor="github"
+        renderers={renderers}
+      />
+    );
+    const first = slots(root)[0]!;
+
+    mockSlots = [codeSlot('ts', { code: 'let a;', isComplete: true })];
+    act(() =>
+      root.render(
+        <EnrichedMarkdownText
+          markdown="ab"
+          flavor="github"
+          renderers={renderers}
+        />
+      )
+    );
+    expect(code).toHaveBeenCalledTimes(2);
+    expect(code).toHaveBeenLastCalledWith(
+      expect.objectContaining({ code: 'let a;', isComplete: true })
+    );
+    expect(slots(root)[0]).toBe(first);
+  });
 });

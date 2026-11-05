@@ -246,7 +246,10 @@ BlockScan scanBlocks(Lines &lines) {
     bool blank = isBlank(body);
     size_t lead = leadingSpaces(body);
     if (inFence) {
-      bool containerEnded = quoted.depth < fence.depth || (!blank && lead < fence.indent);
+      // A blank last line has not streamed its quote markers in yet, so it cannot
+      // end a quoted fence.
+      bool undecided = i + 1 == lines.size() && isBlank(lines[i].text);
+      bool containerEnded = !undecided && (quoted.depth < fence.depth || (!blank && lead < fence.indent));
       if (!containerEnded) {
         lines[i].code = true;
         FenceMarker marker;
@@ -588,12 +591,15 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
   if (scan.openFence == npos)
     return {std::string(removePendingBlocks({text, std::move(lines)}, options, false, scan)), false};
 
-  // The fence terminates whatever paragraph precedes it, shown or not.
+  // The fence terminates whatever paragraph precedes it, shown or not. Until its
+  // opening line ends the info string may still grow, so the fence waits for it
+  // and its language never changes while it shows.
+  bool openerEnded = scan.openFence + 1 < lines.size();
   Document head{text, std::move(lines)};
   size_t fenceOffset = head.lines[scan.openFence].offset;
   head.cutAtLine(scan.openFence);
   std::string_view kept = removePendingBlocks(std::move(head), options, true, scan);
-  if (options.codeBlockMode == StreamingBlockMode::Hidden)
+  if (options.codeBlockMode == StreamingBlockMode::Hidden || !openerEnded)
     return {std::string(kept), false};
   std::string result;
   result.reserve(kept.size() + text.size() - fenceOffset);

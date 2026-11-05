@@ -19,6 +19,7 @@ export type {
   MarkdownImageBlock,
   MarkdownVideoBlock,
   MarkdownLinkBlock,
+  MarkdownCodeBlock,
   MarkdownBlock,
   MarkdownRenderers,
   MarkdownImagePlacement,
