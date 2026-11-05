@@ -123,3 +123,12 @@ fun AppCompatTextView.applySelectableState(selectable: Boolean) {
   movementMethod = LinkLongPressMovementMethod.createInstance()
   if (!selectable && !isClickable) isClickable = true
 }
+
+// Editor disables selection if the first layout is built before the view is in a window, and
+// doesn't re-check on attach. setMovementMethod does re-check, but only when given a different
+// object, so this must be a new instance rather than the current one.
+fun AppCompatTextView.refreshSelectionControllers() {
+  if (isTextSelectable && layout != null) {
+    movementMethod = LinkLongPressMovementMethod.createInstance()
+  }
+}
