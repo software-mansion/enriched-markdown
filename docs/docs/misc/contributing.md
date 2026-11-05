@@ -273,15 +273,15 @@ So a one-line change in the shared C++ core has to pass every platform's checks,
 | React Native | `rn-lint` | `yarn lint`, `yarn typecheck`, `yarn test` |
 | React Native | `rn-build-library` | `yarn prepare` |
 | React Native | `rn-build-android` | Builds the React Native example app for Android. |
-| React Native | `rn-build-ios` | Builds the React Native example app for iOS. |
 | React Native | `rn-android-unit-tests` | Robolectric JVM unit tests for the package's Android sources. |
-| React Native | `rn-ios-unit-tests` | App-hosted XCTest unit tests for the package's iOS sources, on a headless simulator. |
+| React Native | `rn-ios-build-and-tests` | Builds the React Native example app for iOS and runs the app-hosted XCTest unit tests for the package's iOS sources, on a headless simulator. |
 | Android | `android-build` | Builds `apps/android-example/` against the package's Gradle modules. |
 | Android | `android-unit-tests` | `./gradlew testDebugUnitTest` |
 | Android | `android-kotlin-lint` | `./gradlew ktlintCheck lintDebug` (ktlint and Android Lint) |
-| iOS | `ios-build` | Builds `apps/ios-example/` against the local Swift package. |
-| iOS | `ios-unit-tests` | `xcodebuild test` against a simulator. |
+| iOS | `ios-build-and-tests` | Builds `apps/ios-example/` against the local Swift package and runs `xcodebuild test` against a simulator. |
 | iOS | `ios-swift-lint` | `swiftlint lint --strict` |
+
+The two iOS checks run on macOS runners, which are scarce. Before each of them, a Linux job (`rn-ios-cache`, `ios-cache`) asks turbo whether the check's inputs changed since a cached run; if not, the check is skipped and counts as passed.
 
 A final `ci-success` check is the one merging depends on: it fails if any check required for your platforms did not succeed, and passes immediately when your change touched none of them.
 

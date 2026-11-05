@@ -233,8 +233,7 @@ jobs:
     if: needs.changes.outputs.react-native == 'true'
     runs-on: ubuntu-latest
     outputs:
-      rn-build-ios: ${{ steps.rn-build-ios.outputs.status }}
-      rn-ios-unit-tests: ${{ steps.rn-ios-unit-tests.outputs.status }}
+      rn-ios-build-and-tests: ${{ steps.rn-ios-build-and-tests.outputs.status }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -248,14 +247,6 @@ jobs:
       - name: Reset pods
         run: rm -f apps/react-native-example/ios/Podfile.lock
 
-      - name: Restore turborepo for iOS
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: .turbo/ios
-          key: macOS-turborepo-ios-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**') }}
-          restore-keys: |
-            macOS-turborepo-ios-
-
       - name: Restore turborepo for RN iOS unit tests
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -264,125 +255,14 @@ jobs:
           restore-keys: |
             macOS-turborepo-rn-ios-test-
 
-      - name: Check turborepo cache for iOS
-        id: rn-build-ios
-        run: |
-          yarn turbo run build:ios \
-            --filter=react-native-enriched-markdown-example \
-            --cache-dir=.turbo/ios \
-            --dry=json > "$RUNNER_TEMP/dry.json"
-          jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
-          echo "status=$(jq -r '.tasks[0].cache.status' "$RUNNER_TEMP/dry.json")" >> $GITHUB_OUTPUT
-
-      - name: Check turborepo cache for RN iOS unit tests
-        id: rn-ios-unit-tests
+      - name: Check turborepo cache for RN iOS
+        id: rn-ios-build-and-tests
         run: |
           yarn test:ios \
             --cache-dir=.turbo/rn-ios-test \
             --dry=json > "$RUNNER_TEMP/dry.json"
           jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
           echo "status=$(jq -r '.tasks[0].cache.status' "$RUNNER_TEMP/dry.json")" >> $GITHUB_OUTPUT
-
-  rn-build-ios:
-    needs:
-      - changes
-      - rn-ios-cache
-    if: ${{ !cancelled() && needs.changes.outputs.react-native == 'true' && needs.rn-ios-cache.outputs.rn-build-ios != 'HIT' }}
-    runs-on: macos-latest-xlarge
-    env:
-      TURBO_CACHE_DIR: .turbo/ios
-      CCACHE_DIR: ${{ github.workspace }}/.ccache
-      CCACHE_MAXSIZE: 2G
-    steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Build library
-        run: yarn prepare
-
-      - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        with:
-          xcode-version: '26.3'
-
-      - name: Reset build folder and pods
-        run: rm -rf apps/react-native-example/build apps/react-native-example/ios/Pods apps/react-native-example/ios/Podfile.lock
-
-      - name: Cache turborepo for iOS
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-ios-${{ hashFiles('yarn.lock', 'packages/react-native-enriched-markdown/ios/**', 'packages/react-native-enriched-markdown/src/**', 'packages/core/cpp/**', 'apps/react-native-example/ios/**') }}
-          restore-keys: |
-            ${{ runner.os }}-turborepo-ios-
-
-      - name: Check turborepo cache for iOS
-        run: |
-          yarn turbo run build:ios \
-            --filter=react-native-enriched-markdown-example \
-            --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
-            --dry=json > "$RUNNER_TEMP/dry.json"
-          jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
-          TURBO_CACHE_STATUS=$(jq -r '.tasks[0].cache.status' "$RUNNER_TEMP/dry.json")
-
-          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
-            echo "turbo_cache_hit=1" >> $GITHUB_ENV
-          fi
-
-      - name: Restore cocoapods
-        if: env.turbo_cache_hit != 1
-        id: cocoapods-cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            **/ios/Pods
-            ~/Library/Caches/ReactNative
-          key: ${{ runner.os }}-cocoapods-${{ hashFiles('apps/react-native-example/ios/Podfile', 'yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cocoapods-
-
-      - name: Set up ccache
-        if: env.turbo_cache_hit != 1
-        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
-        with:
-          key: rn-ios
-          max-size: 2G
-          save: false
-
-      - name: Point Xcode at ccache
-        if: env.turbo_cache_hit != 1
-        run: |
-          ccache=$(command -v ccache)
-          conf=$GITHUB_WORKSPACE/apps/react-native-example/node_modules/react-native/scripts/xcode/ccache.conf
-          for tool in clang clang++; do
-            printf '#!/bin/sh\nexport CCACHE_CONFIGPATH=%s\nexport CCACHE_DIR=%s\nexport CCACHE_MAXSIZE=%s\nexec %s %s "$@"\n' "$conf" "$CCACHE_DIR" "$CCACHE_MAXSIZE" "$ccache" "$tool" > "$RUNNER_TEMP/ccache-$tool"
-            chmod +x "$RUNNER_TEMP/ccache-$tool"
-          done
-          printf 'CC = %s\nCXX = %s\n' "$RUNNER_TEMP/ccache-clang" "$RUNNER_TEMP/ccache-clang++" > "$RUNNER_TEMP/ccache.xcconfig"
-          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/ccache.xcconfig" >> $GITHUB_ENV
-
-      - name: Install cocoapods
-        if: env.turbo_cache_hit != 1
-        run: |
-          cd apps/react-native-example/ios
-          pod install
-        env:
-          NO_FLIPPER: 1
-
-      - name: Cache cocoapods
-        if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            **/ios/Pods
-            ~/Library/Caches/ReactNative
-          key: ${{ steps.cocoapods-cache.outputs.cache-primary-key }}
-
-      - name: Build example for iOS
-        run: yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   rn-android-unit-tests:
     needs: changes
@@ -436,11 +316,11 @@ jobs:
       - name: Run RN Android unit tests
         run: yarn test:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
-  rn-ios-unit-tests:
+  rn-ios-build-and-tests:
     needs:
       - changes
       - rn-ios-cache
-    if: ${{ !cancelled() && needs.changes.outputs.react-native == 'true' && needs.rn-ios-cache.outputs.rn-ios-unit-tests != 'HIT' }}
+    if: ${{ !cancelled() && needs.changes.outputs.react-native == 'true' && needs.rn-ios-cache.outputs.rn-ios-build-and-tests != 'HIT' }}
     runs-on: macos-latest-xlarge
     env:
       TURBO_CACHE_DIR: .turbo/rn-ios-test
@@ -705,8 +585,7 @@ jobs:
     if: needs.changes.outputs.ios == 'true'
     runs-on: ubuntu-latest
     outputs:
-      ios-build: ${{ steps.ios-build.outputs.status }}
-      ios-unit-tests: ${{ steps.ios-unit-tests.outputs.status }}
+      ios-build-and-tests: ${{ steps.ios-build-and-tests.outputs.status }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -717,108 +596,30 @@ jobs:
       - name: Restore iOS vendor files
         uses: ./.github/actions/restore-ios-vendor
 
-      - name: Restore turborepo for iOS native build
+      - name: Restore turborepo for iOS native
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .turbo/ios-native
-          key: macOS-turborepo-ios-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'apps/ios-example/**', 'packages/core/cpp/**') }}
+          key: macOS-turborepo-ios-native-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'apps/ios-example/**', 'packages/core/cpp/**') }}
           restore-keys: |
-            macOS-turborepo-ios-native-build-
+            macOS-turborepo-ios-native-
 
-      - name: Restore turborepo for iOS native tests
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: .turbo/ios-native
-          key: macOS-turborepo-ios-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'packages/core/cpp/**') }}
-          restore-keys: |
-            macOS-turborepo-ios-native-test-
-
-      - name: Check turborepo cache for iOS native build
-        id: ios-build
+      - name: Check turborepo cache for iOS native
+        id: ios-build-and-tests
         run: |
-          yarn turbo run build:ios-native \
+          yarn turbo run build:ios-native test:ios-native \
             --filter=enriched-markdown-ios-example \
+            --filter=@enriched-markdown/ios \
             --cache-dir=.turbo/ios-native \
             --dry=json > "$RUNNER_TEMP/dry.json"
-          jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
-          echo "status=$(jq -r '.tasks[0].cache.status' "$RUNNER_TEMP/dry.json")" >> $GITHUB_OUTPUT
+          jq -r '.tasks[] | select(.command != "<NONEXISTENT>") | "\(.taskId) hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
+          echo "status=$(jq -r 'if all(.tasks[] | select(.command != "<NONEXISTENT>"); .cache.status == "HIT") then "HIT" else "MISS" end' "$RUNNER_TEMP/dry.json")" >> $GITHUB_OUTPUT
 
-      - name: Check turborepo cache for iOS native tests
-        id: ios-unit-tests
-        run: |
-          yarn test:ios-native \
-            --cache-dir=.turbo/ios-native \
-            --dry=json > "$RUNNER_TEMP/dry.json"
-          jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
-          echo "status=$(jq -r '.tasks[0].cache.status' "$RUNNER_TEMP/dry.json")" >> $GITHUB_OUTPUT
-
-  ios-build:
+  ios-build-and-tests:
     needs:
       - changes
       - ios-cache
-    if: ${{ !cancelled() && needs.changes.outputs.ios == 'true' && needs.ios-cache.outputs.ios-build != 'HIT' }}
-    runs-on: macos-latest-xlarge
-    env:
-      TURBO_CACHE_DIR: .turbo/ios-native
-    steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Restore iOS vendor files
-        uses: ./.github/actions/restore-ios-vendor
-
-      - name: Cache turborepo for iOS native build
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-ios-native-build-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'apps/ios-example/**', 'packages/core/cpp/**') }}
-          restore-keys: |
-            ${{ runner.os }}-turborepo-ios-native-build-
-
-      - name: Check turborepo cache for iOS native build
-        run: |
-          yarn turbo run build:ios-native \
-            --filter=enriched-markdown-ios-example \
-            --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
-            --dry=json > "$RUNNER_TEMP/dry.json"
-          jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
-          TURBO_CACHE_STATUS=$(jq -r '.tasks[0].cache.status' "$RUNNER_TEMP/dry.json")
-
-          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
-            echo "turbo_cache_hit=1" >> $GITHUB_ENV
-          fi
-
-      - name: Set up Xcode
-        if: env.turbo_cache_hit != 1
-        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        with:
-          xcode-version: '26.3'
-
-      - name: Select iOS simulator
-        if: env.turbo_cache_hit != 1
-        run: |
-          UDID=$(xcrun simctl list devices available --json \
-            | jq -r '[.devices[] | .[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
-
-          if [[ -z "$UDID" || "$UDID" == "null" ]]; then
-            echo "No available iPhone simulator found"
-            xcrun simctl list devices
-            exit 1
-          fi
-
-          echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
-
-      - name: Build iOS example
-        run: yarn turbo run build:ios-native --filter=enriched-markdown-ios-example --cache-dir="${{ env.TURBO_CACHE_DIR }}"
-
-  ios-unit-tests:
-    needs:
-      - changes
-      - ios-cache
-    if: ${{ !cancelled() && needs.changes.outputs.ios == 'true' && needs.ios-cache.outputs.ios-unit-tests != 'HIT' }}
+    if: ${{ !cancelled() && needs.changes.outputs.ios == 'true' && needs.ios-cache.outputs.ios-build-and-tests != 'HIT' }}
     runs-on: macos-latest
     env:
       TURBO_CACHE_DIR: .turbo/ios-native
@@ -832,21 +633,23 @@ jobs:
       - name: Restore iOS vendor files
         uses: ./.github/actions/restore-ios-vendor
 
-      - name: Cache turborepo for iOS native tests
+      - name: Cache turborepo for iOS native
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-ios-native-test-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'packages/core/cpp/**') }}
+          key: ${{ runner.os }}-turborepo-ios-native-${{ hashFiles('yarn.lock', 'packages/enriched-markdown-ios/**', 'apps/ios-example/**', 'packages/core/cpp/**') }}
           restore-keys: |
-            ${{ runner.os }}-turborepo-ios-native-test-
+            ${{ runner.os }}-turborepo-ios-native-
 
-      - name: Check turborepo cache for iOS native tests
+      - name: Check turborepo cache for iOS native
         run: |
-          yarn test:ios-native \
+          yarn turbo run build:ios-native test:ios-native \
+            --filter=enriched-markdown-ios-example \
+            --filter=@enriched-markdown/ios \
             --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
             --dry=json > "$RUNNER_TEMP/dry.json"
-          jq -r '.tasks[0] | "hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
-          TURBO_CACHE_STATUS=$(jq -r '.tasks[0].cache.status' "$RUNNER_TEMP/dry.json")
+          jq -r '.tasks[] | select(.command != "<NONEXISTENT>") | "\(.taskId) hash=\(.hash) status=\(.cache.status)"' "$RUNNER_TEMP/dry.json"
+          TURBO_CACHE_STATUS=$(jq -r 'if all(.tasks[] | select(.command != "<NONEXISTENT>"); .cache.status == "HIT") then "HIT" else "MISS" end' "$RUNNER_TEMP/dry.json")
 
           if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
             echo "turbo_cache_hit=1" >> $GITHUB_ENV
@@ -872,8 +675,13 @@ jobs:
 
           echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
 
-      - name: Run iOS unit tests
-        run: yarn test:ios-native --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+      - name: Build the iOS example and run the unit tests
+        run: |
+          yarn turbo run build:ios-native test:ios-native \
+            --filter=enriched-markdown-ios-example \
+            --filter=@enriched-markdown/ios \
+            --cache-dir="${{ env.TURBO_CACHE_DIR }}" \
+            --concurrency=1
 
   ios-swift-lint:
     needs: changes
@@ -933,14 +741,12 @@ jobs:
       - rn-lint
       - rn-build-library
       - rn-build-android
-      - rn-build-ios
       - rn-android-unit-tests
-      - rn-ios-unit-tests
+      - rn-ios-build-and-tests
       - android-build
       - android-unit-tests
       - android-kotlin-lint
-      - ios-build
-      - ios-unit-tests
+      - ios-build-and-tests
       - ios-swift-lint
     if: always()
     runs-on: ubuntu-latest
@@ -957,20 +763,16 @@ jobs:
           RN_LINT: ${{ needs.rn-lint.result }}
           RN_BUILD_LIBRARY: ${{ needs.rn-build-library.result }}
           RN_BUILD_ANDROID: ${{ needs.rn-build-android.result }}
-          RN_BUILD_IOS: ${{ needs.rn-build-ios.result }}
           RN_ANDROID_UNIT_TESTS: ${{ needs.rn-android-unit-tests.result }}
-          RN_IOS_UNIT_TESTS: ${{ needs.rn-ios-unit-tests.result }}
+          RN_IOS_BUILD_AND_TESTS: ${{ needs.rn-ios-build-and-tests.result }}
           ANDROID_BUILD: ${{ needs.android-build.result }}
           ANDROID_UNIT_TESTS: ${{ needs.android-unit-tests.result }}
           ANDROID_KOTLIN_LINT: ${{ needs.android-kotlin-lint.result }}
-          IOS_BUILD: ${{ needs.ios-build.result }}
-          IOS_UNIT_TESTS: ${{ needs.ios-unit-tests.result }}
+          IOS_BUILD_AND_TESTS: ${{ needs.ios-build-and-tests.result }}
           IOS_SWIFT_LINT: ${{ needs.ios-swift-lint.result }}
           CHANGES: ${{ needs.changes.result }}
-          RN_BUILD_IOS_CACHE: ${{ needs.rn-ios-cache.outputs.rn-build-ios }}
-          RN_IOS_UNIT_TESTS_CACHE: ${{ needs.rn-ios-cache.outputs.rn-ios-unit-tests }}
-          IOS_BUILD_CACHE: ${{ needs.ios-cache.outputs.ios-build }}
-          IOS_UNIT_TESTS_CACHE: ${{ needs.ios-cache.outputs.ios-unit-tests }}
+          RN_IOS_BUILD_AND_TESTS_CACHE: ${{ needs.rn-ios-cache.outputs.rn-ios-build-and-tests }}
+          IOS_BUILD_AND_TESTS_CACHE: ${{ needs.ios-cache.outputs.ios-build-and-tests }}
         run: |
           if [[ "$CHANGES" != "success" ]]; then
             echo "changes job failed"
@@ -1003,14 +805,12 @@ jobs:
           check_required "$REACT_NATIVE" "$RN_LINT" "rn-lint"
           check_required "$REACT_NATIVE" "$RN_BUILD_LIBRARY" "rn-build-library"
           check_required "$REACT_NATIVE" "$RN_BUILD_ANDROID" "rn-build-android"
-          check_required "$REACT_NATIVE" "$RN_BUILD_IOS" "rn-build-ios" "$RN_BUILD_IOS_CACHE"
           check_required "$REACT_NATIVE" "$RN_ANDROID_UNIT_TESTS" "rn-android-unit-tests"
-          check_required "$REACT_NATIVE" "$RN_IOS_UNIT_TESTS" "rn-ios-unit-tests" "$RN_IOS_UNIT_TESTS_CACHE"
+          check_required "$REACT_NATIVE" "$RN_IOS_BUILD_AND_TESTS" "rn-ios-build-and-tests" "$RN_IOS_BUILD_AND_TESTS_CACHE"
           check_required "$ANDROID" "$ANDROID_BUILD" "android-build"
           check_required "$ANDROID" "$ANDROID_UNIT_TESTS" "android-unit-tests"
           check_required "$ANDROID" "$ANDROID_KOTLIN_LINT" "android-kotlin-lint"
-          check_required "$IOS" "$IOS_BUILD" "ios-build" "$IOS_BUILD_CACHE"
-          check_required "$IOS" "$IOS_UNIT_TESTS" "ios-unit-tests" "$IOS_UNIT_TESTS_CACHE"
+          check_required "$IOS" "$IOS_BUILD_AND_TESTS" "ios-build-and-tests" "$IOS_BUILD_AND_TESTS_CACHE"
           check_required "$IOS" "$IOS_SWIFT_LINT" "ios-swift-lint"
 
           echo "All required checks passed"
