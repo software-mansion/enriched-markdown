@@ -256,6 +256,15 @@ warnings. Use `id`, `aria-*` and CSS instead.
 :::
 
 :::note
+Words longer than the line, such as URLs, wrap by default through
+`overflow-wrap: break-word`. In a flex item that keeps the default
+`min-width: auto`, a long word still widens the item instead, so set
+`min-width: 0` on that item. Passing `overflowWrap: 'anywhere'` through
+`containerStyle` also fixes it, but short words can then break mid-word when the
+layout gets tight.
+:::
+
+:::note
 The WASM parser loads once per page, starting when the package is imported. An
 instance mounted before that load finishes renders nothing until it does. From
 then on, every render shows the markdown it was given in the same commit.

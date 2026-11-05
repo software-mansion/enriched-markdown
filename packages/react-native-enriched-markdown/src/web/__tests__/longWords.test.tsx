@@ -3,8 +3,11 @@ import { createRoot, type Root, type TestInstance } from 'test-renderer';
 import { EnrichedMarkdownText } from '../EnrichedMarkdownText';
 import type { EnrichedMarkdownTextProps } from '../../types/MarkdownTextProps.web';
 import { ENRM_TEXT_CLASS } from '../globalStyles';
+import { loadParser } from '../parseMarkdown';
 
 const LONG_URL = `https://example.com/${'a'.repeat(200)}`;
+
+beforeAll(() => loadParser());
 
 async function render(props: EnrichedMarkdownTextProps): Promise<Root> {
   const root = createRoot();
@@ -13,12 +16,6 @@ async function render(props: EnrichedMarkdownTextProps): Promise<Root> {
       <EnrichedMarkdownText md4cFlags={{ latexMath: false }} {...props} />
     );
   });
-  // The parser loads asynchronously; nothing is rendered until it has.
-  for (let i = 0; i < 30 && find(root, 'p').length === 0; i++) {
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    });
-  }
   return root;
 }
 
@@ -38,7 +35,7 @@ function wrapper(root: Root): TestInstance {
 it('breaks words longer than the line instead of overflowing', async () => {
   const root = await render({ markdown: `See ${LONG_URL}` });
   expect(find(root, 'p')).toHaveLength(1);
-  expect(wrapper(root).props.style.overflowWrap).toBe('anywhere');
+  expect(wrapper(root).props.style.overflowWrap).toBe('break-word');
 });
 
 it('lets containerStyle override the word breaking', async () => {
