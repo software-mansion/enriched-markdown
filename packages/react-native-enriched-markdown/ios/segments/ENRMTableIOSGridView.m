@@ -117,9 +117,7 @@
     yOffset += rowHeight;
   }
 
-  // TableContainerView clips the grid to the corner radius, which cuts the square cell
-  // strokes away at each corner. Stroke the rounded outline on the same locus as the outer
-  // cell edges so the corners are drawn and the straight edges keep their weight.
+  // The container's corner mask cuts the square cell strokes; draw the arcs.
   if (_cornerRadius > 0 && _borderWidth > 0) {
     [_borderColor setStroke];
     UIBezierPath *outline = [UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:_cornerRadius];
