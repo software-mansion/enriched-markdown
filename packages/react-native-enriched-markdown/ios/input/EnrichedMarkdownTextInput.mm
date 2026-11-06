@@ -1742,8 +1742,7 @@ static const NSTimeInterval kENRMAtomicSnapPollInterval = 0.1;
 - (void)handleTextChanged
 {
   if (_editSession.isComposing) {
-    // Marked text (e.g. pinyin before confirmation) is already in the text view;
-    // hide the placeholder so it doesn't overlap the composition.
+    // Marked text is already in the view; hide the placeholder under it.
     [self updatePlaceholderVisibility];
     return;
   }
