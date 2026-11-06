@@ -3,9 +3,9 @@
 #import "ENRMViewFreeMeasurement.h"
 #import "EnrichedMarkdown.h"
 #import "ShadowMeasurementUtils.h"
-#import <ReactNativeEnrichedMarkdown/ShadowNodes.h>
 #include <cmath>
 #include <limits>
+#import <react/renderer/components/EnrichedMarkdownTextSpec/ShadowNodes.h>
 #include <react/renderer/graphics/rounding.h>
 #include <string_view>
 #import <yoga/Yoga.h>

@@ -1,8 +1,8 @@
 #pragma once
 
-// Android exposes generated/jni/react/renderer/components (the spec folder by
-// name, so no other generated header is reachable bare); iOS generates the JSI
-// header flat under ios/generated/ReactCodegen.
+// Android exposes the codegen jni/react/renderer/components folder (the spec
+// folder by name, so no other generated header is reachable bare); iOS has the
+// JSI header flat at the root of the app's ReactCodegen pod.
 #if __has_include("EnrichedMarkdownTextSpec/EnrichedMarkdownTextSpecJSI.h")
 #include "EnrichedMarkdownTextSpec/EnrichedMarkdownTextSpecJSI.h"
 #else
