@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type {
   BlockTextAlign,
+  LinkPillInternal,
   MarkdownStyleInternal,
 } from '../types/MarkdownStyleInternal';
 
@@ -334,17 +335,23 @@ function getCompiledVariantRegexes(
   return compiled;
 }
 
-export function linkStyleForUrl(
+/** The first (longest) `linkVariants` entry whose pattern matches `url`. */
+export function linkVariantForUrl(
   style: MarkdownStyleInternal,
   url: string
-): CSSProperties {
-  const base = style.link;
+): MarkdownStyleInternal['linkVariants'][number] | undefined {
   const compiledVariantRegexes = getCompiledVariantRegexes(style.linkVariants);
   const variantIndex = compiledVariantRegexes.findIndex(
     (regex) => regex !== null && regex.test(url)
   );
-  const resolved =
-    variantIndex !== -1 ? style.linkVariants[variantIndex]! : base;
+  return variantIndex !== -1 ? style.linkVariants[variantIndex] : undefined;
+}
+
+export function linkStyleForUrl(
+  style: MarkdownStyleInternal,
+  url: string
+): CSSProperties {
+  const resolved = linkVariantForUrl(style, url) ?? style.link;
 
   const backgroundColor = resolved.backgroundColor;
   return {
@@ -354,6 +361,69 @@ export function linkStyleForUrl(
     ...(backgroundColor && backgroundColor !== 'transparent'
       ? { backgroundColor }
       : undefined),
+  };
+}
+
+/**
+ * A pill is one inline box that never breaks across lines, like native. The
+ * label truncates at the tail when `maxWidth` (or the line) is too narrow.
+ *
+ * Like native, the label sits on the text baseline and the box is the font's
+ * height plus padding and border, whatever the paragraph's `lineHeight`. Only
+ * the label takes part in baseline alignment (the icon is centered), so the
+ * flex container's baseline is the label's.
+ */
+export function linkPillStyle(
+  pill: LinkPillInternal,
+  backgroundColor: string
+): CSSProperties {
+  return {
+    display: 'inline-flex',
+    alignItems: 'baseline',
+    gap: '0.25em',
+    maxWidth: pill.maxWidth > 0 ? pill.maxWidth : '100%',
+    boxSizing: 'border-box',
+    verticalAlign: 'baseline',
+    lineHeight: 'normal',
+    whiteSpace: 'nowrap',
+    paddingInline: pill.paddingHorizontal,
+    paddingBlock: pill.paddingVertical,
+    borderRadius: pill.borderRadius,
+    borderStyle: 'solid',
+    borderWidth: pill.borderWidth,
+    borderColor: pill.borderColor,
+    ...(backgroundColor !== 'transparent' ? { backgroundColor } : undefined),
+  };
+}
+
+export const linkPillLabelStyle: CSSProperties = {
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  minWidth: 0,
+};
+
+/**
+ * Icons are drawn at the label's font size. A tint keeps the image's alpha by
+ * painting the color through the image as a mask, so it works for any source.
+ */
+export function linkPillIconStyle(
+  iconUri: string,
+  tintColor: string | undefined
+): CSSProperties {
+  const size: CSSProperties = {
+    width: '1em',
+    height: '1em',
+    flexShrink: 0,
+    alignSelf: 'center',
+  };
+  if (!tintColor) return { ...size, objectFit: 'contain' };
+  const mask = `url("${iconUri.replace(/"/g, '%22')}") center / contain no-repeat`;
+  return {
+    ...size,
+    display: 'inline-block',
+    backgroundColor: tintColor,
+    mask,
+    WebkitMask: mask,
   };
 }
 
