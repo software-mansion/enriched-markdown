@@ -76,7 +76,7 @@ struct CodeBlockAttachmentLayout: Equatable {
     }
 }
 
-final class CodeBlockAttachment: NSTextAttachment, MarkdownPluginAttachment, HorizontallyScrollingAttachment {
+final class CodeBlockAttachment: NSTextAttachment, MarkdownPluginAttachment, HostedBlockAttachment {
     /// Must be a resolvable UTI — NSTextAttachment silently drops any other
     /// string, which breaks the provider-class lookup.
     static let fileType: String = UTType(
@@ -98,24 +98,34 @@ final class CodeBlockAttachment: NSTextAttachment, MarkdownPluginAttachment, Hor
     let attributedCode: NSAttributedString
     let style: CodeBlockAttachmentStyle
     let layout: CodeBlockAttachmentLayout
-
-    var preservedContentOffset: CGPoint = .zero
+    let isPending: Bool
 
     /// Kept across provider recreations; a fresh view blanks the context-menu lift.
     var hostedView: CodeBlockAttachmentView?
+
+    func makeHostedView() -> CodeBlockAttachmentView {
+        CodeBlockAttachmentView(attachment: self)
+    }
+
+    @MainActor
+    func update(_ view: CodeBlockAttachmentView, transition: (any ViewTransition)?) {
+        view.update(to: self, transition: transition)
+    }
 
     init(
         code: String,
         language: String?,
         fenceCharacter: String,
         attributedCode: NSAttributedString,
-        style: CodeBlockAttachmentStyle
+        style: CodeBlockAttachmentStyle,
+        isPending: Bool = false
     ) {
         self.code = code
         self.language = language
         self.fenceCharacter = fenceCharacter
         self.attributedCode = attributedCode
         self.style = style
+        self.isPending = isPending
         self.layout = CodeBlockAttachmentLayout.compute(attributedCode: attributedCode, style: style)
         _ = Self.providerRegistration
         // fileType only persists with non-nil contents; the data is never read.

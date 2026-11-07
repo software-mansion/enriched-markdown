@@ -51,27 +51,7 @@ open class SpoilerOverlayView: UIView {
     /// `concealedText`, or `text` in its place, on a transparent canvas the
     /// size of the view, laid out as the text view lays the segment out.
     public func concealedTextImage(_ text: NSAttributedString? = nil) -> UIImage {
-        guard !bounds.isEmpty else { return UIImage() }
-        let contentStorage = NSTextContentStorage()
-        let layoutManager = NSTextLayoutManager()
-        contentStorage.addTextLayoutManager(layoutManager)
-        let container = SnapshotTextContainer(size: CGSize(width: bounds.width, height: .greatestFiniteMagnitude))
-        container.lineFragmentPadding = 0
-        layoutManager.textContainer = container
-        contentStorage.attributedString = text ?? concealedText
-        layoutManager.ensureLayout(for: layoutManager.documentRange)
-        let renderer = UIGraphicsImageRenderer(bounds: bounds)
-        guard let fragment = layoutManager.textLayoutFragment(for: layoutManager.documentRange.location),
-              let line = fragment.textLineFragments.first
-        else { return renderer.image { _ in } }
-
-        let lineBaseline = fragment.layoutFragmentFrame.minY + line.typographicBounds.minY + line.glyphOrigin.y
-        return renderer.image { context in
-            // Dynamic colors resolve for this view's traits, whoever calls.
-            traitCollection.performAsCurrent {
-                fragment.draw(at: CGPoint(x: 0, y: baseline - lineBaseline), in: context.cgContext)
-            }
-        }
+        TextSlice.image(of: text ?? concealedText, size: bounds.size, baseline: baseline, traits: traitCollection)
     }
 
     /// Animates the view out, fading `alpha` by default. An override must

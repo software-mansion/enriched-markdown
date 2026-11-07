@@ -21,7 +21,7 @@ package struct BlockStyle {
     var headingLevel: Int
 }
 
-enum MarkdownAttribute {
+package enum MarkdownAttribute {
     static let inlineCode = NSAttributedString.Key("EnrichedMarkdownInlineCode")
     static let codeBlock = NSAttributedString.Key("EnrichedMarkdownCodeBlock")
     static let codeBlockLanguage = NSAttributedString.Key("EnrichedMarkdownCodeBlockLanguage")
@@ -38,6 +38,8 @@ enum MarkdownAttribute {
     /// The `.link` value of a concealed run. Removed from `.link` so UIKit,
     /// VoiceOver, and menus see no link until the spoiler is revealed.
     static let spoilerLink = NSAttributedString.Key("EnrichedMarkdownSpoilerLink")
+    static let streamingOriginalColors = NSAttributedString.Key("EnrichedMarkdownStreamingOriginalColors")
+    static let codeBlockPending = NSAttributedString.Key("EnrichedMarkdownCodeBlockPending")
     static let blockquoteDepth = NSAttributedString.Key("EnrichedMarkdownBlockquoteDepth")
     static let blockquoteBackgroundColor = NSAttributedString.Key("EnrichedMarkdownBlockquoteBackgroundColor")
     /// Leading inset of a quote's bars and fill, set on quote paragraphs
@@ -64,7 +66,7 @@ enum MarkdownAttribute {
     /// UTF-8 byte range into the original markdown source that produced this
     /// run (`NSValue`-wrapped `NSRange`; not a range into the rendered
     /// string). Absent when the run's text is not contiguous in the source.
-    static let sourceRange = NSAttributedString.Key("EnrichedMarkdownSourceRange")
+    package static let sourceRange = NSAttributedString.Key("EnrichedMarkdownSourceRange")
     static let trailingSpacing = NSAttributedString.Key("EnrichedMarkdownTrailingSpacing")
 }
 
@@ -94,6 +96,22 @@ package final class RenderContext {
     /// plugin block node (see `MarkdownRenderPlugin.rootBlockNodeTypes`).
     var pluginBlockMargins: BlockMargins?
     package var rendersPluginBlock: Bool { pluginBlockMargins != nil }
+
+    package struct BoundaryState {
+        let blockType: BlockType
+        let blockStyle: BlockStyle?
+        let taskItemIndex: Int
+    }
+
+    package var boundaryState: BoundaryState {
+        BoundaryState(blockType: currentBlockType, blockStyle: currentBlockStyle, taskItemIndex: taskItemIndex)
+    }
+
+    package func restore(_ state: BoundaryState) {
+        currentBlockType = state.blockType
+        currentBlockStyle = state.blockStyle
+        taskItemIndex = state.taskItemIndex
+    }
 
     func setBlockStyle(
         font: UIFont,

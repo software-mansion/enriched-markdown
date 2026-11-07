@@ -33,7 +33,7 @@ final class MarkdownAccessibilityElement: UIAccessibilityElement {
             )
         }
 
-        if case .codeBlock(let copyAction, let language) = spec.kind {
+        if case .codeBlock(let copyAction?, let language) = spec.kind {
             let code = spec.label
             accessibilityCustomActions = [
                 UIAccessibilityCustomAction(name: copyAction) { [weak textView] _ in

@@ -1,45 +1,19 @@
 import EnrichedMarkdown
 import UIKit
 
-/// TextKit 2 creates and destroys providers with viewport layout, so all
-/// state lives on the attachment, whose bounds override also sizes the view.
-final class MathAttachmentViewProvider: NSTextAttachmentViewProvider {
-    override init(
-        textAttachment: NSTextAttachment,
-        parentView: UIView?,
-        textLayoutManager: NSTextLayoutManager?,
-        location: NSTextLocation
-    ) {
-        super.init(
-            textAttachment: textAttachment,
-            parentView: parentView,
-            textLayoutManager: textLayoutManager,
-            location: location
-        )
-        // Without this UIKit never installs the view.
-        tracksTextAttachmentViewBounds = true
-    }
-
-    override func loadView() {
-        guard let attachment = textAttachment as? MathAttachment, let panel = attachment.panel else {
-            view = UIView()
-            return
-        }
-        view = MathBlockView(attachment: attachment, panel: panel)
-    }
-}
-
 /// The line-wide panel hosting a root-level display formula, inset and
 /// aligned inside it and scrolling horizontally when wider than the line.
-final class MathBlockView: UIView, UIScrollViewDelegate, UIContextMenuInteractionDelegate {
+final class MathBlockView: UIView, UIContextMenuInteractionDelegate, HostedBlockView {
+    var owner: ObjectIdentifier?
     let scrollView = HorizontalBlockScrollView()
     let formulaView = UIImageView()
-    private let attachment: MathAttachment
-    private let panel: MathPanelStyle
-    private var didRestoreOffset = false
+    private weak var attachment: MathAttachment?
+    private var formulaSize: CGSize
+    private var panel: MathPanelStyle
 
     init(attachment: MathAttachment, panel: MathPanelStyle) {
         self.attachment = attachment
+        formulaSize = attachment.formulaSize
         self.panel = panel
         super.init(frame: .zero)
 
@@ -48,7 +22,6 @@ final class MathBlockView: UIView, UIScrollViewDelegate, UIContextMenuInteractio
         scrollView.showsVerticalScrollIndicator = false
         scrollView.showsHorizontalScrollIndicator = true
         scrollView.alwaysBounceVertical = false
-        scrollView.delegate = self
         addSubview(scrollView)
 
         formulaView.image = attachment.formulaImage
@@ -62,11 +35,21 @@ final class MathBlockView: UIView, UIScrollViewDelegate, UIContextMenuInteractio
         fatalError("init(coder:) has not been implemented")
     }
 
+    func update(to attachment: MathAttachment) {
+        self.attachment = attachment
+        formulaSize = attachment.formulaSize
+        if let panel = attachment.panel {
+            self.panel = panel
+        }
+        backgroundColor = panel.backgroundColor
+        formulaView.image = attachment.formulaImage
+        setNeedsLayout()
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         scrollView.frame = bounds
 
-        let formulaSize = attachment.formulaSize
         let contentWidth = panel.contentSize(formulaSize: formulaSize).width
         let overflow = max(contentWidth - bounds.width, 0)
 
@@ -79,16 +62,6 @@ final class MathBlockView: UIView, UIScrollViewDelegate, UIContextMenuInteractio
         )
         scrollView.contentSize = CGSize(width: bounds.width + overflow, height: bounds.height)
         scrollView.isScrollEnabled = overflow > 0
-
-        if !didRestoreOffset, bounds.width > 0 {
-            didRestoreOffset = true
-            scrollView.contentOffset.x = min(max(attachment.preservedContentOffset.x, 0), overflow)
-        }
-    }
-
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard didRestoreOffset else { return }
-        attachment.preservedContentOffset = scrollView.contentOffset
     }
 
     // MARK: - Copy menu
@@ -97,7 +70,7 @@ final class MathBlockView: UIView, UIScrollViewDelegate, UIContextMenuInteractio
         _ interaction: UIContextMenuInteraction,
         configurationForMenuAtLocation location: CGPoint
     ) -> UIContextMenuConfiguration? {
-        let attachment = self.attachment
+        guard let attachment else { return nil }
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in
             let copy = UIAction(
                 title: "Copy",

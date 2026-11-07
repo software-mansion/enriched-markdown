@@ -43,6 +43,7 @@ ios/                  (20)  basics/ (10)        installation, your-first-screen
                                                 element-structure
                             guides/ (30)        parser-extensions, latex-math,
                                                 syntax-highlighting,
+                                                markdown-streaming,
                                                 image-caching, custom-fonts,
                                                 uikit-interop
 android/              (30)  basics/ (10)        installation, your-first-screen
@@ -95,7 +96,8 @@ misc/                 (60)  compatibility.mdx, breaking-changes,
   a `latex-math` guide. Both ship code-block syntax highlighting as an
   optional add-on with its own guide: iOS as the
   `EnrichedMarkdownSyntaxHighlighting` product (`ios/guides/syntax-highlighting`),
-  Android as the `code-highlight` artifact (`android/guides/code-highlighting`). iOS exposes behavior through SwiftUI view
+  Android as the `code-highlight` artifact (`android/guides/code-highlighting`). Only iOS streams: the optional `EnrichedMarkdownStreaming` product has its own
+  guide (`ios/guides/markdown-streaming`). iOS exposes behavior through SwiftUI view
   modifiers rather than composable parameters, so it gets a `uikit-interop`
   guide where Android gets `compose-interop`. iOS's fallback renderer emits a
   node's **children**, so unsupported syntax loses styling, not text; Android's

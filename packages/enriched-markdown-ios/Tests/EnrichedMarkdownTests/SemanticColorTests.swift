@@ -29,7 +29,7 @@ final class SemanticColorTests: XCTestCase {
         )
     }
 
-    func testTintResolvesForLinkThemeElement() {
+    func testTintStaysDynamicForLinkThemeElement() {
         let theme = MarkdownTheme {
             Link().foregroundStyle(ThemeColorSpec.SemanticColor.tint)
         }
@@ -37,10 +37,7 @@ final class SemanticColorTests: XCTestCase {
         let traits = UITraitCollection(userInterfaceStyle: .light)
         let config = MarkdownStyleConfiguration.resolve(layers: [theme], traitCollection: traits)
 
-        XCTAssertEqual(
-            config.link.foregroundColor,
-            UIColor.tintColor.resolvedColor(with: traits)
-        )
+        XCTAssertEqual(config.link.foregroundColor, UIColor.tintColor, "the view's tint applies when the text is drawn")
     }
 
     // MARK: - Member-name resolution

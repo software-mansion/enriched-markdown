@@ -683,7 +683,15 @@ jobs:
           echo "IOS_SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
 
       - name: Run iOS unit tests
-        run: yarn test:ios-native --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+        run: |
+          set -o pipefail
+          yarn test:ios-native --cache-dir="${{ env.TURBO_CACHE_DIR }}" 2>&1 | tee "$RUNNER_TEMP/ios-unit-tests.log"
+
+      - name: Annotate failed tests
+        if: failure()
+        run: |
+          grep -E "error: |Test Case .* failed|Restarting after" "$RUNNER_TEMP/ios-unit-tests.log" \
+            | head -10 | sed 's/^/::error::/' || true
 
   ios-swift-lint:
     needs: changes
