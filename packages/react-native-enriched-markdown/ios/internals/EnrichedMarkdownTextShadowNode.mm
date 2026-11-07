@@ -50,7 +50,6 @@ Size EnrichedMarkdownTextShadowNode::measureContent(const LayoutContext &layoutC
                                                     const LayoutConstraints &layoutConstraints) const
 {
   const auto propsHandle = std::static_pointer_cast<const EnrichedMarkdownTextProps>(this->getProps());
-  const auto &typedProps = *propsHandle;
   const int receivedCounter = getStateData().getHeightRecalculationCounter();
   const EnrichedMarkdownTextProps *props = propsHandle.get();
   CGFloat pointScaleFactor = layoutContext.pointScaleFactor;
@@ -59,10 +58,14 @@ Size EnrichedMarkdownTextShadowNode::measureContent(const LayoutContext &layoutC
                                                    : NSWritingDirectionLeftToRight;
 
   return ENRMMeasureMarkdownContent<EnrichedMarkdownTextProps, EnrichedMarkdownText>(
-      typedProps, getStateData().getComponentViewRef(), receivedCounter, lastExactMeasurementCounter_,
-      lastExactMeasurementSize_, MarkdownFlavor::CommonMark, layoutContext, layoutConstraints,
-      ^(EnrichedMarkdownText *view, CGFloat maxWidth, CGFloat fontScale) {
-        return ENRMMeasureMarkdownViewFree(*props, maxWidth, fontScale, pointScaleFactor, resolvedLayoutDirection);
+      propsHandle, getStateData().getComponentViewRef(), receivedCounter, lastExactMeasurementCounter_,
+      lastExactMeasurementSize_, MarkdownFlavor::CommonMark, layoutContext, layoutConstraints, resolvedLayoutDirection,
+      ^id(CGFloat fontScale) {
+        return ENRMRenderMarkdownViewFree(*props, ENRMStyleConfigFromProps(*props, fontScale), resolvedLayoutDirection);
+      },
+      ^(EnrichedMarkdownText *view, CGFloat maxWidth, CGFloat fontScale, id rendered) {
+        return ENRMMeasureMarkdownViewFree(*props, maxWidth, fontScale, pointScaleFactor, resolvedLayoutDirection,
+                                           rendered);
       });
 }
 

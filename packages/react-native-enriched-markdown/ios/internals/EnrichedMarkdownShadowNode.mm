@@ -209,8 +209,13 @@ CGSize EnrichedMarkdownShadowNode::measureWithSlots(const std::vector<SlotChild>
                 return 0;
               }];
 
+  id rendered = ENRMPrepareFirstRender(
+      view != nil, props.streamingAnimation, {getProps(), fontScale, resolvedLayoutDirection, slotIds}, ^id {
+        return ENRMRenderSegmentedMarkdownViewFree(props, ENRMStyleConfigFromProps(props, fontScale),
+                                                   resolvedLayoutDirection, slotIds);
+      });
   CGSize size = ENRMMeasureSegmentedMarkdownViewFree(props, maxWidth, fontScale, pointScaleFactor,
-                                                     resolvedLayoutDirection, wrappedCodeBlocks, measurer);
+                                                     resolvedLayoutDirection, wrappedCodeBlocks, measurer, rendered);
 
   NSDictionary<NSString *, NSValue *> *frames = measurer.frames;
   std::vector<SlotFrame> slotFrames;
@@ -256,11 +261,15 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
   NSSet<NSNumber *> *wrappedCodeBlocks = typedProps.enableCodeBlockWrapToggle ? view.wrappedCodeBlockIndices : nil;
 
   return ENRMMeasureMarkdownContent<EnrichedMarkdownProps, EnrichedMarkdown>(
-      typedProps, componentViewRef, receivedCounter, lastExactMeasurementCounter_, lastExactMeasurementSize_,
-      MarkdownFlavor::GitHub, layoutContext, layoutConstraints,
-      ^(EnrichedMarkdown *measuredView, CGFloat maxWidth, CGFloat fontScale) {
+      propsHandle, componentViewRef, receivedCounter, lastExactMeasurementCounter_, lastExactMeasurementSize_,
+      MarkdownFlavor::GitHub, layoutContext, layoutConstraints, resolvedLayoutDirection,
+      ^id(CGFloat fontScale) {
+        return ENRMRenderSegmentedMarkdownViewFree(*props, ENRMStyleConfigFromProps(*props, fontScale),
+                                                   resolvedLayoutDirection, nil);
+      },
+      ^(EnrichedMarkdown *measuredView, CGFloat maxWidth, CGFloat fontScale, id rendered) {
         return ENRMMeasureSegmentedMarkdownViewFree(*props, maxWidth, fontScale, pointScaleFactor,
-                                                    resolvedLayoutDirection, wrappedCodeBlocks);
+                                                    resolvedLayoutDirection, wrappedCodeBlocks, nil, rendered);
       },
       ENRMWrappedCodeBlocksFingerprint(wrappedCodeBlocks));
 }
