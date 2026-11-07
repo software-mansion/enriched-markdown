@@ -47,6 +47,7 @@ final class TableRenderer: NodeRenderer {
                     let rendered = renderCell(cellNode, isHeader: isHeader, style: style)
                     cells.append(TableCellModel(
                         attributedText: rendered,
+                        drawnText: Self.strippingLinks(rendered),
                         plainText: rendered.string,
                         markdownText: MarkdownExtractor.inlineMarkdown(for: rendered),
                         isHeader: isHeader
@@ -80,9 +81,16 @@ final class TableRenderer: NodeRenderer {
         factory.renderChildren(of: cellNode, into: cellOutput, context: cellContext)
         trimTrailingWhitespace(in: cellOutput)
         applyParagraphStyle(align: cellNode.attribute("align"), style: style, to: cellOutput)
+        InlineBackground.reserveLineHeight(in: cellOutput)
         BaselineShiftRenderer.applyShifts(to: cellOutput, context: cellContext, config: config)
         factory.applyWritingDirection(to: cellOutput)
         return cellOutput
+    }
+
+    private static func strippingLinks(_ text: NSAttributedString) -> NSAttributedString {
+        let drawn = NSMutableAttributedString(attributedString: text)
+        drawn.removeAttribute(.link, range: NSRange(location: 0, length: drawn.length))
+        return drawn
     }
 
     private func cellFont(isHeader: Bool, style: TableAttachmentStyle) -> UIFont {

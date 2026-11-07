@@ -22,6 +22,18 @@ enum WritingDirectionResolver {
         0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF, 0xD802...0xD803, 0xD83A...0xD83B
     ]
 
+    static let rightToLeftCharacters: CharacterSet = {
+        let blocks: [ClosedRange<Unicode.Scalar>] = [
+            "\u{0590}"..."\u{08FF}", "\u{FB1D}"..."\u{FDFF}", "\u{FE70}"..."\u{FEFF}",
+            "\u{10800}"..."\u{10FFF}", "\u{1E800}"..."\u{1EFFF}"
+        ]
+        var characters = CharacterSet(charactersIn: "\u{200F}\u{202B}\u{202E}\u{2067}")
+        for block in blocks {
+            characters.insert(charactersIn: block)
+        }
+        return CharacterSet(bitmapRepresentation: characters.bitmapRepresentation)
+    }()
+
     static func firstStrongDirection(of text: String) -> NSWritingDirection {
         let string = text as NSString
         return firstStrongDirection(in: string, range: NSRange(location: 0, length: string.length))

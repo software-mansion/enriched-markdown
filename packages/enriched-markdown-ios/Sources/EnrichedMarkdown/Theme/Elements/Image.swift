@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct BlockImage: MarkdownThemeContent {
+public struct BlockImage: CornerRadiusThemeElement {
     public var sizing: ImageSizing?
     public var contentMode: ImageContentMode?
     public var cornerRadius: CGFloat?
@@ -42,12 +42,6 @@ public struct BlockImage: MarkdownThemeContent {
         return copy
     }
 
-    public func cornerRadius(_ value: CGFloat) -> Self {
-        var copy = self
-        copy.cornerRadius = value
-        return copy
-    }
-
     public func marginTop(_ value: CGFloat) -> Self {
         var copy = self
         copy.marginTop = value
@@ -63,7 +57,7 @@ public struct BlockImage: MarkdownThemeContent {
     public func apply(to config: inout MarkdownStyleConfiguration, traitCollection: UITraitCollection) {
         if let sizing { config.image.sizing = sizing }
         if let contentMode { config.image.contentMode = contentMode }
-        if let cornerRadius { config.image.cornerRadius = cornerRadius }
+        applyCornerRadius(to: &config.image.cornerRadius)
         if let marginTop { config.image.marginTop = marginTop }
         if let marginBottom { config.image.marginBottom = marginBottom }
     }
