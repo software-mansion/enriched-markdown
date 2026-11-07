@@ -101,6 +101,7 @@ static char kENRMSegmentFadeAnimatorKey;
                     selectedText:(NSString *)selectedText
                   selectionStart:(NSUInteger)selectionStart
                     selectionEnd:(NSUInteger)selectionEnd;
+- (ENRMSelectionCopyHandler)selectionCopyHandler;
 @end
 
 #if !TARGET_OS_OSX
@@ -469,6 +470,7 @@ static char kENRMSegmentFadeAnimatorKey;
   view.lineBreakStrategy = _lineBreakStrategy;
   view.dynamicProps = _dynamicBlockProps;
   view.accessibilityLabels = _accessibilityLabels;
+  view.onSelectionCopy = [self selectionCopyHandler];
 
   __weak EnrichedMarkdown *weakSelf = self;
   view.onCopyPress = ^(NSString *code, NSString *language) {
@@ -1218,6 +1220,7 @@ static char kENRMSegmentFadeAnimatorKey;
 {
   EnrichedMarkdownInternalText *view = [[EnrichedMarkdownInternalText alloc] initWithConfig:_config];
   [self configureTextView:view withRenderedSegment:segment];
+  view.onSelectionCopy = [self selectionCopyHandler];
 
   ENRMTapRecognizer *tapRecognizer = [[ENRMTapRecognizer alloc] initWithTarget:self action:@selector(textTapped:)];
   [view.textView addGestureRecognizer:tapRecognizer];
@@ -1241,7 +1244,8 @@ static char kENRMSegmentFadeAnimatorKey;
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, segmentMarkdown, strongSelf->_config,
-                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig);
+                                     @[ baseMenu ], customItems, strongSelf -> _selectionMenuConfig,
+                                     [strongSelf selectionCopyHandler]);
   }];
 #endif
 
@@ -1890,6 +1894,24 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
     });
 }
 
+- (ENRMSelectionCopyHandler)selectionCopyHandler
+{
+  __weak EnrichedMarkdown *weakSelf = self;
+  return ^(NSString *text, NSString *format, NSRange range) {
+    EnrichedMarkdown *strongSelf = weakSelf;
+    if (!strongSelf)
+      return;
+    auto emitter = std::static_pointer_cast<EnrichedMarkdownEventEmitter const>(strongSelf->_eventEmitter);
+    if (emitter)
+      emitter->onSelectionCopy({
+          .text = std::string(text.UTF8String ?: ""),
+          .format = std::string(format.UTF8String),
+          .selectionStart = (int)range.location,
+          .selectionEnd = (int)NSMaxRange(range),
+      });
+  };
+}
+
 - (void)updateEventEmitter:(const facebook::react::EventEmitter::Shared &)eventEmitter
 {
   [super updateEventEmitter:eventEmitter];
@@ -1964,7 +1986,7 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownCls(void)
 
   NSString *segmentMarkdown = extractMarkdownFromAttributedString(textView.attributedText, range);
   return buildEditMenuForSelection(textView.attributedText, range, segmentMarkdown, _config, suggestedActions,
-                                   customActions, _selectionMenuConfig);
+                                   customActions, _selectionMenuConfig, [self selectionCopyHandler]);
 }
 
 - (UITextItemMenuConfiguration *)textView:(UITextView *)textView

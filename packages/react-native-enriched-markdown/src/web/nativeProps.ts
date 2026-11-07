@@ -48,6 +48,7 @@ export const NATIVE_ONLY_PROP_NAMES: Record<NativeOnlyPropName, true> = {
   linkPillContent: true,
   linkContextMenuItems: true,
   selectionMenuConfig: true,
+  onSelectionCopy: true,
   accessibilityLabels: true,
   textBreakStrategy: true,
   lineBreakStrategyIOS: true,

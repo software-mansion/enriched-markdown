@@ -208,6 +208,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                       view.lastElementMarginBottom = segment.textResult.lastElementMarginBottom;
                       view.accessibilityInfo = segment.textResult.accessibilityInfo;
                       view.accessibilityLabels = strongSelf.accessibilityLabels;
+                      view.onSelectionCopy = strongSelf.onSelectionCopy;
                       [view applyAttributedText:segment.textResult.attributedText context:segment.textResult.context];
                       if (strongSelf) {
                         [strongSelf attachLinkTapToTextView:view];
@@ -298,6 +299,7 @@ static UIEdgeInsets ENRMBlockquoteContentInsets(StyleConfig *config)
                               view.accessibilityLabels = strongSelf.accessibilityLabels;
                               view.onCopyPress = strongSelf.onCopyPress;
                               view.onCodeBlockPress = strongSelf.onCodeBlockPress;
+                              view.onSelectionCopy = strongSelf.onSelectionCopy;
                               view.onImagePress = ^(NSString *url, NSString *altText) {
                                 ENRMBlockquoteContainerView *s = weakSelf;
                                 if (s.onImagePress && url)

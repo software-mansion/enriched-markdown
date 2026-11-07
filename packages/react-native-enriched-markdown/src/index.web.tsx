@@ -37,4 +37,5 @@ export type {
   CopyPressEvent,
   LatexErrorEvent,
   CodeBlockPressEvent,
+  SelectionCopyEvent,
 } from './types/events';

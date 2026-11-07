@@ -1,6 +1,9 @@
 import { useMemo, useCallback, useRef, useEffect } from 'react';
 import EnrichedMarkdownTextNativeComponent from '../EnrichedMarkdownTextNativeComponent';
-import type { MarkdownStyleInternal } from '../EnrichedMarkdownTextNativeComponent';
+import type {
+  MarkdownStyleInternal,
+  SelectionCopyEvent as NativeSelectionCopyEvent,
+} from '../EnrichedMarkdownTextNativeComponent';
 import EnrichedMarkdownNativeComponent from '../EnrichedMarkdownNativeComponent';
 import {
   isLinkRecognitionEqual,
@@ -63,6 +66,7 @@ import type {
   CodeBlockPressEvent,
   OnContextMenuItemPressEvent,
   OnLinkContextMenuItemPressEvent,
+  SelectionCopyEvent,
 } from '../types/events';
 
 export type { MarkdownStyle, Md4cFlags };
@@ -94,6 +98,7 @@ export type {
   CopyPressEvent,
   LatexErrorEvent,
   CodeBlockPressEvent,
+  SelectionCopyEvent,
 };
 
 // Default English labels for the built-in selection menu actions. Defaults are
@@ -205,6 +210,7 @@ export const EnrichedMarkdownText = ({
   linkPillContent,
   linkRecognition,
   selectionMenuConfig,
+  onSelectionCopy,
   accessibilityLabels,
   selectionColor,
   selectionHandleColor,
@@ -428,6 +434,18 @@ export const EnrichedMarkdownText = ({
     [onCodeBlockPress]
   );
 
+  const handleSelectionCopy = useCallback(
+    (e: NativeSyntheticEvent<NativeSelectionCopyEvent>) => {
+      const { text, format, selectionStart, selectionEnd } = e.nativeEvent;
+      onSelectionCopy?.({
+        text,
+        format: format as SelectionCopyEvent['format'],
+        selection: { start: selectionStart, end: selectionEnd },
+      });
+    },
+    [onSelectionCopy]
+  );
+
   const tableMode = streamingConfig?.tableMode ?? 'progressive';
   const codeBlockMode = streamingConfig?.codeBlockMode ?? 'progressive';
   const mediaMode = streamingConfig?.mediaMode ?? 'progressive';
@@ -556,6 +574,7 @@ export const EnrichedMarkdownText = ({
     selectionMenuConfig: normalizedSelectionMenuConfig,
     accessibilityLabels: resolvedAccessibilityLabels,
     onContextMenuItemPress: handleContextMenuItemPress,
+    onSelectionCopy: handleSelectionCopy,
     selectionColor,
     selectionHandleColor,
     textBreakStrategy,

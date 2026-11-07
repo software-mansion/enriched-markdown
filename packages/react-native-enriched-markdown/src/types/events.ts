@@ -35,6 +35,27 @@ export interface CodeBlockPressEvent {
 }
 
 /**
+ * Event payload fired when a text selection is copied from the native
+ * selection menu.
+ */
+export interface SelectionCopyEvent {
+  /** What was put on the clipboard as plain text. */
+  text: string;
+  /**
+   * Which item copied it: `'plain'` for Copy, `'markdown'` for Copy as Markdown,
+   * `'imageUrls'` for Copy Image URL(s).
+   */
+  format: 'plain' | 'markdown' | 'imageUrls';
+  /**
+   * The copied range, in UTF-16 offsets of the rendered text. With
+   * `flavor="github"` the offsets restart at each block that renders as its own
+   * view, such as a table, code block or quote, so consecutive paragraphs count
+   * as one run of text.
+   */
+  selection: { start: number; end: number };
+}
+
+/**
  * Event payload fired when a math expression fails to parse or render.
  *
  * The whole expression is the unit of failure: the LaTeX engine either renders
