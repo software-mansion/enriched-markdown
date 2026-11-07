@@ -1,5 +1,3 @@
-@file:OptIn(InternalPluginApi::class)
-
 package com.swmansion.enriched.markdown.utils.text.view
 
 import android.content.ClipData
@@ -13,8 +11,7 @@ import android.view.MenuItem
 import android.view.ViewParent
 import android.widget.TextView
 import com.swmansion.enriched.markdown.EnrichedMarkdown
-import com.swmansion.enriched.markdown.plugin.InternalPluginApi
-import com.swmansion.enriched.markdown.plugin.PluginInlineSpan
+import com.swmansion.enriched.markdown.plugin.readableText
 import com.swmansion.enriched.markdown.spans.ImageSpan
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.layout.isLayoutRTL
@@ -33,6 +30,14 @@ data class SelectionMenuConfig(
 ) {
   val resolvedCopyAsMarkdownLabel: String
     get() = copyAsMarkdownLabel.ifEmpty { DEFAULT_COPY_AS_MARKDOWN_LABEL }
+}
+
+/**
+ * A segment view with a copy menu of its own. [EnrichedMarkdown.setSelectionMenuConfig] hands a new
+ * config to every segment view implementing this, a plugin's included, without rebuilding them.
+ */
+interface SelectionMenuConfigurable {
+  var selectionMenuConfig: SelectionMenuConfig
 }
 
 /**
@@ -130,7 +135,7 @@ private fun TextView.copyWithHTML() {
 
   val spannable = text as? Spannable ?: return
   val selectedText = spannable.subSequence(start, end)
-  val plainText = (selectedText as? Spanned)?.toClipboardPlainText() ?: selectedText.toString()
+  val plainText = (selectedText as? Spanned)?.readableText() ?: selectedText.toString()
 
   val styleConfig = findParentMarkdownStyle()
   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -150,19 +155,6 @@ private fun TextView.copyWithHTML() {
   } else {
     clipboard.setPrimaryClip(ClipData.newPlainText("Text", plainText))
   }
-}
-
-/** Swaps each plugin span's object-replacement character for the span's own plain text. */
-internal fun Spanned.toClipboardPlainText(): String {
-  val pluginSpans = getSpans(0, length, PluginInlineSpan::class.java)
-  if (pluginSpans.isEmpty()) return toString()
-
-  val result = StringBuilder(this)
-  // Back to front, so replacing one span doesn't shift the offsets of those still to come.
-  pluginSpans.sortedByDescending { getSpanStart(it) }.forEach { span ->
-    result.replace(getSpanStart(span), getSpanEnd(span), span.toPlainText().orEmpty())
-  }
-  return result.toString()
 }
 
 private fun TextView.findParentMarkdownStyle(): StyleConfig? {

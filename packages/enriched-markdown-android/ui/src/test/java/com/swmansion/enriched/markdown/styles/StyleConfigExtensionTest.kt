@@ -58,4 +58,17 @@ class StyleConfigExtensionTest {
       )
     }
   }
+
+  /** Table cells render with this from the render thread, while other views read the same config. */
+  @Test
+  fun withParagraphStyleLeavesTheSharedConfigUntouched() {
+    val base = StyleConfig.default(context)
+    val cellStyle = base.tableCellParagraphStyle(isHeader = true)
+
+    val cell = base.withParagraphStyle(cellStyle)
+
+    assertEquals(cellStyle, cell.paragraphStyle)
+    assertNotEquals(cellStyle, base.paragraphStyle)
+    assertEquals(base.highlightStyle, cell.highlightStyle)
+  }
 }
