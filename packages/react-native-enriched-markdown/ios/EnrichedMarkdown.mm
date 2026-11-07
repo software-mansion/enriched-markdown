@@ -8,6 +8,7 @@
 #import "ENRMLinkContextMenus.h"
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
+#import "ENRMPreparedRenderStore.h"
 #import "ENRMTailFadeInAnimator.h"
 #import "ENRMTextInteractionUtils.h"
 #import "ENRMTextRenderer.h"
@@ -132,6 +133,9 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMBlockSlotRevealController *_blockSlotReveal;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
+  // Text laid out while detached is current when the view attaches; one that
+  // left a window may hold a stale layout and is refreshed on return (#155).
+  BOOL _needsWindowAttachRefresh;
 
   EnrichedMarkdownShadowNode::ConcreteState::Shared _state;
   int _heightUpdateCounter;
@@ -766,7 +770,9 @@ static char kENRMSegmentFadeAnimatorKey;
 
   if (_pendingRenderMarkdown) {
     NSString *markdown = _pendingRenderMarkdown;
-    BOOL synchronously = _pendingRenderSynchronously;
+    // The first content renders inline: Yoga has already laid the view out at
+    // its measured size, so an async render would show it empty (#1131).
+    BOOL synchronously = _pendingRenderSynchronously || _renderedMarkdown.length == 0;
     _pendingRenderMarkdown = nil;
     _pendingRenderSynchronously = NO;
     _pendingSlotHeightCheck = NO;
@@ -1048,9 +1054,19 @@ static char kENRMSegmentFadeAnimatorKey;
 
   if (synchronously) {
     [_renderCoordinator invalidate];
-    if (render()) {
-      apply();
+    // A first render reuses what Yoga's measurement rendered, when it matches.
+    NSArray<ENRMRenderedSegment *> *prepared =
+        _renderedMarkdown.length == 0 && !streamingAnimation
+            ? ENRMTakePreparedSegments(
+                  {_props, _fontScaleObserver.effectiveFontScale, resolvedLayoutDirection, activeBlockSlotIds})
+            : nil;
+    if (prepared) {
+      renderedSegments = prepared;
+      renderableMarkdown = markdownString;
+    } else if (!render()) {
+      return;
     }
+    apply();
     return;
   }
   [_renderCoordinator scheduleRender:render apply:apply];
@@ -1183,6 +1199,9 @@ static char kENRMSegmentFadeAnimatorKey;
   [_codeBlockWrapState sync];
 
   CGRect contentBounds = [self contentBounds];
+  if (!self.window) {
+    _needsWindowAttachRefresh = contentBounds.size.width <= 0;
+  }
   if (contentBounds.size.width > 0) {
     [self setNeedsLayout];
 
@@ -1657,7 +1676,12 @@ static char kENRMSegmentFadeAnimatorKey;
 {
   [super didMoveToWindow];
 
-  if (self.window && _renderedMarkdown != nil) {
+  if (!self.window) {
+    _needsWindowAttachRefresh = YES;
+    return;
+  }
+  if (_renderedMarkdown != nil && _needsWindowAttachRefresh) {
+    _needsWindowAttachRefresh = NO;
     for (RCTUIView *segment in _segmentViews) {
       if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
         EnrichedMarkdownInternalText *textSegment = (EnrichedMarkdownInternalText *)segment;
