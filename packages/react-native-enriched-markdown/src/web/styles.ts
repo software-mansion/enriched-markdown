@@ -509,6 +509,10 @@ function tableWrapperStyle(style: MarkdownStyleInternal): CSSProperties {
   return {
     overflowX: 'auto',
     overflowY: 'hidden',
+    // Opt out of an `overflow-wrap: anywhere` set through `containerStyle`: it
+    // would let the columns shrink below their words instead of the table
+    // scrolling.
+    overflowWrap: 'normal',
     marginTop: table.marginTop,
     marginBottom: table.marginBottom,
     ...alignment,
