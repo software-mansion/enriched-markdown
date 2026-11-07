@@ -80,6 +80,9 @@ class ListItemRenderer(
               parentMarkerWidth = styleContext.listItemMarkerWidth,
             ).apply {
               setItemNumber(styleContext.listItemNumber)
+              if (listStyle.numbering == "hierarchical") {
+                setNumberingPath(styleContext.orderedListNumberPath())
+              }
             }
           }
         }
