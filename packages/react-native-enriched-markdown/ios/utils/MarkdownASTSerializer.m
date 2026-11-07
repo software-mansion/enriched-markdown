@@ -2,19 +2,22 @@
 #import "ENRMCodeBlockContent.h"
 #import "MarkdownASTNode.h"
 
-static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer);
-static void serializeChildren(MarkdownASTNode *node, NSMutableString *buffer);
+static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer, BOOL inTableCell);
+static void serializeChildren(MarkdownASTNode *node, NSMutableString *buffer, BOOL inTableCell);
 static void appendBlockNode(MarkdownASTNode *node, NSMutableString *buffer);
 static void appendPlainText(MarkdownASTNode *node, NSMutableString *buffer);
 
-static void serializeChildren(MarkdownASTNode *node, NSMutableString *buffer)
+static void serializeChildren(MarkdownASTNode *node, NSMutableString *buffer, BOOL inTableCell)
 {
+  // Both the table view and block exporters enter here with a cell node.
+  BOOL tableCell =
+      inTableCell || node.type == MarkdownNodeTypeTableCell || node.type == MarkdownNodeTypeTableHeaderCell;
   for (MarkdownASTNode *child in node.children) {
-    serializeNode(child, buffer);
+    serializeNode(child, buffer, tableCell);
   }
 }
 
-static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer)
+static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer, BOOL inTableCell)
 {
   if (!node)
     return;
@@ -25,75 +28,75 @@ static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer)
       break;
 
     case MarkdownNodeTypeLineBreak:
-      [buffer appendString:@"\\\n"];
+      [buffer appendString:inTableCell ? @"<br>" : @"\\\n"];
       break;
 
     case MarkdownNodeTypeSoftBreak:
-      [buffer appendString:@"\n"];
+      [buffer appendString:inTableCell ? @"<br>" : @"\n"];
       break;
 
     case MarkdownNodeTypeStrong:
       [buffer appendString:@"**"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendString:@"**"];
       break;
 
     case MarkdownNodeTypeEmphasis:
       [buffer appendString:@"*"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendString:@"*"];
       break;
 
     case MarkdownNodeTypeStrikethrough:
       [buffer appendString:@"~~"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendString:@"~~"];
       break;
 
     case MarkdownNodeTypeUnderline:
       [buffer appendString:@"__"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendString:@"__"];
       break;
 
     case MarkdownNodeTypeSuperscript:
       [buffer appendString:@"^"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendString:@"^"];
       break;
 
     case MarkdownNodeTypeSubscript:
       [buffer appendString:@"~"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendString:@"~"];
       break;
 
     case MarkdownNodeTypeHighlight:
       [buffer appendString:@"=="];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendString:@"=="];
       break;
 
     case MarkdownNodeTypeLatexMathInline:
       [buffer appendString:@"$"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendString:@"$"];
       break;
 
     case MarkdownNodeTypeCode:
       [buffer appendString:@"`"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, NO);
       [buffer appendString:@"`"];
       break;
 
     case MarkdownNodeTypeLink: {
       if ([node.attributes[@"recognizedLink"] isEqualToString:@"true"]) {
-        serializeChildren(node, buffer);
+        serializeChildren(node, buffer, inTableCell);
         break;
       }
       NSString *url = node.attributes[@"url"] ?: @"";
       [buffer appendString:@"["];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       [buffer appendFormat:@"](%@)", url];
       break;
     }
@@ -117,7 +120,7 @@ static void serializeNode(MarkdownASTNode *node, NSMutableString *buffer)
 
     case MarkdownNodeTypeParagraph:
     default:
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, inTableCell);
       break;
   }
 }
@@ -215,7 +218,7 @@ static void appendBlockNode(MarkdownASTNode *node, NSMutableString *buffer)
 
   switch (node.type) {
     case MarkdownNodeTypeParagraph:
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, NO);
       [buffer appendString:@"\n"];
       break;
 
@@ -226,7 +229,7 @@ static void appendBlockNode(MarkdownASTNode *node, NSMutableString *buffer)
       for (NSInteger i = 0; i < level; i++)
         [buffer appendString:@"#"];
       [buffer appendString:@" "];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, NO);
       [buffer appendString:@"\n"];
       break;
     }
@@ -271,12 +274,12 @@ static void appendBlockNode(MarkdownASTNode *node, NSMutableString *buffer)
 
     case MarkdownNodeTypeLatexMathDisplay:
       [buffer appendString:@"$$\n"];
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, NO);
       [buffer appendString:@"\n$$\n"];
       break;
 
     default:
-      serializeChildren(node, buffer);
+      serializeChildren(node, buffer, NO);
       break;
   }
 }
@@ -320,7 +323,7 @@ NSString *markdownFromASTNode(MarkdownASTNode *node)
   if (!node)
     return @"";
   NSMutableString *buffer = [NSMutableString string];
-  serializeNode(node, buffer);
+  serializeNode(node, buffer, NO);
   return [buffer copy];
 }
 
@@ -329,7 +332,7 @@ NSString *markdownFromASTNodeChildren(MarkdownASTNode *node)
   if (!node)
     return @"";
   NSMutableString *buffer = [NSMutableString string];
-  serializeChildren(node, buffer);
+  serializeChildren(node, buffer, NO);
   return [buffer copy];
 }
 
