@@ -50,13 +50,13 @@ export function indexTaskItems(node: ASTNode, counter = { value: 0 }): void {
 }
 
 /**
- * Stamps Image nodes with `isInline` when they appear inside a paragraph
- * that also contains other content (text, links, etc.).
+ * Stamps Image nodes with `isInline` when they share a container (paragraph,
+ * link, emphasis, ...) with other content (text, links, etc.).
  * Matches native behavior: sole-child images are block-level, mixed are inline.
  * Mutates the AST in-place (safe: called once on the freshly-parsed result).
  */
 export function markInlineImages(node: ASTNode): void {
-  if (node.type === 'Paragraph' && node.children) {
+  if (node.children) {
     const hasNonImageChild = node.children.some(
       (child) => child.type !== 'Image'
     );
