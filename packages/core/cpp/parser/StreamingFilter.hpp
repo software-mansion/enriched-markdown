@@ -28,7 +28,8 @@ struct StreamingFilterResult {
 //   * tables: Hidden withholds a trailing table until a blank line follows it,
 //     Progressive trims an incomplete trailing row;
 //   * fenced code: Hidden cuts an open fence, Progressive keeps it once its
-//     opening line has ended and filters only the text before it;
+//     opening line has ended and filters only the text before it. Either way a
+//     cut fence keeps the quote markers or list marker before it on its line;
 //   * media (a trailing image paragraph, link-only paragraph or `<video>`
 //     block, the blocks a renderer can replace): Hidden withholds it
 //     until a blank line or another block follows, Progressive withholds it only
@@ -37,7 +38,8 @@ struct StreamingFilterResult {
 //     paragraph (`text ![alt](https://`) is cut so it never shows as text.
 //   * the first characters of a delimiter still being typed on the last line
 //     (one or two of a fence opener, the start of an open fence's closing
-//     fence, a lone `$` before `$$`) are withheld until the next one decides.
+//     fence or only its quote markers or indent, a lone `$` before `$$`) are
+//     withheld until the next one decides.
 StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown,
                                                      const StreamingFilterOptions &options);
 

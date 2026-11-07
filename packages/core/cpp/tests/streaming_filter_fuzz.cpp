@@ -9,11 +9,13 @@
  */
 #include "MD4CParser.hpp"
 #include "StreamingFilter.hpp"
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -56,6 +58,11 @@ https://e.com/maps/kyoto
 > ```js
 > const link = "[a](b)";
 > ```
+
+- Install it:
+  ```sh
+  npm i "[pkg](x)"
+  ```
 
 ~~~~py
 print("```")
@@ -101,6 +108,18 @@ bool leaksSyntax(const std::string &fragment, const std::string &wholeText) {
   return false;
 }
 
+// The text of each code block, in document order.
+void collectCode(const MarkdownASTNode &node, std::vector<std::string> &out) {
+  if (node.type == NodeType::CodeBlock) {
+    std::string code;
+    collectText(node, code);
+    out.push_back(code);
+    return;
+  }
+  for (const auto &child : node.children)
+    collectCode(*child, out);
+}
+
 // A text fragment made only of fence characters, or a lone `$`: the start of a
 // fence or `$$` line shown before the rest of it arrived, unless the finished
 // document holds the same text.
@@ -125,8 +144,11 @@ bool flashesDelimiter(const std::string &fragment, const std::string &wholeText)
 int checkDocument(const std::string &name, const std::string &document) {
   Markdown::MD4CParser parser;
   std::string wholeText;
-  if (auto root = parser.parse(document))
+  std::vector<std::string> wholeCode;
+  if (auto root = parser.parse(document)) {
     collectText(*root, wholeText);
+    collectCode(*root, wholeCode);
+  }
   int failures = 0;
   for (StreamingBlockMode mode : {StreamingBlockMode::Progressive, StreamingBlockMode::Hidden}) {
     Markdown::StreamingFilterOptions options;
@@ -142,6 +164,20 @@ int checkDocument(const std::string &name, const std::string &document) {
         continue;
       std::string text;
       collectText(*root, text);
+      // A code block never shows more lines than it ends with: a line that is
+      // only the start of the closing fence, or of its quote markers or indent,
+      // would show as a line of code and then disappear.
+      std::vector<std::string> code;
+      collectCode(*root, code);
+      for (size_t k = 0; k < code.size() && k < wholeCode.size(); k++) {
+        auto lineCount = [](const std::string &s) { return std::count(s.begin(), s.end(), '\n'); };
+        if (lineCount(code[k]) > lineCount(wholeCode[k])) {
+          std::cerr << "FAIL: " << name << (mode == StreamingBlockMode::Hidden ? " (hidden)" : "")
+                    << " shows an extra line in code block " << k << " after " << length << " bytes\n";
+          failures++;
+          break;
+        }
+      }
       std::istringstream fragments(text);
       for (std::string fragment; std::getline(fragments, fragment);) {
         if (leaksSyntax(fragment, wholeText)) {

@@ -243,11 +243,16 @@ void recordDefinition(std::string_view content, std::unordered_set<std::string> 
 
 struct BlockScan {
   size_t openFence = npos; // the opening line of a fence still open at the end
+  // Where that line's fence marker starts, after any quote markers, list marker
+  // and indent: the part before it stays shown while the fence is withheld.
+  size_t openFenceMarker = npos;
   // Where the last line's characters start when they are only the beginning of
   // a block delimiter: one or two characters of a fence opener, the start of
-  // the closing fence of an open block, or the first `$` of a `$$` line. The
-  // filter withholds them until the next character decides, so they never show
-  // as text or as a line of code that then disappears (#1130).
+  // the closing fence of an open block, or the first `$` of a `$$` line. Inside
+  // an open fence, a last line that holds only whitespace or container markers
+  // is withheld from its start, since md4c would read it as a blank code line.
+  // The filter withholds them until the next character decides, so they never
+  // show as text or as a line of code that then disappears (#1130).
   size_t pendingDelimiter = npos;
   std::unordered_set<std::string> definitions;
 };
@@ -271,10 +276,13 @@ BlockScan scanBlocks(Lines &lines) {
     bool blank = isBlank(body);
     size_t lead = leadingSpaces(body);
     if (inFence) {
-      // A blank last line has not streamed its quote markers in yet, so it cannot
-      // end a quoted fence.
-      bool undecided = i + 1 == lines.size() && isBlank(lines[i].text);
+      // A last line of only whitespace and quote markers has not streamed all of
+      // its markers in yet, so it cannot end a quoted fence. Until more arrives
+      // it is not shown either: md4c would read it as a blank line of code.
+      bool undecided = i + 1 == lines.size() && blank && quoted.depth <= fence.depth;
       bool containerEnded = !undecided && (quoted.depth < fence.depth || (!blank && lead < fence.indent));
+      if (undecided && !lines[i].text.empty())
+        scan.pendingDelimiter = lines[i].offset;
       if (!containerEnded) {
         lines[i].code = true;
         FenceMarker marker;
@@ -307,6 +315,7 @@ BlockScan scanBlocks(Lines &lines) {
       fence = {marker.ch, marker.length, quoted.depth, indent};
       lines[i].code = true;
       scan.openFence = i;
+      scan.openFenceMarker = lines[i].offset + offsetIn(lines[i].text, content) + leadingSpaces(content);
       continue;
     }
     if (i + 1 == lines.size()) {
@@ -637,8 +646,14 @@ StreamingFilterResult renderableMarkdownForStreaming(const std::string &markdown
   size_t fenceOffset = head.lines[scan.openFence].offset;
   head.cutAtLine(scan.openFence);
   std::string_view kept = removePendingBlocks(std::move(head), options, true, scan);
-  if (options.codeBlockMode == StreamingBlockMode::Hidden || !openerEnded)
-    return {std::string(kept), false};
+  if (options.codeBlockMode == StreamingBlockMode::Hidden || !openerEnded) {
+    // Only the fence is withheld: the quote markers, list marker or indent before
+    // it on its line stay, so a list item or quote that starts with a fence keeps
+    // its bullet or bar while the fence waits.
+    std::string result(kept);
+    result.append(text.substr(fenceOffset, scan.openFenceMarker - fenceOffset));
+    return {std::move(result), false};
+  }
   std::string result;
   result.reserve(kept.size() + text.size() - fenceOffset);
   result.append(kept).append(text.substr(fenceOffset));

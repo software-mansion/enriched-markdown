@@ -52,7 +52,7 @@ It takes **two** conditions, not one: `streamingAnimation` must be on **and** th
 
 | Mode | Behavior |
 | --- | --- |
-| `'progressive'` (default) | Streams the code line-by-line with a visible but non-interactive header (copying is disabled until the block completes); syntax highlighting is deferred until the closing fence so it does not flicker on every token. The block appears once the line that opens the fence has ended, so its language label never changes. The first one or two backticks or tildes of a fence, and the start of its closing fence, are withheld until the next character arrives, so they never flash as text or as a line of code. |
+| `'progressive'` (default) | Streams the code line-by-line with a visible but non-interactive header (copying is disabled until the block completes); syntax highlighting is deferred until the closing fence so it does not flicker on every token. The block appears once the line that opens the fence has ended, so its language label never changes. The first one or two backticks or tildes of a fence, and the start of its closing fence (including the quote markers or indent before it), are withheld until the next character arrives, so they never flash as text or as a line of code. A fence that starts a list item or quote keeps its bullet or quote bar while it waits. |
 | `'hidden'` | Withholds the whole block until its closing fence arrives, then shows it complete. |
 
 A code block drawn by [`renderers.code`](/react-native/guides/custom-block-renderers#code-blocks) follows the same modes. In `'progressive'` its element re-renders with the growing code and receives `isComplete: false` until the closing fence arrives.

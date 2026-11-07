@@ -235,13 +235,13 @@ int main() {
   expect("A\n\n```mer", "A\n\n", "a fence whose opening line has not ended waits");
   expect("A\n\n```", "A\n\n", "a bare opening fence waits for its info string");
   expect("A\n\n```mermaid\n", "A\n\n```mermaid\n", "an ended opening line shows the fence");
-  expect("> ```js", "", "a quoted opening line waits");
+  expect("> ```js", "> ", "a quoted opening line waits, its quote marker kept");
   // The line after a final newline has not streamed its `>` in yet, so it keeps a quoted fence open.
   for (const char *quotedFence : {"> ```js\n> let a\n", "> [!NOTE]\n> ```py\n> x\n", "> ```js\n", "> ```js\r\n> a\r\n"})
     check(Markdown::renderableMarkdownForStreaming(quotedFence, {}).endsInsideOpenCodeFence,
           std::string("a quoted fence stays open at a line end: ") + quotedFence);
   expect("> ```mermaid\n", "> ```mermaid\n", "a quoted fence shows once its opening line ends");
-  expect("A\n\n> ```js\n> let a\n", "A\n\n", "a quoted open fence is cut at a line end (hidden)", P, P, H);
+  expect("A\n\n> ```js\n> let a\n", "A\n\n> ", "a quoted open fence is cut at a line end (hidden)", P, P, H);
   check(filter("See [docs](https://e\n| a |\n```js") == filter("See [docs](https://e\n| a |\n```js", P, P, H),
         "a waiting fence is cut as a hidden one would be");
   check(!Markdown::renderableMarkdownForStreaming("A\n\n```mer", {}).endsInsideOpenCodeFence,
@@ -283,8 +283,43 @@ int main() {
   expect("~~~py\nx\n~~", "~~~py\nx\n", "a tilde closing fence withheld");
   expect("```js\nlet a\n``x", "```js\nlet a\n``x", "a line that cannot close shows as code");
   expect("```js\nlet a\n    ``", "```js\nlet a\n    ``", "an over-indented closer prefix is code");
-  expect("> ```js\n> let a\n> ``", "> ```js\n> let a\n> ", "a quoted closing fence withheld");
-  expect("- ```js\n  let a\n  ``", "- ```js\n  let a\n  ", "a listed closing fence withheld");
+  expect("> ```js\n> let a\n> ``", "> ```js\n> let a\n", "a quoted closing fence withheld");
+  expect("- ```js\n  let a\n  ``", "- ```js\n  let a\n", "a listed closing fence withheld");
+  // A fence that starts a list item or quote is cut at its marker, not at the line start, so the bullet or bar
+  // stays while the fence waits for its opening line to end (and while a hidden fence is open).
+  for (const char *prefix : {"- ", "1. ", "> ", "> - ", "- a\n  - ", "> > ", "1. one\n   - "}) {
+    std::string head = prefix;
+    for (const char *fence : {"`", "``", "```", "```js", "~~~", "````"})
+      for (StreamingBlockMode mode : {P, H})
+        check(filter(head + fence, P, P, mode) == filter(head, P, P, mode),
+              "fence [" + std::string(fence) + "] after [" + head + "] keeps its container prefix");
+    expect(head + "```js\n", head + "```js\n", "an ended opening line after [" + head + "] shows the fence");
+  }
+  expect("- ```", "- ", "a bullet that starts with a fence stays");
+  expect("1. ```", "1. ", "a numbered item that starts with a fence stays");
+  expect("> - ```", "> - ", "a quoted bullet that starts with a fence stays");
+  expect("- a\n  - ```", "- a\n  - ", "a nested bullet that starts with a fence stays");
+  expect("- ```js\n  x", "- ", "a hidden fence in a list item keeps the bullet", P, P, H);
+  expect("> ```js\n> x", "> ", "a hidden fence in a quote keeps the bar", P, P, H);
+  // Inside an open fence, a last line of only whitespace or container markers is withheld: md4c would read it as a
+  // blank line of code that then disappears when the closing fence arrives.
+  for (const char *tail : {"> ", ">", "> `", "> ``"})
+    expect(std::string("> ```js\n> x\n") + tail, "> ```js\n> x\n",
+           std::string("quoted closer [") + tail + "] withheld");
+  expect("> ```js\n> x\n> ```", "> ```js\n> x\n> ```", "a quoted closing fence closes");
+  for (const char *tail : {" ", "  ", "  `", "  ``"})
+    expect(std::string("- ```js\n  x\n") + tail, "- ```js\n  x\n",
+           std::string("listed closer [") + tail + "] withheld");
+  expect("- ```js\n  x\n  ```", "- ```js\n  x\n  ```", "a listed closing fence closes");
+  expect("1. ```js\n   x\n   ``", "1. ```js\n   x\n", "a numbered item's closer withheld");
+  expect("```js\nx\n   ", "```js\nx\n", "a whitespace-only last line of a fence withheld");
+  expect("> > ```js\n> > x\n> ", "> > ```js\n> > x\n", "a nested quote's markers still streaming in withheld");
+  check(Markdown::renderableMarkdownForStreaming("> > ```js\n> > x\n> ", {}).endsInsideOpenCodeFence,
+        "a nested quote's fence stays open while its markers stream in");
+  check(Markdown::renderableMarkdownForStreaming("> ```js\n> x\n> ", {}).endsInsideOpenCodeFence,
+        "a quoted fence stays open while its closer's line starts");
+  expect("```js\nx\n> ", "```js\nx\n> ", "a quote marker inside a top-level fence is code");
+  expect("```js\nx\n\n", "```js\nx\n\n", "an ended blank line of code shows");
   expect("A\n\n$$\nx\n$", "A\n\n", "an open math block stays cut while its closer arrives");
   expect("A\n\n$$\nx\n$$\n\n$", "A\n\n$$\nx\n$$\n\n", "a lone dollar after closed math withheld");
   expect("", "", "empty input");
