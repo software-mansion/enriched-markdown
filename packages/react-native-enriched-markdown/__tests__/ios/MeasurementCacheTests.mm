@@ -20,21 +20,21 @@ static MeasurementCacheKey ENRMMeasurementCacheTestKey(char fill, size_t length)
 - (void)testEvictsLeastRecentlyUsedDocumentsOverTheKeyByteBudget
 {
   auto &cache = MeasurementCache::shared();
-  // Each key is stored twice, so four 1 MiB documents exceed the 8 MiB budget.
-  MeasurementCacheKey keys[4];
-  for (int i = 0; i < 4; i++) {
-    keys[i] = ENRMMeasurementCacheTestKey('a' + i, 1024 * 1024);
+  // Three 3 MiB documents exceed the 8 MiB budget.
+  MeasurementCacheKey keys[3];
+  for (int i = 0; i < 3; i++) {
+    keys[i] = ENRMMeasurementCacheTestKey('a' + i, 3 * 1024 * 1024);
   }
   CachedSize size;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 2; i++) {
     cache.set(keys[i], {CGFloat(i), 20});
   }
   XCTAssertTrue(cache.get(keys[0], size));
 
-  cache.set(keys[3], {3, 20});
+  cache.set(keys[2], {2, 20});
 
   XCTAssertFalse(cache.get(keys[1], size));
-  for (int i : {0, 2, 3}) {
+  for (int i : {0, 2}) {
     XCTAssertTrue(cache.get(keys[i], size), @"key %d", i);
     XCTAssertEqual(size.width, CGFloat(i));
   }
@@ -47,7 +47,7 @@ static MeasurementCacheKey ENRMMeasurementCacheTestKey(char fill, size_t length)
 {
   auto &cache = MeasurementCache::shared();
   MeasurementCacheKey small = ENRMMeasurementCacheTestKey('s', 16);
-  MeasurementCacheKey huge = ENRMMeasurementCacheTestKey('z', 4 * 1024 * 1024);
+  MeasurementCacheKey huge = ENRMMeasurementCacheTestKey('z', 9 * 1024 * 1024);
   CachedSize size;
   cache.set(small, {1, 1});
 

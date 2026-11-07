@@ -2,6 +2,7 @@
 
 #include <CoreGraphics/CGBase.h>
 #include <React/RCTUtils.h>
+#include <functional>
 #include <list>
 #include <mutex>
 #include <react/renderer/graphics/Float.h>
@@ -322,7 +323,7 @@ public:
     }
 
     list_.push_front({key, size});
-    map_[key] = list_.begin();
+    map_.emplace(std::cref(list_.front().key), list_.begin());
     keyBytes_ += keyBytes;
   }
 
@@ -345,19 +346,27 @@ private:
   MeasurementCache() = default;
 
   static constexpr size_t kMaxEntries = 512;
-  // The list and map each own a key. Count both copies; allocator/node overhead is additional.
+  // Bytes held by keys; allocator/node overhead is additional.
   static constexpr size_t kMaxKeyBytes = 8 * 1024 * 1024;
   static size_t keyStorageBytes(const MeasurementCacheKey &key)
   {
-    return sizeof(CacheEntry) + sizeof(MeasurementCacheKey) +
-           2 * (key.markdown.size() + key.lineBreakStrategyIOS.size() + key.writingDirection.size() +
-                key.ellipsizeMode.size() + key.linkRegexKey.size() + key.inlineCodeLinkRegexKey.size());
+    return sizeof(CacheEntry) + key.markdown.size() + key.lineBreakStrategyIOS.size() + key.writingDirection.size() +
+           key.ellipsizeMode.size() + key.linkRegexKey.size() + key.inlineCodeLinkRegexKey.size();
   }
+
+  // The map refers to the key its list node owns, so each key is stored once.
+  using KeyRef = std::reference_wrapper<const MeasurementCacheKey>;
+  struct KeyRefEqual {
+    bool operator()(const MeasurementCacheKey &a, const MeasurementCacheKey &b) const
+    {
+      return a == b;
+    }
+  };
   size_t keyBytes_ = 0;
   mutable std::mutex mutex_;
 
   std::list<CacheEntry> list_;
-  std::unordered_map<MeasurementCacheKey, std::list<CacheEntry>::iterator, MeasurementCacheKeyHash> map_;
+  std::unordered_map<KeyRef, std::list<CacheEntry>::iterator, MeasurementCacheKeyHash, KeyRefEqual> map_;
 };
 
 } // namespace facebook::react
