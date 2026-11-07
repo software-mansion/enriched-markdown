@@ -29,6 +29,9 @@ static const CGFloat kENRMHeaderLabelScale = 0.85;
 static const CGFloat kENRMHeaderIconScale = 0.72;
 static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
 static const CGFloat kENRMHeaderDividerAlpha = 0.2;
+static NSString *const kENRMCopySymbolName = @"doc.on.doc";
+static NSString *const kENRMCopiedSymbolName = @"checkmark";
+static const NSTimeInterval kENRMCopyFeedbackDuration = 1.5;
 
 // Height geometry and code-run construction shared by the instance layout path
 // and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
@@ -63,6 +66,15 @@ static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
 static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
 {
   return ceil(UIFontLineHeight(headerFont));
+}
+
+static NSImage *ENRMCodeBlockHeaderSymbol(NSString *symbolName, StyleConfig *config)
+{
+  NSImageSymbolConfiguration *symbolConfig =
+      [NSImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
+                                                      weight:NSFontWeightRegular];
+  return [[NSImage imageWithSystemSymbolName:symbolName
+                    accessibilityDescription:nil] imageWithSymbolConfiguration:symbolConfig];
 }
 #endif
 
@@ -296,6 +308,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   NSFont *_headerFont;
   NSButton *_copyButton;
 #endif
+  BOOL _showingCopyFeedback;
+  // Bumped on every show and reset so a stale restore timer does nothing.
+  NSUInteger _copyFeedbackGeneration;
 }
 
 - (void)setPending:(BOOL)pending
@@ -306,6 +321,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
   _pending = pending;
   // Header stays visible while streaming; only copying is held back.
   _copyButton.enabled = !pending;
+  if (pending) {
+    [self resetCopyFeedback];
+  }
   // The reconciler can reuse an unchanged block without re-applying the node, so
   // re-derive here to pick up highlighting once the block closes.
   [self rebuildAttributedCode];
@@ -342,9 +360,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     [self addInteraction:contextMenu];
 
     _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    UIImageSymbolConfiguration *symbolConfig = ENRMCodeBlockHeaderSymbolConfiguration(config);
-    [_copyButton setImage:[UIImage systemImageNamed:@"doc.on.doc" withConfiguration:symbolConfig]
-                 forState:UIControlStateNormal];
+    [self setCopyButtonSymbol:kENRMCopySymbolName];
     _copyButton.tintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
     [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:_copyButton];
@@ -353,12 +369,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
     _tapRecognizer.delegate = self;
     [self addGestureRecognizer:_tapRecognizer];
 #else
-    NSImageSymbolConfiguration *symbolConfig =
-        [NSImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
-                                                        weight:NSFontWeightRegular];
-    NSImage *copyImage = [[NSImage imageWithSystemSymbolName:@"doc.on.doc"
-                                    accessibilityDescription:nil] imageWithSymbolConfiguration:symbolConfig];
-    _copyButton = [NSButton buttonWithImage:copyImage target:self action:@selector(copyCodeToPasteboard)];
+    _copyButton = [NSButton buttonWithImage:ENRMCodeBlockHeaderSymbol(kENRMCopySymbolName, config)
+                                     target:self
+                                     action:@selector(copyCodeToPasteboard)];
     _copyButton.bordered = NO;
     _copyButton.contentTintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
     [self addSubview:_copyButton];
@@ -569,11 +582,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 
 - (void)applyCodeBlockNode:(MarkdownASTNode *)node
 {
-  _cachedCode = ENRMCodeBlockExtractCode(node);
-  _fenceChar = ENRMCodeBlockFenceChar(node);
-
+  NSString *newCode = ENRMCodeBlockExtractCode(node);
   NSString *newLanguage = ENRMCodeBlockLanguage(node);
   BOOL languageChanged = newLanguage != _cachedLanguage && ![newLanguage isEqualToString:_cachedLanguage];
+  if (languageChanged || ![newCode isEqualToString:_cachedCode]) {
+    [self resetCopyFeedback];
+  }
+  _cachedCode = newCode;
+  _fenceChar = ENRMCodeBlockFenceChar(node);
+
   if (languageChanged) {
     _cachedLanguage = newLanguage;
     _displayLanguage = ENRMCodeBlockDisplayLanguageName(newLanguage);
@@ -724,10 +741,67 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
 - (void)copyCodeToPasteboard
 {
   copyStringToPasteboard(_cachedCode);
+  [self showCopyFeedback];
   if (self.onCopyPress) {
     self.onCopyPress(_cachedCode ?: @"", _cachedLanguage ?: @"");
   }
 }
+
+- (void)setCopyButtonSymbol:(NSString *)symbolName
+{
+#if !TARGET_OS_OSX
+  [_copyButton setImage:[UIImage systemImageNamed:symbolName
+                                withConfiguration:ENRMCodeBlockHeaderSymbolConfiguration(_config)]
+               forState:UIControlStateNormal];
+#else
+  _copyButton.image = ENRMCodeBlockHeaderSymbol(symbolName, _config);
+#endif
+}
+
+- (void)showCopyFeedback
+{
+  _showingCopyFeedback = YES;
+  NSUInteger generation = ++_copyFeedbackGeneration;
+  [self setCopyButtonSymbol:kENRMCopiedSymbolName];
+  __weak ENRMCodeBlockContainerView *weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kENRMCopyFeedbackDuration * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{ [weakSelf endCopyFeedback:generation]; });
+}
+
+- (void)endCopyFeedback:(NSUInteger)generation
+{
+  if (generation == _copyFeedbackGeneration) {
+    [self resetCopyFeedback];
+  }
+}
+
+- (void)resetCopyFeedback
+{
+  if (!_showingCopyFeedback) {
+    return;
+  }
+  _showingCopyFeedback = NO;
+  _copyFeedbackGeneration++;
+  [self setCopyButtonSymbol:kENRMCopySymbolName];
+}
+
+#if !TARGET_OS_OSX
+- (void)willMoveToWindow:(UIWindow *)newWindow
+{
+  [super willMoveToWindow:newWindow];
+  if (newWindow == nil) {
+    [self resetCopyFeedback];
+  }
+}
+#else
+- (void)viewWillMoveToWindow:(NSWindow *)newWindow
+{
+  [super viewWillMoveToWindow:newWindow];
+  if (newWindow == nil) {
+    [self resetCopyFeedback];
+  }
+}
+#endif
 
 - (void)copyMarkdownToPasteboard
 {
