@@ -69,8 +69,6 @@ int main() {
   // Media: only a standalone image is a block; a paragraph starting with one is text.
   expect("Intro\n\n![icon](u) and some prose", "Intro\n\n![icon](u) and some prose", "inline-leading paragraph kept",
          H);
-  // A list item is never a block slot, but its half-typed image is inline syntax and is cut.
-  expect("- ![a](https://e", "- ", "list item partial image cut as inline syntax");
   expect("1. " + img, "1. " + img, "ordered list items are not media blocks", H);
   expect("> Quote\n> ![Q](https://e", "> Quote\n", "quoted partial image cut");
   expect("> > " + img, "> > " + img, "nested quote image kept (progressive)");
@@ -105,19 +103,6 @@ int main() {
   expect("Intro\n\n<https://e.com/q3.pdf>", "Intro\n\n<https://e.com/q3.pdf>", "a closed autolink is complete");
   expect("Intro\n\n<https://e.com/q3", "Intro\n\n", "an open autolink is withheld");
 
-  // Inline syntax still being typed at the tail of a paragraph is cut.
-  expect("The inline ![leaf](https://e", "The inline ", "open inline image cut");
-  expect("The inline ![leaf", "The inline ", "inline image without ]( cut");
-  expect("See [docs](https://e", "See ", "open inline link cut");
-  expect("See [docs]", "See ", "closed brackets at the very end may become a link: cut");
-  expect("See [docs] now", "See [docs] now", "plain brackets in prose kept");
-  expect("See [docs](https://e.com) now", "See [docs](https://e.com) now", "closed inline link kept");
-  expect("Use `a[0](` here", "Use `a[0](` here", "brackets in inline code kept");
-  expect("See [docs](https://e\n\nAfter", "See [docs](https://e\n\nAfter", "only the trailing paragraph is cut");
-  expect("See [docs](https://e\n```js\nlet a", "See [docs](https://e\n```js\nlet a",
-         "a fence terminates the paragraph: nothing to cut");
-  expect("> Quote ![q](https://e", "> Quote ", "quoted inline image cut");
-
   // Review cases: prose that merely starts with brackets, nested parentheses,
   // autolinks followed by text, indented code, escapes and code spans.
   expect("[INFO] The operation completed", "[INFO] The operation completed", "bracketed prefix is prose", H);
@@ -126,16 +111,13 @@ int main() {
   expect("![a](https://e.com/a(b))", "![a](https://e.com/a(b))", "nested paren closed: complete (progressive)");
   expect("![a](https://e.com/a(b))\n", "", "nested paren closed: withheld (hidden)", H);
   expect("[a](https://e.com \"t (x)\")", "[a](https://e.com \"t (x)\")", "title with parens: complete");
-  expect("See [docs](https://e.com/a(b)", "See ", "nested paren in an open inline link: cut");
   expect("See [docs](https://e.com/a(b)) now", "See [docs](https://e.com/a(b)) now", "closed nested inline link kept");
   expect("<https://e.com> and more text", "<https://e.com> and more text", "autolink with prose is prose", H);
   expect("Intro\n\n    ![a](https://e", "Intro\n\n    ![a](https://e", "indented code is not media");
   expect("Intro\n\n    ![a](u)\n", "Intro\n\n    ![a](u)\n", "indented code is not media (hidden)", H);
   expect(">     ![a](https://e", ">     ![a](https://e", "indented code inside a quote");
   expect("Use \\[literal", "Use \\[literal", "escaped bracket is prose");
-  expect("Use \\![a](https://e", "Use \\!", "an escaped bang is text, the link after it is still open");
   expect("Use ``a[0](`` here", "Use ``a[0](`` here", "double-backtick code span kept");
-  expect("Use `a` and [docs](https://e", "Use `a` and ", "closed code span before an open link");
   expect("Use `a[0](` and more", "Use `a[0](` and more", "single-backtick code span kept");
 
   // Review cases: parentheses inside titles, pointy destinations, nested labels.
@@ -146,62 +128,22 @@ int main() {
   expect("[a](u (t )", "", "parenthesised title still open: cut");
   expect("[a](u (t))", "[a](u (t))", "parenthesised title: complete");
   expect("![a](u \"t(\")", "![a](u \"t(\")", "image title with an unmatched paren: complete");
-  expect("See [a](u \"t )", "See ", "inline link with an open title: cut");
   expect("[a](<u v>)", "[a](<u v>)", "pointy destination with a space: complete");
   expect("[a](<u v", "", "pointy destination still open: cut");
   expect("[a](u \"t\") after", "[a](u \"t\") after", "titled link followed by prose is prose", H);
   expect("[![thumb](u)](https://e", "", "outer link around a closed image still open: cut");
-  expect("See [![thumb](u)](https://e", "See ", "inline outer link around a closed image: cut");
   expect("[![thumb](u)](v)", "[![thumb](u)](v)", "linked image: complete (progressive)");
   expect("[![thumb](u)](v)\n", "", "linked image: withheld (hidden)", H);
   expect("[a [b]](u)", "[a [b]](u)", "nested brackets in a label: complete");
   expect("[a [b]](u)\n", "", "nested brackets in a label: withheld (hidden)", H);
   expect("[a [b]](https://e", "", "nested brackets in an open label: cut");
   expect("[a [b] c", "", "label with nested brackets still open: cut");
-  expect("[note] see [docs] here", "[note] see [docs] here", "two bracketed words are prose");
   expect("[a `]` b](https://e", "", "bracket in a code span inside a label: still open");
-
-  // Review cases: the trailing paragraph, not the last line, holds the syntax.
-  expect("see [the\ndocs](https://e", "see ", "label across a soft line break: cut");
-  expect("> see [the\n> docs](https://e", "> see ", "quoted label across a soft line break: cut");
-  expect("a `x\n[a](https://e` b", "a `x\n[a](https://e` b", "code span across lines kept");
-  expect("para\n    [a](https://e", "para\n    ", "lazy continuation is not indented code");
-  expect("- item\n- see [a](https://e", "- item\n- see ", "only the last list item is scanned");
-  expect("# Heading [draft\nsome text after", "# Heading [draft\nsome text after",
-         "a heading ends on its line: the paragraph after it is scanned");
-  expect("Title [x\n=====\nnext para", "Title [x\n=====\nnext para", "a setext underline ends the block above");
-  expect("Title [x\n=====", "Title [x\n=====", "a setext heading with a stray bracket is closed");
-  expect("para [x\n***\nnext", "para [x\n***\nnext", "a thematic break ends the block above");
-  expect("para [x\n> quoted text", "para [x\n> quoted text", "a quote interrupts the paragraph");
-  expect("> a [x\n> > nested text", "> a [x\n> > nested text", "a deeper quote interrupts the paragraph");
-  expect("> see [the\ndocs](https://e", "> see ", "a lazy continuation line stays in the quoted paragraph");
-  expect("para [x\n<div>raw</div>", "para [x\n<div>raw</div>", "an HTML block interrupts the paragraph");
-  expect("# Heading\nsee [a](https://e", "# Heading\nsee ", "the paragraph after a heading is still cut");
-  expect("[x](a [b](https://e", "[x](a ", "a link after a destination found to be prose is still cut");
-  expect("See [docs](https://e.com then more", "See [docs](https://e.com then more",
-         "a destination followed by prose is no link");
-  const std::string stray = "Note [1 " + std::string(600, 'x');
-  expect(stray, stray, "a stray bracket far behind stops withholding");
-  expect(stray + " [docs]", stray + " ", "a stray bracket far behind does not swallow a new label");
-  expect(stray + " [docs](http", stray + " ", "a stray bracket far behind does not swallow a new link");
-  expect("[a](https://e.com/`q`) then `[b` c", "[a](https://e.com/`q`) then `[b` c",
-         "code spans after a skipped destination still count");
-  expect("\\`x` and `[b` c", "\\`x` and `", "an escaped backtick opens no code span");
-
-  // Review cases: references.
-  expect("[r]: https://e.com\n\nSee [docs][r]", "[r]: https://e.com\n\nSee [docs][r]", "full reference kept");
-  expect("[r]: https://e.com\n\n![logo][r]", "[r]: https://e.com\n\n![logo][r]", "reference image kept");
-  expect("[R  x]: https://e.com\n\nSee [docs][r x]", "[R  x]: https://e.com\n\nSee [docs][r x]",
-         "reference labels match case and space insensitively");
-  expect("[r]: https://e.com\n\nSee [r][]", "[r]: https://e.com\n\nSee [r][]", "collapsed reference kept");
-  expect("See [docs][nope]", "See [docs]", "an undefined reference may still become a link");
 
   // Review cases: containers and other blocks.
   expect("> ```md\n> ![a](https://e", "> ```md\n> ![a](https://e", "fence inside a quote holds code");
   check(Markdown::renderableMarkdownForStreaming("> ```md\n> ![a](https://e", {}).endsInsideOpenCodeFence,
         "quoted open fence flagged");
-  expect("> ```md\n> code\n\nAfter ![a](https://e", "> ```md\n> code\n\nAfter ",
-         "a quoted fence closes with its quote");
   expect("- ```md\n  ![a](https://e", "- ```md\n  ![a](https://e", "fence inside a list item holds code");
   expect("```\n$$\n```\n\nafter text\nmore", "```\n$$\n```\n\nafter text\nmore", "math marker inside a fence ignored");
   expect("> $$\n> x", "", "quoted open math cut");

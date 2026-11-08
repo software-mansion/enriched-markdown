@@ -3,7 +3,7 @@
 #include "BlockSlots.hpp"
 #include "MD4CParser.hpp"
 #include "MarkdownASTNode.hpp"
-#include "StreamingFilter.hpp"
+#include "StreamingSession.hpp"
 #include <atomic>
 #include <cstddef>
 #include <list>
@@ -22,20 +22,20 @@ struct ParsedDocument {
   CollectedBlocks blocks;
 };
 
-// A streaming filter or parse is computed once per input and process: a tick's
-// collect on the JS thread, measurement on the layout thread and the render on
-// the main or a background thread all ask for the same text one after another.
-// Thread-safe; a miss is only slower, never different.
+// A streaming snapshot or parse is computed once per input and process: a
+// tick's collect on the JS thread, measurement on the layout thread and the
+// render on the main or a background thread all ask for the same text one
+// after another. Thread-safe; a miss is only slower, never different.
 class DocumentStore {
 public:
   static DocumentStore &shared();
 
-  StreamingFilterResult filter(const std::string &markdown, const StreamingFilterOptions &options);
+  StreamingSnapshot snapshot(const std::string &markdown, const StreamingOptions &options);
   std::shared_ptr<const ParsedDocument> parse(const std::string &markdown, const Md4cFlags &flags, bool isGFM);
 
-  // How many filters and parses actually ran, for tests and debugging.
-  size_t filterCount() const {
-    return filters_;
+  // How many snapshots and parses actually ran, for tests and debugging.
+  size_t snapshotCount() const {
+    return snapshotsRun_;
   }
   size_t parseCount() const {
     return parses_;
@@ -43,10 +43,10 @@ public:
   void clear();
 
 private:
-  struct FilterEntry {
+  struct SnapshotEntry {
     std::string markdown;
-    StreamingFilterOptions options;
-    StreamingFilterResult result;
+    StreamingOptions options;
+    StreamingSnapshot snapshot;
   };
   struct DocumentEntry {
     std::string markdown;
@@ -56,11 +56,11 @@ private:
   };
 
   std::mutex mutex_;
-  std::list<FilterEntry> filtered_;    // most recent first
+  std::list<SnapshotEntry> snapshots_; // most recent first
   std::list<DocumentEntry> documents_; // most recent first
-  size_t filteredBytes_ = 0;
+  size_t snapshotBytes_ = 0;
   size_t documentBytes_ = 0;
-  std::atomic<size_t> filters_{0};
+  std::atomic<size_t> snapshotsRun_{0};
   std::atomic<size_t> parses_{0};
 };
 

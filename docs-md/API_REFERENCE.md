@@ -502,7 +502,7 @@ When `true`, newly appended content fades in during streaming updates. Only the 
 
 ### `streamingConfig`
 
-Configuration for streaming behavior. Controls how incomplete tables and fenced code blocks are handled during streaming with `flavor="github"`. Both settings only take effect when `streamingAnimation` is `true`.
+Configuration for streaming behavior. Controls how incomplete tables, fenced code blocks and media are handled during streaming, in both flavors (tables exist only in `github`). The settings only take effect when `streamingAnimation` is `true`.
 
 | Type                                        | Default Value                                          | Platform |
 | ------------------------------------------- | ------------------------------------------------------ | -------- |

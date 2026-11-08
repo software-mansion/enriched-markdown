@@ -37,8 +37,8 @@ The tail is found by **length**, not by diffing: everything past the previous st
 
 Some block elements can't be rendered until enough structure has arrived - a table needs its header and separator row, a fenced code block needs its closing fence. [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) decides what happens in the meantime.
 
-:::caution
-It takes **two** conditions, not one: `streamingAnimation` must be on **and** the flavor must be [`github`](/react-native/guides/markdown-flavors). The filter runs only on the segmented renderer, so under the default `flavor="commonmark"` you get the tail fade and nothing else - `streamingConfig` is inert there. This is worth knowing because `streamingAnimation` is otherwise most natural with `commonmark`.
+:::note
+This handling, and the inline repair below, applies while `streamingAnimation` is on, in both [flavors](/react-native/guides/markdown-flavors). Tables exist only in `github`, so `tableMode` has no effect under `commonmark`.
 :::
 
 **Tables** (`tableMode`)
@@ -66,11 +66,21 @@ A code block drawn by [`renderers.code`](/react-native/guides/custom-block-rende
 
 **Block math** has no mode key. An unterminated `$$` block is always withheld, truncated at the opening delimiter, until the closing `$$` arrives. On a page of LLM output that routinely contains LaTeX, this is the third incomplete-block case to expect.
 
+## Half-written inline syntax
+
+Inline Markdown still being typed at the end is repaired, so it never flashes as raw syntax:
+
+- emphasis, strikethrough and inline code get their closers: `**bold te` shows as **bold te**;
+- a link shows its label as plain text until its URL is complete: `[docs](https://exa` shows as `docs`;
+- an image, unclosed inline math (`$x^2`) and a lone marker line (`-`, `#`) wait until they can render.
+
+Blocks that have finished are never touched again, so the cost of each update depends on the unfinished tail, not on the length of the document.
+
 <LivePreview src={StreamingSrc} unavailable unavailableReason={<>iOS and Android only - <code>streamingAnimation</code> and <code>streamingConfig</code> are stripped on web.</>} />
 
 ## Reference
 
 - [`streamingAnimation`](/react-native/api-reference/enriched-markdown-text#streaminganimation) - fade in newly appended content. Defaults to `false`.
-- [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`. Needs `streamingAnimation` **and** `flavor="github"`.
+- [`streamingConfig`](/react-native/api-reference/enriched-markdown-text#streamingconfig) - `tableMode`, `codeBlockMode` and `mediaMode`, each `'progressive'` or `'hidden'`. Needs `streamingAnimation`.
 - [Markdown flavors](/react-native/guides/markdown-flavors) - what else the flavor switch changes.
 - [`react-native-streamdown`](https://enriched.swmansion.com/streamdown) - sibling library for LLM output: incomplete-Markdown repair ([remend](https://www.npmjs.com/package/remend)) and off-thread processing (react-native-worklets Bundle Mode). Accepts every `EnrichedMarkdownText` prop plus a `remendConfig`: `<StreamdownText markdown={partial} />`. See the setup caveat above.

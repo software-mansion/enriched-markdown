@@ -113,9 +113,30 @@ TEST_CASE("withhold: an image label without a source") {
   CHECK(repair("Text ![alt]") == "Text");
   CHECK(repair("- ![alt]") == "");
   CHECK(repair("`![alt]`") == "`![alt]`");
-  CHECK(repair("Text \\![alt]") == "Text \\![alt]");
   CHECK(repair("![a]\n\nmore ![b]") == "![a]\n\nmore");
-  CHECK(repair("See [docs]") == "See [docs]");
+}
+
+TEST_CASE("withhold: a link label at the very end waits for its `(`") {
+  CHECK(repair("See [docs]") == "See docs");
+  CHECK(repair("Text \\![alt]") == "Text \\!alt"); // an escaped `!` starts no image
+  CHECK(repair("See [docs] ") == "See [docs]");    // a space: no `(` can follow
+  CHECK(repair("`[docs]`") == "`[docs]`");
+  CHECK(repair("- [ ]") == "- [ ]");
+  CHECK(repair("Note[^1]") == "Note[^1]");
+  CHECK(repair("See [a][b]") == "See [a][b]"); // a full reference link
+  CHECK(repair("[docs]\n\nmore") == "[docs]\n\nmore");
+}
+
+TEST_CASE("an open title or nested parenthesis keeps a link incomplete") {
+  RepairOptions o;
+  o.linkMode = LinkMode::TextOnly;
+  CHECK(repair("See [a](u \"t )", o) == "See a");
+  CHECK(repair("See [a](u 't )", o) == "See a");
+  CHECK(repair("See [docs](https://e.com/a(b)", o) == "See docs");
+  CHECK(repair("See [docs](https://e.com/a(b)) now", o) == "See [docs](https://e.com/a(b)) now");
+  CHECK(repair("See [a](<u v", o) == "See a");
+  CHECK(repair("See [a](u \"t\")", o) == "See [a](u \"t\")");
+  CHECK(repair("Use \\![a](https://e", o) == "Use \\!a");
 }
 
 TEST_CASE("withhold: unclosed math is cut at its opener") {
@@ -135,6 +156,17 @@ TEST_CASE("withhold: unclosed math is cut at its opener") {
   CHECK(repair("# Cost in $USD\nSome text", o) == "# Cost in $USD\nSome text");
   CHECK(repair("# Cost in $USD\n", o) == "# Cost in $USD\n");
   CHECK(repair("See \xC2\xAB$x", o) == "See \xC2\xAB");
+}
+
+TEST_CASE("withhold: a `$` that ends the text waits for the next character") {
+  const RepairOptions o = withholdingMath();
+  CHECK(repair("display math ($", o) == "display math (");
+  CHECK(repair("Costs $", o) == "Costs");
+  CHECK(repair("Block $$", o) == "Block");
+  CHECK(repair("Sum $y + $", o) == "Sum"); // the opener before it is still unclosed
+  CHECK(repair("Paid \\$", o) == "Paid \\$");
+  CHECK(repair("Run `a $`", o) == "Run `a $`");
+  CHECK(repair("Costs $", withholding()) == "Costs $"); // without withholdMath
 }
 
 TEST_CASE("withhold: a dollar next to a digit or space is currency") {

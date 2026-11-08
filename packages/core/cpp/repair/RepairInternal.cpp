@@ -749,13 +749,28 @@ bool endsParagraphLine(std::string_view line) {
   return firstEq != npos && line.find_first_not_of(" \t\r=") == npos; // `=` underline of any length
 }
 
+// An HTML block of a kind that may interrupt a paragraph (CommonMark types 1-6).
+bool startsHtmlBlockLine(std::string_view line) {
+  static constexpr std::string_view kOpeners[] = {"<!--",      "<?",   "<!",       "<pre",     "<script", "<style",
+                                                  "<textarea", "<div", "<details", "<summary", "<table",  "<figure",
+                                                  "<section",  "<p>",  "<p ",      "<center"};
+  for (const std::string_view opener : kOpeners) {
+    if (startsWith(line, opener)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // True when `line`, with its blockquote markers already stripped, begins a
 // block that interrupts a paragraph: a fence, an ATX heading, a thematic
-// break, or a list item. Any list number counts: CommonMark lets only `1.`
-// interrupt a paragraph, but streamed text is usually already in a list,
-// where every sibling marker starts a new item.
+// break, an HTML block that may interrupt one, or a list item. Any list
+// number counts: CommonMark lets only `1.` interrupt a paragraph, but streamed
+// text is usually already in a list, where every sibling marker starts a new
+// item.
 bool interruptsParagraph(std::string_view line) {
-  if (startsWith(line, "```") || startsWith(line, "~~~") || isAtxHeadingLine(line) || endsParagraphLine(line)) {
+  if (startsWith(line, "```") || startsWith(line, "~~~") || isAtxHeadingLine(line) || endsParagraphLine(line) ||
+      startsHtmlBlockLine(line)) {
     return true;
   }
   const size_t marker = skipListMarker(line);
@@ -915,6 +930,15 @@ size_t countSingleBackticks(std::string_view text) {
     return false;
   });
   return count;
+}
+
+bool isImageBang(std::string_view text, size_t bracket) {
+  return bracket > 0 && text[bracket - 1] == '!' && !isEscaped(text, bracket - 1);
+}
+
+size_t openLabelWindowStart(std::string_view text) {
+  constexpr size_t kMaxOpenLabel = 512;
+  return text.size() > kMaxOpenLabel ? text.size() - kMaxOpenLabel : 0;
 }
 
 size_t findMatchingOpeningBracket(std::string_view text, size_t closeIndex) {

@@ -38,6 +38,7 @@
 #import "RenderContext.h"
 #import "RuntimeKeys.h"
 #import "SelectionColorUtils.h"
+#import "StreamingMarkdownFilter.h"
 #import "StylePropsUtils.h"
 #import "TaskListTapUtils.h"
 
@@ -114,6 +115,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   BOOL _enableTextPress;
   BOOL _enableCodeBlockPress;
   BOOL _streamingAnimation;
+  ENRMTableStreamingMode _tableStreamingMode;
+  ENRMCodeBlockStreamingMode _codeBlockStreamingMode;
+  ENRMMediaStreamingMode _mediaStreamingMode;
   BOOL _forceHeightUpdateOnNextRender;
 
   size_t _renderedStyleFingerprint;
@@ -338,6 +342,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
     _resolvedLayoutDirection =
         [[RCTI18nUtil sharedInstance] isRTL] ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
     _dirtyFlags = ENRMDirtyNone;
+    _tableStreamingMode = ENRMTableStreamingModeProgressive;
+    _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
+    _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
 
     _fontScaleObserver = [[FontScaleObserver alloc] init];
     __weak EnrichedMarkdownText *weakSelf = self;
@@ -461,11 +468,19 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   NSLineBreakStrategy lineBreakStrategy = _lineBreakStrategy;
   ENRMWritingDirectionMode writingDirectionMode = _writingDirectionMode;
   NSWritingDirection resolvedLayoutDirection = _resolvedLayoutDirection;
+  BOOL streamingAnimation = _streamingAnimation;
+  ENRMTableStreamingMode tableStreamingMode = _tableStreamingMode;
+  ENRMCodeBlockStreamingMode codeBlockStreamingMode = _codeBlockStreamingMode;
+  ENRMMediaStreamingMode mediaStreamingMode = _mediaStreamingMode;
 
   __block ENRMRenderResult *result = nil;
 
   BOOL (^render)(void) = ^BOOL {
-    MarkdownASTNode *ast = [parser parseMarkdown:markdownString
+    NSString *renderableMarkdown =
+        streamingAnimation ? ENRMRenderableMarkdownForStreaming(markdownString, md4cFlags, tableStreamingMode,
+                                                                codeBlockStreamingMode, mediaStreamingMode, NULL)
+                           : markdownString;
+    MarkdownASTNode *ast = [parser parseMarkdown:renderableMarkdown
                                            flags:md4cFlags
                                            isGFM:isGFM
                                        linkRegex:linkRegex
@@ -541,7 +556,11 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _renderCoordinator.blockAsyncRender = YES;
   _cachedMarkdown = [markdownString copy];
 
-  NSMutableAttributedString *attributedText = [self parseAndRenderMarkdown:markdownString];
+  NSString *renderableMarkdown =
+      _streamingAnimation ? ENRMRenderableMarkdownForStreaming(markdownString, _md4cFlags, _tableStreamingMode,
+                                                               _codeBlockStreamingMode, _mediaStreamingMode, NULL)
+                          : markdownString;
+  NSMutableAttributedString *attributedText = [self parseAndRenderMarkdown:renderableMarkdown];
   if (!attributedText) {
     return;
   }
@@ -812,6 +831,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
     _streamingAnimation = newViewProps.streamingAnimation;
+    // The streaming session decides what renders, so the text renders again.
+    _dirtyFlags |= ENRMDirtyRender;
     if (_streamingAnimation) {
       _previousTextLength = ENRMGetAttributedText(_textView).length;
     } else {
@@ -819,6 +840,23 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       _fadeAnimator = nil;
       _previousTextLength = 0;
     }
+  }
+
+  if (newViewProps.streamingConfig.tableMode != oldViewProps.streamingConfig.tableMode) {
+    _tableStreamingMode = newViewProps.streamingConfig.tableMode == "hidden" ? ENRMTableStreamingModeHidden
+                                                                             : ENRMTableStreamingModeProgressive;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+  if (newViewProps.streamingConfig.codeBlockMode != oldViewProps.streamingConfig.codeBlockMode) {
+    _codeBlockStreamingMode = newViewProps.streamingConfig.codeBlockMode == "hidden"
+                                  ? ENRMCodeBlockStreamingModeHidden
+                                  : ENRMCodeBlockStreamingModeProgressive;
+    _dirtyFlags |= ENRMDirtyRender;
+  }
+  if (newViewProps.streamingConfig.mediaMode != oldViewProps.streamingConfig.mediaMode) {
+    _mediaStreamingMode = newViewProps.streamingConfig.mediaMode == "hidden" ? ENRMMediaStreamingModeHidden
+                                                                             : ENRMMediaStreamingModeProgressive;
+    _dirtyFlags |= ENRMDirtyRender;
   }
 
   if (newViewProps.spoilerOverlay != oldViewProps.spoilerOverlay) {
@@ -924,6 +962,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _fadeAnimator = nil;
   _previousTextLength = 0;
   _streamingAnimation = NO;
+  _tableStreamingMode = ENRMTableStreamingModeProgressive;
+  _codeBlockStreamingMode = ENRMCodeBlockStreamingModeProgressive;
+  _mediaStreamingMode = ENRMMediaStreamingModeProgressive;
   _forceHeightUpdateOnNextRender = NO;
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;

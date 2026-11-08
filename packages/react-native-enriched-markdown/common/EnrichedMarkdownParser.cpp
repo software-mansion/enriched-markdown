@@ -62,18 +62,20 @@ EnrichedMarkdownParserCollectedBlocks
 EnrichedMarkdownParser::collect(jsi::Runtime &, std::string markdown, EnrichedMarkdownParserMd4cFlags flags, bool isGFM,
                                 EnrichedMarkdownParserStreamingOptions streaming) {
   auto &store = Markdown::DocumentStore::shared();
+  const Markdown::Md4cFlags coreFlags = toCoreFlags(flags);
   bool endsInsideOpenCodeFence = false;
   if (streaming.enabled) {
-    Markdown::StreamingFilterOptions options;
-    options.tableMode = Markdown::streamingBlockModeFromName(streaming.tableMode);
-    options.codeBlockMode = Markdown::streamingBlockModeFromName(streaming.codeBlockMode);
-    options.mediaMode = Markdown::streamingBlockModeFromName(streaming.mediaMode);
-    auto filtered = store.filter(markdown, options);
-    markdown = std::move(filtered.markdown);
-    endsInsideOpenCodeFence = filtered.endsInsideOpenCodeFence;
+    Markdown::StreamingOptions options;
+    options.blocks.tableMode = Markdown::streamingBlockModeFromName(streaming.tableMode);
+    options.blocks.codeBlockMode = Markdown::streamingBlockModeFromName(streaming.codeBlockMode);
+    options.blocks.mediaMode = Markdown::streamingBlockModeFromName(streaming.mediaMode);
+    options.flags = coreFlags;
+    auto snapshot = store.snapshot(markdown, options);
+    markdown = std::move(snapshot.markdown);
+    endsInsideOpenCodeFence = snapshot.endsInsideOpenCodeFence;
   }
   EnrichedMarkdownParserCollectedBlocks result;
-  auto document = store.parse(markdown, toCoreFlags(flags), isGFM);
+  auto document = store.parse(markdown, coreFlags, isGFM);
   for (const auto &slot : document->blocks.slots) {
     result.slots.push_back(nativeSlot(slot, Markdown::isSlotComplete(document->blocks, slot, endsInsideOpenCodeFence)));
   }
