@@ -62,6 +62,15 @@ ENRMSpoilerOverlay ENRMSpoilerOverlayFromString(NSString *string)
     [self didAttachToSuperview];
 }
 
+// Ancestors joined after the overlay (its text rendered before the view was
+// in a window) can change the resolved background.
+- (void)didMoveToWindow
+{
+  [super didMoveToWindow];
+  if (self.window)
+    [self didAttachToSuperview];
+}
+
 - (void)layoutSubviews
 {
   [super layoutSubviews];
@@ -72,6 +81,13 @@ ENRMSpoilerOverlay ENRMSpoilerOverlayFromString(NSString *string)
 {
   [super viewDidMoveToSuperview];
   if (self.superview)
+    [self didAttachToSuperview];
+}
+
+- (void)viewDidMoveToWindow
+{
+  [super viewDidMoveToWindow];
+  if (self.window)
     [self didAttachToSuperview];
 }
 

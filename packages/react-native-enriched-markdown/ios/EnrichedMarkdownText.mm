@@ -11,6 +11,7 @@
 #import "ENRMLinkRegexProps.h"
 #import "ENRMMarkdownParser.h"
 #import "ENRMMarkdownTextView.h"
+#import "ENRMPreparedRenderStore.h"
 #import "ENRMSpoilerOverlayManager.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMTailFadeInAnimator.h"
@@ -18,6 +19,7 @@
 #import "ENRMTextRenderer.h"
 #import "ENRMTextViewSetup.h"
 #import "ENRMUIKit.h"
+#import "ENRMUTF8.h"
 #import "ENRMViewFreeMeasurement.h"
 #import "EditMenuUtils.h"
 #import "FontScaleObserver.h"
@@ -86,6 +88,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMMarkdownParser *_parser;
   NSString *_cachedMarkdown;
   NSString *_renderedMarkdown;
+  NSString *_pendingRenderMarkdown;
   StyleConfig *_config;
   ENRMMd4cFlags *_md4cFlags;
   BOOL _isGFM;
@@ -93,6 +96,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   ENRMLinkRegexConfig *_inlineCodeLinkRegex;
 
   ENRMAsyncRenderCoordinator *_renderCoordinator;
+  // Text laid out while detached is current when the view attaches; one that
+  // left a window may hold a stale layout and is refreshed on return (#155).
+  BOOL _needsWindowAttachRefresh;
 
   EnrichedMarkdownTextShadowNode::ConcreteState::Shared _state;
   int _heightUpdateCounter;
@@ -432,6 +438,13 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (void)renderMarkdownContent:(NSString *)markdownString
 {
+  [self renderMarkdownContent:markdownString synchronously:NO];
+}
+
+// Parses on the render queue and applies on the main queue, unless
+// `synchronously`: then both run here and any render in flight is dropped.
+- (void)renderMarkdownContent:(NSString *)markdownString synchronously:(BOOL)synchronously
+{
   if (_renderCoordinator.blockAsyncRender)
     return;
 
@@ -453,28 +466,44 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   __block ENRMRenderResult *result = nil;
 
-  [_renderCoordinator
-      scheduleRender:^BOOL {
-        MarkdownASTNode *ast = [parser parseMarkdown:markdownString
-                                               flags:md4cFlags
-                                               isGFM:isGFM
-                                           linkRegex:linkRegex
-                                 inlineCodeLinkRegex:inlineCodeLinkRegex];
-        if (!ast)
-          return NO;
+  BOOL (^render)(void) = ^BOOL {
+    MarkdownASTNode *ast = [parser parseMarkdown:markdownString
+                                           flags:md4cFlags
+                                           isGFM:isGFM
+                                       linkRegex:linkRegex
+                             inlineCodeLinkRegex:inlineCodeLinkRegex];
+    if (!ast)
+      return NO;
 
-        result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
-                                    lineBreakStrategy);
-        ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
-        return YES;
-      }
-      apply:^{
-        self->_lastElementMarginBottom = result.lastElementMarginBottom;
-        self->_accessibilityInfo = result.accessibilityInfo;
-        self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
-        [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
-        [self applyRenderedText:result.attributedText];
-      }];
+    result = ENRMRenderASTNodes(ast.children, config, allowTrailingMargin, allowFontScaling, maxFontSizeMultiplier,
+                                lineBreakStrategy);
+    ENRMApplyWritingDirectionMode(result.attributedText, writingDirectionMode, resolvedLayoutDirection);
+    return YES;
+  };
+  dispatch_block_t apply = ^{
+    self->_lastElementMarginBottom = result.lastElementMarginBottom;
+    self->_accessibilityInfo = result.accessibilityInfo;
+    self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
+    [self->_latexErrorCoordinator wireReporters:result.context.mathReporters];
+    [self applyRenderedText:result.attributedText];
+  };
+
+  if (synchronously) {
+    [_renderCoordinator invalidate];
+    // A first render reuses what Yoga's measurement rendered, when it matches.
+    ENRMRenderResult *prepared =
+        _renderedMarkdown.length == 0 && !_streamingAnimation
+            ? ENRMTakePreparedText({_props, _fontScaleObserver.effectiveFontScale, resolvedLayoutDirection, nil})
+            : nil;
+    if (prepared) {
+      result = prepared;
+    } else if (!render()) {
+      return;
+    }
+    apply();
+    return;
+  }
+  [_renderCoordinator scheduleRender:render apply:apply];
 }
 
 - (NSMutableAttributedString *)parseAndRenderMarkdown:(NSString *)markdownString
@@ -561,6 +590,9 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   _textView.attributedText = attributedText;
   _renderedMarkdown = [_cachedMarkdown copy];
+  if (!self.window) {
+    _needsWindowAttachRefresh = contentBounds.size.width <= 0;
+  }
 
   [_textView.layoutManager invalidateLayoutForCharacterRange:NSMakeRange(0, attributedText.length)
                                         actualCharacterRange:NULL];
@@ -818,34 +850,56 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (_dirtyFlags & ENRMDirtyRender) {
     _pendingStyleFingerprint =
         computeStyleFingerprint(newViewProps.markdownStyle) ^ std::hash<bool>{}(newViewProps.allowTrailingMargin);
-    NSString *markdownString = [[NSString alloc] initWithUTF8String:newViewProps.markdown.c_str()];
-    [self renderMarkdownContent:markdownString];
+    // Rendered in finalizeUpdates, once the view has its layout metrics.
+    _pendingRenderMarkdown = ENRMStringFromUTF8(newViewProps.markdown);
     _dirtyFlags &= ~ENRMDirtyRender;
   }
 
   [super updateProps:props oldProps:oldProps];
 }
 
+- (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+{
+  [super finalizeUpdates:updateMask];
+
+  if (_pendingRenderMarkdown) {
+    NSString *markdown = _pendingRenderMarkdown;
+    _pendingRenderMarkdown = nil;
+    // The first content renders inline: Yoga has already laid the view out at
+    // its measured size, so an async render would show it empty (#1131).
+    [self renderMarkdownContent:markdown synchronously:_renderedMarkdown.length == 0];
+  }
+}
+
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
 
-  if (self.window && _renderedMarkdown != nil) {
-    _textView.hidden = NO;
+  if (!self.window) {
+    _needsWindowAttachRefresh = YES;
+    return;
+  }
+  if (_renderedMarkdown == nil) {
+    return;
+  }
+  _textView.hidden = NO;
+  BOOL refresh = _needsWindowAttachRefresh;
+  _needsWindowAttachRefresh = NO;
+  if (refresh) {
     // Refresh in place: RCTViewComponentView owns the text view's frame and has
     // already set it to the content frame, so re-assigning self.bounds here would
     // drop the containerStyle insets (see contentBounds).
     ENRMRefreshTextViewLayout(_textView);
+  }
 
-    [_spoilerManager setNeedsUpdate];
-    [_spoilerManager updateIfNeeded];
+  [_spoilerManager setNeedsUpdate];
+  [_spoilerManager updateIfNeeded];
 
-    CGRect contentBounds = [self contentBounds];
-    if (contentBounds.size.width > 0) {
-      CGSize measured = [self measureSize:contentBounds.size.width];
-      if (needsHeightUpdate(measured, contentBounds)) {
-        [self requestHeightUpdate];
-      }
+  CGRect contentBounds = [self contentBounds];
+  if (refresh && contentBounds.size.width > 0) {
+    CGSize measured = [self measureSize:contentBounds.size.width];
+    if (needsHeightUpdate(measured, contentBounds)) {
+      [self requestHeightUpdate];
     }
   }
 }
@@ -863,6 +917,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   _forceHeightUpdateOnNextRender = NO;
   _cachedMarkdown = nil;
   _renderedMarkdown = nil;
+  _pendingRenderMarkdown = nil;
   _config = nil;
   _md4cFlags = [EnrichedMarkdownText flagsFromProps:resetProps->md4cFlags];
   _isGFM = resetProps->isGFM;
