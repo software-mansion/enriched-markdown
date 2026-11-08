@@ -34,6 +34,9 @@ class CodeBlockSpan(
 ) : MetricAffectingSpan(),
   LineBackgroundSpan,
   LeadingMarginSpan {
+  /** The innermost list item holding this block, whose marker span this is; copy-as-markdown nests the block under it. */
+  internal var listItem: BaseListSpan? = null
+
   private val path = Path()
   private val rect = RectF()
   private val arcRect = RectF()
