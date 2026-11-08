@@ -10,7 +10,9 @@ import android.view.View
 import androidx.core.view.children
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.StateWrapper
+import com.facebook.yoga.YogaMeasureOutput
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.math.LatexErrorReporter
 import com.swmansion.enriched.markdown.parser.Md4cFlags
@@ -40,6 +42,7 @@ import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
 import com.swmansion.enriched.markdown.utils.common.MediaStreamingMode
+import com.swmansion.enriched.markdown.utils.common.RenderCoordinator
 import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.animatorDurationScale
@@ -72,10 +75,9 @@ class EnrichedMarkdown(
   private val parser = Parser.shared
   private val mainHandler = Handler(Looper.getMainLooper())
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+  private val renderCoordinator = RenderCoordinator(executor, ::postToMain)
   private val mathContainerClass: Class<*>? by lazy { SegmentViewCreators.mathContainerClass() }
   private val videoContainerClass: Class<*>? by lazy { SegmentViewCreators.videoContainerClass() }
-
-  private var currentRenderId = 0L
 
   // Set when React Native drops the view for good. Detaching from the window is
   // not disposal: a view renders before its first attach and while detached.
@@ -620,8 +622,10 @@ class EnrichedMarkdown(
   private fun scheduleRender() {
     if (isDisposed) return
     val job = renderJob() ?: return
-    val renderId = ++currentRenderId
-    executor.execute {
+    // Taken now: an older render can still apply after a newer one is scheduled, and
+    // must not claim the newer one's flags.
+    val scheduledFlags = EnumSet.copyOf(dirtyFlags)
+    renderCoordinator.schedule {
       val (segments, pendingCodeBlock) =
         try {
           runRenderJob(job)
@@ -629,7 +633,7 @@ class EnrichedMarkdown(
           Log.e(TAG, "Render failed", e)
           emptyList<RenderedSegment>() to false
         }
-      postToMain(renderId) { applyRenderedSegments(segments, pendingCodeBlock) }
+      Runnable { applyRenderedSegments(segments, pendingCodeBlock, scheduledFlags, job.markdown) }
     }
   }
 
@@ -639,7 +643,7 @@ class EnrichedMarkdown(
   private fun renderSynchronously() {
     if (isDisposed) return
     val job = renderJob() ?: return
-    currentRenderId++
+    renderCoordinator.invalidate()
     val (segments, pendingCodeBlock) =
       try {
         runRenderJob(job)
@@ -647,23 +651,29 @@ class EnrichedMarkdown(
         Log.e(TAG, "Render failed", e)
         emptyList<RenderedSegment>() to false
       }
-    applyRenderedSegments(segments, pendingCodeBlock)
+    applyRenderedSegments(segments, pendingCodeBlock, EnumSet.copyOf(dirtyFlags), job.markdown)
   }
 
   // Trailing code block whose closing fence hasn't streamed in yet, if any.
   private var pendingCodeBlockSegment: RenderedSegment.CodeBlock? = null
 
+  // [scheduledFlags] are the ones set when this render was scheduled: it takes those
+  // still set, and flags set since stay for the newer render they belong to.
   private fun applyRenderedSegments(
     renderedSegments: List<RenderedSegment>,
     hasPendingCodeBlock: Boolean,
+    scheduledFlags: Set<DirtyFlag>,
+    renderedMarkdown: String,
   ) {
+    laidOutMarkdown = renderedMarkdown
     pendingCodeBlockSegment =
       if (hasPendingCodeBlock) renderedSegments.lastOrNull() as? RenderedSegment.CodeBlock else null
 
-    val reset = DirtyFlag.RECREATE_SEGMENTS in dirtyFlags
-    val forceHeight = DirtyFlag.FORCE_HEIGHT in dirtyFlags
-    val remeasure = DirtyFlag.REMEASURE in dirtyFlags
-    dirtyFlags.clear()
+    val flags = dirtyFlags.intersect(scheduledFlags)
+    dirtyFlags.removeAll(flags)
+    val reset = DirtyFlag.RECREATE_SEGMENTS in flags
+    val forceHeight = DirtyFlag.FORCE_HEIGHT in flags
+    val remeasure = DirtyFlag.REMEASURE in flags
 
     val topologyChanged = applySegments(renderedSegments, reset)
     updateBlockSlotHeights(blockSlotHeights)
@@ -681,6 +691,7 @@ class EnrichedMarkdown(
       val heightBefore = computeSegmentsTotalHeight()
       layoutSegments()
       val heightAfter = computeSegmentsTotalHeight()
+      publishLaidOutSize()
 
       if (forceHeight || topologyChanged || heightBefore != heightAfter) {
         MeasurementStore.invalidate(id)
@@ -869,12 +880,9 @@ class EnrichedMarkdown(
       .start()
   }
 
-  private fun postToMain(
-    renderId: Long,
-    action: () -> Unit,
-  ) {
+  private fun postToMain(action: Runnable) {
     mainHandler.post {
-      if (!isDisposed && renderId == currentRenderId) action()
+      if (!isDisposed) action.run()
     }
   }
 
@@ -886,7 +894,29 @@ class EnrichedMarkdown(
     b: Int,
   ) {
     layoutSegments()
+    publishLaidOutSize()
     slotLayer.layout(0, 0, width, height)
+  }
+
+  // What the shadow node takes for a stream's next update instead of measuring the
+  // whole document again (MeasurementStore.storeLaidOutSize). Published by every
+  // layout of the segments, ahead of the height update it may ask for.
+  // The markdown the segments were rendered from, which renders trail.
+  private var laidOutMarkdown = ""
+
+  private fun publishLaidOutSize() {
+    if (width <= 0 || segmentViews.isEmpty()) {
+      MeasurementStore.clearLaidOutSize(id)
+      return
+    }
+    val contentWidth = (width - paddingLeft - paddingRight).toFloat()
+    val contentHeight = (computeSegmentsTotalHeight() - paddingTop - paddingBottom).toFloat()
+    MeasurementStore.storeLaidOutSize(
+      id,
+      contentWidth,
+      YogaMeasureOutput.make(PixelUtil.toDIPFromPixel(contentWidth), PixelUtil.toDIPFromPixel(contentHeight)),
+      laidOutMarkdown,
+    )
   }
 
   /** A root slot getting its first height while streaming grows into place ([BlockSlotRevealController]). */
@@ -911,6 +941,7 @@ class EnrichedMarkdown(
     if (isDisposed) return
     if (width > 0) {
       layoutSegments()
+      publishLaidOutSize()
       requestLayout()
     }
     MeasurementStore.invalidate(id)
@@ -925,7 +956,7 @@ class EnrichedMarkdown(
   // and refuse further work instead of applying it to a view React has dropped.
   fun cleanup() {
     isDisposed = true
-    currentRenderId++
+    renderCoordinator.invalidate()
     blockSlotReveal.reset()
     executor.shutdownNow()
     mainHandler.removeCallbacksAndMessages(null)

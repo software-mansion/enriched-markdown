@@ -32,6 +32,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.EllipsizeUtils
 import com.swmansion.enriched.markdown.utils.common.LinkRegexConfig
+import com.swmansion.enriched.markdown.utils.common.RenderCoordinator
 import com.swmansion.enriched.markdown.utils.common.emitCodeBlockPress
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
@@ -88,7 +89,7 @@ class EnrichedMarkdownText
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
-    private var currentRenderId = 0L
+    private val renderCoordinator = RenderCoordinator(executor) { mainHandler.post(it) }
 
     val layoutManager = EnrichedMarkdownTextLayoutManager(this)
 
@@ -127,6 +128,11 @@ class EnrichedMarkdownText
     var spoilerOverlay: SpoilerOverlay = SpoilerOverlay.PARTICLES
 
     private var pendingStyledText: CharSequence? = null
+    private var pendingRenderedMarkdown = ""
+
+    // The markdown the displayed text was rendered from, which renders trail.
+    internal var renderedMarkdown = ""
+      private set
 
     private var mdNumberOfLines: Int = 0
     private var mdEllipsizeMode: String = EllipsizeUtils.DEFAULT_MODE
@@ -301,37 +307,37 @@ class EnrichedMarkdownText
 
       val textLinkRegex = linkRegex
       val codeLinkRegex = inlineCodeLinkRegex
-      val renderId = ++currentRenderId
 
-      executor.execute {
+      renderCoordinator.schedule {
         try {
           val ast =
-            parser.parseMarkdown(markdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex) ?: run {
-              mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
-              return@execute
-            }
+            parser.parseMarkdown(markdown, md4cFlags, isGFM, textLinkRegex, codeLinkRegex)
+              ?: return@schedule Runnable { if (isAttachedToWindow) text = "" }
 
           renderer.configure(style, context, latexErrorReporter)
           val styledText = renderer.renderDocument(ast, onLinkPressCallback, onLinkLongPressCallback)
 
-          mainHandler.post {
-            if (renderId == currentRenderId) {
-              if (isAttachedToWindow) {
-                applyRenderedText(styledText)
-              } else {
-                pendingStyledText = styledText
-              }
+          Runnable {
+            if (isAttachedToWindow) {
+              applyRenderedText(styledText, markdown)
+            } else {
+              pendingStyledText = styledText
+              pendingRenderedMarkdown = markdown
             }
           }
         } catch (e: Exception) {
           Log.e(TAG, "Render failed: ${e.message}", e)
-          mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
+          Runnable { if (isAttachedToWindow) text = "" }
         }
       }
     }
 
-    private fun applyRenderedText(styledText: CharSequence) {
+    private fun applyRenderedText(
+      styledText: CharSequence,
+      markdown: String,
+    ) {
       val tailStart = previousTextLength
+      renderedMarkdown = markdown
 
       markdownStyle?.paragraphStyle?.fontSize?.let {
         setTextSize(TypedValue.COMPLEX_UNIT_PX, it)
@@ -528,7 +534,7 @@ class EnrichedMarkdownText
     }
 
     fun cleanup() {
-      currentRenderId++
+      renderCoordinator.invalidate()
       executor.shutdownNow()
       mainHandler.removeCallbacksAndMessages(null)
       pendingStyledText = null
@@ -609,7 +615,7 @@ class EnrichedMarkdownText
       super.onAttachedToWindow()
       pendingStyledText?.let {
         pendingStyledText = null
-        applyRenderedText(it)
+        applyRenderedText(it, pendingRenderedMarkdown)
       }
     }
 

@@ -10,7 +10,7 @@ class EnrichedMarkdownTextLayoutManager(
   fun invalidateLayout() {
     val text = view.text
     val paint = view.paint
-    val heightChanged = MeasurementStore.store(view.id, text, paint, view.trailingMarginBottomPx())
+    val heightChanged = MeasurementStore.store(view.id, text, paint, view.trailingMarginBottomPx(), view.renderedMarkdown)
     if (!heightChanged) return
     val stateWrapper = view.stateWrapper ?: return
     val state = Arguments.createMap()

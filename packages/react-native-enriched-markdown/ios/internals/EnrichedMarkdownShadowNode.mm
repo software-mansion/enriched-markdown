@@ -25,18 +25,11 @@ EnrichedMarkdownShadowNode::EnrichedMarkdownShadowNode(const ShadowNode &sourceS
     : ConcreteViewShadowNode(sourceShadowNode, fragment),
       localHeightRecalculationCounter_(
           static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).localHeightRecalculationCounter_),
-      lastExactMeasurementCounter_(
-          static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).lastExactMeasurementCounter_),
-      lastExactMeasurementSize_(
-          static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).lastExactMeasurementSize_),
+      previousMeasurement_(static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).previousMeasurement_),
       slotMeasurement_(static_cast<const EnrichedMarkdownShadowNode &>(sourceShadowNode).slotMeasurement_)
 {
   const auto &oldProps = *std::static_pointer_cast<const EnrichedMarkdownProps>(sourceShadowNode.getProps());
   const auto &newProps = *std::static_pointer_cast<const EnrichedMarkdownProps>(this->getProps());
-
-  if (newProps.streamingAnimation && ENRMPropsNeedExactStreamingMeasurement(oldProps, newProps)) {
-    lastExactMeasurementCounter_ = -1;
-  }
 
   // New children, e.g. every frame of an animation inside a slot: the next pass
   // re-checks the slot heights before reusing the measurement.
@@ -240,7 +233,6 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
 {
   const auto propsHandle = std::static_pointer_cast<const EnrichedMarkdownProps>(this->getProps());
   const auto &typedProps = *propsHandle;
-  const int receivedCounter = getStateData().getHeightRecalculationCounter();
   const EnrichedMarkdownProps *props = propsHandle.get();
   CGFloat pointScaleFactor = layoutContext.pointScaleFactor;
   NSWritingDirection resolvedLayoutDirection = layoutConstraints.layoutDirection == LayoutDirection::RightToLeft
@@ -249,6 +241,8 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
 
   const auto slots = slotChildren();
   if (!slots.empty()) {
+    // Slot children are measured where the walk places them; nothing here takes the view's size.
+    previousMeasurement_ = {};
     CGSize size = measureWithSlots(slots, layoutContext, layoutConstraints, layoutConstraints.maximumSize.width);
     return ENRMClampMeasuredSize(size, layoutConstraints);
   }
@@ -261,7 +255,7 @@ Size EnrichedMarkdownShadowNode::measureContent(const LayoutContext &layoutConte
   NSSet<NSNumber *> *wrappedCodeBlocks = typedProps.enableCodeBlockWrapToggle ? view.wrappedCodeBlockIndices : nil;
 
   return ENRMMeasureMarkdownContent<EnrichedMarkdownProps, EnrichedMarkdown>(
-      propsHandle, componentViewRef, receivedCounter, lastExactMeasurementCounter_, lastExactMeasurementSize_,
+      propsHandle, componentViewRef, getStateData().getHeightRecalculationCounter(), previousMeasurement_,
       MarkdownFlavor::GitHub, layoutContext, layoutConstraints, resolvedLayoutDirection,
       ^id(CGFloat fontScale) {
         return ENRMRenderSegmentedMarkdownViewFree(*props, ENRMStyleConfigFromProps(*props, fontScale),

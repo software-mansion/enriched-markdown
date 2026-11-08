@@ -57,23 +57,13 @@ static inline Size ENRMClampMeasuredSize(CGSize size, const LayoutConstraints &l
   return {clampedWidth, clampedHeight};
 }
 
-template <typename PropsT>
-static inline bool ENRMPropsNeedExactStreamingMeasurement(const PropsT &oldProps, const PropsT &newProps)
+/// Whether the streaming flag and modes, which decide what the view renders but
+/// stay out of the cache key, are the same in both.
+template <typename PropsT> static inline bool ENRMStreamingRenderEqual(const PropsT &a, const PropsT &b)
 {
-  return oldProps.streamingAnimation != newProps.streamingAnimation ||
-         oldProps.allowFontScaling != newProps.allowFontScaling ||
-         oldProps.maxFontSizeMultiplier != newProps.maxFontSizeMultiplier ||
-         oldProps.allowTrailingMargin != newProps.allowTrailingMargin ||
-         oldProps.md4cFlags.underline != newProps.md4cFlags.underline ||
-         oldProps.md4cFlags.superscript != newProps.md4cFlags.superscript ||
-         oldProps.md4cFlags.subscript != newProps.md4cFlags.subscript ||
-         oldProps.md4cFlags.strikethrough != newProps.md4cFlags.strikethrough ||
-         oldProps.md4cFlags.latexMath != newProps.md4cFlags.latexMath ||
-         oldProps.md4cFlags.highlight != newProps.md4cFlags.highlight ||
-         oldProps.md4cFlags.hardSoftBreaks != newProps.md4cFlags.hardSoftBreaks ||
-         oldProps.md4cFlags.preserveBlankLines != newProps.md4cFlags.preserveBlankLines ||
-         oldProps.isGFM != newProps.isGFM || oldProps.md4cFlags.admonitions != newProps.md4cFlags.admonitions ||
-         computeStyleFingerprint(oldProps.markdownStyle) != computeStyleFingerprint(newProps.markdownStyle);
+  return a.streamingAnimation == b.streamingAnimation && a.streamingConfig.tableMode == b.streamingConfig.tableMode &&
+         a.streamingConfig.codeBlockMode == b.streamingConfig.codeBlockMode &&
+         a.streamingConfig.mediaMode == b.streamingConfig.mediaMode;
 }
 
 /**
@@ -94,9 +84,9 @@ static inline id ENRMPrepareFirstRender(bool mounted, bool streaming, const ENRM
 /**
  * Shared measureContent implementation for the markdown component views.
  *
- * Owns the thread-safe layers — the streaming fast path (lock-free
- * `ENRMAtomicSize` mailbox published by `updateLayoutMetrics:`), the
- * LRU measurement cache, and the `layoutContext`-sourced font scale — then
+ * Owns the thread-safe layers — the size the view laid a stream out at
+ * (`laidOutSizeForWidth:`, see below), the LRU measurement cache, and the
+ * `layoutContext`-sourced font scale — then
  * delegates cache misses to `measureUncached`, through which both components
  * plug their view-free pipeline (`ENRMMeasureMarkdownViewFree` /
  * `ENRMMeasureSegmentedMarkdownViewFree`); the resolved view is still handed
@@ -110,10 +100,10 @@ static inline id ENRMPrepareFirstRender(bool mounted, bool streaming, const ENRM
  */
 template <typename PropsT, typename ViewT>
 static inline Size ENRMMeasureMarkdownContent(
-    const std::shared_ptr<const PropsT> &props, const std::shared_ptr<void> &componentViewRef, int receivedCounter,
-    int &lastExactMeasurementCounter, CGSize &lastExactMeasurementSize, MarkdownFlavor flavor,
-    const LayoutContext &layoutContext, const LayoutConstraints &layoutConstraints,
-    NSWritingDirection resolvedLayoutDirection, id _Nullable (^render)(CGFloat fontScale),
+    const std::shared_ptr<const PropsT> &props, const std::shared_ptr<void> &componentViewRef, int heightCounter,
+    ENRMPreviousMeasurement<PropsT> &previous, MarkdownFlavor flavor, const LayoutContext &layoutContext,
+    const LayoutConstraints &layoutConstraints, NSWritingDirection resolvedLayoutDirection,
+    id _Nullable (^render)(CGFloat fontScale),
     CGSize (^measureUncached)(ViewT *view, CGFloat maxWidth, CGFloat fontScale, id _Nullable rendered),
     size_t wrappedCodeBlocksFingerprint = 0)
 {
@@ -123,22 +113,42 @@ static inline Size ENRMMeasureMarkdownContent(
   RCTInternalGenericWeakWrapper *weakWrapper = (RCTInternalGenericWeakWrapper *)unwrapManagedObject(componentViewRef);
   ViewT *view = weakWrapper ? (ViewT *)weakWrapper.object : nil;
 
-  // Streaming fast path. Yoga re-measures several times per pass; the first call
-  // bumps lastExactMeasurementCounter, the rest land here. Return the freshly
-  // measured size, not the view's mailbox — mid-pass the frame isn't committed,
-  // so the mailbox is a generation stale and would freeze the height.
-  if (typedProps.streamingAnimation && view && receivedCounter <= lastExactMeasurementCounter) {
-    if (lastExactMeasurementSize.width > 0 && lastExactMeasurementSize.height > 0) {
-      return ENRMClampMeasuredSize(lastExactMeasurementSize, layoutConstraints);
-    }
-    CGSize currentSize = [view lastCommittedLayoutSize];
-    if (currentSize.width > 0 && currentSize.height > 0) {
-      return ENRMClampMeasuredSize(currentSize, layoutConstraints);
-    }
-  }
-
   const bool shouldUseMeasurementCache = !typedProps.streamingAnimation;
   CGFloat fontScale = ENRMFontScaleForMeasurement(typedProps.allowFontScaling, layoutContext);
+
+  // A stream's update: the markdown kept all of the previous and nothing else that
+  // sizes the content changed. The view lays out every render it applies and asks
+  // for a new layout when its height changes, so the size it laid out at spares
+  // measuring the whole document again on every update (ENRMChooseMeasurement).
+  // New content, another width or a view that hasn't laid anything out measure in full.
+  MeasurementCacheKey layoutKey =
+      buildMeasurementCacheKey(typedProps, 0, fontScale, flavor, wrappedCodeBlocksFingerprint, false);
+  const bool streamUpdate = previous.props && previous.layoutKey == layoutKey &&
+                            previous.layoutDirection == static_cast<int>(resolvedLayoutDirection) &&
+                            ENRMStreamingRenderEqual(*previous.props, typedProps) &&
+                            ENRMMarkdownExtends(previous.props->markdown, typedProps.markdown);
+  const CGSize laidOut = streamUpdate && view ? [view laidOutSizeForWidth:maxWidth
+                                                         pointScaleFactor:layoutContext.pointScaleFactor
+                                                                 markdown:typedProps.markdown]
+                                              : CGSizeZero;
+  const ENRMMeasurementSource source =
+      ENRMChooseMeasurement(streamUpdate, streamUpdate && typedProps.markdown.size() > previous.props->markdown.size(),
+                            previous.heightCounter != heightCounter, view != nil, laidOut.height > 0,
+                            std::abs(previous.maxWidth - maxWidth) * layoutContext.pointScaleFactor < 1);
+
+  previous.props = props;
+  previous.layoutKey = std::move(layoutKey);
+  previous.layoutDirection = static_cast<int>(resolvedLayoutDirection);
+  previous.heightCounter = heightCounter;
+  previous.maxWidth = maxWidth;
+  if (source == ENRMMeasurementSource::Previous) {
+    return ENRMClampMeasuredSize(CGSizeMake(previous.width, previous.height), layoutConstraints);
+  }
+  if (source == ENRMMeasurementSource::LaidOut) {
+    previous.width = laidOut.width;
+    previous.height = laidOut.height;
+    return ENRMClampMeasuredSize(laidOut, layoutConstraints);
+  }
 
   id rendered =
       ENRMPrepareFirstRender(view != nil, typedProps.streamingAnimation,
@@ -148,6 +158,8 @@ static inline Size ENRMMeasureMarkdownContent(
     auto cacheKey = buildMeasurementCacheKey(typedProps, maxWidth, fontScale, flavor, wrappedCodeBlocksFingerprint);
     CachedSize cached;
     if (MeasurementCache::shared().get(cacheKey, cached)) {
+      previous.width = cached.width;
+      previous.height = cached.height;
       return ENRMClampMeasuredSize(CGSizeMake(cached.width, cached.height), layoutConstraints);
     }
   }
@@ -159,11 +171,8 @@ static inline Size ENRMMeasureMarkdownContent(
     MeasurementCache::shared().set(cacheKey, {size.width, size.height});
   }
 
-  if (typedProps.streamingAnimation) {
-    lastExactMeasurementCounter = receivedCounter;
-    lastExactMeasurementSize = size;
-  }
-
+  previous.width = size.width;
+  previous.height = size.height;
   return ENRMClampMeasuredSize(size, layoutConstraints);
 }
 

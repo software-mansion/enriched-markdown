@@ -2,8 +2,8 @@
 #import "ContextMenuUtils.h"
 #import "ENRMAccessibilityLabels.h"
 #import "ENRMAsyncRenderCoordinator.h"
-#import "ENRMAtomicSize.h"
 #import "ENRMImageAttachment.h"
+#import "ENRMLaidOutSize.h"
 #import "ENRMLatexErrorCoordinator.h"
 #import "ENRMLinkContextMenus.h"
 #import "ENRMLinkRegexProps.h"
@@ -185,7 +185,9 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMWritingDirectionMode _writingDirectionMode;
   NSWritingDirection _resolvedLayoutDirection;
 
-  ENRMAtomicSize _lastCommittedSize;
+  ENRMLaidOutSize _laidOutSize;
+  // The markdown the segments were rendered from, published with their size.
+  std::shared_ptr<const std::string> _laidOutMarkdown;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -537,10 +539,21 @@ static char kENRMSegmentFadeAnimatorKey;
   return box;
 }
 
+// The size `measureSize:` reports for a laid-out content size: whole pixels, no wider than the width.
+static CGSize ENRMRoundedContentSize(CGSize contentSize, CGFloat width)
+{
+  CGFloat scale = RCTScreenScale();
+  return CGSizeMake(MIN(ceil(contentSize.width * scale) / scale, width), ceil(contentSize.height * scale) / scale);
+}
+
+// Every layout of the segments also refreshes the size the shadow node may take
+// (laidOutSizeForWidth:), whichever path laid them out before asking for a new height.
 - (CGSize)computeSegmentLayoutForWidth:(CGFloat)width applyFrames:(BOOL)applyFrames
 {
-  if (_segmentViews.count == 0)
+  if (_segmentViews.count == 0) {
+    _laidOutSize.clear();
     return CGSizeZero;
+  }
 
   if (applyFrames) {
     CGFloat overhang = MAX(_config.tableHorizontalOverflow, 0);
@@ -669,6 +682,11 @@ static char kENRMSegmentFadeAnimatorKey;
 #endif
   }];
 
+  if (yOffset > 0) {
+    _laidOutSize.store(width, ENRMRoundedContentSize(CGSizeMake(maxContentWidth, yOffset), width), _laidOutMarkdown);
+  } else {
+    _laidOutSize.clear();
+  }
   return CGSizeMake(maxContentWidth, yOffset);
 }
 
@@ -679,15 +697,14 @@ static char kENRMSegmentFadeAnimatorKey;
   if (contentSize.height == 0)
     return CGSizeMake(maxWidth, defaultHeight);
 
-  CGFloat scale = RCTScreenScale();
-  CGFloat measuredWidth = MIN(ceil(contentSize.width * scale) / scale, maxWidth);
-  CGFloat measuredHeight = ceil(contentSize.height * scale) / scale;
-  return CGSizeMake(measuredWidth, measuredHeight);
+  return ENRMRoundedContentSize(contentSize, maxWidth);
 }
 
-- (CGSize)lastCommittedLayoutSize
+- (CGSize)laidOutSizeForWidth:(CGFloat)width
+             pointScaleFactor:(CGFloat)pointScaleFactor
+                     markdown:(std::string_view)markdown
 {
-  return _lastCommittedSize.load();
+  return _laidOutSize.sizeFor(width, pointScaleFactor, markdown);
 }
 
 - (BOOL)hasRenderedMarkdown:(NSString *)markdown
@@ -884,21 +901,13 @@ static char kENRMSegmentFadeAnimatorKey;
   return nil;
 }
 
-/// Publishes the committed size to the streaming fast path's mailbox, and picks
-/// up the Yoga-resolved direction inherited from any ancestor `direction` style.
-/// In FirstStrong mode the direction feeds the neutral-paragraph fallback, so a
-/// change requires segment recreation.
-///
-/// The mailbox holds a content size, not the border box: `measureContent`
-/// returns it straight to Yoga, which adds the `containerStyle` insets back on
-/// top of whatever it gets, so storing `frame.size` would double-count them.
+/// Picks up the Yoga-resolved direction inherited from any ancestor `direction`
+/// style. In FirstStrong mode the direction feeds the neutral-paragraph
+/// fallback, so a change requires segment recreation.
 - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
            oldLayoutMetrics:(const LayoutMetrics &)oldLayoutMetrics
 {
   [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
-
-  const auto contentSize = layoutMetrics.getContentFrame().size;
-  _lastCommittedSize.store(CGSizeMake(contentSize.width, contentSize.height));
 
   NSWritingDirection resolved = _resolvedLayoutDirection;
   if (layoutMetrics.layoutDirection == LayoutDirection::RightToLeft) {
@@ -1045,11 +1054,17 @@ static char kENRMSegmentFadeAnimatorKey;
     }
     return YES;
   };
+  // What this render answers, taken now: an older render can still apply after a
+  // newer one is scheduled, and must not claim the newer one's style or flags.
+  const size_t styleFingerprint = _pendingStyleFingerprint;
+  const ENRMDirtyFlags dirtyFlags = _dirtyFlags & (ENRMDirtyRecreateSegments | ENRMDirtyForceHeight);
   dispatch_block_t apply = ^{
-    self->_renderedStyleFingerprint = self->_pendingStyleFingerprint;
+    self->_renderedStyleFingerprint = styleFingerprint;
+    self->_laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
     [self applyRenderedSegments:renderedSegments
                renderedMarkdown:renderableMarkdown
-        endsInsideOpenCodeFence:endsInsideOpenCodeFence];
+        endsInsideOpenCodeFence:endsInsideOpenCodeFence
+                     dirtyFlags:dirtyFlags];
   };
 
   if (synchronously) {
@@ -1111,6 +1126,7 @@ static char kENRMSegmentFadeAnimatorKey;
 
   _renderCoordinator.blockAsyncRender = YES;
   _cachedMarkdown = [markdownString copy];
+  _laidOutMarkdown = ENRMLaidOutMarkdown(markdownString);
   BOOL endsInsideOpenCodeFence = NO;
   NSString *renderableMarkdown =
       _streamingAnimation
@@ -1154,10 +1170,14 @@ static char kENRMSegmentFadeAnimatorKey;
   }
 }
 
+/// `scheduledFlags` are the ones set when this render was scheduled: it takes those
+/// still set, and flags set since stay for the newer render they belong to.
 - (void)applyRenderedSegments:(NSArray *)renderedSegments
              renderedMarkdown:(NSString *)renderedMarkdown
       endsInsideOpenCodeFence:(BOOL)endsInsideOpenCodeFence
+                   dirtyFlags:(ENRMDirtyFlags)scheduledFlags
 {
+  const ENRMDirtyFlags dirtyFlags = scheduledFlags & _dirtyFlags;
   _renderedMarkdown = [renderedMarkdown copy];
   [self updatePendingCodeBlockSegment:endsInsideOpenCodeFence segments:renderedSegments];
   BOOL segmentTopologyChanged = _streamingAnimation && [self renderedSegmentsChangeTopology:renderedSegments];
@@ -1165,7 +1185,7 @@ static char kENRMSegmentFadeAnimatorKey;
   ENRMSegmentReconciliationResult *result = [ENRMSegmentReconciler reconcileCurrentViews:_segmentViews
       currentSignatures:_segmentSignatures
       renderedSegments:renderedSegments
-      reset:(_dirtyFlags & ENRMDirtyRecreateSegments) != 0
+      reset:(dirtyFlags & ENRMDirtyRecreateSegments) != 0
       createView:^RCTUIView *(ENRMRenderedSegment *segment) {
         return [self->_segmentViewRegistry createViewForSegment:segment];
       }
@@ -1177,8 +1197,8 @@ static char kENRMSegmentFadeAnimatorKey;
       matchesKind:^BOOL(RCTUIView *view, ENRMRenderedSegment *segment) {
         return [self->_segmentViewRegistry view:view matchesSegment:segment];
       }];
-  BOOL forceHeightUpdate = (_dirtyFlags & ENRMDirtyForceHeight) != 0;
-  _dirtyFlags = ENRMDirtyNone;
+  BOOL forceHeightUpdate = (dirtyFlags & ENRMDirtyForceHeight) != 0;
+  _dirtyFlags &= ~dirtyFlags;
 
   _segmentViews = result.views;
   _segmentSignatures = result.signatures;
@@ -1704,6 +1724,8 @@ static char kENRMSegmentFadeAnimatorKey;
   const auto resetProps = std::make_shared<const EnrichedMarkdownProps>();
   _props = resetProps;
   [_renderCoordinator invalidate];
+  _laidOutSize.clear();
+  _laidOutMarkdown = nullptr;
 
   for (RCTUIView *segment in _segmentViews) {
     if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
